@@ -45,17 +45,18 @@ impl RayCast3d {
         self.direction_recip
     }
 
-    /// Get the distance of an intersection with an [`Aabb3d`], if any.
-    pub fn aabb_intersection_at(&self, aabb: &Aabb3d) -> Option<f32> {
+    /// Get the distance of an intersection with an box defined by min/max points, if any.
+    #[inline]
+    pub fn aabb_intersection_at_min_max(&self, min: Vec3A, max: Vec3A) -> Option<f32> {
         let positive = self.direction.signum().cmpgt(Vec3A::ZERO);
-        let min = Vec3A::select(positive, aabb.min, aabb.max);
-        let max = Vec3A::select(positive, aabb.max, aabb.min);
+        let min_selected = Vec3A::select(positive, min, max);
+        let max_selected = Vec3A::select(positive, max, min);
 
         // Calculate the minimum/maximum time for each axis based on how much the direction goes that
         // way. These values can get arbitrarily large, or even become NaN, which is handled by the
         // min/max operations below
-        let tmin = (min - self.origin) * self.direction_recip;
-        let tmax = (max - self.origin) * self.direction_recip;
+        let tmin = (min_selected - self.origin) * self.direction_recip;
+        let tmax = (max_selected - self.origin) * self.direction_recip;
 
         // An axis that is not relevant to the ray direction will be NaN. When one of the arguments
         // to min/max is NaN, the other argument is used.
@@ -71,12 +72,13 @@ impl RayCast3d {
         }
     }
 
-    /// Get the distance of an intersection with a [`BoundingSphere`], if any.
-    pub fn sphere_intersection_at(&self, sphere: &BoundingSphere) -> Option<f32> {
-        let offset = self.origin - sphere.center;
+    /// Get the distance of an intersection with a sphere defined by center/radius, if any.
+    #[inline]
+    pub fn sphere_intersection_at_center_radius(&self, center: Vec3A, radius: f32) -> Option<f32> {
+        let offset = self.origin - center;
         let projected = offset.dot(*self.direction);
         let closest_point = offset - projected * *self.direction;
-        let distance_squared = sphere.radius().squared() - closest_point.length_squared();
+        let distance_squared = radius.squared() - closest_point.length_squared();
         if distance_squared < 0.
             || ops::copysign(projected.squared(), -projected) < -distance_squared
         {
@@ -94,13 +96,15 @@ impl RayCast3d {
 
 impl IntersectsVolume<Aabb3d> for RayCast3d {
     fn intersects(&self, volume: &Aabb3d) -> bool {
-        self.aabb_intersection_at(volume).is_some()
+        self.aabb_intersection_at_min_max(volume.min, volume.max)
+            .is_some()
     }
 }
 
 impl IntersectsVolume<BoundingSphere> for RayCast3d {
     fn intersects(&self, volume: &BoundingSphere) -> bool {
-        self.sphere_intersection_at(volume).is_some()
+        self.sphere_intersection_at_center_radius(volume.center, volume.radius())
+            .is_some()
     }
 }
 
@@ -139,7 +143,7 @@ impl AabbCast3d {
     pub fn aabb_collision_at(&self, mut aabb: Aabb3d) -> Option<f32> {
         aabb.min -= self.aabb.max;
         aabb.max -= self.aabb.min;
-        self.ray.aabb_intersection_at(&aabb)
+        self.ray.aabb_intersection_at_min_max(aabb.min, aabb.max)
     }
 }
 
@@ -184,7 +188,8 @@ impl BoundingSphereCast {
     pub fn sphere_collision_at(&self, mut sphere: BoundingSphere) -> Option<f32> {
         sphere.center -= self.sphere.center;
         sphere.sphere.radius += self.sphere.radius();
-        self.ray.sphere_intersection_at(&sphere)
+        self.ray
+            .sphere_intersection_at_center_radius(sphere.center, sphere.radius())
     }
 }
 
@@ -245,7 +250,9 @@ mod tests {
                 test.intersects(volume),
                 "Case:\n  Test: {test:?}\n  Volume: {volume:?}\n  Expected distance: {expected_distance:?}",
             );
-            let actual_distance = test.sphere_intersection_at(volume).unwrap();
+            let actual_distance = test
+                .sphere_intersection_at_center_radius(volume.center, volume.radius())
+                .unwrap();
             assert!(
                 ops::abs(actual_distance - expected_distance) < EPSILON,
                 "Case:\n  Test: {test:?}\n  Volume: {volume:?}\n  Expected distance: {expected_distance:?}\n  Actual distance: {actual_distance}",
@@ -298,7 +305,8 @@ mod tests {
                         "Case:\n  origin: {origin:?}\n  Direction: {direction:?}\n  Max: {max}",
                     );
 
-                    let actual_distance = test.sphere_intersection_at(&volume);
+                    let actual_distance =
+                        test.sphere_intersection_at_center_radius(volume.center, volume.radius());
                     assert_eq!(
                         actual_distance,
                         Some(0.),
@@ -353,7 +361,9 @@ mod tests {
                 test.intersects(volume),
                 "Case:\n  Test: {test:?}\n  Volume: {volume:?}\n  Expected distance: {expected_distance:?}",
             );
-            let actual_distance = test.aabb_intersection_at(volume).unwrap();
+            let actual_distance = test
+                .aabb_intersection_at_min_max(volume.min, volume.max)
+                .unwrap();
             assert!(
                 ops::abs(actual_distance - expected_distance) < EPSILON,
                 "Case:\n  Test: {test:?}\n  Volume: {volume:?}\n  Expected distance: {expected_distance:?}\n  Actual distance: {actual_distance}",
@@ -406,7 +416,7 @@ mod tests {
                         "Case:\n  origin: {origin:?}\n  Direction: {direction:?}\n  Max: {max}",
                     );
 
-                    let actual_distance = test.aabb_intersection_at(&volume);
+                    let actual_distance = test.aabb_intersection_at_min_max(volume.min, volume.max);
                     assert_eq!(
                         actual_distance,
                         Some(0.),

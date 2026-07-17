@@ -39,17 +39,17 @@ impl RayCast2d {
         self.direction_recip
     }
 
-    /// Get the distance of an intersection with an [`Aabb2d`], if any.
-    pub fn aabb_intersection_at(&self, aabb: &Aabb2d) -> Option<f32> {
+    /// Get the distance of an intersection with an box defined by min/max, if any.
+    pub fn aabb_intersection_at_min_max(&self, min: Vec2, max: Vec2) -> Option<f32> {
         let (min_x, max_x) = if self.ray.direction.x.is_sign_positive() {
-            (aabb.min.x, aabb.max.x)
+            (min.x, max.x)
         } else {
-            (aabb.max.x, aabb.min.x)
+            (max.x, min.x)
         };
         let (min_y, max_y) = if self.ray.direction.y.is_sign_positive() {
-            (aabb.min.y, aabb.max.y)
+            (min.y, max.y)
         } else {
-            (aabb.max.y, aabb.min.y)
+            (max.y, min.y)
         };
 
         // Calculate the minimum/maximum time for each axis based on how much the direction goes that
@@ -75,11 +75,11 @@ impl RayCast2d {
     }
 
     /// Get the distance of an intersection with a [`BoundingCircle`], if any.
-    pub fn circle_intersection_at(&self, circle: &BoundingCircle) -> Option<f32> {
-        let offset = self.ray.origin - circle.center;
+    pub fn circle_intersection_at_center_radius(&self, center: Vec2, radius: f32) -> Option<f32> {
+        let offset = self.ray.origin - center;
         let projected = offset.dot(*self.ray.direction);
         let cross = offset.perp_dot(*self.ray.direction);
-        let distance_squared = circle.radius().squared() - cross.squared();
+        let distance_squared = radius.squared() - cross.squared();
         if distance_squared < 0.
             || ops::copysign(projected.squared(), -projected) < -distance_squared
         {
@@ -97,13 +97,15 @@ impl RayCast2d {
 
 impl IntersectsVolume<Aabb2d> for RayCast2d {
     fn intersects(&self, volume: &Aabb2d) -> bool {
-        self.aabb_intersection_at(volume).is_some()
+        self.aabb_intersection_at_min_max(volume.min, volume.max)
+            .is_some()
     }
 }
 
 impl IntersectsVolume<BoundingCircle> for RayCast2d {
     fn intersects(&self, volume: &BoundingCircle) -> bool {
-        self.circle_intersection_at(volume).is_some()
+        self.circle_intersection_at_center_radius(volume.center, volume.radius())
+            .is_some()
     }
 }
 
@@ -135,7 +137,7 @@ impl AabbCast2d {
     pub fn aabb_collision_at(&self, mut aabb: Aabb2d) -> Option<f32> {
         aabb.min -= self.aabb.max;
         aabb.max -= self.aabb.min;
-        self.ray.aabb_intersection_at(&aabb)
+        self.ray.aabb_intersection_at_min_max(aabb.min, aabb.max)
     }
 }
 
@@ -173,7 +175,8 @@ impl BoundingCircleCast {
     pub fn circle_collision_at(&self, mut circle: BoundingCircle) -> Option<f32> {
         circle.center -= self.circle.center;
         circle.circle.radius += self.circle.radius();
-        self.ray.circle_intersection_at(&circle)
+        self.ray
+            .circle_intersection_at_center_radius(circle.center, circle.radius())
     }
 }
 
@@ -233,7 +236,9 @@ mod tests {
                 test.intersects(volume),
                 "Case:\n  Test: {test:?}\n  Volume: {volume:?}\n  Expected distance: {expected_distance:?}",
             );
-            let actual_distance = test.circle_intersection_at(volume).unwrap();
+            let actual_distance = test
+                .circle_intersection_at_center_radius(volume.center, volume.radius())
+                .unwrap();
             assert!(
                 ops::abs(actual_distance - expected_distance) < EPSILON,
                 "Case:\n  Test: {test:?}\n  Volume: {volume:?}\n  Expected distance: {expected_distance:?}\n  Actual distance: {actual_distance}",
@@ -286,7 +291,8 @@ mod tests {
                         "Case:\n  origin: {origin:?}\n  Direction: {direction:?}\n  Max: {max}",
                     );
 
-                    let actual_distance = test.circle_intersection_at(&volume);
+                    let actual_distance =
+                        test.circle_intersection_at_center_radius(volume.center, volume.radius());
                     assert_eq!(
                         actual_distance,
                         Some(0.),
@@ -341,7 +347,9 @@ mod tests {
                 test.intersects(volume),
                 "Case:\n  Test: {test:?}\n  Volume: {volume:?}\n  Expected distance: {expected_distance:?}",
             );
-            let actual_distance = test.aabb_intersection_at(volume).unwrap();
+            let actual_distance = test
+                .aabb_intersection_at_min_max(volume.min, volume.max)
+                .unwrap();
             assert!(
                 ops::abs(actual_distance - expected_distance) < EPSILON,
                 "Case:\n  Test: {test:?}\n  Volume: {volume:?}\n  Expected distance: {expected_distance:?}\n  Actual distance: {actual_distance}",
@@ -394,7 +402,7 @@ mod tests {
                         "Case:\n  origin: {origin:?}\n  Direction: {direction:?}\n  Max: {max}",
                     );
 
-                    let actual_distance = test.aabb_intersection_at(&volume);
+                    let actual_distance = test.aabb_intersection_at_min_max(volume.min, volume.max);
                     assert_eq!(
                         actual_distance,
                         Some(0.),
