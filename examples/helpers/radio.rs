@@ -2,9 +2,7 @@
 /// Using these helpers requires the `bevy_feathers` feature to be enabled.
 use bevy::{
     color::palettes,
-    feathers::{
-        controls::FeathersRadio, display::caption, display::label, theme::ThemeProps,
-    },
+    feathers::{controls::FeathersRadio, display::caption, display::label, theme::ThemeProps},
     platform::collections::HashMap,
     prelude::*,
     ui::Checked,
