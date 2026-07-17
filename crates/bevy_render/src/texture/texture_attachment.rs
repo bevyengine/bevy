@@ -185,7 +185,9 @@ impl DepthStencilViews {
                 stencil_view: stencil_view(),
             },
             _ => {
-                panic!("Can't create depth attachment. Texture format is not depth-stencil format")
+                panic!(
+                    "Can't create depth attachment. Texture format is not a depth-stencil format."
+                )
             }
         }
     }
