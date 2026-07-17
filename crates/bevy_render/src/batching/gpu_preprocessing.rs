@@ -858,6 +858,13 @@ pub struct IndirectParametersBuildJob {
     /// The index of the last batch that this build operation is to process
     /// (exclusive).
     pub last_batch_index: u32,
+    // Padding to pad out to 256 bytes (the minimum dynamic uniform alignment on
+    // Metal).
+    // If you're wondering why we cap the array length at 30, that's so that we
+    // get the auto impl of `Default`.``
+    pad_a: u32,
+    pad_b: u32,
+    pad_c: [UVec4; 15],
 }
 
 impl IndirectParametersBuildJob {
@@ -867,6 +874,9 @@ impl IndirectParametersBuildJob {
         Self {
             first_batch_index: batch_range.start,
             last_batch_index: batch_range.end,
+            pad_a: default(),
+            pad_b: default(),
+            pad_c: default(),
         }
     }
 }
@@ -993,26 +1003,23 @@ pub struct IndirectParametersBuffersSettings {
 pub struct IndirectParametersBuildJobs {
     /// The [`RawBufferVec`] containing the jobs.
     ///
-    /// Each job in this buffer must be aligned to [`Self::buffer_alignment`]
-    /// bytes.
+    /// Each job in this buffer must be aligned to
+    /// [`wgpu::Limits::min_uniform_buffer_offset`] bytes.
     buffer: RawBufferVec<IndirectParametersBuildJob>,
-
-    /// The alignment *in bytes* we need to pad each
-    /// [`IndirectParametersBuildJob`] to.
-    ///
-    /// This will be equal to
-    /// [`wgpu::Limits::min_uniform_buffer_offset_alignment`].
-    buffer_alignment: u32,
 }
 
 impl FromWorld for IndirectParametersBuildJobs {
     fn from_world(world: &mut World) -> IndirectParametersBuildJobs {
-        let render_device = world.resource::<RenderDevice>();
+        debug_assert!(size_of::<IndirectParametersBuildJob>().is_multiple_of(
+            world
+                .resource::<RenderDevice>()
+                .limits()
+                .min_uniform_buffer_offset_alignment as usize
+        ));
         IndirectParametersBuildJobs {
             buffer: RawBufferVec::new(
                 BufferUsages::UNIFORM | BufferUsages::COPY_DST | BufferUsages::COPY_SRC,
             ),
-            buffer_alignment: render_device.limits().min_uniform_buffer_offset_alignment,
         }
     }
 }
@@ -1021,26 +1028,6 @@ impl IndirectParametersBuildJobs {
     /// Pushes a new [`IndirectParametersBuildJob`] onto the buffer and returns
     /// the offset of the newly pushed job *in bytes*.
     fn push(&mut self, job: IndirectParametersBuildJob) -> u32 {
-        // Align up.
-        //
-        // Note that this code aligns to the LCM of the buffer alignment and the
-        // size of a build job rather than the minimum alignment required. But
-        // that's OK, because the buffer alignment divides the size of a build
-        // job and so it'll be as tightly packed as possible. We assert this
-        // below.
-        //
-        // We aren't using `DynamicUniformBuffer` because it uses `encase`,
-        // which is slow.
-        debug_assert_eq!(
-            self.buffer_alignment as usize % size_of::<IndirectParametersBuildJob>(),
-            0
-        );
-        while !(self.buffer.len() * size_of::<IndirectParametersBuildJob>())
-            .is_multiple_of(self.buffer_alignment as usize)
-        {
-            self.buffer.push(default());
-        }
-
         let index = self.buffer.push(job);
         (index * size_of::<IndirectParametersBuildJob>()) as u32
     }
