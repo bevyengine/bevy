@@ -16,11 +16,11 @@ where
     T: Clone + Send + Sync + 'static;
 
 /// A marker component that we place on all radio `Button`s.
-#[derive(Clone, Copy, Component)]
+#[derive(Clone, Copy, Component, Default)]
 pub struct RadioButton;
 
 /// A marker component that we place on all `Text` inside radio buttons.
-#[derive(Clone, Copy, Component)]
+#[derive(Clone, Copy, Component, Default)]
 pub struct RadioButtonText;
 
 /// The size of the border that surrounds buttons.

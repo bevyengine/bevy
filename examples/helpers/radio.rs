@@ -31,6 +31,10 @@ pub fn main_ui_node_scene() -> impl Scene {
 }
 
 /// Creates a basic feathers theme props for the radio buttons.
+#[allow(
+    unused,
+    reason = "For certain examples, it may be better go to with the dark theme than this one."
+)]
 pub fn basic_radio_button_theme() -> ThemeProps {
     let mut color = HashMap::new();
     color.insert(bevy::feathers::tokens::RADIO_TEXT, Color::BLACK);
@@ -140,5 +144,16 @@ where
             }
             RadioButtonOptionValue<T>(option_value)
         })
+    }
+}
+
+/// Creates a text bundle for the UI.
+pub fn ui_text_scene(label: String, color: Color) -> impl Scene {
+    bsn! {
+        Text::new(label)
+        TextFont {
+            font_size: FontSize::Px(18.0),
+        }
+        TextColor(color)
     }
 }
