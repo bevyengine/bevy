@@ -37,7 +37,7 @@ use bevy_ui::{
 };
 
 use bevy_app::prelude::*;
-use bevy_asset::{AssetEvent, AssetId, Assets};
+use bevy_asset::{AssetEvent, AssetEventSystems, AssetId, Assets};
 use bevy_color::{Alpha, ColorToComponents, LinearRgba};
 use bevy_core_pipeline::schedule::{Core2d, Core2dSystems, Core3d, Core3dSystems};
 use bevy_core_pipeline::upscaling::upscaling;
@@ -214,7 +214,8 @@ impl Plugin for UiRenderPlugin {
                 image::update_texture_atlas_layout_components,
             )
                 .chain()
-                .after(UiSystems::Content),
+                .after(UiSystems::Content)
+                .after(AssetEventSystems),
         );
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
