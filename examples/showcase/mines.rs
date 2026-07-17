@@ -369,7 +369,7 @@ fn rebuild_game_ui(commands: &mut Commands, root: Entity, game: &Game, assets: &
                             },
                             children![
                                 (
-                                    ImageNode::new(assets.load("flag.png")),
+                                    ImageNode::new(assets.load("textures/flag.png")),
                                     Node {
                                         width: px(28),
                                         height: px(28),
