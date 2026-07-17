@@ -2,6 +2,7 @@ use crate::world::unsafe_world_cell::UnsafeWorldCell;
 use crate::{component::ComponentId, resource::IS_RESOURCE};
 use alloc::{format, string::String, vec, vec::Vec};
 use core::iter::FusedIterator;
+use core::mem;
 use core::{fmt, fmt::Debug};
 use derive_more::From;
 use fixedbitset::{Difference, FixedBitSet, Intersection, IntoOnes, Ones, Union};
@@ -139,7 +140,8 @@ impl InvertibleComponentIdSet {
         match (&mut *self, other) {
             (Self::Included(this), Self::Included(other)) => this.union_with(other),
             (Self::Included(this), Self::Excluded(other)) => {
-                *self = Self::Excluded(other.difference(this).collect());
+                this.difference_from(other);
+                *self = Self::Excluded(mem::take(this));
             }
             (Self::Excluded(this), Self::Included(other)) => this.difference_with(other),
             (Self::Excluded(this), Self::Excluded(other)) => this.intersect_with(other),
@@ -160,7 +162,8 @@ impl InvertibleComponentIdSet {
             (Self::Included(this), Self::Excluded(other)) => this.intersect_with(other),
             (Self::Excluded(this), Self::Included(other)) => this.union_with(other),
             (Self::Excluded(this), Self::Excluded(other)) => {
-                *self = Self::Included(other.difference(this).collect());
+                this.difference_from(other);
+                *self = Self::Included(mem::take(this));
             }
         }
     }
@@ -178,7 +181,8 @@ impl InvertibleComponentIdSet {
             (Self::Included(this), Self::Included(other)) => this.intersect_with(other),
             (Self::Included(this), Self::Excluded(other)) => this.difference_with(other),
             (Self::Excluded(this), Self::Included(other)) => {
-                *self = Self::Included(other.difference(this).collect());
+                this.difference_from(other);
+                *self = Self::Included(mem::take(this));
             }
             (Self::Excluded(this), Self::Excluded(other)) => this.union_with(other),
         }
