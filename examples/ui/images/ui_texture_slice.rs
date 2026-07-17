@@ -8,6 +8,7 @@
 use bevy::{
     color::palettes::css::{GOLD, ORANGE},
     picking::hover::Hovered,
+    platform::collections::HashSet,
     prelude::*,
     ui::{widget::NodeImageMode, Pressed},
     ui_widgets::Button,
@@ -17,40 +18,39 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, (button_system, button_system_removals))
+        .add_systems(Update, button_system)
         .run();
 }
 
 /// Updates each button's sliced image tint and label whenever its `Pressed` or `Hovered`
 /// state changes.
+///
+/// `Hovered` always exists on the button, so `Ref::is_changed` catches hover transitions and
+/// the insertion of `Pressed`. Removal of `Pressed` is not reported by change detection, so we
+/// also restyle any button that just had `Pressed` removed this frame.
 fn button_system(
     mut buttons: Query<
-        (Has<Pressed>, &Hovered, &mut ImageNode, &Children),
-        (Or<(Changed<Pressed>, Changed<Hovered>)>, With<Button>),
+        (
+            Entity,
+            Option<Ref<Pressed>>,
+            Ref<Hovered>,
+            &mut ImageNode,
+            &Children,
+        ),
+        With<Button>,
     >,
-    mut text_query: Query<&mut Text>,
-) {
-    for (pressed, hovered, mut image, children) in &mut buttons {
-        set_button_style(
-            pressed,
-            hovered.get(),
-            &mut image,
-            children,
-            &mut text_query,
-        );
-    }
-}
-
-/// Supplementary system to detect the removal of `Pressed`, which `Changed` does not report.
-fn button_system_removals(
-    mut buttons: Query<(Has<Pressed>, &Hovered, &mut ImageNode, &Children), With<Button>>,
     mut removed_pressed: RemovedComponents<Pressed>,
     mut text_query: Query<&mut Text>,
 ) {
-    for entity in removed_pressed.read() {
-        if let Ok((pressed, hovered, mut image, children)) = buttons.get_mut(entity) {
+    // Buttons that had `Pressed` removed this frame; change detection does not report removals.
+    let just_unpressed: HashSet<Entity> = removed_pressed.read().collect();
+    for (entity, pressed, hovered, mut image, children) in &mut buttons {
+        let changed = hovered.is_changed()
+            || pressed.as_ref().is_some_and(Ref::is_changed)
+            || just_unpressed.contains(&entity);
+        if changed {
             set_button_style(
-                pressed,
+                pressed.is_some(),
                 hovered.get(),
                 &mut image,
                 children,
@@ -60,7 +60,7 @@ fn button_system_removals(
     }
 }
 
-/// Shared styling logic: pressed takes precedence over hover, matching the original example.
+/// Shared styling logic: pressed takes precedence over hover.
 fn set_button_style(
     pressed: bool,
     hovered: bool,
