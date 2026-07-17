@@ -105,7 +105,7 @@ fn main() {
 
     App::new()
         .init_resource::<AppStatus>()
-        .insert_resource(UiTheme(radio::basic_radio_button_theme()))
+        .insert_resource(UiTheme(radio::basic_radio_button_theme(Color::BLACK)))
         .add_plugins((
             DefaultPlugins.set(WindowPlugin {
                 primary_window: Some(Window {

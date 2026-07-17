@@ -35,9 +35,9 @@ pub fn main_ui_node_scene() -> impl Scene {
     unused,
     reason = "For certain examples, it may be better go to with the dark theme than this one."
 )]
-pub fn basic_radio_button_theme() -> ThemeProps {
+pub fn basic_radio_button_theme(text_color: Color) -> ThemeProps {
     let mut color = HashMap::new();
-    color.insert(bevy::feathers::tokens::RADIO_TEXT, Color::BLACK);
+    color.insert(bevy::feathers::tokens::RADIO_TEXT, text_color);
     color.insert(bevy::feathers::tokens::RADIO_MARK, Color::BLACK);
     color.insert(bevy::feathers::tokens::RADIO_MARK_HOVER, Color::BLACK);
     color.insert(bevy::feathers::tokens::RADIO_MARK_PRESSED, Color::BLACK);
@@ -76,6 +76,7 @@ pub fn basic_radio_button_theme() -> ThemeProps {
         bevy::feathers::tokens::RADIO_BORDER_CHECKED_PRESSED,
         Color::BLACK,
     );
+    color.insert(bevy::feathers::tokens::TEXT_MAIN, text_color);
     ThemeProps { color }
 }
 

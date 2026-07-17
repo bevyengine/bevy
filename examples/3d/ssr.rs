@@ -9,7 +9,6 @@ use bevy::{
     color::palettes::css::{BLACK, WHITE},
     feathers::{
         controls::{FeathersNumberInput, HardLimit, NumberInputPrecision, NumberInputValue},
-        dark_theme::create_dark_theme,
         display::{label, label_small},
         theme::UiTheme,
         FeathersPlugins,
@@ -34,7 +33,7 @@ use bevy::{
 #[path = "../helpers/radio.rs"]
 mod radio;
 
-use radio::{feathers_option_buttons, main_ui_node_scene};
+use radio::{basic_radio_button_theme, feathers_option_buttons, main_ui_node_scene};
 
 /// This example uses a shader source file from the assets subdirectory
 const SHADER_ASSET_PATH: &str = "shaders/water_material.wgsl";
@@ -89,6 +88,19 @@ struct AppSettings {
     max_perceptual_roughness: Range<f32>,
     /// The range over which SSR begins to fade out at the edges of the screen.
     edge_fadeout: Range<f32>,
+}
+
+impl Default for AppSettings {
+    fn default() -> Self {
+        Self {
+            ssr_on: default(),
+            displayed_model: default(),
+            displayed_base: default(),
+            min_perceptual_roughness: 0.0..0.01,
+            max_perceptual_roughness: 0.99..1.0,
+            edge_fadeout: 0.0..0.0,
+        }
+    }
 }
 
 /// Whether screen space reflections are on.
@@ -205,7 +217,7 @@ fn main() {
     // rendering doesn't support that.
     App::new()
         .insert_resource(DefaultOpaqueRendererMethod::deferred())
-        .insert_resource(UiTheme(create_dark_theme()))
+        .insert_resource(get_ui_theme())
         .init_resource::<AppSettings>()
         .add_plugins((
             DefaultPlugins.set(WindowPlugin {
@@ -765,15 +777,49 @@ impl MaterialExtension for Water {
     }
 }
 
-impl Default for AppSettings {
-    fn default() -> Self {
-        Self {
-            ssr_on: default(),
-            displayed_model: default(),
-            displayed_base: default(),
-            min_perceptual_roughness: 0.0..0.01,
-            max_perceptual_roughness: 0.99..1.0,
-            edge_fadeout: 0.0..0.0,
-        }
-    }
+/// Creates the ui theme for the Feathers UI.
+fn get_ui_theme() -> UiTheme {
+    let mut theme_props = basic_radio_button_theme(Color::WHITE);
+    theme_props
+        .color
+        .insert(bevy::feathers::tokens::TEXT_INPUT_TEXT, Color::WHITE);
+    theme_props
+        .color
+        .insert(bevy::feathers::tokens::TEXT_INPUT_BG, Color::BLACK);
+    theme_props
+        .color
+        .insert(bevy::feathers::tokens::TEXT_INPUT_LABEL_BG, Color::BLACK);
+
+    theme_props
+        .color
+        .insert(bevy::feathers::tokens::SLIDER_BAR, Color::WHITE);
+    theme_props
+        .color
+        .insert(bevy::feathers::tokens::SLIDER_BAR_HOVER, Color::WHITE);
+    theme_props
+        .color
+        .insert(bevy::feathers::tokens::SLIDER_BAR_PRESSED, Color::WHITE);
+    theme_props
+        .color
+        .insert(bevy::feathers::tokens::SLIDER_BG, Color::BLACK);
+    theme_props
+        .color
+        .insert(bevy::feathers::tokens::SLIDER_BG_HOVER, Color::BLACK);
+    theme_props
+        .color
+        .insert(bevy::feathers::tokens::SLIDER_BG_PRESSED, Color::BLACK);
+
+    theme_props.color.insert(
+        bevy::feathers::tokens::TEXT_INPUT_CURSOR,
+        bevy::feathers::palette::ACCENT.lighter(0.2),
+    );
+    theme_props.color.insert(
+        bevy::feathers::tokens::TEXT_INPUT_SELECTION,
+        bevy::feathers::palette::ACCENT,
+    );
+    theme_props.color.insert(
+        bevy::feathers::tokens::TEXT_INPUT_SELECTION_UNFOCUSED,
+        bevy::feathers::palette::TRANSPARENT,
+    );
+    UiTheme(theme_props)
 }
