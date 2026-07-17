@@ -342,8 +342,11 @@ where
                 PostUpdate,
                 (
                     mark_2d_meshes_as_changed_if_their_materials_changed::<M>.ambiguous_with_all(),
-                    check_entities_needing_specialization::<M>.after(AssetEventSystems),
-                ),
+                    check_entities_needing_specialization::<M>
+                        .after(AssetEventSystems)
+                        .ambiguous_with_all(),
+                )
+                    .chain(),
             );
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
