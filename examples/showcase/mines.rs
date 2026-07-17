@@ -337,7 +337,7 @@ fn rebuild_game_ui(commands: &mut Commands, root: Entity, game: &Game, assets: &
                                     .with_children(|parent| {
                                         if tile.flagged {
                                             parent.spawn((
-                                                ImageNode::new(assets.load("flag.png")),
+                                                ImageNode::new(assets.load("textures/flag.png")),
                                                 Node {
                                                     width: px(20),
                                                     height: px(20),
