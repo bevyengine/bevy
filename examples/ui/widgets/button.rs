@@ -2,8 +2,7 @@
 //! a headless `Button` that fires an `Activate` event when clicked.
 //!
 //! The `bevy_ui_widgets` widgets are behavior-only — the `Button` tracks its own pressed state
-//! and detects clicks, but comes with no styling. We supply the look ourselves, which is the
-//! typical pattern for game UI: you decide exactly how your buttons appear.
+//! and detects clicks, but comes with no styling. We supply the look ourselves.
 
 use bevy::{
     color::palettes::basic::*,
