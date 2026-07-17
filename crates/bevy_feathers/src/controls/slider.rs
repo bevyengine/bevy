@@ -32,6 +32,7 @@ use bevy_ui_widgets::{
 use crate::{
     constants::{fonts, size},
     cursor::EntityCursor,
+    display::caption,
     focus::FocusIndicator,
     font_styles::InheritableFont,
     rounded_corners::RoundedCorners,
@@ -119,7 +120,7 @@ impl FeathersSlider {
                     font_size: size::SMALL_FONT,
                     weight: FontWeight::NORMAL,
                 }
-                Children [(Text("10.0") ThemedText SliderValueText)]
+                Children [(caption("10.0") SliderValueText)]
             )]
         }
     }

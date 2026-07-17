@@ -1,9 +1,13 @@
-use bevy_clipboard::ClipboardRead;
-use bevy_math::Vec2;
-use bevy_reflect::Reflect;
-use parley::PlainEditorDriver;
-use smol_str::SmolStr;
+use core::num::NonZeroU16;
 
+use bevy_clipboard::ClipboardRead;
+use bevy_math::{Rect, Vec2};
+use bevy_reflect::Reflect;
+use parley::{PlainEditorDriver, StyleProperty};
+use smol_str::SmolStr;
+use swash::FontRef;
+
+use crate::scroll::{TextLineYBounds, TextViewport};
 use crate::TextBrush;
 
 /// A selection within IME preedit text, expressed as byte offsets from the start of the preedit.
@@ -199,6 +203,14 @@ pub enum TextEdit {
         /// The committed text to insert at the cursor.
         value: SmolStr,
     },
+    /// Scroll vertically by the given number of visual lines, increasing downwards.
+    ///
+    /// Fractional values scroll by the corresponding fraction of a visual line.
+    ScrollByLines(f32),
+    /// Scroll the minimum amount such that the given point is in view.
+    ScrollTo(Vec2),
+    /// Scroll by the given displacement
+    ScrollBy(Vec2),
 }
 
 impl TextEdit {
@@ -210,7 +222,7 @@ impl TextEdit {
         }
     }
 
-    /// Apply the [`TextEdit`] to the text editor driver.
+    /// Apply the [`TextEdit`] to the text editor driver and viewport.
     ///
     /// Note that some edits, such as [`TextEdit::Paste`], may need to be deferred across frames due to asynchronous clipboard I/O.
     /// For proper handling of deferred edits, use [`EditableText::apply_pending_edits`](super::EditableText::apply_pending_edits) instead,
@@ -218,6 +230,8 @@ impl TextEdit {
     pub fn apply<'a>(
         self,
         driver: &'a mut PlainEditorDriver<TextBrush>,
+        viewport: &mut TextViewport,
+        cursor_margin: Vec2,
         clipboard: &mut bevy_clipboard::Clipboard,
         max_characters: Option<usize>,
         char_filter: impl Fn(char) -> bool,
@@ -237,6 +251,7 @@ impl TextEdit {
                         Err(e) => bevy_log::warn!("Failed to write selection to clipboard: {e:?}"),
                     }
                 }
+                reveal_cursor(driver, viewport, cursor_margin);
             }
             TextEdit::Paste => {
                 // It's nice to be able to provide apply as a public method, but Paste is a little buggy.
@@ -246,44 +261,137 @@ impl TextEdit {
 
                 let mut read = clipboard.fetch_text();
                 poll_and_apply_paste(&mut read, driver, max_characters, char_filter);
+                reveal_cursor(driver, viewport, cursor_margin);
             }
             TextEdit::Insert(text) => {
                 let _ = insert_filtered(driver, text.as_str(), max_characters, char_filter);
+                reveal_cursor(driver, viewport, cursor_margin);
             }
-            TextEdit::Backspace => driver.backdelete(),
-            TextEdit::BackspaceWord => driver.backdelete_word(),
-            TextEdit::Delete => driver.delete(),
-            TextEdit::DeleteWord => driver.delete_word(),
-            TextEdit::Left(false) => driver.move_left(),
-            TextEdit::Right(false) => driver.move_right(),
-            TextEdit::WordLeft(false) => driver.move_word_left(),
-            TextEdit::WordRight(false) => driver.move_word_right(),
-            TextEdit::Up(false) => driver.move_up(),
-            TextEdit::Down(false) => driver.move_down(),
-            TextEdit::TextStart(false) => driver.move_to_text_start(),
-            TextEdit::TextEnd(false) => driver.move_to_text_end(),
-            TextEdit::HardLineStart(false) => driver.move_to_hard_line_start(),
-            TextEdit::HardLineEnd(false) => driver.move_to_hard_line_end(),
-            TextEdit::LineStart(false) => driver.move_to_line_start(),
-            TextEdit::LineEnd(false) => driver.move_to_line_end(),
-            TextEdit::Left(true) => driver.select_left(),
-            TextEdit::Right(true) => driver.select_right(),
-            TextEdit::WordLeft(true) => driver.select_word_left(),
-            TextEdit::WordRight(true) => driver.select_word_right(),
-            TextEdit::Up(true) => driver.select_up(),
-            TextEdit::Down(true) => driver.select_down(),
-            TextEdit::TextStart(true) => driver.select_to_text_start(),
-            TextEdit::TextEnd(true) => driver.select_to_text_end(),
-            TextEdit::HardLineStart(true) => driver.select_to_hard_line_start(),
-            TextEdit::HardLineEnd(true) => driver.select_to_hard_line_end(),
-            TextEdit::LineStart(true) => driver.select_to_line_start(),
-            TextEdit::LineEnd(true) => driver.select_to_line_end(),
-            TextEdit::CollapseSelection => driver.collapse_selection(),
-            TextEdit::SelectAll => driver.select_all(),
+            TextEdit::Backspace => {
+                driver.backdelete();
+                reveal_cursor(driver, viewport, cursor_margin);
+            }
+            TextEdit::BackspaceWord => {
+                driver.backdelete_word();
+                reveal_cursor(driver, viewport, cursor_margin);
+            }
+            TextEdit::Delete => {
+                driver.delete();
+                reveal_cursor(driver, viewport, cursor_margin);
+            }
+            TextEdit::DeleteWord => {
+                driver.delete_word();
+                reveal_cursor(driver, viewport, cursor_margin);
+            }
+            TextEdit::Left(false) => {
+                driver.move_left();
+                reveal_cursor(driver, viewport, cursor_margin);
+            }
+            TextEdit::Right(false) => {
+                driver.move_right();
+                reveal_cursor(driver, viewport, cursor_margin);
+            }
+            TextEdit::WordLeft(false) => {
+                driver.move_word_left();
+                reveal_cursor(driver, viewport, cursor_margin);
+            }
+            TextEdit::WordRight(false) => {
+                driver.move_word_right();
+                reveal_cursor(driver, viewport, cursor_margin);
+            }
+            TextEdit::Up(false) => {
+                driver.move_up();
+                reveal_cursor(driver, viewport, cursor_margin);
+            }
+            TextEdit::Down(false) => {
+                driver.move_down();
+                reveal_cursor(driver, viewport, cursor_margin);
+            }
+            TextEdit::TextStart(false) => {
+                driver.move_to_text_start();
+                reveal_cursor(driver, viewport, cursor_margin);
+            }
+            TextEdit::TextEnd(false) => {
+                driver.move_to_text_end();
+                reveal_cursor(driver, viewport, cursor_margin);
+            }
+            TextEdit::HardLineStart(false) => {
+                driver.move_to_hard_line_start();
+                reveal_cursor(driver, viewport, cursor_margin);
+            }
+            TextEdit::HardLineEnd(false) => {
+                driver.move_to_hard_line_end();
+                reveal_cursor(driver, viewport, cursor_margin);
+            }
+            TextEdit::LineStart(false) => {
+                driver.move_to_line_start();
+                reveal_cursor(driver, viewport, cursor_margin);
+            }
+            TextEdit::LineEnd(false) => {
+                driver.move_to_line_end();
+                reveal_cursor(driver, viewport, cursor_margin);
+            }
+            TextEdit::Left(true) => {
+                driver.select_left();
+                reveal_cursor(driver, viewport, cursor_margin);
+            }
+            TextEdit::Right(true) => {
+                driver.select_right();
+                reveal_cursor(driver, viewport, cursor_margin);
+            }
+            TextEdit::WordLeft(true) => {
+                driver.select_word_left();
+                reveal_cursor(driver, viewport, cursor_margin);
+            }
+            TextEdit::WordRight(true) => {
+                driver.select_word_right();
+                reveal_cursor(driver, viewport, cursor_margin);
+            }
+            TextEdit::Up(true) => {
+                driver.select_up();
+                reveal_cursor(driver, viewport, cursor_margin);
+            }
+            TextEdit::Down(true) => {
+                driver.select_down();
+                reveal_cursor(driver, viewport, cursor_margin);
+            }
+            TextEdit::TextStart(true) => {
+                driver.select_to_text_start();
+                reveal_cursor(driver, viewport, cursor_margin);
+            }
+            TextEdit::TextEnd(true) => {
+                driver.select_to_text_end();
+                reveal_cursor(driver, viewport, cursor_margin);
+            }
+            TextEdit::HardLineStart(true) => {
+                driver.select_to_hard_line_start();
+                reveal_cursor(driver, viewport, cursor_margin);
+            }
+            TextEdit::HardLineEnd(true) => {
+                driver.select_to_hard_line_end();
+                reveal_cursor(driver, viewport, cursor_margin);
+            }
+            TextEdit::LineStart(true) => {
+                driver.select_to_line_start();
+                reveal_cursor(driver, viewport, cursor_margin);
+            }
+            TextEdit::LineEnd(true) => {
+                driver.select_to_line_end();
+                reveal_cursor(driver, viewport, cursor_margin);
+            }
+            TextEdit::CollapseSelection => {
+                driver.collapse_selection();
+                reveal_cursor(driver, viewport, cursor_margin);
+            }
+            TextEdit::SelectAll => {
+                driver.select_all();
+                reveal_cursor(driver, viewport, cursor_margin);
+            }
             TextEdit::SelectAllIfCollapsed => {
                 if driver.editor.raw_selection().is_collapsed() {
                     driver.select_all();
                 }
+                reveal_cursor(driver, viewport, cursor_margin);
             }
             TextEdit::MoveToPoint(point) => driver.move_to_point(point.x, point.y),
             TextEdit::SelectWordAtPoint(point) => driver.select_word_at_point(point.x, point.y),
@@ -302,6 +410,7 @@ impl TextEdit {
                     let cursor = cursor.map(|c| (c.anchor, c.focus));
                     driver.set_compose(&value, cursor);
                 }
+                reveal_cursor(driver, viewport, cursor_margin);
             }
             TextEdit::ImeCommit { value: text } => {
                 driver.clear_compose();
@@ -312,9 +421,102 @@ impl TextEdit {
                 {
                     driver.insert_or_replace_selection(text.as_str());
                 }
+                reveal_cursor(driver, viewport, cursor_margin);
+            }
+            TextEdit::ScrollByLines(n) => {
+                driver.refresh_layout();
+                let content_size = scroll_content_size(driver);
+                let layout = driver.layout();
+                viewport.scroll_by_lines(
+                    n,
+                    content_size,
+                    layout.lines().map(|line| TextLineYBounds::from_line(&line)),
+                );
+            }
+            TextEdit::ScrollTo(target) => {
+                driver.refresh_layout();
+                viewport.scroll_to(target, scroll_content_size(driver));
+            }
+            TextEdit::ScrollBy(displacement) => {
+                driver.refresh_layout();
+                viewport.scroll_by(displacement, scroll_content_size(driver));
             }
         }
     }
+}
+
+fn scroll_content_size(driver: &mut PlainEditorDriver<'_, TextBrush>) -> Vec2 {
+    let cursor_max = cursor_reveal_rect(driver).map_or(Vec2::ZERO, |cursor| cursor.max);
+    let layout = driver.layout();
+    Vec2::new(layout.full_width(), layout.height()).max(cursor_max)
+}
+
+/// Returns the caret rectangle extended by one `0` advance.
+pub fn cursor_reveal_rect(driver: &mut PlainEditorDriver<'_, TextBrush>) -> Option<Rect> {
+    let cluster = driver
+        .editor
+        .raw_selection()
+        .focus()
+        .logical_clusters(driver.layout())
+        .into_iter()
+        .rev()
+        .flatten()
+        .next();
+    let cursor_advance = cluster
+        .map(|cluster| {
+            let run = cluster.run();
+            let font = run.font();
+            FontRef::from_index(font.data.as_ref(), font.index as usize)
+                .and_then(|font_ref| {
+                    NonZeroU16::new(font_ref.charmap().map('0')).map(|glyph_id| {
+                        font_ref
+                            .glyph_metrics(run.normalized_coords())
+                            .scale(run.font_size())
+                            .advance_width(glyph_id.get())
+                    })
+                })
+                .unwrap_or(0.6 * run.font_size())
+        })
+        .unwrap_or_else(|| {
+            0.6 * driver.editor.get_scale()
+                * driver
+                    .editor
+                    .get_styles()
+                    .inner()
+                    .values()
+                    .find_map(|property| match property {
+                        StyleProperty::FontSize(font_size) => Some(*font_size),
+                        _ => None,
+                    })
+                    .unwrap_or_default()
+        });
+
+    driver.editor.cursor_geometry(cursor_advance).map(|cursor| {
+        Rect::new(
+            cursor.x0 as f32,
+            cursor.y0 as f32,
+            cursor.x1 as f32,
+            cursor.y1 as f32,
+        )
+    })
+}
+
+pub(crate) fn reveal_cursor(
+    driver: &mut PlainEditorDriver<'_, TextBrush>,
+    viewport: &mut TextViewport,
+    cursor_margin: Vec2,
+) {
+    driver.refresh_layout();
+    let Some(cursor) = cursor_reveal_rect(driver) else {
+        return;
+    };
+    let layout = driver.layout();
+    viewport.reveal_caret(
+        cursor,
+        Vec2::new(layout.full_width(), layout.height()),
+        cursor_margin,
+        layout.lines().map(|line| TextLineYBounds::from_line(&line)),
+    );
 }
 
 /// Reason an [`insert_filtered`] call was rejected.
@@ -385,5 +587,143 @@ pub(crate) fn poll_and_apply_paste(
             true
         }
         None => false,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloc::borrow::Cow;
+    use parley::{FontContext, FontFamilyName, LayoutContext, PlainEditor};
+
+    fn fira_mono_editor() -> (
+        PlainEditor<TextBrush>,
+        FontContext,
+        LayoutContext<TextBrush>,
+    ) {
+        let mut editor = PlainEditor::<TextBrush>::new(20.);
+        editor
+            .edit_styles()
+            .insert(FontFamilyName::Named(Cow::Borrowed("Fira Mono")).into());
+
+        let mut font_context = FontContext::new();
+        let font = crate::Font::from_bytes(include_bytes!("FiraMono-subset.ttf").to_vec());
+        font_context.collection.register_fonts(font.data, None);
+
+        (editor, font_context, LayoutContext::new())
+    }
+
+    fn apply_edit(
+        edit: TextEdit,
+        driver: &mut PlainEditorDriver<'_, TextBrush>,
+        viewport: &mut TextViewport,
+    ) {
+        edit.apply(
+            driver,
+            viewport,
+            Vec2::ZERO,
+            &mut bevy_clipboard::Clipboard::default(),
+            None,
+            |_| true,
+        );
+    }
+
+    #[test]
+    fn scroll_right_includes_caret_reveal() {
+        let (mut editor, mut font_context, mut layout_context) = fira_mono_editor();
+        editor.set_text("A long line of text that can be scrolled horizontally.");
+
+        let mut driver = editor.driver(&mut font_context, &mut layout_context);
+        let mut viewport = TextViewport {
+            size: Vec2::splat(40.),
+            ..Default::default()
+        };
+
+        apply_edit(TextEdit::TextEnd(false), &mut driver, &mut viewport);
+        let reveal_offset = viewport.offset.x;
+
+        apply_edit(
+            TextEdit::ScrollBy(-1000. * Vec2::X),
+            &mut driver,
+            &mut viewport,
+        );
+        assert_eq!(viewport.offset.x, 0.);
+
+        apply_edit(
+            TextEdit::ScrollBy(1000. * Vec2::X),
+            &mut driver,
+            &mut viewport,
+        );
+        assert_eq!(viewport.offset.x, reveal_offset);
+    }
+
+    #[test]
+    fn cursor_navigation_reveals_cursor() {
+        let (mut editor, mut font_context, mut layout_context) = fira_mono_editor();
+        editor.set_text("A long line of text that can be scrolled horizontally.");
+
+        let mut driver = editor.driver(&mut font_context, &mut layout_context);
+        let mut viewport = TextViewport {
+            size: Vec2::splat(40.),
+            ..Default::default()
+        };
+
+        apply_edit(
+            TextEdit::ScrollBy(1000. * Vec2::X),
+            &mut driver,
+            &mut viewport,
+        );
+        assert!(0. < viewport.offset.x);
+
+        apply_edit(TextEdit::TextStart(false), &mut driver, &mut viewport);
+        assert_eq!(viewport.offset.x, 0.);
+    }
+
+    #[test]
+    fn reveal_cursor_on_right() {
+        let (mut editor, mut font_context, mut layout_context) = fira_mono_editor();
+        editor.set_text("A line of text");
+
+        let mut driver = editor.driver(&mut font_context, &mut layout_context);
+        driver.refresh_layout();
+        let mut viewport = TextViewport {
+            size: Vec2::new(driver.layout().full_width(), driver.layout().height()),
+            ..Default::default()
+        };
+
+        apply_edit(TextEdit::TextEnd(false), &mut driver, &mut viewport);
+
+        let caret_x = driver.editor.cursor_geometry(0.).unwrap().x0 as f32;
+        assert!(0. < viewport.offset.x);
+        assert!(caret_x < viewport.rect().max.x);
+
+        viewport.clamp_inside(Vec2::new(
+            driver.layout().full_width(),
+            driver.layout().height(),
+        ));
+        assert_eq!(viewport.offset.x, 0.);
+
+        reveal_cursor(&mut driver, &mut viewport, Vec2::ZERO);
+        assert!(0. < viewport.offset.x);
+        assert!(caret_x < viewport.rect().max.x);
+    }
+
+    #[test]
+    fn empty_right_aligned_caret_is_scrolled_inside_view() {
+        let (mut editor, mut font_context, mut layout_context) = fira_mono_editor();
+        editor.set_alignment(parley::Alignment::Right);
+        editor.set_width(Some(100.));
+
+        let mut driver = editor.driver(&mut font_context, &mut layout_context);
+        let mut viewport = TextViewport {
+            size: Vec2::new(100., 40.),
+            ..Default::default()
+        };
+
+        apply_edit(TextEdit::TextEnd(false), &mut driver, &mut viewport);
+
+        let caret_x = driver.editor.cursor_geometry(0.).unwrap().x0 as f32;
+        assert!(0. < viewport.offset.x);
+        assert!(caret_x < viewport.rect().max.x);
     }
 }

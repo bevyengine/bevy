@@ -20,6 +20,6 @@ pub(super) fn clone_reflect_value(
                 .data::<ReflectFromReflect>()
                 .and_then(|fr| fr.from_reflect(value.as_partial_reflect()))
                 .map(PartialReflect::into_partial_reflect)
-                .unwrap_or_else(|| value.to_dynamic())
+                .unwrap_or_else(|| value.to_dynamic().unwrap())
         })
 }

@@ -12,6 +12,7 @@ use bevy_pbr::{
 };
 use bevy_platform::{collections::HashMap, hash::FixedHasher};
 use bevy_render::{
+    diagnostic::{DiagnosticsRecorder, RecordDiagnostics},
     mesh::allocator::MeshAllocator,
     render_asset::RenderAssets,
     render_resource::{binding_types::*, *},
@@ -52,6 +53,7 @@ pub fn prepare_raytracing_scene_bindings(
     render_device: Res<RenderDevice>,
     pipeline_cache: Res<PipelineCache>,
     render_queue: Res<RenderQueue>,
+    mut diagnostics: Option<ResMut<DiagnosticsRecorder>>,
     mut raytracing_scene_bindings: ResMut<RaytracingSceneBindings>,
 ) {
     raytracing_scene_bindings.bind_group = None;
@@ -262,9 +264,15 @@ pub fn prepare_raytracing_scene_bindings(
     previous_frame_light_id_translations.write_buffer(&render_device, &render_queue);
 
     let mut command_encoder = render_device.create_command_encoder(&CommandEncoderDescriptor {
-        label: Some("build_tlas_command_encoder"),
+        label: Some("tlas_build_command_encoder"),
     });
+    let time_span = diagnostics
+        .as_mut()
+        .map(|diagnostics| diagnostics.time_span(&mut command_encoder, "tlas_build"));
     command_encoder.build_acceleration_structures(&[], [&tlas]);
+    if let Some(time_span) = time_span {
+        time_span.end(&mut command_encoder);
+    }
     render_queue.submit([command_encoder.finish()]);
 
     let (dfg_view, dfg_sampler) = texture_assets
