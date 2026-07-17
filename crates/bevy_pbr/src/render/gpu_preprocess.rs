@@ -1214,7 +1214,7 @@ pub fn main_build_indirect_parameters(
 
 /// Shared logic common to all render graph systems that build indirect
 /// parameters for multi-draw indirect calls.
-fn run_build_indirect_parameters(
+pub(crate) fn run_build_indirect_parameters(
     ctx: &mut RenderContext,
     retained_view_entity: RetainedViewEntity,
     build_indirect_params_bind_groups: Option<&BuildIndirectParametersBindGroups>,

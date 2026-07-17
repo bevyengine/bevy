@@ -39,6 +39,9 @@ use bevy_math::{
 use bevy_mesh::{Mesh3d, MeshVertexBufferLayoutRef};
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_platform::hash::FixedHasher;
+use bevy_render::batching::gpu_preprocessing::{
+    BuildIndirectParametersMetadata, IndirectParametersBuffers,
+};
 use bevy_render::camera::{DirtySpecializations, PendingQueues};
 use bevy_render::erased_render_asset::ErasedRenderAssets;
 use bevy_render::mesh::allocator::MeshSlabs;
@@ -2903,26 +2906,76 @@ pub fn shared_shadow_pass<const IS_LATE: bool>(
 pub fn per_view_shadow_pass<const IS_LATE: bool>(
     world: &World,
     view: ViewQuery<&ViewLightEntities>,
-    view_light_query: Query<(&ShadowView, &ExtractedView, Has<OcclusionCulling>)>,
+    view_light_query: Query<(
+        &ShadowView,
+        &ExtractedView,
+        Has<OcclusionCulling>,
+        Has<PreprocessBindGroups>,
+        Has<SkipGpuPreprocess>,
+        Has<NoIndirectDrawing>,
+    )>,
     shadow_render_phases: Res<ViewBinnedRenderPhases<Shadow>>,
+    preprocess_pipelines: Option<Res<PreprocessPipelines>>,
+    build_indirect_params_bind_groups: Option<Res<BuildIndirectParametersBindGroups>>,
+    pipeline_cache: Res<PipelineCache>,
+    indirect_parameters_buffers: Option<Res<IndirectParametersBuffers>>,
+    build_indirect_parameters_metadata: Option<Res<BuildIndirectParametersMetadata>>,
     mut ctx: RenderContext,
 ) {
     let view_lights = view.into_inner();
 
     for view_light_entity in view_lights.lights.iter().copied() {
-        if let Ok((view_light, extracted_light_view, occlusion_culling)) =
-            view_light_query.get(view_light_entity)
+        let Ok((
+            view_light,
+            extracted_light_view,
+            occlusion_culling,
+            has_preprocess_bind_groups,
+            has_skip_gpu_preprocess,
+            has_no_indirect_drawing,
+        )) = view_light_query.get(view_light_entity)
+        else {
+            continue;
+        };
+
+        // Make sure to build indirect parameters here, as the normal
+        // `*_prepass_build_indirect_parameters` functions only run for root
+        // views, and this shadow view isn't a root view.
+        if has_preprocess_bind_groups
+            && !has_skip_gpu_preprocess
+            && !has_no_indirect_drawing
+            && let (Some(preprocess_pipelines), Some(build_indirect_parameters_metadata)) =
+                (&preprocess_pipelines, &build_indirect_parameters_metadata)
         {
-            view_shadow_pass::<IS_LATE>(
-                view_light_entity,
-                view_light,
-                extracted_light_view,
-                occlusion_culling,
-                world,
-                &shadow_render_phases,
+            run_build_indirect_parameters(
                 &mut ctx,
+                extracted_light_view.retained_view_entity,
+                build_indirect_params_bind_groups.as_deref(),
+                &pipeline_cache,
+                indirect_parameters_buffers.as_deref(),
+                build_indirect_parameters_metadata,
+                if IS_LATE {
+                    &preprocess_pipelines.late_phase
+                } else {
+                    &preprocess_pipelines.early_phase
+                },
+                if IS_LATE {
+                    "late_view_shadow_indirect_parameters_building"
+                } else {
+                    "early_view_shadow_indirect_parameters_building"
+                },
             );
         }
+
+        // Draw the shadow map.
+        view_shadow_pass::<IS_LATE>(
+            view_light_entity,
+            view_light,
+            extracted_light_view,
+            occlusion_culling,
+            world,
+            &shadow_render_phases,
+            &mut ctx,
+        );
     }
 }
 
