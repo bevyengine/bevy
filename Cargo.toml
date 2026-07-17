@@ -2870,7 +2870,7 @@ doc-scrape-examples = true
 
 [package.metadata.example.mines]
 name = "Mines"
-description = " A simple minesweeper-style game in Bevy UI"
+description = "A simple minesweeper-style game in Bevy UI"
 category = "Games"
 wasm = true
 
