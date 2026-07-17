@@ -2,8 +2,9 @@
 
 use bevy::{
     color::palettes::css::*,
-    math::{bounding::*, ops, Isometry2d},
+    math::{ops, Isometry2d},
     prelude::*,
+    shape::bounding::*,
 };
 
 fn main() {

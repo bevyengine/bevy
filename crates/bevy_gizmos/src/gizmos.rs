@@ -18,8 +18,9 @@ use bevy_ecs::{
     },
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
-use bevy_math::{bounding::Aabb3d, Isometry2d, Isometry3d, Vec2, Vec3};
+use bevy_math::{Isometry2d, Isometry3d, Vec2, Vec3};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_shape::bounding::Aabb3d;
 use bevy_transform::TransformPoint;
 use bevy_utils::default;
 

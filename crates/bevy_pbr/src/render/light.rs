@@ -31,11 +31,7 @@ use bevy_material::{
     key::{ErasedMaterialPipelineKey, ErasedMeshPipelineKey},
     MaterialProperties,
 };
-use bevy_math::{
-    ops,
-    primitives::{HalfSpace, ViewFrustum},
-    proj, Mat4, UVec4, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles,
-};
+use bevy_math::{ops, proj, Mat4, UVec4, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_mesh::{Mesh3d, MeshVertexBufferLayoutRef};
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_platform::hash::FixedHasher;
@@ -66,6 +62,7 @@ use bevy_render::{
     view::ExtractedView,
     Extract,
 };
+use bevy_shape::{HalfSpace, ViewFrustum};
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
 use bevy_utils::default;
 use core::{any::TypeId, hash::Hash, mem, ops::Range};
