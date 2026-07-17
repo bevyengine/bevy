@@ -2474,6 +2474,11 @@ impl<T: Into<Color>> From<T> for OuterColor {
     }
 }
 
+pub struct Radius {
+    x: Val,
+    y: Val,
+}
+
 /// Used to add rounded corners to a UI node. You can set a UI node to have uniformly
 /// rounded corners, elliptical corners, or specify a different radius for each corner. If a given
 /// radius exceeds half the length of the node's height or width, the radius will be calculated

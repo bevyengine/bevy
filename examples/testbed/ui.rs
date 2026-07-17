@@ -1241,7 +1241,33 @@ mod elliptical_border_radius {
                         width: px(160),
                         height: px(120),
                         border: UiRect::axes(px(20), px(20)),
-                        border_radius: BorderRadius::all(px(30)),
+                        border_radius: BorderRadius::all(px(1000)),
+                        ..default()
+                    },
+                    BackgroundColor(RED.into()),
+                    BorderColor::all(WHITE),
+                    Outline {
+                        width: px(3),
+                        offset: px(5),
+                        color: SKY_BLUE.into(),
+                    },
+                    BoxShadow::from(ShadowStyle {
+                        blur_radius: px(5),
+                        ..default()
+                    }),
+                ));
+
+                builder.spawn((
+                    Node {
+                        width: px(160),
+                        height: px(120),
+                        border: UiRect::axes(px(20), px(20)),
+                        border_radius: BorderRadius {
+                            top_left: Val2::new(px(1000), auto()),
+                            top_right: Val2::new(px(1000), auto()),
+                            bottom_right: Val2::new(px(1000), auto()),
+                            bottom_left: Val2::new(px(1000), auto()),
+                        },
                         ..default()
                     },
                     BackgroundColor(RED.into()),
