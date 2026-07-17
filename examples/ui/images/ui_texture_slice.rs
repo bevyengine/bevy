@@ -3,8 +3,7 @@
 //!
 //! It uses the `bevy_ui_widgets` headless [`Button`] widget. The button's hover and press
 //! state is tracked by the `Hovered` and `Pressed` components; a `Changed`-based system
-//! updates the sliced image's tint and label to match, following the convention used by the
-//! `standard_widgets` example.
+//! updates the sliced image's tint and label to match.
 
 use bevy::{
     color::palettes::css::{GOLD, ORANGE},
