@@ -230,7 +230,9 @@ mod menu {
         color::palettes::css::CRIMSON,
         ecs::component::Mutable,
         ecs::spawn::{SpawnIter, SpawnWith},
+        picking::prelude::*,
         prelude::*,
+        ui_widgets::{Activate, ActivateOnPress, Button},
     };
 
     use super::{DisplayQuality, GameState, Setting, Volume, TEXT_COLOR};
@@ -255,21 +257,21 @@ mod menu {
                 OnEnter(MenuState::SettingsDisplay),
                 display_settings_menu_setup,
             )
-            .add_systems(
-                Update,
-                (setting_button::<DisplayQuality>.run_if(in_state(MenuState::SettingsDisplay)),),
+            .add_observer(
+                on_button_activate_setting_button::<DisplayQuality>
+                    .run_if(in_state(MenuState::SettingsDisplay)),
             )
             // Systems to handle the sound settings screen
             .add_systems(OnEnter(MenuState::SettingsSound), sound_settings_menu_setup)
-            .add_systems(
-                Update,
-                setting_button::<Volume>.run_if(in_state(MenuState::SettingsSound)),
+            .add_observer(
+                on_button_activate_setting_button::<Volume>
+                    .run_if(in_state(MenuState::SettingsSound)),
             )
-            // Common systems to all screens that handles buttons behavior
-            .add_systems(
-                Update,
-                (menu_action, button_system).run_if(in_state(GameState::Menu)),
-            );
+            // Observer that handles navigation within the app upon pressing certain buttons.
+            .add_observer(on_button_activate_update_states)
+            // Observers for button styling
+            .add_observer(on_button_over_style)
+            .add_observer(on_button_out_style);
     }
 
     // State used for the current menu screen
@@ -320,42 +322,45 @@ mod menu {
         Quit,
     }
 
-    // This system handles changing all buttons color based on mouse interaction
-    fn button_system(
-        mut interaction_query: Query<
-            (&Interaction, &mut BackgroundColor, Option<&SelectedOption>),
-            (Changed<Interaction>, With<Button>),
-        >,
+    /// Observer that changes the background color to hovered over buttons to the correct color.
+    fn on_button_over_style(
+        event: On<Pointer<Over>>,
+        mut bg_q: Query<&mut BackgroundColor, With<Button>>,
     ) {
-        for (interaction, mut background_color, selected) in &mut interaction_query {
-            *background_color = match (*interaction, selected) {
-                (Interaction::Pressed, _) | (Interaction::None, Some(_)) => PRESSED_BUTTON.into(),
-                (Interaction::Hovered, Some(_)) => HOVERED_PRESSED_BUTTON.into(),
-                (Interaction::Hovered, None) => HOVERED_BUTTON.into(),
-                (Interaction::None, None) => NORMAL_BUTTON.into(),
-            }
+        if let Ok(mut background_color) = bg_q.get_mut(event.entity) {
+            *background_color = HOVERED_BUTTON.into();
+        }
+    }
+
+    /// Observer that returns the normal background color to buttons that are hovered out of.
+    fn on_button_out_style(
+        event: On<Pointer<Out>>,
+        mut bg_q: Query<&mut BackgroundColor, With<Button>>,
+    ) {
+        if let Ok(mut background_color) = bg_q.get_mut(event.entity) {
+            *background_color = NORMAL_BUTTON.into();
         }
     }
 
     // This system updates the settings when a new value for a setting is selected, and marks
     // the button as the one currently selected
-    fn setting_button<T: Resource<Mutability = Mutable> + Component + PartialEq + Copy>(
-        interaction_query: Query<
-            (&Interaction, &Setting<T>, Entity),
-            (Changed<Interaction>, With<Button>),
-        >,
+    fn on_button_activate_setting_button<
+        T: Resource<Mutability = Mutable> + Component + PartialEq + Copy,
+    >(
+        event: On<Activate>,
+        activated_query: Query<(&Setting<T>, Entity), With<Button>>,
         selected_query: Single<(Entity, &mut BackgroundColor), With<SelectedOption>>,
         mut commands: Commands,
         mut setting: ResMut<T>,
     ) {
         let (previous_button, mut previous_button_color) = selected_query.into_inner();
-        for (interaction, button_setting, entity) in &interaction_query {
-            if *interaction == Interaction::Pressed && *setting != button_setting.0 {
-                *previous_button_color = NORMAL_BUTTON.into();
-                commands.entity(previous_button).remove::<SelectedOption>();
-                commands.entity(entity).insert(SelectedOption);
-                *setting = button_setting.0;
-            }
+        if let Ok((button_setting, entity)) = activated_query.get(event.entity)
+            && *setting != button_setting.0
+        {
+            *previous_button_color = NORMAL_BUTTON.into();
+            commands.entity(previous_button).remove::<SelectedOption>();
+            commands.entity(entity).insert(SelectedOption);
+            *setting = button_setting.0;
         }
     }
 
@@ -427,6 +432,7 @@ mod menu {
                     // - quit
                     (
                         Button,
+                        ActivateOnPress,
                         button_node.clone(),
                         BackgroundColor(NORMAL_BUTTON),
                         MenuButtonAction::Play,
@@ -441,6 +447,7 @@ mod menu {
                     ),
                     (
                         Button,
+                        ActivateOnPress,
                         button_node.clone(),
                         BackgroundColor(NORMAL_BUTTON),
                         MenuButtonAction::Settings,
@@ -455,6 +462,7 @@ mod menu {
                     ),
                     (
                         Button,
+                        ActivateOnPress,
                         button_node,
                         BackgroundColor(NORMAL_BUTTON),
                         MenuButtonAction::Quit,
@@ -513,6 +521,7 @@ mod menu {
                     .map(move |(action, text)| {
                         (
                             Button,
+                            ActivateOnPress,
                             button_node.clone(),
                             BackgroundColor(NORMAL_BUTTON),
                             action,
@@ -605,6 +614,7 @@ mod menu {
                     // Display the back button to return to the settings screen
                     (
                         Button,
+                        ActivateOnPress,
                         button_node(),
                         BackgroundColor(NORMAL_BUTTON),
                         MenuButtonAction::BackToSettings,
@@ -681,6 +691,7 @@ mod menu {
                     ),
                     (
                         Button,
+                        ActivateOnPress,
                         button_node,
                         BackgroundColor(NORMAL_BUTTON),
                         MenuButtonAction::BackToSettings,
@@ -691,36 +702,34 @@ mod menu {
         ));
     }
 
-    fn menu_action(
-        interaction_query: Query<
-            (&Interaction, &MenuButtonAction),
-            (Changed<Interaction>, With<Button>),
-        >,
+    /// Observer that changes the menu and game state depending on the `MenuButtonAction`
+    /// attached to the activated Button.
+    fn on_button_activate_update_states(
+        event: On<Activate>,
+        action_q: Query<&MenuButtonAction, With<Button>>,
         mut app_exit_writer: MessageWriter<AppExit>,
         mut menu_state: ResMut<NextState<MenuState>>,
         mut game_state: ResMut<NextState<GameState>>,
     ) {
-        for (interaction, menu_button_action) in &interaction_query {
-            if *interaction == Interaction::Pressed {
-                match menu_button_action {
-                    MenuButtonAction::Quit => {
-                        app_exit_writer.write(AppExit::Success);
-                    }
-                    MenuButtonAction::Play => {
-                        game_state.set(GameState::Game);
-                        menu_state.set(MenuState::Disabled);
-                    }
-                    MenuButtonAction::Settings => menu_state.set(MenuState::Settings),
-                    MenuButtonAction::SettingsDisplay => {
-                        menu_state.set(MenuState::SettingsDisplay);
-                    }
-                    MenuButtonAction::SettingsSound => {
-                        menu_state.set(MenuState::SettingsSound);
-                    }
-                    MenuButtonAction::BackToMainMenu => menu_state.set(MenuState::Main),
-                    MenuButtonAction::BackToSettings => {
-                        menu_state.set(MenuState::Settings);
-                    }
+        if let Ok(menu_button_action) = action_q.get(event.entity) {
+            match menu_button_action {
+                MenuButtonAction::Quit => {
+                    app_exit_writer.write(AppExit::Success);
+                }
+                MenuButtonAction::Play => {
+                    game_state.set(GameState::Game);
+                    menu_state.set(MenuState::Disabled);
+                }
+                MenuButtonAction::Settings => menu_state.set(MenuState::Settings),
+                MenuButtonAction::SettingsDisplay => {
+                    menu_state.set(MenuState::SettingsDisplay);
+                }
+                MenuButtonAction::SettingsSound => {
+                    menu_state.set(MenuState::SettingsSound);
+                }
+                MenuButtonAction::BackToMainMenu => menu_state.set(MenuState::Main),
+                MenuButtonAction::BackToSettings => {
+                    menu_state.set(MenuState::Settings);
                 }
             }
         }
