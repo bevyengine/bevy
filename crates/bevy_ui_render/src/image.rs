@@ -32,8 +32,8 @@ impl AsAssetId for ImageNodeTextureAtlasLayout {
     }
 }
 
-/// A system that marks [`ImageNode`]s as changed if either their [`Image`] or
-/// [`TextureAtlasLayout`] changed.
+/// A system that marks [`ImageNode`]s as changed if either their
+/// [`bevy_image::Image`] or [`TextureAtlasLayout`] changed.
 pub(crate) fn mark_images_as_changed_if_their_assets_changed(
     mut query: Query<
         (&mut ImageNode, Option<&mut ImageNodeTextureAtlasLayout>),

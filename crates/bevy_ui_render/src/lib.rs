@@ -20,6 +20,7 @@ pub mod ui_texture_slice_pipeline;
 #[cfg(feature = "bevy_ui_debug")]
 mod debug_overlay;
 
+use bevy_a11y::AccessibilitySystems;
 use bevy_camera::visibility::InheritedVisibility;
 use bevy_camera::{Camera, Camera2d, Camera3d, RenderTarget};
 use bevy_ecs::entity::EntityIndexMap;
@@ -215,7 +216,8 @@ impl Plugin for UiRenderPlugin {
             )
                 .chain()
                 .after(UiSystems::Content)
-                .after(AssetEventSystems),
+                .after(AssetEventSystems)
+                .after(AccessibilitySystems::Update),
         );
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
