@@ -7,7 +7,13 @@ use bevy::{
     anti_alias::taa::TemporalAntiAliasing,
     camera::Hdr,
     color::palettes::css::{BLACK, WHITE},
-    feathers::{dark_theme::create_dark_theme, theme::UiTheme, FeathersPlugins},
+    feathers::{
+        controls::{FeathersNumberInput, HardLimit, NumberInputPrecision, NumberInputValue},
+        dark_theme::create_dark_theme,
+        display::{label, label_small},
+        theme::UiTheme,
+        FeathersPlugins,
+    },
     image::{
         ImageAddressMode, ImageFilterMode, ImageLoaderSettings, ImageSampler,
         ImageSamplerDescriptor,
@@ -30,14 +36,13 @@ mod widgets;
 
 use widgets::{
     handle_ui_interactions, update_ui_radio_button_text, RadioButton, RadioButtonText,
-    WidgetClickEvent, WidgetClickSender, BUTTON_BORDER, BUTTON_BORDER_COLOR,
-    BUTTON_BORDER_RADIUS_SIZE, BUTTON_PADDING,
+    WidgetClickEvent, WidgetClickSender,
 };
 
 #[path = "../helpers/radio.rs"]
 mod radio;
 
-use radio::{feathers_option_buttons, main_ui_node_scene, ui_text_scene};
+use radio::{feathers_option_buttons, main_ui_node_scene};
 
 /// This example uses a shader source file from the assets subdirectory
 const SHADER_ASSET_PATH: &str = "shaders/water_material.wgsl";
@@ -548,10 +553,12 @@ fn range_row(
             align_items: AlignItems::Center,
         }
         Children[
-            ui_text_scene(title.to_string(), Color::WHITE)
             Node {
                 width: px(150),
-            },
+            }
+            Children[
+                label(title.to_string())
+            ],
 
             range_controls(
                 start_value,
@@ -560,10 +567,12 @@ fn range_row(
                 start_inc,
             ),
 
-            ui_text_scene("to".to_string(), Color::WHITE)
             Node {
                 margin: UiRect::horizontal(px(10)),
-            },
+            }
+            Children [
+                label_small("to".to_string())
+            ],
 
             range_controls(end_value, end_marker, end_dec, end_inc),
         ]
@@ -577,68 +586,16 @@ fn range_controls(
     inc_setting: ExampleSetting,
 ) -> impl Scene {
     bsn! {
+        @FeathersNumberInput
+        template_value(NumberInputValue::F32(value))
+        NumberInputPrecision(2)
+        HardLimit::f32(0.0..100.0)
         Node {
             align_items: AlignItems::Center,
         }
-        Children[
-            adjustment_button(dec_setting, "<", Some(true)),
-
-            Node {
-                width: px(50),
-                height: px(33),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                border: {BUTTON_BORDER.with_left(px(0)).with_right(px(0))},
-            }
-            BackgroundColor(Color::WHITE)
-            template_value(BUTTON_BORDER_COLOR)
-            template_value(marker)
-            Children[
-                ui_text_scene(format!("{:.2}", value), Color::BLACK)
-            ],
-
-            adjustment_button(inc_setting, ">", Some(false)),
-        ]
-    }
-}
-
-fn adjustment_button(
-    _setting: ExampleSetting,
-    label: &str,
-    is_left_right: Option<bool>,
-) -> impl Scene {
-    let border = if let Some(is_left) = is_left_right {
-        if is_left {
-            BUTTON_BORDER.with_right(px(0))
-        } else {
-            BUTTON_BORDER.with_left(px(0))
-        }
-    } else {
-        BUTTON_BORDER
-    };
-    let border_radius = match is_left_right {
-        Some(true) => BorderRadius::ZERO.with_left(BUTTON_BORDER_RADIUS_SIZE),
-        Some(false) => BorderRadius::ZERO.with_right(BUTTON_BORDER_RADIUS_SIZE),
-        None => BorderRadius::all(BUTTON_BORDER_RADIUS_SIZE),
-    };
-
-    bsn! {
-        Button
-        Node {
-            height: px(33),
-            border,
-            justify_content: JustifyContent::Center,
-            align_items: AlignItems::Center,
-            padding: BUTTON_PADDING,
-            border_radius
-        }
-        template_value(BUTTON_BORDER_COLOR)
-        BackgroundColor(Color::BLACK)
-        RadioButton
-        Children[
-            ui_text_scene(label.to_string(), Color::WHITE)
-            RadioButtonText
-        ]
+        on(
+            |_value_change: On<ValueChange<f32>>| {
+        })
     }
 }
 

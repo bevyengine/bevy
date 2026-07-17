@@ -2,7 +2,9 @@
 /// Using these helpers requires the `bevy_feathers` feature to be enabled.
 use bevy::{
     color::palettes,
-    feathers::{controls::FeathersRadio, display::caption, theme::ThemeProps},
+    feathers::{
+        controls::FeathersRadio, display::caption, display::label, theme::ThemeProps,
+    },
     platform::collections::HashMap,
     prelude::*,
     ui::Checked,
@@ -110,11 +112,7 @@ where
         }
         RadioGroup
         Children [
-            Text::new(title)
-            TextFont {
-                font_size: FontSize::Px(18.0),
-            }
-            TextColor(Color::BLACK),
+            label(title),
             {buttons}
         ]
     }
@@ -144,16 +142,5 @@ where
             }
             RadioButtonOptionValue<T>(option_value)
         })
-    }
-}
-
-/// Creates a text bundle for the UI.
-pub fn ui_text_scene(label: String, color: Color) -> impl Scene {
-    bsn! {
-        Text::new(label)
-        TextFont {
-            font_size: FontSize::Px(18.0),
-        }
-        TextColor(color)
     }
 }
