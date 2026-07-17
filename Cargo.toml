@@ -4986,7 +4986,7 @@ wasm = false
 name = "app_under_test"
 path = "examples/remote/app_under_test.rs"
 doc-scrape-examples = true
-required-features = ["bevy_remote"]
+required-features = ["bevy_remote", "bevy_feathers"]
 
 [package.metadata.example.app_under_test]
 name = "App Under Test"
@@ -4998,7 +4998,7 @@ wasm = false
 name = "integration_test"
 path = "examples/remote/integration_test.rs"
 doc-scrape-examples = true
-required-features = ["bevy_remote"]
+required-features = ["bevy_remote", "bevy_feathers"]
 
 [package.metadata.example.integration_test]
 name = "Integration Test"
@@ -5172,7 +5172,7 @@ wasm = true
 name = "pcss"
 path = "examples/3d/pcss.rs"
 doc-scrape-examples = true
-required-features = ["experimental_pbr_pcss"]
+required-features = ["bevy_feathers", "experimental_pbr_pcss"]
 
 [package.metadata.example.pcss]
 name = "Percentage-closer soft shadows"
