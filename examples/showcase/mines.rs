@@ -303,7 +303,7 @@ fn rebuild_game_ui(commands: &mut Commands, root: Entity, game: &Game, assets: &
                                     children![(
                                         Text::new("*"),
                                         TextFont::from_font_size(24.0),
-                                        TextColor(MOST_DANGER_COLOR.into()),
+                                        TextColor(MOST_DANGER_COLOR),
                                     )],
                                 ));
                             } else if game.game_over || tile.revealed {
