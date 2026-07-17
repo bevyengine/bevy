@@ -1004,7 +1004,7 @@ pub struct IndirectParametersBuildJobs {
     /// The [`RawBufferVec`] containing the jobs.
     ///
     /// Each job in this buffer must be aligned to
-    /// [`wgpu::Limits::min_uniform_buffer_offset`] bytes.
+    /// [`wgpu::Limits::min_uniform_buffer_offset_alignment`] bytes.
     buffer: RawBufferVec<IndirectParametersBuildJob>,
 }
 
