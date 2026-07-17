@@ -630,6 +630,7 @@ fn handle_value_change_ssr_on(
     update_views(commands, app_settings, cameras);
 }
 
+/// Update the camera views, particularly after `SsrOn` or any of the number inputs change
 fn update_views(
     mut commands: Commands,
     app_settings: ResMut<AppSettings>,
@@ -734,6 +735,7 @@ fn handle_value_change_displayed_base(
     }
 }
 
+/// Observer that handles changes to number inputs and updates state and the app accordingly.
 fn handle_value_change_number_input(
     value_change: On<ValueChange<f32>>,
     mut commands: Commands,

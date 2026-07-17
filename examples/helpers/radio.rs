@@ -31,10 +31,6 @@ pub fn main_ui_node_scene() -> impl Scene {
 }
 
 /// Creates a basic feathers theme props for the radio buttons.
-#[allow(
-    unused,
-    reason = "For certain examples, it may be better go to with the dark theme than this one."
-)]
 pub fn basic_radio_button_theme(text_color: Color) -> ThemeProps {
     let mut color = HashMap::new();
     color.insert(bevy::feathers::tokens::RADIO_TEXT, text_color);
