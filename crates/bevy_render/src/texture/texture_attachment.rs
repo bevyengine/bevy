@@ -153,6 +153,42 @@ impl DepthStencilViews {
             DepthStencilViews::DepthStencil { combined_view, .. } => combined_view,
         }
     }
+
+    /// Create the appropriate views for a depth-stencil texture based on its texture format.
+    fn from_texture(texture: &CachedTexture) -> Self {
+        let depth_view = || {
+            texture.texture.create_view(&TextureViewDescriptor {
+                aspect: wgpu::TextureAspect::DepthOnly,
+                ..Default::default()
+            })
+        };
+
+        let stencil_view = || {
+            texture.texture.create_view(&TextureViewDescriptor {
+                aspect: wgpu::TextureAspect::StencilOnly,
+                ..Default::default()
+            })
+        };
+
+        match texture.texture.format().channels() {
+            wgpu_types::TextureChannel::DEPTH_STENCIL => DepthStencilViews::DepthStencil {
+                combined_view: texture
+                    .texture
+                    .create_view(&TextureViewDescriptor::default()),
+                depth_view: depth_view(),
+                stencil_view: stencil_view(),
+            },
+            wgpu_types::TextureChannel::DEPTH => DepthStencilViews::DepthOnly {
+                depth_view: depth_view(),
+            },
+            wgpu_types::TextureChannel::STENCIL => DepthStencilViews::StencilOnly {
+                stencil_view: stencil_view(),
+            },
+            _ => {
+                panic!("Can't create depth attachment. Texture format is not depth-stencil format")
+            }
+        }
+    }
 }
 
 /// A wrapper for a [`CachedTexture`] that is used as a depth [`RenderPassDepthStencilAttachment`].
@@ -175,73 +211,12 @@ impl DepthStencilAttachment {
         depth_clear_value: Option<f32>,
         stencil_clear_value: Option<u32>,
     ) -> Self {
-        let depth_stencil_views = match texture.texture.format().channels() {
-            wgpu_types::TextureChannel::DEPTH_STENCIL => DepthStencilViews::DepthStencil {
-                combined_view: texture
-                    .texture
-                    .create_view(&TextureViewDescriptor::default()),
-                depth_view: texture.texture.create_view(&TextureViewDescriptor {
-                    aspect: wgpu::TextureAspect::DepthOnly,
-                    ..Default::default()
-                }),
-                stencil_view: texture.texture.create_view(&TextureViewDescriptor {
-                    aspect: wgpu::TextureAspect::StencilOnly,
-                    ..Default::default()
-                }),
-            },
-            wgpu_types::TextureChannel::DEPTH => DepthStencilViews::DepthOnly {
-                depth_view: texture.texture.create_view(&TextureViewDescriptor {
-                    aspect: wgpu::TextureAspect::DepthOnly,
-                    ..Default::default()
-                }),
-            },
-            wgpu_types::TextureChannel::STENCIL => DepthStencilViews::StencilOnly {
-                stencil_view: texture.texture.create_view(&TextureViewDescriptor {
-                    aspect: wgpu::TextureAspect::StencilOnly,
-                    ..Default::default()
-                }),
-            },
-            _ => {
-                panic!("Can't create depth attachment. Texture format is not depth-stencil format")
-            }
-        };
+        let depth_stencil_views = DepthStencilViews::from_texture(&texture);
 
-        let previous_frame_depth_stencil_views = match previous_frame_texture
+        let previous_frame_depth_stencil_views = previous_frame_texture
             .as_ref()
-            .map(|t| t.texture.format().channels())
-        {
-            Some(wgpu_types::TextureChannel::DEPTH_STENCIL) => {
-                Some(DepthStencilViews::DepthStencil {
-                    combined_view: texture
-                        .texture
-                        .create_view(&TextureViewDescriptor::default()),
-                    depth_view: texture.texture.create_view(&TextureViewDescriptor {
-                        aspect: wgpu::TextureAspect::DepthOnly,
-                        ..Default::default()
-                    }),
-                    stencil_view: texture.texture.create_view(&TextureViewDescriptor {
-                        aspect: wgpu::TextureAspect::StencilOnly,
-                        ..Default::default()
-                    }),
-                })
-            }
-            Some(wgpu_types::TextureChannel::DEPTH) => Some(DepthStencilViews::DepthOnly {
-                depth_view: texture.texture.create_view(&TextureViewDescriptor {
-                    aspect: wgpu::TextureAspect::DepthOnly,
-                    ..Default::default()
-                }),
-            }),
-            Some(wgpu_types::TextureChannel::STENCIL) => Some(DepthStencilViews::StencilOnly {
-                stencil_view: texture.texture.create_view(&TextureViewDescriptor {
-                    aspect: wgpu::TextureAspect::StencilOnly,
-                    ..Default::default()
-                }),
-            }),
-            None => None,
-            Some(_) => {
-                panic!("Can't create depth attachment. Texture format is not depth-stencil format")
-            }
-        };
+            .map(DepthStencilViews::from_texture);
+
         Self {
             texture,
             previous_frame_texture,
