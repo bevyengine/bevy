@@ -1,4 +1,4 @@
-use crate::{ops, Vec3, Vec3A, Vec4, Vec4Swizzles};
+use bevy_math::{ops, Vec3, Vec3A, Vec4, Vec4Swizzles};
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -27,7 +27,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// It includes all the points from the bisecting plane towards `NEG_Z`, and the distance
 /// from the plane to the origin is `-8.0` along `NEG_Z`.
 ///
-/// It is used to define a [`ViewFrustum`](crate::primitives::ViewFrustum),
+/// It is used to define a [`ViewFrustum`](crate::ViewFrustum),
 /// but is also a useful mathematical primitive for rendering tasks such as  light computation.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -108,8 +108,8 @@ mod half_space_tests {
 
     use approx::assert_relative_eq;
 
-    use super::HalfSpace;
-    use crate::{Vec3, Vec4};
+    use crate::half_space::HalfSpace;
+    use bevy_math::{Vec3, Vec4};
 
     #[test]
     fn intersection_point() {

@@ -3,11 +3,10 @@ use derive_more::derive::From;
 #[cfg(feature = "alloc")]
 use thiserror::Error;
 
-use super::{Measured2d, Primitive2d, WindingOrder};
-use crate::{
+use crate::{Inset, Measured2d, Primitive2d, Ray2d, WindingOrder};
+use bevy_math::{
     ops::{self, FloatPow},
-    primitives::Inset,
-    Dir2, InvalidDirectionError, Isometry2d, Ray2d, Rot2, Vec2,
+    Dir2, InvalidDirectionError, Isometry2d, Rot2, Vec2,
 };
 
 #[cfg(feature = "alloc")]

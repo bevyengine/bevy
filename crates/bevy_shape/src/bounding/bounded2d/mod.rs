@@ -1,11 +1,8 @@
 mod primitive_impls;
 
 use super::{BoundingVolume, IntersectsVolume};
-use crate::{
-    ops,
-    prelude::{Mat2, Rot2, Vec2},
-    FloatPow, Isometry2d,
-};
+use crate::Circle;
+use bevy_math::{ops, FloatPow, Isometry2d, Mat2, Rot2, Vec2};
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
@@ -273,10 +270,8 @@ mod aabb2d_tests {
     use approx::assert_relative_eq;
 
     use super::Aabb2d;
-    use crate::{
-        bounding::{BoundingCircle, BoundingVolume, IntersectsVolume},
-        ops, Vec2,
-    };
+    use crate::bounding::{BoundingCircle, BoundingVolume, IntersectsVolume};
+    use bevy_math::{ops, Vec2};
 
     #[test]
     fn center() {
@@ -469,8 +464,6 @@ mod aabb2d_tests {
     }
 }
 
-use crate::primitives::Circle;
-
 /// A bounding circle
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(
@@ -644,10 +637,8 @@ impl IntersectsVolume<Aabb2d> for BoundingCircle {
 #[cfg(test)]
 mod bounding_circle_tests {
     use super::BoundingCircle;
-    use crate::{
-        bounding::{BoundingVolume, IntersectsVolume},
-        ops, Vec2,
-    };
+    use crate::bounding::{BoundingVolume, IntersectsVolume};
+    use bevy_math::{ops, Vec2};
 
     #[test]
     fn area() {
