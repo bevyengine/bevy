@@ -1164,7 +1164,7 @@ impl From<(Val, Val)> for UiPosition {
 }
 
 /// Radius of a circle or an ellipse.
-/// If one field is auto, the radius will be circular.
+/// If one field is auto, the resolved radius will be circular with the radius clamped to max half of the min of the node's width or height.
 /// If either field is zero or both are auto, the node will have square corners.
 #[derive(Debug, PartialEq, Clone, Copy, Reflect)]
 #[reflect(Default, PartialEq, Debug, Clone)]
@@ -1173,17 +1173,71 @@ impl From<(Val, Val)> for UiPosition {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-pub struct Radius {
+pub struct CornerRadius {
     pub x: Val,
     pub y: Val,
 }
 
-impl Default for Radius {
+impl CornerRadius {
+    pub fn circle(radius: Val) -> Self {
+        Self {
+            x: radius,
+            y: auto(),
+        }
+    }
+
+    pub fn resolve(self, scale_factor: f32, size: Vec2, viewport_size: Vec2) -> Vec2 {
+        match self {
+            Self {
+                x: Val::Auto,
+                y: Val::Auto,
+            } => Vec2::ZERO,
+            Self {
+                x: radius,
+                y: Val::Auto,
+            }
+            | Self {
+                x: Val::Auto,
+                y: radius,
+            } => Vec2::splat(
+                radius
+                    .resolve(scale_factor, size.min_element(), viewport_size)
+                    .unwrap_or(0.)
+                    .clamp(0., 0.5 * size.min_element()),
+            ),
+            Self { x, y } => Vec2::new(
+                x.resolve(scale_factor, size.x, viewport_size).unwrap_or(0.),
+                y.resolve(scale_factor, size.y, viewport_size).unwrap_or(0.),
+            )
+            .clamp(Vec2::ZERO, 0.5 * size),
+        }
+    }
+}
+
+impl Default for CornerRadius {
     fn default() -> Self {
         Self {
             x: auto(),
             y: auto(),
         }
+    }
+}
+
+impl From<Val> for CornerRadius {
+    fn from(x: Val) -> Self {
+        Self { x, y: auto() }
+    }
+}
+
+impl From<(Val, Val)> for CornerRadius {
+    fn from((x, y): (Val, Val)) -> Self {
+        Self { x, y }
+    }
+}
+
+impl From<[Val; 2]> for CornerRadius {
+    fn from([x, y]: [Val; 2]) -> Self {
+        Self { x, y }
     }
 }
 
@@ -1213,6 +1267,41 @@ mod tests {
         assert_eq!(result, 30.);
         let result = Val::Px(10.).resolve(0.25, size, viewport_size).unwrap();
         assert_eq!(result, 2.5);
+    }
+
+    #[test]
+    fn radius_resolve() {
+        let size = vec2(100., 50.);
+        let viewport_size = vec2(1000., 500.);
+
+        assert_eq!(
+            CornerRadius {
+                x: Val::Px(100.),
+                y: Val::Auto,
+            }
+            .resolve(1., size, viewport_size),
+            vec2(25., 25.)
+        );
+        assert_eq!(
+            CornerRadius {
+                x: Val::Px(40.),
+                y: Val::Px(40.),
+            }
+            .resolve(1., size, viewport_size),
+            vec2(40., 25.)
+        );
+        assert_eq!(
+            CornerRadius {
+                x: Val::ZERO,
+                y: Val::Px(20.),
+            }
+            .resolve(1., size, viewport_size),
+            vec2(0., 0.)
+        );
+        assert_eq!(
+            CornerRadius::default().resolve(1., size, viewport_size),
+            vec2(0., 0.)
+        );
     }
 
     #[test]
