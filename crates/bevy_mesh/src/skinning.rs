@@ -4,11 +4,9 @@ use bevy_ecs::{
     component::Component, entity::Entity, prelude::ReflectComponent, system::Query,
     template::FromTemplate,
 };
-use bevy_math::{
-    bounding::{Aabb3d, BoundingVolume},
-    Affine3A, Mat4, Vec3, Vec3A,
-};
+use bevy_math::{Affine3A, Mat4, Vec3, Vec3A};
 use bevy_reflect::prelude::*;
+use bevy_shape::bounding::{Aabb3d, BoundingVolume};
 use bevy_transform::components::GlobalTransform;
 use core::ops::Deref;
 use thiserror::Error;
@@ -290,8 +288,8 @@ fn transform_aabb(input: JointAabb, transform: Affine3A) -> Aabb3d {
 // let result = a.finish();
 // ```
 //
-// For alternatives, see [`Aabb3d::from_point_clound`](`bevy_math::bounding::bounded3d::Aabb3d::from_point_cloud`)
-// and [`BoundingVolume::merge`](`bevy_math::bounding::BoundingVolume::merge`).
+// For alternatives, see [`Aabb3d::from_point_clound`](`bevy_shape::bounding::bounded3d::Aabb3d::from_point_cloud`)
+// and [`BoundingVolume::merge`](`bevy_shape::bounding::BoundingVolume::merge`).
 #[derive(Copy, Clone)]
 struct AabbAccumulator {
     min: Vec3A,

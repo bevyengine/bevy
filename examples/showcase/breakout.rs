@@ -3,8 +3,8 @@
 //! Demonstrates Bevy's stepping capabilities if compiled with the `bevy_debug_stepping` feature.
 
 use bevy::{
-    math::bounding::{Aabb2d, BoundingCircle, BoundingVolume, IntersectsVolume},
     prelude::*,
+    shape::bounding::{Aabb2d, BoundingCircle, BoundingVolume, IntersectsVolume},
 };
 
 mod stepping;
