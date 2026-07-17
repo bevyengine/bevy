@@ -232,7 +232,8 @@ mod menu {
         ecs::spawn::{SpawnIter, SpawnWith},
         picking::prelude::*,
         prelude::*,
-        ui_widgets::{Activate, ActivateOnPress, Button},
+        ui::Checked,
+        ui_widgets::{Activate, ActivateOnPress, Button, RadioButton, RadioGroup, ValueChange},
     };
 
     use super::{DisplayQuality, GameState, Setting, Volume, TEXT_COLOR};
@@ -258,20 +259,21 @@ mod menu {
                 display_settings_menu_setup,
             )
             .add_observer(
-                on_button_activate_setting_button::<DisplayQuality>
+                on_value_change_setting_radio::<DisplayQuality>
                     .run_if(in_state(MenuState::SettingsDisplay)),
             )
             // Systems to handle the sound settings screen
             .add_systems(OnEnter(MenuState::SettingsSound), sound_settings_menu_setup)
             .add_observer(
-                on_button_activate_setting_button::<Volume>
-                    .run_if(in_state(MenuState::SettingsSound)),
+                on_value_change_setting_radio::<Volume>.run_if(in_state(MenuState::SettingsSound)),
             )
             // Observer that handles navigation within the app upon pressing certain buttons.
             .add_observer(on_button_activate_update_states)
-            // Observers for button styling
+            // Observers for button styling (regular buttons and radio buttons)
             .add_observer(on_button_over_style)
-            .add_observer(on_button_out_style);
+            .add_observer(on_button_out_style)
+            .add_observer(on_radio_button_press_style)
+            .add_observer(on_radio_button_release_style);
     }
 
     // State used for the current menu screen
@@ -306,10 +308,6 @@ mod menu {
     const HOVERED_PRESSED_BUTTON: Color = Color::srgb(0.25, 0.65, 0.25);
     const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
 
-    // Tag component used to mark which setting is currently selected
-    #[derive(Component)]
-    struct SelectedOption;
-
     // All actions that can be triggered from a button click
     #[derive(Component)]
     enum MenuButtonAction {
@@ -322,45 +320,91 @@ mod menu {
         Quit,
     }
 
-    /// Observer that changes the background color to hovered over buttons to the correct color.
+    /// Observer that changes the background color to hovered over buttons / radio buttons to the correct color.
     fn on_button_over_style(
         event: On<Pointer<Over>>,
-        mut bg_q: Query<&mut BackgroundColor, With<Button>>,
+        mut button_q: Query<&mut BackgroundColor, (With<Button>, Without<RadioButton>)>,
+        mut radio_button_q: Query<
+            (&mut BackgroundColor, Has<Checked>),
+            (With<RadioButton>, Without<Button>),
+        >,
     ) {
-        if let Ok(mut background_color) = bg_q.get_mut(event.entity) {
+        if let Ok(mut background_color) = button_q.get_mut(event.entity) {
             *background_color = HOVERED_BUTTON.into();
+        }
+        if let Ok((mut background_color, is_checked)) = radio_button_q.get_mut(event.entity) {
+            if is_checked {
+                *background_color = HOVERED_PRESSED_BUTTON.into();
+            } else {
+                *background_color = HOVERED_BUTTON.into();
+            }
         }
     }
 
-    /// Observer that returns the normal background color to buttons that are hovered out of.
+    /// Observer that returns the normal background color to buttons / radio buttons that are hovered out of.
     fn on_button_out_style(
         event: On<Pointer<Out>>,
-        mut bg_q: Query<&mut BackgroundColor, With<Button>>,
+        mut bg_q: Query<&mut BackgroundColor, (With<Button>, Without<RadioButton>)>,
+        mut radio_button_q: Query<
+            (&mut BackgroundColor, Has<Checked>),
+            (With<RadioButton>, Without<Button>),
+        >,
     ) {
         if let Ok(mut background_color) = bg_q.get_mut(event.entity) {
             *background_color = NORMAL_BUTTON.into();
         }
+        if let Ok((mut background_color, is_checked)) = radio_button_q.get_mut(event.entity) {
+            if is_checked {
+                *background_color = PRESSED_BUTTON.into();
+            } else {
+                *background_color = NORMAL_BUTTON.into();
+            }
+        }
+    }
+
+    /// Observer that changes the background color of radio buttons that are pressed
+    fn on_radio_button_press_style(
+        event: On<Pointer<Press>>,
+        mut radio_button_q: Query<&mut BackgroundColor, With<RadioButton>>,
+    ) {
+        if let Ok(mut background_color) = radio_button_q.get_mut(event.entity) {
+            *background_color = PRESSED_BUTTON.into();
+        }
+    }
+
+    /// Observer that changes the background color of radio buttons that are pressed
+    fn on_radio_button_release_style(
+        event: On<Pointer<Release>>,
+        mut radio_button_q: Query<(&mut BackgroundColor, Has<Checked>), With<RadioButton>>,
+    ) {
+        if let Ok((mut background_color, is_checked)) = radio_button_q.get_mut(event.entity) {
+            if is_checked {
+                *background_color = HOVERED_PRESSED_BUTTON.into();
+            } else {
+                *background_color = HOVERED_BUTTON.into();
+            }
+        }
     }
 
     // This system updates the settings when a new value for a setting is selected, and marks
-    // the button as the one currently selected
-    fn on_button_activate_setting_button<
+    // the radio button as the one currently selected
+    fn on_value_change_setting_radio<
         T: Resource<Mutability = Mutable> + Component + PartialEq + Copy,
     >(
-        event: On<Activate>,
-        activated_query: Query<(&Setting<T>, Entity), With<Button>>,
-        selected_query: Single<(Entity, &mut BackgroundColor), With<SelectedOption>>,
+        event: On<ValueChange<Entity>>,
+        new_setting_query: Query<(&Setting<T>, Entity), (With<RadioButton>, Without<Checked>)>,
+        previous_query: Single<(Entity, &mut BackgroundColor), (With<RadioButton>, With<Checked>)>,
         mut commands: Commands,
         mut setting: ResMut<T>,
     ) {
-        let (previous_button, mut previous_button_color) = selected_query.into_inner();
-        if let Ok((button_setting, entity)) = activated_query.get(event.entity)
-            && *setting != button_setting.0
+        if let Ok((radio_setting, entity)) = new_setting_query.get(event.value)
+            && *setting != radio_setting.0
         {
+            let (previous, mut previous_button_color) = previous_query.into_inner();
             *previous_button_color = NORMAL_BUTTON.into();
-            commands.entity(previous_button).remove::<SelectedOption>();
-            commands.entity(entity).insert(SelectedOption);
-            *setting = button_setting.0;
+            commands.entity(previous).remove::<Checked>();
+            commands.entity(entity).insert(Checked);
+            *setting = radio_setting.0;
         }
     }
 
@@ -575,7 +619,10 @@ mod menu {
                 children![
                     // Create a new `Node`, this time not setting its `flex_direction`. It will
                     // use the default value, `FlexDirection::Row`, from left to right.
+                    // Because the setting can only be one of three values, a RadioGroup
+                    // is used, with each individual value as a RadioButton
                     (
+                        RadioGroup,
                         Node {
                             align_items: AlignItems::Center,
                             ..default()
@@ -591,7 +638,7 @@ mod menu {
                                     DisplayQuality::High,
                                 ] {
                                     let mut entity = parent.spawn((
-                                        Button,
+                                        RadioButton,
                                         Node {
                                             width: px(150),
                                             height: px(65),
@@ -605,7 +652,7 @@ mod menu {
                                         )],
                                     ));
                                     if display_quality == quality_setting {
-                                        entity.insert(SelectedOption);
+                                        entity.insert((Checked, BackgroundColor(PRESSED_BUTTON)));
                                     }
                                 }
                             })
@@ -663,6 +710,7 @@ mod menu {
                 BackgroundColor(CRIMSON.into()),
                 children![
                     (
+                        RadioGroup,
                         Node {
                             align_items: AlignItems::Center,
                             ..default()
@@ -673,7 +721,7 @@ mod menu {
                             SpawnWith(move |parent: &mut ChildSpawner| {
                                 for volume_setting in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] {
                                     let mut entity = parent.spawn((
-                                        Button,
+                                        RadioButton,
                                         Node {
                                             width: px(30),
                                             height: px(65),
@@ -683,7 +731,7 @@ mod menu {
                                         Setting(Volume(volume_setting)),
                                     ));
                                     if volume == Volume(volume_setting) {
-                                        entity.insert(SelectedOption);
+                                        entity.insert((Checked, BackgroundColor(PRESSED_BUTTON)));
                                     }
                                 }
                             })
