@@ -372,7 +372,7 @@ mod menu {
         }
     }
 
-    /// Observer that changes the background color of radio buttons that are pressed
+    /// Observer that changes the background color of radio buttons that are released
     fn on_radio_button_release_style(
         event: On<Pointer<Release>>,
         mut radio_button_q: Query<(&mut BackgroundColor, Has<Checked>), With<RadioButton>>,
