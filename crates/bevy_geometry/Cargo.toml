@@ -1,0 +1,98 @@
+[package]
+description  = "Provides geometric functionality primitive shapes for Bevy Engine"
+edition      = "2024"
+homepage     = "https://bevy.org"
+keywords     = ["bevy"]
+license      = "MIT OR Apache-2.0"
+name         = "bevy_geometry"
+repository   = "https://github.com/bevyengine/bevy"
+rust-version = "1.94.0"
+version      = "0.20.0-dev"
+
+[dependencies]
+approx = { default-features = false, optional = true, version = "0.5" }
+arrayvec = { default-features = false, version = "0.7" }
+bevy_math = { default-features = false, path = "../bevy_math" }
+bevy_reflect = { default-features = false, features = [
+  "glam",
+], optional = true, path = "../bevy_reflect", version = "0.20.0-dev" }
+bevy_shape = { default-features = false, path = "../bevy_shape" }
+derive_more = { default-features = false, features = [
+  "from",
+  "into",
+], version = "2" }
+itertools = { default-features = false, version = "0.14.0" }
+rand = { default-features = false, optional = true, version = "0.10" }
+rand_distr = { optional = true, version = "0.6" }
+serde = { default-features = false, features = [
+  "derive",
+], optional = true, version = "1" }
+thiserror = { default-features = false, version = "2" }
+variadics_please = "2.0"
+
+[dev-dependencies]
+approx = "0.5"
+# Supply rngs for examples and tests
+chacha20 = { default-features = false, features = ["rng"], version = "0.10.0" }
+rand     = "0.10"
+# Enable the approx feature when testing.
+bevy_math = { default-features = false, features = [
+  "approx",
+], path = "../bevy_math" }
+bevy_shape = { default-features = false, features = [
+  "approx",
+], path = "../bevy_shape" }
+
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+getrandom = { default-features = false, features = [
+  "wasm_js",
+], version = "0.4" }
+
+[features]
+alloc = [
+  "bevy_math/alloc",
+  "bevy_shape/alloc",
+  "itertools/use_alloc",
+  "rand?/alloc",
+  "rand_distr?/alloc",
+  "serde?/alloc",
+]
+default = ["curve", "rand", "std"]
+std = [
+  "alloc",
+  "approx?/std",
+  "bevy_math/std",
+  "bevy_reflect?/std",
+  "bevy_shape/std",
+  "derive_more/std",
+  "itertools/use_std",
+  "rand?/std",
+  "rand_distr?/std",
+  "serde?/std",
+]
+
+serialize = ["bevy_math/serialize", "bevy_shape/serialize", "dep:serde"]
+# Enable approx for glam types to approximate floating point equality comparisons and assertions
+approx = ["bevy_math/approx", "bevy_shape/approx", "dep:approx"]
+# Enable the rand dependency for shape_sampling
+rand = ["dep:rand", "dep:rand_distr"]
+# Include code related to the Curve trait
+curve = []
+# Enable bevy_reflect (requires alloc)
+bevy_reflect = [
+  "alloc",
+  "bevy_math/bevy_reflect",
+  "bevy_shape/bevy_reflect",
+  "dep:bevy_reflect",
+]
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = [
+  "--generate-link-to-definition",
+  "--generate-macro-expansion",
+  "-Zunstable-options",
+]
