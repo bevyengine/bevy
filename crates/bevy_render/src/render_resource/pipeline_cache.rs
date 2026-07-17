@@ -758,9 +758,10 @@ impl PipelineCache {
                 shader.shader_defs.extend(cache.global_shader_defs.clone());
                 cache.set_shader(id, shader);
             }
-            // Drain events so we don't double-process shaders we just loaded.
-            for _ in events.read() {}
-            return;
+            // Fall through to the per-event loop below rather than draining and
+            // returning: a shader whose Added/Modified event is in this frame's
+            // buffer but which the snapshot above missed (e.g. async-loaded on
+            // web) must still be applied, not dropped. See #24944.
         }
 
         for event in events.read() {
@@ -861,5 +862,150 @@ fn create_pipeline_task(
     match bevy_tasks::block_on(task) {
         Ok(pipeline) => CachedPipelineState::Ok(pipeline),
         Err(err) => CachedPipelineState::Err(err),
+    }
+}
+
+#[cfg(test)]
+mod verify_24944 {
+    use super::*;
+    use crate::{renderer::initialize_renderer, settings::WgpuSettings, MainWorld};
+    use bevy_asset::{uuid::Uuid, Assets};
+    use bevy_ecs::message::Messages;
+    use bevy_ecs::world::World;
+    use bevy_material::descriptor::ComputePipelineDescriptor;
+
+    /// End-to-end regression proof for bevy #24944, driving the *real*
+    /// [`PipelineCache::extract_shaders`] system across two manual frames on a
+    /// real GPU. Requires an adapter, so it is `#[ignore]`d and run locally.
+    ///
+    /// The bug: on the frame `needs_shader_reload` is set, the pre-fix code
+    /// drained pending `AssetEvent<Shader>` and returned early, skipping the
+    /// per-event loop. This test exercises the one reload-frame divergence that
+    /// can be observed by driving the real system: a `Removed` event.
+    ///
+    /// The reload snapshot loop only ever *applies* shaders (`set_shader`); it
+    /// never removes. So a `Removed` event that arrives on a reload frame is
+    /// handled *only* by the per-event loop the bug skipped. Concretely:
+    ///
+    /// - **Fixed:** the removal is applied, invalidating the dependent pipeline,
+    ///   so `waiting_pipelines().count() >= 1`.
+    /// - **Pre-fix (buggy):** the removal is dropped, the pipeline keeps a stale
+    ///   `Ok` state, so `waiting_pipelines().count() == 0`.
+    ///
+    /// The polarity is intentionally inverted from the original "pipeline stuck
+    /// waiting" symptom: here `>= 1` is the *correct* (fixed) outcome. Both prove
+    /// the same defect — whether shader events are applied on the reload frame.
+    /// (The `Added`/`Modified` polarity is provably un-observable when driving the
+    /// real system, because the reload snapshot and the per-event lookup read the
+    /// same `Assets<Shader>`, so they cannot disagree within one call.)
+    #[test]
+    #[ignore = "needs a real GPU adapter (Metal on macOS); run locally with --ignored"]
+    fn removed_event_on_reload_frame_is_not_dropped_24944() {
+        // Real device/adapter (Metal). raw_vulkan_init is not a default feature,
+        // so initialize_renderer takes three arguments here.
+        let resources = bevy_tasks::block_on(initialize_renderer(
+            wgpu::Backends::METAL,
+            None,
+            &WgpuSettings::default(),
+        ));
+        let device = resources.0.clone();
+        let adapter = resources.3.clone();
+
+        // synchronous_pipeline_compilation = true; on macOS create_pipeline_task
+        // always blocks, so process_queue is deterministic (Queued -> Ok/Err in
+        // one call).
+        let mut cache = PipelineCache::new(device, adapter, true);
+
+        let x_uuid = Uuid::from_u128(0x24944);
+        let x_id = AssetId::<Shader>::Uuid { uuid: x_uuid };
+        let x_handle: Handle<Shader> = Handle::Uuid(x_uuid, core::marker::PhantomData);
+
+        // Queue pipeline P depending on shader X.
+        let p = cache.queue_compute_pipeline(ComputePipelineDescriptor {
+            label: None,
+            layout: Vec::new(),
+            immediate_size: 0,
+            shader: x_handle,
+            shader_defs: Vec::new(),
+            entry_point: Some("main".into()),
+            zero_initialize_workgroup_memory: false,
+            constants: Vec::new(),
+        });
+
+        // Render world holding a MainWorld with Assets<Shader> (containing X) and
+        // an empty AssetEvent message buffer — the two resources the Extract
+        // params read from.
+        let mut render_world = World::new();
+        {
+            let mut main_world = MainWorld::default();
+            let mut shaders = Assets::<Shader>::default();
+            shaders
+                .insert(
+                    x_id,
+                    Shader::from_wgsl("@compute @workgroup_size(1) fn main() {}", "x.wgsl"),
+                )
+                .unwrap();
+            main_world.insert_resource(shaders);
+            main_world.insert_resource(Messages::<AssetEvent<Shader>>::default());
+            render_world.insert_resource(main_world);
+        }
+        render_world.insert_resource(cache);
+
+        // ---- Frame 0 (reload): snapshot applies X, P compiles to Ok. ----
+        render_world
+            .run_system_cached(PipelineCache::extract_shaders)
+            .unwrap();
+        // Drive the queue a few times: a synchronously-compiled pipeline may take
+        // more than one pass to settle out of waiting_pipelines.
+        for _ in 0..4 {
+            render_world.resource_mut::<PipelineCache>().process_queue();
+        }
+        {
+            let cache = render_world.resource::<PipelineCache>();
+            let state = cache.get_compute_pipeline_state(p);
+            assert!(
+                matches!(state, CachedPipelineState::Ok(_)),
+                "harness precondition: P should compile against X on frame 0 (got {state:?})",
+            );
+            assert_eq!(
+                cache.waiting_pipelines().count(),
+                0,
+                "harness precondition: nothing waiting once P is Ok",
+            );
+        }
+
+        // ---- Between frames: X is dropped and a Removed{X} event is emitted; the
+        //      reload flag is re-armed so frame 1 is again a reload frame. ----
+        {
+            let mut main_world = render_world.resource_mut::<MainWorld>();
+            main_world.resource_mut::<Assets<Shader>>().remove(x_id);
+            main_world
+                .resource_mut::<Messages<AssetEvent<Shader>>>()
+                .write(AssetEvent::Removed { id: x_id });
+        }
+        render_world
+            .resource_mut::<PipelineCache>()
+            .needs_shader_reload = true;
+
+        // ---- Frame 1 (reload): snapshot ignores X (gone from Assets); only the
+        //      per-event loop can apply Removed{X}. ----
+        render_world
+            .run_system_cached(PipelineCache::extract_shaders)
+            .unwrap();
+        for _ in 0..4 {
+            render_world.resource_mut::<PipelineCache>().process_queue();
+        }
+
+        let waiting = render_world
+            .resource::<PipelineCache>()
+            .waiting_pipelines()
+            .count();
+
+        assert!(
+            waiting >= 1,
+            "bevy #24944: a Removed event on a reload frame must be applied, \
+             invalidating the dependent pipeline (waiting >= 1). Got waiting == {waiting}: \
+             the event was dropped — this is the pre-fix bug.",
+        );
     }
 }

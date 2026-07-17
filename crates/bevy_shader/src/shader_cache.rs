@@ -467,3 +467,56 @@ pub enum ShaderCacheError {
     #[error("Could not create shader module: {0}")]
     CreateShaderModule(String),
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy_asset::{uuid::Uuid, AssetId};
+
+    /// A GPU-free [`ShaderCache`]: both the module type and the device type are
+    /// `()`, and `load_module` is never reached on the paths under test.
+    fn test_cache() -> ShaderCache<(), ()> {
+        ShaderCache::new(
+            (),
+            Features::empty(),
+            DownlevelFlags::empty(),
+            |_d, _s, _v| Ok(()),
+        )
+    }
+
+    fn shader_id(n: u128) -> AssetId<Shader> {
+        AssetId::Uuid {
+            uuid: Uuid::from_u128(n),
+        }
+    }
+
+    /// A shader absent from the cache reports [`ShaderCacheError::ShaderNotLoaded`];
+    /// once [`ShaderCache::set_shader`] applies it, `get` no longer does. This is
+    /// the cache operation `PipelineCache::extract_shaders` performs for an
+    /// `Added`/`Modified` shader event — the path #24944 restored on the reload
+    /// frame.
+    #[test]
+    fn set_shader_makes_a_missing_shader_loadable() {
+        let id = shader_id(24944);
+        let mut cache = test_cache();
+
+        assert!(
+            matches!(
+                cache.get(0, id, &[]),
+                Err(ShaderCacheError::ShaderNotLoaded(_))
+            ),
+            "a shader not yet in the cache should report ShaderNotLoaded",
+        );
+
+        cache.set_shader(
+            id,
+            Shader::from_wgsl("@compute @workgroup_size(1) fn main() {}", "s.wgsl"),
+        );
+
+        let result = cache.get(0, id, &[]);
+        assert!(
+            !matches!(result, Err(ShaderCacheError::ShaderNotLoaded(_))),
+            "after set_shader the shader is loaded, so get must not report ShaderNotLoaded; got {result:?}",
+        );
+    }
+}
