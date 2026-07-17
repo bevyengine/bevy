@@ -1780,6 +1780,7 @@ mod linear_gradient {
     use bevy::ecs::prelude::*;
     use bevy::state::state_scoped::DespawnOnExit;
     use bevy::text::TextFont;
+    use bevy::ui::widget::Text;
     use bevy::ui::AlignItems;
     use bevy::ui::BackgroundGradient;
     use bevy::ui::ColorStop;
@@ -1789,7 +1790,6 @@ mod linear_gradient {
     use bevy::ui::LinearGradient;
     use bevy::ui::Node;
     use bevy::ui::PositionType;
-    use bevy::ui::widget::Text;
     use bevy::utils::default;
 
     pub fn setup(mut commands: Commands) {
