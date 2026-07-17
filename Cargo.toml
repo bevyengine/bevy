@@ -2863,6 +2863,17 @@ description = "Demonstrates how to create a loading screen that waits for all as
 category = "Games"
 wasm = true
 
+[[example]]
+name = "mines"
+path = "examples/showcase/mines.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.mines]
+name = "Mines"
+description = " A simple minesweeper-style game in Bevy UI"
+category = "Games"
+wasm = true
+
 # Input
 [[example]]
 name = "char_input_events"
