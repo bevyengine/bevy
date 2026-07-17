@@ -1623,7 +1623,6 @@ mod overflow {
                                     min_height: px(100),
                                     ..default()
                                 },
-                                Interaction::default(),
                                 Outline {
                                     width: px(2),
                                     offset: px(2),
@@ -1675,7 +1674,6 @@ mod slice {
                         .with_children(|parent| {
                             for [w, h] in [[200.0, 200.0], [300.0, 200.0], [150., 200.0]] {
                                 parent.spawn((
-                                    Button,
                                     ImageNode {
                                         image: image.clone(),
                                         image_mode: NodeImageMode::Sliced(slicer.clone()),
@@ -1791,6 +1789,7 @@ mod linear_gradient {
     use bevy::ui::LinearGradient;
     use bevy::ui::Node;
     use bevy::ui::PositionType;
+    use bevy::ui::widget::Text;
     use bevy::utils::default;
 
     pub fn setup(mut commands: Commands) {
@@ -1888,7 +1887,7 @@ mod linear_gradient {
                                                 ..default()
                                             },
                                             TextFont::from_font_size(10.),
-                                            bevy::ui::widget::Text(format!("{color_space:?}")),
+                                            Text(format!("{color_space:?}")),
                                         ]
                                     )],
                                 ));
