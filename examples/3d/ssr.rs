@@ -606,15 +606,23 @@ fn move_camera(
 fn handle_value_change_ssr_on(
     event: On<ValueChange<Entity>>,
     new_value_query: Query<&radio::RadioButtonOptionValue<SsrOn>>,
-    mut commands: Commands,
+    commands: Commands,
     mut app_settings: ResMut<AppSettings>,
-    mut cameras: Query<Entity, With<Camera>>,
+    cameras: Query<Entity, With<Camera>>,
 ) {
     let Ok(radio::RadioButtonOptionValue(ssr_on)) = new_value_query.get(event.value) else {
         return;
     };
     app_settings.ssr_on = *ssr_on;
 
+    update_views(commands, app_settings, cameras);
+}
+
+fn update_views(
+    mut commands: Commands,
+    app_settings: ResMut<AppSettings>,
+    mut cameras: Query<Entity, With<Camera>>,
+) {
     for camera in cameras.iter_mut() {
         if app_settings.ssr_on.0 {
             commands.entity(camera).insert(ScreenSpaceReflections {
@@ -719,6 +727,7 @@ fn handle_value_change_number_input(
     mut commands: Commands,
     number_input_q: Query<&AppNumberInput, With<FeathersNumberInput>>,
     mut app_settings: ResMut<AppSettings>,
+    cameras: Query<Entity, With<Camera>>,
 ) {
     if let Ok(app_number_input) = number_input_q.get(value_change.source) {
         match app_number_input {
@@ -745,6 +754,8 @@ fn handle_value_change_number_input(
         commands
             .entity(value_change.source)
             .insert(NumberInputValue::F32(value_change.value));
+
+        update_views(commands, app_settings, cameras);
     }
 }
 
