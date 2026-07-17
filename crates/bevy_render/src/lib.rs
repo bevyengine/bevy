@@ -286,6 +286,8 @@ impl RenderScheduleOrder {
 }
 
 /// The main render schedule.
+///
+/// See also [`RenderGraph`] for more details.
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
 pub struct Render;
 
