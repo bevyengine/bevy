@@ -45,6 +45,7 @@ use bevy_render::material_bind_groups::{
     RenderMaterialBindings,
 };
 use bevy_render::render_asset::{prepare_assets, RenderAssets};
+use bevy_render::sync_world::MainEntityHashSet;
 use bevy_render::view::RenderVisibleEntities;
 use bevy_render::GpuResourceAppExt;
 use bevy_render::RenderStartup;
@@ -197,6 +198,14 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
     /// Controls if shadows are enabled for the Material.
     #[inline]
     fn enable_shadows() -> bool {
+        true
+    }
+
+    /// Controls whether order independent transparency is enabled for the Material.
+    /// This is ignored if the camera does not have [`bevy_core_pipeline::oit::OrderIndependentTransparencySettings`]
+    /// or if [`Self::alpha_mode`] is not supported by OIT.
+    #[inline]
+    fn enable_oit() -> bool {
         true
     }
 
@@ -530,8 +539,28 @@ impl SpecializedMeshPipeline for MaterialPipelineSpecializer {
             .layout
             .insert(3, self.properties.material_layout.as_ref().unwrap().clone());
 
-        if let Some(specialize) = self.properties.user_specialize {
-            specialize(&self.pipeline as &dyn Any, &mut descriptor, layout, key)?;
+        if key
+            .mesh_key
+            .downcast::<MeshPipelineKey>()
+            .contains(MeshPipelineKey::OIT_ENABLED)
+            && self.properties.oit_enabled
+            && matches!(
+                self.properties.alpha_mode,
+                AlphaMode::Blend | AlphaMode::Premultiplied | AlphaMode::Add
+            )
+        {
+            descriptor.label = Some("oit_mesh_pipeline".into());
+            let frag = descriptor.fragment.as_mut().unwrap();
+            // TODO tail blending would need alpha blending
+            frag.targets[0].as_mut().unwrap().blend = None;
+            frag.shader_defs.push("MATERIAL_OIT_ENABLED".into());
+            // TODO it should be possible to use this to combine MSAA and OIT
+            // alpha_to_coverage_enabled = true;
+            descriptor
+                .depth_stencil
+                .as_mut()
+                .unwrap()
+                .depth_write_enabled = Some(false);
         }
 
         // If bindless mode is on, add a `BINDLESS` define.
@@ -540,6 +569,10 @@ impl SpecializedMeshPipeline for MaterialPipelineSpecializer {
             if let Some(ref mut fragment) = descriptor.fragment {
                 fragment.shader_defs.push("BINDLESS".into());
             }
+        }
+
+        if let Some(specialize) = self.properties.user_specialize {
+            specialize(&self.pipeline as &dyn Any, &mut descriptor, layout, key)?;
         }
 
         Ok(descriptor)
@@ -1171,6 +1204,7 @@ pub fn queue_material_meshes(
     views: Query<(&ExtractedView, &RenderVisibleEntities)>,
     specialized_material_pipeline_cache: ResMut<SpecializedMaterialPipelineCache>,
     dirty_specializations: Res<DirtySpecializations>,
+    mut mesh_instances_queued_this_iteration_scratch_space: Local<MainEntityHashSet>,
 ) {
     for (view, visible_entities) in &views {
         let (
@@ -1221,6 +1255,7 @@ pub fn queue_material_meshes(
             view.retained_view_entity,
             render_visible_mesh_entities,
             &view_pending_mesh_material_queues.prev_frame,
+            &mut mesh_instances_queued_this_iteration_scratch_space,
         ) {
             let Some(pipeline_id) = view_specialized_material_pipeline_cache
                 .get(visible_entity)
@@ -1715,6 +1750,7 @@ where
                 material_key,
                 shadows_enabled,
                 prepass_enabled,
+                oit_enabled: M::enable_oit(),
             }),
         })
     }
@@ -1760,5 +1796,21 @@ pub fn get_mesh_instance_world_from_local(
             };
             Affine3::from_transpose(mesh_input_uniform.world_from_local)
         }
+    }
+}
+
+pub(crate) trait MaterialPropertiesExt {
+    fn prepass_reads_material(&self) -> bool;
+}
+
+impl MaterialPropertiesExt for MaterialProperties {
+    fn prepass_reads_material(&self) -> bool {
+        // The default prepass shaders doesn't need material's bind group,
+        // but for user provided prepass shaders currently we don't have a way to known this
+        // because material's bind group is used for both prepass and the other passes.
+        //
+        // So we have to disable the optimization for depth only prepass and always bind the material's bind group.
+        self.get_shader(PrepassVertexShader).is_some()
+            || self.get_shader(PrepassFragmentShader).is_some()
     }
 }

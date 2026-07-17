@@ -6,7 +6,8 @@ use bevy::{
     feathers::{
         controls::FeathersButton,
         dark_theme::create_dark_theme,
-        theme::{ThemeBackgroundColor, ThemedText, UiTheme},
+        display::caption,
+        theme::{ThemeBackgroundColor, UiTheme},
         tokens, FeathersPlugins,
     },
     prelude::*,
@@ -62,20 +63,20 @@ fn demo_root() -> impl Scene {
                     on(|_activate: On<Activate>, mut counter: ResMut<Counter>| {
                         counter.0 -= 1;
                     })
-                    Children [ (Text("-1") ThemedText) ]
+                    Children [ caption("-1") ]
                 ),
                 (
                     Node {
                         margin: UiRect::horizontal(px(10.0)),
                     }
-                    Text("0") ThemedText CounterText
+                    caption("0") CounterText
                 ),
                 (
                     @FeathersButton
                     on(|_activate: On<Activate>, mut counter: ResMut<Counter>| {
                         counter.0 += 1;
                     })
-                    Children [ (Text("+1") ThemedText) ]
+                    Children [ caption("+1") ]
                 )
             ]
         )]
