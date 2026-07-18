@@ -2537,7 +2537,12 @@ impl BorderRadius {
     pub const DEFAULT: Self = Self::ZERO;
 
     /// Zero curvature. All the corners will be right-angled.
-    pub const ZERO: Self = Self::all_circular(Val::Px(0.));
+    pub const ZERO: Self = Self {
+        top_left: CornerRadius::ZERO,
+        top_right: CornerRadius::ZERO,
+        bottom_right: CornerRadius::ZERO,
+        bottom_left: CornerRadius::ZERO,
+    };
 
     /// Maximum curvature. The UI Node will take a capsule shape or circular if width and height are equal.
     pub const MAX: Self = Self {
@@ -2558,33 +2563,6 @@ impl BorderRadius {
     /// Set all four corners to the same curvature.
     #[inline]
     pub fn all(radius: impl Into<CornerRadius>) -> Self {
-        let radius = radius.into();
-        Self {
-            top_left: radius,
-            top_right: radius,
-            bottom_left: radius,
-            bottom_right: radius,
-        }
-    }
-
-    /// Set all four circular corners to the same circular corner radius.
-    #[inline]
-    pub const fn all_circular(radius: Val) -> Self {
-        let corner_radius = CornerRadius {
-            x: radius,
-            y: auto(),
-        };
-        Self {
-            top_left: corner_radius,
-            top_right: corner_radius,
-            bottom_left: corner_radius,
-            bottom_right: corner_radius,
-        }
-    }
-
-    /// Set all four corners to the same `CornerRadius`.
-    #[inline]
-    pub fn all_elliptical(radius: impl Into<CornerRadius>) -> Self {
         let radius = radius.into();
         Self {
             top_left: radius,

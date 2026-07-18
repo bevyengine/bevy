@@ -1221,6 +1221,12 @@ impl CornerRadius {
         y: Val::Px(f32::MAX),
     };
 
+    /// A square corner.
+    pub const ZERO: Self = Self {
+        x: Val::ZERO,
+        y: Val::ZERO,
+    };
+
     /// Creates a circular corner radius, with `radius` resolved relative to the node's shortest side and clamped to half its length.
     ///
     /// # Example
