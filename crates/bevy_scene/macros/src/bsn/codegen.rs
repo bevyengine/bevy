@@ -255,23 +255,37 @@ impl BsnEntry {
             BsnEntry::TemplateConstructor(BsnConstructor {
                 type_path,
                 function,
+                function_generics,
                 args,
             }) => EntryResult::CombinedSceneFunction({
                 let args = args.to_tokens(ctx);
+                let generics_tokens = if let Some(function_generics) = function_generics {
+                    quote! { #function_generics }
+                } else {
+                    quote! {}
+                };
                 quote! {
                     let __value = _scene.get_or_insert_template::<#type_path>(_context);
-                    *__value = #type_path::#function #args;
+                    type __TargetTemplate = #type_path;
+                    *__value = __TargetTemplate::#function #generics_tokens #args;
                 }
             }),
             BsnEntry::FromTemplateConstructor(BsnConstructor {
                 type_path,
                 function,
+                function_generics,
                 args,
             }) => EntryResult::CombinedSceneFunction({
                 let args = args.to_tokens(ctx);
+                let generics_tokens = if let Some(function_generics) = function_generics {
+                    quote! { #function_generics }
+                } else {
+                    quote! {}
+                };
                 quote! {
                     let __value = _scene.get_or_insert_template::<<#type_path as #bevy_ecs::template::FromTemplate>::Template>(_context);
-                    *__value = <#type_path as #bevy_ecs::template::FromTemplate>::Template::#function #args;
+                    type __TargetTemplate = <#type_path as #bevy_ecs::template::FromTemplate>::Template;
+                    *__value = __TargetTemplate::#function #generics_tokens #args;
                 }
             }),
             BsnEntry::RelatedSceneList(BsnRelatedSceneList {
@@ -1096,5 +1110,61 @@ mod tests {
 
         // Assert
         assert_eq!(res, expected,);
+    }
+
+    #[test]
+    fn bsn_root_supports_turbofish_in_template_constructor() {
+        let constructor = BsnConstructor {
+            type_path: syn::parse_str("A").unwrap(),
+            function: format_ident!("from"),
+            function_generics: Some(syn::parse_str::<syn::AngleBracketedGenericArguments>("<B>").unwrap()),
+            args: BsnFnArgs(vec![]),
+        };
+
+        let mut refs = EntityRefs::default();
+        let paths = TestPaths::new();
+        let mut exprs = HoistedExpressions::default();
+        let mut ctx = paths.ctx(&mut refs, &mut exprs);
+
+        let root = BsnRoot(Bsn {
+            entries: vec![BsnEntry::TemplateConstructor(constructor)],
+        });
+
+        // Act
+        let res = root.to_tokens(&mut ctx).to_string();
+        
+        // Assert
+        assert!(res.contains("__TargetTemplate"));
+        assert!(res.contains("from"));
+        assert!(res.contains("< B >"));
+    }
+
+    #[test]
+    fn bsn_root_supports_turbofish_in_from_template_constructor() {
+        let constructor = BsnConstructor {
+            type_path: syn::parse_str("A").unwrap(),
+            function: format_ident!("from"),
+            function_generics: Some(syn::parse_str::<syn::AngleBracketedGenericArguments>("<B>").unwrap()),
+            args: BsnFnArgs(vec![]),
+        };
+
+        let mut refs = EntityRefs::default();
+        let paths = TestPaths::new();
+        let mut exprs = HoistedExpressions::default();
+        let mut ctx = paths.ctx(&mut refs, &mut exprs);
+
+        let root = BsnRoot(Bsn {
+            entries: vec![BsnEntry::FromTemplateConstructor(constructor)],
+        });
+
+        // Act
+        let res = root.to_tokens(&mut ctx).to_string();
+        
+        // Assert
+        assert!(res.contains("__TargetTemplate"));
+        assert!(res.contains("FromTemplate"));
+        assert!(res.contains("Template"));
+        assert!(res.contains("from"));
+        assert!(res.contains("< B >"));
     }
 }
