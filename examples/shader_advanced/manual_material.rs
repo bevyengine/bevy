@@ -25,10 +25,9 @@ use bevy::{
         render_phase::DrawFunctions,
         render_resource::{
             binding_types::{sampler, texture_2d},
-            AsBindGroup, BindGroupLayoutDescriptor, BindGroupLayoutEntries, Sampler,
-            SamplerBindingType, SamplerDescriptor, ShaderStages, TextureSampleType,
-            TextureViewDimension, BindGroupBuilder, UnpreparedBindingResource,
-            UnpreparedBindingResources,
+            AsBindGroup, BindGroupBuilder, BindGroupLayoutDescriptor, BindGroupLayoutEntries,
+            Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages, TextureSampleType,
+            TextureViewDimension, UnpreparedBindingResource, UnpreparedBindingResources,
         },
         renderer::RenderDevice,
         sync_world::MainEntity,

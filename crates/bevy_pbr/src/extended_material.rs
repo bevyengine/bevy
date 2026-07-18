@@ -8,9 +8,9 @@ use bevy_platform::{collections::HashSet, hash::FixedHasher};
 use bevy_reflect::{impl_type_path, Reflect};
 use bevy_render::{
     render_resource::{
-        AsBindGroup, AsBindGroupError, BindGroupLayout, BindGroupLayoutEntry, BindlessDescriptor,
-        BindlessResourceType, BindlessSlabResourceLimit, RenderPipelineDescriptor,
-        SpecializedMeshPipelineError, BindGroupBuilder,
+        AsBindGroup, AsBindGroupError, BindGroupBuilder, BindGroupLayout, BindGroupLayoutEntry,
+        BindlessDescriptor, BindlessResourceType, BindlessSlabResourceLimit,
+        RenderPipelineDescriptor, SpecializedMeshPipelineError,
     },
     renderer::RenderDevice,
 };

@@ -24,8 +24,8 @@ use tracing::{error, trace};
 use crate::{
     erased_render_asset::PrepareAssetError,
     render_resource::{
-        AsBindGroup, AsBindGroupError, BindlessSlabResourceLimit, PipelineCache,
-        BindGroupBuilder, UnpreparedBindingResource, UnpreparedBindingResources,
+        AsBindGroup, AsBindGroupError, BindGroupBuilder, BindlessSlabResourceLimit, PipelineCache,
+        UnpreparedBindingResource, UnpreparedBindingResources,
     },
     GpuResourceAppExt as _, Render, RenderApp, RenderStartup, RenderSystems,
 };
@@ -1204,7 +1204,8 @@ impl MaterialBindlessSlab {
         Some(allocation_candidate)
     }
 
-    /// Inserts the given [`BindingResources`] into this slab.
+    /// Inserts the bind group resources described by the given
+    /// [`BindGroupBuilder`] into this slab.
     ///
     /// Returns a table that maps the bindless index of each resource to its
     /// slot in its binding array.
@@ -2526,19 +2527,15 @@ impl RenderMaterialBindings {
                             // Otherwise, fall back to the slow path. Deallocate
                             // the GPU resource bindings, and reallocate them.
                             bind_group_allocator.free(old_binding);
-                            let new_binding = bind_group_allocator.allocate_unprepared(
-                                &mut self.bind_group_builder,
-                                material_layout,
-                            );
+                            let new_binding = bind_group_allocator
+                                .allocate_unprepared(&mut self.bind_group_builder, material_layout);
                             *occupied_entry.get_mut() = new_binding;
                             Ok(new_binding)
                         }
                     }
                     Entry::Vacant(vacant_entry) => Ok(*vacant_entry.insert(
-                        bind_group_allocator.allocate_unprepared(
-                            &mut self.bind_group_builder,
-                            material_layout,
-                        ),
+                        bind_group_allocator
+                            .allocate_unprepared(&mut self.bind_group_builder, material_layout),
                     )),
                 }
             }
