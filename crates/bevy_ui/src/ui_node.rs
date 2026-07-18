@@ -2788,17 +2788,6 @@ impl BorderRadius {
         self
     }
 
-    /// Resolve the border radius for a single corner from the given context values.
-    /// Returns the radius of the corner in physical pixels.
-    pub fn resolve_single_corner(
-        radius: CornerRadius,
-        scale_factor: f32,
-        size: Vec2,
-        viewport_size: Vec2,
-    ) -> Vec2 {
-        radius.resolve(scale_factor, size, viewport_size)
-    }
-
     /// Resolve the border radii for the corners from the given context values.
     /// Returns the radii of the each corner in physical pixels.
     pub fn resolve(
@@ -2808,30 +2797,18 @@ impl BorderRadius {
         viewport_size: Vec2,
     ) -> ResolvedBorderRadius {
         ResolvedBorderRadius {
-            top_left: Self::resolve_single_corner(
-                self.top_left,
-                scale_factor,
-                node_size,
-                viewport_size,
-            ),
-            top_right: Self::resolve_single_corner(
-                self.top_right,
-                scale_factor,
-                node_size,
-                viewport_size,
-            ),
-            bottom_left: Self::resolve_single_corner(
-                self.bottom_left,
-                scale_factor,
-                node_size,
-                viewport_size,
-            ),
-            bottom_right: Self::resolve_single_corner(
-                self.bottom_right,
-                scale_factor,
-                node_size,
-                viewport_size,
-            ),
+            top_left: self
+                .top_left
+                .resolve(scale_factor, node_size, viewport_size),
+            top_right: self
+                .top_right
+                .resolve(scale_factor, node_size, viewport_size),
+            bottom_left: self
+                .bottom_left
+                .resolve(scale_factor, node_size, viewport_size),
+            bottom_right: self
+                .bottom_right
+                .resolve(scale_factor, node_size, viewport_size),
         }
     }
 }
