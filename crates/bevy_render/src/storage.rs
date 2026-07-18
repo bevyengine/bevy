@@ -142,11 +142,7 @@ impl ShaderBuffer {
             ShaderBufferData::Uninitialized(_) => AlignedVec::new(align_of::<T>()),
             ShaderBufferData::Initialized(aligned_vec) => aligned_vec,
         };
-        let (min_size, _) = values.size_hint();
-        let min_size = min_size * size_of::<T>();
-        if min_size > data.capacity() {
-            data.reserve(min_size - data.capacity());
-        }
+        data.reserve(values.size_hint().0 * size_of::<T>());
         for value in values {
             data.extend_from_slice(bytemuck::bytes_of(&value));
         }
