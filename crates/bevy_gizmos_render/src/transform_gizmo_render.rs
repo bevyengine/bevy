@@ -18,12 +18,10 @@ use bevy_ecs::{
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
 };
-use bevy_math::{
-    primitives::{Cone, Cuboid, Cylinder, Torus},
-    Quat, Vec3,
-};
+use bevy_math::{Quat, Vec3};
 use bevy_mesh::{Mesh, Mesh3d, MeshBuilder, Meshable};
 use bevy_pbr::{MeshMaterial3d, StandardMaterial};
+use bevy_shape::{Cone, Cuboid, Cylinder, Torus};
 use bevy_transform::{
     components::{GlobalTransform, Transform},
     systems::propagate_transforms_for,
