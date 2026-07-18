@@ -338,7 +338,6 @@ fn compute_color_stops(
 pub fn extract_gradients(
     mut commands: Commands,
     mut extracted_gradients: ResMut<ExtractedGradients>,
-    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     gradients_query: Extract<
         Query<
             (
@@ -442,37 +441,38 @@ pub fn extract_gradients(
 
                 if let Some(color) = gradient.get_single() {
                     // With a single color stop there's no gradient, fill the node with the color
-                    extracted_uinodes
-                        .uinodes
+                    let length = compute_gradient_line_length(0.0, uinode.size);
+                    let extracted_stops = compute_color_stops(
+                        &[
+                            ColorStop::new(color, Val::Percent(0.0)),
+                            ColorStop::new(color, Val::Percent(100.0)),
+                        ],
+                        target.scale_factor(),
+                        length,
+                        target.physical_size().as_vec2(),
+                        &mut sorted_stops,
+                    );
+                    extracted_gradients
+                        .items
                         .entry(main_entity)
                         .or_default()
                         .insert(
                             commands.spawn_empty().id(),
-                            ExtractedUiNode {
-                                z_order: stack_index.0 as f32
-                                    + match node_type {
-                                        NodeType::Rect | NodeType::Inverted => {
-                                            stack_z_offsets::GRADIENT
-                                        }
-                                        NodeType::Border(_) => stack_z_offsets::BORDER_GRADIENT,
-                                    },
-                                image: AssetId::default(),
+                            ExtractedGradient {
+                                stack_index: stack_index.0,
+                                transform: transform.into(),
+                                stops: extracted_stops,
+                                rect: Rect {
+                                    min: Vec2::ZERO,
+                                    max: uinode.size,
+                                },
                                 clip: clip.map(|clip| clip.clip),
                                 extracted_camera_entity,
-                                transform: transform.into(),
-                                item: ExtractedUiItem::Node {
-                                    color: color.into(),
-                                    rect: Rect {
-                                        min: Vec2::ZERO,
-                                        max: uinode.size,
-                                    },
-                                    atlas_scaling: None,
-                                    flip_x: false,
-                                    flip_y: false,
-                                    border_radius: uinode.border_radius,
-                                    border: uinode.border,
-                                    node_type,
-                                },
+                                node_type,
+                                border_radius: uinode.border_radius,
+                                border: uinode.border,
+                                resolved_gradient: ResolvedGradient::Linear { angle: 0.0 },
+                                color_space: gradient.get_color_space(),
                             },
                         );
                     continue;

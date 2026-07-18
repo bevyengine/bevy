@@ -557,7 +557,7 @@ pub fn extract_uinode_changes(
     #[cfg(feature = "bevy_ui_debug")] mut removed_debug_options_query: Extract<
         RemovedComponents<UiDebugOptions>,
     >,
-    global_ui_debug_options: Extract<Res<GlobalUiDebugOptions>>,
+    #[cfg(feature = "bevy_ui_debug")] global_ui_debug_options: Extract<Res<GlobalUiDebugOptions>>,
     mut extra_nodes_to_invalidate: Local<MainEntityHashSet>,
 ) {
     extracted_uinodes.changed.clear();
