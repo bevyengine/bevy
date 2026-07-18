@@ -1353,7 +1353,7 @@ mod tests {
     }
 
     #[test]
-    fn radius_resolve() {
+    fn corner_radius_resolve() {
         let size = vec2(100., 50.);
         let viewport_size = vec2(1000., 500.);
 
@@ -1379,7 +1379,7 @@ mod tests {
                 y: Val::Px(20.),
             }
             .resolve(1., size, viewport_size),
-            vec2(0., 0.)
+            vec2(0., 20.)
         );
         assert_eq!(
             CornerRadius::default().resolve(1., size, viewport_size),
