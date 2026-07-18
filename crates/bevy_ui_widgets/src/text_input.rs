@@ -560,7 +560,7 @@ fn on_focus_select_all(
                     queued_select_all.0 = Some(target);
                 }
             }
-            FocusCause::Navigated => {
+            FocusCause::Auto | FocusCause::Navigated => {
                 if select_all_on_focus {
                     editable_text.queue_edit(TextEdit::SelectAll);
                 }
