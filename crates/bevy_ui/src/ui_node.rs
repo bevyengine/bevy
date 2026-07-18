@@ -2494,11 +2494,11 @@ impl<T: Into<Color>> From<T> for OuterColor {
 ///             border: UiRect::all(Val::Px(2.)),
 ///             border_radius: BorderRadius {
 ///                 // rounded corners, x and y radii equal
-///                 top_left: Radius::from(px(10.)),
-///                 top_right: Radius::from(percent(20.)),
-///                 bottom_right: Radius::from(px(30.)),
+///                 top_left: CornerRadius::circular(px(10.)),
+///                 top_right: percent(20.).into(),
 ///                 // elliptical corner
-///                 bottom_left: Radius { x: px(10.), y: px(40.) },
+///                 bottom_right: CornerRadius::new(px(30.), px(20.)),
+///                 bottom_left: CornerRadius { x: px(10.), y: px(40.) },
 ///             },
 ///             ..Default::default()
 ///         },
