@@ -236,10 +236,8 @@ impl RenderAsset for GpuShaderBuffer {
         source: &mut Self::SourceAsset,
         previous_gpu_asset: Option<&Self>,
     ) -> Result<Self::SourceAsset, AssetExtractionError> {
-        let data = core::mem::replace(
-            &mut source.data,
-            ShaderBufferData::Uninitialized(source.len()),
-        );
+        let len = source.len();
+        let data = core::mem::replace(&mut source.data, ShaderBufferData::Uninitialized(len));
 
         let valid_upload = matches!(data, ShaderBufferData::Initialized(_))
             || previous_gpu_asset.is_none_or(|prev| !prev.had_data);

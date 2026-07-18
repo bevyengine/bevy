@@ -116,18 +116,12 @@ fn bytes_read_write(c: &mut Criterion) {
 }
 
 fn create_bytes_unaligned<T>(element_count: usize) -> Vec<u8> {
-    Vec::<u8>::from_iter(
-        (0..element_count * size_of::<T>())
-            .into_iter()
-            .map(|i| i as u8),
-    )
+    Vec::<u8>::from_iter((0..element_count * size_of::<T>()).map(|i| i as u8))
 }
 
 fn create_bytes_aligned<T: Pod, const S: usize>(element_count: usize) -> AlignedVec {
     AlignedVec::from(Vec::<T>::from_iter(
-        (0..element_count)
-            .into_iter()
-            .map(|i| bytemuck::must_cast(create_seq_array::<T, S>(i))),
+        (0..element_count).map(|i| bytemuck::must_cast(create_seq_array::<T, S>(i))),
     ))
 }
 
