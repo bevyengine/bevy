@@ -175,7 +175,7 @@ struct VertexOutput {
     @location(6) unclipped_depth: f32,
 #endif // UNCLIPPED_DEPTH_ORTHO_EMULATION
 #ifdef VERTEX_OUTPUT_INSTANCE_INDEX
-    @location(7) instance_index: u32,
+    @location(7) @interpolate(flat) instance_index: u32,
 #endif
 
 #ifdef VERTEX_COLORS
