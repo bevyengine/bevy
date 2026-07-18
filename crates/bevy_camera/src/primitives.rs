@@ -2,13 +2,11 @@ use core::borrow::Borrow;
 
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{component::Component, entity::EntityHashMap, reflect::ReflectComponent};
-use bevy_math::{
-    bounding::{Aabb3d, BoundingVolume},
-    primitives::{HalfSpace, ViewFrustum},
-    Affine3A, Mat3A, Vec3, Vec3A,
-};
+use bevy_geometry::bounding::{Aabb3d, BoundingVolume};
+use bevy_math::{Affine3A, Mat3A, Vec3, Vec3A};
 use bevy_mesh::{Mesh, VertexAttributeValues};
 use bevy_reflect::prelude::*;
+use bevy_shape::{HalfSpace, ViewFrustum};
 
 pub trait MeshAabb {
     /// Compute the Axis-Aligned Bounding Box of the mesh vertices in model space,
