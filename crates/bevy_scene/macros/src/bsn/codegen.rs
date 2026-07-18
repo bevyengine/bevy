@@ -266,8 +266,7 @@ impl BsnEntry {
                 };
                 quote! {
                     let __value = _scene.get_or_insert_template::<#type_path>(_context);
-                    type __TargetTemplate = #type_path;
-                    *__value = __TargetTemplate::#function #generics_tokens #args;
+                    *__value = <#type_path>::#function #generics_tokens #args;
                 }
             }),
             BsnEntry::FromTemplateConstructor(BsnConstructor {
@@ -284,8 +283,7 @@ impl BsnEntry {
                 };
                 quote! {
                     let __value = _scene.get_or_insert_template::<<#type_path as #bevy_ecs::template::FromTemplate>::Template>(_context);
-                    type __TargetTemplate = <#type_path as #bevy_ecs::template::FromTemplate>::Template;
-                    *__value = __TargetTemplate::#function #generics_tokens #args;
+                    *__value = <#type_path as #bevy_ecs::template::FromTemplate>::Template::#function #generics_tokens #args;
                 }
             }),
             BsnEntry::RelatedSceneList(BsnRelatedSceneList {
@@ -1136,7 +1134,7 @@ mod tests {
         let res = root.to_tokens(&mut ctx).to_string();
 
         // Assert
-        assert!(res.contains("__TargetTemplate"));
+        assert!(res.contains("A"));
         assert!(res.contains("from"));
         assert!(res.contains("< B >"));
     }
@@ -1165,7 +1163,7 @@ mod tests {
         let res = root.to_tokens(&mut ctx).to_string();
 
         // Assert
-        assert!(res.contains("__TargetTemplate"));
+        assert!(res.contains("A"));
         assert!(res.contains("FromTemplate"));
         assert!(res.contains("Template"));
         assert!(res.contains("from"));
