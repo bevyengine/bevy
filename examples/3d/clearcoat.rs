@@ -21,19 +21,30 @@ use std::f32::consts::PI;
 
 use bevy::{
     camera::Hdr,
+    input_focus::{AutoFocus, tab_navigation::TabGroup},
     color::palettes::css::{BLUE, GOLD, WHITE},
     core_pipeline::tonemapping::Tonemapping::AcesFitted,
     image::ImageLoaderSettings,
     light::Skybox,
     math::vec3,
     prelude::*,
+    feathers::{
+        controls::*, 
+        containers::*, 
+        dark_theme::create_dark_theme,
+        theme::{ThemedText, ThemeBackgroundColor, UiTheme},
+        FeathersPlugins,
+        display::{label_small},
+        tokens, 
+    },
+    ui_widgets::{
+        Activate, slider_self_update, SliderStep, SliderValue,   
+        SliderPrecision, ValueChange, checkbox_self_update,  
+    },
 };
 
 /// The size of each sphere.
 const SPHERE_SCALE: f32 = 0.9;
-
-/// The speed at which the spheres rotate, in radians per second.
-const SPHERE_ROTATION_SPEED: f32 = 0.8;
 
 /// Which type of light we're using: a point light or a directional light.
 #[derive(Clone, Copy, PartialEq, Resource, Default)]
@@ -51,11 +62,18 @@ struct ExampleSphere;
 pub fn main() {
     App::new()
         .init_resource::<LightMode>()
-        .add_plugins(DefaultPlugins)
+        .insert_resource(UiTheme(create_dark_theme()))
+        .insert_resource(ControlWidgetStates { 
+            illuminance: 10000.0, 
+            intensity: 1000.0, 
+            rotation_speed: 0.8, 
+        })
+        .add_plugins((DefaultPlugins, FeathersPlugins))
+        .add_systems(Startup, (scene.spawn(), hide_control_pane).chain())
         .add_systems(Startup, setup)
+        .add_systems(Startup, init_rotation_speed)
         .add_systems(Update, animate_light)
         .add_systems(Update, animate_spheres)
-        .add_systems(Update, (handle_input, update_help_text).chain())
         .run();
 }
 
@@ -64,8 +82,8 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    states: Res<ControlWidgetStates>, 
     asset_server: Res<AssetServer>,
-    light_mode: Res<LightMode>,
 ) {
     let sphere = create_sphere_mesh(&mut meshes);
     spawn_car_paint_sphere(&mut commands, &mut materials, &asset_server, &sphere);
@@ -73,9 +91,8 @@ fn setup(
     spawn_golf_ball(&mut commands, &asset_server);
     spawn_scratched_gold_ball(&mut commands, &mut materials, &asset_server, &sphere);
 
-    spawn_light(&mut commands);
+    spawn_light(&mut commands, states);
     spawn_camera(&mut commands, &asset_server);
-    spawn_text(&mut commands, &light_mode);
 }
 
 /// Generates a sphere.
@@ -196,8 +213,9 @@ fn spawn_scratched_gold_ball(
 }
 
 /// Spawns a light.
-fn spawn_light(commands: &mut Commands) {
-    commands.spawn(create_point_light());
+fn spawn_light(commands: &mut Commands, 
+    states: Res<ControlWidgetStates>) {
+    commands.spawn(create_directional_light(states.intensity));
 }
 
 /// Spawns a camera with associated skybox and environment map.
@@ -226,19 +244,6 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
         });
 }
 
-/// Spawns the help text.
-fn spawn_text(commands: &mut Commands, light_mode: &LightMode) {
-    commands.spawn((
-        light_mode.create_help_text(),
-        Node {
-            position_type: PositionType::Absolute,
-            bottom: px(12),
-            left: px(12),
-            ..default()
-        },
-    ));
-}
-
 /// Moves the light around.
 fn animate_light(
     mut lights: Query<&mut Transform, Or<(With<PointLight>, With<DirectionalLight>)>>,
@@ -256,78 +261,268 @@ fn animate_light(
 }
 
 /// Rotates the spheres.
-fn animate_spheres(mut spheres: Query<&mut Transform, With<ExampleSphere>>, time: Res<Time>) {
+fn animate_spheres(mut spheres: Query<&mut Transform, With<ExampleSphere>>, time: Res<Time>, 
+    states: Res<ControlWidgetStates>) {
     let now = time.elapsed_secs();
     for mut transform in spheres.iter_mut() {
-        transform.rotation = Quat::from_rotation_y(SPHERE_ROTATION_SPEED * now);
-    }
-}
-
-/// Handles the user pressing Space to change the type of light from point to
-/// directional and vice versa.
-fn handle_input(
-    mut commands: Commands,
-    mut light_query: Query<Entity, Or<(With<PointLight>, With<DirectionalLight>)>>,
-    keyboard: Res<ButtonInput<KeyCode>>,
-    mut light_mode: ResMut<LightMode>,
-) {
-    if !keyboard.just_pressed(KeyCode::Space) {
-        return;
-    }
-
-    for light in light_query.iter_mut() {
-        match *light_mode {
-            LightMode::Point => {
-                *light_mode = LightMode::Directional;
-                commands
-                    .entity(light)
-                    .remove::<PointLight>()
-                    .insert(create_directional_light());
-            }
-            LightMode::Directional => {
-                *light_mode = LightMode::Point;
-                commands
-                    .entity(light)
-                    .remove::<DirectionalLight>()
-                    .insert(create_point_light());
-            }
-        }
-    }
-}
-
-/// Updates the help text at the bottom of the screen.
-fn update_help_text(mut text_query: Query<&mut Text>, light_mode: Res<LightMode>) {
-    for mut text in text_query.iter_mut() {
-        *text = light_mode.create_help_text();
+        transform.rotation = Quat::from_rotation_y(states.rotation_speed * now);
     }
 }
 
 /// Creates or recreates the moving point light.
-fn create_point_light() -> PointLight {
+fn create_point_light(intensity: f32) -> PointLight {
     PointLight {
         color: WHITE.into(),
-        intensity: 100000.0,
+        intensity: intensity,
         ..default()
     }
 }
 
 /// Creates or recreates the moving directional light.
-fn create_directional_light() -> DirectionalLight {
+fn create_directional_light(illuminance: f32) -> DirectionalLight {
     DirectionalLight {
         color: WHITE.into(),
-        illuminance: 1000.0,
+        illuminance: illuminance, 
         ..default()
     }
 }
 
-impl LightMode {
-    /// Creates the help text at the bottom of the screen.
-    fn create_help_text(&self) -> Text {
-        let help_text = match *self {
-            LightMode::Point => "Press Space to switch to a directional light",
-            LightMode::Directional => "Press Space to switch to a point light",
-        };
+#[derive(Resource)] 
+struct ControlWidgetStates {
+    illuminance: f32, 
+    intensity: f32, 
+    rotation_speed: f32,
+}
 
-        Text::new(help_text)
+#[derive(Component, Clone, Copy, Default)] 
+struct RotationSpeedScalarField; 
+
+#[derive(Component, Clone, Copy, Default)] 
+struct UiControlsPaneBody;
+
+fn scene() -> impl SceneList {
+    bsn_list![ui()]
+}
+
+fn ui() -> impl Scene {
+    bsn! {
+        Node {
+            width: percent(100),
+            height: percent(100),
+            align_items: AlignItems::Start,
+            justify_content: JustifyContent::Start,
+            display: Display::Flex,
+            flex_direction: FlexDirection::Row,
+            column_gap: px(8),
+        } 
+        Pickable::IGNORE
+        TabGroup
+        Children[
+            control_pane(),
+        ]
+    }
+}
+
+
+fn control_pane() -> impl Scene { 
+    bsn! { 
+        Node { 
+            display: Display::Flex, 
+            flex_direction: FlexDirection::Column, 
+            align_items: AlignItems::Stretch, 
+            justify_content: JustifyContent::Start, 
+            padding: px(8), 
+            row_gap: px(8), 
+            width: percent(30), 
+            min_width: px(200), 
+        }
+        ThemeBackgroundColor(tokens::WINDOW_BG)
+        Children [
+            pane() Children [ 
+                    pane_header() Children [ 
+                        (@FeathersDisclosureToggle  
+                            on(checkbox_self_update) 
+                            on(|change: On<ValueChange<bool>>, 
+                                mut panes: Query<&mut Node, 
+                                With<UiControlsPaneBody>> | { 
+                                for mut node in &mut panes { 
+                                    node.display = if change.value { Display::Flex} else { Display::None }
+                                }
+                            })
+                        ),
+                        (Text("UI Controls Pane") ThemedText),
+                    ],
+                (
+                    UiControlsPaneBody 
+                    pane_body() Children [  
+                        subpane() Children [  
+                            subpane_body() Children [ 
+                                group()
+                                Children [ 
+                                    group_body() 
+                                    Children [ 
+                                        label_small("Illuminance"),
+                                        (
+                                            @FeathersSlider { 
+                                                @max: 10000.0, 
+                                            }
+                                            SliderStep(100.) 
+                                            SliderPrecision(2)
+                                            SliderValue(10000.0)
+                                            on(slider_self_update)
+                                            on(|change: On<ValueChange<f32>>,
+                                                mut commands: Commands, 
+                                                light_mode: Res<LightMode>, 
+                                                mut light_query: Query<Entity, Or<(With<PointLight>, With<DirectionalLight>)>>, 
+                                                mut states: ResMut<ControlWidgetStates>| { 
+                                                    states.illuminance = change.value; 
+                                                    for light in light_query.iter_mut() { 
+                                                        match *light_mode { 
+                                                            LightMode::Point => { 
+                                                                commands 
+                                                                    .entity(light) 
+                                                                    .insert(create_point_light(states.illuminance)); 
+                                                            }, 
+                                                            LightMode::Directional => { 
+                                                                commands 
+                                                                    .entity(light) 
+                                                                    .insert(create_directional_light(states.illuminance)); 
+                                                            }
+                                                    }
+                                                }
+                                            })
+                                        ),
+                                        label_small("Intensity"),
+                                        (
+                                            @FeathersSlider { 
+                                                @max: 100000.0,
+                                            } 
+                                            SliderStep(1000.)
+                                            SliderPrecision(2)
+                                            SliderValue(1000.0)
+                                            on(slider_self_update)
+                                            on(|change: On<ValueChange<f32>>,
+                                                mut commands: Commands,
+                                                light_mode: Res<LightMode>,
+                                                mut light_query: Query<Entity, Or<(With<PointLight>, With<DirectionalLight>)>>, 
+                                                mut states: ResMut<ControlWidgetStates>| {
+                                                    states.intensity = change.value;
+                                                    for light in light_query.iter_mut() { 
+                                                        match *light_mode { 
+                                                            LightMode::Point => { 
+                                                                commands 
+                                                                    .entity(light) 
+                                                                    .insert(create_point_light(states.intensity)); 
+                                                            }, 
+                                                            LightMode::Directional => { 
+                                                                commands 
+                                                                    .entity(light) 
+                                                                    .insert(create_directional_light(states.intensity)); 
+                                                            }
+                                                        }
+                                                    }
+                                            })
+                                        ), 
+                                        label_small("Rotation Speed"), 
+                                        ( 
+                                            @FeathersNumberInput
+                                            RotationSpeedScalarField
+                                            Node { 
+                                                flex_grow: 1.0, 
+                                                max_width: px(100), 
+                                            }
+                                            on(
+                                                |change: On<ValueChange<f32>>,
+                                                mut commands: Commands, 
+                                                q_scalar_input: Query<Entity, With<RotationSpeedScalarField>>, 
+                                                mut states: ResMut<ControlWidgetStates>| { 
+                                                    if change.is_final { 
+                                                        for scalar_input_ent in q_scalar_input.iter() {  
+                                                            commands 
+                                                                .entity(scalar_input_ent)
+                                                                .insert(NumberInputValue::F32(change.value));
+                                                        }
+                                                        states.rotation_speed = change.value; 
+                                                    }
+                                                })
+                                        ),
+                                        (
+                                            @FeathersButton { 
+                                                @caption: bsn! { Text("Point Light") ThemedText }
+                                            }
+                                            Node { 
+                                                flex_grow: 1.0, 
+                                            }
+                                            AccessibleLabel("Point Light") 
+                                            on(|_activate: On<Activate>, 
+                                                mut commands: Commands, 
+                                                mut light_query: Query<Entity, Or<(With<PointLight>, With<DirectionalLight>)>>, 
+                                                mut light_mode: ResMut<LightMode>, 
+                                                states: Res<ControlWidgetStates>| { 
+                                                for light in light_query.iter_mut() { 
+                                                    match *light_mode { 
+                                                        _ => { 
+                                                            *light_mode = LightMode::Point; 
+                                                            commands 
+                                                                .entity(light) 
+                                                                .remove::<DirectionalLight>() 
+                                                                .insert(create_point_light(states.intensity)); 
+                                                        } 
+                                                    }
+                                                }
+                                            })
+                                        AutoFocus 
+                                        ),
+                                        (
+                                            @FeathersButton { 
+                                                @caption: bsn! { Text("Directional Light") ThemedText } 
+                                            }
+                                            Node {
+                                                flex_grow: 1.0, 
+                                            }
+                                            AccessibleLabel("Directional Light") 
+                                            on(|_activate: On<Activate>, 
+                                                mut commands: Commands,
+                                                mut light_query: Query<Entity, Or<(With<PointLight>, With<DirectionalLight>)>>, 
+                                                mut light_mode: ResMut<LightMode>,
+                                                states: Res<ControlWidgetStates>| { 
+                                                for light in light_query.iter_mut() { 
+                                                    match *light_mode { 
+                                                       _ => { 
+                                                            *light_mode = LightMode::Directional; 
+                                                            commands 
+                                                                .entity(light) 
+                                                                .remove::<PointLight>() 
+                                                                .insert(create_directional_light(states.illuminance));  
+                                                        } 
+                                                    }
+                                                }
+                                            }) 
+                                            AutoFocus 
+                                        )
+                                    ]
+                                ] 
+                            ]
+                        ] 
+                    ] 
+                )
+            ] 
+        ] 
+    }
+}
+
+fn init_rotation_speed(
+    mut commands: Commands, 
+    states: Res<ControlWidgetStates>, 
+    q_scalar_input: Query<Entity, With<RotationSpeedScalarField>>) { 
+    for scalar_input_ent in q_scalar_input.iter() {
+        commands.entity(scalar_input_ent)
+            .insert(NumberInputValue::F32(states.rotation_speed));  
+    }
+}
+
+fn hide_control_pane(mut panes: Query<&mut Node, With<UiControlsPaneBody>>) { 
+    for mut node in &mut panes { 
+        node.display = Display::None; 
     }
 }
