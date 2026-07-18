@@ -1283,7 +1283,7 @@ mod elliptical_border_radius {
                         width: px(200),
                         height: px(100),
                         border: UiRect::all(px(8)),
-                        border_radius: BorderRadius::elliptical(
+                        border_radius: BorderRadius::new(
                             CornerRadius {
                                 x: px(90),
                                 y: px(24),
@@ -1336,7 +1336,7 @@ mod elliptical_border_radius {
                             top: px(24),
                             bottom: px(8),
                         },
-                        border_radius: BorderRadius::elliptical(
+                        border_radius: BorderRadius::new(
                             CornerRadius {
                                 x: percent(65),
                                 y: percent(20),
@@ -1374,7 +1374,7 @@ mod elliptical_border_radius {
                         width: px(210),
                         height: px(75),
                         border: UiRect::axes(px(12), px(4)),
-                        border_radius: BorderRadius::elliptical(
+                        border_radius: BorderRadius::new(
                             CornerRadius {
                                 x: px(140),
                                 y: px(18),
@@ -1411,7 +1411,7 @@ mod elliptical_border_radius {
                         width: px(160),
                         height: px(120),
                         border: UiRect::axes(px(20), px(20)),
-                        border_radius: BorderRadius::elliptical(
+                        border_radius: BorderRadius::new(
                             CornerRadius {
                                 x: px(50),
                                 y: px(10),
@@ -1502,7 +1502,7 @@ mod elliptical_border_radius {
                         width: px(160),
                         height: px(120),
                         border: UiRect::axes(px(20), px(20)),
-                        border_radius: BorderRadius::elliptical(
+                        border_radius: BorderRadius::new(
                             CornerRadius {
                                 x: px(25),
                                 y: px(20),
@@ -1541,7 +1541,7 @@ mod elliptical_border_radius {
                         width: px(160),
                         height: px(120),
                         border: UiRect::axes(px(10), px(10)),
-                        border_radius: BorderRadius::elliptical(
+                        border_radius: BorderRadius::new(
                             CornerRadius {
                                 x: px(40),
                                 y: px(30),
@@ -1579,7 +1579,7 @@ mod elliptical_border_radius {
                         width: px(160),
                         height: px(80),
                         border: UiRect::axes(px(10), px(10)),
-                        border_radius: BorderRadius::elliptical(
+                        border_radius: BorderRadius::new(
                             CornerRadius {
                                 x: percent(50),
                                 y: percent(50),
@@ -1618,7 +1618,7 @@ mod elliptical_border_radius {
                         width: px(80),
                         height: px(160),
                         border: UiRect::axes(px(10), px(10)),
-                        border_radius: BorderRadius::elliptical(
+                        border_radius: BorderRadius::new(
                             CornerRadius {
                                 x: percent(50),
                                 y: percent(50),
@@ -1657,7 +1657,7 @@ mod elliptical_border_radius {
                         width: px(160),
                         height: px(80),
                         border: UiRect::axes(px(20), px(10)),
-                        border_radius: BorderRadius::elliptical(
+                        border_radius: BorderRadius::new(
                             CornerRadius {
                                 x: percent(50),
                                 y: percent(50),
@@ -1696,7 +1696,7 @@ mod elliptical_border_radius {
                         width: px(80),
                         height: px(160),
                         border: UiRect::all(px(10)).with_right(px(25)),
-                        border_radius: BorderRadius::elliptical(
+                        border_radius: BorderRadius::new(
                             CornerRadius {
                                 x: percent(50),
                                 y: percent(50),
@@ -1734,7 +1734,7 @@ mod elliptical_border_radius {
                         width: px(160),
                         height: px(80),
                         border: UiRect::all(px(5)),
-                        border_radius: BorderRadius::elliptical(
+                        border_radius: BorderRadius::new(
                             CornerRadius {
                                 x: percent(50),
                                 y: percent(50),
