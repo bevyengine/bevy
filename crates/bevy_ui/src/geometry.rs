@@ -1164,8 +1164,36 @@ impl From<(Val, Val)> for UiPosition {
 }
 
 /// The horizontal and vertical radii of a rounded corner's elliptical arc.
-/// If one field is auto, the resolved radius will be circular with the radius clamped to max half of the min of the node's width or height.
-/// If either field is zero or both are auto, the node will have square corners.
+/// If one field is auto, the resolved radius will be circular and clamped to half the length of the node's shortest side.
+/// If either field is zero, or both are auto, the node will have square corners.
+///
+/// # Example
+///
+/// ```
+/// # use bevy_math::{Vec2, Vec2Swizzles};
+/// # use bevy_ui::{CornerRadius, Val};
+/// let radius = Val::Px(10.0);
+/// let size = Vec2::new(100.0, 50.0);
+/// let viewport_size = Vec2::new(1920.0, 1080.0);
+///
+/// let c1 = CornerRadius {
+///     x: radius,
+///     y: Val::ZERO,
+/// };
+/// let c2 = CornerRadius {
+///     x: Val::ZERO,
+///     y: radius,
+/// };
+/// let r = c1.resolve(1.0, size, viewport_size);
+/// assert_eq!(
+///     r,
+///     c2.resolve(1.0, size, viewport_size).yx(),
+/// );
+/// assert_eq!(
+///     r,
+///     Vec2::new(10.0, 0.0),
+/// );
+/// ```
 #[derive(Debug, PartialEq, Clone, Copy, Reflect)]
 #[reflect(Default, PartialEq, Debug, Clone)]
 #[cfg_attr(
@@ -1194,6 +1222,32 @@ impl CornerRadius {
     };
 
     /// Creates a circular corner radius, with `radius` resolved relative to the node's shortest side and clamped to half its length.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_math::Vec2;
+    /// # use bevy_ui::{CornerRadius, Val};
+    /// let radius = Val::Px(30.0);
+    /// let size = Vec2::new(100.0, 50.0);
+    /// let viewport_size = Vec2::new(1920.0, 1080.0);
+    ///
+    /// let c1 = CornerRadius::circular(radius);
+    /// let c2 = CornerRadius {
+    ///     x: Val::Auto,
+    ///     y: radius,
+    /// };
+    ///
+    /// let r = c1.resolve(1.0, size, viewport_size);
+    /// assert_eq!(
+    ///     r,
+    ///     c2.resolve(1.0, size, viewport_size),
+    /// );
+    /// assert_eq!(
+    ///     r,
+    ///     Vec2::splat(25.0)
+    /// );
+    /// ```
     pub const fn circular(radius: Val) -> Self {
         Self {
             x: radius,
