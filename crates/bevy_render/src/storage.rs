@@ -262,7 +262,7 @@ impl RenderAsset for GpuShaderBuffer {
         let had_data = matches!(source_asset.data, ShaderBufferData::Initialized(_));
 
         let buffer = if let Some(prev) = previous_asset
-            && prev.buffer.size() >= source_asset.len()
+            && prev.buffer.size() == source_asset.len()
             && prev.buffer.usage() == source_asset.buffer_usage
             && *prev.label == *source_asset.label
             && (!had_data || source_asset.buffer_usage.contains(BufferUsages::COPY_DST))
