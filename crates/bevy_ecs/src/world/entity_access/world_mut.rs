@@ -14,7 +14,7 @@ use crate::{
         ReleaseStateQueryData, SingleEntityQueryData,
     },
     relationship::RelationshipHookMode,
-    resource::{Resource, ResourceEntities},
+    resource::Resource,
     storage::{SparseSets, Table},
     system::EntityCommands,
     template::{SceneEntityReferences, Template, TemplateContext},
@@ -733,13 +733,6 @@ impl<'w> EntityWorldMut<'w> {
                 f(&mut this, res)
             })
         })
-    }
-
-    /// Retrieves this world's [`ResourceEntities`].
-    #[inline]
-    #[track_caller]
-    pub fn resource_entities(&self) -> &ResourceEntities {
-        self.world.resource_entities()
     }
 
     /// Retrieves the [`Entity`] associated with the resource of type `R`, if it exists.

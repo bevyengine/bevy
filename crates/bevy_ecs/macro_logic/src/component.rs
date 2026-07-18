@@ -51,6 +51,8 @@ pub struct DeriveComponent {
     pub map_entities: Option<MapEntitiesAttributeKind>,
     /// Additional required component registrations that are added in `Component::register_required_components`
     pub additional_requires: Vec<TokenStream>,
+    /// Additional `on_insert` hook
+    pub additional_insert_hook: Option<TokenStream>,
 }
 
 impl DeriveComponent {
@@ -70,6 +72,7 @@ impl DeriveComponent {
             clone_behavior: None,
             map_entities: None,
             additional_requires: Vec::new(),
+            additional_insert_hook: None,
         };
 
         let mut require_paths = HashSet::new();
@@ -227,6 +230,10 @@ impl DeriveComponent {
 
         let mut on_despawn_path =
             Vec::from_iter(self.on_despawn.map(|path| path.to_token_stream(bevy_ecs)));
+
+        if let Some(extra_insert_hook) = self.additional_insert_hook {
+            on_insert_path.push(extra_insert_hook);
+        }
 
         if relationship.is_some() {
             on_insert_path.push(quote!(<Self as #bevy_ecs::relationship::Relationship>::on_insert));

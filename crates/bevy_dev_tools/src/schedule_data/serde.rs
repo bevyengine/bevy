@@ -129,11 +129,11 @@ impl AccessData {
         let writes = value.try_writes();
 
         let (reads_inverted, reads) = match reads {
-            Ok(reads) => (false, trace.get_indexes(reads.iter())),
+            Ok(reads) => (false, trace.get_indexes(reads.iter().copied())),
             Err(_) => (true, vec![]),
         };
         let (writes_inverted, writes) = match writes {
-            Ok(writes) => (false, trace.get_indexes(writes.iter())),
+            Ok(writes) => (false, trace.get_indexes(writes.iter().copied())),
             Err(_) => (true, vec![]),
         };
 
@@ -142,7 +142,7 @@ impl AccessData {
             writes,
             reads_inverted,
             writes_inverted,
-            archetypal: trace.get_indexes(value.archetypal().iter()),
+            archetypal: trace.get_indexes(value.archetypal().iter().copied()),
         }
     }
 }
@@ -164,8 +164,8 @@ pub struct AccessFiltersData {
 impl AccessFiltersData {
     fn new(value: &bevy_ecs::query::AccessFilters, trace: &mut ComponentTrace) -> Self {
         Self {
-            with: trace.get_indexes(value.with().iter()),
-            without: trace.get_indexes(value.without().iter()),
+            with: trace.get_indexes(value.with().iter().copied()),
+            without: trace.get_indexes(value.without().iter().copied()),
         }
     }
 }

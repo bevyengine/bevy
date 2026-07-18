@@ -70,7 +70,7 @@ fn has_conflicts_large<'a, Q: QueryData>(
         let needs_check = match access {
             EcsAccessType::Component(EcsAccessLevel::Read(component_id))
             | EcsAccessType::Component(EcsAccessLevel::Write(component_id)) => {
-                filter.check_insert(&component_id.index())
+                filter.check_insert(&component_id)
             }
             EcsAccessType::Component(EcsAccessLevel::ReadAll)
             | EcsAccessType::Component(EcsAccessLevel::WriteAll) => true,
@@ -81,7 +81,7 @@ fn has_conflicts_large<'a, Q: QueryData>(
                         let index = match kind {
                             crate::query::ComponentAccessKind::Shared(id)
                             | crate::query::ComponentAccessKind::Exclusive(id)
-                            | crate::query::ComponentAccessKind::Archetypal(id) => id.index(),
+                            | crate::query::ComponentAccessKind::Archetypal(id) => id,
                         };
                         if filter.check_insert(&index) {
                             needs_check = true;
@@ -110,7 +110,7 @@ fn has_conflicts_large<'a, Q: QueryData>(
 }
 
 /// The data storage type that is being accessed.
-#[derive(Copy, Clone, Debug, PartialEq, Hash)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum EcsAccessType<'a> {
     /// Accesses [`Component`](crate::prelude::Component) data
     Component(EcsAccessLevel),

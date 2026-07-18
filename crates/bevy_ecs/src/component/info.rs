@@ -1,4 +1,4 @@
-use alloc::{borrow::Cow, vec::Vec};
+use alloc::borrow::Cow;
 use bevy_platform::{hash::FixedHasher, sync::PoisonError};
 use bevy_ptr::OwningPtr;
 #[cfg(feature = "bevy_reflect")]
@@ -17,6 +17,9 @@ use crate::{
     component::{
         Component, ComponentCloneBehavior, ComponentMutability, QueuedComponents,
         RequiredComponents, StorageType,
+    },
+    entity::{
+        ContainsEntity, Entity, EntityEquivalent, EntityEquivalentHashMap, EntityEquivalentHashSet,
     },
     lifecycle::ComponentHooks,
     query::DebugCheckedUnwrap as _,
@@ -177,36 +180,52 @@ impl ComponentInfo {
     derive(Reflect),
     reflect(Debug, Hash, PartialEq, Clone)
 )]
-pub struct ComponentId(pub(super) usize);
+pub struct ComponentId(pub(super) Entity);
+
+impl ContainsEntity for ComponentId {
+    fn entity(&self) -> Entity {
+        self.0
+    }
+}
+
+// SAFETY: EntityWrapper is a newtype around Entity that derives its comparison traits.
+unsafe impl EntityEquivalent for ComponentId {}
 
 impl ComponentId {
-    /// Creates a new [`ComponentId`].
-    ///
-    /// The `index` is a unique value associated with each type of component in a given world.
-    /// Usually, this value is taken from a counter incremented for each type of component registered with the world.
+    /// Creates a new [`ComponentId`] from an entity.
+    /// Usually this entity is created by an [`EntityAllocator`](crate::entity::EntityAllocator).
+    /// `Entity::PLACEHOLDER` is not valid for `ComponentId`.
     #[inline]
-    pub const fn new(index: usize) -> ComponentId {
-        ComponentId(index)
+    pub const fn new(entity: Entity) -> ComponentId {
+        ComponentId(entity)
     }
 
-    /// Returns the index of the current component.
+    /// Creates a [`ComponentId`] from a u32.
+    /// This is for debugging purposes, because in a real application you have to ensure the id doesn't conflict with any other entity.
+    /// Moreover, this function panics when `index` is `u32::MAX`.
     #[inline]
-    pub fn index(self) -> usize {
-        self.0
+    pub const fn from_u32(index: u32) -> ComponentId {
+        ComponentId(Entity::from_raw_u32(index).unwrap())
     }
 }
 
 impl SparseSetIndex for ComponentId {
     #[inline]
     fn sparse_set_index(&self) -> usize {
-        self.index()
+        self.entity().sparse_set_index()
     }
 
     #[inline]
     fn get_sparse_set_index(value: usize) -> Self {
-        Self(value)
+        Self(Entity::get_sparse_set_index(value))
     }
 }
+
+/// A map with [`ComponentId`]s as keys.
+pub type ComponentIdMap<V> = EntityEquivalentHashMap<ComponentId, V>;
+
+/// A set of [`ComponentId`]s.
+pub type ComponentIdSet = EntityEquivalentHashSet<ComponentId>;
 
 /// A value describing a component or resource, which may or may not correspond to a Rust type.
 #[derive(Clone)]
@@ -359,7 +378,7 @@ impl ComponentDescriptor {
 /// Stores metadata associated with each kind of [`Component`] in a given [`World`](crate::world::World).
 #[derive(Debug, Default)]
 pub struct Components {
-    pub(super) components: Vec<Option<ComponentInfo>>,
+    pub(super) components: ComponentIdMap<ComponentInfo>,
     pub(super) indices: TypeIdMap<ComponentId>,
     // This is kept internal and local to verify that no deadlocks can occur.
     pub(super) queued: bevy_platform::sync::RwLock<QueuedComponents>,
@@ -368,26 +387,18 @@ pub struct Components {
 impl Components {
     /// This registers any descriptor, component or resource.
     ///
-    /// # Safety
-    ///
-    /// The id must have never been registered before. This must be a fresh registration.
+    /// This function panics if the id has never been registered before.
     #[inline]
-    pub(super) unsafe fn register_component_inner(
+    pub(super) fn register_component_inner(
         &mut self,
         id: ComponentId,
         mut descriptor: ComponentDescriptor,
     ) {
         descriptor.initialize(id, self);
         let info = ComponentInfo::new(id, descriptor);
-        let least_len = id.0 + 1;
-        if self.components.len() < least_len {
-            self.components.resize_with(least_len, || None);
-        }
-        // SAFETY: We just extended the vec to make this index valid.
-        let slot = unsafe { self.components.get_mut(id.0).debug_checked_unwrap() };
-        // Caller ensures id is unique
-        debug_assert!(slot.is_none());
-        *slot = Some(info);
+        self.components
+            .try_insert(id, info)
+            .expect("this component has already been registered");
     }
 
     /// Returns the number of components registered or queued with this instance.
@@ -449,7 +460,7 @@ impl Components {
     /// This will return an incorrect result if `id` did not come from the same world as `self`. It may return `None` or a garbage value.
     #[inline]
     pub fn get_info(&self, id: ComponentId) -> Option<&ComponentInfo> {
-        self.components.get(id.0).and_then(|info| info.as_ref())
+        self.components.get(&id)
     }
 
     /// Gets the [`ComponentDescriptor`] of the component with this [`ComponentId`] if it is present.
@@ -461,8 +472,8 @@ impl Components {
     #[inline]
     pub fn get_descriptor<'a>(&'a self, id: ComponentId) -> Option<Cow<'a, ComponentDescriptor>> {
         self.components
-            .get(id.0)
-            .and_then(|info| info.as_ref().map(|info| Cow::Borrowed(&info.descriptor)))
+            .get(&id)
+            .map(|info| Cow::Borrowed(&info.descriptor))
             .or_else(|| {
                 let queued = self.queued.read().unwrap_or_else(PoisonError::into_inner);
                 // first check components, then resources, then dynamic
@@ -482,8 +493,8 @@ impl Components {
     #[inline]
     pub fn get_name<'a>(&'a self, id: ComponentId) -> Option<DebugName> {
         self.components
-            .get(id.0)
-            .and_then(|info| info.as_ref().map(|info| info.descriptor.name()))
+            .get(&id)
+            .map(|info| info.descriptor.name())
             .or_else(|| {
                 let queued = self.queued.read().unwrap_or_else(PoisonError::into_inner);
                 // first check components, then resources, then dynamic
@@ -503,27 +514,19 @@ impl Components {
     #[inline]
     pub unsafe fn get_info_unchecked(&self, id: ComponentId) -> &ComponentInfo {
         // SAFETY: The caller ensures `id` is valid.
-        unsafe {
-            self.components
-                .get(id.0)
-                .debug_checked_unwrap()
-                .as_ref()
-                .debug_checked_unwrap()
-        }
+        unsafe { self.components.get(&id).debug_checked_unwrap() }
     }
 
     #[inline]
     pub(crate) fn get_hooks_mut(&mut self, id: ComponentId) -> Option<&mut ComponentHooks> {
-        self.components
-            .get_mut(id.0)
-            .and_then(|info| info.as_mut().map(|info| &mut info.hooks))
+        self.components.get_mut(&id).map(|info| &mut info.hooks)
     }
 
     #[inline]
     pub(crate) fn get_required_components(&self, id: ComponentId) -> Option<&RequiredComponents> {
         self.components
-            .get(id.0)
-            .and_then(|info| info.as_ref().map(|info| &info.required_components))
+            .get(&id)
+            .map(|info| &info.required_components)
     }
 
     #[inline]
@@ -532,8 +535,8 @@ impl Components {
         id: ComponentId,
     ) -> Option<&mut RequiredComponents> {
         self.components
-            .get_mut(id.0)
-            .and_then(|info| info.as_mut().map(|info| &mut info.required_components))
+            .get_mut(&id)
+            .map(|info| &mut info.required_components)
     }
 
     #[inline]
@@ -541,9 +544,7 @@ impl Components {
         &self,
         id: ComponentId,
     ) -> Option<&IndexSet<ComponentId, FixedHasher>> {
-        self.components
-            .get(id.0)
-            .and_then(|info| info.as_ref().map(|info| &info.required_by))
+        self.components.get(&id).map(|info| &info.required_by)
     }
 
     #[inline]
@@ -552,8 +553,8 @@ impl Components {
         id: ComponentId,
     ) -> Option<&mut IndexSet<ComponentId, FixedHasher>> {
         self.components
-            .get_mut(id.0)
-            .and_then(|info| info.as_mut().map(|info| &mut info.required_by))
+            .get_mut(&id)
+            .map(|info| &mut info.required_by)
     }
 
     /// Returns true if the [`ComponentId`] is fully registered and valid.
@@ -561,7 +562,7 @@ impl Components {
     /// Those ids are still correct, but they are not usable in every context yet.
     #[inline]
     pub fn is_id_valid(&self, id: ComponentId) -> bool {
-        self.components.get(id.0).is_some_and(Option::is_some)
+        self.components.get(&id).is_some()
     }
 
     /// Type-erased equivalent of [`Components::valid_component_id()`].
@@ -644,7 +645,6 @@ impl Components {
     /// # Safety
     ///
     /// The [`ComponentDescriptor`] must match the [`TypeId`].
-    /// The [`ComponentId`] must be unique.
     /// The [`TypeId`] and [`ComponentId`] must not be registered or queued.
     #[inline]
     pub(super) unsafe fn register_non_send_unchecked(
@@ -653,17 +653,19 @@ impl Components {
         component_id: ComponentId,
         descriptor: ComponentDescriptor,
     ) {
-        // SAFETY: ensured by caller
-        unsafe {
-            self.register_component_inner(component_id, descriptor);
-        }
+        self.register_component_inner(component_id, descriptor);
         let prev = self.indices.insert(type_id, component_id);
         debug_assert!(prev.is_none());
     }
 
     /// Gets an iterator over all components fully registered with this instance.
     pub fn iter_registered(&self) -> impl Iterator<Item = &ComponentInfo> + '_ {
-        self.components.iter().filter_map(Option::as_ref)
+        self.components.values()
+    }
+
+    /// Gets an iterator over all `ComponentId`s fully registered with this instance.
+    pub fn iter_registered_ids(&self) -> impl Iterator<Item = ComponentId> + '_ {
+        self.components.keys().copied()
     }
 
     pub(crate) fn get_relationship_accessor_mut(
@@ -671,10 +673,7 @@ impl Components {
         component_id: ComponentId,
     ) -> Option<&mut MaybeRelationshipAccessor> {
         self.components
-            .get_mut(component_id.index())
-            .and_then(|info| {
-                info.as_mut()
-                    .map(|info| &mut info.descriptor.relationship_accessor)
-            })
+            .get_mut(&component_id)
+            .map(|info| &mut info.descriptor.relationship_accessor)
     }
 }

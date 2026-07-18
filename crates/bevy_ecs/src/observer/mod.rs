@@ -666,7 +666,7 @@ mod tests {
         world.add_observer(|_: On<Add, A>, mut res: ResMut<Order>| res.observed("add_2"));
 
         world.spawn(A).flush();
-        assert_eq!(vec!["add_2", "add_1"], world.resource::<Order>().0);
+        assert_eq!(vec!["add_1", "add_2"], world.resource::<Order>().0);
         // we have one A entity and two observers
         assert_eq!(world.query::<&A>().query(&world).count(), 1);
         assert_eq!(world.query::<&Observer>().query(&world).count(), 2);
