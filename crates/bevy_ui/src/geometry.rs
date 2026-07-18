@@ -1248,6 +1248,7 @@ impl CornerRadius {
     ///     Vec2::splat(25.0)
     /// );
     /// ```
+    #[inline]
     pub const fn circular(radius: Val) -> Self {
         Self {
             x: radius,
@@ -1256,6 +1257,7 @@ impl CornerRadius {
     }
 
     /// Creates a corner radius with the given horizontal (`x`) and vertical (`y`) radii.
+    #[inline]
     pub const fn new(x: Val, y: Val) -> Self {
         Self { x, y }
     }
