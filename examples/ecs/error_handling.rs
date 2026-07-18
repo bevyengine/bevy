@@ -2,7 +2,6 @@
 //! syntax.
 
 use bevy::ecs::{entity::SpawnError, error::warn, world::DeferredWorld};
-use bevy::math::sampling::UniformMeshSampler;
 use bevy::prelude::*;
 
 use chacha20::ChaCha8Rng;

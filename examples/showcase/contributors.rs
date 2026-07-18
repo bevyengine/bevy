@@ -1,6 +1,6 @@
 //! This example displays each contributor to the bevy source code as a bouncing bevy-ball.
 
-use bevy::{math::bounding::Aabb2d, prelude::*};
+use bevy::prelude::*;
 
 use chacha20::ChaCha8Rng;
 use rand::{RngExt, SeedableRng};
