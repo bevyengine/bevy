@@ -11,6 +11,7 @@ pub use bevy_render_macros::AsBindGroup;
 use bevy_utils::define_atomic_id;
 use core::ops::Deref;
 use encase::ShaderType;
+use std::ops::Range;
 use thiserror::Error;
 use wgpu::{
     BindGroupEntry, BindGroupLayoutEntry, BindingResource, SamplerBindingType, TextureViewDimension,
@@ -536,10 +537,18 @@ pub trait AsBindGroup {
     ) -> Result<PreparedBindGroup, AsBindGroupError> {
         let layout = &pipeline_cache.get_bind_group_layout(layout_descriptor);
 
-        let UnpreparedBindGroup { bindings } =
-            Self::unprepared_bind_group(self, layout, render_device, param, false)?;
+        let mut bind_group_builder = BindGroupBuilder::default();
+        Self::build_bind_group(
+            self,
+            layout,
+            render_device,
+            param,
+            false,
+            &mut bind_group_builder,
+        )?;
 
-        let entries = bindings
+        let entries = bind_group_builder
+            .binding_resources
             .iter()
             .map(|(index, binding)| BindGroupEntry {
                 binding: *index,
@@ -550,14 +559,15 @@ pub trait AsBindGroup {
         let bind_group = render_device.create_bind_group(Self::label(), layout, &entries);
 
         Ok(PreparedBindGroup {
-            bindings,
+            bindings: bind_group_builder.into_binding_resources(),
             bind_group,
         })
     }
 
     fn bind_group_data(&self) -> Self::Data;
 
-    /// Returns a vec of (binding index, `OwnedBindingResource`).
+    /// Populates an [`BindGroupBuilder`] with all bindings that this
+    /// type exposes.
     ///
     /// In cases where `OwnedBindingResource` is not available (as for bindless
     /// texture arrays currently), an implementor may return
@@ -568,13 +578,14 @@ pub trait AsBindGroup {
     /// Set `force_no_bindless` to true to require that bindless textures *not*
     /// be used. `ExtendedMaterial` uses this in order to ensure that the base
     /// material doesn't use bindless mode if the extension doesn't.
-    fn unprepared_bind_group(
+    fn build_bind_group(
         &self,
         layout: &BindGroupLayout,
         render_device: &RenderDevice,
         param: &mut SystemParamItem<'_, '_, Self::Param>,
         force_no_bindless: bool,
-    ) -> Result<UnpreparedBindGroup, AsBindGroupError>;
+        output: &mut BindGroupBuilder,
+    ) -> Result<(), AsBindGroupError>;
 
     /// Creates the bind group layout matching all bind groups returned by
     /// [`AsBindGroup::as_bind_group`]
@@ -636,15 +647,68 @@ pub struct PreparedBindGroup {
     pub bind_group: BindGroup,
 }
 
-/// a map containing `OwnedBindingResource`s, keyed by the target binding index
-pub struct UnpreparedBindGroup {
-    pub bindings: BindingResources,
+/// A raw list of binding resources, suitable for either preparing into a bind
+/// group or for combining with other bind groups (perhaps via bindless).
+///
+/// This can be cleared and reused for different bind groups, in order to reduce
+/// allocations.
+#[derive(Default, Deref, DerefMut)]
+pub struct BindGroupBuilder {
+    /// The resources that this bind group builder holds.
+    #[deref]
+    pub binding_resources: UnpreparedBindingResources,
+
+    /// A shared buffer that holds all the POD that this bind group uses.
+    ///
+    /// Data binding resources contain ranges into this buffer.
+    pub data_buffer: Vec<u8>,
 }
 
 /// A pair of binding index and binding resource, used as part of
-/// [`PreparedBindGroup`] and [`UnpreparedBindGroup`].
-#[derive(Deref, DerefMut)]
+/// [`PreparedBindGroup`].
+#[derive(Default, Deref, DerefMut)]
 pub struct BindingResources(pub Vec<(u32, OwnedBindingResource)>);
+
+/// A pair of binding index and binding resource, used as part of
+/// [`BindGroupBuilder`].
+#[derive(Default, Deref, DerefMut)]
+pub struct UnpreparedBindingResources(pub Vec<(u32, UnpreparedBindingResource)>);
+
+impl BindGroupBuilder {
+    /// Turns this [`BindGroupBuilder`] into a set of [`BindingResources`]
+    /// suitable for embedding into a [`PreparedBindGroup`].
+    pub(crate) fn into_binding_resources(self) -> BindingResources {
+        BindingResources(
+            self.binding_resources
+                .0
+                .into_iter()
+                .map(|(binding_index, unprepared_binding_resource)| {
+                    let owned_binding_resource = match unprepared_binding_resource {
+                        UnpreparedBindingResource::Buffer(buffer) => {
+                            OwnedBindingResource::Buffer(buffer)
+                        }
+                        UnpreparedBindingResource::TextureView(
+                            texture_view_dimension,
+                            texture_view,
+                        ) => {
+                            OwnedBindingResource::TextureView(texture_view_dimension, texture_view)
+                        }
+                        UnpreparedBindingResource::Sampler(sampler_binding_type, sampler) => {
+                            OwnedBindingResource::Sampler(sampler_binding_type, sampler)
+                        }
+                        UnpreparedBindingResource::Data(range) => {
+                            OwnedBindingResource::Data(OwnedData(
+                                self.data_buffer[(range.start as usize)..(range.end as usize)]
+                                    .to_vec(),
+                            ))
+                        }
+                    };
+                    (binding_index, owned_binding_resource)
+                })
+                .collect(),
+        )
+    }
+}
 
 /// An owned binding resource of any type (ex: a [`Buffer`], [`TextureView`], etc).
 /// This is used by types like [`PreparedBindGroup`] to hold a single list of all
@@ -655,6 +719,23 @@ pub enum OwnedBindingResource {
     TextureView(TextureViewDimension, TextureView),
     Sampler(SamplerBindingType, Sampler),
     Data(OwnedData),
+}
+
+/// A raw binding resource inside a [`BindGroupBuilder`].
+///
+/// This is the same as [`OwnedBindingResource`], except it references the
+/// [`BindGroupBuilder::data_buffer`] instead of requiring separate allocations
+/// for POD.
+#[derive(Debug)]
+pub enum UnpreparedBindingResource {
+    Buffer(Buffer),
+    TextureView(TextureViewDimension, TextureView),
+    Sampler(SamplerBindingType, Sampler),
+    /// Plain old data (POD).
+    ///
+    /// The given range represents the byte range within the
+    /// [`BindGroupBuilder::data_buffer`].
+    Data(Range<u32>),
 }
 
 /// Data that will be copied into a GPU buffer.
@@ -678,6 +759,33 @@ impl OwnedBindingResource {
             OwnedBindingResource::Sampler(_, sampler) => BindingResource::Sampler(sampler),
             OwnedBindingResource::Data(_) => panic!("`OwnedData` has no binding resource"),
         }
+    }
+}
+
+impl UnpreparedBindingResource {
+    /// Creates a [`BindingResource`] reference to this
+    /// [`UnpreparedBindingResource`].
+    ///
+    /// Note that this operation panics if passed a
+    /// [`UnpreparedBindingResource::Data`], because the range doesn't itself
+    /// correspond to any binding and instead requires the
+    /// `MaterialBindGroupAllocator` to pack it into a buffer.
+    pub fn get_binding(&self) -> BindingResource<'_> {
+        match self {
+            UnpreparedBindingResource::Buffer(buffer) => buffer.as_entire_binding(),
+            UnpreparedBindingResource::TextureView(_, view) => BindingResource::TextureView(view),
+            UnpreparedBindingResource::Sampler(_, sampler) => BindingResource::Sampler(sampler),
+            UnpreparedBindingResource::Data(_) => panic!("Data ranges have no binding resource"),
+        }
+    }
+}
+
+impl BindGroupBuilder {
+    /// Clears out this [`BindGroupBuilder`] so that it can be used to construct
+    /// a new bind group, while preserving the allocations.
+    pub fn clear(&mut self) {
+        self.binding_resources.clear();
+        self.data_buffer.clear();
     }
 }
 

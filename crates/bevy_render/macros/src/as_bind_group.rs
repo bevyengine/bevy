@@ -184,7 +184,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                             buffer.write(&converted).unwrap();
                             (
                                 #binding_index,
-                                #render_path::render_resource::OwnedBindingResource::Buffer(render_device.create_buffer_with_data(
+                                #render_path::render_resource::UnpreparedBindingResource::Buffer(render_device.create_buffer_with_data(
                                     &#render_path::render_resource::BufferInitDescriptor {
                                         label: #FQOption::None,
                                         usage: #uniform_buffer_usages,
@@ -241,23 +241,24 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                     binding_impls.push(quote! {{
                             use #render_path::render_resource::AsBindGroupShaderType;
                             use #render_path::render_resource::encase::{ShaderType, internal::WriteInto};
-                            let mut buffer: ::std::vec::Vec<u8> = ::std::vec::Vec::new();
                             let converted: #converted_shader_type = self.as_bind_group_shader_type(&images);
+                            let start_offset = output.data_buffer.len();
                             converted.write_into(
                                 &mut #render_path::render_resource::encase::internal::Writer::new(
                                     &converted,
-                                    &mut buffer,
+                                    &mut output.data_buffer,
                                     0,
                                 ).unwrap(),
                             );
                             let min_size = <#converted_shader_type as #render_path::render_resource::ShaderType>::min_size().get() as usize;
-                            while buffer.len() < min_size {
-                                buffer.push(0);
+                            while output.data_buffer.len() < start_offset + min_size {
+                                output.data_buffer.push(0);
                             }
+                            let end_offset = output.data_buffer.len();
                             (
                                 #binding_index,
-                                #render_path::render_resource::OwnedBindingResource::Data(
-                                    #render_path::render_resource::OwnedData(buffer)
+                                #render_path::render_resource::UnpreparedBindingResource::Data(
+                                    (start_offset as u32)..(end_offset as u32)
                                 )
                             )
                         }});
@@ -466,7 +467,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                         binding_impls.push(quote! {
                             (
                                 #binding_index,
-                                #render_path::render_resource::OwnedBindingResource::Buffer({
+                                #render_path::render_resource::UnpreparedBindingResource::Buffer({
                                     self.#field_name.clone()
                                 })
                             )
@@ -475,7 +476,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                         binding_impls.push(quote! {
                         (
                             #binding_index,
-                            #render_path::render_resource::OwnedBindingResource::Buffer({
+                            #render_path::render_resource::UnpreparedBindingResource::Buffer({
                                 let handle: &#asset_path::Handle<#render_path::storage::ShaderBuffer> = (&self.#field_name);
                                 storage_buffers.get(handle).ok_or_else(|| #render_path::render_resource::AsBindGroupError::RetryNextUpdate)?.buffer.clone()
                             })
@@ -572,7 +573,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                     // insert fallible texture-based entries at 0 so that if we fail here, we exit before allocating any buffers
                     binding_impls.insert(0, quote! {
                         ( #binding_index,
-                          #render_path::render_resource::OwnedBindingResource::TextureView(
+                          #render_path::render_resource::UnpreparedBindingResource::TextureView(
                                 #render_path::render_resource::#dimension,
                                 {
                                     let handle: #FQOption<&#asset_path::Handle<#image_path::Image>> = (&self.#field_name).into();
@@ -619,7 +620,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                     binding_impls.insert(0, quote! {
                         (
                             #binding_index,
-                            #render_path::render_resource::OwnedBindingResource::TextureView(
+                            #render_path::render_resource::UnpreparedBindingResource::TextureView(
                                 #render_path::render_resource::#dimension,
                                 {
                                     let handle: #FQOption<&#asset_path::Handle<#image_path::Image>> = (&self.#field_name).into();
@@ -726,7 +727,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                     binding_impls.insert(0, quote! {
                         (
                             #binding_index,
-                            #render_path::render_resource::OwnedBindingResource::Sampler(
+                            #render_path::render_resource::UnpreparedBindingResource::Sampler(
                                 // TODO: Support other types.
                                 #render_path::render_resource::SamplerBindingType::Filtering,
                                 {
@@ -835,7 +836,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                     buffer.write(&self.#field_name).unwrap();
                     (
                         #binding_index,
-                        #render_path::render_resource::OwnedBindingResource::Buffer(render_device.create_buffer_with_data(
+                        #render_path::render_resource::UnpreparedBindingResource::Buffer(render_device.create_buffer_with_data(
                             &#render_path::render_resource::BufferInitDescriptor {
                                 label: #FQOption::None,
                                 usage: #uniform_buffer_usages,
@@ -883,7 +884,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                     }).unwrap();
                     (
                         #binding_index,
-                        #render_path::render_resource::OwnedBindingResource::Buffer(render_device.create_buffer_with_data(
+                        #render_path::render_resource::UnpreparedBindingResource::Buffer(render_device.create_buffer_with_data(
                             &#render_path::render_resource::BufferInitDescriptor {
                                 label: #FQOption::None,
                                 usage: #uniform_buffer_usages,
@@ -1083,20 +1084,22 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                 #struct_name_literal
             }
 
-            fn unprepared_bind_group(
+            fn build_bind_group(
                 &self,
                 layout: &#render_path::render_resource::BindGroupLayout,
                 render_device: &#render_path::renderer::RenderDevice,
                 (images, fallback_image, storage_buffers): &mut #ecs_path::system::SystemParamItem<'_, '_, Self::Param>,
                 force_no_bindless: bool,
-            ) -> #FQResult<#render_path::render_resource::UnpreparedBindGroup, #render_path::render_resource::AsBindGroupError> {
+                output: &mut #render_path::render_resource::BindGroupBuilder,
+            ) -> #FQResult<(), #render_path::render_resource::AsBindGroupError> {
                 #uniform_binding_type_declarations
 
-                let bindings = #render_path::render_resource::BindingResources(::std::vec![#(#binding_impls,)*]);
+                #(
+                    let binding_impl = #binding_impls;
+                    output.binding_resources.push(binding_impl);
+                )*
 
-                #FQResult::Ok(#render_path::render_resource::UnpreparedBindGroup {
-                    bindings,
-                })
+                #FQResult::Ok(())
             }
 
             #[allow(clippy::unused_unit)]
