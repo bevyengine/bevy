@@ -41,6 +41,10 @@ pub trait Primitive2d {}
 /// A marker trait for 3D primitives
 pub trait Primitive3d {}
 
+impl Primitive2d for bevy_math::Dir2 {}
+impl Primitive3d for bevy_math::Dir3 {}
+impl Primitive3d for bevy_math::Dir3A {}
+
 /// The winding order for a set of points
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[doc(alias = "Orientation")]

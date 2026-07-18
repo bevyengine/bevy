@@ -2,7 +2,7 @@ use crate::bounding::{
     bounded3d::{Aabb3d, BoundingSphere},
     IntersectsVolume,
 };
-use bevy_math::{bounding::RayCast3d, Dir3A, Ray3d, Vec3A};
+use bevy_math::{Dir3A, Ray3d, RayCast3d, Vec3A};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 

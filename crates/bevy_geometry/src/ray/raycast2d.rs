@@ -2,7 +2,7 @@ use crate::bounding::{
     bounded2d::{Aabb2d, BoundingCircle},
     IntersectsVolume,
 };
-use bevy_math::{bounding::RayCast2d, Dir2, Ray2d, Vec2};
+use bevy_math::{Dir2, Ray2d, RayCast2d, Vec2};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 
@@ -120,7 +120,7 @@ impl IntersectsVolume<BoundingCircle> for BoundingCircleCast {
 
 #[cfg(test)]
 mod tests {
-    use bevy_math::{bounding::RayCast2d, ops};
+    use bevy_math::ops;
 
     use super::*;
 

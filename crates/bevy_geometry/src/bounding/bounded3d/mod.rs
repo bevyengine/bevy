@@ -4,9 +4,9 @@ mod primitive_impls;
 use crate::bounding::{BoundingVolume, IntersectsVolume};
 use bevy_math::{
     ops::{self, FloatPow},
-    primitives::Cuboid,
     Isometry3d, Mat3, Quat, Vec3A,
 };
+use bevy_shape::Cuboid;
 
 pub use extrusion::BoundedExtrusion;
 

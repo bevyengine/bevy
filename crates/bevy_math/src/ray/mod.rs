@@ -1,3 +1,8 @@
+mod raycast2d;
+pub use raycast2d::*;
+mod raycast3d;
+pub use raycast3d::*;
+
 use crate::{ops, Dir2, Dir3, Vec2, Vec3};
 
 #[cfg(feature = "bevy_reflect")]
@@ -39,7 +44,7 @@ impl Ray2d {
 
     /// Returns the distance to a plane if the ray intersects it.
     ///
-    /// Use [`Ray2d::plane_intersection_point`] to get the intersection point directly.
+    /// Use [`Ray2d::plane_normal_intersection_point`] to get the intersection point directly.
     #[inline]
     pub fn intersect_plane_normal(&self, plane_origin: Vec2, plane_normal: Dir2) -> Option<f32> {
         let denominator = plane_normal.dot(*self.direction);
@@ -54,7 +59,7 @@ impl Ray2d {
 
     /// Returns the intersection point with a plane, if it exists.
     ///
-    /// Calls [`Ray2d::get_point`] on the result of [`Ray2d::intersect_plane`].
+    /// Calls [`Ray2d::get_point`] on the result of [`Ray2d::intersect_plane_normal`].
     #[inline]
     pub fn plane_normal_intersection_point(
         &self,
@@ -100,7 +105,7 @@ impl Ray3d {
 
     /// Returns the distance to a plane if the ray intersects it
     ///
-    /// Use [`Ray3d::plane_intersection_point`] to get the intersection point directly.
+    /// Use [`Ray3d::plane_normal_intersection_point`] to get the intersection point directly.
     #[inline]
     pub fn intersect_plane_normal(&self, plane_origin: Vec3, plane_normal: Dir3) -> Option<f32> {
         let denominator = plane_normal.dot(*self.direction);
@@ -115,7 +120,7 @@ impl Ray3d {
 
     /// Returns the intersection point of the ray with a plane, if it exists.
     ///
-    /// Calls [`Ray3d::get_point`] on the result of [`Ray3d::intersect_plane`].
+    /// Calls [`Ray3d::get_point`] on the result of [`Ray3d::intersect_plane_normal`].
     #[inline]
     pub fn plane_normal_intersection_point(
         &self,
