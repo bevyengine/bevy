@@ -14,7 +14,7 @@ use bevy_ecs::{
 use bevy_log::info_span;
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_utils::TypeIdMap;
+use bevy_utils::TypeIdHashMap;
 
 use crate::{
     sync_world::{MainEntity, MainEntityHashMap, RenderEntity},
@@ -45,7 +45,7 @@ pub use range::*;
 pub struct RenderVisibleEntities {
     /// Entities visible from this view or subview, sorted by
     /// [`VisibilityClass`].
-    pub classes: TypeIdMap<RenderVisibleEntitiesClass>,
+    pub classes: TypeIdHashMap<RenderVisibleEntitiesClass>,
 }
 
 /// Collection of entities visible from a single light.
@@ -125,7 +125,7 @@ pub struct RenderVisibleEntitiesClass {
 pub struct RenderExtractedVisibleEntities {
     /// Entities that the CPU has determined to be visible from this view or
     /// subview, sorted by [`VisibilityClass`].
-    pub classes: TypeIdMap<RenderExtractedVisibleEntitiesClass>,
+    pub classes: TypeIdHashMap<RenderExtractedVisibleEntitiesClass>,
 }
 
 /// The entities that the CPU has determined are visible from a single
