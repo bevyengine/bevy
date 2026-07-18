@@ -5,17 +5,14 @@ use crate::{primitives::dim3::triangle3d, Indices, Mesh, PerimeterSegment, Verte
 use bevy_asset::RenderAssetUsages;
 
 use super::{Extrudable, MeshBuilder, Meshable};
-use bevy_math::prelude::Polyline2d;
-use bevy_math::{
-    ops,
-    primitives::{
-        Annulus, Capsule2d, Circle, CircularSector, CircularSegment, ConvexPolygon, Ellipse,
-        Primitive2d, Rectangle, RegularPolygon, Rhombus, Ring, Segment2d, Triangle2d, Triangle3d,
-        WindingOrder,
-    },
-    FloatExt, Vec2, Vec3,
-};
+use bevy_geometry::ring::Ring;
+use bevy_math::{ops, FloatExt, Vec2, Vec3};
 use bevy_reflect::prelude::*;
+use bevy_shape::{
+    Annulus, Capsule2d, Circle, CircularSector, CircularSegment, ConvexPolygon, Ellipse,
+    Polyline2d, Primitive2d, Rectangle, RegularPolygon, Rhombus, Segment2d, Triangle2d, Triangle3d,
+    WindingOrder,
+};
 use wgpu_types::PrimitiveTopology;
 
 /// A builder used for creating a [`Mesh`] with a [`Circle`] shape.
@@ -1543,12 +1540,9 @@ where
 
 #[cfg(test)]
 mod tests {
-    use bevy_math::{
-        prelude::Annulus,
-        primitives::{ConvexPolygon, RegularPolygon},
-        FloatOrd, Vec2,
-    };
+    use bevy_math::{FloatOrd, Vec2};
     use bevy_platform::collections::HashSet;
+    use bevy_shape::{Annulus, ConvexPolygon, RegularPolygon};
 
     use crate::{Mesh, MeshBuilder, Meshable, VertexAttributeValues};
 

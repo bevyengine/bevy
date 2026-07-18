@@ -1,10 +1,8 @@
 use alloc::sync::Arc;
 use bevy_derive::EnumVariantMeta;
 use bevy_ecs::resource::Resource;
-use bevy_math::{
-    bounding::{Aabb2d, Aabb3d, BoundingVolume},
-    vec2, Vec2, Vec3, Vec3A, Vec3Swizzles,
-};
+use bevy_geometry::bounding::{Aabb2d, Aabb3d, BoundingVolume};
+use bevy_math::{vec2, Vec2, Vec3, Vec3A, Vec3Swizzles};
 #[cfg(feature = "serialize")]
 use bevy_platform::collections::HashMap;
 use bevy_platform::collections::HashSet;

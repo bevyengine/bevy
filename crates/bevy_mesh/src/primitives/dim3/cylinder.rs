@@ -1,7 +1,8 @@
 use crate::{Indices, Mesh, MeshBuilder, Meshable, PrimitiveTopology};
 use bevy_asset::RenderAssetUsages;
-use bevy_math::{ops, primitives::Cylinder};
+use bevy_math::ops;
 use bevy_reflect::prelude::*;
+use bevy_shape::Cylinder;
 
 /// Anchoring options for [`CylinderMeshBuilder`]
 #[derive(Debug, Copy, Clone, Default, Reflect)]

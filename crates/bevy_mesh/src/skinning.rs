@@ -4,10 +4,8 @@ use bevy_ecs::{
     component::Component, entity::Entity, prelude::ReflectComponent, system::Query,
     template::FromTemplate,
 };
-use bevy_math::{
-    bounding::{Aabb3d, BoundingVolume},
-    Affine3A, Mat4, Vec3, Vec3A,
-};
+use bevy_geometry::bounding::{Aabb3d, BoundingVolume};
+use bevy_math::{Affine3A, Mat4, Vec3, Vec3A};
 use bevy_reflect::prelude::*;
 use bevy_transform::components::GlobalTransform;
 use core::ops::Deref;
@@ -453,7 +451,8 @@ mod tests {
     use super::*;
     use approx::assert_abs_diff_eq;
     use bevy_asset::RenderAssetUsages;
-    use bevy_math::{bounding::BoundingVolume, vec3, vec3a};
+    use bevy_geometry::bounding::BoundingVolume;
+    use bevy_math::{vec3, vec3a};
 
     #[test]
     fn aabb_accumulator() {
