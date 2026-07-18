@@ -10,7 +10,8 @@ use bevy_camera::{
     primitives::Aabb,
     visibility::{InheritedVisibility, ViewVisibility},
 };
-use bevy_math::{bounding::Aabb3d, Ray3d};
+use bevy_geometry::bounding::Aabb3d;
+use bevy_math::Ray3d;
 use bevy_mesh::{Mesh, Mesh2d, Mesh3d};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
