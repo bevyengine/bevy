@@ -1,9 +1,9 @@
 //! An integration test that connects to a running Bevy app via the BRP,
 //! finds a button's position, and sends a mouse click to press it.
 //!
-//! Run with the `bevy_remote` feature enabled:
+//! Run with the `bevy_remote` and `bevy_feathers` features enabled:
 //! ```bash
-//! cargo run --example integration_test --features="bevy_remote"
+//! cargo run --example integration_test --features="bevy_remote bevy_feathers"
 //! ```
 //! This example assumes that the `app_under_test` example is running on the same machine.
 
@@ -11,6 +11,7 @@ use std::{any::type_name, io::BufRead};
 
 use anyhow::Result as AnyhowResult;
 use bevy::{
+    feathers::controls::FeathersButton,
     platform::collections::HashMap,
     remote::{
         builtin_methods::{
@@ -22,7 +23,7 @@ use bevy::{
         BrpRequest,
     },
     render::view::screenshot::{Screenshot, ScreenshotCaptured},
-    ui::{widget::Button, UiGlobalTransform},
+    ui::UiGlobalTransform,
     window::{Window, WindowEvent},
 };
 
@@ -104,7 +105,7 @@ fn main() -> AnyhowResult<()> {
             },
             strict: false,
             filter: BrpQueryFilter {
-                with: vec![type_name::<Button>().to_string()],
+                with: vec![type_name::<FeathersButton>().to_string()],
                 without: Vec::default(),
             },
         },

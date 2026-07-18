@@ -108,7 +108,7 @@ fn concrete_map_apply(criterion: &mut Criterion) {
     );
 
     map_apply(&mut group, "empty_base_dynamic_patch", empty_base, |size| {
-        key_range_patch(size).to_dynamic_map()
+        key_range_patch(size).to_dynamic_map().unwrap()
     });
 
     map_apply(
@@ -122,7 +122,7 @@ fn concrete_map_apply(criterion: &mut Criterion) {
         &mut group,
         "same_keys_dynamic_patch",
         key_range_base,
-        |size| key_range_patch(size).to_dynamic_map(),
+        |size| key_range_patch(size).to_dynamic_map().unwrap(),
     );
 
     map_apply(
@@ -136,7 +136,7 @@ fn concrete_map_apply(criterion: &mut Criterion) {
         &mut group,
         "disjoint_keys_dynamic_patch",
         key_range_base,
-        |size| disjoint_patch(size).to_dynamic_map(),
+        |size| disjoint_patch(size).to_dynamic_map().unwrap(),
     );
 }
 
@@ -160,6 +160,7 @@ fn dynamic_map_apply(criterion: &mut Criterion) {
                 .zip(iter::repeat(0))
                 .collect::<HashMap<u64, u64>>()
                 .to_dynamic_map()
+                .unwrap()
         }
     };
 
@@ -183,7 +184,7 @@ fn dynamic_map_apply(criterion: &mut Criterion) {
     );
 
     map_apply(&mut group, "empty_base_dynamic_patch", empty_base, |size| {
-        key_range_patch(size).to_dynamic_map()
+        key_range_patch(size).to_dynamic_map().unwrap()
     });
 
     map_apply(
@@ -197,7 +198,7 @@ fn dynamic_map_apply(criterion: &mut Criterion) {
         &mut group,
         "same_keys_dynamic_patch",
         key_range_base,
-        |size| key_range_patch(size).to_dynamic_map(),
+        |size| key_range_patch(size).to_dynamic_map().unwrap(),
     );
 
     map_apply(
@@ -211,7 +212,7 @@ fn dynamic_map_apply(criterion: &mut Criterion) {
         &mut group,
         "disjoint_keys_dynamic_patch",
         key_range_base,
-        |size| disjoint_patch(size).to_dynamic_map(),
+        |size| disjoint_patch(size).to_dynamic_map().unwrap(),
     );
 }
 

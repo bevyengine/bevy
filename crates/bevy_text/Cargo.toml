@@ -34,14 +34,14 @@ bevy_platform = { path = "../bevy_platform", version = "0.20.0-dev", default-fea
 ] }
 
 # other
-wgpu-types = { version = "29.0.3", default-features = false }
+wgpu-types = { version = "30", default-features = false }
 thiserror = { version = "2", default-features = false }
 serde = { version = "1", features = ["derive"] }
 smallvec = { version = "1", default-features = false }
 smol_str = { version = "0.2", default-features = false }
 sys-locale = "0.3.0"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
-parley = { version = "0.9.0", default-features = false, features = ["std"] }
+parley = { version = "0.11.0", default-features = false, features = ["std"] }
 swash = { version = "0.2.6" }
 
 [lints]

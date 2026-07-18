@@ -4,10 +4,11 @@ use bevy_app::{App, Plugin};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
+    event::EntityEvent,
     hierarchy::{ChildOf, Children},
     observer::On,
     query::{Has, With},
-    reflect::ReflectComponent,
+    reflect::{ReflectComponent, ReflectEvent},
     system::{Commands, Query, ResMut},
 };
 use bevy_input::keyboard::{KeyCode, KeyboardInput};
@@ -21,6 +22,13 @@ use crate::{ScrollIntoView, ValueChange};
 
 /// Headless widget implementation for a list box. This component contains multiple [`ListItem`]
 /// entities. It implements the tab navigation logic and keyboard shortcuts for list items.
+///
+/// Functionally, this acts much like a radio group, emitting [`ValueChange`] events which contain
+/// the entity id of the selected item.
+///
+/// **Note:** For information on how widget state is managed
+/// and how to respond to state changes, see the [crate-level documentation].
+/// [crate-level documentation]: crate
 #[derive(Component, Debug, Clone, Default)]
 #[require(
     AccessibilityNode(accesskit::Node::new(Role::ListBox)),
@@ -299,6 +307,39 @@ fn listbox_focus_lost(
     }
 }
 
+/// Programmatically set which entity is selected (a single row of the list)
+/// Wraps a call to send `ValueChange`. No-op if already selected or disabled
+#[derive(EntityEvent, Reflect)]
+#[reflect(Event)]
+pub struct SetSelected {
+    /// The list entity
+    pub entity: Entity,
+    /// The child to set value to
+    pub row: Entity,
+}
+
+fn listbox_on_set_selected(
+    ev: On<SetSelected>,
+    q_listbox: Query<(), With<ListBox>>,
+    q_listitems: Query<(Has<Selected>, Has<InteractionDisabled>), With<ListItem>>,
+    mut commands: Commands,
+) {
+    if !q_listbox.contains(ev.entity) {
+        return;
+    }
+    let Ok((selected, disabled)) = q_listitems.get(ev.row) else {
+        return;
+    };
+    if disabled || selected {
+        return;
+    }
+    commands.trigger(ValueChange::<Entity> {
+        source: ev.entity,
+        value: ev.row,
+        is_final: true,
+    });
+}
+
 /// Plugin that adds the observers for the [`ListBox`] widget.
 pub struct ListBoxPlugin;
 
@@ -307,7 +348,8 @@ impl Plugin for ListBoxPlugin {
         app.add_observer(listbox_on_key_input)
             .add_observer(listbox_on_row_click)
             .add_observer(listbox_focus_gained)
-            .add_observer(listbox_focus_lost);
+            .add_observer(listbox_focus_lost)
+            .add_observer(listbox_on_set_selected);
     }
 }
 

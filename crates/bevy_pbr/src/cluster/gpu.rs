@@ -1159,7 +1159,10 @@ fn cluster_on_gpu(
 
             {
                 // Use `encase` to populate a `ClusterMetadata`.
-                let buffer_view = captured_staging_buffer.slice(..).get_mapped_range();
+                let buffer_view = captured_staging_buffer
+                    .slice(..)
+                    .get_mapped_range()
+                    .unwrap();
                 let Ok(mut buffer_reader) =
                     Reader::new::<ClusterMetadata>(buffer_view[..].to_vec(), 0)
                 else {
@@ -1727,7 +1730,7 @@ pub(crate) fn prepare_clusters_for_gpu_clustering(
         .retain(|view_main_entity, _| all_view_main_entities.contains(view_main_entity));
 }
 
-impl ExtractResource<GpuClusteringPlugin> for GlobalClusterSettings {
+impl ExtractResource<RenderApp, GpuClusteringPlugin> for GlobalClusterSettings {
     type Source = GlobalClusterSettings;
 
     fn extract_resource(source: &Self::Source) -> Self {
