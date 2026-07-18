@@ -2517,13 +2517,13 @@ impl<T: Into<Color>> From<T> for OuterColor {
     reflect(Serialize, Deserialize)
 )]
 pub struct BorderRadius {
-    /// Border radii for top left corner
+    /// Border radius of the top left corner
     pub top_left: CornerRadius,
-    /// Border radii for top right corner
+    /// Border radius of the top right corner
     pub top_right: CornerRadius,
-    /// Border radii for bottom right corner
+    /// Border radius of the bottom right corner
     pub bottom_right: CornerRadius,
-    /// Border radii for bottom left corner
+    /// Border radius of the bottom left corner
     pub bottom_left: CornerRadius,
 }
 
