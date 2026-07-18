@@ -1117,7 +1117,9 @@ mod tests {
         let constructor = BsnConstructor {
             type_path: syn::parse_str("A").unwrap(),
             function: format_ident!("from"),
-            function_generics: Some(syn::parse_str::<syn::AngleBracketedGenericArguments>("<B>").unwrap()),
+            function_generics: Some(
+                syn::parse_str::<syn::AngleBracketedGenericArguments>("<B>").unwrap(),
+            ),
             args: BsnFnArgs(vec![]),
         };
 
@@ -1132,7 +1134,7 @@ mod tests {
 
         // Act
         let res = root.to_tokens(&mut ctx).to_string();
-        
+
         // Assert
         assert!(res.contains("__TargetTemplate"));
         assert!(res.contains("from"));
@@ -1144,7 +1146,9 @@ mod tests {
         let constructor = BsnConstructor {
             type_path: syn::parse_str("A").unwrap(),
             function: format_ident!("from"),
-            function_generics: Some(syn::parse_str::<syn::AngleBracketedGenericArguments>("<B>").unwrap()),
+            function_generics: Some(
+                syn::parse_str::<syn::AngleBracketedGenericArguments>("<B>").unwrap(),
+            ),
             args: BsnFnArgs(vec![]),
         };
 
@@ -1159,7 +1163,7 @@ mod tests {
 
         // Act
         let res = root.to_tokens(&mut ctx).to_string();
-        
+
         // Assert
         assert!(res.contains("__TargetTemplate"));
         assert!(res.contains("FromTemplate"));
