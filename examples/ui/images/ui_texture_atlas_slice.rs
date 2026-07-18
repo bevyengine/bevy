@@ -18,6 +18,12 @@ fn main() {
         .run();
 }
 
+/// Updates each button label whenever its `Pressed` or `Hovered` state changes.
+/// The image node, defined from a spritesheet, will also update upon pressing the button.ß
+///
+/// `Hovered` always exists on the button, so `Ref::is_changed` catches hover transitions and
+/// the insertion of `Pressed`. Removal of `Pressed` is not reported by change detection, so we
+/// also restyle any button that just had `Pressed` removed this frame.
 fn button_system(
     mut buttons: Query<
         (
