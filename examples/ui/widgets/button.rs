@@ -3,6 +3,24 @@
 //!
 //! The `bevy_ui_widgets` widgets are behavior-only — the `Button` tracks its own pressed state
 //! and detects clicks, but comes with no styling. We supply the look ourselves.
+//!
+//! ## What's next?
+//!
+//! - Keyboard & accessibility: add `bevy::input_focus::tab_navigation::TabNavigationPlugin`, wrap
+//!   your UI in a `TabGroup`, and give the button a `TabIndex`. It can then be focused with Tab and
+//!   activated with Enter/Space, firing the same `Activate` event. (`Button` already reports itself
+//!   to accessibility tools via the `AccessibilityNode` it requires.)
+//!
+//! - Disabling a button: insert the `bevy::ui::InteractionDisabled` marker to stop it from
+//!   activating, and branch on `Has<InteractionDisabled>` in `update_button_appearance` to grey it
+//!   out. See the `standard_widgets` and `standard_widgets_observers` examples for that pattern.
+//!
+//! - Activate on press instead of on release: add the `ActivateOnPress` marker (useful for things
+//!   like menu buttons that should fire the instant they're pressed).
+//!
+//! - Reacting via observers instead of a polling system: rather than updating appearance every
+//!   frame, you can observe component changes (e.g. `On<Insert, Pressed>`). The
+//!   `standard_widgets_observers` example demonstrates this approach.
 
 use bevy::{
     color::palettes::basic::*,
@@ -130,21 +148,3 @@ fn update_button_appearance(
         }
     }
 }
-
-// Want to explore further? A few directions from here:
-//
-// - Keyboard & accessibility: add `bevy::input_focus::tab_navigation::TabNavigationPlugin`, wrap
-//   your UI in a `TabGroup`, and give the button a `TabIndex`. It can then be focused with Tab and
-//   activated with Enter/Space, firing the same `Activate` event. (`Button` already reports itself
-//   to accessibility tools via the `AccessibilityNode` it requires.)
-//
-// - Disabling a button: insert the `bevy::ui::InteractionDisabled` marker to stop it from
-//   activating, and branch on `Has<InteractionDisabled>` in `update_button_appearance` to grey it
-//   out. See the `standard_widgets` and `standard_widgets_observers` examples for that pattern.
-//
-// - Activate on press instead of on release: add the `ActivateOnPress` marker (useful for things
-//   like menu buttons that should fire the instant they're pressed).
-//
-// - Reacting via observers instead of a polling system: rather than updating appearance every
-//   frame, you can observe component changes (e.g. `On<Insert, Pressed>`). The
-//   `standard_widgets_observers` example demonstrates this approach.
