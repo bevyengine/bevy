@@ -1163,7 +1163,7 @@ impl From<(Val, Val)> for UiPosition {
     }
 }
 
-/// Radius of a circle or an ellipse.
+/// The horizontal and vertical radii of a rounded corner's elliptical arc.
 /// If one field is auto, the resolved radius will be circular with the radius clamped to max half of the min of the node's width or height.
 /// If either field is zero or both are auto, the node will have square corners.
 #[derive(Debug, PartialEq, Clone, Copy, Reflect)]
@@ -1174,18 +1174,39 @@ impl From<(Val, Val)> for UiPosition {
     reflect(Serialize, Deserialize)
 )]
 pub struct CornerRadius {
+    /// Responsive horizontal radius.
     pub x: Val,
+    /// Responsive vertical radius.
     pub y: Val,
 }
 
 impl CornerRadius {
-    pub fn circle(radius: Val) -> Self {
+    /// A fully rounded corner with a circular radius of half the length of the node's shortest side.
+    pub const MAX: Self = Self {
+        x: Val::Px(f32::MAX),
+        y: Val::Auto,
+    };
+
+    /// An elliptical corner with a horizontal radius of half the node's width and a vertical radius of half its height.
+    pub const MAX_ELLIPTICAL: Self = Self {
+        x: Val::Px(f32::MAX),
+        y: Val::Px(f32::MAX),
+    };
+
+    /// Creates a circular corner radius, with `radius` resolved relative to the node's shortest side and clamped to half its length.
+    pub const fn circular(radius: Val) -> Self {
         Self {
             x: radius,
-            y: auto(),
+            y: Val::Auto,
         }
     }
 
+    /// Creates a corner radius with the given horizontal (`x`) and vertical (`y`) radii.
+    pub const fn new(x: Val, y: Val) -> Self {
+        Self { x, y }
+    }
+
+    /// Resolves this corner radius into horizontal and vertical radii in physical pixels.
     pub fn resolve(self, scale_factor: f32, size: Vec2, viewport_size: Vec2) -> Vec2 {
         match self {
             Self {

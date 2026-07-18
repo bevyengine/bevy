@@ -1479,8 +1479,8 @@ mod elliptical_border_radius {
                                 x: auto(),
                                 y: px(1000),
                             },
-                            bottom_right: CornerRadius::circle(px(1000)),
-                            bottom_left: CornerRadius::circle(px(1000)),
+                            bottom_right: CornerRadius::circular(px(1000)),
+                            bottom_left: CornerRadius::circular(px(1000)),
                         },
                         ..default()
                     },
