@@ -6,6 +6,7 @@ pull_requests: [24779]
 In order to support elliptical nodes, the fields of `BorderRadius` are now `CornerRadius`s and the fields of `ResolvedBorderRadius` are now `Vec2`s.
 
 Before:
+
 ```rust
 BorderRadius {
     pub top_left: px(10.),
@@ -16,6 +17,7 @@ BorderRadius {
 ```
 
 After:
+
 ```rust
 BorderRadius {
     pub top_left: CornerRadius::circular(px(10.)),
@@ -45,3 +47,5 @@ The `BorderRadius` constructor and update functions are no longer `const`. This 
 let n = BorderRadius::top_right(vh(10.));
 let m = BorderRadius::top_right([px(10.), px(20.)]);
 ```
+
+`BorderRadius::resolve_single_corner` has been removed, use `CornerRadius::resolve` instead.
