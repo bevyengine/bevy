@@ -40,7 +40,6 @@ BorderRadius {
 
 Circular corner radius is represented by setting either `CornerRadius::x` or `CornerRadius::y` to `Val::Auto`.
 
-
 The `BorderRadius` constructor and update functions are no longer `const`. This is so that the parameters can take any type implementing `Into<CornerRadius>`:
 
 ```rust
