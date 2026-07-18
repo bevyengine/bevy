@@ -58,8 +58,7 @@ fn button(asset_server: &AssetServer) -> impl Bundle {
         // The headless button widget. It handles pointer/keyboard input and pressed-state
         // tracking for us; we only provide the look below.
         Button,
-        // `Hovered` is required for the picking backend to track whether the pointer is over
-        // this button. Without it, hover state is never updated.
+        // `Hovered` is used by the picking backend to track if the pointer is over the button.
         Hovered::default(),
         Node {
             width: px(150),
