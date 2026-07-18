@@ -953,12 +953,6 @@ impl fmt::Debug for AlignedVec {
     }
 }
 
-impl Default for AlignedVec {
-    fn default() -> Self {
-        Self::new(16)
-    }
-}
-
 impl Deref for AlignedVec {
     type Target = [u8];
 

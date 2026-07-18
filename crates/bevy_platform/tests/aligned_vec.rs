@@ -21,10 +21,6 @@ fn test_construction() {
 
     let v = AlignedVec::with_capacity(16, 0);
     assert_eq!(v.capacity(), 0);
-
-    let v: AlignedVec = Default::default();
-    assert_eq!(v.alignment(), 16);
-    assert!(v.is_empty());
 }
 
 #[test]
