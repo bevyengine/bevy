@@ -200,29 +200,20 @@ impl AssetLoader for ImageLoader {
         reader.read_to_end(&mut bytes).await?;
         let image_type = match settings.format {
             ImageFormatSetting::FromExtension => {
-                // use the file extension for the image type
-                let ext = load_context
+                // use the file extension for the image type, falling back to guessing the
+                // format from the image contents if the path has no (valid unicode) extension
+                match load_context
                     .path()
                     .path()
                     .extension()
-                    .unwrap()
-                    .to_str()
-                    .unwrap();
-                ImageType::Extension(ext)
+                    .and_then(|e| e.to_str())
+                {
+                    Some(ext) => ImageType::Extension(ext),
+                    None => ImageType::Format(guess_format(&bytes, load_context)?),
+                }
             }
             ImageFormatSetting::Format(format) => ImageType::Format(format),
-            ImageFormatSetting::Guess => {
-                let format = image::guess_format(&bytes).map_err(|err| FileTextureError {
-                    error: err.into(),
-                    path: format!("{}", load_context.path().path().display()),
-                })?;
-                ImageType::Format(ImageFormat::from_image_crate_format(format).ok_or_else(
-                    || FileTextureError {
-                        error: TextureError::UnsupportedTextureFormat(format!("{format:?}")),
-                        path: format!("{}", load_context.path().path().display()),
-                    },
-                )?)
-            }
+            ImageFormatSetting::Guess => ImageType::Format(guess_format(&bytes, load_context)?),
         };
 
         let mut image = Image::from_buffer(
@@ -271,6 +262,20 @@ impl AssetLoader for ImageLoader {
     fn extensions(&self) -> &[&str] {
         Self::SUPPORTED_FILE_EXTENSIONS
     }
+}
+
+/// Guess the image format from the leading bytes of the file contents.
+fn guess_format(bytes: &[u8], load_context: &LoadContext) -> Result<ImageFormat, ImageLoaderError> {
+    let format = image::guess_format(bytes).map_err(|err| FileTextureError {
+        error: err.into(),
+        path: format!("{}", load_context.path().path().display()),
+    })?;
+    Ok(
+        ImageFormat::from_image_crate_format(format).ok_or_else(|| FileTextureError {
+            error: TextureError::UnsupportedTextureFormat(format!("{format:?}")),
+            path: format!("{}", load_context.path().path().display()),
+        })?,
+    )
 }
 
 /// An error that occurs when loading a texture from a file.
