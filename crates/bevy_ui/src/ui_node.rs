@@ -2614,7 +2614,6 @@ impl BorderRadius {
     pub const fn px(top_left: f32, top_right: f32, bottom_right: f32, bottom_left: f32) -> Self {
         Self {
             top_left: CornerRadius::circular(Val::Px(top_left)),
-
             top_right: CornerRadius::circular(Val::Px(top_right)),
             bottom_right: CornerRadius::circular(Val::Px(bottom_right)),
             bottom_left: CornerRadius::circular(Val::Px(bottom_left)),
@@ -2630,22 +2629,10 @@ impl BorderRadius {
         bottom_left: f32,
     ) -> Self {
         Self {
-            top_left: CornerRadius {
-                x: Val::Percent(top_left),
-                y: auto(),
-            },
-            top_right: CornerRadius {
-                x: Val::Percent(top_right),
-                y: auto(),
-            },
-            bottom_right: CornerRadius {
-                x: Val::Percent(bottom_right),
-                y: auto(),
-            },
-            bottom_left: CornerRadius {
-                x: Val::Percent(bottom_left),
-                y: auto(),
-            },
+            top_left: CornerRadius::circular(Val::Percent(top_left)),
+            top_right: CornerRadius::circular(Val::Percent(top_right)),
+            bottom_right: CornerRadius::circular(Val::Percent(bottom_right)),
+            bottom_left: CornerRadius::circular(Val::Percent(bottom_left)),
         }
     }
 
