@@ -2,7 +2,7 @@
 /// Using these helpers requires the `bevy_feathers` feature to be enabled.
 use bevy::{
     color::palettes,
-    feathers::{controls::FeathersRadio, display::caption, theme::ThemeProps},
+    feathers::{controls::FeathersRadio, display::{caption, label}, theme::ThemeProps},
     platform::collections::HashMap,
     prelude::*,
     ui::Checked,
@@ -31,7 +31,7 @@ pub fn main_ui_node_scene() -> impl Scene {
 }
 
 /// Creates a basic feathers theme props for the radio buttons.
-pub fn basic_radio_button_theme() -> ThemeProps {
+pub(crate) fn basic_radio_button_theme() -> ThemeProps {
     let mut color = HashMap::new();
     color.insert(bevy::feathers::tokens::RADIO_TEXT, Color::BLACK);
     color.insert(bevy::feathers::tokens::RADIO_MARK, Color::BLACK);
@@ -106,11 +106,7 @@ where
         }
         RadioGroup
         Children [
-            Text::new(title)
-            TextFont {
-                font_size: FontSize::Px(18.0),
-            }
-            TextColor(Color::BLACK),
+            label(title),
             {buttons}
         ]
     }

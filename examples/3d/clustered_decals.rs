@@ -3,8 +3,11 @@
 use std::f32::consts::{FRAC_PI_3, PI};
 use std::fmt::{self, Formatter};
 
+use bevy::feathers::dark_theme::create_dark_theme;
+use bevy::ui_widgets::radio_self_update;
 use bevy::{
     color::palettes::css::{LIME, ORANGE_RED, SILVER},
+    feathers::{theme::UiTheme, FeathersPlugins},
     input::mouse::AccumulatedMouseMotion,
     light::ClusteredDecal,
     pbr::{decal, ExtendedMaterial, MaterialExtension},
@@ -14,16 +17,17 @@ use bevy::{
         renderer::{RenderAdapter, RenderDevice},
     },
     shader::ShaderRef,
+    ui_widgets::ValueChange,
     window::{CursorIcon, SystemCursorIcon},
 };
 use ops::{acos, cos, sin};
-use widgets::{
-    WidgetClickEvent, WidgetClickSender, BUTTON_BORDER, BUTTON_BORDER_COLOR,
-    BUTTON_BORDER_RADIUS_SIZE, BUTTON_PADDING,
-};
 
 #[path = "../helpers/widgets.rs"]
 mod widgets;
+use widgets::{BUTTON_BORDER, BUTTON_BORDER_COLOR, BUTTON_BORDER_RADIUS_SIZE, BUTTON_PADDING};
+
+#[path = "../helpers/radio.rs"]
+mod radio;
 
 /// The custom material shader that we use to demonstrate how to use the decal
 /// `tag` field.
@@ -120,33 +124,32 @@ impl MaterialExtension for CustomDecalExtension {
 /// Entry point.
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "Bevy Clustered Decals Example".into(),
+        .insert_resource(UiTheme(create_dark_theme()))
+        .add_plugins((
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    title: "Bevy Clustered Decals Example".into(),
+                    ..default()
+                }),
                 ..default()
             }),
-            ..default()
-        }))
+            FeathersPlugins,
+        ))
         .add_plugins(MaterialPlugin::<
             ExtendedMaterial<StandardMaterial, CustomDecalExtension>,
         >::default())
         .init_resource::<AppStatus>()
-        .add_message::<WidgetClickEvent<Selection>>()
         .add_systems(Startup, setup)
         .add_systems(Update, draw_gizmos)
         .add_systems(Update, rotate_cube)
-        .add_systems(Update, widgets::handle_ui_interactions::<Selection>)
-        .add_systems(
-            Update,
-            (handle_selection_change, update_radio_buttons)
-                .after(widgets::handle_ui_interactions::<Selection>),
-        )
         .add_systems(Update, process_move_input)
         .add_systems(Update, process_scale_input)
         .add_systems(Update, process_roll_input)
         .add_systems(Update, switch_drag_mode)
         .add_systems(Update, update_help_text)
         .add_systems(Update, update_button_visibility)
+        .add_observer(handle_selection_change)
+        .add_observer(radio_self_update)
         .run();
 }
 
@@ -245,17 +248,17 @@ fn spawn_decals(commands: &mut Commands, asset_server: &AssetServer) {
 fn spawn_buttons(commands: &mut Commands) {
     // Spawn the radio buttons that allow the user to select an object to
     // control.
-    commands.spawn((
-        widgets::main_ui_node(),
-        children![widgets::option_buttons(
-            "Drag to Move",
+    commands.spawn_scene(bsn! {
+        radio::main_ui_node_scene()
+        Children [
+            radio::feathers_option_buttons("Drag to Move",
             &[
                 (Selection::Camera, "Camera"),
                 (Selection::DecalA, "Decal A"),
                 (Selection::DecalB, "Decal B"),
-            ],
-        )],
-    ));
+            ])
+        ]
+    });
 
     // Spawn the drag buttons that allow the user to control the scale and roll
     // of the selected object.
@@ -273,6 +276,21 @@ fn spawn_buttons(commands: &mut Commands) {
             (drag_button("Roll"), DragMode::Roll),
         ],
     ));
+}
+
+/// Handles requests from the user to change the selected object to control.
+/// The `radio_self_update` observer handles `Checked` state on the radio buttons themselves.
+fn handle_selection_change(
+    event: On<ValueChange<Entity>>,
+    new_value_query: Query<&radio::RadioButtonOptionValue<Selection>>,
+    mut commands: Commands,
+    mut lights: Query<Entity, Or<(With<DirectionalLight>, With<PointLight>, With<SpotLight>)>>,
+    mut app_status: ResMut<AppStatus>,
+) {
+    let Ok(radio::RadioButtonOptionValue(selection)) = new_value_query.get(event.value) else {
+        return;
+    };
+    app_status.selection = *selection;
 }
 
 /// Spawns a button that the user can drag to change a parameter.
@@ -347,38 +365,6 @@ fn calculate_initial_decal_transform(start: Vec3, looking_at: Vec3, size: Vec2) 
 fn rotate_cube(mut meshes: Query<&mut Transform, With<Mesh3d>>) {
     for mut transform in &mut meshes {
         transform.rotate_y(CUBE_ROTATION_SPEED);
-    }
-}
-
-/// Updates the state of the radio buttons when the user clicks on one.
-fn update_radio_buttons(
-    mut widgets: Query<(
-        Entity,
-        Option<&mut BackgroundColor>,
-        Has<Text>,
-        &WidgetClickSender<Selection>,
-    )>,
-    app_status: Res<AppStatus>,
-    mut writer: TextUiWriter,
-) {
-    for (entity, maybe_bg_color, has_text, sender) in &mut widgets {
-        let selected = app_status.selection == **sender;
-        if let Some(mut bg_color) = maybe_bg_color {
-            widgets::update_ui_radio_button(&mut bg_color, selected);
-        }
-        if has_text {
-            widgets::update_ui_radio_button_text(entity, &mut writer, selected);
-        }
-    }
-}
-
-/// Changes the selection when the user clicks a radio button.
-fn handle_selection_change(
-    mut events: MessageReader<WidgetClickEvent<Selection>>,
-    mut app_status: ResMut<AppStatus>,
-) {
-    for event in events.read() {
-        app_status.selection = **event;
     }
 }
 
