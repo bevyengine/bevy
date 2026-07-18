@@ -792,6 +792,9 @@ impl AlignedVec {
     /// ```
     #[cfg(feature = "bytemuck")]
     pub fn into_vec<T: bytemuck::AnyBitPattern>(self) -> Vec<T> {
+        const {
+            assert!(size_of::<T>() != 0);
+        }
         assert!(align_of::<T>() == self.alignment());
         assert!(self.len().is_multiple_of(size_of::<T>()));
         assert!(self.capacity().is_multiple_of(size_of::<T>()));
@@ -799,7 +802,7 @@ impl AlignedVec {
         // SAFETY: the raw parts from `self` are valid to be used as `Vec`
         unsafe {
             Vec::from_raw_parts(
-                ptr.cast::<T>().as_mut(),
+                ptr.cast::<T>().as_ptr(),
                 len / size_of::<T>(),
                 cap / size_of::<T>(),
             )
