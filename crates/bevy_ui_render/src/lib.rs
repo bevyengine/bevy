@@ -241,6 +241,7 @@ impl Plugin for UiRenderPlugin {
                     RenderUiSystems::ExtractCameraViews,
                     RenderUiSystems::ExtractBoxShadows,
                     RenderUiSystems::ExtractBackgrounds,
+                    RenderUiSystems::ExtractViewportNodes,
                     RenderUiSystems::ExtractImages,
                     RenderUiSystems::ExtractTextureSlice,
                     RenderUiSystems::ExtractBorders,
@@ -391,7 +392,7 @@ pub struct ExtractedGlyph {
     pub rect: Rect,
 }
 
-/// The list of gradients.
+/// The list of UI nodes, as well as the set of nodes that changed.
 ///
 /// This is a two-level data structure so that we can quickly remove all
 /// gradients associated with a main-world entity when it changes.
@@ -463,17 +464,16 @@ pub fn extract_uinode_changes(
                         Changed<BorderGradient>,
                         Changed<BoxShadow>,
                         Changed<EditableText>,
-                        Changed<UiDebugOptions>,
                         Changed<Underline>,
-                    )>,
-                    Or<(
                         Changed<Strikethrough>,
-                        Changed<StrikethroughColor>,
-                        Changed<UnderlineColor>,
                     )>,
+                    Or<(Changed<StrikethroughColor>, Changed<UnderlineColor>)>,
                 )>,
             ),
         >,
+    >,
+    #[cfg(feature = "bevy_ui_debug")] changed_debug_options_query: Extract<
+        Query<Entity, (UiNodeQueryFilter, Changed<UiDebugOptions>)>,
     >,
     text_span_query: Extract<
         Query<
@@ -536,16 +536,27 @@ pub fn extract_uinode_changes(
         mut removed_text_shadow_query,
         mut removed_background_gradient_query,
         mut removed_border_gradient_query,
+        mut removed_box_shadow_query,
         mut removed_editable_text_query,
-        mut removed_ui_debug_options,
+        mut removed_underline_query,
+        mut removed_strikethrough_query,
     ): (
         Extract<RemovedComponents<TextCursorStyle>>,
         Extract<RemovedComponents<TextShadow>>,
         Extract<RemovedComponents<BackgroundGradient>>,
         Extract<RemovedComponents<BorderGradient>>,
+        Extract<RemovedComponents<BoxShadow>>,
         Extract<RemovedComponents<EditableText>>,
-        Extract<RemovedComponents<UiDebugOptions>>,
+        Extract<RemovedComponents<Underline>>,
+        Extract<RemovedComponents<Strikethrough>>,
     ),
+    (mut removed_strikethrough_color_query, mut removed_underline_color_query): (
+        Extract<RemovedComponents<StrikethroughColor>>,
+        Extract<RemovedComponents<UnderlineColor>>,
+    ),
+    #[cfg(feature = "bevy_ui_debug")] mut removed_debug_options_query: Extract<
+        RemovedComponents<UiDebugOptions>,
+    >,
     global_ui_debug_options: Extract<Res<GlobalUiDebugOptions>>,
     mut extra_nodes_to_invalidate: Local<MainEntityHashSet>,
 ) {
@@ -554,7 +565,10 @@ pub fn extract_uinode_changes(
     // If the debug options changed, we wipe everything.
     // That's a bit coarse-grained, but having the debug options change is rare
     // and should only happen in, well, debugging.
+    #[cfg(feature = "bevy_ui_debug")]
     let must_wipe_all_nodes = global_ui_debug_options.is_changed();
+    #[cfg(not(feature = "bevy_ui_debug"))]
+    let must_wipe_all_nodes = false;
 
     if must_wipe_all_nodes {
         for main_entity in &all_uinodes_query {
@@ -593,8 +607,29 @@ pub fn extract_uinode_changes(
             .chain(removed_text_shadow_query.read())
             .chain(removed_background_gradient_query.read())
             .chain(removed_border_gradient_query.read())
+            .chain(removed_box_shadow_query.read())
             .chain(removed_editable_text_query.read())
-            .chain(removed_ui_debug_options.read())
+            .chain(removed_underline_query.read())
+            .chain(removed_strikethrough_query.read())
+            .chain(removed_strikethrough_color_query.read())
+            .chain(removed_underline_color_query.read())
+        {
+            process_changed_entity(
+                main_entity.into(),
+                &mut commands,
+                &text_span_parent_query,
+                &text_query,
+                &mut extracted_uinodes,
+                Some(&mut extra_nodes_to_invalidate),
+            );
+        }
+
+        // Process nodes that have changed debug options too, if that feature is
+        // enabled.
+        #[cfg(feature = "bevy_ui_debug")]
+        for main_entity in changed_debug_options_query
+            .iter()
+            .chain(removed_debug_options_query.read())
         {
             process_changed_entity(
                 main_entity.into(),
@@ -1115,6 +1150,8 @@ pub fn extract_ui_camera_view(
                 Changed<Camera>,
                 Changed<UiAntiAlias>,
                 Changed<BoxShadowSamples>,
+                Changed<Camera2d>,
+                Changed<Camera3d>,
             )>,
         >,
     >,
@@ -1125,10 +1162,14 @@ pub fn extract_ui_camera_view(
         mut removed_cameras_query,
         mut removed_ui_anti_alias_query,
         mut removed_box_shadow_samples_query,
+        mut removed_cameras_2d_query,
+        mut removed_cameras_3d_query,
     ): (
         Extract<RemovedComponents<Camera>>,
         Extract<RemovedComponents<UiAntiAlias>>,
         Extract<RemovedComponents<BoxShadowSamples>>,
+        Extract<RemovedComponents<Camera2d>>,
+        Extract<RemovedComponents<Camera3d>>,
     ),
     mut changed_cameras: Local<MainEntityHashSet>,
     mut cameras_updated_this_frame: Local<MainEntityHashSet>,
@@ -1138,6 +1179,8 @@ pub fn extract_ui_camera_view(
         .iter()
         .chain(removed_ui_anti_alias_query.read())
         .chain(removed_box_shadow_samples_query.read())
+        .chain(removed_cameras_2d_query.read())
+        .chain(removed_cameras_3d_query.read())
     {
         changed_cameras.insert(main_entity.into());
     }

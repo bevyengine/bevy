@@ -14,6 +14,16 @@ use bevy_image::TextureAtlasLayout;
 use bevy_reflect::Reflect;
 use bevy_ui::widget::ImageNode;
 
+// This component is more or less a workaround for the fact that `AsAssetId`
+// only allows each component to expose one asset. `ImageNode` exposes two types
+// of assets: an `Image` and a `TextureAtlasLayout`. We have to mark the image
+// node as changed if either one of those assets changes. The only way to detect
+// asset changes is to use the `AssetChanged` query filter. Unfortunately, the
+// `AssetChanged` query filter relies on `AsAssetId`, which we can only
+// implement once per component. Thus we need this second component, which
+// essentially serves to provide a second implementation of `AsAssetId` on
+// `ImageNode`.
+
 /// The texture atlas layout, if the image has one.
 ///
 /// The [`update_texture_atlas_layout_components`] system automatically keeps
