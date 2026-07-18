@@ -2547,7 +2547,7 @@ impl BorderRadius {
         bottom_left: CornerRadius::MAX,
     };
 
-    /// The node will be fully elliptical with a horizontal radius of half the node's width and a vertical radius of half its height.
+    //// The node will be drawn as an ellipse with a horizontal radius of half its width and a vertical radius of half its height.
     pub const MAX_ELLIPTICAL: Self = Self {
         top_left: CornerRadius::MAX_ELLIPTICAL,
         top_right: CornerRadius::MAX_ELLIPTICAL,
@@ -2568,7 +2568,7 @@ impl BorderRadius {
     }
 
     #[inline]
-    /// Set all four circular corners to the same round corner radius.
+    /// Set all four circular corners to the same circular corner radius.
     pub const fn all_circular(radius: Val) -> Self {
         let corner_radius = CornerRadius {
             x: radius,
@@ -2583,7 +2583,7 @@ impl BorderRadius {
     }
 
     #[inline]
-    /// Set all four corners to the same elliptical radii.
+    /// Set all four corners to the same elliptical `CornerRadius`.
     pub const fn all_elliptical(radii: CornerRadius) -> Self {
         Self {
             top_left: radii,
