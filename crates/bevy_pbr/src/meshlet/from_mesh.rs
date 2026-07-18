@@ -2,11 +2,8 @@ use crate::meshlet::asset::{MeshletAabb, MeshletAabbErrorOffset, MeshletCullData
 
 use super::asset::{BvhNode, Meshlet, MeshletBoundingSphere, MeshletMesh};
 use alloc::borrow::Cow;
-use bevy_math::{
-    bounding::{Aabb3d, BoundingSphere, BoundingVolume},
-    ops::log2,
-    IVec3, Isometry3d, Vec2, Vec3, Vec3A, Vec3Swizzles,
-};
+use bevy_geometry::bounding::{Aabb3d, BoundingSphere, BoundingVolume};
+use bevy_math::{ops::log2, IVec3, Isometry3d, Vec2, Vec3, Vec3A, Vec3Swizzles};
 use bevy_mesh::{Indices, Mesh, MeshVertexAttribute};
 use bevy_platform::collections::HashMap;
 use bevy_render::render_resource::PrimitiveTopology;
