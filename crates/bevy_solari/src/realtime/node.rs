@@ -142,10 +142,10 @@ pub fn solari_lighting(
         pipeline_cache.get_compute_pipeline(pipelines.spatial_and_shade_pipeline),
         &scene_bindings.bind_group,
         view_prepass_textures.deferred_view(),
-        view_prepass_textures.depth_view(),
+        view_prepass_textures.depth_only_view(),
         view_prepass_textures.motion_vectors_view(),
         view_prepass_textures.previous_deferred_view(),
-        view_prepass_textures.previous_depth_view(),
+        view_prepass_textures.previous_depth_only_view(),
         view_uniforms.uniforms.binding(),
         previous_view_uniforms.uniforms.binding(),
     )
@@ -435,7 +435,7 @@ pub fn init_solari_lighting_pipelines(
             "compact_world_cache_blocks",
             load_embedded_asset!(asset_server.as_ref(), "world_cache_compact.wgsl"),
             Some(&bind_group_layout_world_cache_active_cells_dispatch),
-            vec![],
+            vec!["WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER".into()],
         ),
         compact_world_cache_write_active_cells_pipeline: create_pipeline(
             "solari_lighting_compact_world_cache_write_active_cells_pipeline",

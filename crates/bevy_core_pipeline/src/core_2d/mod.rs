@@ -39,7 +39,7 @@ use bevy_render::{
     renderer::RenderDevice,
     sync_world::MainEntity,
     texture::TextureCache,
-    view::{Msaa, ViewDepthTexture},
+    view::{Msaa, ViewDepthStencilTexture},
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 
@@ -459,8 +459,10 @@ pub fn prepare_core_2d_depth_textures(
             })
             .clone();
 
-        commands
-            .entity(view)
-            .insert(ViewDepthTexture::new(cached_texture, Some(0.0)));
+        commands.entity(view).insert(ViewDepthStencilTexture::new(
+            cached_texture,
+            Some(0.0),
+            None,
+        ));
     }
 }

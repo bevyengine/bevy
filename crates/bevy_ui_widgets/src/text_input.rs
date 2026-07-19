@@ -299,7 +299,7 @@ fn on_pointer_drag(
     ));
 }
 
-fn text_input_autoscroll_system(
+pub(crate) fn text_input_autoscroll_system(
     time: Res<Time<Real>>,
     pointer_state: Res<PointerState>,
     input_focus: Res<InputFocus>,

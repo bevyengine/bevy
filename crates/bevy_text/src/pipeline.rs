@@ -1,7 +1,3 @@
-use alloc::borrow::Cow;
-
-use core::hash::BuildHasher;
-
 use bevy_asset::Assets;
 use bevy_color::Color;
 use bevy_ecs::{
@@ -13,10 +9,9 @@ use bevy_log::warn_once;
 use bevy_math::{Rect, Vec2};
 use bevy_platform::hash::FixedHasher;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use core::hash::BuildHasher;
 use parley::style::{OverflowWrap, TextWrapMode, WordBreak};
-use parley::{
-    Alignment, AlignmentOptions, FontFamily, Layout, PositionedLayoutItem, StyleProperty,
-};
+use parley::{Alignment, AlignmentOptions, Layout, PositionedLayoutItem, StyleProperty};
 use swash::FontRef;
 
 use crate::TextBrush;
@@ -117,7 +112,7 @@ impl TextPipeline {
                 }
 
                 if matches!(text_font.font, FontSource::Handle(_))
-                    && resolve_font_source(text_font, fonts).is_err()
+                    && text_font.font.resolve_font_family(fonts).is_err()
                 {
                     return Err(TextError::NoSuchFont);
                 }
@@ -190,7 +185,7 @@ impl TextPipeline {
                     continue;
                 }
 
-                let resolved_family = resolve_font_source(section.text_font, fonts)?;
+                let resolved_family = section.text_font.font.resolve_font_family(fonts)?;
 
                 builder.push(StyleProperty::FontFamily(resolved_family), range.clone());
                 builder.push(
@@ -423,54 +418,11 @@ impl TextPipeline {
     }
 }
 
-/// Resolve a [`TextFont`]'s [`FontSource`] to a font family.
-pub fn resolve_font_source<'a>(
-    text_font: &'a TextFont,
-    fonts: &'a Assets<Font>,
-) -> Result<FontFamily<'a>, TextError> {
-    Ok(match &text_font.font {
-        FontSource::Handle(handle) => {
-            FontFamily::Single(parley::FontFamilyName::Named(Cow::Borrowed(
-                fonts
-                    .get(handle.id())
-                    .ok_or(TextError::NoSuchFont)?
-                    .alias
-                    .as_str(),
-            )))
-        }
-        FontSource::Family(family) => FontFamily::named(family.as_str()),
-        generic => {
-            #[cfg(not(feature = "system_font_discovery"))]
-            bevy_log::error_once!(
-                "A generic FontSource ({generic:?}) was used, but the `system_font_discovery` \
-                feature is not enabled. Text may not render. Enable the feature to allow Bevy \
-                to discover system fonts."
-            );
-            match generic {
-                FontSource::Serif => parley::GenericFamily::Serif.into(),
-                FontSource::SansSerif => parley::GenericFamily::SansSerif.into(),
-                FontSource::Cursive => parley::GenericFamily::Cursive.into(),
-                FontSource::Fantasy => parley::GenericFamily::Fantasy.into(),
-                FontSource::Monospace => parley::GenericFamily::Monospace.into(),
-                FontSource::SystemUi => parley::GenericFamily::SystemUi.into(),
-                FontSource::UiSerif => parley::GenericFamily::UiSerif.into(),
-                FontSource::UiSansSerif => parley::GenericFamily::UiSansSerif.into(),
-                FontSource::UiMonospace => parley::GenericFamily::UiMonospace.into(),
-                FontSource::UiRounded => parley::GenericFamily::UiRounded.into(),
-                FontSource::Emoji => parley::GenericFamily::Emoji.into(),
-                FontSource::Math => parley::GenericFamily::Math.into(),
-                FontSource::FangSong => parley::GenericFamily::FangSong.into(),
-                FontSource::Handle(_) | FontSource::Family(_) => unreachable!(),
-            }
-        }
-    })
-}
-
 /// Render information for a corresponding text block.
 ///
 /// Contains scaled glyphs and their size. Generated via [`TextPipeline::update_text_layout_info`] when an entity has
 /// [`TextLayout`] and [`ComputedTextBlock`] components.
-#[derive(Component, Clone, Default, Debug, Reflect)]
+#[derive(Component, Clone, Debug, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 pub struct TextLayoutInfo {
     /// The target scale factor for this text layout
@@ -504,6 +456,20 @@ impl TextLayoutInfo {
         self.cursor = None;
         self.selection_rects.clear();
         self.preedit_underline_rects.clear();
+    }
+}
+
+impl Default for TextLayoutInfo {
+    fn default() -> Self {
+        Self {
+            scale_factor: 1.,
+            glyphs: Default::default(),
+            run_geometry: Default::default(),
+            size: Vec2::ZERO,
+            cursor: None,
+            selection_rects: Default::default(),
+            preedit_underline_rects: Default::default(),
+        }
     }
 }
 
