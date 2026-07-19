@@ -502,11 +502,20 @@ fn handle_drag(
 
 /// Creates the help string at the top left of the screen.
 fn create_help_string(app_status: &AppStatus) -> String {
-    format!("Click and drag to move {}", app_status.selection)
+    if app_status.selection == Selection::Camera {
+        format!("Click and drag to move {}.", app_status.selection)
+    } else {
+        format!(
+            "Click and drag to move/scale/rotate {}.\n\
+            To scale/rotate, start the drag within the corresponding number input.\n\
+            To move, start the drag anywhere else in the example.",
+            app_status.selection
+        )
+    }
 }
 
 /// Updates the help text in the top left of the screen to reflect the current
-/// selection and drag mode.
+/// selection.
 fn update_help_text(mut help_text: Query<&mut Text, With<HelpText>>, app_status: Res<AppStatus>) {
     for mut text in &mut help_text {
         text.0 = create_help_string(&app_status);
