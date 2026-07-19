@@ -16,7 +16,14 @@
 //! And lastly, we'll add `Tutorial`, a computed state deriving from `TutorialState`, `InGame` and `IsPaused`, with 2 distinct
 //! states to display the 2 tutorial texts.
 
-use bevy::{dev_tools::states::*, input::keyboard::Key, prelude::*};
+use bevy::{
+    dev_tools::states::*,
+    input::keyboard::Key,
+    picking::hover::Hovered,
+    prelude::*,
+    ui::Pressed,
+    ui_widgets::{Activate, ActivateOnPress, Button},
+};
 
 use ui::*;
 
@@ -184,7 +191,8 @@ fn main() {
         // using our states as normal.
         .add_systems(Startup, setup)
         .add_systems(OnEnter(AppState::Menu), setup_menu)
-        .add_systems(Update, menu.run_if(in_state(AppState::Menu)))
+        .add_systems(Update, menu_button_styling.run_if(in_state(AppState::Menu)))
+        .add_observer(menu_activate.run_if(in_state(AppState::Menu)))
         .add_systems(OnExit(AppState::Menu), cleanup_menu)
         // We only want to run the [`setup_game`] function when we enter the [`AppState::InGame`] state, regardless
         // of whether the game is paused or not.
@@ -218,54 +226,65 @@ fn main() {
         .run();
 }
 
-fn menu(
+/// Updates the app state whenever menu buttons are activated
+fn menu_activate(
+    event: On<Activate>,
     mut next_state: ResMut<NextState<AppState>>,
     tutorial_state: Res<State<TutorialState>>,
     mut next_tutorial: ResMut<NextState<TutorialState>>,
-    mut interaction_query: Query<
-        (&Interaction, &mut BackgroundColor, &MenuButton),
-        (Changed<Interaction>, With<Button>),
-    >,
+    button_query: Query<&MenuButton, With<Button>>,
 ) {
-    for (interaction, mut color, menu_button) in &mut interaction_query {
-        match *interaction {
-            Interaction::Pressed => {
-                *color = if menu_button == &MenuButton::Tutorial
-                    && tutorial_state.get() == &TutorialState::Active
-                {
-                    PRESSED_ACTIVE_BUTTON.into()
-                } else {
-                    PRESSED_BUTTON.into()
-                };
+    if let Ok(menu_button) = button_query.get(event.entity) {
+        match menu_button {
+            MenuButton::Play => next_state.set(AppState::InGame {
+                paused: false,
+                turbo: false,
+            }),
+            MenuButton::Tutorial => next_tutorial.set(match tutorial_state.get() {
+                TutorialState::Active => TutorialState::Inactive,
+                TutorialState::Inactive => TutorialState::Active,
+            }),
+        };
+    }
+}
 
-                match menu_button {
-                    MenuButton::Play => next_state.set(AppState::InGame {
-                        paused: false,
-                        turbo: false,
-                    }),
-                    MenuButton::Tutorial => next_tutorial.set(match tutorial_state.get() {
-                        TutorialState::Active => TutorialState::Inactive,
-                        TutorialState::Inactive => TutorialState::Active,
-                    }),
-                };
+/// Updates button styling based on the menu buttons' hovered and pressed states.
+fn menu_button_styling(
+    mut button_query: Query<
+        (
+            &Hovered,
+            Option<&Pressed>,
+            &mut BackgroundColor,
+            &MenuButton,
+        ),
+        With<Button>,
+    >,
+    tutorial_state: Res<State<TutorialState>>,
+) {
+    for (hovered, pressed, mut color, menu_button) in &mut button_query {
+        if pressed.is_some() {
+            *color = if menu_button == &MenuButton::Tutorial
+                && tutorial_state.get() == &TutorialState::Active
+            {
+                PRESSED_ACTIVE_BUTTON.into()
+            } else {
+                PRESSED_BUTTON.into()
+            };
+        } else if hovered.get() {
+            if menu_button == &MenuButton::Tutorial
+                && tutorial_state.get() == &TutorialState::Active
+            {
+                *color = HOVERED_ACTIVE_BUTTON.into();
+            } else {
+                *color = HOVERED_BUTTON.into();
             }
-            Interaction::Hovered => {
-                if menu_button == &MenuButton::Tutorial
-                    && tutorial_state.get() == &TutorialState::Active
-                {
-                    *color = HOVERED_ACTIVE_BUTTON.into();
-                } else {
-                    *color = HOVERED_BUTTON.into();
-                }
-            }
-            Interaction::None => {
-                if menu_button == &MenuButton::Tutorial
-                    && tutorial_state.get() == &TutorialState::Active
-                {
-                    *color = ACTIVE_BUTTON.into();
-                } else {
-                    *color = NORMAL_BUTTON.into();
-                }
+        } else {
+            if menu_button == &MenuButton::Tutorial
+                && tutorial_state.get() == &TutorialState::Active
+            {
+                *color = ACTIVE_BUTTON.into();
+            } else {
+                *color = NORMAL_BUTTON.into();
             }
         }
     }
@@ -349,6 +368,8 @@ mod ui {
                 children![
                     (
                         Button,
+                        Hovered::default(),
+                        ActivateOnPress,
                         Node {
                             width: px(200),
                             height: px(65),
@@ -371,6 +392,8 @@ mod ui {
                     ),
                     (
                         Button,
+                        Hovered::default(),
+                        ActivateOnPress,
                         Node {
                             width: px(200),
                             height: px(65),
