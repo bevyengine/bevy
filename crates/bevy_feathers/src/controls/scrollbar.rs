@@ -53,8 +53,9 @@ impl Default for FeathersScrollbarProps {
 #[reflect(Component, Clone, Default)]
 struct FeathersScrollbarThumb;
 
-/// Padding reserved on a scrollbar's parent while the scrollbar is visible,
-/// reclaimed when the content fits.
+/// Padding at right (vertical) and bottom (horizontal) reserved on a scrollbar's
+/// parent while the scrollbar is visible. reclaimed when the content fits.
+/// Do not use if scrollbars are not embedded in their parents padding on right & bottom
 #[derive(Component, Default, Clone, Reflect)]
 #[reflect(Component, Clone, Default)]
 pub struct ScrollbarGutter(pub Val);
@@ -143,8 +144,17 @@ fn update_scrollbar_visibility(
             && let Ok((gutter, mut node)) = q_gutters.get_mut(child_of.parent())
         {
             let padding = if overflows { gutter.0 } else { Val::ZERO };
-            if node.padding.right != padding {
-                node.padding.right = padding;
+            match scrollbar.orientation {
+                ControlOrientation::Vertical => {
+                    if node.padding.right != padding {
+                        node.padding.right = padding;
+                    }
+                }
+                ControlOrientation::Horizontal => {
+                    if node.padding.bottom != padding {
+                        node.padding.bottom = padding;
+                    }
+                }
             }
         }
     }
