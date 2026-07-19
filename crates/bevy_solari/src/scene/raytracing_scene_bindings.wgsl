@@ -1,9 +1,10 @@
 enable wgpu_ray_query;
+enable wgpu_binding_array;
 
 #define_import_path bevy_solari::scene_bindings
 
-#import bevy_pbr::lighting::perceptualRoughnessToRoughness
 #import bevy_pbr::pbr_functions::calculate_tbn_mikktspace
+#import bevy_render::maths::affine3_to_square
 
 struct InstanceGeometryIds {
     vertex_buffer_id: u32,
@@ -80,8 +81,8 @@ const LIGHT_NOT_PRESENT_THIS_FRAME = 0xFFFFFFFFu;
 @group(0) @binding(3) var samplers: binding_array<sampler>;
 @group(0) @binding(4) var<storage> materials: array<Material>;
 @group(0) @binding(5) var tlas: acceleration_structure;
-@group(0) @binding(6) var<storage> transforms: array<mat4x4<f32>>; // TODO: Use mat3x4<f32>?
-@group(0) @binding(7) var<storage> previous_frame_transforms: array<mat4x4<f32>>; // TODO: Use mat3x4<f32>?
+@group(0) @binding(6) var<storage> transforms: array<mat3x4<f32>>;
+@group(0) @binding(7) var<storage> previous_frame_transforms: array<mat3x4<f32>>;
 @group(0) @binding(8) var<storage> geometry_ids: array<InstanceGeometryIds>;
 @group(0) @binding(9) var<storage> material_ids: array<u32>; // TODO: Store material_id in instance_custom_index instead?
 @group(0) @binding(10) var<storage> light_sources: array<LightSource>;
@@ -187,8 +188,8 @@ fn resolve_triangle_data_full(instance_id: u32, triangle_id: u32, barycentrics: 
     let material_id = material_ids[instance_id];
     let material = materials[material_id];
 
-    let transform = transforms[instance_id];
-    let previous_frame_transform = previous_frame_transforms[instance_id];
+    let transform = affine3_to_square(transforms[instance_id]);
+    let previous_frame_transform = affine3_to_square(previous_frame_transforms[instance_id]);
 
     let instance_geometry_ids = geometry_ids[instance_id];
     let vertices = load_vertices(instance_geometry_ids, triangle_id);
@@ -215,7 +216,8 @@ fn resolve_triangle_data_full(instance_id: u32, triangle_id: u32, barycentrics: 
         let T = TBN[0];
         let B = TBN[1];
         let N = TBN[2];
-        let Nt = sample_texture(material.normal_map_texture_id, uv);
+        var Nt = sample_texture(material.normal_map_texture_id, uv) * 2.0 - 1.0;
+        Nt.z = sqrt(max(1.0 - dot(Nt.xy, Nt.xy), 0.0)); // Reconstruct Z to support two-channel normal maps
         world_normal = normalize(Nt.x * T + Nt.y * B + Nt.z * N);
     }
 

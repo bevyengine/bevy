@@ -1,6 +1,5 @@
 use crate::{
-    First, Main, MainSchedulePlugin, PlaceholderPlugin, Plugin, Plugins, PluginsState, SubApp,
-    SubApps,
+    Main, MainSchedulePlugin, PlaceholderPlugin, Plugin, Plugins, PluginsState, SubApp, SubApps,
 };
 use alloc::{
     boxed::Box,
@@ -12,7 +11,7 @@ use bevy_ecs::{
     component::RequiredComponentsError,
     error::{ErrorHandler, FallbackErrorHandler},
     intern::Interned,
-    message::{message_update_system, MessageCursor},
+    message::MessageCursor,
     observer::IntoObserver,
     prelude::*,
     schedule::{
@@ -42,7 +41,6 @@ bevy_ecs::define_label!(
         note = "consider annotating `{Self}` with `#[derive(AppLabel)]`"
     )]
     AppLabel,
-    APP_LABEL_INTERNER
 );
 
 pub use bevy_ecs::label::DynEq;
@@ -124,12 +122,6 @@ impl Default for App {
         app.init_resource::<AppFunctionRegistry>();
 
         app.add_plugins(MainSchedulePlugin);
-        app.add_systems(
-            First,
-            message_update_system
-                .in_set(bevy_ecs::message::MessageUpdateSystems)
-                .run_if(bevy_ecs::message::message_update_condition),
-        );
         app.add_systems(
             crate::Last,
             bevy_ecs::system::despawn_unused_registered_systems,
@@ -415,8 +407,7 @@ impl App {
         self
     }
 
-    /// Initializes [`Message`] handling for `T` by inserting a message queue resource ([`Messages::<T>`])
-    /// and scheduling an [`message_update_system`] in [`First`].
+    /// Initializes [`Message`] handling for `T` by inserting a message queue resource ([`Messages::<T>`]).
     ///
     /// See [`Messages`] for information on how to define messages.
     ///
@@ -1546,6 +1537,11 @@ fn run_once(mut app: App) -> AppExit {
 
     app.should_exit().unwrap_or(AppExit::Success)
 }
+
+/// A [`SystemSet`] for systems that should run before app exit (but
+/// after an [`AppExit`] message has been sent).
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct OnAppExitSystems;
 
 /// A [`Message`] that indicates the [`App`] should exit. If one or more of these are present at the end of an update,
 /// the [runner](App::set_runner) will end and ([maybe](App::run)) return control to the caller.

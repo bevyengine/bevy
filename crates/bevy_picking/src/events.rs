@@ -49,7 +49,10 @@ use bevy_ecs::{
     system::SystemParam,
     traversal::Traversal,
 };
-use bevy_input::{mouse::MouseScrollUnit, touch::TouchPhase};
+use bevy_input::{
+    mouse::{MouseScrollPixelsPerLine, MouseScrollUnit},
+    touch::TouchPhase,
+};
 use bevy_math::Vec2;
 use bevy_platform::collections::HashMap;
 use bevy_platform::time::Instant;
@@ -467,6 +470,37 @@ pub struct Scroll {
     ///
     /// When using a mouse, this will always be [`TouchPhase::Moved`].
     pub phase: TouchPhase,
+}
+
+impl Scroll {
+    /// Converts the units to [`MouseScrollUnit::Line`]
+    pub fn to_lines(&self, conversion_ratio: &MouseScrollPixelsPerLine) -> Self {
+        if self.unit == MouseScrollUnit::Pixel {
+            Scroll {
+                unit: MouseScrollUnit::Line,
+                x: self.x / *conversion_ratio,
+                y: self.y / *conversion_ratio,
+                hit: self.hit.clone(),
+                phase: self.phase,
+            }
+        } else {
+            self.clone()
+        }
+    }
+    /// Converts the units to [`MouseScrollUnit::Pixel`]
+    pub fn to_pixels(&self, conversion_ratio: &MouseScrollPixelsPerLine) -> Self {
+        if self.unit == MouseScrollUnit::Line {
+            Scroll {
+                unit: MouseScrollUnit::Pixel,
+                x: self.x * *conversion_ratio,
+                y: self.y * *conversion_ratio,
+                hit: self.hit.clone(),
+                phase: self.phase,
+            }
+        } else {
+            self.clone()
+        }
+    }
 }
 
 /// An entry in the cache that drives the `pointer_events` system, storing additional data

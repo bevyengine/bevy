@@ -267,10 +267,10 @@ impl ContainerAttributes {
         if self
             .type_data
             .iter()
-            .any(|existing| existing.ident() == type_data.ident())
+            .any(|existing| existing.path() == type_data.path())
         {
             return Err(syn::Error::new(
-                type_data.ident().span(),
+                type_data.path().span(),
                 CONFLICTING_TYPE_DATA_MESSAGE,
             ));
         }
@@ -495,7 +495,7 @@ impl ContainerAttributes {
     pub fn contains(&self, name: &str) -> bool {
         self.type_data
             .iter()
-            .any(|data| data.reflect_ident() == name)
+            .any(|data| data.reflect_path().is_ident(name))
     }
 
     /// The list of type data registrations.

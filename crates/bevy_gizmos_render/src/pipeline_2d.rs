@@ -53,11 +53,7 @@ impl Plugin for LineGizmo2dPlugin {
                 GizmoRenderSystems::QueueLineGizmos2d
                     .in_set(RenderSystems::Queue)
                     .ambiguous_with(bevy_sprite_render::queue_sprites)
-                    .ambiguous_with(
-                        bevy_sprite_render::queue_material2d_meshes::<
-                            bevy_sprite_render::ColorMaterial,
-                        >,
-                    ),
+                    .ambiguous_with(bevy_sprite_render::queue_material2d_meshes),
             )
             .add_systems(
                 RenderStartup,
@@ -145,6 +141,7 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],
+                constants: vec![],
             }),
             layout,
             depth_stencil: Some(DepthStencilState {
@@ -219,6 +216,7 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
                 entry_point: Some(entry_point.into()),
                 shader_defs: shader_defs.clone(),
                 buffers: line_joint_gizmo_vertex_buffer_layouts(),
+                constants: vec![],
             },
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),

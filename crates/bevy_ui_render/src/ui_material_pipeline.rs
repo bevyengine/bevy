@@ -98,7 +98,7 @@ pub struct UiMaterialVertex {
     pub uv: [f32; 2],
     pub size: [f32; 2],
     pub border: [f32; 4],
-    pub radius: [f32; 4],
+    pub radius: [[f32; 4]; 2],
 }
 
 // in this [`UiMaterialPipeline`] there is (currently) no batching going on.
@@ -138,7 +138,9 @@ where
                 VertexFormat::Float32x2,
                 // border widths
                 VertexFormat::Float32x4,
-                // border radius
+                // border radius x values (top left, top right, bottom right, bottom left)
+                VertexFormat::Float32x4,
+                // border radius y values (top left, top right, bottom right, bottom left)
                 VertexFormat::Float32x4,
             ],
         );
@@ -294,7 +296,7 @@ pub struct ExtractedUiMaterialNode<M: UiMaterial> {
     pub transform: Affine2,
     pub rect: Rect,
     pub border: BorderRect,
-    pub border_radius: [f32; 4],
+    pub border_radius: [[f32; 4]; 2],
     pub material: AssetId<M>,
     pub clip: Option<Rect>,
     // Camera to render this UI node to. By the time it is extracted,
@@ -364,7 +366,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
         };
 
         extracted_uinodes.uinodes.push(ExtractedUiMaterialNode {
-            render_entity: commands.spawn(TemporaryRenderEntity).id(),
+            render_entity: commands.spawn(TemporaryRenderEntity::default()).id(),
             stack_index: stack_index.0,
             transform: transform.into(),
             material: handle.id(),

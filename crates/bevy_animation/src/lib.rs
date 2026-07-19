@@ -577,10 +577,13 @@ impl ActiveAnimation {
         if over_time || under_time {
             self.just_completed = true;
             self.completions += 1;
-
-            if self.is_finished() {
-                return;
-            }
+        }
+        if clip_duration == 0.0 {
+            self.seek_time = 0.0;
+            return;
+        }
+        if self.is_finished() {
+            return;
         }
         if self.seek_time >= clip_duration {
             self.seek_time %= clip_duration;
@@ -1709,6 +1712,84 @@ mod tests {
         assert_triggered_events_with(&active_animation, &clip, [0.3, 0.2]);
     }
 
+    mod active_animation_duration_zero {
+        use super::*;
+
+        #[test]
+        fn test_events_triggers() {
+            let mut active_animation = ActiveAnimation::default();
+            let mut clip = AnimationClip::default();
+            clip.add_event(0.0, A);
+            assert_eq!(0.0, clip.duration);
+
+            assert_triggered_events_with(&active_animation, &clip, []);
+            active_animation.update(0.1, clip.duration);
+            assert_triggered_events_with(&active_animation, &clip, [0.0]);
+            active_animation.update(0.1, clip.duration);
+            assert_triggered_events_with(&active_animation, &clip, []);
+            assert_eq!(0.0, active_animation.seek_time);
+
+            active_animation = ActiveAnimation {
+                speed: -1.0,
+                ..Default::default()
+            };
+            assert_triggered_events_with(&active_animation, &clip, []);
+            active_animation.update(0.1, clip.duration);
+            assert_triggered_events_with(&active_animation, &clip, [0.0]);
+            active_animation.update(0.1, clip.duration);
+            assert_triggered_events_with(&active_animation, &clip, []);
+            assert_eq!(0.0, active_animation.seek_time);
+        }
+
+        #[test]
+        fn test_events_triggers_looping() {
+            let mut active_animation = ActiveAnimation {
+                repeat: RepeatAnimation::Forever,
+                ..Default::default()
+            };
+            let mut clip = AnimationClip::default();
+            clip.add_event(0.0, A);
+            assert_eq!(0.0, clip.duration);
+
+            assert_triggered_events_with(&active_animation, &clip, []);
+            active_animation.update(0.1, clip.duration);
+            assert_triggered_events_with(&active_animation, &clip, [0.0]);
+            active_animation.update(0.1, clip.duration);
+            assert_triggered_events_with(&active_animation, &clip, [0.0]);
+            assert_eq!(0.0, active_animation.seek_time);
+
+            active_animation = ActiveAnimation {
+                repeat: RepeatAnimation::Forever,
+                speed: -1.0,
+                ..Default::default()
+            };
+            assert_triggered_events_with(&active_animation, &clip, []);
+            active_animation.update(0.1, clip.duration);
+            assert_triggered_events_with(&active_animation, &clip, [0.0]);
+            active_animation.update(0.1, clip.duration);
+            assert_triggered_events_with(&active_animation, &clip, [0.0]);
+            assert_eq!(0.0, active_animation.seek_time);
+        }
+
+        #[test]
+        fn test_events_triggers_looping_after_seek_to() {
+            let mut active_animation = ActiveAnimation {
+                repeat: RepeatAnimation::Forever,
+                ..Default::default()
+            };
+            let mut clip = AnimationClip::default();
+            clip.add_event(0.0, A);
+
+            active_animation.seek_to(11.0); // 0.0 : 11.0
+            assert_triggered_events_with(&active_animation, &clip, [0.0]);
+            active_animation.update(0.1, clip.duration); // 11.0 : 0.0
+            assert_triggered_events_with(&active_animation, &clip, []);
+            active_animation.update(0.1, clip.duration); // 0.0 : 0.0
+            assert_triggered_events_with(&active_animation, &clip, [0.0]);
+            assert_eq!(0.0, active_animation.seek_time);
+        }
+    }
+
     #[test]
     fn test_animation_node_index_as_key_of_dynamic_map() {
         let mut map = DynamicMap::default();
@@ -1756,7 +1837,7 @@ mod tests {
                 AnimationTargetId::from_names(name_path.iter()),
                 "{:?} {:?}",
                 str_path,
-                &name_path
+                name_path
             );
         }
     }

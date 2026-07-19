@@ -441,7 +441,7 @@ mod tests {
             app,
             Handle::default(),
             "../../bevy_text/src/FiraMono-subset.ttf",
-            |bytes: &[u8], _path: String| { Font::from_bytes(bytes.to_vec(), "bevy default font") }
+            |bytes: &[u8], _path: String| { Font::from_bytes(bytes.to_vec()) }
         );
 
         let world = app.world_mut();
@@ -449,7 +449,7 @@ mod tests {
         let mut fonts = world.resource_mut::<Assets<Font>>();
 
         let mut font = fonts.get_mut(bevy_asset::AssetId::default()).unwrap();
-        font.family_name = "Fira Mono".into();
+        font.alias = "Fira Mono".into();
         let data = font.into_inner().data.clone();
 
         world

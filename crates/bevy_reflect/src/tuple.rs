@@ -6,7 +6,7 @@ use variadics_please::all_tuples;
 
 use crate::generics::impl_generic_info_methods;
 use crate::{
-    type_info::impl_type_methods, utility::GenericTypePathCell, ApplyError, FromReflect, Generics,
+    ty::impl_type_methods, utility::GenericTypePathCell, ApplyError, FromReflect, Generics,
     GetTypeRegistration, MaybeTyped, PartialReflect, Reflect, ReflectCloneError, ReflectKind,
     ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo, TypePath, TypeRegistration, TypeRegistry,
     Typed, UnnamedField,
@@ -59,11 +59,16 @@ pub trait Tuple: PartialReflect {
     fn drain(self: Box<Self>) -> Vec<Box<dyn PartialReflect>>;
 
     /// Creates a new [`DynamicTuple`] from this tuple.
-    fn to_dynamic_tuple(&self) -> DynamicTuple {
-        DynamicTuple {
+    ///
+    /// Returns an error if any field cannot be converted via [`PartialReflect::to_dynamic`].
+    fn to_dynamic_tuple(&self) -> Result<DynamicTuple, ReflectCloneError> {
+        Ok(DynamicTuple {
             represented_type: self.get_represented_type_info(),
-            fields: self.iter_fields().map(PartialReflect::to_dynamic).collect(),
-        }
+            fields: self
+                .iter_fields()
+                .map(PartialReflect::to_dynamic)
+                .collect::<Result<_, _>>()?,
+        })
     }
 
     /// Will return `None` if [`TypeInfo`] is not available.
@@ -171,8 +176,15 @@ impl TupleInfo {
     ///
     /// * `fields`: The fields of this tuple in the order they are defined
     pub fn new<T: Reflect + TypePath>(fields: &[UnnamedField]) -> Self {
+        Self::from_erased(fields, Type::of::<T>())
+    }
+
+    // Inlining is disabled because this function is called many times by cold
+    // functions inside generated code.
+    #[inline(never)]
+    fn from_erased(fields: &[UnnamedField], ty: Type) -> Self {
         Self {
-            ty: Type::of::<T>(),
+            ty,
             generics: Generics::new(),
             fields: fields.to_vec().into_boxed_slice(),
             #[cfg(feature = "reflect_documentation")]

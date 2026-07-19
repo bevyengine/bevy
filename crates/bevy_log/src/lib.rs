@@ -247,6 +247,14 @@ pub struct LogPlugin {
     ///
     /// Please see the `examples/app/log_layers.rs` for a complete example.
     pub fmt_layer: fn(app: &mut App) -> Option<BoxedFmtLayer>,
+
+    /// Whether to stream events to the Tracy profiler or collector. Only enable
+    /// this if you actually intend to run the profiler; the enabled Tracy
+    /// client will buffer events without bound until it finds a profiler or
+    /// collector to connect to, which results in excessive memory use if you
+    /// never run the profiler.
+    #[cfg(feature = "tracing-tracy")]
+    pub enable_tracy: bool,
 }
 
 /// A boxed [`Layer`] that can be used with [`LogPlugin::custom_layer`].
@@ -288,6 +296,8 @@ impl Default for LogPlugin {
             level: Level::INFO,
             custom_layer: |_| None,
             fmt_layer: |_| None,
+            #[cfg(feature = "tracing-tracy")]
+            enable_tracy: true,
         }
     }
 }
@@ -344,7 +354,11 @@ impl Plugin for LogPlugin {
             };
 
             #[cfg(feature = "tracing-tracy")]
-            let tracy_layer = tracing_tracy::TracyLayer::default();
+            let tracy_layer = if self.enable_tracy {
+                Some(tracing_tracy::TracyLayer::default())
+            } else {
+                None
+            };
 
             let fmt_layer = (self.fmt_layer)(app).unwrap_or_else(|| {
                 // note: the implementation of `Default` reads from the env var NO_COLOR
@@ -389,7 +403,9 @@ impl Plugin for LogPlugin {
             tracing::subscriber::set_global_default(finished_subscriber).is_err();
 
         #[cfg(feature = "tracing-tracy")]
-        warn!("Tracing with Tracy is active, memory consumption will grow until a client is connected");
+        if self.enable_tracy {
+            warn!("Tracing with Tracy is active, memory consumption will grow until a client is connected");
+        }
 
         match (logger_already_set, subscriber_already_set) {
             (true, true) => error!(

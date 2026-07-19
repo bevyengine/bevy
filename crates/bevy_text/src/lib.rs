@@ -42,6 +42,7 @@ mod font_loader;
 mod glyph;
 mod parley_context;
 mod pipeline;
+mod scroll;
 mod text;
 mod text_access;
 mod text_edit;
@@ -57,6 +58,7 @@ pub use font_loader::*;
 pub use glyph::*;
 pub use parley_context::*;
 pub use pipeline::*;
+pub use scroll::*;
 pub use text::*;
 pub use text_access::*;
 pub use text_edit::*;
@@ -68,8 +70,8 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         Font, FontHinting, FontSize, FontSmoothing, FontSource, FontStyle, FontWeight, FontWidth,
-        Justify, LineBreak, Strikethrough, StrikethroughColor, TextColor, TextError, TextFont,
-        TextLayout, TextSpan, Underline, UnderlineColor,
+        GenericFontFamily, Justify, LineBreak, Strikethrough, StrikethroughColor, TextColor,
+        TextError, TextFont, TextLayout, TextSpan, Underline, UnderlineColor,
     };
 }
 
@@ -125,8 +127,8 @@ impl Plugin for TextPlugin {
             .add_systems(
                 PostUpdate,
                 (
-                    detect_text_needs_rerender,
                     load_font_assets_into_font_collection,
+                    detect_text_needs_rerender,
                 )
                     .chain(),
             )
@@ -142,7 +144,7 @@ impl Plugin for TextPlugin {
         {
             use bevy_asset::{AssetId, Assets};
             let mut assets = app.world_mut().resource_mut::<Assets<Font>>();
-            let asset = Font::from_bytes(DEFAULT_FONT_DATA.to_vec(), "bevy default font");
+            let asset = Font::from_bytes(DEFAULT_FONT_DATA.to_vec());
             assets.insert(AssetId::default(), asset).unwrap();
         };
     }

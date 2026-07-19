@@ -226,7 +226,7 @@ impl ResolvedScene {
         writer_ops: impl FnOnce(&mut TemplateContext, &mut BundleWriter),
     ) -> Result<(), ApplySceneError> {
         let mut bundle_writer = bundle_scratch.writer();
-        if let Some(entity_reference) = self.entity_references.first().copied() {
+        for entity_reference in self.entity_references.iter().copied() {
             context
                 .entity_references
                 .set(entity_reference, context.entity.id());
@@ -419,6 +419,34 @@ impl ResolvedScene {
             // The method isn't stable yet, and it would require making get_or_insert_erased_template unsafe
             .downcast_mut()
             .unwrap()
+    }
+
+    /// Inserts the given [`Template`]. This will overwrite the existing [`Template`] of that type if it already exists.
+    pub fn insert_template<T: Template<Output: Component> + Send + Sync + 'static>(
+        &mut self,
+        template: T,
+    ) {
+        self.insert_erased_template(TypeId::of::<T>(), Box::new(template));
+    }
+
+    /// Inserts the given [`Template`] with the given `type_id`. This will overwrite the existing [`Template`] of that type if it already exists.
+    pub fn insert_erased_template(
+        &mut self,
+        type_id: TypeId,
+        template: Box<dyn ErasedComponentTemplate>,
+    ) {
+        match self.template_indices.entry(type_id) {
+            bevy_utils::TypeIdMapEntry::Occupied(occupied_entry) => {
+                let index = *occupied_entry.get();
+                // SAFETY: just looked up a valid index
+                let stored_template = unsafe { self.component_templates.get_unchecked_mut(index) };
+                *stored_template = template;
+            }
+            bevy_utils::TypeIdMapEntry::Vacant(vacant_entry) => {
+                vacant_entry.insert(self.component_templates.len());
+                self.component_templates.push(template);
+            }
+        }
     }
 
     /// This will get the [`ErasedComponentTemplate`] for the given [`TypeId`], if it already exists in this [`ResolvedScene`]. If it doesn't exist,

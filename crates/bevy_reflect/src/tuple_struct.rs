@@ -7,12 +7,11 @@ use crate::generics::impl_generic_info_methods;
 use crate::{
     attributes::{impl_custom_attribute_methods, CustomAttributes},
     tuple::{DynamicTuple, Tuple},
-    type_info::impl_type_methods,
-    ApplyError, Generics, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned,
-    ReflectRef, Type, TypeInfo, TypePath, UnnamedField,
+    ty::impl_type_methods,
+    ApplyError, Generics, PartialReflect, Reflect, ReflectCloneError, ReflectKind, ReflectMut,
+    ReflectOwned, ReflectRef, Type, TypeInfo, TypePath, UnnamedField,
 };
 use alloc::{boxed::Box, vec::Vec};
-use bevy_platform::sync::Arc;
 use core::{
     fmt::{Debug, Formatter},
     slice::Iter,
@@ -60,11 +59,16 @@ pub trait TupleStruct: PartialReflect {
     fn iter_fields(&self) -> TupleStructFieldIter<'_>;
 
     /// Creates a new [`DynamicTupleStruct`] from this tuple struct.
-    fn to_dynamic_tuple_struct(&self) -> DynamicTupleStruct {
-        DynamicTupleStruct {
+    ///
+    /// Returns an error if any field cannot be converted via [`PartialReflect::to_dynamic`].
+    fn to_dynamic_tuple_struct(&self) -> Result<DynamicTupleStruct, ReflectCloneError> {
+        Ok(DynamicTupleStruct {
             represented_type: self.get_represented_type_info(),
-            fields: self.iter_fields().map(PartialReflect::to_dynamic).collect(),
-        }
+            fields: self
+                .iter_fields()
+                .map(PartialReflect::to_dynamic)
+                .collect::<Result<_, _>>()?,
+        })
     }
 
     /// Will return `None` if [`TypeInfo`] is not available.
@@ -79,7 +83,7 @@ pub struct TupleStructInfo {
     ty: Type,
     generics: Generics,
     fields: Box<[UnnamedField]>,
-    custom_attributes: Arc<CustomAttributes>,
+    custom_attributes: CustomAttributes,
     #[cfg(feature = "reflect_documentation")]
     docs: Option<&'static str>,
 }
@@ -91,11 +95,18 @@ impl TupleStructInfo {
     ///
     /// * `fields`: The fields of this struct in the order they are defined
     pub fn new<T: Reflect + TypePath>(fields: &[UnnamedField]) -> Self {
+        Self::from_erased(fields, Type::of::<T>())
+    }
+
+    // Inlining is disabled because this function is called many times by cold
+    // functions inside generated code.
+    #[inline(never)]
+    fn from_erased(fields: &[UnnamedField], ty: Type) -> Self {
         Self {
-            ty: Type::of::<T>(),
+            ty,
             generics: Generics::new(),
             fields: fields.to_vec().into_boxed_slice(),
-            custom_attributes: Arc::new(CustomAttributes::default()),
+            custom_attributes: CustomAttributes::default(),
             #[cfg(feature = "reflect_documentation")]
             docs: None,
         }
@@ -110,7 +121,7 @@ impl TupleStructInfo {
     /// Sets the custom attributes for this struct.
     pub fn with_custom_attributes(self, custom_attributes: CustomAttributes) -> Self {
         Self {
-            custom_attributes: Arc::new(custom_attributes),
+            custom_attributes,
             ..self
         }
     }

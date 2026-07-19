@@ -1,11 +1,7 @@
 //! Functionality that relates to the [`Template`] trait.
+pub use bevy_ecs_macros::FromTemplate;
 
 use core::{hash::Hash, ops::Deref};
-
-pub use bevy_ecs_macros::FromTemplate;
-use bevy_platform::{collections::hash_map::RawEntryMut, hash::Hashed};
-use bevy_utils::PreHashMap;
-use indexmap::Equivalent;
 
 use crate::{
     component::Mutable,
@@ -15,6 +11,9 @@ use crate::{
     world::{EntityWorldMut, Mut, World},
 };
 use alloc::vec::Vec;
+use bevy_platform::{collections::hash_map::RawEntryMut, hash::Hashed};
+use bevy_utils::PreHashMap;
+use indexmap::Equivalent;
 use variadics_please::all_tuples;
 
 /// A [`Template`] is something that, given a spawn context (target [`Entity`], [`World`], etc), can produce a [`Template::Output`].
@@ -133,8 +132,12 @@ impl SceneEntityReferences {
 /// A unique reference for a named entity in a scene.
 /// Usually used by `bevy_scene` in generated code
 ///
-/// Hashed here should allow implementing compile-time hashing in the future, and
-/// encourage constant-folding until then
+/// Hashed here should allow implementing compile-time hashing in the future
+///
+/// The uniqueness of this is ensured by the following factors:
+/// - macro invocation location: filename, line and column
+/// - the `name_id` should uniquely identify a name in the individual macros scope
+/// - runtime, per-scope counter for each runtime call (usually from a static `AtomicU64`)
 #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
 pub struct SceneEntityReference(Hashed<InnerSceneEntityReference>);
 
@@ -144,17 +147,22 @@ pub struct InnerSceneEntityReference {
     file: &'static str,
     line: usize,
     column: usize,
-    local: usize,
+    name_id: usize,
+    runtime: u64,
 }
-
 impl SceneEntityReference {
-    /// Create a new [`SceneEntityReference`] from the invocation location and a local (per-macro) counter for names
-    pub fn new((file, line, column): (&'static str, usize, usize), local: usize) -> Self {
+    /// Create a new [`SceneEntityReference`] from the invocation location, runtime time, and a local (per-macro) counter for names
+    pub fn new(
+        (file, line, column): (&'static str, usize, usize),
+        name_id: usize,
+        runtime: u64,
+    ) -> Self {
         Self(Hashed::new(InnerSceneEntityReference {
             file,
             line,
             column,
-            local,
+            name_id,
+            runtime,
         }))
     }
 }
@@ -162,8 +170,8 @@ impl SceneEntityReference {
 impl core::fmt::Display for SceneEntityReference {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.write_fmt(format_args!(
-            "global={}:{}:{} local={}",
-            self.file, self.line, self.column, self.local
+            "global={}:{}:{} name_id={} runtime={:?}",
+            self.file, self.line, self.column, self.name_id, self.runtime
         ))
     }
 }
@@ -379,7 +387,7 @@ all_tuples!(template_impl, 0, 12, T);
 
 // This includes `Unpin` to enable specialization for Templates that also implement Default, by using the
 // ["auto trait specialization" trick](https://github.com/coolcatcoder/rust_techniques/issues/1)
-impl<T: Clone + Default + Unpin> Template for T {
+impl<T: Clone + Unpin> Template for T {
     type Output = T;
 
     fn build_template(&self, _context: &mut TemplateContext) -> Result<Self::Output> {
@@ -408,6 +416,8 @@ impl<T: Clone + Default + Unpin> FromTemplate for T {
 pub trait SpecializeFromTemplate: Sized {}
 
 /// A [`Template`] reference to an [`Entity`].
+///
+/// This is only valid during scene spawning and should **never** be used as a [`Component`](bevy_ecs::prelude::Component) field.
 #[derive(Copy, Clone, Default, Debug)]
 pub enum EntityTemplate {
     /// A reference to a specific [`Entity`]
@@ -419,6 +429,17 @@ pub enum EntityTemplate {
     None,
 }
 impl Unpin for EntityTemplate where for<'a> [()]: SpecializeFromTemplate {}
+
+impl EntityTemplate {
+    /// Create a [`EntityTemplate::SceneEntityReference`] from the data needed for [`SceneEntityReference`]
+    pub fn from_reference(
+        invocation: (&'static str, usize, usize),
+        name_id: usize,
+        runtime: u64,
+    ) -> Self {
+        Self::SceneEntityReference(SceneEntityReference::new(invocation, name_id, runtime))
+    }
+}
 
 impl From<Entity> for EntityTemplate {
     fn from(entity: Entity) -> Self {

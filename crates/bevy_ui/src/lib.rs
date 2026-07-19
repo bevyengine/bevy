@@ -41,7 +41,9 @@ use bevy_text::{detect_text_needs_rerender, EditableTextSystems};
 pub use focus::*;
 pub use geometry::*;
 pub use gradients::*;
-pub use interaction_states::{Checkable, Checked, InteractionDisabled, Pressed};
+pub use interaction_states::{
+    Checkable, Checked, InteractionDisabled, Pressed, Selectable, Selected,
+};
 pub use layout::*;
 pub use measurement::*;
 pub use ui_node::*;
@@ -101,7 +103,7 @@ pub enum UiSystems {
     Propagate,
     /// Update content requirements before layout.
     Content,
-    /// After this label, the ui layout state has been updated.
+    /// After this label, the UI layout state has been updated.
     ///
     /// Runs in [`PostUpdate`].
     Layout,
@@ -117,8 +119,8 @@ pub enum UiSystems {
 
 /// The current scale of the UI.
 ///
-/// A multiplier to fixed-sized ui values.
-/// **Note:** This will only affect fixed ui values like [`Val::Px`]
+/// A multiplier to fixed-sized UI values.
+/// **Note:** This will only affect fixed UI values like [`Val::Px`]
 #[derive(Debug, Reflect, Resource, Deref, DerefMut)]
 #[reflect(Resource, Debug, Default)]
 pub struct UiScale(pub f32);
@@ -213,6 +215,19 @@ impl Plugin for UiPlugin {
             ),
         );
 
+        app.add_plugins(accessibility::AccessibilityPlugin);
+
+        app.add_observer(interaction_states::on_add_disabled)
+            .add_observer(interaction_states::on_remove_disabled)
+            .add_observer(interaction_states::on_add_checkable)
+            .add_observer(interaction_states::on_remove_checkable)
+            .add_observer(interaction_states::on_add_checked)
+            .add_observer(interaction_states::on_remove_checked)
+            .add_observer(interaction_states::on_add_selectable)
+            .add_observer(interaction_states::on_remove_selectable)
+            .add_observer(interaction_states::on_add_selected)
+            .add_observer(interaction_states::on_remove_selected);
+
         build_text_interop(app);
     }
 }
@@ -253,11 +268,10 @@ fn build_text_interop(app: &mut App) {
                 .ambiguous_with(widget::update_image_content_size_system)
                 .ambiguous_with(widget::measure_text_system)
                 .ambiguous_with(bevy_sprite::update_text2d_layout),
-            (
-                widget::update_editable_text_layout,
-                widget::scroll_editable_text,
-            )
-                .chain()
+            widget::sync_editable_text_viewports
+                .after(UiSystems::Layout)
+                .before(EditableTextSystems),
+            widget::update_editable_text_layout
                 .in_set(UiSystems::PostLayout)
                 // This is unlikely to result in real conflicts,
                 // as FocusChangeEvents only mutates internal state of InputFocus,
@@ -266,20 +280,12 @@ fn build_text_interop(app: &mut App) {
                 // as editable_text_system or related systems could generate focus changes
                 // which should be processed ASAP.
                 .before(bevy_input_focus::InputFocusSystems::FocusChangeEvents)
+                .before(bevy_asset::AssetEventSystems)
                 .ambiguous_with(widget::text_system)
                 .ambiguous_with(bevy_sprite::update_text2d_layout)
                 .ambiguous_with(bevy_sprite::calculate_bounds_text2d),
         ),
     );
-
-    app.add_plugins(accessibility::AccessibilityPlugin);
-
-    app.add_observer(interaction_states::on_add_disabled)
-        .add_observer(interaction_states::on_remove_disabled)
-        .add_observer(interaction_states::on_add_checkable)
-        .add_observer(interaction_states::on_remove_checkable)
-        .add_observer(interaction_states::on_add_checked)
-        .add_observer(interaction_states::on_remove_checked);
 
     app.configure_sets(
         PostUpdate,
@@ -292,5 +298,10 @@ fn build_text_interop(app: &mut App) {
     );
 
     // We cannot set this up in bevy_text as this would create a circular dependency between bevy_ui and bevy_text
-    app.configure_sets(PostUpdate, EditableTextSystems.in_set(UiSystems::Content));
+    app.configure_sets(
+        PostUpdate,
+        EditableTextSystems
+            .after(UiSystems::Layout)
+            .before(UiSystems::PostLayout),
+    );
 }

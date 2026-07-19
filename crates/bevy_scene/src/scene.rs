@@ -1,4 +1,4 @@
-use crate::{CachedSceneError, ResolvedScene, SceneList, ScenePatch};
+use crate::{CachedSceneError, ErasedComponentTemplate, ResolvedScene, SceneList, ScenePatch};
 use bevy_asset::{Asset, AssetPath, AssetServer, Assets};
 use bevy_ecs::{
     bundle::Bundle,
@@ -211,6 +211,50 @@ macro_rules! scene_impl {
 
 all_tuples!(scene_impl, 0, 12, P);
 
+impl<S> Scene for Option<S>
+where
+    S: Scene,
+{
+    #[inline]
+    fn resolve(
+        self,
+        context: &mut ResolveContext,
+        scene: &mut ResolvedScene,
+    ) -> Result<(), ResolveSceneError> {
+        self.map(|value| value.resolve(context, scene))
+            .unwrap_or(Ok(()))
+    }
+
+    #[inline]
+    fn register_dependencies(&self, dependencies: &mut SceneDependencies) {
+        if let Some(value) = &self {
+            value.register_dependencies(dependencies);
+        }
+    }
+}
+
+impl<L: SceneList> SceneList for Option<L>
+where
+    L: SceneList,
+{
+    #[inline]
+    fn resolve_list(
+        self,
+        context: &mut ResolveContext,
+        scenes: &mut Vec<ResolvedScene>,
+    ) -> Result<(), ResolveSceneError> {
+        self.map(|scene_list| scene_list.resolve_list(context, scenes))
+            .unwrap_or(Ok(()))
+    }
+
+    #[inline]
+    fn register_dependencies(&self, dependencies: &mut SceneDependencies) {
+        if let Some(scene_list) = &self {
+            scene_list.register_dependencies(dependencies);
+        }
+    }
+}
+
 /// A [`Scene`] that patches a [`Template`] of type `T` with a given function `F`.
 ///
 /// Functionally, a [`TemplatePatch`] scene will initialize a [`Default`] value of the patched
@@ -241,15 +285,13 @@ pub struct TemplatePatch<F: FnOnce(&mut T, &mut ResolveContext), T>(pub F, pub P
 
 /// Returns a [`Scene`] that completely overwrites the current value of a [`Template`] `T` with the given `value`.
 /// The `value` is cloned each time the [`Template`] is built.
-pub fn template_value<T: Template>(
+pub fn template_value<T: Template<Output: Component> + Send + Sync + 'static>(
     value: T,
-) -> TemplatePatch<impl FnOnce(&mut T, &mut ResolveContext), T> {
-    TemplatePatch(
-        move |input: &mut T, _context: &mut ResolveContext| {
-            *input = value;
-        },
-        PhantomData,
-    )
+) -> InsertTemplate {
+    InsertTemplate {
+        type_id: TypeId::of::<T>(),
+        template: Box::new(value),
+    }
 }
 
 /// A helper function that returns a [`TemplatePatch`] [`Scene`] for something that implements [`FromTemplate`].
@@ -300,6 +342,24 @@ impl<
     ) -> Result<(), ResolveSceneError> {
         let template = scene.get_or_insert_template::<T>(context);
         (self.0)(template, context);
+        Ok(())
+    }
+}
+
+/// A [`Scene`] that replaces the given template with the given value
+pub struct InsertTemplate {
+    /// The type id of the [`Template`] in `template`.
+    pub type_id: TypeId,
+    /// The template to insert.
+    pub template: Box<dyn ErasedComponentTemplate>,
+}
+impl Scene for InsertTemplate {
+    fn resolve(
+        self,
+        _context: &mut ResolveContext,
+        scene: &mut ResolvedScene,
+    ) -> Result<(), ResolveSceneError> {
+        scene.insert_erased_template(self.type_id, self.template);
         Ok(())
     }
 }
@@ -519,6 +579,12 @@ impl<S: Scene> From<SceneScope<S>> for Box<dyn Scene> {
     }
 }
 
+impl<S: Scene> From<SceneScope<S>> for Option<Box<dyn Scene>> {
+    fn from(value: SceneScope<S>) -> Self {
+        Some(Box::new(value))
+    }
+}
+
 impl<S: SceneList> From<SceneListScope<S>> for Box<dyn SceneList> {
     fn from(value: SceneListScope<S>) -> Self {
         Box::new(value)
@@ -528,6 +594,18 @@ impl<S: SceneList> From<SceneListScope<S>> for Box<dyn SceneList> {
 impl<S: Scene> From<SceneScope<S>> for Box<dyn SceneList> {
     fn from(value: SceneScope<S>) -> Self {
         Box::new(value)
+    }
+}
+
+impl<S: Scene> From<SceneScope<S>> for Option<Box<dyn SceneList>> {
+    fn from(value: SceneScope<S>) -> Self {
+        Some(Box::new(value))
+    }
+}
+
+impl<S: SceneList> From<SceneListScope<S>> for Option<Box<dyn SceneList>> {
+    fn from(value: SceneListScope<S>) -> Self {
+        Some(Box::new(value))
     }
 }
 

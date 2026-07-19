@@ -50,6 +50,16 @@ impl SystemWithAccess {
             access: FilteredAccessSet::new(),
         }
     }
+
+    /// Returns the underlying [`ScheduleSystem`]
+    pub fn system(&self) -> &ScheduleSystem {
+        &self.system
+    }
+
+    /// Returns the underlying [`FilteredAccessSet`]
+    pub fn access(&self) -> &FilteredAccessSet {
+        &self.access
+    }
 }
 
 impl System for SystemWithAccess {

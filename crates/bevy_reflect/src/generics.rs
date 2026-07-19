@@ -1,4 +1,4 @@
-use crate::type_info::impl_type_methods;
+use crate::ty::impl_type_methods;
 use crate::{Reflect, Type, TypePath};
 use alloc::{borrow::Cow, boxed::Box};
 use bevy_platform::sync::Arc;
@@ -20,15 +20,15 @@ use derive_more::derive::From;
 /// the generics will be empty even if the type has generics.
 ///
 /// [`Reflect` derive macro]: bevy_reflect_derive::Reflect
-/// [`TypeInfo`]: crate::type_info::TypeInfo
+/// [`TypeInfo`]: crate::info::TypeInfo
 /// [`Typed::type_info`]: crate::Typed::type_info
 #[derive(Clone, Default, Debug)]
-pub struct Generics(Box<[GenericInfo]>);
+pub struct Generics(Option<Box<[GenericInfo]>>);
 
 impl Generics {
     /// Creates an empty set of generics.
     pub fn new() -> Self {
-        Self(Box::new([]))
+        Self(None)
     }
 
     /// Finds the generic parameter with the given name.
@@ -37,21 +37,24 @@ impl Generics {
     pub fn get_named(&self, name: &str) -> Option<&GenericInfo> {
         // For small sets of generics (the most common case),
         // a linear search is often faster using a `HashMap`.
-        self.0.iter().find(|info| info.name() == name)
+        self.0.iter().flatten().find(|info| info.name() == name)
     }
 
     /// Adds the given generic parameter to the set.
     pub fn with(mut self, info: impl Into<GenericInfo>) -> Self {
-        self.0 = IntoIterator::into_iter(self.0)
-            .chain(core::iter::once(info.into()))
-            .collect();
+        self.0 = Some(match self.0 {
+            Some(existing) => IntoIterator::into_iter(existing)
+                .chain(core::iter::once(info.into()))
+                .collect(),
+            None => Box::new([info.into()]),
+        });
         self
     }
 }
 
 impl<T: Into<GenericInfo>> FromIterator<T> for Generics {
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
-        Self(iter.into_iter().map(Into::into).collect())
+        Self(Some(iter.into_iter().map(Into::into).collect()))
     }
 }
 
@@ -59,7 +62,7 @@ impl Deref for Generics {
     type Target = [GenericInfo];
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        self.0.as_deref().unwrap_or(&[])
     }
 }
 

@@ -56,6 +56,8 @@ pub enum ButtonVariant {
 ///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
 #[derive(SceneComponent, Default, Clone)]
 #[scene(FeathersButtonProps)]
+#[derive(Reflect)]
+#[reflect(Component, Clone, Default)]
 pub struct FeathersButton;
 
 /// Props used to construct a [`FeathersButton`] scene.
@@ -121,6 +123,8 @@ impl FeathersButton {
 ///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
 #[derive(SceneComponent, Default, Clone)]
 #[scene(FeathersButtonProps)]
+#[derive(Reflect)]
+#[reflect(Component, Clone, Default)]
 pub struct FeathersToolButton;
 
 impl FeathersToolButton {

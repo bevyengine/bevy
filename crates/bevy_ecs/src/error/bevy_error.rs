@@ -1,4 +1,4 @@
-use alloc::boxed::Box;
+use alloc::{borrow::Cow, boxed::Box};
 use core::{
     error::Error,
     fmt::{Debug, Display},
@@ -38,6 +38,15 @@ use core::{
 ///
 /// [`Backtrace::capture`]: https://doc.rust-lang.org/std/backtrace/struct.Backtrace.html#method.capture
 ///
+/// # Context
+///
+/// You can attach a context message to a [`Result`] or [`Option`] value to turn it into
+/// a [`Result`] with a [`BevyError`] using [`context`] or [`with_context`].
+/// The resulting error will have the message passed to [`context`] added to it.
+///
+/// [`context`]: ContextExt::context
+/// [`with_context`]: ContextExt::with_context
+///
 /// # Usage
 ///
 /// ```
@@ -45,8 +54,8 @@ use core::{
 ///
 /// fn fallible_system() -> Result<(), BevyError> {
 ///     // This will result in Rust's built-in ParseIntError, which will automatically
-///     // be converted into a BevyError.
-///     let parsed: usize = "I am not a number".parse()?;
+///     // be converted into a BevyError with an additional message.
+///     let parsed: usize = "I am not a number".parse().context("failed to parse number")?;
 ///     Ok(())
 /// }
 /// ```
@@ -85,6 +94,32 @@ impl BevyError {
         Box<dyn Error + Sync + Send>: From<E>,
     {
         Self::from(error).with_severity(severity)
+    }
+
+    /// Constructs a new [`BevyError`] with the given [`Severity`].
+    ///
+    /// Like [`BevyError::new`], but if the `backtrace` cargo feature is enabled
+    /// it will use the supplied backtrace instead of capturing a new one.
+    #[cfg(feature = "std")]
+    pub fn new_with_backtrace<E>(
+        severity: Severity,
+        error: E,
+        backtrace: std::backtrace::Backtrace,
+    ) -> Self
+    where
+        Box<dyn Error + Sync + Send>: From<E>,
+    {
+        #[cfg(not(feature = "backtrace"))]
+        drop(backtrace);
+        BevyError {
+            inner: Box::new(InnerBevyError {
+                error: error.into(),
+                severity,
+                context: alloc::vec![],
+                #[cfg(feature = "backtrace")]
+                backtrace,
+            }),
+        }
     }
 
     /// Creates a new [`BevyError`] with the [`Severity::Ignore`] severity.
@@ -224,12 +259,13 @@ impl BevyError {
 }
 
 /// This type exists (rather than having a `BevyError(Box<dyn InnerBevyError)`) to make [`BevyError`] use a "thin pointer" instead of
-/// a "fat pointer", which reduces the size of our Result by a usize. This does introduce an extra indirection, but error handling is a "cold path".
+/// a "fat pointer", which reduces the size of our `Result` by a `usize`. This does introduce an extra indirection, but error handling is a "cold path".
 /// We don't need to optimize it to that degree.
 /// PERF: We could probably have the best of both worlds with a "custom vtable" impl, but that's not a huge priority right now and the code simplicity
 /// of the current impl is nice.
 struct InnerBevyError {
     error: Box<dyn Error + Send + Sync + 'static>,
+    context: alloc::vec::Vec<Cow<'static, str>>,
     severity: Severity,
     #[cfg(feature = "backtrace")]
     backtrace: std::backtrace::Backtrace,
@@ -286,7 +322,7 @@ impl BevyError {
 }
 
 /// Extension methods for annotating errors with a [`Severity`].
-pub trait ResultSeverityExt<T, E> {
+pub trait ResultSeverityExt<T, E>: Sized {
     /// Overrides the [`Severity`] of the error if this result is `Err`.
     /// This does not change control flow; it only annotates the error.
     ///
@@ -302,7 +338,7 @@ pub trait ResultSeverityExt<T, E> {
     /// }
     /// ```
     ///
-    /// For more fine grained control see [`Result::map_severity`]
+    /// For more fine grained control see [`Result::map_severity`](ResultSeverityExt::map_severity)
     fn with_severity(self, severity: Severity) -> Result<T, BevyError>;
 
     /// Overrides the [`Severity`] of the error if this result is `Err`.
@@ -335,8 +371,50 @@ pub trait ResultSeverityExt<T, E> {
     /// }
     /// ```
     ///
-    /// If you don't need to inspect the error, use [`Result::with_severity`]
+    /// If you don't need to inspect the error, use [`Result::with_severity`](ResultSeverityExt::with_severity)
     fn map_severity(self, f: impl FnOnce(&E) -> Severity) -> Result<T, BevyError>;
+
+    /// Overrides the severity of the error with [`Severity::Ignore`]. See [`Result::with_severity`]
+    ///
+    /// This is shorthand for `self.with_severity(Severity::Ignore)`
+    fn ignore(self) -> Result<T, BevyError> {
+        self.with_severity(Severity::Ignore)
+    }
+
+    /// Overrides the severity of the error with [`Severity::Trace`]. See [`Result::with_severity`]
+    ///
+    /// This is shorthand for `self.with_severity(Severity::Trace)`
+    fn trace(self) -> Result<T, BevyError> {
+        self.with_severity(Severity::Trace)
+    }
+
+    /// Overrides the severity of the error with [`Severity::Info`]. See [`Result::with_severity`]
+    ///
+    /// This is shorthand for `self.with_severity(Severity::Info)`
+    fn info(self) -> Result<T, BevyError> {
+        self.with_severity(Severity::Info)
+    }
+
+    /// Overrides the severity of the error with [`Severity::Warning`]. See [`Result::with_severity`]
+    ///
+    /// This is shorthand for `self.with_severity(Severity::Warning)`
+    fn warn(self) -> Result<T, BevyError> {
+        self.with_severity(Severity::Warning)
+    }
+
+    /// Overrides the severity of the error with [`Severity::Error`]. See [`Result::with_severity`]
+    ///
+    /// This is shorthand for `self.with_severity(Severity::Error)`
+    fn error(self) -> Result<T, BevyError> {
+        self.with_severity(Severity::Error)
+    }
+
+    /// Overrides the severity of the error with [`Severity::Panic`]. See [`Result::with_severity`]
+    ///
+    /// This is shorthand for `self.with_severity(Severity::Panic)`
+    fn panic(self) -> Result<T, BevyError> {
+        self.with_severity(Severity::Panic)
+    }
 }
 
 impl<T, E> ResultSeverityExt<T, E> for Result<T, E>
@@ -355,6 +433,84 @@ where
     }
 }
 
+/// Extension methods for adding additional context messages to a [`BevyError`]
+pub trait ContextExt<T>: Sized {
+    /// Annotate the error with a context message.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_ecs::error::{BevyError, ContextExt};
+    /// fn fallible() -> Result<(), BevyError> {
+    ///     // Produces a `BevyError` with the message
+    ///     // "failed to parse number: invalid digit found in string"
+    ///     let _parsed: usize = "I am not a number"
+    ///         .parse()
+    ///         .context("failed to parse number")?;
+    ///
+    ///     Ok(())
+    /// }
+    /// ```
+    fn context<C>(self, context: C) -> Result<T, BevyError>
+    where
+        C: Into<Cow<'static, str>>,
+    {
+        self.with_context(move || context)
+    }
+
+    /// Annotate the error with a context message from a closure
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_ecs::error::{BevyError, ContextExt};
+    /// # use std::fs;
+    /// fn fallible() -> Result<(), BevyError> {
+    ///     let path = "some_file.txt";
+    ///     let _message = fs::read_to_string(path)
+    ///         .with_context(|| format!("failed to read {path}"))?;
+    ///
+    ///     Ok(())
+    /// }
+    /// ```
+    fn with_context<C>(self, context: impl FnOnce() -> C) -> Result<T, BevyError>
+    where
+        C: Into<Cow<'static, str>>;
+}
+impl<T, E> ContextExt<T> for Result<T, E>
+where
+    E: Into<BevyError>,
+{
+    fn with_context<C>(self, context: impl FnOnce() -> C) -> Result<T, BevyError>
+    where
+        C: Into<Cow<'static, str>>,
+    {
+        match self {
+            Ok(v) => Ok(v),
+            Err(error) => {
+                let mut error = error.into();
+                let message = context().into();
+                error.inner.context.push(message);
+                Err(error)
+            }
+        }
+    }
+}
+
+impl<T> ContextExt<T> for Option<T> {
+    fn with_context<C>(self, context: impl FnOnce() -> C) -> Result<T, BevyError>
+    where
+        C: Into<Cow<'static, str>>,
+    {
+        match self {
+            Some(v) => Ok(v),
+            None => {
+                let message = context().into();
+
+                Err(message.into())
+            }
+        }
+    }
+}
+
 // NOTE: writing the impl this way gives us From<&str> ... nice!
 impl<E> From<E> for BevyError
 where
@@ -366,6 +522,7 @@ where
             inner: Box::new(InnerBevyError {
                 error: error.into(),
                 severity: Severity::Panic,
+                context: alloc::vec![],
                 #[cfg(feature = "backtrace")]
                 backtrace: std::backtrace::Backtrace::capture(),
             }),
@@ -375,7 +532,25 @@ where
 
 impl Display for BevyError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        writeln!(f, "{}", self.inner.error)?;
+        match &self.inner.context {
+            context if context.is_empty() => writeln!(f, "{}", self.inner.error)?,
+            context if context.len() == 1 => {
+                writeln!(f, "{}: {}", context[0].trim(), self.inner.error)?;
+            }
+            context => {
+                // The most recent message is the last one in the `Vec`
+                // so we need to reverse the iterator
+                let mut reversed = context.iter().rev();
+                let first = reversed.next().unwrap().trim();
+
+                writeln!(f, "{first}\n\nCaused by:")?;
+                for message in reversed {
+                    let message = message.trim();
+                    writeln!(f, "\t{message}")?;
+                }
+                writeln!(f, "\t{}", self.inner.error)?;
+            }
+        }
         self.format_backtrace(f)?;
         Ok(())
     }
@@ -384,6 +559,9 @@ impl Display for BevyError {
 impl Debug for BevyError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         writeln!(f, "{:?}", self.inner.error)?;
+        if !self.inner.context.is_empty() {
+            writeln!(f, "context: {:?}", self.inner.context)?;
+        }
         self.format_backtrace(f)?;
         Ok(())
     }
@@ -406,9 +584,7 @@ pub fn bevy_error_panic_hook(
 ) -> impl Fn(&std::panic::PanicHookInfo) {
     move |info| {
         if SKIP_NORMAL_BACKTRACE.replace(false) {
-            if let Some(payload) = info.payload().downcast_ref::<&str>() {
-                std::println!("{payload}");
-            } else if let Some(payload) = info.payload().downcast_ref::<alloc::string::String>() {
+            if let Some(payload) = info.payload_as_str() {
                 std::println!("{payload}");
             }
             return;
@@ -487,6 +663,8 @@ macro_rules! bail {
 #[cfg(test)]
 mod tests {
     use crate::error::BevyError;
+    use crate::error::ContextExt;
+    use alloc::string::ToString;
 
     #[test]
     #[cfg(not(miri))] // miri backtraces are weird
@@ -526,15 +704,16 @@ mod tests {
         }
 
         let expected_lines = alloc::vec![
+            "<bevy_ecs::error::bevy_error::BevyError as core::convert::From<core::num::error::ParseIntError>>::from",
+            "<core::result::Result<(), bevy_ecs::error::bevy_error::BevyError> as core::ops::try_trait::FromResidual<core::result::Result<core::convert::Infallible, core::num::error::ParseIntError>>>::from_residual",
             "bevy_ecs::error::bevy_error::tests::filtered_backtrace_test::i_fail",
             "bevy_ecs::error::bevy_error::tests::filtered_backtrace_test",
-            "bevy_ecs::error::bevy_error::tests::filtered_backtrace_test::{{closure}}",
-            "core::ops::function::FnOnce::call_once",
+            "bevy_ecs::error::bevy_error::tests::filtered_backtrace_test::{closure#0}",
+            "<bevy_ecs::error::bevy_error::tests::filtered_backtrace_test::{closure#0} as core::ops::function::FnOnce<()>>::call_once",
         ];
 
         for expected in expected_lines {
-            let line = lines.next().unwrap();
-            assert_eq!(&line[6..], expected);
+            // On mac, it can sometimes start with an "at" line
             let mut skip = false;
             if let Some(line) = lines.peek()
                 && line.starts_with("             at")
@@ -545,12 +724,26 @@ mod tests {
             if skip {
                 lines.next().unwrap();
             }
+
+            let line = lines.next().unwrap();
+            assert_eq!(&line[6..], expected);
+        }
+        // To handle any potential "at" line after the expected lines
+        let mut skip = false;
+        if let Some(line) = lines.peek()
+            && line.starts_with("             at")
+        {
+            skip = true;
+        }
+
+        if skip {
+            lines.next().unwrap();
         }
 
         // on linux there is a second call_once
         let mut skip = false;
         if let Some(line) = lines.peek()
-            && &line[6..] == "core::ops::function::FnOnce::call_once"
+            && &line[6..] == "<fn() -> core::result::Result<(), alloc::string::String> as core::ops::function::FnOnce<()>>::call_once"
         {
             skip = true;
         }
@@ -625,5 +818,65 @@ mod tests {
             )
         });
         t(|| bail!("Format string {}", 1 + 2));
+    }
+
+    #[test]
+    fn context() {
+        let empty = None::<i32>;
+        let as_result = empty.context("Didn't have anything!");
+        assert!(as_result
+            .unwrap_err()
+            .to_string()
+            .starts_with("Didn't have anything!\n"));
+
+        let err: Result<i32, BevyError> =
+            Err(BevyError::new(crate::error::Severity::Debug, "Oh no!"));
+        let mut with_context = err.context("Failed");
+
+        assert!(with_context
+            .as_ref()
+            .unwrap_err()
+            .to_string()
+            .starts_with("Failed: Oh no!\n"));
+
+        with_context = with_context.context("Something went wrong");
+        assert!(with_context.unwrap_err().to_string().starts_with(
+            "Something went wrong
+
+Caused by:
+\tFailed
+\tOh no!
+"
+        ));
+    }
+
+    #[test]
+    fn context_downcasting() {
+        #[derive(Debug, PartialEq)]
+        struct Fun(i32);
+
+        impl core::fmt::Display for Fun {
+            fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+                core::fmt::Debug::fmt(&self, f)
+            }
+        }
+        impl core::error::Error for Fun {}
+
+        let fun: Result<i32, Fun> = Err(Fun(1));
+        let new_error = fun.context("Hello world!");
+
+        assert!(new_error.as_ref().unwrap_err().is::<Fun>());
+        assert_eq!(
+            new_error.as_ref().unwrap_err().downcast_ref::<Fun>(),
+            Some(&Fun(1))
+        );
+
+        let new_new_error = new_error.context("Hey there!");
+
+        assert!(new_new_error.as_ref().unwrap_err().is::<Fun>());
+        assert_eq!(
+            new_new_error.as_ref().unwrap_err().downcast_ref::<Fun>(),
+            Some(&Fun(1))
+        );
     }
 }

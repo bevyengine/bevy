@@ -154,7 +154,9 @@ impl SpecializedRenderPipeline for GradientPipeline {
                 VertexFormat::Float32x2,
                 // flags
                 VertexFormat::Uint32,
-                // radius
+                // border radius x values (top left, top right, bottom right, bottom left)
+                VertexFormat::Float32x4,
+                // border radius y values (top left, top right, bottom right, bottom left)
                 VertexFormat::Float32x4,
                 // border
                 VertexFormat::Float32x4,
@@ -416,7 +418,7 @@ pub fn extract_gradients(
                             node_type,
                         },
                         main_entity: entity.into(),
-                        render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                        render_entity: commands.spawn(TemporaryRenderEntity::default()).id(),
                     });
                     continue;
                 }
@@ -440,7 +442,7 @@ pub fn extract_gradients(
                         );
 
                         extracted_gradients.items.push(ExtractedGradient {
-                            render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                            render_entity: commands.spawn(TemporaryRenderEntity::default()).id(),
                             stack_index: stack_index.0,
                             transform: transform.into(),
                             stops_range: range_start..extracted_color_stops.0.len(),
@@ -490,7 +492,7 @@ pub fn extract_gradients(
                         );
 
                         extracted_gradients.items.push(ExtractedGradient {
-                            render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                            render_entity: commands.spawn(TemporaryRenderEntity::default()).id(),
                             stack_index: stack_index.0,
                             transform: transform.into(),
                             stops_range: range_start..extracted_color_stops.0.len(),
@@ -546,7 +548,7 @@ pub fn extract_gradients(
                         );
 
                         extracted_gradients.items.push(ExtractedGradient {
-                            render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                            render_entity: commands.spawn(TemporaryRenderEntity::default()).id(),
                             stack_index: stack_index.0,
                             transform: transform.into(),
                             stops_range: range_start..extracted_color_stops.0.len(),
@@ -639,7 +641,7 @@ struct UiGradientVertex {
     position: [f32; 3],
     uv: [f32; 2],
     flags: u32,
-    radius: [f32; 4],
+    radius: [[f32; 4]; 2],
     border: [f32; 4],
     size: [f32; 2],
     point: [f32; 2],
@@ -856,12 +858,7 @@ pub fn prepare_gradient(
                                 position: positions_clipped[i].into(),
                                 uv: uvs[i].into(),
                                 flags: stop_flags | shader_flags::CORNERS[i],
-                                radius: [
-                                    gradient.border_radius.top_left,
-                                    gradient.border_radius.top_right,
-                                    gradient.border_radius.bottom_right,
-                                    gradient.border_radius.bottom_left,
-                                ],
+                                radius: gradient.border_radius.into(),
                                 border: [
                                     gradient.border.min_inset.x,
                                     gradient.border.min_inset.y,
