@@ -1,7 +1,8 @@
+use bevy::camera::primitives::MeshAabb;
 use bevy::dev_tools::world_asset_helpers::merge_all_mesh_3d;
 use bevy::{
     asset::RenderAssetUsages,
-    camera::{primitives::MeshAabb, visibility::VisibilityRange},
+    camera::visibility::VisibilityRange,
     mesh::{Indices, PrimitiveTopology},
     platform::collections::HashMap,
     prelude::*,
@@ -539,7 +540,7 @@ pub fn resolve_pending_lods(
         let Some(source) = meshes.get(&pending.source_mesh) else {
             continue;
         };
-        let Some(aabb) = source.compute_aabb() else {
+        let Some(aabb) = source.get_aabb() else {
             continue;
         };
         let lod_mesh = cache
