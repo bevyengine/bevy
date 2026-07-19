@@ -6,7 +6,7 @@ use bevy_ecs::{
     resource::Resource,
     system::{Query, Res, ResMut},
 };
-use bevy_math::{ops::cos, Mat4, Vec3};
+use bevy_math::{ops::cos, Affine3, Affine3Ext, Mat4, Vec3, Vec4};
 use bevy_pbr::{
     DfgLut, ExtractedDirectionalLight, MeshMaterial3d, PreviousGlobalTransform, StandardMaterial,
 };
@@ -84,8 +84,8 @@ pub fn prepare_raytracing_scene_bindings(
             update_mode: AccelerationStructureUpdateMode::Build,
             max_instances: instances_query.iter().len() as u32,
         });
-    let mut transforms = StorageBufferList::<Mat4>::default();
-    let mut previous_frame_transforms = StorageBufferList::<Mat4>::default();
+    let mut transforms = StorageBufferList::<[Vec4; 3]>::default();
+    let mut previous_frame_transforms = StorageBufferList::<[Vec4; 3]>::default();
     let mut geometry_ids = StorageBufferList::<GpuInstanceGeometryIds>::default();
     let mut material_ids = StorageBufferList::<u32>::default();
     let mut light_sources = StorageBufferList::<GpuLightSource>::default();
@@ -172,18 +172,18 @@ pub fn prepare_raytracing_scene_bindings(
             continue;
         };
 
-        let transform = transform.to_matrix();
         *tlas.get_mut_single(instance_id).unwrap() = Some(TlasInstance::new(
             blas,
-            tlas_transform(&transform),
+            tlas_transform(&transform.to_matrix()),
             Default::default(),
             0xFF,
         ));
 
+        let transform = Affine3::from(transform.affine()).to_transpose();
         transforms.get_mut().push(transform);
         previous_frame_transforms.get_mut().push(
             previous_frame_transform
-                .map(|t| Mat4::from(t.0))
+                .map(|t| Affine3::from(t.0).to_transpose())
                 .unwrap_or(transform),
         );
 
