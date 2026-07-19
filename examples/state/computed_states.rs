@@ -21,8 +21,8 @@ use bevy::{
     input::keyboard::Key,
     picking::hover::Hovered,
     prelude::*,
-    ui::Pressed,
-    ui_widgets::{Activate, ActivateOnPress, Button},
+    ui::{Checked, Pressed},
+    ui_widgets::{checkbox_self_update, Activate, ActivateOnPress, Button, Checkbox, ValueChange},
 };
 
 use ui::*;
@@ -191,8 +191,10 @@ fn main() {
         // using our states as normal.
         .add_systems(Startup, setup)
         .add_systems(OnEnter(AppState::Menu), setup_menu)
-        .add_systems(Update, menu_button_styling.run_if(in_state(AppState::Menu)))
+        .add_systems(Update, menu_styling.run_if(in_state(AppState::Menu)))
         .add_observer(menu_activate.run_if(in_state(AppState::Menu)))
+        .add_observer(menu_tutorial_checked.run_if(in_state(AppState::Menu)))
+        .add_observer(checkbox_self_update)
         .add_systems(OnExit(AppState::Menu), cleanup_menu)
         // We only want to run the [`setup_game`] function when we enter the [`AppState::InGame`] state, regardless
         // of whether the game is paused or not.
@@ -226,62 +228,57 @@ fn main() {
         .run();
 }
 
-/// Updates the app state whenever menu buttons are activated
-fn menu_activate(
-    event: On<Activate>,
-    mut next_state: ResMut<NextState<AppState>>,
-    tutorial_state: Res<State<TutorialState>>,
-    mut next_tutorial: ResMut<NextState<TutorialState>>,
-    button_query: Query<&MenuButton, With<Button>>,
-) {
-    if let Ok(menu_button) = button_query.get(event.entity) {
-        match menu_button {
-            MenuButton::Play => next_state.set(AppState::InGame {
-                paused: false,
-                turbo: false,
-            }),
-            MenuButton::Tutorial => next_tutorial.set(match tutorial_state.get() {
-                TutorialState::Active => TutorialState::Inactive,
-                TutorialState::Inactive => TutorialState::Active,
-            }),
-        };
-    }
+/// Updates the app state when the play button is activated.
+fn menu_activate(_event: On<Activate>, mut next_state: ResMut<NextState<AppState>>) {
+    // The play button is the only button on the menu that would send the `Activate` event.
+    next_state.set(AppState::InGame {
+        paused: false,
+        turbo: false,
+    });
 }
 
-/// Updates button styling based on the menu buttons' hovered and pressed states.
-fn menu_button_styling(
-    mut button_query: Query<
+/// Updates the app state when the tutorial button is checked/unchecked.
+/// The `checkbox_self_update` observer added to the app handles
+/// updating the `Checked` component on the `Checkbox` itself.
+fn menu_tutorial_checked(
+    event: On<ValueChange<bool>>,
+    mut next_tutorial: ResMut<NextState<TutorialState>>,
+) {
+    next_tutorial.set(if event.value {
+        TutorialState::Active
+    } else {
+        TutorialState::Inactive
+    });
+}
+
+/// Updates button and checkbox styling based on hovered and pressed states.
+fn menu_styling(
+    mut widget_query: Query<
         (
             &Hovered,
             Option<&Pressed>,
             &mut BackgroundColor,
-            &MenuButton,
+            Has<Checkbox>,
         ),
-        With<Button>,
+        Or<(With<Button>, With<Checkbox>)>,
     >,
     tutorial_state: Res<State<TutorialState>>,
 ) {
-    for (hovered, pressed, mut color, menu_button) in &mut button_query {
+    for (hovered, pressed, mut color, is_tutorial_checkbox) in &mut widget_query {
         if pressed.is_some() {
-            *color = if menu_button == &MenuButton::Tutorial
-                && tutorial_state.get() == &TutorialState::Active
-            {
+            *color = if is_tutorial_checkbox && tutorial_state.get() == &TutorialState::Active {
                 PRESSED_ACTIVE_BUTTON.into()
             } else {
                 PRESSED_BUTTON.into()
             };
         } else if hovered.get() {
-            if menu_button == &MenuButton::Tutorial
-                && tutorial_state.get() == &TutorialState::Active
-            {
+            if is_tutorial_checkbox && tutorial_state.get() == &TutorialState::Active {
                 *color = HOVERED_ACTIVE_BUTTON.into();
             } else {
                 *color = HOVERED_BUTTON.into();
             }
         } else {
-            if menu_button == &MenuButton::Tutorial
-                && tutorial_state.get() == &TutorialState::Active
-            {
+            if is_tutorial_checkbox && tutorial_state.get() == &TutorialState::Active {
                 *color = ACTIVE_BUTTON.into();
             } else {
                 *color = NORMAL_BUTTON.into();
@@ -327,6 +324,7 @@ fn quit_to_menu(input: Res<ButtonInput<KeyCode>>, mut next_state: ResMut<NextSta
 }
 
 mod ui {
+
     use crate::*;
 
     #[derive(Resource)]
@@ -365,61 +363,71 @@ mod ui {
                     row_gap: px(10),
                     ..default()
                 },
-                children![
-                    (
-                        Button,
-                        Hovered::default(),
-                        ActivateOnPress,
-                        Node {
-                            width: px(200),
-                            height: px(65),
-                            // horizontally center child text
-                            justify_content: JustifyContent::Center,
-                            // vertically center child text
-                            align_items: AlignItems::Center,
+                children![(
+                    Button,
+                    Hovered::default(),
+                    ActivateOnPress,
+                    Node {
+                        width: px(200),
+                        height: px(65),
+                        // horizontally center child text
+                        justify_content: JustifyContent::Center,
+                        // vertically center child text
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                    BackgroundColor(NORMAL_BUTTON),
+                    MenuButton::Play,
+                    children![(
+                        Text::new("Play"),
+                        TextFont {
+                            font_size: FontSize::Px(33.0),
                             ..default()
                         },
-                        BackgroundColor(NORMAL_BUTTON),
-                        MenuButton::Play,
-                        children![(
-                            Text::new("Play"),
-                            TextFont {
-                                font_size: FontSize::Px(33.0),
-                                ..default()
-                            },
-                            TextColor(Color::srgb(0.9, 0.9, 0.9)),
-                        )],
-                    ),
-                    (
-                        Button,
-                        Hovered::default(),
-                        ActivateOnPress,
-                        Node {
-                            width: px(200),
-                            height: px(65),
-                            // horizontally center child text
-                            justify_content: JustifyContent::Center,
-                            // vertically center child text
-                            align_items: AlignItems::Center,
-                            ..default()
-                        },
-                        BackgroundColor(match tutorial_state.get() {
-                            TutorialState::Active => ACTIVE_BUTTON,
-                            TutorialState::Inactive => NORMAL_BUTTON,
-                        }),
-                        MenuButton::Tutorial,
-                        children![(
-                            Text::new("Tutorial"),
-                            TextFont {
-                                font_size: FontSize::Px(33.0),
-                                ..default()
-                            },
-                            TextColor(Color::srgb(0.9, 0.9, 0.9)),
-                        )]
-                    ),
-                ],
+                        TextColor(Color::srgb(0.9, 0.9, 0.9)),
+                    )],
+                ),],
             ))
             .id();
+
+        let mut tutorial_checkbox = commands.spawn((
+            Checkbox,
+            Hovered::default(),
+            ActivateOnPress,
+            Node {
+                width: px(200),
+                height: px(65),
+                // horizontally center child text
+                justify_content: JustifyContent::Center,
+                // vertically center child text
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            BackgroundColor(match tutorial_state.get() {
+                TutorialState::Active => ACTIVE_BUTTON,
+                TutorialState::Inactive => NORMAL_BUTTON,
+            }),
+            MenuButton::Tutorial,
+            children![(
+                Text::new("Tutorial"),
+                TextFont {
+                    font_size: FontSize::Px(33.0),
+                    ..default()
+                },
+                TextColor(Color::srgb(0.9, 0.9, 0.9)),
+            )],
+        ));
+        match tutorial_state.get() {
+            TutorialState::Active => {
+                tutorial_checkbox.insert(Checked);
+            }
+            TutorialState::Inactive => {}
+        };
+        let tutorial_checkbox_id = tutorial_checkbox.id();
+        commands
+            .entity(button_entity)
+            .add_child(tutorial_checkbox_id);
+
         commands.insert_resource(MenuData {
             root_entity: button_entity,
         });
