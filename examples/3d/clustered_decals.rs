@@ -47,7 +47,7 @@ struct AppStatus {
     selection: Selection,
 
     /// Whether the current pointer drag should be interpreted as a move.
-    /// This is necessary since a pointer drag can also be used to adjust
+    /// This is necessary because a pointer drag is also used to adjust
     /// the values of the number inputs.
     drag_is_moving_selection: bool,
 }
@@ -86,7 +86,7 @@ enum AppNumberInput {
     Roll,
 }
 
-/// A component that stores the base scale for a clustered decal.
+/// A component that stores the base scale of a clustered decal.
 #[derive(Clone, Copy, Component, Default, PartialEq, Debug)]
 struct BaseScale(Vec3);
 
@@ -228,7 +228,8 @@ fn spawn_decals(commands: &mut Commands, asset_server: &AssetServer) {
 /// Spawns the buttons at the bottom of the screen.
 fn spawn_buttons(commands: &mut Commands) {
     // Spawn the radio buttons that allow the user to select an object to
-    // control.
+    // control, and the number inputs that allow the user to alter additional
+    // aspects of clustered decals.
     commands.spawn_scene(bsn! {
         radio::main_ui_node_scene()
         Children [
@@ -237,21 +238,7 @@ fn spawn_buttons(commands: &mut Commands) {
                 (Selection::Camera, "Camera"),
                 (Selection::DecalA, "Decal A"),
                 (Selection::DecalB, "Decal B"),
-            ])
-        ]
-    });
-
-    // Spawn the drag buttons that allow the user to control the scale and roll
-    // of the selected object.
-    commands.spawn_scene(bsn! {
-        Node {
-            flex_direction: FlexDirection::Column,
-            position_type: PositionType::Absolute,
-            right: px(50),
-            bottom: px(50),
-            column_gap: px(6),
-        }
-        Children[
+            ]),
             number_input("Scale Multiplier", 1.0, 0.05..10., AppNumberInput::Scale),
             number_input("Roll (-π to π)", 0.0, -PI..PI, AppNumberInput::Roll),
         ]
@@ -270,11 +257,12 @@ fn number_input(
         Visibility::Hidden
         Node {
             align_items: AlignItems::Center,
-            column_gap: px(5),
-            width: px(150),
         }
         Children [
-            Node
+            Node {
+                align_items: AlignItems::Center
+                width: px(150),
+            }
             Children [
                 label(name)
             ],
@@ -293,7 +281,7 @@ fn number_input(
 }
 
 /// Observer that handles changes to number inputs.
-/// The number inputs affect the scale or rotation of the currently selected decal.
+/// The number inputs affect the scale or rotation of the currently selected decal, if any.
 fn handle_value_change_number_input(
     value_change: On<ValueChange<f32>>,
     mut commands: Commands,
@@ -364,7 +352,7 @@ fn handle_selection_change(
                 {
                     if AppNumberInput::Scale == *app_number_input {
                         // Scale should be uniformly multiplied.
-                        let scale_multiplier = base_scale.0.x / transform.scale.x;
+                        let scale_multiplier = transform.scale.x / base_scale.0.x;
                         commands
                             .entity(input_entity)
                             // round to two decimal points.
@@ -444,8 +432,9 @@ fn rotate_cube(mut meshes: Query<&mut Transform, With<Mesh3d>>) {
     }
 }
 
-/// When a pointer drag starts, it should only move the selection if it was not
-/// hovering over a feathers number input.
+/// When the pointer press is triggered, possibly as the start of a pointer drag,
+/// It should only move the selection via drag if it was NOT hovering
+/// over a feathers number input.
 fn on_pointer_press_init_drag_mode(
     event: On<Pointer<Press>>,
     parent_query: Query<&ChildOf>,
@@ -457,6 +446,8 @@ fn on_pointer_press_init_drag_mode(
         .any(|parent| number_input.contains(parent));
 }
 
+/// When a pointer is released, clears the `drag_is_moving_selection` flag to prepare
+/// for the next pointer press.
 fn on_pointer_release_clear_drag_mode(
     _event: On<Pointer<Release>>,
     mut app_status: ResMut<AppStatus>,
