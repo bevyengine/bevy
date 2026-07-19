@@ -17,6 +17,7 @@ use bevy_reflect::Reflect;
 use bevy_scene::prelude::*;
 use bevy_text::{
     EditableText, FontSource, FontWeight, LineBreak, TextCursorStyle, TextFont, TextLayout,
+    TextReadWriteMode,
 };
 use bevy_ui::{
     px, AlignItems, BorderRadius, Display, InteractionDisabled, JustifyContent, Node, UiRect,
@@ -156,6 +157,9 @@ fn update_text_input_styles(
 ) {
     for (input_ent, disabled, font_color) in q_inputs.iter() {
         set_text_input_styles(input_ent, disabled, font_color, &mut commands);
+        commands
+            .entity(input_ent)
+            .insert(TextReadWriteMode::ReadOnly);
     }
 }
 
@@ -170,6 +174,9 @@ fn update_text_input_styles_remove(
     removed_disabled.read().for_each(|ent| {
         if let Ok((input_ent, disabled, font_color)) = q_inputs.get(ent) {
             set_text_input_styles(input_ent, disabled, font_color, &mut commands);
+            commands
+                .entity(input_ent)
+                .insert(TextReadWriteMode::Editable);
         }
     });
 }

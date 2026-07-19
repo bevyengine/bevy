@@ -35,7 +35,7 @@ use bevy_reflect::Reflect;
 use bevy_scene::prelude::*;
 use bevy_text::{
     EditableText, EditableTextFilter, FontSourceTemplate, Justify, LineHeight, TextEdit, TextFont,
-    TextLayout,
+    TextLayout, TextReadWriteMode,
 };
 use bevy_ui::{
     percent, px, widget::Text, AlignItems, AlignSelf, BackgroundGradient, ColorStop, ComputedNode,
@@ -601,6 +601,7 @@ fn number_input_on_insert_disabled(
             &mut gradient,
             &mut commands,
         );
+        commands.entity(text_id).insert(TextReadWriteMode::ReadOnly);
     }
 }
 
@@ -632,6 +633,7 @@ fn number_input_on_remove_disabled(
             &mut gradient,
             &mut commands,
         );
+        commands.entity(text_id).insert(TextReadWriteMode::Editable);
     }
 }
 
@@ -675,6 +677,9 @@ fn number_input_init(
             &mut gradient,
             &mut commands,
         );
+        if is_disabled {
+            commands.entity(text_id).insert(TextReadWriteMode::ReadOnly);
+        }
     }
 }
 
