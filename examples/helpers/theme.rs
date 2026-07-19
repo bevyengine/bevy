@@ -1,4 +1,6 @@
-use bevy::{color::palettes, feathers::theme::ThemeProps, platform::collections::HashMap};
+use bevy::{
+    color::palettes, feathers::theme::ThemeProps, platform::collections::HashMap, prelude::*,
+};
 
 /// Creates a basic feathers theme props for the radio buttons.
 pub fn basic_radio_button_theme() -> ThemeProps {
