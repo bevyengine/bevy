@@ -355,15 +355,12 @@ fn handle_selection_change(
                         let scale_multiplier = transform.scale.x / base_scale.0.x;
                         commands
                             .entity(input_entity)
-                            // round to two decimal points.
-                            .insert(NumberInputValue::F32(
-                                (scale_multiplier * 100.0).round() / 100.0,
-                            ));
+                            .insert(NumberInputValue::F32(scale_multiplier));
                     } else {
                         let roll = transform.rotation.to_euler(EulerRot::YXZ).2;
                         commands
                             .entity(input_entity)
-                            .insert(NumberInputValue::F32((roll * 100.0).round() / 100.0));
+                            .insert(NumberInputValue::F32(roll));
                     }
                 }
             }
