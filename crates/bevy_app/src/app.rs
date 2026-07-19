@@ -92,6 +92,9 @@ pub struct App {
     /// [`ScheduleRunnerPlugin`]: https://docs.rs/bevy/latest/bevy/app/struct.ScheduleRunnerPlugin.html
     pub(crate) runner: RunnerFn,
     fallback_error_handler: Option<ErrorHandler>,
+    /// Closures queued by [`setup_non_send`](App::setup_non_send), run once at the start of
+    /// [`App::run`] on the thread that calls it.
+    non_send_setups: Vec<Box<dyn FnOnce(&mut World) + Send>>,
 }
 
 impl Debug for App {
@@ -150,6 +153,7 @@ impl App {
             },
             runner: Box::new(run_once),
             fallback_error_handler: None,
+            non_send_setups: Vec::new(),
         }
     }
 
@@ -186,6 +190,10 @@ impl App {
         let _bevy_app_run_span = info_span!("bevy_app").entered();
         if self.is_building_plugins() {
             panic!("App::run() was called while a plugin was building.");
+        }
+
+        for setup in core::mem::take(&mut self.non_send_setups) {
+            setup(self.world_mut());
         }
 
         let runner = core::mem::replace(&mut self.runner, Box::new(run_once));
@@ -488,7 +496,8 @@ impl App {
 
     /// Inserts the [`!Send`](Send) resource into the app, overwriting any existing data
     /// of the same type.
-    #[deprecated(since = "0.19.0", note = "use App::insert_non_send")]
+    #[deprecated(since = "0.19.0", note = "use App::setup_non_send")]
+    #[expect(deprecated, reason = "delegates to another deprecated method")]
     pub fn insert_non_send_resource<R: 'static>(&mut self, resource: R) -> &mut Self {
         self.insert_non_send(resource)
     }
@@ -512,8 +521,40 @@ impl App {
     /// App::new()
     ///     .insert_non_send(MyCounter { counter: 0 });
     /// ```
+    #[deprecated(since = "0.19.0", note = "use App::setup_non_send")]
     pub fn insert_non_send<R: 'static>(&mut self, resource: R) -> &mut Self {
         self.world_mut().insert_non_send(resource);
+        self
+    }
+
+    /// Queues a `Send` closure that inserts [`!Send`](Send) data into the app's [`World`].
+    ///
+    /// Unlike [`insert_non_send`](Self::insert_non_send), `func` is not run immediately.
+    /// It is stored and only run once [`App::run`] starts, on the thread that calls it,
+    /// which is where `!Send` data (e.g. windowing handles) usually needs to live. This
+    /// decouples *where app-building code runs* from *when `!Send` data is actually
+    /// constructed*, which `insert_non_send` conflates.
+    ///
+    /// Queued closures run in the order they were added, before the app's runner starts.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// struct MyCounter {
+    ///     counter: usize,
+    /// }
+    ///
+    /// App::new()
+    ///     .setup_non_send(|world| world.insert_non_send(MyCounter { counter: 0 }));
+    /// ```
+    pub fn setup_non_send<F>(&mut self, func: F) -> &mut Self
+    where
+        F: FnOnce(&mut World) + Send + 'static,
+    {
+        self.non_send_setups.push(Box::new(func));
         self
     }
 
@@ -1619,6 +1660,7 @@ impl Termination for AppExit {
 
 #[cfg(test)]
 mod tests {
+    use alloc::{sync::Arc, vec, vec::Vec};
     use core::marker::PhantomData;
     use std::sync::Mutex;
 
@@ -2049,6 +2091,48 @@ mod tests {
         App::new()
             .init_non_send::<NonSendTestResource>()
             .init_resource::<TestResource>();
+    }
+
+    #[test]
+    fn setup_non_send_is_deferred_until_run() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+
+        struct NonSendMarker(PhantomData<Mutex<()>>);
+
+        let mut app = App::new();
+        let ran = Arc::new(AtomicBool::new(false));
+        let ran_clone = ran.clone();
+        app.setup_non_send(move |world| {
+            ran_clone.store(true, Ordering::SeqCst);
+            world.insert_non_send(NonSendMarker(PhantomData));
+        });
+
+        // The closure must not run just from being queued.
+        assert!(!ran.load(Ordering::SeqCst));
+
+        app.set_runner(|app| {
+            // By the time the runner is invoked, the closure has already run.
+            assert!(app.world().contains_non_send::<NonSendMarker>());
+            AppExit::Success
+        });
+        app.run();
+
+        assert!(ran.load(Ordering::SeqCst));
+    }
+
+    #[test]
+    fn setup_non_send_runs_in_order() {
+        let mut app = App::new();
+        let order = Arc::new(Mutex::new(Vec::new()));
+        for i in 0..3 {
+            let order = order.clone();
+            app.setup_non_send(move |_| order.lock().unwrap().push(i));
+        }
+
+        app.set_runner(|_| AppExit::Success);
+        app.run();
+
+        assert_eq!(*order.lock().unwrap(), vec![0, 1, 2]);
     }
 
     #[test]
