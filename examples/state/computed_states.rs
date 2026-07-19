@@ -324,7 +324,6 @@ fn quit_to_menu(input: Res<ButtonInput<KeyCode>>, mut next_state: ResMut<NextSta
 }
 
 mod ui {
-
     use crate::*;
 
     #[derive(Resource)]
