@@ -19,7 +19,7 @@ fn main() {
 }
 
 /// Updates each button label whenever its `Pressed` or `Hovered` state changes.
-/// The image node, defined from a spritesheet, will also update upon pressing the button.ß
+/// The image node, defined from a spritesheet, will also update upon pressing the button.
 ///
 /// `Hovered` always exists on the button, so `Ref::is_changed` catches hover transitions and
 /// the insertion of `Pressed`. Removal of `Pressed` is not reported by change detection, so we
