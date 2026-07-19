@@ -10,8 +10,7 @@ use bevy::{
     material::{key::ErasedMeshPipelineKey, MaterialProperties},
     pbr::{
         base_specialize, DrawMaterial, EntitiesNeedingSpecialization, MainPassOpaqueDrawFunction,
-        MaterialBindGroupAllocator, MaterialBindGroupAllocators, MaterialFragmentShader,
-        MeshPipelineKey, PreparedMaterial, RenderMaterialBindings, RenderMaterialInstance,
+        MaterialFragmentShader, MeshPipelineKey, PreparedMaterial, RenderMaterialInstance,
         RenderMaterialInstances,
     },
     platform::collections::hash_map::Entry,
@@ -19,6 +18,9 @@ use bevy::{
     render::{
         camera::{DirtySpecializationSystems, DirtySpecializations},
         erased_render_asset::{ErasedRenderAsset, ErasedRenderAssetPlugin, PrepareAssetError},
+        material_bind_groups::{
+            MaterialBindGroupAllocator, MaterialBindGroupAllocators, RenderMaterialBindings,
+        },
         render_asset::RenderAssets,
         render_phase::DrawFunctions,
         render_resource::{

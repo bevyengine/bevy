@@ -62,12 +62,6 @@ thread_local! {
 /// This plugin will add systems and resources that sync with the `winit` backend and also
 /// replace the existing [`App`] runner with one that constructs an [event loop](EventLoop) to
 /// receive window and input events from the OS.
-///
-/// The `M` message type can be used to pass custom messages to the `winit`'s loop, and handled as messages
-/// in systems.
-///
-/// When using eg. `MinimalPlugins` you can add this using `WinitPlugin::<WakeUp>::default()`, where
-/// `WakeUp` is the default event that bevy uses.
 #[derive(Default)]
 pub struct WinitPlugin {
     /// Allows the window (and the event loop) to be created on any thread
@@ -109,6 +103,21 @@ impl Plugin for WinitPlugin {
             event_loop_builder.with_any_thread(self.run_on_any_thread);
         }
 
+        #[cfg(target_os = "macos")]
+        {
+            use bevy_ecs::system::SystemState;
+            use winit::platform::macos::EventLoopBuilderExtMacOS;
+
+            // Don't request app activation on startup if all its windows should
+            // start unfocused. Otherwise, app activation would focus one of the
+            // windows.
+            let mut initial_windows_state =
+                SystemState::<Query<(Entity, &Window)>>::new(app.world_mut());
+            let initial_windows = initial_windows_state.get(app.world()).unwrap();
+            let initially_focused = initial_windows.iter().any(|(_, window)| window.focused);
+            event_loop_builder.with_activate_ignoring_other_apps(initially_focused);
+        }
+
         #[cfg(target_os = "windows")]
         {
             use winit::platform::windows::EventLoopBuilderExtWindows;
@@ -127,10 +136,22 @@ impl Plugin for WinitPlugin {
             .build()
             .expect("Failed to build event loop");
 
+        let event_loop_proxy = event_loop.create_proxy();
+
+        // Wake up the event loop when `Ctrl+C` is received so that the app can
+        // exit even while idle in a reactive update mode
+        #[cfg(any(all(unix, not(target_os = "horizon")), windows))]
+        {
+            let event_loop_proxy = event_loop_proxy.clone();
+            bevy_app::TerminalCtrlCHandlerPlugin::register_exit_handler(move || {
+                let _ = event_loop_proxy.send_event(WinitUserEvent::WakeUp);
+            });
+        }
+
         app.init_resource::<WinitMonitors>()
             .init_resource::<WinitSettings>()
             .insert_resource(DisplayHandleWrapper(event_loop.owned_display_handle()))
-            .insert_resource(EventLoopProxyWrapper(event_loop.create_proxy()))
+            .insert_resource(EventLoopProxyWrapper(event_loop_proxy))
             .add_message::<RawWinitWindowEvent>()
             .set_runner(|app| winit_runner(app, event_loop))
             .add_systems(

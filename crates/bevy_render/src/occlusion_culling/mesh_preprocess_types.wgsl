@@ -10,6 +10,8 @@ struct MeshInput {
     lightmap_uv_rect: vec2<u32>,
     // Various flags.
     flags: u32,
+    // The index of the `PreviousMeshInput` uniform in the buffer, or `u32::MAX`
+    // if there's no such uniform.
     previous_input_index: u32,
     first_vertex_index: u32,
     first_index_index: u32,
@@ -28,6 +30,12 @@ struct MeshInput {
     morph_descriptor_index: u32,
     metadata_index: u32
 }
+
+// Per-mesh-instance data that we retain from the previous frame.
+struct PreviousMeshInput {
+    // The model transform.
+    world_from_local: mat3x4<f32>,
+};
 
 // The `wgpu` indirect parameters structure. This is a union of two structures.
 // For more information, see the corresponding comment in
@@ -52,18 +60,50 @@ struct IndirectParametersNonIndexed {
     first_instance: u32,
 }
 
-struct IndirectParametersCpuMetadata {
+// Information needed to construct indirect draw parameters for a single draw.
+//
+// Note that is per-*draw* (i.e. per-mesh), not per-mesh-instance or
+// per-batch-set. A single multi-draw indirect call can perform multiple draws.
+//
+// Typically, the uniform allocation and mesh preprocessing phases fill in this
+// structure. However, parts of it may be filled in on the CPU for objects that
+// aren't multidrawn.
+struct IndirectParametersMetadata {
+    // The index of the first `MeshUniform` for this draw in the mesh uniform
+    // buffer.
+    //
+    // `MeshUniform`s for all instances are stored consecutively.
+    //
+    // This is filled in in the `allocate_uniforms` shader, or on the CPU when
+    // multidraw isn't in use.
     base_output_index: u32,
-    batch_set_index: u32,
-}
 
-struct IndirectParametersGpuMetadata {
+    // The index of this batch set in the `IndirectBatchSet` array.
+    //
+    // This is filled in in the `allocate_uniforms` shader, or on the CPU when
+    // multidraw isn't in use.
+    batch_set_index: u32,
+
+    // The index of the mesh in the `MeshInput` buffer.
+    //
+    // The mesh preprocessing shader fills this in.
     mesh_index: u32,
+
 #ifdef WRITE_INDIRECT_PARAMETERS_METADATA
+    // The number of instances that were visible last frame (if occlusion
+    // culling is in use) or that were visible at all (if occlusion culling
+    // isn't in use).
     early_instance_count: atomic<u32>,
+    // The number of instances that were visible this frame if occlusion culling
+    // is in use.
     late_instance_count: atomic<u32>,
 #else   // WRITE_INDIRECT_PARAMETERS_METADATA
+    // The number of instances that were visible last frame (if occlusion
+    // culling is in use) or that were visible at all (if occlusion culling
+    // isn't in use).
     early_instance_count: u32,
+    // The number of instances that were visible this frame if occlusion culling
+    // is in use.
     late_instance_count: u32,
 #endif  // WRITE_INDIRECT_PARAMETERS_METADATA
 }
@@ -83,3 +123,28 @@ struct PreprocessWorkItem {
     // `indirect_parameters` that we write to.
     output_or_indirect_parameters_index: u32,
 }
+
+// Information about each bin in a batch set.
+//
+// This is maintained by the CPU and cached for bins that don't change from
+// frame to frame.
+struct BinMetadata {
+    // The index of the indirect parameters for this bin, relative to the first
+    // indirect parameter index for the batch set.
+    //
+    // That is, the final indirect parameters index for this bin is
+    // `first_indirect_parameters_index` in the `UniformAllocationMetadata` plus
+    // this value.
+    indirect_parameters_offset: u32,
+
+    // The index of the bin that this metadata corresponds to.
+    //
+    // The GPU doesn't use this, but the CPU does in order to perform the
+    // reverse mapping from bin metadata index back to the bin. We could store
+    // this in a non-GPU-accessible buffer, but I figured the extra complexity
+    // wasn't worth it.
+    bin_index: u32,
+
+    // The number of mesh instances in this bin.
+    instance_count: u32,
+};

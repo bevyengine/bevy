@@ -35,7 +35,7 @@ use bevy::{
         batching::{
             gpu_preprocessing::{
                 batch_and_prepare_sorted_render_phase, BatchedInstanceBuffers,
-                IndirectParametersCpuMetadata, UntypedPhaseIndirectParametersBuffers,
+                IndirectParametersMetadata, UntypedPhaseIndirectParametersBuffers,
             },
             GetBatchData, GetFullBatchData,
         },
@@ -55,7 +55,7 @@ use bevy::{
             VertexState,
         },
         renderer::{RenderContext, ViewQuery},
-        sync_world::MainEntity,
+        sync_world::{MainEntity, MainEntityHashSet},
         view::{ExtractedView, RenderVisibleEntities, RetainedViewEntity, ViewTarget},
         Extract, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
     },
@@ -112,6 +112,7 @@ fn setup(
 }
 
 #[derive(Component, ExtractComponent, Clone, Copy, Default)]
+#[extract_app(RenderApp)]
 struct DrawStencil;
 
 struct MeshStencilPhasePlugin;
@@ -474,12 +475,16 @@ impl GetFullBatchData for StencilPipeline {
         // Note that `IndirectParameters` covers both of these structures, even
         // though they actually have distinct layouts. See the comment above that
         // type for more information.
-        let indirect_parameters = IndirectParametersCpuMetadata {
+        let indirect_parameters = IndirectParametersMetadata {
             base_output_index,
             batch_set_index: match batch_set_index {
                 None => !0,
                 Some(batch_set_index) => u32::from(batch_set_index),
             },
+            // These fields are filled in by the GPU:
+            mesh_index: 0,
+            early_instance_count: 0,
+            late_instance_count: 0,
         };
 
         if indexed {
@@ -551,6 +556,7 @@ fn queue_custom_meshes(
     dirty_specializations: Res<DirtySpecializations>,
     mut pending_custom_mesh_queues: ResMut<PendingCustomMeshQueues>,
     has_marker: Query<(), With<DrawStencil>>,
+    mut mesh_instances_queued_this_iteration_scratch_space: Local<MainEntityHashSet>,
 ) {
     for (view, visible_entities) in &mut views {
         let Some(custom_phase) = custom_render_phases.get_mut(&view.retained_view_entity) else {
@@ -581,6 +587,7 @@ fn queue_custom_meshes(
             view.retained_view_entity,
             render_visible_mesh_entities,
             &view_pending_custom_mesh_queues.prev_frame,
+            &mut mesh_instances_queued_this_iteration_scratch_space,
         ) {
             // We only want meshes with the marker component to be queued to our phase.
             if has_marker.get(*render_entity).is_err() {

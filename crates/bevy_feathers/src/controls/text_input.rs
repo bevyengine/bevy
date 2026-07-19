@@ -27,7 +27,7 @@ use crate::{
     cursor::EntityCursor,
     focus::FocusWithinIndicator,
     font_styles::InheritableFont,
-    theme::{InheritableThemeTextColor, ThemeBackgroundColor, UiTheme},
+    theme::{InheritableThemeTextColor, ThemeBackgroundColor, ThemedText, UiTheme},
     tokens,
 };
 
@@ -49,9 +49,7 @@ impl FeathersTextInputContainer {
                 align_items: AlignItems::Center,
                 padding: UiRect {
                     right: px(3.0),
-                },
-                border: UiRect {
-                    left: px(3.0)
+                    left: px(3.0),
                 },
                 flex_grow: 1.0,
                 border_radius: {BorderRadius::all(px(4.0))},
@@ -75,7 +73,7 @@ impl FeathersTextInputContainer {
 /// This is spawnable by inheriting it as a "scene component" with optional [`FeathersTextInputProps`].
 ///
 /// ```ignore
-/// :FeathersTextInputContainer
+/// @FeathersTextInputContainer
 /// Children [
 ///     :FeathersTextInput
 /// ]
@@ -113,6 +111,7 @@ impl FeathersTextInput {
                 visible_width: {props.visible_width},
                 max_characters: {props.max_characters},
             }
+            ThemedText
             TextLayout {
                 linebreak: LineBreak::NoWrap,
             }

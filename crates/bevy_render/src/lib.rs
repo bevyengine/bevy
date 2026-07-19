@@ -49,6 +49,7 @@ pub mod extract_resource;
 pub mod globals;
 pub mod gpu_component_array_buffer;
 pub mod gpu_readback;
+pub mod material_bind_groups;
 pub mod mesh;
 pub mod occlusion_culling;
 #[cfg(not(target_arch = "wasm32"))]
@@ -85,6 +86,7 @@ use crate::{
     error_handler::{RenderErrorHandler, RenderState},
     extract_plugin::ExtractPlugin,
     gpu_readback::GpuReadbackPlugin,
+    material_bind_groups::MaterialBindGroupPlugin,
     mesh::{MeshRenderAssetPlugin, RenderMesh},
     render_asset::prepare_assets,
     render_resource::{PipelineCache, SparseBufferPlugin},
@@ -96,7 +98,7 @@ use crate::{
 };
 use alloc::sync::Arc;
 use batching::gpu_preprocessing::BatchingPlugin;
-use bevy_app::{App, AppLabel, Plugin, SubApp};
+use bevy_app::{App, AppLabel, First, Plugin, SubApp};
 use bevy_asset::{AssetApp, AssetServer};
 use bevy_derive::Deref;
 use bevy_ecs::{
@@ -256,7 +258,7 @@ pub struct RenderScheduleOrder {
 impl Default for RenderScheduleOrder {
     fn default() -> Self {
         Self {
-            labels: vec![Render.intern()],
+            labels: vec![First.intern(), Render.intern()],
         }
     }
 }
@@ -284,6 +286,8 @@ impl RenderScheduleOrder {
 }
 
 /// The main render schedule.
+///
+/// See also [`RenderGraph`] for more details.
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
 pub struct Render;
 
@@ -377,6 +381,7 @@ impl Plugin for RenderPlugin {
             GpuReadbackPlugin::default(),
             OcclusionCullingPlugin,
             SparseBufferPlugin,
+            MaterialBindGroupPlugin,
             #[cfg(feature = "tracing-tracy")]
             diagnostic::RenderDiagnosticsPlugin,
         ));

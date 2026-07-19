@@ -387,7 +387,7 @@ all_tuples!(template_impl, 0, 12, T);
 
 // This includes `Unpin` to enable specialization for Templates that also implement Default, by using the
 // ["auto trait specialization" trick](https://github.com/coolcatcoder/rust_techniques/issues/1)
-impl<T: Clone + Default + Unpin> Template for T {
+impl<T: Clone + Unpin> Template for T {
     type Output = T;
 
     fn build_template(&self, _context: &mut TemplateContext) -> Result<Self::Output> {
