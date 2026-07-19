@@ -45,11 +45,6 @@ const MOVE_SPEED: f32 = 0.008;
 struct AppStatus {
     /// The object that will be moved, scaled, or rotated.
     selection: Selection,
-
-    /// Whether the current pointer drag should be interpreted as a move.
-    /// This is necessary because a pointer drag is also used to adjust
-    /// the values of the number inputs.
-    drag_is_moving_selection: bool,
 }
 
 /// The object that will be moved, scaled, or rotated when the mouse is dragged.
@@ -127,9 +122,7 @@ fn main() {
         .add_systems(Update, draw_gizmos)
         .add_systems(Update, rotate_cube)
         .add_systems(Update, update_help_text)
-        .add_observer(on_pointer_press_init_drag_mode)
-        .add_observer(handle_drag)
-        .add_observer(on_pointer_release_clear_drag_mode)
+        .add_observer(handle_drag_as_movement)
         .add_observer(handle_selection_change)
         .add_observer(radio_self_update)
         .run();
@@ -429,37 +422,21 @@ fn rotate_cube(mut meshes: Query<&mut Transform, With<Mesh3d>>) {
     }
 }
 
-/// When the pointer press is triggered, possibly as the start of a pointer drag,
-/// It should only move the selection via drag if it was NOT hovering
-/// over a feathers number input.
-fn on_pointer_press_init_drag_mode(
-    event: On<Pointer<Press>>,
-    parent_query: Query<&ChildOf>,
-    number_input: Query<(), With<FeathersNumberInput>>,
-    mut app_status: ResMut<AppStatus>,
-) {
-    app_status.drag_is_moving_selection = !parent_query
-        .iter_ancestors(event.entity)
-        .any(|parent| number_input.contains(parent));
-}
-
-/// When a pointer is released, clears the `drag_is_moving_selection` flag to prepare
-/// for the next pointer press.
-fn on_pointer_release_clear_drag_mode(
-    _event: On<Pointer<Release>>,
-    mut app_status: ResMut<AppStatus>,
-) {
-    app_status.drag_is_moving_selection = false;
-}
-
 /// Process a drag event that moves the selected object.
-fn handle_drag(
-    _event: On<Pointer<Drag>>,
+fn handle_drag_as_movement(
+    event: On<Pointer<Drag>>,
+    parent_q: Query<&ChildOf>,
+    number_input_q: Query<(), With<FeathersNumberInput>>,
     mut selections: Query<(&mut Transform, &Selection)>,
     mouse_motion: Res<AccumulatedMouseMotion>,
     app_status: Res<AppStatus>,
 ) {
-    if !app_status.drag_is_moving_selection {
+    // If we are currently dragging the number input, do not interpret it as movement
+    // of the selection.
+    if parent_q
+        .iter_ancestors(event.entity)
+        .any(|parent| number_input_q.contains(parent))
+    {
         return;
     }
     for (mut transform, selection) in &mut selections {
