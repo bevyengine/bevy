@@ -22,7 +22,8 @@ use std::f32::consts::PI;
 use bevy::{
     camera::Hdr,
     color::palettes::css::{BLUE, GOLD, WHITE},
-    core_pipeline::tonemapping::Tonemapping::AcesFitted,
+    core_pipeline::tonemapping::Tonemapping::AcesFitted, 
+    ecs::{system::{SystemParam}, VariantDefaults},
     feathers::{
         containers::*,
         controls::*,
@@ -42,7 +43,7 @@ use bevy::{
         SliderStep, SliderValue, ValueChange,
     },
 };
-use bevy_ecs::{system::SystemParam, VariantDefaults};
+
 
 /// The size of each sphere.
 const SPHERE_SCALE: f32 = 0.9;
@@ -403,8 +404,6 @@ fn toggle_directional_light(mut ui: SharedUiState) {
             .insert(create_directional_light(ui.knobs.illuminance));
     }
 }
-
-///
 
 /// Sets the light type to the currently checked radio button.
 fn hit_the_lights(checked: RadioLightMode, mut ui: SharedUiState) {
