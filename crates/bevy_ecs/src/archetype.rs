@@ -324,6 +324,7 @@ impl Edges {
 }
 
 /// Metadata about an [`Entity`] in a [`Archetype`].
+#[derive(Clone, Copy)]
 pub struct ArchetypeEntity {
     entity: Entity,
     table_row: TableRow,
@@ -369,14 +370,16 @@ bitflags::bitflags! {
     pub(crate) struct ArchetypeFlags: u32 {
         const ON_ADD_HOOK    = (1 << 0);
         const ON_INSERT_HOOK = (1 << 1);
-        const ON_DISCARD_HOOK = (1 << 2);
-        const ON_REMOVE_HOOK = (1 << 3);
-        const ON_DESPAWN_HOOK = (1 << 4);
-        const ON_ADD_OBSERVER = (1 << 5);
-        const ON_INSERT_OBSERVER = (1 << 6);
-        const ON_DISCARD_OBSERVER = (1 << 7);
-        const ON_REMOVE_OBSERVER = (1 << 8);
-        const ON_DESPAWN_OBSERVER = (1 << 9);
+        const ON_MUTATE_HOOK = (1 << 2);
+        const ON_DISCARD_HOOK = (1 << 3);
+        const ON_REMOVE_HOOK = (1 << 4);
+        const ON_DESPAWN_HOOK = (1 << 5);
+        const ON_ADD_OBSERVER = (1 << 6);
+        const ON_INSERT_OBSERVER = (1 << 7);
+        const ON_MUTATE_OBSERVER = (1 << 8);
+        const ON_DISCARD_OBSERVER = (1 << 9);
+        const ON_REMOVE_OBSERVER = (1 << 10);
+        const ON_DESPAWN_OBSERVER = (1 << 11);
     }
 }
 
@@ -686,6 +689,12 @@ impl Archetype {
         self.flags().contains(ArchetypeFlags::ON_INSERT_HOOK)
     }
 
+    /// Returns true if any of the components in this archetype have `on_mutate` hooks
+    #[inline]
+    pub fn has_mutate_hook(&self) -> bool {
+        self.flags().contains(ArchetypeFlags::ON_MUTATE_HOOK)
+    }
+
     /// Returns true if any of the components in this archetype have `on_discard` hooks
     #[inline]
     pub fn has_discard_hook(&self) -> bool {
@@ -718,6 +727,14 @@ impl Archetype {
     #[inline]
     pub fn has_insert_observer(&self) -> bool {
         self.flags().contains(ArchetypeFlags::ON_INSERT_OBSERVER)
+    }
+
+    /// Returns true if any of the components in this archetype have at least one [`Mutate`] observer
+    ///
+    /// [`Mutate`]: crate::lifecycle::Mutate
+    #[inline]
+    pub fn has_mutate_observer(&self) -> bool {
+        self.flags().contains(ArchetypeFlags::ON_MUTATE_OBSERVER)
     }
 
     /// Returns true if any of the components in this archetype have at least one [`Discard`] observer
@@ -785,6 +802,7 @@ pub struct Archetypes {
 }
 
 /// Metadata about how a component is stored in an [`Archetype`].
+#[derive(Clone, Copy)]
 pub struct ArchetypeRecord {
     /// Index of the component in the archetype's [`Table`](crate::storage::Table),
     /// or None if the component is a sparse set component.
