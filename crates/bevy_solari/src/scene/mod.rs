@@ -23,7 +23,10 @@ use bevy_render::{
 };
 use binder::prepare_raytracing_scene_bindings;
 use blas::{compact_raytracing_blas, prepare_raytracing_blas, BlasManager};
-use extract::{extract_raytracing_scene, StandardMaterialAssets};
+use extract::{
+    extract_raytracing_scene_meshes_and_materials, extract_raytracing_scene_structural,
+    extract_raytracing_scene_transforms, StandardMaterialAssets,
+};
 use tracing::warn;
 
 /// Creates acceleration structures and binding arrays of resources for raytracing.
@@ -61,7 +64,14 @@ impl Plugin for RaytracingScenePlugin {
             .init_gpu_resource::<BlasManager>()
             .init_gpu_resource::<StandardMaterialAssets>()
             .insert_resource(RaytracingSceneBindings::new())
-            .add_systems(ExtractSchedule, extract_raytracing_scene)
+            .add_systems(
+                ExtractSchedule,
+                (
+                    extract_raytracing_scene_structural,
+                    extract_raytracing_scene_transforms,
+                    extract_raytracing_scene_meshes_and_materials,
+                ),
+            )
             .add_systems(
                 Render,
                 (
