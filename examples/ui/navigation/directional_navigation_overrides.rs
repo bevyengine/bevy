@@ -168,7 +168,6 @@ fn reset_button_after_interaction(
 fn setup_paged_ui(
     mut commands: Commands,
     mut manual_directional_nav_map: ResMut<DirectionalNavigationMap>,
-    mut input_focus: ResMut<InputFocus>,
 ) {
     commands.spawn(Camera2d);
 
