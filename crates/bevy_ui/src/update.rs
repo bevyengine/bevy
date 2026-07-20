@@ -144,8 +144,7 @@ pub fn propagate_ui_target_cameras(
             .get(root_entity)
             .ok()
             .map(UiTargetCamera::entity)
-            .or(default_camera_entity)
-            .unwrap_or(Entity::PLACEHOLDER);
+            .or(default_camera_entity);
 
         commands
             .entity(root_entity)
@@ -248,7 +247,9 @@ mod tests {
 
         assert_eq!(
             *world.get::<ComputedUiTargetCamera>(uinode).unwrap(),
-            ComputedUiTargetCamera { camera }
+            ComputedUiTargetCamera {
+                camera: Some(camera)
+            }
         );
 
         assert_eq!(
@@ -320,7 +321,9 @@ mod tests {
         ] {
             assert_eq!(
                 *world.get::<ComputedUiTargetCamera>(uinode).unwrap(),
-                ComputedUiTargetCamera { camera }
+                ComputedUiTargetCamera {
+                    camera: Some(camera)
+                }
             );
 
             assert_eq!(
