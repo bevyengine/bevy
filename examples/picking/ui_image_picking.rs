@@ -41,8 +41,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .with_children(|parent| {
             parent.spawn(Text::new(
                 "Hover the birds. The dark panel marks each image's rectangle.\n\
-                 Left: default alpha threshold, so the transparent area is not picked.\n\
-                 Right: UiPickingMode::BoundingBox, so the whole rectangle is picked.",
+                 Left: alpha threshold picking mode: the transparent area can not be picked.\n\
+                 Right: bounding box picking mode: the whole rectangle can be picked.",
             ));
 
             parent
