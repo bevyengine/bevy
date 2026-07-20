@@ -33,6 +33,8 @@ pub struct DeriveComponent {
     pub on_add: Option<HookAttributeKind>,
     /// The `on_insert` hook.
     pub on_insert: Option<HookAttributeKind>,
+    /// The "on_mutate" hook.
+    pub on_mutate: Option<HookAttributeKind>,
     /// The `on_discard` hook.
     pub on_discard: Option<HookAttributeKind>,
     /// The `on_remove` hook.
@@ -62,6 +64,7 @@ impl DeriveComponent {
             storage: None,
             on_add: None,
             on_insert: None,
+            on_mutate: None,
             on_discard: None,
             on_remove: None,
             on_despawn: None,
@@ -100,6 +103,11 @@ impl DeriveComponent {
                     } else if nested.path.is_ident(ON_INSERT) {
                         attrs.on_insert = Some(HookAttributeKind::parse(nested.input, || {
                             parse_quote! { Self::on_insert }
+                        })?);
+                        Ok(())
+                    } else if nested.path.is_ident(ON_MUTATE) {
+                        attrs.on_mutate = Some(HookAttributeKind::parse(nested.input, || {
+                            parse_quote! { Self::on_mutate }
                         })?);
                         Ok(())
                     } else if nested.path.is_ident(ON_DISCARD) {
@@ -240,14 +248,18 @@ impl DeriveComponent {
         let storage = storage_path(bevy_ecs, self.storage.unwrap_or(default_storage));
 
         let on_add_path = Vec::from_iter(self.on_add.map(|path| path.to_token_stream(bevy_ecs)));
-        let on_remove_path =
-            Vec::from_iter(self.on_remove.map(|path| path.to_token_stream(bevy_ecs)));
 
         let mut on_insert_path =
             Vec::from_iter(self.on_insert.map(|path| path.to_token_stream(bevy_ecs)));
 
+        let on_mutate_path =
+            Vec::from_iter(self.on_mutate.map(|path| path.to_token_stream(bevy_ecs)));
+
         let mut on_discard_path =
             Vec::from_iter(self.on_discard.map(|path| path.to_token_stream(bevy_ecs)));
+
+        let on_remove_path =
+            Vec::from_iter(self.on_remove.map(|path| path.to_token_stream(bevy_ecs)));
 
         let mut on_despawn_path =
             Vec::from_iter(self.on_despawn.map(|path| path.to_token_stream(bevy_ecs)));
@@ -269,6 +281,7 @@ impl DeriveComponent {
 
         let on_add = hook_register_function_call(bevy_ecs, quote! {on_add}, &on_add_path);
         let on_insert = hook_register_function_call(bevy_ecs, quote! {on_insert}, &on_insert_path);
+        let on_mutate = hook_register_function_call(bevy_ecs, quote! {on_mutate}, &on_mutate_path);
         let on_discard =
             hook_register_function_call(bevy_ecs, quote! {on_discard}, &on_discard_path);
         let on_remove = hook_register_function_call(bevy_ecs, quote! {on_remove}, &on_remove_path);
@@ -373,6 +386,7 @@ impl DeriveComponent {
 
                 #on_add
                 #on_insert
+                #on_mutate
                 #on_discard
                 #on_remove
                 #on_despawn
@@ -529,6 +543,7 @@ const RELATIONSHIP_TARGET: &str = "relationship_target";
 
 const ON_ADD: &str = "on_add";
 const ON_INSERT: &str = "on_insert";
+const ON_MUTATE: &str = "on_mutate";
 const ON_DISCARD: &str = "on_discard";
 const ON_REMOVE: &str = "on_remove";
 const ON_DESPAWN: &str = "on_despawn";

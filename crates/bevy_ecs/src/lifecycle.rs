@@ -53,9 +53,9 @@
 use crate::{
     bundle::Bundle,
     change_detection::{MaybeLocation, Tick},
-    component::{Component, ComponentId, ComponentIdFor},
+    component::{Component, ComponentId, ComponentIdFor, ContainsComponents},
     entity::Entity,
-    event::{EntityComponentsTrigger, EntityEvent, EventKey, EventPattern},
+    event::{EntityComponentsTrigger, EntityEvent, EntityMutateTrigger, EventKey, EventPattern},
     message::{
         Message, MessageCursor, MessageId, MessageIterator, MessageIteratorWithId, Messages,
     },
@@ -66,6 +66,7 @@ use crate::{
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
 
+use alloc::vec::Vec;
 use derive_more::derive::Into;
 
 #[cfg(feature = "bevy_reflect")]
@@ -151,6 +152,7 @@ pub struct HookContext {
 pub struct ComponentHooks {
     pub(crate) on_add: Option<ComponentHook>,
     pub(crate) on_insert: Option<ComponentHook>,
+    pub(crate) on_mutate: Option<ComponentHook>,
     pub(crate) on_discard: Option<ComponentHook>,
     pub(crate) on_remove: Option<ComponentHook>,
     pub(crate) on_despawn: Option<ComponentHook>,
@@ -163,6 +165,9 @@ impl ComponentHooks {
         }
         if let Some(hook) = C::on_insert() {
             self.on_insert(hook);
+        }
+        if let Some(hook) = C::on_mutate() {
+            self.on_mutate(hook);
         }
         if let Some(hook) = C::on_discard() {
             self.on_discard(hook);
@@ -205,6 +210,16 @@ impl ComponentHooks {
     pub fn on_insert(&mut self, hook: ComponentHook) -> &mut Self {
         self.try_on_insert(hook)
             .expect("Component already has an on_insert hook")
+    }
+
+    /// Register a [`ComponentHook`] that will be run when this component is mutated (from mutable SystemParams).
+    ///
+    /// # Panics
+    ///
+    /// Will panic if the component already has an `on_mutate` hook
+    pub fn on_mutate(&mut self, hook: ComponentHook) -> &mut Self {
+        self.try_on_mutate(hook)
+            .expect("Component already has an on_mutate hook")
     }
 
     /// Register a [`ComponentHook`] that will be run when this component is about to be dropped,
@@ -276,6 +291,19 @@ impl ComponentHooks {
         Some(self)
     }
 
+    /// Attempt to register a [`ComponentHook`] that will be run when this component is mutated (from mutable SystemParams)
+    ///
+    /// This is a fallible version of [`Self::on_mutate`].
+    ///
+    /// Returns `None` if the component already has an `on_mutate` hook.
+    pub fn try_on_mutate(&mut self, hook: ComponentHook) -> Option<&mut Self> {
+        if self.on_mutate.is_some() {
+            return None;
+        }
+        self.on_mutate = Some(hook);
+        Some(self)
+    }
+
     /// Attempt to register a [`ComponentHook`] that will be run when this component is replaced (with `.insert`) or removed
     ///
     /// This is a fallible version of [`Self::on_discard`].
@@ -320,6 +348,8 @@ impl ComponentHooks {
 pub const ADD: EventKey = EventKey(ComponentId::new(crate::component::ADD));
 /// [`EventKey`] for [`Insert`]
 pub const INSERT: EventKey = EventKey(ComponentId::new(crate::component::INSERT));
+/// [`EventKey`] for [`Mutate`]
+pub const MUTATE: EventKey = EventKey(ComponentId::new(crate::component::MUTATE));
 /// [`EventKey`] for [`Discard`]
 pub const DISCARD: EventKey = EventKey(ComponentId::new(crate::component::DISCARD));
 /// [`EventKey`] for [`Remove`]
@@ -381,6 +411,40 @@ impl<B: Bundle> EventPattern for Insert<B> {
     type Components = B;
 }
 
+/// Trigger emitted when a component is mutated.
+/// See [`ComponentHooks::on_mutate`](`crate::lifecycle::ComponentHooks::on_mutate`) for more information.
+#[derive(Debug, Clone, EntityEvent)]
+#[entity_event(trigger = EntityMutateTrigger)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(feature = "bevy_reflect", reflect(Debug))]
+pub struct MutateEvent {
+    /// Target Entity of the event.
+    pub entity: Entity,
+    /// Target Components of the event.
+    pub components: Vec<ComponentId>,
+}
+
+impl ContainsComponents for MutateEvent {
+    fn components(&self) -> &[ComponentId] {
+        return &self.components;
+    }
+}
+
+/// [`EventPattern`] for an [`MutateEvent`] on a given bundle of components.
+///
+/// # Note
+///
+/// All components specified in the [`Bundle`] are treated as an `OR` filter
+/// **not** an `AND` filter. For example, `Insert<(A, B)>` will trigger if
+/// either component `A` or component `B` is inserted into an entity.
+#[doc(alias = "OnMutate")]
+pub struct Mutate<B: Bundle>(PhantomData<B>);
+
+impl<B: Bundle> EventPattern for Mutate<B> {
+    type Event = MutateEvent;
+    type Components = B;
+}
+
 /// Trigger emitted when a component is removed from an entity, regardless
 /// of whether or not it is later replaced.
 ///
@@ -390,7 +454,6 @@ impl<B: Bundle> EventPattern for Insert<B> {
 #[entity_event(trigger = EntityComponentsTrigger<'a>)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Debug))]
-
 pub struct DiscardEvent {
     /// The entity that held this component before it was discarded.
     pub entity: Entity,
