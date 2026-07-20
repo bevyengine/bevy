@@ -37,7 +37,7 @@ mod radio;
 mod theme;
 
 use radio::{feathers_option_buttons, main_ui_node_scene};
-use theme::basic_radio_button_theme;
+use theme::basic_example_theme;
 
 /// This example uses a shader source file from the assets subdirectory
 const SHADER_ASSET_PATH: &str = "shaders/water_material.wgsl";
@@ -221,7 +221,7 @@ fn main() {
     // rendering doesn't support that.
     App::new()
         .insert_resource(DefaultOpaqueRendererMethod::deferred())
-        .insert_resource(get_ui_theme())
+        .insert_resource(UiTheme(basic_example_theme(Color::WHITE)))
         .init_resource::<AppSettings>()
         .add_plugins((
             DefaultPlugins.set(WindowPlugin {
@@ -781,51 +781,4 @@ impl MaterialExtension for Water {
     fn deferred_fragment_shader() -> ShaderRef {
         SHADER_ASSET_PATH.into()
     }
-}
-
-/// Creates the ui theme for the Feathers UI.
-fn get_ui_theme() -> UiTheme {
-    let mut theme_props = basic_radio_button_theme(Color::WHITE);
-    theme_props
-        .color
-        .insert(bevy::feathers::tokens::TEXT_INPUT_TEXT, Color::WHITE);
-    theme_props
-        .color
-        .insert(bevy::feathers::tokens::TEXT_INPUT_BG, Color::BLACK);
-    theme_props
-        .color
-        .insert(bevy::feathers::tokens::TEXT_INPUT_LABEL_BG, Color::BLACK);
-
-    theme_props
-        .color
-        .insert(bevy::feathers::tokens::SLIDER_BAR, Color::WHITE);
-    theme_props
-        .color
-        .insert(bevy::feathers::tokens::SLIDER_BAR_HOVER, Color::WHITE);
-    theme_props
-        .color
-        .insert(bevy::feathers::tokens::SLIDER_BAR_PRESSED, Color::WHITE);
-    theme_props
-        .color
-        .insert(bevy::feathers::tokens::SLIDER_BG, Color::BLACK);
-    theme_props
-        .color
-        .insert(bevy::feathers::tokens::SLIDER_BG_HOVER, Color::BLACK);
-    theme_props
-        .color
-        .insert(bevy::feathers::tokens::SLIDER_BG_PRESSED, Color::BLACK);
-
-    theme_props.color.insert(
-        bevy::feathers::tokens::TEXT_INPUT_CURSOR,
-        bevy::feathers::palette::ACCENT.lighter(0.2),
-    );
-    theme_props.color.insert(
-        bevy::feathers::tokens::TEXT_INPUT_SELECTION,
-        bevy::feathers::palette::ACCENT,
-    );
-    theme_props.color.insert(
-        bevy::feathers::tokens::TEXT_INPUT_SELECTION_UNFOCUSED,
-        bevy::feathers::palette::TRANSPARENT,
-    );
-    UiTheme(theme_props)
 }
