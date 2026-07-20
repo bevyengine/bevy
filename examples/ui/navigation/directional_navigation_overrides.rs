@@ -25,6 +25,7 @@ use bevy::{
         directional_navigation::{
             AutoNavigationConfig, DirectionalNavigationMap, DirectionalNavigationPlugin,
         },
+        tab_navigation::TabIndex,
         FocusCause, InputFocus, InputFocusVisible,
     },
     math::{CompassOctant, Dir2},
@@ -426,7 +427,7 @@ fn setup_buttons_for_grid_page(
         commands,
         format!("Currently on Page {}", page_num + 1),
         650,
-        20,
+        10,
         Justify::Center,
     );
     text_entities.push(current_page_entity);
@@ -580,6 +581,9 @@ fn spawn_auto_nav_button(
     commands
         .spawn((
             Button,
+            // This ensures that navigating to this button via a click ensures the
+            // focus is correctly set to this button.
+            TabIndex(0),
             Node {
                 position_type: PositionType::Absolute,
                 left: px(*left),
