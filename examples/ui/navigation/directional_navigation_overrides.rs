@@ -35,6 +35,7 @@ use bevy::{
     platform::collections::HashSet,
     prelude::*,
     ui::auto_directional_navigation::{AutoDirectionalNavigation, AutoDirectionalNavigator},
+    ui_widgets::Button,
 };
 
 fn main() {
@@ -117,16 +118,22 @@ struct KeyDisplay;
 #[derive(Component)]
 struct Page(usize);
 
-// Observer for button clicks
+/// Observer for button clicks. Clicking on a button is considered navigation to that button.
+/// This is also triggered when `interact_with_focused_button` simulates a button click with a
+/// manually sent pointer click event
 fn universal_button_click_behavior(
     mut click: On<Pointer<Click>>,
     mut button_query: Query<(&mut BackgroundColor, &Page, &mut ResetTimer)>,
+    mut focus_visible: ResMut<InputFocusVisible>,
 ) {
     let button_entity = click.entity;
     if let Ok((mut color, page, mut reset_timer)) = button_query.get_mut(button_entity) {
         color.0 = PRESSED_BUTTON_COLORS[page.0].into();
         reset_timer.0 = Timer::from_seconds(0.3, TimerMode::Once);
         click.propagate(false);
+        // The focus should be visible because a button was clicked.
+        // It may have been set to false by the `PointerFocusPlugin`
+        focus_visible.0 = true;
     }
 }
 
