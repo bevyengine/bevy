@@ -707,6 +707,18 @@ fn demo_column_1() -> impl Scene {
                 ]
             ),
             (
+                @FeathersColorWheel
+                on(|change: On<ValueChange<ColorWheelValue>>, mut color: ResMut<DemoWidgetStates>| {
+                    let hsl = change.value.to_hsla();
+                    color.hsl_color.hue = hsl.hue;
+                    color.hsl_color.saturation = hsl.saturation;
+                    color.hsl_color.lightness = hsl.lightness;
+                })
+                Node {
+                    height: px(200),
+                }
+            ),
+            (
                 @FeathersColorSlider {
                     @value: 0.5,
                     @channel: ColorChannel::HslHue
@@ -1080,6 +1092,7 @@ fn update_colors(
     mut sliders: Query<(Entity, &ColorSlider, &mut SliderBaseColor)>,
     swatches: Query<(Entity, &SwatchType), With<FeathersColorSwatch>>,
     mut color_planes: Query<(&mut ColorPlaneValue, &FeathersColorPlane)>,
+    mut color_wheels: Query<&mut ColorWheelValue, With<FeathersColorWheel>>,
     q_text_input: Single<(Entity, &mut EditableText), With<HexColorInput>>,
     q_scalar_input: Query<Entity, With<DemoScalarField>>,
     q_vec3_input: Query<(Entity, &DemoVec3Field)>,
@@ -1200,6 +1213,10 @@ fn update_colors(
                     plane_value.0.z = states.rgb_color.blue;
                 }
             }
+        }
+
+        for mut wheel_value in color_wheels.iter_mut() {
+            *wheel_value = ColorWheelValue::from_hsla(states.hsl_color);
         }
 
         // Only update the hex input field when it's not focused, otherwise it interferes
