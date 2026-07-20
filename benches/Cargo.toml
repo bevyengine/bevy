@@ -7,11 +7,33 @@ license = "MIT OR Apache-2.0"
 # Do not automatically discover benchmarks, we specify them manually instead.
 autobenches = false
 
+[features]
+experimental_bevy_feathers = [
+  "bevy_feathers",
+  "bevy_color",
+  "bevy_input_focus",
+  "bevy_text",
+  "bevy_utils",
+  "bevy_ui_widgets",
+  "bevy_window",
+  "bevy_shader",
+  "bevy_image",
+]
+
 [dependencies]
 # The primary crate that runs and analyzes our benchmarks. This is a regular dependency because the
 # `bench!` macro refers to it in its documentation.
 criterion = { version = "0.8.0", features = ["html_reports"] }
 seq-macro = "0.3.6"
+bevy_feathers = { path = "../crates/bevy_feathers", optional = true }
+bevy_color = { path = "../crates/bevy_color", optional = true }
+bevy_input_focus = { path = "../crates/bevy_input_focus", optional = true }
+bevy_text = { path = "../crates/bevy_text", optional = true }
+bevy_utils = { path = "../crates/bevy_utils", optional = true }
+bevy_ui_widgets = { path = "../crates/bevy_ui_widgets", optional = true }
+bevy_window = { path = "../crates/bevy_window", optional = true }
+bevy_shader = { path = "../crates/bevy_shader", optional = true }
+bevy_image = { path = "../crates/bevy_image", optional = true }
 
 [dev-dependencies]
 # Bevy crates
@@ -121,3 +143,9 @@ harness = false
 name = "transform"
 path = "benches/bevy_transform/main.rs"
 harness = false
+
+[[bench]]
+name = "feathers"
+path = "benches/bevy_feathers/main.rs"
+harness = false
+required-features = ["experimental_bevy_feathers"]
