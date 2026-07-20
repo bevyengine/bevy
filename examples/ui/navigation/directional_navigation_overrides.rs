@@ -138,7 +138,7 @@ fn universal_button_click_behavior(
     }
 }
 
-#[derive(Component, Default, Deref, DerefMut)]
+#[derive(Component, Clone, Default, Deref, DerefMut)]
 struct ResetTimer(Timer);
 
 fn reset_button_after_interaction(
@@ -186,53 +186,56 @@ fn setup_paged_ui(
     });
 
     // Setup the pages with buttons and helper text
-    let mut pages_entities = [
-        Vec::with_capacity(12),
-        Vec::with_capacity(12),
-        Vec::with_capacity(12),
-    ];
-    let mut text_entities = Vec::with_capacity(10);
-    for (page_num, page_button_entities) in pages_entities.iter_mut().enumerate() {
-        if page_num == 1 {
-            // the second page
-            setup_buttons_for_triangle_page(
-                &mut commands,
-                page_num,
-                (page_button_entities, &mut text_entities),
-            );
-        } else {
-            // the first and third pages are regular grids
-            setup_buttons_for_grid_page(
-                &mut commands,
-                page_num,
-                (page_button_entities, &mut text_entities),
-            );
-        }
+    let pages_entities = [0, 1, 2]
+        .into_iter()
+        .map(|page_num| {
+            let button_entities = if page_num == 1 {
+                // the second page
+                setup_buttons_for_triangle_page(&mut commands, page_num)
+            } else {
+                // the first and third pages are regular grids
+                setup_buttons_for_grid_page(&mut commands, page_num)
+            };
 
-        // Only the first page is visible at setup.
-        let visibility = if page_num == 0 {
-            Visibility::Visible
-        } else {
-            Visibility::Hidden
-        };
-        let page = commands
-            .spawn((
-                Node {
-                    width: percent(100),
-                    height: percent(100),
-                    ..default()
-                },
-                visibility,
-            ))
-            .id();
+            // Only the first page is visible at setup.
+            let visibility = if page_num == 0 {
+                Visibility::Inherited
+            } else {
+                Visibility::Hidden
+            };
+            let page_id = if page_num == 1 {
+                commands
+                    .spawn_scene(bsn! {
+                        Node {
+                            width: percent(100),
+                            height: percent(100),
+                        }
+                        template_value(visibility)
+                        Children [
+                            { triangle_page_text_entities_scene_list(page_num) }
+                        ]
+                    })
+                    .id()
+            } else {
+                commands
+                    .spawn_scene(bsn! {
+                        Node {
+                            width: percent(100),
+                            height: percent(100),
+                        }
+                        template_value(visibility)
+                        Children [
+                            { grid_page_text_entities_scene_list(page_num) }
+                        ]
+                    })
+                    .id()
+            };
 
-        commands
-            .entity(page)
-            .add_children(page_button_entities)
-            .add_children(&text_entities);
+            commands.entity(page_id).add_children(&button_entities);
 
-        text_entities.clear();
-    }
+            button_entities
+        })
+        .collect::<Vec<_>>();
 
     // For Pages 1 and 3, add manual edges within the grid page for navigation between rows.
     let entity_pairs = [
@@ -395,15 +398,9 @@ fn key_display_scene() -> impl Scene {
     }
 }
 
-/// Creates the buttons and text for a grid page and places the ids into their
+/// Creates the buttons for a grid page and places the ids into their
 /// respective Vecs in `entities`.
-fn setup_buttons_for_grid_page(
-    commands: &mut Commands,
-    page_num: usize,
-    entities: (&mut Vec<Entity>, &mut Vec<Entity>),
-) {
-    let (page_button_entities, text_entities) = entities;
-
+fn setup_buttons_for_grid_page(commands: &mut Commands, page_num: usize) -> Vec<Entity> {
     // Spawn buttons in a grid
     // Auto-navigation will automatically configure navigation within rows.
     let button_positions = [
@@ -416,65 +413,16 @@ fn setup_buttons_for_grid_page(
         // Row 3
         [(450.0, 485.0), (650.0, 485.0), (850.0, 485.0)],
     ];
-    for (i, row) in button_positions.iter().enumerate() {
-        for (j, (left, top)) in row.iter().enumerate() {
-            let button_entity = spawn_auto_nav_button(
-                commands,
-                format!("Btn {}-{}", i + 1, j + 1),
-                left,
-                top,
-                page_num,
-            );
-            page_button_entities.push(button_entity);
-        }
-    }
+    grid_auto_nav_buttons_scene(page_num, &button_positions)
+        .into_iter()
+        .map(|scene| commands.spawn_scene(scene).id())
+        .collect::<Vec<_>>()
+}
 
-    // Text describing current page
-    let current_page_entity = spawn_small_text_node(
-        commands,
-        format!("Currently on Page {}", page_num + 1),
-        650,
-        10,
-        Justify::Center,
-    );
-    text_entities.push(current_page_entity);
-
-    // Text describing direction to go to the previous page, placed left of the top-left button.
+/// Scene list containing all the text entities regarding button/page navigation for a grid page.
+fn grid_page_text_entities_scene_list(page_num: usize) -> impl SceneList {
     let previous_page = if page_num == 0 { 3 } else { page_num };
-    let previous_page_entity = spawn_small_text_node(
-        commands,
-        format!("Page {} << ", previous_page),
-        310,
-        120,
-        Justify::Right,
-    );
-    text_entities.push(previous_page_entity);
-
-    // Text describing direction to go to the next page, placed right of the bottom-right button.
-    let next_page_entity = spawn_small_text_node(
-        commands,
-        format!(">> Page {}", (page_num + 1) % 3 + 1),
-        1000,
-        525,
-        Justify::Left,
-    );
-    text_entities.push(next_page_entity);
-
-    // Texts describing that moving right wraps to the next row.
-    let right_1 = spawn_small_text_node(commands, "> Btn 2-1".into(), 1000, 120, Justify::Left);
-    let right_2 = spawn_small_text_node(commands, "> Btn 3-1".into(), 1000, 255, Justify::Left);
-    let right_3 = spawn_small_text_node(commands, "> Btn 4-1".into(), 1000, 390, Justify::Left);
-    let left_1 = spawn_small_text_node(commands, "Btn 1-3 < ".into(), 310, 255, Justify::Right);
-    let left_2 = spawn_small_text_node(commands, "Btn 2-3 < ".into(), 310, 390, Justify::Right);
-    let left_3 = spawn_small_text_node(commands, "Btn 3-3 < ".into(), 310, 525, Justify::Right);
-    text_entities.push(right_1);
-    text_entities.push(right_2);
-    text_entities.push(right_3);
-    text_entities.push(left_1);
-    text_entities.push(left_2);
-    text_entities.push(left_3);
-
-    let text = match page_num {
+    let footer_text = match page_num {
         // For the first page, add a notice about vertical navigation being blocked off
         0 => Text::new(
             "Vertical movements disabled on each button, but you can still navigate between rows by going off the left or right sides."
@@ -486,168 +434,161 @@ fn setup_buttons_for_grid_page(
         ),
         _ => Text::default()
     };
-    let footer_info = commands
-        .spawn((
-            text,
-            Node {
-                position_type: PositionType::Absolute,
-                left: px(450),
-                top: px(600),
-                width: px(540),
-                padding: UiRect::all(px(12)),
-                ..default()
-            },
+    bsn_list! {
+        // Text describing current page
+        helper_text_node_scene(format!("Currently on Page {}", page_num + 1), 650, 10, Justify::Center),
+
+        // Text describing direction to go to the previous page, placed left of the top-left button.
+        helper_text_node_scene(format!("Page {} << ", previous_page), 310, 120, Justify::Right),
+
+        // Text describing direction to go to the next page, placed right of the bottom-right button.
+        helper_text_node_scene(format!(">> Page {}", (page_num + 1) % 3 + 1), 1000, 525, Justify::Left),
+
+        // Texts describing that moving right wraps to the next row.
+        helper_text_node_scene("> Btn 2-1".into(), 1000, 120, Justify::Left),
+        helper_text_node_scene("> Btn 3-1".into(), 1000, 255, Justify::Left),
+        helper_text_node_scene("> Btn 4-1".into(), 1000, 390, Justify::Left),
+        helper_text_node_scene("Btn 1-3 < ".into(), 310, 255, Justify::Right),
+        helper_text_node_scene("Btn 2-3 < ".into(), 310, 390, Justify::Right),
+        helper_text_node_scene("Btn 3-3 < ".into(), 310, 525, Justify::Right),
+
+        // Footer Text
+        Node {
+            position_type: PositionType::Absolute,
+            left: px(450),
+            top: px(600),
+            width: px(540),
+            padding: UiRect::all(px(12)),
+        }
+        Children [
+            template_value(footer_text)
             TextFont {
                 font_size: FontSize::Px(20.0),
-                ..default()
-            },
-        ))
-        .id();
-    text_entities.push(footer_info);
+            }
+        ]
+    }
 }
 
-/// Creates the buttons and text for the triangle page (page 2) and places the ids into their
+/// Creates the buttons for the triangle page (page 2) and places the ids into their
 /// respective Vecs in `entities`.
-fn setup_buttons_for_triangle_page(
-    commands: &mut Commands,
-    page_num: usize,
-    entities: (&mut Vec<Entity>, &mut Vec<Entity>),
-) {
+/// We must get their entity id's for specifying manual edges.
+fn setup_buttons_for_triangle_page(commands: &mut Commands, page_num: usize) -> Vec<Entity> {
     let button_positions = [
         (450.0, 80.0),   // top left
         (700.0, 80.0),   // top right
         (575.0, 215.0),  // middle
         (1050.0, 350.0), // bottom right
     ];
-    let (page_button_entities, text_entities) = entities;
-    for (i, (left, top)) in button_positions.iter().enumerate() {
-        let button_entity =
-            spawn_auto_nav_button(commands, format!("Btn {}", i + 1), left, top, page_num);
-        page_button_entities.push(button_entity);
-    }
-
-    // Text describing current page
-    let current_page_entity = spawn_small_text_node(
-        commands,
-        format!("Currently on Page {}", page_num + 1),
-        650,
-        20,
-        Justify::Center,
-    );
-    text_entities.push(current_page_entity);
-
-    // Text describing direction to go to the previous page, placed left of the top-left button.
-    let previous_page = if page_num == 0 { 3 } else { page_num };
-    let previous_page_entity = spawn_small_text_node(
-        commands,
-        format!("Page {} << ", previous_page),
-        310,
-        120,
-        Justify::Right,
-    );
-    text_entities.push(previous_page_entity);
-
-    // Direction to navigate from button 3 to button 4, placed below center button
-    let below_button_three_entity =
-        spawn_small_text_node(commands, "v\nBtn 4".into(), 575, 325, Justify::Center);
-    text_entities.push(below_button_three_entity);
-
-    // Direction to navigate from button 3 to button 4, placed right of center button
-    let right_of_button_three_entity =
-        spawn_small_text_node(commands, "> Btn 4".into(), 735, 255, Justify::Left);
-    text_entities.push(right_of_button_three_entity);
-
-    // Direction to navigate from button 4 to button 3, placed above bottom right button
-    let below_button_three_entity =
-        spawn_small_text_node(commands, "Btn 3\n^".into(), 1050, 300, Justify::Center);
-    text_entities.push(below_button_three_entity);
-
-    // Direction to navigate from button 4 to button 3, placed left of bottom right button
-    let right_of_button_three_entity =
-        spawn_small_text_node(commands, "Btn 3 < ".into(), 910, 390, Justify::Right);
-    text_entities.push(right_of_button_three_entity);
-
-    // Direction to go to the next page, placed bottom of the bottom-right button.
-    let next_page_entity = spawn_small_text_node(
-        commands,
-        format!("V\nV\nPage {}", (page_num + 1) % 3 + 1),
-        1050,
-        460,
-        Justify::Center,
-    );
-    text_entities.push(next_page_entity);
+    button_positions
+        .iter()
+        .enumerate()
+        .map(|(i, (left, top))| {
+            auto_nav_button_scene(format!("Btn {}", i + 1), left, top, page_num)
+        })
+        .map(|scene| commands.spawn_scene(scene).id())
+        .collect::<Vec<_>>()
 }
 
-fn spawn_auto_nav_button(
-    commands: &mut Commands,
-    text: String,
-    left: &f64,
-    top: &f64,
+/// Scene list containing all the text entities regarding button/page navigation for the triangle page.
+fn triangle_page_text_entities_scene_list(page_num: usize) -> impl SceneList {
+    let previous_page = if page_num == 0 { 3 } else { page_num };
+    bsn_list! {
+        // Text describing current page
+        helper_text_node_scene(format!("Currently on Page {}", page_num + 1), 650, 20, Justify::Center),
+
+        // Text describing direction to go to the previous page, placed left of the top-left button.
+        helper_text_node_scene(format!("Page {} << ", previous_page), 310, 120, Justify::Right),
+
+        // Direction to navigate from button 3 to button 4, placed below center button
+        helper_text_node_scene("v\nBtn 4".into(), 575, 325, Justify::Center),
+
+        // Direction to navigate from button 3 to button 4, placed right of center button
+        helper_text_node_scene("> Btn 4".into(), 735, 255, Justify::Left),
+
+        // Direction to navigate from button 4 to button 3, placed above bottom right button
+        helper_text_node_scene("Btn 3\n^".into(), 1050, 300, Justify::Center),
+
+        // Direction to navigate from button 4 to button 3, placed left of bottom right button
+        helper_text_node_scene("Btn 3 < ".into(), 910, 390, Justify::Right),
+
+        // Direction to go to the next page, placed bottom of the bottom-right button.
+        helper_text_node_scene(format!("V\nV\nPage {}", (page_num + 1) % 3 + 1), 1050, 460, Justify::Center),
+    }
+}
+
+/// Vec of button scenes for a grid page.
+fn grid_auto_nav_buttons_scene(
     page_num: usize,
-) -> Entity {
-    commands
-        .spawn((
-            Button,
-            // This ensures that navigating to this button via a click ensures the
-            // focus is correctly set to this button.
-            TabIndex(0),
-            Node {
-                position_type: PositionType::Absolute,
-                left: px(*left),
-                top: px(*top),
-                width: px(140),
-                height: px(100),
-                border: UiRect::all(px(4)),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                border_radius: BorderRadius::all(px(12)),
-                ..default()
-            },
-            Page(page_num),
-            BackgroundColor(NORMAL_BUTTON_COLORS[page_num].into()),
-            // Just add this component for automatic navigation
-            AutoDirectionalNavigation::default(),
-            ResetTimer::default(),
-            Name::new(text.clone()),
-        ))
-        .with_child((
-            Text::new(text),
+    button_positions: &[[(f64, f64); 3]; 4],
+) -> Vec<impl Scene> {
+    let mut scenes = vec![];
+    for (i, row) in button_positions.iter().enumerate() {
+        for (j, (left, top)) in row.iter().enumerate() {
+            scenes.push(auto_nav_button_scene(
+                format!("Btn {}-{}", i + 1, j + 1),
+                left,
+                top,
+                page_num,
+            ));
+        }
+    }
+    scenes
+}
+
+/// One auto nav button as a scene.
+fn auto_nav_button_scene(text: String, left: &f64, top: &f64, page_num: usize) -> impl Scene {
+    let text_clone = text.clone();
+    bsn! {
+        Button
+        // This ensures that navigating to this button via a click ensures the
+        // focus is correctly set to this button.
+        TabIndex(0)
+        Node {
+            position_type: PositionType::Absolute,
+            left: px(*left),
+            top: px(*top),
+            width: px(140),
+            height: px(100),
+            border: UiRect::all(px(4)),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            border_radius: BorderRadius::all(px(12)),
+        }
+        Page(page_num)
+        template_value(BackgroundColor(NORMAL_BUTTON_COLORS[page_num].into()))
+        // Just add this component for automatic navigation
+        AutoDirectionalNavigation::default()
+        ResetTimer::default()
+        Name::new(text)
+        Children [
+            Text::new(text_clone)
             TextLayout {
                 justify: Justify::Center,
-                ..default()
-            },
-        ))
-        .id()
+            }
+        ]
+    }
 }
 
-fn spawn_small_text_node(
-    commands: &mut Commands,
-    text: String,
-    left: i32,
-    top: i32,
-    justify: Justify,
-) -> Entity {
-    commands
-        .spawn((
-            Text::new(text),
-            Node {
-                position_type: PositionType::Absolute,
-                left: px(left),
-                top: px(top),
-                width: px(140),
-                padding: UiRect::all(px(12)),
-                ..default()
-            },
+/// One helper text node as a scene
+fn helper_text_node_scene(text: String, left: i32, top: i32, justify: Justify) -> impl Scene {
+    bsn! {
+        Node {
+            position_type: PositionType::Absolute,
+            left: px(left),
+            top: px(top),
+            width: px(140),
+            padding: UiRect::all(px(12)),
+        }
+        Children [
+            Text::new(text)
             TextFont {
                 font_size: FontSize::Px(20.0),
-                ..default()
-            },
+            }
             TextLayout {
                 justify,
-                ..default()
-            },
-        ))
-        .id()
+            }
+        ]
+    }
 }
 
 // Action state and input handling
@@ -756,7 +697,7 @@ fn navigate(
                     && let Ok(mut current_page_visibility) =
                         visibility_query.get_mut(current_child_of.parent())
                 {
-                    *current_page_visibility = Visibility::Visible;
+                    *current_page_visibility = Visibility::Inherited;
 
                     if let Some(previous_focus_entity) = previous_focus
                         && let Ok(previous_child_of) = parent_query.get(previous_focus_entity)
