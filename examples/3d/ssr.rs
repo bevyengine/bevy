@@ -33,7 +33,11 @@ use bevy::{
 #[path = "../helpers/radio.rs"]
 mod radio;
 
-use radio::{basic_radio_button_theme, feathers_option_buttons, main_ui_node_scene};
+#[path = "../helpers/theme.rs"]
+mod theme;
+
+use radio::{feathers_option_buttons, main_ui_node_scene};
+use theme::basic_radio_button_theme;
 
 /// This example uses a shader source file from the assets subdirectory
 const SHADER_ASSET_PATH: &str = "shaders/water_material.wgsl";

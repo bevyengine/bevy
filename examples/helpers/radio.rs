@@ -1,9 +1,10 @@
 /// Helpers to create a basic option menu using Feathers Radio Buttons.
 /// Using these helpers requires the `bevy_feathers` feature to be enabled.
 use bevy::{
-    color::palettes,
-    feathers::{controls::FeathersRadio, display::caption, display::label, theme::ThemeProps},
-    platform::collections::HashMap,
+    feathers::{
+        controls::FeathersRadio,
+        display::{caption, label},
+    },
     prelude::*,
     ui::Checked,
     ui_widgets::RadioGroup,
@@ -28,52 +29,6 @@ pub fn main_ui_node_scene() -> impl Scene {
             bottom: px(10),
         }
     }
-}
-
-/// Creates a basic feathers theme props for the radio buttons.
-pub fn basic_radio_button_theme(text_color: Color) -> ThemeProps {
-    let mut color = HashMap::new();
-    color.insert(bevy::feathers::tokens::RADIO_TEXT, text_color);
-    color.insert(bevy::feathers::tokens::RADIO_MARK, Color::BLACK);
-    color.insert(bevy::feathers::tokens::RADIO_MARK_HOVER, Color::BLACK);
-    color.insert(bevy::feathers::tokens::RADIO_MARK_PRESSED, Color::BLACK);
-
-    color.insert(bevy::feathers::tokens::RADIO_BG, Color::WHITE);
-    color.insert(
-        bevy::feathers::tokens::RADIO_BG_HOVER,
-        palettes::basic::GRAY.into(),
-    );
-    color.insert(
-        bevy::feathers::tokens::RADIO_BG_PRESSED,
-        palettes::basic::GRAY.into(),
-    );
-    color.insert(bevy::feathers::tokens::RADIO_BG_CHECKED, Color::WHITE);
-    color.insert(bevy::feathers::tokens::RADIO_BG_CHECKED_HOVER, Color::BLACK);
-    color.insert(
-        bevy::feathers::tokens::RADIO_BG_CHECKED_PRESSED,
-        Color::BLACK,
-    );
-
-    color.insert(bevy::feathers::tokens::RADIO_BORDER, Color::BLACK);
-    color.insert(
-        bevy::feathers::tokens::RADIO_BORDER_HOVER,
-        palettes::basic::GRAY.into(),
-    );
-    color.insert(
-        bevy::feathers::tokens::RADIO_BORDER_PRESSED,
-        palettes::basic::BLACK.into(),
-    );
-    color.insert(bevy::feathers::tokens::RADIO_BORDER_CHECKED, Color::BLACK);
-    color.insert(
-        bevy::feathers::tokens::RADIO_BORDER_CHECKED_HOVER,
-        Color::BLACK,
-    );
-    color.insert(
-        bevy::feathers::tokens::RADIO_BORDER_CHECKED_PRESSED,
-        Color::BLACK,
-    );
-    color.insert(bevy::feathers::tokens::TEXT_MAIN, text_color);
-    ThemeProps { color }
 }
 
 /// Spawns the radio buttons that allow configuration of a setting.

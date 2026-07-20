@@ -125,16 +125,16 @@ impl AccessData {
         // Similarly for `try_writes` and `writes_inverted=false`
         // We return empty vectors when inverted=true, however this should not be used by consumers.
 
-        let reads = value.try_reads();
-        let writes = value.try_writes();
+        let reads = value.reads().as_finite_set();
+        let writes = value.writes().as_finite_set();
 
         let (reads_inverted, reads) = match reads {
-            Ok(reads) => (false, trace.get_indexes(reads.iter())),
-            Err(_) => (true, vec![]),
+            Some(reads) => (false, trace.get_indexes(reads.iter())),
+            None => (true, vec![]),
         };
         let (writes_inverted, writes) = match writes {
-            Ok(writes) => (false, trace.get_indexes(writes.iter())),
-            Err(_) => (true, vec![]),
+            Some(writes) => (false, trace.get_indexes(writes.iter())),
+            None => (true, vec![]),
         };
 
         Self {

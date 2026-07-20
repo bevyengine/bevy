@@ -5343,7 +5343,7 @@ wasm = true
 name = "clustered_decals"
 path = "examples/3d/clustered_decals.rs"
 doc-scrape-examples = true
-required-features = ["pbr_clustered_decals"]
+required-features = ["pbr_clustered_decals", "bevy_feathers"]
 
 [package.metadata.example.clustered_decals]
 name = "Clustered Decals"
