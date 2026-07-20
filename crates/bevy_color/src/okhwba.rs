@@ -363,7 +363,68 @@ impl From<Okhwba> for Oklcha {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::testing::assert_approx_eq;
+    use crate::{
+        color_difference::EuclideanDistance, test_colors::TEST_COLORS, testing::assert_approx_eq,
+    };
+
+    #[test]
+    fn test_from_okhsva() {
+        // Test `saturation == 0.0`
+        let okhsva = Okhsva::new(90.0, 0.0, 0.4, 1.0);
+        let okhwba: Okhwba = okhsva.into();
+        let okhsva2: Okhsva = okhwba.into();
+        assert_approx_eq!(okhwba.hue, 90.0, 0.001);
+        assert_approx_eq!(okhwba.whiteness, 0.4, 0.001);
+        assert_approx_eq!(okhwba.blackness, 0.6, 0.001);
+        assert_approx_eq!(okhwba.alpha, 1.0, 0.001);
+
+        assert_approx_eq!(okhsva.hue, okhsva2.hue, 0.001);
+        assert_approx_eq!(okhsva.saturation, okhsva2.saturation, 0.001);
+        assert_approx_eq!(okhsva.value, okhsva2.value, 0.001);
+        assert_approx_eq!(okhsva.alpha, okhsva2.alpha, 0.001);
+
+        // Test `saturation == 1.0 && value == 1.0`
+        let okhsva = Okhsva::new(270.0, 1.0, 1.0, 1.0);
+        let okhwba: Okhwba = okhsva.into();
+        let okhsva2: Okhsva = okhwba.into();
+        assert_approx_eq!(okhwba.hue, 270.0, 0.001);
+        assert_approx_eq!(okhwba.whiteness, 0.0, 0.001);
+        assert_approx_eq!(okhwba.blackness, 0.0, 0.001);
+        assert_approx_eq!(okhwba.alpha, 1.0, 0.001);
+
+        assert_approx_eq!(okhsva.hue, okhsva2.hue, 0.001);
+        assert_approx_eq!(okhsva.saturation, okhsva2.saturation, 0.001);
+        assert_approx_eq!(okhsva.value, okhsva2.value, 0.001);
+        assert_approx_eq!(okhsva.alpha, okhsva2.alpha, 0.001);
+
+        // Test `saturation == 0.0 && value == 1.0` (white)
+        let okhsva = Okhsva::new(0.0, 0.0, 1.0, 1.0);
+        let okhwba: Okhwba = okhsva.into();
+        let okhsva2: Okhsva = okhwba.into();
+        assert_approx_eq!(okhwba.hue, 0.0, 0.001);
+        assert_approx_eq!(okhwba.whiteness, 1.0, 0.001);
+        assert_approx_eq!(okhwba.blackness, 0.0, 0.001);
+        assert_approx_eq!(okhwba.alpha, 1.0, 0.001);
+
+        assert_approx_eq!(okhsva.hue, okhsva2.hue, 0.001);
+        assert_approx_eq!(okhsva.saturation, okhsva2.saturation, 0.001);
+        assert_approx_eq!(okhsva.value, okhsva2.value, 0.001);
+        assert_approx_eq!(okhsva.alpha, okhsva2.alpha, 0.001);
+
+        // Test `value == 0.0` (black)
+        let okhsva = Okhsva::new(0.0, 0.8, 0.0, 1.0);
+        let okhwba: Okhwba = okhsva.into();
+        let okhsva2: Okhsva = okhwba.into();
+        assert_approx_eq!(okhwba.hue, 0.0, 0.001);
+        assert_approx_eq!(okhwba.whiteness, 0.0, 0.001);
+        assert_approx_eq!(okhwba.blackness, 1.0, 0.001);
+        assert_approx_eq!(okhwba.alpha, 1.0, 0.001);
+
+        assert_approx_eq!(okhsva.hue, okhsva2.hue, 0.001);
+        assert_approx_eq!(0.0, okhsva2.saturation, 0.001);
+        assert_approx_eq!(okhsva.value, okhsva2.value, 0.001);
+        assert_approx_eq!(okhsva.alpha, okhsva2.alpha, 0.001);
+    }
 
     #[test]
     fn test_from_oklaba() {
@@ -430,5 +491,30 @@ mod tests {
         assert_approx_eq!(okhwba.whiteness, okhwba2.whiteness, 0.001);
         assert_approx_eq!(okhwba.blackness, okhwba2.blackness, 0.001);
         assert_approx_eq!(okhwba.alpha, okhwba2.alpha, 0.001);
+    }
+
+    #[test]
+    fn test_to_from_srgba_2() {
+        for color in TEST_COLORS.iter() {
+            let rgb2: Srgba = (color.okhwb).into();
+            let okhwb: Okhwba = (color.rgb).into();
+            assert!(
+                color.rgb.distance(&rgb2) < 0.001,
+                "{}: {:?} != {:?}",
+                color.name,
+                color.rgb,
+                rgb2,
+            );
+            let msg = alloc::format!(
+                "{}: expected {:?}, got {:?}",
+                color.name,
+                color.okhwb,
+                okhwb
+            );
+            assert_approx_eq!(color.okhwb.hue, okhwb.hue, 0.001, msg);
+            assert_approx_eq!(color.okhwb.whiteness, okhwb.whiteness, 0.001, msg);
+            assert_approx_eq!(color.okhwb.blackness, okhwb.blackness, 0.001, msg);
+            assert_approx_eq!(color.okhwb.alpha, okhwb.alpha, 0.001, msg);
+        }
     }
 }
