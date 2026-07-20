@@ -18,7 +18,7 @@ mod radio;
 mod theme;
 
 use crate::radio::{feathers_option_buttons, main_ui_node_scene, RadioButtonOptionValue};
-use crate::theme::basic_radio_button_theme;
+use crate::theme::basic_example_theme;
 
 /// A marker component for the inner rotating reflective cube.
 #[derive(Clone, Component)]
@@ -58,7 +58,7 @@ enum PccmEnableStatus {
 /// The example entry point.
 fn main() {
     App::new()
-        .insert_resource(UiTheme(basic_radio_button_theme(Color::WHITE)))
+        .insert_resource(UiTheme(basic_example_theme(Color::WHITE)))
         .add_plugins((
             DefaultPlugins.set(WindowPlugin {
                 primary_window: Some(Window {
