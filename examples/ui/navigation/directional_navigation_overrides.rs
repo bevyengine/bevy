@@ -108,15 +108,15 @@ const FOCUSED_BORDER_COLORS: [Srgba; 3] = [
 ];
 
 /// Marker component for the text that displays the currently focused button
-#[derive(Component)]
+#[derive(Component, Clone, Copy, Default)]
 struct FocusDisplay;
 
 /// Marker component for the text that displays the last key pressed
-#[derive(Component)]
+#[derive(Component, Clone, Copy, Default)]
 struct KeyDisplay;
 
 /// Component that stores which page a button is on
-#[derive(Component)]
+#[derive(Component, Clone, Copy, Default)]
 struct Page(usize);
 
 /// Observer for button clicks. Clicking on a button is considered navigation to that button.
@@ -173,77 +173,17 @@ fn setup_paged_ui(
     commands.spawn(Camera2d);
 
     // Create a full-screen background node
-    let root_node = commands
-        .spawn(Node {
+    commands.spawn_scene(bsn! {
+        Node {
             width: percent(100),
             height: percent(100),
-            ..default()
-        })
-        .id();
-
-    // Instructions
-    let instructions = commands
-        .spawn((
-            Text::new(
-                "Directional Navigation Overrides Demo\n\n\
-                 Use arrow keys or D-pad to navigate.\n\
-                 Press Enter or A button to interact.\n\n\
-                 Navigation on each page is a combination of \
-                 both automatic and manual navigation.",
-            ),
-            Node {
-                position_type: PositionType::Absolute,
-                left: px(20),
-                top: px(20),
-                width: px(280),
-                padding: UiRect::all(px(12)),
-                border_radius: BorderRadius::all(px(8)),
-                ..default()
-            },
-            BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 0.8)),
-        ))
-        .id();
-    commands.entity(root_node).add_children(&[instructions]);
-
-    // Focus display - shows which button is currently focused
-    commands.spawn((
-        Text::new("Focused: None"),
-        FocusDisplay,
-        Node {
-            position_type: PositionType::Absolute,
-            left: px(20),
-            bottom: px(80),
-            width: px(280),
-            padding: UiRect::all(px(12)),
-            border_radius: BorderRadius::all(px(8)),
-            ..default()
-        },
-        BackgroundColor(Color::srgba(0.1, 0.5, 0.1, 0.8)),
-        TextFont {
-            font_size: FontSize::Px(20.0),
-            ..default()
-        },
-    ));
-
-    // Key display - shows the last key pressed
-    commands.spawn((
-        Text::new("Last Key: None"),
-        KeyDisplay,
-        Node {
-            position_type: PositionType::Absolute,
-            left: px(20),
-            bottom: px(20),
-            width: px(280),
-            padding: UiRect::all(px(12)),
-            border_radius: BorderRadius::all(px(8)),
-            ..default()
-        },
-        BackgroundColor(Color::srgba(0.5, 0.1, 0.5, 0.8)),
-        TextFont {
-            font_size: FontSize::Px(20.0),
-            ..default()
-        },
-    ));
+        }
+        Children [
+            instructions_scene(),
+            focus_display_scene(),
+            key_display_scene(),
+        ]
+    });
 
     // Setup the pages with buttons and helper text
     let mut pages_entities = [
@@ -386,6 +326,73 @@ fn setup_paged_ui(
 
     // Set initial focus
     input_focus.set(pages_entities[0][0], FocusCause::Navigated);
+}
+
+fn instructions_scene() -> impl Scene {
+    bsn! {
+        Node {
+            position_type: PositionType::Absolute,
+            left: px(20),
+            top: px(20),
+            width: px(280),
+            padding: UiRect::all(px(12)),
+            border_radius: BorderRadius::all(px(8)),
+        }
+        BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 0.8))
+        Children[
+                        Text::new(
+            "Directional Navigation Overrides Demo\n\n\
+                Use arrow keys or D-pad to navigate.\n\
+                Press Enter or A button to interact.\n\n\
+                Navigation on each page is a combination of \
+                both automatic and manual navigation.",
+        )
+        ]
+    }
+}
+
+/// Focus display - shows which button is currently focused
+fn focus_display_scene() -> impl Scene {
+    bsn! {
+        Node {
+            position_type: PositionType::Absolute,
+            left: px(20),
+            bottom: px(80),
+            width: px(280),
+            padding: UiRect::all(px(12)),
+            border_radius: BorderRadius::all(px(8)),
+        }
+        BackgroundColor(Color::srgba(0.1, 0.5, 0.1, 0.8))
+        Children[
+            FocusDisplay
+            Text::new("Focused: None")
+            TextFont {
+                font_size: FontSize::Px(20.0),
+            }
+        ]
+    }
+}
+
+/// Key display - shows the last key pressed
+fn key_display_scene() -> impl Scene {
+    bsn! {
+        Node {
+            position_type: PositionType::Absolute,
+            left: px(20),
+            bottom: px(20),
+            width: px(280),
+            padding: UiRect::all(px(12)),
+            border_radius: BorderRadius::all(px(8)),
+        }
+        BackgroundColor(Color::srgba(0.5, 0.1, 0.5, 0.8))
+        Children [
+            KeyDisplay
+            Text::new("Last Key: None")
+            TextFont {
+                font_size: FontSize::Px(20.0)
+            }
+        ]
+    }
 }
 
 /// Creates the buttons and text for a grid page and places the ids into their
