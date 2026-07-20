@@ -194,7 +194,7 @@ pub fn extract_debug_overlay(
     for (entity, uinode, stack_index, transform, visibility, maybe_clip, computed_target, debug) in
         extracted_uinodes
             .changed
-            .iter()
+            .keys()
             .flat_map(|main_entity| uinode_query.get(main_entity.entity()).ok())
     {
         let debug_options = debug.copied().unwrap_or((*debug_options.as_ref()).into());
@@ -222,7 +222,7 @@ pub fn extract_debug_overlay(
             }
 
             extracted_uinodes
-                .uinodes
+                .objects
                 .entry(entity.into())
                 .or_insert_with(|| (extracted_camera_entity, Default::default()))
                 .1
