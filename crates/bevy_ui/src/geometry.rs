@@ -1194,7 +1194,7 @@ impl From<(Val, Val)> for UiPosition {
 ///     Vec2::new(10.0, 0.0),
 /// );
 /// ```
-#[derive(Debug, PartialEq, Clone, Copy, Reflect)]
+#[derive(Debug, Clone, Copy, Reflect)]
 #[reflect(Default, PartialEq, Debug, Clone)]
 #[cfg_attr(
     feature = "serialize",
@@ -1321,6 +1321,18 @@ impl From<(Val, Val)> for CornerRadius {
 impl From<[Val; 2]> for CornerRadius {
     fn from([x, y]: [Val; 2]) -> Self {
         Self { x, y }
+    }
+}
+
+impl PartialEq for CornerRadius {
+    fn eq(&self, other: &Self) -> bool {
+        // `Val::Auto` is used to indicate that the radius on an axis is unset and that the value on the other axis should be interpreted as a circular radius.
+        // So  `CornerRadius { x: v, y: Val::AUTO } == CornerRadius { x: Val::Auto, y: v }`
+        match (self, other) {
+            (Self { x: r, y: Val::Auto }, Self { x: Val::Auto, y: s })
+            | (Self { x: Val::Auto, y: r }, Self { x: s, y: Val::Auto }) => r == s,
+            _ => self.x == other.x && self.y == other.y,
+        }
     }
 }
 
@@ -1602,5 +1614,17 @@ mod tests {
         assert_eq!(vh(0.0), Val::Vh(0.0));
         assert_eq!(vmin(0.0), Val::VMin(0.0));
         assert_eq!(vmax(0.0), Val::VMax(0.0));
+    }
+
+    #[test]
+    fn corner_radius_partial_eq_with_auto() {
+        assert_eq!(
+            CornerRadius::new(px(1.), Val::Auto),
+            CornerRadius::new(Val::Auto, px(1.)),
+        );
+        assert_eq!(
+            CornerRadius::new(Val::Auto, percent(1.)),
+            CornerRadius::new(percent(1.), Val::Auto),
+        );
     }
 }
