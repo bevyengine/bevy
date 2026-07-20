@@ -675,6 +675,15 @@ impl Plugin for TextInputPlugin {
             .add_observer(on_pointer_press)
             .add_observer(on_focus_lost)
             .add_observer(on_focus_select_all)
+            .configure_sets(
+                PreUpdate,
+                (
+                    ImeSystems::ToggleWindowIMEInput,
+                    ImeSystems::HandleEvents,
+                    ImeSystems::UpdatePosition,
+                )
+                    .chain(),
+            )
             .add_systems(
                 PreUpdate,
                 (
