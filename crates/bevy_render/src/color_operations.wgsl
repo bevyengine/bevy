@@ -133,6 +133,26 @@ fn hsv_to_linear_rgb(hsva: vec3<f32>) -> vec3<f32> {
     return srgb_to_linear_rgb(vec3(r + m, g + m, b + m));
 }
 
+fn hwb_to_hsv(hwb: vec3<f32>) -> vec3<f32> {
+    let hue = hwb.x;
+    let whiteness = hwb.y;
+    let blackness = hwb.z;
+
+    let value = 1. - blackness;
+    var saturation: f32;
+    if (value != 0.0) {
+        saturation = 1. - (whiteness / value);
+    } else {
+        saturation = 0.0;
+    }
+    return vec3(hue, saturation, value);
+}
+
+fn hwb_to_linear_rgb(hwb: vec3<f32>) -> vec3<f32> {
+    let hsv = hwb_to_hsv(hwb);
+    return hsv_to_linear_rgb(hsv);
+}
+
 fn oklch_to_linear_rgb(c: vec3<f32>) -> vec3<f32> {
     let hue = c.z * PI_2;
     return oklab_to_linear_rgb(vec3(c.x, c.y * cos(hue), c.y * sin(hue)));
