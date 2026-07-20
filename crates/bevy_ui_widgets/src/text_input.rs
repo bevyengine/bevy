@@ -15,7 +15,6 @@ use bevy_input::{ButtonInput, InputSystems};
 use bevy_input_focus::{
     FocusCause, FocusGained, FocusLost, FocusedInput, InputFocus, InputFocusSystems,
 };
-use bevy_log::warn;
 use bevy_math::Vec2;
 use bevy_picking::events::{Drag, Pointer, PointerState, Press, Release};
 use bevy_picking::pointer::PointerButton;
@@ -206,7 +205,6 @@ fn on_pointer_press(
         // focused text input is handled by `PointerFocusPlugin` (in `bevy_input_focus`), which
         // triggers a bubbling `AcquireFocus` that clears focus at the window, so there is nothing
         // to do here.
-        warn!("Not an editable text");
         return;
     };
 

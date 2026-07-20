@@ -314,7 +314,7 @@ pub struct EditableTextFilter(Option<Arc<dyn Fn(char) -> bool + Send + Sync + 's
 
 /// Indicates whether the text is editable, or is in "readonly" mode. A special "static" mode is
 /// also available, which is used by the feathers number input widget.
-#[derive(Component, Clone, Copy, Default, PartialEq)]
+#[derive(Component, Clone, Copy, Default, PartialEq, Debug)]
 pub enum TextReadWriteMode {
     /// Text input functions normally
     #[default]

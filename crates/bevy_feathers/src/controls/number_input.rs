@@ -818,16 +818,13 @@ fn scrubber_on_release(
         &UiGlobalTransform,
     )>,
     q_scrubber: Query<(&ComputedNode, &UiGlobalTransform, &mut ScrubberDragState)>,
-    q_root: Query<Has<InteractionDisabled>>,
     q_parent: Query<&ChildOf>,
     mut input_focus: ResMut<InputFocus>,
     ui_scale: Res<UiScale>,
 ) {
     if let Ok(&ChildOf(text_id)) = q_parent.get(release.event_target())
-        && let Ok(&ChildOf(root_id)) = q_parent.get(text_id)
         && let Ok((mut editable_text, node, target, transform)) = q_text.get_mut(text_id)
         && let Ok((_, _, drag_state)) = q_scrubber.get(release.entity)
-        && let Ok(disabled) = q_root.get(root_id)
     {
         // If editable text has focus, then pass the event through.
         if input_focus.get() == Some(text_id) {
@@ -837,7 +834,7 @@ fn scrubber_on_release(
         release.propagate(false);
 
         // Copy of logic from EditableText / text_input, but done on pointer up instead of down.
-        if !disabled && drag_state.max_distance <= DRAG_THRESHOLD_DISTANCE {
+        if drag_state.max_distance <= DRAG_THRESHOLD_DISTANCE {
             if release.button != PointerButton::Primary {
                 return;
             }

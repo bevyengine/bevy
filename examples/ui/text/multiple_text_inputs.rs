@@ -14,7 +14,7 @@ use bevy::input_focus::{
     InputFocus,
 };
 use bevy::prelude::*;
-use bevy::text::{EditableText, TextCursorStyle, TextEditChange};
+use bevy::text::{EditableText, TextCursorStyle, TextEditChange, TextReadWriteMode};
 use bevy::ui_widgets::TextInput;
 
 fn main() {
@@ -171,6 +171,106 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextLayout::no_wrap(),
                         font.clone(),
                         TextInputRow(row),
+                        SubmitOutput,
+                    )],
+                ));
+            }
+
+            let label_font = font.clone().with_font_size(14.);
+            for label in ["ReadWrite", "EditableText", "value", "submission"] {
+                parent.spawn((
+                    Text::new(label),
+                    label_font.clone(),
+                    Node {
+                        justify_self: JustifySelf::Center,
+                        margin: px(-4).bottom(),
+                        ..default()
+                    },
+                ));
+            }
+
+            for (row, rwmode) in [
+                TextReadWriteMode::Editable,
+                TextReadWriteMode::ReadOnly,
+                TextReadWriteMode::Static,
+            ]
+            .into_iter()
+            .enumerate()
+            {
+                parent.spawn((
+                    Node {
+                        border: px(4).all(),
+                        justify_content: JustifyContent::Center,
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                    BorderColor::all(Color::WHITE),
+                    children![(Text::new(format!("{rwmode:?}")), font.clone(),)],
+                ));
+
+                let mut input = parent.spawn((
+                    Node {
+                        border: px(4.).all(),
+                        padding: px(4.).all(),
+                        ..default()
+                    },
+                    TextInput,
+                    EditableText::new(format!("Initial text {row}")),
+                    TextCursorStyle::default(),
+                    font.clone(),
+                    BackgroundColor(bevy::color::palettes::css::DARK_GREY.into()),
+                    TextInputRow(row + 100),
+                    rwmode,
+                    TabIndex(row as i32 + 100),
+                    BorderColor::all(SLATE_300),
+                ));
+                if row == 0 {
+                    input.insert(AutoFocus);
+                }
+
+                parent.spawn((
+                    Node {
+                        border: px(4.).all(),
+                        padding: px(4.).all(),
+                        overflow: Overflow::clip_x(),
+                        overflow_clip_margin: OverflowClipMargin {
+                            visual_box: VisualBox::ContentBox,
+                            ..default()
+                        },
+                        ..default()
+                    },
+                    BackgroundColor(bevy::color::palettes::css::DARK_SLATE_BLUE.into()),
+                    BorderColor::all(Color::WHITE),
+                    children![(
+                        Text::default(),
+                        TextLayout::no_wrap(),
+                        font.clone(),
+                        BackgroundColor(bevy::color::palettes::css::DARK_SLATE_GRAY.into()),
+                        BorderColor::all(Color::WHITE),
+                        TextInputRow(row + 100),
+                        TextOutput,
+                    )],
+                ));
+
+                parent.spawn((
+                    Node {
+                        border: px(4.).all(),
+                        padding: px(4.).all(),
+                        overflow: Overflow::clip_x(),
+                        overflow_clip_margin: OverflowClipMargin {
+                            visual_box: VisualBox::ContentBox,
+                            ..default()
+                        },
+
+                        ..default()
+                    },
+                    BackgroundColor(bevy::color::palettes::css::DARK_SLATE_BLUE.into()),
+                    BorderColor::all(Color::WHITE),
+                    children![(
+                        Text::default(),
+                        TextLayout::no_wrap(),
+                        font.clone(),
+                        TextInputRow(row + 100),
                         SubmitOutput,
                     )],
                 ));
