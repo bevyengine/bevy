@@ -917,6 +917,7 @@ mod scene_list;
 mod scene_patch;
 mod spawn;
 mod spawn_system;
+mod reflect;
 
 pub use resolved_scene::*;
 pub use scene::*;
