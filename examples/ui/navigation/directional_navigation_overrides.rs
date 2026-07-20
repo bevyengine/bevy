@@ -26,7 +26,7 @@ use bevy::{
             AutoNavigationConfig, DirectionalNavigationMap, DirectionalNavigationPlugin,
         },
         tab_navigation::TabIndex,
-        FocusCause, InputFocus, InputFocusVisible,
+        AutoFocus, InputFocus, InputFocusVisible,
     },
     math::{CompassOctant, Dir2},
     picking::{
@@ -203,6 +203,8 @@ fn setup_paged_ui(
             } else {
                 Visibility::Hidden
             };
+
+            // Each page is its own separate root UI node with its own visibility.
             let page_id = if page_num == 1 {
                 commands
                     .spawn_scene(bsn! {
@@ -328,9 +330,10 @@ fn setup_paged_ui(
     );
 
     // Set initial focus
-    input_focus.set(pages_entities[0][0], FocusCause::Navigated);
+    commands.entity(pages_entities[0][0]).insert(AutoFocus);
 }
 
+/// Instruction text for the example
 fn instructions_scene() -> impl Scene {
     bsn! {
         Node {
@@ -343,8 +346,8 @@ fn instructions_scene() -> impl Scene {
         }
         BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 0.8))
         Children[
-                        Text::new(
-            "Directional Navigation Overrides Demo\n\n\
+            Text::new(
+                "Directional Navigation Overrides Demo\n\n\
                 Use arrow keys or D-pad to navigate.\n\
                 Press Enter or A button to interact.\n\n\
                 Navigation on each page is a combination of \
@@ -398,8 +401,9 @@ fn key_display_scene() -> impl Scene {
     }
 }
 
-/// Creates the buttons for a grid page and places the ids into their
-/// respective Vecs in `entities`.
+/// Creates the buttons for a grid page and returns their ids as a Vec.
+///
+/// The entity ids are needed to specify manual edges, so the scenes are spawned individually.
 fn setup_buttons_for_grid_page(commands: &mut Commands, page_num: usize) -> Vec<Entity> {
     // Spawn buttons in a grid
     // Auto-navigation will automatically configure navigation within rows.
@@ -469,9 +473,9 @@ fn grid_page_text_entities_scene_list(page_num: usize) -> impl SceneList {
     }
 }
 
-/// Creates the buttons for the triangle page (page 2) and places the ids into their
-/// respective Vecs in `entities`.
-/// We must get their entity id's for specifying manual edges.
+/// Creates the buttons for the triangle page and returns their ids as a Vec.
+///
+/// The entity ids are needed to specify manual edges, so the scenes are spawned individually.
 fn setup_buttons_for_triangle_page(commands: &mut Commands, page_num: usize) -> Vec<Entity> {
     let button_positions = [
         (450.0, 80.0),   // top left
@@ -516,7 +520,8 @@ fn triangle_page_text_entities_scene_list(page_num: usize) -> impl SceneList {
     }
 }
 
-/// Vec of button scenes for a grid page.
+/// The Vec of button scenes for a grid page.
+/// A vec is returned so that they may be iterated upon, as opposed to a `SceneList`.
 fn grid_auto_nav_buttons_scene(
     page_num: usize,
     button_positions: &[[(f64, f64); 3]; 4],
