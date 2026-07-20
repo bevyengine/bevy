@@ -11,7 +11,6 @@ use crate::SolariPlugins;
 use bevy_app::{App, Plugin};
 use bevy_ecs::schedule::IntoScheduleConfigs;
 use bevy_render::{
-    extract_resource::ExtractResourcePlugin,
     mesh::{
         allocator::{allocate_and_free_meshes, MeshAllocatorSettings},
         RenderMesh,
@@ -24,8 +23,9 @@ use bevy_render::{
 use binder::prepare_raytracing_scene_bindings;
 use blas::{compact_raytracing_blas, prepare_raytracing_blas, BlasManager};
 use extract::{
-    extract_raytracing_scene_meshes_and_materials, extract_raytracing_scene_structural,
-    extract_raytracing_scene_transforms, StandardMaterialAssets,
+    extract_raytracing_material_assets, extract_raytracing_scene_meshes_and_materials,
+    extract_raytracing_scene_structural, extract_raytracing_scene_transforms,
+    StandardMaterialAssets,
 };
 use tracing::warn;
 
@@ -51,8 +51,6 @@ impl Plugin for RaytracingScenePlugin {
             return;
         }
 
-        app.add_plugins(ExtractResourcePlugin::<StandardMaterialAssets>::default());
-
         let render_app = app.sub_app_mut(RenderApp);
 
         render_app
@@ -70,6 +68,7 @@ impl Plugin for RaytracingScenePlugin {
                     extract_raytracing_scene_structural,
                     extract_raytracing_scene_transforms,
                     extract_raytracing_scene_meshes_and_materials,
+                    extract_raytracing_material_assets,
                 ),
             )
             .add_systems(

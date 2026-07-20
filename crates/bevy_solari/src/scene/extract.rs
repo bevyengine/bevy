@@ -1,17 +1,16 @@
 use super::RaytracingMesh3d;
-use bevy_asset::{AssetId, Assets};
-use bevy_derive::Deref;
+use bevy_asset::{AssetEvent, AssetId, Assets};
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     lifecycle::RemovedComponents,
+    message::MessageReader,
     query::{Added, Changed, Or, With},
     resource::Resource,
-    system::{Commands, Query},
+    system::{Commands, Query, Res, ResMut},
 };
 use bevy_pbr::{MeshMaterial3d, PreviousGlobalTransform, StandardMaterial};
 use bevy_platform::collections::HashMap;
-use bevy_render::{
-    extract_resource::ExtractResource, sync_world::RenderEntity, Extract, RenderApp,
-};
+use bevy_render::{sync_world::RenderEntity, Extract};
 use bevy_transform::components::GlobalTransform;
 
 /// Creates or removes components in the render world related to raytracing instances.
@@ -107,18 +106,26 @@ pub fn extract_raytracing_scene_meshes_and_materials(
     }
 }
 
-#[derive(Resource, Deref, Default)]
+#[derive(Resource, Deref, DerefMut, Default)]
 pub struct StandardMaterialAssets(HashMap<AssetId<StandardMaterial>, StandardMaterial>);
 
-impl ExtractResource<RenderApp> for StandardMaterialAssets {
-    type Source = Assets<StandardMaterial>;
-
-    fn extract_resource(source: &Self::Source) -> Self {
-        Self(
-            source
-                .iter()
-                .map(|(asset_id, material)| (asset_id, material.clone()))
-                .collect(),
-        )
+/// Keeps [`StandardMaterialAssets`] up to date in the render world.
+pub fn extract_raytracing_material_assets(
+    main_materials: Extract<Res<Assets<StandardMaterial>>>,
+    mut render_materials: ResMut<StandardMaterialAssets>,
+    mut events: Extract<MessageReader<AssetEvent<StandardMaterial>>>,
+) {
+    for event in events.read() {
+        match event {
+            AssetEvent::Added { id } | AssetEvent::Modified { id } => {
+                if let Some(material) = main_materials.get(*id) {
+                    render_materials.insert(*id, material.clone());
+                }
+            }
+            AssetEvent::Removed { id } => {
+                render_materials.remove(id);
+            }
+            AssetEvent::Unused { .. } | AssetEvent::LoadedWithDependencies { .. } => {}
+        }
     }
 }
