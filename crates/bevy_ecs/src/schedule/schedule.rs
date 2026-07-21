@@ -14,6 +14,7 @@ use bevy_ecs_macros::Event;
 use bevy_platform::{
     collections::{HashMap, HashSet},
     hash::FixedHasher,
+    sync::Arc,
 };
 use bevy_utils::{default, TypeIdMap};
 use core::{
@@ -24,6 +25,7 @@ use fixedbitset::FixedBitSet;
 use indexmap::{IndexMap, IndexSet};
 use log::{info, warn};
 use pass::ScheduleBuildPassObj;
+use rand::seq::SliceRandom;
 use thiserror::Error;
 #[cfg(feature = "trace")]
 use tracing::info_span;
@@ -1251,6 +1253,23 @@ impl ScheduleGraph {
         }
         self.passes = passes;
 
+        if let Some(shuffler) = self.settings.shuffler.as_ref()
+            && let Some(mut shuffler) = shuffler()
+        {
+            let mut nodes = flat_dependency.graph().nodes().collect::<Vec<_>>();
+            nodes.shuffle(&mut shuffler);
+            let mut new_flat_dependency = Dag::new();
+            for &node in &nodes {
+                new_flat_dependency.add_node(node);
+            }
+            for node in nodes {
+                for neighbor in flat_dependency.neighbors(node) {
+                    new_flat_dependency.add_edge(node, neighbor);
+                }
+            }
+            flat_dependency = new_flat_dependency;
+        }
+
         // Check system ordering dependencies for cycles after collapsing sets
         // and applying build passes.
         let flat_dependency_analysis = flat_dependency
@@ -1601,7 +1620,7 @@ pub enum LogLevel {
 }
 
 /// Specifies miscellaneous settings for schedule construction.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct ScheduleBuildSettings {
     /// Determines whether the presence of ambiguities (systems with conflicting access but indeterminate order)
     /// is only logged or also results in an [`Ambiguity`](ScheduleBuildWarning::Ambiguity)
@@ -1633,6 +1652,44 @@ pub struct ScheduleBuildSettings {
     ///
     /// Defaults to `true`.
     pub report_sets: bool,
+    /// If [`Some`], systems will be shuffled according to the provided shuffler.
+    ///
+    /// In effect, this is a factory that produces [`rand::Rng`] that can be used for shuffling
+    /// systems. If the factory returns [`None`] shuffling is skipped.
+    ///
+    /// This allows randomizing the order of systems (while still satisfying ordering constraints),
+    /// which is useful for ensuring that ordering constraints are more likely to be correct (i.e.,
+    /// if you spot erroneous behavior when shuffling, that is an indication that the "default"
+    /// ordering is correct by chance, meaning your ordering constraints are not sufficient).
+    ///
+    /// Note: Modifying a schedule after building will result in a second shuffle when the schedule
+    /// is rebuilt.
+    ///
+    /// Defaults to [`None`].
+    // TODO: Currently, `auto_insert_apply_deferred` will prevent stages from being truly shuffled.
+    // `auto_insert_apply_deferred` always prefers to put systems at the lowest "sync point depth"
+    // that it can, but this means we can't shuffle deeper systems with shallower systems, despite
+    // the fact their constraints allow that.
+    pub shuffler: Option<Arc<dyn Fn() -> Option<Box<dyn rand::Rng>> + Send + Sync + 'static>>,
+}
+
+impl Debug for ScheduleBuildSettings {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("ScheduleBuildSettings")
+            .field("ambiguity_detection", &self.ambiguity_detection)
+            .field("hierarchy_detection", &self.hierarchy_detection)
+            .field(
+                "auto_insert_apply_deferred",
+                &self.auto_insert_apply_deferred,
+            )
+            .field("use_shortnames", &self.use_shortnames)
+            .field("report_sets", &self.report_sets)
+            .field(
+                "shuffler",
+                &if self.shuffler.is_some() { "yes" } else { "no" },
+            )
+            .finish()
+    }
 }
 
 impl Default for ScheduleBuildSettings {
@@ -1651,6 +1708,7 @@ impl ScheduleBuildSettings {
             auto_insert_apply_deferred: true,
             use_shortnames: true,
             report_sets: true,
+            shuffler: None,
         }
     }
 }
