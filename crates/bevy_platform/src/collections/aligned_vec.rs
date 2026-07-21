@@ -1,4 +1,6 @@
 //! Provides [`AlignedVec`] based on [bevy_platform::collections::AlignedVec](https://github.com/rkyv/rkyv/blob/main/rkyv/src/util/alloc/aligned_vec.rs)'s implementation but the alignment can be set at runtime.
+//!
+//! The original source code, adapted here, is copyright 2021 David Koloski, used here under the MIT License.
 #![expect(unsafe_code, reason = "This struct needs to interact with raw memory")]
 
 use alloc::alloc::{alloc, dealloc, handle_alloc_error, realloc};
