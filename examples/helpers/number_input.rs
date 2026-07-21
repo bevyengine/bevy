@@ -13,7 +13,7 @@ use bevy::{
 /// `number_input_identifier` should be a component that will distinguish this
 /// number input from any others if needed.
 ///
-/// Examples that use this to create a number input should handle its ValueChange<f32> events.
+/// Examples that use this to create a number input should handle its `ValueChange<f32>` events.
 /// If there is a need to identify the number input that originated the value change,
 /// query which `number_input_identifier` with the `FeathersNumberInput` is
 /// the value change's source entity.
