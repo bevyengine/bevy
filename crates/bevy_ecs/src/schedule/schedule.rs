@@ -1745,10 +1745,12 @@ pub struct ScheduleNotInitialized;
 
 #[cfg(test)]
 mod tests {
-    use alloc::{vec, vec::Vec};
+    use alloc::{boxed::Box, vec, vec::Vec};
     use core::any::TypeId;
+    use rand::SeedableRng;
 
     use bevy_ecs_macros::ScheduleLabel;
+    use bevy_platform::sync::Arc;
 
     use crate::{
         error::{ignore, panic, FallbackErrorHandler, Result},
@@ -2787,5 +2789,108 @@ mod tests {
                 TypeId::of::<Pass<2>>()
             ]
         );
+    }
+
+    #[test]
+    fn schedule_builds_randomly_with_shuffler() {
+        fn run_schedule_with_shuffler(
+            shuffler: Option<Arc<dyn Fn() -> Option<Box<dyn rand::Rng>> + Send + Sync + 'static>>,
+        ) -> Vec<u32> {
+            #[derive(Resource, Default)]
+            struct Counters(Vec<u32>);
+
+            let mut schedule = Schedule::default();
+
+            // Note: we use a mutable resource to ensure that all the systems are conflicting and
+            // therefore must be resolved by the system toposort.
+            fn system<const N: u32>(mut counters: ResMut<Counters>) {
+                counters.0.push(N);
+            }
+
+            // Create a simple graph like so:
+            // 0
+            // ->10
+            //   ->20
+            //   ->21
+            // ->11
+            schedule.add_systems(system::<0>);
+            schedule.add_systems((system::<10>, system::<11>).after(system::<0>));
+            schedule.add_systems((system::<20>, system::<21>).after(system::<10>));
+
+            schedule.set_build_settings(ScheduleBuildSettings {
+                shuffler,
+                ..Default::default()
+            });
+
+            let mut world = World::new();
+            world.init_resource::<Counters>();
+            schedule.initialize(&mut world).unwrap();
+            schedule.run(&mut world);
+
+            world.remove_resource::<Counters>().unwrap().0
+        }
+
+        for _ in 0..10 {
+            assert_eq!(
+                run_schedule_with_shuffler(None),
+                // Without a shuffler, schedule building is totally deterministic (but arbitrary).
+                [0, 11, 10, 20, 21]
+            );
+        }
+
+        let make_shuffler =
+            |seed| -> Arc<dyn Fn() -> Option<Box<dyn rand::Rng>> + Send + Sync + 'static> {
+                Arc::new(move || {
+                    Some(Box::new(rand::rngs::Xoshiro128PlusPlus::seed_from_u64(
+                        seed,
+                    )))
+                })
+            };
+
+        // With the right seed, we can find every ordering that satisfies the ordering constraints.
+        // This is every valid permutation of these ordering constraints.
+        assert_eq!(
+            run_schedule_with_shuffler(Some(make_shuffler(100000001))),
+            [0, 10, 20, 21, 11]
+        );
+        assert_eq!(
+            run_schedule_with_shuffler(Some(make_shuffler(100000030))),
+            [0, 10, 21, 20, 11]
+        );
+        assert_eq!(
+            run_schedule_with_shuffler(Some(make_shuffler(100000020))),
+            [0, 10, 20, 11, 21]
+        );
+        assert_eq!(
+            run_schedule_with_shuffler(Some(make_shuffler(100000063))),
+            [0, 10, 21, 11, 20]
+        );
+        assert_eq!(
+            run_schedule_with_shuffler(Some(make_shuffler(100000003))),
+            [0, 10, 11, 20, 21]
+        );
+        assert_eq!(
+            run_schedule_with_shuffler(Some(make_shuffler(100000080))),
+            [0, 10, 11, 21, 20]
+        );
+        assert_eq!(
+            run_schedule_with_shuffler(Some(make_shuffler(100000000))),
+            [0, 11, 10, 20, 21]
+        );
+        assert_eq!(
+            run_schedule_with_shuffler(Some(make_shuffler(100000004))),
+            [0, 11, 10, 21, 20]
+        );
+
+        // For future: if somehow these seeds become invalid, you can find new ones using:
+        //
+        // let mut unique = bevy_platform::collections::HashMap::new();
+        // for i in 100_000_000..100_001_000 {
+        //     let order = run_schedule_with_shuffler(Some(make_shuffler(i)));
+        //     if !unique.contains_key(&order) {
+        //         unique.insert(order, i);
+        //     }
+        // }
+        // panic!("unique={unique:?}");
     }
 }
