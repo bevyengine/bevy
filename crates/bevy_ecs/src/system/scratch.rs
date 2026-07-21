@@ -25,9 +25,6 @@ use crate::{
 // Same assumption as is used to calculate CHECK_TICK_THRESHOLD
 const ASSUMED_TICKS_PER_FRAME: u32 = 1000;
 
-// 1000 change ticks in a frame * 10 frames
-const DEFAULT_SHRINK_DELAY: Saturating<u32> = Saturating(ASSUMED_TICKS_PER_FRAME * 10);
-
 /// State used to construct a fetch the [`Scratch`] for a system.
 pub struct ScratchState<T: ClearableCollection> {
     /// The collection returned from the [`Scratch`]
@@ -35,7 +32,7 @@ pub struct ScratchState<T: ClearableCollection> {
     /// The capacity `data` had last time we resized it.
     target_capacity: usize,
     /// How many ticks until we resize. Gets reset if the struct expands
-    shrink_delay: Saturating<u32>,
+    time_until_shrink: Saturating<u32>,
 }
 
 impl<T: ClearableCollection> ScratchState<T> {
@@ -45,23 +42,23 @@ impl<T: ClearableCollection> ScratchState<T> {
 
     /// Updates state based on how many ticks have occurred
     fn tick(&mut self, ticks: u32) {
-        self.shrink_delay -= ticks;
+        self.time_until_shrink -= ticks;
 
         let data = self.data.get();
         let data_capacity = data.capacity();
         if data_capacity > self.target_capacity {
             self.target_capacity = data_capacity;
-            self.shrink_delay = DEFAULT_SHRINK_DELAY;
+            self.time_until_shrink = Saturating(Scratch::<T>::SHRINK_DELAY);
             return;
         }
 
-        if self.shrink_delay.0 == 0 {
+        if self.time_until_shrink.0 == 0 {
             // TODO: Get the collections element size and fully free small allocations sooner.
             //       Right now it will take 3 updates to fully free a Vec<u8> that's empty but has
             //        a capacity of 8.
             data.shrink_to(self.target_capacity / 2);
             self.target_capacity = data.capacity();
-            self.shrink_delay = DEFAULT_SHRINK_DELAY;
+            self.time_until_shrink = Saturating(Scratch::<T>::SHRINK_DELAY);
         }
     }
 }
@@ -71,6 +68,11 @@ impl<T: ClearableCollection> ScratchState<T> {
 /// Collections are automatically cleared each time a system runs and
 /// their capacity automatically shrunk if it hasn't increased in a while.
 pub struct Scratch<'a, T: ClearableCollection>(&'a mut T);
+
+impl<'a, T: ClearableCollection> Scratch<'a, T> {
+    /// The number of ticks between attempts to shrink the collection.
+    pub const SHRINK_DELAY: u32 = ASSUMED_TICKS_PER_FRAME * 10;
+}
 
 impl<'a, T: ClearableCollection> Deref for Scratch<'a, T> {
     type Target = T;
@@ -113,9 +115,18 @@ where
 /// A clearable collection that can be used as a [`Scratch`] type.
 pub trait ClearableCollection {
     /// The current capacity.
-    fn capacity(&self) -> usize;
-    /// Attempts to shrink the capacity of the collection.
-    fn shrink_to(&mut self, capacity: usize);
+    ///
+    /// Not all collections implement the concept of capacity in which case this
+    /// method always returns a 0.
+    fn capacity(&self) -> usize {
+        0
+    }
+
+    /// Shrinks the capacity of the collection.
+    ///
+    /// Not all collections implement the concept of capacity in which case this
+    /// method is a no-op.
+    fn shrink_to(&mut self, _capacity: usize) {}
     /// Removes all elements from a collection.
     fn clear(&mut self);
 }
@@ -133,7 +144,7 @@ impl<'a, T: ClearableCollection + FromWorld + Send + 'static> ExclusiveSystemPar
         ScratchState {
             data,
             target_capacity,
-            shrink_delay: DEFAULT_SHRINK_DELAY,
+            time_until_shrink: Saturating(Self::SHRINK_DELAY),
         }
     }
 
@@ -167,7 +178,7 @@ unsafe impl<'a, T: ClearableCollection + FromWorld + Send + 'static> SystemParam
         ScratchState {
             data,
             target_capacity,
-            shrink_delay: DEFAULT_SHRINK_DELAY,
+            time_until_shrink: Saturating(Self::SHRINK_DELAY),
         }
     }
 
@@ -334,24 +345,12 @@ impl<K: Hash + Eq, S: BuildHasher> ClearableCollection for HashSet<K, S> {
 }
 
 impl<I> ClearableCollection for LinkedList<I> {
-    fn capacity(&self) -> usize {
-        0
-    }
-
-    fn shrink_to(&mut self, _: usize) {}
-
     fn clear(&mut self) {
         LinkedList::clear(self);
     }
 }
 
 impl<K, V> ClearableCollection for BTreeMap<K, V> {
-    fn capacity(&self) -> usize {
-        0
-    }
-
-    fn shrink_to(&mut self, _: usize) {}
-
     fn clear(&mut self) {
         BTreeMap::clear(self);
     }
@@ -375,15 +374,14 @@ mod tests {
     use core::sync::atomic::{AtomicU32, Ordering};
 
     use crate::{
-        system::{
-            scratch::{Scratch, DEFAULT_SHRINK_DELAY},
-            Local,
-        },
+        system::{scratch::Scratch, Local},
         world::World,
     };
 
     #[test]
     fn scratch_shrinks() {
+        const SHRINK_DELAY: u32 = Scratch::<Vec<u32>>::SHRINK_DELAY;
+
         static UPDATE_COUNTER: AtomicU32 = AtomicU32::new(0);
 
         let mut world = World::new();
@@ -399,7 +397,7 @@ mod tests {
                 *expected_capacity = item_under_test.capacity();
             }
 
-            if UPDATE_COUNTER.load(Ordering::Relaxed) == (DEFAULT_SHRINK_DELAY.0 + 1) {
+            if UPDATE_COUNTER.load(Ordering::Relaxed) == (SHRINK_DELAY + 1) {
                 assert!(
                     item_under_test.capacity() < *expected_capacity,
                     "Scratch didn't shrink allocation, capacity was {}, expected {}, update was {}",
@@ -414,7 +412,7 @@ mod tests {
 
         // The first tick breaks the time calculation logic. We wait it out. We also
         // have to wait one for the deallocation to actually happen.
-        for _ in 0..=(DEFAULT_SHRINK_DELAY.0 + 2) {
+        for _ in 0..=(SHRINK_DELAY + 2) {
             let result = world.run_system(test_system);
 
             assert!(result.is_ok(), "Test system failed to update {result:?}");
