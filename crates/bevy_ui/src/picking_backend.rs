@@ -425,3 +425,245 @@ fn pick_ui_text_section(
         .get(section_index as usize)
         .map(|e| e.entity)
 }
+
+#[cfg(test)]
+mod tests {
+    use bevy_asset::{Assets, Handle, RenderAssetUsages};
+    use bevy_color::Color;
+    use bevy_image::{Image, TextureAtlas, TextureAtlasLayout, ToExtents};
+    use bevy_math::{Rect, URect, UVec2, Vec2};
+    use bevy_sprite::TextureSlicer;
+    use wgpu_types::{TextureDimension, TextureFormat};
+
+    use crate::widget::*;
+
+    use super::*;
+
+    /// Makes an opaque white image of the given size, then sets each pixel's
+    /// alpha from `alphas` (row-major, `0..=255`). Pixels not covered by
+    /// `alphas` are left fully opaque.
+    fn make_image(size: UVec2, alphas: &[u8]) -> Image {
+        let mut image = Image::new_fill(
+            size.to_extents(),
+            TextureDimension::D2,
+            &[255, 255, 255, 255],
+            TextureFormat::Rgba8Unorm,
+            RenderAssetUsages::all(),
+        );
+        for (i, &alpha) in alphas.iter().enumerate() {
+            let x = i as u32 % size.x;
+            let y = i as u32 / size.x;
+            image
+                .set_color_at(x, y, Color::srgba(1.0, 1.0, 1.0, alpha as f32 / 255.0))
+                .unwrap();
+        }
+        image
+    }
+
+    #[test]
+    fn alpha_threshold_ignores_transparent_pixels() {
+        let mut images = Assets::<Image>::default();
+        let atlases = Assets::<TextureAtlasLayout>::default();
+
+        // A 2x1 image: the left pixel is transparent, the right pixel is
+        // opaque.
+        let image = images.add(make_image(UVec2::new(2, 1), &[0, 255]));
+        let image_node = ImageNode::new(image);
+
+        // Over the left (transparent) pixel is not a hit.
+        assert!(!image_node_contains_opaque_pixel(
+            &image_node,
+            Vec2::new(0.25, 0.5),
+            0.1,
+            &images,
+            &atlases,
+        ));
+        // Over the right (opaque) pixel is a hit.
+        assert!(image_node_contains_opaque_pixel(
+            &image_node,
+            Vec2::new(0.75, 0.5),
+            0.1,
+            &images,
+            &atlases,
+        ));
+    }
+
+    #[test]
+    fn alpha_threshold_is_exclusive() {
+        let mut images = Assets::<Image>::default();
+        let atlases = Assets::<TextureAtlasLayout>::default();
+
+        // A single pixel with roughly 50% alpha (128 / 255).
+        let image = images.add(make_image(UVec2::new(1, 1), &[128]));
+        let image_node = ImageNode::new(image);
+
+        let center = Vec2::new(0.5, 0.5);
+        // Alpha above the cutoff is a hit.
+        assert!(image_node_contains_opaque_pixel(
+            &image_node,
+            center,
+            0.4,
+            &images,
+            &atlases,
+        ));
+        // Alpha at or below the cutoff is not a hit.
+        assert!(!image_node_contains_opaque_pixel(
+            &image_node,
+            center,
+            0.6,
+            &images,
+            &atlases,
+        ));
+    }
+
+    #[test]
+    fn alpha_threshold_respects_flips() {
+        let mut images = Assets::<Image>::default();
+        let atlases = Assets::<TextureAtlasLayout>::default();
+
+        // Left pixel transparent, right pixel opaque.
+        let image = images.add(make_image(UVec2::new(2, 1), &[0, 255]));
+
+        let mut flipped = ImageNode::new(image);
+        flipped.flip_x = true;
+
+        // With `flip_x`, the left half now samples the (opaque) right pixel.
+        assert!(image_node_contains_opaque_pixel(
+            &flipped,
+            Vec2::new(0.25, 0.5),
+            0.1,
+            &images,
+            &atlases,
+        ));
+        assert!(!image_node_contains_opaque_pixel(
+            &flipped,
+            Vec2::new(0.75, 0.5),
+            0.1,
+            &images,
+            &atlases,
+        ));
+    }
+
+    #[test]
+    fn alpha_threshold_respects_rect() {
+        let mut images = Assets::<Image>::default();
+        let atlases = Assets::<TextureAtlasLayout>::default();
+
+        // A 4x1 image: opaque, transparent, opaque, transparent.
+        let image = images.add(make_image(UVec2::new(4, 1), &[255, 0, 255, 0]));
+
+        let mut image_node = ImageNode::new(image);
+        // Only render the right half (pixels 2 and 3).
+        image_node.rect = Some(Rect::new(2.0, 0.0, 4.0, 1.0));
+
+        // uv.x 0.25 -> pixel 2 (opaque).
+        assert!(image_node_contains_opaque_pixel(
+            &image_node,
+            Vec2::new(0.25, 0.5),
+            0.1,
+            &images,
+            &atlases,
+        ));
+        // uv.x 0.75 -> pixel 3 (transparent).
+        assert!(!image_node_contains_opaque_pixel(
+            &image_node,
+            Vec2::new(0.75, 0.5),
+            0.1,
+            &images,
+            &atlases,
+        ));
+    }
+
+    #[test]
+    fn alpha_threshold_respects_texture_atlas() {
+        let mut images = Assets::<Image>::default();
+        let mut atlases = Assets::<TextureAtlasLayout>::default();
+
+        // A 4x1 image: left section transparent, right section opaque.
+        let image = images.add(make_image(UVec2::new(4, 1), &[0, 0, 255, 255]));
+
+        let mut layout = TextureAtlasLayout::new_empty(UVec2::new(4, 1));
+        let transparent_section = layout.add_texture(URect::new(0, 0, 2, 1));
+        let opaque_section = layout.add_texture(URect::new(2, 0, 4, 1));
+        let layout = atlases.add(layout);
+
+        let opaque_node = ImageNode::from_atlas_image(
+            image.clone(),
+            TextureAtlas {
+                layout: layout.clone(),
+                index: opaque_section,
+            },
+        );
+        assert!(image_node_contains_opaque_pixel(
+            &opaque_node,
+            Vec2::new(0.5, 0.5),
+            0.1,
+            &images,
+            &atlases,
+        ));
+
+        let transparent_node = ImageNode::from_atlas_image(
+            image,
+            TextureAtlas {
+                layout,
+                index: transparent_section,
+            },
+        );
+        assert!(!image_node_contains_opaque_pixel(
+            &transparent_node,
+            Vec2::new(0.5, 0.5),
+            0.1,
+            &images,
+            &atlases,
+        ));
+    }
+
+    #[test]
+    fn missing_image_is_always_a_hit() {
+        let images = Assets::<Image>::default();
+        let atlases = Assets::<TextureAtlasLayout>::default();
+
+        // A handle whose asset isn't present in `Assets<Image>`, which can
+        // happen while an image is still loading or if it failed to load.
+        let image_node = ImageNode::new(Handle::default());
+        assert!(image_node_contains_opaque_pixel(
+            &image_node,
+            Vec2::new(0.5, 0.5),
+            0.1,
+            &images,
+            &atlases,
+        ));
+    }
+
+    #[test]
+    fn sliced_and_tiled_modes_are_always_a_hit() {
+        let mut images = Assets::<Image>::default();
+        let atlases = Assets::<TextureAtlasLayout>::default();
+
+        // A fully transparent image, which would otherwise never be a hit.
+        let image = images.add(make_image(UVec2::new(1, 1), &[0]));
+
+        let sliced_node = ImageNode::new(image.clone())
+            .with_mode(NodeImageMode::Sliced(TextureSlicer::default()));
+        assert!(image_node_contains_opaque_pixel(
+            &sliced_node,
+            Vec2::new(0.5, 0.5),
+            0.1,
+            &images,
+            &atlases,
+        ));
+
+        let tiled_node = ImageNode::new(image).with_mode(NodeImageMode::Tiled {
+            tile_x: true,
+            tile_y: true,
+            stretch_value: 1.0,
+        });
+        assert!(image_node_contains_opaque_pixel(
+            &tiled_node,
+            Vec2::new(0.5, 0.5),
+            0.1,
+            &images,
+            &atlases,
+        ));
+    }
+}
