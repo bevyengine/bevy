@@ -5,6 +5,7 @@ use bevy::{
         controls::FeathersRadio,
         display::{caption, label},
     },
+    picking::hover::Hovered,
     prelude::*,
     ui::Checked,
     ui_widgets::RadioGroup,
@@ -85,6 +86,7 @@ where
             @FeathersRadio {
                 @caption: bsn! { caption(option_name) }
             }
+            Hovered::default()
             Checked
             RadioButtonOptionValue<T>(option_value)
         })
@@ -93,6 +95,7 @@ where
             @FeathersRadio {
                 @caption: bsn! { caption(option_name) }
             }
+            Hovered::default()
             RadioButtonOptionValue<T>(option_value)
         })
     }

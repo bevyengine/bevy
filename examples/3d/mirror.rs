@@ -2,21 +2,26 @@
 
 use std::f32::consts::FRAC_PI_2;
 
-use crate::widgets::{RadioButton, WidgetClickEvent, WidgetClickSender};
+use crate::radio::{feathers_option_buttons, main_ui_node_scene, RadioButtonOptionValue};
 use bevy::camera::RenderTarget;
 use bevy::{
     color::palettes::css::GREEN,
+    feathers::{
+        controls::FeathersRadio, dark_theme::create_dark_theme, theme::UiTheme, FeathersPlugins,
+    },
     input::mouse::AccumulatedMouseMotion,
     math::{reflection_matrix, uvec2, vec3},
     pbr::{ExtendedMaterial, MaterialExtension},
+    picking::hover::Hovered,
     prelude::*,
     render::render_resource::{AsBindGroup, TextureFormat},
     shader::ShaderRef,
+    ui_widgets::{radio_self_update, ValueChange},
     window::{PrimaryWindow, WindowResized},
 };
 
-#[path = "../helpers/widgets.rs"]
-mod widgets;
+#[path = "../helpers/radio.rs"]
+mod radio;
 
 /// A resource that stores a handle to the image that contains the rendered
 /// mirror world.
@@ -117,17 +122,14 @@ fn main() {
         .add_plugins(MaterialPlugin::<
             ExtendedMaterial<StandardMaterial, ScreenSpaceTextureExtension>,
         >::default())
+        .add_plugins(FeathersPlugins)
+        .insert_resource(UiTheme(create_dark_theme()))
         .init_resource::<AppStatus>()
-        .add_message::<WidgetClickEvent<DragAction>>()
         .add_systems(Startup, setup)
         .add_systems(Update, handle_window_resize_messages)
         .add_systems(Update, (move_camera_on_mouse_down, move_fox_on_mouse_down))
-        .add_systems(Update, widgets::handle_ui_interactions::<DragAction>)
-        .add_systems(
-            Update,
-            (handle_mouse_action_change, update_radio_buttons)
-                .after(widgets::handle_ui_interactions::<DragAction>),
-        )
+        .add_observer(handle_drag_action_change)
+        .add_observer(radio_self_update)
         .add_systems(
             Update,
             update_mirror_camera_on_main_camera_transform_change.after(move_camera_on_mouse_down),
@@ -321,16 +323,16 @@ fn spawn_mirror(
 fn spawn_buttons(commands: &mut Commands) {
     // Spawn the radio buttons that allow the user to select an object to
     // control.
-    commands.spawn((
-        widgets::main_ui_node(),
-        children![widgets::option_buttons(
+    commands.spawn_scene(bsn! {
+        main_ui_node_scene()
+        Children [feathers_option_buttons(
             "Drag Action",
             &[
                 (DragAction::MoveCamera, "Move Camera"),
                 (DragAction::MoveFox, "Move Fox"),
             ],
-        )],
-    ));
+        )]
+    });
 }
 
 /// Given the transform and projection of the main camera, returns an
@@ -431,7 +433,7 @@ fn move_fox_on_mouse_down(
     mut scene_roots_query: Query<&mut Transform, With<WorldAssetRoot>>,
     windows_query: Query<&Window, With<PrimaryWindow>>,
     cameras_query: Query<(&Camera, &GlobalTransform)>,
-    interactions_query: Query<&Interaction, With<RadioButton>>,
+    radio_hovered_query: Query<&Hovered, With<FeathersRadio>>,
     buttons: Res<ButtonInput<MouseButton>>,
     app_status: Res<AppStatus>,
 ) {
@@ -440,9 +442,7 @@ fn move_fox_on_mouse_down(
     // widget.
     if app_status.drag_action != DragAction::MoveFox
         || !buttons.pressed(MouseButton::Left)
-        || interactions_query
-            .iter()
-            .any(|interaction| *interaction != Interaction::None)
+        || radio_hovered_query.iter().any(Hovered::get)
     {
         return;
     }
@@ -476,38 +476,18 @@ fn move_fox_on_mouse_down(
     }
 }
 
-/// A system that changes the drag action when the user clicks on one of the
+/// An observer that changes the drag action when the user clicks on one of the
 /// radio buttons.
-fn handle_mouse_action_change(
+fn handle_drag_action_change(
+    event: On<ValueChange<Entity>>,
+    new_value_query: Query<&RadioButtonOptionValue<DragAction>>,
     mut app_status: ResMut<AppStatus>,
-    mut messages: MessageReader<WidgetClickEvent<DragAction>>,
 ) {
-    for message in messages.read() {
-        app_status.drag_action = **message;
-    }
-}
+    let Ok(RadioButtonOptionValue(drag_action)) = new_value_query.get(event.value) else {
+        return;
+    };
 
-/// A system that updates the radio buttons at the bottom of the screen to
-/// reflect the current drag action.
-fn update_radio_buttons(
-    mut widgets_query: Query<(
-        Entity,
-        Option<&mut BackgroundColor>,
-        Has<Text>,
-        &WidgetClickSender<DragAction>,
-    )>,
-    app_status: Res<AppStatus>,
-    mut text_ui_writer: TextUiWriter,
-) {
-    for (entity, maybe_bg_color, has_text, sender) in &mut widgets_query {
-        let selected = app_status.drag_action == **sender;
-        if let Some(mut bg_color) = maybe_bg_color {
-            widgets::update_ui_radio_button(&mut bg_color, selected);
-        }
-        if has_text {
-            widgets::update_ui_radio_button_text(entity, &mut text_ui_writer, selected);
-        }
-    }
+    app_status.drag_action = *drag_action;
 }
 
 /// A system that processes user mouse actions that move the camera.
@@ -515,7 +495,7 @@ fn update_radio_buttons(
 /// This is mostly copied from `examples/camera/camera_orbit.rs`.
 fn move_camera_on_mouse_down(
     mut main_cameras_query: Query<&mut Transform, (With<Camera>, Without<MirrorCamera>)>,
-    interactions_query: Query<&Interaction, With<RadioButton>>,
+    radio_hovered_query: Query<&Hovered, With<FeathersRadio>>,
     mouse_buttons: Res<ButtonInput<MouseButton>>,
     mouse_motion: Res<AccumulatedMouseMotion>,
     app_status: Res<AppStatus>,
@@ -525,9 +505,7 @@ fn move_camera_on_mouse_down(
     // widget.
     if app_status.drag_action != DragAction::MoveCamera
         || !mouse_buttons.pressed(MouseButton::Left)
-        || interactions_query
-            .iter()
-            .any(|interaction| *interaction != Interaction::None)
+        || radio_hovered_query.iter().any(Hovered::get)
     {
         return;
     }
