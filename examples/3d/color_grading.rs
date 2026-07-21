@@ -222,7 +222,7 @@ fn number_input_for_value(
                 width: px(50),
             }
             @FeathersNumberInput
-            template_value(NumberInputValue::F32(setting.get(&color_grading)))
+            template_value(NumberInputValue::F32(setting.get(color_grading)))
             template_value(setting)
             NumberInputPrecision(2)
             HardLimit::f32(0. ..10.)
@@ -420,7 +420,7 @@ impl ColorGradingSetting {
                 option.set(&mut color_grading.global, value);
             }
             ColorGradingSetting::Section(SectionColorGradingName::Highlights, option) => {
-                option.set(&mut color_grading.highlights, value)
+                option.set(&mut color_grading.highlights, value);
             }
             ColorGradingSetting::Section(SectionColorGradingName::Midtones, option) => {
                 option.set(&mut color_grading.midtones, value);
