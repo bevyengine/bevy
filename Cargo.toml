@@ -4906,6 +4906,7 @@ wasm = true
 name = "color_grading"
 path = "examples/3d/color_grading.rs"
 doc-scrape-examples = true
+required-features = ["bevy_feathers"]
 
 [package.metadata.example.color_grading]
 name = "Color grading"
@@ -5355,7 +5356,7 @@ wasm = false
 name = "light_textures"
 path = "examples/3d/light_textures.rs"
 doc-scrape-examples = true
-required-features = ["pbr_light_textures"]
+required-features = ["pbr_light_textures", "bevy_feathers"]
 
 [package.metadata.example.light_textures]
 name = "Light Textures"
@@ -5610,7 +5611,7 @@ wasm = false
 name = "pccm"
 path = "examples/3d/pccm.rs"
 doc-scrape-examples = true
-required-features = ["free_camera", "https"]
+required-features = ["free_camera", "https", "bevy_feathers"]
 
 [package.metadata.example.pccm]
 name = "Parallax-Corrected Cubemaps"

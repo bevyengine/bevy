@@ -8,8 +8,7 @@ use bevy::ui_widgets::radio_self_update;
 use bevy::{
     color::palettes::css::{LIME, ORANGE_RED, SILVER},
     feathers::{
-        controls::{FeathersNumberInput, HardLimit, NumberInputPrecision, NumberInputValue},
-        display::label,
+        controls::{FeathersNumberInput, NumberInputPrecision, NumberInputValue},
         theme::UiTheme,
         FeathersPlugins,
     },
@@ -28,6 +27,11 @@ use ops::{acos, cos, sin};
 
 #[path = "../helpers/radio.rs"]
 mod radio;
+
+#[path = "../helpers/number_input.rs"]
+mod number_input;
+
+use number_input::number_input_f32;
 
 /// The custom material shader that we use to demonstrate how to use the decal
 /// `tag` field.
@@ -125,6 +129,7 @@ fn main() {
         .add_systems(Update, update_help_text)
         .add_observer(handle_drag_as_movement)
         .add_observer(handle_selection_change)
+        .add_observer(handle_value_change_number_input)
         .add_observer(radio_self_update)
         .run();
 }
@@ -234,45 +239,17 @@ fn spawn_buttons(commands: &mut Commands) {
                 (Selection::DecalA, "Decal A"),
                 (Selection::DecalB, "Decal B"),
             ]),
-            number_input("Scale Multiplier", 1.0, 0.05..10., AppNumberInput::Scale),
-            number_input("Roll (-π to π)", 0.0, -PI..PI, AppNumberInput::Roll),
+
+            // The number inputs start off hidden because Camera is selected first.
+            Visibility::Hidden
+            number_input_f32("Scale Multiplier", Some(AppNumberInput::Scale), 1.0, NumberInputPrecision(2), 0.05..10.)
+            ,
+
+            Visibility::Hidden
+            number_input_f32("Roll (-π to π)", Some(AppNumberInput::Roll), 0.0, NumberInputPrecision(2), -PI..PI)
+            ,
         ]
     });
-}
-
-/// Creates a number input for a clustered decal setting.
-fn number_input(
-    name: &'static str,
-    value: f32,
-    limits: core::ops::Range<f32>,
-    app_number_input: AppNumberInput,
-) -> impl Scene {
-    bsn! {
-        // Starts off hidden as the camera is always selected first to be moved.
-        Visibility::Hidden
-        Node {
-            align_items: AlignItems::Center,
-        }
-        Children [
-            Node {
-                align_items: AlignItems::Center
-                width: px(150),
-            }
-            Children [
-                label(name)
-            ],
-
-            Node {
-                align_items: AlignItems::Center,
-            }
-            @FeathersNumberInput
-            template_value(NumberInputValue::F32(value))
-            template_value(app_number_input)
-            NumberInputPrecision(2)
-            HardLimit::f32(limits)
-            on(handle_value_change_number_input)
-        ]
-    }
 }
 
 /// Observer that handles changes to number inputs.
