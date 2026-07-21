@@ -28,7 +28,7 @@ pub mod prelude {
     };
     #[cfg(feature = "bevy_text")]
     #[doc(hidden)]
-    pub use crate::text2d::{Text2d, Text2dReader, Text2dWriter, update_text2d_layout};
+    pub use crate::text2d::{update_text2d_layout, Text2d, Text2dReader, Text2dWriter};
     #[doc(hidden)]
     pub use crate::{
         sprite::{Sprite, SpriteImageMode},
