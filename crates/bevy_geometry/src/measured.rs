@@ -12,7 +12,7 @@
 //! using exact formulas where practical, with documented approximations for
 //! measurements that have no closed-form elementary solution.
 
-use std::f32::consts::{FRAC_PI_3, PI};
+use core::f32::consts::{FRAC_PI_3, PI};
 
 use bevy_math::{ops, FloatPow};
 use bevy_shape::{
