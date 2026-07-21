@@ -35,6 +35,9 @@ downcast-rs = { version = "2", default-features = false, features = ["std"] }
 derive_more = { version = "2", default-features = false, features = ["from"] }
 smallvec = { version = "1", default-features = false, features = ["const_new"] }
 
+[dev-dependencies]
+bevy_scene = { path = "../bevy_scene" }
+
 [features]
 default = []
 
