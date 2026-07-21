@@ -5207,7 +5207,7 @@ wasm = true
 name = "specular_tint"
 path = "examples/3d/specular_tint.rs"
 doc-scrape-examples = true
-required-features = ["pbr_specular_textures"]
+required-features = ["pbr_specular_textures", "bevy_feathers"]
 
 [package.metadata.example.specular_tint]
 name = "Specular Tint"
