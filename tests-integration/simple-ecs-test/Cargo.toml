@@ -9,3 +9,6 @@ bevy = { path = "../../" }
 
 [dev-dependencies]
 bevy = { path = "../../" }
+
+[patch.crates-io]
+wesl = { git = "https://github.com/tychedelia/wesl-rs", rev = "139768ad1bd03e1eb9ac236dac618eacd6542990" }
