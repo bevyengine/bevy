@@ -51,7 +51,7 @@ pub struct RenderDebugOverlayPlugin;
 
 impl Plugin for RenderDebugOverlayPlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "debug_overlay.wgsl");
+        embedded_asset!(app, "debug_overlay.wesl");
 
         app.register_type::<RenderDebugOverlay>()
             .register_type::<GlobalRenderDebugOverlay>()
@@ -417,7 +417,7 @@ fn init_render_debug_overlay_pipeline(
     );
 
     let res = RenderDebugOverlayPipeline {
-        shader: asset_server.load("embedded://bevy_dev_tools/debug_overlay.wgsl"),
+        shader: asset_server.load("embedded://bevy_dev_tools/debug_overlay.wesl"),
         mesh_view_layouts: mesh_view_layouts.clone(),
         bind_group_layout,
         bind_group_layout_descriptor,

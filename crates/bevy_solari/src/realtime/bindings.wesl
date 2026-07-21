@@ -1,10 +1,8 @@
+import bevy_render::view::View;
+import bevy_pbr::prepass::bindings::PreviousViewUniforms;
+import bevy_solari::scene::sampling::{LightSample, NULL_LIGHT_ID};
+
 enable wgpu_ray_query;
-
-#define_import_path bevy_solari::realtime_bindings
-
-#import bevy_render::view::View
-#import bevy_pbr::prepass_bindings::PreviousViewUniforms
-#import bevy_solari::sampling::{LightSample, NULL_LIGHT_ID}
 
 @group(1) @binding(0) var view_output: texture_storage_2d<rgba16float, read_write>;
 @group(1) @binding(1) var<storage, read_write> light_tile_samples: array<LightSample>;
@@ -19,28 +17,29 @@ enable wgpu_ray_query;
 @group(1) @binding(10) var<uniform> view: View;
 @group(1) @binding(11) var<uniform> previous_view: PreviousViewUniforms;
 
-@group(1) @binding(12) var<storage, read_write> world_cache_checksums: array<atomic<u32>, #{WORLD_CACHE_SIZE}>;
-#ifdef WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER
-@group(1) @binding(13) var<storage, read_write> world_cache_life: array<u32, #{WORLD_CACHE_SIZE}>;
-#else
-@group(1) @binding(13) var<storage, read_write> world_cache_life: array<atomic<u32>, #{WORLD_CACHE_SIZE}>;
-#endif
-@group(1) @binding(14) var<storage, read_write> world_cache_radiance: array<vec4<f32>, #{WORLD_CACHE_SIZE}>;
-@group(1) @binding(15) var<storage, read_write> world_cache_geometry_data: array<WorldCacheGeometryData, #{WORLD_CACHE_SIZE}>;
-@group(1) @binding(16) var<storage, read_write> world_cache_luminance_deltas: array<f32, #{WORLD_CACHE_SIZE}>;
-@group(1) @binding(17) var<storage, read_write> world_cache_active_cells_new_radiance: array<vec3<f32>, #{WORLD_CACHE_SIZE}>;
-@group(1) @binding(18) var<storage, read_write> world_cache_a: array<u32, #{WORLD_CACHE_SIZE}>;
+@group(1) @binding(12) var<storage, read_write> world_cache_checksums: array<atomic<u32>, constants::WORLD_CACHE_SIZE>;
+@if(WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER)
+@group(1) @binding(13) var<storage, read_write> world_cache_life: array<u32, constants::WORLD_CACHE_SIZE>;
+@else
+@group(1) @binding(13) var<storage, read_write> world_cache_life: array<atomic<u32>, constants::WORLD_CACHE_SIZE>;
+@group(1) @binding(14) var<storage, read_write> world_cache_radiance: array<vec4<f32>, constants::WORLD_CACHE_SIZE>;
+@group(1) @binding(15) var<storage, read_write> world_cache_geometry_data: array<WorldCacheGeometryData, constants::WORLD_CACHE_SIZE>;
+@group(1) @binding(16) var<storage, read_write> world_cache_luminance_deltas: array<f32, constants::WORLD_CACHE_SIZE>;
+@group(1) @binding(17) var<storage, read_write> world_cache_active_cells_new_radiance: array<vec3<f32>, constants::WORLD_CACHE_SIZE>;
+@group(1) @binding(18) var<storage, read_write> world_cache_a: array<u32, constants::WORLD_CACHE_SIZE>;
 @group(1) @binding(19) var<storage, read_write> world_cache_b: array<u32, 1024u>;
-@group(1) @binding(20) var<storage, read_write> world_cache_active_cell_indices: array<u32, #{WORLD_CACHE_SIZE}>;
+@group(1) @binding(20) var<storage, read_write> world_cache_active_cell_indices: array<u32, constants::WORLD_CACHE_SIZE>;
 @group(1) @binding(21) var<storage, read_write> world_cache_active_cells_count: u32;
-@group(1) @binding(22) var<uniform> constants: SolariLightingSettings;
+@group(1) @binding(22) var<uniform> settings: SolariLightingSettings;
 
-#ifdef DLSS_RR_GUIDE_BUFFERS
+@if(DLSS_RR_GUIDE_BUFFERS)
 @group(2) @binding(0) var diffuse_albedo: texture_storage_2d<rgba8unorm, write>;
+@if(DLSS_RR_GUIDE_BUFFERS)
 @group(2) @binding(1) var specular_albedo: texture_storage_2d<rgba8unorm, write>;
+@if(DLSS_RR_GUIDE_BUFFERS)
 @group(2) @binding(2) var normal_roughness: texture_storage_2d<rgba16float, write>;
+@if(DLSS_RR_GUIDE_BUFFERS)
 @group(2) @binding(3) var specular_motion_vectors: texture_storage_2d<rg16float, write>;
-#endif
 
 // User-configurable settings from the `SolariLighting` component, plus per-frame
 // state. Field order and types must match `SolariLightingUniforms` in `prepare.rs`.

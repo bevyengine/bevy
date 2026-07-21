@@ -20,7 +20,7 @@ use bevy::{
 };
 
 /// This example uses a shader source file from the assets subdirectory
-const SHADER_ASSET_PATH: &str = "shaders/gpu_readback.wgsl";
+const SHADER_ASSET_PATH: &str = "shaders/gpu_readback.wesl";
 
 // The length of the buffer sent to the gpu
 const BUFFER_LEN: usize = 16;

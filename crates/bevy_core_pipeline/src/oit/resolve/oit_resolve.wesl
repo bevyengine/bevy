@@ -1,17 +1,16 @@
 // Reference:
 // Order-independent transparency with per-pixel ordered linked lists - https://github.com/KhronosGroup/Vulkan-Samples/blob/main/shaders/oit_linked_lists/combine.frag
 
-#import bevy_render::view::View
-#import bevy_pbr::mesh_view_types::OitFragmentNode
+import bevy_render::view::View;
+import bevy_pbr::render::mesh_view_types::OitFragmentNode;
 
 @group(0) @binding(0) var<uniform> view: View;
 @group(0) @binding(1) var<storage, read> nodes: array<OitFragmentNode>;
 @group(0) @binding(2) var<storage, read_write> heads: array<u32>; // No need to be atomic
 @group(0) @binding(3) var<storage, read_write> atomic_counter: u32; // No need to be atomic
 
-#ifndef DEPTH_PREPASS
+@if(!DEPTH_PREPASS)
 @group(1) @binding(0) var depth: texture_depth_2d;
-#endif
 
 struct OitFragment {
     color: u32,
@@ -24,7 +23,7 @@ struct FullscreenVertexOutput {
 };
 
 const LINKED_LIST_END_SENTINEL: u32 = 0xFFFFFFFFu;
-const SORTED_FRAGMENT_MAX_COUNT: u32 = #{SORTED_FRAGMENT_MAX_COUNT};
+const SORTED_FRAGMENT_MAX_COUNT: u32 = constants::SORTED_FRAGMENT_MAX_COUNT;
 
 @fragment
 fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
@@ -39,15 +38,14 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
         }
         return vec4(0.0);
     } else {
-#ifndef DEPTH_PREPASS
+        @if(!DEPTH_PREPASS)
         // If depth prepass is disabled, load depth for manual depth testing.
         // This is necessary because early z doesn't seem to trigger in the transparent pass.
         // This should be done during the draw pass so those fragments simply don't exist in the list,
         // but this requires a bigger refactor
         let d = textureLoad(depth, vec2<i32>(in.position.xy), 0);
-#else
+        @else
         let d = 0.0;
-#endif
         let color = resolve(head, d);
         heads[screen_index] = 0u; // LINKED_LIST_END_SENTINEL + 1u;
         return color;
@@ -62,7 +60,7 @@ fn resolve(head: u32, opaque_depth: f32) -> vec4<f32> {
     var fragment_list: array<OitFragment, SORTED_FRAGMENT_MAX_COUNT>;
     var final_color = vec4<f32>(0.0);
 
-    var packed_opaque_depth = bevy_core_pipeline::oit::pack_24bit_depth_8bit_alpha(opaque_depth, 1.0);
+    var packed_opaque_depth = bevy_core_pipeline::oit::draw::pack_24bit_depth_8bit_alpha(opaque_depth, 1.0);
 
     // fill list
     var current_node = head;
@@ -71,12 +69,11 @@ fn resolve(head: u32, opaque_depth: f32) -> vec4<f32> {
         let fragment_node = nodes[current_node];
         current_node = fragment_node.next;
 
-#ifndef DEPTH_PREPASS
+        @if(!DEPTH_PREPASS)
         // depth testing
         if fragment_node.depth_alpha < packed_opaque_depth {
             continue;
         }
-#endif
 
         if sorted_frag_count < SORTED_FRAGMENT_MAX_COUNT {
             // There is still room in the sorted list.
@@ -93,7 +90,7 @@ fn resolve(head: u32, opaque_depth: f32) -> vec4<f32> {
             // First, make room by blending the nearest fragment from the sorted list.
             // Then, insert the fragment in the sorted list.
             // This is an approximation.
-            let nearest_color = bevy_pbr::rgb9e5::rgb9e5_to_vec3_(fragment_list[0].color);
+            let nearest_color = bevy_pbr::render::rgb9e5::rgb9e5_to_vec3_(fragment_list[0].color);
             let nearest_alpha = packed_depth_alpha_get_alpha(fragment_list[0].depth_alpha);
             final_color = blend(final_color, vec4f(nearest_color * nearest_alpha, nearest_alpha));
             var i = 0u;
@@ -106,7 +103,7 @@ fn resolve(head: u32, opaque_depth: f32) -> vec4<f32> {
             // The next fragment is nearer than any of the sorted ones.
             // Blend it early.
             // This is an approximation.
-            let color = bevy_pbr::rgb9e5::rgb9e5_to_vec3_(fragment_node.color);
+            let color = bevy_pbr::render::rgb9e5::rgb9e5_to_vec3_(fragment_node.color);
             let alpha = packed_depth_alpha_get_alpha(fragment_node.depth_alpha);
             final_color = blend(final_color, vec4f(color * alpha, alpha));
         }
@@ -114,7 +111,7 @@ fn resolve(head: u32, opaque_depth: f32) -> vec4<f32> {
 
     // blend sorted fragments
     for (var i = 0u; i < sorted_frag_count; i += 1) {
-        let color = bevy_pbr::rgb9e5::rgb9e5_to_vec3_(fragment_list[i].color);
+        let color = bevy_pbr::render::rgb9e5::rgb9e5_to_vec3_(fragment_list[i].color);
         let alpha = packed_depth_alpha_get_alpha(fragment_list[i].depth_alpha);
         var base_color = vec4(color.rgb, alpha);
         final_color = blend(final_color, base_color);
@@ -135,5 +132,5 @@ fn blend(color_a: vec4<f32>, color_b: vec4<f32>) -> vec4<f32> {
 }
 
 fn packed_depth_alpha_get_alpha(packed: u32) -> f32 {
-    return bevy_core_pipeline::oit::unpack_24bit_depth_8bit_alpha(packed).y;
+    return bevy_core_pipeline::oit::draw::unpack_24bit_depth_8bit_alpha(packed).y;
 }

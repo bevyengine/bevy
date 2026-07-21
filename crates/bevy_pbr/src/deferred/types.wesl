@@ -1,9 +1,7 @@
-#define_import_path bevy_pbr::pbr_deferred_types
-
-#import bevy_pbr::{
+import bevy_pbr::render::{
     mesh_types::MESH_FLAGS_SHADOW_RECEIVER_BIT,
     pbr_types::{STANDARD_MATERIAL_FLAGS_FOG_ENABLED_BIT, STANDARD_MATERIAL_FLAGS_UNLIT_BIT},
-}
+};
 
 // Maximum of 8 bits available
 const DEFERRED_FLAGS_UNLIT_BIT: u32                 = 1u << 0u;

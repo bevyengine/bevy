@@ -1,6 +1,6 @@
-#import bevy_render::view::View
-#import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput
-#import bevy_pbr::view_transformations::uv_to_ndc
+import bevy_render::view::View;
+import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput;
+import bevy_pbr::render::view_transformations::uv_to_ndc;
 
 struct PreviousViewUniforms {
     view_from_world: mat4x4<f32>,

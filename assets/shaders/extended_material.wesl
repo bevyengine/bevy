@@ -1,31 +1,31 @@
-#import bevy_pbr::{
+import bevy_pbr::render::{
     pbr_fragment::pbr_input_from_standard_material,
     pbr_functions::alpha_discard,
-}
+};
 
-#ifdef PREPASS_PIPELINE
-#import bevy_pbr::{
-    prepass_io::{VertexOutput, FragmentOutput},
-    pbr_deferred_functions::deferred_output,
-}
-#else
-#import bevy_pbr::{
+@if(PREPASS_PIPELINE)
+import bevy_pbr::{
+    prepass::io::{VertexOutput, FragmentOutput},
+    deferred::functions::deferred_output,
+};
+@else
+import bevy_pbr::render::{
     forward_io::{VertexOutput, FragmentOutput},
     pbr_functions::{apply_pbr_lighting, main_pass_post_lighting_processing},
-}
-#endif
+};
 
 struct MyExtendedMaterial {
     quantize_steps: u32,
-#ifdef SIXTEEN_BYTE_ALIGNMENT
     // Web examples WebGL2 support: structs must be 16 byte aligned.
+    @if(SIXTEEN_BYTE_ALIGNMENT)
     _webgl2_padding_8b: u32,
+    @if(SIXTEEN_BYTE_ALIGNMENT)
     _webgl2_padding_12b: u32,
+    @if(SIXTEEN_BYTE_ALIGNMENT)
     _webgl2_padding_16b: u32,
-#endif
 }
 
-@group(#{MATERIAL_BIND_GROUP}) @binding(100)
+@group(constants::MATERIAL_BIND_GROUP) @binding(100)
 var<uniform> my_extended_material: MyExtendedMaterial;
 
 @fragment
@@ -46,11 +46,11 @@ fn fragment(
         pbr_input.material.base_color
     );
 
-#ifdef PREPASS_PIPELINE
-    // in deferred mode we can't modify anything after that, as lighting is run in a separate fullscreen shader.
-    let out = deferred_output(in, pbr_input);
-#else
     var out: FragmentOutput;
+@if(PREPASS_PIPELINE) {
+    // in deferred mode we can't modify anything after that, as lighting is run in a separate fullscreen shader.
+    out = deferred_output(in, pbr_input);
+} @else {
     // apply lighting
     out.color = apply_pbr_lighting(pbr_input);
 
@@ -63,7 +63,7 @@ fn fragment(
 
     // we can optionally modify the final result here
     out.color = out.color * 2.0;
-#endif
+}
 
     return out;
 }

@@ -3,10 +3,10 @@
 // This shader is needed because we reuse the same indirect batch set count
 // buffer (i.e. the buffer that gets passed to `multi_draw_indirect_count` to
 // determine how many objects to draw) between phases (early, late, and main).
-// Before launching `build_indirect_params.wgsl`, we need to reinitialize the
+// Before launching `build_indirect_params.wesl`, we need to reinitialize the
 // value to 0.
 
-#import bevy_pbr::mesh_preprocess_types::IndirectBatchSet
+import bevy_render::occlusion_culling::mesh_preprocess_types::IndirectBatchSet;
 
 @group(0) @binding(0) var<storage, read_write> indirect_batch_sets: array<IndirectBatchSet>;
 

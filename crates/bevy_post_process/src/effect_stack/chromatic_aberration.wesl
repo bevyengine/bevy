@@ -2,8 +2,6 @@
 //
 // This makes edges of objects turn into multicolored streaks.
 
-#define_import_path bevy_post_process::effect_stack::chromatic_aberration
-
 // See `bevy_post_process::effect_stack::ChromaticAberration` for more
 // information on these fields.
 struct ChromaticAberrationSettings {

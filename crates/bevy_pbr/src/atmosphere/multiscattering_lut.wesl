@@ -1,4 +1,4 @@
-#import bevy_pbr::{
+import bevy_pbr::{
     atmosphere::{
         bindings::{atmosphere, settings},
         functions::{
@@ -9,9 +9,9 @@
         },
         bruneton_functions::ray_intersects_ground
     }
-}
+};
 
-#import bevy_render::maths::{PI, PI_2}
+import bevy_render::maths::{PI, PI_2};
 
 const PHI_2: vec2<f32> = vec2(1.3247179572447460259609088, 1.7548776662466927600495087);
 

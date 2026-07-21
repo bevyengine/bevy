@@ -1,8 +1,6 @@
-#define_import_path bevy_pbr::atmosphere::functions
+import bevy_render::maths::{PI, HALF_PI, PI_2, fast_acos, fast_acos_4, fast_atan2, ray_sphere_intersect};
 
-#import bevy_render::maths::{PI, HALF_PI, PI_2, fast_acos, fast_acos_4, fast_atan2, ray_sphere_intersect}
-
-#import bevy_pbr::atmosphere::{
+import bevy_pbr::atmosphere::{
     types::Atmosphere,
     bindings::{
         atmosphere, settings, view, lights, transmittance_lut, atmosphere_lut_sampler,
@@ -13,7 +11,7 @@
         transmittance_lut_r_mu_to_uv, ray_intersects_ground,
         distance_to_top_atmosphere_boundary, distance_to_bottom_atmosphere_boundary
     },
-}
+};
 
 // NOTE FOR CONVENTIONS: 
 // r:
@@ -119,9 +117,9 @@ fn sample_transmittance_lut(r: f32, mu: f32) -> vec3<f32> {
 }
 
 // NOTICE: This function is copyrighted by Eric Bruneton and INRIA, and falls
-// under the license reproduced in bruneton_functions.wgsl (variant of MIT license)
+// under the license reproduced in bruneton_functions.wesl (variant of MIT license)
 //
-// FIXME: this function should be in bruneton_functions.wgsl, but because naga_oil doesn't 
+// FIXME: this function should be in bruneton_functions.wesl, but because naga_oil doesn't 
 // support cyclic imports it's stuck here
 fn sample_transmittance_lut_segment(r: f32, mu: f32, t: f32) -> vec3<f32> {
     let r_t = get_local_r(r, mu, t);

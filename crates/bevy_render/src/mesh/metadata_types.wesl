@@ -1,4 +1,3 @@
-#define_import_path bevy_render::mesh_metadata_types
 
 struct MeshMetadata {
     // AABB for decompressing positions.

@@ -1,19 +1,16 @@
-#ifdef TONEMAP_IN_SHADER
-#import bevy_core_pipeline::tonemapping
-#endif
-#ifdef SRGB_OUTPUT
-#import bevy_render::color_operations::linear_to_srgb
-#endif
-#ifdef OKLAB_OUTPUT
-#import bevy_render::color_operations::linear_rgb_to_oklab
-#endif
+@if(TONEMAP_IN_SHADER)
+import bevy_core_pipeline::tonemapping;
+@if(SRGB_OUTPUT)
+import bevy_render::color_operations::linear_to_srgb;
+@if(OKLAB_OUTPUT)
+import bevy_render::color_operations::linear_rgb_to_oklab;
 
-#import bevy_render::{
+import bevy_render::{
     maths::affine3_to_square,
     view::View,
-}
+};
 
-#import bevy_sprite::sprite_view_bindings::view
+import bevy_sprite_render::render::sprite_view_bindings::view;
 
 struct VertexInput {
     @builtin(vertex_index) index: u32,
@@ -61,17 +58,14 @@ fn vertex(in: VertexInput) -> VertexOutput {
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     var color = in.color * textureSample(sprite_texture, sprite_sampler, in.uv);
 
-#ifdef TONEMAP_IN_SHADER
+@if(TONEMAP_IN_SHADER)
     color = tonemapping::tone_mapping(color, view.color_grading);
-#endif
 
-#ifdef SRGB_OUTPUT
+@if(SRGB_OUTPUT)
     color = vec4(linear_to_srgb(color.rgb), color.a);
-#endif
 
-#ifdef OKLAB_OUTPUT
+@if(OKLAB_OUTPUT)
     color = vec4(linear_rgb_to_oklab(color.rgb), color.a);
-#endif
 
     return color;
 }

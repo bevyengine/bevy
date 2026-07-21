@@ -10,22 +10,21 @@
 // Source code base on SSRT3 implementation
 // https://github.com/cdrinmatane/SSRT3
 
-#import bevy_render::maths::fast_acos
+import bevy_render::maths::fast_acos;
 
-#import bevy_render::{
+import bevy_render::{
     view::View,
     globals::Globals,
     maths::{PI, HALF_PI},
-}
+};
 
 @group(0) @binding(0) var preprocessed_depth: texture_2d<f32>;
 @group(0) @binding(1) var normals: texture_2d<f32>;
 @group(0) @binding(2) var hilbert_index_lut: texture_2d<u32>;
-#ifdef USE_R16FLOAT
+@if(USE_R16FLOAT)
 @group(0) @binding(3) var ambient_occlusion: texture_storage_2d<r16float, write>;
-#else
+@else
 @group(0) @binding(3) var ambient_occlusion: texture_storage_2d<r32float, write>;
-#endif
 @group(0) @binding(4) var depth_differences: texture_storage_2d<r32uint, write>;
 @group(0) @binding(5) var<uniform> globals: Globals;
 struct SsaoSettings {
@@ -40,9 +39,8 @@ struct SsaoSettings {
 fn load_noise(pixel_coordinates: vec2<i32>) -> vec2<f32> {
     var index = textureLoad(hilbert_index_lut, pixel_coordinates % 64, 0).r;
 
-#ifdef TEMPORAL_JITTER
+@if(TEMPORAL_JITTER)
     index += 288u * (globals.frame_count % 64u);
-#endif
 
     // R2 sequence - http://extremelearning.com.au/unreasonable-effectiveness-of-quasirandom-sequences
     return fract(0.5 + f32(index) * vec2<f32>(0.75487766624669276005, 0.5698402909980532659114));
@@ -136,8 +134,8 @@ fn processSample(
 @compute
 @workgroup_size(8, 8, 1)
 fn ssao(@builtin(global_invocation_id) global_id: vec3<u32>) {
-    let slice_count = f32(#SLICE_COUNT);
-    let samples_per_slice_side = f32(#SAMPLES_PER_SLICE_SIDE);
+    let slice_count = f32(constants::SLICE_COUNT);
+    let samples_per_slice_side = f32(constants::SAMPLES_PER_SLICE_SIDE);
 
     let pixel_coordinates = vec2<i32>(global_id.xy);
     let uv = (vec2<f32>(pixel_coordinates) + 0.5) / view.viewport.zw;

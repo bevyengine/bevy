@@ -1,11 +1,11 @@
-#import bevy_render::view::View;
-#import bevy_render::globals::Globals;
-#import bevy_ui::ui_node::{
+import bevy_render::view::View;
+import bevy_render::globals::Globals;
+import bevy_ui_render::ui::{
     select_corner_radius
-}
+};
 
 const PI: f32 = 3.14159265358979323846;
-const SAMPLES: i32 = #SHADOW_SAMPLES;
+const SAMPLES: i32 = constants::SHADOW_SAMPLES;
 
 @group(0) @binding(0) var<uniform> view: View;
 

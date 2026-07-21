@@ -26,23 +26,17 @@
 // Note that the order in which decals are returned is currently unpredictable,
 // though generally stable from frame to frame.
 
-#define_import_path bevy_pbr::decal::clustered
+import bevy_pbr::render::clustered_forward;
+import bevy_pbr::render::clustered_forward::ClusterableObjectIndexRanges;
+import bevy_pbr::render::mesh_view_bindings;
+import bevy_pbr::render::pbr_functions;
+import bevy_pbr::render::pbr_types::PbrInput;
+import bevy_pbr::render::utils::porter_duff_over;
+import bevy_render::maths;
 
-#import bevy_pbr::clustered_forward
-#import bevy_pbr::clustered_forward::ClusterableObjectIndexRanges
-#import bevy_pbr::mesh_view_bindings
-#import bevy_pbr::pbr_functions
-#import bevy_pbr::pbr_types::PbrInput
-#import bevy_pbr::utils::porter_duff_over
-#import bevy_render::maths
-
-#ifdef MESHLET_MESH_MATERIAL_PASS
-#import bevy_pbr::meshlet_visibility_buffer_resolve::VertexOutput
-#else ifdef PREPASS_PIPELINE
-#import bevy_pbr::prepass_io::VertexOutput
-#else
-#import bevy_pbr::forward_io::VertexOutput
-#endif
+@if(MESHLET_MESH_MATERIAL_PASS) import bevy_pbr::meshlet::visibility_buffer_resolve::VertexOutput;
+@elif(PREPASS_PIPELINE) import bevy_pbr::prepass::io::VertexOutput;
+@else import bevy_pbr::render::forward_io::VertexOutput;
 
 // An object that allows stepping through all clustered decals that affect a
 // single fragment.
@@ -70,7 +64,7 @@ struct ClusteredDecalIterator {
     world_position: vec3<f32>,
 }
 
-#ifdef CLUSTERED_DECALS_ARE_USABLE
+@if(CLUSTERED_DECALS_ARE_USABLE)
 
 // Creates a new iterator over the decals at the current fragment.
 //
@@ -102,6 +96,7 @@ fn clustered_decal_iterator_new(
     );
 }
 
+@if(CLUSTERED_DECALS_ARE_USABLE)
 // Populates the `iterator.texture_index` and `iterator.uv` fields for the next
 // decal overlapping the current world position.
 //
@@ -149,8 +144,6 @@ fn clustered_decal_iterator_next(iterator: ptr<function, ClusteredDecalIterator>
     return false;
 }
 
-#endif  // CLUSTERED_DECALS_ARE_USABLE
-
 // Returns the view-space Z coordinate for the given world position.
 fn get_view_z(world_position: vec3<f32>) -> f32 {
     return dot(vec4<f32>(
@@ -178,7 +171,7 @@ fn apply_decals(pbr_input: ptr<function, PbrInput>) {
     var metallic = (*pbr_input).material.metallic;
     var perceptual_roughness = (*pbr_input).material.perceptual_roughness;
 
-#ifdef CLUSTERED_DECALS_ARE_USABLE
+@if(CLUSTERED_DECALS_ARE_USABLE) {
     // Fetch the clusterable object index ranges for this world position.
 
     let view_z = get_view_z(world_position);
@@ -229,7 +222,7 @@ fn apply_decals(pbr_input: ptr<function, PbrInput>) {
             base_color = porter_duff_over(base_color, decal_base_color);
         }
 
-#ifdef VERTEX_TANGENTS
+        @if(VERTEX_TANGENTS)
         if (iterator.normal_map_texture_index >= 0) {
             let Nd = textureSampleLevel(
                 mesh_view_bindings::clustered_decal_textures[iterator.normal_map_texture_index],
@@ -242,7 +235,6 @@ fn apply_decals(pbr_input: ptr<function, PbrInput>) {
             // [1]: https://blog.selfshadow.com/publications/blending-in-detail/
             Nt = vec3(Nt.xy + Nd.xy, Nt.z * Nd.z);
         }
-#endif  // VERTEX_TANGENTS
 
         // Apply emissive.
         if (iterator.emissive_texture_index >= 0) {
@@ -255,7 +247,7 @@ fn apply_decals(pbr_input: ptr<function, PbrInput>) {
             emissive += vec4(decal_emissive.rgb, 0.0);
         }
     }
-#endif  // CLUSTERED_DECALS_ARE_USABLE
+}
 
     (*pbr_input).material.base_color = base_color;
     (*pbr_input).material.emissive = emissive;

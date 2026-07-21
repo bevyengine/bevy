@@ -18,7 +18,7 @@ struct BloomUniforms {
 
 @group(0) @binding(2) var<uniform> uniforms: BloomUniforms;
 
-#ifdef FIRST_DOWNSAMPLE
+@if(FIRST_DOWNSAMPLE)
 // https://catlikecoding.com/unity/tutorials/advanced-rendering/bloom/#3.4
 fn soft_threshold(color: vec3<f32>) -> vec3<f32> {
     let brightness = max(color.r, max(color.g, color.b));
@@ -29,7 +29,6 @@ fn soft_threshold(color: vec3<f32>) -> vec3<f32> {
     contribution /= max(brightness, 0.00001); // Prevent division by 0
     return color * contribution;
 }
-#endif
 
 // luminance coefficients from Rec. 709.
 // https://en.wikipedia.org/wiki/Rec._709
@@ -47,7 +46,20 @@ fn karis_average(color: vec3<f32>) -> f32 {
 
 // [COD] slide 153
 fn sample_input_13_tap(uv: vec2<f32>) -> vec3<f32> {
-#ifdef UNIFORM_SCALE
+    var a: vec3<f32>;
+    var b: vec3<f32>;
+    var c: vec3<f32>;
+    var d: vec3<f32>;
+    var e: vec3<f32>;
+    var f: vec3<f32>;
+    var g: vec3<f32>;
+    var h: vec3<f32>;
+    var i: vec3<f32>;
+    var j: vec3<f32>;
+    var k: vec3<f32>;
+    var l: vec3<f32>;
+    var m: vec3<f32>;
+@if(UNIFORM_SCALE) {
     // This is the fast path. When the bloom scale is uniform, the 13 tap sampling kernel can be
     // expressed with constant offsets.
     //
@@ -55,20 +67,20 @@ fn sample_input_13_tap(uv: vec2<f32>) -> vec3<f32> {
     // is hard to test performance on all platforms, and uniform bloom is the most common case, this
     // path was retained when adding non-uniform (anamorphic) bloom. This adds a small, but nonzero,
     // cost to maintainability, but it does help me sleep at night.
-    let a = textureSample(input_texture, s, uv, vec2<i32>(-2, 2)).rgb;
-    let b = textureSample(input_texture, s, uv, vec2<i32>(0, 2)).rgb;
-    let c = textureSample(input_texture, s, uv, vec2<i32>(2, 2)).rgb;
-    let d = textureSample(input_texture, s, uv, vec2<i32>(-2, 0)).rgb;
-    let e = textureSample(input_texture, s, uv).rgb;
-    let f = textureSample(input_texture, s, uv, vec2<i32>(2, 0)).rgb;
-    let g = textureSample(input_texture, s, uv, vec2<i32>(-2, -2)).rgb;
-    let h = textureSample(input_texture, s, uv, vec2<i32>(0, -2)).rgb;
-    let i = textureSample(input_texture, s, uv, vec2<i32>(2, -2)).rgb;
-    let j = textureSample(input_texture, s, uv, vec2<i32>(-1, 1)).rgb;
-    let k = textureSample(input_texture, s, uv, vec2<i32>(1, 1)).rgb;
-    let l = textureSample(input_texture, s, uv, vec2<i32>(-1, -1)).rgb;
-    let m = textureSample(input_texture, s, uv, vec2<i32>(1, -1)).rgb;
-#else
+    a = textureSample(input_texture, s, uv, vec2<i32>(-2, 2)).rgb;
+    b = textureSample(input_texture, s, uv, vec2<i32>(0, 2)).rgb;
+    c = textureSample(input_texture, s, uv, vec2<i32>(2, 2)).rgb;
+    d = textureSample(input_texture, s, uv, vec2<i32>(-2, 0)).rgb;
+    e = textureSample(input_texture, s, uv).rgb;
+    f = textureSample(input_texture, s, uv, vec2<i32>(2, 0)).rgb;
+    g = textureSample(input_texture, s, uv, vec2<i32>(-2, -2)).rgb;
+    h = textureSample(input_texture, s, uv, vec2<i32>(0, -2)).rgb;
+    i = textureSample(input_texture, s, uv, vec2<i32>(2, -2)).rgb;
+    j = textureSample(input_texture, s, uv, vec2<i32>(-1, 1)).rgb;
+    k = textureSample(input_texture, s, uv, vec2<i32>(1, 1)).rgb;
+    l = textureSample(input_texture, s, uv, vec2<i32>(-1, -1)).rgb;
+    m = textureSample(input_texture, s, uv, vec2<i32>(1, -1)).rgb;
+} @else {
     // This is the flexible, but potentially slower, path for non-uniform sampling. Because the
     // sample is not a constant, and it can fall outside of the limits imposed on constant sample
     // offsets (-8..8), we have to compute the pixel offset in uv coordinates using the size of the
@@ -83,22 +95,22 @@ fn sample_input_13_tap(uv: vec2<f32>) -> vec3<f32> {
     let pl = 2.0 * ps;
     let ns = -1.0 * ps;
     let nl = -2.0 * ps;
-    let a = textureSample(input_texture, s, uv + vec2<f32>(nl.x, pl.y)).rgb;
-    let b = textureSample(input_texture, s, uv + vec2<f32>(0.00, pl.y)).rgb;
-    let c = textureSample(input_texture, s, uv + vec2<f32>(pl.x, pl.y)).rgb;
-    let d = textureSample(input_texture, s, uv + vec2<f32>(nl.x, 0.00)).rgb;
-    let e = textureSample(input_texture, s, uv).rgb;
-    let f = textureSample(input_texture, s, uv + vec2<f32>(pl.x, 0.00)).rgb;
-    let g = textureSample(input_texture, s, uv + vec2<f32>(nl.x, nl.y)).rgb;
-    let h = textureSample(input_texture, s, uv + vec2<f32>(0.00, nl.y)).rgb;
-    let i = textureSample(input_texture, s, uv + vec2<f32>(pl.x, nl.y)).rgb;
-    let j = textureSample(input_texture, s, uv + vec2<f32>(ns.x, ps.y)).rgb;
-    let k = textureSample(input_texture, s, uv + vec2<f32>(ps.x, ps.y)).rgb;
-    let l = textureSample(input_texture, s, uv + vec2<f32>(ns.x, ns.y)).rgb;
-    let m = textureSample(input_texture, s, uv + vec2<f32>(ps.x, ns.y)).rgb;
-#endif
+    a = textureSample(input_texture, s, uv + vec2<f32>(nl.x, pl.y)).rgb;
+    b = textureSample(input_texture, s, uv + vec2<f32>(0.00, pl.y)).rgb;
+    c = textureSample(input_texture, s, uv + vec2<f32>(pl.x, pl.y)).rgb;
+    d = textureSample(input_texture, s, uv + vec2<f32>(nl.x, 0.00)).rgb;
+    e = textureSample(input_texture, s, uv).rgb;
+    f = textureSample(input_texture, s, uv + vec2<f32>(pl.x, 0.00)).rgb;
+    g = textureSample(input_texture, s, uv + vec2<f32>(nl.x, nl.y)).rgb;
+    h = textureSample(input_texture, s, uv + vec2<f32>(0.00, nl.y)).rgb;
+    i = textureSample(input_texture, s, uv + vec2<f32>(pl.x, nl.y)).rgb;
+    j = textureSample(input_texture, s, uv + vec2<f32>(ns.x, ps.y)).rgb;
+    k = textureSample(input_texture, s, uv + vec2<f32>(ps.x, ps.y)).rgb;
+    l = textureSample(input_texture, s, uv + vec2<f32>(ns.x, ns.y)).rgb;
+    m = textureSample(input_texture, s, uv + vec2<f32>(ps.x, ns.y)).rgb;
+}
 
-#ifdef FIRST_DOWNSAMPLE
+@if(FIRST_DOWNSAMPLE) {
     // [COD] slide 168
     //
     // The first downsample pass reads from the rendered frame which may exhibit
@@ -118,12 +130,12 @@ fn sample_input_13_tap(uv: vec2<f32>) -> vec3<f32> {
     group3 *= karis_average(group3);
     group4 *= karis_average(group4);
     return group0 + group1 + group2 + group3 + group4;
-#else
+} @else {
     var sample = (a + c + g + i) * 0.03125;
     sample += (b + d + f + h) * 0.0625;
     sample += (e + j + k + l + m) * 0.125;
     return sample;
-#endif
+}
 }
 
 // [COD] slide 162
@@ -153,7 +165,7 @@ fn sample_input_3x3_tent(uv: vec2<f32>) -> vec3<f32> {
     return sample;
 }
 
-#ifdef FIRST_DOWNSAMPLE
+@if(FIRST_DOWNSAMPLE)
 @fragment
 fn downsample_first(@location(0) output_uv: vec2<f32>) -> @location(0) vec4<f32> {
     let sample_uv = uniforms.viewport.xy + output_uv * uniforms.viewport.zw;
@@ -164,13 +176,11 @@ fn downsample_first(@location(0) output_uv: vec2<f32>) -> @location(0) vec4<f32>
     // with f32::MAX (E+38) Chrome fails with ":value 340282346999999984391321947108527833088.0 cannot be represented as 'f32'"
     sample = clamp(sample, vec3<f32>(0.0001), vec3<f32>(3.40282347E+37));
 
-#ifdef USE_THRESHOLD
+@if(USE_THRESHOLD)
     sample = soft_threshold(sample);
-#endif
 
     return vec4<f32>(sample, 1.0);
 }
-#endif
 
 @fragment
 fn downsample(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {

@@ -37,7 +37,7 @@ pub struct UiTextureSlicerPlugin;
 
 impl Plugin for UiTextureSlicerPlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "ui_texture_slice.wgsl");
+        embedded_asset!(app, "ui_texture_slice.wesl");
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -132,7 +132,7 @@ pub fn init_ui_texture_slice_pipeline(mut commands: Commands, asset_server: Res<
     commands.insert_resource(UiTextureSlicePipeline {
         view_layout,
         image_layout,
-        shader: load_embedded_asset!(asset_server.as_ref(), "ui_texture_slice.wgsl"),
+        shader: load_embedded_asset!(asset_server.as_ref(), "ui_texture_slice.wesl"),
     });
 }
 

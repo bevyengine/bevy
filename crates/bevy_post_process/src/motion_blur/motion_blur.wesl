@@ -1,58 +1,56 @@
-#import bevy_pbr::prepass_utils
-#import bevy_pbr::utils
-#import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput
-#import bevy_render::globals::Globals
+import bevy_pbr::prepass::utils as prepass_utils;
+import bevy_pbr::render::utils;
+import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput;
+import bevy_render::globals::Globals;
 
-#ifdef MULTISAMPLED
+@if(MULTISAMPLED)
 @group(0) @binding(0) var screen_texture: texture_2d<f32>;
+@if(MULTISAMPLED)
 @group(0) @binding(1) var motion_vectors: texture_multisampled_2d<f32>;
+@if(MULTISAMPLED)
 @group(0) @binding(2) var depth: texture_multisampled_2d<f32>;
-#else
+@if(!MULTISAMPLED)
 @group(0) @binding(0) var screen_texture: texture_2d<f32>;
+@if(!MULTISAMPLED)
 @group(0) @binding(1) var motion_vectors: texture_2d<f32>;
+@if(!MULTISAMPLED)
 @group(0) @binding(2) var depth: texture_2d<f32>;
-#endif
 @group(0) @binding(3) var texture_sampler: sampler;
 struct MotionBlur {
     shutter_angle: f32,
     samples: u32,
-#ifdef SIXTEEN_BYTE_ALIGNMENT
+@if(SIXTEEN_BYTE_ALIGNMENT)
     // WebGL2 structs must be 16 byte aligned.
     _webgl2_padding: vec2<f32>
-#endif
 }
 @group(0) @binding(4) var<uniform> settings: MotionBlur;
 @group(0) @binding(5) var<uniform> globals: Globals;
 
 @fragment
 fn fragment(
-    #ifdef MULTISAMPLED
+    @if(MULTISAMPLED)
         @builtin(sample_index) sample_index: u32,
-    #endif
     in: FullscreenVertexOutput
 ) -> @location(0) vec4<f32> {
     let texture_size = vec2<f32>(textureDimensions(screen_texture));
     let frag_coords = vec2<i32>(in.uv * texture_size);
 
-#ifdef MULTISAMPLED
+@if(MULTISAMPLED)
     let base_color = textureLoad(screen_texture, frag_coords, i32(sample_index));
-#else
+@else
     let base_color = textureSample(screen_texture, texture_sampler, in.uv);
-#endif
 
     let shutter_angle = settings.shutter_angle;
 
-#ifdef MULTISAMPLED
+@if(MULTISAMPLED)
     let this_motion_vector = textureLoad(motion_vectors, frag_coords, i32(sample_index)).rg;
-#else
+@else
     let this_motion_vector = textureSample(motion_vectors, texture_sampler, in.uv).rg;
-#endif
 
-#ifdef MULTISAMPLED
+@if(MULTISAMPLED)
     let this_depth = textureLoad(depth, frag_coords, i32(sample_index)).x;
-#else
+@else
     let this_depth = textureLoad(depth, frag_coords, 0).x;
-#endif
     
     // The exposure vector is the distance that this fragment moved while the camera shutter was
     // open. This is the motion vector (total distance traveled) multiplied by the shutter angle (a
@@ -81,22 +79,19 @@ fn fragment(
 
         let sample_coords = vec2<i32>(sample_uv * texture_size);
 
-    #ifdef MULTISAMPLED
+    @if(MULTISAMPLED)
         let sample_color = textureLoad(screen_texture, sample_coords, i32(sample_index));
-    #else
+    @else
         let sample_color = textureSample(screen_texture, texture_sampler, sample_uv);
-    #endif
-    #ifdef MULTISAMPLED
+    @if(MULTISAMPLED)
         let sample_motion = textureLoad(motion_vectors, sample_coords, i32(sample_index)).rg;
-    #else
+    @else
         let sample_motion = textureSample(motion_vectors, texture_sampler, sample_uv).rg;
-    #endif
 
-    #ifdef MULTISAMPLED
+    @if(MULTISAMPLED)
         let sample_depth = textureLoad(depth, sample_coords, i32(sample_index)).x;
-    #else
+    @else
         let sample_depth = textureLoad(depth, sample_coords, 0).x;
-    #endif
 
         var weight = 1.0;
         let is_sample_in_fg = !(sample_depth < this_depth && sample_depth > 0.0);

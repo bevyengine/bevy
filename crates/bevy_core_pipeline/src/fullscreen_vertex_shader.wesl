@@ -1,5 +1,3 @@
-#define_import_path bevy_core_pipeline::fullscreen_vertex_shader
-
 struct FullscreenVertexOutput {
     @builtin(position)
     position: vec4<f32>,

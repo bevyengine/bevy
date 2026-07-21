@@ -1,13 +1,13 @@
-#import bevy_pbr::atmosphere::{
+import bevy_pbr::atmosphere::{
     bindings::settings,
     functions::{
         sample_density_lut, get_local_r, max_atmosphere_distance,
         MIDPOINT_RATIO, ABSORPTION_DENSITY, SCATTERING_DENSITY
     },
     bruneton_functions::transmittance_lut_uv_to_r_mu,
-}
+};
 
-#import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput
+import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput;
 
 @group(0) @binding(13) var transmittance_lut_out: texture_storage_2d<rgba16float, write>;
 

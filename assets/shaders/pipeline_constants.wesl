@@ -1,4 +1,4 @@
-#import bevy_sprite::mesh2d_vertex_output::VertexOutput
+import bevy_sprite_render::mesh2d::vertex_output::VertexOutput;
 
 // Pipeline-overridable constant: number of discrete color steps.
 // This value is substituted at pipeline compilation time by Bevy's pipeline cache

@@ -12,7 +12,7 @@ use bevy::{
 };
 
 /// This example uses a shader source file from the assets subdirectory
-const SHADER_ASSET_PATH: &str = "shaders/custom_vertex_attribute.wgsl";
+const SHADER_ASSET_PATH: &str = "shaders/custom_vertex_attribute.wesl";
 
 fn main() {
     App::new()

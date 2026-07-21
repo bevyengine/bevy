@@ -1,16 +1,11 @@
-#ifdef MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT
+@if(MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT)
 @group(0) @binding(0) var mip_0: texture_storage_2d<r64uint, read>;
-#else
-#ifdef MESHLET
+@if(!MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT && MESHLET)
 @group(0) @binding(0) var mip_0: texture_storage_2d<r32uint, read>;
-#else   // MESHLET
-#ifdef MULTISAMPLE
+@if(!MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT && !MESHLET && MULTISAMPLE)
 @group(0) @binding(0) var mip_0: texture_depth_multisampled_2d;
-#else   // MULTISAMPLE
+@if(!MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT && !MESHLET && !MULTISAMPLE)
 @group(0) @binding(0) var mip_0: texture_depth_2d;
-#endif  // MULTISAMPLE
-#endif  // MESHLET
-#endif  // MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT
 @group(0) @binding(1) var mip_1: texture_storage_2d<r32float, write>;
 @group(0) @binding(2) var mip_2: texture_storage_2d<r32float, write>;
 @group(0) @binding(3) var mip_3: texture_storage_2d<r32float, write>;
@@ -325,18 +320,18 @@ fn load_mip_0(x: u32, y: u32) -> f32 {
         next_power_of_two(actual_size.y)
     );
     let virtual_uv = (vec2<f32>(f32(x), f32(y)) + 0.5) / vec2<f32>(virtual_size);
-#ifdef MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT
+    @if(MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT) {
     let virtual_st = virtual_uv * vec2<f32>(actual_size);
     let visibility = load_mip_0_meshlet(virtual_st, 32u);
     return reduce_4(visibility);
-#else   // MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT
-#ifdef MESHLET
+    } @else {   // MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT
+    @if(MESHLET) {
     let virtual_st = virtual_uv * vec2<f32>(actual_size);
     let visibility = load_mip_0_meshlet(virtual_st, 0u);
     return reduce_4(visibility);
-#else   // MESHLET
+    } @else {   // MESHLET
     // Downsample the top level.
-#ifdef MULTISAMPLE
+    @if(MULTISAMPLE) {
     // The top level is multisampled, so we need to loop over all the samples
     // and reduce them to 1.
     let virtual_st = virtual_uv * vec2<f32>(actual_size);
@@ -346,14 +341,14 @@ fn load_mip_0(x: u32, y: u32) -> f32 {
         result = min(result, load_mip_0_single_sample(virtual_st, sample));
     }
     return result;
-#else   // MULTISAMPLE
+    } @else {   // MULTISAMPLE
     return reduce_4(textureGather(mip_0, samplr, virtual_uv));
-#endif  // MULTISAMPLE
-#endif  // MESHLET
-#endif  // MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT
+    }
+    }
+    }
 }
 
-#ifdef MESHLET
+@if(MESHLET)
 // Loads a single 2×2 square of texels at the given position from the source
 // image and returns all four (like `textureGather` does).
 //
@@ -369,9 +364,8 @@ fn load_mip_0_meshlet(st: vec2<f32>, shift: u32) -> vec4<f32> {
         bitcast<f32>(u32(textureLoad(mip_0, vec2<u32>(st1.x, st1.y)).r) >> shift)
     );
 }
-#endif  // MESHLET
 
-#ifdef MULTISAMPLE
+@if(MULTISAMPLE)
 // Loads a single 2×2 square of texels at the given position from the source
 // image, reduces them, and returns the result.
 //
@@ -388,7 +382,6 @@ fn load_mip_0_single_sample(st: vec2<f32>, sample: i32) -> f32 {
     );
     return reduce_4(v);
 }
-#endif  // MULTISAMPLE
 
 fn reduce_4(v: vec4f) -> f32 {
     return min(min(v.x, v.y), min(v.z, v.w));

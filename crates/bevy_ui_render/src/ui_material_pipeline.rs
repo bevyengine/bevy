@@ -44,9 +44,9 @@ where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
     fn build(&self, app: &mut App) {
-        load_shader_library!(app, "ui_vertex_output.wgsl");
+        load_shader_library!(app, "ui_vertex_output.wesl");
 
-        embedded_asset!(app, "ui_material.wgsl");
+        embedded_asset!(app, "ui_material.wesl");
 
         app.init_asset::<M>()
             .register_type::<MaterialNode<M>>()
@@ -193,7 +193,7 @@ pub fn init_ui_material_pipeline<M: UiMaterial>(
         ),
     );
 
-    let load_default = || load_embedded_asset!(asset_server.as_ref(), "ui_material.wgsl");
+    let load_default = || load_embedded_asset!(asset_server.as_ref(), "ui_material.wesl");
 
     commands.insert_resource(UiMaterialPipeline::<M> {
         ui_layout,

@@ -26,7 +26,7 @@ use bevy::{
 };
 
 /// This example uses a shader source file from the assets subdirectory
-const SHADER_ASSET_PATH: &str = "shaders/irradiance_volume_voxel_visualization.wgsl";
+const SHADER_ASSET_PATH: &str = "shaders/irradiance_volume_voxel_visualization.wesl";
 
 // Rotation speed in radians per frame.
 const ROTATION_SPEED: f32 = 0.2;

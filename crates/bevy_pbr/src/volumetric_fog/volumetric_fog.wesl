@@ -13,40 +13,40 @@
 //
 // [2]: http://www.alexandre-pestana.com/volumetric-lights/
 
-#import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput
-#import bevy_pbr::atmosphere::{
+import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput;
+import bevy_pbr::atmosphere::{
     functions::{calculate_visible_sun_ratio, clamp_to_surface},
     bruneton_functions::transmittance_lut_r_mu_to_uv,
-}
-#import bevy_pbr::mesh_functions::{get_world_from_local, mesh_position_local_to_clip}
-#import bevy_pbr::mesh_view_bindings::{
+};
+import bevy_pbr::render::mesh_functions::{get_world_from_local, mesh_position_local_to_clip};
+import bevy_pbr::render::mesh_view_bindings::{
     globals, lights, view, clustered_lights,
     atmosphere, atmosphere_transmittance_texture, atmosphere_transmittance_sampler
-}
-#import bevy_pbr::mesh_view_types::{
+};
+import bevy_pbr::render::mesh_view_types::{
     DIRECTIONAL_LIGHT_FLAGS_VOLUMETRIC_BIT,
     POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT,
     POINT_LIGHT_FLAGS_VOLUMETRIC_BIT,
     POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE,
-}
-#import bevy_pbr::shadow_sampling::{
+};
+import bevy_pbr::render::shadow_sampling::{
     sample_shadow_map_hardware,
     sample_shadow_cubemap,
     sample_shadow_map,
     SPOT_SHADOW_TEXEL_SIZE
-}
-#import bevy_pbr::shadows::{get_cascade_index, world_to_directional_light_local}
-#import bevy_pbr::utils::interleaved_gradient_noise
-#import bevy_pbr::view_transformations::{
+};
+import bevy_pbr::render::shadows::{get_cascade_index, world_to_directional_light_local};
+import bevy_pbr::render::utils::interleaved_gradient_noise;
+import bevy_pbr::render::view_transformations::{
     depth_ndc_to_view_z,
     frag_coord_to_ndc,
     position_ndc_to_view,
     position_ndc_to_world,
     position_view_to_world
-}
-#import bevy_render::maths::orthonormalize
-#import bevy_pbr::clustered_forward as clustering
-#import bevy_pbr::lighting::getDistanceAttenuation;
+};
+import bevy_render::maths::orthonormalize;
+import bevy_pbr::render::clustered_forward as clustering;
+import bevy_pbr::render::pbr_lighting::getDistanceAttenuation;
 
 // The GPU version of [`VolumetricFog`]. See the comments in
 // `volumetric_fog/mod.rs` for descriptions of the fields here.
@@ -71,16 +71,15 @@ struct VolumetricFog {
 
 @group(1) @binding(0) var<uniform> volumetric_fog: VolumetricFog;
 
-#ifdef MULTISAMPLED
+@if(MULTISAMPLED)
 @group(1) @binding(1) var depth_texture: texture_depth_multisampled_2d;
-#else
+@else
 @group(1) @binding(1) var depth_texture: texture_depth_2d;
-#endif
 
-#ifdef DENSITY_TEXTURE
+@if(DENSITY_TEXTURE)
 @group(1) @binding(2) var density_texture: texture_3d<f32>;
+@if(DENSITY_TEXTURE)
 @group(1) @binding(3) var density_sampler: sampler;
-#endif  // DENSITY_TEXTURE
 
 // 1 / (4π)
 const FRAC_4_PI: f32 = 0.07957747154594767;
@@ -222,11 +221,11 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
     var background_alpha = 1.0;
 
     // If we have a density texture, transform to its local space.
-#ifdef DENSITY_TEXTURE
+    @if(DENSITY_TEXTURE)
     let Ro_uvw = (uvw_from_world * vec4(Ro_world, 1.0)).xyz;
+    @if(DENSITY_TEXTURE)
     let Rd_step_uvw = mat3x3(uvw_from_world[0].xyz, uvw_from_world[1].xyz, uvw_from_world[2].xyz) *
         (Rd_world * step_size_world);
-#endif  // DENSITY_TEXTURE
 
     for (var light_index = 0u; light_index < directional_light_count; light_index += 1u) {
         // Volumetric lights are all sorted first, so the first time we come to
@@ -261,19 +260,19 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
             let P_view = view_start_pos + Rd_view * f32(step) * step_size_world;
 
             var density = density_factor;
-#ifdef DENSITY_TEXTURE
             // Take the density texture into account, if there is one.
             //
             // The uvs should never go outside the (0, 0, 0) to (1, 1, 1) box,
             // but sometimes due to floating point error they can. Handle this
             // case.
+            @if(DENSITY_TEXTURE)
             let P_uvw = Ro_uvw + Rd_step_uvw * f32(step);
+            @if(DENSITY_TEXTURE)
             if (all(P_uvw >= vec3(0.0)) && all(P_uvw <= vec3(1.0))) {
                 density *= textureSampleLevel(density_texture, density_sampler, P_uvw + density_texture_offset, 0.0).r;
             } else {
                 density = 0.0;
             }
-#endif  // DENSITY_TEXTURE
 
             // Calculate absorption (amount of light absorbed by the fog) and
             // out-scattering (amount of light the fog scattered away).
@@ -312,7 +311,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
                 var light_factors_per_step = fog_color * light_tint * light_attenuation *
                     scattering * density * step_size_world * light_intensity * exposure;
 
-#ifdef ATMOSPHERE
+@if(ATMOSPHERE) {
                 // attenuate by atmospheric scattering
                 let P = P_world + depth_offset;
                 let P_as = (atmosphere.world_to_atmosphere * vec4(P, 1.0)).xyz;
@@ -324,7 +323,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
                 let transmittance = sample_transmittance_lut(r, mu_light);
                 let sun_visibility = calculate_visible_sun_ratio(atmosphere, r, mu_light, (*light).sun_disk_angular_size);
                 light_factors_per_step *= transmittance * sun_visibility;
-#endif
+}
 
                 // Modulate the factor we calculated above by the phase, fog color,
                 // light color, light tint.
@@ -355,19 +354,19 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
         let P_view = view_start_pos + Rd_view * f32(step) * step_size_world;
 
         var density = density_factor;
-#ifdef DENSITY_TEXTURE
             // Take the density texture into account, if there is one.
             //
             // The uvs should never go outside the (0, 0, 0) to (1, 1, 1) box,
             // but sometimes due to floating point error they can. Handle this
             // case.
+            @if(DENSITY_TEXTURE)
             let P_uvw = Ro_uvw + Rd_step_uvw * f32(step);
+            @if(DENSITY_TEXTURE)
             if (all(P_uvw >= vec3(0.0)) && all(P_uvw <= vec3(1.0))) {
                 density *= textureSampleLevel(density_texture, density_sampler, P_uvw + density_texture_offset, 0.0).r;
             } else {
                 density = 0.0;
             }
-#endif  // DENSITY_TEXTURE
 
         var sample_color = vec3(0.0);
 
@@ -522,11 +521,10 @@ fn fetch_spot_shadow_without_normal(light_id: u32, frag_position: vec4<f32>, fra
     );
 }
 
-#ifdef ATMOSPHERE
+@if(ATMOSPHERE)
 fn sample_transmittance_lut(r: f32, mu: f32) -> vec3<f32> {
     let uv = transmittance_lut_r_mu_to_uv(atmosphere, r, mu);
     return textureSampleLevel(
         atmosphere_transmittance_texture,
         atmosphere_transmittance_sampler, uv, 0.0).rgb;
 }
-#endif  // ATMOSPHERE

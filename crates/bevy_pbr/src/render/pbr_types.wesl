@@ -1,5 +1,3 @@
-#define_import_path bevy_pbr::pbr_types
-
 // Since this is a hot path, try to keep the alignment and size of the struct members in mind.
 // You can find the alignment and sizes at <https://www.w3.org/TR/WGSL/#alignment-and-size>.
 struct StandardMaterial {

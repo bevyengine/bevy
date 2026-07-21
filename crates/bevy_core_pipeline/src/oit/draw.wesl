@@ -1,17 +1,14 @@
-#define_import_path bevy_core_pipeline::oit
+import bevy_pbr::render::mesh_view_bindings::{view, oit_nodes_capacity, oit_nodes, oit_heads, oit_atomic_counter, oit_settings};
+import bevy_pbr::render::mesh_view_types::OitFragmentNode;
+import bevy_pbr::prepass::utils as prepass_utils;
 
-#import bevy_pbr::mesh_view_bindings::{view, oit_nodes_capacity, oit_nodes, oit_heads, oit_atomic_counter, oit_settings}
-#import bevy_pbr::mesh_view_types::OitFragmentNode
-#import bevy_pbr::prepass_utils
-
-#ifdef OIT_ENABLED
+@if(OIT_ENABLED)
 // Add the fragment to the oit buffer
 fn oit_draw(position: vec4f, color: vec4f) {
-#ifdef DEPTH_PREPASS
+    @if(DEPTH_PREPASS)
     if position.z < prepass_utils::prepass_depth(position, 0u) {
         return;
     }
-#endif
     // Don't add fully transparent fragments to the list
     // because we don't want to have to sort them in the resolve pass
     if color.r < oit_settings.alpha_threshold
@@ -34,11 +31,10 @@ fn oit_draw(position: vec4f, color: vec4f) {
     var node: OitFragmentNode;
     // In `oit_heads` buffer, index starts from 1, end sentinel is 0 so that we can avoid writing `u32::MAX` from CPU. wgpu guarantees buffers are zero-initialized.
     node.next = atomicExchange(&oit_heads[screen_index], new_node_index + 1u) - 1u;
-    node.color = bevy_pbr::rgb9e5::vec3_to_rgb9e5_(color.rgb);
+    node.color = bevy_pbr::render::rgb9e5::vec3_to_rgb9e5_(color.rgb);
     node.depth_alpha = pack_24bit_depth_8bit_alpha(position.z, color.a);
     oit_nodes[new_node_index] = node;
 }
-#endif // OIT_ENABLED
 
 // The packing scheme puts depth in the higher bits so that
 //    depth(a) < depth(b) <=> packed(a) < packed(b)

@@ -1,7 +1,5 @@
-#define_import_path bevy_pbr::utils
-
-#import bevy_pbr::rgb9e5
-#import bevy_render::maths::{PI, PI_2, orthonormalize}
+import bevy_pbr::render::rgb9e5;
+import bevy_render::maths::{PI, PI_2, orthonormalize};
 
 // Generates a random u32 in range [0, u32::MAX].
 //

@@ -1,18 +1,16 @@
-#define_import_path bevy_pbr::shadows
-
-#import bevy_pbr::{
+import bevy_pbr::render::{
     mesh_view_types::POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE,
     mesh_view_bindings as view_bindings,
     shadow_sampling::{
         SPOT_SHADOW_TEXEL_SIZE, sample_shadow_cubemap, sample_shadow_cubemap_pcss,
         sample_shadow_map, sample_shadow_map_pcss,
     }
-}
+};
 
-#import bevy_render::{
+import bevy_render::{
     color_operations::hsv_to_rgb,
     maths::{orthonormalize, PI_2}
-}
+};
 
 const flip_z: vec3<f32> = vec3<f32>(1.0, 1.0, -1.0);
 
@@ -270,7 +268,7 @@ fn cascade_debug_visualization(
     let overlay_alpha = 0.95;
     let cascade_index = get_cascade_index(light_id, view_z);
     let cascade_color_hsv = vec3(
-        f32(cascade_index) / f32(#{MAX_CASCADES_PER_LIGHT}u + 1u) * PI_2,
+        f32(cascade_index) / f32(u32(constants::MAX_CASCADES_PER_LIGHT) + 1u) * PI_2,
         1.0,
         0.5
     );

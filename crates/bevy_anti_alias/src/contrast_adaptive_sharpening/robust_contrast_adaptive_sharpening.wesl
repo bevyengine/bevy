@@ -17,7 +17,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-#import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput
+import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput;
 
 struct CASUniforms {
     sharpness: f32,
@@ -77,7 +77,7 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let hitMax = (peakC.x - mx4) / (peakC.y + 4.0 * mn4);
     let lobeRGB = max(-hitMin, hitMax);
     var lobe = max(-FSR_RCAS_LIMIT, min(0.0, max(lobeRGB.r, max(lobeRGB.g, lobeRGB.b)))) * uniforms.sharpness;
-#ifdef RCAS_DENOISE
+@if(RCAS_DENOISE) {
     // Luma times 2.
     let bL = b.b * 0.5 + (b.r * 0.5 + b.g);
     let dL = d.b * 0.5 + (d.r * 0.5 + d.g);
@@ -90,6 +90,6 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     noise = 1.0 - 0.5 * noise;
     // Apply noise removal.
     lobe *= noise;
-#endif
+}
     return vec4<f32>((lobe * b + lobe * d + lobe * f + lobe * h + e.rgb) / (4.0 * lobe + 1.0), e.w);
 }

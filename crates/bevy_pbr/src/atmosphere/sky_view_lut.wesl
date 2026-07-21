@@ -1,4 +1,4 @@
-#import bevy_pbr::{
+import bevy_pbr::{
     atmosphere::{
         bindings::settings,
         functions::{
@@ -7,13 +7,13 @@
             sky_view_lut_uv_to_zenith_azimuth, zenith_azimuth_to_ray_dir,
         },
     }
-}
+};
 
-#import bevy_render::{
+import bevy_render::{
     view::View,
     maths::HALF_PI,
-}
-#import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput
+};
+import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput;
 
 @group(0) @binding(13) var sky_view_lut_out: texture_storage_2d<rgba16float, write>;
 

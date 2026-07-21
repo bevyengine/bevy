@@ -1,5 +1,5 @@
-#import bevy_pbr::{
-    meshlet_bindings::{
+import bevy_pbr::{
+    meshlet::bindings::{
         meshlet_cluster_meshlet_ids,
         meshlets,
         meshlet_cluster_instance_ids,
@@ -12,18 +12,17 @@
         get_meshlet_vertex_id,
         get_meshlet_vertex_position,
     },
-    mesh_functions::mesh_position_local_to_world,
-}
-#import bevy_render::maths::affine3_to_square
+    render::mesh_functions::mesh_position_local_to_world,
+};
+import bevy_render::maths::affine3_to_square;
 var<immediate> meshlet_raster_cluster_rightmost_slot: u32;
 
 /// Vertex/fragment shader for rasterizing large clusters into a visibility buffer.
 
 struct VertexOutput {
     @builtin(position) position: vec4<f32>,
-#ifdef MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT
+    @if(MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT)
     @location(0) @interpolate(flat) packed_ids: u32,
-#endif
 }
 
 @vertex
@@ -45,31 +44,36 @@ fn vertex(@builtin(instance_index) instance_index: u32, @builtin(vertex_index) v
     let world_position = mesh_position_local_to_world(world_from_local, vec4(vertex_position, 1.0));
     let clip_position = view.clip_from_world * vec4(world_position.xyz, 1.0);
 
+    @if(MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT)
     return VertexOutput(
         clip_position,
-#ifdef MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT
         (cluster_id << 7u) | triangle_id,
-#endif
+    );
+    @else
+    return VertexOutput(
+        clip_position,
     );
 }
 
 @fragment
 fn fragment(vertex_output: VertexOutput) {
     let depth = bitcast<u32>(vertex_output.position.z);
-#ifdef MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT
+    @if(MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT)
     let visibility = (u64(depth) << 32u) | u64(vertex_output.packed_ids);
-#else
+    @else
     let visibility = depth;
-#endif
     textureAtomicMax(meshlet_visibility_buffer, vec2<u32>(vertex_output.position.xy), visibility);
 }
 
 fn dummy_vertex() -> VertexOutput {
+    @if(MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT)
     return VertexOutput(
         vec4(divide(0.0, 0.0)), // NaN vertex position
-#ifdef MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT
         0u,
-#endif
+    );
+    @else
+    return VertexOutput(
+        vec4(divide(0.0, 0.0)),
     );
 }
 

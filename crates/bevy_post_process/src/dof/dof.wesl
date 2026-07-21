@@ -15,11 +15,11 @@
 //
 // [1]: https://colinbarrebrisebois.com/2017/04/18/hexagonal-bokeh-blur-revisited-part-2-improved-2-pass-version/
 
-#import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput
-#import bevy_pbr::mesh_view_bindings::view
-#import bevy_pbr::view_transformations::depth_ndc_to_view_z
-#import bevy_post_process::gaussian_blur::gaussian_blur
-#import bevy_render::view::View
+import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput;
+import bevy_pbr::render::mesh_view_bindings::view;
+import bevy_pbr::render::view_transformations::depth_ndc_to_view_z;
+import bevy_post_process::gaussian_blur::gaussian_blur;
+import bevy_render::view::View;
 
 // Parameters that control the depth of field effect. See
 // `bevy_core_pipeline::dof::DepthOfFieldUniforms` for information on what these
@@ -75,20 +75,18 @@ struct DualOutput {
 // @group(0) @binding(0) is `mesh_view_bindings::view`.
 
 // The depth texture for the main view.
-#ifdef MULTISAMPLED
+@if(MULTISAMPLED)
 @group(0) @binding(1) var depth_texture: texture_depth_multisampled_2d;
-#else   // MULTISAMPLED
+@else   // MULTISAMPLED
 @group(0) @binding(1) var depth_texture: texture_depth_2d;
-#endif  // MULTISAMPLED
 
 // The main color texture.
 @group(0) @binding(2) var color_texture_a: texture_2d<f32>;
 
 // The auxiliary color texture that we're sampling from. This is only used as
 // part of the second bokeh pass.
-#ifdef DUAL_INPUT
+@if(DUAL_INPUT)
 @group(0) @binding(3) var color_texture_b: texture_2d<f32>;
-#endif  // DUAL_INPUT
 
 // The global uniforms, representing data backed by buffers shared among all
 // views in the scene.
@@ -172,7 +170,7 @@ fn box_blur_a(frag_coord: vec4<f32>, coc: f32, frag_offset: vec2<f32>) -> vec4<f
 //
 // * `frag_offset` is the vector, in screen-space units, from one sample to the
 //   next. This need not be horizontal or vertical.
-#ifdef DUAL_INPUT
+@if(DUAL_INPUT)
 fn box_blur_b(frag_coord: vec4<f32>, coc: f32, frag_offset: vec2<f32>) -> vec4<f32> {
     let support = i32(round(coc * 0.5));
     let uv = frag_coord.xy / vec2<f32>(textureDimensions(color_texture_b));
@@ -187,7 +185,6 @@ fn box_blur_b(frag_coord: vec4<f32>, coc: f32, frag_offset: vec2<f32>) -> vec4<f
 
     return vec4(sum / vec3(1.0 + f32(support)), 1.0);
 }
-#endif
 
 // Calculates the horizontal component of the separable Gaussian blur.
 @fragment
@@ -230,7 +227,7 @@ fn bokeh_pass_a(in: FullscreenVertexOutput) -> DualOutput {
 //     ╲   ╱
 //      ╲ ╱
 //       •
-#ifdef DUAL_INPUT
+@if(DUAL_INPUT)
 @fragment
 fn bokeh_pass_b(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let coc = calculate_circle_of_confusion(in.position);
@@ -238,4 +235,3 @@ fn bokeh_pass_b(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let output_1 = box_blur_b(in.position, coc, vec2(COS_NEG_FRAC_PI_5_6, SIN_NEG_FRAC_PI_5_6));
     return mix(output_0, output_1, 0.5);
 }
-#endif

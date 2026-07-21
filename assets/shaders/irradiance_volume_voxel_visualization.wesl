@@ -1,7 +1,7 @@
-#import bevy_pbr::forward_io::VertexOutput
-#import bevy_pbr::irradiance_volume
-#import bevy_pbr::mesh_view_bindings
-#import bevy_pbr::clustered_forward
+import bevy_pbr::render::forward_io::VertexOutput;
+import bevy_pbr::light_probe::irradiance_volume;
+import bevy_pbr::render::mesh_view_bindings;
+import bevy_pbr::render::clustered_forward;
 
 struct VoxelVisualizationIrradianceVolumeInfo {
     world_from_voxel: mat4x4<f32>,
@@ -12,7 +12,7 @@ struct VoxelVisualizationIrradianceVolumeInfo {
     intensity: f32,
 }
 
-@group(#{MATERIAL_BIND_GROUP}) @binding(100)
+@group(constants::MATERIAL_BIND_GROUP) @binding(100)
 var<uniform> irradiance_volume_info: VoxelVisualizationIrradianceVolumeInfo;
 
 @fragment

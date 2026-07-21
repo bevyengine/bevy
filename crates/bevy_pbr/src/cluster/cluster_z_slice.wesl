@@ -1,13 +1,13 @@
-#import bevy_pbr::cluster::{
+import bevy_pbr::cluster::{
     CLUSTERABLE_OBJECT_TYPE_DECAL, CLUSTERABLE_OBJECT_TYPE_IRRADIANCE_VOLUME,
     CLUSTERABLE_OBJECT_TYPE_POINT_LIGHT, CLUSTERABLE_OBJECT_TYPE_REFLECTION_PROBE,
     CLUSTERABLE_OBJECT_TYPE_SPOT_LIGHT, ClusterMetadata, ClusterableObjectZSlice,
     calculate_sphere_cluster_bounds, compute_view_from_world_scale
-}
-#import bevy_pbr::mesh_view_types::{
+};
+import bevy_pbr::render::mesh_view_types::{
     ClusteredDecals, ClusteredLights, LightProbes, Lights, POINT_LIGHT_FLAGS_SPOT_LIGHT_BIT
-}
-#import bevy_render::view::View
+};
+import bevy_render::view::View;
 
 // The shader that divides clusterable objects into Z slices.
 //

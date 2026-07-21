@@ -1,10 +1,8 @@
+import bevy_pbr::render::pbr_functions::calculate_tbn_mikktspace;
+import bevy_render::maths::affine3_to_square;
+
 enable wgpu_ray_query;
 enable wgpu_binding_array;
-
-#define_import_path bevy_solari::scene_bindings
-
-#import bevy_pbr::pbr_functions::calculate_tbn_mikktspace
-#import bevy_render::maths::affine3_to_square
 
 struct InstanceGeometryIds {
     vertex_buffer_id: u32,

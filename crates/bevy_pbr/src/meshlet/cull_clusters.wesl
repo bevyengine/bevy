@@ -1,4 +1,4 @@
-#import bevy_pbr::meshlet_bindings::{
+import bevy_pbr::meshlet::bindings::{
     InstancedOffset,
     get_aabb,
     get_aabb_error,
@@ -14,26 +14,25 @@
     meshlet_meshlet_cull_count_write,
     meshlet_meshlet_cull_dispatch,
     meshlet_meshlet_cull_queue,
-}
-#import bevy_pbr::meshlet_cull_shared::{
+};
+import bevy_pbr::meshlet::cull_shared::{
     ScreenAabb,
     project_aabb,
     lod_error_is_imperceptible,
     aabb_in_frustum,
     should_occlusion_cull_aabb,
-}
-#import bevy_render::maths::affine3_to_square
+};
+import bevy_render::maths::affine3_to_square;
 
 @compute
 @workgroup_size(128, 1, 1) // 1 cluster per thread
 fn cull_clusters(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     if global_invocation_id.x >= meshlet_meshlet_cull_count_read { return; }
 
-#ifdef MESHLET_FIRST_CULLING_PASS
+    @if(MESHLET_FIRST_CULLING_PASS)
     let meshlet_id = global_invocation_id.x;
-#else
+    @else
     let meshlet_id = constants.rightmost_slot - global_invocation_id.x;
-#endif
     let instanced_offset = meshlet_meshlet_cull_queue[meshlet_id];
     let instance_id = instanced_offset.instance_id;
     let cull_data = &meshlet_cull_data[instanced_offset.offset];
@@ -49,14 +48,14 @@ fn cull_clusters(@builtin(global_invocation_id) global_invocation_id: vec3<u32>)
     // If we pass, try occlusion culling
     // If this node was occluded, push it's children to the second pass to check against this frame's HZB
     if should_occlusion_cull_aabb(aabb, instance_id) {
-#ifdef MESHLET_FIRST_CULLING_PASS
+@if(MESHLET_FIRST_CULLING_PASS) {
         let id = atomicAdd(&meshlet_meshlet_cull_count_write, 1u);
         let value = InstancedOffset(instance_id, instanced_offset.offset);
         meshlet_meshlet_cull_queue[constants.rightmost_slot - id] = value;
         if ((id & 127u) == 0) {
             atomicAdd(&meshlet_meshlet_cull_dispatch.x, 1u);
         }
-#endif
+}
         return;
     }
 

@@ -1,14 +1,16 @@
 // This shader, a part of the `clustered_decals` example, shows how to use the
 // decal `tag` field to apply arbitrary decal effects.
 
-#import bevy_pbr::{
-    clustered_forward,
+import bevy_pbr::{
     decal::clustered,
-    forward_io::{VertexOutput, FragmentOutput},
-    mesh_view_bindings,
-    pbr_fragment::pbr_input_from_standard_material,
-    pbr_functions::{alpha_discard, apply_pbr_lighting, main_pass_post_lighting_processing},
-}
+    render::{
+        clustered_forward,
+        forward_io::{VertexOutput, FragmentOutput},
+        mesh_view_bindings,
+        pbr_fragment::pbr_input_from_standard_material,
+        pbr_functions::{alpha_discard, apply_pbr_lighting, main_pass_post_lighting_processing},
+    },
+};
 
 @fragment
 fn fragment(

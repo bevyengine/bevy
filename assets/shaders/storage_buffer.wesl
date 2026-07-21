@@ -1,9 +1,9 @@
-#import bevy_pbr::{
+import bevy_pbr::render::{
     mesh_functions,
     view_transformations::position_world_to_clip
-}
+};
 
-@group(#{MATERIAL_BIND_GROUP}) @binding(0) var<storage, read> colors: array<vec4<f32>, 5>;
+@group(constants::MATERIAL_BIND_GROUP) @binding(0) var<storage, read> colors: array<vec4<f32>, 5>;
 
 struct Vertex {
     @builtin(instance_index) instance_index: u32,

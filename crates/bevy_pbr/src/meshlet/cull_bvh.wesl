@@ -1,4 +1,4 @@
-#import bevy_pbr::meshlet_bindings::{
+import bevy_pbr::meshlet::bindings::{
     InstancedOffset,
     get_aabb,
     get_aabb_error,
@@ -17,12 +17,12 @@
     meshlet_second_pass_bvh_count,
     meshlet_second_pass_bvh_dispatch,
     meshlet_second_pass_bvh_queue,
-}
-#import bevy_pbr::meshlet_cull_shared::{
+};
+import bevy_pbr::meshlet::cull_shared::{
     lod_error_is_imperceptible,
     aabb_in_frustum,
     should_occlusion_cull_aabb,
-}
+};
 
 @compute
 @workgroup_size(128, 1, 1) // 8 threads per node, 16 nodes per workgroup
@@ -57,7 +57,7 @@ fn cull_bvh(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     // If we pass, try occlusion culling
     // If this node was occluded, push it's children to the second pass to check against this frame's HZB
     if should_occlusion_cull_aabb(aabb, instance_id) {
-#ifdef MESHLET_FIRST_CULLING_PASS
+        @if(MESHLET_FIRST_CULLING_PASS)
         if child_count == 255u {
             let id = atomicAdd(&meshlet_second_pass_bvh_count, 1u);
             meshlet_second_pass_bvh_queue[id] = value;
@@ -74,7 +74,6 @@ fn cull_bvh(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
             let req = (base + child_count + 127u) >> 7u;
             atomicMax(&meshlet_meshlet_cull_dispatch_late.x, req);
         }
-#endif
         return;
     }
 
@@ -87,7 +86,7 @@ fn cull_bvh(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
             atomicAdd(&meshlet_bvh_cull_dispatch.x, 1u);
         }
     } else {
-#ifdef MESHLET_FIRST_CULLING_PASS
+@if(MESHLET_FIRST_CULLING_PASS) {
         let base = atomicAdd(&meshlet_meshlet_cull_count_early, child_count);
         let end = base + child_count;
         for (var i = base; i < end; i++) {
@@ -96,7 +95,7 @@ fn cull_bvh(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
         }
         let req = (end + 127u) >> 7u;
         atomicMax(&meshlet_meshlet_cull_dispatch_early.x, req);
-#else
+} @else {
         let base = atomicAdd(&meshlet_meshlet_cull_count_late, child_count);
         let start = constants.rightmost_slot - base;
         for (var i = start; i > start - child_count; i--) {
@@ -105,6 +104,6 @@ fn cull_bvh(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
         }
         let req = (base + child_count + 127u) >> 7u;
         atomicMax(&meshlet_meshlet_cull_dispatch_late.x, req);
-#endif
+}
     }
 }

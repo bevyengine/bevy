@@ -1,7 +1,5 @@
-enable wgpu_ray_query;
-
-#import bevy_solari::world_cache::WORLD_CACHE_EMPTY_CELL
-#import bevy_solari::realtime_bindings::{
+import bevy_solari::realtime::world_cache_query::WORLD_CACHE_EMPTY_CELL;
+import bevy_solari::realtime::bindings::{
     world_cache_life,
     world_cache_checksums,
     world_cache_radiance,
@@ -10,7 +8,9 @@ enable wgpu_ray_query;
     world_cache_b,
     world_cache_active_cell_indices,
     world_cache_active_cells_count,
-}
+};
+
+enable wgpu_ray_query;
 
 @group(2) @binding(0) var<storage, read_write> world_cache_active_cells_dispatch: vec3<u32>;
 

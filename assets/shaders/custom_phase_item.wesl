@@ -1,4 +1,4 @@
-// `custom_phase_item.wgsl`
+// `custom_phase_item.wesl`
 //
 // This shader goes with the `custom_phase_item` example. It demonstrates how to
 // enqueue custom rendering logic in a `RenderPhase`.

@@ -86,7 +86,7 @@ impl WireframePlugin {
 
 impl Plugin for WireframePlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "render/wireframe.wgsl");
+        embedded_asset!(app, "render/wireframe.wesl");
 
         app.add_plugins((
             BinnedRenderPhasePlugin::<Wireframe3d, MeshPipeline>::new(self.debug_flags),
@@ -723,7 +723,7 @@ pub fn init_wireframe_3d_pipeline(
 
     commands.insert_resource(Wireframe3dPipeline {
         mesh_pipeline: mesh_pipeline.clone(),
-        shader: load_embedded_asset!(asset_server.as_ref(), "render/wireframe.wgsl"),
+        shader: load_embedded_asset!(asset_server.as_ref(), "render/wireframe.wesl"),
         wide_bind_group_layout,
         wide_bind_group_layout_descriptor,
     });

@@ -14,7 +14,7 @@ pub struct TilemapChunkMaterialPlugin;
 
 impl Plugin for TilemapChunkMaterialPlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "tilemap_chunk_material.wgsl");
+        embedded_asset!(app, "tilemap_chunk_material.wesl");
 
         app.add_plugins(Material2dPlugin::<TilemapChunkMaterial>::default());
     }
@@ -39,7 +39,7 @@ pub struct TilemapChunkMaterial {
 impl Material2d for TilemapChunkMaterial {
     fn fragment_shader() -> ShaderRef {
         ShaderRef::Path(
-            AssetPath::from_path_buf(embedded_path!("tilemap_chunk_material.wgsl"))
+            AssetPath::from_path_buf(embedded_path!("tilemap_chunk_material.wesl"))
                 .with_source("embedded"),
         )
     }

@@ -1,11 +1,9 @@
+import bevy_pbr::render::pbr_lighting::D_GGX;
+import bevy_pbr::render::utils::{rand_vec2f, rand_u, rand_range_u};
+import bevy_render::maths::{PI_2, orthonormalize};
+import bevy_solari::scene::bindings::{trace_ray, trace_ray_previous_frame, RAY_T_MIN, RAY_T_MAX, light_sources, directional_lights, LightSource, LIGHT_SOURCE_KIND_DIRECTIONAL, resolve_triangle_data_full, ResolvedRayHitFull, MIRROR_ROUGHNESS_THRESHOLD};
+
 enable wgpu_ray_query;
-
-#define_import_path bevy_solari::sampling
-
-#import bevy_pbr::lighting::D_GGX
-#import bevy_pbr::utils::{rand_vec2f, rand_u, rand_range_u}
-#import bevy_render::maths::{PI_2, orthonormalize}
-#import bevy_solari::scene_bindings::{trace_ray, trace_ray_previous_frame, RAY_T_MIN, RAY_T_MAX, light_sources, directional_lights, LightSource, LIGHT_SOURCE_KIND_DIRECTIONAL, resolve_triangle_data_full, ResolvedRayHitFull, MIRROR_ROUGHNESS_THRESHOLD}
 
 fn power_heuristic(f: f32, g: f32) -> f32 {
     return balance_heuristic(f * f, g * g);
@@ -159,7 +157,8 @@ fn resolve_light_sample(light_sample: LightSample, light_source: LightSource) ->
     if light_source.kind == LIGHT_SOURCE_KIND_DIRECTIONAL {
         let directional_light = directional_lights[light_source.id];
 
-#ifndef NO_DIRECTIONAL_LIGHT_SOFT_SHADOWS
+        var direction_to_light: vec3<f32>;
+@if(!NO_DIRECTIONAL_LIGHT_SOFT_SHADOWS) {
         // Sample a random direction within a cone whose base is the sun approximated as a disk
         // https://www.realtimerendering.com/raytracinggems/unofficial_RayTracingGems_v1.9.pdf#0004286901.INDD%3ASec30%3A305
         var rng = light_sample.seed;
@@ -169,13 +168,13 @@ fn resolve_light_sample(light_sample: LightSample, light_source: LightSource) ->
         let phi = random.y * PI_2;
         let x = cos(phi) * sin_theta;
         let y = sin(phi) * sin_theta;
-        var direction_to_light = vec3(x, y, cos_theta);
+        direction_to_light = vec3(x, y, cos_theta);
 
         // Rotate the ray so that the cone it was sampled from is aligned with the light direction
         direction_to_light = orthonormalize(directional_light.direction_to_light) * direction_to_light;
-#else
-        let direction_to_light = directional_light.direction_to_light;
-#endif
+} @else {
+        direction_to_light = directional_light.direction_to_light;
+}
 
         return ResolvedLightSample(
         vec4(direction_to_light, 0.0),

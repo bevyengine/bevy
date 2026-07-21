@@ -8,7 +8,7 @@
 // the position of the command in the indirect parameters buffer that will draw
 // that entity.
 
-#import bevy_pbr::mesh_preprocess_types::{BinMetadata, PreprocessWorkItem}
+import bevy_render::occlusion_culling::mesh_preprocess_types::{BinMetadata, PreprocessWorkItem};
 
 // Information needed to unpack bins belonging to a single batch set.
 struct BinUnpackingMetadata {

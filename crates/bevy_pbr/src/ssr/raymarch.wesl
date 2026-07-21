@@ -14,26 +14,24 @@
 // [`raymarch.hlsl`]:
 // https://gist.github.com/h3r2tic/9c8356bdaefbe80b1a22ae0aaee192db
 
-#define_import_path bevy_pbr::raymarch
-
-#import bevy_pbr::mesh_view_bindings::depth_prepass_texture
-#import bevy_pbr::view_transformations::{
+import bevy_pbr::render::mesh_view_bindings::depth_prepass_texture;
+import bevy_pbr::render::view_transformations::{
     direction_world_to_clip,
     ndc_to_uv,
     perspective_camera_near,
     position_world_to_ndc,
-}
+};
 
-#ifdef USE_DEPTH_SAMPLERS
 // Allows us to sample from the depth buffer with bilinear filtering.
+@if(USE_DEPTH_SAMPLERS)
 @group(2) @binding(2) var depth_linear_sampler: sampler;
 
 // Allows us to sample from the depth buffer with nearest-neighbor filtering.
+@if(USE_DEPTH_SAMPLERS)
 @group(2) @binding(3) var depth_nearest_sampler: sampler;
-#endif
 
 // Manual depth fetch helpers used on WebGPU where depth + filtering sampler is invalid.
-#ifndef USE_DEPTH_SAMPLERS
+@if(!USE_DEPTH_SAMPLERS)
 fn depth_texel_clamped(texel: vec2<i32>) -> f32 {
     let dims = textureDimensions(depth_prepass_texture);
     let max_coord = vec2<i32>(i32(dims.x) - 1, i32(dims.y) - 1);
@@ -41,12 +39,14 @@ fn depth_texel_clamped(texel: vec2<i32>) -> f32 {
     return textureLoad(depth_prepass_texture, clamped, 0);
 }
 
+@if(!USE_DEPTH_SAMPLERS)
 fn depth_sample_nearest_clamped(uv: vec2<f32>, tex_size: vec2<f32>) -> f32 {
     // Match nearest sampling by snapping to the closest texel center.
     let coord = uv * tex_size - vec2(0.5);
     return depth_texel_clamped(vec2<i32>(floor(coord + vec2(0.5))));
 }
 
+@if(!USE_DEPTH_SAMPLERS)
 fn depth_sample_bilinear_clamped(uv: vec2<f32>, tex_size: vec2<f32>) -> f32 {
     let coord = uv * tex_size - vec2(0.5);
     let base = vec2<i32>(floor(coord));
@@ -61,22 +61,19 @@ fn depth_sample_bilinear_clamped(uv: vec2<f32>, tex_size: vec2<f32>) -> f32 {
     let d1 = mix(d01, d11, frac.x);
     return mix(d0, d1, frac.y);
 }
-#endif
 
 fn depth_sample_linear(uv: vec2<f32>, tex_size: vec2<f32>) -> f32 {
-#ifdef USE_DEPTH_SAMPLERS
+    @if(USE_DEPTH_SAMPLERS)
     return textureSampleLevel(depth_prepass_texture, depth_linear_sampler, uv, 0u);
-#else
+    @else
     return depth_sample_bilinear_clamped(uv, tex_size);
-#endif
 }
 
 fn depth_sample_nearest(uv: vec2<f32>, tex_size: vec2<f32>) -> f32 {
-#ifdef USE_DEPTH_SAMPLERS
+    @if(USE_DEPTH_SAMPLERS)
     return textureSampleLevel(depth_prepass_texture, depth_nearest_sampler, uv, 0u);
-#else
+    @else
     return depth_sample_nearest_clamped(uv, tex_size);
-#endif
 }
 
 // Main code

@@ -1,18 +1,17 @@
-#define_import_path bevy_pbr::transmission
-
-#import bevy_pbr::{
-    lighting,
-    prepass_utils,
-    utils::interleaved_gradient_noise,
-    utils,
-    mesh_view_bindings as view_bindings,
+import bevy_pbr::{
+    render::{
+        pbr_lighting as lighting,
+        utils::interleaved_gradient_noise,
+        utils,
+        mesh_view_bindings as view_bindings,
+    },
+    prepass::utils as prepass_utils,
 };
 
-#import bevy_render::maths::PI
+import bevy_render::maths::PI;
 
-#ifdef TONEMAP_IN_SHADER
-#import bevy_core_pipeline::tonemapping::approximate_inverse_tone_mapping
-#endif
+@if(TONEMAP_IN_SHADER)
+import bevy_core_pipeline::tonemapping::approximate_inverse_tone_mapping;
 
 // The IOR impacts how much a single microfacet refracts incoming light. In turn this changes how
 // "wide" the distribution of output ray directions is and how rough the BRDF should be.
@@ -79,18 +78,14 @@ fn fetch_transmissive_background_non_rough(offset_position: vec2<f32>, frag_coor
         0.0
     );
 
-#ifdef DEPTH_PREPASS
-#ifndef WEBGL2
+    @if(DEPTH_PREPASS && !WEBGL2)
     // Use depth prepass data to reject values that are in front of the current fragment
     if prepass_utils::prepass_depth(vec4<f32>(offset_position * view_bindings::view.viewport.zw, 0.0, 0.0), 0u) > frag_coord.z {
         background_color.a = 0.0;
     }
-#endif
-#endif
 
-#ifdef TONEMAP_IN_SHADER
+    @if(TONEMAP_IN_SHADER)
     background_color = approximate_inverse_tone_mapping(background_color, view_bindings::view.color_grading);
-#endif
 
     return background_color;
 }
@@ -112,26 +107,25 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
     // - proportional to the inverse of view z
     let blur_intensity = (transmission_roughness * transmission_roughness) / view_z;
 
-#ifdef SCREEN_SPACE_SPECULAR_TRANSMISSION_BLUR_TAPS
-    let num_taps = #{SCREEN_SPACE_SPECULAR_TRANSMISSION_BLUR_TAPS}; // Controlled by the `ScreenSpaceTransmission::quality` property
-#else
+    @if(SCREEN_SPACE_SPECULAR_TRANSMISSION_BLUR_TAPS)
+    let num_taps = constants::SCREEN_SPACE_SPECULAR_TRANSMISSION_BLUR_TAPS; // Controlled by the `ScreenSpaceTransmission::quality` property
+    @else
     let num_taps = 8; // Fallback to 8 taps, if not specified
-#endif
     let num_spirals = i32(ceil(f32(num_taps) / 8.0));
-#ifdef TEMPORAL_JITTER
+    @if(TEMPORAL_JITTER)
     let random_angle = interleaved_gradient_noise(frag_coord.xy, view_bindings::globals.frame_count);
-#else
+    @else
     let random_angle = interleaved_gradient_noise(frag_coord.xy, 0u);
-#endif
     // Pixel checkerboard pattern (helps make the interleaved gradient noise pattern less visible)
+    @if(TEMPORAL_JITTER)
     let pixel_checkboard = (
-#ifdef TEMPORAL_JITTER
         // 0 or 1 on even/odd pixels, alternates every frame
         (i32(frag_coord.x) + i32(frag_coord.y) + i32(view_bindings::globals.frame_count)) % 2
-#else
+    );
+    @else
+    let pixel_checkboard = (
         // 0 or 1 on even/odd pixels
         (i32(frag_coord.x) + i32(frag_coord.y)) % 2
-#endif
     );
 
     var result = vec4<f32>(0.0);
@@ -180,14 +174,11 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
             0.0
         );
 
-#ifdef DEPTH_PREPASS
-#ifndef WEBGL2
+        @if(DEPTH_PREPASS && !WEBGL2)
         // Use depth prepass data to reject values that are in front of the current fragment
         if prepass_utils::prepass_depth(vec4<f32>(modified_offset_position * view_bindings::view.viewport.zw, 0.0, 0.0), 0u) > frag_coord.z {
             sample = vec4<f32>(0.0);
         }
-#endif
-#endif
 
         // As blur intensity grows higher, gradually limit *very bright* color RGB values towards a
         // maximum length of 1.0 to prevent stray “firefly” pixel artifacts. This can potentially make
@@ -199,9 +190,8 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
 
     result /= f32(num_taps);
 
-#ifdef TONEMAP_IN_SHADER
+    @if(TONEMAP_IN_SHADER)
     result = approximate_inverse_tone_mapping(result, view_bindings::view.color_grading);
-#endif
 
     return result;
 }

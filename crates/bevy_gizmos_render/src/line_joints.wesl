@@ -1,4 +1,4 @@
-#import bevy_render::{view::View, maths::affine3_to_square}
+import bevy_render::{view::View, maths::affine3_to_square};
 
 @group(0) @binding(0) var<uniform> view: View;
 
@@ -8,10 +8,9 @@ struct LineGizmoUniform {
     line_width: f32,
     depth_bias: f32,
     resolution: u32,
-#ifdef SIXTEEN_BYTE_ALIGNMENT
+    @if(SIXTEEN_BYTE_ALIGNMENT)
     // WebGL2 structs must be 16 byte aligned.
     _padding: f32,
-#endif
 }
 
 @group(1) @binding(0) var<uniform> joints_gizmo: LineGizmoUniform;
@@ -60,9 +59,8 @@ fn vertex_bevel(vertex: VertexInput) -> VertexOutput {
     var color = vertex.color;
     var line_width = joints_gizmo.line_width;
 
-#ifdef PERSPECTIVE
+    @if(PERSPECTIVE)
     line_width /= clip_b.w;
-#endif
 
     // Line thinness fade from https://acegikmo.com/shapes/docs/#anti-aliasing
     if line_width > 0.0 && line_width < 1. {
@@ -121,9 +119,8 @@ fn vertex_miter(vertex: VertexInput) -> VertexOutput {
     var color = vertex.color;
     var line_width = joints_gizmo.line_width;
 
-#ifdef PERSPECTIVE
+    @if(PERSPECTIVE)
     line_width /= clip_b.w;
-#endif
 
     // Line thinness fade from https://acegikmo.com/shapes/docs/#anti-aliasing
     if line_width > 0.0 && line_width < 1. {
@@ -173,9 +170,8 @@ fn vertex_round(vertex: VertexInput) -> VertexOutput {
     var color = vertex.color;
     var line_width = joints_gizmo.line_width;
 
-#ifdef PERSPECTIVE
+    @if(PERSPECTIVE)
     line_width /= clip_b.w;
-#endif
 
     // Line thinness fade from https://acegikmo.com/shapes/docs/#anti-aliasing
     if line_width > 0.0 && line_width < 1. {

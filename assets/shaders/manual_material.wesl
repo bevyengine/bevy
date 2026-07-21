@@ -1,7 +1,7 @@
-#import bevy_pbr::forward_io::VertexOutput
+import bevy_pbr::render::forward_io::VertexOutput;
 
-@group(#{MATERIAL_BIND_GROUP}) @binding(0) var material_color_texture: texture_2d<f32>;
-@group(#{MATERIAL_BIND_GROUP}) @binding(1) var material_color_sampler: sampler;
+@group(constants::MATERIAL_BIND_GROUP) @binding(0) var material_color_texture: texture_2d<f32>;
+@group(constants::MATERIAL_BIND_GROUP) @binding(1) var material_color_sampler: sampler;
 
 @fragment
 fn fragment(

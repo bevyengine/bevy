@@ -6,52 +6,42 @@
 //
 // Tweaks by mrDIMAS - https://github.com/FyroxEngine/Fyrox/blob/master/src/renderer/shaders/fxaa_fs.glsl
 
-#import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput
+import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput;
 
 @group(0) @binding(0) var screenTexture: texture_2d<f32>;
 @group(0) @binding(1) var samp: sampler;
 
 // Trims the algorithm from processing darks.
-#ifdef EDGE_THRESH_MIN_LOW
+    @if(EDGE_THRESH_MIN_LOW)
     const EDGE_THRESHOLD_MIN: f32 = 0.0833;
-#endif
 
-#ifdef EDGE_THRESH_MIN_MEDIUM
+    @if(EDGE_THRESH_MIN_MEDIUM)
     const EDGE_THRESHOLD_MIN: f32 = 0.0625;
-#endif
 
-#ifdef EDGE_THRESH_MIN_HIGH
+    @if(EDGE_THRESH_MIN_HIGH)
     const EDGE_THRESHOLD_MIN: f32 = 0.0312;
-#endif
 
-#ifdef EDGE_THRESH_MIN_ULTRA
+    @if(EDGE_THRESH_MIN_ULTRA)
     const EDGE_THRESHOLD_MIN: f32 = 0.0156;
-#endif
 
-#ifdef EDGE_THRESH_MIN_EXTREME
+    @if(EDGE_THRESH_MIN_EXTREME)
     const EDGE_THRESHOLD_MIN: f32 = 0.0078;
-#endif
 
 // The minimum amount of local contrast required to apply algorithm.
-#ifdef EDGE_THRESH_LOW
+    @if(EDGE_THRESH_LOW)
     const EDGE_THRESHOLD_MAX: f32 = 0.250;
-#endif
 
-#ifdef EDGE_THRESH_MEDIUM
+    @if(EDGE_THRESH_MEDIUM)
     const EDGE_THRESHOLD_MAX: f32 = 0.166;
-#endif
 
-#ifdef EDGE_THRESH_HIGH
+    @if(EDGE_THRESH_HIGH)
     const EDGE_THRESHOLD_MAX: f32 = 0.125;
-#endif
 
-#ifdef EDGE_THRESH_ULTRA
+    @if(EDGE_THRESH_ULTRA)
     const EDGE_THRESHOLD_MAX: f32 = 0.063;
-#endif
 
-#ifdef EDGE_THRESH_EXTREME
+    @if(EDGE_THRESH_EXTREME)
     const EDGE_THRESHOLD_MAX: f32 = 0.031;
-#endif
 
 const ITERATIONS: i32 = 12; //default is 12
 const SUBPIXEL_QUALITY: f32 = 0.75;

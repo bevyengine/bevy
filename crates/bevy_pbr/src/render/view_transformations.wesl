@@ -1,7 +1,5 @@
-#define_import_path bevy_pbr::view_transformations
-
-#import bevy_pbr::mesh_view_bindings as view_bindings
-#import bevy_pbr::prepass_bindings
+import bevy_pbr::render::mesh_view_bindings as view_bindings;
+import bevy_pbr::prepass::bindings as prepass_bindings;
 
 /// World space:
 /// +y is up
@@ -170,40 +168,40 @@ fn perspective_camera_near() -> f32 {
 /// Convert ndc depth to linear view z. 
 /// Note: Depth values in front of the camera will be negative as -z is forward
 fn depth_ndc_to_view_z(ndc_depth: f32) -> f32 {
-#ifdef VIEW_PROJECTION_PERSPECTIVE
+@if(VIEW_PROJECTION_PERSPECTIVE)
     return -perspective_camera_near() / ndc_depth;
-#else ifdef VIEW_PROJECTION_ORTHOGRAPHIC
+@elif(VIEW_PROJECTION_ORTHOGRAPHIC)
     return -(view_bindings::view.clip_from_view[3][2] - ndc_depth) / view_bindings::view.clip_from_view[2][2];
-#else
+@else {
     let view_pos = view_bindings::view.view_from_clip * vec4(0.0, 0.0, ndc_depth, 1.0);
     return view_pos.z / view_pos.w;
-#endif
+}
 }
 
 /// Convert linear view z to ndc depth. 
 /// Note: View z input should be negative for values in front of the camera as -z is forward
 fn view_z_to_depth_ndc(view_z: f32) -> f32 {
-#ifdef VIEW_PROJECTION_PERSPECTIVE
+@if(VIEW_PROJECTION_PERSPECTIVE)
     return -perspective_camera_near() / view_z;
-#else ifdef VIEW_PROJECTION_ORTHOGRAPHIC
+@elif(VIEW_PROJECTION_ORTHOGRAPHIC)
     return view_bindings::view.clip_from_view[3][2] + view_z * view_bindings::view.clip_from_view[2][2];
-#else
+@else {
     let ndc_pos = view_bindings::view.clip_from_view * vec4(0.0, 0.0, view_z, 1.0);
     return ndc_pos.z / ndc_pos.w;
-#endif
+}
 }
 
 fn prev_view_z_to_depth_ndc(view_z: f32) -> f32 {
-#ifdef VIEW_PROJECTION_PERSPECTIVE
+@if(VIEW_PROJECTION_PERSPECTIVE)
     return -perspective_camera_near() / view_z;
-#else ifdef VIEW_PROJECTION_ORTHOGRAPHIC
+@elif(VIEW_PROJECTION_ORTHOGRAPHIC)
     return prepass_bindings::previous_view_uniforms.clip_from_view[3][2] +
         view_z * prepass_bindings::previous_view_uniforms.clip_from_view[2][2];
-#else
+@else {
     let ndc_pos = prepass_bindings::previous_view_uniforms.clip_from_view *
         vec4(0.0, 0.0, view_z, 1.0);
     return ndc_pos.z / ndc_pos.w;
-#endif
+}
 }
 
 // -----------------

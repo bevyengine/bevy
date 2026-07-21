@@ -1,19 +1,15 @@
-#define_import_path bevy_pbr::irradiance_volume
-
-#import bevy_pbr::light_probe::{light_probe_iterator_new, light_probe_iterator_next}
-#import bevy_pbr::mesh_view_bindings::{
+import bevy_pbr::light_probe::{light_probe_iterator_new, light_probe_iterator_next};
+import bevy_pbr::render::mesh_view_bindings::{
     irradiance_volumes,
     irradiance_volume,
     irradiance_volume_sampler,
     light_probes,
 };
-#import bevy_pbr::clustered_forward::ClusterableObjectIndexRanges
+import bevy_pbr::render::clustered_forward::ClusterableObjectIndexRanges;
 
-#ifdef LIGHTMAP
-#import bevy_pbr::mesh_view_types::LIGHT_PROBE_FLAG_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE;
-#endif
+@if(LIGHTMAP) import bevy_pbr::render::mesh_view_types::LIGHT_PROBE_FLAG_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE;
 
-#ifdef IRRADIANCE_VOLUMES_ARE_USABLE
+@if(IRRADIANCE_VOLUMES_ARE_USABLE)
 
 // See:
 // https://advances.realtimerendering.com/s2006/Mitchell-ShadingInValvesSourceEngine.pdf
@@ -44,17 +40,15 @@ fn irradiance_volume_light(
 
         // If we're lightmapped, and the irradiance volume contributes no diffuse
         // light, then bail out.
-    #ifdef LIGHTMAP
+        @if(LIGHTMAP)
         if ((query_result.flags & LIGHT_PROBE_FLAG_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE) == 0u) {
             continue;
         }
-    #endif  // LIGHTMAP
 
-    #ifdef MULTIPLE_LIGHT_PROBES_IN_ARRAY
+        @if(MULTIPLE_LIGHT_PROBES_IN_ARRAY)
         let irradiance_volume_texture = irradiance_volumes[query_result.texture_index];
-    #else
+        @else
         let irradiance_volume_texture = irradiance_volume;
-    #endif
 
         let atlas_resolution = vec3<f32>(textureDimensions(irradiance_volume_texture));
         let resolution = vec3<f32>(textureDimensions(irradiance_volume_texture) / vec3(1u, 2u, 3u));
@@ -90,5 +84,3 @@ fn irradiance_volume_light(
 
     return total_irradiance;
 }
-
-#endif  // IRRADIANCE_VOLUMES_ARE_USABLE

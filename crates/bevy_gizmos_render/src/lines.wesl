@@ -1,5 +1,5 @@
 // TODO use common view binding
-#import bevy_render::{view::View, maths::affine3_to_square}
+import bevy_render::{view::View, maths::affine3_to_square};
 
 @group(0) @binding(0) var<uniform> view: View;
 
@@ -11,10 +11,9 @@ struct LineGizmoUniform {
     _joints_resolution: u32,
     gap_scale: f32,
     line_scale: f32,
-#ifdef SIXTEEN_BYTE_ALIGNMENT
+    @if(SIXTEEN_BYTE_ALIGNMENT)
     // WebGL2 structs must be 16 byte aligned.
     _padding: vec3<f32>,
-#endif
 }
 
 @group(1) @binding(0) var<uniform> line_gizmo: LineGizmoUniform;
@@ -72,7 +71,7 @@ fn vertex(vertex: VertexInput) -> VertexOutput {
     var alpha = 1.;
 
     var uv: f32;
-#ifdef PERSPECTIVE
+@if(PERSPECTIVE) {
     line_width /= clip.w;
 
     // get height of near clipping plane in world space
@@ -89,7 +88,7 @@ fn vertex(vertex: VertexInput) -> VertexOutput {
     let clipped_offset = length(position_a.xyz - vertex.position_a);
 
     uv = (clipped_offset + position.y * world_distance) * resolution.y / near_clipping_plane_height / line_gizmo.line_width;
-#else
+} @else {
     // Get the distance of b to the camera along camera axes
     let camera_b = view.view_from_clip * clip_b;
 
@@ -103,7 +102,7 @@ fn vertex(vertex: VertexInput) -> VertexOutput {
         depth_adaptment = -camera_b.z;
     }
     uv = position.y * depth_adaptment * length(screen_b - screen_a) / line_gizmo.line_width;
-#endif
+}
 
     // Line thinness fade from https://acegikmo.com/shapes/docs/#anti-aliasing
     if line_width > 0.0 && line_width < 1. {
@@ -168,22 +167,20 @@ fn fragment_solid(in: FragmentInput) -> FragmentOutput {
 @fragment
 fn fragment_dotted(in: FragmentInput) -> FragmentOutput {
     var alpha: f32;
-#ifdef PERSPECTIVE
+    @if(PERSPECTIVE)
     alpha = 1 - floor(in.uv % 2.0);
-#else
+    @else
     alpha = 1 - floor((in.uv * in.position.w) % 2.0);
-#endif
     
     return FragmentOutput(vec4(in.color.xyz, in.color.w * alpha));
 }
 
 @fragment
 fn fragment_dashed(in: FragmentInput) -> FragmentOutput {
-#ifdef PERSPECTIVE
+    @if(PERSPECTIVE)
     let uv = in.uv;
-#else
+    @else
     let uv = in.uv * in.position.w;
-#endif
     let alpha = 1.0 - floor(min((uv % 2.0) / in.line_fraction, 1.0));
     
     return FragmentOutput(vec4(in.color.xyz, in.color.w * alpha));

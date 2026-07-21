@@ -1,12 +1,10 @@
-#define_import_path bevy_pbr::lighting
-
-#import bevy_pbr::{
-    mesh_view_types::POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE,
-    mesh_view_bindings as view_bindings,
+import bevy_pbr::{
+    render::mesh_view_types::POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE,
+    render::mesh_view_bindings as view_bindings,
     atmosphere::functions::{calculate_visible_sun_ratio, clamp_to_surface},
     atmosphere::bruneton_functions::transmittance_lut_r_mu_to_uv,
-}
-#import bevy_render::maths::{PI, orthonormalize}
+};
+import bevy_render::maths::{PI, orthonormalize};
 
 const LAYER_BASE: u32 = 0;
 const LAYER_CLEARCOAT: u32 = 1;
@@ -64,11 +62,10 @@ struct LayerLightingInput {
 // Input to a lighting function (`point_light`, `spot_light`,
 // `directional_light`).
 struct LightingInput {
-#ifdef STANDARD_MATERIAL_CLEARCOAT
+    @if(STANDARD_MATERIAL_CLEARCOAT)
     layers: array<LayerLightingInput, 2>,
-#else   // STANDARD_MATERIAL_CLEARCOAT
+    @else   // STANDARD_MATERIAL_CLEARCOAT
     layers: array<LayerLightingInput, 1>,
-#endif  // STANDARD_MATERIAL_CLEARCOAT
 
     // The world-space position.
     P: vec3<f32>,
@@ -92,22 +89,22 @@ struct LightingInput {
     // What we call `F_ab` they call `AB`.
     F_ab: vec2<f32>,
 
-#ifdef STANDARD_MATERIAL_CLEARCOAT
     // The strength of the clearcoat layer.
+    @if(STANDARD_MATERIAL_CLEARCOAT)
     clearcoat_strength: f32,
-#endif  // STANDARD_MATERIAL_CLEARCOAT
 
-#ifdef STANDARD_MATERIAL_ANISOTROPY
     // The anisotropy strength, reflecting the amount of increased roughness in
     // the tangent direction.
+    @if(STANDARD_MATERIAL_ANISOTROPY)
     anisotropy: f32,
     // The tangent direction for anisotropy: i.e. the direction in which
     // roughness increases.
+    @if(STANDARD_MATERIAL_ANISOTROPY)
     Ta: vec3<f32>,
     // The bitangent direction, which is the cross product of the normal with
     // the tangent direction.
+    @if(STANDARD_MATERIAL_ANISOTROPY)
     Ba: vec3<f32>,
-#endif  // STANDARD_MATERIAL_ANISOTROPY
 }
 
 // Values derived from the `LightingInput` for both diffuse and specular lights.
@@ -453,8 +450,7 @@ fn specular_clearcoat(
     return vec2(Fc, Frc);
 }
 
-#ifdef STANDARD_MATERIAL_ANISOTROPY
-
+@if(STANDARD_MATERIAL_ANISOTROPY)
 fn specular_anisotropy(
     input: ptr<function, LightingInput>,
     derived_input: ptr<function, DerivedLightingInput>,
@@ -493,8 +489,6 @@ fn specular_anisotropy(
     return Fr;
 }
 
-#endif  // STANDARD_MATERIAL_ANISOTROPY
-
 // Diffuse BRDF
 // https://google.github.io/filament/Filament.md.html#materialsystem/diffusebrdf
 // fd(v,l) = σ/π * 1 / { |n⋅v||n⋅l| } ∫Ω D(m,α) G(v,l,m) (v⋅m) (l⋅m) dm
@@ -527,9 +521,9 @@ fn Fd_Burley(
 
 // Scale/bias approximation
 fn F_AB(perceptual_roughness: f32, NdotV: f32) -> vec2<f32> {
-#ifdef DFG_LUT
+@if(DFG_LUT)
     return textureSampleLevel(view_bindings::dfg_lut, view_bindings::dfg_lut_sampler, vec2<f32>(NdotV, perceptual_roughness), 0.0).rg;
-#else
+@else {
     // Polynomial approximation, see https://www.unrealengine.com/en-US/blog/physically-based-shading-on-mobile
     let c0 = vec4<f32>(-1.0, -0.0275, -0.572, 0.022);
     let c1 = vec4<f32>(1.0, 0.0425, 1.04, -0.04);
@@ -538,7 +532,7 @@ fn F_AB(perceptual_roughness: f32, NdotV: f32) -> vec2<f32> {
     // Keep F_ab positive to avoid divide-by-zero in downstream BRDF terms.
     let f_ab_epsilon = 0.00005;
     return max(vec2<f32>(-1.04, 1.04) * a004 + r.zw, vec2<f32>(f_ab_epsilon));
-#endif
+}
 }
 
 fn EnvBRDFApprox(F0: vec3<f32>, F_ab: vec2<f32>) -> vec3<f32> {
@@ -671,11 +665,10 @@ fn point_light(
 
     let brdf_roughness = mix(a, a_prime, specular_fix_remap(a));
 
-#ifdef STANDARD_MATERIAL_ANISOTROPY
+@if(STANDARD_MATERIAL_ANISOTROPY)
     var specular_light = specular_anisotropy(input, &specular_derived_input, L, brdf_roughness, specular_intensity);
-#else   // STANDARD_MATERIAL_ANISOTROPY
+@else   // STANDARD_MATERIAL_ANISOTROPY
     var specular_light = specular(input, &specular_derived_input, brdf_roughness, specular_intensity);
-#endif  // STANDARD_MATERIAL_ANISOTROPY
 
     // Sphere area light visibility (solid-angle attenuation)
     let light_radius = (*light).position_radius.w;
@@ -686,15 +679,18 @@ fn point_light(
 
     // Clearcoat
 
-#ifdef STANDARD_MATERIAL_CLEARCOAT
     // Unpack.
+    @if(STANDARD_MATERIAL_CLEARCOAT)
     let clearcoat_N = (*input).layers[LAYER_CLEARCOAT].N;
+    @if(STANDARD_MATERIAL_CLEARCOAT)
     let clearcoat_strength = (*input).clearcoat_strength;
+    @if(STANDARD_MATERIAL_CLEARCOAT)
     let clearcoat_a = (*input).layers[LAYER_CLEARCOAT].roughness;
 
     // Perform specular input calculations again for the clearcoat layer. We
     // can't reuse the above because the clearcoat normal might be different
     // from the main layer normal.
+    @if(STANDARD_MATERIAL_CLEARCOAT)
     let clearcoat_specular_L_a_prime = compute_specular_layer_values_for_point_light(
         input,
         LAYER_CLEARCOAT,
@@ -703,18 +699,25 @@ fn point_light(
         (*light).position_radius.w,
         distance,
     );
+    @if(STANDARD_MATERIAL_CLEARCOAT)
     let L_clearcoat_spec = clearcoat_specular_L_a_prime.xyz;
+    @if(STANDARD_MATERIAL_CLEARCOAT)
     let clearcoat_a_prime = clearcoat_specular_L_a_prime.w;
+    @if(STANDARD_MATERIAL_CLEARCOAT)
     var clearcoat_specular_derived_input =
         derive_lighting_input(clearcoat_N, V, L_clearcoat_spec);
 
     // Calculate the specular light.
+    @if(STANDARD_MATERIAL_CLEARCOAT)
     let clearcoat_normalizationFactor = clearcoat_a / clearcoat_a_prime;
 
+    @if(STANDARD_MATERIAL_CLEARCOAT)
     let clearcoat_specular_intensity = clearcoat_normalizationFactor * clearcoat_normalizationFactor;
 
+    @if(STANDARD_MATERIAL_CLEARCOAT)
     let clearcoat_brdf_roughness = mix(clearcoat_a, clearcoat_a_prime, specular_fix_remap(clearcoat_a));
 
+    @if(STANDARD_MATERIAL_CLEARCOAT)
     let Fc_Frc = specular_clearcoat(
         input,
         &clearcoat_specular_derived_input,
@@ -722,15 +725,17 @@ fn point_light(
         clearcoat_brdf_roughness,
         clearcoat_specular_intensity
     );
+    @if(STANDARD_MATERIAL_CLEARCOAT)
     let inv_Fc = 1.0 - Fc_Frc.r;    // Inverse Fresnel term.
+    @if(STANDARD_MATERIAL_CLEARCOAT)
     var Frc = Fc_Frc.g;             // Clearcoat light.
 
     // Sphere area light visibility (solid-angle attenuation) for clearcoat
+    @if(STANDARD_MATERIAL_CLEARCOAT)
     if light_radius > 0.0 {
         let solid_angle = light_radius * light_radius / (distance * distance);
         Frc *= saturate(clearcoat_specular_derived_input.NdotL / max(clearcoat_specular_derived_input.NdotL + solid_angle, 1e-4));
     }
-#endif  // STANDARD_MATERIAL_CLEARCOAT
 
     // Diffuse.
     // Comes after specular since its N⋅L is used in the lighting equation.
@@ -754,18 +759,17 @@ fn point_light(
     // NOTE: (*light).color.rgb is premultiplied with (*light).intensity / 4 π (which would be the luminous intensity) on the CPU
 
     var color_times_NdotL: vec3<f32>;
-#ifdef STANDARD_MATERIAL_CLEARCOAT
+@if(STANDARD_MATERIAL_CLEARCOAT)
     // Account for the Fresnel term from the clearcoat darkening the main layer.
     //
     // <https://google.github.io/filament/Filament.md.html#materialsystem/clearcoatmodel/integrationinthesurfaceresponse>
     color_times_NdotL = (diffuse * derived_input.NdotL + specular_light * specular_derived_input.NdotL * inv_Fc) * inv_Fc + Frc * clearcoat_specular_derived_input.NdotL;
-#else   // STANDARD_MATERIAL_CLEARCOAT
+@else   // STANDARD_MATERIAL_CLEARCOAT
     color_times_NdotL = diffuse * derived_input.NdotL + specular_light * specular_derived_input.NdotL;
-#endif  // STANDARD_MATERIAL_CLEARCOAT
 
     var texture_sample = 1f;
 
-#ifdef LIGHT_TEXTURES
+@if(LIGHT_TEXTURES)
     if enable_texture && (*light).decal_index != 0xFFFFFFFFu {
         let relative_position = (view_bindings::clustered_decals.decals[(*light).decal_index].local_from_world * vec4(P, 1.0)).xyz;
         let cubemap_type = view_bindings::clustered_decals.decals[(*light).decal_index].tag;
@@ -779,7 +783,6 @@ fn point_light(
             0.0
         ).r;
     }
-#endif
 
     return color_times_NdotL * (*light).color_inverse_square_range.rgb *
         rangeAttenuation * texture_sample;
@@ -812,7 +815,7 @@ fn spot_light(
 
     var texture_sample = 1f;
 
-#ifdef LIGHT_TEXTURES
+@if(LIGHT_TEXTURES)
     if (*light).decal_index != 0xFFFFFFFFu {
         let local_position = (view_bindings::clustered_decals.decals[(*light).decal_index].local_from_world *
             vec4((*input).P, 1.0)).xyz;
@@ -828,7 +831,6 @@ fn spot_light(
             ).r;
         }
     }
-#endif
 
     return point_light * spot_attenuation * texture_sample;
 }
@@ -855,42 +857,45 @@ fn directional_light(
         diffuse = diffuse_color * Fd_Burley(input, &derived_input);
     }
 
-#ifdef STANDARD_MATERIAL_ANISOTROPY
+@if(STANDARD_MATERIAL_ANISOTROPY)
     let specular_light = specular_anisotropy(input, &derived_input, L, roughness, 1.0);
-#else   // STANDARD_MATERIAL_ANISOTROPY
+@else   // STANDARD_MATERIAL_ANISOTROPY
     let specular_light = specular(input, &derived_input, roughness, 1.0);
-#endif  // STANDARD_MATERIAL_ANISOTROPY
 
-#ifdef STANDARD_MATERIAL_CLEARCOAT
+    @if(STANDARD_MATERIAL_CLEARCOAT)
     let clearcoat_N = (*input).layers[LAYER_CLEARCOAT].N;
+    @if(STANDARD_MATERIAL_CLEARCOAT)
     let clearcoat_strength = (*input).clearcoat_strength;
+    @if(STANDARD_MATERIAL_CLEARCOAT)
     let clearcoat_roughness = (*input).layers[LAYER_CLEARCOAT].roughness;
 
     // Perform specular input calculations again for the clearcoat layer. We
     // can't reuse the above because the clearcoat normal might be different
     // from the main layer normal.
+    @if(STANDARD_MATERIAL_CLEARCOAT)
     var derived_clearcoat_input = derive_lighting_input(clearcoat_N, V, L);
 
+    @if(STANDARD_MATERIAL_CLEARCOAT)
     let Fc_Frc =
         specular_clearcoat(input, &derived_clearcoat_input, clearcoat_strength, clearcoat_roughness, 1.0);
+    @if(STANDARD_MATERIAL_CLEARCOAT)
     let inv_Fc = 1.0 - Fc_Frc.r;
+    @if(STANDARD_MATERIAL_CLEARCOAT)
     let Frc = Fc_Frc.g;
-#endif  // STANDARD_MATERIAL_CLEARCOAT
 
     var color: vec3<f32>;
-#ifdef STANDARD_MATERIAL_CLEARCOAT
+@if(STANDARD_MATERIAL_CLEARCOAT)
     // Account for the Fresnel term from the clearcoat darkening the main layer.
     //
     // <https://google.github.io/filament/Filament.md.html#materialsystem/clearcoatmodel/integrationinthesurfaceresponse>
     color = (diffuse + specular_light * inv_Fc) * inv_Fc * derived_input.NdotL +
         Frc * derived_clearcoat_input.NdotL;
-#else   // STANDARD_MATERIAL_CLEARCOAT
+@else   // STANDARD_MATERIAL_CLEARCOAT
     color = (diffuse + specular_light) * derived_input.NdotL;
-#endif  // STANDARD_MATERIAL_CLEARCOAT
 
     var texture_sample = 1f;
 
-#ifdef LIGHT_TEXTURES
+@if(LIGHT_TEXTURES)
     if (*light).decal_index != 0xFFFFFFFFu {
         let local_position = (view_bindings::clustered_decals.decals[(*light).decal_index].local_from_world *
             vec4((*input).P, 1.0)).xyz;
@@ -912,11 +917,10 @@ fn directional_light(
             texture_sample = 0f;
         }
     }
-#endif
 
 color *= (*light).color.rgb * texture_sample;
 
-#ifdef ATMOSPHERE
+@if(ATMOSPHERE) {
     let P = (*input).P;
     let atmosphere = view_bindings::atmosphere;
     let P_as = (
@@ -933,7 +937,7 @@ color *= (*light).color.rgb * texture_sample;
 
     // Apply atmospheric effects
     color *= transmittance * sun_visibility;
-#endif
+}
 
     return color;
 }
@@ -1010,7 +1014,7 @@ fn ltc_integrate_quad(
     return sum;
 }
 
-#ifdef AREA_LIGHT_LUTS
+@if(AREA_LIGHT_LUTS)
 fn rect_light(
     light_id: u32,
     input: ptr<function, LightingInput>,
@@ -1070,7 +1074,7 @@ fn rect_light(
     let F0 = mix((*input).F0_dielectric, (*input).F0_metallic, (*input).metallic);
     let spec_weight = F0 * t2.x + (1.0 - F0) * t2.y;
 
-#ifdef STANDARD_MATERIAL_CLEARCOAT
+@if(STANDARD_MATERIAL_CLEARCOAT) {
     let clearcoat_N = (*input).layers[LAYER_CLEARCOAT].N;
     let clearcoat_strength = (*input).clearcoat_strength;
     let clearcoat_perceptual_roughness = (*input).layers[LAYER_CLEARCOAT].perceptual_roughness;
@@ -1094,18 +1098,16 @@ fn rect_light(
 
     return ((spec_weight * spec * inv_Fc + diffuse_color * diff) * inv_Fc
         + spec_weight_cc * spec_cc * clearcoat_strength) * (*light).color.rgb * range_falloff;
-#else
+} @else {
     return (spec_weight * spec + diffuse_color * diff) * (*light).color.rgb * range_falloff;
-#endif
 }
-#endif
+}
 
 
-#ifdef ATMOSPHERE
+@if(ATMOSPHERE)
 fn sample_transmittance_lut(r: f32, mu: f32) -> vec3<f32> {
     let uv = transmittance_lut_r_mu_to_uv(view_bindings::atmosphere, r, mu);
     return textureSampleLevel(
         view_bindings::atmosphere_transmittance_texture,
         view_bindings::atmosphere_transmittance_sampler, uv, 0.0).rgb;
 }
-#endif  // ATMOSPHERE

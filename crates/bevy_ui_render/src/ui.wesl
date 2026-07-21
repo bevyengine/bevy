@@ -1,6 +1,4 @@
-#define_import_path bevy_ui::ui_node
-
-#import bevy_render::view::View
+import bevy_render::view::View;
 
 const TEXTURED = 1u;
 const RIGHT_VERTEX = 2u;
@@ -220,15 +218,14 @@ fn draw_uinode_border(
     // check if this node should apply color for the nearest border
     let nearest_border = select(0.0, 1.0, nearest_border_active(point, size, border, flags));
 
-#ifdef ANTI_ALIAS
+    @if(ANTI_ALIAS)
     // At external edges with no border, `border_distance` is equal to zero. 
     // This select statement ensures we only perform anti-aliasing where a non-zero width border 
     // is present, otherwise an outline about the external boundary would be drawn even without 
     // a border.
     let t = select(1.0 - step(0.0, border_distance), antialias(border_distance), external_distance < internal_distance);
-#else
+    @else
     let t = 1.0 - step(0.0, border_distance);
-#endif
 
     // Blend mode ALPHA_BLENDING is used for UI elements, so we don't premultiply alpha here.
     return vec4(color.rgb, saturate(color.a * t * nearest_border));
@@ -246,11 +243,10 @@ fn draw_uinode_background(
     // When drawing the background only draw the internal area and not the border.
     let internal_distance = sd_inset_rounded_box(point, size, radius_x, radius_y, border) * select(1., -1, enabled(flags, INVERT));
 
-#ifdef ANTI_ALIAS
+    @if(ANTI_ALIAS)
     let t = antialias(internal_distance);
-#else
+    @else
     let t = 1.0 - step(0.0, internal_distance);
-#endif
 
     return vec4(color.rgb, saturate(color.a * t));
 }

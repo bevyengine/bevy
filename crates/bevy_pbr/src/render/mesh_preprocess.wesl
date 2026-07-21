@@ -14,22 +14,22 @@
 // are known as *early mesh preprocessing* and *late mesh preprocessing*
 // respectively.
 
-#import bevy_pbr::mesh_preprocess_types::{
+import bevy_render::occlusion_culling::mesh_preprocess_types::{
     IndirectParametersMetadata, MeshInput, PreviousMeshInput, PreprocessWorkItem
-}
-#import bevy_pbr::mesh_types::{
+};
+import bevy_pbr::render::mesh_types::{
     Mesh, MESH_FLAGS_AABB_BASED_VISIBILITY_RANGE_BIT, MESH_FLAGS_NO_FRUSTUM_CULLING_BIT,
     MESH_FLAGS_VISIBILITY_RANGE_INDEX_BITS
-}
-#import bevy_pbr::mesh_view_bindings::view
-#import bevy_pbr::occlusion_culling
-#import bevy_pbr::prepass_bindings::previous_view_uniforms
-#import bevy_pbr::view_transformations::{
+};
+import bevy_pbr::render::mesh_view_bindings::view;
+import bevy_pbr::render::occlusion_culling;
+import bevy_pbr::prepass::bindings::previous_view_uniforms;
+import bevy_pbr::render::view_transformations::{
     position_world_to_ndc, position_world_to_view, ndc_to_uv, view_z_to_depth_ndc,
     position_world_to_prev_ndc, position_world_to_prev_view, prev_view_z_to_depth_ndc
-}
-#import bevy_render::maths
-#import bevy_render::view::View
+};
+import bevy_render::maths;
+import bevy_render::view::View;
 
 // Information about each mesh instance needed to cull it on GPU.
 //
@@ -54,21 +54,19 @@ struct LatePreprocessWorkItemIndirectParameters {
     // are only defined for `read_write` storage, so the fields are plain `u32`
     // there and `atomic<u32>` in the early phase. `u32` and `atomic<u32>` are
     // layout-identical, so the buffer's memory layout is unchanged either way.
-#ifdef LATE_PHASE
+    @if(LATE_PHASE)
     dispatch_x: u32,
-#else   // LATE_PHASE
+    @else   // LATE_PHASE
     dispatch_x: atomic<u32>,
-#endif  // LATE_PHASE
     // The number of workgroups in the Y direction; always 1.
     dispatch_y: u32,
     // The number of workgroups in the Z direction; always 1.
     dispatch_z: u32,
     // The precise number of work items.
-#ifdef LATE_PHASE
+    @if(LATE_PHASE)
     work_item_count: u32,
-#else   // LATE_PHASE
+    @else   // LATE_PHASE
     work_item_count: atomic<u32>,
-#endif  // LATE_PHASE
     // Padding.
     //
     // This isn't the usual structure padding; it's needed because some hardware
@@ -95,41 +93,39 @@ struct Immediates {
 // The output array of `Mesh`es.
 @group(0) @binding(6) var<storage, read_write> output: array<Mesh>;
 
-#ifdef INDIRECT
+@if(INDIRECT)
 // The array of indirect parameters for drawcalls.
 @group(0) @binding(7) var<storage, read_write> indirect_parameters_metadata:
     array<IndirectParametersMetadata>;
-#endif
 
-#ifdef FRUSTUM_CULLING
+@if(FRUSTUM_CULLING)
 // Data needed to cull the meshes.
 //
 // At the moment, this consists only of AABBs.
 @group(0) @binding(9) var<storage> mesh_culling_data: array<MeshCullingData>;
 
+@if(FRUSTUM_CULLING)
 @group(0) @binding(10) var<storage> visibility_ranges: array<vec4<f32>>;
-#endif  // FRUSTUM_CULLING
 
-#ifdef OCCLUSION_CULLING
+@if(OCCLUSION_CULLING)
 @group(0) @binding(11) var depth_pyramid: texture_2d<f32>;
 
-#ifdef EARLY_PHASE
+@if(OCCLUSION_CULLING && EARLY_PHASE)
 @group(0) @binding(12) var<storage, read_write> late_preprocess_work_items:
     array<PreprocessWorkItem>;
 
+@if(OCCLUSION_CULLING && EARLY_PHASE)
 @group(0) @binding(13) var<storage, read_write> late_preprocess_work_item_indirect_parameters:
     array<LatePreprocessWorkItemIndirectParameters>;
-#endif  // EARLY_PHASE
 
-#ifdef LATE_PHASE
+@if(OCCLUSION_CULLING && LATE_PHASE)
 @group(0) @binding(13) var<storage, read> late_preprocess_work_item_indirect_parameters:
     array<LatePreprocessWorkItemIndirectParameters>;
-#endif  // LATE_PHASE
 
+@if(OCCLUSION_CULLING)
 var<immediate> immediates: Immediates;
-#endif  // OCCLUSION_CULLING
 
-#ifdef FRUSTUM_CULLING
+@if(FRUSTUM_CULLING)
 // Returns true if the view frustum intersects an oriented bounding box (OBB).
 //
 // `aabb_center.w` should be 1.0.
@@ -162,7 +158,6 @@ fn view_frustum_intersects_obb(
 
     return true;
 }
-#endif
 
 @compute
 @workgroup_size(64)
@@ -171,40 +166,37 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     // index, bail.
     let instance_index = global_invocation_id.x;
 
-#ifdef LATE_PHASE
+@if(LATE_PHASE)
     if (instance_index >= late_preprocess_work_item_indirect_parameters[
             immediates.late_preprocess_work_item_indirect_offset].work_item_count) {
         return;
     }
-#else   // LATE_PHASE
+@else   // LATE_PHASE
     if (instance_index >= arrayLength(&work_items)) {
         return;
     }
-#endif
 
     // Unpack the work item.
     let input_index = work_items[instance_index].input_index;
-#ifdef INDIRECT
+@if(INDIRECT)
     let indirect_parameters_index = work_items[instance_index].output_or_indirect_parameters_index;
 
     // If we're the first mesh instance in this batch, write the index of our
     // `MeshInput` into the appropriate slot so that the indirect parameters
     // building shader can access it.
-#ifndef LATE_PHASE
+@if(INDIRECT && !LATE_PHASE)
     if (instance_index == 0u) || (work_items[instance_index - 1].output_or_indirect_parameters_index != indirect_parameters_index) {
         indirect_parameters_metadata[indirect_parameters_index].mesh_index = input_index;
     }
-#endif  // LATE_PHASE
 
-#else   // INDIRECT
+@if(!INDIRECT)
     let mesh_output_index = work_items[instance_index].output_or_indirect_parameters_index;
-#endif  // INDIRECT
 
     // Unpack the input matrix.
     let world_from_local_affine_transpose = current_input[input_index].world_from_local;
     let world_from_local = maths::affine3_to_square(world_from_local_affine_transpose);
 
-#ifdef FRUSTUM_CULLING
+@if(FRUSTUM_CULLING) {
     // Frustum cull if necessary.
     if ((current_input[input_index].flags & MESH_FLAGS_NO_FRUSTUM_CULLING_BIT) == 0u) {
         let aabb_center = mesh_culling_data[input_index].aabb_center.xyz;
@@ -240,7 +232,7 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
             return;
         }
     }
-#endif  // FRUSTUM_CULLING
+}
 
     // See whether the `MeshInputUniform` was updated on this frame. If it
     // wasn't, then we know the transforms of this mesh must be identical to
@@ -268,7 +260,7 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     // no part of the AABB is in front of the corresponding pixel quad in the
     // hierarchical Z-buffer, then this mesh must be occluded, and we can skip
     // rendering it.
-#ifdef OCCLUSION_CULLING
+@if(OCCLUSION_CULLING) {
     let aabb_center = mesh_culling_data[input_index].aabb_center.xyz;
     let aabb_half_extents = mesh_culling_data[input_index].aabb_half_extents.xyz;
 
@@ -287,19 +279,22 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
             vec3((i & 1) != 0, (i & 2) != 0, (i & 4) != 0)
         ) * aabb_half_extents;
 
-#ifdef EARLY_PHASE
         // If we're in the early phase, we're testing against the last frame's
         // depth buffer, so we need to use the previous frame's transform.
+        @if(EARLY_PHASE)
         let prev_world_pos = (previous_world_from_local * vec4(local_pos, 1.0)).xyz;
+        @if(EARLY_PHASE)
         let view_pos = position_world_to_prev_view(prev_world_pos);
+        @if(EARLY_PHASE)
         let ndc_pos = position_world_to_prev_ndc(prev_world_pos);
-#else   // EARLY_PHASE
         // Otherwise, if this is the late phase, we use the current frame's
         // transform.
+        @if(!EARLY_PHASE)
         let world_pos = (world_from_local * vec4(local_pos, 1.0)).xyz;
+        @if(!EARLY_PHASE)
         let view_pos = position_world_to_view(world_pos);
+        @if(!EARLY_PHASE)
         let ndc_pos = position_world_to_ndc(world_pos);
-#endif  // EARLY_PHASE
 
         let uv_pos = ndc_to_uv(ndc_pos.xy);
 
@@ -309,11 +304,10 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     }
 
     // Clip to the near plane to avoid the NDC depth becoming negative.
-#ifdef EARLY_PHASE
+    @if(EARLY_PHASE)
     max_depth_view = min(-previous_view_uniforms.clip_from_view[3][2], max_depth_view);
-#else   // EARLY_PHASE
+    @else   // EARLY_PHASE
     max_depth_view = min(-view.clip_from_view[3][2], max_depth_view);
-#endif  // EARLY_PHASE
 
     // Figure out the depth of the occluder, and compare it to our own depth.
 
@@ -321,15 +315,14 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     let occluder_depth_ndc =
         occlusion_culling::get_occluder_depth(aabb, aabb_pixel_size, depth_pyramid);
 
-#ifdef EARLY_PHASE
+    @if(EARLY_PHASE)
     let max_depth_ndc = prev_view_z_to_depth_ndc(max_depth_view);
-#else   // EARLY_PHASE
+    @else   // EARLY_PHASE
     let max_depth_ndc = view_z_to_depth_ndc(max_depth_view);
-#endif
 
     // Are we culled out?
     if (max_depth_ndc < occluder_depth_ndc) {
-#ifdef EARLY_PHASE
+@if(EARLY_PHASE) {
         // If this is the early phase, we need to make a note of this mesh so
         // that we examine it again in the late phase, so that we handle the
         // case in which a mesh that was invisible last frame became visible in
@@ -349,11 +342,11 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
         late_preprocess_work_items[output_work_item_index].input_index = input_index;
         late_preprocess_work_items[output_work_item_index].output_or_indirect_parameters_index =
             indirect_parameters_index;
-#endif  // EARLY_PHASE
+}
         // This mesh is culled. Skip it.
         return;
     }
-#endif  // OCCLUSION_CULLING
+}
 
     // Calculate inverse transpose.
     let local_from_world_transpose = transpose(maths::inverse_affine3(transpose(
@@ -367,28 +360,25 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
 
     // Figure out the output index. In indirect mode, this involves bumping the
     // instance index in the indirect parameters metadata, which
-    // `build_indirect_params.wgsl` will use to generate the actual indirect
+    // `build_indirect_params.wesl` will use to generate the actual indirect
     // parameters. Otherwise, this index was directly supplied to us.
-#ifdef INDIRECT
-#ifdef LATE_PHASE
+@if(INDIRECT && LATE_PHASE)
     let batch_output_index = atomicLoad(
         &indirect_parameters_metadata[indirect_parameters_index].early_instance_count
     ) + atomicAdd(
         &indirect_parameters_metadata[indirect_parameters_index].late_instance_count,
         1u
     );
-#else   // LATE_PHASE
+@if(INDIRECT && !LATE_PHASE)
     let batch_output_index = atomicAdd(
         &indirect_parameters_metadata[indirect_parameters_index].early_instance_count,
         1u
     );
-#endif  // LATE_PHASE
 
+@if(INDIRECT)
     let mesh_output_index =
         indirect_parameters_metadata[indirect_parameters_index].base_output_index +
         batch_output_index;
-
-#endif  // INDIRECT
 
     // Write the output.
     output[mesh_output_index].world_from_local = world_from_local_affine_transpose;

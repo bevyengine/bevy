@@ -1,16 +1,16 @@
-#import bevy_pbr::cluster::{
+import bevy_pbr::cluster::{
     Aabb, CLUSTERABLE_OBJECT_TYPE_DECAL, CLUSTERABLE_OBJECT_TYPE_IRRADIANCE_VOLUME,
     CLUSTERABLE_OBJECT_TYPE_POINT_LIGHT, CLUSTERABLE_OBJECT_TYPE_REFLECTION_PROBE,
     CLUSTERABLE_OBJECT_TYPE_SPOT_LIGHT, ClusterableObjectZSlice,
     calculate_sphere_cluster_bounds, compute_view_from_world_scale
-}
-#import bevy_pbr::clustered_forward
-#import bevy_pbr::light_probes::transpose_affine_matrix
-#import bevy_pbr::mesh_view_types::{
+};
+import bevy_pbr::render::clustered_forward;
+import bevy_pbr::light_probes::transpose_affine_matrix;
+import bevy_pbr::render::mesh_view_types::{
     ClusterOffsetsAndCounts, ClusterableObjectIndexLists, ClusteredDecals, ClusteredLights,
     LightProbes, Lights, POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE
-}
-#import bevy_render::view::View
+};
+import bevy_render::view::View;
 
 // The shader that performs the cluster-object intersection tests and assigns
 // objects to clusters as appropriate.
@@ -64,10 +64,9 @@ struct ClusterOffsetsAndCountsElementAtomic {
 
 // The list of clusterable object Z slices that we read from to.
 @group(0) @binding(0) var<storage> z_slices: array<ClusterableObjectZSlice>;
-#ifndef VERTEX_SHADER
+@if(!VERTEX_SHADER)
 // The list of indices per cluster that we write to in the populate pass.
 @group(0) @binding(1) var<storage, read_write> index_lists: ClusterableObjectIndexLists;
-#endif  // VERTEX_SHADER
 // Information about each light.
 @group(0) @binding(2) var<storage> clustered_lights: ClusteredLights;
 // Information about each light probe (reflection probe or irradiance volume).
@@ -79,23 +78,21 @@ struct ClusterOffsetsAndCountsElementAtomic {
 @group(0) @binding(5) var<uniform> lights: Lights;
 // Information about the view.
 @group(0) @binding(6) var<uniform> view: View;
-#ifndef VERTEX_SHADER
-#ifdef POPULATE_PASS
+@if(!VERTEX_SHADER && POPULATE_PASS)
 // The number of objects in each cluster, and the offset of each list.
 @group(0) @binding(7) var<storage> offsets_and_counts: ClusterOffsetsAndCounts;
+@if(!VERTEX_SHADER && POPULATE_PASS)
 // For each cluster, the counts of objects written *so far* to it.
 //
 // We use this during the populate phase in order to write the ID of each object
 // to the correct spot.
 @group(0) @binding(8) var<storage, read_write> scratchpad_offsets_and_counts:
     ClusterOffsetsAndCountsAtomic;
-#else   // POPULATE_PASS
+@if(!VERTEX_SHADER && !POPULATE_PASS)
 // The number of objects in each cluster.
 //
 // During the count pass, we write to this.
 @group(0) @binding(7) var<storage, read_write> offsets_and_counts: ClusterOffsetsAndCountsAtomic;
-#endif  // POPULATE_PASS
-#endif  // VERTEX_SHADER
 
 // The vertex entry point.
 @vertex
@@ -157,7 +154,7 @@ fn calculate_vertex_position(vertex: Vertex, cluster_bounds: vec4<u32>) -> vec4<
     return vec4(mix(vec2(-1.0, 1.0), vec2(1.0, -1.0), vertex_position), 0.0, 1.0);
 }
 
-#ifndef VERTEX_SHADER
+@if(!VERTEX_SHADER)
 
 // Performs a fine-grained test to ensure that the object intersects a single
 // froxel and records the result.
@@ -220,19 +217,17 @@ fn fragment_main(varyings: Varyings) -> @location(0) vec4<f32> {
     // If this is the populate pass, reserve a slot and write in the actual
     // object index. Otherwise, if this is the count pass, just bump the
     // appropriate counter.
-#ifdef POPULATE_PASS
+    @if(POPULATE_PASS)
     let output_index = allocate_list_entry(cluster_index, object_type);
+    @if(POPULATE_PASS)
     if (output_index < arrayLength(&index_lists.data)) {
         index_lists.data[output_index] = object_index;
     }
-#else   // POPULATE_PASS
+    @else   // POPULATE_PASS
     increment_object_count(cluster_index, object_type);
-#endif  // POPULATE_PASS
 
     return vec4<f32>(0.0);
 }
-
-#endif  // VERTEX_SHADER
 
 // Returns true if the given sphere intersects the AABB with the given
 // boundaries.
@@ -434,8 +429,7 @@ fn sin_atan(tan_theta: f32) -> f32 {
     return tan_theta * inverseSqrt(1.0 + tan_theta * tan_theta);
 }
 
-#ifndef VERTEX_SHADER
-#ifdef POPULATE_PASS
+@if(!VERTEX_SHADER && POPULATE_PASS)
 // Allocates space in the appropriate list and returns the global index that the
 // object index should be written to.
 fn allocate_list_entry(cluster_index: u32, object_type: u32) -> u32 {
@@ -477,7 +471,7 @@ fn allocate_list_entry(cluster_index: u32, object_type: u32) -> u32 {
     }
     return 0xffffffffu;
 }
-#else   // POPULATE_PASS
+@if(!VERTEX_SHADER && !POPULATE_PASS)
 // Increments the count of objects of the given type for the given cluster.
 fn increment_object_count(cluster_index: u32, object_type: u32) {
     switch (object_type) {
@@ -499,8 +493,6 @@ fn increment_object_count(cluster_index: u32, object_type: u32) {
         default: {}
     }
 }
-#endif  // POPULATE_PASS
-#endif  // VERTEX_SHADER
 
 // Looks up and returns the world-space center and radius of the bounding sphere
 // for the object with the given index and type.

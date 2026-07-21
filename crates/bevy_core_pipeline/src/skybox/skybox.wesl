@@ -1,14 +1,15 @@
-#import bevy_render::view::View
-#import bevy_pbr::utils::coords_to_viewport_uv
+import bevy_render::view::View;
+import bevy_pbr::render::utils::coords_to_viewport_uv;
 
 struct SkyboxUniforms {
 	brightness: f32,
 	transform: mat4x4<f32>,
-#ifdef SIXTEEN_BYTE_ALIGNMENT
+	@if(SIXTEEN_BYTE_ALIGNMENT)
 	_wasm_padding_8b: u32,
+	@if(SIXTEEN_BYTE_ALIGNMENT)
 	_wasm_padding_12b: u32,
+	@if(SIXTEEN_BYTE_ALIGNMENT)
 	_wasm_padding_16b: u32,
-#endif
 }
 
 @group(0) @binding(0) var skybox: texture_cube<f32>;

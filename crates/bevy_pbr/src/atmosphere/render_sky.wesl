@@ -1,6 +1,4 @@
-enable dual_source_blending;
-
-#import bevy_pbr::atmosphere::{
+import bevy_pbr::atmosphere::{
     bindings::{view, settings},
     functions::{
         sample_transmittance_lut, sample_transmittance_lut_segment,
@@ -11,21 +9,23 @@ enable dual_source_blending;
     },
 };
 
-#import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput
+import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput;
 
-#ifdef MULTISAMPLED
+@if(DUAL_SOURCE_BLENDING)
+enable dual_source_blending;
+
+@if(MULTISAMPLED)
 @group(0) @binding(13) var depth_texture: texture_depth_multisampled_2d;
-#else
+@else
 @group(0) @binding(13) var depth_texture: texture_depth_2d;
-#endif
 
 struct RenderSkyOutput {
-#ifdef DUAL_SOURCE_BLENDING
+    @if(DUAL_SOURCE_BLENDING)
     @location(0) @blend_src(0) inscattering: vec4<f32>,
+    @if(DUAL_SOURCE_BLENDING)
     @location(0) @blend_src(1) transmittance: vec4<f32>,
-#else
+    @else
     @location(0) inscattering: vec4<f32>,
-#endif
 }
 
 @fragment
@@ -70,11 +70,11 @@ fn main(in: FullscreenVertexOutput) -> RenderSkyOutput {
     // exposure compensation
     inscattering *= view.exposure;
     
-#ifdef DUAL_SOURCE_BLENDING
+    @if(DUAL_SOURCE_BLENDING)
     return RenderSkyOutput(vec4(inscattering, 0.0), vec4(transmittance, 1.0));
-#else
+    @if(!DUAL_SOURCE_BLENDING)
     let mean_transmittance = (transmittance.r + transmittance.g + transmittance.b) / 3.0;
+    @if(!DUAL_SOURCE_BLENDING)
     return RenderSkyOutput(vec4(inscattering, mean_transmittance));
-#endif
     
 }

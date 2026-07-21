@@ -73,18 +73,18 @@ pub struct Mesh2dRenderPlugin;
 
 impl Plugin for Mesh2dRenderPlugin {
     fn build(&self, app: &mut bevy_app::App) {
-        load_shader_library!(app, "mesh2d_vertex_output.wgsl");
-        load_shader_library!(app, "mesh2d_vertex_input.wgsl");
-        load_shader_library!(app, "mesh2d_view_types.wgsl");
-        load_shader_library!(app, "mesh2d_view_bindings.wgsl");
-        load_shader_library!(app, "mesh2d_types.wgsl");
-        load_shader_library!(app, "mesh2d_functions.wgsl");
+        load_shader_library!(app, "vertex_output.wesl");
+        load_shader_library!(app, "vertex_input.wesl");
+        load_shader_library!(app, "view_types.wesl");
+        load_shader_library!(app, "view_bindings.wesl");
+        load_shader_library!(app, "types.wesl");
+        load_shader_library!(app, "functions.wesl");
 
-        embedded_asset!(app, "mesh2d.wgsl");
+        embedded_asset!(app, "mesh2d.wesl");
 
         // These bindings should be loaded as a shader library, but it depends on runtime
         // information, so we will load it in a system.
-        embedded_asset!(app, "mesh2d_bindings.wgsl");
+        embedded_asset!(app, "bindings.wesl");
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -206,15 +206,12 @@ fn load_mesh2d_bindings(render_device: Res<RenderDevice>, asset_server: Res<Asse
 
     // Load the mesh_bindings shader module here as it depends on runtime information about
     // whether storage buffers are supported, or the maximum uniform buffer binding size.
-    let handle: Handle<Shader> = load_embedded_asset!(
-        asset_server.as_ref(),
-        "mesh2d_bindings.wgsl",
-        move |settings| {
+    let handle: Handle<Shader> =
+        load_embedded_asset!(asset_server.as_ref(), "bindings.wesl", move |settings| {
             *settings = ShaderSettings {
                 shader_defs: mesh_bindings_shader_defs.clone(),
-            }
-        }
-    );
+            };
+        });
     // Forget the handle so we don't have to store it anywhere, and we keep the embedded asset
     // loaded. Note: This is what happens in `load_shader_library` internally.
     core::mem::forget(handle);
@@ -265,7 +262,7 @@ impl Mesh2dUniform {
     }
 }
 
-// NOTE: These must match the bit flags in bevy_sprite_render/src/mesh2d/mesh2d.wgsl!
+// NOTE: These must match the bit flags in bevy_sprite_render/src/mesh2d/mesh2d.wesl!
 bitflags::bitflags! {
     #[repr(transparent)]
     pub struct MeshFlags: u32 {
@@ -387,7 +384,7 @@ pub fn init_mesh_2d_pipeline(
         per_object_buffer_batch_size: GpuArrayBuffer::<Mesh2dUniform>::batch_size(
             &render_device.limits(),
         ),
-        shader: load_embedded_asset!(asset_server.as_ref(), "mesh2d.wgsl"),
+        shader: load_embedded_asset!(asset_server.as_ref(), "mesh2d.wesl"),
     });
 }
 

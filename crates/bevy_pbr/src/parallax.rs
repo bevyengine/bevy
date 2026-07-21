@@ -6,7 +6,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 /// Parallax Mapping uses a depth map texture to give the illusion of depth
 /// variation on a mesh surface that is geometrically flat.
 ///
-/// See the `parallax_mapping.wgsl` shader code for implementation details
+/// See the `parallax_mapping.wesl` shader code for implementation details
 /// and explanation of the methods used.
 ///
 /// [`depth_map`]: crate::StandardMaterial::depth_map

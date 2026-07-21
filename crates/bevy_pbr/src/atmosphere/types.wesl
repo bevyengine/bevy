@@ -1,5 +1,3 @@
-#define_import_path bevy_pbr::atmosphere::types
-
 struct Atmosphere {
     ground_albedo: vec3<f32>,
     // Radius of the planet

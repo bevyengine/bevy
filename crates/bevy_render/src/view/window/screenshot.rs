@@ -407,7 +407,7 @@ pub struct ScreenshotPlugin;
 
 impl Plugin for ScreenshotPlugin {
     fn build(&self, app: &mut bevy_app::App) {
-        embedded_asset!(app, "screenshot.wgsl");
+        embedded_asset!(app, "screenshot.wesl");
 
         let (tx, rx) = std::sync::mpsc::channel();
         app.register_type::<Screenshot>()
@@ -457,7 +457,7 @@ pub fn init_screenshot_to_screen_pipeline(mut commands: Commands, asset_server: 
         ),
     );
 
-    let shader = load_embedded_asset!(asset_server.as_ref(), "screenshot.wgsl");
+    let shader = load_embedded_asset!(asset_server.as_ref(), "screenshot.wesl");
 
     commands.insert_resource(ScreenshotToScreenPipeline {
         bind_group_layout,

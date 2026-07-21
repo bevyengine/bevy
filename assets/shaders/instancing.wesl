@@ -1,4 +1,4 @@
-#import bevy_pbr::mesh_functions::{get_world_from_local, mesh_position_local_to_clip}
+import bevy_pbr::render::mesh_functions::{get_world_from_local, mesh_position_local_to_clip};
 
 struct Vertex {
     @location(0) position: vec3<f32>,

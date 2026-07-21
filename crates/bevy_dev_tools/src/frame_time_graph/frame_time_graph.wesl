@@ -1,4 +1,4 @@
-#import bevy_ui::ui_vertex_output::UiVertexOutput
+import bevy_ui_render::ui_vertex_output::UiVertexOutput;
 
 @group(1) @binding(0) var<storage> values: array<f32>;
 struct Config {

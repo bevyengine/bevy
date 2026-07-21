@@ -1,5 +1,3 @@
-#define_import_path bevy_pbr::mesh_view_types
-
 struct ClusteredLight {
     // For point lights: the lower-right 2x2 values of the projection matrix [2][2] [2][3] [3][2] [3][3]
     // For spot lights: the direction (x,z), spot_scale and spot_offset
@@ -31,7 +29,7 @@ struct DirectionalCascade {
 }
 
 struct DirectionalLight {
-    cascades: array<DirectionalCascade, #{MAX_CASCADES_PER_LIGHT}>,
+    cascades: array<DirectionalCascade, constants::MAX_CASCADES_PER_LIGHT>,
     color: vec4<f32>,
     direction_to_light: vec3<f32>,
     // 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
@@ -64,7 +62,7 @@ struct RectLight {
 
 struct Lights {
     // NOTE: this array size must be kept in sync with the constants defined in bevy_pbr/src/render/light.rs
-    directional_lights: array<DirectionalLight, #{MAX_DIRECTIONAL_LIGHTS}u>,
+    directional_lights: array<DirectionalLight, u32(constants::MAX_DIRECTIONAL_LIGHTS)>,
     ambient_color: vec4<f32>,
     // x/y/z dimensions and n_clusters in w
     cluster_dimensions: vec4<u32>,
@@ -83,7 +81,7 @@ struct Lights {
     spot_light_shadowmap_offset: i32,
     ambient_light_flags: u32,
     n_rect_lights: u32,
-    rect_lights: array<RectLight, #{MAX_RECT_LIGHTS}u>,
+    rect_lights: array<RectLight, u32(constants::MAX_RECT_LIGHTS)>,
 };
 
 const AMBIENT_LIGHT_FLAGS_AFFECTS_LIGHTMAPPED_MESHES_BIT: u32           = 1u << 0u;
@@ -113,30 +111,33 @@ const FOG_MODE_EXPONENTIAL: u32           = 2u;
 const FOG_MODE_EXPONENTIAL_SQUARED: u32   = 3u;
 const FOG_MODE_ATMOSPHERIC: u32           = 4u;
 
-#if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
+@if(AVAILABLE_STORAGE_BUFFER_BINDINGS__GE_3)
 struct ClusteredLights {
     data: array<ClusteredLight>,
 };
+@if(AVAILABLE_STORAGE_BUFFER_BINDINGS__GE_3)
 struct ClusterableObjectIndexLists {
     data: array<u32>,
 };
+@if(AVAILABLE_STORAGE_BUFFER_BINDINGS__GE_3)
 struct ClusterOffsetsAndCounts {
     data: array<array<vec4<u32>, 2>>,
 };
-#else
+@if(!AVAILABLE_STORAGE_BUFFER_BINDINGS__GE_3)
 struct ClusteredLights {
     data: array<ClusteredLight, 204u>,
 };
+@if(!AVAILABLE_STORAGE_BUFFER_BINDINGS__GE_3)
 struct ClusterableObjectIndexLists {
     // each u32 contains 4 u8 indices into the ClusterableObjects array
     data: array<vec4<u32>, 1024u>,
 };
+@if(!AVAILABLE_STORAGE_BUFFER_BINDINGS__GE_3)
 struct ClusterOffsetsAndCounts {
     // each u32 contains a 24-bit index into ClusterableObjectIndexLists in the high 24 bits
     // and an 8-bit count of the number of lights in the low 8 bits
     data: array<vec4<u32>, 1024u>,
 };
-#endif
 
 // Whether this light probe contributes diffuse light to lightmapped meshes.
 const LIGHT_PROBE_FLAG_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE: u32 = 1;
@@ -204,9 +205,8 @@ struct ContactShadowsSettings {
     linear_steps: u32,
     thickness: f32,
     length: f32,
-#ifdef SIXTEEN_BYTE_ALIGNMENT
+    @if(SIXTEEN_BYTE_ALIGNMENT)
     _padding: f32,
-#endif
 };
 
 struct EnvironmentMapUniform {

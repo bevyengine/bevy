@@ -1,15 +1,13 @@
-#define_import_path bevy_core_pipeline::tonemapping
-
-#import bevy_render::{
+import bevy_render::{
     view::ColorGrading,
     color_operations::{hsv_to_rgb, rgb_to_hsv},
     maths::{PI_2, powsafe},
-}
+};
 
-#import bevy_core_pipeline::tonemapping_lut_bindings::{
+import bevy_core_pipeline::tonemapping::lut_bindings::{
     dt_lut_texture,
     dt_lut_sampler,
-}
+};
 
 // Half the size of the crossfade region between shadows and midtones and
 // between midtones and highlights. This value, 0.1, corresponds to 10% of the
@@ -23,15 +21,14 @@ const LEVEL_MARGIN_DIV: f32 = 0.5 / LEVEL_MARGIN;
 fn sample_current_lut(p: vec3<f32>) -> vec3<f32> {
     // Don't include code that will try to sample from LUTs if tonemap method doesn't require it
     // Allows this file to be imported without necessarily needing the lut texture bindings
-#ifdef TONEMAP_METHOD_AGX
+@if(TONEMAP_METHOD_AGX)
     return textureSampleLevel(dt_lut_texture, dt_lut_sampler, p, 0.0).rgb;
-#else ifdef TONEMAP_METHOD_TONY_MC_MAPFACE
+@elif(TONEMAP_METHOD_TONY_MC_MAPFACE)
     return textureSampleLevel(dt_lut_texture, dt_lut_sampler, p, 0.0).rgb;
-#else ifdef TONEMAP_METHOD_BLENDER_FILMIC
+@elif(TONEMAP_METHOD_BLENDER_FILMIC)
     return textureSampleLevel(dt_lut_texture, dt_lut_sampler, p, 0.0).rgb;
-#else
+@else
     return vec3(1.0, 0.0, 1.0);
- #endif
 }
 
 // --------------------------------------
@@ -49,13 +46,13 @@ fn rgb_to_ycbcr(col: vec3<f32>) -> vec3<f32> {
 }
 
 fn tonemap_curve(v: f32) -> f32 {
-#ifdef 0
+@if(false) {
     // Large linear part in the lows, but compresses highs.
-    float c = v + v * v + 0.5 * v * v * v;
+    let c = v + v * v + 0.5 * v * v * v;
     return c / (1.0 + c);
-#else
+} @else {
     return 1.0 - exp(-v);
-#endif
+}
 }
 
 fn tonemap_curve3_(v: vec3<f32>) -> vec3<f32> {
@@ -379,50 +376,50 @@ fn tone_mapping(in: vec4<f32>, in_color_grading: ColorGrading) -> vec4<f32> {
 
     // Rotate hue if needed, by converting to and from HSV. Remember that hue is
     // an angle, so it needs to be modulo 2π.
-#ifdef HUE_ROTATE
+@if(HUE_ROTATE) {
     var hsv = rgb_to_hsv(color);
     hsv.r = (hsv.r + color_grading.hue) % PI_2;
     color = hsv_to_rgb(hsv);
-#endif
+}
 
     // Perform white balance correction. Conveniently, this is a linear
     // transform. The matrix was pre-calculated from the temperature and tint
     // values on the CPU.
-#ifdef WHITE_BALANCE
+@if(WHITE_BALANCE) {
     color = max(color_grading.balance * color, vec3(0.0));
-#endif
+}
 
     // Perform the "sectional" color grading: i.e. the color grading that
     // applies individually to shadows, midtones, and highlights.
-#ifdef SECTIONAL_COLOR_GRADING
+@if(SECTIONAL_COLOR_GRADING) {
     color = sectional_color_grading(color, &color_grading);
-#else
+} @else {
     // If we're not doing sectional color grading, the exposure might still need
     // to be applied, for example when using auto exposure.
     color = color * powsafe(vec3(2.0), color_grading.exposure);
-#endif
+}
 
     // tone_mapping
-#ifdef TONEMAP_METHOD_NONE
+@if(TONEMAP_METHOD_NONE) {
     color = color;
-#else ifdef TONEMAP_METHOD_REINHARD
+} @elif(TONEMAP_METHOD_REINHARD) {
     color = tonemapping_reinhard(color.rgb);
-#else ifdef TONEMAP_METHOD_REINHARD_LUMINANCE
+} @elif(TONEMAP_METHOD_REINHARD_LUMINANCE) {
     color = tonemapping_reinhard_luminance(color.rgb);
-#else ifdef TONEMAP_METHOD_ACES_FITTED
+} @elif(TONEMAP_METHOD_ACES_FITTED) {
     color = ACESFitted(color.rgb);
-#else ifdef TONEMAP_METHOD_AGX
+} @elif(TONEMAP_METHOD_AGX) {
     color = applyAgXLog(color);
     color = applyLUT3D(color, 32.0);
-#else ifdef TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
+} @elif(TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM) {
     color = somewhat_boring_display_transform(color.rgb);
-#else ifdef TONEMAP_METHOD_TONY_MC_MAPFACE
+} @elif(TONEMAP_METHOD_TONY_MC_MAPFACE) {
     color = sample_tony_mc_mapface_lut(color);
-#else ifdef TONEMAP_METHOD_BLENDER_FILMIC
+} @elif(TONEMAP_METHOD_BLENDER_FILMIC) {
     color = sample_blender_filmic_lut(color.rgb);
-#else ifdef TONEMAP_METHOD_PBR_NEUTRAL
+} @elif(TONEMAP_METHOD_PBR_NEUTRAL) {
     color = tonemapping_pbr_neutral(color.rgb);
-#endif
+}
 
     // Perceptual post tonemapping grading
     color = saturation(color, color_grading.post_saturation);

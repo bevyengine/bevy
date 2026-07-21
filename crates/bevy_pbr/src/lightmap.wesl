@@ -1,16 +1,16 @@
+import bevy_pbr::render::mesh_bindings::mesh;
+
+@if(MULTIPLE_LIGHTMAPS_IN_ARRAY)
 enable wgpu_binding_array;
 
-#define_import_path bevy_pbr::lightmap
-
-#import bevy_pbr::mesh_bindings::mesh
-
-#ifdef MULTIPLE_LIGHTMAPS_IN_ARRAY
+@if(MULTIPLE_LIGHTMAPS_IN_ARRAY)
 @group(2) @binding(4) var lightmaps_textures: binding_array<texture_2d<f32>, 4>;
+@if(MULTIPLE_LIGHTMAPS_IN_ARRAY)
 @group(2) @binding(5) var lightmaps_samplers: binding_array<sampler, 4>;
-#else   // MULTIPLE_LIGHTMAPS_IN_ARRAY
+@if(!MULTIPLE_LIGHTMAPS_IN_ARRAY)
 @group(2) @binding(4) var lightmaps_texture: texture_2d<f32>;
+@if(!MULTIPLE_LIGHTMAPS_IN_ARRAY)
 @group(2) @binding(5) var lightmaps_sampler: sampler;
-#endif  // MULTIPLE_LIGHTMAPS_IN_ARRAY
 
 // Samples the lightmap, if any, and returns indirect illumination from it.
 fn lightmap(uv: vec2<f32>, exposure: f32, instance_index: u32) -> vec3<f32> {
@@ -25,7 +25,8 @@ fn lightmap(uv: vec2<f32>, exposure: f32, instance_index: u32) -> vec3<f32> {
     // Bicubic 4-tap
     // https://developer.nvidia.com/gpugems/gpugems2/part-iii-high-quality-rendering/chapter-20-fast-third-order-texture-filtering
     // https://advances.realtimerendering.com/s2021/jpatry_advances2021/index.html#/111/0/2
-#ifdef LIGHTMAP_BICUBIC_SAMPLING
+    var color: vec3<f32>;
+@if(LIGHTMAP_BICUBIC_SAMPLING) {
     let texture_size = vec2<f32>(lightmap_size(lightmap_slot));
     let texel_size = 1.0 / texture_size;
     let puv = lightmap_uv * texture_size + 0.5;
@@ -41,31 +42,29 @@ fn lightmap(uv: vec2<f32>, exposure: f32, instance_index: u32) -> vec3<f32> {
     let p1 = (vec2(iuv.x + h1x, iuv.y + h0y) - 0.5) * texel_size;
     let p2 = (vec2(iuv.x + h0x, iuv.y + h1y) - 0.5) * texel_size;
     let p3 = (vec2(iuv.x + h1x, iuv.y + h1y) - 0.5) * texel_size;
-    let color = g0(fuv.y) * (g0x * sample(p0, lightmap_slot) + g1x * sample(p1, lightmap_slot)) + g1(fuv.y) * (g0x * sample(p2, lightmap_slot) + g1x * sample(p3, lightmap_slot));
-#else
-    let color = sample(lightmap_uv, lightmap_slot);
-#endif
+    color = g0(fuv.y) * (g0x * sample(p0, lightmap_slot) + g1x * sample(p1, lightmap_slot)) + g1(fuv.y) * (g0x * sample(p2, lightmap_slot) + g1x * sample(p3, lightmap_slot));
+} @else {
+    color = sample(lightmap_uv, lightmap_slot);
+}
 
     return color * exposure;
 }
 
 fn lightmap_size(lightmap_slot: u32) -> vec2<u32> {
-#ifdef MULTIPLE_LIGHTMAPS_IN_ARRAY
+    @if(MULTIPLE_LIGHTMAPS_IN_ARRAY)
     return textureDimensions(lightmaps_textures[lightmap_slot]);
-#else
+    @else
     return textureDimensions(lightmaps_texture);
-#endif
 }
 
 fn sample(uv: vec2<f32>, lightmap_slot: u32) -> vec3<f32> {
     // Mipmapping lightmaps is usually a bad idea due to leaking across UV
     // islands, so there's no harm in using mip level 0 and it lets us avoid
     // control flow uniformity problems.
-#ifdef MULTIPLE_LIGHTMAPS_IN_ARRAY
+    @if(MULTIPLE_LIGHTMAPS_IN_ARRAY)
     return textureSampleLevel(lightmaps_textures[lightmap_slot], lightmaps_samplers[lightmap_slot], uv, 0.0).rgb;
-#else
+    @else
     return textureSampleLevel(lightmaps_texture, lightmaps_sampler, uv, 0.0).rgb;
-#endif
 }
 
 fn w0(a: f32) -> f32 {

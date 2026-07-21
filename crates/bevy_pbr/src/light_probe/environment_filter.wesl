@@ -1,8 +1,8 @@
-#import bevy_render::maths::PI
-#import bevy_pbr::{
-    lighting,
+import bevy_render::maths::PI;
+import bevy_pbr::render::{
+    pbr_lighting as lighting,
     utils::{sample_cosine_hemisphere, dir_to_cube_uv, sample_cube_dir, hammersley_2d, rand_vec2f}
-}
+};
 
 struct FilteringConstants {
     mip_level: f32,
@@ -14,7 +14,7 @@ struct FilteringConstants {
 @group(0) @binding(0) var input_texture: texture_2d_array<f32>;
 @group(0) @binding(1) var input_sampler: sampler;
 @group(0) @binding(2) var output_texture: texture_storage_2d_array<rgba16float, write>;
-@group(0) @binding(3) var<uniform> constants: FilteringConstants;
+@group(0) @binding(3) var<uniform> filtering_constants: FilteringConstants;
 @group(0) @binding(4) var blue_noise_texture: texture_2d_array<f32>;
 
 // Sample an environment map with a specific LOD
@@ -24,22 +24,21 @@ fn sample_environment(dir: vec3f, level: f32) -> vec4f {
 }
 
 // Blue noise randomization
-#ifdef HAS_BLUE_NOISE
+@if(HAS_BLUE_NOISE)
 fn sample_noise(pixel_coords: vec2u) -> vec4f {
-    let noise_size = vec2u(1) << constants.noise_size_bits;
+    let noise_size = vec2u(1) << filtering_constants.noise_size_bits;
     let noise_size_mask = noise_size - vec2u(1u);
     let noise_coords = pixel_coords & noise_size_mask;
     let uv = vec2f(noise_coords) / vec2f(noise_size);
     return textureSampleLevel(blue_noise_texture, input_sampler, uv, 0u, 0.0);
 }
-#else
+@else
 // pseudo-random numbers using RNG
 fn sample_noise(pixel_coords: vec2u) -> vec4f {
     var rng_state: u32 = (pixel_coords.x * 3966231743u) ^ (pixel_coords.y * 3928936651u);
     let rnd = rand_vec2f(&rng_state);
     return vec4f(rnd, 0.0, 0.0);
 }
-#endif
 
 // Calculate LOD for environment map lookup using filtered importance sampling
 fn calculate_environment_map_lod(pdf: f32, width: f32, samples: f32) -> f32 {
@@ -74,7 +73,7 @@ fn generate_radiance_map(@builtin(global_invocation_id) global_id: vec3u) {
     let view = normal;
     
     // Convert perceptual roughness to physical microfacet roughness
-    let perceptual_roughness = constants.roughness;
+    let perceptual_roughness = filtering_constants.roughness;
     let roughness = lighting::perceptualRoughnessToRoughness(perceptual_roughness);
     
     // Get blue noise offset for stratification
@@ -91,7 +90,7 @@ fn generate_radiance_map(@builtin(global_invocation_id) global_id: vec3u) {
     }
     
     // For higher roughness values, use importance sampling
-    let sample_count = constants.sample_count;
+    let sample_count = filtering_constants.sample_count;
     
     for (var i = 0u; i < sample_count; i++) {
         // Get sample coordinates from Hammersley sequence with blue noise offset
@@ -162,7 +161,7 @@ fn generate_irradiance_map(@builtin(global_invocation_id) global_id: vec3u) {
     var irradiance = vec3f(0.0);
     
     // Use uniform sampling on a hemisphere
-    for (var i = 0u; i < constants.sample_count; i++) {
+    for (var i = 0u; i < filtering_constants.sample_count; i++) {
         // Build a deterministic RNG seed for this pixel / sample
         // 4 randomly chosen 32-bit primes
         var rng: u32 = (coords.x * 2131358057u) ^ (coords.y * 3416869721u) ^ (face * 1199786941u) ^ (i * 566200673u);
@@ -178,7 +177,7 @@ fn generate_irradiance_map(@builtin(global_invocation_id) global_id: vec3u) {
     }
 
     // Normalize by number of samples (cosine-weighted sampling already accounts for PDF)
-    irradiance = irradiance / f32(constants.sample_count);
+    irradiance = irradiance / f32(filtering_constants.sample_count);
     
     // Write result to output texture
     textureStore(output_texture, coords, face, vec4f(irradiance, 1.0));

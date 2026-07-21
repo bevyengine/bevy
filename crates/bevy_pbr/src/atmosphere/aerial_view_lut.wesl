@@ -1,4 +1,4 @@
-#import bevy_pbr::{
+import bevy_pbr::{
     atmosphere::{
         bindings::settings,
         functions::{
@@ -6,7 +6,7 @@
             MIDPOINT_RATIO, MIN_EXTINCTION, ABSORPTION_DENSITY, SCATTERING_DENSITY,
         },
     }
-}
+};
 
 
 @group(0) @binding(13) var aerial_view_lut_out: texture_storage_3d<rgba16float, write>;

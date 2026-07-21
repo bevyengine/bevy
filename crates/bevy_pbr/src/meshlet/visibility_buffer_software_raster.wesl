@@ -1,5 +1,5 @@
-#import bevy_pbr::{
-    meshlet_bindings::{
+import bevy_pbr::{
+    meshlet::bindings::{
         meshlet_cluster_meshlet_ids,
         meshlets,
         meshlet_cluster_instance_ids,
@@ -14,10 +14,12 @@
         get_meshlet_vertex_id,
         get_meshlet_vertex_position,
     },
-    mesh_functions::mesh_position_local_to_world,
-    view_transformations::ndc_to_uv,
-}
-#import bevy_render::maths::affine3_to_square
+    render::{
+        mesh_functions::mesh_position_local_to_world,
+        view_transformations::ndc_to_uv,
+    },
+};
+import bevy_render::maths::affine3_to_square;
 
 /// Compute shader for rasterizing small clusters into a visibility buffer.
 
@@ -30,16 +32,15 @@ var<workgroup> viewport_vertices: array<vec3f, 256>;
 fn rasterize_cluster(
     @builtin(workgroup_id) workgroup_id: vec3<u32>,
     @builtin(local_invocation_index) local_invocation_index: u32,
-#ifdef MESHLET_2D_DISPATCH
+    @if(MESHLET_2D_DISPATCH)
     @builtin(num_workgroups) num_workgroups: vec3<u32>,
-#endif
 ) {
     var workgroup_id_1d = workgroup_id.x;
 
-#ifdef MESHLET_2D_DISPATCH
+@if(MESHLET_2D_DISPATCH) {
     workgroup_id_1d += workgroup_id.y * num_workgroups.x;
     if workgroup_id_1d >= meshlet_software_raster_cluster_count { return; }
-#endif
+}
 
     let cluster_id = workgroup_id_1d + meshlet_previous_raster_counts[0];
     let instanced_offset = meshlet_raster_clusters[cluster_id];
@@ -168,11 +169,10 @@ fn rasterize_cluster(
 
 fn write_visibility_buffer_pixel(x: f32, y: f32, z: f32, packed_ids: u32) {
     let depth = bitcast<u32>(z);
-#ifdef MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT
+    @if(MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT)
     let visibility = (u64(depth) << 32u) | u64(packed_ids);
-#else
+    @else
     let visibility = depth;
-#endif
     textureAtomicMax(meshlet_visibility_buffer, vec2(u32(x), u32(y)), visibility);
 }
 

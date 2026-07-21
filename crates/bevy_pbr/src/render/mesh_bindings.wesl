@@ -1,19 +1,12 @@
-#define_import_path bevy_pbr::mesh_bindings
+import bevy_pbr::render::mesh_types::Mesh;
+import bevy_render::mesh::metadata_types::MeshMetadata;
 
-#import bevy_pbr::mesh_types::Mesh
-#import bevy_render::mesh_metadata_types::MeshMetadata
-
-#ifndef MESHLET_MESH_MATERIAL_PASS
-#ifdef PER_OBJECT_BUFFER_BATCH_SIZE
-@group(2) @binding(0) var<uniform> mesh: array<Mesh, #{PER_OBJECT_BUFFER_BATCH_SIZE}u>;
-#else
+@if(!MESHLET_MESH_MATERIAL_PASS && PER_OBJECT_BUFFER_BATCH_SIZE)
+@group(2) @binding(0) var<uniform> mesh: array<Mesh, u32(constants::PER_OBJECT_BUFFER_BATCH_SIZE)>;
+@if(!MESHLET_MESH_MATERIAL_PASS && !PER_OBJECT_BUFFER_BATCH_SIZE)
 @group(2) @binding(0) var<storage> mesh: array<Mesh>;
-#endif // PER_OBJECT_BUFFER_BATCH_SIZE
 
-#ifdef METADATA_USE_UNIFORM_BUFFERS
+@if(!MESHLET_MESH_MATERIAL_PASS && METADATA_USE_UNIFORM_BUFFERS)
 @group(2) @binding(9) var<uniform> metadata: MeshMetadata;
-#else
+@if(!MESHLET_MESH_MATERIAL_PASS && !METADATA_USE_UNIFORM_BUFFERS)
 @group(2) @binding(9) var<storage> metadata: array<MeshMetadata>;
-#endif
-
-#endif  // MESHLET_MESH_MATERIAL_PASS

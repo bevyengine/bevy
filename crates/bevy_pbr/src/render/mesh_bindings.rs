@@ -202,7 +202,7 @@ mod entry {
     }
 }
 
-/// All possible [`BindGroupLayout`]s in bevy's default mesh shader (`mesh.wgsl`).
+/// All possible [`BindGroupLayout`]s in bevy's default mesh shader (`mesh.wesl`).
 #[derive(Clone)]
 pub struct MeshLayouts {
     /// The mesh model uniform (transform) and nothing else.

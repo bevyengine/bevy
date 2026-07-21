@@ -1,8 +1,6 @@
 // The vignette postprocessing effect.
 
-#define_import_path bevy_post_process::effect_stack::vignette
-
-#import bevy_post_process::effect_stack::chromatic_aberration::source_texture
+import bevy_post_process::effect_stack::chromatic_aberration::source_texture;
 
 // See `bevy_post_process::effect_stack::Vignette` for more
 // information on these fields.

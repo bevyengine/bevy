@@ -25,7 +25,7 @@
 //
 // [Hillis-Steele scan]: https://en.wikipedia.org/wiki/Prefix_sum#Algorithm_1:_Shorter_span,_more_parallel
 
-#import bevy_pbr::mesh_preprocess_types::{BinMetadata, IndirectParametersMetadata}
+import bevy_render::occlusion_culling::mesh_preprocess_types::{BinMetadata, IndirectParametersMetadata};
 
 // Information needed to allocate `MeshUniform`s.
 struct UniformAllocationMetadata {

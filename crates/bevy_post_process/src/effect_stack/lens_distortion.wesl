@@ -1,7 +1,5 @@
 // The lens distortion postprocessing effect.
 
-#define_import_path bevy_post_process::effect_stack::lens_distortion
-
 // See `bevy_post_process::effect_stack::LensDistortion` for more
 // information on these fields.
 struct LensDistortionSettings {

@@ -1,5 +1,3 @@
-#define_import_path bevy_pbr::mesh_types
-
 struct Mesh {
     // Affine 4x3 matrices transposed to 3x4
     // Use bevy_render::maths::affine3_to_square to unpack
@@ -9,7 +7,7 @@ struct Mesh {
     // [0].xyz, [1].x,
     // [1].yz, [2].xy
     // [2].z
-    // Use bevy_pbr::mesh_functions::mat2x4_f32_to_mat3x3_unpack to unpack
+    // Use bevy_pbr::render::mesh_functions::mat2x4_f32_to_mat3x3_unpack to unpack
     local_from_world_transpose_a: mat2x4<f32>,
     local_from_world_transpose_b: f32,
     // 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
@@ -28,19 +26,18 @@ struct Mesh {
     metadata_index: u32,
 };
 
-#ifdef SKINNED
+@if(SKINNED)
 struct SkinnedMesh {
     data: array<mat4x4<f32>, 256u>,
 };
-#endif
 
-#ifdef MORPH_TARGETS
-
+@if(MORPH_TARGETS)
 struct MorphWeights {
     weights: array<vec4<f32>, 64u>, // 64 = 256 / 4 (256 = MAX_MORPH_WEIGHTS)
 };
 
 // Describes a single mesh instance that uses morph targets.
+@if(MORPH_TARGETS)
 struct MorphDescriptor {
     // The index of the first morph target weight in the `morph_weights` array.
     current_weights_offset: u32,
@@ -57,6 +54,7 @@ struct MorphDescriptor {
 };
 
 // Morph displacement for a single vertex.
+@if(MORPH_TARGETS)
 struct MorphAttributes {
     // The position delta.
     position: vec3<f32>,
@@ -71,8 +69,6 @@ struct MorphAttributes {
     // Padding, to ensure that each `vec3<f32>` is aligned to 16 bytes.
     pad_c: f32,
 };
-
-#endif  // MORPH_TARGETS
 
 // [2^0, 2^16)
 const MESH_FLAGS_VISIBILITY_RANGE_INDEX_BITS: u32     = (1u << 16u) - 1u;

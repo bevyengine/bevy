@@ -98,7 +98,7 @@ impl Plugin for DeferredPbrLightingPlugin {
         ))
         .add_systems(PostUpdate, insert_deferred_lighting_pass_id_component);
 
-        embedded_asset!(app, "deferred_lighting.wgsl");
+        embedded_asset!(app, "deferred_lighting.wesl");
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -374,7 +374,7 @@ pub fn init_deferred_lighting_layout(
         bind_group_layout_2: layout,
         deferred_lighting_shader: load_embedded_asset!(
             asset_server.as_ref(),
-            "deferred_lighting.wgsl"
+            "deferred_lighting.wesl"
         ),
     });
 }

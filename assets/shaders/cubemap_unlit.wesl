@@ -1,12 +1,11 @@
-#import bevy_pbr::forward_io::VertexOutput
+import bevy_pbr::render::forward_io::VertexOutput;
 
-#ifdef CUBEMAP_ARRAY
-@group(#{MATERIAL_BIND_GROUP}) @binding(0) var base_color_texture: texture_cube_array<f32>;
-#else
-@group(#{MATERIAL_BIND_GROUP}) @binding(0) var base_color_texture: texture_cube<f32>;
-#endif
+@if(CUBEMAP_ARRAY)
+@group(constants::MATERIAL_BIND_GROUP) @binding(0) var base_color_texture: texture_cube_array<f32>;
+@else
+@group(constants::MATERIAL_BIND_GROUP) @binding(0) var base_color_texture: texture_cube<f32>;
 
-@group(#{MATERIAL_BIND_GROUP}) @binding(1) var base_color_sampler: sampler;
+@group(constants::MATERIAL_BIND_GROUP) @binding(1) var base_color_sampler: sampler;
 
 @fragment
 fn fragment(

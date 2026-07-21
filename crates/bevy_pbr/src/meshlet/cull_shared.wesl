@@ -1,6 +1,4 @@
-#define_import_path bevy_pbr::meshlet_cull_shared
-
-#import bevy_pbr::meshlet_bindings::{
+import bevy_pbr::meshlet::bindings::{
     MeshletAabb,
     DispatchIndirectArgs,
     InstancedOffset,
@@ -8,8 +6,8 @@
     view,
     previous_view,
     meshlet_instance_uniforms,
-}
-#import bevy_render::maths::affine3_to_square
+};
+import bevy_render::maths::affine3_to_square;
 
 // https://github.com/zeux/meshoptimizer/blob/1e48e96c7e8059321de492865165e9ef071bffba/demo/nanite.cpp#L115
 fn lod_error_is_imperceptible(lod_sphere: vec4<f32>, simplification_error: f32, instance_id: u32) -> bool {
@@ -170,21 +168,21 @@ fn occlusion_cull_screen_aabb(aabb: ScreenAabb, screen: vec2<f32>) -> bool {
 }
 
 fn occlusion_cull_projection() -> mat4x4<f32> {
-#ifdef MESHLET_FIRST_CULLING_PASS
+    @if(MESHLET_FIRST_CULLING_PASS)
     return previous_view.clip_from_world;
-#else
+    @else
     return view.clip_from_world;
-#endif
 }
 
 fn occlusion_cull_clip_from_local(instance_id: u32) -> mat4x4<f32> {
-#ifdef MESHLET_FIRST_CULLING_PASS
+    @if(MESHLET_FIRST_CULLING_PASS)
     let prev_world_from_local = affine3_to_square(meshlet_instance_uniforms[instance_id].previous_world_from_local);
+    @if(MESHLET_FIRST_CULLING_PASS)
     return previous_view.clip_from_world * prev_world_from_local;
-#else
+    @if(!MESHLET_FIRST_CULLING_PASS)
     let world_from_local = affine3_to_square(meshlet_instance_uniforms[instance_id].world_from_local);
+    @if(!MESHLET_FIRST_CULLING_PASS)
     return view.clip_from_world * world_from_local;
-#endif
 }
 
 fn should_occlusion_cull_aabb(aabb: MeshletAabb, instance_id: u32) -> bool {

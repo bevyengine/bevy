@@ -68,9 +68,8 @@ fn sample_history(u: f32, v: f32) -> vec3<f32> {
 
 fn sample_view_target(uv: vec2<f32>) -> vec3<f32> {
     var sample = textureSample(view_target, nearest_sampler, uv).rgb;
-#ifdef TONEMAP
+@if(TONEMAP)
     sample = tonemap(sample);
-#endif
     return RGB_to_YCoCg(sample);
 }
 
@@ -82,11 +81,11 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     // Fetch the current sample
     let original_color = textureSample(view_target, nearest_sampler, uv);
     var current_color = original_color.rgb;
-#ifdef TONEMAP
+@if(TONEMAP)
     current_color = tonemap(current_color);
-#endif
 
-#ifndef RESET
+    var history_confidence: f32;
+@if(!RESET) {
     // Pick the closest motion_vector from 5 samples (reduces aliasing on the edges of moving entities)
     // https://advances.realtimerendering.com/s2014/index.html#_HIGH-QUALITY_TEMPORAL_SUPERSAMPLING, slide 27
     let offset = texel_size * 2.0;
@@ -162,7 +161,7 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     history_color = YCoCg_to_RGB(history_color);
 
     // How confident we are that the history is representative of the current frame
-    var history_confidence = textureSample(history, nearest_sampler, uv).a;
+    history_confidence = textureSample(history, nearest_sampler, uv).a;
     let pixel_motion_vector = abs(closest_motion_vector) * texture_size;
     if pixel_motion_vector.x < 0.01 && pixel_motion_vector.y < 0.01 {
         // Increment when pixels are not moving
@@ -184,18 +183,16 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     }
 
     current_color = mix(history_color, current_color, current_color_factor);
-#endif // #ifndef RESET
+} // #ifndef RESET
 
 
     // Write output to history and view target
     var out: Output;
-#ifdef RESET
-    let history_confidence = 1.0 / MIN_HISTORY_BLEND_RATE;
-#endif
+@if(RESET)
+    history_confidence = 1.0 / MIN_HISTORY_BLEND_RATE;
     out.history = vec4(current_color, history_confidence);
-#ifdef TONEMAP
+@if(TONEMAP)
     current_color = reverse_tonemap(current_color);
-#endif
     out.view_target = vec4(current_color, original_color.a);
     return out;
 }

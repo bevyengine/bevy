@@ -1,16 +1,17 @@
 // https://intro-to-restir.cwyman.org/presentations/2023ReSTIR_Course_Notes.pdf
-enable wgpu_ray_query;
 
-#import bevy_core_pipeline::tonemapping::tonemapping_luminance as luminance
-#import bevy_pbr::utils::{rand_f, rand_u, sample_disk}
-#import bevy_render::utils::octahedral_decode
-#import bevy_solari::brdf::{brdf_pdf, evaluate_brdf, F_AB}
-#import bevy_solari::gbuffer_utils::{gpixel_resolve, permute_pixel, pixel_dissimilar}
-#import bevy_solari::initial_path::{generate_initial_reservoir, InitialSamplingResult}
-#import bevy_solari::realtime_bindings::{depth_buffer, empty_reservoir, gbuffer, motion_vectors, previous_depth_buffer, previous_gbuffer, previous_view, reservoirs_a, reservoirs_b, Reservoir, constants, view, view_output}
-#import bevy_solari::sampling::{balance_heuristic, calculate_resolved_light_contribution, isinf, isnan, LightSample, NULL_LIGHT_ID, power_heuristic, resolve_light_sample, ResolvedLightSample, trace_visibility, trace_visibility_previous_frame}
-#import bevy_solari::scene_bindings::{light_sources, LIGHT_NOT_PRESENT_THIS_FRAME, previous_frame_light_id_translations, RAY_T_MAX, RAY_T_MIN, ResolvedMaterial}
-#import bevy_solari::world_cache::{query_world_cache, WORLD_CACHE_CELL_LIFETIME}
+import bevy_core_pipeline::tonemapping::tonemapping_luminance as luminance;
+import bevy_pbr::render::utils::{rand_f, rand_u, sample_disk};
+import bevy_render::utils::octahedral_decode;
+import bevy_solari::scene::brdf::{brdf_pdf, evaluate_brdf, F_AB};
+import bevy_solari::realtime::gbuffer_utils::{gpixel_resolve, permute_pixel, pixel_dissimilar};
+import bevy_solari::realtime::initial_path::{generate_initial_reservoir, InitialSamplingResult};
+import bevy_solari::realtime::bindings::{depth_buffer, empty_reservoir, gbuffer, motion_vectors, previous_depth_buffer, previous_gbuffer, previous_view, reservoirs_a, reservoirs_b, Reservoir, settings, view, view_output};
+import bevy_solari::scene::sampling::{balance_heuristic, calculate_resolved_light_contribution, isinf, isnan, LightSample, NULL_LIGHT_ID, power_heuristic, resolve_light_sample, ResolvedLightSample, trace_visibility, trace_visibility_previous_frame};
+import bevy_solari::scene::bindings::{light_sources, LIGHT_NOT_PRESENT_THIS_FRAME, previous_frame_light_id_translations, RAY_T_MAX, RAY_T_MIN, ResolvedMaterial};
+import bevy_solari::realtime::world_cache_query::{query_world_cache, WORLD_CACHE_CELL_LIFETIME};
+
+enable wgpu_ray_query;
 
 const SPATIAL_REUSE_RADIUS_PIXELS = 30.0;
 
@@ -19,7 +20,7 @@ fn initial_and_temporal(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin
     if any(global_id.xy >= vec2u(view.main_pass_viewport.zw)) { return; }
 
     let pixel_index = global_id.x + global_id.y * u32(view.main_pass_viewport.z);
-    var rng = pixel_index + constants.frame_rng;
+    var rng = pixel_index + settings.frame_rng;
 
     let depth = textureLoad(depth_buffer, global_id.xy, 0);
     if depth == 0.0 {
@@ -45,7 +46,7 @@ fn spatial_and_shade(@builtin(global_invocation_id) global_id: vec3<u32>) {
     if any(global_id.xy >= vec2u(view.main_pass_viewport.zw)) { return; }
 
     let pixel_index = global_id.x + global_id.y * u32(view.main_pass_viewport.z);
-    var rng = pixel_index + constants.frame_rng + 0x6A09E667u;
+    var rng = pixel_index + settings.frame_rng + 0x6A09E667u;
 
     let depth = textureLoad(depth_buffer, global_id.xy, 0);
     if depth == 0.0 {
@@ -71,13 +72,12 @@ fn spatial_and_shade(@builtin(global_invocation_id) global_id: vec3<u32>) {
     pixel_color *= view.exposure;
     textureStore(view_output, global_id.xy, vec4(pixel_color, 1.0));
 
-#ifdef VISUALIZE_WORLD_CACHE
+    @if(VISUALIZE_WORLD_CACHE)
     textureStore(view_output, global_id.xy, vec4(query_world_cache(surface.world_position, surface.world_normal, view.world_position, RAY_T_MAX, WORLD_CACHE_CELL_LIFETIME, &rng) * view.exposure, 1.0));
-#endif
 }
 
 fn load_temporal_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3<f32>, world_normal: vec3<f32>) -> NeighborInfo {
-    if bool(constants.reset) {
+    if bool(settings.reset) {
         return NeighborInfo(empty_reservoir(), vec3(0.0), vec3(0.0), empty_material());
     }
 
@@ -92,7 +92,7 @@ fn load_temporal_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3
         point_temporal_pixel_id = vec2<u32>(temporal_pixel_id_float);
     }
 
-    var permute_rng = constants.frame_rng;
+    var permute_rng = settings.frame_rng;
     let permuted_temporal_pixel_id = permute_pixel(point_temporal_pixel_id, rand_u(&permute_rng), view.main_pass_viewport.zw);
 
     // Check if the pixel features have changed heavily between the current and previous frame
@@ -116,7 +116,7 @@ fn load_temporal_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3
         temporal.reservoir.light_sample.light_id = (light_id << 16u) | triangle_id;
     }
 
-    temporal.reservoir.confidence_weight = min(temporal.reservoir.confidence_weight, constants.confidence_weight_cap);
+    temporal.reservoir.confidence_weight = min(temporal.reservoir.confidence_weight, settings.confidence_weight_cap);
 
     return temporal;
 }
@@ -255,20 +255,18 @@ fn merge_reservoirs(
         other_sample_at_canonical.target_function *= visibility;
     }
     if canonical_sample_at_other.target_function > 0.0 && canonical_sample_at_other_jacobian > 0.0 {
-#ifdef SPATIAL_MERGE
+        @if(SPATIAL_MERGE)
         let visibility = trace_visibility(other_world_position + other_world_normal * RAY_T_MIN, canonical_sample_at_other.sample_world_position);
-#else
+        @else
         let visibility = trace_visibility_previous_frame(other_world_position + other_world_normal * RAY_T_MIN, canonical_sample_at_other.sample_world_position);
-#endif
         canonical_sample_at_other.target_function *= visibility;
     }
 
     // Defensive balance heuristic MIS (for spatial reuse only)
     let total_confidence_weight = canonical_reservoir.confidence_weight + other_reservoir.confidence_weight;
     var defensive_t_c = 0.0;
-#ifdef SPATIAL_MERGE
+    @if(SPATIAL_MERGE)
     defensive_t_c = select(1.0, canonical_reservoir.confidence_weight / total_confidence_weight, total_confidence_weight > 0.0);
-#endif
 
     // Resampling weight for canonical sample
     let canonical_balance_mis_weight = balance_heuristic(
@@ -332,7 +330,7 @@ fn reservoir_contribution(reservoir: Reservoir, resolved: ResolvedLightSample, w
             let light_count = arrayLength(&light_sources);
             let inverse_solid_angle_pdf = light_contribution.inverse_solid_angle_pdf * f32(light_count);
             let p_nee = mix(1.0, material.perceptual_roughness, material.metallic);
-            let p_nee_strategy = f32(constants.primary_di_samples) * (1.0 / inverse_solid_angle_pdf) * p_nee;
+            let p_nee_strategy = f32(settings.primary_di_samples) * (1.0 / inverse_solid_angle_pdf) * p_nee;
             let p_brdf_at_nee = brdf_pdf(wo, light_contribution.wi, world_normal, material, F_ab);
             nee_mis_weight = power_heuristic(p_nee_strategy, p_brdf_at_nee);
         }
@@ -359,7 +357,7 @@ fn reservoir_contribution(reservoir: Reservoir, resolved: ResolvedLightSample, w
                 let p_light = area_pdf * sample_distance * sample_distance / cos_theta_light;
                 let p_nee = mix(1.0, material.perceptual_roughness, material.metallic);
                 let p_brdf = brdf_pdf(wo, wi, world_normal, material, F_ab);
-                brdf_radiance *= power_heuristic(p_brdf, p_light * p_nee * f32(constants.primary_di_samples));
+                brdf_radiance *= power_heuristic(p_brdf, p_light * p_nee * f32(settings.primary_di_samples));
             }
         }
 

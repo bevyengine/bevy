@@ -1,12 +1,10 @@
-#define_import_path bevy_pbr::light_probe
-
-#import bevy_pbr::clustered_forward
-#import bevy_pbr::clustered_forward::ClusterableObjectIndexRanges
-#import bevy_pbr::mesh_view_bindings::light_probes
-#import bevy_pbr::mesh_view_types::{
+import bevy_pbr::render::clustered_forward;
+import bevy_pbr::render::clustered_forward::ClusterableObjectIndexRanges;
+import bevy_pbr::render::mesh_view_bindings::light_probes;
+import bevy_pbr::render::mesh_view_types::{
     LightProbe, LIGHT_PROBE_FLAG_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE,
     LIGHT_PROBE_FLAG_PARALLAX_CORRECT
-}
+};
 
 // The result of searching for a light probe.
 //
@@ -43,12 +41,11 @@ fn transpose_affine_matrix(matrix: mat3x4<f32>) -> mat4x4<f32> {
     return transpose(matrix4x4);
 }
 
-#if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
-
 // A type that allows iterating through the list of light probes that overlap
 // the current fragment.
 //
 // This is the version used when light probes are clustered.
+@if(AVAILABLE_STORAGE_BUFFER_BINDINGS__GE_3)
 struct LightProbeIterator {
     // The current offset in the light probes list.
     current_offset: u32,
@@ -63,6 +60,7 @@ struct LightProbeIterator {
 
 // Creates a new light probe iterator ready to iterate through light probes in
 // the froxel containing the `world_position`.
+@if(AVAILABLE_STORAGE_BUFFER_BINDINGS__GE_3)
 fn light_probe_iterator_new(
     world_position: vec3<f32>,
     is_irradiance_volume: bool,
@@ -94,6 +92,7 @@ fn light_probe_iterator_new(
 //
 // Note that multiple light probes can affect a fragment. The caller is
 // generally expected to blend their influences together in a weighted sum.
+@if(AVAILABLE_STORAGE_BUFFER_BINDINGS__GE_3)
 fn light_probe_iterator_next(iterator: ptr<function, LightProbeIterator>) -> LightProbeQueryResult {
     let world_position = (*iterator).world_position;
 
@@ -153,8 +152,6 @@ fn light_probe_iterator_next(iterator: ptr<function, LightProbeIterator>) -> Lig
     return result;
 }
 
-#else   // AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
-
 // A type that allows iterating through the list of light probes that overlap
 // the current fragment.
 //
@@ -163,6 +160,7 @@ fn light_probe_iterator_next(iterator: ptr<function, LightProbeIterator>) -> Lig
 // a brute force search of all light probes. Because platforms without
 // sufficient SSBO bindings typically lack bindless shaders, there will usually
 // only be one of each type of light probe present anyway.
+@if(!AVAILABLE_STORAGE_BUFFER_BINDINGS__GE_3)
 struct LightProbeIterator {
     // The current index in the list of light probes for this cluster.
     current_index: u32,
@@ -176,6 +174,7 @@ struct LightProbeIterator {
 }
 
 // Creates a new light probe iterator ready to search through light probes.
+@if(!AVAILABLE_STORAGE_BUFFER_BINDINGS__GE_3)
 fn light_probe_iterator_new(
     world_position: vec3<f32>,
     is_irradiance_volume: bool,
@@ -201,6 +200,7 @@ fn light_probe_iterator_new(
 // weighted sum. In practice, this version of `light_probe_iterator_next` is
 // used on platforms that lack bindless shaders, so there will only be at most
 // one light probe that affects the current fragment in the first place.
+@if(!AVAILABLE_STORAGE_BUFFER_BINDINGS__GE_3)
 fn light_probe_iterator_next(iterator: ptr<function, LightProbeIterator>) -> LightProbeQueryResult {
     var result: LightProbeQueryResult;
     result.texture_index = -1;
@@ -248,5 +248,3 @@ fn light_probe_iterator_next(iterator: ptr<function, LightProbeIterator>) -> Lig
 
     return result;
 }
-
-#endif  // AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3

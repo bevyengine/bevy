@@ -1,22 +1,20 @@
-#define_import_path bevy_pbr::shadow_sampling
-
-#import bevy_pbr::{
+import bevy_pbr::render::{
     mesh_view_bindings as view_bindings,
     utils::interleaved_gradient_noise,
     utils,
-}
-#import bevy_render::maths::{orthonormalize, PI}
+};
+import bevy_render::maths::{orthonormalize, PI};
 
 // Do the lookup, using HW 2x2 PCF and comparison
 fn sample_shadow_map_hardware(light_local: vec2<f32>, depth: f32, array_index: i32) -> f32 {
-#ifdef NO_ARRAY_TEXTURES_SUPPORT
+    @if(NO_ARRAY_TEXTURES_SUPPORT)
     return textureSampleCompare(
         view_bindings::directional_shadow_textures,
         view_bindings::directional_shadow_textures_comparison_sampler,
         light_local,
         depth,
     );
-#else
+    @else
     return textureSampleCompareLevel(
         view_bindings::directional_shadow_textures,
         view_bindings::directional_shadow_textures_comparison_sampler,
@@ -24,7 +22,6 @@ fn sample_shadow_map_hardware(light_local: vec2<f32>, depth: f32, array_index: i
         array_index,
         depth,
     );
-#endif
 }
 
 // Does a single sample of the blocker search, a part of the PCSS algorithm.
@@ -34,22 +31,22 @@ fn search_for_blockers_in_shadow_map_hardware(
     depth: f32,
     array_index: i32,
 ) -> vec2<f32> {
-#ifdef WEBGL2
+    @if(WEBGL2) {
     // Make sure that the WebGL 2 compiler doesn't see `sampled_depth` sampled
     // with different samplers, or it'll blow up.
     return vec2(0.0);
-#else   // WEBGL2
+    } @else {   // WEBGL2
 
-#ifdef PCSS_SAMPLERS_AVAILABLE
+    @if(PCSS_SAMPLERS_AVAILABLE) {
 
-#ifdef NO_ARRAY_TEXTURES_SUPPORT
+    @if(NO_ARRAY_TEXTURES_SUPPORT)
     let sampled_depth = textureSampleLevel(
         view_bindings::directional_shadow_textures,
         view_bindings::directional_shadow_textures_linear_sampler,
         light_local,
         0u,
     );
-#else   // NO_ARRAY_TEXTURES_SUPPORT
+    @else   // NO_ARRAY_TEXTURES_SUPPORT
     let sampled_depth = textureSampleLevel(
         view_bindings::directional_shadow_textures,
         view_bindings::directional_shadow_textures_linear_sampler,
@@ -57,14 +54,13 @@ fn search_for_blockers_in_shadow_map_hardware(
         array_index,
         0u,
     );
-#endif  // NO_ARRAY_TEXTURES_SUPPORT
     return select(vec2(0.0), vec2(sampled_depth, 1.0), sampled_depth >= depth);
 
-#else   // PCSS_SAMPLERS_AVAILABLE
+    } @else {   // PCSS_SAMPLERS_AVAILABLE
     return vec2(0.0);
-#endif  // PCSS_SAMPLERS_AVAILABLE
+    }
 
-#endif  // WEBGL2
+    }
 }
 
 // Numbers determined by trial and error that gave nice results.
@@ -260,20 +256,19 @@ fn sample_shadow_map(
     frag_coord_xy: vec2<f32>,
     texel_size: f32,
 ) -> f32 {
-#ifdef SHADOW_FILTER_METHOD_GAUSSIAN
+    @if(SHADOW_FILTER_METHOD_GAUSSIAN)
     return sample_shadow_map_castano_thirteen(light_local, depth, array_index);
-#else ifdef SHADOW_FILTER_METHOD_TEMPORAL
+    @elif(SHADOW_FILTER_METHOD_TEMPORAL)
     return sample_shadow_map_jimenez_fourteen(
         light_local, depth, array_index, frag_coord_xy, texel_size, 1.0, true);
-#else ifdef SHADOW_FILTER_METHOD_HARDWARE_2X2
+    @elif(SHADOW_FILTER_METHOD_HARDWARE_2X2)
     return sample_shadow_map_hardware(light_local, depth, array_index);
-#else
+    @else
     // This needs a default return value to avoid shader compilation errors if it's compiled with no SHADOW_FILTER_METHOD_* defined.
     // (eg. if the normal prepass is enabled it ends up compiling this due to the normal prepass depending on pbr_functions, which depends on shadows)
     // This should never actually get used, as anyone using bevy's lighting/shadows should always have a SHADOW_FILTER_METHOD defined.
     // Set to 0 to make it obvious that something is wrong.
     return 0.0;
-#endif
 }
 
 // Samples the shadow map for a directional light when percentage-closer soft
@@ -307,13 +302,12 @@ fn sample_shadow_map_pcss(
     // variant this is unfortunately rather noisy. This may be improvable in the
     // future by generating a mip chain of the shadow map and using that to
     // provide better blurs.
-#ifdef SHADOW_FILTER_METHOD_TEMPORAL
+    @if(SHADOW_FILTER_METHOD_TEMPORAL)
     return sample_shadow_map_jimenez_fourteen(
         light_local, depth, array_index, frag_coord_xy, texel_size, blur_size, true);
-#else   // SHADOW_FILTER_METHOD_TEMPORAL
+    @else   // SHADOW_FILTER_METHOD_TEMPORAL
     return sample_shadow_map_jimenez_fourteen(
         light_local, depth, array_index, frag_coord_xy, texel_size, blur_size, false);
-#endif  // SHADOW_FILTER_METHOD_TEMPORAL
 }
 
 // NOTE: Due to the non-uniform control flow in `shadows::fetch_point_shadow`,
@@ -322,14 +316,14 @@ fn sample_shadow_map_pcss(
 // processed not being sampled, and this messing with mip-mapping functionality.
 // The shadow maps have no mipmaps so Level just samples from LOD 0.
 fn sample_shadow_cubemap_hardware(light_local: vec3<f32>, depth: f32, light_id: u32) -> f32 {
-#ifdef NO_CUBE_ARRAY_TEXTURES_SUPPORT
+    @if(NO_CUBE_ARRAY_TEXTURES_SUPPORT)
     return textureSampleCompare(
         view_bindings::point_shadow_textures,
         view_bindings::point_shadow_textures_comparison_sampler,
         light_local,
         depth
     );
-#else
+    @else
     return textureSampleCompareLevel(
         view_bindings::point_shadow_textures,
         view_bindings::point_shadow_textures_comparison_sampler,
@@ -337,7 +331,6 @@ fn sample_shadow_cubemap_hardware(light_local: vec3<f32>, depth: f32, light_id: 
         i32(light_id),
         depth
     );
-#endif
 }
 
 // Performs one sample of the blocker search. This variation of the blocker
@@ -347,36 +340,35 @@ fn search_for_blockers_in_shadow_cubemap_hardware(
     depth: f32,
     light_id: u32,
 ) -> vec2<f32> {
-#ifdef WEBGL2
+    @if(WEBGL2) {
     // Make sure that the WebGL 2 compiler doesn't see `sampled_depth` sampled
     // with different samplers, or it'll blow up.
     return vec2(0.0);
-#else   // WEBGL2
+    } @else {   // WEBGL2
 
-#ifdef PCSS_SAMPLERS_AVAILABLE
+    @if(PCSS_SAMPLERS_AVAILABLE) {
 
-#ifdef NO_CUBE_ARRAY_TEXTURES_SUPPORT
+    @if(NO_CUBE_ARRAY_TEXTURES_SUPPORT)
     let sampled_depth = textureSample(
         view_bindings::point_shadow_textures,
         view_bindings::point_shadow_textures_linear_sampler,
         light_local,
     );
-#else
+    @else
     let sampled_depth = textureSample(
         view_bindings::point_shadow_textures,
         view_bindings::point_shadow_textures_linear_sampler,
         light_local,
         i32(light_id),
     );
-#endif
 
     return select(vec2(0.0), vec2(sampled_depth, 1.0), sampled_depth >= depth);
 
-#else   // PCSS_SAMPLERS_AVAILABLE
+    } @else {   // PCSS_SAMPLERS_AVAILABLE
     return vec2(0.0);
-#endif  // PCSS_SAMPLERS_AVAILABLE
+    }
 
-#endif  // WEBGL2
+    }
 }
 
 fn sample_shadow_cubemap_at_offset(
@@ -521,21 +513,20 @@ fn sample_shadow_cubemap(
     light_id: u32,
     frag_coord_xy: vec2<f32>,
 ) -> f32 {
-#ifdef SHADOW_FILTER_METHOD_GAUSSIAN
+    @if(SHADOW_FILTER_METHOD_GAUSSIAN)
     return sample_shadow_cubemap_gaussian(
         light_local, depth, POINT_SHADOW_SCALE, distance_to_light, light_id);
-#else ifdef SHADOW_FILTER_METHOD_TEMPORAL
+    @elif(SHADOW_FILTER_METHOD_TEMPORAL)
     return sample_shadow_cubemap_jittered(
         light_local, depth, frag_coord_xy, POINT_SHADOW_SCALE, distance_to_light, light_id, true);
-#else ifdef SHADOW_FILTER_METHOD_HARDWARE_2X2
+    @elif(SHADOW_FILTER_METHOD_HARDWARE_2X2)
     return sample_shadow_cubemap_hardware(light_local, depth, light_id);
-#else
+    @else
     // This needs a default return value to avoid shader compilation errors if it's compiled with no SHADOW_FILTER_METHOD_* defined.
     // (eg. if the normal prepass is enabled it ends up compiling this due to the normal prepass depending on pbr_functions, which depends on shadows)
     // This should never actually get used, as anyone using bevy's lighting/shadows should always have a SHADOW_FILTER_METHOD defined.
     // Set to 0 to make it obvious that something is wrong.
     return 0.0;
-#endif
 }
 
 // Searches for PCSS blockers in a cubemap. This is the variant of the blocker
@@ -599,11 +590,10 @@ fn sample_shadow_cubemap_pcss(
     // Don't let the blur size go below 0.5, or shadows will look unacceptably aliased.
     let blur_size = max((z_blocker - depth) * light_size / depth, 0.5);
 
-#ifdef SHADOW_FILTER_METHOD_TEMPORAL
+    @if(SHADOW_FILTER_METHOD_TEMPORAL)
     return sample_shadow_cubemap_jittered(
         light_local, depth, frag_coord_xy, POINT_SHADOW_SCALE * blur_size, distance_to_light, light_id, true);
-#else
+    @else
     return sample_shadow_cubemap_jittered(
         light_local, depth, frag_coord_xy, POINT_SHADOW_SCALE * blur_size, distance_to_light, light_id, false);
-#endif
 }

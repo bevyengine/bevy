@@ -3,12 +3,12 @@
 //
 // This is used for the mirror example: `examples/3d/mirror.rs`.
 
-#import bevy_pbr::{
+import bevy_pbr::render::{
     forward_io::{VertexOutput, FragmentOutput},
     pbr_bindings::emissive_texture,
     pbr_fragment::pbr_input_from_standard_material,
     pbr_functions::{alpha_discard, apply_pbr_lighting, main_pass_post_lighting_processing}
-}
+};
 
 // This is unused, but it's here to satisfy `ExtendedMaterial` requirements.
 // See the comment in `ScreenSpaceTextureExtension` in `examples/3d/mirror.rs`
@@ -18,7 +18,7 @@ struct ScreenSpaceTextureMaterial {
     dummy: f32,
 }
 
-@group(#{MATERIAL_BIND_GROUP}) @binding(100) var<uniform> material: ScreenSpaceTextureMaterial;
+@group(constants::MATERIAL_BIND_GROUP) @binding(100) var<uniform> material: ScreenSpaceTextureMaterial;
 
 @fragment
 fn fragment(in: VertexOutput, @builtin(front_facing) is_front: bool) -> FragmentOutput {

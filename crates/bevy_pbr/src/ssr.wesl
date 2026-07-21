@@ -1,48 +1,48 @@
 // A postprocessing pass that performs screen-space reflections.
 
-#define_import_path bevy_pbr::ssr
-
-#import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput
-#import bevy_pbr::{
-    clustered_forward,
-    lighting,
-    lighting::{LAYER_BASE, LAYER_CLEARCOAT},
-    mesh_view_bindings::{
-        view,
-        globals,
-        depth_prepass_texture,
-        deferred_prepass_texture,
-        ssr_settings
+import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput;
+import bevy_pbr::{
+    render::{
+        clustered_forward,
+        pbr_lighting as lighting,
+        pbr_lighting::{LAYER_BASE, LAYER_CLEARCOAT},
+        mesh_view_bindings::{
+            view,
+            globals,
+            depth_prepass_texture,
+            deferred_prepass_texture,
+            ssr_settings
+        },
+        pbr_functions,
+        utils,
+        view_transformations::{
+            depth_ndc_to_view_z,
+            frag_coord_to_ndc,
+            ndc_to_frag_coord,
+            ndc_to_uv,
+            position_view_to_ndc,
+            position_world_to_ndc,
+            position_world_to_view,
+        },
     },
-    pbr_deferred_functions::pbr_input_from_deferred_gbuffer,
-    pbr_deferred_types,
-    pbr_functions,
-    prepass_utils,
-    raymarch::{
+    deferred::{
+        functions::pbr_input_from_deferred_gbuffer,
+        types as pbr_deferred_types,
+    },
+    prepass::utils as prepass_utils,
+    ssr::raymarch::{
         depth_ray_march_from_cs,
         depth_ray_march_march,
         depth_ray_march_new_from_depth,
         depth_ray_march_to_ws_dir,
     },
-    utils,
-    view_transformations::{
-        depth_ndc_to_view_z,
-        frag_coord_to_ndc,
-        ndc_to_frag_coord,
-        ndc_to_uv,
-        position_view_to_ndc,
-        position_world_to_ndc,
-        position_world_to_view,
-    },
-}
-#import bevy_render::{
+};
+import bevy_render::{
     view::View,
     maths::orthonormalize,
-}
+};
 
-#ifdef ENVIRONMENT_MAP
-#import bevy_pbr::environment_map
-#endif
+@if(ENVIRONMENT_MAP) import bevy_pbr::light_probe::environment_map;
 
 // The texture representing the color framebuffer.
 @group(2) @binding(0) var color_texture: texture_2d<f32>;
@@ -50,7 +50,7 @@
 // The sampler that lets us sample from the color framebuffer.
 @group(2) @binding(1) var color_sampler: sampler;
 
-// Group 1, bindings 2 and 3 are in `raymarch.wgsl`.
+// Group 1, bindings 2 and 3 are in `raymarch.wesl`.
 
 @group(2) @binding(4) var stbn_texture: texture_2d_array<f32>;
 
@@ -234,7 +234,7 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     // This will take the specular part of the environment map into account.
     //
     // TODO: Merge this with the duplicated code in `apply_pbr_lighting`.
-#ifdef ENVIRONMENT_MAP
+@if(ENVIRONMENT_MAP) {
     // Unpack values required for environment mapping.
     let base_color = pbr_input.material.base_color.rgb;
     let metallic = pbr_input.material.metallic;
@@ -242,16 +242,20 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let specular_transmission = pbr_input.material.specular_transmission;
     let diffuse_transmission = pbr_input.material.diffuse_transmission;
 
-#ifdef STANDARD_MATERIAL_CLEARCOAT
     // Do the above calculations again for the clearcoat layer. Remember that
     // the clearcoat can have its own roughness and its own normal.
+    @if(STANDARD_MATERIAL_CLEARCOAT)
     let clearcoat = pbr_input.material.clearcoat;
+    @if(STANDARD_MATERIAL_CLEARCOAT)
     let clearcoat_perceptual_roughness = pbr_input.material.clearcoat_perceptual_roughness;
+    @if(STANDARD_MATERIAL_CLEARCOAT)
     let clearcoat_roughness = lighting::perceptualRoughnessToRoughness(clearcoat_perceptual_roughness);
+    @if(STANDARD_MATERIAL_CLEARCOAT)
     let clearcoat_N = pbr_input.clearcoat_N;
+    @if(STANDARD_MATERIAL_CLEARCOAT)
     let clearcoat_NdotV = max(dot(clearcoat_N, pbr_input.V), 0.0001);
+    @if(STANDARD_MATERIAL_CLEARCOAT)
     let clearcoat_R = reflect(-pbr_input.V, clearcoat_N);
-#endif  // STANDARD_MATERIAL_CLEARCOAT
 
     // Calculate various other values needed for environment mapping.
     let env_roughness = lighting::perceptualRoughnessToRoughness(perceptual_roughness);
@@ -283,14 +287,14 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     lighting_input.F0_dielectric = F0_dielectric;
     lighting_input.F0_metallic = base_color;
     lighting_input.F_ab = F_ab;
-#ifdef STANDARD_MATERIAL_CLEARCOAT
+    @if(STANDARD_MATERIAL_CLEARCOAT) {
     lighting_input.layers[LAYER_CLEARCOAT].NdotV = clearcoat_NdotV;
     lighting_input.layers[LAYER_CLEARCOAT].N = clearcoat_N;
     lighting_input.layers[LAYER_CLEARCOAT].R = clearcoat_R;
     lighting_input.layers[LAYER_CLEARCOAT].perceptual_roughness = clearcoat_perceptual_roughness;
     lighting_input.layers[LAYER_CLEARCOAT].roughness = clearcoat_roughness;
     lighting_input.clearcoat_strength = clearcoat;
-#endif  // STANDARD_MATERIAL_CLEARCOAT
+    }
 
     // Determine which cluster we're in. We'll need this to find the right
     // reflection probe.
@@ -311,7 +315,7 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     // Note that we multiply by (1.0 - ssr_specular.a * fade) to occlude the
     // environment map if SSR hits.
     indirect_light += (view.exposure * environment_light.specular * specular_occlusion) * (1.0 - (1.0 - ssr_specular.a) * fade);
-#endif
+}
 
     // Write the results.
     return vec4(fragment.rgb + indirect_light, fragment.a);

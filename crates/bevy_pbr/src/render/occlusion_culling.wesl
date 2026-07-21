@@ -1,7 +1,5 @@
 // Occlusion culling utility functions.
 
-#define_import_path bevy_pbr::occlusion_culling
-
 fn get_aabb_size_in_pixels(aabb: vec4<f32>, depth_pyramid: texture_2d<f32>) -> vec2<f32> {
     let depth_pyramid_size_mip_0 = vec2<f32>(textureDimensions(depth_pyramid, 0));
     let aabb_width_pixels = (aabb.z - aabb.x) * depth_pyramid_size_mip_0.x;

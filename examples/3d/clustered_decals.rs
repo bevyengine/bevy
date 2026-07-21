@@ -31,7 +31,7 @@ mod radio;
 
 /// The custom material shader that we use to demonstrate how to use the decal
 /// `tag` field.
-const SHADER_ASSET_PATH: &str = "shaders/custom_clustered_decal.wgsl";
+const SHADER_ASSET_PATH: &str = "shaders/custom_clustered_decal.wesl";
 
 /// The speed at which the cube rotates, in radians per frame.
 const CUBE_ROTATION_SPEED: f32 = 0.02;

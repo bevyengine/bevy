@@ -1,6 +1,6 @@
 // This shader draws a checkerboard pattern
-#import bevy_ui::ui_vertex_output::UiVertexOutput
-#import bevy_ui::ui_node::sd_rounded_box;
+import bevy_ui_render::ui_vertex_output::UiVertexOutput;
+import bevy_ui_render::ui::sd_rounded_box;
 
 @fragment
 fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {

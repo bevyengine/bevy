@@ -1,9 +1,7 @@
-#define_import_path bevy_pbr::fog
-
-#import bevy_pbr::{
+import bevy_pbr::render::{
     mesh_view_bindings::fog,
     mesh_view_types::Fog,
-}
+};
 
 // Fog formulas adapted from:
 // https://learn.microsoft.com/en-us/windows/win32/direct3d9/fog-formulas

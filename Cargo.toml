@@ -608,14 +608,8 @@ default_font = ["bevy_internal/default_font"]
 # Allows for discovery of preloaded system fonts
 system_font_discovery = ["bevy_internal/system_font_discovery"]
 
-# Enable support for shaders in GLSL
-shader_format_glsl = ["bevy_internal/shader_format_glsl"]
-
 # Enable support for shaders in SPIR-V
 shader_format_spirv = ["bevy_internal/shader_format_spirv"]
-
-# Enable support for shaders in WESL
-shader_format_wesl = ["bevy_internal/shader_format_wesl"]
 
 # Enable support for transmission-related textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs
 pbr_transmission_textures = ["bevy_internal/pbr_transmission_textures"]
@@ -3221,30 +3215,6 @@ category = "Shaders"
 wasm = true
 
 [[example]]
-name = "shader_material_glsl"
-path = "examples/shader/shader_material_glsl.rs"
-doc-scrape-examples = true
-required-features = ["shader_format_glsl"]
-
-[package.metadata.example.shader_material_glsl]
-name = "Material - GLSL"
-description = "A shader that uses the GLSL shading language"
-category = "Shaders"
-wasm = true
-
-[[example]]
-name = "shader_material_wesl"
-path = "examples/shader/shader_material_wesl.rs"
-doc-scrape-examples = true
-required-features = ["shader_format_wesl"]
-
-[package.metadata.example.shader_material_wesl]
-name = "Material - WESL"
-description = "A shader that uses WESL"
-category = "Shaders"
-wasm = true
-
-[[example]]
 name = "automatic_instancing"
 path = "examples/shader/automatic_instancing.rs"
 doc-scrape-examples = true
@@ -5639,3 +5609,6 @@ name = "Material - 2D Bindless"
 description = "Demonstrates bindless materials in 2D"
 category = "Shaders"
 wasm = false
+
+[patch.crates-io]
+wesl = { git = "https://github.com/tychedelia/wesl-rs", rev = "139768ad1bd03e1eb9ac236dac618eacd6542990" }

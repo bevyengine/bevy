@@ -1,16 +1,16 @@
-#define_import_path bevy_pbr::decal::forward
+import bevy_pbr::{
+    render::{
+        forward_io::VertexOutput,
+        mesh_functions::get_world_from_local,
+        mesh_view_bindings::view,
+        pbr_functions::calculate_tbn_mikktspace,
+        view_transformations::depth_ndc_to_view_z,
+    },
+    prepass::utils::prepass_depth,
+};
+import bevy_render::maths::project_onto;
 
-#import bevy_pbr::{
-    forward_io::VertexOutput,
-    mesh_functions::get_world_from_local,
-    mesh_view_bindings::view,
-    pbr_functions::calculate_tbn_mikktspace,
-    prepass_utils::prepass_depth,
-    view_transformations::depth_ndc_to_view_z,
-}
-#import bevy_render::maths::project_onto
-
-@group(#{MATERIAL_BIND_GROUP}) @binding(200)
+@group(constants::MATERIAL_BIND_GROUP) @binding(200)
 var<uniform> inv_depth_fade_factor: f32;
 
 struct ForwardDecalInformation {

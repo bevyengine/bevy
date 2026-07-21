@@ -3,8 +3,6 @@
 // This is used by depth of field, but you can also use it in custom
 // postprocessing passes.
 
-#define_import_path bevy_post_process::gaussian_blur
-
 // Performs a single direction of the separable Gaussian blur kernel.
 //
 // * `color_texture` is the texture to blur.

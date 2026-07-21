@@ -3,12 +3,12 @@
 //
 // This is used in the `ssr` example. It only supports deferred rendering.
 
-#import bevy_pbr::{
-    pbr_deferred_functions::deferred_output,
-    pbr_fragment::pbr_input_from_standard_material,
-    prepass_io::{VertexOutput, FragmentOutput},
-}
-#import bevy_render::globals::Globals
+import bevy_pbr::{
+    deferred::functions::deferred_output,
+    render::pbr_fragment::pbr_input_from_standard_material,
+    prepass::io::{VertexOutput, FragmentOutput},
+};
+import bevy_render::globals::Globals;
 
 // Parameters to the water shader.
 struct WaterSettings {
@@ -23,9 +23,9 @@ struct WaterSettings {
 
 @group(0) @binding(1) var<uniform> globals: Globals;
 
-@group(#{MATERIAL_BIND_GROUP}) @binding(100) var water_normals_texture: texture_2d<f32>;
-@group(#{MATERIAL_BIND_GROUP}) @binding(101) var water_normals_sampler: sampler;
-@group(#{MATERIAL_BIND_GROUP}) @binding(102) var<uniform> water_settings: WaterSettings;
+@group(constants::MATERIAL_BIND_GROUP) @binding(100) var water_normals_texture: texture_2d<f32>;
+@group(constants::MATERIAL_BIND_GROUP) @binding(101) var water_normals_sampler: sampler;
+@group(constants::MATERIAL_BIND_GROUP) @binding(102) var<uniform> water_settings: WaterSettings;
 
 // Samples a single octave of noise and returns the resulting normal.
 fn sample_noise_octave(uv: vec2<f32>, strength: f32) -> vec3<f32> {

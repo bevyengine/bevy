@@ -1,7 +1,5 @@
 // Types needed for GPU mesh uniform building.
 
-#define_import_path bevy_pbr::mesh_preprocess_types
-
 // Per-frame data that the CPU supplies to the GPU.
 struct MeshInput {
     // The model transform.
@@ -89,23 +87,24 @@ struct IndirectParametersMetadata {
     // The mesh preprocessing shader fills this in.
     mesh_index: u32,
 
-#ifdef WRITE_INDIRECT_PARAMETERS_METADATA
     // The number of instances that were visible last frame (if occlusion
     // culling is in use) or that were visible at all (if occlusion culling
     // isn't in use).
+    @if(WRITE_INDIRECT_PARAMETERS_METADATA)
     early_instance_count: atomic<u32>,
     // The number of instances that were visible this frame if occlusion culling
     // is in use.
+    @if(WRITE_INDIRECT_PARAMETERS_METADATA)
     late_instance_count: atomic<u32>,
-#else   // WRITE_INDIRECT_PARAMETERS_METADATA
     // The number of instances that were visible last frame (if occlusion
     // culling is in use) or that were visible at all (if occlusion culling
     // isn't in use).
+    @if(!WRITE_INDIRECT_PARAMETERS_METADATA)
     early_instance_count: u32,
     // The number of instances that were visible this frame if occlusion culling
     // is in use.
+    @if(!WRITE_INDIRECT_PARAMETERS_METADATA)
     late_instance_count: u32,
-#endif  // WRITE_INDIRECT_PARAMETERS_METADATA
 }
 
 struct IndirectBatchSet {

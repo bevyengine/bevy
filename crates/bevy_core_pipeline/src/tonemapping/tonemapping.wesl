@@ -1,13 +1,11 @@
-#define TONEMAPPING_PASS
-
-#import bevy_render::{
+import bevy_render::{
     view::View,
     maths::powsafe,
-}
-#import bevy_core_pipeline::{
+};
+import bevy_core_pipeline::{
     fullscreen_vertex_shader::FullscreenVertexOutput,
     tonemapping::{tone_mapping, screen_space_dither},
-}
+};
 
 @group(0) @binding(0) var<uniform> view: View;
 
@@ -22,13 +20,13 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
 
     var output_rgb = tone_mapping(hdr_color, view.color_grading).rgb;
 
-#ifdef DEBAND_DITHER
+@if(DEBAND_DITHER) {
     output_rgb = powsafe(output_rgb.rgb, 1.0 / 2.2);
     output_rgb = output_rgb + screen_space_dither(in.position.xy);
     // This conversion back to linear space is required because our output texture format is
     // SRGB; the GPU will assume our output is linear and will apply an SRGB conversion.
     output_rgb = powsafe(output_rgb.rgb, 2.2);
-#endif
+}
 
     return vec4<f32>(output_rgb, hdr_color.a);
 }

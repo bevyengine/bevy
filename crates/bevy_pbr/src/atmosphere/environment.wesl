@@ -1,9 +1,9 @@
-#import bevy_pbr::{
+import bevy_pbr::{
     atmosphere::{
         functions::{direction_world_to_atmosphere, sample_sky_view_lut, get_view_position},
     },
-    utils::sample_cube_dir
-}
+    render::utils::sample_cube_dir
+};
 
 @group(0) @binding(13) var output: texture_storage_2d_array<rgba16float, write>;
 

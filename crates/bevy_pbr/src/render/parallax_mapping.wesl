@@ -1,15 +1,12 @@
-#define_import_path bevy_pbr::parallax_mapping
+import bevy_render::bindless::{bindless_samplers_filtering, bindless_textures_2d};
 
-#import bevy_render::bindless::{bindless_samplers_filtering, bindless_textures_2d}
-
-#import bevy_pbr::{
+import bevy_pbr::render::{
     pbr_bindings::{depth_map_texture, depth_map_sampler},
     mesh_bindings::mesh
-}
+};
 
-#ifdef BINDLESS
-#import bevy_pbr::pbr_bindings::material_indices
-#endif  // BINDLESS
+@if(BINDLESS)
+import bevy_pbr::render::pbr_bindings::material_indices;
 
 fn sample_depth_map(uv: vec2<f32>, material_bind_group_slot: u32) -> f32 {
     // We use `textureSampleLevel` over `textureSample` because the wgpu DX12
@@ -22,14 +19,17 @@ fn sample_depth_map(uv: vec2<f32>, material_bind_group_slot: u32) -> f32 {
     // the MIP level, so no gradient instructions are used, and we can use
     // sample_depth_map in our loop.
     // See https://stackoverflow.com/questions/56581141/direct3d11-gradient-instruction-used-in-a-loop-with-varying-iteration-forcing
+    @if(BINDLESS)
     return textureSampleLevel(
-#ifdef BINDLESS
         bindless_textures_2d[material_indices[material_bind_group_slot].depth_map_texture],
         bindless_samplers_filtering[material_indices[material_bind_group_slot].depth_map_sampler],
-#else   // BINDLESS
+        uv,
+        0.0
+    ).r;
+    @else
+    return textureSampleLevel(
         depth_map_texture,
         depth_map_sampler,
-#endif  // BINDLESS
         uv,
         0.0
     ).r;
@@ -84,7 +84,7 @@ fn parallaxed_uv(
         texture_depth = sample_depth_map(uv, material_bind_group_slot);
     }
 
-#ifdef RELIEF_MAPPING
+    @if(RELIEF_MAPPING) {
     // Relief Mapping
     // ==============
     // "Refine" the rough result from Steep Parallax Mapping
@@ -114,7 +114,7 @@ fn parallaxed_uv(
             current_layer_depth -= delta_depth;
         }
     }
-#else
+    } @else {
     // Parallax Occlusion mapping
     // ==========================
     // "Refine" Steep Parallax Mapping by interpolating between the
@@ -131,7 +131,7 @@ fn parallaxed_uv(
     uv = mix(uv, previous_uv, weight);
 
     current_layer_depth += mix(next_depth, previous_depth, weight);
-#endif
+    }
 
     // Note: `current_layer_depth` is not returned, but may be useful
     // for light computation later on in future improvements of the pbr shader.

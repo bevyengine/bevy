@@ -359,7 +359,7 @@ impl Deref for BindGroup {
 ///   allocate textures, and samplers into *binding arrays*, separated based on
 ///   type and will supply your shader with indices into those arrays.
 /// * Bindless textures and samplers are placed into the appropriate global
-///   array defined in `bevy_render::bindless` (`bindless.wgsl`).
+///   array defined in `bevy_render::bindless` (`bindless.wesl`).
 /// * Bevy doesn't currently support bindless buffers, except for those created
 ///   with the `uniform(BINDLESS_INDEX, ConvertedShaderType,
 ///   binding_array(BINDING_INDEX))` attribute. If you need to include a buffer in

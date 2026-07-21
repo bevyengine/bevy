@@ -1,9 +1,8 @@
-enable wgpu_ray_query;
-#define_import_path bevy_solari::resolve_dlss_rr_textures
+import bevy_pbr::render::pbr_functions::{calculate_diffuse_color, calculate_F0};
+import bevy_solari::realtime::gbuffer_utils::gpixel_resolve;
+import bevy_solari::realtime::bindings::{gbuffer, depth_buffer, motion_vectors, view, diffuse_albedo, specular_albedo, normal_roughness, specular_motion_vectors};
 
-#import bevy_pbr::pbr_functions::{calculate_diffuse_color, calculate_F0}
-#import bevy_solari::gbuffer_utils::gpixel_resolve
-#import bevy_solari::realtime_bindings::{gbuffer, depth_buffer, motion_vectors, view, diffuse_albedo, specular_albedo, normal_roughness, specular_motion_vectors}
+enable wgpu_ray_query;
 
 @compute @workgroup_size(8, 8, 1)
 fn resolve_dlss_rr_textures(@builtin(global_invocation_id) global_id: vec3<u32>) {

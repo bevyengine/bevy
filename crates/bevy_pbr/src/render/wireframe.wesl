@@ -1,40 +1,47 @@
-#ifdef WIREFRAME_WIDE
-
-#import bevy_pbr::{
+@if(WIREFRAME_WIDE) import bevy_pbr::render::{
     mesh_bindings::mesh,
     mesh_view_bindings::view,
     view_transformations::position_world_to_clip,
-}
-#import bevy_render::maths::affine3_to_square
+};
+@if(WIREFRAME_WIDE) import bevy_render::maths::affine3_to_square;
+@if(!WIREFRAME_WIDE) import bevy_pbr::render::forward_io::VertexOutput;
 
+@if(WIREFRAME_WIDE)
 struct Immediates {
     color: vec4<f32>,
     line_width: f32,
     smoothing: f32,
-#ifdef SIXTEEN_BYTE_ALIGNMENT
+    @if(SIXTEEN_BYTE_ALIGNMENT)
     _pad0: f32,
+    @if(SIXTEEN_BYTE_ALIGNMENT)
     _pad1: f32,
-#endif
 }
 
+@if(WIREFRAME_WIDE)
 var<immediate> immediates: Immediates;
 
+@if(WIREFRAME_WIDE)
 struct VertexPullParams {
     index_offset: u32,
     vertex_stride: u32,
     position_offset: u32,
 }
 
+@if(WIREFRAME_WIDE)
 @group(3) @binding(0) var<storage, read> vertex_data: array<u32>;
+@if(WIREFRAME_WIDE)
 @group(3) @binding(1) var<storage, read> index_data: array<u32>;
+@if(WIREFRAME_WIDE)
 @group(3) @binding(2) var<uniform> vp_params: VertexPullParams;
 
+@if(WIREFRAME_WIDE)
 struct WireframeVertexOutput {
     @builtin(position) position: vec4<f32>,
     @location(0) @interpolate(linear) edge_distance: vec4<f32>,
 }
 
 // unsigned perpendicular distance from point p to the infinite line through a and b.
+@if(WIREFRAME_WIDE)
 fn point_line_distance(p: vec2<f32>, a: vec2<f32>, b: vec2<f32>) -> f32 {
     let edge = b - a;
     let len = length(edge);
@@ -47,6 +54,7 @@ fn point_line_distance(p: vec2<f32>, a: vec2<f32>, b: vec2<f32>) -> f32 {
 // finds the local-space vertex position for a given vertex index by reading from the vertex buffer using the provided
 // parameters. the vertex buffer is interpreted as an array of u32s, so the parameters allow us to calculate the
 // correct offset for the position attribute of the vertex at the given index.
+@if(WIREFRAME_WIDE)
 fn read_local_position(first_vertex: u32, vertex_index: u32) -> vec3<f32> {
     let base = (first_vertex + vertex_index) * vp_params.vertex_stride
                + vp_params.position_offset;
@@ -57,6 +65,7 @@ fn read_local_position(first_vertex: u32, vertex_index: u32) -> vec3<f32> {
     );
 }
 
+@if(WIREFRAME_WIDE)
 @vertex
 fn vertex(
     @builtin(vertex_index) vertex_index: u32,
@@ -102,7 +111,7 @@ fn vertex(
     let h1 = area2 / max(len20, 0.001);
     let h2 = area2 / max(len01, 0.001);
 
-#ifdef WIREFRAME_QUADS
+@if(WIREFRAME_QUADS) {
     // detect and suppress the shared diagonal between two triangles forming a quad.
     let quad_base = (draw_id / 6u) * 6u;
     let tri_in_quad = (draw_id / 3u) % 2u;
@@ -203,7 +212,7 @@ fn vertex(
         out.edge_distance = vec4<f32>(ed.x, ed.y, ed.z, other_d2.y);
         out.position = clip2;
     }
-#else // WIREFRAME_QUADS
+} @else { // WIREFRAME_QUADS
     if corner == 0u {
         out.edge_distance = vec4<f32>(h0, 0.0, 0.0, 1e6);
         out.position = clip0;
@@ -214,11 +223,12 @@ fn vertex(
         out.edge_distance = vec4<f32>(0.0, 0.0, h2, 1e6);
         out.position = clip2;
     }
-#endif // WIREFRAME_QUADS
+}
 
     return out;
 }
 
+@if(WIREFRAME_WIDE)
 @fragment
 fn fragment(in: WireframeVertexOutput) -> @location(0) vec4<f32> {
     let d = min(min(in.edge_distance.x, in.edge_distance.y),
@@ -243,21 +253,18 @@ fn fragment(in: WireframeVertexOutput) -> @location(0) vec4<f32> {
     return vec4<f32>(immediates.color.rgb, alpha);
 }
 
-#else // WIREFRAME_WIDE
-
 // the fast path for thin wireframes that render as lines
 
-#import bevy_pbr::forward_io::VertexOutput
-
+@if(!WIREFRAME_WIDE)
 struct Immediates {
     color: vec4<f32>,
 }
 
+@if(!WIREFRAME_WIDE)
 var<immediate> immediates: Immediates;
 
+@if(!WIREFRAME_WIDE)
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     return immediates.color;
 }
-
-#endif // WIREFRAME_WIDE
