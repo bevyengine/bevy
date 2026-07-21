@@ -283,6 +283,7 @@ fn spawn_buttons(commands: &mut Commands) {
                     (Selection::PointLight, "Point Light"),
                     (Selection::DirectionalLight, "Directional Light"),
                 ],
+                0,
             ),
 
             // Camera's visibility cannot be toggled.
@@ -293,6 +294,7 @@ fn spawn_buttons(commands: &mut Commands) {
                     (Visibility::Inherited, "Show"),
                     (Visibility::Hidden, "Hide"),
                 ],
+                0,
             ),
 
             // The number inputs start off hidden because Camera is selected first.
