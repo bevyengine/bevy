@@ -28,7 +28,7 @@ use bevy_reflect::Reflect;
 /// An [`IndexSet`] pre-configured to use [`EntityHash`] hashing.
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct EntityEquivalentIndexSet<K: EntityEquivalent + Hash>(IndexSet<K, EntityHash>);
 
 /// An [`IndexSet`] pre-configured to use [`EntityHash`] hashing with an [`Entity`].
@@ -101,6 +101,12 @@ impl<K: EntityEquivalent + Hash> EntityEquivalentIndexSet<K> {
     pub fn into_boxed_slice(self) -> Box<Slice<K>> {
         // SAFETY: Slice is a transparent wrapper around indexmap::set::Slice.
         unsafe { Slice::from_boxed_slice_unchecked(self.0.into_boxed_slice()) }
+    }
+}
+
+impl<K: EntityEquivalent + Hash> Default for EntityEquivalentIndexSet<K> {
+    fn default() -> Self {
+        Self(Default::default())
     }
 }
 
