@@ -5,7 +5,7 @@ import bevy_pbr::cluster::{
     calculate_sphere_cluster_bounds, compute_view_from_world_scale
 };
 import bevy_pbr::render::clustered_forward;
-import bevy_pbr::light_probes::transpose_affine_matrix;
+import bevy_pbr::light_probe::transpose_affine_matrix;
 import bevy_pbr::render::mesh_view_types::{
     ClusterOffsetsAndCounts, ClusterableObjectIndexLists, ClusteredDecals, ClusteredLights,
     LightProbes, Lights, POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE
