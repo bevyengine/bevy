@@ -246,7 +246,7 @@ fn update_adapter(
     let mut window_children = vec![];
     for (entity, node) in nodes {
         let mut node = (**node).clone();
-        
+
         let has_accessible_ancestor = parents
             .iter_ancestors(entity)
             .any(|ancestor| node_entities.contains(ancestor));
@@ -256,7 +256,12 @@ fn update_adapter(
         }
 
         let mut accessible_children = vec![];
-        collect_accessible_descendants(entity, children_query, node_entities, &mut accessible_children);
+        collect_accessible_descendants(
+            entity,
+            children_query,
+            node_entities,
+            &mut accessible_children,
+        );
         if !accessible_children.is_empty() {
             node.set_children(accessible_children);
         }
@@ -279,7 +284,7 @@ fn update_adapter(
         tree_id: TreeId::ROOT,
         focus: NodeId(
             focus
-                .and_then(|f| f.get())
+                .and_then(InputFocus::get)
                 .unwrap_or(primary_window_id)
                 .to_bits(),
         ),
@@ -350,10 +355,7 @@ mod tests {
             .spawn(AccessibilityNode(Node::new(Role::Group)))
             .id();
 
-        let intermediate_unannotated = app
-            .world_mut()
-            .spawn(ChildOf(parent_accessible))
-            .id();
+        let intermediate_unannotated = app.world_mut().spawn(ChildOf(parent_accessible)).id();
 
         let child_accessible = app
             .world_mut()
