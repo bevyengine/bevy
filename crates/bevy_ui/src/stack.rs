@@ -160,14 +160,14 @@ pub fn update_computed_ui_stacks_system(
 mod tests {
     use bevy_ecs::{
         component::Component,
-        schedule::{IntoScheduleConfigs, Schedule},
+        schedule::Schedule,
         system::Commands,
         world::{CommandQueue, World},
     };
 
     use crate::{ComputedStackIndex, GlobalZIndex, Node, ZIndex};
 
-    use super::{update_computed_ui_stacks_system, ComputedUiStack};
+    use super::{update_computed_ui_stacks_system, ComputedUiStack, UiStackRoots};
 
     #[derive(Component, PartialEq, Debug, Clone)]
     struct Label(&'static str);
@@ -200,16 +200,10 @@ mod tests {
         (Label(name), Node::default())
     }
 
-    /// Tests the UI Stack system.
-    ///
-    /// This tests for siblings default ordering according to their insertion order, but it
-    /// can't test the same thing for UI roots. UI roots having no parents, they do not have
-    /// a stable ordering that we can test against. If we test it, it may pass now and start
-    /// failing randomly in the future because of some unrelated `bevy_ecs` change.
     #[test]
-    fn test_ui_stack_system() {
+    fn test_update_computed_ui_stacks_system() {
         let mut world = World::default();
-        world.init_resource::<UiStack>();
+        world.init_resource::<UiStackRoots>();
 
         let mut queue = CommandQueue::default();
         let mut commands = Commands::new(&mut queue, &world);
@@ -257,15 +251,16 @@ mod tests {
         queue.apply(&mut world);
 
         let mut schedule = Schedule::default();
-        schedule.add_systems((ui_stack_system, update_computed_ui_stacks_system).chain());
+        schedule.add_systems(update_computed_ui_stacks_system);
         schedule.run(&mut world);
         schedule.run(&mut world);
 
         let mut query = world.query::<&Label>();
-        let ui_stack = world.resource::<UiStack>();
-        let actual_result = ui_stack
-            .uinodes
+        let ui_stack_roots = world.resource::<UiStackRoots>();
+        let actual_result = ui_stack_roots
+            .0
             .iter()
+            .flat_map(|entity| world.get::<ComputedUiStack>(*entity).unwrap().iter())
             .map(|entity| query.get(&world, *entity).unwrap().clone())
             .collect::<Vec<_>>();
         let expected_result = vec![
@@ -290,13 +285,15 @@ mod tests {
         ];
         assert_eq!(actual_result, expected_result);
 
-        // Test partitioning
-        let last_part = ui_stack.partition.last().unwrap();
-        assert_eq!(last_part.len(), 1);
-        let last_entity = ui_stack.uinodes[last_part.start];
+        let last_root = *ui_stack_roots.0.last().unwrap();
+        let last_stack = world.get::<ComputedUiStack>(last_root).unwrap();
+        assert_eq!(last_stack.len(), 1);
+        let last_entity = last_stack[0];
         assert_eq!(*query.get(&world, last_entity).unwrap(), Label("0"));
 
-        let actual_result = ui_stack.uinodes[ui_stack.partition[4].clone()]
+        let actual_result = world
+            .get::<ComputedUiStack>(ui_stack_roots.0[4])
+            .unwrap()
             .iter()
             .map(|entity| query.get(&world, *entity).unwrap().clone())
             .collect::<Vec<_>>();
@@ -311,7 +308,12 @@ mod tests {
         ];
         assert_eq!(actual_result, expected_result);
 
-        let expected_result = ui_stack.uinodes.clone();
+        let expected_result = ui_stack_roots
+            .0
+            .iter()
+            .flat_map(|entity| world.get::<ComputedUiStack>(*entity).unwrap().iter())
+            .copied()
+            .collect::<Vec<_>>();
         let mut computed_ui_stacks_query = world.query::<(&ComputedStackIndex, &ComputedUiStack)>();
         let mut computed_ui_stacks = computed_ui_stacks_query.iter(&world).collect::<Vec<_>>();
         computed_ui_stacks.sort_by_key(|(stack_index, _)| stack_index.0);
@@ -326,7 +328,7 @@ mod tests {
     #[test]
     fn test_with_equal_global_zindex_zindex_decides_order() {
         let mut world = World::default();
-        world.init_resource::<UiStack>();
+        world.init_resource::<UiStackRoots>();
 
         let mut queue = CommandQueue::default();
         let mut commands = Commands::new(&mut queue, &world);
@@ -346,14 +348,15 @@ mod tests {
         queue.apply(&mut world);
 
         let mut schedule = Schedule::default();
-        schedule.add_systems(ui_stack_system);
+        schedule.add_systems(update_computed_ui_stacks_system);
         schedule.run(&mut world);
 
         let mut query = world.query::<&Label>();
-        let ui_stack = world.resource::<UiStack>();
-        let actual_result = ui_stack
-            .uinodes
+        let ui_stack_roots = world.resource::<UiStackRoots>();
+        let actual_result = ui_stack_roots
+            .0
             .iter()
+            .flat_map(|entity| world.get::<ComputedUiStack>(*entity).unwrap().iter())
             .map(|entity| query.get(&world, *entity).unwrap().clone())
             .collect::<Vec<_>>();
 
@@ -371,9 +374,9 @@ mod tests {
 
         assert_eq!(actual_result, expected_result);
 
-        assert_eq!(ui_stack.partition.len(), expected_result.len());
-        for (i, part) in ui_stack.partition.iter().enumerate() {
-            assert_eq!(*part, i..i + 1);
+        assert_eq!(ui_stack_roots.0.len(), expected_result.len());
+        for entity in &ui_stack_roots.0 {
+            assert_eq!(world.get::<ComputedUiStack>(*entity).unwrap().len(), 1);
         }
     }
 }
