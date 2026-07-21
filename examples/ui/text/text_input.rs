@@ -1,8 +1,11 @@
-//! Demonstrates a simple, unstyled [`EditableText`] widget.
+//! Demonstrates the [`EditableText`] widget: two minimally styled text inputs
+//! with tab navigation, Enter-to-submit, and a [`Placeholder`] hint on the
+//! left input.
 //!
-//! [`EditableText`] is a basic primitive for text input in Bevy UI.
-//! In most cases, this should be combined with other entities to create a compound widget
-//! that includes e.g. a background, border, and text label.
+//! [`EditableText`] is a single-entity primitive for text input in Bevy UI;
+//! styling such as borders and backgrounds can be added directly to the
+//! field entity, as done here. Larger applications may still wrap it in a
+//! compound widget (label, validation message, etc.).
 //!
 //! Note that while Bevy does offer clipboard support, access to the system clipboard is gated
 //! behind an off-by-default feature (`system_clipboard` on `bevy_clipboard`).
@@ -31,6 +34,7 @@ use bevy::input_focus::{
 };
 use bevy::prelude::*;
 use bevy::text::{EditableText, TextCursorStyle};
+use bevy::ui_widgets::Placeholder;
 
 fn main() {
     App::new()
@@ -70,6 +74,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .id();
 
     let text_input_left = build_input_text(&mut commands, true, 24.0);
+    commands
+        .entity(text_input_left)
+        .insert(Placeholder::new("Type something..."));
     let text_input_right = build_input_text(&mut commands, false, 24.0);
 
     let input_container = commands
