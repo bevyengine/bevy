@@ -442,7 +442,7 @@ fn move_fox_on_mouse_down(
     // widget.
     if app_status.drag_action != DragAction::MoveFox
         || !buttons.pressed(MouseButton::Left)
-        || radio_hovered_query.iter().any(|hovered| hovered.get())
+        || radio_hovered_query.iter().any(Hovered::get)
     {
         return;
     }
@@ -505,7 +505,7 @@ fn move_camera_on_mouse_down(
     // widget.
     if app_status.drag_action != DragAction::MoveCamera
         || !mouse_buttons.pressed(MouseButton::Left)
-        || radio_hovered_query.iter().any(|hovered| hovered.get())
+        || radio_hovered_query.iter().any(Hovered::get)
     {
         return;
     }
