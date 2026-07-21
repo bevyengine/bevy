@@ -18,6 +18,11 @@ use core::ops::Range;
 #[reflect(Component, Default)]
 pub struct ComputedStackIndex(pub u32);
 
+/// Local UI stack added to each UI root, contains all UI nodes descending from this root, ordered by their depth (back-to-front).
+#[derive(Component, Default, PartialEq, Eq, Deref, DerefMut, Reflect)]
+#[reflect(Component, Default)]
+pub struct ComputedUiStack(Vec<Entity>);
+
 /// The current UI stack, which contains all UI nodes ordered by their depth (back-to-front).
 ///
 /// The first entry is the furthest node from the camera and is the first one to get rendered
