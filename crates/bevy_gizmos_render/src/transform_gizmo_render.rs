@@ -377,10 +377,7 @@ fn update_gizmo_meshes(
     >,
     mut std_materials: ResMut<Assets<StandardMaterial>>,
     mut overlay_cam: Query<
-        (
-            &mut Transform, 
-            &mut Camera
-        ),
+        (&mut Transform, &mut Camera),
         (
             With<GizmoOverlayCamera>,
             Without<TransformGizmoRoot>,
@@ -401,8 +398,7 @@ fn update_gizmo_meshes(
         *root_vis = Visibility::Hidden;
         return;
     };
-    let Some((cam_tf, cam)) =
-        bevy_gizmos::resolve_gizmo_camera!(marked_cameras, all_cameras)
+    let Some((cam_tf, cam)) = bevy_gizmos::resolve_gizmo_camera!(marked_cameras, all_cameras)
     else {
         *root_vis = Visibility::Hidden;
         return;
