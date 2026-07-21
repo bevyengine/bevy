@@ -643,6 +643,15 @@ impl BsnType {
             let ident = ctx.hoisted_expressions.hoist(value);
             return Ok(quote! { *#bind_name = #ident; });
         }
+            
+        if let Some(BsnValue::Name(ident)) = value {
+            let index = ctx.entity_refs.get(ident.to_string());
+            let bevy_ecs = ctx.bevy_ecs;
+            let invocation = ctx.invocation_index.clone();
+            return Ok(quote! {
+                #bevy_ecs::template::EntityTemplate::from_reference(#invocation, #index, _call_id);
+            });
+        }
 
         // NOTE: It is very important to still produce outputs for None field values. This is what
         // enables field autocomplete in Rust Analyzer
