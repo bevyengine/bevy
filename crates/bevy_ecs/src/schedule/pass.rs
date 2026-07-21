@@ -6,7 +6,7 @@ use core::{
 };
 
 use bevy_platform::{collections::HashSet, hash::FixedHasher};
-use bevy_utils::TypeIdMap;
+use bevy_utils::TypeIdHashMap;
 use indexmap::IndexSet;
 
 use super::{DiGraph, NodeId, ScheduleBuildError, ScheduleGraph};
@@ -127,7 +127,12 @@ pub(super) trait ScheduleBuildPassObj: Send + Sync + Debug {
         dependency_flattening: &DiGraph<NodeId>,
         dependencies_to_add: &mut Vec<(NodeId, NodeId)>,
     );
-    fn add_dependency(&mut self, from: NodeId, to: NodeId, all_options: &TypeIdMap<Box<dyn Any>>);
+    fn add_dependency(
+        &mut self,
+        from: NodeId,
+        to: NodeId,
+        all_options: &TypeIdHashMap<Box<dyn Any>>,
+    );
 }
 
 impl<T: ScheduleBuildPass> ScheduleBuildPassObj for T {
@@ -149,7 +154,12 @@ impl<T: ScheduleBuildPass> ScheduleBuildPassObj for T {
         let iter = self.collapse_set(set, systems, dependency_flattening);
         dependencies_to_add.extend(iter);
     }
-    fn add_dependency(&mut self, from: NodeId, to: NodeId, all_options: &TypeIdMap<Box<dyn Any>>) {
+    fn add_dependency(
+        &mut self,
+        from: NodeId,
+        to: NodeId,
+        all_options: &TypeIdHashMap<Box<dyn Any>>,
+    ) {
         let option = all_options
             .get(&TypeId::of::<T::EdgeOptions>())
             .and_then(|x| x.downcast_ref::<T::EdgeOptions>());

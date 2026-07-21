@@ -6,7 +6,7 @@ use bevy_ecs::{
     resource::Resource,
     system::{Query, Res, ResMut},
 };
-use bevy_math::{ops::cos, Mat4, Vec3};
+use bevy_math::{ops::cos, Affine3, Affine3Ext, Mat4, Vec3, Vec4};
 use bevy_pbr::{
     DfgLut, ExtractedDirectionalLight, MeshMaterial3d, PreviousGlobalTransform, StandardMaterial,
 };
@@ -32,6 +32,7 @@ const LIGHT_NOT_PRESENT_THIS_FRAME: u32 = u32::MAX;
 pub struct RaytracingSceneBindings {
     pub bind_group: Option<BindGroup>,
     pub bind_group_layout: BindGroupLayoutDescriptor,
+    previous_frame_tlas: Option<Tlas>,
     previous_frame_light_entities: Vec<Entity>,
 }
 
@@ -58,6 +59,8 @@ pub fn prepare_raytracing_scene_bindings(
 ) {
     raytracing_scene_bindings.bind_group = None;
 
+    let previous_frame_tlas = raytracing_scene_bindings.previous_frame_tlas.take();
+
     let mut this_frame_entity_to_light_id = EntityHashMap::<u32>::default();
     let previous_frame_light_entities: Vec<_> = raytracing_scene_bindings
         .previous_frame_light_entities
@@ -81,8 +84,8 @@ pub fn prepare_raytracing_scene_bindings(
             update_mode: AccelerationStructureUpdateMode::Build,
             max_instances: instances_query.iter().len() as u32,
         });
-    let mut transforms = StorageBufferList::<Mat4>::default();
-    let mut previous_frame_transforms = StorageBufferList::<Mat4>::default();
+    let mut transforms = StorageBufferList::<[Vec4; 3]>::default();
+    let mut previous_frame_transforms = StorageBufferList::<[Vec4; 3]>::default();
     let mut geometry_ids = StorageBufferList::<GpuInstanceGeometryIds>::default();
     let mut material_ids = StorageBufferList::<u32>::default();
     let mut light_sources = StorageBufferList::<GpuLightSource>::default();
@@ -169,18 +172,18 @@ pub fn prepare_raytracing_scene_bindings(
             continue;
         };
 
-        let transform = transform.to_matrix();
         *tlas.get_mut_single(instance_id).unwrap() = Some(TlasInstance::new(
             blas,
-            tlas_transform(&transform),
+            tlas_transform(&transform.to_matrix()),
             Default::default(),
             0xFF,
         ));
 
+        let transform = Affine3::from(transform.affine()).to_transpose();
         transforms.get_mut().push(transform);
         previous_frame_transforms.get_mut().push(
             previous_frame_transform
-                .map(|t| Mat4::from(t.0))
+                .map(|t| Affine3::from(t.0).to_transpose())
                 .unwrap_or(transform),
         );
 
@@ -293,6 +296,7 @@ pub fn prepare_raytracing_scene_bindings(
             samplers.as_slice(),
             materials.binding().unwrap(),
             tlas.as_binding(),
+            previous_frame_tlas.as_ref().unwrap_or(&tlas).as_binding(),
             transforms.binding().unwrap(),
             previous_frame_transforms.binding().unwrap(),
             geometry_ids.binding().unwrap(),
@@ -304,6 +308,8 @@ pub fn prepare_raytracing_scene_bindings(
             dfg_sampler,
         )),
     ));
+
+    raytracing_scene_bindings.previous_frame_tlas = Some(tlas);
 }
 
 impl RaytracingSceneBindings {
@@ -322,6 +328,7 @@ impl RaytracingSceneBindings {
                         sampler(SamplerBindingType::Filtering).count(MAX_TEXTURE_COUNT),
                         storage_buffer_read_only_sized(false, None),
                         acceleration_structure(),
+                        acceleration_structure(),
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
@@ -334,6 +341,7 @@ impl RaytracingSceneBindings {
                     ),
                 ),
             ),
+            previous_frame_tlas: None,
             previous_frame_light_entities: Vec::new(),
         }
     }
