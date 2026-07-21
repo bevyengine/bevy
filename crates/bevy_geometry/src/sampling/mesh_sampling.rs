@@ -20,8 +20,9 @@ use rand_distr::{
 ///
 /// Example
 /// ```
-/// # use bevy_math::{Vec3, primitives::*};
-/// # use bevy_math::sampling::mesh_sampling::UniformMeshSampler;
+/// # use bevy_math::Vec3;
+/// # use bevy_shape::*;
+/// # use bevy_geometry::sampling::mesh_sampling::UniformMeshSampler;
 /// # use rand::{SeedableRng, rngs::StdRng, distr::Distribution};
 /// let faces = Tetrahedron::default().faces();
 /// let sampler = UniformMeshSampler::try_new(faces).unwrap();
@@ -47,7 +48,7 @@ impl UniformMeshSampler {
     /// Returns an error if the distribution of areas for the collection of triangles could not be formed
     /// (most notably if the collection has zero surface area).
     ///
-    /// [triangles]: Triangle3d
+    /// [triangles]: bevy_shape::Triangle3d
     pub fn try_new<T: IntoIterator<Item = Triangle3d>>(
         triangles: T,
     ) -> Result<Self, WeightedError> {

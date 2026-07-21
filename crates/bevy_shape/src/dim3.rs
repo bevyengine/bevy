@@ -299,7 +299,7 @@ impl InfinitePlane3d {
     ///
     /// ```
     /// # use bevy_math::{Vec3, Dir3};
-    /// # use bevy_math::primitives::InfinitePlane3d;
+    /// # use bevy_shape::InfinitePlane3d;
     ///
     /// let triangle_3d @ [a, b, c] = [Vec3::X, Vec3::Y, Vec3::Z];
     /// let center = (a + b + c) / 3.0;
