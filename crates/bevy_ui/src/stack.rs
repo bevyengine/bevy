@@ -5,7 +5,10 @@ use crate::{
     GlobalZIndex, ZIndex,
 };
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::{entity::EntityHashSet, prelude::*};
+use bevy_ecs::{
+    entity::{EntityHashSet, EntityIndexMap},
+    prelude::*,
+};
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use core::ops::Range;
@@ -147,6 +150,50 @@ fn update_uistack_recursive(
         update_uistack_recursive(cache, child_entity, ui_children, zindex_query, ui_stack);
     }
     cache.push(child_buffer);
+}
+
+pub fn update_computed_ui_stacks_system(
+    mut cache: Local<ChildBufferCache>,
+    mut root_nodes: Local<Vec<(Entity, (i32, i32))>>,
+    mut visited_root_nodes: Local<EntityHashSet>,
+    ui_root_nodes: UiRootNodes,
+    root_node_query: Query<(Entity, Option<&GlobalZIndex>, Option<&ZIndex>)>,
+    zindex_global_node_query: Query<
+        (Entity, &GlobalZIndex, Option<&ZIndex>),
+        With<ComputedStackIndex>,
+    >,
+    ui_children: UiChildren,
+    zindex_query: Query<Option<&ZIndex>, (With<ComputedStackIndex>, Without<GlobalZIndex>)>,
+    mut update_query: Query<&mut ComputedStackIndex>,
+) {
+    visited_root_nodes.clear();
+
+    for (id, maybe_global_zindex, maybe_zindex) in root_node_query.iter_many(ui_root_nodes.iter()) {
+        root_nodes.push((
+            id,
+            (
+                maybe_global_zindex.map(|zindex| zindex.0).unwrap_or(0),
+                maybe_zindex.map(|zindex| zindex.0).unwrap_or(0),
+            ),
+        ));
+        visited_root_nodes.insert(id);
+    }
+
+    for (id, global_zindex, maybe_zindex) in zindex_global_node_query.iter() {
+        if visited_root_nodes.contains(&id) {
+            continue;
+        }
+
+        root_nodes.push((
+            id,
+            (
+                global_zindex.0,
+                maybe_zindex.map(|zindex| zindex.0).unwrap_or(0),
+            ),
+        ));
+    }
+
+    root_nodes.sort_by_key(|(_, z)| *z);
 }
 
 #[cfg(test)]
