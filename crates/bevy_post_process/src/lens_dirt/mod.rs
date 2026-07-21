@@ -20,7 +20,8 @@ use bevy_render::{
     render_resource::{
         binding_types::{sampler, texture_2d, uniform_buffer},
         BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutDescriptor,
-        BindGroupLayoutEntries, SamplerBindingType, ShaderStages, ShaderType, TextureSampleType,
+        BindGroupLayoutEntries, BufferId, SamplerBindingType, ShaderStages, ShaderType, TextureId,
+        TextureSampleType,
     },
     renderer::RenderDevice,
     sync_component::SyncComponent,
@@ -60,7 +61,10 @@ impl Plugin for LensDirtPlugin {
 pub struct LensDirtBindGroupLayout(pub BindGroupLayout);
 
 #[derive(Component)]
-pub struct LensDirtBindGroup(pub BindGroup);
+pub struct LensDirtBindGroup {
+    cache_key: (TextureId, BufferId),
+    pub bind_group: BindGroup,
+}
 
 pub fn create_lens_dirt_bind_group_layout() -> BindGroupLayoutDescriptor {
     BindGroupLayoutDescriptor::new(
@@ -92,13 +96,22 @@ fn prepare_lens_dirt_bind_group(
     gpu_images: Res<RenderAssets<GpuImage>>,
     uniforms: Res<ComponentUniforms<LensDirtUniforms>>,
     fallback: Res<FallbackImage>,
-    views: Query<(Entity, &LensDirt)>,
+    views: Query<(Entity, &LensDirt, Option<&LensDirtBindGroup>)>,
 ) {
     let Some(uniform_binding) = uniforms.binding() else {
         return;
     };
-    for (entity, lens_dirt) in &views {
+    for (entity, lens_dirt, existing_bind_group) in &views {
         let dirt_image = gpu_images.get(&lens_dirt.texture).unwrap_or(&fallback.d2);
+
+        let cache_key = (dirt_image.texture.id(), uniforms.buffer().unwrap().id());
+
+        if let Some(bg) = existing_bind_group
+            && bg.cache_key == cache_key
+        {
+            continue;
+        }
+
         let bind_group = render_device.create_bind_group(
             "lens_dirt_bind_group",
             &lens_dirt_layout.0,
@@ -108,9 +121,10 @@ fn prepare_lens_dirt_bind_group(
                 uniform_binding.clone(),
             )),
         );
-        commands
-            .entity(entity)
-            .insert(LensDirtBindGroup(bind_group));
+        commands.entity(entity).insert(LensDirtBindGroup {
+            cache_key,
+            bind_group,
+        });
     }
 }
 
@@ -148,7 +162,7 @@ impl Default for LensDirt {
 }
 
 impl SyncComponent<RenderApp> for LensDirt {
-    type Target = (Self, LensDirt);
+    type Target = (Self, LensDirtUniforms);
 }
 
 impl ExtractComponent<RenderApp> for LensDirt {

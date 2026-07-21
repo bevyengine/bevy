@@ -266,7 +266,7 @@ pub fn bloom(
         {
             upsampling_final_pass.set_bind_group(
                 1,
-                &lens_dirt_bind_group.0,
+                &lens_dirt_bind_group.bind_group,
                 &[lens_dirt_uniform_index.index()],
             );
         }
