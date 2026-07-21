@@ -3,7 +3,12 @@
 //! You might want a system like this for abilities, buffs or consumables.
 //! We create four food buttons to eat with 2, 1, 10, and 4 seconds cooldown.
 
-use bevy::{color::palettes::tailwind, ecs::spawn::SpawnIter, prelude::*};
+use bevy::{
+    color::palettes::tailwind,
+    ecs::spawn::SpawnIter,
+    prelude::*,
+    ui_widgets::{Activate, Button},
+};
 
 fn main() {
     App::new()
@@ -11,11 +16,9 @@ fn main() {
         .add_systems(Startup, setup)
         .add_systems(
             Update,
-            (
-                activate_ability,
-                animate_cooldowns.run_if(any_with_component::<ActiveCooldown>),
-            ),
+            animate_cooldowns.run_if(any_with_component::<ActiveCooldown>),
         )
+        .add_observer(on_activate_start_cooldown)
         .run();
 }
 
@@ -126,32 +129,26 @@ struct Cooldown(Timer);
 #[component(storage = "SparseSet")]
 struct ActiveCooldown;
 
-fn activate_ability(
+/// Observer that starts the cooldown whenever a food item button is activated.
+fn on_activate_start_cooldown(
+    event: On<Activate>,
     mut commands: Commands,
     mut interaction_query: Query<
-        (
-            Entity,
-            &Interaction,
-            &mut Cooldown,
-            &Name,
-            Option<&ActiveCooldown>,
-        ),
-        (Changed<Interaction>, With<Button>),
+        (Entity, &mut Cooldown, &Name, Option<&ActiveCooldown>),
+        With<Button>,
     >,
     mut text: Query<&mut Text>,
 ) -> Result {
-    for (entity, interaction, mut cooldown, name, on_cooldown) in &mut interaction_query {
-        if *interaction == Interaction::Pressed {
-            if on_cooldown.is_none() {
-                cooldown.0.reset();
-                commands.entity(entity).insert(ActiveCooldown);
-                **text.single_mut()? = format!("You ate {name}");
-            } else {
-                **text.single_mut()? = format!(
-                    "You can eat {name} again in {} seconds.",
-                    cooldown.0.remaining_secs().ceil()
-                );
-            }
+    if let Ok((entity, mut cooldown, name, on_cooldown)) = interaction_query.get_mut(event.entity) {
+        if on_cooldown.is_none() {
+            cooldown.0.reset();
+            commands.entity(entity).insert(ActiveCooldown);
+            **text.single_mut()? = format!("You ate {name}");
+        } else {
+            **text.single_mut()? = format!(
+                "You can eat {name} again in {} seconds.",
+                cooldown.0.remaining_secs().ceil()
+            );
         }
     }
 
