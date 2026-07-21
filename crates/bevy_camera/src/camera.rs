@@ -887,10 +887,11 @@ impl Default for CameraOutputMode {
 
 /// The "target" that a [`Camera`] will render to. For example, this could be a `Window`
 /// swapchain or an [`Image`].
-#[derive(Component, Debug, Clone, Reflect, From)]
+#[derive(Component, FromTemplate, Debug, Clone, Reflect, From)]
 #[reflect(Clone, Component)]
 pub enum RenderTarget {
     /// Window to which the camera's view is rendered.
+    #[default]
     Window(WindowRef),
     /// Image to which the camera's view is rendered.
     Image(ImageRenderTarget),
@@ -980,7 +981,7 @@ pub enum NormalizedRenderTarget {
 pub struct ManualTextureViewHandle(pub u32);
 
 /// A render target that renders to an [`Image`].
-#[derive(Debug, Clone, Reflect)]
+#[derive(FromTemplate, Debug, Clone, Reflect)]
 #[reflect(Clone, PartialEq, Hash)]
 pub struct ImageRenderTarget {
     /// The image to render to.
