@@ -8,10 +8,12 @@ use std::{
 use bevy::{
     camera::Hdr,
     feathers::{
-        containers::flex_spacer,
+        containers::{pane, pane_body, pane_header},
         controls::{FeathersNumberInput, HardLimit, NumberInputPrecision, NumberInputValue},
+        dark_theme::create_dark_theme,
         display::label,
-        theme::UiTheme,
+        theme::{ThemeProps, UiTheme},
+        tokens::{PANE_BODY_BG, PANE_HEADER_BG, PANE_HEADER_BORDER},
         FeathersPlugins,
     },
     light::CascadeShadowConfigBuilder,
@@ -20,9 +22,6 @@ use bevy::{
     ui_widgets::ValueChange,
 };
 use std::fmt::Display;
-
-#[path = "../helpers/theme.rs"]
-mod theme;
 
 /// The global color grading settings that the user can modify.
 ///
@@ -82,7 +81,7 @@ impl Default for ColorGradingSetting {
 fn main() {
     App::new()
         .add_plugins((DefaultPlugins, FeathersPlugins))
-        .insert_resource(UiTheme(theme::basic_example_theme(Color::WHITE)))
+        .insert_resource(UiTheme(get_example_theme()))
         .add_systems(Startup, setup)
         .add_observer(handle_value_change_number_input)
         .run();
@@ -105,49 +104,59 @@ fn add_buttons(commands: &mut Commands, color_grading: &ColorGrading) {
     commands.spawn_scene(bsn! {
         // Spawn the parent node that contains all the buttons.
         Node {
-            flex_direction: FlexDirection::Column,
+            flex_direction: FlexDirection::Row,
             position_type: PositionType::Absolute,
-            row_gap: px(6),
+            column_gap: px(6),
             left: px(12),
             bottom: px(12),
         }
         Children [
-            // Create the first row, which contains the global controls.
-            buttons_for_global_controls(color_grading),
-            // Create the rows for individual controls.
-            buttons_for_section(SectionColorGradingName::Highlights, color_grading),
-            buttons_for_section(SectionColorGradingName::Midtones, color_grading),
-            buttons_for_section(SectionColorGradingName::Shadows, color_grading),
+            // Create the first pane, which contains the global controls.
+            pane_for_global_controls(color_grading),
+            // Create the following panes for individual controls.
+            pane_for_section(SectionColorGradingName::Highlights, color_grading),
+            pane_for_section(SectionColorGradingName::Midtones, color_grading),
+            pane_for_section(SectionColorGradingName::Shadows, color_grading),
         ]
     });
 }
 
 /// Adds the buttons for the global controls (those that control the scene as a
 /// whole as opposed to shadows, midtones, or highlights).
-fn buttons_for_global_controls(color_grading: &ColorGrading) -> impl Scene {
+fn pane_for_global_controls(color_grading: &ColorGrading) -> impl Scene {
     let make_button =
         |option| number_input_for_value(ColorGradingSetting::Global(option), color_grading);
 
-    // Add the parent node for the row.
     bsn! {
-        Node {
-            align_items: AlignItems::Center,
-        }
+        pane()
         Children [
-            make_button(GlobalColorGradingSetting::Exposure),
-            make_button(GlobalColorGradingSetting::Temperature),
-            make_button(GlobalColorGradingSetting::Tint),
-            make_button(GlobalColorGradingSetting::Hue),
+            // Spawn the label ("Highlights", etc.)
+            pane_header()
+            Children[
+                Node {
+                    width: px(120)
+                    align_self: AlignSelf::Start,
+                }
+                Children [
+                    label("Global Settings")
+                ]
+            ],
+
+            // Spawn the buttons
+            pane_body()
+            Children [
+                make_button(GlobalColorGradingSetting::Exposure),
+                make_button(GlobalColorGradingSetting::Temperature),
+                make_button(GlobalColorGradingSetting::Tint),
+                make_button(GlobalColorGradingSetting::Hue),
+            ]
         ]
     }
 }
 
 /// Adds the buttons that control color grading for individual sections
 /// (highlights, midtones, shadows).
-fn buttons_for_section(
-    section: SectionColorGradingName,
-    color_grading: &ColorGrading,
-) -> impl Scene {
+fn pane_for_section(section: SectionColorGradingName, color_grading: &ColorGrading) -> impl Scene {
     let make_button = |setting| {
         number_input_for_value(
             ColorGradingSetting::Section(section, setting),
@@ -155,25 +164,30 @@ fn buttons_for_section(
         )
     };
 
-    // Spawn the row container.
     bsn! {
-        Node {
-            align_items: AlignItems::Center,
-        }
+        pane()
         Children [
             // Spawn the label ("Highlights", etc.)
-            Node {
-                width: px(120)
-            }
+            pane_header()
             Children [
-                label(section.to_string())
+                Node {
+                    width: px(120),
+                    align_self: AlignSelf::Start,
+                }
+                Children [
+                    label(section.to_string())
+                ],
             ],
+
             // Spawn the buttons.
-            make_button(SectionColorGradingSetting::Saturation),
-            make_button(SectionColorGradingSetting::Contrast),
-            make_button(SectionColorGradingSetting::Gamma),
-            make_button(SectionColorGradingSetting::Gain),
-            make_button(SectionColorGradingSetting::Lift),
+            pane_body()
+            Children[
+                make_button(SectionColorGradingSetting::Saturation),
+                make_button(SectionColorGradingSetting::Contrast),
+                make_button(SectionColorGradingSetting::Gamma),
+                make_button(SectionColorGradingSetting::Gain),
+                make_button(SectionColorGradingSetting::Lift),
+            ]
         ]
     }
 }
@@ -188,7 +202,6 @@ fn number_input_for_value(
         ColorGradingSetting::Section(_, setting) => setting.to_string(),
     };
 
-    // Make the number input
     bsn! {
         Node {
             justify_content: JustifyContent::Center,
@@ -202,14 +215,11 @@ fn number_input_for_value(
                 label(setting_label)
             ],
 
-            flex_spacer(),
-
             Node {
                 align_items: AlignItems::Center,
-                width: px(120),
+                width: px(50),
             }
             @FeathersNumberInput
-            // TODO the number input value should be the actual value of the setting.
             template_value(NumberInputValue::F32(setting.get(&color_grading)))
             template_value(setting)
             NumberInputPrecision(2)
@@ -418,4 +428,18 @@ impl ColorGradingSetting {
             }
         }
     }
+}
+
+/// Get the Feathers Theme for the example. It is a slightly modified dark theme.
+fn get_example_theme() -> ThemeProps {
+    let mut props = create_dark_theme();
+
+    // Pane background colors are made a little transparent to see the objects behind the setting controls.
+    for token in [PANE_HEADER_BG, PANE_HEADER_BORDER, PANE_BODY_BG] {
+        if let Some(color) = props.color.get_mut(&token) {
+            color.set_alpha(0.9);
+        }
+    }
+
+    props
 }
