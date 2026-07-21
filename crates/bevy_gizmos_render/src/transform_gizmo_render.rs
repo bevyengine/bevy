@@ -401,7 +401,7 @@ fn update_gizmo_meshes(
         *root_vis = Visibility::Hidden;
         return;
     };
-    let Some((cam_tf, cam)): Option<(&GlobalTransform, &Camera)> =
+    let Some((cam_tf, cam)) =
         bevy_gizmos::resolve_gizmo_camera!(marked_cameras, all_cameras)
     else {
         *root_vis = Visibility::Hidden;
