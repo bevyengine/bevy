@@ -36,7 +36,7 @@ derive_more = { version = "2", default-features = false, features = ["from"] }
 smallvec = { version = "1", default-features = false, features = ["const_new"] }
 
 [dev-dependencies]
-bevy_scene = { path = "../bevy_scene" }
+bevy_scene = { path = "../bevy_scene", version = "0.20.0-dev" }
 
 [features]
 default = []
