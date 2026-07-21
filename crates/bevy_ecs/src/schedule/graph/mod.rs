@@ -4,7 +4,7 @@ use core::{
     fmt::Debug,
 };
 
-use bevy_utils::TypeIdMap;
+use bevy_utils::TypeIdHashMap;
 
 use crate::schedule::InternedSystemSet;
 
@@ -28,7 +28,7 @@ pub(crate) enum DependencyKind {
 pub(crate) struct Dependency {
     pub(crate) kind: DependencyKind,
     pub(crate) set: InternedSystemSet,
-    pub(crate) options: TypeIdMap<Box<dyn Any>>,
+    pub(crate) options: TypeIdHashMap<Box<dyn Any>>,
 }
 
 impl Dependency {
