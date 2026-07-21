@@ -492,7 +492,7 @@ pub fn init_solari_lighting_pipelines(
             "spatial_and_shade",
             load_embedded_asset!(asset_server.as_ref(), "restir.wgsl"),
             None,
-            vec![],
+            vec!["SPATIAL_MERGE".into()],
         ),
         #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
         resolve_dlss_rr_textures_pipeline: create_pipeline(
