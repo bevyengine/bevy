@@ -95,6 +95,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let color_grading = ColorGrading::default();
     add_buttons(&mut commands, &color_grading);
 
+    add_help_text(&mut commands);
+
     // Spawn the camera.
     add_camera(&mut commands, &asset_server, color_grading);
 }
@@ -442,4 +444,20 @@ fn get_example_theme() -> ThemeProps {
     }
 
     props
+}
+
+/// Creates the help text at the top of the screen.
+fn add_help_text(commands: &mut Commands) {
+    commands.spawn_scene(bsn! {
+        Node {
+            position_type: PositionType::Absolute,
+            left: px(12),
+            top: px(12),
+        }
+        Children [
+            Text::new("Drag a setting's input value to change the scene.\n\
+                        Click into an input field to change values via keyboard.\n\
+                        Values must be between 0 and 10.")
+        ]
+    });
 }
