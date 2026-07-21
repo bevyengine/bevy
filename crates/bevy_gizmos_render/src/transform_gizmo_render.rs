@@ -351,7 +351,7 @@ fn spawn_gizmo_meshes(
 
 fn update_gizmo_meshes(
     focus: Option<bevy_ecs::system::Single<&GlobalTransform, With<TransformGizmoFocus>>>,
-    marked_cameras: Query<(&GlobalTransform, &Camera), (With<TransformGizmoCamera>, With<Camera>)>,
+    marked_cameras: Query<(&GlobalTransform, &Camera), (With<TransformGizmoCamera>, With<Camera>, Without<GizmoOverlayCamera>)>,
     all_cameras: Query<
         (&GlobalTransform, &Camera),
         (
