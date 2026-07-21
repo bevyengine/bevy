@@ -45,7 +45,7 @@ use bevy_platform::{collections::HashMap, hash::NoOpHash};
 use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
 use bevy_time::Time;
 use bevy_transform::TransformSystems;
-use bevy_utils::{PreHashMap, PreHashMapExt, TypeIdMap};
+use bevy_utils::{PreHashMap, PreHashMapExt, TypeIdHashMap};
 use serde::{Deserialize, Serialize};
 use thread_local::ThreadLocal;
 use tracing::{trace, warn};
@@ -778,7 +778,7 @@ pub struct AnimationEvaluationState {
 struct AnimationCurveEvaluators {
     component_property_curve_evaluators:
         PreHashMap<(TypeId, usize), Box<dyn AnimationCurveEvaluator>>,
-    type_id_curve_evaluators: TypeIdMap<Box<dyn AnimationCurveEvaluator>>,
+    type_id_curve_evaluators: TypeIdHashMap<Box<dyn AnimationCurveEvaluator>>,
 }
 
 impl AnimationCurveEvaluators {
@@ -804,10 +804,10 @@ impl AnimationCurveEvaluators {
                 .component_property_curve_evaluators
                 .get_or_insert_with(component_property, func),
             EvaluatorId::Type(type_id) => match self.type_id_curve_evaluators.entry(type_id) {
-                bevy_utils::TypeIdMapEntry::Occupied(occupied_entry) => {
+                bevy_utils::TypeIdHashMapEntry::Occupied(occupied_entry) => {
                     &mut **occupied_entry.into_mut()
                 }
-                bevy_utils::TypeIdMapEntry::Vacant(vacant_entry) => {
+                bevy_utils::TypeIdHashMapEntry::Vacant(vacant_entry) => {
                     &mut **vacant_entry.insert(func())
                 }
             },
@@ -818,7 +818,7 @@ impl AnimationCurveEvaluators {
 #[derive(Default)]
 struct CurrentEvaluators {
     component_properties: PreHashMap<(TypeId, usize), ()>,
-    type_ids: TypeIdMap<()>,
+    type_ids: TypeIdHashMap<()>,
 }
 
 impl CurrentEvaluators {
@@ -837,7 +837,7 @@ impl CurrentEvaluators {
             (visit)(EvaluatorId::ComponentField(&key))?;
         }
 
-        for (key, _) in self.type_ids.drain(..) {
+        for (key, _) in self.type_ids.drain() {
             (visit)(EvaluatorId::Type(key))?;
         }
 
