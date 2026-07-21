@@ -102,7 +102,14 @@ impl Plugin for TransformGizmoRenderPlugin {
             )
                 .chain()
                 .after(bevy_transform::TransformSystems::Propagate)
-                .after(bevy_camera::visibility::VisibilitySystems::VisibilityPropagate),
+                .after(bevy_camera::visibility::VisibilitySystems::VisibilityPropagate)
+                .after(bevy_render::camera::camera_system)
+                .after(bevy_ui::update::propagate_ui_target_cameras)
+                .after(bevy_light::cascade::build_directional_light_cascades)
+                .after(bevy_sprite::prelude::update_text2d_layout)
+                .after(bevy_camera::visibility::check_visibility_cpu_culling)
+                .after(bevy_light::SimulationLightSystems::AssignLightsToClusters)
+            ,
         );
     }
 }
