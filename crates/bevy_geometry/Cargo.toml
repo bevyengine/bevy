@@ -1,13 +1,13 @@
 [package]
-description  = "Provides geometric functionality primitive shapes for Bevy Engine"
-edition      = "2024"
-homepage     = "https://bevy.org"
-keywords     = ["bevy"]
-license      = "MIT OR Apache-2.0"
-name         = "bevy_geometry"
-repository   = "https://github.com/bevyengine/bevy"
+description = "Provides geometric functionality primitive shapes for Bevy Engine"
+edition = "2024"
+homepage = "https://bevy.org"
+keywords = ["bevy"]
+license = "MIT OR Apache-2.0"
+name = "bevy_geometry"
+repository = "https://github.com/bevyengine/bevy"
 rust-version = "1.94.0"
-version      = "0.20.0-dev"
+version = "0.20.0-dev"
 
 [dependencies]
 approx = { default-features = false, optional = true, version = "0.5" }
@@ -34,7 +34,7 @@ variadics_please = "2.0"
 approx = "0.5"
 # Supply rngs for examples and tests
 chacha20 = { default-features = false, features = ["rng"], version = "0.10.0" }
-rand     = "0.10"
+rand = "0.10"
 # Enable the approx feature when testing.
 bevy_math = { default-features = false, features = [
   "approx",
