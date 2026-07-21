@@ -19,85 +19,76 @@ use bevy::prelude::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_systems(Startup, setup)
+        .add_systems(Startup, scene.spawn())
         .run();
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(Camera2d);
+fn scene() -> impl SceneList {
+    bsn_list![Camera2d, ui()]
+}
 
-    let bird = asset_server.load("branding/bevy_bird_dark.png");
-
-    commands
-        .spawn(Node {
+fn ui() -> impl Scene {
+    bsn! {
+        Node {
             width: percent(100),
             height: percent(100),
             flex_direction: FlexDirection::Column,
             align_items: AlignItems::Center,
             justify_content: JustifyContent::Center,
             row_gap: px(40),
-            ..default()
-        })
-        .with_children(|parent| {
-            parent.spawn(Text::new(
+        }
+        Children [
+            Text(
                 "Hover the birds. The dark panel marks each image's rectangle.\n\
                  Left: alpha threshold picking mode: the transparent area can not be picked.\n\
-                 Right: bounding box picking mode: the whole rectangle can be picked.",
-            ));
-
-            parent
-                .spawn(Node {
+                 Right: bounding box picking mode: the whole rectangle can be picked."
+            ),
+            (
+                Node {
                     column_gap: px(80),
-                    ..default()
-                })
-                .with_children(|parent| {
-                    spawn_bird(parent, bird.clone(), "Alpha threshold", None);
-                    spawn_bird(
-                        parent,
-                        bird.clone(),
-                        "Bounding box",
-                        Some(UiPickingMode::BoundingBox),
-                    );
-                });
-        });
+                }
+                Children [
+                    bird("Alpha threshold", None),
+                    bird("Bounding box", Some(UiPickingMode::BoundingBox)),
+                ]
+            )
+        ]
+    }
 }
 
-fn spawn_bird(
-    parent: &mut ChildSpawnerCommands,
-    image: Handle<Image>,
-    label: &str,
-    picking_mode: Option<UiPickingMode>,
-) {
-    parent
-        .spawn(Node {
+fn bird(label: &str, picking_mode: Option<UiPickingMode>) -> impl Scene {
+    // Optionally override the picking mode for this node. When `None`, the node
+    // falls back to the global default in `UiPickingSettings`.
+    let picking_mode: Box<dyn Scene> = match picking_mode {
+        Some(picking_mode) => Box::new(bsn! { template(move |_| Ok(picking_mode)) }),
+        None => Box::new(()),
+    };
+
+    bsn! {
+        Node {
             flex_direction: FlexDirection::Column,
             align_items: AlignItems::Center,
             row_gap: px(10),
-            ..default()
-        })
-        .with_children(|parent| {
-            parent.spawn(Text::new(label));
-
-            let mut bird = parent.spawn((
-                ImageNode::new(image),
+        }
+        Children [
+            Text(label),
+            (
                 // A backing panel that fills the node's rectangle, so the
                 // transparent parts of the image are visible against it.
-                BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
-            ));
-
-            if let Some(picking_mode) = picking_mode {
-                bird.insert(picking_mode);
-            }
-
-            bird.observe(recolor_on::<Pointer<Over>>(Color::srgb(0.0, 1.0, 1.0)))
-                .observe(recolor_on::<Pointer<Out>>(Color::WHITE));
-        });
+                ImageNode { image: "branding/bevy_bird_dark.png" }
+                BackgroundColor(Color::srgb(0.15, 0.15, 0.15))
+                {picking_mode}
+                on(recolor::<Pointer<Over>>(Color::srgb(0.0, 1.0, 1.0)))
+                on(recolor::<Pointer<Out>>(Color::WHITE))
+            )
+        ]
+    }
 }
 
 /// An observer that tints the target image node.
-fn recolor_on<E: EntityEvent + Debug + Clone + Reflect>(
+fn recolor<E: EntityEvent + Debug + Clone + Reflect>(
     color: Color,
-) -> impl Fn(On<E>, Query<&mut ImageNode>) {
+) -> impl Fn(On<E>, Query<&mut ImageNode>) + Clone {
     move |ev, mut images| {
         let Ok(mut image) = images.get_mut(ev.event_target()) else {
             return;
