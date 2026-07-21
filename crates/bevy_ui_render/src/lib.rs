@@ -396,7 +396,8 @@ pub struct ExtractedGlyph {
 /// gradients associated with a main-world entity when it changes.
 #[derive(Resource, Default)]
 pub struct ExtractedUiNodes {
-    /// The list of UI nodes.
+    /// The list of UI nodes grouped by their main-world entity, along with
+    /// each group's target camera entity.
     ///
     /// This is a two-level data structure so that we can quickly remove all UI
     /// nodes associated with a main-world entity when it changes.
