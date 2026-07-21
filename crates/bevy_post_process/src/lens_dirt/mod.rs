@@ -58,7 +58,7 @@ impl Plugin for LensDirtPlugin {
 }
 
 #[derive(Resource)]
-pub struct LensDirtBindGroupLayout(pub BindGroupLayout);
+struct LensDirtBindGroupLayout(pub BindGroupLayout);
 
 #[derive(Component)]
 pub struct LensDirtBindGroup {
@@ -66,7 +66,7 @@ pub struct LensDirtBindGroup {
     pub bind_group: BindGroup,
 }
 
-pub fn create_lens_dirt_bind_group_layout() -> BindGroupLayoutDescriptor {
+pub(crate) fn create_lens_dirt_bind_group_layout() -> BindGroupLayoutDescriptor {
     BindGroupLayoutDescriptor::new(
         "lens_dirt_bind_group_layout",
         &BindGroupLayoutEntries::sequential(
@@ -134,7 +134,6 @@ fn prepare_lens_dirt_bind_group(
 /// Currently, the lens dirt only interacts with the bloom effect.
 #[derive(Component, Reflect, Clone)]
 #[reflect(Component, Default, Clone)]
-#[expect(dead_code, reason = "Bevy component, constructed by downstream users")]
 pub struct LensDirt {
     /// The lens dirt texture. Set to `Some` to enable the effect.
     pub texture: Handle<Image>,

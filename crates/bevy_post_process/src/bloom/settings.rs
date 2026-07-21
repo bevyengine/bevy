@@ -1,13 +1,9 @@
-use bevy_asset::{Handle, HandleTemplate};
 use bevy_camera::{Camera, Hdr};
-use bevy_color::Color;
 use bevy_ecs::{
     prelude::Component,
     query::{QueryItem, With},
     reflect::ReflectComponent,
-    template::{FromTemplate, OptionTemplate},
 };
-use bevy_image::Image;
 use bevy_math::{AspectRatio, URect, UVec4, Vec2, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
@@ -225,30 +221,6 @@ pub enum BloomCompositeMode {
     #[default]
     EnergyConserving,
     Additive,
-}
-
-/// Controls a lens dirt effect that simulates physical imperfections on the camera lens.
-///
-/// Lens dirt overlays a texture (e.g., dust, smudges) onto bloom regions during final
-/// compositing. This creates a cinematic or stylized look.
-#[derive(Default, Clone, Reflect, FromTemplate)]
-#[reflect(Clone, Default)]
-pub struct LensDirt {
-    /// The lens dirt texture. Set to `Some` to enable the effect.
-    #[template(OptionTemplate<HandleTemplate<Image>>)]
-    pub texture: Option<Handle<Image>>,
-
-    /// How strongly the lens dirt appears (default: 1.0).
-    ///
-    /// Valid range: 0.0 to 1.0 where:
-    /// * 0.0 - No dirt visible
-    /// * 1.0 - Full dirt intensity
-    pub intensity: f32,
-
-    /// Color tint applied to the lens dirt (default: `Color::WHITE`).
-    ///
-    /// Use this to match the dirt effect to your scene's lighting or mood.
-    pub tint: Color,
 }
 
 impl SyncComponent<RenderApp> for Bloom {
