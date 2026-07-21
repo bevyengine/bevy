@@ -108,8 +108,7 @@ impl Plugin for TransformGizmoRenderPlugin {
                 .after(bevy_light::cascade::build_directional_light_cascades)
                 .after(bevy_sprite::prelude::update_text2d_layout)
                 .after(bevy_camera::visibility::check_visibility_cpu_culling)
-                .after(bevy_light::SimulationLightSystems::AssignLightsToClusters)
-            ,
+                .after(bevy_light::SimulationLightSystems::AssignLightsToClusters),
         );
     }
 }
