@@ -32,6 +32,7 @@ const LIGHT_NOT_PRESENT_THIS_FRAME: u32 = u32::MAX;
 pub struct RaytracingSceneBindings {
     pub bind_group: Option<BindGroup>,
     pub bind_group_layout: BindGroupLayoutDescriptor,
+    previous_frame_tlas: Option<Tlas>,
     previous_frame_light_entities: Vec<Entity>,
 }
 
@@ -57,6 +58,8 @@ pub fn prepare_raytracing_scene_bindings(
     mut raytracing_scene_bindings: ResMut<RaytracingSceneBindings>,
 ) {
     raytracing_scene_bindings.bind_group = None;
+
+    let previous_frame_tlas = raytracing_scene_bindings.previous_frame_tlas.take();
 
     let mut this_frame_entity_to_light_id = EntityHashMap::<u32>::default();
     let previous_frame_light_entities: Vec<_> = raytracing_scene_bindings
@@ -293,6 +296,7 @@ pub fn prepare_raytracing_scene_bindings(
             samplers.as_slice(),
             materials.binding().unwrap(),
             tlas.as_binding(),
+            previous_frame_tlas.as_ref().unwrap_or(&tlas).as_binding(),
             transforms.binding().unwrap(),
             previous_frame_transforms.binding().unwrap(),
             geometry_ids.binding().unwrap(),
@@ -304,6 +308,8 @@ pub fn prepare_raytracing_scene_bindings(
             dfg_sampler,
         )),
     ));
+
+    raytracing_scene_bindings.previous_frame_tlas = Some(tlas);
 }
 
 impl RaytracingSceneBindings {
@@ -322,6 +328,7 @@ impl RaytracingSceneBindings {
                         sampler(SamplerBindingType::Filtering).count(MAX_TEXTURE_COUNT),
                         storage_buffer_read_only_sized(false, None),
                         acceleration_structure(),
+                        acceleration_structure(),
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
@@ -334,6 +341,7 @@ impl RaytracingSceneBindings {
                     ),
                 ),
             ),
+            previous_frame_tlas: None,
             previous_frame_light_entities: Vec::new(),
         }
     }
