@@ -193,35 +193,24 @@ impl ManageAccessibilityUpdates {
 ///
 /// To explain, let's say this component is added to an entity, `E`.
 ///
-/// ### Parent and Child
+/// ### Parent and Child Hierarchy
 ///
-/// If `E` has a parent, `P`, and `P` also has this `AccessibilityNode`
-/// component, then `E`'s `AccessKit` node will be a child of `P`'s `AccessKit`
-/// node.
+/// Parent-child relationships in the `AccessKit` tree are resolved across the ECS hierarchy.
+/// If `E` has an ancestor `P` in the ECS hierarchy that also has an `AccessibilityNode` component
+/// (even if separated by unannotated intermediate entities), then `E`'s `AccessKit` node will be
+/// attached under the nearest accessible ancestor `P`'s `AccessKit` node.
 ///
 /// Resulting `AccessKit` tree:
 /// - P
 ///     - E
 ///
-/// In other words, parent-child relationships are maintained, but only if both
-/// have this component.
-///
 /// ### On the Window
 ///
-/// If `E` doesn't have a parent, or if the immediate parent doesn't have an
-/// `AccessibilityNode`, its `AccessKit` node will be an immediate child of the
-/// primary window.
+/// If `E` does not have any ancestor in the ECS hierarchy with an `AccessibilityNode`, its `AccessKit`
+/// node will be an immediate child of the primary window node.
 ///
-/// Resulting `AccessKit` tree:
-/// - Primary window
-///     - E
-///
-/// When there's no `AccessKit`-compatible parent, the child lacks hierarchical
-/// information in `AccessKit`. As such, it is placed directly under the
-/// primary window on the `AccessKit` tree.
-///
-/// This behavior may or may not be intended, so please utilize
-/// `AccessibilityNode`s with care.
+/// This structure preserves full hierarchy traversal for accessibility tools and object navigation
+/// (allowing screen readers to navigate up, down, and laterally across both focusable and non-focusable entities).
 #[derive(Component, Clone, Deref, DerefMut, Default)]
 #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub struct AccessibilityNode(

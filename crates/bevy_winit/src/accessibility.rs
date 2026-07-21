@@ -193,13 +193,10 @@ fn should_update_accessibility_nodes(
 fn update_accessibility_nodes(
     focus: Option<Res<InputFocus>>,
     primary_window: Query<(Entity, &Window), With<PrimaryWindow>>,
-    nodes: Query<(
-        Entity,
-        &AccessibilityNode,
-        Option<&Children>,
-        Option<&ChildOf>,
-    )>,
+    nodes: Query<(Entity, &AccessibilityNode)>,
     node_entities: Query<Entity, With<AccessibilityNode>>,
+    parents: Query<&ChildOf>,
+    children_query: Query<&Children>,
     _non_send_marker: NonSendMarker,
 ) {
     ACCESS_KIT_ADAPTERS.with_borrow_mut(|adapters| {
@@ -223,11 +220,13 @@ fn update_accessibility_nodes(
 
             adapter.update_if_active(|| {
                 update_adapter(
-                    nodes,
-                    node_entities,
+                    &nodes,
+                    &node_entities,
+                    &parents,
+                    &children_query,
                     primary_window,
                     primary_window_id,
-                    focus,
+                    Some(&focus),
                 )
             });
         }
@@ -235,23 +234,33 @@ fn update_accessibility_nodes(
 }
 
 fn update_adapter(
-    nodes: Query<(
-        Entity,
-        &AccessibilityNode,
-        Option<&Children>,
-        Option<&ChildOf>,
-    )>,
-    node_entities: Query<Entity, With<AccessibilityNode>>,
+    nodes: &Query<(Entity, &AccessibilityNode)>,
+    node_entities: &Query<Entity, With<AccessibilityNode>>,
+    parents: &Query<&ChildOf>,
+    children_query: &Query<&Children>,
     primary_window: &Window,
     primary_window_id: Entity,
-    focus: Res<InputFocus>,
+    focus: Option<&InputFocus>,
 ) -> TreeUpdate {
     let mut to_update = vec![];
     let mut window_children = vec![];
-    for (entity, node, children, child_of) in &nodes {
+    for (entity, node) in nodes {
         let mut node = (**node).clone();
-        queue_node_for_update(entity, child_of, &node_entities, &mut window_children);
-        add_children_nodes(children, &node_entities, &mut node);
+        
+        let has_accessible_ancestor = parents
+            .iter_ancestors(entity)
+            .any(|ancestor| node_entities.contains(ancestor));
+
+        if !has_accessible_ancestor {
+            window_children.push(NodeId(entity.to_bits()));
+        }
+
+        let mut accessible_children = vec![];
+        collect_accessible_descendants(entity, children_query, node_entities, &mut accessible_children);
+        if !accessible_children.is_empty() {
+            node.set_children(accessible_children);
+        }
+
         let node_id = NodeId(entity.to_bits());
         to_update.push((node_id, node));
     }
@@ -268,39 +277,33 @@ fn update_adapter(
         nodes: to_update,
         tree: None,
         tree_id: TreeId::ROOT,
-        focus: NodeId(focus.get().unwrap_or(primary_window_id).to_bits()),
+        focus: NodeId(
+            focus
+                .and_then(|f| f.get())
+                .unwrap_or(primary_window_id)
+                .to_bits(),
+        ),
     }
 }
 
-#[inline]
-fn queue_node_for_update(
-    node_entity: Entity,
-    child_of: Option<&ChildOf>,
+fn collect_accessible_descendants(
+    entity: Entity,
+    children_query: &Query<&Children>,
     node_entities: &Query<Entity, With<AccessibilityNode>>,
-    window_children: &mut Vec<NodeId>,
+    accessible_children: &mut Vec<NodeId>,
 ) {
-    let should_push = if let Some(child_of) = child_of {
-        !node_entities.contains(child_of.parent())
-    } else {
-        true
-    };
-    if should_push {
-        window_children.push(NodeId(node_entity.to_bits()));
-    }
-}
-
-#[inline]
-fn add_children_nodes(
-    children: Option<&Children>,
-    node_entities: &Query<Entity, With<AccessibilityNode>>,
-    node: &mut Node,
-) {
-    let Some(children) = children else {
-        return;
-    };
-    for child in children {
-        if node_entities.contains(*child) {
-            node.push_child(NodeId(child.to_bits()));
+    if let Ok(children) = children_query.get(entity) {
+        for child in children {
+            if node_entities.contains(*child) {
+                accessible_children.push(NodeId(child.to_bits()));
+            } else {
+                collect_accessible_descendants(
+                    *child,
+                    children_query,
+                    node_entities,
+                    accessible_children,
+                );
+            }
         }
     }
 }
@@ -330,5 +333,81 @@ impl Plugin for AccessKitPlugin {
                 )
                     .in_set(AccessibilitySystems::Update),
             );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use accesskit::Role;
+
+    #[test]
+    fn test_accessibility_hierarchy_object_nav() {
+        let mut app = App::new();
+
+        let parent_accessible = app
+            .world_mut()
+            .spawn(AccessibilityNode(Node::new(Role::Group)))
+            .id();
+
+        let intermediate_unannotated = app
+            .world_mut()
+            .spawn(ChildOf(parent_accessible))
+            .id();
+
+        let child_accessible = app
+            .world_mut()
+            .spawn((
+                AccessibilityNode(Node::new(Role::Button)),
+                ChildOf(intermediate_unannotated),
+            ))
+            .id();
+
+        let primary_window = app
+            .world_mut()
+            .spawn((
+                PrimaryWindow,
+                Window {
+                    focused: true,
+                    title: "Test".into(),
+                    ..Default::default()
+                },
+            ))
+            .id();
+
+        let focus = InputFocus::from_entity(primary_window);
+
+        let mut system = IntoSystem::into_system(
+            move |nodes: Query<(Entity, &AccessibilityNode)>,
+                  node_entities: Query<Entity, With<AccessibilityNode>>,
+                  parents: Query<&ChildOf>,
+                  children_query: Query<&Children>,
+                  windows: Query<(Entity, &Window), With<PrimaryWindow>>| {
+                let (window_id, window) = windows.single().unwrap();
+                update_adapter(
+                    &nodes,
+                    &node_entities,
+                    &parents,
+                    &children_query,
+                    window,
+                    window_id,
+                    Some(&focus),
+                )
+            },
+        );
+
+        system.initialize(app.world_mut());
+        let tree_update = system.run((), app.world_mut()).unwrap();
+
+        let parent_node_id = NodeId(parent_accessible.to_bits());
+        let child_node_id = NodeId(child_accessible.to_bits());
+
+        let (_, parent_node) = tree_update
+            .nodes
+            .iter()
+            .find(|(id, _)| *id == parent_node_id)
+            .expect("Parent node should be in tree update");
+
+        assert_eq!(parent_node.children(), &[child_node_id]);
     }
 }

@@ -44,16 +44,21 @@ fn calc_label(
 
 fn sync_bounds_and_transforms(
     mut accessible_nodes_query: Query<(
+        Entity,
         &mut AccessibilityNode,
         Ref<ComputedNode>,
         Ref<UiGlobalTransform>,
-        Option<&ChildOf>,
     )>,
     accessible_transform_query: Query<Ref<UiGlobalTransform>, With<AccessibilityNode>>,
+    parents: Query<&ChildOf>,
 ) {
-    for (mut accessible, node, ui_transform, maybe_child_of) in &mut accessible_nodes_query {
-        let maybe_parent_transform = maybe_child_of
-            .and_then(|child_of| accessible_transform_query.get(child_of.parent()).ok());
+    for (entity, mut accessible, node, ui_transform) in &mut accessible_nodes_query {
+        let nearest_accessible_parent = parents
+            .iter_ancestors(entity)
+            .find(|ancestor| accessible_transform_query.contains(*ancestor));
+
+        let maybe_parent_transform = nearest_accessible_parent
+            .and_then(|parent_entity| accessible_transform_query.get(parent_entity).ok());
 
         if !(node.is_changed()
             || ui_transform.is_changed()
