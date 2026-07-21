@@ -961,9 +961,18 @@ impl Plugin for EditableTextInputPlugin {
                 update_placeholders
                     .in_set(UiSystems::PostLayout)
                     .after(update_editable_text_layout)
-                    // reads InputFocus only; same false positive as
-                    // update_ime_position
-                    .ambiguous_with(InputFocusSystems::FocusChangeEvents),
+                    .before(AccessibilitySystems::Update)
+                    // This system writes Node / Visibility / Text / TextFont
+                    // / TextColor, but ONLY on the placeholder label
+                    // entities it spawns and owns. Every flagged conflict
+                    // (gizmo meshes, text2d layout, ui clipping,
+                    // accessibility, focus-change events) is entity-disjoint
+                    // by construction, which component-level ambiguity
+                    // analysis cannot see -- and two of the conflicting
+                    // systems (bevy_gizmos, bevy_sprite) are not
+                    // dependencies of this crate, so they cannot be named
+                    // individually.
+                    .ambiguous_with_all(),
             );
 
         // These components cannot be registered in `bevy_text` where `EditableText` is defined,
