@@ -11,7 +11,7 @@ version = "0.20.0-dev"
 
 [dependencies]
 approx = { default-features = false, optional = true, version = "0.5" }
-bevy_math = { default-features = false, path = "../bevy_math" }
+bevy_math = { default-features = false, version = "0.20.0-dev", path = "../bevy_math" }
 bevy_reflect = { default-features = false, features = [
   "glam",
 ], optional = true, path = "../bevy_reflect", version = "0.20.0-dev" }
@@ -27,7 +27,7 @@ thiserror = { default-features = false, version = "2" }
 [dev-dependencies]
 approx = "0.5"
 # Enable the approx feature when testing.
-bevy_math = { default-features = false, features = [
+bevy_math = { default-features = false, version = "0.20.0-dev", features = [
   "approx",
 ], path = "../bevy_math" }
 
