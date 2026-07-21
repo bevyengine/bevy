@@ -225,6 +225,10 @@ Example | Description
 [Eased Motion](../examples/animation/eased_motion.rs) | Demonstrates the application of easing curves to animate an object
 [Easing Functions](../examples/animation/easing_functions.rs) | Showcases the built-in easing functions
 [Morph Targets](../examples/animation/morph_targets.rs) | Plays an animation from a glTF file with meshes with morph targets
+[Root Motion](../examples/animation/root_motion.rs) | Plays an animation and use root motion to move the entity.
+
+When root motion is disabled only the mesh is moved so the position resets each time the animation resets.
+When root motion is enabled, the mesh stays in place and the movement is transferred to the main entity.
 
 ### Application
 

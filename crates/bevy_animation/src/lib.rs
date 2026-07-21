@@ -34,17 +34,22 @@ use prelude::AnimationCurveEvaluator;
 
 use crate::{
     graph::{AnimationGraphHandle, ThreadedAnimationGraphs},
-    prelude::{AnimatableProperty, EvaluatorId},
+    prelude::{AnimatableCurveEvaluator, AnimatableProperty, EvaluatorId},
 };
 
 use bevy_app::{AnimationSystems, App, Plugin, PostUpdate};
 use bevy_asset::{Asset, AssetApp, AssetEventSystems, Assets};
-use bevy_ecs::{prelude::*, resource::IsResource, world::EntityMutExcept};
-use bevy_math::FloatOrd;
+use bevy_ecs::{
+    lifecycle::HookContext,
+    prelude::*,
+    resource::IsResource,
+    world::{DeferredWorld, EntityMutExcept},
+};
+use bevy_math::{FloatOrd, Quat, Vec3};
 use bevy_platform::{collections::HashMap, hash::NoOpHash};
 use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
 use bevy_time::Time;
-use bevy_transform::TransformSystems;
+use bevy_transform::{components::Transform, TransformSystems};
 use bevy_utils::{PreHashMap, PreHashMapExt, TypeIdMap};
 use serde::{Deserialize, Serialize};
 use thread_local::ThreadLocal;
@@ -726,12 +731,96 @@ impl ActiveAnimation {
     }
 }
 
+/// Contains the root motion extracted by the [`AnimationPlayer`].
+#[derive(Debug, Clone, Component, Default, PartialEq, Reflect)]
+#[reflect(Component, Default)]
+pub struct RootMotion {
+    /// Translation delta with the previous frame.
+    pub translation_delta: Vec3,
+    /// Rotation delta with the previous frame.
+    pub rotation_delta: Quat,
+}
+
+/// Finds the root bone by recursively searching in the `entity` hierarchy an entity with the requested name.
+/// `entity` itself is tested so you can call this function directly on the rig entity.
+pub fn find_root_bone_recursive(
+    entity: Entity,
+    q_children: &Query<&Children>,
+    q_name: &Query<&Name>,
+    q_animation_target_id: &Query<&AnimationTargetId>,
+    name: &Name,
+) -> Option<AnimationTargetId> {
+    if let Ok(entity_name) = q_name.get(entity)
+        && name == entity_name
+    {
+        return q_animation_target_id.get(entity).ok().copied();
+    }
+    if let Ok(children) = q_children.get(entity) {
+        for child in children {
+            let found =
+                find_root_bone_recursive(*child, q_children, q_name, q_animation_target_id, name);
+            if found.is_some() {
+                return found;
+            }
+        }
+    }
+    None
+}
+
+/// How [`RootMotion`] should be extracted.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Reflect)]
+#[reflect(Default, Clone)]
+pub enum RootMotionMode {
+    /// Extract only translation from the root target.
+    Translation,
+    /// Extract both translation and rotation from the root target.
+    #[default]
+    TranslationAndRotation,
+}
+
+impl RootMotionMode {
+    /// Returns true if the translation should be extracted
+    pub fn should_extract_translation(&self) -> bool {
+        // Note: All cases are explicitly handled so we don't forget to change
+        // this match if new options are added.
+        match self {
+            Self::Translation | Self::TranslationAndRotation => true,
+        }
+    }
+
+    /// Returns true if the rotation should be extracted
+    pub fn should_extract_rotation(&self) -> bool {
+        match self {
+            Self::Translation => false,
+            Self::TranslationAndRotation => true,
+        }
+    }
+}
+
+/// Configures the root motion for the entity. This must be placed in the same entity as the [`AnimationPlayer`].
+#[derive(Debug, Component, Clone, Copy, PartialEq, Eq, Reflect)]
+#[component(on_remove = Self::on_remove)]
+pub struct RootMotionConfig {
+    /// Describes which components of the bone should be extracted.
+    pub root_motion_mode: RootMotionMode,
+    /// The bone used for root motion. Depending on the [`RootMotionMode`],
+    /// that means that the bone will no longer translate and / or rotate.
+    /// You can easily find the root bone by name using [`find_root_bone_recursive`].
+    pub root_motion_target: AnimationTargetId,
+}
+impl RootMotionConfig {
+    fn on_remove(mut world: DeferredWorld, ctx: HookContext) {
+        world.commands().entity(ctx.entity).remove::<RootMotion>();
+    }
+}
+
 /// Animation controls.
 ///
 /// Automatically added to any root animations of a scene when it is
 /// spawned.
 #[derive(Component, Default, Reflect)]
 #[reflect(Component, Default, Clone)]
+#[component(on_remove=Self::on_remove)]
 pub struct AnimationPlayer {
     active_animations: HashMap<AnimationNodeIndex, ActiveAnimation>,
 }
@@ -986,6 +1075,14 @@ impl AnimationPlayer {
     pub fn animation_mut(&mut self, animation: AnimationNodeIndex) -> Option<&mut ActiveAnimation> {
         self.active_animations.get_mut(&animation)
     }
+
+    fn on_remove(mut world: DeferredWorld<'_>, context: HookContext) {
+        // Removes potential [`RootMotion`] added by the [`AnimationPlayer`]
+        world
+            .commands()
+            .entity(context.entity)
+            .remove::<RootMotion>();
+    }
 }
 
 /// A system that triggers untargeted animation events for the currently-playing animations.
@@ -1077,8 +1174,93 @@ pub type AnimationEntityMut<'w, 's> = EntityMutExcept<
         AnimatedBy,
         AnimationPlayer,
         AnimationGraphHandle,
+        RootMotionConfig,
     ),
 >;
+
+fn root_motion_translation_delta(
+    clip: &AnimationClip,
+    active_animation: &ActiveAnimation,
+    curve: &dyn AnimationCurve,
+) -> Vec3 {
+    let mut result = Vec3::ZERO;
+    let reverse = active_animation.is_playback_reversed();
+    let is_finished = active_animation.is_finished();
+
+    // Return early if the animation have finished on a previous tick.
+    if is_finished && !active_animation.just_completed {
+        return result;
+    }
+
+    // The animation completed this tick, while still playing.
+    let looping = active_animation.just_completed && !is_finished;
+
+    let Some(mut last_time) = active_animation.last_seek_time else {
+        return result;
+    };
+    let this_time = active_animation.seek_time;
+
+    if looping {
+        let last_translation = *(curve.sample_clamped(last_time).downcast::<Vec3>().unwrap());
+        if reverse {
+            result += *(curve.sample_clamped(0.).downcast::<Vec3>().unwrap()) - last_translation;
+            last_time = clip.duration;
+        } else {
+            result += *(curve
+                .sample_clamped(clip.duration)
+                .downcast::<Vec3>()
+                .unwrap())
+                - last_translation;
+            last_time = 0.;
+        }
+    }
+
+    result + *(curve.sample_clamped(this_time).downcast::<Vec3>().unwrap())
+        - *(curve.sample_clamped(last_time).downcast::<Vec3>().unwrap())
+}
+
+fn root_motion_rotation_delta(
+    clip: &AnimationClip,
+    active_animation: &ActiveAnimation,
+    curve: &dyn AnimationCurve,
+) -> Quat {
+    let mut result = Quat::IDENTITY;
+    let reverse = active_animation.is_playback_reversed();
+    let is_finished = active_animation.is_finished();
+
+    // Return early if the animation have finished on a previous tick.
+    if is_finished && !active_animation.just_completed {
+        return result;
+    }
+
+    // The animation completed this tick, while still playing.
+    let looping = active_animation.just_completed && !is_finished;
+
+    let Some(mut last_time) = active_animation.last_seek_time else {
+        return result;
+    };
+    let this_time = active_animation.seek_time;
+
+    if looping {
+        let last_rotation = *(curve.sample_clamped(last_time).downcast::<Quat>().unwrap());
+        if reverse {
+            let current_rotation = *(curve.sample_clamped(0.).downcast::<Quat>().unwrap());
+            result = current_rotation * last_rotation.inverse();
+            last_time = clip.duration;
+        } else {
+            let current_rotation = *(curve
+                .sample_clamped(clip.duration)
+                .downcast::<Quat>()
+                .unwrap());
+            result = current_rotation * last_rotation.inverse();
+            last_time = 0.;
+        }
+    }
+
+    (*(curve.sample_clamped(this_time).downcast::<Quat>().unwrap())
+        * (curve.sample_clamped(last_time).downcast::<Quat>().unwrap()).inverse())
+        * result
+}
 
 /// A system that modifies animation targets (e.g. bones in a skinned mesh)
 /// according to the currently-playing animations.
@@ -1087,30 +1269,40 @@ pub fn animate_targets(
     clips: Res<Assets<AnimationClip>>,
     graphs: Res<Assets<AnimationGraph>>,
     threaded_animation_graphs: Res<ThreadedAnimationGraphs>,
-    players: Query<(&AnimationPlayer, &AnimationGraphHandle)>,
+    players: Query<(
+        Entity,
+        &AnimationPlayer,
+        &AnimationGraphHandle,
+        Option<&RootMotionConfig>,
+    )>,
     mut targets: Query<
         (Entity, &AnimationTargetId, &AnimatedBy, AnimationEntityMut),
         Without<IsResource>,
     >,
     animation_evaluation_state: Local<ThreadLocal<RefCell<AnimationEvaluationState>>>,
 ) {
+    let translation_field = animated_field!(Transform::translation);
+    let rotation_field = animated_field!(Transform::rotation);
     // Evaluate all animation targets in parallel.
-    targets
-        .par_iter_mut()
-        .for_each(|(entity, &target_id, &AnimatedBy(player_id), entity_mut)| {
-            let (animation_player, animation_graph_id) =
-                if let Ok((player, graph_handle)) = players.get(player_id) {
-                    (player, graph_handle.id())
-                } else {
-                    trace!(
-                        "Either an animation player {} or a graph was missing for the target \
+    targets.par_iter_mut().for_each(
+        |(entity, &target_id, &AnimatedBy(player_id), mut entity_mut)| {
+            let (
+                animation_player_entity,
+                animation_player,
+                animation_graph_id,
+                maybe_root_motion_config,
+            ) = if let Ok((player_entity, player, graph_handle, config)) = players.get(player_id) {
+                (player_entity, player, graph_handle.id(), config)
+            } else {
+                trace!(
+                    "Either an animation player {} or a graph was missing for the target \
                          entity {} ({:?}); no animations will play this frame",
-                        player_id,
-                        entity_mut.id(),
-                        entity_mut.get::<Name>(),
-                    );
-                    return;
-                };
+                    player_id,
+                    entity_mut.id(),
+                    entity_mut.get::<Name>(),
+                );
+                return;
+            };
 
             // The graph might not have loaded yet. Safely bail.
             let Some(animation_graph) = graphs.get(animation_graph_id) else {
@@ -1122,6 +1314,10 @@ pub fn animate_targets(
             else {
                 return;
             };
+
+            // Get root motion configuration
+            let is_root_target = maybe_root_motion_config
+                .is_some_and(|config| config.root_motion_target == target_id);
 
             // Determine which mask groups this animation target belongs to.
             let target_mask = animation_graph
@@ -1237,43 +1433,104 @@ pub fn animate_targets(
                         let weight = active_animation.weight * animation_graph_node.weight;
                         let seek_time = active_animation.seek_time;
 
-                        for curve in curves {
-                            // Fetch the curve evaluator. Curve evaluator types
-                            // are unique to each property, but shared among all
-                            // curve types. For example, given two curve types A
-                            // and B, `RotationCurve<A>` and `RotationCurve<B>`
-                            // will both yield a `RotationCurveEvaluator` and
-                            // therefore will share the same evaluator in this
-                            // table.
-                            let curve_evaluator_id = (*curve.0).evaluator_id();
-                            let curve_evaluator = evaluation_state
-                                .evaluators
-                                .get_or_insert_with(curve_evaluator_id.clone(), || {
-                                    curve.0.create_evaluator()
-                                });
+                        if is_root_target && let Some(config) = maybe_root_motion_config {
+                            let extract_translation =
+                                config.root_motion_mode.should_extract_translation();
+                            let extract_rotation =
+                                config.root_motion_mode.should_extract_rotation();
+                            for curve in curves {
+                                let curve_evaluator_id = (*curve.0).evaluator_id();
+                                let curve_evaluator =
+                                    evaluation_state.fetch_curve_evaluator(curve.0.as_ref());
+                                if extract_translation
+                                    && curve_evaluator_id == translation_field.evaluator_id()
+                                {
+                                    let curve_evaluator = curve_evaluator
+                                        .downcast_mut::<AnimatableCurveEvaluator<Vec3>>()
+                                        .unwrap();
+                                    let value = root_motion_translation_delta(
+                                        clip,
+                                        active_animation,
+                                        curve.0.as_ref(),
+                                    );
+                                    curve_evaluator.push_value(
+                                        value,
+                                        weight,
+                                        animation_graph_node_index,
+                                    );
+                                } else if extract_rotation
+                                    && curve_evaluator_id == rotation_field.evaluator_id()
+                                {
+                                    let curve_evaluator = curve_evaluator
+                                        .downcast_mut::<AnimatableCurveEvaluator<Quat>>()
+                                        .unwrap();
+                                    let value = root_motion_rotation_delta(
+                                        clip,
+                                        active_animation,
+                                        curve.0.as_ref(),
+                                    );
+                                    curve_evaluator.push_value(
+                                        value,
+                                        weight,
+                                        animation_graph_node_index,
+                                    );
+                                } else {
+                                    if let Err(err) = AnimationCurve::apply(
+                                        &*curve.0,
+                                        curve_evaluator,
+                                        seek_time,
+                                        weight,
+                                        animation_graph_node_index,
+                                    ) {
+                                        warn!("Animation application failed: {:?}", err);
+                                    }
+                                }
+                            }
+                        } else {
+                            for curve in curves {
+                                let curve_evaluator =
+                                    evaluation_state.fetch_curve_evaluator(curve.0.as_ref());
 
-                            evaluation_state
-                                .current_evaluators
-                                .insert(curve_evaluator_id);
-
-                            if let Err(err) = AnimationCurve::apply(
-                                &*curve.0,
-                                curve_evaluator,
-                                seek_time,
-                                weight,
-                                animation_graph_node_index,
-                            ) {
-                                warn!("Animation application failed: {:?}", err);
+                                if let Err(err) = AnimationCurve::apply(
+                                    &*curve.0,
+                                    curve_evaluator,
+                                    seek_time,
+                                    weight,
+                                    animation_graph_node_index,
+                                ) {
+                                    warn!("Animation application failed: {:?}", err);
+                                }
                             }
                         }
                     }
                 }
             }
 
-            if let Err(err) = evaluation_state.commit_all(entity_mut) {
+            if let Err(err) = evaluation_state.commit_all(&mut entity_mut) {
                 warn!("Animation application failed: {:?}", err);
             }
-        });
+
+            if is_root_target && let Some(config) = maybe_root_motion_config {
+                let mut root_motion_transform = entity_mut.get_mut::<Transform>().unwrap();
+                let translation_delta = if config.root_motion_mode.should_extract_translation() {
+                    core::mem::take(&mut root_motion_transform.translation)
+                } else {
+                    Default::default()
+                };
+                let rotation_delta = if config.root_motion_mode.should_extract_rotation() {
+                    core::mem::take(&mut root_motion_transform.rotation)
+                } else {
+                    Default::default()
+                };
+                par_commands.command_scope(move |mut commands| {
+                    commands.entity(animation_player_entity).insert(RootMotion {
+                        translation_delta,
+                        rotation_delta,
+                    });
+                });
+            }
+        },
+    );
 }
 
 /// Adds animation support to an app
@@ -1410,14 +1667,28 @@ impl AnimationEvaluationState {
     /// components being animated.
     fn commit_all(
         &mut self,
-        mut entity_mut: AnimationEntityMut,
+        entity_mut: &mut AnimationEntityMut,
     ) -> Result<(), AnimationEvaluationError> {
-        self.current_evaluators.clear(|id| {
-            self.evaluators
-                .get_mut(id)
-                .unwrap()
-                .commit(entity_mut.reborrow())
-        })
+        self.current_evaluators
+            .clear(|id| self.evaluators.get_mut(id).unwrap().commit(entity_mut))
+    }
+
+    /// Fetch the curve evaluator. Curve evaluator types
+    /// are unique to each property, but shared among all
+    /// curve types. For example, given two curve types A
+    /// and B, `RotationCurve<A>` and `RotationCurve<B>`
+    /// will both yield a `RotationCurveEvaluator` and
+    /// therefore will share the same evaluator in this
+    /// table.
+    fn fetch_curve_evaluator<'a>(
+        &'a mut self,
+        curve: &(dyn AnimationCurve + 'static),
+    ) -> &'a mut (dyn AnimationCurveEvaluator + 'static) {
+        let curve_evaluator = self
+            .evaluators
+            .get_or_insert_with(curve.evaluator_id(), || curve.create_evaluator());
+        self.current_evaluators.insert(curve.evaluator_id());
+        curve_evaluator
     }
 }
 
@@ -1572,12 +1843,17 @@ impl<'a> Iterator for TriggeredEventsIter<'a> {
 
 #[cfg(test)]
 mod tests {
+    use core::time::Duration;
+
     use crate::{
         self as bevy_animation,
         prelude::{AnimatableCurve, AnimatableKeyframeCurve},
     };
+    use bevy_app::{First, Last, ScheduleRunnerPlugin};
+    use bevy_asset::AssetPlugin;
     use bevy_math::Vec3;
     use bevy_reflect::map::{DynamicMap, Map};
+    use bevy_time::{TimePlugin, TimeSystems, Virtual};
     use bevy_transform::components::Transform;
 
     use super::*;
@@ -1862,5 +2138,244 @@ mod tests {
         assert_eq!(value, None);
         let value = clip.sample_clamped(animated_field!(Transform::translation), target_2, 1.0);
         assert_eq!(value, None);
+    }
+
+    #[track_caller]
+    fn compare_root_motion(
+        expected_translation: Vec3,
+        expected_rotation: Quat,
+        found: &RootMotion,
+    ) {
+        let translation_diff = expected_translation - found.translation_delta;
+        const TRANSLATION_DELTA_ERROR: f32 = 0.00001;
+        const ROTATION_DELTA_ERROR: f32 = 0.01;
+        assert!(
+            translation_diff.x.abs() <= TRANSLATION_DELTA_ERROR,
+            "Expected: {} | Found {}",
+            expected_translation.x,
+            found.translation_delta.x
+        );
+        assert!(
+            translation_diff.y.abs() <= TRANSLATION_DELTA_ERROR,
+            "Expected: {} | Found {}",
+            expected_translation.y,
+            found.translation_delta.y
+        );
+        assert!(
+            translation_diff.z.abs() <= TRANSLATION_DELTA_ERROR,
+            "Expected: {} | Found {}",
+            expected_translation.z,
+            found.translation_delta.z
+        );
+        assert!(
+            expected_rotation.angle_between(found.rotation_delta) <= ROTATION_DELTA_ERROR,
+            "Expected: {} | Found {} | Angle : {}",
+            expected_rotation,
+            found.rotation_delta,
+            expected_rotation.angle_between(found.rotation_delta)
+        );
+    }
+
+    #[track_caller]
+    fn root_motion_tests(
+        app: &mut App,
+        tick_count: u32,
+        target_translation: Vec3,
+        target_rotation: Quat,
+        animator_entity: Entity,
+        animated_entity: Entity,
+    ) {
+        let mut accumulated_deltas = RootMotion::default();
+        for _ in 0..tick_count {
+            app.update();
+            let root_motion = app.world().get::<RootMotion>(animator_entity).unwrap();
+            accumulated_deltas.translation_delta += root_motion.translation_delta;
+            accumulated_deltas.rotation_delta =
+                root_motion.rotation_delta * accumulated_deltas.rotation_delta;
+            // Check if the transform is erased in the root target
+            assert_eq!(
+                Transform::IDENTITY,
+                *app.world()
+                    .get_entity(animated_entity)
+                    .unwrap()
+                    .get::<Transform>()
+                    .unwrap()
+            );
+        }
+        compare_root_motion(target_translation, target_rotation, &accumulated_deltas);
+    }
+
+    #[test]
+    fn test_root_motion() {
+        let mut app = App::new();
+        app.add_plugins((
+            TimePlugin,
+            ScheduleRunnerPlugin::default(),
+            AssetPlugin::default(),
+            AnimationPlugin,
+        ));
+        // Animations settings
+        let play_count = 3;
+        // Choose tick_count such that ticks are not align perfectly with animation loops
+        let tick_count = 10;
+        let slow_speed = 1.0;
+        let fast_speed = 2.0;
+        let clip_duration = 1.0;
+        let total_duration = (play_count as f32 * clip_duration) / slow_speed;
+        let tick_duration = total_duration / tick_count as f32;
+        // Force each update to a fix duration
+        app.add_systems(
+            First,
+            (move |mut time: ResMut<Time<Virtual>>| {
+                time.advance_by(Duration::from_secs_f32(tick_duration));
+            })
+            .after(TimeSystems),
+        );
+        // Auto remove finished animations
+        app.add_systems(
+            Last,
+            (move |q_players: Query<&mut AnimationPlayer>| {
+                for mut player in q_players {
+                    player
+                        .active_animations
+                        .retain(|_, animation| !animation.is_finished());
+                }
+            })
+            .after(TimeSystems),
+        );
+        let mut clip = AnimationClip::default();
+        let target_translation = Vec3::new(100., 200., 400.);
+        let target_rotation =
+            Quat::from_axis_angle(Vec3::Z, 1.0) * Quat::from_axis_angle(Vec3::X, 1.0);
+        let root_target = AnimationTargetId::from_name(&Name::new("Root"));
+        let translation_curve = AnimatableCurve::new(
+            animated_field!(Transform::translation),
+            AnimatableKeyframeCurve::new([(0.0, Vec3::ZERO), (clip_duration, target_translation)])
+                .expect("Failed to create curve"),
+        );
+        clip.add_curve_to_target(root_target, translation_curve);
+        let rotation_curve = AnimatableCurve::new(
+            animated_field!(Transform::rotation),
+            AnimatableKeyframeCurve::new([(0.0, Quat::IDENTITY), (clip_duration, target_rotation)])
+                .expect("Failed to create curve"),
+        );
+        clip.add_curve_to_target(root_target, rotation_curve);
+        let mut graph = AnimationGraph::default();
+        let clip_handle = {
+            let mut r_clips = app
+                .world_mut()
+                .get_resource_mut::<Assets<AnimationClip>>()
+                .unwrap();
+            r_clips.add(clip)
+        };
+        // Add multiple clips
+        let mut animation_player = AnimationPlayer::default();
+        let slow_animation = graph.add_clip(clip_handle.clone(), 1.0, graph.root);
+        animation_player
+            .play(slow_animation)
+            .set_speed(slow_speed)
+            .set_repeat(RepeatAnimation::Count(play_count));
+        let fast_animation = graph.add_clip(clip_handle.clone(), 1.0, graph.root);
+        animation_player
+            .play(fast_animation)
+            .set_speed(fast_speed)
+            .set_repeat(RepeatAnimation::Count(play_count));
+        let graph_handle = {
+            let mut r_graphs = app
+                .world_mut()
+                .get_resource_mut::<Assets<AnimationGraph>>()
+                .unwrap();
+            AnimationGraphHandle(r_graphs.add(graph))
+        };
+        // Update to create the ThreadedAnimationGraph
+        app.update();
+        // Spawn entities
+        let animator_entity = app
+            .world_mut()
+            .spawn((
+                animation_player,
+                graph_handle,
+                RootMotionConfig {
+                    root_motion_target: root_target,
+                    root_motion_mode: Default::default(),
+                },
+            ))
+            .id();
+        let animated_entity = app
+            .world_mut()
+            .spawn((
+                AnimatedBy(animator_entity),
+                root_target,
+                Transform::default(),
+            ))
+            .id();
+
+        // Compute how much time each animation will be applied according to there speed and duration
+        let both_animation_duration = play_count as f32 * clip_duration / fast_speed;
+        let slow_only_animation_duration = total_duration - both_animation_duration;
+        let applied_factor = slow_only_animation_duration * slow_speed
+            + both_animation_duration * (fast_speed + slow_speed) / 2.;
+        let final_translation = target_translation * applied_factor;
+        let final_rotation = Quat::IDENTITY.slerp(target_rotation, applied_factor);
+
+        // Forward tests
+        root_motion_tests(
+            &mut app,
+            tick_count,
+            final_translation,
+            final_rotation,
+            animator_entity,
+            animated_entity,
+        );
+
+        // Setup for backward
+        let slow_speed = -slow_speed;
+        let fast_speed = -fast_speed;
+        {
+            let mut player_entity = app.world_mut().get_entity_mut(animator_entity).unwrap();
+            let mut animation_player = player_entity.get_mut::<AnimationPlayer>().unwrap();
+            assert_eq!(0, animation_player.active_animations.len());
+            animation_player
+                .play(slow_animation)
+                .set_repeat(RepeatAnimation::Count(play_count))
+                .set_speed(slow_speed)
+                .seek_to(clip_duration);
+            animation_player
+                .play(fast_animation)
+                .set_repeat(RepeatAnimation::Count(play_count))
+                .set_speed(fast_speed)
+                .seek_to(clip_duration);
+        }
+
+        // Backward tests
+        root_motion_tests(
+            &mut app,
+            tick_count,
+            -final_translation,
+            final_rotation.inverse(),
+            animator_entity,
+            animated_entity,
+        );
+
+        // Test if RootMotion is removed when root motion is disabled
+        app.world_mut()
+            .entity_mut(animator_entity)
+            .remove::<RootMotionConfig>();
+
+        app.update();
+        assert!(app
+            .world_mut()
+            .entity_mut(animator_entity)
+            .get::<RootMotion>()
+            .is_none());
+    }
+
+    #[test]
+    fn test_root_motion_cleaning() {
+        let mut world = World::new();
+        let mut animation_player_entity =
+            world.spawn((AnimationPlayer::default(), RootMotion::default()));
+        animation_player_entity.remove::<AnimationPlayer>();
+        assert!(animation_player_entity.get::<RootMotion>().is_none());
     }
 }
