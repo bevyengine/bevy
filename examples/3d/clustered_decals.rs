@@ -233,7 +233,7 @@ fn spawn_buttons(commands: &mut Commands) {
                 (Selection::Camera, "Camera"),
                 (Selection::DecalA, "Decal A"),
                 (Selection::DecalB, "Decal B"),
-            ]),
+            ], 0),
             number_input("Scale Multiplier", 1.0, 0.05..10., AppNumberInput::Scale),
             number_input("Roll (-π to π)", 0.0, -PI..PI, AppNumberInput::Roll),
         ]

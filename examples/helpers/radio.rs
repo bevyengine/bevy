@@ -33,8 +33,7 @@ pub fn main_ui_node_scene() -> impl Scene {
 
 /// Spawns the radio buttons that allow configuration of a setting.
 ///
-/// The first option in the `options` list is always marked as selected.
-/// Ensure options is in the correct ordering with how your app is initialized.
+/// The option at index `selected_option` in the `options` list is marked as selected.
 ///
 /// To react to changes in value, create an observer that listens to
 /// `ValueChange<Entity>>`. Query for the value entity's `RadioButtonOptionValue`
@@ -42,7 +41,11 @@ pub fn main_ui_node_scene() -> impl Scene {
 ///
 /// Ensure the radio button self updates its own state by adding the
 /// `ui_widgets::radio_self_update` observer to the app.
-pub fn feathers_option_buttons<T>(title: &'static str, options: &[(T, &str)]) -> impl Scene
+pub fn feathers_option_buttons<T>(
+    title: &'static str,
+    options: &[(T, &str)],
+    selected_option: usize,
+) -> impl Scene
 where
     T: Clone + Default + Send + Sync + Unpin + 'static,
 {
@@ -51,7 +54,7 @@ where
         .cloned()
         .enumerate()
         .map(|(option_index, (option_value, option_name))| {
-            feathers_option_button(option_value, option_name, option_index == 0)
+            feathers_option_button(option_value, option_name, option_index == selected_option)
         })
         .collect::<Vec<_>>();
     // Add the parent node for the row.
