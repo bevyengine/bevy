@@ -30,7 +30,6 @@ use bevy_ui::ComputedNode;
 use bevy_ui::ComputedStackIndex;
 use bevy_ui::ComputedUiTargetCamera;
 use bevy_ui::ResolvedBorderRadius;
-use bevy_ui::UiStack;
 
 /// Configuration for the UI debug overlay
 ///
@@ -185,7 +184,6 @@ pub fn extract_debug_overlay(
             Option<&UiDebugOptions>,
         )>,
     >,
-    ui_stack: Extract<Res<UiStack>>,
     camera_map: Extract<UiCameraMap>,
 ) {
     let extracted_uinodes = extracted_uinodes.into_inner();
@@ -212,7 +210,7 @@ pub fn extract_debug_overlay(
         let color = debug_options
             .line_color_override
             .unwrap_or_else(|| Hsla::sequential_dispersed(entity.index_u32()).into());
-        let z_order = (ui_stack.uinodes.len() as u32 + stack_index.0) as f32;
+        let z_order = 10_000_000. + stack_index.0 as f32;
         let border = BorderRect::all(debug_options.line_width / uinode.inverse_scale_factor());
         let transform = transform.affine();
 

@@ -1,6 +1,6 @@
 use crate::{
-    ui_transform::UiGlobalTransform, ComputedNode, ComputedUiTargetCamera, Node, OverrideClip,
-    UiStack,
+    stack::UiStackRoots, ui_transform::UiGlobalTransform, ComputedNode, ComputedUiStack,
+    ComputedUiTargetCamera, Node, OverrideClip,
 };
 use bevy_camera::{visibility::InheritedVisibility, Camera, NormalizedRenderTarget, RenderTarget};
 use bevy_ecs::{
@@ -153,7 +153,8 @@ pub fn ui_focus_system(
     windows: Query<&Window>,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     touches_input: Res<Touches>,
-    ui_stack: Res<UiStack>,
+    ui_stack_roots: Res<UiStackRoots>,
+    computed_ui_stack_query: Query<&ComputedUiStack>,
     mut node_query: Query<NodeQuery>,
     clipping_query: Query<(&ComputedNode, &UiGlobalTransform, &Node)>,
     child_of_query: Query<&ChildOf, Without<OverrideClip>>,
@@ -218,11 +219,11 @@ pub fn ui_focus_system(
 
     hovered_nodes.clear();
     // reverse the iterator to traverse the tree from closest slice to furthest
-    for uinodes in ui_stack
-        .partition
+    for uinodes in ui_stack_roots
+        .0
         .iter()
         .rev()
-        .map(|range| &ui_stack.uinodes[range.clone()])
+        .map(|root| computed_ui_stack_query.get(*root).unwrap())
     {
         // Retrieve the first node and resolve its camera target.
         // Only need to do this once per slice, as all the nodes in the slice share the same camera.

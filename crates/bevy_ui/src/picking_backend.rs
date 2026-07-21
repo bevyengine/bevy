@@ -21,7 +21,10 @@
 //!   `(-0.5, -0.5, 0.)` at the top left and `(0.5, 0.5, 0.)` in the bottom right. Coordinates are
 //!   relative to the entire node, not just the visible region. This backend does not provide a `normal`.
 
-use crate::{clip_check_recursive, prelude::*, ui_transform::UiGlobalTransform, UiStack};
+use crate::{
+    clip_check_recursive, prelude::*, stack::UiStackRoots, ui_transform::UiGlobalTransform,
+    ComputedUiStack,
+};
 use bevy_app::prelude::*;
 use bevy_camera::{visibility::InheritedVisibility, Camera, RenderTarget};
 use bevy_ecs::{prelude::*, query::QueryData};
@@ -103,7 +106,8 @@ pub fn ui_picking(
     camera_query: Query<(Entity, &Camera, &RenderTarget, Has<UiPickingCamera>)>,
     primary_window: Query<Entity, With<PrimaryWindow>>,
     settings: Res<UiPickingSettings>,
-    ui_stack: Res<UiStack>,
+    ui_stack_roots: Res<UiStackRoots>,
+    computed_ui_stacks_query: Query<&ComputedUiStack>,
     node_query: Query<NodeQuery>,
     mut output: MessageWriter<PointerHits>,
     clipping_query: Query<(&ComputedNode, &UiGlobalTransform, &Node)>,
@@ -154,15 +158,15 @@ pub fn ui_picking(
     // from the top node to the bottom one. this will also reset the interaction to `None`
     // for all nodes encountered that are no longer hovered.
     // Reverse the iterator to traverse the tree from closest slice to furthest
-    for uinodes in ui_stack
-        .partition
+    for uinodes in ui_stack_roots
+        .0
         .iter()
         .rev()
-        .map(|range| &ui_stack.uinodes[range.clone()])
+        .map(|root| computed_ui_stacks_query.get(*root).unwrap())
     {
         // Retrieve the first node and resolve its camera target.
         // Only need to do this once per slice, as all the nodes in the same slice share the same camera.
-        let Ok(uinode) = node_query.get(uinodes[0]) else {
+        let Ok(uinode) = node_query.get(uinodes.0[0]) else {
             continue;
         };
 
