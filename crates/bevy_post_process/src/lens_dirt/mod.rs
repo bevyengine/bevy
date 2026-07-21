@@ -147,11 +147,11 @@ impl Default for LensDirt {
     }
 }
 
-impl SyncComponent for LensDirt {
+impl SyncComponent<RenderApp> for LensDirt {
     type Target = (Self, LensDirt);
 }
 
-impl ExtractComponent for LensDirt {
+impl ExtractComponent<RenderApp> for LensDirt {
     type QueryData = &'static Self;
     type QueryFilter = With<Camera>;
     type Out = (Self, LensDirtUniforms);
