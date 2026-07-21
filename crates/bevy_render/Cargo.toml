@@ -85,6 +85,7 @@ bevy_shader = { path = "../bevy_shader", version = "0.20.0-dev" }
 bevy_platform = { path = "../bevy_platform", version = "0.20.0-dev", default-features = false, features = [
   "std",
   "serialize",
+  "bytemuck",
 ] }
 
 # rendering
