@@ -63,7 +63,7 @@ pub enum UiPickingMode {
     BoundingBox,
     /// Ignore any part of an [`ImageNode`] which has a lower alpha value than
     /// the threshold (inclusive). The threshold is given as an `f32`
-    /// representing the alpha value in a Bevy [`Color`](bevy_color::Color).
+    /// representing the alpha value in a Bevy [`Color`].
     AlphaThreshold(f32),
 }
 
