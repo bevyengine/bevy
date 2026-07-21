@@ -29,36 +29,38 @@ where
 {
     if let Some(identifier) = number_input_identifier {
         Box::new(bsn! {
-          Node {
-              align_items: AlignItems::Center,
-          }
-          Children [
-              Node {
-                  align_items: AlignItems::Center
-                  width: px(150),
-              }
-              Children [
-                  label(name)
-              ],
+            Node {
+                align_items: AlignItems::Center,
+                column_gap: px(5),
+            }
+            Children [
+                Node {
+                    align_items: AlignItems::Center,
+                    width: px(150),
+                }
+                Children [
+                    label(name)
+                ],
 
-              Node {
-                  align_items: AlignItems::Center,
-              }
-              template_value(identifier)
-              @FeathersNumberInput
-              template_value(NumberInputValue::F32(value))
-              template_value(precision)
-              HardLimit::f32(limits)
-          ]
+                Node {
+                    align_items: AlignItems::Center,
+                }
+                template_value(identifier)
+                @FeathersNumberInput
+                template_value(NumberInputValue::F32(value))
+                template_value(precision)
+                HardLimit::f32(limits)
+            ]
         })
     } else {
         Box::new(bsn! {
             Node {
                 align_items: AlignItems::Center,
+                column_gap: px(5),
             }
             Children [
                 Node {
-                    align_items: AlignItems::Center
+                    align_items: AlignItems::Center,
                     width: px(150),
                 }
                 Children [

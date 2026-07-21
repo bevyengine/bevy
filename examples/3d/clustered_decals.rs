@@ -418,6 +418,7 @@ fn handle_drag_as_movement(
     {
         return;
     }
+
     for (mut transform, selection) in &mut selections {
         if app_status.selection != *selection {
             continue;
