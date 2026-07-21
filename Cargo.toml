@@ -4906,6 +4906,7 @@ wasm = true
 name = "color_grading"
 path = "examples/3d/color_grading.rs"
 doc-scrape-examples = true
+required-features = ["bevy_feathers"]
 
 [package.metadata.example.color_grading]
 name = "Color grading"
