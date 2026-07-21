@@ -6,11 +6,21 @@ use bevy_math::{Dir3A, Ray3d, RayCast3d, Vec3A};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 
+/// Computes intersections with an [`Aabb3d`].
+///
+/// Implementors return the distance from the query's origin to the first
+/// intersection with the given axis-aligned bounding box. If no intersection
+/// occurs, `None` is returned.
 pub trait Aabb3dIntersection {
     /// Get the distance of an intersection with an [`Aabb3d`], if any.
     fn aabb_intersection_at(&self, aabb: &Aabb3d) -> Option<f32>;
 }
 
+/// Computes intersections with a [`BoundingSphere`].
+///
+/// Implementors return the distance from the query's origin to the first
+/// intersection with the given bounding sphere. If no intersection occurs,
+/// `None` is returned.
 pub trait BoundingSphereIntersection {
     /// Get the distance of an intersection with a [`BoundingSphere`], if any.
     fn sphere_intersection_at(&self, sphere: &BoundingSphere) -> Option<f32>;

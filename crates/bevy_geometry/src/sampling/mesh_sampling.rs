@@ -1,4 +1,8 @@
-//! Functionality related to random sampling from triangle meshes.
+//! Random sampling utilities for geometric primitives from [`bevy_shape`].
+//!
+//! This module provides algorithms for generating random samples from geometric shapes and
+//! collections of shapes. It also contains utilities for sampling points uniformly from triangle
+//! meshes.
 
 use crate::measured::Measured2d;
 use crate::sampling::ShapeSample;

@@ -1,3 +1,12 @@
+//! Hollow 2D primitives.
+//!
+//! This module provides the [`Ring`] type, which represents the region between two instances of the
+//! same 2D primitive: an outer boundary and an inner boundary. For example, a ring constructed from
+//! a [`bevy_shape::Circle`] represents an annulus.
+//!
+//! When the primitive implements [`Inset`], [`ToRing`] can be used to construct a [`Ring`] with a
+//! uniform wall thickness by generating the inner shape through an inset operation.
+
 use bevy_math::{Isometry2d, Isometry3d};
 use bevy_shape::Primitive2d;
 

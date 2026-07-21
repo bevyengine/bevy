@@ -14,7 +14,18 @@
 )]
 #![no_std]
 
-//! This module defines functionality for primitive shapes.
+//! Geometric algorithms and utilities for primitive shapes.
+//!
+//! This crate extends the primitives in [`bevy_shape`] with common geometric operations, including:
+//!
+//! - [Computing measurements such as area, perimeter, surface area, and volume.](measured)
+//! - [Computing axis-aligned and spherical bounding volumes.](bounding)
+//! - [Ray casting and intersection queries.](ray)
+//! - [Constructing inset and hollow ("ring") variants of 2D primitives.](ring)
+//! - [Random sampling from geometric primitives and triangle meshes](sampling) (via the `rand` feature).
+//!
+//! The functionality is provided through extension traits, allowing geometric
+//! algorithms to be used directly with the corresponding primitive types.
 
 #[cfg(feature = "std")]
 extern crate std;
@@ -45,7 +56,7 @@ pub mod prelude {
     pub use crate::measured::*;
 
     #[doc(hidden)]
-    pub use crate::ray::{raycast2d::*, raycast3d::*, Ray2dIntersection, Ray3dIntersection};
+    pub use crate::ray::{raycast2d::*, raycast3d::*, Ray2dIntersectionExt, Ray3dIntersectionExt};
 
     #[doc(hidden)]
     pub use crate::ring::*;

@@ -1,3 +1,14 @@
+//! Uniformly inset 2D geometric primitives.
+//!
+//! This module provides the [`Inset`] trait, which shrinks supported 2D
+//! primitives by moving each edge inward by a constant distance. Unlike uniform
+//! scaling, an inset preserves the offset from each original edge, producing a
+//! shape whose boundary is everywhere `distance` inward from the original.
+//!
+//! Insets are useful for generating smaller versions of shapes, creating
+//! constant-thickness outlines with [`Ring`](crate::ring::Ring), and
+//! constructing other offset geometry.
+
 use bevy_math::{ops, Vec2};
 use bevy_shape::{
     Capsule2d, Circle, CircularSegment, Primitive2d, Rectangle, RegularPolygon, Rhombus, Triangle2d,

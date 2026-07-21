@@ -6,11 +6,21 @@ use bevy_math::{Dir2, Ray2d, RayCast2d, Vec2};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 
+/// Computes intersections with an [`Aabb2d`].
+///
+/// Implementors return the distance from the query's origin to the first
+/// intersection with the given axis-aligned bounding box. If no intersection
+/// occurs, `None` is returned.
 pub trait Aabb2dIntersection {
     /// Get the distance of an intersection with an [`Aabb2d`], if any.
     fn aabb_intersection_at(&self, aabb: &Aabb2d) -> Option<f32>;
 }
 
+/// Computes intersections with a [`BoundingCircle`].
+///
+/// Implementors return the distance from the query's origin to the first
+/// intersection with the given bounding circle. If no intersection occurs,
+/// `None` is returned.
 pub trait BoundingCircleIntersection {
     /// Get the distance of an intersection with a [`BoundingCircle`], if any.
     fn circle_intersection_at(&self, circle: &BoundingCircle) -> Option<f32>;

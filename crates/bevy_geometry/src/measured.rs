@@ -1,3 +1,17 @@
+//! Geometric measurement traits for primitive shapes.
+//!
+//! This module provides traits for computing common geometric measurements of
+//! 2D and 3D primitives.
+//!
+//! - [`Measured2d`] provides methods for computing a shape's [perimeter](`Measured2d::perimeter`)
+//!   and [area](`Measured2d::area`).
+//! - [`Measured3d`] provides methods for computing a shape's [surface area](`Measured3d::area`) and
+//!   [volume](`Measured3d::volume`).
+//!
+//! Implementations are provided for the standard primitives in [`bevy_shape`]
+//! using exact formulas where practical, with documented approximations for
+//! measurements that have no closed-form elementary solution.
+
 use std::f32::consts::{FRAC_PI_3, PI};
 
 use bevy_math::{ops, FloatPow};
