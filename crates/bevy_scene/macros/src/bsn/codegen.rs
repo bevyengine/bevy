@@ -649,7 +649,7 @@ impl BsnType {
             let bevy_ecs = ctx.bevy_ecs;
             let invocation = ctx.invocation_index.clone();
             return Ok(quote! {
-                #bevy_ecs::template::EntityTemplate::from_reference(#invocation, #index, _call_id);
+                *#bind_name = #bevy_ecs::template::EntityTemplate::from_reference(#invocation, #index, _call_id);
             });
         }
 
@@ -753,7 +753,7 @@ impl ToTokens for BsnValue {
             BsnValue::Type(ty) => quote! {(#ty).into()}.to_tokens(tokens),
             BsnValue::Name(_) => {
                 // Name requires additional context to convert to tokens
-                unreachable!()
+                unreachable!("name case should have been handled previously")
             }
         }
     }
