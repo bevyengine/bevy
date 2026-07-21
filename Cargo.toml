@@ -5356,7 +5356,7 @@ wasm = false
 name = "light_textures"
 path = "examples/3d/light_textures.rs"
 doc-scrape-examples = true
-required-features = ["pbr_light_textures"]
+required-features = ["pbr_light_textures", "bevy_feathers"]
 
 [package.metadata.example.light_textures]
 name = "Light Textures"
