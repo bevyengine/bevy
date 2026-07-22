@@ -25,11 +25,11 @@ use bevy_text::{
 };
 use bevy_time::{Real, Time};
 use bevy_ui::widget::{sync_editable_text_viewports, update_editable_text_layout};
-use bevy_ui::UiSystems;
 use bevy_ui::{
     widget::TextNodeFlags, ComputedNode, ComputedUiRenderTargetInfo, ContentSize, Node,
     UiGlobalTransform, UiScale,
 };
+use bevy_ui::{InteractionDisabled, UiSystems};
 use bevy_window::{Ime, PrimaryWindow, Window};
 
 const NONE: u8 = 0;
@@ -98,10 +98,18 @@ fn matches_edit_shortcut(input: &KeyboardInput, character: &str, key_code: KeyCo
 /// and then applied later by the [`apply_text_edits`](`bevy_text::apply_text_edits`) system.
 fn on_focused_keyboard_input(
     mut keyboard_input: On<FocusedInput<KeyboardInput>>,
-    mut query: Query<(&mut EditableText, &TextReadWriteMode), With<TextInput>>,
+    mut query: Query<
+        (
+            &mut EditableText,
+            &TextReadWriteMode,
+            Has<InteractionDisabled>,
+        ),
+        With<TextInput>,
+    >,
     keys: Res<ButtonInput<Key>>,
 ) {
-    let Ok((mut editable_text, rwmode)) = query.get_mut(keyboard_input.focused_entity) else {
+    let Ok((mut editable_text, rwmode, disabled)) = query.get_mut(keyboard_input.focused_entity)
+    else {
         return; // Focused entity is not an EditableText, nothing to do
     };
 
@@ -129,7 +137,7 @@ fn on_focused_keyboard_input(
 
     let mut queue_edit = |edit: TextEdit| {
         if (*rwmode == TextReadWriteMode::Editable
-            || (!edit.is_destructive() && *rwmode == TextReadWriteMode::ReadOnly))
+            || (!edit.is_destructive() && (disabled || *rwmode == TextReadWriteMode::ReadOnly)))
             && keyboard_input.input.state.is_pressed()
         {
             editable_text.queue_edit(edit);
@@ -456,7 +464,14 @@ fn autoscroll_axis(overflow: f32, view_size: f32, time_delta: f32) -> f32 {
 fn on_ime_input(
     mut ime_reader: MessageReader<Ime>,
     input_focus: Res<InputFocus>,
-    mut editable_text_query: Query<(&mut EditableText, &TextReadWriteMode), With<TextInput>>,
+    mut editable_text_query: Query<
+        (
+            &mut EditableText,
+            &TextReadWriteMode,
+            Has<InteractionDisabled>,
+        ),
+        With<TextInput>,
+    >,
 ) {
     let Some(focused_entity) = input_focus.get() else {
         // No focused entity, nothing to do.
@@ -465,14 +480,15 @@ fn on_ime_input(
         return;
     };
 
-    let Ok((mut editable_text, rwmode)) = editable_text_query.get_mut(focused_entity) else {
+    let Ok((mut editable_text, rwmode, disabled)) = editable_text_query.get_mut(focused_entity)
+    else {
         // Focused entity is not an EditableText, nothing to do.
         // Still need to drain the reader to prevent stale events on next focus.
         ime_reader.read().for_each(drop);
         return;
     };
 
-    if *rwmode != TextReadWriteMode::Editable {
+    if *rwmode != TextReadWriteMode::Editable || disabled {
         // Still need to drain the reader to prevent stale events on next focus.
         ime_reader.read().for_each(drop);
         return;
@@ -519,6 +535,7 @@ fn update_ime_position(
             &ComputedNode,
             &UiGlobalTransform,
             &ComputedUiRenderTargetInfo,
+            Has<InteractionDisabled>,
         ),
         With<TextInput>,
     >,
@@ -530,12 +547,13 @@ fn update_ime_position(
         return;
     };
 
-    let Ok((editable_text, rwmode, node, transform, target)) = editable_text_query.get(focused)
+    let Ok((editable_text, rwmode, node, transform, target, disabled)) =
+        editable_text_query.get(focused)
     else {
         return;
     };
 
-    if *rwmode != TextReadWriteMode::Editable {
+    if *rwmode != TextReadWriteMode::Editable || disabled {
         return;
     }
 
