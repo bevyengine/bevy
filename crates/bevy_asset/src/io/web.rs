@@ -4,7 +4,7 @@
 
 use crate::io::{AssetReader, AssetReaderError, AssetSourceBuilder, PathStream, Reader};
 use crate::{AssetApp, AssetPlugin};
-use alloc::boxed::Box;
+use alloc::{borrow::Cow, boxed::Box};
 use bevy_app::{App, Plugin};
 use bevy_tasks::ConditionalSendFuture;
 use std::path::{Path, PathBuf};
@@ -196,6 +196,13 @@ async fn get(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
 }
 
 impl AssetReader for WebAssetReader {
+    fn root_path(&self) -> Cow<'_, PathBuf> {
+        Cow::Owned(PathBuf::from(match self {
+            Self::Http => "http://",
+            Self::Https => "https://",
+        }))
+    }
+
     fn read<'a>(
         &'a self,
         path: &'a Path,
