@@ -8,7 +8,6 @@ use bevy_platform::collections::hash_map::Entry;
 use bevy_render::mesh::allocator::MeshAllocator;
 use bevy_render::mesh::RenderMesh;
 use bevy_render::render_asset::RenderAssets;
-use bevy_render::render_resource::ShaderType;
 use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
 use bevy_render::{
     batching::NoAutomaticBatching,
@@ -17,6 +16,7 @@ use bevy_render::{
     Extract,
 };
 use bytemuck::{NoUninit, Pod, Zeroable};
+use const_shader_layout::{ShaderLayout, ShaderLayoutCompat};
 
 use crate::{skin, RenderMeshInstances};
 
@@ -171,7 +171,7 @@ impl MorphIndices {
 
 /// Information that the GPU needs about a single mesh instance that uses morph
 /// targets.
-#[derive(Clone, Copy, Default, ShaderType, Pod, Zeroable)]
+#[derive(Clone, Copy, Default, ShaderLayout, Pod, Zeroable)]
 #[repr(C)]
 pub struct GpuMorphDescriptor {
     /// The index of the first morph target weight in the `morph_weights` array.
@@ -221,7 +221,7 @@ const fn can_align(step: usize, target: usize) -> bool {
 const WGPU_MIN_ALIGN: usize = 256;
 
 /// Align a [`RawBufferVec`] to `N` bytes by padding the end with `T::default()` values.
-fn add_to_alignment<T: NoUninit + Default>(buffer: &mut RawBufferVec<T>) {
+fn add_to_alignment<T: NoUninit + ShaderLayoutCompat + Default>(buffer: &mut RawBufferVec<T>) {
     let n = WGPU_MIN_ALIGN;
     let t_size = size_of::<T>();
     if !can_align(n, t_size) {

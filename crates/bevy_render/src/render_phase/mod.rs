@@ -34,9 +34,9 @@ use bevy_ecs::entity::EntityHash;
 use bevy_platform::collections::{hash_map::Entry, HashMap};
 use bevy_utils::default;
 use bytemuck::{Pod, Zeroable};
+use const_shader_layout::ShaderLayout;
 pub use draw::*;
 pub use draw_state::*;
-use encase::ShaderType;
 use encase::{internal::WriteInto, ShaderSize};
 use indexmap::IndexMap;
 use nonmax::NonMaxU32;
@@ -772,7 +772,7 @@ where
 /// This is a data structure shared between CPU and GPU. It is *not* sorted in
 /// the [`RenderMultidrawableBatchSetGpuBuffers`]: mesh instances in any given
 /// bin are not guaranteed to be adjacent.
-#[derive(Clone, Copy, Default, Pod, Zeroable, ShaderType)]
+#[derive(Clone, Copy, Default, Pod, Zeroable, ShaderLayout)]
 #[repr(C)]
 pub struct GpuRenderBinnedMeshInstance {
     /// The index of the `MeshInputUniform` in the buffer.

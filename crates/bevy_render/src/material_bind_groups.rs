@@ -15,7 +15,7 @@ use bevy_ecs::{
 use bevy_platform::collections::{hash_map::Entry, HashMap, HashSet};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_utils::{default, TypeIdHashMap};
-use bytemuck::{Pod, Zeroable};
+use bytemuck::{NoUninit, Pod, Zeroable};
 use core::hash::Hash;
 use core::{cmp::Ordering, iter, mem, ops::Range};
 use std::any::TypeId;
@@ -412,7 +412,7 @@ struct MaterialDataBuffer {
 #[derive(Deref, DerefMut)]
 struct RetainedRawBufferVec<T>
 where
-    T: Pod,
+    T: NoUninit,
 {
     /// The contents of the buffer.
     #[deref]
@@ -782,7 +782,7 @@ impl MaterialBindlessIndexTable {
 
 impl<T> RetainedRawBufferVec<T>
 where
-    T: Pod,
+    T: NoUninit,
 {
     /// Creates a new empty [`RetainedRawBufferVec`] supporting the given
     /// [`BufferUsages`].

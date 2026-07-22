@@ -92,6 +92,11 @@ offset-allocator = "0.2"
 arrayvec = { version = "0.7", default-features = false }
 indexmap = { version = "2" }
 wgpu-types = "30"
+const_shader_layout = { version = "0.4", default-features = false, features = [
+  "glam",
+  "std",
+  "derive",
+] }
 
 [lints]
 workspace = true

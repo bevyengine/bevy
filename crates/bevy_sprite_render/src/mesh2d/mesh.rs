@@ -64,6 +64,7 @@ use bevy_render::{
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::default;
+use const_shader_layout::ShaderLayoutCompat;
 use nonmax::NonMaxU32;
 use static_assertions::const_assert_eq;
 use tracing::error;
@@ -226,7 +227,8 @@ pub struct Mesh2dTransforms {
     pub flags: u32,
 }
 
-#[derive(ShaderType, Clone, Copy)]
+#[derive(ShaderType, Clone, Copy, ShaderLayoutCompat)]
+#[repr(C)]
 pub struct Mesh2dUniform {
     // Affine 4x3 matrix transposed to 3x4
     pub world_from_local: [Vec4; 3],

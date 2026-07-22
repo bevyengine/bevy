@@ -50,14 +50,15 @@ use bevy_render::{
     occlusion_culling::OcclusionCulling,
     render_phase::{GpuRenderBinnedMeshInstance, UNIFORM_ALLOCATION_WORKGROUP_SIZE},
     render_resource::{
-        binding_types::{storage_buffer, storage_buffer_read_only, texture_2d, uniform_buffer},
+        binding_types::{
+            shader_layout, storage_buffer, storage_buffer_read_only, texture_2d, uniform_buffer,
+        },
         BindGroup, BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries,
         BindingResource, Buffer, BufferBinding, BufferVec, CachedComputePipelineId,
         ComputePassDescriptor, ComputePipelineDescriptor, DynamicBindGroupLayoutEntries,
-        PartialBufferVec, PipelineCache, RawBufferVec, ShaderStages, ShaderType,
-        SparseBufferUpdateBindGroups, SparseBufferUpdateJobs, SparseBufferUpdatePipelines,
-        SpecializedComputePipeline, SpecializedComputePipelines, TextureSampleType,
-        UninitBufferVec,
+        PartialBufferVec, PipelineCache, RawBufferVec, ShaderStages, SparseBufferUpdateBindGroups,
+        SparseBufferUpdateJobs, SparseBufferUpdatePipelines, SpecializedComputePipeline,
+        SpecializedComputePipelines, TextureSampleType, UninitBufferVec,
     },
     renderer::{RenderContext, RenderDevice, RenderQueue, ViewQuery},
     settings::WgpuFeatures,
@@ -70,6 +71,7 @@ use bevy_render::{
 use bevy_shader::Shader;
 use bevy_utils::{default, TypeIdHashMap};
 use bitflags::bitflags;
+use const_shader_layout::ShaderLayout;
 use smallvec::{smallvec, SmallVec};
 use tracing::warn;
 
@@ -1113,7 +1115,7 @@ pub fn late_gpu_preprocess(
             compute_pass.dispatch_workgroups_indirect(
                 late_indexed_indirect_parameters_buffer,
                 (*late_indirect_parameters_indexed_offset as u64)
-                    * (size_of::<LatePreprocessWorkItemIndirectParameters>() as u64),
+                    * (LatePreprocessWorkItemIndirectParameters::SIZE.get()),
             );
         }
 
@@ -1128,7 +1130,7 @@ pub fn late_gpu_preprocess(
             compute_pass.dispatch_workgroups_indirect(
                 late_non_indexed_indirect_parameters_buffer,
                 (*late_indirect_parameters_non_indexed_offset as u64)
-                    * (size_of::<LatePreprocessWorkItemIndirectParameters>() as u64),
+                    * (LatePreprocessWorkItemIndirectParameters::SIZE.get()),
             );
         }
     }
@@ -1455,11 +1457,13 @@ impl FromWorld for PreprocessPipelines {
             gpu_occlusion_culling_bind_group_layout_entries().extend_with_indices((
                 (
                     12,
-                    storage_buffer::<PreprocessWorkItem>(/*has_dynamic_offset=*/ false),
+                    shader_layout::storage_buffer::<PreprocessWorkItem>(
+                        /*has_dynamic_offset=*/ false,
+                    ),
                 ),
                 (
                     13,
-                    storage_buffer::<LatePreprocessWorkItemIndirectParameters>(
+                    shader_layout::storage_buffer::<LatePreprocessWorkItemIndirectParameters>(
                         /*has_dynamic_offset=*/ false,
                     ),
                 ),
@@ -1467,7 +1471,7 @@ impl FromWorld for PreprocessPipelines {
         let gpu_late_occlusion_culling_bind_group_layout_entries =
             gpu_occlusion_culling_bind_group_layout_entries().extend_with_indices(((
                 13,
-                storage_buffer_read_only::<LatePreprocessWorkItemIndirectParameters>(
+                shader_layout::storage_buffer_read_only::<LatePreprocessWorkItemIndirectParameters>(
                     /*has_dynamic_offset=*/ false,
                 ),
             ),));
@@ -1475,17 +1479,19 @@ impl FromWorld for PreprocessPipelines {
         let reset_indirect_batch_sets_bind_group_layout_entries =
             DynamicBindGroupLayoutEntries::sequential(
                 ShaderStages::COMPUTE,
-                (storage_buffer::<IndirectBatchSet>(false),),
+                (shader_layout::storage_buffer::<IndirectBatchSet>(false),),
             );
 
         // Indexed and non-indexed bind group parameters share all the bind
         // group layout entries except the final one.
         let build_indexed_indirect_params_bind_group_layout_entries =
-            build_indirect_params_bind_group_layout_entries()
-                .extend_sequential((storage_buffer::<IndirectParametersIndexed>(false),));
+            build_indirect_params_bind_group_layout_entries().extend_sequential((
+                shader_layout::storage_buffer::<IndirectParametersIndexed>(false),
+            ));
         let build_non_indexed_indirect_params_bind_group_layout_entries =
-            build_indirect_params_bind_group_layout_entries()
-                .extend_sequential((storage_buffer::<IndirectParametersNonIndexed>(false),));
+            build_indirect_params_bind_group_layout_entries().extend_sequential((
+                shader_layout::storage_buffer::<IndirectParametersNonIndexed>(false),
+            ));
 
         let bin_unpacking_bind_group_layout_entries = bin_unpacking_bind_group_layout_entries();
         let uniform_allocation_bind_group_layout_entries =
@@ -1634,7 +1640,10 @@ fn preprocess_direct_bind_group_layout_entries() -> DynamicBindGroupLayoutEntrie
                 storage_buffer_read_only::<PreviousMeshInputUniform>(false),
             ),
             // `indices`
-            (5, storage_buffer_read_only::<PreprocessWorkItem>(false)),
+            (
+                5,
+                shader_layout::storage_buffer_read_only::<PreprocessWorkItem>(false),
+            ),
             // `output`
             (6, storage_buffer::<MeshUniform>(false)),
         ),
@@ -1654,11 +1663,11 @@ fn build_indirect_params_bind_group_layout_entries() -> DynamicBindGroupLayoutEn
             // array<IndirectParametersMetadata>;
             (
                 1,
-                storage_buffer_read_only::<IndirectParametersMetadata>(false),
+                shader_layout::storage_buffer_read_only::<IndirectParametersMetadata>(false),
             ),
             // @group(0) @binding(3) var<storage, read_write>
             // indirect_batch_sets: array<IndirectBatchSet>;
-            (3, storage_buffer::<IndirectBatchSet>(false)),
+            (3, shader_layout::storage_buffer::<IndirectBatchSet>(false)),
         ),
     )
 }
@@ -1673,12 +1682,16 @@ fn gpu_culling_bind_group_layout_entries() -> DynamicBindGroupLayoutEntries {
         // array<IndirectParametersMetadata>;
         (
             7,
-            storage_buffer::<IndirectParametersMetadata>(/* has_dynamic_offset= */ false),
+            shader_layout::storage_buffer::<IndirectParametersMetadata>(
+                /* has_dynamic_offset= */ false,
+            ),
         ),
         // `mesh_culling_data`
         (
             9,
-            storage_buffer_read_only::<MeshCullingData>(/* has_dynamic_offset= */ false),
+            shader_layout::storage_buffer_read_only::<MeshCullingData>(
+                /* has_dynamic_offset= */ false,
+            ),
         ),
         // `visibility_ranges`
         (
@@ -1709,16 +1722,16 @@ fn bin_unpacking_bind_group_layout_entries() -> BindGroupLayoutEntries<5> {
         (
             // @group(0) @binding(0) var<uniform> bin_unpacking_metadata:
             // BinUnpackingMetadata;
-            uniform_buffer::<GpuBinUnpackingMetadata>(false),
+            shader_layout::uniform_buffer::<GpuBinUnpackingMetadata>(false),
             // @group(0) @binding(1) var<storage> binned_mesh_instances:
             // array<BinnedMeshInstance>;
-            storage_buffer_read_only::<GpuRenderBinnedMeshInstance>(false),
+            shader_layout::storage_buffer_read_only::<GpuRenderBinnedMeshInstance>(false),
             // @group(0) @binding(2) var<storage, read_write>
             // preprocess_work_items: array<PreprocessWorkItem>;
-            storage_buffer::<PreprocessWorkItem>(false),
+            shader_layout::storage_buffer::<PreprocessWorkItem>(false),
             // @group(0) @binding(3) var<storage> bin_metadata:
             // array<GpuBinMetadata>;
-            storage_buffer_read_only::<GpuBinMetadata>(false),
+            shader_layout::storage_buffer_read_only::<GpuBinMetadata>(false),
             // @group(0) @binding(4) var<storage>
             // bin_index_to_bin_metadata_index: array<u32>;
             storage_buffer_read_only::<u32>(false),
@@ -1734,12 +1747,12 @@ fn uniform_allocation_bind_group_layout_entries() -> BindGroupLayoutEntries<4> {
         (
             // @group(0) @binding(0) var<uniform> allocate_uniforms_metadata:
             // AllocateUniformsMetadata;
-            uniform_buffer::<GpuUniformAllocationMetadata>(false),
+            shader_layout::uniform_buffer::<GpuUniformAllocationMetadata>(false),
             // @group(0) @binding(1) var<storage> bin_metadata: array<BinMetadata>;
-            storage_buffer_read_only::<GpuBinMetadata>(false),
+            shader_layout::storage_buffer_read_only::<GpuBinMetadata>(false),
             // @group(0) @binding(2) var<storage, read_write>
             // indirect_parameters_metadata: array<IndirectParametersMetadata>;
-            storage_buffer::<IndirectParametersMetadata>(false),
+            shader_layout::storage_buffer::<IndirectParametersMetadata>(false),
             // @group(0) @binding(3) var<storage, read_write> fan_buffer:
             // array<u32>;
             storage_buffer::<u32>(false),
@@ -2356,7 +2369,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
         // length and the underlying buffer may be longer than the actual size
         // of the vector.
         let work_item_buffer_size = NonZero::<u64>::try_from(
-            work_item_buffer.len() as u64 * u64::from(PreprocessWorkItem::min_size()),
+            work_item_buffer.len() as u64 * PreprocessWorkItem::SIZE.get(),
         )
         .ok();
 
@@ -2463,8 +2476,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                 // length and the underlying buffer may be longer than the actual size
                 // of the vector.
                 let indexed_work_item_buffer_size = NonZero::<u64>::try_from(
-                    indexed_work_item_buffer.len() as u64
-                        * u64::from(PreprocessWorkItem::min_size()),
+                    indexed_work_item_buffer.len() as u64 * PreprocessWorkItem::SIZE.get(),
                 )
                 .ok();
 
@@ -2586,8 +2598,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                 // length and the underlying buffer may be longer than the actual size
                 // of the vector.
                 let non_indexed_work_item_buffer_size = NonZero::<u64>::try_from(
-                    non_indexed_work_item_buffer.len() as u64
-                        * u64::from(PreprocessWorkItem::min_size()),
+                    non_indexed_work_item_buffer.len() as u64 * PreprocessWorkItem::SIZE.get(),
                 )
                 .ok();
 
@@ -2704,8 +2715,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                 // length and the underlying buffer may be longer than the actual size
                 // of the vector.
                 let late_indexed_work_item_buffer_size = NonZero::<u64>::try_from(
-                    late_indexed_work_item_buffer.len() as u64
-                        * u64::from(PreprocessWorkItem::min_size()),
+                    late_indexed_work_item_buffer.len() as u64 * PreprocessWorkItem::SIZE.get(),
                 )
                 .ok();
 
@@ -2813,8 +2823,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                 // length and the underlying buffer may be longer than the actual size
                 // of the vector.
                 let non_indexed_work_item_buffer_size = NonZero::<u64>::try_from(
-                    late_non_indexed_work_item_buffer.len() as u64
-                        * u64::from(PreprocessWorkItem::min_size()),
+                    late_non_indexed_work_item_buffer.len() as u64 * PreprocessWorkItem::SIZE.get(),
                 )
                 .ok();
 
@@ -2930,8 +2939,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                 // length and the underlying buffer may be longer than the actual size
                 // of the vector.
                 let indexed_work_item_buffer_size = NonZero::<u64>::try_from(
-                    indexed_work_item_buffer.len() as u64
-                        * u64::from(PreprocessWorkItem::min_size()),
+                    indexed_work_item_buffer.len() as u64 * PreprocessWorkItem::SIZE.get(),
                 )
                 .ok();
 
@@ -2989,8 +2997,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                 // length and the underlying buffer may be longer than the actual size
                 // of the vector.
                 let non_indexed_work_item_buffer_size = NonZero::<u64>::try_from(
-                    non_indexed_work_item_buffer.len() as u64
-                        * u64::from(PreprocessWorkItem::min_size()),
+                    non_indexed_work_item_buffer.len() as u64 * PreprocessWorkItem::SIZE.get(),
                 )
                 .ok();
 
@@ -3138,7 +3145,7 @@ fn create_build_indirect_parameters_bind_groups(
                                         size: NonZeroU64::new(
                                             phase_indirect_parameters_buffer.indexed.batch_count()
                                                 as u64
-                                                * size_of::<IndirectParametersMetadata>() as u64,
+                                                * IndirectParametersMetadata::SIZE.get(),
                                         ),
                                     },
                                 ),
@@ -3202,7 +3209,7 @@ fn create_build_indirect_parameters_bind_groups(
                                                 .non_indexed
                                                 .batch_count()
                                                 as u64
-                                                * size_of::<IndirectParametersMetadata>() as u64,
+                                                * IndirectParametersMetadata::SIZE.get(),
                                         ),
                                     },
                                 ),
@@ -3355,7 +3362,7 @@ fn create_bin_unpacking_bind_group(
             BindingResource::Buffer(BufferBinding {
                 buffer: bin_unpacking_metadata_buffer,
                 offset: job.bin_unpacking_metadata_index.uniform_offset() as u64,
-                size: NonZeroU64::new(size_of::<GpuBinUnpackingMetadata>() as u64),
+                size: Some(GpuBinUnpackingMetadata::SIZE),
             }),
             // @group(0) @binding(1) var<storage>
             // binned_mesh_instances:
@@ -3494,7 +3501,7 @@ fn create_uniform_allocation_bind_group(
             BindingResource::Buffer(BufferBinding {
                 buffer: uniform_allocation_metadata_buffer,
                 offset: job.uniform_allocation_metadata_index.uniform_offset() as u64,
-                size: NonZeroU64::new(size_of::<GpuUniformAllocationMetadata>() as u64),
+                size: Some(GpuUniformAllocationMetadata::SIZE),
             }),
             // @group(0) @binding(1) var<storage> bin_metadata:
             // array<BinMetadata>;

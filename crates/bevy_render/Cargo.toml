@@ -130,6 +130,11 @@ bitflags = "2"
 itertools = "0.14"
 weak-table = "0.3"
 tracing = "0.1"
+const_shader_layout = { version = "0.4", default-features = false, features = [
+  "glam",
+  "std",
+  "derive",
+] }
 
 [dev-dependencies]
 proptest = "1"
