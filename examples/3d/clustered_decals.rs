@@ -238,7 +238,7 @@ fn spawn_buttons(commands: &mut Commands) {
                 (Selection::Camera, "Camera"),
                 (Selection::DecalA, "Decal A"),
                 (Selection::DecalB, "Decal B"),
-            ]),
+            ], 0),
 
             // The number inputs start off hidden because Camera is selected first.
             Visibility::Hidden
