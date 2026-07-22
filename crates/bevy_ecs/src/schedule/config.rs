@@ -566,7 +566,7 @@ pub trait IntoScheduleConfigs<T: Schedulable<Metadata = GraphInfo, GroupMetadata
     }
 
     /// Treat this collection as a sequence of systems that are allowed to overlap
-    /// with sucessive systems, given that their are no conflicting data dependencies.
+    /// with successive systems, given that their are no conflicting data dependencies.
     ///
     /// Like [`chain`](Self::chain), ordering constraints are added between the successive
     /// elements. Unlike [`chain`](Self::chain), those constraints are "must start before"

@@ -1367,9 +1367,9 @@ impl ScheduleGraph {
 
         let mut start_edges = HashSet::default();
         for &(from, to) in &self.weak_node_edges {
-            let (froms, tos) = (systems_of(from), systems_of(to));
-            for &from in &froms {
-                for &to in &tos {
+            let (from_s, to_s) = (systems_of(from), systems_of(to));
+            for &from in &from_s {
+                for &to in &to_s {
                     if flat_dependency.contains_edge(from, to)
                         && !self.systems[from].has_deferred()
                         && !self.systems[from].is_exclusive()
