@@ -1,7 +1,7 @@
 //! This example shows how to create a node with a shadow and adjust its settings interactively.
 
 use crate::number_input::{number_input_f32, number_input_i32};
-use crate::radio::{feathers_option_buttons, main_ui_node_scene, RadioButtonOptionValue};
+use crate::radio::{feathers_option_buttons, RadioButtonOptionValue};
 use bevy::{
     color::palettes::css::*,
     feathers::{
@@ -217,6 +217,13 @@ fn setup(mut commands: Commands, app_settings: Res<AppSettings>) {
 }
 
 fn settings_panel_scene(app_settings: &AppSettings) -> impl Scene {
+    let selected_shape_index = SHAPE_OPTIONS
+        .iter()
+        .enumerate()
+        .find(|(index, (shape, _))| *shape == app_settings.shape)
+        // default is set to the length of the array, which will be interpreted as "no option is set"
+        .map_or(SHAPE_OPTIONS.len(), |(index, _)| index);
+
     bsn! {
         SettingsPanel
         ZIndex(10)
@@ -232,6 +239,7 @@ fn settings_panel_scene(app_settings: &AppSettings) -> impl Scene {
                 feathers_option_buttons(
                     "Shape",
                     &SHAPE_OPTIONS,
+                    selected_shape_index,
                 ),
                 number_input_f32(
                     AppNumberInputF32::XOffset.label(),
