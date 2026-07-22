@@ -10,7 +10,7 @@ use crate::{
     bundle::{Bundle, InsertMode, NoBundleEffect},
     change_detection::MaybeLocation,
     entity::Entity,
-    error::{CommandOutput, ErrorContext, ErrorHandler, Result},
+    error::{BevyError, CommandOutput, ErrorContext, Result},
     event::Event,
     message::{Message, Messages},
     resource::Resource,
@@ -63,7 +63,10 @@ pub trait Command: Send + 'static {
     /// Takes a [`Command`] that returns a Result and uses a given error handler function to convert it into
     /// a [`Command`] that internally handles an error if it occurs and returns `()`.
     #[inline]
-    fn handle_error_with(self, error_handler: ErrorHandler) -> impl Command<Out = ()>
+    fn handle_error_with(
+        self,
+        error_handler: impl FnOnce(BevyError, ErrorContext) + Send + 'static,
+    ) -> impl Command<Out = ()>
     where
         Self: Sized,
     {

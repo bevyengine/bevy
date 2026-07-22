@@ -309,6 +309,9 @@ impl FeathersColorSlider {
 /// * [`bevy_ui_widgets::ValueChange<f32>`] when the slider value is changed.
 ///
 ///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
+///
+/// **Note:** For information on how widget state is managed
+/// and how to respond to state changes, see the [`bevy_ui_widgets` documentation](bevy_ui_widgets).
 #[deprecated(since = "0.19.0", note = "Use the color_slider() BSN function")]
 pub fn color_slider_bundle<B: Bundle>(
     props: FeathersColorSliderProps,

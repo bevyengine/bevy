@@ -555,7 +555,7 @@ impl Segment3d {
 
     /// Reverses the direction of the line segment by swapping the endpoints.
     #[inline]
-    pub fn reverse(&mut self) {
+    pub const fn reverse(&mut self) {
         let [point1, point2] = &mut self.vertices;
         core::mem::swap(point1, point2);
     }
@@ -1338,14 +1338,14 @@ impl Triangle3d {
 
     /// Reverse the triangle by swapping the first and last vertices.
     #[inline]
-    pub fn reverse(&mut self) {
+    pub const fn reverse(&mut self) {
         self.vertices.swap(0, 2);
     }
 
     /// This triangle but reversed.
     #[inline]
     #[must_use]
-    pub fn reversed(mut self) -> Triangle3d {
+    pub const fn reversed(mut self) -> Triangle3d {
         self.reverse();
         self
     }

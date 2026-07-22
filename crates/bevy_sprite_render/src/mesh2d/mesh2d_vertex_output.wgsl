@@ -13,4 +13,5 @@ struct VertexOutput {
     #ifdef VERTEX_COLORS
     @location(4) color: vec4<f32>,
     #endif
+    @location(5) @interpolate(flat) instance_index: u32,
 }

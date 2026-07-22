@@ -2,14 +2,18 @@
 //! It displays a button that must be clicked. The button is placed at a random position and
 //! moves every 5 seconds.
 //!
-//! Run with the `bevy_remote` feature enabled:
+//! Run with the `bevy_remote` and `bevy_feathers` feature enabled:
 //! ```bash
-//! cargo run --example app_under_test --features="bevy_remote"
+//! cargo run --example app_under_test --features="bevy_remote bevy_feathers"
 //! ```
 //! This example can be paired with the `integration_test` example, which will run an integration
 //! test on this app.
 
 use bevy::{
+    feathers::{
+        controls::FeathersButton, dark_theme::create_dark_theme, display::caption, theme::UiTheme,
+        FeathersPlugins,
+    },
     prelude::*,
     remote::{http::RemoteHttpPlugin, RemotePlugin},
     time::common_conditions::on_timer,
@@ -20,11 +24,12 @@ use rand::{RngExt, SeedableRng};
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins((DefaultPlugins, FeathersPlugins))
         // To make the app available for integration testing, we add these
         // remote plugins to expose API’s for a testing framework to call.
         .add_plugins(RemotePlugin::default())
         .add_plugins(RemoteHttpPlugin::default())
+        .insert_resource(UiTheme(create_dark_theme()))
         .insert_resource(SeededRng(ChaCha8Rng::seed_from_u64(19878367467712)))
         .add_systems(Startup, setup)
         .add_systems(
@@ -46,7 +51,7 @@ fn on_button_click(_click: On<Pointer<Click>>, mut exit: MessageWriter<AppExit>)
 }
 
 fn log_button_position(
-    transform: Single<&UiGlobalTransform, (With<Button>, Changed<UiGlobalTransform>)>,
+    transform: Single<&UiGlobalTransform, (With<FeathersButton>, Changed<UiGlobalTransform>)>,
 ) {
     info!(
         "Button at physical ({}, {})",
@@ -60,7 +65,10 @@ fn random_position(rng: &mut ChaCha8Rng) -> (f32, f32) {
     (left_pct, top_pct)
 }
 
-fn move_button(mut rng: ResMut<SeededRng>, mut button_query: Query<&mut Node, With<Button>>) {
+fn move_button(
+    mut rng: ResMut<SeededRng>,
+    mut button_query: Query<&mut Node, With<FeathersButton>>,
+) {
     let (left_pct, top_pct) = random_position(&mut rng.0);
     for mut node in &mut button_query {
         node.left = percent(left_pct);
@@ -68,46 +76,27 @@ fn move_button(mut rng: ResMut<SeededRng>, mut button_query: Query<&mut Node, Wi
     }
 }
 
-fn setup(mut commands: Commands, assets: Res<AssetServer>, mut rng: ResMut<SeededRng>) {
+fn setup(mut commands: Commands, mut rng: ResMut<SeededRng>) {
     let (left_pct, top_pct) = random_position(&mut rng.0);
-
     commands.spawn(Camera2d);
-    commands
-        .spawn(Node {
+    commands.spawn_scene(bsn! {
+        Node {
             width: percent(100),
             height: percent(100),
-            ..default()
-        })
-        .with_children(|parent| {
-            parent
-                .spawn((
-                    Button,
-                    Node {
-                        width: px(150),
-                        height: px(65),
-                        border: UiRect::all(px(5)),
-                        justify_content: JustifyContent::Center,
-                        align_items: AlignItems::Center,
-                        border_radius: BorderRadius::MAX,
-                        left: percent(left_pct),
-                        top: percent(top_pct),
-                        ..default()
-                    },
-                    BorderColor::all(Color::WHITE),
-                    BackgroundColor(Color::BLACK),
-                ))
-                .observe(on_button_click)
-                .with_children(|parent| {
-                    parent.spawn((
-                        Text::new("Button"),
-                        TextFont {
-                            font: assets.load("fonts/FiraSans-Bold.ttf").into(),
-                            font_size: FontSize::Px(33.0),
-                            ..default()
-                        },
-                        TextColor(Color::srgb(0.9, 0.9, 0.9)),
-                        TextShadow::default(),
-                    ));
-                });
-        });
+        }
+        Children [
+            @FeathersButton {
+                @caption: bsn! { caption("Button") }
+            }
+            Node {
+                width: px(150),
+                height: px(65),
+                border: UiRect::all(px(5)),
+                left: percent(left_pct),
+                top: percent(top_pct),
+            }
+            BorderColor::all(Color::WHITE)
+            on(on_button_click)
+        ]
+    });
 }

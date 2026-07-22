@@ -64,6 +64,9 @@ impl<C: Component + Clone + PartialEq, F: QueryFilter, R: Relationship>
 /// Causes the inner component to be added to this entity and all direct and transient relationship
 /// targets. A target with a [`Propagate<C>`] component of its own will override propagation from
 /// that point in the tree.
+///
+/// The propagation is managed by the [`HierarchyPropagatePlugin`]. See its documentation for details
+/// on how propagation is configured and behaves.
 #[derive(Component, Clone, PartialEq)]
 #[cfg_attr(
     feature = "bevy_reflect",
@@ -74,16 +77,25 @@ pub struct Propagate<C: Component + Clone + PartialEq>(pub C);
 
 /// Stops the output component being added to this entity.
 /// Relationship targets will still inherit the component from this entity or its parents.
+///
+/// This is used to control propagation configured via the [`HierarchyPropagatePlugin`]. See its
+/// documentation for details on how propagation is configured and behaves.
 #[derive(Component, Clone)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component))]
 pub struct PropagateOver<C>(PhantomData<fn() -> C>);
 
 /// Stops the propagation at this entity. Children will not inherit the component.
+///
+/// This is used to control propagation configured via the [`HierarchyPropagatePlugin`]. See its
+/// documentation for details on how propagation is configured and behaves.
 #[derive(Component, Clone)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component))]
 pub struct PropagateStop<C>(PhantomData<fn() -> C>);
 
 /// The set in which propagation systems are added. You can schedule your logic relative to this set.
+///
+/// This is used with propagation configured via the [`HierarchyPropagatePlugin`]. See its
+/// documentation for details on how propagation is configured and behaves.
 #[derive(SystemSet, Clone, PartialEq, PartialOrd, Ord)]
 pub struct PropagateSet<C: Component + Clone + PartialEq> {
     _p: PhantomData<fn() -> C>,

@@ -10,45 +10,64 @@
         SPRITE_MATERIAL_FLAGS_TILE_X,
         SPRITE_MATERIAL_FLAGS_TILE_Y,
     },
-    sprite_bindings::{material, texture, texture_sampler},
+    sprite_bindings,
+    sprite_bindings::{material, material_indices, texture, texture_sampler},
+    mesh2d_bindings::mesh,
 }
+#import bevy_render::bindless::{bindless_samplers_filtering, bindless_textures_2d}
 
 // Applies all the transformations to the UV and samples the sprite's final color.
-fn sample_final_color(uv: vec2<f32>) -> vec4<f32> {
-    let sprite_color = sample_sprite_texture(uv);
-    return get_final_color(sprite_color);
+fn sample_final_color(uv: vec2<f32>, instance_index: u32) -> vec4<f32> {
+    let sprite_color = sample_sprite_texture(uv, instance_index);
+    return get_final_color(sprite_color, instance_index);
 }
 
 // Applies all the necessary transformations to the UV and samples the sprite's texture.
-fn sample_sprite_texture(uv: vec2<f32>) -> vec4<f32> {
-    let final_uv = get_final_uv(uv);
+fn sample_sprite_texture(uv: vec2<f32>, instance_index: u32) -> vec4<f32> {
+    let final_uv = get_final_uv(uv, instance_index);
+#ifdef BINDLESS
+    let slot = mesh[instance_index].material_bind_group_slot;
+    return textureSample(
+        bindless_textures_2d[material_indices[slot].texture],
+        bindless_samplers_filtering[material_indices[slot].texture_sampler],
+        final_uv
+    );
+#else   // BINDLESS
     return textureSample(texture, texture_sampler, final_uv);
+#endif  // BINDLESS
 }
 
 // Applies the tint and alpha discard on the sprite color.
-fn get_final_color(sprite_color: vec4<f32>) -> vec4<f32> {
-    var output_color = apply_tint(sprite_color);
-    output_color = alpha_discard(output_color);
+fn get_final_color(sprite_color: vec4<f32>, instance_index: u32) -> vec4<f32> {
+    var output_color = apply_tint(sprite_color, instance_index);
+    output_color = alpha_discard(output_color, instance_index);
     return output_color;
 }
 
 // Applies all the necessary transformations to get the final UV that the texture should be sampled from.
-fn get_final_uv(uv: vec2<f32>) -> vec2<f32> {
+fn get_final_uv(uv: vec2<f32>, instance_index: u32) -> vec2<f32> {
     var out = uv;
-    out = apply_flip(out);
-    out = apply_tiling(out);
-    out = apply_slicing(out);
-    out = apply_uv_transform(out);
+    out = apply_flip(out, instance_index);
+    out = apply_tiling(out, instance_index);
+    out = apply_slicing(out, instance_index);
+    out = apply_uv_transform(out, instance_index);
     return out;
 }
 
 // Flips the UV based on the sprite's flip X and Y properties.
-fn apply_flip(uv: vec2<f32>) -> vec2<f32> {
+fn apply_flip(uv: vec2<f32>, instance_index: u32) -> vec2<f32> {
+#ifdef BINDLESS
+    let slot = mesh[instance_index].material_bind_group_slot;
+    let flags = material[material_indices[slot].material].flags;
+#else   // BINDLESS
+    let flags = material.flags;
+#endif  // BINDLESS
+
     var out = uv;
-    if (material.flags & SPRITE_MATERIAL_FLAGS_FLIP_X) != 0u {
+    if (flags & SPRITE_MATERIAL_FLAGS_FLIP_X) != 0u {
         out.x = 1.0 - out.x;
     }
-    if (material.flags & SPRITE_MATERIAL_FLAGS_FLIP_Y) != 0u {
+    if (flags & SPRITE_MATERIAL_FLAGS_FLIP_Y) != 0u {
         out.y = 1.0 - out.y;
     }
 
@@ -56,13 +75,22 @@ fn apply_flip(uv: vec2<f32>) -> vec2<f32> {
 }
 
 // Applies tiling to the UV based on the sprite's tiling properties when `image_mode` is `Tiled`.
-fn apply_tiling(uv: vec2<f32>) -> vec2<f32> {
+fn apply_tiling(uv: vec2<f32>, instance_index: u32) -> vec2<f32> {
+#ifdef BINDLESS
+    let slot = mesh[instance_index].material_bind_group_slot;
+    let flags = material[material_indices[slot].material].flags;
+    let tile_stretch_value = material[material_indices[slot].material].tile_stretch_value;
+#else   // BINDLESS
+    let flags = material.flags;
+    let tile_stretch_value = material.tile_stretch_value;
+#endif  // BINDLESS
+
     var out = uv;
-    if (material.flags & SPRITE_MATERIAL_FLAGS_TILE_X) != 0u {
-        out.x = (out.x - material.tile_stretch_value.x * floor(out.x / material.tile_stretch_value.x)) / material.tile_stretch_value.x;
+    if (flags & SPRITE_MATERIAL_FLAGS_TILE_X) != 0u {
+        out.x = (out.x - tile_stretch_value.x * floor(out.x / tile_stretch_value.x)) / tile_stretch_value.x;
     }
-    if (material.flags & SPRITE_MATERIAL_FLAGS_TILE_Y) != 0u {
-        out.y = (out.y - material.tile_stretch_value.y * floor(out.y / material.tile_stretch_value.y)) / material.tile_stretch_value.y;
+    if (flags & SPRITE_MATERIAL_FLAGS_TILE_Y) != 0u {
+        out.y = (out.y - tile_stretch_value.y * floor(out.y / tile_stretch_value.y)) / tile_stretch_value.y;
     }
 
     return out;
@@ -71,19 +99,41 @@ fn apply_tiling(uv: vec2<f32>) -> vec2<f32> {
 // Applies the sprite's UV transform,
 // which is used for sampling the correct region from a texture atlas
 // and scaling the sprite when `image_mode` is `Scaled`.
-fn apply_uv_transform(uv: vec2<f32>) -> vec2<f32> { 
-    return (material.uv_transform * vec3(uv, 1.0)).xy;
+fn apply_uv_transform(uv: vec2<f32>, instance_index: u32) -> vec2<f32> { 
+#ifdef BINDLESS
+    let slot = mesh[instance_index].material_bind_group_slot;
+    let uv_transform = material[material_indices[slot].material].uv_transform;
+#else   // BINDLESS
+    let uv_transform = material.uv_transform;
+#endif  // BINDLESS
+
+    return (uv_transform * vec3(uv, 1.0)).xy;
 }
 
 // Applies UV slicing based on the sprite's slicing properties when `image_mode` is `Sliced`.
-fn apply_slicing(uv: vec2<f32>) -> vec2<f32> {
+fn apply_slicing(uv: vec2<f32>, instance_index: u32) -> vec2<f32> {
+#ifdef BINDLESS
+    let slot = mesh[instance_index].material_bind_group_slot;
+    let scale = material[material_indices[slot].material].scale;
+    let min_inset = material[material_indices[slot].material].min_inset;
+    let max_inset = material[material_indices[slot].material].max_inset;
+    let side_stretch_value = material[material_indices[slot].material].side_stretch_value;
+    let center_stretch_value = material[material_indices[slot].material].center_stretch_value;
+#else   // BINDLESS
+    let scale = material.scale;
+    let min_inset = material.min_inset;
+    let max_inset = material.max_inset;
+    let side_stretch_value = material.side_stretch_value;
+    let center_stretch_value = material.center_stretch_value;
+#endif  // BINDLESS
+
     // using this as a temp check for slicing
-    if material.scale.x == 0.0 {
+    if scale.x == 0.0 {
         return uv;
     }
 
-    let min_inset_scaled = material.min_inset / material.scale;
-    let max_inset_scaled = material.max_inset / material.scale;
+    let min_inset_scaled = min_inset / scale;
+    let max_inset_scaled = max_inset / scale;
 
     let left = uv.x < min_inset_scaled.x;
     let right = uv.x > 1.0 - max_inset_scaled.x;
@@ -92,78 +142,94 @@ fn apply_slicing(uv: vec2<f32>) -> vec2<f32> {
 
     // top-left corner
     if top && left {
-        return uv * material.scale;
+        return uv * scale;
     }
 
     // top-right corner
     if top && right {
         return vec2<f32>(
-            1.0 - (1.0 - uv.x) * material.scale.x,
-            uv.y * material.scale.y,
+            1.0 - (1.0 - uv.x) * scale.x,
+            uv.y * scale.y,
         );
     }
 
     // bottom-left corner
     if bottom && left {
         return vec2<f32>(
-            uv.x * material.scale.x,
-            1.0 - (1.0 - uv.y) * material.scale.y
+            uv.x * scale.x,
+            1.0 - (1.0 - uv.y) * scale.y
         );
     }
 
     // bottom-right corner
     if bottom && right {
-        return vec2<f32>(1.0) - (vec2<f32>(1.0) - uv) * material.scale;
+        return vec2<f32>(1.0) - (vec2<f32>(1.0) - uv) * scale;
     }
 
     // top edge
     if top {
         return vec2<f32>(
-            tile_or_stretch(uv.x, min_inset_scaled.x, 1.0 - max_inset_scaled.x, material.min_inset.x, 1.0 - material.max_inset.x, material.side_stretch_value.x),
-            uv.y * material.scale.y
+            tile_or_stretch(uv.x, min_inset_scaled.x, 1.0 - max_inset_scaled.x, min_inset.x, 1.0 - max_inset.x, side_stretch_value.x),
+            uv.y * scale.y
         );
     }
 
     // bottom edge
     if bottom {
         return vec2<f32>(
-            tile_or_stretch(uv.x, min_inset_scaled.x, 1.0 - max_inset_scaled.x, material.min_inset.x, 1.0 - material.max_inset.x, material.side_stretch_value.x),
-            1.0 - (1.0 - uv.y) * material.scale.y
+            tile_or_stretch(uv.x, min_inset_scaled.x, 1.0 - max_inset_scaled.x, min_inset.x, 1.0 - max_inset.x, side_stretch_value.x),
+            1.0 - (1.0 - uv.y) * scale.y
         );
     }
 
     // left edge
     if left {
         return vec2<f32>(
-            uv.x * material.scale.x,
-            tile_or_stretch(uv.y, min_inset_scaled.y, 1.0 - max_inset_scaled.y, material.min_inset.y, 1.0 - material.max_inset.y, material.side_stretch_value.y)
+            uv.x * scale.x,
+            tile_or_stretch(uv.y, min_inset_scaled.y, 1.0 - max_inset_scaled.y, min_inset.y, 1.0 - max_inset.y, side_stretch_value.y)
         );
     }
 
     // right edge
     if right {
         return vec2<f32>(
-            1.0 - (1.0 - uv.x) * material.scale.x,
-            tile_or_stretch(uv.y, min_inset_scaled.y, 1.0 - max_inset_scaled.y, material.min_inset.y, 1.0 - material.max_inset.y, material.side_stretch_value.y)
+            1.0 - (1.0 - uv.x) * scale.x,
+            tile_or_stretch(uv.y, min_inset_scaled.y, 1.0 - max_inset_scaled.y, min_inset.y, 1.0 - max_inset.y, side_stretch_value.y)
         );
     }
 
     // center
     return vec2<f32>(
-        tile_or_stretch(uv.x, min_inset_scaled.x, 1.0 - max_inset_scaled.x, material.min_inset.x, 1.0 - material.max_inset.x, material.center_stretch_value.x),
-        tile_or_stretch(uv.y, min_inset_scaled.y, 1.0 - max_inset_scaled.y, material.min_inset.y, 1.0 - material.max_inset.y, material.center_stretch_value.y)
+        tile_or_stretch(uv.x, min_inset_scaled.x, 1.0 - max_inset_scaled.x, min_inset.x, 1.0 - max_inset.x, center_stretch_value.x),
+        tile_or_stretch(uv.y, min_inset_scaled.y, 1.0 - max_inset_scaled.y, min_inset.y, 1.0 - max_inset.y, center_stretch_value.y)
     );
 }
 
 // Applies the tint from the sprite's `color` property.
-fn apply_tint(sprite_color: vec4<f32>) -> vec4<f32> {
-    return sprite_color * material.color;
+fn apply_tint(sprite_color: vec4<f32>, instance_index: u32) -> vec4<f32> {
+#ifdef BINDLESS
+    let slot = mesh[instance_index].material_bind_group_slot;
+    let color = material[material_indices[slot].material].color;
+#else   // BINDLESS
+    let color = material.color;
+#endif  // BINDLESS
+
+    return sprite_color * color;
 }
 
 // Discards fragments based on the sprite's `alpha_cutoff` and `alpha_mode`.
-fn alpha_discard(output_color: vec4<f32>) -> vec4<f32> {
+fn alpha_discard(output_color: vec4<f32>, instance_index: u32) -> vec4<f32> {
+#ifdef BINDLESS
+    let slot = mesh[instance_index].material_bind_group_slot;
+    let flags = material[material_indices[slot].material].flags;
+    let alpha_cutoff = material[material_indices[slot].material].alpha_cutoff;
+#else   // BINDLESS
+    let flags = material.flags;
+    let alpha_cutoff = material.alpha_cutoff;
+#endif  // BINDLESS
+
     var color = output_color;
-    let alpha_mode = material.flags & SPRITE_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
+    let alpha_mode = flags & SPRITE_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
 
     if alpha_mode == SPRITE_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE {
         // NOTE: If rendering as opaque, alpha should be ignored so set to 1.0
@@ -172,11 +238,11 @@ fn alpha_discard(output_color: vec4<f32>) -> vec4<f32> {
 
 #ifdef MAY_DISCARD
     else if alpha_mode == SPRITE_MATERIAL_FLAGS_ALPHA_MODE_MASK {
-        if color.a >= material.alpha_cutoff {
+        if color.a >= alpha_cutoff {
             // NOTE: If rendering as masked alpha and >= the cutoff, render as fully opaque
             color.a = 1.0;
         } else {
-            // NOTE: output_color.a < in.material.alpha_cutoff should not be rendered
+            // NOTE: output_color.a < alpha_cutoff should not be rendered
             discard;
         }
     }

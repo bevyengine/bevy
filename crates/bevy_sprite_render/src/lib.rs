@@ -72,6 +72,7 @@ impl Plugin for SpriteRenderPlugin {
 
         app.add_plugins((
             Mesh2dRenderPlugin,
+            Materials2dPlugin,
             ColorMaterialPlugin,
             SpriteMeshPlugin,
             TilemapChunkPlugin,
@@ -113,7 +114,7 @@ impl Plugin for SpriteRenderPlugin {
                     (
                         queue_sprites
                             .in_set(RenderSystems::Queue)
-                            .ambiguous_with(queue_material2d_meshes::<ColorMaterial>),
+                            .ambiguous_with(queue_material2d_meshes),
                         prepare_sprite_image_bind_groups.in_set(RenderSystems::PrepareBindGroups),
                         prepare_sprite_view_bind_groups.in_set(RenderSystems::PrepareBindGroups),
                         sort_binned_render_phase::<Opaque2d>.in_set(RenderSystems::PhaseSort),

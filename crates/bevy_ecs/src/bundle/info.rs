@@ -4,7 +4,7 @@ use bevy_platform::{
     hash::FixedHasher,
 };
 use bevy_ptr::{MovingPtr, OwningPtr};
-use bevy_utils::TypeIdMap;
+use bevy_utils::TypeIdHashMap;
 use core::{any::TypeId, ptr::NonNull};
 use indexmap::{IndexMap, IndexSet};
 
@@ -393,9 +393,9 @@ pub(crate) enum ArchetypeMoveType {
 pub struct Bundles {
     bundle_infos: Vec<BundleInfo>,
     /// Cache static [`BundleId`]
-    bundle_ids: TypeIdMap<BundleId>,
+    bundle_ids: TypeIdHashMap<BundleId>,
     /// Cache bundles, which contains both explicit and required components of [`Bundle`]
-    contributed_bundle_ids: TypeIdMap<BundleId>,
+    contributed_bundle_ids: TypeIdHashMap<BundleId>,
     /// Cache dynamic [`BundleId`] with multiple components
     dynamic_bundle_ids: HashMap<Box<[ComponentId]>, BundleId>,
     dynamic_bundle_storages: HashMap<BundleId, Vec<StorageType>>,

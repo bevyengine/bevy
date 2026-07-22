@@ -13,8 +13,8 @@ use bevy_reflect_derive::impl_type_path;
 use crate::generics::impl_generic_info_methods;
 use crate::{
     ty::impl_type_methods, utility::reflect_hasher, ApplyError, FromReflect, Generics, MaybeTyped,
-    PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo,
-    TypePath,
+    PartialReflect, Reflect, ReflectCloneError, ReflectKind, ReflectMut, ReflectOwned, ReflectRef,
+    Type, TypeInfo, TypePath,
 };
 
 /// A trait used to power [list-like] operations via [reflection].
@@ -107,11 +107,16 @@ pub trait List: PartialReflect {
     fn drain(&mut self) -> Vec<Box<dyn PartialReflect>>;
 
     /// Creates a new [`DynamicList`] from this list.
-    fn to_dynamic_list(&self) -> DynamicList {
-        DynamicList {
+    ///
+    /// Returns an error if any element cannot be converted via [`PartialReflect::to_dynamic`].
+    fn to_dynamic_list(&self) -> Result<DynamicList, ReflectCloneError> {
+        Ok(DynamicList {
             represented_type: self.get_represented_type_info(),
-            values: self.iter().map(PartialReflect::to_dynamic).collect(),
-        }
+            values: self
+                .iter()
+                .map(PartialReflect::to_dynamic)
+                .collect::<Result<_, _>>()?,
+        })
     }
 
     /// Will return `None` if [`TypeInfo`] is not available.
@@ -460,7 +465,7 @@ pub fn list_try_apply<L: List>(a: &mut L, b: &dyn PartialReflect) -> Result<(), 
                 v.try_apply(value)?;
             }
         } else {
-            List::push(a, value.to_dynamic());
+            List::push(a, value.to_dynamic()?);
         }
     }
 

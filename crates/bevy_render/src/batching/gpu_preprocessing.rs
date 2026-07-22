@@ -24,7 +24,7 @@ use bevy_log::{error, info_once};
 use bevy_math::UVec4;
 use bevy_platform::collections::{hash_map::Entry, HashMap, HashSet};
 use bevy_tasks::ComputeTaskPool;
-use bevy_utils::{default, TypeIdMap};
+use bevy_utils::{default, TypeIdHashMap};
 use bytemuck::{Pod, Zeroable};
 use encase::{internal::WriteInto, ShaderSize};
 use nonmax::NonMaxU32;
@@ -187,7 +187,7 @@ where
     ///
     /// The keys of this map are the type IDs of each phase: e.g. `Opaque3d`,
     /// `AlphaMask3d`, etc.
-    pub phase_instance_buffers: TypeIdMap<UntypedPhaseBatchedInstanceBuffers<BD>>,
+    pub phase_instance_buffers: TypeIdHashMap<UntypedPhaseBatchedInstanceBuffers<BD>>,
 }
 
 impl<BD, BDI> Default for BatchedInstanceBuffers<BD, BDI>
@@ -199,7 +199,7 @@ where
         BatchedInstanceBuffers {
             current_input_buffer: InstanceInputUniformBuffer::new(),
             previous_input_buffer: PreviousInstanceInputUniformBuffer::new(),
-            phase_instance_buffers: TypeIdMap::default(),
+            phase_instance_buffers: TypeIdHashMap::default(),
         }
     }
 }
@@ -930,7 +930,7 @@ pub struct IndirectParametersBuffers {
     ///
     /// Examples of phase type IDs are `Opaque3d` and `AlphaMask3d`.
     #[deref]
-    pub buffers: TypeIdMap<UntypedPhaseIndirectParametersBuffers>,
+    pub buffers: TypeIdHashMap<UntypedPhaseIndirectParametersBuffers>,
 }
 
 /// Configuration for [`IndirectParametersBuffers`].

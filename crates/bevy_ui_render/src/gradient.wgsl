@@ -16,6 +16,7 @@
     hsv_to_linear_rgb,
     hsl_to_linear_rgb,
     oklab_to_linear_rgb,
+    srgb_to_linear,
 }
 
 #import bevy_render::maths::PI
@@ -45,18 +46,19 @@ struct GradientVertexOutput {
     @location(0) uv: vec2<f32>,
     @location(1) @interpolate(flat) size: vec2<f32>,
     @location(2) @interpolate(flat) flags: u32,
-    @location(3) @interpolate(flat) radius: vec4<f32>,
-    @location(4) @interpolate(flat) border: vec4<f32>,    
+    @location(3) @interpolate(flat) radius_x: vec4<f32>,
+    @location(4) @interpolate(flat) radius_y: vec4<f32>,
+    @location(5) @interpolate(flat) border: vec4<f32>,
 
     // Position relative to the center of the rectangle.
-    @location(5) point: vec2<f32>,
-    @location(6) @interpolate(flat) g_start: vec2<f32>,
-    @location(7) @interpolate(flat) dir: vec2<f32>,
-    @location(8) @interpolate(flat) start_color: vec4<f32>,
-    @location(9) @interpolate(flat) start_len: f32,
-    @location(10) @interpolate(flat) end_len: f32,
-    @location(11) @interpolate(flat) end_color: vec4<f32>,
-    @location(12) @interpolate(flat) hint: f32,
+    @location(6) point: vec2<f32>,
+    @location(7) @interpolate(flat) g_start: vec2<f32>,
+    @location(8) @interpolate(flat) dir: vec2<f32>,
+    @location(9) @interpolate(flat) start_color: vec4<f32>,
+    @location(10) @interpolate(flat) start_len: f32,
+    @location(11) @interpolate(flat) end_len: f32,
+    @location(12) @interpolate(flat) end_color: vec4<f32>,
+    @location(13) @interpolate(flat) hint: f32,
     @builtin(position) position: vec4<f32>,
 };
 
@@ -67,26 +69,28 @@ fn vertex(
     @location(2) flags: u32,
 
     // x: top left, y: top right, z: bottom right, w: bottom left.
-    @location(3) radius: vec4<f32>,
+    @location(3) radius_x: vec4<f32>,
+    @location(4) radius_y: vec4<f32>,
 
     // x: left, y: top, z: right, w: bottom.
-    @location(4) border: vec4<f32>,
-    @location(5) size: vec2<f32>,
-    @location(6) point: vec2<f32>,
-    @location(7) @interpolate(flat) g_start: vec2<f32>,
-    @location(8) @interpolate(flat) dir: vec2<f32>,
-    @location(9) @interpolate(flat) start_color: vec4<f32>,
-    @location(10) @interpolate(flat) start_len: f32,
-    @location(11) @interpolate(flat) end_len: f32,
-    @location(12) @interpolate(flat) end_color: vec4<f32>,
-    @location(13) @interpolate(flat) hint: f32
+    @location(5) border: vec4<f32>,
+    @location(6) size: vec2<f32>,
+    @location(7) point: vec2<f32>,
+    @location(8) @interpolate(flat) g_start: vec2<f32>,
+    @location(9) @interpolate(flat) dir: vec2<f32>,
+    @location(10) @interpolate(flat) start_color: vec4<f32>,
+    @location(11) @interpolate(flat) start_len: f32,
+    @location(12) @interpolate(flat) end_len: f32,
+    @location(13) @interpolate(flat) end_color: vec4<f32>,
+    @location(14) @interpolate(flat) hint: f32
 ) -> GradientVertexOutput {
     var out: GradientVertexOutput;
     out.position = view.clip_from_world * vec4(vertex_position, 1.0);
     out.uv = vertex_uv;
     out.size = size;
     out.flags = flags;
-    out.radius = radius;
+    out.radius_x = radius_x;
+    out.radius_y = radius_y;
     out.border = border;
     out.point = point;
     out.dir = dir;
@@ -122,9 +126,9 @@ fn fragment(in: GradientVertexOutput) -> @location(0) vec4<f32> {
     );
 
     if enabled(in.flags, BORDER_ANY) {
-        return draw_uinode_border(gradient_color, in.point, in.size, in.radius, in.border, in.flags);
+        return draw_uinode_border(gradient_color, in.point, in.size, in.radius_x, in.radius_y, in.border, in.flags);
     } else {
-        return draw_uinode_background(gradient_color, in.point, in.size, in.radius, in.border, in.flags);
+        return draw_uinode_background(gradient_color, in.point, in.size, in.radius_x, in.radius_y, in.border, in.flags);
     }
 }
 
@@ -205,7 +209,7 @@ fn convert_to_linear_rgba(
 #else ifdef IN_OKLAB
     let rgb = oklab_to_linear_rgb(color.xyz);
 #else ifdef IN_SRGB
-    let rgb = pow(color.xyz, vec3(2.2));
+    let rgb = srgb_to_linear(color.xyz);
 #else
     // Color is already in linear rgba space
     let rgb = color.rgb;

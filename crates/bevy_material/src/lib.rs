@@ -94,6 +94,8 @@ pub struct MaterialProperties {
     pub shadows_enabled: bool,
     /// Whether prepass is enabled for this material
     pub prepass_enabled: bool,
+    /// Whether OIT is enabled for this material
+    pub oit_enabled: bool,
 }
 
 impl MaterialProperties {

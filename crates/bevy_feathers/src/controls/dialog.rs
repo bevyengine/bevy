@@ -168,6 +168,7 @@ impl FeathersFloatingDialog {
                         padding: UiRect::all(px(6.0)),
                     }
                     DialogDragHandle
+                    InheritableThemeTextColor(tokens::DIALOG_HEADER_TEXT)
                     ThemeBackgroundColor(tokens::DIALOG_HEADER_BG)
                     InheritableFont {
                         font: fonts::REGULAR,

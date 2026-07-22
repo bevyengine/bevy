@@ -26,9 +26,9 @@
 #import bevy_pbr::meshlet_visibility_buffer_resolve::resolve_vertex_output
 #endif
 
-#ifdef OIT_ENABLED
+#ifdef MATERIAL_OIT_ENABLED
 #import bevy_core_pipeline::oit::oit_draw
-#endif // OIT_ENABLED
+#endif // MATERIAL_OIT_ENABLED
 
 #ifdef FORWARD_DECAL
 #import bevy_pbr::decal::forward::get_forward_decal_info
@@ -93,21 +93,21 @@ fn fragment(
     out.color = main_pass_post_lighting_processing(pbr_input, out.color);
 #endif
 
-#ifdef OIT_ENABLED
+#ifdef MATERIAL_OIT_ENABLED
     let alpha_mode = pbr_input.material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
     if alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_BLEND {
         // The fragments will only be drawn during the oit resolve pass.
         oit_draw(in.position, vec4(out.color.rgb * out.color.a, out.color.a));
         discard;
     }
-    // additive colors are converted to premultiplied above already
-    if alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_PREMULTIPLIED 
+    // Both `Premultiplied` and `Add` colors are premultiplied in `premultiply_alpha()`
+    if alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_PREMULTIPLIED
         || alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_ADD {
         // The fragments will only be drawn during the oit resolve pass.
         oit_draw(in.position, out.color);
         discard;
     }
-#endif // OIT_ENABLED
+#endif // MATERIAL_OIT_ENABLED
 
 #ifdef FORWARD_DECAL
         out.color.a = min(forward_decal_info.alpha, out.color.a);

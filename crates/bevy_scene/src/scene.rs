@@ -1,4 +1,4 @@
-use crate::{CachedSceneError, ResolvedScene, SceneList, ScenePatch};
+use crate::{CachedSceneError, ErasedComponentTemplate, ResolvedScene, SceneList, ScenePatch};
 use bevy_asset::{Asset, AssetPath, AssetServer, Assets};
 use bevy_ecs::{
     bundle::Bundle,
@@ -285,15 +285,13 @@ pub struct TemplatePatch<F: FnOnce(&mut T, &mut ResolveContext), T>(pub F, pub P
 
 /// Returns a [`Scene`] that completely overwrites the current value of a [`Template`] `T` with the given `value`.
 /// The `value` is cloned each time the [`Template`] is built.
-pub fn template_value<T: Template>(
+pub fn template_value<T: Template<Output: Component> + Send + Sync + 'static>(
     value: T,
-) -> TemplatePatch<impl FnOnce(&mut T, &mut ResolveContext), T> {
-    TemplatePatch(
-        move |input: &mut T, _context: &mut ResolveContext| {
-            *input = value;
-        },
-        PhantomData,
-    )
+) -> InsertTemplate {
+    InsertTemplate {
+        type_id: TypeId::of::<T>(),
+        template: Box::new(value),
+    }
 }
 
 /// A helper function that returns a [`TemplatePatch`] [`Scene`] for something that implements [`FromTemplate`].
@@ -344,6 +342,24 @@ impl<
     ) -> Result<(), ResolveSceneError> {
         let template = scene.get_or_insert_template::<T>(context);
         (self.0)(template, context);
+        Ok(())
+    }
+}
+
+/// A [`Scene`] that replaces the given template with the given value
+pub struct InsertTemplate {
+    /// The type id of the [`Template`] in `template`.
+    pub type_id: TypeId,
+    /// The template to insert.
+    pub template: Box<dyn ErasedComponentTemplate>,
+}
+impl Scene for InsertTemplate {
+    fn resolve(
+        self,
+        _context: &mut ResolveContext,
+        scene: &mut ResolvedScene,
+    ) -> Result<(), ResolveSceneError> {
+        scene.insert_erased_template(self.type_id, self.template);
         Ok(())
     }
 }

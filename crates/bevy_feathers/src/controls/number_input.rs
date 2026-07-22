@@ -38,11 +38,9 @@ use bevy_text::{
     TextLayout,
 };
 use bevy_ui::{
-    percent, px,
-    widget::{Text, TextScroll},
-    AlignItems, AlignSelf, BackgroundGradient, ColorStop, ComputedNode, ComputedUiRenderTargetInfo,
-    Display, Gradient, InteractionDisabled, InterpolationColorSpace, JustifyContent,
-    LinearGradient, Node, PositionType, UiGlobalTransform, UiRect, UiScale,
+    percent, px, widget::Text, AlignItems, AlignSelf, BackgroundGradient, ColorStop, ComputedNode,
+    ComputedUiRenderTargetInfo, Display, Gradient, InteractionDisabled, InterpolationColorSpace,
+    JustifyContent, LinearGradient, Node, PositionType, UiGlobalTransform, UiRect, UiScale,
 };
 use bevy_ui_widgets::ValueChange;
 
@@ -106,7 +104,7 @@ pub struct FeathersNumberInputProps {
 impl Default for FeathersNumberInputProps {
     fn default() -> Self {
         Self {
-            sigil_color: tokens::TEXT_INPUT_BG,
+            sigil_color: tokens::TEXT_INPUT_LABEL_BG,
             label_text: None,
         }
     }
@@ -119,7 +117,7 @@ impl FeathersNumberInput {
             Node {
                 column_gap: px(0),
                 border: UiRect {
-                    left: px(if props.label_text.is_some() { 3.0 } else { 0.0 }),
+                    left: px(if props.label_text.is_some() { 4.0 } else { 0.0 }),
                 },
                 padding: UiRect {
                     left: px(0.0),
@@ -813,7 +811,6 @@ fn scrubber_on_release(
         &ComputedNode,
         &ComputedUiRenderTargetInfo,
         &UiGlobalTransform,
-        &TextScroll,
     )>,
     q_scrubber: Query<(&ComputedNode, &UiGlobalTransform, &mut ScrubberDragState)>,
     q_root: Query<Has<InteractionDisabled>>,
@@ -823,8 +820,7 @@ fn scrubber_on_release(
 ) {
     if let Ok(&ChildOf(text_id)) = q_parent.get(release.event_target())
         && let Ok(&ChildOf(root_id)) = q_parent.get(text_id)
-        && let Ok((mut editable_text, node, target, transform, text_scroll)) =
-            q_text.get_mut(text_id)
+        && let Ok((mut editable_text, node, target, transform)) = q_text.get_mut(text_id)
         && let Ok((_, _, drag_state)) = q_scrubber.get(release.entity)
         && let Ok(disabled) = q_root.get(root_id)
     {
@@ -850,7 +846,7 @@ fn scrubber_on_release(
                 inverse.transform_point2(
                     release.pointer_location.position * target.scale_factor() / ui_scale.0,
                 ) - node.content_box().min
-                    + text_scroll.0
+                    + editable_text.viewport.offset
             }) else {
                 return;
             };

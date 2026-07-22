@@ -35,6 +35,7 @@ use bevy::{
             RenderPipelineDescriptor, SpecializedMeshPipeline, SpecializedMeshPipelineError,
             SpecializedMeshPipelines, VertexState,
         },
+        sync_world::MainEntityHashSet,
         view::{ExtractedView, RenderVisibleEntities},
         Render, RenderApp, RenderStartup, RenderSystems,
     },
@@ -305,6 +306,7 @@ fn queue_custom_mesh_pipeline(
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
     dirty_specializations: Res<DirtySpecializations>,
     mut pending_custom_mesh_queues: ResMut<PendingCustomMeshQueues>,
+    mut mesh_instances_queued_this_iteration_scratch_space: Local<MainEntityHashSet>,
 ) {
     // Get the id for our custom draw function
     let draw_function = opaque_draw_functions
@@ -346,6 +348,7 @@ fn queue_custom_mesh_pipeline(
             view.retained_view_entity,
             render_visible_mesh_entities,
             &view_pending_custom_mesh_queues.prev_frame,
+            &mut mesh_instances_queued_this_iteration_scratch_space,
         ) {
             // Get the mesh instance
             let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*visible_entity)

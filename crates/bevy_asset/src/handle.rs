@@ -878,7 +878,7 @@ mod tests {
                     "Cloning the handle with reflect should increase the strong count to 2"
                 );
 
-                let dynamic_handle: Box<dyn PartialReflect> = reflected.to_dynamic();
+                let dynamic_handle: Box<dyn PartialReflect> = reflected.to_dynamic().unwrap();
 
                 assert_eq!(
                     Arc::strong_count(strong),
@@ -912,7 +912,7 @@ mod tests {
         let mut assets = app.world_mut().resource_mut::<Assets<A>>();
         let handle_a = assets.add(A);
 
-        let dynamic_handle_a = handle_a.to_dynamic();
+        let dynamic_handle_a = handle_a.to_dynamic().unwrap();
         let reflected_handle_a = handle_a.as_partial_reflect();
 
         let handle_b_from_reflect_dynamic: Option<Handle<B>> =

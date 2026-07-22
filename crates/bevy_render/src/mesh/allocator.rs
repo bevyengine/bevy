@@ -10,6 +10,7 @@ use bevy_ecs::{
     system::{Res, ResMut},
     world::{FromWorld, World},
 };
+use bevy_log::warn;
 use bevy_math::bounding::{Aabb2d, BoundingVolume};
 use bevy_mesh::Indices;
 use glam::Vec4;
@@ -407,6 +408,7 @@ impl MeshAllocator {
         for (mesh_id, mesh) in &extracted_meshes.extracted {
             let vertex_buffer_size = mesh.get_vertex_buffer_size() as u64;
             if vertex_buffer_size == 0 {
+                warn!("Mesh {:?} contains no vertices.", mesh_id);
                 continue;
             }
 
@@ -474,6 +476,10 @@ impl MeshAllocator {
 
         // Copy new mesh data in.
         for (mesh_id, mesh) in &extracted_meshes.extracted {
+            let vertex_buffer_size = mesh.get_vertex_buffer_size() as u64;
+            if vertex_buffer_size == 0 {
+                continue;
+            }
             self.copy_mesh_metadata(mesh_id, mesh, render_device, render_queue);
             self.copy_mesh_vertex_data(mesh_id, mesh, render_device, render_queue);
             self.copy_mesh_index_data(mesh_id, mesh, render_device, render_queue);

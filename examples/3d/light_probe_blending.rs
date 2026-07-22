@@ -6,21 +6,26 @@
 
 use std::f32::consts::{FRAC_PI_4, PI};
 
+use crate::radio::{feathers_option_buttons, main_ui_node_scene, RadioButtonOptionValue};
+use crate::theme::basic_example_theme;
 use bevy::{
     camera::Hdr,
-    camera_controller::free_camera::{self, FreeCamera, FreeCameraPlugin},
+    camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     color::palettes::css::{CORNFLOWER_BLUE, CRIMSON, TAN, WHITE},
+    feathers::{theme::UiTheme, FeathersPlugins},
     input::mouse::{AccumulatedMouseMotion, AccumulatedMouseScroll},
     light::ParallaxCorrection,
     math::ops::{atan2, cos, sin},
     prelude::*,
+    ui_widgets::{radio_self_update, ValueChange},
     window::{CursorGrabMode, CursorOptions},
 };
 
-use crate::widgets::{WidgetClickEvent, WidgetClickSender};
+#[path = "../helpers/radio.rs"]
+mod radio;
 
-#[path = "../helpers/widgets.rs"]
-mod widgets;
+#[path = "../helpers/theme.rs"]
+mod theme;
 
 /// The settings that the user has chosen.
 #[derive(Resource, Default)]
@@ -149,52 +154,25 @@ const LIGHT_PROBE_INTENSITY: f32 = 500.0;
 /// The entry point.
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "Bevy Light Probe Blending Example".into(),
+        .add_plugins((
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    title: "Bevy Light Probe Blending Example".into(),
+                    ..default()
+                }),
                 ..default()
             }),
-            ..default()
-        }))
+            FeathersPlugins,
+        ))
         .add_plugins(FreeCameraPlugin)
+        .insert_resource(UiTheme(basic_example_theme(Color::WHITE)))
         .init_resource::<AppStatus>()
-        .add_message::<WidgetClickEvent<GizmosEnabled>>()
-        .add_message::<WidgetClickEvent<ObjectToShow>>()
-        .add_message::<WidgetClickEvent<CameraMode>>()
         .add_systems(Startup, setup)
         .add_systems(Update, (move_sphere, orbit_camera).chain())
-        .add_systems(
-            Update,
-            (
-                widgets::handle_ui_interactions::<GizmosEnabled>,
-                handle_gizmos_enabled_change,
-            )
-                .chain(),
-        )
-        .add_systems(
-            Update,
-            (
-                widgets::handle_ui_interactions::<ObjectToShow>,
-                handle_object_to_show_change,
-            )
-                .chain(),
-        )
-        .add_systems(
-            Update,
-            (
-                widgets::handle_ui_interactions::<CameraMode>,
-                handle_camera_mode_change,
-            )
-                .chain()
-                .after(free_camera::run_freecamera_controller),
-        )
-        .add_systems(
-            Update,
-            update_radio_buttons
-                .after(widgets::handle_ui_interactions::<GizmosEnabled>)
-                .after(widgets::handle_ui_interactions::<ObjectToShow>)
-                .after(widgets::handle_ui_interactions::<CameraMode>),
-        )
+        .add_observer(handle_gizmos_enabled_change)
+        .add_observer(handle_object_to_show_change)
+        .add_observer(handle_camera_mode_change)
+        .add_observer(radio_self_update)
         .add_systems(Update, draw_gizmos)
         .run();
 }
@@ -351,26 +329,26 @@ fn spawn_light_probes(commands: &mut Commands, asset_server: &AssetServer) {
 
 /// Spawns the radio buttons at the bottom of the screen.
 fn spawn_buttons(commands: &mut Commands) {
-    commands.spawn((
-        widgets::main_ui_node(),
-        children![
-            widgets::option_buttons(
+    commands.spawn_scene(bsn! {
+        main_ui_node_scene()
+        Children [
+            feathers_option_buttons(
                 "Gizmos",
                 &[(GizmosEnabled::On, "On"), (GizmosEnabled::Off, "Off"),]
             ),
-            widgets::option_buttons(
+            feathers_option_buttons(
                 "Object to Show",
                 &[
                     (ObjectToShow::Sphere, "Sphere"),
                     (ObjectToShow::Prism, "Prism"),
                 ]
             ),
-            widgets::option_buttons(
+            feathers_option_buttons(
                 "Camera Mode",
                 &[(CameraMode::Orbit, "Orbit"), (CameraMode::Free, "Free"),]
             ),
-        ],
-    ));
+        ]
+    });
 }
 
 /// Spawns the help text at the top of the screen.
@@ -448,161 +426,117 @@ fn orbit_camera(
     }
 }
 
-/// A system that toggles gizmos on or off when the user clicks on one of the
-/// corresponding radio buttons.
+/// Handles requests from the user to toggle whether gizmos are enabled.
+/// The `radio_self_update` observer handles setting the `Checked` state on the radio buttons.
 fn handle_gizmos_enabled_change(
-    mut help_text_query: Query<&mut Text, With<HelpText>>,
+    event: On<ValueChange<Entity>>,
+    new_value_query: Query<&RadioButtonOptionValue<GizmosEnabled>>,
     mut app_status: ResMut<AppStatus>,
-    mut messages: MessageReader<WidgetClickEvent<GizmosEnabled>>,
+    mut help_text_query: Query<&mut Text, With<HelpText>>,
 ) {
-    let mut any_changes = false;
-    for message in messages.read() {
-        app_status.gizmos_enabled = **message;
-        any_changes = true;
-    }
+    let Ok(RadioButtonOptionValue(enabled)) = new_value_query.get(event.value) else {
+        return;
+    };
+    app_status.gizmos_enabled = *enabled;
 
-    if any_changes {
-        set_help_text(&app_status, &mut help_text_query);
-    }
+    set_help_text(&app_status, &mut help_text_query);
 }
 
-/// A system that toggles object visibility when the user clicks on one of the
-/// corresponding radio buttons.
+/// Handles requests from the user to toggle which object is showing.
+/// The `radio_self_update` observer handles setting the `Checked` state on the radio buttons.
 fn handle_object_to_show_change(
+    event: On<ValueChange<Entity>>,
+    new_value_query: Query<&RadioButtonOptionValue<ObjectToShow>>,
+    mut app_status: ResMut<AppStatus>,
     mut spheres_query: Query<&mut Visibility, (With<ReflectiveSphere>, Without<ReflectivePrism>)>,
     mut prisms_query: Query<&mut Visibility, (With<ReflectivePrism>, Without<ReflectiveSphere>)>,
-    mut app_status: ResMut<AppStatus>,
-    mut messages: MessageReader<WidgetClickEvent<ObjectToShow>>,
 ) {
-    for message in messages.read() {
-        app_status.object_to_show = **message;
+    let Ok(RadioButtonOptionValue(object_to_show)) = new_value_query.get(event.value) else {
+        return;
+    };
+    app_status.object_to_show = *object_to_show;
 
-        for mut sphere_visibility in &mut spheres_query {
-            *sphere_visibility = match **message {
-                ObjectToShow::Sphere => Visibility::Inherited,
-                ObjectToShow::Prism => Visibility::Hidden,
-            }
+    for mut sphere_visibility in &mut spheres_query {
+        *sphere_visibility = match app_status.object_to_show {
+            ObjectToShow::Sphere => Visibility::Inherited,
+            ObjectToShow::Prism => Visibility::Hidden,
         }
-        for mut prism_visibility in &mut prisms_query {
-            *prism_visibility = match **message {
-                ObjectToShow::Sphere => Visibility::Hidden,
-                ObjectToShow::Prism => Visibility::Inherited,
-            }
+    }
+    for mut prism_visibility in &mut prisms_query {
+        *prism_visibility = match app_status.object_to_show {
+            ObjectToShow::Sphere => Visibility::Hidden,
+            ObjectToShow::Prism => Visibility::Inherited,
         }
     }
 }
 
-/// A system that toggles the camera mode when the user clicks on one of the
+/// Handles requests from the user to switch the camera mode when the user clicks on one of the
 /// corresponding radio buttons.
 fn handle_camera_mode_change(
+    event: On<ValueChange<Entity>>,
+    new_value_query: Query<&RadioButtonOptionValue<CameraMode>>,
     mut commands: Commands,
     cameras_query: Query<(Entity, &Transform), With<Camera3d>>,
     sphere_query: Query<&Transform, (With<ReflectiveSphere>, Without<Camera3d>)>,
     mut help_text_query: Query<&mut Text, With<HelpText>>,
     mut windows_query: Query<&mut CursorOptions>,
     mut app_status: ResMut<AppStatus>,
-    mut messages: MessageReader<WidgetClickEvent<CameraMode>>,
 ) {
     let Some(sphere_transform) = sphere_query.iter().next() else {
         return;
     };
 
-    let mut any_changes = false;
-    for message in messages.read() {
-        app_status.camera_mode = **message;
+    let Ok(RadioButtonOptionValue(camera_mode)) = new_value_query.get(event.value) else {
+        return;
+    };
 
-        match **message {
-            CameraMode::Orbit => {
-                for (camera_entity, camera_transform) in &cameras_query {
-                    // Convert from Cartesian coordinates back to spherical
-                    // coordinates.
-                    let relative_camera_position =
-                        camera_transform.translation - sphere_transform.translation;
-                    let radius = relative_camera_position.length();
-                    let inclination = atan2(
-                        relative_camera_position.xz().length() / radius,
-                        relative_camera_position.y / radius,
-                    );
-                    let azimuth = atan2(
-                        relative_camera_position.z * relative_camera_position.xz().length_recip(),
-                        relative_camera_position.x * relative_camera_position.xz().length_recip(),
-                    );
+    app_status.camera_mode = *camera_mode;
 
-                    commands
-                        .entity(camera_entity)
-                        .remove::<FreeCamera>()
-                        .insert(OrbitCamera {
-                            radius,
-                            inclination,
-                            azimuth,
-                        });
-                }
-            }
+    match app_status.camera_mode {
+        CameraMode::Orbit => {
+            for (camera_entity, camera_transform) in &cameras_query {
+                // Convert from Cartesian coordinates back to spherical
+                // coordinates.
+                let relative_camera_position =
+                    camera_transform.translation - sphere_transform.translation;
+                let radius = relative_camera_position.length();
+                let inclination = atan2(
+                    relative_camera_position.xz().length() / radius,
+                    relative_camera_position.y / radius,
+                );
+                let azimuth = atan2(
+                    relative_camera_position.z * relative_camera_position.xz().length_recip(),
+                    relative_camera_position.x * relative_camera_position.xz().length_recip(),
+                );
 
-            CameraMode::Free => {
-                for (camera_entity, _) in &cameras_query {
-                    commands
-                        .entity(camera_entity)
-                        .remove::<OrbitCamera>()
-                        .insert(FreeCamera::default());
-                }
+                commands
+                    .entity(camera_entity)
+                    .remove::<FreeCamera>()
+                    .insert(OrbitCamera {
+                        radius,
+                        inclination,
+                        azimuth,
+                    });
             }
         }
 
-        any_changes = true;
-    }
-
-    if any_changes {
-        set_help_text(&app_status, &mut help_text_query);
-
-        // Reset the cursor grab mode, because the free camera controller may
-        // have enabled it, and we don't want the cursor to disappear.
-        for mut cursor_options in &mut windows_query {
-            cursor_options.grab_mode = CursorGrabMode::None;
-            cursor_options.visible = true;
+        CameraMode::Free => {
+            for (camera_entity, _) in &cameras_query {
+                commands
+                    .entity(camera_entity)
+                    .remove::<OrbitCamera>()
+                    .insert(FreeCamera::default());
+            }
         }
     }
-}
 
-/// A system that updates the radio buttons at the bottom of the screen to
-/// reflect whether gizmos are enabled or not.
-fn update_radio_buttons(
-    mut widgets_query: Query<(
-        Entity,
-        Option<&mut BackgroundColor>,
-        Has<Text>,
-        AnyOf<(
-            &WidgetClickSender<GizmosEnabled>,
-            &WidgetClickSender<ObjectToShow>,
-            &WidgetClickSender<CameraMode>,
-        )>,
-    )>,
-    app_status: Res<AppStatus>,
-    mut text_ui_writer: TextUiWriter,
-) {
-    for (
-        entity,
-        maybe_bg_color,
-        has_text,
-        (maybe_gizmos_enabled, maybe_object_to_show, maybe_camera_mode),
-    ) in &mut widgets_query
-    {
-        let selected = if let Some(sender) = maybe_gizmos_enabled {
-            app_status.gizmos_enabled == **sender
-        } else if let Some(sender) = maybe_object_to_show {
-            app_status.object_to_show == **sender
-        } else if let Some(sender) = maybe_camera_mode {
-            app_status.camera_mode == **sender
-        } else {
-            continue;
-        };
+    set_help_text(&app_status, &mut help_text_query);
 
-        if let Some(mut bg_color) = maybe_bg_color {
-            widgets::update_ui_radio_button(&mut bg_color, selected);
-        }
-        if has_text {
-            widgets::update_ui_radio_button_text(entity, &mut text_ui_writer, selected);
-        }
+    // Reset the cursor grab mode, because the free camera controller may
+    // have enabled it, and we don't want the cursor to disappear.
+    for mut cursor_options in &mut windows_query {
+        cursor_options.grab_mode = CursorGrabMode::None;
+        cursor_options.visible = true;
     }
 }
 

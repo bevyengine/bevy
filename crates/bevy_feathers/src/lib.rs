@@ -18,13 +18,6 @@
 //! This is important when writing your custom widgets, and understanding the behavior of existing widgets.
 //!
 //! For more guidance on this, see the documentation for [`EntityEvent`](bevy_ecs::event::EntityEvent).
-//!
-//! ## Warning: Experimental!
-//! All that said, this crate is still experimental and unfinished!
-//! It will change in breaking ways, and there will be both bugs and limitations.
-//!
-//! Please report issues, submit fixes and propose changes.
-//! Thanks for stress-testing; let's build something better together.
 
 extern crate alloc;
 

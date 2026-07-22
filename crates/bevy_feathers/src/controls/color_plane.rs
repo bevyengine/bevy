@@ -43,6 +43,9 @@ use crate::{cursor::EntityCursor, palette, theme::ThemeBackgroundColor, tokens};
 /// The control does not do any color space conversions internally, other than the shader code
 /// for displaying gradients. Avoiding excess conversions helps avoid gimble-lock problems when
 /// implementing a color picker for cylindrical color spaces such as HSL.
+///
+/// **Note:** For information on how widget state is managed
+/// and how to respond to state changes, see the [`bevy_ui_widgets` documentation](bevy_ui_widgets).
 #[derive(
     SceneComponent, FromTemplate, Debug, Reflect, Copy, PartialEq, Eq, Hash, Default, Clone,
 )]

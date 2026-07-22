@@ -85,6 +85,7 @@ bevy_shader = { path = "../bevy_shader", version = "0.20.0-dev" }
 bevy_platform = { path = "../bevy_platform", version = "0.20.0-dev", default-features = false, features = [
   "std",
   "serialize",
+  "bytemuck",
 ] }
 
 # rendering
@@ -95,7 +96,7 @@ image = { version = "0.25.2", default-features = false }
 # It is enabled for now to avoid having to do a significant overhaul of the renderer just for wasm.
 # When the 'atomics' feature is enabled `fragile-send-sync-non-atomic` does nothing
 # and Bevy instead wraps `wgpu` types to verify they are not used off their origin thread.
-wgpu = { version = "29.0.3", default-features = false, features = [
+wgpu = { version = "30", default-features = false, features = [
   "wgsl",
   "dx12",
   "metal",
@@ -103,14 +104,14 @@ wgpu = { version = "29.0.3", default-features = false, features = [
   "naga-ir",
   "fragile-send-sync-non-atomic-wasm",
 ] }
-wgpu-types = { version = "29.0.3", default-features = false }
-naga = { version = "29.0.3", features = ["wgsl-in"] }
+wgpu-types = { version = "30", default-features = false }
+naga = { version = "30", features = ["wgsl-in"] }
 bytemuck = { version = "1.5", features = ["derive", "must_cast"] }
 downcast-rs = { version = "2", default-features = false, features = ["std"] }
 thiserror = { version = "2", default-features = false }
 derive_more = { version = "2", default-features = false, features = ["from"] }
 encase = "0.12"
-glam = { version = "0.32.0", default-features = false, features = [
+glam = { version = "0.33.2", default-features = false, features = [
   "std",
   "encase",
 ] }
@@ -128,6 +129,7 @@ indexmap = { version = "2" }
 bitflags = "2"
 itertools = "0.14"
 weak-table = "0.3"
+tracing = "0.1"
 
 [dev-dependencies]
 proptest = "1"

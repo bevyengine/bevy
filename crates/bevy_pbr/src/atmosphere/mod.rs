@@ -55,7 +55,7 @@ use bevy_ecs::{
     system::{Commands, Query},
 };
 use bevy_light::{atmosphere::ScatteringMedium, Atmosphere};
-use bevy_math::{Mat4, UVec2, UVec3, Vec3};
+use bevy_math::{Mat4, Quat, UVec2, UVec3, Vec3};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::{ExtractComponentPlugin, UniformComponentPlugin},
@@ -240,8 +240,11 @@ pub fn extract_atmosphere(
             .expect("checked non-empty above");
         let atmo = selected.1;
         let gt = selected.2;
+        // Atmospheres are spherically symmetric, so ignore their orientation.
+        let (scale, _, translation) = gt.to_scale_rotation_translation();
 
-        let atmosphere_to_world = gt.to_matrix();
+        let atmosphere_to_world =
+            Mat4::from_scale_rotation_translation(scale, Quat::IDENTITY, translation);
         let extracted = ExtractedAtmosphere {
             inner_radius: atmo.inner_radius,
             outer_radius: atmo.outer_radius,

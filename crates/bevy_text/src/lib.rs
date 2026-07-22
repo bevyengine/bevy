@@ -42,6 +42,7 @@ mod font_loader;
 mod glyph;
 mod parley_context;
 mod pipeline;
+mod scroll;
 mod text;
 mod text_access;
 mod text_edit;
@@ -57,6 +58,7 @@ pub use font_loader::*;
 pub use glyph::*;
 pub use parley_context::*;
 pub use pipeline::*;
+pub use scroll::*;
 pub use text::*;
 pub use text_access::*;
 pub use text_edit::*;
@@ -68,8 +70,8 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         Font, FontHinting, FontSize, FontSmoothing, FontSource, FontStyle, FontWeight, FontWidth,
-        Justify, LineBreak, Strikethrough, StrikethroughColor, TextColor, TextError, TextFont,
-        TextLayout, TextSpan, Underline, UnderlineColor,
+        GenericFontFamily, Justify, LineBreak, Strikethrough, StrikethroughColor, TextColor,
+        TextError, TextFont, TextLayout, TextSpan, Underline, UnderlineColor,
     };
 }
 

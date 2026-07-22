@@ -3,7 +3,7 @@ use bevy_platform::{hash::FixedHasher, sync::PoisonError};
 use bevy_ptr::OwningPtr;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
-use bevy_utils::{prelude::DebugName, TypeIdMap};
+use bevy_utils::{prelude::DebugName, TypeIdHashMap};
 use core::{
     alloc::Layout,
     any::{Any, TypeId},
@@ -360,7 +360,7 @@ impl ComponentDescriptor {
 #[derive(Debug, Default)]
 pub struct Components {
     pub(super) components: Vec<Option<ComponentInfo>>,
-    pub(super) indices: TypeIdMap<ComponentId>,
+    pub(super) indices: TypeIdHashMap<ComponentId>,
     // This is kept internal and local to verify that no deadlocks can occur.
     pub(super) queued: bevy_platform::sync::RwLock<QueuedComponents>,
 }

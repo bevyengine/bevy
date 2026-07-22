@@ -108,14 +108,21 @@ fn update_frame_time_values(
     let Some(frame_time) = diagnostics_store.get(&FrameTimeDiagnosticsPlugin::FRAME_TIME) else {
         return;
     };
-    let frame_times = frame_time
-        .values()
-        // convert to millis
-        .map(|x| *x as f32 / 1000.0)
-        .collect::<Vec<_>>();
+
     for (_, material) in frame_time_graph_materials.iter_mut() {
         let mut buffer = buffers.get_mut(&material.values).unwrap();
+        buffer.clear();
 
-        buffer.set_data(frame_times.clone());
+        let mut frame_times = frame_time
+            .values()
+            // convert to millis
+            .map(|x| *x as f32 / 1000.0)
+            .peekable();
+        if frame_times.peek().is_none() {
+            // Ensure the buffer is not zero-sized
+            buffer.extend([0f32]);
+        } else {
+            buffer.extend(frame_times);
+        }
     }
 }

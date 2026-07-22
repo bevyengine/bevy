@@ -20,6 +20,8 @@ std = ["disqualified/alloc"]
 
 debug = ["bevy_platform/alloc"]
 
+serialize = ["dep:serde"]
+
 [dependencies]
 bevy_platform = { path = "../bevy_platform", version = "0.20.0-dev", default-features = false }
 
@@ -27,6 +29,7 @@ disqualified = { version = "1.0", default-features = false }
 thread_local = { version = "1.0", optional = true }
 async-channel = { version = "2.3.0", optional = true }
 indexmap = { version = "2", default-features = false }
+serde = { version = "1", features = ["derive"], optional = true }
 
 [dev-dependencies]
 static_assertions = "1.1.0"

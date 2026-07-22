@@ -14,7 +14,7 @@ use wgpu::{IndexFormat, QuerySet, RenderPass};
 #[cfg(feature = "detailed_trace")]
 use bevy_log::trace;
 
-type BufferSliceKey = (BufferId, wgpu::BufferAddress, wgpu::BufferSize);
+type BufferSliceKey = (BufferId, wgpu::BufferAddress, wgpu::BufferAddress);
 
 /// Tracks the state of a [`TrackedRenderPass`].
 ///

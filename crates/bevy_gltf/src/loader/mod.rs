@@ -186,6 +186,7 @@ pub struct GltfLoader {
 ///     .load("my.gltf");
 /// ```
 #[derive(Serialize, Deserialize)]
+#[serde(default)]
 pub struct GltfLoaderSettings {
     /// If empty, the gltf mesh nodes will be skipped.
     ///
@@ -2120,7 +2121,7 @@ pub struct MorphTargetNames {
 mod test {
     use std::path::Path;
 
-    use crate::{Gltf, GltfAssetLabel, GltfMaterial, GltfNode, GltfSkin};
+    use crate::{Gltf, GltfAssetLabel, GltfLoaderSettings, GltfMaterial, GltfNode, GltfSkin};
     use bevy_app::{App, TaskPoolPlugin};
     use bevy_asset::{
         io::{
@@ -2772,5 +2773,28 @@ mod test {
             LoadState::Loading => None,
             state => panic!("Unexpected load state: {state:?}"),
         });
+    }
+
+    #[test]
+    fn partial_loader_settings_use_defaults() {
+        let settings: GltfLoaderSettings = serde_json::from_str(
+            r#"
+            {
+                "load_cameras": false
+            }
+            "#,
+        )
+        .unwrap();
+
+        let default = GltfLoaderSettings::default();
+        assert_eq!(settings.load_meshes, default.load_meshes);
+        assert_eq!(settings.load_materials, default.load_materials);
+        assert!(!settings.load_cameras);
+        assert_eq!(settings.load_lights, default.load_lights);
+        assert_eq!(settings.load_animations, default.load_animations);
+        assert_eq!(settings.include_source, default.include_source);
+        assert_eq!(settings.default_sampler, default.default_sampler);
+        assert_eq!(settings.override_sampler, default.override_sampler);
+        assert_eq!(settings.validate, default.validate);
     }
 }

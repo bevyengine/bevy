@@ -1,3 +1,5 @@
+enable wgpu_binding_array;
+
 #define_import_path bevy_pbr::lightmap
 
 #import bevy_pbr::mesh_bindings::mesh

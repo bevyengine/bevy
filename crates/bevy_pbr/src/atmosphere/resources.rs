@@ -24,7 +24,7 @@ use bevy_render::{
     render_resource::{binding_types::*, *},
     renderer::{RenderDevice, RenderQueue},
     texture::{CachedTexture, TextureCache},
-    view::{ExtractedView, Msaa, ViewDepthTexture, ViewUniform, ViewUniforms},
+    view::{ExtractedView, Msaa, ViewDepthStencilTexture, ViewUniform, ViewUniforms},
 };
 use bevy_shader::Shader;
 use bevy_utils::default;
@@ -603,7 +603,11 @@ pub(super) fn prepare_atmosphere_transforms(
         // World-horizontal reference for back, projected orthogonal to atmo_y.
         let world_ref = Vec3A::NEG_Z;
         let ref_horizontal = world_ref - atmo_y * atmo_y.dot(world_ref);
-        let atmo_z = ref_horizontal.normalize();
+        let atmo_z = ref_horizontal.try_normalize().unwrap_or_else(|| {
+            // `NEG_Z` is degenerate at the poles of a Z-up world.
+            let fallback_ref = Vec3A::NEG_Y;
+            (fallback_ref - atmo_y * atmo_y.dot(fallback_ref)).normalize()
+        });
         let atmo_x = atmo_y.cross(atmo_z).normalize();
 
         let world_from_atmosphere = Mat4::from(Affine3A::from_cols(
@@ -656,7 +660,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
             Entity,
             &ExtractedAtmosphere,
             &AtmosphereTextures,
-            &ViewDepthTexture,
+            &ViewDepthStencilTexture,
             &ViewShadowBindings,
             &Msaa,
         ),
@@ -705,6 +709,13 @@ pub(super) fn prepare_atmosphere_bind_groups(
         .ok_or(AtmosphereBindGroupError::LightUniforms)?;
 
     for (entity, atmosphere, textures, view_depth_texture, shadow_bindings, msaa) in &views {
+        let Some(depth_view) = view_depth_texture
+            .attachment
+            .depth_stencil_views()
+            .depth_only_view()
+        else {
+            continue;
+        };
         let gpu_medium = gpu_media
             .get(atmosphere.medium)
             .ok_or(ScatteringMediumMissingError(atmosphere.medium))?;
@@ -824,7 +835,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
                 (11, &textures.aerial_view_lut.default_view),
                 (12, &**atmosphere_sampler),
                 // view depth texture
-                (13, view_depth_texture.view()),
+                (13, depth_view),
                 // shadow maps
                 (14, &shadow_bindings.point_light_depth_texture_view),
                 (15, &shadow_samplers.point_light_comparison_sampler),

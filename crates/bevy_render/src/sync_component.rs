@@ -11,6 +11,8 @@ use crate::{
     RenderApp,
 };
 
+use bevy_log::warn_once;
+
 /// Plugin that registers a component for automatic sync to the render world. See [`SyncWorldPlugin`] for more information.
 ///
 /// This plugin is automatically added by [`ExtractComponentPlugin`], and only needs to be added for manual extraction implementations.
@@ -57,7 +59,10 @@ impl<C: SyncComponent<RenderApp, F>, F: Send + Sync + 'static> Plugin
         app.world_mut()
             .register_component_hooks::<C>()
             .on_remove(|mut world, context| {
-                let mut pending = world.resource_mut::<PendingSyncEntity>();
+                let Some(mut pending) = world.get_resource_mut::<PendingSyncEntity>() else {
+                    warn_once!("A component with render sync plugin was removed, but the render world does not exist (probably `WgpuSettings {{ backends: None }}`), so there is nothing to sync. Skip sync to render world.");
+                    return;
+                };
                 pending.push(EntityRecord::ComponentRemoved(
                     context.entity,
                     |mut entity| {
@@ -65,5 +70,33 @@ impl<C: SyncComponent<RenderApp, F>, F: Send + Sync + 'static> Plugin
                     },
                 ));
             });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use bevy_app::App;
+    use bevy_ecs::component::Component;
+
+    use super::{SyncComponent, SyncComponentPlugin};
+    use crate::RenderApp;
+
+    #[derive(Component)]
+    struct TestSyncComponent;
+
+    impl SyncComponent<RenderApp> for TestSyncComponent {
+        type Target = Self;
+    }
+
+    // Regression test for https://github.com/bevyengine/bevy/issues/24927:
+    // with `WgpuSettings { backends: None }` there is no render world, and Bevy used to crash on removing any synced component.
+    // This test checks that the bug does not happen again.
+    #[test]
+    fn remove_synced_component_without_render_world() {
+        let mut app = App::new();
+        app.add_plugins(SyncComponentPlugin::<TestSyncComponent>::default());
+
+        let entity = app.world_mut().spawn(TestSyncComponent).id();
+        app.world_mut().despawn(entity);
     }
 }

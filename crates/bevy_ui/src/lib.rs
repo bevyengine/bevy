@@ -268,11 +268,10 @@ fn build_text_interop(app: &mut App) {
                 .ambiguous_with(widget::update_image_content_size_system)
                 .ambiguous_with(widget::measure_text_system)
                 .ambiguous_with(bevy_sprite::update_text2d_layout),
-            (
-                widget::update_editable_text_layout.before(bevy_asset::AssetEventSystems),
-                widget::scroll_editable_text,
-            )
-                .chain()
+            widget::sync_editable_text_viewports
+                .after(UiSystems::Layout)
+                .before(EditableTextSystems),
+            widget::update_editable_text_layout
                 .in_set(UiSystems::PostLayout)
                 // This is unlikely to result in real conflicts,
                 // as FocusChangeEvents only mutates internal state of InputFocus,
@@ -281,6 +280,7 @@ fn build_text_interop(app: &mut App) {
                 // as editable_text_system or related systems could generate focus changes
                 // which should be processed ASAP.
                 .before(bevy_input_focus::InputFocusSystems::FocusChangeEvents)
+                .before(bevy_asset::AssetEventSystems)
                 .ambiguous_with(widget::text_system)
                 .ambiguous_with(bevy_sprite::update_text2d_layout)
                 .ambiguous_with(bevy_sprite::calculate_bounds_text2d),
@@ -298,5 +298,10 @@ fn build_text_interop(app: &mut App) {
     );
 
     // We cannot set this up in bevy_text as this would create a circular dependency between bevy_ui and bevy_text
-    app.configure_sets(PostUpdate, EditableTextSystems.in_set(UiSystems::Content));
+    app.configure_sets(
+        PostUpdate,
+        EditableTextSystems
+            .after(UiSystems::Layout)
+            .before(UiSystems::PostLayout),
+    );
 }

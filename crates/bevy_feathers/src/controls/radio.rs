@@ -20,7 +20,7 @@ use bevy_scene::prelude::*;
 use bevy_text::FontWeight;
 use bevy_ui::{
     px, AlignItems, BorderRadius, Checked, Display, FlexDirection, InteractionDisabled,
-    JustifyContent, Node, Pressed, UiRect,
+    JustifyContent, LayoutConfig, Node, Pressed, UiRect,
 };
 use bevy_ui_widgets::{ActivateOnPress, RadioButton};
 
@@ -42,6 +42,9 @@ use crate::{
 /// * [`bevy_ui_widgets::ValueChange<Entity>`] with the selected entity's id when a new radio button is selected.
 ///
 ///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
+///
+/// A more complete explanation of how to control this widget can be found in the documentation
+/// for [`RadioButton`] and [`bevy_ui_widgets`].
 #[derive(SceneComponent, Default, Clone)]
 #[scene(FeathersRadioProps)]
 #[derive(Reflect)]
@@ -99,9 +102,13 @@ impl FeathersRadio {
                 ThemeBackgroundColor(tokens::RADIO_BG)
                 Children [(
                     Node {
-                        width: px(8),
-                        height: px(8),
+                        width: px(12),
+                        height: px(12),
+                        border: px(2),
                         border_radius: BorderRadius::MAX,
+                    }
+                    LayoutConfig {
+                        use_rounding: false,
                     }
                     RadioMark
                     ThemeBackgroundColor(tokens::RADIO_MARK)

@@ -454,6 +454,8 @@ pub trait EntityWorldMutSceneExt {
     /// Applies the given [`Scene`] to the current entity immediately. This will resolve the Scene (using [`Scene::resolve`]). If that fails (for example, if there are dependencies that have not been
     /// loaded yet), it will return a [`SpawnSceneError`]. If resolving the [`Scene`] is successful, the scene will be spawned.
     ///
+    /// When a scene is resolved, it will replace and orphan the current entity's children.
+    ///
     /// If resolving and spawning is successful, the entity will contain the full contents of the spawned scene.
     ///
     /// This will write directly on top of any existing components on the entity. [`Scene`] is generally used as a spawning mechanism, so for most things, prefer using [`World::spawn_scene`].
@@ -466,6 +468,8 @@ pub trait EntityWorldMutSceneExt {
 
     /// Queues the `scene` to be applied. This will evaluate the `scene`'s dependencies (via [`Scene::register_dependencies`]) and queue it to be resolved and spawned
     /// after all of the dependencies have been loaded. If a [`SpawnSceneError`] occurs, it will be logged as an error.
+    ///
+    /// See [`EntityWorldMutSceneExt::apply_scene`] for more information on what happens when a scene is resolved.
     ///
     /// If the dependencies are already loaded (or there are no dependencies), then the scene will be spawned this frame.
     /// This will write directly on top of any existing components on the entity. [`Scene`] is generally used as a spawning mechanism, so for most things, prefer using [`World::queue_spawn_scene`].
@@ -860,5 +864,64 @@ impl QueuedScenes {
                 *count += 1;
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::EntityWorldMutSceneExt;
+    use crate::{self as bevy_scene, bsn, ScenePlugin};
+    use bevy_app::{App, TaskPoolPlugin};
+    use bevy_asset::AssetPlugin;
+    use bevy_ecs::{name::Name, prelude::*, template::FromTemplate};
+
+    fn test_app() -> App {
+        let mut app = App::new();
+        app.add_plugins((
+            TaskPoolPlugin::default(),
+            AssetPlugin::default(),
+            ScenePlugin,
+        ));
+        app
+    }
+
+    #[derive(Component, Default, FromTemplate)]
+    struct SceneChild;
+
+    #[derive(Component)]
+    struct PreExistingChild;
+
+    /// Tests that documented behavior of [`EntityWorldMutSceneExt::apply_scene`] is correct.
+    #[test]
+    fn apply_scene_replaces_and_orphans_children() {
+        let mut app = test_app();
+        let world = app.world_mut();
+
+        let pre_existing = world.spawn(PreExistingChild).id();
+        let root = world.spawn(Name::new("root")).add_child(pre_existing).id();
+
+        assert_eq!(
+            world.entity(root).get::<Children>().map(Children::len),
+            Some(1)
+        );
+
+        let scene = bsn! {
+            Children [ #SceneChild SceneChild ]
+        };
+        world.entity_mut(root).apply_scene(scene).unwrap();
+
+        let children: Vec<Entity> = world
+            .entity(root)
+            .get::<Children>()
+            .map(|c| c.iter().collect())
+            .unwrap_or_default();
+
+        // Scene child is spawned and linked.
+        assert_eq!(children.len(), 1);
+        assert!(world.entity(children[0]).contains::<SceneChild>());
+
+        // Pre-existing child entity still exists, but is no longer listed under root.
+        assert!(world.get_entity(pre_existing).is_ok());
+        assert!(!children.contains(&pre_existing));
     }
 }

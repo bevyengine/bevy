@@ -553,7 +553,7 @@ impl BoundingSphere {
 
     /// Get the radius of the bounding sphere
     #[inline]
-    pub fn radius(&self) -> f32 {
+    pub const fn radius(&self) -> f32 {
         self.sphere.radius
     }
 

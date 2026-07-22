@@ -311,9 +311,10 @@ pub fn create_dark_theme() -> ThemeProps {
                 palette::WHITE.with_alpha(0.5),
             ),
             (tokens::DIALOG_BG, palette::GRAY_1),
-            (tokens::DIALOG_BORDER, palette::BLACK),
+            (tokens::DIALOG_BORDER, palette::WARM_GRAY_1),
             (tokens::DIALOG_HEADER_BG, palette::GRAY_0),
             (tokens::DIALOG_TEXT, palette::LIGHT_GRAY_1),
+            (tokens::DIALOG_HEADER_TEXT, palette::LIGHT_GRAY_1),
         ]),
     }
 }

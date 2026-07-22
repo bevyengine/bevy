@@ -148,7 +148,7 @@ fn setup(
              mut commands: Commands,
              camera: Single<(Entity, &Transform), With<Camera3d>>| {
                 let (camera, transform) = *camera;
-                // Memorize the current transform 
+                // Memorize the current transform
                 commands
                     .entity(camera)
                     .insert(BaseTransform(*transform));

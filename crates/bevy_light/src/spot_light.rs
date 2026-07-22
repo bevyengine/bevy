@@ -6,7 +6,7 @@ use bevy_camera::{
 use bevy_color::Color;
 use bevy_ecs::prelude::*;
 use bevy_image::Image;
-use bevy_math::{primitives::ViewFrustum, Affine3A, Dir3, Mat3, Mat4, Vec3};
+use bevy_math::{primitives::ViewFrustum, proj, Affine3A, Dir3, Mat3, Mat4, Vec3};
 use bevy_reflect::prelude::*;
 use bevy_transform::components::{GlobalTransform, Transform};
 
@@ -124,9 +124,7 @@ pub struct SpotLight {
 
     /// Angle defining the distance from the spot light direction to the outer limit
     /// of the light's cone of effect.
-    /// `outer_angle` should be < `PI / 2.0`.
-    /// `PI / 2.0` defines a hemispherical spot light, but shadows become very blocky as the angle
-    /// approaches this limit.
+    /// `outer_angle` must be < `PI / 2.0`.
     pub outer_angle: f32,
 
     /// Angle defining the distance from the spot light direction to the inner limit
@@ -202,7 +200,7 @@ pub fn spot_light_world_from_view(transform: &GlobalTransform) -> Affine3A {
 /// Creates the projection matrix that transforms the light's view space into the light's clip space.
 pub fn spot_light_clip_from_view(angle: f32, near_z: f32) -> Mat4 {
     // spot light projection FOV is 2x the angle from spot light center to outer edge
-    Mat4::perspective_infinite_reverse_rh(angle * 2.0, 1.0, near_z)
+    proj::perspective_infinite_reverse(angle * 2.0, 1.0, near_z)
 }
 
 /// Add to a [`SpotLight`] to add a light texture effect.

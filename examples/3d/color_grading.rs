@@ -7,32 +7,28 @@ use std::{
 
 use bevy::{
     camera::Hdr,
+    feathers::{
+        containers::{pane, pane_body, pane_header},
+        controls::{FeathersNumberInput, HardLimit, NumberInputPrecision, NumberInputValue},
+        dark_theme::create_dark_theme,
+        display::label,
+        theme::{ThemeProps, UiTheme},
+        tokens::{PANE_BODY_BG, PANE_HEADER_BG, PANE_HEADER_BORDER},
+        FeathersPlugins,
+    },
     light::CascadeShadowConfigBuilder,
     prelude::*,
     render::view::{ColorGrading, ColorGradingGlobal, ColorGradingSection},
+    ui_widgets::ValueChange,
 };
 use std::fmt::Display;
 
-static FONT_PATH: &str = "fonts/FiraMono-Medium.ttf";
-
-/// How quickly the value changes per frame.
-const OPTION_ADJUSTMENT_SPEED: f32 = 0.003;
-
-/// The color grading section that the user has selected: highlights, midtones,
-/// or shadows.
-#[derive(Clone, Copy, PartialEq)]
-enum SelectedColorGradingSection {
-    Highlights,
-    Midtones,
-    Shadows,
-}
-
-/// The global option that the user has selected.
+/// The global color grading settings that the user can modify.
 ///
 /// See the documentation of [`ColorGradingGlobal`] for more information about
 /// each field here.
 #[derive(Clone, Copy, PartialEq, Default)]
-enum SelectedGlobalColorGradingOption {
+enum GlobalColorGradingSetting {
     #[default]
     Exposure,
     Temperature,
@@ -40,12 +36,23 @@ enum SelectedGlobalColorGradingOption {
     Hue,
 }
 
-/// The section-specific option that the user has selected.
+/// A color grading section that the user can modify the settings of:
+/// highlights, midtones, or shadows.
+#[derive(Clone, Copy, PartialEq, Default)]
+enum SectionColorGradingName {
+    #[default]
+    Highlights,
+    Midtones,
+    Shadows,
+}
+
+/// The section-specific color grading setting that the user can modify.
 ///
 /// See the documentation of [`ColorGradingSection`] for more information about
 /// each field here.
-#[derive(Clone, Copy, PartialEq)]
-enum SelectedSectionColorGradingOption {
+#[derive(Clone, Copy, PartialEq, Default)]
+enum SectionColorGradingSetting {
+    #[default]
     Saturation,
     Contrast,
     Gamma,
@@ -53,270 +60,174 @@ enum SelectedSectionColorGradingOption {
     Lift,
 }
 
-/// The color grading option that the user has selected.
-#[derive(Clone, Copy, PartialEq, Resource)]
-enum SelectedColorGradingOption {
-    /// The user has selected a global color grading option: one that applies to
+/// A color grading settings that the user can modify.
+#[derive(Component, Clone, Copy, PartialEq)]
+enum ColorGradingSetting {
+    /// The global color grading settings. They apply to
     /// the whole image as opposed to specifically to highlights, midtones, or
     /// shadows.
-    Global(SelectedGlobalColorGradingOption),
+    Global(GlobalColorGradingSetting),
 
-    /// The user has selected a color grading option that applies only to
-    /// highlights, midtones, or shadows.
-    Section(
-        SelectedColorGradingSection,
-        SelectedSectionColorGradingOption,
-    ),
+    /// A color grading setting that applies only to highlights, midtones, or shadows.
+    Section(SectionColorGradingName, SectionColorGradingSetting),
 }
 
-impl Default for SelectedColorGradingOption {
+impl Default for ColorGradingSetting {
     fn default() -> Self {
         Self::Global(default())
     }
 }
 
-/// Buttons consist of three parts: the button itself, a label child, and a
-/// value child. This specifies one of the three entities.
-#[derive(Clone, Copy, PartialEq, Component)]
-enum ColorGradingOptionWidgetType {
-    /// The parent button.
-    Button,
-    /// The label of the button.
-    Label,
-    /// The numerical value that the button displays.
-    Value,
-}
-
-#[derive(Clone, Copy, Component)]
-struct ColorGradingOptionWidget {
-    widget_type: ColorGradingOptionWidgetType,
-    option: SelectedColorGradingOption,
-}
-
-/// A marker component for the help text at the top left of the screen.
-#[derive(Clone, Copy, Component)]
-struct HelpText;
-
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
-        .init_resource::<SelectedColorGradingOption>()
+        .add_plugins((DefaultPlugins, FeathersPlugins))
+        .insert_resource(UiTheme(get_example_theme()))
         .add_systems(Startup, setup)
-        .add_systems(
-            Update,
-            (
-                handle_button_presses,
-                adjust_color_grading_option,
-                update_ui_state,
-            )
-                .chain(),
-        )
+        .add_observer(handle_value_change_number_input)
         .run();
 }
 
-fn setup(
-    mut commands: Commands,
-    currently_selected_option: Res<SelectedColorGradingOption>,
-    asset_server: Res<AssetServer>,
-) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Create the scene.
     add_basic_scene(&mut commands, &asset_server);
 
     // Create the root UI element.
-    let font = asset_server.load(FONT_PATH);
     let color_grading = ColorGrading::default();
-    add_buttons(&mut commands, &font, &color_grading);
+    add_buttons(&mut commands, &color_grading);
 
-    // Spawn help text.
-    add_help_text(&mut commands, &font, &currently_selected_option);
+    add_help_text(&mut commands);
 
     // Spawn the camera.
     add_camera(&mut commands, &asset_server, color_grading);
 }
 
 /// Adds all the buttons on the bottom of the scene.
-fn add_buttons(commands: &mut Commands, font: &Handle<Font>, color_grading: &ColorGrading) {
-    commands.spawn((
+fn add_buttons(commands: &mut Commands, color_grading: &ColorGrading) {
+    commands.spawn_scene(bsn! {
         // Spawn the parent node that contains all the buttons.
         Node {
-            flex_direction: FlexDirection::Column,
+            flex_direction: FlexDirection::Row,
             position_type: PositionType::Absolute,
-            row_gap: px(6),
+            column_gap: px(6),
             left: px(12),
             bottom: px(12),
-            ..default()
-        },
-        children![
-            // Create the first row, which contains the global controls.
-            buttons_for_global_controls(color_grading, font),
-            // Create the rows for individual controls.
-            buttons_for_section(SelectedColorGradingSection::Highlights, color_grading, font),
-            buttons_for_section(SelectedColorGradingSection::Midtones, color_grading, font),
-            buttons_for_section(SelectedColorGradingSection::Shadows, color_grading, font),
-        ],
-    ));
+        }
+        Children [
+            // Create the first pane, which contains the global controls.
+            pane_for_global_controls(color_grading),
+            // Create the following panes for individual controls.
+            pane_for_section(SectionColorGradingName::Highlights, color_grading),
+            pane_for_section(SectionColorGradingName::Midtones, color_grading),
+            pane_for_section(SectionColorGradingName::Shadows, color_grading),
+        ]
+    });
 }
 
 /// Adds the buttons for the global controls (those that control the scene as a
 /// whole as opposed to shadows, midtones, or highlights).
-fn buttons_for_global_controls(color_grading: &ColorGrading, font: &Handle<Font>) -> impl Bundle {
-    let make_button = |option: SelectedGlobalColorGradingOption| {
-        button_for_value(
-            SelectedColorGradingOption::Global(option),
-            color_grading,
-            font,
-        )
-    };
+fn pane_for_global_controls(color_grading: &ColorGrading) -> impl Scene {
+    let make_button =
+        |option| number_input_for_value(ColorGradingSetting::Global(option), color_grading);
 
-    // Add the parent node for the row.
-    (
-        Node::default(),
-        children![
-            Node {
-                width: px(125),
-                ..default()
-            },
-            make_button(SelectedGlobalColorGradingOption::Exposure),
-            make_button(SelectedGlobalColorGradingOption::Temperature),
-            make_button(SelectedGlobalColorGradingOption::Tint),
-            make_button(SelectedGlobalColorGradingOption::Hue),
-        ],
-    )
+    bsn! {
+        pane()
+        Children [
+            // Spawn the label ("Highlights", etc.)
+            pane_header()
+            Children[
+                Node {
+                    width: px(120)
+                    align_self: AlignSelf::Start,
+                }
+                Children [
+                    label("Global Settings")
+                ]
+            ],
+
+            // Spawn the buttons
+            pane_body()
+            Children [
+                make_button(GlobalColorGradingSetting::Exposure),
+                make_button(GlobalColorGradingSetting::Temperature),
+                make_button(GlobalColorGradingSetting::Tint),
+                make_button(GlobalColorGradingSetting::Hue),
+            ]
+        ]
+    }
 }
 
 /// Adds the buttons that control color grading for individual sections
 /// (highlights, midtones, shadows).
-fn buttons_for_section(
-    section: SelectedColorGradingSection,
-    color_grading: &ColorGrading,
-    font: &Handle<Font>,
-) -> impl Bundle {
-    let make_button = |option| {
-        button_for_value(
-            SelectedColorGradingOption::Section(section, option),
+fn pane_for_section(section: SectionColorGradingName, color_grading: &ColorGrading) -> impl Scene {
+    let make_button = |setting| {
+        number_input_for_value(
+            ColorGradingSetting::Section(section, setting),
             color_grading,
-            font,
         )
     };
 
-    // Spawn the row container.
-    (
-        Node {
-            align_items: AlignItems::Center,
-            ..default()
-        },
-        children![
+    bsn! {
+        pane()
+        Children [
             // Spawn the label ("Highlights", etc.)
-            (
-                text(&section.to_string(), font, Color::WHITE),
+            pane_header()
+            Children [
                 Node {
-                    width: px(125),
-                    ..default()
+                    width: px(120),
+                    align_self: AlignSelf::Start,
                 }
-            ),
+                Children [
+                    label(section.to_string())
+                ],
+            ],
+
             // Spawn the buttons.
-            make_button(SelectedSectionColorGradingOption::Saturation),
-            make_button(SelectedSectionColorGradingOption::Contrast),
-            make_button(SelectedSectionColorGradingOption::Gamma),
-            make_button(SelectedSectionColorGradingOption::Gain),
-            make_button(SelectedSectionColorGradingOption::Lift),
-        ],
-    )
+            pane_body()
+            Children[
+                make_button(SectionColorGradingSetting::Saturation),
+                make_button(SectionColorGradingSetting::Contrast),
+                make_button(SectionColorGradingSetting::Gamma),
+                make_button(SectionColorGradingSetting::Gain),
+                make_button(SectionColorGradingSetting::Lift),
+            ]
+        ]
+    }
 }
 
-/// Adds a button that controls one of the color grading values.
-fn button_for_value(
-    option: SelectedColorGradingOption,
+/// Adds a feathers number input that controls one of the color grading values.
+fn number_input_for_value(
+    setting: ColorGradingSetting,
     color_grading: &ColorGrading,
-    font: &Handle<Font>,
-) -> impl Bundle {
-    let label = match option {
-        SelectedColorGradingOption::Global(option) => option.to_string(),
-        SelectedColorGradingOption::Section(_, option) => option.to_string(),
+) -> impl Scene {
+    let setting_label = match setting {
+        ColorGradingSetting::Global(setting) => setting.to_string(),
+        ColorGradingSetting::Section(_, setting) => setting.to_string(),
     };
 
-    // Add the button node.
-    (
-        Button,
+    bsn! {
         Node {
-            border: UiRect::all(px(1)),
-            width: px(200),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
-            padding: UiRect::axes(px(12), px(6)),
-            margin: UiRect::right(px(12)),
-            border_radius: BorderRadius::MAX,
-            ..default()
-        },
-        BorderColor::all(Color::WHITE),
-        BackgroundColor(Color::BLACK),
-        ColorGradingOptionWidget {
-            widget_type: ColorGradingOptionWidgetType::Button,
-            option,
-        },
-        children![
-            // Add the button label.
-            (
-                text(&label, font, Color::WHITE),
-                ColorGradingOptionWidget {
-                    widget_type: ColorGradingOptionWidgetType::Label,
-                    option,
-                },
-            ),
-            // Add a spacer.
+        }
+        Children [
             Node {
-                flex_grow: 1.0,
-                ..default()
-            },
-            // Add the value text.
-            (
-                text(
-                    &format!("{:.3}", option.get(color_grading)),
-                    font,
-                    Color::WHITE,
-                ),
-                ColorGradingOptionWidget {
-                    widget_type: ColorGradingOptionWidgetType::Value,
-                    option,
-                },
-            ),
-        ],
-    )
-}
+                width: px(120),
+            }
+            Children[
+                label(setting_label)
+            ],
 
-/// Creates the help text at the top of the screen.
-fn add_help_text(
-    commands: &mut Commands,
-    font: &Handle<Font>,
-    currently_selected_option: &SelectedColorGradingOption,
-) {
-    commands.spawn((
-        Text::new(create_help_text(currently_selected_option)),
-        TextFont {
-            font: FontSource::from(font),
-            ..default()
-        },
-        Node {
-            position_type: PositionType::Absolute,
-            left: px(12),
-            top: px(12),
-            ..default()
-        },
-        HelpText,
-    ));
-}
-
-/// Adds some text to the scene.
-fn text(label: &str, font: &Handle<Font>, color: Color) -> impl Bundle + use<> {
-    (
-        Text::new(label),
-        TextFont {
-            font: font.into(),
-            font_size: FontSize::Px(15.0),
-            ..default()
-        },
-        TextColor(color),
-    )
+            Node {
+                align_items: AlignItems::Center,
+                width: px(50),
+            }
+            @FeathersNumberInput
+            template_value(NumberInputValue::F32(setting.get(color_grading)))
+            template_value(setting)
+            NumberInputPrecision(2)
+            HardLimit::f32(0. ..10.)
+        ]
+    }
 }
 
 fn add_camera(commands: &mut Commands, asset_server: &AssetServer, color_grading: ColorGrading) {
@@ -374,85 +285,102 @@ fn add_basic_scene(commands: &mut Commands, asset_server: &AssetServer) {
     ));
 }
 
-impl Display for SelectedGlobalColorGradingOption {
+/// Observer that handles changes to number inputs.
+fn handle_value_change_number_input(
+    value_change: On<ValueChange<f32>>,
+    mut commands: Commands,
+    setting_q: Query<&ColorGradingSetting, With<FeathersNumberInput>>,
+    mut color_grading: Single<&mut ColorGrading>,
+) {
+    if let Ok(setting) = setting_q.get(value_change.source) {
+        setting.set(&mut color_grading, value_change.value);
+
+        commands
+            .entity(value_change.source)
+            .insert(NumberInputValue::F32(value_change.value));
+    }
+}
+
+impl Display for GlobalColorGradingSetting {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let name = match *self {
-            SelectedGlobalColorGradingOption::Exposure => "Exposure",
-            SelectedGlobalColorGradingOption::Temperature => "Temperature",
-            SelectedGlobalColorGradingOption::Tint => "Tint",
-            SelectedGlobalColorGradingOption::Hue => "Hue",
+            GlobalColorGradingSetting::Exposure => "Exposure",
+            GlobalColorGradingSetting::Temperature => "Temperature",
+            GlobalColorGradingSetting::Tint => "Tint",
+            GlobalColorGradingSetting::Hue => "Hue",
         };
         f.write_str(name)
     }
 }
 
-impl Display for SelectedColorGradingSection {
+impl Display for SectionColorGradingName {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let name = match *self {
-            SelectedColorGradingSection::Highlights => "Highlights",
-            SelectedColorGradingSection::Midtones => "Midtones",
-            SelectedColorGradingSection::Shadows => "Shadows",
+            SectionColorGradingName::Highlights => "Highlights",
+            SectionColorGradingName::Midtones => "Midtones",
+            SectionColorGradingName::Shadows => "Shadows",
         };
         f.write_str(name)
     }
 }
 
-impl Display for SelectedSectionColorGradingOption {
+impl Display for SectionColorGradingSetting {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let name = match *self {
-            SelectedSectionColorGradingOption::Saturation => "Saturation",
-            SelectedSectionColorGradingOption::Contrast => "Contrast",
-            SelectedSectionColorGradingOption::Gamma => "Gamma",
-            SelectedSectionColorGradingOption::Gain => "Gain",
-            SelectedSectionColorGradingOption::Lift => "Lift",
+            SectionColorGradingSetting::Saturation => "Saturation",
+            SectionColorGradingSetting::Contrast => "Contrast",
+            SectionColorGradingSetting::Gamma => "Gamma",
+            SectionColorGradingSetting::Gain => "Gain",
+            SectionColorGradingSetting::Lift => "Lift",
         };
         f.write_str(name)
     }
 }
 
-impl Display for SelectedColorGradingOption {
+impl Display for ColorGradingSetting {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            SelectedColorGradingOption::Global(option) => write!(f, "\"{option}\""),
-            SelectedColorGradingOption::Section(section, option) => {
+            ColorGradingSetting::Global(option) => write!(f, "\"{option}\""),
+            ColorGradingSetting::Section(section, option) => {
                 write!(f, "\"{option}\" for \"{section}\"")
             }
         }
     }
 }
 
-impl SelectedSectionColorGradingOption {
+impl SectionColorGradingSetting {
     /// Returns the appropriate value in the given color grading section.
     fn get(&self, section: &ColorGradingSection) -> f32 {
         match *self {
-            SelectedSectionColorGradingOption::Saturation => section.saturation,
-            SelectedSectionColorGradingOption::Contrast => section.contrast,
-            SelectedSectionColorGradingOption::Gamma => section.gamma,
-            SelectedSectionColorGradingOption::Gain => section.gain,
-            SelectedSectionColorGradingOption::Lift => section.lift,
+            SectionColorGradingSetting::Saturation => section.saturation,
+            SectionColorGradingSetting::Contrast => section.contrast,
+            SectionColorGradingSetting::Gamma => section.gamma,
+            SectionColorGradingSetting::Gain => section.gain,
+            SectionColorGradingSetting::Lift => section.lift,
         }
     }
 
+    /// Sets the appropriate value in the given set of color grading values.
     fn set(&self, section: &mut ColorGradingSection, value: f32) {
         match *self {
-            SelectedSectionColorGradingOption::Saturation => section.saturation = value,
-            SelectedSectionColorGradingOption::Contrast => section.contrast = value,
-            SelectedSectionColorGradingOption::Gamma => section.gamma = value,
-            SelectedSectionColorGradingOption::Gain => section.gain = value,
-            SelectedSectionColorGradingOption::Lift => section.lift = value,
+            SectionColorGradingSetting::Saturation => section.saturation = value,
+            SectionColorGradingSetting::Contrast => section.contrast = value,
+            SectionColorGradingSetting::Gamma => section.gamma = value,
+            SectionColorGradingSetting::Gain => section.gain = value,
+            SectionColorGradingSetting::Lift => section.lift = value,
         }
     }
 }
 
-impl SelectedGlobalColorGradingOption {
+impl GlobalColorGradingSetting {
     /// Returns the appropriate value in the given set of global color grading
     /// values.
     fn get(&self, global: &ColorGradingGlobal) -> f32 {
         match *self {
-            SelectedGlobalColorGradingOption::Exposure => global.exposure,
-            SelectedGlobalColorGradingOption::Temperature => global.temperature,
-            SelectedGlobalColorGradingOption::Tint => global.tint,
-            SelectedGlobalColorGradingOption::Hue => global.hue,
+            GlobalColorGradingSetting::Exposure => global.exposure,
+            GlobalColorGradingSetting::Temperature => global.temperature,
+            GlobalColorGradingSetting::Tint => global.tint,
+            GlobalColorGradingSetting::Hue => global.hue,
         }
     }
 
@@ -460,27 +388,26 @@ impl SelectedGlobalColorGradingOption {
     /// values.
     fn set(&self, global: &mut ColorGradingGlobal, value: f32) {
         match *self {
-            SelectedGlobalColorGradingOption::Exposure => global.exposure = value,
-            SelectedGlobalColorGradingOption::Temperature => global.temperature = value,
-            SelectedGlobalColorGradingOption::Tint => global.tint = value,
-            SelectedGlobalColorGradingOption::Hue => global.hue = value,
+            GlobalColorGradingSetting::Exposure => global.exposure = value,
+            GlobalColorGradingSetting::Temperature => global.temperature = value,
+            GlobalColorGradingSetting::Tint => global.tint = value,
+            GlobalColorGradingSetting::Hue => global.hue = value,
         }
     }
 }
 
-impl SelectedColorGradingOption {
+impl ColorGradingSetting {
     /// Returns the appropriate value in the given set of color grading values.
     fn get(&self, color_grading: &ColorGrading) -> f32 {
         match self {
-            SelectedColorGradingOption::Global(option) => option.get(&color_grading.global),
-            SelectedColorGradingOption::Section(
-                SelectedColorGradingSection::Highlights,
-                option,
-            ) => option.get(&color_grading.highlights),
-            SelectedColorGradingOption::Section(SelectedColorGradingSection::Midtones, option) => {
+            ColorGradingSetting::Global(option) => option.get(&color_grading.global),
+            ColorGradingSetting::Section(SectionColorGradingName::Highlights, option) => {
+                option.get(&color_grading.highlights)
+            }
+            ColorGradingSetting::Section(SectionColorGradingName::Midtones, option) => {
                 option.get(&color_grading.midtones)
             }
-            SelectedColorGradingOption::Section(SelectedColorGradingSection::Shadows, option) => {
+            ColorGradingSetting::Section(SectionColorGradingName::Shadows, option) => {
                 option.get(&color_grading.shadows)
             }
         }
@@ -489,118 +416,48 @@ impl SelectedColorGradingOption {
     /// Sets the appropriate value in the given set of color grading values.
     fn set(&self, color_grading: &mut ColorGrading, value: f32) {
         match self {
-            SelectedColorGradingOption::Global(option) => {
+            ColorGradingSetting::Global(option) => {
                 option.set(&mut color_grading.global, value);
             }
-            SelectedColorGradingOption::Section(
-                SelectedColorGradingSection::Highlights,
-                option,
-            ) => option.set(&mut color_grading.highlights, value),
-            SelectedColorGradingOption::Section(SelectedColorGradingSection::Midtones, option) => {
+            ColorGradingSetting::Section(SectionColorGradingName::Highlights, option) => {
+                option.set(&mut color_grading.highlights, value);
+            }
+            ColorGradingSetting::Section(SectionColorGradingName::Midtones, option) => {
                 option.set(&mut color_grading.midtones, value);
             }
-            SelectedColorGradingOption::Section(SelectedColorGradingSection::Shadows, option) => {
+            ColorGradingSetting::Section(SectionColorGradingName::Shadows, option) => {
                 option.set(&mut color_grading.shadows, value);
             }
         }
     }
 }
 
-/// Handles mouse clicks on the buttons when the user clicks on a new one.
-fn handle_button_presses(
-    mut interactions: Query<(&Interaction, &ColorGradingOptionWidget), Changed<Interaction>>,
-    mut currently_selected_option: ResMut<SelectedColorGradingOption>,
-) {
-    for (interaction, widget) in interactions.iter_mut() {
-        if widget.widget_type == ColorGradingOptionWidgetType::Button
-            && *interaction == Interaction::Pressed
-        {
-            *currently_selected_option = widget.option;
-        }
-    }
-}
+/// Get the Feathers Theme for the example. It is a slightly modified dark theme.
+fn get_example_theme() -> ThemeProps {
+    let mut props = create_dark_theme();
 
-/// Updates the state of the UI based on the current state.
-fn update_ui_state(
-    mut buttons: Query<(
-        &mut BackgroundColor,
-        &mut BorderColor,
-        &ColorGradingOptionWidget,
-    )>,
-    button_text: Query<(Entity, &ColorGradingOptionWidget), (With<Text>, Without<HelpText>)>,
-    help_text: Single<Entity, With<HelpText>>,
-    mut writer: TextUiWriter,
-    cameras: Single<Ref<ColorGrading>>,
-    currently_selected_option: Res<SelectedColorGradingOption>,
-) {
-    // Exit early if the UI didn't change
-    if !currently_selected_option.is_changed() && !cameras.is_changed() {
-        return;
-    }
-
-    // The currently-selected option is drawn with inverted colors.
-    for (mut background, mut border_color, widget) in buttons.iter_mut() {
-        if *currently_selected_option == widget.option {
-            *background = Color::WHITE.into();
-            *border_color = Color::BLACK.into();
-        } else {
-            *background = Color::BLACK.into();
-            *border_color = Color::WHITE.into();
+    // Pane background colors are made a little transparent to see the objects behind the setting controls.
+    for token in [PANE_HEADER_BG, PANE_HEADER_BORDER, PANE_BODY_BG] {
+        if let Some(color) = props.color.get_mut(&token) {
+            color.set_alpha(0.9);
         }
     }
 
-    let value_label = format!("{:.3}", currently_selected_option.get(cameras.as_ref()));
+    props
+}
 
-    // Update the buttons.
-    for (entity, widget) in button_text.iter() {
-        // Set the text color.
-
-        let color = if *currently_selected_option == widget.option {
-            Color::BLACK
-        } else {
-            Color::WHITE
-        };
-
-        writer.for_each_color(entity, |mut text_color| {
-            text_color.0 = color;
-        });
-
-        // Update the displayed value, if this is the currently-selected option.
-        if widget.widget_type == ColorGradingOptionWidgetType::Value
-            && *currently_selected_option == widget.option
-        {
-            writer.for_each_text(entity, |mut text| {
-                text.clone_from(&value_label);
-            });
+/// Creates the help text at the top of the screen.
+fn add_help_text(commands: &mut Commands) {
+    commands.spawn_scene(bsn! {
+        Node {
+            position_type: PositionType::Absolute,
+            left: px(12),
+            top: px(12),
         }
-    }
-
-    // Update the help text.
-    *writer.text(*help_text, 0) = create_help_text(&currently_selected_option);
-}
-
-/// Creates the help text at the top left of the window.
-fn create_help_text(currently_selected_option: &SelectedColorGradingOption) -> String {
-    format!("Press Left/Right to adjust {currently_selected_option}")
-}
-
-/// Processes keyboard input to change the value of the currently-selected color
-/// grading option.
-fn adjust_color_grading_option(
-    mut color_grading: Single<&mut ColorGrading>,
-    input: Res<ButtonInput<KeyCode>>,
-    currently_selected_option: Res<SelectedColorGradingOption>,
-) {
-    let mut delta = 0.0;
-    if input.pressed(KeyCode::ArrowLeft) {
-        delta -= OPTION_ADJUSTMENT_SPEED;
-    }
-    if input.pressed(KeyCode::ArrowRight) {
-        delta += OPTION_ADJUSTMENT_SPEED;
-    }
-
-    if delta != 0.0 {
-        let new_value = currently_selected_option.get(color_grading.as_ref()) + delta;
-        currently_selected_option.set(&mut color_grading, new_value);
-    }
+        Children [
+            Text::new("Drag a setting's input value to change the scene.\n\
+                        Click into an input field to change values via keyboard.\n\
+                        Values must be between 0 and 10.")
+        ]
+    });
 }

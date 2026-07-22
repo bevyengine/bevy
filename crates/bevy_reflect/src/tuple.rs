@@ -59,11 +59,16 @@ pub trait Tuple: PartialReflect {
     fn drain(self: Box<Self>) -> Vec<Box<dyn PartialReflect>>;
 
     /// Creates a new [`DynamicTuple`] from this tuple.
-    fn to_dynamic_tuple(&self) -> DynamicTuple {
-        DynamicTuple {
+    ///
+    /// Returns an error if any field cannot be converted via [`PartialReflect::to_dynamic`].
+    fn to_dynamic_tuple(&self) -> Result<DynamicTuple, ReflectCloneError> {
+        Ok(DynamicTuple {
             represented_type: self.get_represented_type_info(),
-            fields: self.iter_fields().map(PartialReflect::to_dynamic).collect(),
-        }
+            fields: self
+                .iter_fields()
+                .map(PartialReflect::to_dynamic)
+                .collect::<Result<_, _>>()?,
+        })
     }
 
     /// Will return `None` if [`TypeInfo`] is not available.

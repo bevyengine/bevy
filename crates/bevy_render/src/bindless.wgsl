@@ -1,3 +1,5 @@
+enable wgpu_binding_array;
+
 // Defines the common arrays used to access bindless resources.
 //
 // This need to be kept up to date with the `BINDING_NUMBERS` table in

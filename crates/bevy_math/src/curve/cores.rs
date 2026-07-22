@@ -616,7 +616,7 @@ impl<T> ChunkedUnevenCore<T> {
 
     /// The sample width: the number of values that are contained in each sample.
     #[inline]
-    pub fn width(&self) -> usize {
+    pub const fn width(&self) -> usize {
         self.values.len() / self.times.len()
     }
 

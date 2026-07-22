@@ -10,7 +10,7 @@ use crate::theme::ThemeToken;
 pub const WINDOW_BG: ThemeToken = ThemeToken::new_static("feathers.window.bg");
 
 /// Focus ring
-pub const FOCUS_RING: ThemeToken = ThemeToken::new_static("feathers.focus");
+pub const FOCUS_RING: ThemeToken = ThemeToken::new_static("feathers.focus.ring");
 
 /// Regular text
 pub const TEXT_MAIN: ThemeToken = ThemeToken::new_static("feathers.text.main");
@@ -413,4 +413,6 @@ pub const DIALOG_BORDER: ThemeToken = ThemeToken::new_static("feathers.dialog.bo
 /// Dialog header background
 pub const DIALOG_HEADER_BG: ThemeToken = ThemeToken::new_static("feathers.dialog.header.bg");
 /// Dialog text
-pub const DIALOG_TEXT: ThemeToken = ThemeToken::new_static("feathers.dialog.txt");
+pub const DIALOG_TEXT: ThemeToken = ThemeToken::new_static("feathers.dialog.text");
+/// Dialog header text
+pub const DIALOG_HEADER_TEXT: ThemeToken = ThemeToken::new_static("feathers.dialog.header.text");

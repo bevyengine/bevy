@@ -35,6 +35,7 @@ bevy_platform = { path = "../bevy_platform", version = "0.20.0-dev", default-fea
 ] }
 bevy_ui = { path = "../bevy_ui", version = "0.20.0-dev" }
 bevy_text = { path = "../bevy_text", version = "0.20.0-dev" }
+bevy_a11y = { path = "../bevy_a11y", version = "0.20.0-dev" }
 
 # other
 bytemuck = { version = "1.5", features = ["derive"] }
