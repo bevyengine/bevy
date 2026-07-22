@@ -503,6 +503,15 @@ impl Gradient {
                 .and_then(|stop| (gradient.stops.len() == 1).then_some(stop.color)),
         }
     }
+
+    /// Returns the color space that the gradient interpolates in.
+    pub fn get_color_space(&self) -> InterpolationColorSpace {
+        match self {
+            Gradient::Linear(linear_gradient) => linear_gradient.color_space,
+            Gradient::Radial(radial_gradient) => radial_gradient.color_space,
+            Gradient::Conic(conic_gradient) => conic_gradient.color_space,
+        }
+    }
 }
 
 impl From<LinearGradient> for Gradient {

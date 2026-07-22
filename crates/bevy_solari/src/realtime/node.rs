@@ -435,7 +435,7 @@ pub fn init_solari_lighting_pipelines(
             "compact_world_cache_blocks",
             load_embedded_asset!(asset_server.as_ref(), "world_cache_compact.wgsl"),
             Some(&bind_group_layout_world_cache_active_cells_dispatch),
-            vec![],
+            vec!["WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER".into()],
         ),
         compact_world_cache_write_active_cells_pipeline: create_pipeline(
             "solari_lighting_compact_world_cache_write_active_cells_pipeline",
@@ -492,7 +492,7 @@ pub fn init_solari_lighting_pipelines(
             "spatial_and_shade",
             load_embedded_asset!(asset_server.as_ref(), "restir.wgsl"),
             None,
-            vec![],
+            vec!["SPATIAL_MERGE".into()],
         ),
         #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
         resolve_dlss_rr_textures_pipeline: create_pipeline(

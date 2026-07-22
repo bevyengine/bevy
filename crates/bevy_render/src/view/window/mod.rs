@@ -1,5 +1,5 @@
-use crate::camera::extract_cameras;
 use crate::renderer::WgpuWrapper;
+use crate::{camera::extract_cameras, renderer::RenderQueue};
 use crate::sync_world::{MainEntity, RenderEntity, SyncToRenderWorld};
 use crate::{
     render_resource::{SurfaceTexture, TextureView},
@@ -103,13 +103,13 @@ impl ExtractedWindow {
         self.swap_chain_texture_view.is_some() && self.swap_chain_texture.is_some()
     }
 
-    pub fn present(&mut self) {
+    pub fn present(&mut self, queue: &RenderQueue) {
         if let Some(surface_texture) = self.swap_chain_texture.take() {
             // TODO(clean): winit docs recommends calling pre_present_notify before this.
             // though `present()` doesn't present the frame, it schedules it to be presented
             // by wgpu.
             // https://docs.rs/winit/0.29.9/wasm32-unknown-unknown/winit/window/struct.Window.html#method.pre_present_notify
-            surface_texture.present();
+            surface_texture.present(queue);
         }
     }
 }

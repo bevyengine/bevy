@@ -16,14 +16,14 @@ use bevy_math::{Rect, Vec2};
 use bevy_platform::hash::FixedHasher;
 
 use bevy_text::{
-    add_glyph_to_atlas, cursor_reveal_rect, get_glyph_atlas_info, resolve_font_source,
-    scrollable_text_layout_width, EditableText, EditableTextGeneration, Font, FontAtlasKey,
-    FontAtlasSet, FontCx, FontHinting, FontSize, GlyphCacheKey, LayoutCx, LineBreak, LineHeight,
-    PositionedGlyph, RemSize, RunGeometry, ScaleCx, TextBrush, TextFont, TextLayout,
-    TextLayoutInfo, TextLineYBounds,
+    add_glyph_to_atlas, cursor_reveal_rect, get_glyph_atlas_info, scrollable_text_layout_width,
+    EditableText, EditableTextGeneration, Font, FontAtlasKey, FontAtlasSet, FontCx, FontHinting,
+    FontSize, GlyphCacheKey, LayoutCx, LineBreak, LineHeight, PositionedGlyph, RemSize,
+    RunGeometry, ScaleCx, TextBrush, TextFont, TextLayout, TextLayoutInfo, TextLineYBounds,
 };
 use bevy_time::{Real, Time};
 use parley::{BoundingBox, PositionedLayoutItem, StyleProperty};
+use smallvec::SmallVec;
 use swash::FontRef;
 use taffy::MaybeMath;
 
@@ -56,6 +56,17 @@ impl crate::Measure for TextInputMeasure {
     }
 }
 
+fn query_family<'a, 'b>(
+    family: &'a parley::FontFamilyName<'b>,
+) -> parley::fontique::QueryFamily<'a> {
+    match family {
+        parley::FontFamilyName::Named(name) => parley::fontique::QueryFamily::Named(name.as_ref()),
+        parley::FontFamilyName::Generic(generic) => {
+            parley::fontique::QueryFamily::Generic(*generic)
+        }
+    }
+}
+
 /// If `visible_lines` or `visible_width` are `Some`, sets a `ContentSize` that determines:
 /// - node height as `line_height * visible_lines`, using the resolved font line height.
 /// - node width as `advance('0') * visible_width`, where `advance('0')` is looked up from font metrics.
@@ -84,19 +95,27 @@ pub fn update_editable_text_content_size(
         let font_size = text_font.font_size.eval(target.logical_size(), rem_size.0);
 
         let width = editable_text.visible_width.and_then(|visible_width| {
-            let resolved_font = resolve_font_source(&text_font, fonts.as_ref()).ok()?;
             let font_context = &mut font_cx.context;
             let mut query = font_context
                 .collection
                 .query(&mut font_context.source_cache);
-            match resolved_font {
-                parley::FontFamily::Single(parley::FontFamilyName::Named(name)) => {
-                    query.set_families([parley::fontique::QueryFamily::Named(name.as_ref())]);
+
+            match text_font.font.resolve_font_family(fonts.as_ref()).ok()? {
+                parley::FontFamily::Source(source) => {
+                    query.set_families(
+                        parley::FontFamilyName::parse_css_list(&source)
+                            .map_while(Result::ok)
+                            .collect::<SmallVec<[_; 4]>>()
+                            .iter()
+                            .map(query_family),
+                    );
                 }
-                parley::FontFamily::Single(parley::FontFamilyName::Generic(generic)) => {
-                    query.set_families([parley::fontique::QueryFamily::Generic(generic)]);
+                parley::FontFamily::Single(family) => {
+                    query.set_families([query_family(&family)]);
                 }
-                _ => return None,
+                parley::FontFamily::List(families) => {
+                    query.set_families(families.iter().map(query_family));
+                }
             }
             query.set_attributes(parley::fontique::Attributes::new(
                 text_font.width.into(),
@@ -188,11 +207,11 @@ pub fn update_editable_text_styles(
         }
 
         if text_font.is_changed() {
-            let Ok(resolved_font) = resolve_font_source(&text_font, fonts.as_ref()) else {
+            let Ok(resolved_family) = text_font.font.resolve_font_family(fonts.as_ref()) else {
                 continue;
             };
 
-            let family = resolved_font.into_owned();
+            let family = resolved_family.into_owned();
             let style_set = editable_text.editor.edit_styles();
             style_set.insert(StyleProperty::FontFamily(family));
             style_set.insert(StyleProperty::FontWeight(text_font.weight.into()));

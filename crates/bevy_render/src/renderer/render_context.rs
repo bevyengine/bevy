@@ -3,13 +3,14 @@ use crate::diagnostic::internal::DiagnosticsRecorder;
 use crate::render_phase::TrackedRenderPass;
 use crate::render_resource::{CommandEncoder, RenderPassDescriptor};
 use crate::renderer::RenderDevice;
+use alloc::borrow::Cow;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::change_detection::Tick;
 use bevy_ecs::component::ComponentId;
 use bevy_ecs::prelude::*;
 use bevy_ecs::query::{FilteredAccessSet, QueryData, QueryFilter, QueryState};
 use bevy_ecs::system::{
-    Deferred, SystemBuffer, SystemMeta, SystemParam, SystemParamValidationError,
+    Deferred, SystemBuffer, SystemMeta, SystemName, SystemParam, SystemParamValidationError,
 };
 use bevy_ecs::world::unsafe_world_cell::UnsafeWorldCell;
 use bevy_ecs::world::DeferredWorld;
@@ -30,7 +31,7 @@ enum PendingCommandBuffer {
     Encoder {
         encoder: CommandEncoder,
         #[cfg(feature = "trace")]
-        name: Option<String>,
+        name: Cow<'static, str>,
     },
 }
 
@@ -55,14 +56,14 @@ impl PendingCommandBuffers {
         self.0.commands.append(commands);
     }
 
-    pub fn push_encoder(&mut self, encoder: CommandEncoder, name: &'static str) {
+    pub fn push_encoder(&mut self, encoder: CommandEncoder, name: impl Into<Cow<'static, str>>) {
         #[cfg(not(feature = "trace"))]
         let _ = name;
 
         self.0.commands.push(PendingCommandBuffer::Encoder {
             encoder,
             #[cfg(feature = "trace")]
-            name: Some(name.into()),
+            name: name.into(),
         });
     }
 
@@ -70,7 +71,7 @@ impl PendingCommandBuffers {
         #[cfg(feature = "trace")]
         let _finish_command_buffers_span = info_span!("finish_command_buffers").entered();
 
-        let commands = core::mem::take(&mut self.0.commands);
+        let commands = self.0.commands.drain(..);
 
         #[cfg(target_arch = "wasm32")]
         {
@@ -97,7 +98,9 @@ impl PendingCommandBuffers {
 /// Used on wasm, where wgpu command encoders and buffers are `!Send` and so
 /// cannot be finished across task pool threads.
 #[cfg(target_arch = "wasm32")]
-fn finish_sequential(commands: Vec<PendingCommandBuffer>) -> impl Iterator<Item = CommandBuffer> {
+fn finish_sequential(
+    commands: impl Iterator<Item = PendingCommandBuffer>,
+) -> impl Iterator<Item = CommandBuffer> {
     commands.into_iter().map(|command| match command {
         PendingCommandBuffer::Buffer(command_buffer) => command_buffer,
         PendingCommandBuffer::Encoder { encoder, .. } => encoder.finish(),
@@ -107,8 +110,10 @@ fn finish_sequential(commands: Vec<PendingCommandBuffer>) -> impl Iterator<Item 
 /// Finishes pending command encoders in parallel on the [`ComputeTaskPool`],
 /// then reassembles the command buffers in their original order.
 #[cfg(not(target_arch = "wasm32"))]
-fn finish_parallel(commands: Vec<PendingCommandBuffer>) -> impl Iterator<Item = CommandBuffer> {
-    let mut command_buffers = Vec::with_capacity(commands.len());
+fn finish_parallel(
+    commands: impl Iterator<Item = PendingCommandBuffer>,
+) -> impl Iterator<Item = CommandBuffer> {
+    let mut command_buffers = Vec::with_capacity(commands.size_hint().0);
     let mut finished_encoders = ComputeTaskPool::get().scope(|scope| {
         for (index, command) in commands.into_iter().enumerate() {
             match command {
@@ -122,11 +127,8 @@ fn finish_parallel(commands: Vec<PendingCommandBuffer>) -> impl Iterator<Item = 
                 } => {
                     scope.spawn(async move {
                         #[cfg(feature = "trace")]
-                        let _span = info_span!(
-                            "finish_command_buffer",
-                            system = name.as_deref().unwrap_or("unknown")
-                        )
-                        .entered();
+                        let _span =
+                            info_span!("finish_command_buffer", system = name.as_ref()).entered();
                         (index, encoder.finish())
                     });
                 }
@@ -154,7 +156,7 @@ impl RenderContextStateInner {
             self.commands.push(PendingCommandBuffer::Encoder {
                 encoder,
                 #[cfg(feature = "trace")]
-                name: None,
+                name: "RenderContextState::flush_encoder".into(),
             });
         }
     }
@@ -177,7 +179,7 @@ impl RenderContextState {
         self.0.flush_encoder();
     }
 
-    fn command_encoder(&mut self) -> &mut CommandEncoder {
+    fn command_encoder(&mut self, label: &str) -> &mut CommandEncoder {
         let render_device = self
             .0
             .render_device
@@ -185,16 +187,8 @@ impl RenderContextState {
             .expect("RenderDevice must be set before accessing command_encoder");
 
         self.0.command_encoder.get_or_insert_with(|| {
-            render_device.create_command_encoder(&wgpu::CommandEncoderDescriptor::default())
-        })
-    }
-
-    pub fn finish(&mut self) -> impl Iterator<Item = CommandBuffer> {
-        self.flush_encoder();
-        let commands = core::mem::take(&mut self.0.commands);
-        commands.into_iter().map(|command| match command {
-            PendingCommandBuffer::Buffer(command_buffer) => command_buffer,
-            PendingCommandBuffer::Encoder { encoder, .. } => encoder.finish(),
+            render_device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some(label) })
         })
     }
 }
@@ -212,7 +206,7 @@ impl SystemBuffer for RenderContextState {
         #[cfg(feature = "trace")]
         for command in &mut inner.commands {
             if let PendingCommandBuffer::Encoder { name, .. } = command {
-                *name = Some(_system_meta.name().to_string());
+                *name = _system_meta.name().clone().into();
             }
         }
 
@@ -231,6 +225,7 @@ impl SystemBuffer for RenderContextState {
 #[derive(SystemParam)]
 pub struct RenderContext<'w, 's> {
     state: Deferred<'s, RenderContextState>,
+    system_name: SystemName,
     render_device: Res<'w, RenderDevice>,
     diagnostics_recorder: Option<Res<'w, DiagnosticsRecorder>>,
 }
@@ -255,7 +250,7 @@ impl<'w, 's> RenderContext<'w, 's> {
     /// Returns the current command encoder, creating one if it does not already exist.
     pub fn command_encoder(&mut self) -> &mut CommandEncoder {
         self.ensure_device();
-        self.state.command_encoder()
+        self.state.command_encoder(self.system_name.as_str())
     }
 
     /// Begins a tracked render pass with the given descriptor.
@@ -267,7 +262,9 @@ impl<'w, 's> RenderContext<'w, 's> {
 
         let command_encoder = self.state.0.command_encoder.get_or_insert_with(|| {
             self.render_device
-                .create_command_encoder(&wgpu::CommandEncoderDescriptor::default())
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                    label: Some(self.system_name.as_str()),
+                })
         });
 
         let render_pass = command_encoder.begin_render_pass(&descriptor);

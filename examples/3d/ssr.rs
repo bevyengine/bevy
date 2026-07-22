@@ -7,6 +7,12 @@ use bevy::{
     anti_alias::taa::TemporalAntiAliasing,
     camera::Hdr,
     color::palettes::css::{BLACK, WHITE},
+    feathers::{
+        controls::{FeathersNumberInput, HardLimit, NumberInputPrecision, NumberInputValue},
+        display::{label, label_small},
+        theme::UiTheme,
+        FeathersPlugins,
+    },
     image::{
         ImageAddressMode, ImageFilterMode, ImageLoaderSettings, ImageSampler,
         ImageSamplerDescriptor,
@@ -21,16 +27,17 @@ use bevy::{
     prelude::*,
     render::render_resource::{AsBindGroup, ShaderType},
     shader::ShaderRef,
+    ui_widgets::{radio_self_update, ValueChange},
 };
 
-#[path = "../helpers/widgets.rs"]
-mod widgets;
+#[path = "../helpers/radio.rs"]
+mod radio;
 
-use widgets::{
-    handle_ui_interactions, main_ui_node, option_buttons, update_ui_radio_button,
-    update_ui_radio_button_text, RadioButton, RadioButtonText, WidgetClickEvent, WidgetClickSender,
-    BUTTON_BORDER, BUTTON_BORDER_COLOR, BUTTON_BORDER_RADIUS_SIZE, BUTTON_PADDING,
-};
+#[path = "../helpers/theme.rs"]
+mod theme;
+
+use radio::{feathers_option_buttons, main_ui_node_scene};
+use theme::basic_example_theme;
 
 /// This example uses a shader source file from the assets subdirectory
 const SHADER_ASSET_PATH: &str = "shaders/water_material.wgsl";
@@ -74,7 +81,7 @@ struct WaterSettings {
 #[derive(Resource)]
 struct AppSettings {
     /// Whether screen space reflections are on.
-    ssr_on: bool,
+    ssr_on: SsrOn,
     /// Which model is being displayed.
     displayed_model: DisplayedModel,
     /// Which base is being displayed.
@@ -85,6 +92,29 @@ struct AppSettings {
     max_perceptual_roughness: Range<f32>,
     /// The range over which SSR begins to fade out at the edges of the screen.
     edge_fadeout: Range<f32>,
+}
+
+impl Default for AppSettings {
+    fn default() -> Self {
+        Self {
+            ssr_on: default(),
+            displayed_model: default(),
+            displayed_base: default(),
+            min_perceptual_roughness: 0.0..0.01,
+            max_perceptual_roughness: 0.99..1.0,
+            edge_fadeout: 0.0..0.0,
+        }
+    }
+}
+
+/// Whether screen space reflections are on.
+#[derive(Clone, Copy, Deref, PartialEq)]
+pub struct SsrOn(bool);
+
+impl Default for SsrOn {
+    fn default() -> Self {
+        Self(true)
+    }
 }
 
 /// Which model is being displayed.
@@ -133,25 +163,6 @@ impl fmt::Display for DisplayedBase {
     }
 }
 
-#[derive(Clone, Copy, PartialEq)]
-enum ExampleSetting {
-    Ssr(bool),
-    Model(DisplayedModel),
-    Base(DisplayedBase),
-    MinRoughnessStart(Adjustment),
-    MinRoughnessEnd(Adjustment),
-    MaxRoughnessStart(Adjustment),
-    MaxRoughnessEnd(Adjustment),
-    EdgeFadeoutStart(Adjustment),
-    EdgeFadeoutEnd(Adjustment),
-}
-
-#[derive(Clone, Copy, PartialEq)]
-enum Adjustment {
-    Increase,
-    Decrease,
-}
-
 /// A marker component for the single cube model.
 #[derive(Component)]
 struct CubeModel;
@@ -180,9 +191,12 @@ struct RedPlaneBaseModel;
 #[derive(Component)]
 struct WaterModel;
 
-/// A marker component for the text that displays a range value.
-#[derive(Component)]
-enum RangeValueText {
+/// A marker component for the range value so that
+/// the correct value in `AppSettings` can be updated.
+/// This derives `Default` so that it is easily compatible for use in bsn!
+#[derive(Component, Clone, Copy, PartialEq, Default)]
+enum AppNumberInput {
+    #[default]
     MinRoughnessStart,
     MinRoughnessEnd,
     MaxRoughnessStart,
@@ -207,21 +221,26 @@ fn main() {
     // rendering doesn't support that.
     App::new()
         .insert_resource(DefaultOpaqueRendererMethod::deferred())
+        .insert_resource(UiTheme(basic_example_theme(Color::WHITE)))
         .init_resource::<AppSettings>()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "Bevy Screen Space Reflections Example".into(),
+        .add_plugins((
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    title: "Bevy Screen Space Reflections Example".into(),
+                    ..default()
+                }),
                 ..default()
             }),
-            ..default()
-        }))
+            FeathersPlugins,
+        ))
         .add_plugins(MaterialPlugin::<ExtendedMaterial<StandardMaterial, Water>>::default())
-        .add_message::<WidgetClickEvent<ExampleSetting>>()
         .add_systems(Startup, setup)
         .add_systems(Update, rotate_model)
         .add_systems(Update, move_camera)
-        .add_systems(Update, adjust_app_settings)
-        .add_systems(Update, handle_ui_interactions::<ExampleSetting>)
+        .add_observer(handle_value_change_ssr_on)
+        .add_observer(handle_value_change_displayed_model)
+        .add_observer(handle_value_change_displayed_base)
+        .add_observer(radio_self_update)
         .run();
 }
 
@@ -442,71 +461,57 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer, app_setting
 }
 
 fn spawn_buttons(commands: &mut Commands, app_settings: &AppSettings) {
-    commands.spawn(main_ui_node()).with_children(|parent| {
-        parent.spawn(option_buttons(
-            "SSR",
-            &[
-                (ExampleSetting::Ssr(true), "On"),
-                (ExampleSetting::Ssr(false), "Off"),
-            ],
-        ));
-
-        parent.spawn(option_buttons(
-            "Model",
-            &[
-                (ExampleSetting::Model(DisplayedModel::Cube), "Cube"),
-                (
-                    ExampleSetting::Model(DisplayedModel::FlightHelmet),
-                    "Flight Helmet",
-                ),
-                (ExampleSetting::Model(DisplayedModel::Capsules), "Capsules"),
-            ],
-        ));
-
-        parent.spawn(option_buttons(
-            "Base",
-            &[
-                (ExampleSetting::Base(DisplayedBase::Water), "Water"),
-                (ExampleSetting::Base(DisplayedBase::Metallic), "Metallic"),
-                (ExampleSetting::Base(DisplayedBase::RedPlane), "Red Plane"),
-            ],
-        ));
-
-        parent.spawn(range_row(
-            "Min Roughness",
-            app_settings.min_perceptual_roughness.start,
-            app_settings.min_perceptual_roughness.end,
-            RangeValueText::MinRoughnessStart,
-            RangeValueText::MinRoughnessEnd,
-            ExampleSetting::MinRoughnessStart(Adjustment::Decrease),
-            ExampleSetting::MinRoughnessStart(Adjustment::Increase),
-            ExampleSetting::MinRoughnessEnd(Adjustment::Decrease),
-            ExampleSetting::MinRoughnessEnd(Adjustment::Increase),
-        ));
-
-        parent.spawn(range_row(
-            "Max Roughness",
-            app_settings.max_perceptual_roughness.start,
-            app_settings.max_perceptual_roughness.end,
-            RangeValueText::MaxRoughnessStart,
-            RangeValueText::MaxRoughnessEnd,
-            ExampleSetting::MaxRoughnessStart(Adjustment::Decrease),
-            ExampleSetting::MaxRoughnessStart(Adjustment::Increase),
-            ExampleSetting::MaxRoughnessEnd(Adjustment::Decrease),
-            ExampleSetting::MaxRoughnessEnd(Adjustment::Increase),
-        ));
-
-        parent.spawn(range_row(
-            "Edge Fadeout",
-            app_settings.edge_fadeout.start,
-            app_settings.edge_fadeout.end,
-            RangeValueText::EdgeFadeoutStart,
-            RangeValueText::EdgeFadeoutEnd,
-            ExampleSetting::EdgeFadeoutStart(Adjustment::Decrease),
-            ExampleSetting::EdgeFadeoutStart(Adjustment::Increase),
-            ExampleSetting::EdgeFadeoutEnd(Adjustment::Decrease),
-            ExampleSetting::EdgeFadeoutEnd(Adjustment::Increase),
-        ));
+    commands.spawn_scene(bsn! {
+        main_ui_node_scene()
+        Children[
+            feathers_option_buttons(
+                "SSR",
+                &[
+                    (SsrOn(true), "On"),
+                    (SsrOn(false), "Off"),
+                ],
+            ),
+            feathers_option_buttons(
+                "Model",
+                &[
+                    (DisplayedModel::Cube, "Cube"),
+                    (
+                        DisplayedModel::FlightHelmet,
+                        "Flight Helmet",
+                    ),
+                    (DisplayedModel::Capsules, "Capsules"),
+                ],
+            ),
+            feathers_option_buttons(
+                "Base",
+                &[
+                    (DisplayedBase::Water, "Water"),
+                    (DisplayedBase::Metallic, "Metallic"),
+                    (DisplayedBase::RedPlane, "Red Plane"),
+                ],
+            ),
+            range_row(
+                "Min Roughness",
+                app_settings.min_perceptual_roughness.start,
+                app_settings.min_perceptual_roughness.end,
+                AppNumberInput::MinRoughnessStart,
+                AppNumberInput::MinRoughnessEnd,
+            ),
+            range_row(
+                "Max Roughness",
+                app_settings.max_perceptual_roughness.start,
+                app_settings.max_perceptual_roughness.end,
+                AppNumberInput::MaxRoughnessStart,
+                AppNumberInput::MaxRoughnessEnd,
+            ),
+            range_row(
+                "Edge Fadeout",
+                app_settings.edge_fadeout.start,
+                app_settings.edge_fadeout.end,
+                AppNumberInput::EdgeFadeoutStart,
+                AppNumberInput::EdgeFadeoutEnd,
+            ),
+        ]
     });
 }
 
@@ -514,110 +519,50 @@ fn range_row(
     title: &str,
     start_value: f32,
     end_value: f32,
-    start_marker: RangeValueText,
-    end_marker: RangeValueText,
-    start_dec: ExampleSetting,
-    start_inc: ExampleSetting,
-    end_dec: ExampleSetting,
-    end_inc: ExampleSetting,
-) -> impl Bundle {
-    (
+    start_number_input: AppNumberInput,
+    end_number_input: AppNumberInput,
+) -> impl Scene {
+    bsn! {
         Node {
             align_items: AlignItems::Center,
-            ..default()
-        },
-        Children::spawn((
-            Spawn((
-                widgets::ui_text(title, Color::WHITE),
-                Node {
-                    width: px(150),
-                    ..default()
-                },
-            )),
-            Spawn(range_controls(
+        }
+        Children[
+            Node {
+                width: px(150),
+            }
+            Children[
+                label(title.to_string())
+            ],
+
+            range_controls(
                 start_value,
-                start_marker,
-                start_dec,
-                start_inc,
-            )),
-            Spawn((
-                widgets::ui_text("to", Color::WHITE),
-                Node {
-                    margin: UiRect::horizontal(px(10)),
-                    ..default()
-                },
-            )),
-            Spawn(range_controls(end_value, end_marker, end_dec, end_inc)),
-        )),
-    )
+                start_number_input
+            ),
+
+            Node {
+                margin: UiRect::horizontal(px(10)),
+            }
+            Children [
+                label_small("to".to_string())
+            ],
+
+            range_controls(end_value, end_number_input),
+        ]
+    }
 }
 
-fn range_controls(
-    value: f32,
-    marker: RangeValueText,
-    dec_setting: ExampleSetting,
-    inc_setting: ExampleSetting,
-) -> impl Bundle {
-    (
+fn range_controls(value: f32, app_number_input: AppNumberInput) -> impl Scene {
+    bsn! {
+        @FeathersNumberInput
+        template_value(NumberInputValue::F32(value))
+        template_value(app_number_input)
+        NumberInputPrecision(3)
+        HardLimit::f32(0.0..1.0)
         Node {
             align_items: AlignItems::Center,
-            ..default()
-        },
-        Children::spawn((
-            Spawn(adjustment_button(dec_setting, "<", Some(true))),
-            Spawn((
-                Node {
-                    width: px(50),
-                    height: px(33),
-                    justify_content: JustifyContent::Center,
-                    align_items: AlignItems::Center,
-                    border: BUTTON_BORDER.with_left(px(0)).with_right(px(0)),
-                    ..default()
-                },
-                BackgroundColor(Color::WHITE),
-                BUTTON_BORDER_COLOR,
-                marker,
-                children![(widgets::ui_text(&format!("{:.2}", value), Color::BLACK))],
-            )),
-            Spawn(adjustment_button(inc_setting, ">", Some(false))),
-        )),
-    )
-}
-
-fn adjustment_button(
-    setting: ExampleSetting,
-    label: &str,
-    is_left_right: Option<bool>,
-) -> impl Bundle {
-    (
-        Button,
-        Node {
-            height: px(33),
-            border: if let Some(is_left) = is_left_right {
-                if is_left {
-                    BUTTON_BORDER.with_right(px(0))
-                } else {
-                    BUTTON_BORDER.with_left(px(0))
-                }
-            } else {
-                BUTTON_BORDER
-            },
-            justify_content: JustifyContent::Center,
-            align_items: AlignItems::Center,
-            padding: BUTTON_PADDING,
-            border_radius: match is_left_right {
-                Some(true) => BorderRadius::ZERO.with_left(BUTTON_BORDER_RADIUS_SIZE),
-                Some(false) => BorderRadius::ZERO.with_right(BUTTON_BORDER_RADIUS_SIZE),
-                None => BorderRadius::all(BUTTON_BORDER_RADIUS_SIZE),
-            },
-            ..default()
-        },
-        BUTTON_BORDER_COLOR,
-        BackgroundColor(Color::BLACK),
-        RadioButton,
-        WidgetClickSender(setting),
-        children![(widgets::ui_text(label, Color::WHITE), RadioButtonText)],
-    )
+        }
+        on(handle_value_change_number_input)
+    }
 }
 
 fn rotate_model(
@@ -673,70 +618,30 @@ fn move_camera(
     }
 }
 
-// Adjusts app settings per user input.
-fn adjust_app_settings(
-    mut commands: Commands,
+/// Handles changes to the `SsrOn` radio group.
+fn handle_value_change_ssr_on(
+    event: On<ValueChange<Entity>>,
+    new_value_query: Query<&radio::RadioButtonOptionValue<SsrOn>>,
+    commands: Commands,
     mut app_settings: ResMut<AppSettings>,
-    mut cameras: Query<Entity, With<Camera>>,
-    mut visibilities: Query<&mut Visibility>,
-    model_queries: ModelQueries,
-    mut widget_click_events: MessageReader<WidgetClickEvent<ExampleSetting>>,
-    mut background_colors: Query<&mut BackgroundColor>,
-    radio_buttons: Query<
-        (
-            Entity,
-            Has<BackgroundColor>,
-            Has<Text>,
-            &WidgetClickSender<ExampleSetting>,
-        ),
-        Or<(With<RadioButton>, With<RadioButtonText>)>,
-    >,
-    range_value_text: Query<(Entity, &RangeValueText)>,
-    text_children: Query<&Children>,
-    mut writer: TextUiWriter,
-    text_query: Query<Entity, With<Text>>,
+    cameras: Query<Entity, With<Camera>>,
 ) {
-    let mut any_changes = false;
-
-    for event in widget_click_events.read() {
-        any_changes = true;
-        match **event {
-            ExampleSetting::Ssr(on) => app_settings.ssr_on = on,
-            ExampleSetting::Model(model) => app_settings.displayed_model = model,
-            ExampleSetting::Base(base) => app_settings.displayed_base = base,
-            ExampleSetting::MinRoughnessStart(adj) => {
-                app_settings.min_perceptual_roughness.start =
-                    adjust(app_settings.min_perceptual_roughness.start, adj, 0.005);
-            }
-            ExampleSetting::MinRoughnessEnd(adj) => {
-                app_settings.min_perceptual_roughness.end =
-                    adjust(app_settings.min_perceptual_roughness.end, adj, 0.005);
-            }
-            ExampleSetting::MaxRoughnessStart(adj) => {
-                app_settings.max_perceptual_roughness.start =
-                    adjust(app_settings.max_perceptual_roughness.start, adj, 0.005);
-            }
-            ExampleSetting::MaxRoughnessEnd(adj) => {
-                app_settings.max_perceptual_roughness.end =
-                    adjust(app_settings.max_perceptual_roughness.end, adj, 0.005);
-            }
-            ExampleSetting::EdgeFadeoutStart(adj) => {
-                app_settings.edge_fadeout.start =
-                    adjust(app_settings.edge_fadeout.start, adj, 0.001);
-            }
-            ExampleSetting::EdgeFadeoutEnd(adj) => {
-                app_settings.edge_fadeout.end = adjust(app_settings.edge_fadeout.end, adj, 0.001);
-            }
-        }
-    }
-
-    if !any_changes {
+    let Ok(radio::RadioButtonOptionValue(ssr_on)) = new_value_query.get(event.value) else {
         return;
-    }
+    };
+    app_settings.ssr_on = *ssr_on;
 
-    // Update SSR settings.
+    update_views(commands, app_settings, cameras);
+}
+
+/// Update the camera views, particularly after `SsrOn` or any of the number inputs change
+fn update_views(
+    mut commands: Commands,
+    app_settings: ResMut<AppSettings>,
+    mut cameras: Query<Entity, With<Camera>>,
+) {
     for camera in cameras.iter_mut() {
-        if app_settings.ssr_on {
+        if app_settings.ssr_on.0 {
             commands.entity(camera).insert(ScreenSpaceReflections {
                 min_perceptual_roughness: app_settings.min_perceptual_roughness.clone(),
                 max_perceptual_roughness: app_settings.max_perceptual_roughness.clone(),
@@ -747,8 +652,22 @@ fn adjust_app_settings(
             commands.entity(camera).remove::<ScreenSpaceReflections>();
         }
     }
+}
 
-    // Set model visibility.
+/// Handles changes to the `DisplayedModel` radio group.
+fn handle_value_change_displayed_model(
+    event: On<ValueChange<Entity>>,
+    new_value_query: Query<&radio::RadioButtonOptionValue<DisplayedModel>>,
+    mut app_settings: ResMut<AppSettings>,
+    model_queries: ModelQueries,
+    mut visibilities: Query<&mut Visibility>,
+) {
+    let Ok(radio::RadioButtonOptionValue(displayed_model)) = new_value_query.get(event.value)
+    else {
+        return;
+    };
+    app_settings.displayed_model = *displayed_model;
+
     for entity in model_queries.cube_models.iter() {
         if let Ok(mut visibility) = visibilities.get_mut(entity) {
             *visibility = if app_settings.displayed_model == DisplayedModel::Cube {
@@ -776,6 +695,21 @@ fn adjust_app_settings(
             };
         }
     }
+}
+
+/// Handles changes to the `DisplayedBase` radio group.
+fn handle_value_change_displayed_base(
+    event: On<ValueChange<Entity>>,
+    new_value_query: Query<&radio::RadioButtonOptionValue<DisplayedBase>>,
+    mut app_settings: ResMut<AppSettings>,
+    model_queries: ModelQueries,
+    mut visibilities: Query<&mut Visibility>,
+) {
+    let Ok(radio::RadioButtonOptionValue(displayed_base)) = new_value_query.get(event.value) else {
+        return;
+    };
+    app_settings.displayed_base = *displayed_base;
+
     for entity in model_queries.metallic_base_models.iter() {
         if let Ok(mut visibility) = visibilities.get_mut(entity) {
             *visibility = if app_settings.displayed_base == DisplayedBase::Metallic {
@@ -803,79 +737,48 @@ fn adjust_app_settings(
             };
         }
     }
+}
 
-    // Update radio buttons.
-    for (entity, has_background, has_text, sender) in radio_buttons.iter() {
-        let selected = match **sender {
-            ExampleSetting::Ssr(on) => app_settings.ssr_on == on,
-            ExampleSetting::Model(model) => app_settings.displayed_model == model,
-            ExampleSetting::Base(base) => app_settings.displayed_base == base,
-            _ => {
-                if has_background
-                    && let Ok(mut background_color) = background_colors.get_mut(entity)
-                {
-                    *background_color = BackgroundColor(Color::BLACK);
-                }
-                if has_text {
-                    update_ui_radio_button_text(entity, &mut writer, false);
-                }
-                continue;
+/// Observer that handles changes to number inputs and updates state and the app accordingly.
+fn handle_value_change_number_input(
+    value_change: On<ValueChange<f32>>,
+    mut commands: Commands,
+    number_input_q: Query<&AppNumberInput, With<FeathersNumberInput>>,
+    mut app_settings: ResMut<AppSettings>,
+    cameras: Query<Entity, With<Camera>>,
+) {
+    if let Ok(app_number_input) = number_input_q.get(value_change.source) {
+        match app_number_input {
+            AppNumberInput::MinRoughnessStart => {
+                app_settings.min_perceptual_roughness.start = value_change.value;
             }
-        };
-
-        if has_background && let Ok(mut background_color) = background_colors.get_mut(entity) {
-            update_ui_radio_button(&mut background_color, selected);
-        }
-        if has_text {
-            update_ui_radio_button_text(entity, &mut writer, selected);
-        }
-    }
-
-    // Update range value text.
-    for (parent, marker) in range_value_text.iter() {
-        let val = match marker {
-            RangeValueText::MinRoughnessStart => app_settings.min_perceptual_roughness.start,
-            RangeValueText::MinRoughnessEnd => app_settings.min_perceptual_roughness.end,
-            RangeValueText::MaxRoughnessStart => app_settings.max_perceptual_roughness.start,
-            RangeValueText::MaxRoughnessEnd => app_settings.max_perceptual_roughness.end,
-            RangeValueText::EdgeFadeoutStart => app_settings.edge_fadeout.start,
-            RangeValueText::EdgeFadeoutEnd => app_settings.edge_fadeout.end,
-        };
-        if let Ok(children) = text_children.get(parent) {
-            for child in children.iter() {
-                if text_query.get(child).is_ok() {
-                    *writer.text(child, 0) = format!("{:.2}", val);
-                    writer.for_each_color(child, |mut color| {
-                        color.0 = Color::BLACK;
-                    });
-                }
+            AppNumberInput::MinRoughnessEnd => {
+                app_settings.min_perceptual_roughness.end = value_change.value;
+            }
+            AppNumberInput::MaxRoughnessStart => {
+                app_settings.max_perceptual_roughness.start = value_change.value;
+            }
+            AppNumberInput::MaxRoughnessEnd => {
+                app_settings.max_perceptual_roughness.end = value_change.value;
+            }
+            AppNumberInput::EdgeFadeoutStart => {
+                app_settings.edge_fadeout.start = value_change.value;
+            }
+            AppNumberInput::EdgeFadeoutEnd => {
+                app_settings.edge_fadeout.end = value_change.value;
             }
         }
+
+        commands
+            .entity(value_change.source)
+            .insert(NumberInputValue::F32(value_change.value));
+
+        update_views(commands, app_settings, cameras);
     }
 }
 
 impl MaterialExtension for Water {
     fn deferred_fragment_shader() -> ShaderRef {
         SHADER_ASSET_PATH.into()
-    }
-}
-
-fn adjust(val: f32, adj: Adjustment, amount: f32) -> f32 {
-    match adj {
-        Adjustment::Increase => (val + amount).min(1.0),
-        Adjustment::Decrease => (val - amount).max(0.0),
-    }
-}
-
-impl Default for AppSettings {
-    fn default() -> Self {
-        Self {
-            ssr_on: true,
-            displayed_model: default(),
-            displayed_base: default(),
-            min_perceptual_roughness: 0.0..0.01,
-            max_perceptual_roughness: 0.99..1.0,
-            edge_fadeout: 0.0..0.0,
-        }
     }
 }
