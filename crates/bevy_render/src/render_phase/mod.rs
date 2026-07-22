@@ -41,6 +41,7 @@ use encase::{internal::WriteInto, ShaderSize};
 use indexmap::IndexMap;
 use nonmax::NonMaxU32;
 pub use rangefinder::*;
+use tracing::error;
 use wgpu::{BufferUsages, Features};
 
 use crate::batching::gpu_preprocessing::{
@@ -275,28 +276,29 @@ impl RenderMultidrawableBatchSetGpuBuffers {
         input_uniform_index: InputUniformIndex,
         bin_index: RenderBinIndex,
     ) -> RenderBinnedMeshInstanceIndex {
-        // Creates a `GpuRenderBinnedMeshInstance`.
+        // Create a `GpuRenderBinnedMeshInstance`.
         let gpu_render_bin_entry = GpuRenderBinnedMeshInstance {
             input_uniform_index: input_uniform_index.0,
             bin_index: bin_index.0,
         };
 
-        // Fetch the index of this entity in the
-        // `render_binned_mesh_instance_buffer`. If there isn't one, then
-        // allocate one.
-        let render_binned_mesh_instance_buffer_index =
-            match bin.entity_to_binned_mesh_instance_index.entry(main_entity) {
-                Entry::Occupied(occupied_entry) => *occupied_entry.get(),
-                Entry::Vacant(vacant_entry) => {
-                    let render_bin_buffer_index = RenderBinnedMeshInstanceIndex(
-                        self.render_binned_mesh_instance_buffer
-                            .push(GpuRenderBinnedMeshInstance::default())
-                            as u32,
-                    );
-                    vacant_entry.insert(render_bin_buffer_index);
-                    render_bin_buffer_index
-                }
-            };
+        // Allocate a spot for this entity in the `render_mesh_instance_buffer`.
+        let render_binned_mesh_instance_buffer_index = RenderBinnedMeshInstanceIndex(
+            self.render_binned_mesh_instance_buffer
+                .push(GpuRenderBinnedMeshInstance::default()) as u32,
+        );
+        let maybe_previous_binned_mesh_instance_buffer_index = bin
+            .entity_to_binned_mesh_instance_index
+            .insert(main_entity, render_binned_mesh_instance_buffer_index);
+        // It's illegal to bin an entity that was already binned.
+        // If an entity is to change bins, it must first be removed from the bin
+        // it was previously in.
+        if maybe_previous_binned_mesh_instance_buffer_index.is_some() {
+            error!(
+                "Binning main entity {:?} when it was already binned. This should never happen.",
+                main_entity
+            );
+        }
 
         // Place the entry in the instance buffer at the proper spot.
         self.render_binned_mesh_instance_buffer.values_mut()
@@ -304,7 +306,13 @@ impl RenderMultidrawableBatchSetGpuBuffers {
 
         let bin_metadata_index =
             self.bin_index_to_bin_metadata_index_buffer.values()[bin_index.0 as usize];
-        self.bin_metadata_buffer.values_mut()[bin_metadata_index as usize].instance_count += 1;
+        // There should never be a previous binned mesh buffer index, because
+        // it's illegal to bin a mesh instance that was already binned. But, if
+        // that error case *does* happen due to a bug, then at least don't
+        // corrupt the bins.
+        if maybe_previous_binned_mesh_instance_buffer_index.is_none() {
+            self.bin_metadata_buffer.values_mut()[bin_metadata_index as usize].instance_count += 1;
+        }
         debug_assert_eq!(
             self.bin_metadata_buffer.values()[bin_metadata_index as usize].instance_count as usize,
             bin.entity_to_binned_mesh_instance_index.len()
@@ -577,13 +585,13 @@ where
             }
         }
 
-        self.instance_count += 1;
-
         // Update the GPU buffers.
         let bin = self.bins[bin_index.0 as usize].as_mut().unwrap();
         let binned_mesh_instance_index =
             self.gpu_buffers
                 .insert(bin, main_entity, input_uniform_index, bin_index);
+
+        self.instance_count += 1;
         debug_assert_eq!(
             binned_mesh_instance_index.0 as usize,
             self.binned_mesh_instance_index_to_entity.len()
@@ -2032,7 +2040,7 @@ pub trait PhaseItem: Sized + Send + Sync + 'static {
     /// The corresponding entity that will be drawn.
     ///
     /// This is used to fetch the render data of the entity, required by the draw function,
-    /// from the render world .
+    /// from the render world.
     fn entity(&self) -> Entity;
 
     /// The main world entity represented by this `PhaseItem`.

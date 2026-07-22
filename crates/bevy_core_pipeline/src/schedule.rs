@@ -28,7 +28,8 @@ use bevy_render::{
         RenderPassDescriptor, StoreOp,
     },
     renderer::{CurrentView, PendingCommandBuffers, RenderDevice, RenderQueue},
-    view::ExtractedWindows,
+    sync_world::MainEntity,
+    view::ExtractedWindow,
 };
 
 /// Schedule label for the Core 3D rendering pipeline.
@@ -131,7 +132,10 @@ pub struct RootNonCameraView(#[reflect(ignore)] pub InternedScheduleLabel);
 /// and clears any swap chains that were not covered by a camera. Users can order any additional
 /// operations (e.g. one-off compute passes) before or after this system in the root render
 /// graph schedule.
-pub fn camera_driver(world: &mut World) {
+pub fn camera_driver(
+    world: &mut World,
+    state: &mut SystemState<Query<(MainEntity, &ExtractedWindow)>>,
+) {
     // Gather up all cameras and auxiliary views not associated with a camera.
     let root_views: Vec<_> = {
         let mut auxiliary_views = world.query_filtered::<Entity, With<RootNonCameraView>>();
@@ -166,11 +170,12 @@ pub fn camera_driver(world: &mut World) {
 
                 if let Some(NormalizedRenderTarget::Window(window_ref)) = &target {
                     let window_entity = window_ref.entity();
-                    let windows = world.resource::<ExtractedWindows>();
-                    if windows
-                        .windows
-                        .get(&window_entity)
-                        .is_some_and(|w| w.physical_width > 0 && w.physical_height > 0)
+
+                    if let Ok(windows) = state.get(world)
+                        && windows
+                            .iter()
+                            .find(|(e, _)| *e == window_entity)
+                            .is_some_and(|(_, w)| w.physical_width > 0 && w.physical_height > 0)
                     {
                         camera_windows.insert(window_entity);
                     } else {
@@ -233,7 +238,7 @@ pub(crate) fn submit_pending_command_buffers(
     let (mut pending, queue) = state.get_mut(world).unwrap();
     #[cfg(feature = "trace")]
     let buffer_count = pending.len();
-    let mut buffers = pending.take().peekable();
+    let mut buffers = pending.finish().peekable();
 
     if buffers.peek().is_some() {
         #[cfg(feature = "trace")]
@@ -248,11 +253,12 @@ pub(crate) fn handle_uncovered_swap_chains(world: &mut World) {
         let Some(camera_windows) = world.remove_resource::<CameraWindows>() else {
             return;
         };
-        let windows = world.resource::<ExtractedWindows>();
-        windows
-            .iter()
+
+        world
+            .query::<(MainEntity, &ExtractedWindow)>()
+            .iter(world)
             .filter_map(|(window_entity, window)| {
-                if camera_windows.0.contains(window_entity) {
+                if camera_windows.0.contains(&window_entity.entity()) {
                     return None;
                 }
                 let swap_chain_texture = window.swap_chain_texture_view.as_ref()?;

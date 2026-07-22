@@ -110,7 +110,7 @@ fn has_conflicts_large<'a, Q: QueryData>(
 }
 
 /// The data storage type that is being accessed.
-#[derive(Copy, Clone, Debug, PartialEq, Hash)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum EcsAccessType<'a> {
     /// Accesses [`Component`](crate::prelude::Component) data
     Component(EcsAccessLevel),

@@ -36,9 +36,14 @@ fn main() {
     .add_systems(OnEnter(Scene::Image), image::setup)
     .add_systems(OnEnter(Scene::ImageMeasure), image_measure::setup)
     .add_systems(OnEnter(Scene::Text), text::setup)
+    .add_systems(OnEnter(Scene::FontLists), font_lists::setup)
     .add_systems(OnEnter(Scene::TextMeasurement), text_measurement::setup)
     .add_systems(OnEnter(Scene::Grid), grid::setup)
     .add_systems(OnEnter(Scene::Borders), borders::setup)
+    .add_systems(
+        OnEnter(Scene::EllipticalBorderRadius),
+        elliptical_border_radius::setup,
+    )
     .add_systems(OnEnter(Scene::BoxShadow), box_shadow::setup)
     .add_systems(OnEnter(Scene::TextWrap), text_wrap::setup)
     .add_systems(OnEnter(Scene::Overflow), overflow::setup)
@@ -70,16 +75,18 @@ fn main() {
     app.run();
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, States, Default)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, States, Default)]
 #[states(scoped_entities)]
 enum Scene {
     #[default]
     Image,
     ImageMeasure,
     Text,
+    FontLists,
     TextMeasurement,
     Grid,
     Borders,
+    EllipticalBorderRadius,
     BoxShadow,
     TextWrap,
     Overflow,
@@ -94,6 +101,33 @@ enum Scene {
     OuterColor,
     BoxedContent,
     EditableText,
+}
+
+impl Scene {
+    const ALL_ORDERED: &'static [Scene] = &[
+        Scene::Image,
+        Scene::ImageMeasure,
+        Scene::Text,
+        Scene::FontLists,
+        Scene::TextMeasurement,
+        Scene::Grid,
+        Scene::Borders,
+        Scene::EllipticalBorderRadius,
+        Scene::BoxShadow,
+        Scene::TextWrap,
+        Scene::Overflow,
+        Scene::Slice,
+        Scene::LayoutRounding,
+        Scene::LinearGradient,
+        Scene::RadialGradient,
+        Scene::Transformations,
+        #[cfg(feature = "bevy_ui_debug")]
+        Scene::DebugOutlines,
+        Scene::ViewportCoords,
+        Scene::OuterColor,
+        Scene::BoxedContent,
+        Scene::EditableText,
+    ];
 }
 
 impl std::str::FromStr for Scene {
@@ -113,31 +147,12 @@ impl std::str::FromStr for Scene {
 
 impl Next for Scene {
     fn next(&self) -> Self {
-        match self {
-            Scene::Image => Scene::ImageMeasure,
-            Scene::ImageMeasure => Scene::Text,
-            Scene::Text => Scene::TextMeasurement,
-            Scene::TextMeasurement => Scene::Grid,
-            Scene::Grid => Scene::Borders,
-            Scene::Borders => Scene::BoxShadow,
-            Scene::BoxShadow => Scene::TextWrap,
-            Scene::TextWrap => Scene::Overflow,
-            Scene::Overflow => Scene::Slice,
-            Scene::Slice => Scene::LayoutRounding,
-            Scene::LayoutRounding => Scene::LinearGradient,
-            Scene::LinearGradient => Scene::RadialGradient,
-            #[cfg(feature = "bevy_ui_debug")]
-            Scene::RadialGradient => Scene::DebugOutlines,
-            #[cfg(feature = "bevy_ui_debug")]
-            Scene::DebugOutlines => Scene::Transformations,
-            #[cfg(not(feature = "bevy_ui_debug"))]
-            Scene::RadialGradient => Scene::Transformations,
-            Scene::Transformations => Scene::ViewportCoords,
-            Scene::ViewportCoords => Scene::OuterColor,
-            Scene::OuterColor => Scene::BoxedContent,
-            Scene::BoxedContent => Scene::EditableText,
-            Scene::EditableText => Scene::Image,
-        }
+        Scene::ALL_ORDERED[(Scene::ALL_ORDERED
+            .iter()
+            .position(|scene| scene == self)
+            .unwrap()
+            + 1)
+            % Scene::ALL_ORDERED.len()]
     }
 }
 
@@ -351,7 +366,7 @@ mod text {
             Text::new("Hello World."),
             TextFont {
                 font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
-                font_size: FontSize::Px(200.),
+                font_size: FontSize::Px(100.),
                 ..default()
             },
         ));
@@ -379,6 +394,16 @@ mod text {
                             ..default()
                         },
                         hinting,
+                    ));
+
+                    content.with_child((
+                        Text::new("Font from css font list"),
+                        TextFont {
+                            font: FontSource::families(
+                                "'Comic Sans', Arial, 'Noto Sans', sans-serif",
+                            ),
+                            ..Default::default()
+                        },
                     ));
 
                     content.with_child((
@@ -808,6 +833,153 @@ mod text {
     }
 }
 
+mod font_lists {
+    use bevy::prelude::*;
+
+    const FONT_ASSETS: &[&str] = &[
+        "fonts/FiraSans-Bold.ttf",
+        "fonts/FiraMono-Medium.ttf",
+        "fonts/MonaSans-VariableFont.ttf",
+        "fonts/EBGaramond12-Regular.otf",
+    ];
+
+    const FONT_NAMES: &[&str] = &[
+        "Gabriola",
+        "Fira Sans",
+        "Fira Mono",
+        "Mona Sans",
+        "EB Garamond",
+    ];
+
+    #[derive(Resource)]
+    struct LoadedFontAssets {
+        _handles: Vec<Handle<Font>>,
+    }
+
+    pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+        commands.spawn((Camera2d, DespawnOnExit(super::Scene::FontLists)));
+        commands.insert_resource(LoadedFontAssets {
+            _handles: FONT_ASSETS
+                .iter()
+                .map(|font_asset| asset_server.load(*font_asset))
+                .collect(),
+        });
+        commands.spawn((
+            Node {
+                flex_direction: FlexDirection::Column,
+                align_self: AlignSelf::Center,
+                justify_self: JustifySelf::Center,
+                row_gap: px(25),
+                ..default()
+            },
+            DespawnOnExit(super::Scene::FontLists),
+            children![
+                (
+                    Text::new("Font Lists"),
+                    TextFont::from_font_size(FontSize::Px(32.)),
+                    Underline,
+                ),
+                (
+                    Node {
+                        flex_direction: FlexDirection::Column,
+                        row_gap: px(6),
+                        ..default()
+                    },
+                    children![
+                        Text::new("FontSource::Families"),
+                        (
+                            Node {
+                                flex_direction: FlexDirection::Row,
+                                flex_wrap: FlexWrap::Wrap,
+                                padding: px(16).left(),
+                                column_gap: px(30),
+                                row_gap: px(30),
+                                ..default()
+                            },
+                            Children::spawn(SpawnIter(
+                                (0..FONT_NAMES.len())
+                                    .map(|start| {
+                                        FONT_NAMES
+                                            .iter()
+                                            .copied()
+                                            .cycle()
+                                            .skip(start)
+                                            .take(FONT_NAMES.len())
+                                            .collect::<Vec<_>>()
+                                            .join(", ")
+                                    })
+                                    .map(|list| {
+                                        (
+                                            Text::new(list.replace(", ", "\n")),
+                                            TextFont {
+                                                font: FontSource::families(list),
+                                                font_size: FontSize::Px(16.),
+                                                ..default()
+                                            },
+                                            Node {
+                                                padding: px(4.).all(),
+                                                ..default()
+                                            },
+                                            TextLayout::no_wrap(),
+                                            Outline::default(),
+                                        )
+                                    }),
+                            )),
+                        )
+                    ]
+                ),
+                (
+                    Node {
+                        flex_direction: FlexDirection::Column,
+                        row_gap: px(6),
+                        ..default()
+                    },
+                    children![
+                        Text::new("FontSource::List"),
+                        (
+                            Node {
+                                flex_direction: FlexDirection::Row,
+                                flex_wrap: FlexWrap::Wrap,
+                                padding: px(16).left(),
+                                column_gap: px(30),
+                                row_gap: px(30),
+                                ..default()
+                            },
+                            Children::spawn(SpawnIter(
+                                (0..FONT_NAMES.len())
+                                    .map(|start| {
+                                        FONT_NAMES
+                                            .iter()
+                                            .copied()
+                                            .cycle()
+                                            .skip(start)
+                                            .take(FONT_NAMES.len())
+                                            .collect::<Vec<_>>()
+                                    })
+                                    .map(|list| {
+                                        (
+                                            Text::new(list.join("\n")),
+                                            TextFont {
+                                                font: FontSource::list(list.iter().copied()),
+                                                font_size: FontSize::Px(16.),
+                                                ..default()
+                                            },
+                                            Node {
+                                                padding: px(4.).all(),
+                                                ..default()
+                                            },
+                                            TextLayout::no_wrap(),
+                                            Outline::default(),
+                                        )
+                                    }),
+                            )),
+                        )
+                    ]
+                ),
+            ],
+        ));
+    }
+}
 mod text_measurement {
     use bevy::prelude::*;
 
@@ -1082,6 +1254,359 @@ mod borders {
     }
 }
 
+mod elliptical_border_radius {
+    use bevy::{color::palettes::css::*, prelude::*};
+
+    pub fn setup(mut commands: Commands, assets: Res<AssetServer>) {
+        commands.spawn((
+            Camera2d,
+            DespawnOnExit(super::Scene::EllipticalBorderRadius),
+        ));
+        commands
+            .spawn((
+                Node {
+                    width: percent(100),
+                    height: percent(100),
+                    flex_wrap: FlexWrap::Wrap,
+                    column_gap: px(40),
+                    row_gap: px(40),
+                    margin: auto().all(),
+                    padding: px(30).all(),
+                    ..default()
+                },
+                BackgroundColor(DARK_GRAY.into()),
+                DespawnOnExit(super::Scene::EllipticalBorderRadius),
+            ))
+            .with_children(|builder| {
+                builder.spawn((
+                    Node {
+                        width: px(200),
+                        height: px(100),
+                        border: UiRect::all(px(8)),
+                        border_radius: BorderRadius::elliptical(
+                            Val2::new(px(90), px(24)),
+                            Val2::new(px(18), px(70)),
+                            Val2::new(px(110), px(32)),
+                            Val2::new(px(28), px(58)),
+                        ),
+                        ..default()
+                    },
+                    BackgroundColor(ORANGE.into()),
+                    BackgroundGradient::from(LinearGradient {
+                        stops: vec![
+                            RED.into(),
+                            Color::BLACK.into(),
+                            BLUE.into(),
+                            WHEAT.into(),
+                            GREEN.into(),
+                        ],
+                        ..default()
+                    }),
+                    BorderColor::all(RED),
+                    Outline {
+                        width: px(4),
+                        offset: px(8),
+                        color: WHITE.into(),
+                    },
+                    BoxShadow::from(ShadowStyle {
+                        blur_radius: px(5),
+                        ..default()
+                    }),
+                ));
+
+                builder.spawn((
+                    Node {
+                        width: px(150),
+                        height: px(150),
+                        border: UiRect {
+                            left: px(16),
+                            right: px(4),
+                            top: px(24),
+                            bottom: px(8),
+                        },
+                        border_radius: BorderRadius::elliptical(
+                            Val2::new(percent(65), percent(20)),
+                            Val2::new(percent(20), percent(65)),
+                            Val2::new(percent(65), percent(20)),
+                            Val2::new(percent(20), percent(65)),
+                        ),
+                        ..default()
+                    },
+                    BackgroundColor(MEDIUM_SEA_GREEN.into()),
+                    BorderColor::all(DARK_GREEN),
+                    Outline {
+                        width: px(3),
+                        offset: px(10),
+                        color: LIME.into(),
+                    },
+                    BoxShadow::from(ShadowStyle {
+                        blur_radius: px(5),
+                        ..default()
+                    }),
+                ));
+
+                builder.spawn((
+                    Node {
+                        width: px(210),
+                        height: px(75),
+                        border: UiRect::axes(px(12), px(4)),
+                        border_radius: BorderRadius::elliptical(
+                            Val2::new(px(140), px(18)),
+                            Val2::new(px(140), px(18)),
+                            Val2::new(px(42), px(54)),
+                            Val2::new(px(42), px(54)),
+                        ),
+                        ..default()
+                    },
+                    BackgroundColor(DODGER_BLUE.into()),
+                    BorderColor::all(NAVY),
+                    Outline {
+                        width: px(5),
+                        offset: px(6),
+                        color: SKY_BLUE.into(),
+                    },
+                    BoxShadow::from(ShadowStyle {
+                        blur_radius: px(5),
+                        ..default()
+                    }),
+                ));
+                builder.spawn((
+                    Node {
+                        width: px(160),
+                        height: px(120),
+                        border: UiRect::axes(px(20), px(20)),
+                        border_radius: BorderRadius::elliptical(
+                            Val2::new(px(50), px(10)),
+                            Val2::new(px(50), px(10)),
+                            Val2::new(px(50), px(10)),
+                            Val2::new(px(50), px(10)),
+                        ),
+                        ..default()
+                    },
+                    BackgroundColor(RED.into()),
+                    BorderColor::all(WHITE),
+                    Outline {
+                        width: px(3),
+                        offset: px(5),
+                        color: SKY_BLUE.into(),
+                    },
+                    BoxShadow::from(ShadowStyle {
+                        blur_radius: px(5),
+                        ..default()
+                    }),
+                ));
+
+                builder.spawn((
+                    Node {
+                        width: px(160),
+                        height: px(120),
+                        border: UiRect::axes(px(20), px(20)),
+                        border_radius: BorderRadius::all(px(30)),
+                        ..default()
+                    },
+                    BackgroundColor(RED.into()),
+                    BorderColor::all(WHITE),
+                    Outline {
+                        width: px(3),
+                        offset: px(5),
+                        color: SKY_BLUE.into(),
+                    },
+                    BoxShadow::from(ShadowStyle {
+                        blur_radius: px(5),
+                        ..default()
+                    }),
+                ));
+
+                builder.spawn((
+                    Node {
+                        width: px(160),
+                        height: px(120),
+                        border: UiRect::axes(px(20), px(20)),
+                        border_radius: BorderRadius::elliptical(
+                            Val2::new(px(25), px(20)),
+                            Val2::new(px(20), px(25)),
+                            Val2::new(px(20), px(25)),
+                            Val2::new(px(20), px(25)),
+                        ),
+                        ..default()
+                    },
+                    BackgroundColor(RED.into()),
+                    ImageNode::from(assets.load("branding/icon.png")),
+                    BorderColor::all(WHITE),
+                    Outline {
+                        width: px(3),
+                        offset: px(5),
+                        color: SKY_BLUE.into(),
+                    },
+                    BoxShadow::from(ShadowStyle {
+                        blur_radius: px(5),
+                        ..default()
+                    }),
+                ));
+
+                builder.spawn((
+                    Node {
+                        width: px(160),
+                        height: px(120),
+                        border: UiRect::axes(px(10), px(10)),
+                        border_radius: BorderRadius::elliptical(
+                            Val2::new(px(40), px(30)),
+                            Val2::new(px(40), px(30)),
+                            Val2::new(px(40), px(30)),
+                            Val2::new(px(40), px(30)),
+                        ),
+                        ..default()
+                    },
+                    BackgroundColor(RED.into()),
+                    BorderColor::all(WHITE),
+                    Outline {
+                        width: px(3),
+                        offset: px(5),
+                        color: SKY_BLUE.into(),
+                    },
+                    BoxShadow::from(ShadowStyle {
+                        blur_radius: px(5),
+                        ..default()
+                    }),
+                ));
+
+                builder.spawn((
+                    Node {
+                        width: px(160),
+                        height: px(80),
+                        border: UiRect::axes(px(10), px(10)),
+                        border_radius: BorderRadius::elliptical(
+                            Val2::new(percent(50), percent(50)),
+                            Val2::new(percent(50), percent(50)),
+                            Val2::new(percent(50), percent(50)),
+                            Val2::new(percent(50), percent(50)),
+                        ),
+                        ..default()
+                    },
+                    BackgroundColor(RED.into()),
+                    BorderColor::all(WHITE),
+                    ImageNode::from(assets.load("branding/icon.png")),
+                    Outline {
+                        width: px(3),
+                        offset: px(5),
+                        color: SKY_BLUE.into(),
+                    },
+                    BoxShadow::from(ShadowStyle {
+                        blur_radius: px(5),
+                        ..default()
+                    }),
+                ));
+
+                builder.spawn((
+                    Node {
+                        width: px(80),
+                        height: px(160),
+                        border: UiRect::axes(px(10), px(10)),
+                        border_radius: BorderRadius::elliptical(
+                            Val2::new(percent(50), percent(50)),
+                            Val2::new(percent(50), percent(50)),
+                            Val2::new(percent(50), percent(50)),
+                            Val2::new(percent(50), percent(50)),
+                        ),
+                        ..default()
+                    },
+                    BackgroundColor(RED.into()),
+                    BorderColor::all(WHITE),
+                    ImageNode::from(assets.load("branding/icon.png")),
+                    Outline {
+                        width: px(3),
+                        offset: px(5),
+                        color: SKY_BLUE.into(),
+                    },
+                    BoxShadow::from(ShadowStyle {
+                        blur_radius: px(5),
+                        ..default()
+                    }),
+                ));
+
+                builder.spawn((
+                    Node {
+                        width: px(160),
+                        height: px(80),
+                        border: UiRect::axes(px(20), px(10)),
+                        border_radius: BorderRadius::elliptical(
+                            Val2::new(percent(50), percent(50)),
+                            Val2::new(percent(50), percent(50)),
+                            Val2::new(percent(50), percent(50)),
+                            Val2::new(percent(50), percent(50)),
+                        ),
+                        ..default()
+                    },
+                    BackgroundColor(RED.into()),
+                    BorderColor::all(WHITE),
+                    ImageNode::from(assets.load("branding/icon.png")),
+                    Outline {
+                        width: px(3),
+                        offset: px(5),
+                        color: SKY_BLUE.into(),
+                    },
+                    BoxShadow::from(ShadowStyle {
+                        blur_radius: px(5),
+                        ..default()
+                    }),
+                ));
+
+                builder.spawn((
+                    Node {
+                        width: px(80),
+                        height: px(160),
+                        border: UiRect::all(px(10)).with_right(px(25)),
+                        border_radius: BorderRadius::elliptical(
+                            Val2::new(percent(50), percent(50)),
+                            Val2::new(percent(50), percent(50)),
+                            Val2::new(percent(50), percent(50)),
+                            Val2::new(percent(50), percent(50)),
+                        ),
+                        ..default()
+                    },
+                    BackgroundColor(RED.into()),
+                    BorderColor::all(WHITE),
+                    Outline {
+                        width: px(3),
+                        offset: px(5),
+                        color: SKY_BLUE.into(),
+                    },
+                    BoxShadow::from(ShadowStyle {
+                        blur_radius: px(5),
+                        ..default()
+                    }),
+                ));
+
+                builder.spawn((
+                    Node {
+                        width: px(160),
+                        height: px(80),
+                        border: UiRect::all(px(5)),
+                        border_radius: BorderRadius::elliptical(
+                            Val2::new(percent(50), percent(50)),
+                            Val2::new(percent(50), percent(50)),
+                            Val2::new(percent(50), percent(50)),
+                            Val2::new(px(20), px(20)),
+                        ),
+                        ..default()
+                    },
+                    BackgroundColor(RED.into()),
+                    BorderColor::all(WHITE),
+                    ImageNode::from(assets.load("branding/icon.png")),
+                    Outline {
+                        width: px(3),
+                        offset: px(5),
+                        color: SKY_BLUE.into(),
+                    },
+                    BoxShadow::from(ShadowStyle {
+                        blur_radius: px(5),
+                        ..default()
+                    }),
+                ));
+            });
+    }
+}
+
 mod box_shadow {
     use bevy::{color::palettes::css::*, prelude::*};
 
@@ -1108,7 +1633,7 @@ mod box_shadow {
                         Vec2::ZERO,
                         10.,
                         0.,
-                        BorderRadius::bottom_right(px(10)),
+                        BorderRadius::bottom_right(Val2::all(px(10))),
                     ),
                     (Vec2::new(200., 50.), Vec2::ZERO, 10., 0., BorderRadius::MAX),
                     (
@@ -1123,7 +1648,7 @@ mod box_shadow {
                         Vec2::splat(20.),
                         10.,
                         10.,
-                        BorderRadius::bottom_right(px(10)),
+                        BorderRadius::bottom_right(Val2::all(px(10))),
                     ),
                     (
                         Vec2::splat(100.),
@@ -1258,7 +1783,6 @@ mod overflow {
                                     min_height: px(100),
                                     ..default()
                                 },
-                                Interaction::default(),
                                 Outline {
                                     width: px(2),
                                     offset: px(2),
@@ -1310,7 +1834,6 @@ mod slice {
                         .with_children(|parent| {
                             for [w, h] in [[200.0, 200.0], [300.0, 200.0], [150., 200.0]] {
                                 parent.spawn((
-                                    Button,
                                     ImageNode {
                                         image: image.clone(),
                                         image_mode: NodeImageMode::Sliced(slicer.clone()),
@@ -1417,6 +1940,7 @@ mod linear_gradient {
     use bevy::ecs::prelude::*;
     use bevy::state::state_scoped::DespawnOnExit;
     use bevy::text::TextFont;
+    use bevy::ui::widget::Text;
     use bevy::ui::AlignItems;
     use bevy::ui::BackgroundGradient;
     use bevy::ui::ColorStop;
@@ -1523,7 +2047,7 @@ mod linear_gradient {
                                                 ..default()
                                             },
                                             TextFont::from_font_size(10.),
-                                            bevy::ui::widget::Text(format!("{color_space:?}")),
+                                            Text(format!("{color_space:?}")),
                                         ]
                                     )],
                                 ));
@@ -1689,7 +2213,7 @@ mod transformations {
                                 Node {
                                     width: px(100),
                                     height: px(100),
-                                    border_radius: BorderRadius::bottom_right(px(25.)),
+                                    border_radius: BorderRadius::bottom_right(Val2::all(px(25.))),
                                     ..default()
                                 },
                                 BackgroundColor(background.into()),
@@ -1700,7 +2224,7 @@ mod transformations {
                                 Node {
                                     width: px(100),
                                     height: px(100),
-                                    border_radius: BorderRadius::bottom_right(px(25.)),
+                                    border_radius: BorderRadius::bottom_right(Val2::all(px(25.))),
                                     ..default()
                                 },
                                 BackgroundColor(background.into()),
@@ -2053,7 +2577,7 @@ mod outer_color {
     use bevy::prelude::*;
 
     pub fn setup(mut commands: Commands) {
-        let radius = percent(33.);
+        let radius = Val2::all(percent(33.));
         let width = px(10.);
 
         commands.spawn((Camera2d, DespawnOnExit(super::Scene::OuterColor)));
@@ -2074,7 +2598,7 @@ mod outer_color {
                     (UiRect::top(width), BorderRadius::top(radius), false),
                     (UiRect::ZERO, BorderRadius::bottom_left(radius), true),
                     (UiRect::left(width), BorderRadius::left(radius), false),
-                    (UiRect::all(width), BorderRadius::all(radius), true),
+                    (UiRect::all(width), BorderRadius::all(radius.x), true),
                     (UiRect::right(width), BorderRadius::right(radius), false),
                     (UiRect::ZERO, BorderRadius::top_right(radius), true),
                     (UiRect::bottom(width), BorderRadius::bottom(radius), false),

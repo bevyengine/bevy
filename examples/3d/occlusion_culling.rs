@@ -618,7 +618,7 @@ where
 
             {
                 // Cast the raw bytes in the GPU buffer to the appropriate type.
-                let buffer_view = buffer.slice(..).get_mapped_range();
+                let buffer_view = buffer.slice(..).get_mapped_range().unwrap();
                 let indirect_parameters: &[T] = bytemuck::cast_slice(
                     &buffer_view[0..(buffer_view.len() / size_of::<T>() * size_of::<T>())],
                 );
