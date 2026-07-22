@@ -20,7 +20,7 @@
 //! [`World::archetypes`]: crate::world::World::archetypes
 
 use crate::{
-    bundle::BundleId,
+    bundle::{BundleId, InsertMode},
     component::{ComponentId, Components, RequiredComponentConstructor, StorageType},
     entity::{Entity, EntityLocation},
     event::Event,
@@ -205,6 +205,11 @@ impl BundleComponentStatus for SpawnBundleStatus {
 #[derive(Default)]
 pub struct Edges {
     insert_bundle: SparseArray<BundleId, ArchetypeAfterBundleInsert>,
+    // Separate edge for `InsertMode::Keep` (`insert_if_new`). It differs from `insert_bundle` only
+    // in that required components pulled in solely by components already present in the source
+    // archetype are excluded from the target, so `insert_if_new` on an already-present component
+    // does not resurrect a required component the caller removed.
+    insert_bundle_if_new: SparseArray<BundleId, ArchetypeAfterBundleInsert>,
     remove_bundle: SparseArray<BundleId, Option<ArchetypeId>>,
     take_bundle: SparseArray<BundleId, Option<ArchetypeId>>,
 }
@@ -217,18 +222,25 @@ impl Edges {
     /// the source archetype via the provided bundle.
     #[inline]
     pub fn get_archetype_after_bundle_insert(&self, bundle_id: BundleId) -> Option<ArchetypeId> {
-        self.get_archetype_after_bundle_insert_internal(bundle_id)
+        self.get_archetype_after_bundle_insert_internal(bundle_id, InsertMode::Replace)
             .map(|bundle| bundle.archetype_id)
     }
 
     /// Internal version of `get_archetype_after_bundle_insert` that
     /// fetches the full `ArchetypeAfterBundleInsert`.
+    ///
+    /// `InsertMode::Keep` (used by `insert_if_new`) selects an edge that excludes required
+    /// components pulled in only by already-present components.
     #[inline]
     pub(crate) fn get_archetype_after_bundle_insert_internal(
         &self,
         bundle_id: BundleId,
+        insert_mode: InsertMode,
     ) -> Option<&ArchetypeAfterBundleInsert> {
-        self.insert_bundle.get(bundle_id)
+        match insert_mode {
+            InsertMode::Keep => self.insert_bundle_if_new.get(bundle_id),
+            InsertMode::Replace => self.insert_bundle.get(bundle_id),
+        }
     }
 
     /// Caches the target archetype when inserting a bundle into the source archetype.
@@ -236,6 +248,7 @@ impl Edges {
     pub(crate) fn cache_archetype_after_bundle_insert(
         &mut self,
         bundle_id: BundleId,
+        insert_mode: InsertMode,
         archetype_id: ArchetypeId,
         bundle_status: impl Into<Box<[ComponentStatus]>>,
         required_components: impl Into<Box<[RequiredComponentConstructor]>>,
@@ -246,16 +259,17 @@ impl Edges {
         // Make sure `extend` doesn't over-reserve, since the conversion to `Box<[_]>` would reallocate to shrink.
         added.reserve_exact(existing.len());
         added.extend(existing);
-        self.insert_bundle.insert(
-            bundle_id,
-            ArchetypeAfterBundleInsert {
-                archetype_id,
-                bundle_status: bundle_status.into(),
-                required_components: required_components.into(),
-                added_len,
-                inserted: added.into(),
-            },
-        );
+        let edge = ArchetypeAfterBundleInsert {
+            archetype_id,
+            bundle_status: bundle_status.into(),
+            required_components: required_components.into(),
+            added_len,
+            inserted: added.into(),
+        };
+        match insert_mode {
+            InsertMode::Keep => self.insert_bundle_if_new.insert(bundle_id, edge),
+            InsertMode::Replace => self.insert_bundle.insert(bundle_id, edge),
+        };
     }
 
     /// Checks the cache for the target archetype when removing a bundle from the
