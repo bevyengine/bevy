@@ -330,20 +330,10 @@ fn demo_column_1() -> impl Scene {
             (
                 @FeathersSelect {
                     @options: {list_rows_from_strings([
-                        "January",
-                        "February",
-                        "March",
-                        "April",
-                        "May",
-                        "June",
-                        "July",
-                        "August",
-                        "September",
-                        "October",
-                        "November",
-                        "December",
-                    ], Some(2))},
-                    @max_visible: 6,
+                        "One",
+                        "Two",
+                        "Three",
+                    ], Some(0))},
                 }
                 Node {
                     flex_grow: 1.0,

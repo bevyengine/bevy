@@ -5,14 +5,20 @@ use core::f32;
 use bevy::{
     camera::Hdr,
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
+    feathers::{theme::UiTheme, FeathersPlugins},
     light::ParallaxCorrection,
     prelude::*,
+    ui_widgets::{radio_self_update, ValueChange},
 };
 
-use crate::widgets::{WidgetClickEvent, WidgetClickSender};
+#[path = "../helpers/radio.rs"]
+mod radio;
 
-#[path = "../helpers/widgets.rs"]
-mod widgets;
+#[path = "../helpers/theme.rs"]
+mod theme;
+
+use crate::radio::{feathers_option_buttons, main_ui_node_scene, RadioButtonOptionValue};
+use crate::theme::basic_example_theme;
 
 /// A marker component for the inner rotating reflective cube.
 #[derive(Clone, Component)]
@@ -52,6 +58,7 @@ enum PccmEnableStatus {
 /// The example entry point.
 fn main() {
     App::new()
+        .insert_resource(UiTheme(basic_example_theme(Color::WHITE)))
         .add_plugins((
             DefaultPlugins.set(WindowPlugin {
                 primary_window: Some(Window {
@@ -61,16 +68,12 @@ fn main() {
                 ..default()
             }),
             FreeCameraPlugin,
+            FeathersPlugins,
         ))
         .init_resource::<AppStatus>()
-        .add_message::<WidgetClickEvent<PccmEnableStatus>>()
         .add_systems(Startup, setup)
-        .add_systems(Update, widgets::handle_ui_interactions::<PccmEnableStatus>)
-        .add_systems(
-            Update,
-            (handle_pccm_enable_change, update_radio_buttons)
-                .after(widgets::handle_ui_interactions::<PccmEnableStatus>),
-        )
+        .add_observer(handle_pccm_enable_change)
+        .add_observer(radio_self_update)
         .run();
 }
 
@@ -152,72 +155,47 @@ fn spawn_reflection_probe(commands: &mut Commands, asset_server: &AssetServer) {
 
 /// Spawns the buttons at the bottom of the screen.
 fn spawn_buttons(commands: &mut Commands) {
-    commands.spawn((
-        widgets::main_ui_node(),
-        children![widgets::option_buttons(
-            "Parallax Correction",
-            &[
-                (PccmEnableStatus::Enabled, "On"),
-                (PccmEnableStatus::Disabled, "Off"),
-            ],
-        )],
-    ));
+    commands.spawn_scene(bsn! {
+        main_ui_node_scene()
+        Children [
+            feathers_option_buttons(
+                "Parallax Correction",
+                &[
+                    (PccmEnableStatus::Enabled, "On"),
+                    (PccmEnableStatus::Disabled, "Off"),
+                ],
+            )
+        ]
+    });
 }
 
 /// Handles a change to the parallax correction setting UI.
 fn handle_pccm_enable_change(
+    event: On<ValueChange<Entity>>,
+    new_value_query: Query<&RadioButtonOptionValue<PccmEnableStatus>>,
     mut commands: Commands,
     light_probe_query: Query<Entity, With<LightProbe>>,
     mut app_status: ResMut<AppStatus>,
-    mut messages: MessageReader<WidgetClickEvent<PccmEnableStatus>>,
 ) {
+    let Ok(RadioButtonOptionValue(pccm_enabled)) = new_value_query.get(event.value) else {
+        return;
+    };
+    app_status.pccm_enabled = *pccm_enabled;
+
     let Some(light_probe_entity) = light_probe_query.iter().next() else {
         return;
     };
-
-    for message in messages.read() {
-        // The UI message contains the `PccmEnableStatus` value that the user
-        // selected.
-        app_status.pccm_enabled = **message;
-
-        // Add the appropriate variant of the `ParallaxCorrection` component.
-        match **message {
-            PccmEnableStatus::Enabled => {
-                commands
-                    .entity(light_probe_entity)
-                    .insert(ParallaxCorrection::Auto);
-            }
-            PccmEnableStatus::Disabled => {
-                commands
-                    .entity(light_probe_entity)
-                    .insert(ParallaxCorrection::None);
-            }
+    // Add the appropriate variant of the `ParallaxCorrection` component.
+    match app_status.pccm_enabled {
+        PccmEnableStatus::Enabled => {
+            commands
+                .entity(light_probe_entity)
+                .insert(ParallaxCorrection::Auto);
         }
-    }
-}
-
-/// Updates the state of the UI at the bottom of the screen to reflect the
-/// current application settings.
-fn update_radio_buttons(
-    mut widgets_query: Query<(
-        Entity,
-        Option<&mut BackgroundColor>,
-        Has<Text>,
-        &WidgetClickSender<PccmEnableStatus>,
-    )>,
-    app_status: Res<AppStatus>,
-    mut text_ui_writer: TextUiWriter,
-) {
-    for (entity, maybe_bg_color, has_text, sender) in &mut widgets_query {
-        // The `sender` value contains the `PccmEnableStatus` that the user
-        // selected.
-        let selected = app_status.pccm_enabled == **sender;
-
-        if let Some(mut bg_color) = maybe_bg_color {
-            widgets::update_ui_radio_button(&mut bg_color, selected);
-        }
-        if has_text {
-            widgets::update_ui_radio_button_text(entity, &mut text_ui_writer, selected);
+        PccmEnableStatus::Disabled => {
+            commands
+                .entity(light_probe_entity)
+                .insert(ParallaxCorrection::None);
         }
     }
 }

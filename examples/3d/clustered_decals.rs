@@ -3,8 +3,15 @@
 use std::f32::consts::{FRAC_PI_3, PI};
 use std::fmt::{self, Formatter};
 
+use bevy::feathers::dark_theme::create_dark_theme;
+use bevy::ui_widgets::radio_self_update;
 use bevy::{
     color::palettes::css::{LIME, ORANGE_RED, SILVER},
+    feathers::{
+        controls::{FeathersNumberInput, NumberInputPrecision, NumberInputValue},
+        theme::UiTheme,
+        FeathersPlugins,
+    },
     input::mouse::AccumulatedMouseMotion,
     light::ClusteredDecal,
     pbr::{decal, ExtendedMaterial, MaterialExtension},
@@ -14,16 +21,17 @@ use bevy::{
         renderer::{RenderAdapter, RenderDevice},
     },
     shader::ShaderRef,
-    window::{CursorIcon, SystemCursorIcon},
+    ui_widgets::ValueChange,
 };
 use ops::{acos, cos, sin};
-use widgets::{
-    WidgetClickEvent, WidgetClickSender, BUTTON_BORDER, BUTTON_BORDER_COLOR,
-    BUTTON_BORDER_RADIUS_SIZE, BUTTON_PADDING,
-};
 
-#[path = "../helpers/widgets.rs"]
-mod widgets;
+#[path = "../helpers/radio.rs"]
+mod radio;
+
+#[path = "../helpers/number_input.rs"]
+mod number_input;
+
+use number_input::number_input_f32;
 
 /// The custom material shader that we use to demonstrate how to use the decal
 /// `tag` field.
@@ -35,20 +43,13 @@ const CUBE_ROTATION_SPEED: f32 = 0.02;
 /// The speed at which the selection can be moved, in spherical coordinate
 /// radians per mouse unit.
 const MOVE_SPEED: f32 = 0.008;
-/// The speed at which the selection can be scaled, in reciprocal mouse units.
-const SCALE_SPEED: f32 = 0.05;
-/// The speed at which the selection can be scaled, in radians per mouse unit.
-const ROLL_SPEED: f32 = 0.01;
 
 /// Various settings for the demo.
 #[derive(Resource, Default)]
 struct AppStatus {
-    /// The object that will be moved, scaled, or rotated when the mouse is
-    /// dragged.
+    /// The object that will be moved, scaled, or rotated when the
+    /// mouse is dragged.
     selection: Selection,
-    /// What happens when the mouse is dragged: one of a move, rotate, or scale
-    /// operation.
-    drag_mode: DragMode,
 }
 
 /// The object that will be moved, scaled, or rotated when the mouse is dragged.
@@ -75,32 +76,19 @@ impl fmt::Display for Selection {
     }
 }
 
-/// What happens when the mouse is dragged: one of a move, rotate, or scale
-/// operation.
+/// Indicates which aspect of the decal the `FeathersNumberInput` in the app influences.
 #[derive(Clone, Copy, Component, Default, PartialEq, Debug)]
-enum DragMode {
-    /// The mouse moves the current selection.
+enum AppNumberInput {
+    /// The scale (size) of the selected decal.
     #[default]
-    Move,
-    /// The mouse scales the current selection.
-    ///
-    /// This only applies to decals, not cameras.
     Scale,
-    /// The mouse rotates the current selection around its local Z axis.
-    ///
-    /// This only applies to decals, not cameras.
+    /// The roll (rotation) of the selected decal.
     Roll,
 }
 
-impl fmt::Display for DragMode {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match *self {
-            DragMode::Move => f.write_str("move"),
-            DragMode::Scale => f.write_str("scale"),
-            DragMode::Roll => f.write_str("roll"),
-        }
-    }
-}
+/// A component that stores the base scale of a clustered decal.
+#[derive(Clone, Copy, Component, Default, PartialEq, Debug)]
+struct BaseScale(Vec3);
 
 /// A marker component for the help text in the top left corner of the window.
 #[derive(Clone, Copy, Component)]
@@ -120,33 +108,29 @@ impl MaterialExtension for CustomDecalExtension {
 /// Entry point.
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "Bevy Clustered Decals Example".into(),
+        .insert_resource(UiTheme(create_dark_theme()))
+        .add_plugins((
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    title: "Bevy Clustered Decals Example".into(),
+                    ..default()
+                }),
                 ..default()
             }),
-            ..default()
-        }))
+            FeathersPlugins,
+        ))
         .add_plugins(MaterialPlugin::<
             ExtendedMaterial<StandardMaterial, CustomDecalExtension>,
         >::default())
         .init_resource::<AppStatus>()
-        .add_message::<WidgetClickEvent<Selection>>()
         .add_systems(Startup, setup)
         .add_systems(Update, draw_gizmos)
         .add_systems(Update, rotate_cube)
-        .add_systems(Update, widgets::handle_ui_interactions::<Selection>)
-        .add_systems(
-            Update,
-            (handle_selection_change, update_radio_buttons)
-                .after(widgets::handle_ui_interactions::<Selection>),
-        )
-        .add_systems(Update, process_move_input)
-        .add_systems(Update, process_scale_input)
-        .add_systems(Update, process_roll_input)
-        .add_systems(Update, switch_drag_mode)
         .add_systems(Update, update_help_text)
-        .add_systems(Update, update_button_visibility)
+        .add_observer(handle_drag_as_movement)
+        .add_observer(handle_selection_change)
+        .add_observer(handle_value_change_number_input)
+        .add_observer(radio_self_update)
         .run();
 }
 
@@ -244,53 +228,116 @@ fn spawn_decals(commands: &mut Commands, asset_server: &AssetServer) {
 /// Spawns the buttons at the bottom of the screen.
 fn spawn_buttons(commands: &mut Commands) {
     // Spawn the radio buttons that allow the user to select an object to
-    // control.
-    commands.spawn((
-        widgets::main_ui_node(),
-        children![widgets::option_buttons(
-            "Drag to Move",
+    // control, and the number inputs that allow the user to alter additional
+    // aspects of clustered decals.
+    commands.spawn_scene(bsn! {
+        radio::main_ui_node_scene()
+        Children [
+            radio::feathers_option_buttons("Drag to Move",
             &[
                 (Selection::Camera, "Camera"),
                 (Selection::DecalA, "Decal A"),
                 (Selection::DecalB, "Decal B"),
-            ],
-        )],
-    ));
+            ]),
 
-    // Spawn the drag buttons that allow the user to control the scale and roll
-    // of the selected object.
-    commands.spawn((
-        Node {
-            flex_direction: FlexDirection::Row,
-            position_type: PositionType::Absolute,
-            right: px(10),
-            bottom: px(10),
-            column_gap: px(6),
-            ..default()
-        },
-        children![
-            (drag_button("Scale"), DragMode::Scale),
-            (drag_button("Roll"), DragMode::Roll),
-        ],
-    ));
+            // The number inputs start off hidden because Camera is selected first.
+            Visibility::Hidden
+            number_input_f32("Scale Multiplier", Some(AppNumberInput::Scale), 1.0, NumberInputPrecision(2), 0.05..10.)
+            ,
+
+            Visibility::Hidden
+            number_input_f32("Roll (-π to π)", Some(AppNumberInput::Roll), 0.0, NumberInputPrecision(2), -PI..PI)
+            ,
+        ]
+    });
 }
 
-/// Spawns a button that the user can drag to change a parameter.
-fn drag_button(label: &str) -> impl Bundle {
-    (
-        Node {
-            border: BUTTON_BORDER,
-            justify_content: JustifyContent::Center,
-            align_items: AlignItems::Center,
-            padding: BUTTON_PADDING,
-            border_radius: BorderRadius::all(BUTTON_BORDER_RADIUS_SIZE),
-            ..default()
-        },
-        Button,
-        BackgroundColor(Color::BLACK),
-        BUTTON_BORDER_COLOR,
-        children![widgets::ui_text(label, Color::WHITE)],
-    )
+/// Observer that handles changes to number inputs.
+/// The number inputs affect the scale or rotation of the currently selected decal, if any.
+fn handle_value_change_number_input(
+    value_change: On<ValueChange<f32>>,
+    mut commands: Commands,
+    number_input_q: Query<&AppNumberInput, With<FeathersNumberInput>>,
+    app_status: ResMut<AppStatus>,
+    mut selections: Query<(&mut Transform, &BaseScale, &Selection)>,
+) {
+    if app_status.selection == Selection::Camera {
+        return;
+    }
+    if let Ok(app_number_input) = number_input_q.get(value_change.source) {
+        for (mut transform, base_scale, selection) in &mut selections {
+            if app_status.selection != *selection {
+                continue;
+            }
+            match app_number_input {
+                AppNumberInput::Scale => {
+                    transform.scale = base_scale.0 * value_change.value;
+                }
+                AppNumberInput::Roll => {
+                    let (yaw, pitch, mut _roll) = transform.rotation.to_euler(EulerRot::YXZ);
+                    // Keep yaw and pitch the same, but change the roll.
+                    transform.rotation =
+                        Quat::from_euler(EulerRot::YXZ, yaw, pitch, value_change.value);
+                }
+            }
+        }
+        commands
+            .entity(value_change.source)
+            .insert(NumberInputValue::F32(value_change.value));
+    }
+}
+
+/// Handles requests from the user to change the selected object to control and expose
+/// the appropriate controls.
+/// The `radio_self_update` observer handles setting the `Checked` state on the radio buttons.
+fn handle_selection_change(
+    event: On<ValueChange<Entity>>,
+    new_value_query: Query<&radio::RadioButtonOptionValue<Selection>>,
+    mut app_status: ResMut<AppStatus>,
+    mut commands: Commands,
+    selections: Query<(&Transform, &BaseScale, &Selection)>,
+    number_inputs: Query<(Entity, &ChildOf, &AppNumberInput)>,
+) {
+    let Ok(radio::RadioButtonOptionValue(selection)) = new_value_query.get(event.value) else {
+        return;
+    };
+    app_status.selection = *selection;
+
+    // Update the visibility of the scale and roll number inputs so that they aren't visible
+    // if the camera is selected.
+    for (input_entity, child_of, app_number_input) in number_inputs.iter() {
+        match app_status.selection {
+            Selection::Camera => {
+                commands
+                    .entity(child_of.parent())
+                    .insert(Visibility::Hidden);
+            }
+            Selection::DecalA | Selection::DecalB => {
+                commands
+                    .entity(child_of.parent())
+                    .insert(Visibility::Inherited);
+
+                // Update the input values to the correct ones for this decal.
+                for (transform, base_scale, _selection) in selections
+                    .iter()
+                    .filter(|&(_, _, selection)| *selection == app_status.selection)
+                {
+                    if AppNumberInput::Scale == *app_number_input {
+                        // Scale should be uniformly multiplied.
+                        let scale_multiplier = transform.scale.x / base_scale.0.x;
+                        commands
+                            .entity(input_entity)
+                            .insert(NumberInputValue::F32(scale_multiplier));
+                    } else {
+                        let roll = transform.rotation.to_euler(EulerRot::YXZ).2;
+                        commands
+                            .entity(input_entity)
+                            .insert(NumberInputValue::F32(roll));
+                    }
+                }
+            }
+        };
+    }
 }
 
 /// Spawns the help text at the top of the screen.
@@ -335,12 +382,16 @@ fn draw_gizmos(
 }
 
 /// Calculates the initial transform of the clustered decal.
-fn calculate_initial_decal_transform(start: Vec3, looking_at: Vec3, size: Vec2) -> Transform {
+fn calculate_initial_decal_transform(start: Vec3, looking_at: Vec3, size: Vec2) -> impl Bundle {
     let direction = looking_at - start;
     let center = start + direction * 0.5;
-    Transform::from_translation(center)
-        .with_scale((size * 0.5).extend(direction.length()))
-        .looking_to(direction, Vec3::Y)
+    let base_scale = (size * 0.5).extend(direction.length());
+    (
+        Transform::from_translation(center)
+            .with_scale(base_scale)
+            .looking_to(direction, Vec3::Y),
+        BaseScale(base_scale),
+    )
 }
 
 /// Rotates the cube a bit every frame.
@@ -350,47 +401,21 @@ fn rotate_cube(mut meshes: Query<&mut Transform, With<Mesh3d>>) {
     }
 }
 
-/// Updates the state of the radio buttons when the user clicks on one.
-fn update_radio_buttons(
-    mut widgets: Query<(
-        Entity,
-        Option<&mut BackgroundColor>,
-        Has<Text>,
-        &WidgetClickSender<Selection>,
-    )>,
-    app_status: Res<AppStatus>,
-    mut writer: TextUiWriter,
-) {
-    for (entity, maybe_bg_color, has_text, sender) in &mut widgets {
-        let selected = app_status.selection == **sender;
-        if let Some(mut bg_color) = maybe_bg_color {
-            widgets::update_ui_radio_button(&mut bg_color, selected);
-        }
-        if has_text {
-            widgets::update_ui_radio_button_text(entity, &mut writer, selected);
-        }
-    }
-}
-
-/// Changes the selection when the user clicks a radio button.
-fn handle_selection_change(
-    mut events: MessageReader<WidgetClickEvent<Selection>>,
-    mut app_status: ResMut<AppStatus>,
-) {
-    for event in events.read() {
-        app_status.selection = **event;
-    }
-}
-
 /// Process a drag event that moves the selected object.
-fn process_move_input(
+fn handle_drag_as_movement(
+    event: On<Pointer<Drag>>,
+    parent_q: Query<&ChildOf>,
+    number_input_q: Query<(), With<FeathersNumberInput>>,
     mut selections: Query<(&mut Transform, &Selection)>,
-    mouse_buttons: Res<ButtonInput<MouseButton>>,
     mouse_motion: Res<AccumulatedMouseMotion>,
     app_status: Res<AppStatus>,
 ) {
-    // Only process drags when movement is selected.
-    if !mouse_buttons.pressed(MouseButton::Left) || app_status.drag_mode != DragMode::Move {
+    // If we are currently dragging the number input, do not interpret it as movement
+    // of the selection.
+    if parent_q
+        .iter_ancestors(event.entity)
+        .any(|parent| number_input_q.contains(parent))
+    {
         return;
     }
 
@@ -432,114 +457,24 @@ fn process_move_input(
     }
 }
 
-/// Processes a drag event that scales the selected target.
-fn process_scale_input(
-    mut selections: Query<(&mut Transform, &Selection)>,
-    mouse_buttons: Res<ButtonInput<MouseButton>>,
-    mouse_motion: Res<AccumulatedMouseMotion>,
-    app_status: Res<AppStatus>,
-) {
-    // Only process drags when the scaling operation is selected.
-    if !mouse_buttons.pressed(MouseButton::Left) || app_status.drag_mode != DragMode::Scale {
-        return;
-    }
-
-    for (mut transform, selection) in &mut selections {
-        if app_status.selection == *selection {
-            transform.scale *= 1.0 + mouse_motion.delta.x * SCALE_SPEED;
-        }
-    }
-}
-
-/// Processes a drag event that rotates the selected target along its local Z
-/// axis.
-fn process_roll_input(
-    mut selections: Query<(&mut Transform, &Selection)>,
-    mouse_buttons: Res<ButtonInput<MouseButton>>,
-    mouse_motion: Res<AccumulatedMouseMotion>,
-    app_status: Res<AppStatus>,
-) {
-    // Only process drags when the rolling operation is selected.
-    if !mouse_buttons.pressed(MouseButton::Left) || app_status.drag_mode != DragMode::Roll {
-        return;
-    }
-
-    for (mut transform, selection) in &mut selections {
-        if app_status.selection != *selection {
-            continue;
-        }
-
-        let (yaw, pitch, mut roll) = transform.rotation.to_euler(EulerRot::YXZ);
-        roll += mouse_motion.delta.x * ROLL_SPEED;
-        transform.rotation = Quat::from_euler(EulerRot::YXZ, yaw, pitch, roll);
-    }
-}
-
 /// Creates the help string at the top left of the screen.
 fn create_help_string(app_status: &AppStatus) -> String {
-    format!(
-        "Click and drag to {} {}",
-        app_status.drag_mode, app_status.selection
-    )
-}
-
-/// Changes the drag mode when the user hovers over the "Scale" and "Roll"
-/// buttons in the lower right.
-///
-/// If the user is hovering over no such button, this system changes the drag
-/// mode back to its default value of [`DragMode::Move`].
-fn switch_drag_mode(
-    mut commands: Commands,
-    mut interactions: Query<(&Interaction, &DragMode)>,
-    mut windows: Query<Entity, With<Window>>,
-    mouse_buttons: Res<ButtonInput<MouseButton>>,
-    mut app_status: ResMut<AppStatus>,
-) {
-    if mouse_buttons.pressed(MouseButton::Left) {
-        return;
-    }
-
-    for (interaction, drag_mode) in &mut interactions {
-        if *interaction != Interaction::Hovered {
-            continue;
-        }
-
-        app_status.drag_mode = *drag_mode;
-
-        // Set the cursor to provide the user with a nice visual hint.
-        for window in &mut windows {
-            commands
-                .entity(window)
-                .insert(CursorIcon::from(SystemCursorIcon::EwResize));
-        }
-        return;
-    }
-
-    app_status.drag_mode = DragMode::Move;
-
-    for window in &mut windows {
-        commands.entity(window).remove::<CursorIcon>();
+    if app_status.selection == Selection::Camera {
+        format!("Click and drag to move {}.", app_status.selection)
+    } else {
+        format!(
+            "Click and drag to move/scale/rotate {}.\n\
+            To scale/rotate, start the drag within the corresponding number input.\n\
+            To move, start the drag anywhere else in the example.",
+            app_status.selection
+        )
     }
 }
 
 /// Updates the help text in the top left of the screen to reflect the current
-/// selection and drag mode.
+/// selection.
 fn update_help_text(mut help_text: Query<&mut Text, With<HelpText>>, app_status: Res<AppStatus>) {
     for mut text in &mut help_text {
         text.0 = create_help_string(&app_status);
-    }
-}
-
-/// Updates the visibility of the drag mode buttons so that they aren't visible
-/// if the camera is selected.
-fn update_button_visibility(
-    mut nodes: Query<&mut Visibility, With<DragMode>>,
-    app_status: Res<AppStatus>,
-) {
-    for mut visibility in &mut nodes {
-        *visibility = match app_status.selection {
-            Selection::Camera => Visibility::Hidden,
-            Selection::DecalA | Selection::DecalB => Visibility::Visible,
-        };
     }
 }
