@@ -901,6 +901,13 @@ pub enum ImeSystems {
     UpdatePosition,
 }
 
+/// System set for the placeholder sync system, used by [`EditableTextInputPlugin`].
+///
+/// Runs in [`PostUpdate`]. Cross-crate ambiguities with this set are
+/// declared in `DefaultPlugins`' `IgnoreAmbiguitiesPlugin`.
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct PlaceholderSystems;
+
 /// Enables support for the [`EditableText`] widget.
 ///
 /// Contains the systems and observers necessary to update widget state and handle user input.
@@ -960,19 +967,20 @@ impl Plugin for EditableTextInputPlugin {
                 PostUpdate,
                 update_placeholders
                     .in_set(UiSystems::PostLayout)
+                    .in_set(PlaceholderSystems)
                     .after(update_editable_text_layout)
                     .before(AccessibilitySystems::Update)
-                    // This system writes Node / Visibility / Text / TextFont
-                    // / TextColor, but ONLY on the placeholder label
-                    // entities it spawns and owns. Every flagged conflict
-                    // (gizmo meshes, text2d layout, ui clipping,
-                    // accessibility, focus-change events) is entity-disjoint
-                    // by construction, which component-level ambiguity
-                    // analysis cannot see -- and two of the conflicting
-                    // systems (bevy_gizmos, bevy_sprite) are not
-                    // dependencies of this crate, so they cannot be named
-                    // individually.
-                    .ambiguous_with_all(),
+                    // FocusChangeEvents does not mutate the actual InputFocus;
+                    // this is a false positive that can be ignored
+                    .ambiguous_with(InputFocusSystems::FocusChangeEvents)
+                    // bevy_ui's accessibility systems read Text/TextFont/
+                    // TextColor through TextUiReader, whose access is
+                    // UNFILTERED (it walks UI children of the entities it
+                    // visits) -- so no Without filter can express the
+                    // disjointness. It holds in practice: placeholder labels
+                    // are root-level overlays, never UI children of a
+                    // Button/ImageNode/Label subtree.
+                    .ambiguous_with(bevy_ui::UiAccessibilitySystems),
             );
 
         // These components cannot be registered in `bevy_text` where `EditableText` is defined,

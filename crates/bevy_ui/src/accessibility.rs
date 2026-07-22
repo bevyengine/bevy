@@ -15,7 +15,7 @@ use bevy_ecs::{
     prelude::Entity,
     query::{Changed, With, Without},
     reflect::ReflectComponent,
-    schedule::IntoScheduleConfigs,
+    schedule::{IntoScheduleConfigs, SystemSet},
     system::{Commands, Query},
     world::{DeferredWorld, Ref},
 };
@@ -218,9 +218,9 @@ impl Plugin for AccessibilityPlugin {
         app.add_systems(
             PostUpdate,
             (
-                button_changed,
-                image_changed,
-                label_changed,
+                button_changed.in_set(UiAccessibilitySystems),
+                image_changed.in_set(UiAccessibilitySystems),
+                label_changed.in_set(UiAccessibilitySystems),
                 sync_bounds_and_transforms
                     .after(button_changed)
                     .after(image_changed)
@@ -231,3 +231,7 @@ impl Plugin for AccessibilityPlugin {
         );
     }
 }
+
+/// System set for `bevy_ui`'s accessibility systems.
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct UiAccessibilitySystems;
