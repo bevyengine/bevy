@@ -239,11 +239,47 @@ pub fn triangle_area_normal(a: [f32; 3], b: [f32; 3], c: [f32; 3]) -> [f32; 3] {
     (b - a).cross(c - a).into()
 }
 
+/// Normalizes any finite nonzero vector without overflowing or underflowing its squared length.
+#[inline]
+pub(crate) fn try_normalize_range_safe(vector: Vec3) -> Option<Vec3> {
+    let length_squared = vector.length_squared();
+    if length_squared.is_normal() {
+        return Some(vector * length_squared.sqrt().recip());
+    }
+
+    if !vector.is_finite() {
+        return None;
+    }
+
+    let scale = vector.abs().max_element();
+    if scale == 0.0 {
+        return None;
+    }
+
+    Some((vector / scale).normalize())
+}
+
 /// Compute the normal of a face made of three points: a, b, and c.
 #[inline]
 pub fn triangle_normal(a: [f32; 3], b: [f32; 3], c: [f32; 3]) -> [f32; 3] {
     let (a, b, c) = (Vec3::from(a), Vec3::from(b), Vec3::from(c));
-    (b - a).cross(c - a).normalize_or_zero().into()
+    let ab = b - a;
+    let ac = c - a;
+    let normal = ab.cross(ac);
+    let length_squared = normal.length_squared();
+    if length_squared.is_normal() {
+        return (normal * length_squared.sqrt().recip()).into();
+    }
+
+    // Rescale only when directly normalizing the cross product would overflow or underflow.
+    let scale = ab.abs().max(ac.abs()).max_element();
+    if !scale.is_finite() || scale == 0.0 {
+        return Vec3::ZERO.into();
+    }
+
+    try_normalize_range_safe((ab / scale).cross(ac / scale))
+        .unwrap_or(Vec3::ZERO)
+        .into()
 }
 
 /// Contains an array where each entry describes a property of a single vertex.
@@ -1190,7 +1226,7 @@ mod tests {
 
     use crate::{
         octahedral_decode_signed, octahedral_decode_tangent,
-        vertex::{octahedral_encode_signed, octahedral_encode_tangent},
+        vertex::{octahedral_encode_signed, octahedral_encode_tangent, triangle_normal},
     };
 
     #[test]
@@ -1224,6 +1260,16 @@ mod tests {
             assert!(encoded_tangent.distance(expected_encoded_tangents[i]) < 1e-8);
             assert_eq!(v.w, decoded_sign);
             assert!(decoded_tangent.distance(v.xyz()) < 1e-4);
+        }
+    }
+
+    #[test]
+    fn triangle_normal_handles_extreme_scales() {
+        for scale in [1.0e-20_f32, 1.0e20_f32] {
+            assert_eq!(
+                triangle_normal([0.0, 0.0, 0.0], [scale, 0.0, 0.0], [0.0, scale, 0.0],),
+                [0.0, 0.0, 1.0]
+            );
         }
     }
 }
