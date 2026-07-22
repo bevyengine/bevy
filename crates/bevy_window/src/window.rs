@@ -101,14 +101,18 @@ impl FromTemplate for WindowRef {
     type Template = WindowRefTemplate;
 }
 
-#[derive(Default)]
+/// A [`Template`] that produces a [`WindowRef`].
+#[derive(Debug, Default)]
 pub enum WindowRefTemplate {
+    /// See [`WindowRef::Primary`].
     #[default]
     Primary,
+    /// See [`WindowRef::Entity`].
     Entity(EntityTemplate),
 }
 
 impl WindowRefTemplate {
+    /// Default value of the [`WindowRefTemplate::Entity`] variant.
     pub fn default_entity() -> Self {
         Self::Entity(Default::default())
     }
