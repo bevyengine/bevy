@@ -8,7 +8,7 @@ Ray tracing on Metal has been available since wgpu 29, and with bindless storage
 
 Run the Solari example on a compatible Mac:
 
-```
+```sh
 cargo run --example solari --features bevy_solari,https,free_camera
 ```
 
