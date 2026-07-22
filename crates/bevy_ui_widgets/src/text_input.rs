@@ -202,7 +202,7 @@ fn on_focused_keyboard_input(
         (NONE, Key::Backspace) => queue_edit(TextEdit::Backspace),
         (NONE, Key::Delete) => queue_edit(TextEdit::Delete),
         (NONE, Key::Escape) => queue_edit(TextEdit::CollapseSelection),
-        (NONE | SHIFT, Key::Character(_)) | (NONE, Key::Space) => {
+        (NONE | SHIFT, Key::Character(_) | Key::Unidentified(_)) | (NONE, Key::Space) => {
             if let Some(text) = &keyboard_input.input.text
                 && !text.is_empty()
             {
@@ -789,10 +789,50 @@ impl Plugin for TextInputPlugin {
 mod tests {
     use super::*;
     use bevy_app::Update;
-    use bevy_input::ButtonState;
+    use bevy_input::{
+        keyboard::{KeyCode, NativeKey, NativeKeyCode},
+        ButtonState, InputPlugin,
+    };
+    use bevy_input_focus::InputDispatchPlugin;
     use bevy_math::Rect;
     use bevy_picking::{events::DragEntry, pointer::PointerId};
     use core::time::Duration;
+
+    #[test]
+    fn steam_osk_unidentified_keys_insert_produced_text() {
+        let mut app = App::new();
+        app.add_plugins((InputPlugin, InputDispatchPlugin))
+            .init_resource::<InputFocus>()
+            .add_observer(on_focused_keyboard_input);
+
+        let window = app
+            .world_mut()
+            .spawn((Window::default(), PrimaryWindow))
+            .id();
+        let editable_text = app.world_mut().spawn(EditableText::default()).id();
+        app.insert_resource(InputFocus::from_entity(editable_text));
+
+        for (text, repeat) in [("J", false), ("#", true)] {
+            app.world_mut().write_message(KeyboardInput {
+                key_code: KeyCode::Unidentified(NativeKeyCode::Windows(0)),
+                logical_key: Key::Unidentified(NativeKey::Windows(231)),
+                state: ButtonState::Pressed,
+                text: Some(text.into()),
+                repeat,
+                window,
+            });
+        }
+        app.update();
+
+        assert_eq!(
+            app.world()
+                .entity(editable_text)
+                .get::<EditableText>()
+                .unwrap()
+                .pending_edits,
+            [TextEdit::Insert("J".into()), TextEdit::Insert("#".into())]
+        );
+    }
 
     #[test]
     fn autoscroll_speed_is_zero_inside_then_ramps_and_caps() {
