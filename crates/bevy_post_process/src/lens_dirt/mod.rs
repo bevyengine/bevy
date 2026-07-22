@@ -25,7 +25,7 @@ use bevy_render::{
     },
     renderer::RenderDevice,
     sync_component::SyncComponent,
-    texture::{FallbackImage, GpuImage},
+    texture::GpuImage,
     uniform::{ComponentUniforms, UniformComponentPlugin},
     Render, RenderApp, RenderStartup, RenderSystems,
 };
@@ -95,14 +95,18 @@ fn prepare_lens_dirt_bind_group(
     lens_dirt_layout: Res<LensDirtBindGroupLayout>,
     gpu_images: Res<RenderAssets<GpuImage>>,
     uniforms: Res<ComponentUniforms<LensDirtUniforms>>,
-    fallback: Res<FallbackImage>,
     views: Query<(Entity, &LensDirt, Option<&LensDirtBindGroup>)>,
 ) {
     let Some(uniform_binding) = uniforms.binding() else {
         return;
     };
     for (entity, lens_dirt, existing_bind_group) in &views {
-        let dirt_image = gpu_images.get(&lens_dirt.texture).unwrap_or(&fallback.d2);
+        let Some(dirt_image) = gpu_images.get(&lens_dirt.texture) else {
+            if existing_bind_group.is_some() {
+                commands.entity(entity).remove::<LensDirtBindGroup>();
+            }
+            continue;
+        };
 
         let cache_key = (dirt_image.texture.id(), uniforms.buffer().unwrap().id());
 
