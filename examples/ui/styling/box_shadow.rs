@@ -1,7 +1,7 @@
 //! This example shows how to create a node with a shadow and adjust its settings interactively.
 
 use crate::number_input::{number_input_f32, number_input_i32};
-use crate::radio::{feathers_option_buttons, RadioButtonOptionValue};
+use crate::radio::{feathers_option_buttons, main_ui_node_scene, RadioButtonOptionValue};
 use bevy::{
     color::palettes::css::*,
     feathers::{
@@ -9,7 +9,8 @@ use bevy::{
         controls::{FeathersButton, FeathersNumberInput, NumberInputPrecision, NumberInputValue},
         dark_theme::create_dark_theme,
         display::caption,
-        theme::UiTheme,
+        theme::{ThemeProps, UiTheme},
+        tokens::PANE_BODY_BG,
         FeathersPlugins,
     },
     prelude::*,
@@ -161,7 +162,7 @@ impl AppNumberInputI32 {
 fn main() {
     App::new()
         .add_plugins((DefaultPlugins, FeathersPlugins))
-        .insert_resource(UiTheme(create_dark_theme()))
+        .insert_resource(UiTheme(get_example_theme()))
         .init_resource::<AppSettings>()
         .add_systems(Startup, setup)
         .add_observer(on_value_change_i32_update_shadow)
@@ -220,7 +221,7 @@ fn settings_panel_scene(app_settings: &AppSettings) -> impl Scene {
     let selected_shape_index = SHAPE_OPTIONS
         .iter()
         .enumerate()
-        .find(|(index, (shape, _))| *shape == app_settings.shape)
+        .find(|(_, (shape, _))| *shape == app_settings.shape)
         // default is set to the length of the array, which will be interpreted as "no option is set"
         .map_or(SHAPE_OPTIONS.len(), |(index, _)| index);
 
@@ -228,11 +229,7 @@ fn settings_panel_scene(app_settings: &AppSettings) -> impl Scene {
         SettingsPanel
         ZIndex(10)
         pane()
-        Node {
-            position_type: PositionType::Absolute,
-            left: px(0),
-            bottom: px(0),
-        }
+        main_ui_node_scene()
         Children [
             pane_body()
             Children [
@@ -291,6 +288,15 @@ fn settings_panel_scene(app_settings: &AppSettings) -> impl Scene {
             ]
         ]
     }
+}
+
+fn get_example_theme() -> ThemeProps {
+    let mut props = create_dark_theme();
+    // Pane background color is made a little transparent to see the objects behind the setting controls.
+    if let Some(color) = props.color.get_mut(&PANE_BODY_BG) {
+        color.set_alpha(0.9);
+    }
+    props
 }
 
 // --- SYSTEMS ---
