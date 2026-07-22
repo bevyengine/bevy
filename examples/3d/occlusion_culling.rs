@@ -160,13 +160,13 @@ struct AppStatus {
     /// Whether occlusion culling is presently enabled.
     ///
     /// By default, this is set to true.
-    occlusion_culling: Selection,
+    occlusion_culling: OcclusionCullingSetting,
 }
 
 impl Default for AppStatus {
     fn default() -> Self {
         AppStatus {
-            occlusion_culling: Selection::On,
+            occlusion_culling: OcclusionCullingSetting::On,
         }
     }
 }
@@ -389,7 +389,7 @@ fn spawn_camera(commands: &mut Commands) {
 /// Spawns the help text at the upper left of the screen.
 fn spawn_status_text(commands: &mut Commands) {
     commands.spawn((
-        Text::new("Toggle occlusion culling on or off using the radios below"),
+        Text::new(""), // The "X/Y meshes rendered" count is displayed here.
         Node {
             position_type: PositionType::Absolute,
             top: px(12),
@@ -643,17 +643,17 @@ struct StatusText;
 
 /// Whether occlusion culling is on or off.
 #[derive(Clone, Copy, Component, Default, PartialEq, Debug)]
-enum Selection {
+enum OcclusionCullingSetting {
     #[default]
     On,
-    Off, // OFF is apparently an acronym which CI didn't like; this awkward name appeases it
+    Off,
 }
 
-impl fmt::Display for Selection {
+impl fmt::Display for OcclusionCullingSetting {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match *self {
-            Selection::On => f.write_str("ON"),
-            Selection::Off => f.write_str("OFF"),
+            OcclusionCullingSetting::On => f.write_str("ON"),
+            OcclusionCullingSetting::Off => f.write_str("OFF"),
         }
     }
 }
@@ -667,20 +667,21 @@ fn spawn_buttons(commands: &mut Commands) {
             feathers_option_buttons(
                 "Toggle occlusion culling",
                 &[
-                    (Selection::On, "ON"),
-                    (Selection::Off, "OFF"),
+                    (OcclusionCullingSetting::On, "ON"),
+                    (OcclusionCullingSetting::Off, "OFF"),
                 ],
+                0,
             )
         ]
     });
 }
 
 /// Adds or removes the [`OcclusionCulling`] and [`DepthPrepass`] components
-/// when the user presses the spacebar.
+/// when the user toggles a radio. 
 fn handle_selection_change(
     event: On<ValueChange<Entity>>,
     mut commands: Commands,
-    new_value_query: Query<&RadioButtonOptionValue<Selection>>,
+    new_value_query: Query<&RadioButtonOptionValue<OcclusionCullingSetting>>,
     mut app_status: ResMut<AppStatus>,
     cameras: Query<Entity, With<Camera3d>>,
 ) {
@@ -694,7 +695,7 @@ fn handle_selection_change(
     // Add or remove the `OcclusionCulling` and `DepthPrepass` components as
     // requested.
     for camera in &cameras {
-        if app_status.occlusion_culling == Selection::On {
+        if app_status.occlusion_culling == OcclusionCullingSetting::On {
             commands
                 .entity(camera)
                 .insert(DepthPrepass)
