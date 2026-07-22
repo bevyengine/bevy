@@ -467,9 +467,9 @@ pub mod semantic {
     pub const FILL_ACCENT_DEFAULT: SemanticToken = SemanticToken::new_static("fill.accent.default");
     /// Accent when hovered
     pub const FILL_ACCENT_HOVER: SemanticToken = SemanticToken::new_static("fill.accent.hover");
-    /// Accen when pressed
+    /// Accent when pressed
     pub const FILL_ACCENT_PRESSED: SemanticToken = SemanticToken::new_static("fill.accent.pressed");
-    /// Accen when disabled
+    /// Accent when disabled
     pub const FILL_ACCENT_DISABLED: SemanticToken =
         SemanticToken::new_static("fill.accent.disabled");
 

@@ -84,7 +84,6 @@ impl FeathersDialog {
                 ThemeBackgroundColor(tokens::DIALOG_BG)
                 ThemeBorderColor(tokens::DIALOG_BORDER)
                 InheritableThemeTextColor(tokens::DIALOG_TEXT)
-                template(|_| Ok(Propagate(ThemeContext(SurfaceLevel::Floating))))
                 BoxShadow::new(
                     Srgba::BLACK.with_alpha(0.9).into(),
                     px(0),
@@ -175,7 +174,7 @@ impl FeathersFloatingDialog {
                     DialogDragHandle
                     InheritableThemeTextColor(tokens::DIALOG_HEADER_TEXT)
                     ThemeBackgroundColor(tokens::DIALOG_HEADER_BG)
-                    template(|_| Ok(Propagate(ThemeContext(SurfaceLevel::Floating))))
+                    template(|_| Ok(Propagate(ThemeContext(SurfaceLevel::Higher))))
                     InheritableFont {
                         font: fonts::REGULAR,
                         font_size: size::HEADER_FONT,
@@ -213,6 +212,7 @@ impl FeathersDialogHeader {
                 justify_content: JustifyContent::SpaceBetween,
                 padding: UiRect::all(px(6.0)),
             }
+            template(|_| Ok(Propagate(ThemeContext(SurfaceLevel::Higher))))
             ThemeBackgroundColor(tokens::DIALOG_HEADER_BG)
             InheritableFont {
                 font: fonts::REGULAR,
@@ -258,6 +258,7 @@ impl FeathersDialogBody {
                 align_items: AlignItems::Stretch,
                 padding: UiRect::all(px(6.0)),
             }
+            template(|_| Ok(Propagate(ThemeContext(SurfaceLevel::Floating))))
             InheritableFont {
                 font: fonts::REGULAR,
                 font_size: size::MEDIUM_FONT,
@@ -284,6 +285,7 @@ impl FeathersDialogFooter {
                 column_gap: px(6.0),
                 padding: UiRect::all(px(6.0)),
             }
+            template(|_| Ok(Propagate(ThemeContext(SurfaceLevel::Floating))))
             InheritableFont {
                 font: fonts::REGULAR,
                 font_size: size::MEDIUM_FONT,
