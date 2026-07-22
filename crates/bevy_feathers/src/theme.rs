@@ -130,6 +130,38 @@ impl ThemeProps {
             semantic_overrides: HashMap::default(),
         }
     }
+
+    /// Lookup a color by design token. If the theme does not have an entry for that token,
+    /// logs a warning and returns an error color.
+    ///
+    /// This version does not take context into account, and is mainly left here for
+    /// backwards-compatibility reasons.
+    pub fn color(&self, token: &ThemeToken) -> Color {
+        self.context_color(token, SurfaceLevel::Base)
+    }
+
+    /// Lookup a color by design token and context. If the combination of token and context is
+    /// not found, then use the base map. If the theme does not have an entry for that
+    /// token, logs a warning and returns an error color.
+    pub fn context_color(&self, token: &ThemeToken, context: SurfaceLevel) -> Color {
+        let Some(semantic_token) = self.token_assignments.get(token) else {
+            warn_once!("Theme color {} not found.", token);
+            // Return a bright obnoxious color to make the error obvious.
+            return palettes::basic::FUCHSIA.into();
+        };
+        if let Some(color) = self
+            .semantic_overrides
+            .get(&context)
+            .and_then(|m| m.get(semantic_token))
+        {
+            return *color;
+        }
+        if let Some(color) = self.semantic_base.get(semantic_token) {
+            return *color;
+        }
+        warn_once!("Theme semantic color {:?} not found.", semantic_token);
+        palettes::basic::FUCHSIA.into()
+    }
 }
 
 /// The currently selected user interface theme. Overwriting this resource changes the theme.
@@ -144,31 +176,14 @@ impl UiTheme {
     /// This version does not take context into account, and is mainly left here for
     /// backwards-compatibility reasons.
     pub fn color(&self, token: &ThemeToken) -> Color {
-        self.context_color(token, SurfaceLevel::Base)
+        self.0.color(token)
     }
 
     /// Lookup a color by design token and context. If the combination of token and context is
     /// not found, then use the base map. If the theme does not have an entry for that
     /// token, logs a warning and returns an error color.
     pub fn context_color(&self, token: &ThemeToken, context: SurfaceLevel) -> Color {
-        let Some(semantic_token) = self.0.token_assignments.get(token) else {
-            warn_once!("Theme color {} not found.", token);
-            // Return a bright obnoxious color to make the error obvious.
-            return palettes::basic::FUCHSIA.into();
-        };
-        if let Some(color) = self
-            .0
-            .semantic_overrides
-            .get(&context)
-            .and_then(|m| m.get(semantic_token))
-        {
-            return *color;
-        }
-        if let Some(color) = self.0.semantic_base.get(semantic_token) {
-            return *color;
-        }
-        warn_once!("Theme semantic color {:?} not found.", semantic_token);
-        palettes::basic::FUCHSIA.into()
+        self.0.context_color(token, context)
     }
 }
 
