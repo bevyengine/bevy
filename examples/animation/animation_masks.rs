@@ -67,8 +67,8 @@ const MASK_GROUP_PATHS: [(&str, &str); 6] = [
     ),
 ];
 
-// Identifies an animation for a specific mask group that the user
-// can select.
+/// Identifies an animation for a specific mask group that the user
+/// can select.
 #[derive(Clone, Copy, Component, Default)]
 struct AnimationControl {
     // The ID of the mask group that this button controls.
@@ -82,6 +82,7 @@ impl AnimationControl {
     }
 }
 
+/// The four types of animations per mask group
 #[derive(Clone, Copy, Component, PartialEq, Debug, Default)]
 enum AnimationLabel {
     #[default]
@@ -104,11 +105,6 @@ impl AnimationLabel {
 
 #[derive(Clone, Debug, Resource)]
 struct AnimationNodes([AnimationNodeIndex; 3]);
-
-#[derive(Clone, Copy, Debug)]
-struct MaskGroupState {
-    clip: u8,
-}
 
 // The application entry point.
 fn main() {
