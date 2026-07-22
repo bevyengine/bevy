@@ -132,7 +132,7 @@ fn on_focused_keyboard_input(
         (NONE, Key::Backspace) => queue_edit(TextEdit::Backspace),
         (NONE, Key::Delete) => queue_edit(TextEdit::Delete),
         (NONE, Key::Escape) => queue_edit(TextEdit::CollapseSelection),
-        (NONE | SHIFT, Key::Character(_)) | (NONE, Key::Space) => {
+        (NONE | SHIFT, Key::Character(_) | Key::Unidentified(_)) | (NONE, Key::Space) => {
             if let Some(text) = &keyboard_input.input.text
                 && !text.is_empty()
             {
