@@ -2,6 +2,7 @@ mod commands;
 mod despawn;
 mod despawn_recursive;
 mod entity_allocator;
+mod entity_fetch;
 mod entity_hash;
 mod spawn;
 mod world_get;
@@ -11,6 +12,7 @@ use criterion::criterion_group;
 use despawn::*;
 use despawn_recursive::*;
 use entity_allocator::*;
+use entity_fetch::*;
 use entity_hash::*;
 use spawn::*;
 use world_get::*;
@@ -44,4 +46,5 @@ criterion_group!(
     query_get_components_mut_32,
     entity_set_build_and_lookup,
     entity_allocator_benches,
+    get_entity_mut_slice
 );
