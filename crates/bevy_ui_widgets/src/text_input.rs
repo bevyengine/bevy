@@ -137,7 +137,7 @@ fn on_focused_keyboard_input(
 
     let mut queue_edit = |edit: TextEdit| {
         if (*rwmode == TextReadWriteMode::Editable
-            || (!edit.is_destructive() && (disabled || *rwmode == TextReadWriteMode::ReadOnly)))
+            || (!edit.is_destructive() && (!disabled || *rwmode == TextReadWriteMode::ReadOnly)))
             && keyboard_input.input.state.is_pressed()
         {
             editable_text.queue_edit(edit);
