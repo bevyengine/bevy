@@ -194,8 +194,12 @@ pub fn reflect_auto_registration(meta: &ReflectMeta) -> Option<proc_macro2::Toke
         };
 
         // Skip unless env var is set, otherwise this might slow down rust-analyzer
-        if env::var("BEVY_REFLECT_AUTO_REGISTER_STATIC").is_err() {
+        let Ok(path) = env::var("BEVY_REFLECT_AUTO_REGISTER_STATIC") else {
             return None;
+        };
+        let path = PathBuf::from(path);
+        if !path.is_absolute() {
+            panic!("BEVY_REFLECT_AUTO_REGISTER_STATIC must be set to an absolute path")
         }
 
         // Names of registrations functions will be stored in this file.
@@ -206,7 +210,8 @@ pub fn reflect_auto_registration(meta: &ReflectMeta) -> Option<proc_macro2::Toke
         //
         // It might make sense to replace the mutex with File::lock when file_lock feature becomes stable.
         static REGISTRATION_FNS_EXPORT: LazyLock<Mutex<fs::File>> = LazyLock::new(|| {
-            let path = PathBuf::from("target").join("bevy_reflect_type_registrations");
+            let mut path = PathBuf::from(env::var("BEVY_REFLECT_AUTO_REGISTER_STATIC").unwrap());
+            path.push("bevy_reflect_type_registrations");
             fs::DirBuilder::new()
                 .recursive(true)
                 .create(&path)
