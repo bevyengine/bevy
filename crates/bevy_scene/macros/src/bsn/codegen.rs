@@ -615,7 +615,9 @@ impl BsnType {
             ));
         }
 
-        if let Some(BsnValue::Type(ty)) = value {
+        if let Some(BsnValue::Type(ty)) = value
+            && (ty.enum_variant.is_none() || ty.fields.len() != 0)
+        {
             let mut type_assigns = Vec::new();
             ty.to_patch_tokens(
                 ctx,
