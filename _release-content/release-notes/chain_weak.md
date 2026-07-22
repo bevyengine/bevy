@@ -11,9 +11,9 @@ involved never touch the same data. This often leaves worker threads idle while 
 wait for a handful of stragglers at the end of a system set, a pattern that shows up
 frequently in the render world.
 
-The new `chain_weak()` function provides a looser alternative. Like `.chain()`,
-it adds ordering constraints between successive elements, but those constraints
-are emitted as "must start before" (start-to-start) dependencies rather than
+The new `chain_weak()`, `before_weak()`, and `after_weak()` functions provides a looser alternative.
+Like their regular counterparts, they add ordering constraints between successive elements,
+however those constraints are emitted as "must start before" (start-to-start) dependencies rather than
 "must finish before" ones. A later system may not begin until the earlier one has
 begun, but it does not wait for the earlier one to finish, so the two can overlap.
 
@@ -22,7 +22,9 @@ schedule.configure_sets(
     (
         ExtractCommands,
         PrepareMeshes,
-        ManageViews,
+        CreateViews,
+        Specialize,
+        PrepareViews,
         Queue,
         PhaseSort,
         Prepare,

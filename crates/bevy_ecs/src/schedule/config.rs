@@ -157,6 +157,38 @@ impl<T: Schedulable<Metadata = GraphInfo, GroupMetadata = Chain>> ScheduleConfig
         }
     }
 
+    fn before_weak_inner(&mut self, set: InternedSystemSet) {
+        match self {
+            Self::ScheduleConfig(config) => {
+                config
+                    .metadata
+                    .dependencies
+                    .push(Dependency::new(DependencyKind::Before, set).add_config(Weak));
+            }
+            Self::Configs { configs, .. } => {
+                for config in configs {
+                    config.before_weak_inner(set);
+                }
+            }
+        }
+    }
+
+    fn after_weak_inner(&mut self, set: InternedSystemSet) {
+        match self {
+            Self::ScheduleConfig(config) => {
+                config
+                    .metadata
+                    .dependencies
+                    .push(Dependency::new(DependencyKind::After, set).add_config(Weak));
+            }
+            Self::Configs { configs, .. } => {
+                for config in configs {
+                    config.after_weak_inner(set);
+                }
+            }
+        }
+    }
+
     fn before_ignore_deferred_inner(&mut self, set: InternedSystemSet) {
         match self {
             Self::ScheduleConfig(config) => {
@@ -388,6 +420,48 @@ pub trait IntoScheduleConfigs<T: Schedulable<Metadata = GraphInfo, GroupMetadata
         self.into_configs().after_ignore_deferred(set)
     }
 
+    /// Run before all systems in `set`, allowing `self` to overlap with `set` given that there
+    /// are no conflicting data dependencies.
+    ///
+    /// Like [`before`](Self::before), an ordering constraint is added against `set`. Unlike
+    /// [`before`](Self::before), that constraint is a "must start before" (start-to-start)
+    /// dependency: systems in `set` may not begin until `self` has begun, but they do not wait
+    /// for `self` to finish, so the two can overlap. This is useful for ordering against large
+    /// groups of systems (such as system sets) without serializing systems that don't actually
+    /// depend on each other.
+    ///
+    /// Two cases keep the regular finish-to-start ordering of [`before`](Self::before): a `self`
+    /// that produces deferred effects such as [`Commands`](crate::system::Commands) (so the
+    /// systems in `set` observe them, with an [`ApplyDeferred`](crate::schedule::ApplyDeferred)
+    /// inserted as usual), and exclusive systems (which cannot overlap anything).
+    ///
+    /// Dependencies the scheduler can't see (interior mutability on read-only accesses, global state, etc.)
+    /// are **not** respected, so only use this when the systems don't rely on such hidden data dependencies.
+    fn before_weak<M>(self, set: impl IntoSystemSet<M>) -> ScheduleConfigs<T> {
+        self.into_configs().before_weak(set)
+    }
+
+    /// Run after all systems in `set`, allowing `self` to overlap with `set` given that there
+    /// are no conflicting data dependencies.
+    ///
+    /// Like [`after`](Self::after), an ordering constraint is added against `set`. Unlike
+    /// [`after`](Self::after), that constraint is a "must start before" (start-to-start)
+    /// dependency: `self` may not begin until the systems in `set` have begun, but it does not
+    /// wait for them to finish, so the two can overlap. This is useful for ordering against large
+    /// groups of systems (such as system sets) without serializing systems that don't actually
+    /// depend on each other.
+    ///
+    /// Two cases keep the regular finish-to-start ordering of [`after`](Self::after): a system in
+    /// `set` that produces deferred effects such as [`Commands`](crate::system::Commands) (so
+    /// `self` observes them, with an [`ApplyDeferred`](crate::schedule::ApplyDeferred) inserted as
+    /// usual), and exclusive systems (which cannot overlap anything).
+    ///
+    /// Dependencies the scheduler can't see (interior mutability on read-only accesses, global state, etc.)
+    /// are **not** respected, so only use this when the systems don't rely on such hidden data dependencies.
+    fn after_weak<M>(self, set: impl IntoSystemSet<M>) -> ScheduleConfigs<T> {
+        self.into_configs().after_weak(set)
+    }
+
     /// Add a run condition to each contained system.
     ///
     /// Each system will receive its own clone of the [`SystemCondition`] and will only run
@@ -553,6 +627,18 @@ impl<T: Schedulable<Metadata = GraphInfo, GroupMetadata = Chain>> IntoScheduleCo
     fn after_ignore_deferred<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
         let set = set.into_system_set();
         self.after_ignore_deferred_inner(set.intern());
+        self
+    }
+
+    fn before_weak<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
+        let set = set.into_system_set();
+        self.before_weak_inner(set.intern());
+        self
+    }
+
+    fn after_weak<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
+        let set = set.into_system_set();
+        self.after_weak_inner(set.intern());
         self
     }
 

@@ -1159,6 +1159,9 @@ impl ScheduleGraph {
                 DependencyKind::After => (NodeId::Set(key), id),
             };
             self.dependency.add_edge(lhs, rhs);
+            if options.contains_key(&TypeId::of::<Weak>()) {
+                self.weak_node_edges.insert((lhs, rhs));
+            }
             for pass in self.passes.values_mut() {
                 pass.add_dependency(lhs, rhs, &options);
             }
@@ -2956,6 +2959,98 @@ mod tests {
         // flattens to a 2x2 fan-out of start-to-start edges.
         assert_eq!(total_finish_dependencies(&schedule), 0);
         assert_eq!(total_start_dependencies(&schedule), 4);
+    }
+
+    #[test]
+    fn before_weak_between_sets_uses_start_dependency() {
+        #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+        enum Sets {
+            A,
+            B,
+        }
+
+        fn read<const N: usize>(_: Res<Resource1>) {}
+
+        let mut world = World::default();
+        let mut schedule = Schedule::default();
+        schedule.configure_sets(Sets::A.before_weak(Sets::B));
+        schedule.add_systems((read::<1>.in_set(Sets::A), read::<2>.in_set(Sets::B)));
+        schedule.initialize(&mut world).unwrap();
+
+        // The weak `before` ordering flattens to a start-to-start edge between the two systems.
+        assert_eq!(total_finish_dependencies(&schedule), 0);
+        assert_eq!(total_start_dependencies(&schedule), 1);
+    }
+
+    #[test]
+    fn after_weak_between_sets_uses_start_dependency() {
+        #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+        enum Sets {
+            A,
+            B,
+        }
+
+        fn read<const N: usize>(_: Res<Resource1>) {}
+
+        let mut world = World::default();
+        let mut schedule = Schedule::default();
+        schedule.configure_sets(Sets::B.after_weak(Sets::A));
+        schedule.add_systems((read::<1>.in_set(Sets::A), read::<2>.in_set(Sets::B)));
+        schedule.initialize(&mut world).unwrap();
+
+        // The weak `after` ordering flattens to a start-to-start edge between the two systems.
+        assert_eq!(total_finish_dependencies(&schedule), 0);
+        assert_eq!(total_start_dependencies(&schedule), 1);
+    }
+
+    #[test]
+    fn before_weak_keeps_finish_dependency_for_deferred() {
+        #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+        enum Sets {
+            A,
+            B,
+        }
+
+        fn with_commands(_: Commands) {}
+        fn read<const N: usize>(_: Res<Resource1>) {}
+
+        let mut world = World::default();
+        let mut schedule = Schedule::default();
+        schedule.configure_sets(Sets::A.before_weak(Sets::B));
+        // `Sets::A` produces deferred effects, so the edge stays finish-to-start (with a sync point).
+        schedule.add_systems((with_commands.in_set(Sets::A), read::<2>.in_set(Sets::B)));
+        schedule.initialize(&mut world).unwrap();
+
+        assert_eq!(total_start_dependencies(&schedule), 0);
+    }
+
+    #[test]
+    fn before_weak_orders_conflicting_systems() {
+        #[derive(Resource, Default)]
+        struct Order(Vec<u32>);
+        #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+        enum Sets {
+            A,
+            B,
+        }
+
+        fn record<const N: u32>(mut order: ResMut<Order>) {
+            order.0.push(N);
+        }
+
+        let mut world = World::default();
+        world.init_resource::<Order>();
+        let mut schedule = Schedule::default();
+        // Use the multi-threaded executor so the start-to-start logic is exercised. The
+        // single-threaded executor just runs in topological order.
+        schedule.set_executor(MultiThreadedExecutor::new());
+        schedule.configure_sets(Sets::A.before_weak(Sets::B));
+        // Both systems write `Order`, so they conflict. The start-to-start edge keeps
+        // them from running at the same time while pinning their order.
+        schedule.add_systems((record::<1>.in_set(Sets::A), record::<2>.in_set(Sets::B)));
+        schedule.run(&mut world);
+
+        assert_eq!(world.resource::<Order>().0, vec![1, 2]);
     }
 
     #[test]
