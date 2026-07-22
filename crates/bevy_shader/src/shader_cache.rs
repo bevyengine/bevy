@@ -324,7 +324,7 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
                 let shader_module =
                     (self.load_module)(&self.device, shader_source, &shader.validate_shader)?;
 
-                entry.insert(Arc::new(shader_module))
+                entry.insert_with_key(shader_defs.into(), Arc::new(shader_module))
             }
         };
 
