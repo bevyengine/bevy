@@ -5,10 +5,7 @@ enable wgpu_ray_query;
 #import bevy_pbr::utils::{rand_f, rand_vec2f}
 #import bevy_render::maths::orthonormalize
 #import bevy_solari::realtime_bindings::{
-    world_cache_life,
-    world_cache_checksums,
-    world_cache_radiance,
-    world_cache_geometry_data,
+    world_cache,
     constants,
 }
 
@@ -40,25 +37,25 @@ fn query_world_cache(world_position_in: vec3<f32>, world_normal: vec3<f32>, view
     let checksum = compute_checksum(world_position_quantized, world_normal_quantized);
 
     for (var i = 0u; i < WORLD_CACHE_MAX_SEARCH_STEPS; i++) {
-        let cas = atomicCompareExchangeWeak(&world_cache_checksums[key], WORLD_CACHE_EMPTY_CELL, checksum);
+        let cas = atomicCompareExchangeWeak(&world_cache.checksums[key], WORLD_CACHE_EMPTY_CELL, checksum);
         let existing_checksum = cas.old_value;
 
         // Cell already exists or is empty - reset lifetime
         if existing_checksum == checksum || existing_checksum == WORLD_CACHE_EMPTY_CELL {
 #ifndef WORLD_CACHE_QUERY_ATOMIC_MAX_LIFETIME
-            atomicStore(&world_cache_life[key], cell_lifetime);
+            atomicStore(&world_cache.life[key], cell_lifetime);
 #else
-            atomicMax(&world_cache_life[key], cell_lifetime);
+            atomicMax(&world_cache.life[key], cell_lifetime);
 #endif
         }
 
         if existing_checksum == checksum {
             // Cache entry already exists - get radiance
-            return world_cache_radiance[key].rgb;
+            return world_cache.radiance[key].rgb;
         } else if existing_checksum == WORLD_CACHE_EMPTY_CELL && cas.exchanged {
             // Cell is empty - initialize it
-            world_cache_geometry_data[key].world_position = world_position;
-            world_cache_geometry_data[key].world_normal = world_normal;
+            world_cache.geometry_data[key].world_position = world_position;
+            world_cache.geometry_data[key].world_normal = world_normal;
             return vec3(0.0);
         } else {
             // Collision - linear probe to next entry
