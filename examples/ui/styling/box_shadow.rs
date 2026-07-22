@@ -1,12 +1,21 @@
 //! This example shows how to create a node with a shadow and adjust its settings interactively.
 
-use bevy::{color::palettes::css::*, prelude::*, time::Time, window::RequestRedraw};
+use crate::radio::{feathers_option_buttons, main_ui_node_scene, RadioButtonOptionValue};
+use bevy::{
+    color::palettes::css::*,
+    feathers::{dark_theme::create_dark_theme, theme::UiTheme, FeathersPlugins},
+    prelude::*,
+    time::Time,
+    ui_widgets::{radio_self_update, ValueChange},
+    window::RequestRedraw,
+};
+
+#[path = "../../helpers/radio.rs"]
+mod radio;
 
 const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
 const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
 const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
-
-const SHAPE_DEFAULT_SETTINGS: ShapeSettings = ShapeSettings { index: 0 };
 
 const SHADOW_DEFAULT_SETTINGS: ShadowSettings = ShadowSettings {
     x_offset: 20.0,
@@ -17,37 +26,64 @@ const SHADOW_DEFAULT_SETTINGS: ShadowSettings = ShadowSettings {
     samples: 6,
 };
 
-const SHAPES: &[(&str, fn(&mut Node))] = &[
-    ("1", |node| {
-        node.width = px(164);
-        node.height = px(164);
-        node.border_radius = BorderRadius::ZERO;
-    }),
-    ("2", |node| {
-        node.width = px(164);
-        node.height = px(164);
-        node.border_radius = BorderRadius::all(px(41));
-    }),
-    ("3", |node| {
-        node.width = px(164);
-        node.height = px(164);
-        node.border_radius = BorderRadius::MAX;
-    }),
-    ("4", |node| {
-        node.width = px(240);
-        node.height = px(80);
-        node.border_radius = BorderRadius::all(px(32));
-    }),
-    ("5", |node| {
-        node.width = px(80);
-        node.height = px(240);
-        node.border_radius = BorderRadius::all(px(32));
-    }),
-];
+/// The current shape displayed on the screen
+#[derive(Component, Clone, Copy, Default, PartialEq)]
+enum Shape {
+    #[default]
+    Square,
+    RoundedSquare,
+    Circle,
+    LongRectangle,
+    TallRectangle,
+}
+
+impl Shape {
+    /// Mutates the `node` to become the given shape.
+    fn change_node(&self, node: &mut Node) {
+        match *self {
+            Self::Square => {
+                node.width = px(164);
+                node.height = px(164);
+                node.border_radius = BorderRadius::ZERO;
+            }
+            Self::RoundedSquare => {
+                node.width = px(164);
+                node.height = px(164);
+                node.border_radius = BorderRadius::all(px(41));
+            }
+            Self::Circle => {
+                node.width = px(164);
+                node.height = px(164);
+                node.border_radius = BorderRadius::MAX;
+            }
+            Self::LongRectangle => {
+                node.width = px(240);
+                node.height = px(80);
+                node.border_radius = BorderRadius::all(px(32));
+            }
+            Self::TallRectangle => {
+                node.width = px(80);
+                node.height = px(240);
+                node.border_radius = BorderRadius::all(px(32));
+            }
+        }
+    }
+
+    /// Returns the name of the shape as a string.
+    fn name(&self) -> &'static str {
+        match *self {
+            Shape::Square => "Square",
+            Shape::RoundedSquare => "Rounded Square",
+            Shape::Circle => "Circle",
+            Shape::LongRectangle => "Long Rectangle",
+            Shape::TallRectangle => "Tall Rectangle",
+        }
+    }
+}
 
 #[derive(Resource, Default)]
-struct ShapeSettings {
-    index: usize,
+struct AppSettings {
+    shape: Shape,
 }
 
 #[derive(Resource, Default)]
@@ -63,8 +99,9 @@ struct ShadowSettings {
 #[derive(Component)]
 struct ShadowNode;
 
-#[derive(Component, PartialEq, Clone, Copy)]
+#[derive(Component, PartialEq, Clone, Copy, Default)]
 enum SettingsButton {
+    #[default]
     XOffsetInc,
     XOffsetDec,
     YOffsetInc,
@@ -75,15 +112,14 @@ enum SettingsButton {
     SpreadDec,
     CountInc,
     CountDec,
-    ShapePrev,
-    ShapeNext,
     Reset,
     SamplesInc,
     SamplesDec,
 }
 
-#[derive(Component, Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Component, Clone, Copy, Default, PartialEq, Eq, Debug)]
 enum SettingType {
+    #[default]
     XOffset,
     YOffset,
     Blur,
@@ -116,9 +152,10 @@ struct HeldButton {
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins((DefaultPlugins, FeathersPlugins))
+        .insert_resource(UiTheme(create_dark_theme()))
+        .init_resource::<AppSettings>()
         .insert_resource(SHADOW_DEFAULT_SETTINGS)
-        .insert_resource(SHAPE_DEFAULT_SETTINGS)
         .insert_resource(HeldButton::default())
         .add_systems(Startup, setup)
         .add_systems(
@@ -126,22 +163,18 @@ fn main() {
             (
                 button_system,
                 button_color_system,
-                update_shape.run_if(resource_changed::<ShapeSettings>),
                 update_shadow.run_if(resource_changed::<ShadowSettings>),
                 update_shadow_samples.run_if(resource_changed::<ShadowSettings>),
                 button_repeat_system,
             ),
         )
+        .add_observer(on_value_change_update_shape)
+        .add_observer(radio_self_update)
         .run();
 }
 
 // --- UI Setup ---
-fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    shadow: Res<ShadowSettings>,
-    shape: Res<ShapeSettings>,
-) {
+fn setup(mut commands: Commands, shadow: Res<ShadowSettings>, app_settings: Res<AppSettings>) {
     commands.spawn((Camera2d, BoxShadowSamples(shadow.samples)));
     // Spawn shape node
     commands
@@ -165,7 +198,7 @@ fn setup(
                 border_radius: BorderRadius::ZERO,
                 ..default()
             };
-            SHAPES[shape.index % SHAPES.len()].1(&mut node);
+            app_settings.shape.change_node(&mut node);
 
             (
                 node,
@@ -183,64 +216,49 @@ fn setup(
         }]);
 
     // Settings Panel
-    commands
-        .spawn((
-            Node {
-                flex_direction: FlexDirection::Column,
-                position_type: PositionType::Absolute,
-                left: px(24),
-                bottom: px(24),
-                width: px(270),
-                padding: UiRect::all(px(16)),
-                border_radius: BorderRadius::all(px(12)),
-                ..default()
-            },
-            BackgroundColor(Color::srgb(0.12, 0.12, 0.12).with_alpha(0.85)),
-            BorderColor::all(Color::WHITE.with_alpha(0.15)),
-            ZIndex(10),
-        ))
-        .insert(children![
-            build_setting_row(
-                SettingType::Shape,
-                SettingsButton::ShapePrev,
-                SettingsButton::ShapeNext,
-                shape.index as f32,
-                &asset_server,
+    commands.spawn_scene(bsn! {
+        main_ui_node_scene()
+        ZIndex(10)
+        Children [
+            feathers_option_buttons(
+                "Shape",
+                &[
+                    (Shape::Square, Shape::Square.name()),
+                    (Shape::RoundedSquare, Shape::RoundedSquare.name()),
+                    (Shape::Circle, Shape::Circle.name()),
+                    (Shape::LongRectangle, Shape::LongRectangle.name()),
+                    (Shape::TallRectangle, Shape::TallRectangle.name()),
+                ],
             ),
             build_setting_row(
                 SettingType::XOffset,
                 SettingsButton::XOffsetDec,
                 SettingsButton::XOffsetInc,
                 shadow.x_offset,
-                &asset_server,
             ),
             build_setting_row(
                 SettingType::YOffset,
                 SettingsButton::YOffsetDec,
                 SettingsButton::YOffsetInc,
                 shadow.y_offset,
-                &asset_server,
             ),
             build_setting_row(
                 SettingType::Blur,
                 SettingsButton::BlurDec,
                 SettingsButton::BlurInc,
                 shadow.blur,
-                &asset_server,
             ),
             build_setting_row(
                 SettingType::Spread,
                 SettingsButton::SpreadDec,
                 SettingsButton::SpreadInc,
                 shadow.spread,
-                &asset_server,
             ),
             build_setting_row(
                 SettingType::Count,
                 SettingsButton::CountDec,
                 SettingsButton::CountInc,
                 shadow.count as f32,
-                &asset_server,
             ),
             // Add BoxShadowSamples as a setting row
             build_setting_row(
@@ -248,40 +266,31 @@ fn setup(
                 SettingsButton::SamplesDec,
                 SettingsButton::SamplesInc,
                 shadow.samples as f32,
-                &asset_server,
             ),
             // Reset button
-            (
+            Node {
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                height: px(36),
+                margin: UiRect::top(px(12)),
+            }
+            Children [
+                Button
                 Node {
-                    flex_direction: FlexDirection::Row,
+                    width: px(90),
+                    height: px(32),
+                    justify_content: JustifyContent::Center,
                     align_items: AlignItems::Center,
-                    height: px(36),
-                    margin: UiRect::top(px(12)),
-                    ..default()
-                },
-                children![(
-                    Button,
-                    Node {
-                        width: px(90),
-                        height: px(32),
-                        justify_content: JustifyContent::Center,
-                        align_items: AlignItems::Center,
-                        border_radius: BorderRadius::all(px(8)),
-                        ..default()
-                    },
-                    BackgroundColor(NORMAL_BUTTON),
-                    SettingsButton::Reset,
-                    children![(
-                        Text::new("Reset"),
-                        TextFont {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
-                            font_size: FontSize::Px(16.0),
-                            ..default()
-                        },
-                    )],
-                )],
-            ),
-        ]);
+                    border_radius: BorderRadius::all(px(8)),
+                }
+                BackgroundColor(NORMAL_BUTTON)
+                template_value(SettingsButton::Reset)
+                Children [
+                    Text::new("Reset")
+                ],
+            ],
+        ]
+    });
 }
 
 // --- UI Helper Functions ---
@@ -292,114 +301,73 @@ fn build_setting_row(
     dec: SettingsButton,
     inc: SettingsButton,
     value: f32,
-    asset_server: &Res<AssetServer>,
-) -> impl Bundle {
+) -> impl Scene {
     let value_text = match setting_type {
-        SettingType::Shape => SHAPES[value as usize % SHAPES.len()].0.to_string(),
+        SettingType::Shape => "TODO To Remove".to_string(),
         SettingType::Count => format!("{}", value as usize),
         _ => format!("{value:.1}"),
     };
 
-    (
+    bsn! {
         Node {
             flex_direction: FlexDirection::Row,
             align_items: AlignItems::Center,
             height: px(32),
-            ..default()
-        },
-        children![
-            (
-                Node {
-                    width: px(80),
-                    justify_content: JustifyContent::FlexEnd,
-                    align_items: AlignItems::Center,
-                    ..default()
-                },
-                // Attach SettingType to the value label node, not the parent row
-                children![(
-                    Text::new(setting_type.label()),
-                    TextFont {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
-                        font_size: FontSize::Px(16.0),
-                        ..default()
-                    },
-                )],
-            ),
-            (
-                Button,
-                Node {
-                    width: px(28),
-                    height: px(28),
-                    margin: UiRect::left(px(8)),
-                    justify_content: JustifyContent::Center,
-                    align_items: AlignItems::Center,
-                    border_radius: BorderRadius::all(px(6)),
-                    ..default()
-                },
-                BackgroundColor(Color::WHITE),
-                dec,
-                children![(
-                    Text::new(if setting_type == SettingType::Shape {
-                        "<"
-                    } else {
-                        "-"
-                    }),
-                    TextFont {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
-                        font_size: FontSize::Px(18.0),
-                        ..default()
-                    },
-                )],
-            ),
-            (
-                Node {
-                    width: px(48),
-                    height: px(28),
-                    margin: UiRect::horizontal(px(8)),
-                    justify_content: JustifyContent::Center,
-                    align_items: AlignItems::Center,
-                    border_radius: BorderRadius::all(px(6)),
-                    ..default()
-                },
-                children![{
-                    (
-                        Text::new(value_text),
-                        TextFont {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
-                            font_size: FontSize::Px(16.0),
-                            ..default()
-                        },
-                        setting_type,
-                    )
-                }],
-            ),
-            (
-                Button,
-                Node {
-                    width: px(28),
-                    height: px(28),
-                    justify_content: JustifyContent::Center,
-                    align_items: AlignItems::Center,
-                    border_radius: BorderRadius::all(px(6)),
-                    ..default()
-                },
-                BackgroundColor(Color::WHITE),
-                inc,
-                children![(
-                    Text::new(if setting_type == SettingType::Shape {
-                        ">"
-                    } else {
-                        "+"
-                    }),
-                    TextFont {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
-                        font_size: FontSize::Px(18.0),
-                        ..default()
-                    },
-                )],
-            ),
-        ],
-    )
+        }
+        Children [
+            Node {
+                width: px(80),
+                justify_content: JustifyContent::FlexEnd,
+                align_items: AlignItems::Center,
+            }
+            // Attach SettingType to the value label node, not the parent row
+            Children [
+                Text::new(setting_type.label())
+            ],
+
+
+            Button
+            Node {
+                width: px(28),
+                height: px(28),
+                margin: UiRect::left(px(8)),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                border_radius: BorderRadius::all(px(6)),
+            }
+            BackgroundColor(Color::WHITE)
+            template_value(dec)
+            Children [
+                Text::new("-")
+            ],
+
+            Node {
+                width: px(48),
+                height: px(28),
+                margin: UiRect::horizontal(px(8)),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                border_radius: BorderRadius::all(px(6)),
+            }
+            Children [
+                Text::new(value_text)
+                template_value(setting_type)
+            ],
+            Button
+            Node {
+                width: px(28),
+                height: px(28),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                border_radius: BorderRadius::all(px(6)),
+            }
+            BackgroundColor(Color::WHITE)
+            template_value(inc)
+            Children [
+                Text::new("+")
+            ],
+        ]
+    }
 }
 
 // --- SYSTEMS ---
@@ -500,17 +468,32 @@ fn make_shadow(color: Color, x_offset: f32, y_offset: f32, spread: f32, blur: f3
 }
 
 // Update shape of ShadowNode if shape selection changed
+fn on_value_change_update_shape(
+    event: On<ValueChange<Entity>>,
+    new_value_query: Query<&RadioButtonOptionValue<Shape>>,
+    mut app_settings: ResMut<AppSettings>,
+    query: Query<&mut Node, With<ShadowNode>>,
+    label_query: Query<(&mut Text, &SettingType)>,
+) {
+    let Ok(RadioButtonOptionValue(shape)) = new_value_query.get(event.value) else {
+        return;
+    };
+    app_settings.shape = *shape;
+
+    update_shape(&app_settings, query, label_query);
+}
+
 fn update_shape(
-    shape: Res<ShapeSettings>,
+    app_settings: &AppSettings,
     mut query: Query<&mut Node, With<ShadowNode>>,
     mut label_query: Query<(&mut Text, &SettingType)>,
 ) {
     for mut node in &mut query {
-        SHAPES[shape.index % SHAPES.len()].1(&mut node);
+        app_settings.shape.change_node(&mut node);
     }
     for (mut text, kind) in &mut label_query {
         if *kind == SettingType::Shape {
-            *text = Text::new(SHAPES[shape.index % SHAPES.len()].0);
+            *text = Text::new(app_settings.shape.name());
         }
     }
 }
@@ -522,7 +505,7 @@ fn button_system(
         (Changed<Interaction>, With<Button>),
     >,
     mut shadow: ResMut<ShadowSettings>,
-    mut shape: ResMut<ShapeSettings>,
+    mut app_settings: ResMut<AppSettings>,
     mut held: ResMut<HeldButton>,
     time: Res<Time>,
 ) {
@@ -530,7 +513,7 @@ fn button_system(
     for (interaction, btn) in &mut interaction_query {
         match *interaction {
             Interaction::Pressed => {
-                trigger_button_action(btn, &mut shadow, &mut shape);
+                trigger_button_action(btn, &mut shadow, &mut app_settings);
                 held.button = Some(*btn);
                 held.pressed_at = Some(now);
                 held.last_repeat = Some(now);
@@ -549,7 +532,7 @@ fn button_system(
 fn trigger_button_action(
     btn: &SettingsButton,
     shadow: &mut ShadowSettings,
-    shape: &mut ShapeSettings,
+    app_settings: &mut AppSettings,
 ) {
     match btn {
         SettingsButton::XOffsetInc => shadow.x_offset += 1.0,
@@ -570,18 +553,8 @@ fn trigger_button_action(
                 shadow.count -= 1;
             }
         }
-        SettingsButton::ShapePrev => {
-            if shape.index == 0 {
-                shape.index = SHAPES.len() - 1;
-            } else {
-                shape.index -= 1;
-            }
-        }
-        SettingsButton::ShapeNext => {
-            shape.index = (shape.index + 1) % SHAPES.len();
-        }
         SettingsButton::Reset => {
-            *shape = SHAPE_DEFAULT_SETTINGS;
+            *app_settings = AppSettings::default();
             *shadow = SHADOW_DEFAULT_SETTINGS;
         }
         SettingsButton::SamplesInc => shadow.samples += 1,
@@ -598,7 +571,7 @@ fn button_repeat_system(
     time: Res<Time>,
     mut held: ResMut<HeldButton>,
     mut shadow: ResMut<ShadowSettings>,
-    mut shape: ResMut<ShapeSettings>,
+    mut app_settings: ResMut<AppSettings>,
     mut request_redraw_writer: MessageWriter<RequestRedraw>,
 ) {
     if held.button.is_some() {
@@ -612,7 +585,7 @@ fn button_repeat_system(
         let last_repeat = held.last_repeat.unwrap_or(pressed_at);
         let since_last = now - last_repeat;
         if since_pressed > INITIAL_DELAY && since_last > REPEAT_RATE {
-            trigger_button_action(&btn, &mut shadow, &mut shape);
+            trigger_button_action(&btn, &mut shadow, &mut app_settings);
             held.last_repeat = Some(now);
         }
     }
