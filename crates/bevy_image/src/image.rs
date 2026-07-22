@@ -180,27 +180,51 @@ pub const TRANSPARENT_IMAGE_HANDLE: Handle<Image> =
 pub struct ImagePlugin {
     /// The default image sampler to use when [`ImageSampler`] is set to `Default`.
     pub default_sampler: ImageSamplerDescriptor,
+    /// The file extensions that will be assigned a default compressed image
+    /// processor. This means they will be automatically compressed unless
+    /// overridden with a `.meta` file.
+    ///
+    /// Defaults to `["png", "jpeg", "jpg"]`.
+    #[cfg(any(
+        feature = "compressed_image_saver",
+        feature = "compressed_image_saver_universal"
+    ))]
+    pub default_compressed_image_processor_extensions: Vec<String>,
 }
 
 impl Default for ImagePlugin {
     fn default() -> Self {
-        ImagePlugin::default_linear()
+        ImagePlugin {
+            default_sampler: ImageSamplerDescriptor::linear(),
+            #[cfg(any(
+                feature = "compressed_image_saver",
+                feature = "compressed_image_saver_universal"
+            ))]
+            default_compressed_image_processor_extensions: [
+                "png".into(),
+                "jpeg".into(),
+                "jpg".into(),
+            ]
+            .into(),
+        }
     }
 }
 
 impl ImagePlugin {
+    /// Sets [`ImagePlugin::default_sampler`].
+    pub fn with_default_sampler(mut self, value: ImageSamplerDescriptor) -> ImagePlugin {
+        self.default_sampler = value;
+        self
+    }
+
     /// Creates image settings with linear sampling by default.
     pub fn default_linear() -> ImagePlugin {
-        ImagePlugin {
-            default_sampler: ImageSamplerDescriptor::linear(),
-        }
+        Default::default()
     }
 
     /// Creates image settings with nearest sampling by default.
     pub fn default_nearest() -> ImagePlugin {
-        ImagePlugin {
-            default_sampler: ImageSamplerDescriptor::nearest(),
-        }
+        ImagePlugin::default().with_default_sampler(ImageSamplerDescriptor::nearest())
     }
 }
 
@@ -239,7 +263,7 @@ impl Plugin for ImagePlugin {
                 crate::CompressedImageSaver,
             >>(crate::CompressedImageSaver::default().into());
 
-            for file_extension in ["png", "jpeg", "jpg"] {
+            for file_extension in &self.default_compressed_image_processor_extensions {
                 processor.set_default_processor::<bevy_asset::processor::LoadTransformAndSave<
                     ImageLoader,
                     bevy_asset::transformer::IdentityAssetTransformer<Image>,
