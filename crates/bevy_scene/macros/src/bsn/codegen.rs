@@ -615,9 +615,7 @@ impl BsnType {
             ));
         }
 
-        if let Some(BsnValue::Type(ty)) = value
-            && ty.enum_variant.is_none()
-        {
+        if let Some(BsnValue::Type(ty)) = value {
             let mut type_assigns = Vec::new();
             ty.to_patch_tokens(
                 ctx,
@@ -643,7 +641,7 @@ impl BsnType {
             let ident = ctx.hoisted_expressions.hoist(value);
             return Ok(quote! { *#bind_name = #ident; });
         }
-            
+
         if let Some(BsnValue::Name(ident)) = value {
             let index = ctx.entity_refs.get(ident.to_string());
             let bevy_ecs = ctx.bevy_ecs;
