@@ -2949,4 +2949,64 @@ mod tests {
 
         assert_eq!(expected_id, actual_id);
     }
+
+    #[test]
+    fn scene_with_nested_enum() {
+        let mut app = test_app();
+        let world = app.world_mut();
+
+        #[derive(Clone, Component, FromTemplate)]
+        enum EnumComponent {
+            #[default]
+            Foo(InnerEnum),
+        }
+
+        #[derive(Clone, Default)]
+        enum InnerEnum {
+            #[default]
+            Default,
+            NonDefault(u8),
+        }
+
+        impl InnerEnum {
+            fn default_nondefault() -> Self {
+                Self::NonDefault(0)
+            }
+        }
+
+        let id = world
+            .spawn_scene(bsn! {
+                EnumComponent::Foo(InnerEnum::NonDefault(5))
+            })
+            .unwrap()
+            .id();
+        assert!(matches!(
+            world.entity(id).get::<EnumComponent>().unwrap(),
+            EnumComponent::Foo(InnerEnum::NonDefault(5))
+        ));
+    }
+
+    #[test]
+    fn scene_with_entity_name_in_enum() {
+        let mut app = test_app();
+        let world = app.world_mut();
+
+        #[derive(Clone, Component, Debug, PartialEq, FromTemplate)]
+        enum EnumComponent {
+            #[default]
+            Foo(Entity),
+        }
+
+        let id = world
+            .spawn_scene(bsn! {
+                #me
+                EnumComponent::Foo(#me)
+            })
+            .unwrap()
+            .id();
+        assert_eq!(
+            world.entity(id).get::<EnumComponent>().unwrap(),
+            &EnumComponent::Foo(id),
+        );
+    }
 }
