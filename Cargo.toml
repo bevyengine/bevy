@@ -1048,7 +1048,7 @@ doc-scrape-examples = true
 
 [package.metadata.example.text_input]
 name = "Text Input"
-description = "Demonstrates the [`EditableText`] widget: two minimally styled text inputs with tab navigation, Enter-to-submit, and a [`Placeholder`] hint on the left input."
+description = "Demonstrates a simple, unstyled text input widget"
 category = "UI (User Interface)"
 wasm = true
 

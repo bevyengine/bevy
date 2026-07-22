@@ -1,11 +1,8 @@
-//! Demonstrates the [`EditableText`] widget: two minimally styled text inputs
-//! with tab navigation, Enter-to-submit, and a [`Placeholder`] hint on the
-//! left input.
+//! Demonstrates a simple, unstyled [`EditableText`] widget.
 //!
-//! [`EditableText`] is a single-entity primitive for text input in Bevy UI;
-//! styling such as borders and backgrounds can be added directly to the
-//! field entity, as done here. Larger applications may still wrap it in a
-//! compound widget (label, validation message, etc.).
+//! [`EditableText`] is a basic primitive for text input in Bevy UI.
+//! In most cases, this should be combined with other entities to create a compound widget
+//! that includes e.g. a background, border, and text label.
 //!
 //! Note that while Bevy does offer clipboard support, access to the system clipboard is gated
 //! behind an off-by-default feature (`system_clipboard` on `bevy_clipboard`).
@@ -23,6 +20,8 @@
 //!
 //! To test this example using the system feature, run `cargo run --example text_input --features="system_clipboard"`.
 //! To enable this feature in your own project, add the `system_clipboard` feature to your list of enabled features for `bevy` in your `Cargo.toml`.
+//!
+//! The left input demonstrates optional placeholder hint text via the [`Placeholder`] component.
 //!
 //! See the module documentation for [`editable_text`](bevy::ui_widgets::editable_text) for more details.
 use bevy::color::palettes::css::DARK_GREY;

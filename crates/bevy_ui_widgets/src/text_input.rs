@@ -1248,9 +1248,7 @@ mod tests {
         assert!(!matches_edit_shortcut(&event, "c", KeyCode::KeyC));
     }
 
-    // -----------------------------------------------------------------------
     // Placeholder
-    // -----------------------------------------------------------------------
     fn placeholder_app() -> App {
         let mut app = App::new();
         app.init_resource::<UiScale>()
