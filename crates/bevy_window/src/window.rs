@@ -118,6 +118,15 @@ impl WindowRefTemplate {
     }
 }
 
+impl From<WindowRef> for WindowRefTemplate {
+    fn from(value: WindowRef) -> Self {
+        match value {
+            WindowRef::Primary => WindowRefTemplate::Primary,
+            WindowRef::Entity(entity) => WindowRefTemplate::Entity(EntityTemplate::Entity(entity)),
+        }
+    }
+}
+
 impl Template for WindowRefTemplate {
     type Output = WindowRef;
 
