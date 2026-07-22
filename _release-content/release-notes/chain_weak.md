@@ -1,7 +1,7 @@
 ---
 title: Weak system ordering with chain_weak
 authors: ["@JMS55"]
-pull_requests: []
+pull_requests: [25128]
 ---
 
 Ordering large groups of systems with `.chain()` is convenient, but it can be

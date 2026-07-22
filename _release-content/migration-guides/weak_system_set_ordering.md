@@ -1,6 +1,6 @@
 ---
 title: "Several built-in schedules now order their system sets weakly"
-pull_requests: []
+pull_requests: [25128]
 ---
 
 A number of Bevy's built-in schedules previously ordered their top-level system sets with
