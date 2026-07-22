@@ -129,6 +129,8 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
 
     // Unpack the view.
     let exposure = view.exposure;
+    let point_spot_shadow_map_count = view.point_spot_shadow_map_count;
+    let point_spot_shadow_map_index = view.point_spot_shadow_map_index;
 
     // Sample the depth to put an upper bound on the length of the ray (as we
     // shouldn't trace through solid objects). If this is multisample, just use
@@ -392,7 +394,12 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
             if (i < clusterable_object_index_ranges.first_spot_light_index_offset) {
                 var shadow: f32 = 1.0;
                 if (((*light).flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
-                    shadow = fetch_point_shadow_without_normal(light_id, vec4(P_world, 1.0), position.xy);
+                    shadow = fetch_point_shadow_without_normal(light_id,
+                        point_spot_shadow_map_count,
+                        point_spot_shadow_map_index,
+                        vec4(P_world, 1.0),
+                        position.xy
+                    );
                 }
                 local_light_attenuation *= shadow;
             } else {
@@ -413,7 +420,12 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
 
                 var shadow: f32 = 1.0;
                 if (((*light).flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
-                    shadow = fetch_spot_shadow_without_normal(light_id, vec4(P_world, 1.0), position.xy);
+                    shadow = fetch_spot_shadow_without_normal(light_id,
+                        point_spot_shadow_map_count,
+                        point_spot_shadow_map_index,
+                        vec4(P_world, 1.0),
+                        position.xy
+                    );
                 }
                 local_light_attenuation *= spot_attenuation * shadow;
             }
@@ -444,7 +456,14 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
     return vec4(accumulated_color, 1.0 - background_alpha);
 }
 
-fn fetch_point_shadow_without_normal(light_id: u32, frag_position: vec4<f32>, frag_coord_xy: vec2<f32>) -> f32 {
+fn fetch_point_shadow_without_normal(
+    light_id: u32,
+    point_spot_shadow_map_count: u32,
+    point_spot_shadow_map_index: u32,
+    frag_position: vec4<f32>,
+    frag_coord_xy: vec2<f32>
+) -> f32 {
+
     let light = &clustered_lights.data[light_id];
 
     // because the shadow maps align with the axes and the frustum planes are at 45 degrees
@@ -474,10 +493,17 @@ fn fetch_point_shadow_without_normal(light_id: u32, frag_position: vec4<f32>, fr
     // Do the lookup, using HW PCF and comparison. Cubemaps assume a left-handed coordinate space,
     // so we have to flip the z-axis when sampling.
     let flip_z = vec3(1.0, 1.0, -1.0);
-    return sample_shadow_cubemap(frag_ls * flip_z, distance_to_light, depth, light_id, frag_coord_xy);
+    let array_index = light_id * point_spot_shadow_map_count + point_spot_shadow_map_index;
+    return sample_shadow_cubemap(frag_ls * flip_z, distance_to_light, depth, array_index, frag_coord_xy);
 }
 
-fn fetch_spot_shadow_without_normal(light_id: u32, frag_position: vec4<f32>, frag_coord_xy: vec2<f32>) -> f32 {
+fn fetch_spot_shadow_without_normal(
+    light_id: u32,
+    point_spot_shadow_map_count: u32,
+    point_spot_shadow_map_index: u32,
+    frag_position: vec4<f32>,
+    frag_coord_xy: vec2<f32>
+) -> f32 {
     let light = &clustered_lights.data[light_id];
 
     let surface_to_light = (*light).position_radius.xyz - frag_position.xyz;
@@ -512,11 +538,12 @@ fn fetch_spot_shadow_without_normal(light_id: u32, frag_position: vec4<f32>, fra
 
     // 0.1 must match POINT_LIGHT_NEAR_Z
     let depth = 0.1 / -projected_position.z;
-
+    let array_index = i32(light_id * point_spot_shadow_map_count) + i32(point_spot_shadow_map_index)
+        + lights.spot_light_shadowmap_offset;
     return sample_shadow_map(
         shadow_uv,
         depth,
-        i32(light_id) + lights.spot_light_shadowmap_offset,
+        array_index,
         frag_coord_xy,
         SPOT_SHADOW_TEXEL_SIZE
     );

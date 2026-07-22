@@ -321,7 +321,7 @@ fn sample_shadow_map_pcss(
 // behavior due to some of the fragments in a quad (2x2 fragments) being
 // processed not being sampled, and this messing with mip-mapping functionality.
 // The shadow maps have no mipmaps so Level just samples from LOD 0.
-fn sample_shadow_cubemap_hardware(light_local: vec3<f32>, depth: f32, light_id: u32) -> f32 {
+fn sample_shadow_cubemap_hardware(light_local: vec3<f32>, depth: f32, array_index: u32) -> f32 {
 #ifdef NO_CUBE_ARRAY_TEXTURES_SUPPORT
     return textureSampleCompare(
         view_bindings::point_shadow_textures,
@@ -334,7 +334,7 @@ fn sample_shadow_cubemap_hardware(light_local: vec3<f32>, depth: f32, light_id: 
         view_bindings::point_shadow_textures,
         view_bindings::point_shadow_textures_comparison_sampler,
         light_local,
-        i32(light_id),
+        i32(array_index),
         depth
     );
 #endif
@@ -345,7 +345,7 @@ fn sample_shadow_cubemap_hardware(light_local: vec3<f32>, depth: f32, light_id: 
 fn search_for_blockers_in_shadow_cubemap_hardware(
     light_local: vec3<f32>,
     depth: f32,
-    light_id: u32,
+    array_index: u32,
 ) -> vec2<f32> {
 #ifdef WEBGL2
     // Make sure that the WebGL 2 compiler doesn't see `sampled_depth` sampled
@@ -366,7 +366,7 @@ fn search_for_blockers_in_shadow_cubemap_hardware(
         view_bindings::point_shadow_textures,
         view_bindings::point_shadow_textures_linear_sampler,
         light_local,
-        i32(light_id),
+        i32(array_index),
     );
 #endif
 
@@ -386,12 +386,12 @@ fn sample_shadow_cubemap_at_offset(
     y_basis: vec3<f32>,
     light_local: vec3<f32>,
     depth: f32,
-    light_id: u32,
+    array_index: u32,
 ) -> f32 {
     return sample_shadow_cubemap_hardware(
         light_local + position.x * x_basis + position.y * y_basis,
         depth,
-        light_id
+        array_index
     ) * coeff;
 }
 
@@ -406,12 +406,12 @@ fn search_for_blockers_in_shadow_cubemap_at_offset(
     y_basis: vec3<f32>,
     light_local: vec3<f32>,
     depth: f32,
-    light_id: u32,
+    array_index: u32,
 ) -> vec2<f32> {
     return search_for_blockers_in_shadow_cubemap_hardware(
         light_local + position.x * x_basis + position.y * y_basis,
         depth,
-        light_id
+        array_index
     );
 }
 
@@ -425,7 +425,7 @@ fn sample_shadow_cubemap_gaussian(
     depth: f32,
     scale: f32,
     distance_to_light: f32,
-    light_id: u32,
+    array_index: u32,
 ) -> f32 {
     // Create an orthonormal basis so we can apply a 2D sampling pattern to a
     // cubemap.
@@ -434,28 +434,28 @@ fn sample_shadow_cubemap_gaussian(
     var sum: f32 = 0.0;
     sum += sample_shadow_cubemap_at_offset(
         D3D_SAMPLE_POINT_POSITIONS[0], D3D_SAMPLE_POINT_COEFFS[0],
-        basis[0], basis[1], light_local, depth, light_id);
+        basis[0], basis[1], light_local, depth, array_index);
     sum += sample_shadow_cubemap_at_offset(
         D3D_SAMPLE_POINT_POSITIONS[1], D3D_SAMPLE_POINT_COEFFS[1],
-        basis[0], basis[1], light_local, depth, light_id);
+        basis[0], basis[1], light_local, depth, array_index);
     sum += sample_shadow_cubemap_at_offset(
         D3D_SAMPLE_POINT_POSITIONS[2], D3D_SAMPLE_POINT_COEFFS[2],
-        basis[0], basis[1], light_local, depth, light_id);
+        basis[0], basis[1], light_local, depth, array_index);
     sum += sample_shadow_cubemap_at_offset(
         D3D_SAMPLE_POINT_POSITIONS[3], D3D_SAMPLE_POINT_COEFFS[3],
-        basis[0], basis[1], light_local, depth, light_id);
+        basis[0], basis[1], light_local, depth, array_index);
     sum += sample_shadow_cubemap_at_offset(
         D3D_SAMPLE_POINT_POSITIONS[4], D3D_SAMPLE_POINT_COEFFS[4],
-        basis[0], basis[1], light_local, depth, light_id);
+        basis[0], basis[1], light_local, depth, array_index);
     sum += sample_shadow_cubemap_at_offset(
         D3D_SAMPLE_POINT_POSITIONS[5], D3D_SAMPLE_POINT_COEFFS[5],
-        basis[0], basis[1], light_local, depth, light_id);
+        basis[0], basis[1], light_local, depth, array_index);
     sum += sample_shadow_cubemap_at_offset(
         D3D_SAMPLE_POINT_POSITIONS[6], D3D_SAMPLE_POINT_COEFFS[6],
-        basis[0], basis[1], light_local, depth, light_id);
+        basis[0], basis[1], light_local, depth, array_index);
     sum += sample_shadow_cubemap_at_offset(
         D3D_SAMPLE_POINT_POSITIONS[7], D3D_SAMPLE_POINT_COEFFS[7],
-        basis[0], basis[1], light_local, depth, light_id);
+        basis[0], basis[1], light_local, depth, array_index);
     return sum;
 }
 
@@ -468,7 +468,7 @@ fn sample_shadow_cubemap_jittered(
     frag_coord_xy: vec2<f32>,
     scale: f32,
     distance_to_light: f32,
-    light_id: u32,
+    array_index: u32,
     temporal: bool,
 ) -> f32 {
     let rotation_matrix = random_rotation_matrix(frag_coord_xy, temporal);
@@ -496,21 +496,21 @@ fn sample_shadow_cubemap_jittered(
 
     var sum: f32 = 0.0;
     sum += sample_shadow_cubemap_at_offset(
-        sample_offset0, 0.125, basis[0], basis[1], light_local, depth, light_id);
+        sample_offset0, 0.125, basis[0], basis[1], light_local, depth, array_index);
     sum += sample_shadow_cubemap_at_offset(
-        sample_offset1, 0.125, basis[0], basis[1], light_local, depth, light_id);
+        sample_offset1, 0.125, basis[0], basis[1], light_local, depth, array_index);
     sum += sample_shadow_cubemap_at_offset(
-        sample_offset2, 0.125, basis[0], basis[1], light_local, depth, light_id);
+        sample_offset2, 0.125, basis[0], basis[1], light_local, depth, array_index);
     sum += sample_shadow_cubemap_at_offset(
-        sample_offset3, 0.125, basis[0], basis[1], light_local, depth, light_id);
+        sample_offset3, 0.125, basis[0], basis[1], light_local, depth, array_index);
     sum += sample_shadow_cubemap_at_offset(
-        sample_offset4, 0.125, basis[0], basis[1], light_local, depth, light_id);
+        sample_offset4, 0.125, basis[0], basis[1], light_local, depth, array_index);
     sum += sample_shadow_cubemap_at_offset(
-        sample_offset5, 0.125, basis[0], basis[1], light_local, depth, light_id);
+        sample_offset5, 0.125, basis[0], basis[1], light_local, depth, array_index);
     sum += sample_shadow_cubemap_at_offset(
-        sample_offset6, 0.125, basis[0], basis[1], light_local, depth, light_id);
+        sample_offset6, 0.125, basis[0], basis[1], light_local, depth, array_index);
     sum += sample_shadow_cubemap_at_offset(
-        sample_offset7, 0.125, basis[0], basis[1], light_local, depth, light_id);
+        sample_offset7, 0.125, basis[0], basis[1], light_local, depth, array_index);
     return sum;
 }
 
@@ -518,17 +518,17 @@ fn sample_shadow_cubemap(
     light_local: vec3<f32>,
     distance_to_light: f32,
     depth: f32,
-    light_id: u32,
+    array_index: u32,
     frag_coord_xy: vec2<f32>,
 ) -> f32 {
 #ifdef SHADOW_FILTER_METHOD_GAUSSIAN
     return sample_shadow_cubemap_gaussian(
-        light_local, depth, POINT_SHADOW_SCALE, distance_to_light, light_id);
+        light_local, depth, POINT_SHADOW_SCALE, distance_to_light, array_index);
 #else ifdef SHADOW_FILTER_METHOD_TEMPORAL
     return sample_shadow_cubemap_jittered(
-        light_local, depth, frag_coord_xy, POINT_SHADOW_SCALE, distance_to_light, light_id, true);
+        light_local, depth, frag_coord_xy, POINT_SHADOW_SCALE, distance_to_light, array_index, true);
 #else ifdef SHADOW_FILTER_METHOD_HARDWARE_2X2
-    return sample_shadow_cubemap_hardware(light_local, depth, light_id);
+    return sample_shadow_cubemap_hardware(light_local, depth, array_index);
 #else
     // This needs a default return value to avoid shader compilation errors if it's compiled with no SHADOW_FILTER_METHOD_* defined.
     // (eg. if the normal prepass is enabled it ends up compiling this due to the normal prepass depending on pbr_functions, which depends on shadows)
@@ -550,7 +550,7 @@ fn search_for_blockers_in_shadow_cubemap(
     depth: f32,
     scale: f32,
     distance_to_light: f32,
-    light_id: u32,
+    array_index: u32,
 ) -> f32 {
     // Create an orthonormal basis so we can apply a 2D sampling pattern to a
     // cubemap.
@@ -558,21 +558,21 @@ fn search_for_blockers_in_shadow_cubemap(
 
     var sum: vec2<f32> = vec2(0.0);
     sum += search_for_blockers_in_shadow_cubemap_at_offset(
-        D3D_SAMPLE_POINT_POSITIONS[0], basis[0], basis[1], light_local, depth, light_id);
+        D3D_SAMPLE_POINT_POSITIONS[0], basis[0], basis[1], light_local, depth, array_index);
     sum += search_for_blockers_in_shadow_cubemap_at_offset(
-        D3D_SAMPLE_POINT_POSITIONS[1], basis[0], basis[1], light_local, depth, light_id);
+        D3D_SAMPLE_POINT_POSITIONS[1], basis[0], basis[1], light_local, depth, array_index);
     sum += search_for_blockers_in_shadow_cubemap_at_offset(
-        D3D_SAMPLE_POINT_POSITIONS[2], basis[0], basis[1], light_local, depth, light_id);
+        D3D_SAMPLE_POINT_POSITIONS[2], basis[0], basis[1], light_local, depth, array_index);
     sum += search_for_blockers_in_shadow_cubemap_at_offset(
-        D3D_SAMPLE_POINT_POSITIONS[3], basis[0], basis[1], light_local, depth, light_id);
+        D3D_SAMPLE_POINT_POSITIONS[3], basis[0], basis[1], light_local, depth, array_index);
     sum += search_for_blockers_in_shadow_cubemap_at_offset(
-        D3D_SAMPLE_POINT_POSITIONS[4], basis[0], basis[1], light_local, depth, light_id);
+        D3D_SAMPLE_POINT_POSITIONS[4], basis[0], basis[1], light_local, depth, array_index);
     sum += search_for_blockers_in_shadow_cubemap_at_offset(
-        D3D_SAMPLE_POINT_POSITIONS[5], basis[0], basis[1], light_local, depth, light_id);
+        D3D_SAMPLE_POINT_POSITIONS[5], basis[0], basis[1], light_local, depth, array_index);
     sum += search_for_blockers_in_shadow_cubemap_at_offset(
-        D3D_SAMPLE_POINT_POSITIONS[6], basis[0], basis[1], light_local, depth, light_id);
+        D3D_SAMPLE_POINT_POSITIONS[6], basis[0], basis[1], light_local, depth, array_index);
     sum += search_for_blockers_in_shadow_cubemap_at_offset(
-        D3D_SAMPLE_POINT_POSITIONS[7], basis[0], basis[1], light_local, depth, light_id);
+        D3D_SAMPLE_POINT_POSITIONS[7], basis[0], basis[1], light_local, depth, array_index);
 
     if (sum.y == 0.0) {
         return 0.0;
@@ -589,21 +589,21 @@ fn sample_shadow_cubemap_pcss(
     light_local: vec3<f32>,
     distance_to_light: f32,
     depth: f32,
-    light_id: u32,
+    array_index: u32,
     light_size: f32,
     frag_coord_xy: vec2<f32>,
 ) -> f32 {
     let z_blocker = search_for_blockers_in_shadow_cubemap(
-        light_local, depth, light_size, distance_to_light, light_id);
+        light_local, depth, light_size, distance_to_light, array_index);
 
     // Don't let the blur size go below 0.5, or shadows will look unacceptably aliased.
     let blur_size = max((z_blocker - depth) * light_size / depth, 0.5);
 
 #ifdef SHADOW_FILTER_METHOD_TEMPORAL
     return sample_shadow_cubemap_jittered(
-        light_local, depth, frag_coord_xy, POINT_SHADOW_SCALE * blur_size, distance_to_light, light_id, true);
+        light_local, depth, frag_coord_xy, POINT_SHADOW_SCALE * blur_size, distance_to_light, array_index, true);
 #else
     return sample_shadow_cubemap_jittered(
-        light_local, depth, frag_coord_xy, POINT_SHADOW_SCALE * blur_size, distance_to_light, light_id, false);
+        light_local, depth, frag_coord_xy, POINT_SHADOW_SCALE * blur_size, distance_to_light, array_index, false);
 #endif
 }

@@ -788,6 +788,8 @@ mod render_layers {
                 shadow_maps_enabled: true,
                 ..default()
             },
+            // The light can create shadows for all three cubes.
+            RenderLayers::layer(0).with(1).with(2),
             Transform::from_xyz(4.0, 8.0, 4.0),
             DespawnOnExit(CURRENT_SCENE),
         ));
@@ -809,6 +811,7 @@ mod render_layers {
                         physical_size: window_half_size,
                         ..default()
                     }),
+                    has_own_point_and_spot_light_shadow_maps: true,
                     ..default()
                 },
                 DespawnOnExit(CURRENT_SCENE),

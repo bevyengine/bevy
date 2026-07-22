@@ -470,6 +470,7 @@ pub struct ExtractedCamera {
     /// When [`CompositingSpace::Srgb`], the main texture uses linear storage (`Rgba8Unorm`)
     /// and shaders output sRGB-encoded values for gamma-encoded blending.
     pub compositing_space: Option<CompositingSpace>,
+    pub has_own_point_and_spot_light_shadow_maps: bool,
 }
 
 pub fn extract_cameras(
@@ -645,6 +646,8 @@ pub fn extract_cameras(
                         .unwrap_or_else(|| Exposure::default().exposure()),
                     hdr,
                     compositing_space: compositing_space.copied(),
+                    has_own_point_and_spot_light_shadow_maps: camera
+                        .has_own_point_and_spot_light_shadow_maps,
                 },
                 ExtractedView {
                     retained_view_entity: RetainedViewEntity::new(main_entity.into(), None, 0),

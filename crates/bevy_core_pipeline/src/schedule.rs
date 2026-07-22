@@ -117,8 +117,7 @@ struct CameraWindows(EntityHashSet);
 /// A render-world marker component for a view that corresponds to neither a
 /// camera nor a camera-associated shadow map.
 ///
-/// This is used for point light and spot light shadow maps, since these aren't
-/// associated with views.
+/// This is used for the view-agnostic point light and spot light shadow maps.
 #[derive(Clone, Copy, Component, Debug, Reflect)]
 #[reflect(Clone, Component)]
 #[reflect(from_reflect = false)]
