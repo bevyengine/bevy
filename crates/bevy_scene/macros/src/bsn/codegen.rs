@@ -616,7 +616,7 @@ impl BsnType {
         }
 
         if let Some(BsnValue::Type(ty)) = value
-            && ty.enum_variant.is_none()
+            && (ty.enum_variant.is_none() || ty.fields.len() != 0)
         {
             let mut type_assigns = Vec::new();
             ty.to_patch_tokens(
@@ -642,6 +642,15 @@ impl BsnType {
         {
             let ident = ctx.hoisted_expressions.hoist(value);
             return Ok(quote! { *#bind_name = #ident; });
+        }
+
+        if let Some(BsnValue::Name(ident)) = value {
+            let index = ctx.entity_refs.get(ident.to_string());
+            let bevy_ecs = ctx.bevy_ecs;
+            let invocation = ctx.invocation_index.clone();
+            return Ok(quote! {
+                *#bind_name = #bevy_ecs::template::EntityTemplate::from_reference(#invocation, #index, _call_id);
+            });
         }
 
         // NOTE: It is very important to still produce outputs for None field values. This is what
@@ -744,7 +753,7 @@ impl ToTokens for BsnValue {
             BsnValue::Type(ty) => quote! {(#ty).into()}.to_tokens(tokens),
             BsnValue::Name(_) => {
                 // Name requires additional context to convert to tokens
-                unreachable!()
+                unreachable!("name case should have been handled previously")
             }
         }
     }
