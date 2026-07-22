@@ -18,6 +18,7 @@
 //! - Multi-click: double-click to select a word, triple-click to select a line
 //! - Optional select-all on focus via the `SelectAllOnFocus` component
 //! - Per-character input filtering via the [`EditableTextFilter`] component
+//! - Password-style character masking via the [`CharacterMask`](crate::CharacterMask) component
 //! - Max character limits via [`EditableText::max_characters`]
 //! - Cursor blinking
 //! - Newline support for multi-line input
@@ -59,7 +60,6 @@
 //! - Placeholder text (displayed when the input is empty)
 //! - Undo/redo functionality
 //! - Text validation (e.g., email format, numeric input)
-//! - Password-style character masking
 //! - Mobile pop-up keyboard support
 //! - Overwrite mode (typically toggled by the `Insert` key)
 //! - AccessKit integration for screen readers and other assistive technologies
@@ -222,6 +222,7 @@ impl EditableText {
         layout_context: &mut LayoutContext<TextBrush>,
         clipboard: &mut bevy_clipboard::Clipboard,
         char_filter: impl Fn(char) -> bool,
+        mut mask: Option<&mut crate::CharacterMask>,
     ) {
         let Self {
             editor,
@@ -240,7 +241,13 @@ impl EditableText {
         // so ordering relative to the paste is preserved.
         if let Some(mut read) = pending_paste.take() {
             let generation = driver.editor.generation();
-            if !poll_and_apply_paste(&mut read, &mut driver, *max_characters, &char_filter) {
+            if !poll_and_apply_paste(
+                &mut read,
+                &mut driver,
+                *max_characters,
+                &char_filter,
+                mask.as_deref_mut(),
+            ) {
                 *pending_paste = Some(read);
                 return;
             }
@@ -258,8 +265,13 @@ impl EditableText {
                 TextEdit::Paste => {
                     let generation = driver.editor.generation();
                     let mut read = clipboard.fetch_text();
-                    if !poll_and_apply_paste(&mut read, &mut driver, *max_characters, &char_filter)
-                    {
+                    if !poll_and_apply_paste(
+                        &mut read,
+                        &mut driver,
+                        *max_characters,
+                        &char_filter,
+                        mask.as_deref_mut(),
+                    ) {
                         *pending_paste = Some(read);
                         pending_edits.extend(edits);
                         return;
@@ -268,14 +280,26 @@ impl EditableText {
                         reveal_cursor(&mut driver, viewport, *cursor_margin);
                     }
                 }
-                other => other.apply(
-                    &mut driver,
-                    viewport,
-                    *cursor_margin,
-                    clipboard,
-                    *max_characters,
-                    &char_filter,
-                ),
+                other => match mask.as_deref_mut() {
+                    Some(mask) => crate::masking::apply_masked_edit(
+                        other,
+                        mask,
+                        &mut driver,
+                        viewport,
+                        *cursor_margin,
+                        clipboard,
+                        *max_characters,
+                        &char_filter,
+                    ),
+                    None => other.apply(
+                        &mut driver,
+                        viewport,
+                        *cursor_margin,
+                        clipboard,
+                        *max_characters,
+                        &char_filter,
+                    ),
+                },
             }
         }
     }
@@ -325,13 +349,22 @@ pub fn apply_text_edits(
         &mut EditableText,
         Option<&EditableTextFilter>,
         &EditableTextGeneration,
+        Option<&mut crate::CharacterMask>,
     )>,
     mut font_context: ResMut<FontCx>,
     mut layout_context: ResMut<LayoutCx>,
     mut clipboard: ResMut<bevy_clipboard::Clipboard>,
     mut commands: Commands,
 ) {
-    for (entity, mut editable_text, filter, generation) in query.iter_mut() {
+    for (entity, mut editable_text, filter, generation, mut mask) in query.iter_mut() {
+        // Masking invariant: the editor must hold exactly the mask string for
+        // the real value. Heals bundle-ordering races at spawn, `clear()`,
+        // and any external `set_text` by adopting the editor's content as the
+        // new real value (the generation check below then re-layouts).
+        if let Some(mask) = mask.as_deref_mut() {
+            crate::masking::reconcile(mask, &mut editable_text);
+        }
+
         // `pending_paste` can hold a cross-frame paste even when no new edits are queued,
         // so check for either before doing work.
         if !editable_text.pending_edits.is_empty() || editable_text.pending_paste.is_some() {
@@ -343,6 +376,7 @@ pub fn apply_text_edits(
                     Some(EditableTextFilter(Some(filter))) => filter.as_ref(),
                     _ => &|_| true,
                 },
+                mask.as_deref_mut(),
             );
         }
 
