@@ -1024,9 +1024,7 @@ mod tests {
             .init_resource::<WindowSawEscape>()
             .add_observer(on_focused_keyboard_input);
 
-        // `WindowTraversal` queries `Option<&ChildOf>`, and `get_components` fails with
-        // `ComponentNotRegistered` — silently halting propagation — if `ChildOf` has
-        // never been registered in the world. Nothing in this minimal app registers it.
+        // Manual registration needed to prevent `WindowTraversal` failure during artificial test
         app.world_mut().register_component::<ChildOf>();
 
         let window = app
