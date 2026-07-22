@@ -19,6 +19,7 @@ enable wgpu_ray_query;
 @group(1) @binding(10) var<uniform> view: View;
 @group(1) @binding(11) var<uniform> previous_view: PreviousViewUniforms;
 
+// Keep in sync with `world_cache_layout::WorldCache` in `prepare.rs`.
 struct WorldCache {
     checksums: array<atomic<u32>, #{WORLD_CACHE_SIZE}>,
 #ifdef WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER

@@ -42,7 +42,7 @@ pub const LIGHT_TILE_BLOCKS: u64 = 128;
 pub const LIGHT_TILE_SAMPLES_PER_BLOCK: u64 = 1024;
 
 /// Amount of entries in the world cache (must be a power of 2, and >= 2^10)
-pub const WORLD_CACHE_SIZE: u64 = 1 << 20;
+pub const WORLD_CACHE_SIZE: u64 = 2u64.pow(20);
 
 /// Layout constants for the packed `WorldCache` buffer.
 ///
@@ -71,13 +71,15 @@ mod world_cache_layout {
         luminance_deltas: [f32; WORLD_CACHE_LEN],
         active_cells_new_radiance: [Vec3; WORLD_CACHE_LEN],
         a: [u32; WORLD_CACHE_LEN],
-        b: [u32; 1024],
+        b: [u32; WORLD_CACHE_LEN / 1024],
         active_cell_indices: [u32; WORLD_CACHE_LEN],
         active_cells_count: u32,
     }
 
-    /// `active_cells_count` is field index 9 in `WorldCache`.
-    pub const ACTIVE_CELLS_COUNT_OFFSET: u64 = WorldCache::METADATA.offset(9);
+    // `ShaderType::METADATA` is internal, but we need the field offset and size without
+    // constructing this large layout type.
+    pub const ACTIVE_CELLS_COUNT_OFFSET: u64 = WorldCache::METADATA.last_offset();
+    /// Must stay under wgpu's default `max_storage_buffer_binding_size` (128 MiB or 2^27 bytes).
     pub const BUFFER_SIZE: u64 = WorldCache::METADATA.min_size().get();
 }
 
