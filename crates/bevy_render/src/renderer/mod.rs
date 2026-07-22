@@ -85,6 +85,7 @@ pub fn render_system(
     present_state: &mut SystemState<(
         Query<(&ViewTarget, &ExtractedCamera)>,
         Query<(MainEntity, &mut ExtractedWindow)>,
+        Res<RenderQueue>,
     )>,
     screenshot_state: &mut SystemState<SubmitScreenshotCommandsState>,
 ) {
@@ -110,7 +111,7 @@ pub fn render_system(
         #[cfg(feature = "trace")]
         let _span = info_span!("present_frames").entered();
 
-        if let Ok((views, mut windows)) = present_state.get_mut(world) {
+        if let Ok((views, mut windows, render_queue)) = present_state.get_mut(world) {
             for (window_entity, mut window) in &mut windows {
                 let view_needs_present = views.iter().any(|(view_target, camera)| {
                     matches!(
@@ -120,7 +121,7 @@ pub fn render_system(
                 });
 
                 if view_needs_present || window.needs_initial_present {
-                    window.present(world.resource::<RenderQueue>());
+                    window.present(&render_queue);
                     window.needs_initial_present = false;
                 }
             }
