@@ -230,14 +230,14 @@ fn settings_panel_scene(app_settings: &AppSettings) -> impl Scene {
                 Some(AppNumberInputF32::XOffset),
                 app_settings.x_offset,
                 NumberInputPrecision(0),
-                0. ..200.
+                -200. ..200.
             ),
             number_input_f32(
                 AppNumberInputF32::YOffset.label(),
                 Some(AppNumberInputF32::YOffset),
                 app_settings.y_offset,
                 NumberInputPrecision(0),
-                0. ..200.
+                -200. ..200.
             ),
             number_input_f32(
                 AppNumberInputF32::Blur.label(),
@@ -251,7 +251,7 @@ fn settings_panel_scene(app_settings: &AppSettings) -> impl Scene {
                 Some(AppNumberInputF32::Spread),
                 app_settings.spread,
                 NumberInputPrecision(0),
-                0. ..100.
+                -200. ..200.
             ),
             number_input_i32(
                 AppNumberInputI32::Count.label(),
@@ -265,7 +265,7 @@ fn settings_panel_scene(app_settings: &AppSettings) -> impl Scene {
                 Some(AppNumberInputI32::Samples),
                 app_settings.samples as i32,
                 NumberInputPrecision(0),
-                0..15
+                1..15
             ),
             // Reset button
             @FeathersButton {
@@ -372,7 +372,8 @@ fn on_activate_reset(
 ) {
     *app_settings = AppSettings::default();
 
-    // Reset the settings panel.
+    // Reset the settings panel. It is quicker to do this
+    // than to go through every field and setting the fields correctly.
     commands.entity(settings_panel_q.entity()).despawn();
     commands.spawn_scene(settings_panel_scene(&app_settings));
 
