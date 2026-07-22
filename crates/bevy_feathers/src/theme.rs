@@ -112,6 +112,26 @@ pub struct ThemeProps {
     // Other style property types to be added later.
 }
 
+impl ThemeProps {
+    /// A function which constructs a simple theme with no contextual theming
+    pub fn new_non_contextual(init: HashMap<ThemeToken, Color>) -> Self {
+        let mut token_assignments = HashMap::new();
+        let mut semantic_base = HashMap::new();
+
+        for (theme_token, color) in init {
+            let semantic_token = SemanticToken::new(theme_token.0.clone());
+            token_assignments.insert(theme_token, semantic_token.clone());
+            semantic_base.insert(semantic_token, color);
+        }
+
+        Self {
+            token_assignments,
+            semantic_base,
+            semantic_overrides: HashMap::default(),
+        }
+    }
+}
+
 /// The currently selected user interface theme. Overwriting this resource changes the theme.
 #[derive(Resource, Default, Reflect, Debug)]
 #[reflect(Resource, Default, Debug)]

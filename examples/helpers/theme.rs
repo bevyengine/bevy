@@ -74,5 +74,5 @@ pub fn basic_example_theme(text_color: Color) -> ThemeProps {
 
     // Main text color
     color.insert(bevy::feathers::tokens::TEXT_MAIN, text_color);
-    ThemeProps { color }
+    ThemeProps::new_non_contextual(color)
 }
