@@ -250,14 +250,11 @@ pub(crate) fn update_theme(
 
 pub(crate) fn on_changed_background(
     insert: On<Insert, ThemeBackgroundColor>,
-    mut q_background: Query<
-        (
-            &mut BackgroundColor,
-            &ThemeBackgroundColor,
-            Option<&ThemeContext>,
-        ),
-        Changed<ThemeBackgroundColor>,
-    >,
+    mut q_background: Query<(
+        &mut BackgroundColor,
+        &ThemeBackgroundColor,
+        Option<&ThemeContext>,
+    )>,
     theme: Res<UiTheme>,
 ) {
     // Update background colors where the design token has changed.
@@ -271,10 +268,7 @@ pub(crate) fn on_changed_background(
 
 pub(crate) fn on_changed_border(
     insert: On<Insert, ThemeBorderColor>,
-    mut q_border: Query<
-        (&mut BorderColor, &ThemeBorderColor, Option<&ThemeContext>),
-        Changed<ThemeBorderColor>,
-    >,
+    mut q_border: Query<(&mut BorderColor, &ThemeBorderColor, Option<&ThemeContext>)>,
     theme: Res<UiTheme>,
 ) {
     // Update background colors where the design token has changed.
@@ -288,10 +282,7 @@ pub(crate) fn on_changed_border(
 
 pub(crate) fn on_changed_text_color(
     insert: On<Insert, ThemeTextColor>,
-    mut q_span: Query<
-        (&mut TextColor, &ThemeTextColor, Option<&ThemeContext>),
-        Changed<ThemeTextColor>,
-    >,
+    mut q_span: Query<(&mut TextColor, &ThemeTextColor, Option<&ThemeContext>)>,
     theme: Res<UiTheme>,
 ) {
     // Update background colors where the design token has changed.

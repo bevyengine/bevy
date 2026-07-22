@@ -7,7 +7,6 @@ use bevy_ui::{px, AlignItems, Display, FlexDirection, JustifyContent, Node, UiRe
 use crate::{
     constants::{fonts, size},
     font_styles::InheritableFont,
-    rounded_corners::RoundedCorners,
     theme::{
         InheritableThemeTextColor, SurfaceLevel, ThemeBackgroundColor, ThemeBorderColor,
         ThemeContext,
@@ -22,7 +21,8 @@ pub fn group() -> impl Scene {
             display: Display::Flex,
             flex_direction: FlexDirection::Column,
             align_items: AlignItems::Stretch,
-            border_radius: {RoundedCorners::All.to_border_radius(4.0)}
+            border: px(1),
+            border_radius: px(4),
         }
         ThemeBackgroundColor(tokens::GROUP_BG)
         ThemeBorderColor(tokens::GROUP_BORDER)
@@ -38,11 +38,6 @@ pub fn group_header() -> impl Scene {
             flex_direction: FlexDirection::Row,
             align_items: AlignItems::Center,
             justify_content: JustifyContent::SpaceBetween,
-            border: UiRect {
-                left: px(1),
-                top: px(1),
-                right: px(1),
-            },
             padding: UiRect::horizontal(px(10)),
             min_height: size::HEADER_HEIGHT,
             column_gap: px(4),
@@ -62,11 +57,6 @@ pub fn group_body() -> impl Scene {
         Node {
             display: Display::Flex,
             flex_direction: FlexDirection::Column,
-            border: UiRect {
-                left: px(1),
-                right: px(1),
-                bottom: px(1),
-            },
             row_gap: px(4),
             padding: px(6),
         }

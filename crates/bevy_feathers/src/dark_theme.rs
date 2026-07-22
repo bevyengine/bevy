@@ -36,7 +36,6 @@ pub fn create_dark_theme() -> ThemeProps {
                 semantic::FILL_ACCENT_DISABLED,
                 palette::GRAY_3.with_alpha(0.7),
             ),
-            (semantic::FILL_ACCENT_DISABLED, Color::NONE),
             (semantic::FILL_SOLID_DEFAULT, palette::GRAY_3),
             (semantic::FILL_SOLID_HOVER, palette::GRAY_3.lighter(0.05)),
             (semantic::FILL_SOLID_PRESSED, palette::GRAY_3.lighter(0.1)),
