@@ -1,6 +1,6 @@
 ---
 title: "Some `Entity::PLACEHOLDER` have been replaced with `Option<Entity>`"
-pull_requests: []
+pull_requests: [25119]
 ---
 
 A number of variables and functions that used `Entity::PLACEHOLDER` as a null
