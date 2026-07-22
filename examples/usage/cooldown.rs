@@ -123,7 +123,7 @@ fn build_ability(
         Button
         ImageNode {
             image: texture,
-            texture_atlas: {Some(texture_atlas_template(layout, index))}
+            texture_atlas: texture_atlas_template(layout, index),
         }
         Cooldown(Timer::from_seconds(cooldown, TimerMode::Once))
         Name::new(name)
