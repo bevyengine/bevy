@@ -108,7 +108,7 @@ fn main() {
 
     App::new()
         .init_resource::<AppStatus>()
-        .insert_resource(UiTheme(theme::basic_radio_button_theme()))
+        .insert_resource(UiTheme(theme::basic_example_theme(Color::BLACK)))
         .add_plugins((
             DefaultPlugins.set(WindowPlugin {
                 primary_window: Some(Window {
@@ -209,6 +209,7 @@ fn spawn_buttons(commands: &mut Commands) {
                     (LightType::Point, "Point"),
                     (LightType::Spot, "Spot"),
                 ],
+                0,
             ),
             radio::feathers_option_buttons(
                 "Shadow Filter",
@@ -219,6 +220,7 @@ fn spawn_buttons(commands: &mut Commands) {
                     ),
                     (ShadowFilter::Temporal, "Temporal"),
                 ],
+                0,
             ),
             radio::feathers_option_buttons(
                 "Soft Shadows",
@@ -226,6 +228,7 @@ fn spawn_buttons(commands: &mut Commands) {
                     (SoftShadows(true), "On"),
                     (SoftShadows(false), "Off"),
                 ],
+                0,
             ),
         ]
     });

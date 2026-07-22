@@ -235,13 +235,13 @@ fn setup(
                     },
                     Pickable::IGNORE,
                     MaterialNode::from(frame_time_graph_materials.add(FrametimeGraphMaterial {
-                        values: buffers.add(ShaderBuffer {
-                            // Initialize with dummy data because the default (`data: None`) will
+                        values: buffers.add(ShaderBuffer::new(
+                            // Initialize with dummy data because the default (buffer is zero-sized) will
                             // cause a panic in the shader if the frame time graph is constructed
                             // with `enabled: false`.
-                            data: Some(vec![0, 0, 0, 0]),
-                            ..Default::default()
-                        }),
+                             vec![0.0f32],
+                             Default::default()
+                        )),
                         config: FrameTimeGraphConfigUniform::new(
                             overlay_config.frame_time_graph_config.target_fps,
                             overlay_config.frame_time_graph_config.min_fps,
