@@ -92,6 +92,16 @@ pub struct SystemSchedule {
         expect(dead_code, reason = "currently only used with the std feature")
     )]
     pub(super) system_dependents: Vec<Vec<usize>>,
+    /// List of systems that have a start-to-start dependency on this system, i.e. that may
+    /// not start until this system has started (but need not have finished). Used for
+    /// `chain_weak` ordering. These systems are also counted in their `system_dependencies`,
+    /// so the only difference from a normal dependent is that they are released when this
+    /// system starts rather than when it completes.
+    #[cfg_attr(
+        not(feature = "std"),
+        expect(dead_code, reason = "currently only used with the std feature")
+    )]
+    pub(super) system_start_dependents: Vec<Vec<usize>>,
     /// Indexed by system node id.
     /// List of sets containing the system that have conditions
     pub(super) sets_with_conditions_of_systems: Vec<FixedBitSet>,
@@ -117,6 +127,7 @@ impl SystemSchedule {
             set_ids: Vec::new(),
             system_dependencies: Vec::new(),
             system_dependents: Vec::new(),
+            system_start_dependents: Vec::new(),
             sets_with_conditions_of_systems: Vec::new(),
             systems_in_sets_with_conditions: Vec::new(),
         }

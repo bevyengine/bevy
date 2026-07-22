@@ -277,6 +277,11 @@ impl Schedules {
     }
 }
 
+/// Marker stored in a [`Chain`]'s options by
+/// [`chain_weak`](crate::schedule::IntoScheduleConfigs::chain_weak) to tag its edges as
+/// start-to-start ("must start before") dependencies. See `chain_weak` for the semantics.
+pub(crate) struct Weak;
+
 /// Chain systems into dependencies
 #[derive(Default)]
 pub enum Chain {
@@ -760,6 +765,9 @@ pub struct ScheduleGraph {
     /// Nodes that are allowed to have ambiguous ordering relationship with any other systems.
     pub ambiguous_with_all: HashSet<NodeId>,
     conflicting_systems: ConflictingSystems,
+    /// Dependency edges marked weak (from `chain_weak`), before flattening. These are
+    /// emitted to the executor as start-to-start rather than finish-to-start dependencies.
+    weak_node_edges: HashSet<(NodeId, NodeId)>,
     anonymous_sets: usize,
     changed: bool,
     settings: ScheduleBuildSettings,
@@ -778,6 +786,7 @@ impl ScheduleGraph {
             ambiguous_with: UnGraph::default(),
             ambiguous_with_all: HashSet::default(),
             conflicting_systems: ConflictingSystems::default(),
+            weak_node_edges: HashSet::default(),
             anonymous_sets: 0,
             changed: false,
             settings: default(),
@@ -873,11 +882,15 @@ impl ScheduleGraph {
                 self.apply_collective_conditions(&mut configs, collective_conditions);
 
                 let is_chained = matches!(metadata, Chain::Chained(_));
+                let is_weak = matches!(
+                    &metadata,
+                    Chain::Chained(options) if options.contains_key(&TypeId::of::<Weak>())
+                );
 
                 // Densely chained if
-                // * chained and all configs in the chain are densely chained, or
-                // * unchained with a single densely chained config
-                let mut densely_chained = is_chained || configs.len() == 1;
+                // * a non-weak chain whose configs are all densely chained, or
+                // * a single densely chained config
+                let mut densely_chained = (is_chained && !is_weak) || configs.len() == 1;
                 let mut configs = configs.into_iter();
                 let mut nodes = Vec::new();
 
@@ -913,6 +926,10 @@ impl ScheduleGraph {
                         for previous_node in previous_nodes {
                             for current_node in current_nodes {
                                 self.dependency.add_edge(*previous_node, *current_node);
+
+                                if is_weak {
+                                    self.weak_node_edges.insert((*previous_node, *current_node));
+                                }
 
                                 for pass in self.passes.values_mut() {
                                     pass.add_dependency(
@@ -1084,20 +1101,26 @@ impl ScheduleGraph {
         for &key in keys {
             self.systems.remove(key);
 
-            self.hierarchy.remove_node(key.into());
-            self.dependency.remove_node(key.into());
-            self.ambiguous_with.remove_node(key.into());
-            self.ambiguous_with_all.remove(&NodeId::from(key));
+            let node = NodeId::from(key);
+            self.hierarchy.remove_node(node);
+            self.dependency.remove_node(node);
+            self.ambiguous_with.remove_node(node);
+            self.ambiguous_with_all.remove(&node);
+            self.weak_node_edges
+                .retain(|&(from, to)| from != node && to != node);
         }
     }
 
     fn remove_set_by_key(&mut self, key: SystemSetKey) {
         self.system_sets.remove(key);
         self.set_systems.remove(&key);
-        self.hierarchy.remove_node(key.into());
-        self.dependency.remove_node(key.into());
-        self.ambiguous_with.remove_node(key.into());
-        self.ambiguous_with_all.remove(&NodeId::from(key));
+        let node = NodeId::from(key);
+        self.hierarchy.remove_node(node);
+        self.dependency.remove_node(node);
+        self.ambiguous_with.remove_node(node);
+        self.ambiguous_with_all.remove(&node);
+        self.weak_node_edges
+            .retain(|&(from, to)| from != node && to != node);
     }
 
     /// Update the internal graphs (hierarchy, dependency, ambiguity) by adding a single [`GraphInfo`]
@@ -1252,11 +1275,36 @@ impl ScheduleGraph {
         self.passes = passes;
 
         // Check system ordering dependencies for cycles after collapsing sets
-        // and applying build passes.
+        // and applying build passes. This analysis covers all edges (including weak
+        // start-to-start ones), so it is also the basis for ambiguity detection below.
         let flat_dependency_analysis = flat_dependency
             .analyze()
             .map_err(ScheduleBuildError::FlatDependencySort)?;
-        flat_dependency.remove_redundant_edges(&flat_dependency_analysis);
+
+        // Edges from `chain_weak` that will become start-to-start dependencies. Start-to-start
+        // ordering does not compose transitively into a finish-before ordering, so these edges
+        // must be excluded from transitive reduction: they may neither be removed by it nor
+        // used to remove a finish-to-start edge.
+        let start_edges = self.weak_start_edges(&flat_dependency);
+        if start_edges.is_empty() {
+            flat_dependency.remove_redundant_edges(&flat_dependency_analysis);
+        } else {
+            // Reduce only the finish-to-start subgraph, then restore the start edges.
+            for &(from, to) in &start_edges {
+                flat_dependency.remove_edge(from, to);
+            }
+            let strict_analysis = flat_dependency
+                .analyze()
+                .map_err(ScheduleBuildError::FlatDependencySort)?;
+            flat_dependency.remove_redundant_edges(&strict_analysis);
+            for &(from, to) in &start_edges {
+                flat_dependency.add_edge(from, to);
+            }
+            // Restore the cached topological order the mutations above invalidated.
+            flat_dependency
+                .toposort()
+                .map_err(ScheduleBuildError::FlatDependencySort)?;
+        }
 
         // Flatten accepted system ordering ambiguities by collapsing system sets.
         // This means that if a system set is allowed to have ambiguous ordering
@@ -1284,7 +1332,7 @@ impl ScheduleGraph {
 
         // build the schedule
         Ok((
-            self.build_schedule_inner(flat_dependency, hierarchy_analysis),
+            self.build_schedule_inner(flat_dependency, hierarchy_analysis, &start_edges),
             ScheduleBuildMetadata {
                 warnings,
                 edges_added_by_build_passes: added_edges,
@@ -1292,10 +1340,51 @@ impl ScheduleGraph {
         ))
     }
 
+    /// Returns the flattened system-to-system edges that `chain_weak` turns into
+    /// start-to-start dependencies.
+    ///
+    /// A weak edge is expanded to the systems of its endpoints and kept only if it exists in `flat_dependency`,
+    /// the earlier system produces no deferred effects, and neither system is exclusive. Deferred producers
+    /// and exclusive systems keep their finish-to-start ordering. An edge routed through an empty set collapses
+    /// to a plain edge that is not covered here, so it also stays finish-to-start (a conservative choice).
+    fn weak_start_edges(
+        &self,
+        flat_dependency: &Dag<SystemKey>,
+    ) -> HashSet<(SystemKey, SystemKey)> {
+        let systems_of = |node: NodeId| -> Vec<SystemKey> {
+            match node {
+                NodeId::System(key) => vec![key],
+                NodeId::Set(key) => self
+                    .set_systems
+                    .get(&key)
+                    .map(|systems| systems.iter().copied().collect())
+                    .unwrap_or_default(),
+            }
+        };
+
+        let mut start_edges = HashSet::default();
+        for &(from, to) in &self.weak_node_edges {
+            let (froms, tos) = (systems_of(from), systems_of(to));
+            for &from in &froms {
+                for &to in &tos {
+                    if flat_dependency.contains_edge(from, to)
+                        && !self.systems[from].has_deferred()
+                        && !self.systems[from].is_exclusive()
+                        && !self.systems[to].is_exclusive()
+                    {
+                        start_edges.insert((from, to));
+                    }
+                }
+            }
+        }
+        start_edges
+    }
+
     fn build_schedule_inner(
         &self,
         flat_dependency: Dag<SystemKey>,
         hierarchy_analysis: DagAnalysis<NodeId>,
+        start_edges: &HashSet<(SystemKey, SystemKey)>,
     ) -> SystemSchedule {
         let dg_system_ids = flat_dependency.get_toposort().unwrap().to_vec();
         let dg_system_idx_map = dg_system_ids
@@ -1328,22 +1417,33 @@ impl ScheduleGraph {
         let set_with_conditions_count = hg_set_ids.len();
         let hg_node_count = self.hierarchy.node_count();
 
-        // get the number of dependencies and the immediate dependents of each system
-        // (needed by multi_threaded executor to run systems in the correct order)
+        // Get the dependencies and immediate dependents of each system, needed by the
+        // multi_threaded executor to run systems in the correct order. `start_edges` (from
+        // `chain_weak`) become start-to-start dependencies: they are still counted in the
+        // dependent's `system_dependencies`, but they are released when the earlier system
+        // starts rather than when it finishes, so the two can overlap unless their accesses
+        // conflict.
         let mut system_dependencies = Vec::with_capacity(sys_count);
         let mut system_dependents = Vec::with_capacity(sys_count);
+        let mut system_start_dependents = Vec::with_capacity(sys_count);
         for &sys_key in &dg_system_ids {
             let num_dependencies = flat_dependency
                 .neighbors_directed(sys_key, Incoming)
                 .count();
 
-            let dependents = flat_dependency
-                .neighbors_directed(sys_key, Outgoing)
-                .map(|dep_id| dg_system_idx_map[&dep_id])
-                .collect::<Vec<_>>();
+            let mut dependents = Vec::new();
+            let mut start_dependents = Vec::new();
+            for succ in flat_dependency.neighbors_directed(sys_key, Outgoing) {
+                if start_edges.contains(&(sys_key, succ)) {
+                    start_dependents.push(dg_system_idx_map[&succ]);
+                } else {
+                    dependents.push(dg_system_idx_map[&succ]);
+                }
+            }
 
             system_dependencies.push(num_dependencies);
             system_dependents.push(dependents);
+            system_start_dependents.push(start_dependents);
         }
 
         // get the rows and columns of the hierarchy graph's reachability matrix
@@ -1382,6 +1482,7 @@ impl ScheduleGraph {
             set_ids: hg_set_ids,
             system_dependencies,
             system_dependents,
+            system_start_dependents,
             sets_with_conditions_of_systems,
             systems_in_sets_with_conditions,
         }
@@ -1697,8 +1798,8 @@ mod tests {
         prelude::{ApplyDeferred, IntoSystemSet, Res, Resource},
         schedule::{
             passes::AutoInsertApplyDeferredPass, tests::ResMut, FlattenedDependencies,
-            IntoScheduleConfigs, Schedule, ScheduleBuildPass, ScheduleBuildSettings,
-            ScheduleCleanupPolicy, SystemSet,
+            IntoScheduleConfigs, MultiThreadedExecutor, Schedule, ScheduleBuildPass,
+            ScheduleBuildSettings, ScheduleCleanupPolicy, SystemSet,
         },
         system::Commands,
         world::World,
@@ -2729,5 +2830,238 @@ mod tests {
                 TypeId::of::<Pass<2>>()
             ]
         );
+    }
+
+    /// Total number of finish-to-start dependency edges in the built schedule.
+    fn total_finish_dependencies(schedule: &Schedule) -> usize {
+        schedule
+            .executable
+            .system_dependents
+            .iter()
+            .map(Vec::len)
+            .sum()
+    }
+
+    /// Total number of start-to-start dependency edges in the built schedule.
+    fn total_start_dependencies(schedule: &Schedule) -> usize {
+        schedule
+            .executable
+            .system_start_dependents
+            .iter()
+            .map(Vec::len)
+            .sum()
+    }
+
+    #[test]
+    fn chain_weak_emits_start_dependencies() {
+        fn read<const N: usize>(_: Res<Resource1>) {}
+
+        let mut world = World::default();
+
+        // A strict chain orders every successive pair with finish-to-start edges.
+        let mut strict = Schedule::default();
+        strict.add_systems((read::<1>, read::<2>, read::<3>).chain());
+        strict.initialize(&mut world).unwrap();
+        assert_eq!(total_finish_dependencies(&strict), 2);
+        assert_eq!(total_start_dependencies(&strict), 0);
+
+        // A weak chain uses start-to-start edges instead, so the systems can overlap.
+        let mut weak = Schedule::default();
+        weak.add_systems((read::<1>, read::<2>, read::<3>).chain_weak());
+        weak.initialize(&mut world).unwrap();
+        assert_eq!(total_finish_dependencies(&weak), 0);
+        assert_eq!(total_start_dependencies(&weak), 2);
+    }
+
+    #[test]
+    fn chain_weak_keeps_finish_dependency_for_deferred() {
+        let mut world = World::default();
+        let mut schedule = Schedule::default();
+        schedule.set_executor(MultiThreadedExecutor::new());
+        schedule.add_systems(
+            (
+                |mut commands: Commands| commands.insert_resource(Resource1),
+                |_: Res<Resource1>| {},
+            )
+                .chain_weak(),
+        );
+        // The reader requires `Resource1`, so a run that doesn't panic proves the command
+        // producer kept its finish-to-start ordering and the sync point applied the insert
+        // before the reader ran.
+        schedule.run(&mut world);
+
+        // A sync point was inserted, and no edge was demoted to start-to-start.
+        assert_eq!(schedule.executable.systems.len(), 3);
+        assert_eq!(total_finish_dependencies(&schedule), 2);
+        assert_eq!(total_start_dependencies(&schedule), 0);
+    }
+
+    #[test]
+    fn chain_weak_keeps_finish_dependency_for_exclusive() {
+        fn read<const N: usize>(_: Res<Resource1>) {}
+        fn exclusive(_: &mut World) {}
+
+        let mut world = World::default();
+        let mut schedule = Schedule::default();
+        schedule.add_systems((read::<1>, exclusive, read::<2>).chain_weak());
+        schedule.initialize(&mut world).unwrap();
+
+        // Exclusive systems can't overlap anything, so edges touching them stay
+        // finish-to-start: `read1 -> exclusive` and `exclusive -> read2`.
+        assert_eq!(total_finish_dependencies(&schedule), 2);
+        assert_eq!(total_start_dependencies(&schedule), 0);
+    }
+
+    #[test]
+    fn chain_weak_between_sets_uses_start_dependencies() {
+        #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+        enum Sets {
+            A,
+            B,
+        }
+
+        fn read<const N: usize>(_: Res<Resource1>) {}
+
+        let mut world = World::default();
+        let mut schedule = Schedule::default();
+        schedule.configure_sets((Sets::A, Sets::B).chain_weak());
+        schedule.add_systems((read::<1>.in_set(Sets::A), read::<2>.in_set(Sets::B)));
+        schedule.initialize(&mut world).unwrap();
+
+        // The set ordering flattens to a start-to-start edge between the two systems.
+        assert_eq!(total_finish_dependencies(&schedule), 0);
+        assert_eq!(total_start_dependencies(&schedule), 1);
+    }
+
+    #[test]
+    fn chain_weak_between_sets_fans_out_start_dependencies() {
+        #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+        enum Sets {
+            A,
+            B,
+        }
+
+        fn read<const N: usize>(_: Res<Resource1>) {}
+
+        let mut world = World::default();
+        let mut schedule = Schedule::default();
+        schedule.configure_sets((Sets::A, Sets::B).chain_weak());
+        schedule.add_systems((
+            (read::<1>, read::<2>).in_set(Sets::A),
+            (read::<3>, read::<4>).in_set(Sets::B),
+        ));
+        schedule.initialize(&mut world).unwrap();
+
+        // Every system in A is weakly ordered before every system in B, so the set edge
+        // flattens to a 2x2 fan-out of start-to-start edges.
+        assert_eq!(total_finish_dependencies(&schedule), 0);
+        assert_eq!(total_start_dependencies(&schedule), 4);
+    }
+
+    #[test]
+    fn chain_weak_orders_conflicting_systems() {
+        #[derive(Resource, Default)]
+        struct Order(Vec<u32>);
+
+        fn record<const N: u32>(mut order: ResMut<Order>) {
+            order.0.push(N);
+        }
+
+        let mut world = World::default();
+        world.init_resource::<Order>();
+        let mut schedule = Schedule::default();
+        // Use the multi-threaded executor so the start-to-start logic is exercised. The
+        // single-threaded executor just runs in topological order.
+        schedule.set_executor(MultiThreadedExecutor::new());
+        // Both systems write `Order`, so they conflict. The start-to-start edge keeps
+        // them from running at the same time while pinning their order.
+        schedule.add_systems((record::<1>, record::<2>).chain_weak());
+        schedule.run(&mut world);
+
+        assert_eq!(world.resource::<Order>().0, vec![1, 2]);
+    }
+
+    #[test]
+    fn chain_weak_releases_dependents_when_skipped() {
+        #[derive(Resource, Default)]
+        struct Ran(Vec<u32>);
+
+        fn record<const N: u32>(mut ran: ResMut<Ran>) {
+            ran.0.push(N);
+        }
+
+        let mut world = World::default();
+        world.init_resource::<Ran>();
+        let mut schedule = Schedule::default();
+        schedule.set_executor(MultiThreadedExecutor::new());
+        // The first system is skipped by its run condition. A skipped system never starts,
+        // so its start-dependents must still be released or the rest of the chain hangs.
+        schedule.add_systems((record::<1>.run_if(|| false), record::<2>, record::<3>).chain_weak());
+        schedule.run(&mut world);
+
+        assert_eq!(world.resource::<Ran>().0, vec![2, 3]);
+    }
+
+    #[test]
+    fn chain_weak_transitive_conflict_is_not_ambiguous() {
+        fn write<const N: usize>(_: ResMut<Resource1>) {}
+        fn read(_: Res<Resource2>) {}
+
+        let mut world = World::default();
+        let mut schedule = Schedule::default();
+        // The first and last systems conflict on `Resource1`, while the middle one only
+        // reads `Resource2`. They stay connected through the weak chain, so the conflicting
+        // pair keeps a defined order and is not reported as ambiguous.
+        schedule.add_systems((write::<1>, read, write::<3>).chain_weak());
+        schedule.initialize(&mut world).unwrap();
+
+        assert!(schedule.graph().conflicting_systems().is_empty());
+    }
+
+    #[test]
+    fn chain_weak_does_not_downgrade_shadowed_strict_edge() {
+        #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+        enum Sets {
+            A,
+            B,
+            C,
+        }
+
+        fn read<const N: usize>(_: Res<Resource1>) {}
+
+        let mut world = World::default();
+        let mut schedule = Schedule::default();
+        // Weak A -> B -> C, plus an explicit strict A -> C that the weak path shadows.
+        schedule.configure_sets((Sets::A, Sets::B, Sets::C).chain_weak());
+        schedule.configure_sets(Sets::C.after(Sets::A));
+        schedule.add_systems((
+            read::<1>.in_set(Sets::A),
+            read::<2>.in_set(Sets::B),
+            read::<3>.in_set(Sets::C),
+        ));
+        schedule.initialize(&mut world).unwrap();
+
+        // The strict A -> C edge must survive transitive reduction: a start-to-start path
+        // does not enforce the finish-before ordering it provides. So one finish edge (A -> C)
+        // and two start edges (A -> B, B -> C) remain.
+        assert_eq!(total_finish_dependencies(&schedule), 1);
+        assert_eq!(total_start_dependencies(&schedule), 2);
+    }
+
+    #[test]
+    fn strict_chain_after_weak_group_waits_for_whole_group() {
+        fn read<const N: usize>(_: Res<Resource1>) {}
+
+        let mut world = World::default();
+        let mut schedule = Schedule::default();
+        // A weak group strictly chained before a final system: the final system must wait
+        // for every member of the group to finish, not just the last one to start.
+        schedule.add_systems(((read::<1>, read::<2>, read::<3>).chain_weak(), read::<4>).chain());
+        schedule.initialize(&mut world).unwrap();
+
+        // The last system has a finish-to-start edge from all three group members, and the
+        // group keeps its two internal start-to-start edges.
+        assert_eq!(total_finish_dependencies(&schedule), 3);
+        assert_eq!(total_start_dependencies(&schedule), 2);
     }
 }

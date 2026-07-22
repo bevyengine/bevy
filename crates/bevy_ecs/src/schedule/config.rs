@@ -7,7 +7,7 @@ use crate::{
         condition::{BoxedCondition, SystemCondition},
         graph::{Ambiguity, Dependency, DependencyKind, GraphInfo},
         set::{InternedSystemSet, IntoSystemSet, SystemSet},
-        Chain,
+        Chain, Weak,
     },
     system::{BoxedSystem, IntoSystem, ScheduleSystem, System},
 };
@@ -265,6 +265,16 @@ impl<T: Schedulable<Metadata = GraphInfo, GroupMetadata = Chain>> ScheduleConfig
         }
         self
     }
+
+    fn chain_weak_inner(mut self) -> Self {
+        match &mut self {
+            Self::ScheduleConfig(_) => { /* no op */ }
+            Self::Configs { metadata, .. } => {
+                metadata.set_chained_with_config(Weak);
+            }
+        }
+        self
+    }
 }
 
 /// Types that can convert into a [`ScheduleConfigs`].
@@ -480,6 +490,27 @@ pub trait IntoScheduleConfigs<T: Schedulable<Metadata = GraphInfo, GroupMetadata
     fn chain_ignore_deferred(self) -> ScheduleConfigs<T> {
         self.into_configs().chain_ignore_deferred()
     }
+
+    /// Treat this collection as a sequence of systems that are allowed to overlap
+    /// with sucessive systems, given that their are no conflicting data dependencies.
+    ///
+    /// Like [`chain`](Self::chain), ordering constraints are added between the successive
+    /// elements. Unlike [`chain`](Self::chain), those constraints are "must start before"
+    /// (start-to-start) dependencies: a later system may not begin until the earlier one has
+    /// begun, but it does not wait for the earlier one to finish, so the two can overlap. This
+    /// is useful for ordering large groups of systems (such as system sets) without
+    /// serializing systems that don't actually depend on each other.
+    ///
+    /// Two cases keep the regular finish-to-start ordering of [`chain`](Self::chain): an earlier
+    /// system that produces deferred effects such as [`Commands`](crate::system::Commands) (so
+    /// the later system observes them, with an [`ApplyDeferred`](crate::schedule::ApplyDeferred)
+    /// inserted as usual), and exclusive systems (which cannot overlap anything).
+    ///
+    /// Dependencies the scheduler can't see (interior mutability on read-only accesses, global state, etc.)
+    /// are **not** respected, so only use this when the systems don't rely on such hidden data dependencies.
+    fn chain_weak(self) -> ScheduleConfigs<T> {
+        self.into_configs().chain_weak()
+    }
 }
 
 impl<T: Schedulable<Metadata = GraphInfo, GroupMetadata = Chain>> IntoScheduleConfigs<T, ()>
@@ -555,6 +586,10 @@ impl<T: Schedulable<Metadata = GraphInfo, GroupMetadata = Chain>> IntoScheduleCo
 
     fn chain_ignore_deferred(self) -> Self {
         self.chain_ignore_deferred_inner()
+    }
+
+    fn chain_weak(self) -> Self {
+        self.chain_weak_inner()
     }
 }
 
