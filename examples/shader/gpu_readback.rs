@@ -91,7 +91,7 @@ fn setup(
     let buffer: Vec<u32> = (0..BUFFER_LEN as u32).collect();
     let mut buffer = ShaderBuffer::from(buffer);
     // We need to enable the COPY_SRC usage so we can copy the buffer to the cpu
-    buffer.buffer_description.usage |= BufferUsages::COPY_SRC;
+    buffer.buffer_usage |= BufferUsages::COPY_SRC;
     let buffer = buffers.add(buffer);
 
     // Create a storage texture with some data

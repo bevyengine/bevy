@@ -13,6 +13,7 @@ mod menu;
 mod number_input;
 mod radio;
 mod scrollbar;
+mod select;
 mod slider;
 mod text_input;
 mod toggle_switch;
@@ -30,6 +31,7 @@ pub use menu::*;
 pub use number_input::*;
 pub use radio::*;
 pub use scrollbar::*;
+pub use select::*;
 pub use slider::*;
 pub use text_input::*;
 pub use toggle_switch::*;
@@ -43,22 +45,28 @@ pub struct ControlsPlugin;
 
 impl Plugin for ControlsPlugin {
     fn build(&self, app: &mut bevy_app::App) {
+        // arbitrary split as too many for one set
         app.add_plugins((
-            AlphaPatternPlugin,
-            ButtonPlugin,
-            CheckboxPlugin,
-            ColorPlanePlugin,
-            ColorSliderPlugin,
-            ColorSwatchPlugin,
-            DisclosureTogglePlugin,
-            ListViewPlugin,
-            MenuPlugin,
-            NumberInputPlugin,
-            RadioPlugin,
-            ScrollbarPlugin,
-            SliderPlugin,
-            TextInputPlugin,
-            ToggleSwitchPlugin,
+            (
+                ButtonPlugin,
+                CheckboxPlugin,
+                DisclosureTogglePlugin,
+                ListViewPlugin,
+                MenuPlugin,
+                NumberInputPlugin,
+                RadioPlugin,
+                ScrollbarPlugin,
+                SelectPlugin,
+                SliderPlugin,
+                TextInputPlugin,
+                ToggleSwitchPlugin,
+            ),
+            (
+                AlphaPatternPlugin,
+                ColorPlanePlugin,
+                ColorSliderPlugin,
+                ColorSwatchPlugin,
+            ),
         ));
     }
 }

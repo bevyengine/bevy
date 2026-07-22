@@ -9,7 +9,6 @@
 use bevy::color::palettes::css::DARK_GREY;
 use bevy::color::palettes::tailwind::SLATE_300;
 use bevy::input_focus::{
-    pointer_focus::PointerFocusPlugin,
     tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
     InputFocus,
 };
@@ -19,7 +18,7 @@ use bevy::text::{EditableText, TextCursorStyle};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugins((TabNavigationPlugin, PointerFocusPlugin))
+        .add_plugins(TabNavigationPlugin)
         .add_systems(Startup, setup)
         .add_systems(Update, text_submission)
         .run();
@@ -54,7 +53,7 @@ fn setup(mut commands: Commands) {
             // includes support for Chinese, Japanese, and Korean characters.
             // Note that using system fonts requires the "bevy/system-fonts" feature to be enabled.
             TextFont {
-                font: FontSource::SansSerif,
+                font: FontSource::sans_serif(),
                 font_size: FontSize::Px(32.0),
                 ..default()
             },
@@ -74,7 +73,7 @@ fn setup(mut commands: Commands) {
         .spawn((
             Text::new("Your text here!"),
             TextFont {
-                font: FontSource::SansSerif,
+                font: FontSource::sans_serif(),
                 font_size: FontSize::Px(32.0),
                 ..default()
             },

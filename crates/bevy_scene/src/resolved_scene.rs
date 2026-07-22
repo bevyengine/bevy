@@ -10,7 +10,7 @@ use bevy_ecs::{
     world::{EntityWorldMut, World},
 };
 use bevy_platform::collections::HashSet;
-use bevy_utils::TypeIdMap;
+use bevy_utils::{TypeIdHashMap, TypeIdIndexMap};
 use core::any::{Any, TypeId};
 use thiserror::Error;
 
@@ -171,12 +171,12 @@ pub struct ResolvedScene {
     ///
     /// [`Children`]: bevy_ecs::hierarchy::Children
     // PERF: special casing Children might make sense here to avoid hashing
-    related: TypeIdMap<RelatedResolvedScenes>,
+    related: TypeIdIndexMap<RelatedResolvedScenes>,
     /// The cached [`ScenePatch`] to apply _first_ before applying this [`ResolvedScene`].
     cached: Option<CachedSceneInfo>,
     /// A [`TypeId`] to `templates` index mapping. If a [`Template`] is intended to be shared / patched across scenes, it should be registered
     /// here.
-    template_indices: TypeIdMap<usize>,
+    template_indices: TypeIdHashMap<usize>,
     /// A list of all [`SceneEntityReference`] values associated with this entity. There can be more than one if this scene uses
     /// "flattened" caching.
     pub entity_references: Vec<SceneEntityReference>,
@@ -419,6 +419,34 @@ impl ResolvedScene {
             // The method isn't stable yet, and it would require making get_or_insert_erased_template unsafe
             .downcast_mut()
             .unwrap()
+    }
+
+    /// Inserts the given [`Template`]. This will overwrite the existing [`Template`] of that type if it already exists.
+    pub fn insert_template<T: Template<Output: Component> + Send + Sync + 'static>(
+        &mut self,
+        template: T,
+    ) {
+        self.insert_erased_template(TypeId::of::<T>(), Box::new(template));
+    }
+
+    /// Inserts the given [`Template`] with the given `type_id`. This will overwrite the existing [`Template`] of that type if it already exists.
+    pub fn insert_erased_template(
+        &mut self,
+        type_id: TypeId,
+        template: Box<dyn ErasedComponentTemplate>,
+    ) {
+        match self.template_indices.entry(type_id) {
+            bevy_utils::TypeIdHashMapEntry::Occupied(occupied_entry) => {
+                let index = *occupied_entry.get();
+                // SAFETY: just looked up a valid index
+                let stored_template = unsafe { self.component_templates.get_unchecked_mut(index) };
+                *stored_template = template;
+            }
+            bevy_utils::TypeIdHashMapEntry::Vacant(vacant_entry) => {
+                vacant_entry.insert(self.component_templates.len());
+                self.component_templates.push(template);
+            }
+        }
     }
 
     /// This will get the [`ErasedComponentTemplate`] for the given [`TypeId`], if it already exists in this [`ResolvedScene`]. If it doesn't exist,

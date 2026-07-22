@@ -116,6 +116,12 @@ impl Default for Val2 {
     }
 }
 
+impl From<Val> for Val2 {
+    fn from(val: Val) -> Val2 {
+        Val2::all(val)
+    }
+}
+
 /// Relative 2D transform for UI nodes
 ///
 /// [`UiGlobalTransform`] is automatically inserted whenever [`UiTransform`] is inserted.

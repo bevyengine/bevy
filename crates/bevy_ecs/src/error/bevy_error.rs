@@ -636,7 +636,8 @@ macro_rules! bevy_error {
 /// Equivalent to <code>return Err([bevy_error!(\...)](bevy_error!))</code>
 /// As a result the returned error defaults to [`Severity::Panic`]. As with
 /// `bevy_error!` the severity can be changed by providing a severity as the
-/// first argument
+/// first argument. To return early only when a condition is false, use
+/// [`ensure!`](crate::ensure!).
 ///
 /// # Example
 /// ```
@@ -657,6 +658,31 @@ macro_rules! bevy_error {
 macro_rules! bail {
     ($($args:tt)+) => {
         return core::result::Result::Err($crate::bevy_error!($($args)*))
+    };
+}
+
+/// Returns early with an error if a condition is false.
+///
+/// Equivalent to <code>if !condition { [bail!](bail!)(\...) }</code>. As with
+/// [`bail!`], the returned error defaults to [`Severity::Panic`], and the
+/// severity can be changed by providing it after the condition.
+///
+/// # Example
+/// ```
+/// use bevy_ecs::{ensure, error::{BevyError, Severity}};
+///
+/// fn validate_score(score: i32) -> Result<(), BevyError> {
+///     ensure!(score >= 0, "score must not be negative: {}", score);
+///     ensure!(score <= 100, Severity::Warning, "score is too high: {}", score);
+///     Ok(())
+/// }
+/// ```
+#[macro_export]
+macro_rules! ensure {
+    ($condition:expr, $($args:tt)+) => {
+        if !$condition {
+            $crate::bail!($($args)*);
+        }
     };
 }
 
@@ -704,15 +730,16 @@ mod tests {
         }
 
         let expected_lines = alloc::vec![
+            "<bevy_ecs::error::bevy_error::BevyError as core::convert::From<core::num::error::ParseIntError>>::from",
+            "<core::result::Result<(), bevy_ecs::error::bevy_error::BevyError> as core::ops::try_trait::FromResidual<core::result::Result<core::convert::Infallible, core::num::error::ParseIntError>>>::from_residual",
             "bevy_ecs::error::bevy_error::tests::filtered_backtrace_test::i_fail",
             "bevy_ecs::error::bevy_error::tests::filtered_backtrace_test",
-            "bevy_ecs::error::bevy_error::tests::filtered_backtrace_test::{{closure}}",
-            "core::ops::function::FnOnce::call_once",
+            "bevy_ecs::error::bevy_error::tests::filtered_backtrace_test::{closure#0}",
+            "<bevy_ecs::error::bevy_error::tests::filtered_backtrace_test::{closure#0} as core::ops::function::FnOnce<()>>::call_once",
         ];
 
         for expected in expected_lines {
-            let line = lines.next().unwrap();
-            assert_eq!(&line[6..], expected);
+            // On mac, it can sometimes start with an "at" line
             let mut skip = false;
             if let Some(line) = lines.peek()
                 && line.starts_with("             at")
@@ -723,12 +750,26 @@ mod tests {
             if skip {
                 lines.next().unwrap();
             }
+
+            let line = lines.next().unwrap();
+            assert_eq!(&line[6..], expected);
+        }
+        // To handle any potential "at" line after the expected lines
+        let mut skip = false;
+        if let Some(line) = lines.peek()
+            && line.starts_with("             at")
+        {
+            skip = true;
+        }
+
+        if skip {
+            lines.next().unwrap();
         }
 
         // on linux there is a second call_once
         let mut skip = false;
         if let Some(line) = lines.peek()
-            && &line[6..] == "core::ops::function::FnOnce::call_once"
+            && &line[6..] == "<fn() -> core::result::Result<(), alloc::string::String> as core::ops::function::FnOnce<()>>::call_once"
         {
             skip = true;
         }
@@ -803,6 +844,32 @@ mod tests {
             )
         });
         t(|| bail!("Format string {}", 1 + 2));
+    }
+
+    #[test]
+    fn bevy_ensure_macro() {
+        fn validate(value: i32) -> Result<(), BevyError> {
+            ensure!(value != 0, "value must not be zero");
+            ensure!(
+                value > 0,
+                crate::error::Severity::Warning,
+                "value must be positive: {}",
+                value
+            );
+            Ok(())
+        }
+
+        assert!(validate(1).is_ok());
+
+        let zero = validate(0).unwrap_err();
+        assert_eq!(zero.severity(), crate::error::Severity::Panic);
+        assert!(zero.to_string().starts_with("value must not be zero"));
+
+        let negative = validate(-1).unwrap_err();
+        assert_eq!(negative.severity(), crate::error::Severity::Warning);
+        assert!(negative
+            .to_string()
+            .starts_with("value must be positive: -1"));
     }
 
     #[test]

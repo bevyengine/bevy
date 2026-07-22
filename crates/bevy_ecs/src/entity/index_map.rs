@@ -927,11 +927,34 @@ impl<'a, K: EntityEquivalent + Hash, V> Iterator for Iter<'a, K, V> {
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.0.size_hint()
     }
+
+    fn count(self) -> usize {
+        self.0.count()
+    }
+
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        self.0.nth(n)
+    }
+
+    fn last(self) -> Option<Self::Item> {
+        self.0.last()
+    }
+
+    fn collect<C>(self) -> C
+    where
+        C: FromIterator<Self::Item>,
+    {
+        self.0.collect()
+    }
 }
 
 impl<K: EntityEquivalent + Hash, V> DoubleEndedIterator for Iter<'_, K, V> {
     fn next_back(&mut self) -> Option<Self::Item> {
         self.0.next_back()
+    }
+
+    fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
+        self.0.nth_back(n)
     }
 }
 
@@ -1021,11 +1044,34 @@ impl<'a, K: EntityEquivalent + Hash, V> Iterator for IterMut<'a, K, V> {
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.0.size_hint()
     }
+
+    fn count(self) -> usize {
+        self.0.count()
+    }
+
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        self.0.nth(n)
+    }
+
+    fn last(self) -> Option<Self::Item> {
+        self.0.last()
+    }
+
+    fn collect<C>(self) -> C
+    where
+        C: FromIterator<Self::Item>,
+    {
+        self.0.collect()
+    }
 }
 
 impl<K: EntityEquivalent + Hash, V> DoubleEndedIterator for IterMut<'_, K, V> {
     fn next_back(&mut self) -> Option<Self::Item> {
         self.0.next_back()
+    }
+
+    fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
+        self.0.nth_back(n)
     }
 }
 
@@ -1111,11 +1157,34 @@ impl<K: EntityEquivalent + Hash, V> Iterator for IntoIter<K, V> {
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.0.size_hint()
     }
+
+    fn count(self) -> usize {
+        self.0.count()
+    }
+
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        self.0.nth(n)
+    }
+
+    fn last(self) -> Option<Self::Item> {
+        self.0.last()
+    }
+
+    fn collect<C>(self) -> C
+    where
+        C: FromIterator<Self::Item>,
+    {
+        self.0.collect()
+    }
 }
 
 impl<K: EntityEquivalent + Hash, V> DoubleEndedIterator for IntoIter<K, V> {
     fn next_back(&mut self) -> Option<Self::Item> {
         self.0.next_back()
+    }
+
+    fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
+        self.0.nth_back(n)
     }
 }
 
@@ -1198,11 +1267,34 @@ impl<K: EntityEquivalent + Hash, V> Iterator for Drain<'_, K, V> {
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.0.size_hint()
     }
+
+    fn count(self) -> usize {
+        self.0.count()
+    }
+
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        self.0.nth(n)
+    }
+
+    fn last(self) -> Option<Self::Item> {
+        self.0.last()
+    }
+
+    fn collect<C>(self) -> C
+    where
+        C: FromIterator<Self::Item>,
+    {
+        self.0.collect()
+    }
 }
 
 impl<K: EntityEquivalent + Hash, V> DoubleEndedIterator for Drain<'_, K, V> {
     fn next_back(&mut self) -> Option<Self::Item> {
         self.0.next_back()
+    }
+
+    fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
+        self.0.nth_back(n)
     }
 }
 
@@ -1263,11 +1355,34 @@ impl<'a, K: EntityEquivalent + Hash, V> Iterator for Keys<'a, K, V> {
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.0.size_hint()
     }
+
+    fn count(self) -> usize {
+        self.0.count()
+    }
+
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        self.0.nth(n)
+    }
+
+    fn last(self) -> Option<Self::Item> {
+        self.0.last()
+    }
+
+    fn collect<C>(self) -> C
+    where
+        C: FromIterator<Self::Item>,
+    {
+        self.0.collect()
+    }
 }
 
 impl<K: EntityEquivalent + Hash, V> DoubleEndedIterator for Keys<'_, K, V> {
     fn next_back(&mut self) -> Option<Self::Item> {
         self.0.next_back()
+    }
+
+    fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
+        self.0.nth_back(n)
     }
 }
 
@@ -1352,11 +1467,34 @@ impl<K: EntityEquivalent + Hash, V> Iterator for IntoKeys<K, V> {
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.0.size_hint()
     }
+
+    fn count(self) -> usize {
+        self.0.count()
+    }
+
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        self.0.nth(n)
+    }
+
+    fn last(self) -> Option<Self::Item> {
+        self.0.last()
+    }
+
+    fn collect<C>(self) -> C
+    where
+        C: FromIterator<Self::Item>,
+    {
+        self.0.collect()
+    }
 }
 
 impl<K: EntityEquivalent + Hash, V> DoubleEndedIterator for IntoKeys<K, V> {
     fn next_back(&mut self) -> Option<Self::Item> {
         self.0.next_back()
+    }
+
+    fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
+        self.0.nth_back(n)
     }
 }
 
