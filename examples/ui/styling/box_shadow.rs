@@ -108,7 +108,7 @@ impl Default for AppSettings {
     }
 }
 
-#[derive(Component)]
+#[derive(Component, Clone, Default)]
 struct ShadowNode;
 
 #[derive(Component, PartialEq, Clone, Copy, Default)]
@@ -147,8 +147,8 @@ impl AppNumberInputF32 {
 impl AppNumberInputI32 {
     fn label(&self) -> &str {
         match self {
-            AppNumberInputI32::Count => "Count (1-3)",
-            AppNumberInputI32::Samples => "Samples (0-15)",
+            AppNumberInputI32::Count => "Count (1 - 3)",
+            AppNumberInputI32::Samples => "Samples (0 - 15)",
         }
     }
 }
@@ -168,60 +168,65 @@ fn main() {
 
 // --- UI Setup ---
 fn setup(mut commands: Commands, app_settings: Res<AppSettings>) {
-    commands.spawn((Camera2d, BoxShadowSamples(app_settings.samples)));
-    // Spawn shape node
-    commands
-        .spawn((
-            Node {
-                width: percent(100),
-                height: percent(100),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                ..default()
-            },
-            BackgroundColor(GRAY.into()),
-        ))
-        .insert(children![{
-            let mut node = Node {
-                width: px(164),
-                height: px(164),
-                border: UiRect::all(px(1)),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                border_radius: BorderRadius::ZERO,
-                ..default()
-            };
-            app_settings.shape.change_node(&mut node);
+    // create shape node
+    let mut node = Node {
+        width: px(164),
+        height: px(164),
+        border: UiRect::all(px(1)),
+        align_items: AlignItems::Center,
+        justify_content: JustifyContent::Center,
+        border_radius: BorderRadius::ZERO,
+        ..default()
+    };
+    app_settings.shape.change_node(&mut node);
 
-            (
-                node,
-                BorderColor::all(WHITE),
-                BackgroundColor(Color::srgb(0.21, 0.21, 0.21)),
-                BoxShadow(vec![ShadowStyle {
-                    color: Color::BLACK.with_alpha(0.8),
-                    x_offset: px(app_settings.x_offset),
-                    y_offset: px(app_settings.y_offset),
-                    spread_radius: px(app_settings.spread),
-                    blur_radius: px(app_settings.blur),
-                }]),
-                ShadowNode,
-            )
-        }]);
+    let shape_options = [
+        (Shape::Square, Shape::Square.label()),
+        (Shape::RoundedSquare, Shape::RoundedSquare.label()),
+        (Shape::Circle, Shape::Circle.label()),
+        (Shape::LongRectangle, Shape::LongRectangle.label()),
+        (Shape::TallRectangle, Shape::TallRectangle.label()),
+    ];
 
-    // Settings Panel
-    commands.spawn_scene(bsn! {
+    commands.spawn_scene_list(bsn_list! {
+        // Camera
+        Camera2d
+        BoxShadowSamples({app_settings.samples}),
+
+        // Centered shape with shadow
+        Node {
+            width: percent(100),
+            height: percent(100),
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
+        }
+        BackgroundColor(GRAY)
+        Children [
+            template_value(node)
+            BorderColor::all(WHITE)
+            BackgroundColor(Color::srgb(0.21, 0.21, 0.21))
+            BoxShadow(vec![ShadowStyle {
+                color: Color::BLACK.with_alpha(0.8),
+                x_offset: px(app_settings.x_offset),
+                y_offset: px(app_settings.y_offset),
+                spread_radius: px(app_settings.spread),
+                blur_radius: px(app_settings.blur),
+            }])
+            ShadowNode
+        ],
+
+        settings_panel_scene(&app_settings, &shape_options),
+    });
+}
+
+fn settings_panel_scene(app_settings: &AppSettings, shape_options: &[(Shape, &str)]) -> impl Scene {
+    bsn! {
         main_ui_node_scene()
         ZIndex(10)
         Children [
             feathers_option_buttons(
                 "Shape",
-                &[
-                    (Shape::Square, Shape::Square.label()),
-                    (Shape::RoundedSquare, Shape::RoundedSquare.label()),
-                    (Shape::Circle, Shape::Circle.label()),
-                    (Shape::LongRectangle, Shape::LongRectangle.label()),
-                    (Shape::TallRectangle, Shape::TallRectangle.label()),
-                ],
+                &shape_options,
             ),
             number_input_f32(
                 AppNumberInputF32::XOffset.label(),
@@ -288,7 +293,7 @@ fn setup(mut commands: Commands, app_settings: Res<AppSettings>) {
                 ],
             ],
         ]
-    });
+    }
 }
 
 // --- SYSTEMS ---
