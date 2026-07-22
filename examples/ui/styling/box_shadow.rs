@@ -5,13 +5,14 @@ use crate::radio::{feathers_option_buttons, main_ui_node_scene, RadioButtonOptio
 use bevy::{
     color::palettes::css::*,
     feathers::{
-        controls::{FeathersNumberInput, NumberInputPrecision, NumberInputValue},
+        controls::{FeathersButton, FeathersNumberInput, NumberInputPrecision, NumberInputValue},
         dark_theme::create_dark_theme,
+        display::caption,
         theme::UiTheme,
         FeathersPlugins,
     },
     prelude::*,
-    ui_widgets::{radio_self_update, Button, ValueChange},
+    ui_widgets::{radio_self_update, Activate, ValueChange},
 };
 
 #[path = "../../helpers/number_input.rs"]
@@ -19,8 +20,6 @@ mod number_input;
 
 #[path = "../../helpers/radio.rs"]
 mod radio;
-
-const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
 
 /// Shapes that the node displayed on the screen can be.
 #[derive(Component, Clone, Copy, Default, PartialEq)]
@@ -66,7 +65,7 @@ impl Shape {
     }
 
     /// Returns the name of the shape as a string.
-    fn label(&self) -> &'static str {
+    const fn label(&self) -> &'static str {
         match *self {
             Shape::Square => "Square",
             Shape::RoundedSquare => "Rounded Square",
@@ -76,6 +75,14 @@ impl Shape {
         }
     }
 }
+
+const SHAPE_OPTIONS: [(Shape, &str); 5] = [
+    (Shape::Square, Shape::Square.label()),
+    (Shape::RoundedSquare, Shape::RoundedSquare.label()),
+    (Shape::Circle, Shape::Circle.label()),
+    (Shape::LongRectangle, Shape::LongRectangle.label()),
+    (Shape::TallRectangle, Shape::TallRectangle.label()),
+];
 
 /// Settings that the user can modify within the example.
 #[derive(Resource)]
@@ -111,11 +118,8 @@ impl Default for AppSettings {
 #[derive(Component, Clone, Default)]
 struct ShadowNode;
 
-#[derive(Component, PartialEq, Clone, Copy, Default)]
-enum SettingsButton {
-    #[default]
-    Reset,
-}
+#[derive(Component, Clone, Default)]
+struct SettingsPanel;
 
 #[derive(Component, Clone, Copy, Default, PartialEq, Eq, Debug)]
 enum AppNumberInputF32 {
@@ -180,14 +184,6 @@ fn setup(mut commands: Commands, app_settings: Res<AppSettings>) {
     };
     app_settings.shape.change_node(&mut node);
 
-    let shape_options = [
-        (Shape::Square, Shape::Square.label()),
-        (Shape::RoundedSquare, Shape::RoundedSquare.label()),
-        (Shape::Circle, Shape::Circle.label()),
-        (Shape::LongRectangle, Shape::LongRectangle.label()),
-        (Shape::TallRectangle, Shape::TallRectangle.label()),
-    ];
-
     commands.spawn_scene_list(bsn_list! {
         // Camera
         Camera2d
@@ -215,18 +211,19 @@ fn setup(mut commands: Commands, app_settings: Res<AppSettings>) {
             ShadowNode
         ],
 
-        settings_panel_scene(&app_settings, &shape_options),
+        settings_panel_scene(&app_settings),
     });
 }
 
-fn settings_panel_scene(app_settings: &AppSettings, shape_options: &[(Shape, &str)]) -> impl Scene {
+fn settings_panel_scene(app_settings: &AppSettings) -> impl Scene {
     bsn! {
+        SettingsPanel
         main_ui_node_scene()
         ZIndex(10)
         Children [
             feathers_option_buttons(
                 "Shape",
-                &shape_options,
+                &SHAPE_OPTIONS,
             ),
             number_input_f32(
                 AppNumberInputF32::XOffset.label(),
@@ -271,27 +268,10 @@ fn settings_panel_scene(app_settings: &AppSettings, shape_options: &[(Shape, &st
                 0..15
             ),
             // Reset button
-            Node {
-                flex_direction: FlexDirection::Row,
-                align_items: AlignItems::Center,
-                height: px(36),
-                margin: UiRect::top(px(12)),
+            @FeathersButton {
+                @caption: bsn! { caption("Reset") }
             }
-            Children [
-                Button
-                Node {
-                    width: px(90),
-                    height: px(32),
-                    justify_content: JustifyContent::Center,
-                    align_items: AlignItems::Center,
-                    border_radius: BorderRadius::all(px(8)),
-                }
-                BackgroundColor(NORMAL_BUTTON)
-                template_value(SettingsButton::Reset)
-                Children [
-                    Text::new("Reset")
-                ],
-            ],
+            on(on_activate_reset)
         ]
     }
 }
@@ -329,7 +309,7 @@ fn on_value_change_i32_update_shadow(
         .insert(NumberInputValue::I32(value_change.value));
 }
 
-// Update the shadow node's `BoxShadow` on any change to the f32 number inputs.
+/// Update the shadow node's `BoxShadow` on any change to the f32 number inputs.
 fn on_value_change_f32_update_shadow(
     value_change: On<ValueChange<f32>>,
     number_input_q: Query<&AppNumberInputF32, With<FeathersNumberInput>>,
@@ -362,20 +342,51 @@ fn on_value_change_f32_update_shadow(
         .insert(NumberInputValue::F32(value_change.value));
 }
 
-// Update shape of `ShadowNode` if shape selection has changed
+/// Update shape of `ShadowNode` if shape selection has changed
 fn on_value_change_update_shape(
     event: On<ValueChange<Entity>>,
     new_value_query: Query<&RadioButtonOptionValue<Shape>>,
     mut app_settings: ResMut<AppSettings>,
-    mut query: Query<&mut Node, With<ShadowNode>>,
+    mut node_q: Query<&mut Node, With<ShadowNode>>,
 ) {
     let Ok(RadioButtonOptionValue(shape)) = new_value_query.get(event.value) else {
         return;
     };
     app_settings.shape = *shape;
 
-    for mut node in &mut query {
+    for mut node in &mut node_q {
         app_settings.shape.change_node(&mut node);
+    }
+}
+
+/// If the reset button was activated, reset app settings to default values.
+/// This observer is placed directly on the reset button.
+fn on_activate_reset(
+    _event: On<Activate>,
+    mut commands: Commands,
+    mut app_settings: ResMut<AppSettings>,
+    settings_panel_q: Single<Entity, With<SettingsPanel>>,
+    mut node_q: Query<&mut Node, With<ShadowNode>>,
+    mut box_shadow_q: Query<&mut BoxShadow, With<ShadowNode>>,
+    mut samples_q: Query<&mut BoxShadowSamples, With<Camera2d>>,
+) {
+    *app_settings = AppSettings::default();
+
+    // Reset the settings panel.
+    commands.entity(settings_panel_q.entity()).despawn();
+    commands.spawn_scene(settings_panel_scene(&app_settings));
+
+    // Do a full refresh of the box and its shadows.
+    for mut node in &mut node_q {
+        app_settings.shape.change_node(&mut node);
+    }
+
+    for mut box_shadow in &mut box_shadow_q {
+        *box_shadow = BoxShadow(generate_shadows(&app_settings));
+    }
+
+    for mut samples in &mut samples_q {
+        samples.0 = app_settings.samples;
     }
 }
 
