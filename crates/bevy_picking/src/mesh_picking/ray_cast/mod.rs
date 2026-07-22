@@ -11,7 +11,10 @@ use bevy_camera::{
     visibility::{InheritedVisibility, ViewVisibility},
 };
 use bevy_math::{bounding::Aabb3d, Ray3d};
-use bevy_mesh::{Mesh, Mesh2d, Mesh3d};
+use bevy_mesh::{
+    skinning::{skin_mesh_entity, SkinnedMesh, SkinnedMeshInverseBindposes},
+    Mesh, Mesh2d, Mesh3d,
+};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 use intersections::*;
@@ -174,6 +177,10 @@ pub struct MeshRayCast<'w, 's> {
     #[doc(hidden)]
     pub meshes: Res<'w, Assets<Mesh>>,
     #[doc(hidden)]
+    pub skinned_mesh_inverse_bindposes: Res<'w, Assets<SkinnedMeshInverseBindposes>>,
+    #[doc(hidden)]
+    pub joint_transforms: Query<'w, 's, Read<GlobalTransform>>,
+    #[doc(hidden)]
     pub hits: Local<'s, Vec<(FloatOrd, (Entity, RayMeshHit))>>,
     #[doc(hidden)]
     pub output: Local<'s, Vec<(Entity, RayMeshHit)>>,
@@ -202,6 +209,7 @@ pub struct MeshRayCast<'w, 's> {
             Option<Read<SimplifiedMesh>>,
             Has<RayCastBackfaces>,
             Read<GlobalTransform>,
+            Option<Read<SkinnedMesh>>,
         ),
         MeshFilter,
     >,
@@ -258,16 +266,8 @@ impl<'w, 's> MeshRayCast<'w, 's> {
             .filter(|(_, entity)| (settings.filter)(*entity))
             .for_each(|(aabb_near, entity)| {
                 // Get the mesh components and transform.
-                let Ok((mesh2d, mesh3d, simplified_mesh, has_backfaces, transform)) =
+                let Ok((mesh2d, mesh3d, simplified_mesh, has_backfaces, transform, skinned_mesh)) =
                     self.mesh_query.get(*entity)
-                else {
-                    return;
-                };
-
-                // Get the underlying mesh handle. One of these will always be `Some` because of the query filters.
-                let Some(mesh_handle) = simplified_mesh
-                    .map(|m| &m.0)
-                    .or(mesh3d.map(|m| &m.0).or(mesh2d.map(|m| &m.0)))
                 else {
                     return;
                 };
@@ -277,22 +277,68 @@ impl<'w, 's> MeshRayCast<'w, 's> {
                     return;
                 }
 
-                // Does the mesh handle resolve?
-                let Some(mesh) = self.meshes.get(mesh_handle) else {
-                    return;
+                let (_ray_cast_guard, intersection) = {
+                    // Is the mesh skinned?
+                    if let Some(mesh3d) = mesh3d
+                        && let Some(skinned_mesh) = skinned_mesh
+                    {
+                        // Make a temporary mesh with skinning applied.
+                        if let Ok(mesh) = skin_mesh_entity(
+                            mesh3d,
+                            skinned_mesh,
+                            transform,
+                            &self.meshes,
+                            &self.skinned_mesh_inverse_bindposes,
+                            &self.joint_transforms,
+                        ) {
+                            let backfaces = if has_backfaces {
+                                Backfaces::Cull
+                            } else {
+                                Backfaces::Include
+                            };
+
+                            // Perform the actual ray cast.
+                            (
+                                ray_cast_guard.enter(),
+                                ray_intersection_over_mesh(
+                                    &mesh,
+                                    &transform.affine(),
+                                    ray,
+                                    backfaces,
+                                ),
+                            )
+                        } else {
+                            return;
+                        }
+                    } else {
+                        // Get the underlying mesh handle. One of these will always be `Some` because of the query filters.
+                        let Some(mesh_handle) = simplified_mesh
+                            .map(|m| &m.0)
+                            .or(mesh3d.map(|m| &m.0).or(mesh2d.map(|m| &m.0)))
+                        else {
+                            return;
+                        };
+
+                        // Does the mesh handle resolve?
+                        let Some(mesh) = self.meshes.get(mesh_handle) else {
+                            return;
+                        };
+
+                        // Backfaces of 2d meshes are never culled, unlike 3d meshes.
+                        let backfaces = match (has_backfaces, mesh2d.is_some()) {
+                            (false, false) => Backfaces::Cull,
+                            _ => Backfaces::Include,
+                        };
+
+                        // Perform the actual ray cast.
+                        (
+                            ray_cast_guard.enter(),
+                            ray_intersection_over_mesh(mesh, &transform.affine(), ray, backfaces),
+                        )
+                    }
                 };
 
-                // Backfaces of 2d meshes are never culled, unlike 3d meshes.
-                let backfaces = match (has_backfaces, mesh2d.is_some()) {
-                    (false, false) => Backfaces::Cull,
-                    _ => Backfaces::Include,
-                };
-
-                // Perform the actual ray cast.
-                let _ray_cast_guard = ray_cast_guard.enter();
-                let transform = transform.affine();
-                let intersection = ray_intersection_over_mesh(mesh, &transform, ray, backfaces);
-
+                // If we found an intersection, update the nearest blocking hit and list of hits.
                 if let Some(intersection) = intersection {
                     let distance = FloatOrd(intersection.distance);
                     if (settings.early_exit_test)(*entity) && distance < nearest_blocking_hit {
