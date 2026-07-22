@@ -71,6 +71,7 @@ wgpu-types = { version = "30", default-features = false }
 
 [dev-dependencies]
 bevy_log = { path = "../bevy_log", version = "0.20.0-dev" }
+rand = "0.10.0"
 
 [lints]
 workspace = true
