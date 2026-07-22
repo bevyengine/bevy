@@ -9,7 +9,7 @@
 //!
 //! In order to use [`GhostNode`]s you must enable the `ghost_nodes` feature flag.
 
-use bevy::{prelude::*, ui::experimental::GhostNode};
+use bevy::{prelude::*, ui::experimental::GhostNode, ui::Pressed, ui_widgets::Button};
 
 fn main() {
     App::new()
@@ -101,17 +101,15 @@ fn create_label(text: &str, font: Handle<Font>) -> (Text, TextFont, TextColor) {
 }
 
 fn button_system(
-    mut interaction_query: Query<(&Interaction, &ChildOf), (Changed<Interaction>, With<Button>)>,
+    buttons: Query<&ChildOf, (With<Button>, Added<Pressed>)>,
     labels_query: Query<(&Children, &ChildOf), With<Button>>,
     mut text_query: Query<&mut Text>,
     mut counter_query: Query<&mut Counter>,
 ) {
     // Update parent counter on click
-    for (interaction, child_of) in &mut interaction_query {
-        if matches!(interaction, Interaction::Pressed) {
-            let mut counter = counter_query.get_mut(child_of.parent()).unwrap();
-            counter.0 += 1;
-        }
+    for child_of in &buttons {
+        let mut counter = counter_query.get_mut(child_of.parent()).unwrap();
+        counter.0 += 1;
     }
 
     // Update button labels to match their parent counter
