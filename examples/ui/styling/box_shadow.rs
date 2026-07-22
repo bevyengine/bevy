@@ -1,6 +1,7 @@
 //! This example shows how to create a node with a shadow and adjust its settings interactively.
 
-use crate::number_input::{number_input_f32, number_input_i32};
+use crate::number_input_f32::number_input_f32;
+use crate::number_input_i32::number_input_i32;
 use crate::radio::{feathers_option_buttons, main_ui_node_scene, RadioButtonOptionValue};
 use bevy::{
     color::palettes::css::*,
@@ -17,8 +18,11 @@ use bevy::{
     ui_widgets::{radio_self_update, Activate, ValueChange},
 };
 
-#[path = "../../helpers/number_input.rs"]
-mod number_input;
+#[path = "../../helpers/number_input_f32.rs"]
+mod number_input_f32;
+
+#[path = "../../helpers/number_input_i32.rs"]
+mod number_input_i32;
 
 #[path = "../../helpers/radio.rs"]
 mod radio;
