@@ -1,6 +1,6 @@
 ---
 title: "`apply_pending_edits` takes a mask parameter"
-pull_requests: [XXXXX]
+pull_requests: [25117]
 ---
 `EditableText::apply_pending_edits` gained a final parameter
 `mask: Option<&mut CharacterMask>`, supporting password-style
