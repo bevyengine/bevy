@@ -89,10 +89,10 @@ pub fn update_computed_ui_stacks_system(
     zindex_query: Query<Option<&ZIndex>, (With<ComputedStackIndex>, Without<GlobalZIndex>)>,
     mut update_query: Query<&mut ComputedStackIndex>,
     mut computed_ui_stack_query: Query<(Entity, &mut ComputedUiStack)>,
-    mut ui_stack_roots: ResMut<UiStack>,
+    mut ui_stack: ResMut<UiStack>,
 ) {
     visited_root_nodes.clear();
-    ui_stack_roots.0.clear();
+    ui_stack.0.clear();
 
     for (id, maybe_global_zindex, maybe_zindex) in root_node_query.iter_many(ui_root_nodes.iter()) {
         root_nodes.push((
@@ -124,13 +124,13 @@ pub fn update_computed_ui_stacks_system(
 
     let mut stack_index = 0;
     for (root_index, (root_entity, _)) in root_nodes.drain(..).enumerate() {
-        ui_stack_roots.0.push(root_entity);
+        ui_stack.0.push(root_entity);
         let mut new_ui_stack = ComputedUiStack::default();
         let mut old_ui_stack = computed_ui_stack_query
             .get_mut(root_entity)
             .ok()
             .map(|(_, ui_stack)| ui_stack);
-        let is_new = old_ui_stack.is_none();
+        let is_new_root = old_ui_stack.is_none();
 
         let ui_stack = old_ui_stack.as_deref_mut().unwrap_or(&mut new_ui_stack);
 
@@ -153,7 +153,7 @@ pub fn update_computed_ui_stacks_system(
             stack_index += 1;
         }
 
-        if is_new {
+        if is_new_root {
             commands.entity(root_entity).try_insert(new_ui_stack);
         }
     }
