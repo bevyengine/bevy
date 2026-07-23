@@ -7,7 +7,7 @@ use {crate::GizmoAsset, bevy_asset::Handle, bevy_ecs::component::Component};
 
 use bevy_ecs::{reflect::ReflectResource, resource::Resource, template::FromTemplate};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
-use bevy_utils::TypeIdMap;
+use bevy_utils::TypeIdHashMap;
 use core::{
     any::TypeId,
     hash::Hash,
@@ -99,7 +99,7 @@ pub struct ErasedGizmoConfigGroup;
 pub struct GizmoConfigStore {
     // INVARIANT: must map TypeId::of::<T>() to correct type T
     #[reflect(ignore)]
-    store: TypeIdMap<(GizmoConfig, Box<dyn Reflect>)>,
+    store: TypeIdHashMap<(GizmoConfig, Box<dyn Reflect>)>,
 }
 
 impl GizmoConfigStore {
