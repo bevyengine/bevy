@@ -809,7 +809,10 @@ mod tests {
             .world_mut()
             .spawn((Window::default(), PrimaryWindow))
             .id();
-        let editable_text = app.world_mut().spawn(EditableText::default()).id();
+        let editable_text = app
+            .world_mut()
+            .spawn((EditableText::default(), TextInput))
+            .id();
         app.insert_resource(InputFocus::from_entity(editable_text));
 
         for (text, repeat) in [("J", false), ("#", true)] {
