@@ -1,33 +1,39 @@
 //! Demonstrates how Display and Visibility work in the UI.
 
 use bevy::{
-    color::palettes::css::{DARK_CYAN, DARK_GRAY, YELLOW},
+    color::palettes::css::{DARK_CYAN, DARK_GRAY},
     ecs::{component::Mutable, template::EntityTemplate},
+    feathers::{
+        controls::{FeathersListRow, FeathersSelect, OptionIndex},
+        display::caption,
+        theme::UiTheme,
+        FeathersPlugins,
+    },
     prelude::*,
-    text::FontSourceTemplate,
+    ui::Selected,
+    ui_widgets::ValueChange,
 };
+
+#[path = "../../helpers/theme.rs"]
+mod theme;
 
 const PALETTE: [&str; 4] = ["27496D", "466B7A", "669DB3", "ADCBE3"];
 const HIDDEN_COLOR: Color = Color::srgb(1.0, 0.7, 0.7);
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins((DefaultPlugins, FeathersPlugins))
+        .insert_resource(UiTheme(theme::basic_example_theme(Color::WHITE)))
         .add_systems(Startup, setup)
-        .add_systems(
-            Update,
-            (
-                buttons_handler::<Display>,
-                buttons_handler::<Visibility>,
-                text_hover,
-            ),
-        )
+        .add_observer(on_value_change::<NodeDisplaySetting>)
+        .add_observer(on_value_change::<NodeVisibilitySetting>)
         .run();
 }
 
-/// A component attached to a button that implements `TargetUpdate`.
-/// Activating the button will alter the target entity's
-/// `T` component.
+/// A component attached to an option select that will change the target entity
+/// with a given setting `T`.
+/// The way the change is implemented is via the `TargetUpdate<T>` trait. Changing the
+/// value of the option select will alter the target entity.
 #[derive(Component, Clone, Default)]
 struct Target<T> {
     id: Option<Entity>,
@@ -43,35 +49,49 @@ impl<T> Target<T> {
     }
 }
 
-trait TargetUpdate {
+/// The trait to be used in conjunction with the `Target` struct.
+/// This trait specifies the `TargetComponent` which will be modified.
+/// `T` is a setting option type that will influence how the `TargetComponent` is updated.
+trait TargetUpdate<T: Component + Clone + Default + PartialEq> {
     type TargetComponent: Component<Mutability = Mutable>;
-    const NAME: &'static str;
-    fn update_target(&self, target: &mut Self::TargetComponent) -> String;
+    fn update_target(&self, target: &mut Self::TargetComponent, value: &T);
 }
 
-impl TargetUpdate for Target<Display> {
+#[derive(Component, Clone, Debug, Default, PartialEq)]
+enum NodeDisplaySetting {
+    #[default]
+    Flex,
+    None,
+}
+
+#[derive(Component, Clone, Debug, Default, PartialEq)]
+enum NodeVisibilitySetting {
+    #[default]
+    Inherited,
+    Visible,
+    Hidden,
+}
+
+/// For `Display`, this impl of `TargetUpdate` will affect this entity's `Node` component's display property.
+impl TargetUpdate<NodeDisplaySetting> for Target<NodeDisplaySetting> {
     type TargetComponent = Node;
-    const NAME: &'static str = "Display";
-    fn update_target(&self, node: &mut Self::TargetComponent) -> String {
-        node.display = match node.display {
-            Display::Flex => Display::None,
-            Display::None => Display::Flex,
-            Display::Block | Display::Grid => unreachable!(),
+    fn update_target(&self, node: &mut Self::TargetComponent, value: &NodeDisplaySetting) {
+        node.display = match value {
+            NodeDisplaySetting::Flex => Display::Flex,
+            NodeDisplaySetting::None => Display::None,
         };
-        format!("{}::{:?} ", Self::NAME, node.display)
     }
 }
 
-impl TargetUpdate for Target<Visibility> {
+/// For `Visibility`, this impl of `TargetUpdate` will affect this entity's `Visibility` component.`
+impl TargetUpdate<NodeVisibilitySetting> for Target<NodeVisibilitySetting> {
     type TargetComponent = Visibility;
-    const NAME: &'static str = "Visibility";
-    fn update_target(&self, visibility: &mut Self::TargetComponent) -> String {
-        *visibility = match *visibility {
-            Visibility::Inherited => Visibility::Visible,
-            Visibility::Visible => Visibility::Hidden,
-            Visibility::Hidden => Visibility::Inherited,
+    fn update_target(&self, visibility: &mut Self::TargetComponent, value: &NodeVisibilitySetting) {
+        *visibility = match value {
+            NodeVisibilitySetting::Inherited => Visibility::Inherited,
+            NodeVisibilitySetting::Visible => Visibility::Visible,
+            NodeVisibilitySetting::Hidden => Visibility::Hidden,
         };
-        format!("{}::{visibility:?}", Self::NAME)
     }
 }
 
@@ -85,9 +105,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     commands.spawn(Camera2d);
 
-    let panels_child = commands
-        .spawn_scene(panels("fonts/FiraSans-Bold.ttf", &palette))
-        .id();
+    let panels_child = commands.spawn_scene(panels(&palette)).id();
 
     commands
         .spawn((
@@ -147,7 +165,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 /// Returns the main interactable of the example as a scene.
 /// The left panel changes Display and Visibility based on actions taken
 /// in the right panel.
-fn panels(text_font: &'static str, palette: &[Color; 4]) -> impl Scene {
+fn panels(palette: &[Color; 4]) -> impl Scene {
     let left_panel_node_base = |height_px: i32, palette_index: usize| {
         bsn! {
             Node {
@@ -261,26 +279,26 @@ fn panels(text_font: &'static str, palette: &[Color; 4]) -> impl Scene {
                         offset: px(10),
                     }
                     Children [
-                        button_scene::<Display>(text_font, #LeftGrandParent),
-                        button_scene::<Visibility>(text_font, #LeftGrandParent),
+                        feathers_select_display(#LeftGrandParent),
+                        feathers_select_visibility(#LeftGrandParent),
 
                         #RightParent
                         right_panel_node_base(400, 1)
                         Children [
-                            button_scene::<Display>(text_font, #LeftParent),
-                            button_scene::<Visibility>(text_font, #LeftParent),
+                            feathers_select_display(#LeftParent),
+                            feathers_select_visibility(#LeftParent),
 
                             #RightChild
                             right_panel_node_base(300, 2)
                             Children [
-                                button_scene::<Display>(text_font, #LeftChild),
-                                button_scene::<Visibility>(text_font, #LeftChild),
+                                feathers_select_display(#LeftChild),
+                                feathers_select_visibility(#LeftChild),
 
                                 #RightGrandChild
                                 right_panel_node_base(200, 3)
                                 Children [
-                                    button_scene::<Display>(text_font, #LeftGrandChild),
-                                    button_scene::<Visibility>(text_font, #LeftGrandChild),
+                                    feathers_select_display(#LeftGrandChild),
+                                    feathers_select_visibility(#LeftGrandChild),
 
                                     Node {
                                         width: px(100),
@@ -296,15 +314,82 @@ fn panels(text_font: &'static str, palette: &[Color; 4]) -> impl Scene {
     }
 }
 
-/// A button that, when pressed, will execute up a target action on the provided `target`.
-/// The target action is applied to the `T` component on the `target.`
-fn button_scene<T>(text_font: &'static str, target: EntityTemplate) -> impl Scene
+/// A dropdown select that will execute a target action on the provided `target` via `on_value_change`.
+/// This select will update the display property on the Node of the target.
+fn feathers_select_display(target: EntityTemplate) -> impl Scene {
+    bsn! {
+        select_base::<NodeDisplaySetting>(target)
+        @FeathersSelect {
+            @options: {
+                bsn_list! {
+                    @FeathersListRow Selected OptionIndex(0) template_value(NodeDisplaySetting::Flex) Children[caption(format!("Display::{:?}", Display::Flex))],
+                    @FeathersListRow OptionIndex(1) template_value(NodeDisplaySetting::None) Children[caption(format!("Display::{:?}", Display::None))],
+                }
+            }
+        }
+    }
+}
+
+/// A dropdown select that will execute a target action on the provided `target` via `on_value_change`.
+/// This select will update the Visibility component directly on the target.
+fn feathers_select_visibility(target: EntityTemplate) -> impl Scene {
+    bsn! {
+        select_base::<NodeVisibilitySetting>(target)
+        @FeathersSelect {
+            @options: {
+                bsn_list! {
+                    @FeathersListRow Selected OptionIndex(0) template_value(NodeVisibilitySetting::Inherited) Children[caption(format!("Visibility::{:?}", Visibility::Inherited))],
+                    @FeathersListRow OptionIndex(1) template_value(NodeVisibilitySetting::Visible) Children[caption(format!("Visibility::{:?}", Visibility::Visible))],
+                    @FeathersListRow OptionIndex(2) template_value(NodeVisibilitySetting::Hidden) Children[caption(format!("Visibility::{:?}", Visibility::Hidden))],
+                }
+            }
+        }
+    }
+}
+
+/// Observer that reacts to value changes of a FeathersSelect for the `T` setting,
+/// and updates the target entity accordingly.
+fn on_value_change<T: Component + Default + Clone + PartialEq + Send + Sync>(
+    event: On<ValueChange<Entity>>,
+    setting_value_q: Query<&T>,
+    list_box_q: Query<(&Children, &Target<T>), With<FeathersSelect>>,
+    mut target_component_query: Query<&mut <Target<T> as TargetUpdate<T>>::TargetComponent>,
+    mut commands: Commands,
+) where
+    Target<T>: TargetUpdate<T>,
+{
+    let Ok(value) = setting_value_q.get(event.value) else {
+        return;
+    };
+    let Ok((children, target)) = list_box_q.get(event.source) else {
+        return;
+    };
+
+    let Ok(mut target_value) = target_component_query.get_mut(target.id.unwrap()) else {
+        return;
+    };
+
+    target.update_target(target_value.as_mut(), value);
+
+    // Update selected status of children
+    for child in children {
+        if let Ok(child_value) = setting_value_q.get(*child)
+            && *child_value == *value
+        {
+            commands.entity(*child).insert(Selected);
+        } else {
+            commands.entity(*child).remove::<Selected>();
+        }
+    }
+}
+
+/// A scene of the Node, BackgroundColor, and `Target<T>` for the given target.
+fn select_base<T: Component + Clone + Default + PartialEq>(target: EntityTemplate) -> impl Scene
 where
     T: Default + Clone + Unpin + std::fmt::Debug + Send + Sync + 'static,
-    Target<T>: TargetUpdate,
+    Target<T>: TargetUpdate<T>,
 {
     bsn! {
-        Button
         Node {
             align_self: AlignSelf::FlexStart,
             padding: UiRect::axes(px(5), px(1)),
@@ -315,69 +400,5 @@ where
             EntityTemplate::SceneEntityReference(scene_entity_reference) => Ok(Target::<T>::new(ctx.get_entity(scene_entity_reference))),
             EntityTemplate::None => Err(BevyError::error("Did not set up example correctly!"))
         })
-        Children [
-            Text(format!("{}::{:?}", Target::<T>::NAME, T::default()))
-            TextFont {
-                font: FontSourceTemplate::Handle(text_font)
-            }
-            TextLayout::justify(Justify::Center)
-        ]
-    }
-}
-
-fn buttons_handler<T>(
-    mut left_panel_query: Query<&mut <Target<T> as TargetUpdate>::TargetComponent>,
-    mut visibility_button_query: Query<(&Target<T>, &Interaction, &Children), Changed<Interaction>>,
-    mut text_query: Query<(&mut Text, &mut TextColor)>,
-) where
-    T: Send + Sync,
-    Target<T>: TargetUpdate + Component,
-{
-    for (target, interaction, children) in visibility_button_query.iter_mut() {
-        if matches!(interaction, Interaction::Pressed) {
-            let mut target_value = left_panel_query.get_mut(target.id.unwrap()).unwrap();
-            for &child in children {
-                if let Ok((mut text, mut text_color)) = text_query.get_mut(child) {
-                    **text = target.update_target(target_value.as_mut());
-                    text_color.0 = if text.contains("None") || text.contains("Hidden") {
-                        Color::srgb(1.0, 0.7, 0.7)
-                    } else {
-                        Color::WHITE
-                    };
-                }
-            }
-        }
-    }
-}
-
-fn text_hover(
-    mut button_query: Query<(&Interaction, &mut BackgroundColor, &Children), Changed<Interaction>>,
-    mut text_query: Query<(&Text, &mut TextColor)>,
-) {
-    for (interaction, mut color, children) in button_query.iter_mut() {
-        match interaction {
-            Interaction::Hovered => {
-                *color = Color::BLACK.with_alpha(0.6).into();
-                for &child in children {
-                    if let Ok((_, mut text_color)) = text_query.get_mut(child) {
-                        // Bypass change detection to avoid recomputation of the text when only changing the color
-                        text_color.bypass_change_detection().0 = YELLOW.into();
-                    }
-                }
-            }
-            _ => {
-                *color = Color::BLACK.with_alpha(0.5).into();
-                for &child in children {
-                    if let Ok((text, mut text_color)) = text_query.get_mut(child) {
-                        text_color.bypass_change_detection().0 =
-                            if text.contains("None") || text.contains("Hidden") {
-                                HIDDEN_COLOR
-                            } else {
-                                Color::WHITE
-                            };
-                    }
-                }
-            }
-        }
     }
 }

@@ -72,6 +72,54 @@ pub fn basic_example_theme(text_color: Color) -> ThemeProps {
         bevy::feathers::palette::TRANSPARENT,
     );
 
+    // Feathers Button / Select
+    color.insert(
+        bevy::feathers::tokens::BUTTON_BG,
+        bevy::feathers::palette::TRANSPARENT,
+    );
+    color.insert(
+        bevy::feathers::tokens::BUTTON_BG_HOVER,
+        bevy::feathers::palette::TRANSPARENT,
+    );
+    color.insert(
+        bevy::feathers::tokens::BUTTON_BG_PRESSED,
+        bevy::feathers::palette::TRANSPARENT,
+    );
+    color.insert(
+        bevy::feathers::tokens::MENU_BG,
+        bevy::feathers::palette::GRAY_0,
+    );
+    color.insert(
+        bevy::feathers::tokens::MENU_BORDER,
+        bevy::feathers::palette::GRAY_0,
+    );
+    color.insert(
+        bevy::feathers::tokens::MENUITEM_BG_HOVER,
+        bevy::feathers::palette::TRANSPARENT,
+    );
+    color.insert(
+        bevy::feathers::tokens::MENUITEM_BG_PRESSED,
+        bevy::feathers::palette::TRANSPARENT,
+    );
+    color.insert(
+        bevy::feathers::tokens::MENUITEM_BG_FOCUSED,
+        bevy::feathers::palette::TRANSPARENT,
+    );
+    color.insert(
+        bevy::feathers::tokens::LISTROW_BG,
+        bevy::feathers::palette::TRANSPARENT,
+    );
+    color.insert(
+        bevy::feathers::tokens::LISTROW_BG_HOVER,
+        bevy::feathers::palette::BLACK,
+    );
+    color.insert(
+        bevy::feathers::tokens::LISTROW_BG_SELECTED,
+        bevy::feathers::palette::BLACK,
+    );
+    color.insert(bevy::feathers::tokens::BUTTON_TEXT, text_color);
+    color.insert(bevy::feathers::tokens::LISTROW_TEXT, text_color);
+
     // Main text color
     color.insert(bevy::feathers::tokens::TEXT_MAIN, text_color);
     ThemeProps { color }
