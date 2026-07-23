@@ -77,6 +77,7 @@ fn update_uistack_recursive(
 pub fn update_ui_stack_system(
     mut commands: Commands,
     mut cache: Local<ChildBufferCache>,
+    mut new_local_stack: Local<Vec<Entity>>,
     mut root_nodes: Local<Vec<(Entity, (i32, i32))>>,
     mut visited_root_nodes: Local<EntityHashSet>,
     ui_root_nodes: UiRootNodes,
@@ -124,27 +125,16 @@ pub fn update_ui_stack_system(
 
     for (root_index, (root_entity, _)) in root_nodes.drain(..).enumerate() {
         ui_stack.0.push(root_entity);
-        let mut new_local_stack = LocalUiStack::default();
-        let mut old_local_stack = computed_ui_stack_query
-            .get_mut(root_entity)
-            .ok()
-            .map(|(_, ui_stack)| ui_stack);
-        let is_new_root = old_local_stack.is_none();
-
-        let local_ui_stack = old_local_stack
-            .as_deref_mut()
-            .unwrap_or(&mut new_local_stack);
-
-        local_ui_stack.clear();
+        new_local_stack.clear();
         update_uistack_recursive(
             &mut cache,
             root_entity,
             &ui_children,
             &zindex_query,
-            local_ui_stack,
+            &mut new_local_stack,
         );
 
-        for (local_index, entity) in local_ui_stack.iter().enumerate() {
+        for (local_index, entity) in new_local_stack.iter().enumerate() {
             if let Ok(mut computed_stack_index) = update_query.get_mut(*entity) {
                 computed_stack_index.set_if_neq(ComputedStackIndex {
                     root: root_index as u32,
@@ -153,8 +143,14 @@ pub fn update_ui_stack_system(
             }
         }
 
-        if is_new_root {
-            commands.entity(root_entity).insert(new_local_stack);
+        if let Ok((_, mut local_ui_stack)) = computed_ui_stack_query.get_mut(root_entity) {
+            if local_ui_stack.0 != *new_local_stack {
+                core::mem::swap(&mut local_ui_stack.0, &mut new_local_stack);
+            }
+        } else {
+            commands
+                .entity(root_entity)
+                .insert(LocalUiStack(core::mem::take(&mut new_local_stack)));
         }
     }
 
@@ -169,6 +165,8 @@ pub fn update_ui_stack_system(
 mod tests {
     use bevy_ecs::{
         component::Component,
+        entity::Entity,
+        query::Changed,
         schedule::Schedule,
         system::Commands,
         world::{CommandQueue, World},
@@ -262,7 +260,10 @@ mod tests {
         let mut schedule = Schedule::default();
         schedule.add_systems(update_ui_stack_system);
         schedule.run(&mut world);
+        let mut changed_local_stacks = world.query_filtered::<Entity, Changed<LocalUiStack>>();
+        world.clear_trackers();
         schedule.run(&mut world);
+        assert!(changed_local_stacks.iter(&world).next().is_none());
 
         let mut query = world.query::<&Label>();
         let ui_stack_roots = world.resource::<UiStack>();
