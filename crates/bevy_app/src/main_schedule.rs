@@ -498,4 +498,4 @@ pub enum RunFixedMainLoopSystems {
 /// This is used for some of Bevy's gizmos, and should be used when rendering
 /// custom gizmos.
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
-pub struct GizmoRenderStep;
+pub struct TransformGizmoRenderStep;
