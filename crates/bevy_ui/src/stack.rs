@@ -122,7 +122,6 @@ pub fn update_computed_ui_stacks_system(
 
     root_nodes.sort_by_key(|(_, z)| *z);
 
-    let mut stack_index = 0;
     for (root_index, (root_entity, _)) in root_nodes.drain(..).enumerate() {
         ui_stack.0.push(root_entity);
         let mut new_ui_stack = LocalUiStack::default();
@@ -143,18 +142,17 @@ pub fn update_computed_ui_stacks_system(
             ui_stack,
         );
 
-        for entity in ui_stack.iter() {
+        for (local_index, entity) in ui_stack.iter().enumerate() {
             if let Ok(mut computed_stack_index) = update_query.get_mut(*entity) {
                 computed_stack_index.set_if_neq(ComputedStackIndex {
                     root: root_index as u32,
-                    local: stack_index as u32,
+                    local: local_index as u32,
                 });
             }
-            stack_index += 1;
         }
 
         if is_new_root {
-            commands.entity(root_entity).try_insert(new_ui_stack);
+            commands.entity(root_entity).insert(new_ui_stack);
         }
     }
 
