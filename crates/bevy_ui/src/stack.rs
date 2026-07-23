@@ -131,20 +131,20 @@ pub fn update_ui_stack_system(
             .map(|(_, ui_stack)| ui_stack);
         let is_new_root = old_local_stack.is_none();
 
-        let ui_stack = old_local_stack
+        let local_ui_stack = old_local_stack
             .as_deref_mut()
             .unwrap_or(&mut new_local_stack);
 
-        ui_stack.clear();
+        local_ui_stack.clear();
         update_uistack_recursive(
             &mut cache,
             root_entity,
             &ui_children,
             &zindex_query,
-            ui_stack,
+            local_ui_stack,
         );
 
-        for (local_index, entity) in ui_stack.iter().enumerate() {
+        for (local_index, entity) in local_ui_stack.iter().enumerate() {
             if let Ok(mut computed_stack_index) = update_query.get_mut(*entity) {
                 computed_stack_index.set_if_neq(ComputedStackIndex {
                     root: root_index as u32,
