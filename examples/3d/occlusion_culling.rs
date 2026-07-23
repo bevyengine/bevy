@@ -677,7 +677,7 @@ fn spawn_buttons(commands: &mut Commands) {
 }
 
 /// Adds or removes the [`OcclusionCulling`] and [`DepthPrepass`] components
-/// when the user toggles a radio. 
+/// when the user toggles a radio.
 fn handle_selection_change(
     event: On<ValueChange<Entity>>,
     mut commands: Commands,
