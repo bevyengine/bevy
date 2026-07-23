@@ -113,7 +113,7 @@ pub trait UiMaterial: AsBindGroup + Asset + Clone + Sized {
         ShaderRef::Default
     }
 
-    fn stack_z_offset() -> f32 {
+    fn stack_z_offset() -> u8 {
         crate::stack_z_offsets::MATERIAL
     }
 

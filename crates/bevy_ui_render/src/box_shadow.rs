@@ -15,7 +15,7 @@ use bevy_ecs::{
         *,
     },
 };
-use bevy_math::{vec2, Affine2, FloatOrd, Rect, Vec2};
+use bevy_math::{vec2, Affine2, Rect, Vec2};
 use bevy_mesh::VertexBufferLayout;
 use bevy_render::sync_world::{MainEntity, MainEntityHashMap, MainEntityHashSet};
 use bevy_render::{
@@ -34,7 +34,7 @@ use bevy_ui::{
 use bevy_utils::default;
 use bytemuck::{Pod, Zeroable};
 
-use crate::{BoxShadowSamples, RenderUiSystems, TransparentUi, UiCameraMap};
+use crate::{BoxShadowSamples, RenderUiSystems, TransparentUi, UiCameraMap, UiSortKey};
 
 use super::{stack_z_offsets, UiCameraView, QUAD_INDICES, QUAD_VERTEX_POSITIONS};
 
@@ -184,7 +184,7 @@ impl SpecializedRenderPipeline for BoxShadowPipeline {
 
 /// Description of a shadow to be sorted and queued for rendering
 pub struct ExtractedBoxShadow {
-    pub stack_index: u32,
+    pub stack_index: ComputedStackIndex,
     pub transform: Affine2,
     pub bounds: Vec2,
     pub clip: Option<Rect>,
@@ -333,7 +333,7 @@ pub fn extract_shadows(
                 .insert(
                     commands.spawn_empty().id(),
                     ExtractedBoxShadow {
-                        stack_index: stack_index.0,
+                        stack_index: *stack_index,
                         transform: Affine2::from(transform) * Affine2::from_translation(offset),
                         color: drop_shadow.color.into(),
                         bounds: shadow_size + 6. * blur_radius,
@@ -420,9 +420,10 @@ pub fn queue_shadows(
                 draw_function,
                 pipeline,
                 entity: (*entity, *main_entity),
-                sort_key: FloatOrd(
-                    extracted_shadow.stack_index as f32 + stack_z_offsets::BOX_SHADOW,
-                ),
+                sort_key: UiSortKey {
+                    stack_index: extracted_shadow.stack_index,
+                    sub_layer: stack_z_offsets::BOX_SHADOW,
+                },
 
                 batch_range: 0..0,
                 extra_index: PhaseItemExtraIndex::None,

@@ -2,13 +2,12 @@ use core::ops::Range;
 
 use super::{ImageNodeBindGroups, UiBatch, UiMeta, UiViewTarget};
 
-use crate::UiCameraView;
+use crate::{UiCameraView, UiSortKey};
 use bevy_ecs::{
     entity::EntityHash,
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
 };
-use bevy_math::FloatOrd;
 use bevy_render::{
     camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
@@ -76,7 +75,7 @@ pub fn ui_pass(
 
 #[derive(Debug)]
 pub struct TransparentUi {
-    pub sort_key: FloatOrd,
+    pub sort_key: UiSortKey,
     pub entity: (Entity, MainEntity),
     pub pipeline: CachedRenderPipelineId,
     pub draw_function: DrawFunctionId,
@@ -122,7 +121,7 @@ impl PhaseItem for TransparentUi {
 }
 
 impl SortedPhaseItem for TransparentUi {
-    type SortKey = FloatOrd;
+    type SortKey = UiSortKey;
 
     #[inline]
     fn sort_key(&self) -> Self::SortKey {

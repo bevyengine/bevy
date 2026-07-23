@@ -21,7 +21,9 @@
 //!   `(-0.5, -0.5, 0.)` at the top left and `(0.5, 0.5, 0.)` in the bottom right. Coordinates are
 //!   relative to the entire node, not just the visible region. This backend does not provide a `normal`.
 
-use crate::{clip_check_recursive, prelude::*, ui_transform::UiGlobalTransform, UiStack};
+use crate::{
+    clip_check_recursive, prelude::*, stack::UiStack, ui_transform::UiGlobalTransform, LocalUiStack,
+};
 use bevy_app::prelude::*;
 use bevy_camera::{visibility::InheritedVisibility, Camera, RenderTarget};
 use bevy_ecs::{prelude::*, query::QueryData};
@@ -104,6 +106,7 @@ pub fn ui_picking(
     primary_window: Query<Entity, With<PrimaryWindow>>,
     settings: Res<UiPickingSettings>,
     ui_stack: Res<UiStack>,
+    local_ui_stack_query: Query<&LocalUiStack>,
     node_query: Query<NodeQuery>,
     mut output: MessageWriter<PointerHits>,
     clipping_query: Query<(&ComputedNode, &UiGlobalTransform, &Node)>,
@@ -154,15 +157,15 @@ pub fn ui_picking(
     // from the top node to the bottom one. this will also reset the interaction to `None`
     // for all nodes encountered that are no longer hovered.
     // Reverse the iterator to traverse the tree from closest slice to furthest
-    for uinodes in ui_stack
-        .partition
-        .iter()
-        .rev()
-        .map(|range| &ui_stack.uinodes[range.clone()])
-    {
+    for root_uinode in ui_stack.0.iter().rev() {
+        // retrieve the local UI stack.
+        let Ok(local_stack) = local_ui_stack_query.get(*root_uinode) else {
+            continue;
+        };
+
         // Retrieve the first node and resolve its camera target.
         // Only need to do this once per slice, as all the nodes in the same slice share the same camera.
-        let Ok(uinode) = node_query.get(uinodes[0]) else {
+        let Ok(uinode) = node_query.get(*root_uinode) else {
             continue;
         };
 
@@ -175,7 +178,7 @@ pub fn ui_picking(
         };
 
         // Reverse the iterator to traverse the tree from closest nodes to furthest
-        for node_entity in uinodes.iter().rev().cloned() {
+        for node_entity in local_stack.iter().rev().cloned() {
             let Ok(node) = node_query.get(node_entity) else {
                 continue;
             };

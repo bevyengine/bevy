@@ -1,6 +1,6 @@
 use crate::{
-    ui_transform::UiGlobalTransform, ComputedNode, ComputedUiTargetCamera, Node, OverrideClip,
-    UiStack,
+    stack::UiStack, ui_transform::UiGlobalTransform, ComputedNode, ComputedUiTargetCamera,
+    LocalUiStack, Node, OverrideClip,
 };
 use bevy_camera::{visibility::InheritedVisibility, Camera, NormalizedRenderTarget, RenderTarget};
 use bevy_ecs::{
@@ -154,6 +154,7 @@ pub fn ui_focus_system(
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     touches_input: Res<Touches>,
     ui_stack: Res<UiStack>,
+    local_ui_stack_query: Query<&LocalUiStack>,
     mut node_query: Query<NodeQuery>,
     clipping_query: Query<(&ComputedNode, &UiGlobalTransform, &Node)>,
     child_of_query: Query<&ChildOf, Without<OverrideClip>>,
@@ -218,15 +219,15 @@ pub fn ui_focus_system(
 
     hovered_nodes.clear();
     // reverse the iterator to traverse the tree from closest slice to furthest
-    for uinodes in ui_stack
-        .partition
-        .iter()
-        .rev()
-        .map(|range| &ui_stack.uinodes[range.clone()])
-    {
+    for root_uinode in ui_stack.0.iter().rev() {
+        // retrieve the local UI stack.
+        let Ok(local_stack) = local_ui_stack_query.get(*root_uinode) else {
+            continue;
+        };
+
         // Retrieve the first node and resolve its camera target.
         // Only need to do this once per slice, as all the nodes in the slice share the same camera.
-        let Ok(root_node) = node_query.get_mut(uinodes[0]) else {
+        let Ok(root_node) = node_query.get_mut(*root_uinode) else {
             continue;
         };
 
@@ -236,7 +237,7 @@ pub fn ui_focus_system(
 
         let cursor_position = camera_cursor_positions.get(&camera_entity);
 
-        for entity in uinodes.iter().rev().cloned() {
+        for entity in local_stack.iter().rev().cloned() {
             let Ok(node) = node_query.get_mut(entity) else {
                 continue;
             };

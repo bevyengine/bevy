@@ -172,6 +172,7 @@ impl From<UiDebugOptions> for GlobalUiDebugOptions {
 pub fn extract_debug_overlay(
     mut commands: Commands,
     debug_options: Extract<Res<GlobalUiDebugOptions>>,
+    ui_stack: Extract<Res<UiStack>>,
     extracted_uinodes: ResMut<ExtractedUiNodes>,
     uinode_query: Extract<
         Query<(
@@ -185,7 +186,6 @@ pub fn extract_debug_overlay(
             Option<&UiDebugOptions>,
         )>,
     >,
-    ui_stack: Extract<Res<UiStack>>,
     camera_map: Extract<UiCameraMap>,
 ) {
     let extracted_uinodes = extracted_uinodes.into_inner();
@@ -212,7 +212,6 @@ pub fn extract_debug_overlay(
         let color = debug_options
             .line_color_override
             .unwrap_or_else(|| Hsla::sequential_dispersed(entity.index_u32()).into());
-        let z_order = (ui_stack.uinodes.len() as u32 + stack_index.0) as f32;
         let border = BorderRect::all(debug_options.line_width / uinode.inverse_scale_factor());
         let transform = transform.affine();
 
@@ -229,7 +228,13 @@ pub fn extract_debug_overlay(
                     commands.spawn_empty().id(),
                     ExtractedUiNode {
                         // Keep all overlays above UI, and nudge each type slightly in Z so ordering is stable.
-                        z_order,
+                        sort_key: crate::UiSortKey {
+                            stack_index: ComputedStackIndex {
+                                root: ui_stack.0.len() as u32 + stack_index.root,
+                                local: stack_index.local,
+                            },
+                            sub_layer: 0,
+                        },
                         clip: maybe_clip
                             .filter(|_| !debug_options.show_clipped)
                             .map(|clip| clip.clip),
