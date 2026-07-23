@@ -176,7 +176,8 @@ impl Plugin for LightPlugin {
             )
             .configure_sets(
                 PostUpdate,
-                SimulationLightSystems::AssignLightsToClusters.before(bevy_app::TransformGizmoRenderStep),
+                SimulationLightSystems::AssignLightsToClusters
+                    .before(bevy_app::TransformGizmoRenderStep),
             )
             .add_systems(Update, automatically_add_parallax_correction_components)
             .add_systems(

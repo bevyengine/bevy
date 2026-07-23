@@ -495,6 +495,6 @@ pub enum RunFixedMainLoopSystems {
 /// A System set that runs all systems needed to render the transform gizmo to the screen, used in the `bevy_gizmos_render` crate
 /// This is defined here since it is used by many other
 /// bevy crates to specify system orderings.
-/// This is used for Bevy's Transform Gizmo and any other gizmo that render simular to it.
+/// This is used for Bevy's Transform Gizmo and any other gizmo that render similar to it.
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
 pub struct TransformGizmoRenderStep;
