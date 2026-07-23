@@ -87,6 +87,7 @@ impl Plugin for SpritePlugin {
                 .after(bevy_text::load_font_assets_into_font_collection)
                 .after(bevy_text::apply_text_edits)
                 .after(bevy_app::AnimationSystems)
+                .before(bevy_app::TransformGizmoRenderStep)
                 .before(bevy_asset::AssetEventSystems),
         )
         .add_systems(
