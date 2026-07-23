@@ -157,7 +157,7 @@ pub fn ui_picking(
     // from the top node to the bottom one. this will also reset the interaction to `None`
     // for all nodes encountered that are no longer hovered.
     // Reverse the iterator to traverse the tree from closest slice to furthest
-    for root_uinode in ui_stack.0.iter() {
+    for root_uinode in ui_stack.0.iter().rev() {
         // retrieve the local UI stack.
         let Ok(local_stack) = local_ui_stack_query.get(*root_uinode) else {
             continue;

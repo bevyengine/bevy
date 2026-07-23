@@ -153,7 +153,7 @@ pub fn ui_focus_system(
     windows: Query<&Window>,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     touches_input: Res<Touches>,
-    ui_stack_roots: Res<UiStack>,
+    ui_stack: Res<UiStack>,
     local_ui_stack_query: Query<&LocalUiStack>,
     mut node_query: Query<NodeQuery>,
     clipping_query: Query<(&ComputedNode, &UiGlobalTransform, &Node)>,
@@ -219,7 +219,7 @@ pub fn ui_focus_system(
 
     hovered_nodes.clear();
     // reverse the iterator to traverse the tree from closest slice to furthest
-    for root_uinode in ui_stack_roots.0.iter().rev() {
+    for root_uinode in ui_stack.0.iter().rev() {
         // retrieve the local UI stack.
         let Ok(local_stack) = local_ui_stack_query.get(*root_uinode) else {
             continue;
