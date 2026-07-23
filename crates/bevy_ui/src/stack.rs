@@ -16,9 +16,9 @@ use bevy_reflect::Reflect;
 #[derive(Component, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Reflect)]
 #[reflect(Component, Default)]
 pub struct ComputedStackIndex {
-    // order of this node's root ancestor
+    /// order of this node's root ancestor
     pub root: u32,
-    // order of the node in the local UI stack
+    /// order of the node in the local UI stack
     pub local: u32,
 }
 
@@ -128,7 +128,7 @@ pub fn ui_stack_system(
         } else {
             commands
                 .entity(root_entity)
-                .insert(LocalUiStack(core::mem::take(&mut new_local_stack)));
+                .try_insert(LocalUiStack(core::mem::take(&mut new_local_stack)));
         }
     }
 
