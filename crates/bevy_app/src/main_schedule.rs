@@ -492,7 +492,9 @@ pub enum RunFixedMainLoopSystems {
     AfterFixedMainLoop,
 }
 
-/// A System set that runs all systems needed to render gizmos to the screen.
+/// A System set that runs all systems needed to render the transform gizmo to the screen, used in the `bevy_gizmos_render` crate
+/// This is defined here since it is used by many other
+/// bevy crates to specify system orderings.
 /// This is used for some of Bevy's gizmos, and should be used when rendering
 /// custom gizmos.
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
