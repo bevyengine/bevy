@@ -85,7 +85,7 @@ impl TargetUpdate<NodeDisplaySetting> for Target<NodeDisplaySetting> {
     }
 }
 
-/// For `Visibility`, this impl of `TargetUpdate` will affect this entity's `Visibility` component.`
+/// For `Visibility`, this impl of `TargetUpdate` will affect this entity's `Visibility` component.
 impl TargetUpdate<NodeVisibilitySetting> for Target<NodeVisibilitySetting> {
     type TargetComponent = Visibility;
     fn update_target(&self, visibility: &mut Self::TargetComponent, value: &NodeVisibilitySetting) {
@@ -349,7 +349,7 @@ fn feathers_select_visibility(target: EntityTemplate) -> impl Scene {
     }
 }
 
-/// Observer that reacts to value changes of a FeathersSelect for the `T` setting,
+/// Observer that reacts to value changes of a `FeathersSelect` for the `T` setting,
 /// and updates the target entity accordingly.
 fn on_value_change<T: Component + Default + Clone + PartialEq + Send + Sync>(
     event: On<ValueChange<Entity>>,
@@ -385,10 +385,10 @@ fn on_value_change<T: Component + Default + Clone + PartialEq + Send + Sync>(
     }
 }
 
-/// A scene of the Node, BackgroundColor, and `Target<T>` for the given target.
-fn select_base<T: Component + Clone + Default + PartialEq>(target: EntityTemplate) -> impl Scene
+/// A scene of the `Node`, `BackgroundColor`, and `Target<T>` for the given target.
+fn select_base<T>(target: EntityTemplate) -> impl Scene
 where
-    T: Default + Clone + Unpin + std::fmt::Debug + Send + Sync + 'static,
+    T: Default + Clone + Component + PartialEq + Unpin + Send + Sync + 'static,
     Target<T>: TargetUpdate<T>,
 {
     bsn! {
