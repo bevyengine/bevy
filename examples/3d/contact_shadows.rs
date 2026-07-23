@@ -298,7 +298,14 @@ fn spawn_buttons(commands: &mut Commands, app_status: &AppStatus) {
                         "Off"
                     ),
                 ],
-                (app_status.contact_shadows == ContactShadowState::Enabled).then(|| 0).unwrap_or(1),
+                {
+                    if app_status.contact_shadows == ContactShadowState::Enabled {
+                        0
+                    }
+                    else {
+                        1
+                    }
+                },
             ),
             feathers_option_buttons(
                 "Shadow Maps",
@@ -306,7 +313,14 @@ fn spawn_buttons(commands: &mut Commands, app_status: &AppStatus) {
                     (ExampleSetting::ShadowMaps(ShadowMaps::Enabled), "On"),
                     (ExampleSetting::ShadowMaps(ShadowMaps::Disabled), "Off"),
                 ],
-                (app_status.shadow_maps == ShadowMaps::Enabled).then(|| 0).unwrap_or(1),
+                {
+                    if app_status.shadow_maps == ShadowMaps::Enabled {
+                        0
+                    }
+                    else {
+                        1
+                    }
+                },
             ),
             feathers_option_buttons(
                 "Light Rotation",
@@ -317,7 +331,14 @@ fn spawn_buttons(commands: &mut Commands, app_status: &AppStatus) {
                         "Off"
                     ),
                 ],
-                (app_status.light_rotation == LightRotation::Rotating).then(|| 0).unwrap_or(1),
+                {
+                    if app_status.light_rotation == LightRotation::Rotating {
+                        0
+                    }
+                    else {
+                        1
+                    }
+                },
             ),
             feathers_option_buttons(
                 "Light Type",
@@ -349,7 +370,14 @@ fn spawn_buttons(commands: &mut Commands, app_status: &AppStatus) {
                         "Off"
                     ),
                 ],
-                (app_status.receive_shadows == ReceiveShadows::Enabled).then(|| 0).unwrap_or(1),
+                {
+                    if app_status.receive_shadows == ReceiveShadows::Enabled {
+                        0
+                    }
+                    else {
+                        1
+                    }
+                },
             ),
         ]
     });
