@@ -1,14 +1,15 @@
-//! Input handling for [`EditableText`] widgets.
+//! Input handling for [`TextInput`] widgets.
 //!
 //! This module provides systems to process keyboard input events and apply text edits
-//! to focused [`EditableText`] widgets.
+//! to focused [`TextInput`] widgets.
 //!
 //! Note that this module is distinct from the core `bevy_text` crate to avoid pulling in
 //! [`bevy_input`] to that crate, which is intended to be usable in non-interactive contexts.
 
-use bevy_a11y::AccessibilitySystems;
+use accesskit::Role;
+use bevy_a11y::{AccessibilityNode, AccessibilitySystems};
 use bevy_app::{App, Plugin, PostUpdate, PreUpdate};
-use bevy_ecs::prelude::*;
+use bevy_ecs::{prelude::*, reflect::ReflectComponent};
 use bevy_input::keyboard::{Key, KeyCode, KeyboardInput};
 use bevy_input::{ButtonInput, InputSystems};
 use bevy_input_focus::{
@@ -20,15 +21,15 @@ use bevy_picking::pointer::PointerButton;
 use bevy_reflect::Reflect;
 use bevy_text::{
     scrollable_text_layout_width, EditableText, EditableTextSystems, PreeditCursor, TextEdit,
-    TextLayout, TextLayoutInfo,
+    TextLayout, TextLayoutInfo, TextReadWriteMode,
 };
 use bevy_time::{Real, Time};
 use bevy_ui::widget::{sync_editable_text_viewports, update_editable_text_layout};
-use bevy_ui::UiSystems;
 use bevy_ui::{
-    widget::TextNodeFlags, ComputedNode, ComputedUiRenderTargetInfo, ContentSize,
-    InteractionDisabled, Node, UiGlobalTransform, UiScale,
+    widget::TextNodeFlags, ComputedNode, ComputedUiRenderTargetInfo, ContentSize, Node,
+    UiGlobalTransform, UiScale,
 };
+use bevy_ui::{InteractionDisabled, UiSystems};
 use bevy_window::{Ime, PrimaryWindow, Window};
 
 const NONE: u8 = 0;
@@ -49,6 +50,12 @@ const SHIFT_SUPER: u8 = SHIFT | SUPER;
 const SHIFT_COMMAND: u8 = SHIFT | COMMAND;
 #[cfg(not(target_os = "macos"))]
 const SHIFT_ALT: u8 = SHIFT | ALT;
+
+/// Editable text widget.
+#[derive(Component, Clone, Default, Reflect)]
+#[require(EditableText, AccessibilityNode(accesskit::Node::new(Role::TextInput)))]
+#[reflect(Component)]
+pub struct TextInput;
 
 /// Autoscroll speed is proportional to the input size
 const AUTOSCROLL_BASE_SPEED: f32 = 0.75;
@@ -91,10 +98,18 @@ fn matches_edit_shortcut(input: &KeyboardInput, character: &str, key_code: KeyCo
 /// and then applied later by the [`apply_text_edits`](`bevy_text::apply_text_edits`) system.
 fn on_focused_keyboard_input(
     mut keyboard_input: On<FocusedInput<KeyboardInput>>,
-    mut query: Query<&mut EditableText, Without<InteractionDisabled>>,
+    mut query: Query<
+        (
+            &mut EditableText,
+            &TextReadWriteMode,
+            Has<InteractionDisabled>,
+        ),
+        With<TextInput>,
+    >,
     keys: Res<ButtonInput<Key>>,
 ) {
-    let Ok(mut editable_text) = query.get_mut(keyboard_input.focused_entity) else {
+    let Ok((mut editable_text, rwmode, disabled)) = query.get_mut(keyboard_input.focused_entity)
+    else {
         return; // Focused entity is not an EditableText, nothing to do
     };
 
@@ -120,8 +135,11 @@ fn on_focused_keyboard_input(
 
     let mut should_propagate = true;
 
-    let mut queue_edit = |edit| {
-        if keyboard_input.input.state.is_pressed() {
+    let mut queue_edit = |edit: TextEdit| {
+        if (*rwmode == TextReadWriteMode::Editable
+            || (!edit.is_destructive() && (!disabled || *rwmode == TextReadWriteMode::ReadOnly)))
+            && keyboard_input.input.state.is_pressed()
+        {
             editable_text.queue_edit(edit);
         }
         should_propagate = false;
@@ -211,21 +229,22 @@ fn on_pointer_press(
     mut text_input_query: Query<
         (
             &mut EditableText,
+            &TextReadWriteMode,
             &ComputedNode,
             &ComputedUiRenderTargetInfo,
             &UiGlobalTransform,
         ),
-        Without<InteractionDisabled>,
+        With<TextInput>,
     >,
     keys: Res<ButtonInput<Key>>,
-    mut input_focus: ResMut<InputFocus>,
     ui_scale: Res<UiScale>,
 ) {
     if press.button != PointerButton::Primary {
         return;
     }
 
-    let Ok((mut editable_text, node, target, transform)) = text_input_query.get_mut(press.entity)
+    let Ok((mut editable_text, rwmode, node, target, transform)) =
+        text_input_query.get_mut(press.entity)
     else {
         // The press landed on something that isn't an `EditableText`. Clicking away to blur a
         // focused text input is handled by `PointerFocusPlugin` (in `bevy_input_focus`), which
@@ -234,7 +253,9 @@ fn on_pointer_press(
         return;
     };
 
-    input_focus.set(press.entity, FocusCause::Pressed);
+    if *rwmode == TextReadWriteMode::Static {
+        return;
+    }
 
     press.propagate(false);
 
@@ -242,6 +263,7 @@ fn on_pointer_press(
         // The IME is active; all input needs to be routed there, including pointer presses.
         return;
     }
+
     let Some(local_pos) = transform.try_inverse().and_then(|inverse| {
         let local_pos = inverse
             .transform_point2(press.pointer_location.position * target.scale_factor() / ui_scale.0);
@@ -273,27 +295,31 @@ fn on_pointer_press(
 /// and then applied later by the [`apply_text_edits`](`bevy_text::apply_text_edits`) system.
 fn on_pointer_drag(
     mut drag: On<Pointer<Drag>>,
-    mut text_input_query: Query<(
-        &mut EditableText,
-        &ComputedNode,
-        &ComputedUiRenderTargetInfo,
-        &UiGlobalTransform,
-    )>,
+    mut text_input_query: Query<
+        (
+            &mut EditableText,
+            &TextReadWriteMode,
+            &ComputedNode,
+            &ComputedUiRenderTargetInfo,
+            &UiGlobalTransform,
+        ),
+        With<TextInput>,
+    >,
     ui_scale: Res<UiScale>,
-    input_focus: Res<InputFocus>,
 ) {
     if drag.button != PointerButton::Primary {
         return;
     }
 
-    if input_focus.get() != Some(drag.entity) {
-        return;
-    }
-
-    let Ok((mut editable_text, node, target, transform)) = text_input_query.get_mut(drag.entity)
+    let Ok((mut editable_text, rwmode, node, target, transform)) =
+        text_input_query.get_mut(drag.entity)
     else {
         return;
     };
+
+    if *rwmode == TextReadWriteMode::Static {
+        return;
+    }
 
     drag.propagate(false);
 
@@ -438,7 +464,14 @@ fn autoscroll_axis(overflow: f32, view_size: f32, time_delta: f32) -> f32 {
 fn on_ime_input(
     mut ime_reader: MessageReader<Ime>,
     input_focus: Res<InputFocus>,
-    mut editable_text_query: Query<&mut EditableText>,
+    mut editable_text_query: Query<
+        (
+            &mut EditableText,
+            &TextReadWriteMode,
+            Has<InteractionDisabled>,
+        ),
+        With<TextInput>,
+    >,
 ) {
     let Some(focused_entity) = input_focus.get() else {
         // No focused entity, nothing to do.
@@ -447,12 +480,19 @@ fn on_ime_input(
         return;
     };
 
-    let Ok(mut editable_text) = editable_text_query.get_mut(focused_entity) else {
+    let Ok((mut editable_text, rwmode, disabled)) = editable_text_query.get_mut(focused_entity)
+    else {
         // Focused entity is not an EditableText, nothing to do.
         // Still need to drain the reader to prevent stale events on next focus.
         ime_reader.read().for_each(drop);
         return;
     };
+
+    if *rwmode != TextReadWriteMode::Editable || disabled {
+        // Still need to drain the reader to prevent stale events on next focus.
+        ime_reader.read().for_each(drop);
+        return;
+    }
 
     for ime in ime_reader.read() {
         match ime {
@@ -488,12 +528,17 @@ fn on_ime_input(
 /// composing text rather than overlapping it.
 fn update_ime_position(
     input_focus: Res<InputFocus>,
-    editable_text_query: Query<(
-        &EditableText,
-        &ComputedNode,
-        &UiGlobalTransform,
-        &ComputedUiRenderTargetInfo,
-    )>,
+    editable_text_query: Query<
+        (
+            &EditableText,
+            &TextReadWriteMode,
+            &ComputedNode,
+            &UiGlobalTransform,
+            &ComputedUiRenderTargetInfo,
+            Has<InteractionDisabled>,
+        ),
+        With<TextInput>,
+    >,
     // TODO: support multiple windows and track which one has focus
     mut windows: Query<&mut Window, With<PrimaryWindow>>,
     ui_scale: Res<UiScale>,
@@ -501,9 +546,16 @@ fn update_ime_position(
     let Some(focused) = input_focus.get() else {
         return;
     };
-    let Ok((editable_text, node, transform, target)) = editable_text_query.get(focused) else {
+
+    let Ok((editable_text, rwmode, node, transform, target, disabled)) =
+        editable_text_query.get(focused)
+    else {
         return;
     };
+
+    if *rwmode != TextReadWriteMode::Editable || disabled {
+        return;
+    }
 
     let Ok(mut window) = windows.single_mut() else {
         return;
@@ -520,25 +572,38 @@ fn update_ime_position(
 }
 
 /// System that enables or disables IME on the primary window based on whether the focused entity
-/// is an [`EditableText`].
+/// is an editable text field.
 ///
-/// IME is enabled when an `EditableText` gains focus and disabled when focus moves elsewhere.
+/// IME is enabled when an editable `EditableText` gains focus and disabled when focus moves
+/// elsewhere. The IME state is also re-evaluated whenever the focused entity's read/write mode
+/// changes. Because [`TextReadWriteMode`] is an optional component, such a change can happen when the
+/// component is overwritten, inserted, or removed; removal reverts the effective mode to the
+/// [`Editable`](TextReadWriteMode::Editable) default and is detected via [`RemovedComponents`].
 fn listen_for_ime_input_when_text_input_focused(
     input_focus: Res<InputFocus>,
-    editable_text_query: Query<(), With<EditableText>>,
+    mut editable_text_query: Query<(&mut EditableText, Ref<TextReadWriteMode>), With<TextInput>>,
     mut windows: Query<&mut Window, With<PrimaryWindow>>,
 ) {
-    if !input_focus.is_changed() {
-        return;
-    }
+    // React to removal of `TextReadWriteMode`, and drain the whole reader (using `.count()`) so that
+    // we don't trigger on subsequent runs.
+    let focused_entity = input_focus.get();
+
     let Ok(mut window) = windows.single_mut() else {
         return;
     };
-    let editable_text_focused = input_focus
-        .get()
-        .is_some_and(|e| editable_text_query.contains(e));
 
-    // The IME should be enabled whenever an EditableText is focused,
+    // Fetch the focused editable text field (if any).
+    let focused = focused_entity.and_then(|e| editable_text_query.get_mut(e).ok());
+
+    let editable_text_focused = focused.is_some_and(|(mut editable_text, rwmode)| {
+        let rwmode_changed = rwmode.is_changed();
+        if rwmode_changed && *rwmode != TextReadWriteMode::Editable {
+            editable_text.queue_edit(TextEdit::clear_ime_compose());
+        }
+        *rwmode == TextReadWriteMode::Editable
+    });
+
+    // The IME should be enabled whenever an EditableText is focused and editable,
     // even if the IME isn't currently composing (i.e. there's no preedit text).
     // The field here is about "should" we accept IME input, not "are we currently" accepting IME input
     window.ime_enabled = editable_text_focused;
@@ -559,7 +624,10 @@ fn listen_for_ime_input_when_text_input_focused(
 /// A [`TextEdit::CollapseSelection`] is also fired to collapse any active highlighted text
 /// selection back to the caret cursor position, preventing text styles from getting stuck in a
 /// focused color state.
-fn on_focus_lost(trigger: On<FocusLost>, mut editable_text_query: Query<&mut EditableText>) {
+fn on_focus_lost(
+    trigger: On<FocusLost>,
+    mut editable_text_query: Query<&mut EditableText, With<TextInput>>,
+) {
     if let Ok(mut editable_text) = editable_text_query.get_mut(trigger.entity) {
         editable_text.queue_edit(TextEdit::clear_ime_compose());
         editable_text.queue_edit(TextEdit::CollapseSelection);
@@ -584,7 +652,7 @@ struct QueuedSelectAll(Option<Entity>);
 
 fn on_focus_select_all(
     focus_gained: On<FocusGained>,
-    mut q_text_input: Query<(&mut EditableText, Has<SelectAllOnFocus>)>,
+    mut q_text_input: Query<(&mut EditableText, Has<SelectAllOnFocus>), With<TextInput>>,
     mut queued_select_all: ResMut<QueuedSelectAll>,
 ) {
     let target = focus_gained.event_target();
@@ -626,7 +694,7 @@ fn apply_queued_select_all(
     }
 }
 
-/// System sets for IME-related systems used by [`EditableTextInputPlugin`].
+/// System sets for IME-related systems used by [`TextInputPlugin`].
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ImeSystems {
     /// Processes [`Ime`] events into [`TextEdit`] actions for the focused [`EditableText`].
@@ -652,9 +720,9 @@ pub enum ImeSystems {
 ///
 /// Note that [`TextEdit`]s are applied during [`PostUpdate`]
 /// in the [`EditableTextSystems`] system set.
-pub struct EditableTextInputPlugin;
+pub struct TextInputPlugin;
 
-impl Plugin for EditableTextInputPlugin {
+impl Plugin for TextInputPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<QueuedSelectAll>()
             .add_observer(on_focused_keyboard_input)
@@ -662,6 +730,15 @@ impl Plugin for EditableTextInputPlugin {
             .add_observer(on_pointer_press)
             .add_observer(on_focus_lost)
             .add_observer(on_focus_select_all)
+            .configure_sets(
+                PreUpdate,
+                (
+                    ImeSystems::ToggleWindowIMEInput,
+                    ImeSystems::HandleEvents,
+                    ImeSystems::UpdatePosition,
+                )
+                    .chain(),
+            )
             .add_systems(
                 PreUpdate,
                 (
@@ -729,7 +806,10 @@ mod tests {
             .world_mut()
             .spawn((Window::default(), PrimaryWindow))
             .id();
-        let editable_text = app.world_mut().spawn(EditableText::default()).id();
+        let editable_text = app
+            .world_mut()
+            .spawn((EditableText::default(), TextInput))
+            .id();
         app.insert_resource(InputFocus::from_entity(editable_text));
 
         for (text, repeat) in [("J", false), ("#", true)] {

@@ -91,7 +91,7 @@ impl PluginGroup for UiWidgetsPlugins {
         PluginGroupBuilder::start::<Self>()
             .add(ButtonPlugin)
             .add(CheckboxPlugin)
-            .add(EditableTextInputPlugin)
+            .add(TextInputPlugin)
             .add(ListBoxPlugin)
             .add(MenuPlugin)
             .add(DialogPlugin)

@@ -127,7 +127,7 @@ impl Plugin for IgnoreAmbiguitiesPlugin {
     )]
     fn build(&self, app: &mut bevy_app::App) {
         #[cfg(all(feature = "bevy_ui_widgets", feature = "bevy_sprite"))]
-        if app.is_plugin_added::<bevy_ui_widgets::EditableTextInputPlugin>()
+        if app.is_plugin_added::<bevy_ui_widgets::TextInputPlugin>()
             && app.is_plugin_added::<bevy_sprite::SpritePlugin>()
         {
             // update_ime_position reads Window to reposition the IME cursor, while

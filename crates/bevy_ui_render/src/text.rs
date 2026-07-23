@@ -6,7 +6,7 @@ use bevy_input_focus::InputFocus;
 use bevy_math::{Affine2, Rect, Vec2};
 use bevy_render::Extract;
 use bevy_sprite::BorderRect;
-use bevy_text::{EditableText, TextColor, TextCursorStyle, TextLayoutInfo};
+use bevy_text::{EditableText, TextColor, TextCursorStyle, TextLayoutInfo, TextReadWriteMode};
 use bevy_ui::{
     CalculatedClip, ComputedNode, ComputedStackIndex, ComputedUiTargetCamera, ResolvedBorderRadius,
     UiGlobalTransform,
@@ -30,6 +30,7 @@ pub fn extract_text_cursor(
             &ComputedUiTargetCamera,
             &TextLayoutInfo,
             &TextCursorStyle,
+            &TextReadWriteMode,
             Option<&EditableText>,
         )>,
     >,
@@ -49,6 +50,7 @@ pub fn extract_text_cursor(
         target_camera,
         text_layout_info,
         cursor_style,
+        rwmode,
         editable_text,
     ) in extracted_uinodes
         .changed
@@ -89,13 +91,16 @@ pub fn extract_text_cursor(
             focused = true;
         }
 
-        let sc = if focused {
+        let sc = if focused && *rwmode == TextReadWriteMode::Editable {
             cursor_style.selection_color
         } else {
             cursor_style.unfocused_selection_color
         };
 
-        if !text_layout_info.selection_rects.is_empty() && !sc.is_fully_transparent() {
+        if !text_layout_info.selection_rects.is_empty()
+            && !sc.is_fully_transparent()
+            && *rwmode != TextReadWriteMode::Static
+        {
             let selection_color = sc.to_linear();
             let selection_radius = cursor_style.selection_radius.clamp(0.0, 0.5);
 
@@ -175,6 +180,7 @@ pub fn extract_text_cursor(
         if let Some((true, cursor_rect)) = text_layout_info.cursor
             && !cursor_rect.is_empty()
             && !cursor_style.color.is_fully_transparent()
+            && *rwmode != TextReadWriteMode::Static
         {
             extracted_uinodes
                 .uinodes
