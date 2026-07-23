@@ -34,3 +34,16 @@ App::new()
     })
     .run();
 ```
+
+This can be used for "property testing", to verify that your systems satisfy some property despite
+different orderings of systems.
+
+There are some caveats however. Currently, when using `auto_insert_apply_deferred`, systems with
+commands are always placed before the earliest sync point they can. This means that although your
+systems may not have the correct ordering, they might "accidentally" have the correct ordering
+because of which sync point it uses. We hope to fix this in the future.
+
+In addition, the multi-threaded executor executes systems greedily: it looks for the first
+unexecuted system whose dependencies are finished and that has no other conflicting systems running.
+The result is that even if the shuffle results in the order `(A, B, C)`, `C` could run before `B` if
+`A` and `B` conflict.
