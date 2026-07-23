@@ -105,7 +105,7 @@ impl Plugin for TransformGizmoRenderPlugin {
                 .after(bevy_camera::visibility::VisibilitySystems::VisibilityPropagate)
                 .after(bevy_render::camera::camera_system)
                 .after(bevy_camera::visibility::check_visibility_cpu_culling)
-                .in_set(bevy_app::GizmoRenderStep),
+                .in_set(bevy_app::TransformGizmoRenderStep),
         );
     }
 }

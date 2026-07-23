@@ -193,7 +193,7 @@ impl Plugin for UiPlugin {
             (
                 propagate_ui_target_cameras
                     .in_set(UiSystems::Prepare)
-                    .before(bevy_app::GizmoRenderStep),
+                    .before(bevy_app::TransformGizmoRenderStep),
                 ui_layout_system
                     .in_set(UiSystems::Layout)
                     .ambiguous_with(bevy_sprite::update_text2d_layout),
