@@ -22,8 +22,7 @@
 //!   relative to the entire node, not just the visible region. This backend does not provide a `normal`.
 
 use crate::{
-    clip_check_recursive, prelude::*, stack::UiStack, ui_transform::UiGlobalTransform,
-    ComputedUiStack,
+    clip_check_recursive, prelude::*, stack::UiStack, ui_transform::UiGlobalTransform, LocalUiStack,
 };
 use bevy_app::prelude::*;
 use bevy_camera::{visibility::InheritedVisibility, Camera, RenderTarget};
@@ -106,8 +105,8 @@ pub fn ui_picking(
     camera_query: Query<(Entity, &Camera, &RenderTarget, Has<UiPickingCamera>)>,
     primary_window: Query<Entity, With<PrimaryWindow>>,
     settings: Res<UiPickingSettings>,
-    ui_stack_roots: Res<UiStack>,
-    computed_ui_stacks_query: Query<&ComputedUiStack>,
+    ui_stack: Res<UiStack>,
+    local_ui_stack_query: Query<&LocalUiStack>,
     node_query: Query<NodeQuery>,
     mut output: MessageWriter<PointerHits>,
     clipping_query: Query<(&ComputedNode, &UiGlobalTransform, &Node)>,
@@ -158,15 +157,15 @@ pub fn ui_picking(
     // from the top node to the bottom one. this will also reset the interaction to `None`
     // for all nodes encountered that are no longer hovered.
     // Reverse the iterator to traverse the tree from closest slice to furthest
-    for uinodes in ui_stack_roots
-        .0
-        .iter()
-        .rev()
-        .map(|root| computed_ui_stacks_query.get(*root).unwrap())
-    {
+    for root_uinode in ui_stack.0.iter() {
+        // retrieve the local UI stack.
+        let Ok(local_stack) = local_ui_stack_query.get(*root_uinode) else {
+            continue;
+        };
+
         // Retrieve the first node and resolve its camera target.
         // Only need to do this once per slice, as all the nodes in the same slice share the same camera.
-        let Ok(uinode) = node_query.get(uinodes.0[0]) else {
+        let Ok(uinode) = node_query.get(*root_uinode) else {
             continue;
         };
 
@@ -179,7 +178,7 @@ pub fn ui_picking(
         };
 
         // Reverse the iterator to traverse the tree from closest nodes to furthest
-        for node_entity in uinodes.iter().rev().cloned() {
+        for node_entity in local_stack.iter().rev().cloned() {
             let Ok(node) = node_query.get(node_entity) else {
                 continue;
             };

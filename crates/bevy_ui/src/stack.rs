@@ -25,7 +25,7 @@ pub struct ComputedStackIndex {
 /// Local UI stack added to each UI root, contains all UI nodes descending from this root, ordered by their depth (back-to-front).
 #[derive(Component, Default, PartialEq, Eq, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default)]
-pub struct ComputedUiStack(pub Vec<Entity>);
+pub struct LocalUiStack(pub Vec<Entity>);
 
 #[derive(Default)]
 pub(crate) struct ChildBufferCache {
@@ -88,7 +88,7 @@ pub fn update_computed_ui_stacks_system(
     ui_children: UiChildren,
     zindex_query: Query<Option<&ZIndex>, (With<ComputedStackIndex>, Without<GlobalZIndex>)>,
     mut update_query: Query<&mut ComputedStackIndex>,
-    mut computed_ui_stack_query: Query<(Entity, &mut ComputedUiStack)>,
+    mut computed_ui_stack_query: Query<(Entity, &mut LocalUiStack)>,
     mut ui_stack: ResMut<UiStack>,
 ) {
     visited_root_nodes.clear();
@@ -125,7 +125,7 @@ pub fn update_computed_ui_stacks_system(
     let mut stack_index = 0;
     for (root_index, (root_entity, _)) in root_nodes.drain(..).enumerate() {
         ui_stack.0.push(root_entity);
-        let mut new_ui_stack = ComputedUiStack::default();
+        let mut new_ui_stack = LocalUiStack::default();
         let mut old_ui_stack = computed_ui_stack_query
             .get_mut(root_entity)
             .ok()
@@ -160,7 +160,7 @@ pub fn update_computed_ui_stacks_system(
 
     for (entity, _) in &mut computed_ui_stack_query {
         if !visited_root_nodes.contains(&entity) {
-            commands.entity(entity).remove::<ComputedUiStack>();
+            commands.entity(entity).remove::<LocalUiStack>();
         }
     }
 }
@@ -176,7 +176,7 @@ mod tests {
 
     use crate::{ComputedStackIndex, GlobalZIndex, Node, ZIndex};
 
-    use super::{update_computed_ui_stacks_system, ComputedUiStack, UiStack};
+    use super::{update_computed_ui_stacks_system, LocalUiStack, UiStack};
 
     #[derive(Component, PartialEq, Debug, Clone)]
     struct Label(&'static str);
@@ -269,7 +269,7 @@ mod tests {
         let actual_result = ui_stack_roots
             .0
             .iter()
-            .flat_map(|entity| world.get::<ComputedUiStack>(*entity).unwrap().iter())
+            .flat_map(|entity| world.get::<LocalUiStack>(*entity).unwrap().iter())
             .map(|entity| query.get(&world, *entity).unwrap().clone())
             .collect::<Vec<_>>();
         let expected_result = vec![
@@ -295,13 +295,13 @@ mod tests {
         assert_eq!(actual_result, expected_result);
 
         let last_root = *ui_stack_roots.0.last().unwrap();
-        let last_stack = world.get::<ComputedUiStack>(last_root).unwrap();
+        let last_stack = world.get::<LocalUiStack>(last_root).unwrap();
         assert_eq!(last_stack.len(), 1);
         let last_entity = last_stack[0];
         assert_eq!(*query.get(&world, last_entity).unwrap(), Label("0"));
 
         let actual_result = world
-            .get::<ComputedUiStack>(ui_stack_roots.0[4])
+            .get::<LocalUiStack>(ui_stack_roots.0[4])
             .unwrap()
             .iter()
             .map(|entity| query.get(&world, *entity).unwrap().clone())
@@ -320,10 +320,10 @@ mod tests {
         let expected_result = ui_stack_roots
             .0
             .iter()
-            .flat_map(|entity| world.get::<ComputedUiStack>(*entity).unwrap().iter())
+            .flat_map(|entity| world.get::<LocalUiStack>(*entity).unwrap().iter())
             .copied()
             .collect::<Vec<_>>();
-        let mut computed_ui_stacks_query = world.query::<(&ComputedStackIndex, &ComputedUiStack)>();
+        let mut computed_ui_stacks_query = world.query::<(&ComputedStackIndex, &LocalUiStack)>();
         let mut computed_ui_stacks = computed_ui_stacks_query.iter(&world).collect::<Vec<_>>();
         computed_ui_stacks.sort_by_key(|(stack_index, _)| *stack_index);
         let actual_result = computed_ui_stacks
@@ -365,7 +365,7 @@ mod tests {
         let actual_result = ui_stack_roots
             .0
             .iter()
-            .flat_map(|entity| world.get::<ComputedUiStack>(*entity).unwrap().iter())
+            .flat_map(|entity| world.get::<LocalUiStack>(*entity).unwrap().iter())
             .map(|entity| query.get(&world, *entity).unwrap().clone())
             .collect::<Vec<_>>();
 
@@ -385,7 +385,7 @@ mod tests {
 
         assert_eq!(ui_stack_roots.0.len(), expected_result.len());
         for entity in &ui_stack_roots.0 {
-            assert_eq!(world.get::<ComputedUiStack>(*entity).unwrap().len(), 1);
+            assert_eq!(world.get::<LocalUiStack>(*entity).unwrap().len(), 1);
         }
     }
 }
