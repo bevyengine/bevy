@@ -24,6 +24,8 @@ use fixedbitset::FixedBitSet;
 use indexmap::{IndexMap, IndexSet};
 use log::{info, warn};
 use pass::ScheduleBuildPassObj;
+#[cfg(feature = "debug")]
+use rand::{seq::SliceRandom, SeedableRng};
 use thiserror::Error;
 #[cfg(feature = "trace")]
 use tracing::info_span;
@@ -1251,6 +1253,26 @@ impl ScheduleGraph {
         }
         self.passes = passes;
 
+        #[cfg(feature = "debug")]
+        if let Some(shuffle_seed) = self.settings.shuffle_seed {
+            // There's nothing special about this Rng implementation, other than the fact that it is
+            // not feature-gated.
+            let mut rng = rand::rngs::Xoshiro128PlusPlus::seed_from_u64(shuffle_seed);
+
+            let mut nodes = flat_dependency.graph().nodes().collect::<Vec<_>>();
+            nodes.shuffle(&mut rng);
+            let mut new_flat_dependency = Dag::new();
+            for &node in &nodes {
+                new_flat_dependency.add_node(node);
+            }
+            for node in nodes {
+                for neighbor in flat_dependency.neighbors(node) {
+                    new_flat_dependency.add_edge(node, neighbor);
+                }
+            }
+            flat_dependency = new_flat_dependency;
+        }
+
         // Check system ordering dependencies for cycles after collapsing sets
         // and applying build passes.
         let flat_dependency_analysis = flat_dependency
@@ -1633,6 +1655,20 @@ pub struct ScheduleBuildSettings {
     ///
     /// Defaults to `true`.
     pub report_sets: bool,
+    /// If [`Some`], systems will be shuffled according to the given seed.
+    ///
+    /// This allows randomizing the order of systems (while still satisfying ordering constraints),
+    /// which is useful for ensuring that ordering constraints are more likely to be correct (i.e.,
+    /// if you spot erroneous behavior when shuffling, that is an indication that the "default"
+    /// ordering is correct by chance, meaning your ordering constraints are not sufficient).
+    ///
+    /// Defaults to [`None`].
+    // TODO: Currently, `auto_insert_apply_deferred` will prevent stages from being truly shuffled.
+    // `auto_insert_apply_deferred` always prefers to put systems at the lowest "sync point depth"
+    // that it can, but this means we can't shuffle deeper systems with shallower systems, despite
+    // the fact their constraints allow that.
+    #[cfg(feature = "debug")]
+    pub shuffle_seed: Option<u64>,
 }
 
 impl Default for ScheduleBuildSettings {
@@ -1651,6 +1687,8 @@ impl ScheduleBuildSettings {
             auto_insert_apply_deferred: true,
             use_shortnames: true,
             report_sets: true,
+            #[cfg(feature = "debug")]
+            shuffle_seed: None,
         }
     }
 }
@@ -2729,5 +2767,98 @@ mod tests {
                 TypeId::of::<Pass<2>>()
             ]
         );
+    }
+
+    #[cfg(feature = "debug")]
+    #[test]
+    fn schedule_builds_randomly_with_shuffler() {
+        fn run_schedule_with_shuffler(shuffle_seed: Option<u64>) -> Vec<u32> {
+            #[derive(Resource, Default)]
+            struct Counters(Vec<u32>);
+
+            let mut schedule = Schedule::default();
+
+            // Note: we use a mutable resource to ensure that all the systems are conflicting and
+            // therefore must be resolved by the system toposort.
+            fn system<const N: u32>(mut counters: ResMut<Counters>) {
+                counters.0.push(N);
+            }
+
+            // Create a simple graph like so:
+            // 0
+            // ->10
+            //   ->20
+            //   ->21
+            // ->11
+            schedule.add_systems(system::<0>);
+            schedule.add_systems((system::<10>, system::<11>).after(system::<0>));
+            schedule.add_systems((system::<20>, system::<21>).after(system::<10>));
+
+            schedule.set_build_settings(ScheduleBuildSettings {
+                shuffle_seed,
+                ..Default::default()
+            });
+
+            let mut world = World::new();
+            world.init_resource::<Counters>();
+            schedule.initialize(&mut world).unwrap();
+            schedule.run(&mut world);
+
+            world.remove_resource::<Counters>().unwrap().0
+        }
+
+        for _ in 0..10 {
+            assert_eq!(
+                run_schedule_with_shuffler(None),
+                // Without a shuffler, schedule building is totally deterministic (but arbitrary).
+                [0, 11, 10, 20, 21]
+            );
+        }
+
+        // With the right seed, we can find every ordering that satisfies the ordering constraints.
+        // This is every valid permutation of these ordering constraints.
+        assert_eq!(
+            run_schedule_with_shuffler(Some(100000001)),
+            [0, 10, 20, 21, 11]
+        );
+        assert_eq!(
+            run_schedule_with_shuffler(Some(100000030)),
+            [0, 10, 21, 20, 11]
+        );
+        assert_eq!(
+            run_schedule_with_shuffler(Some(100000020)),
+            [0, 10, 20, 11, 21]
+        );
+        assert_eq!(
+            run_schedule_with_shuffler(Some(100000063)),
+            [0, 10, 21, 11, 20]
+        );
+        assert_eq!(
+            run_schedule_with_shuffler(Some(100000003)),
+            [0, 10, 11, 20, 21]
+        );
+        assert_eq!(
+            run_schedule_with_shuffler(Some(100000080)),
+            [0, 10, 11, 21, 20]
+        );
+        assert_eq!(
+            run_schedule_with_shuffler(Some(100000000)),
+            [0, 11, 10, 20, 21]
+        );
+        assert_eq!(
+            run_schedule_with_shuffler(Some(100000004)),
+            [0, 11, 10, 21, 20]
+        );
+
+        // For future: if somehow these seeds become invalid, you can find new ones using:
+        //
+        // let mut unique = bevy_platform::collections::HashMap::new();
+        // for i in 100_000_000..100_001_000 {
+        //     let order = run_schedule_with_shuffler(Some(make_shuffler(i)));
+        //     if !unique.contains_key(&order) {
+        //         unique.insert(order, i);
+        //     }
+        // }
+        // panic!("unique={unique:?}");
     }
 }
