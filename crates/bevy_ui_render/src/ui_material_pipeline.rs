@@ -292,7 +292,7 @@ impl<P: PhaseItem, M: UiMaterial> RenderCommand<P> for DrawUiMaterialNode<M> {
 }
 
 pub struct ExtractedUiMaterialNode<M: UiMaterial> {
-    pub stack_index: u32,
+    pub stack_index: ComputedStackIndex,
     pub transform: Affine2,
     pub rect: Rect,
     pub border: BorderRect,
@@ -432,7 +432,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
             .insert(
                 commands.spawn_empty().id(),
                 ExtractedUiMaterialNode {
-                    stack_index: stack_index.0,
+                    stack_index: *stack_index,
                     transform: transform.into(),
                     material: handle.id(),
                     rect: Rect {
@@ -739,7 +739,10 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
                 draw_function,
                 pipeline,
                 entity: (*render_entity, *main_entity),
-                sort_key: FloatOrd(extracted_uinode.stack_index as f32 + M::stack_z_offset()),
+                sort_key: UiSortKey {
+                    stack_index: extracted_uinode.stack_index,
+                    sub_layer: M::stack_z_offset(),
+                },
                 batch_range: 0..0,
                 extra_index: PhaseItemExtraIndex::None,
                 indexed: false,

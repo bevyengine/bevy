@@ -13,9 +13,14 @@ use bevy_reflect::Reflect;
 /// Nodes with a higher stack index are drawn on top of and receive interactions before nodes with lower stack indices.
 ///
 /// Automatically calculated in [`UiSystems::Stack`](`super::UiSystems::Stack`).
-#[derive(Component, Default, PartialEq, Eq, Deref, DerefMut, Reflect)]
+#[derive(Component, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Reflect)]
 #[reflect(Component, Default)]
-pub struct ComputedStackIndex(pub u32);
+pub struct ComputedStackIndex {
+    // order of this node's root ancestor
+    pub root: u32,
+    // order of the node in the local UI stack
+    pub local: u32,
+}
 
 /// Local UI stack added to each UI root, contains all UI nodes descending from this root, ordered by their depth (back-to-front).
 #[derive(Component, Default, PartialEq, Eq, Deref, DerefMut, Reflect)]
@@ -37,9 +42,10 @@ impl ChildBufferCache {
     }
 }
 
+/// List of all root UI node entities in order of their depth (back-to-front).
 #[derive(Debug, Resource, Default, Reflect)]
 #[reflect(Resource, Default)]
-pub struct UiStackRoots(pub Vec<Entity>);
+pub struct UiStack(pub Vec<Entity>);
 
 fn update_uistack_recursive(
     cache: &mut ChildBufferCache,
@@ -83,7 +89,7 @@ pub fn update_computed_ui_stacks_system(
     zindex_query: Query<Option<&ZIndex>, (With<ComputedStackIndex>, Without<GlobalZIndex>)>,
     mut update_query: Query<&mut ComputedStackIndex>,
     mut computed_ui_stack_query: Query<(Entity, &mut ComputedUiStack)>,
-    mut ui_stack_roots: ResMut<UiStackRoots>,
+    mut ui_stack_roots: ResMut<UiStack>,
 ) {
     visited_root_nodes.clear();
     ui_stack_roots.0.clear();
@@ -117,7 +123,7 @@ pub fn update_computed_ui_stacks_system(
     root_nodes.sort_by_key(|(_, z)| *z);
 
     let mut stack_index = 0;
-    for (root_entity, _) in root_nodes.drain(..) {
+    for (root_index, (root_entity, _)) in root_nodes.drain(..).enumerate() {
         ui_stack_roots.0.push(root_entity);
         let mut new_ui_stack = ComputedUiStack::default();
         let mut old_ui_stack = computed_ui_stack_query
@@ -139,7 +145,10 @@ pub fn update_computed_ui_stacks_system(
 
         for entity in ui_stack.iter() {
             if let Ok(mut computed_stack_index) = update_query.get_mut(*entity) {
-                computed_stack_index.set_if_neq(ComputedStackIndex(stack_index as u32));
+                computed_stack_index.set_if_neq(ComputedStackIndex {
+                    root: root_index as u32,
+                    local: stack_index as u32,
+                });
             }
             stack_index += 1;
         }
@@ -167,7 +176,7 @@ mod tests {
 
     use crate::{ComputedStackIndex, GlobalZIndex, Node, ZIndex};
 
-    use super::{update_computed_ui_stacks_system, ComputedUiStack, UiStackRoots};
+    use super::{update_computed_ui_stacks_system, ComputedUiStack, UiStack};
 
     #[derive(Component, PartialEq, Debug, Clone)]
     struct Label(&'static str);
@@ -203,7 +212,7 @@ mod tests {
     #[test]
     fn test_update_computed_ui_stacks_system() {
         let mut world = World::default();
-        world.init_resource::<UiStackRoots>();
+        world.init_resource::<UiStack>();
 
         let mut queue = CommandQueue::default();
         let mut commands = Commands::new(&mut queue, &world);
@@ -256,7 +265,7 @@ mod tests {
         schedule.run(&mut world);
 
         let mut query = world.query::<&Label>();
-        let ui_stack_roots = world.resource::<UiStackRoots>();
+        let ui_stack_roots = world.resource::<UiStack>();
         let actual_result = ui_stack_roots
             .0
             .iter()
@@ -316,7 +325,7 @@ mod tests {
             .collect::<Vec<_>>();
         let mut computed_ui_stacks_query = world.query::<(&ComputedStackIndex, &ComputedUiStack)>();
         let mut computed_ui_stacks = computed_ui_stacks_query.iter(&world).collect::<Vec<_>>();
-        computed_ui_stacks.sort_by_key(|(stack_index, _)| stack_index.0);
+        computed_ui_stacks.sort_by_key(|(stack_index, _)| *stack_index);
         let actual_result = computed_ui_stacks
             .into_iter()
             .flat_map(|(_, ui_stack)| ui_stack.iter())
@@ -328,7 +337,7 @@ mod tests {
     #[test]
     fn test_with_equal_global_zindex_zindex_decides_order() {
         let mut world = World::default();
-        world.init_resource::<UiStackRoots>();
+        world.init_resource::<UiStack>();
 
         let mut queue = CommandQueue::default();
         let mut commands = Commands::new(&mut queue, &world);
@@ -352,7 +361,7 @@ mod tests {
         schedule.run(&mut world);
 
         let mut query = world.query::<&Label>();
-        let ui_stack_roots = world.resource::<UiStackRoots>();
+        let ui_stack_roots = world.resource::<UiStack>();
         let actual_result = ui_stack_roots
             .0
             .iter()

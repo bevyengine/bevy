@@ -22,7 +22,7 @@
 //!   relative to the entire node, not just the visible region. This backend does not provide a `normal`.
 
 use crate::{
-    clip_check_recursive, prelude::*, stack::UiStackRoots, ui_transform::UiGlobalTransform,
+    clip_check_recursive, prelude::*, stack::UiStack, ui_transform::UiGlobalTransform,
     ComputedUiStack,
 };
 use bevy_app::prelude::*;
@@ -106,7 +106,7 @@ pub fn ui_picking(
     camera_query: Query<(Entity, &Camera, &RenderTarget, Has<UiPickingCamera>)>,
     primary_window: Query<Entity, With<PrimaryWindow>>,
     settings: Res<UiPickingSettings>,
-    ui_stack_roots: Res<UiStackRoots>,
+    ui_stack_roots: Res<UiStack>,
     computed_ui_stacks_query: Query<&ComputedUiStack>,
     node_query: Query<NodeQuery>,
     mut output: MessageWriter<PointerHits>,

@@ -1,5 +1,5 @@
 use crate::{
-    stack::UiStackRoots, ui_transform::UiGlobalTransform, ComputedNode, ComputedUiStack,
+    stack::UiStack, ui_transform::UiGlobalTransform, ComputedNode, ComputedUiStack,
     ComputedUiTargetCamera, Node, OverrideClip,
 };
 use bevy_camera::{visibility::InheritedVisibility, Camera, NormalizedRenderTarget, RenderTarget};
@@ -153,7 +153,7 @@ pub fn ui_focus_system(
     windows: Query<&Window>,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     touches_input: Res<Touches>,
-    ui_stack_roots: Res<UiStackRoots>,
+    ui_stack_roots: Res<UiStack>,
     computed_ui_stack_query: Query<&ComputedUiStack>,
     mut node_query: Query<NodeQuery>,
     clipping_query: Query<(&ComputedNode, &UiGlobalTransform, &Node)>,

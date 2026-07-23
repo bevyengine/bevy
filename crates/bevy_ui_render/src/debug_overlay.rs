@@ -227,7 +227,13 @@ pub fn extract_debug_overlay(
                     commands.spawn_empty().id(),
                     ExtractedUiNode {
                         // Keep all overlays above UI, and nudge each type slightly in Z so ordering is stable.
-                        z_order,
+                        sort_key: crate::UiSortKey {
+                            stack_index: ComputedStackIndex {
+                                root: 10_000_000,
+                                local: stack_index.0,
+                            },
+                            sub_layer: 0,
+                        },
                         clip: maybe_clip
                             .filter(|_| !debug_options.show_clipped)
                             .map(|clip| clip.clip),

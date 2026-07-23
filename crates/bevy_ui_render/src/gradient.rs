@@ -227,7 +227,7 @@ pub enum ResolvedGradient {
 }
 
 pub struct ExtractedGradient {
-    pub stack_index: u32,
+    pub stack_index: ComputedStackIndex,
     pub transform: Affine2,
     pub rect: Rect,
     pub clip: Option<Rect>,

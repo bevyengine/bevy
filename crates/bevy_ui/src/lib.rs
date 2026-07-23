@@ -86,7 +86,7 @@ use stack::update_computed_ui_stacks_system;
 pub use stack::{ComputedStackIndex, ComputedUiStack};
 use update::{propagate_ui_target_cameras, update_clipping_system};
 
-use crate::stack::UiStackRoots;
+use crate::stack::UiStack;
 
 /// The basic plugin for Bevy UI
 #[derive(Default)]
@@ -145,7 +145,7 @@ impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<UiSurface>()
             .init_resource::<UiScale>()
-            .init_resource::<UiStackRoots>()
+            .init_resource::<UiStack>()
             .configure_sets(
                 PostUpdate,
                 (

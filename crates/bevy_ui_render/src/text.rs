@@ -149,7 +149,7 @@ pub fn extract_text_cursor(
                     .insert(
                         commands.spawn_empty().id(),
                         ExtractedUiNode {
-                            z_order: stack_index.0 as f32 + stack_z_offsets::TEXT_SELECTION,
+                            sort_key: stack_index.0 as f32 + stack_z_offsets::TEXT_SELECTION,
                             clip,
                             image: AssetId::default(),
                             extracted_camera_entity,
@@ -183,7 +183,7 @@ pub fn extract_text_cursor(
                 .insert(
                     commands.spawn_empty().id(),
                     ExtractedUiNode {
-                        z_order: stack_index.0 as f32 + stack_z_offsets::TEXT_CURSOR,
+                        sort_key: stack_index.0 as f32 + stack_z_offsets::TEXT_CURSOR,
                         clip,
                         image: AssetId::default(),
                         extracted_camera_entity,
@@ -278,7 +278,7 @@ pub fn extract_preedit_underlines(
                 .insert(
                     commands.spawn_empty().id(),
                     ExtractedUiNode {
-                        z_order: stack_index.0 as f32 + stack_z_offsets::TEXT_STRIKETHROUGH,
+                        sort_key: stack_index.0 as f32 + stack_z_offsets::TEXT_STRIKETHROUGH,
                         clip,
                         image: AssetId::default(),
                         extracted_camera_entity,
