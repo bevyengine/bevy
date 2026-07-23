@@ -331,6 +331,7 @@ fn spawn_buttons(commands: &mut Commands) {
                 (DragAction::MoveCamera, "Move Camera"),
                 (DragAction::MoveFox, "Move Fox"),
             ],
+            0,
         )]
     });
 }
