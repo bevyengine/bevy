@@ -5,7 +5,7 @@ use crate::{
     GlobalZIndex, ZIndex,
 };
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::{entity::EntityIndexSet, prelude::*};
+use bevy_ecs::{entity::EntityHashSet, prelude::*};
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 
@@ -74,11 +74,11 @@ fn update_uistack_recursive(
     cache.push(child_buffer);
 }
 
-pub fn update_computed_ui_stacks_system(
+pub fn update_ui_stack_system(
     mut commands: Commands,
     mut cache: Local<ChildBufferCache>,
     mut root_nodes: Local<Vec<(Entity, (i32, i32))>>,
-    mut visited_root_nodes: Local<EntityIndexSet>,
+    mut visited_root_nodes: Local<EntityHashSet>,
     ui_root_nodes: UiRootNodes,
     root_node_query: Query<(Entity, Option<&GlobalZIndex>, Option<&ZIndex>)>,
     zindex_global_node_query: Query<
@@ -124,14 +124,16 @@ pub fn update_computed_ui_stacks_system(
 
     for (root_index, (root_entity, _)) in root_nodes.drain(..).enumerate() {
         ui_stack.0.push(root_entity);
-        let mut new_ui_stack = LocalUiStack::default();
-        let mut old_ui_stack = computed_ui_stack_query
+        let mut new_local_stack = LocalUiStack::default();
+        let mut old_local_stack = computed_ui_stack_query
             .get_mut(root_entity)
             .ok()
             .map(|(_, ui_stack)| ui_stack);
-        let is_new_root = old_ui_stack.is_none();
+        let is_new_root = old_local_stack.is_none();
 
-        let ui_stack = old_ui_stack.as_deref_mut().unwrap_or(&mut new_ui_stack);
+        let ui_stack = old_local_stack
+            .as_deref_mut()
+            .unwrap_or(&mut new_local_stack);
 
         ui_stack.clear();
         update_uistack_recursive(
@@ -152,7 +154,7 @@ pub fn update_computed_ui_stacks_system(
         }
 
         if is_new_root {
-            commands.entity(root_entity).insert(new_ui_stack);
+            commands.entity(root_entity).insert(new_local_stack);
         }
     }
 
@@ -174,7 +176,7 @@ mod tests {
 
     use crate::{ComputedStackIndex, GlobalZIndex, Node, ZIndex};
 
-    use super::{update_computed_ui_stacks_system, LocalUiStack, UiStack};
+    use super::{update_ui_stack_system, LocalUiStack, UiStack};
 
     #[derive(Component, PartialEq, Debug, Clone)]
     struct Label(&'static str);
@@ -258,7 +260,7 @@ mod tests {
         queue.apply(&mut world);
 
         let mut schedule = Schedule::default();
-        schedule.add_systems(update_computed_ui_stacks_system);
+        schedule.add_systems(update_ui_stack_system);
         schedule.run(&mut world);
         schedule.run(&mut world);
 
@@ -355,7 +357,7 @@ mod tests {
         queue.apply(&mut world);
 
         let mut schedule = Schedule::default();
-        schedule.add_systems(update_computed_ui_stacks_system);
+        schedule.add_systems(update_ui_stack_system);
         schedule.run(&mut world);
 
         let mut query = world.query::<&Label>();
