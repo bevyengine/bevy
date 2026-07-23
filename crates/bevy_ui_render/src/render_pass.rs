@@ -8,7 +8,6 @@ use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
 };
-use bevy_math::FloatOrd;
 use bevy_render::{
     camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,

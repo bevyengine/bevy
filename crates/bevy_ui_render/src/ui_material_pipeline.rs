@@ -9,7 +9,7 @@ use bevy_ecs::{
         *,
     },
 };
-use bevy_math::{Affine2, FloatOrd, Rect, Vec2};
+use bevy_math::{Affine2, Rect, Vec2};
 use bevy_mesh::VertexBufferLayout;
 use bevy_render::{
     globals::{GlobalsBuffer, GlobalsUniform},

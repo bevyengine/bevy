@@ -212,7 +212,6 @@ pub fn extract_debug_overlay(
         let color = debug_options
             .line_color_override
             .unwrap_or_else(|| Hsla::sequential_dispersed(entity.index_u32()).into());
-        let z_order = 10_000_000. + stack_index.0 as f32;
         let border = BorderRect::all(debug_options.line_width / uinode.inverse_scale_factor());
         let transform = transform.affine();
 

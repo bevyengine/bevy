@@ -459,7 +459,7 @@ pub fn extract_gradients(
                         .insert(
                             commands.spawn_empty().id(),
                             ExtractedGradient {
-                                stack_index: stack_index.0,
+                                stack_index: *stack_index,
                                 transform: transform.into(),
                                 stops: extracted_stops,
                                 rect: Rect {
@@ -500,7 +500,7 @@ pub fn extract_gradients(
                             .insert(
                                 commands.spawn_empty().id(),
                                 ExtractedGradient {
-                                    stack_index: stack_index.0,
+                                    stack_index: *stack_index,
                                     transform: transform.into(),
                                     stops: extracted_stops,
                                     rect: Rect {
@@ -553,7 +553,7 @@ pub fn extract_gradients(
                             .insert(
                                 commands.spawn_empty().id(),
                                 ExtractedGradient {
-                                    stack_index: stack_index.0,
+                                    stack_index: *stack_index,
                                     transform: transform.into(),
                                     stops: computed_stops,
                                     rect: Rect {
@@ -612,7 +612,7 @@ pub fn extract_gradients(
                             .insert(
                                 commands.spawn_empty().id(),
                                 ExtractedGradient {
-                                    stack_index: stack_index.0,
+                                    stack_index: *stack_index,
                                     transform: transform.into(),
                                     stops: extracted_color_stops,
                                     rect: Rect {

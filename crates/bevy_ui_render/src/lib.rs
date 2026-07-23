@@ -46,7 +46,7 @@ use bevy_ecs::prelude::*;
 use bevy_ecs::schedule::IntoScheduleConfigs;
 use bevy_ecs::system::SystemParam;
 use bevy_image::{prelude::*, TRANSPARENT_IMAGE_HANDLE};
-use bevy_math::{proj, Affine2, FloatOrd, Rect, UVec4, Vec2};
+use bevy_math::{proj, Affine2, Rect, UVec4, Vec2};
 use bevy_render::{
     render_asset::RenderAssets,
     render_phase::{
@@ -1075,7 +1075,10 @@ pub fn extract_uinode_borders(
                 .insert(
                     commands.spawn_empty().id(),
                     ExtractedUiNode {
-                        sort_key: stack_index.0 as f32 + stack_z_offsets::BORDER,
+                        sort_key: UiSortKey {
+                            stack_index: *stack_index,
+                            sub_layer: stack_z_offsets::BORDER,
+                        },
                         image,
                         clip: maybe_clip.map(|clip| clip.clip),
                         extracted_camera_entity,
@@ -1386,7 +1389,10 @@ pub fn extract_viewport_nodes(
             .insert(
                 commands.spawn_empty().id(),
                 ExtractedUiNode {
-                    sort_key: stack_index.0 as f32 + stack_z_offsets::IMAGE,
+                    sort_key: UiSortKey {
+                        stack_index: *stack_index,
+                        sub_layer: stack_z_offsets::IMAGE,
+                    },
                     clip: clip.map(|clip| clip.clip),
                     image: image.id(),
                     extracted_camera_entity,
@@ -1546,7 +1552,10 @@ pub fn extract_text_sections(
                     .insert(
                         commands.spawn_empty().id(),
                         ExtractedUiNode {
-                            sort_key: stack_index.0 as f32 + stack_z_offsets::TEXT,
+                            sort_key: UiSortKey {
+                                stack_index: *stack_index,
+                                sub_layer: stack_z_offsets::TEXT,
+                            },
                             image: atlas_info.texture,
                             clip,
                             extracted_camera_entity,
@@ -1658,7 +1667,10 @@ pub fn extract_text_shadows(
                         commands.spawn_empty().id(),
                         ExtractedUiNode {
                             transform: node_transform,
-                            sort_key: stack_index.0 as f32 + stack_z_offsets::TEXT,
+                            sort_key: UiSortKey {
+                                stack_index: *stack_index,
+                                sub_layer: stack_z_offsets::TEXT,
+                            },
                             image: atlas_info.texture,
                             clip,
                             extracted_camera_entity,
@@ -1691,7 +1703,10 @@ pub fn extract_text_shadows(
                     .insert(
                         commands.spawn_empty().id(),
                         ExtractedUiNode {
-                            sort_key: stack_index.0 as f32 + stack_z_offsets::TEXT,
+                            sort_key: UiSortKey {
+                                stack_index: *stack_index,
+                                sub_layer: stack_z_offsets::TEXT,
+                            },
                             clip,
                             image: AssetId::default(),
                             extracted_camera_entity,
@@ -1722,7 +1737,10 @@ pub fn extract_text_shadows(
                     .insert(
                         commands.spawn_empty().id(),
                         ExtractedUiNode {
-                            sort_key: stack_index.0 as f32 + stack_z_offsets::TEXT,
+                            sort_key: UiSortKey {
+                                stack_index: *stack_index,
+                                sub_layer: stack_z_offsets::TEXT,
+                            },
                             clip,
                             image: AssetId::default(),
                             extracted_camera_entity,
@@ -1846,7 +1864,10 @@ pub fn extract_text_decorations(
                     .insert(
                         commands.spawn_empty().id(),
                         ExtractedUiNode {
-                            sort_key: stack_index.0 as f32 + stack_z_offsets::TEXT,
+                            sort_key: UiSortKey {
+                                stack_index: *stack_index,
+                                sub_layer: stack_z_offsets::TEXT,
+                            },
                             clip,
                             image: AssetId::default(),
                             extracted_camera_entity,
@@ -1881,7 +1902,10 @@ pub fn extract_text_decorations(
                     .insert(
                         commands.spawn_empty().id(),
                         ExtractedUiNode {
-                            sort_key: stack_index.0 as f32 + stack_z_offsets::TEXT_STRIKETHROUGH,
+                            sort_key: UiSortKey {
+                                stack_index: *stack_index,
+                                sub_layer: stack_z_offsets::TEXT_STRIKETHROUGH,
+                            },
                             clip,
                             image: AssetId::default(),
                             extracted_camera_entity,
@@ -1917,7 +1941,10 @@ pub fn extract_text_decorations(
                     .insert(
                         commands.spawn_empty().id(),
                         ExtractedUiNode {
-                            sort_key: stack_index.0 as f32 + stack_z_offsets::TEXT_STRIKETHROUGH,
+                            sort_key: UiSortKey {
+                                stack_index: *stack_index,
+                                sub_layer: stack_z_offsets::TEXT_STRIKETHROUGH,
+                            },
                             clip,
                             image: AssetId::default(),
                             extracted_camera_entity,
