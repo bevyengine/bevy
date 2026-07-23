@@ -224,14 +224,10 @@ pub fn extract_text2d_sprite(
         ) in text_layout_info.glyphs.iter().enumerate()
         {
             if *section_index != current_section {
-                color = text_colors
-                    .get(
-                        computed_block
-                            .entities()
-                            .get(*section_index as usize)
-                            .map(|t| t.entity)
-                            .unwrap_or(Entity::PLACEHOLDER),
-                    )
+                color = computed_block
+                    .entities()
+                    .get(*section_index as usize)
+                    .and_then(|t| text_colors.get(t.entity).ok())
                     .map(|text_color| LinearRgba::from(text_color.0))
                     .unwrap_or_default();
                 current_section = *section_index;
