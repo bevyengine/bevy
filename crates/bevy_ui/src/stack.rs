@@ -27,6 +27,11 @@ pub struct ComputedStackIndex {
 #[reflect(Component, Default)]
 pub struct LocalUiStack(pub Vec<Entity>);
 
+/// List of all root UI node entities in order of their depth (back-to-front).
+#[derive(Debug, Resource, Default, Reflect)]
+#[reflect(Resource, Default)]
+pub struct UiStack(pub Vec<Entity>);
+
 #[derive(Default)]
 pub(crate) struct ChildBufferCache {
     pub inner: Vec<Vec<(Entity, i32)>>,
@@ -42,38 +47,11 @@ impl ChildBufferCache {
     }
 }
 
-/// List of all root UI node entities in order of their depth (back-to-front).
-#[derive(Debug, Resource, Default, Reflect)]
-#[reflect(Resource, Default)]
-pub struct UiStack(pub Vec<Entity>);
-
-fn update_uistack_recursive(
-    cache: &mut ChildBufferCache,
-    node_entity: Entity,
-    ui_children: &UiChildren,
-    zindex_query: &Query<Option<&ZIndex>, (With<ComputedStackIndex>, Without<GlobalZIndex>)>,
-    ui_stack: &mut Vec<Entity>,
-) {
-    ui_stack.push(node_entity);
-
-    let mut child_buffer = cache.pop();
-    child_buffer.extend(
-        ui_children
-            .iter_ui_children(node_entity)
-            .filter_map(|child_entity| {
-                zindex_query
-                    .get(child_entity)
-                    .ok()
-                    .map(|zindex| (child_entity, zindex.map(|zindex| zindex.0).unwrap_or(0)))
-            }),
-    );
-    child_buffer.sort_by_key(|k| k.1);
-    for (child_entity, _) in child_buffer.drain(..) {
-        update_uistack_recursive(cache, child_entity, ui_children, zindex_query, ui_stack);
-    }
-    cache.push(child_buffer);
-}
-
+/// Generates the render stack for UI nodes.
+///
+/// Create a list of root nodes from parentless entities and entities with a `GlobalZIndex` component.
+/// Then build the `LocalUiStack`s from a walk of the existing layout trees starting from each root node,
+/// filtering branches by `Without<GlobalZIndex>`so that we don't revisit nodes.
 pub fn update_ui_stack_system(
     mut commands: Commands,
     mut cache: Local<ChildBufferCache>,
@@ -159,6 +137,33 @@ pub fn update_ui_stack_system(
             commands.entity(entity).remove::<LocalUiStack>();
         }
     }
+}
+
+fn update_uistack_recursive(
+    cache: &mut ChildBufferCache,
+    node_entity: Entity,
+    ui_children: &UiChildren,
+    zindex_query: &Query<Option<&ZIndex>, (With<ComputedStackIndex>, Without<GlobalZIndex>)>,
+    ui_stack: &mut Vec<Entity>,
+) {
+    ui_stack.push(node_entity);
+
+    let mut child_buffer = cache.pop();
+    child_buffer.extend(
+        ui_children
+            .iter_ui_children(node_entity)
+            .filter_map(|child_entity| {
+                zindex_query
+                    .get(child_entity)
+                    .ok()
+                    .map(|zindex| (child_entity, zindex.map(|zindex| zindex.0).unwrap_or(0)))
+            }),
+    );
+    child_buffer.sort_by_key(|k| k.1);
+    for (child_entity, _) in child_buffer.drain(..) {
+        update_uistack_recursive(cache, child_entity, ui_children, zindex_query, ui_stack);
+    }
+    cache.push(child_buffer);
 }
 
 #[cfg(test)]
