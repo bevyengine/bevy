@@ -3859,6 +3859,7 @@ wasm = true
 name = "display_and_visibility"
 path = "examples/ui/layout/display_and_visibility.rs"
 doc-scrape-examples = true
+required-features = ["bevy_feathers"]
 
 [package.metadata.example.display_and_visibility]
 name = "Display and Visibility"
