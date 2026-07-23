@@ -15,7 +15,7 @@ use bevy::{
 use rand::RngExt;
 
 use crate::assets::CityAssets;
-use crate::generate_city::{spawn_city, CityRoot, CityStats};
+use crate::generate_city::{spawn_buildings_and_roads, CityRoot, CityStats};
 
 #[derive(Resource)]
 pub struct Settings {
@@ -161,7 +161,7 @@ pub fn settings_ui() -> impl Scene {
                             let seed = rng.random::<u64>();
                             println!("new seed: {seed}");
                             let mut stats = CityStats::default();
-                            spawn_city(&mut commands, &assets, seed, 32, 0.1, &mut stats);
+                            spawn_buildings_and_roads(&mut commands, &assets, seed, 32, &mut stats);
                         }
                     )
                 ),

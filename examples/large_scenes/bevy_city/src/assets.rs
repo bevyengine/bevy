@@ -17,7 +17,8 @@ pub fn strip_base_url(path: String) -> String {
         .unwrap_or(path)
 }
 
-use crate::{Args, Car};
+use crate::simulation::Car;
+use crate::Args;
 
 #[derive(Resource)]
 pub struct CityAssets {
@@ -196,12 +197,14 @@ impl CityAssets {
 
     pub fn spawn_car<R: RngExt>(
         &self,
-        commands: &mut ChildSpawnerCommands,
+        commands: &mut Commands,
         rng: &mut R,
         transform: Transform,
         car: Car,
+        cars_root: Entity,
     ) {
         commands.spawn((
+            ChildOf(cars_root),
             transform,
             Visibility::default(),
             car,
