@@ -3814,6 +3814,7 @@ wasm = true
 name = "box_shadow"
 path = "examples/ui/styling/box_shadow.rs"
 doc-scrape-examples = true
+required-features = ["bevy_feathers"]
 
 [package.metadata.example.box_shadow]
 name = "Box Shadow"
@@ -5208,7 +5209,7 @@ wasm = true
 name = "specular_tint"
 path = "examples/3d/specular_tint.rs"
 doc-scrape-examples = true
-required-features = ["pbr_specular_textures"]
+required-features = ["pbr_specular_textures", "bevy_feathers"]
 
 [package.metadata.example.specular_tint]
 name = "Specular Tint"
@@ -5368,6 +5369,7 @@ wasm = false
 name = "occlusion_culling"
 path = "examples/3d/occlusion_culling.rs"
 doc-scrape-examples = true
+required-features = ["bevy_feathers"]
 
 [package.metadata.example.occlusion_culling]
 name = "Occlusion Culling"
@@ -5600,6 +5602,7 @@ wasm = true
 name = "dynamic_mip_generation"
 path = "examples/2d/dynamic_mip_generation.rs"
 doc-scrape-examples = true
+required-features = ["bevy_feathers"]
 
 [package.metadata.example.dynamic_mip_generation]
 name = "Dynamic Mipmap Generation"

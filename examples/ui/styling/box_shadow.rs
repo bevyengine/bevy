@@ -1,488 +1,469 @@
 //! This example shows how to create a node with a shadow and adjust its settings interactively.
 
-use bevy::{color::palettes::css::*, prelude::*, time::Time, window::RequestRedraw};
-
-const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
-const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
-const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
-
-const SHAPE_DEFAULT_SETTINGS: ShapeSettings = ShapeSettings { index: 0 };
-
-const SHADOW_DEFAULT_SETTINGS: ShadowSettings = ShadowSettings {
-    x_offset: 20.0,
-    y_offset: 20.0,
-    blur: 10.0,
-    spread: 15.0,
-    count: 1,
-    samples: 6,
+use crate::number_input_f32::number_input_f32;
+use crate::number_input_i32::number_input_i32;
+use crate::radio::{feathers_option_buttons, main_ui_node_scene, RadioButtonOptionValue};
+use bevy::{
+    color::palettes::css::*,
+    feathers::{
+        containers::{pane, pane_body},
+        controls::{FeathersButton, FeathersNumberInput, NumberInputPrecision, NumberInputValue},
+        dark_theme::create_dark_theme,
+        display::caption,
+        theme::{ThemeProps, UiTheme},
+        tokens::PANE_BODY_BG,
+        FeathersPlugins,
+    },
+    prelude::*,
+    ui_widgets::{radio_self_update, Activate, ValueChange},
 };
 
-const SHAPES: &[(&str, fn(&mut Node))] = &[
-    ("1", |node| {
-        node.width = px(164);
-        node.height = px(164);
-        node.border_radius = BorderRadius::ZERO;
-    }),
-    ("2", |node| {
-        node.width = px(164);
-        node.height = px(164);
-        node.border_radius = BorderRadius::all(px(41));
-    }),
-    ("3", |node| {
-        node.width = px(164);
-        node.height = px(164);
-        node.border_radius = BorderRadius::MAX;
-    }),
-    ("4", |node| {
-        node.width = px(240);
-        node.height = px(80);
-        node.border_radius = BorderRadius::all(px(32));
-    }),
-    ("5", |node| {
-        node.width = px(80);
-        node.height = px(240);
-        node.border_radius = BorderRadius::all(px(32));
-    }),
-];
+#[path = "../../helpers/number_input_f32.rs"]
+mod number_input_f32;
 
-#[derive(Resource, Default)]
-struct ShapeSettings {
-    index: usize,
+#[path = "../../helpers/number_input_i32.rs"]
+mod number_input_i32;
+
+#[path = "../../helpers/radio.rs"]
+mod radio;
+
+/// Shapes that the node displayed on the screen can be.
+#[derive(Component, Clone, Copy, Default, PartialEq)]
+enum Shape {
+    #[default]
+    Square,
+    RoundedSquare,
+    Circle,
+    LongRectangle,
+    TallRectangle,
 }
 
-#[derive(Resource, Default)]
-struct ShadowSettings {
-    x_offset: f32,
-    y_offset: f32,
-    blur: f32,
-    spread: f32,
-    count: usize,
-    samples: u32,
-}
+impl Shape {
+    /// Mutates the `node` to become the given shape.
+    fn change_node(&self, node: &mut Node) {
+        match *self {
+            Self::Square => {
+                node.width = px(164);
+                node.height = px(164);
+                node.border_radius = BorderRadius::ZERO;
+            }
+            Self::RoundedSquare => {
+                node.width = px(164);
+                node.height = px(164);
+                node.border_radius = BorderRadius::all(px(41));
+            }
+            Self::Circle => {
+                node.width = px(164);
+                node.height = px(164);
+                node.border_radius = BorderRadius::MAX;
+            }
+            Self::LongRectangle => {
+                node.width = px(240);
+                node.height = px(80);
+                node.border_radius = BorderRadius::all(px(32));
+            }
+            Self::TallRectangle => {
+                node.width = px(80);
+                node.height = px(240);
+                node.border_radius = BorderRadius::all(px(32));
+            }
+        }
+    }
 
-#[derive(Component)]
-struct ShadowNode;
-
-#[derive(Component, PartialEq, Clone, Copy)]
-enum SettingsButton {
-    XOffsetInc,
-    XOffsetDec,
-    YOffsetInc,
-    YOffsetDec,
-    BlurInc,
-    BlurDec,
-    SpreadInc,
-    SpreadDec,
-    CountInc,
-    CountDec,
-    ShapePrev,
-    ShapeNext,
-    Reset,
-    SamplesInc,
-    SamplesDec,
-}
-
-#[derive(Component, Clone, Copy, PartialEq, Eq, Debug)]
-enum SettingType {
-    XOffset,
-    YOffset,
-    Blur,
-    Spread,
-    Count,
-    Shape,
-    Samples,
-}
-
-impl SettingType {
-    fn label(&self) -> &str {
-        match self {
-            SettingType::XOffset => "X Offset",
-            SettingType::YOffset => "Y Offset",
-            SettingType::Blur => "Blur",
-            SettingType::Spread => "Spread",
-            SettingType::Count => "Count",
-            SettingType::Shape => "Shape",
-            SettingType::Samples => "Samples",
+    /// Returns the name of the shape as a string.
+    const fn label(&self) -> &'static str {
+        match *self {
+            Shape::Square => "Square",
+            Shape::RoundedSquare => "Rounded Square",
+            Shape::Circle => "Circle",
+            Shape::LongRectangle => "Long Rectangle",
+            Shape::TallRectangle => "Tall Rectangle",
         }
     }
 }
 
-#[derive(Resource, Default)]
-struct HeldButton {
-    button: Option<SettingsButton>,
-    pressed_at: Option<f64>,
-    last_repeat: Option<f64>,
+const SHAPE_OPTIONS: [(Shape, &str); 5] = [
+    (Shape::Square, Shape::Square.label()),
+    (Shape::RoundedSquare, Shape::RoundedSquare.label()),
+    (Shape::Circle, Shape::Circle.label()),
+    (Shape::LongRectangle, Shape::LongRectangle.label()),
+    (Shape::TallRectangle, Shape::TallRectangle.label()),
+];
+
+/// Settings that the user can modify within the example.
+#[derive(Resource)]
+struct AppSettings {
+    shape: Shape,
+    // Refer to `ShadowStyle` for information on x_offset, y_offset,
+    // blur (radius), and spread (radius)
+    x_offset: f32,
+    y_offset: f32,
+    blur: f32,
+    spread: f32,
+    /// The number of `BoxShadow`s created
+    count: usize,
+    /// The number of samples used in `BoxShadowSamples`
+    samples: u32,
+}
+
+/// The example initializes with these default settings.
+impl Default for AppSettings {
+    fn default() -> Self {
+        Self {
+            shape: Shape::default(),
+            x_offset: 20.0,
+            y_offset: 20.0,
+            blur: 10.0,
+            spread: 15.0,
+            count: 1,
+            samples: 6,
+        }
+    }
+}
+
+#[derive(Component, Clone, Default)]
+struct ShadowNode;
+
+#[derive(Component, Clone, Default)]
+struct SettingsPanel;
+
+#[derive(Component, Clone, Copy, Default, PartialEq, Eq, Debug)]
+enum AppNumberInputF32 {
+    #[default]
+    XOffset,
+    YOffset,
+    Blur,
+    Spread,
+}
+
+#[derive(Component, Clone, Copy, Default, PartialEq, Eq, Debug)]
+enum AppNumberInputI32 {
+    #[default]
+    Count,
+    Samples,
+}
+
+impl AppNumberInputF32 {
+    fn label(&self) -> &str {
+        match self {
+            AppNumberInputF32::XOffset => "X Offset",
+            AppNumberInputF32::YOffset => "Y Offset",
+            AppNumberInputF32::Blur => "Blur",
+            AppNumberInputF32::Spread => "Spread",
+        }
+    }
+}
+
+impl AppNumberInputI32 {
+    fn label(&self) -> &str {
+        match self {
+            AppNumberInputI32::Count => "Count (1 - 3)",
+            AppNumberInputI32::Samples => "Samples (0 - 15)",
+        }
+    }
 }
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
-        .insert_resource(SHADOW_DEFAULT_SETTINGS)
-        .insert_resource(SHAPE_DEFAULT_SETTINGS)
-        .insert_resource(HeldButton::default())
+        .add_plugins((DefaultPlugins, FeathersPlugins))
+        .insert_resource(UiTheme(get_example_theme()))
+        .init_resource::<AppSettings>()
         .add_systems(Startup, setup)
-        .add_systems(
-            Update,
-            (
-                button_system,
-                button_color_system,
-                update_shape.run_if(resource_changed::<ShapeSettings>),
-                update_shadow.run_if(resource_changed::<ShadowSettings>),
-                update_shadow_samples.run_if(resource_changed::<ShadowSettings>),
-                button_repeat_system,
-            ),
-        )
+        .add_observer(on_value_change_i32_update_shadow)
+        .add_observer(on_value_change_f32_update_shadow)
+        .add_observer(on_value_change_update_shape)
+        .add_observer(radio_self_update)
         .run();
 }
 
 // --- UI Setup ---
-fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    shadow: Res<ShadowSettings>,
-    shape: Res<ShapeSettings>,
-) {
-    commands.spawn((Camera2d, BoxShadowSamples(shadow.samples)));
-    // Spawn shape node
-    commands
-        .spawn((
-            Node {
-                width: percent(100),
-                height: percent(100),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                ..default()
-            },
-            BackgroundColor(GRAY.into()),
-        ))
-        .insert(children![{
-            let mut node = Node {
-                width: px(164),
-                height: px(164),
-                border: UiRect::all(px(1)),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                border_radius: BorderRadius::ZERO,
-                ..default()
-            };
-            SHAPES[shape.index % SHAPES.len()].1(&mut node);
+fn setup(mut commands: Commands, app_settings: Res<AppSettings>) {
+    // create shape node
+    let mut node = Node {
+        width: px(164),
+        height: px(164),
+        border: UiRect::all(px(1)),
+        align_items: AlignItems::Center,
+        justify_content: JustifyContent::Center,
+        border_radius: BorderRadius::ZERO,
+        ..default()
+    };
+    app_settings.shape.change_node(&mut node);
 
-            (
-                node,
-                BorderColor::all(WHITE),
-                BackgroundColor(Color::srgb(0.21, 0.21, 0.21)),
-                BoxShadow(vec![ShadowStyle {
-                    color: Color::BLACK.with_alpha(0.8),
-                    x_offset: px(shadow.x_offset),
-                    y_offset: px(shadow.y_offset),
-                    spread_radius: px(shadow.spread),
-                    blur_radius: px(shadow.blur),
-                }]),
-                ShadowNode,
-            )
-        }]);
+    commands.spawn_scene_list(bsn_list! {
+        // Camera
+        Camera2d
+        BoxShadowSamples({app_settings.samples}),
 
-    // Settings Panel
-    commands
-        .spawn((
-            Node {
-                flex_direction: FlexDirection::Column,
-                position_type: PositionType::Absolute,
-                left: px(24),
-                bottom: px(24),
-                width: px(270),
-                padding: UiRect::all(px(16)),
-                border_radius: BorderRadius::all(px(12)),
-                ..default()
-            },
-            BackgroundColor(Color::srgb(0.12, 0.12, 0.12).with_alpha(0.85)),
-            BorderColor::all(Color::WHITE.with_alpha(0.15)),
-            ZIndex(10),
-        ))
-        .insert(children![
-            build_setting_row(
-                SettingType::Shape,
-                SettingsButton::ShapePrev,
-                SettingsButton::ShapeNext,
-                shape.index as f32,
-                &asset_server,
-            ),
-            build_setting_row(
-                SettingType::XOffset,
-                SettingsButton::XOffsetDec,
-                SettingsButton::XOffsetInc,
-                shadow.x_offset,
-                &asset_server,
-            ),
-            build_setting_row(
-                SettingType::YOffset,
-                SettingsButton::YOffsetDec,
-                SettingsButton::YOffsetInc,
-                shadow.y_offset,
-                &asset_server,
-            ),
-            build_setting_row(
-                SettingType::Blur,
-                SettingsButton::BlurDec,
-                SettingsButton::BlurInc,
-                shadow.blur,
-                &asset_server,
-            ),
-            build_setting_row(
-                SettingType::Spread,
-                SettingsButton::SpreadDec,
-                SettingsButton::SpreadInc,
-                shadow.spread,
-                &asset_server,
-            ),
-            build_setting_row(
-                SettingType::Count,
-                SettingsButton::CountDec,
-                SettingsButton::CountInc,
-                shadow.count as f32,
-                &asset_server,
-            ),
-            // Add BoxShadowSamples as a setting row
-            build_setting_row(
-                SettingType::Samples,
-                SettingsButton::SamplesDec,
-                SettingsButton::SamplesInc,
-                shadow.samples as f32,
-                &asset_server,
-            ),
-            // Reset button
-            (
-                Node {
-                    flex_direction: FlexDirection::Row,
-                    align_items: AlignItems::Center,
-                    height: px(36),
-                    margin: UiRect::top(px(12)),
-                    ..default()
-                },
-                children![(
-                    Button,
-                    Node {
-                        width: px(90),
-                        height: px(32),
-                        justify_content: JustifyContent::Center,
-                        align_items: AlignItems::Center,
-                        border_radius: BorderRadius::all(px(8)),
-                        ..default()
-                    },
-                    BackgroundColor(NORMAL_BUTTON),
-                    SettingsButton::Reset,
-                    children![(
-                        Text::new("Reset"),
-                        TextFont {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
-                            font_size: FontSize::Px(16.0),
-                            ..default()
-                        },
-                    )],
-                )],
-            ),
-        ]);
+        // Centered shape with shadow
+        Node {
+            width: percent(100),
+            height: percent(100),
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
+        }
+        BackgroundColor(GRAY)
+        Children [
+            template_value(node)
+            BorderColor::all(WHITE)
+            BackgroundColor(Color::srgb(0.21, 0.21, 0.21))
+            BoxShadow(vec![ShadowStyle {
+                color: Color::BLACK.with_alpha(0.8),
+                x_offset: px(app_settings.x_offset),
+                y_offset: px(app_settings.y_offset),
+                spread_radius: px(app_settings.spread),
+                blur_radius: px(app_settings.blur),
+            }])
+            ShadowNode
+        ],
+
+        settings_panel_scene(&app_settings),
+    });
 }
 
-// --- UI Helper Functions ---
+fn settings_panel_scene(app_settings: &AppSettings) -> impl Scene {
+    let selected_shape_index = SHAPE_OPTIONS
+        .iter()
+        .enumerate()
+        .find(|(_, (shape, _))| *shape == app_settings.shape)
+        // default is set to the length of the array, which will be interpreted as "no option is set"
+        .map_or(SHAPE_OPTIONS.len(), |(index, _)| index);
 
-// Helper to return an input to the children! macro for a setting row
-fn build_setting_row(
-    setting_type: SettingType,
-    dec: SettingsButton,
-    inc: SettingsButton,
-    value: f32,
-    asset_server: &Res<AssetServer>,
-) -> impl Bundle {
-    let value_text = match setting_type {
-        SettingType::Shape => SHAPES[value as usize % SHAPES.len()].0.to_string(),
-        SettingType::Count => format!("{}", value as usize),
-        _ => format!("{value:.1}"),
-    };
+    bsn! {
+        SettingsPanel
+        ZIndex(10)
+        pane()
+        main_ui_node_scene()
+        Children [
+            pane_body()
+            Children [
+                feathers_option_buttons(
+                    "Shape",
+                    &SHAPE_OPTIONS,
+                    selected_shape_index,
+                ),
+                number_input_f32(
+                    AppNumberInputF32::XOffset.label(),
+                    Some(AppNumberInputF32::XOffset),
+                    app_settings.x_offset,
+                    NumberInputPrecision(0),
+                    -200. ..200.
+                ),
+                number_input_f32(
+                    AppNumberInputF32::YOffset.label(),
+                    Some(AppNumberInputF32::YOffset),
+                    app_settings.y_offset,
+                    NumberInputPrecision(0),
+                    -200. ..200.
+                ),
+                number_input_f32(
+                    AppNumberInputF32::Blur.label(),
+                    Some(AppNumberInputF32::Blur),
+                    app_settings.blur,
+                    NumberInputPrecision(0),
+                    0. ..100.
+                ),
+                number_input_f32(
+                    AppNumberInputF32::Spread.label(),
+                    Some(AppNumberInputF32::Spread),
+                    app_settings.spread,
+                    NumberInputPrecision(0),
+                    -200. ..200.
+                ),
+                number_input_i32(
+                    AppNumberInputI32::Count.label(),
+                    Some(AppNumberInputI32::Count),
+                    app_settings.count as i32,
+                    NumberInputPrecision(0),
+                    1..3
+                ),
+                number_input_i32(
+                    AppNumberInputI32::Samples.label(),
+                    Some(AppNumberInputI32::Samples),
+                    app_settings.samples as i32,
+                    NumberInputPrecision(0),
+                    1..15
+                ),
+                // Reset button
+                @FeathersButton {
+                    @caption: bsn! { caption("Reset") }
+                }
+                on(on_activate_reset)
+            ]
+        ]
+    }
+}
 
-    (
-        Node {
-            flex_direction: FlexDirection::Row,
-            align_items: AlignItems::Center,
-            height: px(32),
-            ..default()
-        },
-        children![
-            (
-                Node {
-                    width: px(80),
-                    justify_content: JustifyContent::FlexEnd,
-                    align_items: AlignItems::Center,
-                    ..default()
-                },
-                // Attach SettingType to the value label node, not the parent row
-                children![(
-                    Text::new(setting_type.label()),
-                    TextFont {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
-                        font_size: FontSize::Px(16.0),
-                        ..default()
-                    },
-                )],
-            ),
-            (
-                Button,
-                Node {
-                    width: px(28),
-                    height: px(28),
-                    margin: UiRect::left(px(8)),
-                    justify_content: JustifyContent::Center,
-                    align_items: AlignItems::Center,
-                    border_radius: BorderRadius::all(px(6)),
-                    ..default()
-                },
-                BackgroundColor(Color::WHITE),
-                dec,
-                children![(
-                    Text::new(if setting_type == SettingType::Shape {
-                        "<"
-                    } else {
-                        "-"
-                    }),
-                    TextFont {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
-                        font_size: FontSize::Px(18.0),
-                        ..default()
-                    },
-                )],
-            ),
-            (
-                Node {
-                    width: px(48),
-                    height: px(28),
-                    margin: UiRect::horizontal(px(8)),
-                    justify_content: JustifyContent::Center,
-                    align_items: AlignItems::Center,
-                    border_radius: BorderRadius::all(px(6)),
-                    ..default()
-                },
-                children![{
-                    (
-                        Text::new(value_text),
-                        TextFont {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
-                            font_size: FontSize::Px(16.0),
-                            ..default()
-                        },
-                        setting_type,
-                    )
-                }],
-            ),
-            (
-                Button,
-                Node {
-                    width: px(28),
-                    height: px(28),
-                    justify_content: JustifyContent::Center,
-                    align_items: AlignItems::Center,
-                    border_radius: BorderRadius::all(px(6)),
-                    ..default()
-                },
-                BackgroundColor(Color::WHITE),
-                inc,
-                children![(
-                    Text::new(if setting_type == SettingType::Shape {
-                        ">"
-                    } else {
-                        "+"
-                    }),
-                    TextFont {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
-                        font_size: FontSize::Px(18.0),
-                        ..default()
-                    },
-                )],
-            ),
-        ],
-    )
+fn get_example_theme() -> ThemeProps {
+    let mut props = create_dark_theme();
+    // Pane background color is made a little transparent to see the objects behind the setting controls.
+    if let Some(color) = props.color.get_mut(&PANE_BODY_BG) {
+        color.set_alpha(0.9);
+    }
+    props
 }
 
 // --- SYSTEMS ---
 
-// Update the shadow node's BoxShadow on resource changes
-fn update_shadow(
-    shadow: Res<ShadowSettings>,
-    mut query: Query<&mut BoxShadow, With<ShadowNode>>,
-    mut label_query: Query<(&mut Text, &SettingType)>,
+/// Update the shadow node's `BoxShadow` or the camera's `BoxShadowSamples` on any change to the i32 number inputs.
+fn on_value_change_i32_update_shadow(
+    value_change: On<ValueChange<i32>>,
+    number_input_q: Query<&AppNumberInputI32, With<FeathersNumberInput>>,
+    mut commands: Commands,
+    mut app_settings: ResMut<AppSettings>,
+    mut box_shadow_q: Query<&mut BoxShadow, With<ShadowNode>>,
+    mut samples_q: Query<&mut BoxShadowSamples, With<Camera2d>>,
 ) {
-    for mut box_shadow in &mut query {
-        *box_shadow = BoxShadow(generate_shadows(&shadow));
+    if let Ok(app_number_input_i32) = number_input_q.get(value_change.source) {
+        match app_number_input_i32 {
+            AppNumberInputI32::Count => {
+                app_settings.count = value_change.value as usize;
+                for mut box_shadow in &mut box_shadow_q {
+                    *box_shadow = BoxShadow(generate_shadows(&app_settings));
+                }
+            }
+            AppNumberInputI32::Samples => {
+                app_settings.samples = value_change.value as u32;
+                for mut samples in &mut samples_q {
+                    samples.0 = app_settings.samples;
+                }
+            }
+        }
     }
-    // Update value labels for shadow settings
-    for (mut text, setting) in &mut label_query {
-        let value = match setting {
-            SettingType::XOffset => format!("{:.1}", shadow.x_offset),
-            SettingType::YOffset => format!("{:.1}", shadow.y_offset),
-            SettingType::Blur => format!("{:.1}", shadow.blur),
-            SettingType::Spread => format!("{:.1}", shadow.spread),
-            SettingType::Count => format!("{}", shadow.count),
-            SettingType::Shape => continue,
-            SettingType::Samples => format!("{}", shadow.samples),
-        };
-        *text = Text::new(value);
+
+    commands
+        .entity(value_change.source)
+        .insert(NumberInputValue::I32(value_change.value));
+}
+
+/// Update the shadow node's `BoxShadow` on any change to the f32 number inputs.
+fn on_value_change_f32_update_shadow(
+    value_change: On<ValueChange<f32>>,
+    number_input_q: Query<&AppNumberInputF32, With<FeathersNumberInput>>,
+    mut commands: Commands,
+    mut app_settings: ResMut<AppSettings>,
+    mut box_shadow_q: Query<&mut BoxShadow, With<ShadowNode>>,
+) {
+    if let Ok(app_number_input_i32) = number_input_q.get(value_change.source) {
+        match app_number_input_i32 {
+            AppNumberInputF32::XOffset => {
+                app_settings.x_offset = value_change.value;
+            }
+            AppNumberInputF32::YOffset => {
+                app_settings.y_offset = value_change.value;
+            }
+            AppNumberInputF32::Blur => {
+                app_settings.blur = value_change.value;
+            }
+            AppNumberInputF32::Spread => {
+                app_settings.spread = value_change.value;
+            }
+        }
+        for mut box_shadow in &mut box_shadow_q {
+            *box_shadow = BoxShadow(generate_shadows(&app_settings));
+        }
+    }
+
+    commands
+        .entity(value_change.source)
+        .insert(NumberInputValue::F32(value_change.value));
+}
+
+/// Update shape of `ShadowNode` if shape selection has changed
+fn on_value_change_update_shape(
+    event: On<ValueChange<Entity>>,
+    new_value_query: Query<&RadioButtonOptionValue<Shape>>,
+    mut app_settings: ResMut<AppSettings>,
+    mut node_q: Query<&mut Node, With<ShadowNode>>,
+) {
+    let Ok(RadioButtonOptionValue(shape)) = new_value_query.get(event.value) else {
+        return;
+    };
+    app_settings.shape = *shape;
+
+    for mut node in &mut node_q {
+        app_settings.shape.change_node(&mut node);
     }
 }
 
-fn update_shadow_samples(
-    shadow: Res<ShadowSettings>,
-    mut query: Query<&mut BoxShadowSamples, With<Camera2d>>,
+/// If the reset button was activated, reset app settings to default values.
+/// This observer is placed directly on the reset button.
+fn on_activate_reset(
+    _event: On<Activate>,
+    mut commands: Commands,
+    mut app_settings: ResMut<AppSettings>,
+    settings_panel_q: Single<Entity, With<SettingsPanel>>,
+    mut node_q: Query<&mut Node, With<ShadowNode>>,
+    mut box_shadow_q: Query<&mut BoxShadow, With<ShadowNode>>,
+    mut samples_q: Query<&mut BoxShadowSamples, With<Camera2d>>,
 ) {
-    for mut samples in &mut query {
-        samples.0 = shadow.samples;
+    *app_settings = AppSettings::default();
+
+    // Reset the settings panel. It is quicker to do this
+    // than to go through every field and setting the fields correctly.
+    commands.entity(settings_panel_q.entity()).despawn();
+    commands.spawn_scene(settings_panel_scene(&app_settings));
+
+    // Do a full refresh of the box and its shadows.
+    for mut node in &mut node_q {
+        app_settings.shape.change_node(&mut node);
+    }
+
+    for mut box_shadow in &mut box_shadow_q {
+        *box_shadow = BoxShadow(generate_shadows(&app_settings));
+    }
+
+    for mut samples in &mut samples_q {
+        samples.0 = app_settings.samples;
     }
 }
 
-fn generate_shadows(shadow: &ShadowSettings) -> Vec<ShadowStyle> {
-    match shadow.count {
+fn generate_shadows(app_settings: &AppSettings) -> Vec<ShadowStyle> {
+    match app_settings.count {
         1 => vec![make_shadow(
             BLACK.into(),
-            shadow.x_offset,
-            shadow.y_offset,
-            shadow.spread,
-            shadow.blur,
+            app_settings.x_offset,
+            app_settings.y_offset,
+            app_settings.spread,
+            app_settings.blur,
         )],
         2 => vec![
             make_shadow(
                 BLUE.into(),
-                shadow.x_offset,
-                shadow.y_offset,
-                shadow.spread,
-                shadow.blur,
+                app_settings.x_offset,
+                app_settings.y_offset,
+                app_settings.spread,
+                app_settings.blur,
             ),
             make_shadow(
                 YELLOW.into(),
-                -shadow.x_offset,
-                -shadow.y_offset,
-                shadow.spread,
-                shadow.blur,
+                -app_settings.x_offset,
+                -app_settings.y_offset,
+                app_settings.spread,
+                app_settings.blur,
             ),
         ],
         3 => vec![
             make_shadow(
                 BLUE.into(),
-                shadow.x_offset,
-                shadow.y_offset,
-                shadow.spread,
-                shadow.blur,
+                app_settings.x_offset,
+                app_settings.y_offset,
+                app_settings.spread,
+                app_settings.blur,
             ),
             make_shadow(
                 YELLOW.into(),
-                -shadow.x_offset,
-                -shadow.y_offset,
-                shadow.spread,
-                shadow.blur,
+                -app_settings.x_offset,
+                -app_settings.y_offset,
+                app_settings.spread,
+                app_settings.blur,
             ),
             make_shadow(
                 RED.into(),
-                shadow.y_offset,
-                -shadow.x_offset,
-                shadow.spread,
-                shadow.blur,
+                app_settings.y_offset,
+                -app_settings.x_offset,
+                app_settings.spread,
+                app_settings.blur,
             ),
         ],
         _ => vec![],
@@ -496,140 +477,5 @@ fn make_shadow(color: Color, x_offset: f32, y_offset: f32, spread: f32, blur: f3
         y_offset: px(y_offset),
         spread_radius: px(spread),
         blur_radius: px(blur),
-    }
-}
-
-// Update shape of ShadowNode if shape selection changed
-fn update_shape(
-    shape: Res<ShapeSettings>,
-    mut query: Query<&mut Node, With<ShadowNode>>,
-    mut label_query: Query<(&mut Text, &SettingType)>,
-) {
-    for mut node in &mut query {
-        SHAPES[shape.index % SHAPES.len()].1(&mut node);
-    }
-    for (mut text, kind) in &mut label_query {
-        if *kind == SettingType::Shape {
-            *text = Text::new(SHAPES[shape.index % SHAPES.len()].0);
-        }
-    }
-}
-
-// Handles button interactions for all settings
-fn button_system(
-    mut interaction_query: Query<
-        (&Interaction, &SettingsButton),
-        (Changed<Interaction>, With<Button>),
-    >,
-    mut shadow: ResMut<ShadowSettings>,
-    mut shape: ResMut<ShapeSettings>,
-    mut held: ResMut<HeldButton>,
-    time: Res<Time>,
-) {
-    let now = time.elapsed_secs_f64();
-    for (interaction, btn) in &mut interaction_query {
-        match *interaction {
-            Interaction::Pressed => {
-                trigger_button_action(btn, &mut shadow, &mut shape);
-                held.button = Some(*btn);
-                held.pressed_at = Some(now);
-                held.last_repeat = Some(now);
-            }
-            Interaction::None | Interaction::Hovered => {
-                if held.button == Some(*btn) {
-                    held.button = None;
-                    held.pressed_at = None;
-                    held.last_repeat = None;
-                }
-            }
-        }
-    }
-}
-
-fn trigger_button_action(
-    btn: &SettingsButton,
-    shadow: &mut ShadowSettings,
-    shape: &mut ShapeSettings,
-) {
-    match btn {
-        SettingsButton::XOffsetInc => shadow.x_offset += 1.0,
-        SettingsButton::XOffsetDec => shadow.x_offset -= 1.0,
-        SettingsButton::YOffsetInc => shadow.y_offset += 1.0,
-        SettingsButton::YOffsetDec => shadow.y_offset -= 1.0,
-        SettingsButton::BlurInc => shadow.blur = (shadow.blur + 1.0).max(0.0),
-        SettingsButton::BlurDec => shadow.blur = (shadow.blur - 1.0).max(0.0),
-        SettingsButton::SpreadInc => shadow.spread += 1.0,
-        SettingsButton::SpreadDec => shadow.spread -= 1.0,
-        SettingsButton::CountInc => {
-            if shadow.count < 3 {
-                shadow.count += 1;
-            }
-        }
-        SettingsButton::CountDec => {
-            if shadow.count > 1 {
-                shadow.count -= 1;
-            }
-        }
-        SettingsButton::ShapePrev => {
-            if shape.index == 0 {
-                shape.index = SHAPES.len() - 1;
-            } else {
-                shape.index -= 1;
-            }
-        }
-        SettingsButton::ShapeNext => {
-            shape.index = (shape.index + 1) % SHAPES.len();
-        }
-        SettingsButton::Reset => {
-            *shape = SHAPE_DEFAULT_SETTINGS;
-            *shadow = SHADOW_DEFAULT_SETTINGS;
-        }
-        SettingsButton::SamplesInc => shadow.samples += 1,
-        SettingsButton::SamplesDec => {
-            if shadow.samples > 1 {
-                shadow.samples -= 1;
-            }
-        }
-    }
-}
-
-// System to repeat button action while held
-fn button_repeat_system(
-    time: Res<Time>,
-    mut held: ResMut<HeldButton>,
-    mut shadow: ResMut<ShadowSettings>,
-    mut shape: ResMut<ShapeSettings>,
-    mut request_redraw_writer: MessageWriter<RequestRedraw>,
-) {
-    if held.button.is_some() {
-        request_redraw_writer.write(RequestRedraw);
-    }
-    const INITIAL_DELAY: f64 = 0.15;
-    const REPEAT_RATE: f64 = 0.08;
-    if let (Some(btn), Some(pressed_at)) = (held.button, held.pressed_at) {
-        let now = time.elapsed_secs_f64();
-        let since_pressed = now - pressed_at;
-        let last_repeat = held.last_repeat.unwrap_or(pressed_at);
-        let since_last = now - last_repeat;
-        if since_pressed > INITIAL_DELAY && since_last > REPEAT_RATE {
-            trigger_button_action(&btn, &mut shadow, &mut shape);
-            held.last_repeat = Some(now);
-        }
-    }
-}
-
-// Changes color of button on hover and on pressed
-fn button_color_system(
-    mut query: Query<
-        (&Interaction, &mut BackgroundColor),
-        (Changed<Interaction>, With<Button>, With<SettingsButton>),
-    >,
-) {
-    for (interaction, mut color) in &mut query {
-        match *interaction {
-            Interaction::Pressed => *color = PRESSED_BUTTON.into(),
-            Interaction::Hovered => *color = HOVERED_BUTTON.into(),
-            Interaction::None => *color = NORMAL_BUTTON.into(),
-        }
     }
 }

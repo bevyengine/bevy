@@ -21,15 +21,15 @@ use bevy::{
     ui_widgets::ValueChange,
 };
 use light_consts::lux::{AMBIENT_DAYLIGHT, CLEAR_SUNRISE};
-use number_input::number_input_f32;
+use number_input_f32::number_input_f32;
 use ops::{acos, cos, sin};
 use radio::{feathers_option_buttons, main_ui_node_scene, RadioButtonOptionValue};
 
 #[path = "../helpers/radio.rs"]
 mod radio;
 
-#[path = "../helpers/number_input.rs"]
-mod number_input;
+#[path = "../helpers/number_input_f32.rs"]
+mod number_input_f32;
 
 #[path = "../helpers/theme.rs"]
 mod theme;
@@ -283,6 +283,7 @@ fn spawn_buttons(commands: &mut Commands) {
                     (Selection::PointLight, "Point Light"),
                     (Selection::DirectionalLight, "Directional Light"),
                 ],
+                0,
             ),
 
             // Camera's visibility cannot be toggled.
@@ -293,6 +294,7 @@ fn spawn_buttons(commands: &mut Commands) {
                     (Visibility::Inherited, "Show"),
                     (Visibility::Hidden, "Hide"),
                 ],
+                0,
             ),
 
             // The number inputs start off hidden because Camera is selected first.
