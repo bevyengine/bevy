@@ -14,7 +14,6 @@ use bevy_ecs_macros::Event;
 use bevy_platform::{
     collections::{HashMap, HashSet},
     hash::FixedHasher,
-    sync::Arc,
 };
 use bevy_utils::{default, TypeIdMap};
 use core::{
@@ -25,7 +24,7 @@ use fixedbitset::FixedBitSet;
 use indexmap::{IndexMap, IndexSet};
 use log::{info, warn};
 use pass::ScheduleBuildPassObj;
-use rand::seq::SliceRandom;
+use rand::{seq::SliceRandom, SeedableRng};
 use thiserror::Error;
 #[cfg(feature = "trace")]
 use tracing::info_span;
@@ -1253,11 +1252,13 @@ impl ScheduleGraph {
         }
         self.passes = passes;
 
-        if let Some(shuffler) = self.settings.shuffler.as_ref()
-            && let Some(mut shuffler) = shuffler()
-        {
+        if let Some(shuffle_seed) = self.settings.shuffle_seed {
+            // There's nothing special about this Rng implementation, other than the fact that it is
+            // not feature-gated.
+            let mut rng = rand::rngs::Xoshiro128PlusPlus::seed_from_u64(shuffle_seed);
+
             let mut nodes = flat_dependency.graph().nodes().collect::<Vec<_>>();
-            nodes.shuffle(&mut shuffler);
+            nodes.shuffle(&mut rng);
             let mut new_flat_dependency = Dag::new();
             for &node in &nodes {
                 new_flat_dependency.add_node(node);
@@ -1620,7 +1621,7 @@ pub enum LogLevel {
 }
 
 /// Specifies miscellaneous settings for schedule construction.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ScheduleBuildSettings {
     /// Determines whether the presence of ambiguities (systems with conflicting access but indeterminate order)
     /// is only logged or also results in an [`Ambiguity`](ScheduleBuildWarning::Ambiguity)
@@ -1652,44 +1653,19 @@ pub struct ScheduleBuildSettings {
     ///
     /// Defaults to `true`.
     pub report_sets: bool,
-    /// If [`Some`], systems will be shuffled according to the provided shuffler.
-    ///
-    /// In effect, this is a factory that produces [`rand::Rng`] that can be used for shuffling
-    /// systems. If the factory returns [`None`] shuffling is skipped.
+    /// If [`Some`], systems will be shuffled according to the given seed.
     ///
     /// This allows randomizing the order of systems (while still satisfying ordering constraints),
     /// which is useful for ensuring that ordering constraints are more likely to be correct (i.e.,
     /// if you spot erroneous behavior when shuffling, that is an indication that the "default"
     /// ordering is correct by chance, meaning your ordering constraints are not sufficient).
     ///
-    /// Note: Modifying a schedule after building will result in a second shuffle when the schedule
-    /// is rebuilt.
-    ///
     /// Defaults to [`None`].
     // TODO: Currently, `auto_insert_apply_deferred` will prevent stages from being truly shuffled.
     // `auto_insert_apply_deferred` always prefers to put systems at the lowest "sync point depth"
     // that it can, but this means we can't shuffle deeper systems with shallower systems, despite
     // the fact their constraints allow that.
-    pub shuffler: Option<Arc<dyn Fn() -> Option<Box<dyn rand::Rng>> + Send + Sync + 'static>>,
-}
-
-impl Debug for ScheduleBuildSettings {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("ScheduleBuildSettings")
-            .field("ambiguity_detection", &self.ambiguity_detection)
-            .field("hierarchy_detection", &self.hierarchy_detection)
-            .field(
-                "auto_insert_apply_deferred",
-                &self.auto_insert_apply_deferred,
-            )
-            .field("use_shortnames", &self.use_shortnames)
-            .field("report_sets", &self.report_sets)
-            .field(
-                "shuffler",
-                &if self.shuffler.is_some() { "yes" } else { "no" },
-            )
-            .finish()
-    }
+    pub shuffle_seed: Option<u64>,
 }
 
 impl Default for ScheduleBuildSettings {
@@ -1708,7 +1684,7 @@ impl ScheduleBuildSettings {
             auto_insert_apply_deferred: true,
             use_shortnames: true,
             report_sets: true,
-            shuffler: None,
+            shuffle_seed: None,
         }
     }
 }
@@ -1745,12 +1721,10 @@ pub struct ScheduleNotInitialized;
 
 #[cfg(test)]
 mod tests {
-    use alloc::{boxed::Box, vec, vec::Vec};
+    use alloc::{vec, vec::Vec};
     use core::any::TypeId;
-    use rand::SeedableRng;
 
     use bevy_ecs_macros::ScheduleLabel;
-    use bevy_platform::sync::Arc;
 
     use crate::{
         error::{ignore, panic, FallbackErrorHandler, Result},
@@ -2793,9 +2767,7 @@ mod tests {
 
     #[test]
     fn schedule_builds_randomly_with_shuffler() {
-        fn run_schedule_with_shuffler(
-            shuffler: Option<Arc<dyn Fn() -> Option<Box<dyn rand::Rng>> + Send + Sync + 'static>>,
-        ) -> Vec<u32> {
+        fn run_schedule_with_shuffler(shuffle_seed: Option<u64>) -> Vec<u32> {
             #[derive(Resource, Default)]
             struct Counters(Vec<u32>);
 
@@ -2818,7 +2790,7 @@ mod tests {
             schedule.add_systems((system::<20>, system::<21>).after(system::<10>));
 
             schedule.set_build_settings(ScheduleBuildSettings {
-                shuffler,
+                shuffle_seed,
                 ..Default::default()
             });
 
@@ -2838,47 +2810,38 @@ mod tests {
             );
         }
 
-        let make_shuffler =
-            |seed| -> Arc<dyn Fn() -> Option<Box<dyn rand::Rng>> + Send + Sync + 'static> {
-                Arc::new(move || {
-                    Some(Box::new(rand::rngs::Xoshiro128PlusPlus::seed_from_u64(
-                        seed,
-                    )))
-                })
-            };
-
         // With the right seed, we can find every ordering that satisfies the ordering constraints.
         // This is every valid permutation of these ordering constraints.
         assert_eq!(
-            run_schedule_with_shuffler(Some(make_shuffler(100000001))),
+            run_schedule_with_shuffler(Some(100000001)),
             [0, 10, 20, 21, 11]
         );
         assert_eq!(
-            run_schedule_with_shuffler(Some(make_shuffler(100000030))),
+            run_schedule_with_shuffler(Some(100000030)),
             [0, 10, 21, 20, 11]
         );
         assert_eq!(
-            run_schedule_with_shuffler(Some(make_shuffler(100000020))),
+            run_schedule_with_shuffler(Some(100000020)),
             [0, 10, 20, 11, 21]
         );
         assert_eq!(
-            run_schedule_with_shuffler(Some(make_shuffler(100000063))),
+            run_schedule_with_shuffler(Some(100000063)),
             [0, 10, 21, 11, 20]
         );
         assert_eq!(
-            run_schedule_with_shuffler(Some(make_shuffler(100000003))),
+            run_schedule_with_shuffler(Some(100000003)),
             [0, 10, 11, 20, 21]
         );
         assert_eq!(
-            run_schedule_with_shuffler(Some(make_shuffler(100000080))),
+            run_schedule_with_shuffler(Some(100000080)),
             [0, 10, 11, 21, 20]
         );
         assert_eq!(
-            run_schedule_with_shuffler(Some(make_shuffler(100000000))),
+            run_schedule_with_shuffler(Some(100000000)),
             [0, 11, 10, 20, 21]
         );
         assert_eq!(
-            run_schedule_with_shuffler(Some(make_shuffler(100000004))),
+            run_schedule_with_shuffler(Some(100000004)),
             [0, 11, 10, 21, 20]
         );
 

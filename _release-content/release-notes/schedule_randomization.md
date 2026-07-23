@@ -16,8 +16,8 @@ unrelated change to the graph might suddenly put it in the wrong order. This pro
 difficult to detect.
 
 Introducing schedule randomization! This will randomize the order of systems while maintaining any
-explicit system ordering constraints. `ScheduleBuildSettings` now includes a `shuffler` field, that
-users can set to randomize their schedules. For example:
+explicit system ordering constraints. `ScheduleBuildSettings` now includes a `shuffle_seed` field,
+that users can set to randomize their schedules. For example:
 
 ```rust
 App::new()
@@ -28,9 +28,7 @@ App::new()
         // Consider logging out the seed, so you can reproduce the error if you find a bug!
         info!("Randomizing Update schedule with seed={rng_seed}");
         schedule.set_build_settings(ScheduleBuildSettings {
-            shuffler: Some(Arc::new(move || Some(Box::new(
-                rand::rngs::Xoshiro128PlusPlus::seed_from_u64(rng_seed)
-            )))),
+            shuffle_seed: Some(rng_seed),
             ..Default::default()
         });
     })
