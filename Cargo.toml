@@ -4919,7 +4919,7 @@ wasm = true
 name = "clearcoat"
 path = "examples/3d/clearcoat.rs"
 doc-scrape-examples = true
-required-features = ["pbr_multi_layer_material_textures"]
+required-features = ["pbr_multi_layer_material_textures", "bevy_feathers"]
 
 [package.metadata.example.clearcoat]
 name = "Clearcoat"
