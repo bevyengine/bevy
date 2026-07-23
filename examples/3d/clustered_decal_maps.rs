@@ -101,7 +101,7 @@ enum AppSetting {
 
 impl Default for AppSetting {
     fn default() -> Self {
-        return Self::EmissiveDecals(false);
+        Self::EmissiveDecals(false)
     }
 }
 
