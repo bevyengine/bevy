@@ -952,6 +952,20 @@ impl ViewTarget {
     /// [`ViewTarget`]'s main texture to the `destination` texture, so the caller
     /// _must_ ensure `source` is copied to `destination`, with or without modifications.
     /// Failing to do so will cause the current main texture information to be lost.
+    ///
+    /// # Ordering requirement
+    ///
+    /// Multiple systems that call `post_process_write()` on the same view must be
+    /// **explicitly ordered** relative to each other (e.g. with
+    /// `.before(tonemapping)` or `.after(tonemapping)`). If multiple unordered
+    /// systems call this method in the same `Core3dSystems::PostProcess` set, the
+    /// internal texture swap (atomic `fetch_xor`) races and produces silent
+    /// corruption — typically a flat gray frame in HDR mode.
+    ///
+    /// Built-in systems are already ordered: `bloom` runs `.before(tonemapping)`,
+    /// `fxaa` and `smaa` run `.after(tonemapping)`. Custom post-process effects
+    /// must follow the same pattern. See the `custom_post_processing` example.
+    ///
     pub fn post_process_write(&self) -> PostProcessWrite<'_> {
         let old_is_a_main_texture = self.main_texture.fetch_xor(1, Ordering::SeqCst);
         // if the old main texture is a, then the post processing must write from a to b
