@@ -17,9 +17,6 @@ webgpu = []
 bevy_pbr = { path = "../bevy_pbr", version = "0.20.0-dev", optional = true }
 bevy_sprite_render = { path = "../bevy_sprite_render", version = "0.20.0-dev", optional = true }
 bevy_app = { path = "../bevy_app", version = "0.20.0-dev" }
-bevy_ui = { path = "../bevy_ui", version = "0.20.0-dev" }
-bevy_light = { path = "../bevy_light", version = "0.20.0-dev" }
-bevy_sprite = { path = "../bevy_sprite", version = "0.20.0-dev" }
 bevy_gizmos = { path = "../bevy_gizmos", version = "0.20.0-dev" }
 bevy_camera = { path = "../bevy_camera", version = "0.20.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.20.0-dev" }

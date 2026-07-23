@@ -325,6 +325,7 @@ impl Plugin for MainSchedulePlugin {
             .init_resource::<FixedMainScheduleOrder>()
             .add_systems(Main, Main::run_main)
             .add_systems(FixedMain, FixedMain::run_fixed_main)
+            .configure_sets(PostUpdate, GizmoRenderStep)
             .configure_sets(
                 RunFixedMainLoop,
                 (
@@ -490,3 +491,9 @@ pub enum RunFixedMainLoopSystems {
     /// ```
     AfterFixedMainLoop,
 }
+
+/// A System set that runs all systems needed to render gizmos to the screen.
+/// This is used for some of Bevy's gizmos, and should be used when rendering
+/// custom gizmos.
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
+pub struct GizmoRenderStep;
