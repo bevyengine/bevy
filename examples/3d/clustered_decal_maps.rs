@@ -7,17 +7,19 @@ use bevy::{
     asset::io::web::WebAssetPlugin,
     camera::Hdr,
     color::palettes::css::{CRIMSON, GOLD},
+    feathers::{dark_theme::create_dark_theme, theme::UiTheme, FeathersPlugins},
     image::ImageLoaderSettings,
     light::ClusteredDecal,
     prelude::*,
+    ui_widgets::{radio_self_update, ValueChange},
 };
 use chacha20::ChaCha8Rng;
 use rand::{RngExt, SeedableRng};
 
-use crate::widgets::{RadioButton, RadioButtonText, WidgetClickEvent, WidgetClickSender};
+use crate::radio::{feathers_option_buttons, main_ui_node_scene, RadioButtonOptionValue};
 
-#[path = "../helpers/widgets.rs"]
-mod widgets;
+#[path = "../helpers/radio.rs"]
+mod radio;
 
 /// The demonstration textures that we use.
 ///
@@ -90,11 +92,17 @@ enum ExampleDecalState {
 /// All settings that the user can change.
 ///
 /// This app only has one: whether newly-spawned decals are emissive.
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, Component, PartialEq)]
 enum AppSetting {
     /// True if newly-spawned decals have an emissive channel (i.e. they glow),
     /// or false otherwise.
     EmissiveDecals(bool),
+}
+
+impl Default for AppSetting {
+    fn default() -> Self {
+        return Self::EmissiveDecals(false);
+    }
 }
 
 /// The current values of the settings that the user can change.
@@ -129,7 +137,7 @@ const DECAL_ANIMATE_OUT_DURATION: Duration = Duration::from_millis(300);
 /// The demo entry point.
 fn main() {
     App::new()
-        .add_plugins(
+        .add_plugins((
             DefaultPlugins
                 .set(WebAssetPlugin {
                     silence_startup_warning: true,
@@ -141,25 +149,17 @@ fn main() {
                     }),
                     ..default()
                 }),
-        )
-        .add_message::<WidgetClickEvent<AppSetting>>()
+            FeathersPlugins,
+        ))
         .init_resource::<AppStatus>()
         .init_resource::<AppTextures>()
+        .insert_resource(UiTheme(create_dark_theme()))
         .add_systems(Startup, setup)
         .add_systems(Update, draw_gizmos)
         .add_systems(Update, spawn_decal)
         .add_systems(Update, animate_decals)
-        .add_systems(
-            Update,
-            (
-                widgets::handle_ui_interactions::<AppSetting>,
-                update_radio_buttons,
-            ),
-        )
-        .add_systems(
-            Update,
-            handle_emission_type_change.after(widgets::handle_ui_interactions::<AppSetting>),
-        )
+        .add_observer(handle_emission_type_change)
+        .add_observer(radio_self_update)
         .insert_resource(SeededRng(ChaCha8Rng::seed_from_u64(19878367467712)))
         .run();
 }
@@ -247,16 +247,19 @@ fn spawn_camera(commands: &mut Commands) {
 
 /// Spawns all the buttons at the bottom of the screen.
 fn spawn_buttons(commands: &mut Commands) {
-    commands.spawn((
-        widgets::main_ui_node(),
-        children![widgets::option_buttons(
-            "Emissive Decals",
-            &[
-                (AppSetting::EmissiveDecals(true), "On"),
-                (AppSetting::EmissiveDecals(false), "Off"),
-            ],
-        ),],
-    ));
+    commands.spawn_scene(bsn! {
+        main_ui_node_scene()
+        Children [
+            feathers_option_buttons(
+                "Emissive Decals",
+                &[
+                    (AppSetting::EmissiveDecals(false), "Off"),
+                    (AppSetting::EmissiveDecals(true), "On"),
+                ],
+                0,
+            ),
+        ]
+    });
 }
 
 /// Draws the outlines that show the bounds of the clustered decals.
@@ -389,50 +392,19 @@ fn animate_decals(
     }
 }
 
-/// Updates the appearance of the radio buttons to reflect the current
-/// application status.
-fn update_radio_buttons(
-    mut widgets: Query<
-        (
-            Entity,
-            Option<&mut BackgroundColor>,
-            Has<Text>,
-            &WidgetClickSender<AppSetting>,
-        ),
-        Or<(With<RadioButton>, With<RadioButtonText>)>,
-    >,
-    app_status: Res<AppStatus>,
-    mut writer: TextUiWriter,
-) {
-    for (entity, image, has_text, sender) in widgets.iter_mut() {
-        // We only have one setting in this particular application.
-        let selected = match **sender {
-            AppSetting::EmissiveDecals(emissive_decals) => {
-                emissive_decals == app_status.emissive_decals
-            }
-        };
-
-        if let Some(mut bg_color) = image {
-            // Update the colors of the button itself.
-            widgets::update_ui_radio_button(&mut bg_color, selected);
-        }
-        if has_text {
-            // Update the colors of the button text.
-            widgets::update_ui_radio_button_text(entity, &mut writer, selected);
-        }
-    }
-}
-
 /// Handles the user's clicks on the radio button that determines whether the
 /// newly-spawned decals have an emissive map.
 fn handle_emission_type_change(
+    event: On<ValueChange<Entity>>,
+    new_value_q: Query<&RadioButtonOptionValue<AppSetting>>,
     mut app_status: ResMut<AppStatus>,
-    mut events: MessageReader<WidgetClickEvent<AppSetting>>,
 ) {
-    for event in events.read() {
-        let AppSetting::EmissiveDecals(on) = **event;
-        app_status.emissive_decals = on;
-    }
+    let Ok(RadioButtonOptionValue(setting)) = new_value_q.get(event.value) else {
+        return;
+    };
+
+    let AppSetting::EmissiveDecals(on) = *setting;
+    app_status.emissive_decals = on;
 }
 
 /// Returns the GitHub download URL for the given asset.
