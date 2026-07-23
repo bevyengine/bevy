@@ -2,8 +2,9 @@
 
 use bevy::{
     color::palettes::css::{DARK_CYAN, DARK_GRAY, YELLOW},
-    ecs::{component::Mutable, hierarchy::ChildSpawnerCommands},
+    ecs::{component::Mutable, template::EntityTemplate},
     prelude::*,
+    text::FontSourceTemplate,
 };
 
 const PALETTE: [&str; 4] = ["27496D", "466B7A", "669DB3", "ADCBE3"];
@@ -24,16 +25,19 @@ fn main() {
         .run();
 }
 
-#[derive(Component)]
+/// A component attached to a button that implements `TargetUpdate`.
+/// Activating the button will alter the target entity's
+/// `T` component.
+#[derive(Component, Clone, Default)]
 struct Target<T> {
-    id: Entity,
+    id: Option<Entity>,
     phantom: std::marker::PhantomData<T>,
 }
 
 impl<T> Target<T> {
     fn new(id: Entity) -> Self {
         Self {
-            id,
+            id: Some(id),
             phantom: std::marker::PhantomData,
         }
     }
@@ -80,6 +84,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     };
 
     commands.spawn(Camera2d);
+
+    let panels_child = commands
+        .spawn_scene(panels("fonts/FiraSans-Bold.ttf", &palette))
+        .id();
+
     commands
         .spawn((
             Node {
@@ -92,6 +101,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             },
             BackgroundColor(Color::BLACK),
         ))
+        .add_child(panels_child)
         .with_children(|parent| {
             parent.spawn((
                 Text::new("Use the panel on the right to change the Display and Visibility properties for the respective nodes of the panel on the left"),
@@ -102,35 +112,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ..Default::default()
                 },
             ));
-
-            parent
-                .spawn(Node {
-                    width: percent(100),
-                    ..default()
-                })
-                .with_children(|parent| {
-                    let mut target_ids = vec![];
-                    parent
-                        .spawn(Node {
-                            width: percent(50),
-                            height: px(520),
-                            justify_content: JustifyContent::Center,
-                            ..default()
-                        })
-                        .with_children(|parent| {
-                            target_ids = spawn_left_panel(parent, &palette);
-                        });
-
-                    parent
-                        .spawn(Node {
-                            width: percent(50),
-                            justify_content: JustifyContent::Center,
-                            ..default()
-                        })
-                        .with_children(|parent| {
-                            spawn_right_panel(parent, text_font, &palette, target_ids);
-                        });
-                });
 
             parent
                 .spawn(Node {
@@ -163,239 +144,185 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         });
 }
 
-fn spawn_left_panel(builder: &mut ChildSpawnerCommands, palette: &[Color; 4]) -> Vec<Entity> {
-    let mut target_ids = vec![];
-    builder
-        .spawn((
+/// Returns the main interactable of the example as a scene.
+/// The left panel changes Display and Visibility based on actions taken
+/// in the right panel.
+fn panels(text_font: &'static str, palette: &[Color; 4]) -> impl Scene {
+    let left_panel_node_base = |height_px: i32, palette_index: usize| {
+        bsn! {
             Node {
-                padding: UiRect::all(px(10)),
-                ..default()
-            },
-            BackgroundColor(Color::WHITE),
-        ))
-        .with_children(|parent| {
-            parent
-                .spawn((Node::default(), BackgroundColor(Color::BLACK)))
-                .with_children(|parent| {
-                    let id = parent
-                        .spawn((
+                height: px(height_px),
+                align_items: AlignItems::FlexEnd,
+                justify_content: JustifyContent::FlexEnd,
+            }
+            BackgroundColor(palette[palette_index])
+        }
+    };
+
+    let right_panel_node_base = |width_height_px: i32, palette_index: usize| {
+        bsn! {
+            Node {
+                width: px(width_height_px),
+                height: px(width_height_px),
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::FlexEnd,
+                justify_content: JustifyContent::SpaceBetween,
+                padding: UiRect {
+                    left: px(5),
+                    top: px(5),
+                },
+            }
+            BackgroundColor(palette[palette_index])
+        }
+    };
+
+    // This must be defined as a big scene because
+    // the right panel has entity references to affect look of the left panel.
+    // The entity references must exist in the same `bsn!` block in order to be valid.
+    bsn! {
+        Node {
+            width: percent(100)
+        }
+        Children [
+            #LeftPanel
+            Node {
+                width: percent(50),
+                height: px(520),
+                justify_content: JustifyContent::Center,
+            }
+            Children [
+                Node {
+                    padding: UiRect::all(px(10)),
+                }
+                BackgroundColor(Color::WHITE)
+                Children [
+                    Node
+                    BackgroundColor(Color::BLACK)
+                    Children [
+                        #LeftGrandParent
+                        left_panel_node_base(500, 0)
+                        Outline {
+                            width: px(4),
+                            color: DARK_CYAN,
+                            offset: px(10),
+                        }
+                        Children [
                             Node {
-                                align_items: AlignItems::FlexEnd,
-                                justify_content: JustifyContent::FlexEnd,
-                                ..default()
-                            },
-                            BackgroundColor(palette[0]),
-                            Outline {
-                                width: px(4),
-                                color: DARK_CYAN.into(),
-                                offset: px(10),
-                            },
-                        ))
-                        .with_children(|parent| {
-                            parent.spawn(Node {
                                 width: px(100),
                                 height: px(500),
-                                ..default()
-                            });
+                            },
 
-                            let id = parent
-                                .spawn((
+                            #LeftParent
+                            left_panel_node_base(400, 1)
+                            Children [
+                                Node {
+                                    width: px(100),
+                                    height: px(400),
+                                },
+
+                                #LeftChild
+                                left_panel_node_base(300, 2)
+                                Children [
                                     Node {
-                                        height: px(400),
-                                        align_items: AlignItems::FlexEnd,
-                                        justify_content: JustifyContent::FlexEnd,
-                                        ..default()
-                                    },
-                                    BackgroundColor(palette[1]),
-                                ))
-                                .with_children(|parent| {
-                                    parent.spawn(Node {
                                         width: px(100),
-                                        height: px(400),
-                                        ..default()
-                                    });
+                                        height: px(300),
+                                    },
 
-                                    let id = parent
-                                        .spawn((
-                                            Node {
-                                                height: px(300),
-                                                align_items: AlignItems::FlexEnd,
-                                                justify_content: JustifyContent::FlexEnd,
-                                                ..default()
-                                            },
-                                            BackgroundColor(palette[2]),
-                                        ))
-                                        .with_children(|parent| {
-                                            parent.spawn(Node {
-                                                width: px(100),
-                                                height: px(300),
-                                                ..default()
-                                            });
+                                    #LeftGrandChild
+                                    Node {
+                                        width: px(200),
+                                        height: px(200),
 
-                                            let id = parent
-                                                .spawn((
-                                                    Node {
-                                                        width: px(200),
-                                                        height: px(200),
-                                                        ..default()
-                                                    },
-                                                    BackgroundColor(palette[3]),
-                                                ))
-                                                .id();
-                                            target_ids.push(id);
-                                        })
-                                        .id();
-                                    target_ids.push(id);
-                                })
-                                .id();
-                            target_ids.push(id);
-                        })
-                        .id();
-                    target_ids.push(id);
-                });
-        });
-    target_ids
-}
+                                    }
+                                    BackgroundColor(palette[3])
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
 
-fn spawn_right_panel(
-    parent: &mut ChildSpawnerCommands,
-    text_font: TextFont,
-    palette: &[Color; 4],
-    mut target_ids: Vec<Entity>,
-) {
-    let spawn_buttons = |parent: &mut ChildSpawnerCommands, target_id| {
-        spawn_button::<Display>(parent, text_font.clone(), target_id);
-        spawn_button::<Visibility>(parent, text_font.clone(), target_id);
-    };
-    parent
-        .spawn((
+            #RightPanel
             Node {
-                padding: UiRect::all(px(10)),
-                ..default()
-            },
-            BackgroundColor(Color::WHITE),
-        ))
-        .with_children(|parent| {
-            parent
-                .spawn((
-                    Node {
-                        width: px(500),
-                        height: px(500),
-                        flex_direction: FlexDirection::Column,
-                        align_items: AlignItems::FlexEnd,
-                        justify_content: JustifyContent::SpaceBetween,
-                        padding: UiRect {
-                            left: px(5),
-                            top: px(5),
-                            ..default()
-                        },
-                        ..default()
-                    },
-                    BackgroundColor(palette[0]),
+                width: percent(50),
+                justify_content: JustifyContent::Center,
+            }
+            Children [
+                Node {
+                    padding: UiRect::all(px(10)),
+                }
+                BackgroundColor(Color::WHITE)
+                Children [
+                    #RightGrandParent
+                    right_panel_node_base(500, 0)
                     Outline {
                         width: px(4),
-                        color: DARK_CYAN.into(),
+                        color: DARK_CYAN,
                         offset: px(10),
-                    },
-                ))
-                .with_children(|parent| {
-                    spawn_buttons(parent, target_ids.pop().unwrap());
+                    }
+                    Children [
+                        button_scene::<Display>(text_font, #LeftGrandParent),
+                        button_scene::<Visibility>(text_font, #LeftGrandParent),
 
-                    parent
-                        .spawn((
-                            Node {
-                                width: px(400),
-                                height: px(400),
-                                flex_direction: FlexDirection::Column,
-                                align_items: AlignItems::FlexEnd,
-                                justify_content: JustifyContent::SpaceBetween,
-                                padding: UiRect {
-                                    left: px(5),
-                                    top: px(5),
-                                    ..default()
-                                },
-                                ..default()
-                            },
-                            BackgroundColor(palette[1]),
-                        ))
-                        .with_children(|parent| {
-                            spawn_buttons(parent, target_ids.pop().unwrap());
+                        #RightParent
+                        right_panel_node_base(400, 1)
+                        Children [
+                            button_scene::<Display>(text_font, #LeftParent),
+                            button_scene::<Visibility>(text_font, #LeftParent),
 
-                            parent
-                                .spawn((
+                            #RightChild
+                            right_panel_node_base(300, 2)
+                            Children [
+                                button_scene::<Display>(text_font, #LeftChild),
+                                button_scene::<Visibility>(text_font, #LeftChild),
+
+                                #RightGrandChild
+                                right_panel_node_base(200, 3)
+                                Children [
+                                    button_scene::<Display>(text_font, #LeftGrandChild),
+                                    button_scene::<Visibility>(text_font, #LeftGrandChild),
+
                                     Node {
-                                        width: px(300),
-                                        height: px(300),
-                                        flex_direction: FlexDirection::Column,
-                                        align_items: AlignItems::FlexEnd,
-                                        justify_content: JustifyContent::SpaceBetween,
-                                        padding: UiRect {
-                                            left: px(5),
-                                            top: px(5),
-                                            ..default()
-                                        },
-                                        ..default()
-                                    },
-                                    BackgroundColor(palette[2]),
-                                ))
-                                .with_children(|parent| {
-                                    spawn_buttons(parent, target_ids.pop().unwrap());
-
-                                    parent
-                                        .spawn((
-                                            Node {
-                                                width: px(200),
-                                                height: px(200),
-                                                align_items: AlignItems::FlexStart,
-                                                justify_content: JustifyContent::SpaceBetween,
-                                                flex_direction: FlexDirection::Column,
-                                                padding: UiRect {
-                                                    left: px(5),
-                                                    top: px(5),
-                                                    ..default()
-                                                },
-                                                ..default()
-                                            },
-                                            BackgroundColor(palette[3]),
-                                        ))
-                                        .with_children(|parent| {
-                                            spawn_buttons(parent, target_ids.pop().unwrap());
-
-                                            parent.spawn(Node {
-                                                width: px(100),
-                                                height: px(100),
-                                                ..default()
-                                            });
-                                        });
-                                });
-                        });
-                });
-        });
+                                        width: px(100),
+                                        height: px(100),
+                                    }
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+        ]
+    }
 }
 
-fn spawn_button<T>(parent: &mut ChildSpawnerCommands, text_font: TextFont, target: Entity)
+/// A button that, when pressed, will execute up a target action on the provided `target`.
+/// The target action is applied to the `T` component on the `target.`
+fn button_scene<T>(text_font: &'static str, target: EntityTemplate) -> impl Scene
 where
-    T: Default + std::fmt::Debug + Send + Sync + 'static,
+    T: Default + Clone + Unpin + std::fmt::Debug + Send + Sync + 'static,
     Target<T>: TargetUpdate,
 {
-    parent
-        .spawn((
-            Button,
-            Node {
-                align_self: AlignSelf::FlexStart,
-                padding: UiRect::axes(px(5), px(1)),
-                ..default()
-            },
-            BackgroundColor(Color::BLACK.with_alpha(0.5)),
-            Target::<T>::new(target),
-        ))
-        .with_children(|builder| {
-            builder.spawn((
-                Text(format!("{}::{:?}", Target::<T>::NAME, T::default())),
-                text_font,
-                TextLayout::justify(Justify::Center),
-            ));
-        });
+    bsn! {
+        Button
+        Node {
+            align_self: AlignSelf::FlexStart,
+            padding: UiRect::axes(px(5), px(1)),
+        }
+        BackgroundColor({Color::BLACK.with_alpha(0.5)})
+        template(move |ctx| match target {
+            EntityTemplate::Entity(ent) => Ok(Target::<T>::new(ent)),
+            EntityTemplate::SceneEntityReference(scene_entity_reference) => Ok(Target::<T>::new(ctx.get_entity(scene_entity_reference))),
+            EntityTemplate::None => Err(BevyError::error("Did not set up example correctly!"))
+        })
+        Children [
+            Text(format!("{}::{:?}", Target::<T>::NAME, T::default()))
+            TextFont {
+                font: FontSourceTemplate::Handle(text_font)
+            }
+            TextLayout::justify(Justify::Center)
+        ]
+    }
 }
 
 fn buttons_handler<T>(
@@ -408,7 +335,7 @@ fn buttons_handler<T>(
 {
     for (target, interaction, children) in visibility_button_query.iter_mut() {
         if matches!(interaction, Interaction::Pressed) {
-            let mut target_value = left_panel_query.get_mut(target.id).unwrap();
+            let mut target_value = left_panel_query.get_mut(target.id.unwrap()).unwrap();
             for &child in children {
                 if let Ok((mut text, mut text_color)) = text_query.get_mut(child) {
                     **text = target.update_target(target_value.as_mut());
