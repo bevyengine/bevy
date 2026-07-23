@@ -190,31 +190,17 @@ fn setup_ui(mut commands: Commands) {
     commands.spawn_scene(bsn! {
         main_ui_node_scene()
         Node {
-            align_items: AlignItems::Center,
+            align_items: AlignItems::Start,
         }
         Children [
             feathers_option_buttons("Head", &make_animation_controls(MASK_GROUP_HEAD), 2),
-
-            Node {
-                flex_direction: FlexDirection::Row,
-                column_gap: px(6),
-            }
-            Children [
-                feathers_option_buttons("Left Front Leg", &make_animation_controls(MASK_GROUP_LEFT_FRONT_LEG), 2),
-                label(" / "),
-                feathers_option_buttons("Right Front Leg", &make_animation_controls(MASK_GROUP_RIGHT_FRONT_LEG), 2),
-            ],
-
-            Node {
-                flex_direction: FlexDirection::Row,
-                column_gap: px(6),
-            }
-            Children [
-                feathers_option_buttons("Left Hind Leg", &make_animation_controls(MASK_GROUP_LEFT_HIND_LEG), 2),
-                label(" / "),
-                feathers_option_buttons("Right Hind Leg", &make_animation_controls(MASK_GROUP_RIGHT_HIND_LEG), 2),
-            ],
-
+            label("--"),
+            feathers_option_buttons("Front Left Leg", &make_animation_controls(MASK_GROUP_LEFT_FRONT_LEG), 2),
+            feathers_option_buttons("Front Right Leg", &make_animation_controls(MASK_GROUP_RIGHT_FRONT_LEG), 2),
+            label("--"),
+            feathers_option_buttons("Hind Left Leg", &make_animation_controls(MASK_GROUP_LEFT_HIND_LEG), 2),
+            feathers_option_buttons("Hind Right Leg", &make_animation_controls(MASK_GROUP_RIGHT_HIND_LEG), 2),
+            label("--"),
             feathers_option_buttons("Tail", &make_animation_controls(MASK_GROUP_TAIL), 2),
         ]
     });
