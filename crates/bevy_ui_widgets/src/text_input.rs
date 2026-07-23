@@ -91,6 +91,7 @@ fn matches_edit_shortcut(input: &KeyboardInput, character: &str, key_code: KeyCo
 /// and then applied later by the [`apply_text_edits`](`bevy_text::apply_text_edits`) system.
 fn on_focused_keyboard_input(
     mut keyboard_input: On<FocusedInput<KeyboardInput>>,
+    mut input_focus: ResMut<InputFocus>,
     mut query: Query<&mut EditableText, Without<InteractionDisabled>>,
     keys: Res<ButtonInput<Key>>,
 ) {
@@ -183,7 +184,17 @@ fn on_focused_keyboard_input(
         (NONE | SHIFT, Key::End) => queue_edit(TextEdit::LineEnd(shift_pressed)),
         (NONE, Key::Backspace) => queue_edit(TextEdit::Backspace),
         (NONE, Key::Delete) => queue_edit(TextEdit::Delete),
-        (NONE, Key::Escape) => queue_edit(TextEdit::CollapseSelection),
+        (NONE, Key::Escape) => {
+            queue_edit(TextEdit::CollapseSelection);
+            if keyboard_input.input.state.is_pressed() {
+                input_focus.clear();
+            }
+            // Escape belongs to the surrounding context (close a dialog, cancel,
+            // back out) -- collapse and blur, but do NOT consume: the same press
+            // keeps bubbling. `InputFocus` is already cleared by the time ancestors
+            // see it; check `original_event_target()` to tell it came from a field.
+            should_propagate = true;
+        }
         (NONE | SHIFT, Key::Character(_) | Key::Unidentified(_)) | (NONE, Key::Space) => {
             if let Some(text) = &keyboard_input.input.text
                 && !text.is_empty()
@@ -1000,5 +1011,56 @@ mod tests {
     fn named_keys_never_match() {
         let event = shortcut_keyboard_input(Key::Enter, KeyCode::Enter);
         assert!(!matches_edit_shortcut(&event, "c", KeyCode::KeyC));
+    }
+
+    #[test]
+    fn escape_blurs_field_and_propagates_to_window() {
+        #[derive(Resource, Default)]
+        struct WindowSawEscape(u32);
+
+        let mut app = App::new();
+        app.add_plugins((InputPlugin, InputDispatchPlugin))
+            .init_resource::<InputFocus>()
+            .init_resource::<WindowSawEscape>()
+            .add_observer(on_focused_keyboard_input);
+
+        // Manual registration needed to prevent `WindowTraversal` failure during artificial test
+        app.world_mut().register_component::<ChildOf>();
+
+        let window = app
+            .world_mut()
+            .spawn((Window::default(), PrimaryWindow))
+            .id();
+
+        let editable_text = app.world_mut().spawn(EditableText::default()).id();
+        app.world_mut().entity_mut(window).observe(
+            move |input: On<FocusedInput<KeyboardInput>>, mut saw: ResMut<WindowSawEscape>| {
+                if matches!(input.input.logical_key, Key::Escape) && input.input.state.is_pressed()
+                {
+                    // The target field is rewritten at each hop; the origin
+                    // survives on the trigger. The migration guide's guard
+                    // depends on exactly this.
+                    assert_eq!(input.focused_entity, window);
+                    assert_eq!(input.original_event_target(), editable_text);
+                    saw.0 += 1;
+                }
+            },
+        );
+        app.insert_resource(InputFocus::from_entity(editable_text));
+
+        app.world_mut().write_message(KeyboardInput {
+            key_code: KeyCode::Escape,
+            logical_key: Key::Escape,
+            state: ButtonState::Pressed,
+            text: None,
+            repeat: false,
+            window,
+        });
+        app.update();
+
+        // The field released focus...
+        assert!(app.world().resource::<InputFocus>().get().is_none());
+        // ...and the same press reached the window observer.
+        assert_eq!(app.world().resource::<WindowSawEscape>().0, 1);
     }
 }
