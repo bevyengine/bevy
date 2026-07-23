@@ -53,7 +53,7 @@ const SHIFT_ALT: u8 = SHIFT | ALT;
 
 /// Editable text widget.
 #[derive(Component, Clone, Default, Reflect)]
-#[require(EditableText)]
+#[require(EditableText, AccessibilityNode(accesskit::Node::new(Role::TextInput)))]
 #[reflect(Component)]
 pub struct TextInput;
 
@@ -778,9 +778,6 @@ impl Plugin for TextInputPlugin {
         // because that would create a circular dependency between `bevy_text` and `bevy_ui`.
         app.register_required_components::<EditableText, Node>()
             .register_required_components::<EditableText, TextNodeFlags>()
-            .register_required_components_with::<EditableText, AccessibilityNode>(|| {
-                AccessibilityNode(accesskit::Node::new(Role::TextInput))
-            })
             .register_required_components::<EditableText, ContentSize>();
     }
 }
