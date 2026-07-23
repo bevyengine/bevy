@@ -28,10 +28,10 @@ use ops::{acos, cos, sin};
 #[path = "../helpers/radio.rs"]
 mod radio;
 
-#[path = "../helpers/number_input.rs"]
-mod number_input;
+#[path = "../helpers/number_input_f32.rs"]
+mod number_input_f32;
 
-use number_input::number_input_f32;
+use number_input_f32::number_input_f32;
 
 /// The custom material shader that we use to demonstrate how to use the decal
 /// `tag` field.
