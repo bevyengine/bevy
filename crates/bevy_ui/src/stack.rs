@@ -52,7 +52,7 @@ impl ChildBufferCache {
 /// Create a list of root nodes from parentless entities and entities with a `GlobalZIndex` component.
 /// Then build the `LocalUiStack`s from a walk of the existing layout trees starting from each root node,
 /// filtering branches by `Without<GlobalZIndex>`so that we don't revisit nodes.
-pub fn update_ui_stack_system(
+pub fn ui_stack_system(
     mut commands: Commands,
     mut cache: Local<ChildBufferCache>,
     mut new_local_stack: Local<Vec<Entity>>,
@@ -179,7 +179,7 @@ mod tests {
 
     use crate::{ComputedStackIndex, GlobalZIndex, Node, ZIndex};
 
-    use super::{update_ui_stack_system, LocalUiStack, UiStack};
+    use super::{ui_stack_system, LocalUiStack, UiStack};
 
     #[derive(Component, PartialEq, Debug, Clone)]
     struct Label(&'static str);
@@ -263,7 +263,7 @@ mod tests {
         queue.apply(&mut world);
 
         let mut schedule = Schedule::default();
-        schedule.add_systems(update_ui_stack_system);
+        schedule.add_systems(ui_stack_system);
         schedule.run(&mut world);
         let mut changed_local_stacks = world.query_filtered::<Entity, Changed<LocalUiStack>>();
         world.clear_trackers();
@@ -363,7 +363,7 @@ mod tests {
         queue.apply(&mut world);
 
         let mut schedule = Schedule::default();
-        schedule.add_systems(update_ui_stack_system);
+        schedule.add_systems(ui_stack_system);
         schedule.run(&mut world);
 
         let mut query = world.query::<&Label>();

@@ -82,7 +82,7 @@ use bevy_ecs::prelude::*;
 use bevy_input::InputSystems;
 use bevy_transform::TransformSystems;
 use layout::ui_surface::UiSurface;
-use stack::update_ui_stack_system;
+use stack::ui_stack_system;
 pub use stack::{ComputedStackIndex, LocalUiStack, UiStack};
 use update::{propagate_ui_target_cameras, update_clipping_system};
 
@@ -195,7 +195,7 @@ impl Plugin for UiPlugin {
                 ui_layout_system
                     .in_set(UiSystems::Layout)
                     .ambiguous_with(bevy_sprite::update_text2d_layout),
-                update_ui_stack_system.chain().in_set(UiSystems::Stack),
+                ui_stack_system.chain().in_set(UiSystems::Stack),
                 update_clipping_system.in_set(UiSystems::PostLayout),
                 // Potential conflicts: `Assets<Image>`
                 // They run independently since `widget::image_node_system` will only ever observe
