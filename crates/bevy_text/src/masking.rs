@@ -417,9 +417,9 @@ mod tests {
 
     #[test]
     fn conceals_prefilled_text_on_add() {
-        let (mut app, entity) = masked_field("secret");
+        let (app, entity) = masked_field("secret");
         assert_eq!(real(&app, entity), "secret");
-        assert_eq!(shown(&mut app, entity), "******");
+        assert_eq!(shown(&app, entity), "******");
     }
 
     #[test]
@@ -428,7 +428,7 @@ mod tests {
         queue(&mut app, entity, TextEdit::Insert("a".into()));
         queue(&mut app, entity, TextEdit::Insert("b".into()));
         assert_eq!(real(&app, entity), "ab");
-        assert_eq!(shown(&mut app, entity), "**");
+        assert_eq!(shown(&app, entity), "**");
     }
 
     #[test]
@@ -437,7 +437,7 @@ mod tests {
         queue(&mut app, entity, TextEdit::TextEnd(false));
         queue(&mut app, entity, TextEdit::Backspace);
         assert_eq!(real(&app, entity), "ab");
-        assert_eq!(shown(&mut app, entity), "**");
+        assert_eq!(shown(&app, entity), "**");
     }
 
     #[test]
@@ -456,7 +456,7 @@ mod tests {
         queue(&mut app, entity, TextEdit::Right(false));
         queue(&mut app, entity, TextEdit::DeleteWord);
         assert_eq!(real(&app, entity), "ab");
-        assert_eq!(shown(&mut app, entity), "**");
+        assert_eq!(shown(&app, entity), "**");
     }
 
     #[test]
@@ -466,7 +466,7 @@ mod tests {
         queue(&mut app, entity, TextEdit::TextEnd(false));
         queue(&mut app, entity, TextEdit::BackspaceWord);
         assert_eq!(real(&app, entity), "");
-        assert_eq!(shown(&mut app, entity), "");
+        assert_eq!(shown(&app, entity), "");
     }
 
     #[test]
@@ -475,7 +475,7 @@ mod tests {
         queue(&mut app, entity, TextEdit::SelectAll);
         queue(&mut app, entity, TextEdit::Insert("z".into()));
         assert_eq!(real(&app, entity), "z");
-        assert_eq!(shown(&mut app, entity), "*");
+        assert_eq!(shown(&app, entity), "*");
     }
 
     #[test]
