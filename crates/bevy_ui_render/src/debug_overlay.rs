@@ -30,6 +30,7 @@ use bevy_ui::ComputedNode;
 use bevy_ui::ComputedStackIndex;
 use bevy_ui::ComputedUiTargetCamera;
 use bevy_ui::ResolvedBorderRadius;
+use bevy_ui::UiStack;
 
 /// Configuration for the UI debug overlay
 ///
@@ -171,6 +172,7 @@ impl From<UiDebugOptions> for GlobalUiDebugOptions {
 pub fn extract_debug_overlay(
     mut commands: Commands,
     debug_options: Extract<Res<GlobalUiDebugOptions>>,
+    ui_stack: Extract<Res<UiStack>>,
     extracted_uinodes: ResMut<ExtractedUiNodes>,
     uinode_query: Extract<
         Query<(
@@ -229,8 +231,8 @@ pub fn extract_debug_overlay(
                         // Keep all overlays above UI, and nudge each type slightly in Z so ordering is stable.
                         sort_key: crate::UiSortKey {
                             stack_index: ComputedStackIndex {
-                                root: 10_000_000,
-                                local: stack_index.0,
+                                root: ui_stack.0.len() as u32 + stack_index.root,
+                                local: stack_index.local,
                             },
                             sub_layer: 0,
                         },
