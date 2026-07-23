@@ -264,6 +264,16 @@ impl ResolvedScene {
                         error: Box::new(e),
                     })?;
                 self.apply_templates_without_bundle_write(context, &mut bundle_writer, ())?;
+                // Despawn the entity's pre-existing related entities for each relationship this scene
+                // defines, before the new related entities replace them. Without this, the replaced
+                // entities would linger in the world as orphans (only relationships with "linked spawn"
+                // semantics, such as Children, are despawned).
+                for related in resolved_cached.scene.related.values() {
+                    (related.despawn_existing_related)(context.entity);
+                }
+                for related in self.related.values() {
+                    (related.despawn_existing_related)(context.entity);
+                }
                 // SAFETY: World is only used for component registration, which does not affect
                 // the entity location
                 let components = &mut context.entity.world_mut().components_registrator();
@@ -290,6 +300,13 @@ impl ResolvedScene {
             // SAFETY: bundle_writer was used with the same World across all cases in this function,
             unsafe {
                 self.apply_templates_without_bundle_write(context, &mut bundle_writer, ())?;
+                // Despawn the entity's pre-existing related entities for each relationship this scene
+                // defines, before the new related entities replace them. Without this, the replaced
+                // entities would linger in the world as orphans (only relationships with "linked spawn"
+                // semantics, such as Children, are despawned).
+                for related in self.related.values() {
+                    (related.despawn_existing_related)(context.entity);
+                }
                 // SAFETY: World is only used for component registration, which does not affect
                 // the entity location
                 let components = &mut context.entity.world_mut().components_registrator();
@@ -655,6 +672,11 @@ pub struct RelatedResolvedScenes {
         unsafe fn(&mut BundleWriter, &mut ComponentsRegistrator, target: Entity),
     /// The function that will be called to add the relationship target to the spawned scene with the given capacity.
     pub insert_relationship_target: unsafe fn(&mut BundleWriter, &mut ComponentsRegistrator, usize),
+    /// The function that will be called to despawn the entity's pre-existing related entities before
+    /// this scene's related entities replace them. This only despawns entities for relationships with
+    /// "linked spawn" semantics (see [`RelationshipTarget::LINKED_SPAWN`]), such as [`Children`](bevy_ecs::hierarchy::Children).
+    /// For other relationships this is a no-op, and the pre-existing related entities are orphaned instead.
+    pub despawn_existing_related: fn(&mut EntityWorldMut),
     /// The type name of the relationship. This is used for more helpful error message.
     pub relationship_name: &'static str,
 }
@@ -685,6 +707,11 @@ impl RelatedResolvedScenes {
                 unsafe {
                     bundle_writer.push_component(components_registrator, relationship_target);
                 };
+            },
+            despawn_existing_related: |entity| {
+                if <R::RelationshipTarget as RelationshipTarget>::LINKED_SPAWN {
+                    entity.despawn_related::<R::RelationshipTarget>();
+                }
             },
             relationship_name: core::any::type_name::<R>(),
         }
