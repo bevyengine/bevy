@@ -1,6 +1,13 @@
-use bevy::{DefaultPlugins, app::{App, DeclarativePlugin, Startup}, camera::{Camera2d, Camera3d}};
-use bevy_ecs::{resource::Resource, system::{Commands, Query}};
-use bevy_scene::{CommandsSceneExt, SceneList, SpawnListSystem, bsn_list};
+use bevy::{
+    app::{App, DeclarativePlugin, Startup},
+    camera::{Camera2d, Camera3d},
+    DefaultPlugins,
+};
+use bevy_ecs::{
+    resource::Resource,
+    system::{Commands, Query},
+};
+use bevy_scene::{bsn_list, CommandsSceneExt, SceneList, SpawnListSystem};
 
 #[derive(Debug, Default)]
 pub struct PluginA;
@@ -12,9 +19,7 @@ impl DeclarativePlugin for PluginA {
 }
 
 fn startup() -> impl SceneList {
-    bsn_list!(
-        Camera2d,
-    )
+    bsn_list!(Camera2d,)
 }
 
 #[derive(Debug, Default)]

@@ -6,13 +6,17 @@ use bevy_ecs::{
     system::ScheduleSystem,
     world::World,
 };
-use bevy_platform::collections::HashMap;
+use bevy_platform::collections::{HashMap, HashSet};
 use core::{
-    alloc::Layout, any::{Any, TypeId}, hash::Hash, ptr::NonNull,
+    alloc::Layout,
+    any::{Any, TypeId},
+    hash::Hash,
+    ptr::NonNull,
 };
 use std::{
     alloc::{alloc, dealloc},
     boxed::Box,
+    collections::VecDeque,
     vec::Vec,
 };
 
@@ -30,7 +34,7 @@ use crate::App;
 /// Approval functions are expected to, mostly, return true and neither contain
 /// nor take take advantage of mutable state. Memoization rights reserved.
 #[derive(Default)]
-pub struct Approval<T: ?Sized, Ctx = ()> {
+pub(crate) struct Approval<T: ?Sized, Ctx = ()> {
     approval_fn: Option<Box<dyn Fn(&T, &Ctx) -> bool>>,
 }
 
@@ -43,17 +47,17 @@ impl<T> Approval<T, ()> {
     }
     /// "Asks" if the input is good enough.
     pub(crate) fn approves(&self, input: &T) -> bool {
-        self.approval_fn.as_ref().map(|f| f(input, &())).unwrap_or(true)
+        self.approval_fn
+            .as_ref()
+            .map(|f| f(input, &()))
+            .unwrap_or(true)
     }
 }
 
 impl<T, Ctx> Approval<T, Ctx> {
-
     /// Create an approval function that will always return true.
     pub(crate) fn always_approve() -> Self {
-        Self {
-            approval_fn: None,
-        }
+        Self { approval_fn: None }
     }
 
     /// Creates a new approval function that does care about context.
@@ -65,17 +69,20 @@ impl<T, Ctx> Approval<T, Ctx> {
 
     /// "Asks" if the input and context is good enough
     pub(crate) fn approves_with_context(&self, input: &T, ctx: &Ctx) -> bool {
-        self.approval_fn.as_ref().map(|f| f(input, ctx)).unwrap_or(true)
+        self.approval_fn
+            .as_ref()
+            .map(|f| f(input, ctx))
+            .unwrap_or(true)
     }
 }
 
-impl <T, F: Fn(&T) -> bool + 'static> From<F> for Approval<T, ()> {
+impl<T, F: Fn(&T) -> bool + 'static> From<F> for Approval<T, ()> {
     fn from(value: F) -> Self {
         Self::new(value)
     }
 }
 
-impl <T, Ctx> From<()> for Approval<T, Ctx> {
+impl<T, Ctx> From<()> for Approval<T, Ctx> {
     fn from(value: ()) -> Self {
         Self::always_approve()
     }
@@ -111,7 +118,7 @@ impl MetadataPtr {
             ptr: ptr.cast(),
             drop_fn: Box::new(|ptr, layout| {
                 // SAFETY: this function is only ever passed the original layout.
-                let data: T = unsafe {Self::move_then_deallocate(ptr.cast(), layout)};
+                let data: T = unsafe { Self::move_then_deallocate(ptr.cast(), layout) };
                 drop(data);
             }),
             type_id: TypeId::of::<T>(),
@@ -125,7 +132,7 @@ impl MetadataPtr {
             // SAFETY: we at least know if the data is the right shape and the type IDs are the same.
             let data: NonNull<T> = self.ptr.cast();
             // SAFETY: We are passing the original layout this type was constructed with.
-            Ok(unsafe{Self::move_then_deallocate(data, self.layout)})
+            Ok(unsafe { Self::move_then_deallocate(data, self.layout) })
         } else {
             Err(self)
         }
@@ -231,7 +238,7 @@ impl MergeableSchedule {
 }
 
 pub struct PluginDependency {
-    type_id: TypeId,
+    type_id: PluginTypeId,
     /// An optional pairing of a plugin's data (as initialized by the plugin depending on it) and an erased function that builds the plugin output for that dependency.
     data: Option<(
         Box<dyn DeclarativePlugin>,
@@ -255,14 +262,14 @@ impl PluginDependency {
             }),
         ));
         PluginDependency {
-            type_id: TypeId::of::<P>(),
+            type_id: PluginTypeId(TypeId::of::<P>()),
             data,
         }
     }
 
     pub fn new<P: DeclarativePlugin + 'static>() -> Self {
         Self {
-            type_id: TypeId::of::<P>(),
+            type_id: PluginTypeId(TypeId::of::<P>()),
             data: None,
         }
     }
@@ -273,9 +280,17 @@ impl PluginDependency {
 /// This is designed to be a plugin data structure that end users don't need to
 /// think about in terms of what it's "made of." Just something that stuff can be
 /// added to.
-/// 
+///
 /// TODO: docs that are user-facing, not reviewer-facing.
-pub struct PluginOutput {
+pub struct PluginOutput<D = Vec<PluginDependency>> {
+    /// The plugin was added to an app, or part of a declarative bundle, rather
+    /// than being inserted as a dependency.
+    pub(crate) is_entry_point: bool,
+    /// Is the plugin type zero-sized (most are). If a plugin is zero-sized we
+    /// can make the assumption that all calls to [`DeclarativePlugin::build`]
+    /// for that type give an identical [`PluginOutput`], as there is no
+    /// configuration that can be done.
+    pub(crate) is_zero_sized_optimizable: bool,
     /// Plugin type ID (used to build edges later)
     pub(crate) working_plugin: PluginTypeId,
     /// Observers registered by this plugin.
@@ -287,14 +302,49 @@ pub struct PluginOutput {
     pub(crate) messages: HashMap<TypeId, MessageRegistration>,
     /// Resource storage
     pub(crate) resource_staging: Vec<StagedResource>,
-    /// Plugin dependencies
-    pub(crate) dependencies: Vec<PluginDependency>,
+    pub(crate) plugin_approval: HashMap<PluginTypeId, Approval<Box<dyn DeclarativePlugin>>>,
+    /// Plugin dependencies, represented with a generic so we can erase them in
+    /// plugin graph resolution.
+    pub(crate) dependencies: D,
+}
+
+impl<D> PluginOutput<D> {
+    pub(crate) fn extract_dependencies(self) -> (PluginOutput<()>, D) {
+        let Self {
+            is_entry_point,
+            is_zero_sized_optimizable,
+            working_plugin,
+            observers,
+            schedules,
+            messages,
+            resource_staging,
+            dependencies,
+            plugin_approval,
+        } = self;
+        (
+            PluginOutput {
+                is_entry_point,
+                is_zero_sized_optimizable,
+                working_plugin,
+                observers,
+                schedules,
+                messages,
+                resource_staging,
+                plugin_approval,
+                dependencies: (),
+            },
+            dependencies,
+        )
+    }
 }
 
 impl PluginOutput {
-    // Create a plugin output structure for a given plugin type.
+    /// Create a plugin output structure for a given plugin type.
     pub(crate) fn new<P: 'static>() -> Self {
         Self {
+            // This is set by App bookkeeping.
+            is_entry_point: false,
+            is_zero_sized_optimizable: size_of::<P>() == 0,
             working_plugin: PluginTypeId(TypeId::of::<P>()),
             observers: Vec::new(),
             schedules: MergeableSchedule {
@@ -303,6 +353,7 @@ impl PluginOutput {
             messages: HashMap::new(),
             resource_staging: Vec::new(),
             dependencies: Vec::new(),
+            plugin_approval: HashMap::new(),
         }
     }
 
@@ -325,7 +376,10 @@ impl PluginOutput {
         self.add_dependency_with_approval::<P, _>(|_| true)
     }
 
-    pub fn add_dependency_with_approval<P: DeclarativePlugin + Default, F: Fn(&P) -> bool + 'static>(
+    pub fn add_dependency_with_approval<
+        P: DeclarativePlugin + Default,
+        F: Fn(&P) -> bool + 'static,
+    >(
         &mut self,
         approval: F,
     ) -> &mut Self {
@@ -394,13 +448,17 @@ impl PluginOutput {
     }
 
     /// Add a plugin dependency to the plugin output
-    pub fn add_dependency_with_plugin_config_and_approval<P: DeclarativePlugin, F: Fn(&P) -> bool + 'static>(
+    pub fn add_dependency_with_plugin_config_and_approval<
+        P: DeclarativePlugin,
+        F: for<'a> Fn(&'a P) -> bool + 'static,
+    >(
         &mut self,
         plugin: P,
-        evaluate_config: F,
+        approval: F,
     ) -> &mut Self {
         self.dependencies
             .push(PluginDependency::new_with_config(plugin));
+        self.add_dependency_approval::<P, _>(approval);
         self
     }
 
@@ -411,26 +469,148 @@ impl PluginOutput {
         self.add_dependency_with_plugin_config_and_approval::<P, _>(plugin, |_| true);
         self
     }
+
+    fn add_dependency_approval<
+        P: DeclarativePlugin + 'static,
+        F: for<'a> Fn(&'a P) -> bool + 'static,
+    >(
+        &mut self,
+        approval: F,
+    ) {
+        // We always approve zero-sized types. There is no config, and `|_| false` is considered a misbehave.
+        let is_zst = size_of::<P>() == 0;
+        let plugin_type_id = PluginTypeId(TypeId::of::<P>());
+        if is_zst {
+            self.plugin_approval
+                .insert(plugin_type_id, Approval::always_approve());
+        } else {
+            self.plugin_approval.insert(
+                plugin_type_id,
+                Approval::new(move |dyn_plugin| {
+                    let Some(plugin) = <dyn Any>::downcast_ref::<P>(dyn_plugin) else {
+                        return false;
+                    };
+                    approval(plugin)
+                }),
+            );
+        }
+    }
 }
 
-pub struct PluginTypeId(TypeId);
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
+pub(crate) struct PluginTypeId(TypeId);
 
 pub trait DeclarativePlugin: Any {
     fn build(&self, output: &mut PluginOutput);
+
+    /// When this is a zero-sized type, it will give the same [`PluginOutput`]
+    /// every time [`DeclarativePlugin`] is called.
+    fn zero_sized_instances_are_identical(&self) -> bool {
+        true
+    }
 }
 
-/// The accumulated plugins before being moved into a graph.
-pub struct PluginList {
+/// A list of "entry point" plugins and their outputs. This gets expanded into a graph.
+pub(crate) struct PluginList {
     nodes: Vec<(Box<dyn DeclarativePlugin>, PluginOutput)>,
 }
 
-pub struct PluginGraph {
-    nodes: Vec<(PluginTypeId, Box<dyn DeclarativePlugin>)>,
-    edges: Vec<(PluginTypeId, PluginTypeId, Approval<dyn DeclarativePlugin>)>,
+impl PluginList {
+    /// Expand the list of entry point plugins into a full graph. Ignores recurring ZSTs.
+    pub(crate) fn expand(mut self) -> Result<PluginRegistrationGraph, ()> {
+        let mut zst_already_expanded: HashMap<PluginTypeId, RegistrationId> = HashMap::new();
+        let mut graph = PluginRegistrationGraph::new();
+        for (_, output) in &mut self.nodes {
+            // Mark entry points.
+            output.is_entry_point = true;
+        }
+        let mut dependency_stack = VecDeque::new();
+        for (item, output) in self.nodes {
+            if output.is_zero_sized_optimizable
+                && !zst_already_expanded.contains_key(&output.working_plugin)
+            {
+                let type_id = output.working_plugin;
+                let (reg_id, dependencies) = graph.insert_node(output.working_plugin, item, output);
+                dependency_stack.extend(dependencies.into_iter().map(|d| (reg_id, d)));
+                zst_already_expanded.insert(type_id, reg_id);
+            } else if !output.is_zero_sized_optimizable {
+            }
+        }
+        while let Some((from, dependency)) = dependency_stack.pop_front() {
+            if !zst_already_expanded.contains_key(&dependency.type_id)
+                && let Some((dyn_plugin, output_fn)) = dependency.data
+            {
+                let Some(output) = output_fn(dyn_plugin.as_ref()) else {
+                    continue;
+                };
+                let plugin_id = output.working_plugin;
+                let can_zst_optimize = output.is_zero_sized_optimizable;
+                let (reg_id, dependencies) = graph.insert_node(plugin_id, dyn_plugin, output);
+                graph.insert_edge(from, reg_id);
+                dependency_stack.extend(dependencies.into_iter().map(|d| (reg_id, d)));
+                if can_zst_optimize {
+                    zst_already_expanded.insert(plugin_id, reg_id);
+                }
+            }
+        }
+        Ok(graph)
+    }
+}
+
+#[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash, Clone, Copy)]
+pub(crate) struct RegistrationId(usize);
+
+pub(crate) struct PluginRegistrationGraph {
+    registration_counter: usize,
+    nodes:
+        HashMap<PluginTypeId, Vec<(RegistrationId, Box<dyn DeclarativePlugin>, PluginOutput<()>)>>,
+    registration_type_association: HashMap<RegistrationId, PluginTypeId>,
+    dependency_edges: HashMap<RegistrationId, Vec<RegistrationId>>,
+}
+
+impl PluginRegistrationGraph {
+    fn new_id(&mut self) -> RegistrationId {
+        let id = RegistrationId(self.registration_counter);
+        self.registration_counter += 1;
+        id
+    }
+
+    pub(crate) fn new() -> Self {
+        Self {
+            registration_counter: 0,
+            nodes: HashMap::new(),
+            dependency_edges: HashMap::new(),
+            registration_type_association: HashMap::new(),
+        }
+    }
+
+    #[must_use]
+    pub(crate) fn insert_node<D>(
+        &mut self,
+        id: PluginTypeId,
+        plugin_data: Box<dyn DeclarativePlugin>,
+        output: PluginOutput<D>,
+    ) -> (RegistrationId, D) {
+        let registration_id = self.new_id();
+        let (erased_output, dependencies) = output.extract_dependencies();
+        self.nodes
+            .entry(id)
+            .or_default()
+            .push((registration_id, plugin_data, erased_output));
+        self.registration_type_association
+            .insert(registration_id, id);
+        (registration_id, dependencies)
+    }
+
+    pub(crate) fn insert_edge(&mut self, from: RegistrationId, to: RegistrationId) {
+        self.dependency_edges.entry(from).or_default().push(to);
+    }
 }
 
 /// The final order for things to be registered in.
 pub struct OrderedPluginItems(Vec<DeclrItem>);
+
+pub struct ItemsGraph {}
 
 /// Items that can be added to a world.
 pub enum DeclrItem {
