@@ -32,6 +32,7 @@ use crate::{change_detection::CheckChangeTicks, system::System};
 use crate::{
     component::{ComponentId, Components},
     prelude::Component,
+    query::FilteredAccessSet,
     resource::Resource,
     schedule::*,
     system::ScheduleSystem,
@@ -1373,12 +1374,13 @@ impl ScheduleGraph {
             return false;
         }
         let strict_edges = self.flat_node_edges(&self.strict_node_edges, flat_dependency);
+        let condition_accesses = self.condition_accesses();
 
         // Add an edge for every conflicting pair the weak edges order, including endpoints
         // connected only through a non-conflicting middle system. Edges made redundant by this
         // are removed by the transitive reduction that follows in `build_schedule`.
         for (from, to) in analysis.transitive_closure().all_edges() {
-            if self.systems_conflict(from, to) {
+            if self.systems_conflict(from, to, &condition_accesses) {
                 flat_dependency.add_edge(from, to);
             }
         }
@@ -1387,12 +1389,43 @@ impl ScheduleGraph {
         // ordered strictly. Any ordering that mattered was materialized above, and the rest is
         // intentionally left unordered.
         for &(from, to) in &weak_edges {
-            if !self.systems_conflict(from, to) && !strict_edges.contains(&(from, to)) {
+            if !self.systems_conflict(from, to, &condition_accesses)
+                && !strict_edges.contains(&(from, to))
+            {
                 flat_dependency.remove_edge(from, to);
             }
         }
 
         true
+    }
+
+    /// Collects, for each system, the accesses of its run conditions and of the run conditions
+    /// of every set it belongs to.
+    ///
+    /// A condition is evaluated just before its system (or the first ready system of its set)
+    /// runs, so a weak ordering must respect what the conditions access as well.
+    fn condition_accesses(&self) -> HashMap<SystemKey, Vec<&FilteredAccessSet>> {
+        let mut accesses: HashMap<SystemKey, Vec<&FilteredAccessSet>> = HashMap::default();
+        for (key, _, conditions) in self.systems.iter() {
+            for condition in conditions {
+                accesses.entry(key).or_default().push(&condition.access);
+            }
+        }
+        for (key, _, conditions) in self.system_sets.iter() {
+            if conditions.is_empty() {
+                continue;
+            }
+            let Some(systems) = self.set_systems.get(&key) else {
+                continue;
+            };
+            for &system in systems {
+                accesses
+                    .entry(system)
+                    .or_default()
+                    .extend(conditions.iter().map(|condition| &condition.access));
+            }
+        }
+        accesses
     }
 
     /// Expands a set of node-level dependency edges to the system pairs they connect, keeping only
@@ -1434,16 +1467,34 @@ impl ScheduleGraph {
     /// Returns whether an ordered pair of systems conflict, i.e. whether a weak ordering between
     /// them should keep an edge.
     ///
-    /// Two systems conflict when their accesses are incompatible. A system that produces deferred
-    /// effects such as `Commands` (as the earlier system) and exclusive systems are treated as
-    /// always conflicting, so their ordering and any `ApplyDeferred` sync point are preserved.
-    fn systems_conflict(&self, from: SystemKey, to: SystemKey) -> bool {
-        self.systems[from].has_deferred()
-            || self.systems[from].is_exclusive()
-            || self.systems[to].is_exclusive()
-            || !self.systems[from]
-                .access
-                .is_compatible(&self.systems[to].access)
+    /// Two systems conflict when their accesses are incompatible, where a system's run conditions
+    /// (and those of its sets, see [`Self::condition_accesses`]) count toward its access. A system
+    /// that produces deferred effects such as `Commands` (as the earlier system) and exclusive
+    /// systems are treated as always conflicting, so their ordering and any `ApplyDeferred` sync
+    /// point are preserved.
+    fn systems_conflict(
+        &self,
+        from: SystemKey,
+        to: SystemKey,
+        condition_accesses: &HashMap<SystemKey, Vec<&FilteredAccessSet>>,
+    ) -> bool {
+        let (from_system, to_system) = (&self.systems[from], &self.systems[to]);
+        // Conditions are read-only, so they can conflict with the other system's access, but
+        // never with the other system's conditions.
+        let conditions_conflict = |system_access: &FilteredAccessSet, other: SystemKey| {
+            condition_accesses.get(&other).is_some_and(|accesses| {
+                accesses
+                    .iter()
+                    .any(|access| !system_access.is_compatible(access))
+            })
+        };
+
+        from_system.has_deferred()
+            || from_system.is_exclusive()
+            || to_system.is_exclusive()
+            || !from_system.access.is_compatible(&to_system.access)
+            || conditions_conflict(&from_system.access, to)
+            || conditions_conflict(&to_system.access, from)
     }
 
     fn build_schedule_inner(
@@ -3234,5 +3285,61 @@ mod tests {
         // The inner weak group is non-conflicting, so it adds no internal edges. The outer
         // strict chain still orders every group member before the final system: 3 finish edges.
         assert_eq!(total_dependencies(&schedule), 3);
+    }
+
+    #[test]
+    fn chain_weak_orders_writer_before_system_with_conflicting_condition() {
+        fn write(_: ResMut<Resource1>) {}
+        fn noop() {}
+
+        let mut world = World::default();
+        let mut schedule = Schedule::default();
+        // The second system accesses nothing itself, but its run condition reads `Resource1`,
+        // which the first system writes. The condition is evaluated just before the system
+        // runs, so the weak ordering must keep the edge for the condition to observe the write.
+        schedule.add_systems((write, noop.run_if(|_: Res<Resource1>| true)).chain_weak());
+        schedule.initialize(&mut world).unwrap();
+
+        assert_eq!(total_dependencies(&schedule), 1);
+    }
+
+    #[test]
+    fn chain_weak_orders_system_with_conflicting_condition_before_writer() {
+        fn write(_: ResMut<Resource1>) {}
+        fn noop() {}
+
+        let mut world = World::default();
+        let mut schedule = Schedule::default();
+        // The first system's run condition reads `Resource1`, which the second system writes.
+        // The condition is evaluated just before the first system runs, so the weak ordering
+        // must keep the edge for the condition to observe the pre-write value.
+        schedule.add_systems((noop.run_if(|_: Res<Resource1>| true), write).chain_weak());
+        schedule.initialize(&mut world).unwrap();
+
+        assert_eq!(total_dependencies(&schedule), 1);
+    }
+
+    #[test]
+    fn chain_weak_orders_writer_before_set_with_conflicting_condition() {
+        #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+        enum Sets {
+            A,
+            B,
+        }
+
+        fn write(_: ResMut<Resource1>) {}
+        fn noop() {}
+
+        let mut world = World::default();
+        let mut schedule = Schedule::default();
+        schedule.configure_sets((Sets::A, Sets::B).chain_weak());
+        // `Sets::B`'s run condition reads `Resource1`, which the system in `Sets::A` writes.
+        // The condition is evaluated just before the first system in the set runs, so the
+        // weak ordering must keep the edge even though the member itself accesses nothing.
+        schedule.configure_sets(Sets::B.run_if(|_: Res<Resource1>| true));
+        schedule.add_systems((write.in_set(Sets::A), noop.in_set(Sets::B)));
+        schedule.initialize(&mut world).unwrap();
+
+        assert_eq!(total_dependencies(&schedule), 1);
     }
 }

@@ -425,7 +425,8 @@ pub trait IntoScheduleConfigs<T: Schedulable<Metadata = GraphInfo, GroupMetadata
     ///
     /// Like [`before`](Self::before), this requests that `self` run before `set`. Unlike
     /// [`before`](Self::before), the ordering is kept only between systems whose data accesses
-    /// conflict. Systems that don't conflict are left unordered and may run in any order,
+    /// conflict, where a system's run conditions (and those of its sets) count toward its access.
+    /// Systems that don't conflict are left unordered and may run in any order,
     /// including in parallel. This is useful for ordering against large groups of systems (such
     /// as system sets) without serializing systems that don't actually depend on each other.
     ///
@@ -444,7 +445,8 @@ pub trait IntoScheduleConfigs<T: Schedulable<Metadata = GraphInfo, GroupMetadata
     ///
     /// Like [`after`](Self::after), this requests that `self` run after `set`. Unlike
     /// [`after`](Self::after), the ordering is kept only between systems whose data accesses
-    /// conflict. Systems that don't conflict are left unordered and may run in any order,
+    /// conflict, where a system's run conditions (and those of its sets) count toward its access.
+    /// Systems that don't conflict are left unordered and may run in any order,
     /// including in parallel. This is useful for ordering against large groups of systems (such
     /// as system sets) without serializing systems that don't actually depend on each other.
     ///
@@ -566,7 +568,8 @@ pub trait IntoScheduleConfigs<T: Schedulable<Metadata = GraphInfo, GroupMetadata
     ///
     /// Like [`chain`](Self::chain), this requests an ordering between the successive elements.
     /// Unlike [`chain`](Self::chain), the ordering is kept only between systems whose data
-    /// accesses conflict. Systems that don't conflict are left unordered and may run in any
+    /// accesses conflict, where a system's run conditions (and those of its sets) count toward
+    /// its access. Systems that don't conflict are left unordered and may run in any
     /// order, including in parallel. Two systems that conflict only through a non-conflicting
     /// system between them in the chain are still ordered. This is useful for ordering large
     /// groups of systems (such as system sets) without serializing systems that don't actually
