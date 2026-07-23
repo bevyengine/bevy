@@ -3300,6 +3300,18 @@ category = "Shaders"
 wasm = false
 
 [[example]]
+name = "deferred_raymarch"
+path = "examples/shader_advanced/deferred_raymarch.rs"
+doc-scrape-examples = true
+required-features = ["free_camera"]
+
+[package.metadata.example.deferred_raymarch]
+name = "Deferred Gbuffer Raymarching"
+description = "Writes a raymarched SDF into the deferred gbuffer so it is lit by the standard PBR deferred lighting pass"
+category = "Shaders Advanced"
+wasm = true
+
+[[example]]
 name = "array_texture"
 path = "examples/shader/array_texture.rs"
 doc-scrape-examples = true
