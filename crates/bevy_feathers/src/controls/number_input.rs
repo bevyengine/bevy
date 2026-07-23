@@ -564,7 +564,7 @@ fn number_input_on_insert_value(
         };
         let (mut editable_text, mut gradient) = q_text_input.get_mut(text_id).unwrap();
         let new_digits = clamped_value.to_string();
-        if editable_text.value() != &new_digits {
+        if editable_text.value() != new_digits {
             editable_text.queue_edit(TextEdit::SelectAll);
             editable_text.queue_edit(TextEdit::Insert(new_digits.into()));
         }
