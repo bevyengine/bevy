@@ -288,12 +288,12 @@ fn handle_selection_change(
     new_value_query: Query<&RadioButtonOptionValue<LightMode>>,
     mut light_mode: ResMut<LightMode>,
 ) {
-    let Ok(RadioButtonOptionValue(_selection)) = new_value_query.get(event.value) else {
+    let Ok(RadioButtonOptionValue(selection)) = new_value_query.get(event.value) else {
         return;
     };
 
     for light in light_query.iter_mut() {
-        match *light_mode {
+        match selection {
             LightMode::Point => {
                 *light_mode = LightMode::Directional;
                 commands
