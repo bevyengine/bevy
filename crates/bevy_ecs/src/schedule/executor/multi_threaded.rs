@@ -79,9 +79,6 @@ struct SystemTaskMetadata {
     condition_conflicting_systems: FixedBitSet,
     /// Indices of the systems that directly depend on the system.
     dependents: Vec<usize>,
-    /// Indices of the systems that have a start-to-start dependency on this system, i.e.
-    /// that may not start until this system has started (from `chain_weak`).
-    start_dependents: Vec<usize>,
     /// Is `true` if the system does not access `!Send` data.
     is_send: bool,
     /// Is `true` if the system is exclusive.
@@ -121,10 +118,8 @@ pub struct ExecutorState {
     exclusive_running: bool,
     /// The number of systems that are running.
     num_running_systems: usize,
-    /// The number of dependencies each system has that have not been satisfied. A
-    /// finish-to-start dependency is satisfied when the predecessor completes. A
-    /// start-to-start dependency (from `chain_weak`) is satisfied when the predecessor
-    /// starts.
+    /// The number of dependencies each system has that have not been satisfied. A dependency
+    /// is satisfied when the predecessor completes.
     num_dependencies_remaining: Vec<usize>,
     /// System sets whose conditions have been evaluated.
     evaluated_sets: FixedBitSet,
@@ -182,12 +177,10 @@ impl SystemExecutor for MultiThreadedExecutor {
                 conflicting_systems: FixedBitSet::with_capacity(sys_count),
                 condition_conflicting_systems: FixedBitSet::with_capacity(sys_count),
                 dependents: schedule.system_dependents[index].clone(),
-                start_dependents: schedule.system_start_dependents[index].clone(),
                 is_send: schedule.systems[index].system.is_send(),
                 is_exclusive: schedule.systems[index].system.is_exclusive(),
             });
-            // `system_dependencies` counts both finish-to-start and start-to-start
-            // predecessors, so a system with none of either should be the starting system.
+            // A system with no dependencies is a starting system.
             if schedule.system_dependencies[index] == 0 {
                 self.starting_systems.insert(index);
             }
@@ -275,7 +268,6 @@ impl SystemExecutor for MultiThreadedExecutor {
             // though they had run
             for system_index in skipped_systems.ones() {
                 state.signal_dependents(system_index);
-                state.signal_start_dependents(system_index);
                 state.ready_systems.remove(system_index);
             }
         }
@@ -531,10 +523,6 @@ impl ExecutorState {
                 self.running_systems.insert(system_index);
                 self.num_running_systems += 1;
 
-                if self.signal_start_dependents(system_index) {
-                    check_for_new_ready_systems = true;
-                }
-
                 if self.system_task_metadata[system_index].is_exclusive {
                     // SAFETY: `can_run` returned true for this system,
                     // which means no systems are currently borrowed.
@@ -774,55 +762,19 @@ impl ExecutorState {
     fn skip_system_and_signal_dependents(&mut self, system_index: usize) {
         self.completed_systems.insert(system_index);
         self.signal_dependents(system_index);
-        self.signal_start_dependents(system_index);
     }
 
-    /// Satisfies one dependency for each system in `dependents`, marking any that become
-    /// ready to run.
-    ///
-    /// Returns whether any system became ready.
-    ///
-    /// Both finish-to-start and start-to-start dependencies are counted in `num_dependencies_remaining`.
-    fn release_dependents(
-        dependents: &[usize],
-        num_dependencies_remaining: &mut [usize],
-        ready_systems: &mut FixedBitSet,
-        completed_systems: &FixedBitSet,
-    ) -> bool {
-        let mut readied_any = false;
-        for &dep_idx in dependents {
-            let remaining = &mut num_dependencies_remaining[dep_idx];
+    /// Called when `system_index` completes, satisfying one dependency for each of its
+    /// dependents and marking any that become ready to run.
+    fn signal_dependents(&mut self, system_index: usize) {
+        for &dep_idx in &self.system_task_metadata[system_index].dependents {
+            let remaining = &mut self.num_dependencies_remaining[dep_idx];
             debug_assert!(*remaining >= 1);
             *remaining -= 1;
-            if *remaining == 0 && !completed_systems.contains(dep_idx) {
-                ready_systems.insert(dep_idx);
-                readied_any = true;
+            if *remaining == 0 && !self.completed_systems.contains(dep_idx) {
+                self.ready_systems.insert(dep_idx);
             }
         }
-        readied_any
-    }
-
-    /// Called when `system_index` completes, releasing its finish-to-start dependents.
-    fn signal_dependents(&mut self, system_index: usize) {
-        Self::release_dependents(
-            &self.system_task_metadata[system_index].dependents,
-            &mut self.num_dependencies_remaining,
-            &mut self.ready_systems,
-            &self.completed_systems,
-        );
-    }
-
-    /// Called when `system_index` starts (or is skipped), releasing its start-to-start
-    /// dependents (from `chain_weak`).
-    ///
-    /// Returns whether any system became ready.
-    fn signal_start_dependents(&mut self, system_index: usize) -> bool {
-        Self::release_dependents(
-            &self.system_task_metadata[system_index].start_dependents,
-            &mut self.num_dependencies_remaining,
-            &mut self.ready_systems,
-            &self.completed_systems,
-        )
     }
 }
 

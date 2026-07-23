@@ -11,11 +11,10 @@ involved never touch the same data. This often leaves worker threads idle while 
 wait for a handful of stragglers at the end of a system set, a pattern that shows up
 frequently in the render world.
 
-The new `chain_weak()`, `before_weak()`, and `after_weak()` functions provides a looser alternative.
-Like their regular counterparts, they add ordering constraints between successive elements,
-however those constraints are emitted as "must start before" (start-to-start) dependencies rather than
-"must finish before" ones. A later system may not begin until the earlier one has
-begun, but it does not wait for the earlier one to finish, so the two can overlap.
+The new `chain_weak()`, `before_weak()`, and `after_weak()` functions provide a looser alternative.
+Like their regular counterparts, they request an ordering between successive elements, however that
+ordering is only kept between systems whose data accesses actually conflict. Systems that don't
+conflict are left unordered and may run in any order, including in parallel.
 
 ```rust
 schedule.configure_sets(
@@ -36,15 +35,16 @@ schedule.configure_sets(
 );
 ```
 
-When two weakly-ordered systems actually conflict on their data access, the
-executor already prevents them from running at the same time, so the start-to-start
-ordering makes the earlier one win: the later system waits until the earlier one
-finishes. Non-conflicting systems, however, get to overlap for increased parallelism!
+When two weakly-ordered systems actually conflict on their data access, a normal
+ordering is kept between them, so the earlier one still runs first. Two
+systems that conflict only through a non-conflicting system between them in the chain
+stay ordered as well. Non-conflicting systems, however, are left free to run in any
+order and overlap for increased parallelism!
 
-Two cases keep their regular finish-to-start ordering: an earlier system that
-produces deferred effects such as `Commands` (so the later system observes them,
-with an `ApplyDeferred` sync point inserted as usual), and exclusive systems (which
-cannot overlap anything regardless).
+Two kinds of system are treated as always conflicting, so their ordering is always
+kept: an earlier system that produces deferred effects such as `Commands` (so the
+later system observes them, with an `ApplyDeferred` sync point inserted as usual), and
+exclusive systems (which cannot overlap anything regardless).
 
 Because the scheduler can only see accesses it tracks, dependencies expressed
 through interior mutability on read-only accesses, global state, or other untracked

@@ -420,20 +420,18 @@ pub trait IntoScheduleConfigs<T: Schedulable<Metadata = GraphInfo, GroupMetadata
         self.into_configs().after_ignore_deferred(set)
     }
 
-    /// Run before all systems in `set`, allowing `self` to overlap with `set` given that there
-    /// are no conflicting data dependencies.
+    /// Run before the systems in `set` that `self` actually conflicts with, leaving the rest
+    /// unordered.
     ///
-    /// Like [`before`](Self::before), an ordering constraint is added against `set`. Unlike
-    /// [`before`](Self::before), that constraint is a "must start before" (start-to-start)
-    /// dependency: systems in `set` may not begin until `self` has begun, but they do not wait
-    /// for `self` to finish, so the two can overlap. This is useful for ordering against large
-    /// groups of systems (such as system sets) without serializing systems that don't actually
-    /// depend on each other.
+    /// Like [`before`](Self::before), this requests that `self` run before `set`. Unlike
+    /// [`before`](Self::before), the ordering is kept only between systems whose data accesses
+    /// conflict. Systems that don't conflict are left unordered and may run in any order,
+    /// including in parallel. This is useful for ordering against large groups of systems (such
+    /// as system sets) without serializing systems that don't actually depend on each other.
     ///
-    /// Two cases keep the regular finish-to-start ordering of [`before`](Self::before): a `self`
-    /// that produces deferred effects such as [`Commands`](crate::system::Commands) (so the
-    /// systems in `set` observe them, with an [`ApplyDeferred`](crate::schedule::ApplyDeferred)
-    /// inserted as usual), and exclusive systems (which cannot overlap anything).
+    /// A `self` that produces deferred effects such as [`Commands`](crate::system::Commands)
+    /// (with an [`ApplyDeferred`](crate::schedule::ApplyDeferred) inserted as usual) and
+    /// exclusive systems are treated as always conflicting, so their ordering is always kept.
     ///
     /// Dependencies the scheduler can't see (interior mutability on read-only accesses, global state, etc.)
     /// are **not** respected, so only use this when the systems don't rely on such hidden data dependencies.
@@ -441,20 +439,18 @@ pub trait IntoScheduleConfigs<T: Schedulable<Metadata = GraphInfo, GroupMetadata
         self.into_configs().before_weak(set)
     }
 
-    /// Run after all systems in `set`, allowing `self` to overlap with `set` given that there
-    /// are no conflicting data dependencies.
+    /// Run after the systems in `set` that `self` actually conflicts with, leaving the rest
+    /// unordered.
     ///
-    /// Like [`after`](Self::after), an ordering constraint is added against `set`. Unlike
-    /// [`after`](Self::after), that constraint is a "must start before" (start-to-start)
-    /// dependency: `self` may not begin until the systems in `set` have begun, but it does not
-    /// wait for them to finish, so the two can overlap. This is useful for ordering against large
-    /// groups of systems (such as system sets) without serializing systems that don't actually
-    /// depend on each other.
+    /// Like [`after`](Self::after), this requests that `self` run after `set`. Unlike
+    /// [`after`](Self::after), the ordering is kept only between systems whose data accesses
+    /// conflict. Systems that don't conflict are left unordered and may run in any order,
+    /// including in parallel. This is useful for ordering against large groups of systems (such
+    /// as system sets) without serializing systems that don't actually depend on each other.
     ///
-    /// Two cases keep the regular finish-to-start ordering of [`after`](Self::after): a system in
-    /// `set` that produces deferred effects such as [`Commands`](crate::system::Commands) (so
-    /// `self` observes them, with an [`ApplyDeferred`](crate::schedule::ApplyDeferred) inserted as
-    /// usual), and exclusive systems (which cannot overlap anything).
+    /// A system in `set` that produces deferred effects such as [`Commands`](crate::system::Commands)
+    /// (with an [`ApplyDeferred`](crate::schedule::ApplyDeferred) inserted as usual) and exclusive
+    /// systems are treated as always conflicting, so their ordering is always kept.
     ///
     /// Dependencies the scheduler can't see (interior mutability on read-only accesses, global state, etc.)
     /// are **not** respected, so only use this when the systems don't rely on such hidden data dependencies.
@@ -565,20 +561,20 @@ pub trait IntoScheduleConfigs<T: Schedulable<Metadata = GraphInfo, GroupMetadata
         self.into_configs().chain_ignore_deferred()
     }
 
-    /// Treat this collection as a sequence of systems that are allowed to overlap
-    /// with successive systems, given that their are no conflicting data dependencies.
+    /// Treat this collection as a sequence, but only order successive systems that actually
+    /// conflict and leave the rest unordered.
     ///
-    /// Like [`chain`](Self::chain), ordering constraints are added between the successive
-    /// elements. Unlike [`chain`](Self::chain), those constraints are "must start before"
-    /// (start-to-start) dependencies: a later system may not begin until the earlier one has
-    /// begun, but it does not wait for the earlier one to finish, so the two can overlap. This
-    /// is useful for ordering large groups of systems (such as system sets) without
-    /// serializing systems that don't actually depend on each other.
+    /// Like [`chain`](Self::chain), this requests an ordering between the successive elements.
+    /// Unlike [`chain`](Self::chain), the ordering is kept only between systems whose data
+    /// accesses conflict. Systems that don't conflict are left unordered and may run in any
+    /// order, including in parallel. Two systems that conflict only through a non-conflicting
+    /// system between them in the chain are still ordered. This is useful for ordering large
+    /// groups of systems (such as system sets) without serializing systems that don't actually
+    /// depend on each other.
     ///
-    /// Two cases keep the regular finish-to-start ordering of [`chain`](Self::chain): an earlier
-    /// system that produces deferred effects such as [`Commands`](crate::system::Commands) (so
-    /// the later system observes them, with an [`ApplyDeferred`](crate::schedule::ApplyDeferred)
-    /// inserted as usual), and exclusive systems (which cannot overlap anything).
+    /// An earlier system that produces deferred effects such as [`Commands`](crate::system::Commands)
+    /// (with an [`ApplyDeferred`](crate::schedule::ApplyDeferred) inserted as usual) and exclusive
+    /// systems are treated as always conflicting, so their ordering is always kept.
     ///
     /// Dependencies the scheduler can't see (interior mutability on read-only accesses, global state, etc.)
     /// are **not** respected, so only use this when the systems don't rely on such hidden data dependencies.

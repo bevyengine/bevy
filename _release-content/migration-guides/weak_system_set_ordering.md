@@ -4,10 +4,11 @@ pull_requests: [25128]
 ---
 
 A number of Bevy's built-in schedules previously ordered their top-level system sets with
-`.chain()`, a "must finish before" (finish-to-start) ordering: every system in a set had to
+`.chain()`, a "must finish before" ordering: every system in a set had to
 finish before *any* system in the next set could start. These sets are now ordered with the new
-`.chain_weak()` (and in a few places `.after_weak()`/`.before_weak()`), a "must start before"
-(start-to-start) ordering that lets non-conflicting systems in adjacent sets overlap for better
+`.chain_weak()` (and in a few places `.after_weak()`/`.before_weak()`), which keeps an
+ordering only between systems whose data accesses actually conflict and leaves
+non-conflicting systems in adjacent sets unordered, letting them run in any order for better
 parallelism.
 
 The affected orderings are:
@@ -26,17 +27,17 @@ The affected orderings are:
   `Content`, `Layout`, `PostLayout`).
 
 For most users this changes nothing. When two weakly-ordered systems actually conflict on their
-tracked data access, the executor still prevents them from running at the same time and keeps the
-earlier one first; deferred-effect producers (`Commands`) keep their sync-point ordering; and
-exclusive systems still can't overlap anything. In practice almost every ordering above is still
-enforced this way — the change only relaxes ordering between systems that have no data dependency
-at all.
+tracked data access, a normal ordering is kept between them so the earlier one
+still runs first. Deferred-effect producers (`Commands`) keep their sync-point ordering, and
+exclusive systems are treated as always conflicting. In practice almost every ordering above is
+still enforced this way — the change only relaxes ordering between systems that have no data
+dependency at all.
 
 However, if you added a custom system to one of these sets and relied on a system in an earlier
 set *finishing* before yours *starts* — where that dependency is **not** expressed through tracked
 ECS access (for example, communication through interior mutability on a `Res<T>`, a channel, an
 atomic, or global/`NonSend` state) — that ordering is no longer guaranteed. Restore a strict
-finish-to-start ordering explicitly:
+ordering explicitly:
 
 ```rust
 // Before: relied on the implicit strict ordering between these render sets.
