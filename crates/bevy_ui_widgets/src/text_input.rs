@@ -8,7 +8,7 @@
 
 use bevy_a11y::AccessibilitySystems;
 use bevy_app::{App, Plugin, PostUpdate, PreUpdate};
-use bevy_camera::visibility::Visibility;
+use bevy_camera::visibility::{InheritedVisibility, Visibility};
 use bevy_color::{Alpha, Color};
 use bevy_ecs::lifecycle::{Add, Remove};
 use bevy_ecs::prelude::*;
@@ -794,6 +794,7 @@ fn update_placeholders(
             &ComputedNode,
             &UiGlobalTransform,
             &ComputedUiRenderTargetInfo,
+            &InheritedVisibility,
         ),
         (Without<PlaceholderLabel>, Without<PlaceholderLabelText>),
     >,
@@ -814,6 +815,7 @@ fn update_placeholders(
             field_node,
             field_transform,
             target,
+            field_visibility,
         )) = q_fields.get(label.field)
         else {
             // field despawned (or no longer an editable text): the label is
@@ -845,11 +847,15 @@ fn update_placeholders(
             continue;
         }
 
-        visibility.set_if_neq(placeholder_visibility(
-            editable_text,
-            placeholder.mode,
-            focus == Some(label.field),
-        ));
+        // The label is a root-level overlay -- it inherits nothing from the
+        // field, so the field's effective visibility must be mirrored by
+        // hand. `Display::None` needs no handling: the outer clip node
+        // collapses with the field's zero-sized content box.
+        visibility.set_if_neq(if field_visibility.get() {
+            placeholder_visibility(editable_text, placeholder.mode, focus == Some(label.field))
+        } else {
+            Visibility::Hidden
+        });
         if let Ok((mut text, mut font, mut color)) = q_label_text.get_mut(label.text) {
             if text.0 != placeholder.text {
                 text.0.clone_from(&placeholder.text);
@@ -969,6 +975,9 @@ impl Plugin for EditableTextInputPlugin {
                     .in_set(UiSystems::PostLayout)
                     .in_set(PlaceholderSystems)
                     .after(update_editable_text_layout)
+                    // read THIS frame's propagated visibility, not last
+                    // frame's (same requirement as the menu focus systems)
+                    .after(bevy_camera::visibility::VisibilitySystems::VisibilityPropagate)
                     .before(AccessibilitySystems::Update)
                     // FocusChangeEvents does not mutate the actual InputFocus;
                     // this is a false positive that can be ignored
@@ -1268,7 +1277,16 @@ mod tests {
         placeholder: Placeholder,
     ) -> Entity {
         app.world_mut()
-            .spawn((editable_text, placeholder, Node::default()))
+            .spawn((
+                editable_text,
+                placeholder,
+                Node::default(),
+                // `InheritedVisibility` defaults to HIDDEN and is only made
+                // true by `VisibilityPropagate`, which this minimal app does
+                // not run -- model propagation's output for a visible field
+                // directly (the visibility test below overrides it).
+                InheritedVisibility::VISIBLE,
+            ))
             .id()
     }
 
@@ -1339,6 +1357,39 @@ mod tests {
         app.update();
         assert_eq!(label_visibility(&app, label), Visibility::Hidden);
 
+        app.update();
+        assert_eq!(label_visibility(&app, label), Visibility::Inherited);
+    }
+
+    #[test]
+    fn placeholder_hides_with_the_field() {
+        let mut app = placeholder_app();
+        let field =
+            spawn_placeholder_field(&mut app, EditableText::default(), Placeholder::new("hint"));
+        let (label, _) = find_label(&mut app, field).unwrap();
+
+        // Past the positioned gate: label visible.
+        app.update();
+        app.update();
+        assert_eq!(label_visibility(&app, label), Visibility::Inherited);
+
+        // The label is a root-level overlay and inherits nothing from the
+        // field, so the sync system must mirror the field's effective
+        // visibility by hand. `VisibilityPropagate` is not part of this
+        // minimal app, so the propagated value is written directly -- the
+        // gate consumes `InheritedVisibility`; its derivation is bevy's
+        // own concern.
+        app.world_mut()
+            .entity_mut(field)
+            .insert(InheritedVisibility::HIDDEN);
+        app.update();
+        assert_eq!(label_visibility(&app, label), Visibility::Hidden);
+
+        // Re-shown field: the label re-reveals without re-tripping the
+        // positioned gate.
+        app.world_mut()
+            .entity_mut(field)
+            .insert(InheritedVisibility::VISIBLE);
         app.update();
         assert_eq!(label_visibility(&app, label), Visibility::Inherited);
     }
