@@ -31,6 +31,7 @@ pub fn extract_raytracing_scene_structural(
     render_entities: Extract<Query<RenderEntity>>,
     mut commands: Commands,
 ) {
+    // Process removed components before additions, that way it properly handles same-frame removal->insertion.
     for main_entity in removed_raytracing_meshes.read() {
         if let Ok(render_entity) = render_entities.get(main_entity) {
             commands.entity(render_entity).remove::<RaytracingMesh3d>();
