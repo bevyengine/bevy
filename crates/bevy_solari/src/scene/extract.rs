@@ -64,7 +64,10 @@ pub fn extract_raytracing_scene_transforms(
             ),
         >,
     >,
-    mut render_instances: Query<(&mut GlobalTransform, Option<&mut PreviousGlobalTransform>)>,
+    mut render_instances: Query<
+        (&mut GlobalTransform, Option<&mut PreviousGlobalTransform>),
+        With<RaytracingMesh3d>,
+    >,
 ) {
     for (render_entity, new_transform, new_previous_frame_transform) in &main_instances {
         if let Ok((mut transform, mut previous_frame_transform)) =
