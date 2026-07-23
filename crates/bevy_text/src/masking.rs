@@ -11,7 +11,8 @@ use bevy_reflect::Reflect;
 use parley::PlainEditorDriver;
 
 /// Masks an [`EditableText`]'s displayed content: the editor's buffer holds
-/// one mask glyph per character while the real text accumulates here.
+/// one mask glyph per character while the real text accumulates in a shadow
+/// slot on [`EditableText`].
 ///
 /// The editor lays out and renders the mask string itself, so cursor
 /// positioning, selection geometry, and click-to-position are exact by
@@ -19,9 +20,10 @@ use parley::PlainEditorDriver;
 /// char and byte space (every char of an all-mask string is exactly
 /// `glyph.len_utf8()` bytes).
 ///
-/// Because the editor's buffer contains only mask glyphs,
-/// [`EditableText::value`] returns the mask string. **Read the real content
-/// via [`CharacterMask::value`].**
+/// [`EditableText::value`] always returns the *entered* text — the mask
+/// affects display only. The entered text lives in a shadow slot on
+/// [`EditableText`] while the mask is present, so it lives and dies with
+/// the text: removing [`EditableText`] removes the value.
 ///
 /// Adding the component conceals: the editor's current content is captured
 /// as the real value and replaced with mask glyphs. Removing it reveals:
@@ -55,8 +57,6 @@ use parley::PlainEditorDriver;
 #[reflect(Component)]
 #[component(on_add = on_mask_added, on_remove = on_mask_removed)]
 pub struct CharacterMask {
-    /// The real (unmasked) text. Prefer [`CharacterMask::value`] for reads.
-    pub value: String,
     /// The glyph rendered per character.
     ///
     /// Defaults to `*`: Bevy's embedded default font is a minimal ASCII
@@ -68,45 +68,32 @@ pub struct CharacterMask {
 
 impl Default for CharacterMask {
     fn default() -> Self {
-        Self {
-            value: String::new(),
-            glyph: '*',
-        }
+        Self { glyph: '*' }
     }
 }
 
 impl CharacterMask {
-    /// The real (unmasked) text.
-    pub fn value(&self) -> &str {
-        &self.value
-    }
-
     /// The mask string for `n` characters.
     fn mask_string(&self, n: usize) -> String {
         self.glyph.to_string().repeat(n)
-    }
-
-    /// The mask string matching the current real value.
-    fn expected_editor_text(&self) -> String {
-        self.mask_string(self.value.chars().count())
     }
 
     /// Char index from a byte offset into the all-mask editor string.
     fn char_index(&self, byte_offset: usize) -> usize {
         byte_offset / self.glyph.len_utf8()
     }
+}
 
-    /// Replaces the chars in `range` (char indices) of the real value.
-    fn splice_chars(&mut self, range: core::ops::Range<usize>, replacement: &str) {
-        let byte_at = |char_idx: usize| {
-            self.value
-                .char_indices()
-                .nth(char_idx)
-                .map_or(self.value.len(), |(byte, _)| byte)
-        };
-        let (start, end) = (byte_at(range.start), byte_at(range.end));
-        self.value.replace_range(start..end, replacement);
-    }
+/// Replaces the chars in `range` (char indices) of the real value.
+fn splice_chars(value: &mut String, range: core::ops::Range<usize>, replacement: &str) {
+    let byte_at = |char_idx: usize| {
+        value
+            .char_indices()
+            .nth(char_idx)
+            .map_or(value.len(), |(byte, _)| byte)
+    };
+    let (start, end) = (byte_at(range.start), byte_at(range.end));
+    value.replace_range(start..end, replacement);
 }
 
 /// Adding [`CharacterMask`] conceals the editor's current content.
@@ -119,36 +106,28 @@ fn on_mask_added(mut world: DeferredWorld, context: HookContext) {
     let Some(mask) = world.get::<CharacterMask>(entity) else {
         return;
     };
-    let expected = mask.expected_editor_text();
+    // `char` is `Copy`: take the glyph so the mask borrow ends before the
+    // `EditableText` borrow begins.
+    let glyph = mask.glyph;
     let Some(mut editable_text) = world.get_mut::<EditableText>(entity) else {
+        // Bundle insertion order is unspecified; if `EditableText` isn't
+        // here yet, `reconcile` heals on the next `apply_text_edits` run.
         return;
     };
-    if editable_text.value() != expected.as_str() {
-        // Adopt whatever the editor holds as the real value, then conceal.
-        let current = editable_text.value().to_string();
-        editable_text.editor.set_text("");
-        let Some(mut mask) = world.get_mut::<CharacterMask>(entity) else {
-            return;
-        };
-        if !current.is_empty() {
-            mask.value = current;
-        }
-        let masked = mask.expected_editor_text();
-        if let Some(mut editable_text) = world.get_mut::<EditableText>(entity) {
-            editable_text.editor.set_text(&masked);
-        }
-    }
+    // Adopt whatever the editor holds as the real value, then conceal.
+    let current = editable_text.editor_text().to_string();
+    let masked = glyph.to_string().repeat(current.chars().count());
+    editable_text.shadow_value.0 = Some(current);
+    editable_text.editor.set_text(&masked);
 }
 
 /// Removing [`CharacterMask`] reveals: the real value is written back into
 /// the editor.
 fn on_mask_removed(mut world: DeferredWorld, context: HookContext) {
     let entity = context.entity;
-    let Some(mask) = world.get::<CharacterMask>(entity) else {
-        return;
-    };
-    let value = mask.value.clone();
-    if let Some(mut editable_text) = world.get_mut::<EditableText>(entity) {
+    if let Some(mut editable_text) = world.get_mut::<EditableText>(entity)
+        && let Some(value) = editable_text.shadow_value.0.take()
+    {
         editable_text.editor.set_text(&value);
     }
 }
@@ -161,14 +140,17 @@ fn on_mask_removed(mut world: DeferredWorld, context: HookContext) {
 ///
 /// Returns `true` if the editor was modified (the caller's generation
 /// check then emits `TextEditChange` / re-layout as usual).
-pub(crate) fn reconcile(mask: &mut CharacterMask, editable_text: &mut EditableText) -> bool {
-    let expected = mask.expected_editor_text();
-    if editable_text.value() == expected.as_str() {
-        return false;
+pub(crate) fn reconcile(mask: &CharacterMask, editable_text: &mut EditableText) -> bool {
+    if let Some(value) = &editable_text.shadow_value.0 {
+        let expected = mask.mask_string(value.chars().count());
+        if editable_text.editor_text() == expected.as_str() {
+            return false;
+        }
     }
-    let current = editable_text.value().to_string();
-    mask.value = current;
-    let masked = mask.expected_editor_text();
+    // Adopt whatever the editor holds as the real value, then conceal.
+    let current = editable_text.editor_text().to_string();
+    let masked = mask.mask_string(current.chars().count());
+    editable_text.shadow_value.0 = Some(current);
     editable_text.editor.set_text(&masked);
     true
 }
@@ -195,7 +177,8 @@ fn editor_char_len(driver: &PlainEditorDriver<TextBrush>, mask: &CharacterMask) 
 /// filter, since the mask glyph itself would fail e.g. a digit filter.
 pub(crate) fn masked_insert(
     text: &str,
-    mask: &mut CharacterMask,
+    mask: &CharacterMask,
+    value: &mut String,
     driver: &mut PlainEditorDriver<TextBrush>,
     max_characters: Option<usize>,
     char_filter: &impl Fn(char) -> bool,
@@ -211,7 +194,7 @@ pub(crate) fn masked_insert(
             return;
         }
     }
-    mask.splice_chars(selection, text);
+    splice_chars(value, selection, text);
     let glyphs = mask.mask_string(text.chars().count());
     driver.insert_or_replace_selection(&glyphs);
 }
@@ -220,7 +203,8 @@ pub(crate) fn masked_insert(
 /// the real value. Parley collapses the caret to the removal start, so the
 /// removed range in pre-edit space is `caret_after..caret_after + removed`.
 fn mirrored_delete<'e>(
-    mask: &mut CharacterMask,
+    mask: &CharacterMask,
+    value: &mut String,
     driver: &mut PlainEditorDriver<'e, TextBrush>,
     op: impl FnOnce(&mut PlainEditorDriver<'e, TextBrush>),
 ) {
@@ -230,7 +214,7 @@ fn mirrored_delete<'e>(
     let removed = len_before.saturating_sub(len_after);
     if removed > 0 {
         let caret = selection_char_range(driver, mask).start;
-        mask.splice_chars(caret..caret + removed, "");
+        splice_chars(value, caret..caret + removed, "");
     }
 }
 
@@ -240,11 +224,12 @@ fn mirrored_delete<'e>(
 /// untouched (geometry over the mask string is the point of the design).
 #[expect(
     clippy::too_many_arguments,
-    reason = "mirrors TextEdit::apply's parameter list plus the mask"
+    reason = "mirrors TextEdit::apply's parameter list plus the mask and its value"
 )]
 pub(crate) fn apply_masked_edit(
     edit: TextEdit,
-    mask: &mut CharacterMask,
+    mask: &CharacterMask,
+    value: &mut String,
     driver: &mut PlainEditorDriver<TextBrush>,
     viewport: &mut TextViewport,
     cursor_margin: Vec2,
@@ -261,12 +246,19 @@ pub(crate) fn apply_masked_edit(
         // collapsed cursor, matching unmasked behavior), Delete is not.
         TextEdit::Cut => {
             if driver.editor.selected_text().is_some() {
-                mirrored_delete(mask, driver, PlainEditorDriver::delete);
+                mirrored_delete(mask, value, driver, PlainEditorDriver::delete);
                 reveal_cursor(driver, viewport, cursor_margin);
             }
         }
         TextEdit::Insert(text) => {
-            masked_insert(text.as_str(), mask, driver, max_characters, char_filter);
+            masked_insert(
+                text.as_str(),
+                mask,
+                value,
+                driver,
+                max_characters,
+                char_filter,
+            );
             reveal_cursor(driver, viewport, cursor_margin);
         }
         // Paste is intercepted at the `apply_pending_edits` level (it owns
@@ -277,7 +269,7 @@ pub(crate) fn apply_masked_edit(
             bevy_log::debug!("TextEdit::Paste ignored in masked apply path.");
         }
         TextEdit::Backspace => {
-            mirrored_delete(mask, driver, PlainEditorDriver::backdelete);
+            mirrored_delete(mask, value, driver, PlainEditorDriver::backdelete);
             reveal_cursor(driver, viewport, cursor_margin);
         }
         TextEdit::BackspaceWord => {
@@ -289,15 +281,15 @@ pub(crate) fn apply_masked_edit(
             // Clears everything up to the selection end; caret lands at 0.
             let end = selection_char_range(driver, mask).end;
             if end > 0 {
-                mask.splice_chars(0..end, "");
-                let remaining = mask.expected_editor_text();
+                splice_chars(value, 0..end, "");
+                let remaining = mask.mask_string(value.chars().count());
                 driver.editor.set_text(&remaining);
                 driver.move_to_text_start();
             }
             reveal_cursor(driver, viewport, cursor_margin);
         }
         TextEdit::Delete => {
-            mirrored_delete(mask, driver, PlainEditorDriver::delete);
+            mirrored_delete(mask, value, driver, PlainEditorDriver::delete);
             reveal_cursor(driver, viewport, cursor_margin);
         }
         TextEdit::DeleteWord => {
@@ -308,8 +300,8 @@ pub(crate) fn apply_masked_edit(
             let start = selection_char_range(driver, mask).start;
             let len = editor_char_len(driver, mask);
             if start < len {
-                mask.splice_chars(start..len, "");
-                let remaining = mask.expected_editor_text();
+                splice_chars(value, start..len, "");
+                let remaining = mask.mask_string(value.chars().count());
                 driver.editor.set_text(&remaining);
                 driver.move_to_text_end();
             }
@@ -319,7 +311,7 @@ pub(crate) fn apply_masked_edit(
         // this is the primary touch input path, not an edge case. Routed
         // through the masked insert so keyboard text can never bypass the
         // mask.
-        TextEdit::ImeCommit { value } => {
+        TextEdit::ImeCommit { value: commit } => {
             let clear = TextEdit::clear_ime_compose();
             clear.apply(
                 driver,
@@ -329,7 +321,14 @@ pub(crate) fn apply_masked_edit(
                 max_characters,
                 char_filter,
             );
-            masked_insert(value.as_str(), mask, driver, max_characters, char_filter);
+            masked_insert(
+                commit.as_str(),
+                mask,
+                value,
+                driver,
+                max_characters,
+                char_filter,
+            );
             reveal_cursor(driver, viewport, cursor_margin);
         }
         // Preedit renders in-buffer -- a masked field must never display
@@ -402,17 +401,17 @@ mod tests {
 
     fn real(app: &App, entity: Entity) -> String {
         app.world()
-            .get::<CharacterMask>(entity)
+            .get::<EditableText>(entity)
             .unwrap()
             .value()
             .to_string()
     }
 
-    fn shown(app: &mut App, entity: Entity) -> String {
-        app.world_mut()
-            .get_mut::<EditableText>(entity)
+    fn shown(app: &App, entity: Entity) -> String {
+        app.world()
+            .get::<EditableText>(entity)
             .unwrap()
-            .value()
+            .editor_text()
             .to_string()
     }
 
@@ -519,14 +518,14 @@ mod tests {
         queue(&mut app, entity, TextEdit::Insert("5".into()));
         queue(&mut app, entity, TextEdit::Insert("x".into()));
         assert_eq!(real(&app, entity), "5");
-        assert_eq!(shown(&mut app, entity), "*");
+        assert_eq!(shown(&app, entity), "*");
     }
 
     #[test]
     fn removing_mask_reveals() {
         let (mut app, entity) = masked_field("secret");
         app.world_mut().entity_mut(entity).remove::<CharacterMask>();
-        assert_eq!(shown(&mut app, entity), "secret");
+        assert_eq!(shown(&app, entity), "secret");
     }
 
     #[test]
@@ -539,7 +538,7 @@ mod tests {
             .set_text("new!");
         app.update();
         assert_eq!(real(&app, entity), "new!");
-        assert_eq!(shown(&mut app, entity), "****");
+        assert_eq!(shown(&app, entity), "****");
     }
 
     #[test]
@@ -554,6 +553,65 @@ mod tests {
             },
         );
         assert_eq!(real(&app, entity), "abc");
-        assert_eq!(shown(&mut app, entity), "***");
+        assert_eq!(shown(&app, entity), "***");
+    }
+
+    #[test]
+    fn value_is_honest_while_masked() {
+        // The headline contract: `EditableText::value` returns the entered
+        // text with the mask present -- the mask affects display only.
+        let (mut app, entity) = masked_field("secret");
+        queue(&mut app, entity, TextEdit::TextEnd(false));
+        queue(&mut app, entity, TextEdit::Insert("!".into()));
+        assert_eq!(
+            app.world().get::<EditableText>(entity).unwrap().value(),
+            "secret!"
+        );
+        assert_eq!(shown(&app, entity), "*******");
+    }
+
+    #[test]
+    fn shadow_present_iff_masked() {
+        let (mut app, entity) = masked_field("abc");
+        assert!(app
+            .world()
+            .get::<EditableText>(entity)
+            .unwrap()
+            .shadow_value
+            .0
+            .is_some());
+        app.world_mut().entity_mut(entity).remove::<CharacterMask>();
+        assert!(app
+            .world()
+            .get::<EditableText>(entity)
+            .unwrap()
+            .shadow_value
+            .0
+            .is_none());
+    }
+
+    #[test]
+    fn multibyte_value_survives_conceal_and_reveal() {
+        // Mask length is per char, not per byte; the reveal restores the
+        // exact string.
+        let (mut app, entity) = masked_field("pé🔑");
+        assert_eq!(real(&app, entity), "pé🔑");
+        assert_eq!(shown(&app, entity), "***");
+        app.world_mut().entity_mut(entity).remove::<CharacterMask>();
+        assert_eq!(shown(&app, entity), "pé🔑");
+    }
+
+    #[test]
+    fn clear_clears_shadow_too() {
+        // `clear()` must not leave a stale shadow for `value()` to report.
+        let (mut app, entity) = masked_field("secret");
+        app.world_mut()
+            .get_mut::<EditableText>(entity)
+            .unwrap()
+            .clear();
+        assert_eq!(real(&app, entity), "");
+        app.update();
+        assert_eq!(real(&app, entity), "");
+        assert_eq!(shown(&app, entity), "");
     }
 }

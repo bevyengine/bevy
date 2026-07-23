@@ -150,20 +150,16 @@ fn build_input_text(commands: &mut Commands, is_left: bool, font_size: f32) -> E
 fn text_submission(
     input_focus: Res<InputFocus>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut text_input: Query<(&mut EditableText, Option<&CharacterMask>, &Name)>,
+    mut text_input: Query<(&mut EditableText, &Name)>,
     mut text_output: Single<&mut Text, With<TextOutput>>,
 ) {
     if keyboard_input.just_pressed(KeyCode::Enter)
         && let Some(focused_entity) = input_focus.get()
-        && let Ok((mut text_input, char_mask, name)) = text_input.get_mut(focused_entity)
+        && let Ok((mut text_input, name)) = text_input.get_mut(focused_entity)
     {
-        if let Some(mask) = char_mask {
-            // Masked fields: `EditableText::value()` returns the mask string;
-            // the real text lives on `CharacterMask`.
-            text_output.0 = format!("{:}: {:}", name, mask.value());
-        } else {
-            text_output.0 = format!("{:}: {:}", name, text_input.value());
-        }
+        // `EditableText::value()` always returns the entered text; a
+        // `CharacterMask` affects display only.
+        text_output.0 = format!("{:}: {:}", name, text_input.value());
 
         text_input.clear();
     }
