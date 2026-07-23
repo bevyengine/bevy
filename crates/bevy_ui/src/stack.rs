@@ -67,7 +67,7 @@ pub fn ui_stack_system(
     ui_children: UiChildren,
     zindex_query: Query<Option<&ZIndex>, (With<ComputedStackIndex>, Without<GlobalZIndex>)>,
     mut update_query: Query<&mut ComputedStackIndex>,
-    mut computed_ui_stack_query: Query<(Entity, &mut LocalUiStack)>,
+    mut local_ui_stack_query: Query<(Entity, &mut LocalUiStack)>,
     mut ui_stack: ResMut<UiStack>,
 ) {
     visited_root_nodes.clear();
@@ -121,7 +121,7 @@ pub fn ui_stack_system(
             }
         }
 
-        if let Ok((_, mut local_ui_stack)) = computed_ui_stack_query.get_mut(root_entity) {
+        if let Ok((_, mut local_ui_stack)) = local_ui_stack_query.get_mut(root_entity) {
             if local_ui_stack.0 != *new_local_stack {
                 core::mem::swap(&mut local_ui_stack.0, &mut new_local_stack);
             }
@@ -132,7 +132,7 @@ pub fn ui_stack_system(
         }
     }
 
-    for (entity, _) in &mut computed_ui_stack_query {
+    for (entity, _) in local_ui_stack_query {
         if !visited_root_nodes.contains(&entity) {
             commands.entity(entity).remove::<LocalUiStack>();
         }
