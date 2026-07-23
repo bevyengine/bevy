@@ -3814,6 +3814,7 @@ wasm = true
 name = "box_shadow"
 path = "examples/ui/styling/box_shadow.rs"
 doc-scrape-examples = true
+required-features = ["bevy_feathers"]
 
 [package.metadata.example.box_shadow]
 name = "Box Shadow"
@@ -4906,6 +4907,7 @@ wasm = true
 name = "color_grading"
 path = "examples/3d/color_grading.rs"
 doc-scrape-examples = true
+required-features = ["bevy_feathers"]
 
 [package.metadata.example.color_grading]
 name = "Color grading"
@@ -5207,7 +5209,7 @@ wasm = true
 name = "specular_tint"
 path = "examples/3d/specular_tint.rs"
 doc-scrape-examples = true
-required-features = ["pbr_specular_textures"]
+required-features = ["pbr_specular_textures", "bevy_feathers"]
 
 [package.metadata.example.specular_tint]
 name = "Specular Tint"
@@ -5355,7 +5357,7 @@ wasm = false
 name = "light_textures"
 path = "examples/3d/light_textures.rs"
 doc-scrape-examples = true
-required-features = ["pbr_light_textures"]
+required-features = ["pbr_light_textures", "bevy_feathers"]
 
 [package.metadata.example.light_textures]
 name = "Light Textures"
@@ -5367,6 +5369,7 @@ wasm = false
 name = "occlusion_culling"
 path = "examples/3d/occlusion_culling.rs"
 doc-scrape-examples = true
+required-features = ["bevy_feathers"]
 
 [package.metadata.example.occlusion_culling]
 name = "Occlusion Culling"
@@ -5587,6 +5590,7 @@ wasm = false
 name = "mirror"
 path = "examples/3d/mirror.rs"
 doc-scrape-examples = true
+required-features = ["bevy_feathers"]
 
 [package.metadata.example.mirror]
 name = "Mirror"
@@ -5598,6 +5602,7 @@ wasm = true
 name = "dynamic_mip_generation"
 path = "examples/2d/dynamic_mip_generation.rs"
 doc-scrape-examples = true
+required-features = ["bevy_feathers"]
 
 [package.metadata.example.dynamic_mip_generation]
 name = "Dynamic Mipmap Generation"
@@ -5609,7 +5614,7 @@ wasm = false
 name = "pccm"
 path = "examples/3d/pccm.rs"
 doc-scrape-examples = true
-required-features = ["free_camera", "https"]
+required-features = ["free_camera", "https", "bevy_feathers"]
 
 [package.metadata.example.pccm]
 name = "Parallax-Corrected Cubemaps"
@@ -5621,7 +5626,7 @@ wasm = true
 name = "light_probe_blending"
 path = "examples/3d/light_probe_blending.rs"
 doc-scrape-examples = true
-required-features = ["free_camera", "https"]
+required-features = ["free_camera", "https", "bevy_feathers"]
 
 [package.metadata.example.light_probe_blending]
 name = "Light Probe Blending"
