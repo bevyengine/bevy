@@ -1,5 +1,5 @@
 use alloc::sync::Arc;
-use bevy_app::{Plugin, PreUpdate};
+use bevy_app::{Plugin, PreUpdate, Propagate};
 use bevy_camera::visibility::Visibility;
 use bevy_color::{Alpha, Srgba};
 use bevy_ecs::{
@@ -12,6 +12,7 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
+    template::template,
 };
 use bevy_log::{info, warn};
 use bevy_picking::{hover::Hovered, PickingSystems};
@@ -35,7 +36,10 @@ use crate::{
     display::icon,
     font_styles::InheritableFont,
     rounded_corners::RoundedCorners,
-    theme::{InheritableThemeTextColor, ThemeBackgroundColor, ThemeBorderColor},
+    theme::{
+        InheritableThemeTextColor, SurfaceLevel, ThemeBackgroundColor, ThemeBorderColor,
+        ThemeContext,
+    },
     tokens,
 };
 use bevy_input_focus::{
@@ -359,6 +363,7 @@ impl FeathersMenuPopup {
             Visibility::Hidden
             ThemeBackgroundColor(tokens::MENU_BG)
             ThemeBorderColor(tokens::MENU_BORDER)
+            template(|_| Ok(Propagate(ThemeContext(SurfaceLevel::Floating))))
             BoxShadow::new(
                 Srgba::BLACK.with_alpha(0.9).into(),
                 px(0),
@@ -557,7 +562,7 @@ fn set_menuitem_colors(
         (true, _, _) => tokens::MENUITEM_BG_FOCUSED,
         (false, true, _) => tokens::MENUITEM_BG_PRESSED,
         (false, false, true) => tokens::MENUITEM_BG_HOVER,
-        (false, false, false) => tokens::MENU_BG,
+        (false, false, false) => tokens::MENUITEM_BG,
     };
 
     let font_color_token = match disabled {

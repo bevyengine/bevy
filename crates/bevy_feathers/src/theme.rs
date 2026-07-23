@@ -4,6 +4,7 @@ use bevy_color::{palettes, Color};
 use bevy_ecs::{
     change_detection::DetectChanges,
     component::Component,
+    entity::Entity,
     lifecycle::Insert,
     observer::On,
     query::Changed,
@@ -17,6 +18,27 @@ use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_text::TextColor;
 use bevy_ui::{BackgroundColor, BorderColor};
 use smol_str::SmolStr;
+
+/// Indicates the type of surface context for computing color assignments
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Reflect, Default)]
+#[reflect(Default, Debug)]
+pub enum SurfaceLevel {
+    /// The base layer - window and pane header
+    #[default]
+    Base,
+    /// A raised layer - pane and subpane bodies
+    Higher,
+    /// The highest level - groups and subpane headers
+    Highest,
+    /// An overlay such as a dialog or menu
+    Floating,
+}
+
+/// Component which is placed on a container and which propagates to children. This is used
+/// to modify the color assignments based on the background container.
+#[derive(Component, Clone, Copy, PartialEq, Eq, Debug, Default, Reflect)]
+#[reflect(Default, Debug)]
+pub struct ThemeContext(pub SurfaceLevel);
 
 /// A design token for the theme. This serves as the lookup key for the theme properties.
 #[derive(Clone, PartialEq, Eq, Hash, Reflect, Default)]
@@ -46,13 +68,100 @@ impl core::fmt::Debug for ThemeToken {
     }
 }
 
+/// A semantic-level token for the theme. Semantic tokens represent general classes of colors,
+/// such as "surface.window" or "border.selected.accent", rather than specific color assignments.
+/// Contextual theming happens at the semantic level, so (for example) lightening the token
+/// for "fill.solid.default" affects all color assignments that map to that token.
+#[derive(Clone, PartialEq, Eq, Hash, Reflect, Default)]
+pub struct SemanticToken(SmolStr);
+
+impl SemanticToken {
+    /// Construct a new [`SemanticToken`] from a [`SmolStr`].
+    pub const fn new(text: SmolStr) -> Self {
+        Self(text)
+    }
+
+    /// Construct a new [`SemanticToken`] from a static string.
+    pub const fn new_static(text: &'static str) -> Self {
+        Self(SmolStr::new_static(text))
+    }
+}
+
+impl core::fmt::Display for SemanticToken {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl core::fmt::Debug for SemanticToken {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "SemanticToken({:?})", self.0)
+    }
+}
+
 /// A collection of properties that make up a theme.
 #[derive(Default, Clone, Reflect, Debug)]
 #[reflect(Default, Debug)]
 pub struct ThemeProps {
-    /// Map of design tokens to colors.
-    pub color: HashMap<ThemeToken, Color>,
+    /// Map of design tokens to semantic tokens.
+    pub token_assignments: HashMap<ThemeToken, SemanticToken>,
+    /// Map of semantic tokens to colors.
+    pub semantic_base: HashMap<SemanticToken, Color>,
+    /// Map of semantic tokens + context to colors.
+    pub semantic_overrides: HashMap<SurfaceLevel, HashMap<SemanticToken, Color>>,
     // Other style property types to be added later.
+}
+
+impl ThemeProps {
+    /// A function which constructs a simple theme with no contextual theming
+    pub fn new_non_contextual(init: HashMap<ThemeToken, Color>) -> Self {
+        let mut token_assignments = HashMap::new();
+        let mut semantic_base = HashMap::new();
+
+        for (theme_token, color) in init {
+            let semantic_token = SemanticToken::new(theme_token.0.clone());
+            token_assignments.insert(theme_token, semantic_token.clone());
+            semantic_base.insert(semantic_token, color);
+        }
+
+        Self {
+            token_assignments,
+            semantic_base,
+            semantic_overrides: HashMap::default(),
+        }
+    }
+
+    /// Lookup a color by design token. If the theme does not have an entry for that token,
+    /// logs a warning and returns an error color.
+    ///
+    /// This version does not take context into account, and is mainly left here for
+    /// backwards-compatibility reasons.
+    pub fn color(&self, token: &ThemeToken) -> Color {
+        self.context_color(token, SurfaceLevel::Base)
+    }
+
+    /// Lookup a color by design token and context. If the combination of token and context is
+    /// not found, then use the base map. If the theme does not have an entry for that
+    /// token, logs a warning and returns an error color.
+    pub fn context_color(&self, token: &ThemeToken, context: SurfaceLevel) -> Color {
+        let Some(semantic_token) = self.token_assignments.get(token) else {
+            warn_once!("Theme color {} not found.", token);
+            // Return a bright obnoxious color to make the error obvious.
+            return palettes::basic::FUCHSIA.into();
+        };
+        if let Some(color) = self
+            .semantic_overrides
+            .get(&context)
+            .and_then(|m| m.get(semantic_token))
+        {
+            return *color;
+        }
+        if let Some(color) = self.semantic_base.get(semantic_token) {
+            return *color;
+        }
+        warn_once!("Theme semantic color {:?} not found.", semantic_token);
+        palettes::basic::FUCHSIA.into()
+    }
 }
 
 /// The currently selected user interface theme. Overwriting this resource changes the theme.
@@ -63,23 +172,18 @@ pub struct UiTheme(pub ThemeProps);
 impl UiTheme {
     /// Lookup a color by design token. If the theme does not have an entry for that token,
     /// logs a warning and returns an error color.
+    ///
+    /// This version does not take context into account, and is mainly left here for
+    /// backwards-compatibility reasons.
     pub fn color(&self, token: &ThemeToken) -> Color {
-        let color = self.0.color.get(token);
-        match color {
-            Some(c) => *c,
-            None => {
-                warn_once!("Theme color {} not found.", token);
-                // Return a bright obnoxious color to make the error obvious.
-                palettes::basic::FUCHSIA.into()
-            }
-        }
+        self.0.color(token)
     }
 
-    /// Associate a design token with a given color.
-    pub fn set_color(&mut self, token: &str, color: Color) {
-        self.0
-            .color
-            .insert(ThemeToken::new(SmolStr::new(token)), color);
+    /// Lookup a color by design token and context. If the combination of token and context is
+    /// not found, then use the base map. If the theme does not have an entry for that
+    /// token, logs a warning and returns an error color.
+    pub fn context_color(&self, token: &ThemeToken, context: SurfaceLevel) -> Color {
+        self.0.context_color(token, context)
     }
 }
 
@@ -127,62 +231,101 @@ pub struct ThemeTextColor(pub ThemeToken);
 pub struct ThemedText;
 
 pub(crate) fn update_theme(
-    mut q_background: Query<(&mut BackgroundColor, &ThemeBackgroundColor)>,
-    mut q_border: Query<(&mut BorderColor, &ThemeBorderColor)>,
-    mut q_text_color: Query<(&mut TextColor, &ThemeTextColor)>,
+    mut q_background: Query<(
+        &mut BackgroundColor,
+        &ThemeBackgroundColor,
+        Option<&ThemeContext>,
+    )>,
+    mut q_border: Query<(&mut BorderColor, &ThemeBorderColor, Option<&ThemeContext>)>,
+    mut q_text_color: Query<(&mut TextColor, &ThemeTextColor, Option<&ThemeContext>)>,
+    q_context_changed: Query<Entity, Changed<ThemeContext>>,
     theme: Res<UiTheme>,
 ) {
     if theme.is_changed() {
         // Update all background colors
-        for (mut bg, theme_bg) in q_background.iter_mut() {
-            bg.0 = theme.color(&theme_bg.0);
+        for (mut bg, ThemeBackgroundColor(token), ctx) in q_background.iter_mut() {
+            let context = ctx.map(|tc| tc.0).unwrap_or(SurfaceLevel::Base);
+            bg.0 = theme.context_color(token, context);
         }
 
         // Update all border colors
-        for (mut border, theme_border) in q_border.iter_mut() {
-            border.set_all(theme.color(&theme_border.0));
+        for (mut border, ThemeBorderColor(token), ctx) in q_border.iter_mut() {
+            let context = ctx.map(|tc| tc.0).unwrap_or(SurfaceLevel::Base);
+            border.set_all(theme.context_color(token, context));
         }
 
         // Update all direct text span colors
-        for (mut text_color, theme_text_color) in q_text_color.iter_mut() {
-            text_color.0 = theme.color(&theme_text_color.0);
+        for (mut text_color, ThemeTextColor(token), ctx) in q_text_color.iter_mut() {
+            let context = ctx.map(|tc| tc.0).unwrap_or(SurfaceLevel::Base);
+            text_color.0 = theme.context_color(token, context);
+        }
+    }
+
+    // Because propagation happens after observers run, do a fix-up pass
+    for ent in q_context_changed.iter() {
+        // Update the background color
+        if let Ok((mut bg, ThemeBackgroundColor(token), ctx)) = q_background.get_mut(ent) {
+            let context = ctx.map(|tc| tc.0).unwrap_or(SurfaceLevel::Base);
+            bg.0 = theme.context_color(token, context);
+        }
+
+        // Update the border color
+        if let Ok((mut border, ThemeBorderColor(token), ctx)) = q_border.get_mut(ent) {
+            let context = ctx.map(|tc| tc.0).unwrap_or(SurfaceLevel::Base);
+            border.set_all(theme.context_color(token, context));
+        }
+
+        // Update the direct text span color
+        if let Ok((mut text_color, ThemeTextColor(token), ctx)) = q_text_color.get_mut(ent) {
+            let context = ctx.map(|tc| tc.0).unwrap_or(SurfaceLevel::Base);
+            text_color.0 = theme.context_color(token, context);
         }
     }
 }
 
 pub(crate) fn on_changed_background(
     insert: On<Insert, ThemeBackgroundColor>,
-    mut q_background: Query<
-        (&mut BackgroundColor, &ThemeBackgroundColor),
-        Changed<ThemeBackgroundColor>,
-    >,
+    mut q_background: Query<(
+        &mut BackgroundColor,
+        &ThemeBackgroundColor,
+        Option<&ThemeContext>,
+    )>,
     theme: Res<UiTheme>,
 ) {
     // Update background colors where the design token has changed.
-    if let Ok((mut bg, theme_bg)) = q_background.get_mut(insert.entity) {
-        bg.0 = theme.color(&theme_bg.0);
+    if let Ok((mut bg, ThemeBackgroundColor(token), theme_context)) =
+        q_background.get_mut(insert.entity)
+    {
+        let context = theme_context.map(|tc| tc.0).unwrap_or(SurfaceLevel::Base);
+        bg.0 = theme.context_color(token, context);
     }
 }
 
 pub(crate) fn on_changed_border(
     insert: On<Insert, ThemeBorderColor>,
-    mut q_border: Query<(&mut BorderColor, &ThemeBorderColor), Changed<ThemeBorderColor>>,
+    mut q_border: Query<(&mut BorderColor, &ThemeBorderColor, Option<&ThemeContext>)>,
     theme: Res<UiTheme>,
 ) {
     // Update background colors where the design token has changed.
-    if let Ok((mut border, theme_border)) = q_border.get_mut(insert.entity) {
-        border.set_all(theme.color(&theme_border.0));
+    if let Ok((mut border, ThemeBorderColor(token), theme_context)) =
+        q_border.get_mut(insert.entity)
+    {
+        let context = theme_context.map(|tc| tc.0).unwrap_or(SurfaceLevel::Base);
+        border.set_all(theme.context_color(token, context));
     }
 }
 
 pub(crate) fn on_changed_text_color(
     insert: On<Insert, ThemeTextColor>,
-    mut q_span: Query<(&mut TextColor, &ThemeTextColor), Changed<ThemeTextColor>>,
+    mut q_span: Query<(&mut TextColor, &ThemeTextColor, Option<&ThemeContext>)>,
     theme: Res<UiTheme>,
 ) {
     // Update background colors where the design token has changed.
-    if let Ok((mut text_color, theme_text_color)) = q_span.get_mut(insert.entity) {
-        text_color.0 = theme.color(&theme_text_color.0);
+    if let Ok((mut text_color, ThemeTextColor(token), theme_context)) =
+        q_span.get_mut(insert.entity)
+    {
+        let context = theme_context.map(|tc| tc.0).unwrap_or(SurfaceLevel::Base);
+        text_color.0 = theme.context_color(token, context);
     }
 }
 
@@ -190,12 +333,13 @@ pub(crate) fn on_changed_text_color(
 /// and propagates downward the text color to all participating text entities.
 pub(crate) fn on_changed_font_color(
     insert: On<Insert, InheritableThemeTextColor>,
-    font_color: Query<&InheritableThemeTextColor>,
+    font_color: Query<(&InheritableThemeTextColor, Option<&ThemeContext>)>,
     theme: Res<UiTheme>,
     mut commands: Commands,
 ) {
-    if let Ok(token) = font_color.get(insert.entity) {
-        let color = theme.color(&token.0);
+    if let Ok((InheritableThemeTextColor(token), theme_context)) = font_color.get(insert.entity) {
+        let context = theme_context.map(|tc| tc.0).unwrap_or(SurfaceLevel::Base);
+        let color = theme.context_color(token, context);
         commands
             .entity(insert.entity)
             .insert(Propagate(TextColor(color)));

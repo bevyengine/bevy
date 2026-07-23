@@ -1,4 +1,5 @@
-use bevy_ecs::hierarchy::Children;
+use bevy_app::Propagate;
+use bevy_ecs::{hierarchy::Children, template::template};
 use bevy_scene::{bsn, Scene};
 use bevy_text::FontWeight;
 use bevy_ui::{
@@ -9,7 +10,10 @@ use crate::{
     constants::{fonts, size},
     font_styles::InheritableFont,
     rounded_corners::RoundedCorners,
-    theme::{InheritableThemeTextColor, ThemeBackgroundColor, ThemeBorderColor},
+    theme::{
+        InheritableThemeTextColor, SurfaceLevel, ThemeBackgroundColor, ThemeBorderColor,
+        ThemeContext,
+    },
     tokens,
 };
 
@@ -45,6 +49,7 @@ pub fn pane_header() -> impl Scene {
         ThemeBackgroundColor(tokens::PANE_HEADER_BG)
         ThemeBorderColor(tokens::PANE_HEADER_BORDER)
         InheritableThemeTextColor(tokens::PANE_HEADER_TEXT)
+        template(|_| Ok(Propagate(ThemeContext(SurfaceLevel::Base))))
         InheritableFont {
             font: fonts::REGULAR,
             font_size: size::MEDIUM_FONT,
@@ -85,6 +90,7 @@ pub fn pane_body() -> impl Scene {
             padding: px(6),
             border_radius: {RoundedCorners::Bottom.to_border_radius(4.0)}
         }
+        template(|_| Ok(Propagate(ThemeContext(SurfaceLevel::Higher))))
         ThemeBackgroundColor(tokens::PANE_BODY_BG)
     }
 }
