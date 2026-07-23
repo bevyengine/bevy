@@ -16,6 +16,16 @@
     MeshInput
 }
 
+// Specifies the batches that this shader invocation is to process.
+struct IndirectParametersBuildJob {
+    // The first batch index that this shader invocation should process
+    // (inclusive).
+    first_batch_index: u32,
+    // The last batch index that this shader invocation should process
+    // (exclusive).
+    last_batch_index: u32,
+}
+
 // The data for each mesh that the CPU supplied to the GPU.
 @group(0) @binding(0) var<storage> current_input: array<MeshInput>;
 
@@ -30,19 +40,22 @@
 // A *batch set* is a set of meshes that might be multi-drawn together.
 @group(0) @binding(3) var<storage, read_write> indirect_batch_sets: array<IndirectBatchSet>;
 
+// Specifies the batches that this shader invocation is to process.
+@group(0) @binding(4) var<uniform> indirect_parameters_build_job: IndirectParametersBuildJob;
+
 #ifdef INDEXED
 // The buffer of indirect draw parameters that we generate, and that the GPU
 // reads to issue the draws.
 //
 // This buffer is for indexed meshes.
-@group(0) @binding(4) var<storage, read_write> indirect_parameters:
+@group(0) @binding(5) var<storage, read_write> indirect_parameters:
     array<IndirectParametersIndexed>;
 #else   // INDEXED
 // The buffer of indirect draw parameters that we generate, and that the GPU
 // reads to issue the draws.
 //
 // This buffer is for non-indexed meshes.
-@group(0) @binding(4) var<storage, read_write> indirect_parameters:
+@group(0) @binding(5) var<storage, read_write> indirect_parameters:
     array<IndirectParametersNonIndexed>;
 #endif  // INDEXED
 
@@ -50,9 +63,9 @@
 @workgroup_size(64)
 fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     // Figure out our instance index (i.e. batch index). If this thread doesn't
-    // correspond to any index, bail.
-    let instance_index = global_invocation_id.x;
-    if (instance_index >= arrayLength(&indirect_parameters_metadata)) {
+    // correspond to a valid index in the range.
+    let instance_index = global_invocation_id.x + indirect_parameters_build_job.first_batch_index;
+    if (instance_index >= indirect_parameters_build_job.last_batch_index) {
         return;
     }
 
