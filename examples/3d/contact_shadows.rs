@@ -1,6 +1,7 @@
 //! Demonstrates contact shadows, also known as screen-space shadows.
 
-use crate::widgets::{RadioButton, RadioButtonText, WidgetClickEvent, WidgetClickSender};
+use crate::radio::{feathers_option_buttons, main_ui_node_scene, RadioButtonOptionValue};
+use crate::theme::basic_example_theme;
 use bevy::anti_alias::taa::TemporalAntiAliasing;
 use bevy::core_pipeline::tonemapping::Tonemapping;
 use bevy::light::Skybox;
@@ -8,12 +9,20 @@ use bevy::pbr::ScreenSpaceAmbientOcclusion;
 use bevy::post_process::motion_blur::MotionBlur;
 use bevy::window::{CursorIcon, PrimaryWindow, SystemCursorIcon};
 use bevy::{
-    camera::Hdr, ecs::message::MessageReader, light::NotShadowReceiver, pbr::ContactShadows,
-    post_process::bloom::Bloom, prelude::*,
+    camera::Hdr,
+    feathers::{theme::UiTheme, FeathersPlugins},
+    light::NotShadowReceiver,
+    pbr::ContactShadows,
+    post_process::bloom::Bloom,
+    prelude::*,
+    ui_widgets::{radio_self_update, ValueChange},
 };
 
-#[path = "../helpers/widgets.rs"]
-mod widgets;
+#[path = "../helpers/radio.rs"]
+mod radio;
+
+#[path = "../helpers/theme.rs"]
+mod theme;
 
 #[derive(Clone, Copy, PartialEq, Default, Debug)]
 enum ContactShadowState {
@@ -61,6 +70,12 @@ enum ExampleSetting {
     ReceiveShadows(ReceiveShadows),
 }
 
+impl Default for ExampleSetting {
+    fn default() -> Self {
+        Self::ContactShadows(ContactShadowState::default())
+    }
+}
+
 const LIGHT_ROTATION_SPEED: f32 = 0.002;
 
 #[derive(Resource, Default)]
@@ -89,24 +104,19 @@ fn main() {
                 ..default()
             }),
             MeshPickingPlugin,
+            FeathersPlugins,
         ))
+        .insert_resource(UiTheme(basic_example_theme(Color::WHITE)))
         .init_resource::<AppStatus>()
         .insert_resource(GlobalAmbientLight::NONE)
-        .add_message::<WidgetClickEvent<ExampleSetting>>()
         .add_systems(Startup, setup)
         .add_systems(Update, rotate_light)
-        .add_systems(
-            Update,
-            (
-                widgets::handle_ui_interactions::<ExampleSetting>,
-                update_radio_buttons.after(widgets::handle_ui_interactions::<ExampleSetting>),
-                handle_setting_change.after(widgets::handle_ui_interactions::<ExampleSetting>),
-            ),
-        )
+        .add_observer(handle_setting_change)
+        .add_observer(radio_self_update)
         .run();
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_status: Res<AppStatus>) {
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(-0.8, 0.6, -0.8).looking_at(Vec3::new(0.0, 0.35, 0.0), Vec3::Y),
@@ -238,7 +248,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         GroundPlane,
     ));
 
-    spawn_buttons(&mut commands);
+    spawn_buttons(&mut commands, &app_status);
 
     commands.spawn((
         Node {
@@ -272,11 +282,11 @@ fn rotate_light(
     }
 }
 
-fn spawn_buttons(commands: &mut Commands) {
-    commands.spawn((
-        widgets::main_ui_node(),
-        children![
-            widgets::option_buttons(
+fn spawn_buttons(commands: &mut Commands, app_status: &AppStatus) {
+    commands.spawn_scene(bsn! {
+        main_ui_node_scene()
+        Children [
+            feathers_option_buttons(
                 "Contact Shadows",
                 &[
                     (
@@ -288,15 +298,31 @@ fn spawn_buttons(commands: &mut Commands) {
                         "Off"
                     ),
                 ],
+                {
+                    if app_status.contact_shadows == ContactShadowState::Enabled {
+                        0
+                    }
+                    else {
+                        1
+                    }
+                },
             ),
-            widgets::option_buttons(
+            feathers_option_buttons(
                 "Shadow Maps",
                 &[
                     (ExampleSetting::ShadowMaps(ShadowMaps::Enabled), "On"),
                     (ExampleSetting::ShadowMaps(ShadowMaps::Disabled), "Off"),
                 ],
+                {
+                    if app_status.shadow_maps == ShadowMaps::Enabled {
+                        0
+                    }
+                    else {
+                        1
+                    }
+                },
             ),
-            widgets::option_buttons(
+            feathers_option_buttons(
                 "Light Rotation",
                 &[
                     (ExampleSetting::LightRotation(LightRotation::Rotating), "On"),
@@ -305,8 +331,16 @@ fn spawn_buttons(commands: &mut Commands) {
                         "Off"
                     ),
                 ],
+                {
+                    if app_status.light_rotation == LightRotation::Rotating {
+                        0
+                    }
+                    else {
+                        1
+                    }
+                },
             ),
-            widgets::option_buttons(
+            feathers_option_buttons(
                 "Light Type",
                 &[
                     (
@@ -316,8 +350,15 @@ fn spawn_buttons(commands: &mut Commands) {
                     (ExampleSetting::LightType(LightType::Point), "Point"),
                     (ExampleSetting::LightType(LightType::Spot), "Spot"),
                 ],
+                {
+                    match app_status.light_type {
+                        LightType::Directional => 0,
+                        LightType::Point => 1,
+                        LightType::Spot => 2,
+                    }
+                },
             ),
-            widgets::option_buttons(
+            feathers_option_buttons(
                 "Receive Shadows",
                 &[
                     (
@@ -329,43 +370,22 @@ fn spawn_buttons(commands: &mut Commands) {
                         "Off"
                     ),
                 ],
+                {
+                    if app_status.receive_shadows == ReceiveShadows::Enabled {
+                        0
+                    }
+                    else {
+                        1
+                    }
+                },
             ),
-        ],
-    ));
-}
-
-fn update_radio_buttons(
-    mut widgets: Query<
-        (
-            Entity,
-            Option<&mut BackgroundColor>,
-            Has<Text>,
-            &WidgetClickSender<ExampleSetting>,
-        ),
-        Or<(With<RadioButton>, With<RadioButtonText>)>,
-    >,
-    app_status: Res<AppStatus>,
-    mut writer: TextUiWriter,
-) {
-    for (entity, background_color, has_text, sender) in widgets.iter_mut() {
-        let selected = match **sender {
-            ExampleSetting::ContactShadows(value) => value == app_status.contact_shadows,
-            ExampleSetting::ShadowMaps(value) => value == app_status.shadow_maps,
-            ExampleSetting::LightRotation(value) => value == app_status.light_rotation,
-            ExampleSetting::LightType(value) => value == app_status.light_type,
-            ExampleSetting::ReceiveShadows(value) => value == app_status.receive_shadows,
-        };
-
-        if let Some(mut background_color) = background_color {
-            widgets::update_ui_radio_button(&mut background_color, selected);
-        }
-        if has_text {
-            widgets::update_ui_radio_button_text(entity, &mut writer, selected);
-        }
-    }
+        ]
+    });
 }
 
 fn handle_setting_change(
+    event: On<ValueChange<Entity>>,
+    new_value_q: Query<&RadioButtonOptionValue<ExampleSetting>>,
     mut lights: Query<
         (
             &mut Visibility,
@@ -376,79 +396,76 @@ fn handle_setting_change(
         Or<(With<DirectionalLight>, With<PointLight>, With<SpotLight>)>,
     >,
     mut ground_plane: Query<Entity, With<GroundPlane>>,
-    mut events: MessageReader<WidgetClickEvent<ExampleSetting>>,
     mut app_status: ResMut<AppStatus>,
     mut commands: Commands,
 ) {
-    for event in events.read() {
-        match **event {
-            ExampleSetting::ContactShadows(value) => {
-                app_status.contact_shadows = value;
-                for (_, maybe_directional_light, maybe_point_light, maybe_spot_light) in
-                    lights.iter_mut()
-                {
-                    if let Some(mut directional_light) = maybe_directional_light {
-                        directional_light.contact_shadows_enabled =
-                            value == ContactShadowState::Enabled;
-                    }
-                    if let Some(mut point_light) = maybe_point_light {
-                        point_light.contact_shadows_enabled = value == ContactShadowState::Enabled;
-                    }
-                    if let Some(mut spot_light) = maybe_spot_light {
-                        spot_light.contact_shadows_enabled = value == ContactShadowState::Enabled;
-                    }
+    let Ok(RadioButtonOptionValue(setting)) = new_value_q.get(event.value) else {
+        return;
+    };
+
+    match *setting {
+        ExampleSetting::ContactShadows(value) => {
+            app_status.contact_shadows = value;
+            for (_, maybe_directional_light, maybe_point_light, maybe_spot_light) in
+                lights.iter_mut()
+            {
+                if let Some(mut directional_light) = maybe_directional_light {
+                    directional_light.contact_shadows_enabled =
+                        value == ContactShadowState::Enabled;
+                }
+                if let Some(mut point_light) = maybe_point_light {
+                    point_light.contact_shadows_enabled = value == ContactShadowState::Enabled;
+                }
+                if let Some(mut spot_light) = maybe_spot_light {
+                    spot_light.contact_shadows_enabled = value == ContactShadowState::Enabled;
                 }
             }
-            ExampleSetting::ShadowMaps(value) => {
-                app_status.shadow_maps = value;
-                for (_, maybe_directional_light, maybe_point_light, maybe_spot_light) in
-                    lights.iter_mut()
-                {
-                    if let Some(mut directional_light) = maybe_directional_light {
-                        directional_light.shadow_maps_enabled = value == ShadowMaps::Enabled;
-                    }
-                    if let Some(mut point_light) = maybe_point_light {
-                        point_light.shadow_maps_enabled = value == ShadowMaps::Enabled;
-                    }
-                    if let Some(mut spot_light) = maybe_spot_light {
-                        spot_light.shadow_maps_enabled = value == ShadowMaps::Enabled;
-                    }
+        }
+        ExampleSetting::ShadowMaps(value) => {
+            app_status.shadow_maps = value;
+            for (_, maybe_directional_light, maybe_point_light, maybe_spot_light) in
+                lights.iter_mut()
+            {
+                if let Some(mut directional_light) = maybe_directional_light {
+                    directional_light.shadow_maps_enabled = value == ShadowMaps::Enabled;
+                }
+                if let Some(mut point_light) = maybe_point_light {
+                    point_light.shadow_maps_enabled = value == ShadowMaps::Enabled;
+                }
+                if let Some(mut spot_light) = maybe_spot_light {
+                    spot_light.shadow_maps_enabled = value == ShadowMaps::Enabled;
                 }
             }
-            ExampleSetting::LightRotation(value) => {
-                app_status.light_rotation = value;
+        }
+        ExampleSetting::LightRotation(value) => {
+            app_status.light_rotation = value;
+        }
+        ExampleSetting::LightType(value) => {
+            app_status.light_type = value;
+            for (mut visibility, maybe_directional_light, maybe_point_light, maybe_spot_light) in
+                lights.iter_mut()
+            {
+                let is_visible = match value {
+                    LightType::Directional => maybe_directional_light.is_some(),
+                    LightType::Point => maybe_point_light.is_some(),
+                    LightType::Spot => maybe_spot_light.is_some(),
+                };
+                *visibility = if is_visible {
+                    Visibility::Visible
+                } else {
+                    Visibility::Hidden
+                };
             }
-            ExampleSetting::LightType(value) => {
-                app_status.light_type = value;
-                for (
-                    mut visibility,
-                    maybe_directional_light,
-                    maybe_point_light,
-                    maybe_spot_light,
-                ) in lights.iter_mut()
-                {
-                    let is_visible = match value {
-                        LightType::Directional => maybe_directional_light.is_some(),
-                        LightType::Point => maybe_point_light.is_some(),
-                        LightType::Spot => maybe_spot_light.is_some(),
-                    };
-                    *visibility = if is_visible {
-                        Visibility::Visible
-                    } else {
-                        Visibility::Hidden
-                    };
-                }
-            }
-            ExampleSetting::ReceiveShadows(value) => {
-                app_status.receive_shadows = value;
-                for entity in ground_plane.iter_mut() {
-                    match value {
-                        ReceiveShadows::Enabled => {
-                            commands.entity(entity).remove::<NotShadowReceiver>();
-                        }
-                        ReceiveShadows::Disabled => {
-                            commands.entity(entity).insert(NotShadowReceiver);
-                        }
+        }
+        ExampleSetting::ReceiveShadows(value) => {
+            app_status.receive_shadows = value;
+            for entity in ground_plane.iter_mut() {
+                match value {
+                    ReceiveShadows::Enabled => {
+                        commands.entity(entity).remove::<NotShadowReceiver>();
+                    }
+                    ReceiveShadows::Disabled => {
+                        commands.entity(entity).insert(NotShadowReceiver);
                     }
                 }
             }

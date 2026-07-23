@@ -1327,7 +1327,7 @@ wasm = true
 name = "contact_shadows"
 path = "examples/3d/contact_shadows.rs"
 doc-scrape-examples = true
-required-features = ["bluenoise_texture"]
+required-features = ["bluenoise_texture", "bevy_feathers"]
 
 [package.metadata.example.contact_shadows]
 name = "Contact Shadows"
