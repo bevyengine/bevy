@@ -141,7 +141,7 @@ pub enum RenderUiSystems {
     ExtractGradient,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct UiSortKey {
     pub stack_index: ComputedStackIndex,
     pub sub_layer: u8,

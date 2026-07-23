@@ -13,7 +13,7 @@ use bevy_reflect::Reflect;
 /// Nodes with a higher stack index are drawn on top of and receive interactions before nodes with lower stack indices.
 ///
 /// Automatically calculated in [`UiSystems::Stack`](`super::UiSystems::Stack`).
-#[derive(Component, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Reflect)]
+#[derive(Component, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Reflect)]
 #[reflect(Component, Default)]
 pub struct ComputedStackIndex {
     // order of this node's root ancestor
