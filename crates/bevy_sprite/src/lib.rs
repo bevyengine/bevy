@@ -44,7 +44,7 @@ use bevy_camera::{
     visibility::NoFrustumCulling,
     visibility::VisibilitySystems,
 };
-use bevy_mesh::{Mesh, Mesh2d};
+use bevy_mesh::{mark_2d_meshes_as_changed_if_their_assets_changed, Mesh, Mesh2d};
 #[cfg(feature = "bevy_text")]
 use bevy_text::detect_text_needs_rerender;
 #[cfg(feature = "bevy_picking")]
@@ -75,7 +75,8 @@ impl Plugin for SpritePlugin {
             PostUpdate,
             (calculate_bounds_2d, calculate_bounds_2d_sprite_mesh)
                 .chain()
-                .in_set(VisibilitySystems::CalculateBounds),
+                .in_set(VisibilitySystems::CalculateBounds)
+                .after(mark_2d_meshes_as_changed_if_their_assets_changed),
         );
 
         #[cfg(feature = "bevy_text")]
