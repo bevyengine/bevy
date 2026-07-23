@@ -34,6 +34,8 @@ fn main() {
 /// with a given setting `T`.
 /// The way the change is implemented is via the `TargetUpdate<T>` trait. Changing the
 /// value of the option select will alter the target entity.
+/// id is an `Option` in order for this to derive `Default` for usage in bsn!,
+/// but the id should always be present.
 #[derive(Component, Clone, Default)]
 struct Target<T> {
     id: Option<Entity>,
@@ -163,7 +165,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 /// Returns the main interactable of the example as a scene.
-/// The left panel changes Display and Visibility based on actions taken
+/// The left panel changes `Display` and `Visibility` based on actions taken
 /// in the right panel.
 fn panels(palette: &[Color; 4]) -> impl Scene {
     let left_panel_node_base = |height_px: i32, palette_index: usize| {
@@ -352,7 +354,7 @@ fn feathers_select_visibility(target: EntityTemplate) -> impl Scene {
 fn on_value_change<T: Component + Default + Clone + PartialEq + Send + Sync>(
     event: On<ValueChange<Entity>>,
     setting_value_q: Query<&T>,
-    list_box_q: Query<(&Children, &Target<T>), With<FeathersSelect>>,
+    select_q: Query<(&Children, &Target<T>), With<FeathersSelect>>,
     mut target_component_query: Query<&mut <Target<T> as TargetUpdate<T>>::TargetComponent>,
     mut commands: Commands,
 ) where
@@ -361,7 +363,7 @@ fn on_value_change<T: Component + Default + Clone + PartialEq + Send + Sync>(
     let Ok(value) = setting_value_q.get(event.value) else {
         return;
     };
-    let Ok((children, target)) = list_box_q.get(event.source) else {
+    let Ok((children, target)) = select_q.get(event.source) else {
         return;
     };
 
