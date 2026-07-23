@@ -24,6 +24,7 @@ use fixedbitset::FixedBitSet;
 use indexmap::{IndexMap, IndexSet};
 use log::{info, warn};
 use pass::ScheduleBuildPassObj;
+#[cfg(feature = "debug")]
 use rand::{seq::SliceRandom, SeedableRng};
 use thiserror::Error;
 #[cfg(feature = "trace")]
@@ -1252,6 +1253,7 @@ impl ScheduleGraph {
         }
         self.passes = passes;
 
+        #[cfg(feature = "debug")]
         if let Some(shuffle_seed) = self.settings.shuffle_seed {
             // There's nothing special about this Rng implementation, other than the fact that it is
             // not feature-gated.
@@ -1665,6 +1667,7 @@ pub struct ScheduleBuildSettings {
     // `auto_insert_apply_deferred` always prefers to put systems at the lowest "sync point depth"
     // that it can, but this means we can't shuffle deeper systems with shallower systems, despite
     // the fact their constraints allow that.
+    #[cfg(feature = "debug")]
     pub shuffle_seed: Option<u64>,
 }
 
@@ -1684,6 +1687,7 @@ impl ScheduleBuildSettings {
             auto_insert_apply_deferred: true,
             use_shortnames: true,
             report_sets: true,
+            #[cfg(feature = "debug")]
             shuffle_seed: None,
         }
     }
@@ -2765,6 +2769,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "debug")]
     #[test]
     fn schedule_builds_randomly_with_shuffler() {
         fn run_schedule_with_shuffler(shuffle_seed: Option<u64>) -> Vec<u32> {
