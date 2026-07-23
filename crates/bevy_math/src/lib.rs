@@ -39,6 +39,7 @@ mod mat3;
 pub mod ops;
 pub mod primitives;
 mod ray;
+pub mod ray_cast;
 mod rects;
 mod rotation2d;
 
@@ -79,7 +80,9 @@ pub mod prelude {
         direction::{Dir2, Dir3, Dir3A},
         ivec2, ivec3, ivec4, mat2, mat3, mat3a, mat4, ops,
         primitives::*,
-        quat, uvec2, uvec3, uvec4, vec2, vec3, vec3a, vec4, BVec2, BVec3, BVec3A, BVec4, BVec4A,
+        quat,
+        ray_cast::{PrimitiveRayCast2d, PrimitiveRayCast3d, RayHit2d, RayHit3d},
+        uvec2, uvec3, uvec4, vec2, vec3, vec3a, vec4, BVec2, BVec3, BVec3A, BVec4, BVec4A,
         EulerRot, FloatExt, IRect, IVec2, IVec3, IVec4, Isometry2d, Isometry3d, Mat2, Mat3, Mat3A,
         Mat4, Quat, Ray2d, Ray3d, Rect, Rot2, StableInterpolate, URect, UVec2, UVec3, UVec4, Vec2,
         Vec2Swizzles, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles,

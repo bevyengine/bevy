@@ -165,7 +165,7 @@ impl ExtrusionBuilder<Annulus> {
 }
 
 impl ExtrusionBuilder<Capsule2d> {
-    /// Sets the number of vertices used for each hemicircle at the ends of the extrusion.
+    /// Sets the number of vertices used for each semicircle at the ends of the extrusion.
     pub fn resolution(mut self, resolution: u32) -> Self {
         self.base_builder.resolution = resolution;
         self
