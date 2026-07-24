@@ -2709,12 +2709,11 @@ pub struct MeshPipeline {
     /// are used and this will be `None`, otherwise uniform buffers will be used with batches
     /// of this many `MeshUniform`s, stored at dynamic offsets within the uniform buffer.
     /// Use code like this in custom shaders:
-    /// ```wgsl
-    /// ##ifdef PER_OBJECT_BUFFER_BATCH_SIZE
-    /// @group(1) @binding(0) var<uniform> mesh: array<Mesh, #{PER_OBJECT_BUFFER_BATCH_SIZE}u>;
-    /// ##else
+    /// ```wesl
+    /// @if(PER_OBJECT_BUFFER_BATCH_SIZE)
+    /// @group(1) @binding(0) var<uniform> mesh: array<Mesh, u32(constants::PER_OBJECT_BUFFER_BATCH_SIZE)>;
+    /// @else
     /// @group(1) @binding(0) var<storage> mesh: array<Mesh>;
-    /// ##endif // PER_OBJECT_BUFFER_BATCH_SIZE
     /// ```
     pub per_object_buffer_batch_size: Option<u32>,
 
