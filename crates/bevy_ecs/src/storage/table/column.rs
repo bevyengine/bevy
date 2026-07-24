@@ -1,6 +1,6 @@
 use super::*;
 use crate::{
-    change_detection::MaybeLocation,
+    change_detection::{AtomicTick, MaybeLocation},
     storage::{blob_array::BlobArray, thin_array_ptr::ThinArrayPtr},
 };
 use core::{mem::needs_drop, panic::Location};
@@ -27,6 +27,7 @@ pub struct Column {
     pub(super) added_ticks: ThinArrayPtr<UnsafeCell<Tick>>,
     pub(super) changed_ticks: ThinArrayPtr<UnsafeCell<Tick>>,
     pub(super) changed_by: MaybeLocation<ThinArrayPtr<UnsafeCell<&'static Location<'static>>>>,
+    pub(super) column_tick: Option<AtomicTick>,
 }
 
 impl Column {
@@ -42,6 +43,11 @@ impl Column {
             added_ticks: ThinArrayPtr::with_capacity(capacity),
             changed_ticks: ThinArrayPtr::with_capacity(capacity),
             changed_by: MaybeLocation::new_with(|| ThinArrayPtr::with_capacity(capacity)),
+            column_tick: if component_info.summary_tick() {
+                Some(AtomicTick::default())
+            } else {
+                None
+            },
         }
     }
 
@@ -426,5 +432,10 @@ impl Column {
     #[inline]
     pub fn get_drop(&self) -> Option<unsafe fn(OwningPtr<'_>)> {
         self.data.get_drop()
+    }
+
+    #[inline]
+    pub fn get_summary_tick(&self) -> Option<&AtomicTick> {
+        self.column_tick.as_ref()
     }
 }

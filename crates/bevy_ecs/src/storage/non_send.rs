@@ -136,6 +136,7 @@ impl NonSendData {
                     added: &self.added_ticks,
                     changed: &self.changed_ticks,
                     changed_by: self.changed_by.as_ref(),
+                    column_tick: None,
                 },
             )
         })

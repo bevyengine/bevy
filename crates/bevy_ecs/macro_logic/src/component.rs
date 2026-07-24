@@ -45,6 +45,7 @@ pub struct DeriveComponent {
     pub relationship_target: Option<RelationshipTarget>,
     /// Whether or not this component is immutable.
     pub immutable: bool,
+    pub summary_tick: bool,
     /// The clone behavior for this component.
     pub clone_behavior: Option<Expr>,
     /// The `map_entities` attribute information.
@@ -67,6 +68,7 @@ impl DeriveComponent {
             relationship: None,
             relationship_target: None,
             immutable: false,
+            summary_tick: false,
             clone_behavior: None,
             map_entities: None,
             additional_requires: Vec::new(),
@@ -116,6 +118,9 @@ impl DeriveComponent {
                         Ok(())
                     } else if nested.path.is_ident(IMMUTABLE) {
                         attrs.immutable = true;
+                        Ok(())
+                    } else if nested.path.is_ident(SUMMARY_TICK) {
+                        attrs.summary_tick = true;
                         Ok(())
                     } else if nested.path.is_ident(CLONE_BEHAVIOR) {
                         attrs.clone_behavior = Some(nested.value()?.parse()?);
@@ -212,6 +217,16 @@ impl DeriveComponent {
                 }
             }
         });
+
+        let has_summary_tick = if self.summary_tick {
+            quote! {}
+        } else {
+            quote! {
+                fn has_summary_tick() -> bool {
+                    true
+                }
+            }
+        };
 
         let storage = storage_path(bevy_ecs, self.storage.unwrap_or(default_storage));
 
@@ -362,6 +377,8 @@ impl DeriveComponent {
                 fn relationship_accessor() -> #FQOption<#bevy_ecs::relationship::ComponentRelationshipAccessor<Self>> {
                     #relationship_accessor
                 }
+
+                #has_summary_tick
             }
 
             #relationship
@@ -508,6 +525,7 @@ const ON_REMOVE: &str = "on_remove";
 const ON_DESPAWN: &str = "on_despawn";
 
 const IMMUTABLE: &str = "immutable";
+const SUMMARY_TICK: &str = "summary_tick";
 const CLONE_BEHAVIOR: &str = "clone_behavior";
 
 /// All allowed attribute value expression kinds for component hooks.

@@ -2,7 +2,7 @@ use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundle,
     change_detection::{
-        ComponentTicksMut, ComponentTicksRef, ContiguousComponentTicksMut,
+        AtomicTick, ComponentTicksMut, ComponentTicksRef, ContiguousComponentTicksMut,
         ContiguousComponentTicksRef, ContiguousMut, ContiguousRef, MaybeLocation, Tick,
     },
     component::{Component, ComponentId, Components, Mutable, StorageType},
@@ -1967,6 +1967,7 @@ pub struct RefFetch<'w, T: Component> {
             ThinSlicePtr<'w, UnsafeCell<T>>,
             ThinSlicePtr<'w, UnsafeCell<Tick>>,
             ThinSlicePtr<'w, UnsafeCell<Tick>>,
+            Option<&'w AtomicTick>,
             MaybeLocation<ThinSlicePtr<'w, UnsafeCell<&'static Location<'static>>>>,
         )>,
         // T::STORAGE_TYPE = StorageType::SparseSet
@@ -2058,6 +2059,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
             column
                 .get_changed_ticks_slice(table.entity_count() as usize)
                 .into(),
+            column.get_summary_tick(),
             column
                 .get_changed_by_slice(table.entity_count() as usize)
                 .map(Into::into),
@@ -2114,7 +2116,7 @@ unsafe impl<'__w, T: Component> QueryData for Ref<'__w, T> {
         Some(fetch.components.extract(
             |table| {
                 // SAFETY: set_table was previously called
-                let (table_components, added_ticks, changed_ticks, callers) =
+                let (table_components, added_ticks, changed_ticks, _column_tick, callers) =
                     unsafe { table.debug_checked_unwrap() };
 
                 // SAFETY: The caller ensures `table_row` is in range.
@@ -2192,7 +2194,7 @@ impl<T: Component> ContiguousQueryData for Ref<'_, T> {
         fetch.components.extract(
             |table| {
                 // SAFETY: set_table was previously called
-                let (table_components, added_ticks, changed_ticks, callers) =
+                let (table_components, added_ticks, changed_ticks, column_tick, callers) =
                     unsafe { table.debug_checked_unwrap() };
 
                 ContiguousRef {
@@ -2206,6 +2208,7 @@ impl<T: Component> ContiguousQueryData for Ref<'_, T> {
                         ContiguousComponentTicksRef::from_slice_ptrs(
                             added_ticks,
                             changed_ticks,
+                            column_tick,
                             callers,
                             entities.len(),
                             fetch.this_run,
@@ -2234,6 +2237,7 @@ pub struct WriteFetch<'w, T: Component> {
             ThinSlicePtr<'w, UnsafeCell<T>>,
             ThinSlicePtr<'w, UnsafeCell<Tick>>,
             ThinSlicePtr<'w, UnsafeCell<Tick>>,
+            Option<&'w AtomicTick>,
             MaybeLocation<ThinSlicePtr<'w, UnsafeCell<&'static Location<'static>>>>,
         )>,
         // T::STORAGE_TYPE = StorageType::SparseSet
@@ -2325,6 +2329,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
             column
                 .get_changed_ticks_slice(table.entity_count() as usize)
                 .into(),
+            column.get_summary_tick(),
             column
                 .get_changed_by_slice(table.entity_count() as usize)
                 .map(Into::into),
@@ -2381,7 +2386,7 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
         Some(fetch.components.extract(
             |table| {
                 // SAFETY: set_table was previously called
-                let (table_components, added_ticks, changed_ticks, callers) =
+                let (table_components, added_ticks, changed_ticks, column_tick, callers) =
                     unsafe { table.debug_checked_unwrap() };
 
                 // SAFETY: The caller ensures `table_row` is in range.
@@ -2402,6 +2407,7 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
                         changed_by: caller.map(|caller| caller.deref_mut()),
                         this_run: fetch.this_run,
                         last_run: fetch.last_run,
+                        summary_tick: column_tick,
                     },
                 }
             },
@@ -2456,7 +2462,7 @@ impl<T: Component<Mutability = Mutable>> ContiguousQueryData for &mut T {
         fetch.components.extract(
             |table| {
                 // SAFETY: set_table was previously called
-                let (table_components, added_ticks, changed_ticks, callers) =
+                let (table_components, added_ticks, changed_ticks, column_tick, callers) =
                     unsafe { table.debug_checked_unwrap() };
 
                 ContiguousMut {
@@ -2466,10 +2472,12 @@ impl<T: Component<Mutability = Mutable>> ContiguousQueryData for &mut T {
                     // - The caller ensures the permission to access ticks.
                     // - `entities` has the same length as the rows in the set table hence the
                     // ticks.
+                    // TODO: Epoch
                     ticks: unsafe {
                         ContiguousComponentTicksMut::from_slice_ptrs(
                             added_ticks,
                             changed_ticks,
+                            column_tick,
                             callers,
                             entities.len(),
                             fetch.this_run,

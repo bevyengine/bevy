@@ -1,7 +1,12 @@
 use bevy_ecs_macros::Event;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
-use core::{cell::UnsafeCell, panic::Location};
+use core::{
+    cell::UnsafeCell,
+    fmt::{self, Debug, Formatter},
+    panic::Location,
+    sync::atomic::{AtomicU32, Ordering},
+};
 
 use crate::change_detection::{MaybeLocation, MAX_CHANGE_AGE};
 
@@ -85,6 +90,31 @@ impl Tick {
     }
 }
 
+#[derive(Default)]
+pub struct AtomicTick {
+    tick: AtomicU32,
+}
+
+impl AtomicTick {
+    pub fn get(&self) -> Tick {
+        Tick {
+            tick: self.tick.load(Ordering::Relaxed),
+        }
+    }
+
+    pub fn set(&self, new_tick: Tick) {
+        self.tick.store(new_tick.get(), Ordering::Relaxed);
+    }
+}
+
+impl Debug for AtomicTick {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("AtomicTick")
+            .field("tick", &self.get().get())
+            .finish()
+    }
+}
+
 /// An [`Event`] that can be used to maintain [`Tick`]s in custom data structures, enabling to make
 /// use of bevy's periodic checks that clamps ticks to a certain range, preventing overflows and thus
 /// keeping methods like [`Tick::is_newer_than`] reliably return `false` for ticks that got too old.
@@ -129,6 +159,7 @@ pub struct ComponentTickCells<'a> {
     pub changed: &'a UnsafeCell<Tick>,
     /// The calling location that last modified the value.
     pub changed_by: MaybeLocation<&'a UnsafeCell<&'static Location<'static>>>,
+    pub column_tick: Option<&'a AtomicTick>,
 }
 
 /// Records when a component or resource was added and when it was last mutably dereferenced (or added).

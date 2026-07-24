@@ -1,5 +1,5 @@
 use crate::{
-    change_detection::{CheckChangeTicks, ComponentTicks, MaybeLocation, Tick},
+    change_detection::{AtomicTick, CheckChangeTicks, ComponentTicks, MaybeLocation, Tick},
     component::{ComponentId, ComponentInfo, Components},
     entity::Entity,
     query::DebugCheckedUnwrap,
@@ -610,6 +610,11 @@ impl Table {
     ) -> Option<Ptr<'_>> {
         self.get_column(component_id)
             .map(|col| col.data.get_unchecked(row.index()))
+    }
+
+    pub fn get_summary_tick(&self, component_id: ComponentId) -> Option<&AtomicTick> {
+        self.get_column(component_id)
+            .and_then(Column::get_summary_tick)
     }
 }
 
