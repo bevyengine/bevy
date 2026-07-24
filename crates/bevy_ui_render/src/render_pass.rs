@@ -1,6 +1,6 @@
 use core::ops::Range;
 
-use super::{ImageNodeBindGroups,  UiMeta, UiViewTarget};
+use super::{ImageNodeBindGroups, UiMeta, UiViewTarget};
 
 use crate::UiCameraView;
 use bevy_ecs::{
@@ -83,8 +83,7 @@ pub struct TransparentUi {
     pub batch_range: Range<u32>,
     pub extra_index: PhaseItemExtraIndex,
     pub indexed: bool,
-    // Index to UiMeta batch . None if isn't 
-    
+    // Index to UiMeta batch . None if isn't
     pub batch_index: Option<u32>,
 }
 
@@ -196,7 +195,7 @@ impl<const I: usize> RenderCommand<TransparentUi> for SetUiTextureBindGroup<I> {
         _view: (),
         _entity: Option<()>,
         (image_bind_groups, ui_meta): SystemParamItem<'w, '_, Self::Param>,
-                pass: &mut TrackedRenderPass<'w>,
+        pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let Some(batch_index) = item.batch_index else {
             return RenderCommandResult::Skip;
@@ -204,10 +203,9 @@ impl<const I: usize> RenderCommand<TransparentUi> for SetUiTextureBindGroup<I> {
         let Some(batch) = ui_meta.into_inner().batches.get(batch_index as usize) else {
             return RenderCommandResult::Failure("batch index out of range");
         };
-        let Some(bind_group)  = image_bind_groups.into_inner().values.get(&batch.image) else {
-    return RenderCommandResult::Failure("missing image bind group");
-
-};
+        let Some(bind_group) = image_bind_groups.into_inner().values.get(&batch.image) else {
+            return RenderCommandResult::Failure("missing image bind group");
+        };
         pass.set_bind_group(I, bind_group, &[]);
         RenderCommandResult::Success
     }
