@@ -6,7 +6,7 @@ use bevy::{
     prelude::*,
     render::{
         extract_resource::{ExtractResource, ExtractResourcePlugin},
-        gpu_readback::{Readback, ReadbackComplete},
+        gpu_readback::{Readback, ReadbackComplete, ReadbackOnce},
         render_asset::RenderAssets,
         render_resource::{
             binding_types::{storage_buffer, texture_storage_2d},
@@ -35,6 +35,7 @@ fn main() {
         ))
         .insert_resource(ClearColor(Color::BLACK))
         .add_systems(Startup, setup)
+        .add_systems(Update, trigger_once_readback)
         .run();
 }
 
@@ -59,9 +60,26 @@ impl Plugin for GpuReadbackPlugin {
 }
 
 #[derive(Resource, ExtractResource, Clone)]
+#[extract_app(RenderApp)]
 struct ReadbackBuffer(Handle<ShaderBuffer>);
 
+fn trigger_once_readback(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    readback_buffer: Res<ReadbackBuffer>,
+    mut commands: Commands,
+) {
+    if keyboard.just_pressed(KeyCode::Space) {
+        commands
+            .spawn(ReadbackOnce::buffer(readback_buffer.0.clone()))
+            .observe(|event: On<ReadbackComplete>| {
+                let data: Vec<u32> = event.to_shader_type();
+                info!("Buffer (once) {:?}", data);
+            });
+    }
+}
+
 #[derive(Resource, ExtractResource, Clone)]
+#[extract_app(RenderApp)]
 struct ReadbackImage(Handle<Image>);
 
 fn setup(
@@ -73,7 +91,7 @@ fn setup(
     let buffer: Vec<u32> = (0..BUFFER_LEN as u32).collect();
     let mut buffer = ShaderBuffer::from(buffer);
     // We need to enable the COPY_SRC usage so we can copy the buffer to the cpu
-    buffer.buffer_description.usage |= BufferUsages::COPY_SRC;
+    buffer.buffer_usage |= BufferUsages::COPY_SRC;
     let buffer = buffers.add(buffer);
 
     // Create a storage texture with some data

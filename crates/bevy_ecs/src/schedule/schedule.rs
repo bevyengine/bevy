@@ -15,7 +15,7 @@ use bevy_platform::{
     collections::{HashMap, HashSet},
     hash::FixedHasher,
 };
-use bevy_utils::{default, TypeIdMap};
+use bevy_utils::{default, TypeIdHashMap};
 use core::{
     any::{Any, TypeId},
     fmt::{Debug, Write},
@@ -285,7 +285,7 @@ pub enum Chain {
     Unchained,
     /// Systems are chained. `before -> after` ordering constraints
     /// will be added between the successive elements.
-    Chained(TypeIdMap<Box<dyn Any>>),
+    Chained(TypeIdHashMap<Box<dyn Any>>),
 }
 
 impl Chain {
@@ -704,6 +704,28 @@ impl Schedule {
             .iter()
             .zip(&self.executable.systems)
             .map(|(&node_id, system)| (node_id, &system.system));
+
+        Ok(iter)
+    }
+
+    /// Returns an iterator over all systems with access in this schedule.
+    ///
+    /// Note: this method will return [`ScheduleNotInitialized`] if the
+    /// schedule has never been initialized or run.
+    pub fn systems_with_access(
+        &self,
+    ) -> Result<impl Iterator<Item = (SystemKey, &SystemWithAccess)> + Sized, ScheduleNotInitialized>
+    {
+        if !self.executor_initialized {
+            return Err(ScheduleNotInitialized);
+        }
+
+        let iter = self
+            .executable
+            .system_ids
+            .iter()
+            .zip(&self.executable.systems)
+            .map(|(&node_id, system)| (node_id, system));
 
         Ok(iter)
     }

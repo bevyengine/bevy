@@ -1,9 +1,9 @@
 use crate::{
     set::{Set, SetInfo},
     utility::GenericTypeInfoCell,
-    FromReflect, FromType, Generics, GetTypeRegistration, PartialReflect, Reflect,
-    ReflectCloneError, ReflectFromPtr, ReflectMut, ReflectOwned, ReflectRef, TypeInfo,
-    TypeParamInfo, TypePath, TypeRegistration,
+    FromReflect, Generics, GetTypeRegistration, PartialReflect, Reflect, ReflectCloneError,
+    ReflectFromPtr, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypeParamInfo, TypePath,
+    TypeRegistration,
 };
 use bevy_platform::prelude::{Box, Vec};
 use bevy_reflect::{
@@ -58,7 +58,7 @@ where
         self.retain(move |key, value| f(key, value));
     }
 
-    fn to_dynamic_map(&self) -> DynamicMap {
+    fn to_dynamic_map(&self) -> Result<DynamicMap, ReflectCloneError> {
         let mut dynamic_map = DynamicMap::default();
         dynamic_map.set_represented_type(PartialReflect::get_represented_type_info(self));
         for (k, v) in self {
@@ -68,9 +68,9 @@ where
                     k.reflect_type_path()
                 )
             });
-            dynamic_map.insert_boxed(Box::new(key), v.to_dynamic());
+            dynamic_map.insert_boxed(Box::new(key), v.to_dynamic()?);
         }
-        dynamic_map
+        Ok(dynamic_map)
     }
 
     fn insert_boxed(
@@ -266,8 +266,8 @@ where
 {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<Self>();
-        registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
-        registration.insert::<ReflectFromReflect>(FromType::<Self>::from_type());
+        registration.register_type_data::<ReflectFromPtr, Self>();
+        registration.register_type_data::<ReflectFromReflect, Self>();
         registration
     }
 
@@ -491,7 +491,7 @@ where
 {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<Self>();
-        registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
+        registration.register_type_data::<ReflectFromPtr, Self>();
         registration
     }
 }

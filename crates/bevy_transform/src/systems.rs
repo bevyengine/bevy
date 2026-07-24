@@ -816,7 +816,7 @@ mod parallel {
 mod test {
     use alloc::{vec, vec::Vec};
     use bevy_app::prelude::*;
-    use bevy_ecs::{prelude::*, world::CommandQueue};
+    use bevy_ecs::world::CommandQueue;
     use bevy_math::{vec3, Vec3};
     use bevy_tasks::{ComputeTaskPool, TaskPool};
 

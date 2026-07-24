@@ -800,6 +800,51 @@ impl Camera {
     }
 }
 
+/// The entity that Bevy uses to resolve visibility ranges when no specific
+/// camera is applicable.
+///
+/// For efficiency, Bevy currently renders point and spot light shadow maps only
+/// once per frame, regardless of the number of cameras in use, rather than
+/// rendering the shadow maps anew for each camera each frame. Most of the time,
+/// this optimization doesn't change the result relative to a rendering that
+/// rendered such shadow maps separately for each camera. However, there's one
+/// exception: visibility ranges. Visibility ranges cause meshes to be visible
+/// or invisible depending on the distance from the mesh to the camera. When
+/// rendering a shadow map for a point or spot light, Bevy must therefore select
+/// an entity to use as the reference point for the purposes of visibility
+/// ranges. This entity is called the *LOD origin*.
+///
+/// Placing this component on an entity makes that entity the origin from which
+/// LOD distances are computed for the purposes of shadow mapping of point and
+/// spot lights. Typically, you place this component on a camera, but you may
+/// place it on another entity if you wish.
+///
+/// The exact algorithm that Bevy uses to determine the LOD origin is as
+/// follows. Once the LOD origin is determined, all further steps are skipped.
+///
+/// 1. If an entity has this [`ShadowLodOrigin`] component, then it's the LOD
+///    origin. If there's more than one entity with the [`ShadowLodOrigin`]
+///    component, one is chosen arbitrarily in a manner that's stable from frame to
+///    frame.
+///
+/// 2. If a camera renders to a window (that is, the camera's [`RenderTarget`]
+///    is [`RenderTarget::Window`]), then that camera is the shadow LOD origin. If
+///    there's more than one such camera that renders to a window, then one is
+///    chosen arbitrarily in a manner that's stable from frame to frame.
+///
+/// 3. A camera is chosen to be the LOD origin arbitrarily from all cameras in
+///    the scene in a manner that's stable from frame to frame.
+///
+/// This algorithm means that, in most cases, you don't need to add this
+/// [`ShadowLodOrigin`] component explicitly to the scene; usually, Bevy chooses
+/// the right origin automatically. You only need to use this component
+/// explicitly if you have multiple cameras rendering to the window: e.g. in a
+/// split-screen game.
+#[derive(Clone, Copy, Default, Component, Debug, Reflect)]
+#[reflect(Clone, Default, Component)]
+#[require(Transform)]
+pub struct ShadowLodOrigin;
+
 /// Control how this [`Camera`] outputs once rendering is completed.
 #[derive(Debug, Clone, Copy, Reflect)]
 pub enum CameraOutputMode {
@@ -831,10 +876,11 @@ impl Default for CameraOutputMode {
 
 /// The "target" that a [`Camera`] will render to. For example, this could be a `Window`
 /// swapchain or an [`Image`].
-#[derive(Component, Debug, Clone, Reflect, From)]
+#[derive(Component, FromTemplate, Debug, Clone, Reflect, From)]
 #[reflect(Clone, Component)]
 pub enum RenderTarget {
     /// Window to which the camera's view is rendered.
+    #[default]
     Window(WindowRef),
     /// Image to which the camera's view is rendered.
     Image(ImageRenderTarget),
@@ -924,7 +970,7 @@ pub enum NormalizedRenderTarget {
 pub struct ManualTextureViewHandle(pub u32);
 
 /// A render target that renders to an [`Image`].
-#[derive(Debug, Clone, Reflect)]
+#[derive(FromTemplate, Debug, Clone, Reflect)]
 #[reflect(Clone, PartialEq, Hash)]
 pub struct ImageRenderTarget {
     /// The image to render to.
@@ -987,11 +1033,13 @@ impl Default for RenderTarget {
 #[cfg(test)]
 mod test {
     use bevy_math::{Vec2, Vec3};
+    use bevy_scene::bsn;
     use bevy_transform::components::GlobalTransform;
+    use bevy_window::WindowRef;
 
     use crate::{
-        Camera, OrthographicProjection, PerspectiveProjection, Projection, RenderTargetInfo,
-        Viewport,
+        Camera, OrthographicProjection, PerspectiveProjection, Projection, RenderTarget,
+        RenderTargetInfo, Viewport,
     };
 
     fn make_camera(mut projection: Projection, physical_size: Vec2) -> Camera {
@@ -1066,5 +1114,12 @@ mod test {
         let ray = camera.viewport_to_world(&transform, size * 0.5).unwrap();
         assert_eq!(ray.direction, transform.forward());
         assert_eq!(ray.origin, transform.forward() * 0.1);
+    }
+
+    #[test]
+    fn render_target_in_bsn() {
+        let _ = bsn! {
+            RenderTarget::Window(WindowRef::default())
+        };
     }
 }

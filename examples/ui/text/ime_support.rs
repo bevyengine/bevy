@@ -37,10 +37,6 @@ fn setup(mut commands: Commands) {
                 font_size: FontSize::Px(20.0),
                 ..default()
             },
-            Node {
-                margin: UiRect::bottom(px(16.0)),
-                ..default()
-            },
         ))
         .id();
 
@@ -48,6 +44,7 @@ fn setup(mut commands: Commands) {
         .spawn((
             Node {
                 width: px(400),
+                height: px(250),
                 border: px(3).all(),
                 padding: px(8).all(),
                 ..default()
@@ -56,12 +53,16 @@ fn setup(mut commands: Commands) {
             // includes support for Chinese, Japanese, and Korean characters.
             // Note that using system fonts requires the "bevy/system-fonts" feature to be enabled.
             TextFont {
-                font: FontSource::SansSerif,
+                font: FontSource::sans_serif(),
                 font_size: FontSize::Px(32.0),
                 ..default()
             },
             BorderColor::from(Color::from(SLATE_300)),
-            EditableText::default(),
+            EditableText {
+                allow_newlines: true,
+                ..default()
+            },
+            TextLayout::no_wrap(),
             TextCursorStyle::default(),
             TabIndex(0),
             BackgroundColor(DARK_GREY.into()),
@@ -72,15 +73,11 @@ fn setup(mut commands: Commands) {
         .spawn((
             Text::new("Your text here!"),
             TextFont {
-                font: FontSource::SansSerif,
+                font: FontSource::sans_serif(),
                 font_size: FontSize::Px(32.0),
                 ..default()
             },
             TextOutput,
-            Node {
-                margin: UiRect::top(px(16.0)),
-                ..default()
-            },
         ))
         .id();
 
@@ -89,6 +86,7 @@ fn setup(mut commands: Commands) {
             Node {
                 flex_direction: FlexDirection::Column,
                 padding: px(24.0).all(),
+                row_gap: px(16),
                 ..default()
             },
             TabGroup::new(0),

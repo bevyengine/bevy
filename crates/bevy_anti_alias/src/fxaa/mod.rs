@@ -53,6 +53,7 @@ impl Sensitivity {
 #[reflect(Component, Default, Clone)]
 #[extract_component_filter(With<Camera>)]
 #[doc(alias = "FastApproximateAntiAliasing")]
+#[extract_app(RenderApp)]
 pub struct Fxaa {
     /// Enable render passes for FXAA.
     pub enabled: bool,

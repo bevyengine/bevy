@@ -642,18 +642,18 @@ mod tests {
         );
         assert_eq!(
             taffy_style.grid_template_rows,
-            vec![sh::length(10.0), sh::percent(0.5), sh::fr(1.0)]
+            vec![sh::length(10_f32), sh::percent(0.5_f32), sh::fr(1_f32)]
         );
         assert_eq!(
             taffy_style.grid_template_columns,
-            vec![sh::repeat(5, vec![sh::length(10.0)])]
+            vec![sh::repeat(5, vec![sh::length(10_f32)])]
         );
         assert_eq!(
             taffy_style.grid_auto_rows,
             vec![
                 sh::fit_content(taffy::style::LengthPercentage::length(10.0)),
                 sh::fit_content(taffy::style::LengthPercentage::percent(0.25)),
-                sh::minmax(sh::length(0.0), sh::fr(2.0)),
+                sh::minmax(sh::length(0_f32), sh::fr(2_f32)),
             ]
         );
         assert_eq!(

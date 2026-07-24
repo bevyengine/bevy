@@ -1,7 +1,7 @@
 use crate::state::{FreelyMutableState, NextState, State, States};
 
 use bevy_ecs::{reflect::from_reflect_with_fallback, world::World};
-use bevy_reflect::{FromType, Reflect, TypePath, TypeRegistry};
+use bevy_reflect::{CreateTypeData, Reflect, TypePath, TypeRegistry};
 
 /// A struct used to operate on the reflected [`States`] trait of a type.
 ///
@@ -19,12 +19,12 @@ pub struct ReflectStateFns {
 
 impl ReflectStateFns {
     /// Get the default set of [`ReflectStateFns`] for a specific component type using its
-    /// [`FromType`] implementation.
+    /// [`CreateTypeData`] implementation.
     ///
     /// This is useful if you want to start with the default implementation before overriding some
     /// of the functions to create a custom implementation.
     pub fn new<T: States + Reflect>() -> Self {
-        <ReflectState as FromType<T>>::from_type().0
+        <ReflectState as CreateTypeData<T>>::create_type_data(()).0
     }
 }
 
@@ -35,8 +35,8 @@ impl ReflectState {
     }
 }
 
-impl<S: States + Reflect> FromType<S> for ReflectState {
-    fn from_type() -> Self {
+impl<S: States + Reflect> CreateTypeData<S> for ReflectState {
+    fn create_type_data(_input: ()) -> Self {
         ReflectState(ReflectStateFns {
             reflect: |world| {
                 world
@@ -59,18 +59,18 @@ pub struct ReflectFreelyMutableState(ReflectFreelyMutableStateFns);
 pub struct ReflectFreelyMutableStateFns {
     /// Function pointer implementing [`ReflectFreelyMutableState::set_next_state()`].
     pub set_next_state: fn(&mut World, &dyn Reflect, &TypeRegistry),
-    /// Function pointer implementing [`ReflectFreelyMutableState::set_next_state_if_neq()`].
-    pub set_next_state_if_neq: fn(&mut World, &dyn Reflect, &TypeRegistry),
+    /// Function pointer implementing [`ReflectFreelyMutableState::set_next_state_if_different()`].
+    pub set_next_state_if_different: fn(&mut World, &dyn Reflect, &TypeRegistry),
 }
 
 impl ReflectFreelyMutableStateFns {
     /// Get the default set of [`ReflectFreelyMutableStateFns`] for a specific component type using its
-    /// [`FromType`] implementation.
+    /// [`CreateTypeData`] implementation.
     ///
     /// This is useful if you want to start with the default implementation before overriding some
     /// of the functions to create a custom implementation.
     pub fn new<T: FreelyMutableState + Reflect + TypePath>() -> Self {
-        <ReflectFreelyMutableState as FromType<T>>::from_type().0
+        <ReflectFreelyMutableState as CreateTypeData<T>>::create_type_data(()).0
     }
 }
 
@@ -80,18 +80,28 @@ impl ReflectFreelyMutableState {
         (self.0.set_next_state)(world, state, registry);
     }
     /// Tentatively set a pending state transition to a reflected [`ReflectFreelyMutableState`], skipping state transitions if the target state is the same as the current state.
+    pub fn set_next_state_if_different(
+        &self,
+        world: &mut World,
+        state: &dyn Reflect,
+        registry: &TypeRegistry,
+    ) {
+        (self.0.set_next_state_if_different)(world, state, registry);
+    }
+    /// Tentatively set a pending state transition to a reflected [`ReflectFreelyMutableState`], skipping state transitions if the target state is the same as the current state.
+    #[deprecated(since = "0.19.0", note = "use `set_next_state_if_different` instead")]
     pub fn set_next_state_if_neq(
         &self,
         world: &mut World,
         state: &dyn Reflect,
         registry: &TypeRegistry,
     ) {
-        (self.0.set_next_state_if_neq)(world, state, registry);
+        self.set_next_state_if_different(world, state, registry);
     }
 }
 
-impl<S: FreelyMutableState + Reflect + TypePath> FromType<S> for ReflectFreelyMutableState {
-    fn from_type() -> Self {
+impl<S: FreelyMutableState + Reflect + TypePath> CreateTypeData<S> for ReflectFreelyMutableState {
+    fn create_type_data(_input: ()) -> Self {
         ReflectFreelyMutableState(ReflectFreelyMutableStateFns {
             set_next_state: |world, reflected_state, registry| {
                 let new_state: S = from_reflect_with_fallback(
@@ -103,14 +113,14 @@ impl<S: FreelyMutableState + Reflect + TypePath> FromType<S> for ReflectFreelyMu
                     next_state.set(new_state);
                 }
             },
-            set_next_state_if_neq: |world, reflected_state, registry| {
+            set_next_state_if_different: |world, reflected_state, registry| {
                 let new_state: S = from_reflect_with_fallback(
                     reflected_state.as_partial_reflect(),
                     world,
                     registry,
                 );
                 if let Some(mut next_state) = world.get_resource_mut::<NextState<S>>() {
-                    next_state.set_if_neq(new_state);
+                    next_state.set_if_different(new_state);
                 }
             },
         })

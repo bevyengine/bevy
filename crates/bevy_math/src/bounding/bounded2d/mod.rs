@@ -493,7 +493,7 @@ pub struct BoundingCircle {
 impl BoundingCircle {
     /// Constructs a bounding circle from its center and radius.
     #[inline]
-    pub fn new(center: Vec2, radius: f32) -> Self {
+    pub const fn new(center: Vec2, radius: f32) -> Self {
         debug_assert!(radius >= 0.);
         Self {
             center,
@@ -525,7 +525,7 @@ impl BoundingCircle {
 
     /// Get the radius of the bounding circle
     #[inline]
-    pub fn radius(&self) -> f32 {
+    pub const fn radius(&self) -> f32 {
         self.circle.radius
     }
 
@@ -710,7 +710,7 @@ mod bounding_circle_tests {
     #[test]
     fn grow() {
         let a = BoundingCircle::new(Vec2::ONE, 5.);
-        let padded = a.grow(1.25);
+        let padded = a.grow(1.25_f32);
         assert!(ops::abs(padded.radius() - 6.25) < f32::EPSILON);
         assert!(padded.contains(&a));
         assert!(!a.contains(&padded));
@@ -719,7 +719,7 @@ mod bounding_circle_tests {
     #[test]
     fn shrink() {
         let a = BoundingCircle::new(Vec2::ONE, 5.);
-        let shrunk = a.shrink(0.5);
+        let shrunk = a.shrink(0.5_f32);
         assert!(ops::abs(shrunk.radius() - 4.5) < f32::EPSILON);
         assert!(a.contains(&shrunk));
         assert!(!shrunk.contains(&a));
@@ -728,7 +728,7 @@ mod bounding_circle_tests {
     #[test]
     fn scale_around_center() {
         let a = BoundingCircle::new(Vec2::ONE, 5.);
-        let scaled = a.scale_around_center(2.);
+        let scaled = a.scale_around_center(2_f32);
         assert!(ops::abs(scaled.radius() - 10.) < f32::EPSILON);
         assert!(!a.contains(&scaled));
         assert!(scaled.contains(&a));

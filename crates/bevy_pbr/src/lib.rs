@@ -28,12 +28,9 @@ mod atmosphere;
 mod cluster;
 pub mod contact_shadows;
 #[cfg(feature = "bevy_gltf")]
-mod gltf;
+pub mod gltf;
 use bevy_light::cluster::GlobalClusterSettings;
-use bevy_render::{
-    sync_component::SyncComponent,
-    view::{RenderExtractedShadowMapVisibleEntities, RenderShadowMapVisibleEntities},
-};
+use bevy_render::{sync_component::SyncComponent, view::RenderShadowLodOrigin};
 pub use contact_shadows::{
     ContactShadows, ContactShadowsBuffer, ContactShadowsPlugin, ContactShadowsUniform,
     ViewContactShadowsUniformOffset,
@@ -46,7 +43,6 @@ mod fog;
 mod light_probe;
 mod lightmap;
 mod material;
-mod material_bind_groups;
 mod medium;
 mod mesh_material;
 mod parallax;
@@ -72,7 +68,6 @@ pub use fog::*;
 pub use light_probe::*;
 pub use lightmap::*;
 pub use material::*;
-pub use material_bind_groups::*;
 pub use medium::*;
 pub use mesh_material::*;
 pub use parallax::*;
@@ -364,11 +359,7 @@ impl Plugin for PbrPlugin {
         render_app
             .add_systems(
                 RenderStartup,
-                (
-                    init_shadow_samplers,
-                    init_global_clusterable_object_meta,
-                    init_fallback_bindless_resources,
-                ),
+                (init_shadow_samplers, init_global_clusterable_object_meta),
             )
             .add_systems(
                 ExtractSchedule,
@@ -386,6 +377,7 @@ impl Plugin for PbrPlugin {
                     extract_ambient_light_resource,
                     extract_ambient_light,
                     extract_shadow_filtering_method,
+                    extract_shadow_lod_origin,
                     late_sweep_material_instances,
                 ),
             )
@@ -405,8 +397,7 @@ impl Plugin for PbrPlugin {
                 ),
             )
             .init_gpu_resource::<LightMeta>()
-            .init_gpu_resource::<RenderMaterialBindings>()
-            .allow_ambiguous_resource::<RenderMaterialBindings>();
+            .init_resource::<RenderShadowLodOrigin>();
 
         render_app.world_mut().add_observer(add_light_view_entities);
         render_app
@@ -502,39 +493,25 @@ pub fn area_light_luts_placeholder() -> Image {
     }
 }
 
-impl SyncComponent<PbrPlugin> for DirectionalLight {
+impl SyncComponent<RenderApp, PbrPlugin> for DirectionalLight {
     type Target = (
         Self,
         ExtractedDirectionalLight,
-        RenderExtractedShadowMapVisibleEntities,
-        RenderShadowMapVisibleEntities,
         DirectionalLightViewEntities,
     );
 }
-impl SyncComponent<PbrPlugin> for PointLight {
-    type Target = (
-        Self,
-        ExtractedPointLight,
-        RenderExtractedShadowMapVisibleEntities,
-        RenderShadowMapVisibleEntities,
-        PointAndSpotLightViewEntities,
-    );
+impl SyncComponent<RenderApp, PbrPlugin> for PointLight {
+    type Target = (Self, ExtractedPointLight, PointAndSpotLightViewEntities);
 }
-impl SyncComponent<PbrPlugin> for SpotLight {
-    type Target = (
-        Self,
-        ExtractedPointLight,
-        RenderExtractedShadowMapVisibleEntities,
-        RenderShadowMapVisibleEntities,
-        PointAndSpotLightViewEntities,
-    );
+impl SyncComponent<RenderApp, PbrPlugin> for SpotLight {
+    type Target = (Self, ExtractedPointLight, PointAndSpotLightViewEntities);
 }
-impl SyncComponent<PbrPlugin> for RectLight {
+impl SyncComponent<RenderApp, PbrPlugin> for RectLight {
     type Target = (Self, ExtractedRectLight);
 }
-impl SyncComponent<PbrPlugin> for AmbientLight {
+impl SyncComponent<RenderApp, PbrPlugin> for AmbientLight {
     type Target = Self;
 }
-impl SyncComponent<PbrPlugin> for ShadowFilteringMethod {
+impl SyncComponent<RenderApp, PbrPlugin> for ShadowFilteringMethod {
     type Target = Self;
 }

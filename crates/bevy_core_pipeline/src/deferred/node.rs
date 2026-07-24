@@ -11,7 +11,7 @@ use bevy_render::{
     render_phase::ViewBinnedRenderPhases,
     render_resource::{RenderPassDescriptor, StoreOp},
     renderer::{RenderContext, ViewQuery},
-    view::ViewDepthTexture,
+    view::ViewDepthStencilTexture,
 };
 
 use crate::prepass::ViewPrepassTextures;
@@ -21,7 +21,7 @@ use super::{AlphaMask3dDeferred, Opaque3dDeferred};
 /// Type alias for the deferred prepass view query.
 type DeferredPrepassViewQueryData = (
     &'static ExtractedView,
-    &'static ViewDepthTexture,
+    &'static ViewDepthStencilTexture,
     &'static ViewPrepassTextures,
     Option<&'static MainPassResolutionOverride>,
     Has<OcclusionCulling>,
@@ -98,7 +98,7 @@ fn run_deferred_prepass_system(
     world: &World,
     view_entity: Entity,
     extracted_view: &ExtractedView,
-    view_depth_texture: &ViewDepthTexture,
+    view_depth_texture: &ViewDepthStencilTexture,
     view_prepass_textures: &ViewPrepassTextures,
     resolution_override: Option<&MainPassResolutionOverride>,
     is_late: bool,
@@ -232,7 +232,7 @@ fn run_deferred_prepass_system(
     // After rendering to the view depth texture, copy it to the prepass depth texture
     if let Some(prepass_depth_texture) = &view_prepass_textures.depth {
         ctx.command_encoder().copy_texture_to_texture(
-            view_depth_texture.texture.as_image_copy(),
+            view_depth_texture.texture().as_image_copy(),
             prepass_depth_texture.texture.texture.as_image_copy(),
             view_prepass_textures.size,
         );

@@ -15,9 +15,12 @@
 // respectively.
 
 #import bevy_pbr::mesh_preprocess_types::{
-    IndirectParametersCpuMetadata, IndirectParametersGpuMetadata, MeshInput, PreprocessWorkItem
+    IndirectParametersMetadata, MeshInput, PreviousMeshInput, PreprocessWorkItem
 }
-#import bevy_pbr::mesh_types::{Mesh, MESH_FLAGS_NO_FRUSTUM_CULLING_BIT}
+#import bevy_pbr::mesh_types::{
+    Mesh, MESH_FLAGS_AABB_BASED_VISIBILITY_RANGE_BIT, MESH_FLAGS_NO_FRUSTUM_CULLING_BIT,
+    MESH_FLAGS_VISIBILITY_RANGE_INDEX_BITS
+}
 #import bevy_pbr::mesh_view_bindings::view
 #import bevy_pbr::occlusion_culling
 #import bevy_pbr::prepass_bindings::previous_view_uniforms
@@ -46,13 +49,26 @@ struct LatePreprocessWorkItemIndirectParameters {
     // The number of workgroups we're going to dispatch.
     //
     // This value should always be equal to `ceil(work_item_count / 64)`.
+    //
+    // In the late phase this buffer is bound read-only, and the atomic built-ins
+    // are only defined for `read_write` storage, so the fields are plain `u32`
+    // there and `atomic<u32>` in the early phase. `u32` and `atomic<u32>` are
+    // layout-identical, so the buffer's memory layout is unchanged either way.
+#ifdef LATE_PHASE
+    dispatch_x: u32,
+#else   // LATE_PHASE
     dispatch_x: atomic<u32>,
+#endif  // LATE_PHASE
     // The number of workgroups in the Y direction; always 1.
     dispatch_y: u32,
     // The number of workgroups in the Z direction; always 1.
     dispatch_z: u32,
     // The precise number of work items.
+#ifdef LATE_PHASE
+    work_item_count: u32,
+#else   // LATE_PHASE
     work_item_count: atomic<u32>,
+#endif  // LATE_PHASE
     // Padding.
     //
     // This isn't the usual structure padding; it's needed because some hardware
@@ -71,7 +87,7 @@ struct Immediates {
 // The current frame's `MeshInput`.
 @group(0) @binding(3) var<storage> current_input: array<MeshInput>;
 // The `MeshInput` values from the previous frame.
-@group(0) @binding(4) var<storage> previous_input: array<MeshInput>;
+@group(0) @binding(4) var<storage> previous_input: array<PreviousMeshInput>;
 // Indices into the `MeshInput` buffer.
 //
 // There may be many indices that map to the same `MeshInput`.
@@ -81,11 +97,8 @@ struct Immediates {
 
 #ifdef INDIRECT
 // The array of indirect parameters for drawcalls.
-@group(0) @binding(7) var<storage> indirect_parameters_cpu_metadata:
-    array<IndirectParametersCpuMetadata>;
-
-@group(0) @binding(8) var<storage, read_write> indirect_parameters_gpu_metadata:
-    array<IndirectParametersGpuMetadata>;
+@group(0) @binding(7) var<storage, read_write> indirect_parameters_metadata:
+    array<IndirectParametersMetadata>;
 #endif
 
 #ifdef FRUSTUM_CULLING
@@ -93,21 +106,23 @@ struct Immediates {
 //
 // At the moment, this consists only of AABBs.
 @group(0) @binding(9) var<storage> mesh_culling_data: array<MeshCullingData>;
+
+@group(0) @binding(10) var<storage> visibility_ranges: array<vec4<f32>>;
 #endif  // FRUSTUM_CULLING
 
 #ifdef OCCLUSION_CULLING
-@group(0) @binding(10) var depth_pyramid: texture_2d<f32>;
+@group(0) @binding(11) var depth_pyramid: texture_2d<f32>;
 
 #ifdef EARLY_PHASE
-@group(0) @binding(11) var<storage, read_write> late_preprocess_work_items:
+@group(0) @binding(12) var<storage, read_write> late_preprocess_work_items:
     array<PreprocessWorkItem>;
 
-@group(0) @binding(12) var<storage, read_write> late_preprocess_work_item_indirect_parameters:
+@group(0) @binding(13) var<storage, read_write> late_preprocess_work_item_indirect_parameters:
     array<LatePreprocessWorkItemIndirectParameters>;
 #endif  // EARLY_PHASE
 
 #ifdef LATE_PHASE
-@group(0) @binding(12) var<storage, read> late_preprocess_work_item_indirect_parameters:
+@group(0) @binding(13) var<storage, read> late_preprocess_work_item_indirect_parameters:
     array<LatePreprocessWorkItemIndirectParameters>;
 #endif  // LATE_PHASE
 
@@ -157,8 +172,8 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     let instance_index = global_invocation_id.x;
 
 #ifdef LATE_PHASE
-    if (instance_index >= atomicLoad(&late_preprocess_work_item_indirect_parameters[
-            immediates.late_preprocess_work_item_indirect_offset].work_item_count)) {
+    if (instance_index >= late_preprocess_work_item_indirect_parameters[
+            immediates.late_preprocess_work_item_indirect_offset].work_item_count) {
         return;
     }
 #else   // LATE_PHASE
@@ -177,7 +192,7 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     // building shader can access it.
 #ifndef LATE_PHASE
     if (instance_index == 0u) || (work_items[instance_index - 1].output_or_indirect_parameters_index != indirect_parameters_index) {
-        indirect_parameters_gpu_metadata[indirect_parameters_index].mesh_index = input_index;
+        indirect_parameters_metadata[indirect_parameters_index].mesh_index = input_index;
     }
 #endif  // LATE_PHASE
 
@@ -201,7 +216,31 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
             return;
         }
     }
-#endif
+
+    // Visibility range cull if necessary.
+    let visibility_buffer_array_len = arrayLength(&visibility_ranges);
+    let visibility_buffer_index =
+        current_input[input_index].flags & MESH_FLAGS_VISIBILITY_RANGE_INDEX_BITS;
+    if (visibility_buffer_index < visibility_buffer_array_len) {
+        let lod_range = visibility_ranges[visibility_buffer_index];
+
+        // If we're using the AABB as the mesh center, determine its world space position.
+        // Otherwise, just use the center of the transform.
+        var world_pos: vec3<f32>;
+        if ((current_input[input_index].flags & MESH_FLAGS_AABB_BASED_VISIBILITY_RANGE_BIT) != 0u) {
+            let aabb_center = mesh_culling_data[input_index].aabb_center.xyz;
+            world_pos = (world_from_local * vec4(aabb_center, 1.0)).xyz;
+        } else {
+            world_pos = world_from_local[3].xyz;
+        }
+
+        let camera_distance = length(world_pos - view.lod_view_world_position);
+        // `x` is the minimum range; `w` is the largest range.
+        if (camera_distance < lod_range.x || camera_distance >= lod_range.w) {
+            return;
+        }
+    }
+#endif  // FRUSTUM_CULLING
 
     // See whether the `MeshInputUniform` was updated on this frame. If it
     // wasn't, then we know the transforms of this mesh must be identical to
@@ -333,20 +372,20 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
 #ifdef INDIRECT
 #ifdef LATE_PHASE
     let batch_output_index = atomicLoad(
-        &indirect_parameters_gpu_metadata[indirect_parameters_index].early_instance_count
+        &indirect_parameters_metadata[indirect_parameters_index].early_instance_count
     ) + atomicAdd(
-        &indirect_parameters_gpu_metadata[indirect_parameters_index].late_instance_count,
+        &indirect_parameters_metadata[indirect_parameters_index].late_instance_count,
         1u
     );
 #else   // LATE_PHASE
     let batch_output_index = atomicAdd(
-        &indirect_parameters_gpu_metadata[indirect_parameters_index].early_instance_count,
+        &indirect_parameters_metadata[indirect_parameters_index].early_instance_count,
         1u
     );
 #endif  // LATE_PHASE
 
     let mesh_output_index =
-        indirect_parameters_cpu_metadata[indirect_parameters_index].base_output_index +
+        indirect_parameters_metadata[indirect_parameters_index].base_output_index +
         batch_output_index;
 
 #endif  // INDIRECT
@@ -365,4 +404,5 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
         current_input[input_index].material_and_lightmap_bind_group_slot;
     output[mesh_output_index].tag = current_input[input_index].tag;
     output[mesh_output_index].morph_descriptor_index = current_input[input_index].morph_descriptor_index;
+    output[mesh_output_index].metadata_index = current_input[input_index].metadata_index;
 }

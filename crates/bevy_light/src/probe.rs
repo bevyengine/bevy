@@ -167,6 +167,12 @@ impl EnvironmentMapLight {
         }
     }
 
+    /// Sets the intensity of this environment map and returns it.
+    pub fn with_intensity(mut self, intensity: f32) -> Self {
+        self.intensity = intensity;
+        self
+    }
+
     pub(crate) fn hemispherical_gradient_cubemap(
         top_color: Color,
         mid_color: Color,
@@ -315,7 +321,7 @@ impl Default for AtmosphereEnvironmentMapLight {
         Self {
             intensity: 1.0,
             affects_lightmapped_mesh_diffuse: true,
-            size: UVec2::new(512, 512),
+            size: UVec2::new(128, 128),
         }
     }
 }

@@ -49,8 +49,8 @@ use bevy_render::{
     sync_world::RenderEntity,
     texture::{CachedTexture, TextureCache},
     view::{
-        prepare_view_targets, ViewDepthTexture, ViewTarget, ViewUniform, ViewUniformOffset,
-        ViewUniforms,
+        prepare_view_targets, ExtractedView, Msaa, ViewDepthStencilTexture, ViewTarget,
+        ViewUniform, ViewUniformOffset, ViewUniforms,
     },
     Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
@@ -643,13 +643,14 @@ impl SpecializedRenderPipeline for DepthOfFieldPipeline {
                     DofPass::BokehPass1 => "bokeh_pass_b".into(),
                 }),
                 targets,
+                constants: vec![],
             }),
             ..default()
         }
     }
 }
 
-impl SyncComponent for DepthOfField {
+impl SyncComponent<RenderApp> for DepthOfField {
     type Target = (
         DepthOfField,
         DepthOfFieldUniform,
@@ -678,7 +679,7 @@ fn extract_depth_of_field_settings(
 
         // Depth of field is nonsensical without a perspective projection.
         let Projection::Perspective(ref perspective_projection) = *projection else {
-            entity_commands.remove::<<DepthOfField as SyncComponent>::Target>();
+            entity_commands.remove::<<DepthOfField as SyncComponent<RenderApp>>::Target>();
 
             continue;
         };
@@ -763,7 +764,7 @@ pub(crate) fn depth_of_field(
     view: ViewQuery<(
         &ViewUniformOffset,
         &ViewTarget,
-        &ViewDepthTexture,
+        &ViewDepthStencilTexture,
         &DepthOfFieldPipelines,
         &ViewDepthOfFieldBindGroupLayouts,
         &DynamicUniformIndex<DepthOfFieldUniform>,
@@ -783,7 +784,13 @@ pub(crate) fn depth_of_field(
         depth_of_field_uniform_index,
         auxiliary_dof_texture,
     ) = view.into_inner();
-
+    let Some(depth_view) = view_depth_texture
+        .attachment
+        .depth_stencil_views()
+        .depth_only_view()
+    else {
+        return;
+    };
     // We can be in either Gaussian blur or bokeh mode here. Both modes are
     // similar, consisting of two passes each.
     for pipeline_render_info in view_pipelines.pipeline_render_info().iter() {
@@ -816,7 +823,7 @@ pub(crate) fn depth_of_field(
                 &pipeline_cache.get_bind_group_layout(dual_input_bind_group_layout),
                 &BindGroupEntries::sequential((
                     view_uniforms_binding,
-                    view_depth_texture.view(),
+                    depth_view,
                     postprocess.source,
                     &auxiliary_dof_texture.default_view,
                 )),
@@ -827,7 +834,7 @@ pub(crate) fn depth_of_field(
                 &pipeline_cache.get_bind_group_layout(&view_bind_group_layouts.single_input),
                 &BindGroupEntries::sequential((
                     view_uniforms_binding,
-                    view_depth_texture.view(),
+                    depth_view,
                     postprocess.source,
                 )),
             )

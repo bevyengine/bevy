@@ -24,7 +24,7 @@ use bevy_render::{
     render_resource::{binding_types::*, *},
     renderer::{RenderDevice, RenderQueue},
     texture::{CachedTexture, TextureCache},
-    view::{ExtractedView, ViewDepthTexture, ViewUniform, ViewUniforms},
+    view::{ExtractedView, ViewDepthStencilTexture, ViewUniform, ViewUniforms},
 };
 use bevy_shader::Shader;
 use bevy_utils::default;
@@ -568,7 +568,11 @@ pub(super) fn prepare_atmosphere_transforms(
         // World-horizontal reference for back, projected orthogonal to atmo_y.
         let world_ref = Vec3A::NEG_Z;
         let ref_horizontal = world_ref - atmo_y * atmo_y.dot(world_ref);
-        let atmo_z = ref_horizontal.normalize();
+        let atmo_z = ref_horizontal.try_normalize().unwrap_or_else(|| {
+            // `NEG_Z` is degenerate at the poles of a Z-up world.
+            let fallback_ref = Vec3A::NEG_Y;
+            (fallback_ref - atmo_y * atmo_y.dot(fallback_ref)).normalize()
+        });
         let atmo_x = atmo_y.cross(atmo_z).normalize();
 
         let world_from_atmosphere = Mat4::from(Affine3A::from_cols(
@@ -621,7 +625,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
             Entity,
             &ExtractedAtmosphere,
             &AtmosphereTextures,
-            &ViewDepthTexture,
+            &ViewDepthStencilTexture,
             &ViewTargetInfo,
         ),
         (With<Camera3d>, With<ExtractedAtmosphere>),
@@ -668,6 +672,13 @@ pub(super) fn prepare_atmosphere_bind_groups(
         .ok_or(AtmosphereBindGroupError::LightUniforms)?;
 
     for (entity, atmosphere, textures, view_depth_texture, target_info) in &views {
+        let Some(depth_view) = view_depth_texture
+            .attachment
+            .depth_stencil_views()
+            .depth_only_view()
+        else {
+            continue;
+        };
         let gpu_medium = gpu_media
             .get(atmosphere.medium)
             .ok_or(ScatteringMediumMissingError(atmosphere.medium))?;
@@ -777,7 +788,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
                 (11, &textures.aerial_view_lut.default_view),
                 (12, &**atmosphere_sampler),
                 // view depth texture
-                (13, view_depth_texture.view()),
+                (13, depth_view),
             )),
         );
 
@@ -793,32 +804,44 @@ pub(super) fn prepare_atmosphere_bind_groups(
     Ok(())
 }
 
-pub fn init_atmosphere_buffer(mut commands: Commands) {
-    commands.insert_resource(AtmosphereBuffer {
-        buffer: StorageBuffer::from(GpuAtmosphere {
-            ground_albedo: Vec3::ZERO,
-            inner_radius: 0.0,
-            outer_radius: 0.0,
-            world_to_atmosphere: Mat4::IDENTITY,
-        }),
-    });
+#[derive(ShaderType)]
+#[repr(C)]
+pub(crate) struct AtmosphereData {
+    pub atmosphere: GpuAtmosphere,
+    pub settings: GpuAtmosphereSettings,
 }
 
-#[derive(Resource)]
+#[derive(Component)]
 pub struct AtmosphereBuffer {
-    pub(crate) buffer: StorageBuffer<GpuAtmosphere>,
+    pub(crate) buffer: StorageBuffer<AtmosphereData>,
 }
 
-pub(crate) fn write_atmosphere_buffer(
+pub(crate) fn prepare_atmosphere_buffers(
     device: Res<RenderDevice>,
     queue: Res<RenderQueue>,
-    atmosphere_entity: Query<&GpuAtmosphere, With<Camera3d>>,
-    mut atmosphere_buffer: ResMut<AtmosphereBuffer>,
+    mut views: Query<
+        (
+            Entity,
+            &GpuAtmosphere,
+            &GpuAtmosphereSettings,
+            Option<&mut AtmosphereBuffer>,
+        ),
+        With<ExtractedAtmosphere>,
+    >,
+    mut commands: Commands,
 ) {
-    let Ok(atmosphere) = atmosphere_entity.single() else {
-        return;
-    };
-
-    atmosphere_buffer.buffer.set(atmosphere.clone());
-    atmosphere_buffer.buffer.write_buffer(&device, &queue);
+    for (entity, atmosphere, settings, existing_buffer) in &mut views {
+        let data = AtmosphereData {
+            atmosphere: atmosphere.clone(),
+            settings: settings.clone(),
+        };
+        if let Some(mut atmosphere_buffer) = existing_buffer {
+            atmosphere_buffer.buffer.set(data);
+            atmosphere_buffer.buffer.write_buffer(&device, &queue);
+        } else {
+            let mut buffer = StorageBuffer::from(data);
+            buffer.write_buffer(&device, &queue);
+            commands.entity(entity).insert(AtmosphereBuffer { buffer });
+        }
+    }
 }

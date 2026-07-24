@@ -22,7 +22,7 @@ use bevy_render::{
 
 mod node;
 
-pub(crate) use node::cas;
+pub use node::cas;
 
 /// Applies a contrast adaptive sharpening (CAS) filter to the camera.
 ///
@@ -75,11 +75,11 @@ pub struct CasUniform {
     sharpness: f32,
 }
 
-impl SyncComponent for ContrastAdaptiveSharpening {
+impl SyncComponent<RenderApp> for ContrastAdaptiveSharpening {
     type Target = (DenoiseCas, CasUniform);
 }
 
-impl ExtractComponent for ContrastAdaptiveSharpening {
+impl ExtractComponent<RenderApp> for ContrastAdaptiveSharpening {
     type QueryData = &'static Self;
     type QueryFilter = With<Camera>;
     type Out = (DenoiseCas, CasUniform);

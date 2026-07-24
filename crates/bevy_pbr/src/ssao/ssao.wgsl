@@ -28,7 +28,11 @@
 #endif
 @group(0) @binding(4) var depth_differences: texture_storage_2d<r32uint, write>;
 @group(0) @binding(5) var<uniform> globals: Globals;
-@group(0) @binding(6) var<uniform> thickness: f32;
+struct SsaoSettings {
+    radius: f32,
+    thickness: f32,
+}
+@group(0) @binding(6) var<uniform> settings: SsaoSettings;
 @group(1) @binding(0) var point_clamp_sampler: sampler;
 @group(1) @binding(1) var linear_clamp_sampler: sampler;
 @group(1) @binding(2) var<uniform> view: View;
@@ -116,7 +120,7 @@ fn processSample(
     samples_per_slice: f32,
     bitmask: ptr<function, u32>,
 ) {
-    let delta_position_back_face = delta_position - view_vec * thickness;
+    let delta_position_back_face = delta_position - view_vec * settings.thickness;
 
     var front_back_horizon = vec2(
         fast_acos(dot(normalize(delta_position), view_vec)),
@@ -134,11 +138,6 @@ fn processSample(
 fn ssao(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let slice_count = f32(#SLICE_COUNT);
     let samples_per_slice_side = f32(#SAMPLES_PER_SLICE_SIDE);
-    let effect_radius = 0.5 * 1.457;
-    let falloff_range = 0.615 * effect_radius;
-    let falloff_from = effect_radius * (1.0 - 0.615);
-    let falloff_mul = -1.0 / falloff_range;
-    let falloff_add = falloff_from / falloff_range + 1.0;
 
     let pixel_coordinates = vec2<i32>(global_id.xy);
     let uv = (vec2<f32>(pixel_coordinates) + 0.5) / view.viewport.zw;
@@ -151,7 +150,8 @@ fn ssao(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let view_vec = normalize(-pixel_position);
 
     let noise = load_noise(pixel_coordinates);
-    let sample_scale = (-0.5 * effect_radius * view.clip_from_view[0][0]) / pixel_position.z;
+    let safe_radius = max(settings.radius, 0.0001);
+    let sample_scale = (-0.5 * safe_radius * view.clip_from_view[0][0]) / pixel_position.z;
 
     var visibility = 0.0;
     var occluded_sample_count = 0u;

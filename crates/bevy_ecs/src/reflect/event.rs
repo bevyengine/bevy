@@ -13,7 +13,7 @@ use crate::{
     reflect::from_reflect_with_fallback,
     world::{DeferredWorld, World},
 };
-use bevy_reflect::{FromReflect, FromType, PartialReflect, Reflect, TypePath, TypeRegistry};
+use bevy_reflect::{CreateTypeData, FromReflect, PartialReflect, Reflect, TypePath, TypeRegistry};
 
 /// A struct used to operate on reflected [`Event`] trait of a type.
 ///
@@ -52,7 +52,7 @@ pub struct ReflectEventFns {
 
 impl ReflectEventFns {
     /// Get the default set of [`ReflectEventFns`] for a specific event type
-    /// using its [`FromType`] implementation.
+    /// using its [`CreateTypeData`] implementation.
     ///
     /// This is useful if you want to start with the default implementation
     /// before overriding some of the functions to create a custom implementation.
@@ -60,7 +60,7 @@ impl ReflectEventFns {
     where
         T::Trigger<'a>: Default,
     {
-        <ReflectEvent as FromType<T>>::from_type().0
+        <ReflectEvent as CreateTypeData<T>>::create_type_data(()).0
     }
 }
 
@@ -122,11 +122,11 @@ impl ReflectEvent {
     }
 }
 
-impl<'a, E: Event + Reflect + TypePath> FromType<E> for ReflectEvent
+impl<'a, E: Event + Reflect + TypePath> CreateTypeData<E> for ReflectEvent
 where
     <E as Event>::Trigger<'a>: Default,
 {
-    fn from_type() -> Self {
+    fn create_type_data(_input: ()) -> Self {
         ReflectEvent(ReflectEventFns {
             trigger: |world, reflected_event, registry| {
                 let event = from_reflect_with_fallback::<E>(reflected_event, world, registry);

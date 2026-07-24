@@ -7,6 +7,7 @@ use bevy_ecs::{
 use bevy_mesh::{Indices, Mesh};
 use bevy_platform::collections::HashMap;
 use bevy_render::{
+    diagnostic::{DiagnosticsRecorder, RecordDiagnostics},
     mesh::{
         allocator::{MeshAllocator, MeshBufferSlice},
         RenderMesh,
@@ -38,6 +39,7 @@ pub fn prepare_raytracing_blas(
     mesh_allocator: Res<MeshAllocator>,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
+    mut diagnostics: Option<ResMut<DiagnosticsRecorder>>,
 ) {
     // Delete BLAS for deleted or modified meshes
     for asset_id in extracted_meshes
@@ -95,9 +97,15 @@ pub fn prepare_raytracing_blas(
         .collect::<Vec<_>>();
 
     let mut command_encoder = render_device.create_command_encoder(&CommandEncoderDescriptor {
-        label: Some("build_blas_command_encoder"),
+        label: Some("blas_build_command_encoder"),
     });
+    let time_span = diagnostics
+        .as_mut()
+        .map(|diagnostics| diagnostics.time_span(&mut command_encoder, "blas_build"));
     command_encoder.build_acceleration_structures(&build_entries, &[]);
+    if let Some(time_span) = time_span {
+        time_span.end(&mut command_encoder);
+    }
     render_queue.submit([command_encoder.finish()]);
 }
 
@@ -172,12 +180,15 @@ fn allocate_blas(
 
 fn is_mesh_raytracing_compatible(mesh: &Mesh) -> bool {
     let triangle_list = mesh.primitive_topology() == PrimitiveTopology::TriangleList;
-    let vertex_attributes = mesh.attributes().map(|(attribute, _)| attribute.id).eq([
-        Mesh::ATTRIBUTE_POSITION.id,
-        Mesh::ATTRIBUTE_NORMAL.id,
-        Mesh::ATTRIBUTE_UV_0.id,
-        Mesh::ATTRIBUTE_TANGENT.id,
-    ]);
+    let vertex_attributes = mesh
+        .attributes()
+        .map(|(attribute, _)| (attribute.id, attribute.format))
+        .eq([
+            (Mesh::ATTRIBUTE_POSITION.id, Mesh::ATTRIBUTE_POSITION.format),
+            (Mesh::ATTRIBUTE_NORMAL.id, Mesh::ATTRIBUTE_NORMAL.format),
+            (Mesh::ATTRIBUTE_UV_0.id, Mesh::ATTRIBUTE_UV_0.format),
+            (Mesh::ATTRIBUTE_TANGENT.id, Mesh::ATTRIBUTE_TANGENT.format),
+        ]);
     let indexed_32 = matches!(mesh.indices(), Some(Indices::U32(..)));
     mesh.enable_raytracing && triangle_list && vertex_attributes && indexed_32
 }

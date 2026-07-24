@@ -1,3 +1,8 @@
+//! Tools for waiting for the [`AssetProcessor`] before loading an [`Asset`].
+//!
+//! [`AssetProcessor`]: crate::processor::AssetProcessor
+//! [`Asset`]: crate::Asset
+
 use crate::{
     io::{
         AssetReader, AssetReaderError, AssetSourceId, PathStream, Reader, ReaderNotSeekableError,

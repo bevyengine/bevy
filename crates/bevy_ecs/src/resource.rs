@@ -167,8 +167,8 @@ impl IsResource {
                     .components()
                     .get_name(resource_component_id)
                     .expect("resource is registered");
-                warn!("Tried inserting the resource {} while one already exists.
-                Resources are unique components stored on a single entity.
+                warn!("Tried inserting the resource {} while one already exists. \
+                Resources are unique components stored on a single entity. \
                 Inserting on a different entity, when one already exists, causes the new value to be removed.", name);
             }
         } else {
@@ -226,6 +226,7 @@ mod tests {
         world::{DeferredWorld, World},
     };
     use alloc::vec::Vec;
+    use bevy_ecs_macros::Component;
     use bevy_platform::prelude::String;
 
     #[test]
@@ -349,5 +350,26 @@ mod tests {
 
         assert!(ON_ADD_CALLED.load(Relaxed));
         assert!(world.get_resource::<TestResource>().is_some());
+    }
+
+    #[test]
+    fn derive_resource_require_features() {
+        #[derive(Component, Default)]
+        struct RequiredComponent;
+
+        #[derive(Resource)]
+        #[require(RequiredComponent)]
+        struct TestResource;
+
+        let mut world = World::new();
+        world.insert_resource(TestResource);
+
+        assert_eq!(
+            world
+                .query::<(&TestResource, &RequiredComponent)>()
+                .iter(&world)
+                .count(),
+            1
+        );
     }
 }

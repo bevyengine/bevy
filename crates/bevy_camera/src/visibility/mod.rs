@@ -48,7 +48,7 @@ use bevy_asset::{AssetEventSystems, Assets};
 use bevy_ecs::{prelude::*, VariantDefaults};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::{components::GlobalTransform, TransformSystems};
-use bevy_utils::{Parallel, TypeIdMap};
+use bevy_utils::{Parallel, TypeIdHashMap};
 use smallvec::SmallVec;
 
 use crate::{
@@ -343,7 +343,7 @@ pub struct DynamicSkinnedMeshBounds;
 #[reflect(Component, Default, Debug, Clone)]
 pub struct VisibleEntities {
     #[reflect(ignore, clone)]
-    pub entities: TypeIdMap<Vec<Entity>>,
+    pub entities: TypeIdHashMap<Vec<Entity>>,
 }
 
 impl Default for VisibleEntities {
@@ -355,7 +355,7 @@ impl Default for VisibleEntities {
         // We could handle this case in the `DirtySpecializations` methods
         // instead, but that would complicate what are already some very
         // complicated method signatures. So it's simpler to just do this.
-        let mut entities = TypeIdMap::default();
+        let mut entities = TypeIdHashMap::default();
         entities.insert(TypeId::of::<Mesh3d>(), vec![]);
         VisibleEntities { entities }
     }
@@ -576,7 +576,7 @@ pub fn calculate_bounds(
 ) {
     for (entity, mesh_handle) in &new_aabb {
         if let Some(mesh) = meshes.get(mesh_handle)
-            && let Some(aabb) = mesh.compute_aabb()
+            && let Some(aabb) = mesh.get_aabb()
         {
             commands.entity(entity).try_insert(aabb);
         }
@@ -585,7 +585,7 @@ pub fn calculate_bounds(
     update_aabb
         .par_iter_mut()
         .for_each(|(mesh_handle, mut old_aabb)| {
-            if let Some(aabb) = meshes.get(mesh_handle).and_then(MeshAabb::compute_aabb) {
+            if let Some(aabb) = meshes.get(mesh_handle).and_then(MeshAabb::get_aabb) {
                 *old_aabb = aabb;
             }
         });
@@ -681,7 +681,7 @@ fn visibility_propagate_system(
         };
 
         let is_visible = match visibility {
-            // If a entity has no parent, fall back to true
+            // If an entity has no parent, fall back to true
             Visibility::Visible | Visibility::Inherited => true,
             Visibility::Hidden => false,
         };
@@ -746,7 +746,7 @@ fn reset_view_visibility(mut reset_query: Query<&mut ViewVisibility, Without<NoC
 /// To ensure that an entity is checked for visibility, make sure that it has a
 /// [`VisibilityClass`] component and that that component is nonempty.
 pub fn check_visibility_cpu_culling(
-    mut thread_queues: Local<Parallel<TypeIdMap<Vec<Entity>>>>,
+    mut thread_queues: Local<Parallel<TypeIdHashMap<Vec<Entity>>>>,
     mut view_query: Query<(
         Entity,
         &mut VisibleEntities,

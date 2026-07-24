@@ -8,13 +8,14 @@
 use std::{
     any::TypeId,
     f32::consts::PI,
-    fmt::Write as _,
+    fmt::{self, Formatter, Write as _},
     sync::{Arc, Mutex},
 };
 
 use bevy::{
     color::palettes::css::{SILVER, WHITE},
     core_pipeline::{core_3d::Opaque3d, prepass::DepthPrepass, Core3d, Core3dSystems},
+    feathers::{theme::UiTheme, FeathersPlugins},
     pbr::PbrPlugin,
     prelude::*,
     render::{
@@ -27,7 +28,16 @@ use bevy::{
         settings::WgpuFeatures,
         Render, RenderApp, RenderDebugFlags, RenderPlugin, RenderStartup, RenderSystems,
     },
+    ui_widgets::{radio_self_update, ValueChange},
 };
+use radio::{feathers_option_buttons, main_ui_node_scene, RadioButtonOptionValue};
+
+#[path = "../helpers/radio.rs"]
+mod radio;
+
+#[path = "../helpers/theme.rs"]
+mod theme;
+
 use bytemuck::Pod;
 
 /// The radius of the spinning sphere of cubes.
@@ -150,13 +160,13 @@ struct AppStatus {
     /// Whether occlusion culling is presently enabled.
     ///
     /// By default, this is set to true.
-    occlusion_culling: bool,
+    occlusion_culling: OcclusionCullingSetting,
 }
 
 impl Default for AppStatus {
     fn default() -> Self {
         AppStatus {
-            occlusion_culling: true,
+            occlusion_culling: OcclusionCullingSetting::On,
         }
     }
 }
@@ -165,7 +175,7 @@ fn main() {
     let render_debug_flags = RenderDebugFlags::ALLOW_COPIES_FROM_INDIRECT_PARAMETERS;
 
     App::new()
-        .add_plugins(
+        .add_plugins((
             DefaultPlugins
                 .set(WindowPlugin {
                     primary_window: Some(Window {
@@ -182,14 +192,17 @@ fn main() {
                     debug_flags: render_debug_flags,
                     ..default()
                 }),
-        )
+            FeathersPlugins,
+        ))
         .add_plugins(ReadbackIndirectParametersPlugin)
+        .insert_resource(UiTheme(theme::basic_example_theme(Color::WHITE)))
         .init_resource::<AppStatus>()
         .add_systems(Startup, setup)
         .add_systems(Update, spin_small_cubes)
         .add_systems(Update, spin_large_cube)
         .add_systems(Update, update_status_text)
-        .add_systems(Update, toggle_occlusion_culling_on_request)
+        .add_observer(handle_selection_change)
+        .add_observer(radio_self_update)
         .run();
 }
 
@@ -247,7 +260,8 @@ fn setup(
     spawn_large_cube(&mut commands, &asset_server, &mut meshes, &mut materials);
     spawn_light(&mut commands);
     spawn_camera(&mut commands);
-    spawn_help_text(&mut commands);
+    spawn_status_text(&mut commands);
+    spawn_buttons(&mut commands);
 }
 
 /// Spawns the rotating sphere of small cubes.
@@ -373,15 +387,16 @@ fn spawn_camera(commands: &mut Commands) {
 }
 
 /// Spawns the help text at the upper left of the screen.
-fn spawn_help_text(commands: &mut Commands) {
+fn spawn_status_text(commands: &mut Commands) {
     commands.spawn((
-        Text::new(""),
+        Text::new(""), // The "X/Y meshes rendered" count is displayed here.
         Node {
             position_type: PositionType::Absolute,
             top: px(12),
             left: px(12),
             ..default()
         },
+        StatusText,
     ));
 }
 
@@ -487,9 +502,8 @@ fn create_indirect_parameters_staging_buffers(
 /// Updates the app status text at the top of the screen.
 fn update_status_text(
     saved_indirect_parameters: Res<SavedIndirectParameters>,
-    mut texts: Query<&mut Text>,
+    mut texts: Query<&mut Text, With<StatusText>>,
     meshes: Query<Entity, With<Mesh3d>>,
-    app_status: Res<AppStatus>,
 ) {
     // How many meshes are in the scene?
     let total_mesh_count = meshes.iter().count();
@@ -528,16 +542,6 @@ fn update_status_text(
                 .push_str("Occlusion culling not supported on this platform");
             continue;
         }
-
-        let _ = writeln!(
-            &mut text.0,
-            "Occlusion culling {} (Press Space to toggle)",
-            if app_status.occlusion_culling {
-                "ON"
-            } else {
-                "OFF"
-            },
-        );
 
         if !occlusion_culling_introspection_supported {
             continue;
@@ -618,7 +622,7 @@ where
 
             {
                 // Cast the raw bytes in the GPU buffer to the appropriate type.
-                let buffer_view = buffer.slice(..).get_mapped_range();
+                let buffer_view = buffer.slice(..).get_mapped_range().unwrap();
                 let indirect_parameters: &[T] = bytemuck::cast_slice(
                     &buffer_view[0..(buffer_view.len() / size_of::<T>() * size_of::<T>())],
                 );
@@ -633,26 +637,65 @@ where
         });
 }
 
+/// A marker component for the status text in the top left corner.
+#[derive(Clone, Copy, Component)]
+struct StatusText;
+
+/// Whether occlusion culling is on or off.
+#[derive(Clone, Copy, Component, Default, PartialEq, Debug)]
+enum OcclusionCullingSetting {
+    #[default]
+    On,
+    Off,
+}
+
+impl fmt::Display for OcclusionCullingSetting {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match *self {
+            OcclusionCullingSetting::On => f.write_str("ON"),
+            OcclusionCullingSetting::Off => f.write_str("OFF"),
+        }
+    }
+}
+
+/// Spawns buttons at the bottom of the screen which allow the user to
+/// toggle occlusion culling on or off.  
+fn spawn_buttons(commands: &mut Commands) {
+    commands.spawn_scene(bsn! {
+        main_ui_node_scene()
+        Children [
+            feathers_option_buttons(
+                "Toggle occlusion culling",
+                &[
+                    (OcclusionCullingSetting::On, "ON"),
+                    (OcclusionCullingSetting::Off, "OFF"),
+                ],
+                0,
+            )
+        ]
+    });
+}
+
 /// Adds or removes the [`OcclusionCulling`] and [`DepthPrepass`] components
-/// when the user presses the spacebar.
-fn toggle_occlusion_culling_on_request(
+/// when the user toggles a radio.
+fn handle_selection_change(
+    event: On<ValueChange<Entity>>,
     mut commands: Commands,
-    input: Res<ButtonInput<KeyCode>>,
+    new_value_query: Query<&RadioButtonOptionValue<OcclusionCullingSetting>>,
     mut app_status: ResMut<AppStatus>,
     cameras: Query<Entity, With<Camera3d>>,
 ) {
-    // Only run when the user presses the spacebar.
-    if !input.just_pressed(KeyCode::Space) {
+    let Ok(RadioButtonOptionValue(selection)) = new_value_query.get(event.value) else {
         return;
-    }
+    };
 
-    // Toggle the occlusion culling flag in `AppStatus`.
-    app_status.occlusion_culling = !app_status.occlusion_culling;
+    // Set the occlusion culling value in `AppStatus`.
+    app_status.occlusion_culling = *selection;
 
     // Add or remove the `OcclusionCulling` and `DepthPrepass` components as
     // requested.
     for camera in &cameras {
-        if app_status.occlusion_culling {
+        if app_status.occlusion_culling == OcclusionCullingSetting::On {
             commands
                 .entity(camera)
                 .insert(DepthPrepass)

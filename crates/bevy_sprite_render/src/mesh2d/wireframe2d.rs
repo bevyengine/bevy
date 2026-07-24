@@ -44,9 +44,10 @@ use bevy_render::{
     },
     render_resource::*,
     renderer::{RenderContext, ViewQuery},
-    sync_world::{MainEntity, MainEntityHashMap},
+    sync_world::{MainEntity, MainEntityHashMap, MainEntityHashSet},
     view::{
-        ExtractedView, RenderVisibleEntities, RetainedViewEntity, ViewDepthTexture, ViewTarget,
+        ExtractedView, RenderVisibleEntities, RetainedViewEntity, ViewDepthStencilTexture,
+        ViewTarget,
     },
     Extract, GpuResourceAppExt, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
 };
@@ -354,7 +355,7 @@ impl SpecializedMeshPipeline for Wireframe2dPipeline {
 
 pub(crate) fn wireframe_2d(
     world: &World,
-    view: ViewQuery<(&ExtractedView, &ViewTarget, &ViewDepthTexture)>,
+    view: ViewQuery<(&ExtractedView, &ViewTarget, &ViewDepthStencilTexture)>,
     wireframe_phases: Res<ViewBinnedRenderPhases<Wireframe2dPhaseItem>>,
     mut ctx: RenderContext,
 ) {
@@ -411,6 +412,7 @@ pub struct NoWireframe2d;
 
 #[derive(Resource, Debug, Clone, Default, ExtractResource, Reflect)]
 #[reflect(Resource, Debug, Default)]
+#[extract_app(RenderApp)]
 pub struct Wireframe2dConfig {
     /// Whether to show wireframes for all meshes.
     /// Can be overridden for individual meshes by adding a [`Wireframe2d`] or [`NoWireframe2d`] component.
@@ -801,10 +803,7 @@ pub fn specialize_wireframes(
             };
 
             let mut mesh_key = *view_key;
-            mesh_key |= Mesh2dPipelineKey::from_primitive_topology_and_strip_index(
-                mesh.primitive_topology(),
-                mesh.index_format(),
-            );
+            mesh_key |= Mesh2dPipelineKey::from_bits_retain(mesh.key_bits.bits());
 
             let pipeline_id =
                 pipelines.specialize(&pipeline_cache, &pipeline, mesh_key, &mesh.layout);
@@ -838,6 +837,7 @@ fn queue_wireframes(
     mut wireframe_2d_phases: ResMut<ViewBinnedRenderPhases<Wireframe2dPhaseItem>>,
     mut pending_wireframe2d_queues: ResMut<PendingWireframe2dQueues>,
     mut views: Query<(&ExtractedView, &RenderVisibleEntities)>,
+    mut mesh_instances_queued_this_iteration_scratch_space: Local<MainEntityHashSet>,
 ) {
     for (view, visible_entities) in &mut views {
         let Some(wireframe_phase) = wireframe_2d_phases.get_mut(&view.retained_view_entity) else {
@@ -875,6 +875,7 @@ fn queue_wireframes(
             view.retained_view_entity,
             visible_entities,
             &view_pending_wireframe2d_queues.prev_frame,
+            &mut mesh_instances_queued_this_iteration_scratch_space,
         ) {
             let Some(wireframe_instance) = render_wireframe_instances.get(visible_entity) else {
                 continue;

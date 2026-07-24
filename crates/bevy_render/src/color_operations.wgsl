@@ -316,7 +316,7 @@ fn rgb_to_hsv(rgb: vec3<f32>) -> vec3<f32> {
         swizzle = vec3(rgb.rg, 4.0);
     }
 
-    let h = FRAC_PI_3 * (((swizzle.x - swizzle.y) / c + swizzle.z) % 6.0);
+    let h = FRAC_PI_3 * fract(((swizzle.x - swizzle.y) / c + swizzle.z) / 6.0) * 6.0;
 
     // Avoid division by zero.
     var s = 0.0;

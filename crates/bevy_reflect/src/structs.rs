@@ -4,13 +4,12 @@
 use crate::generics::impl_generic_info_methods;
 use crate::{
     attributes::{impl_custom_attribute_methods, CustomAttributes},
-    type_info::impl_type_methods,
-    ApplyError, Generics, NamedField, PartialReflect, Reflect, ReflectKind, ReflectMut,
-    ReflectOwned, ReflectRef, Type, TypeInfo, TypePath,
+    ty::impl_type_methods,
+    ApplyError, Generics, NamedField, PartialReflect, Reflect, ReflectCloneError, ReflectKind,
+    ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo, TypePath,
 };
 use alloc::{borrow::Cow, boxed::Box, vec::Vec};
 use bevy_platform::collections::HashMap;
-use bevy_platform::sync::Arc;
 use bevy_reflect_derive::impl_type_path;
 use core::{
     fmt::{Debug, Formatter},
@@ -78,13 +77,15 @@ pub trait Struct: PartialReflect {
     fn iter_fields(&self) -> FieldIter<'_>;
 
     /// Creates a new [`DynamicStruct`] from this struct.
-    fn to_dynamic_struct(&self) -> DynamicStruct {
+    ///
+    /// Returns an error if any field cannot be converted via [`PartialReflect::to_dynamic`].
+    fn to_dynamic_struct(&self) -> Result<DynamicStruct, ReflectCloneError> {
         let mut dynamic_struct = DynamicStruct::default();
         dynamic_struct.set_represented_type(self.get_represented_type_info());
         for (name, value) in self.iter_fields() {
-            dynamic_struct.insert_boxed(name, value.to_dynamic());
+            dynamic_struct.insert_boxed(name, value.to_dynamic()?);
         }
-        dynamic_struct
+        Ok(dynamic_struct)
     }
 
     /// Will return `None` if [`TypeInfo`] is not available.
@@ -110,7 +111,7 @@ pub struct StructInfo {
     fields: Box<[NamedField]>,
     field_names: Box<[&'static str]>,
     field_indices: HashMap<&'static str, usize>,
-    custom_attributes: Arc<CustomAttributes>,
+    custom_attributes: CustomAttributes,
     #[cfg(feature = "reflect_documentation")]
     docs: Option<&'static str>,
 }
@@ -122,6 +123,13 @@ impl StructInfo {
     ///
     /// * `fields`: The fields of this struct in the order they are defined
     pub fn new<T: Reflect + TypePath>(fields: &[NamedField]) -> Self {
+        Self::from_erased(fields, Type::of::<T>())
+    }
+
+    // Inlining is disabled because this function is called many times by cold
+    // functions inside generated code.
+    #[inline(never)]
+    fn from_erased(fields: &[NamedField], ty: Type) -> Self {
         let field_indices = fields
             .iter()
             .enumerate()
@@ -131,12 +139,12 @@ impl StructInfo {
         let field_names = fields.iter().map(NamedField::name).collect();
 
         Self {
-            ty: Type::of::<T>(),
+            ty,
             generics: Generics::new(),
             fields: fields.to_vec().into_boxed_slice(),
             field_names,
             field_indices,
-            custom_attributes: Arc::new(CustomAttributes::default()),
+            custom_attributes: CustomAttributes::default(),
             #[cfg(feature = "reflect_documentation")]
             docs: None,
         }
@@ -151,7 +159,7 @@ impl StructInfo {
     /// Sets the custom attributes for this struct.
     pub fn with_custom_attributes(self, custom_attributes: CustomAttributes) -> Self {
         Self {
-            custom_attributes: Arc::new(custom_attributes),
+            custom_attributes,
             ..self
         }
     }
@@ -780,7 +788,7 @@ mod tests {
 
     #[test]
     fn dynamic_struct_remove_at() {
-        let mut s = OtherStruct::default().to_dynamic_struct();
+        let mut s = OtherStruct::default().to_dynamic_struct().unwrap();
 
         assert_eq!(s.field_len(), 3);
 
@@ -808,7 +816,7 @@ mod tests {
 
     #[test]
     fn dynamic_struct_remove_by_name() {
-        let mut s = OtherStruct::default().to_dynamic_struct();
+        let mut s = OtherStruct::default().to_dynamic_struct().unwrap();
 
         assert_eq!(s.field_len(), 3);
 
@@ -836,7 +844,7 @@ mod tests {
 
     #[test]
     fn dynamic_struct_remove_if() {
-        let mut s = OtherStruct::default().to_dynamic_struct();
+        let mut s = OtherStruct::default().to_dynamic_struct().unwrap();
 
         assert_eq!(s.field_len(), 3);
 
@@ -854,7 +862,7 @@ mod tests {
 
     #[test]
     fn dynamic_struct_remove_combo() {
-        let mut s = OtherStruct::default().to_dynamic_struct();
+        let mut s = OtherStruct::default().to_dynamic_struct().unwrap();
 
         assert_eq!(s.field_len(), 3);
 

@@ -159,6 +159,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         impl #impl_generics #ecs_path::bundle::DynamicBundle for #struct_name #ty_generics #where_clause {
             type Effect = ();
             #[allow(unused_variables)]
+            #[allow(non_snake_case, reason = "deconstruct_moving_ptr uses #active_field_locals as a local binding name")]
             #[inline]
             unsafe fn get_components(
                 ptr: #ecs_path::ptr::MovingPtr<'_, Self>,
@@ -529,7 +530,7 @@ pub(crate) fn bevy_ecs_path() -> syn::Path {
 }
 
 pub(crate) fn bevy_settings_path() -> syn::Path {
-    BevyManifest::shared(|manifest| manifest.get_path("bevy_settings"))
+    BevyManifest::shared(|manifest| manifest.get_path("bevy-settings"))
 }
 
 /// Implement the `Event` trait.
@@ -582,7 +583,7 @@ pub fn derive_message(input: TokenStream) -> TokenStream {
 /// or a function call that returns a function that can be turned into
 /// a `ComponentHook`, e.g. `get_closure("Hi!")`.
 /// `function` can be elided if the path is `Self::on_add`, `Self::on_insert` etc.
-#[proc_macro_derive(Resource, attributes(component))]
+#[proc_macro_derive(Resource, attributes(component, require))]
 pub fn derive_resource(input: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(input as DeriveInput);
     TokenStream::from(resource::derive_resource(&mut ast))

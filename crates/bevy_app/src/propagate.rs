@@ -64,6 +64,9 @@ impl<C: Component + Clone + PartialEq, F: QueryFilter, R: Relationship>
 /// Causes the inner component to be added to this entity and all direct and transient relationship
 /// targets. A target with a [`Propagate<C>`] component of its own will override propagation from
 /// that point in the tree.
+///
+/// The propagation is managed by the [`HierarchyPropagatePlugin`]. See its documentation for details
+/// on how propagation is configured and behaves.
 #[derive(Component, Clone, PartialEq)]
 #[cfg_attr(
     feature = "bevy_reflect",
@@ -74,16 +77,25 @@ pub struct Propagate<C: Component + Clone + PartialEq>(pub C);
 
 /// Stops the output component being added to this entity.
 /// Relationship targets will still inherit the component from this entity or its parents.
+///
+/// This is used to control propagation configured via the [`HierarchyPropagatePlugin`]. See its
+/// documentation for details on how propagation is configured and behaves.
 #[derive(Component, Clone)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component))]
 pub struct PropagateOver<C>(PhantomData<fn() -> C>);
 
 /// Stops the propagation at this entity. Children will not inherit the component.
+///
+/// This is used to control propagation configured via the [`HierarchyPropagatePlugin`]. See its
+/// documentation for details on how propagation is configured and behaves.
 #[derive(Component, Clone)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component))]
 pub struct PropagateStop<C>(PhantomData<fn() -> C>);
 
 /// The set in which propagation systems are added. You can schedule your logic relative to this set.
+///
+/// This is used with propagation configured via the [`HierarchyPropagatePlugin`]. See its
+/// documentation for details on how propagation is configured and behaves.
 #[derive(SystemSet, Clone, PartialEq, PartialOrd, Ord)]
 pub struct PropagateSet<C: Component + Clone + PartialEq> {
     _p: PhantomData<fn() -> C>,
@@ -161,6 +173,7 @@ pub fn update_source<C: Component + Clone + PartialEq, F: QueryFilter, R: Relati
     mut removed: RemovedComponents<Propagate<C>>,
     relationship: Query<&R>,
     relations: Query<&Inherited<C>, Without<PropagateStop<C>>>,
+    sources: Query<(), With<Propagate<C>>>,
 ) {
     for (entity, source) in &changed {
         commands
@@ -170,7 +183,9 @@ pub fn update_source<C: Component + Clone + PartialEq, F: QueryFilter, R: Relati
 
     // set `Inherited::<C>` based on ancestry when `Propagate::<C>` is removed
     for removed in removed.read() {
-        if let Ok(mut commands) = commands.get_entity(removed) {
+        if !sources.contains(removed)
+            && let Ok(mut commands) = commands.get_entity(removed)
+        {
             if let Some(inherited) = relationship
                 .get(removed)
                 .ok()
@@ -390,6 +405,32 @@ mod tests {
 
         assert!(query.get(app.world(), propagator).is_err());
         assert!(query.get(app.world(), propagatee).is_err());
+    }
+
+    #[test]
+    fn test_remove_and_reinsert_propagate() {
+        let mut app = App::new();
+        app.add_schedule(Schedule::new(Update));
+        app.add_plugins(HierarchyPropagatePlugin::<TestValue>::new(Update));
+
+        let parent = app.world_mut().spawn(Propagate(TestValue(1))).id();
+        let child = app.world_mut().spawn_empty().insert(ChildOf(parent)).id();
+
+        app.update();
+
+        app.world_mut()
+            .entity_mut(parent)
+            .remove::<Propagate<TestValue>>()
+            .insert(Propagate(TestValue(2)));
+
+        app.update();
+
+        assert_eq!(
+            app.world_mut()
+                .query::<&TestValue>()
+                .get_many(app.world(), [parent, child]),
+            Ok([&TestValue(2), &TestValue(2)])
+        );
     }
 
     #[test]

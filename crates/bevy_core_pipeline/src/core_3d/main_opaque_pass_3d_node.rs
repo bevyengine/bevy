@@ -12,7 +12,7 @@ use bevy_render::{
     render_phase::ViewBinnedRenderPhases,
     render_resource::{PipelineCache, RenderPassDescriptor, StoreOp},
     renderer::{RenderContext, ViewQuery},
-    view::{ExtractedView, ViewDepthTexture, ViewTarget, ViewUniformOffset},
+    view::{ExtractedView, ViewDepthStencilTexture, ViewTarget, ViewUniformOffset},
 };
 
 use super::AlphaMask3d;
@@ -22,7 +22,7 @@ pub fn main_opaque_pass_3d(
     view: ViewQuery<(
         &ExtractedView,
         &ViewTarget,
-        &ViewDepthTexture,
+        &ViewDepthStencilTexture,
         Option<&SkyboxPipelineId>,
         Option<&SkyboxBindGroup>,
         &ViewUniformOffset,

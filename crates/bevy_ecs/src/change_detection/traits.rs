@@ -82,6 +82,12 @@ pub trait DetectChanges {
     /// Returns the change tick recording the time this data was added.
     fn added(&self) -> Tick;
 
+    /// Returns the change tick of the current run of this system.
+    fn this_run(&self) -> Tick;
+
+    /// Returns the change tick of the last run of this system.
+    fn last_run(&self) -> Tick;
+
     /// The location that last caused this to change.
     fn changed_by(&self) -> MaybeLocation;
 }
@@ -393,6 +399,16 @@ macro_rules! change_detection_impl {
             #[inline]
             fn added(&self) -> Tick {
                 *self.ticks.added
+            }
+
+            #[inline]
+            fn this_run(&self) -> Tick {
+                self.ticks.this_run
+            }
+
+            #[inline]
+            fn last_run(&self) -> Tick {
+                self.ticks.last_run
             }
 
             #[inline]

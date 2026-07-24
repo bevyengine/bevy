@@ -5,8 +5,7 @@ use crate::{ComputedNode, ComputedUiRenderTargetInfo, ContentSize, NodeMeasure};
 use bevy_asset::Assets;
 
 use bevy_ecs::{
-    change_detection::{DetectChanges, DetectChangesMut},
-    component::Component,
+    change_detection::DetectChanges,
     entity::Entity,
     system::{Local, Query, Res, ResMut},
     world::Ref,
@@ -15,19 +14,18 @@ use bevy_image::prelude::*;
 use bevy_input_focus::InputFocus;
 use bevy_math::{Rect, Vec2};
 use bevy_platform::hash::FixedHasher;
+
 use bevy_text::{
-    add_glyph_to_atlas, get_glyph_atlas_info, resolve_font_source, EditableText,
-    EditableTextGeneration, Font, FontAtlasKey, FontAtlasSet, FontCx, FontHinting, FontSize,
-    GlyphCacheKey, LayoutCx, LineBreak, LineHeight, PositionedGlyph, RemSize, RunGeometry, ScaleCx,
-    TextBrush, TextFont, TextLayout, TextLayoutInfo,
+    add_glyph_to_atlas, cursor_reveal_rect, get_glyph_atlas_info, scrollable_text_layout_width,
+    EditableText, EditableTextGeneration, Font, FontAtlasKey, FontAtlasSet, FontCx, FontHinting,
+    FontSize, GlyphCacheKey, LayoutCx, LineBreak, LineHeight, PositionedGlyph, RemSize,
+    RunGeometry, ScaleCx, TextBrush, TextFont, TextLayout, TextLayoutInfo, TextLineYBounds,
 };
 use bevy_time::{Real, Time};
 use parley::{BoundingBox, PositionedLayoutItem, StyleProperty};
+use smallvec::SmallVec;
 use swash::FontRef;
 use taffy::MaybeMath;
-
-#[derive(Component, Clone, Copy, PartialEq, Debug, Default)]
-pub struct TextScroll(pub Vec2);
 
 struct TextInputMeasure {
     width: Option<f32>,
@@ -58,6 +56,17 @@ impl crate::Measure for TextInputMeasure {
     }
 }
 
+fn query_family<'a, 'b>(
+    family: &'a parley::FontFamilyName<'b>,
+) -> parley::fontique::QueryFamily<'a> {
+    match family {
+        parley::FontFamilyName::Named(name) => parley::fontique::QueryFamily::Named(name.as_ref()),
+        parley::FontFamilyName::Generic(generic) => {
+            parley::fontique::QueryFamily::Generic(*generic)
+        }
+    }
+}
+
 /// If `visible_lines` or `visible_width` are `Some`, sets a `ContentSize` that determines:
 /// - node height as `line_height * visible_lines`, using the resolved font line height.
 /// - node width as `advance('0') * visible_width`, where `advance('0')` is looked up from font metrics.
@@ -78,7 +87,6 @@ pub fn update_editable_text_content_size(
             || text_font.is_changed()
             || line_height.is_changed()
             || target.is_changed()
-            || fonts.is_changed()
             || rem_size.is_changed())
         {
             continue;
@@ -87,18 +95,27 @@ pub fn update_editable_text_content_size(
         let font_size = text_font.font_size.eval(target.logical_size(), rem_size.0);
 
         let width = editable_text.visible_width.and_then(|visible_width| {
-            let font_context = &mut font_cx.0;
+            let font_context = &mut font_cx.context;
             let mut query = font_context
                 .collection
                 .query(&mut font_context.source_cache);
-            match resolve_font_source(&text_font.font, fonts.as_ref()).ok()? {
-                parley::FontFamily::Single(parley::FontFamilyName::Named(name)) => {
-                    query.set_families([parley::fontique::QueryFamily::Named(name.as_ref())]);
+
+            match text_font.font.resolve_font_family(fonts.as_ref()).ok()? {
+                parley::FontFamily::Source(source) => {
+                    query.set_families(
+                        parley::FontFamilyName::parse_css_list(&source)
+                            .map_while(Result::ok)
+                            .collect::<SmallVec<[_; 4]>>()
+                            .iter()
+                            .map(query_family),
+                    );
                 }
-                parley::FontFamily::Single(parley::FontFamilyName::Generic(generic)) => {
-                    query.set_families([parley::fontique::QueryFamily::Generic(generic)]);
+                parley::FontFamily::Single(family) => {
+                    query.set_families([query_family(&family)]);
                 }
-                _ => return None,
+                parley::FontFamily::List(families) => {
+                    query.set_families(families.iter().map(query_family));
+                }
             }
             query.set_attributes(parley::fontique::Attributes::new(
                 text_font.width.into(),
@@ -170,10 +187,8 @@ pub fn update_editable_text_styles(
     for (mut editable_text, text_font, line_height, target, text_layout) in
         editable_text_query.iter_mut()
     {
-        let editor = editable_text.editor_mut();
-
-        if f32::EPSILON < (target.scale_factor() - editor.get_scale()).abs() {
-            editor.set_scale(target.scale_factor());
+        if f32::EPSILON < (target.scale_factor() - editable_text.editor.get_scale()).abs() {
+            editable_text.editor.set_scale(target.scale_factor());
         }
 
         if text_font.is_changed()
@@ -183,17 +198,20 @@ pub fn update_editable_text_styles(
                 FontSize::Vw(_) | FontSize::Vh(_) | FontSize::VMin(_) | FontSize::VMax(_)
             ) && target.is_changed()
         {
-            editor.edit_styles().insert(StyleProperty::FontSize(
-                text_font.font_size.eval(target.logical_size(), rem_size.0),
-            ));
+            editable_text
+                .editor
+                .edit_styles()
+                .insert(StyleProperty::FontSize(
+                    text_font.font_size.eval(target.logical_size(), rem_size.0),
+                ));
         }
 
         if text_font.is_changed() {
-            let Ok(font_family) = resolve_font_source(&text_font.font, fonts.as_ref()) else {
+            let Ok(resolved_family) = text_font.font.resolve_font_family(fonts.as_ref()) else {
                 continue;
             };
 
-            let family = font_family.into_owned();
+            let family = resolved_family.into_owned();
             let style_set = editable_text.editor.edit_styles();
             style_set.insert(StyleProperty::FontFamily(family));
             style_set.insert(StyleProperty::FontWeight(text_font.weight.into()));
@@ -248,6 +266,17 @@ pub fn update_editable_text_styles(
     }
 }
 
+/// Syncs each [`EditableText`]'s viewport size with their `ComputedNode`'s content size before text edits are applied.
+pub fn sync_editable_text_viewports(mut query: Query<(&mut EditableText, &ComputedNode)>) {
+    for (mut editable_text, computed_node) in &mut query {
+        let size = computed_node.content_box().size();
+        if editable_text.viewport.size != size {
+            editable_text.viewport.size = size;
+            editable_text.editor.set_width(Some(size.x));
+        }
+    }
+}
+
 /// Refreshes the [`EditableText`]'s layout if stale and then writes it
 /// it to [`TextLayoutInfo`] for rendering and picking.
 /// Adds required glyphs to the texture atlas
@@ -260,43 +289,43 @@ pub fn update_editable_text_layout(
     mut input_field_query: Query<(
         Entity,
         &TextFont,
+        &TextLayout,
         Ref<FontHinting>,
         Ref<ComputedUiRenderTargetInfo>,
         &mut EditableText,
         &mut TextLayoutInfo,
-        Ref<ComputedNode>,
         &mut EditableTextGeneration,
     )>,
     rem_size: Res<RemSize>,
     input_focus: Option<Res<InputFocus>>,
     mut cursor_timer: Local<Duration>,
+    mut previous_focus: Local<Option<Entity>>,
     time: Res<Time<Real>>,
 ) {
     *cursor_timer += time.delta();
+    let current_focus = input_focus
+        .as_ref()
+        .and_then(|input_focus| input_focus.get());
+    let focus_changed = *previous_focus != current_focus;
 
     for (
         entity,
         text_font,
+        text_layout,
         hinting,
         target,
         mut editable_text,
         mut info,
-        computed_node,
         mut generation,
     ) in input_field_query.iter_mut()
     {
         let cursor_width = editable_text.cursor_width;
         let cursor_blink_period = editable_text.cursor_blink_period;
+        let cursor_margin = editable_text.cursor_margin;
+        let editable_text = &mut *editable_text;
+        let (editor, viewport) = (&mut editable_text.editor, &mut editable_text.viewport);
 
-        if computed_node.is_changed() {
-            editable_text
-                .editor
-                .set_width(Some(computed_node.content_box().width()));
-        }
-
-        let mut driver = editable_text
-            .editor
-            .driver(&mut font_cx.0, &mut layout_cx.0);
+        let mut driver = editor.driver(font_cx.as_mut(), layout_cx.as_mut());
 
         driver.refresh_layout();
 
@@ -354,8 +383,10 @@ pub fn update_editable_text_layout(
                                         font_data.index as usize,
                                     )
                                     .unwrap();
+                                    let font_id = [font_data.data.id(), font_data.index.into()];
+
                                     let mut scaler = scale_cx
-                                        .builder(font_ref)
+                                        .builder_with_id(font_ref, font_id)
                                         .size(font_size)
                                         .hint(matches!(*hinting, FontHinting::Enabled))
                                         .normalized_coords(coords)
@@ -376,8 +407,8 @@ pub fn update_editable_text_layout(
                                         + atlas_info.rect.size() / 2.
                                         + atlas_info.offset,
                                     atlas_info,
-                                    section_index: brush.section_index as usize,
-                                    line_index,
+                                    section_index: brush.section_index,
+                                    line_index: line_index as u32,
                                 });
                             }
 
@@ -415,7 +446,7 @@ pub fn update_editable_text_layout(
                             }
 
                             info.run_geometry.push(RunGeometry {
-                                section_index: brush.section_index as usize,
+                                section_index: brush.section_index,
                                 bounds: Rect {
                                     min: Vec2::new(
                                         glyph_run.offset(),
@@ -446,12 +477,28 @@ pub fn update_editable_text_layout(
                 .iter()
                 .map(|&b| bounding_box_to_rect(b.0))
                 .collect();
+
+            for i in 0..info.selection_rects.len().saturating_sub(1) {
+                let [a, b] = &mut info.selection_rects[i..i + 2] else {
+                    unreachable!();
+                };
+                if a.max.y < b.min.y {
+                    a.max.y = b.min.y;
+                }
+            }
         }
 
-        if let Some(input_focus) = input_focus.as_ref()
-            && Some(entity) == input_focus.get()
-        {
-            if input_focus.is_changed() || layout_changed || *cursor_timer >= cursor_blink_period {
+        let full_layout_size = {
+            let layout = driver.layout();
+            Vec2::new(layout.full_width(), layout.height())
+        };
+        let is_focused = Some(entity) == current_focus;
+        let cursor_reveal = is_focused
+            .then(|| cursor_reveal_rect(&mut driver))
+            .flatten();
+
+        if is_focused {
+            if focus_changed || layout_changed || *cursor_timer >= cursor_blink_period {
                 *cursor_timer = Duration::ZERO;
             }
 
@@ -469,7 +516,27 @@ pub fn update_editable_text_layout(
                 .map(bounding_box_to_rect)
                 .map(|rect| (false, rect));
         }
+
+        if focus_changed && let Some(cursor) = cursor_reveal {
+            let line_bounds = driver
+                .layout()
+                .lines()
+                .map(|line| TextLineYBounds::from_line(&line));
+            viewport.reveal_caret(cursor, full_layout_size, cursor_margin, line_bounds);
+        }
+        let viewport_width = viewport.size.x;
+        viewport.clamp_inside(Vec2::new(
+            scrollable_text_layout_width(
+                text_layout.linebreak,
+                full_layout_size.x,
+                viewport_width,
+                cursor_reveal,
+            ),
+            full_layout_size.y,
+        ));
     }
+
+    *previous_focus = current_focus;
 }
 
 fn bounding_box_to_rect(geom: BoundingBox) -> Rect {
@@ -482,104 +549,5 @@ fn bounding_box_to_rect(geom: BoundingBox) -> Rect {
             x: geom.x1 as f32,
             y: geom.y1 as f32,
         },
-    }
-}
-
-/// Scroll editable text to keep cursor in view after edits.
-pub fn scroll_editable_text(
-    input_focus: Option<Res<InputFocus>>,
-    mut previous_focus: Local<Option<Entity>>,
-    mut query: Query<(
-        Entity,
-        Ref<EditableText>,
-        Ref<EditableTextGeneration>,
-        &mut TextScroll,
-        &ComputedNode,
-        &TextLayoutInfo,
-    )>,
-) {
-    let current_focus = input_focus
-        .as_ref()
-        .and_then(|input_focus| input_focus.get());
-    let focus_changed = *previous_focus != current_focus;
-
-    for (entity, editable_text, generation, mut scroll, node, info) in query.iter_mut() {
-        if !(editable_text.is_changed()
-            || generation.is_changed()
-            || focus_changed && (Some(entity) == *previous_focus || Some(entity) == current_focus))
-        {
-            continue;
-        }
-
-        let view_size = node.content_box().size();
-        if view_size.cmple(Vec2::ZERO).any() {
-            scroll.set_if_neq(TextScroll(Vec2::ZERO));
-            continue;
-        }
-
-        let Some(cursor) = info.cursor.map(|(_, rect)| rect) else {
-            continue;
-        };
-
-        let Some(layout) = editable_text.editor.try_layout() else {
-            continue;
-        };
-
-        let Some((line_min, line_max)) = find_visual_line_bounds(layout, cursor.center().y) else {
-            continue;
-        };
-
-        let max_scroll_x = (if input_focus
-            .as_ref()
-            .is_some_and(|input_focus| input_focus.get() == Some(entity))
-        {
-            info.size.x.max(cursor.max.x)
-        } else {
-            info.size.x
-        } - view_size.x)
-            .max(0.);
-
-        scroll.set_if_neq(TextScroll(Vec2 {
-            x: scroll_axis(
-                scroll.0.x,
-                scroll.0.x + view_size.x,
-                cursor.min.x,
-                cursor.max.x,
-            )
-            .clamp(0., max_scroll_x)
-            .floor(),
-            y: scroll_axis(scroll.0.y, scroll.0.y + view_size.y, line_min, line_max).floor(),
-        }));
-    }
-
-    *previous_focus = current_focus;
-}
-
-fn find_visual_line_bounds<B: parley::Brush>(
-    layout: &parley::Layout<B>,
-    y: f32,
-) -> Option<(f32, f32)> {
-    let mut min = 0.0;
-    for line in layout.lines() {
-        let max = min + line.metrics().line_height;
-        if y < max {
-            return Some((min, max));
-        }
-        min = max;
-    }
-    None
-}
-
-fn scroll_axis(v_min: f32, v_max: f32, t_min: f32, t_max: f32) -> f32 {
-    let v_size = v_max - v_min;
-    let t_size = t_max - t_min;
-    if v_size < t_size {
-        t_min + (t_size - v_size) / 2.
-    } else if t_min < v_min {
-        t_min
-    } else if v_max < t_max {
-        t_max - v_size
-    } else {
-        v_min
     }
 }

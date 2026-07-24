@@ -34,6 +34,7 @@ use crate::FullscreenShader;
 
 /// 3D LUT (look up table) textures used for tonemapping
 #[derive(Resource, Clone, ExtractResource)]
+#[extract_app(RenderApp)]
 pub struct TonemappingLuts {
     pub blender_filmic: Handle<Image>,
     pub agx: Handle<Image>,
@@ -117,6 +118,7 @@ pub struct TonemappingPipeline {
 )]
 #[extract_component_filter(With<Camera>)]
 #[reflect(Component, Debug, Hash, Default, PartialEq)]
+#[extract_app(RenderApp)]
 pub enum Tonemapping {
     /// Bypass tonemapping.
     None,
@@ -161,9 +163,12 @@ pub enum Tonemapping {
     /// Somewhat neutral. Suffers from hue shifting. Brights desaturate across the spectrum.
     /// NOTE: Requires the `tonemapping_luts` cargo feature.
     BlenderFilmic,
-    /// Designed to faithfully reproduce base color under neutral lighting. Suitable for e-commerce, architecture and CAD applications.
+    /// Despite its name, it is not considered to be neutral.
+    /// Highly saturated colors and tends to produce a very high contrast image.
+    /// Suffers from significant [Abney shifting](https://en.wikipedia.org/wiki/Abney_effect), and tends to crush grays and desaturated colors.
+    /// Designed for e-commerce to faithfully reproduce the colors of brand's logos when used with low brightness grayscale lighting.
     /// See [the KhronosGroup spec](https://github.com/KhronosGroup/ToneMapping/tree/main/PBR_Neutral) for more information.
-    PbrNeutral,
+    KhronosPbrNeutral,
 }
 
 impl Tonemapping {
@@ -269,7 +274,7 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
                 );
                 shader_defs.push("TONEMAP_METHOD_BLENDER_FILMIC".into());
             }
-            Tonemapping::PbrNeutral => shader_defs.push("TONEMAP_METHOD_PBR_NEUTRAL".into()),
+            Tonemapping::KhronosPbrNeutral => shader_defs.push("TONEMAP_METHOD_PBR_NEUTRAL".into()),
         }
         RenderPipelineDescriptor {
             label: Some("tonemapping pipeline".into()),
@@ -379,6 +384,7 @@ pub fn prepare_view_tonemapping_pipelines(
 )]
 #[extract_component_filter(With<Camera>)]
 #[reflect(Component, Debug, Hash, Default, PartialEq)]
+#[extract_app(RenderApp)]
 pub enum DebandDither {
     #[default]
     Disabled,
@@ -398,7 +404,7 @@ pub fn get_lut_bindings<'a>(
         | Tonemapping::ReinhardLuminance
         | Tonemapping::AcesFitted
         | Tonemapping::AgX
-        | Tonemapping::PbrNeutral
+        | Tonemapping::KhronosPbrNeutral
         | Tonemapping::SomewhatBoringDisplayTransform => &tonemapping_luts.agx,
         Tonemapping::TonyMcMapface => &tonemapping_luts.tony_mc_mapface,
         Tonemapping::BlenderFilmic => &tonemapping_luts.blender_filmic,

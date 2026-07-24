@@ -13,7 +13,7 @@ use bevy_render::{
     render_phase::ViewSortedRenderPhases,
     render_resource::{PipelineCache, RenderPassDescriptor, StoreOp},
     renderer::{RenderContext, ViewQuery},
-    view::{ExtractedView, ViewDepthTexture, ViewTarget},
+    view::{ExtractedView, ViewDepthStencilTexture, ViewTarget},
 };
 
 pub fn main_transparent_pass_3d(
@@ -22,7 +22,7 @@ pub fn main_transparent_pass_3d(
         &ExtractedCamera,
         &ExtractedView,
         &ViewTarget,
-        &ViewDepthTexture,
+        &ViewDepthStencilTexture,
         Option<&MainPassResolutionOverride>,
         Has<OrderIndependentTransparencySettings>,
         Option<&OitResolvePipelineId>,

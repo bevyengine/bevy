@@ -7,11 +7,11 @@ use bevy_platform::collections::HashTable;
 use bevy_reflect_derive::impl_type_path;
 
 use crate::{
-    generics::impl_generic_info_methods, type_info::impl_type_methods, ApplyError, Generics,
-    MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type,
-    TypeInfo, TypePath,
+    generics::impl_generic_info_methods, ty::impl_type_methods, ApplyError, Generics, MaybeTyped,
+    PartialReflect, Reflect, ReflectCloneError, ReflectKind, ReflectMut, ReflectOwned, ReflectRef,
+    Type, TypeInfo, TypePath,
 };
-use alloc::{boxed::Box, format, vec::Vec};
+use alloc::{boxed::Box, vec::Vec};
 
 /// A trait used to power [map-like] operations via [reflection].
 ///
@@ -81,13 +81,15 @@ pub trait Map: PartialReflect {
     fn retain(&mut self, f: &mut dyn FnMut(&dyn PartialReflect, &mut dyn PartialReflect) -> bool);
 
     /// Creates a new [`DynamicMap`] from this map.
-    fn to_dynamic_map(&self) -> DynamicMap {
+    ///
+    /// Returns an error if any key or value cannot be converted via [`PartialReflect::to_dynamic`].
+    fn to_dynamic_map(&self) -> Result<DynamicMap, ReflectCloneError> {
         let mut map = DynamicMap::default();
         map.set_represented_type(self.get_represented_type_info());
         for (key, value) in self.iter() {
-            map.insert_boxed(key.to_dynamic(), value.to_dynamic());
+            map.insert_boxed(key.to_dynamic()?, value.to_dynamic()?);
         }
-        map
+        Ok(map)
     }
 
     /// Inserts a key-value pair into the map.
@@ -198,16 +200,16 @@ macro_rules! hash_error {
     ( $key:expr ) => {{
         let type_path = (*$key).reflect_type_path();
         if !$key.is_dynamic() {
-            format!(
+            $crate::__macro_exports::alloc_utils::format!(
                 "the given key of type `{}` does not support hashing",
                 type_path
             )
         } else {
             match (*$key).get_represented_type_info() {
                 // Handle dynamic types that do not represent a type (i.e a plain `DynamicStruct`):
-                None => format!("the dynamic type `{}` does not support hashing", type_path),
+                ::core::option::Option::None => $crate::__macro_exports::alloc_utils::format!("the dynamic type `{}` does not support hashing", type_path),
                 // Handle dynamic types that do represent a type (i.e. a `DynamicStruct` proxying `Foo`):
-                Some(s) => format!(
+                ::core::option::Option::Some(s) => $crate::__macro_exports::alloc_utils::format!(
                     "the dynamic type `{}` (representing `{}`) does not support hashing",
                     type_path,
                     s.type_path()
@@ -598,7 +600,7 @@ pub fn map_try_apply<M: Map>(a: &mut M, b: &dyn PartialReflect) -> Result<(), Ap
         if let Some(a_value) = a.get_mut(key) {
             a_value.try_apply(b_value)?;
         } else {
-            a.insert_boxed(key.to_dynamic(), b_value.to_dynamic());
+            a.insert_boxed(key.to_dynamic()?, b_value.to_dynamic()?);
         }
     }
     a.retain(&mut |key, _| map_value.get(key).is_some());

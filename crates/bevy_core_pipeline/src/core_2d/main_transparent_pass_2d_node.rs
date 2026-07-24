@@ -9,7 +9,7 @@ use bevy_render::{
     render_phase::ViewSortedRenderPhases,
     render_resource::{RenderPassDescriptor, StoreOp},
     renderer::{RenderContext, ViewQuery},
-    view::{ExtractedView, ViewDepthTexture, ViewTarget},
+    view::{ExtractedView, ViewDepthStencilTexture, ViewTarget},
 };
 
 pub fn main_transparent_pass_2d(
@@ -18,7 +18,7 @@ pub fn main_transparent_pass_2d(
         &ExtractedCamera,
         &ExtractedView,
         &ViewTarget,
-        &ViewDepthTexture,
+        &ViewDepthStencilTexture,
     )>,
     transparent_phases: Res<ViewSortedRenderPhases<Transparent2d>>,
     mut ctx: RenderContext,
@@ -30,6 +30,10 @@ pub fn main_transparent_pass_2d(
     else {
         return;
     };
+
+    if transparent_phase.items.is_empty() {
+        return;
+    }
 
     #[cfg(feature = "trace")]
     let _span = info_span!("main_transparent_pass_2d").entered();
@@ -57,12 +61,10 @@ pub fn main_transparent_pass_2d(
         });
         let pass_span = diagnostics.pass_span(&mut render_pass, "main_transparent_pass_2d");
 
-        if !transparent_phase.items.is_empty() {
-            #[cfg(feature = "trace")]
-            let _transparent_span = info_span!("transparent_main_pass_2d").entered();
-            if let Err(err) = transparent_phase.render(&mut render_pass, world, view_entity) {
-                error!("Error encountered while rendering the transparent 2D phase {err:?}");
-            }
+        #[cfg(feature = "trace")]
+        let _transparent_span = info_span!("transparent_main_pass_2d").entered();
+        if let Err(err) = transparent_phase.render(&mut render_pass, world, view_entity) {
+            error!("Error encountered while rendering the transparent 2D phase {err:?}");
         }
 
         pass_span.end(&mut render_pass);

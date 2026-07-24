@@ -4,7 +4,7 @@
 //! [`bevy_render::render_phase::BinnedRenderPhase`] functionality with a
 //! custom [`RenderCommand`] to allow inserting arbitrary GPU drawing logic
 //! into Bevy's pipeline. This is not the only way to add custom rendering code
-//! into Bevy—render nodes are another, lower-level method—but it does allow
+//! into Bevy — render nodes are another, lower-level method — but it does allow
 //! for better reuse of parts of Bevy's built-in mesh rendering logic.
 
 use bevy::render::camera::ViewTargetInfo;
@@ -36,6 +36,7 @@ use bevy::{
             Variants, VertexAttribute, VertexFormat, VertexState, VertexStepMode,
         },
         renderer::{RenderDevice, RenderQueue},
+        sync_world::MainEntityHashSet,
         view::{ExtractedView, RenderVisibleEntities},
         Render, RenderApp, RenderSystems,
     },
@@ -52,6 +53,7 @@ use bytemuck::{Pod, Zeroable};
 #[derive(Clone, Component, ExtractComponent)]
 #[require(VisibilityClass)]
 #[component(on_add = visibility::add_visibility_class::<CustomRenderedEntity>)]
+#[extract_app(RenderApp)]
 struct CustomRenderedEntity;
 
 /// A [`RenderCommand`] that binds the vertex and index buffers and issues the
@@ -233,6 +235,7 @@ fn queue_custom_phase_item(
     views: Query<(&ExtractedView, &RenderVisibleEntities, &ViewTargetInfo)>,
     dirty_specializations: Res<DirtySpecializations>,
     mut pending_custom_phase_item_queues: ResMut<PendingCustomPhaseItemQueues>,
+    mut mesh_instances_queued_this_iteration_scratch_space: Local<MainEntityHashSet>,
 ) {
     let draw_custom_phase_item = opaque_draw_functions
         .read()
@@ -272,6 +275,7 @@ fn queue_custom_phase_item(
             view.retained_view_entity,
             render_visible_mesh_entities,
             &view_pending_custom_phase_item_queues.prev_frame,
+            &mut mesh_instances_queued_this_iteration_scratch_space,
         ) {
             // Ordinarily, the [`SpecializedRenderPipeline::Key`] would contain
             // some per-view settings, such as whether the view is HDR, but for
@@ -289,7 +293,7 @@ fn queue_custom_phase_item(
             // handling that Bevy has for meshes (preprocessing, indirect
             // draws, etc.)
             //
-            // The asset ID is arbitrary; we simply use [`AssetId::invalid`],
+            // The asset ID is arbitrary; we simply use [`AssetId::default`],
             // but you can use anything you like. Note that the asset ID need
             // not be the ID of a [`Mesh`].
             opaque_phase.add(
@@ -301,7 +305,7 @@ fn queue_custom_phase_item(
                     slabs: MeshSlabs::default(),
                 },
                 Opaque3dBinKey {
-                    asset_id: AssetId::<Mesh>::invalid().untyped(),
+                    asset_id: AssetId::<Mesh>::default().untyped(),
                 },
                 (*render_entity, *main_entity),
                 InputUniformIndex::default(),

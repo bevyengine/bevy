@@ -23,14 +23,11 @@ pub fn new_tracy_gpu_context(
             //
             // An issue was filed on the wgpu-profiler repository that the function
             // is copied from. https://github.com/Wumpf/wgpu-profiler/issues/107
-            //
-            // Once the root cause of the issue is located and fixed this should
-            // probably be moved back to not returning an option?
             return None;
         }
     };
 
-    let tracy_client = Client::running().unwrap();
+    let tracy_client = Client::running()?;
     tracy_client
         .new_gpu_context(
             Some("RenderQueue"),
@@ -77,6 +74,6 @@ fn initial_timestamp(device: &RenderDevice, queue: &RenderQueue) -> i64 {
         .poll(PollType::wait_indefinitely())
         .expect("Failed to poll device for map async");
 
-    let view = map_buffer.slice(..).get_mapped_range();
+    let view = map_buffer.slice(..).get_mapped_range().unwrap();
     i64::from_le_bytes((*view).try_into().unwrap())
 }

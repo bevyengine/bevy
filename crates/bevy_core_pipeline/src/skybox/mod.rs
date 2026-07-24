@@ -20,6 +20,7 @@ use bevy_render::{
         *,
     },
     renderer::RenderDevice,
+    sync_component::{SyncComponent, SyncComponentPlugin},
     sync_world::RenderEntity,
     texture::GpuImage,
     view::{ViewUniform, ViewUniforms},
@@ -37,7 +38,10 @@ impl Plugin for SkyboxPlugin {
     fn build(&self, app: &mut App) {
         embedded_asset!(app, "skybox.wgsl");
 
-        app.add_plugins(UniformComponentPlugin::<SkyboxUniforms>::default());
+        app.add_plugins((
+            SyncComponentPlugin::<Skybox, Self>::default(),
+            UniformComponentPlugin::<SkyboxUniforms>::default(),
+        ));
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -54,6 +58,10 @@ impl Plugin for SkyboxPlugin {
                 ),
             );
     }
+}
+
+impl SyncComponent<RenderApp, SkyboxPlugin> for Skybox {
+    type Target = (Self, SkyboxUniforms, SkyboxPipelineId, SkyboxBindGroup);
 }
 
 // This is needed because of the orphan rule not allowing implementing

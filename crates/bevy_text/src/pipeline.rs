@@ -1,7 +1,3 @@
-use alloc::borrow::Cow;
-
-use core::hash::BuildHasher;
-
 use bevy_asset::Assets;
 use bevy_color::Color;
 use bevy_ecs::{
@@ -13,10 +9,9 @@ use bevy_log::warn_once;
 use bevy_math::{Rect, Vec2};
 use bevy_platform::hash::FixedHasher;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use core::hash::BuildHasher;
 use parley::style::{OverflowWrap, TextWrapMode, WordBreak};
-use parley::{
-    Alignment, AlignmentOptions, FontFamily, Layout, PositionedLayoutItem, StyleProperty,
-};
+use parley::{Alignment, AlignmentOptions, Layout, PositionedLayoutItem, StyleProperty};
 use swash::FontRef;
 
 use crate::TextBrush;
@@ -73,7 +68,7 @@ impl TextPipeline {
         bounds: TextBounds,
         scale_factor: f32,
         computed: &mut ComputedTextBlock,
-        font_system: &mut FontCx,
+        font_cx: &mut FontCx,
         layout_cx: &mut LayoutCx,
         logical_viewport_size: Vec2,
         base_rem_size: f32,
@@ -117,7 +112,7 @@ impl TextPipeline {
                 }
 
                 if matches!(text_font.font, FontSource::Handle(_))
-                    && resolve_font_source(&text_font.font, fonts).is_err()
+                    && text_font.font.resolve_font_family(fonts).is_err()
                 {
                     return Err(TextError::NoSuchFont);
                 }
@@ -161,10 +156,9 @@ impl TextPipeline {
 
             let text = self.text_buffer.as_str();
             let layout = &mut computed.layout;
-            let mut builder =
-                layout_cx
-                    .0
-                    .ranged_builder(&mut font_system.0, text, scale_factor, true);
+            let mut builder = layout_cx
+                .0
+                .ranged_builder(&mut (*font_cx), text, scale_factor, true);
 
             match linebreak {
                 LineBreak::AnyCharacter => {
@@ -191,9 +185,9 @@ impl TextPipeline {
                     continue;
                 }
 
-                let family = resolve_font_source(&section.text_font.font, fonts)?;
+                let resolved_family = section.text_font.font.resolve_font_family(fonts)?;
 
-                builder.push(StyleProperty::FontFamily(family), range.clone());
+                builder.push(StyleProperty::FontFamily(resolved_family), range.clone());
                 builder.push(
                     StyleProperty::Brush(TextBrush::new(
                         section.index as u32,
@@ -318,11 +312,12 @@ impl TextPipeline {
 
         let layout = &mut computed.layout;
         layout_with_bounds(layout, bounds, justify);
+        layout_info.scale_factor = layout.scale();
 
         for (line_index, line) in layout.lines().enumerate() {
             for item in line.items() {
                 if let PositionedLayoutItem::GlyphRun(glyph_run) = item {
-                    let section_index = glyph_run.style().brush.section_index as usize;
+                    let section_index = glyph_run.style().brush.section_index;
                     let font_smoothing = glyph_run.style().brush.font_smoothing;
                     let run = glyph_run.run();
                     let font = run.font();
@@ -344,14 +339,7 @@ impl TextPipeline {
                         return Err(TextError::NoSuchFont);
                     };
 
-                    let hint = hinting.is_enabled() && font_smoothing == FontSmoothing::AntiAliased;
-                    let mut scaler = scale_cx
-                        .0
-                        .builder(font_ref)
-                        .size(font_size)
-                        .hint(hint)
-                        .normalized_coords(coords)
-                        .build();
+                    let mut maybe_scaler = None;
 
                     for glyph in glyph_run.positioned_glyphs() {
                         let Ok(glyph_id) = u16::try_from(glyph.id) else {
@@ -359,18 +347,36 @@ impl TextPipeline {
                         };
 
                         let font_atlases = font_atlas_set.entry(font_atlas_key).or_default();
-                        let atlas_info =
-                            get_glyph_atlas_info(font_atlases, crate::GlyphCacheKey { glyph_id })
-                                .map(Ok)
-                                .unwrap_or_else(|| {
-                                    add_glyph_to_atlas(
-                                        font_atlases,
-                                        textures,
-                                        &mut scaler,
-                                        font_smoothing,
-                                        glyph_id,
-                                    )
-                                })?;
+
+                        let atlas_info = match get_glyph_atlas_info(
+                            font_atlases,
+                            crate::GlyphCacheKey { glyph_id },
+                        ) {
+                            Some(info) => info,
+                            None => {
+                                if maybe_scaler.is_none() {
+                                    let font_id = [font.data.id(), font.index.into()];
+                                    let hint = hinting.is_enabled()
+                                        && font_smoothing == FontSmoothing::AntiAliased;
+                                    maybe_scaler = Some(
+                                        scale_cx
+                                            .0
+                                            .builder_with_id(font_ref, font_id)
+                                            .size(font_size)
+                                            .hint(hint)
+                                            .normalized_coords(coords)
+                                            .build(),
+                                    );
+                                }
+                                add_glyph_to_atlas(
+                                    font_atlases,
+                                    textures,
+                                    maybe_scaler.as_mut().unwrap(),
+                                    font_smoothing,
+                                    glyph_id,
+                                )?
+                            }
+                        };
 
                         let glyph_pos = Vec2::new(glyph.x, glyph.y);
                         let size = atlas_info.rect.size();
@@ -385,7 +391,7 @@ impl TextPipeline {
                                 + atlas_info.offset,
                             atlas_info,
                             section_index,
-                            line_index,
+                            line_index: line_index as u32,
                         });
                     }
 
@@ -412,51 +418,11 @@ impl TextPipeline {
     }
 }
 
-/// Resolve a [`FontSource`], producing a [`FontFamily`], by looking it up in the [`Assets<Font>`] collection.
-pub fn resolve_font_source<'a>(
-    font: &'a FontSource,
-    fonts: &Assets<Font>,
-) -> Result<FontFamily<'a>, TextError> {
-    Ok(match font {
-        FontSource::Handle(handle) => {
-            let font = fonts.get(handle.id()).ok_or(TextError::NoSuchFont)?;
-            FontFamily::Single(parley::FontFamilyName::Named(Cow::Owned(
-                font.family_name.as_str().to_owned(),
-            )))
-        }
-        FontSource::Family(family) => FontFamily::named(family.as_str()),
-        generic => {
-            #[cfg(not(feature = "system_font_discovery"))]
-            bevy_log::error_once!(
-                "A generic FontSource ({generic:?}) was used, but the `system_font_discovery` \
-                feature is not enabled. Text may not render. Enable the feature to allow Bevy \
-                to discover system fonts."
-            );
-            match generic {
-                FontSource::Handle(_) | FontSource::Family(_) => unreachable!(),
-                FontSource::Serif => parley::GenericFamily::Serif.into(),
-                FontSource::SansSerif => parley::GenericFamily::SansSerif.into(),
-                FontSource::Cursive => parley::GenericFamily::Cursive.into(),
-                FontSource::Fantasy => parley::GenericFamily::Fantasy.into(),
-                FontSource::Monospace => parley::GenericFamily::Monospace.into(),
-                FontSource::SystemUi => parley::GenericFamily::SystemUi.into(),
-                FontSource::UiSerif => parley::GenericFamily::UiSerif.into(),
-                FontSource::UiSansSerif => parley::GenericFamily::UiSansSerif.into(),
-                FontSource::UiMonospace => parley::GenericFamily::UiMonospace.into(),
-                FontSource::UiRounded => parley::GenericFamily::UiRounded.into(),
-                FontSource::Emoji => parley::GenericFamily::Emoji.into(),
-                FontSource::Math => parley::GenericFamily::Math.into(),
-                FontSource::FangSong => parley::GenericFamily::FangSong.into(),
-            }
-        }
-    })
-}
-
 /// Render information for a corresponding text block.
 ///
 /// Contains scaled glyphs and their size. Generated via [`TextPipeline::update_text_layout_info`] when an entity has
 /// [`TextLayout`] and [`ComputedTextBlock`] components.
-#[derive(Component, Clone, Default, Debug, Reflect)]
+#[derive(Component, Clone, Debug, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 pub struct TextLayoutInfo {
     /// The target scale factor for this text layout
@@ -469,7 +435,7 @@ pub struct TextLayoutInfo {
     ///
     /// The coordinates are unscaled and relative to the top left corner of the text layout.
     pub run_geometry: Vec<RunGeometry>,
-    /// The glyphs resulting size
+    /// The size of the text layout in physical pixels
     pub size: Vec2,
     /// Cursor visibility, size and position for editing
     pub cursor: Option<(bool, Rect)>,
@@ -493,13 +459,27 @@ impl TextLayoutInfo {
     }
 }
 
+impl Default for TextLayoutInfo {
+    fn default() -> Self {
+        Self {
+            scale_factor: 1.,
+            glyphs: Default::default(),
+            run_geometry: Default::default(),
+            size: Vec2::ZERO,
+            cursor: None,
+            selection_rects: Default::default(),
+            preedit_underline_rects: Default::default(),
+        }
+    }
+}
+
 /// Geometry of a text run used to render text decorations like background colors, strikethrough, and underline.
 /// A run in `bevy_text` is a contiguous sequence of glyphs on a line that share the same text attributes like font,
 /// font size, and line height.
 #[derive(Default, Debug, Clone, Reflect)]
 pub struct RunGeometry {
     /// The index of the text entity in [`ComputedTextBlock`] that this run belongs to.
-    pub section_index: usize,
+    pub section_index: u32,
     /// Bounding box around the text run.
     pub bounds: Rect,
     /// Y position of the strikethrough in the text layout.
@@ -592,5 +572,5 @@ pub(crate) fn trim_source_cache(mut font_cx: ResMut<FontCx>) {
     //
     // We assume only text updated frequently benefits from the shape cache (e.g. animated text, or
     // text that is dynamically measured for UI).
-    font_cx.0.source_cache.prune(2, false);
+    font_cx.source_cache.prune(2, false);
 }

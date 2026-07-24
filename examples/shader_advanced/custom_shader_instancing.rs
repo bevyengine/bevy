@@ -90,11 +90,11 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
 #[derive(Component, Deref)]
 struct InstanceMaterialData(Vec<InstanceData>);
 
-impl SyncComponent for InstanceMaterialData {
+impl SyncComponent<RenderApp> for InstanceMaterialData {
     type Target = Self;
 }
 
-impl ExtractComponent for InstanceMaterialData {
+impl ExtractComponent<RenderApp> for InstanceMaterialData {
     type QueryData = &'static InstanceMaterialData;
     type QueryFilter = ();
     type Out = Self;
@@ -177,7 +177,7 @@ fn queue_custom(
             let pipeline = pipelines
                 .specialize(&pipeline_cache, &custom_pipeline, key, &mesh.layout)
                 .unwrap();
-            transparent_phase.add(Transparent3d {
+            transparent_phase.add_retained(Transparent3d {
                 sorting_info: TransparentSortingInfo3d::Sorted {
                     mesh_center: pbr::get_mesh_instance_world_from_local(
                         *main_entity,
