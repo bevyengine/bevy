@@ -21,6 +21,8 @@
 //! To test this example using the system feature, run `cargo run --example text_input --features="system_clipboard"`.
 //! To enable this feature in your own project, add the `system_clipboard` feature to your list of enabled features for `bevy` in your `Cargo.toml`.
 //!
+//! The left input demonstrates optional placeholder hint text via the [`Placeholder`] component.
+//!
 //! See the module documentation for [`editable_text`](bevy::ui_widgets::editable_text) for more details.
 use bevy::color::palettes::css::DARK_GREY;
 use bevy::color::palettes::tailwind::SLATE_300;
@@ -31,6 +33,7 @@ use bevy::input_focus::{
 };
 use bevy::prelude::*;
 use bevy::text::{EditableText, TextCursorStyle};
+use bevy::ui_widgets::Placeholder;
 
 fn main() {
     App::new()
@@ -70,6 +73,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .id();
 
     let text_input_left = build_input_text(&mut commands, true, 24.0);
+    commands
+        .entity(text_input_left)
+        .insert(Placeholder::new("Type something..."));
     let text_input_right = build_input_text(&mut commands, false, 24.0);
 
     let input_container = commands
