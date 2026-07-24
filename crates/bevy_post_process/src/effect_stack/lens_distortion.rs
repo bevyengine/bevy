@@ -105,9 +105,9 @@ impl ExtractComponent<RenderApp> for LensDistortion {
 #[derive(ShaderType, Default)]
 pub struct LensDistortionUniform {
     pub(super) intensity: f32,
-    pub(super) scale: f32,
+    pub(super) inv_scale: f32,
     pub(super) multiplier: Vec2,
     pub(super) center: Vec2,
-    pub(super) edge_curvature: f32,
+    pub(super) edge_intensity: f32,
     pub(super) unused: u32,
 }
