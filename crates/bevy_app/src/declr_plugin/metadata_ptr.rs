@@ -1,8 +1,4 @@
-use core::{
-    alloc::Layout,
-    any::TypeId,
-    ptr::NonNull,
-};
+use core::{alloc::Layout, any::TypeId, ptr::NonNull};
 use std::{
     alloc::{alloc, dealloc},
     boxed::Box,

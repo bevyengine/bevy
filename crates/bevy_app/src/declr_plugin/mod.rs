@@ -1,7 +1,4 @@
-use core::
-    any::Any
-;
-
+use core::any::Any;
 
 pub(crate) mod approval;
 pub(crate) mod erased_resource;
