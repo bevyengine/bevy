@@ -718,6 +718,12 @@ impl WinitAppRunnerState {
                             event_loop.set_control_flow(ControlFlow::WaitUntil(next));
                             self.scheduled_tick_start = Some(next);
                         }
+                    } else {
+                        // If the checked_add fails, we have no concrete instant to wait til.
+                        // In such a case, set our control flow to wait indefinitely..
+                        event_loop.set_control_flow(ControlFlow::Wait);
+                        // .. and set no scheduled re-start instant.
+                        self.scheduled_tick_start = None;
                     }
                 }
             }
