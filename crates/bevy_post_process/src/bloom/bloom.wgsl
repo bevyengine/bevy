@@ -6,6 +6,12 @@
 // * [COD] - Next Generation Post Processing in Call of Duty - http://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare
 // * [PBB] - Physically Based Bloom - https://learnopengl.com/Guest-Articles/2022/Phys.-Based-Bloom
 
+#import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput
+
+#ifdef LENS_DIRT
+#import bevy_post_process::lens_dirt::{LensDirtUniforms, lens_dirt_texture, lens_dirt_sampler, lens_dirt_uniforms}
+#endif
+
 struct BloomUniforms {
     threshold_precomputations: vec4<f32>,
     viewport: vec4<f32>,
@@ -15,8 +21,8 @@ struct BloomUniforms {
 
 @group(0) @binding(0) var input_texture: texture_2d<f32>;
 @group(0) @binding(1) var s: sampler;
-
 @group(0) @binding(2) var<uniform> uniforms: BloomUniforms;
+@group(0) @binding(3) var<storage, read> blend_factor: f32;
 
 #ifdef FIRST_DOWNSAMPLE
 // https://catlikecoding.com/unity/tutorials/advanced-rendering/bloom/#3.4
@@ -155,9 +161,10 @@ fn sample_input_3x3_tent(uv: vec2<f32>) -> vec3<f32> {
 
 #ifdef FIRST_DOWNSAMPLE
 @fragment
-fn downsample_first(@location(0) output_uv: vec2<f32>) -> @location(0) vec4<f32> {
-    let sample_uv = uniforms.viewport.xy + output_uv * uniforms.viewport.zw;
+fn downsample_first(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
+    let sample_uv = uniforms.viewport.xy + in.uv * uniforms.viewport.zw;
     var sample = sample_input_13_tap(sample_uv);
+
     // Lower bound of 0.0001 is to avoid propagating multiplying by 0.0 through the
     // downscaling and upscaling which would result in black boxes.
     // The upper bound is to prevent NaNs.
@@ -173,11 +180,24 @@ fn downsample_first(@location(0) output_uv: vec2<f32>) -> @location(0) vec4<f32>
 #endif
 
 @fragment
-fn downsample(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
-    return vec4<f32>(sample_input_13_tap(uv), 1.0);
+fn downsample(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
+    return vec4<f32>(sample_input_13_tap(in.uv), 1.0);
 }
 
 @fragment
-fn upsample(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
-    return vec4<f32>(sample_input_3x3_tent(uv), 1.0);
+fn upsample(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
+    let bloom = sample_input_3x3_tent(in.uv);
+#ifdef LENS_DIRT
+    let bloom_intensity = max(bloom.r, max(bloom.g, bloom.b));
+
+    let dirt = textureSample(lens_dirt_texture, lens_dirt_sampler, in.uv).r;
+    let amount = clamp(dirt * lens_dirt_uniforms.intensity * bloom_intensity, 0.0, 1.0);
+
+    let result_bloom = mix(bloom.rgb, bloom.rgb * lens_dirt_uniforms.tint.rgb, amount);
+    let alpha = mix(blend_factor, 1.0, amount);
+
+    return vec4<f32>(result_bloom, alpha);
+#else
+    return vec4<f32>(bloom, blend_factor);
+#endif
 }
