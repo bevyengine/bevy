@@ -144,16 +144,14 @@ pub fn propagate_ui_target_cameras(
             .get(root_entity)
             .ok()
             .map(UiTargetCamera::entity)
-            .or(default_camera_entity)
-            .unwrap_or(Entity::PLACEHOLDER);
+            .or(default_camera_entity);
 
         commands
             .entity(root_entity)
             .try_insert(Propagate(ComputedUiTargetCamera { camera }));
 
-        let (scale_factor, physical_size) = camera_query
-            .get(camera)
-            .ok()
+        let (scale_factor, physical_size) = camera
+            .and_then(|camera| camera_query.get(camera).ok())
             .map(|camera| {
                 (
                     camera.target_scaling_factor().unwrap_or(1.) * ui_scale.0,
@@ -249,7 +247,9 @@ mod tests {
 
         assert_eq!(
             *world.get::<ComputedUiTargetCamera>(uinode).unwrap(),
-            ComputedUiTargetCamera { camera }
+            ComputedUiTargetCamera {
+                camera: Some(camera)
+            }
         );
 
         assert_eq!(
@@ -321,7 +321,9 @@ mod tests {
         ] {
             assert_eq!(
                 *world.get::<ComputedUiTargetCamera>(uinode).unwrap(),
-                ComputedUiTargetCamera { camera }
+                ComputedUiTargetCamera {
+                    camera: Some(camera)
+                }
             );
 
             assert_eq!(

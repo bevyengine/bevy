@@ -505,7 +505,7 @@ pub fn extract_lights(
             for face_index in 0..6 {
                 let retained_view_entity = RetainedViewEntity {
                     main_entity: MainEntity::from(main_entity),
-                    auxiliary_entity: MainEntity::from(Entity::PLACEHOLDER),
+                    auxiliary_entity: None,
                     subview_index: face_index,
                 };
                 render_shadow_map_visible_entities
@@ -541,14 +541,14 @@ pub fn extract_lights(
                 .subviews
                 .retain(|view_entity, _| {
                     view_entity.main_entity.entity() == main_entity
-                        && view_entity.auxiliary_entity.entity() == Entity::PLACEHOLDER
+                        && view_entity.auxiliary_entity.is_none()
                         && view_entity.subview_index < 6
                 });
             render_shadow_map_visible_entities
                 .subviews
                 .retain(|view_entity, _| {
                     view_entity.main_entity.entity() == main_entity
-                        && view_entity.auxiliary_entity.entity() == Entity::PLACEHOLDER
+                        && view_entity.auxiliary_entity.is_none()
                         && view_entity.subview_index < 6
                 });
 
@@ -636,7 +636,7 @@ pub fn extract_lights(
 
             let retained_view_entity = RetainedViewEntity {
                 main_entity: MainEntity::from(main_entity),
-                auxiliary_entity: MainEntity::from(Entity::PLACEHOLDER),
+                auxiliary_entity: None,
                 subview_index: 0,
             };
             render_shadow_map_visible_entities
@@ -803,7 +803,8 @@ pub fn extract_lights(
                 for subview_index in 0..(cascade_config.bounds.len() as u32) {
                     let retained_view_entity = RetainedViewEntity {
                         main_entity: MainEntity::from(main_entity),
-                        auxiliary_entity: MainEntity::from(*main_auxiliary_entity),
+                        auxiliary_entity: (*main_auxiliary_entity != Entity::PLACEHOLDER)
+                            .then_some(MainEntity::from(*main_auxiliary_entity)),
                         subview_index,
                     };
                     all_cascades_seen.insert(retained_view_entity);
@@ -3004,12 +3005,12 @@ fn get_shadow_map_visible_entities<'w, 's: 'w>(
             light_entity,
             face_index,
         } => {
-            // We replace the auxiliary entity with `PLACEHOLDER`
+            // We replace the auxiliary entity with `None`
             // because all cubemap views for a single point light
             // currently share the same set of visible entities.
             let retained_view_entity = RetainedViewEntity {
                 main_entity: extracted_view_light.retained_view_entity.main_entity,
-                auxiliary_entity: MainEntity::from(Entity::PLACEHOLDER),
+                auxiliary_entity: None,
                 subview_index: *face_index as u32,
             };
             shadow_map_visible_entities_query
@@ -3020,12 +3021,12 @@ fn get_shadow_map_visible_entities<'w, 's: 'w>(
                 .expect("Failed to get point light visible entity for face")
         }
         LightEntity::Spot { light_entity } => {
-            // We replace the auxiliary entity with `PLACEHOLDER`
+            // We replace the auxiliary entity with `None`
             // because all shadow maps for a single spot light
             // currently share the same set of visible entities.
             let retained_view_entity = RetainedViewEntity {
                 main_entity: extracted_view_light.retained_view_entity.main_entity,
-                auxiliary_entity: MainEntity::from(Entity::PLACEHOLDER),
+                auxiliary_entity: None,
                 subview_index: 0,
             };
             shadow_map_visible_entities_query
