@@ -13,7 +13,7 @@ use bevy::{
         font_styles::InheritableFont,
         palette,
         rounded_corners::RoundedCorners,
-        theme::{ThemeBackgroundColor, ThemedText, UiTheme},
+        theme::{ThemeBackgroundColor, UiTheme},
         tokens, FeathersPlugins,
     },
     input_focus::{tab_navigation::TabGroup, AutoFocus, InputFocus},
@@ -180,7 +180,7 @@ fn demo_column_1() -> impl Scene {
             Children [
                 (
                     @FeathersMenuItem {
-                        @caption: bsn! { Text("MenuItem 4") ThemedText }
+                        @caption: bsn! { caption("MenuItem 4") }
                     }
                     on(|_: On<Activate>| {
                         info!("Menu item 4 clicked!");
@@ -188,7 +188,7 @@ fn demo_column_1() -> impl Scene {
                 ),
                 (
                     @FeathersMenuItem {
-                        @caption: bsn! { Text("MenuItem 5") ThemedText }
+                        @caption: bsn! { caption("MenuItem 5") }
                     }
                     on(|_: On<Activate>| {
                         info!("Menu item 5 clicked!");
@@ -196,7 +196,7 @@ fn demo_column_1() -> impl Scene {
                 ),
                 (
                     @FeathersMenuItem {
-                        @caption: bsn! { Text("MenuItem 6") ThemedText }
+                        @caption: bsn! { caption("MenuItem 6") }
                     }
                     on(|_: On<Activate>| {
                         info!("Menu item 6 clicked!");
@@ -316,7 +316,7 @@ fn demo_column_1() -> impl Scene {
                         Children [
                             (
                                 @FeathersMenuToolButton {
-                                    @caption: bsn! { Text("\u{0398}") ThemedText }
+                                    @caption: bsn! { caption("\u{0398}") }
                                 }
                                 AccessibleLabel("Menu Example")
                                 Node {
@@ -1061,8 +1061,7 @@ fn spawn_quit_dialog(activate: On<Activate>, mut commands: Commands) {
                         @FeathersDialogClose
                     ],
                     @FeathersDialogBody Children [
-                        Text("Are you really sure you want to quit? I mean, really, really sure?")
-                        ThemedText
+                        caption("Are you really sure you want to quit? I mean, really, really sure?")
                     ],
                     @FeathersDialogFooter Children [
                         (
@@ -1109,7 +1108,7 @@ fn toggle_demo_dialog(
                 @title: {"Hello".to_string()},
                 @width: px(280),
                 @contents: bsn_list! {
-                    Text("Close this dialog to unset the toggle.") ThemedText
+                    caption("Close this dialog to unset the toggle.")
                 }
             }
             // The dialog despawns itself on close; this just clears the toggle.

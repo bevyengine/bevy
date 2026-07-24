@@ -1,4 +1,3 @@
-use super::ExtractedWindows;
 use crate::{
     gpu_readback,
     render_asset::RenderAssets,
@@ -7,8 +6,12 @@ use crate::{
         SpecializedRenderPipeline, SpecializedRenderPipelines, Texture, TextureUsages, TextureView,
     },
     renderer::RenderDevice,
+    sync_world::MainEntity,
     texture::{GpuImage, ManualTextureViews, OutputColorAttachment},
-    view::{prepare_view_attachments, prepare_view_targets, ViewTargetAttachments, WindowSurfaces},
+    view::{
+        prepare_view_attachments, prepare_view_targets, ExtractedWindow, SurfaceData,
+        ViewTargetAttachments,
+    },
     ExtractSchedule, GpuResourceAppExt, MainWorld, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use alloc::{borrow::Cow, sync::Arc};
@@ -266,7 +269,7 @@ fn extract_screenshots(
 fn prepare_screenshots(
     targets: Res<RenderScreenshotTargets>,
     mut prepared: ResMut<RenderScreenshotsPrepared>,
-    window_surfaces: Res<WindowSurfaces>,
+    window_surfaces: Query<(MainEntity, &SurfaceData)>,
     render_device: Res<RenderDevice>,
     screenshot_pipeline: Res<ScreenshotToScreenPipeline>,
     pipeline_cache: Res<PipelineCache>,
@@ -280,7 +283,8 @@ fn prepare_screenshots(
         match target {
             NormalizedRenderTarget::Window(window) => {
                 let window = window.entity();
-                let Some(surface_data) = window_surfaces.surfaces.get(&window) else {
+                let Some((_, surface_data)) = window_surfaces.iter().find(|(e, _)| *e == window)
+                else {
                     warn!("Unknown window for screenshot, skipping: {}", window);
                     continue;
                 };
@@ -495,19 +499,27 @@ impl SpecializedRenderPipeline for ScreenshotToScreenPipeline {
     }
 }
 
-pub(crate) fn submit_screenshot_commands(world: &World, encoder: &mut CommandEncoder) {
+pub(crate) type SubmitScreenshotCommandsState<'w, 's> =
+    Query<'w, 's, (MainEntity, &'s ExtractedWindow)>;
+
+pub(crate) fn submit_screenshot_commands(
+    world: &World,
+    state: &mut SystemState<SubmitScreenshotCommandsState>,
+    encoder: &mut CommandEncoder,
+) {
     let targets = world.resource::<RenderScreenshotTargets>();
     let prepared = world.resource::<RenderScreenshotsPrepared>();
     let pipelines = world.resource::<PipelineCache>();
     let gpu_images = world.resource::<RenderAssets<GpuImage>>();
-    let windows = world.resource::<ExtractedWindows>();
     let manual_texture_views = world.resource::<ManualTextureViews>();
+
+    let windows = state.get(world).unwrap();
 
     for (entity, render_target) in targets.iter() {
         match render_target {
             NormalizedRenderTarget::Window(window) => {
                 let window = window.entity();
-                let Some(window) = windows.get(&window) else {
+                let Some((_, window)) = windows.iter().find(|(e, _)| *e == window) else {
                     continue;
                 };
                 let width = window.physical_width;

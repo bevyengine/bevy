@@ -225,7 +225,7 @@ fn init_compute_pipeline(
                 // offsets
                 uniform_buffer::<DataRanges>(false),
                 // vertices
-                storage_buffer::<Vec<u32>>(false),
+                storage_buffer::<Vec<f32>>(false),
                 // indices
                 storage_buffer::<Vec<u32>>(false),
             ),

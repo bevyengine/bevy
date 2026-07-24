@@ -174,6 +174,11 @@ impl Plugin for LightPlugin {
                 SimulationLightSystems::CheckLightVisibility
                     .ambiguous_with(SimulationLightSystems::CheckLightVisibility),
             )
+            .configure_sets(
+                PostUpdate,
+                SimulationLightSystems::AssignLightsToClusters
+                    .before(bevy_app::TransformGizmoRenderStep),
+            )
             .add_systems(Update, automatically_add_parallax_correction_components)
             .add_systems(
                 PostUpdate,
@@ -233,6 +238,7 @@ impl Plugin for LightPlugin {
                     build_directional_light_cascades
                         .in_set(SimulationLightSystems::UpdateDirectionalLightCascades)
                         .after(TransformSystems::Propagate)
+                        .before(bevy_app::TransformGizmoRenderStep)
                         .after(CameraUpdateSystems),
                     extract_chromatic_phase_textures.after(AssetEventSystems),
                 ),
