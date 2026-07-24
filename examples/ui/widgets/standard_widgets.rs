@@ -14,7 +14,7 @@ use bevy::{
     },
     picking::hover::Hovered,
     prelude::*,
-    ui::{Checked, InteractionDisabled, Pressed, interaction_states::OptionPressedExt},
+    ui::{interaction_states::OptionPressedExt, Checked, InteractionDisabled, Pressed},
     ui_widgets::{
         checkbox_self_update, observe,
         popover::{Popover, PopoverAlign, PopoverPlacement, PopoverSide},
@@ -317,23 +317,21 @@ fn update_button_style2(
     mut removed_disabled: RemovedComponents<InteractionDisabled>,
     mut text_query: Query<&mut Text>,
 ) {
-    removed_disabled.
-        read()
-        .for_each(|entity| {
-            if let Ok((pressed, hovered, disabled, mut color, mut border_color, children)) =
-                buttons.get_mut(entity)
-            {
-                let mut text = text_query.get_mut(children[0]).unwrap();
-                set_button_style(
-                    disabled,
-                    hovered.get(),
-                    pressed.is_pressed(),
-                    &mut color,
-                    &mut border_color,
-                    &mut text,
-                );
-            }
-        });
+    removed_disabled.read().for_each(|entity| {
+        if let Ok((pressed, hovered, disabled, mut color, mut border_color, children)) =
+            buttons.get_mut(entity)
+        {
+            let mut text = text_query.get_mut(children[0]).unwrap();
+            set_button_style(
+                disabled,
+                hovered.get(),
+                pressed.is_pressed(),
+                &mut color,
+                &mut border_color,
+                &mut text,
+            );
+        }
+    });
 }
 
 fn set_button_style(
@@ -926,13 +924,11 @@ fn update_menu_item_style2(
     >,
     mut removed_disabled: RemovedComponents<InteractionDisabled>,
 ) {
-    removed_disabled
-        .read()
-        .for_each(|entity| {
-            if let Ok((pressed, hovered, disabled, mut color)) = buttons.get_mut(entity) {
-                set_menu_item_style(disabled, hovered.get(), pressed.is_pressed(), &mut color);
-            }
-        });
+    removed_disabled.read().for_each(|entity| {
+        if let Ok((pressed, hovered, disabled, mut color)) = buttons.get_mut(entity) {
+            set_menu_item_style(disabled, hovered.get(), pressed.is_pressed(), &mut color);
+        }
+    });
 }
 
 fn set_menu_item_style(disabled: bool, hovered: bool, pressed: bool, color: &mut BackgroundColor) {

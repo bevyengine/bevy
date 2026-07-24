@@ -19,8 +19,8 @@ use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::prelude::*;
 use bevy_text::FontWeight;
 use bevy_ui::{
-    px, AlignItems, BorderRadius, Checked, Display, FlexDirection, InteractionDisabled,
-    JustifyContent, LayoutConfig, Node, Pressed, UiRect, interaction_states::OptionPressedExt,
+    interaction_states::OptionPressedExt, px, AlignItems, BorderRadius, Checked, Display,
+    FlexDirection, InteractionDisabled, JustifyContent, LayoutConfig, Node, Pressed, UiRect,
 };
 use bevy_ui_widgets::{ActivateOnPress, RadioButton};
 

@@ -21,9 +21,9 @@ use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::prelude::*;
 use bevy_text::FontWeight;
 use bevy_ui::{
-    percent, px, widget::Text, AlignItems, BackgroundGradient, ColorStop, Display, FlexDirection,
-    Gradient, InteractionDisabled, InterpolationColorSpace, JustifyContent, LinearGradient, Node,
-    PositionType, Pressed, UiRect, interaction_states::OptionPressedExt,
+    interaction_states::OptionPressedExt, percent, px, widget::Text, AlignItems,
+    BackgroundGradient, ColorStop, Display, FlexDirection, Gradient, InteractionDisabled,
+    InterpolationColorSpace, JustifyContent, LinearGradient, Node, PositionType, Pressed, UiRect,
 };
 use bevy_ui_widgets::{
     Slider, SliderOrientation, SliderPrecision, SliderRange, SliderValue, TrackClick,
@@ -252,24 +252,22 @@ fn update_slider_styles_remove(
     theme: Res<UiTheme>,
     mut commands: Commands,
 ) {
-    removed_disabled
-        .read()
-        .for_each(|ent| {
-            if let Ok((slider_ent, disabled, pressed, hovered, mut gradient, font_color)) =
-                q_sliders.get_mut(ent)
-            {
-                set_slider_styles(
-                    slider_ent,
-                    &theme,
-                    disabled,
-                    pressed.is_pressed(),
-                    hovered.0,
-                    gradient.as_mut(),
-                    font_color,
-                    &mut commands,
-                );
-            }
-        });
+    removed_disabled.read().for_each(|ent| {
+        if let Ok((slider_ent, disabled, pressed, hovered, mut gradient, font_color)) =
+            q_sliders.get_mut(ent)
+        {
+            set_slider_styles(
+                slider_ent,
+                &theme,
+                disabled,
+                pressed.is_pressed(),
+                hovered.0,
+                gradient.as_mut(),
+                font_color,
+                &mut commands,
+            );
+        }
+    });
 }
 
 /// Re-apply slider styles to every slider when the theme changes.

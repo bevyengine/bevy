@@ -10,7 +10,7 @@ use bevy::{
     picking::hover::Hovered,
     prelude::*,
     reflect::Is,
-    ui::{Checked, InteractionDisabled, Pressed, interaction_states::OptionPressedExt},
+    ui::{interaction_states::OptionPressedExt, Checked, InteractionDisabled, Pressed},
     ui_widgets::{
         checkbox_self_update, observe, Activate, Button, Checkbox, Slider, SliderRange,
         SliderThumb, SliderValue, ValueChange,

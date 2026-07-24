@@ -21,8 +21,9 @@ use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::prelude::*;
 use bevy_text::FontWeight;
 use bevy_ui::{
-    px, AlignItems, BorderRadius, Checked, Display, FlexDirection, InteractionDisabled,
-    JustifyContent, Node, PositionType, Pressed, UiRect, UiTransform, interaction_states::OptionPressedExt,
+    interaction_states::OptionPressedExt, px, AlignItems, BorderRadius, Checked, Display,
+    FlexDirection, InteractionDisabled, JustifyContent, Node, PositionType, Pressed, UiRect,
+    UiTransform,
 };
 use bevy_ui_widgets::{ActivateOnPress, Checkbox};
 

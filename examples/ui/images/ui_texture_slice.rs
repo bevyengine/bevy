@@ -32,31 +32,23 @@ fn button_system(
     mut buttons: Query<
         (
             Entity,
-            Option<Ref<Pressed>>,
-            Ref<Hovered>,
+            Option<&Pressed>,
+            &Hovered,
             &mut ImageNode,
             &Children,
         ),
-        With<Button>,
+        (Or<(Changed<Hovered>, Changed<Pressed>)>, With<Button>),
     >,
-    mut removed_pressed: RemovedComponents<Pressed>,
     mut text_query: Query<&mut Text>,
 ) {
-    // Buttons that had `Pressed` removed this frame; change detection does not report removals.
-    let just_unpressed: HashSet<Entity> = removed_pressed.read().collect();
     for (entity, pressed, hovered, mut image, children) in &mut buttons {
-        let changed = hovered.is_changed()
-            || pressed.as_ref().is_some_and(Ref::is_changed)
-            || just_unpressed.contains(&entity);
-        if changed {
-            set_button_style(
-                pressed.is_some(),
-                hovered.get(),
-                &mut image,
-                children,
-                &mut text_query,
-            );
-        }
+        set_button_style(
+            pressed.is_pressed(),
+            hovered.get(),
+            &mut image,
+            children,
+            &mut text_query,
+        );
     }
 }
 

@@ -19,7 +19,8 @@ use bevy_picking::{hover::Hovered, PickingSystems};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::prelude::*;
 use bevy_ui::{
-    percent, px, BorderRadius, Checked, InteractionDisabled, Node, PositionType, Pressed, UiRect, interaction_states::OptionPressedExt
+    interaction_states::OptionPressedExt, percent, px, BorderRadius, Checked, InteractionDisabled,
+    Node, PositionType, Pressed, UiRect,
 };
 use bevy_ui_widgets::{ActivateOnPress, Checkbox};
 
@@ -223,7 +224,6 @@ fn update_switch_styles_remove(
     >,
     mut removed_disabled: RemovedComponents<InteractionDisabled>,
     mut removed_checked: RemovedComponents<Checked>,
-    mut remove_pressed: RemovedComponents<Pressed>,
     mut remove_activate_on_press: RemovedComponents<ActivateOnPress>,
     mut commands: Commands,
 ) {

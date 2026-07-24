@@ -20,9 +20,9 @@ use bevy_reflect::Reflect;
 use bevy_scene::prelude::*;
 use bevy_text::FontWeight;
 use bevy_ui::{
-    px, AlignItems, AlignSelf, BoxShadow, Display, FlexDirection, GlobalZIndex,
-    InteractionDisabled, JustifyContent, Node, OverrideClip, PositionType, Pressed, UiRect,
-    interaction_states::OptionPressedExt,
+    interaction_states::OptionPressedExt, px, AlignItems, AlignSelf, BoxShadow, Display,
+    FlexDirection, GlobalZIndex, InteractionDisabled, JustifyContent, Node, OverrideClip,
+    PositionType, Pressed, UiRect,
 };
 use bevy_ui_widgets::{
     popover::{Popover, PopoverAlign, PopoverPlacement, PopoverSide},
@@ -452,7 +452,11 @@ fn update_menuitem_styles(
         ),
         (
             With<FeathersMenuItem>,
-            Or<(Changed<Hovered>, Changed<Pressed>, Added<InteractionDisabled>)>,
+            Or<(
+                Changed<Hovered>,
+                Changed<Pressed>,
+                Added<InteractionDisabled>,
+            )>,
         ),
     >,
     mut commands: Commands,
@@ -490,24 +494,22 @@ fn update_menuitem_styles_remove(
     focus_visible: Res<InputFocusVisible>,
     mut commands: Commands,
 ) {
-    removed_disabled
-        .read()
-        .for_each(|ent| {
-            if let Ok((item_ent, disabled, pressed, hovered, bg_color, font_color)) =
-                q_menuitems.get(ent)
-            {
-                set_menuitem_colors(
-                    item_ent,
-                    disabled,
-                    pressed.is_pressed(),
-                    hovered.0,
-                    Some(item_ent) == focus.get() && focus_visible.0,
-                    bg_color,
-                    font_color,
-                    &mut commands,
-                );
-            }
-        });
+    removed_disabled.read().for_each(|ent| {
+        if let Ok((item_ent, disabled, pressed, hovered, bg_color, font_color)) =
+            q_menuitems.get(ent)
+        {
+            set_menuitem_colors(
+                item_ent,
+                disabled,
+                pressed.is_pressed(),
+                hovered.0,
+                Some(item_ent) == focus.get() && focus_visible.0,
+                bg_color,
+                font_color,
+                &mut commands,
+            );
+        }
+    });
 }
 
 fn update_menuitem_styles_focus_changed(

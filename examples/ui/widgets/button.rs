@@ -26,7 +26,7 @@ use bevy::{
     color::palettes::basic::*,
     picking::hover::Hovered,
     prelude::*,
-    ui::{Pressed, interaction_states::OptionPressedExt},
+    ui::{interaction_states::OptionPressedExt, Pressed},
     ui_widgets::{observe, Activate, Button},
 };
 

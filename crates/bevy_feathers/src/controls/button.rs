@@ -16,7 +16,10 @@ use bevy_picking::{hover::Hovered, PickingSystems};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::prelude::*;
 use bevy_text::FontWeight;
-use bevy_ui::{px, AlignItems, InteractionDisabled, JustifyContent, Node, Pressed, UiRect, interaction_states::OptionPressedExt};
+use bevy_ui::{
+    interaction_states::OptionPressedExt, px, AlignItems, InteractionDisabled, JustifyContent,
+    Node, Pressed, UiRect,
+};
 use bevy_ui_widgets::Button;
 
 use crate::{
@@ -244,24 +247,22 @@ fn update_button_styles_remove(
     mut removed_disabled: RemovedComponents<InteractionDisabled>,
     mut commands: Commands,
 ) {
-    removed_disabled
-        .read()
-        .for_each(|ent| {
-            if let Ok((button_ent, variant, disabled, pressed, hovered, bg_color, font_color)) =
-                q_buttons.get(ent)
-            {
-                set_button_styles(
-                    button_ent,
-                    variant,
-                    disabled,
-                    pressed.is_pressed(),
-                    hovered.0,
-                    bg_color,
-                    font_color,
-                    &mut commands,
-                );
-            }
-        });
+    removed_disabled.read().for_each(|ent| {
+        if let Ok((button_ent, variant, disabled, pressed, hovered, bg_color, font_color)) =
+            q_buttons.get(ent)
+        {
+            set_button_styles(
+                button_ent,
+                variant,
+                disabled,
+                pressed.is_pressed(),
+                hovered.0,
+                bg_color,
+                font_color,
+                &mut commands,
+            );
+        }
+    });
 }
 
 fn set_button_styles(
