@@ -44,6 +44,48 @@ pub const LIGHT_TILE_SAMPLES_PER_BLOCK: u64 = 1024;
 /// Amount of entries in the world cache (must be a power of 2, and >= 2^10)
 pub const WORLD_CACHE_SIZE: u64 = 2u64.pow(20);
 
+/// Layout constants for the packed `WorldCache` buffer.
+///
+/// The `ShaderType` mirror lives in this module and is intentionally private so it cannot be
+/// constructed, because it would be too large.
+mod world_cache_layout {
+    use bevy_math::{Vec3, Vec4};
+    use bevy_render::render_resource::ShaderType;
+
+    const WORLD_CACHE_LEN: usize = super::WORLD_CACHE_SIZE as usize;
+
+    #[derive(ShaderType)]
+    struct GeometryData {
+        world_position: Vec3,
+        padding_a: u32,
+        world_normal: Vec3,
+        padding_b: u32,
+    }
+
+    #[derive(ShaderType)]
+    struct WorldCache {
+        checksums: [u32; WORLD_CACHE_LEN],
+        life: [u32; WORLD_CACHE_LEN],
+        radiance: [Vec4; WORLD_CACHE_LEN],
+        geometry_data: [GeometryData; WORLD_CACHE_LEN],
+        luminance_deltas: [f32; WORLD_CACHE_LEN],
+        active_cells_new_radiance: [Vec3; WORLD_CACHE_LEN],
+        a: [u32; WORLD_CACHE_LEN],
+        b: [u32; WORLD_CACHE_LEN / 1024],
+        active_cell_indices: [u32; WORLD_CACHE_LEN],
+        active_cells_count: u32,
+    }
+
+    // `ShaderType::METADATA` is internal, but we need the field offset and size without
+    // constructing this large layout type.
+    pub const ACTIVE_CELLS_COUNT_OFFSET: u64 = WorldCache::METADATA.last_offset();
+    /// Must stay under wgpu's default `max_storage_buffer_binding_size` (128 MiB or 2^27 bytes).
+    pub const BUFFER_SIZE: u64 = WorldCache::METADATA.min_size().get();
+}
+
+pub const WORLD_CACHE_ACTIVE_CELLS_COUNT_OFFSET: u64 =
+    world_cache_layout::ACTIVE_CELLS_COUNT_OFFSET;
+
 /// GPU representation of the user-configurable [`SolariLighting`] settings, plus
 /// per-frame state.
 ///
@@ -93,16 +135,7 @@ pub struct SolariLightingResources {
     pub light_tile_resolved_samples: Buffer,
     pub reservoirs_a: Buffer,
     pub reservoirs_b: Buffer,
-    pub world_cache_checksums: Buffer,
-    pub world_cache_life: Buffer,
-    pub world_cache_radiance: Buffer,
-    pub world_cache_geometry_data: Buffer,
-    pub world_cache_luminance_deltas: Buffer,
-    pub world_cache_active_cells_new_radiance: Buffer,
-    pub world_cache_a: Buffer,
-    pub world_cache_b: Buffer,
-    pub world_cache_active_cell_indices: Buffer,
-    pub world_cache_active_cells_count: Buffer,
+    pub world_cache: Buffer,
     pub world_cache_active_cells_dispatch: Buffer,
     pub view_size: UVec2,
 }
@@ -196,72 +229,9 @@ pub fn prepare_solari_lighting_resources(
         let reservoirs_a = reservoirs_buffer("solari_lighting_reservoirs_a");
         let reservoirs_b = reservoirs_buffer("solari_lighting_reservoirs_b");
 
-        let world_cache_checksums = render_device.create_buffer(&BufferDescriptor {
-            label: Some("solari_lighting_world_cache_checksums"),
-            size: WORLD_CACHE_SIZE * size_of::<u32>() as u64,
-            usage: BufferUsages::STORAGE,
-            mapped_at_creation: false,
-        });
-
-        let world_cache_life = render_device.create_buffer(&BufferDescriptor {
-            label: Some("solari_lighting_world_cache_life"),
-            size: WORLD_CACHE_SIZE * size_of::<u32>() as u64,
-            usage: BufferUsages::STORAGE,
-            mapped_at_creation: false,
-        });
-
-        let world_cache_radiance = render_device.create_buffer(&BufferDescriptor {
-            label: Some("solari_lighting_world_cache_radiance"),
-            size: WORLD_CACHE_SIZE * size_of::<[f32; 4]>() as u64,
-            usage: BufferUsages::STORAGE,
-            mapped_at_creation: false,
-        });
-
-        let world_cache_geometry_data = render_device.create_buffer(&BufferDescriptor {
-            label: Some("solari_lighting_world_cache_geometry_data"),
-            size: WORLD_CACHE_SIZE * size_of::<[f32; 8]>() as u64,
-            usage: BufferUsages::STORAGE,
-            mapped_at_creation: false,
-        });
-
-        let world_cache_luminance_deltas = render_device.create_buffer(&BufferDescriptor {
-            label: Some("solari_lighting_world_cache_luminance_deltas"),
-            size: WORLD_CACHE_SIZE * size_of::<f32>() as u64,
-            usage: BufferUsages::STORAGE,
-            mapped_at_creation: false,
-        });
-
-        let world_cache_active_cells_new_radiance =
-            render_device.create_buffer(&BufferDescriptor {
-                label: Some("solari_lighting_world_cache_active_cells_new_radiance"),
-                size: WORLD_CACHE_SIZE * size_of::<[f32; 4]>() as u64,
-                usage: BufferUsages::STORAGE,
-                mapped_at_creation: false,
-            });
-
-        let world_cache_a = render_device.create_buffer(&BufferDescriptor {
-            label: Some("solari_lighting_world_cache_a"),
-            size: WORLD_CACHE_SIZE * size_of::<u32>() as u64,
-            usage: BufferUsages::STORAGE,
-            mapped_at_creation: false,
-        });
-        let world_cache_b = render_device.create_buffer(&BufferDescriptor {
-            label: Some("solari_lighting_world_cache_b"),
-            size: 1024 * size_of::<u32>() as u64,
-            usage: BufferUsages::STORAGE,
-            mapped_at_creation: false,
-        });
-
-        let world_cache_active_cell_indices = render_device.create_buffer(&BufferDescriptor {
-            label: Some("solari_lighting_world_cache_active_cell_indices"),
-            size: WORLD_CACHE_SIZE * size_of::<u32>() as u64,
-            usage: BufferUsages::STORAGE,
-            mapped_at_creation: false,
-        });
-
-        let world_cache_active_cells_count = render_device.create_buffer(&BufferDescriptor {
-            label: Some("solari_lighting_world_cache_active_cells_count"),
-            size: size_of::<u32>() as u64,
+        let world_cache = render_device.create_buffer(&BufferDescriptor {
+            label: Some("solari_lighting_world_cache"),
+            size: world_cache_layout::BUFFER_SIZE,
             usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
             mapped_at_creation: false,
         });
@@ -279,16 +249,7 @@ pub fn prepare_solari_lighting_resources(
             light_tile_resolved_samples,
             reservoirs_a,
             reservoirs_b,
-            world_cache_checksums,
-            world_cache_life,
-            world_cache_radiance,
-            world_cache_geometry_data,
-            world_cache_luminance_deltas,
-            world_cache_active_cells_new_radiance,
-            world_cache_a,
-            world_cache_b,
-            world_cache_active_cell_indices,
-            world_cache_active_cells_count,
+            world_cache,
             world_cache_active_cells_dispatch,
             view_size,
         });
