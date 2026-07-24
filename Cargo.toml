@@ -5615,5 +5615,3 @@ description = "Demonstrates bindless materials in 2D"
 category = "Shaders"
 wasm = false
 
-[patch.crates-io]
-wesl = { git = "https://github.com/tychedelia/wesl-rs", rev = "139768ad1bd03e1eb9ac236dac618eacd6542990" }
