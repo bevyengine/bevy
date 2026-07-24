@@ -50,6 +50,9 @@ pub(crate) fn on_remove_disabled(
 ///
 /// If the component's value is false for one whole frame, the [`remove_pressed_on_next_frame()`]
 /// system that runs in the `Last` schedule removes the `Pressed` component from the entity.
+/// 
+/// [`OptionPressedExt`] is an easy extension to make working with `Option<&Pressed>` or `Option<&mut Pressed>`
+/// easier from queries.
 #[derive(Component, Debug, Clone, Copy, Reflect)]
 #[reflect(Component, Default, Clone)]
 pub struct Pressed(pub bool);
@@ -67,8 +70,8 @@ impl Default for Pressed {
     }
 }
 
-/// Extension trait for `Option<&Pressed>` for a convenience method
-/// to more easily checked the pressed state.
+/// Extension trait for `Option<&Pressed>` and `Option<Mut<'_, Pressed>>`. 
+/// Provides a convenience method to concisely checked the pressed state.
 pub trait OptionPressedExt {
     fn is_pressed(&self) -> bool;
 }
