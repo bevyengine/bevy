@@ -17,6 +17,7 @@ fn main() {
     App::new()
         .add_plugins((DefaultPlugins, TabNavigationPlugin))
         .add_systems(Startup, setup)
+        .add_systems(Update, update_input_scrollbar)
         .run();
 }
 
@@ -34,6 +35,21 @@ struct SelectionRadiusInput;
 
 #[derive(Component)]
 struct JustifyLabel;
+
+/// Marks the draggable thumb of the multiline input's vertical scrollbar.
+///
+/// This is a small, self-contained scrollbar built directly against
+/// [`EditableText::viewport`] and [`EditableText::content_size`], since the input's scroll
+/// state isn't a [`ScrollPosition`](bevy::ui::ScrollPosition) and so can't drive the headless
+/// `Scrollbar` widget from `bevy_ui_widgets`. It has no `TabIndex` and isn't `InputFocus`able.
+#[derive(Component)]
+struct InputScrollThumb;
+
+#[derive(Component, Default)]
+struct InputScrollDragState {
+    dragging: bool,
+    drag_origin: f32,
+}
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
@@ -59,61 +75,106 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ))
                 .with_children(|parent| {
                     parent
-                        .spawn((
-                            Node {
-                                width: px(450.),
-                                border: px(2.).all(),
-                                padding: px(8.).all(),
-                                ..default()
-                            },
-                            EditableText {
-                                visible_lines: Some(8.),
-                                allow_newlines: true,
-                                ..default()
-                            },
-                            TextLayout {
-                                linebreak: LineBreak::WordOrCharacter,
-                                ..default()
-                            },
-                            TextCursorStyle {
-                                color: Color::WHITE,
-                                selected_text_color: Some(Color::BLACK),
-                                ..default()
-                            },
-                            TextFont {
-                                font: asset_server.load("fonts/FiraMono-Medium.ttf").into(),
-                                font_size: FontSize::Px(30.),
-                                ..default()
-                            },
-                            BackgroundColor(DARK_SLATE_GRAY.into()),
-                            BorderColor::all(SLATE_300),
-                            MultilineInput,
-                            TabIndex(0),
-                            AutoFocus,
-                        ))
-                        .observe(
-                            |on: On<FocusedInput<KeyboardInput>>,
-                             keys: Res<ButtonInput<Key>>,
-                             input_query: Query<&EditableText, With<MultilineInput>>| {
-                                if !(on.input.state.is_pressed()
-                                    && on.input.logical_key == Key::Enter
-                                    && keys.pressed(Key::Control))
-                                {
-                                    return;
-                                }
-                                let Ok(input) = input_query.get(on.focused_entity) else {
-                                    return;
-                                };
+                        .spawn(Node {
+                            display: Display::Grid,
+                            grid_template_columns: vec![
+                                RepeatedGridTrack::auto(1),
+                                RepeatedGridTrack::auto(1),
+                            ],
+                            column_gap: px(4.),
+                            ..default()
+                        })
+                        .with_children(|parent| {
+                            parent
+                                .spawn((
+                                    Node {
+                                        width: px(450.),
+                                        border: px(2.).all(),
+                                        padding: px(8.).all(),
+                                        ..default()
+                                    },
+                                    EditableText {
+                                        visible_lines: Some(8.),
+                                        allow_newlines: true,
+                                        ..default()
+                                    },
+                                    TextLayout {
+                                        linebreak: LineBreak::WordOrCharacter,
+                                        ..default()
+                                    },
+                                    TextCursorStyle {
+                                        color: Color::WHITE,
+                                        selected_text_color: Some(Color::BLACK),
+                                        ..default()
+                                    },
+                                    TextFont {
+                                        font: asset_server.load("fonts/FiraMono-Medium.ttf").into(),
+                                        font_size: FontSize::Px(30.),
+                                        ..default()
+                                    },
+                                    BackgroundColor(DARK_SLATE_GRAY.into()),
+                                    BorderColor::all(SLATE_300),
+                                    MultilineInput,
+                                    TabIndex(0),
+                                    AutoFocus,
+                                ))
+                                .observe(
+                                    |on: On<FocusedInput<KeyboardInput>>,
+                                     keys: Res<ButtonInput<Key>>,
+                                     input_query: Query<&EditableText, With<MultilineInput>>| {
+                                        if !(on.input.state.is_pressed()
+                                            && on.input.logical_key == Key::Enter
+                                            && keys.pressed(Key::Control))
+                                        {
+                                            return;
+                                        }
+                                        let Ok(input) = input_query.get(on.focused_entity) else {
+                                            return;
+                                        };
 
-                                let mut output = String::new();
-                                output.reserve(input.value().into_iter().map(str::len).sum());
-                                for sub_str in input.value() {
-                                    output.push_str(sub_str);
-                                }
+                                        let mut output = String::new();
+                                        output
+                                            .reserve(input.value().into_iter().map(str::len).sum());
+                                        for sub_str in input.value() {
+                                            output.push_str(sub_str);
+                                        }
 
-                                info!("{output}"                                    );
-                            },
-                        );
+                                        info!("{output}");
+                                    },
+                                );
+
+                            // Vertical scrollbar for the multiline input above. Not part of the
+                            // input's tab group and has no `TabIndex`, so it's unreachable via
+                            // Tab navigation and can't take input focus.
+                            parent
+                                .spawn((
+                                    Node {
+                                        min_width: px(10.),
+                                        ..default()
+                                    },
+                                    BackgroundColor(DARK_SLATE_GRAY.into()),
+                                    BorderColor::all(SLATE_300),
+                                ))
+                                .with_children(|parent| {
+                                    parent
+                                        .spawn((
+                                            Node {
+                                                position_type: PositionType::Absolute,
+                                                width: percent(100.),
+                                                left: px(0.),
+                                                border_radius: BorderRadius::all(px(4.)),
+                                                ..default()
+                                            },
+                                            BackgroundColor(SLATE_300.into()),
+                                            Visibility::Hidden,
+                                            InputScrollThumb,
+                                            InputScrollDragState::default(),
+                                        ))
+                                        .observe(on_thumb_drag_start)
+                                        .observe(on_thumb_drag)
+                                        .observe(on_thumb_drag_end);
+                                });
+                        });
 
                     parent
                         .spawn((
@@ -487,4 +548,78 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         });
                 });
         });
+}
+
+/// Sizes and positions the scrollbar thumb from the multiline input's viewport, hiding it
+/// entirely when the full text layout already fits inside the viewport.
+fn update_input_scrollbar(
+    input: Single<&EditableText, With<MultilineInput>>,
+    mut thumb: Single<(&mut Node, &mut Visibility), With<InputScrollThumb>>,
+) {
+    let viewport = &input.viewport;
+    let content_height = input.content_size.y.max(viewport.size.y);
+
+    if viewport.size.y <= 0. || content_height <= viewport.size.y {
+        *thumb.1 = Visibility::Hidden;
+        return;
+    }
+    *thumb.1 = Visibility::Visible;
+
+    let thumb_fraction = (viewport.size.y / content_height).clamp(0.05, 1.);
+    let max_offset = content_height - viewport.size.y;
+    let scroll_fraction = (viewport.offset.y / max_offset).clamp(0., 1.);
+
+    thumb.0.height = percent(thumb_fraction * 100.);
+    thumb.0.top = percent(scroll_fraction * (1. - thumb_fraction) * 100.);
+}
+
+fn on_thumb_drag_start(
+    mut on: On<Pointer<DragStart>>,
+    mut thumb_query: Query<&mut InputScrollDragState, With<InputScrollThumb>>,
+    input: Single<&EditableText, With<MultilineInput>>,
+) {
+    on.propagate(false);
+    let Ok(mut drag) = thumb_query.get_mut(on.entity) else {
+        return;
+    };
+    drag.dragging = true;
+    drag.drag_origin = input.viewport.offset.y;
+}
+
+fn on_thumb_drag(
+    mut on: On<Pointer<Drag>>,
+    thumb_query: Query<(&InputScrollDragState, &ChildOf), With<InputScrollThumb>>,
+    track_query: Query<&ComputedNode>,
+    mut input: Single<&mut EditableText, With<MultilineInput>>,
+) {
+    on.propagate(false);
+    let Ok((drag, ChildOf(track))) = thumb_query.get(on.entity) else {
+        return;
+    };
+    if !drag.dragging {
+        return;
+    }
+    let Ok(track_node) = track_query.get(*track) else {
+        return;
+    };
+    let track_height = track_node.size.y * track_node.inverse_scale_factor;
+    if track_height <= 0. {
+        return;
+    }
+
+    let content_height = input.content_size.y.max(input.viewport.size.y);
+    let max_offset = (content_height - input.viewport.size.y).max(0.);
+    let delta = on.distance.y / track_height * content_height;
+    input.viewport.offset.y = (drag.drag_origin + delta).clamp(0., max_offset);
+}
+
+fn on_thumb_drag_end(
+    mut on: On<Pointer<DragEnd>>,
+    mut thumb_query: Query<&mut InputScrollDragState, With<InputScrollThumb>>,
+) {
+    on.propagate(false);
+    let Ok(mut drag) = thumb_query.get_mut(on.entity) else {
+        return;
+    };
+    drag.dragging = false;
 }

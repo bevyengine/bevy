@@ -534,6 +534,8 @@ pub fn update_editable_text_layout(
             ),
             full_layout_size.y,
         ));
+
+        editable_text.content_size = full_layout_size;
     }
 
     *previous_focus = current_focus;

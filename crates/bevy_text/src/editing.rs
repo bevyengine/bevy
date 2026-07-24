@@ -119,6 +119,12 @@ pub struct EditableText {
     pub editor: PlainEditor<TextBrush>,
     /// The bounds of the visible portion of the text layout.
     pub viewport: TextViewport,
+    /// The size of the full text layout, in text-layout coordinates.
+    ///
+    /// Updated automatically after each layout pass. Together with `viewport`, this can be
+    /// used by external code (e.g. a scrollbar) to compute the visible fraction and position
+    /// of the content.
+    pub content_size: Vec2,
     /// Text edit actions that have been requested but not yet applied.
     ///
     /// These edits are processed in first-in, first-out order.
@@ -161,6 +167,7 @@ impl Default for EditableText {
             // Defaults selected to match `Text::default()`
             editor: PlainEditor::new(100.),
             viewport: TextViewport::default(),
+            content_size: Vec2::ZERO,
             cursor_margin: Vec2::splat(0.2),
             pending_edits: Vec::new(),
             pending_paste: None,
