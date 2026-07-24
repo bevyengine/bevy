@@ -1,9 +1,6 @@
 //! This module contains the systems that update the stored UI nodes stack
 
-use crate::{
-    experimental::{UiChildren, UiRootNodes},
-    GlobalZIndex, ZIndex,
-};
+use crate::{GlobalZIndex, Node, ZIndex};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{entity::EntityHashSet, prelude::*};
 use bevy_reflect::std_traits::ReflectDefault;
@@ -56,13 +53,13 @@ pub fn ui_stack_system(
     mut root_nodes: Local<Vec<(Entity, (i32, i32))>>,
     mut visited_root_nodes: Local<EntityHashSet>,
     mut ui_stack: ResMut<UiStack>,
-    ui_root_nodes: UiRootNodes,
+    ui_root_nodes: Query<Entity, (With<Node>, Without<ChildOf>)>,
     root_node_query: Query<(Entity, Option<&GlobalZIndex>, Option<&ZIndex>)>,
     zindex_global_node_query: Query<
         (Entity, &GlobalZIndex, Option<&ZIndex>),
         With<ComputedStackIndex>,
     >,
-    ui_children: UiChildren,
+    ui_children: Query<&Children, With<Node>>,
     zindex_query: Query<Option<&ZIndex>, (With<ComputedStackIndex>, Without<GlobalZIndex>)>,
     mut update_query: Query<&mut ComputedStackIndex>,
 ) {
@@ -120,7 +117,7 @@ pub fn ui_stack_system(
 fn update_uistack_recursive(
     cache: &mut ChildBufferCache,
     node_entity: Entity,
-    ui_children: &UiChildren,
+    ui_children: &Query<&Children, With<Node>>,
     zindex_query: &Query<Option<&ZIndex>, (With<ComputedStackIndex>, Without<GlobalZIndex>)>,
     ui_stack: &mut Vec<Entity>,
 ) {
@@ -129,7 +126,11 @@ fn update_uistack_recursive(
     let mut child_buffer = cache.pop();
     child_buffer.extend(
         ui_children
-            .iter_ui_children(node_entity)
+            .get(node_entity)
+            .ok()
+            .into_iter()
+            .flatten()
+            .copied()
             .filter_map(|child_entity| {
                 zindex_query
                     .get(child_entity)

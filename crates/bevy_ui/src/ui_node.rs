@@ -398,6 +398,16 @@ impl Default for ComputedNode {
     }
 }
 
+/// Marker component for entities that should be ignored within UI hierarchies.
+///
+/// The UI systems will traverse past these and treat their first non-ghost descendants as direct children of their first non-ghost ancestor.
+///
+/// Any components necessary for transform and visibility propagation will be added automatically.
+#[derive(Default, Component, Debug, Copy, Clone, Reflect)]
+#[reflect(Component, Debug, Clone)]
+#[require(Node)]
+pub struct GhostNode;
+
 /// The scroll position of the node. Values are in logical pixels, increasing from top-left to bottom-right.
 ///
 /// Increasing the x-coordinate causes the scrolled content to visibly move left on the screen, while increasing the y-coordinate causes the scrolled content to move up.

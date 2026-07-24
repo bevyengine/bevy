@@ -1,10 +1,7 @@
-#[cfg(feature = "ghost_nodes")]
-use crate::experimental::GhostNode;
 use crate::{
-    experimental::{UiChildren, UiRootNodes},
     ui_transform::{UiGlobalTransform, UiTransform},
-    ComputedNode, ComputedUiRenderTargetInfo, ContentSize, Display, FixedNode, IgnoreScroll,
-    LayoutConfig, Node, Outline, OverflowAxis, ScrollPosition,
+    ComputedNode, ComputedUiRenderTargetInfo, ContentSize, Display, FixedNode, GhostNode,
+    IgnoreScroll, LayoutConfig, Node, Outline, OverflowAxis, ScrollPosition,
 };
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
@@ -15,6 +12,10 @@ use bevy_ecs::{
     system::{Query, ResMut},
     world::Ref,
 };
+
+use bevy_ecs::{prelude::*, system::SystemParam};
+
+use smallvec::SmallVec;
 
 use bevy_math::{Affine2, Vec2};
 use bevy_sprite::BorderRect;
@@ -29,6 +30,121 @@ use bevy_log::warn;
 mod convert;
 pub mod debug;
 pub mod ui_surface;
+
+/// System param that allows iteration of all UI root nodes.
+///
+/// A UI root node is either a [`Node`] without a [`ChildOf`], or with only [`GhostNode`] ancestors.
+#[derive(SystemParam)]
+pub struct UiRootNodes<'w, 's> {
+    root_node_query: Query<'w, 's, Entity, (With<Node>, Without<GhostNode>, Without<ChildOf>)>,
+    root_ghost_node_query: Query<'w, 's, Entity, (With<GhostNode>, Without<ChildOf>)>,
+    all_nodes_query: Query<'w, 's, Entity, (With<Node>, Without<GhostNode>)>,
+    ui_children: UiChildren<'w, 's>,
+}
+
+impl<'w, 's> UiRootNodes<'w, 's> {
+    pub fn iter(&'s self) -> impl Iterator<Item = Entity> + 's {
+        self.root_node_query
+            .iter()
+            .chain(self.root_ghost_node_query.iter().flat_map(|root_ghost| {
+                self.all_nodes_query
+                    .iter_many(self.ui_children.iter_ui_children(root_ghost))
+            }))
+    }
+}
+
+impl<'w, 's> UiChildren<'w, 's> {
+    /// Iterates the children of `entity`, skipping over [`GhostNode`].
+    ///
+    /// Traverses the hierarchy depth-first to ensure child order.
+    ///
+    /// # Performance
+    ///
+    /// This iterator allocates if the `entity` node has more than 8 children (including ghost nodes).
+    pub fn iter_ui_children(&'s self, entity: Entity) -> UiChildrenIter<'w, 's> {
+        UiChildrenIter {
+            stack: self
+                .ui_children_query
+                .get(entity)
+                .map_or(SmallVec::new(), |(children, _)| {
+                    children.into_iter().flatten().rev().copied().collect()
+                }),
+            query: &self.ui_children_query,
+        }
+    }
+
+    /// Returns the UI parent of the provided entity, skipping over [`GhostNode`].
+    pub fn get_parent(&'s self, entity: Entity) -> Option<Entity> {
+        self.parents_query
+            .iter_ancestors(entity)
+            .find(|entity| !self.ghost_nodes_query.contains(*entity))
+    }
+
+    /// Iterates the [`GhostNode`]s between this entity and its UI children.
+    pub fn iter_ghost_nodes(&'s self, entity: Entity) -> Box<dyn Iterator<Item = Entity> + 's> {
+        Box::new(
+            self.children_query
+                .get(entity)
+                .into_iter()
+                .flat_map(|children| {
+                    self.ghost_nodes_query
+                        .iter_many(children)
+                        .flat_map(|entity| {
+                            core::iter::once(entity).chain(self.iter_ghost_nodes(entity))
+                        })
+                }),
+        )
+    }
+
+    /// Given an entity in the UI hierarchy, check if its set of children has changed, e.g if children has been added/removed or if the order has changed.
+    pub fn is_changed(&'s self, entity: Entity) -> bool {
+        self.changed_children_query.contains(entity)
+            || self
+                .iter_ghost_nodes(entity)
+                .any(|entity| self.changed_children_query.contains(entity))
+    }
+}
+
+#[derive(SystemParam)]
+pub struct UiChildren<'w, 's> {
+    ui_children_query: Query<
+        'w,
+        's,
+        (Option<&'static Children>, Has<GhostNode>),
+        Or<(With<Node>, With<GhostNode>)>,
+    >,
+    changed_children_query: Query<'w, 's, Entity, Changed<Children>>,
+    children_query: Query<'w, 's, &'static Children>,
+    ghost_nodes_query: Query<'w, 's, Entity, With<GhostNode>>,
+    parents_query: Query<'w, 's, &'static ChildOf>,
+}
+
+pub struct UiChildrenIter<'w, 's> {
+    stack: SmallVec<[Entity; 8]>,
+    query: &'s Query<
+        'w,
+        's,
+        (Option<&'static Children>, Has<GhostNode>),
+        Or<(With<Node>, With<GhostNode>)>,
+    >,
+}
+
+impl<'w, 's> Iterator for UiChildrenIter<'w, 's> {
+    type Item = Entity;
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            let entity = self.stack.pop()?;
+            if let Ok((children, has_ghost_node)) = self.query.get(entity) {
+                if !has_ghost_node {
+                    return Some(entity);
+                }
+                if let Some(children) = children {
+                    self.stack.extend(children.iter().rev());
+                }
+            }
+        }
+    }
+}
 
 pub struct LayoutContext {
     pub scale_factor: f32,
@@ -68,41 +184,53 @@ impl Default for LayoutContext {
 pub fn ui_layout_system(
     mut ui_surface: ResMut<UiSurface>,
     ui_root_node_query: UiRootNodes,
-    fixed_nodes_query: Query<Entity, (With<FixedNode>, With<ChildOf>)>,
+    fixed_nodes_query: Query<Entity, (With<FixedNode>, Without<GhostNode>, With<ChildOf>)>,
     ui_children: UiChildren,
-    mut node_query: Query<(
-        Entity,
-        Ref<Node>,
-        &mut ContentSize,
-        Ref<ComputedUiRenderTargetInfo>,
-    )>,
-    added_node_query: Query<(), Added<Node>>,
-    added_fixed_node_query: Query<Entity, Added<FixedNode>>,
-    mut node_update_query: Query<(
-        &mut ComputedNode,
-        &UiTransform,
-        &mut UiGlobalTransform,
-        &Node,
-        Option<&LayoutConfig>,
-        Option<&Outline>,
-        Option<&ScrollPosition>,
-        Option<&IgnoreScroll>,
-        Has<FixedNode>,
-    )>,
+    mut node_query: Query<
+        (
+            Entity,
+            Ref<Node>,
+            &mut ContentSize,
+            Ref<ComputedUiRenderTargetInfo>,
+        ),
+        Without<GhostNode>,
+    >,
+    added_node_query: Query<(), (Added<Node>, Without<GhostNode>)>,
+    added_fixed_node_query: Query<Entity, (Added<FixedNode>, Without<GhostNode>)>,
+    mut node_update_query: Query<
+        (
+            &mut ComputedNode,
+            &UiTransform,
+            &mut UiGlobalTransform,
+            &Node,
+            Option<&LayoutConfig>,
+            Option<&Outline>,
+            Option<&ScrollPosition>,
+            Option<&IgnoreScroll>,
+            Has<FixedNode>,
+        ),
+        Without<GhostNode>,
+    >,
     mut buffer_query: Query<&mut ComputedTextBlock>,
     mut font_system: ResMut<FontCx>,
     mut removed_children: RemovedComponents<Children>,
     mut removed_nodes: RemovedComponents<Node>,
     mut removed_fixed_nodes: RemovedComponents<FixedNode>,
-    #[cfg(feature = "ghost_nodes")] mut removed_ghost_nodes: RemovedComponents<GhostNode>,
-    #[cfg(feature = "ghost_nodes")] added_ghost_node_query: Query<Entity, Added<GhostNode>>,
-    #[cfg(feature = "ghost_nodes")] ghost_node_query: Query<(), With<GhostNode>>,
+    mut removed_ghost_nodes: RemovedComponents<GhostNode>,
+    added_ghost_node_query: Query<Entity, Added<GhostNode>>,
+    ghost_node_query: Query<(), With<GhostNode>>,
 ) {
+    let removed_ghost_nodes = removed_ghost_nodes.read().collect::<EntityHashSet>();
+
     // Sync Node and ContentSize to Taffy for all nodes
     node_query
         .iter_mut()
         .for_each(|(entity, node, mut content_size, computed_target)| {
-            if computed_target.is_changed() || node.is_changed() || content_size.is_changed() {
+            if computed_target.is_changed()
+                || node.is_changed()
+                || content_size.is_changed()
+                || removed_ghost_nodes.contains(&entity)
+            {
                 let layout_context = LayoutContext::new(
                     computed_target.scale_factor,
                     computed_target.physical_size.as_vec2(),
@@ -116,21 +244,16 @@ pub fn ui_layout_system(
         });
 
     // update and remove children
-    #[cfg(not(feature = "ghost_nodes"))]
-    {
-        for entity in removed_children.read() {
-            ui_surface.try_remove_children(entity);
-        }
-    }
-
-    #[cfg(feature = "ghost_nodes")]
     {
         // Collect the closest non-ghost ancestors of entities that had `GhostNode` added or removed since last layout update.
         ui_surface.dirty_ghost_children_scratch.clear();
-        for entity in added_ghost_node_query
-            .iter()
-            .chain(removed_ghost_nodes.read())
-        {
+        for entity in added_ghost_node_query.iter() {
+            if let Some(parent) = ui_children.get_parent(entity) {
+                ui_surface.dirty_ghost_children_scratch.insert(parent);
+            }
+        }
+        for entity in removed_ghost_nodes.iter().copied() {
+            ui_surface.dirty_ghost_children_scratch.insert(entity);
             if let Some(parent) = ui_children.get_parent(entity) {
                 ui_surface.dirty_ghost_children_scratch.insert(parent);
             }
@@ -152,6 +275,7 @@ pub fn ui_layout_system(
             .read()
             .filter(|entity| !node_query.contains(*entity)),
     );
+    ui_surface.remove_entities(added_ghost_node_query.iter());
 
     let fixed_node_changes = added_fixed_node_query
         .iter()
@@ -162,8 +286,8 @@ pub fn ui_layout_system(
         fn update_children_recursively(
             ui_surface: &mut UiSurface,
             ui_children: &UiChildren,
-            added_node_query: &Query<(), Added<Node>>,
-            fixed_nodes_query: &Query<Entity, (With<FixedNode>, With<ChildOf>)>,
+            added_node_query: &Query<(), (Added<Node>, Without<GhostNode>)>,
+            fixed_nodes_query: &Query<Entity, (With<FixedNode>, Without<GhostNode>, With<ChildOf>)>,
             fixed_node_changes: &EntityHashSet,
             entity: Entity,
         ) {
@@ -171,7 +295,7 @@ pub fn ui_layout_system(
                 || ui_children.iter_ui_children(entity).any(|child| {
                     added_node_query.contains(child) || fixed_node_changes.contains(&child)
                 });
-            #[cfg(feature = "ghost_nodes")]
+
             let children_changed =
                 children_changed || ui_surface.dirty_ghost_children_scratch.contains(&entity);
 
@@ -245,17 +369,20 @@ pub fn ui_layout_system(
         inherited_use_rounding: bool,
         target_size: Vec2,
         mut inherited_transform: Affine2,
-        node_update_query: &mut Query<(
-            &mut ComputedNode,
-            &UiTransform,
-            &mut UiGlobalTransform,
-            &Node,
-            Option<&LayoutConfig>,
-            Option<&Outline>,
-            Option<&ScrollPosition>,
-            Option<&IgnoreScroll>,
-            Has<FixedNode>,
-        )>,
+        node_update_query: &mut Query<
+            (
+                &mut ComputedNode,
+                &UiTransform,
+                &mut UiGlobalTransform,
+                &Node,
+                Option<&LayoutConfig>,
+                Option<&Outline>,
+                Option<&ScrollPosition>,
+                Option<&IgnoreScroll>,
+                Has<FixedNode>,
+            ),
+            Without<GhostNode>,
+        >,
         ui_children: &UiChildren,
         inverse_target_scale_factor: f32,
         parent_size: Vec2,
@@ -1691,10 +1818,9 @@ mod tests {
         assert_eq!(ui_surface.total_count(), 6);
     }
 
-    #[cfg(feature = "ghost_nodes")]
     mod ghost_node_tests {
         use super::*;
-        use crate::experimental::GhostNode;
+        use crate::GhostNode;
 
         fn compare_taffy_children(
             ui_surface: &UiSurface,
@@ -1793,7 +1919,7 @@ mod tests {
         }
 
         #[test]
-        fn removing_intermeditate_ghost_node_detaches_taffy_nodes() {
+        fn removing_intermediate_ghost_node_restores_taffy_node() {
             let mut app = setup_ui_test_app();
             let world = app.world_mut();
 
@@ -1814,8 +1940,8 @@ mod tests {
             let world = app.world_mut();
 
             let ui_surface = world.resource::<UiSurface>();
-            assert!(compare_taffy_children(ui_surface, root, &[]));
-            assert!(compare_taffy_parent(ui_surface, child, None));
+            assert!(compare_taffy_children(ui_surface, root, &[mid]));
+            assert!(compare_taffy_parent(ui_surface, child, Some(mid)));
             assert!(!ui_surface.root_entity_to_viewport_node.contains_key(&child));
         }
 

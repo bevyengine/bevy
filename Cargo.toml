@@ -700,9 +700,6 @@ reflect_auto_register_static = ["bevy_internal/reflect_auto_register_static"]
 # Enable winit custom cursor support
 custom_cursor = ["bevy_internal/custom_cursor"]
 
-# Experimental support for nodes that are ignored for UI layouting
-ghost_nodes = ["bevy_internal/ghost_nodes"]
-
 # Uses `async-executor` as a task execution backend.
 async_executor = ["std", "bevy_internal/async_executor"]
 
@@ -4091,7 +4088,6 @@ wasm = true
 name = "ghost_nodes"
 path = "examples/ui/layout/ghost_nodes.rs"
 doc-scrape-examples = true
-required-features = ["ghost_nodes"]
 
 [package.metadata.example.ghost_nodes]
 name = "Ghost Nodes"
