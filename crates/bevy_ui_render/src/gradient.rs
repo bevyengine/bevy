@@ -721,6 +721,7 @@ pub fn queue_gradient(
                 batch_range: 0..0,
                 extra_index: PhaseItemExtraIndex::None,
                 indexed: true,
+                batch_index: None,
             });
         }
     }

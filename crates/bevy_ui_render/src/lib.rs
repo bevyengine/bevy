@@ -280,7 +280,6 @@ impl Plugin for UiRenderPlugin {
                     queue_uinodes.in_set(RenderSystems::Queue),
                     sort_phase_system::<TransparentUi>.in_set(RenderSystems::PhaseSort),
                     prepare_uinodes.in_set(RenderSystems::PrepareBindGroups),
-                    clear_batches.in_set(RenderSystems::Cleanup),
                 ),
             )
             .add_systems(
@@ -1951,6 +1950,7 @@ pub struct UiMeta {
     vertices: RawBufferVec<UiVertex>,
     indices: RawBufferVec<u32>,
     view_bind_group: Option<BindGroup>,
+    batches: Vec<UiBatch>
 }
 
 impl Default for UiMeta {
@@ -1959,6 +1959,7 @@ impl Default for UiMeta {
             vertices: RawBufferVec::new(BufferUsages::VERTEX),
             indices: RawBufferVec::new(BufferUsages::INDEX),
             view_bind_group: None,
+            batches: Vec::new(),
         }
     }
 }
@@ -1972,7 +1973,7 @@ pub(crate) const QUAD_VERTEX_POSITIONS: [Vec2; 4] = [
 
 pub(crate) const QUAD_INDICES: [usize; 6] = [0, 2, 3, 0, 1, 2];
 
-#[derive(Component, Debug)]
+#[derive(Debug)]
 pub struct UiBatch {
     pub range: Range<u32>,
     pub image: AssetId<Image>,
@@ -2055,6 +2056,7 @@ pub fn queue_uinodes(
                 batch_range: 0..0,
                 extra_index: PhaseItemExtraIndex::None,
                 indexed: true,
+                batch_index: None,
             });
         }
     }
@@ -2066,7 +2068,6 @@ pub struct ImageNodeBindGroups {
 }
 
 pub fn prepare_uinodes(
-    mut commands: Commands,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     pipeline_cache: Res<PipelineCache>,
@@ -2094,7 +2095,7 @@ pub fn prepare_uinodes(
     }
 
     if let Some(view_binding) = view_uniforms.uniforms.binding() {
-        let mut batches: Vec<(Entity, UiBatch)> = Vec::with_capacity(*previous_len);
+        let mut batches: Vec<UiBatch> = Vec::with_capacity(*previous_len);
 
         ui_meta.vertices.clear();
         ui_meta.indices.clear();
@@ -2139,11 +2140,11 @@ pub fn prepare_uinodes(
                         batch_item_index = item_index;
                         batch_image_handle = Some(extracted_uinode.image);
 
-                        let new_batch = UiBatch {
+                        item.batch_index = Some(batches.len() as u32);
+                        batches.push(UiBatch {
                             range: vertices_index..vertices_index,
                             image: extracted_uinode.image,
-                        };
-                        batches.push((item.entity(), new_batch));
+                        });
 
                         image_bind_groups
                             .values
@@ -2171,7 +2172,7 @@ pub fn prepare_uinodes(
                         && let Some(gpu_image) = gpu_images.get(extracted_uinode.image)
                     {
                         batch_image_handle = Some(extracted_uinode.image);
-                        existing_batch.1.image = extracted_uinode.image;
+                        existing_batch.image = extracted_uinode.image;
 
                         image_bind_groups
                             .values
@@ -2464,7 +2465,7 @@ pub fn prepare_uinodes(
                         }
                     }
                 }
-                existing_batch.unwrap().1.range.end = vertices_index;
+                existing_batch.unwrap().range.end = vertices_index;
                 ui_phase.items[batch_item_index].batch_range_mut().end += 1;
             }
         }
@@ -2472,18 +2473,7 @@ pub fn prepare_uinodes(
         ui_meta.vertices.write_buffer(&render_device, &render_queue);
         ui_meta.indices.write_buffer(&render_device, &render_queue);
         *previous_len = batches.len();
-        commands.try_insert_batch(batches);
+        ui_meta.batches = batches;
     }
 }
 
-/// A render-world system that removes all [`UiBatch`] components.
-///
-/// They're currently rebuilt from scratch every frame, so we have to remove
-/// them.
-///
-/// This is run during the render cleanup phase.
-pub fn clear_batches(mut commands: Commands, batches_query: Query<Entity, With<UiBatch>>) {
-    for entity in &batches_query {
-        commands.entity(entity).remove::<UiBatch>();
-    }
-}
