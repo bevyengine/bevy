@@ -1617,6 +1617,18 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "blur"
+path = "examples/3d/blur.rs"
+doc-scrape-examples = true
+required-features = ["bevy_feathers"]
+
+[package.metadata.example.blur]
+name = "Blur"
+description = "Demonstrates blurring selected UI panels over a live 3D scene"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "vertex_colors"
 path = "examples/3d/vertex_colors.rs"
 doc-scrape-examples = true
