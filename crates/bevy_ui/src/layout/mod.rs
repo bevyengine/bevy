@@ -369,20 +369,18 @@ pub fn ui_layout_system(
         inherited_use_rounding: bool,
         target_size: Vec2,
         mut inherited_transform: Affine2,
-        node_update_query: &mut Query<
-            (
-                &mut ComputedNode,
-                &UiTransform,
-                &mut UiGlobalTransform,
-                &Node,
-                Option<&LayoutConfig>,
-                Option<&Outline>,
-                Option<&ScrollPosition>,
-                Option<&IgnoreScroll>,
-                Has<FixedNode>,
-            ),
-            Without<GhostNode>,
-        >,
+        node_update_query: &mut Query<(
+            &mut ComputedNode,
+            &UiTransform,
+            &mut UiGlobalTransform,
+            &Node,
+            Option<&LayoutConfig>,
+            Option<&Outline>,
+            Option<&ScrollPosition>,
+            Option<&IgnoreScroll>,
+            Has<FixedNode>,
+            Has<GhostNode>,
+        )>,
         ui_children: &UiChildren,
         inverse_target_scale_factor: f32,
         parent_size: Vec2,
@@ -398,6 +396,7 @@ pub fn ui_layout_system(
             maybe_scroll_position,
             maybe_scroll_sticky,
             is_fixed_node,
+            is_ghost_node,
         )) = node_update_query.get_mut(entity)
         {
             if is_fixed_node && root != entity {
