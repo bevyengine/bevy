@@ -2108,6 +2108,7 @@ mod tests {
                 layout,
                 None,
                 true,
+                false,
                 ComponentCloneBehavior::Custom(test_handler),
                 None,
             )

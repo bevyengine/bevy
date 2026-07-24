@@ -953,6 +953,7 @@ mod tests {
                     Layout::new::<u32>(),
                     None,
                     false,
+                    false,
                     crate::component::ComponentCloneBehavior::Ignore,
                     None,
                 )
@@ -1006,6 +1007,7 @@ mod tests {
                     crate::component::StorageType::Table,
                     Layout::new::<u32>(),
                     None,
+                    false,
                     false,
                     crate::component::ComponentCloneBehavior::Ignore,
                     None,
@@ -1097,6 +1099,7 @@ mod tests {
                     Layout::new::<u32>(),
                     None,
                     false,
+                    false,
                     crate::component::ComponentCloneBehavior::Ignore,
                     None,
                 )
@@ -1114,6 +1117,7 @@ mod tests {
                     crate::component::StorageType::Table,
                     Layout::new::<()>(),
                     None,
+                    false,
                     false,
                     crate::component::ComponentCloneBehavior::Ignore,
                     None,

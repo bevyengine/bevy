@@ -654,6 +654,11 @@ pub trait Component: Send + Sync + 'static {
     fn relationship_accessor() -> Option<ComponentRelationshipAccessor<Self>> {
         None
     }
+
+    #[inline]
+    fn has_summary_tick() -> bool {
+        false
+    }
 }
 
 mod private {

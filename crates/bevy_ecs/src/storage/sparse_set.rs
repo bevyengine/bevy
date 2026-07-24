@@ -300,6 +300,7 @@ impl ComponentSparseSet {
                     added: self.dense.get_added_tick_unchecked(dense_index),
                     changed: self.dense.get_changed_tick_unchecked(dense_index),
                     changed_by: self.dense.get_changed_by_unchecked(dense_index),
+                    column_tick: self.dense.get_summary_tick(),
                 },
             ))
         }
