@@ -197,7 +197,6 @@ pub struct ExtractedUiTextureSlice {
     pub atlas_rect: Option<Rect>,
     pub image: AssetId<Image>,
     pub clip: Option<Rect>,
-    pub extracted_camera_entity: Entity,
     pub color: LinearRgba,
     pub image_scale_mode: SpriteImageMode,
     pub flip_x: bool,
@@ -208,11 +207,12 @@ pub struct ExtractedUiTextureSlice {
 /// A render-world resource that stores all texture slices in the scene.
 #[derive(Resource, Default)]
 pub struct ExtractedUiTextureSlices {
-    /// The list of texture slices.
+    /// The list of texture slices grouped by their main-world entity, along with
+    /// each group's target camera entity.
     ///
     /// This is a two-level data structure so that we can quickly remove all
     /// texture slices associated with a main-world entity when it changes.
-    pub slices: MainEntityHashMap<EntityIndexMap<ExtractedUiTextureSlice>>,
+    pub slices: MainEntityHashMap<(Entity, EntityIndexMap<ExtractedUiTextureSlice>)>,
 }
 
 pub fn extract_ui_texture_slices(
@@ -280,7 +280,7 @@ pub fn extract_ui_texture_slices(
             .slices
             .get_mut(&main_entity)
             .iter_mut()
-            .flat_map(|main_entity| main_entity.drain(..))
+            .flat_map(|(_, slices)| slices.drain(..))
         {
             commands.entity(render_entity).despawn();
         }
@@ -317,6 +317,9 @@ pub fn extract_ui_texture_slices(
         let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
             continue;
         };
+        if let Some((camera_entity, _)) = extracted_ui_slicers.slices.get_mut(&main_entity) {
+            *camera_entity = extracted_camera_entity;
+        }
 
         nodes_processed_this_frame.insert(main_entity);
 
@@ -340,7 +343,8 @@ pub fn extract_ui_texture_slices(
         extracted_ui_slicers
             .slices
             .entry(main_entity)
-            .or_default()
+            .or_insert_with(|| (extracted_camera_entity, Default::default()))
+            .1
             .insert(
                 commands.spawn_empty().id(),
                 ExtractedUiTextureSlice {
@@ -354,7 +358,6 @@ pub fn extract_ui_texture_slices(
                     },
                     clip: clip.map(|clip| clip.clip),
                     image: image.image.id(),
-                    extracted_camera_entity,
                     image_scale_mode,
                     atlas_rect,
                     flip_x: image.flip_x,
@@ -380,7 +383,8 @@ pub fn extract_ui_texture_slices(
         if nodes_processed_this_frame.contains(&main_entity) {
             continue;
         }
-        let Some(mut extracted_nodes) = extracted_ui_slicers.slices.remove(&main_entity) else {
+        let Some((_, mut extracted_nodes)) = extracted_ui_slicers.slices.remove(&main_entity)
+        else {
             continue;
         };
         for (render_entity, _) in extracted_nodes.drain(..) {
@@ -398,41 +402,50 @@ pub fn queue_ui_slices(
     ui_slicer_pipeline: Res<UiTextureSlicePipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiTextureSlicePipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    mut render_views: Query<&UiCameraView, With<ExtractedView>>,
+    render_views: Query<&UiCameraView, With<ExtractedView>>,
     camera_views: Query<&ExtractedView>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
     let draw_function = draw_functions.read().id::<DrawUiTextureSlices>();
-    for (main_entity, subslices) in extracted_ui_slicers.slices.iter() {
+    let mut current_camera_entity = Entity::PLACEHOLDER;
+    let mut current_phase = None;
+
+    for (main_entity, (extracted_camera_entity, subslices)) in extracted_ui_slicers.slices.iter() {
+        if current_camera_entity != *extracted_camera_entity {
+            current_phase =
+                render_views
+                    .get(*extracted_camera_entity)
+                    .ok()
+                    .and_then(|default_camera_view| {
+                        camera_views
+                            .get(default_camera_view.0)
+                            .ok()
+                            .and_then(|view| {
+                                transparent_render_phases
+                                    .get_mut(&view.retained_view_entity)
+                                    .map(|transparent_phase| {
+                                        let pipeline = pipelines.specialize(
+                                            &pipeline_cache,
+                                            &ui_slicer_pipeline,
+                                            UiTextureSlicePipelineKey {
+                                                target_format: view.target_format,
+                                            },
+                                        );
+                                        (pipeline, transparent_phase)
+                                    })
+                            })
+                    });
+            current_camera_entity = *extracted_camera_entity;
+        }
+
+        let Some((pipeline, transparent_phase)) = current_phase.as_mut() else {
+            continue;
+        };
         for (render_entity, extracted_slicer) in subslices.iter() {
-            let Ok(default_camera_view) =
-                render_views.get_mut(extracted_slicer.extracted_camera_entity)
-            else {
-                continue;
-            };
-
-            let Ok(view) = camera_views.get(default_camera_view.0) else {
-                continue;
-            };
-
-            let Some(transparent_phase) =
-                transparent_render_phases.get_mut(&view.retained_view_entity)
-            else {
-                continue;
-            };
-
-            let pipeline = pipelines.specialize(
-                &pipeline_cache,
-                &ui_slicer_pipeline,
-                UiTextureSlicePipelineKey {
-                    target_format: view.target_format,
-                },
-            );
-
             transparent_phase.add_transient(TransparentUi {
                 draw_function,
-                pipeline,
+                pipeline: *pipeline,
                 entity: (*render_entity, *main_entity),
                 sort_key: FloatOrd(extracted_slicer.stack_index as f32 + stack_z_offsets::IMAGE),
                 batch_range: 0..0,
@@ -496,7 +509,7 @@ pub fn prepare_ui_slices(
                 if let Some(texture_slices) = extracted_slices
                     .slices
                     .get(&item.main_entity())
-                    .and_then(|subslices| subslices.get(&item.entity()))
+                    .and_then(|(_, subslices)| subslices.get(&item.entity()))
                 {
                     // Initialize the batch range to be zero-length initially.
                     // We'll extend it as we accumulate items into this batch.

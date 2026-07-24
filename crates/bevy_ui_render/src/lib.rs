@@ -66,7 +66,7 @@ pub use debug_overlay::{GlobalUiDebugOptions, UiDebugOptions};
 
 use gradient::GradientPlugin;
 
-use bevy_platform::collections::{HashMap, HashSet};
+use bevy_platform::collections::{hash_map::Entry, HashMap, HashSet};
 use bevy_text::{
     ComputedTextBlock, EditableText, PositionedGlyph, Strikethrough, StrikethroughColor,
     TextBackgroundColor, TextColor, TextCursorStyle, TextLayoutInfo, TextSpan, Underline,
@@ -349,8 +349,6 @@ pub struct ExtractedUiNode {
     pub z_order: f32,
     pub image: AssetId<Image>,
     pub clip: Option<Rect>,
-    /// Render world entity of the extracted camera corresponding to this node's target camera.
-    pub extracted_camera_entity: Entity,
     pub item: ExtractedUiItem,
     pub transform: Affine2,
 }
@@ -398,11 +396,12 @@ pub struct ExtractedGlyph {
 /// gradients associated with a main-world entity when it changes.
 #[derive(Resource, Default)]
 pub struct ExtractedUiNodes {
-    /// The list of UI nodes.
+    /// The list of UI nodes grouped by their main-world entity, along with
+    /// each group's target camera entity.
     ///
     /// This is a two-level data structure so that we can quickly remove all UI
     /// nodes associated with a main-world entity when it changes.
-    pub uinodes: MainEntityHashMap<EntityIndexMap<ExtractedUiNode>>,
+    pub uinodes: MainEntityHashMap<(Entity, EntityIndexMap<ExtractedUiNode>)>,
     /// UI nodes that changed this frame.
     pub changed: MainEntityHashSet,
 }
@@ -665,7 +664,7 @@ pub fn extract_uinode_changes(
         // know to process it.
         extracted_uinodes.changed.insert(main_entity);
 
-        if let Some(mut render_entities) = extracted_uinodes.uinodes.remove(&main_entity) {
+        if let Some((_, mut render_entities)) = extracted_uinodes.uinodes.remove(&main_entity) {
             for (render_entity, _) in render_entities.drain(..) {
                 commands.entity(render_entity).despawn();
             }
@@ -739,70 +738,68 @@ pub fn extract_uinode_background_colors(
             continue;
         }
 
-        let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
-            continue;
+        let extracted_sub_uinodes = match extracted_uinodes.uinodes.entry(entity.into()) {
+            Entry::Occupied(entry) => &mut entry.into_mut().1,
+            Entry::Vacant(entry) => {
+                let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
+                    continue;
+                };
+                &mut entry
+                    .insert((extracted_camera_entity, Default::default()))
+                    .1
+            }
         };
 
         if !background_color.is_fully_transparent() {
-            extracted_uinodes
-                .uinodes
-                .entry(entity.into())
-                .or_default()
-                .insert(
-                    commands.spawn_empty().id(),
-                    ExtractedUiNode {
-                        z_order: stack_index.0 as f32 + stack_z_offsets::BACKGROUND_COLOR,
-                        clip: clip.map(|clip| clip.clip),
-                        image: AssetId::default(),
-                        extracted_camera_entity,
-                        transform: transform.into(),
-                        item: ExtractedUiItem::Node {
-                            color: background_color.0.into(),
-                            rect: Rect {
-                                min: Vec2::ZERO,
-                                max: uinode.size,
-                            },
-                            atlas_scaling: None,
-                            flip_x: false,
-                            flip_y: false,
-                            border: uinode.border(),
-                            border_radius: uinode.border_radius(),
-                            node_type: NodeType::Rect,
+            extracted_sub_uinodes.insert(
+                commands.spawn_empty().id(),
+                ExtractedUiNode {
+                    z_order: stack_index.0 as f32 + stack_z_offsets::BACKGROUND_COLOR,
+                    clip: clip.map(|clip| clip.clip),
+                    image: AssetId::default(),
+                    transform: transform.into(),
+                    item: ExtractedUiItem::Node {
+                        color: background_color.0.into(),
+                        rect: Rect {
+                            min: Vec2::ZERO,
+                            max: uinode.size,
                         },
+                        atlas_scaling: None,
+                        flip_x: false,
+                        flip_y: false,
+                        border: uinode.border(),
+                        border_radius: uinode.border_radius(),
+                        node_type: NodeType::Rect,
                     },
-                );
+                },
+            );
         }
 
         if let Some(outer_color) = maybe_outer_color
             && !outer_color.0.is_fully_transparent()
         {
-            extracted_uinodes
-                .uinodes
-                .entry(entity.into())
-                .or_default()
-                .insert(
-                    commands.spawn_empty().id(),
-                    ExtractedUiNode {
-                        z_order: stack_index.0 as f32 + stack_z_offsets::BACKGROUND_COLOR,
-                        clip: clip.map(|clip| clip.clip),
-                        image: AssetId::default(),
-                        extracted_camera_entity,
-                        transform: transform.into(),
-                        item: ExtractedUiItem::Node {
-                            color: outer_color.0.into(),
-                            rect: Rect {
-                                min: Vec2::ZERO,
-                                max: uinode.size,
-                            },
-                            atlas_scaling: None,
-                            flip_x: false,
-                            flip_y: false,
-                            border: BorderRect::ZERO,
-                            border_radius: uinode.border_radius(),
-                            node_type: NodeType::Inverted,
+            extracted_sub_uinodes.insert(
+                commands.spawn_empty().id(),
+                ExtractedUiNode {
+                    z_order: stack_index.0 as f32 + stack_z_offsets::BACKGROUND_COLOR,
+                    clip: clip.map(|clip| clip.clip),
+                    image: AssetId::default(),
+                    transform: transform.into(),
+                    item: ExtractedUiItem::Node {
+                        color: outer_color.0.into(),
+                        rect: Rect {
+                            min: Vec2::ZERO,
+                            max: uinode.size,
                         },
+                        atlas_scaling: None,
+                        flip_x: false,
+                        flip_y: false,
+                        border: BorderRect::ZERO,
+                        border_radius: uinode.border_radius(),
+                        node_type: NodeType::Inverted,
                     },
-                );
+                },
+            );
         }
     }
 }
@@ -906,14 +903,14 @@ pub fn extract_uinode_images(
         extracted_uinodes
             .uinodes
             .entry(entity.into())
-            .or_default()
+            .or_insert_with(|| (extracted_camera_entity, Default::default()))
+            .1
             .insert(
                 commands.spawn_empty().id(),
                 ExtractedUiNode {
                     z_order: stack_index.0 as f32 + stack_z_offsets::IMAGE,
                     clip: clip.map(|clip| clip.clip),
                     image: image.image.id(),
-                    extracted_camera_entity,
                     transform: Affine2::from(*transform)
                         * Affine2::from_translation(visual_box.center()),
                     item: ExtractedUiItem::Node {
@@ -1018,7 +1015,6 @@ pub fn extract_uinode_borders(
                     z_order: stack_index.0 as f32 + stack_z_offsets::BORDER,
                     image,
                     clip: maybe_clip.map(|clip| clip.clip),
-                    extracted_camera_entity,
                     transform: transform.into(),
                     item: ExtractedUiItem::Node {
                         color,
@@ -1038,7 +1034,8 @@ pub fn extract_uinode_borders(
                 extracted_uinodes
                     .uinodes
                     .entry(entity.into())
-                    .or_default()
+                    .or_insert_with(|| (extracted_camera_entity, Default::default()))
+                    .1
                     .insert(commands.spawn_empty().id(), node);
             }
         }
@@ -1053,14 +1050,14 @@ pub fn extract_uinode_borders(
             extracted_uinodes
                 .uinodes
                 .entry(entity.into())
-                .or_default()
+                .or_insert_with(|| (extracted_camera_entity, Default::default()))
+                .1
                 .insert(
                     commands.spawn_empty().id(),
                     ExtractedUiNode {
                         z_order: stack_index.0 as f32 + stack_z_offsets::BORDER,
                         image,
                         clip: maybe_clip.map(|clip| clip.clip),
-                        extracted_camera_entity,
                         transform: transform.into(),
                         item: ExtractedUiItem::Node {
                             color: outline.color.into(),
@@ -1364,14 +1361,14 @@ pub fn extract_viewport_nodes(
         extracted_uinodes
             .uinodes
             .entry(entity.into())
-            .or_default()
+            .or_insert_with(|| (extracted_camera_entity, Default::default()))
+            .1
             .insert(
                 commands.spawn_empty().id(),
                 ExtractedUiNode {
                     z_order: stack_index.0 as f32 + stack_z_offsets::IMAGE,
                     clip: clip.map(|clip| clip.clip),
                     image: image.id(),
-                    extracted_camera_entity,
                     transform: transform.into(),
                     item: ExtractedUiItem::Node {
                         color: LinearRgba::WHITE,
@@ -1524,14 +1521,14 @@ pub fn extract_text_sections(
                 extracted_uinodes
                     .uinodes
                     .entry(entity.into())
-                    .or_default()
+                    .or_insert_with(|| (extracted_camera_entity, Default::default()))
+                    .1
                     .insert(
                         commands.spawn_empty().id(),
                         ExtractedUiNode {
                             z_order: stack_index.0 as f32 + stack_z_offsets::TEXT,
                             image: atlas_info.texture,
                             clip,
-                            extracted_camera_entity,
                             item: ExtractedUiItem::Glyphs {
                                 glyphs: mem::take(&mut glyphs),
                             },
@@ -1635,7 +1632,8 @@ pub fn extract_text_shadows(
                 extracted_uinodes
                     .uinodes
                     .entry(entity.into())
-                    .or_default()
+                    .or_insert_with(|| (extracted_camera_entity, Default::default()))
+                    .1
                     .insert(
                         commands.spawn_empty().id(),
                         ExtractedUiNode {
@@ -1643,7 +1641,6 @@ pub fn extract_text_shadows(
                             z_order: stack_index.0 as f32 + stack_z_offsets::TEXT,
                             image: atlas_info.texture,
                             clip,
-                            extracted_camera_entity,
                             item: ExtractedUiItem::Glyphs {
                                 glyphs: mem::take(&mut glyphs),
                             },
@@ -1669,14 +1666,14 @@ pub fn extract_text_shadows(
                 extracted_uinodes
                     .uinodes
                     .entry(entity.into())
-                    .or_default()
+                    .or_insert_with(|| (extracted_camera_entity, Default::default()))
+                    .1
                     .insert(
                         commands.spawn_empty().id(),
                         ExtractedUiNode {
                             z_order: stack_index.0 as f32 + stack_z_offsets::TEXT,
                             clip,
                             image: AssetId::default(),
-                            extracted_camera_entity,
                             transform: node_transform
                                 * Affine2::from_translation(run.strikethrough_position()),
                             item: ExtractedUiItem::Node {
@@ -1700,14 +1697,14 @@ pub fn extract_text_shadows(
                 extracted_uinodes
                     .uinodes
                     .entry(entity.into())
-                    .or_default()
+                    .or_insert_with(|| (extracted_camera_entity, Default::default()))
+                    .1
                     .insert(
                         commands.spawn_empty().id(),
                         ExtractedUiNode {
                             z_order: stack_index.0 as f32 + stack_z_offsets::TEXT,
                             clip,
                             image: AssetId::default(),
-                            extracted_camera_entity,
                             transform: node_transform
                                 * Affine2::from_translation(run.underline_position()),
                             item: ExtractedUiItem::Node {
@@ -1824,14 +1821,14 @@ pub fn extract_text_decorations(
                 extracted_uinodes
                     .uinodes
                     .entry(entity.into())
-                    .or_default()
+                    .or_insert_with(|| (extracted_camera_entity, Default::default()))
+                    .1
                     .insert(
                         commands.spawn_empty().id(),
                         ExtractedUiNode {
                             z_order: stack_index.0 as f32 + stack_z_offsets::TEXT,
                             clip,
                             image: AssetId::default(),
-                            extracted_camera_entity,
                             transform: transform * Affine2::from_translation(run.bounds.center()),
                             item: ExtractedUiItem::Node {
                                 color: text_background_color.0.to_linear(),
@@ -1859,14 +1856,14 @@ pub fn extract_text_decorations(
                 extracted_uinodes
                     .uinodes
                     .entry(entity.into())
-                    .or_default()
+                    .or_insert_with(|| (extracted_camera_entity, Default::default()))
+                    .1
                     .insert(
                         commands.spawn_empty().id(),
                         ExtractedUiNode {
                             z_order: stack_index.0 as f32 + stack_z_offsets::TEXT_STRIKETHROUGH,
                             clip,
                             image: AssetId::default(),
-                            extracted_camera_entity,
                             transform: transform
                                 * Affine2::from_translation(run.strikethrough_position()),
                             item: ExtractedUiItem::Node {
@@ -1895,14 +1892,14 @@ pub fn extract_text_decorations(
                 extracted_uinodes
                     .uinodes
                     .entry(entity.into())
-                    .or_default()
+                    .or_insert_with(|| (extracted_camera_entity, Default::default()))
+                    .1
                     .insert(
                         commands.spawn_empty().id(),
                         ExtractedUiNode {
                             z_order: stack_index.0 as f32 + stack_z_offsets::TEXT_STRIKETHROUGH,
                             clip,
                             image: AssetId::default(),
-                            extracted_camera_entity,
                             transform: transform
                                 * Affine2::from_translation(run.underline_position()),
                             item: ExtractedUiItem::Node {
@@ -2012,43 +2009,45 @@ pub fn queue_uinodes(
     let mut current_camera_entity = Entity::PLACEHOLDER;
     let mut current_phase = None;
 
-    for (main_entity, extracted_sub_uinodes) in extracted_uinodes.uinodes.iter() {
-        for (render_entity, extracted_uinode) in extracted_sub_uinodes.iter() {
-            if current_camera_entity != extracted_uinode.extracted_camera_entity {
-                current_phase = render_views
-                    .get(extracted_uinode.extracted_camera_entity)
-                    .ok()
-                    .and_then(|(default_camera_view, ui_anti_alias)| {
-                        camera_views
-                            .get(default_camera_view.0)
-                            .ok()
-                            .and_then(|view| {
-                                transparent_render_phases
-                                    .get_mut(&view.retained_view_entity)
-                                    .map(|transparent_phase| {
-                                        (view, ui_anti_alias, transparent_phase)
-                                    })
-                            })
-                    });
-                current_camera_entity = extracted_uinode.extracted_camera_entity;
-            }
-
-            let Some((view, ui_anti_alias, transparent_phase)) = current_phase.as_mut() else {
-                continue;
-            };
-
-            let pipeline = pipelines.specialize(
-                &pipeline_cache,
-                &ui_pipeline,
-                UiPipelineKey {
-                    target_format: view.target_format,
-                    anti_alias: matches!(ui_anti_alias, None | Some(UiAntiAlias::On)),
+    for (main_entity, (extracted_camera_entity, extracted_sub_uinodes)) in
+        extracted_uinodes.uinodes.iter()
+    {
+        if current_camera_entity != *extracted_camera_entity {
+            current_phase = render_views.get(*extracted_camera_entity).ok().and_then(
+                |(default_camera_view, ui_anti_alias)| {
+                    camera_views
+                        .get(default_camera_view.0)
+                        .ok()
+                        .and_then(|view| {
+                            transparent_render_phases
+                                .get_mut(&view.retained_view_entity)
+                                .map(|transparent_phase| {
+                                    let pipeline = pipelines.specialize(
+                                        &pipeline_cache,
+                                        &ui_pipeline,
+                                        UiPipelineKey {
+                                            target_format: view.target_format,
+                                            anti_alias: matches!(
+                                                ui_anti_alias,
+                                                None | Some(UiAntiAlias::On)
+                                            ),
+                                        },
+                                    );
+                                    (pipeline, transparent_phase)
+                                })
+                        })
                 },
             );
+            current_camera_entity = *extracted_camera_entity;
+        }
 
+        let Some((pipeline, transparent_phase)) = current_phase.as_mut() else {
+            continue;
+        };
+        for (render_entity, extracted_uinode) in extracted_sub_uinodes.iter() {
             transparent_phase.add_transient(TransparentUi {
                 draw_function,
-                pipeline,
+                pipeline: *pipeline,
                 entity: (*render_entity, *main_entity),
                 sort_key: FloatOrd(extracted_uinode.z_order),
                 // batch_range will be calculated in prepare_uinodes
@@ -2117,7 +2116,7 @@ pub fn prepare_uinodes(
                 let Some(extracted_uinode) = extracted_uinodes
                     .uinodes
                     .get(&item.main_entity())
-                    .and_then(|sub_uinodes| sub_uinodes.get(&item.entity()))
+                    .and_then(|(_, sub_uinodes)| sub_uinodes.get(&item.entity()))
                 else {
                     batch_image_handle = None;
                     continue;
