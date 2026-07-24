@@ -1,31 +1,33 @@
 //! Simple example demonstrating linear gradients.
 
-use bevy::color::palettes::css::BLUE;
-use bevy::color::palettes::css::GREEN;
-use bevy::color::palettes::css::INDIGO;
-use bevy::color::palettes::css::LIME;
-use bevy::color::palettes::css::ORANGE;
-use bevy::color::palettes::css::RED;
-use bevy::color::palettes::css::VIOLET;
-use bevy::color::palettes::css::YELLOW;
-use bevy::prelude::*;
-
-use bevy::ui::ColorStop;
+use bevy::{
+    color::palettes::css::{BLUE, GREEN, INDIGO, LIME, ORANGE, RED, VIOLET, YELLOW},
+    picking::hover::Hovered,
+    prelude::*,
+    ui::{ColorStop, Selected},
+    ui_widgets::{ControlOrientation, ListBox, ListItem, Scrollbar, ScrollbarThumb, ValueChange},
+};
 use std::f32::consts::TAU;
 
-#[derive(Component)]
-struct CurrentColorSpaceLabel;
+#[derive(Component, Clone, Copy, Default, PartialEq)]
+struct ColorSpaceOption(InterpolationColorSpace);
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, update)
+        .add_systems(Update, (update, list_item_hovered_style))
         .run();
 }
 
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
+
+
+    // Scenes associated with the color space listbox picker.
+    // They are added to the correct parent below.
+    let color_space_help_text_id = commands.spawn_scene(color_space_list_box_help_text_scene()).id();
+    let color_space_list_id = commands.spawn_scene(color_space_list_box_scene()).id();
 
     commands
         .spawn(Node {
@@ -182,107 +184,151 @@ fn setup(mut commands: Commands) {
                 });
             }
 
-            let button = commands.spawn((
-                        Button,
-                        Node {
-                            border: UiRect::all(px(2)),
-                            padding: UiRect::axes(px(8), px(4)),
-                            // horizontally center child text
-                            justify_content: JustifyContent::Center,
-                            // vertically center child text
-                            align_items: AlignItems::Center,
-                            border_radius: BorderRadius::MAX,
-                            ..default()
-                        },
-                        BorderColor::all(Color::WHITE),
-                        BackgroundColor(Color::BLACK),
-                        children![(
-                            Text::new("next color space"),
-                            TextColor(Color::srgb(0.9, 0.9, 0.9)),
-                            TextShadow::default(),
-                        )]
-                )).observe(
-                    |_event: On<Pointer<Over>>, mut border_query: Query<&mut BorderColor, With<Button>>| {
-                    *border_query.single_mut().unwrap() = BorderColor::all(RED);
-
-
-                })
-                .observe(
-                    |_event: On<Pointer<Out>>, mut border_query: Query<&mut BorderColor, With<Button>>| {
-                    *border_query.single_mut().unwrap() = BorderColor::all(Color::WHITE);
-                })
-                .observe(
-                        |_event: On<Pointer<Click>>,
-                            mut gradients_query: Query<&mut BackgroundGradient>,
-                            mut label_query: Query<
-                            &mut Text,
-                            With<CurrentColorSpaceLabel>,
-                        >| {
-                            let mut current_space = InterpolationColorSpace::default();
-                            for mut gradients in gradients_query.iter_mut() {
-                                for gradient in gradients.0.iter_mut() {
-                                    let space = match gradient {
-                                        Gradient::Linear(linear_gradient) => {
-                                            &mut linear_gradient.color_space
-                                        }
-                                        Gradient::Radial(radial_gradient) => {
-                                            &mut radial_gradient.color_space
-                                        }
-                                        Gradient::Conic(conic_gradient) => {
-                                            &mut conic_gradient.color_space
-                                        }
-                                    };
-                                    *space = match *space {
-                                        InterpolationColorSpace::Oklaba => {
-                                            InterpolationColorSpace::Oklcha
-                                        }
-                                        InterpolationColorSpace::Oklcha => {
-                                            InterpolationColorSpace::OklchaLong
-                                        }
-                                        InterpolationColorSpace::OklchaLong => {
-                                            InterpolationColorSpace::Srgba
-                                        }
-                                        InterpolationColorSpace::Srgba => {
-                                            InterpolationColorSpace::LinearRgba
-                                        }
-                                        InterpolationColorSpace::LinearRgba => {
-                                            InterpolationColorSpace::Hsla
-                                        }
-                                        InterpolationColorSpace::Hsla => {
-                                            InterpolationColorSpace::HslaLong
-                                        }
-                                        InterpolationColorSpace::HslaLong => {
-                                            InterpolationColorSpace::Hsva
-                                        }
-                                        InterpolationColorSpace::Hsva => {
-                                            InterpolationColorSpace::HsvaLong
-                                        }
-                                        InterpolationColorSpace::HsvaLong => {
-                                            InterpolationColorSpace::Oklaba
-                                        }
-                                    };
-                                    current_space = *space;
-                                }
-                            }
-                            for mut label in label_query.iter_mut() {
-                                label.0 = format!("{current_space:?}");
-                            }
-                        }
-                    ).id();
-
-            commands.spawn(
-                Node {
-                    flex_direction: FlexDirection::Column,
-                    row_gap: px(10),
+            commands
+                .spawn(Node {
+                    flex_direction: FlexDirection::Row,
+                    column_gap: px(10),
                     align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
                     ..Default::default()
-                }
-            ).with_children(|commands| {
-                commands.spawn((Text::new(format!("{:?}", InterpolationColorSpace::default())), TextFont { font_size: FontSize::Px(25.), ..default() }, CurrentColorSpaceLabel));
-
-            })
-            .add_child(button);
+                })
+                .add_child(color_space_list_id)
+                .add_child(color_space_help_text_id);
         });
+}
+
+/// Directions shown to the user.
+fn color_space_list_box_help_text_scene() -> impl Scene {
+    bsn! {
+        Node
+        Children [
+            Text::new("Click on a color space in the list box to change the example.")
+        ]
+    }
+}
+
+/// Returns the scene that powers the user-interactable listbox.
+/// The user can update the color space used in the example by clicking on an item.
+fn color_space_list_box_scene() -> impl Scene {
+    bsn! {
+        Node {
+            display: Display::Grid,
+            grid_template_columns: vec![RepeatedGridTrack::flex(1, 1.), RepeatedGridTrack::auto(1)],
+        }
+        Children [
+            #ListContent
+            ListBox
+            Node {
+                flex_direction: FlexDirection::Column,
+                height: px(75)
+                overflow: Overflow::scroll_y(),
+            }
+            ScrollPosition::default()
+            BackgroundColor(Srgba::new(0.7, 0.7, 0.7, 1.0))
+            on(on_value_change)
+            Children [
+                ListItem
+                Selected
+                Hovered::default()
+                BackgroundColor(Color::BLACK)
+                ColorSpaceOption(InterpolationColorSpace::Oklaba)
+                Text::new(format!("{:?}", InterpolationColorSpace::Oklaba)),
+
+                ListItem
+                Hovered::default()
+                ColorSpaceOption(InterpolationColorSpace::Oklcha)
+                Text::new(format!("{:?}", InterpolationColorSpace::Oklcha)),
+
+                ListItem
+                Hovered::default()
+                ColorSpaceOption(InterpolationColorSpace::OklchaLong)
+                Text::new(format!("{:?}", InterpolationColorSpace::OklchaLong)),
+
+                ListItem
+                Hovered::default()
+                ColorSpaceOption(InterpolationColorSpace::Srgba)
+                Text::new(format!("{:?}", InterpolationColorSpace::Srgba)),
+
+                ListItem
+                Hovered::default()
+                ColorSpaceOption(InterpolationColorSpace::LinearRgba)
+                Text::new(format!("{:?}", InterpolationColorSpace::LinearRgba)),
+
+                ListItem
+                Hovered::default()
+                ColorSpaceOption(InterpolationColorSpace::Hsla)
+                Text::new(format!("{:?}", InterpolationColorSpace::Hsla)),
+
+                ListItem
+                Hovered::default()
+                ColorSpaceOption(InterpolationColorSpace::HslaLong)
+                Text::new(format!("{:?}", InterpolationColorSpace::HslaLong)),
+
+                ListItem
+                Hovered::default()
+                ColorSpaceOption(InterpolationColorSpace::Hsva)
+                Text::new(format!("{:?}", InterpolationColorSpace::Hsva)),
+
+                ListItem
+                Hovered::default()
+                ColorSpaceOption(InterpolationColorSpace::HsvaLong)
+                Text::new(format!("{:?}", InterpolationColorSpace::HsvaLong)),
+            ],
+
+            // Scrollbar
+            Node {
+                min_width: px(12),
+            }
+            Scrollbar {
+                orientation: ControlOrientation::Vertical,
+                target: #ListContent,
+                min_thumb_length: 8.0,
+            }
+            Children [
+                BackgroundColor(Color::WHITE)
+                BorderColor::all(Color::BLACK)
+                ScrollbarThumb {
+                    border_radius: BorderRadius::all(px(4)),
+                    border: UiRect::all(px(1)),
+                }
+            ],
+        ]
+    }
+}
+
+/// Handles the value change of the listbox entity when a color space is selected.
+fn on_value_change(
+    event: On<ValueChange<Entity>>,
+    color_space_selection_query: Query<&ColorSpaceOption>,
+    children_query: Query<&Children>,
+    mut gradients_query: Query<&mut BackgroundGradient>,
+    mut commands: Commands,
+) {
+    let Ok(ColorSpaceOption(next_space)) = color_space_selection_query.get(event.value) else {
+        return;
+    };
+    for mut gradients in gradients_query.iter_mut() {
+        for gradient in gradients.0.iter_mut() {
+            let space = match gradient {
+                Gradient::Linear(linear_gradient) => &mut linear_gradient.color_space,
+                Gradient::Radial(radial_gradient) => &mut radial_gradient.color_space,
+                Gradient::Conic(conic_gradient) => &mut conic_gradient.color_space,
+            };
+            *space = *next_space;
+        }
+    }
+    for child in children_query.iter_descendants(event.source) {
+        let Ok(ColorSpaceOption(space)) = color_space_selection_query.get(child) else {
+            return;
+        };
+        if space == next_space {
+            commands.entity(child).insert(Selected);
+            commands.entity(child).insert(BackgroundColor(Color::BLACK));
+        } else {
+            commands.entity(child).remove::<Selected>();
+            commands.entity(child).remove::<BackgroundColor>();
+        }
+    }
 }
 
 #[derive(Component)]
@@ -294,6 +340,23 @@ fn update(time: Res<Time>, mut query: Query<&mut BackgroundGradient, With<Animat
             if let Gradient::Linear(LinearGradient { angle, .. }) = gradient {
                 *angle += 0.5 * time.delta_secs();
             }
+        }
+    }
+}
+
+/// A system that updates the styling of listboxes depending on their hover and selected states.
+fn list_item_hovered_style(
+    mut bg_q: Query<(Entity, &Hovered, Has<Selected>), (Changed<Hovered>, With<ListItem>)>,
+    mut commands: Commands,
+) {
+    for (entity, hovered, selected) in bg_q.iter_mut() {
+        if selected {
+            continue;
+        }
+        if hovered.get() {
+            commands.entity(entity).insert(BackgroundColor(Color::BLACK));
+        } else {
+            commands.entity(entity).remove::<BackgroundColor>();
         }
     }
 }
