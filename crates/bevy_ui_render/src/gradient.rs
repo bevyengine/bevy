@@ -675,38 +675,46 @@ pub fn queue_gradient(
     gradients_pipeline: Res<GradientPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<GradientPipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    mut render_views: Query<(&UiCameraView, Option<&UiAntiAlias>), With<ExtractedView>>,
+    render_views: Query<(&UiCameraView, Option<&UiAntiAlias>), With<ExtractedView>>,
     camera_views: Query<&ExtractedView>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
     let draw_function = draw_functions.read().id::<DrawGradientFns>();
+    let mut current_camera_entity = Entity::PLACEHOLDER;
+    let mut current_phase = None;
+
     for (main_entity, (extracted_camera_entity, sub_gradients)) in extracted_gradients.items.iter()
     {
+        if current_camera_entity != *extracted_camera_entity {
+            current_phase = render_views.get(*extracted_camera_entity).ok().and_then(
+                |(default_camera_view, ui_anti_alias)| {
+                    camera_views
+                        .get(default_camera_view.0)
+                        .ok()
+                        .and_then(|view| {
+                            transparent_render_phases
+                                .get_mut(&view.retained_view_entity)
+                                .map(|transparent_phase| {
+                                    (view.target_format, ui_anti_alias, transparent_phase)
+                                })
+                        })
+                },
+            );
+            current_camera_entity = *extracted_camera_entity;
+        }
+
+        let Some((target_format, ui_anti_alias, transparent_phase)) = current_phase.as_mut() else {
+            continue;
+        };
         for (render_entity, gradient) in sub_gradients.iter() {
-            let Ok((default_camera_view, ui_anti_alias)) =
-                render_views.get_mut(*extracted_camera_entity)
-            else {
-                continue;
-            };
-
-            let Ok(view) = camera_views.get(default_camera_view.0) else {
-                continue;
-            };
-
-            let Some(transparent_phase) =
-                transparent_render_phases.get_mut(&view.retained_view_entity)
-            else {
-                continue;
-            };
-
             let pipeline = pipelines.specialize(
                 &pipeline_cache,
                 &gradients_pipeline,
                 UiGradientPipelineKey {
                     anti_alias: matches!(ui_anti_alias, None | Some(UiAntiAlias::On)),
                     color_space: gradient.color_space,
-                    target_format: view.target_format,
+                    target_format: *target_format,
                 },
             );
 

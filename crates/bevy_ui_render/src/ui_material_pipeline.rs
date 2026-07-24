@@ -693,32 +693,43 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
     pipeline_cache: Res<PipelineCache>,
     render_materials: Res<RenderAssets<PreparedUiMaterial<M>>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    mut render_views: Query<&UiCameraView, With<ExtractedView>>,
+    render_views: Query<&UiCameraView, With<ExtractedView>>,
     camera_views: Query<&ExtractedView>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
     let draw_function = draw_functions.read().id::<DrawUiMaterial<M>>();
+    let mut current_camera_entity = Entity::PLACEHOLDER;
+    let mut current_phase = None;
 
     for (main_entity, (extracted_camera_entity, extracted_sub_uinodes)) in
         extracted_uinodes.uinodes.iter()
     {
+        if current_camera_entity != *extracted_camera_entity {
+            current_phase =
+                render_views
+                    .get(*extracted_camera_entity)
+                    .ok()
+                    .and_then(|default_camera_view| {
+                        camera_views
+                            .get(default_camera_view.0)
+                            .ok()
+                            .and_then(|view| {
+                                transparent_render_phases
+                                    .get_mut(&view.retained_view_entity)
+                                    .map(|transparent_phase| {
+                                        (view.target_format, transparent_phase)
+                                    })
+                            })
+                    });
+            current_camera_entity = *extracted_camera_entity;
+        }
+
+        let Some((target_format, transparent_phase)) = current_phase.as_mut() else {
+            continue;
+        };
         for (render_entity, extracted_uinode) in extracted_sub_uinodes.iter() {
             let Some(material) = render_materials.get(extracted_uinode.material) else {
-                continue;
-            };
-
-            let Ok(default_camera_view) = render_views.get_mut(*extracted_camera_entity) else {
-                continue;
-            };
-
-            let Ok(view) = camera_views.get(default_camera_view.0) else {
-                continue;
-            };
-
-            let Some(transparent_phase) =
-                transparent_render_phases.get_mut(&view.retained_view_entity)
-            else {
                 continue;
             };
 
@@ -726,7 +737,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
                 &pipeline_cache,
                 &ui_material_pipeline,
                 UiMaterialKey {
-                    target_format: view.target_format,
+                    target_format: *target_format,
                     bind_group_data: material.key.clone(),
                 },
             );
