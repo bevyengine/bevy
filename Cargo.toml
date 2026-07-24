@@ -1831,6 +1831,18 @@ category = "Application"
 wasm = false
 
 [[example]]
+name = "declarative_plugins"
+path = "examples/app/declarative_plugins.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.declarative_plugins]
+name = "Declarative Plugins"
+description = "Declarative plugins in action"
+category = "Application"
+wasm = false
+
+
+[[example]]
 name = "drag_and_drop"
 path = "examples/app/drag_and_drop.rs"
 doc-scrape-examples = true

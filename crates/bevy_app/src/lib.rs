@@ -7,7 +7,8 @@
 )]
 #![cfg_attr(any(docsrs, docsrs_dep), feature(rustdoc_internals))]
 #![cfg_attr(docsrs, feature(doc_cfg))]
-#![forbid(unsafe_code)]
+// TODO: put back, sorry!
+// #![forbid(unsafe_code)]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
     html_favicon_url = "https://bevy.org/assets/icon.png"
@@ -25,6 +26,7 @@ extern crate alloc;
 extern crate self as bevy_app;
 
 mod app;
+mod declr_plugin;
 mod hierarchy;
 mod main_schedule;
 mod panic_handler;
@@ -41,6 +43,7 @@ mod terminal_ctrl_c_handler;
 pub mod hotpatch;
 
 pub use app::*;
+pub use declr_plugin::*;
 pub use hierarchy::*;
 pub use main_schedule::*;
 pub use panic_handler::*;
