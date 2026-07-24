@@ -373,10 +373,53 @@ pub mod binding_types {
 
     use super::*;
 
+    pub mod shader_layout {
+        use super::*;
+        use const_shader_layout::{ShaderLayout, ShaderLayoutCompat};
+
+        /// A storage buffer binding with min binding size set to [`::const_shader_layout::ShaderLayout::SIZE`]
+        pub fn storage_buffer<T: ShaderLayout>(
+            has_dynamic_offset: bool,
+        ) -> BindGroupLayoutEntryBuilder {
+            storage_buffer_sized(has_dynamic_offset, Some(T::SIZE))
+        }
+
+        /// A read-only storage buffer binding with min binding size set to [`::const_shader_layout::ShaderLayout::SIZE`]
+        pub fn storage_buffer_read_only<T: ShaderLayout>(
+            has_dynamic_offset: bool,
+        ) -> BindGroupLayoutEntryBuilder {
+            storage_buffer_read_only_sized(has_dynamic_offset, Some(T::SIZE))
+        }
+
+        /// A uniform buffer binding with min binding size set to [`::const_shader_layout::ShaderLayout::SIZE`]
+        pub fn uniform_buffer<T: ShaderLayoutCompat>(
+            has_dynamic_offset: bool,
+        ) -> BindGroupLayoutEntryBuilder {
+            uniform_buffer_sized(has_dynamic_offset, Some(T::SIZE))
+        }
+    }
+
+    /// A storage buffer binding with min binding size set to [`::encase::ShaderType::min_size`]
     pub fn storage_buffer<T: ShaderType>(has_dynamic_offset: bool) -> BindGroupLayoutEntryBuilder {
         storage_buffer_sized(has_dynamic_offset, Some(T::min_size()))
     }
 
+    /// A read-only storage buffer binding with min binding size set to [`::encase::ShaderType::min_size`]
+    pub fn storage_buffer_read_only<T: ShaderType>(
+        has_dynamic_offset: bool,
+    ) -> BindGroupLayoutEntryBuilder {
+        storage_buffer_read_only_sized(has_dynamic_offset, Some(T::min_size()))
+    }
+
+    /// A uniform buffer binding with min binding size set to [`::encase::ShaderType::min_size`]
+    pub fn uniform_buffer<T: ShaderType>(has_dynamic_offset: bool) -> BindGroupLayoutEntryBuilder {
+        uniform_buffer_sized(has_dynamic_offset, Some(T::min_size()))
+    }
+
+    /// A storage buffer binding with specified min binding size.
+    ///
+    /// You should specify the `min_binding_size` when possible to let `wgpu` validate it at bind group creation time,
+    /// Otherwise it is validated in draw/dispatch time which might be slower.
     pub fn storage_buffer_sized(
         has_dynamic_offset: bool,
         min_binding_size: Option<NonZero<u64>>,
@@ -389,12 +432,10 @@ pub mod binding_types {
         .into_bind_group_layout_entry_builder()
     }
 
-    pub fn storage_buffer_read_only<T: ShaderType>(
-        has_dynamic_offset: bool,
-    ) -> BindGroupLayoutEntryBuilder {
-        storage_buffer_read_only_sized(has_dynamic_offset, Some(T::min_size()))
-    }
-
+    /// A read-only storage buffer binding with specified min binding size.
+    ///
+    /// You should specify the `min_binding_size` when possible to let `wgpu` validate it at bind group creation time,
+    /// Otherwise it is validated in draw/dispatch time which might be slower.
     pub fn storage_buffer_read_only_sized(
         has_dynamic_offset: bool,
         min_binding_size: Option<NonZero<u64>>,
@@ -407,10 +448,10 @@ pub mod binding_types {
         .into_bind_group_layout_entry_builder()
     }
 
-    pub fn uniform_buffer<T: ShaderType>(has_dynamic_offset: bool) -> BindGroupLayoutEntryBuilder {
-        uniform_buffer_sized(has_dynamic_offset, Some(T::min_size()))
-    }
-
+    /// A uniform buffer binding with specified min binding size.
+    ///
+    /// You should specify the `min_binding_size` when possible to let `wgpu` validate it at bind group creation time,
+    /// Otherwise it is validated in draw/dispatch time which might be slower.
     pub fn uniform_buffer_sized(
         has_dynamic_offset: bool,
         min_binding_size: Option<NonZero<u64>>,

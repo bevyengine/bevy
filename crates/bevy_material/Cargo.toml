@@ -26,6 +26,9 @@ thiserror = { version = "2", default-features = false }
 wgpu-types = { version = "30", default-features = false }
 variadics_please = "2.0"
 smallvec = { version = "1", default-features = false }
+const_shader_layout = { version = "0.4", default-features = false, features = [
+  "std",
+] }
 
 [lints]
 workspace = true

@@ -13,6 +13,8 @@ use bevy_ecs::{
 use bevy_log::warn;
 use bevy_math::bounding::{Aabb2d, BoundingVolume};
 use bevy_mesh::Indices;
+#[cfg(feature = "morph")]
+use const_shader_layout::ShaderLayout;
 use glam::Vec4;
 use wgpu::{BufferUsages, DownlevelFlags, COPY_BUFFER_ALIGNMENT};
 
@@ -88,7 +90,7 @@ impl Default for MeshAllocatorSettings {
 #[cfg(feature = "morph")]
 const MORPH_ATTRIBUTE_ELEMENT_LAYOUT: ElementLayout = ElementLayout {
     class: ElementClass::MorphTarget,
-    size: size_of::<MorphAttributes>() as u64,
+    size: MorphAttributes::SIZE.get(),
     elements_per_slot: 1,
     buffer_usages: ElementClass::MorphTarget.buffer_usages(true),
 };
@@ -462,9 +464,11 @@ impl MeshAllocator {
             // Allocate morph target data.
             #[cfg(feature = "morph")]
             if let Some(morph_targets) = mesh.get_morph_targets() {
+                use const_shader_layout::ShaderLayout;
+
                 allocation_stage.allocate(
                     &MeshAllocationKey::new(*mesh_id, ElementClass::MorphTarget),
-                    morph_targets.len() as u64 * size_of::<MorphAttributes>() as u64,
+                    morph_targets.len() as u64 * MorphAttributes::SIZE.get(),
                     MORPH_ATTRIBUTE_ELEMENT_LAYOUT,
                     mesh_allocator_settings,
                 );

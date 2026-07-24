@@ -12,7 +12,6 @@ keywords = ["bevy"]
 # bevy
 bevy_app = { path = "../bevy_app", version = "0.20.0-dev" }
 bevy_asset = { path = "../bevy_asset", version = "0.20.0-dev" }
-bevy_encase_derive = { path = "../bevy_encase_derive", version = "0.20.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.20.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.20.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.20.0-dev" }
@@ -36,8 +35,12 @@ thiserror = { version = "2", default-features = false }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 derive_more = { version = "2", default-features = false, features = ["from"] }
 half = { version = "2.4.1", features = ["bytemuck"] }
-encase = "0.12"
 glam = { version = "0.33.2", default-features = false, optional = true }
+const_shader_layout = { version = "0.4", default-features = false, features = [
+  "glam",
+  "std",
+  "derive",
+] }
 
 [dev-dependencies]
 approx = "0.5"
@@ -47,7 +50,7 @@ serde_json = "1.0.140"
 default = []
 ## Adds serialization support through `serde`.
 serialize = ["dep:serde", "wgpu-types/serde", "half/serde"]
-morph = ["glam/encase"]
+morph = []
 
 [lints]
 workspace = true

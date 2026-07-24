@@ -73,6 +73,7 @@ use bevy_render::{
 use bevy_shader::{load_shader_library, Shader, ShaderDefVal, ShaderSettings};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{default, Parallel, TypeIdHashMap};
+use const_shader_layout::{ShaderLayout, ShaderLayoutCompat};
 use core::any::TypeId;
 use core::iter;
 use core::mem::size_of;
@@ -513,7 +514,8 @@ pub struct MeshTransforms {
     pub flags: u32,
 }
 
-#[derive(ShaderType, Clone)]
+#[derive(ShaderType, Clone, Copy, ShaderLayoutCompat)]
+#[repr(C)]
 pub struct MeshUniform {
     // Affine 4x3 matrices transposed to 3x4
     pub world_from_local: [Vec4; 3],
@@ -651,7 +653,7 @@ impl_atomic_pod!(PreviousMeshInputUniform, PreviousMeshInputUniformBlob);
 /// Information about each mesh instance needed to cull it on GPU.
 ///
 /// This consists of its axis-aligned bounding box (AABB).
-#[derive(ShaderType, Pod, Zeroable, Clone, Copy, Default)]
+#[derive(ShaderLayout, Pod, Zeroable, Clone, Copy, Default)]
 #[repr(C)]
 pub struct MeshCullingData {
     /// The 3D center of the AABB in model space, padded with an extra unused
@@ -4715,7 +4717,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
                         // Calculate the location of the indirect parameters
                         // within the buffer.
                         let indirect_parameters_offset = indirect_parameters_range.start as u64
-                            * size_of::<IndirectParametersIndexed>() as u64;
+                            * IndirectParametersIndexed::SIZE.get();
                         let indirect_parameters_count =
                             indirect_parameters_range.end - indirect_parameters_range.start;
 
@@ -4726,7 +4728,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
                         match batch_set_index {
                             Some(batch_set_index) => {
                                 let count_offset = u32::from(batch_set_index)
-                                    * (size_of::<IndirectBatchSet>() as u32);
+                                    * (IndirectBatchSet::SIZE.get() as u32);
                                 pass.multi_draw_indexed_indirect_count(
                                     indirect_parameters_buffer,
                                     indirect_parameters_offset,
@@ -4783,7 +4785,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
                     // Calculate the location of the indirect parameters within
                     // the buffer.
                     let indirect_parameters_offset = indirect_parameters_range.start as u64
-                        * size_of::<IndirectParametersNonIndexed>() as u64;
+                        * IndirectParametersNonIndexed::SIZE.get();
                     let indirect_parameters_count =
                         indirect_parameters_range.end - indirect_parameters_range.start;
 
@@ -4794,7 +4796,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
                     match batch_set_index {
                         Some(batch_set_index) => {
                             let count_offset =
-                                u32::from(batch_set_index) * (size_of::<IndirectBatchSet>() as u32);
+                                u32::from(batch_set_index) * (IndirectBatchSet::SIZE.get() as u32);
                             pass.multi_draw_indirect_count(
                                 indirect_parameters_buffer,
                                 indirect_parameters_offset,
