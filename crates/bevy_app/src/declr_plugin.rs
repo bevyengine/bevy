@@ -199,6 +199,30 @@ mod metadata_ptr_test {
         let visit_take_ref = erased.visit::<Vec<u8>, _>(|v| v.len());
         let un_erased = erased.try_reverse_erase::<Vec<u8>>();
     }
+
+    #[test]
+    fn nested() {
+        let mut v: Vec<u8> = Vec::new();
+        v.push(1);
+        v.push(2);
+        v.push(3);
+        v.push(4);
+        let nested = MetadataPtr::new(MetadataPtr::new(v).unwrap()).unwrap();
+        let double_visit = nested
+            .visit::<MetadataPtr, _>(|single| single.visit::<Vec<u8>, _>(|v| v.len()))
+            .flatten();
+        assert_eq!(double_visit, Some(4));
+        let mut extremely_nested = nested;
+        for _ in 0..1000 {
+            extremely_nested = MetadataPtr::new(extremely_nested).unwrap();
+        }
+        let mut sum = 0;
+        while let Ok(inner_nested) = extremely_nested.try_reverse_erase::<MetadataPtr>() {
+            sum += 1;
+            extremely_nested = inner_nested;
+        }
+        assert!(sum > 1000, "{sum}");
+    }
 }
 
 /// Data structure to get around the fact that Resource is not dyn compatible.
