@@ -23,10 +23,11 @@ fn main() {
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
 
-
     // Scenes associated with the color space listbox picker.
     // They are added to the correct parent below.
-    let color_space_help_text_id = commands.spawn_scene(color_space_list_box_help_text_scene()).id();
+    let color_space_help_text_id = commands
+        .spawn_scene(color_space_list_box_help_text_scene())
+        .id();
     let color_space_list_id = commands.spawn_scene(color_space_list_box_scene()).id();
 
     commands
@@ -354,7 +355,9 @@ fn list_item_hovered_style(
             continue;
         }
         if hovered.get() {
-            commands.entity(entity).insert(BackgroundColor(Color::BLACK));
+            commands
+                .entity(entity)
+                .insert(BackgroundColor(Color::BLACK));
         } else {
             commands.entity(entity).remove::<BackgroundColor>();
         }
