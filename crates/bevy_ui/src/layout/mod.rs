@@ -197,20 +197,18 @@ pub fn ui_layout_system(
     >,
     added_node_query: Query<(), (Added<Node>, Without<GhostNode>)>,
     added_fixed_node_query: Query<Entity, (Added<FixedNode>, Without<GhostNode>)>,
-    mut node_update_query: Query<
-        (
-            &mut ComputedNode,
-            &UiTransform,
-            &mut UiGlobalTransform,
-            &Node,
-            Option<&LayoutConfig>,
-            Option<&Outline>,
-            Option<&ScrollPosition>,
-            Option<&IgnoreScroll>,
-            Has<FixedNode>,
-        ),
-        Without<GhostNode>,
-    >,
+    mut node_update_query: Query<(
+        &mut ComputedNode,
+        &UiTransform,
+        &mut UiGlobalTransform,
+        &Node,
+        Option<&LayoutConfig>,
+        Option<&Outline>,
+        Option<&ScrollPosition>,
+        Option<&IgnoreScroll>,
+        Has<FixedNode>,
+        Has<GhostNode>,
+    )>,
     mut buffer_query: Query<&mut ComputedTextBlock>,
     mut font_system: ResMut<FontCx>,
     mut removed_children: RemovedComponents<Children>,
@@ -399,13 +397,35 @@ pub fn ui_layout_system(
             is_ghost_node,
         )) = node_update_query.get_mut(entity)
         {
-            if is_fixed_node && root != entity {
-                return;
-            }
-
             let use_rounding = maybe_layout_config
                 .map(|layout_config| layout_config.use_rounding)
                 .unwrap_or(inherited_use_rounding);
+
+            if is_ghost_node {
+                node.set_if_neq(ComputedNode::default());
+
+                for child_uinode in ui_children.iter_ui_children(entity) {
+                    update_uinode_geometry_recursive(
+                        root,
+                        child_uinode,
+                        ui_surface,
+                        use_rounding,
+                        target_size,
+                        inherited_transform,
+                        node_update_query,
+                        ui_children,
+                        inverse_target_scale_factor,
+                        parent_size,
+                        parent_scroll_position,
+                    );
+                }
+
+                return;
+            }
+
+            if is_fixed_node && root != entity {
+                return;
+            }
 
             let Ok((layout, unrounded_size)) = ui_surface.get_layout(entity, use_rounding) else {
                 return;
