@@ -66,7 +66,7 @@ pub use debug_overlay::{GlobalUiDebugOptions, UiDebugOptions};
 
 use gradient::GradientPlugin;
 
-use bevy_platform::collections::{HashMap, HashSet};
+use bevy_platform::collections::{hash_map::Entry, HashMap, HashSet};
 use bevy_text::{
     ComputedTextBlock, EditableText, PositionedGlyph, Strikethrough, StrikethroughColor,
     TextBackgroundColor, TextColor, TextCursorStyle, TextLayoutInfo, TextSpan, Underline,
@@ -738,70 +738,68 @@ pub fn extract_uinode_background_colors(
             continue;
         }
 
-        let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
-            continue;
+        let extracted_sub_uinodes = match extracted_uinodes.uinodes.entry(entity.into()) {
+            Entry::Occupied(entry) => &mut entry.into_mut().1,
+            Entry::Vacant(entry) => {
+                let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
+                    continue;
+                };
+                &mut entry
+                    .insert((extracted_camera_entity, Default::default()))
+                    .1
+            }
         };
 
         if !background_color.is_fully_transparent() {
-            extracted_uinodes
-                .uinodes
-                .entry(entity.into())
-                .or_insert_with(|| (extracted_camera_entity, Default::default()))
-                .1
-                .insert(
-                    commands.spawn_empty().id(),
-                    ExtractedUiNode {
-                        z_order: stack_index.0 as f32 + stack_z_offsets::BACKGROUND_COLOR,
-                        clip: clip.map(|clip| clip.clip),
-                        image: AssetId::default(),
-                        transform: transform.into(),
-                        item: ExtractedUiItem::Node {
-                            color: background_color.0.into(),
-                            rect: Rect {
-                                min: Vec2::ZERO,
-                                max: uinode.size,
-                            },
-                            atlas_scaling: None,
-                            flip_x: false,
-                            flip_y: false,
-                            border: uinode.border(),
-                            border_radius: uinode.border_radius(),
-                            node_type: NodeType::Rect,
+            extracted_sub_uinodes.insert(
+                commands.spawn_empty().id(),
+                ExtractedUiNode {
+                    z_order: stack_index.0 as f32 + stack_z_offsets::BACKGROUND_COLOR,
+                    clip: clip.map(|clip| clip.clip),
+                    image: AssetId::default(),
+                    transform: transform.into(),
+                    item: ExtractedUiItem::Node {
+                        color: background_color.0.into(),
+                        rect: Rect {
+                            min: Vec2::ZERO,
+                            max: uinode.size,
                         },
+                        atlas_scaling: None,
+                        flip_x: false,
+                        flip_y: false,
+                        border: uinode.border(),
+                        border_radius: uinode.border_radius(),
+                        node_type: NodeType::Rect,
                     },
-                );
+                },
+            );
         }
 
         if let Some(outer_color) = maybe_outer_color
             && !outer_color.0.is_fully_transparent()
         {
-            extracted_uinodes
-                .uinodes
-                .entry(entity.into())
-                .or_insert_with(|| (extracted_camera_entity, Default::default()))
-                .1
-                .insert(
-                    commands.spawn_empty().id(),
-                    ExtractedUiNode {
-                        z_order: stack_index.0 as f32 + stack_z_offsets::BACKGROUND_COLOR,
-                        clip: clip.map(|clip| clip.clip),
-                        image: AssetId::default(),
-                        transform: transform.into(),
-                        item: ExtractedUiItem::Node {
-                            color: outer_color.0.into(),
-                            rect: Rect {
-                                min: Vec2::ZERO,
-                                max: uinode.size,
-                            },
-                            atlas_scaling: None,
-                            flip_x: false,
-                            flip_y: false,
-                            border: BorderRect::ZERO,
-                            border_radius: uinode.border_radius(),
-                            node_type: NodeType::Inverted,
+            extracted_sub_uinodes.insert(
+                commands.spawn_empty().id(),
+                ExtractedUiNode {
+                    z_order: stack_index.0 as f32 + stack_z_offsets::BACKGROUND_COLOR,
+                    clip: clip.map(|clip| clip.clip),
+                    image: AssetId::default(),
+                    transform: transform.into(),
+                    item: ExtractedUiItem::Node {
+                        color: outer_color.0.into(),
+                        rect: Rect {
+                            min: Vec2::ZERO,
+                            max: uinode.size,
                         },
+                        atlas_scaling: None,
+                        flip_x: false,
+                        flip_y: false,
+                        border: BorderRect::ZERO,
+                        border_radius: uinode.border_radius(),
+                        node_type: NodeType::Inverted,
                     },
-                );
+                },
+            );
         }
     }
 }
