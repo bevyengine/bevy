@@ -2216,6 +2216,20 @@ pub fn prepare_uinodes(
                         continue;
                     }
                 }
+if generated.culled {
+                    continue;
+                }
+
+                for quad in 0..generated.quads {
+                    let vertex_base = generated.vertex_start + quad * 4;
+                    for &i in &QUAD_INDICES {
+                        ui_meta.indices.push(vertex_base + i as u32);
+                    }
+                    index_count += 6;
+                }
+
+                existing_batch.unwrap().range.end = index_count;
+                ui_phase.items[batch_item_index].batch_range_mut().end += 1;
             }
         }
 
