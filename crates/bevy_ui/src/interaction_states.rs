@@ -78,7 +78,7 @@ pub trait OptionPressedExt {
 
 impl OptionPressedExt for Option<&Pressed> {
     fn is_pressed(&self) -> bool {
-        self.is_some_and(|pressed| pressed.get())
+        self.is_some_and(Pressed::get)
     }
 }
 
@@ -97,7 +97,7 @@ pub fn remove_pressed_on_next_frame(
 ) {
     let previous_length = presses_to_clear.len();
     for entity in presses_to_clear.drain(..) {
-        // If the button has stayed false for a whole frame, remove its component.
+        // If `Pressed` has stayed false for a whole frame, remove it.
         if let Ok((_, pressed)) = pressed_false_q.get(entity)
             && !pressed.is_changed()
             && !pressed.get()
@@ -106,7 +106,8 @@ pub fn remove_pressed_on_next_frame(
         }
     }
 
-    // Queue up the next buttons that will have `Pressed` remove on the next frame.
+    // Queue up the next entities that should have `Pressed` removed on the next execution
+    // of this system.
     for (entity, pressed) in pressed_false_q {
         if !pressed.get() {
             presses_to_clear.push(entity);
