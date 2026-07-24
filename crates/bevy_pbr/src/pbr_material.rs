@@ -254,8 +254,9 @@ pub struct StandardMaterial {
     ///     [`crate::ScreenSpaceTransmission::steps`] to `0`.
     /// - If purely diffuse light transmission is needed, (i.e. “translucency”) consider using [`StandardMaterial::diffuse_transmission`] instead,
     ///   for a much less expensive effect.
-    /// - Specular transmission is rendered before alpha blending, so any material with [`AlphaMode::Blend`], [`AlphaMode::Premultiplied`], [`AlphaMode::Add`] or [`AlphaMode::Multiply`]
-    ///   won't be visible through specular transmissive materials.
+    /// - Screen-space specular transmission is rendered in the [`Transmissive3d`](crate::Transmissive3d)
+    ///   pass. Materials using this effect are rendered there, even if they use [`AlphaMode::Blend`],
+    ///   [`AlphaMode::Premultiplied`], [`AlphaMode::Add`], or [`AlphaMode::Multiply`].
     #[doc(alias = "refraction")]
     pub specular_transmission: f32,
 
@@ -963,6 +964,13 @@ impl From<Handle<Image>> for StandardMaterial {
     }
 }
 
+impl StandardMaterial {
+    #[inline]
+    fn uses_screen_space_specular_transmission(&self) -> bool {
+        self.specular_transmission > 0.0
+    }
+}
+
 // NOTE: These must match the bit flags in bevy_pbr/src/render/pbr_types.wgsl!
 bitflags::bitflags! {
     /// Bitflags info about the material a shader is currently rendering.
@@ -1068,6 +1076,8 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
         &self,
         images: &RenderAssets<GpuImage>,
     ) -> StandardMaterialUniform {
+        let uses_screen_space_specular_transmission =
+            self.uses_screen_space_specular_transmission();
         let mut flags = StandardMaterialFlags::NONE;
         if self.base_color_texture.is_some() {
             flags |= StandardMaterialFlags::BASE_COLOR_TEXTURE;
@@ -1095,7 +1105,9 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
         }
         #[cfg(feature = "pbr_transmission_textures")]
         {
-            if self.specular_transmission_texture.is_some() {
+            if uses_screen_space_specular_transmission
+                && self.specular_transmission_texture.is_some()
+            {
                 flags |= StandardMaterialFlags::SPECULAR_TRANSMISSION_TEXTURE;
             }
             if self.thickness_texture.is_some() {
@@ -1200,7 +1212,11 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
             anisotropy_strength: self.anisotropy_strength,
             anisotropy_rotation,
             diffuse_transmission: self.diffuse_transmission,
-            specular_transmission: self.specular_transmission,
+            specular_transmission: if uses_screen_space_specular_transmission {
+                self.specular_transmission
+            } else {
+                0.0
+            },
             thickness: self.thickness,
             ior: self.ior,
             attenuation_distance: self.attenuation_distance,
@@ -1255,6 +1271,8 @@ const STANDARD_MATERIAL_KEY_DEPTH_BIAS_SHIFT: u64 = 32;
 
 impl From<&StandardMaterial> for StandardMaterialKey {
     fn from(material: &StandardMaterial) -> Self {
+        let uses_screen_space_specular_transmission =
+            material.uses_screen_space_specular_transmission();
         let mut key = StandardMaterialKey::empty();
         key.set(
             StandardMaterialKey::CULL_FRONT,
@@ -1281,7 +1299,7 @@ impl From<&StandardMaterial> for StandardMaterialKey {
         );
         key.set(
             StandardMaterialKey::SPECULAR_TRANSMISSION,
-            material.specular_transmission > 0.0,
+            uses_screen_space_specular_transmission,
         );
 
         key.set(StandardMaterialKey::CLEARCOAT, material.clearcoat > 0.0);
@@ -1318,7 +1336,8 @@ impl From<&StandardMaterial> for StandardMaterialKey {
         {
             key.set(
                 StandardMaterialKey::SPECULAR_TRANSMISSION_UV,
-                material.specular_transmission_channel != UvChannel::Uv0,
+                uses_screen_space_specular_transmission
+                    && material.specular_transmission_channel != UvChannel::Uv0,
             );
             key.set(
                 StandardMaterialKey::THICKNESS_UV,
@@ -1414,7 +1433,7 @@ impl Material for StandardMaterial {
 
     #[inline]
     fn reads_view_transmission_texture(&self) -> bool {
-        self.specular_transmission > 0.0
+        self.uses_screen_space_specular_transmission()
     }
 
     fn prepass_fragment_shader() -> ShaderRef {
