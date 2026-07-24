@@ -16,7 +16,7 @@ use wgpu_types::{LoadOp, TextureUsages};
     Projection::Orthographic(OrthographicProjection::default_2d()),
     Frustum = OrthographicProjection::default_2d().compute_frustum(&GlobalTransform::from(Transform::default())),
 )]
-#[component(on_insert=add_default_color_target)]
+#[component(on_insert = add_default_color_target)]
 pub struct Camera2d;
 
 /// A 3D camera component. Enables the main 3D render graph for a [`Camera`].
@@ -26,7 +26,7 @@ pub struct Camera2d;
 #[derive(Component, Reflect, Clone)]
 #[reflect(Component, Default, Clone)]
 #[require(Camera, Projection)]
-#[component(on_insert=add_default_color_target)]
+#[component(on_insert = add_default_color_target)]
 pub struct Camera3d {
     /// The depth clear operation to perform for the main 3d pass.
     pub depth_load_op: Camera3dDepthLoadOp,

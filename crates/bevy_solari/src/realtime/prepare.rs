@@ -15,8 +15,6 @@ use bevy_ecs::{
 #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
 use bevy_image::ToExtents;
 use bevy_math::UVec2;
-#[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))]
-use bevy_render::camera::ViewTargetInfo;
 use bevy_render::{
     render_resource::{Buffer, BufferDescriptor, BufferInitDescriptor, BufferUsages},
     renderer::{RenderDevice, RenderQueue},
@@ -111,14 +109,14 @@ pub struct SolariLightingResources {
 pub fn prepare_solari_lighting_resources(
     #[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))] query: Query<(
         Entity,
-        &ViewTargetInfo,
+        &bevy_render::camera::ViewTargetInfo,
         &SolariLighting,
         Option<&SolariLightingResources>,
         Option<&MainPassResolutionOverride>,
     )>,
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))] query: Query<(
         Entity,
-        &ViewTargetInfo,
+        &bevy_render::camera::ViewTargetInfo,
         &SolariLighting,
         Option<&SolariLightingResources>,
         Option<&MainPassResolutionOverride>,

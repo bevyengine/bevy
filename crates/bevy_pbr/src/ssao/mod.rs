@@ -17,7 +17,7 @@ use bevy_ecs::{
 use bevy_image::ToExtents;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    camera::{TemporalJitter, ViewTargetInfo},
+    camera::{extract_cameras, TemporalJitter, ViewTargetInfo},
     diagnostic::RecordDiagnostics,
     extract_component::ExtractComponent,
     globals::{GlobalsBuffer, GlobalsUniform},
@@ -72,7 +72,10 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
         render_app
             .init_gpu_resource::<SsaoPipelines>()
             .init_gpu_resource::<SpecializedComputePipelines<SsaoPipelines>>()
-            .add_systems(ExtractSchedule, extract_ssao_settings)
+            .add_systems(
+                ExtractSchedule,
+                extract_ssao_settings.after(extract_cameras),
+            )
             .add_systems(
                 Render,
                 (
@@ -491,24 +494,25 @@ fn extract_ssao_settings(
     mut commands: Commands,
     cameras: Extract<
         Query<
-            (
-                RenderEntity,
-                &Camera,
-                &ScreenSpaceAmbientOcclusion,
-                &ViewTargetInfo,
-            ),
+            (RenderEntity, &Camera, &ScreenSpaceAmbientOcclusion),
             (With<Camera3d>, With<DepthPrepass>, With<NormalPrepass>),
         >,
     >,
+    extracted: Query<&ViewTargetInfo>,
 ) {
-    for (entity, camera, ssao_settings, target_info) in &cameras {
+    for (entity, camera, ssao_settings) in &cameras {
+        let Ok(target_info) = extracted.get(entity) else {
+            return;
+        };
         if target_info.sample_count > 1 {
             error!(
-                "SSAO is being used which requires Msaa::Off, but Msaa is currently set to Msaa::{:?}",
-                target_info.sample_count,
+                "SSAO is being used which requires Msaa::Off, \
+                but Msaa is currently set to Msaa::{:?}",
+                target_info.sample_count
             );
             return;
         }
+
         let mut entity_commands = commands
             .get_entity(entity)
             .expect("SSAO entity wasn't synced.");
