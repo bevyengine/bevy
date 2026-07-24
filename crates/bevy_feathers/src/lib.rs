@@ -74,6 +74,7 @@ impl Plugin for FeathersCorePlugin {
         // Embedded shader
         embedded_asset!(app, "assets/shaders/alpha_pattern.wgsl");
         embedded_asset!(app, "assets/shaders/color_plane.wgsl");
+        embedded_asset!(app, "assets/shaders/color_wheel.wgsl");
 
         app.add_plugins((
             ControlsPlugin,
