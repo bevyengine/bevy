@@ -1,12 +1,12 @@
 //! Convenience logic for turning components from the main world into extracted
-//! instances in the render world.
+//! instances in the sub world.
 //!
 //! This is essentially the same as the `extract_component` module, but
 //! higher-performance because it avoids the ECS overhead.
 
 use core::marker::PhantomData;
 
-use bevy_app::{App, Plugin};
+use bevy_app::{App, AppLabel, Plugin};
 use bevy_camera::visibility::ViewVisibility;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -17,62 +17,66 @@ use bevy_ecs::{
 };
 
 use crate::sync_world::MainEntityHashMap;
-use crate::{Extract, ExtractSchedule, RenderApp};
+use crate::{Extract, ExtractSchedule};
 
-/// Describes how to extract data needed for rendering from a component or
+/// Describes how to extract data needed for processing from a component or
 /// components.
 ///
-/// Before rendering, any applicable components will be transferred from the
-/// main world to the render world in the [`ExtractSchedule`] step.
+/// Before processing, any applicable components will be transferred from the
+/// main world to the sub world in the [`ExtractSchedule`] step.
 ///
 /// This is essentially the same as
 /// [`ExtractComponent`](crate::extract_component::ExtractComponent), but
 /// higher-performance because it avoids the ECS overhead.
-pub trait ExtractInstance: Send + Sync + Sized + 'static {
+pub trait ExtractInstance<L: AppLabel>: Send + Sync + Sized + 'static {
     /// ECS [`ReadOnlyQueryData`] to fetch the components to extract.
     type QueryData: ReadOnlyQueryData;
     /// Filters the entities with additional constraints.
     type QueryFilter: QueryFilter;
 
-    /// Defines how the component is transferred into the "render world".
+    /// Defines how the component is transferred into the "sub world".
     fn extract(item: QueryItem<'_, '_, Self::QueryData>) -> Option<Self>;
 }
 
-/// This plugin extracts one or more components into the "render world" as
+/// This plugin extracts one or more components into the "sub world" as
 /// extracted instances.
 ///
 /// Therefore it sets up the [`ExtractSchedule`] step for the specified
 /// [`ExtractedInstances`].
 #[derive(Default)]
-pub struct ExtractInstancesPlugin<EI>
+pub struct ExtractInstancesPlugin<EI, L>
 where
-    EI: ExtractInstance,
+    EI: ExtractInstance<L>,
+    L: AppLabel,
 {
     only_extract_visible: bool,
-    marker: PhantomData<fn() -> EI>,
+    marker: PhantomData<fn() -> (L, EI)>,
 }
 
-/// Stores all extract instances of a type in the render world.
+/// Stores all extract instances of a type in the sub world.
 #[derive(Resource, Deref, DerefMut)]
-pub struct ExtractedInstances<EI>(MainEntityHashMap<EI>)
+pub struct ExtractedInstances<EI, L>(#[deref] MainEntityHashMap<EI>, PhantomData<L>)
 where
-    EI: ExtractInstance;
+    EI: ExtractInstance<L>,
+    L: AppLabel;
 
-impl<EI> Default for ExtractedInstances<EI>
+impl<EI, L> Default for ExtractedInstances<EI, L>
 where
-    EI: ExtractInstance,
+    EI: ExtractInstance<L>,
+    L: AppLabel,
 {
     fn default() -> Self {
-        Self(Default::default())
+        Self(Default::default(), PhantomData)
     }
 }
 
-impl<EI> ExtractInstancesPlugin<EI>
+impl<EI, L> ExtractInstancesPlugin<EI, L>
 where
-    EI: ExtractInstance,
+    EI: ExtractInstance<L>,
+    L: AppLabel,
 {
     /// Creates a new [`ExtractInstancesPlugin`] that unconditionally extracts to
-    /// the render world, whether the entity is visible or not.
+    /// the sub world, whether the entity is visible or not.
     pub fn new() -> Self {
         Self {
             only_extract_visible: false,
@@ -80,7 +84,7 @@ where
         }
     }
 
-    /// Creates a new [`ExtractInstancesPlugin`] that extracts to the render world
+    /// Creates a new [`ExtractInstancesPlugin`] that extracts to the sub world
     /// if and only if the entity it's attached to is visible.
     pub fn extract_visible() -> Self {
         Self {
@@ -90,27 +94,29 @@ where
     }
 }
 
-impl<EI> Plugin for ExtractInstancesPlugin<EI>
+impl<EI, L> Plugin for ExtractInstancesPlugin<EI, L>
 where
-    EI: ExtractInstance,
+    EI: ExtractInstance<L>,
+    L: AppLabel + Default,
 {
     fn build(&self, app: &mut App) {
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<ExtractedInstances<EI>>();
+        if let Some(sub_app) = app.get_sub_app_mut(L::default()) {
+            sub_app.init_resource::<ExtractedInstances<EI, L>>();
             if self.only_extract_visible {
-                render_app.add_systems(ExtractSchedule, extract_visible::<EI>);
+                sub_app.add_systems(ExtractSchedule, extract_visible::<EI, L>);
             } else {
-                render_app.add_systems(ExtractSchedule, extract_all::<EI>);
+                sub_app.add_systems(ExtractSchedule, extract_all::<EI, L>);
             }
         }
     }
 }
 
-fn extract_all<EI>(
-    mut extracted_instances: ResMut<ExtractedInstances<EI>>,
+fn extract_all<EI, L>(
+    mut extracted_instances: ResMut<ExtractedInstances<EI, L>>,
     query: Extract<Query<(Entity, EI::QueryData), EI::QueryFilter>>,
 ) where
-    EI: ExtractInstance,
+    EI: ExtractInstance<L>,
+    L: AppLabel,
 {
     extracted_instances.clear();
     for (entity, other) in &query {
@@ -120,11 +126,12 @@ fn extract_all<EI>(
     }
 }
 
-fn extract_visible<EI>(
-    mut extracted_instances: ResMut<ExtractedInstances<EI>>,
+fn extract_visible<EI, L>(
+    mut extracted_instances: ResMut<ExtractedInstances<EI, L>>,
     query: Extract<Query<(Entity, &ViewVisibility, EI::QueryData), EI::QueryFilter>>,
 ) where
-    EI: ExtractInstance,
+    EI: ExtractInstance<L>,
+    L: AppLabel,
 {
     extracted_instances.clear();
     for (entity, view_visibility, other) in &query {

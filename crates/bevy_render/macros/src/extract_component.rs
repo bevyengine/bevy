@@ -1,7 +1,10 @@
 use bevy_macro_utils::fq_std::{FQClone, FQOption};
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, parse_quote, DeriveInput, Path};
+use syn::{
+    parse_macro_input, parse_quote, punctuated::Punctuated, DeriveInput, MacroDelimiter, Meta,
+    MetaList, Path,
+};
 
 pub fn derive_extract_component(input: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(input as DeriveInput);
@@ -20,15 +23,35 @@ pub fn derive_extract_component(input: TokenStream) -> TokenStream {
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
 
-    let app_label = match ast.attrs.iter().find(|a| a.path().is_ident("extract_app")) {
-        Some(attr) => match attr.parse_args::<syn::Type>() {
-            Ok(label) => label,
-            Err(e) => return e.to_compile_error().into(),
-        },
+    let app_labels: Vec<Path> = match ast.attrs.iter().find(|a| a.path().is_ident("extract_app")) {
+        Some(attr) => {
+            if let Meta::List(meta_list) = &attr.meta {
+                if let MacroDelimiter::Paren(_) = meta_list.delimiter {
+                    match parse_to_paths(meta_list) {
+                        Ok(labels) => labels,
+                        Err(e) => return e.into(),
+                    }
+                } else {
+                    return syn::Error::new_spanned(
+                        &ast.ident,
+                        "ExtractComponent requires #[extract_app(MyAppLabelA,MyAppLabelB)] to specify the target sub-app(s) in (parentheses)",
+                    )
+                    .to_compile_error()
+                    .into();
+                }
+            } else {
+                return syn::Error::new_spanned(
+                    &ast.ident,
+                    "ExtractComponent requires #[extract_app(MyAppLabelA,MyAppLabelB)] to specify the target sub-app(s) as a list",
+                )
+                .to_compile_error()
+                .into();
+            }
+        }
         None => {
             return syn::Error::new_spanned(
                 &ast.ident,
-                "ExtractComponent requires #[extract_app(MyAppLabel)] to specify the target sub-app",
+                "ExtractComponent requires #[extract_app(MyAppLabelA,MyAppLabelB)] to specify the target sub-app(s)",
             )
             .to_compile_error()
             .into();
@@ -73,20 +96,32 @@ pub fn derive_extract_component(input: TokenStream) -> TokenStream {
         }
     };
 
-    TokenStream::from(quote! {
-        impl #impl_generics #bevy_render_path::sync_component::SyncComponent<#app_label> for #struct_name #type_generics #where_clause {
-            type Target = #sync_target;
-        }
-
-        impl #impl_generics #bevy_render_path::extract_component::ExtractComponent<#app_label> for #struct_name #type_generics #where_clause {
-            type QueryData = &'static Self;
-
-            type QueryFilter = #filter;
-            type Out = Self;
-
-            fn extract_component(item: #bevy_ecs_path::query::QueryItem<'_, '_, Self::QueryData>) -> #FQOption<Self::Out> {
-                #FQOption::Some(item.clone())
+    app_labels.iter().map(|app_label|
+        TokenStream::from(quote! {
+            impl #impl_generics #bevy_render_path::sync_component::SyncComponent<#app_label> for #struct_name #type_generics #where_clause {
+                type Target = #sync_target;
             }
-        }
-    })
+
+            impl #impl_generics #bevy_render_path::extract_component::ExtractComponent<#app_label> for #struct_name #type_generics #where_clause {
+                type QueryData = &'static Self;
+
+                type QueryFilter = #filter;
+                type Out = Self;
+
+                fn extract_component(item: #bevy_ecs_path::query::QueryItem<'_, '_, Self::QueryData>) -> #FQOption<Self::Out> {
+                    #FQOption::Some(item.clone())
+                }
+            }
+        })
+    ).collect()
+}
+
+fn parse_to_paths(meta_list: &MetaList) -> Result<Vec<Path>, proc_macro2::TokenStream> {
+    meta_list
+        .parse_args_with(|input: syn::parse::ParseStream| {
+            let result = Punctuated::<Path, syn::Token![,]>::parse_terminated(input);
+
+            result.map(|paths| paths.iter().cloned().collect::<Vec<Path>>())
+        })
+        .map_err(|e| e.to_compile_error())
 }
