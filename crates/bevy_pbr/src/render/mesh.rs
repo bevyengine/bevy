@@ -7,7 +7,7 @@ use bevy_camera::visibility::NoCpuCulling;
 use bevy_camera::{
     primitives::Aabb,
     visibility::{NoFrustumCulling, RenderLayers, ViewVisibility, VisibilityRange},
-    Camera, Projection,
+    Camera, Projection, SpectralModel,
 };
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transparent3d, CORE_3D_DEPTH_FORMAT},
@@ -485,6 +485,13 @@ pub fn check_views_need_specialization(
                 view_key |= MeshPipelineKey::DEBAND_DITHER;
             }
         }
+
+        if let Some(camera) = camera
+            && let Some(SpectralModel::MonochromaticLights) = camera.spectral_model
+        {
+            view_key |= MeshPipelineKey::MONOCHROMATIC_LIGHTS;
+        }
+
         if ssao {
             view_key |= MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION;
         }
@@ -3077,7 +3084,8 @@ bitflags::bitflags! {
         const INVERT_CULLING                    = 1 << 22;
         const PREPASS_READS_MATERIAL            = 1 << 23;
         const CONTACT_SHADOWS                   = 1 << 24;
-        const LAST_FLAG                         = Self::CONTACT_SHADOWS.bits();
+        const MONOCHROMATIC_LIGHTS              = 1 << 25;
+        const LAST_FLAG                         = Self::MONOCHROMATIC_LIGHTS.bits();
 
         const ALL_PREPASS_BITS                  = Self::DEPTH_PREPASS.bits()
                                                 | Self::NORMAL_PREPASS.bits()
@@ -3627,12 +3635,17 @@ impl SpecializedMeshPipeline for MeshPipeline {
         if key.contains(MeshPipelineKey::LIGHTMAPPED) {
             shader_defs.push("LIGHTMAP".into());
         }
+
         if key.contains(MeshPipelineKey::LIGHTMAP_BICUBIC_SAMPLING) {
             shader_defs.push("LIGHTMAP_BICUBIC_SAMPLING".into());
         }
 
         if key.contains(MeshPipelineKey::TEMPORAL_JITTER) {
             shader_defs.push("TEMPORAL_JITTER".into());
+        }
+
+        if key.contains(MeshPipelineKey::MONOCHROMATIC_LIGHTS) {
+            shader_defs.push("MONOCHROMATIC_LIGHTS".into());
         }
 
         let shadow_filter_method =

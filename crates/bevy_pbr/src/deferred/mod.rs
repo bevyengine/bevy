@@ -6,6 +6,7 @@ use crate::{
 };
 use bevy_app::prelude::*;
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
+use bevy_camera::SpectralModel;
 use bevy_core_pipeline::{
     core_3d::main_opaque_pass_3d,
     deferred::{
@@ -288,9 +289,15 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
         if key.contains(MeshPipelineKey::DISTANCE_FOG) {
             shader_defs.push("DISTANCE_FOG".into());
         }
+
         if key.contains(MeshPipelineKey::ATMOSPHERE) {
             shader_defs.push("ATMOSPHERE".into());
         }
+
+        if key.contains(MeshPipelineKey::MONOCHROMATIC_LIGHTS) {
+            shader_defs.push("MONOCHROMATIC_LIGHTS".into());
+        }
+
         shader_defs.push("STANDARD_MATERIAL_CLEARCOAT".into());
 
         // Always true, since we're in the deferred lighting pipeline
@@ -501,6 +508,10 @@ pub fn prepare_deferred_lighting_pipelines(
             if let Some(DebandDither::Enabled) = dither {
                 view_key |= MeshPipelineKey::DEBAND_DITHER;
             }
+        }
+
+        if let Some(SpectralModel::MonochromaticLights) = camera.spectral_model {
+            view_key |= MeshPipelineKey::MONOCHROMATIC_LIGHTS;
         }
 
         if ssao {

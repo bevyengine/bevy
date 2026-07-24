@@ -24,7 +24,8 @@ use bevy_camera::{
     visibility::{self, RenderLayers, VisibleEntities},
     Camera, Camera2d, Camera3d, CameraMainTextureUsages, CameraOutputMode, CameraUpdateSystems,
     ClearColor, ClearColorConfig, CompositingSpace, Exposure, Hdr, ManualTextureViewHandle,
-    MsaaWriteback, NormalizedRenderTarget, Projection, RenderTarget, RenderTargetInfo, Viewport,
+    MsaaWriteback, NormalizedRenderTarget, Projection, RenderTarget, RenderTargetInfo,
+    SpectralModel, Viewport,
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -470,6 +471,7 @@ pub struct ExtractedCamera {
     /// When [`CompositingSpace::Srgb`], the main texture uses linear storage (`Rgba8Unorm`)
     /// and shaders output sRGB-encoded values for gamma-encoded blending.
     pub compositing_space: Option<CompositingSpace>,
+    pub spectral_model: Option<SpectralModel>,
 }
 
 pub fn extract_cameras(
@@ -494,6 +496,7 @@ pub fn extract_cameras(
                 Option<&MipBias>,
                 Option<&RenderLayers>,
                 Option<&Projection>,
+                Option<&SpectralModel>,
                 Has<NoIndirectDrawing>,
             ),
         )>,
@@ -541,6 +544,7 @@ pub fn extract_cameras(
             mip_bias,
             render_layers,
             projection,
+            spectral_model,
             no_indirect_drawing,
         ),
     ) in query.iter()
@@ -645,6 +649,7 @@ pub fn extract_cameras(
                         .unwrap_or_else(|| Exposure::default().exposure()),
                     hdr,
                     compositing_space: compositing_space.copied(),
+                    spectral_model: spectral_model.copied(),
                 },
                 ExtractedView {
                     retained_view_entity: RetainedViewEntity::new(main_entity.into(), None, 0),

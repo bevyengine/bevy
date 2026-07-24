@@ -174,6 +174,7 @@ Example | Description
 [Meshlet](../examples/3d/meshlet.rs) | Meshlet rendering for dense high-poly scenes (experimental)
 [Mirror](../examples/3d/mirror.rs) | Demonstrates how to create a mirror with a second camera
 [Mixed lighting](../examples/3d/mixed_lighting.rs) | Demonstrates how to combine baked and dynamic lighting
+[Monochromatic Lights](../examples/3d/monochromatic_lights.rs) | Showcases support for monochromatic lights in a 3D scene
 [Motion Blur](../examples/3d/motion_blur.rs) | Demonstrates per-pixel motion blur
 [Occlusion Culling](../examples/3d/occlusion_culling.rs) | Demonstration of Occlusion Culling
 [Order Independent Transparency](../examples/3d/order_independent_transparency.rs) | Demonstrates how to use OIT
