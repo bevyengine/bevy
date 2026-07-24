@@ -1,6 +1,7 @@
 /// This module contains components that are used to track the interaction state of UI widgets.
 use bevy_a11y::AccessibilityNode;
 use bevy_ecs::{
+    change_detection::Mut,
     component::Component,
     lifecycle::{Add, Remove},
     observer::On,
@@ -41,9 +42,45 @@ pub(crate) fn on_remove_disabled(
 
 /// Component that indicates whether a button or widget is currently in a pressed or "held down"
 /// state.
-#[derive(Component, Debug, Clone, Copy, Default, Reflect)]
+///
+/// When this component is first inserted into a button or widget, its value is true.
+/// When this button or widget is no longer being pressed, its value is false for a frame
+/// before being removed from the entity. This enables change detection for when
+/// this entity has transitioned from being pressed to not being pressed.
+#[derive(Component, Debug, Clone, Copy, Reflect)]
 #[reflect(Component, Default, Clone)]
-pub struct Pressed;
+pub struct Pressed(pub bool);
+
+impl Pressed {
+    /// Get whether the entity is currently being pressed.
+    pub fn get(&self) -> bool {
+        self.0
+    }
+}
+
+impl Default for Pressed {
+    fn default() -> Self {
+        Self(true)
+    }
+}
+
+/// Extension trait for `Option<&Pressed>` for a convenience method
+/// to more easily checked the pressed state.
+pub trait OptionPressedExt {
+    fn is_pressed(&self) -> bool;
+}
+
+impl OptionPressedExt for Option<&Pressed> {
+    fn is_pressed(&self) -> bool {
+        self.is_some_and(|pressed| pressed.get())
+    }
+}
+
+impl OptionPressedExt for Option<Mut<'_, Pressed>> {
+    fn is_pressed(&self) -> bool {
+        self.as_ref().is_some_and(|pressed| pressed.get())
+    }
+}
 
 /// Component that indicates that a widget can be checked.
 #[derive(Component, Debug, Clone, Copy, Default, Reflect)]

@@ -1,6 +1,6 @@
 use accesskit::Role;
 use bevy_a11y::AccessibilityNode;
-use bevy_app::{App, Plugin};
+use bevy_app::{App, Last, Plugin};
 use bevy_ecs::query::Has;
 use bevy_ecs::{
     component::Component,
@@ -8,14 +8,14 @@ use bevy_ecs::{
     observer::On,
     query::With,
     reflect::ReflectComponent,
-    system::{Commands, Query},
+    system::{Commands, Local, Query},
 };
 use bevy_input::keyboard::{KeyCode, KeyboardInput};
 use bevy_input::ButtonState;
 use bevy_input_focus::FocusedInput;
 use bevy_picking::events::{Cancel, Click, DragEnd, Pointer, Press, Release};
 use bevy_reflect::Reflect;
-use bevy_ui::{InteractionDisabled, Pressed};
+use bevy_ui::{interaction_states::OptionPressedExt, InteractionDisabled, Pressed};
 
 use crate::Activate;
 
@@ -58,14 +58,18 @@ fn button_on_key_event(
 fn button_on_pointer_click(
     mut click: On<Pointer<Click>>,
     mut q_state: Query<
-        (Has<Pressed>, Has<InteractionDisabled>, Has<ActivateOnPress>),
+        (
+            Option<&Pressed>,
+            Has<InteractionDisabled>,
+            Has<ActivateOnPress>,
+        ),
         With<Button>,
     >,
     mut commands: Commands,
 ) {
     if let Ok((pressed, disabled, activate_on_press)) = q_state.get_mut(click.entity) {
         click.propagate(false);
-        if pressed && !disabled && !activate_on_press {
+        if pressed.is_pressed() && !disabled && !activate_on_press {
             commands.trigger(Activate {
                 entity: click.entity,
             });
@@ -79,7 +83,7 @@ fn button_on_pointer_down(
         (
             Entity,
             Has<InteractionDisabled>,
-            Has<Pressed>,
+            Option<&Pressed>,
             Has<ActivateOnPress>,
         ),
         With<Button>,
@@ -88,8 +92,8 @@ fn button_on_pointer_down(
 ) {
     if let Ok((button, disabled, pressed, activate_on_press)) = q_state.get_mut(press.entity) {
         press.propagate(false);
-        if !disabled && !pressed {
-            commands.entity(button).insert(Pressed);
+        if !disabled && !pressed.is_pressed() {
+            commands.entity(button).insert(Pressed::default());
             if activate_on_press {
                 commands.trigger(Activate { entity: button });
             }
@@ -99,41 +103,72 @@ fn button_on_pointer_down(
 
 fn button_on_pointer_up(
     mut release: On<Pointer<Release>>,
-    mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<Button>>,
-    mut commands: Commands,
+    mut q_state: Query<(Has<InteractionDisabled>, Option<&mut Pressed>), With<Button>>,
 ) {
-    if let Ok((button, disabled, pressed)) = q_state.get_mut(release.entity) {
+    if let Ok((disabled, pressed)) = q_state.get_mut(release.entity) {
         release.propagate(false);
-        if !disabled && pressed {
-            commands.entity(button).remove::<Pressed>();
+        if !disabled
+            && pressed.is_pressed()
+            && let Some(mut pressed) = pressed
+        {
+            pressed.0 = false;
         }
     }
 }
 
 fn button_on_pointer_drag_end(
     mut drag_end: On<Pointer<DragEnd>>,
-    mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<Button>>,
-    mut commands: Commands,
+    mut q_state: Query<(Has<InteractionDisabled>, Option<&mut Pressed>), With<Button>>,
 ) {
-    if let Ok((button, disabled, pressed)) = q_state.get_mut(drag_end.entity) {
+    if let Ok((disabled, pressed)) = q_state.get_mut(drag_end.entity) {
         drag_end.propagate(false);
-        if !disabled && pressed {
-            commands.entity(button).remove::<Pressed>();
+        if !disabled
+            && pressed.is_pressed()
+            && let Some(mut pressed) = pressed
+        {
+            pressed.0 = false;
         }
     }
 }
 
 fn button_on_pointer_cancel(
     mut cancel: On<Pointer<Cancel>>,
-    mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<Button>>,
-    mut commands: Commands,
+    mut q_state: Query<(Has<InteractionDisabled>, Option<&mut Pressed>), With<Button>>,
 ) {
-    if let Ok((button, disabled, pressed)) = q_state.get_mut(cancel.entity) {
+    if let Ok((disabled, pressed)) = q_state.get_mut(cancel.entity) {
         cancel.propagate(false);
-        if !disabled && pressed {
-            commands.entity(button).remove::<Pressed>();
+        if !disabled
+            && pressed.is_pressed()
+            && let Some(mut pressed) = pressed
+        {
+            pressed.0 = false;
         }
     }
+}
+
+/// System that removes the `Pressed` component after all possible systems could have reacted
+/// to its changing to false via change detection.
+fn remove_pressed_on_next_frame(
+    mut presses_to_clear: Local<Vec<Entity>>,
+    pressed_false_q: Query<(Entity, &Pressed), With<Button>>,
+    mut commands: Commands,
+) {
+    for button_entity in presses_to_clear.drain(..) {
+        // If the button has stayed false for the whole frame, remove its component.
+        if let Ok((_, pressed)) = pressed_false_q.get(button_entity)
+            && !pressed.get()
+        {
+            commands.entity(button_entity).remove::<Pressed>();
+        }
+    }
+
+    // Queue up the next buttons that will have `Pressed` remove on the next frame.
+    for (button_entity, pressed) in pressed_false_q {
+        if !pressed.get() {
+            presses_to_clear.push(button_entity);
+        }
+    }
+    presses_to_clear.shrink_to_fit();
 }
 
 /// Plugin that adds the observers for the [`Button`] widget.
@@ -146,6 +181,7 @@ impl Plugin for ButtonPlugin {
             .add_observer(button_on_pointer_up)
             .add_observer(button_on_pointer_click)
             .add_observer(button_on_pointer_drag_end)
-            .add_observer(button_on_pointer_cancel);
+            .add_observer(button_on_pointer_cancel)
+            .add_systems(Last, remove_pressed_on_next_frame);
     }
 }
