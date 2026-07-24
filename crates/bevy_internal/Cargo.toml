@@ -303,6 +303,9 @@ default_font = ["bevy_text?/default_font"]
 # Allows for discovery of preloaded system fonts
 system_font_discovery = ["bevy_text?/system_font_discovery"]
 
+# Enables dictionary-based segmentation for complex scripts (CJK, Thai, Khmer, Lao, Myanmar), at the cost of a larger binary
+complex_script_segmentation = ["bevy_text?/complex_script_segmentation"]
+
 # Enables downloading assets from HTTP sources
 http = ["bevy_asset?/http"]
 
