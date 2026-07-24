@@ -99,6 +99,7 @@ struct MetadataPtr {
     ptr: NonNull<()>,
     drop_fn: Box<dyn Fn(NonNull<()>, Layout)>,
     type_id: TypeId,
+    already_dropped: bool,
 }
 
 #[allow(unsafe_code)]
@@ -122,29 +123,32 @@ impl MetadataPtr {
                 drop(data);
             }),
             type_id: TypeId::of::<T>(),
+            already_dropped: false,
         })
     }
 
-    pub fn try_reverse_erase<T: Sized + 'static>(self) -> Result<T, Self> {
+    pub fn try_reverse_erase<T: Sized + 'static>(mut self) -> Result<T, Self> {
         let layout = Layout::new::<T>();
         let type_id = TypeId::of::<T>();
-        if layout == self.layout && type_id == self.type_id {
+        if layout == self.layout && type_id == self.type_id && !self.already_dropped {
             // SAFETY: we at least know if the data is the right shape and the type IDs are the same.
             let data: NonNull<T> = self.ptr.cast();
             // SAFETY: We are passing the original layout this type was constructed with.
-            Ok(unsafe { Self::move_then_deallocate(data, self.layout) })
+            if self.layout.size() != 0 {
+                self.already_dropped = true;
+                Ok(unsafe { Self::move_then_deallocate(data, self.layout) })
+            } else {
+                Err(self)
+            }
         } else {
             Err(self)
         }
     }
 
-    pub fn peek_reverse_erased<'a, T: Sized + 'static, Y>(
-        &'a self,
-        peek: impl Fn(&'a T) -> Y,
-    ) -> Option<Y> {
+    pub fn visit<T: Sized + 'static, Y>(&self, peek: impl for<'b> Fn(&'b T) -> Y) -> Option<Y> {
         let layout = Layout::new::<T>();
         let type_id = TypeId::of::<T>();
-        if layout == self.layout && type_id == self.type_id {
+        if layout == self.layout && type_id == self.type_id && !self.already_dropped {
             Some(peek(unsafe { self.ptr.cast().as_ref() }))
         } else {
             None
@@ -167,7 +171,33 @@ impl MetadataPtr {
 
 impl Drop for MetadataPtr {
     fn drop(&mut self) {
-        (self.drop_fn)(self.ptr, self.layout);
+        if !self.already_dropped {
+            (self.drop_fn)(self.ptr, self.layout);
+        }
+    }
+}
+
+#[cfg(test)]
+mod metadata_ptr_test {
+    use crate::declr_plugin::MetadataPtr;
+    use std::vec::Vec;
+
+    #[test]
+    fn basic() {
+        let mut v: Vec<u8> = Vec::new();
+        v.push(1);
+        v.push(2);
+        v.push(3);
+        v.push(4);
+        let erased = MetadataPtr::new(v.clone()).unwrap();
+        let visit_res = erased.visit::<Vec<u8>, _>(|v| (v.len(), v.iter().fold(0, |a, b| a + b)));
+        assert_eq!(Some((4, 10)), visit_res);
+        let visit_res = erased.visit::<Vec<u8>, _>(|v| (v.len(), v.iter().fold(0, |a, b| a + b)));
+        assert_eq!(Some((4, 10)), visit_res);
+        let visit_none = erased.visit::<Vec<u16>, _>(|v| v.len());
+        assert_eq!(None, visit_none);
+        let visit_take_ref = erased.visit::<Vec<u8>, _>(|v| v.len());
+        let un_erased = erased.try_reverse_erase::<Vec<u8>>();
     }
 }
 
@@ -198,7 +228,7 @@ impl StagedResource {
             approval_from_plugin: Approval::new(move |erased: &ErasedResource| {
                 erased
                     .0
-                    .peek_reverse_erased::<R, _>(|data| check_ok(data))
+                    .visit::<R, _>(|data| check_ok(data))
                     // If the types didn't match, we should never veto (it's not this type's problem).
                     .unwrap_or(true)
             }),
@@ -536,6 +566,8 @@ impl PluginList {
             } else if !output.is_zero_sized_optimizable {
             }
         }
+        // TODO: detect cycles in expansion + stop adding when "expanded enough" + solved.
+        // mean moving this logic to the PluginRegistrationGraph building side.
         while let Some((from, dependency)) = dependency_stack.pop_front() {
             if !zst_already_expanded.contains_key(&dependency.type_id)
                 && let Some((dyn_plugin, output_fn)) = dependency.data
@@ -551,6 +583,8 @@ impl PluginList {
                 if can_zst_optimize {
                     zst_already_expanded.insert(plugin_id, reg_id);
                 }
+            } else if dependency.data.is_none() {
+                // TODO:
             }
         }
         Ok(graph)
