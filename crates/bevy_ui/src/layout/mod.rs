@@ -1837,244 +1837,307 @@ mod tests {
         assert_eq!(ui_surface.total_count(), 6);
     }
 
-    mod ghost_node_tests {
-        use super::*;
-        use crate::GhostNode;
+    use crate::GhostNode;
 
-        fn compare_taffy_children(
-            ui_surface: &UiSurface,
-            parent: Entity,
-            children: &[Entity],
-        ) -> bool {
-            let parent_to_taffy_children = ui_surface
+    fn compare_taffy_children(ui_surface: &UiSurface, parent: Entity, children: &[Entity]) -> bool {
+        let parent_to_taffy_children = ui_surface
+            .taffy
+            .children(ui_surface.entity_to_taffy[&parent].id)
+            .unwrap();
+        let children_to_taffy_children = children
+            .iter()
+            .map(|entity| ui_surface.entity_to_taffy[entity].id)
+            .collect::<Vec<_>>();
+
+        parent_to_taffy_children == children_to_taffy_children
+    }
+
+    fn compare_taffy_parent(ui_surface: &UiSurface, child: Entity, parent: Option<Entity>) -> bool {
+        let child_to_taffy_parent = ui_surface
+            .taffy
+            .parent(ui_surface.entity_to_taffy[&child].id);
+        let parent_to_taffy_parent = parent.map(|entity| ui_surface.entity_to_taffy[&entity].id);
+
+        child_to_taffy_parent == parent_to_taffy_parent
+    }
+
+    #[test]
+    fn unparenting_ghost_child_should_unparent_taffy_child() {
+        let mut app = setup_ui_test_app();
+        let world = app.world_mut();
+
+        let child = world.spawn(Node::default()).id();
+        let ghost = world.spawn(GhostNode).add_child(child).id();
+        let root = world.spawn(Node::default()).add_child(ghost).id();
+
+        app.update();
+        let world = app.world_mut();
+
+        let ui_surface = world.resource::<UiSurface>();
+        assert!(compare_taffy_children(ui_surface, root, &[child]));
+        assert!(compare_taffy_parent(ui_surface, child, Some(root)));
+        assert!(!ui_surface.root_entity_to_viewport_node.contains_key(&child));
+
+        world.entity_mut(ghost).detach_all_children();
+
+        app.update();
+        let world = app.world_mut();
+
+        let ui_surface = world.resource::<UiSurface>();
+
+        // Unparenting child from ghost should unparent the corresponding child taffy node from the
+        // root taffy node.
+        assert!(compare_taffy_children(ui_surface, root, &[]));
+
+        let viewport_node = ui_surface
+            .root_entity_to_viewport_node
+            .get(&child)
+            .copied()
+            .expect("detached child should become a UI root and have an associated viewport node");
+        let taffy_child = ui_surface.entity_to_taffy[&child].id;
+        assert_eq!(ui_surface.taffy.parent(taffy_child), Some(viewport_node));
+    }
+
+    #[test]
+    fn adding_intermediate_ghost_node_attaches_taffy_nodes() {
+        let mut app = setup_ui_test_app();
+        let world = app.world_mut();
+
+        let child = world.spawn(Node::default()).id();
+        let mid = world.spawn_empty().add_child(child).id();
+        let root = world.spawn(Node::default()).add_child(mid).id();
+
+        app.update();
+        let world = app.world_mut();
+
+        let ui_surface = world.resource::<UiSurface>();
+        assert!(compare_taffy_children(ui_surface, root, &[]));
+        assert!(compare_taffy_parent(ui_surface, child, None));
+
+        world.entity_mut(mid).insert(GhostNode);
+
+        app.update();
+        let world = app.world_mut();
+
+        let ui_surface = world.resource::<UiSurface>();
+        assert!(compare_taffy_children(ui_surface, root, &[child]));
+        assert!(compare_taffy_parent(ui_surface, child, Some(root)));
+    }
+
+    #[test]
+    fn removing_intermediate_ghost_node_restores_taffy_node() {
+        let mut app = setup_ui_test_app();
+        let world = app.world_mut();
+
+        let child = world.spawn(Node::default()).id();
+        let mid = world.spawn(GhostNode).add_child(child).id();
+        let root = world.spawn(Node::default()).add_child(mid).id();
+
+        app.update();
+        let world = app.world_mut();
+
+        let ui_surface = world.resource::<UiSurface>();
+        assert!(compare_taffy_children(ui_surface, root, &[child]));
+        assert!(compare_taffy_parent(ui_surface, child, Some(root)));
+
+        world.entity_mut(mid).remove::<GhostNode>();
+
+        app.update();
+        let world = app.world_mut();
+
+        let ui_surface = world.resource::<UiSurface>();
+        assert!(compare_taffy_children(ui_surface, root, &[mid]));
+        assert!(compare_taffy_parent(ui_surface, child, Some(mid)));
+        assert!(!ui_surface.root_entity_to_viewport_node.contains_key(&child));
+    }
+
+    #[test]
+    fn ghosts_and_fixed_nodes_attach_and_detach() {
+        let mut app = setup_ui_test_app();
+        let world = app.world_mut();
+
+        let fixed = world.spawn((Node::default(), FixedNode)).id();
+        let ghost1 = world.spawn(GhostNode).add_child(fixed).id();
+
+        app.update();
+        let world = app.world_mut();
+
+        let ui_surface = world.resource::<UiSurface>();
+        assert!(ui_surface.is_root(fixed));
+        assert_eq!(ui_surface.total_count(), 2);
+
+        world.spawn(GhostNode).add_child(ghost1);
+
+        app.update();
+        let world = app.world_mut();
+
+        let ui_surface = world.resource::<UiSurface>();
+        assert!(ui_surface.is_root(fixed));
+        assert_eq!(ui_surface.total_count(), 2);
+
+        let fixed2 = world.spawn((Node::default(), FixedNode)).id();
+        let ghost3 = world.spawn(GhostNode).add_child(fixed2).id();
+
+        app.update();
+        let world = app.world_mut();
+
+        let ui_surface = world.resource::<UiSurface>();
+        assert!(ui_surface.is_root(fixed));
+        assert!(ui_surface.is_root(fixed2));
+        assert_eq!(ui_surface.total_count(), 4);
+
+        world.entity_mut(ghost1).detach_all_children();
+        world.entity_mut(ghost3).detach_all_children();
+
+        app.update();
+        let world = app.world_mut();
+
+        let ui_surface = world.resource::<UiSurface>();
+        assert!(ui_surface.is_root(fixed));
+        assert!(ui_surface.is_root(fixed2));
+        assert_eq!(ui_surface.total_count(), 4);
+    }
+
+    #[test]
+    fn fixed_ghost_child_is_a_root_node() {
+        let mut app = setup_ui_test_app();
+        let world = app.world_mut();
+
+        let fixed = world.spawn((Node::default(), FixedNode)).id();
+        let child = world.spawn(Node::default()).id();
+        let ghost = world.spawn(GhostNode).add_children(&[fixed, child]).id();
+        let root = world.spawn(Node::default()).add_child(ghost).id();
+
+        app.update();
+        let world = app.world_mut();
+
+        let ui_surface = world.resource::<UiSurface>();
+        let fixed_node = ui_surface.entity_to_taffy.get(&fixed).unwrap();
+        let child_node = ui_surface.entity_to_taffy.get(&child).unwrap();
+        let root_node = ui_surface.entity_to_taffy.get(&root).unwrap();
+        let fixed_viewport_node = ui_surface.root_entity_to_viewport_node.get(&fixed).copied();
+        let root_viewport_node = ui_surface.root_entity_to_viewport_node.get(&root).copied();
+
+        assert_eq!(ui_surface.root_count(), 2);
+        assert_eq!(ui_surface.total_count(), 5);
+        assert_eq!(fixed_node.viewport_id, fixed_viewport_node);
+        assert_eq!(root_node.viewport_id, root_viewport_node);
+        assert_eq!(ui_surface.parent(fixed), fixed_viewport_node);
+        assert_eq!(ui_surface.parent(child), Some(root_node.id));
+        assert_eq!(ui_surface.child_count(fixed).unwrap(), 0);
+        assert_eq!(ui_surface.child_count(root).unwrap(), 1);
+        assert_eq!(
+            ui_surface
                 .taffy
-                .children(ui_surface.entity_to_taffy[&parent].id)
-                .unwrap();
-            let children_to_taffy_children = children
-                .iter()
-                .map(|entity| ui_surface.entity_to_taffy[entity].id)
-                .collect::<Vec<_>>();
+                .children(ui_surface.entity_to_taffy[&root].id)
+                .unwrap(),
+            &[child_node.id]
+        );
+    }
 
-            parent_to_taffy_children == children_to_taffy_children
-        }
+    #[test]
+    fn unghost_ghost_node_with_fixed_and_normal_children() {
+        let mut app = setup_ui_test_app();
+        let world = app.world_mut();
 
-        fn compare_taffy_parent(
-            ui_surface: &UiSurface,
-            child: Entity,
-            parent: Option<Entity>,
-        ) -> bool {
-            let child_to_taffy_parent = ui_surface
-                .taffy
-                .parent(ui_surface.entity_to_taffy[&child].id);
-            let parent_to_taffy_parent =
-                parent.map(|entity| ui_surface.entity_to_taffy[&entity].id);
+        let fixed = world.spawn((Node::default(), FixedNode)).id();
+        let child = world.spawn(Node::default()).id();
+        let ghost = world.spawn(GhostNode).add_children(&[fixed, child]).id();
 
-            child_to_taffy_parent == parent_to_taffy_parent
-        }
+        app.update();
+        let world = app.world_mut();
+        let ui_surface = world.resource::<UiSurface>();
 
-        #[test]
-        fn unparenting_ghost_child_should_unparent_taffy_child() {
-            let mut app = setup_ui_test_app();
-            let world = app.world_mut();
+        assert!(ui_surface.is_root(fixed));
+        assert!(ui_surface.is_root(child));
 
-            let child = world.spawn(Node::default()).id();
-            let ghost = world.spawn(GhostNode).add_child(child).id();
-            let root = world.spawn(Node::default()).add_child(ghost).id();
+        world
+            .entity_mut(ghost)
+            .remove::<GhostNode>()
+            .insert(Node::default());
 
-            app.update();
-            let world = app.world_mut();
+        app.update();
+        let world = app.world_mut();
+        let ui_surface = world.resource::<UiSurface>();
 
-            let ui_surface = world.resource::<UiSurface>();
-            assert!(compare_taffy_children(ui_surface, root, &[child]));
-            assert!(compare_taffy_parent(ui_surface, child, Some(root)));
-            assert!(!ui_surface.root_entity_to_viewport_node.contains_key(&child));
+        assert!(ui_surface.is_root(fixed));
+        assert!(!ui_surface.is_root(child));
+    }
 
-            world.entity_mut(ghost).detach_all_children();
+    use bevy_ecs::{
+        prelude::Component,
+        system::{Query, SystemState},
+        world::World,
+    };
 
-            app.update();
-            let world = app.world_mut();
+    use super::{Node, UiChildren, UiRootNodes};
 
-            let ui_surface = world.resource::<UiSurface>();
+    #[derive(Component, PartialEq, Debug)]
+    struct A(usize);
 
-            // Unparenting child from ghost should unparent the corresponding child taffy node from the
-            // root taffy node.
-            assert!(compare_taffy_children(ui_surface, root, &[]));
+    #[test]
+    fn iterate_ui_root_nodes() {
+        let world = &mut World::new();
 
-            let viewport_node = ui_surface
-                .root_entity_to_viewport_node
-                .get(&child)
-                .copied()
-                .expect(
-                    "detached child should become a UI root and have an associated viewport node",
-                );
-            let taffy_child = ui_surface.entity_to_taffy[&child].id;
-            assert_eq!(ui_surface.taffy.parent(taffy_child), Some(viewport_node));
-        }
+        // Normal root
+        world
+            .spawn((A(1), Node::default()))
+            .with_children(|parent| {
+                parent.spawn((A(2), Node::default()));
+                parent
+                    .spawn((A(3), GhostNode))
+                    .with_child((A(4), Node::default()));
+            });
 
-        #[test]
-        fn adding_intermediate_ghost_node_attaches_taffy_nodes() {
-            let mut app = setup_ui_test_app();
-            let world = app.world_mut();
+        // Ghost root
+        world.spawn((A(5), GhostNode)).with_children(|parent| {
+            parent.spawn((A(6), Node::default()));
+            parent
+                .spawn((A(7), GhostNode))
+                .with_child((A(8), Node::default()))
+                .with_child(A(9));
+        });
 
-            let child = world.spawn(Node::default()).id();
-            let mid = world.spawn_empty().add_child(child).id();
-            let root = world.spawn(Node::default()).add_child(mid).id();
+        let mut system_state = SystemState::<(UiRootNodes, Query<&A>)>::new(world);
+        let (ui_root_nodes, a_query) = system_state.get(world).unwrap();
 
-            app.update();
-            let world = app.world_mut();
+        let result: Vec<_> = a_query.iter_many(ui_root_nodes.iter()).collect();
 
-            let ui_surface = world.resource::<UiSurface>();
-            assert!(compare_taffy_children(ui_surface, root, &[]));
-            assert!(compare_taffy_parent(ui_surface, child, None));
+        assert_eq!([&A(1), &A(6), &A(8)], result.as_slice());
+    }
 
-            world.entity_mut(mid).insert(GhostNode);
+    #[test]
+    fn iterate_ui_children() {
+        let world = &mut World::new();
 
-            app.update();
-            let world = app.world_mut();
+        let n1 = world.spawn((A(1), Node::default())).id();
+        let n2 = world.spawn((A(2), GhostNode)).id();
+        let n3 = world.spawn((A(3), GhostNode)).id();
+        let n4 = world.spawn((A(4), Node::default())).id();
+        let n5 = world.spawn((A(5), Node::default())).id();
 
-            let ui_surface = world.resource::<UiSurface>();
-            assert!(compare_taffy_children(ui_surface, root, &[child]));
-            assert!(compare_taffy_parent(ui_surface, child, Some(root)));
-        }
+        let n6 = world.spawn((A(6), GhostNode)).id();
+        let n7 = world.spawn((A(7), GhostNode)).id();
+        let n8 = world.spawn((A(8), Node::default())).id();
+        let n9 = world.spawn((A(9), GhostNode)).id();
+        let n10 = world.spawn((A(10), Node::default())).id();
 
-        #[test]
-        fn removing_intermediate_ghost_node_restores_taffy_node() {
-            let mut app = setup_ui_test_app();
-            let world = app.world_mut();
+        let no_ui = world.spawn_empty().id();
 
-            let child = world.spawn(Node::default()).id();
-            let mid = world.spawn(GhostNode).add_child(child).id();
-            let root = world.spawn(Node::default()).add_child(mid).id();
+        world.entity_mut(n1).add_children(&[n2, n3, n4, n6]);
+        world.entity_mut(n2).add_children(&[n5]);
 
-            app.update();
-            let world = app.world_mut();
+        world.entity_mut(n6).add_children(&[n7, no_ui, n9]);
+        world.entity_mut(n7).add_children(&[n8]);
+        world.entity_mut(n9).add_children(&[n10]);
 
-            let ui_surface = world.resource::<UiSurface>();
-            assert!(compare_taffy_children(ui_surface, root, &[child]));
-            assert!(compare_taffy_parent(ui_surface, child, Some(root)));
+        let mut system_state = SystemState::<(UiChildren, Query<&A>)>::new(world);
+        let (ui_children, a_query) = system_state.get(world).unwrap();
 
-            world.entity_mut(mid).remove::<GhostNode>();
+        let result: Vec<_> = a_query
+            .iter_many(ui_children.iter_ui_children(n1))
+            .collect();
 
-            app.update();
-            let world = app.world_mut();
-
-            let ui_surface = world.resource::<UiSurface>();
-            assert!(compare_taffy_children(ui_surface, root, &[mid]));
-            assert!(compare_taffy_parent(ui_surface, child, Some(mid)));
-            assert!(!ui_surface.root_entity_to_viewport_node.contains_key(&child));
-        }
-
-        #[test]
-        fn ghosts_and_fixed_nodes_attach_and_detach() {
-            let mut app = setup_ui_test_app();
-            let world = app.world_mut();
-
-            let fixed = world.spawn((Node::default(), FixedNode)).id();
-            let ghost1 = world.spawn(GhostNode).add_child(fixed).id();
-
-            app.update();
-            let world = app.world_mut();
-
-            let ui_surface = world.resource::<UiSurface>();
-            assert!(ui_surface.is_root(fixed));
-            assert_eq!(ui_surface.total_count(), 2);
-
-            world.spawn(GhostNode).add_child(ghost1);
-
-            app.update();
-            let world = app.world_mut();
-
-            let ui_surface = world.resource::<UiSurface>();
-            assert!(ui_surface.is_root(fixed));
-            assert_eq!(ui_surface.total_count(), 2);
-
-            let fixed2 = world.spawn((Node::default(), FixedNode)).id();
-            let ghost3 = world.spawn(GhostNode).add_child(fixed2).id();
-
-            app.update();
-            let world = app.world_mut();
-
-            let ui_surface = world.resource::<UiSurface>();
-            assert!(ui_surface.is_root(fixed));
-            assert!(ui_surface.is_root(fixed2));
-            assert_eq!(ui_surface.total_count(), 4);
-
-            world.entity_mut(ghost1).detach_all_children();
-            world.entity_mut(ghost3).detach_all_children();
-
-            app.update();
-            let world = app.world_mut();
-
-            let ui_surface = world.resource::<UiSurface>();
-            assert!(ui_surface.is_root(fixed));
-            assert!(ui_surface.is_root(fixed2));
-            assert_eq!(ui_surface.total_count(), 4);
-        }
-
-        #[test]
-        fn fixed_ghost_child_is_a_root_node() {
-            let mut app = setup_ui_test_app();
-            let world = app.world_mut();
-
-            let fixed = world.spawn((Node::default(), FixedNode)).id();
-            let child = world.spawn(Node::default()).id();
-            let ghost = world.spawn(GhostNode).add_children(&[fixed, child]).id();
-            let root = world.spawn(Node::default()).add_child(ghost).id();
-
-            app.update();
-            let world = app.world_mut();
-
-            let ui_surface = world.resource::<UiSurface>();
-            let fixed_node = ui_surface.entity_to_taffy.get(&fixed).unwrap();
-            let child_node = ui_surface.entity_to_taffy.get(&child).unwrap();
-            let root_node = ui_surface.entity_to_taffy.get(&root).unwrap();
-            let fixed_viewport_node = ui_surface.root_entity_to_viewport_node.get(&fixed).copied();
-            let root_viewport_node = ui_surface.root_entity_to_viewport_node.get(&root).copied();
-
-            assert_eq!(ui_surface.root_count(), 2);
-            assert_eq!(ui_surface.total_count(), 5);
-            assert_eq!(fixed_node.viewport_id, fixed_viewport_node);
-            assert_eq!(root_node.viewport_id, root_viewport_node);
-            assert_eq!(ui_surface.parent(fixed), fixed_viewport_node);
-            assert_eq!(ui_surface.parent(child), Some(root_node.id));
-            assert_eq!(ui_surface.child_count(fixed).unwrap(), 0);
-            assert_eq!(ui_surface.child_count(root).unwrap(), 1);
-            assert_eq!(
-                ui_surface
-                    .taffy
-                    .children(ui_surface.entity_to_taffy[&root].id)
-                    .unwrap(),
-                &[child_node.id]
-            );
-        }
-
-        #[test]
-        fn unghost_ghost_node_with_fixed_and_normal_children() {
-            let mut app = setup_ui_test_app();
-            let world = app.world_mut();
-
-            let fixed = world.spawn((Node::default(), FixedNode)).id();
-            let child = world.spawn(Node::default()).id();
-            let ghost = world.spawn(GhostNode).add_children(&[fixed, child]).id();
-
-            app.update();
-            let world = app.world_mut();
-            let ui_surface = world.resource::<UiSurface>();
-
-            assert!(ui_surface.is_root(fixed));
-            assert!(ui_surface.is_root(child));
-
-            world
-                .entity_mut(ghost)
-                .remove::<GhostNode>()
-                .insert(Node::default());
-
-            app.update();
-            let world = app.world_mut();
-            let ui_surface = world.resource::<UiSurface>();
-
-            assert!(ui_surface.is_root(fixed));
-            assert!(!ui_surface.is_root(child));
-        }
+        assert_eq!([&A(5), &A(4), &A(8), &A(10)], result.as_slice());
     }
 }
