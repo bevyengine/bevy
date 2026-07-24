@@ -5,7 +5,8 @@ use core::num::NonZero;
 
 use bevy_ecs::{
     entity::{ContainsEntity, Entity},
-    prelude::Component,
+    prelude::{BevyError, Component},
+    template::{EntityTemplate, FromTemplate, SpecializeFromTemplate, Template, TemplateContext},
 };
 use bevy_math::{CompassOctant, DVec2, IVec2, UVec2, Vec2};
 use bevy_platform::sync::LazyLock;
@@ -82,6 +83,7 @@ pub enum WindowRef {
     /// then you can use that entity here for usage in cameras.
     Entity(Entity),
 }
+impl Unpin for WindowRef where for<'a> [()]: SpecializeFromTemplate {}
 
 impl WindowRef {
     /// Normalize the window reference so that it can be compared to other window references.
@@ -92,6 +94,54 @@ impl WindowRef {
         };
 
         entity.map(NormalizedWindowRef)
+    }
+}
+
+impl FromTemplate for WindowRef {
+    type Template = WindowRefTemplate;
+}
+
+/// A [`Template`] that produces a [`WindowRef`].
+#[derive(Debug, Default)]
+pub enum WindowRefTemplate {
+    /// See [`WindowRef::Primary`].
+    #[default]
+    Primary,
+    /// See [`WindowRef::Entity`].
+    Entity(EntityTemplate),
+}
+
+impl WindowRefTemplate {
+    /// Default value of the [`WindowRefTemplate::Entity`] variant.
+    pub fn default_entity() -> Self {
+        Self::Entity(Default::default())
+    }
+}
+
+impl From<WindowRef> for WindowRefTemplate {
+    fn from(value: WindowRef) -> Self {
+        match value {
+            WindowRef::Primary => WindowRefTemplate::Primary,
+            WindowRef::Entity(entity) => WindowRefTemplate::Entity(EntityTemplate::Entity(entity)),
+        }
+    }
+}
+
+impl Template for WindowRefTemplate {
+    type Output = WindowRef;
+
+    fn build_template(&self, context: &mut TemplateContext) -> Result<Self::Output, BevyError> {
+        Ok(match self {
+            WindowRefTemplate::Primary => WindowRef::Primary,
+            WindowRefTemplate::Entity(entity) => WindowRef::Entity(entity.build_template(context)?),
+        })
+    }
+
+    fn clone_template(&self) -> Self {
+        match self {
+            WindowRefTemplate::Primary => WindowRefTemplate::Primary,
+            WindowRefTemplate::Entity(entity) => WindowRefTemplate::Entity(*entity),
+        }
     }
 }
 
