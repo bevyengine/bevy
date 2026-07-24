@@ -8,14 +8,13 @@ use bevy_math::UVec2;
 use bevy_platform::time::Instant;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    camera::ExtractedCamera,
+    camera::{ExtractedCamera, ViewTargetInfo},
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_resource::{
         BufferUsages, DynamicUniformBuffer, ShaderType, TextureUsages, UniformBuffer,
         UninitBufferVec,
     },
     renderer::{RenderDevice, RenderQueue},
-    view::Msaa,
     Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::load_shader_library;
@@ -91,8 +90,7 @@ impl Plugin for OrderIndependentTransparencyPlugin {
         app.add_plugins((
             ExtractComponentPlugin::<OrderIndependentTransparencySettings>::default(),
             OitResolvePlugin,
-        ))
-        .add_systems(Update, check_msaa);
+        ));
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -100,6 +98,7 @@ impl Plugin for OrderIndependentTransparencyPlugin {
 
         render_app
             .add_systems(RenderStartup, init_oit_buffers)
+            .add_systems(Render, check_msaa.in_set(RenderSystems::PrepareAssets))
             .add_systems(
                 Render,
                 (
@@ -133,9 +132,9 @@ fn configure_camera_depth_usages(
     }
 }
 
-fn check_msaa(cameras: Query<&Msaa, With<OrderIndependentTransparencySettings>>) {
-    for msaa in &cameras {
-        if msaa.samples() > 1 {
+fn check_msaa(cameras: Query<&ViewTargetInfo, With<OrderIndependentTransparencySettings>>) {
+    for target_info in &cameras {
+        if target_info.sample_count > 1 {
             panic!("MSAA is not supported when using OrderIndependentTransparency");
         }
     }
@@ -227,9 +226,9 @@ pub fn prepare_oit_buffers(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     cameras: Query<
-        (&ExtractedCamera, &OrderIndependentTransparencySettings),
+        (&ViewTargetInfo, &OrderIndependentTransparencySettings),
         (
-            Changed<ExtractedCamera>,
+            Changed<ViewTargetInfo>,
             Changed<OrderIndependentTransparencySettings>,
         ),
     >,
@@ -256,11 +255,8 @@ pub fn prepare_oit_buffers(
     // Get the max buffer size for any OIT enabled camera
     let mut max_size = UVec2::new(0, 0);
     let mut fragments_per_pixel_average = 0f32;
-    for (camera, settings) in &cameras {
-        let Some(size) = camera.physical_target_size else {
-            continue;
-        };
-        max_size = max_size.max(size);
+    for (target_info, settings) in &cameras {
+        max_size = max_size.max(target_info.size);
         fragments_per_pixel_average =
             fragments_per_pixel_average.max(settings.fragments_per_pixel_average);
     }

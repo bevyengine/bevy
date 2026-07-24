@@ -98,8 +98,7 @@ use crate::{
 use bevy_core_pipeline::oit::OrderIndependentTransparencySettings;
 use bevy_core_pipeline::prepass::{DeferredPrepass, DepthPrepass, NormalPrepass};
 use bevy_core_pipeline::tonemapping::{DebandDither, Tonemapping};
-use bevy_render::camera::{DirtySpecializations, ExtractedCamera, TemporalJitter};
-use bevy_render::prelude::Msaa;
+use bevy_render::camera::{DirtySpecializations, ExtractedCamera, TemporalJitter, ViewTargetInfo};
 use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
 use bevy_render::view::{
     texture_format_from_code, texture_format_to_code, ExtractedView,
@@ -363,7 +362,7 @@ pub fn check_views_need_specialization(
     mut views: Query<(
         &ExtractedView,
         Option<&ExtractedCamera>,
-        &Msaa,
+        &ViewTargetInfo,
         (Option<&Tonemapping>, Option<&DebandDither>),
         Option<&ShadowFilteringMethod>,
         Has<ScreenSpaceAmbientOcclusion>,
@@ -392,7 +391,7 @@ pub fn check_views_need_specialization(
     for (
         view,
         camera,
-        msaa,
+        target_info,
         (tonemapping, dither),
         shadow_filter_method,
         ssao,
@@ -405,8 +404,8 @@ pub fn check_views_need_specialization(
         (has_oit, has_atmosphere, has_ssr, has_contact_shadows),
     ) in views.iter_mut()
     {
-        let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
-            | MeshPipelineKey::from_target_format(view.target_format);
+        let mut view_key = MeshPipelineKey::from_msaa_samples(target_info.sample_count)
+            | MeshPipelineKey::from_target_format(target_info.color_format);
 
         if normal_prepass {
             view_key |= MeshPipelineKey::NORMAL_PREPASS;

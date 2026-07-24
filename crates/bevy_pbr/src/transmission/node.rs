@@ -2,9 +2,7 @@ use crate::{ScreenSpaceTransmission, Transmissive3d, ViewTransmissionTexture};
 
 use bevy_camera::{MainPassResolutionOverride, Viewport};
 use bevy_ecs::prelude::*;
-use bevy_image::ToExtents;
 use bevy_render::{
-    camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
     render_phase::ViewSortedRenderPhases,
     render_resource::{RenderPassDescriptor, StoreOp},
@@ -19,7 +17,6 @@ use tracing::info_span;
 pub fn main_transmissive_pass_3d(
     world: &World,
     view: ViewQuery<(
-        &ExtractedCamera,
         &ExtractedView,
         &ScreenSpaceTransmission,
         &ViewTarget,
@@ -32,22 +29,11 @@ pub fn main_transmissive_pass_3d(
 ) {
     let view_entity = view.entity();
 
-    let (
-        camera,
-        extracted_view,
-        transmission_settings,
-        target,
-        transmission,
-        depth,
-        resolution_override,
-    ) = view.into_inner();
+    let (extracted_view, transmission_settings, target, transmission, depth, resolution_override) =
+        view.into_inner();
 
     let Some(transmissive_phase) = transmissive_phases.get(&extracted_view.retained_view_entity)
     else {
-        return;
-    };
-
-    let Some(physical_target_size) = camera.physical_target_size else {
         return;
     };
 
@@ -79,16 +65,12 @@ pub fn main_transmissive_pass_3d(
                 ctx.command_encoder().copy_texture_to_texture(
                     target.main_texture().as_image_copy(),
                     transmission.texture.as_image_copy(),
-                    physical_target_size.to_extents(),
+                    target.main_texture().size(),
                 );
 
                 let mut render_pass = ctx.begin_tracked_render_pass(render_pass_descriptor.clone());
                 let pass_span =
                     diagnostics.pass_span(&mut render_pass, "main_transmissive_pass_3d");
-
-                if let Some(viewport) = camera.viewport.as_ref() {
-                    render_pass.set_camera_viewport(viewport);
-                }
 
                 if let Err(err) =
                     transmissive_phase.render_range(&mut render_pass, world, view_entity, range)
@@ -103,7 +85,7 @@ pub fn main_transmissive_pass_3d(
             let pass_span = diagnostics.pass_span(&mut render_pass, "main_transmissive_pass_3d");
 
             if let Some(viewport) =
-                Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
+                Viewport::from_main_pass_resolution_override(resolution_override)
             {
                 render_pass.set_camera_viewport(&viewport);
             }

@@ -19,7 +19,7 @@ use bevy_image::ToExtents;
 use bevy_math::vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    camera::{ExtractedCamera, MipBias, TemporalJitter},
+    camera::{ExtractedCamera, MipBias, TemporalJitter, ViewTargetInfo},
     diagnostic::RecordDiagnostics,
     render_resource::{
         binding_types::{sampler, texture_2d, texture_depth_2d},
@@ -34,7 +34,7 @@ use bevy_render::{
     sync_component::{SyncComponent, SyncComponentPlugin},
     sync_world::RenderEntity,
     texture::{CachedTexture, TextureCache},
-    view::{ExtractedView, Msaa, ViewTarget},
+    view::ViewTarget,
     ExtractSchedule, MainWorld, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_utils::default;
@@ -108,6 +108,9 @@ impl Plugin for TemporalAntiAliasPlugin {
 ///
 /// 1. Write particle motion vectors to the motion vectors prepass texture
 /// 2. Render particles after TAA
+///
+/// [`Msaa`]: bevy_render::view::Msaa
+/// [`Msaa::Off`]: bevy_render::view::Msaa::Off
 #[derive(Component, Reflect, Clone)]
 #[reflect(Component, Default, Clone)]
 #[require(TemporalJitter, MipBias, DepthPrepass, MotionVectorPrepass)]
@@ -135,21 +138,20 @@ impl SyncComponent<RenderApp> for TemporalAntiAliasing {
 
 pub fn temporal_anti_alias(
     view: ViewQuery<(
-        &ExtractedCamera,
         &ViewTarget,
         &TemporalAntiAliasHistoryTextures,
         &ViewPrepassTextures,
         &TemporalAntiAliasPipelineId,
-        &Msaa,
+        &ViewTargetInfo,
     )>,
     pipelines: Option<Res<TaaPipeline>>,
     pipeline_cache: Res<PipelineCache>,
     mut ctx: RenderContext,
 ) {
-    let (camera, view_target, taa_history_textures, prepass_textures, taa_pipeline_id, msaa) =
+    let (view_target, taa_history_textures, prepass_textures, taa_pipeline_id, target_info) =
         view.into_inner();
 
-    if *msaa != Msaa::Off {
+    if target_info.sample_count > 1 {
         warn!("Temporal anti-aliasing requires MSAA to be disabled");
         return;
     }
@@ -208,9 +210,6 @@ pub fn temporal_anti_alias(
 
     taa_pass.set_render_pipeline(taa_pipeline);
     taa_pass.set_bind_group(0, &taa_bind_group, &[]);
-    if let Some(viewport) = camera.viewport.as_ref() {
-        taa_pass.set_camera_viewport(viewport);
-    }
     taa_pass.draw(0..3, 0..1);
 
     pass_span.end(&mut taa_pass);
@@ -393,41 +392,39 @@ fn prepare_taa_history_textures(
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
     frame_count: Res<FrameCount>,
-    cameras: Query<(Entity, &ExtractedView, &ExtractedCamera), With<TemporalAntiAliasing>>,
+    cameras: Query<(Entity, &ViewTargetInfo), With<TemporalAntiAliasing>>,
 ) {
-    for (entity, view, camera) in &cameras {
-        if let Some(physical_target_size) = camera.physical_target_size {
-            let mut texture_descriptor = TextureDescriptor {
-                label: None,
-                size: physical_target_size.to_extents(),
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: TextureDimension::D2,
-                format: view.target_format,
-                usage: TextureUsages::TEXTURE_BINDING | TextureUsages::RENDER_ATTACHMENT,
-                view_formats: &[],
-            };
+    for (entity, target_info) in &cameras {
+        let mut texture_descriptor = TextureDescriptor {
+            label: None,
+            size: target_info.size.to_extents(),
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: TextureDimension::D2,
+            format: target_info.color_format,
+            usage: TextureUsages::TEXTURE_BINDING | TextureUsages::RENDER_ATTACHMENT,
+            view_formats: &[],
+        };
 
-            texture_descriptor.label = Some("taa_history_1_texture");
-            let history_1_texture = texture_cache.get(&render_device, texture_descriptor.clone());
+        texture_descriptor.label = Some("taa_history_1_texture");
+        let history_1_texture = texture_cache.get(&render_device, texture_descriptor.clone());
 
-            texture_descriptor.label = Some("taa_history_2_texture");
-            let history_2_texture = texture_cache.get(&render_device, texture_descriptor);
+        texture_descriptor.label = Some("taa_history_2_texture");
+        let history_2_texture = texture_cache.get(&render_device, texture_descriptor);
 
-            let textures = if frame_count.0.is_multiple_of(2) {
-                TemporalAntiAliasHistoryTextures {
-                    write: history_1_texture,
-                    read: history_2_texture,
-                }
-            } else {
-                TemporalAntiAliasHistoryTextures {
-                    write: history_2_texture,
-                    read: history_1_texture,
-                }
-            };
+        let textures = if frame_count.0.is_multiple_of(2) {
+            TemporalAntiAliasHistoryTextures {
+                write: history_1_texture,
+                read: history_2_texture,
+            }
+        } else {
+            TemporalAntiAliasHistoryTextures {
+                write: history_2_texture,
+                read: history_1_texture,
+            }
+        };
 
-            commands.entity(entity).insert(textures);
-        }
+        commands.entity(entity).insert(textures);
     }
 }
 
@@ -441,13 +438,13 @@ fn prepare_taa_pipelines(
     cameras: Query<(
         Entity,
         &ExtractedCamera,
-        &ExtractedView,
+        &ViewTargetInfo,
         &TemporalAntiAliasing,
     )>,
 ) -> Result<(), BevyError> {
-    for (entity, camera, view, taa_settings) in &cameras {
+    for (entity, camera, target_info, taa_settings) in &cameras {
         let mut pipeline_key = TaaPipelineKey {
-            target_format: view.target_format,
+            target_format: target_info.color_format,
             tonemap: camera.hdr,
             reset: taa_settings.reset,
         };

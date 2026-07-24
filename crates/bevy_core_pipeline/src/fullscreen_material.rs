@@ -20,7 +20,7 @@ use bevy_ecs::{
     system::{BoxedSystem, Commands, Query, Res, ResMut},
 };
 use bevy_render::{
-    camera::ExtractedCamera,
+    camera::{ExtractedCamera, ViewTargetInfo},
     extract_component::{
         ComponentUniforms, DynamicUniformIndex, ExtractComponent, ExtractComponentPlugin,
         UniformComponentPlugin,
@@ -36,9 +36,7 @@ use bevy_render::{
         Variants,
     },
     renderer::{RenderContext, RenderDevice, ViewQuery},
-    view::{
-        ExtractedView, PostProcessBindGroupCache, PostProcessBindGroupCacheBuilder, ViewTarget,
-    },
+    view::{PostProcessBindGroupCache, PostProcessBindGroupCacheBuilder, ViewTarget},
     Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::ShaderRef;
@@ -193,9 +191,9 @@ fn prepare_fullscreen_material_pipelines<T: FullscreenMaterial>(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
     mut pipeline: ResMut<FullscreenMaterialPipeline<T>>,
-    views: Query<(Entity, &ExtractedView, Option<&T>), With<ExtractedCamera>>,
+    views: Query<(Entity, &ViewTargetInfo, Option<&T>), With<ExtractedCamera>>,
 ) -> Result<(), BevyError> {
-    for (entity, view, material) in &views {
+    for (entity, target_info, material) in &views {
         if material.is_none() {
             commands
                 .entity(entity)
@@ -204,7 +202,7 @@ fn prepare_fullscreen_material_pipelines<T: FullscreenMaterial>(
         }
 
         let pipeline_key = FullscreenMaterialPipelineKey {
-            target_format: view.target_format,
+            target_format: target_info.color_format,
         };
         let pipeline_id = pipeline
             .variants

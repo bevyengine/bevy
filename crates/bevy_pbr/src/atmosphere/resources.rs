@@ -18,12 +18,13 @@ use bevy_image::ToExtents;
 use bevy_light::atmosphere::ScatteringMedium;
 use bevy_math::{Affine3A, Mat4, Vec3, Vec3A};
 use bevy_render::{
+    camera::ViewTargetInfo,
     extract_component::ComponentUniforms,
     render_asset::RenderAssets,
     render_resource::{binding_types::*, *},
     renderer::{RenderDevice, RenderQueue},
     texture::{CachedTexture, TextureCache},
-    view::{ExtractedView, Msaa, ViewDepthStencilTexture, ViewUniform, ViewUniforms},
+    view::{ExtractedView, ViewDepthStencilTexture, ViewUniform, ViewUniforms},
 };
 use bevy_shader::Shader;
 use bevy_utils::default;
@@ -364,19 +365,19 @@ impl SpecializedRenderPipeline for RenderSkyBindGroupLayouts {
 }
 
 pub(super) fn queue_render_sky_pipelines(
-    views: Query<(Entity, &Msaa), (With<Camera>, With<ExtractedAtmosphere>)>,
+    views: Query<(Entity, &ViewTargetInfo), (With<Camera>, With<ExtractedAtmosphere>)>,
     pipeline_cache: Res<PipelineCache>,
     layouts: Res<RenderSkyBindGroupLayouts>,
     mut specializer: ResMut<SpecializedRenderPipelines<RenderSkyBindGroupLayouts>>,
     render_device: Res<RenderDevice>,
     mut commands: Commands,
 ) {
-    for (entity, msaa) in &views {
+    for (entity, target_info) in &views {
         let id = specializer.specialize(
             &pipeline_cache,
             &layouts,
             RenderSkyPipelineKey {
-                msaa_samples: msaa.samples(),
+                msaa_samples: target_info.sample_count,
                 dual_source_blending: render_device
                     .features()
                     .contains(WgpuFeatures::DUAL_SOURCE_BLENDING),
@@ -625,7 +626,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
             &ExtractedAtmosphere,
             &AtmosphereTextures,
             &ViewDepthStencilTexture,
-            &Msaa,
+            &ViewTargetInfo,
         ),
         (With<Camera3d>, With<ExtractedAtmosphere>),
     >,
@@ -670,7 +671,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
         .binding()
         .ok_or(AtmosphereBindGroupError::LightUniforms)?;
 
-    for (entity, atmosphere, textures, view_depth_texture, msaa) in &views {
+    for (entity, atmosphere, textures, view_depth_texture, target_info) in &views {
         let Some(depth_view) = view_depth_texture
             .attachment
             .depth_stencil_views()
@@ -764,7 +765,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
 
         let render_sky = render_device.create_bind_group(
             "render_sky_bind_group",
-            &pipeline_cache.get_bind_group_layout(if *msaa == Msaa::Off {
+            &pipeline_cache.get_bind_group_layout(if target_info.sample_count == 1 {
                 &render_sky_layouts.render_sky
             } else {
                 &render_sky_layouts.render_sky_msaa

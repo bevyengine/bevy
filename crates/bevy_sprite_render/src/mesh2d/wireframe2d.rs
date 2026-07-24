@@ -25,8 +25,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingMode,
     camera::{
-        extract_cameras, DirtySpecializationSystems, DirtyWireframeSpecializations,
-        ExtractedCamera, PendingQueues,
+        extract_cameras, DirtySpecializationSystems, DirtyWireframeSpecializations, PendingQueues,
     },
     extract_resource::ExtractResource,
     mesh::{
@@ -356,18 +355,13 @@ impl SpecializedMeshPipeline for Wireframe2dPipeline {
 
 pub(crate) fn wireframe_2d(
     world: &World,
-    view: ViewQuery<(
-        &ExtractedCamera,
-        &ExtractedView,
-        &ViewTarget,
-        &ViewDepthStencilTexture,
-    )>,
+    view: ViewQuery<(&ExtractedView, &ViewTarget, &ViewDepthStencilTexture)>,
     wireframe_phases: Res<ViewBinnedRenderPhases<Wireframe2dPhaseItem>>,
     mut ctx: RenderContext,
 ) {
     let view_entity = view.entity();
 
-    let (camera, extracted_view, target, depth) = view.into_inner();
+    let (extracted_view, target, depth) = view.into_inner();
 
     let Some(wireframe_phase) = wireframe_phases.get(&extracted_view.retained_view_entity) else {
         return;
@@ -385,10 +379,6 @@ pub(crate) fn wireframe_2d(
         occlusion_query_set: None,
         multiview_mask: None,
     });
-
-    if let Some(viewport) = camera.viewport.as_ref() {
-        render_pass.set_camera_viewport(viewport);
-    }
 
     if let Err(err) = wireframe_phase.render(&mut render_pass, world, view_entity) {
         error!("Error encountered while rendering the wireframe phase {err:?}");

@@ -49,7 +49,7 @@ use bevy_image::{Image, ToExtents};
 use bevy_math::{vec4, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    camera::ExtractedCamera,
+    camera::{ExtractedCamera, ViewTargetInfo},
     diagnostic::RecordDiagnostics,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_asset::RenderAssets,
@@ -613,9 +613,9 @@ fn prepare_smaa_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut specialized_render_pipelines: ResMut<SmaaSpecializedRenderPipelines>,
     smaa_pipelines: Res<SmaaPipelines>,
-    cameras: Query<(Entity, &ExtractedView, &Smaa), With<ExtractedCamera>>,
+    cameras: Query<(Entity, &ViewTargetInfo, &Smaa), With<ExtractedCamera>>,
 ) {
-    for (entity, view, smaa) in &cameras {
+    for (entity, target_info, smaa) in &cameras {
         let edge_detection_pipeline_id = specialized_render_pipelines.edge_detection.specialize(
             &pipeline_cache,
             &smaa_pipelines.edge_detection,
@@ -636,7 +636,7 @@ fn prepare_smaa_pipelines(
                 &pipeline_cache,
                 &smaa_pipelines.neighborhood_blending,
                 SmaaNeighborhoodBlendingPipelineKey {
-                    target_format: view.target_format,
+                    target_format: target_info.color_format,
                     preset: smaa.preset,
                 },
             );
@@ -686,12 +686,10 @@ fn prepare_smaa_textures(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     mut texture_cache: ResMut<TextureCache>,
-    view_targets: Query<(Entity, &ExtractedCamera), (With<ExtractedView>, With<Smaa>)>,
+    view_targets: Query<(Entity, &ViewTargetInfo), (With<ExtractedView>, With<Smaa>)>,
 ) {
-    for (entity, camera) in &view_targets {
-        let Some(texture_size) = camera.physical_target_size else {
-            continue;
-        };
+    for (entity, target_info) in &view_targets {
+        let texture_size = target_info.size;
 
         // Create the two-channel RG texture for phase 1 (edge detection).
         let edge_detection_color_texture = texture_cache.get(

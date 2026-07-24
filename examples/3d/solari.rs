@@ -2,7 +2,7 @@
 
 use argh::FromArgs;
 use bevy::{
-    camera::CameraMainTextureUsages,
+    camera::CameraColorTarget,
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     diagnostic::{Diagnostic, DiagnosticPath, DiagnosticsStore},
     gltf::GltfMaterialName,
@@ -151,8 +151,8 @@ fn setup_pica_pica(
             Quat::from_xyzw(-0.1466768, 0.013738206, 0.002037309, 0.989087),
         ),
         // Msaa::Off and CameraMainTextureUsages with STORAGE_BINDING are required for Solari
-        CameraMainTextureUsages::default().with(TextureUsages::STORAGE_BINDING),
         Msaa::Off,
+        CameraColorTarget::default().with_added_usage(TextureUsages::STORAGE_BINDING),
     ));
 
     if args.pathtracer == Some(true) {
@@ -332,8 +332,8 @@ fn setup_many_lights(
             Quat::from_xyzw(-0.183938, 0.009093744, 0.0017017953, 0.9828943),
         ),
         // Msaa::Off and CameraMainTextureUsages with STORAGE_BINDING are required for Solari
-        CameraMainTextureUsages::default().with(TextureUsages::STORAGE_BINDING),
         Msaa::Off,
+        CameraColorTarget::default().with_added_usage(TextureUsages::STORAGE_BINDING),
         Bloom {
             intensity: 0.1,
             ..Bloom::NATURAL

@@ -27,10 +27,11 @@ use bevy_ecs::{
     schedule::IntoScheduleConfigs as _,
     system::{Commands, Query, Res, ResMut},
 };
+use bevy_image::ToExtents;
 use bevy_math::ops;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::{
-    camera::ExtractedCamera,
+    camera::{ExtractedCamera, ViewTargetInfo},
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     render_resource::{
         binding_types::{
@@ -48,8 +49,8 @@ use bevy_render::{
     sync_world::RenderEntity,
     texture::{CachedTexture, TextureCache},
     view::{
-        prepare_view_targets, ExtractedView, Msaa, ViewDepthStencilTexture, ViewTarget,
-        ViewUniform, ViewUniformOffset, ViewUniforms,
+        prepare_view_targets, ViewDepthStencilTexture, ViewTarget, ViewUniform, ViewUniformOffset,
+        ViewUniforms,
     },
     Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
@@ -373,9 +374,9 @@ pub fn init_dof_global_bind_group_layout(mut commands: Commands, render_device: 
 /// specific to each view.
 pub fn prepare_depth_of_field_view_bind_group_layouts(
     mut commands: Commands,
-    view_targets: Query<(Entity, &DepthOfField, &Msaa)>,
+    view_targets: Query<(Entity, &DepthOfField, &ViewTargetInfo)>,
 ) {
-    for (view, depth_of_field, msaa) in view_targets.iter() {
+    for (view, depth_of_field, target_info) in view_targets.iter() {
         // Create the bind group layout for the passes that take one input.
         let single_input = BindGroupLayoutDescriptor::new(
             "depth of field bind group layout (single input)",
@@ -383,7 +384,7 @@ pub fn prepare_depth_of_field_view_bind_group_layouts(
                 ShaderStages::FRAGMENT,
                 (
                     uniform_buffer::<ViewUniform>(true),
-                    if *msaa != Msaa::Off {
+                    if target_info.sample_count > 1 {
                         texture_depth_2d_multisampled()
                     } else {
                         texture_depth_2d()
@@ -403,7 +404,7 @@ pub fn prepare_depth_of_field_view_bind_group_layouts(
                     ShaderStages::FRAGMENT,
                     (
                         uniform_buffer::<ViewUniform>(true),
-                        if *msaa != Msaa::Off {
+                        if target_info.sample_count > 1 {
                             texture_depth_2d_multisampled()
                         } else {
                             texture_depth_2d()
@@ -470,9 +471,9 @@ pub fn prepare_auxiliary_depth_of_field_textures(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     mut texture_cache: ResMut<TextureCache>,
-    mut view_targets: Query<(Entity, &ViewTarget, &DepthOfField)>,
+    mut view_targets: Query<(Entity, &ViewTargetInfo, &DepthOfField)>,
 ) {
-    for (entity, view_target, depth_of_field) in view_targets.iter_mut() {
+    for (entity, target_info, depth_of_field) in view_targets.iter_mut() {
         // An auxiliary texture is only needed for bokeh.
         if depth_of_field.mode != DepthOfFieldMode::Bokeh {
             continue;
@@ -481,11 +482,11 @@ pub fn prepare_auxiliary_depth_of_field_textures(
         // The texture matches the main view target texture.
         let texture_descriptor = TextureDescriptor {
             label: Some("depth of field auxiliary texture"),
-            size: view_target.main_texture().size(),
+            size: target_info.size.to_extents(),
             mip_level_count: 1,
-            sample_count: view_target.main_texture().sample_count(),
+            sample_count: 1,
             dimension: TextureDimension::D2,
-            format: view_target.main_texture_format(),
+            format: target_info.color_format,
             usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
             view_formats: &[],
         };
@@ -507,17 +508,16 @@ pub fn prepare_depth_of_field_pipelines(
     view_targets: Query<
         (
             Entity,
-            &ExtractedView,
             &DepthOfField,
             &ViewDepthOfFieldBindGroupLayouts,
-            &Msaa,
+            &ViewTargetInfo,
         ),
         With<ExtractedCamera>,
     >,
     fullscreen_shader: Res<FullscreenShader>,
     asset_server: Res<AssetServer>,
 ) {
-    for (entity, view, depth_of_field, view_bind_group_layouts, msaa) in view_targets.iter() {
+    for (entity, depth_of_field, view_bind_group_layouts, target_info) in view_targets.iter() {
         let dof_pipeline = DepthOfFieldPipeline {
             view_bind_group_layouts: view_bind_group_layouts.clone(),
             global_bind_group_layout: global_bind_group_layout.layout.clone(),
@@ -526,7 +526,7 @@ pub fn prepare_depth_of_field_pipelines(
         };
 
         // We'll need these two flags to create the `DepthOfFieldPipelineKey`s.
-        let (target_format, multisample) = (view.target_format, *msaa != Msaa::Off);
+        let (target_format, multisample) = (target_info.color_format, target_info.sample_count > 1);
 
         // Go ahead and specialize the pipelines.
         match depth_of_field.mode {

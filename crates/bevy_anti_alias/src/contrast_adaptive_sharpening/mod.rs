@@ -9,6 +9,7 @@ use bevy_core_pipeline::{
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
+    camera::ViewTargetInfo,
     extract_component::{ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin},
     render_resource::{
         binding_types::{sampler, texture_2d, uniform_buffer},
@@ -16,7 +17,6 @@ use bevy_render::{
     },
     renderer::RenderDevice,
     sync_component::SyncComponent,
-    view::ExtractedView,
     Render, RenderApp, RenderStartup, RenderSystems,
 };
 
@@ -226,7 +226,7 @@ fn prepare_cas_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut sharpening_pipeline: ResMut<CasPipeline>,
     cameras: Query<
-        (Entity, &ExtractedView, &DenoiseCas),
+        (Entity, &ViewTargetInfo, &DenoiseCas),
         Or<(Added<CasUniform>, Changed<DenoiseCas>)>,
     >,
     mut removals: RemovedComponents<CasUniform>,
@@ -235,12 +235,12 @@ fn prepare_cas_pipelines(
         commands.entity(entity).remove::<ViewCasPipeline>();
     }
 
-    for (entity, view, denoise_cas) in &cameras {
+    for (entity, target_info, denoise_cas) in &cameras {
         let pipeline_id = sharpening_pipeline.variants.specialize(
             &pipeline_cache,
             CasPipelineKey {
                 denoise: denoise_cas.0,
-                target_format: view.target_format,
+                target_format: target_info.color_format,
             },
         )?;
 

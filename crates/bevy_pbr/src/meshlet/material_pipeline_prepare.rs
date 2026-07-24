@@ -20,10 +20,12 @@ use bevy_mesh::{
     MeshVertexBufferLayouts,
 };
 use bevy_platform::collections::{HashMap, HashSet};
-use bevy_render::{camera::ExtractedCamera, erased_render_asset::ErasedRenderAssets};
 use bevy_render::{
     camera::TemporalJitter, material_bind_groups::MaterialBindGroupAllocators, render_resource::*,
-    view::ExtractedView,
+};
+use bevy_render::{
+    camera::{ExtractedCamera, ViewTargetInfo},
+    erased_render_asset::ErasedRenderAssets,
 };
 use bevy_utils::default;
 use core::any::TypeId;
@@ -50,7 +52,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass(
         (
             &mut MeshletViewMaterialsMainOpaquePass,
             &ExtractedCamera,
-            &ExtractedView,
+            &ViewTargetInfo,
             Option<&Tonemapping>,
             Option<&DebandDither>,
             Option<&ShadowFilteringMethod>,
@@ -74,7 +76,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass(
     for (
         mut materials,
         camera,
-        view,
+        target_info,
         tonemapping,
         dither,
         shadow_filter_method,
@@ -87,7 +89,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass(
     ) in &mut views
     {
         let mut view_key = MeshPipelineKey::from_msaa_samples(1)
-            | MeshPipelineKey::from_target_format(view.target_format);
+            | MeshPipelineKey::from_target_format(target_info.color_format);
 
         if normal_prepass {
             view_key |= MeshPipelineKey::NORMAL_PREPASS;
@@ -294,7 +296,7 @@ pub fn prepare_material_meshlet_meshes_prepass(
         (
             &mut MeshletViewMaterialsPrepass,
             &mut MeshletViewMaterialsDeferredGBufferPrepass,
-            &ExtractedView,
+            &ViewTargetInfo,
             AnyOf<(&NormalPrepass, &MotionVectorPrepass, &DeferredPrepass)>,
         ),
         With<Camera3d>,
@@ -305,12 +307,12 @@ pub fn prepare_material_meshlet_meshes_prepass(
     for (
         mut materials,
         mut deferred_materials,
-        view,
+        target_info,
         (normal_prepass, motion_vector_prepass, deferred_prepass),
     ) in &mut views
     {
         let mut view_key = MeshPipelineKey::from_msaa_samples(1)
-            | MeshPipelineKey::from_target_format(view.target_format);
+            | MeshPipelineKey::from_target_format(target_info.color_format);
 
         if normal_prepass.is_some() {
             view_key |= MeshPipelineKey::NORMAL_PREPASS;

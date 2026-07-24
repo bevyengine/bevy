@@ -8,6 +8,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut},
 };
 use bevy_render::{
+    camera::ViewTargetInfo,
     globals::GlobalsUniform,
     render_resource::{
         binding_types::{sampler, texture_2d, texture_2d_multisampled, uniform_buffer_sized},
@@ -18,7 +19,6 @@ use bevy_render::{
         TextureSampleType,
     },
     renderer::RenderDevice,
-    view::{ExtractedView, Msaa},
 };
 use bevy_shader::{Shader, ShaderDefVal};
 use bevy_utils::default;
@@ -162,15 +162,15 @@ pub(crate) fn prepare_motion_blur_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<MotionBlurPipeline>>,
     pipeline: Res<MotionBlurPipeline>,
-    cameras: Query<(Entity, &ExtractedView, &Msaa), With<MotionBlurUniform>>,
+    cameras: Query<(Entity, &ViewTargetInfo), With<MotionBlurUniform>>,
 ) {
-    for (entity, view, msaa) in &cameras {
+    for (entity, target_info) in &cameras {
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
             MotionBlurPipelineKey {
-                target_format: view.target_format,
-                samples: msaa.samples(),
+                target_format: target_info.color_format,
+                samples: target_info.sample_count,
             },
         );
 

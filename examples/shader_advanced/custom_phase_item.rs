@@ -7,6 +7,7 @@
 //! into Bevy — render nodes are another, lower-level method — but it does allow
 //! for better reuse of parts of Bevy's built-in mesh rendering logic.
 
+use bevy::render::camera::ViewTargetInfo;
 use bevy::{
     camera::{
         primitives::Aabb,
@@ -231,7 +232,7 @@ fn queue_custom_phase_item(
     mut pipeline: ResMut<CustomPhasePipeline>,
     mut opaque_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3d>>,
     opaque_draw_functions: Res<DrawFunctions<Opaque3d>>,
-    views: Query<(&ExtractedView, &RenderVisibleEntities, &Msaa)>,
+    views: Query<(&ExtractedView, &RenderVisibleEntities, &ViewTargetInfo)>,
     dirty_specializations: Res<DirtySpecializations>,
     mut pending_custom_phase_item_queues: ResMut<PendingCustomPhaseItemQueues>,
     mut mesh_instances_queued_this_iteration_scratch_space: Local<MainEntityHashSet>,
@@ -243,7 +244,7 @@ fn queue_custom_phase_item(
     // Render phases are per-view, so we need to iterate over all views so that
     // the entity appears in them. (In this example, we have only one view, but
     // it's good practice to loop over all views anyway.)
-    for (view, view_visible_entities, msaa) in views.iter() {
+    for (view, view_visible_entities, target_info) in views.iter() {
         let Some(opaque_phase) = opaque_render_phases.get_mut(&view.retained_view_entity) else {
             continue;
         };
@@ -282,7 +283,7 @@ fn queue_custom_phase_item(
             // with the exception of number of MSAA samples.
             let Ok(pipeline_id) = pipeline
                 .variants
-                .specialize(&pipeline_cache, CustomPhaseKey(*msaa))
+                .specialize(&pipeline_cache, CustomPhaseKey(target_info.sample_count))
             else {
                 continue;
             };
@@ -381,7 +382,7 @@ impl FromWorld for CustomPhasePipeline {
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash, SpecializerKey)]
-struct CustomPhaseKey(Msaa);
+struct CustomPhaseKey(u32);
 
 impl Specializer<RenderPipeline> for CustomPhaseSpecializer {
     type Key = CustomPhaseKey;
@@ -391,7 +392,7 @@ impl Specializer<RenderPipeline> for CustomPhaseSpecializer {
         key: Self::Key,
         descriptor: &mut RenderPipelineDescriptor,
     ) -> Result<Canonical<Self::Key>, BevyError> {
-        descriptor.multisample.count = key.0.samples();
+        descriptor.multisample.count = key.0;
         Ok(key)
     }
 }

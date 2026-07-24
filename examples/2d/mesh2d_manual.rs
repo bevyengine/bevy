@@ -5,6 +5,7 @@
 //!
 //! [`Material2d`]: bevy::sprite_render::Material2d
 
+use bevy::render::camera::ViewTargetInfo;
 use bevy::{
     asset::RenderAssetUsages,
     color::palettes::basic::YELLOW,
@@ -569,14 +570,14 @@ fn queue_colored_mesh2d(
     render_meshes: Res<RenderAssets<RenderMesh>>,
     render_mesh_instances: Res<RenderColoredMesh2dInstances>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentColoredMesh2d>>,
-    views: Query<(&RenderVisibleEntities, &ExtractedView, &Msaa)>,
+    views: Query<(&RenderVisibleEntities, &ExtractedView, &ViewTargetInfo)>,
 ) {
     if render_mesh_instances.is_empty() {
         return;
     }
 
     // Iterate each view (a camera is a view)
-    for (visible_entities, view, msaa) in &views {
+    for (visible_entities, view, target_info) in &views {
         let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
         else {
             continue;
@@ -586,8 +587,8 @@ fn queue_colored_mesh2d(
             .read()
             .id::<DrawTransparentColoredMesh2d>();
 
-        let mesh_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
-            | Mesh2dPipelineKey::from_target_format(view.target_format);
+        let mesh_key = Mesh2dPipelineKey::from_msaa_samples(target_info.sample_count)
+            | Mesh2dPipelineKey::from_target_format(target_info.color_format);
 
         // Queue all entities visible to that view
         let Some(visible_entities) = visible_entities.get::<Mesh2d>() else {

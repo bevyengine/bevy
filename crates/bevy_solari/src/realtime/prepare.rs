@@ -16,7 +16,6 @@ use bevy_ecs::{
 use bevy_image::ToExtents;
 use bevy_math::UVec2;
 use bevy_render::{
-    camera::ExtractedCamera,
     render_resource::{Buffer, BufferDescriptor, BufferInitDescriptor, BufferUsages},
     renderer::{RenderDevice, RenderQueue},
 };
@@ -110,14 +109,14 @@ pub struct SolariLightingResources {
 pub fn prepare_solari_lighting_resources(
     #[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))] query: Query<(
         Entity,
-        &ExtractedCamera,
+        &bevy_render::camera::ViewTargetInfo,
         &SolariLighting,
         Option<&SolariLightingResources>,
         Option<&MainPassResolutionOverride>,
     )>,
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))] query: Query<(
         Entity,
-        &ExtractedCamera,
+        &bevy_render::camera::ViewTargetInfo,
         &SolariLighting,
         Option<&SolariLightingResources>,
         Option<&MainPassResolutionOverride>,
@@ -130,21 +129,19 @@ pub fn prepare_solari_lighting_resources(
 ) {
     for query_item in &query {
         #[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))]
-        let (entity, camera, solari_lighting, solari_lighting_resources, resolution_override) =
+        let (entity, target_info, solari_lighting, solari_lighting_resources, resolution_override) =
             query_item;
         #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
         let (
             entity,
-            camera,
+            target_info,
             solari_lighting,
             solari_lighting_resources,
             resolution_override,
             has_dlss_rr,
         ) = query_item;
 
-        let Some(mut view_size) = camera.physical_viewport_size else {
-            continue;
-        };
+        let mut view_size = target_info.size;
         if let Some(MainPassResolutionOverride(resolution_override)) = resolution_override {
             view_size = *resolution_override;
         }

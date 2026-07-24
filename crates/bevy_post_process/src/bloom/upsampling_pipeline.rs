@@ -10,11 +10,11 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut},
 };
 use bevy_render::{
+    camera::ViewTargetInfo,
     render_resource::{
         binding_types::{sampler, texture_2d, uniform_buffer},
         *,
     },
-    view::ExtractedView,
 };
 use bevy_shader::Shader;
 use bevy_utils::default;
@@ -134,9 +134,9 @@ pub fn prepare_upsampling_pipeline(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<BloomUpsamplingPipeline>>,
     pipeline: Res<BloomUpsamplingPipeline>,
-    views: Query<(&ExtractedView, Entity, &Bloom)>,
+    views: Query<(&ViewTargetInfo, Entity, &Bloom)>,
 ) {
-    for (view, entity, bloom) in &views {
+    for (target_info, entity, bloom) in &views {
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
@@ -151,7 +151,7 @@ pub fn prepare_upsampling_pipeline(
             &pipeline,
             BloomUpsamplingPipelineKeys {
                 composite_mode: bloom.composite_mode,
-                target_format: view.target_format,
+                target_format: target_info.color_format,
             },
         );
 

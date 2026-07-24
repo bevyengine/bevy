@@ -48,9 +48,7 @@ pub struct BloomDownsamplingPipelineKeys {
 pub struct BloomUniforms {
     // Precomputed values used when thresholding, see https://catlikecoding.com/unity/tutorials/advanced-rendering/bloom/#3.4
     pub threshold_precomputations: Vec4,
-    pub viewport: Vec4,
     pub scale: Vec2,
-    pub aspect: f32,
 }
 
 pub fn init_bloom_downsampling_pipeline(

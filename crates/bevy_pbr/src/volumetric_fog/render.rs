@@ -18,6 +18,7 @@ use bevy_light::{FogVolume, VolumetricFog, VolumetricLight};
 use bevy_math::{vec4, Affine3A, Mat4, Vec3, Vec3A, Vec4};
 use bevy_mesh::{Mesh, MeshVertexBufferLayoutRef};
 use bevy_render::{
+    camera::ViewTargetInfo,
     mesh::{allocator::MeshAllocator, RenderMesh, RenderMeshBufferInfo},
     render_asset::RenderAssets,
     render_resource::{
@@ -35,7 +36,7 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice, RenderQueue, ViewQuery},
     sync_world::RenderEntity,
     texture::GpuImage,
-    view::{ExtractedView, Msaa, ViewDepthStencilTexture, ViewTarget},
+    view::{ExtractedView, ViewDepthStencilTexture, ViewTarget},
     Extract,
 };
 use bevy_shader::Shader;
@@ -286,7 +287,7 @@ pub fn volumetric_fog(
         &ViewVolumetricFogPipelines,
         &ViewVolumetricFog,
         &MeshViewBindGroup,
-        &Msaa,
+        &ViewTargetInfo,
     )>,
     pipeline_cache: Res<PipelineCache>,
     volumetric_lighting_pipeline: Res<VolumetricFogPipeline>,
@@ -303,7 +304,7 @@ pub fn volumetric_fog(
         view_volumetric_lighting_pipelines,
         view_fog_volumes,
         view_bind_group,
-        msaa,
+        target_info,
     ) = view.into_inner();
 
     // Fetch the uniform buffer and binding.
@@ -370,7 +371,7 @@ pub fn volumetric_fog(
         let mut bind_group_layout_key = VolumetricFogBindGroupLayoutKey::empty();
         bind_group_layout_key.set(
             VolumetricFogBindGroupLayoutKey::MULTISAMPLED,
-            !matches!(*msaa, Msaa::Off),
+            target_info.sample_count > 1,
         );
 
         // Create the bind group entries. The ones relating to the density
@@ -561,7 +562,7 @@ pub fn prepare_volumetric_fog_pipelines(
     mut pipelines: ResMut<SpecializedRenderPipelines<VolumetricFogPipeline>>,
     volumetric_lighting_pipeline: Res<VolumetricFogPipeline>,
     fog_assets: Res<FogAssets>,
-    view_targets: Query<(Entity, &ExtractedView), With<VolumetricFog>>,
+    view_targets: Query<(Entity, &ExtractedView, &ViewTargetInfo), With<VolumetricFog>>,
     meshes: Res<RenderAssets<RenderMesh>>,
     view_key_cache: Res<ViewKeyCache>,
 ) {
@@ -570,7 +571,7 @@ pub fn prepare_volumetric_fog_pipelines(
         return;
     };
 
-    for (entity, view) in view_targets.iter() {
+    for (entity, view, target_info) in view_targets.iter() {
         let Some(mesh_pipeline_key) = view_key_cache.get(&view.retained_view_entity) else {
             continue;
         };
@@ -579,7 +580,7 @@ pub fn prepare_volumetric_fog_pipelines(
         let textureless_pipeline_key = VolumetricFogPipelineKey {
             mesh_pipeline_view_key: (*mesh_pipeline_key).into(),
             vertex_buffer_layout: plane_mesh.layout.clone(),
-            target_format: view.target_format,
+            target_format: target_info.color_format,
             has_density_texture: false,
         };
         let textureless_pipeline_id = pipelines.specialize(

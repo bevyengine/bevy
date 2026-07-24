@@ -4,7 +4,6 @@ use bevy_log::error;
 #[cfg(feature = "trace")]
 use bevy_log::info_span;
 use bevy_render::{
-    camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
     occlusion_culling::OcclusionCulling,
     render_phase::ViewBinnedRenderPhases,
@@ -25,7 +24,6 @@ use super::{
 /// Type alias for the prepass view query.
 type PrepassViewQueryData = (
     (
-        &'static ExtractedCamera,
         &'static ExtractedView,
         &'static ViewDepthStencilTexture,
         &'static ViewPrepassTextures,
@@ -51,7 +49,7 @@ pub fn early_prepass(
 ) {
     let view_entity = view.entity();
     let (
-        (camera, extracted_view, view_depth_texture, view_prepass_textures, view_uniform_offset),
+        (extracted_view, view_depth_texture, view_prepass_textures, view_uniform_offset),
         (
             deferred_prepass,
             background_motion_vectors_pipeline,
@@ -65,7 +63,6 @@ pub fn early_prepass(
     run_prepass_system(
         world,
         view_entity,
-        camera,
         extracted_view,
         view_depth_texture,
         view_prepass_textures,
@@ -93,7 +90,7 @@ pub fn late_prepass(
 ) {
     let view_entity = view.entity();
     let (
-        (camera, extracted_view, view_depth_texture, view_prepass_textures, view_uniform_offset),
+        (extracted_view, view_depth_texture, view_prepass_textures, view_uniform_offset),
         (
             deferred_prepass,
             background_motion_vectors_pipeline,
@@ -111,7 +108,6 @@ pub fn late_prepass(
     run_prepass_system(
         world,
         view_entity,
-        camera,
         extracted_view,
         view_depth_texture,
         view_prepass_textures,
@@ -137,7 +133,6 @@ pub fn late_prepass(
 fn run_prepass_system(
     world: &World,
     view_entity: Entity,
-    camera: &ExtractedCamera,
     extracted_view: &ExtractedView,
     view_depth_texture: &ViewDepthStencilTexture,
     view_prepass_textures: &ViewPrepassTextures,
@@ -197,9 +192,7 @@ fn run_prepass_system(
     });
     let pass_span = diagnostics.pass_span(&mut render_pass, label);
 
-    if let Some(viewport) =
-        Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
-    {
+    if let Some(viewport) = Viewport::from_main_pass_resolution_override(resolution_override) {
         render_pass.set_camera_viewport(&viewport);
     }
 
