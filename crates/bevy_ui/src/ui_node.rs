@@ -2539,7 +2539,7 @@ impl BorderRadius {
     pub const ZERO: Self = Self::all_circular(Val::Px(0.));
 
     /// Maximum curvature. The UI Node will take a capsule shape or circular if width and height are equal.
-    pub const MAX: Self = Self::all_circular(Val::Px(f32::MAX));
+    pub const MAX: Self = Self::all_circular(Val::MAX);
 
     #[inline]
     /// Set all four corners to the same curvature.
