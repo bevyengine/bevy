@@ -1,7 +1,8 @@
 import bevy_pbr::atmosphere::{
     bindings::{view, settings},
+    bruneton_functions::sample_transmittance_lut_segment,
     functions::{
-        sample_transmittance_lut, sample_transmittance_lut_segment,
+        sample_transmittance_lut,
         sample_sky_view_lut, direction_world_to_atmosphere,
         uv_to_ray_direction, uv_to_ndc, sample_aerial_view_lut,
         sample_sun_radiance, ndc_to_camera_dist, raymarch_atmosphere, 

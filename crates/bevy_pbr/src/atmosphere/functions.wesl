@@ -116,27 +116,6 @@ fn sample_transmittance_lut(r: f32, mu: f32) -> vec3<f32> {
     return textureSampleLevel(transmittance_lut, atmosphere_lut_sampler, uv, 0.0).rgb;
 }
 
-// NOTICE: This function is copyrighted by Eric Bruneton and INRIA, and falls
-// under the license reproduced in bruneton_functions.wesl (variant of MIT license)
-//
-// FIXME: this function should be in bruneton_functions.wesl, but because naga_oil doesn't 
-// support cyclic imports it's stuck here
-fn sample_transmittance_lut_segment(r: f32, mu: f32, t: f32) -> vec3<f32> {
-    let r_t = get_local_r(r, mu, t);
-    let mu_t = clamp((r * mu + t) / r_t, -1.0, 1.0);
-
-    if ray_intersects_ground(r, mu) {
-        return min(
-            sample_transmittance_lut(r_t, -mu_t) / sample_transmittance_lut(r, -mu),
-            vec3(1.0)
-        );
-    } else {
-        return min(
-            sample_transmittance_lut(r, mu) / sample_transmittance_lut(r_t, mu_t), vec3(1.0)
-        );
-    }
-}
-
 fn sample_multiscattering_lut(r: f32, mu: f32) -> vec3<f32> {
     let uv = multiscattering_lut_r_mu_to_uv(r, mu);
     return textureSampleLevel(multiscattering_lut, atmosphere_lut_sampler, uv, 0.0).rgb;

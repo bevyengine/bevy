@@ -183,7 +183,7 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     }
 
     current_color = mix(history_color, current_color, current_color_factor);
-} // #ifndef RESET
+} // !RESET
 
 
     // Write output to history and view target

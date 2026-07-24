@@ -4,7 +4,7 @@ import bevy_render::maths::PI;
 import bevy_render::utils::octahedral_encode;
 import bevy_solari::scene::brdf::{brdf_pdf, evaluate_and_sample_brdf, evaluate_brdf, F_AB};
 import bevy_solari::realtime::presample_light_tiles::unpack_resolved_light_sample;
-import bevy_solari::realtime::bindings::{empty_reservoir, light_tile_resolved_samples, light_tile_samples, Reservoir, settings, view};
+import bevy_solari::realtime::bindings::{empty_reservoir, light_tile_resolved_samples, light_tile_samples, Reservoir, constants, view};
 import bevy_solari::scene::sampling::{calculate_resolved_light_contribution, isinf, LightSample, NULL_LIGHT_ID, power_heuristic, trace_visibility};
 import bevy_solari::scene::bindings::{light_sources, MIRROR_ROUGHNESS_THRESHOLD, RAY_T_MAX, RAY_T_MIN, resolve_ray_hit_full, ResolvedMaterial, ResolvedRayHitFull, trace_ray};
 import bevy_solari::realtime::world_cache_query::{get_cell_size, query_world_cache, WORLD_CACHE_CELL_LIFETIME};
@@ -75,7 +75,7 @@ fn generate_initial_reservoir(world_position: vec3<f32>, world_normal: vec3<f32>
     path.x2_reusable = false;
     path.x1_brdf = vec3(0.0);
 
-    for (var bounce = 0u; bounce < settings.max_bounces; bounce++) {
+    for (var bounce = 0u; bounce < constants.max_bounces; bounce++) {
         let NdotV = max(dot(path.normal, path.wo), 0.0001);
         let F_ab = F_AB(path.material.perceptual_roughness, NdotV);
 
@@ -83,7 +83,7 @@ fn generate_initial_reservoir(world_position: vec3<f32>, world_normal: vec3<f32>
         // metals have too narrow a lobe for NEE to help, so mostly skip it there and let
         // BRDF-sampled emissive do the work. Pure dielectrics always run NEE.
         let p_nee = mix(1.0, path.material.perceptual_roughness, path.material.metallic);
-        let di_samples = select(settings.secondary_di_samples, settings.primary_di_samples, bounce == 0u);
+        let di_samples = select(constants.secondary_di_samples, constants.primary_di_samples, bounce == 0u);
         generate_nee_candidate(&reservoir, &weight_sum, &selected_target_function, &non_resampled_radiance,
             path, F_ab, p_nee, di_samples, workgroup_id, bounce, rng);
 
@@ -354,7 +354,7 @@ fn terminate_into_cache(
     // but less accurate for smooth surfaces
     let lobe_solid_angle = 1.0 / p_brdf;
     let broad_enough_to_terminate = lobe_solid_angle >= CACHE_TERMINATION_MIN_SOLID_ANGLE;
-    let forced_terminate = bounce == settings.max_bounces - 1u;
+    let forced_terminate = bounce == constants.max_bounces - 1u;
     if !(broad_enough_to_terminate || forced_terminate) { return false; }
 
     // Only use the cache when the ray cleared the cache cell (diagonal = sqrt(3) * cell_size). Short

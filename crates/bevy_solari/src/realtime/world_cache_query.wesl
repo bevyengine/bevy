@@ -1,3 +1,4 @@
+import constants::WORLD_CACHE_SIZE;
 import bevy_pbr::render::utils::{rand_f, rand_vec2f};
 import bevy_render::maths::orthonormalize;
 import bevy_solari::realtime::bindings::{
@@ -5,7 +6,7 @@ import bevy_solari::realtime::bindings::{
     world_cache_checksums,
     world_cache_radiance,
     world_cache_geometry_data,
-    settings,
+    constants,
 };
 
 enable wgpu_ray_query;
@@ -67,11 +68,11 @@ fn query_world_cache(world_position_in: vec3<f32>, world_normal: vec3<f32>, view
 }
 
 fn get_cell_size(world_position: vec3<f32>, view_position: vec3<f32>, ray_t: f32, rng: ptr<function, u32>) -> f32 {
-    let camera_distance = distance(view_position, world_position) / settings.world_cache_position_lod_scale;
+    let camera_distance = distance(view_position, world_position) / constants.world_cache_position_lod_scale;
     let lod_f = log2(1.0 + camera_distance);
     let lod_fract = fract(lod_f);
     let lod = floor(lod_f) + select(0.0, 1.0, rand_f(rng) < lod_fract * lod_fract * lod_fract);
-    return settings.world_cache_position_base_cell_size * exp2(lod);
+    return constants.world_cache_position_base_cell_size * exp2(lod);
 }
 
 fn quantize_position(world_position: vec3<f32>, quantization_factor: f32) -> vec3<f32> {
@@ -114,5 +115,5 @@ fn iqint_hash(input: u32) -> u32 {
 }
 
 fn wrap_key(key: u32) -> u32 {
-    return key & (u32(constants::WORLD_CACHE_SIZE) - 1u);
+    return key & (u32(WORLD_CACHE_SIZE) - 1u);
 }

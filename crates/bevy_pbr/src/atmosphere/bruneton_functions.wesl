@@ -56,6 +56,7 @@
 import bevy_pbr::atmosphere::{
     types::Atmosphere,
     bindings::atmosphere,
+    functions::{get_local_r, sample_transmittance_lut},
 };
 
 // Bruneton's paper calls the surface and exosphere "bottom radius" and "top radius".
@@ -138,4 +139,22 @@ fn distance_to_bottom_atmosphere_boundary(r: f32, mu: f32) -> f32 {
 
 fn ray_intersects_ground(r: f32, mu: f32) -> bool {
     return mu < 0.0 && r * r * (mu * mu - 1.0) + atmosphere.inner_radius * atmosphere.inner_radius >= 0.0;
+}
+
+// NOTICE: This function is copyrighted by Eric Bruneton and INRIA, and falls
+// under the license reproduced above (variant of MIT license)
+fn sample_transmittance_lut_segment(r: f32, mu: f32, t: f32) -> vec3<f32> {
+    let r_t = get_local_r(r, mu, t);
+    let mu_t = clamp((r * mu + t) / r_t, -1.0, 1.0);
+
+    if ray_intersects_ground(r, mu) {
+        return min(
+            sample_transmittance_lut(r_t, -mu_t) / sample_transmittance_lut(r, -mu),
+            vec3(1.0)
+        );
+    } else {
+        return min(
+            sample_transmittance_lut(r, mu) / sample_transmittance_lut(r_t, mu_t), vec3(1.0)
+        );
+    }
 }

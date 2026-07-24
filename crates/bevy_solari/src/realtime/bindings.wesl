@@ -30,7 +30,7 @@ enable wgpu_ray_query;
 @group(1) @binding(19) var<storage, read_write> world_cache_b: array<u32, 1024u>;
 @group(1) @binding(20) var<storage, read_write> world_cache_active_cell_indices: array<u32, constants::WORLD_CACHE_SIZE>;
 @group(1) @binding(21) var<storage, read_write> world_cache_active_cells_count: u32;
-@group(1) @binding(22) var<uniform> settings: SolariLightingSettings;
+@group(1) @binding(22) var<uniform> constants: SolariLightingSettings;
 
 @if(DLSS_RR_GUIDE_BUFFERS)
 @group(2) @binding(0) var diffuse_albedo: texture_storage_2d<rgba8unorm, write>;
@@ -41,7 +41,7 @@ enable wgpu_ray_query;
 @if(DLSS_RR_GUIDE_BUFFERS)
 @group(2) @binding(3) var specular_motion_vectors: texture_storage_2d<rg16float, write>;
 
-// User-configurable settings from the `SolariLighting` component, plus per-frame
+// User-configurable constants from the `SolariLighting` component, plus per-frame
 // state. Field order and types must match `SolariLightingUniforms` in `prepare.rs`.
 struct SolariLightingSettings {
     confidence_weight_cap: f32,
