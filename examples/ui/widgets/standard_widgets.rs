@@ -14,7 +14,7 @@ use bevy::{
     },
     picking::hover::Hovered,
     prelude::*,
-    ui::{Checked, InteractionDisabled, Pressed},
+    ui::{Checked, InteractionDisabled, Pressed, interaction_states::OptionPressedExt},
     ui_widgets::{
         checkbox_self_update, observe,
         popover::{Popover, PopoverAlign, PopoverPlacement, PopoverSide},
@@ -270,7 +270,7 @@ fn menu_button(asset_server: &AssetServer) -> impl Bundle {
 fn update_button_style(
     mut buttons: Query<
         (
-            Has<Pressed>,
+            Option<&Pressed>,
             &Hovered,
             Has<InteractionDisabled>,
             &mut BackgroundColor,
@@ -293,7 +293,7 @@ fn update_button_style(
         set_button_style(
             disabled,
             hovered.get(),
-            pressed,
+            pressed.is_pressed(),
             &mut color,
             &mut border_color,
             &mut text,
@@ -305,7 +305,7 @@ fn update_button_style(
 fn update_button_style2(
     mut buttons: Query<
         (
-            Has<Pressed>,
+            Option<&Pressed>,
             &Hovered,
             Has<InteractionDisabled>,
             &mut BackgroundColor,
@@ -314,13 +314,11 @@ fn update_button_style2(
         ),
         With<DemoButton>,
     >,
-    mut removed_depressed: RemovedComponents<Pressed>,
     mut removed_disabled: RemovedComponents<InteractionDisabled>,
     mut text_query: Query<&mut Text>,
 ) {
-    removed_depressed
-        .read()
-        .chain(removed_disabled.read())
+    removed_disabled.
+        read()
         .for_each(|entity| {
             if let Ok((pressed, hovered, disabled, mut color, mut border_color, children)) =
                 buttons.get_mut(entity)
@@ -329,7 +327,7 @@ fn update_button_style2(
                 set_button_style(
                     disabled,
                     hovered.get(),
-                    pressed,
+                    pressed.is_pressed(),
                     &mut color,
                     &mut border_color,
                     &mut text,
@@ -895,7 +893,7 @@ fn menu_item(asset_server: &AssetServer) -> impl Bundle {
 fn update_menu_item_style(
     mut buttons: Query<
         (
-            Has<Pressed>,
+            Option<&Pressed>,
             &Hovered,
             Has<InteractionDisabled>,
             &mut BackgroundColor,
@@ -911,7 +909,7 @@ fn update_menu_item_style(
     >,
 ) {
     for (pressed, hovered, disabled, mut color) in &mut buttons {
-        set_menu_item_style(disabled, hovered.get(), pressed, &mut color);
+        set_menu_item_style(disabled, hovered.get(), pressed.is_pressed(), &mut color);
     }
 }
 
@@ -919,22 +917,20 @@ fn update_menu_item_style(
 fn update_menu_item_style2(
     mut buttons: Query<
         (
-            Has<Pressed>,
+            Option<&Pressed>,
             &Hovered,
             Has<InteractionDisabled>,
             &mut BackgroundColor,
         ),
         With<DemoMenuItem>,
     >,
-    mut removed_depressed: RemovedComponents<Pressed>,
     mut removed_disabled: RemovedComponents<InteractionDisabled>,
 ) {
-    removed_depressed
+    removed_disabled
         .read()
-        .chain(removed_disabled.read())
         .for_each(|entity| {
             if let Ok((pressed, hovered, disabled, mut color)) = buttons.get_mut(entity) {
-                set_menu_item_style(disabled, hovered.get(), pressed, &mut color);
+                set_menu_item_style(disabled, hovered.get(), pressed.is_pressed(), &mut color);
             }
         });
 }
