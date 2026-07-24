@@ -4,7 +4,7 @@ use bevy::{
     color::palettes::basic,
     ecs::{relationship::RelatedSpawner, spawn::SpawnWith},
     prelude::*,
-    ui_widgets::{Button, ListBox, ListItem, ValueChange},
+    ui_widgets::{ListBox, ListItem, ValueChange},
 };
 use std::fmt::Debug;
 
@@ -26,6 +26,10 @@ struct ContextMenu;
 #[derive(Component, PartialEq)]
 struct ContextMenuItem(Srgba);
 
+/// marker component for context item text
+#[derive(Component)]
+struct ContextMenuItemText;
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -40,9 +44,10 @@ fn main() {
 /// helper function to reduce code duplication when generating almost identical observers for the hover text color change effect
 fn text_color_on_hover<T: Debug + Clone + Reflect>(
     color: Color,
-) -> impl FnMut(On<Pointer<T>>, Query<&mut TextColor>, Query<&Children>) {
+) -> impl FnMut(On<Pointer<T>>, Query<&mut TextColor, With<ContextMenuItemText>>, Query<&Children>)
+{
     move |mut event: On<Pointer<T>>,
-          mut text_color: Query<&mut TextColor>,
+          mut text_color: Query<&mut TextColor, With<ContextMenuItemText>>,
           children: Query<&Children>| {
         let Ok(children) = children.get(event.original_event_target()) else {
             return;
@@ -62,9 +67,18 @@ fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
 
     commands.spawn(background_and_button()).observe(
-        // any click bubbling up here should lead to closing any open menu
-        |_: On<Pointer<Press>>, mut commands: Commands| {
-            commands.trigger(CloseContextMenus);
+        |event: On<Pointer<Press>>, query: Query<(), With<ContextMenu>>, mut commands: Commands| {
+            debug!("click: {}", event.pointer_location.position);
+
+            if query.is_empty() {
+                // Open the context menu at the pointer location if one does not exist
+                commands.trigger(OpenContextMenu {
+                    pos: event.pointer_location.position,
+                });
+            } else {
+                // Close the context menu if it exists
+                commands.trigger(CloseContextMenus);
+            }
         },
     );
 }
@@ -136,6 +150,7 @@ fn context_item(text: &str, col: Srgba) -> impl Bundle {
             ..default()
         },
         children![(
+            ContextMenuItemText,
             Pickable::IGNORE,
             Text::new(text),
             TextFont {
@@ -161,41 +176,13 @@ fn background_and_button() -> impl Bundle {
         Children::spawn(SpawnWith(|parent: &mut RelatedSpawner<ChildOf>| {
             parent
                 .spawn((
-                    Name::new("button"),
-                    Button,
-                    Node {
-                        width: px(250),
-                        height: px(65),
-                        border: UiRect::all(px(5)),
-                        justify_content: JustifyContent::Center,
-                        align_items: AlignItems::Center,
-                        border_radius: BorderRadius::MAX,
+                    Text::new("Click anywhere to spawn a Context Menu.\nYour selection will change the background color."),
+                    TextFont {
+                        font_size: FontSize::Px(28.0),
                         ..default()
                     },
-                    BorderColor::all(Color::BLACK),
-                    BackgroundColor(Color::BLACK),
-                    children![(
-                        Pickable::IGNORE,
-                        Text::new("Context Menu"),
-                        TextFont {
-                            font_size: FontSize::Px(28.0),
-                            ..default()
-                        },
-                        TextColor(Color::WHITE),
-                        TextShadow::default(),
-                    )],
-                ))
-                .observe(|mut event: On<Pointer<Press>>, mut commands: Commands| {
-                    // by default this event would bubble up further leading to the `CloseContextMenus`
-                    // event being triggered and undoing the opening of one here right away.
-                    event.propagate(false);
-
-                    debug!("click: {}", event.pointer_location.position);
-
-                    commands.trigger(OpenContextMenu {
-                        pos: event.pointer_location.position,
-                    });
-                });
+                    TextColor(Color::WHITE),
+                ));
         })),
     )
 }
