@@ -25,6 +25,7 @@ extern crate self as bevy_gizmos;
 pub mod aabb;
 pub mod arcs;
 pub mod arrows;
+pub mod capsule;
 pub mod circles;
 pub mod config;
 pub mod cross;

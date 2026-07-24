@@ -1,0 +1,259 @@
+//! Additional [`GizmoBuffer`] Functions -- Capsule.
+//!
+//! Includes the implementation of [`GizmoBuffer::capsule`], [`GizmoBuffer::hemisphere`], and assorted support items.
+
+use crate::{circles::DEFAULT_CIRCLE_RESOLUTION, gizmos::GizmoBuffer, prelude::GizmoConfigGroup};
+use bevy_color::Color;
+use bevy_math::{ops::sin_cos, Isometry3d, Quat, Vec2, Vec3};
+use core::f32::consts::{PI, TAU};
+
+impl<Config, Clear> GizmoBuffer<Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    /// Draw a capsule in 3D with the given `isometry` applied.
+    ///
+    /// If `isometry == Isometry3d::IDENTITY` then
+    ///
+    /// - the center is at `Vec3::ZERO`,
+    /// - the length is aligned with the `Vec3::X` axes
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_gizmos::prelude::*;
+    /// # use bevy_math::prelude::*;
+    /// # use bevy_color::palettes::basic::{RED, GREEN};
+    /// fn system(mut gizmos: Gizmos) {
+    ///     gizmos.capsule(Isometry3d::IDENTITY, 0.5, 0.5, GREEN);
+    ///
+    ///     // Capsules have a 32 line-segment resoltion by default.
+    ///     // You may want to increase this for larger capsules.
+    ///     gizmos
+    ///         .capsule(Isometry3d::IDENTITY, 0.5, 0.5, RED)
+    ///         .resolution(64);
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
+    #[inline]
+    pub fn capsule(
+        &mut self,
+        isometry: impl Into<Isometry3d>,
+        radius: f32,
+        length: f32,
+        color: impl Into<Color>,
+    ) -> CapsuleBuilder<'_, Config, Clear> {
+        CapsuleBuilder {
+            gizmos: self,
+            isometry: isometry.into(),
+            radius,
+            length,
+            color: color.into(),
+            resolution: DEFAULT_CIRCLE_RESOLUTION,
+        }
+    }
+}
+
+/// A builder returned by [`GizmoBuffer::capsule`].
+pub struct CapsuleBuilder<'a, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    gizmos: &'a mut GizmoBuffer<Config, Clear>,
+    isometry: Isometry3d,
+
+    // Radius of the capsule
+    radius: f32,
+
+    // Length of the capsule minus the hemispherical caps
+    length: f32,
+
+    // Color of the capsule
+    color: Color,
+
+    // Number of line-segments used to approximate the capsule geometry
+    resolution: u32,
+}
+
+impl<Config, Clear> CapsuleBuilder<'_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    /// Set the number of line-segments used to approximate the capsule geometry.
+    pub fn resolution(mut self, resolution: u32) -> Self {
+        self.resolution = resolution;
+        self
+    }
+}
+
+impl<Config, Clear> Drop for CapsuleBuilder<'_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    fn drop(&mut self) {
+        if !self.gizmos.enabled {
+            return;
+        }
+        let half_length = self.length / 2.0;
+
+        // Offset and rotation of the bottom hemisphere.
+        let base_cap = Isometry3d::new(
+            Vec3::new(-half_length, 0., 0.),
+            Quat::from_rotation_z(PI / 2.0),
+        );
+        self.gizmos.hemisphere(
+            self.isometry * base_cap,
+            Vec2::new(self.radius, self.radius),
+            self.color,
+        );
+
+        // Offset and rotation of the top hemisphere.
+        let top_cap = Isometry3d::new(
+            Vec3::new(half_length, 0., 0.),
+            Quat::from_rotation_z(-PI / 2.0),
+        );
+        self.gizmos.hemisphere(
+            self.isometry * top_cap,
+            Vec2::new(self.radius, self.radius),
+            self.color,
+        );
+
+        // Connect the hemispheres together with 4 lines to comprise the body.
+        let step_theta = TAU / 4.0;
+        for pos in 0..4 {
+            let theta = pos as f32 * step_theta;
+            let (sin, cos) = sin_cos(theta);
+            let start = self.isometry
+                * Isometry3d::from_translation(Vec3::new(
+                    -half_length,
+                    self.radius * cos,
+                    self.radius * sin,
+                ));
+            let end = self.isometry
+                * Isometry3d::from_translation(Vec3::new(
+                    half_length,
+                    self.radius * cos,
+                    self.radius * sin,
+                ));
+            self.gizmos
+                .line(start.translation.into(), end.translation.into(), self.color);
+        }
+    }
+}
+
+impl<Config, Clear> GizmoBuffer<Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    /// Draw an ellipsoidal hemisphere in 3D with the given `isometry` applied.
+    ///
+    /// If `isometry == Isometry3d::IDENTITY` then
+    ///
+    /// - the center is at `Vec3::ZERO`,
+    /// - the apex is aligned with the `Vec3::Z` axes
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_gizmos::prelude::*;
+    /// # use bevy_math::prelude::*;
+    /// # use bevy_color::palettes::basic::{RED, GREEN};
+    /// fn system(mut gizmos: Gizmos) {
+    ///     gizmos.hemisphere(Isometry3d::IDENTITY, Vec2::new(0.5, 0.5), GREEN);
+    ///
+    ///     // Hemispherse have a resolution of 32 line-segments by default.
+    ///     // You may want to increase this for larger hemispheres.
+    ///     gizmos
+    ///         .hemisphere(Isometry3d::IDENTITY, Vec2::new(0.5, 0.5), RED)
+    ///         .resolution(64);
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
+    #[inline]
+    pub fn hemisphere(
+        &mut self,
+        isometry: impl Into<Isometry3d>,
+        half_size: Vec2,
+        color: impl Into<Color>,
+    ) -> HemisphereBuilder<'_, Config, Clear> {
+        HemisphereBuilder {
+            gizmos: self,
+            isometry: isometry.into(),
+            half_size,
+            color: color.into(),
+            resolution: DEFAULT_CIRCLE_RESOLUTION,
+        }
+    }
+}
+
+/// A builder returned by [`GizmoBuffer::hemisphere`].
+pub struct HemisphereBuilder<'a, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    gizmos: &'a mut GizmoBuffer<Config, Clear>,
+    isometry: Isometry3d,
+
+    // Size of the hemisphere along the X and Z axis
+    half_size: Vec2,
+
+    // Color of the hemisphere
+    color: Color,
+
+    // Number of line-segments used to approximate the hemisphere geometry
+    resolution: u32,
+}
+
+impl<Config, Clear> HemisphereBuilder<'_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    /// Set the number of line-segments used to approximate the hemisphere geometry.
+    pub fn resolution(mut self, resolution: u32) -> Self {
+        self.resolution = resolution;
+        self
+    }
+}
+
+impl<Config, Clear> Drop for HemisphereBuilder<'_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    fn drop(&mut self) {
+        if !self.gizmos.enabled {
+            return;
+        }
+
+        self.gizmos
+            .ellipse(
+                self.isometry
+                    * Isometry3d::from_rotation(Quat::from_rotation_arc(Vec3::Y, Vec3::Z)),
+                self.half_size,
+                self.color,
+            )
+            .resolution(self.resolution);
+        self.gizmos
+            .arc_3d(
+                PI,
+                self.half_size.x,
+                self.isometry
+                    * Isometry3d::from_rotation(Quat::from_rotation_arc(Vec3::NEG_Z, Vec3::Y)),
+                self.color,
+            )
+            .resolution(self.resolution);
+        self.gizmos
+            .arc_3d(
+                PI,
+                self.half_size.y,
+                self.isometry * Isometry3d::from_rotation(Quat::from_xyzw(0.5, -0.5, 0.5, 0.5)),
+                self.color,
+            )
+            .resolution(self.resolution);
+    }
+}
