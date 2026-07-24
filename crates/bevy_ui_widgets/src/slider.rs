@@ -24,8 +24,8 @@ use bevy_math::ops;
 use bevy_picking::events::{Cancel, Drag, DragEnd, DragStart, Pointer, Press, Release};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_ui::{
-    ComputedNode, ComputedUiRenderTargetInfo, InteractionDisabled, Pressed, UiGlobalTransform,
-    UiScale,
+    interaction_states::OptionPressedExt, ComputedNode, ComputedUiRenderTargetInfo,
+    InteractionDisabled, Pressed, UiGlobalTransform, UiScale,
 };
 
 use crate::ValueChange;
@@ -301,7 +301,7 @@ pub(crate) fn slider_on_pointer_down(
             return;
         }
 
-        commands.entity(slider_ent).insert(Pressed);
+        commands.entity(slider_ent).insert(Pressed::default());
 
         let is_vertical = slider.orientation.is_vertical(node);
 
@@ -438,13 +438,13 @@ pub(crate) fn slider_on_drag_end(
     mut drag_end: On<Pointer<DragEnd>>,
     mut q_slider: Query<
         (
-            Entity,
             &Slider,
             &ComputedNode,
             &SliderRange,
             Option<&SliderPrecision>,
             &UiGlobalTransform,
             &mut SliderDragState,
+            &mut Pressed,
             Has<InteractionDisabled>,
         ),
         With<Slider>,
@@ -454,7 +454,7 @@ pub(crate) fn slider_on_drag_end(
     mut commands: Commands,
     ui_scale: Res<UiScale>,
 ) {
-    if let Ok((slider_ent, slider, node, range, precision, transform, mut drag, disabled)) =
+    if let Ok((slider, node, range, precision, transform, mut drag, mut pressed, disabled)) =
         q_slider.get_mut(drag_end.entity)
     {
         drag_end.propagate(false);
@@ -476,7 +476,7 @@ pub(crate) fn slider_on_drag_end(
                     true,
                 );
             }
-            commands.entity(slider_ent).remove::<Pressed>();
+            pressed.0 = false;
             drag.dragging = false;
         }
     }
@@ -546,26 +546,30 @@ fn emit_slider_drag_value_change(
 
 fn slider_on_pointer_up(
     mut release: On<Pointer<Release>>,
-    mut q_slider: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<Slider>>,
-    mut commands: Commands,
+    mut q_slider: Query<(Has<InteractionDisabled>, Option<&mut Pressed>), With<Slider>>,
 ) {
-    if let Ok((slider, disabled, pressed)) = q_slider.get_mut(release.entity) {
+    if let Ok((disabled, pressed)) = q_slider.get_mut(release.entity) {
         release.propagate(false);
-        if !disabled && pressed {
-            commands.entity(slider).remove::<Pressed>();
+        if !disabled
+            && !pressed.is_pressed()
+            && let Some(mut pressed) = pressed
+        {
+            pressed.0 = false;
         }
     }
 }
 
 fn slider_on_pointer_cancel(
     mut release: On<Pointer<Cancel>>,
-    mut q_slider: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<Slider>>,
-    mut commands: Commands,
+    mut q_slider: Query<(Has<InteractionDisabled>, Option<&mut Pressed>), With<Slider>>,
 ) {
-    if let Ok((slider, disabled, pressed)) = q_slider.get_mut(release.entity) {
+    if let Ok((disabled, pressed)) = q_slider.get_mut(release.entity) {
         release.propagate(false);
-        if !disabled && pressed {
-            commands.entity(slider).remove::<Pressed>();
+        if !disabled
+            && !pressed.is_pressed()
+            && let Some(mut pressed) = pressed
+        {
+            pressed.0 = false;
         }
     }
 }
