@@ -1,10 +1,7 @@
-#[cfg(feature = "ghost_nodes")]
-use crate::experimental::GhostNode;
 use crate::{
-    experimental::{UiChildren, UiRootNodes},
     ui_transform::{UiGlobalTransform, UiTransform},
-    ComputedNode, ComputedUiRenderTargetInfo, ContentSize, Display, FixedNode, IgnoreScroll,
-    LayoutConfig, Node, Outline, OverflowAxis, ScrollPosition,
+    ComputedNode, ComputedUiRenderTargetInfo, ContentSize, Display, FixedNode, GhostNode,
+    IgnoreScroll, LayoutConfig, Node, Outline, OverflowAxis, ScrollPosition,
 };
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
@@ -15,6 +12,10 @@ use bevy_ecs::{
     system::{Query, ResMut},
     world::Ref,
 };
+
+use bevy_ecs::{prelude::*, system::SystemParam};
+
+use smallvec::SmallVec;
 
 use bevy_math::{Affine2, Vec2};
 use bevy_sprite::BorderRect;
@@ -29,6 +30,121 @@ use bevy_log::warn;
 mod convert;
 pub mod debug;
 pub mod ui_surface;
+
+/// System param that allows iteration of all UI root nodes.
+///
+/// A UI root node is either a [`Node`] without a [`ChildOf`], or with only [`GhostNode`] ancestors.
+#[derive(SystemParam)]
+pub struct UiRootNodes<'w, 's> {
+    root_node_query: Query<'w, 's, Entity, (With<Node>, Without<GhostNode>, Without<ChildOf>)>,
+    root_ghost_node_query: Query<'w, 's, Entity, (With<GhostNode>, Without<ChildOf>)>,
+    all_nodes_query: Query<'w, 's, Entity, (With<Node>, Without<GhostNode>)>,
+    ui_children: UiChildren<'w, 's>,
+}
+
+impl<'w, 's> UiRootNodes<'w, 's> {
+    pub fn iter(&'s self) -> impl Iterator<Item = Entity> + 's {
+        self.root_node_query
+            .iter()
+            .chain(self.root_ghost_node_query.iter().flat_map(|root_ghost| {
+                self.all_nodes_query
+                    .iter_many(self.ui_children.iter_ui_children(root_ghost))
+            }))
+    }
+}
+
+impl<'w, 's> UiChildren<'w, 's> {
+    /// Iterates the children of `entity`, skipping over [`GhostNode`].
+    ///
+    /// Traverses the hierarchy depth-first to ensure child order.
+    ///
+    /// # Performance
+    ///
+    /// This iterator allocates if the `entity` node has more than 8 children (including ghost nodes).
+    pub fn iter_ui_children(&'s self, entity: Entity) -> UiChildrenIter<'w, 's> {
+        UiChildrenIter {
+            stack: self
+                .ui_children_query
+                .get(entity)
+                .map_or(SmallVec::new(), |(children, _)| {
+                    children.into_iter().flatten().rev().copied().collect()
+                }),
+            query: &self.ui_children_query,
+        }
+    }
+
+    /// Returns the UI parent of the provided entity, skipping over [`GhostNode`].
+    pub fn get_parent(&'s self, entity: Entity) -> Option<Entity> {
+        self.parents_query
+            .iter_ancestors(entity)
+            .find(|entity| !self.ghost_nodes_query.contains(*entity))
+    }
+
+    /// Iterates the [`GhostNode`]s between this entity and its UI children.
+    pub fn iter_ghost_nodes(&'s self, entity: Entity) -> Box<dyn Iterator<Item = Entity> + 's> {
+        Box::new(
+            self.children_query
+                .get(entity)
+                .into_iter()
+                .flat_map(|children| {
+                    self.ghost_nodes_query
+                        .iter_many(children)
+                        .flat_map(|entity| {
+                            core::iter::once(entity).chain(self.iter_ghost_nodes(entity))
+                        })
+                }),
+        )
+    }
+
+    /// Given an entity in the UI hierarchy, check if its set of children has changed, e.g if children has been added/removed or if the order has changed.
+    pub fn is_changed(&'s self, entity: Entity) -> bool {
+        self.changed_children_query.contains(entity)
+            || self
+                .iter_ghost_nodes(entity)
+                .any(|entity| self.changed_children_query.contains(entity))
+    }
+}
+
+#[derive(SystemParam)]
+pub struct UiChildren<'w, 's> {
+    ui_children_query: Query<
+        'w,
+        's,
+        (Option<&'static Children>, Has<GhostNode>),
+        Or<(With<Node>, With<GhostNode>)>,
+    >,
+    changed_children_query: Query<'w, 's, Entity, Changed<Children>>,
+    children_query: Query<'w, 's, &'static Children>,
+    ghost_nodes_query: Query<'w, 's, Entity, With<GhostNode>>,
+    parents_query: Query<'w, 's, &'static ChildOf>,
+}
+
+pub struct UiChildrenIter<'w, 's> {
+    stack: SmallVec<[Entity; 8]>,
+    query: &'s Query<
+        'w,
+        's,
+        (Option<&'static Children>, Has<GhostNode>),
+        Or<(With<Node>, With<GhostNode>)>,
+    >,
+}
+
+impl<'w, 's> Iterator for UiChildrenIter<'w, 's> {
+    type Item = Entity;
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            let entity = self.stack.pop()?;
+            if let Ok((children, has_ghost_node)) = self.query.get(entity) {
+                if !has_ghost_node {
+                    return Some(entity);
+                }
+                if let Some(children) = children {
+                    self.stack.extend(children.iter().rev());
+                }
+            }
+        }
+    }
+}
 
 pub struct LayoutContext {
     pub scale_factor: f32,
@@ -68,16 +184,19 @@ impl Default for LayoutContext {
 pub fn ui_layout_system(
     mut ui_surface: ResMut<UiSurface>,
     ui_root_node_query: UiRootNodes,
-    fixed_nodes_query: Query<Entity, (With<FixedNode>, With<ChildOf>)>,
+    fixed_nodes_query: Query<Entity, (With<FixedNode>, Without<GhostNode>, With<ChildOf>)>,
     ui_children: UiChildren,
-    mut node_query: Query<(
-        Entity,
-        Ref<Node>,
-        &mut ContentSize,
-        Ref<ComputedUiRenderTargetInfo>,
-    )>,
-    added_node_query: Query<(), Added<Node>>,
-    added_fixed_node_query: Query<Entity, Added<FixedNode>>,
+    mut node_query: Query<
+        (
+            Entity,
+            Ref<Node>,
+            &mut ContentSize,
+            Ref<ComputedUiRenderTargetInfo>,
+        ),
+        Without<GhostNode>,
+    >,
+    added_node_query: Query<(), (Added<Node>, Without<GhostNode>)>,
+    added_fixed_node_query: Query<Entity, (Added<FixedNode>, Without<GhostNode>)>,
     mut node_update_query: Query<(
         &mut ComputedNode,
         &UiTransform,
@@ -88,21 +207,28 @@ pub fn ui_layout_system(
         Option<&ScrollPosition>,
         Option<&IgnoreScroll>,
         Has<FixedNode>,
+        Has<GhostNode>,
     )>,
     mut buffer_query: Query<&mut ComputedTextBlock>,
     mut font_system: ResMut<FontCx>,
     mut removed_children: RemovedComponents<Children>,
     mut removed_nodes: RemovedComponents<Node>,
     mut removed_fixed_nodes: RemovedComponents<FixedNode>,
-    #[cfg(feature = "ghost_nodes")] mut removed_ghost_nodes: RemovedComponents<GhostNode>,
-    #[cfg(feature = "ghost_nodes")] added_ghost_node_query: Query<Entity, Added<GhostNode>>,
-    #[cfg(feature = "ghost_nodes")] ghost_node_query: Query<(), With<GhostNode>>,
+    mut removed_ghost_nodes: RemovedComponents<GhostNode>,
+    added_ghost_node_query: Query<Entity, Added<GhostNode>>,
+    ghost_node_query: Query<(), With<GhostNode>>,
 ) {
+    let removed_ghost_nodes = removed_ghost_nodes.read().collect::<EntityHashSet>();
+
     // Sync Node and ContentSize to Taffy for all nodes
     node_query
         .iter_mut()
         .for_each(|(entity, node, mut content_size, computed_target)| {
-            if computed_target.is_changed() || node.is_changed() || content_size.is_changed() {
+            if computed_target.is_changed()
+                || node.is_changed()
+                || content_size.is_changed()
+                || removed_ghost_nodes.contains(&entity)
+            {
                 let layout_context = LayoutContext::new(
                     computed_target.scale_factor,
                     computed_target.physical_size.as_vec2(),
@@ -116,21 +242,16 @@ pub fn ui_layout_system(
         });
 
     // update and remove children
-    #[cfg(not(feature = "ghost_nodes"))]
-    {
-        for entity in removed_children.read() {
-            ui_surface.try_remove_children(entity);
-        }
-    }
-
-    #[cfg(feature = "ghost_nodes")]
     {
         // Collect the closest non-ghost ancestors of entities that had `GhostNode` added or removed since last layout update.
         ui_surface.dirty_ghost_children_scratch.clear();
-        for entity in added_ghost_node_query
-            .iter()
-            .chain(removed_ghost_nodes.read())
-        {
+        for entity in added_ghost_node_query.iter() {
+            if let Some(parent) = ui_children.get_parent(entity) {
+                ui_surface.dirty_ghost_children_scratch.insert(parent);
+            }
+        }
+        for entity in removed_ghost_nodes.iter().copied() {
+            ui_surface.dirty_ghost_children_scratch.insert(entity);
             if let Some(parent) = ui_children.get_parent(entity) {
                 ui_surface.dirty_ghost_children_scratch.insert(parent);
             }
@@ -152,6 +273,7 @@ pub fn ui_layout_system(
             .read()
             .filter(|entity| !node_query.contains(*entity)),
     );
+    ui_surface.remove_entities(added_ghost_node_query.iter());
 
     let fixed_node_changes = added_fixed_node_query
         .iter()
@@ -162,8 +284,8 @@ pub fn ui_layout_system(
         fn update_children_recursively(
             ui_surface: &mut UiSurface,
             ui_children: &UiChildren,
-            added_node_query: &Query<(), Added<Node>>,
-            fixed_nodes_query: &Query<Entity, (With<FixedNode>, With<ChildOf>)>,
+            added_node_query: &Query<(), (Added<Node>, Without<GhostNode>)>,
+            fixed_nodes_query: &Query<Entity, (With<FixedNode>, Without<GhostNode>, With<ChildOf>)>,
             fixed_node_changes: &EntityHashSet,
             entity: Entity,
         ) {
@@ -171,7 +293,7 @@ pub fn ui_layout_system(
                 || ui_children.iter_ui_children(entity).any(|child| {
                     added_node_query.contains(child) || fixed_node_changes.contains(&child)
                 });
-            #[cfg(feature = "ghost_nodes")]
+
             let children_changed =
                 children_changed || ui_surface.dirty_ghost_children_scratch.contains(&entity);
 
@@ -255,6 +377,7 @@ pub fn ui_layout_system(
             Option<&ScrollPosition>,
             Option<&IgnoreScroll>,
             Has<FixedNode>,
+            Has<GhostNode>,
         )>,
         ui_children: &UiChildren,
         inverse_target_scale_factor: f32,
@@ -271,15 +394,38 @@ pub fn ui_layout_system(
             maybe_scroll_position,
             maybe_scroll_sticky,
             is_fixed_node,
+            is_ghost_node,
         )) = node_update_query.get_mut(entity)
         {
-            if is_fixed_node && root != entity {
-                return;
-            }
-
             let use_rounding = maybe_layout_config
                 .map(|layout_config| layout_config.use_rounding)
                 .unwrap_or(inherited_use_rounding);
+
+            if is_ghost_node {
+                node.set_if_neq(ComputedNode::default());
+
+                for child_uinode in ui_children.iter_ui_children(entity) {
+                    update_uinode_geometry_recursive(
+                        root,
+                        child_uinode,
+                        ui_surface,
+                        use_rounding,
+                        target_size,
+                        inherited_transform,
+                        node_update_query,
+                        ui_children,
+                        inverse_target_scale_factor,
+                        parent_size,
+                        parent_scroll_position,
+                    );
+                }
+
+                return;
+            }
+
+            if is_fixed_node && root != entity {
+                return;
+            }
 
             let Ok((layout, unrounded_size)) = ui_surface.get_layout(entity, use_rounding) else {
                 return;
@@ -1691,245 +1837,307 @@ mod tests {
         assert_eq!(ui_surface.total_count(), 6);
     }
 
-    #[cfg(feature = "ghost_nodes")]
-    mod ghost_node_tests {
-        use super::*;
-        use crate::experimental::GhostNode;
+    use crate::GhostNode;
 
-        fn compare_taffy_children(
-            ui_surface: &UiSurface,
-            parent: Entity,
-            children: &[Entity],
-        ) -> bool {
-            let parent_to_taffy_children = ui_surface
+    fn compare_taffy_children(ui_surface: &UiSurface, parent: Entity, children: &[Entity]) -> bool {
+        let parent_to_taffy_children = ui_surface
+            .taffy
+            .children(ui_surface.entity_to_taffy[&parent].id)
+            .unwrap();
+        let children_to_taffy_children = children
+            .iter()
+            .map(|entity| ui_surface.entity_to_taffy[entity].id)
+            .collect::<Vec<_>>();
+
+        parent_to_taffy_children == children_to_taffy_children
+    }
+
+    fn compare_taffy_parent(ui_surface: &UiSurface, child: Entity, parent: Option<Entity>) -> bool {
+        let child_to_taffy_parent = ui_surface
+            .taffy
+            .parent(ui_surface.entity_to_taffy[&child].id);
+        let parent_to_taffy_parent = parent.map(|entity| ui_surface.entity_to_taffy[&entity].id);
+
+        child_to_taffy_parent == parent_to_taffy_parent
+    }
+
+    #[test]
+    fn unparenting_ghost_child_should_unparent_taffy_child() {
+        let mut app = setup_ui_test_app();
+        let world = app.world_mut();
+
+        let child = world.spawn(Node::default()).id();
+        let ghost = world.spawn(GhostNode).add_child(child).id();
+        let root = world.spawn(Node::default()).add_child(ghost).id();
+
+        app.update();
+        let world = app.world_mut();
+
+        let ui_surface = world.resource::<UiSurface>();
+        assert!(compare_taffy_children(ui_surface, root, &[child]));
+        assert!(compare_taffy_parent(ui_surface, child, Some(root)));
+        assert!(!ui_surface.root_entity_to_viewport_node.contains_key(&child));
+
+        world.entity_mut(ghost).detach_all_children();
+
+        app.update();
+        let world = app.world_mut();
+
+        let ui_surface = world.resource::<UiSurface>();
+
+        // Unparenting child from ghost should unparent the corresponding child taffy node from the
+        // root taffy node.
+        assert!(compare_taffy_children(ui_surface, root, &[]));
+
+        let viewport_node = ui_surface
+            .root_entity_to_viewport_node
+            .get(&child)
+            .copied()
+            .expect("detached child should become a UI root and have an associated viewport node");
+        let taffy_child = ui_surface.entity_to_taffy[&child].id;
+        assert_eq!(ui_surface.taffy.parent(taffy_child), Some(viewport_node));
+    }
+
+    #[test]
+    fn adding_intermediate_ghost_node_attaches_taffy_nodes() {
+        let mut app = setup_ui_test_app();
+        let world = app.world_mut();
+
+        let child = world.spawn(Node::default()).id();
+        let mid = world.spawn_empty().add_child(child).id();
+        let root = world.spawn(Node::default()).add_child(mid).id();
+
+        app.update();
+        let world = app.world_mut();
+
+        let ui_surface = world.resource::<UiSurface>();
+        assert!(compare_taffy_children(ui_surface, root, &[]));
+        assert!(compare_taffy_parent(ui_surface, child, None));
+
+        world.entity_mut(mid).insert(GhostNode);
+
+        app.update();
+        let world = app.world_mut();
+
+        let ui_surface = world.resource::<UiSurface>();
+        assert!(compare_taffy_children(ui_surface, root, &[child]));
+        assert!(compare_taffy_parent(ui_surface, child, Some(root)));
+    }
+
+    #[test]
+    fn removing_intermediate_ghost_node_restores_taffy_node() {
+        let mut app = setup_ui_test_app();
+        let world = app.world_mut();
+
+        let child = world.spawn(Node::default()).id();
+        let mid = world.spawn(GhostNode).add_child(child).id();
+        let root = world.spawn(Node::default()).add_child(mid).id();
+
+        app.update();
+        let world = app.world_mut();
+
+        let ui_surface = world.resource::<UiSurface>();
+        assert!(compare_taffy_children(ui_surface, root, &[child]));
+        assert!(compare_taffy_parent(ui_surface, child, Some(root)));
+
+        world.entity_mut(mid).remove::<GhostNode>();
+
+        app.update();
+        let world = app.world_mut();
+
+        let ui_surface = world.resource::<UiSurface>();
+        assert!(compare_taffy_children(ui_surface, root, &[mid]));
+        assert!(compare_taffy_parent(ui_surface, child, Some(mid)));
+        assert!(!ui_surface.root_entity_to_viewport_node.contains_key(&child));
+    }
+
+    #[test]
+    fn ghosts_and_fixed_nodes_attach_and_detach() {
+        let mut app = setup_ui_test_app();
+        let world = app.world_mut();
+
+        let fixed = world.spawn((Node::default(), FixedNode)).id();
+        let ghost1 = world.spawn(GhostNode).add_child(fixed).id();
+
+        app.update();
+        let world = app.world_mut();
+
+        let ui_surface = world.resource::<UiSurface>();
+        assert!(ui_surface.is_root(fixed));
+        assert_eq!(ui_surface.total_count(), 2);
+
+        world.spawn(GhostNode).add_child(ghost1);
+
+        app.update();
+        let world = app.world_mut();
+
+        let ui_surface = world.resource::<UiSurface>();
+        assert!(ui_surface.is_root(fixed));
+        assert_eq!(ui_surface.total_count(), 2);
+
+        let fixed2 = world.spawn((Node::default(), FixedNode)).id();
+        let ghost3 = world.spawn(GhostNode).add_child(fixed2).id();
+
+        app.update();
+        let world = app.world_mut();
+
+        let ui_surface = world.resource::<UiSurface>();
+        assert!(ui_surface.is_root(fixed));
+        assert!(ui_surface.is_root(fixed2));
+        assert_eq!(ui_surface.total_count(), 4);
+
+        world.entity_mut(ghost1).detach_all_children();
+        world.entity_mut(ghost3).detach_all_children();
+
+        app.update();
+        let world = app.world_mut();
+
+        let ui_surface = world.resource::<UiSurface>();
+        assert!(ui_surface.is_root(fixed));
+        assert!(ui_surface.is_root(fixed2));
+        assert_eq!(ui_surface.total_count(), 4);
+    }
+
+    #[test]
+    fn fixed_ghost_child_is_a_root_node() {
+        let mut app = setup_ui_test_app();
+        let world = app.world_mut();
+
+        let fixed = world.spawn((Node::default(), FixedNode)).id();
+        let child = world.spawn(Node::default()).id();
+        let ghost = world.spawn(GhostNode).add_children(&[fixed, child]).id();
+        let root = world.spawn(Node::default()).add_child(ghost).id();
+
+        app.update();
+        let world = app.world_mut();
+
+        let ui_surface = world.resource::<UiSurface>();
+        let fixed_node = ui_surface.entity_to_taffy.get(&fixed).unwrap();
+        let child_node = ui_surface.entity_to_taffy.get(&child).unwrap();
+        let root_node = ui_surface.entity_to_taffy.get(&root).unwrap();
+        let fixed_viewport_node = ui_surface.root_entity_to_viewport_node.get(&fixed).copied();
+        let root_viewport_node = ui_surface.root_entity_to_viewport_node.get(&root).copied();
+
+        assert_eq!(ui_surface.root_count(), 2);
+        assert_eq!(ui_surface.total_count(), 5);
+        assert_eq!(fixed_node.viewport_id, fixed_viewport_node);
+        assert_eq!(root_node.viewport_id, root_viewport_node);
+        assert_eq!(ui_surface.parent(fixed), fixed_viewport_node);
+        assert_eq!(ui_surface.parent(child), Some(root_node.id));
+        assert_eq!(ui_surface.child_count(fixed).unwrap(), 0);
+        assert_eq!(ui_surface.child_count(root).unwrap(), 1);
+        assert_eq!(
+            ui_surface
                 .taffy
-                .children(ui_surface.entity_to_taffy[&parent].id)
-                .unwrap();
-            let children_to_taffy_children = children
-                .iter()
-                .map(|entity| ui_surface.entity_to_taffy[entity].id)
-                .collect::<Vec<_>>();
+                .children(ui_surface.entity_to_taffy[&root].id)
+                .unwrap(),
+            &[child_node.id]
+        );
+    }
 
-            parent_to_taffy_children == children_to_taffy_children
-        }
+    #[test]
+    fn unghost_ghost_node_with_fixed_and_normal_children() {
+        let mut app = setup_ui_test_app();
+        let world = app.world_mut();
 
-        fn compare_taffy_parent(
-            ui_surface: &UiSurface,
-            child: Entity,
-            parent: Option<Entity>,
-        ) -> bool {
-            let child_to_taffy_parent = ui_surface
-                .taffy
-                .parent(ui_surface.entity_to_taffy[&child].id);
-            let parent_to_taffy_parent =
-                parent.map(|entity| ui_surface.entity_to_taffy[&entity].id);
+        let fixed = world.spawn((Node::default(), FixedNode)).id();
+        let child = world.spawn(Node::default()).id();
+        let ghost = world.spawn(GhostNode).add_children(&[fixed, child]).id();
 
-            child_to_taffy_parent == parent_to_taffy_parent
-        }
+        app.update();
+        let world = app.world_mut();
+        let ui_surface = world.resource::<UiSurface>();
 
-        #[test]
-        fn unparenting_ghost_child_should_unparent_taffy_child() {
-            let mut app = setup_ui_test_app();
-            let world = app.world_mut();
+        assert!(ui_surface.is_root(fixed));
+        assert!(ui_surface.is_root(child));
 
-            let child = world.spawn(Node::default()).id();
-            let ghost = world.spawn(GhostNode).add_child(child).id();
-            let root = world.spawn(Node::default()).add_child(ghost).id();
+        world
+            .entity_mut(ghost)
+            .remove::<GhostNode>()
+            .insert(Node::default());
 
-            app.update();
-            let world = app.world_mut();
+        app.update();
+        let world = app.world_mut();
+        let ui_surface = world.resource::<UiSurface>();
 
-            let ui_surface = world.resource::<UiSurface>();
-            assert!(compare_taffy_children(ui_surface, root, &[child]));
-            assert!(compare_taffy_parent(ui_surface, child, Some(root)));
-            assert!(!ui_surface.root_entity_to_viewport_node.contains_key(&child));
+        assert!(ui_surface.is_root(fixed));
+        assert!(!ui_surface.is_root(child));
+    }
 
-            world.entity_mut(ghost).detach_all_children();
+    use bevy_ecs::{
+        prelude::Component,
+        system::{Query, SystemState},
+        world::World,
+    };
 
-            app.update();
-            let world = app.world_mut();
+    use super::{Node, UiChildren, UiRootNodes};
 
-            let ui_surface = world.resource::<UiSurface>();
+    #[derive(Component, PartialEq, Debug)]
+    struct A(usize);
 
-            // Unparenting child from ghost should unparent the corresponding child taffy node from the
-            // root taffy node.
-            assert!(compare_taffy_children(ui_surface, root, &[]));
+    #[test]
+    fn iterate_ui_root_nodes() {
+        let world = &mut World::new();
 
-            let viewport_node = ui_surface
-                .root_entity_to_viewport_node
-                .get(&child)
-                .copied()
-                .expect(
-                    "detached child should become a UI root and have an associated viewport node",
-                );
-            let taffy_child = ui_surface.entity_to_taffy[&child].id;
-            assert_eq!(ui_surface.taffy.parent(taffy_child), Some(viewport_node));
-        }
+        // Normal root
+        world
+            .spawn((A(1), Node::default()))
+            .with_children(|parent| {
+                parent.spawn((A(2), Node::default()));
+                parent
+                    .spawn((A(3), GhostNode))
+                    .with_child((A(4), Node::default()));
+            });
 
-        #[test]
-        fn adding_intermediate_ghost_node_attaches_taffy_nodes() {
-            let mut app = setup_ui_test_app();
-            let world = app.world_mut();
+        // Ghost root
+        world.spawn((A(5), GhostNode)).with_children(|parent| {
+            parent.spawn((A(6), Node::default()));
+            parent
+                .spawn((A(7), GhostNode))
+                .with_child((A(8), Node::default()))
+                .with_child(A(9));
+        });
 
-            let child = world.spawn(Node::default()).id();
-            let mid = world.spawn_empty().add_child(child).id();
-            let root = world.spawn(Node::default()).add_child(mid).id();
+        let mut system_state = SystemState::<(UiRootNodes, Query<&A>)>::new(world);
+        let (ui_root_nodes, a_query) = system_state.get(world).unwrap();
 
-            app.update();
-            let world = app.world_mut();
+        let result: Vec<_> = a_query.iter_many(ui_root_nodes.iter()).collect();
 
-            let ui_surface = world.resource::<UiSurface>();
-            assert!(compare_taffy_children(ui_surface, root, &[]));
-            assert!(compare_taffy_parent(ui_surface, child, None));
+        assert_eq!([&A(1), &A(6), &A(8)], result.as_slice());
+    }
 
-            world.entity_mut(mid).insert(GhostNode);
+    #[test]
+    fn iterate_ui_children() {
+        let world = &mut World::new();
 
-            app.update();
-            let world = app.world_mut();
+        let n1 = world.spawn((A(1), Node::default())).id();
+        let n2 = world.spawn((A(2), GhostNode)).id();
+        let n3 = world.spawn((A(3), GhostNode)).id();
+        let n4 = world.spawn((A(4), Node::default())).id();
+        let n5 = world.spawn((A(5), Node::default())).id();
 
-            let ui_surface = world.resource::<UiSurface>();
-            assert!(compare_taffy_children(ui_surface, root, &[child]));
-            assert!(compare_taffy_parent(ui_surface, child, Some(root)));
-        }
+        let n6 = world.spawn((A(6), GhostNode)).id();
+        let n7 = world.spawn((A(7), GhostNode)).id();
+        let n8 = world.spawn((A(8), Node::default())).id();
+        let n9 = world.spawn((A(9), GhostNode)).id();
+        let n10 = world.spawn((A(10), Node::default())).id();
 
-        #[test]
-        fn removing_intermeditate_ghost_node_detaches_taffy_nodes() {
-            let mut app = setup_ui_test_app();
-            let world = app.world_mut();
+        let no_ui = world.spawn_empty().id();
 
-            let child = world.spawn(Node::default()).id();
-            let mid = world.spawn(GhostNode).add_child(child).id();
-            let root = world.spawn(Node::default()).add_child(mid).id();
+        world.entity_mut(n1).add_children(&[n2, n3, n4, n6]);
+        world.entity_mut(n2).add_children(&[n5]);
 
-            app.update();
-            let world = app.world_mut();
+        world.entity_mut(n6).add_children(&[n7, no_ui, n9]);
+        world.entity_mut(n7).add_children(&[n8]);
+        world.entity_mut(n9).add_children(&[n10]);
 
-            let ui_surface = world.resource::<UiSurface>();
-            assert!(compare_taffy_children(ui_surface, root, &[child]));
-            assert!(compare_taffy_parent(ui_surface, child, Some(root)));
+        let mut system_state = SystemState::<(UiChildren, Query<&A>)>::new(world);
+        let (ui_children, a_query) = system_state.get(world).unwrap();
 
-            world.entity_mut(mid).remove::<GhostNode>();
+        let result: Vec<_> = a_query
+            .iter_many(ui_children.iter_ui_children(n1))
+            .collect();
 
-            app.update();
-            let world = app.world_mut();
-
-            let ui_surface = world.resource::<UiSurface>();
-            assert!(compare_taffy_children(ui_surface, root, &[]));
-            assert!(compare_taffy_parent(ui_surface, child, None));
-            assert!(!ui_surface.root_entity_to_viewport_node.contains_key(&child));
-        }
-
-        #[test]
-        fn ghosts_and_fixed_nodes_attach_and_detach() {
-            let mut app = setup_ui_test_app();
-            let world = app.world_mut();
-
-            let fixed = world.spawn((Node::default(), FixedNode)).id();
-            let ghost1 = world.spawn(GhostNode).add_child(fixed).id();
-
-            app.update();
-            let world = app.world_mut();
-
-            let ui_surface = world.resource::<UiSurface>();
-            assert!(ui_surface.is_root(fixed));
-            assert_eq!(ui_surface.total_count(), 2);
-
-            world.spawn(GhostNode).add_child(ghost1);
-
-            app.update();
-            let world = app.world_mut();
-
-            let ui_surface = world.resource::<UiSurface>();
-            assert!(ui_surface.is_root(fixed));
-            assert_eq!(ui_surface.total_count(), 2);
-
-            let fixed2 = world.spawn((Node::default(), FixedNode)).id();
-            let ghost3 = world.spawn(GhostNode).add_child(fixed2).id();
-
-            app.update();
-            let world = app.world_mut();
-
-            let ui_surface = world.resource::<UiSurface>();
-            assert!(ui_surface.is_root(fixed));
-            assert!(ui_surface.is_root(fixed2));
-            assert_eq!(ui_surface.total_count(), 4);
-
-            world.entity_mut(ghost1).detach_all_children();
-            world.entity_mut(ghost3).detach_all_children();
-
-            app.update();
-            let world = app.world_mut();
-
-            let ui_surface = world.resource::<UiSurface>();
-            assert!(ui_surface.is_root(fixed));
-            assert!(ui_surface.is_root(fixed2));
-            assert_eq!(ui_surface.total_count(), 4);
-        }
-
-        #[test]
-        fn fixed_ghost_child_is_a_root_node() {
-            let mut app = setup_ui_test_app();
-            let world = app.world_mut();
-
-            let fixed = world.spawn((Node::default(), FixedNode)).id();
-            let child = world.spawn(Node::default()).id();
-            let ghost = world.spawn(GhostNode).add_children(&[fixed, child]).id();
-            let root = world.spawn(Node::default()).add_child(ghost).id();
-
-            app.update();
-            let world = app.world_mut();
-
-            let ui_surface = world.resource::<UiSurface>();
-            let fixed_node = ui_surface.entity_to_taffy.get(&fixed).unwrap();
-            let child_node = ui_surface.entity_to_taffy.get(&child).unwrap();
-            let root_node = ui_surface.entity_to_taffy.get(&root).unwrap();
-            let fixed_viewport_node = ui_surface.root_entity_to_viewport_node.get(&fixed).copied();
-            let root_viewport_node = ui_surface.root_entity_to_viewport_node.get(&root).copied();
-
-            assert_eq!(ui_surface.root_count(), 2);
-            assert_eq!(ui_surface.total_count(), 5);
-            assert_eq!(fixed_node.viewport_id, fixed_viewport_node);
-            assert_eq!(root_node.viewport_id, root_viewport_node);
-            assert_eq!(ui_surface.parent(fixed), fixed_viewport_node);
-            assert_eq!(ui_surface.parent(child), Some(root_node.id));
-            assert_eq!(ui_surface.child_count(fixed).unwrap(), 0);
-            assert_eq!(ui_surface.child_count(root).unwrap(), 1);
-            assert_eq!(
-                ui_surface
-                    .taffy
-                    .children(ui_surface.entity_to_taffy[&root].id)
-                    .unwrap(),
-                &[child_node.id]
-            );
-        }
-
-        #[test]
-        fn unghost_ghost_node_with_fixed_and_normal_children() {
-            let mut app = setup_ui_test_app();
-            let world = app.world_mut();
-
-            let fixed = world.spawn((Node::default(), FixedNode)).id();
-            let child = world.spawn(Node::default()).id();
-            let ghost = world.spawn(GhostNode).add_children(&[fixed, child]).id();
-
-            app.update();
-            let world = app.world_mut();
-            let ui_surface = world.resource::<UiSurface>();
-
-            assert!(ui_surface.is_root(fixed));
-            assert!(ui_surface.is_root(child));
-
-            world
-                .entity_mut(ghost)
-                .remove::<GhostNode>()
-                .insert(Node::default());
-
-            app.update();
-            let world = app.world_mut();
-            let ui_surface = world.resource::<UiSurface>();
-
-            assert!(ui_surface.is_root(fixed));
-            assert!(!ui_surface.is_root(child));
-        }
+        assert_eq!([&A(5), &A(4), &A(8), &A(10)], result.as_slice());
     }
 }

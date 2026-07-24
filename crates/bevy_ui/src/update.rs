@@ -1,10 +1,8 @@
 //! This module contains systems that update the UI when something changes
 
 use crate::{
-    experimental::{UiChildren, UiRootNodes},
-    ui_transform::UiGlobalTransform,
-    CalculatedClip, ComputedUiRenderTargetInfo, ComputedUiTargetCamera, DefaultUiCamera, Display,
-    Node, OverrideClip, UiScale, UiTargetCamera,
+    ui_transform::UiGlobalTransform, CalculatedClip, ComputedUiRenderTargetInfo,
+    ComputedUiTargetCamera, DefaultUiCamera, Display, Node, OverrideClip, UiScale, UiTargetCamera,
 };
 
 use super::ComputedNode;
@@ -12,7 +10,8 @@ use bevy_app::Propagate;
 use bevy_camera::Camera;
 use bevy_ecs::{
     entity::Entity,
-    query::{Has, Or, With},
+    hierarchy::{ChildOf, Children},
+    query::{Has, Or, With, Without},
     system::{Commands, Query, Res},
 };
 use bevy_math::{Rect, UVec2};
@@ -20,7 +19,7 @@ use bevy_math::{Rect, UVec2};
 /// Updates clipping for all nodes
 pub fn update_clipping_system(
     mut commands: Commands,
-    root_nodes: UiRootNodes,
+    root_nodes: Query<Entity, (With<Node>, Without<ChildOf>)>,
     mut node_query: Query<(
         &Node,
         &ComputedNode,
@@ -28,7 +27,7 @@ pub fn update_clipping_system(
         Option<&mut CalculatedClip>,
         Has<OverrideClip>,
     )>,
-    ui_children: UiChildren,
+    ui_children: Query<&Children, With<Node>>,
 ) {
     for root_node in root_nodes.iter() {
         update_clipping(
@@ -43,7 +42,7 @@ pub fn update_clipping_system(
 
 fn update_clipping(
     commands: &mut Commands,
-    ui_children: &UiChildren,
+    ui_children: &Query<&Children, With<Node>>,
     node_query: &mut Query<(
         &Node,
         &ComputedNode,
@@ -107,7 +106,7 @@ fn update_clipping(
         Some(maybe_inherited_clip.map_or(clip_rect, |c| c.intersect(clip_rect)))
     };
 
-    for child in ui_children.iter_ui_children(entity) {
+    for &child in ui_children.get(entity).ok().into_iter().flatten() {
         update_clipping(commands, ui_children, node_query, child, children_clip);
     }
 }
@@ -118,8 +117,8 @@ pub fn propagate_ui_target_cameras(
     ui_scale: Res<UiScale>,
     camera_query: Query<&Camera>,
     target_camera_query: Query<&UiTargetCamera>,
-    ui_root_nodes: UiRootNodes,
-    ui_children: UiChildren,
+    ui_root_nodes: Query<Entity, (With<Node>, Without<ChildOf>)>,
+    parents_query: Query<(), With<ChildOf>>,
     propagate_query: Query<
         Entity,
         Or<(
@@ -131,7 +130,7 @@ pub fn propagate_ui_target_cameras(
     let default_camera_entity = default_ui_camera.get();
 
     for entity in propagate_query.iter() {
-        if ui_children.get_parent(entity).is_some() {
+        if parents_query.contains(entity) {
             commands.entity(entity).remove::<(
                 Propagate<ComputedUiTargetCamera>,
                 Propagate<ComputedUiRenderTargetInfo>,

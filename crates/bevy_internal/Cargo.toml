@@ -403,9 +403,6 @@ custom_cursor = [
   "bevy_feathers?/custom_cursor",
 ]
 
-# Experimental support for nodes that are ignored for UI layouting
-ghost_nodes = ["bevy_ui/ghost_nodes"]
-
 # Allows access to the `std` crate. Enabling this feature will prevent compilation
 # on `no_std` targets, but provides access to certain additional features on
 # supported platforms.
