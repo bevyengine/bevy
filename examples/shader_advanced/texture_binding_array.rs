@@ -142,13 +142,14 @@ impl AsBindGroup for BindlessMaterial {
 
     fn bind_group_data(&self) -> Self::Data {}
 
-    fn unprepared_bind_group(
+    fn build_bind_group(
         &self,
         _layout: &BindGroupLayout,
         _render_device: &RenderDevice,
         _param: &mut SystemParamItem<'_, '_, Self::Param>,
         _force_no_bindless: bool,
-    ) -> Result<UnpreparedBindGroup, AsBindGroupError> {
+        _output: &mut BindGroupBuilder,
+    ) -> Result<(), AsBindGroupError> {
         // We implement `as_bind_group`` directly because bindless texture
         // arrays can't be owned.
         // Or rather, they can be owned, but then you can't make a `&'a [&'a
