@@ -58,7 +58,7 @@ impl RenderGraph {
                 RenderGraphSystems::Submit,
                 RenderGraphSystems::Finish,
             )
-                .chain(),
+                .chain_weak(),
         );
         schedule
     }

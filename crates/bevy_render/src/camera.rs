@@ -94,9 +94,9 @@ impl Plugin for CameraPlugin {
                     ExtractSchedule,
                     (
                         DirtySpecializationSystems::Clear
-                            .before(DirtySpecializationSystems::CheckForChanges),
+                            .before_weak(DirtySpecializationSystems::CheckForChanges),
                         DirtySpecializationSystems::CheckForChanges
-                            .before(DirtySpecializationSystems::CheckForRemovals),
+                            .before_weak(DirtySpecializationSystems::CheckForRemovals),
                     ),
                 )
                 .add_systems(

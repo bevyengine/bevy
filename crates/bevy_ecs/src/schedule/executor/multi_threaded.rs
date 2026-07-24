@@ -118,7 +118,8 @@ pub struct ExecutorState {
     exclusive_running: bool,
     /// The number of systems that are running.
     num_running_systems: usize,
-    /// The number of dependencies each system has that have not completed.
+    /// The number of dependencies each system has that have not been satisfied. A dependency
+    /// is satisfied when the predecessor completes.
     num_dependencies_remaining: Vec<usize>,
     /// System sets whose conditions have been evaluated.
     evaluated_sets: FixedBitSet,
@@ -179,6 +180,7 @@ impl SystemExecutor for MultiThreadedExecutor {
                 is_send: schedule.systems[index].system.is_send(),
                 is_exclusive: schedule.systems[index].system.is_exclusive(),
             });
+            // A system with no dependencies is a starting system.
             if schedule.system_dependencies[index] == 0 {
                 self.starting_systems.insert(index);
             }
@@ -762,6 +764,8 @@ impl ExecutorState {
         self.signal_dependents(system_index);
     }
 
+    /// Called when `system_index` completes, satisfying one dependency for each of its
+    /// dependents and marking any that become ready to run.
     fn signal_dependents(&mut self, system_index: usize) {
         for &dep_idx in &self.system_task_metadata[system_index].dependents {
             let remaining = &mut self.num_dependencies_remaining[dep_idx];

@@ -7,7 +7,7 @@ use crate::{
         condition::{BoxedCondition, SystemCondition},
         graph::{Ambiguity, Dependency, DependencyKind, GraphInfo},
         set::{InternedSystemSet, IntoSystemSet, SystemSet},
-        Chain,
+        Chain, Weak,
     },
     system::{BoxedSystem, IntoSystem, ScheduleSystem, System},
 };
@@ -157,6 +157,38 @@ impl<T: Schedulable<Metadata = GraphInfo, GroupMetadata = Chain>> ScheduleConfig
         }
     }
 
+    fn before_weak_inner(&mut self, set: InternedSystemSet) {
+        match self {
+            Self::ScheduleConfig(config) => {
+                config
+                    .metadata
+                    .dependencies
+                    .push(Dependency::new(DependencyKind::Before, set).add_config(Weak));
+            }
+            Self::Configs { configs, .. } => {
+                for config in configs {
+                    config.before_weak_inner(set);
+                }
+            }
+        }
+    }
+
+    fn after_weak_inner(&mut self, set: InternedSystemSet) {
+        match self {
+            Self::ScheduleConfig(config) => {
+                config
+                    .metadata
+                    .dependencies
+                    .push(Dependency::new(DependencyKind::After, set).add_config(Weak));
+            }
+            Self::Configs { configs, .. } => {
+                for config in configs {
+                    config.after_weak_inner(set);
+                }
+            }
+        }
+    }
+
     fn before_ignore_deferred_inner(&mut self, set: InternedSystemSet) {
         match self {
             Self::ScheduleConfig(config) => {
@@ -261,6 +293,16 @@ impl<T: Schedulable<Metadata = GraphInfo, GroupMetadata = Chain>> ScheduleConfig
             Self::ScheduleConfig(_) => { /* no op */ }
             Self::Configs { metadata, .. } => {
                 metadata.set_chained_with_config(IgnoreDeferred);
+            }
+        }
+        self
+    }
+
+    fn chain_weak_inner(mut self) -> Self {
+        match &mut self {
+            Self::ScheduleConfig(_) => { /* no op */ }
+            Self::Configs { metadata, .. } => {
+                metadata.set_chained_with_config(Weak);
             }
         }
         self
@@ -378,6 +420,46 @@ pub trait IntoScheduleConfigs<T: Schedulable<Metadata = GraphInfo, GroupMetadata
         self.into_configs().after_ignore_deferred(set)
     }
 
+    /// Run before the systems in `set` that `self` actually conflicts with, leaving the rest
+    /// unordered.
+    ///
+    /// Like [`before`](Self::before), this requests that `self` run before `set`. Unlike
+    /// [`before`](Self::before), the ordering is kept only between systems whose data accesses
+    /// conflict, where a system's run conditions (and those of its sets) count toward its access.
+    /// Systems that don't conflict are left unordered and may run in any order,
+    /// including in parallel. This is useful for ordering against large groups of systems (such
+    /// as system sets) without serializing systems that don't actually depend on each other.
+    ///
+    /// A `self` that produces deferred effects such as [`Commands`](crate::system::Commands)
+    /// (with an [`ApplyDeferred`](crate::schedule::ApplyDeferred) inserted as usual) and
+    /// exclusive systems are treated as always conflicting, so their ordering is always kept.
+    ///
+    /// Dependencies the scheduler can't see (interior mutability on read-only accesses, global state, etc.)
+    /// are **not** respected, so only use this when the systems don't rely on such hidden data dependencies.
+    fn before_weak<M>(self, set: impl IntoSystemSet<M>) -> ScheduleConfigs<T> {
+        self.into_configs().before_weak(set)
+    }
+
+    /// Run after the systems in `set` that `self` actually conflicts with, leaving the rest
+    /// unordered.
+    ///
+    /// Like [`after`](Self::after), this requests that `self` run after `set`. Unlike
+    /// [`after`](Self::after), the ordering is kept only between systems whose data accesses
+    /// conflict, where a system's run conditions (and those of its sets) count toward its access.
+    /// Systems that don't conflict are left unordered and may run in any order,
+    /// including in parallel. This is useful for ordering against large groups of systems (such
+    /// as system sets) without serializing systems that don't actually depend on each other.
+    ///
+    /// A system in `set` that produces deferred effects such as [`Commands`](crate::system::Commands)
+    /// (with an [`ApplyDeferred`](crate::schedule::ApplyDeferred) inserted as usual) and exclusive
+    /// systems are treated as always conflicting, so their ordering is always kept.
+    ///
+    /// Dependencies the scheduler can't see (interior mutability on read-only accesses, global state, etc.)
+    /// are **not** respected, so only use this when the systems don't rely on such hidden data dependencies.
+    fn after_weak<M>(self, set: impl IntoSystemSet<M>) -> ScheduleConfigs<T> {
+        self.into_configs().after_weak(set)
+    }
+
     /// Add a run condition to each contained system.
     ///
     /// Each system will receive its own clone of the [`SystemCondition`] and will only run
@@ -480,6 +562,28 @@ pub trait IntoScheduleConfigs<T: Schedulable<Metadata = GraphInfo, GroupMetadata
     fn chain_ignore_deferred(self) -> ScheduleConfigs<T> {
         self.into_configs().chain_ignore_deferred()
     }
+
+    /// Treat this collection as a sequence, but only order successive systems that actually
+    /// conflict and leave the rest unordered.
+    ///
+    /// Like [`chain`](Self::chain), this requests an ordering between the successive elements.
+    /// Unlike [`chain`](Self::chain), the ordering is kept only between systems whose data
+    /// accesses conflict, where a system's run conditions (and those of its sets) count toward
+    /// its access. Systems that don't conflict are left unordered and may run in any
+    /// order, including in parallel. Two systems that conflict only through a non-conflicting
+    /// system between them in the chain are still ordered. This is useful for ordering large
+    /// groups of systems (such as system sets) without serializing systems that don't actually
+    /// depend on each other.
+    ///
+    /// An earlier system that produces deferred effects such as [`Commands`](crate::system::Commands)
+    /// (with an [`ApplyDeferred`](crate::schedule::ApplyDeferred) inserted as usual) and exclusive
+    /// systems are treated as always conflicting, so their ordering is always kept.
+    ///
+    /// Dependencies the scheduler can't see (interior mutability on read-only accesses, global state, etc.)
+    /// are **not** respected, so only use this when the systems don't rely on such hidden data dependencies.
+    fn chain_weak(self) -> ScheduleConfigs<T> {
+        self.into_configs().chain_weak()
+    }
 }
 
 impl<T: Schedulable<Metadata = GraphInfo, GroupMetadata = Chain>> IntoScheduleConfigs<T, ()>
@@ -525,6 +629,18 @@ impl<T: Schedulable<Metadata = GraphInfo, GroupMetadata = Chain>> IntoScheduleCo
         self
     }
 
+    fn before_weak<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
+        let set = set.into_system_set();
+        self.before_weak_inner(set.intern());
+        self
+    }
+
+    fn after_weak<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
+        let set = set.into_system_set();
+        self.after_weak_inner(set.intern());
+        self
+    }
+
     fn distributive_run_if<M>(
         mut self,
         condition: impl SystemCondition<M> + Clone,
@@ -555,6 +671,10 @@ impl<T: Schedulable<Metadata = GraphInfo, GroupMetadata = Chain>> IntoScheduleCo
 
     fn chain_ignore_deferred(self) -> Self {
         self.chain_ignore_deferred_inner()
+    }
+
+    fn chain_weak(self) -> Self {
+        self.chain_weak_inner()
     }
 }
 
