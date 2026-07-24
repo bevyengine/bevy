@@ -50,7 +50,7 @@ pub(crate) fn on_remove_disabled(
 ///
 /// If the component's value is false for one whole frame, the [`remove_pressed_on_next_frame()`]
 /// system that runs in the `Last` schedule removes the `Pressed` component from the entity.
-/// 
+///
 /// [`OptionPressedExt`] is an easy extension to make working with `Option<&Pressed>` or `Option<&mut Pressed>`
 /// easier from queries.
 #[derive(Component, Debug, Clone, Copy, Reflect)]
@@ -70,7 +70,7 @@ impl Default for Pressed {
     }
 }
 
-/// Extension trait for `Option<&Pressed>` and `Option<Mut<'_, Pressed>>`. 
+/// Extension trait for `Option<&Pressed>` and `Option<Mut<'_, Pressed>>`.
 /// Provides a convenience method to concisely checked the pressed state.
 pub trait OptionPressedExt {
     fn is_pressed(&self) -> bool;
@@ -95,23 +95,26 @@ pub fn remove_pressed_on_next_frame(
     pressed_false_q: Query<(Entity, Ref<Pressed>)>,
     mut commands: Commands,
 ) {
-    for button_entity in presses_to_clear.drain(..) {
+    let previous_length = presses_to_clear.len();
+    for entity in presses_to_clear.drain(..) {
         // If the button has stayed false for a whole frame, remove its component.
-        if let Ok((_, pressed)) = pressed_false_q.get(button_entity)
+        if let Ok((_, pressed)) = pressed_false_q.get(entity)
             && !pressed.is_changed()
             && !pressed.get()
         {
-            commands.entity(button_entity).remove::<Pressed>();
+            commands.entity(entity).remove::<Pressed>();
         }
     }
 
     // Queue up the next buttons that will have `Pressed` remove on the next frame.
-    for (button_entity, pressed) in pressed_false_q {
+    for (entity, pressed) in pressed_false_q {
         if !pressed.get() {
-            presses_to_clear.push(button_entity);
+            presses_to_clear.push(entity);
         }
     }
-    presses_to_clear.shrink_to_fit();
+    if previous_length > presses_to_clear.len() {
+        presses_to_clear.shrink_to_fit();
+    }
 }
 
 /// Component that indicates that a widget can be checked.
