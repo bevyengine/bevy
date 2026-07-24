@@ -26,7 +26,7 @@ use bevy::{
     color::palettes::basic::*,
     picking::hover::Hovered,
     prelude::*,
-    ui::Pressed,
+    ui::{interaction_states::OptionPressedExt, Pressed},
     ui_widgets::{observe, Activate, Button},
 };
 
@@ -112,7 +112,7 @@ fn update_button_appearance(
     mut buttons: Query<
         (
             &Hovered,
-            Has<Pressed>,
+            Option<&Pressed>,
             &mut BackgroundColor,
             &mut BorderColor,
             &Children,
@@ -126,7 +126,7 @@ fn update_button_appearance(
             continue;
         };
 
-        match (hovered.get(), pressed) {
+        match (hovered.get(), pressed.is_pressed()) {
             // Pressed (and, since you can only press what you're hovering, also hovered).
             (_, true) => {
                 **text = "Press".to_string();

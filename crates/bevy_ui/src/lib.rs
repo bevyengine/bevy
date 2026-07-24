@@ -217,6 +217,8 @@ impl Plugin for UiPlugin {
             ),
         );
 
+        app.add_systems(Last, interaction_states::remove_pressed_on_next_frame);
+
         app.add_plugins(accessibility::AccessibilityPlugin);
 
         app.add_observer(interaction_states::on_add_disabled)

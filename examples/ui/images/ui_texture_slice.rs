@@ -8,9 +8,8 @@
 use bevy::{
     color::palettes::css::{GOLD, ORANGE},
     picking::hover::Hovered,
-    platform::collections::HashSet,
     prelude::*,
-    ui::{widget::NodeImageMode, Pressed},
+    ui::{interaction_states::OptionPressedExt, widget::NodeImageMode, Pressed},
     ui_widgets::Button,
 };
 
@@ -30,33 +29,19 @@ fn main() {
 /// also restyle any button that just had `Pressed` removed this frame.
 fn button_system(
     mut buttons: Query<
-        (
-            Entity,
-            Option<Ref<Pressed>>,
-            Ref<Hovered>,
-            &mut ImageNode,
-            &Children,
-        ),
-        With<Button>,
+        (Option<&Pressed>, &Hovered, &mut ImageNode, &Children),
+        (Or<(Changed<Hovered>, Changed<Pressed>)>, With<Button>),
     >,
-    mut removed_pressed: RemovedComponents<Pressed>,
     mut text_query: Query<&mut Text>,
 ) {
-    // Buttons that had `Pressed` removed this frame; change detection does not report removals.
-    let just_unpressed: HashSet<Entity> = removed_pressed.read().collect();
-    for (entity, pressed, hovered, mut image, children) in &mut buttons {
-        let changed = hovered.is_changed()
-            || pressed.as_ref().is_some_and(Ref::is_changed)
-            || just_unpressed.contains(&entity);
-        if changed {
-            set_button_style(
-                pressed.is_some(),
-                hovered.get(),
-                &mut image,
-                children,
-                &mut text_query,
-            );
-        }
+    for (pressed, hovered, mut image, children) in &mut buttons {
+        set_button_style(
+            pressed.is_pressed(),
+            hovered.get(),
+            &mut image,
+            children,
+            &mut text_query,
+        );
     }
 }
 
