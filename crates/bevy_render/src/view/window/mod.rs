@@ -294,9 +294,28 @@ pub fn prepare_windows(
 
         let surface = &surface_data.surface;
         match surface.get_current_texture() {
-            wgpu::CurrentSurfaceTexture::Success(surface_texture)
-            | wgpu::CurrentSurfaceTexture::Suboptimal(surface_texture) => {
+            wgpu::CurrentSurfaceTexture::Success(surface_texture) => {
                 window.set_swapchain_texture(surface_texture);
+            }
+            wgpu::CurrentSurfaceTexture::Suboptimal(surface_texture) => {
+                // Suboptimal: the swapchain still presents but no longer matches the
+                // surface (compositor scale / output reconfig on desktop Linux is the
+                // common trigger). wgpu_hal logs a WARN every present until we
+                // reconfigure, so mirror the Outdated path: drop the frame,
+                // reconfigure, re-acquire.
+                drop(surface_texture);
+                render_device.configure_surface(surface, &surface_data.configuration);
+                let frame = match surface.get_current_texture() {
+                    wgpu::CurrentSurfaceTexture::Success(surface_texture)
+                    | wgpu::CurrentSurfaceTexture::Suboptimal(surface_texture) => surface_texture,
+                    variant => {
+                        warn!(
+                            "Couldn't get swap chain texture after suboptimal reconfigure. Cause: '{variant:?}'"
+                        );
+                        continue;
+                    }
+                };
+                window.set_swapchain_texture(frame);
             }
             #[cfg(target_os = "linux")]
             wgpu::CurrentSurfaceTexture::Timeout if may_erroneously_timeout() => {
