@@ -16,7 +16,7 @@ use bevy_picking::{hover::Hovered, PickingSystems};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::prelude::*;
 use bevy_text::FontWeight;
-use bevy_ui::{px, AlignItems, InteractionDisabled, JustifyContent, Node, Pressed, UiRect};
+use bevy_ui::{px, AlignItems, InteractionDisabled, JustifyContent, Node, Pressed, UiRect, interaction_states::OptionPressedExt};
 use bevy_ui_widgets::Button;
 
 use crate::{
@@ -202,7 +202,7 @@ fn update_button_styles(
             Entity,
             &ButtonVariant,
             Has<InteractionDisabled>,
-            Has<Pressed>,
+            Option<&Pressed>,
             &Hovered,
             &ThemeBackgroundColor,
             &InheritableThemeTextColor,
@@ -210,7 +210,7 @@ fn update_button_styles(
         Or<(
             Changed<Hovered>,
             Changed<ButtonVariant>,
-            Added<Pressed>,
+            Changed<Pressed>,
             Added<InteractionDisabled>,
         )>,
     >,
@@ -222,7 +222,7 @@ fn update_button_styles(
             button_ent,
             variant,
             disabled,
-            pressed,
+            pressed.is_pressed(),
             hovered.0,
             bg_color,
             font_color,
@@ -236,18 +236,16 @@ fn update_button_styles_remove(
         Entity,
         &ButtonVariant,
         Has<InteractionDisabled>,
-        Has<Pressed>,
+        Option<&Pressed>,
         &Hovered,
         &ThemeBackgroundColor,
         &InheritableThemeTextColor,
     )>,
     mut removed_disabled: RemovedComponents<InteractionDisabled>,
-    mut removed_pressed: RemovedComponents<Pressed>,
     mut commands: Commands,
 ) {
     removed_disabled
         .read()
-        .chain(removed_pressed.read())
         .for_each(|ent| {
             if let Ok((button_ent, variant, disabled, pressed, hovered, bg_color, font_color)) =
                 q_buttons.get(ent)
@@ -256,7 +254,7 @@ fn update_button_styles_remove(
                     button_ent,
                     variant,
                     disabled,
-                    pressed,
+                    pressed.is_pressed(),
                     hovered.0,
                     bg_color,
                     font_color,

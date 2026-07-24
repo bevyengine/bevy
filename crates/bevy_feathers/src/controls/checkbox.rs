@@ -22,7 +22,7 @@ use bevy_scene::prelude::*;
 use bevy_text::FontWeight;
 use bevy_ui::{
     px, AlignItems, BorderRadius, Checked, Display, FlexDirection, InteractionDisabled,
-    JustifyContent, Node, PositionType, Pressed, UiRect, UiTransform,
+    JustifyContent, Node, PositionType, Pressed, UiRect, UiTransform, interaction_states::OptionPressedExt,
 };
 use bevy_ui_widgets::{ActivateOnPress, Checkbox};
 
@@ -215,7 +215,7 @@ fn update_checkbox_styles(
             Entity,
             Has<InteractionDisabled>,
             Has<Checked>,
-            Has<Pressed>,
+            Option<&Pressed>,
             Has<ActivateOnPress>,
             &Hovered,
             &InheritableThemeTextColor,
@@ -225,7 +225,7 @@ fn update_checkbox_styles(
             Or<(
                 Changed<Hovered>,
                 Added<Checked>,
-                Added<Pressed>,
+                Changed<Pressed>,
                 Added<InteractionDisabled>,
             )>,
         ),
@@ -258,7 +258,7 @@ fn update_checkbox_styles(
             mark_ent,
             disabled,
             checked,
-            pressed,
+            pressed.is_pressed(),
             hovered.0,
             activate_on_press,
             outline_bg,
@@ -276,7 +276,7 @@ fn update_checkbox_styles_remove(
             Entity,
             Has<InteractionDisabled>,
             Has<Checked>,
-            Has<Pressed>,
+            Option<&Pressed>,
             Has<ActivateOnPress>,
             &Hovered,
             &InheritableThemeTextColor,
@@ -288,14 +288,12 @@ fn update_checkbox_styles_remove(
     mut q_mark: Query<&ThemeBorderColor, With<CheckboxMark>>,
     mut removed_disabled: RemovedComponents<InteractionDisabled>,
     mut removed_checked: RemovedComponents<Checked>,
-    mut remove_pressed: RemovedComponents<Pressed>,
     mut remove_activate_on_press: RemovedComponents<ActivateOnPress>,
     mut commands: Commands,
 ) {
     removed_disabled
         .read()
         .chain(removed_checked.read())
-        .chain(remove_pressed.read())
         .chain(remove_activate_on_press.read())
         .for_each(|ent| {
             if let Ok((
@@ -328,7 +326,7 @@ fn update_checkbox_styles_remove(
                     mark_ent,
                     disabled,
                     checked,
-                    pressed,
+                    pressed.is_pressed(),
                     hovered.0,
                     activate_on_press,
                     outline_bg,

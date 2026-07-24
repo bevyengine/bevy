@@ -19,7 +19,7 @@ use bevy_picking::{hover::Hovered, PickingSystems};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::prelude::*;
 use bevy_ui::{
-    percent, px, BorderRadius, Checked, InteractionDisabled, Node, PositionType, Pressed, UiRect,
+    percent, px, BorderRadius, Checked, InteractionDisabled, Node, PositionType, Pressed, UiRect, interaction_states::OptionPressedExt
 };
 use bevy_ui_widgets::{ActivateOnPress, Checkbox};
 
@@ -141,7 +141,7 @@ fn update_switch_styles(
             Entity,
             Has<InteractionDisabled>,
             Has<Checked>,
-            Has<Pressed>,
+            Option<&Pressed>,
             Has<ActivateOnPress>,
             &Hovered,
             &ThemeBackgroundColor,
@@ -152,7 +152,7 @@ fn update_switch_styles(
             Or<(
                 Changed<Hovered>,
                 Added<Checked>,
-                Added<Pressed>,
+                Changed<Pressed>,
                 Added<InteractionDisabled>,
             )>,
         ),
@@ -189,7 +189,7 @@ fn update_switch_styles(
             slide_ent,
             disabled,
             checked,
-            pressed,
+            pressed.is_pressed(),
             hovered.0,
             activate_on_press,
             outline_bg,
@@ -208,7 +208,7 @@ fn update_switch_styles_remove(
             Entity,
             Has<InteractionDisabled>,
             Has<Checked>,
-            Has<Pressed>,
+            Option<&Pressed>,
             Has<ActivateOnPress>,
             &Hovered,
             &ThemeBackgroundColor,
@@ -230,7 +230,6 @@ fn update_switch_styles_remove(
     removed_disabled
         .read()
         .chain(removed_checked.read())
-        .chain(remove_pressed.read())
         .chain(remove_activate_on_press.read())
         .for_each(|ent| {
             if let Ok((
@@ -258,7 +257,7 @@ fn update_switch_styles_remove(
                     slide_ent,
                     disabled,
                     checked,
-                    pressed,
+                    pressed.is_pressed(),
                     hovered.0,
                     activate_on_press,
                     outline_bg,

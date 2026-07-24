@@ -22,6 +22,7 @@ use bevy_text::FontWeight;
 use bevy_ui::{
     px, AlignItems, AlignSelf, BoxShadow, Display, FlexDirection, GlobalZIndex,
     InteractionDisabled, JustifyContent, Node, OverrideClip, PositionType, Pressed, UiRect,
+    interaction_states::OptionPressedExt,
 };
 use bevy_ui_widgets::{
     popover::{Popover, PopoverAlign, PopoverPlacement, PopoverSide},
@@ -444,14 +445,14 @@ fn update_menuitem_styles(
         (
             Entity,
             Has<InteractionDisabled>,
-            Has<Pressed>,
+            Option<&Pressed>,
             &Hovered,
             &ThemeBackgroundColor,
             &InheritableThemeTextColor,
         ),
         (
             With<FeathersMenuItem>,
-            Or<(Changed<Hovered>, Added<Pressed>, Added<InteractionDisabled>)>,
+            Or<(Changed<Hovered>, Changed<Pressed>, Added<InteractionDisabled>)>,
         ),
     >,
     mut commands: Commands,
@@ -462,7 +463,7 @@ fn update_menuitem_styles(
         set_menuitem_colors(
             item_ent,
             disabled,
-            pressed,
+            pressed.is_pressed(),
             hovered.0,
             Some(item_ent) == focus.get() && focus_visible.0,
             bg_color,
@@ -477,7 +478,7 @@ fn update_menuitem_styles_remove(
         (
             Entity,
             Has<InteractionDisabled>,
-            Has<Pressed>,
+            Option<&Pressed>,
             &Hovered,
             &ThemeBackgroundColor,
             &InheritableThemeTextColor,
@@ -485,14 +486,12 @@ fn update_menuitem_styles_remove(
         With<FeathersMenuItem>,
     >,
     mut removed_disabled: RemovedComponents<InteractionDisabled>,
-    mut removed_pressed: RemovedComponents<Pressed>,
     focus: Res<InputFocus>,
     focus_visible: Res<InputFocusVisible>,
     mut commands: Commands,
 ) {
     removed_disabled
         .read()
-        .chain(removed_pressed.read())
         .for_each(|ent| {
             if let Ok((item_ent, disabled, pressed, hovered, bg_color, font_color)) =
                 q_menuitems.get(ent)
@@ -500,7 +499,7 @@ fn update_menuitem_styles_remove(
                 set_menuitem_colors(
                     item_ent,
                     disabled,
-                    pressed,
+                    pressed.is_pressed(),
                     hovered.0,
                     Some(item_ent) == focus.get() && focus_visible.0,
                     bg_color,
@@ -516,7 +515,7 @@ fn update_menuitem_styles_focus_changed(
         (
             Entity,
             Has<InteractionDisabled>,
-            Has<Pressed>,
+            Option<&Pressed>,
             &Hovered,
             &ThemeBackgroundColor,
             &InheritableThemeTextColor,
@@ -532,7 +531,7 @@ fn update_menuitem_styles_focus_changed(
             set_menuitem_colors(
                 item_ent,
                 disabled,
-                pressed,
+                pressed.is_pressed(),
                 hovered.0,
                 Some(item_ent) == focus.get() && focus_visible.0,
                 bg_color,

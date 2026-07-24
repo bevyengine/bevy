@@ -23,7 +23,7 @@ use bevy_text::FontWeight;
 use bevy_ui::{
     percent, px, widget::Text, AlignItems, BackgroundGradient, ColorStop, Display, FlexDirection,
     Gradient, InteractionDisabled, InterpolationColorSpace, JustifyContent, LinearGradient, Node,
-    PositionType, Pressed, UiRect,
+    PositionType, Pressed, UiRect, interaction_states::OptionPressedExt,
 };
 use bevy_ui_widgets::{
     Slider, SliderOrientation, SliderPrecision, SliderRange, SliderValue, TrackClick,
@@ -204,7 +204,7 @@ fn update_slider_styles(
         (
             Entity,
             Has<InteractionDisabled>,
-            Has<Pressed>,
+            Option<&Pressed>,
             &Hovered,
             &mut BackgroundGradient,
             &InheritableThemeTextColor,
@@ -215,7 +215,7 @@ fn update_slider_styles(
                 Spawned,
                 Added<InteractionDisabled>,
                 Changed<Hovered>,
-                Added<Pressed>,
+                Changed<Pressed>,
             )>,
         ),
     >,
@@ -227,7 +227,7 @@ fn update_slider_styles(
             slider_ent,
             &theme,
             disabled,
-            pressed,
+            pressed.is_pressed(),
             hovered.0,
             gradient.as_mut(),
             font_color,
@@ -241,7 +241,7 @@ fn update_slider_styles_remove(
         (
             Entity,
             Has<InteractionDisabled>,
-            Has<Pressed>,
+            Option<&Pressed>,
             &Hovered,
             &mut BackgroundGradient,
             &InheritableThemeTextColor,
@@ -249,13 +249,11 @@ fn update_slider_styles_remove(
         With<FeathersSlider>,
     >,
     mut removed_disabled: RemovedComponents<InteractionDisabled>,
-    mut remove_pressed: RemovedComponents<Pressed>,
     theme: Res<UiTheme>,
     mut commands: Commands,
 ) {
     removed_disabled
         .read()
-        .chain(remove_pressed.read())
         .for_each(|ent| {
             if let Ok((slider_ent, disabled, pressed, hovered, mut gradient, font_color)) =
                 q_sliders.get_mut(ent)
@@ -264,7 +262,7 @@ fn update_slider_styles_remove(
                     slider_ent,
                     &theme,
                     disabled,
-                    pressed,
+                    pressed.is_pressed(),
                     hovered.0,
                     gradient.as_mut(),
                     font_color,
@@ -280,7 +278,7 @@ fn update_slider_styles_theme(
         (
             Entity,
             Has<InteractionDisabled>,
-            Has<Pressed>,
+            Option<&Pressed>,
             &Hovered,
             &mut BackgroundGradient,
             &InheritableThemeTextColor,
@@ -298,7 +296,7 @@ fn update_slider_styles_theme(
             slider_ent,
             &theme,
             disabled,
-            pressed,
+            pressed.is_pressed(),
             hovered.0,
             gradient.as_mut(),
             font_color,
