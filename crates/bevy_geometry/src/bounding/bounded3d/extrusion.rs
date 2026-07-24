@@ -1,21 +1,16 @@
 use core::f32::consts::FRAC_PI_2;
 
-use glam::{Vec2, Vec3A, Vec3Swizzles};
-
-use crate::{
-    bounding::{BoundingCircle, BoundingVolume},
-    ops,
-    primitives::{
-        Capsule2d, Cuboid, Cylinder, Ellipse, Extrusion, Line2d, Primitive2d, Rectangle,
-        RegularPolygon, Ring, Segment2d, Triangle2d,
-    },
-    Isometry2d, Isometry3d, Quat, Rot2,
+use crate::bounding::{bounded2d::BoundingCircle, BoundingVolume};
+use bevy_math::{ops, Isometry2d, Isometry3d, Quat, Rot2, Vec2, Vec3A, Vec3Swizzles};
+use bevy_shape::{
+    Capsule2d, Circle, Cuboid, Cylinder, Ellipse, Extrusion, Line2d, Primitive2d, Rectangle,
+    RegularPolygon, Segment2d, Triangle2d,
 };
 
 #[cfg(feature = "alloc")]
-use crate::primitives::{Polygon, Polyline2d};
+use bevy_shape::{Polygon, Polyline2d};
 
-use crate::{bounding::Bounded2d, primitives::Circle};
+use crate::bounding::Bounded2d;
 
 use super::{Aabb3d, Bounded3d, BoundingSphere};
 
@@ -165,21 +160,6 @@ impl BoundedExtrusion for Capsule2d {
     }
 }
 
-impl<T: BoundedExtrusion> BoundedExtrusion for Ring<T> {
-    fn extrusion_aabb_3d(&self, half_depth: f32, isometry: impl Into<Isometry3d>) -> Aabb3d {
-        self.outer_shape.extrusion_aabb_3d(half_depth, isometry)
-    }
-
-    fn extrusion_bounding_sphere(
-        &self,
-        half_depth: f32,
-        isometry: impl Into<Isometry3d>,
-    ) -> BoundingSphere {
-        self.outer_shape
-            .extrusion_bounding_sphere(half_depth, isometry)
-    }
-}
-
 impl<T: BoundedExtrusion> Bounded3d for Extrusion<T> {
     fn aabb_3d(&self, isometry: impl Into<Isometry3d>) -> Aabb3d {
         self.base_shape.extrusion_aabb_3d(self.half_depth, isometry)
@@ -260,16 +240,11 @@ pub trait BoundedExtrusion: Primitive2d + Bounded2d {
 mod tests {
     use core::f32::consts::FRAC_PI_4;
 
-    use glam::{EulerRot, Quat, Vec2, Vec3, Vec3A};
-
-    use crate::{
-        bounding::{Bounded3d, BoundingVolume},
-        ops,
-        primitives::{
-            Capsule2d, Circle, Ellipse, Extrusion, Line2d, Polygon, Polyline2d, Rectangle,
-            RegularPolygon, Segment2d, Triangle2d,
-        },
-        Dir2, Isometry3d,
+    use crate::bounding::{bounded3d::Bounded3d, BoundingVolume};
+    use bevy_math::{ops, Dir2, EulerRot, Isometry3d, Quat, Vec2, Vec3, Vec3A};
+    use bevy_shape::{
+        Capsule2d, Circle, Ellipse, Extrusion, Line2d, Polygon, Polyline2d, Rectangle,
+        RegularPolygon, Segment2d, Triangle2d,
     };
 
     #[test]

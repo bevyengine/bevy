@@ -1,16 +1,16 @@
-use core::f32::consts::{FRAC_PI_3, PI};
+use core::f32::consts::PI;
 
-use super::{Circle, Measured2d, Measured3d, Primitive2d, Primitive3d};
-use crate::{
+use crate::dim2::Circle;
+use crate::{Primitive2d, Primitive3d};
+use bevy_math::{
     ops::{self, FloatPow},
-    Dir3, InvalidDirectionError, Isometry3d, Mat3, Ray3d, Vec2, Vec3,
+    Dir3, InvalidDirectionError, Isometry3d, Mat3, Quat, Ray3d, Vec2, Vec3,
 };
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
-use glam::Quat;
 
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
@@ -71,20 +71,6 @@ impl Sphere {
             let dir_to_point = point / ops::sqrt(distance_squared);
             self.radius * dir_to_point
         }
-    }
-}
-
-impl Measured3d for Sphere {
-    /// Get the surface area of the sphere
-    #[inline]
-    fn area(&self) -> f32 {
-        4.0 * PI * self.radius.squared()
-    }
-
-    /// Get the volume of the sphere
-    #[inline]
-    fn volume(&self) -> f32 {
-        4.0 * FRAC_PI_3 * self.radius.cubed()
     }
 }
 
@@ -159,18 +145,6 @@ impl Plane3d {
         )
     }
 }
-impl Measured2d for Plane3d {
-    #[inline]
-    fn area(&self) -> f32 {
-        self.half_size.element_product() * 4.0
-    }
-
-    #[inline]
-    fn perimeter(&self) -> f32 {
-        self.half_size.element_sum() * 4.0
-    }
-}
-
 /// An unbounded plane in 3D space. It forms a separating surface through the origin,
 /// stretching infinitely far
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -325,7 +299,7 @@ impl InfinitePlane3d {
     ///
     /// ```
     /// # use bevy_math::{Vec3, Dir3};
-    /// # use bevy_math::primitives::InfinitePlane3d;
+    /// # use bevy_shape::InfinitePlane3d;
     ///
     /// let triangle_3d @ [a, b, c] = [Vec3::X, Vec3::Y, Vec3::Z];
     /// let center = (a + b + c) / 3.0;
@@ -753,22 +727,6 @@ impl Cuboid {
     }
 }
 
-impl Measured3d for Cuboid {
-    /// Get the surface area of the cuboid
-    #[inline]
-    fn area(&self) -> f32 {
-        8.0 * (self.half_size.x * self.half_size.y
-            + self.half_size.y * self.half_size.z
-            + self.half_size.x * self.half_size.z)
-    }
-
-    /// Get the volume of the cuboid
-    #[inline]
-    fn volume(&self) -> f32 {
-        8.0 * self.half_size.x * self.half_size.y * self.half_size.z
-    }
-}
-
 /// A cylinder primitive centered on the origin
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -833,20 +791,6 @@ impl Cylinder {
     }
 }
 
-impl Measured3d for Cylinder {
-    /// Get the total surface area of the cylinder
-    #[inline]
-    fn area(&self) -> f32 {
-        2.0 * PI * self.radius * (self.radius + 2.0 * self.half_height)
-    }
-
-    /// Get the volume of the cylinder
-    #[inline]
-    fn volume(&self) -> f32 {
-        self.base_area() * 2.0 * self.half_height
-    }
-}
-
 /// A 3D capsule primitive centered on the origin
 /// A three-dimensional capsule is defined as a surface at a distance (radius) from a line
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -897,23 +841,6 @@ impl Capsule3d {
             radius: self.radius,
             half_height: self.half_length,
         }
-    }
-}
-
-impl Measured3d for Capsule3d {
-    /// Get the surface area of the capsule
-    #[inline]
-    fn area(&self) -> f32 {
-        // Modified version of 2pi * r * (2r + h)
-        4.0 * PI * self.radius * (self.radius + self.half_length)
-    }
-
-    /// Get the volume of the capsule
-    #[inline]
-    fn volume(&self) -> f32 {
-        // Modified version of pi * r^2 * (4/3 * r + a)
-        let diameter = self.radius * 2.0;
-        PI * self.radius * diameter * (diameter / 3.0 + self.half_length)
     }
 }
 
@@ -983,20 +910,6 @@ impl Cone {
     #[inline]
     pub fn base_area(&self) -> f32 {
         PI * self.radius.squared()
-    }
-}
-
-impl Measured3d for Cone {
-    /// Get the total surface area of the cone
-    #[inline]
-    fn area(&self) -> f32 {
-        self.base_area() + self.lateral_area()
-    }
-
-    /// Get the volume of the cone
-    #[inline]
-    fn volume(&self) -> f32 {
-        (self.base_area() * self.height) / 3.0
     }
 }
 
@@ -1079,21 +992,6 @@ impl ConicalFrustum {
     #[inline]
     pub fn top_base_area(&self) -> f32 {
         PI * self.radius_top.squared()
-    }
-}
-
-impl Measured3d for ConicalFrustum {
-    #[inline]
-    fn volume(&self) -> f32 {
-        FRAC_PI_3
-            * self.height
-            * (self.radius_bottom * self.radius_bottom
-                + self.radius_top * self.radius_top
-                + self.radius_top * self.radius_bottom)
-    }
-    #[inline]
-    fn area(&self) -> f32 {
-        self.bottom_base_area() + self.top_base_area() + self.lateral_area()
     }
 }
 
@@ -1209,22 +1107,6 @@ impl Torus {
             core::cmp::Ordering::Equal => TorusKind::Horn,
             core::cmp::Ordering::Less => TorusKind::Spindle,
         }
-    }
-}
-
-impl Measured3d for Torus {
-    /// Get the surface area of the torus. Note that this only produces
-    /// the expected result when the torus has a ring and isn't self-intersecting
-    #[inline]
-    fn area(&self) -> f32 {
-        4.0 * PI.squared() * self.major_radius * self.minor_radius
-    }
-
-    /// Get the volume of the torus. Note that this only produces
-    /// the expected result when the torus has a ring and isn't self-intersecting
-    #[inline]
-    fn volume(&self) -> f32 {
-        2.0 * PI.squared() * self.major_radius * self.minor_radius.squared()
     }
 }
 
@@ -1407,24 +1289,6 @@ impl Triangle3d {
     }
 }
 
-impl Measured2d for Triangle3d {
-    /// Get the area of the triangle.
-    #[inline]
-    fn area(&self) -> f32 {
-        let [a, b, c] = self.vertices;
-        let ab = b - a;
-        let ac = c - a;
-        ab.cross(ac).length() / 2.0
-    }
-
-    /// Get the perimeter of the triangle.
-    #[inline]
-    fn perimeter(&self) -> f32 {
-        let [a, b, c] = self.vertices;
-        a.distance(b) + b.distance(c) + c.distance(a)
-    }
-}
-
 /// A tetrahedron primitive.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -1509,30 +1373,6 @@ impl Tetrahedron {
     }
 }
 
-impl Measured3d for Tetrahedron {
-    /// Get the surface area of the tetrahedron.
-    #[inline]
-    fn area(&self) -> f32 {
-        let [a, b, c, d] = self.vertices;
-        let ab = b - a;
-        let ac = c - a;
-        let ad = d - a;
-        let bc = c - b;
-        let bd = d - b;
-        (ab.cross(ac).length()
-            + ab.cross(ad).length()
-            + ac.cross(ad).length()
-            + bc.cross(bd).length())
-            / 2.0
-    }
-
-    /// Get the volume of the tetrahedron.
-    #[inline]
-    fn volume(&self) -> f32 {
-        ops::abs(self.signed_volume())
-    }
-}
-
 /// A 3D shape representing an extruded 2D `base_shape`.
 ///
 /// Extruding a shape effectively "thickens" a 2D shapes,
@@ -1562,25 +1402,13 @@ impl<T: Primitive2d> Extrusion<T> {
     }
 }
 
-impl<T: Primitive2d + Measured2d> Measured3d for Extrusion<T> {
-    /// Get the surface area of the extrusion
-    fn area(&self) -> f32 {
-        2. * (self.base_shape.area() + self.half_depth * self.base_shape.perimeter())
-    }
-
-    /// Get the volume of the extrusion
-    fn volume(&self) -> f32 {
-        2. * self.base_shape.area() * self.half_depth
-    }
-}
-
 #[cfg(test)]
 mod tests {
     // Reference values were computed by hand and/or with external tools
 
     use super::*;
-    use crate::{InvalidDirectionError, Quat};
     use approx::assert_relative_eq;
+    use bevy_math::{InvalidDirectionError, Quat};
 
     #[test]
     fn direction_creation() {
@@ -1688,8 +1516,6 @@ mod tests {
     fn sphere_math() {
         let sphere = Sphere { radius: 4.0 };
         assert_eq!(sphere.diameter(), 8.0, "incorrect diameter");
-        assert_eq!(sphere.area(), 201.06193, "incorrect area");
-        assert_eq!(sphere.volume(), 268.08257, "incorrect volume");
     }
 
     #[test]
@@ -1763,8 +1589,6 @@ mod tests {
             Cuboid::from_corners(Vec3::new(-1.5, -3.5, -1.0), Vec3::new(1.5, 3.5, 1.0)),
             "incorrect dimensions when created from corners"
         );
-        assert_eq!(cuboid.area(), 82.0, "incorrect area");
-        assert_eq!(cuboid.volume(), 42.0, "incorrect volume");
     }
 
     #[test]
@@ -1781,8 +1605,6 @@ mod tests {
             "incorrect lateral area"
         );
         assert_eq!(cylinder.base_area(), 12.566371, "incorrect base area");
-        assert_relative_eq!(cylinder.area(), 138.23007);
-        assert_eq!(cylinder.volume(), 113.097336, "incorrect volume");
     }
 
     #[test]
@@ -1793,8 +1615,6 @@ mod tests {
             Cylinder::new(2.0, 9.0),
             "cylinder wasn't created correctly from a capsule"
         );
-        assert_eq!(capsule.area(), 163.36282, "incorrect area");
-        assert_relative_eq!(capsule.volume(), 146.60765);
     }
 
     #[test]
@@ -1811,8 +1631,6 @@ mod tests {
         assert_eq!(cone.slant_height(), 9.219544, "incorrect slant height");
         assert_eq!(cone.lateral_area(), 57.92811, "incorrect lateral area");
         assert_eq!(cone.base_area(), 12.566371, "incorrect base area");
-        assert_relative_eq!(cone.area(), 70.49447);
-        assert_eq!(cone.volume(), 37.699111, "incorrect volume");
     }
 
     #[test]
@@ -1840,8 +1658,6 @@ mod tests {
             "incorrect bottom base area"
         );
         assert_eq!(frustum.top_base_area(), PI, "incorrect top base area");
-        assert_eq!(frustum.area(), 101.05296, "incorrect surface area");
-        assert_eq!(frustum.volume(), 65.97345, "incorrect volume");
     }
 
     #[test]
@@ -1868,8 +1684,6 @@ mod tests {
             TorusKind::Invalid,
             "torus should be invalid"
         );
-        assert_relative_eq!(torus.area(), 33.16187);
-        assert_relative_eq!(torus.volume(), 4.97428, epsilon = 0.00001);
     }
 
     #[test]
@@ -1882,8 +1696,6 @@ mod tests {
                 Vec3::new(-1.0, -2.0, 3.5),
             ],
         };
-        assert_eq!(tetrahedron.area(), 19.251068, "incorrect area");
-        assert_eq!(tetrahedron.volume(), 3.2058334, "incorrect volume");
         assert_eq!(
             tetrahedron.signed_volume(),
             3.2058334,
@@ -1891,36 +1703,12 @@ mod tests {
         );
         assert_relative_eq!(tetrahedron.centroid(), Vec3::new(-0.225, -0.375, 1.55));
 
-        assert_eq!(Tetrahedron::default().area(), 3.4641016, "incorrect area");
-        assert_eq!(
-            Tetrahedron::default().volume(),
-            0.33333334,
-            "incorrect volume"
-        );
         assert_eq!(
             Tetrahedron::default().signed_volume(),
             -0.33333334,
             "incorrect signed volume"
         );
         assert_relative_eq!(Tetrahedron::default().centroid(), Vec3::ZERO);
-    }
-
-    #[test]
-    fn extrusion_math() {
-        let circle = Circle::new(0.75);
-        let cylinder = Extrusion::new(circle, 2.5);
-        assert_eq!(cylinder.area(), 15.315264, "incorrect surface area");
-        assert_eq!(cylinder.volume(), 4.417865, "incorrect volume");
-
-        let annulus = crate::primitives::Annulus::new(0.25, 1.375);
-        let tube = Extrusion::new(annulus, 0.333);
-        assert_eq!(tube.area(), 14.886437, "incorrect surface area");
-        assert_eq!(tube.volume(), 1.9124937, "incorrect volume");
-
-        let polygon = crate::primitives::RegularPolygon::new(3.8, 7);
-        let regular_prism = Extrusion::new(polygon, 1.25);
-        assert_eq!(regular_prism.area(), 107.8808, "incorrect surface area");
-        assert_eq!(regular_prism.volume(), 49.392204, "incorrect volume");
     }
 
     #[test]
@@ -1931,12 +1719,6 @@ mod tests {
             Vec3::new(0.5, -0.5, 0.0),
             Vec3::new(-0.5, -0.5, 0.0),
             Vec3::new(0.0, 0.5, 0.0),
-        );
-        assert_eq!(default_triangle.area(), 0.5, "incorrect area");
-        assert_relative_eq!(
-            default_triangle.perimeter(),
-            1.0 + 2.0 * ops::sqrt(1.25_f32),
-            epsilon = 10e-9
         );
         assert_eq!(default_triangle.normal(), Ok(Dir3::Z), "incorrect normal");
         assert!(
@@ -1994,8 +1776,6 @@ mod tests {
         let triangle = Triangle3d::new(a, b, c);
 
         assert!(!triangle.is_degenerate(), "incorrectly found degenerate");
-        assert_eq!(triangle.area(), 3.0233467, "incorrect area");
-        assert_eq!(triangle.perimeter(), 9.832292, "incorrect perimeter");
         assert_eq!(
             triangle.circumcenter(),
             Vec3::new(-1., 1.75, 0.75),

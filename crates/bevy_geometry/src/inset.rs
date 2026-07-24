@@ -1,25 +1,32 @@
-use crate::{
-    ops,
-    primitives::{
-        Capsule2d, Circle, CircularSegment, Primitive2d, Rectangle, RegularPolygon, Rhombus,
-        Triangle2d,
-    },
-    Vec2,
+//! Uniformly inset 2D geometric primitives.
+//!
+//! This module provides the [`Inset`] trait, which shrinks supported 2D
+//! primitives by moving each edge inward by a constant distance. Unlike uniform
+//! scaling, an inset preserves the offset from each original edge, producing a
+//! shape whose boundary is everywhere `distance` inward from the original.
+//!
+//! Insets are useful for generating smaller versions of shapes, creating
+//! constant-thickness outlines with [`Ring`](crate::ring::Ring), and
+//! constructing other offset geometry.
+
+use bevy_math::{ops, Vec2};
+use bevy_shape::{
+    Capsule2d, Circle, CircularSegment, Primitive2d, Rectangle, RegularPolygon, Rhombus, Triangle2d,
 };
 
 /// A primitive that can be resized uniformly.
 ///
 /// See documentation on [`Inset::inset`].
 ///
-/// See also [`ToRing`](crate::primitives::ToRing).
+/// See also [`ToRing`](crate::ring::ToRing).
 pub trait Inset: Primitive2d {
     /// Create a new version of this primitive that is resized uniformly.
     /// That is, it resizes the shape inwards such that for the lines between vertices,
     /// it creates new parallel lines that are `distance` inwards from the original lines.
     ///
-    /// This is useful for creating smaller shapes or making outlines of `distance` thickness with [`Ring`](crate::primitives::Ring).
+    /// This is useful for creating smaller shapes or making outlines of `distance` thickness with [`Ring`](crate::ring::Ring).
     ///
-    /// See also [`ToRing::to_ring`](crate::primitives::ToRing::to_ring)
+    /// See also [`ToRing::to_ring`](crate::ring::ToRing::to_ring)
     fn inset(self, distance: f32) -> Self;
 }
 

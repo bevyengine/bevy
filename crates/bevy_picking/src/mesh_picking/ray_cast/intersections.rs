@@ -1,4 +1,5 @@
-use bevy_math::{bounding::Aabb3d, Affine3A, Dir3, Ray3d, Vec2, Vec3, Vec3A};
+use bevy_geometry::bounding::Aabb3d;
+use bevy_math::{Affine3A, Dir3, Ray3d, Vec2, Vec3, Vec3A};
 use bevy_mesh::{Indices, Mesh, PrimitiveTopology, VertexAttributeValues};
 use bevy_reflect::Reflect;
 

@@ -10,8 +10,8 @@ use bevy_ecs::{
     system::{Res, ResMut},
     world::{FromWorld, World},
 };
+use bevy_geometry::bounding::{Aabb2d, BoundingVolume};
 use bevy_log::warn;
-use bevy_math::bounding::{Aabb2d, BoundingVolume};
 use bevy_mesh::Indices;
 use glam::Vec4;
 use wgpu::{BufferUsages, DownlevelFlags, COPY_BUFFER_ALIGNMENT};

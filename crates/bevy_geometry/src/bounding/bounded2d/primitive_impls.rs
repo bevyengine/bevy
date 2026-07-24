@@ -1,22 +1,20 @@
-//! Contains [`Bounded2d`] implementations for [geometric primitives](crate::primitives).
+//! Contains [`Bounded2d`] implementations for [geometric primitives](`bevy_shape`).
 
-use crate::{
-    bounding::BoundingVolume,
-    ops,
-    primitives::{
-        Annulus, Arc2d, Capsule2d, Circle, CircularSector, CircularSegment, Ellipse, Line2d,
-        Plane2d, Primitive2d, Rectangle, RegularPolygon, Rhombus, Ring, Segment2d, Triangle2d,
-    },
-    Dir2, Isometry2d, Mat2, Rot2, Vec2,
+use crate::bounding::{
+    bounded2d::{Aabb2d, Bounded2d, BoundingCircle},
+    BoundingVolume,
+};
+use bevy_math::{ops, Dir2, Isometry2d, Mat2, Rot2, Vec2};
+use bevy_shape::{
+    Annulus, Arc2d, Capsule2d, Circle, CircularSector, CircularSegment, Ellipse, Line2d, Plane2d,
+    Rectangle, RegularPolygon, Rhombus, Segment2d, Triangle2d,
 };
 use core::f32::consts::{FRAC_PI_2, PI, TAU};
 
 #[cfg(feature = "alloc")]
-use crate::primitives::{ConvexPolygon, Polygon, Polyline2d};
+use bevy_shape::{ConvexPolygon, Polygon, Polyline2d};
 
 use arrayvec::ArrayVec;
-
-use super::{Aabb2d, Bounded2d, BoundingCircle};
 
 impl Bounded2d for Circle {
     fn aabb_2d(&self, isometry: impl Into<Isometry2d>) -> Aabb2d {
@@ -428,16 +426,6 @@ impl Bounded2d for Capsule2d {
     }
 }
 
-impl<P: Bounded2d + Primitive2d> Bounded2d for Ring<P> {
-    fn aabb_2d(&self, isometry: impl Into<Isometry2d>) -> Aabb2d {
-        self.outer_shape.aabb_2d(isometry)
-    }
-
-    fn bounding_circle(&self, isometry: impl Into<Isometry2d>) -> BoundingCircle {
-        self.outer_shape.bounding_circle(isometry)
-    }
-}
-
 #[cfg(test)]
 #[expect(clippy::print_stdout, reason = "Allowed in tests.")]
 mod tests {
@@ -445,17 +433,15 @@ mod tests {
     use std::println;
 
     use approx::assert_abs_diff_eq;
-    use glam::Vec2;
-
-    use crate::{
-        bounding::Bounded2d,
+    use bevy_math::{
         ops::{self, FloatPow},
-        primitives::{
-            Annulus, Arc2d, Capsule2d, Circle, CircularSector, CircularSegment, Ellipse, Line2d,
-            Plane2d, Polygon, Polyline2d, Rectangle, RegularPolygon, Rhombus, Segment2d,
-            Triangle2d,
-        },
-        Dir2, Isometry2d, Rot2,
+        Dir2, Isometry2d, Rot2, Vec2,
+    };
+
+    use crate::bounding::bounded2d::Bounded2d;
+    use bevy_shape::{
+        Annulus, Arc2d, Capsule2d, Circle, CircularSector, CircularSegment, Ellipse, Line2d,
+        Plane2d, Polygon, Polyline2d, Rectangle, RegularPolygon, Rhombus, Segment2d, Triangle2d,
     };
 
     #[test]

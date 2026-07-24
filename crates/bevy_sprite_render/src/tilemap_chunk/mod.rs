@@ -15,10 +15,11 @@ use bevy_ecs::{
     world::DeferredWorld,
 };
 use bevy_image::Image;
-use bevy_math::{primitives::Rectangle, UVec2};
+use bevy_math::UVec2;
 use bevy_mesh::{Mesh, Mesh2d};
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{prelude::*, Reflect};
+use bevy_shape::Rectangle;
 use bevy_transform::components::Transform;
 use bevy_utils::default;
 use tracing::warn;

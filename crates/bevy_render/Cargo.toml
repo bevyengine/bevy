@@ -68,6 +68,7 @@ bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.20.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.20.0-dev" }
 bevy_encase_derive = { path = "../bevy_encase_derive", version = "0.20.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.20.0-dev" }
+bevy_geometry = { path = "../bevy_geometry", version = "0.20.0-dev" }
 bevy_material = { path = "../bevy_material", version = "0.20.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.20.0-dev" }
 bevy_log = { path = "../bevy_log", version = "0.20.0-dev" }

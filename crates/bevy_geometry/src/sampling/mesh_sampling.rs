@@ -1,10 +1,14 @@
-//! Functionality related to random sampling from triangle meshes.
+//! Random sampling utilities for geometric primitives from [`bevy_shape`].
+//!
+//! This module provides algorithms for generating random samples from geometric shapes and
+//! collections of shapes. It also contains utilities for sampling points uniformly from triangle
+//! meshes.
 
-use crate::{
-    primitives::{Measured2d, Triangle3d},
-    ShapeSample, Vec3,
-};
+use crate::measured::Measured2d;
+use crate::sampling::ShapeSample;
 use alloc::vec::Vec;
+use bevy_math::Vec3;
+use bevy_shape::Triangle3d;
 use rand::RngExt;
 use rand_distr::{
     weighted::{Error as WeightedError, WeightedAliasIndex},
@@ -20,8 +24,9 @@ use rand_distr::{
 ///
 /// Example
 /// ```
-/// # use bevy_math::{Vec3, primitives::*};
-/// # use bevy_math::sampling::mesh_sampling::UniformMeshSampler;
+/// # use bevy_math::Vec3;
+/// # use bevy_shape::*;
+/// # use bevy_geometry::sampling::mesh_sampling::UniformMeshSampler;
 /// # use rand::{SeedableRng, rngs::StdRng, distr::Distribution};
 /// let faces = Tetrahedron::default().faces();
 /// let sampler = UniformMeshSampler::try_new(faces).unwrap();
@@ -47,7 +52,7 @@ impl UniformMeshSampler {
     /// Returns an error if the distribution of areas for the collection of triangles could not be formed
     /// (most notably if the collection has zero surface area).
     ///
-    /// [triangles]: Triangle3d
+    /// [triangles]: bevy_shape::Triangle3d
     pub fn try_new<T: IntoIterator<Item = Triangle3d>>(
         triangles: T,
     ) -> Result<Self, WeightedError> {

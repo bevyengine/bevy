@@ -132,6 +132,8 @@ serialize = [
   "bevy_image?/serialize",
   "bevy_input/serialize",
   "bevy_math/serialize",
+  "bevy_shape/serialize",
+  "bevy_geometry/serialize",
   "bevy_world_serialization?/serialize",
   "bevy_time/serialize",
   "bevy_transform/serialize",
@@ -418,6 +420,8 @@ std = [
   "bevy_input/std",
   "bevy_input_focus?/std",
   "bevy_math/std",
+  "bevy_shape/std",
+  "bevy_geometry/std",
   "bevy_platform/std",
   "bevy_reflect/std",
   "bevy_state?/std",
@@ -506,6 +510,12 @@ bevy_input = { path = "../bevy_input", version = "0.20.0-dev", default-features 
 bevy_math = { path = "../bevy_math", version = "0.20.0-dev", default-features = false, features = [
   "bevy_reflect",
   "nostd-libm",
+] }
+bevy_shape = { path = "../bevy_shape", version = "0.20.0-dev", default-features = false, features = [
+  "bevy_reflect",
+] }
+bevy_geometry = { path = "../bevy_geometry", version = "0.20.0-dev", default-features = false, features = [
+  "bevy_reflect",
 ] }
 bevy_platform = { path = "../bevy_platform", version = "0.20.0-dev", default-features = false, features = [
   "alloc",

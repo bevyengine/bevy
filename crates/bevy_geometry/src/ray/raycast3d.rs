@@ -1,94 +1,42 @@
-use super::{Aabb3d, BoundingSphere, IntersectsVolume};
-use crate::{
-    ops::{self, FloatPow},
-    Dir3A, Ray3d, Vec3A,
+use crate::bounding::{
+    bounded3d::{Aabb3d, BoundingSphere},
+    IntersectsVolume,
 };
-
+use bevy_math::{Dir3A, Ray3d, RayCast3d, Vec3A};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 
-/// A raycast intersection test for 3D bounding volumes
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Clone))]
-pub struct RayCast3d {
-    /// The origin of the ray.
-    pub origin: Vec3A,
-    /// The direction of the ray.
-    pub direction: Dir3A,
-    /// The maximum distance for the ray
-    pub max: f32,
-    /// The multiplicative inverse direction of the ray
-    direction_recip: Vec3A,
+/// Computes intersections with an [`Aabb3d`].
+///
+/// Implementors return the distance from the query's origin to the first
+/// intersection with the given axis-aligned bounding box. If no intersection
+/// occurs, `None` is returned.
+pub trait Aabb3dIntersection {
+    /// Get the distance of an intersection with an [`Aabb3d`], if any.
+    fn aabb_intersection_at(&self, aabb: &Aabb3d) -> Option<f32>;
 }
 
-impl RayCast3d {
-    /// Construct a [`RayCast3d`] from an origin, [direction], and max distance.
-    ///
-    /// [direction]: crate::direction::Dir3
-    pub fn new(origin: impl Into<Vec3A>, direction: impl Into<Dir3A>, max: f32) -> Self {
-        let direction = direction.into();
-        Self {
-            origin: origin.into(),
-            direction,
-            direction_recip: direction.recip(),
-            max,
-        }
-    }
-
-    /// Construct a [`RayCast3d`] from a [`Ray3d`] and max distance.
-    pub fn from_ray(ray: Ray3d, max: f32) -> Self {
-        Self::new(ray.origin, ray.direction, max)
-    }
-
-    /// Get the cached multiplicative inverse of the direction of the ray.
-    pub const fn direction_recip(&self) -> Vec3A {
-        self.direction_recip
-    }
-
-    /// Get the distance of an intersection with an [`Aabb3d`], if any.
-    pub fn aabb_intersection_at(&self, aabb: &Aabb3d) -> Option<f32> {
-        let positive = self.direction.signum().cmpgt(Vec3A::ZERO);
-        let min = Vec3A::select(positive, aabb.min, aabb.max);
-        let max = Vec3A::select(positive, aabb.max, aabb.min);
-
-        // Calculate the minimum/maximum time for each axis based on how much the direction goes that
-        // way. These values can get arbitrarily large, or even become NaN, which is handled by the
-        // min/max operations below
-        let tmin = (min - self.origin) * self.direction_recip;
-        let tmax = (max - self.origin) * self.direction_recip;
-
-        // An axis that is not relevant to the ray direction will be NaN. When one of the arguments
-        // to min/max is NaN, the other argument is used.
-        // An axis for which the direction is the wrong way will return an arbitrarily large
-        // negative value.
-        let tmin = tmin.max_element().max(0.);
-        let tmax = tmax.min_element().min(self.max);
-
-        if tmin <= tmax {
-            Some(tmin)
-        } else {
-            None
-        }
-    }
-
+/// Computes intersections with a [`BoundingSphere`].
+///
+/// Implementors return the distance from the query's origin to the first
+/// intersection with the given bounding sphere. If no intersection occurs,
+/// `None` is returned.
+pub trait BoundingSphereIntersection {
     /// Get the distance of an intersection with a [`BoundingSphere`], if any.
-    pub fn sphere_intersection_at(&self, sphere: &BoundingSphere) -> Option<f32> {
-        let offset = self.origin - sphere.center;
-        let projected = offset.dot(*self.direction);
-        let closest_point = offset - projected * *self.direction;
-        let distance_squared = sphere.radius().squared() - closest_point.length_squared();
-        if distance_squared < 0.
-            || ops::copysign(projected.squared(), -projected) < -distance_squared
-        {
-            None
-        } else {
-            let toi = -projected - ops::sqrt(distance_squared);
-            if toi > self.max {
-                None
-            } else {
-                Some(toi.max(0.))
-            }
-        }
+    fn sphere_intersection_at(&self, sphere: &BoundingSphere) -> Option<f32>;
+}
+
+impl Aabb3dIntersection for RayCast3d {
+    /// Get the distance of an intersection with an [`Aabb3d`], if any.
+    fn aabb_intersection_at(&self, aabb: &Aabb3d) -> Option<f32> {
+        self.aabb_intersection_at_min_max(aabb.min, aabb.max)
+    }
+}
+
+impl BoundingSphereIntersection for RayCast3d {
+    /// Get the distance of an intersection with a [`BoundingSphere`], if any.
+    fn sphere_intersection_at(&self, sphere: &BoundingSphere) -> Option<f32> {
+        self.sphere_intersection_at_center_radius(sphere.center, sphere.radius())
     }
 }
 
@@ -117,7 +65,7 @@ pub struct AabbCast3d {
 impl AabbCast3d {
     /// Construct an [`AabbCast3d`] from an [`Aabb3d`], origin, [direction], and max distance.
     ///
-    /// [direction]: crate::direction::Dir3
+    /// [direction]: bevy_math::Dir3
     pub fn new(
         aabb: Aabb3d,
         origin: impl Into<Vec3A>,
@@ -139,6 +87,7 @@ impl AabbCast3d {
     pub fn aabb_collision_at(&self, mut aabb: Aabb3d) -> Option<f32> {
         aabb.min -= self.aabb.max;
         aabb.max -= self.aabb.min;
+
         self.ray.aabb_intersection_at(&aabb)
     }
 }
@@ -162,7 +111,7 @@ pub struct BoundingSphereCast {
 impl BoundingSphereCast {
     /// Construct a [`BoundingSphereCast`] from a [`BoundingSphere`], origin, [direction], and max distance.
     ///
-    /// [direction]: crate::direction::Dir3
+    /// [direction]: bevy_math::Dir3
     pub fn new(
         sphere: BoundingSphere,
         origin: impl Into<Vec3A>,
@@ -197,7 +146,7 @@ impl IntersectsVolume<BoundingSphere> for BoundingSphereCast {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Dir3, Vec3};
+    use bevy_math::{ops, Dir3, Vec3};
 
     const EPSILON: f32 = 0.001;
 

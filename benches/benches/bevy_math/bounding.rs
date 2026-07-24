@@ -1,8 +1,6 @@
 use benches::bench;
-use bevy_math::{
-    bounding::{Aabb3d, BoundingSphere, BoundingVolume},
-    prelude::*,
-};
+use bevy_geometry::bounding::{Aabb3d, BoundingSphere, BoundingVolume};
+use bevy_math::prelude::*;
 use core::hint::black_box;
 use criterion::{criterion_group, Criterion};
 use rand::{

@@ -1,14 +1,35 @@
+#![forbid(unsafe_code)]
+#![cfg_attr(
+    any(docsrs, docsrs_dep),
+    expect(
+        internal_features,
+        reason = "rustdoc_internals is needed for fake_variadic"
+    )
+)]
+#![cfg_attr(any(docsrs, docsrs_dep), feature(rustdoc_internals))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
+#![doc(
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
+)]
+#![no_std]
+
 //! This module defines primitive shapes.
 //! The origin is (0, 0) for 2D primitives and (0, 0, 0) for 3D primitives,
 //! unless stated otherwise.
+
+#[cfg(feature = "std")]
+extern crate std;
+
+#[cfg(feature = "alloc")]
+extern crate alloc;
 
 mod dim2;
 pub use dim2::*;
 mod dim3;
 pub use dim3::*;
-mod inset;
-pub use inset::*;
 mod half_space;
+#[cfg(feature = "alloc")]
 mod polygon;
 pub use half_space::*;
 mod view_frustum;
@@ -19,6 +40,10 @@ pub trait Primitive2d {}
 
 /// A marker trait for 3D primitives
 pub trait Primitive3d {}
+
+impl Primitive2d for bevy_math::Dir2 {}
+impl Primitive3d for bevy_math::Dir3 {}
+impl Primitive3d for bevy_math::Dir3A {}
 
 /// The winding order for a set of points
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -35,20 +60,11 @@ pub enum WindingOrder {
     Invalid,
 }
 
-/// A trait for getting measurements of 2D shapes
-pub trait Measured2d {
-    /// Get the perimeter of the shape
-    fn perimeter(&self) -> f32;
-
-    /// Get the area of the shape
-    fn area(&self) -> f32;
-}
-
-/// A trait for getting measurements of 3D shapes
-pub trait Measured3d {
-    /// Get the surface area of the shape
-    fn area(&self) -> f32;
-
-    /// Get the volume of the shape
-    fn volume(&self) -> f32;
+/// The shape prelude.
+///
+/// This includes all primitive shape types in this crate, re-exported for your convenience.
+pub mod prelude {
+    // just re-export everything, it's just shape definitions anyways
+    #[doc(hidden)]
+    pub use crate::*;
 }

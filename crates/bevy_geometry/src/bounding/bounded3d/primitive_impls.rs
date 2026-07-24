@@ -1,19 +1,19 @@
-//! Contains [`Bounded3d`] implementations for [geometric primitives](crate::primitives).
+//! Contains [`Bounded3d`] implementations for [geometric primitives](`bevy_shape`).
 
-use crate::{
-    bounding::{Bounded2d, BoundingCircle, BoundingVolume},
-    ops,
-    primitives::{
-        Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, InfinitePlane3d, Line3d, Segment3d,
-        Sphere, Torus, Triangle2d, Triangle3d,
-    },
-    Isometry2d, Isometry3d, Mat3, Vec2, Vec3, Vec3A,
+use crate::bounding::{
+    bounded2d::{Bounded2d, BoundingCircle},
+    bounded3d::{Aabb3d, Bounded3d, BoundingSphere},
+    BoundingVolume,
+};
+
+use bevy_math::{ops, Isometry2d, Isometry3d, Mat3, Vec2, Vec3, Vec3A};
+use bevy_shape::{
+    Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, InfinitePlane3d, Line3d, Segment3d, Sphere,
+    Torus, Triangle2d, Triangle3d,
 };
 
 #[cfg(feature = "alloc")]
-use crate::primitives::Polyline3d;
-
-use super::{Aabb3d, Bounded3d, BoundingSphere};
+use bevy_shape::Polyline3d;
 
 impl Bounded3d for Sphere {
     fn aabb_3d(&self, isometry: impl Into<Isometry3d>) -> Aabb3d {
@@ -366,16 +366,11 @@ impl Bounded3d for Triangle3d {
 
 #[cfg(test)]
 mod tests {
-    use crate::{bounding::BoundingVolume, ops, Isometry3d};
-    use glam::{Quat, Vec3, Vec3A};
-
-    use crate::{
-        bounding::Bounded3d,
-        primitives::{
-            Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, InfinitePlane3d, Line3d, Polyline3d,
-            Segment3d, Sphere, Torus, Triangle3d,
-        },
-        Dir3,
+    use crate::bounding::{bounded3d::Bounded3d, BoundingVolume};
+    use bevy_math::{ops, Dir3, Isometry3d, Quat, Vec3, Vec3A};
+    use bevy_shape::{
+        Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, InfinitePlane3d, Line3d, Polyline3d,
+        Segment3d, Sphere, Torus, Triangle3d,
     };
 
     #[test]

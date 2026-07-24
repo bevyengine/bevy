@@ -1,97 +1,42 @@
-use super::{Aabb2d, BoundingCircle, IntersectsVolume};
-use crate::{
-    ops::{self, FloatPow},
-    Dir2, Ray2d, Vec2,
+use crate::bounding::{
+    bounded2d::{Aabb2d, BoundingCircle},
+    IntersectsVolume,
 };
-
+use bevy_math::{Dir2, Ray2d, RayCast2d, Vec2};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 
-/// A raycast intersection test for 2D bounding volumes
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Clone))]
-pub struct RayCast2d {
-    /// The ray for the test
-    pub ray: Ray2d,
-    /// The maximum distance for the ray
-    pub max: f32,
-    /// The multiplicative inverse direction of the ray
-    direction_recip: Vec2,
+/// Computes intersections with an [`Aabb2d`].
+///
+/// Implementors return the distance from the query's origin to the first
+/// intersection with the given axis-aligned bounding box. If no intersection
+/// occurs, `None` is returned.
+pub trait Aabb2dIntersection {
+    /// Get the distance of an intersection with an [`Aabb2d`], if any.
+    fn aabb_intersection_at(&self, aabb: &Aabb2d) -> Option<f32>;
 }
 
-impl RayCast2d {
-    /// Construct a [`RayCast2d`] from an origin, [`Dir2`], and max distance.
-    pub fn new(origin: Vec2, direction: Dir2, max: f32) -> Self {
-        Self::from_ray(Ray2d { origin, direction }, max)
-    }
-
-    /// Construct a [`RayCast2d`] from a [`Ray2d`] and max distance.
-    pub fn from_ray(ray: Ray2d, max: f32) -> Self {
-        Self {
-            ray,
-            direction_recip: ray.direction.recip(),
-            max,
-        }
-    }
-
-    /// Get the cached multiplicative inverse of the direction of the ray.
-    pub const fn direction_recip(&self) -> Vec2 {
-        self.direction_recip
-    }
-
-    /// Get the distance of an intersection with an [`Aabb2d`], if any.
-    pub fn aabb_intersection_at(&self, aabb: &Aabb2d) -> Option<f32> {
-        let (min_x, max_x) = if self.ray.direction.x.is_sign_positive() {
-            (aabb.min.x, aabb.max.x)
-        } else {
-            (aabb.max.x, aabb.min.x)
-        };
-        let (min_y, max_y) = if self.ray.direction.y.is_sign_positive() {
-            (aabb.min.y, aabb.max.y)
-        } else {
-            (aabb.max.y, aabb.min.y)
-        };
-
-        // Calculate the minimum/maximum time for each axis based on how much the direction goes that
-        // way. These values can get arbitrarily large, or even become NaN, which is handled by the
-        // min/max operations below
-        let tmin_x = (min_x - self.ray.origin.x) * self.direction_recip.x;
-        let tmin_y = (min_y - self.ray.origin.y) * self.direction_recip.y;
-        let tmax_x = (max_x - self.ray.origin.x) * self.direction_recip.x;
-        let tmax_y = (max_y - self.ray.origin.y) * self.direction_recip.y;
-
-        // An axis that is not relevant to the ray direction will be NaN. When one of the arguments
-        // to min/max is NaN, the other argument is used.
-        // An axis for which the direction is the wrong way will return an arbitrarily large
-        // negative value.
-        let tmin = tmin_x.max(tmin_y).max(0.);
-        let tmax = tmax_y.min(tmax_x).min(self.max);
-
-        if tmin <= tmax {
-            Some(tmin)
-        } else {
-            None
-        }
-    }
-
+/// Computes intersections with a [`BoundingCircle`].
+///
+/// Implementors return the distance from the query's origin to the first
+/// intersection with the given bounding circle. If no intersection occurs,
+/// `None` is returned.
+pub trait BoundingCircleIntersection {
     /// Get the distance of an intersection with a [`BoundingCircle`], if any.
-    pub fn circle_intersection_at(&self, circle: &BoundingCircle) -> Option<f32> {
-        let offset = self.ray.origin - circle.center;
-        let projected = offset.dot(*self.ray.direction);
-        let cross = offset.perp_dot(*self.ray.direction);
-        let distance_squared = circle.radius().squared() - cross.squared();
-        if distance_squared < 0.
-            || ops::copysign(projected.squared(), -projected) < -distance_squared
-        {
-            None
-        } else {
-            let toi = -projected - ops::sqrt(distance_squared);
-            if toi > self.max {
-                None
-            } else {
-                Some(toi.max(0.))
-            }
-        }
+    fn circle_intersection_at(&self, circle: &BoundingCircle) -> Option<f32>;
+}
+
+impl Aabb2dIntersection for RayCast2d {
+    /// Get the distance of an intersection with an [`Aabb2d`], if any.
+    fn aabb_intersection_at(&self, aabb: &Aabb2d) -> Option<f32> {
+        self.aabb_intersection_at_min_max(aabb.min, aabb.max)
+    }
+}
+
+impl BoundingCircleIntersection for RayCast2d {
+    /// Get the distance of an intersection with a [`BoundingCircle`], if any.
+    fn circle_intersection_at(&self, circle: &BoundingCircle) -> Option<f32> {
+        self.circle_intersection_at_center_radius(circle.center, circle.radius())
     }
 }
 
@@ -185,6 +130,8 @@ impl IntersectsVolume<BoundingCircle> for BoundingCircleCast {
 
 #[cfg(test)]
 mod tests {
+    use bevy_math::ops;
+
     use super::*;
 
     const EPSILON: f32 = 0.001;
@@ -285,7 +232,6 @@ mod tests {
                         test.intersects(&volume),
                         "Case:\n  origin: {origin:?}\n  Direction: {direction:?}\n  Max: {max}",
                     );
-
                     let actual_distance = test.circle_intersection_at(&volume);
                     assert_eq!(
                         actual_distance,
@@ -393,7 +339,6 @@ mod tests {
                         test.intersects(&volume),
                         "Case:\n  origin: {origin:?}\n  Direction: {direction:?}\n  Max: {max}",
                     );
-
                     let actual_distance = test.aabb_intersection_at(&volume);
                     assert_eq!(
                         actual_distance,

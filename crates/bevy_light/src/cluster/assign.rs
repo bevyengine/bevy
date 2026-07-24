@@ -12,9 +12,9 @@ use bevy_ecs::{
 };
 use bevy_math::{
     ops::{self, sin_cos},
-    primitives::HalfSpace,
     Mat4, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles as _, Vec4, Vec4Swizzles as _,
 };
+use bevy_shape::HalfSpace;
 use bevy_transform::components::GlobalTransform;
 use tracing::{error, warn};
 

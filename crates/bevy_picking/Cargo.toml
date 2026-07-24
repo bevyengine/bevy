@@ -19,6 +19,7 @@ bevy_derive = { path = "../bevy_derive", version = "0.20.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.20.0-dev" }
 bevy_input = { path = "../bevy_input", version = "0.20.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.20.0-dev" }
+bevy_geometry = { path = "../bevy_geometry", version = "0.20.0-dev" }
 bevy_mesh = { path = "../bevy_mesh", version = "0.20.0-dev", optional = true }
 bevy_camera = { path = "../bevy_camera", version = "0.20.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.20.0-dev" }

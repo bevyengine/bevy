@@ -3,10 +3,9 @@ use derive_more::derive::From;
 #[cfg(feature = "alloc")]
 use thiserror::Error;
 
-use super::{Measured2d, Primitive2d, WindingOrder};
-use crate::{
+use crate::{Primitive2d, WindingOrder};
+use bevy_math::{
     ops::{self, FloatPow},
-    primitives::Inset,
     Dir2, InvalidDirectionError, Isometry2d, Ray2d, Rot2, Vec2,
 };
 
@@ -77,21 +76,6 @@ impl Circle {
             let dir_to_point = point / ops::sqrt(distance_squared);
             self.radius * dir_to_point
         }
-    }
-}
-
-impl Measured2d for Circle {
-    /// Get the area of the circle
-    #[inline]
-    fn area(&self) -> f32 {
-        PI * self.radius.squared()
-    }
-
-    /// Get the perimeter or circumference of the circle
-    #[inline]
-    #[doc(alias = "circumference")]
-    fn perimeter(&self) -> f32 {
-        2.0 * PI * self.radius
     }
 }
 
@@ -304,22 +288,6 @@ impl Default for CircularSector {
     }
 }
 
-impl Measured2d for CircularSector {
-    #[inline]
-    fn area(&self) -> f32 {
-        self.arc.radius.squared() * self.arc.half_angle
-    }
-
-    #[inline]
-    fn perimeter(&self) -> f32 {
-        if self.half_angle() >= PI {
-            self.arc.radius * 2.0 * PI
-        } else {
-            2.0 * self.radius() + self.arc_length()
-        }
-    }
-}
-
 impl CircularSector {
     /// Create a new [`CircularSector`] from a `radius` and an `angle`
     #[inline]
@@ -456,18 +424,6 @@ impl Default for CircularSegment {
     }
 }
 
-impl Measured2d for CircularSegment {
-    #[inline]
-    fn area(&self) -> f32 {
-        0.5 * self.arc.radius.squared() * (self.arc.angle() - ops::sin(self.arc.angle()))
-    }
-
-    #[inline]
-    fn perimeter(&self) -> f32 {
-        self.chord_length() + self.arc_length()
-    }
-}
-
 impl CircularSegment {
     /// Create a new [`CircularSegment`] from a `radius`, and a `half_angle` in radians.
     #[inline]
@@ -571,7 +527,6 @@ impl CircularSegment {
 #[cfg(test)]
 mod arc_tests {
     use core::f32::consts::FRAC_PI_4;
-    use core::f32::consts::SQRT_2;
 
     use approx::assert_abs_diff_eq;
 
@@ -593,10 +548,6 @@ mod arc_tests {
         sagitta: f32,
         is_minor: bool,
         is_major: bool,
-        sector_area: f32,
-        sector_perimeter: f32,
-        segment_area: f32,
-        segment_perimeter: f32,
     }
 
     impl ArcTestCase {
@@ -628,8 +579,6 @@ mod arc_tests {
             assert_abs_diff_eq!(self.chord_midpoint, sector.chord_midpoint());
             assert_abs_diff_eq!(self.apothem, sector.apothem());
             assert_abs_diff_eq!(self.sagitta, sector.sagitta());
-            assert_abs_diff_eq!(self.sector_area, sector.area());
-            assert_abs_diff_eq!(self.sector_perimeter, sector.perimeter());
         }
 
         fn check_segment(&self, segment: CircularSegment) {
@@ -641,8 +590,6 @@ mod arc_tests {
             assert_abs_diff_eq!(self.chord_midpoint, segment.chord_midpoint());
             assert_abs_diff_eq!(self.apothem, segment.apothem());
             assert_abs_diff_eq!(self.sagitta, segment.sagitta());
-            assert_abs_diff_eq!(self.segment_area, segment.area());
-            assert_abs_diff_eq!(self.segment_perimeter, segment.perimeter());
         }
     }
 
@@ -664,10 +611,6 @@ mod arc_tests {
             sagitta: 0.0,
             is_minor: true,
             is_major: false,
-            sector_area: 0.0,
-            sector_perimeter: 2.0,
-            segment_area: 0.0,
-            segment_perimeter: 0.0,
         };
 
         tests.check_arc(Arc2d::new(1.0, 0.0));
@@ -693,10 +636,6 @@ mod arc_tests {
             sagitta: 0.0,
             is_minor: true,
             is_major: false,
-            sector_area: 0.0,
-            sector_perimeter: 0.0,
-            segment_area: 0.0,
-            segment_perimeter: 0.0,
         };
 
         tests.check_arc(Arc2d::new(0.0, FRAC_PI_4));
@@ -723,10 +662,6 @@ mod arc_tests {
             sagitta: 1.0 - sqrt_half,
             is_minor: true,
             is_major: false,
-            sector_area: FRAC_PI_4,
-            sector_perimeter: FRAC_PI_2 + 2.0,
-            segment_area: FRAC_PI_4 - 0.5,
-            segment_perimeter: FRAC_PI_2 + SQRT_2,
         };
 
         tests.check_arc(Arc2d::from_turns(1.0, 0.25));
@@ -752,10 +687,6 @@ mod arc_tests {
             sagitta: 1.0,
             is_minor: true,
             is_major: true,
-            sector_area: FRAC_PI_2,
-            sector_perimeter: PI + 2.0,
-            segment_area: FRAC_PI_2,
-            segment_perimeter: PI + 2.0,
         };
 
         tests.check_arc(Arc2d::from_radians(1.0, PI));
@@ -781,10 +712,6 @@ mod arc_tests {
             sagitta: 2.0,
             is_minor: false,
             is_major: true,
-            sector_area: PI,
-            sector_perimeter: 2.0 * PI,
-            segment_area: PI,
-            segment_perimeter: 2.0 * PI,
         };
 
         tests.check_arc(Arc2d::from_degrees(1.0, 360.0));
@@ -794,9 +721,6 @@ mod arc_tests {
 }
 
 /// An ellipse primitive, which is like a circle, but the width and height can be different
-///
-/// Ellipse does not implement [`Inset`] as concentric ellipses do not have parallel curves:
-/// if the ellipse is not a circle, the inset shape is not actually an ellipse (although it may look like one) but can also be a lens-like shape.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -883,70 +807,6 @@ impl Ellipse {
     }
 }
 
-impl Measured2d for Ellipse {
-    /// Get the area of the ellipse
-    #[inline]
-    fn area(&self) -> f32 {
-        PI * self.half_size.x * self.half_size.y
-    }
-
-    #[inline]
-    /// Get an approximation for the perimeter or circumference of the ellipse.
-    ///
-    /// The approximation is reasonably precise with a relative error less than 0.007%, getting more precise as the eccentricity of the ellipse decreases.
-    fn perimeter(&self) -> f32 {
-        let a = self.semi_major();
-        let b = self.semi_minor();
-
-        // In the case that `a == b`, the ellipse is a circle
-        if a / b - 1. < 1e-5 {
-            return PI * (a + b);
-        };
-
-        // In the case that `a` is much larger than `b`, the ellipse is a line
-        if a / b > 1e4 {
-            return 4. * a;
-        };
-
-        // These values are  the result of (0.5 choose n)^2 where n is the index in the array
-        // They could be calculated on the fly but hardcoding them yields more accurate and faster results
-        // because the actual calculation for these values involves factorials and numbers > 10^23
-        const BINOMIAL_COEFFICIENTS: [f32; 21] = [
-            1.,
-            0.25,
-            0.015625,
-            0.00390625,
-            0.0015258789,
-            0.00074768066,
-            0.00042057037,
-            0.00025963783,
-            0.00017140154,
-            0.000119028846,
-            0.00008599834,
-            0.00006414339,
-            0.000049109784,
-            0.000038430585,
-            0.000030636627,
-            0.000024815668,
-            0.000020380836,
-            0.000016942893,
-            0.000014236736,
-            0.000012077564,
-            0.000010333865,
-        ];
-
-        // The algorithm used here is the Gauss-Kummer infinite series expansion of the elliptic integral expression for the perimeter of ellipses
-        // For more information see https://www.wolframalpha.com/input/?i=gauss-kummer+series
-        // We only use the terms up to `i == 20` for this approximation
-        let h = ((a - b) / (a + b)).squared();
-
-        PI * (a + b)
-            * (0..=20)
-                .map(|i| BINOMIAL_COEFFICIENTS[i] * ops::powf(h, i as f32))
-                .sum::<f32>()
-    }
-}
-
 /// A primitive shape formed by the region between two circles, also known as a ring.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -1026,22 +886,6 @@ impl Annulus {
             let dir_to_point = point / ops::sqrt(distance_squared);
             self.inner_circle.radius * dir_to_point
         }
-    }
-}
-
-impl Measured2d for Annulus {
-    /// Get the area of the annulus
-    #[inline]
-    fn area(&self) -> f32 {
-        PI * (self.outer_circle.radius.squared() - self.inner_circle.radius.squared())
-    }
-
-    /// Get the perimeter or circumference of the annulus,
-    /// which is the sum of the perimeters of the inner and outer circles.
-    #[inline]
-    #[doc(alias = "circumference")]
-    fn perimeter(&self) -> f32 {
-        2.0 * PI * (self.outer_circle.radius + self.inner_circle.radius)
     }
 }
 
@@ -1166,20 +1010,6 @@ impl Rhombus {
 
         // Finally, we restore the signs of the original vector
         result.copysign(point)
-    }
-}
-
-impl Measured2d for Rhombus {
-    /// Get the area of the rhombus
-    #[inline]
-    fn area(&self) -> f32 {
-        2.0 * self.half_diagonals.x * self.half_diagonals.y
-    }
-
-    /// Get the perimeter of the rhombus
-    #[inline]
-    fn perimeter(&self) -> f32 {
-        4.0 * self.side()
     }
 }
 
@@ -1772,27 +1602,6 @@ impl Triangle2d {
     }
 }
 
-impl Measured2d for Triangle2d {
-    /// Get the area of the triangle
-    #[inline]
-    fn area(&self) -> f32 {
-        let [a, b, c] = self.vertices;
-        ops::abs(a.x * (b.y - c.y) + b.x * (c.y - a.y) + c.x * (a.y - b.y)) / 2.0
-    }
-
-    /// Get the perimeter of the triangle
-    #[inline]
-    fn perimeter(&self) -> f32 {
-        let [a, b, c] = self.vertices;
-
-        let ab = a.distance(b);
-        let bc = b.distance(c);
-        let ca = c.distance(a);
-
-        ab + bc + ca
-    }
-}
-
 /// A rectangle primitive, which is like a square, except that the width and height can be different
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -1868,20 +1677,6 @@ impl Rectangle {
     pub fn closest_point(&self, point: Vec2) -> Vec2 {
         // Clamp point coordinates to the rectangle
         point.clamp(-self.half_size, self.half_size)
-    }
-}
-
-impl Measured2d for Rectangle {
-    /// Get the area of the rectangle
-    #[inline]
-    fn area(&self) -> f32 {
-        4.0 * self.half_size.x * self.half_size.y
-    }
-
-    /// Get the perimeter of the rectangle
-    #[inline]
-    fn perimeter(&self) -> f32 {
-        4.0 * (self.half_size.x + self.half_size.y)
     }
 }
 
@@ -2157,22 +1952,6 @@ impl RegularPolygon {
     }
 }
 
-impl Measured2d for RegularPolygon {
-    /// Get the area of the regular polygon
-    #[inline]
-    fn area(&self) -> f32 {
-        let angle: f32 = 2.0 * PI / (self.sides as f32);
-        (self.sides as f32) * self.circumradius().squared() * ops::sin(angle) / 2.0
-    }
-
-    /// Get the perimeter of the regular polygon.
-    /// This is the sum of its sides
-    #[inline]
-    fn perimeter(&self) -> f32 {
-        self.sides as f32 * self.side_length()
-    }
-}
-
 /// A 2D capsule primitive, also known as a stadium or pill shape.
 ///
 /// A two-dimensional capsule is defined as a neighborhood of points at a distance (radius) from a line
@@ -2221,99 +2000,6 @@ impl Capsule2d {
     #[inline]
     pub const fn to_inner_rectangle(&self) -> Rectangle {
         Rectangle::new(self.radius * 2.0, self.half_length * 2.0)
-    }
-}
-
-impl Measured2d for Capsule2d {
-    /// Get the area of the capsule
-    #[inline]
-    fn area(&self) -> f32 {
-        // pi*r^2 + (2r)*l
-        PI * self.radius.squared() + self.to_inner_rectangle().area()
-    }
-
-    /// Get the perimeter of the capsule
-    #[inline]
-    fn perimeter(&self) -> f32 {
-        // 2pi*r + 2l
-        2.0 * PI * self.radius + 4.0 * self.half_length
-    }
-}
-
-/// A 2D shape representing the ring version of a base shape.
-///
-/// The `inner_shape` forms the "hollow" of the `outer_shape`.
-///
-/// The resulting shapes are rings or hollow shapes.
-/// For example, a circle becomes an annulus.
-///
-/// # Warning
-///
-/// The `outer_shape` must contain the `inner_shape` for the generated meshes to be accurate.
-///
-/// If there are vertices in the `inner_shape` that escape the `outer_shape`
-/// (for example, if the `inner_shape` is in fact larger),
-/// it may result in incorrect geometries.
-#[derive(Clone, Copy, Debug, PartialEq)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-pub struct Ring<P: Primitive2d> {
-    /// The outer shape
-    pub outer_shape: P,
-    /// The inner shape (the same shape of a different size)
-    pub inner_shape: P,
-}
-
-impl<P: Primitive2d> Ring<P> {
-    /// Create a new `Ring` from a given `outer_shape` and `inner_shape`.
-    ///
-    /// If the primitive implements [`Inset`] and you would like a uniform thickness, consider using [`ToRing::to_ring`]
-    pub const fn new(outer_shape: P, inner_shape: P) -> Self {
-        Self {
-            outer_shape,
-            inner_shape,
-        }
-    }
-}
-
-impl<T: Primitive2d> Primitive2d for Ring<T> {}
-
-impl<P: Primitive2d + Clone + Inset> Ring<P> {
-    /// Generate a `Ring` from a given `primitive` and a `thickness`.
-    pub fn from_primitive_and_thickness(primitive: P, thickness: f32) -> Self {
-        let hollow = primitive.clone().inset(thickness);
-        Ring::new(primitive, hollow)
-    }
-}
-
-impl<P: Primitive2d + Measured2d> Measured2d for Ring<P> {
-    #[inline]
-    fn area(&self) -> f32 {
-        self.outer_shape.area() - self.inner_shape.area()
-    }
-
-    #[inline]
-    fn perimeter(&self) -> f32 {
-        self.outer_shape.perimeter() + self.inner_shape.perimeter()
-    }
-}
-
-/// Provides a convenience method for converting a primitive to a [`Ring`], with a given thickness.
-///
-/// The primitive must implement [`Inset`].
-pub trait ToRing: Primitive2d + Inset
-where
-    Self: Sized,
-{
-    /// Construct a `Ring`
-    fn to_ring(self, thickness: f32) -> Ring<Self>;
-}
-
-impl<P> ToRing for P
-where
-    P: Primitive2d + Clone + Inset,
-{
-    fn to_ring(self, thickness: f32) -> Ring<Self> {
-        Ring::from_primitive_and_thickness(self, thickness)
     }
 }
 
@@ -2432,8 +2118,6 @@ mod tests {
     fn circle_math() {
         let circle = Circle { radius: 3.0 };
         assert_eq!(circle.diameter(), 6.0, "incorrect diameter");
-        assert_eq!(circle.area(), 28.274334, "incorrect area");
-        assert_eq!(circle.perimeter(), 18.849556, "incorrect perimeter");
     }
 
     #[test]
@@ -2444,8 +2128,6 @@ mod tests {
             Rectangle::new(4.0, 9.0),
             "rectangle wasn't created correctly from a capsule"
         );
-        assert_eq!(capsule.area(), 48.566371, "incorrect area");
-        assert_eq!(capsule.perimeter(), 30.566371, "incorrect perimeter");
     }
 
     #[test]
@@ -2453,21 +2135,15 @@ mod tests {
         let annulus = Annulus::new(2.5, 3.5);
         assert_eq!(annulus.diameter(), 7.0, "incorrect diameter");
         assert_eq!(annulus.thickness(), 1.0, "incorrect thickness");
-        assert_eq!(annulus.area(), 18.849556, "incorrect area");
-        assert_eq!(annulus.perimeter(), 37.699112, "incorrect perimeter");
     }
 
     #[test]
     fn rhombus_math() {
         let rhombus = Rhombus::new(3.0, 4.0);
-        assert_eq!(rhombus.area(), 6.0, "incorrect area");
-        assert_eq!(rhombus.perimeter(), 10.0, "incorrect perimeter");
         assert_eq!(rhombus.side(), 2.5, "incorrect side");
         assert_eq!(rhombus.inradius(), 1.2, "incorrect inradius");
         assert_eq!(rhombus.circumradius(), 2.0, "incorrect circumradius");
         let rhombus = Rhombus::new(0.0, 0.0);
-        assert_eq!(rhombus.area(), 0.0, "incorrect area");
-        assert_eq!(rhombus.perimeter(), 0.0, "incorrect perimeter");
         assert_eq!(rhombus.side(), 0.0, "incorrect side");
         assert_eq!(rhombus.inradius(), 0.0, "incorrect inradius");
         assert_eq!(rhombus.circumradius(), 0.0, "incorrect circumradius");
@@ -2482,7 +2158,6 @@ mod tests {
     #[test]
     fn ellipse_math() {
         let ellipse = Ellipse::new(3.0, 1.0);
-        assert_eq!(ellipse.area(), 9.424778, "incorrect area");
 
         assert_eq!(ellipse.eccentricity(), 0.94280905, "incorrect eccentricity");
 
@@ -2494,30 +2169,7 @@ mod tests {
     }
 
     #[test]
-    fn ellipse_perimeter() {
-        let circle = Ellipse::new(1., 1.);
-        assert_relative_eq!(circle.perimeter(), 6.2831855);
-
-        let line = Ellipse::new(75_000., 0.5);
-        assert_relative_eq!(line.perimeter(), 300_000.);
-
-        let ellipse = Ellipse::new(0.5, 2.);
-        assert_relative_eq!(ellipse.perimeter(), 8.578423);
-
-        let ellipse = Ellipse::new(5., 3.);
-        assert_relative_eq!(ellipse.perimeter(), 25.526999);
-    }
-
-    #[test]
     fn triangle_math() {
-        let triangle = Triangle2d::new(
-            Vec2::new(-2.0, -1.0),
-            Vec2::new(1.0, 4.0),
-            Vec2::new(7.0, 0.0),
-        );
-        assert_eq!(triangle.area(), 21.0, "incorrect area");
-        assert_eq!(triangle.perimeter(), 22.097439, "incorrect perimeter");
-
         let degenerate_triangle =
             Triangle2d::new(Vec2::new(-1., 0.), Vec2::new(0., 0.), Vec2::new(1., 0.));
         assert!(degenerate_triangle.is_degenerate());
@@ -2569,8 +2221,6 @@ mod tests {
             rectangle,
             Rectangle::from_corners(Vec2::new(-1.5, -3.5), Vec2::new(1.5, 3.5))
         );
-        assert_eq!(rectangle.area(), 21.0, "incorrect area");
-        assert_eq!(rectangle.perimeter(), 20.0, "incorrect perimeter");
     }
 
     #[test]
@@ -2578,8 +2228,6 @@ mod tests {
         let polygon = RegularPolygon::new(3.0, 6);
         assert_eq!(polygon.inradius(), 2.598076, "incorrect inradius");
         assert_eq!(polygon.side_length(), 3.0, "incorrect side length");
-        assert_relative_eq!(polygon.area(), 23.38268, epsilon = 0.00001);
-        assert_eq!(polygon.perimeter(), 18.0, "incorrect perimeter");
         assert_eq!(
             polygon.internal_angle_degrees(),
             120.0,

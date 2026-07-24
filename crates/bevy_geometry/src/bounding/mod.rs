@@ -106,12 +106,7 @@ pub trait IntersectsVolume<Volume: BoundingVolume> {
     fn intersects(&self, volume: &Volume) -> bool;
 }
 
-mod bounded2d;
+pub(crate) mod bounded2d;
 pub use bounded2d::*;
-mod bounded3d;
+pub(crate) mod bounded3d;
 pub use bounded3d::*;
-
-mod raycast2d;
-pub use raycast2d::*;
-mod raycast3d;
-pub use raycast3d::*;
