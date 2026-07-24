@@ -1,6 +1,7 @@
 use async_channel::{Receiver, Sender};
 
-use bevy_app::{App, AppExit, AppLabel, Plugin, SubApp};
+use bevy_app::{App, AppExit, Plugin, SubApp};
+use bevy_derive::AppLabel;
 use bevy_ecs::{
     resource::Resource,
     schedule::MainThreadExecutor,
@@ -14,7 +15,7 @@ use crate::RenderApp;
 ///
 /// The Main schedule of this app can be used to run logic after the render schedule starts, but
 /// before I/O processing. This can be useful for something like frame pacing.
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel, Default)]
 pub struct RenderExtractApp;
 
 /// Channels used by the main app to send and receive the render app.
@@ -104,7 +105,7 @@ impl Drop for RenderAppChannels {
 /// - And finally the `main app schedule` is run.
 /// - Once both the `main app schedule` and the `render schedule` are finished running, `extract` is run again.
 ///
-/// [`SyncWorldPlugin`]: crate::sync_world::SyncWorldPlugin
+/// [`SyncWorldPlugin`]: bevy_extract::sync_world::SyncWorldPlugin
 #[derive(Default)]
 pub struct PipelinedRenderingPlugin;
 

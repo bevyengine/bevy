@@ -53,7 +53,6 @@ use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingSupport,
     extract_resource::ExtractResource,
     mesh::RenderMesh,
-    prelude::*,
     render_phase::*,
     render_resource::*,
     renderer::RenderDevice,

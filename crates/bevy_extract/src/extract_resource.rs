@@ -2,14 +2,14 @@ use core::marker::PhantomData;
 
 use bevy_app::{App, AppLabel, Plugin};
 use bevy_ecs::{component::Mutable, prelude::*};
-pub use bevy_render_macros::ExtractResource;
+pub use bevy_extract_macros::ExtractResource;
 use bevy_utils::once;
 
-use crate::{Extract, ExtractSchedule, RenderApp};
+use crate::{Extract, ExtractSchedule};
 
-/// Describes how a resource gets extracted for rendering.
+/// Describes how a resource gets extracted for processing.
 ///
-/// Therefore the resource is transferred from the "main world" into the "render world"
+/// Therefore the resource is transferred from the "main world" into the "sub world"
 /// in the [`ExtractSchedule`] step.
 ///
 /// The marker type `F` is only used as a way to bypass the orphan rules. To
@@ -18,11 +18,11 @@ use crate::{Extract, ExtractSchedule, RenderApp};
 pub trait ExtractResource<L: AppLabel, F = ()>: Resource {
     type Source: Resource;
 
-    /// Defines how the resource is transferred into the "render world".
+    /// Defines how the resource is transferred into the "sub world".
     fn extract_resource(source: &Self::Source) -> Self;
 }
 
-/// This plugin extracts the resources into the "render world".
+/// This plugin extracts the resources into the "sub world".
 ///
 /// Therefore it sets up the[`ExtractSchedule`] step
 /// for the specified [`Resource`].
@@ -30,23 +30,28 @@ pub trait ExtractResource<L: AppLabel, F = ()>: Resource {
 /// The marker type `F` is only used as a way to bypass the orphan rules. To
 /// implement the trait for a foreign type you can use a local type as the
 /// marker, e.g. the type of the plugin that calls [`ExtractResourcePlugin`].
-pub struct ExtractResourcePlugin<R: ExtractResource<RenderApp, F>, F = ()>(PhantomData<(R, F)>);
+pub struct ExtractResourcePlugin<R: ExtractResource<L, F>, L: AppLabel, F = ()>(
+    PhantomData<(R, L, F)>,
+);
 
-impl<R: ExtractResource<RenderApp, F>, F> Default for ExtractResourcePlugin<R, F> {
+impl<R: ExtractResource<L, F>, L: AppLabel, F> Default for ExtractResourcePlugin<R, L, F> {
     fn default() -> Self {
         Self(PhantomData)
     }
 }
 
-impl<R: ExtractResource<RenderApp, F, Mutability = Mutable>, F: 'static + Send + Sync> Plugin
-    for ExtractResourcePlugin<R, F>
+impl<
+        R: ExtractResource<L, F, Mutability = Mutable>,
+        L: AppLabel + Default,
+        F: 'static + Send + Sync,
+    > Plugin for ExtractResourcePlugin<R, L, F>
 {
     fn build(&self, app: &mut App) {
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.add_systems(ExtractSchedule, extract_resource::<R, F>);
+        if let Some(sub_app) = app.get_sub_app_mut(L::default()) {
+            sub_app.add_systems(ExtractSchedule, extract_resource::<R, L, F>);
         } else {
             once!(bevy_log::error!(
-                "Render app did not exist when trying to add `extract_resource` for <{}>.",
+                "Sub app did not exist when trying to add `extract_resource` for <{}>.",
                 core::any::type_name::<R>()
             ));
         }
@@ -54,7 +59,7 @@ impl<R: ExtractResource<RenderApp, F, Mutability = Mutable>, F: 'static + Send +
 }
 
 /// This system extracts the resource of the corresponding [`Resource`] type
-pub fn extract_resource<R: ExtractResource<RenderApp, F, Mutability = Mutable>, F>(
+pub fn extract_resource<R: ExtractResource<L, F, Mutability = Mutable>, L: AppLabel, F>(
     mut commands: Commands,
     main_resource: Extract<Option<Res<R::Source>>>,
     target_resource: Option<ResMut<R>>,
@@ -68,7 +73,7 @@ pub fn extract_resource<R: ExtractResource<RenderApp, F, Mutability = Mutable>, 
             #[cfg(debug_assertions)]
             if !main_resource.is_added() {
                 once!(bevy_log::warn!(
-                    "Removing resource {} from render world not expected, adding using `Commands`.
+                    "Removing resource {} from sub world not expected, adding using `Commands`.
                 This may decrease performance",
                     core::any::type_name::<R>()
                 ));
