@@ -8,9 +8,8 @@
 use bevy::{
     color::palettes::css::{GOLD, ORANGE},
     picking::hover::Hovered,
-    platform::collections::HashSet,
     prelude::*,
-    ui::{widget::NodeImageMode, Pressed},
+    ui::{interaction_states::OptionPressedExt, widget::NodeImageMode, Pressed},
     ui_widgets::Button,
 };
 
@@ -30,18 +29,12 @@ fn main() {
 /// also restyle any button that just had `Pressed` removed this frame.
 fn button_system(
     mut buttons: Query<
-        (
-            Entity,
-            Option<&Pressed>,
-            &Hovered,
-            &mut ImageNode,
-            &Children,
-        ),
+        (Option<&Pressed>, &Hovered, &mut ImageNode, &Children),
         (Or<(Changed<Hovered>, Changed<Pressed>)>, With<Button>),
     >,
     mut text_query: Query<&mut Text>,
 ) {
-    for (entity, pressed, hovered, mut image, children) in &mut buttons {
+    for (pressed, hovered, mut image, children) in &mut buttons {
         set_button_style(
             pressed.is_pressed(),
             hovered.get(),
