@@ -36,9 +36,7 @@ use bevy_render::{
         Variants,
     },
     renderer::{RenderContext, RenderDevice, ViewQuery},
-    view::{
-        ExtractedView, PostProcessBindGroupCache, PostProcessBindGroupCacheBuilder, ViewTarget,
-    },
+    view::{PostProcessBindGroupCache, PostProcessBindGroupCacheBuilder, ViewTarget},
     Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::ShaderRef;
@@ -195,7 +193,7 @@ fn prepare_fullscreen_material_pipelines<T: FullscreenMaterial>(
     mut pipeline: ResMut<FullscreenMaterialPipeline<T>>,
     views: Query<(Entity, &ViewTargetInfo, Option<&T>), With<ExtractedCamera>>,
 ) -> Result<(), BevyError> {
-    for (entity, view, material) in &views {
+    for (entity, target_info, material) in &views {
         if material.is_none() {
             commands
                 .entity(entity)

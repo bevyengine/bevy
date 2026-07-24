@@ -34,7 +34,7 @@ use bevy_render::{
     },
     renderer::{RenderContext, ViewQuery},
     sync_component::SyncComponent,
-    view::{prepare_view_targets, Msaa, ViewDepthStencilTexture, ViewTarget},
+    view::{prepare_view_targets, ViewDepthStencilTexture, ViewTarget},
     GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
 

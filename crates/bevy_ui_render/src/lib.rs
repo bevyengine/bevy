@@ -27,6 +27,7 @@ use bevy_ecs::entity::EntityIndexMap;
 use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_render::camera::{extract_cameras, ViewTargetInfo};
+use bevy_render::sync_world::{MainEntityHashMap, MainEntityHashSet};
 use bevy_shader::load_shader_library;
 use bevy_sprite_render::SpriteAssetEvents;
 use bevy_ui::widget::{ImageNode, ImageNodeSize, NodeImageMode, Text, TextShadow, ViewportNode};
@@ -257,7 +258,8 @@ impl Plugin for UiRenderPlugin {
                 ExtractSchedule,
                 (
                     extract_uinode_changes.in_set(RenderUiSystems::ExtractChanges),
-                    extract_ui_camera_view
+                    (extract_ui_camera_view, extract_ui_view_target_info)
+                        .chain()
                         .after(extract_cameras)
                         .in_set(RenderUiSystems::ExtractCameraViews),
                     extract_uinode_background_colors.in_set(RenderUiSystems::ExtractBackgrounds),
@@ -276,7 +278,6 @@ impl Plugin for UiRenderPlugin {
             .add_systems(
                 Render,
                 (
-                    parepare_ui_view_target_info.in_set(RenderSystems::PrepareAssets),
                     queue_uinodes.in_set(RenderSystems::Queue),
                     sort_phase_system::<TransparentUi>.in_set(RenderSystems::PhaseSort),
                     prepare_uinodes.in_set(RenderSystems::PrepareBindGroups),
@@ -1160,7 +1161,6 @@ pub fn extract_ui_camera_view(
             )>,
         >,
     >,
-    main_pass_formats: Res<CameraMainPassTextureFormats>,
     mut live_entities: Local<HashSet<RetainedViewEntity>>,
     mut cached_ui_view_data: Local<MainEntityHashMap<CachedUiViewData>>,
     (
@@ -1196,10 +1196,9 @@ pub fn extract_ui_camera_view(
         let retained_view_entity = RetainedViewEntity::new(main_entity, None, UI_CAMERA_SUBVIEW);
 
         // ignore inactive cameras
-        if let (Some(physical_viewport_rect), Some(target_size), Some(target_format)) = (
+        if let (Some(physical_viewport_rect), Some(target_size)) = (
             camera.physical_viewport_rect(),
             camera.physical_target_size(),
-            main_pass_formats.get(&render_entity).copied(),
         ) && target_size.x != 0
             && target_size.y != 0
             && camera.physical_viewport_size().is_some()
@@ -1225,29 +1224,31 @@ pub fn extract_ui_camera_view(
             // We use `UI_CAMERA_SUBVIEW` here so as not to conflict with the
             // main 3D or 2D camera, which will have subview index 0.
             // Creates the UI view.
-            let ui_camera_view = commands
-                .spawn((
-                    ExtractedView {
-                        retained_view_entity,
-                        clip_from_view: projection_matrix,
-                        world_from_view: GlobalTransform::from_xyz(
-                            0.0,
-                            0.0,
-                            UI_CAMERA_FAR + UI_CAMERA_TRANSFORM_OFFSET,
-                        ),
-                        clip_from_world: None,
-                        viewport: UVec4::from((
-                            physical_viewport_rect.min,
-                            physical_viewport_rect.size(),
-                        )),
-                        color_grading: Default::default(),
-                        invert_culling: false,
-                    },
-                    // Link to the main camera view.
-                    UiViewTarget(render_entity),
-                    TemporaryRenderEntity,
-                ))
-                .id();
+            let extracted_view = ExtractedView {
+                retained_view_entity,
+                clip_from_view: projection_matrix,
+                world_from_view: GlobalTransform::from_xyz(
+                    0.0,
+                    0.0,
+                    UI_CAMERA_FAR + UI_CAMERA_TRANSFORM_OFFSET,
+                ),
+                clip_from_world: None,
+                viewport: UVec4::from((physical_viewport_rect.min, physical_viewport_rect.size())),
+                color_grading: Default::default(),
+                invert_culling: false,
+            };
+            // Link to the main camera view.
+            let ui_view_target_component = UiViewTarget(render_entity);
+
+            let ui_camera_view = match cached_ui_view_data.get(&main_entity) {
+                Some(cached_ui_view_data) => commands
+                    .entity(cached_ui_view_data.extracted_view_entity)
+                    .insert((extracted_view, ui_view_target_component))
+                    .id(),
+                None => commands
+                    .spawn((extracted_view, ui_view_target_component))
+                    .id(),
+            };
 
             let mut entity_commands = commands
                 .get_entity(render_entity)
@@ -1308,7 +1309,7 @@ pub fn extract_ui_camera_view(
     transparent_render_phases.retain(|entity, _| live_entities.contains(entity));
 }
 
-pub fn parepare_ui_view_target_info(
+pub fn extract_ui_view_target_info(
     mut commands: Commands,
     render_views: Query<(&UiCameraView, &ViewTargetInfo), With<ExtractedView>>,
 ) {
@@ -2032,21 +2033,21 @@ pub fn queue_uinodes(
                     .get(extracted_uinode.extracted_camera_entity)
                     .ok()
                     .and_then(|(default_camera_view, ui_anti_alias)| {
-                        camera_views
-                            .get(default_camera_view.0)
-                            .ok()
-                            .and_then(|view| {
+                        camera_views.get(default_camera_view.0).ok().and_then(
+                            |(view, target_info)| {
                                 transparent_render_phases
                                     .get_mut(&view.retained_view_entity)
                                     .map(|transparent_phase| {
-                                        (view, ui_anti_alias, transparent_phase)
+                                        (ui_anti_alias, transparent_phase, target_info.color_format)
                                     })
-                            })
+                            },
+                        )
                     });
                 current_camera_entity = extracted_uinode.extracted_camera_entity;
             }
 
-            let Some((view, ui_anti_alias, transparent_phase)) = current_phase.as_mut() else {
+            let Some((ui_anti_alias, transparent_phase, color_format)) = current_phase.as_mut()
+            else {
                 continue;
             };
 
@@ -2054,7 +2055,7 @@ pub fn queue_uinodes(
                 &pipeline_cache,
                 &ui_pipeline,
                 UiPipelineKey {
-                    target_format: view.target_format,
+                    target_format: *color_format,
                     anti_alias: matches!(ui_anti_alias, None | Some(UiAntiAlias::On)),
                 },
             );

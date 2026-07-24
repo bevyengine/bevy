@@ -30,7 +30,7 @@ use bevy_math::{Affine3A, Mat4, Vec2, Vec4};
 use bevy_mesh::{Mesh, Mesh3d, MeshAttributeCompressionFlags, MeshVertexBufferLayoutRef};
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingSupport,
-    camera::{DirtySpecializations, PendingQueues, TemporalJitter,ViewTargetInfo},
+    camera::{DirtySpecializations, PendingQueues, TemporalJitter, ViewTargetInfo},
     globals::{GlobalsBuffer, GlobalsUniform},
     mesh::{allocator::MeshAllocator, RenderMesh},
     render_asset::{prepare_assets, RenderAssets},

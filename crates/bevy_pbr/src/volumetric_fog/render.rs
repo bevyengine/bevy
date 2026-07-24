@@ -36,7 +36,7 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice, RenderQueue, ViewQuery},
     sync_world::RenderEntity,
     texture::GpuImage,
-    view::{ExtractedView, Msaa, ViewDepthStencilTexture, ViewTarget},
+    view::{ExtractedView, ViewDepthStencilTexture, ViewTarget},
     Extract,
 };
 use bevy_shader::Shader;

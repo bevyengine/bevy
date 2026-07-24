@@ -412,9 +412,9 @@ pub fn queue_ui_slices(
                 continue;
             };
 
-        let Ok((view, target_info)) = camera_views.get(default_camera_view.0) else {
-            continue;
-        };
+            let Ok((view, target_info)) = camera_views.get(default_camera_view.0) else {
+                continue;
+            };
 
             let Some(transparent_phase) =
                 transparent_render_phases.get_mut(&view.retained_view_entity)
@@ -422,13 +422,13 @@ pub fn queue_ui_slices(
                 continue;
             };
 
-        let pipeline = pipelines.specialize(
-            &pipeline_cache,
-            &ui_slicer_pipeline,
-            UiTextureSlicePipelineKey {
-                target_format: target_info.color_format,
-            },
-        );
+            let pipeline = pipelines.specialize(
+                &pipeline_cache,
+                &ui_slicer_pipeline,
+                UiTextureSlicePipelineKey {
+                    target_format: target_info.color_format,
+                },
+            );
 
             transparent_phase.add_transient(TransparentUi {
                 draw_function,

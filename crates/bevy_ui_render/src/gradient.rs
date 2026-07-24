@@ -25,6 +25,7 @@ use bevy_render::{
     render_phase::*,
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
+    sync_world::{MainEntityHashMap, MainEntityHashSet},
     view::*,
     Extract, ExtractSchedule, Render, RenderSystems,
 };
@@ -687,9 +688,9 @@ pub fn queue_gradient(
                 continue;
             };
 
-        let Ok((view, target_info)) = camera_views.get(default_camera_view.0) else {
-            continue;
-        };
+            let Ok((view, target_info)) = camera_views.get(default_camera_view.0) else {
+                continue;
+            };
 
             let Some(transparent_phase) =
                 transparent_render_phases.get_mut(&view.retained_view_entity)
@@ -697,15 +698,15 @@ pub fn queue_gradient(
                 continue;
             };
 
-        let pipeline = pipelines.specialize(
-            &pipeline_cache,
-            &gradients_pipeline,
-            UiGradientPipelineKey {
-                anti_alias: matches!(ui_anti_alias, None | Some(UiAntiAlias::On)),
-                color_space: gradient.color_space,
-                target_format: target_info.color_format,
-            },
-        );
+            let pipeline = pipelines.specialize(
+                &pipeline_cache,
+                &gradients_pipeline,
+                UiGradientPipelineKey {
+                    anti_alias: matches!(ui_anti_alias, None | Some(UiAntiAlias::On)),
+                    color_space: gradient.color_space,
+                    target_format: target_info.color_format,
+                },
+            );
 
             transparent_phase.add_transient(TransparentUi {
                 draw_function,

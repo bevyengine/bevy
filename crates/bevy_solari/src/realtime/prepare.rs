@@ -15,8 +15,9 @@ use bevy_ecs::{
 #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
 use bevy_image::ToExtents;
 use bevy_math::UVec2;
+#[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))]
+use bevy_render::camera::ViewTargetInfo;
 use bevy_render::{
-    camera::ExtractedCamera,
     render_resource::{Buffer, BufferDescriptor, BufferInitDescriptor, BufferUsages},
     renderer::{RenderDevice, RenderQueue},
 };

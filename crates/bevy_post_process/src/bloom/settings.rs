@@ -224,7 +224,7 @@ impl SyncComponent<RenderApp> for Bloom {
     type Target = (Self, BloomUniforms);
 }
 
-impl ExtractComponent for Bloom {
+impl ExtractComponent<RenderApp> for Bloom {
     type QueryData = &'static Self;
     type QueryFilter = With<Hdr>;
     type Out = (Self, BloomUniforms);

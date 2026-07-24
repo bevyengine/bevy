@@ -124,7 +124,7 @@ impl ExtractResource<RenderApp> for ClearColor {
     }
 }
 
-impl SyncComponent for Camera2d {
+impl SyncComponent<RenderApp> for Camera2d {
     type Target = Self;
 }
 
@@ -607,7 +607,7 @@ pub fn extract_cameras(
                     .and_then(|target| {
                         target
                             .get_texture_view_format(
-                                &extracted_windows,
+                                &extracted_swap_chains,
                                 &images,
                                 &manual_texture_views,
                             )

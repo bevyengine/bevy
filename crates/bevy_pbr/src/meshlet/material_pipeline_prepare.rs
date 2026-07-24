@@ -20,10 +20,12 @@ use bevy_mesh::{
     MeshVertexBufferLayouts,
 };
 use bevy_platform::collections::{HashMap, HashSet};
-use bevy_render::{camera::ExtractedCamera, erased_render_asset::ErasedRenderAssets};
 use bevy_render::{
     camera::TemporalJitter, material_bind_groups::MaterialBindGroupAllocators, render_resource::*,
-    view::ExtractedView,
+};
+use bevy_render::{
+    camera::{ExtractedCamera, ViewTargetInfo},
+    erased_render_asset::ErasedRenderAssets,
 };
 use bevy_utils::default;
 use core::any::TypeId;

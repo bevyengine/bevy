@@ -3,7 +3,7 @@ use bevy_asset::{embedded_asset, load_embedded_asset, AssetId, AssetServer, Hand
 use bevy_camera::{visibility::ViewVisibility, Camera2d, CompositingSpace};
 use bevy_platform::collections::HashMap;
 use bevy_render::{
-    camera::{DirtySpecializations, ExtractedCamera},
+    camera::{DirtySpecializations, ExtractedCamera, ViewTargetInfo},
     material_bind_groups::{
         MaterialBindGroupIndex, MaterialBindGroupSlot, MaterialBindingId, RenderMaterialBindings,
     },

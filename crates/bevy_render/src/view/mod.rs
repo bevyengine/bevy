@@ -242,7 +242,6 @@ impl Plugin for ViewPlugin {
     Debug,
 )]
 #[reflect(Component, Default, PartialEq, Hash, Debug)]
-#[extract_app(RenderApp)]
 pub enum Msaa {
     Off = 1,
     Sample2 = 2,
