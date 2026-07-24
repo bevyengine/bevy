@@ -4,6 +4,7 @@ use bevy::{
     color::palettes::basic,
     ecs::{relationship::RelatedSpawner, spawn::SpawnWith},
     prelude::*,
+    ui_widgets::{observe, Activate, Button},
 };
 use std::fmt::Debug;
 
@@ -85,41 +86,27 @@ fn on_trigger_menu(event: On<OpenContextMenu>, mut commands: Commands) {
 
     debug!("open context menu at: {pos}");
 
-    commands
-        .spawn((
-            Name::new("context menu"),
-            ContextMenu,
-            Node {
-                position_type: PositionType::Absolute,
-                left: px(pos.x),
-                top: px(pos.y),
-                flex_direction: FlexDirection::Column,
-                border_radius: BorderRadius::all(px(4)),
-                ..default()
-            },
-            BorderColor::all(Color::BLACK),
-            BackgroundColor(Color::linear_rgb(0.1, 0.1, 0.1)),
-            children![
-                context_item("fuchsia", basic::FUCHSIA),
-                context_item("gray", basic::GRAY),
-                context_item("maroon", basic::MAROON),
-                context_item("purple", basic::PURPLE),
-                context_item("teal", basic::TEAL),
-            ],
-        ))
-        .observe(
-            |event: On<Pointer<Press>>,
-             menu_items: Query<&ContextMenuItem>,
-             mut clear_col: ResMut<ClearColor>,
-             mut commands: Commands| {
-                let target = event.original_event_target();
-
-                if let Ok(item) = menu_items.get(target) {
-                    clear_col.0 = item.0.into();
-                    commands.trigger(CloseContextMenus);
-                }
-            },
-        );
+    commands.spawn((
+        Name::new("context menu"),
+        ContextMenu,
+        Node {
+            position_type: PositionType::Absolute,
+            left: px(pos.x),
+            top: px(pos.y),
+            flex_direction: FlexDirection::Column,
+            border_radius: BorderRadius::all(px(4)),
+            ..default()
+        },
+        BorderColor::all(Color::BLACK),
+        BackgroundColor(Color::linear_rgb(0.1, 0.1, 0.1)),
+        children![
+            context_item("fuchsia", basic::FUCHSIA),
+            context_item("gray", basic::GRAY),
+            context_item("maroon", basic::MAROON),
+            context_item("purple", basic::PURPLE),
+            context_item("teal", basic::TEAL),
+        ],
+    ));
 }
 
 fn context_item(text: &str, col: Srgba) -> impl Bundle {
@@ -140,6 +127,18 @@ fn context_item(text: &str, col: Srgba) -> impl Bundle {
             },
             TextColor(Color::WHITE),
         )],
+        // Activating an item sets the `ClearColor` and then closes the context menu
+        observe(
+            |event: On<Activate>,
+             menu_items: Query<&ContextMenuItem>,
+             mut clear_col: ResMut<ClearColor>,
+             mut commands: Commands| {
+                if let Ok(item) = menu_items.get(event.entity) {
+                    clear_col.0 = item.0.into();
+                    commands.trigger(CloseContextMenus);
+                }
+            },
+        ),
     )
 }
 
