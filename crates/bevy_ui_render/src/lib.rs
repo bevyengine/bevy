@@ -396,7 +396,8 @@ pub struct ExtractedGlyph {
 /// gradients associated with a main-world entity when it changes.
 #[derive(Resource, Default)]
 pub struct ExtractedUiNodes {
-    /// The list of UI nodes.
+    /// The list of UI nodes grouped by their main-world entity, along with
+    /// each group's target camera entity.
     ///
     /// This is a two-level data structure so that we can quickly remove all UI
     /// nodes associated with a main-world entity when it changes.
@@ -2022,29 +2023,33 @@ pub fn queue_uinodes(
                         .and_then(|view| {
                             transparent_render_phases
                                 .get_mut(&view.retained_view_entity)
-                                .map(|transparent_phase| (view, ui_anti_alias, transparent_phase))
+                                .map(|transparent_phase| {
+                                    let pipeline = pipelines.specialize(
+                                        &pipeline_cache,
+                                        &ui_pipeline,
+                                        UiPipelineKey {
+                                            target_format: view.target_format,
+                                            anti_alias: matches!(
+                                                ui_anti_alias,
+                                                None | Some(UiAntiAlias::On)
+                                            ),
+                                        },
+                                    );
+                                    (pipeline, transparent_phase)
+                                })
                         })
                 },
             );
             current_camera_entity = *extracted_camera_entity;
         }
+
+        let Some((pipeline, transparent_phase)) = current_phase.as_mut() else {
+            continue;
+        };
         for (render_entity, extracted_uinode) in extracted_sub_uinodes.iter() {
-            let Some((view, ui_anti_alias, transparent_phase)) = current_phase.as_mut() else {
-                continue;
-            };
-
-            let pipeline = pipelines.specialize(
-                &pipeline_cache,
-                &ui_pipeline,
-                UiPipelineKey {
-                    target_format: view.target_format,
-                    anti_alias: matches!(ui_anti_alias, None | Some(UiAntiAlias::On)),
-                },
-            );
-
             transparent_phase.add_transient(TransparentUi {
                 draw_function,
-                pipeline,
+                pipeline: *pipeline,
                 entity: (*render_entity, *main_entity),
                 sort_key: FloatOrd(extracted_uinode.z_order),
                 // batch_range will be calculated in prepare_uinodes
