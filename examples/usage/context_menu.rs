@@ -2,7 +2,6 @@
 
 use bevy::{
     color::palettes::basic,
-    ecs::{relationship::RelatedSpawner, spawn::SpawnWith},
     prelude::*,
     ui_widgets::{ListBox, ListItem, ValueChange},
 };
