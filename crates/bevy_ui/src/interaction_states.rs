@@ -1,12 +1,7 @@
 /// This module contains components that are used to track the interaction state of UI widgets.
 use bevy_a11y::AccessibilityNode;
 use bevy_ecs::{
-    change_detection::Mut,
-    component::Component,
-    lifecycle::{Add, Remove},
-    observer::On,
-    reflect::ReflectComponent,
-    world::DeferredWorld,
+    change_detection::{DetectChanges, Mut, Ref}, component::Component, entity::Entity, lifecycle::{Add, Remove}, observer::On, reflect::ReflectComponent, system::{Commands, Local, Query}, world::DeferredWorld,
 };
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
@@ -43,10 +38,11 @@ pub(crate) fn on_remove_disabled(
 /// Component that indicates whether a button or widget is currently in a pressed or "held down"
 /// state.
 ///
-/// When this component is first inserted into a button or widget, its value is true.
-/// When this button or widget is no longer being pressed, its value is false for a frame
-/// before being removed from the entity. This enables change detection for when
-/// this entity has transitioned from being pressed to not being pressed.
+/// When this component is first inserted into a button or widget, its value should be set to true.
+/// When this button or widget is no longer being pressed, its value should be set to false. 
+/// 
+/// If the component's value is false for one whole frame, the [`remove_pressed_on_next_frame()`]
+/// system that runs in the `Last` schedule removes the `Pressed` component from the entity.
 #[derive(Component, Debug, Clone, Copy, Reflect)]
 #[reflect(Component, Default, Clone)]
 pub struct Pressed(pub bool);
@@ -80,6 +76,31 @@ impl OptionPressedExt for Option<Mut<'_, Pressed>> {
     fn is_pressed(&self) -> bool {
         self.as_ref().is_some_and(|pressed| pressed.get())
     }
+}
+
+/// System that removes the `Pressed` component after all possible systems could have reacted
+/// to its changing to false via change detection. It runs in the `Last` schedule.
+pub fn remove_pressed_on_next_frame(
+    mut presses_to_clear: Local<Vec<Entity>>,
+    pressed_false_q: Query<(Entity, Ref<Pressed>)>,
+    mut commands: Commands,
+) {
+    for button_entity in presses_to_clear.drain(..) {
+        // If the button has stayed false for a whole frame, remove its component.
+        if let Ok((_, pressed)) = pressed_false_q.get(button_entity)
+            && !pressed.is_changed() && !pressed.get()
+        {
+            commands.entity(button_entity).remove::<Pressed>();
+        }
+    }
+
+    // Queue up the next buttons that will have `Pressed` remove on the next frame.
+    for (button_entity, pressed) in pressed_false_q {
+        if !pressed.get() {
+            presses_to_clear.push(button_entity);
+        }
+    }
+    presses_to_clear.shrink_to_fit();
 }
 
 /// Component that indicates that a widget can be checked.

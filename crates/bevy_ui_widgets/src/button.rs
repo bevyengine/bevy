@@ -1,6 +1,6 @@
 use accesskit::Role;
 use bevy_a11y::AccessibilityNode;
-use bevy_app::{App, Last, Plugin};
+use bevy_app::{App, Plugin};
 use bevy_ecs::query::Has;
 use bevy_ecs::{
     component::Component,
@@ -146,31 +146,6 @@ fn button_on_pointer_cancel(
     }
 }
 
-/// System that removes the `Pressed` component after all possible systems could have reacted
-/// to its changing to false via change detection.
-fn remove_pressed_on_next_frame(
-    mut presses_to_clear: Local<Vec<Entity>>,
-    pressed_false_q: Query<(Entity, &Pressed), With<Button>>,
-    mut commands: Commands,
-) {
-    for button_entity in presses_to_clear.drain(..) {
-        // If the button has stayed false for the whole frame, remove its component.
-        if let Ok((_, pressed)) = pressed_false_q.get(button_entity)
-            && !pressed.get()
-        {
-            commands.entity(button_entity).remove::<Pressed>();
-        }
-    }
-
-    // Queue up the next buttons that will have `Pressed` remove on the next frame.
-    for (button_entity, pressed) in pressed_false_q {
-        if !pressed.get() {
-            presses_to_clear.push(button_entity);
-        }
-    }
-    presses_to_clear.shrink_to_fit();
-}
-
 /// Plugin that adds the observers for the [`Button`] widget.
 pub struct ButtonPlugin;
 
@@ -181,7 +156,6 @@ impl Plugin for ButtonPlugin {
             .add_observer(button_on_pointer_up)
             .add_observer(button_on_pointer_click)
             .add_observer(button_on_pointer_drag_end)
-            .add_observer(button_on_pointer_cancel)
-            .add_systems(Last, remove_pressed_on_next_frame);
+            .add_observer(button_on_pointer_cancel);
     }
 }
