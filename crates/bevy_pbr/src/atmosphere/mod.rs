@@ -76,7 +76,8 @@ use bevy_shader::load_shader_library;
 use environment::{
     atmosphere_environment, init_atmosphere_probe_layout, init_atmosphere_probe_pipeline,
     prepare_atmosphere_probe_bind_groups, prepare_atmosphere_probe_components,
-    prepare_probe_textures, AtmosphereEnvironmentMap,
+    prepare_probe_textures, request_atmosphere_environment_map_regeneration,
+    AtmosphereEnvironmentMap,
 };
 use node::{atmosphere_luts, render_sky};
 use resources::{
@@ -116,7 +117,16 @@ impl Plugin for AtmospherePlugin {
             UniformComponentPlugin::<GpuAtmosphere>::default(),
             UniformComponentPlugin::<GpuAtmosphereSettings>::default(),
         ))
-        .add_systems(Update, prepare_atmosphere_probe_components);
+        .add_systems(
+            Update,
+            (
+                prepare_atmosphere_probe_components,
+                request_atmosphere_environment_map_regeneration
+                    .ambiguous_with(crate::light_probe::generate::generate_environment_map_light)
+                    .ambiguous_with(crate::light_probe::generate::regenerate_on_component_change)
+                    .ambiguous_with(crate::light_probe::generate::regenerate_on_asset_event),
+            ),
+        );
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_systems(ExtractSchedule, extract_atmosphere);
