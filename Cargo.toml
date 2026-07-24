@@ -5125,6 +5125,18 @@ category = "Picking"
 wasm = true
 
 [[example]]
+name = "ui_image_picking"
+path = "examples/picking/ui_image_picking.rs"
+doc-scrape-examples = true
+required-features = ["ui_picking"]
+
+[package.metadata.example.ui_image_picking]
+name = "UI Image Picking"
+description = "Demonstrates alpha-based picking for UI image nodes"
+category = "Picking"
+wasm = true
+
+[[example]]
 name = "debug_picking"
 path = "examples/picking/debug_picking.rs"
 doc-scrape-examples = true

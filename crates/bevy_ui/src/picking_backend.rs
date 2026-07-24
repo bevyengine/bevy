@@ -23,9 +23,12 @@
 
 use crate::{clip_check_recursive, prelude::*, ui_transform::UiGlobalTransform, UiStack};
 use bevy_app::prelude::*;
+use bevy_asset::prelude::*;
 use bevy_camera::{visibility::InheritedVisibility, Camera, RenderTarget};
+use bevy_color::prelude::*;
 use bevy_ecs::{prelude::*, query::QueryData};
-use bevy_math::Vec2;
+use bevy_image::prelude::*;
+use bevy_math::{Rect, Vec2};
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{ComputedTextBlock, TextLayoutInfo};
@@ -41,6 +44,29 @@ use bevy_picking::backend::prelude::*;
 #[reflect(Debug, Default, Component)]
 pub struct UiPickingCamera;
 
+/// An optional component that specifies how [`UiPickingPlugin`] should handle
+/// picking for a UI node, in particular how it treats the transparent pixels of
+/// an [`ImageNode`].
+///
+/// The picking mode can be set globally via
+/// [`UiPickingSettings::picking_mode`], and overridden on a per-node basis by
+/// adding this component to a UI node entity.
+#[derive(Debug, Clone, Copy, Component, Reflect)]
+#[reflect(Debug, Clone, Component)]
+pub enum UiPickingMode {
+    /// Even if a node is picked over a transparent pixel, it should still count
+    /// as a hit. Only the bounding box of the node is considered.
+    ///
+    /// This is also the effective behavior for nodes without an [`ImageNode`],
+    /// since they have no texture to sample. Such nodes are always treated as
+    /// hits regardless of the mode.
+    BoundingBox,
+    /// Ignore any part of an [`ImageNode`] which has a lower alpha value than
+    /// the threshold (inclusive). The threshold is given as an `f32`
+    /// representing the alpha value in a Bevy [`Color`].
+    AlphaThreshold(f32),
+}
+
 /// Runtime settings for the [`UiPickingPlugin`].
 #[derive(Resource, Reflect)]
 #[reflect(Resource, Default)]
@@ -51,20 +77,23 @@ pub struct UiPickingSettings {
     /// This setting is provided to give you fine-grained control over which cameras and entities
     /// should be used by the UI picking backend at runtime.
     pub require_markers: bool,
+    /// Whether the backend should count transparent pixels of image nodes as
+    /// part of the node for picking purposes, or whether it should use the
+    /// bounding box of the node alone.
+    ///
+    /// This only affects nodes with an [`ImageNode`]. Nodes without a texture
+    /// to sample are always treated as hits. It is the global default and can
+    /// be overridden per-node with the [`UiPickingMode`] component.
+    ///
+    /// Defaults to an inclusive alpha threshold of 0.1.
+    pub picking_mode: UiPickingMode,
 }
 
-#[expect(
-    clippy::allow_attributes,
-    reason = "clippy::derivable_impls is not always linted"
-)]
-#[allow(
-    clippy::derivable_impls,
-    reason = "Known false positive with clippy: <https://github.com/rust-lang/rust-clippy/issues/13160>"
-)]
 impl Default for UiPickingSettings {
     fn default() -> Self {
         Self {
             require_markers: false,
+            picking_mode: UiPickingMode::AlphaThreshold(0.1),
         }
     }
 }
@@ -92,6 +121,8 @@ pub struct NodeQuery {
     inherited_visibility: Option<&'static InheritedVisibility>,
     target_camera: &'static ComputedUiTargetCamera,
     text_node: Option<(&'static TextLayoutInfo, &'static ComputedTextBlock)>,
+    image: Option<&'static ImageNode>,
+    picking_mode: Option<&'static UiPickingMode>,
 }
 
 /// Computes the UI node entities under each pointer.
@@ -103,6 +134,8 @@ pub fn ui_picking(
     camera_query: Query<(Entity, &Camera, &RenderTarget, Has<UiPickingCamera>)>,
     primary_window: Query<Entity, With<PrimaryWindow>>,
     settings: Res<UiPickingSettings>,
+    images: Res<Assets<Image>>,
+    texture_atlases: Res<Assets<TextureAtlasLayout>>,
     ui_stack: Res<UiStack>,
     node_query: Query<NodeQuery>,
     mut output: MessageWriter<PointerHits>,
@@ -229,16 +262,42 @@ pub fn ui_picking(
                                 .then_some(node_entity)
                         })
                 {
-                    hit_nodes
-                        .entry((camera_entity, *pointer_id))
-                        .or_default()
-                        .push((
-                            target,
-                            camera_entity,
-                            node.pickable.cloned(),
-                            node.transform.inverse().transform_point2(*cursor_position)
-                                / node.node.size(),
-                        ));
+                    // Normalized cursor position relative to the node, with
+                    // `(-0.5, -0.5)` at the top left and `(0.5, 0.5)` at the
+                    // bottom right.
+                    let relative_cursor_position =
+                        node.transform.inverse().transform_point2(*cursor_position)
+                            / node.node.size();
+
+                    let picking_mode = node.picking_mode.copied().unwrap_or(settings.picking_mode);
+
+                    let hit = match picking_mode {
+                        UiPickingMode::BoundingBox => true,
+                        UiPickingMode::AlphaThreshold(cutoff) => match node.image {
+                            Some(image_node) => image_node_contains_opaque_pixel(
+                                image_node,
+                                relative_cursor_position + 0.5, // convert to a `0..1` UV with `(0, 0)` at the top left
+                                cutoff,
+                                &images,
+                                &texture_atlases,
+                            ),
+                            // Nodes without an image have no texture to sample,
+                            // so they are always treated as hits.
+                            None => true,
+                        },
+                    };
+
+                    if hit {
+                        hit_nodes
+                            .entry((camera_entity, *pointer_id))
+                            .or_default()
+                            .push((
+                                target,
+                                camera_entity,
+                                node.pickable.cloned(),
+                                relative_cursor_position,
+                            ));
+                    }
                 }
             }
         }
@@ -279,6 +338,73 @@ pub fn ui_picking(
     }
 }
 
+/// Returns `true` if the pixel of `image_node`'s texture under `uv` (normalized
+/// `0..1` with `(0, 0)` at the top left) has an alpha value greater than
+/// `cutoff`.
+///
+/// Nodes whose image can't be sampled are treated as hits. This includes nodes
+/// whose image asset isn't available (e.g., it is still loading or failed to
+/// load) and nodes using a non-linear image mode such as
+/// [`NodeImageMode::Sliced`] or [`NodeImageMode::Tiled`], which don't map
+/// linearly from the node to the texture.
+fn image_node_contains_opaque_pixel(
+    image_node: &ImageNode,
+    uv: Vec2,
+    cutoff: f32,
+    images: &Assets<Image>,
+    texture_atlases: &Assets<TextureAtlasLayout>,
+) -> bool {
+    // Sliced and tiled image modes don't map linearly from the node to the
+    // texture, so we can't easily sample the pixel under the cursor. Treat
+    // these as hits.
+    if image_node.image_mode.uses_slices() {
+        return true;
+    }
+
+    let Some(image) = images.get(&image_node.image) else {
+        // The image asset isn't available (e.g., it is still loading or failed
+        // to load), so we can't inspect its pixels. Fall back to a bounding-box
+        // hit rather than making the node unpickable.
+        return true;
+    };
+
+    let image_size = image.size();
+
+    let atlas_rect = image_node
+        .texture_atlas
+        .as_ref()
+        .and_then(|atlas| atlas.texture_rect(texture_atlases))
+        .map(|rect| rect.as_rect());
+    let texture_rect = match (atlas_rect, image_node.rect) {
+        (None, None) => Rect::new(0.0, 0.0, image_size.x as f32, image_size.y as f32),
+        (None, Some(rect)) => rect,
+        (Some(atlas_rect), None) => atlas_rect,
+        (Some(atlas_rect), Some(mut rect)) => {
+            // Make the node's rect relative to the atlas rect.
+            rect.min += atlas_rect.min;
+            rect.max += atlas_rect.min;
+            rect
+        }
+    };
+
+    let mut uv = uv;
+    if image_node.flip_x {
+        uv.x = 1.0 - uv.x;
+    }
+    if image_node.flip_y {
+        uv.y = 1.0 - uv.y;
+    }
+
+    let texture_position = texture_rect.min + uv * texture_rect.size();
+
+    let Ok(color) = image.get_color_at(texture_position.x as u32, texture_position.y as u32) else {
+        // We don't know how to interpret the pixel.
+        return false;
+    };
+
+    color.alpha() > cutoff
+}
+
 fn pick_ui_text_section(
     uinode: &ComputedNode,
     global_transform: &UiGlobalTransform,
@@ -298,4 +424,246 @@ fn pick_ui_text_section(
         .entities()
         .get(section_index as usize)
         .map(|e| e.entity)
+}
+
+#[cfg(test)]
+mod tests {
+    use bevy_asset::{Assets, Handle, RenderAssetUsages};
+    use bevy_color::Color;
+    use bevy_image::{Image, TextureAtlas, TextureAtlasLayout, ToExtents};
+    use bevy_math::{Rect, URect, UVec2, Vec2};
+    use bevy_sprite::TextureSlicer;
+    use wgpu_types::{TextureDimension, TextureFormat};
+
+    use crate::widget::*;
+
+    use super::*;
+
+    /// Makes an opaque white image of the given size, then sets each pixel's
+    /// alpha from `alphas` (row-major, `0..=255`). Pixels not covered by
+    /// `alphas` are left fully opaque.
+    fn make_image(size: UVec2, alphas: &[u8]) -> Image {
+        let mut image = Image::new_fill(
+            size.to_extents(),
+            TextureDimension::D2,
+            &[255, 255, 255, 255],
+            TextureFormat::Rgba8Unorm,
+            RenderAssetUsages::all(),
+        );
+        for (i, &alpha) in alphas.iter().enumerate() {
+            let x = i as u32 % size.x;
+            let y = i as u32 / size.x;
+            image
+                .set_color_at(x, y, Color::srgba(1.0, 1.0, 1.0, alpha as f32 / 255.0))
+                .unwrap();
+        }
+        image
+    }
+
+    #[test]
+    fn alpha_threshold_ignores_transparent_pixels() {
+        let mut images = Assets::<Image>::default();
+        let atlases = Assets::<TextureAtlasLayout>::default();
+
+        // A 2x1 image: the left pixel is transparent, the right pixel is
+        // opaque.
+        let image = images.add(make_image(UVec2::new(2, 1), &[0, 255]));
+        let image_node = ImageNode::new(image);
+
+        // Over the left (transparent) pixel is not a hit.
+        assert!(!image_node_contains_opaque_pixel(
+            &image_node,
+            Vec2::new(0.25, 0.5),
+            0.1,
+            &images,
+            &atlases,
+        ));
+        // Over the right (opaque) pixel is a hit.
+        assert!(image_node_contains_opaque_pixel(
+            &image_node,
+            Vec2::new(0.75, 0.5),
+            0.1,
+            &images,
+            &atlases,
+        ));
+    }
+
+    #[test]
+    fn alpha_threshold_is_exclusive() {
+        let mut images = Assets::<Image>::default();
+        let atlases = Assets::<TextureAtlasLayout>::default();
+
+        // A single pixel with roughly 50% alpha (128 / 255).
+        let image = images.add(make_image(UVec2::new(1, 1), &[128]));
+        let image_node = ImageNode::new(image);
+
+        let center = Vec2::new(0.5, 0.5);
+        // Alpha above the cutoff is a hit.
+        assert!(image_node_contains_opaque_pixel(
+            &image_node,
+            center,
+            0.4,
+            &images,
+            &atlases,
+        ));
+        // Alpha at or below the cutoff is not a hit.
+        assert!(!image_node_contains_opaque_pixel(
+            &image_node,
+            center,
+            0.6,
+            &images,
+            &atlases,
+        ));
+    }
+
+    #[test]
+    fn alpha_threshold_respects_flips() {
+        let mut images = Assets::<Image>::default();
+        let atlases = Assets::<TextureAtlasLayout>::default();
+
+        // Left pixel transparent, right pixel opaque.
+        let image = images.add(make_image(UVec2::new(2, 1), &[0, 255]));
+
+        let mut flipped = ImageNode::new(image);
+        flipped.flip_x = true;
+
+        // With `flip_x`, the left half now samples the (opaque) right pixel.
+        assert!(image_node_contains_opaque_pixel(
+            &flipped,
+            Vec2::new(0.25, 0.5),
+            0.1,
+            &images,
+            &atlases,
+        ));
+        assert!(!image_node_contains_opaque_pixel(
+            &flipped,
+            Vec2::new(0.75, 0.5),
+            0.1,
+            &images,
+            &atlases,
+        ));
+    }
+
+    #[test]
+    fn alpha_threshold_respects_rect() {
+        let mut images = Assets::<Image>::default();
+        let atlases = Assets::<TextureAtlasLayout>::default();
+
+        // A 4x1 image: opaque, transparent, opaque, transparent.
+        let image = images.add(make_image(UVec2::new(4, 1), &[255, 0, 255, 0]));
+
+        let mut image_node = ImageNode::new(image);
+        // Only render the right half (pixels 2 and 3).
+        image_node.rect = Some(Rect::new(2.0, 0.0, 4.0, 1.0));
+
+        // uv.x 0.25 -> pixel 2 (opaque).
+        assert!(image_node_contains_opaque_pixel(
+            &image_node,
+            Vec2::new(0.25, 0.5),
+            0.1,
+            &images,
+            &atlases,
+        ));
+        // uv.x 0.75 -> pixel 3 (transparent).
+        assert!(!image_node_contains_opaque_pixel(
+            &image_node,
+            Vec2::new(0.75, 0.5),
+            0.1,
+            &images,
+            &atlases,
+        ));
+    }
+
+    #[test]
+    fn alpha_threshold_respects_texture_atlas() {
+        let mut images = Assets::<Image>::default();
+        let mut atlases = Assets::<TextureAtlasLayout>::default();
+
+        // A 4x1 image: left section transparent, right section opaque.
+        let image = images.add(make_image(UVec2::new(4, 1), &[0, 0, 255, 255]));
+
+        let mut layout = TextureAtlasLayout::new_empty(UVec2::new(4, 1));
+        let transparent_section = layout.add_texture(URect::new(0, 0, 2, 1));
+        let opaque_section = layout.add_texture(URect::new(2, 0, 4, 1));
+        let layout = atlases.add(layout);
+
+        let opaque_node = ImageNode::from_atlas_image(
+            image.clone(),
+            TextureAtlas {
+                layout: layout.clone(),
+                index: opaque_section,
+            },
+        );
+        assert!(image_node_contains_opaque_pixel(
+            &opaque_node,
+            Vec2::new(0.5, 0.5),
+            0.1,
+            &images,
+            &atlases,
+        ));
+
+        let transparent_node = ImageNode::from_atlas_image(
+            image,
+            TextureAtlas {
+                layout,
+                index: transparent_section,
+            },
+        );
+        assert!(!image_node_contains_opaque_pixel(
+            &transparent_node,
+            Vec2::new(0.5, 0.5),
+            0.1,
+            &images,
+            &atlases,
+        ));
+    }
+
+    #[test]
+    fn missing_image_is_always_a_hit() {
+        let images = Assets::<Image>::default();
+        let atlases = Assets::<TextureAtlasLayout>::default();
+
+        // A handle whose asset isn't present in `Assets<Image>`, which can
+        // happen while an image is still loading or if it failed to load.
+        let image_node = ImageNode::new(Handle::default());
+        assert!(image_node_contains_opaque_pixel(
+            &image_node,
+            Vec2::new(0.5, 0.5),
+            0.1,
+            &images,
+            &atlases,
+        ));
+    }
+
+    #[test]
+    fn sliced_and_tiled_modes_are_always_a_hit() {
+        let mut images = Assets::<Image>::default();
+        let atlases = Assets::<TextureAtlasLayout>::default();
+
+        // A fully transparent image, which would otherwise never be a hit.
+        let image = images.add(make_image(UVec2::new(1, 1), &[0]));
+
+        let sliced_node = ImageNode::new(image.clone())
+            .with_mode(NodeImageMode::Sliced(TextureSlicer::default()));
+        assert!(image_node_contains_opaque_pixel(
+            &sliced_node,
+            Vec2::new(0.5, 0.5),
+            0.1,
+            &images,
+            &atlases,
+        ));
+
+        let tiled_node = ImageNode::new(image).with_mode(NodeImageMode::Tiled {
+            tile_x: true,
+            tile_y: true,
+            stretch_value: 1.0,
+        });
+        assert!(image_node_contains_opaque_pixel(
+            &tiled_node,
+            Vec2::new(0.5, 0.5),
+            0.1,
+            &images,
+            &atlases,
+        ));
+    }
 }
