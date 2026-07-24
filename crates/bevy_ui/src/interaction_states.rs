@@ -102,7 +102,7 @@ pub fn remove_pressed_on_next_frame(
             && !pressed.is_changed()
             && !pressed.get()
         {
-            commands.entity(entity).remove::<Pressed>();
+            commands.entity(entity).try_remove::<Pressed>();
         }
     }
 
