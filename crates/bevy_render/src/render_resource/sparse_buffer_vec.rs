@@ -46,7 +46,7 @@ pub struct SparseBufferPlugin;
 
 impl Plugin for SparseBufferPlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "sparse_buffer_update.wgsl");
+        embedded_asset!(app, "sparse_buffer_update.wesl");
     }
 
     fn finish(&self, app: &mut App) {
@@ -279,7 +279,7 @@ impl FromWorld for SparseBufferUpdatePipelines {
 
         SparseBufferUpdatePipelines {
             bind_group_layout: Some(bind_group_layout),
-            shader: Some(load_embedded_asset!(world, "sparse_buffer_update.wgsl")),
+            shader: Some(load_embedded_asset!(world, "sparse_buffer_update.wesl")),
         }
     }
 }

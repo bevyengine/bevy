@@ -19,7 +19,7 @@ pub(crate) struct AlphaPatternMaterial {}
 
 impl UiMaterial for AlphaPatternMaterial {
     fn fragment_shader() -> ShaderRef {
-        "embedded://bevy_feathers/assets/shaders/alpha_pattern.wgsl".into()
+        "embedded://bevy_feathers/assets/shaders/alpha_pattern.wesl".into()
     }
 }
 

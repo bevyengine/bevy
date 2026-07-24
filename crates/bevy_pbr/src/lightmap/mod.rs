@@ -59,7 +59,6 @@ use bevy_render::{
     Extract, ExtractSchedule, RenderApp, RenderStartup,
 };
 use bevy_render::{renderer::RenderDevice, sync_world::MainEntityHashMap};
-use bevy_shader::load_shader_library;
 use bevy_utils::default;
 use fixedbitset::FixedBitSet;
 use nonmax::{NonMaxU16, NonMaxU32};
@@ -185,8 +184,6 @@ pub struct LightmapSlotIndex(pub(crate) NonMaxU16);
 
 impl Plugin for LightmapPlugin {
     fn build(&self, app: &mut App) {
-        load_shader_library!(app, "lightmap.wgsl");
-
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };

@@ -13,7 +13,7 @@ pub struct ColorMaterialPlugin;
 
 impl Plugin for ColorMaterialPlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "color_material.wgsl");
+        embedded_asset!(app, "color_material.wesl");
 
         app.add_plugins(Material2dPlugin::<ColorMaterial>::default())
             .register_asset_reflect::<ColorMaterial>();
@@ -88,7 +88,7 @@ impl From<Handle<Image>> for ColorMaterial {
     }
 }
 
-// NOTE: These must match the bit flags in bevy_sprite_render/src/mesh2d/color_material.wgsl!
+// NOTE: These must match the bit flags in bevy_sprite_render/src/mesh2d/color_material.wesl!
 bitflags::bitflags! {
     #[repr(transparent)]
     pub struct ColorMaterialFlags: u32 {
@@ -148,7 +148,7 @@ impl AsBindGroupShaderType<ColorMaterialUniform> for ColorMaterial {
 impl Material2d for ColorMaterial {
     fn fragment_shader() -> ShaderRef {
         ShaderRef::Path(
-            AssetPath::from_path_buf(embedded_path!("color_material.wgsl")).with_source("embedded"),
+            AssetPath::from_path_buf(embedded_path!("color_material.wesl")).with_source("embedded"),
         )
     }
 

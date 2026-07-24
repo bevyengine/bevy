@@ -203,7 +203,7 @@ pub struct UiRenderPlugin;
 
 impl Plugin for UiRenderPlugin {
     fn build(&self, app: &mut App) {
-        load_shader_library!(app, "ui.wgsl");
+        load_shader_library!(app, "ui.wesl");
 
         #[cfg(feature = "bevy_ui_debug")]
         app.init_resource::<GlobalUiDebugOptions>();
@@ -1978,7 +1978,7 @@ pub struct UiBatch {
     pub image: AssetId<Image>,
 }
 
-/// The values here should match the values for the constants in `ui.wgsl`
+/// The values here should match the values for the constants in `ui.wesl`
 pub mod shader_flags {
     /// Texture should be ignored
     pub const UNTEXTURED: u32 = 0;

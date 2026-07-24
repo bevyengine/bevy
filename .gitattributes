@@ -6,9 +6,8 @@
 # to native line endings on checkout.
 *.rs text eol=lf
 *.toml text eol=lf
-*.frag text eol=lf
-*.vert text eol=lf
 *.wgsl text eol=lf
+*.wesl text eol=lf
 
 # Declare files that will always have CRLF line endings on checkout.
 *.sln text eol=crlf

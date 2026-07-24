@@ -594,7 +594,7 @@ fn spawn_auto_instancing_test(commands: &mut Commands, resources: &mut SceneReso
     commands.spawn_batch(bundles);
 }
 
-const EXTENDED_MATERIAL_SHADER_ASSET_PATH: &str = "shaders/oit_compatible_extended_material.wgsl";
+const EXTENDED_MATERIAL_SHADER_ASSET_PATH: &str = "shaders/oit_compatible_extended_material.wesl";
 
 /// Material extension that defines the extra data that will be passed to your shader
 /// Used as `ExtendedMaterial<StandardMaterial, CheckeredMaterialExtension>`
@@ -616,7 +616,7 @@ impl MaterialExtension for CheckeredMaterialExtension {
     }
 }
 
-const CUSTOM_MATERIAL_SHADER_ASSET_PATH: &str = "shaders/oit_compatible_custom_material.wgsl";
+const CUSTOM_MATERIAL_SHADER_ASSET_PATH: &str = "shaders/oit_compatible_custom_material.wesl";
 
 /// A custom material
 #[derive(Asset, AsBindGroup, Reflect, Debug, Clone, Default)]

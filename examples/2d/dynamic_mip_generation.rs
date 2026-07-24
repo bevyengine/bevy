@@ -56,7 +56,7 @@ const ANIMATION_PERIOD: f32 = 2.0;
 
 /// The path to the single mip level 2D material shader inside the `assets`
 /// directory.
-const SINGLE_MIP_LEVEL_SHADER_ASSET_PATH: &str = "shaders/single_mip_level.wgsl";
+const SINGLE_MIP_LEVEL_SHADER_ASSET_PATH: &str = "shaders/single_mip_level.wesl";
 
 /// The distance from the left side of the column of mipmap slices to the right
 /// side of the area used for the animation.

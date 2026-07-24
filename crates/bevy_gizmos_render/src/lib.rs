@@ -88,8 +88,8 @@ impl Plugin for GizmoRenderPlugin {
     fn build(&self, app: &mut App) {
         {
             use bevy_asset::embedded_asset;
-            embedded_asset!(app, "lines.wgsl");
-            embedded_asset!(app, "line_joints.wgsl");
+            embedded_asset!(app, "lines.wesl");
+            embedded_asset!(app, "line_joints.wesl");
         }
 
         app.add_plugins(UniformComponentPlugin::<LineGizmoUniform>::default())
