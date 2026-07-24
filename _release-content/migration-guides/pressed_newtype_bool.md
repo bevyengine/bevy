@@ -1,6 +1,6 @@
 ---
 title: "`Pressed` Component is now a newtype bool component"
-pull_requests: [24636, 24701]
+pull_requests: [25154]
 ---
 
 Previously, the `Pressed` component was a marker component without any fields. Now, it is a marker component with a single boolean field signifying whether the entity is being pressed. This was done to enable usage of change detection of the `Pressed` component in regular systems. The `Pressed` component is still removed from entities, but only after one whole frame of staying in the `false` state.
