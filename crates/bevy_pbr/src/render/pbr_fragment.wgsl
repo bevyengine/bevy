@@ -847,6 +847,44 @@ pbr_input.material.uv_transform = uv_transform;
 
         pbr_input.lightmap_light = lightmap(in.uv_b, lightmap_exposure, in.instance_index);
 #endif
+
+        // Geometric specular aa.
+        // Tokuyoshi and Kaplanyan, "Improved Geometric Specular Antialiasing" (I3D 2019).
+#ifndef MESHLET_MESH_MATERIAL_PASS
+        if ((flags & pbr_types::STANDARD_MATERIAL_FLAGS_SPECULAR_ANTI_ALIASING_BIT) != 0u) {
+#ifdef BINDLESS
+            let sigma = pbr_bindings::material_array[material_indices[slot].material].specular_anti_aliasing_screen_space_variance;
+            let kappa = pbr_bindings::material_array[material_indices[slot].material].specular_anti_aliasing_threshold;
+#else   // BINDLESS
+            let sigma = pbr_bindings::material.specular_anti_aliasing_screen_space_variance;
+            let kappa = pbr_bindings::material.specular_anti_aliasing_threshold;
+#endif  // BINDLESS
+            let sigma2 = sigma * sigma;
+
+            let dndx = dpdx(pbr_input.N);
+            let dndy = dpdy(pbr_input.N);
+            let variance = sigma2 * (dot(dndx, dndx) + dot(dndy, dndy));
+            let kernel_roughness = min(variance, kappa);
+
+            // perceptual_roughness^2 is the GGX alpha. Widen alpha^2 by the kernel and convert back.
+            let alpha = pbr_input.material.perceptual_roughness *
+                        pbr_input.material.perceptual_roughness;
+            pbr_input.material.perceptual_roughness =
+                sqrt(sqrt(saturate(alpha * alpha + kernel_roughness)));
+
+#ifdef STANDARD_MATERIAL_CLEARCOAT
+            let dcdx = dpdx(pbr_input.clearcoat_N);
+            let dcdy = dpdy(pbr_input.clearcoat_N);
+            let cc_variance = sigma2 * (dot(dcdx, dcdx) + dot(dcdy, dcdy));
+            let cc_kernel = min(cc_variance, kappa);
+
+            let cc_alpha = pbr_input.material.clearcoat_perceptual_roughness *
+                           pbr_input.material.clearcoat_perceptual_roughness;
+            pbr_input.material.clearcoat_perceptual_roughness =
+                sqrt(sqrt(saturate(cc_alpha * cc_alpha + cc_kernel)));
+#endif  // STANDARD_MATERIAL_CLEARCOAT
+        }
+#endif  // MESHLET_MESH_MATERIAL_PASS
     }
 
     return pbr_input;
