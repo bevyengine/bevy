@@ -49,9 +49,7 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-      - uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c
-        with:
-          toolchain: stable
+      - run: rustup override set stable
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
       - name: Build & run tests
@@ -81,10 +79,9 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-      - uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c
-        with:
-          toolchain: stable
-          components: rustfmt, clippy
+      - run: |
+          rustup override set stable
+          rustup component add rustfmt clippy
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
         with:
@@ -117,10 +114,9 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-      - uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c
-        with:
-          toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
-          components: miri
+      - run: |
+          rustup override set ${{ env.NIGHTLY_TOOLCHAIN }}
+          rustup component add miri
       - name: CI job
         # To run the tests one item at a time for troubleshooting, use
         # cargo --quiet test --lib -- --list | sed 's/: test$//' | MIRIFLAGS="-Zmiri-disable-isolation -Zmiri-disable-weak-memory-emulation" xargs -n1 cargo miri test -p bevy_ecs --lib -- --exact
@@ -154,9 +150,7 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-      - uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c
-        with:
-          toolchain: stable
+      - run: rustup override set stable
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
       - name: Check Compile
@@ -185,10 +179,9 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-      - uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c
-        with:
-          toolchain: stable
-          targets: x86_64-unknown-none
+      - run: |
+          rustup override set stable
+          rustup target add x86_64-unknown-none
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
       - name: Check Compile
@@ -221,10 +214,9 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-      - uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c
-        with:
-          toolchain: stable
-          targets: thumbv6m-none-eabi
+      - run: |
+          rustup override set stable
+          rustup target add thumbv6m-none-eabi
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
       - name: Check Compile
@@ -252,10 +244,9 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-      - uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c
-        with:
-          toolchain: stable
-          targets: x86_64-unknown-none
+      - run: |
+          rustup override set stable
+          rustup target add x86_64-unknown-none
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
       - name: Check Compile
@@ -283,10 +274,9 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-      - uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c
-        with:
-          toolchain: stable
-          target: wasm32-unknown-unknown
+      - run: |
+          rustup override set stable
+          rustup target add wasm32-unknown-unknown
       - name: Check wasm
         env:
           RUSTFLAGS: --cfg getrandom_backend="wasm_js"
@@ -314,11 +304,10 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-      - uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c
-        with:
-          toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
-          targets: wasm32-unknown-unknown
-          components: rust-src
+      - run: |
+          rustup override set ${{ env.NIGHTLY_TOOLCHAIN }}
+          rustup target add wasm32-unknown-unknown
+          rustup component add rust-src
       - name: Check wasm
         run: cargo check --target wasm32-unknown-unknown -Z build-std=std,panic_abort
         env:
@@ -404,9 +393,7 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-      - uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c
-        with:
-          toolchain: stable
+      - run: rustup override set stable
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
         with:
@@ -434,9 +421,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
-      - uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c
-        with:
-          toolchain: stable
+      - run: rustup override set stable
       - name: check for missing metadata
         id: missing-metadata
         run: cargo run -p build-templated-pages -- check-missing examples
@@ -473,9 +458,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
-      - uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c
-        with:
-          toolchain: stable
+      - run: rustup override set stable
       - name: check for missing features
         id: missing-features
         run: cargo run -p build-templated-pages -- check-missing features
@@ -512,17 +495,15 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
-      - uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c
-        with:
-          toolchain: stable
+      - run: rustup override set stable
       - name: get MSRV
         id: msrv
         run: |
           msrv=`cargo metadata --no-deps --format-version 1 | jq --raw-output '.packages[] | select(.name=="bevy") | .rust_version'`
           echo "msrv=$msrv" >> $GITHUB_OUTPUT
-      - uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c
-        with:
-          toolchain: ${{ steps.msrv.outputs.msrv }}
+      - run: rustup override set ${MSRV}
+        env:
+          MSRV: ${{ steps.msrv.outputs.msrv }}
       - uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           # key won't match, will rely on restore-keys
@@ -584,9 +565,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
-      - uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c
-        with:
-          toolchain: stable
+      - run: rustup override set stable
       - name: Check Release Content
         shell: bash
         run: |

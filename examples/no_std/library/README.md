@@ -56,9 +56,9 @@ jobs:
           - "thumbv6m-none-eabi"
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }}
+      - run: |
+          rustup override set stable
+          rustup target add {{ matrix.target }}
       - name: Check Compile
         run: cargo check --no-default-features --features libm,critical-section --target ${{ matrix.target }}
 ```
