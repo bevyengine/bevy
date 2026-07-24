@@ -4,7 +4,7 @@ use bevy::{
     color::palettes::basic,
     ecs::{relationship::RelatedSpawner, spawn::SpawnWith},
     prelude::*,
-    ui_widgets::{observe, Activate, Button},
+    ui_widgets::{Button, ListBox, ListItem, ValueChange},
 };
 use std::fmt::Debug;
 
@@ -23,7 +23,7 @@ struct CloseContextMenus;
 struct ContextMenu;
 
 /// context menu item data storing what background color `Srgba` it activates
-#[derive(Component)]
+#[derive(Component, PartialEq)]
 struct ContextMenuItem(Srgba);
 
 fn main() {
@@ -86,34 +86,51 @@ fn on_trigger_menu(event: On<OpenContextMenu>, mut commands: Commands) {
 
     debug!("open context menu at: {pos}");
 
-    commands.spawn((
-        Name::new("context menu"),
-        ContextMenu,
-        Node {
-            position_type: PositionType::Absolute,
-            left: px(pos.x),
-            top: px(pos.y),
-            flex_direction: FlexDirection::Column,
-            border_radius: BorderRadius::all(px(4)),
-            ..default()
-        },
-        BorderColor::all(Color::BLACK),
-        BackgroundColor(Color::linear_rgb(0.1, 0.1, 0.1)),
-        children![
-            context_item("fuchsia", basic::FUCHSIA),
-            context_item("gray", basic::GRAY),
-            context_item("maroon", basic::MAROON),
-            context_item("purple", basic::PURPLE),
-            context_item("teal", basic::TEAL),
-        ],
-    ));
+    commands
+        .spawn((
+            Name::new("context menu"),
+            ContextMenu,
+            Node {
+                position_type: PositionType::Absolute,
+                left: px(pos.x),
+                top: px(pos.y),
+                flex_direction: FlexDirection::Column,
+                border_radius: BorderRadius::all(px(4)),
+                ..default()
+            },
+            BorderColor::all(Color::BLACK),
+            BackgroundColor(Color::linear_rgb(0.1, 0.1, 0.1)),
+            ListBox,
+            children![
+                context_item("fuchsia", basic::FUCHSIA),
+                context_item("gray", basic::GRAY),
+                context_item("maroon", basic::MAROON),
+                context_item("purple", basic::PURPLE),
+                context_item("teal", basic::TEAL),
+            ],
+        ))
+        .observe(
+            |event: On<ValueChange<Entity>>,
+             menu_items: Query<&ContextMenuItem, With<ListItem>>,
+             mut clear_col: ResMut<ClearColor>,
+             mut commands: Commands| {
+                let Ok(selected) = menu_items.get(event.value) else {
+                    return;
+                };
+                clear_col.0 = selected.0.into();
+                commands.trigger(CloseContextMenus);
+
+                // We do not set the `Selected` state of any of the items because the menu
+                // will be despawned.
+            },
+        );
 }
 
 fn context_item(text: &str, col: Srgba) -> impl Bundle {
     (
         Name::new(format!("item-{text}")),
+        ListItem,
         ContextMenuItem(col),
-        Button,
         Node {
             padding: UiRect::all(px(5)),
             ..default()
@@ -127,18 +144,6 @@ fn context_item(text: &str, col: Srgba) -> impl Bundle {
             },
             TextColor(Color::WHITE),
         )],
-        // Activating an item sets the `ClearColor` and then closes the context menu
-        observe(
-            |event: On<Activate>,
-             menu_items: Query<&ContextMenuItem>,
-             mut clear_col: ResMut<ClearColor>,
-             mut commands: Commands| {
-                if let Ok(item) = menu_items.get(event.entity) {
-                    clear_col.0 = item.0.into();
-                    commands.trigger(CloseContextMenus);
-                }
-            },
-        ),
     )
 }
 
