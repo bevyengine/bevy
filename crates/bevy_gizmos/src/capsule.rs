@@ -36,7 +36,7 @@ where
     /// fn system(mut gizmos: Gizmos) {
     ///     gizmos.capsule(Isometry3d::IDENTITY, 0.5, 0.5, GREEN);
     ///
-    ///     // Capsules have a 32 line-segment resoltion by default.
+    ///     // Capsules have a 32 line-segment resolution by default.
     ///     // You may want to increase this for larger capsules.
     ///     gizmos
     ///         .capsule(Isometry3d::IDENTITY, 0.5, 0.5, RED)
