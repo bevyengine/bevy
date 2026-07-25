@@ -78,6 +78,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
+    light_mode: Res<LightMode>,
 ) {
     let sphere = create_sphere_mesh(&mut meshes);
     spawn_car_paint_sphere(&mut commands, &mut materials, &asset_server, &sphere);
@@ -87,7 +88,7 @@ fn setup(
 
     spawn_light(&mut commands);
     spawn_camera(&mut commands, &asset_server);
-    spawn_buttons(&mut commands);
+    spawn_buttons(&mut commands, light_mode);
 }
 
 /// Generates a sphere.
@@ -264,7 +265,7 @@ fn animate_spheres(mut spheres: Query<&mut Transform, With<ExampleSphere>>, time
 
 /// Spawns buttons at the bottom of the screen which allow the user to
 /// toggle occlusion culling on or off.
-fn spawn_buttons(commands: &mut Commands) {
+fn spawn_buttons(commands: &mut Commands, light_mode: Res<LightMode>) {
     commands.spawn_scene(bsn! {
         main_ui_node_scene()
             Children [
@@ -274,7 +275,7 @@ fn spawn_buttons(commands: &mut Commands) {
                     (LightMode::Directional, "Directional"),
                     (LightMode::Point, "Point"),
                 ],
-                0,
+                if *light_mode == LightMode::Directional { 0 } else { 1 },
             )
         ]
     });
@@ -292,17 +293,16 @@ fn handle_selection_change(
         return;
     };
 
+    *light_mode = *selection;
     for light in light_query.iter_mut() {
-        match selection {
-            LightMode::Point => {
-                *light_mode = LightMode::Directional;
+        match *light_mode {
+            LightMode::Directional => {
                 commands
                     .entity(light)
                     .remove::<PointLight>()
                     .insert(create_directional_light());
             }
-            LightMode::Directional => {
-                *light_mode = LightMode::Point;
+            LightMode::Point => {
                 commands
                     .entity(light)
                     .remove::<DirectionalLight>()
