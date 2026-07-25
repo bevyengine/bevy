@@ -2,7 +2,7 @@ pub mod visibility;
 pub mod window;
 
 use bevy_camera::{
-    primitives::Frustum, ClearColor, ClearColorConfig, CompositingSpace, Exposure,
+    primitives::Frustum, ClearColor, ClearColorConfig, ColorTarget, CompositingSpace, Exposure,
     MainPassResolutionOverride, NormalizedRenderTarget, WithColorTarget,
 };
 use bevy_diagnostic::FrameCount;
@@ -10,10 +10,7 @@ pub use visibility::*;
 pub use window::*;
 
 use crate::{
-    camera::{
-        ExtractedCamera, ExtractedColorTarget, MipBias, NormalizedRenderTargetExt as _,
-        TemporalJitter,
-    },
+    camera::{ExtractedCamera, MipBias, NormalizedRenderTargetExt as _, TemporalJitter},
     extract_component::ExtractComponentPlugin,
     occlusion_culling::OcclusionCulling,
     render_asset::RenderAssets,
@@ -1280,12 +1277,12 @@ pub struct ColorTargetTextures {
     pub atomic: Arc<AtomicUsize>,
 }
 
-/// Prepare [`ColorTargetTextures`] for [`ExtractedColorTarget`].
+/// Prepare [`ColorTargetTextures`] for [`ColorTarget`] in the render world.
 pub fn prepare_color_targets(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     mut texture_cache: ResMut<TextureCache>,
-    color_targets: Query<(Entity, &ExtractedColorTarget, Option<&ColorTargetTextures>)>,
+    color_targets: Query<(Entity, &ColorTarget, Option<&ColorTargetTextures>)>,
 ) {
     for (entity, color_target, textures) in color_targets.iter() {
         let descriptor = TextureDescriptor {

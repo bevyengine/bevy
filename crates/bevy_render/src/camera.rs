@@ -451,23 +451,12 @@ pub struct ExtractedCamera {
     pub compositing_space: Option<CompositingSpace>,
 }
 
+/// Describes info of view target used by a [`ExtractedCamera`] in the render world.
 #[derive(Debug, Component, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ViewTargetInfo {
     pub size: UVec2,
     pub color_format: TextureFormat,
     pub sample_count: u32,
-}
-
-#[derive(Debug, Component, Clone, Copy)]
-pub struct ExtractedColorTarget {
-    /// Size of the texture.
-    pub size: UVec2,
-    /// Sample count of the multisampled texture if this is larger than 1.
-    pub sample_count: u32,
-    /// Format of the texture.
-    pub format: TextureFormat,
-    /// Allowed usages of the texture.
-    pub usage: wgpu::TextureUsages,
 }
 
 pub fn extract_cameras(
@@ -631,7 +620,7 @@ pub fn extract_cameras(
                     bevy_camera::CameraColorTargetSize::Fixed(uvec2) => uvec2,
                 };
                 color_target_render_entity = render_entity;
-                extracted_color_target = ExtractedColorTarget {
+                extracted_color_target = ColorTarget {
                     size,
                     sample_count,
                     format: color_format,
@@ -640,21 +629,13 @@ pub fn extract_cameras(
             } else {
                 let (render_entity, color_target) = color_targets
                     .get(with_color_target.0)
-                    .expect("Failed to get the referenced ColorTarget");
+                    .expect("`WithColorTarget` should properly reference to a `ColorTarget`");
                 color_target_render_entity = render_entity;
-                extracted_color_target = ExtractedColorTarget {
-                    size: color_target.size,
-                    sample_count: color_target.sample_count,
-                    format: color_target.format,
-                    usage: color_target.usage,
-                };
+                extracted_color_target = color_target.clone();
             }
 
-            commands
-                .entity(color_target_render_entity)
-                .insert(extracted_color_target);
-            let mut commands = commands.entity(render_entity);
-            commands.insert((
+            let mut entity_commands = commands.entity(render_entity);
+            entity_commands.insert((
                 WithColorTarget(color_target_render_entity),
                 ViewTargetInfo {
                     color_format: extracted_color_target.format,
@@ -696,27 +677,27 @@ pub fn extract_cameras(
             ));
 
             if let Some(temporal_jitter) = temporal_jitter {
-                commands.insert(temporal_jitter.clone());
+                entity_commands.insert(temporal_jitter.clone());
             } else {
-                commands.remove::<TemporalJitter>();
+                entity_commands.remove::<TemporalJitter>();
             }
 
             if let Some(mip_bias) = mip_bias {
-                commands.insert(mip_bias.clone());
+                entity_commands.insert(mip_bias.clone());
             } else {
-                commands.remove::<MipBias>();
+                entity_commands.remove::<MipBias>();
             }
 
             if let Some(render_layers) = render_layers {
-                commands.insert(render_layers.clone());
+                entity_commands.insert(render_layers.clone());
             } else {
-                commands.remove::<RenderLayers>();
+                entity_commands.remove::<RenderLayers>();
             }
 
             if let Some(projection) = projection {
-                commands.insert(projection.clone());
+                entity_commands.insert(projection.clone());
             } else {
-                commands.remove::<Projection>();
+                entity_commands.remove::<Projection>();
             }
 
             if no_indirect_drawing
@@ -725,10 +706,14 @@ pub fn extract_cameras(
                     GpuPreprocessingMode::Culling
                 )
             {
-                commands.insert(NoIndirectDrawing);
+                entity_commands.insert(NoIndirectDrawing);
             } else {
-                commands.remove::<NoIndirectDrawing>();
+                entity_commands.remove::<NoIndirectDrawing>();
             }
+
+            commands
+                .entity(color_target_render_entity)
+                .insert(extracted_color_target);
         };
     }
 }
