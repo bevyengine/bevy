@@ -739,7 +739,7 @@ mod render_layers {
     const CURRENT_SCENE: super::Scene = super::Scene::RenderLayers;
 
     use bevy::{
-        camera::{visibility::RenderLayers, Viewport},
+        camera::{visibility::RenderLayers, Viewport, WithColorTarget},
         prelude::*,
         window::PrimaryWindow,
     };
@@ -794,6 +794,7 @@ mod render_layers {
 
         let window_half_size = window.physical_size() / 2;
 
+        let mut first_camera = None;
         // Split the screen in 4 different viewports with each of them having a specific render
         // layer
         for index in 0..4 {
@@ -813,6 +814,7 @@ mod render_layers {
                 },
                 DespawnOnExit(CURRENT_SCENE),
             ));
+
             match index {
                 0 => {}
                 1 => {
@@ -823,6 +825,15 @@ mod render_layers {
                 }
                 3 => {
                     entity_cmds.insert(RenderLayers::layer(0).with(1).with(2));
+                }
+                _ => warn!("Unexpected index {index}"),
+            }
+            match index {
+                0 => {
+                    first_camera = Some(entity_cmds.id());
+                }
+                1 | 2 | 3 => {
+                    entity_cmds.insert(WithColorTarget(first_camera.unwrap()));
                 }
                 _ => warn!("Unexpected index {index}"),
             }

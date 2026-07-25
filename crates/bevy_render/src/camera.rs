@@ -471,7 +471,6 @@ pub fn extract_cameras(
             &GlobalTransform,
             &VisibleEntities,
             &Frustum,
-            (Option<&Msaa>, Option<&CameraColorTarget>),
             (
                 Has<Hdr>,
                 Option<&CompositingSpace>,
@@ -486,6 +485,7 @@ pub fn extract_cameras(
             &WithColorTarget,
         )>,
     >,
+    camera_color_targets: Extract<Query<(RenderEntity, &RenderTarget, &Msaa, &CameraColorTarget)>>,
     color_targets: Extract<Query<(RenderEntity, &ColorTarget)>>,
     primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
     manual_texture_views: Res<ManualTextureViews>,
@@ -520,7 +520,6 @@ pub fn extract_cameras(
         transform,
         visible_entities,
         frustum,
-        (msaa, camera_color_target),
         (
             hdr,
             compositing_space,
@@ -586,11 +585,11 @@ pub fn extract_cameras(
             // *now*, phases need to be able to find the entities that were just
             // removed from it.
 
-            let target = render_target.normalize(primary_window);
             let (extracted_color_target, color_target_render_entity);
-            if with_color_target.0 == main_entity
-                && let (Some(msaa), Some(camera_color_target)) = (msaa, camera_color_target)
+            if let Ok((render_entity, render_target, msaa, camera_color_target)) =
+                camera_color_targets.get(with_color_target.0)
             {
+                let target = render_target.normalize(primary_window);
                 let output_texture_format = target
                     .as_ref()
                     .and_then(|target| {
@@ -627,12 +626,12 @@ pub fn extract_cameras(
                     format: color_format,
                     usage: camera_color_target.usage,
                 }
-            } else {
-                let (render_entity, color_target) = color_targets
-                    .get(with_color_target.0)
-                    .expect("`WithColorTarget` should properly reference to a `ColorTarget`");
+            } else if let Ok((render_entity, color_target)) = color_targets.get(with_color_target.0)
+            {
                 color_target_render_entity = render_entity;
                 extracted_color_target = color_target.clone();
+            } else {
+                panic!("`WithColorTarget` should properly reference to a `ColorTarget` or `CameraColorTarget`");
             }
 
             let mut entity_commands = commands.entity(render_entity);
@@ -644,7 +643,7 @@ pub fn extract_cameras(
                     sample_count: extracted_color_target.sample_count,
                 },
                 ExtractedCamera {
-                    target,
+                    target: render_target.normalize(primary_window),
                     viewport: camera.viewport.clone(),
                     schedule: camera_render_graph.0,
                     order: camera.order,
