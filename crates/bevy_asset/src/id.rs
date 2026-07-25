@@ -44,18 +44,27 @@ pub enum AssetId<A: Asset> {
 }
 
 impl<A: Asset> AssetId<A> {
-    /// The uuid for the default [`AssetId`]. It is valid to assign a value to this in [`Assets`](crate::Assets)
+    /// The UUID for the default [`AssetId`]. It is valid to assign a value to this in [`Assets`](crate::Assets)
     /// and by convention (where appropriate) assets should support this pattern.
     pub const DEFAULT_UUID: Uuid = Uuid::from_u128(200809721996911295814598172825939264631);
 
     /// This asset id _should_ never be valid. Assigning a value to this in [`Assets`](crate::Assets) will
     /// produce undefined behavior, so don't do it!
+    #[deprecated(
+        since = "0.20.0",
+        note = "Use `Option<AssetId>` if possible. `AssetId::default` may also work, but note that the default can map to a valid asset."
+    )]
     pub const INVALID_UUID: Uuid = Uuid::from_u128(108428345662029828789348721013522787528);
 
     /// Returns an [`AssetId`] with [`Self::INVALID_UUID`], which _should_ never be assigned to.
+    #[deprecated(
+        since = "0.20.0",
+        note = "Use `Option<AssetId>` if possible. `AssetId::default` may also work, but note that the default can map to a valid asset."
+    )]
     #[inline]
     pub const fn invalid() -> Self {
         Self::Uuid {
+            #[expect(deprecated, reason = "deprecated function uses deprecated constant")]
             uuid: Self::INVALID_UUID,
         }
     }

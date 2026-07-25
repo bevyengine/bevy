@@ -9,7 +9,7 @@
 Pointers in computer programming are objects that store a memory address. They're a fundamental building block for constructing more
 complex data structures.
 
-They're also *the* definitive source of memory safety bugs: you can dereference a invalid (null) pointer, access a pointer after the underlying
+They're also *the* definitive source of memory safety bugs: you can dereference an invalid (null) pointer, access a pointer after the underlying
 memory has been freed, and even ignore type safety and misread or mutate the underlying memory improperly.
 
 Rust is a programming language that heavily relies on its types to enforce correctness, and by proxy, memory safety. As a result,
@@ -68,7 +68,7 @@ of type `T`. If you've ever worked with C++, `NonNull<T>` is very close to a C++
 untyped memory address. Pointing at the unit type (or some other zero-sized type) just happens to be the convention. The only way to reasonably use them is to
 cast back to a typed pointer. They show up occasionally when dealing with FFI and the rare occasion where dynamic dispatch is required, but a trait is too
 constraining of an interface to work with. A great example of this are the [RawWaker] APIs, where a singular trait (or set of traits) may be insufficient to capture
-all usage patterns. `*mut ()` should only be used to carry the mutability of the target, and as there is no way to mutate an unknown type.
+all usage patterns. `*mut ()` should only be used to carry the mutability of the target, as there is no way to mutate an unknown type.
 
 [RawWaker]: https://doc.rust-lang.org/std/task/struct.RawWaker.html
 

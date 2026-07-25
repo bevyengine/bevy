@@ -1,6 +1,7 @@
 use alloc::{boxed::Box, vec::Vec};
 use bevy_platform::cell::SyncCell;
 use bevy_utils::prelude::DebugName;
+use smallvec::SmallVec;
 use variadics_please::all_tuples;
 
 use crate::{
@@ -615,6 +616,17 @@ all_tuples!(
 // SAFETY: implementors of each `SystemParamBuilder` in the vec have validated their impls
 unsafe impl<P: SystemParam, B: SystemParamBuilder<P>> SystemParamBuilder<Vec<P>> for Vec<B> {
     fn build(self, world: &mut World) -> <Vec<P> as SystemParam>::State {
+        self.into_iter()
+            .map(|builder| builder.build(world))
+            .collect()
+    }
+}
+
+// SAFETY: implementors of each `SystemParamBuilder` in the vec have validated their impls
+unsafe impl<P: SystemParam, B: SystemParamBuilder<P>, const N: usize>
+    SystemParamBuilder<SmallVec<[P; N]>> for SmallVec<[B; N]>
+{
+    fn build(self, world: &mut World) -> <SmallVec<[P; N]> as SystemParam>::State {
         self.into_iter()
             .map(|builder| builder.build(world))
             .collect()

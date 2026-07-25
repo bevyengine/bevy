@@ -4,6 +4,7 @@ use bevy_app::{Plugin, PreUpdate};
 use bevy_color::Color;
 use bevy_ecs::{
     bundle::Bundle,
+    change_detection::DetectChanges,
     children,
     component::Component,
     entity::Entity,
@@ -31,6 +32,7 @@ use bevy_ui_widgets::{
 use crate::{
     constants::{fonts, size},
     cursor::EntityCursor,
+    display::caption,
     focus::FocusIndicator,
     font_styles::InheritableFont,
     rounded_corners::RoundedCorners,
@@ -46,7 +48,10 @@ use crate::{
 ///
 /// * [`bevy_ui_widgets::ValueChange<f32>`] when the slider value is changed.
 ///
-///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
+/// These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
+///
+/// A more complete explanation of how to control this widget can be found in the documentation
+/// for [`Slider`] and [`bevy_ui_widgets`].
 #[derive(SceneComponent, Default, Clone, Reflect)]
 #[scene(FeathersSliderProps)]
 #[require(Slider)]
@@ -55,8 +60,6 @@ pub struct FeathersSlider;
 
 /// Props used to construct the [`FeathersSlider`] scene.
 pub struct FeathersSliderProps {
-    /// Slider current value
-    pub value: f32,
     /// Slider minimum value
     pub min: f32,
     /// Slider maximum value
@@ -65,11 +68,7 @@ pub struct FeathersSliderProps {
 
 impl Default for FeathersSliderProps {
     fn default() -> Self {
-        Self {
-            value: 0.0,
-            min: 0.0,
-            max: 1.0,
-        }
+        Self { min: 0.0, max: 1.0 }
     }
 }
 
@@ -90,13 +89,14 @@ impl FeathersSlider {
                 orientation: SliderOrientation::Horizontal,
             }
             FeathersSlider
-            SliderValue({props.value})
+            SliderValue({props.min})
             SliderRange::new(props.min, props.max)
             EntityCursor::System(bevy_window::SystemCursorIcon::EwResize)
             TabIndex(0)
             FocusIndicator
+            InheritableThemeTextColor(tokens::SLIDER_TEXT)
             // Use a gradient to draw the moving bar
-            BackgroundGradient({vec![Gradient::Linear(LinearGradient {
+            BackgroundGradient(vec![Gradient::Linear(LinearGradient {
                 angle: PI * 0.5,
                 stops: vec![
                     ColorStop::new(Color::NONE, percent(0)),
@@ -105,7 +105,7 @@ impl FeathersSlider {
                     ColorStop::new(Color::NONE, percent(100)),
                 ],
                 color_space: InterpolationColorSpace::Srgba,
-            })]})
+            })])
             Children [(
                 // Text container
                 Node {
@@ -115,13 +115,12 @@ impl FeathersSlider {
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
                 }
-                InheritableThemeTextColor(tokens::SLIDER_TEXT)
                 InheritableFont {
                     font: fonts::MONO,
                     font_size: size::SMALL_FONT,
                     weight: FontWeight::NORMAL,
                 }
-                Children [(Text("10.0") ThemedText SliderValueText)]
+                Children [(caption("10.0") SliderValueText)]
             )]
         }
     }
@@ -162,11 +161,12 @@ pub fn slider_bundle<B: Bundle>(props: FeathersSliderProps, overrides: B) -> imp
             orientation: SliderOrientation::Horizontal,
         },
         FeathersSlider,
-        SliderValue(props.value),
+        SliderValue(props.min),
         SliderRange::new(props.min, props.max),
         EntityCursor::System(bevy_window::SystemCursorIcon::EwResize),
         TabIndex(0),
         FocusIndicator,
+        InheritableThemeTextColor(tokens::SLIDER_TEXT),
         // Use a gradient to draw the moving bar
         BackgroundGradient(vec![Gradient::Linear(LinearGradient {
             angle: PI * 0.5,
@@ -189,7 +189,6 @@ pub fn slider_bundle<B: Bundle>(props: FeathersSliderProps, overrides: B) -> imp
                 justify_content: JustifyContent::Center,
                 ..Default::default()
             },
-            InheritableThemeTextColor(tokens::SLIDER_TEXT),
             InheritableFont {
                 font_size: size::SMALL_FONT,
                 weight: FontWeight::NORMAL,
@@ -208,6 +207,7 @@ fn update_slider_styles(
             Has<Pressed>,
             &Hovered,
             &mut BackgroundGradient,
+            &InheritableThemeTextColor,
         ),
         (
             With<FeathersSlider>,
@@ -222,7 +222,7 @@ fn update_slider_styles(
     theme: Res<UiTheme>,
     mut commands: Commands,
 ) {
-    for (slider_ent, disabled, pressed, hovered, mut gradient) in q_sliders.iter_mut() {
+    for (slider_ent, disabled, pressed, hovered, mut gradient, font_color) in q_sliders.iter_mut() {
         set_slider_styles(
             slider_ent,
             &theme,
@@ -230,6 +230,7 @@ fn update_slider_styles(
             pressed,
             hovered.0,
             gradient.as_mut(),
+            font_color,
             &mut commands,
         );
     }
@@ -243,6 +244,7 @@ fn update_slider_styles_remove(
             Has<Pressed>,
             &Hovered,
             &mut BackgroundGradient,
+            &InheritableThemeTextColor,
         ),
         With<FeathersSlider>,
     >,
@@ -255,7 +257,7 @@ fn update_slider_styles_remove(
         .read()
         .chain(remove_pressed.read())
         .for_each(|ent| {
-            if let Ok((slider_ent, disabled, pressed, hovered, mut gradient)) =
+            if let Ok((slider_ent, disabled, pressed, hovered, mut gradient, font_color)) =
                 q_sliders.get_mut(ent)
             {
                 set_slider_styles(
@@ -265,10 +267,44 @@ fn update_slider_styles_remove(
                     pressed,
                     hovered.0,
                     gradient.as_mut(),
+                    font_color,
                     &mut commands,
                 );
             }
         });
+}
+
+/// Re-apply slider styles to every slider when the theme changes.
+fn update_slider_styles_theme(
+    mut q_sliders: Query<
+        (
+            Entity,
+            Has<InteractionDisabled>,
+            Has<Pressed>,
+            &Hovered,
+            &mut BackgroundGradient,
+            &InheritableThemeTextColor,
+        ),
+        With<FeathersSlider>,
+    >,
+    theme: Res<UiTheme>,
+    mut commands: Commands,
+) {
+    if !theme.is_changed() {
+        return;
+    }
+    for (slider_ent, disabled, pressed, hovered, mut gradient, font_color) in q_sliders.iter_mut() {
+        set_slider_styles(
+            slider_ent,
+            &theme,
+            disabled,
+            pressed,
+            hovered.0,
+            gradient.as_mut(),
+            font_color,
+            &mut commands,
+        );
+    }
 }
 
 fn set_slider_styles(
@@ -278,6 +314,7 @@ fn set_slider_styles(
     pressed: bool,
     hovered: bool,
     gradient: &mut BackgroundGradient,
+    font_color: &InheritableThemeTextColor,
     commands: &mut Commands,
 ) {
     let bar_color = theme.color(&if disabled {
@@ -300,6 +337,12 @@ fn set_slider_styles(
         tokens::SLIDER_BG
     });
 
+    let text_token = if disabled {
+        tokens::SLIDER_TEXT_DISABLED
+    } else {
+        tokens::SLIDER_TEXT
+    };
+
     let cursor_shape = match disabled {
         true => bevy_window::SystemCursorIcon::NotAllowed,
         false => bevy_window::SystemCursorIcon::EwResize,
@@ -310,6 +353,13 @@ fn set_slider_styles(
         linear_gradient.stops[1].color = bar_color;
         linear_gradient.stops[2].color = bg_color;
         linear_gradient.stops[3].color = bg_color;
+    }
+
+    // Change value-text color (dim when disabled)
+    if font_color.0 != text_token {
+        commands
+            .entity(slider_ent)
+            .insert(InheritableThemeTextColor(text_token));
     }
 
     // Change cursor shape
@@ -324,7 +374,7 @@ fn update_slider_pos(
             Entity,
             &SliderValue,
             &SliderRange,
-            &SliderPrecision,
+            Option<&SliderPrecision>,
             &mut BackgroundGradient,
         ),
         (
@@ -347,17 +397,19 @@ fn update_slider_pos(
         }
 
         // Find slider text child entity and update its text with the formatted value
+        let precision = precision.cloned().unwrap_or_default().0;
+
         q_children.iter_descendants(slider_ent).for_each(|child| {
             if let Ok(mut text) = q_slider_text.get_mut(child) {
                 let label = format!("{}", value.0);
                 let decimals_len = label
                     .split_once('.')
                     .map(|(_, decimals)| decimals.len() as i32)
-                    .unwrap_or(precision.0);
+                    .unwrap_or(precision);
 
                 // Don't format with precision if the value has more decimals than the precision
-                text.0 = if precision.0 >= 0 && decimals_len <= precision.0 {
-                    format!("{:.precision$}", value.0, precision = precision.0 as usize)
+                text.0 = if precision >= 0 && decimals_len <= precision {
+                    format!("{:.precision$}", value.0, precision = precision as usize)
                 } else {
                     label
                 };
@@ -376,6 +428,7 @@ impl Plugin for SliderPlugin {
             (
                 update_slider_styles,
                 update_slider_styles_remove,
+                update_slider_styles_theme,
                 update_slider_pos,
             )
                 .in_set(PickingSystems::Last),

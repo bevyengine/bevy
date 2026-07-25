@@ -341,12 +341,12 @@ impl<'env> DynamicFunctionMut<'env> {
 /// Names for arguments and the function itself are optional and will default to `_` if not provided.
 ///
 /// If the function is [overloaded], the output will include the signatures of all overloads as a set.
-/// For example, `DynamicFunctionMut(fn add{(_: i32, _: i32) -> i32, (_: f32, _: f32) -> f32})`.
+/// For example, `DynamicFunctionMut(fn add {(_: i32, _: i32) -> i32, (_: f32, _: f32) -> f32})`.
 ///
 /// [overloaded]: DynamicFunctionMut::with_overload
 impl<'env> Debug for DynamicFunctionMut<'env> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        write!(f, "DynamicFunctionMut({:?})", &self.internal)
+        write!(f, "DynamicFunctionMut({:?})", self.internal)
     }
 }
 

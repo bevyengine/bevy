@@ -16,7 +16,9 @@ use crate::{
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 
-// SAFETY: We have exclusive world access so our pointers can't be invalidated externally
+// SAFETY:
+// Pointers are valid for 'w and belong to `world`
+// (as we have exclusive world access, our pointers can't be invalidated externally).
 pub(crate) struct BundleRemover<'w> {
     world: UnsafeWorldCell<'w>,
     bundle_info: ConstNonNull<BundleInfo>,
@@ -34,7 +36,6 @@ impl<'w> BundleRemover<'w> {
     /// # Safety
     /// Caller must ensure that `archetype_id` is valid
     #[inline]
-    #[deny(unsafe_op_in_unsafe_fn)]
     pub(crate) unsafe fn new<T: Bundle>(
         world: &'w mut World,
         archetype_id: ArchetypeId,
@@ -60,7 +61,8 @@ impl<'w> BundleRemover<'w> {
         bundle_id: BundleId,
         require_all: bool,
     ) -> Option<Self> {
-        let bundle_info = world.bundles.get_unchecked(bundle_id);
+        // SAFETY: Bundle exists per precondition
+        let bundle_info = unsafe { world.bundles.get_unchecked(bundle_id) };
         // SAFETY: Caller ensures archetype and bundle ids are correct.
         let (new_archetype_id, is_new_created) = unsafe {
             bundle_info.remove_bundle_from_archetype(
@@ -96,10 +98,10 @@ impl<'w> BundleRemover<'w> {
             relationship_hook_mode: RelationshipHookMode::Run,
         };
         if is_new_created {
-            remover
-                .world
-                .into_deferred()
-                .trigger(ArchetypeCreated(new_archetype_id));
+            // SAFETY:
+            // - we have exclusive ownership of the world and hold no references to command queue or component data
+            // - as this goes through `DeferredWorld`, our pointers will not be invalidated
+            unsafe { remover.world.into_deferred() }.trigger(ArchetypeCreated(new_archetype_id));
         }
         Some(remover)
     }
@@ -189,6 +191,7 @@ impl<'w> BundleRemover<'w> {
         }
 
         // SAFETY: We still have the cell, so this is unique, it doesn't conflict with other references, and we drop it shortly.
+        // We will not use it to invalidate the bundle_info or archetype pointers.
         let world = unsafe { self.world.world_mut() };
 
         let (needs_drop, pre_remove_result) = pre_remove(
@@ -199,19 +202,24 @@ impl<'w> BundleRemover<'w> {
                 world.storages.tables.get_unchecked_mut(old_and_new_table.0)
             }),
             &world.components,
-            self.bundle_info.as_ref().explicit_components(),
+            // SAFETY:
+            // bundle_info valid for 'w, returned reference is only live for the pre_remove call
+            unsafe { self.bundle_info.as_ref() }.explicit_components(),
         );
 
         // Handle sparse set removes
-        for component_id in self.bundle_info.as_ref().iter_explicit_components() {
-            if self.old_archetype.as_ref().contains(component_id) {
+        // SAFETY:
+        // bundle_info valid for 'w, returned reference is only live for the loop
+        for component_id in unsafe { self.bundle_info.as_ref() }.iter_explicit_components() {
+            // SAFETY:
+            // old_archetype valid for 'w, returned reference is only live for the loop
+            let old_archetype = unsafe { self.old_archetype.as_ref() };
+            if old_archetype.contains(component_id) {
                 world.removed_components.write(component_id, entity);
 
                 // Make sure to drop components stored in sparse sets.
                 // Dense components are dropped later in `move_to_and_drop_missing_unchecked`.
-                if let Some(StorageType::SparseSet) =
-                    self.old_archetype.as_ref().get_storage_type(component_id)
-                {
+                if let Some(StorageType::SparseSet) = old_archetype.get_storage_type(component_id) {
                     world
                         .storages
                         .sparse_sets
@@ -225,23 +233,25 @@ impl<'w> BundleRemover<'w> {
         }
 
         // Handle archetype change
-        let remove_result = self
-            .old_archetype
-            .as_mut()
-            .swap_remove(location.archetype_row);
+        let remove_result =
+            // SAFETY: Pointer valid for 'w; we have no life references into world.archetypes
+            unsafe { self.old_archetype.as_mut() }.swap_remove(location.archetype_row);
         // if an entity was moved into this entity's archetype row, update its archetype row
         if let Some(swapped_entity) = remove_result.swapped_entity {
             let swapped_location = world.entities.get_spawned(swapped_entity).unwrap();
 
-            world.entities.update_existing_location(
-                swapped_entity.index(),
-                Some(EntityLocation {
-                    archetype_id: swapped_location.archetype_id,
-                    archetype_row: location.archetype_row,
-                    table_id: swapped_location.table_id,
-                    table_row: swapped_location.table_row,
-                }),
-            );
+            // SAFETY: entity already existed, it's archetype_row just changed
+            unsafe {
+                world.entities.update_existing_location(
+                    swapped_entity.index(),
+                    Some(EntityLocation {
+                        archetype_id: swapped_location.archetype_id,
+                        archetype_row: location.archetype_row,
+                        table_id: swapped_location.table_id,
+                        table_row: swapped_location.table_row,
+                    }),
+                )
+            };
         }
 
         // Handle table change
@@ -289,15 +299,18 @@ impl<'w> BundleRemover<'w> {
             if let Some(swapped_entity) = move_result.swapped_entity {
                 let swapped_location = world.entities.get_spawned(swapped_entity).unwrap();
 
-                world.entities.update_existing_location(
-                    swapped_entity.index(),
-                    Some(EntityLocation {
-                        archetype_id: swapped_location.archetype_id,
-                        archetype_row: swapped_location.archetype_row,
-                        table_id: swapped_location.table_id,
-                        table_row: location.table_row,
-                    }),
-                );
+                // SAFETY: Entity existed but is now at new table row
+                unsafe {
+                    world.entities.update_existing_location(
+                        swapped_entity.index(),
+                        Some(EntityLocation {
+                            archetype_id: swapped_location.archetype_id,
+                            archetype_row: swapped_location.archetype_row,
+                            table_id: swapped_location.table_id,
+                            table_row: location.table_row,
+                        }),
+                    )
+                };
                 world.archetypes[swapped_location.archetype_id]
                     .set_entity_table_row(swapped_location.archetype_row, location.table_row);
             }
@@ -305,9 +318,14 @@ impl<'w> BundleRemover<'w> {
             new_location
         } else {
             // The tables are the same
-            self.new_archetype
-                .as_mut()
-                .allocate(entity, location.table_row)
+            // SAFETY:
+            // - pointer valid for 'w, reference life only for this line, no other references into world.archetypes currently exist
+            // - component data already exists at the correct location
+            unsafe {
+                self.new_archetype
+                    .as_mut()
+                    .allocate(entity, location.table_row)
+            }
         };
 
         // SAFETY: The entity is valid and has been moved to the new location already.
@@ -411,13 +429,18 @@ impl BundleInfo {
                 };
             }
 
-            let (new_archetype_id, is_new_created) = archetypes.get_id_or_insert(
-                components,
-                observers,
-                next_table_id,
-                next_table_components,
-                next_sparse_set_components,
-            );
+            // SAFETY:
+            // - table id was created if it doesn't exist
+            // - components exists as they are already part of the old archetype
+            let (new_archetype_id, is_new_created) = unsafe {
+                archetypes.get_id_or_insert(
+                    components,
+                    observers,
+                    next_table_id,
+                    next_table_components,
+                    next_sparse_set_components,
+                )
+            };
             (Some(new_archetype_id), is_new_created)
         };
         let current_archetype = &mut archetypes[archetype_id];

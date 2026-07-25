@@ -1665,7 +1665,7 @@ unsafe impl WorldQuery for &Archetype {
         (world.entities(), world.archetypes())
     }
 
-    // This could probably be a non-dense query and just set a Option<&Archetype> fetch value in
+    // This could probably be a non-dense query and just set an Option<&Archetype> fetch value in
     // set_archetypes, but forcing archetypal iteration is likely to be slower in any compound query.
     const IS_DENSE: bool = true;
 
@@ -2720,8 +2720,8 @@ impl<'__w, T: Component<Mutability = Mutable>> ContiguousQueryData for Mut<'__w,
 /// #     component::{ComponentId, Components},
 /// #     prelude::*,
 /// #     query::{
-/// #         EcsAccessType, FilteredAccess, IterQueryData, NestedQuery, QueryData, QueryFilter,
-/// #         ReadOnlyQueryData, ReleaseStateQueryData, WorldQuery,
+/// #         EcsAccessType, FilteredAccess, FilteredAccessSet, IterQueryData, NestedQuery,
+/// #         QueryData, QueryFilter, ReadOnlyQueryData, ReleaseStateQueryData, WorldQuery,
 /// #     },
 /// #     storage::{Table, TableRow},
 /// #     world::unsafe_world_cell::UnsafeWorldCell,
@@ -2818,6 +2818,10 @@ impl<'__w, T: Component<Mutability = Mutable>> ContiguousQueryData for Mut<'__w,
 ///         <ParentInner<D, F> as WorldQuery>::update_component_access(state, access)
 ///     }
 ///
+///     fn init_nested_access(state: &Self::State, system_name: Option<&str>, component_access_set: &mut FilteredAccessSet, world: UnsafeWorldCell) {
+///         <ParentInner<D, F> as WorldQuery>::init_nested_access(state, system_name, component_access_set, world)
+///     }
+///
 ///     fn init_state(world: &mut World) -> Self::State {
 ///         <ParentInner<D, F> as WorldQuery>::init_state(world)
 ///     }
@@ -2828,6 +2832,10 @@ impl<'__w, T: Component<Mutability = Mutable>> ContiguousQueryData for Mut<'__w,
 ///
 ///     fn matches_component_set(state: &Self::State, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
 ///         <ParentInner<D, F> as WorldQuery>::matches_component_set(state, set_contains_id)
+///     }
+///
+///     fn update_archetypes(state: &mut Self::State, world: UnsafeWorldCell) {
+///         <ParentInner<D, F> as WorldQuery>::update_archetypes(state, world)
 ///     }
 /// }
 ///

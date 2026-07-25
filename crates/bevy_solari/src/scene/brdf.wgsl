@@ -14,6 +14,7 @@ struct EvaluateAndSampleBrdfResult {
     wi: vec3<f32>,
     throughput: vec3<f32>,
     pdf: f32,
+    diffuse_selected: bool,
 }
 
 struct LobeReflectances {
@@ -32,6 +33,16 @@ fn lobe_reflectances(F0_metal: vec3<f32>, F0_dielectric: vec3<f32>, material: Re
     );
 }
 
+fn specular_lobe_sampling_probability(rho: LobeReflectances, perceptual_roughness: f32) -> f32 {
+    let specular_luminance = luminance(rho.specular);
+    let total_luminance = specular_luminance + luminance(rho.diffuse);
+    let energy_probability = specular_luminance / max(total_luminance, 0.0001);
+
+    // Give smooth dielectric reflections more specular samples to prevent undersampling
+    let roughness_biased_probability = mix(0.5, energy_probability, perceptual_roughness);
+    return saturate(max(energy_probability, roughness_biased_probability));
+}
+
 fn evaluate_and_sample_brdf(
     wo: vec3<f32>,
     world_normal: vec3<f32>,
@@ -40,11 +51,11 @@ fn evaluate_and_sample_brdf(
     rng: ptr<function, u32>,
 ) -> EvaluateAndSampleBrdfResult {
     let NdotV = dot(world_normal, wo);
-    if NdotV < 0.0001 { return EvaluateAndSampleBrdfResult(vec3(0.0), vec3(0.0), 0.0); }
+    if NdotV < 0.0001 { return EvaluateAndSampleBrdfResult(vec3(0.0), vec3(0.0), 0.0, false); }
     let F0_metal = material.base_color;
     let F0_dielectric = calculate_F0_dielectric(vec3(material.reflectance));
     let rho = lobe_reflectances(F0_metal, F0_dielectric, material, F_ab);
-    let specular_weight = luminance(rho.specular) / luminance(rho.specular + rho.diffuse);
+    let specular_weight = specular_lobe_sampling_probability(rho, material.perceptual_roughness);
     let diffuse_weight = 1.0 - specular_weight;
 
     let TBN = orthonormalize(world_normal);
@@ -63,7 +74,7 @@ fn evaluate_and_sample_brdf(
     } else {
         wi_tangent = sample_ggx_vndf(wo_tangent, material.roughness, rng);
         if ggx_vndf_sample_invalid(wi_tangent) {
-            return EvaluateAndSampleBrdfResult(vec3(0.0), vec3(0.0), 0.0);
+            return EvaluateAndSampleBrdfResult(vec3(0.0), vec3(0.0), 0.0, false);
         }
         wi = wi_tangent.x * T + wi_tangent.y * B + wi_tangent.z * N;
 
@@ -72,7 +83,8 @@ fn evaluate_and_sample_brdf(
             return EvaluateAndSampleBrdfResult(
                 wi,
                 evaluate_specular_brdf(wo, wi, world_normal, material, F_ab) / specular_weight,
-                bitcast<f32>(0x7F800000u) // INF
+                bitcast<f32>(0x7F800000u), // INF
+                false,
             );
         }
     }
@@ -81,7 +93,7 @@ fn evaluate_and_sample_brdf(
     let specular_pdf = ggx_vndf_pdf(wo_tangent, wi_tangent, material.roughness);
     let pdf = (diffuse_weight * diffuse_pdf) + (specular_weight * specular_pdf);
     let throughput = evaluate_brdf(wo, wi, world_normal, material, F_ab) / pdf;
-    return EvaluateAndSampleBrdfResult(wi, throughput, pdf);
+    return EvaluateAndSampleBrdfResult(wi, throughput, pdf, diffuse_selected);
 }
 
 fn evaluate_brdf(
@@ -91,7 +103,7 @@ fn evaluate_brdf(
     material: ResolvedMaterial,
     F_ab: vec2<f32>,
 ) -> vec3<f32> {
-    return evaluate_diffuse_brdf(wo, wi, world_normal, material, F_ab) + evaluate_specular_brdf(wo, wi, world_normal, material, F_ab);
+    return max(evaluate_diffuse_brdf(wo, wi, world_normal, material, F_ab) + evaluate_specular_brdf(wo, wi, world_normal, material, F_ab), vec3(0.0));
 }
 
 fn evaluate_diffuse_brdf(wo: vec3<f32>, wi: vec3<f32>, world_normal: vec3<f32>, material: ResolvedMaterial, F_ab: vec2<f32>) -> vec3<f32> {
@@ -139,7 +151,7 @@ fn brdf_pdf(wo: vec3<f32>, wi: vec3<f32>, world_normal: vec3<f32>, material: Res
     let F0_metal = material.base_color;
     let F0_dielectric = calculate_F0_dielectric(vec3(material.reflectance));
     let rho = lobe_reflectances(F0_metal, F0_dielectric, material, F_ab);
-    let specular_weight = luminance(rho.specular) / luminance(rho.specular + rho.diffuse);
+    let specular_weight = specular_lobe_sampling_probability(rho, material.perceptual_roughness);
     let diffuse_weight = 1.0 - specular_weight;
 
     let TBN = orthonormalize(world_normal);

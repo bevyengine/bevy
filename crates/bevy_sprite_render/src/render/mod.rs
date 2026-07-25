@@ -553,7 +553,7 @@ pub fn queue_sprites(
                     }
                     Tonemapping::TonyMcMapface => SpritePipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE,
                     Tonemapping::BlenderFilmic => SpritePipelineKey::TONEMAP_METHOD_BLENDER_FILMIC,
-                    Tonemapping::PbrNeutral => SpritePipelineKey::TONEMAP_METHOD_PBR_NEUTRAL,
+                    Tonemapping::KhronosPbrNeutral => SpritePipelineKey::TONEMAP_METHOD_PBR_NEUTRAL,
                 };
             }
             if let Some(DebandDither::Enabled) = dither {

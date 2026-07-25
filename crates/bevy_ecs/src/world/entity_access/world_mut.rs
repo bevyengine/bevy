@@ -376,7 +376,7 @@ impl<'w> EntityWorldMut<'w> {
     /// let (mut x, mut y) = entity.get_components_mut::<(&mut X, &mut Y)>().unwrap();
     /// ```
     ///
-    /// Note that this does a O(n^2) check that the [`QueryData`](crate::query::QueryData) does not conflict. If performance is a
+    /// Note that this does an O(n^2) check that the [`QueryData`](crate::query::QueryData) does not conflict. If performance is a
     /// consideration you should use [`Self::get_components_mut_unchecked`] instead.
     pub fn get_components_mut<Q: ReleaseStateQueryData + SingleEntityQueryData>(
         &mut self,
@@ -617,7 +617,9 @@ impl<'w> EntityWorldMut<'w> {
     /// - `T` must be a mutable component
     #[inline]
     pub unsafe fn get_mut_assume_mutable<T: Component>(&mut self) -> Option<Mut<'_, T>> {
-        self.as_mutable().into_mut_assume_mutable()
+        let entity_mut = self.as_mutable();
+        // SAFETY: Same preconditions
+        unsafe { entity_mut.into_mut_assume_mutable() }
     }
 
     /// Consumes `self` and gets mutable access to the component of type `T`
@@ -744,8 +746,7 @@ impl<'w> EntityWorldMut<'w> {
     #[inline]
     #[track_caller]
     pub fn resource_entity<R: Resource>(&self) -> Option<Entity> {
-        let component_id = self.world.component_id::<R>()?;
-        self.world.resource_entities().get(component_id)
+        self.world.resource_entity::<R>()
     }
 
     /// Retrieves the change ticks for the given component. This can be useful for implementing change
@@ -1135,8 +1136,6 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     /// # Safety
-    ///
-    /// - [`ComponentId`] must be from the same world as [`EntityWorldMut`]
     /// - [`OwningPtr`] must be a valid reference to the type represented by [`ComponentId`]
     #[inline]
     pub(crate) unsafe fn insert_by_id_with_caller(
@@ -1154,21 +1153,32 @@ impl<'w> EntityWorldMut<'w> {
             &self.world.components,
             component_id,
         );
-        let storage_type = self.world.bundles.get_storage_unchecked(bundle_id);
+        // SAFETY:
+        // init done above via init_component_info
+        let storage_type = unsafe { self.world.bundles.get_storage_unchecked(bundle_id) };
 
-        let bundle_inserter =
-            BundleInserter::new_with_id(self.world, location.archetype_id, bundle_id, change_tick);
+        // SAFETY:
+        // - bundle initialized above
+        // - archetype id taken from existing entity
+        let bundle_inserter = unsafe {
+            BundleInserter::new_with_id(self.world, location.archetype_id, bundle_id, change_tick)
+        };
 
-        self.location = Some(insert_dynamic_bundle(
-            bundle_inserter,
-            self.entity,
-            location,
-            Some(component).into_iter(),
-            Some(storage_type).iter().cloned(),
-            mode,
-            caller,
-            relationship_hook_insert_mode,
-        ));
+        // SAFETY:
+        // - only one component, with its component & storage type retrieved above
+        // - entity & location both belong to self
+        self.location = Some(unsafe {
+            insert_dynamic_bundle(
+                bundle_inserter,
+                self.entity,
+                location,
+                Some(component).into_iter(),
+                Some(storage_type).iter().cloned(),
+                mode,
+                caller,
+                relationship_hook_insert_mode,
+            )
+        });
         self.world.flush();
         self.update_location();
         self
@@ -1196,9 +1206,15 @@ impl<'w> EntityWorldMut<'w> {
         component_ids: &[ComponentId],
         iter_components: I,
     ) -> &mut Self {
-        self.insert_by_ids_internal(component_ids, iter_components, RelationshipHookMode::Run)
+        // SAFETY:
+        // same preconditions
+        unsafe {
+            self.insert_by_ids_internal(component_ids, iter_components, RelationshipHookMode::Run)
+        }
     }
 
+    /// # Safety
+    /// see [`EntityWorldMut::insert_by_ids`]
     #[track_caller]
     pub(crate) unsafe fn insert_by_ids_internal<'a, I: Iterator<Item = OwningPtr<'a>>>(
         &mut self,
@@ -1213,22 +1229,38 @@ impl<'w> EntityWorldMut<'w> {
             &self.world.components,
             component_ids,
         );
-        let mut storage_types =
-            core::mem::take(self.world.bundles.get_storages_unchecked(bundle_id));
-        let bundle_inserter =
-            BundleInserter::new_with_id(self.world, location.archetype_id, bundle_id, change_tick);
 
-        self.location = Some(insert_dynamic_bundle(
-            bundle_inserter,
-            self.entity,
-            location,
-            iter_components,
-            (*storage_types).iter().cloned(),
-            InsertMode::Replace,
-            MaybeLocation::caller(),
-            relationship_hook_insert_mode,
-        ));
-        *self.world.bundles.get_storages_unchecked(bundle_id) = core::mem::take(&mut storage_types);
+        // SAFETY:
+        // init done above via init_dynamic_info
+        let mut storage_types =
+            core::mem::take(unsafe { self.world.bundles.get_storages_unchecked(bundle_id) });
+        // SAFETY:
+        // - bundle initialized above
+        // - archetype id taken from existing entity
+        let bundle_inserter = unsafe {
+            BundleInserter::new_with_id(self.world, location.archetype_id, bundle_id, change_tick)
+        };
+
+        // SAFETY:
+        // - owning pointers are of the component's types per precondition
+        // - storage types retrieved above
+        // - entity & location both belong to self
+        self.location = Some(unsafe {
+            insert_dynamic_bundle(
+                bundle_inserter,
+                self.entity,
+                location,
+                iter_components,
+                (*storage_types).iter().cloned(),
+                InsertMode::Replace,
+                MaybeLocation::caller(),
+                relationship_hook_insert_mode,
+            )
+        });
+        // SAFETY:
+        // same as above
+        *unsafe { self.world.bundles.get_storages_unchecked(bundle_id) } =
+            core::mem::take(&mut storage_types);
         self.world.flush();
         self.update_location();
         self
@@ -2409,7 +2441,7 @@ unsafe fn insert_dynamic_bundle<
     // - `location` matches `entity`.  and thus must currently exist in the source
     //   archetype for this inserter and its location within the archetype.
     // - The caller must ensure that the iterators and storage types match up with the `BundleInserter`
-    // - `apply_effect` is never called on this bundle.
+    // - `DynamicInsertBundle::Effect: NoBundleEffect`
     // - `bundle` is not used or dropped after this point.
     unsafe {
         bundle_inserter.insert(

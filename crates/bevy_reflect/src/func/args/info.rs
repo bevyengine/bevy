@@ -2,7 +2,7 @@ use alloc::borrow::Cow;
 
 use crate::{
     func::args::{GetOwnership, Ownership},
-    type_info::impl_type_methods,
+    ty::impl_type_methods,
     Type, TypePath,
 };
 

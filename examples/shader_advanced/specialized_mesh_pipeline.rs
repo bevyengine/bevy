@@ -12,7 +12,7 @@ use bevy::{
     core_pipeline::core_3d::{Opaque3d, Opaque3dBatchSetKey, Opaque3dBinKey, CORE_3D_DEPTH_FORMAT},
     ecs::change_detection::Tick,
     math::{vec3, vec4},
-    mesh::{Indices, MeshVertexBufferLayoutRef, PrimitiveTopology},
+    mesh::{Indices, MeshAttributeCompressionFlags, MeshVertexBufferLayoutRef, PrimitiveTopology},
     pbr::{
         DrawMesh, MeshPipeline, MeshPipelineKey, MeshPipelineSystems, MeshPipelineViewLayoutKey,
         RenderMeshInstances, SetMeshBindGroup, SetMeshViewBindGroup, SetMeshViewEmptyBindGroup,
@@ -35,6 +35,7 @@ use bevy::{
             RenderPipelineDescriptor, SpecializedMeshPipeline, SpecializedMeshPipelineError,
             SpecializedMeshPipelines, VertexState,
         },
+        sync_world::MainEntityHashSet,
         view::{ExtractedView, RenderVisibleEntities},
         Render, RenderApp, RenderStartup, RenderSystems,
     },
@@ -137,6 +138,7 @@ impl Plugin for CustomRenderedMeshPipelinePlugin {
 #[derive(Clone, Component, ExtractComponent)]
 #[require(VisibilityClass)]
 #[component(on_add = visibility::add_visibility_class::<CustomRenderedEntity>)]
+#[extract_app(RenderApp)]
 struct CustomRenderedEntity;
 
 /// The custom draw commands that Bevy executes for each entity we enqueue into
@@ -194,9 +196,18 @@ impl SpecializedMeshPipeline for CustomMeshPipeline {
         mesh_key: Self::Key,
         layout: &MeshVertexBufferLayoutRef,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
+        let mut shader_defs = Vec::new();
         // Define the vertex attributes based on a standard bevy [`Mesh`]
         let mut vertex_attributes = Vec::new();
         if layout.0.contains(Mesh::ATTRIBUTE_POSITION) {
+            // Handle compressed vertex positions.
+            if layout
+                .0
+                .get_attribute_compression()
+                .contains(MeshAttributeCompressionFlags::COMPRESS_POSITION)
+            {
+                shader_defs.push("VERTEX_POSITIONS_COMPRESSED".into());
+            }
             // Make sure this matches the shader location
             vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));
         }
@@ -220,12 +231,14 @@ impl SpecializedMeshPipeline for CustomMeshPipeline {
             ],
             vertex: VertexState {
                 shader: self.shader_handle.clone(),
+                shader_defs: shader_defs.clone(),
                 // Customize how to store the meshes' vertex attributes in the vertex buffer
                 buffers: vec![vertex_buffer_layout],
                 ..default()
             },
             fragment: Some(FragmentState {
                 shader: self.shader_handle.clone(),
+                shader_defs,
                 targets: vec![Some(ColorTargetState {
                     // This isn't required, but bevy supports rendering different formats
                     // so it's generally recommended to specialize the pipeline for that
@@ -293,6 +306,7 @@ fn queue_custom_mesh_pipeline(
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
     dirty_specializations: Res<DirtySpecializations>,
     mut pending_custom_mesh_queues: ResMut<PendingCustomMeshQueues>,
+    mut mesh_instances_queued_this_iteration_scratch_space: Local<MainEntityHashSet>,
 ) {
     // Get the id for our custom draw function
     let draw_function = opaque_draw_functions
@@ -334,6 +348,7 @@ fn queue_custom_mesh_pipeline(
             view.retained_view_entity,
             render_visible_mesh_entities,
             &view_pending_custom_mesh_queues.prev_frame,
+            &mut mesh_instances_queued_this_iteration_scratch_space,
         ) {
             // Get the mesh instance
             let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*visible_entity)

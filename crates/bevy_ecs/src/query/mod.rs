@@ -303,7 +303,7 @@ mod tests {
             sorted.sort();
             assert!(expected.contains(&sorted),
                     "the results of iter_combinations should contain this combination {:?}. Expected: {:?}, got: {:?}",
-                    &sorted, &expected, &values);
+                    sorted, expected, values);
         });
     }
 

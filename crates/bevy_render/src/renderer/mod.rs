@@ -12,7 +12,8 @@ pub use wgpu_wrapper::WgpuWrapper;
 
 use crate::{
     settings::{RenderResources, WgpuSettings, WgpuSettingsPriority},
-    view::{ExtractedWindows, ViewTarget},
+    sync_world::MainEntity,
+    view::{screenshot::SubmitScreenshotCommandsState, ExtractedWindow, ViewTarget},
 };
 use alloc::sync::Arc;
 use bevy_camera::NormalizedRenderTarget;
@@ -31,6 +32,19 @@ use wgpu::{
 
 /// Schedule label for the root render graph schedule. This schedule runs once per frame
 /// in the [`render_system`] system and is responsible for driving the entire rendering process.
+///
+/// The default bevy render graph is executed as follows:
+/// ```ignore
+/// RenderApp (App)
+///   Render (Schedule)
+///     RenderSystems::Render (SystemSet)
+///       render_system (System)
+///         RenderGraph (Schedule)
+///           camera_driver (System)
+///             Core2d (Schedule)
+///             Core3d (Schedule)
+///             CUSTOM_PIPELINE (Schedule)
+/// ```
 #[derive(ScheduleLabel, Debug, Clone, PartialEq, Eq, Hash, Default)]
 pub struct RenderGraph;
 
@@ -68,7 +82,12 @@ pub enum RenderGraphSystems {
 /// calls present on swap chains that need to be presented.
 pub fn render_system(
     world: &mut World,
-    state: &mut SystemState<Query<(&ViewTarget, &ExtractedCamera)>>,
+    present_state: &mut SystemState<(
+        Query<(&ViewTarget, &ExtractedCamera)>,
+        Query<(MainEntity, &mut ExtractedWindow)>,
+        Res<RenderQueue>,
+    )>,
+    screenshot_state: &mut SystemState<SubmitScreenshotCommandsState>,
 ) {
     #[cfg(feature = "trace")]
     let _span = info_span!("main_render_schedule").entered();
@@ -82,7 +101,7 @@ pub fn render_system(
         let mut encoder =
             render_device.create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
 
-        crate::view::screenshot::submit_screenshot_commands(world, &mut encoder);
+        crate::view::screenshot::submit_screenshot_commands(world, screenshot_state, &mut encoder);
         crate::gpu_readback::submit_readback_commands(world, &mut encoder);
 
         render_queue.submit([encoder.finish()]);
@@ -92,22 +111,21 @@ pub fn render_system(
         #[cfg(feature = "trace")]
         let _span = info_span!("present_frames").entered();
 
-        world.resource_scope(|world, mut windows: Mut<ExtractedWindows>| {
-            let views = state.get(world).unwrap();
-            for window in windows.values_mut() {
+        if let Ok((views, mut windows, render_queue)) = present_state.get_mut(world) {
+            for (window_entity, mut window) in &mut windows {
                 let view_needs_present = views.iter().any(|(view_target, camera)| {
                     matches!(
                         camera.target,
-                        Some(NormalizedRenderTarget::Window(w)) if w.entity() == window.entity
+                        Some(NormalizedRenderTarget::Window(w)) if w.entity() == window_entity
                     ) && view_target.needs_present()
                 });
 
                 if view_needs_present || window.needs_initial_present {
-                    window.present();
+                    window.present(&render_queue);
                     window.needs_initial_present = false;
                 }
             }
-        });
+        }
 
         #[cfg(feature = "tracing-tracy")]
         bevy_log::event!(
@@ -130,7 +148,6 @@ pub struct RenderQueue(pub Arc<WgpuWrapper<Queue>>);
 pub struct RenderAdapter(pub Arc<WgpuWrapper<Adapter>>);
 
 /// The GPU instance is used to initialize the [`RenderQueue`] and [`RenderDevice`],
-/// as well as to create [`WindowSurfaces`](crate::view::window::WindowSurfaces).
 #[derive(Resource, Clone, Deref, DerefMut)]
 pub struct RenderInstance(pub Arc<WgpuWrapper<Instance>>);
 
@@ -204,7 +221,10 @@ pub async fn initialize_renderer(
                 force_shader_model: ForceShaderModelToken::default(),
                 agility_sdk: None,
             },
-            noop: wgpu::NoopBackendOptions { enable: false },
+            noop: wgpu::NoopBackendOptions {
+                enable: false,
+                ..Default::default()
+            },
         },
     };
 
@@ -250,6 +270,7 @@ pub async fn initialize_renderer(
         power_preference: options.power_preference,
         compatible_surface: surface.as_ref(),
         force_fallback_adapter,
+        apply_limit_buckets: false,
     };
 
     #[cfg(not(target_family = "wasm"))]

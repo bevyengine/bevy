@@ -15,7 +15,7 @@ cargo run --features wayland --example hello_world
 
 There are often large differences and incompatible API changes between the latest [crates.io](https://crates.io/crates/bevy) release and the development version of Bevy in the git main branch!
 
-If you are using a released version of bevy, you need to make sure you are viewing the correct version of the examples!
+If you are using a released version of Bevy, you need to make sure you are viewing the correct version of the examples!
 
 - Latest release: [https://github.com/bevyengine/bevy/tree/latest/examples](https://github.com/bevyengine/bevy/tree/latest/examples)
 - Specific version, such as `0.4`: [https://github.com/bevyengine/bevy/tree/v0.4.0/examples](https://github.com/bevyengine/bevy/tree/v0.4.0/examples)
@@ -173,7 +173,7 @@ Example | File | Description
 
 #### Setup
 
-You need to install the correct rust targets:
+You need to install the correct Rust targets:
 
 - `aarch64-apple-ios`: iOS devices
 - `x86_64-apple-ios`: iOS simulator on x86 processors
@@ -270,12 +270,12 @@ This helper will log the command used to build the examples.
 
 For the moment, everything is single threaded, this can lead to stuttering when playing audio in browsers. Not all browsers react the same way for all games, you will have to experiment for your game.
 
-In browsers, audio is not authorized to start without being triggered by an user interaction. This is to avoid multiple tabs all starting to auto play some sounds. You can find more context and explanation for this on [Google Chrome blog](https://developer.chrome.com/blog/web-audio-autoplay/). This page also describes a JS workaround to resume audio as soon as the user interact with your game.
+In browsers, audio is not authorized to start without being triggered by an user interaction. This is to avoid multiple tabs all starting to auto play some sounds. You can find more context and explanation for this on [Google Chrome blog](https://developer.chrome.com/blog/web-audio-autoplay/). This page also describes a JS workaround to resume audio as soon as the user interacts with your game.
 
 #### Optimizing
 
 On the web, it's useful to reduce the size of the files that are distributed.
-With rust, there are many ways to improve your executable sizes, starting with
+With Rust, there are many ways to improve your executable sizes, starting with
 the steps described in [the quick-start guide](https://bevy.org/learn/quick-start/getting-started/setup/#compile-with-performance-optimizations).
 
 Now, when building the executable, use `--profile wasm-release` instead of `--release`:

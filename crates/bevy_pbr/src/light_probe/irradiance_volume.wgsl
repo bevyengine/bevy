@@ -9,6 +9,10 @@
 };
 #import bevy_pbr::clustered_forward::ClusterableObjectIndexRanges
 
+#ifdef LIGHTMAP
+#import bevy_pbr::mesh_view_types::LIGHT_PROBE_FLAG_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE;
+#endif
+
 #ifdef IRRADIANCE_VOLUMES_ARE_USABLE
 
 // See:

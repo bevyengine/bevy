@@ -159,6 +159,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         impl #impl_generics #ecs_path::bundle::DynamicBundle for #struct_name #ty_generics #where_clause {
             type Effect = ();
             #[allow(unused_variables)]
+            #[allow(non_snake_case, reason = "deconstruct_moving_ptr uses #active_field_locals as a local binding name")]
             #[inline]
             unsafe fn get_components(
                 ptr: #ecs_path::ptr::MovingPtr<'_, Self>,
