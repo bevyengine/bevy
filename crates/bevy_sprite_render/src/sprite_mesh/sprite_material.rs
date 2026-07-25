@@ -33,7 +33,8 @@ impl Plugin for SpriteMaterialPlugin {
 
 #[derive(Asset, AsBindGroup, Reflect, Debug, Clone, Default, PartialEq)]
 #[reflect(Debug, Clone)]
-#[uniform(0, SpriteMaterialUniform)]
+#[data(0, SpriteMaterialUniform, binding_array(10))]
+#[bindless(index_table(range(0..3)))]
 pub struct SpriteMaterial {
     #[texture(1)]
     #[sampler(2)]

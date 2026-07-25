@@ -15,7 +15,7 @@ use bevy_platform::{
     collections::{HashMap, HashSet},
     hash::FixedHasher,
 };
-use bevy_utils::{default, TypeIdMap};
+use bevy_utils::{default, TypeIdHashMap};
 use core::{
     any::{Any, TypeId},
     fmt::{Debug, Write},
@@ -285,7 +285,7 @@ pub enum Chain {
     Unchained,
     /// Systems are chained. `before -> after` ordering constraints
     /// will be added between the successive elements.
-    Chained(TypeIdMap<Box<dyn Any>>),
+    Chained(TypeIdHashMap<Box<dyn Any>>),
 }
 
 impl Chain {
