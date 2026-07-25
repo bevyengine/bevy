@@ -6,7 +6,7 @@ use alloc::{boxed::Box, sync::Arc, vec::Vec};
 use async_broadcast::RecvError;
 use bevy_platform::collections::HashMap;
 use bevy_tasks::IoTaskPool;
-use bevy_utils::TypeIdMap;
+use bevy_utils::TypeIdHashMap;
 use core::any::TypeId;
 use thiserror::Error;
 use tracing::warn;
@@ -14,7 +14,7 @@ use tracing::warn;
 #[derive(Default)]
 pub(crate) struct AssetLoaders {
     loaders: Vec<MaybeAssetLoader>,
-    type_id_to_loaders: TypeIdMap<Vec<usize>>,
+    type_id_to_loaders: TypeIdHashMap<Vec<usize>>,
     extension_to_loaders: HashMap<Box<str>, Vec<usize>>,
     type_path_to_loader: HashMap<&'static str, usize>,
     type_path_to_preregistered_loader: HashMap<&'static str, usize>,

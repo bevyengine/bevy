@@ -208,7 +208,7 @@ fn fragment(in: VertexOutput) -> FragmentOutput {
 #ifdef MOTION_VECTOR_PREPASS
     let clip_position_t = view.unjittered_clip_from_world * in.world_position;
     let clip_position = clip_position_t.xy / clip_position_t.w;
-    let previous_clip_position_t = prepass_bindings::previous_view_uniforms.clip_from_world * in.previous_world_position;
+    let previous_clip_position_t = prepass_bindings::previous_view_uniforms.unjittered_clip_from_world * in.previous_world_position;
     let previous_clip_position = previous_clip_position_t.xy / previous_clip_position_t.w;
     // These motion vectors are used as offsets to UV positions and are stored
     // in the range -1,1 to allow offsetting from the one corner to the

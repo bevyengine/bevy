@@ -8,6 +8,7 @@ use bevy_asset::AssetId;
 use bevy_camera::visibility::InheritedVisibility;
 use bevy_color::Hsla;
 use bevy_color::LinearRgba;
+use bevy_ecs::entity::ContainsEntity as _;
 use bevy_ecs::entity::Entity;
 use bevy_ecs::prelude::Component;
 use bevy_ecs::prelude::ReflectComponent;
@@ -21,7 +22,6 @@ use bevy_math::Affine2;
 use bevy_math::Rect;
 use bevy_math::Vec2;
 use bevy_reflect::Reflect;
-use bevy_render::sync_world::TemporaryRenderEntity;
 use bevy_render::Extract;
 use bevy_sprite::BorderRect;
 use bevy_ui::ui_transform::UiGlobalTransform;
@@ -172,7 +172,7 @@ impl From<UiDebugOptions> for GlobalUiDebugOptions {
 pub fn extract_debug_overlay(
     mut commands: Commands,
     debug_options: Extract<Res<GlobalUiDebugOptions>>,
-    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
+    extracted_uinodes: ResMut<ExtractedUiNodes>,
     uinode_query: Extract<
         Query<(
             Entity,
@@ -188,10 +188,14 @@ pub fn extract_debug_overlay(
     ui_stack: Extract<Res<UiStack>>,
     camera_map: Extract<UiCameraMap>,
 ) {
+    let extracted_uinodes = extracted_uinodes.into_inner();
     let mut camera_mapper = camera_map.get_mapper();
 
     for (entity, uinode, stack_index, transform, visibility, maybe_clip, computed_target, debug) in
-        &uinode_query
+        extracted_uinodes
+            .changed
+            .iter()
+            .flat_map(|main_entity| uinode_query.get(main_entity.entity()).ok())
     {
         let debug_options = debug.copied().unwrap_or((*debug_options.as_ref()).into());
         if !debug_options.enabled {
@@ -217,31 +221,36 @@ pub fn extract_debug_overlay(
                 return;
             }
 
-            extracted_uinodes.uinodes.push(ExtractedUiNode {
-                render_entity: commands.spawn(TemporaryRenderEntity::default()).id(),
-                // Keep all overlays above UI, and nudge each type slightly in Z so ordering is stable.
-                z_order,
-                clip: maybe_clip
-                    .filter(|_| !debug_options.show_clipped)
-                    .map(|clip| clip.clip),
-                image: AssetId::default(),
-                extracted_camera_entity,
-                transform: transform * Affine2::from_translation(rect.center()),
-                item: ExtractedUiItem::Node {
-                    color,
-                    rect: Rect {
-                        min: Vec2::ZERO,
-                        max: rect.size(),
+            extracted_uinodes
+                .uinodes
+                .entry(entity.into())
+                .or_default()
+                .insert(
+                    commands.spawn_empty().id(),
+                    ExtractedUiNode {
+                        // Keep all overlays above UI, and nudge each type slightly in Z so ordering is stable.
+                        z_order,
+                        clip: maybe_clip
+                            .filter(|_| !debug_options.show_clipped)
+                            .map(|clip| clip.clip),
+                        image: AssetId::default(),
+                        extracted_camera_entity,
+                        transform: transform * Affine2::from_translation(rect.center()),
+                        item: ExtractedUiItem::Node {
+                            color,
+                            rect: Rect {
+                                min: Vec2::ZERO,
+                                max: rect.size(),
+                            },
+                            atlas_scaling: None,
+                            flip_x: false,
+                            flip_y: false,
+                            border,
+                            border_radius: radius,
+                            node_type: NodeType::Border(shader_flags::BORDER_ALL),
+                        },
                     },
-                    atlas_scaling: None,
-                    flip_x: false,
-                    flip_y: false,
-                    border,
-                    border_radius: radius,
-                    node_type: NodeType::Border(shader_flags::BORDER_ALL),
-                },
-                main_entity: entity.into(),
-            });
+                );
         };
 
         let border_box = Rect::from_center_size(Vec2::ZERO, uinode.size);

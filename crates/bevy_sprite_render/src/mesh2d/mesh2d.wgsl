@@ -46,6 +46,9 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 #ifdef VERTEX_COLORS
     out.color = uncompressed_vertex.color;
 #endif
+
+    out.instance_index = vertex.instance_index;
+
     return out;
 }
 

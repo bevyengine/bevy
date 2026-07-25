@@ -1,4 +1,4 @@
-use crate::bsn::types::{
+use crate::_bsn::types::{
     Bsn, BsnConstructor, BsnEntry, BsnFields, BsnFnArg, BsnFnArgs, BsnListRoot,
     BsnRelatedSceneList, BsnRoot, BsnScene, BsnSceneFn, BsnSceneListItem, BsnSceneListItems,
     BsnType, BsnValue,
@@ -580,8 +580,8 @@ impl BsnType {
                     #(#base_path.)*#member = #bevy_ecs::template::EntityTemplate::from_reference(#invocation, #index,  _call_id);
                 });
             }
-            Some(BsnValue::Type(ty)) if ty.enum_variant.is_some() => {
-                assignments.push(quote! {#(#base_path.)*#member = #ty;});
+            Some(value @ BsnValue::Type(ty)) if ty.enum_variant.is_some() => {
+                assignments.push(quote! {#(#base_path.)*#member = #value;});
             }
             Some(BsnValue::Type(ty)) => {
                 let mut new_path = base_path.to_vec();
@@ -631,6 +631,17 @@ impl BsnType {
                 },
             )?;
             return Ok(quote! {#(#type_assigns)*});
+        }
+
+        if let Some(
+            value @ (BsnValue::Ident(_)
+            | BsnValue::Expr(_)
+            | BsnValue::Closure(_)
+            | BsnValue::Tuple(_)),
+        ) = value
+        {
+            let ident = ctx.hoisted_expressions.hoist(value);
+            return Ok(quote! { *#bind_name = #ident; });
         }
 
         // NOTE: It is very important to still produce outputs for None field values. This is what
@@ -730,7 +741,7 @@ impl ToTokens for BsnValue {
                 let inner = t.0.iter();
                 quote! {(#(#inner),*)}.to_tokens(tokens);
             }
-            BsnValue::Type(ty) => ty.to_tokens(tokens),
+            BsnValue::Type(ty) => quote! {(#ty).into()}.to_tokens(tokens),
             BsnValue::Name(_) => {
                 // Name requires additional context to convert to tokens
                 unreachable!()
@@ -742,7 +753,7 @@ impl ToTokens for BsnValue {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::bsn::types::*;
+    use crate::_bsn::types::*;
     use syn::parse_quote;
 
     struct TestPaths {
@@ -909,6 +920,47 @@ mod tests {
     }
 
     #[test]
+    fn enum_variant_field_values_use_implicit_into() {
+        let mut refs = EntityRefs::default();
+        let paths = TestPaths::new();
+        let mut exprs = HoistedExpressions::default();
+        let mut ctx = paths.ctx(&mut refs, &mut exprs);
+        let mut assignments = Vec::new();
+        let font = BsnType {
+            path: parse_quote!(TextFont),
+            enum_variant: None,
+            fields: BsnFields::Named(vec![BsnNamedField {
+                is_prop: false,
+                is_name_shorthand: false,
+                name: parse_quote!(font_size),
+                value: Some(BsnValue::Type(BsnType {
+                    path: parse_quote!(TextSize),
+                    enum_variant: Some(parse_quote!(Large)),
+                    fields: BsnFields::Named(Vec::new()),
+                })),
+            }]),
+        };
+
+        let res = font.push_struct_patch(
+            &mut ctx,
+            &mut assignments,
+            false,
+            false,
+            PatchTarget {
+                path: &[Member::Named(parse_quote!(value))],
+                is_ref: false,
+            },
+        );
+
+        assert!(res.is_ok());
+        assert!(ctx.errors.is_empty());
+        assert_eq!(
+            assignments[0].to_string(),
+            "value . font_size = (TextSize :: Large { }) . into () ;"
+        );
+    }
+
+    #[test]
     fn enum_duplicate_field() {
         // Arrange
         let mut refs = EntityRefs::default();
@@ -952,6 +1004,49 @@ mod tests {
         assert!(ctx.errors[0]
             .to_string()
             .contains("Duplicate field `x` found in BSN enum variant"));
+    }
+
+    #[test]
+    fn enum_variant_expr_is_hoisted() {
+        let mut refs = EntityRefs::default();
+        let paths = TestPaths::new();
+        let mut exprs = HoistedExpressions::default();
+        let mut ctx = paths.ctx(&mut refs, &mut exprs);
+        let mut assignments = vec![];
+        let handle = BsnType {
+            path: parse_quote!(FontSourceTemplate),
+            enum_variant: Some(parse_quote!(Handle)),
+            fields: BsnFields::Tuple(vec![BsnUnnamedField {
+                value: BsnValue::Expr(quote!(some_borrow.clone())),
+            }]),
+        };
+
+        let res = handle.push_enum_patch(
+            &mut ctx,
+            &parse_quote!(Handle),
+            &mut assignments,
+            PatchTarget {
+                path: &[],
+                is_ref: false,
+            },
+        );
+
+        assert!(res.is_ok());
+        assert_eq!(ctx.errors.len(), 0);
+        assert_eq!(exprs.expressions.len(), 1);
+        assert_eq!(
+            exprs.expressions[0].to_string(),
+            "let _expr0 = { some_borrow . clone () } . into () ;"
+        );
+        let assignment_output: String = assignments.iter().map(|t| t.to_string()).collect();
+        assert!(
+            assignment_output.contains("_expr0"),
+            "expected hoisted ident in assignment output: {assignment_output}"
+        );
+        assert!(
+            !assignment_output.contains("some_borrow"),
+            "borrow should not appear inline in assignment output: {assignment_output}"
+        );
     }
 
     #[test]

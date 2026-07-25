@@ -3,7 +3,7 @@ use crate::{
     sync_world::RenderEntity,
     Extract, ExtractSchedule, RenderApp,
 };
-use bevy_app::{App, Plugin};
+use bevy_app::{App, AppLabel, Plugin};
 use bevy_camera::visibility::ViewVisibility;
 use bevy_ecs::{
     bundle::NoBundleEffect,
@@ -27,7 +27,7 @@ pub use bevy_render_macros::ExtractComponent;
 /// The marker type `F` is only used as a way to bypass the orphan rules. To
 /// implement the trait for a foreign type you can use a local type as the
 /// marker, e.g. the type of the plugin that calls [`ExtractComponentPlugin`].
-pub trait ExtractComponent<F = ()>: SyncComponent<F> {
+pub trait ExtractComponent<L: AppLabel, F = ()>: SyncComponent<L, F> {
     /// ECS [`ReadOnlyQueryData`] to fetch the components to extract.
     type QueryData: ReadOnlyQueryData;
     /// Filters the entities with additional constraints.
@@ -80,7 +80,9 @@ impl<C, F> ExtractComponentPlugin<C, F> {
     }
 }
 
-impl<C: ExtractComponent<F>, F: 'static + Send + Sync> Plugin for ExtractComponentPlugin<C, F> {
+impl<C: ExtractComponent<RenderApp, F>, F: 'static + Send + Sync> Plugin
+    for ExtractComponentPlugin<C, F>
+{
     fn build(&self, app: &mut App) {
         app.add_plugins(SyncComponentPlugin::<C, F>::default());
 
@@ -95,7 +97,7 @@ impl<C: ExtractComponent<F>, F: 'static + Send + Sync> Plugin for ExtractCompone
 }
 
 /// This system extracts all components of the corresponding [`ExtractComponent`], for entities that are synced via [`crate::sync_world::SyncToRenderWorld`].
-fn extract_components<C: ExtractComponent<F>, F>(
+fn extract_components<C: ExtractComponent<RenderApp, F>, F>(
     mut commands: Commands,
     mut previous_len: Local<usize>,
     query: Extract<Query<(RenderEntity, C::QueryData), C::QueryFilter>>,
@@ -113,7 +115,7 @@ fn extract_components<C: ExtractComponent<F>, F>(
 }
 
 /// This system extracts all components of the corresponding [`ExtractComponent`], for entities that are visible and synced via [`crate::sync_world::SyncToRenderWorld`].
-fn extract_visible_components<C: ExtractComponent<F>, F>(
+fn extract_visible_components<C: ExtractComponent<RenderApp, F>, F>(
     mut commands: Commands,
     mut previous_len: Local<usize>,
     query: Extract<Query<(RenderEntity, &ViewVisibility, C::QueryData), C::QueryFilter>>,

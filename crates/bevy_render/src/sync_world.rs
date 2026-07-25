@@ -2,9 +2,11 @@ use core::marker::PhantomData;
 
 use bevy_app::{AppLabel, Plugin};
 use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::entity::hash_map::EntityEquivalentHashMap;
+use bevy_ecs::entity::hash_set::EntityEquivalentHashSet;
 use bevy_ecs::{
     component::Component,
-    entity::{ContainsEntity, Entity, EntityEquivalent, EntityHash},
+    entity::{ContainsEntity, Entity, EntityEquivalent},
     lifecycle::{Add, Remove},
     observer::On,
     query::With,
@@ -13,7 +15,6 @@ use bevy_ecs::{
     system::{Local, Query, ResMut, SystemState},
     world::{EntityWorldMut, Mut, World},
 };
-use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 /// A plugin that synchronizes entities with [`SyncToRenderWorld`] between the main world and the render world.
@@ -183,10 +184,16 @@ impl ContainsEntity for MainEntity {
 unsafe impl EntityEquivalent for MainEntity {}
 
 /// A [`HashMap`] pre-configured to use [`EntityHash`] hashing with a [`MainEntity`].
-pub type MainEntityHashMap<V> = HashMap<MainEntity, V, EntityHash>;
+///
+/// [`HashMap`]: `bevy_ecs::entity::hash_map::EntityEquivalentHashMap`
+/// [`EntityHash`]: `bevy_ecs::entity::EntityHash`
+pub type MainEntityHashMap<V> = EntityEquivalentHashMap<MainEntity, V>;
 
-/// A [`HashSet`] pre-configured to use [`EntityHash`] hashing with a [`MainEntity`]..
-pub type MainEntityHashSet = HashSet<MainEntity, EntityHash>;
+/// A [`HashSet`] pre-configured to use [`EntityHash`] hashing with a [`MainEntity`].
+///
+/// [`HashSet`]: `bevy_ecs::entity::hash_set::EntityEquivalentHashSet`
+/// [`EntityHash`]: `bevy_ecs::entity::EntityHash`
+pub type MainEntityHashSet = EntityEquivalentHashSet<MainEntity>;
 
 /// Marker component that indicates that its entity needs to be despawned at the end of the frame.
 #[derive(Component, Copy, Clone, Debug, Default, Reflect)]

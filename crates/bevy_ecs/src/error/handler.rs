@@ -127,10 +127,6 @@ impl Default for FallbackErrorHandler {
     }
 }
 
-/// Deprecated alias for [`FallbackErrorHandler`].
-#[deprecated(since = "0.19.0", note = "Renamed to `FallbackErrorHandler`.")]
-pub type DefaultErrorHandler = FallbackErrorHandler;
-
 #[cfg(feature = "std")]
 std::thread_local! {
     /// When deliberately throwing a panic in your [`ErrorHandler`],
