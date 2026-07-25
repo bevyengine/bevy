@@ -832,7 +832,7 @@ mod render_layers {
                 0 => {
                     first_camera = Some(entity_cmds.id());
                 }
-                1 | 2 | 3 => {
+                1..=3 => {
                     entity_cmds.insert(WithColorTarget(first_camera.unwrap()));
                 }
                 _ => warn!("Unexpected index {index}"),
