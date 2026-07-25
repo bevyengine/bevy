@@ -584,8 +584,6 @@ fn listen_for_ime_input_when_text_input_focused(
     mut editable_text_query: Query<(&mut EditableText, Ref<TextReadWriteMode>), With<TextInput>>,
     mut windows: Query<&mut Window, With<PrimaryWindow>>,
 ) {
-    // React to removal of `TextReadWriteMode`, and drain the whole reader (using `.count()`) so that
-    // we don't trigger on subsequent runs.
     let focused_entity = input_focus.get();
 
     let Ok(mut window) = windows.single_mut() else {
