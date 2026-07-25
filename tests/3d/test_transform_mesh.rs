@@ -2,6 +2,7 @@
 
 use bevy::camera::ScalingMode;
 use bevy::core_pipeline::prepass::NormalPrepass;
+use bevy::dev_tools::render_debug::RenderDebugOverlayKeybindings;
 use bevy::mesh::{SphereKind, SphereMeshBuilder};
 use bevy::prelude::*;
 
@@ -9,6 +10,10 @@ fn main() {
     let mut app = App::new();
 
     app.add_plugins(DefaultPlugins)
+        .insert_resource(RenderDebugOverlayKeybindings {
+            enable_keybindings: true,
+            ..Default::default()
+        })
         .add_systems(Startup, (setup_environment, setup_meshes))
         .add_systems(Update, animate_light);
 
