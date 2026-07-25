@@ -730,12 +730,6 @@ fn number_input_hovered(
             &mut gradient,
             &mut commands,
         );
-
-        if input_focus.get() == Some(text_id) {
-            commands
-                .entity(text_id)
-                .insert(EntityCursor::System(bevy_window::SystemCursorIcon::Text));
-        }
     }
 }
 
@@ -757,7 +751,12 @@ fn number_input_on_enter_key(
     {
         let text_value = editable_text.value().to_string();
         drag_state.mode = EditMode::Idle; // Boot us out of editing mode
-        commands.entity(text_id).insert(TextReadWriteMode::Static); // Hide selection
+        commands
+            .entity(text_id)
+            .insert(TextReadWriteMode::Static) // Hide selection
+            .insert(EntityCursor::System(
+                bevy_window::SystemCursorIcon::ColResize,
+            ));
         emit_value_change(
             text_value,
             input_value.format(),
@@ -896,7 +895,10 @@ fn scrubber_on_release(
             };
 
             drag_state.mode = EditMode::Editing;
-            commands.entity(text_id).insert(TextReadWriteMode::Editable);
+            commands
+                .entity(text_id)
+                .insert(TextReadWriteMode::Editable)
+                .insert(EntityCursor::System(bevy_window::SystemCursorIcon::Text));
             editable_text.queue_edit(TextEdit::MoveToPoint(local_pos));
         }
     }
