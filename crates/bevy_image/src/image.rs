@@ -544,7 +544,6 @@ pub struct Image {
     /// ## Field Usage Notes
     /// - [`TextureDescriptor::label`] is used for caching purposes when not using `Asset<Image>`.\
     ///   If you use assets, the label is purely a debugging aid.
-    /// - [`TextureDescriptor::view_formats`] is currently unused by Bevy.
     pub texture_descriptor: ImageTextureDescriptor,
     /// The [`ImageSampler`] to use during rendering.
     pub sampler: ImageSampler,
@@ -2370,17 +2369,7 @@ impl<'a> ImageDescriptorAsWgpu<'a> for ImageTextureDescriptor {
     type Output = TextureDescriptor<Option<&'a str>, &'a [TextureFormat]>;
 
     fn as_wgpu(&'a self) -> Self::Output {
-        // TODO: Use `TextureDescriptor.map_label_and_view_formats` once wgpu is updated.
-        Self::Output {
-            label: self.label.as_deref(),
-            size: self.size,
-            mip_level_count: self.mip_level_count,
-            sample_count: self.sample_count,
-            dimension: self.dimension,
-            format: self.format,
-            usage: self.usage,
-            view_formats: &self.view_formats,
-        }
+        self.map_label_and_view_formats(|l| l.as_deref(), AsRef::as_ref)
     }
 }
 
@@ -2388,18 +2377,7 @@ impl<'a> ImageDescriptorAsWgpu<'a> for ImageTextureViewDescriptor {
     type Output = TextureViewDescriptor<Option<&'a str>>;
 
     fn as_wgpu(&'a self) -> Self::Output {
-        // TODO: Use `TextureViewDescriptor.map_label` once wgpu is updated.
-        Self::Output {
-            label: self.label.as_deref(),
-            format: self.format,
-            dimension: self.dimension,
-            usage: self.usage,
-            aspect: self.aspect,
-            base_mip_level: self.base_mip_level,
-            mip_level_count: self.mip_level_count,
-            base_array_layer: self.base_array_layer,
-            array_layer_count: self.array_layer_count,
-        }
+        self.map_label(|l| l.as_deref())
     }
 }
 
