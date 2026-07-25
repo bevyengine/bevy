@@ -5,7 +5,16 @@
 use crate::{circles::DEFAULT_CIRCLE_RESOLUTION, gizmos::GizmoBuffer, prelude::GizmoConfigGroup};
 use bevy_color::Color;
 use bevy_math::{ops::sin_cos, Isometry3d, Quat, Vec2, Vec3};
-use core::f32::consts::{PI, TAU};
+use core::f32::consts::{FRAC_PI_2, PI, TAU};
+
+/// Calculates half of an ellipse.
+fn half_ellipse(half_size: Vec2, resolution: u32) -> impl Iterator<Item = Vec2> {
+    (0..resolution + 1).map(move |i| {
+        let angle = i as f32 * PI / resolution as f32;
+        let (x, y) = sin_cos(angle - FRAC_PI_2);
+        Vec2::new(x, y) * half_size
+    })
+}
 
 impl<Config, Clear> GizmoBuffer<Config, Clear>
 where
@@ -102,7 +111,7 @@ where
         // Offset and rotation of the bottom hemisphere.
         let base_cap = Isometry3d::new(
             Vec3::new(-half_length, 0., 0.),
-            Quat::from_rotation_z(PI / 2.0),
+            Quat::from_rotation_z(FRAC_PI_2),
         );
         self.gizmos.hemisphere(
             self.isometry * base_cap,
@@ -113,7 +122,7 @@ where
         // Offset and rotation of the top hemisphere.
         let top_cap = Isometry3d::new(
             Vec3::new(half_length, 0., 0.),
-            Quat::from_rotation_z(-PI / 2.0),
+            Quat::from_rotation_z(-FRAC_PI_2),
         );
         self.gizmos.hemisphere(
             self.isometry * top_cap,
@@ -230,6 +239,7 @@ where
             return;
         }
 
+        // The base circumference
         self.gizmos
             .ellipse(
                 self.isometry
@@ -238,22 +248,18 @@ where
                 self.color,
             )
             .resolution(self.resolution);
-        self.gizmos
-            .arc_3d(
-                PI,
-                self.half_size.x,
-                self.isometry
-                    * Isometry3d::from_rotation(Quat::from_rotation_arc(Vec3::NEG_Z, Vec3::Y)),
-                self.color,
-            )
-            .resolution(self.resolution);
-        self.gizmos
-            .arc_3d(
-                PI,
-                self.half_size.y,
-                self.isometry * Isometry3d::from_rotation(Quat::from_xyzw(0.5, -0.5, 0.5, 0.5)),
-                self.color,
-            )
-            .resolution(self.resolution);
+
+        // The height at which both the half-ellipses will meet.
+        let apex_height = self.half_size.min_element();
+
+        // The half-ellipse along the X-axis
+        let positions = half_ellipse(Vec2::new(self.half_size.x, apex_height), self.resolution)
+            .map(|vec2| self.isometry * vec2.extend(0.));
+        self.gizmos.linestrip(positions, self.color);
+
+        // The half-ellipse along the Z-axes
+        let positions = half_ellipse(Vec2::new(self.half_size.y, apex_height), self.resolution)
+            .map(|vec2| self.isometry * Vec3::new(0., vec2.y, vec2.x));
+        self.gizmos.linestrip(positions, self.color);
     }
 }

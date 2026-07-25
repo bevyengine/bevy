@@ -169,11 +169,7 @@ fn draw_example_collection(
     );
 
     gizmos.hemisphere(
-        Isometry3d::new(
-            Vec3::new(-2., 0.75, 0.75),
-            Quat::from_rotation_y(ops::cos(time.elapsed_secs() / 2.0) * 10.0)
-                * Quat::from_rotation_z(PI / 3.0),
-        ),
+        Isometry3d::from_translation(Vec3::new(-3., 0.75, 0.75)),
         Vec2::new(0.5, 0.5),
         PURPLE,
     );
