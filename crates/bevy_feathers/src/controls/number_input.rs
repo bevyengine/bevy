@@ -788,14 +788,14 @@ fn number_input_on_focus_lost(
         ),
         With<FeathersNumberInput>,
     >,
-    mut q_text_input: Query<&mut EditableText>,
+    mut q_text_input: Query<(&EditableText, &mut DragState)>,
     mut commands: Commands,
 ) {
     let editable_text_id = focus_lost.event_target();
 
     if let Ok(&ChildOf(root)) = q_parent.get(editable_text_id)
         && let Ok((input_value, disabled, hard_limit)) = q_number_input.get(root)
-        && let Ok(editable_text) = q_text_input.get_mut(editable_text_id)
+        && let Ok((editable_text, mut drag_state)) = q_text_input.get_mut(editable_text_id)
     {
         let text_value = editable_text.value().to_string();
         emit_value_change(
@@ -807,6 +807,8 @@ fn number_input_on_focus_lost(
             true,
         );
 
+        drag_state.mode = EditMode::Idle;
+
         // Restore cursor and rwmode back to normal.
         commands
             .entity(editable_text_id)
@@ -816,7 +818,7 @@ fn number_input_on_focus_lost(
             .insert(if disabled {
                 TextReadWriteMode::ReadOnly
             } else {
-                TextReadWriteMode::Editable
+                TextReadWriteMode::Static
             });
     }
 }
