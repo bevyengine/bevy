@@ -1,3 +1,4 @@
+use alloc::borrow::Cow;
 use bevy_ecs::prelude::*;
 use bevy_math::{UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -17,6 +18,8 @@ pub struct ColorTargetCameras(Vec<Entity>);
 #[derive(Component, Clone, Reflect, PartialEq, Debug)]
 #[reflect(Component, PartialEq, Debug, Default)]
 pub struct ColorTarget {
+    /// Debug label of the texture. This will show up in graphics debuggers for easy identification.
+    pub label: Cow<'static, str>,
     /// Size of the texture.
     pub size: UVec2,
     /// Sample count of the multisampled texture if this is larger than 1.
@@ -30,6 +33,7 @@ pub struct ColorTarget {
 impl Default for ColorTarget {
     fn default() -> Self {
         Self {
+            label: "main_texture".into(),
             size: UVec2::new(1280, 720),
             sample_count: 4,
             format: TextureFormat::Rgba8UnormSrgb,
@@ -76,6 +80,8 @@ impl ColorTarget {
 #[derive(Component, Clone, Reflect, PartialEq, Debug)]
 #[reflect(Component, PartialEq, Debug, Default)]
 pub struct CameraColorTarget {
+    /// Debug label of the texture. This will show up in graphics debuggers for easy identification.
+    pub label: Cow<'static, str>,
     /// Size of the texture.
     pub size: CameraColorTargetSize,
     /// Format of the texture.
@@ -94,6 +100,7 @@ pub enum CameraColorTargetSize {
 impl Default for CameraColorTarget {
     fn default() -> Self {
         Self {
+            label: "main_texture".into(),
             size: CameraColorTargetSize::Factor(Vec2::ONE),
             format: None,
             usage: TextureUsages::RENDER_ATTACHMENT

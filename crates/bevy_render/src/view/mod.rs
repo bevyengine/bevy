@@ -1283,9 +1283,10 @@ pub fn prepare_color_targets(
     render_device: Res<RenderDevice>,
     mut texture_cache: ResMut<TextureCache>,
     color_targets: Query<(Entity, &ColorTarget, Option<&ColorTargetTextures>)>,
+    mut label_cache: Local<String>,
 ) {
     for (entity, color_target, textures) in color_targets.iter() {
-        let descriptor = TextureDescriptor {
+        let descriptor = wgpu_types::TextureDescriptor {
             label: None,
             size: color_target.size.to_extents(),
             mip_level_count: 1,
@@ -1293,27 +1294,35 @@ pub fn prepare_color_targets(
             dimension: TextureDimension::D2,
             format: color_target.format,
             usage: color_target.usage,
-            view_formats: &[],
+            view_formats: Default::default(),
         };
+
+        label_cache.clear();
+        label_cache.extend([&color_target.label, "_a"]);
         let a = texture_cache.get(
             &render_device,
             TextureDescriptor {
-                label: Some("main_texture_a"),
+                label: Some(&label_cache),
                 ..descriptor
             },
         );
+
+        label_cache.clear();
+        label_cache.extend([&color_target.label, "_b"]);
         let b = texture_cache.get(
             &render_device,
             TextureDescriptor {
-                label: Some("main_texture_b"),
+                label: Some(&label_cache),
                 ..descriptor
             },
         );
         let sampled = if color_target.sample_count > 1 {
+            label_cache.clear();
+            label_cache.extend([&color_target.label, "_sampled"]);
             let sampled = texture_cache.get(
                 &render_device,
                 TextureDescriptor {
-                    label: Some("main_texture_sampled"),
+                    label: Some(&label_cache),
                     size: color_target.size.to_extents(),
                     mip_level_count: 1,
                     sample_count: color_target.sample_count,

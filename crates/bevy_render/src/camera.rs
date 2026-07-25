@@ -621,6 +621,7 @@ pub fn extract_cameras(
                 };
                 color_target_render_entity = render_entity;
                 extracted_color_target = ColorTarget {
+                    label: camera_color_target.label.clone(),
                     size,
                     sample_count,
                     format: color_format,

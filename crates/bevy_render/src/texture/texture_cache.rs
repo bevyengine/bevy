@@ -3,8 +3,8 @@ use crate::{
     renderer::RenderDevice,
 };
 use bevy_ecs::{prelude::ResMut, resource::Resource};
-use bevy_platform::collections::{hash_map::Entry, HashMap};
-use wgpu::{TextureDescriptor, TextureViewDescriptor};
+use bevy_platform::collections::{hash_map::RawEntryMut, Equivalent, HashMap};
+use wgpu::TextureViewDescriptor;
 
 /// The internal representation of a [`CachedTexture`] used to track whether it was recently used
 /// and is currently taken.
@@ -29,7 +29,23 @@ pub struct CachedTexture {
 /// are only required for one frame.
 #[derive(Resource, Default)]
 pub struct TextureCache {
-    textures: HashMap<TextureDescriptor<'static>, Vec<CachedTextureMeta>>,
+    textures: HashMap<TextureCacheKey, Vec<CachedTextureMeta>>,
+}
+
+#[derive(Hash, PartialEq, Eq)]
+struct TextureCacheKey(
+    wgpu_types::TextureDescriptor<
+        Option<String>,
+        smallvec::SmallVec<[wgpu_types::TextureFormat; 1]>,
+    >,
+);
+
+impl Equivalent<TextureCacheKey> for wgpu::TextureDescriptor<'_> {
+    fn equivalent(&self, key: &TextureCacheKey) -> bool {
+        self == &key
+            .0
+            .map_label_and_view_formats(|l| l.as_deref(), AsRef::as_ref)
+    }
 }
 
 impl TextureCache {
@@ -38,10 +54,10 @@ impl TextureCache {
     pub fn get(
         &mut self,
         render_device: &RenderDevice,
-        descriptor: TextureDescriptor<'static>,
+        descriptor: wgpu::TextureDescriptor<'_>,
     ) -> CachedTexture {
-        match self.textures.entry(descriptor) {
-            Entry::Occupied(mut entry) => {
+        match self.textures.raw_entry_mut().from_key(&descriptor) {
+            RawEntryMut::Occupied(mut entry) => {
                 for texture in entry.get_mut().iter_mut() {
                     if !texture.taken {
                         texture.frames_since_last_use = 0;
@@ -53,7 +69,12 @@ impl TextureCache {
                     }
                 }
 
-                let texture = render_device.create_texture(&entry.key().clone());
+                let texture = render_device.create_texture(
+                    &entry
+                        .key()
+                        .0
+                        .map_label_and_view_formats(|l| l.as_deref(), AsRef::as_ref),
+                );
                 let default_view = texture.create_view(&TextureViewDescriptor::default());
                 entry.get_mut().push(CachedTextureMeta {
                     texture: texture.clone(),
@@ -66,15 +87,21 @@ impl TextureCache {
                     default_view,
                 }
             }
-            Entry::Vacant(entry) => {
-                let texture = render_device.create_texture(entry.key());
+            RawEntryMut::Vacant(entry) => {
+                let texture = render_device.create_texture(&descriptor);
                 let default_view = texture.create_view(&TextureViewDescriptor::default());
-                entry.insert(vec![CachedTextureMeta {
-                    texture: texture.clone(),
-                    default_view: default_view.clone(),
-                    taken: true,
-                    frames_since_last_use: 0,
-                }]);
+                entry.insert(
+                    TextureCacheKey(descriptor.map_label_and_view_formats(
+                        |l| l.map(ToString::to_string),
+                        |v| smallvec::SmallVec::from(*v),
+                    )),
+                    vec![CachedTextureMeta {
+                        texture: texture.clone(),
+                        default_view: default_view.clone(),
+                        taken: true,
+                        frames_since_last_use: 0,
+                    }],
+                );
                 CachedTexture {
                     texture,
                     default_view,
