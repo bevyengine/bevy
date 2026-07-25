@@ -4,7 +4,7 @@
 
 use crate::{circles::DEFAULT_CIRCLE_RESOLUTION, gizmos::GizmoBuffer, prelude::GizmoConfigGroup};
 use bevy_color::Color;
-use bevy_math::{ops::sin_cos, Isometry3d, Quat, Vec2, Vec3};
+use bevy_math::{ops::sin_cos, Isometry3d, Quat, Vec2, Vec3, Vec3Swizzles};
 use core::f32::consts::{FRAC_PI_2, PI, TAU};
 
 /// Calculates half of an ellipse.
@@ -21,7 +21,7 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    /// Draw a capsule in 3D with the given `isometry` applied.
+    /// Draw a wireframe capsule in 3D made of 2 hemispheres connected with lines with the given `isometry` applied.
     ///
     /// If `isometry == Isometry3d::IDENTITY` then
     ///
@@ -158,12 +158,12 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    /// Draw an ellipsoidal hemisphere in 3D with the given `isometry` applied.
+    /// Draw an wireframe hemiellipsoid in 3D made of an ellipse and 2 half-ellipses with the given `isometry` applied.
     ///
     /// If `isometry == Isometry3d::IDENTITY` then
     ///
     /// - the center is at `Vec3::ZERO`,
-    /// - the apex is aligned with the `Vec3::Z` axes
+    /// - the apex is aligned with the `Vec3::Y` axes
     ///
     /// # Example
     /// ```
@@ -173,7 +173,7 @@ where
     /// fn system(mut gizmos: Gizmos) {
     ///     gizmos.hemisphere(Isometry3d::IDENTITY, Vec2::new(0.5, 0.5), GREEN);
     ///
-    ///     // Hemispherse have a resolution of 32 line-segments by default.
+    ///     // Hemispherses have a resolution of 32 line-segments by default.
     ///     // You may want to increase this for larger hemispheres.
     ///     gizmos
     ///         .hemisphere(Isometry3d::IDENTITY, Vec2::new(0.5, 0.5), RED)
@@ -249,7 +249,7 @@ where
             )
             .resolution(self.resolution);
 
-        // The height at which both the half-ellipses will meet.
+        // The height at which both the half-ellipses will meet
         let apex_height = self.half_size.min_element();
 
         // The half-ellipse along the X-axis
@@ -261,5 +261,115 @@ where
         let positions = half_ellipse(Vec2::new(self.half_size.y, apex_height), self.resolution)
             .map(|vec2| self.isometry * Vec3::new(0., vec2.y, vec2.x));
         self.gizmos.linestrip(positions, self.color);
+    }
+}
+
+impl<Config, Clear> GizmoBuffer<Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    /// Draw a wireframe ellipsoid in 3D made out of 3 ellipses around each axes with the given
+    /// `isometry` applied.
+    ///
+    /// If `isometry == Isometry3d::IDENTITY` then
+    ///
+    /// - the center is at `Vec3::ZERO`,
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_gizmos::prelude::*;
+    /// # use bevy_math::prelude::*;
+    /// # use bevy_color::palettes::basic::{RED, GREEN};
+    /// fn system(mut gizmos: Gizmos) {
+    ///     gizmos.ellipsoid(Isometry3d::IDENTITY, Vec3::new(1.0, 0.5, 0.75), GREEN);
+    ///
+    ///     // Ellipsoids have a resolution of 32 line-segments by default.
+    ///     // You may want to increase this for larger ellipsoids.
+    ///     gizmos
+    ///         .ellipsoid(Isometry3d::IDENTITY, Vec3::new(1.0, 0.5, 0.75), RED)
+    ///         .resolution(64);
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
+    #[inline]
+    pub fn ellipsoid(
+        &mut self,
+        isometry: impl Into<Isometry3d>,
+        half_extents: Vec3,
+        color: impl Into<Color>,
+    ) -> EllipsoidBuilder<'_, Config, Clear> {
+        EllipsoidBuilder {
+            gizmos: self,
+            isometry: isometry.into(),
+            half_extents,
+            color: color.into(),
+            resolution: DEFAULT_CIRCLE_RESOLUTION,
+        }
+    }
+}
+
+/// A builder returned by [`GizmoBuffer::ellipsoid`].
+pub struct EllipsoidBuilder<'a, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    gizmos: &'a mut GizmoBuffer<Config, Clear>,
+    isometry: Isometry3d,
+
+    // Radius of the ellipsoid along each axis
+    half_extents: Vec3,
+
+    // Color of the ellipsoid
+    color: Color,
+
+    // Number of line-segments used to approximate the ellipsoid geometry
+    resolution: u32,
+}
+
+impl<Config, Clear> EllipsoidBuilder<'_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    /// Set the number of line-segments used to approximate the ellipsoid geometry.
+    pub fn resolution(mut self, resolution: u32) -> Self {
+        self.resolution = resolution;
+        self
+    }
+}
+
+impl<Config, Clear> Drop for EllipsoidBuilder<'_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    fn drop(&mut self) {
+        if !self.gizmos.enabled {
+            return;
+        }
+
+        self.gizmos
+            .ellipse(self.isometry, self.half_extents.xy(), self.color)
+            .resolution(self.resolution);
+
+        self.gizmos
+            .ellipse(
+                self.isometry
+                    * Isometry3d::from_rotation(Quat::from_rotation_arc(Vec3::Y, Vec3::Z)),
+                self.half_extents.xz(),
+                self.color,
+            )
+            .resolution(self.resolution);
+
+        self.gizmos
+            .ellipse(
+                self.isometry
+                    * Isometry3d::from_rotation(Quat::from_rotation_arc(Vec3::X, Vec3::Z)),
+                self.half_extents.zy(),
+                self.color,
+            )
+            .resolution(self.resolution);
     }
 }

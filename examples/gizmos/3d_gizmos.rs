@@ -170,8 +170,14 @@ fn draw_example_collection(
 
     gizmos.hemisphere(
         Isometry3d::from_translation(Vec3::new(-3., 0.75, 0.75)),
-        Vec2::new(0.5, 0.5),
+        Vec2::new(0.35, 0.35),
         PURPLE,
+    );
+
+    gizmos.ellipsoid(
+        Isometry3d::from_translation(Vec3::new(-3., 0.75, -0.75)),
+        Vec3::new(0.35, 0.45, 0.25),
+        PINK,
     );
 
     my_gizmos.sphere(Vec3::new(1., 0.5, 0.), 0.5, RED);
