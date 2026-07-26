@@ -13,30 +13,48 @@
 //! You can toggle wireframes with the space bar except on wasm. Wasm does not support
 //! `POLYGON_MODE_LINE` on the gpu.
 
-#[cfg(not(target_arch = "wasm32"))]
+use bevy::prelude::*;
 use bevy::{
-    input::common_conditions::input_just_pressed,
+    feathers::{controls::FeathersCheckbox, theme::UiTheme, FeathersPlugins},
     sprite_render::{Wireframe2dConfig, Wireframe2dPlugin},
+    ui_widgets::{checkbox_self_update, ValueChange},
 };
-use bevy::{input::common_conditions::input_toggle_active, prelude::*};
+use checkbox::{feathers_option_checkbox, main_ui_node_scene};
+
+#[path = "../helpers/checkbox.rs"]
+mod checkbox;
+
+#[path = "../helpers/theme.rs"]
+mod theme;
+
+/// Various settings for the demo.
+#[derive(Resource, Default)]
+struct AppStatus {
+    rotation: bool,
+    wireframe: bool,
+}
+
+#[derive(Clone, Copy, Component, Debug, Default, PartialEq)]
+enum CheckboxInput {
+    #[default]
+    Rotation,
+    Wireframe,
+}
 
 fn main() {
     let mut app = App::new();
     app.add_plugins((
         DefaultPlugins,
+        FeathersPlugins,
         #[cfg(not(target_arch = "wasm32"))]
         Wireframe2dPlugin::default(),
     ))
+    .init_resource::<AppStatus>()
     .add_systems(Startup, setup);
-    #[cfg(not(target_arch = "wasm32"))]
-    app.add_systems(
-        Update,
-        toggle_wireframe.run_if(input_just_pressed(KeyCode::Space)),
-    );
-    app.add_systems(
-        Update,
-        rotate.run_if(input_toggle_active(false, KeyCode::KeyR)),
-    );
+    app.insert_resource(UiTheme(theme::basic_example_theme(Color::WHITE)));
+    app.add_observer(handle_value_change_checkbox);
+    app.add_systems(Update, rotate.run_if(rotate_checkbox_checked));
+    app.add_observer(checkbox_self_update);
     app.run();
 }
 
@@ -142,25 +160,52 @@ fn setup(
             ),
         ));
     }
-
-    let mut text = "Press 'R' to pause/resume rotation".to_string();
-    #[cfg(not(target_arch = "wasm32"))]
-    text.push_str("\nPress 'Space' to toggle wireframes");
-
-    commands.spawn((
-        Text::new(text),
-        Node {
-            position_type: PositionType::Absolute,
-            top: px(12),
-            left: px(12),
-            ..default()
-        },
-    ));
+    spawn_buttons(&mut commands);
 }
 
-#[cfg(not(target_arch = "wasm32"))]
-fn toggle_wireframe(mut wireframe_config: ResMut<Wireframe2dConfig>) {
-    wireframe_config.global = !wireframe_config.global;
+/// Spawns the checkboxes in the bottom left corner of the screen.
+fn spawn_buttons(commands: &mut Commands) {
+    if !cfg!(target_arch = "wasm32") {
+        commands.spawn_scene(bsn! {
+            main_ui_node_scene()
+            Children [
+                feathers_option_checkbox("ROTATE", Some(CheckboxInput::Rotation)),
+                feathers_option_checkbox("WIREFRAME", Some(CheckboxInput::Wireframe)),
+            ]
+        });
+    } else {
+        commands.spawn_scene(bsn! {
+            main_ui_node_scene()
+            Children [
+                feathers_option_checkbox("ROTATE", Some(CheckboxInput::Rotation)),
+            ]
+        });
+    }
+}
+
+fn handle_value_change_checkbox(
+    event: On<ValueChange<bool>>,
+    mut wireframe_config: ResMut<Wireframe2dConfig>,
+    mut app_status: ResMut<AppStatus>,
+    checkbox_input_q: Query<&CheckboxInput, With<FeathersCheckbox>>,
+) {
+    if let Ok(checkbox_input) = checkbox_input_q.get(event.source) {
+        match checkbox_input {
+            CheckboxInput::Rotation => {
+                app_status.rotation = !app_status.rotation;
+            }
+            CheckboxInput::Wireframe => {
+                app_status.wireframe = !app_status.wireframe;
+                if !cfg!(target_arch = "wasm32") {
+                    wireframe_config.global = !wireframe_config.global;
+                }
+            }
+        }
+    }
+}
+
+fn rotate_checkbox_checked(app_status: Res<AppStatus>) -> bool {
+    app_status.rotation
 }
 
 fn rotate(mut query: Query<&mut Transform, With<Mesh2d>>, time: Res<Time>) {
