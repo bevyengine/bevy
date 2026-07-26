@@ -7,6 +7,7 @@ use bevy_ecs::schedule::{InternedSystemSet, IntoSystemSet, SystemSet};
 use bevy_ecs::system::{SystemParam, SystemParamItem};
 use bevy_platform::sync::Arc;
 use core::marker::PhantomData;
+use core::sync::atomic::{AtomicBool, Ordering};
 
 /// A `FnOnce` that can be run as a bridge system in order to allow for our bridge function to
 /// get type inference off the closure.
@@ -159,9 +160,9 @@ impl<P: SystemParam + 'static> AsyncSystemState<P> {
                 .intern(),
             bridge_fn: Some(bridge_fn),
             wake_signal: None,
+            access_given: None,
             system_state: self.system_state.clone(),
             world: self.world.clone(),
-            queued: false,
         }
     }
 }
@@ -195,11 +196,13 @@ pub struct BridgeFuture<Func, Marker> {
     /// The future drops this at the end of `poll` which acts as acknowledgement that the wake
     /// has been handled.
     wake_signal: Option<WakeSignaler>,
+    /// A flag indicating whether this bridge future has been given access. The bridge function may
+    /// run once this is true. This field is [`Some`] if this request has already been queued.
+    access_given: Option<Arc<AtomicBool>>,
+    /// The SystemState that is used for ECS access when the bridge function runs.
     system_state: Arc<dyn ErasedSystemStateCell>,
     /// Weak bridge pointer so the loss of the world becomes a clean runtime error.
     world: AsyncWorld,
-    /// Whether the bridge request has already been queued.
-    queued: bool,
 }
 
 impl<Func, Marker> Unpin for BridgeFuture<Func, Marker> {}
@@ -217,6 +220,9 @@ where
     ) -> core::task::Poll<Self::Output> {
         use core::task::Poll;
 
+        // Make sure no one is polling this future after it's complete.
+        debug_assert!(self.bridge_fn.is_some());
+
         // Try to gain a strong reference to the bridge. If this fails, the world is gone,
         // so further access is impossible.
         let Some(strong_world) = self.world.0.upgrade() else {
@@ -225,79 +231,90 @@ where
             return Poll::Ready(Err(BridgeError::WorldDropped));
         };
 
-        if !self.queued {
-            debug_assert!(self.wake_signal.is_none());
-            self.queued = true;
-            // No world is currently exposed. That means we are being polled
-            // outside the `async_world_sync_point`, so we cannot access ECS yet.
-            //
-            // Instead, enqueue ourselves to be revisited when the matching
-            // sync-point system runs.
-            let (wake_signal, wake_waiter) = wake_signal::pair();
-            // Store the wake_signal locally so dropping it at the end of the next
-            // poll acknowledges the wake.
-            self.wake_signal.replace(wake_signal);
-            // Queue the request under this future's target sync point.
-            //
-            // The queued payload carries the following!
-            // 1. The task's waker, so the sync-point driver can wake it.
-            // 2. The wake handshake signal, so the driver can wait until the wake has actually
-            // been processed.
-            strong_world
-                .bridge_requests
-                .try_send(
-                    &self.system_set,
-                    BridgeRequest {
-                        waker: cx.waker().clone(),
-                        wake_waiter,
-                    },
-                )
-                .ok()
-                .unwrap();
-            Poll::Pending
-        } else {
-            // If we were previously woken by the sync-point driver, we will have a
-            // `WakeSignaler` stored here.
-            //
-            // Dropping that signal at the end of this poll acts as the
-            // acknowledgement that yes, this wake was observed and this task has
-            // attempted its run, you may release the waiting on the other side.
-            let _drop_at_end_of_scope = self
-                .wake_signal
-                .take()
-                .expect("future is only polled once, and we were woken after queuing");
+        match self.access_given.as_ref() {
+            None => {
+                debug_assert!(self.wake_signal.is_none());
+                // No world is currently exposed. That means we are being polled
+                // outside the `async_world_sync_point`, so we cannot access ECS yet.
+                //
+                // Instead, enqueue ourselves to be revisited when the matching
+                // sync-point system runs.
+                let (wake_signal, wake_waiter) = wake_signal::pair();
+                // Store the wake_signal locally so dropping it at the end of the next
+                // poll acknowledges the wake.
+                self.wake_signal.replace(wake_signal);
+                let access_given = Arc::new(AtomicBool::new(false));
+                self.access_given.replace(access_given.clone());
+                // Queue the request under this future's target sync point.
+                //
+                // The queued payload carries the following!
+                // 1. The task's waker, so the sync-point driver can wake it.
+                // 2. The wake handshake signal, so the driver can wait until the wake has actually
+                // been processed.
+                strong_world
+                    .bridge_requests
+                    .try_send(
+                        &self.system_set,
+                        BridgeRequest {
+                            waker: cx.waker().clone(),
+                            wake_waiter,
+                            access_given,
+                        },
+                    )
+                    .ok()
+                    .unwrap();
+                Poll::Pending
+            }
+            Some(access_given) => {
+                if !access_given.load(Ordering::Relaxed) {
+                    // Despite the fact that we've been polled, we haven't been given access. So
+                    // ignore the poll and keep pending.
+                    return Poll::Pending;
+                }
 
-            strong_world
-                .world_scope
-                .try_with(|world| {
-                    let Self {
-                        ref system_state,
-                        ref mut bridge_fn,
-                        ..
-                    } = *self;
-                    // Lock the system state. The unwrap is safe since we only try_lock when we have
-                    // exclusive world access, so the lock must not be contested.
-                    let mut system_state = system_state.try_lock::<Func::Param>(world).expect(
-                        "Lock should never be contended since we have exclusive world access",
-                    );
+                // If we were previously woken by the sync-point driver, we will have a
+                // `WakeSignaler` stored here.
+                //
+                // Dropping that signal at the end of this poll acts as the
+                // acknowledgement that yes, this wake was observed and this task has
+                // attempted its run, you may release the waiting on the other side.
+                let _drop_at_end_of_scope = self
+                    .wake_signal
+                    .take()
+                    .expect("future is only polled once, and we were woken after queuing");
 
-                    let param = match system_state.get_mut(world) {
-                        Ok(param) => param,
-                        Err(system_param_validation_error) => {
-                            return Poll::Ready(Err(BridgeError::SystemParamValidation(
-                                system_param_validation_error,
-                            )));
-                        }
-                    };
-                    // We finally have `P::Item<'w, 's>`, yay!, so consume the stored `FnOnce`, run it,
-                    // and complete the future.
-                    let out = bridge_fn.take().unwrap().run(param);
-                    // Apply any deferred state (e.g. `Commands`) back into the world.
-                    system_state.apply(world);
-                    Poll::Ready(Ok(out))
-                })
-                .ok()
-                .expect("we have world access since we queued and were then woken")
+                strong_world
+                    .world_scope
+                    .try_with(|world| {
+                        let Self {
+                            ref system_state,
+                            ref mut bridge_fn,
+                            ..
+                        } = *self;
+                        // Lock the system state. The unwrap is safe since we only try_lock when we have
+                        // exclusive world access, so the lock must not be contested.
+                        let mut system_state = system_state.try_lock::<Func::Param>(world).expect(
+                            "Lock should never be contended since we have exclusive world access",
+                        );
+
+                        let param = match system_state.get_mut(world) {
+                            Ok(param) => param,
+                            Err(system_param_validation_error) => {
+                                return Poll::Ready(Err(BridgeError::SystemParamValidation(
+                                    system_param_validation_error,
+                                )));
+                            }
+                        };
+                        // We finally have `P::Item<'w, 's>`, yay!, so consume the stored `FnOnce`, run it,
+                        // and complete the future.
+                        let out = bridge_fn.take().unwrap().run(param);
+                        // Apply any deferred state (e.g. `Commands`) back into the world.
+                        system_state.apply(world);
+                        Poll::Ready(Ok(out))
+                    })
+                    .ok()
+                    .expect("we have world access since we queued and were then woken")
+            }
         }
     }
 }
