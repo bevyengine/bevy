@@ -31,3 +31,5 @@ pub const X_AXIS: Color = Color::oklcha(0.5232, 0.1404, 13.84, 1.0);
 pub const Y_AXIS: Color = Color::oklcha(0.5866, 0.1543, 129.84, 1.0);
 /// <div style="background-color: #2160A3; width: 10px; padding: 10px; border: 1px solid;"></div> - for Z-axis inputs and drag handles
 pub const Z_AXIS: Color = Color::oklcha(0.4847, 0.1249, 253.08, 1.0);
+/// <div style="background-color: #e0ded7; width: 10px; padding: 10px; border: 1px solid;"></div> - for W-axis inputs and drag handles
+pub const W_AXIS: Color = Color::oklcha(0.9, 0.01, 95.0, 1.0);

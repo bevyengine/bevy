@@ -349,6 +349,8 @@ pub const TEXT_INPUT_X_AXIS: ThemeToken = ThemeToken::new_static("feathers.texti
 pub const TEXT_INPUT_Y_AXIS: ThemeToken = ThemeToken::new_static("feathers.textinput.axis.y");
 /// Sigil color for Z
 pub const TEXT_INPUT_Z_AXIS: ThemeToken = ThemeToken::new_static("feathers.textinput.axis.z");
+/// Sigil color for W
+pub const TEXT_INPUT_W_AXIS: ThemeToken = ThemeToken::new_static("feathers.textinput.axis.w");
 
 // Pane
 

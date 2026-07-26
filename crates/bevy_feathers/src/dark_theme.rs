@@ -283,6 +283,7 @@ pub fn create_dark_theme() -> ThemeProps {
             (tokens::TEXT_INPUT_X_AXIS, palette::X_AXIS),
             (tokens::TEXT_INPUT_Y_AXIS, palette::Y_AXIS),
             (tokens::TEXT_INPUT_Z_AXIS, palette::Z_AXIS),
+            (tokens::TEXT_INPUT_W_AXIS, palette::W_AXIS),
             // Pane
             (tokens::PANE_HEADER_BG, palette::GRAY_0),
             (tokens::PANE_HEADER_BORDER, palette::WARM_GRAY_1),
