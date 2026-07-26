@@ -19,36 +19,8 @@ impl bevy_app::Plugin for AsyncPlugin {
     fn build(&self, app: &mut App) {
         let strong_world = StrongAsyncWorld::default();
         let weak_world = AsyncWorld(Arc::downgrade(&strong_world.0));
-        app.init_resource::<AsyncTickBudget>()
-            .insert_resource(strong_world)
+        app.insert_resource(strong_world)
             .insert_resource(weak_world);
-    }
-}
-
-/// Resource to manage a limit on how many times we try to drive the async <-> ecs bridge per sync
-/// point.
-///
-/// This holds the upper-bound on how many async world ticks to perform each time a sync-point
-/// system runs.
-///
-/// A single "tick" means:
-///
-/// 1. Collect queued bridge requests for that sync point.
-/// 2. Wake the corresponding async tasks.
-/// 3. Wait for each one to attempt a poll.
-/// 4. Apply any deferred [`SystemState`] work back into the world.
-///
-/// We may need to do this multiple times because one task's progress can unblock another task that
-/// previously returned [`Poll::Pending`].
-///
-/// [`SystemState`]: bevy_ecs::system::SystemState
-/// [`Poll::Pending`]: core::task::Poll::Pending
-#[derive(bevy_ecs_macros::Resource, Clone)]
-pub struct AsyncTickBudget(pub usize);
-
-impl Default for AsyncTickBudget {
-    fn default() -> Self {
-        Self(100)
     }
 }
 

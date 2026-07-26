@@ -73,7 +73,7 @@ mod wake_signal;
 
 pub use crate::bridge_future::{AsyncSystemState, BridgeError};
 pub use crate::bridge_request::async_world_sync_point;
-pub use crate::plugin::{AsyncPlugin, AsyncTickBudget, AsyncWorld};
+pub use crate::plugin::{AsyncPlugin, AsyncWorld};
 
 /// The async prelude.
 ///
@@ -81,8 +81,7 @@ pub use crate::plugin::{AsyncPlugin, AsyncTickBudget, AsyncWorld};
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        async_world_sync_point, AsyncPlugin, AsyncSystemState, AsyncTickBudget, AsyncWorld,
-        BridgeError,
+        async_world_sync_point, AsyncPlugin, AsyncSystemState, AsyncWorld, BridgeError,
     };
 }
 
@@ -152,7 +151,6 @@ mod tests {
             ScheduleRunnerPlugin::default(),
             TaskPoolPlugin::default(),
         ))
-        .insert_resource(AsyncTickBudget(3))
         .add_systems(Update, async_world_sync_point::<MySyncPoint>);
 
         let system_state = app
