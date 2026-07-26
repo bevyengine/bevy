@@ -1,3 +1,5 @@
+//! Cursor handling for winit windows.
+
 #[cfg(feature = "custom_cursor")]
 mod custom_cursor;
 
