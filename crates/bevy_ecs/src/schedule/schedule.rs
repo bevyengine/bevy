@@ -280,7 +280,7 @@ impl Schedules {
 
 /// Marker stored in a [`Chain`]'s options by
 /// [`chain_weak`](crate::schedule::IntoScheduleConfigs::chain_weak) to tag its edges as weak,
-/// meaning the ordering is only kept between systems that actually conflict. See `chain_weak`
+/// meaning the ordering is only kept between systems that actually conflict (access the same data in a way that is incompatible with the borrow checker). See `chain_weak`
 /// for the semantics.
 pub(crate) struct Weak;
 
