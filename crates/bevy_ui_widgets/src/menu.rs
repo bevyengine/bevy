@@ -54,7 +54,9 @@ use bevy_input_focus::{
 use bevy_log::warn;
 use bevy_picking::events::{Cancel, Click, DragEnd, Pointer, Press, Release};
 use bevy_reflect::Reflect;
-use bevy_ui::{widget::Button, InteractionDisabled, Pressed, UiSystems};
+use bevy_ui::{
+    interaction_states::OptionPressedExt, widget::Button, InteractionDisabled, Pressed, UiSystems,
+};
 
 use crate::{text_input::text_input_autoscroll_system, Activate, ActivateOnPress};
 
@@ -330,12 +332,12 @@ fn menu_on_key_event(
 
 fn menu_item_on_pointer_click(
     mut ev: On<Pointer<Click>>,
-    mut q_state: Query<(Has<Pressed>, Has<InteractionDisabled>), With<MenuItem>>,
+    mut q_state: Query<(Option<&Pressed>, Has<InteractionDisabled>), With<MenuItem>>,
     mut commands: Commands,
 ) {
     if let Ok((pressed, disabled)) = q_state.get_mut(ev.entity) {
         ev.propagate(false);
-        if pressed && !disabled {
+        if pressed.is_pressed() && !disabled {
             // Trigger the menu action.
             commands.trigger(Activate { entity: ev.entity });
             // Set the focus to the menu button.
@@ -354,52 +356,58 @@ fn menu_item_on_pointer_click(
 
 fn menu_item_on_pointer_down(
     mut ev: On<Pointer<Press>>,
-    mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<MenuItem>>,
+    mut q_state: Query<(Entity, Has<InteractionDisabled>, Option<&Pressed>), With<MenuItem>>,
     mut commands: Commands,
 ) {
     if let Ok((item, disabled, pressed)) = q_state.get_mut(ev.entity) {
         ev.propagate(false);
-        if !disabled && !pressed {
-            commands.entity(item).insert(Pressed);
+        if !disabled && !pressed.is_pressed() {
+            commands.entity(item).insert(Pressed::default());
         }
     }
 }
 
 fn menu_item_on_pointer_up(
     mut ev: On<Pointer<Release>>,
-    mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<MenuItem>>,
-    mut commands: Commands,
+    mut q_state: Query<(Has<InteractionDisabled>, Option<&mut Pressed>), With<MenuItem>>,
 ) {
-    if let Ok((item, disabled, pressed)) = q_state.get_mut(ev.entity) {
+    if let Ok((disabled, pressed)) = q_state.get_mut(ev.entity) {
         ev.propagate(false);
-        if !disabled && pressed {
-            commands.entity(item).remove::<Pressed>();
+        if !disabled
+            && !pressed.is_pressed()
+            && let Some(mut pressed) = pressed
+        {
+            pressed.0 = false;
         }
     }
 }
 
 fn menu_item_on_pointer_drag_end(
     mut ev: On<Pointer<DragEnd>>,
-    mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<MenuItem>>,
-    mut commands: Commands,
+    mut q_state: Query<(Has<InteractionDisabled>, Option<&mut Pressed>), With<MenuItem>>,
 ) {
-    if let Ok((item, disabled, pressed)) = q_state.get_mut(ev.entity) {
+    if let Ok((disabled, pressed)) = q_state.get_mut(ev.entity) {
         ev.propagate(false);
-        if !disabled && pressed {
-            commands.entity(item).remove::<Pressed>();
+        if !disabled
+            && !pressed.is_pressed()
+            && let Some(mut pressed) = pressed
+        {
+            pressed.0 = false;
         }
     }
 }
 
 fn menu_item_on_pointer_cancel(
     mut ev: On<Pointer<Cancel>>,
-    mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<MenuItem>>,
-    mut commands: Commands,
+    mut q_state: Query<(Has<InteractionDisabled>, Option<&mut Pressed>), With<MenuItem>>,
 ) {
-    if let Ok((item, disabled, pressed)) = q_state.get_mut(ev.entity) {
+    if let Ok((disabled, pressed)) = q_state.get_mut(ev.entity) {
         ev.propagate(false);
-        if !disabled && pressed {
-            commands.entity(item).remove::<Pressed>();
+        if !disabled
+            && !pressed.is_pressed()
+            && let Some(mut pressed) = pressed
+        {
+            pressed.0 = false;
         }
     }
 }

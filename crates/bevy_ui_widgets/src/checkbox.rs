@@ -15,7 +15,9 @@ use bevy_input::ButtonState;
 use bevy_input_focus::{FocusCause, FocusedInput, InputFocus, InputFocusVisible};
 use bevy_picking::events::{Cancel, Click, DragEnd, Pointer, Press, Release};
 use bevy_reflect::Reflect;
-use bevy_ui::{Checkable, Checked, InteractionDisabled, Pressed};
+use bevy_ui::{
+    interaction_states::OptionPressedExt, Checkable, Checked, InteractionDisabled, Pressed,
+};
 
 use crate::{ActivateOnPress, ValueChange};
 use bevy_ecs::entity::Entity;
@@ -89,7 +91,7 @@ fn checkbox_on_pointer_down(
             Entity,
             Has<InteractionDisabled>,
             Has<Checked>,
-            Has<Pressed>,
+            Option<&Pressed>,
             Has<ActivateOnPress>,
         ),
         With<Checkbox>,
@@ -111,8 +113,8 @@ fn checkbox_on_pointer_down(
         }
 
         press.propagate(false);
-        if !disabled && !pressed {
-            commands.entity(checkbox).insert(Pressed);
+        if !disabled && !pressed.is_pressed() {
+            commands.entity(checkbox).insert(Pressed::default());
             if activate_on_press {
                 commands.trigger(ValueChange {
                     source: press.entity,
@@ -126,39 +128,45 @@ fn checkbox_on_pointer_down(
 
 fn checkbox_on_pointer_up(
     mut release: On<Pointer<Release>>,
-    mut q_checkbox: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<Checkbox>>,
-    mut commands: Commands,
+    mut q_checkbox: Query<(Has<InteractionDisabled>, Option<&mut Pressed>), With<Checkbox>>,
 ) {
-    if let Ok((checkbox, disabled, pressed)) = q_checkbox.get_mut(release.entity) {
+    if let Ok((disabled, pressed)) = q_checkbox.get_mut(release.entity) {
         release.propagate(false);
-        if !disabled && pressed {
-            commands.entity(checkbox).remove::<Pressed>();
+        if !disabled
+            && pressed.is_pressed()
+            && let Some(mut pressed) = pressed
+        {
+            pressed.0 = false;
         }
     }
 }
 
 fn checkbox_on_pointer_drag_end(
     mut drag_end: On<Pointer<DragEnd>>,
-    mut q_checkbox: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<Checkbox>>,
-    mut commands: Commands,
+    mut q_checkbox: Query<(Has<InteractionDisabled>, Option<&mut Pressed>), With<Checkbox>>,
 ) {
-    if let Ok((checkbox, disabled, pressed)) = q_checkbox.get_mut(drag_end.entity) {
+    if let Ok((disabled, pressed)) = q_checkbox.get_mut(drag_end.entity) {
         drag_end.propagate(false);
-        if !disabled && pressed {
-            commands.entity(checkbox).remove::<Pressed>();
+        if !disabled
+            && pressed.is_pressed()
+            && let Some(mut pressed) = pressed
+        {
+            pressed.0 = false;
         }
     }
 }
 
 fn checkbox_on_pointer_cancel(
     mut cancel: On<Pointer<Cancel>>,
-    mut q_checkbox: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<Checkbox>>,
-    mut commands: Commands,
+    mut q_checkbox: Query<(Has<InteractionDisabled>, Option<&mut Pressed>), With<Checkbox>>,
 ) {
-    if let Ok((checkbox, disabled, pressed)) = q_checkbox.get_mut(cancel.entity) {
+    if let Ok((disabled, pressed)) = q_checkbox.get_mut(cancel.entity) {
         cancel.propagate(false);
-        if !disabled && pressed {
-            commands.entity(checkbox).remove::<Pressed>();
+        if !disabled
+            && pressed.is_pressed()
+            && let Some(mut pressed) = pressed
+        {
+            pressed.0 = false;
         }
     }
 }

@@ -10,7 +10,7 @@ use bevy::{
     picking::hover::Hovered,
     prelude::*,
     reflect::Is,
-    ui::{Checked, InteractionDisabled, Pressed},
+    ui::{interaction_states::OptionPressedExt, Checked, InteractionDisabled, Pressed},
     ui_widgets::{
         checkbox_self_update, observe, Activate, Button, Checkbox, Slider, SliderRange,
         SliderThumb, SliderValue, ValueChange,
@@ -156,7 +156,7 @@ fn button_on_interaction<E: EntityEvent, C: Component>(
         (
             &Hovered,
             Has<InteractionDisabled>,
-            Has<Pressed>,
+            Option<&Pressed>,
             &mut BackgroundColor,
             &mut BorderColor,
             &Children,
@@ -177,7 +177,7 @@ fn button_on_interaction<E: EntityEvent, C: Component>(
         let hovered = hovered.get();
         // These "removal event checks" exist because the `Remove` event is triggered _before_ the component is actually
         // removed, meaning it still shows up in the query. We're investigating the best way to improve this scenario.
-        let pressed = pressed && !(E::is::<Remove>() && C::is::<Pressed>());
+        let pressed = pressed.is_pressed() && !(E::is::<Remove>() && C::is::<Pressed>());
         let disabled = disabled && !(E::is::<Remove>() && C::is::<InteractionDisabled>());
         match (disabled, hovered, pressed) {
             // Disabled button
