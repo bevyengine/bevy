@@ -43,7 +43,7 @@ use crate::{
 
 pub mod accessibility;
 pub mod converters;
-mod cursor;
+pub mod cursor;
 mod state;
 mod system;
 mod winit_config;
