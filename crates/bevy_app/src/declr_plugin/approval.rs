@@ -52,6 +52,12 @@ impl<T, Ctx> Approval<T, Ctx> {
             .map(|f| f(input, ctx))
             .unwrap_or(true)
     }
+
+    /// An approval is trivially true if there is no internal function, which
+    /// means all possible inputs are valid.
+    pub(crate) fn trivially_true(&self) -> bool {
+        self.approval_fn.is_none()
+    }
 }
 
 impl<T, F: Fn(&T) -> bool + 'static> From<F> for Approval<T, ()> {
