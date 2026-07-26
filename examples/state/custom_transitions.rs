@@ -240,8 +240,7 @@ fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
                 position_type: PositionType::Absolute,
                 left: px(10),
                 bottom: px(10),
-                width: px(150),
-                height: px(65),
+                padding: px(5),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
             }
@@ -253,11 +252,16 @@ fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
                     commands.entity(event.entity).insert(BackgroundColor(PRESSED_BUTTON));
             })
             on(|event: On<Remove, Pressed>,
+                is_hovered: Query<&Hovered>,
                 mut commands: Commands| {
-                    commands.entity(event.entity).insert(BackgroundColor(HOVERED_BUTTON));
+                    if is_hovered.get(event.entity).is_ok_and(|hovered| hovered.get()) {
+                        commands.entity(event.entity).insert(BackgroundColor(HOVERED_BUTTON));
+                    } else {
+                        commands.entity(event.entity).insert(BackgroundColor(NORMAL_BUTTON));
+                    }
             })
             Children [
-                Text::new("Restart")
+                Text::new("Restart Game")
                 TextFont {
                         font_size: FontSize::Px(33.0),
                 }
