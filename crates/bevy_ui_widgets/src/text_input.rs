@@ -970,7 +970,7 @@ mod tests {
             state: ButtonState::Pressed,
             text: None,
             repeat: false,
-            window: Entity::PLACEHOLDER,
+            window: World::default().spawn_empty().id(),
         }
     }
 
