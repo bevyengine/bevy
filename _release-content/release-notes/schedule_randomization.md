@@ -46,4 +46,5 @@ because of which sync point it uses. We hope to fix this in the future.
 In addition, the multi-threaded executor executes systems greedily: it looks for the first
 unexecuted system whose dependencies are finished and that has no other conflicting systems running.
 The result is that even if the shuffle results in the order `(A, B, C)`, `C` could run before `B` if
-`A` and `B` conflict.
+`A` and `B` conflict. **This can be desirable to test**, but consider using the single-threaded
+executor to avoid this case.

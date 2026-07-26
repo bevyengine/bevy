@@ -1662,6 +1662,11 @@ pub struct ScheduleBuildSettings {
     /// if you spot erroneous behavior when shuffling, that is an indication that the "default"
     /// ordering is correct by chance, meaning your ordering constraints are not sufficient).
     ///
+    /// Consider using the [`SingleThreadedExecutor`] for schedules using this. The
+    /// [`MultiThreadedExecutor`] allows systems to run out-of-order if the "next" system has a
+    /// conflict with a currently-running system. However, the multi-threaded executor can also
+    /// produce orderings that are **not possible** in single-threaded execution.
+    ///
     /// Defaults to [`None`].
     // TODO: Currently, `auto_insert_apply_deferred` will prevent stages from being truly shuffled.
     // `auto_insert_apply_deferred` always prefers to put systems at the lowest "sync point depth"
