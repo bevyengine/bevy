@@ -1,8 +1,6 @@
 use crate::plugin::StrongAsyncWorld;
-use crate::system_state::ErasedSystemStateCell;
 use bevy_ecs::prelude::{IntoSystemSet, SystemSet, World};
 use bevy_ecs::schedule::InternedSystemSet;
-use bevy_platform::sync::Arc;
 
 /// An exclusive system that drives the queued bridge work for `SyncPoint`.
 ///
@@ -61,8 +59,8 @@ pub fn async_world_sync_point<SyncPoint: 'static>(world: &mut World) {
     // The flow of logic is the following:
     // 1. We first drain the queue for our `SyncPoint`.
     // 2. Expose our `World` through `world_scope`.
-    // 3. Wake all our `BridgeFuture`s.
-    // 4. Apply our `SystemState` back into the `World`. (Things like `Commands`).
+    // 3. Wake all our `BridgeFuture`s. Each future applies its own `SystemState` back into the
+    //    `World` (things like `Commands`) while it has world access.
     let this = &async_world.0;
     let mut queued_requests = bevy_platform::prelude::vec![];
     while let Ok(queued_task_bridge) = this.bridge_requests.get_or_create(&sync_point).pop() {
@@ -71,12 +69,8 @@ pub fn async_world_sync_point<SyncPoint: 'static>(world: &mut World) {
     if queued_requests.is_empty() {
         return;
     }
-    let completed_tasks = this
-        .world_scope
+    this.world_scope
         .scope(world, || wake_requests_and_wait(queued_requests));
-    for task in completed_tasks {
-        task.apply(world);
-    }
 }
 
 #[derive(Default)]
@@ -106,43 +100,22 @@ pub(crate) struct BridgeRequest {
     /// Our custom primitive that lets us wait until all the futures have tried to run before
     /// continuing.
     pub(crate) wake_waiter: crate::wake_signal::WakeWaiter,
-    pub(crate) system_state: Option<Arc<dyn ErasedSystemStateCell>>,
-}
-
-/// A request that has finished its attempted poll and may need to apply deferred world state.
-struct CompletedBridgeRequest {
-    system_state: Option<Arc<dyn ErasedSystemStateCell>>,
-}
-
-impl CompletedBridgeRequest {
-    #[inline]
-    fn apply(self, world: &mut World) {
-        if let Some(system_state) = self.system_state {
-            system_state.apply(world);
-        }
-    }
 }
 
 #[inline]
-fn wake_requests_and_wait(
-    queued_requests: bevy_platform::prelude::Vec<BridgeRequest>,
-) -> bevy_platform::prelude::Vec<CompletedBridgeRequest> {
-    queued_requests
-        .into_iter()
-        .map(|request| {
-            request.waker.wake();
+fn wake_requests_and_wait(queued_requests: bevy_platform::prelude::Vec<BridgeRequest>) {
+    // Because currently we do not run non-conflicting system param requests in parallel (this is
+    // follow up work) we can just queue and wait for each async task in order.
+    for BridgeRequest { waker, wake_waiter } in queued_requests {
+        waker.wake();
 
-            #[cfg(feature = "bevy_tasks")]
-            bevy_tasks::cfg::web! {
-                if {} else {
-                    bevy_tasks::tick_global_task_pools_on_main_thread();
-                }
+        #[cfg(feature = "bevy_tasks")]
+        bevy_tasks::cfg::web! {
+            if {} else {
+                bevy_tasks::tick_global_task_pools_on_main_thread();
             }
+        }
 
-            request.wake_waiter.wait();
-            CompletedBridgeRequest {
-                system_state: request.system_state.clone(),
-            }
-        })
-        .collect()
+        wake_waiter.wait();
+    }
 }

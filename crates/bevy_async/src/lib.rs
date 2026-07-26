@@ -369,8 +369,10 @@ mod tests {
             let world = world.clone();
             AsyncComputeTaskPool::get()
                 .spawn(async move {
-                    let system_state = world.system_state::<Res<MyResource>>();
-                    match system_state.bridge(MySyncPoint, |_| unreachable!()).await {
+                    match world
+                        .bridge(MySyncPoint, |_: Res<MyResource>| unreachable!())
+                        .await
+                    {
                         Err(BridgeError::SystemParamValidation(_)) => {
                             FAILED_VALIDATION.store(true, Ordering::Relaxed);
                         }

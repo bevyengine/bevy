@@ -26,24 +26,12 @@ impl<P: SystemParam + 'static> Default for SystemStateCell<P> {
 ///
 /// This lets the bridge store all request state uniformly as `Arc<dyn ErasedSystemStateCell>`.
 ///
-/// This trait exposes a single operation: to apply deferred state back into the `World`.
-/// The second operation the trait is used for is in it's `impl dyn` implementation below.
-pub(crate) trait ErasedSystemStateCell: Send + Sync + core::any::Any + 'static {
-    /// Apply deferred operations accumulated by the `SystemState` back into
-    /// the world.
-    ///
-    /// For example, `Commands` buffers are typically flushed during `apply`.
-    fn apply(&self, world: &mut World);
-}
+/// The operations on the typed `SystemState` (initialization, access, and applying deferred
+/// state) all happen through the `impl dyn` implementation below, inside the bridge future
+/// itself.
+pub(crate) trait ErasedSystemStateCell: Send + Sync + core::any::Any + 'static {}
 
-impl<P: SystemParam> ErasedSystemStateCell for SystemStateCell<P> {
-    fn apply(&self, world: &mut World) {
-        // We expect initialization to have already occurred before `apply` is
-        // ever called. So `unwrap()` here reflects an invariant of the bridge.
-        // Completed requests only exist for initialized system states.
-        self.0.get().unwrap().lock().unwrap().apply(world);
-    }
-}
+impl<P: SystemParam + 'static> ErasedSystemStateCell for SystemStateCell<P> {}
 
 impl dyn ErasedSystemStateCell {
     /// This function initializes the [`SystemStateCell`] if it hasn't already been initialized, and

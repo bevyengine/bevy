@@ -1,4 +1,4 @@
-use crate::bridge_future::AsyncSystemState;
+use crate::bridge_future::{AsyncSystemParamFunction, AsyncSystemState, BridgeFuture};
 use bevy_app::App;
 use bevy_ecs::system::SystemParam;
 use bevy_platform::sync::{Arc, Weak};
@@ -92,5 +92,29 @@ impl AsyncWorld {
     /// initialized when the bridge is first driven against a real `World`.
     pub fn system_state<P: SystemParam + 'static>(&self) -> AsyncSystemState<P> {
         AsyncSystemState::new(self.clone())
+    }
+
+    /// Bridge into the ECS with the `SystemParam`s specified only by the closure's argument
+    /// types (up to 16 of them), like a regular Bevy system:
+    ///
+    /// ```rust,ignore
+    /// world.bridge(MySyncPoint, |mut commands: Commands, query: Query<&Health>| {
+    ///     // ...
+    /// }).await?;
+    /// ```
+    ///
+    /// This creates a fresh [`AsyncSystemState`] for each call. If you want params like `Local`
+    /// or filters like `Changed` to persist across calls, create one with
+    /// [`AsyncWorld::system_state`] and reuse it instead.
+    pub fn bridge<SyncPoint: 'static, Marker: 'static, BridgeFn>(
+        &self,
+        sync_point: SyncPoint,
+        bridge_fn: BridgeFn,
+    ) -> BridgeFuture<BridgeFn, Marker>
+    where
+        BridgeFn: AsyncSystemParamFunction<Marker>,
+    {
+        self.system_state::<BridgeFn::Param>()
+            .bridge(sync_point, bridge_fn)
     }
 }
