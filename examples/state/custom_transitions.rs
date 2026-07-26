@@ -254,7 +254,7 @@ fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
             on(|event: On<Remove, Pressed>,
                 is_hovered: Query<&Hovered>,
                 mut commands: Commands| {
-                    if is_hovered.get(event.entity).is_ok_and(|hovered| hovered.get()) {
+                    if is_hovered.get(event.entity).is_ok_and(Hovered::get) {
                         commands.entity(event.entity).insert(BackgroundColor(HOVERED_BUTTON));
                     } else {
                         commands.entity(event.entity).insert(BackgroundColor(NORMAL_BUTTON));
