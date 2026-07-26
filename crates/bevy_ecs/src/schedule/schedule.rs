@@ -767,12 +767,13 @@ pub struct ScheduleGraph {
     /// Nodes that are allowed to have ambiguous ordering relationship with any other systems.
     pub ambiguous_with_all: HashSet<NodeId>,
     conflicting_systems: ConflictingSystems,
-    /// Dependency edges marked weak (from `chain_weak`), before flattening. During the build
-    /// each is kept as an edge only between the endpoints that conflict.
+    /// Dependency edges marked weak (from `chain_weak`/`before_weak`/`after_weak`), before flattening.
+    ///
+    /// During the build, edges between nodes that don't conflict are ignored.
     weak_node_edges: HashSet<(NodeId, NodeId)>,
-    /// Dependency edges from a strict ordering (`chain`/`before`/`after`), before flattening. A
-    /// pair that is also ordered strictly keeps its edge even when its systems don't conflict, so
-    /// resolving the weak edges never drops a strict ordering.
+    /// Dependency edges from a strict ordering (`chain`/`before`/`after`), before flattening.
+    ///
+    /// During the build, these edges are never ignored, even if the systems don't conflict (unlike [`Self::weak_node_edges`]).
     strict_node_edges: HashSet<(NodeId, NodeId)>,
     anonymous_sets: usize,
     changed: bool,
