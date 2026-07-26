@@ -529,11 +529,10 @@ impl App {
 
     /// Queues a `Send` closure that inserts [`!Send`](Send) data into the app's [`World`].
     ///
-    /// Unlike [`insert_non_send`](Self::insert_non_send), `func` is not run immediately.
-    /// It is stored and only run once [`App::run`] starts, on the thread that calls it,
-    /// which is where `!Send` data (e.g. windowing handles) usually needs to live. This
-    /// decouples *where app-building code runs* from *when `!Send` data is actually
-    /// constructed*, which `insert_non_send` conflates.
+    /// The closure is not run immediately: it is stored and only run once [`App::run`]
+    /// starts, on the thread that calls it, which is where `!Send` data (e.g. windowing
+    /// handles) usually needs to live. This decouples *where app-building code runs* from
+    /// *when `!Send` data is actually constructed*.
     ///
     /// Queued closures run in the order they were added, before the app's runner starts.
     ///
