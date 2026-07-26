@@ -1,10 +1,7 @@
 use bevy_macro_utils::fq_std::{FQClone, FQOption};
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{
-    parse_macro_input, parse_quote, punctuated::Punctuated, DeriveInput, MacroDelimiter, Meta,
-    MetaList, Path,
-};
+use syn::{parse_macro_input, parse_quote, punctuated::Punctuated, DeriveInput, Path};
 
 pub fn derive_extract_component(input: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(input as DeriveInput);
@@ -23,40 +20,28 @@ pub fn derive_extract_component(input: TokenStream) -> TokenStream {
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
 
-    let app_labels: Vec<Path> = match ast.attrs.iter().find(|a| a.path().is_ident("extract_app")) {
-        Some(attr) => {
-            if let Meta::List(meta_list) = &attr.meta {
-                if let MacroDelimiter::Paren(_) = meta_list.delimiter {
-                    match parse_to_paths(meta_list) {
-                        Ok(labels) => labels,
-                        Err(e) => return e.into(),
-                    }
-                } else {
-                    return syn::Error::new_spanned(
-                        &ast.ident,
-                        "ExtractComponent requires #[extract_app(MyAppLabelA,MyAppLabelB)] to specify the target sub-app(s) in (parentheses)",
-                    )
-                    .to_compile_error()
-                    .into();
-                }
-            } else {
+    let Some(attr) = ast.attrs.iter().find(|a| a.path().is_ident("extract_app")) else {
+        return syn::Error::new_spanned(
+            &ast.ident,
+            "ExtractComponent requires #[extract_app(MyAppLabelA, MyAppLabelB)] to specify the target sub-app(s)",
+        )
+        .to_compile_error()
+        .into();
+    };
+
+    let app_labels: Vec<Path> =
+        match attr.parse_args_with(Punctuated::<Path, syn::Token![,]>::parse_terminated) {
+            Ok(labels) if labels.is_empty() => {
                 return syn::Error::new_spanned(
-                    &ast.ident,
-                    "ExtractComponent requires #[extract_app(MyAppLabelA,MyAppLabelB)] to specify the target sub-app(s) as a list",
+                    attr,
+                    "#[extract_app] requires at least one AppLabel, e.g. #[extract_app(RenderApp)]",
                 )
                 .to_compile_error()
                 .into();
             }
-        }
-        None => {
-            return syn::Error::new_spanned(
-                &ast.ident,
-                "ExtractComponent requires #[extract_app(MyAppLabelA,MyAppLabelB)] to specify the target sub-app(s)",
-            )
-            .to_compile_error()
-            .into();
-        }
-    };
+            Ok(labels) => labels.into_iter().collect(),
+            Err(e) => return e.to_compile_error().into(),
+        };
 
     let filter = if let Some(attr) = ast
         .attrs
@@ -114,14 +99,4 @@ pub fn derive_extract_component(input: TokenStream) -> TokenStream {
             }
         })
     ).collect()
-}
-
-fn parse_to_paths(meta_list: &MetaList) -> Result<Vec<Path>, proc_macro2::TokenStream> {
-    meta_list
-        .parse_args_with(|input: syn::parse::ParseStream| {
-            let result = Punctuated::<Path, syn::Token![,]>::parse_terminated(input);
-
-            result.map(|paths| paths.iter().cloned().collect::<Vec<Path>>())
-        })
-        .map_err(|e| e.to_compile_error())
 }

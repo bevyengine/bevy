@@ -122,8 +122,7 @@ impl<L: AppLabel + Default + Clone + Copy + Eq> Plugin for SyncWorldPlugin<L> {
 ///
 /// [`ExtractComponentPlugin`]: crate::extract_component::ExtractComponentPlugin
 /// [`SyncComponentPlugin`]: crate::sync_component::SyncComponentPlugin
-#[derive(Component, Copy, Clone, Debug, Default, Reflect)]
-#[reflect(Component, Default, Clone)]
+#[derive(Component, Copy, Clone, Debug, Default)]
 #[component(storage = "SparseSet")]
 pub struct SyncToSubWorld<L: AppLabel + Default + Clone>(PhantomData<L>);
 
@@ -132,9 +131,8 @@ pub type SyncToRenderWorld = SyncToSubWorld<crate::RenderApp>;
 /// Component added on the main world entities that are synced to the Sub World in order to keep track of the corresponding sub world entity.
 ///
 /// Can also be used as a newtype wrapper for sub world entities.
-#[derive(Component, Deref, Copy, Clone, Debug, Eq, Hash, PartialEq, Reflect)]
+#[derive(Component, Deref, Copy, Clone, Debug, Eq, Hash, PartialEq)]
 #[component(clone_behavior = Ignore)]
-#[reflect(Component, Clone)]
 pub struct SubEntity<L: AppLabel + Clone + Copy + Eq>(#[deref] Entity, PhantomData<L>);
 
 pub type RenderEntity = SubEntity<crate::RenderApp>;
