@@ -255,7 +255,7 @@ pub fn allocate_and_free_meshes(
     render_queue: Res<RenderQueue>,
 ) {
     // Clear list of meshes that have moved buffers.
-    mesh_allocator.clear_moved_key_list();
+    mesh_allocator.clear_moved_keys();
 
     // Process removed or modified meshes.
     mesh_allocator.free_meshes(&extracted_meshes);

@@ -76,7 +76,7 @@ where
     pub extra_buffer_usages: BufferUsages,
 
     /// Keys whose data has moved to a different [`Buffer`] since
-    /// [`Self::clear_moved_key_list`] was last called.
+    /// [`Self::clear_moved_keys`] was last called.
     ///
     /// See [`Self::moved_keys`].
     moved_keys: Vec<I::Key>,
@@ -607,7 +607,7 @@ where
     /// allocation triggered the growth. Those keys are what this reports, which is why it can't be
     /// derived from whatever the caller already knows changed.
     ///
-    /// This accumulates until [`Self::clear_moved_key_list`], so it is only correct
+    /// This accumulates until [`Self::clear_moved_keys`], so it is only correct
     /// for a consumer that runs after the allocator has been updated for the frame and before the
     /// list is cleared.
     pub fn moved_keys(&self) -> &[I::Key] {
@@ -615,7 +615,7 @@ where
     }
 
     /// Drops the accumulated [`Self::moved_keys`], starting a new round of invalidations.
-    pub fn clear_moved_key_list(&mut self) {
+    pub fn clear_moved_keys(&mut self) {
         self.moved_keys.clear();
     }
 
