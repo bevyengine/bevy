@@ -76,18 +76,18 @@ use core::slice;
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # let mut world = World::new();
-/// let mut child1 = Entity::PLACEHOLDER;
-/// let mut child2 = Entity::PLACEHOLDER;
-/// let mut grandchild = Entity::PLACEHOLDER;
+/// let mut child1 = None;
+/// let mut child2 = None;
+/// let mut grandchild = None;
 /// let root = world.spawn_empty().with_children(|p| {
-///     child1 = p.spawn_empty().with_children(|p| {
-///         grandchild = p.spawn_empty().id();
-///     }).id();
-///     child2 = p.spawn_empty().id();
+///     child1 = Some(p.spawn_empty().with_children(|p| {
+///         grandchild = Some(p.spawn_empty().id());
+///     }).id());
+///     child2 = Some(p.spawn_empty().id());
 /// }).id();
 ///
-/// assert_eq!(&**world.entity(root).get::<Children>().unwrap(), &[child1, child2]);
-/// assert_eq!(&**world.entity(child1).get::<Children>().unwrap(), &[grandchild]);
+/// assert_eq!(&**world.entity(root).get::<Children>().unwrap(), &[child1.unwrap(), child2.unwrap()]);
+/// assert_eq!(&**world.entity(child1.unwrap()).get::<Children>().unwrap(), &[grandchild.unwrap()]);
 /// ```
 ///
 /// [`Relationship`]: crate::relationship::Relationship
