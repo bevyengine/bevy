@@ -7,21 +7,6 @@ use bevy::{
     ui_widgets::checkbox_self_update,
 };
 
-/// Returns a [`Node`] appropriate for the outer main UI node as a `Scene`.
-///
-/// This UI is in the bottom left corner and has flex column support
-pub fn main_ui_node_scene() -> impl Scene {
-    bsn! {
-        Node {
-            flex_direction: FlexDirection::Column,
-            position_type: PositionType::Absolute,
-            row_gap: px(6),
-            left: px(10),
-            bottom: px(10),
-        }
-    }
-}
-
 /// Creates a single feathers checkbox that allows configuration of a setting.  
 ///
 /// Examples that use this to create a checkbox should handle its `ValueChange<bool>` events.

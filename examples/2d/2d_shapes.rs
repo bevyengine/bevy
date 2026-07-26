@@ -1,5 +1,4 @@
 //! Here we use shape primitives to build meshes in a 2D rendering context, making each mesh a certain color by giving that mesh's entity a material based off a [`Color`].
-//!
 //! Meshes are better known for their use in 3D rendering, but we can use them in a 2D context too. Without a third dimension, the meshes we're building are flat – like paper on a table. These are still very useful for "vector-style" graphics, picking behavior, or as a foundation to build off of for where to apply a shader.
 //!
 //! A "shape definition" is not a mesh on its own. A circle can be defined with a radius, i.e. [`Circle::new(50.0)`][Circle::new], but rendering tends to happen with meshes built out of triangles. So we need to turn shape descriptions into meshes.
@@ -14,12 +13,14 @@
 //! `POLYGON_MODE_LINE` on the gpu.
 
 use bevy::prelude::*;
+#[cfg(not(target_arch = "wasm32"))]
+use bevy::sprite_render::{Wireframe2dConfig, Wireframe2dPlugin};
 use bevy::{
     feathers::{controls::FeathersCheckbox, theme::UiTheme, FeathersPlugins},
-    sprite_render::{Wireframe2dConfig, Wireframe2dPlugin},
     ui_widgets::{checkbox_self_update, ValueChange},
 };
-use checkbox::{feathers_option_checkbox, main_ui_node_scene};
+use checkbox::feathers_option_checkbox;
+use scene::{bottom_left_scene, top_left_scene};
 
 #[path = "../helpers/checkbox.rs"]
 mod checkbox;
@@ -27,11 +28,13 @@ mod checkbox;
 #[path = "../helpers/theme.rs"]
 mod theme;
 
+#[path = "../helpers/scene.rs"]
+mod scene;
+
 /// Various settings for the demo.
 #[derive(Resource, Default)]
 struct AppStatus {
     rotation: bool,
-    wireframe: bool,
 }
 
 #[derive(Clone, Copy, Component, Debug, Default, PartialEq)]
@@ -167,7 +170,7 @@ fn setup(
 fn spawn_buttons(commands: &mut Commands) {
     if !cfg!(target_arch = "wasm32") {
         commands.spawn_scene(bsn! {
-            main_ui_node_scene()
+            bottom_left_scene()
             Children [
                 feathers_option_checkbox("ROTATE", Some(CheckboxInput::Rotation)),
                 feathers_option_checkbox("WIREFRAME", Some(CheckboxInput::Wireframe)),
@@ -175,7 +178,7 @@ fn spawn_buttons(commands: &mut Commands) {
         });
     } else {
         commands.spawn_scene(bsn! {
-            main_ui_node_scene()
+            top_left_scene() // so the user can immediately see the control in browser w/o scrolling
             Children [
                 feathers_option_checkbox("ROTATE", Some(CheckboxInput::Rotation)),
             ]
@@ -185,20 +188,20 @@ fn spawn_buttons(commands: &mut Commands) {
 
 fn handle_value_change_checkbox(
     event: On<ValueChange<bool>>,
-    mut wireframe_config: ResMut<Wireframe2dConfig>,
+    #[cfg(not(target_arch = "wasm32"))] mut wireframe_config: ResMut<Wireframe2dConfig>,
     mut app_status: ResMut<AppStatus>,
     checkbox_input_q: Query<&CheckboxInput, With<FeathersCheckbox>>,
 ) {
     if let Ok(checkbox_input) = checkbox_input_q.get(event.source) {
         match checkbox_input {
             CheckboxInput::Rotation => {
-                app_status.rotation = !app_status.rotation;
+                app_status.rotation = event.value;
             }
+            #[cfg(target_arch = "wasm32")]
+            CheckboxInput::Wireframe => {}
+            #[cfg(not(target_arch = "wasm32"))]
             CheckboxInput::Wireframe => {
-                app_status.wireframe = !app_status.wireframe;
-                if !cfg!(target_arch = "wasm32") {
-                    wireframe_config.global = !wireframe_config.global;
-                }
+                wireframe_config.global = event.value;
             }
         }
     }
