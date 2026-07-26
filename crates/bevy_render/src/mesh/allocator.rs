@@ -254,6 +254,9 @@ pub fn allocate_and_free_meshes(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
 ) {
+    // Clear list of meshes that have moved buffers.
+    mesh_allocator.clear_moved_key_list();
+
     // Process removed or modified meshes.
     mesh_allocator.free_meshes(&extracted_meshes);
 
@@ -277,6 +280,25 @@ impl MeshAllocator {
             &MeshAllocationKey::new(*mesh_id, ElementClass::Metadata),
             *self.mesh_id_to_metadata_slab(mesh_id)?,
         )
+    }
+
+    /// Meshes whose vertex or index data has moved to a different buffer this frame, so that
+    /// anything caching those buffers can rebuild just the affected entries.
+    ///
+    /// A mesh can show up here without having changed in any way of its own: growing a slab
+    /// replaces the buffer for every mesh resident in it. Similarly, modifying a mesh does not
+    /// necessarily mean it will move to a different buffer. See [`SlabAllocator::moved_keys`] for
+    /// what does and does not get reported.
+    ///
+    /// A mesh is yielded twice if both its vertex and its index slab grew, since those are separate
+    /// allocations, so deduplicate if repeating the work per mesh would be expensive.
+    ///
+    /// Morph target and metadata allocations are filtered out.
+    pub fn meshes_with_changed_buffers_this_frame(&self) -> impl Iterator<Item = AssetId<Mesh>> {
+        self.moved_keys()
+            .iter()
+            .filter(|key| matches!(key.class, ElementClass::Vertex | ElementClass::Index))
+            .map(|key| key.mesh_id)
     }
 
     /// Returns the buffer and range within that buffer of the vertex data for

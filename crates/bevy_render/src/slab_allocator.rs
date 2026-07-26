@@ -74,6 +74,12 @@ where
 
     /// Additional buffer usages to add to any vertex or index buffers created.
     pub extra_buffer_usages: BufferUsages,
+
+    /// Keys whose data has moved to a different [`Buffer`] since
+    /// [`Self::clear_moved_key_list`] was last called.
+    ///
+    /// See [`Self::moved_keys`].
+    moved_keys: Vec<I::Key>,
 }
 
 /// Describes the type of the data that a [`SlabAllocator`] will store.
@@ -578,6 +584,7 @@ where
             key_to_slab: HashMap::default(),
             slab_layouts: HashMap::default(),
             extra_buffer_usages: BufferUsages::empty(),
+            moved_keys: Vec::new(),
         }
     }
 }
@@ -589,6 +596,27 @@ where
     /// Creates a new empty slab allocator.
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// The keys whose allocations now live in a different [`Buffer`] than they did before, so that
+    /// consumers caching buffers can rebuild just the affected entries.
+    ///
+    /// Offsets within a slab are stable for as long as an allocation is live, so the only way the
+    /// [`Buffer`] behind a live allocation can change out from under you is that slab growing — and
+    /// growing a slab replaces the buffer for *every* key resident in it, not just the one whose
+    /// allocation triggered the growth. Those keys are what this reports, which is why it can't be
+    /// derived from whatever the caller already knows changed.
+    ///
+    /// This accumulates until [`Self::clear_moved_key_list`], so it is only correct
+    /// for a consumer that runs after the allocator has been updated for the frame and before the
+    /// list is cleared.
+    pub fn moved_keys(&self) -> &[I::Key] {
+        &self.moved_keys
+    }
+
+    /// Drops the accumulated [`Self::moved_keys`], starting a new round of invalidations.
+    pub fn clear_moved_key_list(&mut self) {
+        self.moved_keys.clear();
     }
 
     /// Creates an [`AllocationStage`], enabling batched allocation of objects
@@ -815,6 +843,11 @@ where
         };
 
         let old_buffer = slab.buffer.take();
+
+        if old_buffer.is_some() {
+            self.moved_keys
+                .extend(slab.resident_allocations.keys().cloned());
+        }
 
         let buffer_usages = BufferUsages::COPY_SRC
             | BufferUsages::COPY_DST
