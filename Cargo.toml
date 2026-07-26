@@ -3814,6 +3814,7 @@ wasm = true
 name = "box_shadow"
 path = "examples/ui/styling/box_shadow.rs"
 doc-scrape-examples = true
+required-features = ["bevy_feathers"]
 
 [package.metadata.example.box_shadow]
 name = "Box Shadow"
@@ -5174,7 +5175,7 @@ wasm = false
 name = "mixed_lighting"
 path = "examples/3d/mixed_lighting.rs"
 doc-scrape-examples = true
-required-features = ["jpeg"]
+required-features = ["jpeg", "bevy_feathers"]
 
 [package.metadata.example.mixed_lighting]
 name = "Mixed lighting"
@@ -5368,6 +5369,7 @@ wasm = false
 name = "occlusion_culling"
 path = "examples/3d/occlusion_culling.rs"
 doc-scrape-examples = true
+required-features = ["bevy_feathers"]
 
 [package.metadata.example.occlusion_culling]
 name = "Occlusion Culling"
