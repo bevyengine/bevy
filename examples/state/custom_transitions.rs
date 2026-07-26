@@ -18,6 +18,7 @@ use bevy::{
     ecs::schedule::ScheduleLabel,
     picking::hover::Hovered,
     prelude::*,
+    ui::Pressed,
     ui_widgets::{Activate, ActivateOnPress, Button},
 };
 
@@ -247,6 +248,14 @@ fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
             Button
             Hovered::default()
             BackgroundColor(NORMAL_BUTTON)
+            on(|event: On<Add, Pressed>,
+                mut commands: Commands| {
+                    commands.entity(event.entity).insert(BackgroundColor(PRESSED_BUTTON));
+            })
+            on(|event: On<Remove, Pressed>,
+                mut commands: Commands| {
+                    commands.entity(event.entity).insert(BackgroundColor(HOVERED_BUTTON));
+            })
             Children [
                 Text::new("Restart")
                 TextFont {
@@ -271,6 +280,7 @@ struct MenuData {
 
 const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
 const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
+const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
 
 fn setup_menu(mut commands: Commands) {
     let button_entity = commands
