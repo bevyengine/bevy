@@ -6,7 +6,7 @@ use bevy::input::keyboard::{Key, KeyboardInput};
 use bevy::input_focus::tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin};
 use bevy::input_focus::{AutoFocus, FocusCause, FocusedInput, InputFocus};
 use bevy::prelude::*;
-use bevy::text::{EditableText, EditableTextFilter, TextCursorStyle};
+use bevy::text::{EditableText, EditableTextFilter, TextCursorStyle, TextLayoutInfo};
 use bevy::ui_widgets::{
     popover::{Popover, PopoverAlign, PopoverPlacement, PopoverSide},
     Activate, Button, MenuAction, MenuButton, MenuEvent, MenuFocusState, MenuItem, MenuPopup,
@@ -39,7 +39,7 @@ struct JustifyLabel;
 /// Marks the draggable thumb of the multiline input's vertical scrollbar.
 ///
 /// This is a small, self-contained scrollbar built directly against
-/// [`EditableText::viewport`] and [`EditableText::content_size`], since the input's scroll
+/// [`EditableText::viewport`] and [`TextLayoutInfo::size`], since the input's scroll
 /// state isn't a [`ScrollPosition`](bevy::ui::ScrollPosition) and so can't drive the headless
 /// `Scrollbar` widget from `bevy_ui_widgets`. It has no `TabIndex` and isn't `InputFocus`able.
 #[derive(Component)]
@@ -153,7 +153,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         ..default()
                                     },
                                     BackgroundColor(DARK_SLATE_GRAY.into()),
-                                    BorderColor::all(SLATE_300),
                                 ))
                                 .with_children(|parent| {
                                     parent
@@ -553,24 +552,30 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 /// Sizes and positions the scrollbar thumb from the multiline input's viewport, hiding it
 /// entirely when the full text layout already fits inside the viewport.
 fn update_input_scrollbar(
-    input: Single<&EditableText, With<MultilineInput>>,
+    input: Single<(&EditableText, &TextLayoutInfo), With<MultilineInput>>,
     mut thumb: Single<(&mut Node, &mut Visibility), With<InputScrollThumb>>,
 ) {
-    let viewport = &input.viewport;
-    let content_height = input.content_size.y.max(viewport.size.y);
+    let viewport = &input.0.viewport;
+    let content_height = input.1.size.y;
 
     if viewport.size.y <= 0. || content_height <= viewport.size.y {
-        *thumb.1 = Visibility::Hidden;
+        thumb.1.set_if_neq(Visibility::Hidden);
         return;
     }
-    *thumb.1 = Visibility::Visible;
+    thumb.1.set_if_neq(Visibility::Visible);
 
     let thumb_fraction = (viewport.size.y / content_height).clamp(0.05, 1.);
     let max_offset = content_height - viewport.size.y;
     let scroll_fraction = (viewport.offset.y / max_offset).clamp(0., 1.);
 
-    thumb.0.height = percent(thumb_fraction * 100.);
-    thumb.0.top = percent(scroll_fraction * (1. - thumb_fraction) * 100.);
+    let height = percent(thumb_fraction * 100.);
+    let top = percent(scroll_fraction * (1. - thumb_fraction) * 100.);
+    if thumb.0.height != height {
+        thumb.0.height = height;
+    }
+    if thumb.0.top != top {
+        thumb.0.top = top;
+    }
 }
 
 fn on_thumb_drag_start(
@@ -590,7 +595,7 @@ fn on_thumb_drag(
     mut on: On<Pointer<Drag>>,
     thumb_query: Query<(&InputScrollDragState, &ChildOf), With<InputScrollThumb>>,
     track_query: Query<&ComputedNode>,
-    mut input: Single<&mut EditableText, With<MultilineInput>>,
+    mut input: Single<(&mut EditableText, &TextLayoutInfo), With<MultilineInput>>,
 ) {
     on.propagate(false);
     let Ok((drag, ChildOf(track))) = thumb_query.get(on.entity) else {
@@ -607,10 +612,10 @@ fn on_thumb_drag(
         return;
     }
 
-    let content_height = input.content_size.y.max(input.viewport.size.y);
-    let max_offset = (content_height - input.viewport.size.y).max(0.);
+    let content_height = input.1.size.y;
+    let max_offset = (content_height - input.0.viewport.size.y).max(0.);
     let delta = on.distance.y / track_height * content_height;
-    input.viewport.offset.y = (drag.drag_origin + delta).clamp(0., max_offset);
+    input.0.viewport.offset.y = (drag.drag_origin + delta).clamp(0., max_offset);
 }
 
 fn on_thumb_drag_end(
