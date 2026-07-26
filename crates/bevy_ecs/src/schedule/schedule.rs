@@ -3343,4 +3343,137 @@ mod tests {
 
         assert_eq!(total_dependencies(&schedule), 1);
     }
+
+    #[test]
+    fn weak_set_ordering_with_ignore_deferred_adds_no_sync_point() {
+        #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+        enum Sets {
+            A,
+            B,
+        }
+
+        fn insert_resource(mut commands: Commands) {
+            commands.insert_resource(Resource1);
+        }
+        fn resource_does_not_exist(res: Option<Res<Resource1>>) {
+            assert!(res.is_none());
+        }
+
+        let mut world = World::default();
+        let mut schedule = Schedule::default();
+        // `Sets::A` produces deferred effects, which count as a conflict, so the weak ordering
+        // is kept, but `ignore_deferred` keeps out the sync point that would come with it.
+        schedule.configure_sets((Sets::A, Sets::B).chain_weak());
+        schedule.configure_sets(Sets::A.before_ignore_deferred(Sets::B));
+        schedule.add_systems((
+            insert_resource.in_set(Sets::A),
+            resource_does_not_exist.in_set(Sets::B),
+        ));
+        schedule.run(&mut world);
+
+        assert_eq!(schedule.executable.systems.len(), 2);
+        assert_eq!(total_dependencies(&schedule), 1);
+    }
+
+    #[test]
+    fn weak_edge_after_ignore_deferred_edge_gets_bubbled_sync_point() {
+        fn insert_resource(mut commands: Commands) {
+            commands.insert_resource(Resource1);
+        }
+        fn read_other(_: Res<Resource2>) {}
+        fn resource_exists(res: Option<Res<Resource1>>) {
+            assert!(res.is_some());
+        }
+
+        let mut world = World::default();
+        world.insert_resource(Resource2);
+        let mut schedule = Schedule::default();
+        schedule.set_executor(MultiThreadedExecutor::new());
+        schedule.add_systems(
+            (
+                (insert_resource, read_other).chain_ignore_deferred(),
+                resource_exists,
+            )
+                .chain_weak(),
+        );
+        // The unapplied commands bubble through the `ignore_deferred` edge and land on the weak
+        // edge that follows. That splits the weak edge before the weak edges are resolved, so
+        // the ordering is kept even though the pair it orders doesn't conflict.
+        schedule.run(&mut world);
+
+        assert_eq!(schedule.executable.systems.len(), 4); // 3 systems + 1 sync point
+        assert_eq!(total_dependencies(&schedule), 3);
+    }
+
+    #[test]
+    fn chain_ignore_deferred_around_weak_group_fans_out_without_sync_point() {
+        fn read<const N: usize>(_: Res<Resource1>) {}
+        fn with_commands(_: Commands) {}
+
+        let mut world = World::default();
+        let mut schedule = Schedule::default();
+        // The deferred system comes after the weak group, so nothing bubbles back onto its edge.
+        schedule.add_systems(
+            (
+                (read::<1>, read::<2>).chain_weak(),
+                with_commands,
+                read::<3>,
+            )
+                .chain_ignore_deferred(),
+        );
+        schedule.initialize(&mut world).unwrap();
+
+        // The weak group is non-conflicting, so its internal edge is dropped. A weak group is
+        // not densely chained, so the outer chain orders both of its members before
+        // `with_commands`, and no outer edge gets a sync point.
+        assert_eq!(schedule.executable.systems.len(), 4);
+        assert_eq!(total_dependencies(&schedule), 3);
+    }
+
+    #[test]
+    fn chain_weak_between_ignore_deferred_groups_drops_edge_between_them() {
+        fn read<const N: usize>(_: Res<Resource1>) {}
+        fn with_commands(_: Commands) {}
+
+        let mut world = World::default();
+        let mut schedule = Schedule::default();
+        // Only the earlier system of a pair matters for the deferred check, so `with_commands`
+        // at the start of the second group doesn't make the weak edge into it conflict.
+        schedule.add_systems(
+            (
+                (read::<1>, read::<2>).chain_ignore_deferred(),
+                (with_commands, read::<3>).chain_ignore_deferred(),
+            )
+                .chain_weak(),
+        );
+        schedule.initialize(&mut world).unwrap();
+
+        // Each group keeps its own edge, and the weak edge between them is dropped.
+        assert_eq!(schedule.executable.systems.len(), 4);
+        assert_eq!(total_dependencies(&schedule), 2);
+    }
+
+    #[test]
+    fn ignore_deferred_still_syncs_before_exclusive_system_in_weak_chain() {
+        fn insert_resource(mut commands: Commands) {
+            commands.insert_resource(Resource1);
+        }
+        fn exclusive(world: &mut World) {
+            assert!(world.contains_resource::<Resource1>());
+        }
+        fn read(_: Res<Resource1>) {}
+
+        let mut world = World::default();
+        let mut schedule = Schedule::default();
+        schedule
+            .add_systems(((insert_resource, exclusive).chain_ignore_deferred(), read).chain_weak());
+        // `ignore_deferred` makes an exception for exclusive systems, so `exclusive` still gets
+        // its sync point.
+        schedule.run(&mut world);
+
+        // `insert_resource -> ApplyDeferred -> exclusive -> read`. The weak edge into `read` is
+        // kept because an exclusive system conflicts with everything.
+        assert_eq!(schedule.executable.systems.len(), 4); // 3 systems + 1 sync point
+        assert_eq!(total_dependencies(&schedule), 3);
+    }
 }
