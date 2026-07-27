@@ -4,10 +4,7 @@ enable wgpu_ray_query;
 
 #import bevy_pbr::utils::{rand_f, rand_vec2f}
 #import bevy_render::maths::orthonormalize
-#import bevy_solari::realtime_bindings::{
-    world_cache,
-    constants,
-}
+#import bevy_solari::realtime_bindings::{world_cache, constants}
 
 /// Maximum amount of frames a cell can live for without being queried
 const WORLD_CACHE_CELL_LIFETIME: u32 = 10u;

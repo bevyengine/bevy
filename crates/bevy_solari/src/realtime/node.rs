@@ -309,10 +309,12 @@ pub fn solari_lighting(
 
     drop(pass);
 
+    // Active cell count readback.
     diagnostics.record_u32(
         ctx.command_encoder(),
         &s.world_cache.slice(
-            WORLD_CACHE_ACTIVE_CELLS_COUNT_OFFSET..WORLD_CACHE_ACTIVE_CELLS_COUNT_OFFSET + 4,
+            WORLD_CACHE_ACTIVE_CELLS_COUNT_OFFSET
+                ..WORLD_CACHE_ACTIVE_CELLS_COUNT_OFFSET + size_of::<u32>() as u64,
         ),
         "solari_lighting/world_cache_active_cells_count",
     );

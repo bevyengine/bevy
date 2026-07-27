@@ -18,24 +18,6 @@ enable wgpu_ray_query;
 @group(1) @binding(9) var previous_depth_buffer: texture_depth_2d;
 @group(1) @binding(10) var<uniform> view: View;
 @group(1) @binding(11) var<uniform> previous_view: PreviousViewUniforms;
-
-// Keep in sync with `world_cache_layout::WorldCache` in `prepare.rs`.
-struct WorldCache {
-    checksums: array<atomic<u32>, #{WORLD_CACHE_SIZE}>,
-#ifdef WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER
-    life: array<u32, #{WORLD_CACHE_SIZE}>,
-#else
-    life: array<atomic<u32>, #{WORLD_CACHE_SIZE}>,
-#endif
-    radiance: array<vec4<f32>, #{WORLD_CACHE_SIZE}>,
-    geometry_data: array<WorldCacheGeometryData, #{WORLD_CACHE_SIZE}>,
-    luminance_deltas: array<f32, #{WORLD_CACHE_SIZE}>,
-    active_cells_new_radiance: array<vec3<f32>, #{WORLD_CACHE_SIZE}>,
-    a: array<u32, #{WORLD_CACHE_SIZE}>,
-    b: array<u32, 1024u>,
-    active_cell_indices: array<u32, #{WORLD_CACHE_SIZE}>,
-    active_cells_count: u32,
-}
 @group(1) @binding(12) var<storage, read_write> world_cache: WorldCache;
 @group(1) @binding(13) var<uniform> constants: SolariLightingSettings;
 
@@ -99,4 +81,22 @@ struct WorldCacheGeometryData {
     padding_a: u32,
     world_normal: vec3<f32>,
     padding_b: u32,
+}
+
+// Keep in sync with the packed world-cache layout constants in `prepare.rs`.
+struct WorldCache {
+    checksums: array<atomic<u32>, #{WORLD_CACHE_SIZE}>,
+#ifdef WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER
+    life: array<u32, #{WORLD_CACHE_SIZE}>,
+#else
+    life: array<atomic<u32>, #{WORLD_CACHE_SIZE}>,
+#endif
+    radiance: array<vec4<f32>, #{WORLD_CACHE_SIZE}>,
+    geometry_data: array<WorldCacheGeometryData, #{WORLD_CACHE_SIZE}>,
+    luminance_deltas: array<f32, #{WORLD_CACHE_SIZE}>,
+    active_cells_new_radiance: array<vec3<f32>, #{WORLD_CACHE_SIZE}>,
+    a: array<u32, #{WORLD_CACHE_SIZE}>,
+    b: array<u32, 1024u>,
+    active_cell_indices: array<u32, #{WORLD_CACHE_SIZE}>,
+    active_cells_count: u32,
 }
