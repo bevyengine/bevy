@@ -309,7 +309,7 @@ pub fn solari_lighting(
 
     drop(pass);
 
-    // Active cell count readback from the packed world cache buffer.
+    // Active cell count readback.
     diagnostics.record_u32(
         ctx.command_encoder(),
         &s.world_cache.slice(

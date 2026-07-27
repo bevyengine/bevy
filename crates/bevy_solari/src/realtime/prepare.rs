@@ -44,23 +44,16 @@ pub const LIGHT_TILE_SAMPLES_PER_BLOCK: u64 = 1024;
 /// Amount of entries in the world cache (must be a power of 2, and >= 2^10)
 pub const WORLD_CACHE_SIZE: u64 = 2u64.pow(20);
 
-/// Bytes contributed by each world-cache cell in the packed SoA buffer, excluding the fixed-size
-/// `b` array that sits between `a` and `active_cell_indices`.
-///
-/// Keep in sync with `WorldCache` in `realtime_bindings.wgsl`:
-/// `checksums` (4) + `life` (4) + `radiance` (16) + `geometry_data` (32) + `luminance_deltas` (4)
-/// + `active_cells_new_radiance` (16; `vec3` array stride) + `a` (4) + `active_cell_indices` (4).
+/// Sum of per-cell field sizes in `WorldCache`. Keep in sync with `realtime_bindings.wgsl`.
 const WORLD_CACHE_ENTRY_SIZE: u64 = 84;
 
-/// Size of the fixed `b` array (`array<u32, WORLD_CACHE_SIZE / 1024>`) in the packed buffer.
+/// Size of the fixed `b` array (`array<u32, WORLD_CACHE_SIZE / 1024>`).
 const WORLD_CACHE_B_SIZE: u64 = (WORLD_CACHE_SIZE / 1024) * size_of::<u32>() as u64;
 
-/// Offset of `active_cells_count` in the packed world cache buffer.
+/// Offset of `active_cells_count`.
 pub const WORLD_CACHE_ACTIVE_CELLS_COUNT_OFFSET: u64 =
     WORLD_CACHE_SIZE * WORLD_CACHE_ENTRY_SIZE + WORLD_CACHE_B_SIZE;
 
-/// Total size of the packed world cache buffer.
-///
 /// Must stay under wgpu's default `max_storage_buffer_binding_size` (128 MiB or 2^27 bytes).
 pub const WORLD_CACHE_BUFFER_SIZE: u64 =
     WORLD_CACHE_ACTIVE_CELLS_COUNT_OFFSET + size_of::<u32>() as u64;
