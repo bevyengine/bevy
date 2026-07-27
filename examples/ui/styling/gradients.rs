@@ -224,8 +224,8 @@ fn buttons_scene() -> impl Scene {
         }
         Children [
             Node {
+                align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
-                align_content: AlignContent::Center,
             }
             Children [
                 CurrentColorSpaceLabel
