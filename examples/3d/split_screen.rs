@@ -104,9 +104,7 @@ fn setup(
                 children![(
                     Text::new(*camera_name),
                     Node {
-                        position_type: PositionType::Absolute,
-                        top: px(12),
-                        left: px(12),
+                        margin: px(12).all(),
                         ..default()
                     },
                 ),],
