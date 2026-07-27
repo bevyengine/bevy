@@ -54,9 +54,9 @@ use bevy_input_focus::{
 use bevy_log::warn;
 use bevy_picking::events::{Cancel, Click, DragEnd, Pointer, Press, Release};
 use bevy_reflect::Reflect;
-use bevy_ui::{widget::Button, InteractionDisabled, Pressed, UiSystems};
+use bevy_ui::{InteractionDisabled, Pressed, UiSystems};
 
-use crate::{text_input::text_input_autoscroll_system, Activate, ActivateOnPress};
+use crate::{text_input::text_input_autoscroll_system, Activate, ActivateOnPress, Button};
 
 /// Action type for [`MenuEvent`].
 #[derive(Clone, Copy, Debug, Reflect)]
