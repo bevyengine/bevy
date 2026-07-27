@@ -33,7 +33,7 @@ pub struct ColorTarget {
 impl Default for ColorTarget {
     fn default() -> Self {
         Self {
-            label: "main_texture".into(),
+            label: "color_target_texture".into(),
             size: UVec2::new(1280, 720),
             sample_count: 4,
             format: TextureFormat::Rgba8UnormSrgb,
@@ -100,7 +100,7 @@ pub enum CameraColorTargetSize {
 impl Default for CameraColorTarget {
     fn default() -> Self {
         Self {
-            label: "main_texture".into(),
+            label: "camera_main_texture".into(),
             size: CameraColorTargetSize::Factor(Vec2::ONE),
             format: None,
             usage: TextureUsages::RENDER_ATTACHMENT

@@ -6,7 +6,7 @@ use crate::{
     extract_resource::{extract_resource, ExtractResource, ExtractResourcePlugin},
     render_asset::RenderAssets,
     render_resource::TextureView,
-    sync_component::SyncComponent,
+    sync_component::{SyncComponent, SyncComponentPlugin},
     sync_world::{MainEntity, MainEntityHashSet, RenderEntity, SyncToRenderWorld},
     texture::{GpuImage, ManualTextureViews},
     view::{
@@ -60,11 +60,13 @@ pub struct CameraPlugin;
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
         app.register_required_components::<CameraColorTarget, Msaa>()
-            .register_required_components::<ColorTarget, SyncToRenderWorld>()
             .register_required_components::<Camera, SyncToRenderWorld>()
             .register_required_components::<Camera3d, ColorGrading>()
             .register_required_components::<Camera3d, Exposure>()
-            .add_plugins(ExtractResourcePlugin::<ClearColor>::default())
+            .add_plugins((
+                SyncComponentPlugin::<ColorTarget>::default(),
+                ExtractResourcePlugin::<ClearColor>::default(),
+            ))
             .add_systems(PostStartup, camera_system.in_set(CameraUpdateSystems))
             .add_systems(
                 PostUpdate,
@@ -461,6 +463,10 @@ pub struct ViewTargetInfo {
     pub sample_count: u32,
 }
 
+impl SyncComponent<RenderApp> for ColorTarget {
+    type Target = Self;
+}
+
 /// Extract [`ColorTarget`], [`CameraColorTarget`] and [`WithColorTarget`] to the render world.
 ///
 /// This is an exclusive system because we want to eagerly insert these components
@@ -504,13 +510,13 @@ pub fn extract_color_targets(
         commands.entity(render_entity).insert(color_target.clone());
     }
 
-    for (render_entity, camera, hdr, with_color_target) in query.iter() {
+    for (camera_render_entity, camera, hdr, with_color_target) in query.iter() {
         if let Some(viewport_size) = camera.physical_viewport_size() {
             let color_target_render_entity = if let Ok((
-                render_entity,
+                referenced_camera_render_entity,
                 render_target,
                 msaa,
-                camera_color_target,
+                referenced_camera_color_target,
             )) = camera_color_targets.get(with_color_target.0)
             {
                 let target = render_target.normalize(primary_window);
@@ -532,9 +538,11 @@ pub fn extract_color_targets(
                     output_texture_format
                 };
 
-                let color_format = camera_color_target.format.unwrap_or(default_format);
+                let color_format = referenced_camera_color_target
+                    .format
+                    .unwrap_or(default_format);
                 let sample_count = msaa.samples();
-                let size = match camera_color_target.size {
+                let size = match referenced_camera_color_target.size {
                     bevy_camera::CameraColorTargetSize::Factor(vec2) => (viewport_size.as_vec2()
                         * vec2)
                         .round()
@@ -543,14 +551,16 @@ pub fn extract_color_targets(
                     bevy_camera::CameraColorTargetSize::Fixed(uvec2) => uvec2,
                 };
 
-                commands.entity(render_entity).insert(ColorTarget {
-                    label: camera_color_target.label.clone(),
-                    size,
-                    sample_count,
-                    format: color_format,
-                    usage: camera_color_target.usage,
-                });
-                render_entity
+                commands
+                    .entity(referenced_camera_render_entity)
+                    .insert(ColorTarget {
+                        label: referenced_camera_color_target.label.clone(),
+                        size,
+                        sample_count,
+                        format: color_format,
+                        usage: referenced_camera_color_target.usage,
+                    });
+                referenced_camera_render_entity
             } else if let Ok((render_entity, _color_target)) =
                 color_targets.get(with_color_target.0)
             {
@@ -560,7 +570,7 @@ pub fn extract_color_targets(
             };
 
             commands
-                .entity(render_entity)
+                .entity(camera_render_entity)
                 .insert(WithColorTarget(color_target_render_entity));
         };
     }
