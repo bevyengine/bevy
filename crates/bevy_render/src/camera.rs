@@ -39,9 +39,11 @@ use bevy_ecs::{
     query::{Has, QueryItem},
     reflect::ReflectComponent,
     resource::Resource,
-    schedule::{InternedScheduleLabel, IntoScheduleConfigs, ScheduleLabel, SystemSet},
-    system::{Commands, Query, Res, ResMut, SystemState},
-    world::{DeferredWorld, World},
+    schedule::{
+        ApplyDeferred, InternedScheduleLabel, IntoScheduleConfigs, ScheduleLabel, SystemSet,
+    },
+    system::{Commands, Query, Res, ResMut},
+    world::DeferredWorld,
 };
 use bevy_image::Image;
 use bevy_log::warn;
@@ -65,6 +67,7 @@ impl Plugin for CameraPlugin {
             .register_required_components::<Camera3d, Exposure>()
             .add_plugins((
                 SyncComponentPlugin::<ColorTarget>::default(),
+                SyncComponentPlugin::<WithColorTarget>::default(),
                 ExtractResourcePlugin::<ClearColor>::default(),
             ))
             .add_systems(PostStartup, camera_system.in_set(CameraUpdateSystems))
@@ -98,7 +101,13 @@ impl Plugin for CameraPlugin {
                 .add_systems(
                     ExtractSchedule,
                     (
-                        (extract_color_targets, extract_cameras)
+                        (
+                            extract_color_targets,
+                            // It makes the code clearer to split `extract_color_targets` off from `extract_cameras`.
+                            // Suppress warnings since most systems don't depend on `extract_color_targets`.
+                            ApplyDeferred.ambiguous_with_all(),
+                            extract_cameras,
+                        )
                             .chain()
                             .after(extract_resource::<ManualTextureViews, ()>),
                         clear_dirty_specializations.in_set(DirtySpecializationSystems::Clear),
@@ -467,42 +476,21 @@ impl SyncComponent<RenderApp> for ColorTarget {
     type Target = Self;
 }
 
-/// Extract [`ColorTarget`], [`CameraColorTarget`] and [`WithColorTarget`] to the render world.
-///
-/// This is an exclusive system because we want to eagerly insert these components
-/// to make them available in [`extract_cameras`] system.
-pub fn extract_color_targets(
-    world: &mut World,
-    state: &mut SystemState<(
-        // commands:
-        Commands,
-        // query:
-        Extract<Query<(RenderEntity, &Camera, Has<Hdr>, &WithColorTarget)>>,
-        // camera_color_targets:
-        Extract<Query<(RenderEntity, &RenderTarget, &Msaa, &CameraColorTarget)>>,
-        // color_targets:
-        Extract<Query<(RenderEntity, &ColorTarget)>>,
-        // primary_window:
-        Extract<Query<Entity, With<PrimaryWindow>>>,
-        // manual_texture_views:
-        Res<ManualTextureViews>,
-        // images:
-        Res<RenderAssets<GpuImage>>,
-        // extracted_swap_chains:
-        Query<(MainEntity, &ExtractedWindow)>,
-    )>,
-) {
-    let (
-        mut commands,
-        query,
-        camera_color_targets,
-        color_targets,
-        primary_window,
-        manual_texture_views,
-        images,
-        extracted_swap_chains,
-    ) = state.get_mut(world).unwrap();
+impl SyncComponent<RenderApp> for WithColorTarget {
+    type Target = Self;
+}
 
+/// Extract [`ColorTarget`], [`CameraColorTarget`] and [`WithColorTarget`] to the render world.
+pub fn extract_color_targets(
+    mut commands: Commands,
+    query: Extract<Query<(RenderEntity, &Camera, Has<Hdr>, &WithColorTarget)>>,
+    camera_color_targets: Extract<Query<(RenderEntity, &RenderTarget, &Msaa, &CameraColorTarget)>>,
+    color_targets: Extract<Query<(RenderEntity, &ColorTarget)>>,
+    primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
+    manual_texture_views: Res<ManualTextureViews>,
+    images: Res<RenderAssets<GpuImage>>,
+    extracted_swap_chains: Query<(MainEntity, &ExtractedWindow)>,
+) {
     let primary_window = primary_window.iter().next();
 
     // Always extract `ColorTarget`s, allowing them to be used without a camera.
@@ -566,7 +554,11 @@ pub fn extract_color_targets(
             {
                 render_entity
             } else {
-                panic!("`WithColorTarget` should properly reference to a `ColorTarget` or `CameraColorTarget`");
+                warn!("`WithColorTarget` doesn't reference to a valid `ColorTarget` or `CameraColorTarget`");
+                commands
+                    .entity(camera_render_entity)
+                    .remove::<WithColorTarget>();
+                continue;
             };
 
             commands
@@ -574,34 +566,35 @@ pub fn extract_color_targets(
                 .insert(WithColorTarget(color_target_render_entity));
         };
     }
-
-    state.apply(world);
 }
 
 pub fn extract_cameras(
     mut commands: Commands,
     query: Extract<
-        Query<(
-            Entity,
-            RenderEntity,
-            &Camera,
-            &RenderTarget,
-            &CameraRenderGraph,
-            &GlobalTransform,
-            &VisibleEntities,
-            &Frustum,
+        Query<
             (
-                Has<Hdr>,
-                Option<&CompositingSpace>,
-                Option<&ColorGrading>,
-                Option<&Exposure>,
-                Option<&TemporalJitter>,
-                Option<&MipBias>,
-                Option<&RenderLayers>,
-                Option<&Projection>,
-                Has<NoIndirectDrawing>,
+                Entity,
+                RenderEntity,
+                &Camera,
+                &RenderTarget,
+                &CameraRenderGraph,
+                &GlobalTransform,
+                &VisibleEntities,
+                &Frustum,
+                (
+                    Has<Hdr>,
+                    Option<&CompositingSpace>,
+                    Option<&ColorGrading>,
+                    Option<&Exposure>,
+                    Option<&TemporalJitter>,
+                    Option<&MipBias>,
+                    Option<&RenderLayers>,
+                    Option<&Projection>,
+                    Has<NoIndirectDrawing>,
+                ),
             ),
-        )>,
+            With<WithColorTarget>,
+        >,
     >,
     extracted_with_color_targets: Query<&WithColorTarget>,
     extracted_color_targets: Query<&ColorTarget>,
@@ -624,6 +617,7 @@ pub fn extract_cameras(
         Projection,
         NoIndirectDrawing,
         ViewUniformOffset,
+        ViewTargetInfo,
     );
 
     for (
@@ -648,6 +642,21 @@ pub fn extract_cameras(
         ),
     ) in query.iter()
     {
+        let Ok(extracted_with_color_target) = extracted_with_color_targets.get(render_entity)
+        else {
+            commands
+                .entity(render_entity)
+                .remove::<ExtractedCameraComponents>();
+            continue;
+        };
+        let Ok(extracted_color_target) = extracted_color_targets.get(extracted_with_color_target.0)
+        else {
+            commands
+                .entity(render_entity)
+                .remove::<ExtractedCameraComponents>();
+            continue;
+        };
+
         if !camera.is_active {
             commands
                 .entity(render_entity)
@@ -695,18 +704,6 @@ pub fn extract_cameras(
             // `RenderVisibleEntities`. Even if a visibility class seems empty
             // *now*, phases need to be able to find the entities that were just
             // removed from it.
-
-            let extracted_with_color_target =
-                extracted_with_color_targets.get(render_entity).expect(
-                    "`WithColorTarget` should exist in the render world \
-                    after `bevy_render::camera::extract_color_targets` system",
-                );
-            let extracted_color_target = extracted_color_targets
-                .get(extracted_with_color_target.0)
-                .expect(
-                    "`WithColorTarget` should properly reference to a `ColorTarget` \
-                    in the render world after `bevy_render::camera::extract_color_targets` system",
-                );
 
             let mut entity_commands = commands.entity(render_entity);
             entity_commands.insert((

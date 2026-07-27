@@ -1142,7 +1142,7 @@ pub fn extract_ui_camera_view(
                 Option<Ref<UiAntiAlias>>,
                 Option<Ref<BoxShadowSamples>>,
             ),
-            Or<(With<Camera2d>, With<Camera3d>)>,
+            (With<WithColorTarget>, Or<(With<Camera2d>, With<Camera3d>)>),
         >,
     >,
     changed_query: Extract<
@@ -1201,11 +1201,17 @@ pub fn extract_ui_camera_view(
             && target_size.y != 0
             && camera.physical_viewport_size().is_some()
             && camera.is_active
+            && let Ok(extracted_with_color_target) = extracted_with_color_targets.get(render_entity)
+            && let Ok(extracted_color_target) =
+                extracted_color_targets.get(extracted_with_color_target.0)
         {
             cameras_updated_this_frame.insert(main_entity);
             transparent_render_phases.prepare_for_new_frame(retained_view_entity);
 
             // If the camera hasn't changed, we're done.
+            // FIXME:
+            // The change detection is not sufficient. Should detect changed `RenderTarget`,`ColorTarget`, etc as well,
+            // or remove the detection entirely as this might be worth it.
             if !changed_cameras.contains(&main_entity) {
                 continue;
             }
@@ -1236,17 +1242,6 @@ pub fn extract_ui_camera_view(
                 invert_culling: false,
             };
 
-            let extracted_with_color_target =
-                extracted_with_color_targets.get(render_entity).expect(
-                    "`WithColorTarget` should exist in the render world \
-                    after `bevy_render::camera::extract_color_targets` system",
-                );
-            let extracted_color_target = extracted_color_targets
-                .get(extracted_with_color_target.0)
-                .expect(
-                    "`WithColorTarget` should properly reference to a `ColorTarget` \
-                    in the render world after `bevy_render::camera::extract_color_targets` system",
-                );
             let ui_target_info = UiViewTargetInfo {
                 color_format: extracted_color_target.format,
             };
