@@ -196,19 +196,9 @@ mod ui {
 
         commands.spawn_scene(bsn! {
             Node {
-                width: percent(100),
-                height: percent(100),
+                margin: px(10),
             }
-            Children [
-                Node {
-                    position_type: PositionType::Absolute,
-                    left: px(10),
-                    top: px(10),
-                }
-                Children [
-                    Text::new("Move with arrow keys.\nPress SPACEBAR to pause.")
-                ],
-            ]
+            Text::new("Move with arrow keys.\nPress SPACEBAR to pause.")
         });
     }
 
