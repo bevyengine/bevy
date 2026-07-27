@@ -1145,49 +1145,13 @@ pub fn extract_ui_camera_view(
             (With<WithColorTarget>, Or<(With<Camera2d>, With<Camera3d>)>),
         >,
     >,
-    changed_query: Extract<
-        Query<
-            Entity,
-            Or<(
-                Changed<Camera>,
-                Changed<UiAntiAlias>,
-                Changed<BoxShadowSamples>,
-                Changed<Camera2d>,
-                Changed<Camera3d>,
-            )>,
-        >,
-    >,
     extracted_with_color_targets: Query<&WithColorTarget>,
     extracted_color_targets: Query<&ColorTarget>,
     mut live_entities: Local<HashSet<RetainedViewEntity>>,
     mut cached_ui_view_data: Local<MainEntityHashMap<CachedUiViewData>>,
-    (
-        mut removed_cameras_query,
-        mut removed_ui_anti_alias_query,
-        mut removed_box_shadow_samples_query,
-        mut removed_cameras_2d_query,
-        mut removed_cameras_3d_query,
-    ): (
-        Extract<RemovedComponents<Camera>>,
-        Extract<RemovedComponents<UiAntiAlias>>,
-        Extract<RemovedComponents<BoxShadowSamples>>,
-        Extract<RemovedComponents<Camera2d>>,
-        Extract<RemovedComponents<Camera3d>>,
-    ),
-    mut changed_cameras: Local<MainEntityHashSet>,
+    mut removed_cameras_query: Extract<RemovedComponents<Camera>>,
     mut cameras_updated_this_frame: Local<MainEntityHashSet>,
 ) {
-    changed_cameras.clear();
-    for main_entity in changed_query
-        .iter()
-        .chain(removed_ui_anti_alias_query.read())
-        .chain(removed_box_shadow_samples_query.read())
-        .chain(removed_cameras_2d_query.read())
-        .chain(removed_cameras_3d_query.read())
-    {
-        changed_cameras.insert(main_entity.into());
-    }
-
     cameras_updated_this_frame.clear();
     for (main_entity, render_entity, camera, ui_anti_alias, shadow_samples) in &query {
         let main_entity = MainEntity::from(main_entity);
@@ -1207,14 +1171,6 @@ pub fn extract_ui_camera_view(
         {
             cameras_updated_this_frame.insert(main_entity);
             transparent_render_phases.prepare_for_new_frame(retained_view_entity);
-
-            // If the camera hasn't changed, we're done.
-            // FIXME:
-            // The change detection is not sufficient. Should detect changed `RenderTarget`,`ColorTarget`, etc as well,
-            // or remove the detection entirely as this might be worth it.
-            if !changed_cameras.contains(&main_entity) {
-                continue;
-            }
 
             // use a projection matrix with the origin in the top left instead of the bottom left that comes with OrthographicProjection
             let projection_matrix = proj::orthographic(
