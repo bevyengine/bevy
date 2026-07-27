@@ -23,8 +23,10 @@ use bevy::{
     ui_widgets::{
         checkbox_self_update, listbox_update_selection,
         popover::{Popover, PopoverAlign, PopoverPlacement, PopoverSide},
-        radio_self_update, slider_self_update, Activate, ActivateOnPress, RadioGroup, RequestClose,
-        SliderPrecision, SliderStep, SliderValue, ValueChange,
+        radio_self_update, slider_self_update,
+        tooltip::{Tooltip, TooltipContent, TooltipTrigger},
+        Activate, ActivateOnPress, RadioGroup, RequestClose, SliderPrecision, SliderStep,
+        SliderValue, ValueChange,
     },
     window::SystemCursorIcon,
 };
@@ -476,6 +478,62 @@ fn demo_column_1() -> impl Scene {
                         @FeathersToggleSwitch
                         DemoDialogToggle
                         on(toggle_demo_dialog)
+                    ),
+                ]
+            ),
+            (
+                Node {
+                    display: Display::Flex,
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Start,
+                    column_gap: px(8),
+                }
+                Children [
+                    label("Tooltip:"),
+                    (
+                        @FeathersButton {
+                            @caption: bsn! { caption("Submit") }
+                        }
+                        Name::new("Submit all changes")
+                        Tooltip {
+                            content: TooltipContent::Auto,
+                            trigger: TooltipTrigger::Hover,
+                        }
+                    ),
+                    (
+                        @FeathersButton {
+                            @caption: bsn! { caption("Delete") }
+                        }
+                        Tooltip {
+                            content: { TooltipContent::Text(
+                                "Permanently delete the selected item".into()
+                            ) },
+                            trigger: TooltipTrigger::Click,
+                        }
+                    ),
+                    (
+                        @FeathersButton {
+                            @caption: bsn! { caption("Pinned") }
+                        }
+                        Tooltip {
+                            content: { TooltipContent::Text("Always visible".into()) },
+                            open: { Some(true) },
+                            arrow: false,
+                        }
+                    ),
+                    (
+                        @FeathersButton {
+                            @caption: bsn! { caption("Detailed") }
+                        }
+                        Tooltip {
+                            content: {
+                                TooltipContent::Detailed {
+                                    summary: "Short description".into(),
+                                    details: "Additional information shown after a longer hover".into(),
+                                }
+                            },
+                        }
                     ),
                 ]
             ),

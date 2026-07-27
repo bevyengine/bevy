@@ -415,6 +415,15 @@ pub const DIALOG_TEXT: ThemeToken = ThemeToken::new_static("feathers.dialog.text
 /// Dialog header text
 pub const DIALOG_HEADER_TEXT: ThemeToken = ThemeToken::new_static("feathers.dialog.header.text");
 
+// Tooltip
+
+/// Tooltip background
+pub const TOOLTIP_BG: ThemeToken = ThemeToken::new_static("feathers.tooltip.bg");
+/// Tooltip text
+pub const TOOLTIP_TEXT: ThemeToken = ThemeToken::new_static("feathers.tooltip.text");
+/// Tooltip border
+pub const TOOLTIP_BORDER: ThemeToken = ThemeToken::new_static("feathers.tooltip.border");
+
 /// Semantic tokens.
 ///
 /// Terms:

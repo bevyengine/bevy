@@ -60,6 +60,7 @@ mod scrollarea;
 mod scrollbar;
 mod slider;
 mod text_input;
+pub mod tooltip;
 
 use bevy_input_focus::pointer_focus::PointerFocusPlugin;
 pub use button::*;
@@ -74,6 +75,7 @@ pub use scrollarea::*;
 pub use scrollbar::*;
 pub use slider::*;
 pub use text_input::*;
+pub use tooltip::*;
 
 use bevy_app::{PluginGroup, PluginGroupBuilder};
 use bevy_ecs::{entity::Entity, event::EntityEvent, reflect::ReflectEvent};
@@ -101,6 +103,7 @@ impl PluginGroup for UiWidgetsPlugins {
             .add(ScrollAreaPlugin)
             .add(ScrollbarPlugin)
             .add(SliderPlugin)
+            .add(TooltipPlugin)
             .add(PointerFocusPlugin)
     }
 }
