@@ -2071,10 +2071,117 @@ pub struct ImageNodeBindGroups {
 //
 // Produced by generate_item_vertices
 #[derive(Clone, Copy)]
-pub struct ItemVertices {
+pub(crate) struct ItemVertices {
     vertex_start: u32,
     quads: u32,
     culled: bool,
+}
+
+const UI_ARENA_COMPACT_MIN_VERTICES: u32 = 1 << 14;
+
+#[derive(Clone, Copy)]
+pub(crate) struct ArenaSlot {
+    item: ItemVertices,
+    capacity_quads: u32,
+}
+
+#[derive(Default)]
+pub(crate) struct UiVertexArena {
+    /// Slot for each live render entity
+    slots: EntityHashMap<ArenaSlot>,
+    /// Main-world node current owners
+    owners: MainEntityHashMap<Vec<Entity>>,
+    free_lists: HashMap<u32, Vec<u32>>,
+    top: u32,
+    /// Quad capacity not used sitting in free lists
+    dead_quads: u32,
+    /// Vertex ranges written this frame.
+    dirty: Vec<Range<u32>>,
+}
+
+impl UiVertexArena {
+    fn alloc(&mut self, quads: u32) -> (u32, u32) {
+        let capacity_quads = quads.next_power_of_two();
+        let start = match self.free_lists.get_mut(&capacity_quads).and_then(Vec::pop) {
+            Some(start) => {
+                self.dead_quads -= capacity_quads;
+                start
+            }
+            None => {
+                let start = self.top;
+                self.top += capacity_quads * 4;
+                start
+            }
+        };
+        (start, capacity_quads)
+    }
+
+    fn free(&mut self, render_entity: Entity) {
+        if let Some(slot) = self.slots.remove(&render_entity)
+            && slot.capacity_quads != 0
+        {
+            self.free_lists
+                .entry(slot.capacity_quads)
+                .or_default()
+                .push(slot.item.vertex_start);
+            self.dead_quads += slot.capacity_quads
+        }
+    }
+
+    fn needs_compaction(&self) -> bool {
+        self.top >= UI_ARENA_COMPACT_MIN_VERTICES && self.dead_quads * 8 > self.top
+    }
+
+    fn reset(&mut self) {
+        self.slots.clear();
+        self.owners.clear();
+        self.free_lists.clear();
+        self.top = 0;
+        self.dead_quads = 0;
+        self.dirty.clear();
+    }
+}
+
+fn place_item(
+    arena: &mut UiVertexArena,
+    vertices: &mut RawBufferVec<UiVertex>,
+    scratch: &mut Vec<UiVertex>,
+    render_entity: Entity,
+    extracted: &ExtractedUiNode,
+    gpu_images: &RenderAssets<GpuImage>,
+) {
+    scratch.clear();
+    let (quads, culled) = generate_item_vertices(extracted, gpu_images, scratch);
+    let slot = if quads == 0 {
+        // Culled
+        ArenaSlot {
+            item: ItemVertices {
+                vertex_start: 0,
+                quads: 0,
+                culled,
+            },
+            capacity_quads: 0,
+        }
+    } else {
+        let (start, capacity_quads) = arena.alloc(quads);
+        let end = (start + capacity_quads * 4) as usize;
+        let values = vertices.values_mut();
+        if values.len() < end {
+            values.resize(end, UiVertex::zeroed());
+        }
+        let start_usize = start as usize;
+        values[start_usize..start_usize + scratch.len()].copy_from_slice(scratch);
+        arena.dirty.push(start..start + quads * 4);
+        ArenaSlot {
+            item: ItemVertices {
+                vertex_start: start,
+                quads,
+                culled: false,
+            },
+            capacity_quads,
+        }
+    };
+    arena.slots.insert(render_entity, slot);
 }
 
 pub fn prepare_uinodes(
@@ -2090,7 +2197,8 @@ pub fn prepare_uinodes(
     mut phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
     events: Res<SpriteAssetEvents>,
     mut previous_len: Local<usize>,
-    mut item_vertices: Local<EntityHashMap<ItemVertices>>,
+    mut arena: Local<UiVertexArena>,
+    mut scratch: Local<Vec<UiVertex>>,
 ) {
     // If an image has changed, the GpuImage has (probably) changed
     for event in &events.images {
@@ -2115,13 +2223,51 @@ pub fn prepare_uinodes(
         ));
 
         // Vertex pass
-        ui_meta.vertices.clear();
-        item_vertices.clear();
-        for sub_uinodes in extracted_uinodes.uinodes.values() {
-            for (render_entity, extracted_uinode) in sub_uinodes.iter() {
-                let generated =
-                    generate_item_vertices(extracted_uinode, &gpu_images, &mut ui_meta.vertices);
-                item_vertices.insert(*render_entity, generated);
+        let needs_compact = arena.needs_compaction();
+        if needs_compact {
+            arena.reset();
+            ui_meta.vertices.clear();
+            for (main_entity, sub_uinodes) in extracted_uinodes.uinodes.iter() {
+                let mut owned = Vec::new();
+                for (render_entity, extracted) in sub_uinodes.iter() {
+                    place_item(
+                        &mut arena,
+                        &mut ui_meta.vertices,
+                        &mut scratch,
+                        *render_entity,
+                        extracted,
+                        &gpu_images,
+                    );
+                    owned.push(*render_entity);
+                }
+                if !owned.is_empty() {
+                    arena.owners.insert(*main_entity, owned);
+                }
+            }
+        } else {
+            for main_entity in extracted_uinodes.changed.iter() {
+                if let Some(old) = arena.owners.remove(main_entity) {
+                    for render_entity in old {
+                        arena.free(render_entity);
+                    }
+                }
+                if let Some(sub_uinodes) = extracted_uinodes.uinodes.get(main_entity) {
+                    let mut owned = Vec::new();
+                    for (render_entity, extracted) in sub_uinodes.iter() {
+                        place_item(
+                            &mut arena,
+                            &mut ui_meta.vertices,
+                            &mut scratch,
+                            *render_entity,
+                            extracted,
+                            &gpu_images,
+                        );
+                        owned.push(*render_entity);
+                    }
+                    if !owned.is_empty() {
+                        arena.owners.insert(*main_entity, owned);
+                    }
+                }
             }
         }
 
@@ -2143,7 +2289,7 @@ pub fn prepare_uinodes(
                     batch_image_handle = None;
                     continue;
                 };
-                let Some(generated) = item_vertices.get(&item.entity()).copied() else {
+                let Some(generated) = arena.slots.get(&item.entity()).map(|slot| slot.item) else {
                     batch_image_handle = None;
                     continue;
                 };
@@ -2216,7 +2362,7 @@ pub fn prepare_uinodes(
                         continue;
                     }
                 }
-if generated.culled {
+                if generated.culled {
                     continue;
                 }
 
@@ -2233,7 +2379,33 @@ if generated.culled {
             }
         }
 
-        ui_meta.vertices.write_buffer(&render_device, &render_queue);
+        // Upload check logic
+        let is_full_upload = needs_compact || arena.top as usize > ui_meta.vertices.capacity();
+        if is_full_upload {
+            ui_meta
+                .vertices
+                .values_mut()
+                .resize(arena.top as usize, UiVertex::zeroed());
+            ui_meta.vertices.write_buffer(&render_device, &render_queue);
+            arena.dirty.clear();
+        } else {
+            let ranges = core::mem::take(&mut arena.dirty);
+            let mut fallback = false;
+            for range in &ranges {
+                if ui_meta
+                    .vertices
+                    .write_buffer_range(&render_queue, range.start as usize..range.end as usize)
+                    .is_err()
+                {
+                    fallback = true;
+                    break;
+                }
+            }
+            if fallback {
+                ui_meta.vertices.write_buffer(&render_device, &render_queue);
+            }
+        }
+
         ui_meta.indices.write_buffer(&render_device, &render_queue);
         *previous_len = batches.len();
         ui_meta.batches = batches;
@@ -2243,14 +2415,8 @@ if generated.culled {
 fn generate_item_vertices(
     extracted_uinode: &ExtractedUiNode,
     gpu_images: &RenderAssets<GpuImage>,
-    vertices: &mut RawBufferVec<UiVertex>,
-) -> ItemVertices {
-    let vertex_start = vertices.len() as u32;
-    let blank = ItemVertices {
-        vertex_start,
-        quads: 0,
-        culled: true,
-    };
+    scratch: &mut Vec<UiVertex>,
+) -> (u32, bool) {
     match &extracted_uinode.item {
         ExtractedUiItem::Node {
             atlas_scaling,
@@ -2331,15 +2497,15 @@ fn generate_item_vertices(
                 if positions_diff[0].x - positions_diff[1].x >= transformed_rect_size.x
                     || positions_diff[1].y - positions_diff[2].y >= transformed_rect_size.y
                 {
-                    return blank;
+                    return (0, true);
                 }
             }
             let uvs = if flags == shader_flags::UNTEXTURED {
                 [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y]
             } else {
-                let image = gpu_images
-                    .get(extracted_uinode.image)
-                    .expect("Image was checked during batching and should still exist");
+                let Some(image) = gpu_images.get(extracted_uinode.image) else {
+                    return (0, true);
+                };
                 // Rescale atlases. This is done here because we need texture data that might not be available in Extract.
                 let atlas_extent = atlas_scaling
                     .map(|scaling| image.size_2d().as_vec2() * scaling)
@@ -2406,18 +2572,14 @@ fn generate_item_vertices(
                     size: rect_size.into(),
                     point: points[i].into(),
                 };
-                vertices.push(ui_vertex);
+                scratch.push(ui_vertex);
             }
-            ItemVertices {
-                vertex_start,
-                quads: 1,
-                culled: false,
-            }
+            (1, false)
         }
         ExtractedUiItem::Glyphs { glyphs } => {
-            let image = gpu_images
-                .get(extracted_uinode.image)
-                .expect("Image was checked during batching and should still exist");
+            let Some(image) = gpu_images.get(extracted_uinode.image) else {
+                return (0, true);
+            };
 
             let atlas_extent = image.size_2d().as_vec2();
             let mut quads = 0;
@@ -2499,7 +2661,7 @@ fn generate_item_vertices(
                 .map(|pos| pos / atlas_extent);
 
                 for i in 0..4 {
-                    vertices.push(UiVertex {
+                    scratch.push(UiVertex {
                         position: positions_clipped[i].into(),
                         uv: uvs[i].into(),
                         color,
@@ -2512,11 +2674,7 @@ fn generate_item_vertices(
                 }
                 quads += 1;
             }
-            ItemVertices {
-                vertex_start,
-                quads,
-                culled: false,
-            }
+            (quads, false)
         }
     }
 }
