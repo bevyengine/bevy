@@ -347,6 +347,18 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
             )>,
         >,
     >,
+    unfiltered_uinode_query: Extract<
+        Query<(
+            Entity,
+            &ComputedNode,
+            &ComputedStackIndex,
+            &UiGlobalTransform,
+            &MaterialNode<M>,
+            &InheritedVisibility,
+            Option<&CalculatedClip>,
+            &ComputedUiTargetCamera,
+        )>,
+    >,
     camera_map: Extract<UiCameraMap>,
     (
         mut removed_computed_node_query,
@@ -384,7 +396,8 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
     ) in uinode_query.iter().chain(
         nodes_to_reextract
             .into_iter()
-            .filter_map(|main_entity| uinode_query.get(main_entity.entity()).ok()),
+            .chain(removed_calculated_clip_query.read().map(MainEntity::from))
+            .filter_map(|main_entity| unfiltered_uinode_query.get(main_entity.entity()).ok()),
     ) {
         let main_entity = MainEntity::from(entity);
 
@@ -456,7 +469,6 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
         .chain(removed_ui_global_transform_query.read())
         .chain(removed_material_node_query.read())
         .chain(removed_inherited_visibility_query.read())
-        .chain(removed_calculated_clip_query.read())
         .chain(removed_computed_ui_target_camera_query.read())
     {
         let main_entity = MainEntity::from(main_entity);
