@@ -67,7 +67,7 @@ impl<'a, B: AsBindGroup, E: AsBindGroup> AsBindGroup for CombinedBindGroup<'a, B
 
         // add together the bindings of the base material and the extension
         B::build_bind_group(
-            &self.base,
+            self.base,
             layout,
             render_device,
             base_param,
@@ -75,7 +75,7 @@ impl<'a, B: AsBindGroup, E: AsBindGroup> AsBindGroup for CombinedBindGroup<'a, B
             output,
         )?;
         E::build_bind_group(
-            &self.extension,
+            self.extension,
             layout,
             render_device,
             extended_param,
