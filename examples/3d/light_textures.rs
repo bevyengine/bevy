@@ -21,15 +21,15 @@ use bevy::{
     ui_widgets::ValueChange,
 };
 use light_consts::lux::{AMBIENT_DAYLIGHT, CLEAR_SUNRISE};
-use number_input::number_input_f32;
+use number_input_f32::number_input_f32;
 use ops::{acos, cos, sin};
 use radio::{feathers_option_buttons, main_ui_node_scene, RadioButtonOptionValue};
 
 #[path = "../helpers/radio.rs"]
 mod radio;
 
-#[path = "../helpers/number_input.rs"]
-mod number_input;
+#[path = "../helpers/number_input_f32.rs"]
+mod number_input_f32;
 
 #[path = "../helpers/theme.rs"]
 mod theme;

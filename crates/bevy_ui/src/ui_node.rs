@@ -3057,24 +3057,16 @@ impl<'w, 's> DefaultUiCamera<'w, 's> {
 /// Derived information about the camera target for this UI node.
 ///
 /// Updated in [`UiSystems::Prepare`](crate::UiSystems::Prepare) by [`propagate_ui_target_cameras`](crate::update::propagate_ui_target_cameras)
-#[derive(Component, Clone, Copy, Debug, Reflect, PartialEq)]
+#[derive(Component, Clone, Copy, Debug, Reflect, PartialEq, Default)]
 #[reflect(Component, Default, PartialEq, Clone)]
 pub struct ComputedUiTargetCamera {
-    pub(crate) camera: Entity,
-}
-
-impl Default for ComputedUiTargetCamera {
-    fn default() -> Self {
-        Self {
-            camera: Entity::PLACEHOLDER,
-        }
-    }
+    pub(crate) camera: Option<Entity>,
 }
 
 impl ComputedUiTargetCamera {
     /// Returns the id of the target camera for this UI node.
     pub fn get(&self) -> Option<Entity> {
-        Some(self.camera).filter(|&entity| entity != Entity::PLACEHOLDER)
+        self.camera
     }
 }
 
