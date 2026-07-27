@@ -1327,7 +1327,7 @@ wasm = true
 name = "contact_shadows"
 path = "examples/3d/contact_shadows.rs"
 doc-scrape-examples = true
-required-features = ["bluenoise_texture"]
+required-features = ["bluenoise_texture", "bevy_feathers"]
 
 [package.metadata.example.contact_shadows]
 name = "Contact Shadows"
@@ -1565,6 +1565,7 @@ wasm = true
 name = "split_screen"
 path = "examples/3d/split_screen.rs"
 doc-scrape-examples = true
+required-features = ["bevy_feathers"]
 
 [package.metadata.example.split_screen]
 name = "Split Screen"
@@ -3814,6 +3815,7 @@ wasm = true
 name = "box_shadow"
 path = "examples/ui/styling/box_shadow.rs"
 doc-scrape-examples = true
+required-features = ["bevy_feathers"]
 
 [package.metadata.example.box_shadow]
 name = "Box Shadow"
@@ -3858,6 +3860,7 @@ wasm = true
 name = "display_and_visibility"
 path = "examples/ui/layout/display_and_visibility.rs"
 doc-scrape-examples = true
+required-features = ["bevy_feathers"]
 
 [package.metadata.example.display_and_visibility]
 name = "Display and Visibility"
@@ -5151,6 +5154,7 @@ wasm = true
 name = "animation_masks"
 path = "examples/animation/animation_masks.rs"
 doc-scrape-examples = true
+required-features = ["bevy_feathers"]
 
 [package.metadata.example.animation_masks]
 name = "Animation Masks"
@@ -5174,7 +5178,7 @@ wasm = false
 name = "mixed_lighting"
 path = "examples/3d/mixed_lighting.rs"
 doc-scrape-examples = true
-required-features = ["jpeg"]
+required-features = ["jpeg", "bevy_feathers"]
 
 [package.metadata.example.mixed_lighting]
 name = "Mixed lighting"
@@ -5368,6 +5372,7 @@ wasm = false
 name = "occlusion_culling"
 path = "examples/3d/occlusion_culling.rs"
 doc-scrape-examples = true
+required-features = ["bevy_feathers"]
 
 [package.metadata.example.occlusion_culling]
 name = "Occlusion Culling"
@@ -5576,7 +5581,7 @@ wasm = false
 name = "clustered_decal_maps"
 path = "examples/3d/clustered_decal_maps.rs"
 doc-scrape-examples = true
-required-features = ["pbr_clustered_decals", "https"]
+required-features = ["pbr_clustered_decals", "https", "bevy_feathers"]
 
 [package.metadata.example.clustered_decal_maps]
 name = "Clustered Decal Maps"
