@@ -39,11 +39,9 @@ use bevy_ecs::{
     query::{Has, QueryItem},
     reflect::ReflectComponent,
     resource::Resource,
-    schedule::{
-        ApplyDeferred, InternedScheduleLabel, IntoScheduleConfigs, ScheduleLabel, SystemSet,
-    },
-    system::{Commands, Query, Res, ResMut},
-    world::DeferredWorld,
+    schedule::{InternedScheduleLabel, IntoScheduleConfigs, ScheduleLabel, SystemSet},
+    system::{Commands, Query, Res, ResMut, SystemState},
+    world::{DeferredWorld, World},
 };
 use bevy_image::Image;
 use bevy_log::warn;
@@ -102,10 +100,11 @@ impl Plugin for CameraPlugin {
                     ExtractSchedule,
                     (
                         (
-                            extract_color_targets,
-                            // It makes the code clearer to split `extract_color_targets` off from `extract_cameras`.
+                            // It makes the code clearer to split `extract_color_targets` off from `extract_cameras`,
+                            // though we have to make it an exclusive system.
+                            //
                             // Suppress warnings since most systems don't depend on `extract_color_targets`.
-                            ApplyDeferred.ambiguous_with_all(),
+                            extract_color_targets.ambiguous_with_all(),
                             extract_cameras,
                         )
                             .chain()
@@ -482,15 +481,37 @@ impl SyncComponent<RenderApp> for WithColorTarget {
 
 /// Extract [`ColorTarget`], [`CameraColorTarget`] and [`WithColorTarget`] to the render world.
 pub fn extract_color_targets(
-    mut commands: Commands,
-    query: Extract<Query<(RenderEntity, &Camera, Has<Hdr>, &WithColorTarget)>>,
-    camera_color_targets: Extract<Query<(RenderEntity, &RenderTarget, &Msaa, &CameraColorTarget)>>,
-    color_targets: Extract<Query<(RenderEntity, &ColorTarget)>>,
-    primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
-    manual_texture_views: Res<ManualTextureViews>,
-    images: Res<RenderAssets<GpuImage>>,
-    extracted_swap_chains: Query<(MainEntity, &ExtractedWindow)>,
+    world: &mut World,
+    state: &mut SystemState<(
+        // mut commands:
+        Commands,
+        // query:
+        Extract<Query<(RenderEntity, &Camera, Has<Hdr>, &WithColorTarget)>>,
+        // camera_color_targets:
+        Extract<Query<(RenderEntity, &RenderTarget, &Msaa, &CameraColorTarget)>>,
+        // color_targets:
+        Extract<Query<(RenderEntity, &ColorTarget)>>,
+        // primary_window:
+        Extract<Query<Entity, With<PrimaryWindow>>>,
+        // manual_texture_views:
+        Res<ManualTextureViews>,
+        // images:
+        Res<RenderAssets<GpuImage>>,
+        // extracted_swap_chains:
+        Query<(MainEntity, &ExtractedWindow)>,
+    )>,
 ) {
+    let (
+        mut commands,
+        query,
+        camera_color_targets,
+        color_targets,
+        primary_window,
+        manual_texture_views,
+        images,
+        extracted_swap_chains,
+    ) = state.get_mut(world).unwrap();
+
     let primary_window = primary_window.iter().next();
 
     // Always extract `ColorTarget`s, allowing them to be used without a camera.
@@ -566,6 +587,8 @@ pub fn extract_color_targets(
                 .insert(WithColorTarget(color_target_render_entity));
         };
     }
+
+    state.apply(world);
 }
 
 pub fn extract_cameras(
