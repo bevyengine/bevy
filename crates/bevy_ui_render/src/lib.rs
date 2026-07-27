@@ -2032,7 +2032,7 @@ pub fn queue_uinodes(
                     camera_views
                         .get(default_camera_view.0)
                         .ok()
-                        .and_then(|view| {
+                        .and_then(|(view, target_info)| {
                             transparent_render_phases
                                 .get_mut(&view.retained_view_entity)
                                 .map(|transparent_phase| {
@@ -2040,7 +2040,7 @@ pub fn queue_uinodes(
                                         &pipeline_cache,
                                         &ui_pipeline,
                                         UiPipelineKey {
-                                            target_format: view.target_format,
+                                            target_format: target_info.color_format,
                                             anti_alias: matches!(
                                                 ui_anti_alias,
                                                 None | Some(UiAntiAlias::On)

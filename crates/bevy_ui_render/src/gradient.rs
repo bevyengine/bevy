@@ -693,11 +693,11 @@ pub fn queue_gradient(
                     camera_views
                         .get(default_camera_view.0)
                         .ok()
-                        .and_then(|view| {
+                        .and_then(|(view, target_info)| {
                             transparent_render_phases
                                 .get_mut(&view.retained_view_entity)
                                 .map(|transparent_phase| {
-                                    (view.target_format, ui_anti_alias, transparent_phase)
+                                    (target_info.color_format, ui_anti_alias, transparent_phase)
                                 })
                         })
                 },
@@ -715,7 +715,7 @@ pub fn queue_gradient(
                 UiGradientPipelineKey {
                     anti_alias: matches!(ui_anti_alias, None | Some(UiAntiAlias::On)),
                     color_space: gradient.color_space,
-                    target_format: target_info.color_format,
+                    target_format: *target_format,
                 },
             );
 

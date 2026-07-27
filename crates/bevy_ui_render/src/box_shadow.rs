@@ -404,7 +404,7 @@ pub fn queue_shadows(
                     camera_views
                         .get(default_camera_view.0)
                         .ok()
-                        .and_then(|view| {
+                        .and_then(|(view, target_info)| {
                             transparent_render_phases
                                 .get_mut(&view.retained_view_entity)
                                 .map(|transparent_phase| {
@@ -412,7 +412,7 @@ pub fn queue_shadows(
                                         &pipeline_cache,
                                         &box_shadow_pipeline,
                                         BoxShadowPipelineKey {
-                                            target_format: view.target_format,
+                                            target_format: target_info.color_format,
                                             samples: shadow_samples.copied().unwrap_or_default().0,
                                         },
                                     );
