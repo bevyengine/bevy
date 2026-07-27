@@ -73,7 +73,7 @@ impl<'a, B: AsBindGroup, E: AsBindGroup> AsBindGroup for CombinedBindGroup<'a, B
 
         // add together the bindings of the base material and the extension
         let UnpreparedBindGroup { mut bindings } = B::unprepared_bind_group(
-            &self.base,
+            self.base,
             layout,
             render_device,
             base_param,
@@ -82,7 +82,7 @@ impl<'a, B: AsBindGroup, E: AsBindGroup> AsBindGroup for CombinedBindGroup<'a, B
         let UnpreparedBindGroup {
             bindings: extension_bindings,
         } = E::unprepared_bind_group(
-            &self.extension,
+            self.extension,
             layout,
             render_device,
             extended_param,
