@@ -1565,6 +1565,7 @@ wasm = true
 name = "split_screen"
 path = "examples/3d/split_screen.rs"
 doc-scrape-examples = true
+required-features = ["bevy_feathers"]
 
 [package.metadata.example.split_screen]
 name = "Split Screen"
