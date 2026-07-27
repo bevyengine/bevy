@@ -1926,7 +1926,7 @@ pub fn extract_text_decorations(
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Pod, Zeroable)]
-struct UiVertex {
+pub(crate) struct UiVertex {
     pub position: [f32; 3],
     pub uv: [f32; 2],
     pub color: [f32; 4],
@@ -2124,7 +2124,7 @@ impl UiVertexArena {
                 .entry(slot.capacity_quads)
                 .or_default()
                 .push(slot.item.vertex_start);
-            self.dead_quads += slot.capacity_quads
+            self.dead_quads += slot.capacity_quads;
         }
     }
 
@@ -2184,7 +2184,7 @@ fn place_item(
     arena.slots.insert(render_entity, slot);
 }
 
-pub fn prepare_uinodes(
+pub(crate) fn prepare_uinodes(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     pipeline_cache: Res<PipelineCache>,
@@ -2389,7 +2389,7 @@ pub fn prepare_uinodes(
             ui_meta.vertices.write_buffer(&render_device, &render_queue);
             arena.dirty.clear();
         } else {
-            let ranges = core::mem::take(&mut arena.dirty);
+            let ranges = mem::take(&mut arena.dirty);
             let mut fallback = false;
             for range in &ranges {
                 if ui_meta
