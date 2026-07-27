@@ -509,6 +509,7 @@ mod gltf_coordinate_conversion {
 }
 
 mod white_furnace_solid_color_light {
+    use bevy::image::ImageTextureViewDescriptor;
     use bevy::{
         asset::RenderAssetUsages,
         camera::{Hdr, ScalingMode},
@@ -516,7 +517,7 @@ mod white_furnace_solid_color_light {
         light::Skybox,
         prelude::*,
         render::render_resource::{
-            Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor, TextureViewDimension,
+            Extent3d, TextureDimension, TextureFormat, TextureViewDimension,
         },
     };
 
@@ -540,7 +541,7 @@ mod white_furnace_solid_color_light {
         let pixel_data: Vec<u8> = (0..6 * size * size).flat_map(|_| WHITE_PIXEL).collect();
 
         Image {
-            texture_view_descriptor: Some(TextureViewDescriptor {
+            texture_view_descriptor: Some(ImageTextureViewDescriptor {
                 dimension: Some(TextureViewDimension::Cube),
                 ..Default::default()
             }),
@@ -621,6 +622,7 @@ mod white_furnace_solid_color_light {
 }
 
 mod white_furnace_environment_map_light {
+    use bevy::image::ImageTextureViewDescriptor;
     use bevy::{
         asset::RenderAssetUsages,
         camera::{Hdr, ScalingMode},
@@ -628,7 +630,7 @@ mod white_furnace_environment_map_light {
         light::Skybox,
         prelude::*,
         render::render_resource::{
-            Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor, TextureViewDimension,
+            Extent3d, TextureDimension, TextureFormat, TextureViewDimension,
         },
     };
 
@@ -652,7 +654,7 @@ mod white_furnace_environment_map_light {
         let pixel_data: Vec<u8> = (0..6 * size * size).flat_map(|_| WHITE_PIXEL).collect();
 
         Image {
-            texture_view_descriptor: Some(TextureViewDescriptor {
+            texture_view_descriptor: Some(ImageTextureViewDescriptor {
                 dimension: Some(TextureViewDimension::Cube),
                 ..Default::default()
             }),

@@ -14,8 +14,7 @@ use ktx2::{
     ColorModel, Header,
 };
 use wgpu_types::{
-    AstcBlock, AstcChannel, Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor,
-    TextureViewDimension,
+    AstcBlock, AstcChannel, Extent3d, TextureDimension, TextureFormat, TextureViewDimension,
 };
 
 use super::{CompressedImageFormats, Image, TextureChannelLayout, TextureError, TranscodeFormat};
@@ -296,7 +295,9 @@ pub fn ktx2_buffer_to_image(
         dimension = Some(TextureViewDimension::D3);
     }
     if dimension.is_some() {
-        image.texture_view_descriptor = Some(TextureViewDescriptor {
+        use crate::ImageTextureViewDescriptor;
+
+        image.texture_view_descriptor = Some(ImageTextureViewDescriptor {
             dimension,
             ..default()
         });

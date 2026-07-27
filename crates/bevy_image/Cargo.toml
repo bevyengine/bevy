@@ -89,6 +89,9 @@ ruzstd = { version = "0.8.0", optional = true }
 basis-universal = { version = "0.3.0", optional = true }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 half = { version = "2.4.1" }
+smallvec = { version = "1.15.1", default-features = false, features = [
+  "serde",
+] }
 ctt = { version = "0.4", optional = true }
 
 [dev-dependencies]
