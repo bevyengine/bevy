@@ -1429,6 +1429,7 @@ wasm = true
 name = "order_independent_transparency"
 path = "examples/3d/order_independent_transparency.rs"
 doc-scrape-examples = true
+required-features = ["bevy_feathers"]
 
 [package.metadata.example.order_independent_transparency]
 name = "Order Independent Transparency"
