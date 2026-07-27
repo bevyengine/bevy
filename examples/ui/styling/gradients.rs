@@ -208,17 +208,8 @@ fn setup(mut commands: Commands) {
                     });
                 });
             }
-
-            commands
-                .spawn(Node {
-                    flex_direction: FlexDirection::Row,
-                    column_gap: px(10),
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Center,
-                    ..Default::default()
-                })
-                .add_child(buttons_id);
-        });
+        })
+        .add_child(buttons_id);
 }
 
 /// Scene of the current color space, the previous button, and the next button.
@@ -226,7 +217,9 @@ fn setup(mut commands: Commands) {
 fn buttons_scene() -> impl Scene {
     bsn! {
         Node {
+            flex_direction: FlexDirection::Row,
             align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
             column_gap: px(20),
         }
         Children [
