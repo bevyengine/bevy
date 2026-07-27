@@ -396,8 +396,9 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
     ) in uinode_query.iter().chain(
         nodes_to_reextract
             .into_iter()
-            .chain(removed_calculated_clip_query.read().map(MainEntity::from))
-            .filter_map(|main_entity| unfiltered_uinode_query.get(main_entity.entity()).ok()),
+            .map(|main_entity| main_entity.entity())
+            .chain(removed_calculated_clip_query.read())
+            .filter_map(|entity| unfiltered_uinode_query.get(entity).ok()),
     ) {
         let main_entity = MainEntity::from(entity);
 
