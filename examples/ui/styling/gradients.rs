@@ -279,10 +279,10 @@ fn on_activate_change_space(
     mut gradients_query: Query<&mut BackgroundGradient>,
     mut label_q: Query<&mut Text, With<CurrentColorSpaceLabel>>,
 ) {
-    let Ok((is_previous, is_next)) = button_type_q.get(event.entity) else {
+    let Ok((has_previous, has_next)) = button_type_q.get(event.entity) else {
         return;
     };
-    let next_index = match (is_previous, is_next) {
+    let next_index = match (has_previous, has_next) {
         (true, true) | (false, false) => return,
         (true, false) => {
             if app_settings.color_space_current_index == 0 {
