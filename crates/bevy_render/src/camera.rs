@@ -699,13 +699,13 @@ pub fn extract_cameras(
             let extracted_with_color_target =
                 extracted_with_color_targets.get(render_entity).expect(
                     "`WithColorTarget` should exist in the render world \
-                    after `extract_color_targets` system",
+                    after `bevy_render::camera::extract_color_targets` system",
                 );
             let extracted_color_target = extracted_color_targets
                 .get(extracted_with_color_target.0)
                 .expect(
                     "`WithColorTarget` should properly reference to a `ColorTarget` \
-                    in the render world after `extract_color_targets` system",
+                    in the render world after `bevy_render::camera::extract_color_targets` system",
                 );
 
             let mut entity_commands = commands.entity(render_entity);

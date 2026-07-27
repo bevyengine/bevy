@@ -22,11 +22,11 @@ mod debug_overlay;
 
 use bevy_a11y::AccessibilitySystems;
 use bevy_camera::visibility::InheritedVisibility;
-use bevy_camera::{Camera, Camera2d, Camera3d, RenderTarget};
+use bevy_camera::{Camera, Camera2d, Camera3d, ColorTarget, RenderTarget, WithColorTarget};
 use bevy_ecs::entity::EntityIndexMap;
 use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
-use bevy_render::camera::{extract_cameras, ViewTargetInfo};
+use bevy_render::camera::extract_cameras;
 use bevy_render::sync_world::{MainEntityHashMap, MainEntityHashSet};
 use bevy_shader::load_shader_library;
 use bevy_sprite_render::SpriteAssetEvents;
@@ -258,8 +258,7 @@ impl Plugin for UiRenderPlugin {
                 ExtractSchedule,
                 (
                     extract_uinode_changes.in_set(RenderUiSystems::ExtractChanges),
-                    (extract_ui_camera_view, extract_ui_view_target_info)
-                        .chain()
+                    extract_ui_camera_view
                         .after(extract_cameras)
                         .in_set(RenderUiSystems::ExtractCameraViews),
                     extract_uinode_background_colors.in_set(RenderUiSystems::ExtractBackgrounds),
@@ -1158,6 +1157,8 @@ pub fn extract_ui_camera_view(
             )>,
         >,
     >,
+    extracted_with_color_targets: Query<&WithColorTarget>,
+    extracted_color_targets: Query<&ColorTarget>,
     mut live_entities: Local<HashSet<RetainedViewEntity>>,
     mut cached_ui_view_data: Local<MainEntityHashMap<CachedUiViewData>>,
     (
@@ -1234,16 +1235,32 @@ pub fn extract_ui_camera_view(
                 color_grading: Default::default(),
                 invert_culling: false,
             };
+
+            let extracted_with_color_target =
+                extracted_with_color_targets.get(render_entity).expect(
+                    "`WithColorTarget` should exist in the render world \
+                    after `bevy_render::camera::extract_color_targets` system",
+                );
+            let extracted_color_target = extracted_color_targets
+                .get(extracted_with_color_target.0)
+                .expect(
+                    "`WithColorTarget` should properly reference to a `ColorTarget` \
+                    in the render world after `bevy_render::camera::extract_color_targets` system",
+                );
+            let ui_target_info = UiViewTargetInfo {
+                color_format: extracted_color_target.format,
+            };
+
             // Link to the main camera view.
             let ui_view_target_component = UiViewTarget(render_entity);
 
             let ui_camera_view = match cached_ui_view_data.get(&main_entity) {
                 Some(cached_ui_view_data) => commands
                     .entity(cached_ui_view_data.extracted_view_entity)
-                    .insert((extracted_view, ui_view_target_component))
+                    .insert((extracted_view, ui_view_target_component, ui_target_info))
                     .id(),
                 None => commands
-                    .spawn((extracted_view, ui_view_target_component))
+                    .spawn((extracted_view, ui_view_target_component, ui_target_info))
                     .id(),
             };
 
@@ -1304,17 +1321,6 @@ pub fn extract_ui_camera_view(
 
     // Clean up render phases belonging to cameras that no longer exist.
     transparent_render_phases.retain(|entity, _| live_entities.contains(entity));
-}
-
-pub fn extract_ui_view_target_info(
-    mut commands: Commands,
-    render_views: Query<(&UiCameraView, &ViewTargetInfo), With<ExtractedView>>,
-) {
-    for (ui_view, target_info) in render_views.iter() {
-        commands.entity(ui_view.0).insert(UiViewTargetInfo {
-            color_format: target_info.color_format,
-        });
-    }
 }
 
 pub fn extract_viewport_nodes(
