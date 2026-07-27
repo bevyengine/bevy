@@ -44,47 +44,26 @@ pub const LIGHT_TILE_SAMPLES_PER_BLOCK: u64 = 1024;
 /// Amount of entries in the world cache (must be a power of 2, and >= 2^10)
 pub const WORLD_CACHE_SIZE: u64 = 2u64.pow(20);
 
-/// Layout constants for the packed `WorldCache` buffer.
+/// Bytes contributed by each world-cache cell in the packed SoA buffer, excluding the fixed-size
+/// `b` array that sits between `a` and `active_cell_indices`.
 ///
-/// The `ShaderType` mirror lives in this module and is intentionally private so it cannot be
-/// constructed, because it would be too large.
-mod world_cache_layout {
-    use bevy_math::{Vec3, Vec4};
-    use bevy_render::render_resource::ShaderType;
+/// Keep in sync with `WorldCache` in `realtime_bindings.wgsl`:
+/// `checksums` (4) + `life` (4) + `radiance` (16) + `geometry_data` (32) + `luminance_deltas` (4)
+/// + `active_cells_new_radiance` (16; `vec3` array stride) + `a` (4) + `active_cell_indices` (4).
+const WORLD_CACHE_ENTRY_SIZE: u64 = 84;
 
-    const WORLD_CACHE_LEN: usize = super::WORLD_CACHE_SIZE as usize;
+/// Size of the fixed `b` array (`array<u32, WORLD_CACHE_SIZE / 1024>`) in the packed buffer.
+const WORLD_CACHE_B_SIZE: u64 = (WORLD_CACHE_SIZE / 1024) * size_of::<u32>() as u64;
 
-    #[derive(ShaderType)]
-    struct GeometryData {
-        world_position: Vec3,
-        padding_a: u32,
-        world_normal: Vec3,
-        padding_b: u32,
-    }
-
-    #[derive(ShaderType)]
-    struct WorldCache {
-        checksums: [u32; WORLD_CACHE_LEN],
-        life: [u32; WORLD_CACHE_LEN],
-        radiance: [Vec4; WORLD_CACHE_LEN],
-        geometry_data: [GeometryData; WORLD_CACHE_LEN],
-        luminance_deltas: [f32; WORLD_CACHE_LEN],
-        active_cells_new_radiance: [Vec3; WORLD_CACHE_LEN],
-        a: [u32; WORLD_CACHE_LEN],
-        b: [u32; WORLD_CACHE_LEN / 1024],
-        active_cell_indices: [u32; WORLD_CACHE_LEN],
-        active_cells_count: u32,
-    }
-
-    // `ShaderType::METADATA` is internal, but we need the field offset and size without
-    // constructing this large layout type.
-    pub const ACTIVE_CELLS_COUNT_OFFSET: u64 = WorldCache::METADATA.last_offset();
-    /// Must stay under wgpu's default `max_storage_buffer_binding_size` (128 MiB or 2^27 bytes).
-    pub const BUFFER_SIZE: u64 = WorldCache::METADATA.min_size().get();
-}
-
+/// Offset of `active_cells_count` in the packed world cache buffer.
 pub const WORLD_CACHE_ACTIVE_CELLS_COUNT_OFFSET: u64 =
-    world_cache_layout::ACTIVE_CELLS_COUNT_OFFSET;
+    WORLD_CACHE_SIZE * WORLD_CACHE_ENTRY_SIZE + WORLD_CACHE_B_SIZE;
+
+/// Total size of the packed world cache buffer.
+///
+/// Must stay under wgpu's default `max_storage_buffer_binding_size` (128 MiB or 2^27 bytes).
+pub const WORLD_CACHE_BUFFER_SIZE: u64 =
+    WORLD_CACHE_ACTIVE_CELLS_COUNT_OFFSET + size_of::<u32>() as u64;
 
 /// GPU representation of the user-configurable [`SolariLighting`] settings, plus
 /// per-frame state.
@@ -231,7 +210,7 @@ pub fn prepare_solari_lighting_resources(
 
         let world_cache = render_device.create_buffer(&BufferDescriptor {
             label: Some("solari_lighting_world_cache"),
-            size: world_cache_layout::BUFFER_SIZE,
+            size: WORLD_CACHE_BUFFER_SIZE,
             usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
             mapped_at_creation: false,
         });
