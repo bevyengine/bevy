@@ -9,7 +9,7 @@
 //!
 //! Both the mesh and material need to be wrapped in their own "newtypes". The mesh and material are currently [`Handle<Mesh>`] and [`Handle<ColorMaterial>`] at the moment, which are not components. Handles are put behind "newtypes" to prevent ambiguity, as some entities might want to have handles to meshes (or images, or materials etc.) for different purposes! All we need to do to make them rendering-relevant components is wrap the mesh handle and the material handle in [`Mesh2d`] and [`MeshMaterial2d`] respectively.
 //!
-//! You can toggle wireframes with the space bar except on wasm. Wasm does not support
+//! You can toggle wireframes with a Feathers checkbox except on wasm. Wasm does not support
 //! `POLYGON_MODE_LINE` on the gpu.
 
 use bevy::prelude::*;
