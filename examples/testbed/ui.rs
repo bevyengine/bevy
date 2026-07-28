@@ -33,6 +33,10 @@ fn main() {
         }),
         ..Default::default()
     }))
+    .add_plugins((
+        UiMaterialPlugin::<node_material::DefaultUiMaterial>::default(),
+        UiMaterialPlugin::<node_material::CustomUiMaterial>::default(),
+    ))
     .add_systems(OnEnter(Scene::Image), image::setup)
     .add_systems(OnEnter(Scene::ImageMeasure), image_measure::setup)
     .add_systems(OnEnter(Scene::Text), text::setup)
@@ -56,6 +60,7 @@ fn main() {
     .add_systems(OnEnter(Scene::OuterColor), outer_color::setup)
     .add_systems(OnEnter(Scene::BoxedContent), boxed_content::setup)
     .add_systems(OnEnter(Scene::EditableText), editable_text::setup)
+    .add_systems(OnEnter(Scene::NodeMaterial), node_material::setup)
     .add_systems(Update, switch_scene);
 
     match args.scene {
@@ -101,6 +106,7 @@ enum Scene {
     OuterColor,
     BoxedContent,
     EditableText,
+    NodeMaterial,
 }
 
 impl Scene {
@@ -127,6 +133,7 @@ impl Scene {
         Scene::OuterColor,
         Scene::BoxedContent,
         Scene::EditableText,
+        Scene::NodeMaterial,
     ];
 }
 
@@ -3292,6 +3299,209 @@ mod editable_text {
                         ),
                     ],
                 )
+            ],
+        ));
+    }
+}
+
+mod node_material {
+    use bevy::{
+        color::palettes::tailwind::{CYAN_900, RED_900, YELLOW_900},
+        prelude::*,
+        render::render_resource::AsBindGroup,
+        shader::ShaderRef,
+    };
+    const SHADER_ASSET_PATH: &str = "shaders/custom_ui_material.wgsl";
+
+    #[derive(AsBindGroup, Asset, TypePath, Debug, Clone)]
+    pub(super) struct DefaultUiMaterial {}
+
+    impl UiMaterial for DefaultUiMaterial {}
+
+    #[derive(AsBindGroup, Asset, TypePath, Debug, Clone)]
+    pub(super) struct CustomUiMaterial {
+        /// Color multiplied with the image
+        #[uniform(0)]
+        color: Vec4,
+        /// Represents how much of the image is visible
+        /// Goes from 0 to 1
+        /// A `Vec4` is used here because Bevy with webgl2 requires that uniforms are 16-byte aligned but only the first component is read.
+        #[uniform(1)]
+        slider: Vec4,
+        /// Image used to represent the slider
+        #[texture(2)]
+        #[sampler(3)]
+        color_texture: Handle<Image>,
+        /// Color of the image's border
+        #[uniform(4)]
+        border_color: Vec4,
+    }
+
+    impl UiMaterial for CustomUiMaterial {
+        fn fragment_shader() -> ShaderRef {
+            SHADER_ASSET_PATH.into()
+        }
+    }
+
+    pub fn setup(
+        mut commands: Commands,
+        mut default_ui_materials: ResMut<Assets<DefaultUiMaterial>>,
+        mut ui_materials: ResMut<Assets<CustomUiMaterial>>,
+        asset_server: Res<AssetServer>,
+    ) {
+        let default_material = default_ui_materials.add(DefaultUiMaterial {});
+        let custom_material = |slider| CustomUiMaterial {
+            color: LinearRgba::from(CYAN_900).to_vec4(),
+            slider: Vec4::splat(slider),
+            color_texture: asset_server.load("branding/banner.png"),
+            border_color: LinearRgba::from(YELLOW_900).to_vec4(),
+        };
+        let full_material = ui_materials.add(custom_material(1.));
+        let material_node = Node {
+            width: px(200),
+            height: px(80),
+            border: px(10).all(),
+            border_radius: BorderRadius::all(px(20)),
+            ..default()
+        };
+        let material_label = |text: &str| (Text::new(text), TextFont::from_font_size(px(10.)));
+
+        commands.spawn((Camera2d, DespawnOnExit(super::Scene::NodeMaterial)));
+        commands.spawn((
+            Node {
+                display: Display::Grid,
+                // two column grid, labels then materials, first row is spanned by title.
+                width: percent(100),
+                height: percent(100),
+                grid_template_columns: vec![GridTrack::auto(), GridTrack::px(200.)],
+                align_items: AlignItems::Center,
+                align_content: AlignContent::Center,
+                justify_content: JustifyContent::Center,
+                row_gap: px(10.),
+                column_gap: px(20.),
+                ..default()
+            },
+            DespawnOnExit(super::Scene::NodeMaterial),
+            children![
+                (
+                    Text::new("MaterialNode"),
+                    TextFont::from_font_size(px(30.)),
+                    Node {
+                        grid_column: GridPlacement::span(2),
+                        ..default()
+                    },
+                ),
+                // Default UI material (just white with the default ui_material.wgsl shader for the bevy_ui crate)
+                material_label("Default UiMaterial"),
+                (material_node.clone(), MaterialNode(default_material),),
+                // Custom UI material, 1./3 full.
+                material_label("CustomUiMaterial 1/3"),
+                (
+                    material_node.clone(),
+                    MaterialNode(ui_materials.add(custom_material(1. / 3.))),
+                ),
+                // Custom UI material, 2./3 full.
+                material_label("CustomUiMaterial 2/3"),
+                (
+                    material_node.clone(),
+                    MaterialNode(ui_materials.add(custom_material(2. / 3.)))
+                ),
+                // Custom UI material, full.
+                material_label("CustomUiMaterial Full"),
+                (material_node.clone(), MaterialNode(full_material.clone()),),
+                // Custom UI material, full. Clipped using overflow so bottom 50% missing
+                material_label("CustomUiMaterial clipped vertically"),
+                (
+                    Node {
+                        width: material_node.width,
+                        height: material_node.height,
+                        ..default()
+                    },
+                    Outline {
+                        width: px(1),
+                        color: RED_900.into(),
+                        ..default()
+                    },
+                    children![(
+                        Node {
+                            width: percent(100),
+                            height: percent(50),
+                            overflow: Overflow::clip(),
+                            ..default()
+                        },
+                        children![(material_node.clone(), MaterialNode(full_material.clone()))],
+                    )],
+                ),
+                // Custom UI material clipped on both axis so bottom 25% and right 25% not visible.
+                material_label("CustomUiMaterial end clipped on both axis"),
+                (
+                    Node {
+                        width: material_node.width,
+                        height: material_node.height,
+                        ..default()
+                    },
+                    Outline {
+                        width: px(1),
+                        color: RED_900.into(),
+                        ..default()
+                    },
+                    children![(
+                        Node {
+                            width: percent(75),
+                            height: percent(75),
+                            overflow: Overflow::clip(),
+                            ..default()
+                        },
+                        children![(
+                            Node {
+                                position_type: PositionType::Absolute,
+                                width: px(200),
+                                height: px(80),
+                                border: px(10).all(),
+                                border_radius: BorderRadius::all(px(20)),
+                                ..default()
+                            },
+                            MaterialNode(full_material.clone()),
+                        )],
+                    )],
+                ),
+                // Custom UI material clipped on both axis so top 25% and left 25% not visible.
+                material_label("CustomUiMaterial start clipped on both axis"),
+                (
+                    Node {
+                        width: material_node.width,
+                        height: material_node.height,
+                        align_items: AlignItems::End,
+                        justify_content: JustifyContent::End,
+                        ..default()
+                    },
+                    Outline {
+                        width: px(1),
+                        color: RED_900.into(),
+                        ..default()
+                    },
+                    children![(
+                        Node {
+                            width: percent(75),
+                            height: percent(75),
+                            overflow: Overflow::clip(),
+                            ..default()
+                        },
+                        children![(
+                            Node {
+                                position_type: PositionType::Absolute,
+                                width: px(200),
+                                height: px(80),
+                                right: px(0),
+                                bottom: px(0),
+                                border: px(10).all(),
+                                border_radius: BorderRadius::all(px(20)),
+                                ..default()
+                            },
+                            MaterialNode(full_material),
+                        )],
+                    )],
+                ),
             ],
         ));
     }
