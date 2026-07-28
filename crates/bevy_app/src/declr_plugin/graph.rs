@@ -3,7 +3,10 @@ use core::{any::TypeId, convert::identity, hash::Hash};
 use std::{boxed::Box, collections::VecDeque, vec::Vec};
 
 use crate::{
-    DeclarativePlugin, PluginOutput, erased_resource::{ErasedResource, StagedResource}, erased_schedule::StagedSystem, plugin_data::{MessageRegistration, PluginDependency, PluginTypeId},
+    erased_resource::StagedResource,
+    erased_schedule::StagedSystem,
+    plugin_data::{MessageRegistration, PluginDependency, PluginTypeId},
+    DeclarativePlugin, PluginOutput,
 };
 
 /// A list of "entry point" plugins and their outputs. This gets expanded into a graph.
@@ -12,7 +15,8 @@ pub(crate) struct PluginList {
 }
 
 impl PluginList {
-    /// Expand the list of entry point plugins into a full graph. Ignores recurring ZSTs.
+    /// Expand the list of entry point plugins into a full graph. Ignores
+    /// recurring ZSTs.
     pub(crate) fn expand(mut self) -> Result<PluginRegistrationGraph, ()> {
         let mut zst_already_expanded: HashMap<PluginTypeId, RegistrationId> = HashMap::new();
         let mut graph = PluginRegistrationGraph::new();
@@ -89,9 +93,13 @@ impl PluginList {
                 if can_zst_optimize {
                     zst_already_expanded.insert(plugin_id, reg_id);
                 }
-            } else if dependency.data.is_none() && graph.instances(dependency.type_id).count() == 0
+            } else if dependency.data.is_none()
+                && !zst_already_expanded.contains_key(&dependency.type_id)
             {
+                // TODO: check if we ended up getting no instances at the end.
+                graph.insert_edge(from, dependency.type_id);
             } else {
+                // ZST, do nothing.
             }
         }
         Ok(graph)
@@ -111,6 +119,8 @@ pub(crate) struct PluginNode {
     registration_id: RegistrationId,
     plugin_data: Box<dyn DeclarativePlugin>,
     output: PluginOutput<()>,
+    // TODO: actually track which plugin added each plugin.
+    // so that we can reliably track this information.
     distance_from_entry: Option<usize>,
 }
 
@@ -163,7 +173,6 @@ impl PluginRegistrationGraph {
     }
 
     pub(crate) fn try_build(self) -> Result<(), Self> {
-
         Ok(())
     }
 
@@ -182,9 +191,7 @@ impl PluginRegistrationGraph {
             .any(|ids| ids.contains(&plugin_id))
     }
 
-    pub(crate) fn canidates(&self) {
-
-    }
+    pub(crate) fn canidates(&self) {}
 
     pub(crate) fn candidate_exists(&self, plugin_id: PluginTypeId) -> Result<RegistrationId, ()> {
         let mut working = None;
@@ -296,7 +303,6 @@ pub(crate) struct OrderedPluginItems(Vec<DeclrItem>);
 pub(crate) struct ItemsGraph {
     sources: HashMap<PluginTypeId, PluginNode>,
     accepted_resource_sources: HashMap<TypeId, PluginTypeId>,
-
 }
 
 /// Items that can be added to a world.
@@ -305,5 +311,4 @@ pub(crate) enum DeclrItem {
     Message(MessageRegistration),
     Resource(StagedResource),
     System(StagedSystem),
-    
 }

@@ -20,7 +20,7 @@ pub(crate) struct StagedSystem {
 }
 
 impl StagedSystem {
-    fn new<L, S, M>(label: L, systems: S) -> Option<Self>
+    pub(crate) fn new<L, S, M>(label: L, systems: S) -> Option<Self>
     where
         L: ScheduleLabel + 'static,
         S: IntoScheduleConfigs<ScheduleSystem, M> + 'static,
@@ -29,16 +29,17 @@ impl StagedSystem {
         Some(Self {
             staging: Staged {
                 erased: ErasedSchedule::new(pair)?,
-                unerase_and_apply_to_world: Box::new(|world, erased| {
-                    match erased.0.try_reverse_erase::<(L, S)>() {
-                        Ok((label, systems)) => {
-                            world
-                                .get_resource_or_init::<Schedules>()
-                                .add_systems(label, systems);
-                        }
-                        _ => {}
+                unerase_and_apply_to_world: |world, erased| match erased
+                    .0
+                    .try_reverse_erase::<(L, S)>()
+                {
+                    Ok((label, systems)) => {
+                        world
+                            .get_resource_or_init::<Schedules>()
+                            .add_systems(label, systems);
                     }
-                }),
+                    _ => {}
+                },
             },
         })
     }
@@ -46,7 +47,7 @@ impl StagedSystem {
 
 pub(crate) struct Staged<E> {
     pub(crate) erased: E,
-    pub(crate) unerase_and_apply_to_world: Box<dyn Fn(&mut World, E)>,
+    pub(crate) unerase_and_apply_to_world: fn(&mut World, E),
 }
 
 impl<E> Staged<E> {

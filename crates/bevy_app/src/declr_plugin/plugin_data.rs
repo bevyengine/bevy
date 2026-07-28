@@ -1,19 +1,21 @@
-use alloc::sync::Arc;
 use bevy_ecs::{
     message::Message,
     observer::{IntoObserver, Observer},
     resource::Resource,
-    schedule::{IntoScheduleConfigs, ScheduleLabel, Schedules},
+    schedule::{IntoScheduleConfigs, ScheduleLabel},
     system::ScheduleSystem,
 };
-use bevy_platform::collections::{HashMap, HashSet};
+use bevy_platform::collections::HashMap;
 use core::{
     any::{Any, TypeId},
     hash::Hash,
 };
 use std::{boxed::Box, vec::Vec};
 
-use crate::{approval::Approval, erased_resource::StagedResource, App, DeclarativePlugin};
+use crate::{
+    approval::Approval, erased_resource::StagedResource, erased_schedule::StagedSystem, App,
+    DeclarativePlugin,
+};
 
 /// A list of plugin dependencies for a particular [`PluginOutput`].
 pub struct PluginDependencies(pub(crate) Vec<PluginDependency>);
@@ -91,7 +93,7 @@ impl PluginOutput {
             working_plugin: PluginTypeId(TypeId::of::<P>()),
             observers: Vec::new(),
             schedules: MergeableSchedule {
-                schedules: Schedules::new(),
+                schedules: Vec::new(),
             },
             messages: HashMap::new(),
             resource_staging: Vec::new(),
@@ -100,10 +102,10 @@ impl PluginOutput {
         }
     }
 
-    pub fn add_systems<M>(
+    pub fn add_systems<M: 'static>(
         &mut self,
-        schedule: impl ScheduleLabel,
-        systems: impl IntoScheduleConfigs<ScheduleSystem, M>,
+        schedule: impl ScheduleLabel + 'static,
+        systems: impl IntoScheduleConfigs<ScheduleSystem, M> + 'static,
     ) -> &mut Self {
         self.schedules.add_systems(schedule, systems);
         self
@@ -245,7 +247,7 @@ pub(crate) struct PluginDependency {
     /// An optional pairing of a plugin's data (as initialized by the plugin depending on it) and an erased function that builds the plugin output for that dependency.
     pub(crate) data: Option<(
         Box<dyn DeclarativePlugin>,
-        Box<dyn Fn(&dyn DeclarativePlugin) -> Option<PluginOutput>>,
+        fn(&dyn DeclarativePlugin) -> Option<PluginOutput>,
     )>,
 }
 
@@ -253,17 +255,14 @@ impl PluginDependency {
     pub(crate) fn new_with_config<P: DeclarativePlugin + 'static>(plugin: P) -> Self {
         let data: Option<(
             Box<dyn DeclarativePlugin>,
-            Box<dyn Fn(&dyn DeclarativePlugin) -> Option<PluginOutput>>,
-        )> = Some((
-            Box::new(plugin),
-            Box::new(|plugin: &dyn DeclarativePlugin| {
-                <dyn Any>::downcast_ref::<P>(plugin).map(|plugin| {
-                    let mut output = PluginOutput::new::<P>();
-                    plugin.build(&mut output);
-                    output
-                })
-            }),
-        ));
+            fn(&dyn DeclarativePlugin) -> Option<PluginOutput>,
+        )> = Some((Box::new(plugin), |plugin: &dyn DeclarativePlugin| {
+            <dyn Any>::downcast_ref::<P>(plugin).map(|plugin| {
+                let mut output = PluginOutput::new::<P>();
+                plugin.build(&mut output);
+                output
+            })
+        }));
         PluginDependency {
             type_id: PluginTypeId(TypeId::of::<P>()),
             data,
@@ -283,30 +282,33 @@ pub(crate) struct PluginTypeId(TypeId);
 
 pub(crate) struct MessageRegistration {
     // A function that actually registers the message type with the App/World.
-    registration_func: Box<dyn Fn(&mut App)>,
+    registration_func: fn(&mut App),
 }
 
 impl MessageRegistration {
     pub(crate) fn new<T: Message>() -> Self {
         Self {
-            registration_func: Box::new(|app| {
+            registration_func: |app| {
                 app.add_message::<T>();
-            }),
+            },
         }
     }
 }
 
 pub(crate) struct MergeableSchedule {
-    schedules: Schedules,
+    // This isn't ideal, as it does put the 'static requirements on systems,
+    // but it will do for now.
+    schedules: Vec<StagedSystem>,
 }
 
 impl MergeableSchedule {
     pub(crate) fn add_systems<M>(
         &mut self,
-        schedule: impl ScheduleLabel,
-        systems: impl IntoScheduleConfigs<ScheduleSystem, M>,
-    ) {
-        // TODO: non-schedule data structure?
-        self.schedules.add_systems(schedule, systems);
+        schedule: impl ScheduleLabel + 'static,
+        systems: impl IntoScheduleConfigs<ScheduleSystem, M> + 'static,
+    ) -> Result<(), ()> {
+        self.schedules
+            .push(StagedSystem::new(schedule, systems).ok_or(())?);
+        Ok(())
     }
 }

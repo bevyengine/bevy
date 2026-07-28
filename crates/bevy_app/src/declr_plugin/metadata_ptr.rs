@@ -1,15 +1,12 @@
 use core::{alloc::Layout, any::TypeId, ptr::NonNull};
-use std::{
-    alloc::{alloc, dealloc},
-    boxed::Box,
-};
+use std::alloc::{alloc, dealloc};
 
 /// Fully type erased pointer that owns the data, knows the layout, knows the
-/// [`TypeId`], and holds onto a copy of the drop implementation.
+/// [`TypeId`], and a function pointer to a drop fn.
 pub(crate) struct MetadataPtr {
     layout: Layout,
     ptr: NonNull<()>,
-    drop_fn: Box<dyn Fn(NonNull<()>, Layout)>,
+    drop_fn: fn(NonNull<()>, Layout),
     type_id: TypeId,
     already_dropped: bool,
 }
@@ -17,7 +14,7 @@ pub(crate) struct MetadataPtr {
 #[allow(unsafe_code)]
 impl MetadataPtr {
     pub fn new<T: Sized + 'static>(data: T) -> Option<Self> {
-        let layout = Layout::for_value(&data);
+        let layout: Layout = Layout::for_value(&data);
         // SAFETY: Initialization happens in the next unsafe block, there's no
         // branching other than null pointer checking before then. Null pointers
         // cannot be deallocated.
@@ -29,11 +26,11 @@ impl MetadataPtr {
         Some(MetadataPtr {
             layout,
             ptr: ptr.cast(),
-            drop_fn: Box::new(|ptr, layout| {
+            drop_fn: |ptr, layout| {
                 // SAFETY: this function is only ever passed the original layout.
                 let data: T = unsafe { Self::move_then_deallocate(ptr.cast(), layout) };
                 drop(data);
-            }),
+            },
             type_id: TypeId::of::<T>(),
             already_dropped: false,
         })
@@ -76,7 +73,7 @@ impl MetadataPtr {
         data_read
     }
 
-    pub(crate) fn inner_type_id(&self) -> TypeId {
+    pub fn inner_type_id(&self) -> TypeId {
         self.type_id
     }
 }
