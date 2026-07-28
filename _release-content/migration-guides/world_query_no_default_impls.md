@@ -1,6 +1,6 @@
 ---
 title: WorldQuery trait no longer contains default implementations.
-pull_requests: []
+pull_requests: [25175]
 ---
 
 In previous Bevy versions, `WorldQuery::init_nested_access` and `WorldQuery::update_archetypes` had
