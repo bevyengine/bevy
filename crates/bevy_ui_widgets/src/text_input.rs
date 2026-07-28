@@ -1557,6 +1557,7 @@ mod tests {
             placeholder_color(Some(&explicit), &field_color).0,
             explicit.0
         );
+    }
 
     #[test]
     fn escape_blurs_field_and_propagates_to_window() {
