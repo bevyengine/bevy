@@ -7,7 +7,6 @@ use bevy::{
         controls::{FeathersListRow, FeathersSelect, OptionIndex},
         display::caption,
         theme::UiTheme,
-        FeathersPlugins,
     },
     prelude::*,
     ui::Selected,
@@ -22,7 +21,7 @@ const HIDDEN_COLOR: Color = Color::srgb(1.0, 0.7, 0.7);
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, FeathersPlugins))
+        .add_plugins(DefaultPlugins)
         .insert_resource(UiTheme(theme::basic_example_theme(Color::WHITE)))
         .add_systems(Startup, setup)
         .add_observer(on_value_change::<NodeDisplaySetting>)

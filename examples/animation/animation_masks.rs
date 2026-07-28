@@ -4,7 +4,7 @@ use crate::radio::{feathers_option_buttons, main_ui_node_scene, RadioButtonOptio
 use bevy::{
     animation::{AnimatedBy, AnimationTargetId},
     color::palettes::css::WHITE,
-    feathers::{dark_theme::create_dark_theme, display::label, theme::UiTheme, FeathersPlugins},
+    feathers::{dark_theme::create_dark_theme, display::label, theme::UiTheme},
     prelude::*,
     ui_widgets::{radio_self_update, ValueChange},
 };
@@ -109,16 +109,13 @@ struct AnimationNodes([AnimationNodeIndex; 3]);
 // The application entry point.
 fn main() {
     App::new()
-        .add_plugins((
-            DefaultPlugins.set(WindowPlugin {
-                primary_window: Some(Window {
-                    title: "Bevy Animation Masks Example".into(),
-                    ..default()
-                }),
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "Bevy Animation Masks Example".into(),
                 ..default()
             }),
-            FeathersPlugins,
-        ))
+            ..default()
+        }))
         .insert_resource(UiTheme(create_dark_theme()))
         .add_systems(Startup, (setup_scene, setup_ui))
         .add_systems(Update, setup_animation_graph_once_loaded)

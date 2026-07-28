@@ -10,7 +10,6 @@ use bevy::{
     feathers::{
         controls::{FeathersNumberInput, NumberInputPrecision, NumberInputValue},
         theme::UiTheme,
-        FeathersPlugins,
     },
     input::mouse::AccumulatedMouseMotion,
     light::ClusteredDecal,
@@ -109,16 +108,13 @@ impl MaterialExtension for CustomDecalExtension {
 fn main() {
     App::new()
         .insert_resource(UiTheme(create_dark_theme()))
-        .add_plugins((
-            DefaultPlugins.set(WindowPlugin {
-                primary_window: Some(Window {
-                    title: "Bevy Clustered Decals Example".into(),
-                    ..default()
-                }),
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "Bevy Clustered Decals Example".into(),
                 ..default()
             }),
-            FeathersPlugins,
-        ))
+            ..default()
+        }))
         .add_plugins(MaterialPlugin::<
             ExtendedMaterial<StandardMaterial, CustomDecalExtension>,
         >::default())

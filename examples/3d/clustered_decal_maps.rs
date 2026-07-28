@@ -7,7 +7,7 @@ use bevy::{
     asset::io::web::WebAssetPlugin,
     camera::Hdr,
     color::palettes::css::{CRIMSON, GOLD},
-    feathers::{dark_theme::create_dark_theme, theme::UiTheme, FeathersPlugins},
+    feathers::{dark_theme::create_dark_theme, theme::UiTheme},
     image::ImageLoaderSettings,
     light::ClusteredDecal,
     prelude::*,
@@ -137,7 +137,7 @@ const DECAL_ANIMATE_OUT_DURATION: Duration = Duration::from_millis(300);
 /// The demo entry point.
 fn main() {
     App::new()
-        .add_plugins((
+        .add_plugins(
             DefaultPlugins
                 .set(WebAssetPlugin {
                     silence_startup_warning: true,
@@ -149,8 +149,7 @@ fn main() {
                     }),
                     ..default()
                 }),
-            FeathersPlugins,
-        ))
+        )
         .init_resource::<AppStatus>()
         .init_resource::<AppTextures>()
         .insert_resource(UiTheme(create_dark_theme()))

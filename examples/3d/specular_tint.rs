@@ -8,7 +8,7 @@ use std::{
 use bevy::{
     camera::Hdr,
     color::palettes::css::WHITE,
-    feathers::{theme::UiTheme, FeathersPlugins},
+    feathers::theme::UiTheme,
     light::Skybox,
     prelude::*,
     ui_widgets::{radio_self_update, ValueChange},
@@ -81,7 +81,6 @@ fn main() {
             }),
             ..default()
         }))
-        .add_plugins(FeathersPlugins)
         .insert_resource(UiTheme(theme::basic_example_theme(Color::WHITE)))
         .init_resource::<AppAssets>()
         .init_resource::<AppStatus>()

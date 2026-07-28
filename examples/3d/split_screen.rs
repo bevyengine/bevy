@@ -6,7 +6,6 @@ use bevy::{
     camera::Viewport,
     feathers::{
         controls::FeathersButton, dark_theme::create_dark_theme, display::caption, theme::UiTheme,
-        FeathersPlugins,
     },
     light::CascadeShadowConfigBuilder,
     prelude::*,
@@ -16,7 +15,7 @@ use bevy::{
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, FeathersPlugins))
+        .add_plugins(DefaultPlugins)
         .insert_resource(UiTheme(create_dark_theme()))
         .add_systems(Startup, setup)
         .add_systems(Update, set_camera_viewports)

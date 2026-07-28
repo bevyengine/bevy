@@ -10,7 +10,7 @@ use bevy::post_process::motion_blur::MotionBlur;
 use bevy::window::{CursorIcon, PrimaryWindow, SystemCursorIcon};
 use bevy::{
     camera::Hdr,
-    feathers::{theme::UiTheme, FeathersPlugins},
+    feathers::theme::UiTheme,
     light::NotShadowReceiver,
     pbr::ContactShadows,
     post_process::bloom::Bloom,
@@ -104,7 +104,6 @@ fn main() {
                 ..default()
             }),
             MeshPickingPlugin,
-            FeathersPlugins,
         ))
         .insert_resource(UiTheme(basic_example_theme(Color::WHITE)))
         .init_resource::<AppStatus>()

@@ -5,7 +5,7 @@ use core::f32;
 use bevy::{
     camera::Hdr,
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
-    feathers::{theme::UiTheme, FeathersPlugins},
+    feathers::theme::UiTheme,
     light::ParallaxCorrection,
     prelude::*,
     ui_widgets::{radio_self_update, ValueChange},
@@ -68,7 +68,6 @@ fn main() {
                 ..default()
             }),
             FreeCameraPlugin,
-            FeathersPlugins,
         ))
         .init_resource::<AppStatus>()
         .add_systems(Startup, setup)

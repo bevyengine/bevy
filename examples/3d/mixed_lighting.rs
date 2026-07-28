@@ -1,7 +1,7 @@
 //! Demonstrates how to combine baked and dynamic lighting.
 
 use bevy::{
-    feathers::{theme::UiTheme, FeathersPlugins},
+    feathers::theme::UiTheme,
     gltf::GltfMeshName,
     pbr::Lightmap,
     picking::{backend::HitData, pointer::PointerInteraction},
@@ -122,16 +122,13 @@ const INITIAL_SPHERE_POSITION: Vec3 = vec3(0.0, 0.5233223, 0.0);
 
 fn main() {
     App::new()
-        .add_plugins((
-            DefaultPlugins.set(WindowPlugin {
-                primary_window: Some(Window {
-                    title: "Bevy Mixed Lighting Example".into(),
-                    ..default()
-                }),
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "Bevy Mixed Lighting Example".into(),
                 ..default()
             }),
-            FeathersPlugins,
-        ))
+            ..default()
+        }))
         .add_plugins(MeshPickingPlugin)
         .insert_resource(UiTheme(basic_example_theme(Color::BLACK)))
         .insert_resource(GlobalAmbientLight {

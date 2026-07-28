@@ -11,7 +11,6 @@ use bevy::{
         controls::{FeathersNumberInput, HardLimit, NumberInputPrecision, NumberInputValue},
         display::{label, label_small},
         theme::UiTheme,
-        FeathersPlugins,
     },
     image::{
         ImageAddressMode, ImageFilterMode, ImageLoaderSettings, ImageSampler,
@@ -223,16 +222,13 @@ fn main() {
         .insert_resource(DefaultOpaqueRendererMethod::deferred())
         .insert_resource(UiTheme(basic_example_theme(Color::WHITE)))
         .init_resource::<AppSettings>()
-        .add_plugins((
-            DefaultPlugins.set(WindowPlugin {
-                primary_window: Some(Window {
-                    title: "Bevy Screen Space Reflections Example".into(),
-                    ..default()
-                }),
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "Bevy Screen Space Reflections Example".into(),
                 ..default()
             }),
-            FeathersPlugins,
-        ))
+            ..default()
+        }))
         .add_plugins(MaterialPlugin::<ExtendedMaterial<StandardMaterial, Water>>::default())
         .add_systems(Startup, setup)
         .add_systems(Update, rotate_model)

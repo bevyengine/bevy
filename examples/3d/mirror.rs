@@ -6,9 +6,7 @@ use crate::radio::{feathers_option_buttons, main_ui_node_scene, RadioButtonOptio
 use bevy::camera::RenderTarget;
 use bevy::{
     color::palettes::css::GREEN,
-    feathers::{
-        controls::FeathersRadio, dark_theme::create_dark_theme, theme::UiTheme, FeathersPlugins,
-    },
+    feathers::{controls::FeathersRadio, dark_theme::create_dark_theme, theme::UiTheme},
     input::mouse::AccumulatedMouseMotion,
     math::{reflection_matrix, uvec2, vec3},
     pbr::{ExtendedMaterial, MaterialExtension},
@@ -122,7 +120,6 @@ fn main() {
         .add_plugins(MaterialPlugin::<
             ExtendedMaterial<StandardMaterial, ScreenSpaceTextureExtension>,
         >::default())
-        .add_plugins(FeathersPlugins)
         .insert_resource(UiTheme(create_dark_theme()))
         .init_resource::<AppStatus>()
         .add_systems(Startup, setup)

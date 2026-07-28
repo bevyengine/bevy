@@ -14,7 +14,7 @@ use bevy::{
         palette,
         rounded_corners::RoundedCorners,
         theme::{ThemeBackgroundColor, UiTheme},
-        tokens, FeathersPlugins,
+        tokens,
     },
     input_focus::{tab_navigation::TabGroup, AutoFocus, InputFocus},
     prelude::*,
@@ -68,7 +68,7 @@ enum DemoVec3Field {
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, FeathersPlugins))
+        .add_plugins(DefaultPlugins)
         .insert_resource(UiTheme(create_dark_theme()))
         .insert_resource(DemoWidgetStates {
             rgb_color: palettes::tailwind::EMERALD_800.with_alpha(0.7),

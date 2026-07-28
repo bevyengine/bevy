@@ -8,7 +8,7 @@ use bevy::{
         dark_theme::create_dark_theme,
         display::caption,
         theme::{ThemeBackgroundColor, UiTheme},
-        tokens, FeathersPlugins,
+        tokens,
     },
     prelude::*,
     ui_widgets::Activate,
@@ -22,12 +22,10 @@ struct CounterText;
 
 fn main() {
     App::new()
-        .add_plugins((
+        .add_plugins(
+            // FeathersPlugins is part of DefaultPlugins
             DefaultPlugins,
-            // Don't forget to add the plugin.
-            // Make sure you are using FeathersPlugins with an `s`
-            FeathersPlugins,
-        ))
+        )
         // Configure feathers to use the dark theme
         .insert_resource(UiTheme(create_dark_theme()))
         .insert_resource(Counter(0))

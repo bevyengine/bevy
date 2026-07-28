@@ -16,7 +16,7 @@ use bevy::{
     },
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     color::palettes::css::WHITE,
-    feathers::{dark_theme::create_dark_theme, theme::UiTheme, FeathersPlugins},
+    feathers::{dark_theme::create_dark_theme, theme::UiTheme},
     light::{
         atmosphere::{Falloff, PhaseFunction, ScatteringMedium, ScatteringTerm},
         Atmosphere, AtmosphereEnvironmentMapLight,
@@ -95,7 +95,6 @@ fn main() {
                 ..default()
             }),
             FreeCameraPlugin,
-            FeathersPlugins,
             WireframePlugin::default(),
         ))
         .insert_resource(args.clone())

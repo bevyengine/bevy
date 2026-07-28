@@ -11,7 +11,7 @@ use bevy::{
         visibility::{CubemapVisibleEntities, VisibleMeshEntities},
     },
     core_pipeline::prepass::{DepthPrepass, MotionVectorPrepass},
-    feathers::{theme::UiTheme, FeathersPlugins},
+    feathers::theme::UiTheme,
     light::{ShadowFilteringMethod, Skybox},
     math::vec3,
     prelude::*,
@@ -119,7 +119,6 @@ fn main() {
             }),
             #[cfg(feature = "free_camera")]
             FreeCameraPlugin,
-            FeathersPlugins,
         ))
         .add_systems(Startup, setup)
         .add_observer(handle_light_type_change)

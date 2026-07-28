@@ -15,7 +15,7 @@ use std::{
 use bevy::{
     color::palettes::css::{SILVER, WHITE},
     core_pipeline::{core_3d::Opaque3d, prepass::DepthPrepass, Core3d, Core3dSystems},
-    feathers::{theme::UiTheme, FeathersPlugins},
+    feathers::theme::UiTheme,
     pbr::PbrPlugin,
     prelude::*,
     render::{
@@ -175,7 +175,7 @@ fn main() {
     let render_debug_flags = RenderDebugFlags::ALLOW_COPIES_FROM_INDIRECT_PARAMETERS;
 
     App::new()
-        .add_plugins((
+        .add_plugins(
             DefaultPlugins
                 .set(WindowPlugin {
                     primary_window: Some(Window {
@@ -192,8 +192,7 @@ fn main() {
                     debug_flags: render_debug_flags,
                     ..default()
                 }),
-            FeathersPlugins,
-        ))
+        )
         .add_plugins(ReadbackIndirectParametersPlugin)
         .insert_resource(UiTheme(theme::basic_example_theme(Color::WHITE)))
         .init_resource::<AppStatus>()

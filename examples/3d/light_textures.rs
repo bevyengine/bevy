@@ -10,7 +10,6 @@ use bevy::{
     feathers::{
         controls::{FeathersNumberInput, FeathersRadio, NumberInputPrecision, NumberInputValue},
         theme::UiTheme,
-        FeathersPlugins,
     },
     input::mouse::AccumulatedMouseMotion,
     light::{DirectionalLightTexture, NotShadowCaster, PointLightTexture, SpotLightTexture},
@@ -101,16 +100,13 @@ struct HelpText;
 /// Entry point.
 fn main() {
     App::new()
-        .add_plugins((
-            DefaultPlugins.set(WindowPlugin {
-                primary_window: Some(Window {
-                    title: "Bevy Light Textures Example".into(),
-                    ..default()
-                }),
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "Bevy Light Textures Example".into(),
                 ..default()
             }),
-            FeathersPlugins,
-        ))
+            ..default()
+        }))
         .insert_resource(UiTheme(theme::basic_example_theme(Color::WHITE)))
         .init_resource::<AppStatus>()
         .add_systems(Startup, setup)

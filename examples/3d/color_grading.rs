@@ -14,7 +14,6 @@ use bevy::{
         display::label,
         theme::{ThemeProps, UiTheme},
         tokens::semantic::{SURFACE_PANE_BODY, SURFACE_PANE_HEADER},
-        FeathersPlugins,
     },
     light::CascadeShadowConfigBuilder,
     prelude::*,
@@ -80,7 +79,7 @@ impl Default for ColorGradingSetting {
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, FeathersPlugins))
+        .add_plugins(DefaultPlugins)
         .insert_resource(UiTheme(get_example_theme()))
         .add_systems(Startup, setup)
         .add_observer(handle_value_change_number_input)

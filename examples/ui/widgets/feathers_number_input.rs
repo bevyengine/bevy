@@ -6,7 +6,7 @@ use bevy::{
         dark_theme::create_dark_theme,
         display::label,
         theme::{ThemeBackgroundColor, UiTheme},
-        tokens, FeathersPlugins,
+        tokens,
     },
     input_focus::tab_navigation::TabGroup,
     prelude::*,
@@ -16,7 +16,7 @@ use bevy::{
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, FeathersPlugins))
+        .add_plugins(DefaultPlugins)
         .insert_resource(UiTheme(create_dark_theme()))
         .add_systems(Startup, scene.spawn())
         // .add_systems(Update, update_colors)

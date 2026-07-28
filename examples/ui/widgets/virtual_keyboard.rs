@@ -6,14 +6,13 @@ use bevy::{
         controls::{VirtualKeyPressed, VirtualKeyboard},
         dark_theme::create_dark_theme,
         theme::UiTheme,
-        FeathersPlugins,
     },
     prelude::*,
 };
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, FeathersPlugins))
+        .add_plugins(DefaultPlugins)
         .insert_resource(UiTheme(create_dark_theme()))
         .add_systems(Startup, scene.spawn())
         .run();

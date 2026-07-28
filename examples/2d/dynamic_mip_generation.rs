@@ -23,7 +23,6 @@ use bevy::{
     },
     feathers::{
         controls::FeathersButton, dark_theme::create_dark_theme, display::caption, theme::UiTheme,
-        FeathersPlugins,
     },
     prelude::*,
     reflect::TypePath,
@@ -218,7 +217,6 @@ fn main() {
             ..default()
         }),
         Material2dPlugin::<SingleMipLevelMaterial>::default(),
-        FeathersPlugins,
     ))
     .init_resource::<AppStatus>()
     .init_resource::<AppAssets>()

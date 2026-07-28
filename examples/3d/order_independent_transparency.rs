@@ -10,7 +10,7 @@ use bevy::{
     color::palettes::css::{BLUE, GREEN, RED, YELLOW},
     core_pipeline::{oit::OrderIndependentTransparencySettings, prepass::DepthPrepass},
     ecs::system::SystemParam,
-    feathers::{dark_theme::create_dark_theme, theme::UiTheme, FeathersPlugins},
+    feathers::{dark_theme::create_dark_theme, theme::UiTheme},
     pbr::{ExtendedMaterial, MaterialExtension},
     picking::window::update_window_hits,
     prelude::*,
@@ -97,7 +97,7 @@ struct SceneResources<'w> {
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, FeathersPlugins))
+        .add_plugins(DefaultPlugins)
         .add_plugins(MaterialPlugin::<NoisyOpacityMaterial>::default())
         .add_plugins(MaterialPlugin::<
             ExtendedMaterial<StandardMaterial, CheckeredMaterialExtension>,

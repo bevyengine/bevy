@@ -12,7 +12,7 @@ use bevy::{
     camera::Hdr,
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     color::palettes::css::{CORNFLOWER_BLUE, CRIMSON, TAN, WHITE},
-    feathers::{theme::UiTheme, FeathersPlugins},
+    feathers::theme::UiTheme,
     input::mouse::{AccumulatedMouseMotion, AccumulatedMouseScroll},
     light::ParallaxCorrection,
     math::ops::{atan2, cos, sin},
@@ -154,16 +154,13 @@ const LIGHT_PROBE_INTENSITY: f32 = 500.0;
 /// The entry point.
 fn main() {
     App::new()
-        .add_plugins((
-            DefaultPlugins.set(WindowPlugin {
-                primary_window: Some(Window {
-                    title: "Bevy Light Probe Blending Example".into(),
-                    ..default()
-                }),
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "Bevy Light Probe Blending Example".into(),
                 ..default()
             }),
-            FeathersPlugins,
-        ))
+            ..default()
+        }))
         .add_plugins(FreeCameraPlugin)
         .insert_resource(UiTheme(basic_example_theme(Color::WHITE)))
         .init_resource::<AppStatus>()

@@ -101,6 +101,9 @@ plugin_group! {
         #[plugin_group]
         #[cfg(feature = "bevy_picking")]
         bevy_picking:::DefaultPickingPlugins,
+        #[plugin_group]
+        #[cfg(feature = "bevy_feathers")]
+        bevy_feathers:::FeathersPlugins,
         #[doc(hidden)]
         :IgnoreAmbiguitiesPlugin,
     }

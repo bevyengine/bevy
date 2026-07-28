@@ -12,7 +12,6 @@ use bevy::{
         dark_theme::create_dark_theme,
         display::caption,
         theme::{ThemeProps, UiTheme},
-        FeathersPlugins,
     },
     prelude::*,
     ui_widgets::{radio_self_update, Activate, ValueChange},
@@ -165,7 +164,7 @@ impl AppNumberInputI32 {
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, FeathersPlugins))
+        .add_plugins(DefaultPlugins)
         .insert_resource(UiTheme(get_example_theme()))
         .init_resource::<AppSettings>()
         .add_systems(Startup, setup)

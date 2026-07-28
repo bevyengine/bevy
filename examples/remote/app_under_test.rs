@@ -12,7 +12,6 @@
 use bevy::{
     feathers::{
         controls::FeathersButton, dark_theme::create_dark_theme, display::caption, theme::UiTheme,
-        FeathersPlugins,
     },
     prelude::*,
     remote::{http::RemoteHttpPlugin, RemotePlugin},
@@ -24,7 +23,7 @@ use rand::{RngExt, SeedableRng};
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, FeathersPlugins))
+        .add_plugins(DefaultPlugins)
         // To make the app available for integration testing, we add these
         // remote plugins to expose API’s for a testing framework to call.
         .add_plugins(RemotePlugin::default())
