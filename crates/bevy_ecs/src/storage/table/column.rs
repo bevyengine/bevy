@@ -16,7 +16,7 @@ use core::{mem::needs_drop, panic::Location};
 /// interface. It's highly advised to use higher level types and their safe abstractions
 /// instead of working directly with `Column`.
 ///
-/// For performance reasons, `Column` does not does not store it's capacity and length.
+/// For performance reasons, `Column` does not store it's capacity and length.
 /// This type is used by [`Table`] and [`ComponentSparseSet`], where the corresponding capacity
 /// and length can be found.
 ///
