@@ -68,9 +68,6 @@ serialize = [
 ]
 bevy_picking = ["dep:bevy_picking", "dep:uuid"]
 
-# Experimental features
-ghost_nodes = []
-
 [lints]
 workspace = true
 

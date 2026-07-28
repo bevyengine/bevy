@@ -5,7 +5,6 @@ use taffy::NodeId;
 use taffy::{Style, TaffyTree, TraversePartialTree};
 use thiserror::Error;
 
-#[cfg(feature = "ghost_nodes")]
 use bevy_ecs::entity::EntityHashSet;
 use bevy_ecs::{
     entity::{Entity, EntityHashMap},
@@ -70,7 +69,6 @@ pub struct UiSurface {
     pub(super) entity_to_taffy: EntityHashMap<LayoutNode>,
     pub(super) taffy: UiTree<NodeMeasure>,
     taffy_children_scratch: Vec<NodeId>,
-    #[cfg(feature = "ghost_nodes")]
     pub(super) dirty_ghost_children_scratch: EntityHashSet,
 }
 
@@ -87,7 +85,6 @@ impl fmt::Debug for UiSurface {
         debug
             .field("entity_to_taffy", &self.entity_to_taffy)
             .field("taffy_children_scratch", &self.taffy_children_scratch);
-        #[cfg(feature = "ghost_nodes")]
         debug.field(
             "dirty_ghost_children_scratch",
             &self.dirty_ghost_children_scratch,
@@ -104,7 +101,6 @@ impl Default for UiSurface {
             entity_to_taffy: Default::default(),
             taffy,
             taffy_children_scratch: Vec::new(),
-            #[cfg(feature = "ghost_nodes")]
             dirty_ghost_children_scratch: EntityHashSet::new(),
         }
     }
