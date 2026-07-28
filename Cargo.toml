@@ -133,7 +133,7 @@ unsafe_op_in_unsafe_fn = "warn"
 unused_qualifications = "warn"
 
 [features]
-default = ["2d", "3d", "ui", "audio"]
+default = ["2d", "3d", "ui", "audio", "bevy_feathers"]
 
 # PROFILE: The default 2D Bevy experience. This includes the core Bevy framework, 2D functionality, scenes and picking.
 2d = ["default_app", "default_platform", "2d_bevy_render", "scene", "picking"]
@@ -150,7 +150,6 @@ ui = [
   "scene",
   "picking",
   "bevy_ui_widgets",
-  "bevy_feathers",
 ]
 
 # COLLECTION: Enable this feature during development to improve the development experience. This adds features like asset hot-reloading and debugging tools. This should not be enabled for published apps!
