@@ -66,7 +66,9 @@ impl SpecializedRenderPipeline for UiPipeline {
                 VertexFormat::Float32x4,
                 // mode
                 VertexFormat::Uint32,
-                // border radius
+                // border radius x values (top left, top right, bottom right, bottom left)
+                VertexFormat::Float32x4,
+                // border radius y values (top left, top right, bottom right, bottom left)
                 VertexFormat::Float32x4,
                 // border thickness
                 VertexFormat::Float32x4,

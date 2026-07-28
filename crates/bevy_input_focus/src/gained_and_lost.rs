@@ -21,6 +21,9 @@ pub enum FocusCause {
     ///
     /// This is only sent for primary mouse presses. Focus gained from other mouse buttons or gestures will be `Navigated`.
     Pressed,
+
+    /// Focus was assigned automatically when an [`AutoFocus`](crate::AutoFocus) component was added.
+    Auto,
 }
 
 /// An [`EntityEvent`] that is sent when an entity gains [`InputFocus`].

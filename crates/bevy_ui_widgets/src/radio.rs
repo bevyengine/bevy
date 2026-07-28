@@ -35,6 +35,10 @@ use crate::{ActivateOnPress, ValueChange};
 /// associated with a particular constant value, and would be checked whenever that value is equal
 /// to the group's value. This also means that as long as each button's associated value is unique
 /// within the group, it should never be the case that more than one button is selected at a time.
+///
+/// **Note:** For information on how widget state is managed
+/// and how to respond to state changes, see the [crate-level documentation].
+/// [crate-level documentation]: crate
 #[derive(Component, Debug, Clone, Default)]
 #[require(AccessibilityNode(accesskit::Node::new(Role::RadioGroup)))]
 #[derive(Reflect)]

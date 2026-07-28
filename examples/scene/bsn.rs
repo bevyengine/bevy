@@ -1,5 +1,5 @@
 //! This example demonstrates how to use BSN to compose scenes.
-use bevy::{prelude::*, text::FontSourceTemplate};
+use bevy::{prelude::*, text::FontSourceTemplate, ui_widgets::Button};
 
 fn main() {
     App::new()

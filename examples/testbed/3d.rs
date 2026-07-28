@@ -60,7 +60,7 @@ fn main() {
     app.run();
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, States, Default)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, States, Default)]
 enum Scene {
     #[default]
     Light,
@@ -72,6 +72,20 @@ enum Scene {
     WhiteFurnaceSolidColorLight,
     WhiteFurnaceEnvironmentMapLight,
     RenderLayers,
+}
+
+impl Scene {
+    const ALL_ORDERED: &'static [Scene] = &[
+        Scene::Light,
+        Scene::Bloom,
+        Scene::Gltf,
+        Scene::Animation,
+        Scene::Gizmos,
+        Scene::GltfCoordinateConversion,
+        Scene::WhiteFurnaceSolidColorLight,
+        Scene::WhiteFurnaceEnvironmentMapLight,
+        Scene::RenderLayers,
+    ];
 }
 
 impl std::str::FromStr for Scene {
@@ -91,17 +105,12 @@ impl std::str::FromStr for Scene {
 
 impl Next for Scene {
     fn next(&self) -> Self {
-        match self {
-            Scene::Light => Scene::Bloom,
-            Scene::Bloom => Scene::Gltf,
-            Scene::Gltf => Scene::Animation,
-            Scene::Animation => Scene::Gizmos,
-            Scene::Gizmos => Scene::GltfCoordinateConversion,
-            Scene::GltfCoordinateConversion => Scene::WhiteFurnaceSolidColorLight,
-            Scene::WhiteFurnaceSolidColorLight => Scene::WhiteFurnaceEnvironmentMapLight,
-            Scene::WhiteFurnaceEnvironmentMapLight => Scene::RenderLayers,
-            Scene::RenderLayers => Scene::Light,
-        }
+        Scene::ALL_ORDERED[(Scene::ALL_ORDERED
+            .iter()
+            .position(|scene| scene == self)
+            .unwrap()
+            + 1)
+            % Scene::ALL_ORDERED.len()]
     }
 }
 

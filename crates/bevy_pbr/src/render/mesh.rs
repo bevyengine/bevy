@@ -1,4 +1,4 @@
-use crate::contact_shadows::ViewContactShadowsUniformOffset;
+use crate::contact_shadows::ContactShadows;
 use crate::{resources::prepare_atmosphere_buffers, skin::skin_uniforms_from_world};
 use alloc::sync::Arc;
 use bevy_asset::uuid::Uuid;
@@ -72,7 +72,7 @@ use bevy_render::{
 };
 use bevy_shader::{load_shader_library, Shader, ShaderDefVal, ShaderSettings};
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{default, Parallel, TypeIdMap};
+use bevy_utils::{default, Parallel, TypeIdHashMap};
 use core::any::TypeId;
 use core::iter;
 use core::mem::size_of;
@@ -385,7 +385,7 @@ pub fn check_views_need_specialization(
             Has<OrderIndependentTransparencySettings>,
             Has<ExtractedAtmosphere>,
             Has<ScreenSpaceReflectionsUniform>,
-            Has<ViewContactShadowsUniformOffset>,
+            Has<ContactShadows>,
         ),
     )>,
 ) {
@@ -3470,25 +3470,16 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("CONTACT_SHADOWS".into());
         }
 
+        if key.contains(MeshPipelineKey::OIT_ENABLED) {
+            shader_defs.push("OIT_ENABLED".into());
+        }
+
         let vertex_buffer_layout = layout.0.get_layout(&vertex_attributes)?;
 
         let (label, blend, depth_write_enabled);
         let pass = key.intersection(MeshPipelineKey::BLEND_RESERVED_BITS);
         let (mut is_opaque, mut alpha_to_coverage_enabled) = (false, false);
-        if key.contains(MeshPipelineKey::OIT_ENABLED)
-            && matches!(
-                pass,
-                MeshPipelineKey::BLEND_ALPHA | MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA
-            )
-        {
-            label = "oit_mesh_pipeline".into();
-            // TODO tail blending would need alpha blending
-            blend = None;
-            shader_defs.push("OIT_ENABLED".into());
-            // TODO it should be possible to use this to combine MSAA and OIT
-            // alpha_to_coverage_enabled = true;
-            depth_write_enabled = false;
-        } else if pass == MeshPipelineKey::BLEND_ALPHA {
+        if pass == MeshPipelineKey::BLEND_ALPHA {
             label = "alpha_blend_mesh_pipeline".into();
             blend = Some(BlendState::ALPHA_BLENDING);
             // For the transparent pass, fragments that are closer will be alpha blended
@@ -3831,7 +3822,7 @@ pub enum MeshBindGroups {
     CpuPreprocessing(MeshPhaseBindGroups),
     /// A mapping from the type ID of a phase (e.g. [`Opaque3d`]) to the mesh
     /// bind groups for that phase.
-    GpuPreprocessing(TypeIdMap<MeshPhaseBindGroups>),
+    GpuPreprocessing(TypeIdHashMap<MeshPhaseBindGroups>),
 }
 
 impl MeshPhaseBindGroups {
@@ -4016,7 +4007,7 @@ pub fn prepare_mesh_bind_groups(
     if let Some(gpu_batched_instance_buffers) = gpu_batched_instance_buffers {
         // Reuse allocations
         let mut gpu_preprocessing_mesh_bind_groups = match mesh_bind_groups.as_deref_mut() {
-            None | Some(MeshBindGroups::CpuPreprocessing(_)) => TypeIdMap::default(),
+            None | Some(MeshBindGroups::CpuPreprocessing(_)) => TypeIdHashMap::default(),
             Some(MeshBindGroups::GpuPreprocessing(gpu_preprocessing_mesh_bind_groups)) => {
                 core::mem::take(gpu_preprocessing_mesh_bind_groups)
             }

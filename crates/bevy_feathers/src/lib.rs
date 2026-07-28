@@ -18,13 +18,6 @@
 //! This is important when writing your custom widgets, and understanding the behavior of existing widgets.
 //!
 //! For more guidance on this, see the documentation for [`EntityEvent`](bevy_ecs::event::EntityEvent).
-//!
-//! ## Warning: Experimental!
-//! All that said, this crate is still experimental and unfinished!
-//! It will change in breaking ways, and there will be both bugs and limitations.
-//!
-//! Please report issues, submit fixes and propose changes.
-//! Thanks for stress-testing; let's build something better together.
 
 extern crate alloc;
 
@@ -42,7 +35,7 @@ use crate::{
     alpha_pattern::{AlphaPatternMaterial, AlphaPatternResource},
     controls::ControlsPlugin,
     cursor::{CursorIconPlugin, DefaultCursor, EntityCursor},
-    theme::{ThemedText, UiTheme},
+    theme::{ThemeContext, ThemedText, UiTheme},
 };
 
 mod alpha_pattern;
@@ -87,6 +80,7 @@ impl Plugin for FeathersCorePlugin {
             CursorIconPlugin,
             HierarchyPropagatePlugin::<TextColor, With<ThemedText>>::new(PostUpdate),
             HierarchyPropagatePlugin::<TextFont, With<ThemedText>>::new(PostUpdate),
+            HierarchyPropagatePlugin::<ThemeContext>::new(PostUpdate),
             UiMaterialPlugin::<AlphaPatternMaterial>::default(),
             focus::FocusOutlinesPlugin,
         ));

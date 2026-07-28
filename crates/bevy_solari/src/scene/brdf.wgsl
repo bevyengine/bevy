@@ -33,6 +33,16 @@ fn lobe_reflectances(F0_metal: vec3<f32>, F0_dielectric: vec3<f32>, material: Re
     );
 }
 
+fn specular_lobe_sampling_probability(rho: LobeReflectances, perceptual_roughness: f32) -> f32 {
+    let specular_luminance = luminance(rho.specular);
+    let total_luminance = specular_luminance + luminance(rho.diffuse);
+    let energy_probability = specular_luminance / max(total_luminance, 0.0001);
+
+    // Give smooth dielectric reflections more specular samples to prevent undersampling
+    let roughness_biased_probability = mix(0.5, energy_probability, perceptual_roughness);
+    return saturate(max(energy_probability, roughness_biased_probability));
+}
+
 fn evaluate_and_sample_brdf(
     wo: vec3<f32>,
     world_normal: vec3<f32>,
@@ -45,7 +55,7 @@ fn evaluate_and_sample_brdf(
     let F0_metal = material.base_color;
     let F0_dielectric = calculate_F0_dielectric(vec3(material.reflectance));
     let rho = lobe_reflectances(F0_metal, F0_dielectric, material, F_ab);
-    let specular_weight = luminance(rho.specular) / luminance(rho.specular + rho.diffuse);
+    let specular_weight = specular_lobe_sampling_probability(rho, material.perceptual_roughness);
     let diffuse_weight = 1.0 - specular_weight;
 
     let TBN = orthonormalize(world_normal);
@@ -141,7 +151,7 @@ fn brdf_pdf(wo: vec3<f32>, wi: vec3<f32>, world_normal: vec3<f32>, material: Res
     let F0_metal = material.base_color;
     let F0_dielectric = calculate_F0_dielectric(vec3(material.reflectance));
     let rho = lobe_reflectances(F0_metal, F0_dielectric, material, F_ab);
-    let specular_weight = luminance(rho.specular) / luminance(rho.specular + rho.diffuse);
+    let specular_weight = specular_lobe_sampling_probability(rho, material.perceptual_roughness);
     let diffuse_weight = 1.0 - specular_weight;
 
     let TBN = orthonormalize(world_normal);
