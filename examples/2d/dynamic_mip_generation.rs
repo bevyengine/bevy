@@ -21,6 +21,10 @@ use bevy::{
         },
         schedule::Core2d,
     },
+    feathers::{
+        controls::FeathersButton, dark_theme::create_dark_theme, display::caption, theme::UiTheme,
+        FeathersPlugins,
+    },
     prelude::*,
     reflect::TypePath,
     render::{
@@ -35,18 +39,16 @@ use bevy::{
     shader::ShaderRef,
     sprite::Text2dShadow,
     sprite_render::{AlphaMode2d, Material2d, Material2dPlugin},
+    ui_widgets::{radio_self_update, Activate, ValueChange},
     window::{PrimaryWindow, WindowResized},
 };
 use chacha20::ChaCha8Rng;
 use rand::{RngExt, SeedableRng};
 
-use crate::widgets::{
-    RadioButton, RadioButtonText, WidgetClickEvent, WidgetClickSender, BUTTON_BORDER,
-    BUTTON_BORDER_COLOR, BUTTON_BORDER_RADIUS_SIZE, BUTTON_PADDING,
-};
+use crate::radio::{feathers_option_buttons, main_ui_node_scene, RadioButtonOptionValue};
 
-#[path = "../helpers/widgets.rs"]
-mod widgets;
+#[path = "../helpers/radio.rs"]
+mod radio;
 
 /// The time in seconds that it takes the animation of the image shrinking and
 /// growing to play.
@@ -93,19 +95,24 @@ impl Default for AppStatus {
     }
 }
 
-/// Identifies one of the settings that can be changed by the user.
-#[derive(Clone)]
-enum AppSetting {
-    /// Regenerates the top mipmap level.
-    ///
-    /// This is more of an *operation* than a *setting* per se, but it was
-    /// convenient to use the `AppSetting` infrastructure for the "Regenerate
-    /// Top Mip Level" button.
-    RegenerateTopMipLevel,
+/// Whether mipmap levels will be generated.
+///
+/// Turning off the generation of mipmap levels, and then regenerating the
+/// image, will cause all mipmap levels other than the first to be blank. This
+/// will in turn cause the image to fade out as it shrinks, as the GPU switches
+/// to rendering mipmap levels that don't have associated images.
+#[derive(Component, Clone, Copy, Default, PartialEq)]
+enum EnableMipGeneration {
+    /// Mipmap levels are generated for the image.
+    #[default]
+    On,
+    /// Mipmap levels aren't generated for the image.
+    Off,
+}
 
-    /// Whether mipmaps should be generated.
-    EnableMipGeneration(EnableMipGeneration),
-
+/// The setting that updates the width or height of the image.
+#[derive(Component, Clone, Copy, PartialEq)]
+enum ImageSizeSetting {
     /// The width of the image.
     ImageWidth(ImageSize),
 
@@ -113,19 +120,10 @@ enum AppSetting {
     ImageHeight(ImageSize),
 }
 
-/// Whether mipmap levels will be generated.
-///
-/// Turning off the generation of mipmap levels, and then regenerating the
-/// image, will cause all mipmap levels other than the first to be blank. This
-/// will in turn cause the image to fade out as it shrinks, as the GPU switches
-/// to rendering mipmap levels that don't have associated images.
-#[derive(Clone, Copy, Default, PartialEq)]
-enum EnableMipGeneration {
-    /// Mipmap levels are generated for the image.
-    #[default]
-    On,
-    /// Mipmap levels aren't generated for the image.
-    Off,
+impl Default for ImageSizeSetting {
+    fn default() -> Self {
+        Self::ImageWidth(default())
+    }
 }
 
 /// Possible lengths for an image side from which the user can choose.
@@ -199,6 +197,10 @@ const MIP_GENERATION_PHASE_ID: MipGenerationPhaseId = MipGenerationPhaseId(0);
 #[derive(Component)]
 struct ImageView;
 
+/// A marker component for the Regenerate Top Mip Level button.
+#[derive(Clone, Copy, Component, Default)]
+struct RegenerateTopMipLevelButton;
+
 /// A message that's sent whenever the image and the corresponding views need to
 /// be regenerated.
 #[derive(Clone, Copy, Debug, Message)]
@@ -216,31 +218,22 @@ fn main() {
             ..default()
         }),
         Material2dPlugin::<SingleMipLevelMaterial>::default(),
+        FeathersPlugins,
     ))
     .init_resource::<AppStatus>()
     .init_resource::<AppAssets>()
+    .insert_resource(UiTheme(create_dark_theme()))
     .add_message::<RegenerateImage>()
-    .add_message::<WidgetClickEvent<AppSetting>>()
     .add_systems(Startup, setup)
     .add_systems(Update, animate_image_scale)
     .add_systems(
         Update,
-        (
-            widgets::handle_ui_interactions::<AppSetting>,
-            update_radio_buttons,
-        )
-            .chain(),
-    )
-    .add_systems(
-        Update,
         (handle_window_resize_events, regenerate_image_when_requested).chain(),
     )
-    .add_systems(
-        Update,
-        handle_app_setting_change
-            .after(widgets::handle_ui_interactions::<AppSetting>)
-            .before(regenerate_image_when_requested),
-    );
+    .add_observer(radio_self_update)
+    .add_observer(handle_regenerate_top_mip_level_activate)
+    .add_observer(handle_enable_mip_generation_change)
+    .add_observer(handle_image_size_setting_change);
 
     // Because `MipGenerationJobs` is part of the render app, we need to add the
     // associated systems to that app, not the main one.
@@ -325,69 +318,64 @@ fn setup(
 
 /// Spawns the UI widgets at the bottom of the window.
 fn spawn_ui(commands: &mut Commands) {
-    commands.spawn((
-        widgets::main_ui_node(),
-        children![
+    commands.spawn_scene(bsn! {
+        main_ui_node_scene()
+        Children [
             // Spawn the "Regenerate Top Mip Level" button.
-            (
-                Button,
-                Node {
-                    border: BUTTON_BORDER,
-                    justify_content: JustifyContent::Center,
-                    align_items: AlignItems::Center,
-                    padding: BUTTON_PADDING,
-                    border_radius: BorderRadius::all(BUTTON_BORDER_RADIUS_SIZE),
-                    ..default()
-                },
-                BUTTON_BORDER_COLOR,
-                BackgroundColor(Color::BLACK),
-                WidgetClickSender(AppSetting::RegenerateTopMipLevel),
-                children![(
-                    widgets::ui_text("Regenerate Top Mip Level", Color::WHITE),
-                    WidgetClickSender(AppSetting::RegenerateTopMipLevel),
-                )],
-            ),
+            @FeathersButton {
+                @caption: bsn! { caption("Regenerate Top Mip Level") }
+            }
+            RegenerateTopMipLevelButton
+            Node {
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+            }
+            BackgroundColor(Color::BLACK)
+            ,
+
             // Spawn the "Mip Generation" switch that allows the user to toggle
             // mip generation on and off.
-            widgets::option_buttons(
+            feathers_option_buttons(
                 "Mip Generation",
                 &[
                     (
-                        AppSetting::EnableMipGeneration(EnableMipGeneration::On),
+                        EnableMipGeneration::On,
                         "On"
                     ),
                     (
-                        AppSetting::EnableMipGeneration(EnableMipGeneration::Off),
+                        EnableMipGeneration::Off,
                         "Off"
                     ),
-                ]
+                ], 0
             ),
             // Spawn the "Image Width" control that allows the user to set the
             // width of the image.
-            widgets::option_buttons(
+            feathers_option_buttons(
                 "Image Width",
                 &[
-                    (AppSetting::ImageWidth(ImageSize::Size240), "240"),
-                    (AppSetting::ImageWidth(ImageSize::Size480), "480"),
-                    (AppSetting::ImageWidth(ImageSize::Size640), "640"),
-                    (AppSetting::ImageWidth(ImageSize::Size1080), "1080"),
-                    (AppSetting::ImageWidth(ImageSize::Size1920), "1920"),
-                ]
+                    (ImageSizeSetting::ImageWidth(ImageSize::Size240), "240"),
+                    (ImageSizeSetting::ImageWidth(ImageSize::Size480), "480"),
+                    (ImageSizeSetting::ImageWidth(ImageSize::Size640), "640"),
+                    (ImageSizeSetting::ImageWidth(ImageSize::Size1080), "1080"),
+                    (ImageSizeSetting::ImageWidth(ImageSize::Size1920), "1920"),
+                ],
+                2
             ),
             // Spawn the "Image Height" control that allows the user to set the
             // height of the image.
-            widgets::option_buttons(
+            feathers_option_buttons(
                 "Image Height",
                 &[
-                    (AppSetting::ImageHeight(ImageSize::Size240), "240"),
-                    (AppSetting::ImageHeight(ImageSize::Size480), "480"),
-                    (AppSetting::ImageHeight(ImageSize::Size640), "640"),
-                    (AppSetting::ImageHeight(ImageSize::Size1080), "1080"),
-                    (AppSetting::ImageHeight(ImageSize::Size1920), "1920"),
-                ]
+                    (ImageSizeSetting::ImageHeight(ImageSize::Size240), "240"),
+                    (ImageSizeSetting::ImageHeight(ImageSize::Size480), "480"),
+                    (ImageSizeSetting::ImageHeight(ImageSize::Size640), "640"),
+                    (ImageSizeSetting::ImageHeight(ImageSize::Size1080), "1080"),
+                    (ImageSizeSetting::ImageHeight(ImageSize::Size1920), "1920"),
+                ],
+                1
             ),
-        ],
-    ));
+        ]
+    });
 }
 
 impl MipmapSizeIterator {
@@ -464,65 +452,50 @@ fn extract_mipmap_source_image(
     }
 }
 
-/// Updates the widgets at the bottom of the screen to reflect the settings that
-/// the user has chosen.
-fn update_radio_buttons(
-    mut widgets: Query<
-        (
-            Entity,
-            Option<&mut BackgroundColor>,
-            Has<Text>,
-            &WidgetClickSender<AppSetting>,
-        ),
-        Or<(With<RadioButton>, With<RadioButtonText>)>,
-    >,
-    app_status: Res<AppStatus>,
-    mut writer: TextUiWriter,
-) {
-    for (entity, image, has_text, sender) in widgets.iter_mut() {
-        let selected = match **sender {
-            AppSetting::RegenerateTopMipLevel => continue,
-            AppSetting::EnableMipGeneration(enable_mip_generation) => {
-                enable_mip_generation == app_status.enable_mip_generation
-            }
-            AppSetting::ImageWidth(image_width) => image_width == app_status.image_width,
-            AppSetting::ImageHeight(image_height) => image_height == app_status.image_height,
-        };
-
-        if let Some(mut bg_color) = image {
-            widgets::update_ui_radio_button(&mut bg_color, selected);
-        }
-        if has_text {
-            widgets::update_ui_radio_button_text(entity, &mut writer, selected);
-        }
-    }
-}
-
-/// Handles a request from the user to change application settings via the UI.
-///
-/// This also handles clicks on the "Regenerate Top Mip Level" button.
-fn handle_app_setting_change(
-    mut events: MessageReader<WidgetClickEvent<AppSetting>>,
-    mut app_status: ResMut<AppStatus>,
+/// Handles the button activation of the `RegenerateTopMipLevelButton`.
+fn handle_regenerate_top_mip_level_activate(
+    event: On<Activate>,
+    q: Query<(), With<RegenerateTopMipLevelButton>>,
     mut regenerate_image_message_writer: MessageWriter<RegenerateImage>,
 ) {
-    for event in events.read() {
-        // If this is a setting, update the setting. Fall through if, in
-        // addition to updating the setting, we need to regenerate the image.
-        match **event {
-            AppSetting::EnableMipGeneration(enable_mip_generation) => {
-                app_status.enable_mip_generation = enable_mip_generation;
-                continue;
-            }
-
-            AppSetting::RegenerateTopMipLevel => {}
-            AppSetting::ImageWidth(image_size) => app_status.image_width = image_size,
-            AppSetting::ImageHeight(image_size) => app_status.image_height = image_size,
-        }
-
+    if q.contains(event.entity) {
         // Schedule the image to be regenerated.
         regenerate_image_message_writer.write(RegenerateImage);
     }
+}
+
+/// Handles a request from the user to change the enable mip generation setting via the UI.
+fn handle_enable_mip_generation_change(
+    event: On<ValueChange<Entity>>,
+    new_value_query: Query<&RadioButtonOptionValue<EnableMipGeneration>>,
+    mut app_status: ResMut<AppStatus>,
+) {
+    let Ok(RadioButtonOptionValue(enable_mip)) = new_value_query.get(event.value) else {
+        return;
+    };
+    app_status.enable_mip_generation = *enable_mip;
+
+    // Enabling mip generation does not trigger a request to regenerate the image.
+}
+
+/// Handles a request from the user to change the image size via the UI.
+fn handle_image_size_setting_change(
+    event: On<ValueChange<Entity>>,
+    new_value_query: Query<&RadioButtonOptionValue<ImageSizeSetting>>,
+    mut app_status: ResMut<AppStatus>,
+    mut regenerate_image_message_writer: MessageWriter<RegenerateImage>,
+) {
+    let Ok(RadioButtonOptionValue(size_setting)) = new_value_query.get(event.value) else {
+        return;
+    };
+
+    match *size_setting {
+        ImageSizeSetting::ImageWidth(image_size) => app_status.image_width = image_size,
+        ImageSizeSetting::ImageHeight(image_size) => app_status.image_height = image_size,
+    }
+
+    // Schedule the image to be regenerated.
+    regenerate_image_message_writer.write(RegenerateImage);
 }
 
 /// Handles resize events for the window.

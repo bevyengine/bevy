@@ -470,6 +470,7 @@ fn spawn_buttons(commands: &mut Commands, app_settings: &AppSettings) {
                     (SsrOn(true), "On"),
                     (SsrOn(false), "Off"),
                 ],
+                0,
             ),
             feathers_option_buttons(
                 "Model",
@@ -481,6 +482,7 @@ fn spawn_buttons(commands: &mut Commands, app_settings: &AppSettings) {
                     ),
                     (DisplayedModel::Capsules, "Capsules"),
                 ],
+                0,
             ),
             feathers_option_buttons(
                 "Base",
@@ -489,6 +491,7 @@ fn spawn_buttons(commands: &mut Commands, app_settings: &AppSettings) {
                     (DisplayedBase::Metallic, "Metallic"),
                     (DisplayedBase::RedPlane, "Red Plane"),
                 ],
+                0,
             ),
             range_row(
                 "Min Roughness",

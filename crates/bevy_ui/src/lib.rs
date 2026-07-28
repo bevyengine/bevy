@@ -191,7 +191,9 @@ impl Plugin for UiPlugin {
         app.add_systems(
             PostUpdate,
             (
-                propagate_ui_target_cameras.in_set(UiSystems::Prepare),
+                propagate_ui_target_cameras
+                    .in_set(UiSystems::Prepare)
+                    .before(bevy_app::TransformGizmoRenderStep),
                 ui_layout_system
                     .in_set(UiSystems::Layout)
                     .ambiguous_with(bevy_sprite::update_text2d_layout),
@@ -237,7 +239,6 @@ fn build_text_interop(app: &mut App) {
         PostUpdate,
         (
             widget::measure_text_system
-                .chain()
                 .after(detect_text_needs_rerender)
                 .after(bevy_text::load_font_assets_into_font_collection)
                 .in_set(UiSystems::Content)
