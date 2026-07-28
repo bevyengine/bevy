@@ -46,7 +46,7 @@ use crate::{
 #[derive(SceneComponent, FromTemplate)]
 #[scene(FeathersCheckboxProps)]
 #[derive(Reflect)]
-#[reflect(Component)]
+#[reflect(Component, SceneComponent, FromTemplate)]
 pub struct FeathersCheckbox;
 
 /// Props used to construct a [`FeathersCheckbox`] scene.

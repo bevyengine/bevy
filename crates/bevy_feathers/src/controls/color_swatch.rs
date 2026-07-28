@@ -9,6 +9,7 @@ use bevy_ecs::{
     query::Changed,
     reflect::ReflectComponent,
     system::{Commands, Query},
+    reflect::ReflectFromTemplate
 };
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::prelude::*;
@@ -26,12 +27,13 @@ use crate::{
 /// This is spawnable by inheriting it as a "scene component" with optional
 /// [`FeathersColorSwatchProps`].
 #[derive(SceneComponent, Default, Clone, Reflect)]
-#[reflect(Component, Clone, Default)]
+#[reflect(Component, Clone, Default, SceneComponent, FromTemplate)]
 #[scene(FeathersColorSwatchProps)]
 pub struct FeathersColorSwatch;
 
 /// Props used to construct a [`FeathersColorSwatch`] scene.
-#[derive(Default)]
+#[derive(Default, Reflect)]
+#[reflect(Default)]
 pub struct FeathersColorSwatchProps {
     /// Set a percentage of the swatch to display the opaque version of the
     /// current color.

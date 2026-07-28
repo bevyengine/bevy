@@ -11,7 +11,7 @@ use bevy_ecs::{
     hierarchy::Children,
     lifecycle::RemovedComponents,
     query::{Added, Changed, Has, Or, Spawned, With},
-    reflect::ReflectComponent,
+    reflect::{ReflectComponent, ReflectFromTemplate},
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res},
 };
@@ -51,10 +51,12 @@ use crate::{
 #[derive(SceneComponent, Default, Clone, Reflect)]
 #[scene(FeathersSliderProps)]
 #[require(Slider)]
-#[reflect(Component, Clone, Default)]
+#[reflect(Component, Clone, Default, SceneComponent, FromTemplate)]
 pub struct FeathersSlider;
 
 /// Props used to construct the [`FeathersSlider`] scene.
+#[derive(Reflect)]
+#[reflect(Default)]
 pub struct FeathersSliderProps {
     /// Slider minimum value
     pub min: f32,

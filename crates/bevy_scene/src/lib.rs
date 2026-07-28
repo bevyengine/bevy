@@ -901,7 +901,7 @@ pub mod prelude {
     pub use crate::{
         bsn, bsn_list, on, template_value, CommandsSceneExt, EntityCommandsSceneExt,
         EntityWorldMutSceneExt, PatchFromTemplate, PatchTemplate, Scene, SceneComponent, SceneList,
-        ScenePatchInstance, SpawnListSystem, SpawnSystem, WorldSceneExt,
+        ScenePatchInstance, SpawnListSystem, SpawnSystem, WorldSceneExt, reflect::ReflectSceneComponent
     };
 }
 
@@ -919,6 +919,7 @@ mod spawn;
 mod spawn_system;
 mod reflect;
 
+pub use reflect::*;
 pub use resolved_scene::*;
 pub use scene::*;
 pub use scene_component::*;

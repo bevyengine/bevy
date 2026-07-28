@@ -57,7 +57,7 @@ pub enum ButtonVariant {
 #[derive(SceneComponent, Default, Clone)]
 #[scene(FeathersButtonProps)]
 #[derive(Reflect)]
-#[reflect(Component, Clone, Default)]
+#[reflect(Component, Clone, Default, SceneComponent, FromTemplate)]
 pub struct FeathersButton;
 
 /// Props used to construct a [`FeathersButton`] scene.
@@ -124,7 +124,7 @@ impl FeathersButton {
 #[derive(SceneComponent, Default, Clone)]
 #[scene(FeathersButtonProps)]
 #[derive(Reflect)]
-#[reflect(Component, Clone, Default)]
+#[reflect(Component, Clone, Default, SceneComponent, FromTemplate)]
 pub struct FeathersToolButton;
 
 impl FeathersToolButton {

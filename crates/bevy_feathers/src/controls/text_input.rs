@@ -5,7 +5,7 @@ use bevy_ecs::{
     entity::Entity,
     lifecycle::RemovedComponents,
     query::{Added, Has, With},
-    reflect::ReflectComponent,
+    reflect::{ReflectComponent, ReflectFromTemplate},
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res},
     template::template,
@@ -36,7 +36,7 @@ use crate::{
 ///
 /// This is spawnable by inheriting it as a "scene component".
 #[derive(SceneComponent, Default, Clone, Reflect)]
-#[reflect(Component, Default, Clone)]
+#[reflect(Component, Default, Clone, SceneComponent, FromTemplate)]
 pub struct FeathersTextInputContainer;
 
 impl FeathersTextInputContainer {
@@ -81,11 +81,12 @@ impl FeathersTextInputContainer {
 #[derive(SceneComponent, Default, Clone)]
 #[scene(FeathersTextInputProps)]
 #[derive(Reflect)]
-#[reflect(Component, Default, Clone)]
+#[reflect(Component, Default, Clone, SceneComponent, FromTemplate)]
 pub struct FeathersTextInput;
 
 /// Props used to construct the [`FeathersTextInput`] scene.
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Reflect)]
+#[reflect(Default)]
 pub struct FeathersTextInputProps {
     /// Visible width
     pub visible_width: Option<f32>,

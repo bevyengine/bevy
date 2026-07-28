@@ -10,7 +10,7 @@ use bevy_ecs::{
     entity::Entity,
     hierarchy::Children,
     query::{Changed, Or, With},
-    reflect::ReflectComponent,
+    reflect::{ReflectComponent, ReflectFromTemplate},
     schedule::IntoScheduleConfigs,
     system::Query,
 };
@@ -160,11 +160,12 @@ pub struct SliderBaseColor(pub Color);
 #[derive(SceneComponent, Default, Clone)]
 #[scene(FeathersColorSliderProps)]
 #[derive(Reflect)]
-#[reflect(Component, Default, Clone)]
+#[reflect(Component, Default, Clone, SceneComponent, FromTemplate)]
 pub struct FeathersColorSlider;
 
 /// Props used to construct a [`FeathersColorSlider`] scene.
-#[derive(Clone)]
+#[derive(Clone, Reflect)]
+#[reflect(Default)]
 pub struct FeathersColorSliderProps {
     /// Slider current value
     pub value: f32,

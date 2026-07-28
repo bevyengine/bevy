@@ -9,7 +9,7 @@ use bevy_ecs::{
     hierarchy::Children,
     lifecycle::RemovedComponents,
     query::{Added, Changed, Has, Or, With},
-    reflect::ReflectComponent,
+    reflect::{ReflectComponent, ReflectFromTemplate},
     schedule::IntoScheduleConfigs,
     system::{Commands, Query},
     world::Mut,
@@ -40,7 +40,7 @@ use crate::{
 ///
 /// These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the bundle
 #[derive(SceneComponent, Default, Clone, Reflect)]
-#[reflect(Component, Clone, Default)]
+#[reflect(Component, Clone, Default, SceneComponent, FromTemplate)]
 pub struct FeathersToggleSwitch;
 
 impl FeathersToggleSwitch {

@@ -35,7 +35,7 @@ use crate::{
 /// A container that displays a scrolling list of items
 #[derive(SceneComponent, Default, Clone, Reflect)]
 #[scene(FeathersListViewProps)]
-#[reflect(Component, Clone, Default)]
+#[reflect(Component, Clone, Default, SceneComponent, FromTemplate)]
 pub struct FeathersListView;
 
 /// Props used to construct a [`FeathersListView`] scene.
@@ -104,7 +104,7 @@ impl FeathersListView {
 
 /// A selectable row in a list of items
 #[derive(SceneComponent, Default, Clone, Reflect)]
-#[reflect(Component, Clone, Default)]
+#[reflect(Component, Clone, Default, SceneComponent, FromTemplate)]
 pub struct FeathersListRow;
 
 impl FeathersListRow {
