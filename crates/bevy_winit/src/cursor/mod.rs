@@ -13,23 +13,11 @@ use bevy_asset::Assets;
 use bevy_ecs::{entity::EntityHashSet, prelude::*, system::SystemState};
 #[cfg(feature = "custom_cursor")]
 use bevy_image::{Image, TextureAtlasLayout};
-use bevy_reflect::Reflect;
 #[cfg(feature = "custom_cursor")]
 use bevy_window::CustomCursor;
-use bevy_window::{CursorIcon, SystemCursorIcon, Window};
+use bevy_window::{CursorIcon, CursorSystems, SystemCursorIcon, Window};
 #[cfg(feature = "custom_cursor")]
 use winit::event_loop::ActiveEventLoop;
-
-/// System sets for cursor-related systems.
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet, Reflect)]
-pub enum CursorSystems {
-    /// Reads changes to [`CursorIcon`] and queues the corresponding cursor to
-    /// be applied to the window by the winit event loop.
-    ///
-    /// Order your systems before this set to set [`CursorIcon`] and have it
-    /// take effect on the same frame.
-    Update,
-}
 
 /// Adds support for custom cursors.
 pub(crate) struct WinitCursorPlugin;
