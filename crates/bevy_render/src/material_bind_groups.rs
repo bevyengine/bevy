@@ -14,7 +14,7 @@ use bevy_ecs::{
 };
 use bevy_platform::collections::{hash_map::Entry, HashMap, HashSet};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_utils::{default, TypeIdMap};
+use bevy_utils::{default, TypeIdHashMap};
 use bytemuck::{Pod, Zeroable};
 use core::hash::Hash;
 use core::{cmp::Ordering, iter, mem, ops::Range};
@@ -49,7 +49,7 @@ use crate::{
 pub struct MaterialBindGroupPlugin;
 
 #[derive(Resource, Deref, DerefMut, Default)]
-pub struct MaterialBindGroupAllocators(TypeIdMap<MaterialBindGroupAllocator>);
+pub struct MaterialBindGroupAllocators(TypeIdHashMap<MaterialBindGroupAllocator>);
 
 /// A resource that maps each untyped material ID to its binding.
 ///

@@ -32,6 +32,7 @@ pub mod resolve;
 
 /// Used to identify which camera will use OIT to render transparent meshes
 /// and to configure OIT.
+/// See [`OrderIndependentTransparencyPlugin`] for more details.
 // TODO consider supporting multiple OIT techniques like WBOIT, Moment Based OIT,
 // depth peeling, stochastic transparency, ray tracing etc.
 // This should probably be done by adding an enum to this component.
@@ -67,7 +68,8 @@ impl Default for OrderIndependentTransparencySettings {
 /// A plugin that adds support for Order Independent Transparency (OIT).
 /// This can correctly render some scenes that would otherwise have artifacts due to alpha blending, but uses more memory.
 ///
-/// To enable OIT for a camera you need to add the [`OrderIndependentTransparencySettings`] component to it.
+/// To enable OIT you need to add the [`OrderIndependentTransparencySettings`] component to the camera and set `Material::enable_oit` to true.
+/// Currently the supported alpha modes are `AlphaMode::Blend`, `AlphaMode::Premultiplied` and `AlphaMode::Add`.
 ///
 /// If you want to use OIT for your custom material you need to call `oit_draw(position, color)` in your fragment shader.
 /// You also need to make sure that your fragment shader doesn't output any colors.

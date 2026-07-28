@@ -52,7 +52,6 @@ git checkout v0.4.0
   - [Embedded](#embedded)
   - [Games](#games)
   - [Gizmos](#gizmos)
-  - [Helpers](#helpers)
   - [Input](#input)
   - [Math](#math)
   - [Movement](#movement)
@@ -395,12 +394,6 @@ Example | Description
 [Text Gizmos Font](../examples/gizmos/text_gizmos_font.rs) | Example displaying the font used by text gizmos
 [Transform Gizmo](../examples/gizmos/transform_gizmo.rs) | Interactive transform gizmo for translating, rotating, and scaling entities
 
-### Helpers
-
-Example | Description
---- | ---
-[Widgets](../examples/helpers/widgets.rs) | Example UI Widgets
-
 ### Input
 
 Example | Description
@@ -455,6 +448,7 @@ Example | Description
 [Dynamic Types](../examples/reflection/dynamic_types.rs) | How dynamic types are used with reflection
 [Function Reflection](../examples/reflection/function_reflection.rs) | Demonstrates how functions can be called dynamically using reflection
 [Generic Reflection](../examples/reflection/generic_reflection.rs) | Registers concrete instances of generic types that may be used with reflection
+[Mutation by Reflection](../examples/reflection/mutation_by_reflection.rs) | Demonstrates how to mutate abstract or non-Rust data at runtime using reflection
 [Reflection](../examples/reflection/reflection.rs) | Demonstrates how reflection in Bevy provides a way to dynamically interact with Rust types
 [Reflection Types](../examples/reflection/reflection_types.rs) | Illustrates the various reflection types available
 [Serialization](../examples/reflection/serialization.rs) | Demonstrates serialization and deserialization using reflection without serde's Serialize/Deserialize traits

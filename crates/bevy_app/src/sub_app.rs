@@ -1,7 +1,7 @@
-use crate::{App, AppLabel, InternedAppLabel, Plugin, Plugins, PluginsState};
+use crate::{App, AppLabel, First, InternedAppLabel, Plugin, Plugins, PluginsState};
 use alloc::{boxed::Box, string::String, vec::Vec};
 use bevy_ecs::{
-    message::MessageRegistry,
+    message::{message_update_system, MessageRegistry},
     observer::IntoObserver,
     prelude::*,
     schedule::{
@@ -88,9 +88,17 @@ impl Debug for SubApp {
 }
 
 impl Default for SubApp {
+    /// As part of default initialization, we schedule a [`message_update_system`] in [`First`].
+    /// We expect all [`SubApp`] implementations to schedule [`First`] regularly.
     fn default() -> Self {
         let mut world = World::new();
         world.init_resource::<Schedules>();
+        world.resource_mut::<Schedules>().add_systems(
+            First,
+            message_update_system
+                .in_set(bevy_ecs::message::MessageUpdateSystems)
+                .run_if(bevy_ecs::message::message_update_condition),
+        );
         Self {
             world,
             plugin_registry: Vec::default(),
@@ -598,5 +606,44 @@ impl SubApps {
             sub_app.extract(&mut self.main.world);
             sub_app.update();
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn sub_app_add_message_schedules_update_system() {
+        use crate::{First, SubApp};
+        use bevy_ecs::message::Messages;
+        use bevy_ecs::prelude::Message;
+        use bevy_ecs::schedule::ScheduleLabel;
+
+        #[derive(Message, Clone, Copy)]
+        struct TestMsg;
+
+        // Wire the sub-app to actually run `First` each update so the test
+        // does not silently pass simply because nothing in the schedule runs.
+        let mut sub_app = SubApp {
+            update_schedule: Some(First.intern()),
+            ..Default::default()
+        };
+
+        sub_app.add_message::<TestMsg>();
+
+        {
+            let mut msgs = sub_app.world_mut().resource_mut::<Messages<TestMsg>>();
+            msgs.write(TestMsg);
+            msgs.write(TestMsg);
+        }
+
+        assert_eq!(sub_app.world().resource::<Messages<TestMsg>>().len(), 2);
+
+        // Two updates will let the double buffer rotate twice and drop
+        // the events. As long as a `message_update_system` is set up,
+        // the following assertion should pass.
+        sub_app.update();
+        sub_app.update();
+
+        assert_eq!(sub_app.world().resource::<Messages<TestMsg>>().len(), 0);
     }
 }

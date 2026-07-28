@@ -2,7 +2,7 @@
 //! and control groups.
 
 use bevy_reflect::Reflect;
-use bevy_ui::{px, BorderRadius, Val};
+use bevy_ui::{px, BorderRadius, Val2};
 
 /// Allows specifying which corners are rounded and which are sharp. All rounded corners
 /// have the same radius. Not all combinations are supported, only the ones that make
@@ -40,8 +40,8 @@ pub enum RoundedCorners {
 impl RoundedCorners {
     /// Convert the `RoundedCorners` to a `BorderRadius` for use in a `Node`.
     pub fn to_border_radius(&self, radius: f32) -> BorderRadius {
-        let radius = px(radius);
-        let zero = Val::ZERO;
+        let radius = Val2::all(px(radius));
+        let zero = Val2::ZERO;
         match self {
             RoundedCorners::None => BorderRadius::all(zero),
             RoundedCorners::All => BorderRadius::all(radius),

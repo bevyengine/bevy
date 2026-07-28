@@ -15,14 +15,16 @@ fn vertex(
     @location(1) vertex_uv: vec2<f32>,
     @location(2) size: vec2<f32>,
     @location(3) border_widths: vec4<f32>,
-    @location(4) border_radius: vec4<f32>,
+    @location(4) border_radius_x: vec4<f32>,
+    @location(5) border_radius_y: vec4<f32>,
 ) -> UiVertexOutput {
     var out: UiVertexOutput;
     out.uv = vertex_uv;
     out.position = view.clip_from_world * vec4<f32>(vertex_position, 1.0);
     out.size = size;
     out.border_widths = border_widths;
-    out.border_radius = border_radius;
+    out.border_radius_x = border_radius_x;
+    out.border_radius_y = border_radius_y;
     return out;
 }
 

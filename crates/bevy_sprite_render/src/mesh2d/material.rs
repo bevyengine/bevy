@@ -40,6 +40,7 @@ use bevy_render::material_bind_groups::{
     material_uses_bindless_resources, MaterialBindGroupAllocators, MaterialBindingId,
     RenderMaterialBindings,
 };
+use bevy_render::sync_world::MainEntityHashSet;
 use bevy_render::view::{RenderVisibleEntities, RetainedViewEntity};
 use bevy_render::{
     mesh::RenderMesh,
@@ -966,6 +967,7 @@ pub fn queue_material2d_meshes(
     dirty_specializations: Res<DirtySpecializations>,
     mut pending_mesh_material2d_queues: ResMut<PendingMeshMaterial2dQueues>,
     specialized_material_pipeline_cache: ResMut<SpecializedMaterial2dPipelineCache>,
+    mut mesh_instances_queued_this_iteration_scratch_space: Local<MainEntityHashSet>,
 ) {
     if render_material_instances.is_empty() {
         return;
@@ -1027,6 +1029,7 @@ pub fn queue_material2d_meshes(
             view.retained_view_entity,
             visible_entities,
             &view_pending_mesh_material2d_queues.prev_frame,
+            &mut mesh_instances_queued_this_iteration_scratch_space,
         ) {
             let Some(pipeline_id) = view_specialized_material_pipeline_cache
                 .get(visible_entity)
@@ -1267,6 +1270,7 @@ where
                 prepass_specialize: None,
                 shadows_enabled: false,
                 prepass_enabled: false,
+                oit_enabled: false,
             }),
         })
     }
