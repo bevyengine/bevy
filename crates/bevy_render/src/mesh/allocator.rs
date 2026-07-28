@@ -254,8 +254,8 @@ pub fn allocate_and_free_meshes(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
 ) {
-    // Clear list of meshes that have moved buffers.
-    mesh_allocator.clear_moved_keys();
+    // Clear the list of meshes displaced by last frame's slab growth.
+    mesh_allocator.clear_displaced_keys();
 
     // Process removed or modified meshes.
     mesh_allocator.free_meshes(&extracted_meshes);
@@ -282,20 +282,21 @@ impl MeshAllocator {
         )
     }
 
-    /// Meshes whose vertex or index data has moved to a different buffer this frame, so that
-    /// anything caching those buffers can rebuild just the affected entries.
+    /// Meshes that had the buffer under their vertex or index data replaced this frame by a slab
+    /// they were already resident in growing, so that anything caching those buffers can rebuild
+    /// just the affected entries.
     ///
-    /// A mesh can show up here without having changed in any way of its own: growing a slab
-    /// replaces the buffer for every mesh resident in it. Similarly, modifying a mesh does not
-    /// necessarily mean it will move to a different buffer. See [`SlabAllocator::moved_keys`] for
-    /// what does and does not get reported.
+    /// **It is not the full set of meshes whose buffers changed this frame, and is not meant to be.**
+    /// Callers must handle [`ExtractedAssets`] themselves if they want the full set of changed buffers.
     ///
     /// A mesh is yielded twice if both its vertex and its index slab grew, since those are separate
     /// allocations, so deduplicate if repeating the work per mesh would be expensive.
     ///
     /// Morph target and metadata allocations are filtered out.
-    pub fn meshes_with_changed_buffers_this_frame(&self) -> impl Iterator<Item = AssetId<Mesh>> {
-        self.moved_keys()
+    ///
+    /// See [`SlabAllocator::keys_displaced_by_slab_growth`], which this wraps.
+    pub fn meshes_displaced_by_slab_growth(&self) -> impl Iterator<Item = AssetId<Mesh>> {
+        self.keys_displaced_by_slab_growth()
             .iter()
             .filter(|key| matches!(key.class, ElementClass::Vertex | ElementClass::Index))
             .map(|key| key.mesh_id)
