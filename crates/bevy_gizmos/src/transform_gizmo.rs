@@ -156,6 +156,8 @@ pub struct TransformGizmoSettings {
     pub confine_cursor: bool,
     /// Screen-space scale factor. Set to 0.0 to disable constant-size behavior.
     pub screen_scale_factor: f32,
+    /// Scale sensitivity factor for the scale handle.
+    pub scale_sensitivity: f32,
 }
 
 impl Default for TransformGizmoSettings {
@@ -171,6 +173,7 @@ impl Default for TransformGizmoSettings {
             snap_scale: None,
             confine_cursor: true,
             screen_scale_factor: 0.1,
+            scale_sensitivity: 1.0,
         }
     }
 }
@@ -386,7 +389,6 @@ fn transform_gizmo_hover(
             )
         }
         TransformGizmoMode::Scale => {
-            // View handle: uniform scale via a center handle
             if let Ok(center_screen) = camera.world_to_viewport(cam_tf, gizmo_pos) {
                 (cursor_pos - center_screen).length()
             } else {
@@ -585,10 +587,19 @@ fn transform_gizmo_drag(
                 let cursor_projected = (intersection - gizmo_origin).dot(projection_dir);
                 let start_projected = (state.drag_start_world - gizmo_origin).dot(projection_dir);
 
-                let scale_factor = if start_projected.abs() > f32::EPSILON {
-                    cursor_projected / start_projected
-                } else {
-                    1.0
+                let scale_factor = match axis {
+                    TransformGizmoAxis::X | TransformGizmoAxis::Y | TransformGizmoAxis::Z => {
+                        if start_projected.abs() > f32::EPSILON {
+                            let ratio = cursor_projected / start_projected;
+                            1.0 + (ratio - 1.0) * settings.scale_sensitivity
+                        } else {
+                            1.0
+                        }
+                    }
+                    TransformGizmoAxis::View => {
+                        let delta = cursor_projected - start_projected;
+                        (delta * settings.scale_sensitivity).exp()
+                    }
                 };
 
                 let mut new_scale = state.start_transform.scale;
