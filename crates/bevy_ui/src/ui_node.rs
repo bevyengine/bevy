@@ -460,7 +460,6 @@ impl From<BVec2> for IgnoreScroll {
 /// # See also
 ///
 /// - [`RelativeCursorPosition`](crate::RelativeCursorPosition) to obtain the cursor position relative to this node
-/// - [`Interaction`](crate::Interaction) to obtain the interaction state of this node
 
 #[derive(Component, Clone, PartialEq, Debug, Reflect)]
 #[require(
@@ -2339,14 +2338,15 @@ impl Default for BorderColor {
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ui::prelude::*;
+/// # use bevy_picking::hover::Hovered;
 /// # use bevy_color::Color;
 /// fn outline_hovered_button_system(
 ///     mut commands: Commands,
-///     mut node_query: Query<(Entity, &Interaction, Option<&mut Outline>), Changed<Interaction>>,
+///     mut node_query: Query<(Entity, &Hovered, Option<&mut Outline>), Changed<Hovered>>,
 /// ) {
-///     for (entity, interaction, mut maybe_outline) in node_query.iter_mut() {
+///     for (entity, hovered, mut maybe_outline) in node_query.iter_mut() {
 ///         let outline_color =
-///             if matches!(*interaction, Interaction::Hovered) {
+///             if hovered.get() {
 ///                 Color::WHITE
 ///             } else {
 ///                 Color::NONE
