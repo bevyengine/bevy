@@ -154,7 +154,7 @@ impl Plugin for UiPlugin {
                     UiSystems::Layout,
                     UiSystems::PostLayout,
                 )
-                    .chain(),
+                    .chain_weak(),
             )
             .configure_sets(
                 PostUpdate,
