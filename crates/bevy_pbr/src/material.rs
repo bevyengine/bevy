@@ -1201,12 +1201,16 @@ pub fn queue_material_meshes(
     mut transmissive_render_phases: ResMut<ViewSortedRenderPhases<Transmissive3d>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
     mut pending_mesh_material_queues: ResMut<PendingMeshMaterialQueues>,
-    views: Query<(&ExtractedView, &RenderVisibleEntities)>,
+    views: Query<(
+        &ExtractedView,
+        &RenderVisibleEntities,
+        Has<ScreenSpaceTransmission>,
+    )>,
     specialized_material_pipeline_cache: ResMut<SpecializedMaterialPipelineCache>,
     dirty_specializations: Res<DirtySpecializations>,
     mut mesh_instances_queued_this_iteration_scratch_space: Local<MainEntityHashSet>,
 ) {
-    for (view, visible_entities) in &views {
+    for (view, visible_entities, has_transmission) in &views {
         let (
             Some(opaque_phase),
             Some(alpha_mask_phase),
@@ -1294,8 +1298,8 @@ pub fn queue_material_meshes(
                 continue;
             };
 
-            match material.properties.render_phase_type {
-                RenderPhaseType::Transmissive => {
+            match (material.properties.render_phase_type, has_transmission) {
+                (RenderPhaseType::Transmissive, true) => {
                     let Some(draw_function) = material
                         .properties
                         .get_draw_function(MainPassTransmissiveDrawFunction)
@@ -1328,7 +1332,7 @@ pub fn queue_material_meshes(
                         distance: 0.0,
                     });
                 }
-                RenderPhaseType::Opaque => {
+                (RenderPhaseType::Opaque, _) => {
                     if material.properties.render_method == OpaqueRendererMethod::Deferred {
                         // Even though we aren't going to insert the entity into
                         // a bin, we still want to update its cache entry. That
@@ -1368,7 +1372,7 @@ pub fn queue_material_meshes(
                     );
                 }
                 // Alpha mask
-                RenderPhaseType::AlphaMask => {
+                (RenderPhaseType::AlphaMask, _) => {
                     let Some(draw_function) = material
                         .properties
                         .get_draw_function(MainPassAlphaMaskDrawFunction)
@@ -1395,7 +1399,7 @@ pub fn queue_material_meshes(
                         ),
                     );
                 }
-                RenderPhaseType::Transparent => {
+                (RenderPhaseType::Transparent, _) | (RenderPhaseType::Transmissive, false) => {
                     let Some(draw_function) = material
                         .properties
                         .get_draw_function(MainPassTransparentDrawFunction)
@@ -1704,16 +1708,9 @@ where
             OpaqueRendererMethod::Deferred => OpaqueRendererMethod::Deferred,
             OpaqueRendererMethod::Auto => default_opaque_render_method.0,
         };
+        let reads_view_transmission_texture = material.reads_view_transmission_texture();
 
-        let mut mesh_pipeline_key_bits = MeshPipelineKey::empty();
-        mesh_pipeline_key_bits.set(
-            MeshPipelineKey::READS_VIEW_TRANSMISSION_TEXTURE,
-            material.reads_view_transmission_texture(),
-        );
-
-        let reads_view_transmission_texture =
-            mesh_pipeline_key_bits.contains(MeshPipelineKey::READS_VIEW_TRANSMISSION_TEXTURE);
-
+        let mesh_pipeline_key_bits = MeshPipelineKey::empty();
         let mesh_pipeline_key_bits = ErasedMeshPipelineKey::new(mesh_pipeline_key_bits);
 
         let render_phase_type = match material.alpha_mode() {
