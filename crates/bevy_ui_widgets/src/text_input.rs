@@ -1110,7 +1110,10 @@ mod tests {
             .spawn((Window::default(), PrimaryWindow))
             .id();
 
-        let editable_text = app.world_mut().spawn(EditableText::default()).id();
+        let editable_text = app
+            .world_mut()
+            .spawn((TextInput, EditableText::default()))
+            .id();
         app.world_mut().entity_mut(window).observe(
             move |input: On<FocusedInput<KeyboardInput>>, mut saw: ResMut<WindowSawEscape>| {
                 if matches!(input.input.logical_key, Key::Escape) && input.input.state.is_pressed()
