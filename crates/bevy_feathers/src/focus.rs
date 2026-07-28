@@ -15,7 +15,10 @@ use bevy_platform::collections::HashSet;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_ui::{px, Outline, UiSystems};
 
-use crate::{theme::UiTheme, tokens};
+use crate::{
+    theme::{SurfaceLevel, UiTheme},
+    tokens,
+};
 
 /// A marker component which indicates that this entity should display a visible focus outline
 /// when either it, or its ancestor, are focused. Insert this into a widget on the entity that
@@ -56,7 +59,7 @@ fn manage_focus_indicators(
         {
             if q_indicators.contains(entity) {
                 commands.entity(entity).insert(Outline {
-                    color: theme.color(&tokens::FOCUS_RING),
+                    color: theme.context_color(&tokens::FOCUS_RING, SurfaceLevel::Base),
                     width: px(2),
                     offset: px(2),
                 });
@@ -71,7 +74,7 @@ fn manage_focus_indicators(
         {
             if q_within_indicators.contains(entity) {
                 commands.entity(entity).insert(Outline {
-                    color: theme.color(&tokens::FOCUS_RING),
+                    color: theme.context_color(&tokens::FOCUS_RING, SurfaceLevel::Base),
                     width: px(2),
                     offset: px(2),
                 });
