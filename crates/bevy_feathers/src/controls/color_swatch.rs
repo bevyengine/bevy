@@ -8,8 +8,8 @@ use bevy_ecs::{
     hierarchy::Children,
     query::Changed,
     reflect::ReflectComponent,
+    reflect::ReflectFromTemplate,
     system::{Commands, Query},
-    reflect::ReflectFromTemplate
 };
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::prelude::*;

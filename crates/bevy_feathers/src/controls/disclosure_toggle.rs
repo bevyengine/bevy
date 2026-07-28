@@ -13,7 +13,7 @@ use bevy_math::Rot2;
 use bevy_picking::PickingSystems;
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
-use bevy_scene::{bsn, Scene, SceneComponent, ReflectSceneComponent};
+use bevy_scene::{bsn, ReflectSceneComponent, Scene, SceneComponent};
 use bevy_ui::{
     px, AlignItems, Checked, Display, InteractionDisabled, JustifyContent, Node, UiTransform,
 };

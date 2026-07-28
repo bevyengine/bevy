@@ -2,7 +2,7 @@ use core::marker::PhantomData;
 
 use bevy_ecs::prelude::*;
 use bevy_input_focus::tab_navigation::TabGroup;
-use bevy_reflect::{Reflect, std_traits::ReflectDefault, FromReflect, GetTypeRegistration, Typed};
+use bevy_reflect::{std_traits::ReflectDefault, FromReflect, GetTypeRegistration, Reflect, Typed};
 use bevy_scene::prelude::*;
 use bevy_ui::{px, widget::Text, FlexDirection, Node};
 use bevy_ui_widgets::{observe, Activate};
@@ -21,7 +21,9 @@ use crate::controls::{button::ButtonBundleProps, button_bundle, FeathersButton};
 #[scene(VirtualKeyboardProps<T>)]
 #[derive(Reflect)]
 #[reflect(Component, SceneComponent, FromTemplate)]
-pub struct VirtualKeyboard<T: FromReflect + GetTypeRegistration + Typed + AsRef<str> + Clone + Send + Sync + 'static>(PhantomData<fn() -> T>);
+pub struct VirtualKeyboard<
+    T: FromReflect + GetTypeRegistration + Typed + AsRef<str> + Clone + Send + Sync + 'static,
+>(PhantomData<fn() -> T>);
 
 /// Props used to construct the [`VirtualKeyboard`] scene.
 #[derive(Reflect)]
@@ -39,7 +41,9 @@ impl<T> Default for VirtualKeyboardProps<T> {
     }
 }
 
-impl<T: FromReflect + GetTypeRegistration + Typed + AsRef<str> + Clone + Send + Sync + 'static> VirtualKeyboard<T> {
+impl<T: FromReflect + GetTypeRegistration + Typed + AsRef<str> + Clone + Send + Sync + 'static>
+    VirtualKeyboard<T>
+{
     fn scene(props: VirtualKeyboardProps<T>) -> impl Scene {
         let keys = Vec::from_iter(props.keys.into_iter().map(move |row| {
             let key_row = Vec::from_iter(row.into_iter().map(move |key| {
