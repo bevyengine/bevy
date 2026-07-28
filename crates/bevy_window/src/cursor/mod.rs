@@ -27,7 +27,7 @@ pub use crate::cursor::{CustomCursor, CustomCursorImage};
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet, Reflect)]
 pub enum CursorSystems {
     /// Reads changes to [`CursorIcon`] and queues the corresponding cursor to
-    /// be applied to the window by the winit event loop.
+    /// be applied to the window by the windowing backend.
     ///
     /// Order your systems before this set to set [`CursorIcon`] and have it
     /// take effect on the same frame.
