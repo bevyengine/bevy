@@ -73,7 +73,7 @@ struct Args {
     ordered_z: bool,
 
     /// the alpha mode used to spawn the sprites
-    #[argh(option, default = "AlphaMode::Blend")]
+    #[argh(option, default = "AlphaMode::Mixed")]
     alpha_mode: AlphaMode,
 
     /// the main pass mode used for core2d
@@ -477,7 +477,7 @@ fn spawn_birds(
             commands.spawn_batch(batch);
         }
         Mode::SpriteMesh => {
-            let alpha_mode = match args.alpha_mode {
+            let mut get_alpha_mode = || match args.alpha_mode {
                 AlphaMode::Opaque => SpriteAlphaMode::Opaque,
                 AlphaMode::Blend => SpriteAlphaMode::Blend,
                 AlphaMode::AlphaMask => SpriteAlphaMode::Mask(0.5),
@@ -524,7 +524,7 @@ fn spawn_birds(
                                 .unwrap()
                                 .clone(),
                             color,
-                            alpha_mode,
+                            alpha_mode: get_alpha_mode(),
                             ..default()
                         },
                         transform,
@@ -691,7 +691,7 @@ fn init_materials(
     .max(1);
 
     let mut alpha_mode_rng = ChaCha8Rng::seed_from_u64(900);
-    let alpha_mode = match args.alpha_mode {
+    let mut get_alpha_mode = || match args.alpha_mode {
         AlphaMode::Opaque => AlphaMode2d::Opaque,
         AlphaMode::Blend => AlphaMode2d::Blend,
         AlphaMode::AlphaMask => AlphaMode2d::Mask(0.5),
@@ -709,7 +709,7 @@ fn init_materials(
     materials.push(assets.add(ColorMaterial {
         color: Color::WHITE,
         texture: textures.first().cloned(),
-        alpha_mode,
+        alpha_mode: get_alpha_mode(),
         ..default()
     }));
 
@@ -722,7 +722,7 @@ fn init_materials(
             assets.add(ColorMaterial {
                 color: Color::srgb_u8(color_rng.random(), color_rng.random(), color_rng.random()),
                 texture: textures.choose(&mut texture_rng).cloned(),
-                alpha_mode,
+                alpha_mode: get_alpha_mode(),
                 ..default()
             })
         })
