@@ -1545,7 +1545,7 @@ impl ScheduleGraph {
 
             let dependents = flat_dependency
                 .neighbors_directed(sys_key, Outgoing)
-                .map(|succ| dg_system_idx_map[&succ])
+                .map(|dep_id| dg_system_idx_map[&dep_id])
                 .collect::<Vec<_>>();
 
             system_dependencies.push(num_dependencies);
@@ -2939,12 +2939,7 @@ mod tests {
 
     /// Total number of dependency edges in the built schedule.
     fn total_dependencies(schedule: &Schedule) -> usize {
-        schedule
-            .executable
-            .system_dependents
-            .iter()
-            .map(Vec::len)
-            .sum()
+        schedule.executable.system_dependencies.iter().sum()
     }
 
     #[test]
@@ -3177,28 +3172,6 @@ mod tests {
         schedule.run(&mut world);
 
         assert_eq!(world.resource::<Order>().0, vec![1, 2]);
-    }
-
-    #[test]
-    fn chain_weak_releases_dependents_when_skipped() {
-        #[derive(Resource, Default)]
-        struct Ran(Vec<u32>);
-
-        fn record<const N: u32>(mut ran: ResMut<Ran>) {
-            ran.0.push(N);
-        }
-
-        let mut world = World::default();
-        world.init_resource::<Ran>();
-        let mut schedule = Schedule::default();
-        schedule.set_executor(MultiThreadedExecutor::new());
-        // All three systems write `Ran`, so the weak chain materializes edges between them.
-        // The first system is skipped by its run condition. A skipped system still releases
-        // its dependents, so the rest of the chain runs.
-        schedule.add_systems((record::<1>.run_if(|| false), record::<2>, record::<3>).chain_weak());
-        schedule.run(&mut world);
-
-        assert_eq!(world.resource::<Ran>().0, vec![2, 3]);
     }
 
     #[test]

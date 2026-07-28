@@ -436,6 +436,12 @@ pub trait IntoScheduleConfigs<T: Schedulable<Metadata = GraphInfo, GroupMetadata
     ///
     /// Dependencies the scheduler can't see (interior mutability on read-only accesses, global state, etc.)
     /// are **not** respected, so only use this when the systems don't rely on such hidden data dependencies.
+    ///
+    /// A weak ordering cannot be combined with an
+    /// [`ignore_deferred`](Self::before_ignore_deferred) one on a single edge. Configuring both
+    /// for the same pair adds a strict ordering alongside the weak one, and a strict ordering
+    /// always wins: the ordering is kept even between systems that don't conflict, just without
+    /// the sync point.
     fn before_weak<M>(self, set: impl IntoSystemSet<M>) -> ScheduleConfigs<T> {
         self.into_configs().before_weak(set)
     }
@@ -456,6 +462,12 @@ pub trait IntoScheduleConfigs<T: Schedulable<Metadata = GraphInfo, GroupMetadata
     ///
     /// Dependencies the scheduler can't see (interior mutability on read-only accesses, global state, etc.)
     /// are **not** respected, so only use this when the systems don't rely on such hidden data dependencies.
+    ///
+    /// A weak ordering cannot be combined with an
+    /// [`ignore_deferred`](Self::after_ignore_deferred) one on a single edge. Configuring both
+    /// for the same pair adds a strict ordering alongside the weak one, and a strict ordering
+    /// always wins: the ordering is kept even between systems that don't conflict, just without
+    /// the sync point.
     fn after_weak<M>(self, set: impl IntoSystemSet<M>) -> ScheduleConfigs<T> {
         self.into_configs().after_weak(set)
     }
@@ -581,6 +593,12 @@ pub trait IntoScheduleConfigs<T: Schedulable<Metadata = GraphInfo, GroupMetadata
     ///
     /// Dependencies the scheduler can't see (interior mutability on read-only accesses, global state, etc.)
     /// are **not** respected, so only use this when the systems don't rely on such hidden data dependencies.
+    ///
+    /// A weak ordering cannot be combined with an
+    /// [`ignore_deferred`](Self::chain_ignore_deferred) one on a single edge. Configuring both
+    /// for the same pair adds a strict ordering alongside the weak one, and a strict ordering
+    /// always wins: the ordering is kept even between systems that don't conflict, just without
+    /// the sync point.
     fn chain_weak(self) -> ScheduleConfigs<T> {
         self.into_configs().chain_weak()
     }
