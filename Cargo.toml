@@ -1746,6 +1746,7 @@ wasm = true
 name = "animation_graph"
 path = "examples/animation/animation_graph.rs"
 doc-scrape-examples = true
+required-features = ["bevy_feathers"]
 
 [package.metadata.example.animation_graph]
 name = "Animation Graph"
