@@ -21,7 +21,7 @@ bevy = { version = "0.18", default-features = false, features = ["2d"] }
 
 |Profile|Description|
 |-|-|
-|default|The full default Bevy experience. This is a combination of the following profiles: 2d, 3d, ui, audio|
+|default|The full default Bevy experience. This is a combination of the following profiles: 2d, 3d, ui, audio, bevy_feathers|
 |2d|The default 2D Bevy experience. This includes the core Bevy framework, 2D functionality, scenes and picking.|
 |3d|The default 3D Bevy experience. This includes the core Bevy framework, 3D functionality, scenes and picking.|
 |ui|The default Bevy UI experience. This includes the core Bevy framework, Bevy UI, scenes, and picking.|

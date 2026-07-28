@@ -1,6 +1,6 @@
 ---
 title: "FeathersPlugins and the `bevy_feathers` feature are now included/on by default"
-pull_requests: [13723]
+pull_requests: [25211]
 ---
 
 `FeathersPlugins` are now part of `DefaultPlugins`. If you were adding the `FeathersPlugins` explicitly in your app, you can now rely on `DefaultPlugins` to include it, provided the `bevy_feathers` feature is enabled.
