@@ -598,7 +598,7 @@ fn transform_gizmo_drag(
                     }
                     TransformGizmoAxis::View => {
                         let delta = cursor_projected - start_projected;
-                        (delta * settings.scale_sensitivity).exp()
+                        bevy_math::ops::exp(delta * settings.scale_sensitivity)
                     }
                 };
 
