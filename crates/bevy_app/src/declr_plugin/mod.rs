@@ -2,6 +2,7 @@ use core::any::Any;
 
 pub(crate) mod approval;
 pub(crate) mod erased_resource;
+pub(crate) mod erased_schedule;
 pub(crate) mod graph;
 pub(crate) mod metadata_ptr;
 /// Declarative Plugin public API.

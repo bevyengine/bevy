@@ -1,3 +1,4 @@
+use alloc::sync::Arc;
 use bevy_ecs::{
     message::Message,
     observer::{IntoObserver, Observer},

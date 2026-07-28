@@ -1,10 +1,9 @@
 use bevy_platform::collections::HashMap;
-use core::{convert::identity, hash::Hash};
+use core::{any::TypeId, convert::identity, hash::Hash};
 use std::{boxed::Box, collections::VecDeque, vec::Vec};
 
 use crate::{
-    plugin_data::{MessageRegistration, PluginDependency, PluginTypeId},
-    DeclarativePlugin, PluginOutput,
+    DeclarativePlugin, PluginOutput, erased_resource::{ErasedResource, StagedResource}, erased_schedule::StagedSystem, plugin_data::{MessageRegistration, PluginDependency, PluginTypeId},
 };
 
 /// A list of "entry point" plugins and their outputs. This gets expanded into a graph.
@@ -163,6 +162,11 @@ impl PluginRegistrationGraph {
         unimplemented!()
     }
 
+    pub(crate) fn try_build(self) -> Result<(), Self> {
+
+        Ok(())
+    }
+
     pub(crate) fn can_build(&self) -> bool {
         // We can't build the next graph unless each plugin that is a
         // dependency has a valid candidate.
@@ -176,6 +180,10 @@ impl PluginRegistrationGraph {
         self.dependency_edges
             .values()
             .any(|ids| ids.contains(&plugin_id))
+    }
+
+    pub(crate) fn canidates(&self) {
+
     }
 
     pub(crate) fn candidate_exists(&self, plugin_id: PluginTypeId) -> Result<RegistrationId, ()> {
@@ -285,11 +293,17 @@ impl PluginRegistrationGraph {
 pub(crate) struct OrderedPluginItems(Vec<DeclrItem>);
 
 #[allow(unused)]
-pub(crate) struct ItemsGraph {}
+pub(crate) struct ItemsGraph {
+    sources: HashMap<PluginTypeId, PluginNode>,
+    accepted_resource_sources: HashMap<TypeId, PluginTypeId>,
+
+}
 
 /// Items that can be added to a world.
 #[allow(unused)]
 pub(crate) enum DeclrItem {
     Message(MessageRegistration),
-    // etc.
+    Resource(StagedResource),
+    System(StagedSystem),
+    
 }
