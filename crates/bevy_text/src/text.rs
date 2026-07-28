@@ -594,6 +594,7 @@ impl<const N: usize> From<[FontSource; N]> for FontSource {
 
 /// Generic font families that are resolved through Parley's font database.
 #[derive(Clone, Copy, Debug, Reflect, PartialEq, Eq, Hash, FromTemplate)]
+#[reflect(FromTemplate)]
 #[repr(u8)]
 pub enum GenericFontFamily {
     /// Fonts with serifs — small decorative strokes at the ends of letterforms.
