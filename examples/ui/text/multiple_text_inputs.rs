@@ -197,18 +197,11 @@ fn synchronize_output_text(
     if let Ok((editable_text, input_row)) = &inputs.get(on.event_target()) {
         for (mut text, output_row) in &mut outputs {
             if output_row.0 == input_row.0 {
-                // `EditableText::value()` returns a `SplitString` because Parley may keep IME preedit text
-                // in a contiguous range of the editor’s internal `String` buffer during composition.
-                // The returned `SplitString` omits that preedit range, exposing only the text before and after it.
-                //
-                // To avoid allocating a new `String`, we reserve the total length of the `SplitString`'s slices,
-                // then append them to the output `Text`.
+                // Reuse the output string's allocation: `value()` borrows in
+                // the common case, so this copies the text without an
+                // intermediate `String`.
                 text.0.clear();
-                text.0
-                    .reserve(editable_text.value().into_iter().map(str::len).sum());
-                for sub_str in editable_text.value() {
-                    text.0.push_str(sub_str);
-                }
+                text.0.push_str(&editable_text.value());
             }
         }
     }
@@ -229,11 +222,7 @@ fn submit_text(
         for (mut text, output_row) in &mut text_output {
             if input_row.0 == output_row.0 {
                 text.0.clear();
-                text.0
-                    .reserve(editable_text.value().into_iter().map(str::len).sum());
-                for sub_str in editable_text.value() {
-                    text.0.push_str(sub_str);
-                }
+                text.0.push_str(&editable_text.value());
                 break;
             }
         }

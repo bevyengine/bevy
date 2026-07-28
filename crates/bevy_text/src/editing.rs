@@ -18,6 +18,7 @@
 //! - Multi-click: double-click to select a word, triple-click to select a line
 //! - Optional select-all on focus via the `SelectAllOnFocus` component
 //! - Per-character input filtering via the [`EditableTextFilter`] component
+//! - Password-style character masking via the [`CharacterMask`](crate::CharacterMask) component
 //! - Max character limits via [`EditableText::max_characters`]
 //! - Cursor blinking
 //! - Newline support for multi-line input
@@ -59,7 +60,6 @@
 //! - Placeholder text (displayed when the input is empty)
 //! - Undo/redo functionality
 //! - Text validation (e.g., email format, numeric input)
-//! - Password-style character masking
 //! - Mobile pop-up keyboard support
 //! - Overwrite mode (typically toggled by the `Insert` key)
 //! - AccessKit integration for screen readers and other assistive technologies
@@ -77,6 +77,7 @@ use crate::{
     text_edit::{poll_and_apply_paste, reveal_cursor, TextEdit},
     FontCx, FontHinting, LayoutCx, LineHeight, TextBrush, TextColor, TextFont, TextLayout,
 };
+use alloc::borrow::Cow;
 use alloc::sync::Arc;
 use bevy_clipboard::ClipboardRead;
 use bevy_derive::{Deref, DerefMut};
@@ -153,6 +154,14 @@ pub struct EditableText {
     pub visible_width: Option<f32>,
     /// Allow new lines
     pub allow_newlines: bool,
+    /// The authoritative text while a presentation layer substitutes the
+    /// editor's buffer content (currently [`CharacterMask`](crate::CharacterMask),
+    /// which fills the buffer with mask glyphs while the entered text lives
+    /// here).
+    ///
+    /// `None` whenever the buffer itself is the truth — the common case, at
+    /// zero cost. [`value`](Self::value) reads through this field.
+    pub shadow_value: ShadowValue,
 }
 
 impl Default for EditableText {
@@ -170,6 +179,7 @@ impl Default for EditableText {
             visible_lines: Some(1.),
             visible_width: None,
             allow_newlines: false,
+            shadow_value: ShadowValue::default(),
         }
     }
 }
@@ -195,10 +205,34 @@ impl EditableText {
         &mut self.editor
     }
 
-    /// Get the current text input as a [`SplitString`].
+    /// The current text.
     ///
-    /// A [`SplitString`] can be converted into a [`String`] using `to_string` if needed.
-    pub fn value(&self) -> SplitString<'_> {
+    /// This is always the *entered* text: a
+    /// [`CharacterMask`](crate::CharacterMask) affects display only. IME
+    /// preedit (in-progress composition) is excluded.
+    ///
+    /// Borrowed in the common case; an owned copy is only made while an IME
+    /// composition is active (the editor's text is split around the preedit).
+    pub fn value(&self) -> Cow<'_, str> {
+        if let Some(shadow) = &self.shadow_value.0 {
+            return Cow::Borrowed(shadow);
+        }
+        let mut segments = self.editor.text().into_iter();
+        let first = segments.next().unwrap_or("");
+        let second = segments.next().unwrap_or("");
+        if second.is_empty() {
+            Cow::Borrowed(first)
+        } else {
+            Cow::Owned(alloc::format!("{first}{second}"))
+        }
+    }
+
+    /// The text physically present in the editor's buffer, preedit excluded.
+    ///
+    /// Unlike [`value`](Self::value) this never reads the shadow: while a
+    /// [`CharacterMask`](crate::CharacterMask) is active this is the mask
+    /// string, not the entered text.
+    pub(crate) fn editor_text(&self) -> SplitString<'_> {
         self.editor.text()
     }
 
@@ -222,6 +256,7 @@ impl EditableText {
         layout_context: &mut LayoutContext<TextBrush>,
         clipboard: &mut bevy_clipboard::Clipboard,
         char_filter: impl Fn(char) -> bool,
+        mask: Option<&crate::CharacterMask>,
     ) {
         let Self {
             editor,
@@ -230,6 +265,7 @@ impl EditableText {
             max_characters,
             viewport,
             cursor_margin,
+            shadow_value,
             ..
         } = self;
 
@@ -240,7 +276,20 @@ impl EditableText {
         // so ordering relative to the paste is preserved.
         if let Some(mut read) = pending_paste.take() {
             let generation = driver.editor.generation();
-            if !poll_and_apply_paste(&mut read, &mut driver, *max_characters, &char_filter) {
+            if !poll_and_apply_paste(
+                &mut read,
+                &mut driver,
+                *max_characters,
+                &char_filter,
+                // The masking invariant guarantees `shadow_value` is `Some`
+                // while a `CharacterMask` is present; `get_or_insert_default`
+                // also heals any violation on the spot, mirroring
+                // `reconcile`'s adopt-and-heal policy.
+                match mask {
+                    Some(mask) => Some((mask, shadow_value.0.get_or_insert_default())),
+                    None => None,
+                },
+            ) {
                 *pending_paste = Some(read);
                 return;
             }
@@ -258,8 +307,16 @@ impl EditableText {
                 TextEdit::Paste => {
                     let generation = driver.editor.generation();
                     let mut read = clipboard.fetch_text();
-                    if !poll_and_apply_paste(&mut read, &mut driver, *max_characters, &char_filter)
-                    {
+                    if !poll_and_apply_paste(
+                        &mut read,
+                        &mut driver,
+                        *max_characters,
+                        &char_filter,
+                        match mask {
+                            Some(mask) => Some((mask, shadow_value.0.get_or_insert_default())),
+                            None => None,
+                        },
+                    ) {
                         *pending_paste = Some(read);
                         pending_edits.extend(edits);
                         return;
@@ -268,14 +325,27 @@ impl EditableText {
                         reveal_cursor(&mut driver, viewport, *cursor_margin);
                     }
                 }
-                other => other.apply(
-                    &mut driver,
-                    viewport,
-                    *cursor_margin,
-                    clipboard,
-                    *max_characters,
-                    &char_filter,
-                ),
+                other => match mask {
+                    Some(mask) => crate::masking::apply_masked_edit(
+                        other,
+                        mask,
+                        shadow_value.0.get_or_insert_default(),
+                        &mut driver,
+                        viewport,
+                        *cursor_margin,
+                        clipboard,
+                        *max_characters,
+                        &char_filter,
+                    ),
+                    None => other.apply(
+                        &mut driver,
+                        viewport,
+                        *cursor_margin,
+                        clipboard,
+                        *max_characters,
+                        &char_filter,
+                    ),
+                },
             }
         }
     }
@@ -286,6 +356,9 @@ impl EditableText {
     /// will still complete, but its result is discarded.
     pub fn clear(&mut self) {
         self.editor.set_text("");
+        if let Some(shadow) = &mut self.shadow_value.0 {
+            shadow.clear();
+        }
         self.pending_edits.clear();
         self.pending_paste = None;
     }
@@ -298,6 +371,19 @@ impl EditableText {
         self.editor.is_composing()
     }
 }
+
+/// The authoritative text while a presentation layer substitutes the
+/// editor's buffer content (see [`EditableText::shadow_value`]).
+///
+/// Deliberately opaque: the only value constructible outside `bevy_text`
+/// is the default (empty), so struct-literal construction of
+/// [`EditableText`] keeps working while the contents are managed
+/// exclusively by the substituting layer (currently
+/// [`CharacterMask`](crate::CharacterMask)). A writable `Option<String>`
+/// here would be a trap: `Some` set by hand *without* a mask present is a
+/// desync that nothing heals — `reconcile` only runs while a mask exists.
+#[derive(Clone, Default)]
+pub struct ShadowValue(pub(crate) Option<String>);
 
 /// Wrapper around a `parley::Generation`. Used to track when `TextLayoutInfo` is stale and needs reupdating.
 /// The initial `Generation` of the `PlainEditor` is not equal to the default `Generation` value, so the
@@ -325,13 +411,22 @@ pub fn apply_text_edits(
         &mut EditableText,
         Option<&EditableTextFilter>,
         &EditableTextGeneration,
+        Option<&crate::CharacterMask>,
     )>,
     mut font_context: ResMut<FontCx>,
     mut layout_context: ResMut<LayoutCx>,
     mut clipboard: ResMut<bevy_clipboard::Clipboard>,
     mut commands: Commands,
 ) {
-    for (entity, mut editable_text, filter, generation) in query.iter_mut() {
+    for (entity, mut editable_text, filter, generation, mask) in query.iter_mut() {
+        // Masking invariant: the editor must hold exactly the mask string for
+        // the real value. Heals bundle-ordering races at spawn, `clear()`,
+        // and any external `set_text` by adopting the editor's content as the
+        // new real value (the generation check below then re-layouts).
+        if let Some(mask) = mask {
+            crate::masking::reconcile(mask, &mut editable_text);
+        }
+
         // `pending_paste` can hold a cross-frame paste even when no new edits are queued,
         // so check for either before doing work.
         if !editable_text.pending_edits.is_empty() || editable_text.pending_paste.is_some() {
@@ -343,6 +438,7 @@ pub fn apply_text_edits(
                     Some(EditableTextFilter(Some(filter))) => filter.as_ref(),
                     _ => &|_| true,
                 },
+                mask,
             );
         }
 

@@ -1042,7 +1042,7 @@ fn handle_hex_color_change(
     mut colors: ResMut<DemoWidgetStates>,
 ) {
     let editable_text = *q_text_input;
-    if let Ok(color) = Srgba::hex(editable_text.value().to_string())
+    if let Ok(color) = Srgba::hex(editable_text.value())
         && color != colors.rgb_color
     {
         colors.rgb_color = color;
