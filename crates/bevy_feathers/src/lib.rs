@@ -35,7 +35,7 @@ use crate::{
     alpha_pattern::{AlphaPatternMaterial, AlphaPatternResource},
     controls::ControlsPlugin,
     cursor::{CursorIconPlugin, DefaultCursor, EntityCursor},
-    theme::{ThemedText, UiTheme},
+    theme::{ThemeContext, ThemedText, UiTheme},
 };
 
 mod alpha_pattern;
@@ -80,6 +80,7 @@ impl Plugin for FeathersCorePlugin {
             CursorIconPlugin,
             HierarchyPropagatePlugin::<TextColor, With<ThemedText>>::new(PostUpdate),
             HierarchyPropagatePlugin::<TextFont, With<ThemedText>>::new(PostUpdate),
+            HierarchyPropagatePlugin::<ThemeContext>::new(PostUpdate),
             UiMaterialPlugin::<AlphaPatternMaterial>::default(),
             focus::FocusOutlinesPlugin,
         ));

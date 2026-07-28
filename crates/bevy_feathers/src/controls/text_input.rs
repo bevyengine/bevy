@@ -27,7 +27,10 @@ use crate::{
     cursor::EntityCursor,
     focus::FocusWithinIndicator,
     font_styles::InheritableFont,
-    theme::{InheritableThemeTextColor, ThemeBackgroundColor, ThemedText, UiTheme},
+    theme::{
+        InheritableThemeTextColor, SurfaceLevel, ThemeBackgroundColor, ThemeContext, ThemedText,
+        UiTheme,
+    },
     tokens,
 };
 
@@ -132,15 +135,17 @@ impl FeathersTextInput {
 }
 
 fn update_text_cursor_color(
-    mut q_text_input: Query<&mut TextCursorStyle, With<FeathersTextInput>>,
+    mut q_text_input: Query<(&mut TextCursorStyle, Option<&ThemeContext>), With<FeathersTextInput>>,
     theme: Res<UiTheme>,
 ) {
     if theme.is_changed() {
-        for mut cursor_style in q_text_input.iter_mut() {
-            cursor_style.color = theme.color(&tokens::TEXT_INPUT_CURSOR);
-            cursor_style.selection_color = theme.color(&tokens::TEXT_INPUT_SELECTION);
+        for (mut cursor_style, theme_context) in q_text_input.iter_mut() {
+            let context = theme_context.map(|tc| tc.0).unwrap_or(SurfaceLevel::Base);
+            cursor_style.color = theme.context_color(&tokens::TEXT_INPUT_CURSOR, context);
+            cursor_style.selection_color =
+                theme.context_color(&tokens::TEXT_INPUT_SELECTION, context);
             cursor_style.unfocused_selection_color =
-                theme.color(&tokens::TEXT_INPUT_SELECTION_UNFOCUSED);
+                theme.context_color(&tokens::TEXT_INPUT_SELECTION_UNFOCUSED, context);
         }
     }
 }

@@ -145,14 +145,14 @@ pub fn extract_text_cursor(
                 extracted_uinodes
                     .uinodes
                     .entry(entity.into())
-                    .or_default()
+                    .or_insert_with(|| (extracted_camera_entity, Default::default()))
+                    .1
                     .insert(
                         commands.spawn_empty().id(),
                         ExtractedUiNode {
                             z_order: stack_index.0 as f32 + stack_z_offsets::TEXT_SELECTION,
                             clip,
                             image: AssetId::default(),
-                            extracted_camera_entity,
                             transform: transform * Affine2::from_translation(selection.center()),
                             item: ExtractedUiItem::Node {
                                 color: selection_color,
@@ -179,14 +179,14 @@ pub fn extract_text_cursor(
             extracted_uinodes
                 .uinodes
                 .entry(entity.into())
-                .or_default()
+                .or_insert_with(|| (extracted_camera_entity, Default::default()))
+                .1
                 .insert(
                     commands.spawn_empty().id(),
                     ExtractedUiNode {
                         z_order: stack_index.0 as f32 + stack_z_offsets::TEXT_CURSOR,
                         clip,
                         image: AssetId::default(),
-                        extracted_camera_entity,
                         transform: transform * Affine2::from_translation(cursor_rect.center()),
                         item: ExtractedUiItem::Node {
                             color: cursor_style.color.to_linear(),
@@ -274,14 +274,14 @@ pub fn extract_preedit_underlines(
             extracted_uinodes
                 .uinodes
                 .entry(entity.into())
-                .or_default()
+                .or_insert_with(|| (extracted_camera_entity, Default::default()))
+                .1
                 .insert(
                     commands.spawn_empty().id(),
                     ExtractedUiNode {
                         z_order: stack_index.0 as f32 + stack_z_offsets::TEXT_STRIKETHROUGH,
                         clip,
                         image: AssetId::default(),
-                        extracted_camera_entity,
                         transform: transform * Affine2::from_translation(rect.center()),
                         item: ExtractedUiItem::Node {
                             color,
