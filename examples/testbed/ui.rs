@@ -3306,7 +3306,7 @@ mod editable_text {
 
 mod node_material {
     use bevy::{
-        color::palettes::tailwind::{CYAN_900, RED_900, YELLOW_900},
+        color::palettes::tailwind::{CYAN_100, RED_500, YELLOW_100},
         prelude::*,
         render::render_resource::AsBindGroup,
         shader::ShaderRef,
@@ -3351,10 +3351,10 @@ mod node_material {
     ) {
         let default_material = default_ui_materials.add(DefaultUiMaterial {});
         let custom_material = |slider| CustomUiMaterial {
-            color: LinearRgba::from(CYAN_900).to_vec4(),
+            color: LinearRgba::from(CYAN_100).to_vec4(),
             slider: Vec4::splat(slider),
             color_texture: asset_server.load("branding/banner.png"),
-            border_color: LinearRgba::from(YELLOW_900).to_vec4(),
+            border_color: LinearRgba::from(YELLOW_100).to_vec4(),
         };
         let full_material = ui_materials.add(custom_material(1.));
         let material_node = Node {
@@ -3419,7 +3419,7 @@ mod node_material {
                     },
                     Outline {
                         width: px(1),
-                        color: RED_900.into(),
+                        color: RED_500.into(),
                         ..default()
                     },
                     children![(
@@ -3442,7 +3442,7 @@ mod node_material {
                     },
                     Outline {
                         width: px(1),
-                        color: RED_900.into(),
+                        color: RED_500.into(),
                         ..default()
                     },
                     children![(
@@ -3477,7 +3477,7 @@ mod node_material {
                     },
                     Outline {
                         width: px(1),
-                        color: RED_900.into(),
+                        color: RED_500.into(),
                         ..default()
                     },
                     children![(
