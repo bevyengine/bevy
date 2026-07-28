@@ -114,6 +114,7 @@ impl Plugin for FeathersCorePlugin {
 }
 
 /// A plugin group that adds all dependencies for Feathers
+#[derive(Default)]
 pub struct FeathersPlugins;
 
 impl PluginGroup for FeathersPlugins {
