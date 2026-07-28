@@ -3386,31 +3386,33 @@ mod node_material {
                 (
                     Text::new("MaterialNode"),
                     TextFont::from_font_size(px(30.)),
+                    TextLayout::justify(Justify::Center),
                     Node {
                         grid_column: GridPlacement::span(2),
+                        margin: px(10.).bottom(),
                         ..default()
                     },
                 ),
                 // Default UI material (just white with the default ui_material.wgsl shader for the bevy_ui crate)
-                material_label("Default UiMaterial"),
+                material_label("'ui_material.wgsl' default material"),
                 (material_node.clone(), MaterialNode(default_material),),
                 // Custom UI material, 1./3 full.
-                material_label("CustomUiMaterial 1/3"),
+                material_label("'custom_ui_material.wgsl' 1/3"),
                 (
                     material_node.clone(),
                     MaterialNode(ui_materials.add(custom_material(1. / 3.))),
                 ),
                 // Custom UI material, 2./3 full.
-                material_label("CustomUiMaterial 2/3"),
+                material_label("'custom_ui_material.wgsl' 2/3"),
                 (
                     material_node.clone(),
                     MaterialNode(ui_materials.add(custom_material(2. / 3.)))
                 ),
                 // Custom UI material, full.
-                material_label("CustomUiMaterial Full"),
+                material_label("'custom_ui_material.wgsl' Full"),
                 (material_node.clone(), MaterialNode(full_material.clone()),),
                 // Custom UI material, full. Clipped using overflow so bottom 50% missing
-                material_label("CustomUiMaterial clipped vertically"),
+                material_label("'custom_ui_material.wgsl' clipped vertically"),
                 (
                     Node {
                         width: material_node.width,
@@ -3433,7 +3435,7 @@ mod node_material {
                     )],
                 ),
                 // Custom UI material clipped on both axis so bottom 25% and right 25% not visible.
-                material_label("CustomUiMaterial end clipped on both axis"),
+                material_label("'custom_ui_material.wgsl' end clipped on both axis"),
                 (
                     Node {
                         width: material_node.width,
@@ -3466,7 +3468,7 @@ mod node_material {
                     )],
                 ),
                 // Custom UI material clipped on both axis so top 25% and left 25% not visible.
-                material_label("CustomUiMaterial start clipped on both axis"),
+                material_label("'custom_ui_material.wgsl' start clipped on both axis"),
                 (
                     Node {
                         width: material_node.width,
