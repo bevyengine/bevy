@@ -5521,6 +5521,18 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "feathers_popover"
+path = "examples/ui/widgets/feathers_popover.rs"
+doc-scrape-examples = true
+required-features = ["bevy_feathers"]
+
+[package.metadata.example.feathers_popover]
+name = "Feathers Popover"
+description = "Demonstrates popover arrow placement and scrolling"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "feathers_number_input"
 path = "examples/ui/widgets/feathers_number_input.rs"
 doc-scrape-examples = true

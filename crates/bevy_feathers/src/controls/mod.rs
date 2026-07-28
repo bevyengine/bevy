@@ -11,6 +11,7 @@ mod disclosure_toggle;
 mod listview;
 mod menu;
 mod number_input;
+mod popover;
 mod radio;
 mod scrollbar;
 mod select;
@@ -29,6 +30,7 @@ pub use disclosure_toggle::*;
 pub use listview::*;
 pub use menu::*;
 pub use number_input::*;
+pub use popover::*;
 pub use radio::*;
 pub use scrollbar::*;
 pub use select::*;
@@ -67,6 +69,7 @@ impl Plugin for ControlsPlugin {
                 ColorSliderPlugin,
                 ColorSwatchPlugin,
             ),
+            FeathersPopoverPlugin,
         ));
     }
 }
