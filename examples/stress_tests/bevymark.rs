@@ -9,6 +9,7 @@ use argh::FromArgs;
 use bevy::{
     asset::RenderAssetUsages,
     color::palettes::basic::*,
+    core_pipeline::core_2d::Core2dMainPassMode,
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
     render::render_resource::{Extent3d, TextureDimension, TextureFormat},
@@ -74,6 +75,10 @@ struct Args {
     /// the alpha mode used to spawn the sprites
     #[argh(option, default = "AlphaMode::Blend")]
     alpha_mode: AlphaMode,
+
+    /// the main pass mode used for core2d
+    #[argh(option, default = "Core2dMainPassModeArg(Core2dMainPassMode::Merged)")]
+    main_pass_mode: Core2dMainPassModeArg,
 }
 
 #[derive(Default, Clone)]
@@ -99,12 +104,30 @@ impl FromStr for Mode {
     }
 }
 
+#[derive(Clone, Copy)]
+struct Core2dMainPassModeArg(Core2dMainPassMode);
+
+impl FromStr for Core2dMainPassModeArg {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "merged" => Ok(Self(Core2dMainPassMode::Merged)),
+            "separate" => Ok(Self(Core2dMainPassMode::Separate)),
+            _ => Err(format!(
+                "Unknown main pass mode: '{s}', valid modes: 'merged', 'separate'"
+            )),
+        }
+    }
+}
+
 #[derive(Default, Clone)]
 enum AlphaMode {
     Opaque,
-    #[default]
     Blend,
     AlphaMask,
+    #[default]
+    Mixed,
 }
 
 impl FromStr for AlphaMode {
@@ -115,8 +138,9 @@ impl FromStr for AlphaMode {
             "opaque" => Ok(Self::Opaque),
             "blend" => Ok(Self::Blend),
             "alpha_mask" => Ok(Self::AlphaMask),
+            "mixed" => Ok(Self::Mixed),
             _ => Err(format!(
-                "Unknown alpha mode: '{s}', valid modes: 'opaque', 'blend', 'alpha_mask'"
+                "Unknown alpha mode: '{s}', valid modes: 'opaque', 'blend', 'alpha_mask', 'mixed'"
             )),
         }
     }
@@ -147,6 +171,7 @@ fn main() {
         ))
         .insert_resource(StaticTransformOptimizations::Disabled)
         .insert_resource(WinitSettings::continuous())
+        .insert_resource(args.main_pass_mode.0)
         .insert_resource(args)
         .insert_resource(BevyCounter {
             count: 0,
@@ -209,6 +234,7 @@ struct BirdResources {
     material_rng: ChaCha8Rng,
     velocity_rng: ChaCha8Rng,
     transform_rng: ChaCha8Rng,
+    alpha_mode_rng: ChaCha8Rng,
 }
 
 #[derive(Component)]
@@ -248,6 +274,7 @@ fn setup(
         material_rng: ChaCha8Rng::seed_from_u64(200),
         velocity_rng: ChaCha8Rng::seed_from_u64(300),
         transform_rng: ChaCha8Rng::seed_from_u64(400),
+        alpha_mode_rng: ChaCha8Rng::seed_from_u64(500),
     };
 
     let font = TextFont {
@@ -454,6 +481,14 @@ fn spawn_birds(
                 AlphaMode::Opaque => SpriteAlphaMode::Opaque,
                 AlphaMode::Blend => SpriteAlphaMode::Blend,
                 AlphaMode::AlphaMask => SpriteAlphaMode::Mask(0.5),
+                AlphaMode::Mixed => [
+                    SpriteAlphaMode::Opaque,
+                    SpriteAlphaMode::Blend,
+                    SpriteAlphaMode::Mask(0.5),
+                ]
+                .choose(&mut bird_resources.alpha_mode_rng)
+                .copied()
+                .unwrap(),
             };
 
             let batch = (0..spawn_count)
@@ -655,10 +690,19 @@ fn init_materials(
     }
     .max(1);
 
+    let mut alpha_mode_rng = ChaCha8Rng::seed_from_u64(900);
     let alpha_mode = match args.alpha_mode {
         AlphaMode::Opaque => AlphaMode2d::Opaque,
         AlphaMode::Blend => AlphaMode2d::Blend,
         AlphaMode::AlphaMask => AlphaMode2d::Mask(0.5),
+        AlphaMode::Mixed => [
+            AlphaMode2d::Opaque,
+            AlphaMode2d::Blend,
+            AlphaMode2d::Mask(0.5),
+        ]
+        .choose(&mut alpha_mode_rng)
+        .copied()
+        .unwrap(),
     };
 
     let mut materials = Vec::with_capacity(capacity);

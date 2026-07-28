@@ -10,11 +10,27 @@ use bevy_log::info_span;
 use bevy_render::{
     camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
-    render_phase::ViewSortedRenderPhases,
+    render_phase::{SortedRenderPhase, TrackedRenderPass, ViewSortedRenderPhases},
     render_resource::{PipelineCache, RenderPassDescriptor, StoreOp},
     renderer::{RenderContext, ViewQuery},
     view::{ExtractedView, ViewDepthStencilTexture, ViewTarget},
 };
+
+pub(crate) fn render_transparent_pass_3d<'a>(
+    render_pass: &mut TrackedRenderPass<'a>,
+    world: &'a World,
+    view_entity: Entity,
+    transparent_phase: &SortedRenderPhase<Transparent3d>,
+) {
+    if !transparent_phase.items.is_empty() {
+        #[cfg(feature = "trace")]
+        let _main_transparent_pass_3d_span = info_span!("main_transparent_pass_3d").entered();
+
+        if let Err(err) = transparent_phase.render(render_pass, world, view_entity) {
+            error!("Error encountered while rendering the transparent phase {err:?}");
+        }
+    }
+}
 
 pub fn main_transparent_pass_3d(
     world: &World,
@@ -48,9 +64,6 @@ pub fn main_transparent_pass_3d(
     };
 
     if !transparent_phase.items.is_empty() {
-        #[cfg(feature = "trace")]
-        let _main_transparent_pass_3d_span = info_span!("main_transparent_pass_3d").entered();
-
         let diagnostics = ctx.diagnostic_recorder();
         let diagnostics = diagnostics.as_deref();
 
@@ -85,17 +98,12 @@ pub fn main_transparent_pass_3d(
             multiview_mask: None,
         });
         let pass_span = diagnostics.pass_span(&mut render_pass, "main_transparent_pass_3d");
-
         if let Some(viewport) =
             Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
         {
             render_pass.set_camera_viewport(&viewport);
         }
-
-        if let Err(err) = transparent_phase.render(&mut render_pass, world, view_entity) {
-            error!("Error encountered while rendering the transparent phase {err:?}");
-        }
-
+        render_transparent_pass_3d(&mut render_pass, world, view_entity, transparent_phase);
         pass_span.end(&mut render_pass);
     }
 

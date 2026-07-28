@@ -44,7 +44,7 @@ use bevy_app::{App, Plugin, Update};
 use bevy_asset::{embedded_asset, AssetId};
 use bevy_camera::{Camera3d, Hdr};
 use bevy_core_pipeline::{
-    core_3d::{main_opaque_pass_3d, main_transparent_pass_3d},
+    core_3d::main_merged_pass_3d,
     schedule::{Core3d, Core3dSystems},
 };
 use bevy_ecs::{
@@ -193,9 +193,7 @@ impl Plugin for AtmospherePlugin {
                         .chain()
                         .after(Core3dSystems::Prepass)
                         .before(Core3dSystems::MainPass),
-                    render_sky
-                        .after(main_opaque_pass_3d)
-                        .before(main_transparent_pass_3d),
+                    render_sky.before(main_merged_pass_3d),
                 ),
             );
     }

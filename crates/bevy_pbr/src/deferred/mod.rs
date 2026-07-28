@@ -7,7 +7,7 @@ use crate::{
 use bevy_app::prelude::*;
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
 use bevy_core_pipeline::{
-    core_3d::main_opaque_pass_3d,
+    core_3d::main_merged_pass_3d,
     deferred::{
         copy_lighting_id::DeferredLightingIdDepthTexture, DEFERRED_LIGHTING_PASS_ID_DEPTH_FORMAT,
     },
@@ -117,7 +117,7 @@ impl Plugin for DeferredPbrLightingPlugin {
             .add_systems(
                 Core3d,
                 deferred_lighting
-                    .before(main_opaque_pass_3d)
+                    .before(main_merged_pass_3d)
                     .in_set(Core3dSystems::MainPass),
             );
     }

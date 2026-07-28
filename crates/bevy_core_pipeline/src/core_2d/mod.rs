@@ -1,3 +1,4 @@
+mod main_merged_pass_2d;
 mod main_opaque_pass_2d_node;
 mod main_transparent_pass_2d_node;
 
@@ -11,10 +12,12 @@ use bevy_platform::collections::{HashMap, HashSet};
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingMode,
     camera::CameraRenderGraph,
+    extract_resource::{ExtractResource, ExtractResourcePlugin},
     render_phase::PhaseItemBatchSetKey,
     view::{ExtractedView, RetainedViewEntity},
 };
 use indexmap::IndexMap;
+pub use main_merged_pass_2d::*;
 pub use main_opaque_pass_2d_node::*;
 pub use main_transparent_pass_2d_node::*;
 
@@ -47,6 +50,13 @@ pub const CORE_2D_DEPTH_FORMAT: TextureFormat = TextureFormat::Depth32Float;
 
 pub struct Core2dPlugin;
 
+#[derive(Debug, Resource, ExtractResource, Clone, Copy)]
+#[extract_app(RenderApp)]
+pub enum Core2dMainPassMode {
+    Merged,
+    Separate,
+}
+
 impl Plugin for Core2dPlugin {
     fn build(&self, app: &mut App) {
         app.register_required_components::<Camera2d, DebandDither>()
@@ -54,11 +64,27 @@ impl Plugin for Core2dPlugin {
                 CameraRenderGraph::new(Core2d)
             })
             .register_required_components_with::<Camera2d, Tonemapping>(|| Tonemapping::None)
-            .add_plugins(ExtractComponentPlugin::<Camera2d>::default());
+            .add_plugins((
+                ExtractComponentPlugin::<Camera2d>::default(),
+                ExtractResourcePlugin::<Core2dMainPassMode>::default(),
+            ));
+
+        if app.world().get_resource::<Core2dMainPassMode>().is_none() {
+            app.insert_resource(Core2dMainPassMode::Merged);
+        }
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
+
+        if render_app
+            .world()
+            .get_resource::<Core2dMainPassMode>()
+            .is_none()
+        {
+            render_app.insert_resource(Core2dMainPassMode::Merged);
+        }
+
         render_app
             .init_resource::<DrawFunctions<Opaque2d>>()
             .init_resource::<DrawFunctions<AlphaMask2d>>()
@@ -81,12 +107,24 @@ impl Plugin for Core2dPlugin {
             .add_systems(
                 Core2d,
                 (
-                    (main_opaque_pass_2d, main_transparent_pass_2d)
-                        .chain()
-                        .in_set(Core2dSystems::MainPass),
                     tonemapping.in_set(Core2dSystems::PostProcess),
                     upscaling.after(Core2dSystems::PostProcess),
                 ),
+            )
+            .add_systems(
+                Core2d,
+                main_merged_pass_2d.in_set(Core2dSystems::MainPass).run_if(
+                    |pass: Res<Core2dMainPassMode>| matches!(*pass, Core2dMainPassMode::Merged),
+                ),
+            )
+            .add_systems(
+                Core2d,
+                (main_opaque_pass_2d, main_transparent_pass_2d)
+                    .chain()
+                    .in_set(Core2dSystems::MainPass)
+                    .run_if(|pass: Res<Core2dMainPassMode>| {
+                        matches!(*pass, Core2dMainPassMode::Separate)
+                    }),
             );
     }
 }

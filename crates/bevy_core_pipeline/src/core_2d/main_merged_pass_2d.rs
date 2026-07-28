@@ -1,4 +1,4 @@
-use crate::core_2d::Opaque2d;
+use crate::core_2d::{AlphaMask2d, Opaque2d, Transparent2d};
 use bevy_ecs::prelude::*;
 use bevy_log::error;
 #[cfg(feature = "trace")]
@@ -6,15 +6,13 @@ use bevy_log::info_span;
 use bevy_render::{
     camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
-    render_phase::ViewBinnedRenderPhases,
+    render_phase::{ViewBinnedRenderPhases, ViewSortedRenderPhases},
     render_resource::{RenderPassDescriptor, StoreOp},
     renderer::{RenderContext, ViewQuery},
     view::{ExtractedView, ViewDepthStencilTexture, ViewTarget},
 };
 
-use super::AlphaMask2d;
-
-pub fn main_opaque_pass_2d(
+pub fn main_merged_pass_2d(
     world: &World,
     view: ViewQuery<(
         &ExtractedCamera,
@@ -24,20 +22,22 @@ pub fn main_opaque_pass_2d(
     )>,
     opaque_phases: Res<ViewBinnedRenderPhases<Opaque2d>>,
     alpha_mask_phases: Res<ViewBinnedRenderPhases<AlphaMask2d>>,
+    transparent_phases: Res<ViewSortedRenderPhases<Transparent2d>>,
     mut ctx: RenderContext,
 ) {
     let view_entity = view.entity();
     let (camera, extracted_view, target, depth) = view.into_inner();
 
-    let (Some(opaque_phase), Some(alpha_mask_phase)) = (
+    let (Some(opaque_phase), Some(alpha_mask_phase), Some(transparent_phase)) = (
         opaque_phases.get(&extracted_view.retained_view_entity),
         alpha_mask_phases.get(&extracted_view.retained_view_entity),
+        transparent_phases.get(&extracted_view.retained_view_entity),
     ) else {
         return;
     };
 
     #[cfg(feature = "trace")]
-    let _span = info_span!("main_opaque_pass_2d").entered();
+    let _span = info_span!("main_merged_pass_2d").entered();
 
     let diagnostics = ctx.diagnostic_recorder();
     let diagnostics = diagnostics.as_deref();
@@ -46,14 +46,14 @@ pub fn main_opaque_pass_2d(
     let depth_stencil_attachment = Some(depth.get_attachment(StoreOp::Store));
 
     let mut render_pass = ctx.begin_tracked_render_pass(RenderPassDescriptor {
-        label: Some("main_opaque_pass_2d"),
+        label: Some("main_merged_pass_2d"),
         color_attachments: &color_attachments,
         depth_stencil_attachment,
         timestamp_writes: None,
         occlusion_query_set: None,
         multiview_mask: None,
     });
-    let pass_span = diagnostics.pass_span(&mut render_pass, "main_opaque_pass_2d");
+    let pass_span = diagnostics.pass_span(&mut render_pass, "main_merged_pass_2d");
 
     if let Some(viewport) = camera.viewport.as_ref() {
         render_pass.set_camera_viewport(viewport);
@@ -72,6 +72,14 @@ pub fn main_opaque_pass_2d(
         let _alpha_mask_span = info_span!("alpha_mask_main_pass_2d").entered();
         if let Err(err) = alpha_mask_phase.render(&mut render_pass, world, view_entity) {
             error!("Error encountered while rendering the 2d alpha mask phase {err:?}");
+        }
+    }
+
+    if !transparent_phase.items.is_empty() {
+        #[cfg(feature = "trace")]
+        let _transparent_span = info_span!("transparent_main_pass_2d").entered();
+        if let Err(err) = transparent_phase.render(&mut render_pass, world, view_entity) {
+            error!("Error encountered while rendering the transparent 2D phase {err:?}");
         }
     }
 
