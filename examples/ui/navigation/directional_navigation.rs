@@ -20,7 +20,8 @@ use bevy::{
     camera::NormalizedRenderTarget,
     input_focus::{
         directional_navigation::{AutoNavigationConfig, DirectionalNavigationPlugin},
-        FocusCause, InputFocus, InputFocusVisible,
+        tab_navigation::TabIndex,
+        AutoFocus, InputFocus, InputFocusVisible,
     },
     math::{CompassOctant, Dir2, Rot2},
     picking::{
@@ -30,6 +31,7 @@ use bevy::{
     platform::collections::HashSet,
     prelude::*,
     ui::auto_directional_navigation::{AutoDirectionalNavigation, AutoDirectionalNavigator},
+    ui_widgets::Button,
 };
 
 fn main() {
@@ -48,7 +50,7 @@ fn main() {
             prefer_aligned: true,
         })
         .init_resource::<ActionState>()
-        .add_systems(Startup, setup_scattered_ui)
+        .add_systems(Startup, (setup_scattered_ui, init_focus).chain())
         // No manual system needed - just add AutoDirectionalNavigation to entities.
         // Input is generally handled during PreUpdate
         .add_systems(PreUpdate, (process_inputs, navigate).chain())
@@ -72,27 +74,33 @@ const PRESSED_BUTTON: Srgba = bevy::color::palettes::tailwind::BLUE_500;
 const FOCUSED_BORDER: Srgba = bevy::color::palettes::tailwind::BLUE_50;
 
 /// Marker component for the text that displays the currently focused button
-#[derive(Component)]
+#[derive(Component, Clone, Default)]
 struct FocusDisplay;
 
 /// Marker component for the text that displays the last key pressed
-#[derive(Component)]
+#[derive(Component, Clone, Default)]
 struct KeyDisplay;
 
-// Observer for button clicks
+// Observer for button clicks. Clicking on a button is considered navigation to that button.
+// This is also triggered when `interact_with_focused_button` simulates a button click with a
+// manually sent pointer click event
 fn universal_button_click_behavior(
     mut click: On<Pointer<Click>>,
     mut button_query: Query<(&mut BackgroundColor, &mut ResetTimer)>,
+    mut focus_visible: ResMut<InputFocusVisible>,
 ) {
     let button_entity = click.entity;
     if let Ok((mut color, mut reset_timer)) = button_query.get_mut(button_entity) {
         color.0 = PRESSED_BUTTON.into();
         reset_timer.0 = Timer::from_seconds(0.3, TimerMode::Once);
         click.propagate(false);
+        // The focus should be visible because a button was clicked.
+        // It may have been set to false by the `PointerFocusPlugin`
+        focus_visible.0 = true;
     }
 }
 
-#[derive(Component, Default, Deref, DerefMut)]
+#[derive(Clone, Component, Default, Deref, DerefMut)]
 struct ResetTimer(Timer);
 
 fn reset_button_after_interaction(
@@ -111,45 +119,58 @@ fn reset_button_after_interaction(
 ///
 /// Unlike a regular grid, these buttons are irregularly positioned,
 /// but auto-navigation will still figure out the correct connections!
-fn setup_scattered_ui(mut commands: Commands, mut input_focus: ResMut<InputFocus>) {
+fn setup_scattered_ui(mut commands: Commands) {
     commands.spawn(Camera2d);
 
-    // Create a full-screen background node
-    let root_node = commands
-        .spawn(Node {
+    commands.spawn_scene(bsn! {
+        Node {
             width: percent(100),
             height: percent(100),
-            ..default()
-        })
-        .id();
+        }
+        Children [
+            instructions_scene(),
+            focus_display_scene(),
+            key_display_scene(),
+            { buttons_scene() },
+        ]
+    });
+}
 
-    // Instructions
-    let instructions = commands
-        .spawn((
+/// Initializes focus to "Button 1" by giving it the `AutoFocus` component.
+fn init_focus(mut commands: Commands, button_query: Query<(Entity, &Name), With<Button>>) {
+    for (entity, name) in button_query.iter() {
+        if name.as_str() == "Button 1" {
+            commands.entity(entity).insert(AutoFocus);
+            break;
+        }
+    }
+}
+
+fn instructions_scene() -> impl Scene {
+    bsn! {
+        Node {
+            position_type: PositionType::Absolute,
+            left: px(20),
+            top: px(20),
+            width: px(280),
+            padding: UiRect::all(px(12)),
+            border_radius: BorderRadius::all(px(8)),
+        }
+        BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 0.8))
+        Children [
             Text::new(
                 "Directional Navigation Demo\n\n\
                  Use arrow keys or D-pad to navigate.\n\
                  Press Enter or A button to interact.\n\n\
                  Buttons are scattered irregularly,\n\
                  but navigation is automatic!",
-            ),
-            Node {
-                position_type: PositionType::Absolute,
-                left: px(20),
-                top: px(20),
-                width: px(280),
-                padding: UiRect::all(px(12)),
-                border_radius: BorderRadius::all(px(8)),
-                ..default()
-            },
-            BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 0.8)),
-        ))
-        .id();
+            )
+        ]
+    }
+}
 
-    // Focus display - shows which button is currently focused
-    commands.spawn((
-        Text::new("Focused: None"),
-        FocusDisplay,
+fn focus_display_scene() -> impl Scene {
+    bsn! {
         Node {
             position_type: PositionType::Absolute,
             left: px(20),
@@ -157,19 +178,20 @@ fn setup_scattered_ui(mut commands: Commands, mut input_focus: ResMut<InputFocus
             width: px(280),
             padding: UiRect::all(px(12)),
             border_radius: BorderRadius::all(px(8)),
-            ..default()
-        },
-        BackgroundColor(Color::srgba(0.1, 0.5, 0.1, 0.8)),
-        TextFont {
-            font_size: FontSize::Px(20.0),
-            ..default()
-        },
-    ));
+        }
+        BackgroundColor(Color::srgba(0.1, 0.5, 0.1, 0.8))
+        Children [
+            FocusDisplay
+            Text::new("Focused: None")
+            TextFont {
+                font_size: FontSize::Px(20.0),
+            }
+        ]
+    }
+}
 
-    // Key display - shows the last key pressed
-    commands.spawn((
-        Text::new("Last Key: None"),
-        KeyDisplay,
+fn key_display_scene() -> impl Scene {
+    bsn! {
         Node {
             position_type: PositionType::Absolute,
             left: px(20),
@@ -177,15 +199,19 @@ fn setup_scattered_ui(mut commands: Commands, mut input_focus: ResMut<InputFocus
             width: px(280),
             padding: UiRect::all(px(12)),
             border_radius: BorderRadius::all(px(8)),
-            ..default()
-        },
-        BackgroundColor(Color::srgba(0.5, 0.1, 0.5, 0.8)),
-        TextFont {
-            font_size: FontSize::Px(20.0),
-            ..default()
-        },
-    ));
+        }
+        BackgroundColor(Color::srgba(0.5, 0.1, 0.5, 0.8))
+        Children [
+            KeyDisplay
+            Text::new("Last Key: None")
+            TextFont {
+                font_size: FontSize::Px(20.0),
+            }
+        ]
+    }
+}
 
+fn buttons_scene() -> impl SceneList {
     // Spawn buttons in a scattered/irregular pattern
     // The auto-navigation system will figure out the connections!
     let button_positions = [
@@ -205,20 +231,25 @@ fn setup_scattered_ui(mut commands: Commands, mut input_focus: ResMut<InputFocus
         (720.0, 490.0),
     ];
 
-    let mut first_button = None;
-    for (i, (x, y)) in button_positions.iter().enumerate() {
-        let transform = if i == 4 {
-            UiTransform {
-                scale: Vec2::splat(1.2),
-                rotation: Rot2::FRAC_PI_2,
-                ..default()
-            }
-        } else {
-            UiTransform::IDENTITY
-        };
-        let button_entity = commands
-            .spawn((
-                Button,
+    button_positions
+        .iter()
+        .enumerate()
+        .map(|(i, (x, y))| {
+            let transform = if i == 4 {
+                UiTransform {
+                    scale: Vec2::splat(1.2),
+                    rotation: Rot2::FRAC_PI_2,
+                    ..default()
+                }
+            } else {
+                UiTransform::IDENTITY
+            };
+            Box::new(bsn! {
+                Name::new(format!("Button {}", i + 1))
+                Button
+                // This ensures that navigating to this button via a click ensures the
+                // focus is correctly set to this button.
+                TabIndex(0)
                 Node {
                     position_type: PositionType::Absolute,
                     left: px(*x),
@@ -229,35 +260,21 @@ fn setup_scattered_ui(mut commands: Commands, mut input_focus: ResMut<InputFocus
                     justify_content: JustifyContent::Center,
                     align_items: AlignItems::Center,
                     border_radius: BorderRadius::all(px(12)),
-                    ..default()
-                },
-                transform,
+                }
+                template_value(transform)
                 // This is the key: just add this component for automatic navigation!
-                AutoDirectionalNavigation::default(),
-                ResetTimer::default(),
-                BackgroundColor::from(NORMAL_BUTTON),
-                Name::new(format!("Button {}", i + 1)),
-            ))
-            .with_child((
-                Text::new(format!("Button {}", i + 1)),
-                TextLayout {
-                    justify: Justify::Center,
-                    ..default()
-                },
-            ))
-            .id();
-
-        if first_button.is_none() {
-            first_button = Some(button_entity);
-        }
-    }
-
-    commands.entity(root_node).add_children(&[instructions]);
-
-    // Set initial focus
-    if let Some(button) = first_button {
-        input_focus.set(button, FocusCause::Navigated);
-    }
+                AutoDirectionalNavigation::default()
+                ResetTimer::default()
+                BackgroundColor::from(NORMAL_BUTTON)
+                Children [
+                    Text::new(format!("Button {}", i + 1))
+                    TextLayout {
+                        justify: Justify::Center,
+                    }
+                ]
+            })
+        })
+        .collect::<Vec<_>>()
 }
 
 // Action state and input handling

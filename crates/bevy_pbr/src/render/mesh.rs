@@ -72,7 +72,7 @@ use bevy_render::{
 };
 use bevy_shader::{load_shader_library, Shader, ShaderDefVal, ShaderSettings};
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{default, Parallel, TypeIdMap};
+use bevy_utils::{default, Parallel, TypeIdHashMap};
 use core::any::TypeId;
 use core::iter;
 use core::mem::size_of;
@@ -3822,7 +3822,7 @@ pub enum MeshBindGroups {
     CpuPreprocessing(MeshPhaseBindGroups),
     /// A mapping from the type ID of a phase (e.g. [`Opaque3d`]) to the mesh
     /// bind groups for that phase.
-    GpuPreprocessing(TypeIdMap<MeshPhaseBindGroups>),
+    GpuPreprocessing(TypeIdHashMap<MeshPhaseBindGroups>),
 }
 
 impl MeshPhaseBindGroups {
@@ -4007,7 +4007,7 @@ pub fn prepare_mesh_bind_groups(
     if let Some(gpu_batched_instance_buffers) = gpu_batched_instance_buffers {
         // Reuse allocations
         let mut gpu_preprocessing_mesh_bind_groups = match mesh_bind_groups.as_deref_mut() {
-            None | Some(MeshBindGroups::CpuPreprocessing(_)) => TypeIdMap::default(),
+            None | Some(MeshBindGroups::CpuPreprocessing(_)) => TypeIdHashMap::default(),
             Some(MeshBindGroups::GpuPreprocessing(gpu_preprocessing_mesh_bind_groups)) => {
                 core::mem::take(gpu_preprocessing_mesh_bind_groups)
             }

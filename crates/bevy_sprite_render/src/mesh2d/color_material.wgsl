@@ -1,7 +1,9 @@
 #import bevy_sprite::{
     mesh2d_vertex_output::VertexOutput,
     mesh2d_view_bindings::view,
+    mesh2d_bindings::mesh
 }
+#import bevy_render::bindless::{bindless_samplers_filtering, bindless_textures_2d}
 
 #ifdef TONEMAP_IN_SHADER
 #import bevy_core_pipeline::tonemapping
@@ -21,33 +23,72 @@ struct ColorMaterial {
     alpha_cutoff: f32,
 };
 
+#ifdef BINDLESS
+// The index table for bindless operation.
+struct ColorMaterialBindings {
+    material: u32,          // 0
+    color_texture: u32,     // 1
+    color_sampler: u32,     // 2
+}
+#endif  // BINDLESS
+
 const COLOR_MATERIAL_FLAGS_TEXTURE_BIT: u32              = 1u;
 const COLOR_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS: u32 = 3221225472u; // (0b11u32 << 30)
 const COLOR_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE: u32        = 0u;          // (0u32 << 30)
 const COLOR_MATERIAL_FLAGS_ALPHA_MODE_MASK: u32          = 1073741824u; // (1u32 << 30)
 const COLOR_MATERIAL_FLAGS_ALPHA_MODE_BLEND: u32         = 2147483648u; // (2u32 << 30)
 
+#ifdef BINDLESS
+@group(#{MATERIAL_BIND_GROUP}) @binding(0) var<storage> color_material_indices:
+    array<ColorMaterialBindings>;
+@group(#{MATERIAL_BIND_GROUP}) @binding(10) var<storage> color_materials: array<ColorMaterial>;
+#else   // BINDLESS
 @group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> material: ColorMaterial;
 @group(#{MATERIAL_BIND_GROUP}) @binding(1) var texture: texture_2d<f32>;
 @group(#{MATERIAL_BIND_GROUP}) @binding(2) var texture_sampler: sampler;
+#endif  // BINDLESS
 
 @fragment
 fn fragment(
-    mesh: VertexOutput,
+    in: VertexOutput,
 ) -> @location(0) vec4<f32> {
+    let slot = mesh[in.instance_index].material_bind_group_slot;
+
+#ifdef BINDLESS
+    var output_color: vec4<f32> = color_materials[color_material_indices[slot].material].color;
+#else   // BINDLESS
     var output_color: vec4<f32> = material.color;
+#endif  // BINDLESS
 
 #ifdef VERTEX_COLORS
-    output_color = output_color * mesh.color;
+    output_color = output_color * in.color;
 #endif
 
-    let uv = (material.uv_transform * vec3(mesh.uv, 1.0)).xy;
+#ifdef BINDLESS
+    let uv_transform = color_materials[color_material_indices[slot].material].uv_transform;
+    let flags = color_materials[color_material_indices[slot].material].flags;
+    let alpha_cutoff = color_materials[color_material_indices[slot].material].alpha_cutoff;
+#else   // BINDLESS
+    let uv_transform = material.uv_transform;
+    let flags = material.flags;
+    let alpha_cutoff = material.alpha_cutoff;
+#endif  // BINDLESS
 
-    if ((material.flags & COLOR_MATERIAL_FLAGS_TEXTURE_BIT) != 0u) {
+    let uv = (uv_transform * vec3(in.uv, 1.0)).xy;
+
+    if ((flags & COLOR_MATERIAL_FLAGS_TEXTURE_BIT) != 0u) {
+#ifdef BINDLESS
+        output_color = output_color * textureSample(
+            bindless_textures_2d[color_material_indices[slot].color_texture],
+            bindless_samplers_filtering[color_material_indices[slot].color_sampler],
+            uv
+        );
+#else   // BINDLESS
         output_color = output_color * textureSample(texture, texture_sampler, uv);
+#endif  // BINDLESS
     }
 
-    output_color = alpha_discard(material, output_color);
+    output_color = alpha_discard(flags, alpha_cutoff, output_color);
 
 #ifdef TONEMAP_IN_SHADER
     output_color = tonemapping::tone_mapping(output_color, view.color_grading);
@@ -61,16 +102,16 @@ fn fragment(
     return output_color;
 }
 
-fn alpha_discard(material: ColorMaterial, output_color: vec4<f32>) -> vec4<f32> {
+fn alpha_discard(flags: u32, alpha_cutoff: f32, output_color: vec4<f32>) -> vec4<f32> {
     var color = output_color;
-    let alpha_mode = material.flags & COLOR_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
+    let alpha_mode = flags & COLOR_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
     if alpha_mode == COLOR_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE {
         // NOTE: If rendering as opaque, alpha should be ignored so set to 1.0
         color.a = 1.0;
     }
 #ifdef MAY_DISCARD
     else if alpha_mode == COLOR_MATERIAL_FLAGS_ALPHA_MODE_MASK {
-       if color.a >= material.alpha_cutoff {
+       if color.a >= alpha_cutoff {
             // NOTE: If rendering as masked alpha and >= the cutoff, render as fully opaque
             color.a = 1.0;
         } else {

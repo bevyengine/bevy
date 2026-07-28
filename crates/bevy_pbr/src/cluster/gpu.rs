@@ -1159,7 +1159,10 @@ fn cluster_on_gpu(
 
             {
                 // Use `encase` to populate a `ClusterMetadata`.
-                let buffer_view = captured_staging_buffer.slice(..).get_mapped_range();
+                let buffer_view = captured_staging_buffer
+                    .slice(..)
+                    .get_mapped_range()
+                    .unwrap();
                 let Ok(mut buffer_reader) =
                     Reader::new::<ClusterMetadata>(buffer_view[..].to_vec(), 0)
                 else {

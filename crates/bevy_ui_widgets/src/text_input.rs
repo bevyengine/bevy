@@ -9,7 +9,7 @@
 use bevy_a11y::AccessibilitySystems;
 use bevy_app::{App, Plugin, PostUpdate, PreUpdate};
 use bevy_ecs::prelude::*;
-use bevy_input::keyboard::{Key, KeyboardInput};
+use bevy_input::keyboard::{Key, KeyCode, KeyboardInput};
 use bevy_input::{ButtonInput, InputSystems};
 use bevy_input_focus::{
     FocusCause, FocusGained, FocusLost, FocusedInput, InputFocus, InputFocusSystems,
@@ -26,8 +26,8 @@ use bevy_time::{Real, Time};
 use bevy_ui::widget::{sync_editable_text_viewports, update_editable_text_layout};
 use bevy_ui::UiSystems;
 use bevy_ui::{
-    widget::TextNodeFlags, ComputedNode, ComputedUiRenderTargetInfo, ContentSize, Node,
-    UiGlobalTransform, UiScale,
+    widget::TextNodeFlags, ComputedNode, ComputedUiRenderTargetInfo, ContentSize,
+    InteractionDisabled, Node, UiGlobalTransform, UiScale,
 };
 use bevy_window::{Ime, PrimaryWindow, Window};
 
@@ -57,6 +57,31 @@ const AUTOSCROLL_MAX_SPEED: f32 = 2.0;
 /// Proportional to the input size.
 const AUTOSCROLL_RAMP_DISTANCE: f32 = 0.5;
 
+/// Returns `true` if the given keyboard input matches an editing-shortcut
+/// character (like the `C` in `Ctrl+C`).
+///
+/// Shortcut matching uses a hybrid strategy, mirroring the behavior of native
+/// text fields and browsers:
+///
+/// - The layout-aware [`logical_key`](KeyboardInput::logical_key) is checked
+///   first, so Latin non-QWERTY layouts (AZERTY, Dvorak, ...) keep their
+///   conventional shortcut positions.
+/// - If the logical key is not an ASCII character (non-Latin layouts such as
+///   Cyrillic, Greek, Arabic or Hebrew), the physical
+///   [`key_code`](KeyboardInput::key_code) is used as a layout-independent
+///   fallback.
+///
+/// Matching purely on `logical_key` breaks these shortcuts on non-Latin
+/// layouts, while matching purely on `key_code` breaks Latin non-QWERTY
+/// conventions. See <https://github.com/bevyengine/bevy/issues/24997>.
+fn matches_edit_shortcut(input: &KeyboardInput, character: &str, key_code: KeyCode) -> bool {
+    match &input.logical_key {
+        Key::Character(c) if c.is_ascii() => c.eq_ignore_ascii_case(character),
+        Key::Character(_) => input.key_code == key_code,
+        _ => false,
+    }
+}
+
 /// System that processes keyboard input events into text edit actions for focused [`EditableText`] widgets.
 ///
 /// See [`EditableText`] for more details on the standard mapping from keyboard events to text edit actions
@@ -66,7 +91,8 @@ const AUTOSCROLL_RAMP_DISTANCE: f32 = 0.5;
 /// and then applied later by the [`apply_text_edits`](`bevy_text::apply_text_edits`) system.
 fn on_focused_keyboard_input(
     mut keyboard_input: On<FocusedInput<KeyboardInput>>,
-    mut query: Query<&mut EditableText>,
+    mut input_focus: ResMut<InputFocus>,
+    mut query: Query<&mut EditableText, Without<InteractionDisabled>>,
     keys: Res<ButtonInput<Key>>,
 ) {
     let Ok(mut editable_text) = query.get_mut(keyboard_input.focused_entity) else {
@@ -106,14 +132,24 @@ fn on_focused_keyboard_input(
         (NONE, Key::Copy) => queue_edit(TextEdit::Copy),
         (NONE, Key::Cut) => queue_edit(TextEdit::Cut),
         (NONE, Key::Paste) => queue_edit(TextEdit::Paste),
-        (COMMAND, Key::Character(c)) if c.eq_ignore_ascii_case("a") => {
+        (COMMAND, Key::Character(_))
+            if matches_edit_shortcut(&keyboard_input.input, "a", KeyCode::KeyA) =>
+        {
             queue_edit(TextEdit::SelectAll);
         }
-        (COMMAND, Key::Character(c)) if c.eq_ignore_ascii_case("c") => {
+        (COMMAND, Key::Character(_))
+            if matches_edit_shortcut(&keyboard_input.input, "c", KeyCode::KeyC) =>
+        {
             queue_edit(TextEdit::Copy);
         }
-        (COMMAND, Key::Character(c)) if c.eq_ignore_ascii_case("x") => queue_edit(TextEdit::Cut),
-        (COMMAND, Key::Character(c)) if c.eq_ignore_ascii_case("v") => {
+        (COMMAND, Key::Character(_))
+            if matches_edit_shortcut(&keyboard_input.input, "x", KeyCode::KeyX) =>
+        {
+            queue_edit(TextEdit::Cut);
+        }
+        (COMMAND, Key::Character(_))
+            if matches_edit_shortcut(&keyboard_input.input, "v", KeyCode::KeyV) =>
+        {
             queue_edit(TextEdit::Paste);
         }
         #[cfg(not(target_os = "macos"))]
@@ -148,8 +184,18 @@ fn on_focused_keyboard_input(
         (NONE | SHIFT, Key::End) => queue_edit(TextEdit::LineEnd(shift_pressed)),
         (NONE, Key::Backspace) => queue_edit(TextEdit::Backspace),
         (NONE, Key::Delete) => queue_edit(TextEdit::Delete),
-        (NONE, Key::Escape) => queue_edit(TextEdit::CollapseSelection),
-        (NONE | SHIFT, Key::Character(_)) | (NONE, Key::Space) => {
+        (NONE, Key::Escape) => {
+            queue_edit(TextEdit::CollapseSelection);
+            if keyboard_input.input.state.is_pressed() {
+                input_focus.clear();
+            }
+            // Escape belongs to the surrounding context (close a dialog, cancel,
+            // back out) -- collapse and blur, but do NOT consume: the same press
+            // keeps bubbling. `InputFocus` is already cleared by the time ancestors
+            // see it; check `original_event_target()` to tell it came from a field.
+            should_propagate = true;
+        }
+        (NONE | SHIFT, Key::Character(_) | Key::Unidentified(_)) | (NONE, Key::Space) => {
             if let Some(text) = &keyboard_input.input.text
                 && !text.is_empty()
             {
@@ -173,12 +219,15 @@ fn on_focused_keyboard_input(
 /// and then applied later by the [`apply_text_edits`](`bevy_text::apply_text_edits`) system.
 fn on_pointer_press(
     mut press: On<Pointer<Press>>,
-    mut text_input_query: Query<(
-        &mut EditableText,
-        &ComputedNode,
-        &ComputedUiRenderTargetInfo,
-        &UiGlobalTransform,
-    )>,
+    mut text_input_query: Query<
+        (
+            &mut EditableText,
+            &ComputedNode,
+            &ComputedUiRenderTargetInfo,
+            &UiGlobalTransform,
+        ),
+        Without<InteractionDisabled>,
+    >,
     keys: Res<ButtonInput<Key>>,
     mut input_focus: ResMut<InputFocus>,
     ui_scale: Res<UiScale>,
@@ -557,7 +606,7 @@ fn on_focus_select_all(
                     queued_select_all.0 = Some(target);
                 }
             }
-            FocusCause::Navigated => {
+            FocusCause::Auto | FocusCause::Navigated => {
                 if select_all_on_focus {
                     editable_text.queue_edit(TextEdit::SelectAll);
                 }
@@ -671,9 +720,50 @@ impl Plugin for EditableTextInputPlugin {
 mod tests {
     use super::*;
     use bevy_app::Update;
+    use bevy_input::{
+        keyboard::{KeyCode, NativeKey, NativeKeyCode},
+        ButtonState, InputPlugin,
+    };
+    use bevy_input_focus::InputDispatchPlugin;
     use bevy_math::Rect;
     use bevy_picking::{events::DragEntry, pointer::PointerId};
     use core::time::Duration;
+
+    #[test]
+    fn steam_osk_unidentified_keys_insert_produced_text() {
+        let mut app = App::new();
+        app.add_plugins((InputPlugin, InputDispatchPlugin))
+            .init_resource::<InputFocus>()
+            .add_observer(on_focused_keyboard_input);
+
+        let window = app
+            .world_mut()
+            .spawn((Window::default(), PrimaryWindow))
+            .id();
+        let editable_text = app.world_mut().spawn(EditableText::default()).id();
+        app.insert_resource(InputFocus::from_entity(editable_text));
+
+        for (text, repeat) in [("J", false), ("#", true)] {
+            app.world_mut().write_message(KeyboardInput {
+                key_code: KeyCode::Unidentified(NativeKeyCode::Windows(0)),
+                logical_key: Key::Unidentified(NativeKey::Windows(231)),
+                state: ButtonState::Pressed,
+                text: Some(text.into()),
+                repeat,
+                window,
+            });
+        }
+        app.update();
+
+        assert_eq!(
+            app.world()
+                .entity(editable_text)
+                .get::<EditableText>()
+                .unwrap()
+                .pending_edits,
+            [TextEdit::Insert("J".into()), TextEdit::Insert("#".into())]
+        );
+    }
 
     #[test]
     fn autoscroll_speed_is_zero_inside_then_ramps_and_caps() {
@@ -882,5 +972,95 @@ mod tests {
                 .len(),
             1
         );
+    }
+
+    fn shortcut_keyboard_input(logical_key: Key, key_code: KeyCode) -> KeyboardInput {
+        KeyboardInput {
+            key_code,
+            logical_key,
+            state: ButtonState::Pressed,
+            text: None,
+            repeat: false,
+            window: Entity::PLACEHOLDER,
+        }
+    }
+
+    #[test]
+    fn logical_key_wins_on_latin_layouts() {
+        // US QWERTY: logical "c" on the physical `KeyC`.
+        let event = shortcut_keyboard_input(Key::Character("c".into()), KeyCode::KeyC);
+        assert!(matches_edit_shortcut(&event, "c", KeyCode::KeyC));
+
+        // AZERTY: logical "a" lives on the physical `KeyQ`.
+        // The layout convention must win over the physical location.
+        let event = shortcut_keyboard_input(Key::Character("a".into()), KeyCode::KeyQ);
+        assert!(matches_edit_shortcut(&event, "a", KeyCode::KeyA));
+        assert!(!matches_edit_shortcut(&event, "q", KeyCode::KeyQ));
+    }
+
+    #[test]
+    fn physical_fallback_on_non_latin_layouts() {
+        // Cyrillic layout: the key at the `KeyC` position produces Cyrillic "с".
+        let event = shortcut_keyboard_input(Key::Character("с".into()), KeyCode::KeyC);
+        assert!(matches_edit_shortcut(&event, "c", KeyCode::KeyC));
+        // ...but it must not match a different physical key.
+        assert!(!matches_edit_shortcut(&event, "a", KeyCode::KeyA));
+    }
+
+    #[test]
+    fn named_keys_never_match() {
+        let event = shortcut_keyboard_input(Key::Enter, KeyCode::Enter);
+        assert!(!matches_edit_shortcut(&event, "c", KeyCode::KeyC));
+    }
+
+    #[test]
+    fn escape_blurs_field_and_propagates_to_window() {
+        #[derive(Resource, Default)]
+        struct WindowSawEscape(u32);
+
+        let mut app = App::new();
+        app.add_plugins((InputPlugin, InputDispatchPlugin))
+            .init_resource::<InputFocus>()
+            .init_resource::<WindowSawEscape>()
+            .add_observer(on_focused_keyboard_input);
+
+        // Manual registration needed to prevent `WindowTraversal` failure during artificial test
+        app.world_mut().register_component::<ChildOf>();
+
+        let window = app
+            .world_mut()
+            .spawn((Window::default(), PrimaryWindow))
+            .id();
+
+        let editable_text = app.world_mut().spawn(EditableText::default()).id();
+        app.world_mut().entity_mut(window).observe(
+            move |input: On<FocusedInput<KeyboardInput>>, mut saw: ResMut<WindowSawEscape>| {
+                if matches!(input.input.logical_key, Key::Escape) && input.input.state.is_pressed()
+                {
+                    // The target field is rewritten at each hop; the origin
+                    // survives on the trigger. The migration guide's guard
+                    // depends on exactly this.
+                    assert_eq!(input.focused_entity, window);
+                    assert_eq!(input.original_event_target(), editable_text);
+                    saw.0 += 1;
+                }
+            },
+        );
+        app.insert_resource(InputFocus::from_entity(editable_text));
+
+        app.world_mut().write_message(KeyboardInput {
+            key_code: KeyCode::Escape,
+            logical_key: Key::Escape,
+            state: ButtonState::Pressed,
+            text: None,
+            repeat: false,
+            window,
+        });
+        app.update();
+
+        // The field released focus...
+        assert!(app.world().resource::<InputFocus>().get().is_none());
+        // ...and the same press reached the window observer.
+        assert_eq!(app.world().resource::<WindowSawEscape>().0, 1);
     }
 }

@@ -404,7 +404,7 @@ fn map_buffers(mut readbacks: ResMut<GpuReadbacks>) {
         slice.map_async(wgpu::MapMode::Read, move |res| {
             res.expect("Failed to map buffer");
             let buffer_slice = buffer.slice(..);
-            let data = buffer_slice.get_mapped_range();
+            let data = buffer_slice.get_mapped_range().unwrap();
             let result = Vec::from(&*data);
             drop(data);
             buffer.unmap();

@@ -1,5 +1,6 @@
-use crate::{Font, TextBrush, TextLayoutInfo, TextSection};
-use bevy_asset::Handle;
+use crate::{Font, TextBrush, TextError, TextLayoutInfo, TextSection};
+use alloc::borrow::Cow;
+use bevy_asset::{Assets, Handle};
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
@@ -9,7 +10,7 @@ use bevy_utils::{default, once};
 use core::fmt::{Debug, Formatter};
 use core::str::from_utf8;
 use parley::setting::Tag;
-use parley::{FontFeature, FontVariation, Layout};
+use parley::{FontFamily, FontFeature, FontVariation, Layout};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use smol_str::SmolStr;
@@ -264,11 +265,11 @@ impl From<Justify> for parley::Alignment {
     }
 }
 
-#[derive(Clone, Debug, Reflect, PartialEq, FromTemplate)]
 /// Determines how the font face for a text sections is selected.
 ///
 /// A [`FontSource`] can be a handle to a font asset, a font family name,
-/// or a generic font category that is resolved using Parley's font database.
+/// a CSS font-family list, an ordered family list, or a generic font category
+/// that is resolved using Parley's font database.
 ///
 /// Font family fallback (selection of a font when the requested font is not found)
 /// is automatically handled by [`parley::fontique`].
@@ -279,6 +280,7 @@ impl From<Justify> for parley::Alignment {
 ///
 /// You can check which font family is used for a given [`FontSource`]
 /// by calling [`FontCx::get_family`](crate::FontCx::get_family).
+#[derive(Clone, Debug, Reflect, PartialEq, FromTemplate)]
 pub enum FontSource {
     /// Use a specific font face referenced by a [`Font`] asset handle.
     ///
@@ -291,10 +293,313 @@ pub enum FontSource {
     Handle(Handle<Font>),
     /// Resolve the font by family name using the font database.
     Family(SmolStr),
+    /// Font family list in CSS format.
+    ///
+    /// For example: `"Arial, Noto Sans, sans-serif"`.
+    Families(SmolStr),
+    /// Ordered list of font sources.
+    List(#[template(built_in)] Vec<FontSource>),
+    /// Resolve the font using a generic font family.
+    Generic(GenericFontFamily),
+}
+
+impl FontSource {
+    /// Resolve the font by family name using the font database.
+    pub fn family(family: impl Into<SmolStr>) -> Self {
+        Self::Family(family.into())
+    }
+
+    /// Font family list in CSS format.
+    ///
+    /// For example: `"Arial, 'Noto Sans', sans-serif"`.
+    pub fn families(source: impl Into<SmolStr>) -> Self {
+        Self::Families(source.into())
+    }
+
+    /// Creates an ordered list of font sources.
+    pub fn list<I, F>(list: I) -> Self
+    where
+        I: IntoIterator<Item = F>,
+        F: Into<FontSource>,
+    {
+        Self::List(list.into_iter().map(Into::into).collect())
+    }
+
+    /// Returns a depth-first flattened list of sources, recursively replacing `FontSource::List` entries with their contents.
+    pub fn flatten(&self) -> SmallVec<[&FontSource; 4]> {
+        let mut sources = SmallVec::new();
+        self.flatten_into(&mut sources);
+        sources
+    }
+
+    fn flatten_into<'a>(&'a self, sources: &mut SmallVec<[&'a FontSource; 4]>) {
+        match self {
+            FontSource::List(font_sources) => {
+                for source in font_sources {
+                    source.flatten_into(sources);
+                }
+            }
+            source => sources.push(source),
+        }
+    }
+
     /// Fonts with serifs — small decorative strokes at the ends of letterforms.
     ///
     /// Serif fonts are typically used for long passages of text and represent
     /// a more traditional or formal typographic style.
+    pub const fn serif() -> Self {
+        Self::Generic(GenericFontFamily::Serif)
+    }
+    /// Fonts without serifs.
+    ///
+    /// Sans-serif fonts generally have low stroke contrast and plain stroke
+    /// endings, making them common for UI text and on-screen reading.
+    pub const fn sans_serif() -> Self {
+        Self::Generic(GenericFontFamily::SansSerif)
+    }
+
+    /// Fonts that use a cursive or handwritten style.
+    ///
+    /// Glyphs often resemble connected or flowing pen or brush strokes rather
+    /// than printed letterforms.
+    pub const fn cursive() -> Self {
+        Self::Generic(GenericFontFamily::Cursive)
+    }
+
+    /// Decorative or expressive fonts.
+    ///
+    /// Fantasy fonts are primarily intended for display purposes and may
+    /// prioritize visual style over readability.
+    pub const fn fantasy() -> Self {
+        Self::Generic(GenericFontFamily::Fantasy)
+    }
+
+    /// Fonts in which all glyphs have the same fixed advance width.
+    ///
+    /// Monospace fonts are commonly used for code, tabular data, and text
+    /// where vertical alignment is important.
+    pub const fn monospace() -> Self {
+        Self::Generic(GenericFontFamily::Monospace)
+    }
+
+    /// The default user interface system font.
+    pub const fn system_ui() -> Self {
+        Self::Generic(GenericFontFamily::SystemUi)
+    }
+
+    /// Alternative serif font for user interfaces.
+    pub const fn ui_serif() -> Self {
+        Self::Generic(GenericFontFamily::UiSerif)
+    }
+
+    /// Alternative sans-serif font for user interfaces.
+    pub const fn ui_sans_serif() -> Self {
+        Self::Generic(GenericFontFamily::UiSansSerif)
+    }
+
+    /// Alternative monospace font for user interfaces.
+    pub const fn ui_monospace() -> Self {
+        Self::Generic(GenericFontFamily::UiMonospace)
+    }
+
+    /// Fonts that have rounded features.
+    pub const fn ui_rounded() -> Self {
+        Self::Generic(GenericFontFamily::UiRounded)
+    }
+
+    /// Fonts that are specifically designed to render emoji.
+    pub const fn emoji() -> Self {
+        Self::Generic(GenericFontFamily::Emoji)
+    }
+
+    /// This is for the particular stylistic concerns of representing
+    /// mathematics: superscript and subscript, brackets that cross several
+    /// lines, nesting expressions, and double struck glyphs with distinct
+    /// meanings.
+    pub const fn math() -> Self {
+        Self::Generic(GenericFontFamily::Math)
+    }
+
+    /// A particular style of Chinese characters that are between serif-style
+    /// Song and cursive-style Kai forms. This style is often used for
+    /// government documents.
+    pub const fn fang_song() -> Self {
+        Self::Generic(GenericFontFamily::FangSong)
+    }
+
+    /// Returns true if the `FontSource` is a list-like source (either the `Families` or `List` variant).
+    pub const fn is_list_like(&self) -> bool {
+        matches!(self, FontSource::Families(_) | FontSource::List(_))
+    }
+
+    /// Returns true if this `FontSource` is a `List` that contains at least one list-like source.
+    pub fn is_recursive(&self) -> bool {
+        match self {
+            FontSource::List(font_sources) => font_sources.iter().any(Self::is_list_like),
+            _ => false,
+        }
+    }
+
+    /// Resolve the [`FontSource`] to a Parley [`FontFamily`].
+    pub fn resolve_font_family<'a>(
+        &'a self,
+        fonts: &'a Assets<Font>,
+    ) -> Result<FontFamily<'a>, TextError> {
+        Ok(match self {
+            FontSource::Handle(handle) => {
+                FontFamily::Single(parley::FontFamilyName::Named(Cow::Borrowed(
+                    fonts
+                        .get(handle.id())
+                        .ok_or(TextError::NoSuchFont)?
+                        .alias
+                        .as_str(),
+                )))
+            }
+            FontSource::Family(family) => FontFamily::named(family.as_str()),
+            FontSource::Families(source) => FontFamily::Source(Cow::Borrowed(source.as_str())),
+            FontSource::List(_) => {
+                let font_sources = self.flatten();
+                match font_sources.as_slice() {
+                    [] => FontFamily::List(Cow::Owned(Vec::new())),
+                    [source] => match *source {
+                        FontSource::Handle(handle) => {
+                            FontFamily::Single(parley::FontFamilyName::Named(Cow::Borrowed(
+                                fonts
+                                    .get(handle.id())
+                                    .ok_or(TextError::NoSuchFont)?
+                                    .alias
+                                    .as_str(),
+                            )))
+                        }
+                        FontSource::Family(family) => FontFamily::Single(
+                            parley::FontFamilyName::Named(Cow::Borrowed(family.as_str())),
+                        ),
+                        FontSource::Families(source) => {
+                            FontFamily::Source(Cow::Borrowed(source.as_str()))
+                        }
+                        FontSource::Generic(generic_family) => {
+                            #[cfg(not(feature = "system_font_discovery"))]
+                            bevy_log::error_once!( "A generic FontSource ({generic_family:?}) was used, but the `system_font_discovery` \
+                            feature is not enabled. Text may not render. Enable the feature to allow Bevy \
+                            to discover system fonts.");
+                            FontFamily::Single(parley::FontFamilyName::Generic(
+                                (*generic_family).into(),
+                            ))
+                        }
+                        FontSource::List(_) => {
+                            unreachable!("FontSource::flatten should not return lists")
+                        }
+                    },
+                    _ => {
+                        let mut families = Vec::new();
+                        for source in font_sources.iter().copied() {
+                            match source {
+                                FontSource::Handle(handle) => {
+                                    families.push(parley::FontFamilyName::Named(Cow::Borrowed(
+                                        fonts
+                                            .get(handle.id())
+                                            .ok_or(TextError::NoSuchFont)?
+                                            .alias
+                                            .as_str(),
+                                    )));
+                                }
+                                FontSource::Family(family) => {
+                                    families.push(parley::FontFamilyName::Named(Cow::Borrowed(
+                                        family.as_str(),
+                                    )));
+                                }
+                                FontSource::Families(source) => {
+                                    families.extend(
+                                        parley::FontFamilyName::parse_css_list(source.as_str())
+                                            .map_while(Result::ok),
+                                    );
+                                }
+                                FontSource::List(_) => {
+                                    unreachable!("FontSource::flatten should not return lists")
+                                }
+                                FontSource::Generic(generic_family) => {
+                                    #[cfg(not(feature = "system_font_discovery"))]
+                                    bevy_log::error_once!( "A generic FontSource ({generic_family:?}) was used, but the `system_font_discovery` \
+                                    feature is not enabled. Text may not render. Enable the feature to allow Bevy \
+                                    to discover system fonts.");
+                                    families.push(parley::FontFamilyName::Generic(
+                                        (*generic_family).into(),
+                                    ));
+                                }
+                            }
+                        }
+                        FontFamily::List(Cow::Owned(families))
+                    }
+                }
+            }
+            FontSource::Generic(generic_family) => {
+                #[cfg(not(feature = "system_font_discovery"))]
+                bevy_log::error_once!( "A generic FontSource ({generic_family:?}) was used, but the `system_font_discovery` \
+                feature is not enabled. Text may not render. Enable the feature to allow Bevy \
+                to discover system fonts.");
+                FontFamily::Single(parley::FontFamilyName::Generic((*generic_family).into()))
+            }
+        })
+    }
+}
+
+impl Default for FontSource {
+    fn default() -> Self {
+        Self::Handle(Handle::default())
+    }
+}
+
+impl From<Handle<Font>> for FontSource {
+    fn from(handle: Handle<Font>) -> Self {
+        Self::Handle(handle)
+    }
+}
+
+impl From<&Handle<Font>> for FontSource {
+    fn from(handle: &Handle<Font>) -> Self {
+        Self::Handle(handle.clone())
+    }
+}
+
+impl From<SmolStr> for FontSource {
+    fn from(families: SmolStr) -> Self {
+        FontSource::Families(families)
+    }
+}
+
+impl From<&str> for FontSource {
+    fn from(families: &str) -> Self {
+        FontSource::Families(families.into())
+    }
+}
+
+impl From<GenericFontFamily> for FontSource {
+    fn from(generic: GenericFontFamily) -> Self {
+        Self::Generic(generic)
+    }
+}
+
+impl From<Vec<FontSource>> for FontSource {
+    fn from(list: Vec<FontSource>) -> Self {
+        Self::List(list)
+    }
+}
+
+impl<const N: usize> From<[FontSource; N]> for FontSource {
+    fn from(list: [FontSource; N]) -> Self {
+        Self::List(list.into())
+    }
+}
+
+/// Generic font families that are resolved through Parley's font database.
+#[derive(Clone, Copy, Debug, Reflect, PartialEq, Eq, Hash, FromTemplate)]
+#[repr(u8)]
+pub enum GenericFontFamily {
+    /// Fonts with serifs — small decorative strokes at the ends of letterforms.
+    ///
+    /// Serif fonts are typically used for long passages of text and represent
+    /// a more traditional or formal typographic style.
+    #[default]
     Serif,
     /// Fonts without serifs.
     ///
@@ -320,7 +625,7 @@ pub enum FontSource {
     SystemUi,
     /// Alternative serif font for user interfaces.
     UiSerif,
-    /// Alternative sans-erif font for user interfaces.
+    /// Alternative sans-serif font for user interfaces.
     UiSansSerif,
     /// Alternative monospace font for user interfaces.
     UiMonospace,
@@ -339,33 +644,23 @@ pub enum FontSource {
     FangSong,
 }
 
-impl Default for FontSource {
-    fn default() -> Self {
-        Self::Handle(Handle::default())
-    }
-}
-
-impl From<Handle<Font>> for FontSource {
-    fn from(handle: Handle<Font>) -> Self {
-        Self::Handle(handle)
-    }
-}
-
-impl From<&Handle<Font>> for FontSource {
-    fn from(handle: &Handle<Font>) -> Self {
-        Self::Handle(handle.clone())
-    }
-}
-
-impl From<SmolStr> for FontSource {
-    fn from(family: SmolStr) -> Self {
-        FontSource::Family(family)
-    }
-}
-
-impl From<&str> for FontSource {
-    fn from(family: &str) -> Self {
-        FontSource::Family(family.into())
+impl From<GenericFontFamily> for parley::GenericFamily {
+    fn from(generic: GenericFontFamily) -> Self {
+        match generic {
+            GenericFontFamily::Serif => Self::Serif,
+            GenericFontFamily::SansSerif => Self::SansSerif,
+            GenericFontFamily::Cursive => Self::Cursive,
+            GenericFontFamily::Fantasy => Self::Fantasy,
+            GenericFontFamily::Monospace => Self::Monospace,
+            GenericFontFamily::SystemUi => Self::SystemUi,
+            GenericFontFamily::UiSerif => Self::UiSerif,
+            GenericFontFamily::UiSansSerif => Self::UiSansSerif,
+            GenericFontFamily::UiMonospace => Self::UiMonospace,
+            GenericFontFamily::UiRounded => Self::UiRounded,
+            GenericFontFamily::Emoji => Self::Emoji,
+            GenericFontFamily::Math => Self::Math,
+            GenericFontFamily::FangSong => Self::FangSong,
+        }
     }
 }
 
@@ -377,7 +672,8 @@ pub struct TextFont {
     /// Specifies the font face used for this text section.
     ///
     /// A `FontSource` can be a handle to a font asset, a font family name,
-    /// or a generic font category that is resolved using Parley's
+    /// a CSS font-family list, an ordered family list, or a generic font category
+    /// that is resolved using Parley's
     /// [`FontContext`](`parley::FontContext`) which is accessible through the
     /// [`FontCx`](`crate::FontCx`) resource.
     pub font: FontSource,
@@ -1322,5 +1618,91 @@ pub fn detect_text_needs_rerender(
             };
             parent = next_child_of.parent();
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use bevy_asset::Assets;
+
+    use crate::Font;
+
+    use super::*;
+
+    #[test]
+    fn flattening_single_font_source_returns_source() {
+        let source = FontSource::Family("Fira Mono".into());
+
+        assert_eq!(source.flatten().into_iter().collect::<Vec<_>>(), [&source]);
+    }
+
+    #[test]
+    fn flattening_lists_preserves_list_order() {
+        let list = vec![
+            FontSource::family("Fira Mono"),
+            FontSource::sans_serif(),
+            FontSource::families("Garamond, Mona Sans"),
+        ];
+
+        assert_eq!(
+            FontSource::List(list.clone())
+                .flatten()
+                .into_iter()
+                .cloned()
+                .collect::<Vec<_>>(),
+            list
+        );
+    }
+
+    #[test]
+    fn font_source_flatten_recursively_flattens_lists() {
+        let source = FontSource::list([
+            FontSource::family("Fira Sans"),
+            FontSource::List(vec![
+                FontSource::emoji(),
+                FontSource::List(Vec::new()),
+                FontSource::families("Mona Sans, Garamond"),
+                FontSource::List(vec![FontSource::fantasy(), FontSource::ui_monospace()]),
+            ]),
+            FontSource::family("Fira Mono"),
+        ]);
+
+        assert_eq!(
+            source.flatten().into_iter().cloned().collect::<Vec<_>>(),
+            [
+                FontSource::Family("Fira Sans".into()),
+                FontSource::emoji(),
+                FontSource::families("Mona Sans, Garamond"),
+                FontSource::fantasy(),
+                FontSource::ui_monospace(),
+                FontSource::family("Fira Mono"),
+            ]
+        );
+    }
+
+    #[test]
+    fn empty_font_source_list_is_empty_and_resolves_to_empty_family_list() {
+        let list = FontSource::List(Vec::new());
+        assert!(list.flatten().is_empty());
+        assert_eq!(
+            list.resolve_font_family(&Assets::<Font>::default()),
+            Ok(FontFamily::List(Cow::Owned(Vec::new())))
+        );
+    }
+
+    #[test]
+    fn singleton_font_source_list_resolves_handle_to_single_family() {
+        let mut dummy_font = Font::from_bytes(Vec::new());
+        dummy_font.alias = "Dummy Font".to_string();
+        let mut fonts = Assets::<Font>::default();
+        let dummy_font_handle = fonts.add(dummy_font.clone());
+        let source = FontSource::list([FontSource::from(dummy_font_handle)]);
+
+        assert_eq!(
+            source.resolve_font_family(&fonts),
+            Ok(FontFamily::Single(parley::FontFamilyName::Named(
+                Cow::Borrowed("Dummy Font")
+            )))
+        );
     }
 }
