@@ -1298,8 +1298,22 @@ pub fn queue_material_meshes(
                 continue;
             };
 
-            match (material.properties.render_phase_type, has_transmission) {
-                (RenderPhaseType::Transmissive, true) => {
+            let render_phase_type = if !has_transmission {
+                // Fall back to rendering based on alpha mode when `ScreenSpaceTransmission` is disabled
+                match material.properties.alpha_mode {
+                    AlphaMode::Blend
+                    | AlphaMode::Premultiplied
+                    | AlphaMode::Add
+                    | AlphaMode::Multiply => RenderPhaseType::Transparent,
+                    AlphaMode::Opaque | AlphaMode::AlphaToCoverage => RenderPhaseType::Opaque,
+                    AlphaMode::Mask(_) => RenderPhaseType::AlphaMask,
+                }
+            } else {
+                material.properties.render_phase_type
+            };
+
+            match render_phase_type {
+                RenderPhaseType::Transmissive => {
                     let Some(draw_function) = material
                         .properties
                         .get_draw_function(MainPassTransmissiveDrawFunction)
@@ -1332,7 +1346,7 @@ pub fn queue_material_meshes(
                         distance: 0.0,
                     });
                 }
-                (RenderPhaseType::Opaque, _) => {
+                RenderPhaseType::Opaque => {
                     if material.properties.render_method == OpaqueRendererMethod::Deferred {
                         // Even though we aren't going to insert the entity into
                         // a bin, we still want to update its cache entry. That
@@ -1372,7 +1386,7 @@ pub fn queue_material_meshes(
                     );
                 }
                 // Alpha mask
-                (RenderPhaseType::AlphaMask, _) => {
+                RenderPhaseType::AlphaMask => {
                     let Some(draw_function) = material
                         .properties
                         .get_draw_function(MainPassAlphaMaskDrawFunction)
@@ -1399,7 +1413,7 @@ pub fn queue_material_meshes(
                         ),
                     );
                 }
-                (RenderPhaseType::Transparent, _) | (RenderPhaseType::Transmissive, false) => {
+                RenderPhaseType::Transparent => {
                     let Some(draw_function) = material
                         .properties
                         .get_draw_function(MainPassTransparentDrawFunction)
