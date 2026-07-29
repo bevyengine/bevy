@@ -21,6 +21,7 @@ use bevy_ui::ResolvedBorderRadius;
 use bevy_ui::UiGlobalTransform;
 
 use crate::ExtractedGlyph;
+use crate::UiCameraMap;
 
 // pub struct ExtractedUiNode {
 //     pub z_order: f32,
@@ -76,23 +77,17 @@ pub struct ExtractedGlyphLayout {
     pub glyphs: Vec<ExtractedGlyph>,
 }
 
-/// The list of UI nodes, as well as the set of nodes that changed.
-///
-/// This is a two-level data structure so that we can quickly remove all
-/// gradients associated with a main-world entity when it changes.
+/// Uinode geometries and list of geometries that changed this frame.
 #[derive(Resource, Default)]
 pub struct ExtractedUiGeometries {
-    /// The list of UI nodes grouped by their main-world entity, along with
-    /// each group's target camera entity.
-    ///
-    /// This is a two-level data structure so that we can quickly remove all UI
-    /// nodes associated with a main-world entity when it changes.
-    pub uinodes: MainEntityHashMap<(Entity, EntityIndexMap<ExtractedUiNodeGeometry>)>,
-    /// UI nodes that changed this frame.
+    /// map from extracted camera entity -> main world entity -> node geometry
+    pub uinodes: MainEntityHashMap<MainEntityHashMap<ExtractedUiNodeGeometry>>,
+    /// Main world entities with UI node geometry that changed this frame.
     pub changed: MainEntityHashSet,
 }
 
 pub fn extract_uinode_geometry(
+    camera_map: Extract<UiCameraMap>,
     changed_geometry_query: Extract<
         Query<
             (
