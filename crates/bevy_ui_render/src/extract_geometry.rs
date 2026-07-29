@@ -1,6 +1,7 @@
 use bevy_camera::visibility::InheritedVisibility;
 use bevy_ecs::entity::Entity;
 use bevy_ecs::entity::EntityHashMap;
+use bevy_ecs::entity::EntityHashSet;
 use bevy_ecs::entity::EntityIndexMap;
 use bevy_ecs::lifecycle::RemovedComponents;
 use bevy_ecs::query::Changed;
@@ -64,6 +65,7 @@ use crate::UiCameraMap;
 // }
 
 pub struct ExtractedUiNodeGeometry {
+    pub extracted_camera: Entity,
     pub computed_node: ComputedNode,
     pub transform: Affine2,
     pub clip: Option<Rect>,
@@ -76,8 +78,7 @@ pub struct ExtractedUiNodeGeometry {
 /// Uinode geometries and list of geometries that changed this frame.
 #[derive(Resource, Default)]
 pub struct ExtractedUiGeometries {
-    /// Map from extracted camera view render world entity -> UI node main world entity
-    pub camera_to_uinode_map: EntityHashMap<MainEntityHashSet>,
+    pub extracted_camera_to_main_uinode_map: EntityHashMap<MainEntityHashSet>,
     /// Map from main world entity -> node geometry
     pub uinode_geometries: MainEntityHashMap<ExtractedUiNodeGeometry>,
     /// Main world entities with UI node geometry that changed this frame.
@@ -139,16 +140,6 @@ pub fn extract_uinode_geometry(
     // Changed list is cleared each frame, then repopulated
     extracted_geometries.changed.clear();
 
-    for entity in removed_calculated_clip_query.read() {
-        let main_entity = entity.into();
-        extracted_geometries.changed.insert(main_entity);
-        for uinodes in extracted_geometries.uinode_geometries.values_mut() {
-            if let Some(geometry) = uinodes.get_mut(&main_entity) {
-                geometry.clip = None;
-            }
-        }
-    }
-
     let mut camera_mapper = camera_map.get_mapper();
 
     for (
@@ -160,6 +151,7 @@ pub fn extract_uinode_geometry(
         transform,
         clip,
     ) in changed_geometry_query.iter().chain(
+        // `CalculatedClip` is optional, also update geometry if it is removed.
         removed_calculated_clip_query
             .read()
             .filter_map(|entity| unfiltered_geometry_query.get(entity).ok()),
@@ -176,14 +168,17 @@ pub fn extract_uinode_geometry(
         // Remove non-visible from all maps
         if !inherited_visibility.get() {
             extracted_geometries.uinode_geometries.remove(&main_entity);
-            extracted_geometries.camera_to_uinode_map[&extracted_camera_entity]
-                .remove(&main_entity);
+            extracted_geometries
+                .extracted_camera_to_main_uinode_map
+                .get_mut(&extracted_camera_entity)
+                .map(|main_entities| main_entities.remove(&main_entity));
             continue;
         }
 
         extracted_geometries.uinode_geometries.insert(
             main_entity,
             ExtractedUiNodeGeometry {
+                extracted_camera: extracted_camera_entity,
                 computed_node: *computed_node,
                 transform: transform.into(),
                 clip: clip.map(|clip| clip.clip),
@@ -213,15 +208,15 @@ pub fn extract_uinode_geometry(
 
         match extracted_geometries.changed.entry(main_entity) {
             bevy_platform::collections::hash_set::Entry::Occupied(_) => {
-                // UI node entity
+                // If changed, it passed the geometry query so the component must have been removed and reinserted in the same frame.
+                // Do nothing.
             }
-            bevy_platform::collections::hash_set::Entry::Vacant(_) => {}
-        }
-
-        extracted_geometries.changed.insert(main_entity);
-
-        for uinodes in extracted_geometries.uinode_geometries.values_mut() {
-            uinodes.remove(&main_entity);
+            bevy_platform::collections::hash_set::Entry::Vacant(entry) => {
+                // Failed the geometry queries, does not have at least one of the components (if reinserted would be `Changed`).
+                // Add to changed list and remove from maps
+                entry.insert();
+                extracted_geometries.uinode_geometries.remove(&main_entity);
+            }
         }
     }
 }
