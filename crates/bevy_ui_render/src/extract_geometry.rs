@@ -175,19 +175,45 @@ pub fn extract_uinode_geometry(
             continue;
         }
 
-        extracted_geometries.uinode_geometries.insert(
-            main_entity,
-            ExtractedUiNodeGeometry {
-                extracted_camera: extracted_camera_entity,
-                computed_node: *computed_node,
-                transform: transform.into(),
-                clip: clip.map(|clip| clip.clip),
-                atlas_scaling: None,
-                flip_x: false,
-                flip_y: false,
-                stack_index: stack_index.0,
-            },
-        );
+        let uinode_geometry = ExtractedUiNodeGeometry {
+            extracted_camera: extracted_camera_entity,
+            computed_node: *computed_node,
+            transform: transform.into(),
+            clip: clip.map(|clip| clip.clip),
+            atlas_scaling: None,
+            flip_x: false,
+            flip_y: false,
+            stack_index: stack_index.0,
+        };
+
+        let ExtractedUiGeometries {
+            extracted_camera_to_main_uinode_map,
+            uinode_geometries,
+            ..
+        } = &mut *extracted_geometries;
+
+        match uinode_geometries.entry(main_entity) {
+            bevy_platform::collections::hash_map::Entry::Occupied(mut entry) => {
+                let old_extracted_camera = entry.get().extracted_camera;
+                if old_extracted_camera != extracted_camera_entity {
+                    extracted_camera_to_main_uinode_map
+                        .get_mut(&old_extracted_camera)
+                        .map(|main_entities| main_entities.remove(&main_entity));
+                    extracted_camera_to_main_uinode_map
+                        .entry(extracted_camera_entity)
+                        .or_default()
+                        .insert(main_entity);
+                }
+                entry.insert(uinode_geometry);
+            }
+            bevy_platform::collections::hash_map::Entry::Vacant(entry) => {
+                extracted_camera_to_main_uinode_map
+                    .entry(extracted_camera_entity)
+                    .or_default()
+                    .insert(main_entity);
+                entry.insert(uinode_geometry);
+            }
+        }
     }
 
     // If UI Entities are missing any of these components their retained data will be deleted from the render
@@ -219,5 +245,25 @@ pub fn extract_uinode_geometry(
                     .map(|main_entities| main_entities.remove(&main_entity));
             }
         }
+    }
+}
+
+pub fn extract_uinode_geometry_debug(
+    extracted_geometries: bevy_ecs::system::Res<ExtractedUiGeometries>,
+) {
+    if 0 < extracted_geometries.changed.len() {
+        println!("\n");
+        println!(
+            "camera count: {}",
+            extracted_geometries
+                .extracted_camera_to_main_uinode_map
+                .len()
+        );
+        println!(
+            "node count: {}",
+            extracted_geometries.uinode_geometries.len()
+        );
+        println!("changed count: {}", extracted_geometries.changed.len());
+        println!("\n");
     }
 }
