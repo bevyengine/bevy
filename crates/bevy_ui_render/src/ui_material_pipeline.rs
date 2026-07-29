@@ -291,14 +291,8 @@ impl<P: PhaseItem, M: UiMaterial> RenderCommand<P> for DrawUiMaterialNode<M> {
     }
 }
 
-pub struct ExtractedUiMaterialNode<M: UiMaterial> {
-    pub stack_index: u32,
-    pub transform: Affine2,
-    pub rect: Rect,
-    pub border: BorderRect,
-    pub border_radius: [[f32; 4]; 2],
+pub struct ExtractedUiMaterial<M: UiMaterial> {
     pub material: AssetId<M>,
-    pub clip: Option<Rect>,
 }
 
 /// A render-world resource that stores all material nodes in the scene.
@@ -309,7 +303,7 @@ pub struct ExtractedUiMaterialNodes<M: UiMaterial> {
     ///
     /// This is a two-level data structure so that we can quickly remove all
     /// material nodes associated with a main-world entity when it changes.
-    pub uinodes: MainEntityHashMap<(Entity, EntityIndexMap<ExtractedUiMaterialNode<M>>)>,
+    pub uinodes: MainEntityHashMap<EntityIndexMap<ExtractedUiMaterial<M>>>,
 }
 
 impl<M: UiMaterial> Default for ExtractedUiMaterialNodes<M> {
@@ -324,47 +318,9 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiMaterialNodes<M>>,
     materials: Extract<Res<Assets<M>>>,
-    uinode_query: Extract<
-        Query<
-            (
-                Entity,
-                &ComputedNode,
-                &ComputedStackIndex,
-                &UiGlobalTransform,
-                &MaterialNode<M>,
-                &InheritedVisibility,
-                Option<&CalculatedClip>,
-                &ComputedUiTargetCamera,
-            ),
-            Or<(
-                Changed<ComputedNode>,
-                Changed<ComputedStackIndex>,
-                Changed<UiGlobalTransform>,
-                Changed<MaterialNode<M>>,
-                Changed<InheritedVisibility>,
-                Changed<CalculatedClip>,
-                Changed<ComputedUiTargetCamera>,
-            )>,
-        >,
-    >,
+    uinode_query: Extract<Query<(Entity, &MaterialNode<M>), Changed<MaterialNode<M>>>>,
     camera_map: Extract<UiCameraMap>,
-    (
-        mut removed_computed_node_query,
-        mut removed_computed_stack_index_query,
-        mut removed_ui_global_transform_query,
-        mut removed_material_node_query,
-        mut removed_inherited_visibility_query,
-        mut removed_calculated_clip_query,
-        mut removed_computed_ui_target_camera_query,
-    ): (
-        Extract<RemovedComponents<ComputedNode>>,
-        Extract<RemovedComponents<ComputedStackIndex>>,
-        Extract<RemovedComponents<UiGlobalTransform>>,
-        Extract<RemovedComponents<MaterialNode<M>>>,
-        Extract<RemovedComponents<InheritedVisibility>>,
-        Extract<RemovedComponents<CalculatedClip>>,
-        Extract<RemovedComponents<ComputedUiTargetCamera>>,
-    ),
+    (mut removed_material_node_query,): (Extract<RemovedComponents<MaterialNode<M>>>,),
     mut nodes_to_reextract_next_frame: Local<MainEntityHashSet>,
     mut nodes_processed_this_frame: Local<MainEntityHashSet>,
 ) {
@@ -372,16 +328,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
     let mut camera_mapper = camera_map.get_mapper();
     let nodes_to_reextract = mem::take(&mut *nodes_to_reextract_next_frame);
 
-    for (
-        entity,
-        computed_node,
-        stack_index,
-        transform,
-        handle,
-        inherited_visibility,
-        clip,
-        camera,
-    ) in uinode_query.iter().chain(
+    for (entity, handle) in uinode_query.iter().chain(
         nodes_to_reextract
             .into_iter()
             .filter_map(|main_entity| uinode_query.get(main_entity.entity()).ok()),
@@ -399,14 +346,9 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
             .uinodes
             .get_mut(&main_entity)
             .iter_mut()
-            .flat_map(|(_, nodes)| nodes.drain(..))
+            .flat_map(|nodes| nodes.drain(..))
         {
             commands.entity(render_entity).despawn();
-        }
-
-        // skip invisible nodes
-        if !inherited_visibility.get() || computed_node.is_empty() {
-            continue;
         }
 
         // If the material hasn't finished loading, skip the entity, and
@@ -416,54 +358,25 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
             continue;
         }
 
-        let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
-            continue;
-        };
-        if let Some((camera_entity, _)) = extracted_uinodes.uinodes.get_mut(&main_entity) {
-            *camera_entity = extracted_camera_entity;
-        }
-
         nodes_processed_this_frame.insert(main_entity);
 
-        extracted_uinodes
-            .uinodes
-            .entry(main_entity)
-            .or_insert_with(|| (extracted_camera_entity, Default::default()))
-            .1
-            .insert(
-                commands.spawn_empty().id(),
-                ExtractedUiMaterialNode {
-                    stack_index: stack_index.0,
-                    transform: transform.into(),
-                    material: handle.id(),
-                    rect: Rect {
-                        min: Vec2::ZERO,
-                        max: computed_node.size(),
-                    },
-                    border: computed_node.border(),
-                    border_radius: computed_node.border_radius().into(),
-                    clip: clip.map(|clip| clip.clip),
-                },
-            );
+        extracted_uinodes.uinodes.entry(main_entity).insert((
+            commands.spawn_empty().id(),
+            ExtractedUiMaterial {
+                material: handle.id(),
+            },
+        ));
     }
 
     // Only remove the render-world data if we didn't handle the node above.
     // It's possible that a relevant component was removed and added in the same
     // frame.
-    for main_entity in removed_computed_node_query
-        .read()
-        .chain(removed_computed_stack_index_query.read())
-        .chain(removed_ui_global_transform_query.read())
-        .chain(removed_material_node_query.read())
-        .chain(removed_inherited_visibility_query.read())
-        .chain(removed_calculated_clip_query.read())
-        .chain(removed_computed_ui_target_camera_query.read())
-    {
+    for main_entity in removed_material_node_query.read() {
         let main_entity = MainEntity::from(main_entity);
         if nodes_processed_this_frame.contains(&main_entity) {
             continue;
         }
-        let Some((_, mut extracted_nodes)) = extracted_uinodes.uinodes.remove(&main_entity) else {
+        let Some(mut extracted_nodes) = extracted_uinodes.uinodes.remove(&main_entity) else {
             continue;
         };
         for (render_entity, _) in extracted_nodes.drain(..) {
