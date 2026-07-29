@@ -397,7 +397,8 @@ pub fn extract_uinode_background_colors(
             Option<&OuterColor>,
             Option<&ImageNode>,
             Option<&ImageNodeSize>,
-            AnyOf<(&BorderColor, &Outline)>,
+            Option<&BorderColor>,
+            Option<&Outline>,
             Option<&ViewportNode>,
         )>,
     >,
@@ -444,7 +445,8 @@ pub fn extract_uinode_background_colors(
             maybe_outer_color,
             maybe_image,
             maybe_image_size,
-            (maybe_border_color, maybe_outline),
+            maybe_border_color,
+            maybe_outline,
             maybe_viewport_node,
         )) = uinode_query.get(main_entity.entity())
         else {
