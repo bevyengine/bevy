@@ -9,9 +9,8 @@ use bevy_ecs::{
         *,
     },
 };
-use bevy_math::{Affine2, FloatOrd, Rect, Vec2};
+use bevy_math::{FloatOrd, Rect, Vec2};
 use bevy_mesh::VertexBufferLayout;
-use bevy_platform::collections::hash_map::{OccupiedEntry, VacantEntry};
 use bevy_render::{
     globals::{GlobalsBuffer, GlobalsUniform},
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
@@ -24,8 +23,6 @@ use bevy_render::{
 };
 use bevy_render::{GpuResourceAppExt, RenderApp, RenderStartup};
 use bevy_shader::{load_shader_library, Shader, ShaderRef};
-use bevy_sprite::BorderRect;
-use bevy_ui::ComputedStackIndex;
 use bevy_utils::default;
 use bytemuck::{Pod, Zeroable};
 use core::{hash::Hash, marker::PhantomData, ops::Range};
@@ -313,16 +310,14 @@ impl<M: UiMaterial> Default for ExtractedUiMaterialNodes<M> {
 
 pub fn extract_ui_material_nodes<M: UiMaterial>(
     mut commands: Commands,
-    mut extracted_uinodes: Res<ExtractedUiMaterialNodes<M>>,
+    mut extracted_uinodes: ResMut<ExtractedUiMaterialNodes<M>>,
     materials: Extract<Res<Assets<M>>>,
     uinode_query: Extract<Query<(Entity, &MaterialNode<M>), Changed<MaterialNode<M>>>>,
-    camera_map: Extract<UiCameraMap>,
     (mut removed_material_node_query,): (Extract<RemovedComponents<MaterialNode<M>>>,),
     mut nodes_to_reextract_next_frame: Local<MainEntityHashSet>,
     mut nodes_processed_this_frame: Local<MainEntityHashSet>,
 ) {
     nodes_processed_this_frame.clear();
-    let mut camera_mapper = camera_map.get_mapper();
     let nodes_to_reextract = mem::take(&mut *nodes_to_reextract_next_frame);
 
     for (entity, handle) in uinode_query.iter().chain(
@@ -338,15 +333,6 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
         if nodes_processed_this_frame.contains(&main_entity) {
             continue;
         }
-        // If there were any previous UI nodes for this entity, despawn them.
-        for (render_entity, _) in extracted_uinodes
-            .uinodes
-            .get_mut(&main_entity)
-            .iter_mut()
-            .flat_map(|nodes| nodes.drain(..))
-        {
-            commands.entity(render_entity).despawn();
-        }
 
         // If the material hasn't finished loading, skip the entity, and
         // remember that we did so that we reextract the node next frame.
@@ -358,11 +344,11 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
         nodes_processed_this_frame.insert(main_entity);
 
         match extracted_uinodes.uinodes.entry(main_entity) {
-            bevy_platform::collections::hash_map::Entry::Occupied(mut entry) => {
+            Entry::Occupied(mut entry) => {
                 let (_, material) = entry.get_mut();
                 material.material = handle.id();
             }
-            bevy_platform::collections::hash_map::Entry::Vacant(entry) => {
+            Entry::Vacant(entry) => {
                 let entity = commands.spawn_empty().id();
                 entry.insert((
                     entity,
@@ -396,6 +382,7 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
     pipeline_cache: Res<PipelineCache>,
     mut ui_meta: ResMut<UiMaterialMeta<M>>,
     extracted_uinodes: Res<ExtractedUiMaterialNodes<M>>,
+    extracted_geometry: Res<ExtractedUiGeometries>,
     view_uniforms: Res<ViewUniforms>,
     globals_buffer: Res<GlobalsBuffer>,
     ui_material_pipeline: Res<UiMaterialPipeline<M>>,
@@ -422,11 +409,12 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
 
             for item_index in 0..ui_phase.items.len() {
                 let item = &mut ui_phase.items[item_index];
-                if let Some(extracted_uinode) = extracted_uinodes
-                    .uinodes
-                    .get(&item.main_entity())
-                    .and_then(|(_, subnodes)| subnodes.get(&item.entity()))
-                {
+                if let (Some((_, extracted_uinode)), Some(geometry)) = (
+                    extracted_uinodes.uinodes.get(&item.main_entity()),
+                    extracted_geometry
+                        .uinode_geometries
+                        .get(&item.main_entity()),
+                ) {
                     // Initialize the batch range to be zero-length initially.
                     // We'll extend it as we accumulate items into this batch.
                     item.batch_range = (item_index as u32)..(item_index as u32);
@@ -449,18 +437,21 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
                         existing_batch = batches.last_mut();
                     }
 
-                    let uinode_rect = extracted_uinode.rect;
+                    let uinode_rect = Rect {
+                        min: Vec2::ZERO,
+                        max: geometry.computed_node.size(),
+                    };
 
                     let rect_size = uinode_rect.size();
 
                     let positions = QUAD_VERTEX_POSITIONS.map(|pos| {
-                        extracted_uinode
+                        geometry
                             .transform
                             .transform_point2(pos * rect_size)
                             .extend(1.0)
                     });
 
-                    let positions_diff = if let Some(clip) = extracted_uinode.clip {
+                    let positions_diff = if let Some(clip) = geometry.clip {
                         [
                             Vec2::new(
                                 f32::max(clip.min.x - positions[0].x, 0.),
@@ -490,10 +481,8 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
                         positions[3] + positions_diff[3].extend(0.),
                     ];
 
-                    let transformed_rect_size = extracted_uinode
-                        .transform
-                        .transform_vector2(rect_size)
-                        .abs();
+                    let transformed_rect_size =
+                        geometry.transform.transform_vector2(rect_size).abs();
 
                     // Don't try to cull nodes that have a rotation
                     // In a rotation around the Z-axis, this value is 0.0 for an angle of 0.0 or π
@@ -501,7 +490,7 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
                     // horizontal / vertical lines
                     // For all other angles, bypass the culling check
                     // This does not properly handles all rotations on all axis
-                    if extracted_uinode.transform.x_axis[1] == 0.0 {
+                    if geometry.transform.x_axis[1] == 0.0 {
                         // Cull nodes that are completely clipped
                         if positions_diff[0].x - positions_diff[1].x >= transformed_rect_size.x
                             || positions_diff[1].y - positions_diff[2].y >= transformed_rect_size.y
@@ -533,13 +522,13 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
                         ui_meta.vertices.push(UiMaterialVertex {
                             position: positions_clipped[i].into(),
                             uv: uvs[i].into(),
-                            size: extracted_uinode.rect.size().into(),
-                            radius: extracted_uinode.border_radius,
+                            size: uinode_rect.size().into(),
+                            radius: geometry.computed_node.border_radius.into(),
                             border: [
-                                extracted_uinode.border.min_inset.x,
-                                extracted_uinode.border.min_inset.y,
-                                extracted_uinode.border.max_inset.x,
-                                extracted_uinode.border.max_inset.y,
+                                geometry.computed_node.border.min_inset.x,
+                                geometry.computed_node.border.min_inset.y,
+                                geometry.computed_node.border.max_inset.x,
+                                geometry.computed_node.border.max_inset.y,
                             ],
                         });
                     }
