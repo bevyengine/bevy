@@ -311,4 +311,8 @@ impl MergeableSchedule {
             .push(StagedSystem::new(schedule, systems).ok_or(())?);
         Ok(())
     }
+
+    pub(crate) fn merge_simple(&mut self, other: Self) {
+        self.schedules.extend(other.schedules);
+    }
 }
