@@ -13,7 +13,14 @@
 
 use std::marker::PhantomData;
 
-use bevy::{dev_tools::states::*, ecs::schedule::ScheduleLabel, prelude::*};
+use bevy::{
+    dev_tools::states::*,
+    ecs::schedule::ScheduleLabel,
+    picking::hover::Hovered,
+    prelude::*,
+    ui::Pressed,
+    ui_widgets::{Activate, ActivateOnPress, Button},
+};
 
 use custom_transitions::*;
 
@@ -34,15 +41,17 @@ fn main() {
         .init_state::<AppState>()
         .add_systems(Startup, setup)
         .add_systems(OnEnter(AppState::Menu), setup_menu)
-        .add_systems(Update, menu.run_if(in_state(AppState::Menu)))
+        .add_observer(on_activate_start_game.run_if(in_state(AppState::Menu)))
+        .add_systems(Update, hover_style)
         .add_systems(OnExit(AppState::Menu), cleanup_menu)
-        // We will restart the game progress every time we re-enter into it.
+        // We will restart the game progress every time we re-enter xinto it.
+        .add_observer(trigger_game_restart.run_if(in_state(AppState::InGame)))
         .add_systems(OnReenter(AppState::InGame), setup_game)
         .add_systems(OnReexit(AppState::InGame), teardown_game)
         // Doing it this way allows us to restart the game without any additional in-between states.
         .add_systems(
             Update,
-            ((movement, change_color, trigger_game_restart).run_if(in_state(AppState::InGame)),),
+            (movement, change_color).run_if(in_state(AppState::InGame)),
         )
         .add_systems(Update, log_transitions::<AppState>)
         .run();
@@ -139,25 +148,18 @@ mod custom_transitions {
     }
 }
 
-fn menu(
-    mut next_state: ResMut<NextState<AppState>>,
-    mut interaction_query: Query<
-        (&Interaction, &mut BackgroundColor),
-        (Changed<Interaction>, With<Button>),
-    >,
+fn on_activate_start_game(_: On<Activate>, mut next_state: ResMut<NextState<AppState>>) {
+    next_state.set(AppState::InGame);
+}
+
+fn hover_style(
+    mut button_query: Query<(&Hovered, &mut BackgroundColor), (Changed<Hovered>, With<Button>)>,
 ) {
-    for (interaction, mut color) in &mut interaction_query {
-        match *interaction {
-            Interaction::Pressed => {
-                *color = PRESSED_BUTTON.into();
-                next_state.set(AppState::InGame);
-            }
-            Interaction::Hovered => {
-                *color = HOVERED_BUTTON.into();
-            }
-            Interaction::None => {
-                *color = NORMAL_BUTTON.into();
-            }
+    for (hovered, mut color) in &mut button_query {
+        if hovered.get() {
+            *color = HOVERED_BUTTON.into();
+        } else {
+            *color = NORMAL_BUTTON.into();
         }
     }
 }
@@ -204,18 +206,13 @@ fn change_color(time: Res<Time>, mut query: Query<&mut Sprite>) {
     }
 }
 
-// We can restart the game by pressing "R".
+// We can restart the game by pressing the restart button.
 // This will trigger an [`AppState::InGame`] -> [`AppState::InGame`]
 // transition, which will run our custom schedules.
-fn trigger_game_restart(
-    input: Res<ButtonInput<KeyCode>>,
-    mut next_state: ResMut<NextState<AppState>>,
-) {
-    if input.just_pressed(KeyCode::KeyR) {
-        // Although we are already in this state setting it again will generate an identity transition.
-        // While default schedules ignore those kinds of transitions, our custom schedules will react to them.
-        next_state.set(AppState::InGame);
-    }
+fn trigger_game_restart(_: On<Activate>, mut next_state: ResMut<NextState<AppState>>) {
+    // Although we are already in this state setting it again will generate an identity transition.
+    // While default schedules ignore those kinds of transitions, our custom schedules will react to them.
+    next_state.set(AppState::InGame);
 }
 
 fn setup(mut commands: Commands) {
@@ -224,6 +221,54 @@ fn setup(mut commands: Commands) {
 
 fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Sprite::from_image(asset_server.load("branding/icon.png")));
+    commands.spawn_scene(bsn! {
+        Node {
+            width: percent(100),
+            height: percent(100),
+        }
+        Children [
+            Node {
+                position_type: PositionType::Absolute,
+                left: px(10),
+                top: px(10),
+            }
+            Children [
+                Text::new("Move with arrow keys.")
+            ],
+
+            Node {
+                position_type: PositionType::Absolute,
+                left: px(10),
+                bottom: px(10),
+                padding: px(5),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+            }
+            Button
+            Hovered::default()
+            BackgroundColor(NORMAL_BUTTON)
+            on(|event: On<Add, Pressed>,
+                mut commands: Commands| {
+                    commands.entity(event.entity).insert(BackgroundColor(PRESSED_BUTTON));
+            })
+            on(|event: On<Remove, Pressed>,
+                is_hovered: Query<&Hovered>,
+                mut commands: Commands| {
+                    if is_hovered.get(event.entity).is_ok_and(Hovered::get) {
+                        commands.entity(event.entity).insert(BackgroundColor(HOVERED_BUTTON));
+                    } else {
+                        commands.entity(event.entity).insert(BackgroundColor(NORMAL_BUTTON));
+                    }
+            })
+            Children [
+                Text::new("Restart Game")
+                TextFont {
+                        font_size: FontSize::Px(33.0),
+                }
+                TextColor(Color::srgb(0.9, 0.9, 0.9)),
+            ],
+        ]
+    });
     info!("Setup game");
 }
 
@@ -254,6 +299,8 @@ fn setup_menu(mut commands: Commands) {
             },
             children![(
                 Button,
+                ActivateOnPress,
+                Hovered::default(),
                 Node {
                     width: px(150),
                     height: px(65),

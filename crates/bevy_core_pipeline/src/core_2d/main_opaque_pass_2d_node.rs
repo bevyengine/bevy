@@ -30,10 +30,6 @@ pub fn main_opaque_pass_2d(
         return;
     };
 
-    if opaque_phase.is_empty() && alpha_mask_phase.is_empty() {
-        return;
-    }
-
     #[cfg(feature = "trace")]
     let _span = info_span!("main_opaque_pass_2d").entered();
 

@@ -251,7 +251,7 @@ impl Plugin for UiRenderPlugin {
                     RenderUiSystems::ExtractCursor,
                     RenderUiSystems::ExtractDebug,
                 )
-                    .chain(),
+                    .chain_weak(),
             )
             .add_systems(RenderStartup, init_ui_pipeline)
             .add_systems(
@@ -1138,9 +1138,9 @@ pub fn extract_ui_camera_view(
             (
                 Entity,
                 RenderEntity,
-                Ref<Camera>,
-                Option<Ref<UiAntiAlias>>,
-                Option<Ref<BoxShadowSamples>>,
+                &Camera,
+                Option<&UiAntiAlias>,
+                Option<&BoxShadowSamples>,
             ),
             (
                 Or<(With<WithColorTarget>, With<ImplicitWithColorTarget>)>,

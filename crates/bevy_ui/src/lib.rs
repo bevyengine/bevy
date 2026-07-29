@@ -60,6 +60,12 @@ pub mod prelude {
     pub use crate::picking_backend::{UiPickingCamera, UiPickingPlugin, UiPickingSettings};
     #[doc(hidden)]
     pub use crate::widget::{Text, TextShadow, TextUiReader, TextUiWriter};
+    #[expect(
+        deprecated,
+        reason = "Should be removed after 0.20 is released when Button & Interaction are removed."
+    )]
+    #[doc(hidden)]
+    pub use crate::{widget::Button, Interaction};
     #[doc(hidden)]
     pub use {
         crate::{
@@ -67,8 +73,8 @@ pub mod prelude {
             gradients::*,
             ui_node::*,
             ui_transform::*,
-            widget::{Button, ImageNode, Label, NodeImageMode, ViewportNode},
-            Interaction, UiScale,
+            widget::{ImageNode, Label, NodeImageMode, ViewportNode},
+            UiScale,
         },
         // `bevy_sprite` re-exports for texture slicing
         bevy_sprite::{BorderRect, SliceScaleMode, SpriteImageMode, TextureSlicer},
@@ -154,7 +160,7 @@ impl Plugin for UiPlugin {
                     UiSystems::Layout,
                     UiSystems::PostLayout,
                 )
-                    .chain(),
+                    .chain_weak(),
             )
             .configure_sets(
                 PostUpdate,
@@ -239,7 +245,6 @@ fn build_text_interop(app: &mut App) {
         PostUpdate,
         (
             widget::measure_text_system
-                .chain()
                 .after(detect_text_needs_rerender)
                 .after(bevy_text::load_font_assets_into_font_collection)
                 .in_set(UiSystems::Content)
