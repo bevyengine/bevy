@@ -19,7 +19,7 @@ pub mod ui_texture_slice_pipeline;
 
 #[cfg(feature = "bevy_ui_debug")]
 mod debug_overlay;
-pub mod extraction;
+pub mod extract_geometry;
 
 use bevy_a11y::AccessibilitySystems;
 use bevy_camera::visibility::InheritedVisibility;
