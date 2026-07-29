@@ -15,6 +15,7 @@ struct LensDistortionSettings {
 
 const VISUAL_THRESHOLD: f32 = 1e-4;
 const MATH_EPSILON: f32 = 1e-6;
+const TAU: f32 = radians(360);
 
 // The settings supplied by the developer.
 @group(0) @binding(5) var<uniform> lens_distortion_settings: LensDistortionSettings;
@@ -31,8 +32,8 @@ fn lens_distortion(uv: vec2<f32>) -> vec2<f32> {
     // Prevent division by zero.
     let radius = max(length(uv_centered), MATH_EPSILON);
 
-    let direction = uv_centered / radius;
-    let adjust = dot(abs(direction), multiplier);
+    let direction = normalize(uv_centered);
+    let adjust = ((dot(abs(direction), multiplier) - TAU) * 0.5) + TAU;
 
     // Maintains the correlation between k2 and k1, while ensuring the sign of k2
     // is determined solely by `edge_curvature` rather than being influenced by intensity.
