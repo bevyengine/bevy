@@ -381,7 +381,7 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
     render_queue: Res<RenderQueue>,
     pipeline_cache: Res<PipelineCache>,
     mut ui_meta: ResMut<UiMaterialMeta<M>>,
-    extracted_uinodes: Res<ExtractedUiMaterialNodes<M>>,
+    extracted_materials: Res<ExtractedUiMaterialNodes<M>>,
     extracted_geometry: Res<ExtractedUiGeometries>,
     view_uniforms: Res<ViewUniforms>,
     globals_buffer: Res<GlobalsBuffer>,
@@ -409,12 +409,13 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
 
             for item_index in 0..ui_phase.items.len() {
                 let item = &mut ui_phase.items[item_index];
-                if let (Some((_, extracted_uinode)), Some(geometry)) = (
-                    extracted_uinodes.uinodes.get(&item.main_entity()),
-                    extracted_geometry
+                if let Some((render_entity, extracted_uinode)) =
+                    extracted_materials.uinodes.get(&item.main_entity())
+                    && *render_entity == item.entity()
+                    && let Some(geometry) = extracted_geometry
                         .uinode_geometries
-                        .get(&item.main_entity()),
-                ) {
+                        .get(&item.main_entity())
+                {
                     // Initialize the batch range to be zero-length initially.
                     // We'll extend it as we accumulate items into this batch.
                     item.batch_range = (item_index as u32)..(item_index as u32);
