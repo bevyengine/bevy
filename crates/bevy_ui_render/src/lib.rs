@@ -19,7 +19,7 @@ pub mod ui_texture_slice_pipeline;
 
 #[cfg(feature = "bevy_ui_debug")]
 mod debug_overlay;
-pub mod extract_geometry;
+pub mod extract_layout;
 
 use bevy_a11y::AccessibilitySystems;
 use bevy_camera::{Camera, Camera2d, Camera3d, RenderTarget};
@@ -77,7 +77,7 @@ pub use render_pass::*;
 pub use ui_material_pipeline::*;
 use ui_texture_slice_pipeline::UiTextureSlicerPlugin;
 
-use crate::extract_geometry::ExtractedUiGeometries;
+use crate::extract_layout::ExtractedUiLayout;
 use crate::shader_flags::INVERT;
 use crate::text::{extract_text, prepare_text, queue_text, ExtractedGlyphLayouts};
 
@@ -223,7 +223,7 @@ impl Plugin for UiRenderPlugin {
             .init_gpu_resource::<SpecializedRenderPipelines<UiPipeline>>()
             .init_gpu_resource::<ImageNodeBindGroups>()
             .init_gpu_resource::<UiMeta>()
-            .init_resource::<ExtractedUiGeometries>()
+            .init_resource::<ExtractedUiLayout>()
             .init_resource::<ExtractedUiNodes>()
             .allow_ambiguous_resource::<ExtractedUiNodes>()
             .init_resource::<ExtractedGlyphLayouts>()
@@ -254,7 +254,7 @@ impl Plugin for UiRenderPlugin {
             .add_systems(
                 ExtractSchedule,
                 (
-                    extract_geometry::extract_uinode_geometry,
+                    extract_layout::extract_ui_layout,
                     extract_ui_camera_view
                         .after(extract_cameras)
                         .in_set(RenderUiSystems::ExtractCameraViews),
@@ -854,7 +854,7 @@ pub mod shader_flags {
 
 pub fn queue_uinodes(
     extracted_uinodes: Res<ExtractedUiNodes>,
-    extracted_geometry: Res<ExtractedUiGeometries>,
+    extracted_geometry: Res<ExtractedUiLayout>,
     ui_pipeline: Res<UiPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiPipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
@@ -868,7 +868,7 @@ pub fn queue_uinodes(
     let mut current_phase = None;
 
     for (main_entity, (render_items, _)) in extracted_uinodes.uinodes.iter() {
-        let Some(geometry) = extracted_geometry.uinode_geometries.get(main_entity) else {
+        let Some(geometry) = extracted_geometry.layout.get(main_entity) else {
             continue;
         };
 
@@ -934,7 +934,7 @@ pub fn prepare_uinodes(
     pipeline_cache: Res<PipelineCache>,
     mut ui_meta: ResMut<UiMeta>,
     extracted_uinodes: Res<ExtractedUiNodes>,
-    extracted_geometry: Res<ExtractedUiGeometries>,
+    extracted_geometry: Res<ExtractedUiLayout>,
     view_uniforms: Res<ViewUniforms>,
     ui_pipeline: Res<UiPipeline>,
     mut image_bind_groups: ResMut<ImageNodeBindGroups>,
@@ -988,10 +988,7 @@ pub fn prepare_uinodes(
                     batch_image_handle = None;
                     continue;
                 }
-                let Some(geometry) = extracted_geometry
-                    .uinode_geometries
-                    .get(&item.main_entity())
-                else {
+                let Some(geometry) = extracted_geometry.layout.get(&item.main_entity()) else {
                     batch_image_handle = None;
                     continue;
                 };
@@ -1065,7 +1062,7 @@ pub fn prepare_uinodes(
                     }
                 }
                 if let Some((extracted_uinode, stack_z_offset)) = extracted_uinode {
-                    let uinode = &geometry.computed_node;
+                    let uinode = &geometry.uinode;
                     let mut nodes = vec![];
 
                     if stack_z_offset == stack_z_offsets::BACKGROUND_COLOR {

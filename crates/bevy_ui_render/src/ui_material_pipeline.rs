@@ -382,7 +382,7 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
     pipeline_cache: Res<PipelineCache>,
     mut ui_meta: ResMut<UiMaterialMeta<M>>,
     extracted_materials: Res<ExtractedUiMaterialNodes<M>>,
-    extracted_geometry: Res<ExtractedUiGeometries>,
+    extracted_geometry: Res<ExtractedUiLayout>,
     view_uniforms: Res<ViewUniforms>,
     globals_buffer: Res<GlobalsBuffer>,
     ui_material_pipeline: Res<UiMaterialPipeline<M>>,
@@ -413,7 +413,7 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
                     extracted_materials.uinodes.get(&item.main_entity())
                     && *render_entity == item.entity()
                     && let Some(geometry) = extracted_geometry
-                        .uinode_geometries
+                        .layout
                         .get(&item.main_entity())
                 {
                     // Initialize the batch range to be zero-length initially.
@@ -440,7 +440,7 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
 
                     let uinode_rect = Rect {
                         min: Vec2::ZERO,
-                        max: geometry.computed_node.size(),
+                        max: geometry.uinode.size(),
                     };
 
                     let rect_size = uinode_rect.size();
@@ -524,12 +524,12 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
                             position: positions_clipped[i].into(),
                             uv: uvs[i].into(),
                             size: uinode_rect.size().into(),
-                            radius: geometry.computed_node.border_radius.into(),
+                            radius: geometry.uinode.border_radius.into(),
                             border: [
-                                geometry.computed_node.border.min_inset.x,
-                                geometry.computed_node.border.min_inset.y,
-                                geometry.computed_node.border.max_inset.x,
-                                geometry.computed_node.border.max_inset.y,
+                                geometry.uinode.border.min_inset.x,
+                                geometry.uinode.border.min_inset.y,
+                                geometry.uinode.border.max_inset.x,
+                                geometry.uinode.border.max_inset.y,
                             ],
                         });
                     }
@@ -594,7 +594,7 @@ impl<M: UiMaterial> RenderAsset for PreparedUiMaterial<M> {
 
 pub fn queue_ui_material_nodes<M: UiMaterial>(
     extracted_uinodes: Res<ExtractedUiMaterialNodes<M>>,
-    extracted_geometry: Res<ExtractedUiGeometries>,
+    extracted_geometry: Res<ExtractedUiLayout>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
     ui_material_pipeline: Res<UiMaterialPipeline<M>>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiMaterialPipeline<M>>>,
@@ -611,7 +611,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
     let mut current_phase = None;
 
     for (main_entity, (render_entity, extracted_uinode)) in extracted_uinodes.uinodes.iter() {
-        let Some(geometry) = extracted_geometry.uinode_geometries.get(main_entity) else {
+        let Some(geometry) = extracted_geometry.layout.get(main_entity) else {
             continue;
         };
         let extracted_camera_entity = geometry.extracted_camera;

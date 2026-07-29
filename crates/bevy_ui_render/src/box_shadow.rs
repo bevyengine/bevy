@@ -30,7 +30,7 @@ use bevy_ui::{BoxShadow, ComputedUiRenderTargetInfo, ResolvedBorderRadius, Shado
 use bevy_utils::default;
 use bytemuck::{Pod, Zeroable};
 
-use crate::{BoxShadowSamples, ExtractedUiGeometries, RenderUiSystems, TransparentUi};
+use crate::{BoxShadowSamples, ExtractedUiLayout, RenderUiSystems, TransparentUi};
 
 use super::{stack_z_offsets, UiCameraView, QUAD_INDICES, QUAD_VERTEX_POSITIONS};
 
@@ -271,7 +271,7 @@ pub fn extract_shadows(
 )]
 pub fn queue_shadows(
     extracted_box_shadows: Res<ExtractedBoxShadows>,
-    extracted_geometry: Res<ExtractedUiGeometries>,
+    extracted_geometry: Res<ExtractedUiLayout>,
     box_shadow_pipeline: Res<BoxShadowPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<BoxShadowPipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
@@ -285,7 +285,7 @@ pub fn queue_shadows(
     let mut current_phase = None;
 
     for (main_entity, extracted_sub_shadows) in extracted_box_shadows.box_shadows.iter() {
-        let Some(geometry) = extracted_geometry.uinode_geometries.get(main_entity) else {
+        let Some(geometry) = extracted_geometry.layout.get(main_entity) else {
             continue;
         };
 
@@ -340,7 +340,7 @@ pub fn prepare_shadows(
     pipeline_cache: Res<PipelineCache>,
     mut ui_meta: ResMut<BoxShadowMeta>,
     extracted_shadows: Res<ExtractedBoxShadows>,
-    extracted_geometry: Res<ExtractedUiGeometries>,
+    extracted_geometry: Res<ExtractedUiLayout>,
     view_uniforms: Res<ViewUniforms>,
     box_shadow_pipeline: Res<BoxShadowPipeline>,
     mut phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
@@ -372,13 +372,13 @@ pub fn prepare_shadows(
                     continue;
                 };
                 let Some(geometry) = extracted_geometry
-                    .uinode_geometries
+                    .layout
                     .get(&item.main_entity())
                 else {
                     continue;
                 };
 
-                let uinode = &geometry.computed_node;
+                let uinode = &geometry.uinode;
                 if uinode.is_empty() {
                     continue;
                 }

@@ -27,9 +27,9 @@ use bevy_ui::{
 use core::ops::Range;
 
 use crate::{
-    extract_geometry::ExtractedUiGeometries, shader_flags, stack_z_offsets, DrawUi,
-    ImageNodeBindGroups, TransparentUi, UiAntiAlias, UiBatch, UiCameraView, UiMeta, UiPipeline,
-    UiPipelineKey, UiVertex, QUAD_INDICES, QUAD_VERTEX_POSITIONS,
+    extract_layout::ExtractedUiLayout, shader_flags, stack_z_offsets, DrawUi, ImageNodeBindGroups,
+    TransparentUi, UiAntiAlias, UiBatch, UiCameraView, UiMeta, UiPipeline, UiPipelineKey, UiVertex,
+    QUAD_INDICES, QUAD_VERTEX_POSITIONS,
 };
 
 pub struct ExtractedGlyph {
@@ -472,7 +472,7 @@ pub fn extract_text(
 
 pub fn queue_text(
     extracted_glyph_layouts: Res<ExtractedGlyphLayouts>,
-    extracted_geometry: Res<ExtractedUiGeometries>,
+    extracted_geometry: Res<ExtractedUiLayout>,
     ui_pipeline: Res<UiPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiPipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
@@ -484,7 +484,7 @@ pub fn queue_text(
     let draw_function = draw_functions.read().id::<DrawUi>();
 
     for (main_entity, (render_entity, _)) in extracted_glyph_layouts.uinodes.iter() {
-        let Some(geometry) = extracted_geometry.uinode_geometries.get(main_entity) else {
+        let Some(geometry) = extracted_geometry.layout.get(main_entity) else {
             continue;
         };
         let Some((default_camera_view, ui_anti_alias)) =
@@ -527,7 +527,7 @@ pub fn prepare_text(
     pipeline_cache: Res<PipelineCache>,
     mut ui_meta: ResMut<UiMeta>,
     extracted_glyph_layouts: Res<ExtractedGlyphLayouts>,
-    extracted_geometry: Res<ExtractedUiGeometries>,
+    extracted_geometry: Res<ExtractedUiLayout>,
     view_uniforms: Res<ViewUniforms>,
     ui_pipeline: Res<UiPipeline>,
     mut image_bind_groups: ResMut<ImageNodeBindGroups>,
@@ -554,7 +554,7 @@ pub fn prepare_text(
                 continue;
             };
             let Some(geometry) = extracted_geometry
-                .uinode_geometries
+                .layout
                 .get(&item.main_entity())
             else {
                 continue;
@@ -580,7 +580,7 @@ pub fn prepare_text(
                 )
             });
 
-            let uinode = &geometry.computed_node;
+            let uinode = &geometry.uinode;
             let shadow_offset = layout.shadow_offset / uinode.inverse_scale_factor();
             let transform = geometry.transform
                 * Affine2::from_translation(uinode.content_box().min - layout.viewport_offset);

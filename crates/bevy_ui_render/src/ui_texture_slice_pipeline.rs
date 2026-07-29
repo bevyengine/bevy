@@ -319,7 +319,7 @@ pub fn extract_ui_texture_slices(
 )]
 pub fn queue_ui_slices(
     extracted_ui_slicers: Res<ExtractedUiTextureSlices>,
-    extracted_geometry: Res<ExtractedUiGeometries>,
+    extracted_geometry: Res<ExtractedUiLayout>,
     ui_slicer_pipeline: Res<UiTextureSlicePipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiTextureSlicePipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
@@ -333,7 +333,7 @@ pub fn queue_ui_slices(
     let mut current_phase = None;
 
     for (main_entity, (render_entity, _)) in extracted_ui_slicers.slices.iter() {
-        let Some(geometry) = extracted_geometry.uinode_geometries.get(main_entity) else {
+        let Some(geometry) = extracted_geometry.layout.get(main_entity) else {
             continue;
         };
         let extracted_camera_entity = geometry.extracted_camera;
@@ -387,7 +387,7 @@ pub fn prepare_ui_slices(
     pipeline_cache: Res<PipelineCache>,
     mut ui_meta: ResMut<UiTextureSliceMeta>,
     extracted_slices: Res<ExtractedUiTextureSlices>,
-    extracted_geometry: Res<ExtractedUiGeometries>,
+    extracted_geometry: Res<ExtractedUiLayout>,
     view_uniforms: Res<ViewUniforms>,
     texture_slicer_pipeline: Res<UiTextureSlicePipeline>,
     mut image_bind_groups: ResMut<UiTextureSliceImageBindGroups>,
@@ -435,13 +435,13 @@ pub fn prepare_ui_slices(
                     extracted_slices.slices.get(&item.main_entity())
                     && *render_entity == item.entity()
                     && let Some(geometry) = extracted_geometry
-                        .uinode_geometries
+                        .layout
                         .get(&item.main_entity())
                 {
                     let visual_box = match texture_slices.visual_box {
-                        VisualBox::ContentBox => geometry.computed_node.content_box(),
-                        VisualBox::PaddingBox => geometry.computed_node.padding_box(),
-                        VisualBox::BorderBox => geometry.computed_node.border_box(),
+                        VisualBox::ContentBox => geometry.uinode.content_box(),
+                        VisualBox::PaddingBox => geometry.uinode.padding_box(),
+                        VisualBox::BorderBox => geometry.uinode.border_box(),
                     };
                     if visual_box.size().cmple(Vec2::ZERO).any() {
                         batch_image_handle = None;
@@ -639,7 +639,7 @@ pub fn prepare_ui_slices(
 
                     let [slices, border, repeat] = compute_texture_slices(
                         image_size,
-                        uinode_rect.size() * geometry.computed_node.inverse_scale_factor,
+                        uinode_rect.size() * geometry.uinode.inverse_scale_factor,
                         &texture_slices.image_scale_mode,
                     );
 

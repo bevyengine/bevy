@@ -19,9 +19,9 @@ use bevy_ui::ComputedStackIndex;
 use bevy_ui::ComputedUiTargetCamera;
 use bevy_ui::UiGlobalTransform;
 
-pub struct ExtractedUiNodeGeometry {
+pub struct ExtractedUiNodeLayout {
     pub extracted_camera: Entity,
-    pub computed_node: ComputedNode,
+    pub uinode: ComputedNode,
     pub transform: Affine2,
     pub clip: Option<Rect>,
     pub atlas_scaling: Option<Vec2>,
@@ -32,18 +32,18 @@ pub struct ExtractedUiNodeGeometry {
 
 /// Uinode geometries and list of geometries that changed this frame.
 #[derive(Resource, Default)]
-pub struct ExtractedUiGeometries {
+pub struct ExtractedUiLayout {
     pub extracted_camera_to_main_uinode_map: EntityHashMap<MainEntityHashSet>,
     /// Map from main world entity -> node geometry
-    pub uinode_geometries: MainEntityHashMap<ExtractedUiNodeGeometry>,
+    pub layout: MainEntityHashMap<ExtractedUiNodeLayout>,
     /// Main world entities with UI node geometry that changed this frame.
     pub changed: MainEntityHashSet,
     /// Main world entities that were removed from rendering
     pub removed: MainEntityHashSet,
 }
 
-pub fn extract_uinode_geometry(
-    mut extracted_geometries: bevy_ecs::system::ResMut<ExtractedUiGeometries>,
+pub fn extract_ui_layout(
+    mut extracted_geometries: bevy_ecs::system::ResMut<ExtractedUiLayout>,
     camera_map: Extract<UiCameraMap>,
     changed_geometry_query: Extract<
         Query<
@@ -122,14 +122,14 @@ pub fn extract_uinode_geometry(
 
         // Find extracted camera entity, otherwise remove both camera and UI node entity.
         let Some(extracted_camera_entity) = camera_mapper.map(computed_target) else {
-            extracted_geometries.uinode_geometries.remove(&main_entity);
+            extracted_geometries.layout.remove(&main_entity);
             extracted_geometries.removed.insert(main_entity);
             continue;
         };
 
         // Remove non-visible from all maps
         if !inherited_visibility.get() {
-            extracted_geometries.uinode_geometries.remove(&main_entity);
+            extracted_geometries.layout.remove(&main_entity);
             extracted_geometries.removed.insert(main_entity);
             extracted_geometries
                 .extracted_camera_to_main_uinode_map
@@ -138,9 +138,9 @@ pub fn extract_uinode_geometry(
             continue;
         }
 
-        let uinode_geometry = ExtractedUiNodeGeometry {
+        let uinode_geometry = ExtractedUiNodeLayout {
             extracted_camera: extracted_camera_entity,
-            computed_node: *computed_node,
+            uinode: *computed_node,
             transform: transform.into(),
             clip: clip.map(|clip| clip.clip),
             atlas_scaling: None,
@@ -149,9 +149,9 @@ pub fn extract_uinode_geometry(
             stack_index: stack_index.0,
         };
 
-        let ExtractedUiGeometries {
+        let ExtractedUiLayout {
             extracted_camera_to_main_uinode_map,
-            uinode_geometries,
+            layout: uinode_geometries,
             ..
         } = &mut *extracted_geometries;
 
@@ -199,9 +199,7 @@ pub fn extract_uinode_geometry(
         if extracted_geometries.changed.insert(main_entity) {
             // Failed the geometry queries, does not have at least one of the components (if reinserted would be `Changed`).
             // Add to changed list and remove from maps
-            if let Some(extracted_geometry) =
-                extracted_geometries.uinode_geometries.remove(&main_entity)
-            {
+            if let Some(extracted_geometry) = extracted_geometries.layout.remove(&main_entity) {
                 extracted_geometries.removed.insert(main_entity);
                 extracted_geometries
                     .extracted_camera_to_main_uinode_map
@@ -213,7 +211,7 @@ pub fn extract_uinode_geometry(
 }
 
 pub fn extract_uinode_geometry_debug(
-    extracted_geometries: bevy_ecs::system::Res<ExtractedUiGeometries>,
+    extracted_geometries: bevy_ecs::system::Res<ExtractedUiLayout>,
 ) {
     if 0 < extracted_geometries.changed.len() {
         println!("\n");
@@ -223,14 +221,11 @@ pub fn extract_uinode_geometry_debug(
                 .extracted_camera_to_main_uinode_map
                 .len()
         );
-        println!(
-            "node count: {}",
-            extracted_geometries.uinode_geometries.len()
-        );
+        println!("node count: {}", extracted_geometries.layout.len());
         println!("removed count: {}", extracted_geometries.removed.len());
         println!("changed count: {}", extracted_geometries.changed.len());
 
-        for (e, g) in &extracted_geometries.uinode_geometries {
+        for (e, g) in &extracted_geometries.layout {
             if let Some(es) = extracted_geometries
                 .extracted_camera_to_main_uinode_map
                 .get(&g.extracted_camera)

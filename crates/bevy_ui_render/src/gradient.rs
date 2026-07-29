@@ -420,7 +420,7 @@ pub fn extract_gradients(
 )]
 pub fn queue_gradient(
     extracted_gradients: Res<ExtractedGradients>,
-    extracted_geometry: Res<ExtractedUiGeometries>,
+    extracted_geometry: Res<ExtractedUiLayout>,
     gradients_pipeline: Res<GradientPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<GradientPipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
@@ -434,7 +434,7 @@ pub fn queue_gradient(
     let mut current_phase = None;
 
     for (main_entity, sub_gradients) in extracted_gradients.items.iter() {
-        let Some(geometry) = extracted_geometry.uinode_geometries.get(main_entity) else {
+        let Some(geometry) = extracted_geometry.layout.get(main_entity) else {
             continue;
         };
 
@@ -549,7 +549,7 @@ pub fn prepare_gradient(
     pipeline_cache: Res<PipelineCache>,
     mut ui_meta: ResMut<GradientMeta>,
     extracted_gradients: Res<ExtractedGradients>,
-    extracted_geometry: Res<ExtractedUiGeometries>,
+    extracted_geometry: Res<ExtractedUiLayout>,
     view_uniforms: Res<ViewUniforms>,
     gradients_pipeline: Res<GradientPipeline>,
     mut phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
@@ -580,12 +580,12 @@ pub fn prepare_gradient(
                     .and_then(|subgradients| subgradients.get(&item.entity()))
                 {
                     let Some(geometry) = extracted_geometry
-                        .uinode_geometries
+                        .layout
                         .get(&item.main_entity())
                     else {
                         continue;
                     };
-                    let uinode = &geometry.computed_node;
+                    let uinode = &geometry.uinode;
                     if uinode.is_empty() {
                         continue;
                     }
