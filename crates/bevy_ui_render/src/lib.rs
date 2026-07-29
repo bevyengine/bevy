@@ -258,6 +258,7 @@ impl Plugin for UiRenderPlugin {
             .add_systems(
                 ExtractSchedule,
                 (
+                    extract_geometry::extract_uinode_geometry,
                     extract_uinode_changes.in_set(RenderUiSystems::ExtractChanges),
                     extract_ui_camera_view
                         .after(extract_cameras)
