@@ -1,8 +1,7 @@
+use crate::UiCameraMap;
 use bevy_camera::visibility::InheritedVisibility;
 use bevy_ecs::entity::Entity;
 use bevy_ecs::entity::EntityHashMap;
-use bevy_ecs::entity::EntityHashSet;
-use bevy_ecs::entity::EntityIndexMap;
 use bevy_ecs::lifecycle::RemovedComponents;
 use bevy_ecs::query::Changed;
 use bevy_ecs::query::Or;
@@ -14,55 +13,11 @@ use bevy_math::Vec2;
 use bevy_render::sync_world::MainEntityHashMap;
 use bevy_render::sync_world::MainEntityHashSet;
 use bevy_render::Extract;
-use bevy_sprite::BorderRect;
 use bevy_ui::CalculatedClip;
 use bevy_ui::ComputedNode;
 use bevy_ui::ComputedStackIndex;
 use bevy_ui::ComputedUiTargetCamera;
-use bevy_ui::ResolvedBorderRadius;
 use bevy_ui::UiGlobalTransform;
-
-use crate::ExtractedGlyph;
-use crate::UiCameraMap;
-
-// pub struct ExtractedUiNode {
-//     pub z_order: f32,
-//     pub image: AssetId<Image>,
-//     pub clip: Option<Rect>,
-//     pub item: ExtractedUiItem,
-//     pub transform: Affine2,
-// }
-
-// /// The type of UI node.
-// /// This is used to determine how to render the UI node.
-// #[derive(Clone, Copy, Debug, PartialEq)]
-// pub enum NodeType {
-//     Rect,
-//     Inverted,
-//     Border(u32), // shader flags
-// }
-
-// pub enum ExtractedUiItem {
-//     Node {
-//         color: LinearRgba,
-//         rect: Rect,
-//         atlas_scaling: Option<Vec2>,
-//         flip_x: bool,
-//         flip_y: bool,
-//         /// Border radius of the UI node.
-//         /// Ordering: top left, top right, bottom right, bottom left.
-//         border_radius: ResolvedBorderRadius,
-//         /// Border thickness of the UI node.
-//         /// Ordering: left, top, right, bottom.
-//         border: BorderRect,
-//         node_type: NodeType,
-//     },
-//     /// A contiguous sequence of text glyphs from the same section
-//     Glyphs {
-//         /// The color, position, and UV rect of each glyph.
-//         glyphs: Vec<ExtractedGlyph>,
-//     },
-// }
 
 pub struct ExtractedUiNodeGeometry {
     pub extracted_camera: Entity,
@@ -83,6 +38,8 @@ pub struct ExtractedUiGeometries {
     pub uinode_geometries: MainEntityHashMap<ExtractedUiNodeGeometry>,
     /// Main world entities with UI node geometry that changed this frame.
     pub changed: MainEntityHashSet,
+    /// Main world entities that were removed from rendering
+    pub removed: MainEntityHashSet,
 }
 
 pub fn extract_uinode_geometry(
@@ -137,8 +94,12 @@ pub fn extract_uinode_geometry(
         Extract<RemovedComponents<CalculatedClip>>,
     ),
 ) {
+    // Probably need to consolidate changed & removed sets somehow for efficiency
+    // Do we also need to track added?
     // Changed list is cleared each frame, then repopulated
     extracted_geometries.changed.clear();
+    // Removed list is cleared each frame, then repopulated
+    extracted_geometries.removed.clear();
 
     let mut camera_mapper = camera_map.get_mapper();
 
@@ -162,12 +123,14 @@ pub fn extract_uinode_geometry(
         // Find extracted camera entity, otherwise remove both camera and UI node entity.
         let Some(extracted_camera_entity) = camera_mapper.map(computed_target) else {
             extracted_geometries.uinode_geometries.remove(&main_entity);
+            extracted_geometries.removed.insert(main_entity);
             continue;
         };
 
         // Remove non-visible from all maps
         if !inherited_visibility.get() {
             extracted_geometries.uinode_geometries.remove(&main_entity);
+            extracted_geometries.removed.insert(main_entity);
             extracted_geometries
                 .extracted_camera_to_main_uinode_map
                 .get_mut(&extracted_camera_entity)
@@ -218,11 +181,11 @@ pub fn extract_uinode_geometry(
 
     // If UI Entities are missing any of these components their retained data will be deleted from the render
     // world and they will be not be rendered:
-    // - ComputedNode
-    // - ComputedUiStackIndex
-    // - ComputedUiTargetCamera
-    // - InheritedVisibility
-    // - UiGlobalTransform
+    // * ComputedNode
+    // * ComputedUiStackIndex
+    // * ComputedUiTargetCamera
+    // * InheritedVisibility
+    // * UiGlobalTransform
     for entity in removed_computed_node_query
         .read()
         .chain(removed_computed_stack_index_query.read())
@@ -239,6 +202,7 @@ pub fn extract_uinode_geometry(
             if let Some(extracted_geometry) =
                 extracted_geometries.uinode_geometries.remove(&main_entity)
             {
+                extracted_geometries.removed.insert(main_entity);
                 extracted_geometries
                     .extracted_camera_to_main_uinode_map
                     .get_mut(&extracted_geometry.extracted_camera)
@@ -263,6 +227,7 @@ pub fn extract_uinode_geometry_debug(
             "node count: {}",
             extracted_geometries.uinode_geometries.len()
         );
+        println!("removed count: {}", extracted_geometries.removed.len());
         println!("changed count: {}", extracted_geometries.changed.len());
 
         for (e, g) in &extracted_geometries.uinode_geometries {
