@@ -1,5 +1,6 @@
 use bevy_camera::visibility::InheritedVisibility;
 use bevy_ecs::entity::Entity;
+use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::entity::EntityIndexMap;
 use bevy_ecs::lifecycle::RemovedComponents;
 use bevy_ecs::query::Changed;
@@ -69,17 +70,16 @@ pub struct ExtractedUiNodeGeometry {
     pub atlas_scaling: Option<Vec2>,
     pub flip_x: bool,
     pub flip_y: bool,
-}
-
-pub struct ExtractedGlyphLayout {
-    pub glyphs: Vec<ExtractedGlyph>,
+    pub stack_index: u32,
 }
 
 /// Uinode geometries and list of geometries that changed this frame.
 #[derive(Resource, Default)]
 pub struct ExtractedUiGeometries {
-    /// map from extracted camera entity -> main world entity -> node geometry
-    pub uinode_geometries: MainEntityHashMap<MainEntityHashMap<ExtractedUiNodeGeometry>>,
+    /// Map from extracted camera view render world entity -> UI node main world entity
+    pub camera_to_uinode_map: EntityHashMap<MainEntityHashSet>,
+    /// Map from main world entity -> node geometry
+    pub uinode_geometries: MainEntityHashMap<ExtractedUiNodeGeometry>,
     /// Main world entities with UI node geometry that changed this frame.
     pub changed: MainEntityHashSet,
 }
@@ -108,6 +108,18 @@ pub fn extract_uinode_geometry(
             )>,
         >,
     >,
+    unfiltered_geometry_query: Extract<
+        Query<(
+            Entity,
+            &ComputedNode,
+            &ComputedStackIndex,
+            &ComputedUiTargetCamera,
+            &InheritedVisibility,
+            &UiGlobalTransform,
+            Option<&CalculatedClip>,
+        )>,
+    >,
+
     (
         mut removed_computed_node_query,
         mut removed_computed_stack_index_query,
@@ -127,27 +139,6 @@ pub fn extract_uinode_geometry(
     // Changed list is cleared each frame, then repopulated
     extracted_geometries.changed.clear();
 
-    // If UI Entities are missing any of these components their retained data will be deleted from the render
-    // world and they will be not be rendered:
-    // - ComputedNode
-    // - ComputedUiStackIndex
-    // - ComputedUiTargetCamera
-    // - InheritedVisibility
-    // - UiGlobalTransform
-    for entity in removed_computed_node_query
-        .read()
-        .chain(removed_computed_stack_index_query.read())
-        .chain(removed_computed_ui_target_camera_query.read())
-        .chain(removed_ui_global_transform_query.read())
-        .chain(removed_inherited_visibility_query.read())
-    {
-        let main_entity = entity.into();
-        extracted_geometries.changed.insert(main_entity);
-        for uinodes in extracted_geometries.uinode_geometries.values_mut() {
-            uinodes.remove(&main_entity);
-        }
-    }
-
     for entity in removed_calculated_clip_query.read() {
         let main_entity = entity.into();
         extracted_geometries.changed.insert(main_entity);
@@ -163,41 +154,74 @@ pub fn extract_uinode_geometry(
     for (
         entity,
         computed_node,
-        _stack_index,
+        stack_index,
         computed_target,
         inherited_visibility,
         transform,
         clip,
-    ) in &changed_geometry_query
-    {
+    ) in changed_geometry_query.iter().chain(
+        removed_calculated_clip_query
+            .read()
+            .filter_map(|entity| unfiltered_geometry_query.get(entity).ok()),
+    ) {
         let main_entity = entity.into();
         extracted_geometries.changed.insert(main_entity);
-        for uinodes in extracted_geometries.uinode_geometries.values_mut() {
-            uinodes.remove(&main_entity);
-        }
 
-        if !inherited_visibility.get() {
-            continue;
-        }
-
+        // Find extracted camera entity, otherwise remove both camera and UI node entity.
         let Some(extracted_camera_entity) = camera_mapper.map(computed_target) else {
+            extracted_geometries.uinode_geometries.remove(&main_entity);
             continue;
         };
 
-        extracted_geometries
-            .uinode_geometries
-            .entry(extracted_camera_entity.into())
-            .or_default()
-            .insert(
-                main_entity,
-                ExtractedUiNodeGeometry {
-                    computed_node: *computed_node,
-                    transform: transform.into(),
-                    clip: clip.map(|clip| clip.clip),
-                    atlas_scaling: None,
-                    flip_x: false,
-                    flip_y: false,
-                },
-            );
+        // Remove non-visible from all maps
+        if !inherited_visibility.get() {
+            extracted_geometries.uinode_geometries.remove(&main_entity);
+            extracted_geometries.camera_to_uinode_map[&extracted_camera_entity]
+                .remove(&main_entity);
+            continue;
+        }
+
+        extracted_geometries.uinode_geometries.insert(
+            main_entity,
+            ExtractedUiNodeGeometry {
+                computed_node: *computed_node,
+                transform: transform.into(),
+                clip: clip.map(|clip| clip.clip),
+                atlas_scaling: None,
+                flip_x: false,
+                flip_y: false,
+                stack_index: stack_index.0,
+            },
+        );
+    }
+
+    // If UI Entities are missing any of these components their retained data will be deleted from the render
+    // world and they will be not be rendered:
+    // - ComputedNode
+    // - ComputedUiStackIndex
+    // - ComputedUiTargetCamera
+    // - InheritedVisibility
+    // - UiGlobalTransform
+    for entity in removed_computed_node_query
+        .read()
+        .chain(removed_computed_stack_index_query.read())
+        .chain(removed_computed_ui_target_camera_query.read())
+        .chain(removed_ui_global_transform_query.read())
+        .chain(removed_inherited_visibility_query.read())
+    {
+        let main_entity = entity.into();
+
+        match extracted_geometries.changed.entry(main_entity) {
+            bevy_platform::collections::hash_set::Entry::Occupied(_) => {
+                // UI node entity
+            }
+            bevy_platform::collections::hash_set::Entry::Vacant(_) => {}
+        }
+
+        extracted_geometries.changed.insert(main_entity);
+
+        for uinodes in extracted_geometries.uinode_geometries.values_mut() {
+            uinodes.remove(&main_entity);
+        }
     }
 }
