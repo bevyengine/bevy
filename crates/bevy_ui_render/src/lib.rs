@@ -26,7 +26,7 @@ use bevy_camera::{Camera, Camera2d, Camera3d, ColorTarget, RenderTarget, WithCol
 use bevy_ecs::entity::EntityIndexMap;
 use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
-use bevy_render::camera::extract_cameras;
+use bevy_render::camera::{extract_cameras, ImplicitWithColorTarget};
 use bevy_render::sync_world::{MainEntityHashMap, MainEntityHashSet};
 use bevy_shader::load_shader_library;
 use bevy_sprite_render::SpriteAssetEvents;
@@ -1142,7 +1142,10 @@ pub fn extract_ui_camera_view(
                 Option<Ref<UiAntiAlias>>,
                 Option<Ref<BoxShadowSamples>>,
             ),
-            (With<WithColorTarget>, Or<(With<Camera2d>, With<Camera3d>)>),
+            (
+                Or<(With<WithColorTarget>, With<ImplicitWithColorTarget>)>,
+                Or<(With<Camera2d>, With<Camera3d>)>,
+            ),
         >,
     >,
     extracted_with_color_targets: Query<&WithColorTarget>,

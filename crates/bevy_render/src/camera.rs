@@ -66,6 +66,9 @@ impl Plugin for CameraPlugin {
             .add_plugins((
                 SyncComponentPlugin::<ColorTarget>::default(),
                 SyncComponentPlugin::<WithColorTarget>::default(),
+                SyncComponentPlugin::<ImplicitCameraColorTarget>::default(),
+                SyncComponentPlugin::<ImplicitWithColorTarget>::default(),
+                SyncComponentPlugin::<CameraColorTarget>::default(),
                 ExtractResourcePlugin::<ClearColor>::default(),
             ))
             .add_systems(PostStartup, camera_system.in_set(CameraUpdateSystems))
@@ -480,6 +483,10 @@ impl SyncComponent<RenderApp> for WithColorTarget {
     type Target = Self;
 }
 
+impl SyncComponent<RenderApp> for CameraColorTarget {
+    type Target = ColorTarget;
+}
+
 fn resolve_color_target_format(
     render_target: &RenderTarget,
     primary_window: Option<Entity>,
@@ -541,6 +548,14 @@ pub struct ImplicitCameraColorTarget(pub ColorTarget);
 #[reflect(Component, PartialEq, Hash, Debug)]
 pub struct ImplicitWithColorTarget(pub Entity);
 
+impl SyncComponent<RenderApp> for ImplicitCameraColorTarget {
+    type Target = ColorTarget;
+}
+
+impl SyncComponent<RenderApp> for ImplicitWithColorTarget {
+    type Target = WithColorTarget;
+}
+
 /// Configures [`ImplicitCameraColorTarget`] and [`ImplicitWithColorTarget`] for cameras that did not explicitly specify them.
 ///
 /// Those two components exist because we don't want to mutate any existing explicit added color targets.
@@ -583,7 +598,10 @@ pub fn implicit_configure_color_targets_for_cameras(
                     // primary_window_query
                     Query<Entity, With<PrimaryWindow>>,
                     // implicit_camera_color_target_candidates
-                    Query<Entity, (Without<CameraColorTarget>, Without<ColorTarget>)>,
+                    Query<
+                        (Entity, Has<ImplicitCameraColorTarget>),
+                        (Without<CameraColorTarget>, Without<ColorTarget>),
+                    >,
                 )>,
             >,
         >,
@@ -626,18 +644,25 @@ pub fn implicit_configure_color_targets_for_cameras(
     // Assign `ImplicitCameraColorTarget` and `ImplicitWithColorTarget`
     for (key, cameras) in groups.iter() {
         // Select target camera — prefer one that already has `CameraColorTarget`
-        let target = cameras
+        let mut targets = cameras
             .iter()
-            .find(|&e| implicit_camera_color_target_candidates.contains(*e))
+            .filter(|&e| implicit_camera_color_target_candidates.contains(*e))
             .copied()
-            .unwrap_or_else(|| {
-                panic!(
-                    "Failed to implicitly configure camera color target, \
-                    because all candidate cameras have `CameraColorTarget` or `ColorTarget` but have not `WithColorTarget`. \
-                    Please either specify `WithColorTarget` for them, or remove `CameraColorTarget` or `ColorTarget` to \
+            .peekable();
+
+        let target = *targets.peek().unwrap_or_else(|| {
+            panic!(
+                "Failed to implicitly configure camera color target, \
+                    because all candidate cameras have `CameraColorTarget` \
+                    or `ColorTarget` but have not `WithColorTarget`. \
+                    Please either specify `WithColorTarget` for them, \
+                    or remove `CameraColorTarget` or `ColorTarget` to \
                     make them implicitly configured."
-                );
-            });
+            );
+        });
+        let target = targets
+            .find(|t| implicit_camera_color_target_candidates.get(*t).unwrap().1)
+            .unwrap_or(target);
 
         main_world_commands
             .entity(target)
@@ -661,7 +686,7 @@ pub fn implicit_configure_color_targets_for_cameras(
     state.apply(world);
 }
 
-/// Extract [`ColorTarget`], [`CameraColorTarget`] and [`WithColorTarget`] to the render world.
+/// Extract all color targets to the render world.
 pub fn extract_color_targets(
     world: &mut World,
     state: &mut SystemState<(
@@ -714,7 +739,7 @@ pub fn extract_color_targets(
         commands: &mut Commands,
         with_color_targets: &Extract<Query<(RenderEntity, &WithColorTarget)>>,
         implicit_with_color_targets: &Extract<Query<(RenderEntity, &ImplicitWithColorTarget)>>,
-        entities: &Extract<
+        any_color_target_entities: &Extract<
             Query<
                 RenderEntity,
                 Or<(
@@ -732,7 +757,7 @@ pub fn extract_color_targets(
                     .map(|(e, i)| (e, WithColorTarget(i.0))),
             )
         {
-            let Ok(target_entity) = entities.get(with_color_target.0) else {
+            let Ok(target_entity) = any_color_target_entities.get(with_color_target.0) else {
                 bevy_log::error!("`WithColorTarget` should reference to a valid `ColorTarget` or `CameraColorTarget` or `ImplicitCameraColorTarget`");
                 continue;
             };
@@ -835,7 +860,7 @@ pub fn extract_cameras(
                     Has<NoIndirectDrawing>,
                 ),
             ),
-            With<WithColorTarget>,
+            Or<(With<WithColorTarget>, With<ImplicitWithColorTarget>)>,
         >,
     >,
     extracted_with_color_targets: Query<&WithColorTarget>,
