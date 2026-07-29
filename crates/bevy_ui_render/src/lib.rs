@@ -53,7 +53,7 @@ use bevy_render::{
         ViewSortedRenderPhases,
     },
     render_resource::*,
-    renderer::{RenderDevice, RenderQueue},
+    renderer::RenderDevice,
     sync_world::{MainEntity, RenderEntity},
     texture::GpuImage,
     view::{ExtractedView, RetainedViewEntity, ViewUniforms},
@@ -957,7 +957,6 @@ pub struct ImageNodeBindGroups {
 pub fn prepare_uinodes(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
     pipeline_cache: Res<PipelineCache>,
     mut ui_meta: ResMut<UiMeta>,
     extracted_uinodes: Res<ExtractedUiNodes>,
@@ -1403,8 +1402,6 @@ pub fn prepare_uinodes(
             }
         }
 
-        ui_meta.vertices.write_buffer(&render_device, &render_queue);
-        ui_meta.indices.write_buffer(&render_device, &render_queue);
         *previous_len = batches.len();
         commands.try_insert_batch(batches);
     }

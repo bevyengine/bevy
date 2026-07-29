@@ -535,7 +535,7 @@ pub fn prepare_text(
     mut phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
     mut previous_len: Local<usize>,
 ) {
-    if extracted_glyph_layouts.uinodes.is_empty() || view_uniforms.uniforms.binding().is_none() {
+    if view_uniforms.uniforms.binding().is_none() {
         return;
     }
 
