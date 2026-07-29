@@ -185,9 +185,7 @@ impl SpecializedRenderPipeline for BoxShadowPipeline {
 /// Description of a shadow to be sorted and queued for rendering
 pub struct ExtractedBoxShadow {
     pub stack_index: u32,
-    pub transform: Affine2,
     pub bounds: Vec2,
-    pub clip: Option<Rect>,
     pub color: LinearRgba,
     pub radius: ResolvedBorderRadius,
     pub blur_radius: f32,
