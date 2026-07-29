@@ -264,6 +264,26 @@ pub fn extract_uinode_geometry_debug(
             extracted_geometries.uinode_geometries.len()
         );
         println!("changed count: {}", extracted_geometries.changed.len());
+
+        for (e, g) in &extracted_geometries.uinode_geometries {
+            if let Some(es) = extracted_geometries
+                .extracted_camera_to_main_uinode_map
+                .get(&g.extracted_camera)
+            {
+                if !es.contains(e) {
+                    println!(
+                        "UI node {e:?} has extracted geometry for camera {:?}, but is missing from that camera's UI node map",
+                        g.extracted_camera
+                    );
+                }
+            } else {
+                println!(
+                    "UI node {e:?} has extracted geometry for camera {:?}, but that camera is missing from the camera-to-UI-node map",
+                    g.extracted_camera
+                );
+            }
+        }
+
         println!("\n");
     }
 }
