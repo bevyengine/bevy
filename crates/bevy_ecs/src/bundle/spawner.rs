@@ -3,11 +3,11 @@ use core::ptr::NonNull;
 use bevy_ptr::{ConstNonNull, MovingPtr};
 
 use crate::{
-    archetype::{Archetype, ArchetypeCreated, ArchetypeId, SpawnBundleStatus},
+    archetype::{Archetype, ArchetypeCreated, ArchetypeId, SpawnBundleStatus, ARCHETYPE_CREATED},
     bundle::{Bundle, BundleId, BundleInfo, DynamicBundle, InsertMode},
     change_detection::{MaybeLocation, Tick},
     entity::{Entity, EntityAllocator, EntityLocation},
-    event::EntityComponentsTrigger,
+    event::{EntityComponentsTrigger, GlobalTrigger},
     lifecycle::{Add, Insert, ADD, INSERT},
     relationship::RelationshipHookMode,
     storage::Table,
@@ -69,7 +69,19 @@ impl<'w> BundleSpawner<'w> {
             // SAFETY:
             // - we have exclusive ownership of the world and hold no references to command queue or component data
             // - as this goes through `DeferredWorld`, our pointers will not be invalidated
-            unsafe { spawner.world.into_deferred() }.trigger(ArchetypeCreated(new_archetype_id));
+            // SAFETY:
+            // - we have exclusive ownership of the world and hold no references to command queue or component data
+            // - as this goes through `DeferredWorld`, our pointers will not be invalidated
+            let mut world = unsafe { spawner.world.into_deferred() };
+            // SAFETY: the ARCHETYPE_CREATED event_key corresponds to the ArchetypeCreated event's type
+            unsafe {
+                world.trigger_raw(
+                    ARCHETYPE_CREATED,
+                    &mut ArchetypeCreated(new_archetype_id),
+                    &mut GlobalTrigger,
+                    MaybeLocation::caller(),
+                );
+            }
         }
         spawner
     }

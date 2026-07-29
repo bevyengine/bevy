@@ -45,6 +45,7 @@ use bevy_render::material_bind_groups::{
     RenderMaterialBindings,
 };
 use bevy_render::render_asset::{prepare_assets, RenderAssets};
+use bevy_render::sync_world::MainEntityHashSet;
 use bevy_render::view::RenderVisibleEntities;
 use bevy_render::GpuResourceAppExt;
 use bevy_render::RenderStartup;
@@ -1203,6 +1204,7 @@ pub fn queue_material_meshes(
     views: Query<(&ExtractedView, &RenderVisibleEntities)>,
     specialized_material_pipeline_cache: ResMut<SpecializedMaterialPipelineCache>,
     dirty_specializations: Res<DirtySpecializations>,
+    mut mesh_instances_queued_this_iteration_scratch_space: Local<MainEntityHashSet>,
 ) {
     for (view, visible_entities) in &views {
         let (
@@ -1253,6 +1255,7 @@ pub fn queue_material_meshes(
             view.retained_view_entity,
             render_visible_mesh_entities,
             &view_pending_mesh_material_queues.prev_frame,
+            &mut mesh_instances_queued_this_iteration_scratch_space,
         ) {
             let Some(pipeline_id) = view_specialized_material_pipeline_cache
                 .get(visible_entity)
@@ -1793,5 +1796,21 @@ pub fn get_mesh_instance_world_from_local(
             };
             Affine3::from_transpose(mesh_input_uniform.world_from_local)
         }
+    }
+}
+
+pub(crate) trait MaterialPropertiesExt {
+    fn prepass_reads_material(&self) -> bool;
+}
+
+impl MaterialPropertiesExt for MaterialProperties {
+    fn prepass_reads_material(&self) -> bool {
+        // The default prepass shaders doesn't need material's bind group,
+        // but for user provided prepass shaders currently we don't have a way to known this
+        // because material's bind group is used for both prepass and the other passes.
+        //
+        // So we have to disable the optimization for depth only prepass and always bind the material's bind group.
+        self.get_shader(PrepassVertexShader).is_some()
+            || self.get_shader(PrepassFragmentShader).is_some()
     }
 }

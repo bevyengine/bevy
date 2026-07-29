@@ -68,7 +68,7 @@ use bevy_render::{
     GpuResourceAppExt, Render, RenderApp, RenderSystems,
 };
 use bevy_shader::Shader;
-use bevy_utils::{default, TypeIdMap};
+use bevy_utils::{default, TypeIdHashMap};
 use bitflags::bitflags;
 use smallvec::{smallvec, SmallVec};
 use tracing::warn;
@@ -328,7 +328,7 @@ bitflags! {
 /// (e.g.  [`bevy_core_pipeline::core_3d::Opaque3d`]) to the
 /// [`PhasePreprocessBindGroups`] for that phase.
 #[derive(Component, Clone, Deref, DerefMut)]
-pub struct PreprocessBindGroups(pub TypeIdMap<PhasePreprocessBindGroups>);
+pub struct PreprocessBindGroups(pub TypeIdHashMap<PhasePreprocessBindGroups>);
 
 /// The compute shader bind group for the mesh preprocessing step for a single
 /// render phase on a single view.
@@ -382,7 +382,9 @@ pub enum PhasePreprocessBindGroups {
 /// There's one set of bind group for each phase. Phases are keyed off their
 /// [`core::any::TypeId`].
 #[derive(Resource, Default, Deref, DerefMut)]
-pub struct BuildIndirectParametersBindGroups(pub TypeIdMap<PhaseBuildIndirectParametersBindGroups>);
+pub struct BuildIndirectParametersBindGroups(
+    pub TypeIdHashMap<PhaseBuildIndirectParametersBindGroups>,
+);
 
 impl BuildIndirectParametersBindGroups {
     /// Creates a new, empty [`BuildIndirectParametersBindGroups`] table.
@@ -2166,7 +2168,7 @@ pub fn prepare_preprocess_bind_groups(
 
     // Loop over each view.
     for (view_entity, view) in &views {
-        let mut bind_groups = TypeIdMap::default();
+        let mut bind_groups = TypeIdHashMap::default();
 
         // Loop over each phase.
         for (phase_type_id, phase_instance_buffers) in phase_instance_buffers {
@@ -3235,7 +3237,7 @@ fn create_bin_unpacking_bind_groups(
     pipeline_cache: &PipelineCache,
     preprocess_pipelines: &PreprocessPipelines,
     indirect_parameters_buffers: &IndirectParametersBuffers,
-    phase_instance_buffers: &TypeIdMap<UntypedPhaseBatchedInstanceBuffers<MeshUniform>>,
+    phase_instance_buffers: &TypeIdHashMap<UntypedPhaseBatchedInstanceBuffers<MeshUniform>>,
     scene_unpacking_buffers: &SceneUnpackingBuffers,
     view_entity: &RetainedViewEntity,
 ) {
