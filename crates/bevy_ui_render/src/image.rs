@@ -43,10 +43,8 @@ impl AsAssetId for ImageNodeTextureAtlasLayout {
     }
 }
 
-/// System set for [`mark_images_as_changed_if_their_assets_changed`]
-/// and [`update_texture_atlas_layout_components`], systems that handle
-/// the asset underlying [`ImageNode`] and [`ImageNodeTextureAtlasLayout`]
-/// changing.
+/// System set for systems that react to the asset underlying
+/// [`ImageNode`] changing.
 #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ImageNodeAssetChangedSystems;
 

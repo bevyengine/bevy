@@ -150,7 +150,8 @@ pub enum MenuFocusState {
     Closed,
 }
 
-/// System set for [`menu_acquire_focus`]. It potentially modifies [`InputFocus`].
+/// System set for the system that menus use to acquire focus on one of its items upon first opening.
+/// It potentially modifies [`InputFocus`].
 ///
 /// These system runs in the [`PostUpdate`] schedule.
 #[derive(Debug, PartialEq, Eq, Hash, Clone, SystemSet)]
