@@ -28,11 +28,14 @@ use crate::{DrawMaterial, MeshPipelineKey};
 /// Enables screen-space transmission for cameras.
 pub struct ScreenSpaceTransmissionPlugin;
 
-fn use_separate_core3d_main_pass(pass: Res<Core3dMainPassMode>) -> bool {
-    bevy_log::warn_once!(
-        "Disabling `ScreenSpaceTransmission` because `Core3dMainPassMode` is not `Separate`"
-    );
-    matches!(*pass, Core3dMainPassMode::Separate)
+fn separate_core3d_main_pass(pass: Res<Core3dMainPassMode>) -> bool {
+    let separate_main_pass = matches!(*pass, Core3dMainPassMode::Separate);
+    if !separate_main_pass {
+        bevy_log::warn_once!(
+            "Disabling `ScreenSpaceTransmission` because `Core3dMainPassMode` is not `Separate`"
+        );
+    }
+    separate_main_pass
 }
 
 impl Plugin for ScreenSpaceTransmissionPlugin {
@@ -60,14 +63,14 @@ impl Plugin for ScreenSpaceTransmissionPlugin {
                     phase::extract_transmissive_camera_phases,
                     extract_components::<ScreenSpaceTransmission, ()>
                         .after(extract_resource::<Core3dMainPassMode, ()>)
-                        .run_if(use_separate_core3d_main_pass),
+                        .run_if(separate_core3d_main_pass),
                 ),
             )
             .add_systems(
                 Render,
                 prepare_core_3d_transmission_textures
                     .in_set(RenderSystems::PrepareResources)
-                    .run_if(use_separate_core3d_main_pass),
+                    .run_if(separate_core3d_main_pass),
             )
             .add_systems(
                 Core3d,
@@ -75,7 +78,7 @@ impl Plugin for ScreenSpaceTransmissionPlugin {
                     .after(main_opaque_pass_3d)
                     .before(main_transparent_pass_3d)
                     .in_set(Core3dSystems::MainPass)
-                    .run_if(use_separate_core3d_main_pass),
+                    .run_if(separate_core3d_main_pass),
             );
     }
 }
