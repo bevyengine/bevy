@@ -2813,6 +2813,7 @@ mod editable_text {
     use bevy::text::EditableText;
     use bevy::text::TextCursorStyle;
     use bevy::text::TextEdit;
+    use bevy::ui_widgets::TextInput;
 
     const DUMMY_TEXT: &str = "one\ntwo\nthree\nfour\nfive\nsix\nseven\neight\nnine\nten";
     const LOREM_TEXT: &str = concat!(
@@ -2821,14 +2822,14 @@ mod editable_text {
         "Cum sociis natoque penatibus et magnis dis parturient montes, nascetur reprehenderit mus. ",
         "Donec quam felis, ultricies nec, pellentesque eu, pretium quis, sem. ",
         "Nulla consequat massa quis enim. Donec pede justo, fringilla vel, aliquet nec, vulputate eget, arcu. ",
-        "In enim justo, rhoncus ut, imperdiet a, venenatis vitae, justo. ", 
-        "Nullam dictum felis eu pede mollis pretium. Integer tincidunt. ", 
+        "In enim justo, rhoncus ut, imperdiet a, venenatis vitae, justo. ",
+        "Nullam dictum felis eu pede mollis pretium. Integer tincidunt. ",
         "Cras dapibus. Vivamus elementum semper nisi. Aenean vulputate eleifend tellus. ",
         "Aenean leo ligula, porttitor eu, consequat vitae, eleifend ac, enim. ",
         "Aliquam lorem ante, dapibus in, viverra quis, feugiat a, tellus. ",
         "Phasellus viverra nulla ut metus officia laoreet. Quisque rutrum. ",
-        "Aenean imperdiet. Etiam ultricies nisi vel augue. Curabitur ullamcorper ultricies nisi.", 
-        " Qui eget dui. Etiam rhoncus. Maecenas tempus, tellus eget condimentum rhoncus, ", 
+        "Aenean imperdiet. Etiam ultricies nisi vel augue. Curabitur ullamcorper ultricies nisi.",
+        " Qui eget dui. Etiam rhoncus. Maecenas tempus, tellus eget condimentum rhoncus, ",
         "sem quam semper libero, sit amet adipiscing sem neque sed ipsum. ",
         "Qui quam nunc, blandit vel, luctus pulvinar, hendrerit id, lorem. ",
         "Maecenas nec odio et ante tincidunt tempus. Donec vitae sapien ut libero venenatis faucibus. ",
@@ -2861,6 +2862,7 @@ mod editable_text {
                     children![
                         Text::new("Single line"),
                         (
+                            TextInput,
                             EditableText {
                                 pending_edits: vec![TextEdit::Insert(
                                     "Single line EditableText".into(),
@@ -2898,6 +2900,7 @@ mod editable_text {
                         ),
                         Text::new("Insert end"),
                         (
+                            TextInput,
                             EditableText {
                                 pending_edits: vec![TextEdit::Insert(LOREM_TEXT.into())],
                                 ..default()
@@ -2917,6 +2920,7 @@ mod editable_text {
                         ),
                         Text::new("Select line start"),
                         (
+                            TextInput,
                             EditableText {
                                 pending_edits: vec![
                                     TextEdit::Insert(LOREM_TEXT.into()),
@@ -2948,6 +2952,7 @@ mod editable_text {
                     children![
                         Text::new("Wrapped start"),
                         (
+                            TextInput,
                             EditableText {
                                 pending_edits: vec![
                                     TextEdit::Insert(LOREM_TEXT.into()),
@@ -2979,6 +2984,7 @@ mod editable_text {
                     children![
                         Text::new("Wrapped selection"),
                         (
+                            TextInput,
                             EditableText {
                                 pending_edits: vec![
                                     TextEdit::Insert(LOREM_TEXT.into()),
@@ -3012,6 +3018,7 @@ mod editable_text {
                     children![
                         Text::new("Clamp top"),
                         (
+                            TextInput,
                             EditableText {
                                 pending_edits: vec![
                                     TextEdit::Insert(DUMMY_TEXT.into()),
@@ -3043,6 +3050,7 @@ mod editable_text {
                     children![
                         Text::new("Home, Scroll 1"),
                         (
+                            TextInput,
                             EditableText {
                                 pending_edits: vec![
                                     TextEdit::Insert(DUMMY_TEXT.into()),
@@ -3075,6 +3083,7 @@ mod editable_text {
                     children![
                         Text::new("Home, Scroll 2"),
                         (
+                            TextInput,
                             EditableText {
                                 pending_edits: vec![
                                     TextEdit::Insert(DUMMY_TEXT.into()),
@@ -3107,6 +3116,7 @@ mod editable_text {
                     children![
                         Text::new("Clamp bottom"),
                         (
+                            TextInput,
                             EditableText {
                                 pending_edits: vec![
                                     TextEdit::Insert(DUMMY_TEXT.into()),
@@ -3139,6 +3149,7 @@ mod editable_text {
                     children![
                         Text::new("Bottom -1"),
                         (
+                            TextInput,
                             EditableText {
                                 pending_edits: vec![
                                     TextEdit::Insert(DUMMY_TEXT.into()),
@@ -3172,6 +3183,7 @@ mod editable_text {
                     children![
                         Text::new("Top +3"),
                         (
+                            TextInput,
                             EditableText {
                                 pending_edits: vec![
                                     TextEdit::Insert(DUMMY_TEXT.into()),
@@ -3204,6 +3216,7 @@ mod editable_text {
                     children![
                         Text::new("Select down 3"),
                         (
+                            TextInput,
                             EditableText {
                                 pending_edits: vec![
                                     TextEdit::Insert(DUMMY_TEXT.into()),
@@ -3239,6 +3252,7 @@ mod editable_text {
                     children![
                         Text::new("End, Scroll 1"),
                         (
+                            TextInput,
                             EditableText {
                                 pending_edits: vec![
                                     TextEdit::Insert(DUMMY_TEXT.into()),
@@ -3270,6 +3284,7 @@ mod editable_text {
                     children![
                         Text::new("End, Scroll -0.5"),
                         (
+                            TextInput,
                             EditableText {
                                 pending_edits: vec![
                                     TextEdit::Insert(DUMMY_TEXT.into()),
