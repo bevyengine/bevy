@@ -4,7 +4,7 @@ use bevy_ecs::{
     hierarchy::Children,
     lifecycle::RemovedComponents,
     query::{Added, Has, Or, With},
-    reflect::ReflectComponent,
+    reflect::{ReflectComponent, ReflectFromTemplate},
     schedule::IntoScheduleConfigs,
     system::{Commands, Query},
 };
@@ -13,7 +13,7 @@ use bevy_math::Rot2;
 use bevy_picking::PickingSystems;
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
-use bevy_scene::{bsn, Scene, SceneComponent};
+use bevy_scene::{bsn, ReflectSceneComponent, Scene, SceneComponent};
 use bevy_ui::{
     px, AlignItems, Checked, Display, InteractionDisabled, JustifyContent, Node, UiTransform,
 };
@@ -34,7 +34,7 @@ use crate::{
 /// A more complete explanation of how to control this widget can be found in the documentation
 /// for [`Checkbox`] and [`bevy_ui_widgets`].
 #[derive(SceneComponent, Default, Clone, Reflect)]
-#[reflect(Component, Default, Clone)]
+#[reflect(Component, Default, Clone, SceneComponent, FromTemplate)]
 pub struct FeathersDisclosureToggle;
 
 impl FeathersDisclosureToggle {

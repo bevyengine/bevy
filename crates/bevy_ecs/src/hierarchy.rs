@@ -7,7 +7,7 @@
 //! [`RelationshipTarget`]: crate::relationship::RelationshipTarget
 
 #[cfg(feature = "bevy_reflect")]
-use crate::reflect::{ReflectComponent, ReflectFromWorld};
+use crate::reflect::{ReflectComponent, ReflectFromWorld, ReflectFromTemplate};
 use crate::{
     bundle::Bundle,
     component::Component,
@@ -95,7 +95,7 @@ use core::slice;
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 #[cfg_attr(
     feature = "bevy_reflect",
-    reflect(Component, PartialEq, Debug, FromWorld, Clone)
+    reflect(Component, PartialEq, Debug, FromWorld, Clone, FromTemplate)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(

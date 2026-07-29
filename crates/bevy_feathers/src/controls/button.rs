@@ -6,7 +6,7 @@ use bevy_ecs::{
     hierarchy::{ChildOf, Children},
     lifecycle::RemovedComponents,
     query::{Added, Changed, Has, Or},
-    reflect::ReflectComponent,
+    reflect::{ReflectComponent, ReflectFromTemplate},
     schedule::IntoScheduleConfigs,
     spawn::{SpawnRelated, SpawnableList},
     system::{Commands, Query},
@@ -57,7 +57,7 @@ pub enum ButtonVariant {
 #[derive(SceneComponent, Default, Clone)]
 #[scene(FeathersButtonProps)]
 #[derive(Reflect)]
-#[reflect(Component, Clone, Default)]
+#[reflect(Component, Clone, Default, FromTemplate)]
 pub struct FeathersButton;
 
 /// Props used to construct a [`FeathersButton`] scene.
@@ -124,7 +124,7 @@ impl FeathersButton {
 #[derive(SceneComponent, Default, Clone)]
 #[scene(FeathersButtonProps)]
 #[derive(Reflect)]
-#[reflect(Component, Clone, Default)]
+#[reflect(Component, Clone, Default, FromTemplate)]
 pub struct FeathersToolButton;
 
 impl FeathersToolButton {

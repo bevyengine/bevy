@@ -9,7 +9,7 @@ use bevy_ecs::{
     hierarchy::Children,
     lifecycle::RemovedComponents,
     query::{Added, Changed, Has, Or, With},
-    reflect::ReflectComponent,
+    reflect::{ReflectComponent, ReflectFromTemplate},
     schedule::IntoScheduleConfigs,
     system::{Commands, Query},
     world::Mut,
@@ -43,7 +43,7 @@ use crate::{
 /// A more complete explanation of how to control this widget can be found in the documentation
 /// for [`Checkbox`] and [`bevy_ui_widgets`].
 #[derive(SceneComponent, Default, Clone, Reflect)]
-#[reflect(Component, Clone, Default)]
+#[reflect(Component, Clone, Default, SceneComponent, FromTemplate)]
 pub struct FeathersToggleSwitch;
 
 impl FeathersToggleSwitch {

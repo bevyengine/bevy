@@ -1,5 +1,7 @@
 //! Mechanism for specifying which corners of a widget are rounded, used for segmented buttons
 //! and control groups.
+
+use bevy_reflect::Reflect;
 use bevy_ui::{px, BorderRadius, Val2};
 
 /// Allows specifying which corners are rounded and which are sharp. All rounded corners
@@ -10,7 +12,7 @@ use bevy_ui::{px, BorderRadius, Val2};
 /// row. In that case, you would have the leftmost button have rounded corners on the left,
 /// the right-most button have rounded corners on the right, and the center button have
 /// only sharp corners.
-#[derive(Debug, Clone, Copy, Default, PartialEq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Reflect)]
 pub enum RoundedCorners {
     /// No corners are rounded.
     None,

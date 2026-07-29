@@ -19,6 +19,8 @@ mod from_world;
 mod map_entities;
 mod message;
 mod resource;
+mod from_template;
+mod template;
 
 use bevy_utils::prelude::DebugName;
 pub use bundle::{ReflectBundle, ReflectBundleFns};
@@ -29,6 +31,8 @@ pub use from_world::{ReflectFromWorld, ReflectFromWorldFns};
 pub use map_entities::ReflectMapEntities;
 pub use message::{ReflectMessage, ReflectMessageFns};
 pub use resource::ReflectResource;
+pub use from_template::{ReflectFromTemplate, ReflectFromTemplateFns};
+pub use template::{ReflectTemplate, ReflectTemplateFns};
 
 /// A [`Resource`] storing [`TypeRegistry`] for
 /// type registrations relevant to a whole app.

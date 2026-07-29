@@ -3,7 +3,7 @@ use alloc::borrow::Cow;
 use bevy_asset::{Assets, Handle};
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::{prelude::*, reflect::ReflectComponent};
+use bevy_ecs::{prelude::*, reflect::{ReflectComponent, ReflectFromTemplate}};
 use bevy_math::Vec2;
 use bevy_reflect::prelude::*;
 use bevy_utils::{default, once};
@@ -281,6 +281,7 @@ impl From<Justify> for parley::Alignment {
 /// You can check which font family is used for a given [`FontSource`]
 /// by calling [`FontCx::get_family`](crate::FontCx::get_family).
 #[derive(Clone, Debug, Reflect, PartialEq, FromTemplate)]
+#[reflect(FromTemplate)]
 pub enum FontSource {
     /// Use a specific font face referenced by a [`Font`] asset handle.
     ///
@@ -593,6 +594,7 @@ impl<const N: usize> From<[FontSource; N]> for FontSource {
 
 /// Generic font families that are resolved through Parley's font database.
 #[derive(Clone, Copy, Debug, Reflect, PartialEq, Eq, Hash, FromTemplate)]
+#[reflect(FromTemplate)]
 #[repr(u8)]
 pub enum GenericFontFamily {
     /// Fonts with serifs — small decorative strokes at the ends of letterforms.
@@ -667,7 +669,7 @@ impl From<GenericFontFamily> for parley::GenericFamily {
 /// `TextFont` determines the style of a text span within a [`ComputedTextBlock`], specifically
 /// the font face, the font size, the line height, and the antialiasing method.
 #[derive(Component, Clone, Debug, Reflect, PartialEq, FromTemplate)]
-#[reflect(Component, Default, Debug, Clone)]
+#[reflect(Component, Default, Debug, Clone, FromTemplate)]
 pub struct TextFont {
     /// Specifies the font face used for this text section.
     ///

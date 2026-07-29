@@ -9,7 +9,7 @@ use bevy_ecs::{
     lifecycle::RemovedComponents,
     observer::On,
     query::{Added, Changed, Has, Or, With},
-    reflect::ReflectComponent,
+    reflect::{ReflectComponent, ReflectFromTemplate},
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
     template::template,
@@ -51,7 +51,7 @@ use bevy_input_focus::{
 ///
 /// This is spawnable by inheriting it as a "scene component".
 #[derive(SceneComponent, Clone, Default, Reflect)]
-#[reflect(Component, Default, Clone)]
+#[reflect(Component, Default, Clone, SceneComponent, FromTemplate)]
 pub struct FeathersMenu;
 
 impl FeathersMenu {
@@ -258,7 +258,7 @@ fn on_lazy_menu_event(
 #[derive(SceneComponent, Default, Clone)]
 #[scene(FeathersMenuButtonProps)]
 #[derive(Reflect)]
-#[reflect(Component, Default, Clone)]
+#[reflect(Component, Default, Clone, FromTemplate)]
 pub struct FeathersMenuButton;
 
 /// Props used to construct a [`FeathersMenuButton`] scene.

@@ -5,7 +5,7 @@ use bevy_ecs::{
     entity::Entity,
     hierarchy::{ChildOf, Children},
     query::{Changed, Or, With},
-    reflect::ReflectComponent,
+    reflect::{ReflectComponent, ReflectFromTemplate},
     schedule::IntoScheduleConfigs,
     system::{Commands, Query},
     template::EntityTemplate,
@@ -23,13 +23,12 @@ use crate::{cursor::EntityCursor, theme::ThemeBackgroundColor, tokens};
 /// [`ScrollPosition`](bevy_ui::ScrollPosition) will be synchronized with the scrollbar.
 #[derive(SceneComponent, Default, Clone, Reflect)]
 #[scene(FeathersScrollbarProps)]
-#[reflect(Component, Clone, Default)]
-pub struct FeathersScrollbar {
-    auto_hide: bool,
-}
+#[reflect(Component, Clone, Default, SceneComponent, FromTemplate)]
+pub struct FeathersScrollbar;
 
 /// Props used to construct a [`FeathersScrollbar`] scene.
-#[derive(Clone)]
+#[derive(Clone, Reflect)]
+#[reflect(Default)]
 pub struct FeathersScrollbarProps {
     /// The entity whose scroll position will be synchronized with this scrollbar.
     pub target: EntityTemplate,

@@ -11,7 +11,7 @@ use bevy_ecs::{
     lifecycle::{Add, Insert, Remove},
     observer::On,
     query::{Changed, Has, With},
-    reflect::ReflectComponent,
+    reflect::{ReflectComponent, ReflectFromTemplate},
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res},
 };
@@ -88,11 +88,13 @@ const BASE_DRAG_SPEED: f64 = 0.01f64;
 /// [`SoftLimit`], [`HardLimit`], [`NumberInputPrecision`], and [`NumberInputStep`].
 #[derive(SceneComponent, Default, Clone, Reflect)]
 #[scene(FeathersNumberInputProps)]
-#[reflect(Component, Default, Clone)]
+#[reflect(Component, Default, Clone, SceneComponent, FromTemplate)]
 #[require(NumberInputValue)]
 pub struct FeathersNumberInput;
 
 /// Props used to construct a [`FeathersNumberInput`] scene.
+#[derive(Reflect)]
+#[reflect(Default)]
 pub struct FeathersNumberInputProps {
     /// The "sigil" is a colored strip along the left edge of the input, which is used to
     /// distinguish between different axes. The default is transparent (no sigil).

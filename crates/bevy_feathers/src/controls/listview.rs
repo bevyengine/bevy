@@ -8,14 +8,14 @@ use bevy_ecs::{
     hierarchy::{ChildOf, Children},
     lifecycle::RemovedComponents,
     query::{Added, Changed, Has, Or, With},
-    reflect::ReflectComponent,
+    reflect::{ReflectComponent, ReflectFromTemplate},
     schedule::IntoScheduleConfigs as _,
     system::{Commands, Query, Res},
 };
 use bevy_input_focus::{tab_navigation::TabIndex, InputFocus, InputFocusVisible};
 use bevy_picking::{hover::Hovered, PickingSystems};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_scene::{bsn, bsn_list, Scene, SceneComponent, SceneList};
+use bevy_scene::{bsn, bsn_list, ReflectSceneComponent, Scene, SceneComponent, SceneList};
 use bevy_text::{FontSize, FontWeight};
 use bevy_ui::{
     px, AlignItems, BorderRadius, Display, FlexDirection, InteractionDisabled, JustifyContent,
@@ -38,7 +38,7 @@ use crate::{
 /// for [`ListBox`] and [`bevy_ui_widgets`].
 #[derive(SceneComponent, Default, Clone, Reflect)]
 #[scene(FeathersListViewProps)]
-#[reflect(Component, Clone, Default)]
+#[reflect(Component, Clone, Default, FromTemplate)]
 pub struct FeathersListView;
 
 /// Props used to construct a [`FeathersListView`] scene.
@@ -108,7 +108,7 @@ impl FeathersListView {
 
 /// A selectable row in a list of items
 #[derive(SceneComponent, Default, Clone, Reflect)]
-#[reflect(Component, Clone, Default)]
+#[reflect(Component, Clone, Default, SceneComponent, FromTemplate)]
 pub struct FeathersListRow;
 
 impl FeathersListRow {

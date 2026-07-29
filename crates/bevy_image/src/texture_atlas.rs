@@ -1,6 +1,7 @@
 use bevy_app::prelude::*;
 use bevy_asset::{Asset, AssetApp as _, AssetId, Assets, Handle};
 use bevy_ecs::template::FromTemplate;
+use bevy_ecs::reflect::{ReflectFromTemplate};
 use bevy_math::{Rect, URect, UVec2};
 use bevy_platform::collections::HashMap;
 #[cfg(not(feature = "bevy_reflect"))]
@@ -209,7 +210,7 @@ impl TextureAtlasLayout {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Default, Debug, PartialEq, Hash, Clone)
+    reflect(Default, Debug, PartialEq, Hash, Clone, FromTemplate)
 )]
 pub struct TextureAtlas {
     /// Texture atlas layout handle

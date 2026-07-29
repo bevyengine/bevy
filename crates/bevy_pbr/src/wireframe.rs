@@ -18,6 +18,7 @@ use bevy_ecs::{
     prelude::*,
     query::ROQueryItem,
     system::{lifetimeless::SRes, SystemParamItem},
+    reflect::ReflectFromTemplate
 };
 use bevy_mesh::{Mesh, Mesh3d, MeshVertexBufferLayoutRef};
 use bevy_platform::{
@@ -935,7 +936,7 @@ pub struct RenderWireframeMaterial {
 #[derive(
     Component, FromTemplate, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq,
 )]
-#[reflect(Component, Default, Clone, PartialEq)]
+#[reflect(Component, Default, Clone, PartialEq, FromTemplate)]
 pub struct Mesh3dWireframe(pub Handle<WireframeMaterial>);
 
 impl AsAssetId for Mesh3dWireframe {

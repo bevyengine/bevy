@@ -8,7 +8,7 @@ use bevy_ecs::{
     hierarchy::{ChildOf, Children},
     lifecycle::RemovedComponents,
     query::{Added, Changed, Has, Or, With},
-    reflect::ReflectComponent,
+    reflect::{ReflectComponent, ReflectFromTemplate},
     schedule::IntoScheduleConfigs,
     spawn::{Spawn, SpawnRelated, SpawnableList},
     system::{Commands, Query},
@@ -48,7 +48,7 @@ use crate::{
 #[derive(SceneComponent, Default, Clone)]
 #[scene(FeathersRadioProps)]
 #[derive(Reflect)]
-#[reflect(Component, Default, Clone)]
+#[reflect(Component, Default, Clone, FromTemplate)]
 pub struct FeathersRadio;
 
 /// Props used to construct a [`FeathersRadio`] scene.

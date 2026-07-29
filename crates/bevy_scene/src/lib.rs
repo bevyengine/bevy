@@ -899,9 +899,9 @@
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     pub use crate::{
-        bsn, bsn_list, on, template_value, CommandsSceneExt, EntityCommandsSceneExt,
-        EntityWorldMutSceneExt, PatchFromTemplate, PatchTemplate, Scene, SceneComponent, SceneList,
-        ScenePatchInstance, SpawnListSystem, SpawnSystem, WorldSceneExt,
+        bsn, bsn_list, on, reflect::ReflectSceneComponent, template_value, CommandsSceneExt,
+        EntityCommandsSceneExt, EntityWorldMutSceneExt, PatchFromTemplate, PatchTemplate, Scene,
+        SceneComponent, SceneList, ScenePatchInstance, SpawnListSystem, SpawnSystem, WorldSceneExt,
     };
 }
 
@@ -910,6 +910,7 @@ pub mod macro_utils;
 
 extern crate alloc;
 
+mod reflect;
 mod resolved_scene;
 mod scene;
 mod scene_component;
@@ -918,6 +919,7 @@ mod scene_patch;
 mod spawn;
 mod spawn_system;
 
+pub use reflect::*;
 pub use resolved_scene::*;
 pub use scene::*;
 pub use scene_component::*;

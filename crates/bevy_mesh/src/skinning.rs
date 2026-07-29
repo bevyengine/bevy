@@ -2,7 +2,7 @@ use crate::{Mesh, MeshVertexAttribute, VertexAttributeValues, VertexFormat};
 use bevy_asset::{AsAssetId, Asset, AssetId, Handle};
 use bevy_ecs::{
     component::Component, entity::Entity, prelude::ReflectComponent, system::Query,
-    template::FromTemplate,
+    template::FromTemplate, reflect::ReflectFromTemplate
 };
 use bevy_math::{
     bounding::{Aabb3d, BoundingVolume},
@@ -14,7 +14,7 @@ use core::ops::Deref;
 use thiserror::Error;
 
 #[derive(Component, Debug, Default, Clone, Reflect, FromTemplate)]
-#[reflect(Component, Default, Debug, Clone)]
+#[reflect(Component, Default, Debug, Clone, FromTemplate)]
 pub struct SkinnedMesh {
     pub inverse_bindposes: Handle<SkinnedMeshInverseBindposes>,
     #[entities]

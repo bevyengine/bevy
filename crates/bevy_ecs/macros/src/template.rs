@@ -1,5 +1,6 @@
 use bevy_macro_utils::{fq_std::FQDefault, BevyManifest};
 use proc_macro::TokenStream;
+use proc_macro2::TokenTree;
 use quote::{format_ident, quote};
 use syn::{
     parse::ParseStream, parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned,
@@ -13,6 +14,7 @@ const BUILT_IN_ATTRIBUTE: &str = "built_in";
 pub(crate) fn derive_from_template(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let bevy_ecs = BevyManifest::shared(|manifest| manifest.get_path("bevy_ecs"));
+    let bevy_reflect = BevyManifest::shared(|manifest| manifest.get_path("bevy_reflect"));
 
     let type_ident = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
@@ -20,6 +22,40 @@ pub(crate) fn derive_from_template(input: TokenStream) -> TokenStream {
     let template_ident = format_ident!("{type_ident}Template");
 
     let type_visibility = &ast.vis;
+
+    let reflect_derive = match ast
+        .attrs
+        .into_iter()
+        .find(|attr| attr.path().is_ident("reflect"))
+    {
+        Some(attr) => (|| {
+            let Ok(list) = attr.meta.require_list() else {
+                return quote!();
+            };
+
+            if list
+                .tokens
+                .clone()
+                .into_iter()
+                .find(|token| match token {
+                    TokenTree::Ident(ident) => ident.to_string() == "FromTemplate",
+                    _ => false,
+                })
+                .is_none()
+            {
+                return quote!();
+            }
+            // the attributes need to be wrapped in a cfg_attr as they will otherwise error because there is no type declaration following them.
+            quote!(
+                #[cfg_attr(
+                    true,
+                    derive(#bevy_reflect::Reflect),
+                    reflect(Default, #bevy_ecs::reflect::ReflectTemplate)
+                )]
+            )
+        })(),
+        None => quote!(),
+    };
 
     let template = match &ast.data {
         Data::Struct(data_struct) => {
@@ -34,10 +70,13 @@ pub(crate) fn derive_from_template(input: TokenStream) -> TokenStream {
                 template_field_clones,
                 ..
             } = result;
+
             match &data_struct.fields {
                 Fields::Named(_) => {
                     quote! {
                         #[allow(missing_docs)]
+
+                        #reflect_derive
                         #type_visibility struct #template_ident #impl_generics #where_clause {
                             #(#template_fields,)*
                         }
@@ -69,6 +108,7 @@ pub(crate) fn derive_from_template(input: TokenStream) -> TokenStream {
                 Fields::Unnamed(_) => {
                     quote! {
                         #[allow(missing_docs)]
+                        #reflect_derive
                         #type_visibility struct #template_ident #impl_generics (
                             #(#template_fields,)*
                         )  #where_clause;
@@ -100,6 +140,7 @@ pub(crate) fn derive_from_template(input: TokenStream) -> TokenStream {
                 Fields::Unit => {
                     quote! {
                         #[allow(missing_docs)]
+                        #reflect_derive
                         #type_visibility struct #template_ident;
 
                         impl #impl_generics #bevy_ecs::template::Template for #template_ident #type_generics #where_clause {
@@ -272,6 +313,7 @@ pub(crate) fn derive_from_template(input: TokenStream) -> TokenStream {
 
             quote! {
                 #[allow(missing_docs)]
+                #reflect_derive
                 #type_visibility enum #template_ident #type_generics #where_clause {
                     #(#variant_definitions,)*
                 }

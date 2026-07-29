@@ -1,11 +1,11 @@
 use bevy_app::Propagate;
 use bevy_color::{Alpha, Srgba};
 use bevy_ecs::{
-    event::EntityEvent, hierarchy::Children, observer::On, reflect::ReflectComponent,
+    event::EntityEvent, hierarchy::Children, observer::On, reflect::{ReflectComponent, ReflectFromTemplate},
     system::Commands, template::template,
 };
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_scene::{bsn, bsn_list, on, Scene, SceneComponent, SceneList};
+use bevy_scene::{bsn, bsn_list, on, Scene, SceneComponent, SceneList, ReflectSceneComponent};
 use bevy_text::FontWeight;
 use bevy_ui::{
     px, vh, vw, widget::Text, AlignItems, BorderRadius, BoxShadow, Display, FixedNode,
@@ -47,7 +47,7 @@ impl Default for FeathersDialogProps {
 /// A modal dialog box
 #[derive(SceneComponent, Default, Clone, Reflect)]
 #[scene(FeathersDialogProps)]
-#[reflect(Component, Clone, Default)]
+#[reflect(Component, Clone, Default, FromTemplate)]
 pub struct FeathersDialog;
 
 impl FeathersDialog {
@@ -128,7 +128,7 @@ impl Default for FeathersFloatingDialogProps {
 /// A non-modal, movable floating dialog with a draggable title bar and a close button.
 #[derive(SceneComponent, Default, Clone, Reflect)]
 #[scene(FeathersFloatingDialogProps)]
-#[reflect(Component, Clone, Default)]
+#[reflect(Component, Clone, Default, FromTemplate)]
 pub struct FeathersFloatingDialog;
 
 impl FeathersFloatingDialog {
@@ -198,7 +198,7 @@ impl FeathersFloatingDialog {
 
 /// Header section for a modal dialog
 #[derive(SceneComponent, Default, Clone, Reflect)]
-#[reflect(Component, Clone, Default)]
+#[reflect(Component, Clone, Default, SceneComponent, FromTemplate)]
 pub struct FeathersDialogHeader;
 
 impl FeathersDialogHeader {
@@ -225,7 +225,7 @@ impl FeathersDialogHeader {
 
 /// Close button for dialog header
 #[derive(SceneComponent, Default, Clone, Reflect)]
-#[reflect(Component, Clone, Default)]
+#[reflect(Component, Clone, Default, SceneComponent, FromTemplate)]
 pub struct FeathersDialogClose;
 
 impl FeathersDialogClose {
@@ -245,7 +245,7 @@ impl FeathersDialogClose {
 
 /// Central body section for a modal dialog
 #[derive(SceneComponent, Default, Clone, Reflect)]
-#[reflect(Component, Clone, Default)]
+#[reflect(Component, Clone, Default, SceneComponent, FromTemplate)]
 pub struct FeathersDialogBody;
 
 impl FeathersDialogBody {
@@ -270,7 +270,7 @@ impl FeathersDialogBody {
 
 /// Footer section for a modal dialog
 #[derive(SceneComponent, Default, Clone, Reflect)]
-#[reflect(Component, Clone, Default)]
+#[reflect(Component, Clone, Default, SceneComponent, FromTemplate)]
 pub struct FeathersDialogFooter;
 
 impl FeathersDialogFooter {

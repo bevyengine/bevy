@@ -1,8 +1,11 @@
 use crate::{AudioSource, Decodable, Volume};
 use bevy_asset::{Asset, Handle};
-use bevy_ecs::prelude::*;
+use bevy_ecs::{
+    reflect::ReflectFromTemplate,
+    prelude::*
+};
 use bevy_math::Vec3;
-use bevy_reflect::prelude::*;
+use bevy_reflect::{prelude::*};
 use bevy_transform::components::Transform;
 
 /// The way Bevy manages the sound playback.
@@ -246,7 +249,7 @@ pub struct DefaultSpatialScale(pub SpatialScale);
 /// Playback can be configured using the [`PlaybackSettings`] component. Note that changes to the
 /// [`PlaybackSettings`] component will *not* affect already-playing audio.
 #[derive(Component, Reflect, FromTemplate)]
-#[reflect(Component, Clone)]
+#[reflect(Component, Clone, FromTemplate)]
 #[require(PlaybackSettings)]
 pub struct AudioPlayer<Source = AudioSource>(pub Handle<Source>)
 where
