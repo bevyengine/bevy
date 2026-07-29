@@ -277,6 +277,9 @@ fn modify_resolution(
     mut query: Query<(&mut MainResolution, &mut CameraColorTarget)>,
 ) {
     for (mut resolution, mut color_target) in &mut query {
+        if matches!(color_target.size, CameraColorTargetSize::Fixed(_)) {
+            color_target.size = CameraColorTargetSize::Factor(Vec2::ONE);
+        }
         let CameraColorTargetSize::Factor(f) = &mut color_target.size else {
             unreachable!()
         };

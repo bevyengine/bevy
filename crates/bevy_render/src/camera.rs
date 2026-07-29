@@ -14,7 +14,7 @@ use crate::{
         RenderExtractedVisibleEntities, RenderVisibleEntities, RenderVisibleEntitiesClass,
         RetainedViewEntity, ViewUniformOffset, VisibilityExtractionSystemParam,
     },
-    Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
+    Extract, ExtractSchedule, MainWorld, Render, RenderApp, RenderSystems,
 };
 
 use bevy_app::{App, Plugin, PostStartup, PostUpdate};
@@ -22,10 +22,10 @@ use bevy_asset::{AssetEvent, AssetEventSystems, AssetId, Assets};
 use bevy_camera::{
     primitives::Frustum,
     visibility::{self, RenderLayers, VisibleEntities},
-    Camera, Camera2d, Camera3d, CameraColorTarget, CameraOutputMode, CameraUpdateSystems,
-    ClearColor, ClearColorConfig, ColorTarget, CompositingSpace, Exposure, Hdr,
-    ManualTextureViewHandle, MsaaWriteback, NormalizedRenderTarget, Projection, RenderTarget,
-    RenderTargetInfo, Viewport, WithColorTarget,
+    Camera, Camera2d, Camera3d, CameraColorTarget, CameraColorTargetSize, CameraMainTextureUsages,
+    CameraOutputMode, CameraUpdateSystems, ClearColor, ClearColorConfig, ColorTarget,
+    CompositingSpace, Exposure, Hdr, ManualTextureViewHandle, MsaaWriteback,
+    NormalizedRenderTarget, Projection, RenderTarget, RenderTargetInfo, Viewport, WithColorTarget,
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -36,11 +36,11 @@ use bevy_ecs::{
     lifecycle::HookContext,
     message::MessageReader,
     prelude::With,
-    query::{Has, QueryItem},
+    query::{Has, Or, QueryItem, Without},
     reflect::ReflectComponent,
     resource::Resource,
     schedule::{InternedScheduleLabel, IntoScheduleConfigs, ScheduleLabel, SystemSet},
-    system::{Commands, Query, Res, ResMut, SystemState},
+    system::{Commands, Local, Query, Res, ResMut, SystemState},
     world::{DeferredWorld, World},
 };
 use bevy_image::Image;
@@ -59,7 +59,7 @@ pub struct CameraPlugin;
 
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
-        app.register_required_components::<CameraColorTarget, Msaa>()
+        app.register_required_components::<Camera, Msaa>()
             .register_required_components::<Camera, SyncToRenderWorld>()
             .register_required_components::<Camera3d, ColorGrading>()
             .register_required_components::<Camera3d, Exposure>()
@@ -100,10 +100,11 @@ impl Plugin for CameraPlugin {
                     ExtractSchedule,
                     (
                         (
-                            // It makes the code clearer to split `extract_color_targets` off from `extract_cameras`,
-                            // though we have to make it an exclusive system.
+                            // It makes the code clearer to split `implicit_configure_color_targets_for_cameras` and `extract_color_targets` off from `extract_cameras`,
+                            // though we have to make them exclusive systems.
                             //
-                            // Suppress warnings since most systems don't depend on `extract_color_targets`.
+                            // Suppress warnings since most systems don't depend on them.
+                            implicit_configure_color_targets_for_cameras.ambiguous_with_all(),
                             extract_color_targets.ambiguous_with_all(),
                             extract_cameras,
                         )
@@ -479,16 +480,182 @@ impl SyncComponent<RenderApp> for WithColorTarget {
     type Target = Self;
 }
 
+fn resolve_color_target_format(
+    render_target: &RenderTarget,
+    primary_window: Option<Entity>,
+    extracted_swap_chains: &Query<(MainEntity, &ExtractedWindow)>,
+    images: &RenderAssets<GpuImage>,
+    manual_texture_views: &ManualTextureViews,
+    hdr: bool,
+) -> TextureFormat {
+    let target = render_target.normalize(primary_window);
+    let output_texture_format = target
+        .as_ref()
+        .and_then(|target| {
+            target
+                .get_texture_view_format(&extracted_swap_chains, &images, &manual_texture_views)
+                .map(|format| normalize_bgra8(target, format))
+        })
+        .unwrap_or(TextureFormat::Rgba8UnormSrgb);
+    if hdr {
+        TextureFormat::Rgba16Float
+    } else {
+        output_texture_format
+    }
+}
+
+#[derive(Debug, Hash, PartialEq, Eq)]
+pub struct ImplicitCameraColorTargetKey {
+    size: UVec2,
+    sample_count: u32,
+    usage: wgpu::TextureUsages,
+    format: TextureFormat,
+}
+
+fn resolve_implicit_key(
+    camera: &Camera,
+    msaa: &Msaa,
+    usages: &CameraMainTextureUsages,
+    format: TextureFormat,
+) -> Option<ImplicitCameraColorTargetKey> {
+    let size = camera.physical_viewport_size()?;
+    let sample_count = msaa.samples();
+    let usage = usages.0;
+
+    Some(ImplicitCameraColorTargetKey {
+        size,
+        sample_count,
+        usage,
+        format,
+    })
+}
+/// Configures [`CameraColorTarget`] and [`WithColorTarget`] for cameras that did not explicitly specify them.
+///
+/// The rules are as follows:
+/// - Iterate over all cameras without a specified [`WithColorTarget`], group them by the key ([`ImplicitCameraColorTargetKey`]) according to [`Camera::physical_viewport_size`], [`Msaa`], [`CameraMainTextureUsages`], and resolved format from [`Hdr`] and [`NormalizedRenderTarget`].
+/// - For each group, if a [`CameraColorTarget`] matching the key conditions already exists within the group, select it; otherwise, arbitrarily pick one camera and assign a [`CameraColorTarget`] to it.
+/// - For every camera in the group, assign a [`WithColorTarget`] referencing the selected target.
+pub fn implicit_configure_color_targets_for_cameras(
+    world: &mut World,
+    state: &mut SystemState<(
+        // main_world
+        ResMut<MainWorld>,
+        // extracted_swap_chains
+        Query<(MainEntity, &ExtractedWindow)>,
+        // gpu_images
+        Res<RenderAssets<GpuImage>>,
+        // manual_texture_views
+        Res<ManualTextureViews>,
+        // groups
+        Local<HashMap<ImplicitCameraColorTargetKey, Vec<Entity>>>,
+        // main_world_system_state
+        Local<
+            Option<
+                SystemState<(
+                    // commands
+                    Commands,
+                    // cameras
+                    Query<
+                        (
+                            Entity,
+                            &Camera,
+                            &RenderTarget,
+                            &Msaa,
+                            Has<Hdr>,
+                            &CameraMainTextureUsages,
+                        ),
+                        Without<WithColorTarget>,
+                    >,
+                    // primary_window_query
+                    Query<Entity, With<PrimaryWindow>>,
+                    // camera_color_target_entities
+                    Query<Entity, (With<CameraColorTarget>, Without<WithColorTarget>)>,
+                )>,
+            >,
+        >,
+    )>,
+) {
+    let (
+        mut main_world,
+        extracted_swap_chains,
+        gpu_images,
+        manual_texture_views,
+        mut groups,
+        mut main_world_system_state,
+    ) = state.get_mut(world).unwrap();
+    let main_world_system_state =
+        main_world_system_state.get_or_insert_with(|| SystemState::new(&mut main_world));
+    let (mut main_world_commands, cameras, primary_window_query, camera_color_target_entities) =
+        main_world_system_state.get_mut(&mut main_world).unwrap();
+
+    // Collect camera data from main world
+    groups.clear();
+    let primary_window = primary_window_query.iter().next();
+    for (entity, camera, render_target, msaa, hdr, usages) in cameras.iter() {
+        let format = resolve_color_target_format(
+            render_target,
+            primary_window,
+            &extracted_swap_chains,
+            &gpu_images,
+            &manual_texture_views,
+            hdr,
+        );
+        if let Some(key) = resolve_implicit_key(camera, msaa, usages, format) {
+            groups.entry(key).or_default().push(entity);
+        }
+    }
+
+    // Assign `CameraColorTarget` and `WithColorTarget`
+    for (key, cameras) in groups.iter() {
+        // Select target camera — prefer one that already has `CameraColorTarget`
+        let target = cameras
+            .iter()
+            .find(|&e| camera_color_target_entities.contains(*e))
+            .copied()
+            .unwrap_or(cameras[0]);
+
+        // Add `CameraColorTarget` if the target camera doesn't already have one
+        if !camera_color_target_entities.contains(target) {
+            main_world_commands
+                .entity(target)
+                .insert(CameraColorTarget {
+                    label: "implicit_camera_color_target_texture".into(),
+                    size: CameraColorTargetSize::Fixed(key.size),
+                    sample_count: Some(key.sample_count),
+                    format: Some(key.format),
+                    usage: key.usage,
+                });
+        }
+
+        // Add `WithColorTarget` to every camera in the group
+        for &camera_entity in cameras {
+            main_world_commands
+                .entity(camera_entity)
+                .insert(WithColorTarget(target));
+        }
+    }
+
+    main_world_system_state.apply(&mut main_world);
+    state.apply(world);
+}
+
 /// Extract [`ColorTarget`], [`CameraColorTarget`] and [`WithColorTarget`] to the render world.
 pub fn extract_color_targets(
     world: &mut World,
     state: &mut SystemState<(
         // mut commands:
         Commands,
-        // query:
-        Extract<Query<(RenderEntity, &Camera, Has<Hdr>, &WithColorTarget)>>,
         // camera_color_targets:
-        Extract<Query<(RenderEntity, &RenderTarget, &Msaa, &CameraColorTarget)>>,
+        Extract<
+            Query<(
+                RenderEntity,
+                &Camera,
+                &RenderTarget,
+                &Msaa,
+                Has<Hdr>,
+                &CameraColorTarget,
+            )>,
+        >,
         // color_targets:
         Extract<Query<(RenderEntity, &ColorTarget)>>,
         // primary_window:
@@ -499,94 +666,89 @@ pub fn extract_color_targets(
         Res<RenderAssets<GpuImage>>,
         // extracted_swap_chains:
         Query<(MainEntity, &ExtractedWindow)>,
+        (
+            // with_color_targets:
+            Extract<Query<(RenderEntity, &WithColorTarget)>>,
+            // any_color_target_entities:
+            Extract<Query<RenderEntity, Or<(With<ColorTarget>, With<CameraColorTarget>)>>>,
+        ),
     )>,
 ) {
+    /// Extract [`WithColorTarget`] to the render world.
+    fn extract_with_color_targets(
+        commands: &mut Commands,
+        with_color_targets: &Extract<Query<(RenderEntity, &WithColorTarget)>>,
+        entities: &Extract<Query<RenderEntity, Or<(With<ColorTarget>, With<CameraColorTarget>)>>>,
+    ) {
+        for (render_entity, with_color_target) in with_color_targets.iter() {
+            let Ok(target_entity) = entities.get(with_color_target.0) else {
+                bevy_log::error!("`WithColorTarget` should reference to a valid `ColorTarget` or `CameraColorTarget`");
+                continue;
+            };
+            commands
+                .entity(render_entity)
+                .insert(WithColorTarget(target_entity));
+        }
+    }
+
     let (
         mut commands,
-        query,
         camera_color_targets,
         color_targets,
         primary_window,
         manual_texture_views,
         images,
         extracted_swap_chains,
+        (with_color_targets, any_color_target_entities),
     ) = state.get_mut(world).unwrap();
 
     let primary_window = primary_window.iter().next();
 
-    // Always extract `ColorTarget`s, allowing them to be used without a camera.
+    // Extract all `ColorTarget`s.
     for (render_entity, color_target) in color_targets.iter() {
         commands.entity(render_entity).insert(color_target.clone());
     }
 
-    for (camera_render_entity, camera, hdr, with_color_target) in query.iter() {
+    // Extract all `CameraColorTarget`s.
+    for (camera_render_entity, camera, render_target, msaa, hdr, camera_color_target) in
+        camera_color_targets.iter()
+    {
         if let Some(viewport_size) = camera.physical_viewport_size() {
-            let color_target_render_entity = if let Ok((
-                referenced_camera_render_entity,
-                render_target,
-                msaa,
-                referenced_camera_color_target,
-            )) = camera_color_targets.get(with_color_target.0)
-            {
-                let target = render_target.normalize(primary_window);
-                let output_texture_format = target
-                    .as_ref()
-                    .and_then(|target| {
-                        target
-                            .get_texture_view_format(
-                                &extracted_swap_chains,
-                                &images,
-                                &manual_texture_views,
-                            )
-                            .map(|format| normalize_bgra8(target, format))
-                    })
-                    .unwrap_or(TextureFormat::Rgba8UnormSrgb);
-                let default_format = if hdr {
-                    TextureFormat::Rgba16Float
-                } else {
-                    output_texture_format
-                };
-
-                let color_format = referenced_camera_color_target
-                    .format
-                    .unwrap_or(default_format);
-                let sample_count = msaa.samples();
-                let size = match referenced_camera_color_target.size {
-                    bevy_camera::CameraColorTargetSize::Factor(vec2) => (viewport_size.as_vec2()
-                        * vec2)
-                        .round()
-                        .as_uvec2()
-                        .max(UVec2::ONE),
-                    bevy_camera::CameraColorTargetSize::Fixed(uvec2) => uvec2,
-                };
-
-                commands
-                    .entity(referenced_camera_render_entity)
-                    .insert(ColorTarget {
-                        label: referenced_camera_color_target.label.clone(),
-                        size,
-                        sample_count,
-                        format: color_format,
-                        usage: referenced_camera_color_target.usage,
-                    });
-                referenced_camera_render_entity
-            } else if let Ok((render_entity, _color_target)) =
-                color_targets.get(with_color_target.0)
-            {
-                render_entity
-            } else {
-                warn!("`WithColorTarget` doesn't reference to a valid `ColorTarget` or `CameraColorTarget`");
-                commands
-                    .entity(camera_render_entity)
-                    .remove::<WithColorTarget>();
-                continue;
+            let color_format = camera_color_target
+                .format
+                .unwrap_or(resolve_color_target_format(
+                    &render_target,
+                    primary_window,
+                    &extracted_swap_chains,
+                    &images,
+                    &manual_texture_views,
+                    hdr,
+                ));
+            let sample_count = camera_color_target.sample_count.unwrap_or(msaa.samples());
+            let size = match camera_color_target.size {
+                CameraColorTargetSize::Factor(vec2) => (viewport_size.as_vec2() * vec2)
+                    .round()
+                    .as_uvec2()
+                    .max(UVec2::ONE),
+                CameraColorTargetSize::Fixed(uvec2) => uvec2,
             };
 
-            commands
-                .entity(camera_render_entity)
-                .insert(WithColorTarget(color_target_render_entity));
-        };
+            commands.entity(camera_render_entity).insert(ColorTarget {
+                label: camera_color_target.label.clone(),
+                size,
+                sample_count,
+                format: color_format,
+                usage: camera_color_target.usage,
+            });
+        }
     }
+
+    // Extract all `WithColorTarget`s.
+    extract_with_color_targets(
+        &mut commands,
+        &with_color_targets,
+        &any_color_target_entities,
+    );
 
     state.apply(world);
 }
