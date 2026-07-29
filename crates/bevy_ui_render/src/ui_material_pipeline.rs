@@ -11,6 +11,7 @@ use bevy_ecs::{
 };
 use bevy_math::{Affine2, FloatOrd, Rect, Vec2};
 use bevy_mesh::VertexBufferLayout;
+use bevy_platform::collections::hash_map::{OccupiedEntry, VacantEntry};
 use bevy_render::{
     globals::{GlobalsBuffer, GlobalsUniform},
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
@@ -298,12 +299,8 @@ pub struct ExtractedUiMaterial<M: UiMaterial> {
 /// A render-world resource that stores all material nodes in the scene.
 #[derive(Resource)]
 pub struct ExtractedUiMaterialNodes<M: UiMaterial> {
-    /// The list of material nodes grouped by their main-world entity, along with
-    /// each group's target camera entity.
-    ///
-    /// This is a two-level data structure so that we can quickly remove all
-    /// material nodes associated with a main-world entity when it changes.
-    pub uinodes: MainEntityHashMap<EntityIndexMap<ExtractedUiMaterial<M>>>,
+    /// Map from main-world UI entity to render entity and UI material node
+    pub uinodes: MainEntityHashMap<(Entity, ExtractedUiMaterial<M>)>,
 }
 
 impl<M: UiMaterial> Default for ExtractedUiMaterialNodes<M> {
@@ -316,7 +313,7 @@ impl<M: UiMaterial> Default for ExtractedUiMaterialNodes<M> {
 
 pub fn extract_ui_material_nodes<M: UiMaterial>(
     mut commands: Commands,
-    mut extracted_uinodes: ResMut<ExtractedUiMaterialNodes<M>>,
+    mut extracted_uinodes: Res<ExtractedUiMaterialNodes<M>>,
     materials: Extract<Res<Assets<M>>>,
     uinode_query: Extract<Query<(Entity, &MaterialNode<M>), Changed<MaterialNode<M>>>>,
     camera_map: Extract<UiCameraMap>,
@@ -360,12 +357,21 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
 
         nodes_processed_this_frame.insert(main_entity);
 
-        extracted_uinodes.uinodes.entry(main_entity).insert((
-            commands.spawn_empty().id(),
-            ExtractedUiMaterial {
-                material: handle.id(),
-            },
-        ));
+        match extracted_uinodes.uinodes.entry(main_entity) {
+            bevy_platform::collections::hash_map::Entry::Occupied(mut entry) => {
+                let (_, material) = entry.get_mut();
+                material.material = handle.id();
+            }
+            bevy_platform::collections::hash_map::Entry::Vacant(entry) => {
+                let entity = commands.spawn_empty().id();
+                entry.insert((
+                    entity,
+                    ExtractedUiMaterial {
+                        material: handle.id(),
+                    },
+                ));
+            }
+        }
     }
 
     // Only remove the render-world data if we didn't handle the node above.
@@ -376,12 +382,10 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
         if nodes_processed_this_frame.contains(&main_entity) {
             continue;
         }
-        let Some(mut extracted_nodes) = extracted_uinodes.uinodes.remove(&main_entity) else {
+        let Some((entity, _)) = extracted_uinodes.uinodes.remove(&main_entity) else {
             continue;
         };
-        for (render_entity, _) in extracted_nodes.drain(..) {
-            commands.entity(render_entity).despawn();
-        }
+        commands.entity(entity).despawn();
     }
 }
 
