@@ -504,7 +504,7 @@ impl Plugin for ColorSliderPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.add_systems(
             PreUpdate,
-            // after UiSystems::Focus can be removed after Interaction is removed.
+            // .after(UiSystems::Focus) can be removed after Interaction is removed.
             (
                 update_slider_pos.after(UiSystems::Focus),
                 update_track_color,

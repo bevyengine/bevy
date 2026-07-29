@@ -433,7 +433,7 @@ impl Plugin for ToggleSwitchPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.add_systems(
             PreUpdate,
-            // after UiSystems::Focus can be removed after Interaction is removed.
+            // .after(UiSystems::Focus) can be removed after Interaction is removed.
             (
                 update_switch_styles.after(UiSystems::Focus),
                 update_switch_styles_remove,
