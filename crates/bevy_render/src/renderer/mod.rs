@@ -331,6 +331,20 @@ pub async fn initialize_renderer(
         limits = adapter.limits();
     }
 
+    #[cfg(feature = "tracing-tracy")]
+    {
+        // Features required to create tracy gpu context.
+        if adapter.features().contains(
+            wgpu::Features::TIMESTAMP_QUERY
+                | wgpu::Features::TIMESTAMP_QUERY_INSIDE_ENCODERS
+                | wgpu::Features::TIMESTAMP_QUERY_INSIDE_PASSES,
+        ) {
+            features |= wgpu::Features::TIMESTAMP_QUERY
+                | wgpu::Features::TIMESTAMP_QUERY_INSIDE_ENCODERS
+                | wgpu::Features::TIMESTAMP_QUERY_INSIDE_PASSES;
+        }
+    }
+
     // Enforce the disabled features
     if let Some(disabled_features) = options.disabled_features {
         features.remove(disabled_features);
