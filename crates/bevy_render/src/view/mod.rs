@@ -286,9 +286,7 @@ pub struct RetainedViewEntity {
     /// the light and subview index aren't themselves enough to uniquely
     /// identify a shadow cascade: we need the camera that the cascade is
     /// associated with as well. This entity stores that camera.
-    ///
-    /// If not present, this will be `MainEntity(Entity::PLACEHOLDER)`.
-    pub auxiliary_entity: MainEntity,
+    pub auxiliary_entity: Option<MainEntity>,
 
     /// The index of the view corresponding to the entity.
     ///
@@ -311,7 +309,7 @@ impl RetainedViewEntity {
     ) -> Self {
         Self {
             main_entity,
-            auxiliary_entity: auxiliary_entity.unwrap_or(Entity::PLACEHOLDER.into()),
+            auxiliary_entity,
             subview_index,
         }
     }
@@ -1170,8 +1168,10 @@ pub fn prepare_view_uniforms(
                 extracted_view.world_from_view.translation()
             }
             (None, Some(shadow_lod_origin))
-                if extracted_view.retained_view_entity.auxiliary_entity
-                    == MainEntity::from(Entity::PLACEHOLDER) =>
+                if extracted_view
+                    .retained_view_entity
+                    .auxiliary_entity
+                    .is_none() =>
             {
                 // If this is a shadow map not associated with a camera (a point
                 // light or spot light shadow map), use the shadow LOD origin.
@@ -1183,16 +1183,15 @@ pub fn prepare_view_uniforms(
                 // present), we use the position of that camera as the LOD view
                 // position. This ensures that each rendered object has a shadow
                 // and that no invisible objects have shadows.
-                match views.get(
-                    extracted_view
-                        .retained_view_entity
-                        .auxiliary_entity
-                        .entity(),
-                ) {
-                    Ok((_, _, camera_view, _, _, _, _)) => {
+                match extracted_view
+                    .retained_view_entity
+                    .auxiliary_entity
+                    .and_then(|entity| views.get(*entity).ok())
+                {
+                    Some((_, _, camera_view, _, _, _, _)) => {
                         camera_view.world_from_view.translation()
                     }
-                    Err(_) => shadow_lod_origin.0,
+                    None => shadow_lod_origin.0,
                 }
             }
         };
@@ -1235,11 +1234,11 @@ struct MainTargetTextures {
 
 /// Prepares the view target [`OutputColorAttachment`] for each view in the current frame.
 pub fn prepare_view_attachments(
-    windows: Res<ExtractedWindows>,
     images: Res<RenderAssets<GpuImage>>,
     manual_texture_views: Res<ManualTextureViews>,
     cameras: Query<&ExtractedCamera>,
     mut view_target_attachments: ResMut<ViewTargetAttachments>,
+    windows: Query<(MainEntity, &ExtractedWindow)>,
 ) {
     for camera in cameras.iter() {
         let Some(target) = &camera.target else {
@@ -1274,12 +1273,12 @@ pub fn clear_view_attachments(mut view_target_attachments: ResMut<ViewTargetAtta
 
 pub fn cleanup_view_targets_for_resize(
     mut commands: Commands,
-    windows: Res<ExtractedWindows>,
+    windows: Query<(MainEntity, &ExtractedWindow)>,
     cameras: Query<(Entity, &ExtractedCamera), With<ViewTarget>>,
 ) {
     for (entity, camera) in &cameras {
         if let Some(NormalizedRenderTarget::Window(window_ref)) = &camera.target
-            && let Some(window) = windows.get(&window_ref.entity())
+            && let Some((_, window)) = windows.iter().find(|(e, _)| *e == window_ref.entity())
             && (window.size_changed || window.present_mode_changed)
         {
             commands.entity(entity).remove::<ViewTarget>();

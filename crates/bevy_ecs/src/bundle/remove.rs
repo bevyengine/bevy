@@ -3,12 +3,12 @@ use bevy_ptr::ConstNonNull;
 use core::ptr::NonNull;
 
 use crate::{
-    archetype::{Archetype, ArchetypeCreated, ArchetypeId, Archetypes},
+    archetype::{Archetype, ArchetypeCreated, ArchetypeId, Archetypes, ARCHETYPE_CREATED},
     bundle::{Bundle, BundleId, BundleInfo},
     change_detection::MaybeLocation,
     component::{ComponentId, Components, StorageType},
     entity::{Entity, EntityLocation},
-    event::EntityComponentsTrigger,
+    event::{EntityComponentsTrigger, GlobalTrigger},
     lifecycle::{Discard, Remove, DISCARD, REMOVE},
     observer::Observers,
     relationship::RelationshipHookMode,
@@ -101,7 +101,19 @@ impl<'w> BundleRemover<'w> {
             // SAFETY:
             // - we have exclusive ownership of the world and hold no references to command queue or component data
             // - as this goes through `DeferredWorld`, our pointers will not be invalidated
-            unsafe { remover.world.into_deferred() }.trigger(ArchetypeCreated(new_archetype_id));
+            // SAFETY:
+            // - we have exclusive ownership of the world and hold no references to command queue or component data
+            // - as this goes through `DeferredWorld`, our pointers will not be invalidated
+            let mut world = unsafe { remover.world.into_deferred() };
+            // SAFETY: the ARCHETYPE_CREATED event_key corresponds to the ArchetypeCreated event's type
+            unsafe {
+                world.trigger_raw(
+                    ARCHETYPE_CREATED,
+                    &mut ArchetypeCreated(new_archetype_id),
+                    &mut GlobalTrigger,
+                    MaybeLocation::caller(),
+                );
+            }
         }
         Some(remover)
     }

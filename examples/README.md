@@ -52,7 +52,6 @@ git checkout v0.4.0
   - [Embedded](#embedded)
   - [Games](#games)
   - [Gizmos](#gizmos)
-  - [Helpers](#helpers)
   - [Input](#input)
   - [Math](#math)
   - [Movement](#movement)
@@ -380,6 +379,7 @@ Example | Description
 [Desk Toy](../examples/showcase/desk_toy.rs) | Bevy logo as a desk toy using transparent windows! Now with Googly Eyes!
 [Game Menu](../examples/showcase/game_menu.rs) | A simple game menu
 [Loading Screen](../examples/showcase/loading_screen.rs) | Demonstrates how to create a loading screen that waits for all assets to be loaded and render pipelines to be compiled.
+[Mines](../examples/showcase/mines.rs) | A simple minesweeper-style game in Bevy UI
 
 ### Gizmos
 
@@ -394,12 +394,6 @@ Example | Description
 [Text Gizmos 3d](../examples/gizmos/3d_text_gizmos.rs) | A scene showcasing 3d text gizmos
 [Text Gizmos Font](../examples/gizmos/text_gizmos_font.rs) | Example displaying the font used by text gizmos
 [Transform Gizmo](../examples/gizmos/transform_gizmo.rs) | Interactive transform gizmo for translating, rotating, and scaling entities
-
-### Helpers
-
-Example | Description
---- | ---
-[Widgets](../examples/helpers/widgets.rs) | Example UI Widgets
 
 ### Input
 
@@ -519,6 +513,7 @@ Example | Description
 
 Example | Description
 --- | ---
+[Deferred Gbuffer Raymarching](../examples/shader_advanced/deferred_raymarch.rs) | Writes a raymarched SDF into the deferred gbuffer so it is lit by the standard PBR deferred lighting pass
 [Fullscreen Material](../examples/shader_advanced/fullscreen_material.rs) | Demonstrates how to write a fullscreen material
 [Manual Material Implementation](../examples/shader_advanced/manual_material.rs) | Demonstrates how to implement a material manually using the mid-level render APIs
 
