@@ -23,7 +23,7 @@ pub mod extract_layout;
 
 use bevy_a11y::AccessibilitySystems;
 use bevy_camera::{Camera, Camera2d, Camera3d, RenderTarget};
-use bevy_ecs::entity::EntityIndexMap;
+use bevy_ecs::entity::{EntityHashSet, EntityIndexMap};
 use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_render::camera::{extract_cameras, CameraMainPassTextureFormats};
@@ -414,7 +414,7 @@ pub fn extract_uinode_background_colors(
         Extract<RemovedComponents<Outline>>,
         Extract<RemovedComponents<ViewportNode>>,
     ),
-    mut removed_uinodes: Local<MainEntityHashSet>,
+    mut removed_uinodes: Local<EntityHashSet>,
 ) {
     extracted_uinodes.changed.clear();
     removed_uinodes.clear();
@@ -426,8 +426,7 @@ pub fn extract_uinode_background_colors(
             .chain(removed_image_node_size_query.read())
             .chain(removed_border_color_query.read())
             .chain(removed_outline_query.read())
-            .chain(removed_viewport_node_query.read())
-            .map(MainEntity::from),
+            .chain(removed_viewport_node_query.read()),
     );
 
     for (
@@ -439,17 +438,10 @@ pub fn extract_uinode_background_colors(
         maybe_border_color,
         maybe_outline,
         maybe_viewport_node,
-    ) in changed_uinode_query.iter().chain(
-        uinode_query.iter_many(
-            removed_outer_color_query
-                .read()
-                .chain(removed_image_node_query.read())
-                .chain(removed_image_node_size_query.read())
-                .chain(removed_border_color_query.read())
-                .chain(removed_outline_query.read())
-                .chain(removed_viewport_node_query.read()),
-        ),
-    ) {
+    ) in changed_uinode_query
+        .iter()
+        .chain(uinode_query.iter_many(removed_uinodes.iter()))
+    {
         let main_entity = entity.into();
 
         // Already updated this entity
@@ -593,7 +585,8 @@ pub fn extract_uinode_background_colors(
         }
     }
 
-    for main_entity in removed_uinodes.drain() {
+    for entity in removed_uinodes.drain() {
+        let main_entity = MainEntity::from(entity);
         if uinode_query.contains(main_entity.entity()) {
             continue;
         }
