@@ -1,4 +1,4 @@
-use crate::camera::extract_color_targets;
+use crate::camera::implicit_configure_color_targets_for_cameras;
 use crate::renderer::RenderQueue;
 use crate::renderer::WgpuWrapper;
 use crate::sync_world::{MainEntity, RenderEntity, SyncToRenderWorld};
@@ -52,7 +52,7 @@ impl Plugin for WindowRenderPlugin {
             render_app
                 .add_systems(
                     ExtractSchedule,
-                    extract_windows.before(extract_color_targets),
+                    extract_windows.before(implicit_configure_color_targets_for_cameras),
                 )
                 .add_systems(
                     Render,

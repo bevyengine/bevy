@@ -103,10 +103,11 @@ impl Plugin for CameraPlugin {
                     ExtractSchedule,
                     (
                         (
-                            // It makes the code clearer to split `implicit_configure_color_targets_for_cameras` and `extract_color_targets` off from `extract_cameras`,
+                            // It makes the code clearer to split `implicit_configure_color_targets_for_cameras`
+                            // and `extract_color_targets` off from `extract_cameras`,
                             // though we have to make them exclusive systems.
                             //
-                            // Suppress warnings since most systems don't depend on them.
+                            // Suppress warnings since most systems (except `extract_windows`) don't depend on them.
                             implicit_configure_color_targets_for_cameras.ambiguous_with_all(),
                             extract_color_targets.ambiguous_with_all(),
                             extract_cameras,
@@ -500,7 +501,7 @@ fn resolve_color_target_format(
         .as_ref()
         .and_then(|target| {
             target
-                .get_texture_view_format(&extracted_swap_chains, &images, &manual_texture_views)
+                .get_texture_view_format(extracted_swap_chains, images, manual_texture_views)
                 .map(|format| normalize_bgra8(target, format))
         })
         .unwrap_or(TextureFormat::Rgba8UnormSrgb);
@@ -700,6 +701,7 @@ pub fn extract_color_targets(
                 &RenderTarget,
                 &Msaa,
                 Has<Hdr>,
+                &CameraMainTextureUsages,
                 &CameraColorTarget,
             )>,
         >,
@@ -791,14 +793,21 @@ pub fn extract_color_targets(
     }
 
     // Extract all `CameraColorTarget`.
-    for (camera_render_entity, camera, render_target, msaa, hdr, camera_color_target) in
-        camera_color_targets.iter()
+    for (
+        camera_render_entity,
+        camera,
+        render_target,
+        msaa,
+        hdr,
+        main_texture_usages,
+        camera_color_target,
+    ) in camera_color_targets.iter()
     {
         if let Some(viewport_size) = camera.physical_viewport_size() {
             let color_format = camera_color_target
                 .format
                 .unwrap_or(resolve_color_target_format(
-                    &render_target,
+                    render_target,
                     primary_window,
                     &extracted_swap_chains,
                     &images,
@@ -819,7 +828,7 @@ pub fn extract_color_targets(
                 size,
                 sample_count,
                 format: color_format,
-                usage: camera_color_target.usage,
+                usage: camera_color_target.usage.unwrap_or(main_texture_usages.0),
             });
         }
     }

@@ -76,7 +76,7 @@ impl ColorTarget {
 ///
 /// Different from [`ColorTarget`]:
 /// - `size` can be a factor of camera viewport size.
-/// - `format` and `sample_count` are not required. If `None` it is determined by [`crate::CameraColorTargetRequest`] and the format of [`crate::RenderTarget`].
+/// - `format`, `sample_count` and `usage` are not required. If `None` it is determined by other components such as [`crate::Hdr`], [`crate::RenderTarget`], `Msaa` and [`crate::CameraMainTextureUsages`].
 #[derive(Component, Clone, Reflect, PartialEq, Debug)]
 #[reflect(Component, PartialEq, Debug, Default)]
 pub struct CameraColorTarget {
@@ -89,7 +89,7 @@ pub struct CameraColorTarget {
     /// Format of the texture.
     pub format: Option<TextureFormat>,
     /// Allowed usages of the texture.
-    pub usage: TextureUsages,
+    pub usage: Option<TextureUsages>,
 }
 
 #[derive(Clone, Copy, Reflect, PartialEq, Debug)]
@@ -105,9 +105,7 @@ impl Default for CameraColorTarget {
             label: "camera_color_target_texture".into(),
             size: CameraColorTargetSize::Factor(Vec2::ONE),
             format: None,
-            usage: TextureUsages::RENDER_ATTACHMENT
-                | TextureUsages::TEXTURE_BINDING
-                | TextureUsages::COPY_SRC,
+            usage: None,
             sample_count: None,
         }
     }
@@ -119,13 +117,8 @@ impl CameraColorTarget {
         self
     }
 
-    pub fn with_usage(mut self, usages: TextureUsages) -> Self {
+    pub fn with_usage(mut self, usages: Option<TextureUsages>) -> Self {
         self.usage = usages;
-        self
-    }
-
-    pub fn with_added_usage(mut self, usages: TextureUsages) -> Self {
-        self.usage |= usages;
         self
     }
 
