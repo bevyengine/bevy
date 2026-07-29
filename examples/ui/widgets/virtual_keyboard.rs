@@ -67,9 +67,11 @@ fn keyboard() -> impl Scene {
         Node {
             width: percent(100),
             height: percent(80),
-            top: percent(20),
-            align_items: AlignItems::End,
-            justify_content: JustifyContent::Center,
+            bottom: px(0),
+            flex_direction: FlexDirection::Column,
+            position_type: PositionType::Absolute,
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::End,
         }
         Children [(
             Node {
@@ -98,9 +100,9 @@ fn text_input() -> impl Scene {
     bsn! {
         Node {
             width: percent(100),
-            height: percent(16),
-            padding: px(5),
-            align_items: AlignItems::Start,
+            height: percent(20),
+            position_type: PositionType::Absolute,
+            align_items: AlignItems::Center,
             justify_content: JustifyContent::Center,
         }
         TabGroup
