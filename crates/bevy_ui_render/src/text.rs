@@ -1,7 +1,11 @@
+use crate::{
+    stack_z_offsets, ExtractedUiItem, ExtractedUiNode, ExtractedUiNodes, NodeType, UiCameraMap,
+};
 use bevy_asset::AssetId;
 use bevy_camera::visibility::InheritedVisibility;
-use bevy_color::Alpha;
+use bevy_color::{Alpha, LinearRgba};
 use bevy_ecs::prelude::*;
+use bevy_image::Image;
 use bevy_input_focus::InputFocus;
 use bevy_math::{Affine2, Rect, Vec2};
 use bevy_render::Extract;
@@ -11,10 +15,28 @@ use bevy_ui::{
     CalculatedClip, ComputedNode, ComputedStackIndex, ComputedUiTargetCamera, ResolvedBorderRadius,
     UiGlobalTransform,
 };
+use core::range::Range;
 
-use crate::{
-    stack_z_offsets, ExtractedUiItem, ExtractedUiNode, ExtractedUiNodes, NodeType, UiCameraMap,
-};
+pub struct ExtractedGlyph {
+    pub color: LinearRgba,
+    pub translation: Vec2,
+    pub rect: Rect,
+}
+
+pub struct Sections {
+    pub range: Range<u32>,
+    pub atlas_texture: AssetId<Image>,
+}
+
+pub struct ExtractedGlyphLayout {
+    pub shadow_color: LinearRgba,
+    pub shadow_offset: Vec2,
+    pub cursor_style: TextCursorStyle,
+    pub glyphs: Vec<ExtractedGlyph>,
+    pub strike_through: Vec<(Rect, LinearRgba)>,
+    pub underline: Vec<(Rect, LinearRgba)>,
+    pub sections: Vec<Sections>,
+}
 
 pub fn extract_text_cursor(
     mut commands: Commands,

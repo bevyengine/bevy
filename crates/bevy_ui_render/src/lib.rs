@@ -350,48 +350,14 @@ impl<'w, 's> UiCameraMapper<'w, 's> {
 }
 
 pub struct ExtractedUiNode {
-    pub z_order: f32,
-    pub image: AssetId<Image>,
-    pub clip: Option<Rect>,
-    pub item: ExtractedUiItem,
-    pub transform: Affine2,
-}
-
-/// The type of UI node.
-/// This is used to determine how to render the UI node.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum NodeType {
-    Rect,
-    Inverted,
-    Border(u32), // shader flags
-}
-
-pub enum ExtractedUiItem {
-    Node {
-        color: LinearRgba,
-        rect: Rect,
-        atlas_scaling: Option<Vec2>,
-        flip_x: bool,
-        flip_y: bool,
-        /// Border radius of the UI node.
-        /// Ordering: top left, top right, bottom right, bottom left.
-        border_radius: ResolvedBorderRadius,
-        /// Border thickness of the UI node.
-        /// Ordering: left, top, right, bottom.
-        border: BorderRect,
-        node_type: NodeType,
-    },
-    /// A contiguous sequence of text glyphs from the same section
-    Glyphs {
-        /// The color, position, and UV rect of each glyph.
-        glyphs: Vec<ExtractedGlyph>,
-    },
-}
-
-pub struct ExtractedGlyph {
-    pub color: LinearRgba,
-    pub translation: Vec2,
-    pub rect: Rect,
+    pub background_color: LinearRgba,
+    pub border_color: LinearRgba,
+    pub outer_color: LinearRgba,
+    pub image_color: LinearRgba,
+    pub outline_color: LinearRgba,
+    pub image: Option<AssetId<Image>>,
+    pub flip_x: bool,
+    pub flip_y: bool,
 }
 
 /// The list of UI nodes, as well as the set of nodes that changed.
