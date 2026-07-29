@@ -4,6 +4,7 @@ use bevy_math::{UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use wgpu_types::{TextureFormat, TextureUsages};
 
+/// Specify the [`ColorTarget`] entity used by the camera.
 #[derive(Component, Copy, Clone, Reflect, PartialEq, Eq, Hash, Debug)]
 #[reflect(Component, PartialEq, Hash, Debug)]
 #[relationship(relationship_target=ColorTargetCameras, allow_self_referential)]
@@ -14,7 +15,7 @@ pub struct WithColorTarget(pub Entity);
 #[relationship_target(relationship=WithColorTarget)]
 pub struct ColorTargetCameras(Vec<Entity>);
 
-/// Intermediate color target texture that can be used by one or more cameras.
+/// Intermediate color target texture that can be used by one or more cameras via [`WithColorTarget`].
 #[derive(Component, Clone, Reflect, PartialEq, Debug)]
 #[reflect(Component, PartialEq, Debug, Default)]
 pub struct ColorTarget {
@@ -71,12 +72,11 @@ impl ColorTarget {
     }
 }
 
-/// Intermediate color target texture that can only be used in a camera.
+/// Like [`ColorTarget`] but this component can only work when added to a camera.
 ///
 /// Different from [`ColorTarget`]:
 /// - `size` can be a factor of camera viewport size.
-/// - `format` is not required. If None it is determined by [`crate::Hdr`] and the format of [`crate::RenderTarget`].
-/// - `sample_count` isn't here and it is determined by the `Msaa` component.
+/// - `format` and `sample_count` are not required. If `None` it is determined by [`crate::CameraColorTargetRequest`] and the format of [`crate::RenderTarget`].
 #[derive(Component, Clone, Reflect, PartialEq, Debug)]
 #[reflect(Component, PartialEq, Debug, Default)]
 pub struct CameraColorTarget {
@@ -84,6 +84,8 @@ pub struct CameraColorTarget {
     pub label: Cow<'static, str>,
     /// Size of the texture.
     pub size: CameraColorTargetSize,
+    /// Sample count of the multisampled texture if this is larger than 1.
+    pub sample_count: Option<u32>,
     /// Format of the texture.
     pub format: Option<TextureFormat>,
     /// Allowed usages of the texture.
@@ -100,12 +102,13 @@ pub enum CameraColorTargetSize {
 impl Default for CameraColorTarget {
     fn default() -> Self {
         Self {
-            label: "camera_main_texture".into(),
+            label: "camera_color_target_texture".into(),
             size: CameraColorTargetSize::Factor(Vec2::ONE),
             format: None,
             usage: TextureUsages::RENDER_ATTACHMENT
                 | TextureUsages::TEXTURE_BINDING
                 | TextureUsages::COPY_SRC,
+            sample_count: None,
         }
     }
 }

@@ -3,10 +3,7 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    camera::{ColorTarget, Viewport, WithColorTarget},
-    light::CascadeShadowConfigBuilder,
-    prelude::*,
-    window::WindowResized,
+    camera::Viewport, light::CascadeShadowConfigBuilder, prelude::*, window::WindowResized,
 };
 
 fn main() {
@@ -59,8 +56,6 @@ fn setup(
         .build(),
     ));
 
-    let color_target = commands.spawn(ColorTarget::default()).id();
-
     // Cameras and their dedicated UI
     for (index, (camera_name, camera_pos)) in [
         ("Player 1", Vec3::new(0.0, 200.0, -150.0)),
@@ -80,7 +75,6 @@ fn setup(
                     order: index as isize,
                     ..default()
                 },
-                WithColorTarget(color_target),
                 CameraPosition {
                     pos: UVec2::new((index % 2) as u32, (index / 2) as u32),
                 },
