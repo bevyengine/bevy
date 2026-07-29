@@ -8,6 +8,7 @@ use bevy_ecs::{
     entity::Entity,
     query::{Changed, Or},
     reflect::ReflectComponent,
+    schedule::SystemSet,
     system::{Commands, Query},
 };
 use bevy_image::TextureAtlasLayout;
@@ -42,6 +43,13 @@ impl AsAssetId for ImageNodeTextureAtlasLayout {
     }
 }
 
+/// System set for [`mark_images_as_changed_if_their_assets_changed`]
+/// and [`update_texture_atlas_layout_components`], systems that handle
+/// the asset underlying [`ImageNode`] and [`ImageNodeTextureAtlasLayout`]
+/// changing.
+#[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct ImageNodeAssetChangedSystems;
+
 /// A system that marks [`ImageNode`]s as changed if either their
 /// [`bevy_image::Image`] or [`TextureAtlasLayout`] changed.
 pub(crate) fn mark_images_as_changed_if_their_assets_changed(
@@ -62,7 +70,7 @@ pub(crate) fn mark_images_as_changed_if_their_assets_changed(
 }
 
 /// A system that copies the [`TextureAtlasLayout`] stored within an
-/// [`ImageNode`] to the [`TextureAtlasLayout`] component.
+/// [`ImageNode`] to the [`ImageNodeTextureAtlasLayout`] component.
 pub(crate) fn update_texture_atlas_layout_components(
     mut commands: Commands,
     images_query: Query<(Entity, &ImageNode), Changed<ImageNode>>,

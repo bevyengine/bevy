@@ -40,7 +40,7 @@ use bevy_ecs::{
     observer::On,
     query::{Has, With},
     reflect::{ReflectComponent, ReflectEvent},
-    schedule::IntoScheduleConfigs,
+    schedule::{IntoScheduleConfigs, SystemSet},
     system::{Commands, Query, Res, ResMut},
 };
 use bevy_input::{
@@ -150,6 +150,13 @@ pub enum MenuFocusState {
     Closed,
 }
 
+/// System set for [`menu_acquire_focus`]. It potentially modifies [`InputFocus`].
+///
+/// These system runs in the [`PostUpdate`] schedule.
+#[derive(Debug, PartialEq, Eq, Hash, Clone, SystemSet)]
+pub struct MenuFocusSystem;
+
+/// System that sets the focus to an item in the menu when the menu is opening.
 fn menu_acquire_focus(
     mut q_menus: Query<(Entity, &mut MenuFocusState), With<MenuPopup>>,
     mut focus: ResMut<InputFocus>,
@@ -474,7 +481,10 @@ impl Plugin for MenuPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             PostUpdate,
-            (menu_acquire_focus, menu_on_lose_focus)
+            (
+                menu_acquire_focus.in_set(MenuFocusSystem),
+                menu_on_lose_focus,
+            )
                 .chain()
                 .after(VisibilitySystems::VisibilityPropagate)
                 .before(InputFocusSystems::FocusChangeEvents)

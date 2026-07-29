@@ -1,4 +1,4 @@
-use bevy_app::{Plugin, PostUpdate, PreUpdate};
+use bevy_app::{Plugin, PostUpdate, PreUpdate, TransformGizmoRenderStep};
 use bevy_camera::visibility::Visibility;
 use bevy_ecs::{
     component::Component,
@@ -171,7 +171,10 @@ impl Plugin for ScrollbarPlugin {
         );
         app.add_systems(
             PostUpdate,
-            update_scrollbar_visibility.after(UiSystems::Layout),
+            update_scrollbar_visibility
+                .after(UiSystems::Layout)
+                .before(bevy_ui::update::update_clipping_system)
+                .ambiguous_with(TransformGizmoRenderStep),
         );
     }
 }
