@@ -2,11 +2,15 @@ use crate::{stack_z_offsets, ExtractedUiNode, ExtractedUiNodes, UiCameraMap};
 use bevy_asset::AssetId;
 use bevy_camera::visibility::InheritedVisibility;
 use bevy_color::{Alpha, LinearRgba};
+use bevy_ecs::entity::EntityIndexMap;
 use bevy_ecs::prelude::*;
 use bevy_image::Image;
 use bevy_input_focus::InputFocus;
 use bevy_math::{Affine2, Rect, Vec2};
-use bevy_render::Extract;
+use bevy_render::{
+    sync_world::{MainEntityHashMap, MainEntityHashSet},
+    Extract,
+};
 use bevy_sprite::BorderRect;
 use bevy_text::{EditableText, TextColor, TextCursorStyle, TextLayoutInfo};
 use bevy_ui::{
@@ -34,6 +38,12 @@ pub struct ExtractedGlyphLayout {
     pub strike_through: Vec<(Rect, LinearRgba)>,
     pub underline: Vec<(Rect, LinearRgba)>,
     pub sections: Vec<Sections>,
+}
+
+#[derive(Resource, Default)]
+pub struct ExtractedGlyphLayouts {
+    pub uinodes: MainEntityHashMap<(Entity, EntityIndexMap<ExtractedGlyphLayout>)>,
+    pub changed: MainEntityHashSet,
 }
 
 pub fn extract_text_cursor(
