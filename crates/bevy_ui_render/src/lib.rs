@@ -120,18 +120,11 @@ pub mod stack_z_offsets {
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum RenderUiSystems {
-    ExtractChanges,
     ExtractCameraViews,
     ExtractBoxShadows,
     ExtractBackgrounds,
-    ExtractImages,
     ExtractTextureSlice,
-    ExtractBorders,
-    ExtractViewportNodes,
-    ExtractTextBackgrounds,
-    ExtractTextShadows,
     ExtractText,
-    ExtractCursor,
     ExtractDebug,
     ExtractGradient,
 }
@@ -234,18 +227,11 @@ impl Plugin for UiRenderPlugin {
             .configure_sets(
                 ExtractSchedule,
                 (
-                    RenderUiSystems::ExtractChanges,
                     RenderUiSystems::ExtractCameraViews,
                     RenderUiSystems::ExtractBoxShadows,
                     RenderUiSystems::ExtractBackgrounds,
-                    RenderUiSystems::ExtractViewportNodes,
-                    RenderUiSystems::ExtractImages,
                     RenderUiSystems::ExtractTextureSlice,
-                    RenderUiSystems::ExtractBorders,
-                    RenderUiSystems::ExtractTextBackgrounds,
-                    RenderUiSystems::ExtractTextShadows,
                     RenderUiSystems::ExtractText,
-                    RenderUiSystems::ExtractCursor,
                     RenderUiSystems::ExtractDebug,
                 )
                     .chain_weak(),
