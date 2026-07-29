@@ -206,16 +206,17 @@ pub fn extract_uinode_geometry(
     {
         let main_entity = entity.into();
 
-        match extracted_geometries.changed.entry(main_entity) {
-            bevy_platform::collections::hash_set::Entry::Occupied(_) => {
-                // If changed, it passed the geometry query so the component must have been removed and reinserted in the same frame.
-                // Do nothing.
-            }
-            bevy_platform::collections::hash_set::Entry::Vacant(entry) => {
-                // Failed the geometry queries, does not have at least one of the components (if reinserted would be `Changed`).
-                // Add to changed list and remove from maps
-                entry.insert();
-                extracted_geometries.uinode_geometries.remove(&main_entity);
+        // If already in changed, entity passed the geometry query so the component must have been removed and reinserted in the same frame, so do nothing.
+        if extracted_geometries.changed.insert(main_entity) {
+            // Failed the geometry queries, does not have at least one of the components (if reinserted would be `Changed`).
+            // Add to changed list and remove from maps
+            if let Some(extracted_geometry) =
+                extracted_geometries.uinode_geometries.remove(&main_entity)
+            {
+                extracted_geometries
+                    .extracted_camera_to_main_uinode_map
+                    .get_mut(&extracted_geometry.extracted_camera)
+                    .map(|main_entities| main_entities.remove(&main_entity));
             }
         }
     }
