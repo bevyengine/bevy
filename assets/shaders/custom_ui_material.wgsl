@@ -25,7 +25,7 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     );
 
     // select radius for the nearest corner
-    let rs = select(in.border_radius.xy, in.border_radius.wz, 0.0 < p.y);
+    let rs = select(in.border_radius_x.xy, in.border_radius_x.wz, 0.0 < p.y);
     let radius = select(rs.x, rs.y, 0.0 < p.x);
 
     // distance along each axis from the corner
@@ -36,7 +36,7 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     // the border and we return the border color
     if d.x < b.x || d.y < b.y {
         // select radius for the nearest corner
-        let rs = select(in.border_radius.xy, in.border_radius.wz, 0.0 < p.y);
+        let rs = select(in.border_radius_x.xy, in.border_radius_x.wz, 0.0 < p.y);
         let radius = select(rs.x, rs.y, 0.0 < p.x);
 
         // determine if the point is inside the curved corner and return the corresponding color

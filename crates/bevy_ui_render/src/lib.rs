@@ -251,7 +251,7 @@ impl Plugin for UiRenderPlugin {
                     RenderUiSystems::ExtractCursor,
                     RenderUiSystems::ExtractDebug,
                 )
-                    .chain(),
+                    .chain_weak(),
             )
             .add_systems(RenderStartup, init_ui_pipeline)
             .add_systems(

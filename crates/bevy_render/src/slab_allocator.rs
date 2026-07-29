@@ -74,6 +74,10 @@ where
 
     /// Additional buffer usages to add to any vertex or index buffers created.
     pub extra_buffer_usages: BufferUsages,
+
+    /// Keys that were resident in a slab whose [`Buffer`] was replaced by growth since
+    /// [`Self::clear_displaced_keys`] was last called.
+    displaced_keys: Vec<I::Key>,
 }
 
 /// Describes the type of the data that a [`SlabAllocator`] will store.
@@ -578,6 +582,7 @@ where
             key_to_slab: HashMap::default(),
             slab_layouts: HashMap::default(),
             extra_buffer_usages: BufferUsages::empty(),
+            displaced_keys: Vec::new(),
         }
     }
 }
@@ -589,6 +594,22 @@ where
     /// Creates a new empty slab allocator.
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// The keys that were already resident in a slab and had the [`Buffer`] behind them replaced by
+    /// that slab growing, so that consumers caching buffers can rebuild just the affected entries.
+    ///
+    /// This accumulates until [`Self::clear_displaced_keys`], so it is only correct
+    /// for a consumer that runs after the allocator has been updated for the frame and before the
+    /// list is cleared.
+    pub fn keys_displaced_by_slab_growth(&self) -> &[I::Key] {
+        &self.displaced_keys
+    }
+
+    /// Drops the accumulated [`Self::keys_displaced_by_slab_growth`], starting a new round of
+    /// invalidations.
+    pub fn clear_displaced_keys(&mut self) {
+        self.displaced_keys.clear();
     }
 
     /// Creates an [`AllocationStage`], enabling batched allocation of objects
@@ -815,6 +836,11 @@ where
         };
 
         let old_buffer = slab.buffer.take();
+
+        if old_buffer.is_some() {
+            self.displaced_keys
+                .extend(slab.resident_allocations.keys().cloned());
+        }
 
         let buffer_usages = BufferUsages::COPY_SRC
             | BufferUsages::COPY_DST
