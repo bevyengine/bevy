@@ -1,6 +1,11 @@
+#[expect(
+    deprecated,
+    reason = "Should be removed after 0.20 is released when Button is removed."
+)]
+use crate::prelude::Button;
 use crate::{
     experimental::UiChildren,
-    prelude::{Button, Label},
+    prelude::Label,
     ui_transform::UiGlobalTransform,
     widget::{ImageNode, TextUiReader},
     ComputedNode, UiSystems,
@@ -83,6 +88,10 @@ fn sync_bounds_and_transforms(
     }
 }
 
+#[expect(
+    deprecated,
+    reason = "Should be removed after 0.20 is released when Button is removed."
+)]
 fn button_changed(
     mut commands: Commands,
     mut query: Query<(Entity, Option<&mut AccessibilityNode>), Changed<Button>>,
@@ -110,6 +119,10 @@ fn button_changed(
     }
 }
 
+#[expect(
+    deprecated,
+    reason = "Should remove the `Without<Button>` after 0.20 is released when Button is removed."
+)]
 fn image_changed(
     mut commands: Commands,
     mut query: Query<

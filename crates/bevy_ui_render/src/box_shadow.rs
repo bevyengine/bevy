@@ -188,7 +188,6 @@ pub struct ExtractedBoxShadow {
     pub transform: Affine2,
     pub bounds: Vec2,
     pub clip: Option<Rect>,
-    pub extracted_camera_entity: Entity,
     pub color: LinearRgba,
     pub radius: ResolvedBorderRadius,
     pub blur_radius: f32,
@@ -198,11 +197,12 @@ pub struct ExtractedBoxShadow {
 /// List of extracted shadows to be sorted and queued for rendering
 #[derive(Resource, Default)]
 pub struct ExtractedBoxShadows {
-    /// The list of box shadows.
+    /// The list of box shadows grouped by their main-world entity, along with
+    /// each group's target camera entity.
     ///
     /// This is a two-level data structure so that we can quickly remove all box
     /// shadows associated with a main-world entity when it changes.
-    pub box_shadows: MainEntityHashMap<EntityIndexMap<ExtractedBoxShadow>>,
+    pub box_shadows: MainEntityHashMap<(Entity, EntityIndexMap<ExtractedBoxShadow>)>,
 }
 
 pub fn extract_shadows(
@@ -269,7 +269,7 @@ pub fn extract_shadows(
             .box_shadows
             .get_mut(&main_entity)
             .iter_mut()
-            .flat_map(|main_entity| main_entity.drain(..))
+            .flat_map(|(_, shadows)| shadows.drain(..))
         {
             commands.entity(render_entity).despawn();
         }
@@ -282,6 +282,9 @@ pub fn extract_shadows(
         let Some(extracted_camera_entity) = mapping.map(camera) else {
             continue;
         };
+        if let Some((camera_entity, _)) = extracted_box_shadows.box_shadows.get_mut(&main_entity) {
+            *camera_entity = extracted_camera_entity;
+        }
 
         let ui_physical_viewport_size = target.physical_size().as_vec2();
         let scale_factor = target.scale_factor();
@@ -329,7 +332,8 @@ pub fn extract_shadows(
             extracted_box_shadows
                 .box_shadows
                 .entry(main_entity)
-                .or_default()
+                .or_insert_with(|| (extracted_camera_entity, Default::default()))
+                .1
                 .insert(
                     commands.spawn_empty().id(),
                     ExtractedBoxShadow {
@@ -338,7 +342,6 @@ pub fn extract_shadows(
                         color: drop_shadow.color.into(),
                         bounds: shadow_size + 6. * blur_radius,
                         clip: clip.map(|clip| clip.clip),
-                        extracted_camera_entity,
                         radius,
                         blur_radius,
                         size: shadow_size,
@@ -364,7 +367,7 @@ pub fn extract_shadows(
         if nodes_processed_this_frame.contains(&main_entity) {
             continue;
         }
-        let Some(mut extracted_nodes) = extracted_box_shadows.box_shadows.remove(&main_entity)
+        let Some((_, mut extracted_nodes)) = extracted_box_shadows.box_shadows.remove(&main_entity)
         else {
             continue;
         };
@@ -383,42 +386,51 @@ pub fn queue_shadows(
     box_shadow_pipeline: Res<BoxShadowPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<BoxShadowPipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    mut render_views: Query<(&UiCameraView, Option<&BoxShadowSamples>), With<ExtractedView>>,
+    render_views: Query<(&UiCameraView, Option<&BoxShadowSamples>), With<ExtractedView>>,
     camera_views: Query<&ExtractedView>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
     let draw_function = draw_functions.read().id::<DrawBoxShadows>();
-    for (main_entity, extracted_sub_shadows) in extracted_box_shadows.box_shadows.iter() {
-        for (entity, extracted_shadow) in extracted_sub_shadows.iter() {
-            let Ok((default_camera_view, shadow_samples)) =
-                render_views.get_mut(extracted_shadow.extracted_camera_entity)
-            else {
-                continue;
-            };
+    let mut current_camera_entity = Entity::PLACEHOLDER;
+    let mut current_phase = None;
 
-            let Ok(view) = camera_views.get(default_camera_view.0) else {
-                continue;
-            };
-
-            let Some(transparent_phase) =
-                transparent_render_phases.get_mut(&view.retained_view_entity)
-            else {
-                continue;
-            };
-
-            let pipeline = pipelines.specialize(
-                &pipeline_cache,
-                &box_shadow_pipeline,
-                BoxShadowPipelineKey {
-                    target_format: view.target_format,
-                    samples: shadow_samples.copied().unwrap_or_default().0,
+    for (main_entity, (extracted_camera_entity, extracted_sub_shadows)) in
+        extracted_box_shadows.box_shadows.iter()
+    {
+        if current_camera_entity != *extracted_camera_entity {
+            current_phase = render_views.get(*extracted_camera_entity).ok().and_then(
+                |(default_camera_view, shadow_samples)| {
+                    camera_views
+                        .get(default_camera_view.0)
+                        .ok()
+                        .and_then(|view| {
+                            transparent_render_phases
+                                .get_mut(&view.retained_view_entity)
+                                .map(|transparent_phase| {
+                                    let pipeline = pipelines.specialize(
+                                        &pipeline_cache,
+                                        &box_shadow_pipeline,
+                                        BoxShadowPipelineKey {
+                                            target_format: view.target_format,
+                                            samples: shadow_samples.copied().unwrap_or_default().0,
+                                        },
+                                    );
+                                    (pipeline, transparent_phase)
+                                })
+                        })
                 },
             );
+            current_camera_entity = *extracted_camera_entity;
+        }
 
+        let Some((pipeline, transparent_phase)) = current_phase.as_mut() else {
+            continue;
+        };
+        for (entity, extracted_shadow) in extracted_sub_shadows.iter() {
             transparent_phase.add_transient(TransparentUi {
                 draw_function,
-                pipeline,
+                pipeline: *pipeline,
                 entity: (*entity, *main_entity),
                 sort_key: FloatOrd(
                     extracted_shadow.stack_index as f32 + stack_z_offsets::BOX_SHADOW,
@@ -462,10 +474,14 @@ pub fn prepare_shadows(
         for ui_phase in phases.values_mut() {
             for item_index in 0..ui_phase.items.len() {
                 let item = &mut ui_phase.items[item_index];
-                let Some(box_shadow) = extracted_shadows
+                let Some((extracted_camera_entity, box_shadow)) = extracted_shadows
                     .box_shadows
                     .get(&item.main_entity())
-                    .and_then(|sub_shadows| sub_shadows.get(&item.entity()))
+                    .and_then(|(extracted_camera_entity, sub_shadows)| {
+                        sub_shadows
+                            .get(&item.entity())
+                            .map(|box_shadow| (extracted_camera_entity, box_shadow))
+                    })
                 else {
                     continue;
                 };
@@ -569,7 +585,7 @@ pub fn prepare_shadows(
                     item.entity(),
                     UiShadowsBatch {
                         range: vertices_index..vertices_index + 6,
-                        camera: box_shadow.extracted_camera_entity,
+                        camera: *extracted_camera_entity,
                     },
                 ));
 

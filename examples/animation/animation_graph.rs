@@ -4,15 +4,21 @@
 //! playing animations by clicking and dragging left or right within the nodes.
 
 use bevy::{
-    color::palettes::{
-        basic::WHITE,
-        css::{ANTIQUE_WHITE, DARK_GREEN},
+    color::palettes::{basic::WHITE, css::DARK_GREEN},
+    feathers::{
+        controls::{FeathersNumberInput, NumberInputPrecision, NumberInputValue},
+        dark_theme::create_dark_theme,
+        display::caption,
+        theme::UiTheme,
+        FeathersPlugins,
     },
     prelude::*,
-    ui::RelativeCursorPosition,
+    ui_widgets::ValueChange,
 };
 
 use argh::FromArgs;
+
+use crate::number_input_f32::number_input_f32;
 
 #[cfg(not(target_arch = "wasm32"))]
 use {
@@ -21,6 +27,9 @@ use {
     std::{fs::File, path::Path},
 };
 
+#[path = "../helpers/number_input_f32.rs"]
+mod number_input_f32;
+
 /// Where to find the serialized animation graph.
 static ANIMATION_GRAPH_PATH: &str = "animation_graphs/Fox.animgraph.ron";
 
@@ -28,7 +37,8 @@ static ANIMATION_GRAPH_PATH: &str = "animation_graphs/Fox.animgraph.ron";
 static CLIP_NODE_INDICES: [u32; 3] = [2, 3, 4];
 
 /// The help text in the upper left corner.
-static HELP_TEXT: &str = "Click and drag an animation clip node to change its weight";
+static HELP_TEXT: &str =
+    "Click and drag an animation clip's number input to change its weight. Values must be between 0 and 1.";
 
 /// The node widgets in the UI.
 static NODE_TYPES: [NodeType; 5] = [
@@ -43,27 +53,27 @@ static NODE_TYPES: [NodeType; 5] = [
 ///
 /// These are in the same order as [`NODE_TYPES`] above.
 static NODE_RECTS: [NodeRect; 5] = [
-    NodeRect::new(10.00, 10.00, 97.64, 48.41),
-    NodeRect::new(10.00, 78.41, 97.64, 48.41),
-    NodeRect::new(286.08, 78.41, 97.64, 48.41),
-    NodeRect::new(148.04, 112.61, 97.64, 48.41), // was 44.20
-    NodeRect::new(10.00, 146.82, 97.64, 48.41),
+    NodeRect::new(10.00, 10.00, 250., 48.41),
+    NodeRect::new(10.00, 78.41, 250., 48.41),
+    NodeRect::new(438.44, 78.41, 97.64, 48.41),
+    NodeRect::new(300.4, 112.61, 97.64, 48.41),
+    NodeRect::new(10.00, 146.82, 250., 48.41),
 ];
 
 /// The positions of the horizontal lines in the UI.
 static HORIZONTAL_LINES: [Line; 6] = [
-    Line::new(107.64, 34.21, 158.24),
-    Line::new(107.64, 102.61, 20.20),
-    Line::new(107.64, 171.02, 20.20),
-    Line::new(127.84, 136.82, 20.20),
-    Line::new(245.68, 136.82, 20.20),
-    Line::new(265.88, 102.61, 20.20),
+    Line::new(260., 34.21, 158.24),
+    Line::new(260., 102.61, 20.20),
+    Line::new(260., 171.02, 20.20),
+    Line::new(280.2, 136.82, 20.20),
+    Line::new(398.04, 136.82, 20.20),
+    Line::new(418.04, 102.61, 20.20),
 ];
 
 /// The positions of the vertical lines in the UI.
 static VERTICAL_LINES: [Line; 2] = [
-    Line::new(127.83, 102.61, 68.40),
-    Line::new(265.88, 34.21, 102.61),
+    Line::new(280.19, 102.61, 68.40),
+    Line::new(418.24, 34.21, 102.61),
 ];
 
 /// Initializes the app.
@@ -74,19 +84,21 @@ fn main() {
     let args = Args::from_args(&[], &[]).unwrap();
 
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "Bevy Animation Graph Example".into(),
+        .add_plugins((
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    title: "Bevy Animation Graph Example".into(),
+                    ..default()
+                }),
                 ..default()
             }),
-            ..default()
-        }))
+            FeathersPlugins,
+        ))
+        .insert_resource(UiTheme(create_dark_theme()))
         .add_systems(Startup, (setup_assets, setup_scene, setup_ui))
         .add_systems(Update, init_animations)
-        .add_systems(
-            Update,
-            (handle_weight_drag, update_ui, sync_weights).chain(),
-        )
+        .add_systems(Update, sync_weights)
+        .add_observer(handle_weight_value_change)
         .insert_resource(args)
         .insert_resource(GlobalAmbientLight {
             color: WHITE.into(),
@@ -118,6 +130,10 @@ struct ExampleAnimationWeights {
     /// The weights of the three playing animations.
     weights: [f32; 3],
 }
+
+/// Marker component for the background of the parents of the weight number inputs.
+#[derive(Component, Default, Clone)]
+struct WeightBackground;
 
 /// Initializes the scene.
 fn setup_assets(
@@ -269,73 +285,56 @@ fn setup_help_text(commands: &mut Commands) {
 
 /// Initializes the node UI widgets.
 fn setup_node_rects(commands: &mut Commands) {
-    for (node_rect, node_type) in NODE_RECTS.iter().zip(NODE_TYPES.iter()) {
-        let node_string = match *node_type {
-            NodeType::Clip(ref clip) => clip.text,
-            NodeType::Blend(text) => text,
-        };
-
-        let text = commands
-            .spawn((
-                Text::new(node_string),
-                TextFont {
-                    font_size: FontSize::Px(16.0),
-                    ..default()
-                },
-                TextColor(ANTIQUE_WHITE.into()),
-                TextLayout::justify(Justify::Center),
-            ))
-            .id();
-
-        let container = {
-            let mut container = commands.spawn((
-                Node {
-                    position_type: PositionType::Absolute,
-                    bottom: px(node_rect.bottom),
-                    left: px(node_rect.left),
-                    height: px(node_rect.height),
-                    width: px(node_rect.width),
-                    align_items: AlignItems::Center,
-                    justify_items: JustifyItems::Center,
-                    align_content: AlignContent::Center,
-                    justify_content: JustifyContent::Center,
-                    ..default()
-                },
-                BorderColor::all(WHITE),
-                Outline::new(px(1), Val::ZERO, Color::WHITE),
-            ));
-
-            if let NodeType::Clip(clip) = node_type {
-                container.insert((
-                    Interaction::None,
-                    RelativeCursorPosition::default(),
-                    (*clip).clone(),
-                ));
+    let base_node_scene = |node_rect: &NodeRect| {
+        bsn! {
+            Node {
+                position_type: PositionType::Absolute,
+                bottom: px(node_rect.bottom),
+                left: px(node_rect.left),
+                height: px(node_rect.height),
+                width: px(node_rect.width),
+                align_items: AlignItems::Center,
+                justify_items: JustifyItems::Center,
+                align_content: AlignContent::Center,
+                justify_content: JustifyContent::Center,
             }
-
-            container.id()
-        };
-
-        // Create the background color.
-        if let NodeType::Clip(_) = node_type {
-            let background = commands
-                .spawn((
-                    Node {
-                        position_type: PositionType::Absolute,
-                        top: px(0),
-                        left: px(0),
-                        height: px(node_rect.height),
-                        width: px(node_rect.width),
-                        ..default()
-                    },
-                    BackgroundColor(DARK_GREEN.into()),
-                ))
-                .id();
-
-            commands.entity(container).add_child(background);
+            BorderColor::all(WHITE)
+            Outline::new(px(1), Val::ZERO, Color::WHITE)
         }
+    };
+    for (node_rect, node_type) in NODE_RECTS.iter().zip(NODE_TYPES.iter()) {
+        match node_type {
+            NodeType::Clip(clip) => {
+                commands.spawn_scene(bsn! {
+                    base_node_scene(node_rect)
+                    Children [
+                        ZIndex(1)
+                        number_input_f32(clip.text, Some(clip.clone()),
+                            ExampleAnimationWeights::default().weights[clip.index], NumberInputPrecision(2), 0. ..1.),
 
-        commands.entity(container).add_child(text);
+                        // The background node that fills up based on the number input value.
+                        WeightBackground
+                        template_value(clip.clone())
+                        Node {
+                            position_type: PositionType::Absolute,
+                            top: px(0),
+                            left: px(0),
+                            height: px(node_rect.height),
+                            width: px(node_rect.width),
+                        }
+                        BackgroundColor({DARK_GREEN.with_alpha(0.5)}),
+                    ]
+                });
+            }
+            NodeType::Blend(text) => {
+                commands.spawn_scene(bsn! {
+                    base_node_scene(node_rect)
+                    Children [
+                        caption(*text)
+                    ]
+                });
+            }
+        };
     }
 }
 
@@ -399,51 +398,32 @@ fn init_animations(
     }
 }
 
-/// Read cursor position relative to clip nodes, allowing the user to change weights
-/// when dragging the node UI widgets.
-fn handle_weight_drag(
-    mut interaction_query: Query<(&Interaction, &RelativeCursorPosition, &ClipNode)>,
+/// Read the change in weight from the input values and update accordingly.
+fn handle_weight_value_change(
+    value_change: On<ValueChange<f32>>,
+    number_input_q: Query<&ClipNode, With<FeathersNumberInput>>,
+    mut weight_background_q: Query<(&mut Node, &ClipNode), With<WeightBackground>>,
     mut animation_weights_query: Query<&mut ExampleAnimationWeights>,
+
+    mut commands: Commands,
 ) {
-    for (interaction, relative_cursor, clip_node) in &mut interaction_query {
-        if !matches!(*interaction, Interaction::Pressed) {
-            continue;
-        }
+    let Ok(clip_node) = number_input_q.get(value_change.source) else {
+        return;
+    };
 
-        let Some(pos) = relative_cursor.normalized else {
-            continue;
-        };
-
-        for mut animation_weights in animation_weights_query.iter_mut() {
-            animation_weights.weights[clip_node.index] = pos.x.clamp(0., 1.);
-        }
+    for mut animation_weights in animation_weights_query.iter_mut() {
+        animation_weights.weights[clip_node.index] = value_change.value;
     }
-}
 
-// Updates the UI based on the weights that the user has chosen.
-fn update_ui(
-    mut text_query: Query<&mut Text>,
-    mut background_query: Query<&mut Node, Without<Text>>,
-    container_query: Query<(&Children, &ClipNode)>,
-    animation_weights_query: Query<&ExampleAnimationWeights, Changed<ExampleAnimationWeights>>,
-) {
-    for animation_weights in animation_weights_query.iter() {
-        for (children, clip_node) in &container_query {
-            // Draw the green background color to visually indicate the weight.
-            let mut bg_iter = background_query.iter_many_mut(children);
-            if let Some(mut node) = bg_iter.fetch_next() {
-                // All nodes are the same width, so `NODE_RECTS[0]` is as good as any other.
-                node.width = px(NODE_RECTS[0].width * animation_weights.weights[clip_node.index]);
-            }
+    commands
+        .entity(value_change.source)
+        .insert(NumberInputValue::F32(value_change.value));
 
-            // Update the node labels with the current weights.
-            let mut text_iter = text_query.iter_many_mut(children);
-            if let Some(mut text) = text_iter.fetch_next() {
-                **text = format!(
-                    "{}\n{:.2}",
-                    clip_node.text, animation_weights.weights[clip_node.index]
-                );
-            }
+    // Draw the green background color to visually indicate the weight.
+    for (mut node, weight_clip_node) in weight_background_q.iter_mut() {
+        if weight_clip_node.index == clip_node.index {
+            // All weight nodes are the same width, so `NODE_RECTS[0]` is as good as any other.
+            node.width = px(NODE_RECTS[0].width * value_change.value);
         }
     }
 }
@@ -510,7 +490,7 @@ enum NodeType {
 }
 
 /// The label for the UI representation of a clip node.
-#[derive(Clone, Component)]
+#[derive(Clone, Component, Default)]
 struct ClipNode {
     /// The string label of the node.
     text: &'static str,
