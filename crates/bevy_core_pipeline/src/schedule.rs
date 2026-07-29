@@ -65,7 +65,7 @@ impl Core3d {
             ..Default::default()
         });
 
-        schedule.configure_sets((Prepass, MainPass, EarlyPostProcess, PostProcess).chain());
+        schedule.configure_sets((Prepass, MainPass, EarlyPostProcess, PostProcess).chain_weak());
 
         schedule
     }
@@ -104,7 +104,7 @@ impl Core2d {
             ..Default::default()
         });
 
-        schedule.configure_sets((Prepass, MainPass, EarlyPostProcess, PostProcess).chain());
+        schedule.configure_sets((Prepass, MainPass, EarlyPostProcess, PostProcess).chain_weak());
 
         schedule
     }
