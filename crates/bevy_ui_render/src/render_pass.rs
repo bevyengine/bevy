@@ -207,7 +207,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetUiTextureBindGroup<I>
 
 pub struct DrawUiNode;
 impl<P: PhaseItem> RenderCommand<P> for DrawUiNode {
-    type Param = SRes<UiMeta>;
+    type Param = (SRes<UiMeta>, SRes<ImageNodeBindGroups>);
     type ViewQuery = ();
     type ItemQuery = Read<UiBatch>;
 
@@ -216,7 +216,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawUiNode {
         _item: &P,
         _view: (),
         batch: Option<&'w UiBatch>,
-        ui_meta: SystemParamItem<'w, '_, Self::Param>,
+        (ui_meta, image_bind_groups): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let Some(batch) = batch else {
@@ -237,6 +237,14 @@ impl<P: PhaseItem> RenderCommand<P> for DrawUiNode {
             indices.slice(..),
             bevy_render::render_resource::IndexFormat::Uint32,
         );
+        if !batch.texture_ranges.is_empty() {
+            let image_bind_groups = image_bind_groups.into_inner();
+            for (range, image) in &batch.texture_ranges {
+                pass.set_bind_group(1, image_bind_groups.values.get(image).unwrap(), &[]);
+                pass.draw_indexed(range.clone(), 0, 0..1);
+            }
+            return RenderCommandResult::Success;
+        }
         // Draw the vertices
         pass.draw_indexed(batch.range.clone(), 0, 0..1);
         RenderCommandResult::Success
