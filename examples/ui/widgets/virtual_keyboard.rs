@@ -1,14 +1,19 @@
 //! Virtual keyboard example
 
 use bevy::{
-    color::palettes::css::NAVY,
+    color::palettes::css::{NAVY, WHITE},
     feathers::{
         controls::{VirtualKeyPressed, VirtualKeyboard},
         dark_theme::create_dark_theme,
         theme::UiTheme,
         FeathersPlugins,
     },
+    input_focus::{
+        tab_navigation::{TabGroup, TabIndex},
+        AutoFocus, InputFocus,
+    },
     prelude::*,
+    text::{EditableText, TextCursorStyle, TextEdit},
 };
 
 fn main() {
@@ -19,12 +24,33 @@ fn main() {
         .run();
 }
 
-fn on_virtual_key_pressed(virtual_key_pressed: On<VirtualKeyPressed<&'static str>>) {
+fn on_virtual_key_pressed(
+    virtual_key_pressed: On<VirtualKeyPressed<&'static str>>,
+    mut query: Query<(Entity, &mut EditableText)>,
+    mut input_focus: ResMut<InputFocus>,
+) {
     println!("key pressed: {}", virtual_key_pressed.key);
+    let Ok((entity_id, mut text)) = query.single_mut() else {
+        return;
+    };
+    text.queue_edit(match virtual_key_pressed.key {
+        "space" => TextEdit::Insert(" ".into()),
+        "enter" => TextEdit::Insert("\n".into()),
+        "backspace" => TextEdit::Backspace,
+        "left" => TextEdit::Left(false),
+        "right" => TextEdit::Right(false),
+        "up" => TextEdit::Up(false),
+        "down" => TextEdit::Down(false),
+        "home" => TextEdit::LineStart(false),
+        "end" => TextEdit::LineEnd(false),
+        key if key.len() == 1 => TextEdit::Insert(key.into()),
+        _ => return,
+    });
+    input_focus.set(entity_id, bevy::input_focus::FocusCause::Navigated);
 }
 
 fn scene() -> impl SceneList {
-    bsn_list![Camera2d, keyboard()]
+    bsn_list![Camera2d, text_input(), keyboard()]
 }
 
 fn keyboard() -> impl Scene {
@@ -40,7 +66,8 @@ fn keyboard() -> impl Scene {
     bsn! {
         Node {
             width: percent(100),
-            height: percent(100),
+            height: percent(80),
+            top: percent(20),
             align_items: AlignItems::End,
             justify_content: JustifyContent::Center,
         }
@@ -63,6 +90,42 @@ fn keyboard() -> impl Scene {
                     on(on_virtual_key_pressed)
                 )
             ]
+        )]
+    }
+}
+
+fn text_input() -> impl Scene {
+    bsn! {
+        Node {
+            width: percent(100),
+            height: percent(16),
+            padding: px(5),
+            align_items: AlignItems::Start,
+            justify_content: JustifyContent::Center,
+        }
+        TabGroup
+        Children [(
+            Node {
+                width: percent(80),
+                border: px(5),
+                padding: px(5),
+                flex_grow: 0.0,
+                border_radius: BorderRadius::all(px(10)),
+            }
+            BorderColor::from(WHITE)
+            EditableText {
+                visible_lines: { Some(5.) }
+                allow_newlines: true,
+            }
+            TextLayout::no_wrap()
+            TextCursorStyle {
+                color: WHITE
+            }
+            TextFont {
+                font_size: FontSize::Px(25.),
+            }
+            TabIndex(0)
+            AutoFocus
         )]
     }
 }
