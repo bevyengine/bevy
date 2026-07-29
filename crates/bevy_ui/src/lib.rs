@@ -37,6 +37,7 @@ mod layout;
 mod stack;
 mod ui_node;
 
+pub use accessibility::UiAccessibilitySystems;
 use bevy_text::{detect_text_needs_rerender, EditableTextSystems};
 pub use focus::*;
 pub use geometry::*;
