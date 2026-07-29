@@ -69,8 +69,6 @@ pub struct ExtractedUiNodeGeometry {
     pub atlas_scaling: Option<Vec2>,
     pub flip_x: bool,
     pub flip_y: bool,
-    pub border_radius: ResolvedBorderRadius,
-    pub border: BorderRect,
 }
 
 pub struct ExtractedGlyphLayout {
