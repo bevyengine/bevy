@@ -10,7 +10,7 @@ use bevy::{
         taa::TemporalAntiAliasing,
     },
     asset::RenderAssetUsages,
-    camera::{CameraColorTarget, CameraColorTargetSize, Hdr},
+    camera::{CameraColorTarget, CameraColorTargetSize, Hdr, WithColorTarget},
     core_pipeline::prepass::{DepthPrepass, MotionVectorPrepass},
     image::{ImageSampler, ImageSamplerDescriptor},
     light::CascadeShadowConfigBuilder,
@@ -277,9 +277,6 @@ fn modify_resolution(
     mut query: Query<(&mut MainResolution, &mut CameraColorTarget)>,
 ) {
     for (mut resolution, mut color_target) in &mut query {
-        if matches!(color_target.size, CameraColorTargetSize::Fixed(_)) {
-            color_target.size = CameraColorTargetSize::Factor(Vec2::ONE);
-        }
         let CameraColorTargetSize::Factor(f) = &mut color_target.size else {
             unreachable!()
         };
@@ -515,33 +512,37 @@ fn setup(
     ));
 
     // Camera
-    commands.spawn((
-        Camera3d::default(),
-        Hdr,
-        Transform::from_xyz(0.7, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
-        ContrastAdaptiveSharpening {
-            enabled: false,
-            ..default()
-        },
-        EnvironmentMapLight {
-            diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
-            specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
-            intensity: 150.0,
-            ..default()
-        },
-        DistanceFog {
-            color: Color::srgba_u8(43, 44, 47, 255),
-            falloff: FogFalloff::Linear {
-                start: 1.0,
-                end: 4.0,
+    let camera = commands
+        .spawn((
+            Camera3d::default(),
+            CameraColorTarget::default(),
+            Hdr,
+            Transform::from_xyz(0.7, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
+            ContrastAdaptiveSharpening {
+                enabled: false,
+                ..default()
             },
-            ..default()
-        },
-        MainResolution {
-            enabled: false,
-            factor: 2.0,
-        },
-    ));
+            EnvironmentMapLight {
+                diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
+                specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+                intensity: 150.0,
+                ..default()
+            },
+            DistanceFog {
+                color: Color::srgba_u8(43, 44, 47, 255),
+                falloff: FogFalloff::Linear {
+                    start: 1.0,
+                    end: 4.0,
+                },
+                ..default()
+            },
+            MainResolution {
+                enabled: false,
+                factor: 2.0,
+            },
+        ))
+        .id();
+    commands.entity(camera).insert(WithColorTarget(camera));
 
     // example instructions
     commands.spawn((
