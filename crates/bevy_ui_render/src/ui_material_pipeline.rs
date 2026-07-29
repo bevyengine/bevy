@@ -604,6 +604,7 @@ impl<M: UiMaterial> RenderAsset for PreparedUiMaterial<M> {
 
 pub fn queue_ui_material_nodes<M: UiMaterial>(
     extracted_uinodes: Res<ExtractedUiMaterialNodes<M>>,
+    extracted_geometry: Res<ExtractedUiGeometries>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
     ui_material_pipeline: Res<UiMaterialPipeline<M>>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiMaterialPipeline<M>>>,
@@ -619,13 +620,16 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
     let mut current_camera_entity = Entity::PLACEHOLDER;
     let mut current_phase = None;
 
-    for (main_entity, (extracted_camera_entity, extracted_sub_uinodes)) in
-        extracted_uinodes.uinodes.iter()
-    {
-        if current_camera_entity != *extracted_camera_entity {
+    for (main_entity, (render_entity, extracted_uinode)) in extracted_uinodes.uinodes.iter() {
+        let Some(geometry) = extracted_geometry.uinode_geometries.get(main_entity) else {
+            continue;
+        };
+        let extracted_camera_entity = geometry.extracted_camera;
+
+        if current_camera_entity != extracted_camera_entity {
             current_phase =
                 render_views
-                    .get(*extracted_camera_entity)
+                    .get(extracted_camera_entity)
                     .ok()
                     .and_then(|default_camera_view| {
                         camera_views
@@ -639,39 +643,38 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
                                     })
                             })
                     });
-            current_camera_entity = *extracted_camera_entity;
+            current_camera_entity = extracted_camera_entity;
         }
 
         let Some((target_format, transparent_phase)) = current_phase.as_mut() else {
             continue;
         };
-        for (render_entity, extracted_uinode) in extracted_sub_uinodes.iter() {
-            let Some(material) = render_materials.get(extracted_uinode.material) else {
-                continue;
-            };
 
-            let pipeline = pipelines.specialize(
-                &pipeline_cache,
-                &ui_material_pipeline,
-                UiMaterialKey {
-                    target_format: *target_format,
-                    bind_group_data: material.key.clone(),
-                },
+        let Some(material) = render_materials.get(extracted_uinode.material) else {
+            continue;
+        };
+
+        let pipeline = pipelines.specialize(
+            &pipeline_cache,
+            &ui_material_pipeline,
+            UiMaterialKey {
+                target_format: *target_format,
+                bind_group_data: material.key.clone(),
+            },
+        );
+        if transparent_phase.items.capacity() < extracted_uinodes.uinodes.len() {
+            transparent_phase.items.reserve_exact(
+                extracted_uinodes.uinodes.len() - transparent_phase.items.capacity(),
             );
-            if transparent_phase.items.capacity() < extracted_uinodes.uinodes.len() {
-                transparent_phase.items.reserve_exact(
-                    extracted_uinodes.uinodes.len() - transparent_phase.items.capacity(),
-                );
-            }
-            transparent_phase.add_transient(TransparentUi {
-                draw_function,
-                pipeline,
-                entity: (*render_entity, *main_entity),
-                sort_key: FloatOrd(extracted_uinode.stack_index as f32 + M::stack_z_offset()),
-                batch_range: 0..0,
-                extra_index: PhaseItemExtraIndex::None,
-                indexed: false,
-            });
         }
+        transparent_phase.add_transient(TransparentUi {
+            draw_function,
+            pipeline,
+            entity: (*render_entity, *main_entity),
+            sort_key: FloatOrd(geometry.stack_index as f32 + M::stack_z_offset()),
+            batch_range: 0..0,
+            extra_index: PhaseItemExtraIndex::None,
+            indexed: false,
+        });
     }
 }
