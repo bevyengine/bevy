@@ -1,6 +1,4 @@
-use crate::{
-    stack_z_offsets, ExtractedUiItem, ExtractedUiNode, ExtractedUiNodes, NodeType, UiCameraMap,
-};
+use crate::{stack_z_offsets, ExtractedUiNode, ExtractedUiNodes, UiCameraMap};
 use bevy_asset::AssetId;
 use bevy_camera::visibility::InheritedVisibility;
 use bevy_color::{Alpha, LinearRgba};
