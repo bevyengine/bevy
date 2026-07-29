@@ -324,7 +324,7 @@ fn compute_color_stops(
 pub fn extract_gradients(
     mut commands: Commands,
     mut extracted_gradients: ResMut<ExtractedGradients>,
-    gradients_query: Extract<
+    changed_gradients_query: Extract<
         Query<
             (
                 Entity,
@@ -338,6 +338,13 @@ pub fn extract_gradients(
             )>,
         >,
     >,
+    gradients_query: Extract<
+        Query<(
+            Entity,
+            &ComputedUiRenderTargetInfo,
+            AnyOf<(&BackgroundGradient, &BorderGradient)>,
+        )>,
+    >,
     (
         mut removed_computed_ui_render_target_info_query,
         mut removed_background_gradient_query,
@@ -347,13 +354,22 @@ pub fn extract_gradients(
         Extract<RemovedComponents<BackgroundGradient>>,
         Extract<RemovedComponents<BorderGradient>>,
     ),
-    mut nodes_processed_this_frame: Local<MainEntityHashSet>,
+    mut removed_gradients: Local<MainEntityHashSet>,
 ) {
-    nodes_processed_this_frame.clear();
+    removed_gradients.clear();
+    removed_gradients.extend(
+        removed_computed_ui_render_target_info_query
+            .read()
+            .chain(removed_background_gradient_query.read())
+            .chain(removed_border_gradient_query.read())
+            .map(MainEntity::from),
+    );
 
-    for (entity, target, (gradient, gradient_border)) in &gradients_query {
+    for (entity, target, (gradient, gradient_border)) in changed_gradients_query
+        .iter()
+        .chain(gradients_query.iter_many(removed_gradients.iter().map(ContainsEntity::entity)))
+    {
         let main_entity = MainEntity::from(entity);
-        nodes_processed_this_frame.insert(main_entity);
 
         let gradients = extracted_gradients.items.entry(main_entity).or_default();
         let mut gradient_count = 0;
@@ -393,16 +409,8 @@ pub fn extract_gradients(
         }
     }
 
-    // Only remove the render-world data if we didn't handle the node above.
-    // It's possible that a relevant component was removed and added in the same
-    // frame.
-    for main_entity in removed_computed_ui_render_target_info_query
-        .read()
-        .chain(removed_background_gradient_query.read())
-        .chain(removed_border_gradient_query.read())
-    {
-        let main_entity = MainEntity::from(main_entity);
-        if nodes_processed_this_frame.contains(&main_entity) {
+    for main_entity in removed_gradients.drain() {
+        if gradients_query.contains(main_entity.entity()) {
             continue;
         }
         let Some(mut extracted_nodes) = extracted_gradients.items.remove(&main_entity) else {
