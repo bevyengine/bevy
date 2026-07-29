@@ -29,7 +29,7 @@ fn on_virtual_key_pressed(
     mut query: Query<(Entity, &mut EditableText)>,
     mut input_focus: ResMut<InputFocus>,
 ) {
-    println!("key pressed: {}", virtual_key_pressed.key);
+    println!("Virtual keyboard key pressed: {}", virtual_key_pressed.key);
     let Ok((entity_id, mut text)) = query.single_mut() else {
         return;
     };
