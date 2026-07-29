@@ -376,9 +376,18 @@ pub fn extract_uinode_background_colors(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     camera_query: Extract<Query<(&Camera, &RenderTarget)>>,
-    changed_uinodes_query: Extract<
+    changed_uinode_query: Extract<
         Query<
-            Entity,
+            (
+                Entity,
+                &BackgroundColor,
+                Option<&OuterColor>,
+                Option<&ImageNode>,
+                Option<&ImageNodeSize>,
+                Option<&BorderColor>,
+                Option<&Outline>,
+                Option<&ViewportNode>,
+            ),
             Or<(
                 Changed<BackgroundColor>,
                 Changed<OuterColor>,
@@ -419,14 +428,13 @@ pub fn extract_uinode_background_colors(
         Extract<RemovedComponents<Outline>>,
         Extract<RemovedComponents<ViewportNode>>,
     ),
-    mut nodes_to_extract: Local<MainEntityHashSet>,
+    mut removed_uinodes: Local<MainEntityHashSet>,
 ) {
     extracted_uinodes.changed.clear();
-    nodes_to_extract.clear();
-    nodes_to_extract.extend(
-        changed_uinodes_query
-            .iter()
-            .chain(removed_background_color_query.read())
+    removed_uinodes.clear();
+    removed_uinodes.extend(
+        removed_background_color_query
+            .read()
             .chain(removed_outer_color_query.read())
             .chain(removed_image_node_query.read())
             .chain(removed_image_node_size_query.read())
@@ -436,28 +444,32 @@ pub fn extract_uinode_background_colors(
             .map(MainEntity::from),
     );
 
-    for main_entity in nodes_to_extract.drain() {
-        extracted_uinodes.changed.insert(main_entity);
+    for (
+        entity,
+        background_color,
+        maybe_outer_color,
+        maybe_image,
+        maybe_image_size,
+        maybe_border_color,
+        maybe_outline,
+        maybe_viewport_node,
+    ) in changed_uinode_query.iter().chain(
+        uinode_query.iter_many(
+            removed_outer_color_query
+                .read()
+                .chain(removed_image_node_query.read())
+                .chain(removed_image_node_size_query.read())
+                .chain(removed_border_color_query.read())
+                .chain(removed_outline_query.read())
+                .chain(removed_viewport_node_query.read()),
+        ),
+    ) {
+        let main_entity = entity.into();
 
-        let Ok((
-            entity,
-            background_color,
-            maybe_outer_color,
-            maybe_image,
-            maybe_image_size,
-            maybe_border_color,
-            maybe_outline,
-            maybe_viewport_node,
-        )) = uinode_query.get(main_entity.entity())
-        else {
-            let Some((mut render_items, _)) = extracted_uinodes.uinodes.remove(&main_entity) else {
-                continue;
-            };
-            for (render_entity, _) in render_items.drain(..) {
-                commands.entity(render_entity).despawn();
-            }
+        // Already updated this entity
+        if !extracted_uinodes.changed.insert(main_entity) {
             continue;
-        };
+        }
 
         let mut image_color = LinearRgba::NONE;
         let mut image_asset = None;
@@ -592,6 +604,19 @@ pub fn extract_uinode_background_colors(
 
         if render_items.is_empty() {
             extracted_uinodes.uinodes.remove(&main_entity);
+        }
+    }
+
+    for main_entity in removed_uinodes.drain() {
+        if uinode_query.contains(main_entity.entity()) {
+            continue;
+        }
+        extracted_uinodes.changed.insert(main_entity);
+        let Some((mut render_items, _)) = extracted_uinodes.uinodes.remove(&main_entity) else {
+            continue;
+        };
+        for (render_entity, _) in render_items.drain(..) {
+            commands.entity(render_entity).despawn();
         }
     }
 }

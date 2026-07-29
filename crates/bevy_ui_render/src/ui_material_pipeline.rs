@@ -412,9 +412,7 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
                 if let Some((render_entity, extracted_uinode)) =
                     extracted_materials.uinodes.get(&item.main_entity())
                     && *render_entity == item.entity()
-                    && let Some(geometry) = extracted_geometry
-                        .layout
-                        .get(&item.main_entity())
+                    && let Some(geometry) = extracted_geometry.layout.get(&item.main_entity())
                 {
                     // Initialize the batch range to be zero-length initially.
                     // We'll extend it as we accumulate items into this batch.

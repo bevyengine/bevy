@@ -553,10 +553,7 @@ pub fn prepare_text(
             else {
                 continue;
             };
-            let Some(geometry) = extracted_geometry
-                .layout
-                .get(&item.main_entity())
-            else {
+            let Some(geometry) = extracted_geometry.layout.get(&item.main_entity()) else {
                 continue;
             };
             let image = layout

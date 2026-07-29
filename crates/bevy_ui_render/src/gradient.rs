@@ -579,10 +579,7 @@ pub fn prepare_gradient(
                     .get(&item.main_entity())
                     .and_then(|subgradients| subgradients.get(&item.entity()))
                 {
-                    let Some(geometry) = extracted_geometry
-                        .layout
-                        .get(&item.main_entity())
-                    else {
+                    let Some(geometry) = extracted_geometry.layout.get(&item.main_entity()) else {
                         continue;
                     };
                     let uinode = &geometry.uinode;

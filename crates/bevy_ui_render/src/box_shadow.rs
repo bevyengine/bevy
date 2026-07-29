@@ -371,10 +371,7 @@ pub fn prepare_shadows(
                 else {
                     continue;
                 };
-                let Some(geometry) = extracted_geometry
-                    .layout
-                    .get(&item.main_entity())
-                else {
+                let Some(geometry) = extracted_geometry.layout.get(&item.main_entity()) else {
                     continue;
                 };
 

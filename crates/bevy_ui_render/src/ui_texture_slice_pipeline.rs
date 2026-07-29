@@ -434,9 +434,7 @@ pub fn prepare_ui_slices(
                 if let Some((render_entity, texture_slices)) =
                     extracted_slices.slices.get(&item.main_entity())
                     && *render_entity == item.entity()
-                    && let Some(geometry) = extracted_geometry
-                        .layout
-                        .get(&item.main_entity())
+                    && let Some(geometry) = extracted_geometry.layout.get(&item.main_entity())
                 {
                     let visual_box = match texture_slices.visual_box {
                         VisualBox::ContentBox => geometry.uinode.content_box(),
