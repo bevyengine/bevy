@@ -84,6 +84,7 @@ pub use render_pass::*;
 pub use ui_material_pipeline::*;
 use ui_texture_slice_pipeline::UiTextureSlicerPlugin;
 
+use crate::extract_geometry::ExtractedUiGeometries;
 use crate::shader_flags::INVERT;
 use crate::text::{extract_preedit_underlines, extract_text_cursor};
 
@@ -229,6 +230,7 @@ impl Plugin for UiRenderPlugin {
             .init_gpu_resource::<SpecializedRenderPipelines<UiPipeline>>()
             .init_gpu_resource::<ImageNodeBindGroups>()
             .init_gpu_resource::<UiMeta>()
+            .init_resource::<ExtractedUiGeometries>()
             .init_resource::<ExtractedUiNodes>()
             .allow_ambiguous_resource::<ExtractedUiNodes>()
             .init_resource::<DrawFunctions<TransparentUi>>()
