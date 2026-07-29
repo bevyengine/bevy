@@ -9,7 +9,7 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     hierarchy::Children,
-    query::{Changed, Or, With},
+    query::{Changed, Or, With, Without},
     reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
     system::Query,
@@ -23,7 +23,7 @@ use bevy_scene::prelude::*;
 use bevy_ui::{
     percent, px, AlignItems, BackgroundColor, BackgroundGradient, BorderColor, BorderRadius,
     ColorStop, Display, FlexDirection, Gradient, InterpolationColorSpace, LinearGradient, Node,
-    Outline, PositionType, UiRect, UiTransform, Val2, ZIndex,
+    Outline, PositionType, UiRect, UiSystems, UiTransform, Val2, ZIndex,
 };
 use bevy_ui_render::ui_material::MaterialNode;
 use bevy_ui_widgets::{
@@ -32,6 +32,7 @@ use bevy_ui_widgets::{
 
 use crate::{
     alpha_pattern::{AlphaPattern, AlphaPatternMaterial},
+    controls::{FeathersSlider, FeathersTextInput, ToggleSwitchSlide},
     cursor::EntityCursor,
     focus::FocusIndicator,
     palette,
@@ -199,7 +200,7 @@ struct ColorSliderTrack;
 /// Marker for the thumb
 #[derive(Component, Default, Clone, Reflect)]
 #[reflect(Component, Default, Clone)]
-struct ColorSliderThumb;
+pub(crate) struct ColorSliderThumb;
 
 impl FeathersColorSlider {
     fn scene(props: FeathersColorSliderProps) -> impl Scene {
@@ -426,7 +427,7 @@ fn update_slider_pos(
         ),
     >,
     q_children: Query<&Children>,
-    mut q_slider_thumb: Query<&mut Node, With<ColorSliderThumb>>,
+    mut q_slider_thumb: Query<&mut Node, (With<ColorSliderThumb>, Without<ToggleSwitchSlide>)>,
 ) {
     for (slider_ent, value, range) in q_sliders.iter_mut() {
         for child in q_children.iter_descendants(slider_ent) {
@@ -442,7 +443,11 @@ fn update_track_color(
     q_children: Query<&Children>,
     q_track: Query<(), With<ColorSliderTrack>>,
     mut q_background: Query<&mut BackgroundColor>,
-    mut q_gradient: Query<&mut BackgroundGradient>,
+    // Without<FeathersTextInput> and Without<FeathersSlider> to avoid ambiguity with FeathersSlider systems
+    mut q_gradient: Query<
+        &mut BackgroundGradient,
+        (Without<FeathersTextInput>, Without<FeathersSlider>),
+    >,
 ) {
     for (slider_ent, slider, SliderBaseColor(base_color)) in q_sliders.iter_mut() {
         let (start, middle, end) = slider.channel.gradient_ends(*base_color);
@@ -499,7 +504,12 @@ impl Plugin for ColorSliderPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.add_systems(
             PreUpdate,
-            (update_slider_pos, update_track_color).in_set(PickingSystems::Last),
+            // after UiSystems::Focus can be removed after Interaction is removed.
+            (
+                update_slider_pos.after(UiSystems::Focus),
+                update_track_color,
+            )
+                .in_set(PickingSystems::Last),
         );
     }
 }
