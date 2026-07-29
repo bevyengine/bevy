@@ -1,5 +1,5 @@
 ---
-title: "Configurable camera color target size and format"
+title: "Camera main texture changes"
 pull_requests: [24280]
 ---
 
@@ -30,23 +30,6 @@ fn system(views: Query<&ViewTargetInfo>) {
         // `ViewTarget::main_texture_format()` is also removed — use `ViewTargetInfo::color_format` instead.
     }
 }
-```
-
-`CameraMainTextureUsages` has been removed. Set texture usages on the new `CameraColorTarget` or `ColorTarget` component instead:
-
-```rust
-// Before
-commands.spawn((
-    Camera::default(),
-    CameraMainTextureUsages::default().with(TextureUsages::STORAGE_BINDING),
-));
-
-// After
-commands.spawn((
-    Camera::default(),
-    CameraColorTarget::default()
-        .with_added_usage(TextureUsages::STORAGE_BINDING),
-));
 ```
 
 `Viewport::from_viewport_and_override` has been renamed to `from_main_pass_resolution_override` and no longer needs the camera's viewport:
