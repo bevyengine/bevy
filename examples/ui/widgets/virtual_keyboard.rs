@@ -67,7 +67,6 @@ fn keyboard() -> impl Scene {
     bsn! {
         Node {
             width: percent(100),
-            height: percent(80),
             bottom: px(0),
             flex_direction: FlexDirection::Column,
             position_type: PositionType::Absolute,
@@ -101,7 +100,7 @@ fn text_input() -> impl Scene {
     bsn! {
         Node {
             width: percent(100),
-            height: percent(20),
+            padding: px(25),
             position_type: PositionType::Absolute,
             align_items: AlignItems::Center,
             justify_content: JustifyContent::Center,
