@@ -540,7 +540,7 @@ where
     isometry: Isometry3d,
 
     // Radius of the ellipsoid along each axis
-    half_extentsg Vec3,
+    half_extents: Vec3,
 
     // Color of the ellipsoid
     color: Color,
