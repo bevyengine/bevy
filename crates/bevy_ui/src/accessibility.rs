@@ -20,7 +20,7 @@ use bevy_ecs::{
     prelude::Entity,
     query::{Changed, With, Without},
     reflect::ReflectComponent,
-    schedule::IntoScheduleConfigs,
+    schedule::{IntoScheduleConfigs, SystemSet},
     system::{Commands, Query},
     world::{DeferredWorld, Ref},
 };
@@ -183,6 +183,11 @@ fn label_changed(
     }
 }
 
+/// System set for UI Systems that update the [`AccessibilityNode`] information
+/// of UI-related entities
+#[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct AccessibilityUiSystems;
+
 /// A component which permits the a11y label to be specified independently from other a11y
 /// attributes.
 ///
@@ -240,6 +245,7 @@ impl Plugin for AccessibilityPlugin {
                     .after(label_changed),
             )
                 .in_set(UiSystems::PostLayout)
+                .in_set(AccessibilityUiSystems)
                 .before(AccessibilitySystems::Update),
         );
     }

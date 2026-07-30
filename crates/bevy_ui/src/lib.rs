@@ -28,6 +28,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_picking::PickingSystems;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 mod accessibility;
+pub use accessibility::AccessibilityUiSystems;
 // This module is not re-exported, but is instead made public.
 // This is intended to discourage accidental use of the experimental API.
 pub mod experimental;
