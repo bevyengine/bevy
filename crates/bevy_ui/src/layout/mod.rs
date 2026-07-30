@@ -581,6 +581,7 @@ mod tests {
         app.init_resource::<UiSurface>();
         app.init_resource::<bevy_text::TextPipeline>();
         app.init_resource::<bevy_text::FontCx>();
+        app.init_resource::<bevy_text::RemSize>();
         app.init_resource::<bevy_text::ScaleCx>();
         app.init_resource::<bevy_transform::StaticTransformOptimizations>();
 
@@ -1377,9 +1378,8 @@ mod tests {
         world.init_resource::<UiSurface>();
 
         world.init_resource::<bevy_text::TextPipeline>();
-
         world.init_resource::<bevy_text::FontCx>();
-
+        world.init_resource::<bevy_text::RemSize>();
         world.init_resource::<bevy_text::ScaleCx>();
 
         let ui_root = world
