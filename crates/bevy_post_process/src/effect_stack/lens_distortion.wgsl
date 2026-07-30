@@ -13,8 +13,6 @@ struct LensDistortionSettings {
     unused: u32,
 }
 
-const VISUAL_THRESHOLD: f32 = 1e-4;
-const MATH_EPSILON: f32 = 1e-6;
 const TAU: f32 = radians(360);
 const ONE: vec2<f32> = vec2<f32>(1.0, 1.0);
 
@@ -23,9 +21,6 @@ const ONE: vec2<f32> = vec2<f32>(1.0, 1.0);
 
 fn lens_distortion(uv: vec2<f32>) -> vec2<f32> {
     let intensity = lens_distortion_settings.intensity;
-    if (abs(intensity) < VISUAL_THRESHOLD) {
-        return uv;
-    }
     let multiplier = lens_distortion_settings.multiplier;
     let center = lens_distortion_settings.center;
     let uv_centered = uv - center;
@@ -68,8 +63,5 @@ fn lens_distortion(uv: vec2<f32>) -> vec2<f32> {
     // Compensates for the distortion pushing pixels outside the [0,1] UV bounds.
     let uv_scaled = ((uv_distorted - center) / lens_distortion_settings.scale + center);
 
-    // Discard out-of-bounds pixels to prevent edge bleeding artifacts.
-    let uv_safe = clamp(uv_scaled, vec2<f32>(0.0), vec2<f32>(1.0));
-
-    return uv_safe;
+    return uv_scaled;
 }
