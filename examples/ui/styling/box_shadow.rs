@@ -281,7 +281,7 @@ fn settings_panel_scene(app_settings: &AppSettings) -> impl Scene {
                     Some(AppNumberInputI32::Samples),
                     app_settings.samples as i32,
                     NumberInputPrecision(0),
-                    1..15
+                    0..15
                 ),
                 // Reset button
                 @FeathersButton {

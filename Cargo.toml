@@ -1744,6 +1744,7 @@ wasm = true
 name = "animation_graph"
 path = "examples/animation/animation_graph.rs"
 doc-scrape-examples = true
+required-features = ["bevy_feathers"]
 
 [package.metadata.example.animation_graph]
 name = "Animation Graph"
@@ -2863,6 +2864,17 @@ description = "Demonstrates how to create a loading screen that waits for all as
 category = "Games"
 wasm = true
 
+[[example]]
+name = "mines"
+path = "examples/showcase/mines.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.mines]
+name = "Mines"
+description = "A simple minesweeper-style game in Bevy UI"
+category = "Games"
+wasm = true
+
 # Input
 [[example]]
 name = "char_input_events"
@@ -3298,6 +3310,18 @@ name = "Compute Shader Mesh"
 description = "A compute shader that generates a mesh that is controlled by a Handle"
 category = "Shaders"
 wasm = false
+
+[[example]]
+name = "deferred_raymarch"
+path = "examples/shader_advanced/deferred_raymarch.rs"
+doc-scrape-examples = true
+required-features = ["free_camera"]
+
+[package.metadata.example.deferred_raymarch]
+name = "Deferred Gbuffer Raymarching"
+description = "Writes a raymarched SDF into the deferred gbuffer so it is lit by the standard PBR deferred lighting pass"
+category = "Shaders Advanced"
+wasm = true
 
 [[example]]
 name = "array_texture"
