@@ -103,6 +103,12 @@ impl Screenshot {
     }
 
     /// Capture a screenshot of the provided render target image.
+    ///
+    /// The image does not need to be rendered to by a camera this frame: if it isn't, its
+    /// current contents are captured instead. Capturing the contents of an image that no
+    /// camera rendered to requires it to have the
+    /// [`TextureUsages::TEXTURE_BINDING`](crate::render_resource::TextureUsages::TEXTURE_BINDING)
+    /// usage.
     pub fn image(image: Handle<Image>) -> Self {
         Self(RenderTarget::Image(image.into()))
     }
@@ -272,7 +278,7 @@ fn prepare_screenshots(
     window_surfaces: Query<(MainEntity, &SurfaceData)>,
     render_device: Res<RenderDevice>,
     screenshot_pipeline: Res<ScreenshotToScreenPipeline>,
-    pipeline_cache: Res<PipelineCache>,
+    mut pipeline_cache: ResMut<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<ScreenshotToScreenPipeline>>,
     images: Res<RenderAssets<GpuImage>>,
     manual_texture_views: Res<ManualTextureViews>,
@@ -301,7 +307,7 @@ fn prepare_screenshots(
                     view_format,
                     &render_device,
                     &screenshot_pipeline,
-                    &pipeline_cache,
+                    &mut pipeline_cache,
                     &mut pipelines,
                 );
                 prepared.insert(*entity, state);
@@ -321,7 +327,7 @@ fn prepare_screenshots(
                     view_format,
                     &render_device,
                     &screenshot_pipeline,
-                    &pipeline_cache,
+                    &mut pipeline_cache,
                     &mut pipelines,
                 );
                 prepared.insert(*entity, state);
@@ -345,7 +351,7 @@ fn prepare_screenshots(
                     view_format,
                     &render_device,
                     &screenshot_pipeline,
-                    &pipeline_cache,
+                    &mut pipeline_cache,
                     &mut pipelines,
                 );
                 prepared.insert(*entity, state);
@@ -366,7 +372,7 @@ fn prepare_screenshot_state(
     format: TextureFormat,
     render_device: &RenderDevice,
     pipeline: &ScreenshotToScreenPipeline,
-    pipeline_cache: &PipelineCache,
+    pipeline_cache: &mut PipelineCache,
     pipelines: &mut SpecializedRenderPipelines<ScreenshotToScreenPipeline>,
 ) -> (TextureView, ScreenshotPreparedState) {
     let texture = render_device.create_texture(&wgpu::TextureDescriptor {
@@ -394,6 +400,10 @@ fn prepare_screenshot_state(
         &BindGroupEntries::single(&texture_view),
     );
     let pipeline_id = pipelines.specialize(pipeline_cache, pipeline, format);
+
+    // Ensure the pipeline is loaded before the frame's screenshot commands are submitted,
+    // since the screenshot is only captured this frame.
+    pipeline_cache.block_on_render_pipeline(pipeline_id);
 
     (
         texture_view,
@@ -512,6 +522,9 @@ pub(crate) fn submit_screenshot_commands(
     let pipelines = world.resource::<PipelineCache>();
     let gpu_images = world.resource::<RenderAssets<GpuImage>>();
     let manual_texture_views = world.resource::<ManualTextureViews>();
+    let render_device = world.resource::<RenderDevice>();
+    let screenshot_pipeline = world.resource::<ScreenshotToScreenPipeline>();
+    let view_target_attachments = world.resource::<ViewTargetAttachments>();
 
     let windows = state.get(world).unwrap();
 
@@ -546,20 +559,51 @@ pub(crate) fn submit_screenshot_commands(
                     warn!("Unknown image for screenshot, skipping: {:?}", image);
                     continue;
                 };
-                let width = gpu_image.texture_descriptor.size.width;
-                let height = gpu_image.texture_descriptor.size.height;
-                let texture_format = gpu_image.texture_descriptor.format;
-                let texture_view = gpu_image.texture_view.deref();
-                render_screenshot(
-                    encoder,
-                    prepared,
-                    pipelines,
-                    entity,
-                    width,
-                    height,
-                    texture_format,
-                    texture_view,
-                );
+                // Cameras rendering to this image this frame have their output redirected
+                // to the prepared screenshot texture by `prepare_screenshots`, which is
+                // then copied to the readback buffer and blitted back to the image.
+                let camera_rendered_this_frame = view_target_attachments
+                    .get(render_target)
+                    .is_some_and(OutputColorAttachment::needs_present);
+                if camera_rendered_this_frame {
+                    let width = gpu_image.texture_descriptor.size.width;
+                    let height = gpu_image.texture_descriptor.size.height;
+                    let texture_format = gpu_image.texture_descriptor.format;
+                    let texture_view = gpu_image.texture_view.deref();
+                    render_screenshot(
+                        encoder,
+                        prepared,
+                        pipelines,
+                        entity,
+                        width,
+                        height,
+                        texture_format,
+                        texture_view,
+                    );
+                } else if can_capture_image_contents(&gpu_image.texture_descriptor) {
+                    // No camera rendered to this image this frame, so the prepared
+                    // screenshot texture is still empty. Blit the image's current contents
+                    // into it instead, so that textures written outside of the
+                    // camera-driven render graph (e.g. by a custom render pipeline) can be
+                    // captured.
+                    render_image_contents_screenshot(
+                        encoder,
+                        prepared,
+                        pipelines,
+                        render_device,
+                        screenshot_pipeline,
+                        entity,
+                        gpu_image,
+                    );
+                } else {
+                    warn!(
+                        "Cannot take a screenshot of image that was not rendered to by a \
+                        camera this frame: capturing its contents requires a \
+                        non-multisampled 2d color texture with the TEXTURE_BINDING usage, \
+                        skipping: {:?}",
+                        image
+                    );
+                }
             }
             NormalizedRenderTarget::TextureView(texture_view) => {
                 let Some(texture_view) = manual_texture_views.get(texture_view) else {
@@ -638,6 +682,87 @@ fn render_screenshot(
             pass.draw(0..3, 0..1);
         }
     }
+}
+
+/// Returns whether the contents of an image with the given descriptor can be captured by
+/// [`render_image_contents_screenshot`], which needs to bind it as a 2d float-sampleable
+/// texture.
+fn can_capture_image_contents(
+    texture_descriptor: &wgpu_types::TextureDescriptor<
+        Option<&'static str>,
+        &'static [TextureFormat],
+    >,
+) -> bool {
+    texture_descriptor
+        .usage
+        .contains(TextureUsages::TEXTURE_BINDING)
+        && texture_descriptor.dimension == wgpu::TextureDimension::D2
+        && texture_descriptor.size.depth_or_array_layers == 1
+        && texture_descriptor.sample_count == 1
+        && matches!(
+            texture_descriptor.format.sample_type(None, None),
+            Some(wgpu::TextureSampleType::Float { .. })
+        )
+}
+
+/// Captures the current contents of an image that no camera rendered to this frame by
+/// blitting them into the prepared screenshot texture and copying that to the readback
+/// buffer.
+fn render_image_contents_screenshot(
+    encoder: &mut CommandEncoder,
+    prepared: &RenderScreenshotsPrepared,
+    pipelines: &PipelineCache,
+    render_device: &RenderDevice,
+    screenshot_pipeline: &ScreenshotToScreenPipeline,
+    entity: &Entity,
+    gpu_image: &GpuImage,
+) {
+    let Some(prepared_state) = prepared.get(entity) else {
+        return;
+    };
+    let Some(pipeline) = pipelines.get_render_pipeline(prepared_state.pipeline_id) else {
+        return;
+    };
+
+    let bind_group = render_device.create_bind_group(
+        "screenshot-image-contents-bind-group",
+        &pipelines.get_bind_group_layout(&screenshot_pipeline.bind_group_layout),
+        &BindGroupEntries::single(&gpu_image.texture_view),
+    );
+    let texture_view = prepared_state.texture.create_view(&Default::default());
+    {
+        let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("screenshot_image_contents_pass"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: &texture_view,
+                depth_slice: None,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                    store: wgpu::StoreOp::Store,
+                },
+            })],
+            depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
+            multiview_mask: None,
+        });
+        pass.set_pipeline(pipeline);
+        pass.set_bind_group(0, &bind_group, &[]);
+        pass.draw(0..3, 0..1);
+    }
+
+    encoder.copy_texture_to_buffer(
+        prepared_state.texture.as_image_copy(),
+        wgpu::TexelCopyBufferInfo {
+            buffer: &prepared_state.buffer,
+            layout: gpu_readback::layout_data(
+                prepared_state.size,
+                gpu_image.texture_descriptor.format,
+            ),
+        },
+        prepared_state.size,
+    );
 }
 
 pub(crate) fn collect_screenshots(world: &mut World) {
