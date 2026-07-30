@@ -2069,7 +2069,7 @@ pub struct ImageNodeBindGroups {
 
 // Vertices generated for a extracted UI item.
 //
-// Produced by generate_item_vertices
+// Produced by `generate_item_vertices`
 #[derive(Clone, Copy)]
 pub(crate) struct ItemVertices {
     vertex_start: u32,
@@ -2079,12 +2079,17 @@ pub(crate) struct ItemVertices {
 
 const UI_ARENA_COMPACT_MIN_VERTICES: u32 = 1 << 14;
 
+/// A slot allocated by `UiVertexArena`.
+/// Holds `ItemVertices` and the cap for specific quad it can hold.   
 #[derive(Clone, Copy)]
 pub(crate) struct ArenaSlot {
     item: ItemVertices,
     capacity_quads: u32,
 }
 
+/// A slotted sub-allocator for UI vertices.
+/// Tracks newly freed slots and unused quads, as well as
+/// vertex ranges that actually change in a frame.
 #[derive(Default)]
 pub(crate) struct UiVertexArena {
     /// Slot for each live render entity
@@ -2380,6 +2385,7 @@ pub(crate) fn prepare_uinodes(
         }
 
         // Upload check logic
+        // TODO:: Would an AtomicSparseBufferVec fit here as the buffer?  
         let is_full_upload = needs_compact || arena.top as usize > ui_meta.vertices.capacity();
         if is_full_upload {
             ui_meta
