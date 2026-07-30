@@ -497,7 +497,7 @@ where
             half_length: primitive.half_length,
             isometry: isometry.into(),
             color: color.into(),
-            resolution: DEFAULT_RESOLUTION,
+            resolution: DEFAULT_CAPSULE_RESOLUTION,
         }
     }
 }
