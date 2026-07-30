@@ -93,7 +93,8 @@ fn stress_test(num_entities: u32, num_components: u32, num_systems: u32) {
                         StorageType::Table,
                         Layout::new::<u8>(),
                         None,
-                        true, // is mutable
+                        true,   // is mutable
+                        false,  // has summary tick
                         ComponentCloneBehavior::Default,
                         None,
                     )

@@ -7,7 +7,6 @@ use crate::{
 use bevy_ptr::{Ptr, ThinSlicePtr, UnsafeCellDeref};
 use core::{
     cell::UnsafeCell,
-    convert::identity,
     ops::{Deref, DerefMut},
     panic::Location,
 };
@@ -203,13 +202,12 @@ impl<'w> ContiguousComponentTicksRef<'w> {
             .map(|v| v.is_newer_than(self.last_run, self.this_run))
     }
 
-    pub fn is_changed(&self) -> bool {
-        match self.summary_tick {
-            Some(summary_tick) => summary_tick
+    pub fn summary_tick_is_changed(&self) -> Option<bool> {
+        self.summary_tick.map(|summary_tick| {
+            summary_tick
                 .get()
-                .is_newer_than(self.last_run, self.this_run),
-            None => self.is_changed_iter().any(identity),
-        }
+                .is_newer_than(self.last_run, self.this_run)
+        })
     }
 }
 
