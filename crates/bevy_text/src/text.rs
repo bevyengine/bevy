@@ -864,7 +864,7 @@ impl From<f32> for FontSize {
     }
 }
 
-/// Default RemSize in pixels
+/// Default `RemSize` in pixels
 pub const DEFAULT_REM_SIZE_PX: f32 = 20.0;
 
 /// Base value used to resolve `Rem` units for font sizes.
