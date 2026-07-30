@@ -1,10 +1,10 @@
-use bevy_platform::collections::HashMap;
+use bevy_platform::collections::{HashMap, HashSet};
 use core::{any::TypeId, convert::identity, hash::Hash};
 use std::{boxed::Box, collections::VecDeque, vec::Vec};
 
 use crate::{
     erased_resource::StagedResource,
-    erased_schedule::StagedSystem,
+    erased_schedule::{StagedScheduleLabel, StagedSystem},
     plugin_data::{MessageRegistration, PluginDependency, PluginTypeId},
     DeclarativePlugin, PluginOutput,
 };
@@ -116,12 +116,12 @@ impl RegistrationId {
 }
 
 pub(crate) struct PluginNode {
-    registration_id: RegistrationId,
-    plugin_data: Box<dyn DeclarativePlugin>,
-    output: PluginOutput<()>,
+    pub(crate) registration_id: RegistrationId,
+    pub(crate) plugin_data: Box<dyn DeclarativePlugin>,
+    pub(crate) output: PluginOutput<()>,
     // TODO: actually track which plugin added each plugin.
     // so that we can reliably track this information.
-    distance_from_entry: Option<usize>,
+    pub(crate) distance_from_entry: Option<usize>,
 }
 
 pub(crate) struct PluginRegistrationGraph {
@@ -165,15 +165,8 @@ impl PluginRegistrationGraph {
         (registration_id, dependencies)
     }
 
-    pub(crate) fn conditional_insert_node<D>(
-        plugin_data: Box<dyn DeclarativePlugin>,
-        output: PluginOutput<D>,
-    ) -> Result<(RegistrationId, D), (Box<dyn DeclarativePlugin>, PluginOutput<D>)> {
+    pub(crate) fn try_build(self) -> Result<ItemsGraph, Self> {
         unimplemented!()
-    }
-
-    pub(crate) fn try_build(self) -> Result<(), Self> {
-        Ok(())
     }
 
     pub(crate) fn can_build(&self) -> bool {
@@ -191,7 +184,48 @@ impl PluginRegistrationGraph {
             .any(|ids| ids.contains(&plugin_id))
     }
 
-    pub(crate) fn canidates(&self) {}
+    /// Removes the candidates from the graph.
+    pub(crate) fn extract_candidates(
+        &mut self,
+    ) -> Result<(Vec<PluginNode>, HashMap<PluginTypeId, Vec<PluginTypeId>>), ()> {
+        let candidate_ids = self.naive_candidates()?;
+        let mut extracted = Vec::with_capacity(candidate_ids.len());
+        let mut edges = HashMap::new();
+        let mut tripped = false;
+        for candidate in candidate_ids {
+            let entry = self.nodes.entry(candidate.plugin_id()).or_default();
+            let Some(ix) = entry
+                .iter()
+                .enumerate()
+                .find_map(|(ix, node)| (node.registration_id == candidate).then_some(ix))
+            else {
+                tripped = true;
+                break;
+            };
+            if tripped {
+                panic!("candidate finding function found complete list, but entries seem to already be missing.")
+            }
+            extracted.push(entry.remove(ix));
+            if let Some(dependencies) = self.dependency_edges.get(&candidate) {
+                edges.insert(candidate.plugin_id(), dependencies.clone());
+            }
+        }
+        Ok((extracted, edges))
+    }
+
+    /// Get the registration IDs of each valid candidate.
+    /// Called naive here because it doesn't cull valid candidates that were
+    /// added but aren't depended on by anything.
+    pub(crate) fn naive_candidates(&self) -> Result<Vec<RegistrationId>, ()> {
+        let mut candidates = Vec::new();
+        for plugin_id in self.plugin_ids() {
+            // Expensive! There is almost definitely a faster way of doing this
+            // while building the graph rather than at the end. Or maybe it's
+            // fine.
+            candidates.push(self.candidate_exists(plugin_id)?);
+        }
+        Ok(candidates)
+    }
 
     pub(crate) fn candidate_exists(&self, plugin_id: PluginTypeId) -> Result<RegistrationId, ()> {
         let mut working = None;
@@ -263,7 +297,7 @@ impl PluginRegistrationGraph {
         &self,
         plugin_id: PluginTypeId,
     ) -> impl Iterator<Item = &PluginNode> {
-        self.all_nodes().filter_map(move |node| {
+        self.nodes().filter_map(move |node| {
             let item = node.output.plugin_approval.get(&plugin_id)?;
             if item.trivially_true() {
                 return None;
@@ -272,8 +306,12 @@ impl PluginRegistrationGraph {
         })
     }
 
-    pub(crate) fn all_nodes(&self) -> impl Iterator<Item = &PluginNode> {
+    pub(crate) fn nodes(&self) -> impl Iterator<Item = &PluginNode> {
         self.nodes.iter().flat_map(|(_, nodes)| nodes.iter())
+    }
+
+    pub(crate) fn plugin_ids(&self) -> impl Iterator<Item = PluginTypeId> {
+        self.nodes.iter().map(|(k, _)| *k)
     }
 
     pub(crate) fn entry_points(&self) -> impl Iterator<Item = &PluginNode> {
@@ -299,10 +337,32 @@ impl PluginRegistrationGraph {
 #[allow(unused)]
 pub(crate) struct OrderedPluginItems(Vec<DeclrItem>);
 
-#[allow(unused)]
+/// A graph
 pub(crate) struct ItemsGraph {
     sources: HashMap<PluginTypeId, PluginNode>,
+    edges: HashMap<PluginTypeId, HashSet<PluginTypeId>>,
     accepted_resource_sources: HashMap<TypeId, PluginTypeId>,
+}
+
+impl ItemsGraph {
+    pub(crate) fn new(mut graph: PluginRegistrationGraph) -> Result<Self, PluginRegistrationGraph> {
+        if graph.can_build() {
+            let (nodes, edges) = graph.extract_candidates().unwrap();
+            Ok(Self {
+                sources: nodes
+                    .into_iter()
+                    .map(|node| (node.registration_id.plugin_id(), node))
+                    .collect(),
+                edges: edges
+                    .into_iter()
+                    .map(|(source, destinations)| (source, destinations.into_iter().collect()))
+                    .collect(),
+                accepted_resource_sources: HashMap::new(),
+            })
+        } else {
+            Err(graph)
+        }
+    }
 }
 
 /// Items that can be added to a world.
@@ -311,4 +371,5 @@ pub(crate) enum DeclrItem {
     Message(MessageRegistration),
     Resource(StagedResource),
     System(StagedSystem),
+    ScheduleLabel(StagedScheduleLabel),
 }
