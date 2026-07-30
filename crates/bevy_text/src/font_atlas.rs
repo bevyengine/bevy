@@ -177,6 +177,45 @@ pub fn add_glyph_to_atlas(
         .ok_or(TextError::InconsistentAtlasState)
 }
 
+#[cfg(test)]
+mod allocation_regression_tests {
+    use super::*;
+    use swash::{scale::ScaleContext, FontRef};
+
+    #[test]
+    fn new_atlas_fits_boundary_sized_glyph_with_padding() {
+        let font =
+            FontRef::from_index(include_bytes!("FiraMono-subset.ttf"), 0).expect("valid test font");
+        let glyph_id = font.charmap().map('M');
+        let mut scale_context = ScaleContext::new();
+        let mut measurement_scaler = scale_context.builder(font).size(1479.0).build();
+        let (glyph_texture, _, _) = get_outlined_glyph_texture(
+            &mut measurement_scaler,
+            glyph_id,
+            FontSmoothing::AntiAliased,
+        )
+        .expect("glyph should rasterize");
+        assert_eq!(
+            glyph_texture.width().max(glyph_texture.height()),
+            1021,
+            "test font no longer reproduces the atlas boundary"
+        );
+
+        let mut scaler = scale_context.builder(font).size(1479.0).build();
+        let mut font_atlases = Vec::new();
+        let mut textures = Assets::default();
+
+        add_glyph_to_atlas(
+            &mut font_atlases,
+            &mut textures,
+            &mut scaler,
+            FontSmoothing::AntiAliased,
+            glyph_id,
+        )
+        .expect("a newly created atlas should fit the glyph that requested it");
+    }
+}
+
 /// Get the texture of the glyph as a rendered image, and its offset
 #[expect(
     clippy::identity_op,
