@@ -1,4 +1,4 @@
-use core::f32::consts::{FRAC_PI_2, PI, TAU};
+use core::f32::consts::TAU;
 
 use bevy_math::{ops, Vec2};
 
@@ -40,17 +40,4 @@ pub(crate) fn circle_coordinates_closed(
     circle_coordinates(radius, resolution).chain(core::iter::once(single_circle_coordinate(
         radius, resolution, resolution,
     )))
-}
-
-/// Generates an iterator over the coordinates of half an ellipse.
-///
-/// This function creates an iterator that yields the positions of points approximating half an
-/// ellipse with the given radius, divided into linear segments. The iterator produces `resolution`
-/// number of points.
-pub(crate) fn half_ellipse(half_size: Vec2, resolution: u32) -> impl Iterator<Item = Vec2> {
-    (0..resolution + 1).map(move |i| {
-        let angle = i as f32 * PI / resolution as f32;
-        let (x, y) = ops::sin_cos(angle - FRAC_PI_2);
-        Vec2::new(x, y) * half_size
-    })
 }

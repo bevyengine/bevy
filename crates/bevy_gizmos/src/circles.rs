@@ -3,17 +3,37 @@
 //! Includes the implementation of [`GizmoBuffer::circle`] and [`GizmoBuffer::circle_2d`],
 //! and assorted support items.
 
-use crate::{gizmos::GizmoBuffer, prelude::GizmoConfigGroup, primitives::helpers::half_ellipse};
+use crate::{gizmos::GizmoBuffer, prelude::GizmoConfigGroup};
 use bevy_color::Color;
 use bevy_math::{ops, Isometry2d, Isometry3d, Quat, Vec2, Vec3, Vec3Swizzles};
-use core::f32::consts::TAU;
+use core::f32::consts::{FRAC_PI_2, PI, TAU};
 
 pub(crate) const DEFAULT_CIRCLE_RESOLUTION: u32 = 32;
 
+/// Generates an iterator over the coordinates of an ellipse.
+///
+/// The coordinates form a closed loop, meaning the first and last points are the same.
+///
+/// This function creates an iterator that yields the positions of points approximating an
+/// ellipse with the given radius, divided into linear segments. The iterator produces `resolution`
+/// number of points.
 fn ellipse_inner(half_size: Vec2, resolution: u32) -> impl Iterator<Item = Vec2> {
     (0..resolution + 1).map(move |i| {
         let angle = i as f32 * TAU / resolution as f32;
         let (x, y) = ops::sin_cos(angle);
+        Vec2::new(x, y) * half_size
+    })
+}
+
+/// Generates an iterator over the coordinates of half an ellipse.
+///
+/// This function creates an iterator that yields the positions of points approximating half an
+/// ellipse with the given radius, divided into linear segments. The iterator produces `resolution`
+/// number of points.
+fn half_ellipse(half_size: Vec2, resolution: u32) -> impl Iterator<Item = Vec2> {
+    (0..resolution + 1).map(move |i| {
+        let angle = i as f32 * PI / resolution as f32;
+        let (x, y) = ops::sin_cos(angle - FRAC_PI_2);
         Vec2::new(x, y) * half_size
     })
 }
