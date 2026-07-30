@@ -35,6 +35,7 @@ use crate::{
     alpha_pattern::{AlphaPatternMaterial, AlphaPatternResource},
     controls::ControlsPlugin,
     cursor::{CursorIconPlugin, DefaultCursor, EntityCursor},
+    display::popover::FeathersPopoverPlugin,
     theme::{ThemeContext, ThemedText, UiTheme},
 };
 
@@ -78,6 +79,7 @@ impl Plugin for FeathersCorePlugin {
 
         app.add_plugins((
             ControlsPlugin,
+            FeathersPopoverPlugin,
             CursorIconPlugin,
             HierarchyPropagatePlugin::<TextColor, With<ThemedText>>::new(PostUpdate),
             HierarchyPropagatePlugin::<TextFont, With<ThemedText>>::new(PostUpdate),

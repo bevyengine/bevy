@@ -1,4 +1,4 @@
-//! Feathers visuals for popover callout arrows.
+//! Feathers visual styling for popover callout arrows.
 
 use bevy_app::{Plugin, PostUpdate};
 use bevy_asset::{Asset, Assets, Handle};
@@ -18,22 +18,32 @@ use bevy_ui_render::{
     ui_material::{MaterialNode, UiMaterial},
     UiMaterialPlugin,
 };
-use bevy_ui_widgets::popover::{PopoverArrow, PopoverDirection, PopoverPlugin, PopoverSide};
+use bevy_ui_widgets::popover::{
+    Popover, PopoverArrow, PopoverDirection, PopoverPlugin, PopoverSide,
+};
 
 const ARROW_WIDTH: f32 = 16.0;
 const ARROW_HEIGHT: f32 = 8.0;
 const ARROW_EDGE_MARGIN: f32 = 4.0;
 const ARROW_BORDER_ANTIALIAS_OVERLAP: f32 = 1.0;
 
+/// Marks the triangle child of a [`FeathersPopoverArrow`].
 #[derive(Component, Clone, Default)]
 struct FeathersPopoverArrowVisual;
 
+/// GPU material for the visible triangle of a [`FeathersPopoverArrow`].
+///
+/// Each arrow receives its own material because its colors and border width are
+/// inherited from the edge of its direct parent [`Popover`].
 #[derive(AsBindGroup, Asset, TypePath, Debug, Clone, Default, PartialEq)]
 struct PopoverArrowMaterial {
+    /// Parent popover background color.
     #[uniform(0)]
     fill_color: Vec4,
+    /// Color of the border that meets the arrow.
     #[uniform(1)]
     border_color: Vec4,
+    /// Width of that border in physical pixels.
     #[uniform(2)]
     border_width: Vec4,
 }
@@ -44,6 +54,10 @@ impl UiMaterial for PopoverArrowMaterial {
     }
 }
 
+/// Identifies one of the two replacement border segments beside the arrow.
+///
+/// The parent popover's connecting border edge is suppressed and redrawn as
+/// two segments, leaving a gap where the triangle joins the surface.
 #[derive(Component, Clone, Copy, Default, VariantDefaults)]
 #[require(BackgroundColor)]
 enum FeathersPopoverArrowBorderSegment {
@@ -55,8 +69,8 @@ enum FeathersPopoverArrowBorderSegment {
 /// A themed callout arrow for a [`bevy_ui_widgets::popover::Popover`].
 ///
 /// Add this as a direct child of the popover. [`PopoverArrow`] positions and
-/// rotates the zero-sized root while Feathers supplies the reusable triangle
-/// geometry and theme colors.
+/// rotates the zero-sized root. This scene adds a triangle styled to match the
+/// parent popover.
 #[derive(SceneComponent, Default, Clone, Reflect)]
 #[reflect(Component, Default, Clone)]
 pub struct FeathersPopoverArrow;
@@ -114,6 +128,11 @@ fn initialize_arrow_materials(
     }
 }
 
+/// Matches an arrow to its parent [`Popover`].
+///
+/// [`PopoverPlugin`] places the arrow and updates [`PopoverDirection`]. This
+/// system copies the popover colors to the triangle and replaces the border
+/// behind the arrow with two pieces so the join has no gap.
 fn sync_arrow_style(
     arrows: Query<
         (&ChildOf, &Children, &PopoverDirection, &UiGlobalTransform),
@@ -130,6 +149,7 @@ fn sync_arrow_style(
             Option<&BorderColor>,
         ),
         (
+            With<Popover>,
             Without<FeathersPopoverArrowBorderSegment>,
             Without<FeathersPopoverArrowVisual>,
         ),
@@ -420,6 +440,7 @@ mod tests {
                     },
                     ..Default::default()
                 },
+                Popover::default(),
                 background,
                 BorderColor {
                     right: border_color,

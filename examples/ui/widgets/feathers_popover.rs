@@ -2,10 +2,11 @@
 
 use bevy::{
     feathers::{
-        controls::{FeathersButton, FeathersPopoverArrow, FeathersScrollbar},
+        controls::{FeathersButton, FeathersScrollbar},
         dark_theme::create_dark_theme,
-        display::caption,
-        theme::{ThemeBackgroundColor, ThemeBorderColor, UiTheme},
+        display::{caption, popover::FeathersPopoverArrow},
+        palette,
+        theme::{ThemeBackgroundColor, UiTheme},
         tokens, FeathersPlugins,
     },
     prelude::*,
@@ -140,6 +141,7 @@ fn scene() -> impl SceneList {
                                                         gap: 8.0,
                                                     })
                                                     .to_vec(),
+                                                    PopoverAppearance::Glass,
                                                 ),
                                             ]
                                         )
@@ -190,6 +192,13 @@ fn placement_anchor(
     column: i16,
     row: i16,
 ) -> impl Scene {
+    let appearance = match (side, align) {
+        (PopoverSide::Top, PopoverAlign::Center) => PopoverAppearance::Glass,
+        (PopoverSide::Left, PopoverAlign::Center) => PopoverAppearance::Accent,
+        (PopoverSide::Right, PopoverAlign::Center) => PopoverAppearance::Warning,
+        (PopoverSide::Bottom, PopoverAlign::Center) => PopoverAppearance::Success,
+        _ => PopoverAppearance::Menu,
+    };
     bsn! {
         Node {
             width: px(136),
@@ -216,29 +225,38 @@ fn placement_anchor(
                     align,
                     gap: 8.0,
                 },
+                appearance,
             ),
         ]
     }
 }
 
-fn popover_label(text: &'static str, placement: PopoverPlacement) -> impl Scene {
-    popover_with_positions(text, vec![placement])
+fn popover_label(
+    text: &'static str,
+    placement: PopoverPlacement,
+    appearance: PopoverAppearance,
+) -> impl Scene {
+    popover_with_positions(text, vec![placement], appearance)
 }
 
-fn popover_with_positions(text: &'static str, positions: Vec<PopoverPlacement>) -> impl Scene {
+fn popover_with_positions(
+    text: &'static str,
+    positions: Vec<PopoverPlacement>,
+    appearance: PopoverAppearance,
+) -> impl Scene {
     bsn! {
         Node {
             position_type: PositionType::Absolute,
             padding: UiRect::axes(px(10), px(6)),
-            border: px(1),
+            border: px(appearance.border_width()),
             border_radius: px(4),
         }
         Pickable::IGNORE
         GlobalZIndex(10)
-        ThemeBackgroundColor(tokens::MENU_BG)
-        ThemeBorderColor(tokens::MENU_BORDER)
+        BackgroundColor({ appearance.background() })
+        BorderColor::all(appearance.border_color())
         BoxShadow::new(
-            Srgba::new(0.0, 0.0, 0.0, 0.55).into(),
+            appearance.shadow_color(),
             px(0),
             px(1),
             px(1),
@@ -254,5 +272,51 @@ fn popover_with_positions(text: &'static str, positions: Vec<PopoverPlacement>) 
             caption(text),
             @FeathersPopoverArrow,
         ]
+    }
+}
+
+/// Styles used to show that arrows use their parent popover's colors.
+#[derive(Clone, Copy)]
+enum PopoverAppearance {
+    Menu,
+    Glass,
+    Accent,
+    Warning,
+    Success,
+}
+
+impl PopoverAppearance {
+    fn background(self) -> Color {
+        match self {
+            Self::Menu => palette::GRAY_1,
+            Self::Glass => palette::ACCENT.with_alpha(0.30),
+            Self::Accent => Srgba::new(0.04, 0.30, 0.28, 0.88).into(),
+            Self::Warning => Srgba::new(0.38, 0.20, 0.04, 0.92).into(),
+            Self::Success => palette::Y_AXIS.with_alpha(0.78),
+        }
+    }
+
+    fn border_color(self) -> Color {
+        match self {
+            Self::Menu => palette::WARM_GRAY_1,
+            Self::Glass => palette::ACCENT.with_alpha(0.85),
+            Self::Accent => palette::ACCENT,
+            Self::Warning => Srgba::new(1.0, 0.67, 0.24, 1.0).into(),
+            Self::Success => palette::LIGHT_GRAY_1.with_alpha(0.9),
+        }
+    }
+
+    fn border_width(self) -> f32 {
+        match self {
+            Self::Glass | Self::Accent => 2.0,
+            Self::Menu | Self::Warning | Self::Success => 1.0,
+        }
+    }
+
+    fn shadow_color(self) -> Color {
+        Color::BLACK.with_alpha(match self {
+            Self::Glass => 0.25,
+            Self::Menu | Self::Accent | Self::Warning | Self::Success => 0.55,
+        })
     }
 }

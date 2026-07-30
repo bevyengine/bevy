@@ -144,7 +144,10 @@ impl Default for PopoverArrow {
     }
 }
 
-/// The direction in which a [`PopoverArrow`] points.
+/// Direction written by [`PopoverPlugin`] for a [`PopoverArrow`].
+///
+/// Stylists use this to orient the arrow visual. It is output, not
+/// configuration.
 #[derive(Component, Debug, Clone, Copy, PartialEq, Reflect)]
 #[reflect(Component, Default, PartialEq)]
 pub struct PopoverDirection(pub PopoverSide);
