@@ -3,10 +3,10 @@
 //! Includes the implementation of [`GizmoBuffer::circle`] and [`GizmoBuffer::circle_2d`],
 //! and assorted support items.
 
-use crate::{gizmos::GizmoBuffer, prelude::GizmoConfigGroup};
+use crate::{gizmos::GizmoBuffer, prelude::GizmoConfigGroup, primitives::helpers::half_ellipse};
 use bevy_color::Color;
 use bevy_math::{ops, Isometry2d, Isometry3d, Quat, Vec2, Vec3, Vec3Swizzles};
-use core::f32::consts::{FRAC_PI_2, PI, TAU};
+use core::f32::consts::TAU;
 
 pub(crate) const DEFAULT_CIRCLE_RESOLUTION: u32 = 32;
 
@@ -352,15 +352,6 @@ where
                 .resolution(self.resolution);
         });
     }
-}
-
-/// Calculates half of an ellipse.
-fn half_ellipse(half_size: Vec2, resolution: u32) -> impl Iterator<Item = Vec2> {
-    (0..resolution + 1).map(move |i| {
-        let angle = i as f32 * PI / resolution as f32;
-        let (x, y) = ops::sin_cos(angle - FRAC_PI_2);
-        Vec2::new(x, y) * half_size
-    })
 }
 
 impl<Config, Clear> GizmoBuffer<Config, Clear>
