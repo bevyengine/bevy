@@ -16,7 +16,7 @@ use core::ops::Mul;
 
 /// Used for resolving Val::Em during layout if no `TextFont` is found.
 /// Note there is no propagation of this so resolution will fall back to
-/// `RemSize` unless the user has a font propagation startegy.
+/// `RemSize` unless the user has a font propagation strategy.
 #[derive(Debug, PartialEq, Clone, Copy, Reflect, Component)]
 #[reflect(Default, PartialEq, Debug, Clone, Component)]
 pub struct EmSize(pub f32);
