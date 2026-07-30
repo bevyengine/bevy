@@ -1,7 +1,6 @@
 use crate::camera::extract_view_target_info;
-use crate::renderer::WgpuWrapper;
+use crate::renderer::{RenderQueue, WgpuWrapper};
 use crate::sync_world::{MainEntity, RenderEntity, SyncToRenderWorld};
-use crate::{camera::extract_cameras, renderer::RenderQueue};
 use crate::{
     render_resource::{SurfaceTexture, TextureView},
     renderer::{RenderAdapter, RenderDevice, RenderInstance},
@@ -52,9 +51,7 @@ impl Plugin for WindowRenderPlugin {
             render_app
                 .add_systems(
                     ExtractSchedule,
-                    extract_windows
-                        .before(extract_view_target_info)
-                        .before(extract_cameras),
+                    extract_windows.before(extract_view_target_info),
                 )
                 .add_systems(
                     Render,

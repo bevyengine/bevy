@@ -31,8 +31,8 @@ pub enum ClearColorConfig {
 pub enum MsaaWriteback {
     /// Never perform MSAA writeback for this camera.
     Off,
-    /// Perform MSAA writeback only when this camera is not the first one rendering to the target.
-    /// This is the default behavior - the first camera has nothing to write back.
+    /// Perform MSAA writeback only when this camera doesn't clear the target,
+    /// i.e. [`Camera::clear_color`](crate::camera::Camera) is [`ClearColorConfig::None`].
     #[default]
     Auto,
     /// Always perform MSAA writeback, even if this is the first camera rendering to the target.

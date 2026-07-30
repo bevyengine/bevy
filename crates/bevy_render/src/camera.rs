@@ -45,7 +45,7 @@ use bevy_ecs::{
 use bevy_image::Image;
 use bevy_log::warn;
 use bevy_log::warn_once;
-use bevy_math::{uvec2, vec2, Mat4, URect, UVec2, UVec4, Vec2};
+use bevy_math::{uvec2, vec2, Mat4, UVec2, UVec4, Vec2};
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::prelude::*;
 use bevy_transform::components::GlobalTransform;
@@ -97,10 +97,12 @@ impl Plugin for CameraPlugin {
                 .add_systems(
                     ExtractSchedule,
                     (
-                        extract_view_target_info
-                            .ambiguous_with_all()
+                        (
+                            extract_view_target_info.ambiguous_with_all(),
+                            extract_cameras,
+                        )
+                            .chain()
                             .after(extract_resource::<ManualTextureViews, ()>),
-                        extract_cameras,
                         clear_dirty_specializations.in_set(DirtySpecializationSystems::Clear),
                         clear_dirty_wireframe_specializations
                             .in_set(DirtySpecializationSystems::Clear),
@@ -501,6 +503,7 @@ fn resolve_color_target_format(
     }
 }
 
+// TODO: move the `ViewTargetInfo` preparation to the main world so it doesn't need to be an exclusive system.
 pub fn extract_view_target_info(
     world: &mut World,
     state: &mut SystemState<(
@@ -528,8 +531,8 @@ pub fn extract_view_target_info(
             continue;
         }
 
-        if let Some(target_size) = camera.physical_target_size() {
-            if target_size.x == 0 || target_size.y == 0 {
+        if let Some(viewport_size) = camera.physical_viewport_size() {
+            if viewport_size.x == 0 || viewport_size.y == 0 {
                 commands.entity(render_entity).remove::<ViewTargetInfo>();
                 continue;
             }
@@ -546,7 +549,7 @@ pub fn extract_view_target_info(
 
             commands.entity(render_entity).insert(ViewTargetInfo {
                 color_format: target_format,
-                size: target_size,
+                size: viewport_size,
                 sample_count,
             });
         };
@@ -580,6 +583,7 @@ pub fn extract_cameras(
             ),
         )>,
     >,
+    target_infos: Query<&ViewTargetInfo>,
     primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
     mut existing_render_visible_entities_cpu_culling: Query<
         &mut RenderExtractedVisibleEntities,
@@ -632,25 +636,7 @@ pub fn extract_cameras(
 
         let color_grading = color_grading.unwrap_or(&ColorGrading::default()).clone();
 
-        if let (
-            Some(URect {
-                min: viewport_origin,
-                ..
-            }),
-            Some(viewport_size),
-            Some(target_size),
-        ) = (
-            camera.physical_viewport_rect(),
-            camera.physical_viewport_size(),
-            camera.physical_target_size(),
-        ) {
-            if target_size.x == 0 || target_size.y == 0 {
-                commands
-                    .entity(render_entity)
-                    .remove::<ExtractedCameraComponents>();
-                continue;
-            }
-
+        if let Ok(target_info) = target_infos.get(render_entity) {
             let mut render_visible_entities_cpu_culling =
                 match existing_render_visible_entities_cpu_culling.get_mut(render_entity) {
                     Ok(ref mut existing_render_visible_entities_cpu_culling) => {
@@ -705,12 +691,7 @@ pub fn extract_cameras(
                     clip_from_view: camera.clip_from_view(),
                     world_from_view: *transform,
                     clip_from_world: None,
-                    viewport: UVec4::new(
-                        viewport_origin.x,
-                        viewport_origin.y,
-                        viewport_size.x,
-                        viewport_size.y,
-                    ),
+                    viewport: UVec4::new(0, 0, target_info.size.x, target_info.size.y),
                     color_grading,
                     invert_culling: camera.invert_culling,
                 },
@@ -752,7 +733,7 @@ pub fn extract_cameras(
             } else {
                 entity_commands.remove::<NoIndirectDrawing>();
             }
-        };
+        }
     }
 }
 

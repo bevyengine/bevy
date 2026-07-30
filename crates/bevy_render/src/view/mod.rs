@@ -6,6 +6,7 @@ use bevy_camera::{
     Exposure, MainPassResolutionOverride, NormalizedRenderTarget,
 };
 use bevy_diagnostic::FrameCount;
+use bevy_math::UVec2;
 pub use visibility::*;
 pub use window::*;
 
@@ -1268,12 +1269,7 @@ pub fn cleanup_view_targets_for_resize(
     }
 }
 
-type MainTextureKey = (
-    Option<NormalizedRenderTarget>,
-    TextureUsages,
-    TextureFormat,
-    u32,
-);
+type MainTextureKey = (UVec2, TextureUsages, TextureFormat, u32);
 
 pub fn prepare_view_targets(
     mut commands: Commands,
@@ -1321,69 +1317,75 @@ pub fn prepare_view_targets(
             });
 
         let key: MainTextureKey = (
-            camera.target.clone(),
+            target_info.size,
             texture_usage.0,
             target_info.color_format,
             target_info.sample_count,
         );
-        let (a, b, sampled, main_texture) = textures.entry(key.clone()).or_insert_with(|| {
-            let descriptor = TextureDescriptor {
-                label: None,
-                size: target_info.size.to_extents(),
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: TextureDimension::D2,
-                format: target_info.color_format,
-                usage: texture_usage.0,
-                view_formats: &[],
-            };
-            let a = texture_cache.get(
-                &render_device,
-                TextureDescriptor {
-                    label: Some("main_texture_a"),
-                    ..descriptor
-                },
-            );
-            let b = texture_cache.get(
-                &render_device,
-                TextureDescriptor {
-                    label: Some("main_texture_b"),
-                    ..descriptor
-                },
-            );
-            let sampled = if target_info.sample_count > 1 {
-                let sampled = texture_cache.get(
-                    &render_device,
-                    TextureDescriptor {
-                        label: Some("main_texture_sampled"),
-                        size: target_info.size.to_extents(),
+        let (a, b, sampled, main_texture) =
+            textures
+                .entry(key)
+                .or_insert_with_key(|(size, usage, format, sample_count)| {
+                    let (size, usage, format, sample_count) =
+                        (*size, *usage, *format, *sample_count);
+
+                    let descriptor = TextureDescriptor {
+                        label: None,
+                        size: size.to_extents(),
                         mip_level_count: 1,
-                        sample_count: target_info.sample_count,
+                        sample_count: 1,
                         dimension: TextureDimension::D2,
-                        format: target_info.color_format,
-                        usage: TextureUsages::RENDER_ATTACHMENT,
-                        view_formats: descriptor.view_formats,
-                    },
-                );
-                Some(sampled)
-            } else {
-                None
-            };
-            // re-use the same atomics frame to frame for views with the same main texture
-            // to ensure post process writes persist through msaa writeback
-            let main_texture = match main_texture_atomics.entry(key) {
-                Entry::Occupied(e) => e
-                    .get()
-                    .upgrade()
-                    .expect("dead weaks were pruned at top of system"),
-                Entry::Vacant(e) => {
-                    let arc = Arc::new(AtomicUsize::new(0));
-                    e.insert(Arc::downgrade(&arc));
-                    arc
-                }
-            };
-            (a, b, sampled, main_texture)
-        });
+                        format,
+                        usage,
+                        view_formats: &[],
+                    };
+                    let a = texture_cache.get(
+                        &render_device,
+                        TextureDescriptor {
+                            label: Some("main_texture_a"),
+                            ..descriptor
+                        },
+                    );
+                    let b = texture_cache.get(
+                        &render_device,
+                        TextureDescriptor {
+                            label: Some("main_texture_b"),
+                            ..descriptor
+                        },
+                    );
+                    let sampled = if sample_count > 1 {
+                        let sampled = texture_cache.get(
+                            &render_device,
+                            TextureDescriptor {
+                                label: Some("main_texture_sampled"),
+                                size: size.to_extents(),
+                                mip_level_count: 1,
+                                sample_count,
+                                dimension: TextureDimension::D2,
+                                format,
+                                usage: TextureUsages::RENDER_ATTACHMENT,
+                                view_formats: descriptor.view_formats,
+                            },
+                        );
+                        Some(sampled)
+                    } else {
+                        None
+                    };
+                    // re-use the same atomics frame to frame for views with the same main texture
+                    // to ensure post process writes persist through msaa writeback
+                    let main_texture = match main_texture_atomics.entry(key) {
+                        Entry::Occupied(e) => e
+                            .get()
+                            .upgrade()
+                            .expect("dead weaks were pruned at top of system"),
+                        Entry::Vacant(e) => {
+                            let arc = Arc::new(AtomicUsize::new(0));
+                            e.insert(Arc::downgrade(&arc));
+                            arc
+                        }
+                    };
+                    (a, b, sampled, main_texture)
+                });
 
         let main_textures = MainTargetTextures {
             a: ColorAttachment::new(a.clone(), sampled.clone(), None, converted_clear_color),
