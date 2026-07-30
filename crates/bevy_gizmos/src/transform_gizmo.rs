@@ -156,7 +156,7 @@ pub struct TransformGizmoSettings {
     pub confine_cursor: bool,
     /// Screen-space scale factor. Set to 0.0 to disable constant-size behavior.
     pub screen_scale_factor: f32,
-    /// Scale sensitivity factor for the scale handle.
+    /// Controls how fast objects change scale when the scale handle is used.
     pub scale_sensitivity: f32,
 }
 
