@@ -481,7 +481,9 @@ fn arrow_target(
         PopoverSide::Top => (
             Vec2::new(
                 clamp_arrow_axis(
-                    aligned_anchor_axis(
+                    aligned_arrow_axis(
+                        popover_rect.min.x,
+                        popover_rect.max.x,
                         anchor_rect.min.x,
                         anchor_rect.max.x,
                         placement.align,
@@ -498,7 +500,9 @@ fn arrow_target(
         PopoverSide::Bottom => (
             Vec2::new(
                 clamp_arrow_axis(
-                    aligned_anchor_axis(
+                    aligned_arrow_axis(
+                        popover_rect.min.x,
+                        popover_rect.max.x,
                         anchor_rect.min.x,
                         anchor_rect.max.x,
                         placement.align,
@@ -516,7 +520,9 @@ fn arrow_target(
             Vec2::new(
                 popover_rect.max.x,
                 clamp_arrow_axis(
-                    aligned_anchor_axis(
+                    aligned_arrow_axis(
+                        popover_rect.min.y,
+                        popover_rect.max.y,
                         anchor_rect.min.y,
                         anchor_rect.max.y,
                         placement.align,
@@ -533,7 +539,9 @@ fn arrow_target(
             Vec2::new(
                 popover_rect.min.x,
                 clamp_arrow_axis(
-                    aligned_anchor_axis(
+                    aligned_arrow_axis(
+                        popover_rect.min.y,
+                        popover_rect.max.y,
                         anchor_rect.min.y,
                         anchor_rect.max.y,
                         placement.align,
@@ -549,14 +557,24 @@ fn arrow_target(
     }
 }
 
-fn aligned_anchor_axis(min: f32, max: f32, align: PopoverAlign, margin: f32) -> f32 {
-    if max - min <= margin * 2.0 {
-        return (min + max) * 0.5;
-    }
-    match align {
-        PopoverAlign::Start => min + margin,
-        PopoverAlign::Center => (min + max) * 0.5,
-        PopoverAlign::End => max - margin,
+fn aligned_arrow_axis(
+    popover_min: f32,
+    popover_max: f32,
+    anchor_min: f32,
+    anchor_max: f32,
+    align: PopoverAlign,
+    margin: f32,
+) -> f32 {
+    let position = match align {
+        PopoverAlign::Start => 1.0 / 3.0,
+        PopoverAlign::Center => 0.5,
+        PopoverAlign::End => 2.0 / 3.0,
+    };
+    let popover_axis = popover_min + (popover_max - popover_min) * position;
+    if anchor_max - anchor_min <= margin * 2.0 {
+        (anchor_min + anchor_max) * 0.5
+    } else {
+        popover_axis.clamp(anchor_min + margin, anchor_max - margin)
     }
 }
 
