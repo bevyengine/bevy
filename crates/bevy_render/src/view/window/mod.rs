@@ -1,3 +1,4 @@
+use crate::camera::extract_view_target_info;
 use crate::renderer::WgpuWrapper;
 use crate::sync_world::{MainEntity, RenderEntity, SyncToRenderWorld};
 use crate::{camera::extract_cameras, renderer::RenderQueue};
@@ -49,7 +50,12 @@ impl Plugin for WindowRenderPlugin {
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .add_systems(ExtractSchedule, extract_windows.before(extract_cameras))
+                .add_systems(
+                    ExtractSchedule,
+                    extract_windows
+                        .before(extract_view_target_info)
+                        .before(extract_cameras),
+                )
                 .add_systems(
                     Render,
                     create_surfaces

@@ -19,7 +19,7 @@ use bevy_core_pipeline::{
 use bevy_ecs::prelude::*;
 use bevy_light::{EnvironmentMapLight, IrradianceVolume, ShadowFilteringMethod};
 use bevy_render::{
-    camera::ExtractedCamera,
+    camera::{ExtractedCamera, ViewTargetInfo},
     extract_component::{
         ComponentUniforms, ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin,
     },
@@ -399,6 +399,7 @@ pub fn prepare_deferred_lighting_pipelines(
         Entity,
         &ExtractedCamera,
         &ExtractedView,
+        &ViewTargetInfo,
         Option<&Tonemapping>,
         Option<&DebandDither>,
         Option<&ShadowFilteringMethod>,
@@ -425,6 +426,7 @@ pub fn prepare_deferred_lighting_pipelines(
         entity,
         camera,
         view,
+        target_info,
         tonemapping,
         dither,
         shadow_filter_method,
@@ -446,7 +448,7 @@ pub fn prepare_deferred_lighting_pipelines(
             continue;
         }
 
-        let mut view_key = MeshPipelineKey::from_target_format(view.target_format);
+        let mut view_key = MeshPipelineKey::from_target_format(target_info.color_format);
 
         if normal_prepass {
             view_key |= MeshPipelineKey::NORMAL_PREPASS;

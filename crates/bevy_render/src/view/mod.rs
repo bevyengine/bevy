@@ -10,7 +10,9 @@ pub use visibility::*;
 pub use window::*;
 
 use crate::{
-    camera::{ExtractedCamera, MipBias, NormalizedRenderTargetExt as _, TemporalJitter},
+    camera::{
+        ExtractedCamera, MipBias, NormalizedRenderTargetExt as _, TemporalJitter, ViewTargetInfo,
+    },
     extract_component::ExtractComponentPlugin,
     occlusion_culling::OcclusionCulling,
     render_asset::RenderAssets,
@@ -35,7 +37,6 @@ use bevy_image::ToExtents;
 use bevy_math::{mat3, vec2, vec3, Mat3, Mat4, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles};
 use bevy_platform::collections::{hash_map::Entry, HashMap};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render_macros::ExtractComponent;
 use bevy_shader::load_shader_library;
 use bevy_transform::components::GlobalTransform;
 use core::{
@@ -175,7 +176,6 @@ impl Plugin for ViewPlugin {
         app
             // NOTE: windows.is_changed() handles cases where a window was resized
             .add_plugins((
-                ExtractComponentPlugin::<Msaa>::default(),
                 ExtractComponentPlugin::<OcclusionCulling>::default(),
                 RenderVisibilityRangePlugin,
             ));
@@ -229,7 +229,6 @@ impl Plugin for ViewPlugin {
     Default,
     Clone,
     Copy,
-    ExtractComponent,
     Reflect,
     PartialEq,
     PartialOrd,
@@ -239,7 +238,6 @@ impl Plugin for ViewPlugin {
     Debug,
 )]
 #[reflect(Component, Default, PartialEq, Hash, Debug)]
-#[extract_app(RenderApp)]
 pub enum Msaa {
     Off = 1,
     Sample2 = 2,
@@ -364,11 +362,6 @@ pub struct ExtractedView {
     // `projection` and `transform` fields, which can be helpful in cases where numerical
     // stability matters and there is a more direct way to derive the view-projection matrix.
     pub clip_from_world: Option<Mat4>,
-    /// The [`TextureFormat`] this view will render to. Note that this may diverge from
-    /// the [`RenderTarget`](bevy_camera::RenderTarget)'s texture format. Among other
-    /// reasons, [`Hdr`](bevy_camera::Hdr) sets an the internal render target format
-    /// override to ensure sufficient precision is present for lighting calculations.
-    pub target_format: TextureFormat,
     // uvec4(origin.x, origin.y, width, height)
     pub viewport: UVec4,
     pub color_grading: ColorGrading,
@@ -696,7 +689,6 @@ pub struct ViewUniformOffset {
 #[derive(Component, Clone)]
 pub struct ViewTarget {
     main_textures: MainTargetTextures,
-    main_texture_format: TextureFormat,
     /// 0 represents `main_textures.a`, 1 represents `main_textures.b`
     /// This is shared across view targets with the same render target
     main_texture: Arc<AtomicUsize>,
@@ -902,16 +894,6 @@ impl ViewTarget {
             .resolve_target
             .as_ref()
             .map(|sampled| &sampled.default_view)
-    }
-
-    /// Currently bevy's main texture format can be:
-    /// - If rendering to screen:
-    ///   For HDR, it's `Rgba16Float`.
-    ///   For LDR, it's `Rgba8Unorm` when [`CompositingSpace::Srgb`], otherwise `Rgba8UnormSrgb`.
-    /// - If rendering to texture: the format is the same as texture view's format.
-    #[inline]
-    pub fn main_texture_format(&self) -> TextureFormat {
-        self.main_texture_format
     }
 
     /// The final texture this view will render to.
@@ -1290,7 +1272,7 @@ type MainTextureKey = (
     Option<NormalizedRenderTarget>,
     TextureUsages,
     TextureFormat,
-    Msaa,
+    u32,
 );
 
 pub fn prepare_view_targets(
@@ -1301,9 +1283,8 @@ pub fn prepare_view_targets(
     cameras: Query<(
         Entity,
         &ExtractedCamera,
-        &ExtractedView,
         &CameraMainTextureUsages,
-        &Msaa,
+        &ViewTargetInfo,
     )>,
     view_target_attachments: Res<ViewTargetAttachments>,
     mut main_texture_atomics: Local<HashMap<MainTextureKey, Weak<AtomicUsize>>>,
@@ -1311,13 +1292,7 @@ pub fn prepare_view_targets(
     main_texture_atomics.retain(|_, weak| weak.strong_count() > 0);
 
     let mut textures = <HashMap<_, _>>::default();
-    for (entity, camera, view, texture_usage, msaa) in cameras.iter() {
-        let Some(target_size) = camera.physical_target_size else {
-            // If we don't have a target size, we can't create the main texture and have to bail
-            commands.entity(entity).try_remove::<ViewTarget>();
-            continue;
-        };
-
+    for (entity, camera, texture_usage, target_info) in cameras.iter() {
         let out_attachment = camera
             .target
             .as_ref()
@@ -1329,8 +1304,6 @@ pub fn prepare_view_targets(
             commands.entity(entity).try_remove::<ViewTarget>();
             continue;
         }
-
-        let main_texture_format = view.target_format;
 
         let clear_color = match camera.clear_color {
             ClearColorConfig::Custom(color) => Some(color),
@@ -1350,23 +1323,19 @@ pub fn prepare_view_targets(
         let key: MainTextureKey = (
             camera.target.clone(),
             texture_usage.0,
-            main_texture_format,
-            *msaa,
+            target_info.color_format,
+            target_info.sample_count,
         );
         let (a, b, sampled, main_texture) = textures.entry(key.clone()).or_insert_with(|| {
             let descriptor = TextureDescriptor {
                 label: None,
-                size: target_size.to_extents(),
+                size: target_info.size.to_extents(),
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
-                format: main_texture_format,
+                format: target_info.color_format,
                 usage: texture_usage.0,
-                view_formats: match main_texture_format {
-                    TextureFormat::Bgra8Unorm => &[TextureFormat::Bgra8UnormSrgb],
-                    TextureFormat::Rgba8Unorm => &[TextureFormat::Rgba8UnormSrgb],
-                    _ => &[],
-                },
+                view_formats: &[],
             };
             let a = texture_cache.get(
                 &render_device,
@@ -1382,16 +1351,16 @@ pub fn prepare_view_targets(
                     ..descriptor
                 },
             );
-            let sampled = if msaa.samples() > 1 {
+            let sampled = if target_info.sample_count > 1 {
                 let sampled = texture_cache.get(
                     &render_device,
                     TextureDescriptor {
                         label: Some("main_texture_sampled"),
-                        size: target_size.to_extents(),
+                        size: target_info.size.to_extents(),
                         mip_level_count: 1,
-                        sample_count: msaa.samples(),
+                        sample_count: target_info.sample_count,
                         dimension: TextureDimension::D2,
-                        format: main_texture_format,
+                        format: target_info.color_format,
                         usage: TextureUsages::RENDER_ATTACHMENT,
                         view_formats: descriptor.view_formats,
                     },
@@ -1425,7 +1394,6 @@ pub fn prepare_view_targets(
         commands.entity(entity).insert(ViewTarget {
             main_texture: main_textures.main_texture.clone(),
             main_textures,
-            main_texture_format,
             out_texture: out_attachment.cloned(),
             compositing_space: camera.compositing_space,
         });

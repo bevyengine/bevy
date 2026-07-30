@@ -25,7 +25,7 @@ use bevy_ecs::{
 use bevy_math::{Mat3, Vec3, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    camera::ExtractedCamera,
+    camera::{ExtractedCamera, ViewTargetInfo},
     prelude::*,
     render_phase::{
         AddRenderCommand, DrawFunctions, PhaseItem, PhaseItemExtraIndex, RenderCommand,
@@ -363,7 +363,10 @@ fn queue_infinite_grids(
     mut pipelines: ResMut<SpecializedRenderPipelines<InfiniteGridPipeline>>,
     infinite_grids: Query<&GlobalTransform, With<InfiniteGridSettings>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
-    mut views: Query<(&ExtractedView, &RenderVisibleEntities, &Msaa), With<ExtractedCamera>>,
+    mut views: Query<
+        (&ExtractedView, &RenderVisibleEntities, &ViewTargetInfo),
+        With<ExtractedCamera>,
+    >,
 ) {
     let Some(draw_function_id) = transparent_draw_functions
         .read()
@@ -373,7 +376,7 @@ fn queue_infinite_grids(
         return;
     };
 
-    for (view, entities, msaa) in views.iter_mut() {
+    for (view, entities, target_info) in views.iter_mut() {
         let Some(phase) = transparent_render_phases.get_mut(&view.retained_view_entity) else {
             continue;
         };
@@ -382,8 +385,8 @@ fn queue_infinite_grids(
             &pipeline_cache,
             &pipeline,
             GridPipelineKey {
-                target_format: view.target_format,
-                sample_count: msaa.samples(),
+                target_format: target_info.color_format,
+                sample_count: target_info.sample_count,
             },
         );
 

@@ -2,7 +2,6 @@ use crate::{ScreenSpaceTransmission, Transmissive3d, ViewTransmissionTexture};
 
 use bevy_camera::{MainPassResolutionOverride, Viewport};
 use bevy_ecs::prelude::*;
-use bevy_image::ToExtents;
 use bevy_render::{
     camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
@@ -47,10 +46,6 @@ pub fn main_transmissive_pass_3d(
         return;
     };
 
-    let Some(physical_target_size) = camera.physical_target_size else {
-        return;
-    };
-
     #[cfg(feature = "trace")]
     let _main_transmissive_pass_3d_span = info_span!("main_transmissive_pass_3d").entered();
 
@@ -79,7 +74,7 @@ pub fn main_transmissive_pass_3d(
                 ctx.command_encoder().copy_texture_to_texture(
                     target.main_texture().as_image_copy(),
                     transmission.texture.as_image_copy(),
-                    physical_target_size.to_extents(),
+                    target.main_texture().size(),
                 );
 
                 let mut render_pass = ctx.begin_tracked_render_pass(render_pass_descriptor.clone());
