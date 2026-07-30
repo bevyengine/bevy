@@ -14,6 +14,7 @@ use bevy_math::{
 use crate::{circles::SphereBuilder, gizmos::GizmoBuffer, prelude::GizmoConfigGroup};
 
 const DEFAULT_RESOLUTION: u32 = 5;
+const DEFAULT_CAPSULE_RESOLUTION: u32 = 4;
 // length used to simulate infinite lines
 const INFINITE_LEN: f32 = 10_000.0;
 
