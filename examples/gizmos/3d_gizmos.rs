@@ -157,18 +157,7 @@ fn draw_example_collection(
         .map(|t| (t, TEAL.mix(&HOT_PINK, t / 5.0)));
     gizmos.curve_gradient_3d(curve, times_and_colors);
 
-    gizmos.capsule(
-        Isometry3d::new(
-            Vec3::new(-2., 0.75, 0.75),
-            Quat::from_rotation_y(ops::cos(time.elapsed_secs() / 2.0) * 10.0)
-                * Quat::from_rotation_z(PI / 3.0),
-        ),
-        0.25,
-        0.5,
-        YELLOW_GREEN,
-    );
-
-    gizmos.hemisphere(
+    gizmos.hemiellipsoid(
         Isometry3d::from_translation(Vec3::new(-3., 0.75, 0.75)),
         Vec2::new(0.35, 0.35),
         PURPLE,
