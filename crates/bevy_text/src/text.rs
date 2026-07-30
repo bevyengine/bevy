@@ -802,7 +802,7 @@ impl FontSize {
         // Viewport size in logical pixels
         logical_viewport_size: Vec2,
         // Base Rem size in logical pixels
-        rem_size: f32,
+        rem_size: RemSize,
     ) -> f32 {
         match self {
             FontSize::Px(s) => s,
@@ -810,7 +810,7 @@ impl FontSize {
             FontSize::Vh(s) => logical_viewport_size.y * s / 100.,
             FontSize::VMin(s) => logical_viewport_size.min_element() * s / 100.,
             FontSize::VMax(s) => logical_viewport_size.max_element() * s / 100.,
-            FontSize::Rem(s) => rem_size * s,
+            FontSize::Rem(s) => rem_size.0 * s,
         }
     }
 }
@@ -864,13 +864,16 @@ impl From<f32> for FontSize {
     }
 }
 
+/// Default RemSize in pixels
+pub const DEFAULT_REM_SIZE_PX: f32 = 20.0;
+
 /// Base value used to resolve `Rem` units for font sizes.
-#[derive(Resource, Copy, Clone, Debug, PartialEq, Deref, DerefMut)]
+#[derive(Resource, Copy, Clone, Debug, PartialEq, Deref, DerefMut, Reflect)]
 pub struct RemSize(pub f32);
 
 impl Default for RemSize {
     fn default() -> Self {
-        Self(20.)
+        Self(DEFAULT_REM_SIZE_PX)
     }
 }
 

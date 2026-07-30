@@ -14,7 +14,6 @@ use parley::style::{OverflowWrap, TextWrapMode, WordBreak};
 use parley::{Alignment, AlignmentOptions, Layout, PositionedLayoutItem, StyleProperty};
 use swash::FontRef;
 
-use crate::TextBrush;
 use crate::{
     add_glyph_to_atlas,
     error::TextError,
@@ -24,6 +23,7 @@ use crate::{
     Justify, LetterSpacing, LineBreak, LineHeight, PositionedGlyph, TextBounds, TextEntity,
     TextFont, TextLayout,
 };
+use crate::{RemSize, TextBrush};
 
 struct TextSectionView<'a> {
     index: usize,
@@ -71,7 +71,7 @@ impl TextPipeline {
         font_cx: &mut FontCx,
         layout_cx: &mut LayoutCx,
         logical_viewport_size: Vec2,
-        base_rem_size: f32,
+        base_rem_size: RemSize,
     ) -> Result<(), TextError> {
         computed.entities.clear();
         computed.needs_rerender = false;
@@ -201,7 +201,7 @@ impl TextPipeline {
                     range.clone(),
                 );
                 builder.push(
-                    StyleProperty::LetterSpacing(section.letter_spacing.eval(base_rem_size)),
+                    StyleProperty::LetterSpacing(section.letter_spacing.eval(base_rem_size.0)),
                     range.clone(),
                 );
                 builder.push(
@@ -262,7 +262,7 @@ impl TextPipeline {
         font_system: &mut FontCx,
         layout_cx: &mut LayoutCx,
         logical_viewport_size: Vec2,
-        base_rem_size: f32,
+        base_rem_size: RemSize,
     ) -> Result<TextMeasureInfo, TextError> {
         const MIN_WIDTH_CONTENT_BOUNDS: TextBounds = TextBounds::new_horizontal(0.0);
 

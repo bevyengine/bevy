@@ -319,6 +319,8 @@ pub fn extract_shadows(
                 Val::Vh(percent) => percent / 100. * ui_physical_viewport_size.y,
                 Val::VMin(percent) => percent / 100. * ui_physical_viewport_size.min_element(),
                 Val::VMax(percent) => percent / 100. * ui_physical_viewport_size.max_element(),
+                Val::Em(em) => em * uinode.em_size.0 * scale_factor,
+                Val::Rem(rem) => rem * uinode.rem_size.0 * scale_factor,
             };
 
             let spread_x = resolve_val(drop_shadow.spread_radius, uinode.size().x, scale_factor);

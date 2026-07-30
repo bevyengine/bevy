@@ -1,12 +1,14 @@
 use bevy_math::{MismatchedUnitsError, StableInterpolate as _, TryStableInterpolate, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_text::FontSize;
+use bevy_text::{FontSize, RemSize};
 use bevy_utils::default;
 use core::ops::{Div, DivAssign, Mul, MulAssign, Neg};
 use thiserror::Error;
 
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+
+use crate::EmSize;
 
 /// Represents the possible value types for layout properties.
 ///
@@ -55,6 +57,10 @@ pub enum Val {
     VMin(f32),
     /// Set this value in percent of the viewport's larger dimension.
     VMax(f32),
+    /// Use an `EmSize` component or the global `RemSize` resource to turn into pixels
+    Em(f32),
+    /// Use the `RemSize` resource (if available) to turn into pixels
+    Rem(f32),
 }
 
 #[derive(Debug, Error, PartialEq, Eq)]
@@ -115,6 +121,10 @@ impl core::str::FromStr for Val {
             Ok(Val::VMin(value))
         } else if unit.eq_ignore_ascii_case("vmax") {
             Ok(Val::VMax(value))
+        } else if unit.eq_ignore_ascii_case("rem") {
+            Ok(Val::Rem(value))
+        } else if unit.eq_ignore_ascii_case("em") {
+            Ok(Val::Em(value))
         } else {
             Err(ValParseError::InvalidUnit)
         }
@@ -132,32 +142,17 @@ impl PartialEq for Val {
                 | (Self::Vh(_), Self::Vh(_))
                 | (Self::VMin(_), Self::VMin(_))
                 | (Self::VMax(_), Self::VMax(_))
+                | (Self::Em(_), Self::Em(_))
+                | (Self::Rem(_), Self::Rem(_))
         );
 
-        let left = match self {
-            Self::Auto => None,
-            Self::Px(v)
-            | Self::Percent(v)
-            | Self::Vw(v)
-            | Self::Vh(v)
-            | Self::VMin(v)
-            | Self::VMax(v) => Some(v),
-        };
-
-        let right = match other {
-            Self::Auto => None,
-            Self::Px(v)
-            | Self::Percent(v)
-            | Self::Vw(v)
-            | Self::Vh(v)
-            | Self::VMin(v)
-            | Self::VMax(v) => Some(v),
-        };
+        let left = self.inner();
+        let right = other.inner();
 
         match (same_unit, left, right) {
             (true, a, b) => a == b,
             // All zero-value variants are considered equal.
-            (false, Some(&a), Some(&b)) => a == 0. && b == 0.,
+            (false, Some(a), Some(b)) => a == 0. && b == 0.,
             _ => false,
         }
     }
@@ -166,6 +161,21 @@ impl PartialEq for Val {
 impl Val {
     pub const DEFAULT: Self = Self::Auto;
     pub const ZERO: Self = Self::Px(0.0);
+
+    /// Returns the raw inner from a `Val` if it has one
+    pub fn inner(self) -> Option<f32> {
+        match self {
+            Self::Auto => None,
+            Self::Px(v)
+            | Self::Percent(v)
+            | Self::Vw(v)
+            | Self::Vh(v)
+            | Self::VMin(v)
+            | Self::VMax(v)
+            | Self::Em(v)
+            | Self::Rem(v) => Some(v),
+        }
+    }
 
     /// Returns a [`UiRect`] with its `left` equal to this value,
     /// and all other fields set to `Val::ZERO`.
@@ -323,6 +333,8 @@ impl Val {
             (Val::Vh(u), Val::Vh(v)) => Ok(Val::Vh(u + v)),
             (Val::VMin(u), Val::VMin(v)) => Ok(Val::VMin(u + v)),
             (Val::VMax(u), Val::VMax(v)) => Ok(Val::VMax(u + v)),
+            (Val::Em(u), Val::Em(v)) => Ok(Val::Em(u + v)),
+            (Val::Rem(u), Val::Rem(v)) => Ok(Val::Rem(u + v)),
             _ => Err(ValArithmeticError::IncompatibleUnits),
         }
     }
@@ -347,6 +359,8 @@ impl Val {
             (Val::Vh(u), Val::Vh(v)) => Ok(Val::Vh(u - v)),
             (Val::VMin(u), Val::VMin(v)) => Ok(Val::VMin(u - v)),
             (Val::VMax(u), Val::VMax(v)) => Ok(Val::VMax(u - v)),
+            (Val::Em(u), Val::Em(v)) => Ok(Val::Em(u - v)),
+            (Val::Rem(u), Val::Rem(v)) => Ok(Val::Rem(u - v)),
             _ => Err(ValArithmeticError::IncompatibleUnits),
         }
     }
@@ -370,6 +384,8 @@ impl Mul<f32> for Val {
             Val::Vh(value) => Val::Vh(value * rhs),
             Val::VMin(value) => Val::VMin(value * rhs),
             Val::VMax(value) => Val::VMax(value * rhs),
+            Val::Em(value) => Val::Em(value * rhs),
+            Val::Rem(value) => Val::Rem(value * rhs),
         }
     }
 }
@@ -383,7 +399,9 @@ impl MulAssign<f32> for Val {
             | Val::Vw(value)
             | Val::Vh(value)
             | Val::VMin(value)
-            | Val::VMax(value) => *value *= rhs,
+            | Val::VMax(value)
+            | Val::Em(value)
+            | Val::Rem(value) => *value *= rhs,
         }
     }
 }
@@ -400,6 +418,8 @@ impl Div<f32> for Val {
             Val::Vh(value) => Val::Vh(value / rhs),
             Val::VMin(value) => Val::VMin(value / rhs),
             Val::VMax(value) => Val::VMax(value / rhs),
+            Val::Em(value) => Val::Em(value / rhs),
+            Val::Rem(value) => Val::Rem(value / rhs),
         }
     }
 }
@@ -413,7 +433,9 @@ impl DivAssign<f32> for Val {
             | Val::Vw(value)
             | Val::Vh(value)
             | Val::VMin(value)
-            | Val::VMax(value) => *value /= rhs,
+            | Val::VMax(value)
+            | Val::Em(value)
+            | Val::Rem(value) => *value /= rhs,
         }
     }
 }
@@ -423,13 +445,15 @@ impl Neg for Val {
 
     fn neg(self) -> Self::Output {
         match self {
+            Val::Auto => Val::Auto,
             Val::Px(value) => Val::Px(-value),
             Val::Percent(value) => Val::Percent(-value),
             Val::Vw(value) => Val::Vw(-value),
             Val::Vh(value) => Val::Vh(-value),
             Val::VMin(value) => Val::VMin(-value),
             Val::VMax(value) => Val::VMax(-value),
-            _ => self,
+            Val::Em(value) => Val::Em(-value),
+            Val::Rem(value) => Val::Rem(-value),
         }
     }
 }
@@ -452,6 +476,8 @@ impl Val {
         scale_factor: f32,
         physical_base_value: f32,
         physical_target_size: Vec2,
+        em_size: EmSize,
+        rem_size: RemSize,
     ) -> Result<f32, ValArithmeticError> {
         match self {
             Val::Percent(value) => Ok(physical_base_value * value / 100.0),
@@ -464,14 +490,16 @@ impl Val {
             Val::VMax(value) => {
                 Ok(physical_target_size.x.max(physical_target_size.y) * value / 100.0)
             }
+            Val::Em(value) => Ok(value * em_size.0 * scale_factor),
+            Val::Rem(value) => Ok(value * rem_size.0 * scale_factor),
             Val::Auto => Err(ValArithmeticError::NonEvaluable),
         }
     }
 }
 
 impl From<Val> for FontSize {
-    fn from(value: Val) -> Self {
-        match value {
+    fn from(val: Val) -> Self {
+        match val {
             Val::Auto => FontSize::Rem(1.),
             Val::Px(px) => FontSize::Px(px),
             Val::Percent(percent) => FontSize::Rem(percent / 100.),
@@ -479,6 +507,11 @@ impl From<Val> for FontSize {
             Val::Vh(vh) => FontSize::Vh(vh),
             Val::VMin(vmin) => FontSize::VMin(vmin),
             Val::VMax(vmax) => FontSize::VMax(vmax),
+            Val::Rem(rem) => FontSize::Rem(rem),
+            // `em` is relative to the font size of the node itself, which is
+            // what's being defined here, so fall back to the rem base,
+            // consistent with how `Val::Em` resolves on nodes without a `TextFont`.
+            Val::Em(em) => FontSize::Rem(em),
         }
     }
 }
@@ -540,6 +573,16 @@ pub const fn auto() -> Val {
 /// Returns a [`Val::Px`] representing a value in logical pixels.
 pub fn px<T: ValNum>(value: T) -> Val {
     Val::Px(value.val_num_f32())
+}
+
+/// Returns a [`Val::Em`]
+pub fn em<T: ValNum>(value: T) -> Val {
+    Val::Em(value.val_num_f32())
+}
+
+/// Returns a [`Val::Rem`]
+pub fn rem<T: ValNum>(value: T) -> Val {
+    Val::Rem(value.val_num_f32())
 }
 
 /// Returns a [`Val::Percent`] representing a percentage of the parent node's length
@@ -1136,16 +1179,30 @@ impl UiPosition {
         scale_factor: f32,
         physical_size: Vec2,
         physical_target_size: Vec2,
+        em_size: EmSize,
+        rem_size: RemSize,
     ) -> Vec2 {
         let d = self.anchor.map(|p| if 0. < p { -1. } else { 1. });
 
         physical_size * self.anchor
             + d * Vec2::new(
                 self.x
-                    .resolve(scale_factor, physical_size.x, physical_target_size)
+                    .resolve(
+                        scale_factor,
+                        physical_size.x,
+                        physical_target_size,
+                        em_size,
+                        rem_size,
+                    )
                     .unwrap_or(0.),
                 self.y
-                    .resolve(scale_factor, physical_size.y, physical_target_size)
+                    .resolve(
+                        scale_factor,
+                        physical_size.y,
+                        physical_target_size,
+                        em_size,
+                        rem_size,
+                    )
                     .unwrap_or(0.),
             )
     }
@@ -1345,7 +1402,9 @@ mod tests {
     fn val_evaluate() {
         let size = 250.;
         let viewport_size = vec2(1000., 500.);
-        let result = Val::Percent(80.).resolve(1., size, viewport_size).unwrap();
+        let result = Val::Percent(80.)
+            .resolve(1., size, viewport_size, EmSize(20.0), RemSize(20.0))
+            .unwrap();
 
         assert_eq!(result, size * 0.8);
     }
@@ -1354,14 +1413,29 @@ mod tests {
     fn val_resolve_px() {
         let size = 250.;
         let viewport_size = vec2(1000., 500.);
-        let result = Val::Px(10.).resolve(1., size, viewport_size).unwrap();
 
+        let result = Val::Px(10.)
+            .resolve(1., size, viewport_size, EmSize(20.0), RemSize(20.0))
+            .unwrap();
         assert_eq!(result, 10.);
 
-        let result = Val::Px(10.).resolve(3., size, viewport_size).unwrap();
+        let result = Val::Px(10.)
+            .resolve(3., size, viewport_size, EmSize(20.0), RemSize(20.0))
+            .unwrap();
         assert_eq!(result, 30.);
-        let result = Val::Px(10.).resolve(0.25, size, viewport_size).unwrap();
+        let result = Val::Px(10.)
+            .resolve(0.25, size, viewport_size, EmSize(20.0), RemSize(20.0))
+            .unwrap();
         assert_eq!(result, 2.5);
+
+        let result = Val::Em(1.)
+            .resolve(1., size, viewport_size, EmSize(20.0), RemSize(20.0))
+            .unwrap();
+        assert_eq!(result, 20.0);
+        let result = Val::Rem(1.)
+            .resolve(1., size, viewport_size, EmSize(20.0), RemSize(20.0))
+            .unwrap();
+        assert_eq!(result, 20.0);
     }
 
     #[test]
@@ -1407,36 +1481,54 @@ mod tests {
         for value in (-10..10).map(|value| value as f32) {
             // for a square viewport there should be no difference between `Vw` and `Vh` and between `Vmin` and `Vmax`.
             assert_eq!(
-                Val::Vw(value).resolve(1., size, viewport_size),
-                Val::Vh(value).resolve(1., size, viewport_size)
+                Val::Vw(value).resolve(1., size, viewport_size, EmSize(20.0), RemSize(20.0)),
+                Val::Vh(value).resolve(1., size, viewport_size, EmSize(20.0), RemSize(20.0))
             );
             assert_eq!(
-                Val::VMin(value).resolve(1., size, viewport_size),
-                Val::VMax(value).resolve(1., size, viewport_size)
+                Val::VMin(value).resolve(1., size, viewport_size, EmSize(20.0), RemSize(20.0)),
+                Val::VMax(value).resolve(1., size, viewport_size, EmSize(20.0), RemSize(20.0))
             );
             assert_eq!(
-                Val::VMin(value).resolve(1., size, viewport_size),
-                Val::Vw(value).resolve(1., size, viewport_size)
+                Val::VMin(value).resolve(1., size, viewport_size, EmSize(20.0), RemSize(20.0)),
+                Val::Vw(value).resolve(1., size, viewport_size, EmSize(20.0), RemSize(20.0))
             );
         }
 
         let viewport_size = vec2(1000., 500.);
         assert_eq!(
-            Val::Vw(100.).resolve(1., size, viewport_size).unwrap(),
+            Val::Vw(100.)
+                .resolve(1., size, viewport_size, EmSize(20.0), RemSize(20.0))
+                .unwrap(),
             1000.
         );
         assert_eq!(
-            Val::Vh(100.).resolve(1., size, viewport_size).unwrap(),
+            Val::Vh(100.)
+                .resolve(1., size, viewport_size, EmSize(20.0), RemSize(20.0))
+                .unwrap(),
             500.
         );
-        assert_eq!(Val::Vw(60.).resolve(1., size, viewport_size).unwrap(), 600.);
-        assert_eq!(Val::Vh(40.).resolve(1., size, viewport_size).unwrap(), 200.);
         assert_eq!(
-            Val::VMin(50.).resolve(1., size, viewport_size).unwrap(),
+            Val::Vw(60.)
+                .resolve(1., size, viewport_size, EmSize(20.0), RemSize(20.0))
+                .unwrap(),
+            600.
+        );
+        assert_eq!(
+            Val::Vh(40.)
+                .resolve(1., size, viewport_size, EmSize(20.0), RemSize(20.0))
+                .unwrap(),
+            200.
+        );
+        assert_eq!(
+            Val::VMin(50.)
+                .resolve(1., size, viewport_size, EmSize(20.0), RemSize(20.0))
+                .unwrap(),
             250.
         );
         assert_eq!(
-            Val::VMax(75.).resolve(1., size, viewport_size).unwrap(),
+            Val::VMax(75.)
+                .resolve(1., size, viewport_size, EmSize(20.0), RemSize(20.0))
+                .unwrap(),
             750.
         );
     }
@@ -1445,7 +1537,7 @@ mod tests {
     fn val_auto_is_non_evaluable() {
         let size = 250.;
         let viewport_size = vec2(1000., 500.);
-        let resolve_auto = Val::Auto.resolve(1., size, viewport_size);
+        let resolve_auto = Val::Auto.resolve(1., size, viewport_size, EmSize(20.0), RemSize(20.0));
 
         assert_eq!(resolve_auto, Err(ValArithmeticError::NonEvaluable));
     }
@@ -1548,6 +1640,9 @@ mod tests {
         assert_eq!("3.5vmax".parse::<Val>(), Ok(Val::VMax(3.5)));
         assert_eq!("-3vmax".parse::<Val>(), Ok(Val::VMax(-3.)));
         assert_eq!("3.5 VMAX".parse::<Val>(), Ok(Val::VMax(3.5)));
+
+        assert_eq!("3em".parse::<Val>(), Ok(Val::Em(3.)));
+        assert_eq!("3rem".parse::<Val>(), Ok(Val::Rem(3.)));
 
         assert_eq!("".parse::<Val>(), Err(ValParseError::UnitMissing));
         assert_eq!(

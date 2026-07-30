@@ -9,6 +9,7 @@ use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_math::{BVec2, Rect, UVec2, Vec2, Vec4, Vec4Swizzles};
 use bevy_reflect::prelude::*;
 use bevy_sprite::BorderRect;
+use bevy_text::{RemSize, DEFAULT_REM_SIZE_PX};
 use bevy_utils::once;
 use bevy_window::{PrimaryWindow, WindowRef};
 use core::{f32, num::NonZero};
@@ -72,6 +73,16 @@ pub struct ComputedNode {
     /// Inverse scale factor for this Node.
     /// Multiply physical coordinates by the inverse scale factor to give logical coordinates.
     pub inverse_scale_factor: f32,
+    /// Stored em spacing for this Node.
+    ///
+    /// [`ui_layout_system`](`super::layout::ui_layout_system`) bypasses change detection
+    /// when updating this field.
+    pub em_size: EmSize,
+    /// Stored rem spacing for this Node. Technically could be shared but easier to store here
+    ///
+    /// [`ui_layout_system`](`super::layout::ui_layout_system`) bypasses change detection
+    /// when updating this field.
+    pub rem_size: RemSize,
 }
 
 impl ComputedNode {
@@ -389,6 +400,8 @@ impl ComputedNode {
         border: BorderRect::ZERO,
         padding: BorderRect::ZERO,
         inverse_scale_factor: 1.,
+        em_size: EmSize(DEFAULT_REM_SIZE_PX),
+        rem_size: RemSize(DEFAULT_REM_SIZE_PX),
     };
 }
 
@@ -2772,6 +2785,8 @@ impl BorderRadius {
         scale_factor: f32,
         node_size: Vec2,
         viewport_size: Vec2,
+        em_size: EmSize,
+        rem_size: RemSize,
     ) -> ResolvedBorderRadius {
         ResolvedBorderRadius {
             top_left: self
