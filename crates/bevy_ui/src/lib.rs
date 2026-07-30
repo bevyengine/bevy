@@ -79,7 +79,7 @@ pub mod prelude {
         },
         // `bevy_sprite` re-exports for texture slicing
         bevy_sprite::{BorderRect, SliceScaleMode, SpriteImageMode, TextureSlicer},
-        bevy_text::TextBackgroundColor,
+        bevy_text::{RemSize, TextBackgroundColor},
     };
 }
 
