@@ -9,14 +9,13 @@ use bevy_core_pipeline::{
 use bevy_ecs::prelude::*;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    camera::ExtractedCamera,
+    camera::{ExtractedCamera, ViewTargetInfo},
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_resource::{
         binding_types::{sampler, texture_2d},
         *,
     },
     renderer::RenderDevice,
-    view::ExtractedView,
     GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::Shader;
@@ -194,9 +193,9 @@ pub fn prepare_fxaa_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<FxaaPipeline>>,
     fxaa_pipeline: Res<FxaaPipeline>,
-    cameras: Query<(Entity, &ExtractedView, &Fxaa), With<ExtractedCamera>>,
+    cameras: Query<(Entity, &ViewTargetInfo, &Fxaa), With<ExtractedCamera>>,
 ) {
-    for (entity, view, fxaa) in &cameras {
+    for (entity, target_info, fxaa) in &cameras {
         if !fxaa.enabled {
             continue;
         }
@@ -206,7 +205,7 @@ pub fn prepare_fxaa_pipelines(
             FxaaPipelineKey {
                 edge_threshold: fxaa.edge_threshold,
                 edge_threshold_min: fxaa.edge_threshold_min,
-                target_format: view.target_format,
+                target_format: target_info.color_format,
             },
         );
 

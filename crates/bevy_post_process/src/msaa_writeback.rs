@@ -7,11 +7,11 @@ use bevy_core_pipeline::{
 };
 use bevy_ecs::prelude::*;
 use bevy_render::{
-    camera::ExtractedCamera,
+    camera::{ExtractedCamera, ViewTargetInfo},
     diagnostic::RecordDiagnostics,
     render_resource::*,
     renderer::{RenderContext, ViewQuery},
-    view::{Msaa, ViewTarget},
+    view::ViewTarget,
     Render, RenderApp, RenderSystems,
 };
 
@@ -35,14 +35,14 @@ impl Plugin for MsaaWritebackPlugin {
 }
 
 pub(crate) fn msaa_writeback(
-    view: ViewQuery<(&ViewTarget, &MsaaWritebackBlitPipeline, &Msaa)>,
+    view: ViewQuery<(&ViewTarget, &MsaaWritebackBlitPipeline, &ViewTargetInfo)>,
     blit_pipeline: Res<BlitPipeline>,
     pipeline_cache: Res<PipelineCache>,
     mut ctx: RenderContext,
 ) {
-    let (target, blit_pipeline_id, msaa) = view.into_inner();
+    let (target, blit_pipeline_id, target_info) = view.into_inner();
 
-    if *msaa == Msaa::Off {
+    if target_info.sample_count == 1 {
         return;
     }
 
@@ -102,28 +102,24 @@ fn prepare_msaa_writeback_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<BlitPipeline>>,
     blit_pipeline: Res<BlitPipeline>,
-    view_targets: Query<(Entity, &ViewTarget, &ExtractedCamera, &Msaa)>,
+    view_targets: Query<(Entity, &ExtractedCamera, &ViewTargetInfo)>,
 ) {
-    for (entity, view_target, camera, msaa) in view_targets.iter() {
+    for (entity, camera, target_info) in view_targets.iter() {
         // Determine if we should do MSAA writeback based on the camera's setting
         let should_writeback = match camera.msaa_writeback {
             MsaaWriteback::Off => false,
             // writeback is needed when the main pass must load existing content
-            // from the main texture, either because another camera already
-            // rendered to this target or because this camera preserves content across
+            // from the main texture, because this camera preserves content across
             // frames via load op load. otherwise we'd read from an ephemeral sampled
             // texture that doesn't have the real content
-            MsaaWriteback::Auto => {
-                camera.sorted_camera_index_for_target > 0
-                    || matches!(camera.clear_color, ClearColorConfig::None)
-            }
+            MsaaWriteback::Auto => matches!(camera.clear_color, ClearColorConfig::None),
             MsaaWriteback::Always => true,
         };
 
-        if msaa.samples() > 1 && should_writeback {
+        if target_info.sample_count > 1 && should_writeback {
             let key = BlitPipelineKey {
-                target_format: view_target.main_texture_format(),
-                samples: msaa.samples(),
+                target_format: target_info.color_format,
+                samples: target_info.sample_count,
                 blend_state: None,
                 source_space: None,
             };

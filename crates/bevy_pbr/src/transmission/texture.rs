@@ -7,7 +7,7 @@ use bevy_ecs::{
 use bevy_image::ToExtents;
 use bevy_platform::collections::HashMap;
 use bevy_render::{
-    camera::ExtractedCamera,
+    camera::{ExtractedCamera, ViewTargetInfo},
     render_phase::{ViewBinnedRenderPhases, ViewSortedRenderPhases},
     render_resource::{
         FilterMode, Sampler, SamplerDescriptor, Texture, TextureDescriptor, TextureDimension,
@@ -40,10 +40,11 @@ pub fn prepare_core_3d_transmission_textures(
         &ExtractedCamera,
         &ScreenSpaceTransmission,
         &ExtractedView,
+        &ViewTargetInfo,
     )>,
 ) {
     let mut textures = <HashMap<_, _>>::default();
-    for (entity, camera, transmission, view) in &views_3d {
+    for (entity, camera, transmission, view, target_info) in &views_3d {
         if !opaque_3d_phases.contains_key(&view.retained_view_entity)
             || !alpha_mask_3d_phases.contains_key(&view.retained_view_entity)
             || !transparent_3d_phases.contains_key(&view.retained_view_entity)
@@ -53,10 +54,6 @@ pub fn prepare_core_3d_transmission_textures(
 
         let Some(transmissive_3d_phase) = transmissive_3d_phases.get(&view.retained_view_entity)
         else {
-            continue;
-        };
-
-        let Some(physical_target_size) = camera.physical_target_size else {
             continue;
         };
 
@@ -71,18 +68,18 @@ pub fn prepare_core_3d_transmission_textures(
         }
 
         let cached_texture = textures
-            .entry(camera.target.clone())
+            .entry((camera.target.clone(), target_info))
             .or_insert_with(|| {
                 let usage = TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST;
 
                 let descriptor = TextureDescriptor {
                     label: Some("view_transmission_texture"),
                     // The size of the transmission texture
-                    size: physical_target_size.to_extents(),
+                    size: target_info.size.to_extents(),
                     mip_level_count: 1,
                     sample_count: 1, // No need for MSAA, as we'll only copy the main texture here
                     dimension: TextureDimension::D2,
-                    format: view.target_format,
+                    format: target_info.color_format,
                     usage,
                     view_formats: &[],
                 };

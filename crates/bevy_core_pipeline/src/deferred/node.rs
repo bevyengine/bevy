@@ -7,7 +7,6 @@ use bevy_log::error;
 use bevy_log::info_span;
 use bevy_render::view::{ExtractedView, NoIndirectDrawing};
 use bevy_render::{
-    camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
     render_phase::ViewBinnedRenderPhases,
     render_resource::{RenderPassDescriptor, StoreOp},
@@ -21,7 +20,6 @@ use super::{AlphaMask3dDeferred, Opaque3dDeferred};
 
 /// Type alias for the deferred prepass view query.
 type DeferredPrepassViewQueryData = (
-    &'static ExtractedCamera,
     &'static ExtractedView,
     &'static ViewDepthStencilTexture,
     &'static ViewPrepassTextures,
@@ -38,20 +36,12 @@ pub(crate) fn early_deferred_prepass(
     mut ctx: RenderContext,
 ) {
     let view_entity = view.entity();
-    let (
-        camera,
-        extracted_view,
-        view_depth_texture,
-        view_prepass_textures,
-        resolution_override,
-        _,
-        _,
-    ) = view.into_inner();
+    let (extracted_view, view_depth_texture, view_prepass_textures, resolution_override, _, _) =
+        view.into_inner();
 
     run_deferred_prepass_system(
         world,
         view_entity,
-        camera,
         extracted_view,
         view_depth_texture,
         view_prepass_textures,
@@ -73,7 +63,6 @@ pub fn late_deferred_prepass(
 ) {
     let view_entity = view.entity();
     let (
-        camera,
         extracted_view,
         view_depth_texture,
         view_prepass_textures,
@@ -89,7 +78,6 @@ pub fn late_deferred_prepass(
     run_deferred_prepass_system(
         world,
         view_entity,
-        camera,
         extracted_view,
         view_depth_texture,
         view_prepass_textures,
@@ -109,7 +97,6 @@ pub fn late_deferred_prepass(
 fn run_deferred_prepass_system(
     world: &World,
     view_entity: Entity,
-    camera: &ExtractedCamera,
     extracted_view: &ExtractedView,
     view_depth_texture: &ViewDepthStencilTexture,
     view_prepass_textures: &ViewPrepassTextures,
@@ -216,9 +203,7 @@ fn run_deferred_prepass_system(
     });
     let pass_span = diagnostics.pass_span(&mut render_pass, label);
 
-    if let Some(viewport) =
-        Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
-    {
+    if let Some(viewport) = Viewport::from_main_pass_resolution_override(resolution_override) {
         render_pass.set_camera_viewport(&viewport);
     }
 

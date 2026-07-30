@@ -9,6 +9,7 @@ use bevy_image::{CompressedImageFormats, Image, ImageSampler, ImageType};
 use bevy_log::error;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
+    camera::ViewTargetInfo,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     extract_resource::{ExtractResource, ExtractResourcePlugin},
     render_asset::RenderAssets,
@@ -339,13 +340,14 @@ pub fn prepare_view_tonemapping_pipelines(
         (
             Entity,
             &ExtractedView,
+            &ViewTargetInfo,
             Option<&Tonemapping>,
             Option<&DebandDither>,
         ),
         With<ViewTarget>,
     >,
 ) {
-    for (entity, view, tonemapping, dither) in view_targets.iter() {
+    for (entity, view, target_info, tonemapping, dither) in view_targets.iter() {
         // As an optimization, we omit parts of the shader that are unneeded.
         let mut flags = TonemappingPipelineKeyFlags::empty();
         flags.set(
@@ -364,7 +366,7 @@ pub fn prepare_view_tonemapping_pipelines(
         );
 
         let key = TonemappingPipelineKey {
-            target_format: view.target_format,
+            target_format: target_info.color_format,
             deband_dither: *dither.unwrap_or(&DebandDither::Disabled),
             tonemapping: *tonemapping.unwrap_or(&Tonemapping::None),
             flags,
