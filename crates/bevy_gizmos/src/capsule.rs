@@ -1,6 +1,6 @@
 //! Additional [`GizmoBuffer`] Functions -- Capsule.
 //!
-//! Includes the implementation of [`GizmoBuffer::capsule`], [`GizmoBuffer::hemisphere`], and assorted support items.
+//! Includes the implementation of [`GizmoBuffer::capsule`], and assorted support items.
 
 use crate::{circles::DEFAULT_CIRCLE_RESOLUTION, gizmos::GizmoBuffer, prelude::GizmoConfigGroup};
 use bevy_color::Color;
@@ -113,7 +113,7 @@ where
             Vec3::new(-half_length, 0., 0.),
             Quat::from_rotation_z(FRAC_PI_2),
         );
-        self.gizmos.hemisphere(
+        self.gizmos.hemiellipsoid(
             self.isometry * base_cap,
             Vec2::new(self.radius, self.radius),
             self.color,
@@ -124,7 +124,7 @@ where
             Vec3::new(half_length, 0., 0.),
             Quat::from_rotation_z(-FRAC_PI_2),
         );
-        self.gizmos.hemisphere(
+        self.gizmos.hemiellipsoid(
             self.isometry * top_cap,
             Vec2::new(self.radius, self.radius),
             self.color,
@@ -158,12 +158,12 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    /// Draw an wireframe hemiellipsoid in 3D made of an ellipse and 2 half-ellipses with the given `isometry` applied.
+    /// Draw a wireframe hemiellipsoid in 3D made of an ellipse and 2 half-ellipses with the given `isometry` applied.
     ///
     /// If `isometry == Isometry3d::IDENTITY` then
     ///
-    /// - the center is at `Vec3::ZERO`,
-    /// - the apex is aligned with the `Vec3::Y` axes
+    /// - the center is at `Vec3::ZERO`
+    /// - the apex is aligned with the `Vec3::Y` axis
     ///
     /// # Example
     /// ```
@@ -171,24 +171,24 @@ where
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::{RED, GREEN};
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.hemisphere(Isometry3d::IDENTITY, Vec2::new(0.5, 0.5), GREEN);
+    ///     gizmos.hemiellipsoid(Isometry3d::IDENTITY, Vec2::new(0.5, 0.5), GREEN);
     ///
-    ///     // Hemispherses have a resolution of 32 line-segments by default.
+    ///     // Hemiellipsoids have a resolution of 32 line-segments by default.
     ///     // You may want to increase this for larger hemispheres.
     ///     gizmos
-    ///         .hemisphere(Isometry3d::IDENTITY, Vec2::new(0.5, 0.5), RED)
+    ///         .hemiellipsoid(Isometry3d::IDENTITY, Vec2::new(0.5, 0.5), RED)
     ///         .resolution(64);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[inline]
-    pub fn hemisphere(
+    pub fn hemiellipsoid(
         &mut self,
         isometry: impl Into<Isometry3d>,
         half_size: Vec2,
         color: impl Into<Color>,
-    ) -> HemisphereBuilder<'_, Config, Clear> {
-        HemisphereBuilder {
+    ) -> HemiellipsoidBuilder<'_, Config, Clear> {
+        HemiellipsoidBuilder {
             gizmos: self,
             isometry: isometry.into(),
             half_size,
@@ -198,8 +198,8 @@ where
     }
 }
 
-/// A builder returned by [`GizmoBuffer::hemisphere`].
-pub struct HemisphereBuilder<'a, Config, Clear>
+/// A builder returned by [`GizmoBuffer::hemiellipsoid`].
+pub struct HemiellipsoidBuilder<'a, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -207,29 +207,29 @@ where
     gizmos: &'a mut GizmoBuffer<Config, Clear>,
     isometry: Isometry3d,
 
-    // Size of the hemisphere along the X and Z axis
+    // Size of the hemiellipsoid along the X and Z axis
     half_size: Vec2,
 
-    // Color of the hemisphere
+    // Color of the hemiellipsoid
     color: Color,
 
-    // Number of line-segments used to approximate the hemisphere geometry
+    // Number of line-segments used to approximate the hemiellipsoid geometry
     resolution: u32,
 }
 
-impl<Config, Clear> HemisphereBuilder<'_, Config, Clear>
+impl<Config, Clear> HemiellipsoidBuilder<'_, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    /// Set the number of line-segments used to approximate the hemisphere geometry.
+    /// Set the number of line-segments used to approximate the hemiellipsoid geometry.
     pub fn resolution(mut self, resolution: u32) -> Self {
         self.resolution = resolution;
         self
     }
 }
 
-impl<Config, Clear> Drop for HemisphereBuilder<'_, Config, Clear>
+impl<Config, Clear> Drop for HemiellipsoidBuilder<'_, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -274,7 +274,7 @@ where
     ///
     /// If `isometry == Isometry3d::IDENTITY` then
     ///
-    /// - the center is at `Vec3::ZERO`,
+    /// - the center is at `Vec3::ZERO`
     ///
     /// # Example
     /// ```
