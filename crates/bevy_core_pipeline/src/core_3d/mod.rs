@@ -41,13 +41,13 @@ use bevy_render::{
     occlusion_culling::OcclusionCulling,
     render_phase::{PhaseItemBatchSetKey, ViewRangefinder3d},
     texture::{CachedTexture, DepthStencilAttachment},
-    view::{prepare_view_targets, NoIndirectDrawing, RetainedViewEntity},
+    view::{prepare_view_targets, Msaa, NoIndirectDrawing, RetainedViewEntity},
 };
 use indexmap::IndexMap;
 pub use main_opaque_pass_3d_node::*;
 pub use main_transparent_pass_3d_node::*;
 
-use bevy_app::{App, Plugin};
+use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::UntypedAssetId;
 use bevy_color::LinearRgba;
 use bevy_ecs::{entity::EntityHash, prelude::*};
@@ -104,6 +104,7 @@ impl Plugin for Core3dPlugin {
                 CameraRenderGraph::new(Core3d)
             })
             .register_required_components::<Camera3d, Tonemapping>()
+            .add_systems(PostUpdate, check_msaa)
             .add_plugins((SkyboxPlugin, ExtractComponentPlugin::<Camera3d>::default()));
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
@@ -126,7 +127,12 @@ impl Plugin for Core3dPlugin {
             .init_resource::<ViewSortedRenderPhases<Transparent3d>>()
             .add_systems(ExtractSchedule, extract_core_3d_camera_phases)
             .add_systems(ExtractSchedule, extract_camera_prepass_phase)
-            .add_systems(Render, check_msaa.in_set(RenderSystems::PrepareAssets))
+            .add_systems(
+                Render,
+                check_view_target_info_msaa
+                    .in_set(RenderSystems::PrepareViews)
+                    .before(prepare_view_targets),
+            )
             .add_systems(
                 Render,
                 (
@@ -685,19 +691,19 @@ pub fn prepare_core_3d_depth_textures(
 
     let mut textures = <HashMap<_, _>>::default();
     for (entity, camera, _, camera_3d, target_info) in &views_3d {
+        let usage = *render_target_usage
+            .get(&camera.target.clone())
+            .expect("The depth texture usage should already exist for this target");
         let cached_texture = textures
-            .entry((camera.target.clone(), target_info))
-            .or_insert_with(|| {
-                let usage = *render_target_usage
-                    .get(&camera.target.clone())
-                    .expect("The depth texture usage should already exist for this target");
-
+            .entry((usage, target_info.size, target_info.sample_count))
+            .or_insert_with_key(|(usage, size, sample_count)| {
+                let (usage, size, sample_count) = (*usage, *size, *sample_count);
                 let descriptor = TextureDescriptor {
                     label: Some("view_depth_texture"),
                     // The size of the depth texture
-                    size: target_info.size.to_extents(),
+                    size: size.to_extents(),
                     mip_level_count: 1,
-                    sample_count: target_info.sample_count,
+                    sample_count,
                     dimension: TextureDimension::D2,
                     format: CORE_3D_DEPTH_FORMAT,
                     usage,
@@ -740,11 +746,29 @@ fn configure_occlusion_culling_view_targets(
     }
 }
 
-// Panic If using MSAA and deferred rendering
-pub fn check_msaa(deferred_views: Query<&ViewTargetInfo, (With<Camera>, With<DeferredPrepass>)>) {
-    for entity in deferred_views.iter() {
+// Disable MSAA and warn if using deferred rendering
+pub fn check_msaa(mut deferred_views: Query<&mut Msaa, (With<Camera>, With<DeferredPrepass>)>) {
+    for mut msaa in deferred_views.iter_mut() {
+        match *msaa {
+            Msaa::Off => (),
+            _ => {
+                bevy_log::warn!(
+                    "MSAA is incompatible with deferred rendering and has been disabled."
+                );
+                *msaa = Msaa::Off;
+            }
+        }
+    }
+}
+
+// Disable MSAA and warn if using deferred rendering
+pub fn check_view_target_info_msaa(
+    mut deferred_views: Query<&mut ViewTargetInfo, With<DeferredPrepass>>,
+) {
+    for mut entity in deferred_views.iter_mut() {
         if entity.sample_count > 1 {
-            panic!("MSAA is incompatible with deferred rendering.");
+            bevy_log::warn!("MSAA is incompatible with deferred rendering.");
+            entity.sample_count = 1;
         };
     }
 }
