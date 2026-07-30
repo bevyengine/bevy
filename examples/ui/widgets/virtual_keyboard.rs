@@ -14,6 +14,7 @@ use bevy::{
     },
     prelude::*,
     text::{EditableText, TextCursorStyle, TextEdit},
+    ui_widgets::TextInput,
 };
 
 fn main() {
@@ -115,6 +116,7 @@ fn text_input() -> impl Scene {
                 border_radius: BorderRadius::all(px(10)),
             }
             BorderColor::from(WHITE)
+            TextInput
             EditableText {
                 visible_lines: { Some(5.) }
                 allow_newlines: true,
