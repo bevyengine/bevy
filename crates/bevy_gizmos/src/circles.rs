@@ -414,7 +414,7 @@ where
             isometry: isometry.into(),
             half_size,
             color: color.into(),
-            resolution: DEFAULT_CIRCLE_RESOLUTION,
+            resolution: DEFAULT_CIRCLE_RESOLUTION / 2,
         }
     }
 }
@@ -468,7 +468,7 @@ where
                 self.half_size,
                 self.color,
             )
-            .resolution(self.resolution);
+            .resolution(self.resolution * 2);
 
         // The height at which both the half-ellipses will meet
         let apex_height = self.half_size.min_element();
@@ -540,7 +540,7 @@ where
     isometry: Isometry3d,
 
     // Radius of the ellipsoid along each axis
-    half_extents: Vec3,
+    half_extentsg Vec3,
 
     // Color of the ellipsoid
     color: Color,
