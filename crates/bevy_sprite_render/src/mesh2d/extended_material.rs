@@ -5,7 +5,7 @@ use bevy_material::{
     descriptor::RenderPipelineDescriptor, specialize::SpecializedMeshPipelineError,
 };
 use bevy_mesh::MeshVertexBufferLayoutRef;
-use bevy_reflect::Reflect;
+use bevy_reflect::{Reflect, TypePath};
 use bevy_render::{
     render_resource::{
         AsBindGroup, AsBindGroupError, BindGroupLayout, BindGroupLayoutEntry, BindlessDescriptor,
@@ -17,7 +17,7 @@ use bevy_shader::ShaderRef;
 
 /// A copy of the [`Material2d`] trait with methods returning `Option`,
 /// which can be used to override the base material in an [`ExtendedMaterial2d`]
-pub trait MaterialExtension2d: Sized + AsBindGroup + Asset + Clone {
+pub trait MaterialExtension2d: Sized + AsBindGroup + TypePath + Clone + Send + Sync {
     /// The vertex shader to override the base material's vertex shader with, if any
     ///
     /// See [`Material2d::vertex_shader`] for more info
