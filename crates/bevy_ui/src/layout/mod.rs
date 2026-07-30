@@ -149,7 +149,7 @@ pub fn ui_layout_system(
     ),
 ) {
     let rem_size_changed = rem_size.is_changed();
-    
+
     let em_removed: EntityHashSet = removed_text_fonts
         .read()
         .chain(removed_em_sizes.read())
