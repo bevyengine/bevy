@@ -160,7 +160,7 @@ fn draw_example_collection(
     gizmos.hemiellipsoid(
         Isometry3d::from_translation(Vec3::new(-3., 0.75, 0.75)),
         Vec2::new(0.35, 0.35),
-        PURPLE,
+        ORANGE,
     );
 
     gizmos.ellipsoid(
