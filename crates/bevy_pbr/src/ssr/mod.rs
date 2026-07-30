@@ -22,6 +22,7 @@ use bevy_ecs::{
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
+    camera::ViewTargetInfo,
     diagnostic::RecordDiagnostics,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_asset::RenderAssets,
@@ -393,7 +394,7 @@ pub fn prepare_ssr_pipelines(
     mut pipelines: ResMut<SpecializedRenderPipelines<ScreenSpaceReflectionsPipeline>>,
     ssr_pipeline: Res<ScreenSpaceReflectionsPipeline>,
     views: Query<
-        (Entity, &ExtractedView),
+        (Entity, &ExtractedView, &ViewTargetInfo),
         (
             With<ScreenSpaceReflectionsUniform>,
             With<DepthPrepass>,
@@ -401,7 +402,7 @@ pub fn prepare_ssr_pipelines(
         ),
     >,
 ) {
-    for (entity, extracted_view) in &views {
+    for (entity, extracted_view, target_info) in &views {
         let Some(view_key) = view_key_cache.get(&extracted_view.retained_view_entity) else {
             continue;
         };
@@ -411,7 +412,7 @@ pub fn prepare_ssr_pipelines(
             &ssr_pipeline,
             ScreenSpaceReflectionsPipelineKey {
                 mesh_pipeline_view_key: (*view_key).into(),
-                target_format: extracted_view.target_format,
+                target_format: target_info.color_format,
             },
         );
 

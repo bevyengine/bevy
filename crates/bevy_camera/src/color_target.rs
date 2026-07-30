@@ -1,0 +1,129 @@
+use alloc::borrow::Cow;
+use bevy_ecs::prelude::*;
+use bevy_math::{UVec2, Vec2};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use wgpu_types::{TextureFormat, TextureUsages};
+
+/// Specify the [`ColorTarget`] entity used by the camera.
+#[derive(Component, Copy, Clone, Reflect, PartialEq, Eq, Hash, Debug)]
+#[reflect(Component, PartialEq, Hash, Debug)]
+#[relationship(relationship_target=ColorTargetCameras, allow_self_referential)]
+pub struct WithColorTarget(pub Entity);
+
+#[derive(Component, Clone, Reflect, PartialEq, Eq, Hash, Debug)]
+#[reflect(Component, PartialEq, Hash, Debug)]
+#[relationship_target(relationship=WithColorTarget)]
+pub struct ColorTargetCameras(Vec<Entity>);
+
+/// Intermediate color target texture that can be used by one or more cameras via [`WithColorTarget`].
+#[derive(Component, Clone, Reflect, PartialEq, Debug)]
+#[reflect(Component, PartialEq, Debug, Default)]
+pub struct ColorTarget {
+    /// Debug label of the texture. This will show up in graphics debuggers for easy identification.
+    pub label: Cow<'static, str>,
+    /// Size of the texture.
+    pub size: UVec2,
+    /// Sample count of the multisampled texture if this is larger than 1.
+    pub sample_count: u32,
+    /// Format of the texture.
+    pub format: TextureFormat,
+    /// Allowed usages of the texture.
+    pub usage: TextureUsages,
+}
+
+impl Default for ColorTarget {
+    fn default() -> Self {
+        Self {
+            label: "color_target_texture".into(),
+            size: UVec2::new(1280, 720),
+            sample_count: 4,
+            format: TextureFormat::Rgba8UnormSrgb,
+            usage: TextureUsages::RENDER_ATTACHMENT
+                | TextureUsages::TEXTURE_BINDING
+                | TextureUsages::COPY_SRC,
+        }
+    }
+}
+
+impl ColorTarget {
+    pub fn with_size(mut self, size: UVec2) -> Self {
+        self.size = size;
+        self
+    }
+
+    pub fn with_sample_count(mut self, samples: u32) -> Self {
+        self.sample_count = samples;
+        self
+    }
+
+    pub fn with_usage(mut self, usages: TextureUsages) -> Self {
+        self.usage = usages;
+        self
+    }
+
+    pub fn with_added_usage(mut self, usages: TextureUsages) -> Self {
+        self.usage |= usages;
+        self
+    }
+
+    pub fn with_format(mut self, texture_format: TextureFormat) -> Self {
+        self.format = texture_format;
+        self
+    }
+}
+
+/// Like [`ColorTarget`] but this component can only work when added to a camera.
+///
+/// Different from [`ColorTarget`]:
+/// - `size` can be a factor of camera viewport size.
+/// - `format`, `sample_count` and `usage` are not required. If `None` it is determined by other components such as [`crate::Hdr`], [`crate::RenderTarget`], `Msaa` and [`crate::CameraMainTextureUsages`].
+#[derive(Component, Clone, Reflect, PartialEq, Debug)]
+#[reflect(Component, PartialEq, Debug, Default)]
+pub struct CameraColorTarget {
+    /// Debug label of the texture. This will show up in graphics debuggers for easy identification.
+    pub label: Cow<'static, str>,
+    /// Size of the texture.
+    pub size: CameraColorTargetSize,
+    /// Sample count of the multisampled texture if this is larger than 1.
+    pub sample_count: Option<u32>,
+    /// Format of the texture.
+    pub format: Option<TextureFormat>,
+    /// Allowed usages of the texture.
+    pub usage: Option<TextureUsages>,
+}
+
+#[derive(Clone, Copy, Reflect, PartialEq, Debug)]
+#[reflect(PartialEq, Debug)]
+pub enum CameraColorTargetSize {
+    Factor(Vec2),
+    Fixed(UVec2),
+}
+
+impl Default for CameraColorTarget {
+    fn default() -> Self {
+        Self {
+            label: "camera_color_target_texture".into(),
+            size: CameraColorTargetSize::Factor(Vec2::ONE),
+            format: None,
+            usage: None,
+            sample_count: None,
+        }
+    }
+}
+
+impl CameraColorTarget {
+    pub fn with_size(mut self, size: CameraColorTargetSize) -> Self {
+        self.size = size;
+        self
+    }
+
+    pub fn with_usage(mut self, usages: Option<TextureUsages>) -> Self {
+        self.usage = usages;
+        self
+    }
+
+    pub fn with_format(mut self, texture_format: Option<TextureFormat>) -> Self {
+        self.format = texture_format;
+        self
+    }
+}

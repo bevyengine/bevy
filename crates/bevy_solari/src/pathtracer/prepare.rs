@@ -7,7 +7,7 @@ use bevy_ecs::{
 };
 use bevy_image::ToExtents;
 use bevy_render::{
-    camera::ExtractedCamera,
+    camera::ViewTargetInfo,
     render_resource::{TextureDescriptor, TextureDimension, TextureFormat, TextureUsages},
     renderer::RenderDevice,
     texture::{CachedTexture, TextureCache},
@@ -17,19 +17,15 @@ use bevy_render::{
 pub struct PathtracerAccumulationTexture(pub CachedTexture);
 
 pub fn prepare_pathtracer_accumulation_texture(
-    query: Query<(Entity, &ExtractedCamera), With<Pathtracer>>,
+    query: Query<(Entity, &ViewTargetInfo), With<Pathtracer>>,
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
     mut commands: Commands,
 ) {
-    for (entity, camera) in &query {
-        let Some(viewport) = camera.physical_viewport_size else {
-            continue;
-        };
-
+    for (entity, target_info) in &query {
         let descriptor = TextureDescriptor {
             label: Some("pathtracer_accumulation_texture"),
-            size: viewport.to_extents(),
+            size: target_info.size.to_extents(),
             mip_level_count: 1,
             sample_count: 1,
             dimension: TextureDimension::D2,

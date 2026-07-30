@@ -1,6 +1,7 @@
+use crate::camera::implicit_configure_color_targets_for_cameras;
+use crate::renderer::RenderQueue;
 use crate::renderer::WgpuWrapper;
 use crate::sync_world::{MainEntity, RenderEntity, SyncToRenderWorld};
-use crate::{camera::extract_cameras, renderer::RenderQueue};
 use crate::{
     render_resource::{SurfaceTexture, TextureView},
     renderer::{RenderAdapter, RenderDevice, RenderInstance},
@@ -49,7 +50,10 @@ impl Plugin for WindowRenderPlugin {
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .add_systems(ExtractSchedule, extract_windows.before(extract_cameras))
+                .add_systems(
+                    ExtractSchedule,
+                    extract_windows.before(implicit_configure_color_targets_for_cameras),
+                )
                 .add_systems(
                     Render,
                     create_surfaces

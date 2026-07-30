@@ -11,7 +11,7 @@ use wgpu_types::{LoadOp, TextureUsages};
 #[require(
     Camera,
     Projection::Orthographic(OrthographicProjection::default_2d()),
-    Frustum = OrthographicProjection::default_2d().compute_frustum(&GlobalTransform::from(Transform::default())),
+    Frustum = OrthographicProjection::default_2d().compute_frustum(&GlobalTransform::from(Transform::default()))
 )]
 pub struct Camera2d;
 

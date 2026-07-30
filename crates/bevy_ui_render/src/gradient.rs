@@ -25,6 +25,7 @@ use bevy_render::{
     render_phase::*,
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
+    sync_world::{MainEntityHashMap, MainEntityHashSet},
     view::*,
     Extract, ExtractSchedule, Render, RenderSystems,
 };
@@ -676,7 +677,7 @@ pub fn queue_gradient(
     mut pipelines: ResMut<SpecializedRenderPipelines<GradientPipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
     render_views: Query<(&UiCameraView, Option<&UiAntiAlias>), With<ExtractedView>>,
-    camera_views: Query<&ExtractedView>,
+    camera_views: Query<(&ExtractedView, &UiViewTargetInfo)>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
@@ -692,11 +693,11 @@ pub fn queue_gradient(
                     camera_views
                         .get(default_camera_view.0)
                         .ok()
-                        .and_then(|view| {
+                        .and_then(|(view, target_info)| {
                             transparent_render_phases
                                 .get_mut(&view.retained_view_entity)
                                 .map(|transparent_phase| {
-                                    (view.target_format, ui_anti_alias, transparent_phase)
+                                    (target_info.color_format, ui_anti_alias, transparent_phase)
                                 })
                         })
                 },

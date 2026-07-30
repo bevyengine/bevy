@@ -24,14 +24,14 @@ use bevy_light::{EnvironmentMapLight, IrradianceVolume};
 use bevy_math::Vec4;
 use bevy_platform::sync::Arc;
 use bevy_render::{
-    camera::ExtractedCamera,
+    camera::{ExtractedCamera, ViewTargetInfo},
     globals::{GlobalsBuffer, GlobalsUniform},
     render_asset::RenderAssets,
     render_resource::{binding_types::*, *},
     renderer::{RenderAdapter, RenderDevice},
     texture::{FallbackImage, FallbackImageZero, GpuImage},
     view::{
-        Msaa, RenderVisibilityRanges, ViewUniform, ViewUniformOffset, ViewUniforms,
+        RenderVisibilityRanges, ViewUniform, ViewUniformOffset, ViewUniforms,
         VISIBILITY_RANGES_STORAGE_BUFFER_COUNT,
     },
 };
@@ -184,11 +184,11 @@ impl From<MeshPipelineKey> for MeshPipelineViewLayoutKey {
     }
 }
 
-impl From<Msaa> for MeshPipelineViewLayoutKey {
-    fn from(value: Msaa) -> Self {
+impl MeshPipelineViewLayoutKey {
+    fn from_msaa_samples(value: u32) -> Self {
         let mut result = MeshPipelineViewLayoutKey::empty();
 
-        if value.samples() > 1 {
+        if value > 1 {
             result |= MeshPipelineViewLayoutKey::MULTISAMPLED;
         }
 
@@ -643,7 +643,7 @@ pub fn prepare_mesh_view_bind_groups(
         Option<&ExtractedCamera>,
         &ViewShadowBindings,
         &ViewClusterBindings,
-        &Msaa,
+        &ViewTargetInfo,
         Option<&ScreenSpaceAmbientOcclusionResources>,
         Option<&ViewPrepassTextures>,
         Option<&ViewTransmissionTexture>,
@@ -716,7 +716,7 @@ pub fn prepare_mesh_view_bind_groups(
             camera,
             shadow_bindings,
             cluster_bindings,
-            msaa,
+            target_info,
             ssao_resources,
             prepass_textures,
             transmission_texture,
@@ -753,8 +753,9 @@ pub fn prepare_mesh_view_bind_groups(
             }
 
             let tonemap_in_shader = camera.is_none_or(|camera| !camera.hdr);
-            let mut layout_key = MeshPipelineViewLayoutKey::from(*msaa)
-                | MeshPipelineViewLayoutKey::from(prepass_textures);
+            let mut layout_key =
+                MeshPipelineViewLayoutKey::from_msaa_samples(target_info.sample_count)
+                    | MeshPipelineViewLayoutKey::from(prepass_textures);
             let mut offsets = ArrayVec::from_iter([
                 view_uniform_offset.offset,
                 view_lights_offset.offset,
@@ -872,7 +873,9 @@ pub fn prepare_mesh_view_bind_groups(
             // When using WebGL, we can't have a multisampled texture with `TEXTURE_BINDING`
             // See https://github.com/gfx-rs/wgpu/issues/5263
             let prepass_bindings;
-            if cfg!(any(feature = "webgpu", not(target_arch = "wasm32"))) || msaa.samples() == 1 {
+            if cfg!(any(feature = "webgpu", not(target_arch = "wasm32")))
+                || target_info.sample_count == 1
+            {
                 prepass_bindings = prepass::get_bindings(prepass_textures);
                 for (binding, index) in prepass_bindings
                     .iter()

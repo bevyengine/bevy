@@ -418,7 +418,7 @@ pub fn queue_ui_slices(
     mut pipelines: ResMut<SpecializedRenderPipelines<UiTextureSlicePipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
     render_views: Query<&UiCameraView, With<ExtractedView>>,
-    camera_views: Query<&ExtractedView>,
+    camera_views: Query<(&ExtractedView, &UiViewTargetInfo)>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
@@ -433,10 +433,8 @@ pub fn queue_ui_slices(
                     .get(*extracted_camera_entity)
                     .ok()
                     .and_then(|default_camera_view| {
-                        camera_views
-                            .get(default_camera_view.0)
-                            .ok()
-                            .and_then(|view| {
+                        camera_views.get(default_camera_view.0).ok().and_then(
+                            |(view, target_info)| {
                                 transparent_render_phases
                                     .get_mut(&view.retained_view_entity)
                                     .map(|transparent_phase| {
@@ -444,12 +442,13 @@ pub fn queue_ui_slices(
                                             &pipeline_cache,
                                             &ui_slicer_pipeline,
                                             UiTextureSlicePipelineKey {
-                                                target_format: view.target_format,
+                                                target_format: target_info.color_format,
                                             },
                                         );
                                         (pipeline, transparent_phase)
                                     })
-                            })
+                            },
+                        )
                     });
             current_camera_entity = *extracted_camera_entity;
         }
