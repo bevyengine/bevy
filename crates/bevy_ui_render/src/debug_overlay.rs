@@ -1,9 +1,32 @@
-use bevy_color::LinearRgba;
-use bevy_ecs::prelude::Component;
-use bevy_ecs::prelude::ReflectComponent;
-use bevy_ecs::prelude::ReflectResource;
-use bevy_ecs::resource::Resource;
+use crate::{
+    extract_layout::ExtractedUiLayout, shader_flags, DrawUi, ImageNodeBindGroups, TransparentUi,
+    UiAntiAlias, UiBatch, UiCameraMap, UiCameraView, UiMeta, UiPipeline, UiPipelineKey, UiVertex,
+    QUAD_INDICES, QUAD_VERTEX_POSITIONS,
+};
+use bevy_asset::AssetId;
+use bevy_camera::visibility::InheritedVisibility;
+use bevy_color::{ColorToComponents, Hsla, LinearRgba};
+use bevy_ecs::{
+    entity::Entity, lifecycle::RemovedComponents, prelude::*, query::Changed, resource::Resource,
+};
+use bevy_image::Image;
+use bevy_math::{Affine2, FloatOrd, Rect, Vec2};
 use bevy_reflect::Reflect;
+use bevy_render::{
+    render_asset::RenderAssets,
+    render_phase::{DrawFunctions, PhaseItem, PhaseItemExtraIndex, ViewSortedRenderPhases},
+    render_resource::{BindGroupEntries, PipelineCache, SpecializedRenderPipelines},
+    renderer::RenderDevice,
+    sync_world::{MainEntity, MainEntityHashMap, MainEntityHashSet},
+    texture::GpuImage,
+    view::ExtractedView,
+    Extract,
+};
+use bevy_sprite::BorderRect;
+use bevy_ui::{
+    ui_transform::UiGlobalTransform, CalculatedClip, ComputedNode, ComputedStackIndex,
+    ComputedUiTargetCamera, ResolvedBorderRadius, UiStack,
+};
 
 /// Configuration for the UI debug overlay
 ///
@@ -140,4 +163,349 @@ impl From<UiDebugOptions> for GlobalUiDebugOptions {
             ignore_border_radius: other.ignore_border_radius,
         }
     }
+}
+
+struct ExtractedUiDebugOverlay {
+    extracted_camera: Entity,
+    transform: Affine2,
+    clip: Option<Rect>,
+    color: LinearRgba,
+    border: BorderRect,
+    outlines: Vec<(Rect, ResolvedBorderRadius)>,
+    z_order: f32,
+}
+
+#[derive(Resource, Default)]
+pub(super) struct ExtractedUiDebugOverlays {
+    overlays: MainEntityHashMap<(Entity, ExtractedUiDebugOverlay)>,
+}
+
+pub(super) fn extract_debug_overlay(
+    mut commands: Commands,
+    debug_options: Extract<Res<GlobalUiDebugOptions>>,
+    extracted_layout: Res<ExtractedUiLayout>,
+    mut extracted_overlays: ResMut<ExtractedUiDebugOverlays>,
+    changed_debug_options_query: Extract<Query<Entity, Changed<UiDebugOptions>>>,
+    uinode_query: Extract<
+        Query<(
+            Entity,
+            &ComputedNode,
+            &ComputedStackIndex,
+            &UiGlobalTransform,
+            &InheritedVisibility,
+            Option<&CalculatedClip>,
+            &ComputedUiTargetCamera,
+            Option<&UiDebugOptions>,
+        )>,
+    >,
+    ui_stack: Extract<Res<UiStack>>,
+    camera_map: Extract<UiCameraMap>,
+    mut removed_debug_options: Extract<RemovedComponents<UiDebugOptions>>,
+    mut nodes_to_extract: Local<MainEntityHashSet>,
+) {
+    nodes_to_extract.clear();
+    nodes_to_extract.extend(extracted_layout.changed.iter().copied());
+    nodes_to_extract.extend(changed_debug_options_query.iter().map(MainEntity::from));
+    nodes_to_extract.extend(removed_debug_options.read().map(MainEntity::from));
+    if debug_options.is_changed() || ui_stack.is_changed() {
+        nodes_to_extract.extend(
+            uinode_query
+                .iter()
+                .map(|(entity, ..)| MainEntity::from(entity)),
+        );
+    }
+
+    let mut camera_mapper = camera_map.get_mapper();
+
+    for main_entity in nodes_to_extract.drain() {
+        let Ok((
+            entity,
+            uinode,
+            stack_index,
+            transform,
+            visibility,
+            maybe_clip,
+            computed_target,
+            local_debug_options,
+        )) = uinode_query.get(main_entity.entity())
+        else {
+            if let Some((render_entity, _)) = extracted_overlays.overlays.remove(&main_entity) {
+                commands.entity(render_entity).despawn();
+            }
+            continue;
+        };
+
+        let debug_options = local_debug_options
+            .copied()
+            .unwrap_or((*debug_options.as_ref()).into());
+        if !debug_options.enabled || (!debug_options.show_hidden && !visibility.get()) {
+            if let Some((render_entity, _)) = extracted_overlays.overlays.remove(&main_entity) {
+                commands.entity(render_entity).despawn();
+            }
+            continue;
+        }
+
+        let Some(extracted_camera) = camera_mapper.map(computed_target) else {
+            if let Some((render_entity, _)) = extracted_overlays.overlays.remove(&main_entity) {
+                commands.entity(render_entity).despawn();
+            }
+            continue;
+        };
+
+        let mut outlines = Vec::with_capacity(7);
+        let border_box = Rect::from_center_size(Vec2::ZERO, uinode.size());
+        if debug_options.outline_border_box && !border_box.is_empty() {
+            outlines.push((border_box, uinode.border_radius()));
+        }
+        if debug_options.outline_padding_box {
+            let mut padding_box = border_box;
+            padding_box.min += uinode.border().min_inset;
+            padding_box.max -= uinode.border().max_inset;
+            if !padding_box.is_empty() {
+                outlines.push((padding_box, uinode.inner_radius()));
+            }
+        }
+        if debug_options.outline_content_box {
+            let mut content_box = border_box;
+            let content_inset = uinode.content_inset();
+            content_box.min += content_inset.min_inset;
+            content_box.max -= content_inset.max_inset;
+            if !content_box.is_empty() {
+                outlines.push((content_box, ResolvedBorderRadius::ZERO));
+            }
+        }
+        if debug_options.outline_scrollbars {
+            if let Some((gutter, [thumb_min, thumb_max])) = uinode.horizontal_scrollbar() {
+                if !gutter.is_empty() {
+                    outlines.push((gutter, ResolvedBorderRadius::ZERO));
+                }
+                let thumb = Rect {
+                    min: Vec2::new(thumb_min, gutter.min.y),
+                    max: Vec2::new(thumb_max, gutter.max.y),
+                };
+                if !thumb.is_empty() {
+                    outlines.push((thumb, ResolvedBorderRadius::ZERO));
+                }
+            }
+            if let Some((gutter, [thumb_min, thumb_max])) = uinode.vertical_scrollbar() {
+                if !gutter.is_empty() {
+                    outlines.push((gutter, ResolvedBorderRadius::ZERO));
+                }
+                let thumb = Rect {
+                    min: Vec2::new(gutter.min.x, thumb_min),
+                    max: Vec2::new(gutter.max.x, thumb_max),
+                };
+                if !thumb.is_empty() {
+                    outlines.push((thumb, ResolvedBorderRadius::ZERO));
+                }
+            }
+        }
+
+        if outlines.is_empty() {
+            if let Some((render_entity, _)) = extracted_overlays.overlays.remove(&main_entity) {
+                commands.entity(render_entity).despawn();
+            }
+            continue;
+        }
+
+        let overlay = ExtractedUiDebugOverlay {
+            extracted_camera,
+            transform: transform.affine(),
+            clip: maybe_clip
+                .filter(|_| !debug_options.show_clipped)
+                .map(|clip| clip.clip),
+            color: debug_options
+                .line_color_override
+                .unwrap_or_else(|| Hsla::sequential_dispersed(entity.index_u32()).into()),
+            border: BorderRect::all(debug_options.line_width / uinode.inverse_scale_factor()),
+            outlines,
+            z_order: (ui_stack.uinodes.len() as u32 + stack_index.0) as f32,
+        };
+
+        match extracted_overlays.overlays.entry(main_entity) {
+            bevy_platform::collections::hash_map::Entry::Occupied(mut entry) => {
+                entry.get_mut().1 = overlay;
+            }
+            bevy_platform::collections::hash_map::Entry::Vacant(entry) => {
+                entry.insert((commands.spawn_empty().id(), overlay));
+            }
+        }
+    }
+}
+
+pub(super) fn queue_debug_overlay(
+    extracted_overlays: Res<ExtractedUiDebugOverlays>,
+    ui_pipeline: Res<UiPipeline>,
+    mut pipelines: ResMut<SpecializedRenderPipelines<UiPipeline>>,
+    mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
+    render_views: Query<(&UiCameraView, Option<&UiAntiAlias>), With<ExtractedView>>,
+    camera_views: Query<&ExtractedView>,
+    pipeline_cache: Res<PipelineCache>,
+    draw_functions: Res<DrawFunctions<TransparentUi>>,
+) {
+    let draw_function = draw_functions.read().id::<DrawUi>();
+
+    for (main_entity, (render_entity, overlay)) in &extracted_overlays.overlays {
+        let Ok((default_camera_view, ui_anti_alias)) = render_views.get(overlay.extracted_camera)
+        else {
+            continue;
+        };
+        let Ok(view) = camera_views.get(default_camera_view.0) else {
+            continue;
+        };
+        let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
+        else {
+            continue;
+        };
+        let pipeline = pipelines.specialize(
+            &pipeline_cache,
+            &ui_pipeline,
+            UiPipelineKey {
+                target_format: view.target_format,
+                anti_alias: matches!(ui_anti_alias, None | Some(UiAntiAlias::On)),
+            },
+        );
+
+        transparent_phase.add_transient(TransparentUi {
+            draw_function,
+            pipeline,
+            entity: (*render_entity, *main_entity),
+            sort_key: FloatOrd(overlay.z_order),
+            batch_range: 0..0,
+            extra_index: PhaseItemExtraIndex::None,
+            indexed: true,
+        });
+    }
+}
+
+pub(super) fn prepare_debug_overlay(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    pipeline_cache: Res<PipelineCache>,
+    ui_pipeline: Res<UiPipeline>,
+    mut ui_meta: ResMut<UiMeta>,
+    extracted_overlays: Res<ExtractedUiDebugOverlays>,
+    mut image_bind_groups: ResMut<ImageNodeBindGroups>,
+    gpu_images: Res<RenderAssets<GpuImage>>,
+    mut phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
+) {
+    if extracted_overlays.overlays.is_empty() {
+        return;
+    }
+
+    let image = AssetId::<Image>::default();
+    let Some(gpu_image) = gpu_images.get(image) else {
+        return;
+    };
+    image_bind_groups.values.entry(image).or_insert_with(|| {
+        render_device.create_bind_group(
+            "ui_debug_overlay_image_bind_group",
+            &pipeline_cache.get_bind_group_layout(&ui_pipeline.image_layout),
+            &BindGroupEntries::sequential((&gpu_image.texture_view, &gpu_image.sampler)),
+        )
+    });
+
+    let mut batches = Vec::with_capacity(extracted_overlays.overlays.len());
+
+    for ui_phase in phases.values_mut() {
+        for item_index in 0..ui_phase.items.len() {
+            let item = &mut ui_phase.items[item_index];
+            let Some(overlay) = extracted_overlays
+                .overlays
+                .get(&item.main_entity())
+                .and_then(|(render_entity, overlay)| {
+                    (*render_entity == item.entity()).then_some(overlay)
+                })
+            else {
+                continue;
+            };
+
+            let range_start = ui_meta.indices.len() as u32;
+            let color = overlay.color.to_f32_array();
+
+            for (rect, radius) in &overlay.outlines {
+                let rect_size = rect.size();
+                let transform = overlay.transform * Affine2::from_translation(rect.center());
+                let positions = QUAD_VERTEX_POSITIONS
+                    .map(|position| transform.transform_point2(position * rect_size).extend(0.));
+                let positions_diff = if let Some(clip) = overlay.clip {
+                    [
+                        Vec2::new(
+                            f32::max(clip.min.x - positions[0].x, 0.),
+                            f32::max(clip.min.y - positions[0].y, 0.),
+                        ),
+                        Vec2::new(
+                            f32::min(clip.max.x - positions[1].x, 0.),
+                            f32::max(clip.min.y - positions[1].y, 0.),
+                        ),
+                        Vec2::new(
+                            f32::min(clip.max.x - positions[2].x, 0.),
+                            f32::min(clip.max.y - positions[2].y, 0.),
+                        ),
+                        Vec2::new(
+                            f32::max(clip.min.x - positions[3].x, 0.),
+                            f32::min(clip.max.y - positions[3].y, 0.),
+                        ),
+                    ]
+                } else {
+                    [Vec2::ZERO; 4]
+                };
+                let positions_clipped = [
+                    positions[0] + positions_diff[0].extend(0.),
+                    positions[1] + positions_diff[1].extend(0.),
+                    positions[2] + positions_diff[2].extend(0.),
+                    positions[3] + positions_diff[3].extend(0.),
+                ];
+                let transformed_rect_size = transform.transform_vector2(rect_size).abs();
+                if transform.x_axis[1] == 0.0
+                    && (positions_diff[0].x - positions_diff[1].x >= transformed_rect_size.x
+                        || positions_diff[1].y - positions_diff[2].y >= transformed_rect_size.y)
+                {
+                    continue;
+                }
+
+                let vertex_start = ui_meta.vertices.len() as u32;
+                let points = QUAD_VERTEX_POSITIONS.map(|position| position * rect_size);
+                for i in 0..4 {
+                    ui_meta.vertices.push(UiVertex {
+                        position: positions_clipped[i].into(),
+                        uv: [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y][i].into(),
+                        color,
+                        flags: shader_flags::UNTEXTURED
+                            | shader_flags::BORDER_ALL
+                            | shader_flags::CORNERS[i],
+                        radius: (*radius).into(),
+                        border: [
+                            overlay.border.min_inset.x,
+                            overlay.border.min_inset.y,
+                            overlay.border.max_inset.x,
+                            overlay.border.max_inset.y,
+                        ],
+                        size: rect_size.into(),
+                        point: (points[i] + positions_diff[i]).into(),
+                    });
+                }
+                for &index in &QUAD_INDICES {
+                    ui_meta.indices.push(vertex_start + index as u32);
+                }
+            }
+
+            let range_end = ui_meta.indices.len() as u32;
+            if range_start == range_end {
+                continue;
+            }
+
+            item.batch_range = item_index as u32..item_index as u32 + 1;
+            batches.push((
+                item.entity(),
+                UiBatch {
+                    range: range_start..range_end,
+                    image,
+                    texture_ranges: vec![],
+                },
+            ));
+        }
+    }
+
+    commands.try_insert_batch(batches);
 }

@@ -212,6 +212,9 @@ impl Plugin for UiRenderPlugin {
             return;
         };
 
+        #[cfg(feature = "bevy_ui_debug")]
+        render_app.init_resource::<debug_overlay::ExtractedUiDebugOverlays>();
+
         render_app
             .init_gpu_resource::<SpecializedRenderPipelines<UiPipeline>>()
             .init_gpu_resource::<ImageNodeBindGroups>()
@@ -268,6 +271,25 @@ impl Plugin for UiRenderPlugin {
             .add_systems(
                 Core3d,
                 ui_pass.after(Core3dSystems::PostProcess).before(upscaling),
+            );
+
+        #[cfg(feature = "bevy_ui_debug")]
+        render_app
+            .add_systems(
+                ExtractSchedule,
+                debug_overlay::extract_debug_overlay
+                    .after(extract_layout::extract_ui_layout)
+                    .in_set(RenderUiSystems::ExtractDebug),
+            )
+            .add_systems(
+                Render,
+                (
+                    debug_overlay::queue_debug_overlay.in_set(RenderSystems::Queue),
+                    debug_overlay::prepare_debug_overlay
+                        .after(prepare_uinodes)
+                        .before(prepare_text)
+                        .in_set(RenderSystems::PrepareBindGroups),
+                ),
             );
 
         app.add_plugins(UiTextureSlicerPlugin);
