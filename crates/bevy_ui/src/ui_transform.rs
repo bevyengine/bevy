@@ -14,7 +14,7 @@ use bevy_text::RemSize;
 use bevy_text::DEFAULT_REM_SIZE_PX;
 use core::ops::Mul;
 
-/// Used for resolving Val::Em during layout if no `TextFont` is found.
+/// Used for resolving `Val::Em` during layout if no `TextFont` is found.
 /// Note there is no propagation of this so resolution will fall back to
 /// `RemSize` unless the user has a font propagation strategy.
 #[derive(Debug, PartialEq, Clone, Copy, Reflect, Component)]
