@@ -323,7 +323,7 @@ impl<'w, 's> UiCameraMapper<'w, 's> {
     }
 }
 
-pub struct ExtractedUiNode {
+pub struct ExtractedUiNodeStyle {
     pub background_color: LinearRgba,
     pub border_color: [LinearRgba; 4],
     pub outer_color: LinearRgba,
@@ -352,7 +352,7 @@ pub enum NodeType {
 ///
 #[derive(Resource, Default)]
 pub struct ExtractedUiNodes {
-    pub uinodes: MainEntityHashMap<(EntityIndexMap<f32>, ExtractedUiNode)>,
+    pub uinodes: MainEntityHashMap<(Entity, ExtractedUiNodeStyle)>,
     /// UI nodes that changed this frame.
     pub changed: MainEntityHashSet,
 }
@@ -491,20 +491,6 @@ pub fn extract_uinode_background_colors(
             visual_box = image.visual_box;
         }
 
-        let border_color = maybe_border_color
-            .map(|border_color| {
-                [
-                    border_color.left.to_linear(),
-                    border_color.top.to_linear(),
-                    border_color.right.to_linear(),
-                    border_color.bottom.to_linear(),
-                ]
-            })
-            .unwrap_or([LinearRgba::NONE; 4]);
-        let outline_color = maybe_outline
-            .map(|outline| outline.color.into())
-            .unwrap_or(LinearRgba::NONE);
-
         if let Some(viewport_node) = maybe_viewport_node
             && let Some(camera_entity) = viewport_node.camera
             && let Some(image) = camera_query
@@ -523,14 +509,18 @@ pub fn extract_uinode_background_colors(
             use_node_border = true;
         }
 
-        let extracted_uinode = ExtractedUiNode {
-            background_color: background_color.0.into(),
-            border_color,
+        let extracted_uinode = ExtractedUiNodeStyle {
+            background_color: background_color.to_linear(),
+            border_color: maybe_border_color
+                .map(|&border_color| border_color.into())
+                .unwrap_or([LinearRgba::NONE; 4]),
             outer_color: maybe_outer_color
-                .map(|outer_color| outer_color.0.into())
+                .map(|outer_color| outer_color.0.to_linear())
                 .unwrap_or(LinearRgba::NONE),
             image_color,
-            outline_color,
+            outline_color: maybe_outline
+                .map(|outline| outline.color.to_linear())
+                .unwrap_or(LinearRgba::NONE),
             image: image_asset,
             flip_x,
             flip_y,
@@ -541,47 +531,24 @@ pub fn extract_uinode_background_colors(
             use_node_border,
         };
 
-        let mut layers = vec![];
-        if !extracted_uinode.background_color.is_fully_transparent()
+        let has_content = !extracted_uinode.background_color.is_fully_transparent()
             || !extracted_uinode.outer_color.is_fully_transparent()
-        {
-            layers.push(stack_z_offsets::BACKGROUND_COLOR);
-        }
-        if extracted_uinode
-            .border_color
-            .iter()
-            .any(|color| !color.is_fully_transparent())
+            || extracted_uinode
+                .border_color
+                .iter()
+                .any(|color| !color.is_fully_transparent())
             || !extracted_uinode.outline_color.is_fully_transparent()
-        {
-            layers.push(stack_z_offsets::BORDER);
-        }
-        if extracted_uinode.image.is_some() {
-            layers.push(stack_z_offsets::IMAGE);
-        }
+            || extracted_uinode.image.is_some();
 
-        let render_items = match extracted_uinodes.uinodes.entry(entity.into()) {
-            Entry::Occupied(mut entry) => {
-                entry.get_mut().1 = extracted_uinode;
-                &mut entry.into_mut().0
+        if has_content {
+            match extracted_uinodes.uinodes.entry(main_entity) {
+                Entry::Occupied(mut entry) => entry.get_mut().1 = extracted_uinode,
+                Entry::Vacant(entry) => {
+                    entry.insert((commands.spawn_empty().id(), extracted_uinode));
+                }
             }
-            Entry::Vacant(entry) => &mut entry.insert((Default::default(), extracted_uinode)).0,
-        };
-
-        let layer_count = layers.len();
-        for (index, layer) in layers.into_iter().enumerate() {
-            if let Some((_, old_layer)) = render_items.get_index_mut(index) {
-                *old_layer = layer;
-            } else {
-                render_items.insert(commands.spawn_empty().id(), layer);
-            }
-        }
-
-        for (render_entity, _) in render_items.drain(layer_count..) {
+        } else if let Some((render_entity, _)) = extracted_uinodes.uinodes.remove(&main_entity) {
             commands.entity(render_entity).despawn();
-        }
-
-        if render_items.is_empty() {
-            extracted_uinodes.uinodes.remove(&main_entity);
         }
     }
 
@@ -591,12 +558,10 @@ pub fn extract_uinode_background_colors(
             continue;
         }
         extracted_uinodes.changed.insert(main_entity);
-        let Some((mut render_items, _)) = extracted_uinodes.uinodes.remove(&main_entity) else {
+        let Some((render_entity, _)) = extracted_uinodes.uinodes.remove(&main_entity) else {
             continue;
         };
-        for (render_entity, _) in render_items.drain(..) {
-            commands.entity(render_entity).despawn();
-        }
+        commands.entity(render_entity).despawn();
     }
 }
 
@@ -873,58 +838,56 @@ pub fn queue_uinodes(
     let mut current_camera_entity = Entity::PLACEHOLDER;
     let mut current_phase = None;
 
-    for (main_entity, (render_items, _)) in extracted_uinodes.uinodes.iter() {
+    for (main_entity, (render_entity, _)) in extracted_uinodes.uinodes.iter() {
         let Some(geometry) = extracted_geometry.layout.get(main_entity) else {
             continue;
         };
 
-        for (render_entity, stack_z_offset) in render_items.iter() {
-            let extracted_camera_entity = geometry.extracted_camera;
+        let extracted_camera_entity = geometry.extracted_camera;
 
-            if current_camera_entity != extracted_camera_entity {
-                current_phase = render_views.get(extracted_camera_entity).ok().and_then(
-                    |(default_camera_view, ui_anti_alias)| {
-                        camera_views
-                            .get(default_camera_view.0)
-                            .ok()
-                            .and_then(|view| {
-                                transparent_render_phases
-                                    .get_mut(&view.retained_view_entity)
-                                    .map(|transparent_phase| {
-                                        let pipeline = pipelines.specialize(
-                                            &pipeline_cache,
-                                            &ui_pipeline,
-                                            UiPipelineKey {
-                                                target_format: view.target_format,
-                                                anti_alias: matches!(
-                                                    ui_anti_alias,
-                                                    None | Some(UiAntiAlias::On)
-                                                ),
-                                            },
-                                        );
-                                        (pipeline, transparent_phase)
-                                    })
-                            })
-                    },
-                );
-                current_camera_entity = extracted_camera_entity;
-            }
-
-            let Some((pipeline, transparent_phase)) = current_phase.as_mut() else {
-                continue;
-            };
-
-            transparent_phase.add_transient(TransparentUi {
-                draw_function,
-                pipeline: *pipeline,
-                entity: (*render_entity, *main_entity),
-                sort_key: FloatOrd(geometry.stack_index as f32 + stack_z_offset),
-                // batch_range will be calculated in prepare_uinodes
-                batch_range: 0..0,
-                extra_index: PhaseItemExtraIndex::None,
-                indexed: true,
-            });
+        if current_camera_entity != extracted_camera_entity {
+            current_phase = render_views.get(extracted_camera_entity).ok().and_then(
+                |(default_camera_view, ui_anti_alias)| {
+                    camera_views
+                        .get(default_camera_view.0)
+                        .ok()
+                        .and_then(|view| {
+                            transparent_render_phases
+                                .get_mut(&view.retained_view_entity)
+                                .map(|transparent_phase| {
+                                    let pipeline = pipelines.specialize(
+                                        &pipeline_cache,
+                                        &ui_pipeline,
+                                        UiPipelineKey {
+                                            target_format: view.target_format,
+                                            anti_alias: matches!(
+                                                ui_anti_alias,
+                                                None | Some(UiAntiAlias::On)
+                                            ),
+                                        },
+                                    );
+                                    (pipeline, transparent_phase)
+                                })
+                        })
+                },
+            );
+            current_camera_entity = extracted_camera_entity;
         }
+
+        let Some((pipeline, transparent_phase)) = current_phase.as_mut() else {
+            continue;
+        };
+
+        transparent_phase.add_transient(TransparentUi {
+            draw_function,
+            pipeline: *pipeline,
+            entity: (*render_entity, *main_entity),
+            sort_key: FloatOrd(geometry.stack_index as f32),
+            // batch_range will be calculated in prepare_uinodes
+            batch_range: 0..0,
+            extra_index: PhaseItemExtraIndex::None,
+            indexed: true,
+        });
     }
 }
 
@@ -983,10 +946,8 @@ pub fn prepare_uinodes(
             for item_index in 0..ui_phase.items.len() {
                 let item = &mut ui_phase.items[item_index];
                 let extracted_uinode = extracted_uinodes.uinodes.get(&item.main_entity()).and_then(
-                    |(render_items, extracted_uinode)| {
-                        render_items
-                            .get(&item.entity())
-                            .map(|stack_z_offset| (extracted_uinode, *stack_z_offset))
+                    |(render_entity, extracted_uinode)| {
+                        (*render_entity == item.entity()).then_some(extracted_uinode)
                     },
                 );
                 if extracted_uinode.is_none() {
@@ -998,10 +959,10 @@ pub fn prepare_uinodes(
                     continue;
                 };
                 let image = extracted_uinode
-                    .and_then(|(extracted_uinode, stack_z_offset)| {
-                        (stack_z_offset == stack_z_offsets::IMAGE)
-                            .then_some(extracted_uinode.image)
-                            .flatten()
+                    .and_then(|extracted_uinode| {
+                        extracted_uinode
+                            .image
+                            .filter(|image| gpu_images.get(*image).is_some())
                     })
                     .unwrap_or_default();
 
@@ -1066,14 +1027,71 @@ pub fn prepare_uinodes(
                         continue;
                     }
                 }
-                if let Some((extracted_uinode, stack_z_offset)) = extracted_uinode {
+                if let Some(extracted_uinode) = extracted_uinode {
                     let uinode = &geometry.uinode;
-                    let mut nodes = vec![];
+                    let mut nodes = Vec::with_capacity(8);
 
-                    if stack_z_offset == stack_z_offsets::BACKGROUND_COLOR {
-                        if !extracted_uinode.background_color.is_fully_transparent() {
+                    if !extracted_uinode.background_color.is_fully_transparent() {
+                        nodes.push((
+                            extracted_uinode.background_color,
+                            Rect {
+                                min: Vec2::ZERO,
+                                max: uinode.size(),
+                            },
+                            None,
+                            geometry.transform,
+                            geometry.clip,
+                            uinode.border_radius(),
+                            uinode.border(),
+                            NodeType::Rect,
+                            false,
+                        ));
+                    }
+                    if !extracted_uinode.outer_color.is_fully_transparent() {
+                        nodes.push((
+                            extracted_uinode.outer_color,
+                            Rect {
+                                min: Vec2::ZERO,
+                                max: uinode.size(),
+                            },
+                            None,
+                            geometry.transform,
+                            geometry.clip,
+                            uinode.border_radius(),
+                            BorderRect::ZERO,
+                            NodeType::Inverted,
+                            false,
+                        ));
+                    }
+
+                    if uinode.border() != BorderRect::ZERO {
+                        const BORDER_FLAGS: [u32; 4] = [
+                            shader_flags::BORDER_TOP,
+                            shader_flags::BORDER_RIGHT,
+                            shader_flags::BORDER_BOTTOM,
+                            shader_flags::BORDER_LEFT,
+                        ];
+                        let mut completed_flags = 0;
+
+                        for (i, &color) in extracted_uinode.border_color.iter().enumerate() {
+                            if color.is_fully_transparent()
+                                || completed_flags & BORDER_FLAGS[i] != 0
+                            {
+                                continue;
+                            }
+
+                            let mut border_flags = BORDER_FLAGS[i];
+                            for (j, &other_color) in
+                                extracted_uinode.border_color.iter().enumerate().skip(i + 1)
+                            {
+                                if color == other_color {
+                                    border_flags |= BORDER_FLAGS[j];
+                                }
+                            }
+                            completed_flags |= border_flags;
+
                             nodes.push((
-                                extracted_uinode.background_color,
+                                color,
                                 Rect {
                                     min: Vec2::ZERO,
                                     max: uinode.size(),
@@ -1083,132 +1101,74 @@ pub fn prepare_uinodes(
                                 geometry.clip,
                                 uinode.border_radius(),
                                 uinode.border(),
-                                NodeType::Rect,
+                                NodeType::Border(border_flags),
                                 false,
                             ));
                         }
-                        if !extracted_uinode.outer_color.is_fully_transparent() {
-                            nodes.push((
-                                extracted_uinode.outer_color,
-                                Rect {
-                                    min: Vec2::ZERO,
-                                    max: uinode.size(),
-                                },
-                                None,
-                                geometry.transform,
-                                geometry.clip,
-                                uinode.border_radius(),
-                                BorderRect::ZERO,
-                                NodeType::Inverted,
-                                false,
-                            ));
-                        }
-                    } else if stack_z_offset == stack_z_offsets::BORDER {
-                        if uinode.border() != BorderRect::ZERO {
-                            const BORDER_FLAGS: [u32; 4] = [
-                                shader_flags::BORDER_LEFT,
-                                shader_flags::BORDER_TOP,
-                                shader_flags::BORDER_RIGHT,
-                                shader_flags::BORDER_BOTTOM,
-                            ];
-                            let mut completed_flags = 0;
+                    }
 
-                            for (i, &color) in extracted_uinode.border_color.iter().enumerate() {
-                                if color.is_fully_transparent()
-                                    || completed_flags & BORDER_FLAGS[i] != 0
-                                {
-                                    continue;
-                                }
+                    if !extracted_uinode.outline_color.is_fully_transparent()
+                        && uinode.outline_width() > 0.
+                    {
+                        nodes.push((
+                            extracted_uinode.outline_color,
+                            Rect {
+                                min: Vec2::ZERO,
+                                max: uinode.outlined_node_size(),
+                            },
+                            None,
+                            geometry.transform,
+                            geometry.clip,
+                            uinode.outline_radius(),
+                            BorderRect::all(uinode.outline_width()),
+                            NodeType::Border(shader_flags::BORDER_ALL),
+                            false,
+                        ));
+                    }
 
-                                let mut border_flags = BORDER_FLAGS[i];
-                                for (j, &other_color) in
-                                    extracted_uinode.border_color.iter().enumerate().skip(i + 1)
-                                {
-                                    if color == other_color {
-                                        border_flags |= BORDER_FLAGS[j];
-                                    }
-                                }
-                                completed_flags |= border_flags;
-
-                                nodes.push((
-                                    color,
-                                    Rect {
-                                        min: Vec2::ZERO,
-                                        max: uinode.size(),
-                                    },
-                                    None,
-                                    geometry.transform,
-                                    geometry.clip,
-                                    uinode.border_radius(),
-                                    uinode.border(),
-                                    NodeType::Border(border_flags),
-                                    false,
-                                ));
-                            }
-                        }
-
-                        if !extracted_uinode.outline_color.is_fully_transparent()
-                            && uinode.outline_width() > 0.
-                        {
-                            nodes.push((
-                                extracted_uinode.outline_color,
-                                Rect {
-                                    min: Vec2::ZERO,
-                                    max: uinode.outlined_node_size(),
-                                },
-                                None,
-                                geometry.transform,
-                                geometry.clip,
-                                uinode.outline_radius(),
-                                BorderRect::all(uinode.outline_width()),
-                                NodeType::Border(shader_flags::BORDER_ALL),
-                                false,
-                            ));
-                        }
-                    } else {
+                    if extracted_uinode.image == Some(image) {
                         let visual_box = match extracted_uinode.visual_box {
                             VisualBox::ContentBox => uinode.content_box(),
                             VisualBox::PaddingBox => uinode.padding_box(),
                             VisualBox::BorderBox => uinode.border_box(),
                         };
-                        if visual_box.size().cmple(Vec2::ZERO).any() {
-                            continue;
-                        }
-
-                        let size = if extracted_uinode.auto_sized
-                            && !extracted_uinode.image_size.cmple(Vec2::ZERO).any()
-                        {
-                            extracted_uinode.image_size
-                                * (visual_box.size() / extracted_uinode.image_size).min_element()
-                        } else {
-                            visual_box.size()
-                        };
-                        let mut rect = extracted_uinode.image_rect.unwrap_or(Rect {
-                            min: Vec2::ZERO,
-                            max: size,
-                        });
-                        let atlas_scaling = extracted_uinode.image_rect.map(|_| {
-                            let atlas_scaling = size / rect.size();
-                            rect.min *= atlas_scaling;
-                            rect.max *= atlas_scaling;
-                            atlas_scaling
-                        });
-
-                        nodes.push((
-                            extracted_uinode.image_color,
-                            rect,
-                            atlas_scaling,
-                            geometry.transform * Affine2::from_translation(visual_box.center()),
-                            geometry.clip,
-                            uinode.border_radius(),
-                            if extracted_uinode.use_node_border {
-                                uinode.border()
+                        if !visual_box.size().cmple(Vec2::ZERO).any() {
+                            let size = if extracted_uinode.auto_sized
+                                && !extracted_uinode.image_size.cmple(Vec2::ZERO).any()
+                            {
+                                extracted_uinode.image_size
+                                    * (visual_box.size() / extracted_uinode.image_size)
+                                        .min_element()
                             } else {
-                                BorderRect::ZERO
-                            },
-                            NodeType::Rect,
-                            true,
-                        ));
+                                visual_box.size()
+                            };
+                            let mut rect = extracted_uinode.image_rect.unwrap_or(Rect {
+                                min: Vec2::ZERO,
+                                max: size,
+                            });
+                            let atlas_scaling = extracted_uinode.image_rect.map(|_| {
+                                let atlas_scaling = size / rect.size();
+                                rect.min *= atlas_scaling;
+                                rect.max *= atlas_scaling;
+                                atlas_scaling
+                            });
+
+                            nodes.push((
+                                extracted_uinode.image_color,
+                                rect,
+                                atlas_scaling,
+                                geometry.transform * Affine2::from_translation(visual_box.center()),
+                                geometry.clip,
+                                uinode.border_radius(),
+                                if extracted_uinode.use_node_border {
+                                    uinode.border()
+                                } else {
+                                    BorderRect::ZERO
+                                },
+                                NodeType::Rect,
+                                true,
+                            ));
+                        }
                     }
 
                     for (
