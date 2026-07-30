@@ -1711,7 +1711,7 @@ mod tests {
             impl FromWorld for SomeRef {
                 fn from_world(world: &mut World) -> Self {
                     world.insert_resource(FromWorldCalled(true));
-                    SomeRef(Entity::PLACEHOLDER, Default::default())
+                    SomeRef(world.spawn_empty().id(), Default::default())
                 }
             }
             let mut world = World::new();

@@ -3,6 +3,7 @@
 use crate::number_input_f32::number_input_f32;
 use crate::number_input_i32::number_input_i32;
 use crate::radio::{feathers_option_buttons, main_ui_node_scene, RadioButtonOptionValue};
+use bevy::feathers::tokens::semantic::SURFACE_PANE_BODY;
 use bevy::{
     color::palettes::css::*,
     feathers::{
@@ -11,7 +12,6 @@ use bevy::{
         dark_theme::create_dark_theme,
         display::caption,
         theme::{ThemeProps, UiTheme},
-        tokens::PANE_BODY_BG,
         FeathersPlugins,
     },
     prelude::*,
@@ -282,7 +282,7 @@ fn settings_panel_scene(app_settings: &AppSettings) -> impl Scene {
                     Some(AppNumberInputI32::Samples),
                     app_settings.samples as i32,
                     NumberInputPrecision(0),
-                    1..15
+                    0..15
                 ),
                 // Reset button
                 @FeathersButton {
@@ -297,7 +297,7 @@ fn settings_panel_scene(app_settings: &AppSettings) -> impl Scene {
 fn get_example_theme() -> ThemeProps {
     let mut props = create_dark_theme();
     // Pane background color is made a little transparent to see the objects behind the setting controls.
-    if let Some(color) = props.color.get_mut(&PANE_BODY_BG) {
+    if let Some(color) = props.semantic_base.get_mut(&SURFACE_PANE_BODY) {
         color.set_alpha(0.9);
     }
     props

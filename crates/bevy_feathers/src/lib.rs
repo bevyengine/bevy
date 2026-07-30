@@ -28,14 +28,14 @@ use bevy_asset::embedded_asset;
 use bevy_ecs::{query::With, schedule::IntoScheduleConfigs};
 use bevy_input_focus::tab_navigation::TabNavigationPlugin;
 use bevy_text::{TextColor, TextFont};
-use bevy_ui::UiSystems;
-use bevy_ui_render::UiMaterialPlugin;
+use bevy_ui::{AccessibilityUiSystems, UiSystems};
+use bevy_ui_render::{ImageNodeAssetChangedSystems, UiMaterialPlugin};
 
 use crate::{
     alpha_pattern::{AlphaPatternMaterial, AlphaPatternResource},
     controls::ControlsPlugin,
     cursor::{CursorIconPlugin, DefaultCursor, EntityCursor},
-    theme::{ThemedText, UiTheme},
+    theme::{ThemeContext, ThemedText, UiTheme},
 };
 
 mod alpha_pattern;
@@ -80,6 +80,7 @@ impl Plugin for FeathersCorePlugin {
             CursorIconPlugin,
             HierarchyPropagatePlugin::<TextColor, With<ThemedText>>::new(PostUpdate),
             HierarchyPropagatePlugin::<TextFont, With<ThemedText>>::new(PostUpdate),
+            HierarchyPropagatePlugin::<ThemeContext>::new(PostUpdate),
             UiMaterialPlugin::<AlphaPatternMaterial>::default(),
             focus::FocusOutlinesPlugin,
         ));
@@ -90,6 +91,10 @@ impl Plugin for FeathersCorePlugin {
             PostUpdate,
             PropagateSet::<TextFont>::default().in_set(UiSystems::Propagate),
         );
+        app.configure_sets(
+            PostUpdate,
+            PropagateSet::<TextColor>::default().in_set(UiSystems::Propagate),
+        );
 
         app.insert_resource(DefaultCursor(EntityCursor::System(
             bevy_window::SystemCursorIcon::Default,
@@ -98,9 +103,19 @@ impl Plugin for FeathersCorePlugin {
         app.add_systems(
             PostUpdate,
             (
-                theme::update_theme,
-                display::update_themed_icons.after(PropagateSet::<TextColor>::default()),
-            ),
+                theme::update_theme.in_set(UiSystems::Prepare),
+                display::update_themed_icons
+                    .after(PropagateSet::<TextColor>::default())
+                    // These systems deal with the underlying asset of the ImageNode,
+                    // which this system does not change.
+                    .ambiguous_with(ImageNodeAssetChangedSystems)
+                    // These systems merely update the `AccessibilityNode` and do not depend
+                    // on any changes `update_themed_icons` does to an image node.
+                    .ambiguous_with(AccessibilityUiSystems)
+                    // `update_themed_icons` does not affect the size of content.
+                    .ambiguous_with(UiSystems::Content),
+            )
+                .chain(),
         )
         .add_observer(theme::on_changed_background)
         .add_observer(theme::on_changed_border)
