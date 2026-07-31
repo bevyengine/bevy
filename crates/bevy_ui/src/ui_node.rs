@@ -44,44 +44,23 @@ pub struct ComputedNode {
     pub scroll_position: Vec2,
     /// The width of this node's outline in physical pixels.
     /// If this value is negative or zero then no outline will be rendered.
-    ///
-    /// [`ui_layout_system`](`super::layout::ui_layout_system`) bypasses change detection
-    /// when updating this field.
     pub outline_width: f32,
     /// The amount of space between the outline and the edge of the node.
-    ///
-    /// [`ui_layout_system`](`super::layout::ui_layout_system`) bypasses change detection
-    /// when updating this field.
     pub outline_offset: f32,
     /// The unrounded size of the node as width and height in physical pixels.
     pub unrounded_size: Vec2,
     /// Resolved border values in physical pixels.
-    ///
-    /// [`ui_layout_system`](`super::layout::ui_layout_system`) bypasses change detection
-    /// when updating this field.
     pub border: BorderRect,
     /// Resolved border radius values in physical pixels.
-    ///
-    /// [`ui_layout_system`](`super::layout::ui_layout_system`) bypasses change detection
-    /// when updating this field.
     pub border_radius: ResolvedBorderRadius,
     /// Resolved padding values in physical pixels.
-    ///
-    /// [`ui_layout_system`](`super::layout::ui_layout_system`) bypasses change detection
-    /// when updating this field.
     pub padding: BorderRect,
     /// Inverse scale factor for this Node.
     /// Multiply physical coordinates by the inverse scale factor to give logical coordinates.
     pub inverse_scale_factor: f32,
     /// Stored em spacing for this Node.
-    ///
-    /// [`ui_layout_system`](`super::layout::ui_layout_system`) bypasses change detection
-    /// when updating this field.
     pub em_size: EmSize,
     /// Stored rem spacing for this Node. Technically could be shared but easier to store here
-    ///
-    /// [`ui_layout_system`](`super::layout::ui_layout_system`) bypasses change detection
-    /// when updating this field.
     pub rem_size: RemSize,
 }
 
