@@ -520,6 +520,7 @@ pub fn queue_text(
     }
 }
 
+#[expect(dead_code, reason = "retained while using prepare_uinodes_new")]
 pub fn prepare_text(
     mut commands: Commands,
     render_device: Res<RenderDevice>,

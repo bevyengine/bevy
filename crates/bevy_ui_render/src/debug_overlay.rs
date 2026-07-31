@@ -165,19 +165,19 @@ impl From<UiDebugOptions> for GlobalUiDebugOptions {
     }
 }
 
-struct ExtractedUiDebugOverlay {
+pub(super) struct ExtractedUiDebugOverlay {
     extracted_camera: Entity,
-    transform: Affine2,
-    clip: Option<Rect>,
-    color: LinearRgba,
-    border: BorderRect,
-    outlines: Vec<(Rect, ResolvedBorderRadius)>,
+    pub(super) transform: Affine2,
+    pub(super) clip: Option<Rect>,
+    pub(super) color: LinearRgba,
+    pub(super) border: BorderRect,
+    pub(super) outlines: Vec<(Rect, ResolvedBorderRadius)>,
     z_order: f32,
 }
 
 #[derive(Resource, Default)]
 pub(super) struct ExtractedUiDebugOverlays {
-    overlays: MainEntityHashMap<(Entity, ExtractedUiDebugOverlay)>,
+    pub(super) overlays: MainEntityHashMap<(Entity, ExtractedUiDebugOverlay)>,
 }
 
 pub(super) fn extract_debug_overlay(
@@ -378,6 +378,7 @@ pub(super) fn queue_debug_overlay(
     }
 }
 
+#[expect(dead_code, reason = "retained while using prepare_uinodes_new")]
 pub(super) fn prepare_debug_overlay(
     mut commands: Commands,
     render_device: Res<RenderDevice>,

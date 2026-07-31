@@ -33,8 +33,8 @@ use bevy_shader::load_shader_library;
 use bevy_sprite_render::SpriteAssetEvents;
 use bevy_ui::widget::{ImageNode, ImageNodeSize, NodeImageMode, ViewportNode};
 use bevy_ui::{
-    BackgroundColor, BorderColor, ComputedUiTargetCamera, Node, OuterColor, Outline, UiSystems,
-    VisualBox,
+    BackgroundColor, BorderColor, ComputedUiTargetCamera, Node, OuterColor, Outline,
+    ResolvedBorderRadius, UiSystems, VisualBox,
 };
 
 use bevy_app::prelude::*;
@@ -78,11 +78,9 @@ pub use render_pass::*;
 pub use ui_material_pipeline::*;
 use ui_texture_slice_pipeline::UiTextureSlicerPlugin;
 
-use crate::extract_layout::ExtractedUiLayout;
+use crate::extract_layout::{ExtractedUiLayout, ExtractedUiNodeLayout};
 use crate::shader_flags::INVERT;
-use crate::text::{
-    extract_text, prepare_text, queue_text, ExtractedGlyphLayout, ExtractedGlyphLayouts,
-};
+use crate::text::{extract_text, queue_text, ExtractedGlyphLayout, ExtractedGlyphLayouts};
 
 pub mod prelude {
     #[cfg(feature = "bevy_ui_debug")]
@@ -260,10 +258,7 @@ impl Plugin for UiRenderPlugin {
                     queue_uinodes.in_set(RenderSystems::Queue),
                     queue_text.in_set(RenderSystems::Queue),
                     sort_phase_system::<TransparentUi>.in_set(RenderSystems::PhaseSort),
-                    prepare_uinodes.in_set(RenderSystems::PrepareBindGroups),
-                    prepare_text
-                        .after(prepare_uinodes)
-                        .in_set(RenderSystems::PrepareBindGroups),
+                    prepare_uinodes_new.in_set(RenderSystems::PrepareBindGroups),
                     clear_batches.in_set(RenderSystems::Cleanup),
                 ),
             )
@@ -286,13 +281,7 @@ impl Plugin for UiRenderPlugin {
             )
             .add_systems(
                 Render,
-                (
-                    debug_overlay::queue_debug_overlay.in_set(RenderSystems::Queue),
-                    debug_overlay::prepare_debug_overlay
-                        .after(prepare_uinodes)
-                        .before(prepare_text)
-                        .in_set(RenderSystems::PrepareBindGroups),
-                ),
+                debug_overlay::queue_debug_overlay.in_set(RenderSystems::Queue),
             );
 
         app.add_plugins(UiTextureSlicerPlugin);
@@ -1385,13 +1374,17 @@ pub fn clear_batches(mut commands: Commands, batches_query: Query<Entity, With<U
 
 // new prepare function design
 // draws ui nodes, text layouts and debug outlines
-pub fn prepare_uinodes_new(
+fn prepare_uinodes_new(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     pipeline_cache: Res<PipelineCache>,
     mut ui_meta: ResMut<UiMeta>,
     extracted_uinodes: Res<ExtractedUiNodes>,
+    extracted_glyph_layouts: Res<ExtractedGlyphLayouts>,
+    #[cfg(feature = "bevy_ui_debug")] extracted_debug_overlays: Res<
+        debug_overlay::ExtractedUiDebugOverlays,
+    >,
     extracted_geometry: Res<ExtractedUiLayout>,
     view_uniforms: Res<ViewUniforms>,
     ui_pipeline: Res<UiPipeline>,
@@ -1429,28 +1422,204 @@ pub fn prepare_uinodes_new(
         &BindGroupEntries::single(view_binding),
     ));
 
-    // Buffer indexes
-    let mut vertices_index = 0;
-    let mut indices_index = 0;
-
     // for each sorted render phase corresponding to a UI view
     for ui_phase in phases.values_mut() {
+        let mut batch_item_index = 0;
+        let mut batch_image_handle = None;
+
         for item_index in 0..ui_phase.items.len() {
-            let item = &mut ui_phase.items[item_index];
+            let main_entity = ui_phase.items[item_index].main_entity();
+            let entity = ui_phase.items[item_index].entity();
 
-            // get layout for this phase item, if no layout continue
-            let Some(geometry) = extracted_geometry.layout.get(&item.main_entity()) else {
+            if let Some(style) = extracted_uinodes
+                .uinodes
+                .get(&main_entity)
+                .and_then(|(render_entity, style)| (*render_entity == entity).then_some(style))
+            {
+                let Some(layout) = extracted_geometry.layout.get(&main_entity) else {
+                    batch_image_handle = None;
+                    continue;
+                };
+                let image = style
+                    .image
+                    .filter(|image| gpu_images.get(*image).is_some())
+                    .unwrap_or_default();
+
+                ui_phase.items[item_index].batch_range = item_index as u32..item_index as u32;
+                let mut existing_batch = batches.last_mut();
+                if batch_image_handle.is_none()
+                    || existing_batch.is_none()
+                    || (batch_image_handle != Some(AssetId::default())
+                        && image != AssetId::default()
+                        && batch_image_handle != Some(image))
+                {
+                    let Some(gpu_image) = gpu_images.get(image) else {
+                        batch_image_handle = None;
+                        continue;
+                    };
+                    batch_item_index = item_index;
+                    batch_image_handle = Some(image);
+                    batches.push((
+                        entity,
+                        UiBatch {
+                            range: ui_meta.indices.len() as u32..ui_meta.indices.len() as u32,
+                            image,
+                            texture_ranges: vec![],
+                        },
+                    ));
+                    image_bind_groups.values.entry(image).or_insert_with(|| {
+                        render_device.create_bind_group(
+                            "ui_material_bind_group",
+                            &pipeline_cache.get_bind_group_layout(&ui_pipeline.image_layout),
+                            &BindGroupEntries::sequential((
+                                &gpu_image.texture_view,
+                                &gpu_image.sampler,
+                            )),
+                        )
+                    });
+                    existing_batch = batches.last_mut();
+                } else if batch_image_handle == Some(AssetId::default())
+                    && image != AssetId::default()
+                {
+                    if let Some(ref mut existing_batch) = existing_batch
+                        && let Some(gpu_image) = gpu_images.get(image)
+                    {
+                        batch_image_handle = Some(image);
+                        existing_batch.1.image = image;
+                        image_bind_groups.values.entry(image).or_insert_with(|| {
+                            render_device.create_bind_group(
+                                "ui_material_bind_group",
+                                &pipeline_cache.get_bind_group_layout(&ui_pipeline.image_layout),
+                                &BindGroupEntries::sequential((
+                                    &gpu_image.texture_view,
+                                    &gpu_image.sampler,
+                                )),
+                            )
+                        });
+                    } else {
+                        batch_image_handle = None;
+                        continue;
+                    }
+                }
+
+                let gpu_image = gpu_images
+                    .get(image)
+                    .expect("Image was checked during batching and should still exist");
+                generate_uinodes_quads(&mut ui_meta, layout, style, image, gpu_image);
+                existing_batch.unwrap().1.range.end = ui_meta.indices.len() as u32;
+                ui_phase.items[batch_item_index].batch_range_mut().end += 1;
                 continue;
-            };
+            }
 
-            let mut batch_item_index = 0;
-            let mut batch_image_handle = None;
+            batch_image_handle = None;
 
-            // node item
+            if let Some(style) = extracted_glyph_layouts
+                .uinodes
+                .get(&main_entity)
+                .and_then(|(render_entity, style)| (*render_entity == entity).then_some(style))
+            {
+                let Some(layout) = extracted_geometry.layout.get(&main_entity) else {
+                    batch_image_handle = None;
+                    continue;
+                };
+                let image = style
+                    .sections
+                    .iter()
+                    .find_map(|section| {
+                        gpu_images
+                            .get(section.atlas_texture)
+                            .map(|_| section.atlas_texture)
+                    })
+                    .unwrap_or_default();
+                let Some(gpu_image) = gpu_images.get(image) else {
+                    continue;
+                };
+                image_bind_groups.values.entry(image).or_insert_with(|| {
+                    render_device.create_bind_group(
+                        "ui_material_bind_group",
+                        &pipeline_cache.get_bind_group_layout(&ui_pipeline.image_layout),
+                        &BindGroupEntries::sequential((
+                            &gpu_image.texture_view,
+                            &gpu_image.sampler,
+                        )),
+                    )
+                });
 
-            // text item
+                let range_start = ui_meta.indices.len() as u32;
+                let mut texture_ranges =
+                    Vec::with_capacity(style.sections.len().saturating_mul(2).saturating_add(1));
+                generate_text_quads(
+                    &mut ui_meta,
+                    layout,
+                    style,
+                    &gpu_images,
+                    image,
+                    &mut texture_ranges,
+                );
+                for (_, texture) in &texture_ranges {
+                    let gpu_image = gpu_images
+                        .get(*texture)
+                        .expect("Image was checked during quad generation and should still exist");
+                    image_bind_groups.values.entry(*texture).or_insert_with(|| {
+                        render_device.create_bind_group(
+                            "ui_material_bind_group",
+                            &pipeline_cache.get_bind_group_layout(&ui_pipeline.image_layout),
+                            &BindGroupEntries::sequential((
+                                &gpu_image.texture_view,
+                                &gpu_image.sampler,
+                            )),
+                        )
+                    });
+                }
+                ui_phase.items[item_index].batch_range = item_index as u32..item_index as u32 + 1;
+                batches.push((
+                    entity,
+                    UiBatch {
+                        range: range_start..ui_meta.indices.len() as u32,
+                        image,
+                        texture_ranges,
+                    },
+                ));
+                continue;
+            }
 
-            // debug outlines item
+            #[cfg(feature = "bevy_ui_debug")]
+            if let Some(style) = extracted_debug_overlays
+                .overlays
+                .get(&main_entity)
+                .and_then(|(render_entity, style)| (*render_entity == entity).then_some(style))
+            {
+                let image = AssetId::<Image>::default();
+                let Some(gpu_image) = gpu_images.get(image) else {
+                    continue;
+                };
+                image_bind_groups.values.entry(image).or_insert_with(|| {
+                    render_device.create_bind_group(
+                        "ui_debug_overlay_image_bind_group",
+                        &pipeline_cache.get_bind_group_layout(&ui_pipeline.image_layout),
+                        &BindGroupEntries::sequential((
+                            &gpu_image.texture_view,
+                            &gpu_image.sampler,
+                        )),
+                    )
+                });
+
+                let range_start = ui_meta.indices.len() as u32;
+                generate_debug_quads(&mut ui_meta, style);
+                let range_end = ui_meta.indices.len() as u32;
+                if range_start == range_end {
+                    continue;
+                }
+                ui_phase.items[item_index].batch_range = item_index as u32..item_index as u32 + 1;
+                batches.push((
+                    entity,
+                    UiBatch {
+                        range: range_start..range_end,
+                        image,
+                        texture_ranges: vec![],
+                    },
+                ));
+            }
         }
     }
 
@@ -1462,10 +1631,535 @@ pub fn prepare_uinodes_new(
 }
 
 /// generates quads from extracted uinode syle and layout
-pub fn generate_uinodes_quads(layout: &ExtractedUiLayout, style: &ExtractedUiNodeStyle) {}
+fn generate_uinodes_quads(
+    ui_meta: &mut UiMeta,
+    layout: &ExtractedUiNodeLayout,
+    style: &ExtractedUiNodeStyle,
+    image: AssetId<Image>,
+    gpu_image: &GpuImage,
+) {
+    let uinode = &layout.uinode;
+    let mut push_quad = |color: LinearRgba,
+                         mut rect: Rect,
+                         atlas_scaling: Option<Vec2>,
+                         transform: Affine2,
+                         clip: Option<Rect>,
+                         border_radius: ResolvedBorderRadius,
+                         border: BorderRect,
+                         node_type: NodeType,
+                         textured: bool| {
+        let mut flags = if textured {
+            shader_flags::TEXTURED
+        } else {
+            shader_flags::UNTEXTURED
+        };
+        let rect_size = rect.size();
+        let positions =
+            QUAD_VERTEX_POSITIONS.map(|pos| transform.transform_point2(pos * rect_size).extend(0.));
+        let mut positions_diff = if let Some(clip) = clip {
+            [
+                Vec2::new(
+                    f32::max(clip.min.x - positions[0].x, 0.),
+                    f32::max(clip.min.y - positions[0].y, 0.),
+                ),
+                Vec2::new(
+                    f32::min(clip.max.x - positions[1].x, 0.),
+                    f32::max(clip.min.y - positions[1].y, 0.),
+                ),
+                Vec2::new(
+                    f32::min(clip.max.x - positions[2].x, 0.),
+                    f32::min(clip.max.y - positions[2].y, 0.),
+                ),
+                Vec2::new(
+                    f32::max(clip.min.x - positions[3].x, 0.),
+                    f32::min(clip.max.y - positions[3].y, 0.),
+                ),
+            ]
+        } else {
+            [Vec2::ZERO; 4]
+        };
+        let positions_clipped = [
+            positions[0] + positions_diff[0].extend(0.),
+            positions[1] + positions_diff[1].extend(0.),
+            positions[2] + positions_diff[2].extend(0.),
+            positions[3] + positions_diff[3].extend(0.),
+        ];
+        let transformed_rect_size = transform.transform_vector2(rect_size).abs();
+        if transform.x_axis[1] == 0.0
+            && (positions_diff[0].x - positions_diff[1].x >= transformed_rect_size.x
+                || positions_diff[1].y - positions_diff[2].y >= transformed_rect_size.y)
+        {
+            return;
+        }
+        let uvs = if textured {
+            let atlas_extent = atlas_scaling
+                .map(|scaling| gpu_image.size_2d().as_vec2() * scaling)
+                .unwrap_or(rect.max);
+            if style.flip_x {
+                mem::swap(&mut rect.max.x, &mut rect.min.x);
+                positions_diff[0].x *= -1.;
+                positions_diff[1].x *= -1.;
+                positions_diff[2].x *= -1.;
+                positions_diff[3].x *= -1.;
+            }
+            if style.flip_y {
+                mem::swap(&mut rect.max.y, &mut rect.min.y);
+                positions_diff[0].y *= -1.;
+                positions_diff[1].y *= -1.;
+                positions_diff[2].y *= -1.;
+                positions_diff[3].y *= -1.;
+            }
+            [
+                Vec2::new(
+                    rect.min.x + positions_diff[0].x,
+                    rect.min.y + positions_diff[0].y,
+                ),
+                Vec2::new(
+                    rect.max.x + positions_diff[1].x,
+                    rect.min.y + positions_diff[1].y,
+                ),
+                Vec2::new(
+                    rect.max.x + positions_diff[2].x,
+                    rect.max.y + positions_diff[2].y,
+                ),
+                Vec2::new(
+                    rect.min.x + positions_diff[3].x,
+                    rect.max.y + positions_diff[3].y,
+                ),
+            ]
+            .map(|pos| pos / atlas_extent)
+        } else {
+            [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y]
+        };
+        match node_type {
+            NodeType::Border(border_flags) => flags |= border_flags,
+            NodeType::Inverted => flags |= INVERT,
+            NodeType::Rect => {}
+        }
+
+        let vertex_start = ui_meta.vertices.len() as u32;
+        let color = color.to_f32_array();
+        for i in 0..4 {
+            ui_meta.vertices.push(UiVertex {
+                position: positions_clipped[i].into(),
+                uv: uvs[i].into(),
+                color,
+                flags: flags | shader_flags::CORNERS[i],
+                radius: border_radius.into(),
+                border: [
+                    border.min_inset.x,
+                    border.min_inset.y,
+                    border.max_inset.x,
+                    border.max_inset.y,
+                ],
+                size: rect_size.into(),
+                point: (QUAD_VERTEX_POSITIONS[i] * rect_size + positions_diff[i]).into(),
+            });
+        }
+        for &index in &QUAD_INDICES {
+            ui_meta.indices.push(vertex_start + index as u32);
+        }
+    };
+
+    if !style.background_color.is_fully_transparent() {
+        push_quad(
+            style.background_color,
+            Rect {
+                min: Vec2::ZERO,
+                max: uinode.size(),
+            },
+            None,
+            layout.transform,
+            layout.clip,
+            uinode.border_radius(),
+            uinode.border(),
+            NodeType::Rect,
+            false,
+        );
+    }
+    if !style.outer_color.is_fully_transparent() {
+        push_quad(
+            style.outer_color,
+            Rect {
+                min: Vec2::ZERO,
+                max: uinode.size(),
+            },
+            None,
+            layout.transform,
+            layout.clip,
+            uinode.border_radius(),
+            BorderRect::ZERO,
+            NodeType::Inverted,
+            false,
+        );
+    }
+
+    if uinode.border() != BorderRect::ZERO {
+        const BORDER_FLAGS: [u32; 4] = [
+            shader_flags::BORDER_TOP,
+            shader_flags::BORDER_RIGHT,
+            shader_flags::BORDER_BOTTOM,
+            shader_flags::BORDER_LEFT,
+        ];
+        let mut completed_flags = 0;
+
+        for (i, &color) in style.border_color.iter().enumerate() {
+            if color.is_fully_transparent() || completed_flags & BORDER_FLAGS[i] != 0 {
+                continue;
+            }
+
+            let mut border_flags = BORDER_FLAGS[i];
+            for (j, &other_color) in style.border_color.iter().enumerate().skip(i + 1) {
+                if color == other_color {
+                    border_flags |= BORDER_FLAGS[j];
+                }
+            }
+            completed_flags |= border_flags;
+
+            push_quad(
+                color,
+                Rect {
+                    min: Vec2::ZERO,
+                    max: uinode.size(),
+                },
+                None,
+                layout.transform,
+                layout.clip,
+                uinode.border_radius(),
+                uinode.border(),
+                NodeType::Border(border_flags),
+                false,
+            );
+        }
+    }
+
+    if !style.outline_color.is_fully_transparent() && uinode.outline_width() > 0. {
+        push_quad(
+            style.outline_color,
+            Rect {
+                min: Vec2::ZERO,
+                max: uinode.outlined_node_size(),
+            },
+            None,
+            layout.transform,
+            layout.clip,
+            uinode.outline_radius(),
+            BorderRect::all(uinode.outline_width()),
+            NodeType::Border(shader_flags::BORDER_ALL),
+            false,
+        );
+    }
+
+    if style.image == Some(image) {
+        let visual_box = match style.visual_box {
+            VisualBox::ContentBox => uinode.content_box(),
+            VisualBox::PaddingBox => uinode.padding_box(),
+            VisualBox::BorderBox => uinode.border_box(),
+        };
+        if !visual_box.size().cmple(Vec2::ZERO).any() {
+            let size = if style.auto_sized && !style.image_size.cmple(Vec2::ZERO).any() {
+                style.image_size * (visual_box.size() / style.image_size).min_element()
+            } else {
+                visual_box.size()
+            };
+            let mut rect = style.image_rect.unwrap_or(Rect {
+                min: Vec2::ZERO,
+                max: size,
+            });
+            let atlas_scaling = style.image_rect.map(|_| {
+                let atlas_scaling = size / rect.size();
+                rect.min *= atlas_scaling;
+                rect.max *= atlas_scaling;
+                atlas_scaling
+            });
+            push_quad(
+                style.image_color,
+                rect,
+                atlas_scaling,
+                layout.transform * Affine2::from_translation(visual_box.center()),
+                layout.clip,
+                uinode.border_radius(),
+                if style.use_node_border {
+                    uinode.border()
+                } else {
+                    BorderRect::ZERO
+                },
+                NodeType::Rect,
+                true,
+            );
+        }
+    }
+}
 
 /// generates quads from extracted uinode syle and glyph layout
-pub fn generate_text_quads(layout: &ExtractedUiLayout, style: &ExtractedGlyphLayout) {}
+fn generate_text_quads(
+    ui_meta: &mut UiMeta,
+    layout: &ExtractedUiNodeLayout,
+    style: &ExtractedGlyphLayout,
+    gpu_images: &RenderAssets<GpuImage>,
+    image: AssetId<Image>,
+    texture_ranges: &mut Vec<(Range<u32>, AssetId<Image>)>,
+) {
+    let uinode = &layout.uinode;
+    let shadow_offset = style.shadow_offset / uinode.inverse_scale_factor();
+    let transform = layout.transform
+        * Affine2::from_translation(uinode.content_box().min - style.viewport_offset);
+    let clip = if style.clip_to_content_box {
+        let content_box = uinode.content_box();
+        let text_clip = Rect::from_center_size(
+            layout.transform.translation + content_box.center(),
+            content_box.size(),
+        );
+        Some(
+            layout
+                .clip
+                .map_or(text_clip, |clip| clip.intersect(text_clip)),
+        )
+    } else {
+        layout.clip
+    };
+    let mut texture_range_start = ui_meta.indices.len() as u32;
+    let mut current_texture = image;
+    {
+        let mut push_quad = |rect: Rect,
+                             color: LinearRgba,
+                             border_radius: ResolvedBorderRadius,
+                             glyph: Option<(Rect, AssetId<Image>)>| {
+            let rect_size = rect.size();
+            let rect_transform = transform * Affine2::from_translation(rect.center());
+            let positions = QUAD_VERTEX_POSITIONS
+                .map(|pos| rect_transform.transform_point2(pos * rect_size).extend(0.));
+            let positions_diff = if let Some(clip) = clip {
+                [
+                    Vec2::new(
+                        f32::max(clip.min.x - positions[0].x, 0.),
+                        f32::max(clip.min.y - positions[0].y, 0.),
+                    ),
+                    Vec2::new(
+                        f32::min(clip.max.x - positions[1].x, 0.),
+                        f32::max(clip.min.y - positions[1].y, 0.),
+                    ),
+                    Vec2::new(
+                        f32::min(clip.max.x - positions[2].x, 0.),
+                        f32::min(clip.max.y - positions[2].y, 0.),
+                    ),
+                    Vec2::new(
+                        f32::max(clip.min.x - positions[3].x, 0.),
+                        f32::min(clip.max.y - positions[3].y, 0.),
+                    ),
+                ]
+            } else {
+                [Vec2::ZERO; 4]
+            };
+            let positions_clipped = [
+                positions[0] + positions_diff[0].extend(0.),
+                positions[1] + positions_diff[1].extend(0.),
+                positions[2] + positions_diff[2].extend(0.),
+                positions[3] + positions_diff[3].extend(0.),
+            ];
+            let transformed_rect_size = rect_transform.transform_vector2(rect_size).abs();
+            if rect_transform.x_axis[1] == 0.0
+                && (positions_diff[0].x - positions_diff[1].x >= transformed_rect_size.x
+                    || positions_diff[1].y - positions_diff[2].y >= transformed_rect_size.y)
+            {
+                return;
+            }
+
+            let (uvs, flags) = if let Some((glyph_rect, atlas_texture)) = glyph {
+                let Some(gpu_image) = gpu_images.get(atlas_texture) else {
+                    return;
+                };
+                let range_end = ui_meta.indices.len() as u32;
+                if current_texture != atlas_texture {
+                    if texture_range_start < range_end {
+                        texture_ranges.push((texture_range_start..range_end, current_texture));
+                    }
+                    texture_range_start = range_end;
+                    current_texture = atlas_texture;
+                }
+                let atlas_extent = gpu_image.size_2d().as_vec2();
+                (
+                    [
+                        Vec2::new(
+                            glyph_rect.min.x + positions_diff[0].x,
+                            glyph_rect.min.y + positions_diff[0].y,
+                        ),
+                        Vec2::new(
+                            glyph_rect.max.x + positions_diff[1].x,
+                            glyph_rect.min.y + positions_diff[1].y,
+                        ),
+                        Vec2::new(
+                            glyph_rect.max.x + positions_diff[2].x,
+                            glyph_rect.max.y + positions_diff[2].y,
+                        ),
+                        Vec2::new(
+                            glyph_rect.min.x + positions_diff[3].x,
+                            glyph_rect.max.y + positions_diff[3].y,
+                        ),
+                    ]
+                    .map(|pos| pos / atlas_extent),
+                    shader_flags::TEXTURED,
+                )
+            } else {
+                (
+                    [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y],
+                    shader_flags::UNTEXTURED,
+                )
+            };
+
+            let vertex_start = ui_meta.vertices.len() as u32;
+            let color = color.to_f32_array();
+            for i in 0..4 {
+                ui_meta.vertices.push(UiVertex {
+                    position: positions_clipped[i].into(),
+                    uv: uvs[i].into(),
+                    color,
+                    flags: flags | shader_flags::CORNERS[i],
+                    radius: border_radius.into(),
+                    border: [0.; 4],
+                    size: rect_size.into(),
+                    point: (QUAD_VERTEX_POSITIONS[i] * rect_size + positions_diff[i]).into(),
+                });
+            }
+            for &index in &QUAD_INDICES {
+                ui_meta.indices.push(vertex_start + index as u32);
+            }
+        };
+
+        let selection_color = if style.focused {
+            style.cursor_style.selection_color
+        } else {
+            style.cursor_style.unfocused_selection_color
+        }
+        .to_linear();
+        for (rect, radius) in &style.selections {
+            push_quad(*rect, selection_color, *radius, None);
+        }
+        for (rect, color) in &style.backgrounds {
+            push_quad(*rect, *color, ResolvedBorderRadius::ZERO, None);
+        }
+
+        if !style.shadow_color.is_fully_transparent() {
+            for section in &style.sections {
+                for glyph in &style.glyphs[section.range.start as usize..section.range.end as usize]
+                {
+                    push_quad(
+                        Rect::from_center_size(
+                            glyph.translation + shadow_offset,
+                            glyph.rect.size(),
+                        ),
+                        style.shadow_color,
+                        ResolvedBorderRadius::ZERO,
+                        Some((glyph.rect, section.atlas_texture)),
+                    );
+                }
+            }
+            for (rect, _) in style.strike_through.iter().chain(style.underline.iter()) {
+                push_quad(
+                    Rect::from_center_size(rect.center() + shadow_offset, rect.size()),
+                    style.shadow_color,
+                    ResolvedBorderRadius::ZERO,
+                    None,
+                );
+            }
+        }
+
+        for section in &style.sections {
+            for glyph in &style.glyphs[section.range.start as usize..section.range.end as usize] {
+                push_quad(
+                    Rect::from_center_size(glyph.translation, glyph.rect.size()),
+                    glyph.color,
+                    ResolvedBorderRadius::ZERO,
+                    Some((glyph.rect, section.atlas_texture)),
+                );
+            }
+        }
+        for (rect, color) in style.strike_through.iter().chain(style.underline.iter()) {
+            push_quad(*rect, *color, ResolvedBorderRadius::ZERO, None);
+        }
+        if let Some(cursor) = style.cursor {
+            push_quad(
+                cursor,
+                style.cursor_style.color.to_linear(),
+                ResolvedBorderRadius::ZERO,
+                None,
+            );
+        }
+    }
+    let range_end = ui_meta.indices.len() as u32;
+    if texture_range_start < range_end {
+        texture_ranges.push((texture_range_start..range_end, current_texture));
+    }
+}
 
 /// generate quads from extracted layout and debug options
-pub fn generate_debug_quads(layout: &ExtractedUiLayout, style: &UiDebugOptions) {}
+#[cfg(feature = "bevy_ui_debug")]
+fn generate_debug_quads(ui_meta: &mut UiMeta, style: &debug_overlay::ExtractedUiDebugOverlay) {
+    let color = style.color.to_f32_array();
+    for (rect, radius) in &style.outlines {
+        let rect_size = rect.size();
+        let transform = style.transform * Affine2::from_translation(rect.center());
+        let positions = QUAD_VERTEX_POSITIONS
+            .map(|position| transform.transform_point2(position * rect_size).extend(0.));
+        let positions_diff = if let Some(clip) = style.clip {
+            [
+                Vec2::new(
+                    f32::max(clip.min.x - positions[0].x, 0.),
+                    f32::max(clip.min.y - positions[0].y, 0.),
+                ),
+                Vec2::new(
+                    f32::min(clip.max.x - positions[1].x, 0.),
+                    f32::max(clip.min.y - positions[1].y, 0.),
+                ),
+                Vec2::new(
+                    f32::min(clip.max.x - positions[2].x, 0.),
+                    f32::min(clip.max.y - positions[2].y, 0.),
+                ),
+                Vec2::new(
+                    f32::max(clip.min.x - positions[3].x, 0.),
+                    f32::min(clip.max.y - positions[3].y, 0.),
+                ),
+            ]
+        } else {
+            [Vec2::ZERO; 4]
+        };
+        let positions_clipped = [
+            positions[0] + positions_diff[0].extend(0.),
+            positions[1] + positions_diff[1].extend(0.),
+            positions[2] + positions_diff[2].extend(0.),
+            positions[3] + positions_diff[3].extend(0.),
+        ];
+        let transformed_rect_size = transform.transform_vector2(rect_size).abs();
+        if transform.x_axis[1] == 0.0
+            && (positions_diff[0].x - positions_diff[1].x >= transformed_rect_size.x
+                || positions_diff[1].y - positions_diff[2].y >= transformed_rect_size.y)
+        {
+            continue;
+        }
+
+        let vertex_start = ui_meta.vertices.len() as u32;
+        let points = QUAD_VERTEX_POSITIONS.map(|position| position * rect_size);
+        for i in 0..4 {
+            ui_meta.vertices.push(UiVertex {
+                position: positions_clipped[i].into(),
+                uv: [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y][i].into(),
+                color,
+                flags: shader_flags::UNTEXTURED
+                    | shader_flags::BORDER_ALL
+                    | shader_flags::CORNERS[i],
+                radius: (*radius).into(),
+                border: [
+                    style.border.min_inset.x,
+                    style.border.min_inset.y,
+                    style.border.max_inset.x,
+                    style.border.max_inset.y,
+                ],
+                size: rect_size.into(),
+                point: (points[i] + positions_diff[i]).into(),
+            });
+        }
+        for &index in &QUAD_INDICES {
+            ui_meta.indices.push(vertex_start + index as u32);
+        }
+    }
+}
