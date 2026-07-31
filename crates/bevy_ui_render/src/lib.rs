@@ -27,6 +27,7 @@ use bevy_ecs::entity::{EntityHashSet, EntityIndexMap};
 use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_render::camera::{extract_cameras, CameraMainPassTextureFormats};
+use bevy_render::renderer::RenderQueue;
 use bevy_render::sync_world::{MainEntityHashMap, MainEntityHashSet};
 use bevy_shader::load_shader_library;
 use bevy_sprite_render::SpriteAssetEvents;
@@ -79,7 +80,9 @@ use ui_texture_slice_pipeline::UiTextureSlicerPlugin;
 
 use crate::extract_layout::ExtractedUiLayout;
 use crate::shader_flags::INVERT;
-use crate::text::{extract_text, prepare_text, queue_text, ExtractedGlyphLayouts};
+use crate::text::{
+    extract_text, prepare_text, queue_text, ExtractedGlyphLayout, ExtractedGlyphLayouts,
+};
 
 pub mod prelude {
     #[cfg(feature = "bevy_ui_debug")]
@@ -1379,3 +1382,90 @@ pub fn clear_batches(mut commands: Commands, batches_query: Query<Entity, With<U
         commands.entity(entity).remove::<UiBatch>();
     }
 }
+
+// new prepare function design
+// draws ui nodes, text layouts and debug outlines
+pub fn prepare_uinodes_new(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    render_queue: Res<RenderQueue>,
+    pipeline_cache: Res<PipelineCache>,
+    mut ui_meta: ResMut<UiMeta>,
+    extracted_uinodes: Res<ExtractedUiNodes>,
+    extracted_geometry: Res<ExtractedUiLayout>,
+    view_uniforms: Res<ViewUniforms>,
+    ui_pipeline: Res<UiPipeline>,
+    mut image_bind_groups: ResMut<ImageNodeBindGroups>,
+    gpu_images: Res<RenderAssets<GpuImage>>,
+    mut phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
+    events: Res<SpriteAssetEvents>,
+    mut previous_len: Local<usize>,
+) {
+    // If an image has changed, the GpuImage has (probably) changed
+    for event in &events.images {
+        match event {
+            AssetEvent::Added { .. } |
+            AssetEvent::Unused { .. } |
+            // Images don't have dependencies
+            AssetEvent::LoadedWithDependencies { .. } => {}
+            AssetEvent::Modified { id } | AssetEvent::Removed { id } => {
+                image_bind_groups.values.remove(id);
+            }
+        };
+    }
+
+    let Some(view_binding) = view_uniforms.uniforms.binding() else {
+        // If there are no view bindings, nothing to draw to
+        return;
+    };
+
+    let mut batches: Vec<(Entity, UiBatch)> = Vec::with_capacity(*previous_len);
+
+    ui_meta.vertices.clear();
+    ui_meta.indices.clear();
+    ui_meta.view_bind_group = Some(render_device.create_bind_group(
+        "ui_view_bind_group",
+        &pipeline_cache.get_bind_group_layout(&ui_pipeline.view_layout),
+        &BindGroupEntries::single(view_binding),
+    ));
+
+    // Buffer indexes
+    let mut vertices_index = 0;
+    let mut indices_index = 0;
+
+    // for each sorted render phase corresponding to a UI view
+    for ui_phase in phases.values_mut() {
+        for item_index in 0..ui_phase.items.len() {
+            let item = &mut ui_phase.items[item_index];
+
+            // get layout for this phase item, if no layout continue
+            let Some(geometry) = extracted_geometry.layout.get(&item.main_entity()) else {
+                continue;
+            };
+
+            let mut batch_item_index = 0;
+            let mut batch_image_handle = None;
+
+            // node item
+
+            // text item
+
+            // debug outlines item
+        }
+    }
+
+    *previous_len = batches.len();
+    commands.try_insert_batch(batches);
+
+    ui_meta.vertices.write_buffer(&render_device, &render_queue);
+    ui_meta.indices.write_buffer(&render_device, &render_queue);
+}
+
+/// generates quads from extracted uinode syle and layout
+pub fn generate_uinodes_quads(layout: &ExtractedUiLayout, style: &ExtractedUiNodeStyle) {}
+
+/// generates quads from extracted uinode syle and glyph layout
+pub fn generate_text_quads(layout: &ExtractedUiLayout, style: &ExtractedGlyphLayout) {}
+
+/// generate quads from extracted layout and debug options
+pub fn generate_debug_quads(layout: &ExtractedUiLayout, style: &UiDebugOptions) {}
