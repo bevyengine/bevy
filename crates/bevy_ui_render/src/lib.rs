@@ -248,7 +248,7 @@ impl Plugin for UiRenderPlugin {
                     extract_ui_camera_view
                         .after(extract_cameras)
                         .in_set(RenderUiSystems::ExtractCameraViews),
-                    extract_uinode_background_colors.in_set(RenderUiSystems::ExtractBackgrounds),
+                    extract_uinode_styles.in_set(RenderUiSystems::ExtractBackgrounds),
                     extract_text.in_set(RenderUiSystems::ExtractText),
                 ),
             )
@@ -371,7 +371,7 @@ pub struct ExtractedUiNodes {
     pub changed: MainEntityHashSet,
 }
 
-pub fn extract_uinode_background_colors(
+pub fn extract_uinode_styles(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,

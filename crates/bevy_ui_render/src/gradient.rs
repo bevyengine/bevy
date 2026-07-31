@@ -54,7 +54,7 @@ impl Plugin for GradientPlugin {
                     ExtractSchedule,
                     extract_gradients
                         .in_set(RenderUiSystems::ExtractGradient)
-                        .after(extract_uinode_background_colors),
+                        .after(extract_uinode_styles),
                 )
                 .add_systems(
                     Render,
