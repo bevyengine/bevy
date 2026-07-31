@@ -44,7 +44,7 @@ use crate::{
 };
 use bevy_input_focus::{
     tab_navigation::{NavAction, TabIndex},
-    FocusCause, InputFocus, InputFocusVisible,
+    FocusCause, InputFocus, InputFocusSystems, InputFocusVisible,
 };
 
 /// Top-level menu container. This wraps the menu button and provides an anchor for the popover.
@@ -616,7 +616,9 @@ impl Plugin for MenuPlugin {
                 update_menuitem_styles_remove,
                 update_menuitem_styles_focus_changed,
             )
-                .in_set(PickingSystems::Last),
+                .in_set(PickingSystems::Last)
+                // After Dispatch systems so that these systems use the most updated `InputFocus`.
+                .after(InputFocusSystems::Dispatch),
         );
     }
 }
