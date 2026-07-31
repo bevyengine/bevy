@@ -1059,13 +1059,24 @@ fn prepare_uinodes(
                 let gpu_image = gpu_images
                     .get(image)
                     .expect("Image was checked during batching and should still exist");
+                let range_start = ui_meta.indices.len() as u32;
                 generate_uinodes_quads(&mut ui_meta, layout, style, image, gpu_image);
-                existing_batch.unwrap().1.range.end = ui_meta.indices.len() as u32;
+                let range_end = ui_meta.indices.len() as u32;
+                let existing_batch = existing_batch.unwrap();
+                existing_batch.1.range.end = range_end;
+                if let Some((range, texture)) = existing_batch.1.texture_ranges.last_mut() {
+                    if image == AssetId::default() || *texture == image {
+                        range.end = range_end;
+                    } else if range_start < range_end {
+                        existing_batch
+                            .1
+                            .texture_ranges
+                            .push((range_start..range_end, image));
+                    }
+                }
                 ui_phase.items[batch_start_item_index].batch_range_mut().end += 1;
                 continue;
             }
-
-            batch_image_handle = None;
 
             if let Some(style) = extracted_glyph_layouts
                 .uinodes
@@ -1086,8 +1097,39 @@ fn prepare_uinodes(
                     })
                     .unwrap_or_default();
                 let Some(gpu_image) = gpu_images.get(image) else {
+                    batch_image_handle = None;
                     continue;
                 };
+
+                ui_phase.items[phase_item_index].batch_range =
+                    phase_item_index as u32..phase_item_index as u32;
+                let mut existing_batch = batches.last_mut();
+                if batch_image_handle.is_none()
+                    || existing_batch.is_none()
+                    || (batch_image_handle != Some(AssetId::default())
+                        && image != AssetId::default()
+                        && batch_image_handle != Some(image))
+                {
+                    batch_start_item_index = phase_item_index;
+                    batch_image_handle = Some(image);
+                    batches.push((
+                        entity,
+                        UiBatch {
+                            range: ui_meta.indices.len() as u32..ui_meta.indices.len() as u32,
+                            image,
+                            texture_ranges: Vec::with_capacity(
+                                style.sections.len().saturating_mul(2).saturating_add(1),
+                            ),
+                        },
+                    ));
+                    existing_batch = batches.last_mut();
+                } else if batch_image_handle == Some(AssetId::default())
+                    && image != AssetId::default()
+                    && let Some(existing_batch) = &mut existing_batch
+                {
+                    batch_image_handle = Some(image);
+                    existing_batch.1.image = image;
+                }
                 image_bind_groups.values.entry(image).or_insert_with(|| {
                     render_device.create_bind_group(
                         "ui_material_bind_group",
@@ -1099,18 +1141,27 @@ fn prepare_uinodes(
                     )
                 });
 
-                let range_start = ui_meta.indices.len() as u32;
-                let mut texture_ranges =
-                    Vec::with_capacity(style.sections.len().saturating_mul(2).saturating_add(1));
+                let existing_batch = existing_batch.unwrap();
+                existing_batch
+                    .1
+                    .texture_ranges
+                    .reserve(style.sections.len().saturating_mul(2).saturating_add(1));
+                if existing_batch.1.texture_ranges.is_empty() && !existing_batch.1.range.is_empty()
+                {
+                    existing_batch
+                        .1
+                        .texture_ranges
+                        .push((existing_batch.1.range.clone(), existing_batch.1.image));
+                }
                 generate_text_quads(
                     &mut ui_meta,
                     layout,
                     style,
                     &gpu_images,
                     image,
-                    &mut texture_ranges,
+                    &mut existing_batch.1.texture_ranges,
                 );
-                for (_, texture) in &texture_ranges {
+                for (_, texture) in &existing_batch.1.texture_ranges {
                     let gpu_image = gpu_images
                         .get(*texture)
                         .expect("Image was checked during quad generation and should still exist");
@@ -1125,18 +1176,15 @@ fn prepare_uinodes(
                         )
                     });
                 }
-                ui_phase.items[phase_item_index].batch_range =
-                    phase_item_index as u32..phase_item_index as u32 + 1;
-                batches.push((
-                    entity,
-                    UiBatch {
-                        range: range_start..ui_meta.indices.len() as u32,
-                        image,
-                        texture_ranges,
-                    },
-                ));
+                existing_batch.1.range.end = ui_meta.indices.len() as u32;
+                if let Some((_, texture)) = existing_batch.1.texture_ranges.last() {
+                    batch_image_handle = Some(*texture);
+                }
+                ui_phase.items[batch_start_item_index].batch_range_mut().end += 1;
                 continue;
             }
+
+            batch_image_handle = None;
 
             #[cfg(feature = "bevy_ui_debug")]
             if let Some(style) = extracted_debug_overlays
@@ -1474,8 +1522,11 @@ fn generate_text_quads(
     } else {
         layout.clip
     };
-    let mut texture_range_start = ui_meta.indices.len() as u32;
-    let mut current_texture = image;
+    let (mut texture_range_start, mut current_texture) = texture_ranges
+        .pop()
+        .map_or((ui_meta.indices.len() as u32, image), |(range, texture)| {
+            (range.start, texture)
+        });
     {
         let mut push_quad = |rect: Rect,
                              color: LinearRgba,
