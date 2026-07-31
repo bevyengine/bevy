@@ -174,6 +174,11 @@ impl Plugin for LightPlugin {
                 SimulationLightSystems::CheckLightVisibility
                     .ambiguous_with(SimulationLightSystems::CheckLightVisibility),
             )
+            .configure_sets(
+                PostUpdate,
+                SimulationLightSystems::AssignLightsToClusters
+                    .before(bevy_app::TransformGizmoRenderStep),
+            )
             .add_systems(Update, automatically_add_parallax_correction_components)
             .add_systems(
                 PostUpdate,
@@ -233,6 +238,7 @@ impl Plugin for LightPlugin {
                     build_directional_light_cascades
                         .in_set(SimulationLightSystems::UpdateDirectionalLightCascades)
                         .after(TransformSystems::Propagate)
+                        .before(bevy_app::TransformGizmoRenderStep)
                         .after(CameraUpdateSystems),
                     extract_chromatic_phase_textures.after(AssetEventSystems),
                 ),
@@ -400,6 +406,13 @@ pub fn check_dir_light_mesh_visibility(
         let view_mask = maybe_view_mask.unwrap_or_default();
 
         for (view, view_frusta) in &frusta.frusta {
+            // Resize any per-thread buffer left at a stale state from a prior frame.
+            // Threads receiving no work this frame won't run the `init` closure from `par_iter`, and without this
+            // their buffer might be indexed out-of-bounds during collection if the number of cascades has increased.
+            for thread_queue in view_visible_entities_queue.iter_mut() {
+                thread_queue.resize(view_frusta.len(), Vec::default());
+            }
+
             visible_entity_query.par_iter().for_each_init(
                 || {
                     let mut entities = view_visible_entities_queue.borrow_local_mut();

@@ -1,5 +1,5 @@
 use alloc::sync::Arc;
-use bevy_app::{Plugin, PreUpdate};
+use bevy_app::{Plugin, PreUpdate, Propagate};
 use bevy_camera::visibility::Visibility;
 use bevy_color::{Alpha, Srgba};
 use bevy_ecs::{
@@ -12,6 +12,7 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
+    template::template,
 };
 use bevy_log::{info, warn};
 use bevy_picking::{hover::Hovered, PickingSystems};
@@ -35,7 +36,10 @@ use crate::{
     display::icon,
     font_styles::InheritableFont,
     rounded_corners::RoundedCorners,
-    theme::{InheritableThemeTextColor, ThemeBackgroundColor, ThemeBorderColor},
+    theme::{
+        InheritableThemeTextColor, SurfaceLevel, ThemeBackgroundColor, ThemeBorderColor,
+        ThemeContext,
+    },
     tokens,
 };
 use bevy_input_focus::{
@@ -82,7 +86,7 @@ fn on_menu_event(
                 if q_popovers.contains(*child) {
                     commands
                         .entity(*child)
-                        .insert((Visibility::Visible, MenuFocusState::Opening(nav)));
+                        .try_insert((Visibility::Visible, MenuFocusState::Opening(nav)));
                     return;
                 }
             }
@@ -96,9 +100,9 @@ fn on_menu_event(
                 if let Ok(visibility) = q_popovers.get(*child) {
                     ev.propagate(false);
                     if visibility == Visibility::Visible {
-                        commands.entity(*child).insert(Visibility::Hidden);
+                        commands.entity(*child).try_insert(Visibility::Hidden);
                     } else {
-                        commands.entity(*child).insert((
+                        commands.entity(*child).try_insert((
                             Visibility::Visible,
                             MenuFocusState::Opening(NavAction::First),
                         ));
@@ -115,7 +119,7 @@ fn on_menu_event(
             for child in children.iter() {
                 if q_popovers.contains(*child) {
                     ev.propagate(false);
-                    commands.entity(*child).insert(Visibility::Hidden);
+                    commands.entity(*child).try_insert(Visibility::Hidden);
                 }
             }
         }
@@ -359,6 +363,7 @@ impl FeathersMenuPopup {
             Visibility::Hidden
             ThemeBackgroundColor(tokens::MENU_BG)
             ThemeBorderColor(tokens::MENU_BORDER)
+            template(|_| Ok(Propagate(ThemeContext(SurfaceLevel::Floating))))
             BoxShadow::new(
                 Srgba::BLACK.with_alpha(0.9).into(),
                 px(0),
@@ -557,7 +562,7 @@ fn set_menuitem_colors(
         (true, _, _) => tokens::MENUITEM_BG_FOCUSED,
         (false, true, _) => tokens::MENUITEM_BG_PRESSED,
         (false, false, true) => tokens::MENUITEM_BG_HOVER,
-        (false, false, false) => tokens::MENU_BG,
+        (false, false, false) => tokens::MENUITEM_BG,
     };
 
     let font_color_token = match disabled {
@@ -613,5 +618,36 @@ impl Plugin for MenuPlugin {
             )
                 .in_set(PickingSystems::Last),
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy_ecs::{hierarchy::ChildOf, system::RunSystemOnce, world::World};
+
+    #[test]
+    fn close_all_ignores_popup_despawned_during_menu_event() {
+        fn despawn_menu(ev: On<MenuEvent>, mut commands: Commands) {
+            commands.entity(ev.source).try_despawn();
+        }
+
+        let mut world = World::new();
+        world.init_resource::<InputFocus>();
+
+        let menu = world.spawn_empty().id();
+        world.spawn((ChildOf(menu), FeathersMenuPopup, Visibility::Visible));
+
+        world.entity_mut(menu).observe(despawn_menu);
+        world.entity_mut(menu).observe(on_menu_event);
+
+        world
+            .run_system_once(move |mut commands: Commands| {
+                commands.trigger(MenuEvent {
+                    source: menu,
+                    action: MenuAction::CloseAll,
+                });
+            })
+            .unwrap();
     }
 }

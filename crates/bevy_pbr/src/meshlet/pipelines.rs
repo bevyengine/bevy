@@ -1,4 +1,5 @@
 use super::resource_manager::ResourceManager;
+use crate::render::CORE_3D_SHADOW_MAP_FORMAT;
 use bevy_asset::{load_embedded_asset, AssetServer, Handle};
 use bevy_core_pipeline::{
     core_3d::CORE_3D_DEPTH_FORMAT, mip_generation::DownsampleShaders, FullscreenShader,
@@ -406,7 +407,7 @@ pub fn init_meshlet_pipelines(
             layout: vec![resolve_depth_shadow_view_layout],
             vertex: vertex_state.clone(),
             depth_stencil: Some(DepthStencilState {
-                format: CORE_3D_DEPTH_FORMAT,
+                format: CORE_3D_SHADOW_MAP_FORMAT,
                 depth_write_enabled: Some(true),
                 depth_compare: Some(CompareFunction::Always),
                 stencil: StencilState::default(),

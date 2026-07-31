@@ -10,6 +10,7 @@ use bevy_ecs::{
     system::{Res, ResMut},
     world::{FromWorld, World},
 };
+use bevy_log::warn;
 use bevy_math::bounding::{Aabb2d, BoundingVolume};
 use bevy_mesh::Indices;
 use glam::Vec4;
@@ -253,6 +254,9 @@ pub fn allocate_and_free_meshes(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
 ) {
+    // Clear the list of meshes displaced by last frame's slab growth.
+    mesh_allocator.clear_displaced_keys();
+
     // Process removed or modified meshes.
     mesh_allocator.free_meshes(&extracted_meshes);
 
@@ -276,6 +280,26 @@ impl MeshAllocator {
             &MeshAllocationKey::new(*mesh_id, ElementClass::Metadata),
             *self.mesh_id_to_metadata_slab(mesh_id)?,
         )
+    }
+
+    /// Meshes that had the buffer under their vertex or index data replaced this frame by a slab
+    /// they were already resident in growing, so that anything caching those buffers can rebuild
+    /// just the affected entries.
+    ///
+    /// **It is not the full set of meshes whose buffers changed this frame, and is not meant to be.**
+    /// Callers must handle [`ExtractedAssets`] themselves if they want the full set of changed buffers.
+    ///
+    /// A mesh is yielded twice if both its vertex and its index slab grew, since those are separate
+    /// allocations, so deduplicate if repeating the work per mesh would be expensive.
+    ///
+    /// Morph target and metadata allocations are filtered out.
+    ///
+    /// See [`SlabAllocator::keys_displaced_by_slab_growth`], which this wraps.
+    pub fn meshes_displaced_by_slab_growth(&self) -> impl Iterator<Item = AssetId<Mesh>> {
+        self.keys_displaced_by_slab_growth()
+            .iter()
+            .filter(|key| matches!(key.class, ElementClass::Vertex | ElementClass::Index))
+            .map(|key| key.mesh_id)
     }
 
     /// Returns the buffer and range within that buffer of the vertex data for
@@ -407,6 +431,7 @@ impl MeshAllocator {
         for (mesh_id, mesh) in &extracted_meshes.extracted {
             let vertex_buffer_size = mesh.get_vertex_buffer_size() as u64;
             if vertex_buffer_size == 0 {
+                warn!("Mesh {:?} contains no vertices.", mesh_id);
                 continue;
             }
 
@@ -474,6 +499,10 @@ impl MeshAllocator {
 
         // Copy new mesh data in.
         for (mesh_id, mesh) in &extracted_meshes.extracted {
+            let vertex_buffer_size = mesh.get_vertex_buffer_size() as u64;
+            if vertex_buffer_size == 0 {
+                continue;
+            }
             self.copy_mesh_metadata(mesh_id, mesh, render_device, render_queue);
             self.copy_mesh_vertex_data(mesh_id, mesh, render_device, render_queue);
             self.copy_mesh_index_data(mesh_id, mesh, render_device, render_queue);

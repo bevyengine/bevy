@@ -930,137 +930,10 @@ use bevy_app::{App, Plugin, SceneSpawnerSystems, SpawnScene};
 use bevy_asset::AssetApp;
 use bevy_ecs::prelude::*;
 
-/// Creates a `Scene` using BSN (Bevy Scene Notation) syntax.
-///
-/// These docs primarily contain syntax
-/// See [`bevy_scene`](crate) module-level docs for in-depth details about usage and interactions.
-///
-///
-/// ## Syntax Reference
-///
-/// The syntax consists of scene entries which are listed below, which all act on the scene in some way.
-/// Often, this is by inserting/patching a component or its values or including other scenes.
-/// Scene entries can have prefix characters which specify/disambiguate the following entry.
-///
-/// ```text
-/// bsn! {
-///     <scene entry>
-///     :<cached scene include>
-///     #<name>
-///     @<SceneComponent>
-///     ~<custom Template>
-/// }
-/// ```
-///
-/// ### Scene entries
-/// | Examples                                   | Explanation                                                                                                    |
-/// | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
-/// | `CompA`                                    | A unit or default component. Fields, if any exist, will be default                                             |
-/// | `CompA(val)`<br>`CompA(val, val)`          | Tuple Component with some fields specified. Unspecified fields will be default, see [patching](self#patching)  |
-/// | `CompA { name: val }`                      | Component with some fields specified. Unspecified fields will be default, see [patching](self#patching)        |
-/// | `mymodule::CompA { name: val }`            | Same as above, but referring to the component by module path                                                   |
-/// | `CompA { name }`                           | Component with Rust's "field assignment shorthand". Evaluates to `CompA { name: name.into() }`                 |
-/// | `MyEnum::Variant`                          | Enum Component `MyEnum` with the `Variant` variant                                                             |
-/// | `template_value(component)`                | Insert the component value from a variable `component`                                                         |
-/// | `template_value(CompA::from_str("foo"))`   | Insert the component value by immediately calling the constructor                                              |
-/// | `template(|context| { ... })`              | Register a function/closure returning a Template (eg. Component). Its passed [`context`] allowing World access |
-/// | `~MyType`<br>`~MyType {name: var}`         | Type implementing [`Template`], the prefix is used to distinguish it from Components which use [`FromTemplate`]|
-/// | **Including Scenes**                       |                                                                                                                |
-/// | `scene()`<br>`scene(val)`                  | Include the result of a `impl `[`Scene`] function                                                              |
-/// | `{ expr }`                                 | Include the result of `expr`, which should be a [`Scene`]                                                      |
-/// | `@MySceneComp`                             | Include a [`SceneComponent`]. Fields, if any exist, will be default                                            |
-/// | `@MySceneComp { @prop: val }`              | Include a [`SceneComponent`] with a `prop` field, passed to this components scene function                     |
-/// | `@MySceneComp { name: val }`               | Include a [`SceneComponent`] with a normal field, works the same as it does for normal components              |
-/// | `@MySceneComp { @prop: val1, name: val2 }` | Include a [`SceneComponent`] with both a `prop` and a field                                                    |
-/// | `:"scene.bsn"`                             | <div class="warning">Asset format not yet implemented!</div> Include a cached scene asset file                  |
-/// | `:scene()`<br>`:@MySceneComp`              | <div class="warning">Caching for scene includes not yet implemented!</div> Include a cached scene function     |
-/// | **Named entity references**                |                                                                                                                |
-/// | `#MyName`                                  | Becomes `Name("MyName")` when used as a `part` of a scene                                                      |
-/// | `CompA(#MyName)`<br>`scene(#MyName)`       | Referring to the entity which was named `MyName` in this scope, results in an [`EntityTemplate`] being passed  |
-/// | `Name("Foo")`                              | Manually sets the Name component, can be put after a `#MyName` to use a custom name while allowing references  |
-/// | **Observers**                              |                                                                                                                |
-/// | `on(\|ev: On<Ev>\| { … })`                 | Attaches an entity [`observer`] for the [`EntityEvent`] `Ev` to this entity. In this example, using a closure  |
-/// | `on(my_observer)`                          | Attaches an entity [`observer`] for the [`EntityEvent`] `Ev` to this entity. In this example, using a function |
-/// | **Relationships**                          |                                                                                                                |
-/// | `Children []`                              | Spawns each entry as a child of this entity, see **Scene Lists** below for details                             |
-/// | `ChildOf(entity)`                          | Makes **this** entity a child of `entity`, accepts an [`Entity`] or a `#Name` reference ([`EntityTemplate`])    |
-/// | `MyRel []`                                 | Like `Children`, but uses any `RelationshipTarget` component                                                   |
-///
-/// [`context`]: bevy_ecs::template::TemplateContext
-/// [`EntityTemplate`]: bevy_ecs::template::EntityTemplate
-/// ### Scene Lists
-///
-/// In `bsn_list!` and Relationships a list of scenes delimited by `[]` is allowed.
-/// Unlike parts of a scene, which are whitespace-separated, the scenes in a scene list are comma-separated.
-///
-/// Note: examples are part of a relationship like `Children [<example here>]` or a list macro like `bsn_list![<example here>]`
-///
-/// | Example                      | Meaning                                                                                                               |
-/// | ---------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-/// | `[ #Child1 CompA, #Child2 ]`     | Spawns 2 children, one with `(Name("Child1"), CompA::default())` and the other with `Name("Child2")`              |
-/// | `[ (#Child1 CompA), (#Child2) ]` | Same as above, with explicit parentheses                                                                          |
-/// | `[ #First, { expr }, #Last ]`   | Spawns an entity with name `First`, then every entity from the `SceneList` returned by expr, then one named `Last` |
-/// | `[ #First, ({ expr }), #Last ]` | Same as above, but the `expr` should result in a `Scene` and will only spawn one entity using it                   |
-///
-/// ### Values
-///
-/// Values in BSN (as in `val`,`val1` etc used above) are generally any literal Rust values, plus a few bsn-specific quirks.
-///
-///
-/// | Example                          | Meaning       | Explanation                                                                             |
-/// | -------------------------------- | ------------- | --------------------------------------------------------------------------------------- |
-/// | `1`                              | Unsigned int  | Positive number, common types: [`usize`], [`u8`], [`u32`], [`u64`]                      |
-/// | `1` or `-1`                      | Signed int    | Positive or negative number, common types: `i32`, `i64`                                 |
-/// | `1.1` or `-0.1` or `1.` or `-2.` | Float         | Floating point number, common types: `f32`, `f64`                                       |
-/// | `true` or `false`                | Bool          | Boolean, type: [`bool`]                                                                 |
-/// | `"somename"`                     | String        | Text, types: `String` or `&'static str`                                                 |
-/// | `"mypicture.png"`                | Asset path    | Asset, when used in a field which expects a [`Handle`] to the matching `Asset` type     |
-/// | `some_function(1)`                        | Function call | Calls a function with the provided arguments                                            |
-/// | `GREEN`                          | Constant      | Fixed value, must be in scope                                                           |
-/// | `std::f32::consts::PI`           | Constant      | Fixed value, uses full path so doesn't need to be in scope                              |
-/// | **Expression syntax**            |               |                                                                                         |
-/// | `{ 1 + 2 }`                      | Expression    | Any rust expression works in `{}`, in this case addition of 2 integers                  |
-/// | `{ vec![true, false] }`          | Vector        | An expression returning a [`Vec`], a collection of multiple items of one specific type. |
-/// | `{ bsn!{ Text("foo") Style } }`  | Scene         | Sometimes, you may need to pass a small `Scene` as a value to something else            |
-///
-/// ### Other Rust syntax
-///
-/// If you're new to Rust, you might struggle with some of its syntax when you see it in or around BSN.
-/// Here are some syntax snippets which haven't been shown so far:
-///
-/// | Syntax            | Meaning       | Explanation                                                     |
-/// | ----------------- | ------------- | --------------------------------------------------------------- |
-/// | `\|param\| { … }` | Closure       | A closure; effectively an unnamed function                      |
-/// | `Vec<T>`          | Generic type  | A type with a generic type parameter `T`                        |
-/// | `//`              | Comment       | Line comment; all text after `//` on the same line is ignored   |
-/// | `/* */`           | Block comment | Standard Rust block comment; all text inside `/* */` is ignored |
-/// | `bsn! { … }`      | Macro call    | Calls a macro on the value inside of the braces                 |
-///
-/// ### Syntax example
-// Note: the actual syntax example comes from the original bevy_scene_macros::bsn docs.
-// rustdoc appends these #[doc(inline)] docs before those
-// rust-analyzer ignores these docs and only shows the original ones, see https://github.com/rust-lang/rust-analyzer/issues/14079
-// despite those being #[doc(hidden)]
-//
-#[doc(inline)]
 pub use bevy_scene_macros::bsn;
 
-/// Creates a `SceneList` using BSN (Bevy Scene Notation) syntax.
-///
-/// This is useful when you want multiple root entities in your scene
-/// that do not share a common parent, or if you want to create multiple scenes at once.
-///
-/// Like in [`bsn!`], commas separate entities,
-/// while whitespace separates components on the same entity.
-///
-/// All root entries in a [`bsn_list!`] share a single name scope, so sibling root entities
-/// can cross-reference each other by `#Name`.
-/// This is not possible with separate [`bsn!`] calls, and is a key motivation for using [`bsn_list!`].
-///
-/// See [`bsn!`] for more details on syntax.
-/// See the `bevy_scene` crate docs for a high-level overview of the key concepts.
-#[doc(inline)]
 pub use bevy_scene_macros::bsn_list;
+
 pub use bevy_scene_macros::SceneComponent;
 
 /// Adds support for spawning Bevy Scenes. See [`Scene`], [`SceneList`], [`ScenePatch`], and the [`bsn!`] macro for more information.
@@ -1112,6 +985,18 @@ mod tests {
             ScenePlugin,
         ));
         app
+    }
+
+    #[test]
+    fn supports_fully_qualified_component_paths() {
+        let mut app = test_app();
+        let world = app.world_mut();
+
+        assert!(world
+            .spawn_scene(bsn! {
+              ::bevy_ecs::prelude::Children[]
+            })
+            .is_ok());
     }
 
     #[test]
@@ -2752,7 +2637,7 @@ mod tests {
         // Copy of the macro from bevy_scene/macros/src/lib.rs
         // why? because it should be tested
         // why not doctests? because the macro can't depend on this crate
-        // why not include! it here and include_str! it in the docs? because rust-analyzer ignores #[doc = include_str!()] and this is mostly a showcase for rust-analyzer
+        // why not include! it here and include_str! it in the docs? because rust-analyzer inline docs ignores #[doc = include_str!()]
         let scene = bsn! {
             some_scene()        // include a scene function
             #SomeName           // entity name, will insert Name("SomeName")
@@ -2774,18 +2659,20 @@ mod tests {
                     @some_prop: 3,       // props, look like fields prefixed with @ but end up passed to the components scene as arguments
                     normal_field: 5      // while normal fields are the actual fields of the component
                 },
-                Node {
-                    width: some_var      // you can directly use variables without {}
-                }
-                ComponentB({some_var + 3.})  // values can be expressions, when wrapped in {}
-                @Container {
-                    @items: {
-                        bsn_list![                // sometimes you may need to nest macro calls
-                            #item1 SomeComponent, // note: the name #item1 here is in its own scope
-                            some_scene() #item2
-                        ]
+                (
+                    Node {
+                        width: some_var      // you can directly use variables without {}
                     }
-                }
+                    ComponentB({some_var + 3.})  // values can be expressions, when wrapped in {}
+                    @Container {
+                        @items: {
+                            bsn_list![                // sometimes you may need to nest macro calls
+                                #item1 SomeComponent, // note: the name #item1 here is in its own scope
+                                some_scene() #item2
+                            ]
+                        }
+                    }
+                )
             ]
         };
         // just checking it spawns correctly
@@ -2879,6 +2766,48 @@ mod tests {
             .unwrap();
 
         assert_eq!(entity.get::<TextFont>().unwrap().font_size, FontSize(24));
+    }
+
+    #[test]
+    fn enum_variant_subexpressions_are_hoisted() {
+        #[derive(Component, FromTemplate, PartialEq, Eq, Debug, Clone)]
+        enum FontSource {
+            #[default]
+            Handle { value: String },
+        }
+
+        struct Config {
+            value: String,
+        }
+
+        fn make_scene(config: &Config) -> impl Scene {
+            bsn! {
+                Children [
+                    (FontSource::Handle { value: { config.value.clone() } }),
+                    (FontSource::Handle { value: { config.value.clone() } }),
+                ]
+            }
+        }
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        let config = Config {
+            value: "test".to_string(),
+        };
+        let entity = world.spawn_scene(make_scene(&config)).unwrap().id();
+        let children = world.entity(entity).get::<Children>().unwrap();
+        assert_eq!(
+            world.entity(children[0]).get::<FontSource>().unwrap(),
+            &FontSource::Handle {
+                value: "test".to_string(),
+            }
+        );
+        assert_eq!(
+            world.entity(children[1]).get::<FontSource>().unwrap(),
+            &FontSource::Handle {
+                value: "test".to_string(),
+            }
+        );
     }
 
     #[test]

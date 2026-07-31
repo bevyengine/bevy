@@ -2,11 +2,10 @@ enable wgpu_ray_query;
 
 #import bevy_core_pipeline::tonemapping::tonemapping_luminance as luminance
 #import bevy_pbr::utils::{rand_f, rand_vec2f}
-#import bevy_render::maths::{PI, orthonormalize}
 #import bevy_render::view::View
 #import bevy_solari::brdf::{evaluate_brdf, evaluate_and_sample_brdf, brdf_pdf, F_AB}
-#import bevy_solari::sampling::{sample_random_light, random_emissive_light_pdf, ggx_vndf_pdf, power_heuristic}
-#import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, ResolvedRayHitFull, RAY_T_MIN, RAY_T_MAX, MIRROR_ROUGHNESS_THRESHOLD}
+#import bevy_solari::sampling::{sample_random_light, random_emissive_light_pdf, power_heuristic}
+#import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, RAY_T_MIN, RAY_T_MAX, MIRROR_ROUGHNESS_THRESHOLD}
 
 @group(1) @binding(0) var accumulation_texture: texture_storage_2d<rgba32float, read_write>;
 @group(1) @binding(1) var view_output: texture_storage_2d<rgba16float, write>;
@@ -53,10 +52,11 @@ fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
                 let p_light = random_emissive_light_pdf(ray_hit, ray.t, NdotV);
                 mis_weight = power_heuristic(p_bounce, p_light);
             }
-            radiance += mis_weight * throughput * ray_hit.material.emissive;
+            if dot(ray_hit.world_normal, wo) > 0.0 {
+                radiance += mis_weight * throughput * ray_hit.material.emissive;
+            }
 
             // Sample direct lighting, but only if the surface is not mirror-like
-            // TODO: randomly choose to use NEE or not with probability proportional to roughness and metallicness
             let is_perfectly_specular = ray_hit.material.roughness <= MIRROR_ROUGHNESS_THRESHOLD && ray_hit.material.metallic > 0.9999;
             if !is_perfectly_specular {
                 let direct_lighting = sample_random_light(ray_hit.world_position, ray_hit.world_normal, &rng);
@@ -81,9 +81,9 @@ fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
             throughput *= next_bounce.throughput;
 
             // Russian roulette for early termination
-            let p = luminance(throughput);
-            if rand_f(&rng) > p { break; }
-            throughput /= p;
+            let rr = saturate(luminance(throughput));
+            if rand_f(&rng) >= rr { break; }
+            throughput /= rr;
         } else { break; }
     }
 

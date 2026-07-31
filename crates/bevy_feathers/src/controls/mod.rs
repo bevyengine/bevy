@@ -14,6 +14,7 @@ mod menu;
 mod number_input;
 mod radio;
 mod scrollbar;
+mod select;
 mod slider;
 mod text_input;
 mod toggle_switch;
@@ -32,6 +33,7 @@ pub use menu::*;
 pub use number_input::*;
 pub use radio::*;
 pub use scrollbar::*;
+pub use select::*;
 pub use slider::*;
 pub use text_input::*;
 pub use toggle_switch::*;
@@ -59,6 +61,7 @@ impl PluginGroup for ControlsPlugin {
             .add(NumberInputPlugin)
             .add(RadioPlugin)
             .add(ScrollbarPlugin)
+            .add(SelectPlugin)
             .add(SliderPlugin)
             .add(TextInputPlugin)
             .add(ToggleSwitchPlugin)

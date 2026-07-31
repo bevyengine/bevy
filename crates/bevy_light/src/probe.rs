@@ -321,7 +321,7 @@ impl Default for AtmosphereEnvironmentMapLight {
         Self {
             intensity: 1.0,
             affects_lightmapped_mesh_diffuse: true,
-            size: UVec2::new(512, 512),
+            size: UVec2::new(128, 128),
         }
     }
 }

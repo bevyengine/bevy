@@ -2,6 +2,7 @@ use crate::{
     init_mesh_2d_pipeline, DrawMesh2d, Mesh2d, Mesh2dPipeline, Mesh2dPipelineKey,
     RenderMesh2dInstances, SetMesh2dBindGroup, SetMesh2dViewBindGroup, ViewKeyCache,
 };
+use alloc::sync::Arc;
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::prelude::AssetChanged;
 use bevy_asset::{
@@ -15,6 +16,7 @@ use bevy_core_pipeline::{
     tonemapping::Tonemapping,
 };
 use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::system::{SystemParam, SystemState};
 use bevy_ecs::{
     prelude::*,
     system::{
@@ -22,32 +24,38 @@ use bevy_ecs::{
         SystemParamItem,
     },
 };
+use bevy_material::key::{ErasedMaterialKey, ErasedMaterialPipelineKey, ErasedMeshPipelineKey};
+use bevy_material::labels::{DrawFunctionLabel, InternedShaderLabel, ShaderLabel};
+use bevy_material::{AlphaMode, MaterialProperties, OpaqueRendererMethod, RenderPhaseType};
 use bevy_math::FloatOrd;
 use bevy_mesh::MeshVertexBufferLayoutRef;
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_platform::hash::FixedHasher;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::camera::{DirtySpecializationSystems, DirtySpecializations, PendingQueues};
-use bevy_render::render_resource::BindGroupLayoutDescriptor;
+use bevy_render::erased_render_asset::{
+    ErasedRenderAsset, ErasedRenderAssetPlugin, ErasedRenderAssets, PrepareAssetError,
+};
+use bevy_render::material_bind_groups::{
+    material_uses_bindless_resources, MaterialBindGroupAllocators, MaterialBindingId,
+    RenderMaterialBindings,
+};
+use bevy_render::sync_world::MainEntityHashSet;
 use bevy_render::view::{RenderVisibleEntities, RetainedViewEntity};
 use bevy_render::{
     mesh::RenderMesh,
-    render_asset::{
-        prepare_assets, PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets,
-    },
+    render_asset::{prepare_assets, RenderAssets},
     render_phase::{
-        AddRenderCommand, BinnedRenderPhaseType, DrawFunctionId, DrawFunctions, InputUniformIndex,
-        PhaseItem, PhaseItemExtraIndex, RenderCommand, RenderCommandResult, SetItemPipeline,
+        AddRenderCommand, BinnedRenderPhaseType, DrawFunctions, InputUniformIndex, PhaseItem,
+        PhaseItemExtraIndex, RenderCommand, RenderCommandResult, SetItemPipeline,
         TrackedRenderPass, ViewBinnedRenderPhases, ViewSortedRenderPhases,
     },
     render_resource::{
-        AsBindGroup, AsBindGroupError, BindGroup, BindGroupId, BindingResources,
-        CachedRenderPipelineId, PipelineCache, RenderPipelineDescriptor, SpecializedMeshPipeline,
-        SpecializedMeshPipelineError, SpecializedMeshPipelines,
+        AsBindGroup, BindGroupId, CachedRenderPipelineId, PipelineCache, RenderPipelineDescriptor,
+        SpecializedMeshPipeline, SpecializedMeshPipelineError, SpecializedMeshPipelines,
     },
     renderer::RenderDevice,
     sync_world::{MainEntity, MainEntityHashMap},
-    texture::GpuImage,
     view::ExtractedView,
     Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
@@ -55,6 +63,8 @@ use bevy_shader::{Shader, ShaderDefVal, ShaderRef};
 use bevy_utils::Parallel;
 use core::{hash::Hash, marker::PhantomData};
 use derive_more::derive::From;
+use smallvec::SmallVec;
+use std::any::{Any, TypeId};
 use tracing::error;
 
 pub const MATERIAL_2D_BIND_GROUP_INDEX: usize = 2;
@@ -163,6 +173,7 @@ pub trait Material2d: AsBindGroup + Asset + Clone + Sized {
     )]
     #[inline]
     fn specialize(
+        pipeline: &Material2dPipeline,
         descriptor: &mut RenderPipelineDescriptor,
         layout: &MeshVertexBufferLayoutRef,
         key: Material2dKey<Self>,
@@ -240,7 +251,7 @@ impl<M: Material2d> AsAssetId for MeshMaterial2d<M> {
 /// Sets how a 2d material's base color alpha channel is used for transparency.
 /// Currently, this only works with [`Mesh2d`]. Sprites are always transparent.
 ///
-/// This is very similar to [`AlphaMode`](bevy_material::AlphaMode) but this only applies to 2d meshes.
+/// This is very similar to [`AlphaMode`] but this only applies to 2d meshes.
 /// We use a separate type because 2d doesn't support all the transparency modes that 3d does.
 #[derive(Debug, Default, Reflect, Copy, Clone, PartialEq)]
 #[reflect(Default, Debug, Clone)]
@@ -263,6 +274,51 @@ pub enum AlphaMode2d {
     Blend,
 }
 
+impl From<AlphaMode2d> for AlphaMode {
+    fn from(alpha_mode: AlphaMode2d) -> Self {
+        match alpha_mode {
+            AlphaMode2d::Opaque => AlphaMode::Opaque,
+            AlphaMode2d::Mask(mask) => AlphaMode::Mask(mask),
+            AlphaMode2d::Blend => AlphaMode::Blend,
+        }
+    }
+}
+
+/// A [`Plugin`] that supplies generic infrastructure for 2D materials.
+#[derive(Default)]
+pub struct Materials2dPlugin;
+
+impl Plugin for Materials2dPlugin {
+    fn build(&self, app: &mut App) {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+
+        render_app
+            .init_gpu_resource::<SpecializedMaterial2dPipelineCache>()
+            .init_gpu_resource::<SpecializedMeshPipelines<Material2dPipelineSpecializer>>()
+            .add_render_command::<Opaque2d, DrawMaterial2d>()
+            .add_render_command::<AlphaMask2d, DrawMaterial2d>()
+            .add_render_command::<Transparent2d, DrawMaterial2d>()
+            .init_resource::<RenderMaterial2dInstances>()
+            .allow_ambiguous_resource::<RenderMaterial2dInstances>()
+            .add_systems(
+                RenderStartup,
+                init_material_2d_pipeline.after(init_mesh_2d_pipeline),
+            )
+            .add_systems(
+                Render,
+                (
+                    specialize_material2d_meshes
+                        .in_set(RenderSystems::Specialize)
+                        .after(prepare_assets::<RenderMesh>)
+                        .after(prepare_pending_mesh_material2d_queues),
+                    queue_material2d_meshes.in_set(RenderSystems::QueueMeshes),
+                ),
+            );
+    }
+}
+
 /// Adds the necessary ECS resources and render logic to enable rendering entities using the given [`Material2d`]
 /// asset type (which includes [`Material2d`] types).
 pub struct Material2dPlugin<M: Material2d>(PhantomData<M>);
@@ -281,26 +337,19 @@ where
         app.init_asset::<M>()
             .init_resource::<EntitiesNeedingSpecialization<M>>()
             .register_type::<MeshMaterial2d<M>>()
-            .add_plugins(RenderAssetPlugin::<PreparedMaterial2d<M>, GpuImage>::default())
+            .add_plugins(ErasedRenderAssetPlugin::<MeshMaterial2d<M>>::default())
             .add_systems(
                 PostUpdate,
                 check_entities_needing_specialization::<M>.after(AssetEventSystems),
             );
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
+            let shaders = initialize_material2d_shaders::<M>(render_app.world());
             render_app
-                .init_gpu_resource::<SpecializedMaterial2dPipelineCache<M>>()
-                .add_render_command::<Opaque2d, DrawMaterial2d<M>>()
-                .add_render_command::<AlphaMask2d, DrawMaterial2d<M>>()
-                .add_render_command::<Transparent2d, DrawMaterial2d<M>>()
-                .init_resource::<RenderMaterial2dInstances<M>>()
-                .init_gpu_resource::<SpecializedMeshPipelines<Material2dPipeline<M>>>()
+                .insert_resource(Material2dShaders::<M>::with_shader_cache(shaders))
                 .init_resource::<PendingMeshMaterial2dQueues>()
                 .allow_ambiguous_resource::<PendingMeshMaterial2dQueues>()
-                .add_systems(
-                    RenderStartup,
-                    init_material_2d_pipeline::<M>.after(init_mesh_2d_pipeline),
-                )
+                .add_systems(RenderStartup, add_material2d_bind_group_allocator::<M>)
                 .add_systems(
                     ExtractSchedule,
                     (
@@ -310,36 +359,29 @@ where
                             .in_set(DirtySpecializationSystems::CheckForRemovals),
                         extract_mesh_materials_2d::<M>,
                     ),
-                )
-                .add_systems(
-                    Render,
-                    (
-                        specialize_material2d_meshes::<M>
-                            .in_set(RenderSystems::Specialize)
-                            .after(prepare_assets::<PreparedMaterial2d<M>>)
-                            .after(prepare_assets::<RenderMesh>)
-                            .after(prepare_pending_mesh_material2d_queues),
-                        queue_material2d_meshes::<M>
-                            .in_set(RenderSystems::QueueMeshes)
-                            .after(prepare_assets::<PreparedMaterial2d<M>>),
-                    ),
                 );
         }
     }
 }
 
-#[derive(Resource, Deref, DerefMut)]
-pub struct RenderMaterial2dInstances<M: Material2d>(MainEntityHashMap<AssetId<M>>);
-
-impl<M: Material2d> Default for RenderMaterial2dInstances<M> {
-    fn default() -> Self {
-        Self(Default::default())
-    }
+/// A render app system that creates a bind group allocator for a new 2D
+/// material.
+fn add_material2d_bind_group_allocator<M>(
+    render_device: Res<RenderDevice>,
+    mut bind_group_allocators: ResMut<MaterialBindGroupAllocators>,
+) where
+    M: Material2d,
+{
+    bind_group_allocators.add::<M>(&render_device);
 }
 
+/// A resource, part of the render world, that maps each renderable main-world
+/// entity to its material's asset ID.
+#[derive(Default, Resource, Deref, DerefMut)]
+pub struct RenderMaterial2dInstances(MainEntityHashMap<UntypedAssetId>);
+
 pub fn extract_mesh_materials_2d<M: Material2d>(
-    mut material_instances: ResMut<RenderMaterial2dInstances<M>>,
-    mut render_material_2d_ids: ResMut<RenderMaterial2dIds>,
+    mut material_instances: ResMut<RenderMaterial2dInstances>,
     changed_meshes_query: Extract<
         Query<
             (Entity, &ViewVisibility, &MeshMaterial2d<M>),
@@ -350,14 +392,9 @@ pub fn extract_mesh_materials_2d<M: Material2d>(
 ) {
     for (entity, view_visibility, material) in &changed_meshes_query {
         if view_visibility.get() {
-            add_mesh_instance(
-                entity,
-                material,
-                &mut material_instances,
-                &mut render_material_2d_ids,
-            );
+            add_mesh_instance(entity, material, &mut material_instances);
         } else {
-            remove_mesh_instance(entity, &mut material_instances, &mut render_material_2d_ids);
+            remove_mesh_instance(entity, &mut material_instances);
         }
     }
 
@@ -366,42 +403,38 @@ pub fn extract_mesh_materials_2d<M: Material2d>(
         // It's possible that a necessary component was removed and re-added in
         // the same frame.
         if !changed_meshes_query.contains(entity) {
-            remove_mesh_instance(entity, &mut material_instances, &mut render_material_2d_ids);
+            remove_mesh_instance(entity, &mut material_instances);
         }
     }
 
     fn add_mesh_instance<M>(
         entity: Entity,
         material: &MeshMaterial2d<M>,
-        material_instances: &mut RenderMaterial2dInstances<M>,
-        render_material_2d_ids: &mut RenderMaterial2dIds,
+        material_instances: &mut RenderMaterial2dInstances,
     ) where
         M: Material2d,
     {
-        material_instances.insert(entity.into(), material.id());
-        render_material_2d_ids.insert(entity.into(), material.id().into());
+        material_instances.insert(entity.into(), material.id().untyped());
     }
 
-    fn remove_mesh_instance<M>(
-        entity: Entity,
-        material_instances: &mut RenderMaterial2dInstances<M>,
-        render_material_2d_ids: &mut RenderMaterial2dIds,
-    ) where
-        M: Material2d,
-    {
+    fn remove_mesh_instance(entity: Entity, material_instances: &mut RenderMaterial2dInstances) {
         material_instances.remove(&MainEntity::from(entity));
-        render_material_2d_ids.remove(&MainEntity::from(entity));
     }
 }
 
 /// Render pipeline data for a given [`Material2d`]
-#[derive(Resource)]
-pub struct Material2dPipeline<M: Material2d> {
+#[derive(Resource, Clone)]
+pub struct Material2dPipeline {
     pub mesh2d_pipeline: Mesh2dPipeline,
-    pub material2d_layout: BindGroupLayoutDescriptor,
-    pub vertex_shader: Option<Handle<Shader>>,
-    pub fragment_shader: Option<Handle<Shader>>,
-    marker: PhantomData<M>,
+}
+
+/// A type that implements [`SpecializedMeshPipeline`], allowing pipelines to be
+/// specialized for a single material.
+pub struct Material2dPipelineSpecializer {
+    /// The material 2D pipeline to be specialized.
+    pub(crate) pipeline: Material2dPipeline,
+    /// Common material properties for that material.
+    pub(crate) properties: Arc<MaterialProperties>,
 }
 
 pub struct Material2dKey<M: Material2d> {
@@ -442,30 +475,20 @@ where
     }
 }
 
-impl<M: Material2d> Clone for Material2dPipeline<M> {
-    fn clone(&self) -> Self {
-        Self {
-            mesh2d_pipeline: self.mesh2d_pipeline.clone(),
-            material2d_layout: self.material2d_layout.clone(),
-            vertex_shader: self.vertex_shader.clone(),
-            fragment_shader: self.fragment_shader.clone(),
-            marker: PhantomData,
-        }
-    }
-}
-
-impl<M: Material2d> SpecializedMeshPipeline for Material2dPipeline<M>
-where
-    M::Data: PartialEq + Eq + Hash + Clone,
-{
-    type Key = Material2dKey<M>;
+impl SpecializedMeshPipeline for Material2dPipelineSpecializer {
+    type Key = ErasedMaterialPipelineKey;
 
     fn specialize(
         &self,
         key: Self::Key,
         layout: &MeshVertexBufferLayoutRef,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
-        let mut descriptor = self.mesh2d_pipeline.specialize(key.mesh_key, layout)?;
+        let concrete_mesh_key: Mesh2dPipelineKey = key.mesh_key.downcast();
+        let mut descriptor = self
+            .pipeline
+            .mesh2d_pipeline
+            .specialize(concrete_mesh_key, layout)?;
+
         descriptor.vertex.shader_defs.push(ShaderDefVal::UInt(
             "MATERIAL_BIND_GROUP".into(),
             MATERIAL_2D_BIND_GROUP_INDEX as u32,
@@ -476,64 +499,54 @@ where
                 MATERIAL_2D_BIND_GROUP_INDEX as u32,
             ));
         }
-        if let Some(vertex_shader) = &self.vertex_shader {
+        if let Some(vertex_shader) = self.properties.get_shader(Material2dVertexShader) {
             descriptor.vertex.shader = vertex_shader.clone();
         }
 
-        if let Some(fragment_shader) = &self.fragment_shader {
+        if let Some(fragment_shader) = self.properties.get_shader(Material2dFragmentShader) {
             descriptor.fragment.as_mut().unwrap().shader = fragment_shader.clone();
         }
-        descriptor.layout = vec![
-            self.mesh2d_pipeline.view_layout.clone(),
-            self.mesh2d_pipeline.mesh_layout.clone(),
-            self.material2d_layout.clone(),
-        ];
 
-        M::specialize(&mut descriptor, layout, key)?;
+        descriptor
+            .layout
+            .insert(2, self.properties.material_layout.as_ref().unwrap().clone());
+
+        if let Some(specialize) = self.properties.user_specialize {
+            specialize(&self.pipeline as &dyn Any, &mut descriptor, layout, key)?;
+        }
+
+        // If bindless mode is on, add a `BINDLESS` define.
+        if self.properties.bindless {
+            descriptor.vertex.shader_defs.push("BINDLESS".into());
+            if let Some(ref mut fragment) = descriptor.fragment {
+                fragment.shader_defs.push("BINDLESS".into());
+            }
+        }
+
         Ok(descriptor)
     }
 }
 
-pub fn init_material_2d_pipeline<M: Material2d>(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    render_device: Res<RenderDevice>,
-    mesh_2d_pipeline: Res<Mesh2dPipeline>,
-) {
-    let material2d_layout = M::bind_group_layout_descriptor(&render_device);
-
-    commands.insert_resource(Material2dPipeline::<M> {
+pub fn init_material_2d_pipeline(mut commands: Commands, mesh_2d_pipeline: Res<Mesh2dPipeline>) {
+    commands.insert_resource(Material2dPipeline {
         mesh2d_pipeline: mesh_2d_pipeline.clone(),
-        material2d_layout,
-        vertex_shader: match M::vertex_shader() {
-            ShaderRef::Default => None,
-            ShaderRef::Handle(handle) => Some(handle),
-            ShaderRef::Path(path) => Some(asset_server.load(path)),
-        },
-        fragment_shader: match M::fragment_shader() {
-            ShaderRef::Default => None,
-            ShaderRef::Handle(handle) => Some(handle),
-            ShaderRef::Path(path) => Some(asset_server.load(path)),
-        },
-        marker: PhantomData,
     });
 }
 
-pub(super) type DrawMaterial2d<M> = (
+pub(super) type DrawMaterial2d = (
     SetItemPipeline,
     SetMesh2dViewBindGroup<0>,
     SetMesh2dBindGroup<1>,
-    SetMaterial2dBindGroup<M, MATERIAL_2D_BIND_GROUP_INDEX>,
+    SetMaterial2dBindGroup<MATERIAL_2D_BIND_GROUP_INDEX>,
     DrawMesh2d,
 );
 
-pub struct SetMaterial2dBindGroup<M: Material2d, const I: usize>(PhantomData<M>);
-impl<P: PhaseItem, M: Material2d, const I: usize> RenderCommand<P>
-    for SetMaterial2dBindGroup<M, I>
-{
+pub struct SetMaterial2dBindGroup<const I: usize>;
+impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMaterial2dBindGroup<I> {
     type Param = (
-        SRes<RenderAssets<PreparedMaterial2d<M>>>,
-        SRes<RenderMaterial2dInstances<M>>,
+        SRes<ErasedRenderAssets<PreparedMaterial2d>>,
+        SRes<RenderMaterial2dInstances>,
+        SRes<MaterialBindGroupAllocators>,
     );
     type ViewQuery = ();
     type ItemQuery = ();
@@ -543,9 +556,15 @@ impl<P: PhaseItem, M: Material2d, const I: usize> RenderCommand<P>
         item: &P,
         _view: (),
         _item_query: Option<()>,
-        (materials, material_instances): SystemParamItem<'w, '_, Self::Param>,
+        (materials, material_instances, material_bind_group_allocators): SystemParamItem<
+            'w,
+            '_,
+            Self::Param,
+        >,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
+        let material_bind_group_allocators = material_bind_group_allocators.into_inner();
+
         let materials = materials.into_inner();
         let material_instances = material_instances.into_inner();
         let Some(material_instance) = material_instances.get(&item.main_entity()) else {
@@ -554,15 +573,31 @@ impl<P: PhaseItem, M: Material2d, const I: usize> RenderCommand<P>
         let Some(material2d) = materials.get(*material_instance) else {
             return RenderCommandResult::Skip;
         };
-        pass.set_bind_group(I, &material2d.bind_group, &[]);
+        let Some(material_bind_group_allocator) =
+            material_bind_group_allocators.get(&material_instance.type_id())
+        else {
+            return RenderCommandResult::Skip;
+        };
+        let Some(material_bind_group) = material_bind_group_allocator.get(material2d.binding.group)
+        else {
+            return RenderCommandResult::Skip;
+        };
+        let Some(bind_group) = material_bind_group.bind_group() else {
+            return RenderCommandResult::Skip;
+        };
+        pass.set_bind_group(I, bind_group, &[]);
         RenderCommandResult::Success
     }
 }
 
-pub const fn alpha_mode_pipeline_key(alpha_mode: AlphaMode2d) -> Mesh2dPipelineKey {
+/// Returns the 2D pipeline key for the given transparent alpha mode.
+///
+/// If the alpha mode is opaque, or if the alpha mode isn't supported by the 2D
+/// pipeline, returns [`Mesh2dPipelineKey::NONE`].
+pub const fn alpha_mode_pipeline_key_2d(alpha_mode: AlphaMode) -> Mesh2dPipelineKey {
     match alpha_mode {
-        AlphaMode2d::Blend => Mesh2dPipelineKey::BLEND_ALPHA,
-        AlphaMode2d::Mask(_) => Mesh2dPipelineKey::MAY_DISCARD,
+        AlphaMode::Blend => Mesh2dPipelineKey::BLEND_ALPHA,
+        AlphaMode::Mask(_) => Mesh2dPipelineKey::MAY_DISCARD,
         _ => Mesh2dPipelineKey::NONE,
     }
 }
@@ -636,40 +671,20 @@ impl<M> Default for EntitiesNeedingSpecialization<M> {
 }
 
 /// Stores the [`SpecializedMaterial2dViewPipelineCache`] for each view.
-#[derive(Resource, Deref, DerefMut)]
-pub struct SpecializedMaterial2dPipelineCache<M> {
+#[derive(Default, Resource, Deref, DerefMut)]
+pub struct SpecializedMaterial2dPipelineCache {
     // view_entity -> view pipeline cache
     #[deref]
-    map: MainEntityHashMap<SpecializedMaterial2dViewPipelineCache<M>>,
-    marker: PhantomData<M>,
+    map: HashMap<RetainedViewEntity, SpecializedMaterial2dViewPipelineCache>,
 }
 
 /// Stores the cached render pipeline ID for each entity in a single view, as
 /// well as the last time it was changed.
-#[derive(Deref, DerefMut)]
-pub struct SpecializedMaterial2dViewPipelineCache<M> {
+#[derive(Default, Deref, DerefMut)]
+pub struct SpecializedMaterial2dViewPipelineCache {
     // material entity -> (tick, pipeline_id)
     #[deref]
     map: MainEntityHashMap<CachedRenderPipelineId>,
-    marker: PhantomData<M>,
-}
-
-impl<M> Default for SpecializedMaterial2dPipelineCache<M> {
-    fn default() -> Self {
-        Self {
-            map: MainEntityHashMap::default(),
-            marker: PhantomData,
-        }
-    }
-}
-
-impl<M> Default for SpecializedMaterial2dViewPipelineCache<M> {
-    fn default() -> Self {
-        Self {
-            map: MainEntityHashMap::default(),
-            marker: PhantomData,
-        }
-    }
 }
 
 /// Finds 2D entities that have changed in such a way as to potentially require
@@ -740,151 +755,227 @@ pub fn prepare_pending_mesh_material2d_queues(
     pending_mesh_material2d_queues.expire_stale_views(&all_views);
 }
 
-pub fn specialize_material2d_meshes<M: Material2d>(
-    material2d_pipeline: Res<Material2dPipeline<M>>,
-    mut pipelines: ResMut<SpecializedMeshPipelines<Material2dPipeline<M>>>,
-    pipeline_cache: Res<PipelineCache>,
-    (render_meshes, render_materials): (
-        Res<RenderAssets<RenderMesh>>,
-        Res<RenderAssets<PreparedMaterial2d<M>>>,
-    ),
-    mut render_mesh_instances: ResMut<RenderMesh2dInstances>,
-    render_material_instances: Res<RenderMaterial2dInstances<M>>,
-    transparent_render_phases: Res<ViewSortedRenderPhases<Transparent2d>>,
-    opaque_render_phases: Res<ViewBinnedRenderPhases<Opaque2d>>,
-    alpha_mask_render_phases: Res<ViewBinnedRenderPhases<AlphaMask2d>>,
-    views: Query<(&MainEntity, &ExtractedView, &RenderVisibleEntities)>,
-    view_key_cache: Res<ViewKeyCache>,
-    dirty_specializations: Res<DirtySpecializations>,
-    mut pending_mesh_material2d_queues: ResMut<PendingMeshMaterial2dQueues>,
-    mut specialized_material_pipeline_cache: ResMut<SpecializedMaterial2dPipelineCache<M>>,
-) where
-    M::Data: PartialEq + Eq + Hash + Clone,
-{
-    if render_material_instances.is_empty() {
-        return;
-    }
-
-    for (view_entity, view, visible_entities) in &views {
-        if !transparent_render_phases.contains_key(&view.retained_view_entity)
-            && !opaque_render_phases.contains_key(&view.retained_view_entity)
-            && !alpha_mask_render_phases.contains_key(&view.retained_view_entity)
-        {
-            continue;
-        }
-
-        let Some(view_key) = view_key_cache.get(view_entity) else {
-            continue;
-        };
-
-        let view_specialized_material_pipeline_cache = specialized_material_pipeline_cache
-            .entry(*view_entity)
-            .or_default();
-
-        let Some(visible_entities) = visible_entities.get::<Mesh2d>() else {
-            continue;
-        };
-
-        // Remove cached pipeline IDs corresponding to entities that either
-        // have been removed or need to be re-specialized.
-        if dirty_specializations.must_wipe_specializations_for_view(view.retained_view_entity) {
-            view_specialized_material_pipeline_cache.clear();
-        } else {
-            for &renderable_entity in dirty_specializations.iter_to_despecialize() {
-                view_specialized_material_pipeline_cache.remove(&renderable_entity);
-            }
-        }
-
-        let Some(view_pending_mesh_material2d_queues) =
-            pending_mesh_material2d_queues.get_mut(&view.retained_view_entity)
-        else {
-            continue;
-        };
-
-        // Now process all 2D meshes that need to be re-specialized.
-        for (render_entity, visible_entity) in dirty_specializations.iter_to_specialize(
-            view.retained_view_entity,
-            visible_entities,
-            &view_pending_mesh_material2d_queues.prev_frame,
-        ) {
-            if view_specialized_material_pipeline_cache.contains_key(visible_entity) {
-                continue;
-            }
-
-            let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
-                // Entity doesn't have this material type. Skip it; the
-                // correct material type's specialize system will handle it.
-                continue;
-            };
-            let Some(mesh_instance) = render_mesh_instances.get_mut(visible_entity) else {
-                continue;
-            };
-            let Some(material_2d) = render_materials.get(*material_asset_id) else {
-                // We couldn't fetch the material instance, probably because the
-                // material hasn't been loaded yet. Add the entity to the list
-                // of pending mesh materials and bail.
-                view_pending_mesh_material2d_queues
-                    .current_frame
-                    .insert((*render_entity, *visible_entity));
-                continue;
-            };
-            let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
-                continue;
-            };
-            let mesh_key = *view_key
-                | Mesh2dPipelineKey::from_primitive_topology_and_strip_index(
-                    mesh.primitive_topology(),
-                    mesh.index_format(),
-                )
-                | material_2d.properties.mesh_pipeline_key_bits;
-
-            let pipeline_id = pipelines.specialize(
-                &pipeline_cache,
-                &material2d_pipeline,
-                Material2dKey {
-                    mesh_key,
-                    bind_group_data: material_2d.key.clone(),
-                },
-                &mesh.layout,
-            );
-
-            let pipeline_id = match pipeline_id {
-                Ok(id) => id,
-                Err(err) => {
-                    error!("{}", err);
-                    continue;
-                }
-            };
-
-            view_specialized_material_pipeline_cache.insert(*visible_entity, pipeline_id);
-        }
-    }
+/// The system parameter that [`specialize_material2d_meshes`] uses.
+///
+/// This has to be declared separately because [`specialize_material2d_meshes`]
+/// takes the [`World`] directly.
+#[derive(SystemParam)]
+pub struct SpecializeMaterial2dMeshesSystemParam<'w, 's> {
+    render_meshes: Res<'w, RenderAssets<RenderMesh>>,
+    render_materials: Res<'w, ErasedRenderAssets<PreparedMaterial2d>>,
+    render_mesh_instances: ResMut<'w, RenderMesh2dInstances>,
+    render_material_instances: Res<'w, RenderMaterial2dInstances>,
+    transparent_render_phases: Res<'w, ViewSortedRenderPhases<Transparent2d>>,
+    opaque_render_phases: Res<'w, ViewBinnedRenderPhases<Opaque2d>>,
+    alpha_mask_render_phases: Res<'w, ViewBinnedRenderPhases<AlphaMask2d>>,
+    views: Query<
+        'w,
+        's,
+        (
+            &'static MainEntity,
+            &'static ExtractedView,
+            &'static RenderVisibleEntities,
+        ),
+    >,
+    view_key_cache: Res<'w, ViewKeyCache>,
+    specialized_material2d_pipeline_cache: ResMut<'w, SpecializedMaterial2dPipelineCache>,
+    dirty_specializations: Res<'w, DirtySpecializations>,
+    pending_mesh_material2d_queues: ResMut<'w, PendingMeshMaterial2dQueues>,
 }
 
-pub fn queue_material2d_meshes<M: Material2d>(
+/// Specializes and compiles pipelines for 2D materials that haven't been seen
+/// yet.
+pub fn specialize_material2d_meshes(
+    world: &mut World,
+    state: &mut SystemState<SpecializeMaterial2dMeshesSystemParam>,
+    mut work_items: Local<Vec<Specialization2dWorkItem>>,
+    mut all_views: Local<HashSet<RetainedViewEntity, FixedHasher>>,
+) {
+    work_items.clear();
+    all_views.clear();
+
+    {
+        let SpecializeMaterial2dMeshesSystemParam {
+            render_meshes,
+            render_materials,
+            mut render_mesh_instances,
+            render_material_instances,
+            transparent_render_phases,
+            opaque_render_phases,
+            alpha_mask_render_phases,
+            views,
+            view_key_cache,
+            mut specialized_material2d_pipeline_cache,
+            dirty_specializations,
+            mut pending_mesh_material2d_queues,
+        } = state.get_mut(world).unwrap();
+
+        if render_material_instances.is_empty() {
+            return;
+        }
+
+        for (view_entity, view, visible_entities) in &views {
+            all_views.insert(view.retained_view_entity);
+
+            if !transparent_render_phases.contains_key(&view.retained_view_entity)
+                && !opaque_render_phases.contains_key(&view.retained_view_entity)
+                && !alpha_mask_render_phases.contains_key(&view.retained_view_entity)
+            {
+                continue;
+            }
+
+            let Some(view_key) = view_key_cache.get(view_entity) else {
+                continue;
+            };
+
+            let view_specialized_material_pipeline_cache = specialized_material2d_pipeline_cache
+                .entry(view.retained_view_entity)
+                .or_default();
+
+            let Some(visible_entities) = visible_entities.get::<Mesh2d>() else {
+                continue;
+            };
+
+            // Remove cached pipeline IDs corresponding to entities that either
+            // have been removed or need to be re-specialized.
+            if dirty_specializations.must_wipe_specializations_for_view(view.retained_view_entity) {
+                view_specialized_material_pipeline_cache.clear();
+            } else {
+                for &renderable_entity in dirty_specializations.iter_to_despecialize() {
+                    view_specialized_material_pipeline_cache.remove(&renderable_entity);
+                }
+            }
+
+            let Some(view_pending_mesh_material2d_queues) =
+                pending_mesh_material2d_queues.get_mut(&view.retained_view_entity)
+            else {
+                continue;
+            };
+
+            // Now process all 2D meshes that need to be re-specialized.
+            for (render_entity, visible_entity) in dirty_specializations.iter_to_specialize(
+                view.retained_view_entity,
+                visible_entities,
+                &view_pending_mesh_material2d_queues.prev_frame,
+            ) {
+                if view_specialized_material_pipeline_cache.contains_key(visible_entity) {
+                    continue;
+                }
+
+                let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
+                    // Entity doesn't have this material type. Skip it; the
+                    // correct material type's specialize system will handle it.
+                    continue;
+                };
+                let Some(mesh_instance) = render_mesh_instances.get_mut(visible_entity) else {
+                    // We couldn't fetch the mesh instance, probably because the
+                    // material hasn't been loaded yet. Add the entity to the
+                    // list of pending mesh materials and bail.
+                    view_pending_mesh_material2d_queues
+                        .current_frame
+                        .insert((*render_entity, *visible_entity));
+                    continue;
+                };
+                let Some(material_2d) = render_materials.get(*material_asset_id) else {
+                    // We couldn't fetch the material instance, probably because the
+                    // material hasn't been loaded yet. Add the entity to the list
+                    // of pending mesh materials and bail.
+                    view_pending_mesh_material2d_queues
+                        .current_frame
+                        .insert((*render_entity, *visible_entity));
+                    continue;
+                };
+                let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
+                    continue;
+                };
+
+                let mut mesh_pipeline_key_bits: Mesh2dPipelineKey =
+                    material_2d.properties.mesh_pipeline_key_bits.downcast();
+                mesh_pipeline_key_bits.insert(alpha_mode_pipeline_key_2d(
+                    material_2d.properties.alpha_mode,
+                ));
+                let mesh_key = *view_key
+                    | Mesh2dPipelineKey::from_bits_retain(mesh.key_bits.bits())
+                    | mesh_pipeline_key_bits;
+
+                work_items.push(Specialization2dWorkItem {
+                    visible_entity: *visible_entity,
+                    retained_view_entity: view.retained_view_entity,
+                    mesh_key,
+                    layout: mesh.layout.clone(),
+                    properties: material_2d.properties.clone(),
+                    material_type_id: material_asset_id.type_id(),
+                });
+            }
+        }
+    }
+
+    for item in work_items.drain(..) {
+        let key = ErasedMaterialPipelineKey {
+            type_id: item.material_type_id,
+            mesh_key: ErasedMeshPipelineKey::new(item.mesh_key),
+            material_key: item.properties.material_key.clone(),
+        };
+
+        let pipeline_id = base_specialize(world, key, &item.layout, &item.properties);
+
+        let pipeline_id = match pipeline_id {
+            Ok(id) => id,
+            Err(err) => {
+                error!("{}", err);
+                continue;
+            }
+        };
+
+        let mut specialized_material_pipeline_cache =
+            world.resource_mut::<SpecializedMaterial2dPipelineCache>();
+        let view_specialized_material_pipeline_cache = specialized_material_pipeline_cache
+            .entry(item.retained_view_entity)
+            .or_default();
+        view_specialized_material_pipeline_cache.insert(item.visible_entity, pipeline_id);
+    }
+
+    world
+        .resource_mut::<SpecializedMaterial2dPipelineCache>()
+        .retain(|view, _| all_views.contains(view));
+}
+
+/// An internal type that [`specialize_material2d_meshes`] uses to store
+/// specialization jobs.
+pub struct Specialization2dWorkItem {
+    visible_entity: MainEntity,
+    retained_view_entity: RetainedViewEntity,
+    mesh_key: Mesh2dPipelineKey,
+    layout: MeshVertexBufferLayoutRef,
+    properties: Arc<MaterialProperties>,
+    material_type_id: TypeId,
+}
+
+/// Iterates over all 2D mesh instances that have changed, adding and removing
+/// them from render batches and bins as appropriate.
+pub fn queue_material2d_meshes(
     (render_meshes, render_materials): (
         Res<RenderAssets<RenderMesh>>,
-        Res<RenderAssets<PreparedMaterial2d<M>>>,
+        Res<ErasedRenderAssets<PreparedMaterial2d>>,
     ),
     mut render_mesh_instances: ResMut<RenderMesh2dInstances>,
-    render_material_instances: Res<RenderMaterial2dInstances<M>>,
+    render_material_instances: Res<RenderMaterial2dInstances>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
     mut opaque_render_phases: ResMut<ViewBinnedRenderPhases<Opaque2d>>,
     mut alpha_mask_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask2d>>,
-    views: Query<(&MainEntity, &ExtractedView, &RenderVisibleEntities)>,
+    views: Query<(&ExtractedView, &RenderVisibleEntities)>,
     dirty_specializations: Res<DirtySpecializations>,
     mut pending_mesh_material2d_queues: ResMut<PendingMeshMaterial2dQueues>,
-    specialized_material_pipeline_cache: ResMut<SpecializedMaterial2dPipelineCache<M>>,
-) where
-    M::Data: PartialEq + Eq + Hash + Clone,
-{
+    specialized_material_pipeline_cache: ResMut<SpecializedMaterial2dPipelineCache>,
+    mut mesh_instances_queued_this_iteration_scratch_space: Local<MainEntityHashSet>,
+) {
     if render_material_instances.is_empty() {
         return;
     }
 
-    for (view_entity, view, visible_entities) in &views {
+    for (view, visible_entities) in &views {
         let Some(view_specialized_material_pipeline_cache) =
-            specialized_material_pipeline_cache.get(view_entity)
+            specialized_material_pipeline_cache.get(&view.retained_view_entity)
         else {
             continue;
         };
@@ -938,6 +1029,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
             view.retained_view_entity,
             visible_entities,
             &view_pending_mesh_material2d_queues.prev_frame,
+            &mut mesh_instances_queued_this_iteration_scratch_space,
         ) {
             let Some(pipeline_id) = view_specialized_material_pipeline_cache
                 .get(visible_entity)
@@ -973,7 +1065,6 @@ pub fn queue_material2d_meshes<M: Material2d>(
             opaque_phase.remove(*visible_entity);
             alpha_mask_phase.remove(*visible_entity);
 
-            mesh_instance.material_bind_group_id = material_2d.get_bind_group_id();
             let mesh_z = mesh_instance.transforms.world_from_local.translation.z;
 
             // We don't support multidraw yet for 2D meshes, so we use this
@@ -988,12 +1079,18 @@ pub fn queue_material2d_meshes<M: Material2d>(
             };
 
             match material_2d.properties.alpha_mode {
-                AlphaMode2d::Opaque => {
+                AlphaMode::Opaque => {
+                    let Some(draw_function) = material_2d
+                        .properties
+                        .get_draw_function(Pass2dOpaqueDrawFunction)
+                    else {
+                        continue;
+                    };
                     let bin_key = Opaque2dBinKey {
                         pipeline: pipeline_id,
-                        draw_function: material_2d.properties.draw_function_id,
+                        draw_function,
                         asset_id: mesh_instance.mesh_asset_id.into(),
-                        material_bind_group_id: material_2d.get_bind_group_id().0,
+                        material_bind_group_index: Some(material_2d.binding.group.0),
                     };
                     opaque_phase.add(
                         BatchSetKey2d {
@@ -1005,12 +1102,18 @@ pub fn queue_material2d_meshes<M: Material2d>(
                         binned_render_phase_type,
                     );
                 }
-                AlphaMode2d::Mask(_) => {
+                AlphaMode::Mask(_) => {
+                    let Some(draw_function) = material_2d
+                        .properties
+                        .get_draw_function(Pass2dAlphaMaskDrawFunction)
+                    else {
+                        continue;
+                    };
                     let bin_key = AlphaMask2dBinKey {
                         pipeline: pipeline_id,
-                        draw_function: material_2d.properties.draw_function_id,
+                        draw_function,
                         asset_id: mesh_instance.mesh_asset_id.into(),
-                        material_bind_group_id: material_2d.get_bind_group_id().0,
+                        material_bind_group_index: Some(material_2d.binding.group.0),
                     };
                     alpha_mask_phase.add(
                         BatchSetKey2d {
@@ -1022,7 +1125,13 @@ pub fn queue_material2d_meshes<M: Material2d>(
                         binned_render_phase_type,
                     );
                 }
-                AlphaMode2d::Blend => {
+                _ => {
+                    let Some(draw_function) = material_2d
+                        .properties
+                        .get_draw_function(Pass2dTransparentDrawFunction)
+                    else {
+                        continue;
+                    };
                     // We have to use `Entity::PLACEHOLDER` as the render entity
                     // so that we can dequeue the items later with
                     // `iter_to_dequeue` above.
@@ -1039,7 +1148,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
                     // entity in its sorted phases.
                     transparent_phase.add_retained(Transparent2d {
                         entity: (Entity::PLACEHOLDER, *visible_entity),
-                        draw_function: material_2d.properties.draw_function_id,
+                        draw_function,
                         pipeline: pipeline_id,
                         // NOTE: Back-to-front ordering for transparent with ascending sort means far should have the
                         // lowest sort key and getting closer should increase. As we have
@@ -1058,56 +1167,34 @@ pub fn queue_material2d_meshes<M: Material2d>(
     }
 }
 
+/// The bind group ID that a single 2D material has been assigned to.
 #[derive(Component, Clone, Copy, Default, PartialEq, Eq, Deref, DerefMut)]
 pub struct Material2dBindGroupId(pub Option<BindGroupId>);
 
-#[derive(Resource, Default, Deref, DerefMut)]
-pub struct RenderMaterial2dBindGroupIds(HashMap<UntypedAssetId, Material2dBindGroupId>);
-
-#[derive(Resource, Default, Deref, DerefMut)]
-pub struct RenderMaterial2dIds(MainEntityHashMap<UntypedAssetId>);
-
-/// Common [`Material2d`] properties, calculated for a specific material instance.
-pub struct Material2dProperties {
-    /// The [`AlphaMode2d`] of this material.
-    pub alpha_mode: AlphaMode2d,
-    /// Add a bias to the view depth of the mesh which can be used to force a specific render order
-    /// for meshes with equal depth, to avoid z-fighting.
-    /// The bias is in depth-texture units so large values may
-    pub depth_bias: f32,
-    /// The bits in the [`Mesh2dPipelineKey`] for this material.
-    ///
-    /// These are precalculated so that we can just "or" them together in
-    /// [`queue_material2d_meshes`].
-    pub mesh_pipeline_key_bits: Mesh2dPipelineKey,
-    pub draw_function_id: DrawFunctionId,
-}
-
 /// Data prepared for a [`Material2d`] instance.
-pub struct PreparedMaterial2d<T: Material2d> {
-    pub bindings: BindingResources,
-    pub bind_group: BindGroup,
-    pub key: T::Data,
-    pub properties: Material2dProperties,
+pub struct PreparedMaterial2d {
+    /// Where the material is stored in the bind group allocator.
+    pub binding: MaterialBindingId,
+    /// Common properties for the material.
+    pub properties: Arc<MaterialProperties>,
 }
 
-impl<T: Material2d> PreparedMaterial2d<T> {
-    pub fn get_bind_group_id(&self) -> Material2dBindGroupId {
-        Material2dBindGroupId(Some(self.bind_group.id()))
-    }
-}
-
-impl<M: Material2d> RenderAsset for PreparedMaterial2d<M> {
+impl<M: Material2d> ErasedRenderAsset for MeshMaterial2d<M>
+where
+    M::Data: PartialEq + Eq + Hash + Clone,
+{
     type SourceAsset = M;
+    type ErasedAsset = PreparedMaterial2d;
 
     type Param = (
         SRes<RenderDevice>,
         SRes<PipelineCache>,
-        SRes<Material2dPipeline<M>>,
+        SResMut<MaterialBindGroupAllocators>,
+        SResMut<RenderMaterialBindings>,
         SRes<DrawFunctions<Opaque2d>>,
         SRes<DrawFunctions<AlphaMask2d>>,
         SRes<DrawFunctions<Transparent2d>>,
-        SResMut<RenderMaterial2dBindGroupIds>,
+        SRes<Material2dShaders<M>>,
         M::Param,
     );
 
@@ -1117,57 +1204,206 @@ impl<M: Material2d> RenderAsset for PreparedMaterial2d<M> {
         (
             render_device,
             pipeline_cache,
-            pipeline,
+            bind_group_allocators,
+            render_material_bindings,
             opaque_draw_functions,
             alpha_mask_draw_functions,
             transparent_draw_functions,
-            render_material_2d_bind_group_ids,
+            material_shaders,
             material_param,
         ): &mut SystemParamItem<Self::Param>,
-        _: Option<&Self>,
-    ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
-        let bind_group_data = material.bind_group_data();
-        match material.as_bind_group(
-            &pipeline.material2d_layout,
+    ) -> Result<Self::ErasedAsset, PrepareAssetError<Self::SourceAsset>> {
+        let material_layout = M::bind_group_layout_descriptor(render_device);
+
+        let material_binding_id = render_material_bindings.prepare_material(
+            &material,
+            material_id,
+            material_param,
+            &material_layout,
+            bind_group_allocators,
             render_device,
             pipeline_cache,
-            material_param,
-        ) {
-            Ok(prepared) => {
-                let mut mesh_pipeline_key_bits = Mesh2dPipelineKey::empty();
-                mesh_pipeline_key_bits.insert(alpha_mode_pipeline_key(material.alpha_mode()));
+        )?;
 
-                let draw_function_id = match material.alpha_mode() {
-                    AlphaMode2d::Opaque => opaque_draw_functions.read().id::<DrawMaterial2d<M>>(),
-                    AlphaMode2d::Mask(_) => {
-                        alpha_mask_draw_functions.read().id::<DrawMaterial2d<M>>()
-                    }
-                    AlphaMode2d::Blend => {
-                        transparent_draw_functions.read().id::<DrawMaterial2d<M>>()
-                    }
-                };
+        let mut mesh_pipeline_key_bits = Mesh2dPipelineKey::empty();
+        mesh_pipeline_key_bits.insert(alpha_mode_pipeline_key_2d(material.alpha_mode().into()));
+        let mesh_pipeline_key_bits = ErasedMeshPipelineKey::new(mesh_pipeline_key_bits);
 
-                render_material_2d_bind_group_ids.insert(
-                    material_id.into(),
-                    Material2dBindGroupId(Some(prepared.bind_group.id())),
-                );
+        let render_phase_type = match material.alpha_mode() {
+            AlphaMode2d::Opaque => RenderPhaseType::Opaque,
+            AlphaMode2d::Mask(_) => RenderPhaseType::AlphaMask,
+            AlphaMode2d::Blend => RenderPhaseType::Transparent,
+        };
 
-                Ok(PreparedMaterial2d {
-                    bindings: prepared.bindings,
-                    bind_group: prepared.bind_group,
-                    key: bind_group_data,
-                    properties: Material2dProperties {
-                        depth_bias: material.depth_bias(),
-                        alpha_mode: material.alpha_mode(),
-                        mesh_pipeline_key_bits,
-                        draw_function_id,
-                    },
-                })
-            }
-            Err(AsBindGroupError::RetryNextUpdate) => {
-                Err(PrepareAssetError::RetryNextUpdate(material))
-            }
-            Err(other) => Err(PrepareAssetError::AsBindGroupError(other)),
+        let draw_opaque_2d = opaque_draw_functions.read().id::<DrawMaterial2d>();
+        let draw_alpha_mask_2d = alpha_mask_draw_functions.read().id::<DrawMaterial2d>();
+        let draw_transparent_2d = transparent_draw_functions.read().id::<DrawMaterial2d>();
+
+        let draw_functions = SmallVec::from_iter([
+            (Pass2dOpaqueDrawFunction.intern(), draw_opaque_2d),
+            (Pass2dAlphaMaskDrawFunction.intern(), draw_alpha_mask_2d),
+            (Pass2dTransparentDrawFunction.intern(), draw_transparent_2d),
+        ]);
+
+        let shaders = material_shaders.shaders.clone();
+
+        let bindless = material_uses_bindless_resources::<M>(render_device);
+        let bind_group_data = material.bind_group_data();
+        let material_key = ErasedMaterialKey::new(bind_group_data);
+
+        Ok(PreparedMaterial2d {
+            binding: material_binding_id,
+            properties: Arc::new(MaterialProperties {
+                depth_bias: material.depth_bias(),
+                alpha_mode: material.alpha_mode().into(),
+                material_layout: Some(material_layout),
+                bindless,
+                base_specialize: Some(base_specialize),
+                user_specialize: Some(user_specialize::<M>),
+                mesh_pipeline_key_bits,
+                render_method: OpaqueRendererMethod::Forward,
+                material_key,
+                render_phase_type,
+                reads_view_transmission_texture: false,
+                draw_functions,
+                shaders,
+                prepass_specialize: None,
+                shadows_enabled: false,
+                prepass_enabled: false,
+                oit_enabled: false,
+            }),
+        })
+    }
+}
+
+/// Creates a [`Material2dPipelineSpecializer`] and uses it to specialize a
+/// single 2D material.
+pub fn base_specialize(
+    world: &mut World,
+    key: ErasedMaterialPipelineKey,
+    layout: &MeshVertexBufferLayoutRef,
+    properties: &Arc<MaterialProperties>,
+) -> Result<CachedRenderPipelineId, SpecializedMeshPipelineError> {
+    world.resource_scope(
+        |world, mut pipelines: Mut<SpecializedMeshPipelines<Material2dPipelineSpecializer>>| {
+            let mesh2d_pipeline = world.resource::<Mesh2dPipeline>().clone();
+            let pipeline_cache = world.resource::<PipelineCache>();
+
+            let specializer = Material2dPipelineSpecializer {
+                pipeline: Material2dPipeline { mesh2d_pipeline },
+                properties: properties.clone(),
+            };
+
+            pipelines.specialize(pipeline_cache, &specializer, key, layout)
+        },
+    )
+}
+
+/// Calls the [`Material2d::specialize`] function for a single material in order
+/// to do any custom specializations that the material wishes.
+fn user_specialize<M>(
+    pipeline: &dyn Any,
+    descriptor: &mut RenderPipelineDescriptor,
+    mesh_layout: &MeshVertexBufferLayoutRef,
+    erased_key: ErasedMaterialPipelineKey,
+) -> Result<(), SpecializedMeshPipelineError>
+where
+    M: Material2d,
+    M::Data: Hash + Clone,
+{
+    let pipeline = pipeline.downcast_ref::<Material2dPipeline>().unwrap();
+    let material_key = erased_key.material_key.to_key();
+    let mesh_key: Mesh2dPipelineKey = erased_key.mesh_key.downcast();
+    M::specialize(
+        pipeline,
+        descriptor,
+        mesh_layout,
+        Material2dKey {
+            mesh_key,
+            bind_group_data: material_key,
+        },
+    )
+}
+
+/// Identifies the vertex shader for a 2D material.
+#[derive(ShaderLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
+pub struct Material2dVertexShader;
+/// Identifies the fragment shader for a 2D material.
+#[derive(ShaderLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
+pub struct Material2dFragmentShader;
+
+/// The draw function that draws binned opaque 2D meshes.
+#[derive(DrawFunctionLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
+pub struct Pass2dOpaqueDrawFunction;
+/// The draw function that draws binned alpha masked 2D meshes.
+#[derive(DrawFunctionLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
+pub struct Pass2dAlphaMaskDrawFunction;
+/// The draw function that draws sorted 2D meshes with alpha-blended
+/// transparency.
+#[derive(DrawFunctionLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
+pub struct Pass2dTransparentDrawFunction;
+
+/// A resource that caches resolved shader handles for a specific material type.
+#[derive(Resource)]
+pub struct Material2dShaders<M>
+where
+    M: Material2d,
+{
+    shaders: SmallVec<[(InternedShaderLabel, Handle<Shader>); 6]>,
+    marker: PhantomData<M>,
+}
+
+impl<M> Default for Material2dShaders<M>
+where
+    M: Material2d,
+{
+    fn default() -> Self {
+        Material2dShaders {
+            shaders: SmallVec::new(),
+            marker: PhantomData,
         }
     }
+}
+
+impl<M> Material2dShaders<M>
+where
+    M: Material2d,
+{
+    /// Creates a [`Material2dShaders`] from the given vertex and fragment
+    /// shaders.
+    pub fn with_shader_cache(
+        shaders: SmallVec<[(InternedShaderLabel, Handle<Shader>); 6]>,
+    ) -> Material2dShaders<M> {
+        Material2dShaders {
+            shaders,
+            marker: PhantomData,
+        }
+    }
+}
+
+/// Initializes the vertex and fragment shaders for a single 2D material.
+fn initialize_material2d_shaders<M>(
+    render_world: &World,
+) -> SmallVec<[(InternedShaderLabel, Handle<Shader>); 6]>
+where
+    M: Material2d,
+{
+    let asset_server = render_world.resource::<AssetServer>();
+    let mut shaders = SmallVec::new();
+
+    let mut add_shader = |label: InternedShaderLabel, shader_ref: ShaderRef| {
+        let maybe_shader = match shader_ref {
+            ShaderRef::Default => None,
+            ShaderRef::Handle(handle) => Some(handle),
+            ShaderRef::Path(path) => Some(asset_server.load(path)),
+        };
+        if let Some(shader) = maybe_shader {
+            shaders.push((label, shader));
+        }
+    };
+
+    add_shader(Material2dVertexShader.intern(), M::vertex_shader());
+    add_shader(Material2dFragmentShader.intern(), M::fragment_shader());
+
+    shaders
 }

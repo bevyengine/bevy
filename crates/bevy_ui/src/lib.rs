@@ -60,6 +60,12 @@ pub mod prelude {
     pub use crate::picking_backend::{UiPickingCamera, UiPickingPlugin, UiPickingSettings};
     #[doc(hidden)]
     pub use crate::widget::{Text, TextShadow, TextUiReader, TextUiWriter};
+    #[expect(
+        deprecated,
+        reason = "Should be removed after 0.20 is released when Button & Interaction are removed."
+    )]
+    #[doc(hidden)]
+    pub use crate::{widget::Button, Interaction};
     #[doc(hidden)]
     pub use {
         crate::{
@@ -67,8 +73,8 @@ pub mod prelude {
             gradients::*,
             ui_node::*,
             ui_transform::*,
-            widget::{Button, ImageNode, Label, NodeImageMode, ViewportNode},
-            Interaction, UiScale,
+            widget::{ImageNode, Label, NodeImageMode, ViewportNode},
+            UiScale,
         },
         // `bevy_sprite` re-exports for texture slicing
         bevy_sprite::{BorderRect, SliceScaleMode, SpriteImageMode, TextureSlicer},
@@ -154,7 +160,7 @@ impl Plugin for UiPlugin {
                     UiSystems::Layout,
                     UiSystems::PostLayout,
                 )
-                    .chain(),
+                    .chain_weak(),
             )
             .configure_sets(
                 PostUpdate,
@@ -191,7 +197,9 @@ impl Plugin for UiPlugin {
         app.add_systems(
             PostUpdate,
             (
-                propagate_ui_target_cameras.in_set(UiSystems::Prepare),
+                propagate_ui_target_cameras
+                    .in_set(UiSystems::Prepare)
+                    .before(bevy_app::TransformGizmoRenderStep),
                 ui_layout_system
                     .in_set(UiSystems::Layout)
                     .ambiguous_with(bevy_sprite::update_text2d_layout),
@@ -237,7 +245,6 @@ fn build_text_interop(app: &mut App) {
         PostUpdate,
         (
             widget::measure_text_system
-                .chain()
                 .after(detect_text_needs_rerender)
                 .after(bevy_text::load_font_assets_into_font_collection)
                 .in_set(UiSystems::Content)
@@ -268,11 +275,10 @@ fn build_text_interop(app: &mut App) {
                 .ambiguous_with(widget::update_image_content_size_system)
                 .ambiguous_with(widget::measure_text_system)
                 .ambiguous_with(bevy_sprite::update_text2d_layout),
-            (
-                widget::update_editable_text_layout.before(bevy_asset::AssetEventSystems),
-                widget::scroll_editable_text,
-            )
-                .chain()
+            widget::sync_editable_text_viewports
+                .after(UiSystems::Layout)
+                .before(EditableTextSystems),
+            widget::update_editable_text_layout
                 .in_set(UiSystems::PostLayout)
                 // This is unlikely to result in real conflicts,
                 // as FocusChangeEvents only mutates internal state of InputFocus,
@@ -281,6 +287,7 @@ fn build_text_interop(app: &mut App) {
                 // as editable_text_system or related systems could generate focus changes
                 // which should be processed ASAP.
                 .before(bevy_input_focus::InputFocusSystems::FocusChangeEvents)
+                .before(bevy_asset::AssetEventSystems)
                 .ambiguous_with(widget::text_system)
                 .ambiguous_with(bevy_sprite::update_text2d_layout)
                 .ambiguous_with(bevy_sprite::calculate_bounds_text2d),
@@ -298,5 +305,10 @@ fn build_text_interop(app: &mut App) {
     );
 
     // We cannot set this up in bevy_text as this would create a circular dependency between bevy_ui and bevy_text
-    app.configure_sets(PostUpdate, EditableTextSystems.in_set(UiSystems::Content));
+    app.configure_sets(
+        PostUpdate,
+        EditableTextSystems
+            .after(UiSystems::Layout)
+            .before(UiSystems::PostLayout),
+    );
 }

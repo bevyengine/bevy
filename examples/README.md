@@ -52,7 +52,6 @@ git checkout v0.4.0
   - [Embedded](#embedded)
   - [Games](#games)
   - [Gizmos](#gizmos)
-  - [Helpers](#helpers)
   - [Input](#input)
   - [Math](#math)
   - [Movement](#movement)
@@ -262,6 +261,7 @@ Example | Description
 [Asset Saving](../examples/asset/asset_saving.rs) | Demonstrates how to save an asset
 [Asset Saving with Subassets](../examples/asset/asset_saving_with_subassets.rs) | Demonstrates how to save an asset with subassets
 [Asset Settings](../examples/asset/asset_settings.rs) | Demonstrates various methods of applying settings when loading an asset
+[Compressed Image Saver](../examples/asset/compressed_image_saver.rs) | Demonstrates compressing textures and generating mipmaps using CompressedImageSaver
 [Custom Asset](../examples/asset/custom_asset.rs) | Implements a custom asset loader
 [Custom Asset IO](../examples/asset/custom_asset_reader.rs) | Implements a custom AssetReader
 [Embedded Asset](../examples/asset/embedded_asset.rs) | Embed an asset in the application binary and load it
@@ -379,6 +379,7 @@ Example | Description
 [Desk Toy](../examples/showcase/desk_toy.rs) | Bevy logo as a desk toy using transparent windows! Now with Googly Eyes!
 [Game Menu](../examples/showcase/game_menu.rs) | A simple game menu
 [Loading Screen](../examples/showcase/loading_screen.rs) | Demonstrates how to create a loading screen that waits for all assets to be loaded and render pipelines to be compiled.
+[Mines](../examples/showcase/mines.rs) | A simple minesweeper-style game in Bevy UI
 
 ### Gizmos
 
@@ -393,12 +394,6 @@ Example | Description
 [Text Gizmos 3d](../examples/gizmos/3d_text_gizmos.rs) | A scene showcasing 3d text gizmos
 [Text Gizmos Font](../examples/gizmos/text_gizmos_font.rs) | Example displaying the font used by text gizmos
 [Transform Gizmo](../examples/gizmos/transform_gizmo.rs) | Interactive transform gizmo for translating, rotating, and scaling entities
-
-### Helpers
-
-Example | Description
---- | ---
-[Widgets](../examples/helpers/widgets.rs) | Example UI Widgets
 
 ### Input
 
@@ -454,6 +449,7 @@ Example | Description
 [Dynamic Types](../examples/reflection/dynamic_types.rs) | How dynamic types are used with reflection
 [Function Reflection](../examples/reflection/function_reflection.rs) | Demonstrates how functions can be called dynamically using reflection
 [Generic Reflection](../examples/reflection/generic_reflection.rs) | Registers concrete instances of generic types that may be used with reflection
+[Mutation by Reflection](../examples/reflection/mutation_by_reflection.rs) | Demonstrates how to mutate abstract or non-Rust data at runtime using reflection
 [Reflection](../examples/reflection/reflection.rs) | Demonstrates how reflection in Bevy provides a way to dynamically interact with Rust types
 [Reflection Types](../examples/reflection/reflection_types.rs) | Illustrates the various reflection types available
 [Serialization](../examples/reflection/serialization.rs) | Demonstrates serialization and deserialization using reflection without serde's Serialize/Deserialize traits
@@ -499,6 +495,7 @@ Example | Description
 [Instancing](../examples/shader_advanced/custom_shader_instancing.rs) | A shader that renders a mesh multiple times in one draw call using low level rendering api
 [Material](../examples/shader/shader_material.rs) | A shader and a material that uses it
 [Material](../examples/shader/shader_material_2d.rs) | A shader and a material that uses it on a 2d mesh
+[Material - 2D Bindless](../examples/shader/shader_material_2d_bindless.rs) | Demonstrates bindless materials in 2D
 [Material - Bindless](../examples/shader/shader_material_bindless.rs) | Demonstrates how to make materials that use bindless textures
 [Material - GLSL](../examples/shader/shader_material_glsl.rs) | A shader that uses the GLSL shading language
 [Material - Screenspace Texture](../examples/shader/shader_material_screenspace_texture.rs) | A shader that samples a texture with view-independent UV coordinates
@@ -516,6 +513,7 @@ Example | Description
 
 Example | Description
 --- | ---
+[Deferred Gbuffer Raymarching](../examples/shader_advanced/deferred_raymarch.rs) | Writes a raymarched SDF into the deferred gbuffer so it is lit by the standard PBR deferred lighting pass
 [Fullscreen Material](../examples/shader_advanced/fullscreen_material.rs) | Demonstrates how to write a fullscreen material
 [Manual Material Implementation](../examples/shader_advanced/manual_material.rs) | Demonstrates how to implement a material manually using the mid-level render APIs
 
