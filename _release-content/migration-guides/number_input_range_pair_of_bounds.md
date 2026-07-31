@@ -1,6 +1,6 @@
 ---
 title: "`NumberInputRange` now accepts two `Bound<T>`s"
-pull_requests: [24636, 24701]
+pull_requests: [25236]
 ---
 
 Previously, `NumberInputRange`s, used with `FeathersNumberInput` to specify input ranges inside `HardLimit` and `SoftLimit` components, accepted a `Range<T>`. However, the range was always treated as an inclusive range.
