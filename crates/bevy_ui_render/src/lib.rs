@@ -221,8 +221,8 @@ impl Plugin for UiRenderPlugin {
             .init_gpu_resource::<ImageNodeBindGroups>()
             .init_gpu_resource::<UiMeta>()
             .init_resource::<ExtractedUiLayout>()
-            .init_resource::<ExtractedUiNodes>()
-            .allow_ambiguous_resource::<ExtractedUiNodes>()
+            .init_resource::<ExtractedUiNodeStyles>()
+            .allow_ambiguous_resource::<ExtractedUiNodeStyles>()
             .init_resource::<ExtractedGlyphLayouts>()
             .init_resource::<DrawFunctions<TransparentUi>>()
             .init_resource::<ViewSortedRenderPhases<TransparentUi>>()
@@ -337,6 +337,7 @@ impl<'w, 's> UiCameraMapper<'w, 's> {
     }
 }
 
+#[derive(Default)]
 pub struct ExtractedUiNodeStyle {
     pub background_color: LinearRgba,
     pub border_color: [LinearRgba; 4],
@@ -353,6 +354,19 @@ pub struct ExtractedUiNodeStyle {
     pub use_node_border: bool,
 }
 
+impl ExtractedUiNodeStyle {
+    pub fn is_visible(&self) -> bool {
+        !self.background_color.is_fully_transparent()
+            || !self.outer_color.is_fully_transparent()
+            || self
+                .border_color
+                .iter()
+                .any(|color| !color.is_fully_transparent())
+            || !self.outline_color.is_fully_transparent()
+            || self.image.is_some()
+    }
+}
+
 /// The type of UI node.
 /// This is used to determine how to render the UI node.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -365,7 +379,7 @@ pub enum NodeType {
 /// The list of UI nodes, as well as the set of nodes that changed.
 ///
 #[derive(Resource, Default)]
-pub struct ExtractedUiNodes {
+pub struct ExtractedUiNodeStyles {
     pub uinodes: MainEntityHashMap<(Entity, ExtractedUiNodeStyle)>,
     /// UI nodes that changed this frame.
     pub changed: MainEntityHashSet,
@@ -373,7 +387,7 @@ pub struct ExtractedUiNodes {
 
 pub fn extract_uinode_styles(
     mut commands: Commands,
-    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
+    mut extracted_uinodes: ResMut<ExtractedUiNodeStyles>,
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     camera_query: Extract<Query<(&Camera, &RenderTarget)>>,
     changed_uinode_query: Extract<
@@ -463,15 +477,7 @@ pub fn extract_uinode_styles(
             continue;
         }
 
-        let mut image_color = LinearRgba::NONE;
-        let mut image_asset = None;
-        let mut flip_x = false;
-        let mut flip_y = false;
-        let mut image_rect = None;
-        let mut image_size = Vec2::ZERO;
-        let mut auto_sized = false;
-        let mut visual_box = VisualBox::default();
-        let mut use_node_border = false;
+        let mut style = ExtractedUiNodeStyle::default();
 
         if let Some(image) = maybe_image
             && !image.color.is_fully_transparent()
@@ -484,7 +490,7 @@ pub fn extract_uinode_styles(
                 .and_then(|s| s.texture_rect(&texture_atlases))
                 .map(|r| r.as_rect());
 
-            image_rect = match (atlas_rect, image.rect) {
+            style.image_rect = match (atlas_rect, image.rect) {
                 (None, None) => None,
                 (None, Some(image_rect)) => Some(image_rect),
                 (Some(atlas_rect), None) => Some(atlas_rect),
@@ -494,15 +500,15 @@ pub fn extract_uinode_styles(
                     Some(image_rect)
                 }
             };
-            image_color = image.color.into();
-            image_asset = Some(image.image.id());
-            flip_x = image.flip_x;
-            flip_y = image.flip_y;
-            image_size = maybe_image_size
+            style.image_color = image.color.into();
+            style.image = Some(image.image.id());
+            style.flip_x = image.flip_x;
+            style.flip_y = image.flip_y;
+            style.image_size = maybe_image_size
                 .map(|image_size| image_size.size().as_vec2())
                 .unwrap_or_default();
-            auto_sized = matches!(image.image_mode, NodeImageMode::Auto);
-            visual_box = image.visual_box;
+            style.auto_sized = matches!(image.image_mode, NodeImageMode::Auto);
+            style.visual_box = image.visual_box;
         }
 
         if let Some(viewport_node) = maybe_viewport_node
@@ -512,53 +518,33 @@ pub fn extract_uinode_styles(
                 .ok()
                 .and_then(|(_, render_target)| render_target.as_image())
         {
-            image_color = LinearRgba::WHITE;
-            image_asset = Some(image.id());
-            flip_x = false;
-            flip_y = false;
-            image_rect = None;
-            image_size = Vec2::ZERO;
-            auto_sized = false;
-            visual_box = VisualBox::BorderBox;
-            use_node_border = true;
+            style.image_color = LinearRgba::WHITE;
+            style.image = Some(image.id());
+            style.flip_x = false;
+            style.flip_y = false;
+            style.image_rect = None;
+            style.image_size = Vec2::ZERO;
+            style.auto_sized = false;
+            style.visual_box = VisualBox::BorderBox;
+            style.use_node_border = true;
         }
 
-        let extracted_uinode = ExtractedUiNodeStyle {
-            background_color: background_color.to_linear(),
-            border_color: maybe_border_color
-                .map(|&border_color| border_color.into())
-                .unwrap_or([LinearRgba::NONE; 4]),
-            outer_color: maybe_outer_color
-                .map(|outer_color| outer_color.0.to_linear())
-                .unwrap_or(LinearRgba::NONE),
-            image_color,
-            outline_color: maybe_outline
-                .map(|outline| outline.color.to_linear())
-                .unwrap_or(LinearRgba::NONE),
-            image: image_asset,
-            flip_x,
-            flip_y,
-            image_rect,
-            image_size,
-            auto_sized,
-            visual_box,
-            use_node_border,
-        };
+        style.background_color = background_color.to_linear();
+        style.border_color = maybe_border_color
+            .map(|&border_color| border_color.into())
+            .unwrap_or([LinearRgba::NONE; 4]);
+        style.outer_color = maybe_outer_color
+            .map(|outer_color| outer_color.0.to_linear())
+            .unwrap_or(LinearRgba::NONE);
+        style.outline_color = maybe_outline
+            .map(|outline| outline.color.to_linear())
+            .unwrap_or(LinearRgba::NONE);
 
-        let has_content = !extracted_uinode.background_color.is_fully_transparent()
-            || !extracted_uinode.outer_color.is_fully_transparent()
-            || extracted_uinode
-                .border_color
-                .iter()
-                .any(|color| !color.is_fully_transparent())
-            || !extracted_uinode.outline_color.is_fully_transparent()
-            || extracted_uinode.image.is_some();
-
-        if has_content {
+        if style.is_visible() {
             match extracted_uinodes.uinodes.entry(main_entity) {
-                Entry::Occupied(mut entry) => entry.get_mut().1 = extracted_uinode,
+                Entry::Occupied(mut entry) => entry.get_mut().1 = style,
                 Entry::Vacant(entry) => {
-                    entry.insert((commands.spawn_empty().id(), extracted_uinode));
+                    entry.insert((commands.spawn_empty().id(), style));
                 }
             }
         } else if let Some((render_entity, _)) = extracted_uinodes.uinodes.remove(&main_entity) {
@@ -839,7 +825,7 @@ pub mod shader_flags {
 }
 
 pub fn queue_uinodes(
-    extracted_uinodes: Res<ExtractedUiNodes>,
+    extracted_uinodes: Res<ExtractedUiNodeStyles>,
     extracted_geometry: Res<ExtractedUiLayout>,
     ui_pipeline: Res<UiPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiPipeline>>,
@@ -931,7 +917,7 @@ fn prepare_uinodes(
     render_queue: Res<RenderQueue>,
     pipeline_cache: Res<PipelineCache>,
     mut ui_meta: ResMut<UiMeta>,
-    extracted_uinodes: Res<ExtractedUiNodes>,
+    extracted_uinodes: Res<ExtractedUiNodeStyles>,
     extracted_glyph_layouts: Res<ExtractedGlyphLayouts>,
     #[cfg(feature = "bevy_ui_debug")] extracted_debug_overlays: Res<
         debug_overlay::ExtractedUiDebugOverlays,
