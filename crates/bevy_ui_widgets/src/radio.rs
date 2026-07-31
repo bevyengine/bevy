@@ -356,7 +356,7 @@ pub fn radio_self_update(
     };
 
     // Iterate the children of this radio group
-    let mut iter = q_radio.iter_many(children);
+    let mut iter = q_radio.iter_many(children).matched();
     while let Some(radio) = iter.fetch_next() {
         if radio == value_change.value {
             commands.entity(radio).insert(Checked);
