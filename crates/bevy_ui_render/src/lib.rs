@@ -784,6 +784,7 @@ pub(crate) struct UiVertex {
     pub point: [f32; 2],
 }
 
+// Indexed buffers for UI vertices
 #[derive(Resource)]
 pub struct UiMeta {
     pub(crate) vertices: RawBufferVec<UiVertex>,
@@ -950,8 +951,8 @@ pub fn prepare_uinodes(
         ));
 
         // Buffer indexes
-        let mut vertices_index = 0;
-        let mut indices_index = 0;
+        let mut vertices_index = 0; // indexes into ui_meta.indices
+        let mut indices_index = 0; // indexes into ui_meta.vertices
 
         for ui_phase in phases.values_mut() {
             let mut batch_item_index = 0;
@@ -1408,12 +1409,13 @@ fn prepare_uinodes_new(
     }
 
     let Some(view_binding) = view_uniforms.uniforms.binding() else {
-        // If there are no view bindings, nothing to draw to
+        // If there are no view bindings, give up.
         return;
     };
 
     let mut batches: Vec<(Entity, UiBatch)> = Vec::with_capacity(*previous_len);
 
+    // UiMeta contains the vertex and index buffer data and the current view
     ui_meta.vertices.clear();
     ui_meta.indices.clear();
     ui_meta.view_bind_group = Some(render_device.create_bind_group(
@@ -1424,12 +1426,13 @@ fn prepare_uinodes_new(
 
     // for each sorted render phase corresponding to a UI view
     for ui_phase in phases.values_mut() {
+        // used to store the index of the first phase item in a batch
         let mut batch_item_index = 0;
         let mut batch_image_handle = None;
 
-        for item_index in 0..ui_phase.items.len() {
-            let main_entity = ui_phase.items[item_index].main_entity();
-            let entity = ui_phase.items[item_index].entity();
+        for phase_item_index in 0..ui_phase.items.len() {
+            let main_entity = ui_phase.items[phase_item_index].main_entity();
+            let entity = ui_phase.items[phase_item_index].entity();
 
             if let Some(style) = extracted_uinodes
                 .uinodes
@@ -1445,7 +1448,8 @@ fn prepare_uinodes_new(
                     .filter(|image| gpu_images.get(*image).is_some())
                     .unwrap_or_default();
 
-                ui_phase.items[item_index].batch_range = item_index as u32..item_index as u32;
+                ui_phase.items[phase_item_index].batch_range =
+                    phase_item_index as u32..phase_item_index as u32;
                 let mut existing_batch = batches.last_mut();
                 if batch_image_handle.is_none()
                     || existing_batch.is_none()
@@ -1457,7 +1461,7 @@ fn prepare_uinodes_new(
                         batch_image_handle = None;
                         continue;
                     };
-                    batch_item_index = item_index;
+                    batch_item_index = phase_item_index;
                     batch_image_handle = Some(image);
                     batches.push((
                         entity,
@@ -1571,7 +1575,8 @@ fn prepare_uinodes_new(
                         )
                     });
                 }
-                ui_phase.items[item_index].batch_range = item_index as u32..item_index as u32 + 1;
+                ui_phase.items[phase_item_index].batch_range =
+                    phase_item_index as u32..phase_item_index as u32 + 1;
                 batches.push((
                     entity,
                     UiBatch {
@@ -1610,7 +1615,8 @@ fn prepare_uinodes_new(
                 if range_start == range_end {
                     continue;
                 }
-                ui_phase.items[item_index].batch_range = item_index as u32..item_index as u32 + 1;
+                ui_phase.items[phase_item_index].batch_range =
+                    phase_item_index as u32..phase_item_index as u32 + 1;
                 batches.push((
                     entity,
                     UiBatch {
