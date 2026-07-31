@@ -22,7 +22,7 @@ pub fn number_input_i32<T>(
     number_input_identifier: Option<T>,
     value: i32,
     precision: NumberInputPrecision,
-    limits: core::ops::Range<i32>,
+    limits: impl core::ops::RangeBounds<i32> + Send + Sync + 'static,
 ) -> Box<dyn Scene>
 where
     T: Template<Output: Component> + Send + Sync + Unpin + 'static,
