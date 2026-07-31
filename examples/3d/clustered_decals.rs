@@ -246,7 +246,8 @@ fn spawn_buttons(commands: &mut Commands) {
             ,
 
             Visibility::Hidden
-            number_input_f32("Roll (-π to π)", Some(AppNumberInput::Roll), 0.0, NumberInputPrecision(2), -PI.next_up()..=PI.next_down())
+            // + epsilon and next_down are used since roll recalculation likes to switch between -PI and PI upon recalculating roll.
+            number_input_f32("Roll (-π to π)", Some(AppNumberInput::Roll), 0.0, NumberInputPrecision(2), -PI + f32::EPSILON ..=PI.next_down())
             ,
         ]
     });
