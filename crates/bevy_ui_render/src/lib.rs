@@ -977,7 +977,7 @@ fn prepare_uinodes(
     // for each sorted render phase corresponding to a UI view
     for ui_phase in phases.values_mut() {
         // used to store the index of the first phase item in a batch
-        let mut batch_item_index = 0;
+        let mut batch_start_item_index = 0;
         let mut batch_image_handle = None;
 
         for phase_item_index in 0..ui_phase.items.len() {
@@ -1011,7 +1011,7 @@ fn prepare_uinodes(
                         batch_image_handle = None;
                         continue;
                     };
-                    batch_item_index = phase_item_index;
+                    batch_start_item_index = phase_item_index;
                     batch_image_handle = Some(image);
                     batches.push((
                         entity,
@@ -1061,7 +1061,7 @@ fn prepare_uinodes(
                     .expect("Image was checked during batching and should still exist");
                 generate_uinodes_quads(&mut ui_meta, layout, style, image, gpu_image);
                 existing_batch.unwrap().1.range.end = ui_meta.indices.len() as u32;
-                ui_phase.items[batch_item_index].batch_range_mut().end += 1;
+                ui_phase.items[batch_start_item_index].batch_range_mut().end += 1;
                 continue;
             }
 
