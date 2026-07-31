@@ -299,11 +299,11 @@ fn spawn_buttons(commands: &mut Commands) {
 
             // The number inputs start off hidden because Camera is selected first.
             Visibility::Hidden
-            number_input_f32("Scale Multiplier", Some(AppNumberInput::Scale), 1.0, NumberInputPrecision(2), 0.01..5.)
+            number_input_f32("Scale Multiplier", Some(AppNumberInput::Scale), 1.0, NumberInputPrecision(2), 0.01..=5.)
             ,
 
             Visibility::Hidden
-            number_input_f32("Roll (-π to π)", Some(AppNumberInput::Roll), 0.0, NumberInputPrecision(2), -PI..PI)
+            number_input_f32("Roll (-π to π)", Some(AppNumberInput::Roll), 0.0, NumberInputPrecision(2), -PI.next_up()..=PI.next_down())
             ,
         ]
     });
