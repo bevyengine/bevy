@@ -35,6 +35,7 @@ bsn! {
 ```
 
 This code now works and specifies an inclusive range:
+
 ```rust
 bsn! {
     @FeathersNumberInput
