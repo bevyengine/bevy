@@ -1,4 +1,4 @@
-use std::{f32::consts::PI, ops::Range};
+use std::{f32::consts::PI, ops::RangeInclusive};
 
 use bevy_app::{Plugin, PreUpdate, PropagateOver};
 use bevy_color::Color;
@@ -330,13 +330,13 @@ impl Default for NumberInputValue {
 #[derive(Debug, PartialEq, Clone, Reflect)]
 pub enum NumberInputRange {
     /// An 'f32' range.
-    F32(Range<f32>),
+    F32(RangeInclusive<f32>),
     /// An 'f64' range.
-    F64(Range<f64>),
+    F64(RangeInclusive<f64>),
     /// An 'i32' range.
-    I32(Range<i32>),
+    I32(RangeInclusive<i32>),
     /// An 'i64' range.
-    I64(Range<i64>),
+    I64(RangeInclusive<i64>),
 }
 
 impl NumberInputRange {
@@ -344,16 +344,16 @@ impl NumberInputRange {
     pub fn clamp(&self, n: NumberInputValue) -> NumberInputValue {
         match (self, n) {
             (Self::F32(r), NumberInputValue::F32(v)) => {
-                NumberInputValue::F32(v.clamp(r.start, r.end))
+                NumberInputValue::F32(v.clamp(*r.start(), *r.end()))
             }
             (Self::F64(r), NumberInputValue::F64(v)) => {
-                NumberInputValue::F64(v.clamp(r.start, r.end))
+                NumberInputValue::F64(v.clamp(*r.start(), *r.end()))
             }
             (Self::I32(r), NumberInputValue::I32(v)) => {
-                NumberInputValue::I32(v.clamp(r.start, r.end))
+                NumberInputValue::I32(v.clamp(*r.start(), *r.end()))
             }
             (Self::I64(r), NumberInputValue::I64(v)) => {
-                NumberInputValue::I64(v.clamp(r.start, r.end))
+                NumberInputValue::I64(v.clamp(*r.start(), *r.end()))
             }
             (range, value) => {
                 warn_once!("Number input range type mismatch: {range:?} {value:?}");
@@ -367,32 +367,32 @@ impl NumberInputRange {
     pub fn thumb_position(&self, value: NumberInputValue) -> f32 {
         match (self, value) {
             (Self::F32(range), NumberInputValue::F32(n)) => {
-                if range.end > range.start {
-                    (n - range.start) / (range.end - range.start)
+                if range.end() > range.start() {
+                    (n - range.start()) / (range.end() - range.start())
                 } else {
                     0.5
                 }
             }
 
             (Self::F64(range), NumberInputValue::F64(n)) => {
-                if range.end > range.start {
-                    ((n - range.start) / (range.end - range.start)) as f32
+                if range.end() > range.start() {
+                    ((n - range.start()) / (range.end() - range.start())) as f32
                 } else {
                     0.5
                 }
             }
 
             (Self::I32(range), NumberInputValue::I32(n)) => {
-                if range.end > range.start {
-                    (n - range.start) as f32 / (range.end - range.start) as f32
+                if range.end() > range.start() {
+                    (n - range.start()) as f32 / (range.end() - range.start()) as f32
                 } else {
                     0.5
                 }
             }
 
             (Self::I64(range), NumberInputValue::I64(n)) => {
-                if range.end > range.start {
-                    (n - range.start) as f32 / (range.end - range.start) as f32
+                if range.end() > range.start() {
+                    (n - range.start()) as f32 / (range.end() - range.start()) as f32
                 } else {
                     0.5
                 }
@@ -408,7 +408,7 @@ impl NumberInputRange {
 
 impl Default for NumberInputRange {
     fn default() -> Self {
-        Self::F32(0.0..0.0)
+        Self::F32(0.0..=0.0)
     }
 }
 
@@ -419,22 +419,22 @@ pub struct SoftLimit(pub NumberInputRange);
 
 impl SoftLimit {
     /// Create a [`SoftLimit`] for `f32` values.
-    pub fn f32(range: Range<f32>) -> Self {
+    pub fn f32(range: RangeInclusive<f32>) -> Self {
         Self(NumberInputRange::F32(range))
     }
 
     /// Create a [`SoftLimit`] for `f64` values.
-    pub fn f64(range: Range<f64>) -> Self {
+    pub fn f64(range: RangeInclusive<f64>) -> Self {
         Self(NumberInputRange::F64(range))
     }
 
     /// Create a [`SoftLimit`] for `i32` values.
-    pub fn i32(range: Range<i32>) -> Self {
+    pub fn i32(range: RangeInclusive<i32>) -> Self {
         Self(NumberInputRange::I32(range))
     }
 
     /// Create a [`SoftLimit`] for `i64` values.
-    pub fn i64(range: Range<i64>) -> Self {
+    pub fn i64(range: RangeInclusive<i64>) -> Self {
         Self(NumberInputRange::I64(range))
     }
 }
@@ -447,22 +447,22 @@ pub struct HardLimit(pub NumberInputRange);
 
 impl HardLimit {
     /// Create a [`HardLimit`] for `f32` values.
-    pub fn f32(range: Range<f32>) -> Self {
+    pub fn f32(range: RangeInclusive<f32>) -> Self {
         Self(NumberInputRange::F32(range))
     }
 
     /// Create a [`HardLimit`] for `f64` values.
-    pub fn f64(range: Range<f64>) -> Self {
+    pub fn f64(range: RangeInclusive<f64>) -> Self {
         Self(NumberInputRange::F64(range))
     }
 
     /// Create a [`HardLimit`] for `i32` values.
-    pub fn i32(range: Range<i32>) -> Self {
+    pub fn i32(range: RangeInclusive<i32>) -> Self {
         Self(NumberInputRange::I32(range))
     }
 
     /// Create a [`HardLimit`] for `i64` values.
-    pub fn i64(range: Range<i64>) -> Self {
+    pub fn i64(range: RangeInclusive<i64>) -> Self {
         Self(NumberInputRange::I64(range))
     }
 }
@@ -955,10 +955,10 @@ fn scrubber_on_drag_start(
         // Use various heuristics to determine drag speed based on which components are present.
         drag.drag_speed = if let Some(SoftLimit(nrange)) = soft_limit {
             match nrange {
-                NumberInputRange::F32(range) => (range.end - range.start) as f64 / slider_size,
-                NumberInputRange::F64(range) => (range.end - range.start) / slider_size,
-                NumberInputRange::I32(range) => (range.end - range.start) as f64 / slider_size,
-                NumberInputRange::I64(range) => (range.end - range.start) as f64 / slider_size,
+                NumberInputRange::F32(range) => (range.end() - range.start()) as f64 / slider_size,
+                NumberInputRange::F64(range) => (range.end() - range.start()) / slider_size,
+                NumberInputRange::I32(range) => (range.end() - range.start()) as f64 / slider_size,
+                NumberInputRange::I64(range) => (range.end() - range.start()) as f64 / slider_size,
             }
         } else if let Some(NumberInputStep(step)) = step {
             *step * BASE_DRAG_SPEED
