@@ -45,14 +45,14 @@ fn demo_root() -> impl Scene {
         Children[
             demo_field_f32("none (bare)", 1.0, bsn!()),
             demo_field_f32("soft limit", 2.0, bsn!(
-                template_value(SoftLimit(NumberInputRange::F32(0.0..10.0)))
+                template_value(SoftLimit::f32(0.0..10.0))
             )),
             demo_field_f32("hard limit", 3.0, bsn!(
-                template_value(HardLimit(NumberInputRange::F32(-100.0..100.0)))
+                template_value(HardLimit::f32(-100.0..100.0))
             )),
             demo_field_f32("soft + hard", 4.0, bsn!(
-                template_value(SoftLimit(NumberInputRange::F32(0.0..10.0)))
-                template_value(HardLimit(NumberInputRange::F32(-100.0..100.0)))
+                template_value(SoftLimit::f32(0.0..10.0))
+                template_value(HardLimit::f32(-100.0..100.0))
             )),
             demo_field_f32("precision(0)", 5.0, bsn!(
                 NumberInputPrecision(0)
@@ -67,22 +67,22 @@ fn demo_root() -> impl Scene {
                 NumberInputStep(1.0f64)
             )),
             demo_field_f64("f64: soft limit", 1.0f64, bsn!(
-                template_value(SoftLimit(NumberInputRange::F64(0.0f64..10.0f64)))
+                template_value(SoftLimit::f64(0.0f64..10.0f64))
             )),
             demo_field_f64("f64: soft limit + precision(2)", 1.0f64, bsn!(
-                template_value(SoftLimit(NumberInputRange::F64(0.0f64..10.0f64)))
+                template_value(SoftLimit::f64(0.0f64..10.0f64))
                 NumberInputPrecision(2)
             )),
             demo_field_i32("i32: bare", 1, bsn!()),
             demo_field_i32("i32: soft limit", 1, bsn!(
-                template_value(SoftLimit(NumberInputRange::I32(0..10)))
+                template_value(SoftLimit::i32(0..10))
             )),
             demo_field_f32_with_sigil("precision(2) + sigil", 6.0, bsn!(
                 NumberInputPrecision(2)
             )),
             demo_field_f32("soft limit + disabled", 2.0, bsn!(
                 InteractionDisabled
-                template_value(SoftLimit(NumberInputRange::F32(0.0..10.0)))
+                template_value(SoftLimit::f32(0.0..10.0))
             )),
         ]
     }
