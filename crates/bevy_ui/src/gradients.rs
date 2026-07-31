@@ -1,9 +1,9 @@
-use crate::{EmSize, UiPosition, Val, ValNum};
+use crate::{UiPosition, Val, ValNum};
 use bevy_color::{Color, Srgba};
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_math::Vec2;
 use bevy_reflect::prelude::*;
-use bevy_text::RemSize;
+use bevy_text::{EmSize, RemSize};
 use bevy_utils::default;
 use core::{f32, f32::consts::TAU};
 

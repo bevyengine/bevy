@@ -464,9 +464,9 @@ impl RepeatedGridTrack {
 #[cfg(test)]
 mod tests {
     use bevy_math::Vec2;
-    use bevy_text::{RemSize, DEFAULT_REM_SIZE_PX};
+    use bevy_text::{EmSize, RemSize, DEFAULT_REM_SIZE_PX};
 
-    use crate::{BorderRadius, EmSize};
+    use crate::BorderRadius;
 
     use super::*;
 

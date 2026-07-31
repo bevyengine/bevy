@@ -877,6 +877,36 @@ impl Default for RemSize {
     }
 }
 
+/// Used for resolving `Val::Em` during layout if no `TextFont` is found.
+/// Note there is no propagation of this so resolution will fall back to
+/// `RemSize` unless the user has a font propagation strategy.
+#[derive(Debug, PartialEq, Clone, Copy, Reflect, Component)]
+#[reflect(Default, PartialEq, Debug, Clone, Component)]
+pub struct EmSize(pub f32);
+
+impl Default for EmSize {
+    fn default() -> Self {
+        EmSize(DEFAULT_REM_SIZE_PX)
+    }
+}
+
+impl From<RemSize> for EmSize {
+    fn from(value: RemSize) -> Self {
+        EmSize(value.0)
+    }
+}
+
+impl EmSize {
+    /// Convert from a `FontSize` to an `EmSize` using eval.
+    pub fn from_font_size(
+        font_size: FontSize,
+        logical_viewport_size: Vec2,
+        rem_size: RemSize,
+    ) -> Self {
+        EmSize(font_size.eval(logical_viewport_size, rem_size))
+    }
+}
+
 /// How thick or bold the strokes of a font appear.
 ///
 /// Valid font weights range from 1 to 1000, inclusive.

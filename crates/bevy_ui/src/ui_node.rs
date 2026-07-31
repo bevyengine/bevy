@@ -9,7 +9,7 @@ use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_math::{BVec2, Rect, UVec2, Vec2, Vec4, Vec4Swizzles};
 use bevy_reflect::prelude::*;
 use bevy_sprite::BorderRect;
-use bevy_text::{RemSize, DEFAULT_REM_SIZE_PX};
+use bevy_text::{EmSize, RemSize, DEFAULT_REM_SIZE_PX};
 use bevy_utils::once;
 use bevy_window::{PrimaryWindow, WindowRef};
 use core::{f32, num::NonZero};

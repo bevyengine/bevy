@@ -1,14 +1,12 @@
 use bevy_math::{MismatchedUnitsError, StableInterpolate as _, TryStableInterpolate, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_text::{FontSize, RemSize};
+use bevy_text::{EmSize, FontSize, RemSize};
 use bevy_utils::default;
 use core::ops::{Div, DivAssign, Mul, MulAssign, Neg};
 use thiserror::Error;
 
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
-
-use crate::EmSize;
 
 /// Represents the possible value types for layout properties.
 ///

@@ -9,40 +9,8 @@ use bevy_math::Mat2;
 use bevy_math::Rot2;
 use bevy_math::Vec2;
 use bevy_reflect::prelude::*;
-use bevy_text::FontSize;
-use bevy_text::RemSize;
-use bevy_text::DEFAULT_REM_SIZE_PX;
+use bevy_text::{EmSize, RemSize};
 use core::ops::Mul;
-
-/// Used for resolving `Val::Em` during layout if no `TextFont` is found.
-/// Note there is no propagation of this so resolution will fall back to
-/// `RemSize` unless the user has a font propagation strategy.
-#[derive(Debug, PartialEq, Clone, Copy, Reflect, Component)]
-#[reflect(Default, PartialEq, Debug, Clone, Component)]
-pub struct EmSize(pub f32);
-
-impl Default for EmSize {
-    fn default() -> Self {
-        EmSize(DEFAULT_REM_SIZE_PX)
-    }
-}
-
-impl From<RemSize> for EmSize {
-    fn from(value: RemSize) -> Self {
-        EmSize(value.0)
-    }
-}
-
-impl EmSize {
-    /// Convert from a `FontSize` to an `EmSize` using eval.
-    pub fn from_font_size(
-        font_size: FontSize,
-        logical_viewport_size: Vec2,
-        rem_size: RemSize,
-    ) -> Self {
-        EmSize(font_size.eval(logical_viewport_size, rem_size))
-    }
-}
 
 /// A pair of [`Val`]s used to represent a 2-dimensional size or offset.
 #[derive(Debug, PartialEq, Clone, Copy, Reflect)]

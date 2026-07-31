@@ -31,10 +31,10 @@ use bevy_render::{
 use bevy_render::{GpuResourceAppExt, RenderStartup};
 use bevy_shader::Shader;
 use bevy_sprite::BorderRect;
-use bevy_text::RemSize;
+use bevy_text::{EmSize, RemSize};
 use bevy_ui::{
     BackgroundGradient, BorderGradient, ColorStop, ComputedStackIndex, ComputedUiRenderTargetInfo,
-    ConicGradient, EmSize, Gradient, InterpolationColorSpace, LinearGradient, RadialGradient,
+    ConicGradient, Gradient, InterpolationColorSpace, LinearGradient, RadialGradient,
     ResolvedBorderRadius, Val,
 };
 use bevy_utils::default;

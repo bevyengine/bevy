@@ -3,8 +3,8 @@ use crate::experimental::GhostNode;
 use crate::{
     experimental::{UiChildren, UiRootNodes},
     ui_transform::{UiGlobalTransform, UiTransform},
-    ComputedNode, ComputedUiRenderTargetInfo, ContentSize, Display, EmSize, FixedNode,
-    IgnoreScroll, LayoutConfig, Node, Outline, OverflowAxis, ScrollPosition,
+    ComputedNode, ComputedUiRenderTargetInfo, ContentSize, Display, FixedNode, IgnoreScroll,
+    LayoutConfig, Node, Outline, OverflowAxis, ScrollPosition,
 };
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
@@ -20,8 +20,7 @@ use bevy_math::{Affine2, Vec2};
 use bevy_sprite::BorderRect;
 use ui_surface::UiSurface;
 
-use bevy_text::{ComputedTextBlock, RemSize, TextFont};
-use bevy_text::{FontCx, DEFAULT_REM_SIZE_PX};
+use bevy_text::{ComputedTextBlock, EmSize, FontCx, RemSize, TextFont, DEFAULT_REM_SIZE_PX};
 
 use bevy_log::warn;
 
