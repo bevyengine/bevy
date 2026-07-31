@@ -10,7 +10,7 @@ use bevy_ecs::{
     hierarchy::{ChildOf, Children},
     lifecycle::{Add, Insert, Remove},
     observer::On,
-    query::{Changed, Has, With},
+    query::{Changed, Has, With, Without},
     reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res},
@@ -19,7 +19,7 @@ use bevy_input::{
     keyboard::{Key, KeyCode, KeyboardInput},
     ButtonInput,
 };
-use bevy_input_focus::{FocusGained, FocusLost, FocusedInput, InputFocus};
+use bevy_input_focus::{FocusGained, FocusLost, FocusedInput, InputFocus, InputFocusSystems};
 use bevy_log::{warn, warn_once};
 use bevy_math::ops;
 use bevy_picking::{
@@ -44,7 +44,7 @@ use bevy_ui_widgets::ValueChange;
 
 use crate::{
     constants::{fonts, size},
-    controls::{FeathersTextInput, FeathersTextInputContainer},
+    controls::{FeathersSlider, FeathersTextInput, FeathersTextInputContainer},
     cursor::EntityCursor,
     rounded_corners::RoundedCorners,
     theme::{
@@ -1287,7 +1287,11 @@ fn update_slidebar_styles_theme(
         (Entity, Has<InteractionDisabled>, Option<&ThemeContext>),
         With<FeathersNumberInput>,
     >,
-    mut q_text_input: Query<(&Hovered, &mut BackgroundGradient)>,
+    // Without<FeathersSlider> to avoid ambiguity with FeathersSlider systems.
+    mut q_text_input: Query<
+        (&Hovered, &mut BackgroundGradient),
+        (With<FeathersTextInput>, Without<FeathersSlider>),
+    >,
     theme: Res<UiTheme>,
     input_focus: Res<InputFocus>,
     mut commands: Commands,
@@ -1325,7 +1329,11 @@ fn update_slidebar_styles_context(
         (Entity, Has<InteractionDisabled>, Option<&ThemeContext>),
         (With<FeathersNumberInput>, Changed<ThemeContext>),
     >,
-    mut q_text_input: Query<(&Hovered, &mut BackgroundGradient)>,
+    // Without<FeathersSlider> to avoid ambiguity with FeathersSlider systems.
+    mut q_text_input: Query<
+        (&Hovered, &mut BackgroundGradient),
+        (With<FeathersTextInput>, Without<FeathersSlider>),
+    >,
     theme: Res<UiTheme>,
     input_focus: Res<InputFocus>,
     mut commands: Commands,
@@ -1362,7 +1370,9 @@ impl Plugin for NumberInputPlugin {
             PreUpdate,
             (update_slidebar_styles_context, update_slidebar_styles_theme)
                 .chain()
-                .in_set(PickingSystems::Last),
+                .in_set(PickingSystems::Last)
+                // After Dispatch systems so that these systems use the most updated `InputFocus`.
+                .after(InputFocusSystems::Dispatch),
         );
     }
 }

@@ -2374,17 +2374,19 @@ mod tests {
         let mut app = test_app();
         let world = app.world_mut();
 
+        let placeholder_widget = world.spawn_empty().id();
+
         let pass_expr = bsn! {
             #Name
             Children [
-                widget(Entity::PLACEHOLDER.into())
+                widget(placeholder_widget.into())
             ]
         };
         let entity = world.spawn_scene(pass_expr).unwrap().id();
         let root = world.entity(entity);
         let children = root.get::<Children>().unwrap();
         let child_widget = world.entity(children[0]).get::<Reference>().unwrap();
-        assert_eq!(child_widget.0, Entity::PLACEHOLDER);
+        assert_eq!(child_widget.0, placeholder_widget);
 
         let pass_name = bsn! {
             #Name
@@ -2442,10 +2444,12 @@ mod tests {
         let mut app = test_app();
         let world = app.world_mut();
 
+        let placeholder_widget = world.spawn_empty().id();
+
         let prop_expr = bsn! {
             Children [
                 @Widget {
-                    @entity: Entity::PLACEHOLDER
+                    @entity: placeholder_widget
                 }
             ]
         };
@@ -2453,7 +2457,7 @@ mod tests {
         let root = world.entity(entity);
         let children = root.get::<Children>().unwrap();
         let child_widget = world.entity(children[0]).get::<Reference>().unwrap();
-        assert_eq!(child_widget.0, Entity::PLACEHOLDER);
+        assert_eq!(child_widget.0, placeholder_widget);
         let scene_prop = bsn! {
             #Name
             Children [

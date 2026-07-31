@@ -10,6 +10,7 @@
 pub mod box_shadow;
 mod gradient;
 mod image;
+pub use image::ImageNodeAssetChangedSystems;
 mod pipeline;
 pub mod render_pass;
 mod text;
@@ -215,6 +216,7 @@ impl Plugin for UiRenderPlugin {
                 image::update_texture_atlas_layout_components,
             )
                 .chain()
+                .in_set(ImageNodeAssetChangedSystems)
                 .after(UiSystems::Content)
                 .after(AssetEventSystems)
                 .after(AccessibilitySystems::Update),
