@@ -1,12 +1,23 @@
 #define_import_path bevy_pbr::lighting
 
 #import bevy_pbr::{
-    mesh_view_types::POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE,
+    mesh_view_types::{
+        POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE,
+        POINT_LIGHT_FLAGS_MONOCHROMATIC_BIT,
+        DIRECTIONAL_LIGHT_FLAGS_MONOCHROMATIC_BIT,
+    },
     mesh_view_bindings as view_bindings,
     atmosphere::functions::{calculate_visible_sun_ratio, clamp_to_surface},
     atmosphere::bruneton_functions::transmittance_lut_r_mu_to_uv,
 }
 #import bevy_render::maths::{PI, orthonormalize}
+
+#ifdef MONOCHROMATIC_LIGHTS
+#import bevy_render::color_operations::{
+    hsv_to_rgb,
+    rgb_to_hsv,
+}
+#endif
 
 const LAYER_BASE: u32 = 0;
 const LAYER_CLEARCOAT: u32 = 1;
@@ -781,6 +792,13 @@ fn point_light(
     }
 #endif
 
+#ifdef MONOCHROMATIC_LIGHTS
+    if ((*light).flags & POINT_LIGHT_FLAGS_MONOCHROMATIC_BIT) != 0u {
+        let base_color = color_times_NdotL;
+        let light_color = (*light).color_inverse_square_range.rgb * rangeAttenuation * texture_sample;
+        return monochromatic_response(color_times_NdotL, (*light).color_inverse_square_range.rgb * rangeAttenuation * texture_sample);
+    }
+#endif
     return color_times_NdotL * (*light).color_inverse_square_range.rgb *
         rangeAttenuation * texture_sample;
 }
@@ -914,7 +932,17 @@ fn directional_light(
     }
 #endif
 
-color *= (*light).color.rgb * texture_sample;
+#ifdef MONOCHROMATIC_LIGHTS
+    if ((*light).flags & DIRECTIONAL_LIGHT_FLAGS_MONOCHROMATIC_BIT) != 0u {
+        let base_color = color;
+        let light_color = (*light).color.rgb * texture_sample;
+        color = monochromatic_response(base_color, light_color);
+    } else {
+        color *= (*light).color.rgb * texture_sample;
+    }
+#else
+    color *= (*light).color.rgb * texture_sample;
+#endif
 
 #ifdef ATMOSPHERE
     let P = (*input).P;
@@ -1109,3 +1137,28 @@ fn sample_transmittance_lut(r: f32, mu: f32) -> vec3<f32> {
         view_bindings::atmosphere_transmittance_sampler, uv, 0.0).rgb;
 }
 #endif  // ATMOSPHERE
+
+#ifdef MONOCHROMATIC_LIGHTS
+// Efficiently approximates the response of a base color to a monochromatic (i.e. single frequency)
+// light source, using RGB -> HSV conversion and a triangle function
+fn monochromatic_response(base: vec3<f32>, light: vec3<f32>) -> vec3<f32> {
+    // Convert both colors to HSV
+    let base_hsv = rgb_to_hsv(base);
+    let light_hsv = rgb_to_hsv(light);
+
+    // Approximate a gaussian using a triangle function
+    let deviation = 2.0 * PI / 3.0; // 120°
+    let triangular = (max(0.0, deviation - abs(base_hsv.x - light_hsv.x)) / deviation);
+
+    let intensity = mix(
+        1.0,
+        triangular,
+        (
+            base_hsv.y * // As the base color gets less saturated, the response to the light color is more uniform
+            light_hsv.y // Any < 1.0 value means a non-spectral monochromatic color (non-physically accurate)
+        ),
+    ) * base_hsv.z;
+
+    return intensity * light;
+}
+#endif // MONOCHROMATIC_LIGHTS

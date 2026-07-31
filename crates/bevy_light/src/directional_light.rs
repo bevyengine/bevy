@@ -142,6 +142,15 @@ pub struct DirectionalLight {
     /// is scaled to the shadow map's texel size so that it is automatically
     /// adjusted to the orthographic projection.
     pub shadow_normal_bias: f32,
+
+    /// Whether this directional light is a source of [monochromatic light].
+    ///
+    /// Must be paired with [`SpectralModel::MonochromaticLights`](bevy_camera::SpectralModel::MonochromaticLights) on the camera to have any effect.
+    ///
+    /// When combined with light colors that are non-spectral (e.g. white, magenta) produces non-physical results.
+    ///
+    /// [monochromatic light]:https://en.wikipedia.org/wiki/Monochromatic_radiation
+    pub monochromatic: bool,
 }
 
 impl Default for DirectionalLight {
@@ -156,6 +165,7 @@ impl Default for DirectionalLight {
             affects_lightmapped_mesh_diffuse: true,
             #[cfg(feature = "experimental_pbr_pcss")]
             soft_shadow_size: None,
+            monochromatic: false,
         }
     }
 }

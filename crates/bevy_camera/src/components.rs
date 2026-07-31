@@ -100,3 +100,20 @@ pub enum CompositingSpace {
     /// Perceptually uniform blending. Often smoother gradients. Requires [`Hdr`] because its value can be outside [0, 1].
     Oklab,
 }
+
+/// Model used to represent the light spectrum while rendering.
+///
+/// Defaults to [`SpectralModel::Tristimulus`]
+#[derive(Component, Copy, Clone, Reflect, PartialEq, Eq, Hash, Debug, Default)]
+#[reflect(Component, PartialEq, Hash, Debug, Default)]
+pub enum SpectralModel {
+    /// The “traditional” computer graphics model, using three color channels (i.e. RGB) for both materials and lights.
+    #[default]
+    Tristimulus,
+
+    /// Extends [`SpectralModel::Tristimulus`] while also supporting monochromatic (single wavelength) light sources
+    /// via a fast HSV + triangle function-based gaussian approximation.
+    ///
+    /// Allows things like Violet or Sodium Vapor lights, with a small performance impact.
+    MonochromaticLights,
+}
