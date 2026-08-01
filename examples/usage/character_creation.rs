@@ -20,6 +20,7 @@ use bevy::{
     prelude::*,
     ui::Checked,
     ui_widgets::{Checkbox, RadioButton, RadioGroup, TextInput, ValueChange},
+    window::{CursorIcon, PrimaryWindow, SystemCursorIcon},
 };
 
 fn main() {
@@ -52,7 +53,7 @@ fn setup(mut commands: Commands, character: Res<Character>) {
 /// This resource serves as the "Model" in our MVC Design.
 /// It serves as our source of truth for the character being created.
 #[derive(Resource)]
-pub struct Character {
+struct Character {
     name: String,
     age: u32,
     hat_type: HatType,
@@ -83,38 +84,38 @@ enum HatType {
 
 const HAT_TYPES: [HatType; 3] = [HatType::None, HatType::TopHat, HatType::DunceCap];
 
-/// --- START MARKER COMPONENTS --- ///
+// --- START MARKER COMPONENTS --- //
 
 #[derive(Component, Clone, Default)]
-pub struct NameInput;
+struct NameInput;
 
 #[derive(Component, Clone, Default)]
-pub struct AgeSlider;
+struct AgeSlider;
 
 #[derive(Component, Clone, Default)]
-pub struct HatTypeRadioGroup;
+struct HatTypeRadioGroup;
 
 #[derive(Component, Clone, Default)]
-pub struct TintYellowCheckbox;
+struct TintYellowCheckbox;
 
 #[derive(Component, Clone, Default)]
-pub struct CharacterView;
+struct CharacterView;
 
-/// --- END MARKER COMPONENTS --- ///
+// --- END MARKER COMPONENTS --- //
 
-/// --- CONTROLLER --- ///
+// --- START CONTROLLER --- //
 
 /// Spawns the ui widgets that will serve as the "Controller"
 /// in our MVC design.
 fn ui(character: &Character) -> impl Scene {
     bsn! {
-        // UI will take up the left third of the screen.
+        // UI will take up the left half of the screen.
         Node {
             flex_direction: FlexDirection::Column,
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             height: percent(100)
-            width: percent(33),
+            width: percent(50),
         }
         Children [
             // The character creation pane
@@ -124,6 +125,7 @@ fn ui(character: &Character) -> impl Scene {
                 align_items: AlignItems::Center,
                 margin: percent(5),
                 width: percent(90),
+                padding: UiRect::vertical(px(10)),
                 border_radius: BorderRadius::all(px(5)),
                 row_gap: px(10),
             }
@@ -135,15 +137,41 @@ fn ui(character: &Character) -> impl Scene {
                     Text::new("Character Creator")
                 ],
 
-                // Hat type radio group
-                hat_type_radio_group(character)
-                // This observer updates the Model based on user input.
-                on(on_value_change_hat_type),
+                hat_type_radio_group(character),
 
+                tint_yellow_checkbox_row(character),
             ]
         ]
     }
 }
+
+/// An observer that styles the cursor, used primarily for buttons / checkboxes
+fn on_pointer_over_pointer_cursor(
+    _event: On<Pointer<Over>>,
+    mut window_q: Query<Entity, With<PrimaryWindow>>,
+    mut commands: Commands,
+) {
+    for window in window_q.iter_mut() {
+        commands
+            .entity(window)
+            .insert(CursorIcon::System(SystemCursorIcon::Pointer));
+    }
+}
+
+/// An observer that styles the cursor, used for all widgets
+fn on_pointer_out_default_cursor(
+    _event: On<Pointer<Out>>,
+    mut window_q: Query<Entity, With<PrimaryWindow>>,
+    mut commands: Commands,
+) {
+    for window in window_q.iter_mut() {
+        commands
+            .entity(window)
+            .insert(CursorIcon::System(SystemCursorIcon::Default));
+    }
+}
+
+// --- START RADIO GROUP -- //
 
 /// Creates the radio group that allows the user to select a hat for the character.
 fn hat_type_radio_group(character: &Character) -> impl Scene {
@@ -155,6 +183,8 @@ fn hat_type_radio_group(character: &Character) -> impl Scene {
         }
         RadioGroup
         HatTypeRadioGroup
+        // This observer is important -- it reacts to the user's input!
+        on(on_value_change_hat_type)
         Children [
             Node
             Children [
@@ -181,6 +211,8 @@ fn hat_type_radio_button(hat_type: HatType, character: &Character) -> Box<dyn Sc
             RadioButton
             template_value(hat_type)
             BackgroundColor(Color::BLACK)
+            on(on_pointer_over_pointer_cursor)
+            on(on_pointer_out_default_cursor)
         }
     };
     if character.hat_type == hat_type {
@@ -217,6 +249,8 @@ fn on_value_change_hat_type(
     mut commands: Commands,
 ) {
     // Ensure this value change event is for the Hat Type Radio Group
+    // Although unnecessary in this example, apps with multiple radio groups need to distinguish
+    // what the value change is for.
     if event.source != hat_type_radio_group_q.entity() {
         return;
     }
@@ -237,6 +271,7 @@ fn on_value_change_hat_type(
     for (button_entity, hat_type, has_checked, children) in hat_type_value_q.iter() {
         if character.hat_type == *hat_type {
             commands.entity(button_entity).insert(Checked);
+            // The radio button only has one child for the text and color of the button
             commands
                 .entity(children[0])
                 .insert(TextColor(palettes::basic::GREEN.into()));
@@ -248,7 +283,106 @@ fn on_value_change_hat_type(
     // Because character has been modified, refresh_character will run and update the "View".
 }
 
-/// --- VIEW --- ///
+// --- END RADIO GROUP -- //
+
+// --- START CHECK BOX -- //
+
+/// Creates the checkbox that allows the user to toggle a yellow tint of the character.
+fn tint_yellow_checkbox_row(character: &Character) -> impl Scene {
+    bsn! {
+        Node {
+            flex_direction: FlexDirection::Row,
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::SpaceBetween,
+        }
+        Children [
+            Node
+            Children [
+                Text::new("Tint Yellow: ")
+            ],
+
+            tint_yellow_checkbox(character)
+        ]
+    }
+}
+
+fn tint_yellow_checkbox(character: &Character) -> Box<dyn Scene> {
+    let base_checkbox = || {
+        bsn! {
+            Node {
+                padding: UiRect::horizontal(px(5)),
+            }
+            Checkbox
+            TintYellowCheckbox
+            BackgroundColor(Color::WHITE)
+            on(on_pointer_over_pointer_cursor)
+            on(on_pointer_out_default_cursor)
+            // This observer is important -- it reacts to the user's input!
+            on(on_value_change_tint_yellow)
+        }
+    };
+
+    if character.tint_yellow {
+        Box::new(bsn! {
+            base_checkbox()
+            Checked
+            Children [
+                Text::new("X")
+                TextColor(palettes::basic::GREEN)
+            ]
+        })
+    } else {
+        Box::new(bsn! {
+            base_checkbox()
+            Children [
+                Text::new(" ")
+                TextColor(palettes::basic::GREEN)
+            ]
+        })
+    }
+}
+
+/// This observer will update the `Character` Resource based on a change to the Tint Yellow Checkbox.
+/// Checkboxes emit a ValueChange<bool> event when the user clicks on a checkbox.
+/// The value of the event is the value of the toggle.
+/// The source of the event is the checkbox.
+fn on_value_change_tint_yellow(
+    event: On<ValueChange<bool>>,
+    tint_yellow_checkbox_q: Query<(Entity, &Children), With<TintYellowCheckbox>>,
+    mut character: ResMut<Character>,
+    mut commands: Commands,
+) {
+    let Ok((checkbox_entity, children)) = tint_yellow_checkbox_q.single_inner() else {
+        return;
+    };
+
+    // Ensure this value change event is for the checkbox.
+    // Although unnecessary in this example, apps with multiple checkboxes need to distinguish
+    // what the value change is for.
+    if event.source != checkbox_entity {
+        return;
+    }
+
+    // Update the Model
+    character.tint_yellow = event.value;
+
+    // Update the Controller
+    if character.tint_yellow {
+        commands.entity(event.source).insert(Checked);
+        // The checkbox only has one child for the X and its color
+        commands.entity(children[0]).insert(Text::new("X"));
+    } else {
+        commands.entity(event.source).remove::<Checked>();
+        commands.entity(children[0]).insert(Text::new(" "));
+    }
+    // Because character has been modified, refresh_character will run and update the "View".
+}
+
+// --- END CHECK BOX -- //
+
+// --- END CONTROLLER --- //
+
+// --- START VIEW --- //
 
 /// A system that updates the "View" whenever the "Model" has changed.
 fn refresh_character(
@@ -265,7 +399,7 @@ fn refresh_character(
 fn character_view(character: &Character) -> impl Scene {
     bsn! {
         CharacterView
-        Transform::default()
+        Transform::from_xyz(320., 0., 0.)
         template_value(Visibility::Inherited)
         Children [
             character_sprite_tint(&character),
@@ -335,3 +469,5 @@ fn character_name_and_age(character: &Character) -> impl Scene {
         template_value(Transform::from_xyz(0., -200., 0.))
     }
 }
+
+// --- END VIEW --- //
