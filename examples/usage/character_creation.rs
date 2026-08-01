@@ -37,7 +37,9 @@ fn main() {
         .add_systems(
             Update,
             (
-                // Updates the Model if the user changed the name via text input
+                // Updates the Model if the user changed the name via text input.
+                // This is a Controller system, and is not an Observer because of
+                // the way the text input widget is designed.
                 on_changed_editable_text,
                 // Updates the View after any Model changes
                 refresh_character.run_if(resource_exists_and::<Character>(|character| {
@@ -54,9 +56,9 @@ fn setup(mut commands: Commands, character: Res<Character>) {
         Camera2d,
 
         // This scene will serve as one half of our "View"
-        // and all of the "Controller" in our MVC design.
+        // and most of the "Controller" in our MVC design.
         // The user interacts with UI widgets, which are processed by the "Controller"
-        // via observers and other systems. The observers and systems update the
+        // via observers and systems. The observers and systems update the
         // state and also update the look of the UI widgets
         // (i.e. changing text color of a selected option, inserting an X).
         ui(&character),
@@ -330,6 +332,7 @@ fn age_slider(character: &Character) -> impl Scene {
                 position_type: PositionType::Absolute,
                 left: px(0)
                 // Shortened by the slider thumb's width on the right side.
+                // This means that it is 200px in width.
                 right: px(20),
                 top: px(0),
                 bottom: px(0),
@@ -643,6 +646,8 @@ fn refresh_character(
     let (mut already_updated_name_age, mut already_updated_sprite, mut already_updated_hat) =
         (false, false, false);
     for changed_field in character.changed_fields.iter().copied() {
+        // First, find the correct child to despawn
+        // Then, add an updated child.
         match changed_field {
             ChangedField::Name | ChangedField::Age if !already_updated_name_age => {
                 for (child, _, _, is_name_and_age) in children
