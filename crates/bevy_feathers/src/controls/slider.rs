@@ -456,6 +456,7 @@ impl Plugin for SliderPlugin {
                 update_slider_styles_theme,
                 update_slider_pos,
             )
+                .chain()
                 .in_set(PickingSystems::Last),
         );
     }

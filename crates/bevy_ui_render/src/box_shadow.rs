@@ -233,6 +233,19 @@ pub fn extract_shadows(
             )>,
         >,
     >,
+    unfiltered_box_shadow_query: Extract<
+        Query<(
+            Entity,
+            &ComputedNode,
+            &ComputedStackIndex,
+            &UiGlobalTransform,
+            &InheritedVisibility,
+            &BoxShadow,
+            Option<&CalculatedClip>,
+            &ComputedUiTargetCamera,
+            &ComputedUiRenderTargetInfo,
+        )>,
+    >,
     camera_map: Extract<UiCameraMap>,
     (
         mut removed_computed_node_query,
@@ -260,7 +273,11 @@ pub fn extract_shadows(
     let mut mapping = camera_map.get_mapper();
 
     for (entity, uinode, stack_index, transform, visibility, box_shadow, clip, camera, target) in
-        &box_shadow_query
+        box_shadow_query.iter().chain(
+            removed_calculated_clip_query
+                .read()
+                .filter_map(|entity| unfiltered_box_shadow_query.get(entity).ok()),
+        )
     {
         let main_entity = MainEntity::from(entity);
 
@@ -359,7 +376,6 @@ pub fn extract_shadows(
         .chain(removed_ui_global_transform_query.read())
         .chain(removed_inherited_visibility_query.read())
         .chain(removed_box_shadow_query.read())
-        .chain(removed_calculated_clip_query.read())
         .chain(removed_computed_ui_target_camera_query.read())
         .chain(removed_computed_ui_render_target_info_query.read())
     {
