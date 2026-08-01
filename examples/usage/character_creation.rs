@@ -342,6 +342,7 @@ fn age_slider(character: &Character) -> impl Scene {
                     width: px(20),
                     height: px(10),
                     position_type: PositionType::Absolute,
+                    // Where the thumb is along the track will be updated by `on_value_change_age_slider`
                     left: percent((character.age as f32 - 1.) / (100. - 1.) * 100.),
                 }
                 BackgroundColor(Color::WHITE)
