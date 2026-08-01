@@ -612,6 +612,9 @@ impl Table {
             .map(|col| col.data.get_unchecked(row.index()))
     }
 
+    /// Returns a reference to this table's summary tick for the given
+    /// component, if the component is dense and the component tracks summary
+    /// ticks.
     pub fn get_summary_tick(&self, component_id: ComponentId) -> Option<&AtomicTick> {
         self.get_column(component_id)
             .and_then(Column::get_summary_tick)

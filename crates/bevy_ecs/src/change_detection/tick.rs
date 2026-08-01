@@ -90,18 +90,36 @@ impl Tick {
     }
 }
 
+/// A tick that can be updated from multiple threads.
+///
+/// This has exactly the same semantics as [`Tick`] but can be updated
+/// atomically. It's used for summary ticks.
 #[derive(Default)]
 pub struct AtomicTick {
+    /// The atomic tick value.
     tick: AtomicU32,
 }
 
 impl AtomicTick {
+    /// Returns the current value of the tick.
     pub fn get(&self) -> Tick {
         Tick {
             tick: self.tick.load(Ordering::Relaxed),
         }
     }
 
+    #[expect(
+        clippy::doc_markdown,
+        reason = "The word 'ARMv6' does not require backticks"
+    )]
+    /// Sets a new value for the tick.
+    ///
+    /// Note that this method takes `&self` and can therefore be called from
+    /// multiple threads. The tick is updated using relaxed ordering and is
+    /// therefore cheap to update on common architectures (x86-64, ARMv6 and
+    /// newer). However, be warned that, because it uses relaxed ordering, a
+    /// full mutex lock or similar barrier is required if you need to coordinate
+    /// the synchronization of this value with other memory locations.
     pub fn set(&self, new_tick: Tick) {
         self.tick.store(new_tick.get(), Ordering::Relaxed);
     }
@@ -159,7 +177,9 @@ pub struct ComponentTickCells<'a> {
     pub changed: &'a UnsafeCell<Tick>,
     /// The calling location that last modified the value.
     pub changed_by: MaybeLocation<&'a UnsafeCell<&'static Location<'static>>>,
-    pub column_tick: Option<&'a AtomicTick>,
+    /// The summary tick for the column, if the component is dense and has a
+    /// summary tick.
+    pub summary_tick: Option<&'a AtomicTick>,
 }
 
 /// Records when a component or resource was added and when it was last mutably dereferenced (or added).

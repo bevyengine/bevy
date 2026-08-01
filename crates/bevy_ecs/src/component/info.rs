@@ -57,6 +57,9 @@ impl ComponentInfo {
         self.descriptor.mutable
     }
 
+    /// Returns `true` if this component tracks a summary tick.
+    ///
+    /// Summary ticks are only supported for dense components, not sparse sets.
     #[inline]
     pub fn summary_tick(&self) -> bool {
         self.descriptor.summary_tick
@@ -362,6 +365,9 @@ impl ComponentDescriptor {
         self.mutable
     }
 
+    /// Returns whether this component tracks a summary tick.
+    ///
+    /// Summary ticks are only supported for dense components, not sparse sets.
     #[inline]
     pub fn summary_tick(&self) -> bool {
         self.summary_tick

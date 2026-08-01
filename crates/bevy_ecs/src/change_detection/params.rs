@@ -202,6 +202,9 @@ impl<'w> ContiguousComponentTicksRef<'w> {
             .map(|v| v.is_newer_than(self.last_run, self.this_run))
     }
 
+    /// Returns true if this component has a summary tick and any component in
+    /// this column has been changed since the last time the associated query
+    /// ran.
     pub fn summary_tick_is_changed(&self) -> Option<bool> {
         self.summary_tick.map(|summary_tick| {
             summary_tick
@@ -219,6 +222,8 @@ pub(crate) struct ComponentTicksMut<'w> {
     pub(crate) changed_by: MaybeLocation<&'w mut &'static Location<'static>>,
     pub(crate) last_run: Tick,
     pub(crate) this_run: Tick,
+    /// A reference to the summary tick for the component, if the component is
+    /// dense and has a summary tick.
     pub(crate) summary_tick: Option<&'w AtomicTick>,
 }
 
@@ -240,7 +245,7 @@ impl<'w> ComponentTicksMut<'w> {
             changed_by: unsafe { cells.changed_by.map(|changed_by| changed_by.deref_mut()) },
             last_run,
             this_run,
-            summary_tick: cells.column_tick,
+            summary_tick: cells.summary_tick,
         }
     }
 }

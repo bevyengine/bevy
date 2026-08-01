@@ -45,6 +45,7 @@ pub struct DeriveComponent {
     pub relationship_target: Option<RelationshipTarget>,
     /// Whether or not this component is immutable.
     pub immutable: bool,
+    /// Whether or not this component tracks a summary tick.
     pub summary_tick: bool,
     /// The clone behavior for this component.
     pub clone_behavior: Option<Expr>,
@@ -218,6 +219,7 @@ impl DeriveComponent {
             }
         });
 
+        // If this component has a summary tick, define the appropriate method.
         let has_summary_tick = if self.summary_tick {
             quote! {
                 fn has_summary_tick() -> bool {

@@ -434,6 +434,8 @@ impl Column {
         self.data.get_drop()
     }
 
+    /// Returns a reference to the summary tick for this column, if the
+    /// component that this column is associated with has a summary tick.
     #[inline]
     pub fn get_summary_tick(&self) -> Option<&AtomicTick> {
         self.column_tick.as_ref()
