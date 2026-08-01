@@ -376,11 +376,17 @@ impl Plugin for SmaaPlugin {
             )
             .add_systems(
                 Core3d,
-                smaa.after(tonemapping).in_set(Core3dSystems::PostProcess),
+                smaa.after(tonemapping)
+                    .in_set(Core3dSystems::PostProcess)
+                    .in_set(crate::AntiAliasingSystems)
+                    .ambiguous_with(crate::AntiAliasingSystems),
             )
             .add_systems(
                 Core2d,
-                smaa.after(tonemapping).in_set(Core2dSystems::PostProcess),
+                smaa.after(tonemapping)
+                    .in_set(Core2dSystems::PostProcess)
+                    .in_set(crate::AntiAliasingSystems)
+                    .ambiguous_with(crate::AntiAliasingSystems),
             );
     }
 }

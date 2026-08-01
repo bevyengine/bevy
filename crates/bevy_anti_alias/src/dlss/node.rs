@@ -30,8 +30,14 @@ pub fn dlss_super_resolution(
     adapter: Res<RenderAdapter>,
     mut ctx: RenderContext,
 ) {
-    let (dlss, dlss_context, resolution_override, temporal_jitter, mut view_target, prepass_textures) =
-        view.into_inner();
+    let (
+        dlss,
+        dlss_context,
+        resolution_override,
+        temporal_jitter,
+        mut view_target,
+        prepass_textures,
+    ) = view.into_inner();
 
     let (Some(prepass_depth_texture), Some(prepass_motion_vectors_texture)) =
         (&prepass_textures.depth, &prepass_textures.motion_vectors)

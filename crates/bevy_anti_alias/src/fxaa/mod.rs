@@ -102,11 +102,17 @@ impl Plugin for FxaaPlugin {
             )
             .add_systems(
                 Core3d,
-                fxaa.after(tonemapping).in_set(Core3dSystems::PostProcess),
+                fxaa.after(tonemapping)
+                    .in_set(Core3dSystems::PostProcess)
+                    .in_set(crate::AntiAliasingSystems)
+                    .ambiguous_with(crate::AntiAliasingSystems),
             )
             .add_systems(
                 Core2d,
-                fxaa.after(tonemapping).in_set(Core2dSystems::PostProcess),
+                fxaa.after(tonemapping)
+                    .in_set(Core2dSystems::PostProcess)
+                    .in_set(crate::AntiAliasingSystems)
+                    .ambiguous_with(crate::AntiAliasingSystems),
             );
     }
 }
