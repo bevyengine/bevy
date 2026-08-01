@@ -214,7 +214,7 @@ impl Plugin for UiRenderPlugin {
         };
 
         #[cfg(feature = "bevy_ui_debug")]
-        render_app.init_resource::<debug_overlay::ExtractedUiDebugOverlays>();
+        render_app.init_resource::<debug_overlay::ExtractedUiDebugOptions>();
 
         render_app
             .init_gpu_resource::<SpecializedRenderPipelines<UiPipeline>>()
@@ -920,7 +920,7 @@ fn prepare_uinodes(
     extracted_uinodes: Res<ExtractedUiNodeStyles>,
     extracted_glyph_layouts: Res<ExtractedGlyphLayouts>,
     #[cfg(feature = "bevy_ui_debug")] extracted_debug_overlays: Res<
-        debug_overlay::ExtractedUiDebugOverlays,
+        debug_overlay::ExtractedUiDebugOptions,
     >,
     extracted_geometry: Res<ExtractedUiLayout>,
     view_uniforms: Res<ViewUniforms>,
@@ -1174,7 +1174,7 @@ fn prepare_uinodes(
 
             #[cfg(feature = "bevy_ui_debug")]
             if let Some(style) = extracted_debug_overlays
-                .overlays
+                .local
                 .get(&main_entity)
                 .and_then(|(render_entity, style)| (*render_entity == entity).then_some(style))
             {
