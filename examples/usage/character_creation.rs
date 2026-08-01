@@ -64,7 +64,7 @@ fn setup(mut commands: Commands, character: Res<Character>) {
         // This scene will serve as the other half of our "View" in our MVC design.
         // The user will see the character they are creating.
         character_view(&character),
-    })
+    });
 }
 
 /// This resource serves as the "Model" in our MVC Design.
@@ -356,7 +356,7 @@ fn age_slider(character: &Character) -> impl Scene {
 
 /// A system that implements Controller logic to update the Age.
 /// This particular system updates the Model upon any change in value to the Age Slider.
-/// Sliders emit a ValueChange<f32> event when the user drags the slider.
+/// Sliders emit a `ValueChange<f32>` event when the user drags the slider.
 /// The value of the event is the new value of the slider.
 /// The source of the event is the `Slider` parent entity.
 fn on_changed_age_slider(
@@ -461,7 +461,7 @@ fn hat_type_radio_button(hat_type: HatType, character: &Character) -> Box<dyn Sc
 
 /// This observer is part of the Controller logic.
 /// This observer will update the `Character` Resource based on a change to the Hat Type Radio Group.
-/// Radio groups emit a ValueChange<Entity> event when the user clicks on a radio button.
+/// Radio groups emit a `ValueChange<Entity>` event when the user clicks on a radio button.
 /// The value of the event is of the clicked radio button.
 /// The source of the event is the parent radio group.
 fn on_value_change_hat_type(
@@ -568,7 +568,7 @@ fn tint_yellow_checkbox(character: &Character) -> Box<dyn Scene> {
 
 /// This observer is part of the Controller logic.
 /// This observer will update the `Character` Resource based on a change to the Tint Yellow Checkbox.
-/// Checkboxes emit a ValueChange<bool> event when the user clicks on a checkbox.
+/// Checkboxes emit a `ValueChange<bool>` event when the user clicks on a checkbox.
 /// The value of the event is the value of the toggle.
 /// The source of the event is the checkbox.
 fn on_value_change_tint_yellow(
