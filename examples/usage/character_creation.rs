@@ -384,7 +384,7 @@ fn on_value_change_age_slider(
         .entity(event.source)
         .insert(SliderValue(character.age as f32));
     for mut node in age_slider_thumb_q.iter_mut() {
-        node.left = percent(slider_range.thumb_position(character.age as f32) * 100.0)
+        node.left = percent(slider_range.thumb_position(character.age as f32) * 100.0);
     }
     for mut text in age_slider_text_q.iter_mut() {
         *text = Text::new(format!("{}", character.age));
