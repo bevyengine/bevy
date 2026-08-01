@@ -22,7 +22,10 @@ use bevy::{
     prelude::*,
     text::{EditableText, TextCursorStyle},
     ui::Checked,
-    ui_widgets::{Checkbox, RadioButton, RadioGroup, TextInput, ValueChange},
+    ui_widgets::{
+        Checkbox, RadioButton, RadioGroup, Slider, SliderOrientation, SliderPrecision, SliderRange,
+        SliderThumb, SliderValue, TextInput, TrackClick, ValueChange,
+    },
     window::{CursorIcon, PrimaryWindow, SystemCursorIcon},
 };
 
@@ -105,6 +108,12 @@ struct NameInput;
 struct AgeSlider;
 
 #[derive(Component, Clone, Default)]
+struct AgeSliderThumb;
+
+#[derive(Component, Clone, Default)]
+struct AgeSliderText;
+
+#[derive(Component, Clone, Default)]
 struct HatTypeRadioGroup;
 
 #[derive(Component, Clone, Default)]
@@ -151,7 +160,9 @@ fn ui(character: &Character) -> impl Scene {
 
                 name_text_input_row(character),
 
-                hat_type_radio_group(character),
+                age_slider_row(character),
+
+                hat_type_radio_group_row(character),
 
                 tint_yellow_checkbox_row(character),
             ]
@@ -159,51 +170,9 @@ fn ui(character: &Character) -> impl Scene {
     }
 }
 
-/// An observer that styles the cursor, used primarily for buttons / checkboxes.
-/// This is not part of the Controller.
-fn on_pointer_over_pointer_cursor(
-    _event: On<Pointer<Over>>,
-    mut window_q: Query<Entity, With<PrimaryWindow>>,
-    mut commands: Commands,
-) {
-    for window in window_q.iter_mut() {
-        commands
-            .entity(window)
-            .insert(CursorIcon::System(SystemCursorIcon::Pointer));
-    }
-}
-
-/// An observer that styles the cursor, used primarily for text input.
-/// This is not part of the Controller.
-fn on_pointer_over_text_cursor(
-    _event: On<Pointer<Over>>,
-    mut window_q: Query<Entity, With<PrimaryWindow>>,
-    mut commands: Commands,
-) {
-    for window in window_q.iter_mut() {
-        commands
-            .entity(window)
-            .insert(CursorIcon::System(SystemCursorIcon::Text));
-    }
-}
-
-/// An observer that styles the cursor, used for all widgets.
-/// This is not part of the Controller.
-fn on_pointer_out_default_cursor(
-    _event: On<Pointer<Out>>,
-    mut window_q: Query<Entity, With<PrimaryWindow>>,
-    mut commands: Commands,
-) {
-    for window in window_q.iter_mut() {
-        commands
-            .entity(window)
-            .insert(CursorIcon::System(SystemCursorIcon::Default));
-    }
-}
-
 // --- START TEXT INPUT -- //
 
-/// Creates the text input that allows the user to input a name for the character.
+/// Creates the text input row that allows the user to input a name for the character.
 fn name_text_input_row(character: &Character) -> impl Scene {
     bsn! {
         Node {
@@ -266,10 +235,143 @@ fn on_changed_editable_text(
 
 // --- END TEXT INPUT -- //
 
+// --- START SLIDER -- //
+
+/// Creates the age slider that allows the user to input the age of the character.
+fn age_slider_row(character: &Character) -> impl Scene {
+    let age = character.age;
+    bsn! {
+        Node {
+            flex_direction: FlexDirection::Row,
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::SpaceBetween,
+            column_gap: px(10),
+        }
+        Children [
+            Node
+            Children [
+                Text::new("Age:")
+            ],
+
+            age_slider(character),
+
+            Node {
+                width: px(30),
+            }
+            Children [
+                AgeSliderText
+                Text::new(format!("{}", age))
+            ],
+        ]
+    }
+}
+
+fn age_slider(character: &Character) -> impl Scene {
+    bsn! {
+        Node {
+            width: px(220),
+            border: px(5),
+            padding: UiRect::axes(px(5), px(2)),
+        }
+        AgeSlider
+        Slider {
+            track_click: TrackClick::Snap,
+            orientation: SliderOrientation::Horizontal,
+        }
+        SliderValue({character.age as f32})
+        // Move every whole number.
+        SliderPrecision(0)
+        SliderRange::new(1., 100.)
+        BackgroundColor(Color::BLACK)
+        // This observer is part of the Controller -- it reacts to the user's input!
+        on(on_changed_age_slider)
+        on(on_pointer_over_pointer_cursor)
+        on(on_pointer_drag_start_grabbing_cursor)
+        on(on_pointer_drag_end_grab_cursor)
+        on(on_pointer_out_default_cursor)
+        Children [
+            // Visible Slider Track
+            // It is 220px in width via its parent.
+            Node {
+                height: px(5),
+                border_radius: BorderRadius::all(px(3)),
+            }
+            BackgroundColor(Color::BLACK),
+
+            // Invisible shorter track (does not have background color) that the
+            // SliderThumb glides on. This is so that the thumb
+            // does not go past the left and right sides of the visible slider track.
+            Node {
+                display: Display::Flex,
+                position_type: PositionType::Absolute,
+                left: px(0)
+                // Shortened by the slider thumb's width on the right side.
+                right: px(20),
+                top: px(0),
+                bottom: px(0),
+            }
+            Children [
+                AgeSliderThumb
+                SliderThumb
+                Node {
+                    display: Display::Flex,
+                    width: px(20),
+                    height: px(10),
+                    position_type: PositionType::Absolute,
+                    left: percent(0), // This will be updated by the slider's value
+                }
+                BackgroundColor(Color::WHITE)
+                on(on_pointer_over_grab_cursor)
+                on(on_pointer_out_default_cursor)
+                on(on_pointer_drag_start_grabbing_cursor)
+                on(on_pointer_drag_end_grab_cursor)
+            ]
+        ]
+    }
+}
+
+/// A system that implements Controller logic to update the Age.
+/// This particular system updates the Model upon any change in value to the Age Slider.
+/// Sliders emit a ValueChange<f32> event when the user drags the slider.
+/// The value of the event is the new value of the slider.
+/// The source of the event is the `Slider` parent entity.
+fn on_changed_age_slider(
+    event: On<ValueChange<f32>>,
+    age_slider_q: Query<(Entity, &SliderRange), With<AgeSlider>>,
+    mut age_slider_text_q: Query<&mut Text, With<AgeSliderText>>,
+    mut age_slider_thumb_q: Query<&mut Node, With<AgeSliderThumb>>,
+    mut character: ResMut<Character>,
+    mut commands: Commands,
+) {
+    let Ok((entity, slider_range)) = age_slider_q.single_inner() else {
+        return;
+    };
+    if event.source != entity {
+        return;
+    }
+
+    // Update the Model
+    // `SliderPrecision` ensures that this value is a whole number.
+    character.age = event.value as u32;
+
+    // Update the Widget portion of the View
+    commands
+        .entity(event.source)
+        .insert(SliderValue(character.age as f32));
+    for mut node in age_slider_thumb_q.iter_mut() {
+        node.left = percent(slider_range.thumb_position(character.age as f32) * 100.0)
+    }
+    for mut text in age_slider_text_q.iter_mut() {
+        *text = Text::new(format!("{}", character.age));
+    }
+}
+
+// --- END SLIDER -- //
+
 // --- START RADIO GROUP -- //
 
-/// Creates the radio group that allows the user to select a hat for the character.
-fn hat_type_radio_group(character: &Character) -> impl Scene {
+/// Creates the radio group row that allows the user to select a hat for the character.
+fn hat_type_radio_group_row(character: &Character) -> impl Scene {
     bsn! {
         Node {
             flex_direction: FlexDirection::Row,
@@ -383,7 +485,7 @@ fn on_value_change_hat_type(
 
 // --- START CHECK BOX -- //
 
-/// Creates the checkbox that allows the user to toggle a yellow tint of the character.
+/// Creates the checkbox row that allows the user to toggle a yellow tint of the character.
 fn tint_yellow_checkbox_row(character: &Character) -> impl Scene {
     bsn! {
         Node {
@@ -500,7 +602,9 @@ fn character_view(character: &Character) -> impl Scene {
         template_value(Visibility::Inherited)
         Children [
             character_sprite_tint(&character),
+
             character_hat(&character),
+
             character_name_and_age(&character),
         ]
     }
@@ -529,15 +633,18 @@ fn character_hat(character: &Character) -> Box<dyn Scene> {
     match character.hat_type {
         HatType::None => Box::new(bsn! {}),
         HatType::TopHat => Box::new(bsn! {
+            // 0.78 radians ~ PI / 4
             Transform::from_rotation(Quat::from_rotation_z(0.78))
             template_value(Visibility::Inherited)
             Children [
+                // bottom wider portion of the top hat.
                 Mesh2d(asset_value(Rectangle::new(
                     40., 10.
                 )))
                 MeshMaterial2d<ColorMaterial>(asset_value(ColorMaterial::from_color(Color::BLACK)))
                 template_value(Transform::from_xyz(55., 60., 1.)),
 
+                // top longer portion of the top hat
                 Mesh2d(asset_value(Rectangle::new(
                     20., 50.
                 )))
@@ -552,7 +659,6 @@ fn character_hat(character: &Character) -> Box<dyn Scene> {
                 Vec2::new(20., 0.)
             )))
             MeshMaterial2d<ColorMaterial>(asset_value(ColorMaterial::from_color(palettes::basic::TEAL)))
-            // 0.78 radians ~ PI / 4
             template_value(Transform::from_xyz(0., 80., 1.).with_rotation(Quat::from_rotation_z(0.78)))
         }),
     }
@@ -561,10 +667,110 @@ fn character_hat(character: &Character) -> Box<dyn Scene> {
 fn character_name_and_age(character: &Character) -> impl Scene {
     let name = character.name.clone();
     let age = character.age;
+    let years = if age == 1 { "year" } else { "years" };
     bsn! {
-        Text2d::new(format!("Hi! My name is {name}.\nI am {age} years old."))
+        Text2d::new(format!("Hi! My name is {name}.\nI am {age} {years} old."))
         template_value(Transform::from_xyz(0., -200., 0.))
     }
 }
 
 // --- END CHARACTER VIEW --- //
+
+// --- START MISC OBSERVERS (STYLING) --- //
+
+/// An observer that styles the cursor, used primarily for text input.
+/// This is not part of the Controller.
+fn on_pointer_over_text_cursor(
+    mut event: On<Pointer<Over>>,
+    mut window_q: Query<Entity, With<PrimaryWindow>>,
+    mut commands: Commands,
+) {
+    for window in window_q.iter_mut() {
+        commands
+            .entity(window)
+            .insert(CursorIcon::System(SystemCursorIcon::Text));
+    }
+
+    event.propagate(false);
+}
+
+/// An observer that styles the cursor, used primarily for sliders.
+/// This is not part of the Controller.
+fn on_pointer_over_grab_cursor(
+    mut event: On<Pointer<Over>>,
+    mut window_q: Query<Entity, With<PrimaryWindow>>,
+    mut commands: Commands,
+) {
+    for window in window_q.iter_mut() {
+        commands
+            .entity(window)
+            .insert(CursorIcon::System(SystemCursorIcon::Grab));
+    }
+    event.propagate(false);
+}
+
+/// An observer that styles the cursor, used primarily for sliders.
+/// This is not part of the Controller.
+fn on_pointer_drag_start_grabbing_cursor(
+    _event: On<Pointer<DragStart>>,
+    mut window_q: Query<Entity, With<PrimaryWindow>>,
+    mut commands: Commands,
+) {
+    for window in window_q.iter_mut() {
+        commands
+            .entity(window)
+            .insert(CursorIcon::System(SystemCursorIcon::Grabbing));
+    }
+    // Note that this event does not stop propagation!
+    // This is because the slider widget processes drag events in order to
+    // emit value change events.
+}
+
+/// An observer that styles the cursor, used primarily for sliders.
+/// This is not part of the Controller.
+fn on_pointer_drag_end_grab_cursor(
+    _event: On<Pointer<DragEnd>>,
+    mut window_q: Query<Entity, With<PrimaryWindow>>,
+    mut commands: Commands,
+) {
+    for window in window_q.iter_mut() {
+        commands
+            .entity(window)
+            .insert(CursorIcon::System(SystemCursorIcon::Grab));
+    }
+    // Note that this event does not stop propagation!
+    // This is because the slider widget processes drag events in order to
+    // emit value change events.
+}
+
+/// An observer that styles the cursor, used primarily for buttons / checkboxes.
+/// This is not part of the Controller.
+fn on_pointer_over_pointer_cursor(
+    mut event: On<Pointer<Over>>,
+    mut window_q: Query<Entity, With<PrimaryWindow>>,
+    mut commands: Commands,
+) {
+    for window in window_q.iter_mut() {
+        commands
+            .entity(window)
+            .insert(CursorIcon::System(SystemCursorIcon::Pointer));
+    }
+    event.propagate(false);
+}
+
+/// An observer that styles the cursor, used for all widgets.
+/// This is not part of the Controller.
+fn on_pointer_out_default_cursor(
+    mut event: On<Pointer<Out>>,
+    mut window_q: Query<Entity, With<PrimaryWindow>>,
+    mut commands: Commands,
+) {
+    for window in window_q.iter_mut() {
+        commands
+            .entity(window)
+            .insert(CursorIcon::System(SystemCursorIcon::Default));
+    }
+    event.propagate(false);
+}
+
+// --- END MISC OBSERVERS (STYLING) --- //
