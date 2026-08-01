@@ -834,7 +834,7 @@ impl SmaaPreset {
 
 pub fn smaa(
     view: ViewQuery<(
-        &ViewTarget,
+        &mut ViewTarget,
         &ViewSmaaPipelines,
         &SmaaInfoUniformOffset,
         &SmaaTextures,
@@ -846,7 +846,7 @@ pub fn smaa(
     mut ctx: RenderContext,
 ) {
     let (
-        view_target,
+        mut view_target,
         view_pipelines,
         view_smaa_uniform_offset,
         smaa_textures,

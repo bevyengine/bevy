@@ -950,7 +950,7 @@ impl ViewTarget {
     /// [`ViewTarget`]'s main texture to the `destination` texture, so the caller
     /// _must_ ensure `source` is copied to `destination`, with or without modifications.
     /// Failing to do so will cause the current main texture information to be lost.
-    pub fn post_process_write(&self) -> PostProcessWrite<'_> {
+    pub fn post_process_write(&mut self) -> PostProcessWrite<'_> {
         let old_is_a_main_texture = self.main_texture.fetch_xor(1, Ordering::SeqCst);
         // if the old main texture is a, then the post processing must write from a to b
         if old_is_a_main_texture == 0 {

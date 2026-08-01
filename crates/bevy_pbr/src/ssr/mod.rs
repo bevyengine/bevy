@@ -244,7 +244,7 @@ impl Default for ScreenSpaceReflections {
 
 pub fn screen_space_reflections(
     view: ViewQuery<(
-        &ViewTarget,
+        &mut ViewTarget,
         &MeshViewBindGroup,
         &ScreenSpaceReflectionsPipelineId,
     )>,
@@ -254,7 +254,7 @@ pub fn screen_space_reflections(
     render_images: Res<RenderAssets<GpuImage>>,
     mut ctx: RenderContext,
 ) {
-    let (view_target, view_bind_group, ssr_pipeline_id) = view.into_inner();
+    let (mut view_target, view_bind_group, ssr_pipeline_id) = view.into_inner();
 
     // Grab the render pipeline.
     let Some(render_pipeline) = pipeline_cache.get_render_pipeline(**ssr_pipeline_id) else {

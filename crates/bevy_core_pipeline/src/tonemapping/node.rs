@@ -27,7 +27,7 @@ pub fn tonemapping(
     view: ViewQuery<(
         &ExtractedCamera,
         &ViewUniformOffset,
-        &ViewTarget,
+        &mut ViewTarget,
         &ViewTonemappingPipeline,
         &Tonemapping,
     )>,
@@ -40,7 +40,7 @@ pub fn tonemapping(
     mut cache: Local<TonemappingBindGroupCache>,
     mut ctx: RenderContext,
 ) {
-    let (camera, view_uniform_offset, target, view_tonemapping_pipeline, tonemapping) =
+    let (camera, view_uniform_offset, mut target, view_tonemapping_pipeline, tonemapping) =
         view.into_inner();
 
     if *tonemapping == Tonemapping::None {

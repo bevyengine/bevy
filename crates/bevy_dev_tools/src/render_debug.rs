@@ -629,7 +629,7 @@ fn prepare_debug_overlay_resources(
 
 fn render_debug_overlay(
     view: ViewQuery<(
-        &ViewTarget,
+        &mut ViewTarget,
         &RenderDebugOverlay,
         &RenderDebugOverlayPipelineId,
         &RenderDebugOverlayUniformOffset,
@@ -642,7 +642,7 @@ fn render_debug_overlay(
     fallback_image: Res<FallbackImage>,
     mut ctx: RenderContext,
 ) {
-    let (target, config, pipeline_id, uniform_offset, mesh_view_bind_group, depth_pyramid) =
+    let (mut target, config, pipeline_id, uniform_offset, mesh_view_bind_group, depth_pyramid) =
         view.into_inner();
 
     if !config.enabled {

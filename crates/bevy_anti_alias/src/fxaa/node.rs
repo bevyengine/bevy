@@ -11,13 +11,13 @@ use bevy_render::{
 };
 
 pub fn fxaa(
-    view: ViewQuery<(&ViewTarget, &CameraFxaaPipeline, &Fxaa)>,
+    view: ViewQuery<(&mut ViewTarget, &CameraFxaaPipeline, &Fxaa)>,
     fxaa_pipeline: Res<FxaaPipeline>,
     pipeline_cache: Res<PipelineCache>,
     mut ctx: RenderContext,
     mut cached_bind_group: Local<Option<(TextureViewId, BindGroup)>>,
 ) {
-    let (target, pipeline, fxaa) = view.into_inner();
+    let (mut target, pipeline, fxaa) = view.into_inner();
 
     if !fxaa.enabled {
         return;

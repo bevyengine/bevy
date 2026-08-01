@@ -24,13 +24,13 @@ pub fn dlss_super_resolution(
         &DlssRenderContext<DlssSuperResolutionFeature>,
         &MainPassResolutionOverride,
         &TemporalJitter,
-        &ViewTarget,
+        &mut ViewTarget,
         &ViewPrepassTextures,
     )>,
     adapter: Res<RenderAdapter>,
     mut ctx: RenderContext,
 ) {
-    let (dlss, dlss_context, resolution_override, temporal_jitter, view_target, prepass_textures) =
+    let (dlss, dlss_context, resolution_override, temporal_jitter, mut view_target, prepass_textures) =
         view.into_inner();
 
     let (Some(prepass_depth_texture), Some(prepass_motion_vectors_texture)) =
@@ -74,7 +74,7 @@ pub fn dlss_ray_reconstruction(
         &DlssRenderContext<DlssRayReconstructionFeature>,
         &MainPassResolutionOverride,
         &TemporalJitter,
-        &ViewTarget,
+        &mut ViewTarget,
         &ViewPrepassTextures,
         &ViewDlssRayReconstructionTextures,
     )>,
@@ -86,7 +86,7 @@ pub fn dlss_ray_reconstruction(
         dlss_context,
         resolution_override,
         temporal_jitter,
-        view_target,
+        mut view_target,
         prepass_textures,
         ray_reconstruction_textures,
     ) = view.into_inner();

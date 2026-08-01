@@ -35,12 +35,12 @@ impl Plugin for MsaaWritebackPlugin {
 }
 
 pub(crate) fn msaa_writeback(
-    view: ViewQuery<(&ViewTarget, &MsaaWritebackBlitPipeline, &Msaa)>,
+    view: ViewQuery<(&mut ViewTarget, &MsaaWritebackBlitPipeline, &Msaa)>,
     blit_pipeline: Res<BlitPipeline>,
     pipeline_cache: Res<PipelineCache>,
     mut ctx: RenderContext,
 ) {
-    let (target, blit_pipeline_id, msaa) = view.into_inner();
+    let (mut target, blit_pipeline_id, msaa) = view.into_inner();
 
     if *msaa == Msaa::Off {
         return;
@@ -49,6 +49,10 @@ pub(crate) fn msaa_writeback(
     let Some(pipeline) = pipeline_cache.get_render_pipeline(blit_pipeline_id.0) else {
         return;
     };
+
+    // If MSAA is enabled, then the sampled texture will always exist
+    // (We must clone the `TextureView` here since the target will be mutably borrowed below)
+    let sampled_view = target.sampled_main_texture_view().unwrap().clone();
 
     // The current "main texture" needs to be bound as an input resource, and we need the "other"
     // unused target to be the "resolve target" for the MSAA write. Therefore this is the same
@@ -61,8 +65,7 @@ pub(crate) fn msaa_writeback(
         // We will indirectly write the results to the "destination" using
         // the MSAA resolve step.
         color_attachments: &[Some(RenderPassColorAttachment {
-            // If MSAA is enabled, then the sampled texture will always exist
-            view: target.sampled_main_texture_view().unwrap(),
+            view: &sampled_view,
             depth_slice: None,
             resolve_target: Some(post_process.destination),
             ops: Operations {
@@ -102,7 +105,7 @@ fn prepare_msaa_writeback_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<BlitPipeline>>,
     blit_pipeline: Res<BlitPipeline>,
-    view_targets: Query<(Entity, &ViewTarget, &ExtractedCamera, &Msaa)>,
+    view_targets: Query<(Entity, &mut ViewTarget, &ExtractedCamera, &Msaa)>,
 ) {
     for (entity, view_target, camera, msaa) in view_targets.iter() {
         // Determine if we should do MSAA writeback based on the camera's setting
