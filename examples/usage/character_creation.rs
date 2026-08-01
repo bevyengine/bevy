@@ -40,7 +40,9 @@ fn main() {
                 // Updates the Model if the user changed the name via text input
                 on_changed_editable_text,
                 // Updates the View after any Model changes
-                refresh_character.run_if(resource_changed::<Character>),
+                refresh_character.run_if(resource_exists_and::<Character>(|character| {
+                    !character.changed_fields.is_empty()
+                })),
             )
                 .chain(),
         )
@@ -73,6 +75,9 @@ struct Character {
     age: u32,
     hat_type: HatType,
     tint_yellow: bool,
+    // This is used by the app to more efficiently queue refreshes
+    // of the character view by only refreshing the necessary entities.
+    changed_fields: Vec<ChangedField>,
 }
 
 impl Default for Character {
@@ -82,6 +87,7 @@ impl Default for Character {
             age: 5,
             hat_type: HatType::default(),
             tint_yellow: false,
+            changed_fields: vec![],
         }
     }
 }
@@ -95,6 +101,14 @@ enum HatType {
     None,
     TopHat,
     DunceCap,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum ChangedField {
+    Name,
+    Age,
+    HatType,
+    TintYellow,
 }
 
 const HAT_TYPES: [HatType; 3] = [HatType::None, HatType::TopHat, HatType::DunceCap];
@@ -121,6 +135,15 @@ struct TintYellowCheckbox;
 
 #[derive(Component, Clone, Default)]
 struct CharacterView;
+
+#[derive(Component, Clone, Default)]
+struct CharacterSprite;
+
+#[derive(Component, Clone, Default)]
+struct CharacterHat;
+
+#[derive(Component, Clone, Default)]
+struct CharacterNameAndAge;
 
 // --- END MARKER COMPONENTS --- //
 
@@ -227,6 +250,7 @@ fn on_changed_editable_text(
     let new_name = editable_text.value().to_string();
     if character.name != new_name {
         character.name = new_name;
+        character.changed_fields.push(ChangedField::Name);
     }
 
     // We do not need to update the ui widget view because it updates itself.
@@ -353,6 +377,7 @@ fn on_changed_age_slider(
     // Update the Model
     // `SliderPrecision` ensures that this value is a whole number.
     character.age = event.value as u32;
+    character.changed_fields.push(ChangedField::Age);
 
     // Update the Widget portion of the View
     commands
@@ -464,6 +489,7 @@ fn on_value_change_hat_type(
 
     // Update the Model
     character.hat_type = *new_hat_type;
+    character.changed_fields.push(ChangedField::HatType);
 
     // Update the Widget portion of the View
     for (button_entity, hat_type, has_checked, children) in hat_type_value_q.iter() {
@@ -564,6 +590,7 @@ fn on_value_change_tint_yellow(
 
     // Update the Model
     character.tint_yellow = event.value;
+    character.changed_fields.push(ChangedField::TintYellow);
 
     // Update the Widget portion of the View
     if character.tint_yellow {
@@ -583,17 +610,6 @@ fn on_value_change_tint_yellow(
 
 // --- START CHARACTER VIEW --- //
 
-/// A system that updates the "View" whenever the "Model" has changed.
-fn refresh_character(
-    mut commands: Commands,
-    query: Single<Entity, With<CharacterView>>,
-    character: Res<Character>,
-) {
-    commands.entity(query.entity()).despawn();
-
-    commands.spawn_scene(character_view(&character));
-}
-
 /// Returns the "View", powered by data from the `Character` Model.
 fn character_view(character: &Character) -> impl Scene {
     bsn! {
@@ -601,7 +617,7 @@ fn character_view(character: &Character) -> impl Scene {
         Transform::from_xyz(320., 0., 0.)
         template_value(Visibility::Inherited)
         Children [
-            character_sprite_tint(&character),
+            character_sprite(&character),
 
             character_hat(&character),
 
@@ -610,9 +626,77 @@ fn character_view(character: &Character) -> impl Scene {
     }
 }
 
-fn character_sprite_tint(character: &Character) -> Box<dyn Scene> {
+/// A system that updates the "View" whenever the underlying `Character` "Model" has changed.
+fn refresh_character(
+    mut commands: Commands,
+    character_view_q: Single<(Entity, &Children), With<CharacterView>>,
+    view_type_q: Query<(
+        Entity,
+        Has<CharacterSprite>,
+        Has<CharacterHat>,
+        Has<CharacterNameAndAge>,
+    )>,
+    mut character: ResMut<Character>,
+) {
+    let (character_view, children) = character_view_q.into_inner();
+    let (mut already_updated_name_age, mut already_updated_sprite, mut already_updated_hat) =
+        (false, false, false);
+    for changed_field in character.changed_fields.iter().copied() {
+        match changed_field {
+            ChangedField::Name | ChangedField::Age if !already_updated_name_age => {
+                for (child, _, _, is_name_and_age) in children
+                    .iter()
+                    .filter_map(|child| view_type_q.get(child).ok())
+                {
+                    if is_name_and_age {
+                        commands.entity(child).try_despawn();
+                    }
+                }
+                let new_child = commands
+                    .spawn_scene(character_name_and_age(&character))
+                    .id();
+                commands.entity(character_view).add_child(new_child);
+
+                already_updated_name_age = true;
+            }
+            ChangedField::TintYellow if !already_updated_sprite => {
+                for (child, is_sprite, _, _) in children
+                    .iter()
+                    .filter_map(|child| view_type_q.get(child).ok())
+                {
+                    if is_sprite {
+                        commands.entity(child).try_despawn();
+                    }
+                }
+                let new_child = commands.spawn_scene(character_sprite(&character)).id();
+                commands.entity(character_view).add_child(new_child);
+
+                already_updated_sprite = true;
+            }
+            ChangedField::HatType if !already_updated_hat => {
+                for (child, _, is_hat, _) in children
+                    .iter()
+                    .filter_map(|child| view_type_q.get(child).ok())
+                {
+                    if is_hat {
+                        commands.entity(child).try_despawn();
+                    }
+                }
+                let new_child = commands.spawn_scene(character_hat(&character)).id();
+                commands.entity(character_view).add_child(new_child);
+
+                already_updated_hat = true;
+            }
+            _ => {}
+        }
+    }
+    character.changed_fields.clear();
+}
+
+fn character_sprite(character: &Character) -> Box<dyn Scene> {
     if character.tint_yellow {
         Box::new(bsn! {
+            CharacterSprite
             Sprite {
                 image: "branding/icon.png",
                 color: palettes::basic::YELLOW
@@ -621,6 +705,7 @@ fn character_sprite_tint(character: &Character) -> Box<dyn Scene> {
         })
     } else {
         Box::new(bsn! {
+            CharacterSprite
             Sprite {
                 image: "branding/icon.png",
             }
@@ -631,8 +716,11 @@ fn character_sprite_tint(character: &Character) -> Box<dyn Scene> {
 
 fn character_hat(character: &Character) -> Box<dyn Scene> {
     match character.hat_type {
-        HatType::None => Box::new(bsn! {}),
+        HatType::None => Box::new(bsn! {
+            CharacterHat
+        }),
         HatType::TopHat => Box::new(bsn! {
+            CharacterHat
             // 0.78 radians ~ PI / 4
             Transform::from_rotation(Quat::from_rotation_z(0.78))
             template_value(Visibility::Inherited)
@@ -653,6 +741,7 @@ fn character_hat(character: &Character) -> Box<dyn Scene> {
             ]
         }),
         HatType::DunceCap => Box::new(bsn! {
+            CharacterHat
             Mesh2d(asset_value(Triangle2d::new(
                 Vec2::new(0., 100.),
                 Vec2::new(-20., 0.),
@@ -669,6 +758,7 @@ fn character_name_and_age(character: &Character) -> impl Scene {
     let age = character.age;
     let years = if age == 1 { "year" } else { "years" };
     bsn! {
+        CharacterNameAndAge
         Text2d::new(format!("Hi! My name is {name}.\nI am {age} {years} old."))
         template_value(Transform::from_xyz(0., -200., 0.))
     }
