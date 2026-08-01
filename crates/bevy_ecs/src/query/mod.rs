@@ -113,8 +113,9 @@ impl<T> DebugCheckedUnwrap for Option<T> {
 #[expect(clippy::print_stdout, reason = "Allowed in tests.")]
 mod tests {
     use crate::{
+        change_detection::ContiguousRef,
         component::Component,
-        prelude::{AnyOf, Changed, Entity, Or, QueryState, With, Without},
+        prelude::{AnyOf, Changed, Entity, Or, QueryState, Ref, With, Without},
         query::{
             ArchetypeFilter, ArchetypeQueryData, Has, QueryCombinationIter, QueryData, QueryFilter,
             ReadOnlyQueryData,
@@ -833,6 +834,22 @@ mod tests {
         struct QueryDataB<C>(&'static C)
         where
             C: Component;
+    }
+
+    // Declare a couple of components that have summary ticks.
+    #[derive(Component)]
+    #[component(summary_tick)]
+    struct SA(usize);
+    #[derive(Component)]
+    #[component(summary_tick)]
+    struct SB(usize);
+
+    /// Tests that summary ticks are disabled for components by default.
+    #[test]
+    fn summary_tick_is_disabled_by_default() {
+        let mut world = World::new();
+        let id = world.register_component::<A>();
+        assert!(!world.components.get_info(id).unwrap().summary_tick());
     }
 
     // regression test for https://github.com/bevyengine/bevy/pull/23394

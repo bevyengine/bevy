@@ -219,13 +219,13 @@ impl DeriveComponent {
         });
 
         let has_summary_tick = if self.summary_tick {
-            quote! {}
-        } else {
             quote! {
                 fn has_summary_tick() -> bool {
                     true
                 }
             }
+        } else {
+            quote! {}
         };
 
         let storage = storage_path(bevy_ecs, self.storage.unwrap_or(default_storage));
