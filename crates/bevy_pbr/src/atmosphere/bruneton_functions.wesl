@@ -142,7 +142,7 @@ fn ray_intersects_ground(r: f32, mu: f32) -> bool {
 }
 
 // NOTICE: This function is copyrighted by Eric Bruneton and INRIA, and falls
-// under the license reproduced above (variant of MIT license)
+// under the license reproduced in bruneton_functions.wesl (variant of MIT license)
 fn sample_transmittance_lut_segment(r: f32, mu: f32, t: f32) -> vec3<f32> {
     let r_t = get_local_r(r, mu, t);
     let mu_t = clamp((r * mu + t) / r_t, -1.0, 1.0);

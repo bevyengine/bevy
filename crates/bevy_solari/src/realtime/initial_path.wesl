@@ -416,8 +416,8 @@ fn reconnection_reusable(ray_t: f32, p_brdf: f32, wi: vec3<f32>, diffuse_selecte
     return footprint_ok && x1_lobe_ok && x2_end_ok;
 }
 
-@if(DLSS_RR_GUIDE_BUFFERS)
 // https://en.wikipedia.org/wiki/Householder_transformation
+@if(DLSS_RR_GUIDE_BUFFERS)
 fn reflection_matrix(plane_normal: vec3<f32>) -> mat3x3<f32> {
     // N times Nᵀ
     let n_nt = mat3x3<f32>(

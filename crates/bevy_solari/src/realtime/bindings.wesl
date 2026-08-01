@@ -16,26 +16,8 @@ enable wgpu_ray_query;
 @group(1) @binding(9) var previous_depth_buffer: texture_depth_2d;
 @group(1) @binding(10) var<uniform> view: View;
 @group(1) @binding(11) var<uniform> previous_view: PreviousViewUniforms;
-
 @group(1) @binding(12) var<storage, read_write> world_cache: WorldCache;
 @group(1) @binding(13) var<uniform> constants: SolariLightingSettings;
-
-// Keep in sync with the packed world-cache layout constants in `prepare.rs`.
-struct WorldCache {
-    checksums: array<atomic<u32>, constants::WORLD_CACHE_SIZE>,
-    @if(WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER)
-    life: array<u32, constants::WORLD_CACHE_SIZE>,
-    @if(!WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER)
-    life: array<atomic<u32>, constants::WORLD_CACHE_SIZE>,
-    radiance: array<vec4<f32>, constants::WORLD_CACHE_SIZE>,
-    geometry_data: array<WorldCacheGeometryData, constants::WORLD_CACHE_SIZE>,
-    luminance_deltas: array<f32, constants::WORLD_CACHE_SIZE>,
-    active_cells_new_radiance: array<vec3<f32>, constants::WORLD_CACHE_SIZE>,
-    a: array<u32, constants::WORLD_CACHE_SIZE>,
-    b: array<u32, 1024u>,
-    active_cell_indices: array<u32, constants::WORLD_CACHE_SIZE>,
-    active_cells_count: u32,
-}
 
 @if(DLSS_RR_GUIDE_BUFFERS)
 @group(2) @binding(0) var diffuse_albedo: texture_storage_2d<rgba8unorm, write>;
@@ -46,7 +28,7 @@ struct WorldCache {
 @if(DLSS_RR_GUIDE_BUFFERS)
 @group(2) @binding(3) var specular_motion_vectors: texture_storage_2d<rg16float, write>;
 
-// User-configurable constants from the `SolariLighting` component, plus per-frame
+// User-configurable settings from the `SolariLighting` component, plus per-frame
 // state. Field order and types must match `SolariLightingUniforms` in `prepare.rs`.
 struct SolariLightingSettings {
     confidence_weight_cap: f32,
@@ -99,4 +81,21 @@ struct WorldCacheGeometryData {
     padding_a: u32,
     world_normal: vec3<f32>,
     padding_b: u32,
+}
+
+// Keep in sync with the packed world-cache layout constants in `prepare.rs`.
+struct WorldCache {
+    checksums: array<atomic<u32>, constants::WORLD_CACHE_SIZE>,
+    @if(WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER)
+    life: array<u32, constants::WORLD_CACHE_SIZE>,
+    @if(!WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER)
+    life: array<atomic<u32>, constants::WORLD_CACHE_SIZE>,
+    radiance: array<vec4<f32>, constants::WORLD_CACHE_SIZE>,
+    geometry_data: array<WorldCacheGeometryData, constants::WORLD_CACHE_SIZE>,
+    luminance_deltas: array<f32, constants::WORLD_CACHE_SIZE>,
+    active_cells_new_radiance: array<vec3<f32>, constants::WORLD_CACHE_SIZE>,
+    a: array<u32, constants::WORLD_CACHE_SIZE>,
+    b: array<u32, 1024u>,
+    active_cell_indices: array<u32, constants::WORLD_CACHE_SIZE>,
+    active_cells_count: u32,
 }

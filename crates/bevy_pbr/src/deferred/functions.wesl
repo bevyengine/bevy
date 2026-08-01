@@ -109,14 +109,12 @@ fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) ->
     pbr.material.reflectance = vec3(saturate(props.r - 0.03333333333));
     @if(!WEBGL2)
     let props = deferred_types::unpack_unorm4x8_(gbuffer.b);
-    @if(!WEBGL2)
+    @if(!WEBGL2) {
     let clearcoat_props = u32(round(props.a * 255.0));
-    @if(!WEBGL2)
     pbr.material.reflectance = vec3(props.r);
-    @if(!WEBGL2)
     pbr.material.clearcoat = f32(clearcoat_props & 0x0fu) / 15.0;
-    @if(!WEBGL2)
     pbr.material.clearcoat_perceptual_roughness = f32(clearcoat_props >> 4u) / 30.0;
+    }
     pbr.material.metallic = props.g;
     pbr.diffuse_occlusion = vec3(props.b);
     let octahedral_normal = deferred_types::unpack_24bit_normal(gbuffer.a);

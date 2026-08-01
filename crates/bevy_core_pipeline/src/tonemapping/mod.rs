@@ -46,7 +46,7 @@ impl Plugin for TonemappingPlugin {
     fn build(&self, app: &mut App) {
         load_shader_library!(app, "lut_bindings.wesl");
 
-        embedded_asset!(app, "tonemapping.wesl");
+        embedded_asset!(app, "tonemapping_frag.wesl");
 
         if !app.world().is_resource_added::<TonemappingLuts>() {
             let mut images = app.world_mut().resource_mut::<Assets<Image>>();
@@ -322,7 +322,7 @@ pub fn init_tonemapping_pipeline(
         texture_bind_group: tonemap_texture_bind_group,
         sampler,
         fullscreen_shader: fullscreen_shader.clone(),
-        fragment_shader: load_embedded_asset!(asset_server.as_ref(), "tonemapping.wesl"),
+        fragment_shader: load_embedded_asset!(asset_server.as_ref(), "tonemapping_frag.wesl"),
     });
 }
 
