@@ -308,7 +308,7 @@ fn age_slider(character: &Character) -> impl Scene {
         SliderRange::new(1., 100.)
         BackgroundColor(Color::BLACK)
         // This observer is part of the Controller -- it reacts to the user's input!
-        on(on_changed_age_slider)
+        on(on_value_change_age_slider)
         on(on_pointer_over_pointer_cursor)
         on(on_pointer_drag_start_grabbing_cursor)
         on(on_pointer_drag_end_grab_cursor)
@@ -342,7 +342,7 @@ fn age_slider(character: &Character) -> impl Scene {
                     width: px(20),
                     height: px(10),
                     position_type: PositionType::Absolute,
-                    left: percent(0), // This will be updated by the slider's value
+                    left: percent((character.age as f32 - 1.) / (100. - 1.) * 100.),
                 }
                 BackgroundColor(Color::WHITE)
                 on(on_pointer_over_grab_cursor)
@@ -359,7 +359,7 @@ fn age_slider(character: &Character) -> impl Scene {
 /// Sliders emit a `ValueChange<f32>` event when the user drags the slider.
 /// The value of the event is the new value of the slider.
 /// The source of the event is the `Slider` parent entity.
-fn on_changed_age_slider(
+fn on_value_change_age_slider(
     event: On<ValueChange<f32>>,
     age_slider_q: Query<(Entity, &SliderRange), With<AgeSlider>>,
     mut age_slider_text_q: Query<&mut Text, With<AgeSliderText>>,
