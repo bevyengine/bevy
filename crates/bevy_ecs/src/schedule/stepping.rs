@@ -815,7 +815,7 @@ impl ScheduleState {
         }
 
         // create a mask of systems that should be stepped through
-        let set_mask = self.system_set_mask(&schedule);
+        let set_mask = self.system_set_mask(schedule);
 
         // if we don't have a first system set, set it now
         if self.first.is_none() {
@@ -974,9 +974,16 @@ mod tests {
     #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
     struct TestScheduleD;
 
+    #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
+    struct SetA;
+
+    #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
+    struct SetB;
+
     fn first_system() {}
     fn second_system() {}
     fn third_system() {}
+    fn fourth_system() {}
 
     fn setup() -> (Schedule, World) {
         let mut world = World::new();
@@ -1691,5 +1698,123 @@ mod tests {
                 Some(cursor(&schedule_a, 2)), Some(cursor(&schedule_b, 1)),
             ]
         );
+    }
+
+    #[test]
+    fn enable_system_set() {
+        let mut world = World::default();
+        let mut schedule = Schedule::new(TestScheduleA);
+        // 1 -> (2 -> 3) -> 4
+        schedule.add_systems(
+            (
+                first_system,
+                (second_system, third_system).chain().in_set(SetA),
+                fourth_system,
+            )
+                .chain(),
+        );
+        schedule.initialize(&mut world).unwrap();
+
+        let mut stepping = Stepping::default();
+        stepping
+            .add_schedule(TestScheduleA)
+            .enable()
+            .add_system_set(TestScheduleA, SetA);
+
+        assert_schedule_runs!(&schedule, &mut stepping, first_system, fourth_system);
+
+        stepping.step_frame();
+
+        assert_schedule_runs!(
+            &schedule,
+            &mut stepping,
+            first_system,
+            second_system,
+            fourth_system
+        );
+
+        stepping.step_frame();
+
+        assert_schedule_runs!(
+            &schedule,
+            &mut stepping,
+            first_system,
+            third_system,
+            fourth_system
+        );
+
+        stepping.step_frame();
+
+        // system loops around to second_system.
+        assert_schedule_runs!(
+            &schedule,
+            &mut stepping,
+            first_system,
+            second_system,
+            fourth_system
+        );
+    }
+
+    #[test]
+    fn two_system_sets() {
+        let mut world = World::default();
+        let mut schedule = Schedule::new(TestScheduleA);
+        // (1) -> 2 -> (3 -> 4)
+        schedule.add_systems(
+            (
+                first_system.in_set(SetA),
+                second_system,
+                (third_system, fourth_system).chain().in_set(SetB),
+            )
+                .chain(),
+        );
+        schedule.initialize(&mut world).unwrap();
+
+        let mut stepping = Stepping::default();
+        stepping
+            .add_schedule(TestScheduleA)
+            .enable()
+            .add_system_set(TestScheduleA, SetA)
+            .add_system_set(TestScheduleA, SetB);
+
+        assert_schedule_runs!(&schedule, &mut stepping, second_system);
+
+        stepping.step_frame();
+        assert_schedule_runs!(&schedule, &mut stepping, first_system, second_system);
+
+        stepping.step_frame();
+        assert_schedule_runs!(&schedule, &mut stepping, second_system, third_system);
+
+        stepping.step_frame();
+        assert_schedule_runs!(&schedule, &mut stepping, second_system, fourth_system);
+
+        stepping
+            .set_breakpoint(TestScheduleA, second_system)
+            .continue_frame();
+        // since second_system is not in a stepped set, this does nothing
+        assert_schedule_runs!(
+            &schedule,
+            &mut stepping,
+            first_system,
+            second_system,
+            third_system,
+            fourth_system
+        );
+
+        stepping
+            .set_breakpoint(TestScheduleA, fourth_system)
+            .continue_frame();
+        // continue the frame until the fourth_system, stop before then
+        assert_schedule_runs!(
+            &schedule,
+            &mut stepping,
+            first_system,
+            second_system,
+            third_system
+        );
+
+        stepping.reset_system_sets(TestScheduleA).step_frame();
+        // we step through all systems and the cursor is at the fourth system, so we only run that
+        assert_schedule_runs!(&schedule, &mut stepping, fourth_system);
     }
 }
