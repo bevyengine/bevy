@@ -2,6 +2,7 @@ use crate::{
     batching::BatchingStrategy,
     change_detection::Tick,
     entity::{EntityEquivalent, UniqueEntityEquivalentVec},
+    query::{ArchetypeFilter, ContiguousQueryData},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 
@@ -149,6 +150,95 @@ impl<'w, 's, D: IterQueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
             }
             .map(|v| v as usize)
             .unwrap_or(0)
+        };
+        self.batching_strategy
+            .calc_batch_size(max_items, thread_count) as u32
+    }
+}
+
+pub struct QueryContiguousParIter<'w, 's, D, F>
+where
+    D: ContiguousQueryData,
+    F: ArchetypeFilter,
+{
+    pub(crate) world: UnsafeWorldCell<'w>,
+    pub(crate) state: &'s QueryState<D, F>,
+    pub(crate) last_run: Tick,
+    pub(crate) this_run: Tick,
+    pub(crate) batching_strategy: BatchingStrategy,
+}
+
+impl<'w, 's, D, F> QueryContiguousParIter<'w, 's, D, F>
+where
+    D: ContiguousQueryData,
+    F: ArchetypeFilter,
+{
+    /// Returns `None` if `query_state` is not dense, and hence not contiguously iterable.
+    pub(crate) fn new(
+        world: UnsafeWorldCell<'w>,
+        state: &'s QueryState<D, F>,
+        last_run: Tick,
+        this_run: Tick,
+    ) -> Option<Self> {
+        state.is_dense.then(|| Self {
+            world,
+            state,
+            last_run,
+            this_run,
+            batching_strategy: BatchingStrategy::new(),
+        })
+    }
+
+    pub fn batching_strategy(mut self, strategy: BatchingStrategy) -> Self {
+        self.batching_strategy = strategy;
+        self
+    }
+
+    #[inline]
+    pub fn for_each(self, func: impl Fn(D::Contiguous<'w, 's>) + Send + Sync + Clone) {
+        self.for_each_init(|| {}, |_, item| func(item));
+    }
+
+    pub fn for_each_init<T>(
+        self,
+        init: impl Fn() -> T + Sync + Send + Clone,
+        func: impl Fn(&mut T, D::Contiguous<'w, 's>) + Send + Sync + Clone,
+    ) {
+        let func = |mut init, item| {
+            func(&mut init, item);
+            init
+        };
+
+        // TODO: wasm32/single threaded version
+
+        {
+            let thread_count = bevy_tasks::ComputeTaskPool::get().thread_num();
+            // TODO: thread_count <= 1
+            {
+                let batch_size = self.get_batch_size(thread_count).max(1);
+                unsafe {
+                    self.state.par_fold_contiguous_init_unchecked_manual(
+                        init,
+                        self.world,
+                        batch_size,
+                        func,
+                        self.last_run,
+                        self.this_run,
+                    );
+                }
+            }
+        }
+    }
+
+    fn get_batch_size(&self, thread_count: usize) -> u32 {
+        let max_items = || {
+            let id_iter = self.state.matched_storage_ids.iter();
+            let tables = unsafe { &self.world.world_metadata().storages().tables };
+            id_iter
+                .map(|id| unsafe { tables[id.table_id].entity_count() })
+                .max()
+                .map(|v| v as usize)
+                .unwrap_or(0)
         };
         self.batching_strategy
             .calc_batch_size(max_items, thread_count) as u32

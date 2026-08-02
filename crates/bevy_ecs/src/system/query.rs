@@ -6,10 +6,10 @@ use crate::{
     entity::{Entity, EntityEquivalent, EntitySet, UniqueEntityArray},
     query::{
         ArchetypeFilter, ContiguousQueryData, DebugCheckedUnwrap, IterQueryData, NopWorldQuery,
-        QueryCombinationIter, QueryContiguousIter, QueryData, QueryEntityError, QueryFilter,
-        QueryIter, QueryManyIter, QueryManyUniqueIter, QueryNotDenseError, QueryParIter,
-        QueryParManyIter, QueryParManyUniqueIter, QuerySingleError, QueryState, ROQueryItem,
-        ReadOnlyQueryData, SingleEntityQueryData,
+        QueryCombinationIter, QueryContiguousIter, QueryContiguousParIter, QueryData,
+        QueryEntityError, QueryFilter, QueryIter, QueryManyIter, QueryManyUniqueIter,
+        QueryNotDenseError, QueryParIter, QueryParManyIter, QueryParManyUniqueIter,
+        QuerySingleError, QueryState, ROQueryItem, ReadOnlyQueryData, SingleEntityQueryData,
     },
     world::unsafe_world_cell::UnsafeWorldCell,
 };
@@ -1537,6 +1537,37 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         // - `self.world` has permission to access the required components
         // - `self.world` was used to initialize `self.state`
         unsafe { QueryContiguousIter::new(self.world, self.state, self.last_run, self.this_run) }
+            .ok_or(QueryNotDenseError(DebugName::type_name::<Self>()))
+    }
+
+    pub fn contiguous_par_iter(
+        &self,
+    ) -> Result<QueryContiguousParIter<'_, 's, D::ReadOnly, F>, QueryNotDenseError>
+    where
+        D::ReadOnly: ContiguousQueryData,
+        F: ArchetypeFilter,
+    {
+        self.as_readonly().contiguous_par_iter_inner()
+    }
+
+    pub fn contiguous_par_iter_mut(
+        &mut self,
+    ) -> Result<QueryContiguousParIter<'_, 's, D, F>, QueryNotDenseError>
+    where
+        D: ContiguousQueryData,
+        F: ArchetypeFilter,
+    {
+        self.reborrow().contiguous_par_iter_inner()
+    }
+
+    pub fn contiguous_par_iter_inner(
+        self,
+    ) -> Result<QueryContiguousParIter<'w, 's, D, F>, QueryNotDenseError>
+    where
+        D: ContiguousQueryData,
+        F: ArchetypeFilter,
+    {
+        QueryContiguousParIter::new(self.world, self.state, self.last_run, self.this_run)
             .ok_or(QueryNotDenseError(DebugName::type_name::<Self>()))
     }
 
