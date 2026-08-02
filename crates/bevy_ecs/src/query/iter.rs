@@ -2151,7 +2151,6 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityEquivalent>>
         let query_lens = unsafe { query_lens_state.query_unchecked_manual(world) }
             .iter_many_inner(self.entity_iter);
         let mut keyed_query: Vec<_> = query_lens
-            // .map(|(key, entity)| (key, NeutralOrd(entity)))
             .map(|result| match result {
                 Ok((key, entity)) => Ok((key, NeutralOrd(entity))),
                 Err(e) => Err(NeutralOrd(e)),
@@ -2638,8 +2637,6 @@ impl<
     pub fn fetch_next(&mut self) -> Option<Result<D::Item<'_, 's>, QueryEntityError>> {
         let entity_result = self.entity_iter.next()?;
         // SAFETY:
-        // We have collected the entity_iter once to drop all internal lens query item
-        // references.
         // We are limiting the returned reference to self,
         // making sure this method cannot be called multiple times without getting rid
         // of any previously returned unique references first, thus preventing aliasing.
@@ -2662,8 +2659,6 @@ impl<
     pub fn fetch_next_back(&mut self) -> Option<Result<D::Item<'_, 's>, QueryEntityError>> {
         let entity_result = self.entity_iter.next_back()?;
         // SAFETY:
-        // We have collected the entity_iter once to drop all internal lens query item
-        // references.
         // We are limiting the returned reference to self,
         // making sure this method cannot be called multiple times without getting rid
         // of any previously returned unique references first, thus preventing aliasing.
