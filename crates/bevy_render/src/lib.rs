@@ -63,6 +63,8 @@ pub mod slab_allocator;
 pub mod storage;
 pub mod sync_component;
 pub mod sync_world;
+#[cfg(test)]
+pub(crate) mod test_utils;
 pub mod texture;
 pub mod uniform;
 pub mod view;

@@ -624,16 +624,24 @@ impl MeshAllocator {
         );
     }
 
-    /// Frees allocations for meshes that were removed or modified this frame.
+    /// Frees allocations for meshes that were removed, modified, or re-extracted
+    /// this frame.
     fn free_meshes(&mut self, extracted_meshes: &ExtractedAssets<RenderMesh>) {
         let mut deallocation_stage = self.slab_allocator.stage_deallocation();
 
         // TODO: Consider explicitly reusing allocations for changed meshes of
         // the same size
+
+        // Free every mesh that `allocate_meshes` is about to reallocate. Despite
+        // its name, `added` holds every mesh extracted this frame rather than only
+        // the new ones, so it's exactly that set. This catches a mesh
+        // removed from `Assets` and reinserted under the same ID, which arrives as
+        // `Removed` then `Added` and so never appears in `modified`.
         let meshes_to_free = extracted_meshes
             .removed
             .iter()
-            .chain(extracted_meshes.modified.iter());
+            .chain(extracted_meshes.modified.iter())
+            .chain(extracted_meshes.added.iter());
 
         for mesh_id in meshes_to_free {
             deallocation_stage.free(&MeshAllocationKey::new(*mesh_id, ElementClass::Metadata));
@@ -736,5 +744,174 @@ impl ElementClass {
             #[cfg(feature = "morph")]
             ElementClass::MorphTarget => BufferUsages::STORAGE,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_utils::create_dummy_device;
+    use bevy_asset::{uuid::Uuid, RenderAssetUsages};
+    use bevy_mesh::PrimitiveTopology;
+
+    fn test_mesh() -> Mesh {
+        let mut mesh = Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::default(),
+        );
+        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vec![[0.0f32, 0.0, 0.0]; 64]);
+        mesh
+    }
+
+    /// Builds the extraction output for a mesh that was extracted this frame.
+    ///
+    /// This mirrors what `extract_render_asset` produces for an
+    /// `AssetEvent::Added`: the mesh lands in `extracted` and `added`, and in
+    /// neither `removed` nor `modified`.
+    fn extracted_mesh(id: AssetId<Mesh>, mesh: Mesh) -> ExtractedAssets<RenderMesh> {
+        let mut extracted_meshes = ExtractedAssets::<RenderMesh>::default();
+        extracted_meshes.extracted.push((id, mesh));
+        extracted_meshes.added.insert(id);
+        extracted_meshes
+    }
+
+    /// Builds the extraction output for a mesh modified in place this frame.
+    ///
+    /// This mirrors what `extract_render_asset` produces for an
+    /// `AssetEvent::Modified`, as caused by `Assets::get_mut`: the mesh is
+    /// re-extracted, so it lands in `modified` on top of `extracted` and `added`.
+    fn modified_mesh(id: AssetId<Mesh>, mesh: Mesh) -> ExtractedAssets<RenderMesh> {
+        let mut extracted_meshes = extracted_mesh(id, mesh);
+        extracted_meshes.modified.insert(id);
+        extracted_meshes
+    }
+
+    /// `free_meshes` must release meshes that are merely being re-extracted, not
+    /// only those flagged `removed` or `modified`.
+    #[test]
+    fn free_meshes_releases_reextracted_meshes() {
+        let (render_device, render_queue) = create_dummy_device();
+        let settings = MeshAllocatorSettings::default();
+        let mut mesh_vertex_buffer_layouts = MeshVertexBufferLayouts::default();
+        let mut mesh_allocator = MeshAllocator {
+            slab_allocator: SlabAllocator::new(),
+            general_vertex_slabs_supported: true,
+        };
+
+        let mesh_id = AssetId::<Mesh>::Uuid {
+            uuid: Uuid::from_u128(1),
+        };
+        let extracted_meshes = extracted_mesh(mesh_id, test_mesh());
+
+        mesh_allocator.allocate_meshes(
+            &settings,
+            &extracted_meshes,
+            &mut mesh_vertex_buffer_layouts,
+            &render_device,
+            &render_queue,
+        );
+        assert!(mesh_allocator.mesh_vertex_slice(&mesh_id).is_some());
+
+        // Being present in `added` alone must be enough to release the previous
+        // allocation.
+        mesh_allocator.free_meshes(&extracted_meshes);
+
+        assert!(
+            mesh_allocator.key_to_slab.is_empty(),
+            "a re-extracted mesh was not freed, so its old allocation would leak"
+        );
+        assert_eq!(mesh_allocator.slab_count(), 0);
+    }
+
+    /// A mesh flagged `modified` must be freed even when it isn't re-extracted.
+    ///
+    /// `added` covers meshes that come back around for reallocation, but a mesh
+    /// can be modified and then leave `Assets` without emitting `Unused`, in
+    /// which case `modified` is the only record we get of it.
+    #[test]
+    fn free_meshes_releases_modified_meshes_that_were_not_reextracted() {
+        let (render_device, render_queue) = create_dummy_device();
+        let settings = MeshAllocatorSettings::default();
+        let mut mesh_vertex_buffer_layouts = MeshVertexBufferLayouts::default();
+        let mut mesh_allocator = MeshAllocator {
+            slab_allocator: SlabAllocator::new(),
+            general_vertex_slabs_supported: true,
+        };
+
+        let mesh_id = AssetId::<Mesh>::Uuid {
+            uuid: Uuid::from_u128(1),
+        };
+        mesh_allocator.allocate_meshes(
+            &settings,
+            &extracted_mesh(mesh_id, test_mesh()),
+            &mut mesh_vertex_buffer_layouts,
+            &render_device,
+            &render_queue,
+        );
+        assert!(mesh_allocator.mesh_vertex_slice(&mesh_id).is_some());
+
+        let mut extracted_meshes = ExtractedAssets::<RenderMesh>::default();
+        extracted_meshes.modified.insert(mesh_id);
+        mesh_allocator.free_meshes(&extracted_meshes);
+
+        assert!(
+            mesh_allocator.key_to_slab.is_empty(),
+            "a modified mesh that wasn't re-extracted was not freed"
+        );
+        assert_eq!(mesh_allocator.slab_count(), 0);
+    }
+
+    /// Runs `rounds` frames of free-then-allocate over a single mesh ID and
+    /// asserts that slab memory reaches a steady state.
+    fn assert_steady_state(
+        build: fn(AssetId<Mesh>, Mesh) -> ExtractedAssets<RenderMesh>,
+        rounds: usize,
+    ) {
+        let (render_device, render_queue) = create_dummy_device();
+        let settings = MeshAllocatorSettings::default();
+        let mut mesh_vertex_buffer_layouts = MeshVertexBufferLayouts::default();
+        let mut mesh_allocator = MeshAllocator {
+            slab_allocator: SlabAllocator::new(),
+            general_vertex_slabs_supported: true,
+        };
+
+        let mesh_id = AssetId::<Mesh>::Uuid {
+            uuid: Uuid::from_u128(1),
+        };
+
+        let mut baseline = None;
+        for _ in 0..rounds {
+            let extracted_meshes = build(mesh_id, test_mesh());
+            mesh_allocator.free_meshes(&extracted_meshes);
+            mesh_allocator.allocate_meshes(
+                &settings,
+                &extracted_meshes,
+                &mut mesh_vertex_buffer_layouts,
+                &render_device,
+                &render_queue,
+            );
+
+            let size = mesh_allocator.slabs_size();
+            match baseline {
+                None => baseline = Some(size),
+                Some(baseline) => {
+                    assert_eq!(size, baseline, "slab memory grew across frames");
+                }
+            }
+        }
+
+        assert!(mesh_allocator.mesh_vertex_slice(&mesh_id).is_some());
+    }
+
+    /// Re-extracting the same mesh ID every frame must reach a steady state.
+    #[test]
+    fn reextracting_the_same_mesh_does_not_grow_the_slabs() {
+        assert_steady_state(extracted_mesh, 32);
+    }
+
+    /// Modifying the same mesh in place every frame must reach a steady state.
+    #[test]
+    fn modifying_a_mesh_in_place_does_not_grow_the_slabs() {
+        assert_steady_state(modified_mesh, 32);
     }
 }
