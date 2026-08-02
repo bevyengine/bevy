@@ -91,7 +91,7 @@ mod tests {
 
     use core::pin::Pin;
 
-    use alloc::{sync::Arc, vec::Vec};
+    use alloc::{string::String, sync::Arc, vec::Vec};
 
     use crate::prelude::*;
     use bevy_app::prelude::*;
@@ -139,6 +139,19 @@ mod tests {
             }
             result
         }
+    }
+
+    fn run_loops<T>(
+        mut update: impl FnMut(),
+        mut predicate: impl FnMut() -> Option<T>,
+    ) -> Result<T, String> {
+        for _ in 0..10000 {
+            update();
+            if let Some(value) = predicate() {
+                return Ok(value);
+            }
+        }
+        Err("Ran out of iterations".into())
     }
 
     #[test]
@@ -240,18 +253,31 @@ mod tests {
         assert!(check_ready(&mut task_1).is_none());
         assert!(check_ready(&mut task_2).is_none());
 
-        app.world_mut()
-            .run_system_cached(async_world_sync_point::<Sync1>)
-            .unwrap();
+        assert_eq!(
+            run_loops(
+                || {
+                    app.world_mut()
+                        .run_system_cached(async_world_sync_point::<Sync1>)
+                        .unwrap();
+                },
+                || { check_ready(&mut task_1) }
+            ),
+            Ok(1)
+        );
 
-        assert_eq!(check_ready(&mut task_1).unwrap(), 1);
         assert!(check_ready(&mut task_2).is_none());
 
-        app.world_mut()
-            .run_system_cached(async_world_sync_point::<Sync2>)
-            .unwrap();
-
-        assert_eq!(check_ready(&mut task_2).unwrap(), 2);
+        assert_eq!(
+            run_loops(
+                || {
+                    app.world_mut()
+                        .run_system_cached(async_world_sync_point::<Sync2>)
+                        .unwrap();
+                },
+                || { check_ready(&mut task_2) }
+            ),
+            Ok(2)
+        );
     }
 
     /// This tests that if a world is dropped we return an error from attempting to run it and
@@ -379,9 +405,13 @@ mod tests {
                 .detach();
         });
 
-        app.update();
-
-        assert!(FAILED_VALIDATION.load(Ordering::Relaxed));
+        assert_eq!(
+            run_loops(
+                || app.update(),
+                || FAILED_VALIDATION.load(Ordering::Relaxed).then_some(()),
+            ),
+            Ok(())
+        );
     }
 
     #[test]
@@ -422,8 +452,12 @@ mod tests {
                 .detach();
         });
 
-        app.update();
-
-        assert!(ACCESS_RAN.load(Ordering::Relaxed));
+        assert_eq!(
+            run_loops(
+                || app.update(),
+                || ACCESS_RAN.load(Ordering::Relaxed).then_some(()),
+            ),
+            Ok(())
+        );
     }
 }
