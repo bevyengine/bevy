@@ -1,5 +1,5 @@
 ---
-title: `QueryManyIter` and all other `*iter_many*` iterators now iterate over `Result` instead of `QueryData::Item`.
+title: Query iterators from "many" entities now iterate over `Result` instead of `QueryData::Item`.
 pull_requests: [25200]
 ---
 
@@ -22,9 +22,9 @@ Likewise, the following parallel iterator methods now have `Result<QueryData::It
 instead of `QueryData::Item<'w, 's>` as the closure argument.
 
 - `QueryParManyIter::for_each`
-- `QueryParManyIter::for_each_init`, 
+- `QueryParManyIter::for_each_init`,
 - `QueryParManyUniqueIter::for_each`
-- `QueryParManyUniqueIter::for_each_init`, 
+- `QueryParManyUniqueIter::for_each_init`,
 
 These parallel iterators are created by the following methods.
 
