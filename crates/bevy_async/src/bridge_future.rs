@@ -199,7 +199,9 @@ pub struct BridgeFuture<Func, Marker> {
     /// A flag indicating whether this bridge future has been given access. The bridge function may
     /// run once this is true. This field is [`Some`] if this request has already been queued.
     access_given: Option<Arc<AtomicBool>>,
-    /// The SystemState that is used for ECS access when the bridge function runs.
+    /// The [`SystemState`] that is used for ECS access when the bridge function runs.
+    ///
+    /// [`SystemState`]: bevy_ecs::system::SystemState
     system_state: Arc<dyn ErasedSystemStateCell>,
     /// Weak bridge pointer so the loss of the world becomes a clean runtime error.
     world: AsyncWorld,
