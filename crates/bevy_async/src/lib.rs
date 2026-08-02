@@ -89,6 +89,7 @@ pub mod prelude {
 mod tests {
     extern crate alloc;
 
+    use core::assert_matches;
     use core::pin::Pin;
 
     use alloc::{string::String, sync::Arc, vec::Vec};
@@ -288,7 +289,6 @@ mod tests {
     #[test]
     fn dropped_world() {
         struct MySyncPoint;
-        static WORLD_WAS_DROPPED: AtomicBool = AtomicBool::new(false);
         let mut other_app = App::new();
         other_app.add_plugins((TaskPoolPlugin::default(), ScheduleRunnerPlugin::default()));
         let mut app = App::new();
@@ -298,29 +298,19 @@ mod tests {
             TaskPoolPlugin::default(),
         ));
 
-        app.add_systems(Startup, move |world: Res<AsyncWorld>| {
-            let world = world.clone();
-            AsyncComputeTaskPool::get()
-                .spawn(async move {
-                    let system_state = world.system_state();
-                    match system_state
-                        .bridge(MySyncPoint, |mut commands: Commands| {
-                            commands.spawn_empty();
-                        })
-                        .await
-                    {
-                        Err(BridgeError::WorldDropped) => {
-                            WORLD_WAS_DROPPED.store(true, Ordering::Relaxed);
-                        }
-                        _ => unreachable!("World should have Dropped"),
-                    }
-                })
-                .detach();
-        });
-        app.update();
+        let async_world = app.world().resource::<AsyncWorld>().clone();
         drop(app);
-        other_app.update();
-        assert!(WORLD_WAS_DROPPED.load(Ordering::Relaxed));
+
+        let mut task = AsyncComputeTaskPool::get().spawn(async move {
+            let system_state = async_world.system_state();
+            system_state
+                .bridge(MySyncPoint, |mut commands: Commands| {
+                    commands.spawn_empty();
+                })
+                .await
+        });
+        let result = run_loops(|| other_app.update(), || check_ready(&mut task)).unwrap();
+        assert_matches!(result, Err(BridgeError::WorldDropped));
     }
 
     bevy_tasks::cfg::multi_threaded! {
