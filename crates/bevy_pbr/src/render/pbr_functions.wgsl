@@ -282,14 +282,22 @@ fn calculate_view(
 }
 
 // Diffuse strength is inversely related to metallicity, specular and diffuse transmission
+//
+// The specular layer sits on top of the diffuse layer, so the diffuse layer only
+// receives the energy the specular layer didn't reflect. Metals have no diffuse
+// lobe at all, which `metallic` already handles, so the dielectric F0 is the one
+// to use for that.
 fn calculate_diffuse_color(
     base_color: vec3<f32>,
     metallic: f32,
     specular_transmission: f32,
-    diffuse_transmission: f32
+    diffuse_transmission: f32,
+    F0_dielectric: vec3<f32>,
+    F_ab: vec2<f32>,
 ) -> vec3<f32> {
     return base_color * (1.0 - metallic) * (1.0 - specular_transmission) *
-        (1.0 - diffuse_transmission);
+        (1.0 - diffuse_transmission) *
+        (1.0 - lighting::specular_reflectance(F0_dielectric, F_ab));
 }
 
 // Remapping [0,1] reflectance to F0 for dielectrics
@@ -380,11 +388,17 @@ fn apply_pbr_lighting(
     let clearcoat_R = reflect(-in.V, clearcoat_N);
 #endif  // STANDARD_MATERIAL_CLEARCOAT
 
+    let F0_dielectric = calculate_F0_dielectric(reflectance);
+    let F0_metallic = output_color.rgb;
+    let F_ab = lighting::F_AB(perceptual_roughness, NdotV);
+
     let diffuse_color = calculate_diffuse_color(
         output_color.rgb,
         metallic,
         specular_transmission,
-        diffuse_transmission
+        diffuse_transmission,
+        F0_dielectric,
+        F_ab
     );
 
     // Diffuse transmissive strength is inversely related to metallicity and specular transmission, but directly related to diffuse transmission
@@ -392,9 +406,6 @@ fn apply_pbr_lighting(
 
     // Calculate the world position of the second Lambertian lobe used for diffuse transmission, by subtracting material thickness
     let diffuse_transmissive_lobe_world_position = in.world_position - vec4<f32>(in.world_normal, 0.0) * thickness;
-
-    let F0 = calculate_F0(output_color.rgb, metallic, reflectance);
-    let F_ab = lighting::F_AB(perceptual_roughness, NdotV);
 
     var direct_light: vec3<f32> = vec3<f32>(0.0);
 
@@ -412,8 +423,8 @@ fn apply_pbr_lighting(
     lighting_input.V = in.V;
     lighting_input.diffuse_color = diffuse_color;
     lighting_input.metallic = metallic;
-    lighting_input.F0_dielectric = calculate_F0_dielectric(reflectance);
-    lighting_input.F0_metallic = output_color.rgb;
+    lighting_input.F0_dielectric = F0_dielectric;
+    lighting_input.F0_metallic = F0_metallic;
     lighting_input.F_ab = F_ab;
 #ifdef STANDARD_MATERIAL_CLEARCOAT
     lighting_input.layers[LAYER_CLEARCOAT].NdotV = clearcoat_NdotV;
@@ -693,7 +704,7 @@ fn apply_pbr_lighting(
     // NdotV = 1.0;
     // F0 = vec3<f32>(0.0)
     // diffuse_occlusion = vec3<f32>(1.0)
-    transmitted_light += ambient::ambient_light(diffuse_transmissive_lobe_world_position, -in.N, -in.V, 1.0, diffuse_transmissive_color, vec3<f32>(0.0), 1.0, vec3<f32>(1.0));
+    transmitted_light += ambient::ambient_light(diffuse_transmissive_lobe_world_position, -in.N, -in.V, 1.0, diffuse_transmissive_color, vec3<f32>(0.0), vec3<f32>(0.0), 0.0, 1.0, vec3<f32>(1.0));
 #endif
 
     // Diffuse indirect lighting can come from a variety of sources. The
@@ -770,7 +781,7 @@ fn apply_pbr_lighting(
     let enable_ambient = true;
 #endif  // LIGHTMAP
     if (enable_ambient) {
-        indirect_light += ambient::ambient_light(in.world_position, in.N, in.V, NdotV, diffuse_color, F0, perceptual_roughness, diffuse_occlusion);
+        indirect_light += ambient::ambient_light(in.world_position, in.N, in.V, NdotV, diffuse_color, F0_dielectric, F0_metallic, metallic, perceptual_roughness, diffuse_occlusion);
     }
 
     // we'll use the specular component of the transmitted environment
@@ -798,8 +809,13 @@ fn apply_pbr_lighting(
         refract(in.V, -in.N, 1.0 / ior) * thickness // add refracted vector scaled by thickness, towards exit point
     ); // normalize to find exit point view vector
 
+    let transmissive_F0_dielectric = vec3<f32>(1.0);
+    let transmissive_F_ab = vec2<f32>(0.1);
+
     var transmissive_environment_light_input: lighting::LightingInput;
-    transmissive_environment_light_input.diffuse_color = vec3(1.0);
+    // Attenuated by the specular layer, same as the main `diffuse_color` above.
+    transmissive_environment_light_input.diffuse_color =
+        vec3(1.0) - lighting::specular_reflectance(transmissive_F0_dielectric, transmissive_F_ab);
     transmissive_environment_light_input.layers[LAYER_BASE].NdotV = 1.0;
     transmissive_environment_light_input.P = in.world_position.xyz;
     transmissive_environment_light_input.layers[LAYER_BASE].N = -in.N;
@@ -808,9 +824,9 @@ fn apply_pbr_lighting(
     transmissive_environment_light_input.layers[LAYER_BASE].perceptual_roughness = perceptual_roughness;
     transmissive_environment_light_input.layers[LAYER_BASE].roughness = roughness;
     transmissive_environment_light_input.metallic = 0.0;
-    transmissive_environment_light_input.F0_dielectric = vec3<f32>(1.0);
+    transmissive_environment_light_input.F0_dielectric = transmissive_F0_dielectric;
     transmissive_environment_light_input.F0_metallic = vec3<f32>(0.0);
-    transmissive_environment_light_input.F_ab = vec2(0.1);
+    transmissive_environment_light_input.F_ab = transmissive_F_ab;
 #ifdef STANDARD_MATERIAL_CLEARCOAT
     // No clearcoat.
     transmissive_environment_light_input.clearcoat_strength = 0.0;
@@ -851,6 +867,7 @@ fn apply_pbr_lighting(
     emissive_light = emissive_light * mix(1.0, view_bindings::view.exposure, emissive.a);
 
 #ifdef STANDARD_MATERIAL_SPECULAR_TRANSMISSION
+    let F0 = calculate_F0(output_color.rgb, metallic, reflectance);
     transmitted_light += transmission::specular_transmissive_light(in.world_position, in.frag_coord.xyz, view_z, in.N, in.V, F0, ior, thickness, perceptual_roughness, specular_transmissive_color, specular_transmitted_environment_light).rgb;
 
     if (in.material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_ATTENUATION_ENABLED_BIT) != 0u

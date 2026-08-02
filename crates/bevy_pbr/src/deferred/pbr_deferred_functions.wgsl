@@ -4,6 +4,7 @@
     pbr_types::{PbrInput, pbr_input_new, STANDARD_MATERIAL_FLAGS_UNLIT_BIT},
     pbr_deferred_types as deferred_types,
     pbr_functions,
+    lighting,
     rgb9e5,
     mesh_view_bindings::view,
     prepass_io::FragmentOutput,
@@ -62,17 +63,22 @@ fn deferred_gbuffer_from_pbr_input(in: PbrInput) -> vec4<u32> {
     }
 
     // Utilize the emissive channel to transmit the lightmap data. To ensure
-    // it matches the output in forward shading, pre-multiply it with the 
+    // it matches the output in forward shading, pre-multiply it with the
     // calculated diffuse color.
     let base_color = in.material.base_color.rgb;
     let metallic = in.material.metallic;
     let specular_transmission = in.material.specular_transmission;
     let diffuse_transmission = in.material.diffuse_transmission;
+    let NdotV = max(dot(in.N, in.V), 0.0001);
+    let F_ab = lighting::F_AB(in.material.perceptual_roughness, NdotV);
+    let F0_dielectric = pbr_functions::calculate_F0_dielectric(in.material.reflectance);
     let diffuse_color = pbr_functions::calculate_diffuse_color(
         base_color,
         metallic,
         specular_transmission,
-        diffuse_transmission
+        diffuse_transmission,
+        F0_dielectric,
+        F_ab
     );
     emissive += in.lightmap_light * diffuse_color * view.exposure;
 

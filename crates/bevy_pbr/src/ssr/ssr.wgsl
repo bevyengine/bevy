@@ -59,9 +59,18 @@ struct BrdfSample {
     value_over_pdf: vec3<f32>,
 }
 
-fn sample_specular_brdf(wo: vec3<f32>, roughness: f32, F0: vec3<f32>, urand: vec2<f32>, N: vec3<f32>) -> BrdfSample {
+fn sample_specular_brdf(
+    wo: vec3<f32>,
+    roughness: f32,
+    F0_dielectric: vec3<f32>,
+    F0_metallic: vec3<f32>,
+    metallic: f32,
+    F_ab: vec2<f32>,
+    urand: vec2<f32>,
+    N: vec3<f32>,
+) -> BrdfSample {
     var brdf_sample: BrdfSample;
-    
+
     // Use VNDF sampling for the half-vector.
     let wi = lighting::sample_visible_ggx(urand, roughness, N, wo);
     let H = normalize(wo + wi);
@@ -69,15 +78,22 @@ fn sample_specular_brdf(wo: vec3<f32>, roughness: f32, F0: vec3<f32>, urand: vec
     let NdotV = max(dot(N, wo), 0.0001);
     let VdotH = max(dot(wo, H), 0.0001);
 
-    let F = lighting::F_Schlick_vec(F0, 1.0, VdotH);
-
     // Height-correlated Smith G2 / G1(V)
     let a2 = roughness * roughness;
     let lambdaV = NdotL * sqrt((NdotV - a2 * NdotV) * NdotV + a2);
     let lambdaL = NdotV * sqrt((NdotL - a2 * NdotL) * NdotL + a2);
+    let G = (NdotV * NdotL + lambdaV) / (lambdaV + lambdaL);
+
+    // Apply the same multiple-scattering energy compensation the environment
+    // map gets, so the two agree where SSR fades in and out. That term is
+    // nonlinear in F0, so evaluate each lobe separately and mix the results.
+    let F_dielectric = lighting::F_Schlick_vec(F0_dielectric, 1.0, VdotH) *
+        lighting::multiscatter_energy_compensation(F0_dielectric, F_ab);
+    let F_metallic = lighting::F_Schlick_vec(F0_metallic, 1.0, VdotH) *
+        lighting::multiscatter_energy_compensation(F0_metallic, F_ab);
 
     brdf_sample.wi = wi;
-    brdf_sample.value_over_pdf = F * (NdotV * NdotL + lambdaV) / (lambdaV + lambdaL);
+    brdf_sample.value_over_pdf = mix(F_dielectric, F_metallic, metallic) * G;
 
     return brdf_sample;
 }
@@ -186,7 +202,12 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let tangent_to_world = orthonormalize(N);
 
     let roughness = lighting::perceptualRoughnessToRoughness(perceptual_roughness);
-    let F0 = pbr_functions::calculate_F0(pbr_input.material.base_color.rgb, pbr_input.material.metallic, pbr_input.material.reflectance);
+    let metallic = pbr_input.material.metallic;
+    let base_color = pbr_input.material.base_color.rgb;
+    let reflectance = pbr_input.material.reflectance;
+    let F0_dielectric = pbr_functions::calculate_F0_dielectric(reflectance);
+    let NdotV = max(dot(N, V), 0.0001);
+    let F_ab = lighting::F_AB(perceptual_roughness, NdotV);
 
     // Get some random numbers. If the spatio-temporal blue noise (STBN) texture
     // is available (i.e. not the 1x1 placeholder), we use it. Otherwise, we
@@ -220,14 +241,18 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     // Sample the BRDF.
     let N_tangent = vec3(0.0, 0.0, 1.0);
     let V_tangent = V * tangent_to_world;
-    
-    let brdf_sample = sample_specular_brdf(V_tangent, roughness, F0, urand, N_tangent);
-    let R_stochastic = tangent_to_world * brdf_sample.wi;
-    let brdf_sample_value_over_pdf = brdf_sample.value_over_pdf;
 
-    // Do the raymarching.
-    let ssr_specular = evaluate_ssr(R_stochastic, world_position, raymarch_jitter);
-    var indirect_light = (ssr_specular.rgb * brdf_sample_value_over_pdf) * fade;
+    let brdf_sample = sample_specular_brdf(
+        V_tangent, roughness, F0_dielectric, base_color, metallic, F_ab, urand, N_tangent);
+
+    // Do the raymarching if the BRDF sample is valid.
+    var ssr_specular = vec4(0.0, 0.0, 0.0, 1.0);
+    var indirect_light = vec3(0.0);
+    if brdf_sample.wi.z > 0.0 {
+        let R_stochastic = tangent_to_world * brdf_sample.wi;
+        ssr_specular = evaluate_ssr(R_stochastic, world_position, raymarch_jitter);
+        indirect_light = (ssr_specular.rgb * brdf_sample.value_over_pdf) * fade;
+    }
 
     // Sample the environment map if necessary.
     //
@@ -236,9 +261,6 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     // TODO: Merge this with the duplicated code in `apply_pbr_lighting`.
 #ifdef ENVIRONMENT_MAP
     // Unpack values required for environment mapping.
-    let base_color = pbr_input.material.base_color.rgb;
-    let metallic = pbr_input.material.metallic;
-    let reflectance = pbr_input.material.reflectance;
     let specular_transmission = pbr_input.material.specular_transmission;
     let diffuse_transmission = pbr_input.material.diffuse_transmission;
 
@@ -259,11 +281,10 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
         base_color,
         metallic,
         specular_transmission,
-        diffuse_transmission
+        diffuse_transmission,
+        F0_dielectric,
+        F_ab
     );
-    let NdotV = max(dot(N, V), 0.0001);
-    let F_ab = lighting::F_AB(perceptual_roughness, NdotV);
-    let F0_dielectric = pbr_functions::calculate_F0_dielectric(reflectance);
 
     // Don't add stochastic noise to hits that sample the prefiltered env map.
     // The prefiltered env map already accounts for roughness.

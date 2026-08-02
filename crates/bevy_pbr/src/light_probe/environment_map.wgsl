@@ -6,7 +6,7 @@
 #import bevy_pbr::mesh_view_types::{
     LIGHT_PROBE_FLAG_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE, LIGHT_PROBE_FLAG_PARALLAX_CORRECT
 }
-#import bevy_pbr::lighting::{F_Schlick_vec, LightingInput, LayerLightingInput, LAYER_BASE, LAYER_CLEARCOAT}
+#import bevy_pbr::lighting::{F_Schlick_vec, LightingInput, LayerLightingInput, LAYER_BASE, LAYER_CLEARCOAT, material_specular_reflectance}
 #import bevy_pbr::clustered_forward::ClusterableObjectIndexRanges
 
 // The maximum representable value in a 32-bit floating point number.
@@ -20,12 +20,6 @@ struct EnvironmentMapLight {
 struct EnvironmentMapRadiances {
     irradiance: vec3<f32>,
     radiance: vec3<f32>,
-}
-
-struct MultiscatterResult {
-    FssEss: vec3<f32>,
-    FmsEms: vec3<f32>,
-    Edss: vec3<f32>,
 }
 
 // Computes the direction at which to sample the reflection probe.
@@ -318,26 +312,7 @@ fn environment_map_light_clearcoat(
     (*out).diffuse *= inv_Fc;
     (*out).specular = (*out).specular * inv_Fc * inv_Fc + clearcoat_radiances.radiance * Fc;
 }
-
 #endif  // STANDARD_MATERIAL_CLEARCOAT
-
-// Multiscattering approximation: https://www.jcgt.org/published/0008/01/03/paper.pdf
-//
-// We initially used this (https://bruop.github.io/ibl) reference with Roughness Dependent
-// Fresnel, but it made fresnel very bright so we reverted to the "typical" fresnel term.
-fn compute_multiscatter(
-    F0: vec3<f32>,
-    F_ab: vec2<f32>,
-    Ems: f32,
-    specular_occlusion: f32,
-) -> MultiscatterResult {
-    let FssEss = (F0 * F_ab.x + F_ab.y) * specular_occlusion;
-    let Favg = F0 + (1.0 - F0) / 21.0;
-    let FmsEms = FssEss * Favg / (1.0 - Ems * Favg) * Ems;
-    let Edss = 1.0 - (FssEss + FmsEms);
-
-    return MultiscatterResult(FssEss, FmsEms, Edss);
-}
 
 fn environment_map_light(
     input: ptr<function, LightingInput>,
@@ -345,10 +320,8 @@ fn environment_map_light(
     found_diffuse_indirect: bool,
 ) -> EnvironmentMapLight {
     // Unpack.
-    let roughness = (*input).layers[LAYER_BASE].roughness;
     let diffuse_color = (*input).diffuse_color;
     let metallic = (*input).metallic;
-    let NdotV = (*input).layers[LAYER_BASE].NdotV;
     let F_ab = (*input).F_ab;
     let F0_dielectric = (*input).F0_dielectric;
     let F0_metallic = (*input).F0_metallic;
@@ -375,24 +348,17 @@ fn environment_map_light(
     let F0_surface = mix(F0_dielectric, F0_metallic, metallic);
     let specular_occlusion = saturate(dot(F0_surface, vec3(50.0 * 0.33)));
 
-    // Compute per-material (dielectric and metallic separately) then mix the results.
-    // We can't use F0 directly as the multiscattering term is nonlinear.
-    let Ems = 1.0 - (F_ab.x + F_ab.y);
-
-    let ms_dielectric = compute_multiscatter(F0_dielectric, F_ab, Ems, specular_occlusion);
-    let ms_metallic = compute_multiscatter(F0_metallic, F_ab, Ems, specular_occlusion);
-
-    let FssEss = mix(ms_dielectric.FssEss, ms_metallic.FssEss, metallic);
-    let FmsEms = mix(ms_dielectric.FmsEms, ms_metallic.FmsEms, metallic);
-    let kD = diffuse_color * ms_dielectric.Edss;
+    let rho_specular = material_specular_reflectance(F0_dielectric, F0_metallic, metallic, F_ab);
 
     if (!found_diffuse_indirect) {
-        out.diffuse = (FmsEms + kD) * radiances.irradiance;
+        // Lambertian diffuse. `diffuse_color` already carries this layer's
+        // energy conservation, applied by `calculate_diffuse_color`.
+        out.diffuse = diffuse_color * radiances.irradiance;
     } else {
         out.diffuse = vec3(0.0);
     }
 
-    out.specular = FssEss * radiances.radiance;
+    out.specular = rho_specular * specular_occlusion * radiances.radiance;
 
 #ifdef STANDARD_MATERIAL_CLEARCOAT
     environment_map_light_clearcoat(
