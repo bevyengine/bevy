@@ -7,45 +7,14 @@ use bevy_platform::sync::Arc;
 
 /// An exclusive system that drives the queued bridge work for `SyncPoint`.
 ///
-/// Every queued bridge request is guaranteed to be *woken*. That wake guarantees the corresponding
-/// async future gets a chance to poll.
-/// It does *not* however guarantee the poll will finish its ECS work, because that
-/// poll may still fail to finish its work for a *variety* of reasons, i.e. it is unable to acquire
-/// the typed [`SystemState`] lock and returns [`Poll::Pending`].
-///
-/// For [`TaskPool::spawn_local`] we *are* actually guaranteed that the poll will finish
-/// its ECS work, because it's single threaded, so you can use [`TaskPool::spawn_local`] if you want
-/// determinism.
-///
-/// This function attempts to tick queued work several times, up to [`AsyncTickBudget`]. If one
-/// internal tick finds no work, we opportunistically tick the local global task pool and try once
-/// more before returning early.
-///
-/// We tick queued work multiple times for two reasons. The first is that serial `.await` calls
-/// should try to all be completed within the same `SyncPoint` such as:
-///
-/// ```rust,ignore
-/// let health = task.run(|health: Single<&Health, With<Player>>| {
-///     health.0
-/// }).await;
-/// if health == 0 {
-///     return;
-/// }
-/// task.run(|commands: Commands| {
-///     commands.trigger(PlayerDoesAttack);
-/// }).await;
-/// ```
-///
-/// The second reason was mentioned earlier: poll may fail to finish for a variety of reasons and
-/// should be given several chances before giving up.
+/// Every queued bridge request will be given access and then woken, one at a time. The
+/// corresponding task will then wake up, complete its ECS work, and then notify this system to
+/// allow it to proceed to the next bridge request.
 ///
 /// The `SyncPoint` is an arbitrary, user-defined type that acts as a "label" for a sync point.
 /// Async tasks must use the same type in [`AsyncSystemState::bridge`] to use this sync point. This
 /// allows bridging to different points in the ECS schedule so the actions apply at correct points.
 ///
-/// [`SystemState`]: bevy_ecs::system::SystemState
-/// [`Poll::Pending`]: core::task::Poll::Pending
-/// [`TaskPool::spawn_local`]: bevy_tasks::TaskPool::spawn_local
 /// [`AsyncSystemState::bridge`]: crate::AsyncSystemState::bridge
 pub fn async_world_sync_point<SyncPoint: 'static>(world: &mut World) {
     // Derive the stable interned system-set key used to look up requests queued
