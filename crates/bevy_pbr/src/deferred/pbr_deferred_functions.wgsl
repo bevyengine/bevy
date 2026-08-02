@@ -62,9 +62,13 @@ fn deferred_gbuffer_from_pbr_input(in: PbrInput) -> vec4<u32> {
         base_color_srgb = pow(in.material.base_color.rgb, vec3(1.0 / 2.2));
     }
 
-    // Utilize the emissive channel to transmit the lightmap data. To ensure
-    // it matches the output in forward shading, pre-multiply it with the
-    // calculated diffuse color.
+    // Utilize the emissive channel to transmit the lightmap data, pre-multiplied
+    // with the calculated diffuse color the way forward shading would.
+    //
+    // `DFG_LUT` is only defined for the main mesh and SSR pipelines, so `F_AB`
+    // resolves to the polynomial approximation here while the lighting pass can
+    // use the LUT. The energy conservation factor inside `calculate_diffuse_color`
+    // therefore differs slightly between the two.
     let base_color = in.material.base_color.rgb;
     let metallic = in.material.metallic;
     let specular_transmission = in.material.specular_transmission;
