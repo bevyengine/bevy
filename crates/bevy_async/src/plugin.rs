@@ -67,7 +67,7 @@ impl AsyncWorld {
     /// static ACCESS_RAN: AtomicBool = AtomicBool::new(false);
     /// fn main() {
     ///   let mut app = App::new();
-    ///   app.add_plugins((AsyncPlugin::default(), ScheduleRunnerPlugin::default(), TaskPoolPlugin::default()));
+    ///   app.add_plugins((AsyncPlugin, ScheduleRunnerPlugin::default(), TaskPoolPlugin::default()));
     ///   app.add_systems(Update, async_world_sync_point::<MySyncPoint>);
     ///   app.add_systems(Startup, move |world: Res<AsyncWorld>| {
     ///       let world = world.clone();

@@ -147,7 +147,7 @@ mod tests {
 
         let mut app = App::new();
         app.add_plugins((
-            AsyncPlugin::default(),
+            AsyncPlugin,
             ScheduleRunnerPlugin::default(),
             TaskPoolPlugin::default(),
         ))
@@ -217,7 +217,7 @@ mod tests {
 
         let mut app = App::new();
         app.add_plugins((
-            AsyncPlugin::default(),
+            AsyncPlugin,
             ScheduleRunnerPlugin::default(),
             TaskPoolPlugin::default(),
         ));
@@ -267,7 +267,7 @@ mod tests {
         other_app.add_plugins((TaskPoolPlugin::default(), ScheduleRunnerPlugin::default()));
         let mut app = App::new();
         app.add_plugins((
-            AsyncPlugin::default(),
+            AsyncPlugin,
             ScheduleRunnerPlugin::default(),
             TaskPoolPlugin::default(),
         ));
