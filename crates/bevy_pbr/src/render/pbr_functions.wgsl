@@ -295,9 +295,12 @@ fn calculate_diffuse_color(
     F0_dielectric: vec3<f32>,
     F_ab: vec2<f32>,
 ) -> vec3<f32> {
+    // `F_ab.x + F_ab.y` can exceed 1 in the polynomial approximation at grazing
+    // angles on smooth surfaces, which would drive the attenuation negative.
+    let specular_layer_transmission =
+        max(vec3(0.0), 1.0 - lighting::specular_reflectance(F0_dielectric, F_ab));
     return base_color * (1.0 - metallic) * (1.0 - specular_transmission) *
-        (1.0 - diffuse_transmission) *
-        (1.0 - lighting::specular_reflectance(F0_dielectric, F_ab));
+        (1.0 - diffuse_transmission) * specular_layer_transmission;
 }
 
 // Remapping [0,1] reflectance to F0 for dielectrics
@@ -426,6 +429,7 @@ fn apply_pbr_lighting(
     lighting_input.F0_dielectric = F0_dielectric;
     lighting_input.F0_metallic = F0_metallic;
     lighting_input.F_ab = F_ab;
+    lighting_input.multiscatter_factor = lighting::compute_multiscatter_factor(F_ab);
 #ifdef STANDARD_MATERIAL_CLEARCOAT
     lighting_input.layers[LAYER_CLEARCOAT].NdotV = clearcoat_NdotV;
     lighting_input.layers[LAYER_CLEARCOAT].N = clearcoat_N;
@@ -455,6 +459,7 @@ fn apply_pbr_lighting(
     transmissive_lighting_input.F0_dielectric = vec3(0.0);
     transmissive_lighting_input.F0_metallic = vec3(0.0);
     transmissive_lighting_input.F_ab = vec2(0.1);
+    transmissive_lighting_input.multiscatter_factor = lighting::compute_multiscatter_factor(vec2(0.1));
 #ifdef STANDARD_MATERIAL_CLEARCOAT
     transmissive_lighting_input.layers[LAYER_CLEARCOAT].NdotV = 0.0;
     transmissive_lighting_input.layers[LAYER_CLEARCOAT].N = vec3(0.0);
@@ -813,9 +818,10 @@ fn apply_pbr_lighting(
     let transmissive_F_ab = vec2<f32>(0.1);
 
     var transmissive_environment_light_input: lighting::LightingInput;
-    // Attenuated by the specular layer, same as the main `diffuse_color` above.
-    transmissive_environment_light_input.diffuse_color =
-        vec3(1.0) - lighting::specular_reflectance(transmissive_F0_dielectric, transmissive_F_ab);
+    // This lobe is transmission through the surface rather than a diffuse layer
+    // sitting beneath a specular one, so it takes the full irradiance. It gets
+    // scaled by `diffuse_transmissive_color` at the use site.
+    transmissive_environment_light_input.diffuse_color = vec3(1.0);
     transmissive_environment_light_input.layers[LAYER_BASE].NdotV = 1.0;
     transmissive_environment_light_input.P = in.world_position.xyz;
     transmissive_environment_light_input.layers[LAYER_BASE].N = -in.N;
@@ -827,6 +833,7 @@ fn apply_pbr_lighting(
     transmissive_environment_light_input.F0_dielectric = transmissive_F0_dielectric;
     transmissive_environment_light_input.F0_metallic = vec3<f32>(0.0);
     transmissive_environment_light_input.F_ab = transmissive_F_ab;
+    transmissive_environment_light_input.multiscatter_factor = lighting::compute_multiscatter_factor(transmissive_F_ab);
 #ifdef STANDARD_MATERIAL_CLEARCOAT
     // No clearcoat.
     transmissive_environment_light_input.clearcoat_strength = 0.0;

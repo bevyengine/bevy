@@ -87,10 +87,11 @@ fn sample_specular_brdf(
     // Apply the same multiple-scattering energy compensation the environment
     // map gets, so the two agree where SSR fades in and out. That term is
     // nonlinear in F0, so evaluate each lobe separately and mix the results.
+    let multiscatter_factor = lighting::compute_multiscatter_factor(F_ab);
     let F_dielectric = lighting::F_Schlick_vec(F0_dielectric, 1.0, VdotH) *
-        lighting::multiscatter_energy_compensation(F0_dielectric, F_ab);
+        lighting::multiscatter_energy_compensation(F0_dielectric, multiscatter_factor);
     let F_metallic = lighting::F_Schlick_vec(F0_metallic, 1.0, VdotH) *
-        lighting::multiscatter_energy_compensation(F0_metallic, F_ab);
+        lighting::multiscatter_energy_compensation(F0_metallic, multiscatter_factor);
 
     brdf_sample.wi = wi;
     brdf_sample.value_over_pdf = mix(F_dielectric, F_metallic, metallic) * G;
@@ -304,6 +305,7 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     lighting_input.F0_dielectric = F0_dielectric;
     lighting_input.F0_metallic = base_color;
     lighting_input.F_ab = F_ab;
+    lighting_input.multiscatter_factor = lighting::compute_multiscatter_factor(F_ab);
 #ifdef STANDARD_MATERIAL_CLEARCOAT
     lighting_input.layers[LAYER_CLEARCOAT].NdotV = clearcoat_NdotV;
     lighting_input.layers[LAYER_CLEARCOAT].N = clearcoat_N;

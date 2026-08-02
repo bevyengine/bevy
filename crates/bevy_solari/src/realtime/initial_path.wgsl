@@ -449,7 +449,7 @@ fn replace_primary_surface(pixel_id: vec2<u32>, ray_hit: ResolvedRayHitFull, mir
 
     textureStore(specular_motion_vectors, pixel_id, vec4(specular_motion_vector, vec2(0.0)));
     textureStore(diffuse_albedo, pixel_id, vec4(calculate_diffuse_color(ray_hit.material.base_color, ray_hit.material.metallic, 0.0, 0.0, F0_dielectric, F_ab), 0.0));
-    textureStore(specular_albedo, pixel_id, vec4(material_specular_reflectance(F0_dielectric, ray_hit.material.base_color, ray_hit.material.metallic, F_ab), 0.0));
+    textureStore(specular_albedo, pixel_id, vec4(material_specular_reflectance(F0_dielectric, ray_hit.material.base_color, ray_hit.material.metallic, F_ab, 1.0), 0.0));
     textureStore(normal_roughness, pixel_id, vec4(virtual_normal, ray_hit.material.perceptual_roughness));
 }
 

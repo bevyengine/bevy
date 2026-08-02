@@ -3,7 +3,7 @@ enable wgpu_ray_query;
 #define_import_path bevy_solari::brdf
 
 #import bevy_core_pipeline::tonemapping::tonemapping_luminance as luminance
-#import bevy_pbr::lighting::{D_GGX, V_SmithGGXCorrelated, specular_multiscatter, material_specular_reflectance}
+#import bevy_pbr::lighting::{D_GGX, V_SmithGGXCorrelated, specular_multiscatter, compute_multiscatter_factor, material_specular_reflectance}
 #import bevy_pbr::pbr_functions::{calculate_F0_dielectric, calculate_diffuse_color}
 #import bevy_pbr::utils::{rand_f, sample_cosine_hemisphere}
 #import bevy_render::maths::{PI, orthonormalize}
@@ -25,7 +25,8 @@ struct LobeReflectances {
 // Hemispherical reflectance of each lobe
 fn lobe_reflectances(F0_metal: vec3<f32>, F0_dielectric: vec3<f32>, material: ResolvedMaterial, F_ab: vec2<f32>) -> LobeReflectances {
     return LobeReflectances(
-        material_specular_reflectance(F0_dielectric, F0_metal, material.metallic, F_ab),
+        // No specular occlusion here, `bevy_solari` does not use it.
+        material_specular_reflectance(F0_dielectric, F0_metal, material.metallic, F_ab, 1.0),
         calculate_diffuse_color(material.base_color, material.metallic, 0.0, 0.0, F0_dielectric, F_ab),
     );
 }
@@ -138,8 +139,9 @@ fn evaluate_specular_brdf(wo: vec3<f32>, wi: vec3<f32>, world_normal: vec3<f32>,
     let Vs = V_SmithGGXCorrelated(material.roughness, NdotV, NdotL);
     let F_metal = fresnel(F0_metal, LdotH);
     let F_dielectric = fresnel(F0_dielectric, LdotH);
-    return mix(specular_multiscatter(D, Vs, F_dielectric, F0_dielectric, F_ab, 1.0),
-               specular_multiscatter(D, Vs, F_metal, F0_metal, F_ab, 1.0),
+    let multiscatter_factor = compute_multiscatter_factor(F_ab);
+    return mix(specular_multiscatter(D, Vs, F_dielectric, F0_dielectric, multiscatter_factor, 1.0),
+               specular_multiscatter(D, Vs, F_metal, F0_metal, multiscatter_factor, 1.0),
                material.metallic) * NdotL;
 }
 

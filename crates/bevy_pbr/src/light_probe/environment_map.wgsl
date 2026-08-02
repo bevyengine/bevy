@@ -6,7 +6,7 @@
 #import bevy_pbr::mesh_view_types::{
     LIGHT_PROBE_FLAG_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE, LIGHT_PROBE_FLAG_PARALLAX_CORRECT
 }
-#import bevy_pbr::lighting::{F_Schlick_vec, LightingInput, LayerLightingInput, LAYER_BASE, LAYER_CLEARCOAT, material_specular_reflectance}
+#import bevy_pbr::lighting::{F_Schlick_vec, LightingInput, LayerLightingInput, LAYER_BASE, LAYER_CLEARCOAT, material_specular_reflectance, dielectric_specular_occlusion}
 #import bevy_pbr::clustered_forward::ClusterableObjectIndexRanges
 
 // The maximum representable value in a 32-bit floating point number.
@@ -342,13 +342,13 @@ fn environment_map_light(
         return out;
     }
 
-    // No real world material has specular values under 0.02, so we use this range as a
-    // "pre-baked specular occlusion" that extinguishes the fresnel term, for artistic control.
-    // See: https://google.github.io/filament/Filament.md.html#specularocclusion
-    let F0_surface = mix(F0_dielectric, F0_metallic, metallic);
-    let specular_occlusion = saturate(dot(F0_surface, vec3(50.0 * 0.33)));
-
-    let rho_specular = material_specular_reflectance(F0_dielectric, F0_metallic, metallic, F_ab);
+    let rho_specular = material_specular_reflectance(
+        F0_dielectric,
+        F0_metallic,
+        metallic,
+        F_ab,
+        dielectric_specular_occlusion(F0_dielectric)
+    );
 
     if (!found_diffuse_indirect) {
         // Lambertian diffuse. `diffuse_color` already carries this layer's
@@ -358,7 +358,7 @@ fn environment_map_light(
         out.diffuse = vec3(0.0);
     }
 
-    out.specular = rho_specular * specular_occlusion * radiances.radiance;
+    out.specular = rho_specular * radiances.radiance;
 
 #ifdef STANDARD_MATERIAL_CLEARCOAT
     environment_map_light_clearcoat(
