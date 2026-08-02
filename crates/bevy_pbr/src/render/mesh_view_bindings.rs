@@ -49,9 +49,7 @@ use crate::{
         },
     },
     environment_map::{self, RenderViewEnvironmentMapBindGroupEntries},
-    irradiance_volume::{
-        self, RenderViewIrradianceVolumeBindGroupEntries, IRRADIANCE_VOLUMES_ARE_USABLE,
-    },
+    irradiance_volume::{self, RenderViewIrradianceVolumeBindGroupEntries},
     prepass,
     resources::{AtmosphereBuffer, AtmosphereSampler, AtmosphereTextures, GpuAtmosphere},
     Bluenoise, ExtractedAtmosphere, FogMeta, GlobalClusterableObjectMeta, GpuClusteredLights,
@@ -498,12 +496,10 @@ fn layout_entries(
 
     if layout_key.contains(MeshPipelineViewLayoutKey::IRRADIANCE_VOLUME) {
         // Irradiance volumes
-        if IRRADIANCE_VOLUMES_ARE_USABLE {
-            binding_array_entries = binding_array_entries.extend_with_indices((
-                (3, irradiance_volume_entries[0]),
-                (4, irradiance_volume_entries[1]),
-            ));
-        }
+        binding_array_entries = binding_array_entries.extend_with_indices((
+            (3, irradiance_volume_entries[0]),
+            (4, irradiance_volume_entries[1]),
+        ));
     }
 
     // Clustered decals
@@ -943,20 +939,19 @@ pub fn prepare_mesh_view_bind_groups(
                 None => {}
             }
 
-            let irradiance_volume_bind_group_entries =
-                if render_view_irradiance_volumes.is_some() && IRRADIANCE_VOLUMES_ARE_USABLE {
-                    layout_key |= MeshPipelineViewLayoutKey::IRRADIANCE_VOLUME;
+            let irradiance_volume_bind_group_entries = if render_view_irradiance_volumes.is_some() {
+                layout_key |= MeshPipelineViewLayoutKey::IRRADIANCE_VOLUME;
 
-                    Some(RenderViewIrradianceVolumeBindGroupEntries::get(
-                        render_view_irradiance_volumes,
-                        &images,
-                        &fallback_image,
-                        &render_device,
-                        &render_adapter,
-                    ))
-                } else {
-                    None
-                };
+                Some(RenderViewIrradianceVolumeBindGroupEntries::get(
+                    render_view_irradiance_volumes,
+                    &images,
+                    &fallback_image,
+                    &render_device,
+                    &render_adapter,
+                ))
+            } else {
+                None
+            };
 
             match irradiance_volume_bind_group_entries {
                 Some(RenderViewIrradianceVolumeBindGroupEntries::Single {

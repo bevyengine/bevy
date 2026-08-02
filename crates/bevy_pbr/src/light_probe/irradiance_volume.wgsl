@@ -13,8 +13,6 @@
 #import bevy_pbr::mesh_view_types::LIGHT_PROBE_FLAG_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE;
 #endif
 
-#ifdef IRRADIANCE_VOLUMES_ARE_USABLE
-
 // See:
 // https://advances.realtimerendering.com/s2006/Mitchell-ShadingInValvesSourceEngine.pdf
 // Slide 28, "Ambient Cube Basis"
@@ -90,5 +88,3 @@ fn irradiance_volume_light(
 
     return total_irradiance;
 }
-
-#endif  // IRRADIANCE_VOLUMES_ARE_USABLE
