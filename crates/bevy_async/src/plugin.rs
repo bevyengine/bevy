@@ -10,8 +10,6 @@ use bevy_platform::sync::{Arc, Weak};
 /// driven from a known `SyncPoint` on the world-owning thread.
 ///
 /// This supports arbitrary async runtimes as well as multiple Bevy Worlds / Bevy Apps.
-///
-/// To configure how "aggressively" sync points drive work, see [`AsyncTickBudget`].
 #[derive(Default)]
 pub struct AsyncPlugin;
 
