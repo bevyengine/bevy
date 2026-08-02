@@ -4718,7 +4718,7 @@ mod tests {
 
         // Spawn a world with a couple of tables.
         let mut world = World::new();
-        for id in 0..100 {
+        for _ in 0..100 {
             world.spawn((C, S));
         }
 
