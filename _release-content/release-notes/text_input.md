@@ -1,30 +1,15 @@
 ---
-title: "Text input"
-authors: ["@ickshonpe", "@Zeophlite", "@alice-i-cecile"]
-pull_requests: [23282, 23455, 23475, 23479]
+title: "TextInput"
+authors: ["@viridia"]
+pull_requests: []
 ---
 
-Entering text into an application is a common task, even for games.
-Player names, search bars and chat all rely on the ability to enter and submit plain text.
+The `EditableText` component has been split into two components, which are now `EditableText`
+and `TextInput`. The `EditableText` component, which lives in the `bevy::text` crate, holds the
+state of a text input field, but no longer has any built-in observers - that is, it does not
+behave like a widget (headless or otherwise), but merely a holder of state.
 
-In Bevy 0.19, we've added basic support for text entry, in the form of the `EditableText` widget.
-Spawning an entity with this component will create a simple unstyled rectangle of editable text.
-Our initial text entry supports:
-
-- Press keys on your keyboard, get text (wow!).
-- Navigation using the arrow keys and standard keyboard shortcuts.
-- Selection rectangles (hold shift).
-- Backspace and Delete, both for single characters and words.
-- Pointer support, click to place the cursor and drag to extend selection.
-- Unicode-aware navigation and editing: 1 byte/char != 1 character.
-- Bidirectional text support, allowing both left-to-right and right-to-left scripts.
-- Placeholder clipboard implementation using a `Clipboard` resource. It can't access the OS clipboard, but allows local copy, cut and paste actions to be used inside a bevy app.
-
-`EditableText` integrates with Bevy's `InputFocus` resource, accepting keyboard inputs only when the selected
-`EditableText` entity is focused.
-
-The event `TextEditChange` is emitted *after* changes have been applied to the `EditableText`.
-
-Many important features are currently unimplemented (placeholder text, clipboard support, undo-redo...).
-While we've been careful to expose and document the internals so that you can readily implement these features in your own projects,
-we would like to continue to expand the functionality of the base widget: please consider making a PR!
+All of the widget-like behaviors (responding to keystrokes) have been moved to a new `TextInput`
+component which lives in the `bevy::ui_widgets` crate. Not only is the arrangement more consistent
+with the other widgets, but in addition this new component also has properties which are only
+interesting to widgets, like a "read-only" option.

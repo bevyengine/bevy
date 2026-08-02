@@ -79,11 +79,11 @@ impl From<ContactShadows> for ContactShadowsUniform {
     }
 }
 
-impl SyncComponent for ContactShadows {
+impl SyncComponent<RenderApp> for ContactShadows {
     type Target = (Self, ViewContactShadowsUniformOffset);
 }
 
-impl ExtractComponent for ContactShadows {
+impl ExtractComponent<RenderApp> for ContactShadows {
     type QueryData = &'static ContactShadows;
     type QueryFilter = ();
     type Out = Self;

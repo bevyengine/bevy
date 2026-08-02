@@ -3,7 +3,7 @@
 use log::warn;
 
 use crate::{
-    component::{Component, ComponentId, Mutable},
+    component::{Component, ComponentId},
     entity::Entity,
     lifecycle::HookContext,
     storage::SparseArray,
@@ -84,7 +84,7 @@ use bevy_platform::cell::SyncUnsafeCell;
     label = "invalid `Resource`",
     note = "consider annotating `{Self}` with `#[derive(Resource)]`"
 )]
-pub trait Resource: Component<Mutability = Mutable> {}
+pub trait Resource: Component {}
 
 /// A cache that links each `ComponentId` from a resource to the corresponding entity.
 #[derive(Default)]
@@ -167,8 +167,8 @@ impl IsResource {
                     .components()
                     .get_name(resource_component_id)
                     .expect("resource is registered");
-                warn!("Tried inserting the resource {} while one already exists.
-                Resources are unique components stored on a single entity.
+                warn!("Tried inserting the resource {} while one already exists. \
+                Resources are unique components stored on a single entity. \
                 Inserting on a different entity, when one already exists, causes the new value to be removed.", name);
             }
         } else {
@@ -215,14 +215,18 @@ pub const IS_RESOURCE: ComponentId = ComponentId::new(crate::component::IS_RESOU
 
 #[cfg(test)]
 mod tests {
+    use core::sync::atomic::{AtomicBool, Ordering::Relaxed};
+
     use crate::{
         change_detection::MaybeLocation,
         entity::Entity,
+        lifecycle::HookContext,
         ptr::OwningPtr,
         resource::{IsResource, Resource},
-        world::World,
+        world::{DeferredWorld, World},
     };
     use alloc::vec::Vec;
+    use bevy_ecs_macros::Component;
     use bevy_platform::prelude::String;
 
     #[test]
@@ -246,7 +250,7 @@ mod tests {
         assert_eq!(world.entities().count_spawned(), start + 2);
         // like component registration, which just makes it known to the world that a component exists,
         // registering a resource should not spawn an entity.
-        let id3 = world.register_resource::<TestResource3>();
+        let id3 = world.register_component::<TestResource3>();
         assert_eq!(world.entities().count_spawned(), start + 2);
         OwningPtr::make(20_u8, |ptr| {
             // SAFETY: id was just initialized and corresponds to a resource.
@@ -326,5 +330,46 @@ mod tests {
         assert!(world.entity(id).get::<IsResource>().is_none());
         assert!(world.entity(second_entity).get::<TestResource>().is_some());
         assert!(world.entity(second_entity).get::<IsResource>().is_some());
+    }
+
+    #[test]
+    fn derive_resource_component_features() {
+        static ON_ADD_CALLED: AtomicBool = AtomicBool::new(false);
+
+        #[derive(Resource)]
+        #[component(immutable, on_add)]
+        struct TestResource;
+        impl TestResource {
+            fn on_add(_: DeferredWorld, _: HookContext) {
+                ON_ADD_CALLED.store(true, Relaxed);
+            }
+        }
+
+        let mut world = World::new();
+        world.insert_resource(TestResource);
+
+        assert!(ON_ADD_CALLED.load(Relaxed));
+        assert!(world.get_resource::<TestResource>().is_some());
+    }
+
+    #[test]
+    fn derive_resource_require_features() {
+        #[derive(Component, Default)]
+        struct RequiredComponent;
+
+        #[derive(Resource)]
+        #[require(RequiredComponent)]
+        struct TestResource;
+
+        let mut world = World::new();
+        world.insert_resource(TestResource);
+
+        assert_eq!(
+            world
+                .query::<(&TestResource, &RequiredComponent)>()
+                .iter(&world)
+                .count(),
+            1
+        );
     }
 }

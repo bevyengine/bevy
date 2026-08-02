@@ -24,7 +24,7 @@ use bevy_utils::default;
 
 mod node;
 
-pub(crate) use node::fxaa;
+pub use node::fxaa;
 
 #[derive(Debug, Reflect, Eq, PartialEq, Hash, Clone, Copy)]
 #[reflect(PartialEq, Hash, Clone)]
@@ -54,6 +54,7 @@ impl Sensitivity {
 #[reflect(Component, Default, Clone)]
 #[extract_component_filter(With<Camera>)]
 #[doc(alias = "FastApproximateAntiAliasing")]
+#[extract_app(RenderApp)]
 pub struct Fxaa {
     /// Enable render passes for FXAA.
     pub enabled: bool,

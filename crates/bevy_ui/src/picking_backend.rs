@@ -294,5 +294,8 @@ fn pick_ui_text_section(
         .iter()
         .find(|run| run.bounds.contains(local_point))
         .map(|run| run.section_index)?;
-    text_block.entities().get(section_index).map(|e| e.entity)
+    text_block
+        .entities()
+        .get(section_index as usize)
+        .map(|e| e.entity)
 }

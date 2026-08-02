@@ -3,10 +3,8 @@ use bevy_image::Image;
 
 use gltf::Material;
 
-use serde_json::Value;
-
 #[cfg(feature = "pbr_specular_textures")]
-use {crate::loader::gltf_ext::material::parse_material_extension_texture, bevy_mesh::UvChannel};
+use {crate::loader::gltf_ext::material::uv_channel, bevy_mesh::UvChannel};
 
 /// Parsed data from the `KHR_materials_specular` extension.
 ///
@@ -24,18 +22,34 @@ use {crate::loader::gltf_ext::material::parse_material_extension_texture, bevy_m
 ///
 /// See the specification:
 /// <https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_materials_specular/README.md>
-#[derive(Default)]
 pub(crate) struct SpecularExtension {
-    pub(crate) specular_factor: Option<f64>,
+    pub(crate) specular_factor: f32,
     #[cfg(feature = "pbr_specular_textures")]
     pub(crate) specular_channel: UvChannel,
     #[cfg(feature = "pbr_specular_textures")]
     pub(crate) specular_texture: Option<Handle<Image>>,
-    pub(crate) specular_color_factor: Option<[f64; 3]>,
+    pub(crate) specular_color_factor: [f32; 3],
     #[cfg(feature = "pbr_specular_textures")]
     pub(crate) specular_color_channel: UvChannel,
     #[cfg(feature = "pbr_specular_textures")]
     pub(crate) specular_color_texture: Option<Handle<Image>>,
+}
+
+impl Default for SpecularExtension {
+    fn default() -> Self {
+        Self {
+            specular_factor: 1.0,
+            #[cfg(feature = "pbr_specular_textures")]
+            specular_channel: UvChannel::default(),
+            #[cfg(feature = "pbr_specular_textures")]
+            specular_texture: None,
+            specular_color_factor: [1.0, 1.0, 1.0],
+            #[cfg(feature = "pbr_specular_textures")]
+            specular_color_channel: UvChannel::default(),
+            #[cfg(feature = "pbr_specular_textures")]
+            specular_color_texture: None,
+        }
+    }
 }
 
 impl SpecularExtension {
@@ -52,51 +66,41 @@ impl SpecularExtension {
         textures: &[Handle<Image>],
         asset_path: AssetPath<'_>,
     ) -> Option<Self> {
-        let extension = material
-            .extensions()?
-            .get("KHR_materials_specular")?
-            .as_object()?;
+        let specular = material.specular()?;
 
         #[cfg(feature = "pbr_specular_textures")]
-        let (_specular_channel, _specular_texture) = parse_material_extension_texture(
-            material,
-            extension,
-            "specularTexture",
-            "specular",
-            textures,
-            asset_path.clone(),
-        );
+        let _specular_channel = specular
+            .specular_texture()
+            .map(|info| uv_channel(material, "specular", info.tex_coord()))
+            .unwrap_or_default();
+        #[cfg(feature = "pbr_specular_textures")]
+        let _specular_texture = specular.specular_texture().map(|info| {
+            textures
+                .get(info.texture().index())
+                .cloned()
+                .unwrap_or_default()
+        });
 
         #[cfg(feature = "pbr_specular_textures")]
-        let (_specular_color_channel, _specular_color_texture) = parse_material_extension_texture(
-            material,
-            extension,
-            "specularColorTexture",
-            "specular color",
-            textures,
-            asset_path,
-        );
+        let _specular_color_channel = specular
+            .specular_color_texture()
+            .map(|info| uv_channel(material, "specular color", info.tex_coord()))
+            .unwrap_or_default();
+        #[cfg(feature = "pbr_specular_textures")]
+        let _specular_color_texture = specular.specular_color_texture().map(|info| {
+            textures
+                .get(info.texture().index())
+                .cloned()
+                .unwrap_or_default()
+        });
 
         Some(SpecularExtension {
-            specular_factor: extension.get("specularFactor").and_then(Value::as_f64),
+            specular_factor: specular.specular_factor(),
             #[cfg(feature = "pbr_specular_textures")]
             specular_channel: _specular_channel,
             #[cfg(feature = "pbr_specular_textures")]
             specular_texture: _specular_texture,
-            specular_color_factor: extension
-                .get("specularColorFactor")
-                .and_then(Value::as_array)
-                .and_then(|json_array| {
-                    if json_array.len() < 3 {
-                        None
-                    } else {
-                        Some([
-                            json_array[0].as_f64()?,
-                            json_array[1].as_f64()?,
-                            json_array[2].as_f64()?,
-                        ])
-                    }
-                }),
+            specular_color_factor: specular.specular_color_factor(),
             #[cfg(feature = "pbr_specular_textures")]
             specular_color_channel: _specular_color_channel,
             #[cfg(feature = "pbr_specular_textures")]

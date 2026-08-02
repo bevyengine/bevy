@@ -1,8 +1,12 @@
-use bevy_app::Plugin;
+use core::marker::PhantomData;
+
+use bevy_app::{AppLabel, Plugin};
 use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::entity::hash_map::EntityEquivalentHashMap;
+use bevy_ecs::entity::hash_set::EntityEquivalentHashSet;
 use bevy_ecs::{
     component::Component,
-    entity::{ContainsEntity, Entity, EntityEquivalent, EntityHash},
+    entity::{ContainsEntity, Entity, EntityEquivalent},
     lifecycle::{Add, Remove},
     observer::On,
     query::With,
@@ -11,7 +15,6 @@ use bevy_ecs::{
     system::{Local, Query, ResMut, SystemState},
     world::{EntityWorldMut, Mut, World},
 };
-use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 /// A plugin that synchronizes entities with [`SyncToRenderWorld`] between the main world and the render world.
@@ -181,15 +184,23 @@ impl ContainsEntity for MainEntity {
 unsafe impl EntityEquivalent for MainEntity {}
 
 /// A [`HashMap`] pre-configured to use [`EntityHash`] hashing with a [`MainEntity`].
-pub type MainEntityHashMap<V> = HashMap<MainEntity, V, EntityHash>;
+///
+/// [`HashMap`]: `bevy_ecs::entity::hash_map::EntityEquivalentHashMap`
+/// [`EntityHash`]: `bevy_ecs::entity::EntityHash`
+pub type MainEntityHashMap<V> = EntityEquivalentHashMap<MainEntity, V>;
 
-/// A [`HashSet`] pre-configured to use [`EntityHash`] hashing with a [`MainEntity`]..
-pub type MainEntityHashSet = HashSet<MainEntity, EntityHash>;
+/// A [`HashSet`] pre-configured to use [`EntityHash`] hashing with a [`MainEntity`].
+///
+/// [`HashSet`]: `bevy_ecs::entity::hash_set::EntityEquivalentHashSet`
+/// [`EntityHash`]: `bevy_ecs::entity::EntityHash`
+pub type MainEntityHashSet = EntityEquivalentHashSet<MainEntity>;
 
 /// Marker component that indicates that its entity needs to be despawned at the end of the frame.
 #[derive(Component, Copy, Clone, Debug, Default, Reflect)]
 #[reflect(Component, Default, Clone)]
-pub struct TemporaryRenderEntity;
+pub struct TemporaryEntity<L: AppLabel + Clone + Eq + Copy + Default>(PhantomData<L>);
+
+pub type TemporaryRenderEntity = TemporaryEntity<crate::RenderApp>;
 
 /// A record enum to what entities with [`SyncToRenderWorld`] have been added or removed.
 #[derive(Debug)]
@@ -248,9 +259,9 @@ pub(crate) fn entity_sync_system(main_world: &mut World, render_world: &mut Worl
     });
 }
 
-pub(crate) fn despawn_temporary_render_entities(
+pub(crate) fn despawn_temporary_entities<L: AppLabel + Copy + Default + Eq>(
     world: &mut World,
-    state: &mut SystemState<Query<Entity, With<TemporaryRenderEntity>>>,
+    state: &mut SystemState<Query<Entity, With<TemporaryEntity<L>>>>,
     mut local: Local<Vec<Entity>>,
 ) {
     let query = state.get(world).unwrap();
@@ -277,8 +288,8 @@ mod render_entities_world_query_impls {
         component::{ComponentId, Components},
         entity::Entity,
         query::{
-            ArchetypeQueryData, FilteredAccess, IterQueryData, QueryData, ReadOnlyQueryData,
-            ReleaseStateQueryData, SingleEntityQueryData, WorldQuery,
+            ArchetypeQueryData, FilteredAccess, FilteredAccessSet, IterQueryData, QueryData,
+            ReadOnlyQueryData, ReleaseStateQueryData, SingleEntityQueryData, WorldQuery,
         },
         storage::{Table, TableRow},
         world::{unsafe_world_cell::UnsafeWorldCell, World},
@@ -338,6 +349,14 @@ mod render_entities_world_query_impls {
             <&RenderEntity as WorldQuery>::update_component_access(&component_id, access);
         }
 
+        fn init_nested_access(
+            _state: &Self::State,
+            _system_name: Option<&str>,
+            _component_access_set: &mut FilteredAccessSet,
+            _world: UnsafeWorldCell,
+        ) {
+        }
+
         fn init_state(world: &mut World) -> ComponentId {
             <&RenderEntity as WorldQuery>::init_state(world)
         }
@@ -352,6 +371,8 @@ mod render_entities_world_query_impls {
         ) -> bool {
             <&RenderEntity as WorldQuery>::matches_component_set(&state, set_contains_id)
         }
+
+        fn update_archetypes(_state: &mut Self::State, _world: UnsafeWorldCell) {}
     }
 
     // SAFETY: Component access of Self::ReadOnly is a subset of Self.
@@ -459,6 +480,14 @@ mod render_entities_world_query_impls {
             <&MainEntity as WorldQuery>::update_component_access(&component_id, access);
         }
 
+        fn init_nested_access(
+            _state: &Self::State,
+            _system_name: Option<&str>,
+            _component_access_set: &mut FilteredAccessSet,
+            _world: UnsafeWorldCell,
+        ) {
+        }
+
         fn init_state(world: &mut World) -> ComponentId {
             <&MainEntity as WorldQuery>::init_state(world)
         }
@@ -473,6 +502,8 @@ mod render_entities_world_query_impls {
         ) -> bool {
             <&MainEntity as WorldQuery>::matches_component_set(&state, set_contains_id)
         }
+
+        fn update_archetypes(_state: &mut Self::State, _world: UnsafeWorldCell) {}
     }
 
     // SAFETY: Component access of Self::ReadOnly is a subset of Self.

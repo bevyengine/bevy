@@ -34,7 +34,7 @@ use prelude::AnimationCurveEvaluator;
 
 use crate::{
     graph::{AnimationGraphHandle, ThreadedAnimationGraphs},
-    prelude::EvaluatorId,
+    prelude::{AnimatableProperty, EvaluatorId},
 };
 
 use bevy_app::{AnimationSystems, App, Plugin, PostUpdate};
@@ -45,7 +45,7 @@ use bevy_platform::{collections::HashMap, hash::NoOpHash};
 use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
 use bevy_time::Time;
 use bevy_transform::TransformSystems;
-use bevy_utils::{PreHashMap, PreHashMapExt, TypeIdMap};
+use bevy_utils::{PreHashMap, PreHashMapExt, TypeIdHashMap};
 use serde::{Deserialize, Serialize};
 use thread_local::ThreadLocal;
 use tracing::{trace, warn};
@@ -353,6 +353,49 @@ impl AnimationClip {
         );
     }
 
+    /// Samples an [`AnimatableProperty`] of a specific [`AnimationTargetId`].
+    ///
+    /// See [`crate::morph::WeightsCurveSample`] if you want to sample [`crate::morph::WeightsCurve`].
+    ///
+    /// # Examples
+    /// ```
+    /// # use bevy_animation::prelude::*;
+    /// # use bevy_animation::{animated_field, AnimationTargetId};
+    /// #
+    /// # use bevy_ecs::prelude::Name;
+    /// # use bevy_math::Vec3;
+    /// # use bevy_transform::components::Transform;
+    /// let mut clip = AnimationClip::default();
+    /// let animatable_curve = AnimatableCurve::new(
+    ///     animated_field!(Transform::translation),
+    ///     AnimatableKeyframeCurve::new([
+    ///         (0.0, Vec3::new(0., 0., 1.)),
+    ///         (1.0, Vec3::new(1., 0., 0.)),
+    ///     ])
+    ///     .expect("Failed to create power level curve"),
+    /// );
+    /// let target_1 = AnimationTargetId::from_name(&Name::new("Target 1"));
+    /// clip.add_curve_to_target(target_1, animatable_curve);
+    /// let value = clip.sample_clamped(animated_field!(Transform::translation), target_1, 1.0);
+    /// assert_eq!(value, Some(Vec3::new(1., 0., 0.)));
+    /// ```
+    pub fn sample_clamped<P: AnimatableProperty>(
+        &self,
+        animatable_property: P,
+        target: AnimationTargetId,
+        time: f32,
+    ) -> Option<P::Property> {
+        let curves = self.curves_for_target(target)?;
+        for curve in curves {
+            if curve.0.evaluator_id() == animatable_property.evaluator_id()
+                && let Ok(sample) = curve.0.sample_clamped(time).downcast::<P::Property>()
+            {
+                return Some(*sample);
+            }
+        }
+        None
+    }
+
     /// Add an event function with no [`AnimationTargetId`] to this [`AnimationClip`].
     ///
     /// The `func` will trigger on the [`AnimationPlayer`] entity once the `time` (in seconds)
@@ -534,10 +577,13 @@ impl ActiveAnimation {
         if over_time || under_time {
             self.just_completed = true;
             self.completions += 1;
-
-            if self.is_finished() {
-                return;
-            }
+        }
+        if clip_duration == 0.0 {
+            self.seek_time = 0.0;
+            return;
+        }
+        if self.is_finished() {
+            return;
         }
         if self.seek_time >= clip_duration {
             self.seek_time %= clip_duration;
@@ -628,6 +674,16 @@ impl ActiveAnimation {
     /// Returns the amount of time the animation has been playing.
     pub fn elapsed(&self) -> f32 {
         self.elapsed
+    }
+
+    /// Returns the last seek time of the animation.
+    pub fn last_seek_time(&self) -> Option<f32> {
+        self.last_seek_time
+    }
+
+    /// Returns true if the animation was completed at least once this tick.
+    pub fn just_completed(&self) -> bool {
+        self.just_completed
     }
 
     /// Returns the seek time of the animation.
@@ -722,7 +778,7 @@ pub struct AnimationEvaluationState {
 struct AnimationCurveEvaluators {
     component_property_curve_evaluators:
         PreHashMap<(TypeId, usize), Box<dyn AnimationCurveEvaluator>>,
-    type_id_curve_evaluators: TypeIdMap<Box<dyn AnimationCurveEvaluator>>,
+    type_id_curve_evaluators: TypeIdHashMap<Box<dyn AnimationCurveEvaluator>>,
 }
 
 impl AnimationCurveEvaluators {
@@ -748,10 +804,10 @@ impl AnimationCurveEvaluators {
                 .component_property_curve_evaluators
                 .get_or_insert_with(component_property, func),
             EvaluatorId::Type(type_id) => match self.type_id_curve_evaluators.entry(type_id) {
-                bevy_utils::TypeIdMapEntry::Occupied(occupied_entry) => {
+                bevy_utils::TypeIdHashMapEntry::Occupied(occupied_entry) => {
                     &mut **occupied_entry.into_mut()
                 }
-                bevy_utils::TypeIdMapEntry::Vacant(vacant_entry) => {
+                bevy_utils::TypeIdHashMapEntry::Vacant(vacant_entry) => {
                     &mut **vacant_entry.insert(func())
                 }
             },
@@ -762,7 +818,7 @@ impl AnimationCurveEvaluators {
 #[derive(Default)]
 struct CurrentEvaluators {
     component_properties: PreHashMap<(TypeId, usize), ()>,
-    type_ids: TypeIdMap<()>,
+    type_ids: TypeIdHashMap<()>,
 }
 
 impl CurrentEvaluators {
@@ -781,7 +837,7 @@ impl CurrentEvaluators {
             (visit)(EvaluatorId::ComponentField(&key))?;
         }
 
-        for (key, _) in self.type_ids.drain(..) {
+        for (key, _) in self.type_ids.drain() {
             (visit)(EvaluatorId::Type(key))?;
         }
 
@@ -1516,8 +1572,13 @@ impl<'a> Iterator for TriggeredEventsIter<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate as bevy_animation;
+    use crate::{
+        self as bevy_animation,
+        prelude::{AnimatableCurve, AnimatableKeyframeCurve},
+    };
+    use bevy_math::Vec3;
     use bevy_reflect::map::{DynamicMap, Map};
+    use bevy_transform::components::Transform;
 
     use super::*;
 
@@ -1651,6 +1712,84 @@ mod tests {
         assert_triggered_events_with(&active_animation, &clip, [0.3, 0.2]);
     }
 
+    mod active_animation_duration_zero {
+        use super::*;
+
+        #[test]
+        fn test_events_triggers() {
+            let mut active_animation = ActiveAnimation::default();
+            let mut clip = AnimationClip::default();
+            clip.add_event(0.0, A);
+            assert_eq!(0.0, clip.duration);
+
+            assert_triggered_events_with(&active_animation, &clip, []);
+            active_animation.update(0.1, clip.duration);
+            assert_triggered_events_with(&active_animation, &clip, [0.0]);
+            active_animation.update(0.1, clip.duration);
+            assert_triggered_events_with(&active_animation, &clip, []);
+            assert_eq!(0.0, active_animation.seek_time);
+
+            active_animation = ActiveAnimation {
+                speed: -1.0,
+                ..Default::default()
+            };
+            assert_triggered_events_with(&active_animation, &clip, []);
+            active_animation.update(0.1, clip.duration);
+            assert_triggered_events_with(&active_animation, &clip, [0.0]);
+            active_animation.update(0.1, clip.duration);
+            assert_triggered_events_with(&active_animation, &clip, []);
+            assert_eq!(0.0, active_animation.seek_time);
+        }
+
+        #[test]
+        fn test_events_triggers_looping() {
+            let mut active_animation = ActiveAnimation {
+                repeat: RepeatAnimation::Forever,
+                ..Default::default()
+            };
+            let mut clip = AnimationClip::default();
+            clip.add_event(0.0, A);
+            assert_eq!(0.0, clip.duration);
+
+            assert_triggered_events_with(&active_animation, &clip, []);
+            active_animation.update(0.1, clip.duration);
+            assert_triggered_events_with(&active_animation, &clip, [0.0]);
+            active_animation.update(0.1, clip.duration);
+            assert_triggered_events_with(&active_animation, &clip, [0.0]);
+            assert_eq!(0.0, active_animation.seek_time);
+
+            active_animation = ActiveAnimation {
+                repeat: RepeatAnimation::Forever,
+                speed: -1.0,
+                ..Default::default()
+            };
+            assert_triggered_events_with(&active_animation, &clip, []);
+            active_animation.update(0.1, clip.duration);
+            assert_triggered_events_with(&active_animation, &clip, [0.0]);
+            active_animation.update(0.1, clip.duration);
+            assert_triggered_events_with(&active_animation, &clip, [0.0]);
+            assert_eq!(0.0, active_animation.seek_time);
+        }
+
+        #[test]
+        fn test_events_triggers_looping_after_seek_to() {
+            let mut active_animation = ActiveAnimation {
+                repeat: RepeatAnimation::Forever,
+                ..Default::default()
+            };
+            let mut clip = AnimationClip::default();
+            clip.add_event(0.0, A);
+
+            active_animation.seek_to(11.0); // 0.0 : 11.0
+            assert_triggered_events_with(&active_animation, &clip, [0.0]);
+            active_animation.update(0.1, clip.duration); // 11.0 : 0.0
+            assert_triggered_events_with(&active_animation, &clip, []);
+            active_animation.update(0.1, clip.duration); // 0.0 : 0.0
+            assert_triggered_events_with(&active_animation, &clip, [0.0]);
+            assert_eq!(0.0, active_animation.seek_time);
+        }
+    }
+
     #[test]
     fn test_animation_node_index_as_key_of_dynamic_map() {
         let mut map = DynamicMap::default();
@@ -1698,8 +1837,30 @@ mod tests {
                 AnimationTargetId::from_names(name_path.iter()),
                 "{:?} {:?}",
                 str_path,
-                &name_path
+                name_path
             );
         }
+    }
+
+    #[test]
+    fn test_sample_at_time() {
+        let mut clip = AnimationClip::default();
+        let animatable_curve = AnimatableCurve::new(
+            animated_field!(Transform::translation),
+            AnimatableKeyframeCurve::new([
+                (0.0, Vec3::new(0., 0., 1.)),
+                (1.0, Vec3::new(1., 0., 0.)),
+            ])
+            .expect("Failed to create power level curve"),
+        );
+        let target_1 = AnimationTargetId::from_name(&Name::new("Target 1"));
+        let target_2 = AnimationTargetId::from_name(&Name::new("Target 2"));
+        clip.add_curve_to_target(target_1, animatable_curve);
+        let value = clip.sample_clamped(animated_field!(Transform::translation), target_1, 1.0);
+        assert_eq!(value, Some(Vec3::new(1., 0., 0.)));
+        let value = clip.sample_clamped(animated_field!(Transform::scale), target_1, 1.0);
+        assert_eq!(value, None);
+        let value = clip.sample_clamped(animated_field!(Transform::translation), target_2, 1.0);
+        assert_eq!(value, None);
     }
 }

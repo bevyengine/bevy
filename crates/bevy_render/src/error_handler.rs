@@ -1,4 +1,5 @@
 use alloc::sync::Arc;
+use bevy_app::AppExit;
 use bevy_ecs::{
     resource::Resource,
     world::{Mut, World},
@@ -19,6 +20,11 @@ use crate::{
 pub enum RenderErrorPolicy {
     /// Pretends nothing happened and continues rendering.
     /// This discards the error after logging it to console.
+    /// WARNING: Using this policy could cause hazardous rapid flashing
+    /// if the conditions causing the error remain unaddressed, since
+    /// rendering will attempt to continue executing.
+    /// When choosing to use this policy, be sure to test that the application
+    /// remains safe to use.
     Ignore,
     /// Keeps the app alive, but stops rendering further.
     /// This keeps the error state, and will continue polling the [`RenderErrorHandler`]
@@ -32,9 +38,11 @@ pub enum RenderErrorPolicy {
 ///
 /// The handler has access to both the main world and the render world in that order.
 /// By the time this is invoked, the error has already been logged. The error is provided
-/// for the decision-making reason of how to appropriately respond to it. Not all errors
-/// are equally severe: validation errors may be ignored for example, while device lost errors
-/// require recovery to continue rendering.
+/// for the decision-making reason of how to appropriately respond to it.
+///
+/// Note that failing to address the source of an error and continuing to render may cause rapid flashing.
+/// Be sure to thoroughly test your error handler to ensure you application remains safe
+/// to use.
 #[derive(Resource)]
 pub struct RenderErrorHandler(
     pub for<'a> fn(&'a RenderError, &'a mut World, &'a mut World) -> RenderErrorPolicy,
@@ -60,13 +68,23 @@ impl RenderErrorHandler {
 
 impl Default for RenderErrorHandler {
     fn default() -> Self {
-        // This is what we've always done historically,
-        // but we could choose a new default once recovery works better.
-        Self(|_, _, _| RenderErrorPolicy::Ignore)
+        // Quit the application for any RenderError. This is overzealous at the moment,
+        // but requires more extensive use of the non-fatal error handling pattern in
+        // upstream wgpu. RenderErrors are issued when wgpu is used incorrectly.
+        // Ignoring a wgpu OutOfMemory or Validation error without addressing the
+        // root cause (via hiding or deleting entities or changing rendering settings) will
+        // likely hit the same error repeatedly, resulting in hazardous strobing effects.
+        // The parameters to this function are (error, main_world, render_world).
+        Self(|error, main_world, _| {
+            bevy_log::error!("Quitting the application due to {:?} RenderError", error.ty);
+            main_world.write_message(AppExit::error());
+            RenderErrorPolicy::StopRendering
+        })
     }
 }
 
-/// An error encountered during rendering.
+/// An error encountered during rendering. These are errors reported by wgpu validation layers,
+/// and typically indicate problems in the way it is being used.
 #[derive(Debug)]
 pub struct RenderError {
     pub ty: ErrorType,

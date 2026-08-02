@@ -1026,13 +1026,15 @@ pub struct RemoteWatchingRequests(Vec<(BrpMessage, RemoteWatchingMethodSystemId)
 ///```
 ///
 /// In Rust:
-/// ```ignore
-///    let req = BrpRequest {
-///         jsonrpc: "2.0".to_string(),
-///         method: BRP_LIST_METHOD.to_string(), // All the methods have consts
-///         id: Some(ureq::json!(0)),
-///         params: None,
-///     };
+/// ```
+/// # use bevy_remote::builtin_methods::BRP_LIST_COMPONENTS_METHOD;
+/// # use bevy_remote::BrpRequest;
+/// # use serde_json::Value;
+/// let req = BrpRequest {
+///     method: BRP_LIST_COMPONENTS_METHOD.to_string(), // All the methods are consts
+///     id: Some(Value::from(1)),
+///     params: None,
+/// };
 /// ```
 #[derive(Debug, Clone)]
 pub struct BrpRequest {
@@ -1051,7 +1053,7 @@ pub struct BrpRequest {
 }
 
 // BRP uses json-rpc 2.0, so we need to include `"jsonrpc":"2.0"` in the json output
-// and check for it's presence in the input.
+// and check for its presence in the input.
 // This is similar to the inverse of `#[serde(skip)]`, but serde doesn't provide
 // an attribute for this behavior so we need a manual ser/de implementation.
 impl Serialize for BrpRequest {
@@ -1155,17 +1157,116 @@ impl<'de> Deserialize<'de> for BrpRequest {
 }
 
 /// A response according to BRP.
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Clone)]
 pub struct BrpResponse {
-    /// This field is mandatory and must be set to `"2.0"`.
-    pub jsonrpc: &'static str,
-
     /// The id of the original request.
     pub id: Option<Value>,
 
     /// The actual response payload.
-    #[serde(flatten)]
     pub payload: BrpPayload,
+}
+
+// BRP uses json-rpc 2.0, so we need to include `"jsonrpc":"2.0"` in the json output
+// and check for its presence in the input.
+impl Serialize for BrpResponse {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut map = serializer.serialize_map(None)?;
+        map.serialize_entry("jsonrpc", "2.0")?;
+        if self.id.is_some() {
+            map.serialize_entry("id", &self.id)?;
+        }
+        match &self.payload {
+            BrpPayload::Result(value) => {
+                map.serialize_entry("result", value)?;
+            }
+            BrpPayload::Error(error) => {
+                map.serialize_entry("error", error)?;
+            }
+        }
+        map.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for BrpResponse {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::de::Deserializer<'de>,
+    {
+        use serde::de;
+
+        #[derive(Deserialize)]
+        #[serde(field_identifier, rename_all = "lowercase")]
+        enum Field {
+            JsonRpc,
+            Id,
+            Result,
+            Error,
+        }
+
+        struct Visitor;
+
+        impl<'de> de::Visitor<'de> for Visitor {
+            type Value = BrpResponse;
+
+            fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
+                formatter.write_str("struct BrpResponse")
+            }
+
+            fn visit_map<V>(self, mut map: V) -> Result<Self::Value, V::Error>
+            where
+                V: de::MapAccess<'de>,
+            {
+                let mut jsonrpc = false;
+                let mut id = None;
+                let mut payload = None;
+                while let Some(key) = map.next_key()? {
+                    match key {
+                        Field::JsonRpc => {
+                            let value = map.next_value::<String>()?;
+                            if value != "2.0" {
+                                return Err(de::Error::invalid_value(
+                                    de::Unexpected::Str(&value),
+                                    &"2.0",
+                                ));
+                            }
+                            if jsonrpc {
+                                return Err(de::Error::duplicate_field("jsonrpc"));
+                            }
+                            jsonrpc = true;
+                        }
+                        Field::Id => {
+                            if id.is_some() {
+                                return Err(de::Error::duplicate_field("id"));
+                            }
+                            id = Some(map.next_value()?);
+                        }
+                        Field::Result => {
+                            if payload.is_some() {
+                                return Err(de::Error::duplicate_field("payload"));
+                            }
+                            payload = Some(BrpPayload::Result(map.next_value()?));
+                        }
+                        Field::Error => {
+                            if payload.is_some() {
+                                return Err(de::Error::duplicate_field("payload"));
+                            }
+                            payload = Some(BrpPayload::Error(map.next_value()?));
+                        }
+                    }
+                }
+                if !jsonrpc {
+                    return Err(de::Error::missing_field("jsonrpc"));
+                }
+                let payload = payload.ok_or_else(|| de::Error::missing_field("payload"))?;
+                Ok(BrpResponse { id, payload })
+            }
+        }
+
+        deserializer.deserialize_map(Visitor)
+    }
 }
 
 impl BrpResponse {
@@ -1173,7 +1274,6 @@ impl BrpResponse {
     #[must_use]
     pub fn new(id: Option<Value>, result: BrpResult) -> Self {
         Self {
-            jsonrpc: "2.0",
             id,
             payload: BrpPayload::from(result),
         }

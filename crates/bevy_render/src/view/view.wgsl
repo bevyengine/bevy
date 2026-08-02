@@ -61,6 +61,12 @@ struct View {
     // The normal vectors point towards the interior of the frustum.
     // A half space contains `p` if `normal.dot(p) + distance > 0.`
     frustum: array<vec4<f32>, 6>,
+    // The world-space position of the camera used to resolve visibility ranges.
+    //
+    // This is the position of the camera itself, unless this view isn't
+    // associated with a camera, in which case it's the position of the primary
+    // camera.
+    lod_view_world_position: vec3<f32>,
     color_grading: ColorGrading,
     mip_bias: f32,
     frame_count: u32,

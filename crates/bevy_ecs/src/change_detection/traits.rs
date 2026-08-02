@@ -82,6 +82,12 @@ pub trait DetectChanges {
     /// Returns the change tick recording the time this data was added.
     fn added(&self) -> Tick;
 
+    /// Returns the change tick of the current run of this system.
+    fn this_run(&self) -> Tick;
+
+    /// Returns the change tick of the last run of this system.
+    fn last_run(&self) -> Tick;
+
     /// The location that last caused this to change.
     fn changed_by(&self) -> MaybeLocation;
 }
@@ -359,7 +365,7 @@ pub trait DetectChangesMut: DetectChanges {
 }
 
 macro_rules! change_detection_impl {
-    ($name:ident < $( $generics:tt ),+ >, $target:ty, $($traits:ident)?) => {
+    ($name:ident < $( $generics:tt ),+ >, $target:ty, $($traits:path)?) => {
         impl<$($generics),* : ?Sized $(+ $traits)?> DetectChanges for $name<$($generics),*> {
             #[inline]
             fn is_added(&self) -> bool {
@@ -396,6 +402,16 @@ macro_rules! change_detection_impl {
             }
 
             #[inline]
+            fn this_run(&self) -> Tick {
+                self.ticks.this_run
+            }
+
+            #[inline]
+            fn last_run(&self) -> Tick {
+                self.ticks.last_run
+            }
+
+            #[inline]
             fn changed_by(&self) -> MaybeLocation {
                 self.ticks.changed_by.copied()
             }
@@ -422,7 +438,7 @@ macro_rules! change_detection_impl {
 pub(crate) use change_detection_impl;
 
 macro_rules! change_detection_mut_impl {
-    ($name:ident < $( $generics:tt ),+ >, $target:ty, $($traits:ident)?) => {
+    ($name:ident < $( $generics:tt ),+ >, $target:ty, $($traits:path)?) => {
         impl<$($generics),* : ?Sized $(+ $traits)?> DetectChangesMut for $name<$($generics),*> {
             type Inner = $target;
 
@@ -484,7 +500,7 @@ macro_rules! change_detection_mut_impl {
 pub(crate) use change_detection_mut_impl;
 
 macro_rules! impl_methods {
-    ($name:ident < $( $generics:tt ),+ >, $target:ty, $($traits:ident)?) => {
+    ($name:ident < $( $generics:tt ),+ >, $target:ty, $($traits:path)?) => {
         impl<$($generics),* : ?Sized $(+ $traits)?> $name<$($generics),*> {
             /// Consume `self` and return a mutable reference to the
             /// contained value while marking `self` as "changed".
@@ -579,7 +595,7 @@ macro_rules! impl_methods {
 pub(crate) use impl_methods;
 
 macro_rules! impl_debug {
-    ($name:ident < $( $generics:tt ),+ >, $($traits:ident)?) => {
+    ($name:ident < $( $generics:tt ),+ >, $($traits:path)?) => {
         impl<$($generics),* : ?Sized $(+ $traits)?> core::fmt::Debug for $name<$($generics),*>
             where T: core::fmt::Debug
         {

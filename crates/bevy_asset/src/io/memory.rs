@@ -1,3 +1,9 @@
+//! In-memory [`Asset`] storage backend.
+//!
+//! See [`Dir`] for details.
+//!
+//! [`Asset`]: crate::Asset
+
 use crate::io::{
     AssetReader, AssetReaderError, AssetWriter, AssetWriterError, PathStream, Reader,
     ReaderNotSeekableError, SeekableReader,
@@ -25,8 +31,12 @@ struct DirInternal {
     path: PathBuf,
 }
 
-/// A clone-able (internally Arc-ed) / thread-safe "in memory" filesystem.
-/// This is built for [`MemoryAssetReader`] and is primarily intended for unit tests.
+/// A clone-able (internally [`Arc`]-ed), thread-safe in-memory filesystem.
+///
+/// This was built for [`MemoryAssetReader`] and is primarily used by unit tests
+/// and by the [`embedded`] backend.
+///
+/// [`embedded`]: crate::io::embedded
 #[derive(Default, Clone, Debug)]
 pub struct Dir(Arc<RwLock<DirInternal>>);
 
@@ -39,14 +49,18 @@ impl Dir {
         })))
     }
 
+    /// Inserts textual data as an asset, at the `path` relative to this `Dir`.
     pub fn insert_asset_text(&self, path: &Path, asset: &str) {
         self.insert_asset(path, asset.as_bytes().to_vec());
     }
 
+    /// Inserts textual data as asset metadata, at the `path` relative to this `Dir`.
     pub fn insert_meta_text(&self, path: &Path, asset: &str) {
         self.insert_meta(path, asset.as_bytes().to_vec());
     }
 
+    /// Inserts a [`Vec`] of bytes or a `'static` array of bytes as an asset,
+    /// at the `path` relative to this `Dir`.
     pub fn insert_asset(&self, path: &Path, value: impl Into<Value>) {
         self.insert_asset_internal(path, value.into());
     }
@@ -87,6 +101,8 @@ impl Dir {
             .remove(&key)
     }
 
+    /// Inserts a [`Vec`] of bytes or a `'static` array of bytes as asset metadata,
+    /// at the `path` relative to this `Dir`.
     pub fn insert_meta(&self, path: &Path, value: impl Into<Value>) {
         self.insert_meta_internal(path, value.into());
     }
@@ -126,6 +142,8 @@ impl Dir {
             .remove(&key)
     }
 
+    /// Returns the `Dir` representing `path` relative to this `Dir`,
+    /// creating a new one for it if necessary.
     pub fn get_or_insert_dir(&self, path: &Path) -> Dir {
         let mut dir = self.clone();
         let mut full_path = PathBuf::new();
@@ -159,6 +177,7 @@ impl Dir {
             .remove(&key)
     }
 
+    /// Returns the `Dir` representing `path` relative to this `Dir`, if it exists.
     pub fn get_dir(&self, path: &Path) -> Option<Dir> {
         let mut dir = self.clone();
         for p in path.components() {
@@ -175,6 +194,7 @@ impl Dir {
         Some(dir)
     }
 
+    /// Returns the asset stored at `path` relative to this `Dir`, if it exists.
     pub fn get_asset(&self, path: &Path) -> Option<Data> {
         let mut dir = self.clone();
         if let Some(parent) = path.parent() {
@@ -191,6 +211,7 @@ impl Dir {
         })
     }
 
+    /// Returns the asset metadata stored at `path` relative to this `Dir`, if it exists.
     pub fn get_metadata(&self, path: &Path) -> Option<Data> {
         let mut dir = self.clone();
         if let Some(parent) = path.parent() {
@@ -207,6 +228,7 @@ impl Dir {
         })
     }
 
+    /// Returns the path represented by this `Dir`.
     pub fn path(&self) -> PathBuf {
         self.0
             .read()
@@ -216,6 +238,8 @@ impl Dir {
     }
 }
 
+/// A struct for iteration over subdirectory and asset paths of a [`Dir`].
+/// It will return full pathnames.
 pub struct DirStream {
     dir: Dir,
     index: usize,
@@ -260,17 +284,20 @@ impl Stream for DirStream {
 }
 
 /// In-memory [`AssetReader`] implementation.
-/// This is primarily intended for unit tests.
+///
+/// This is primarily used by unit tests and the [`embedded`](super::embedded) backend.
 #[derive(Default, Clone)]
 pub struct MemoryAssetReader {
+    /// The root of the in-memory filesystem backing this asset reader.
     pub root: Dir,
 }
 
 /// In-memory [`AssetWriter`] implementation.
 ///
-/// This is primarily intended for unit tests.
+/// This is primarily used by unit tests and the [`embedded`](super::embedded) backend.
 #[derive(Default, Clone)]
 pub struct MemoryAssetWriter {
+    /// The root of the in-memory filesystem backing this asset writer.
     pub root: Dir,
 }
 
@@ -588,7 +615,7 @@ impl AssetWriter for MemoryAssetWriter {
 }
 
 #[cfg(test)]
-pub mod test {
+mod test {
     use super::Dir;
     use std::path::Path;
 
