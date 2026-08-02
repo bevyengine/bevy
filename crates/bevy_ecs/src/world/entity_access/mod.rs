@@ -455,6 +455,53 @@ mod tests {
         assert_eq!(dynamic_components, static_components);
     }
 
+    /// Regression test for C-16: passing a shorter iterator than `component_ids`
+    /// to `insert_by_ids` must panic in debug builds, as it would otherwise leave
+    /// component memory uninitialized via `zip` truncation.
+    #[test]
+    #[cfg(debug_assertions)]
+    #[should_panic(expected = "iter_components must yield exactly")]
+    fn insert_by_ids_short_iterator_panics_in_debug() {
+        let mut world = World::new();
+        let test_component_id = world.register_component::<TestComponent>();
+        let test_component_2_id = world.register_component::<TestComponent2>();
+
+        let component_ids = [test_component_id, test_component_2_id];
+        let mut entity = world.spawn_empty();
+
+        // Intentionally provide only 1 component for 2 component_ids.
+        OwningPtr::make(TestComponent(42), |ptr| {
+            // SAFETY: This is intentionally unsound — the debug assertion should
+            // catch the mismatch before any uninitialized memory is read.
+            unsafe {
+                entity.insert_by_ids(&component_ids, vec![ptr].into_iter());
+            }
+        });
+    }
+
+    /// Regression test for C-16: passing a longer iterator than `component_ids`
+    /// to `insert_by_ids` must also panic in debug builds.
+    #[test]
+    #[cfg(debug_assertions)]
+    #[should_panic(expected = "iter_components must yield exactly")]
+    fn insert_by_ids_long_iterator_panics_in_debug() {
+        let mut world = World::new();
+        let test_component_id = world.register_component::<TestComponent>();
+
+        let mut entity = world.spawn_empty();
+
+        // Intentionally provide 2 components for 1 component_id.
+        OwningPtr::make(TestComponent(42), |ptr1| {
+            OwningPtr::make(TestComponent(84), |ptr2| {
+                // SAFETY: This is intentionally unsound — the debug assertion should
+                // catch the mismatch.
+                unsafe {
+                    entity.insert_by_ids(&[test_component_id], vec![ptr1, ptr2].into_iter());
+                }
+            });
+        });
+    }
+
     #[test]
     fn entity_mut_remove_by_id() {
         let mut world = World::new();
