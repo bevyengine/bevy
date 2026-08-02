@@ -187,7 +187,7 @@ mod tests {
                     counter: barrier_counter,
                 }
                 .await
-                .unwrap()
+                .unwrap();
             }));
         }
 
