@@ -845,7 +845,8 @@ fn apply_pbr_lighting(
     //
     // <https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_materials_clearcoat/README.md#emission>
 #ifdef STANDARD_MATERIAL_CLEARCOAT
-    emissive_light = emissive_light * (0.04 + (1.0 - 0.04) * pow(1.0 - clearcoat_NdotV, 5.0));
+    let clearcoat_fresnel = (0.04 + (1.0 - 0.04) * pow(1.0 - clearcoat_NdotV, 5.0));
+    emissive_light = emissive_light * (1.0 - clearcoat * clearcoat_fresnel);
 #endif
 
     emissive_light = emissive_light * mix(1.0, view_bindings::view.exposure, emissive.a);
