@@ -8,6 +8,7 @@ use bevy_ecs::system::{SystemParam, SystemParamItem};
 use bevy_platform::sync::Arc;
 use core::marker::PhantomData;
 use core::sync::atomic::{AtomicBool, Ordering};
+use variadics_please::all_tuples;
 
 /// A `FnOnce` that can be run as a bridge system in order to allow for our bridge function to
 /// get type inference off the closure.
@@ -36,7 +37,10 @@ where
 
 macro_rules! impl_system_param_function {
     ($($F:ident),*) => {
-        #[allow(non_snake_case)]
+        #[expect(
+            clippy::allow_attributes,
+            reason = "This is a tuple-related macro; as such, the lints below may not always apply."
+        )]
         impl<Out, Func, $($F: SystemParam + 'static),*> AsyncSystemParamFunction<fn($($F),*) -> Out> for Func
         where
             Func: FnOnce($($F),*) -> Out + FnOnce($(SystemParamItem<$F>),*) -> Out,
@@ -47,10 +51,17 @@ macro_rules! impl_system_param_function {
 
             #[inline]
             fn run(self, param_value: SystemParamItem<Self::Param>) -> Self::Out {
-                #[allow(non_snake_case)]
+                #[allow(
+                    non_snake_case,
+                    reason = "The names of these variables are provided by the caller, not by us."
+                )]
                 fn call_inner<Out, $($F),*>(f: impl FnOnce($($F),*) -> Out, $($F: $F),*) -> Out {
                     f($($F),*)
                 }
+                #[allow(
+                    non_snake_case,
+                    reason = "The names of these variables are provided by the caller, not by us."
+                )]
                 let ($($F,)*) = param_value;
                 call_inner(self, $($F),*)
             }
@@ -58,21 +69,7 @@ macro_rules! impl_system_param_function {
     };
 }
 
-impl_system_param_function!(F0, F1);
-impl_system_param_function!(F0, F1, F2);
-impl_system_param_function!(F0, F1, F2, F3);
-impl_system_param_function!(F0, F1, F2, F3, F4);
-impl_system_param_function!(F0, F1, F2, F3, F4, F5);
-impl_system_param_function!(F0, F1, F2, F3, F4, F5, F6);
-impl_system_param_function!(F0, F1, F2, F3, F4, F5, F6, F7);
-impl_system_param_function!(F0, F1, F2, F3, F4, F5, F6, F7, F8);
-impl_system_param_function!(F0, F1, F2, F3, F4, F5, F6, F7, F8, F9);
-impl_system_param_function!(F0, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10);
-impl_system_param_function!(F0, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11);
-impl_system_param_function!(F0, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12);
-impl_system_param_function!(F0, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13);
-impl_system_param_function!(F0, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14);
-impl_system_param_function!(F0, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15);
+all_tuples!(impl_system_param_function, 2, 16, F);
 
 /// Handle that lets an async task request temporary access to an ECS
 /// `SystemParam` or a tuple of them.
