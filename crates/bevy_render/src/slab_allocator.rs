@@ -1300,6 +1300,44 @@ mod tests {
         assert!(allocator.slab_allocation_slice(&0, slab_id).is_some());
     }
 
+    /// Allocates a dedicated slab for each of `keys` through
+    /// [`AllocationStage::allocate_large`].
+    fn allocate_large_round(
+        allocator: &mut SlabAllocator<TestItem>,
+        keys: impl Iterator<Item = u32>,
+        device: &RenderDevice,
+        queue: &RenderQueue,
+    ) {
+        let mut stage = allocator.stage_allocation();
+        for key in keys {
+            stage.allocate_large(&key, TestLayout);
+        }
+        stage.commit(device, queue);
+    }
+
+    /// [`AllocationStage::allocate_large`] must free a live allocation under the
+    /// same key, just as [`AllocationStage::allocate`] does. Each one takes a
+    /// brand new slab, so a missed free leaks a whole slab per round.
+    #[test]
+    fn reallocating_a_live_key_with_allocate_large_frees_the_old_allocation() {
+        let (device, queue) = create_dummy_device();
+        let mut allocator = SlabAllocator::<TestItem>::new();
+
+        allocate_large_round(&mut allocator, 0..4, &device, &queue);
+        assert_eq!(allocator.slab_count(), 4);
+
+        for _ in 0..32 {
+            allocate_large_round(&mut allocator, 0..4, &device, &queue);
+        }
+
+        assert_eq!(
+            allocator.slab_count(),
+            4,
+            "reallocating live keys left the previous dedicated slabs behind"
+        );
+        assert_eq!(allocator.key_to_slab.len(), 4);
+    }
+
     /// A slab genuinely emptied during an allocation stage must be reclaimed, or
     /// the fix for reallocation would just trade one leak for another.
     #[test]
