@@ -44,12 +44,7 @@ fn spawn_cube_tasks(async_world: Res<AsyncWorld>) {
     // the second task that runs will only see changes the occurred between the two tasks.
     // Generally, you should reuse the system state for similar tasks. In this example, we only
     // spawn tasks in this system, so we don't need to cache this for reuse later.
-    let system_state = async_world.system_state::<(
-        Commands,
-        Local<Option<(Handle<Mesh>, Handle<StandardMaterial>)>>,
-        ResMut<Assets<Mesh>>,
-        ResMut<Assets<StandardMaterial>>,
-    )>();
+    let system_state = async_world.system_state();
     for x in -NUM_CUBES..NUM_CUBES {
         for z in -NUM_CUBES..NUM_CUBES {
             // Spawn a task on the async compute pool
@@ -61,7 +56,12 @@ fn spawn_cube_tasks(async_world: Res<AsyncWorld>) {
                 system_state
                     .bridge(
                         MySyncPoint,
-                        |(mut commands, mut box_handles, mut meshes, mut materials)| {
+                        |mut commands: Commands,
+                         mut box_handles: Local<
+                            Option<(Handle<Mesh>, Handle<StandardMaterial>)>,
+                        >,
+                         mut meshes: ResMut<Assets<Mesh>>,
+                         mut materials: ResMut<Assets<StandardMaterial>>| {
                             // The first time this bridge runs it will initialize the box mesh and box material, and then it will reuse them from then on.
                             if box_handles.is_none() {
                                 box_handles.replace((

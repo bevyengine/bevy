@@ -222,10 +222,7 @@ mod tests {
             TaskPoolPlugin::default(),
         ));
 
-        let system_state = app
-            .world()
-            .resource::<AsyncWorld>()
-            .system_state::<Commands>();
+        let system_state = app.world().resource::<AsyncWorld>().system_state();
 
         let system_state_clone = system_state.clone();
         let mut task_1 = AsyncComputeTaskPool::get().spawn(async move {
@@ -279,7 +276,7 @@ mod tests {
             let world = world.clone();
             AsyncComputeTaskPool::get()
                 .spawn(async move {
-                    let system_state = world.system_state::<Commands>();
+                    let system_state = world.system_state();
                     match system_state
                         .bridge(MySyncPoint, |mut commands: Commands| {
                             commands.spawn_empty();
@@ -322,13 +319,13 @@ mod tests {
 
             let mutex_clone = mutex.clone();
             app.add_systems(Startup, move |world: Res<AsyncWorld>| {
-                let system_state = world.system_state::<Commands>();
+                let system_state = world.system_state();
 
                 let mutex_clone = mutex_clone.clone();
                 AsyncComputeTaskPool::get()
                     .spawn(async move {
                         system_state
-                            .bridge(MySyncPoint, |mut commands| {
+                            .bridge(MySyncPoint, |mut commands: Commands| {
                                 commands.spawn_empty();
                             })
                             .await
@@ -413,7 +410,7 @@ mod tests {
             let world = world.clone();
             AsyncComputeTaskPool::get()
                 .spawn_local(async move {
-                    let system_state = world.system_state::<Commands>();
+                    let system_state = world.system_state();
                     system_state
                         .bridge(MySyncPoint, |mut commands: Commands| {
                             commands.spawn_empty();
