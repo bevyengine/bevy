@@ -129,7 +129,18 @@ impl Default for WgpuSettings {
 
         let mut instance_flags = InstanceFlags::default();
         #[cfg(not(debug_assertions))]
+        {
+            // wgpu executes additional necessary logic during validation passes for the DX12 backend,
+            // so the `VALIDATION_INDIRECT_CALL` flag should stay for DX12.
+            if !backends.is_some_and(|backends| backends.contains(Backends::DX12)) {
+                // Removing this flag improves performance.
+                instance_flags.remove(InstanceFlags::VALIDATION_INDIRECT_CALL);
+            }
+        }
+        #[cfg(all(not(debug_assertions), feature = "raw_vulkan_init"))]
+        // intending to use vulkan even if backends may contain DX12
         instance_flags.remove(InstanceFlags::VALIDATION_INDIRECT_CALL);
+
         instance_flags = instance_flags.with_env();
 
         Self {
@@ -211,7 +222,7 @@ impl RenderResources {
 /// An enum describing how the renderer will initialize resources. This is used when creating the [`RenderPlugin`](crate::RenderPlugin).
 pub enum RenderCreation {
     /// Allows renderer resource initialization to happen outside of the rendering plugin.
-    Manual(RenderResources),
+    Manual(Box<RenderResources>),
     /// Lets the rendering plugin create resources itself.
     Automatic(Box<WgpuSettings>),
 }
@@ -254,7 +265,7 @@ impl RenderCreation {
     ) -> bool {
         match self {
             RenderCreation::Manual(resources) => {
-                *future_resources.lock().unwrap() = Some(resources.clone());
+                *future_resources.lock().unwrap() = Some(*resources.clone());
             }
             RenderCreation::Automatic(render_creation) => {
                 let Some(backends) = render_creation.backends else {
@@ -291,7 +302,7 @@ impl RenderCreation {
 
 impl From<RenderResources> for RenderCreation {
     fn from(value: RenderResources) -> Self {
-        Self::Manual(value)
+        Self::Manual(Box::new(value))
     }
 }
 

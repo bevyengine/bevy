@@ -45,6 +45,11 @@ impl SystemName {
     pub fn name(&self) -> DebugName {
         self.0.clone()
     }
+
+    /// Gets a string reference of the name of the system.
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
 }
 
 // SAFETY: no component value access

@@ -8,7 +8,7 @@ use bevy_ecs::{component::Component, entity::Entity, prelude::ReflectComponent};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_shader::load_shader_library;
 
-use crate::{extract_component::ExtractComponent, render_resource::TextureView};
+use crate::{extract_component::ExtractComponent, render_resource::TextureView, RenderApp};
 
 /// Enables GPU occlusion culling.
 ///
@@ -69,6 +69,7 @@ impl Plugin for OcclusionCullingPlugin {
 /// https://medium.com/@mil_kru/two-pass-occlusion-culling-4100edcad501
 #[derive(Component, ExtractComponent, Clone, Copy, Default, Reflect)]
 #[reflect(Component, Default, Clone)]
+#[extract_app(RenderApp)]
 pub struct OcclusionCulling;
 
 /// A render-world component that contains resources necessary to perform

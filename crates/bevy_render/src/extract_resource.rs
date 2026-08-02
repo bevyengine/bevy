@@ -1,7 +1,7 @@
 use core::marker::PhantomData;
 
-use bevy_app::{App, Plugin};
-use bevy_ecs::prelude::*;
+use bevy_app::{App, AppLabel, Plugin};
+use bevy_ecs::{component::Mutable, prelude::*};
 pub use bevy_render_macros::ExtractResource;
 use bevy_utils::once;
 
@@ -15,7 +15,7 @@ use crate::{Extract, ExtractSchedule, RenderApp};
 /// The marker type `F` is only used as a way to bypass the orphan rules. To
 /// implement the trait for a foreign type you can use a local type as the
 /// marker, e.g. the type of the plugin that calls [`ExtractResourcePlugin`].
-pub trait ExtractResource<F = ()>: Resource {
+pub trait ExtractResource<L: AppLabel, F = ()>: Resource {
     type Source: Resource;
 
     /// Defines how the resource is transferred into the "render world".
@@ -30,15 +30,17 @@ pub trait ExtractResource<F = ()>: Resource {
 /// The marker type `F` is only used as a way to bypass the orphan rules. To
 /// implement the trait for a foreign type you can use a local type as the
 /// marker, e.g. the type of the plugin that calls [`ExtractResourcePlugin`].
-pub struct ExtractResourcePlugin<R: ExtractResource<F>, F = ()>(PhantomData<(R, F)>);
+pub struct ExtractResourcePlugin<R: ExtractResource<RenderApp, F>, F = ()>(PhantomData<(R, F)>);
 
-impl<R: ExtractResource<F>, F> Default for ExtractResourcePlugin<R, F> {
+impl<R: ExtractResource<RenderApp, F>, F> Default for ExtractResourcePlugin<R, F> {
     fn default() -> Self {
         Self(PhantomData)
     }
 }
 
-impl<R: ExtractResource<F>, F: 'static + Send + Sync> Plugin for ExtractResourcePlugin<R, F> {
+impl<R: ExtractResource<RenderApp, F, Mutability = Mutable>, F: 'static + Send + Sync> Plugin
+    for ExtractResourcePlugin<R, F>
+{
     fn build(&self, app: &mut App) {
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_systems(ExtractSchedule, extract_resource::<R, F>);
@@ -52,7 +54,7 @@ impl<R: ExtractResource<F>, F: 'static + Send + Sync> Plugin for ExtractResource
 }
 
 /// This system extracts the resource of the corresponding [`Resource`] type
-pub fn extract_resource<R: ExtractResource<F>, F>(
+pub fn extract_resource<R: ExtractResource<RenderApp, F, Mutability = Mutable>, F>(
     mut commands: Commands,
     main_resource: Extract<Option<Res<R::Source>>>,
     target_resource: Option<ResMut<R>>,

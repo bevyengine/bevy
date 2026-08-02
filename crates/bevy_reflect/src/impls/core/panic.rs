@@ -1,11 +1,11 @@
 use crate::{
     error::ReflectCloneError,
+    info::{OpaqueInfo, TypeInfo, Typed},
     kind::{ReflectKind, ReflectMut, ReflectOwned, ReflectRef},
     prelude::*,
     reflect::ApplyError,
-    type_info::{OpaqueInfo, TypeInfo, Typed},
     type_path::DynamicTypePath,
-    type_registry::{FromType, GetTypeRegistration, ReflectFromPtr, TypeRegistration},
+    type_registry::{GetTypeRegistration, ReflectFromPtr, TypeRegistration},
     utility::{reflect_hasher, NonGenericTypeInfoCell},
 };
 use bevy_platform::prelude::*;
@@ -150,8 +150,8 @@ impl Typed for &'static Location<'static> {
 impl GetTypeRegistration for &'static Location<'static> {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<Self>();
-        registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
-        registration.insert::<ReflectFromReflect>(FromType::<Self>::from_type());
+        registration.register_type_data::<ReflectFromPtr, Self>();
+        registration.register_type_data::<ReflectFromReflect, Self>();
         registration
     }
 }

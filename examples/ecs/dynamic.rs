@@ -108,7 +108,7 @@ fn main() {
                         Some(Ok(size)) => size,
                         _ => 0,
                     };
-                    // Register our new component to the world with a layout specified by it's size
+                    // Register our new component to the world with a layout specified by its size
                     // SAFETY: [u64] is Send + Sync
                     let id = world.register_component_with_descriptor(unsafe {
                         ComponentDescriptor::new_with_layout(

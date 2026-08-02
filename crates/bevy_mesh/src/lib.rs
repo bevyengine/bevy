@@ -25,6 +25,7 @@ pub use mesh::*;
 pub use mikktspace::*;
 pub use primitives::*;
 pub use vertex::*;
+use wgpu_types::IndexFormat;
 pub use wgpu_types::VertexFormat;
 
 /// The mesh prelude.
@@ -87,14 +88,14 @@ impl BaseMeshPipelineKey {
     /// For non-strip topologies, [`Self::STRIP_INDEX_FORMAT_NONE`] is set regardless of the `strip_index_format` argument.
     pub fn from_primitive_topology_and_strip_index(
         primitive_topology: PrimitiveTopology,
-        strip_index_format: Option<wgpu_types::IndexFormat>,
+        strip_index_format: Option<IndexFormat>,
     ) -> Self {
         let index_bits = if primitive_topology.is_strip() {
             match strip_index_format {
                 None => BaseMeshPipelineKey::STRIP_INDEX_FORMAT_NONE,
                 Some(index_format) => match index_format {
-                    wgpu_types::IndexFormat::Uint16 => BaseMeshPipelineKey::STRIP_INDEX_FORMAT_U16,
-                    wgpu_types::IndexFormat::Uint32 => BaseMeshPipelineKey::STRIP_INDEX_FORMAT_U32,
+                    IndexFormat::Uint16 => BaseMeshPipelineKey::STRIP_INDEX_FORMAT_U16,
+                    IndexFormat::Uint32 => BaseMeshPipelineKey::STRIP_INDEX_FORMAT_U32,
                 },
             }
         } else {
@@ -117,6 +118,17 @@ impl BaseMeshPipelineKey {
             x if x == PrimitiveTopology::TriangleList as u64 => PrimitiveTopology::TriangleList,
             x if x == PrimitiveTopology::TriangleStrip as u64 => PrimitiveTopology::TriangleStrip,
             _ => PrimitiveTopology::default(),
+        }
+    }
+
+    /// Returns the [`IndexFormat`] that this mesh pipeline key specifies.
+    pub fn strip_index_format(&self) -> Option<IndexFormat> {
+        let index_bits = self.bits() & Self::STRIP_INDEX_FORMAT_RESERVED_BITS.bits();
+        match index_bits {
+            x if x == Self::STRIP_INDEX_FORMAT_U16.bits() => Some(IndexFormat::Uint16),
+            x if x == Self::STRIP_INDEX_FORMAT_U32.bits() => Some(IndexFormat::Uint32),
+            x if x == Self::STRIP_INDEX_FORMAT_NONE.bits() => None,
+            _ => unreachable!(),
         }
     }
 }

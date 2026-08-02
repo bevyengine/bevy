@@ -598,6 +598,38 @@ impl Transform {
         point
     }
 
+    /// Transforms the given `vector`, applying scale and rotation only, not translation.
+    ///
+    /// If this [`Transform`] has an ancestor entity with a [`Transform`] component,
+    /// [`Transform::transform_vector`] will transform a vector in local space into its
+    /// parent transform's space.
+    ///
+    /// If this [`Transform`] does not have a parent, [`Transform::transform_vector`] will
+    /// transform a vector in local space into worldspace coordinates.
+    ///
+    /// If you always want to transform a vector in local space to worldspace,
+    /// see [`GlobalTransform::transform_vector()`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_transform::prelude::Transform;
+    /// # use bevy_math::prelude::{Vec3, Quat};
+    /// # use std::f64::consts::PI;
+    /// let transform = Transform::from_xyz(1., 2., 3.)
+    ///    .with_scale(Vec3::splat(2.))
+    ///    .with_rotation(Quat::from_axis_angle(Vec3::Y, PI as f32));
+    /// let local_vector = Vec3::new(1., 2., 3.);
+    /// let global_vector = transform.transform_vector(local_vector);
+    /// assert!(global_vector.abs_diff_eq(Vec3::new(-2., 4., -6.), 1e-5));
+    /// ```
+    #[inline]
+    pub fn transform_vector(&self, mut vector: Vec3) -> Vec3 {
+        vector = self.scale * vector;
+        vector = self.rotation * vector;
+        vector
+    }
+
     /// Returns `true` if, and only if, translation, rotation and scale all are
     /// finite. If any of them contains a `NaN`, positive or negative infinity,
     /// this will return `false`.

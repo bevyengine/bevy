@@ -31,7 +31,8 @@ use crate::{
     resource::Resource,
     schedule::ScheduleLabel,
     system::{
-        Deferred, IntoSystem, RegisteredSystem, SystemId, SystemInput, SystemParamValidationError,
+        BoxedSystem, Deferred, IntoSystem, RegisteredSystem, SystemId, SystemInput,
+        SystemParamValidationError,
     },
     world::{
         command_queue::RawCommandQueue, unsafe_world_cell::UnsafeWorldCell, CommandQueue,
@@ -694,7 +695,7 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn queue_handled(
         &mut self,
         command: impl Command,
-        error_handler: fn(BevyError, ErrorContext),
+        error_handler: impl FnOnce(BevyError, ErrorContext) + Send + 'static,
     ) {
         self.queue_internal(command.handle_error_with(error_handler));
     }
@@ -951,7 +952,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// It will internally return a [`RegisteredSystemError`](crate::system::system_registry::RegisteredSystemError),
     /// which will be handled by [logging the error at the `warn` level](warn).
-    pub fn run_system(&mut self, id: SystemId) {
+    pub fn run_system(&mut self, id: impl Into<SystemId> + Send) {
         self.queue(command::run_system(id).handle_error_with(warn));
     }
 
@@ -973,8 +974,11 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// It will internally return a [`RegisteredSystemError`](crate::system::system_registry::RegisteredSystemError),
     /// which will be handled by [logging the error at the `warn` level](warn).
-    pub fn run_system_with<I>(&mut self, id: SystemId<I>, input: I::Inner<'static>)
-    where
+    pub fn run_system_with<I>(
+        &mut self,
+        id: impl Into<SystemId<I>> + Send,
+        input: I::Inner<'static>,
+    ) where
         I: SystemInput<Inner<'static>: Send> + 'static,
     {
         self.queue(command::run_system_with(id, input).handle_error_with(warn));
@@ -1046,9 +1050,79 @@ impl<'w, 's> Commands<'w, 's> {
         I: SystemInput + Send + 'static,
         O: Send + 'static,
     {
-        let entity = self.spawn_empty().id();
-        let system = RegisteredSystem::<I, O>::new(Box::new(IntoSystem::into_system(system)));
-        self.entity(entity).insert(system);
+        self.register_boxed_system(Box::new(IntoSystem::into_system(system)))
+    }
+
+    /// Registers a [`BoxedSystem`] and returns its [`SystemId`] so it can later be called by
+    /// [`Commands::run_system`] or [`World::run_system`].
+    ///
+    /// This is different from adding systems to a [`Schedule`](crate::schedule::Schedule),
+    /// because the [`SystemId`] that is returned can be used anywhere in the [`World`] to run the associated system.
+    ///
+    /// Using a [`Schedule`](crate::schedule::Schedule) is still preferred for most cases
+    /// due to its better performance and ability to run non-conflicting systems simultaneously.
+    ///
+    /// # Note
+    ///
+    /// If the same system is registered more than once,
+    /// each registration will be considered a different system,
+    /// and they will each be given their own [`SystemId`].
+    ///
+    /// If you want to avoid registering the same system multiple times,
+    /// consider using [`Commands::run_system_cached`] or storing the [`SystemId`]
+    /// in a [`Local`](crate::system::Local).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::{prelude::*, world::CommandQueue, system::SystemId};
+    /// #[derive(Resource)]
+    /// struct Counter(i32);
+    ///
+    /// fn register_system(
+    ///     mut commands: Commands,
+    ///     mut local_system: Local<Option<SystemId>>,
+    /// ) {
+    ///     if let Some(system) = *local_system {
+    ///         commands.run_system(system);
+    ///     } else {
+    ///         let boxed_system = Box::new(IntoSystem::into_system(increment_counter));
+    ///         *local_system = Some(commands.register_boxed_system(boxed_system));
+    ///     }
+    /// }
+    ///
+    /// fn increment_counter(mut value: ResMut<Counter>) {
+    ///     value.0 += 1;
+    /// }
+    ///
+    /// # let mut world = World::default();
+    /// # world.insert_resource(Counter(0));
+    /// # let mut queue_1 = CommandQueue::default();
+    /// # let systemid = {
+    /// #   let mut commands = Commands::new(&mut queue_1, &world);
+    /// #   let boxed_system = Box::new(IntoSystem::into_system(increment_counter));
+    /// #   commands.register_boxed_system(boxed_system)
+    /// # };
+    /// # let mut queue_2 = CommandQueue::default();
+    /// # {
+    /// #   let mut commands = Commands::new(&mut queue_2, &world);
+    /// #   commands.run_system(systemid);
+    /// # }
+    /// # queue_1.append(&mut queue_2);
+    /// # queue_1.apply(&mut world);
+    /// # assert_eq!(1, world.resource::<Counter>().0);
+    /// # bevy_ecs::system::assert_is_system(register_system);
+    /// ```
+    ///
+    /// # See also
+    ///
+    /// - [`register_system`](Self::register_system) to register a system that has not been boxed.
+    pub fn register_boxed_system<I, O>(&mut self, system: BoxedSystem<I, O>) -> SystemId<I, O>
+    where
+        I: SystemInput + Send + 'static,
+        O: Send + 'static,
+    {
+        let entity = self.spawn(RegisteredSystem::new(system)).id();
         SystemId::from_entity(entity)
     }
 
@@ -1995,7 +2069,7 @@ impl<'a> EntityCommands<'a> {
     pub fn queue_handled(
         &mut self,
         command: impl EntityCommand,
-        error_handler: fn(BevyError, ErrorContext),
+        error_handler: impl FnOnce(BevyError, ErrorContext) + Send + 'static,
     ) -> &mut Self {
         self.commands
             .queue_handled(command.with_entity(self.entity), error_handler);

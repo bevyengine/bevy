@@ -112,12 +112,14 @@ impl Plugin for GameOfLifeComputePlugin {
 }
 
 #[derive(Resource, Clone, ExtractResource)]
+#[extract_app(RenderApp)]
 struct GameOfLifeImages {
     texture_a: Handle<Image>,
     texture_b: Handle<Image>,
 }
 
 #[derive(Resource, Clone, ExtractResource, ShaderType)]
+#[extract_app(RenderApp)]
 struct GameOfLifeUniforms {
     alive_color: LinearRgba,
 }

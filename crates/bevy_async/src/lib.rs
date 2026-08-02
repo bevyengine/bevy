@@ -73,7 +73,7 @@ mod wake_signal;
 
 pub use crate::bridge_future::{AsyncSystemState, BridgeError};
 pub use crate::bridge_request::async_world_sync_point;
-pub use crate::plugin::{AsyncPlugin, AsyncTickBudget, AsyncWorld};
+pub use crate::plugin::{AsyncPlugin, AsyncWorld};
 
 /// The async prelude.
 ///
@@ -81,8 +81,7 @@ pub use crate::plugin::{AsyncPlugin, AsyncTickBudget, AsyncWorld};
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        async_world_sync_point, AsyncPlugin, AsyncSystemState, AsyncTickBudget, AsyncWorld,
-        BridgeError,
+        async_world_sync_point, AsyncPlugin, AsyncSystemState, AsyncWorld, BridgeError,
     };
 }
 
@@ -90,9 +89,10 @@ pub mod prelude {
 mod tests {
     extern crate alloc;
 
+    use core::assert_matches;
     use core::pin::Pin;
 
-    use alloc::{sync::Arc, vec::Vec};
+    use alloc::{string::String, sync::Arc, vec::Vec};
 
     use crate::prelude::*;
     use bevy_app::prelude::*;
@@ -142,17 +142,29 @@ mod tests {
         }
     }
 
+    fn run_loops<T>(
+        mut update: impl FnMut(),
+        mut predicate: impl FnMut() -> Option<T>,
+    ) -> Result<T, String> {
+        for _ in 0..10000 {
+            update();
+            if let Some(value) = predicate() {
+                return Ok(value);
+            }
+        }
+        Err("Ran out of iterations".into())
+    }
+
     #[test]
     fn more_tasks_than_threads() {
         struct MySyncPoint;
 
         let mut app = App::new();
         app.add_plugins((
-            AsyncPlugin::default(),
+            AsyncPlugin,
             ScheduleRunnerPlugin::default(),
             TaskPoolPlugin::default(),
         ))
-        .insert_resource(AsyncTickBudget(3))
         .add_systems(Update, async_world_sync_point::<MySyncPoint>);
 
         let system_state = app
@@ -176,7 +188,7 @@ mod tests {
                     counter: barrier_counter,
                 }
                 .await
-                .unwrap()
+                .unwrap();
             }));
         }
 
@@ -219,15 +231,12 @@ mod tests {
 
         let mut app = App::new();
         app.add_plugins((
-            AsyncPlugin::default(),
+            AsyncPlugin,
             ScheduleRunnerPlugin::default(),
             TaskPoolPlugin::default(),
         ));
 
-        let system_state = app
-            .world()
-            .resource::<AsyncWorld>()
-            .system_state::<Commands>();
+        let system_state = app.world().resource::<AsyncWorld>().system_state();
 
         let system_state_clone = system_state.clone();
         let mut task_1 = AsyncComputeTaskPool::get().spawn(async move {
@@ -245,18 +254,31 @@ mod tests {
         assert!(check_ready(&mut task_1).is_none());
         assert!(check_ready(&mut task_2).is_none());
 
-        app.world_mut()
-            .run_system_cached(async_world_sync_point::<Sync1>)
-            .unwrap();
+        assert_eq!(
+            run_loops(
+                || {
+                    app.world_mut()
+                        .run_system_cached(async_world_sync_point::<Sync1>)
+                        .unwrap();
+                },
+                || { check_ready(&mut task_1) }
+            ),
+            Ok(1)
+        );
 
-        assert_eq!(check_ready(&mut task_1).unwrap(), 1);
         assert!(check_ready(&mut task_2).is_none());
 
-        app.world_mut()
-            .run_system_cached(async_world_sync_point::<Sync2>)
-            .unwrap();
-
-        assert_eq!(check_ready(&mut task_2).unwrap(), 2);
+        assert_eq!(
+            run_loops(
+                || {
+                    app.world_mut()
+                        .run_system_cached(async_world_sync_point::<Sync2>)
+                        .unwrap();
+                },
+                || { check_ready(&mut task_2) }
+            ),
+            Ok(2)
+        );
     }
 
     /// This tests that if a world is dropped we return an error from attempting to run it and
@@ -267,39 +289,28 @@ mod tests {
     #[test]
     fn dropped_world() {
         struct MySyncPoint;
-        static WORLD_WAS_DROPPED: AtomicBool = AtomicBool::new(false);
         let mut other_app = App::new();
         other_app.add_plugins((TaskPoolPlugin::default(), ScheduleRunnerPlugin::default()));
         let mut app = App::new();
         app.add_plugins((
-            AsyncPlugin::default(),
+            AsyncPlugin,
             ScheduleRunnerPlugin::default(),
             TaskPoolPlugin::default(),
         ));
 
-        app.add_systems(Startup, move |world: Res<AsyncWorld>| {
-            let world = world.clone();
-            AsyncComputeTaskPool::get()
-                .spawn(async move {
-                    let system_state = world.system_state::<Commands>();
-                    match system_state
-                        .bridge(MySyncPoint, |mut commands: Commands| {
-                            commands.spawn_empty();
-                        })
-                        .await
-                    {
-                        Err(BridgeError::WorldDropped) => {
-                            WORLD_WAS_DROPPED.store(true, Ordering::Relaxed);
-                        }
-                        _ => unreachable!("World should have Dropped"),
-                    }
-                })
-                .detach();
-        });
-        app.update();
+        let async_world = app.world().resource::<AsyncWorld>().clone();
         drop(app);
-        other_app.update();
-        assert!(WORLD_WAS_DROPPED.load(Ordering::Relaxed));
+
+        let mut task = AsyncComputeTaskPool::get().spawn(async move {
+            let system_state = async_world.system_state();
+            system_state
+                .bridge(MySyncPoint, |mut commands: Commands| {
+                    commands.spawn_empty();
+                })
+                .await
+        });
+        let result = run_loops(|| other_app.update(), || check_ready(&mut task)).unwrap();
+        assert_matches!(result, Err(BridgeError::WorldDropped));
     }
 
     bevy_tasks::cfg::multi_threaded! {
@@ -324,13 +335,13 @@ mod tests {
 
             let mutex_clone = mutex.clone();
             app.add_systems(Startup, move |world: Res<AsyncWorld>| {
-                let system_state = world.system_state::<Commands>();
+                let system_state = world.system_state();
 
                 let mutex_clone = mutex_clone.clone();
                 AsyncComputeTaskPool::get()
                     .spawn(async move {
                         system_state
-                            .bridge(MySyncPoint, |mut commands| {
+                            .bridge(MySyncPoint, |mut commands: Commands| {
                                 commands.spawn_empty();
                             })
                             .await
@@ -371,8 +382,10 @@ mod tests {
             let world = world.clone();
             AsyncComputeTaskPool::get()
                 .spawn(async move {
-                    let system_state = world.system_state::<Res<MyResource>>();
-                    match system_state.bridge(MySyncPoint, |_| unreachable!()).await {
+                    match world
+                        .bridge(MySyncPoint, |_: Res<MyResource>| unreachable!())
+                        .await
+                    {
                         Err(BridgeError::SystemParamValidation(_)) => {
                             FAILED_VALIDATION.store(true, Ordering::Relaxed);
                         }
@@ -382,9 +395,13 @@ mod tests {
                 .detach();
         });
 
-        app.update();
-
-        assert!(FAILED_VALIDATION.load(Ordering::Relaxed));
+        assert_eq!(
+            run_loops(
+                || app.update(),
+                || FAILED_VALIDATION.load(Ordering::Relaxed).then_some(()),
+            ),
+            Ok(())
+        );
     }
 
     #[test]
@@ -413,7 +430,7 @@ mod tests {
             let world = world.clone();
             AsyncComputeTaskPool::get()
                 .spawn_local(async move {
-                    let system_state = world.system_state::<Commands>();
+                    let system_state = world.system_state();
                     system_state
                         .bridge(MySyncPoint, |mut commands: Commands| {
                             commands.spawn_empty();
@@ -425,8 +442,12 @@ mod tests {
                 .detach();
         });
 
-        app.update();
-
-        assert!(ACCESS_RAN.load(Ordering::Relaxed));
+        assert_eq!(
+            run_loops(
+                || app.update(),
+                || ACCESS_RAN.load(Ordering::Relaxed).then_some(()),
+            ),
+            Ok(())
+        );
     }
 }

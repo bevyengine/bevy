@@ -1,4 +1,3 @@
-#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 #![doc(
@@ -67,13 +66,6 @@ use bevy_math::Vec2;
 #[derive(Default)]
 pub struct SpritePlugin;
 
-/// System set for sprite rendering.
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
-pub enum SpriteSystems {
-    ExtractSprites,
-    ComputeSlices,
-}
-
 impl Plugin for SpritePlugin {
     fn build(&self, app: &mut App) {
         if !app.is_plugin_added::<TextureAtlasPlugin>() {
@@ -95,6 +87,7 @@ impl Plugin for SpritePlugin {
                 .after(bevy_text::load_font_assets_into_font_collection)
                 .after(bevy_text::apply_text_edits)
                 .after(bevy_app::AnimationSystems)
+                .before(bevy_app::TransformGizmoRenderStep)
                 .before(bevy_asset::AssetEventSystems),
         )
         .add_systems(
@@ -160,7 +153,7 @@ pub fn calculate_bounds_2d(
     // New meshes require inserting a component
     for (entity, mesh_handle) in &new_mesh_aabb {
         if let Some(mesh) = meshes.get(mesh_handle)
-            && let Some(aabb) = mesh.compute_aabb()
+            && let Some(aabb) = mesh.get_aabb()
         {
             commands.entity(entity).try_insert(aabb);
         }
@@ -170,7 +163,7 @@ pub fn calculate_bounds_2d(
     update_mesh_aabb
         .par_iter_mut()
         .for_each(|(mesh_handle, mut aabb)| {
-            if let Some(new_aabb) = meshes.get(mesh_handle).and_then(MeshAabb::compute_aabb) {
+            if let Some(new_aabb) = meshes.get(mesh_handle).and_then(MeshAabb::get_aabb) {
                 aabb.set_if_neq(new_aabb);
             }
         });

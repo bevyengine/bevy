@@ -126,7 +126,7 @@ impl Material for CustomMaterial {
     ) -> Result<(), SpecializedMeshPipelineError> {
         let fragment = descriptor.fragment.as_mut().unwrap();
         fragment.shader_defs.push(ShaderDefVal::Bool(
-            "PARTY_MODE".to_string(),
+            "PARTY_MODE".into(),
             key.bind_group_data.party_mode,
         ));
         Ok(())

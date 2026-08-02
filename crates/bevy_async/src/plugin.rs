@@ -1,4 +1,4 @@
-use crate::bridge_future::AsyncSystemState;
+use crate::bridge_future::{AsyncSystemParamFunction, AsyncSystemState, BridgeFuture};
 use bevy_app::App;
 use bevy_ecs::system::SystemParam;
 use bevy_platform::sync::{Arc, Weak};
@@ -10,8 +10,6 @@ use bevy_platform::sync::{Arc, Weak};
 /// driven from a known `SyncPoint` on the world-owning thread.
 ///
 /// This supports arbitrary async runtimes as well as multiple Bevy Worlds / Bevy Apps.
-///
-/// To configure how "aggressively" sync points drive work, see [`AsyncTickBudget`].
 #[derive(Default)]
 pub struct AsyncPlugin;
 
@@ -19,36 +17,8 @@ impl bevy_app::Plugin for AsyncPlugin {
     fn build(&self, app: &mut App) {
         let strong_world = StrongAsyncWorld::default();
         let weak_world = AsyncWorld(Arc::downgrade(&strong_world.0));
-        app.init_resource::<AsyncTickBudget>()
-            .insert_resource(strong_world)
+        app.insert_resource(strong_world)
             .insert_resource(weak_world);
-    }
-}
-
-/// Resource to manage a limit on how many times we try to drive the async <-> ecs bridge per sync
-/// point.
-///
-/// This holds the upper-bound on how many async world ticks to perform each time a sync-point
-/// system runs.
-///
-/// A single "tick" means:
-///
-/// 1. Collect queued bridge requests for that sync point.
-/// 2. Wake the corresponding async tasks.
-/// 3. Wait for each one to attempt a poll.
-/// 4. Apply any deferred [`SystemState`] work back into the world.
-///
-/// We may need to do this multiple times because one task's progress can unblock another task that
-/// previously returned [`Poll::Pending`].
-///
-/// [`SystemState`]: bevy_ecs::system::SystemState
-/// [`Poll::Pending`]: core::task::Poll::Pending
-#[derive(bevy_ecs_macros::Resource, Clone)]
-pub struct AsyncTickBudget(pub usize);
-
-impl Default for AsyncTickBudget {
-    fn default() -> Self {
-        Self(100)
     }
 }
 
@@ -97,7 +67,7 @@ impl AsyncWorld {
     /// static ACCESS_RAN: AtomicBool = AtomicBool::new(false);
     /// fn main() {
     ///   let mut app = App::new();
-    ///   app.add_plugins((AsyncPlugin::default(), ScheduleRunnerPlugin::default(), TaskPoolPlugin::default()));
+    ///   app.add_plugins((AsyncPlugin, ScheduleRunnerPlugin::default(), TaskPoolPlugin::default()));
     ///   app.add_systems(Update, async_world_sync_point::<MySyncPoint>);
     ///   app.add_systems(Startup, move |world: Res<AsyncWorld>| {
     ///       let world = world.clone();
@@ -120,5 +90,29 @@ impl AsyncWorld {
     /// initialized when the bridge is first driven against a real `World`.
     pub fn system_state<P: SystemParam + 'static>(&self) -> AsyncSystemState<P> {
         AsyncSystemState::new(self.clone())
+    }
+
+    /// Bridge into the ECS with the `SystemParam`s specified only by the closure's argument
+    /// types (up to 16 of them), like a regular Bevy system:
+    ///
+    /// ```rust,ignore
+    /// world.bridge(MySyncPoint, |mut commands: Commands, query: Query<&Health>| {
+    ///     // ...
+    /// }).await?;
+    /// ```
+    ///
+    /// This creates a fresh [`AsyncSystemState`] for each call. If you want params like `Local`
+    /// or filters like `Changed` to persist across calls, create one with
+    /// [`AsyncWorld::system_state`] and reuse it instead.
+    pub fn bridge<SyncPoint: 'static, Marker: 'static, BridgeFn>(
+        &self,
+        sync_point: SyncPoint,
+        bridge_fn: BridgeFn,
+    ) -> BridgeFuture<BridgeFn, Marker>
+    where
+        BridgeFn: AsyncSystemParamFunction<Marker>,
+    {
+        self.system_state::<BridgeFn::Param>()
+            .bridge(sync_point, bridge_fn)
     }
 }

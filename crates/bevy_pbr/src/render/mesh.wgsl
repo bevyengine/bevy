@@ -3,30 +3,31 @@
     mesh_functions,
     skinning,
     morph::{morph_position, morph_normal, morph_tangent},
-    forward_io::{Vertex, VertexOutput},
+    forward_io::{Vertex, UncompressedVertex, VertexOutput, decompress_vertex},
     view_transformations::position_world_to_clip,
 }
 
 #ifdef MORPH_TARGETS
 // The instance_index parameter must match vertex_in.instance_index. This is a work around for a wgpu dx12 bug.
 // See https://github.com/gfx-rs/naga/issues/2416
-fn morph_vertex(vertex_in: Vertex, instance_index: u32) -> Vertex {
+fn morph_vertex(vertex_in: UncompressedVertex, instance_index: u32) -> UncompressedVertex {
     var vertex = vertex_in;
     let first_vertex = mesh[instance_index].first_vertex_index;
     let vertex_index = vertex.index - first_vertex;
+    let morph_descriptor_index = mesh[instance_index].morph_descriptor_index;
 
-    let weight_count = bevy_pbr::morph::layer_count(instance_index);
+    let weight_count = bevy_pbr::morph::layer_count(morph_descriptor_index);
     for (var i: u32 = 0u; i < weight_count; i ++) {
-        let weight = bevy_pbr::morph::weight_at(i, instance_index);
+        let weight = bevy_pbr::morph::weight_at(i, morph_descriptor_index);
         if weight == 0.0 {
             continue;
         }
-        vertex.position += weight * morph_position(vertex_index, i, instance_index);
+        vertex.position += weight * morph_position(vertex_index, i, morph_descriptor_index);
 #ifdef VERTEX_NORMALS
-        vertex.normal += weight * morph_normal(vertex_index, i, instance_index);
+        vertex.normal += weight * morph_normal(vertex_index, i, morph_descriptor_index);
 #endif
 #ifdef VERTEX_TANGENTS
-        vertex.tangent += vec4(weight * morph_tangent(vertex_index, i, instance_index), 0.0);
+        vertex.tangent += vec4(weight * morph_tangent(vertex_index, i, morph_descriptor_index), 0.0);
 #endif
     }
     return vertex;
@@ -36,11 +37,11 @@ fn morph_vertex(vertex_in: Vertex, instance_index: u32) -> Vertex {
 @vertex
 fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     var out: VertexOutput;
-
+    let uncompressed_vertex_no_morph = decompress_vertex(vertex_no_morph, vertex_no_morph.instance_index);
 #ifdef MORPH_TARGETS
-    var vertex = morph_vertex(vertex_no_morph, vertex_no_morph.instance_index);
+    var vertex = morph_vertex(uncompressed_vertex_no_morph, vertex_no_morph.instance_index);
 #else
-    var vertex = vertex_no_morph;
+    var vertex = uncompressed_vertex_no_morph;
 #endif
 
     let mesh_world_from_local = mesh_functions::get_world_from_local(vertex_no_morph.instance_index);

@@ -50,7 +50,7 @@ fn fragment(
     pbr_functions::visibility_range_dither(in.position, in.visibility_range_dither);
 #endif  // VISIBILITY_RANGE_DITHER
 
-    pbr_prepass_functions::prepass_alpha_discard(in);
+    pbr_prepass_functions::prepass_sample_color_and_alpha_discard(in);
 #endif  // MESHLET_MESH_MATERIAL_PASS
 
     var out: prepass_io::FragmentOutput;
@@ -63,11 +63,17 @@ fn fragment(
     // NOTE: Unlit bit not set means == 0 is true, so the true case is if lit
     if (flags & pbr_types::STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u {
         let double_sided = (flags & pbr_types::STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u;
+#ifdef MESHLET_MESH_MATERIAL_PASS
+        let mesh_flags = in.mesh_flags;
+#else
+        let mesh_flags = mesh[in.instance_index].flags;
+#endif
+        let is_logically_front = pbr_functions::winding_corrected_front_facing(mesh_flags, is_front);
 
         let world_normal = pbr_functions::prepare_world_normal(
             in.world_normal,
             double_sided,
-            is_front,
+            is_logically_front,
         );
 
         var normal = world_normal;
@@ -119,7 +125,7 @@ fn fragment(
             flags,
             TBN,
             double_sided,
-            is_front,
+            is_logically_front,
             Nt,
         );
 
@@ -146,6 +152,6 @@ fn fragment(
 #else
 @fragment
 fn fragment(in: prepass_io::VertexOutput) {
-    pbr_prepass_functions::prepass_alpha_discard(in);
+    pbr_prepass_functions::prepass_sample_color_and_alpha_discard(in);
 }
 #endif // PREPASS_FRAGMENT

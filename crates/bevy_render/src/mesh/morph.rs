@@ -3,7 +3,6 @@ use bevy_ecs::{
     resource::Resource,
     world::{FromWorld, World},
 };
-use bevy_log::error;
 use bevy_mesh::{
     morph::{MorphAttributes, MorphBuildError, MAX_MORPH_WEIGHTS, MAX_TEXTURE_WIDTH},
     Mesh,
@@ -212,12 +211,7 @@ impl RenderMorphTargetAllocator {
             RenderMorphTargetAllocator::Image {
                 ref mut mesh_id_to_image,
             } => {
-                if mesh_id_to_image.remove(&mesh_id).is_none() {
-                    error!(
-                        "Attempted to free a morph target allocation that wasn't allocated: {:?}",
-                        mesh_id
-                    );
-                }
+                mesh_id_to_image.remove(&mesh_id);
             }
             RenderMorphTargetAllocator::Storage => {
                 // Do nothing. Morph target displacements are managed by the

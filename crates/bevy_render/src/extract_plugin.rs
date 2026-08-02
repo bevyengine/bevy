@@ -1,5 +1,5 @@
 use crate::{
-    sync_world::{despawn_temporary_render_entities, entity_sync_system, SyncWorldPlugin},
+    sync_world::{despawn_temporary_entities, entity_sync_system, SyncWorldPlugin},
     Render, RenderApp, RenderSystems,
 };
 use bevy_app::{App, Plugin, SubApp};
@@ -54,7 +54,7 @@ impl Plugin for ExtractPlugin {
                     // This set applies the commands from the extract schedule while the render schedule
                     // is running in parallel with the main app.
                     apply_extract_commands.in_set(RenderSystems::ExtractCommands),
-                    despawn_temporary_render_entities.in_set(RenderSystems::PostCleanup),
+                    despawn_temporary_entities::<RenderApp>.in_set(RenderSystems::PostCleanup),
                 ),
             );
 
@@ -145,16 +145,17 @@ mod test {
     struct RenderComponentExtra;
 
     #[derive(Component, Clone, Debug, ExtractComponent)]
+    #[extract_app(RenderApp)]
     struct RenderComponentSeparate;
 
     #[derive(Component, Clone, Debug)]
     struct RenderComponentNoExtract;
 
-    impl SyncComponent for RenderComponent {
+    impl SyncComponent<RenderApp> for RenderComponent {
         type Target = (RenderComponent, RenderComponentExtra);
     }
 
-    impl ExtractComponent for RenderComponent {
+    impl ExtractComponent<RenderApp> for RenderComponent {
         type QueryData = &'static Self;
         type QueryFilter = ();
         type Out = (RenderComponent, RenderComponentExtra);

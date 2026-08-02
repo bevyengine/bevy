@@ -5,26 +5,34 @@ use bevy_ecs::{
     entity::Entity,
     lifecycle::RemovedComponents,
     query::{Added, Has, With},
+    reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res},
     template::template,
 };
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_picking::PickingSystems;
+use bevy_reflect::std_traits::ReflectDefault;
+use bevy_reflect::Reflect;
 use bevy_scene::prelude::*;
 use bevy_text::{
     EditableText, FontSource, FontWeight, LineBreak, TextCursorStyle, TextFont, TextLayout,
+    TextReadWriteMode,
 };
 use bevy_ui::{
     px, AlignItems, BorderRadius, Display, InteractionDisabled, JustifyContent, Node, UiRect,
 };
+use bevy_ui_widgets::TextInput;
 
 use crate::{
     constants::{fonts, size},
     cursor::EntityCursor,
     focus::FocusWithinIndicator,
     font_styles::InheritableFont,
-    theme::{InheritableThemeTextColor, ThemeBackgroundColor, UiTheme},
+    theme::{
+        InheritableThemeTextColor, SurfaceLevel, ThemeBackgroundColor, ThemeContext, ThemedText,
+        UiTheme,
+    },
     tokens,
 };
 
@@ -32,7 +40,8 @@ use crate::{
 /// (such as "search" or "clear") to be inserted adjacent to the input.
 ///
 /// This is spawnable by inheriting it as a "scene component".
-#[derive(SceneComponent, Default, Clone)]
+#[derive(SceneComponent, Default, Clone, Reflect)]
+#[reflect(Component, Default, Clone)]
 pub struct FeathersTextInputContainer;
 
 impl FeathersTextInputContainer {
@@ -45,9 +54,7 @@ impl FeathersTextInputContainer {
                 align_items: AlignItems::Center,
                 padding: UiRect {
                     right: px(3.0),
-                },
-                border: UiRect {
-                    left: px(3.0)
+                    left: px(3.0),
                 },
                 flex_grow: 1.0,
                 border_radius: {BorderRadius::all(px(4.0))},
@@ -71,13 +78,15 @@ impl FeathersTextInputContainer {
 /// This is spawnable by inheriting it as a "scene component" with optional [`FeathersTextInputProps`].
 ///
 /// ```ignore
-/// :FeathersTextInputContainer
+/// @FeathersTextInputContainer
 /// Children [
 ///     :FeathersTextInput
 /// ]
 /// ```
 #[derive(SceneComponent, Default, Clone)]
 #[scene(FeathersTextInputProps)]
+#[derive(Reflect)]
+#[reflect(Component, Default, Clone)]
 pub struct FeathersTextInput;
 
 /// Props used to construct the [`FeathersTextInput`] scene.
@@ -95,18 +104,20 @@ impl FeathersTextInput {
             Node {
                 flex_grow: {
                     if props.visible_width.is_some() {
-                        0.
+                        0_f32
                     } else {
-                        1.
+                        1_f32
                     }
                 } ,
             }
             FeathersTextInput
+            TextInput
             EditableText {
                 cursor_width: 0.3,
                 visible_width: {props.visible_width},
                 max_characters: {props.max_characters},
             }
+            ThemedText
             TextLayout {
                 linebreak: LineBreak::NoWrap,
             }
@@ -127,15 +138,17 @@ impl FeathersTextInput {
 }
 
 fn update_text_cursor_color(
-    mut q_text_input: Query<&mut TextCursorStyle, With<FeathersTextInput>>,
+    mut q_text_input: Query<(&mut TextCursorStyle, Option<&ThemeContext>), With<FeathersTextInput>>,
     theme: Res<UiTheme>,
 ) {
     if theme.is_changed() {
-        for mut cursor_style in q_text_input.iter_mut() {
-            cursor_style.color = theme.color(&tokens::TEXT_INPUT_CURSOR);
-            cursor_style.selection_color = theme.color(&tokens::TEXT_INPUT_SELECTION);
+        for (mut cursor_style, theme_context) in q_text_input.iter_mut() {
+            let context = theme_context.map(|tc| tc.0).unwrap_or(SurfaceLevel::Base);
+            cursor_style.color = theme.context_color(&tokens::TEXT_INPUT_CURSOR, context);
+            cursor_style.selection_color =
+                theme.context_color(&tokens::TEXT_INPUT_SELECTION, context);
             cursor_style.unfocused_selection_color =
-                theme.color(&tokens::TEXT_INPUT_SELECTION_UNFOCUSED);
+                theme.context_color(&tokens::TEXT_INPUT_SELECTION_UNFOCUSED, context);
         }
     }
 }
@@ -149,6 +162,9 @@ fn update_text_input_styles(
 ) {
     for (input_ent, disabled, font_color) in q_inputs.iter() {
         set_text_input_styles(input_ent, disabled, font_color, &mut commands);
+        commands
+            .entity(input_ent)
+            .insert(TextReadWriteMode::ReadOnly);
     }
 }
 
@@ -163,6 +179,9 @@ fn update_text_input_styles_remove(
     removed_disabled.read().for_each(|ent| {
         if let Ok((input_ent, disabled, font_color)) = q_inputs.get(ent) {
             set_text_input_styles(input_ent, disabled, font_color, &mut commands);
+            commands
+                .entity(input_ent)
+                .insert(TextReadWriteMode::Editable);
         }
     });
 }

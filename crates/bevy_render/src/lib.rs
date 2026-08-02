@@ -49,6 +49,7 @@ pub mod extract_resource;
 pub mod globals;
 pub mod gpu_component_array_buffer;
 pub mod gpu_readback;
+pub mod material_bind_groups;
 pub mod mesh;
 pub mod occlusion_culling;
 #[cfg(not(target_arch = "wasm32"))]
@@ -72,8 +73,8 @@ pub mod view;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        camera::NormalizedRenderTargetExt as _, texture::ManualTextureViews, view::Msaa,
-        ExtractSchedule,
+        camera::NormalizedRenderTargetExt as _, renderer::RenderGraph, texture::ManualTextureViews,
+        view::Msaa, ExtractSchedule,
     };
 }
 
@@ -85,6 +86,7 @@ use crate::{
     error_handler::{RenderErrorHandler, RenderState},
     extract_plugin::ExtractPlugin,
     gpu_readback::GpuReadbackPlugin,
+    material_bind_groups::MaterialBindGroupPlugin,
     mesh::{MeshRenderAssetPlugin, RenderMesh},
     render_asset::prepare_assets,
     render_resource::{PipelineCache, SparseBufferPlugin},
@@ -96,7 +98,7 @@ use crate::{
 };
 use alloc::sync::Arc;
 use batching::gpu_preprocessing::BatchingPlugin;
-use bevy_app::{App, AppLabel, Plugin, SubApp};
+use bevy_app::{App, AppLabel, First, Plugin, SubApp};
 use bevy_asset::{AssetApp, AssetServer};
 use bevy_derive::Deref;
 use bevy_ecs::{
@@ -115,7 +117,7 @@ use render_asset::{
     RenderAssetBytesPerFrame, RenderAssetBytesPerFrameLimiter,
 };
 use settings::RenderResources;
-use std::sync::{Mutex, OnceLock};
+use std::sync::Mutex;
 
 /// Contains the default Bevy rendering backend based on wgpu.
 ///
@@ -256,7 +258,7 @@ pub struct RenderScheduleOrder {
 impl Default for RenderScheduleOrder {
     fn default() -> Self {
         Self {
-            labels: vec![Render.intern()],
+            labels: vec![First.intern(), Render.intern()],
         }
     }
 }
@@ -284,6 +286,8 @@ impl RenderScheduleOrder {
 }
 
 /// The main render schedule.
+///
+/// See also [`RenderGraph`] for more details.
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
 pub struct Render;
 
@@ -310,16 +314,17 @@ impl Render {
                 Cleanup,
                 PostCleanup,
             )
-                .chain(),
+                .chain_weak(),
         );
         schedule.ignore_ambiguity(Specialize, Specialize);
 
-        schedule.configure_sets((ExtractCommands, PrepareAssets, PrepareMeshes, Prepare).chain());
+        schedule
+            .configure_sets((ExtractCommands, PrepareAssets, PrepareMeshes, Prepare).chain_weak());
         schedule.configure_sets(
             (QueueMeshes, QueueSweep)
-                .chain()
+                .chain_weak()
                 .in_set(Queue)
-                .after(prepare_assets::<RenderMesh>),
+                .after_weak(prepare_assets::<RenderMesh>),
         );
         schedule.configure_sets(
             (
@@ -330,7 +335,7 @@ impl Render {
                 PrepareResourcesFlush,
                 PrepareBindGroups,
             )
-                .chain()
+                .chain_weak()
                 .in_set(Prepare),
         );
 
@@ -342,7 +347,7 @@ impl Render {
 pub(crate) struct FutureRenderResources(Arc<Mutex<Option<RenderResources>>>);
 
 /// A label for the rendering sub-app.
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel, Default)]
 pub struct RenderApp;
 
 impl Plugin for RenderPlugin {
@@ -350,6 +355,7 @@ impl Plugin for RenderPlugin {
     fn build(&self, app: &mut App) {
         app.init_asset::<Shader>()
             .init_asset_loader::<ShaderLoader>();
+        load_shader_library!(app, "utils.wgsl");
         load_shader_library!(app, "maths.wgsl");
         load_shader_library!(app, "color_operations.wgsl");
         load_shader_library!(app, "bindless.wgsl");
@@ -376,6 +382,7 @@ impl Plugin for RenderPlugin {
             GpuReadbackPlugin::default(),
             OcclusionCullingPlugin,
             SparseBufferPlugin,
+            MaterialBindGroupPlugin,
             #[cfg(feature = "tracing-tracy")]
             diagnostic::RenderDiagnosticsPlugin,
         ));
@@ -582,6 +589,5 @@ pub fn get_pixel10_driver_version(adapter_info: &RenderAdapterInfo) -> Option<u3
 /// Returns true if storage buffers are unsupported on this platform or false
 /// if they are supported.
 pub fn storage_buffers_are_unsupported(limits: &WgpuLimits) -> bool {
-    static STORAGE_BUFFERS_UNSUPPORTED: OnceLock<bool> = OnceLock::new();
-    *STORAGE_BUFFERS_UNSUPPORTED.get_or_init(|| limits.max_storage_buffers_per_shader_stage == 0)
+    limits.max_storage_buffers_per_shader_stage == 0
 }

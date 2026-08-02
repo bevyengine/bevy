@@ -4,13 +4,13 @@
 use alloc::boxed::Box;
 use core::{any::TypeId, marker::PhantomData};
 
-use bevy_utils::TypeIdMap;
+use bevy_utils::TypeIdHashMap;
 
 use crate::{Reflect, TypePath};
 
 /// Provides a mechanism for converting values of one type to another.
 ///
-/// This [`crate::type_registry::TypeData`] is associated with the type to be
+/// This [`crate::type_data::TypeData`] is associated with the type to be
 /// converted *into*, not the type to be converted *from*. To convert a value,
 /// use code like the following:
 ///
@@ -36,7 +36,7 @@ use crate::{Reflect, TypePath};
 pub struct ReflectConvert {
     /// A mapping from the type to be converted *from* to its associated
     /// [`Converter`].
-    conversions: TypeIdMap<Box<dyn Converter>>,
+    conversions: TypeIdHashMap<Box<dyn Converter>>,
 }
 
 /// An internal trait that wraps a conversion function in an untyped interface.

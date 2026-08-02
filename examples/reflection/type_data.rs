@@ -2,24 +2,24 @@
 
 use bevy::{
     prelude::*,
-    reflect::{FromType, TypeRegistry},
+    reflect::{CreateTypeData, TypeRegistry},
 };
 
 // It's recommended to read this example from top to bottom.
 // Comments are provided to explain the code and its purpose as you go along.
 fn main() {
     trait Damageable {
-        type Health;
+        type Health: Sized + core::ops::Mul<i32, Output = Self::Health>;
         fn damage(&mut self, damage: Self::Health);
     }
 
     #[derive(Reflect, PartialEq, Debug)]
     struct Zombie {
-        health: u32,
+        health: i32,
     }
 
     impl Damageable for Zombie {
-        type Health = u32;
+        type Health = i32;
         fn damage(&mut self, damage: Self::Health) {
             self.health -= damage;
         }
@@ -49,21 +49,23 @@ fn main() {
         // Just remember that we're working with `Reflect` data,
         // so we can't use `Self`, generics, or associated types.
         // In those cases, we'll have to use `dyn Reflect` trait objects.
-        damage: fn(&mut dyn Reflect, damage: Box<dyn Reflect>),
+        damage: fn(&mut dyn Reflect, damage: Box<dyn Reflect>, multiplier: i32),
+        multiplier: i32,
     }
 
-    // Now, we can create a blanket implementation of the `FromType` trait to construct our type data
+    // Now, we can create a blanket implementation of the `CreateTypeData` trait to construct our type data
     // for any type that implements `Reflect` and `Damageable`.
-    impl<T: Reflect + Damageable<Health: Reflect>> FromType<T> for ReflectDamageable {
-        fn from_type() -> Self {
+    impl<T: Reflect + Damageable<Health: Reflect>> CreateTypeData<T> for ReflectDamageable {
+        fn create_type_data(_input: ()) -> Self {
             Self {
-                damage: |reflect, damage| {
+                damage: |reflect, damage, multiplier| {
                     // This requires that `reflect` is `T` and not a dynamic representation like `DynamicStruct`.
                     // We could have the function pointer return a `Result`, but we'll just `unwrap` for simplicity.
                     let damageable = reflect.downcast_mut::<T>().unwrap();
-                    let damage = damage.take::<T::Health>().unwrap();
+                    let damage = damage.take::<T::Health>().unwrap() * multiplier;
                     damageable.damage(damage);
                 },
+                multiplier: 1,
             }
         }
     }
@@ -71,7 +73,7 @@ fn main() {
     // It's also common to provide convenience methods for calling the type-specific operations.
     impl ReflectDamageable {
         pub fn damage(&self, reflect: &mut dyn Reflect, damage: Box<dyn Reflect>) {
-            (self.damage)(reflect, damage);
+            (self.damage)(reflect, damage, self.multiplier);
         }
     }
 
@@ -88,7 +90,7 @@ fn main() {
         .unwrap();
 
     // And call our method:
-    reflect_damageable.damage(value.as_reflect_mut(), Box::new(25u32));
+    reflect_damageable.damage(value.as_reflect_mut(), Box::new(25i32));
     assert_eq!(value.take::<Zombie>().unwrap(), Zombie { health: 75 });
 
     // This is a simple example, but type data can be used for much more complex operations.
@@ -101,12 +103,14 @@ fn main() {
     // This is why we named it with the `Reflect` prefix:
     // the derive macro will automatically look for a type named `ReflectDamageable` in the current scope.
     #[reflect(Damageable)]
+    // We can also specify the path to type data if it isn't currently in-scope:
+    // #[reflect(path::to::MyTypeData)]
     struct Skeleton {
-        health: u32,
+        health: i32,
     }
 
     impl Damageable for Skeleton {
-        type Health = u32;
+        type Health = i32;
         fn damage(&mut self, damage: Self::Health) {
             self.health -= damage;
         }
@@ -115,15 +119,66 @@ fn main() {
     // This will now register `Skeleton` along with its `ReflectDamageable` type data.
     registry.register::<Skeleton>();
 
+    // Additionally, type data can accept arbitrary input.
+    // You might have already noticed that the default input is simply `()`,
+    // but we can configure this with a new impl with the relevant data.
+    //
+    // Let's add the ability to define a damage multiplier by accepting an input of type `i32`.
+    impl<T: Reflect + Damageable<Health: Reflect>> CreateTypeData<T, i32> for ReflectDamageable {
+        fn create_type_data(input: i32) -> Self {
+            Self {
+                damage: move |reflect, damage, multiplier| {
+                    // This requires that `reflect` is `T` and not a dynamic representation like `DynamicStruct`.
+                    // We could have the function pointer return a `Result`, but we'll just `unwrap` for simplicity.
+                    let damageable = reflect.downcast_mut::<T>().unwrap();
+                    let damage = damage.take::<T::Health>().unwrap() * multiplier;
+                    damageable.damage(damage);
+                },
+                multiplier: input,
+            }
+        }
+    }
+
+    #[derive(Reflect)]
+    // Now we can pass our `i32` input into our type data:
+    #[reflect(Damageable(2))]
+    // Note that this accepts any expression. The derive macro will copy it verbatim into the impl.
+    // This means you could also write:
+    // - #[reflect(Damageable(1 + 1))]
+    // - #[reflect(Damageable(4 / 2))]
+    // - #[reflect(Damageable({let v = vec![0, 1, 2]; v.into_iter().fold(1, |acc, x| acc * x)}))]
+    // - etc.
+    struct Beast {
+        health: i32,
+    }
+
+    impl Damageable for Beast {
+        type Health = i32;
+        fn damage(&mut self, damage: Self::Health) {
+            self.health -= damage;
+        }
+    }
+
+    // Now when we register `Beast` it will automatically register with a `ReflectDamageable` with a multiplier of `2`.
+    registry.register::<Beast>();
+
+    let data = registry
+        .get_type_data::<ReflectDamageable>(core::any::TypeId::of::<Beast>())
+        .unwrap();
+    assert_eq!(data.multiplier, 2);
+
+    // We can also choose to define the input when manually registering type data.
+    registry.register_type_data_with::<Beast, ReflectDamageable, _>(5);
+
     // And for object-safe traits (see https://doc.rust-lang.org/reference/items/traits.html#object-safety),
     // Bevy provides a convenience macro for generating type data that converts `dyn Reflect` into `dyn MyTrait`.
     #[reflect_trait]
     trait Health {
-        fn health(&self) -> u32;
+        fn health(&self) -> i32;
     }
 
     impl Health for Skeleton {
-        fn health(&self) -> u32 {
+        fn health(&self) -> i32 {
             self.health
         }
     }
@@ -148,11 +203,16 @@ fn main() {
     // - `ReflectDefault` for types that implement `Default`
     // - `ReflectFromWorld` for types that implement `FromWorld`
     // - `ReflectComponent` for types that implement `Component`
+    // - `ReflectBundle` for types that implement `Bundle`
     // - `ReflectResource` for types that implement `Resource`
+    // - `ReflectAsset` for types that implement `Asset`
+    // - `ReflectEvent` for types that implement `Event`
+    // - `ReflectMessage` for types that implement `Message`
     // - `ReflectSerialize` for types that implement `Serialize`
     // - `ReflectDeserialize` for types that implement `Deserialize`
+    // - And more!
     //
-    // And here are some that are automatically registered by the `Reflect` derive macro:
+    // There are also some that are automatically registered by the `Reflect` derive macro:
     // - `ReflectFromPtr`
     // - `ReflectFromReflect` (if not `#[reflect(from_reflect = false)]`)
 }

@@ -670,12 +670,9 @@ where
             });
 
         // base circle
-        circle_coords
-            .windows(2)
-            .map(|win| (win[0], win[1]))
-            .for_each(|(start, end)| {
-                self.gizmos.line(start, end, self.color);
-            });
+        circle_coords.array_windows().for_each(|&[start, end]| {
+            self.gizmos.line(start, end, self.color);
+        });
     }
 }
 
@@ -764,9 +761,9 @@ where
                     .collect::<Vec<_>>()
             });
 
-        let upper_lines = upper_points.windows(2).map(|win| (win[0], win[1]));
-        let lower_lines = lower_points.windows(2).map(|win| (win[0], win[1]));
-        upper_lines.chain(lower_lines).for_each(|(start, end)| {
+        let upper_lines = upper_points.array_windows();
+        let lower_lines = lower_points.array_windows();
+        upper_lines.chain(lower_lines).for_each(|&[start, end]| {
             self.gizmos.line(start, end, self.color);
         });
 
@@ -875,8 +872,8 @@ where
 
         [&inner, &outer, &top, &bottom]
             .iter()
-            .flat_map(|points| points.windows(2).map(|win| (win[0], win[1])))
-            .for_each(|(start, end)| {
+            .flat_map(|points| points.array_windows())
+            .for_each(|&[start, end]| {
                 self.gizmos.line(start, end, self.color);
             });
 

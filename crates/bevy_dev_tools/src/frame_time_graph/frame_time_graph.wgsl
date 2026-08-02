@@ -40,7 +40,7 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
 
     let len = arrayLength(&values);
     var graph_width = 0.0;
-    for (var i = 0u; i <= len; i += 1u) {
+    for (var i = 1u; i <= len; i += 1u) {
         let dt = values[len - i];
 
         var frame_width: f32;

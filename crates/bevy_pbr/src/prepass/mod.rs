@@ -4,15 +4,16 @@ use crate::{
     alpha_mode_pipeline_key, binding_arrays_are_usable, buffer_layout,
     collect_meshes_for_gpu_building, init_material_pipeline, set_mesh_motion_vector_flags,
     setup_morph_and_skinning_defs, skin, DeferredAlphaMaskDrawFunction, DeferredFragmentShader,
-    DeferredOpaqueDrawFunction, DeferredVertexShader, DrawMesh, MaterialPipeline, MeshLayouts,
-    MeshPipeline, MeshPipelineKey, PreparedMaterial, PrepassAlphaMaskDrawFunction,
-    PrepassFragmentShader, PrepassOpaqueDepthOnlyDrawFunction, PrepassOpaqueDrawFunction,
-    PrepassVertexShader, RenderLightmaps, RenderMaterialInstances, RenderMeshInstanceFlags,
-    RenderMeshInstances, SetMaterialBindGroup, SetMeshBindGroup, ShadowView,
+    DeferredOpaqueDrawFunction, DeferredVertexShader, DrawMesh, MaterialPipeline,
+    MaterialPropertiesExt, MeshLayouts, MeshPipeline, MeshPipelineKey, PreparedMaterial,
+    PrepassAlphaMaskDrawFunction, PrepassFragmentShader, PrepassOpaqueDepthOnlyDrawFunction,
+    PrepassOpaqueDrawFunction, PrepassVertexShader, RenderLightmaps, RenderMaterialInstances,
+    RenderMeshInstanceFlags, RenderMeshInstances, SetMaterialBindGroup, SetMeshBindGroup,
+    ShadowView,
 };
 use bevy_app::{App, Plugin, PreUpdate};
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
-use bevy_camera::{Camera, Camera3d};
+use bevy_camera::{Camera, Camera3d, MainPassResolutionOverride};
 use bevy_core_pipeline::{core_3d::CORE_3D_DEPTH_FORMAT, deferred::*, prepass::*};
 use bevy_ecs::{
     prelude::*,
@@ -25,18 +26,18 @@ use bevy_material::{
     key::{ErasedMaterialPipelineKey, ErasedMeshPipelineKey},
     AlphaMode, MaterialProperties, OpaqueRendererMethod, RenderPhaseType,
 };
-use bevy_math::{Affine3A, Mat4, Vec4};
-use bevy_mesh::{Mesh, Mesh3d, MeshVertexBufferLayoutRef};
+use bevy_math::{Affine3A, Mat4, Vec2, Vec4};
+use bevy_mesh::{Mesh, Mesh3d, MeshAttributeCompressionFlags, MeshVertexBufferLayoutRef};
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingSupport,
-    camera::{DirtySpecializations, PendingQueues},
+    camera::{DirtySpecializations, PendingQueues, TemporalJitter},
     globals::{GlobalsBuffer, GlobalsUniform},
     mesh::{allocator::MeshAllocator, RenderMesh},
     render_asset::{prepare_assets, RenderAssets},
     render_phase::*,
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
-    sync_world::RenderEntity,
+    sync_world::{MainEntityHashSet, RenderEntity},
     view::{
         ExtractedView, Msaa, RenderVisibilityRanges, RenderVisibleEntities, RetainedViewEntity,
         ViewUniform, ViewUniformOffset, ViewUniforms, VISIBILITY_RANGES_STORAGE_BUFFER_COUNT,
@@ -201,9 +202,13 @@ pub fn update_previous_view_data(
         let view_from_world = Mat4::from(world_from_view.inverse());
         let view_from_clip = camera.clip_from_view().inverse();
 
+        // Note: this main-world system cannot know the temporal jitter (it's applied in
+        // the render world). Jitter is applied in `prepare_previous_view_uniforms`
+        // using `PreviousTemporalJitter`.
         commands.entity(entity).try_insert(PreviousViewData {
             view_from_world,
             clip_from_world: camera.clip_from_view() * view_from_world,
+            unjittered_clip_from_world: camera.clip_from_view() * view_from_world,
             clip_from_view: camera.clip_from_view(),
             world_from_clip: Mat4::from(world_from_view) * view_from_clip,
             view_from_clip,
@@ -254,6 +259,10 @@ pub struct PrepassPipeline {
     /// Whether skins will use uniform buffers on account of storage buffers
     /// being unavailable on this platform.
     pub skins_use_uniform_buffers: bool,
+
+    /// Whether mesh metadata will use uniform buffers on account of storage buffers
+    /// being unavailable on this platform.
+    pub metadata_use_uniform_buffers: bool,
 
     pub depth_clip_control_supported: bool,
 
@@ -331,6 +340,9 @@ pub fn init_prepass_pipeline(
         mesh_layouts: mesh_pipeline.mesh_layouts.clone(),
         default_prepass_shader: load_embedded_asset!(asset_server.as_ref(), "prepass.wgsl"),
         skins_use_uniform_buffers: skin::skins_use_uniform_buffers(&render_device.limits()),
+        metadata_use_uniform_buffers: bevy_render::storage_buffers_are_unsupported(
+            &render_device.limits(),
+        ),
         depth_clip_control_supported,
         binding_arrays_are_usable: binding_arrays_are_usable(&render_device, &render_adapter),
         empty_layout: BindGroupLayoutDescriptor::new("prepass_empty_layout", &[]),
@@ -379,7 +391,9 @@ impl SpecializedMeshPipeline for PrepassPipelineSpecializer {
 }
 
 fn is_depth_only_opaque_prepass(mesh_key: MeshPipelineKey) -> bool {
-    mesh_key.intersection(MeshPipelineKey::ALL_PREPASS_BITS) == MeshPipelineKey::DEPTH_PREPASS
+    !mesh_key.intersects(MeshPipelineKey::MAY_DISCARD | MeshPipelineKey::PREPASS_READS_MATERIAL)
+        && mesh_key.intersection(MeshPipelineKey::ALL_PREPASS_BITS)
+            == MeshPipelineKey::DEPTH_PREPASS
 }
 
 impl PrepassPipeline {
@@ -414,7 +428,12 @@ impl PrepassPipeline {
         // or emulated by setting depth in the fragment shader for GPUs that don't support it natively.
         let emulate_unclipped_depth = mesh_key.contains(MeshPipelineKey::UNCLIPPED_DEPTH_ORTHO)
             && !self.depth_clip_control_supported;
-        if is_depth_only_opaque_prepass(mesh_key) && !emulate_unclipped_depth {
+        if is_depth_only_opaque_prepass(mesh_key)
+            && !emulate_unclipped_depth
+            && !material_properties.prepass_reads_material()
+        {
+            // The shaders for depth only opaque prepass doesn't need material's bind group.
+            // We set an empty layout and batch them by setting `material_bind_group_index` to `None` in batch set key.
             bind_group_layouts.push(self.empty_layout.clone());
         } else {
             bind_group_layouts.push(
@@ -451,6 +470,13 @@ impl PrepassPipeline {
         }
         if layout.0.contains(Mesh::ATTRIBUTE_POSITION) {
             shader_defs.push("VERTEX_POSITIONS".into());
+            if layout
+                .0
+                .get_attribute_compression()
+                .contains(MeshAttributeCompressionFlags::COMPRESS_POSITION)
+            {
+                shader_defs.push("VERTEX_POSITIONS_COMPRESSED".into());
+            }
             vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));
         }
         if emulate_unclipped_depth {
@@ -468,11 +494,25 @@ impl PrepassPipeline {
         if layout.0.contains(Mesh::ATTRIBUTE_UV_0) {
             shader_defs.push("VERTEX_UVS".into());
             shader_defs.push("VERTEX_UVS_A".into());
+            if layout
+                .0
+                .get_attribute_compression()
+                .contains(MeshAttributeCompressionFlags::COMPRESS_UV0)
+            {
+                shader_defs.push("VERTEX_UVS_A_COMPRESSED".into());
+            }
             vertex_attributes.push(Mesh::ATTRIBUTE_UV_0.at_shader_location(1));
         }
         if layout.0.contains(Mesh::ATTRIBUTE_UV_1) {
             shader_defs.push("VERTEX_UVS".into());
             shader_defs.push("VERTEX_UVS_B".into());
+            if layout
+                .0
+                .get_attribute_compression()
+                .contains(MeshAttributeCompressionFlags::COMPRESS_UV1)
+            {
+                shader_defs.push("VERTEX_UVS_B_COMPRESSED".into());
+            }
             vertex_attributes.push(Mesh::ATTRIBUTE_UV_1.at_shader_location(2));
         }
         if mesh_key.contains(MeshPipelineKey::NORMAL_PREPASS) {
@@ -483,6 +523,13 @@ impl PrepassPipeline {
             shader_defs.push("NORMAL_PREPASS_OR_DEFERRED_PREPASS".into());
             if layout.0.contains(Mesh::ATTRIBUTE_NORMAL) {
                 shader_defs.push("VERTEX_NORMALS".into());
+                if layout
+                    .0
+                    .get_attribute_compression()
+                    .contains(MeshAttributeCompressionFlags::COMPRESS_NORMAL)
+                {
+                    shader_defs.push("VERTEX_NORMALS_COMPRESSED".into());
+                }
                 vertex_attributes.push(Mesh::ATTRIBUTE_NORMAL.at_shader_location(3));
             } else if mesh_key.contains(MeshPipelineKey::NORMAL_PREPASS) {
                 warn!(
@@ -491,6 +538,13 @@ impl PrepassPipeline {
             }
             if layout.0.contains(Mesh::ATTRIBUTE_TANGENT) {
                 shader_defs.push("VERTEX_TANGENTS".into());
+                if layout
+                    .0
+                    .get_attribute_compression()
+                    .contains(MeshAttributeCompressionFlags::COMPRESS_TANGENT)
+                {
+                    shader_defs.push("VERTEX_TANGENTS_COMPRESSED".into());
+                }
                 vertex_attributes.push(Mesh::ATTRIBUTE_TANGENT.at_shader_location(4));
             }
         }
@@ -533,6 +587,9 @@ impl PrepassPipeline {
                 | MeshPipelineKey::DEFERRED_PREPASS,
         ) {
             shader_defs.push("PREPASS_FRAGMENT".into());
+        }
+        if self.metadata_use_uniform_buffers {
+            shader_defs.push("METADATA_USE_UNIFORM_BUFFERS".into());
         }
         let bind_group = setup_morph_and_skinning_defs(
             &self.mesh_layouts,
@@ -670,7 +727,14 @@ pub fn prepare_previous_view_uniforms(
     render_queue: Res<RenderQueue>,
     mut previous_view_uniforms: ResMut<PreviousViewUniforms>,
     views: Query<
-        (Entity, &ExtractedView, Option<&PreviousViewData>),
+        (
+            Entity,
+            &ExtractedView,
+            Option<&PreviousViewData>,
+            Option<&PreviousTemporalJitter>,
+            Option<&TemporalJitter>,
+            Option<&MainPassResolutionOverride>,
+        ),
         Or<(With<Camera3d>, With<ShadowView>)>,
     >,
 ) {
@@ -684,8 +748,16 @@ pub fn prepare_previous_view_uniforms(
         return;
     };
 
-    for (entity, camera, maybe_previous_view_uniforms) in views_iter {
-        let prev_view_data = match maybe_previous_view_uniforms {
+    for (
+        entity,
+        camera,
+        maybe_previous_view_uniforms,
+        maybe_previous_jitter,
+        maybe_jitter,
+        resolution_override,
+    ) in views_iter
+    {
+        let mut prev_view_data = match maybe_previous_view_uniforms {
             Some(previous_view) => previous_view.clone(),
             None => {
                 let world_from_view = camera.world_from_view.affine();
@@ -695,6 +767,7 @@ pub fn prepare_previous_view_uniforms(
                 PreviousViewData {
                     view_from_world,
                     clip_from_world: camera.clip_from_view * view_from_world,
+                    unjittered_clip_from_world: camera.clip_from_view * view_from_world,
                     clip_from_view: camera.clip_from_view,
                     world_from_clip: Mat4::from(world_from_view) * view_from_clip,
                     view_from_clip,
@@ -702,10 +775,57 @@ pub fn prepare_previous_view_uniforms(
             }
         };
 
+        // The previous frame's depth/gbuffer were rasterized with that frame's temporal
+        // jitter, but `PreviousViewData` is recorded in the main world, which doesn't know
+        // the jitter (it's applied in the render world). Re-apply it here so that
+        // reconstructing positions from the previous frame's textures through these
+        // matrices is exact.
+        if let Some(previous_jitter) = maybe_previous_jitter {
+            let mut clip_from_view = prev_view_data.clip_from_view;
+            previous_jitter
+                .jitter
+                .jitter_projection(&mut clip_from_view, previous_jitter.view_size);
+            let view_from_clip = clip_from_view.inverse();
+            let world_from_view = prev_view_data.view_from_world.inverse();
+
+            prev_view_data.clip_from_view = clip_from_view;
+            prev_view_data.view_from_clip = view_from_clip;
+            prev_view_data.clip_from_world = clip_from_view * prev_view_data.view_from_world;
+            prev_view_data.world_from_clip = world_from_view * view_from_clip;
+        }
+
         commands.entity(entity).insert(PreviousViewUniformOffset {
             offset: writer.write(&prev_view_data),
         });
+
+        // Record this frame's jitter so next frame's iteration (above) can reproduce the
+        // jittered matrices this frame's depth/gbuffer were rasterized with.
+        match maybe_jitter {
+            Some(jitter) => {
+                let mut view_size = Vec2::new(camera.viewport.z as f32, camera.viewport.w as f32);
+                if let Some(resolution_override) = resolution_override {
+                    view_size = resolution_override.0.as_vec2();
+                }
+
+                commands.entity(entity).insert(PreviousTemporalJitter {
+                    jitter: jitter.clone(),
+                    view_size,
+                });
+            }
+            None => {
+                commands.entity(entity).remove::<PreviousTemporalJitter>();
+            }
+        }
     }
+}
+
+/// Render-world component recording the [`TemporalJitter`] a view was rendered with, plus
+/// the viewport size it applies to, so that the *next* frame's [`prepare_previous_view_uniforms`]
+/// can reproduce the jittered matrices the previous frame's depth/gbuffer were rasterized with.
+#[derive(Component, Clone)]
+pub struct PreviousTemporalJitter {
+    pub jitter: TemporalJitter,
+    pub view_size: Vec2,
 }
 
 #[derive(Resource)]
@@ -1069,6 +1189,10 @@ pub(crate) fn specialize_prepass_material_meshes(
                     mesh_key |= MeshPipelineKey::VISIBILITY_RANGE_DITHER;
                 }
 
+                if material.properties.prepass_reads_material() {
+                    mesh_key |= MeshPipelineKey::PREPASS_READS_MATERIAL;
+                }
+
                 // If the previous frame has skins or morph targets, note that.
                 if motion_vector_prepass.is_some() {
                     if mesh_instance
@@ -1147,7 +1271,7 @@ pub(crate) fn specialize_prepass_material_meshes(
             continue;
         };
 
-        match prepass_specialize(world, key, &item.layout, &item.properties) {
+        match prepass_specialize(world, &key, &item.layout, &item.properties) {
             Ok(pipeline_id) => {
                 world
                     .resource_mut::<SpecializedPrepassMaterialPipelineCache>()
@@ -1187,6 +1311,7 @@ pub fn queue_prepass_material_meshes(
     specialized_material_pipeline_cache: Res<SpecializedPrepassMaterialPipelineCache>,
     mut pending_prepass_mesh_material_queues: ResMut<PendingPrepassMeshMaterialQueues>,
     dirty_specializations: Res<DirtySpecializations>,
+    mut mesh_instances_queued_this_iteration_scratch_space: Local<MainEntityHashSet>,
 ) {
     for (extracted_view, visible_entities) in &views {
         let (
@@ -1252,6 +1377,7 @@ pub fn queue_prepass_material_meshes(
             extracted_view.retained_view_entity,
             render_visible_mesh_entities,
             &view_pending_prepass_mesh_material_queues.prev_frame,
+            &mut mesh_instances_queued_this_iteration_scratch_space,
         ) {
             let Some(&(_, pipeline_id, draw_function)) =
                 view_specialized_material_pipeline_cache.get(visible_entity)
