@@ -4664,8 +4664,12 @@ mod tests {
         assert_eq!(present, [true; 3]);
     }
 
+    // Tests that contiguous parallel iteration can correctly mutate all
+    // instances of a component in the world.
     #[test]
     fn contiguous_par_iter_success_test() {
+        // Declare a couple of components.
+
         #[derive(Component, PartialEq, Eq, Debug)]
         pub struct C {
             id: i32,
@@ -4675,6 +4679,7 @@ mod tests {
         #[derive(Component, PartialEq, Eq, Debug)]
         pub struct D(i32);
 
+        // Build a task pool.
         bevy_tasks::ComputeTaskPool::get_or_init(bevy_tasks::TaskPool::new);
 
         // Spawn a world with a couple of tables.
@@ -4686,7 +4691,8 @@ mod tests {
             world.spawn((C { id, found: false }, D(id)));
         }
 
-        // Check that the correct number of rows were matched contiguously.
+        // Update every row, and check that the correct number of rows were
+        // matched contiguously.
         let total_found = AtomicUsize::new(0);
         let mut contiguous_query = world.query::<&mut C>();
         contiguous_query
@@ -4705,8 +4711,12 @@ mod tests {
         assert!(check_query.iter(&world).all(|c| c.found));
     }
 
+    // Tests that attempting to contiguously iterate in parallel over a query
+    // that contains sparse sets fails (as the query isn't dense).
     #[test]
     fn contiguous_par_iter_failure_test() {
+        // Declare a couple of components, one of which is a sparse set.
+
         #[derive(Component, Clone, Copy)]
         struct C;
 
@@ -4714,9 +4724,10 @@ mod tests {
         #[component(storage = "SparseSet")]
         struct S;
 
+        // Build a task pool.
         bevy_tasks::ComputeTaskPool::get_or_init(bevy_tasks::TaskPool::new);
 
-        // Spawn a world with a couple of tables.
+        // Spawn a world with those two components.
         let mut world = World::new();
         for _ in 0..100 {
             world.spawn((C, S));
