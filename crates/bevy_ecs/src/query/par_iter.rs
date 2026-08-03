@@ -270,9 +270,11 @@ where
 
         #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
         {
-            QueryContiguousIter::new(self.world, self.state, self.last_run, self.this_run)
-                .unwrap()
-                .fold(init(), func);
+            unsafe {
+                QueryContiguousIter::new(self.world, self.state, self.last_run, self.this_run)
+                    .unwrap()
+                    .fold(init(), func);
+            }
         }
 
         #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
