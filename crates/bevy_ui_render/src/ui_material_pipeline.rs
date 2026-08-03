@@ -305,6 +305,7 @@ impl<M: UiMaterial> Default for ExtractedUiMaterialNodes<M> {
     fn default() -> Self {
         Self {
             uinodes: Default::default(),
+            changed_this_frame: Default::default(),
         }
     }
 }

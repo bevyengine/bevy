@@ -382,7 +382,7 @@ pub enum NodeType {
 pub struct ExtractedUiNodeStyles {
     pub uinodes: MainEntityHashMap<(Entity, ExtractedUiNodeStyle)>,
     /// UI nodes that changed this frame.
-    pub changed: MainEntityHashSet,
+    pub changed_this_frame: MainEntityHashSet,
 }
 
 pub fn extract_uinode_styles(
@@ -444,7 +444,7 @@ pub fn extract_uinode_styles(
     ),
     mut removed_uinodes: Local<EntityHashSet>,
 ) {
-    extracted_uinodes.changed.clear();
+    extracted_uinodes.changed_this_frame.clear();
     removed_uinodes.clear();
     removed_uinodes.extend(
         removed_background_color_query
@@ -473,7 +473,7 @@ pub fn extract_uinode_styles(
         let main_entity = entity.into();
 
         // Already updated this entity
-        if !extracted_uinodes.changed.insert(main_entity) {
+        if !extracted_uinodes.changed_this_frame.insert(main_entity) {
             continue;
         }
 
@@ -557,7 +557,7 @@ pub fn extract_uinode_styles(
         if uinode_query.contains(main_entity.entity()) {
             continue;
         }
-        extracted_uinodes.changed.insert(main_entity);
+        extracted_uinodes.changed_this_frame.insert(main_entity);
         let Some((render_entity, _)) = extracted_uinodes.uinodes.remove(&main_entity) else {
             continue;
         };
