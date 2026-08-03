@@ -332,7 +332,6 @@ pub fn queue_shadows(
                 pipeline: *pipeline,
                 entity: (*entity, *main_entity),
                 sort_key: FloatOrd(layout.stack_index as f32 + stack_z_offsets::BOX_SHADOW),
-
                 batch_range: 0..0,
                 extra_index: PhaseItemExtraIndex::None,
                 indexed: true,
