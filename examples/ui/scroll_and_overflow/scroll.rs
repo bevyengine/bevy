@@ -235,7 +235,7 @@ fn vertically_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
                     ..default()
                 },
                 #[cfg(feature = "bevy_ui_debug")]
-                UiDebugOptions {
+                UiDebugOutline {
                     enabled: true,
                     outline_border_box: false,
                     outline_padding_box: false,

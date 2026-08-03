@@ -1,9 +1,9 @@
 use std::arch::global_asm;
 
 use crate::{
-    extract_layout::ExtractedUiLayout, shader_flags, DrawUi, ImageNodeBindGroups, TransparentUi,
-    UiAntiAlias, UiBatch, UiCameraMap, UiCameraView, UiMeta, UiPipeline, UiPipelineKey, UiVertex,
-    QUAD_INDICES, QUAD_VERTEX_POSITIONS,
+    extract_layout::ExtractedUiLayout, shader_flags, DrawUi, ImageNodeBindGroups, NodeType,
+    TransparentUi, UiAntiAlias, UiBatch, UiCameraMap, UiCameraView, UiMeta, UiPipeline,
+    UiPipelineKey, UiVertex, QUAD_INDICES, QUAD_UVS, QUAD_VERTEX_POSITIONS,
 };
 use bevy_asset::AssetId;
 use bevy_camera::visibility::InheritedVisibility;
@@ -39,10 +39,10 @@ use bevy_ui::{
 /// Configuration for the UI debug overlay
 ///
 /// Can be added as a `Component` to individual UI node entities.
-/// This overwrites the default [`GlobalUiDebugOptions`] resource.
+/// This overwrites the default [`GlobalUiDebugOutline`] resource.
 #[derive(Component, Reflect, Clone)]
 #[reflect(Component)]
-pub struct UiDebugOptions {
+pub struct UiDebugOutline {
     /// Set to true to enable the UI debug overlay
     pub enabled: bool,
     /// Show outlines for the border boxes of UI nodes
@@ -65,13 +65,13 @@ pub struct UiDebugOptions {
     pub ignore_border_radius: bool,
 }
 
-impl UiDebugOptions {
+impl UiDebugOutline {
     pub fn toggle(&mut self) {
         self.enabled = !self.enabled;
     }
 }
 
-impl Default for UiDebugOptions {
+impl Default for UiDebugOutline {
     fn default() -> Self {
         Self {
             enabled: false,
@@ -88,7 +88,7 @@ impl Default for UiDebugOptions {
     }
 }
 
-impl From<GlobalUiDebugOptions> for UiDebugOptions {
+impl From<GlobalUiDebugOptions> for UiDebugOutline {
     fn from(other: GlobalUiDebugOptions) -> Self {
         other.0.clone()
     }
@@ -99,61 +99,68 @@ impl From<GlobalUiDebugOptions> for UiDebugOptions {
 /// A global `resource` that can be overridden by local component [`UiDebugOptions`] override on individual UI node entities
 #[derive(Default, Resource, Reflect, Clone, Deref, DerefMut)]
 #[reflect(Resource)]
-pub struct GlobalUiDebugOptions(pub UiDebugOptions);
+pub struct GlobalUiDebugOptions(pub UiDebugOutline);
 
-impl From<UiDebugOptions> for GlobalUiDebugOptions {
-    fn from(other: UiDebugOptions) -> Self {
+impl From<UiDebugOutline> for GlobalUiDebugOptions {
+    fn from(other: UiDebugOutline) -> Self {
         Self(other)
     }
 }
 
 /// The debug visualization is just outlines, so it can be extracted as a single phase item for each extracted camera.
 #[derive(Resource, Default)]
-pub struct ExtractedUiDebugOptions {
+pub struct ExtractedUiDebugLayer {
     /// z_index of whole visualization.
     pub z_offset: f32,
-    pub global_debug_options: UiDebugOptions,
-    /// Map from extracted view -> (render entity for debug phase item, Node MainEntity -> UiDebugOptions)
-    pub local_debug_options: MainEntityHashMap<UiDebugOptions>,
+    pub default_outline: UiDebugOutline,
+    pub per_node_outline: MainEntityHashMap<UiDebugOutline>,
+    pub changed_this_frame: MainEntityHashSet,
+}
+
+impl ExtractedUiDebugLayer {
+    pub fn get(&self, main_entity: &MainEntity) -> &UiDebugOutline {
+        &self
+            .per_node_outline
+            .get(main_entity)
+            .unwrap_or(&self.default_outline)
+    }
 }
 
 pub fn extract_debug_overlay(
-    mut commands: Commands,
     global_debug_options: Extract<Res<GlobalUiDebugOptions>>,
-    mut extracted_debug_options: ResMut<ExtractedUiDebugOptions>,
-    ui_debug_options_query: Extract<Query<(Entity, &UiDebugOptions), Changed<UiDebugOptions>>>,
-    mut removed_debug_options: Extract<RemovedComponents<UiDebugOptions>>,
-    mut nodes_processed_this_frame: Local<MainEntityHashSet>,
+    mut extracted_debug_layer: ResMut<ExtractedUiDebugLayer>,
+    ui_debug_outlines_query: Extract<Query<(Entity, &UiDebugOutline), Changed<UiDebugOutline>>>,
+    mut removed_debug_options: Extract<RemovedComponents<UiDebugOutline>>,
     ui_stack: Res<UiStack>,
 ) {
-    extracted_debug_options.z_offset = ui_stack.uinodes.len() as f32;
-    nodes_processed_this_frame.clear();
-
-    extracted_debug_options.global_debug_options = global_debug_options.0.clone();
+    extracted_debug_layer.changed_this_frame.clear();
+    extracted_debug_layer.z_offset = ui_stack.uinodes.len() as f32;
+    extracted_debug_layer.default_outline = global_debug_options.0.clone();
 
     // iter through all nodes with UiDebugOptions
     // add to processed this frame list, so they aren't removed if tagged by removal detection
-    for (entity, local_debug_options) in ui_debug_options_query.iter() {
+    for (entity, debug_outlines) in ui_debug_outlines_query.iter() {
         let main_entity = MainEntity::from(entity);
-        nodes_processed_this_frame.insert(main_entity);
+        extracted_debug_layer.changed_this_frame.insert(main_entity);
 
-        extracted_debug_options
-            .local_debug_options
-            .insert(main_entity, local_debug_options.clone());
+        extracted_debug_layer
+            .per_node_outline
+            .insert(main_entity, debug_outlines.clone());
     }
 
     for main_entity in removed_debug_options.read().map(MainEntity::from) {
-        if nodes_processed_this_frame.contains(&main_entity) {
+        if extracted_debug_layer
+            .changed_this_frame
+            .contains(&main_entity)
+        {
             continue;
         }
-        extracted_debug_options
-            .local_debug_options
-            .remove(&main_entity);
+        extracted_debug_layer.per_node_outline.remove(&main_entity);
     }
 }
 
 pub fn queue_debug_overlay(
-    extracted_overlays: Res<ExtractedUiDebugOptions>,
+    extracted_overlays: Res<ExtractedUiDebugLayer>,
     ui_pipeline: Res<UiPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiPipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
@@ -200,262 +207,143 @@ pub fn queue_debug_overlay(
     }
 }
 
+/// Clip each debug outline quad, compute its vertices, and push them onto the vertex buffer
+pub fn push_debug_outline(
+    rect: Rect,
+    line_color: LinearRgba,
+    line_width: f32,
+    border_radius: ResolvedBorderRadius,
+    clip: Option<Rect>,
+    transform: Affine2,
+    ui_meta: &mut UiMeta,
+) {
+    let rect_size = rect.size();
+    let positions =
+        QUAD_VERTEX_POSITIONS.map(|pos| transform.transform_point2(pos * rect_size).extend(0.));
+    let positions_diff = if let Some(clip) = clip {
+        [
+            Vec2::new(
+                f32::max(clip.min.x - positions[0].x, 0.),
+                f32::max(clip.min.y - positions[0].y, 0.),
+            ),
+            Vec2::new(
+                f32::min(clip.max.x - positions[1].x, 0.),
+                f32::max(clip.min.y - positions[1].y, 0.),
+            ),
+            Vec2::new(
+                f32::min(clip.max.x - positions[2].x, 0.),
+                f32::min(clip.max.y - positions[2].y, 0.),
+            ),
+            Vec2::new(
+                f32::max(clip.min.x - positions[3].x, 0.),
+                f32::min(clip.max.y - positions[3].y, 0.),
+            ),
+        ]
+    } else {
+        [Vec2::ZERO; 4]
+    };
+    let positions_clipped = [
+        positions[0] + positions_diff[0].extend(0.),
+        positions[1] + positions_diff[1].extend(0.),
+        positions[2] + positions_diff[2].extend(0.),
+        positions[3] + positions_diff[3].extend(0.),
+    ];
+    let transformed_rect_size = transform.transform_vector2(rect_size).abs();
+    if transform.x_axis[1] == 0.0
+        && (positions_diff[0].x - positions_diff[1].x >= transformed_rect_size.x
+            || positions_diff[1].y - positions_diff[2].y >= transformed_rect_size.y)
+    {
+        return;
+    }
+
+    let flags = shader_flags::UNTEXTURED | shader_flags::BORDER_ALL;
+    let vertex_start = ui_meta.vertices.len() as u32;
+    let color = line_color.to_f32_array();
+
+    for i in 0..4 {
+        ui_meta.vertices.push(UiVertex {
+            position: positions_clipped[i].into(),
+            uv: QUAD_UVS[i].into(),
+            color,
+            flags: flags | shader_flags::CORNERS[i],
+            radius: border_radius.into(),
+            border: [line_width, line_width, line_width, line_width],
+            size: rect_size.into(),
+            point: (QUAD_VERTEX_POSITIONS[i] * rect_size + positions_diff[i]).into(),
+        });
+    }
+    for &index in &QUAD_INDICES {
+        ui_meta.indices.push(vertex_start + index as u32);
+    }
+}
+
 /// Debug layout can just
 fn generate_debug_layout_quads(
     ui_meta: &mut UiMeta,
-    layout: &ExtractedUiNodeLayout,
-    style: &ExtractedUiNodeStyle,
-    image: AssetId<Image>,
-    gpu_image: &GpuImage,
+    extracted_ui_layout: &ExtractedUiLayout,
+    extracted_ui_debug_layer: &ExtractedUiDebugLayer,
 ) {
-    let uinode = &layout.uinode;
-    let mut push_quad = |color: LinearRgba,
-                         mut rect: Rect,
-                         atlas_scaling: Option<Vec2>,
-                         transform: Affine2,
-                         clip: Option<Rect>,
-                         border_radius: ResolvedBorderRadius,
-                         border: BorderRect,
-                         node_type: NodeType,
-                         textured: bool| {
-        let mut flags = if textured {
-            shader_flags::TEXTURED
-        } else {
-            shader_flags::UNTEXTURED
-        };
-        let rect_size = rect.size();
-        let positions =
-            QUAD_VERTEX_POSITIONS.map(|pos| transform.transform_point2(pos * rect_size).extend(0.));
-        let mut positions_diff = if let Some(clip) = clip {
-            [
-                Vec2::new(
-                    f32::max(clip.min.x - positions[0].x, 0.),
-                    f32::max(clip.min.y - positions[0].y, 0.),
-                ),
-                Vec2::new(
-                    f32::min(clip.max.x - positions[1].x, 0.),
-                    f32::max(clip.min.y - positions[1].y, 0.),
-                ),
-                Vec2::new(
-                    f32::min(clip.max.x - positions[2].x, 0.),
-                    f32::min(clip.max.y - positions[2].y, 0.),
-                ),
-                Vec2::new(
-                    f32::max(clip.min.x - positions[3].x, 0.),
-                    f32::min(clip.max.y - positions[3].y, 0.),
-                ),
-            ]
-        } else {
-            [Vec2::ZERO; 4]
-        };
-        let positions_clipped = [
-            positions[0] + positions_diff[0].extend(0.),
-            positions[1] + positions_diff[1].extend(0.),
-            positions[2] + positions_diff[2].extend(0.),
-            positions[3] + positions_diff[3].extend(0.),
-        ];
-        let transformed_rect_size = transform.transform_vector2(rect_size).abs();
-        if transform.x_axis[1] == 0.0
-            && (positions_diff[0].x - positions_diff[1].x >= transformed_rect_size.x
-                || positions_diff[1].y - positions_diff[2].y >= transformed_rect_size.y)
-        {
-            return;
-        }
-        let uvs = if textured {
-            let atlas_extent = atlas_scaling
-                .map(|scaling| gpu_image.size_2d().as_vec2() * scaling)
-                .unwrap_or(rect.max);
-            if style.flip_x {
-                mem::swap(&mut rect.max.x, &mut rect.min.x);
-                positions_diff[0].x *= -1.;
-                positions_diff[1].x *= -1.;
-                positions_diff[2].x *= -1.;
-                positions_diff[3].x *= -1.;
-            }
-            if style.flip_y {
-                mem::swap(&mut rect.max.y, &mut rect.min.y);
-                positions_diff[0].y *= -1.;
-                positions_diff[1].y *= -1.;
-                positions_diff[2].y *= -1.;
-                positions_diff[3].y *= -1.;
-            }
-            [
-                Vec2::new(
-                    rect.min.x + positions_diff[0].x,
-                    rect.min.y + positions_diff[0].y,
-                ),
-                Vec2::new(
-                    rect.max.x + positions_diff[1].x,
-                    rect.min.y + positions_diff[1].y,
-                ),
-                Vec2::new(
-                    rect.max.x + positions_diff[2].x,
-                    rect.max.y + positions_diff[2].y,
-                ),
-                Vec2::new(
-                    rect.min.x + positions_diff[3].x,
-                    rect.max.y + positions_diff[3].y,
-                ),
-            ]
-            .map(|pos| pos / atlas_extent)
-        } else {
-            [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y]
-        };
-        match node_type {
-            NodeType::Border(border_flags) => flags |= border_flags,
-            NodeType::Inverted => flags |= INVERT,
-            NodeType::Rect => {}
-        }
-
-        let vertex_start = ui_meta.vertices.len() as u32;
-        let color = color.to_f32_array();
-        for i in 0..4 {
-            ui_meta.vertices.push(UiVertex {
-                position: positions_clipped[i].into(),
-                uv: uvs[i].into(),
-                color,
-                flags: flags | shader_flags::CORNERS[i],
-                radius: border_radius.into(),
-                border: [
-                    border.min_inset.x,
-                    border.min_inset.y,
-                    border.max_inset.x,
-                    border.max_inset.y,
-                ],
-                size: rect_size.into(),
-                point: (QUAD_VERTEX_POSITIONS[i] * rect_size + positions_diff[i]).into(),
-            });
-        }
-        for &index in &QUAD_INDICES {
-            ui_meta.indices.push(vertex_start + index as u32);
-        }
-    };
-
-    if !style.background_color.is_fully_transparent() {
-        push_quad(
-            style.background_color,
-            Rect {
-                min: Vec2::ZERO,
-                max: uinode.size(),
-            },
-            None,
-            layout.transform,
-            layout.clip,
-            uinode.border_radius(),
-            uinode.border(),
-            NodeType::Rect,
-            false,
-        );
-    }
-    if !style.outer_color.is_fully_transparent() {
-        push_quad(
-            style.outer_color,
-            Rect {
-                min: Vec2::ZERO,
-                max: uinode.size(),
-            },
-            None,
-            layout.transform,
-            layout.clip,
-            uinode.border_radius(),
-            BorderRect::ZERO,
-            NodeType::Inverted,
-            false,
-        );
+    if !extracted_ui_debug_layer.default_outline.enabled
+        && extracted_ui_debug_layer.per_node_outline.is_empty()
+    {
+        return;
     }
 
-    if uinode.border() != BorderRect::ZERO {
-        const BORDER_FLAGS: [u32; 4] = [
-            shader_flags::BORDER_TOP,
-            shader_flags::BORDER_RIGHT,
-            shader_flags::BORDER_BOTTOM,
-            shader_flags::BORDER_LEFT,
-        ];
-        let mut completed_flags = 0;
+    for (main_entity, layout) in extracted_ui_layout.layout.iter() {
+        let debug_outline = extracted_ui_debug_layer.get(main_entity);
+        if !debug_outline.enabled {
+            continue;
+        }
 
-        for (i, &color) in style.border_color.iter().enumerate() {
-            if color.is_fully_transparent() || completed_flags & BORDER_FLAGS[i] != 0 {
-                continue;
-            }
+        let line_color = debug_outline
+            .line_color_override
+            .unwrap_or_else(|| Hsla::sequential_dispersed(main_entity.index_u32()).into());
 
-            let mut border_flags = BORDER_FLAGS[i];
-            for (j, &other_color) in style.border_color.iter().enumerate().skip(i + 1) {
-                if color == other_color {
-                    border_flags |= BORDER_FLAGS[j];
-                }
-            }
-            completed_flags |= border_flags;
-
-            push_quad(
-                color,
-                Rect {
-                    min: Vec2::ZERO,
-                    max: uinode.size(),
-                },
-                None,
-                layout.transform,
-                layout.clip,
-                uinode.border_radius(),
-                uinode.border(),
-                NodeType::Border(border_flags),
-                false,
+        if debug_outline.outline_border_box {
+            push_debug_outline(
+                rect,
+                line_color,
+                debug_outline.line_width,
+                border_radius,
+                clip,
+                transform,
+                ui_meta,
             );
         }
-    }
 
-    if !style.outline_color.is_fully_transparent() && uinode.outline_width() > 0. {
-        push_quad(
-            style.outline_color,
-            Rect {
-                min: Vec2::ZERO,
-                max: uinode.outlined_node_size(),
-            },
-            None,
-            layout.transform,
-            layout.clip,
-            uinode.outline_radius(),
-            BorderRect::all(uinode.outline_width()),
-            NodeType::Border(shader_flags::BORDER_ALL),
-            false,
-        );
-    }
-
-    if style.image == Some(image) {
-        let visual_box = match style.visual_box {
-            VisualBox::ContentBox => uinode.content_box(),
-            VisualBox::PaddingBox => uinode.padding_box(),
-            VisualBox::BorderBox => uinode.border_box(),
-        };
-        if !visual_box.size().cmple(Vec2::ZERO).any() {
-            let size = if style.auto_sized && !style.image_size.cmple(Vec2::ZERO).any() {
-                style.image_size * (visual_box.size() / style.image_size).min_element()
-            } else {
-                visual_box.size()
-            };
-            let mut rect = style.image_rect.unwrap_or(Rect {
-                min: Vec2::ZERO,
-                max: size,
-            });
-            let atlas_scaling = style.image_rect.map(|_| {
-                let atlas_scaling = size / rect.size();
-                rect.min *= atlas_scaling;
-                rect.max *= atlas_scaling;
-                atlas_scaling
-            });
-            push_quad(
-                style.image_color,
+        if debug_outline.outline_content_box {
+            push_debug_outline(
                 rect,
-                atlas_scaling,
-                layout.transform * Affine2::from_translation(visual_box.center()),
-                layout.clip,
-                uinode.border_radius(),
-                if style.use_node_border {
-                    uinode.border()
-                } else {
-                    BorderRect::ZERO
-                },
-                NodeType::Rect,
-                true,
+                line_color,
+                debug_outline.line_width,
+                border_radius,
+                clip,
+                transform,
+                ui_meta,
+            );
+        }
+
+        if debug_outline.outline_padding_box {
+            push_debug_outline(
+                rect,
+                line_color,
+                debug_outline.line_width,
+                border_radius,
+                clip,
+                transform,
+                ui_meta,
+            );
+        }
+
+        if debug_outline.outline_scrollbars {
+            push_debug_outline(
+                rect,
+                line_color,
+                debug_outline.line_width,
+                border_radius,
+                clip,
+                transform,
+                ui_meta,
             );
         }
     }

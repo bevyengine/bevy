@@ -95,7 +95,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 padding: px(6).all(),
                 ..default()
             },
-            UiDebugOptions {
+            UiDebugOutline {
                 enabled: false,
                 ..default()
             },

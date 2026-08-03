@@ -28,6 +28,7 @@ pub struct ExtractedUiNodeLayout {
     pub flip_x: bool,
     pub flip_y: bool,
     pub stack_index: u32,
+    pub is_visible: bool,
 }
 
 /// Uinode geometries and list of geometries that changed this frame.
@@ -43,7 +44,7 @@ pub struct ExtractedUiLayout {
 }
 
 pub fn extract_ui_layout(
-    mut extracted_geometries: bevy_ecs::system::ResMut<ExtractedUiLayout>,
+    mut extracted_ui_layout: bevy_ecs::system::ResMut<ExtractedUiLayout>,
     camera_map: Extract<UiCameraMap>,
     changed_geometry_query: Extract<
         Query<
@@ -97,9 +98,9 @@ pub fn extract_ui_layout(
     // Probably need to consolidate changed & removed sets somehow for efficiency
     // Do we also need to track added?
     // Changed list is cleared each frame, then repopulated
-    extracted_geometries.changed.clear();
+    extracted_ui_layout.changed.clear();
     // Removed list is cleared each frame, then repopulated
-    extracted_geometries.removed.clear();
+    extracted_ui_layout.removed.clear();
 
     let mut camera_mapper = camera_map.get_mapper();
 
@@ -118,25 +119,14 @@ pub fn extract_ui_layout(
             .filter_map(|entity| unfiltered_geometry_query.get(entity).ok()),
     ) {
         let main_entity = entity.into();
-        extracted_geometries.changed.insert(main_entity);
+        extracted_ui_layout.changed.insert(main_entity);
 
         // Find extracted camera entity, otherwise remove both camera and UI node entity.
         let Some(extracted_camera_entity) = camera_mapper.map(computed_target) else {
-            extracted_geometries.layout.remove(&main_entity);
-            extracted_geometries.removed.insert(main_entity);
+            extracted_ui_layout.layout.remove(&main_entity);
+            extracted_ui_layout.removed.insert(main_entity);
             continue;
         };
-
-        // Remove non-visible from all maps
-        if !inherited_visibility.get() {
-            extracted_geometries.layout.remove(&main_entity);
-            extracted_geometries.removed.insert(main_entity);
-            extracted_geometries
-                .extracted_camera_to_main_uinode_map
-                .get_mut(&extracted_camera_entity)
-                .map(|main_entities| main_entities.remove(&main_entity));
-            continue;
-        }
 
         let uinode_geometry = ExtractedUiNodeLayout {
             extracted_camera: extracted_camera_entity,
@@ -147,13 +137,14 @@ pub fn extract_ui_layout(
             flip_x: false,
             flip_y: false,
             stack_index: stack_index.0,
+            is_visible: inherited_visibility.get(),
         };
 
         let ExtractedUiLayout {
             extracted_camera_to_main_uinode_map,
             layout: uinode_geometries,
             ..
-        } = &mut *extracted_geometries;
+        } = &mut *extracted_ui_layout;
 
         match uinode_geometries.entry(main_entity) {
             bevy_platform::collections::hash_map::Entry::Occupied(mut entry) => {
@@ -196,12 +187,12 @@ pub fn extract_ui_layout(
         let main_entity = entity.into();
 
         // If already in changed, entity passed the geometry query so the component must have been removed and reinserted in the same frame, so do nothing.
-        if extracted_geometries.changed.insert(main_entity) {
+        if extracted_ui_layout.changed.insert(main_entity) {
             // Failed the geometry queries, does not have at least one of the components (if reinserted would be `Changed`).
             // Add to changed list and remove from maps
-            if let Some(extracted_geometry) = extracted_geometries.layout.remove(&main_entity) {
-                extracted_geometries.removed.insert(main_entity);
-                extracted_geometries
+            if let Some(extracted_geometry) = extracted_ui_layout.layout.remove(&main_entity) {
+                extracted_ui_layout.removed.insert(main_entity);
+                extracted_ui_layout
                     .extracted_camera_to_main_uinode_map
                     .get_mut(&extracted_geometry.extracted_camera)
                     .map(|main_entities| main_entities.remove(&main_entity));

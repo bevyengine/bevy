@@ -62,7 +62,7 @@ use bevy_render::{
 };
 use bevy_sprite::BorderRect;
 #[cfg(feature = "bevy_ui_debug")]
-pub use debug_overlay::{GlobalUiDebugOptions, UiDebugOptions};
+pub use debug_overlay::{GlobalUiDebugOptions, UiDebugOutline};
 
 use gradient::GradientPlugin;
 
@@ -84,7 +84,7 @@ use crate::text::{extract_text, queue_text, ExtractedGlyphLayout, ExtractedGlyph
 
 pub mod prelude {
     #[cfg(feature = "bevy_ui_debug")]
-    pub use crate::debug_overlay::{GlobalUiDebugOptions, UiDebugOptions};
+    pub use crate::debug_overlay::{GlobalUiDebugOptions, UiDebugOutline};
 
     pub use crate::{
         ui_material::*, ui_material_pipeline::UiMaterialPlugin, BoxShadowSamples, UiAntiAlias,
@@ -214,7 +214,7 @@ impl Plugin for UiRenderPlugin {
         };
 
         #[cfg(feature = "bevy_ui_debug")]
-        render_app.init_resource::<debug_overlay::ExtractedUiDebugOptions>();
+        render_app.init_resource::<debug_overlay::ExtractedUiDebugLayer>();
 
         render_app
             .init_gpu_resource::<SpecializedRenderPipelines<UiPipeline>>()
@@ -796,6 +796,8 @@ pub(crate) const QUAD_VERTEX_POSITIONS: [Vec2; 4] = [
     Vec2::new(-0.5, 0.5),
 ];
 
+pub(crate) const QUAD_UVS: [Vec2; 4] = [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y];
+
 pub(crate) const QUAD_INDICES: [usize; 6] = [0, 2, 3, 0, 1, 2];
 
 #[derive(Component, Debug)]
@@ -921,7 +923,7 @@ fn prepare_uinodes(
     extracted_uinodes: Res<ExtractedUiNodeStyles>,
     extracted_glyph_layouts: Res<ExtractedGlyphLayouts>,
     #[cfg(feature = "bevy_ui_debug")] extracted_debug_overlays: Res<
-        debug_overlay::ExtractedUiDebugOptions,
+        debug_overlay::ExtractedUiDebugLayer,
     >,
     extracted_geometry: Res<ExtractedUiLayout>,
     view_uniforms: Res<ViewUniforms>,
@@ -1173,44 +1175,44 @@ fn prepare_uinodes(
 
             batch_image_handle = None;
 
-            #[cfg(feature = "bevy_ui_debug")]
-            if let Some(style) = extracted_debug_overlays
-                .local_debug_options
-                .get(&main_entity)
-                .and_then(|(render_entity, style)| (*render_entity == entity).then_some(style))
-            {
-                let image = AssetId::<Image>::default();
-                let Some(gpu_image) = gpu_images.get(image) else {
-                    continue;
-                };
-                image_bind_groups.values.entry(image).or_insert_with(|| {
-                    render_device.create_bind_group(
-                        "ui_debug_overlay_image_bind_group",
-                        &pipeline_cache.get_bind_group_layout(&ui_pipeline.image_layout),
-                        &BindGroupEntries::sequential((
-                            &gpu_image.texture_view,
-                            &gpu_image.sampler,
-                        )),
-                    )
-                });
+            // #[cfg(feature = "bevy_ui_debug")]
+            // if let Some(style) = extracted_debug_overlays
+            //     .per_node_debug_options
+            //     .get(&main_entity)
+            //     .and_then(|(render_entity, style)| (*render_entity == entity).then_some(style))
+            // {
+            //     let image = AssetId::<Image>::default();
+            //     let Some(gpu_image) = gpu_images.get(image) else {
+            //         continue;
+            //     };
+            //     image_bind_groups.values.entry(image).or_insert_with(|| {
+            //         render_device.create_bind_group(
+            //             "ui_debug_overlay_image_bind_group",
+            //             &pipeline_cache.get_bind_group_layout(&ui_pipeline.image_layout),
+            //             &BindGroupEntries::sequential((
+            //                 &gpu_image.texture_view,
+            //                 &gpu_image.sampler,
+            //             )),
+            //         )
+            //     });
 
-                let range_start = ui_meta.indices.len() as u32;
-                generate_debug_quads(&mut ui_meta, style);
-                let range_end = ui_meta.indices.len() as u32;
-                if range_start == range_end {
-                    continue;
-                }
-                ui_phase.items[phase_item_index].batch_range =
-                    phase_item_index as u32..phase_item_index as u32 + 1;
-                batches.push((
-                    entity,
-                    UiBatch {
-                        range: range_start..range_end,
-                        image,
-                        texture_ranges: vec![],
-                    },
-                ));
-            }
+            //     let range_start = ui_meta.indices.len() as u32;
+            //     generate_debug_quads(&mut ui_meta, style);
+            //     let range_end = ui_meta.indices.len() as u32;
+            //     if range_start == range_end {
+            //         continue;
+            //     }
+            //     ui_phase.items[phase_item_index].batch_range =
+            //         phase_item_index as u32..phase_item_index as u32 + 1;
+            //     batches.push((
+            //         entity,
+            //         UiBatch {
+            //             range: range_start..range_end,
+            //             image,
+            //             texture_ranges: vec![],
+            //         },
+            //     ));
+            // }
         }
     }
 

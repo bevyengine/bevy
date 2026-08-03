@@ -2242,7 +2242,7 @@ mod debug_outlines {
     use bevy::{
         color::palettes::css::{BLUE, GRAY, RED},
         prelude::*,
-        ui_render::UiDebugOptions,
+        ui_render::UiDebugOutline,
     };
 
     pub fn setup(mut commands: Commands, mut debug_options: ResMut<GlobalUiDebugOptions>) {
@@ -2252,7 +2252,7 @@ mod debug_outlines {
         debug_options.show_hidden = true;
         debug_options.show_clipped = true;
 
-        let debug_options: UiDebugOptions = (*debug_options.as_ref()).into();
+        let debug_options: UiDebugOutline = (*debug_options.as_ref()).into();
 
         commands.spawn((Camera2d, DespawnOnExit(super::Scene::DebugOutlines)));
         commands
@@ -2358,7 +2358,7 @@ mod debug_outlines {
                             ..default()
                         }
                     )],
-                    UiDebugOptions {
+                    UiDebugOutline {
                         outline_border_box: true,
                         outline_padding_box: true,
                         outline_content_box: true,
@@ -2378,7 +2378,7 @@ mod debug_outlines {
                         ..default()
                     },
                     ScrollPosition(Vec2::new(180., 180.)),
-                    UiDebugOptions {
+                    UiDebugOutline {
                         line_width: 3.,
                         outline_scrollbars: true,
                         show_hidden: false,
@@ -2395,7 +2395,7 @@ mod debug_outlines {
                                     ..default()
                                 }
                             )],
-                            UiDebugOptions {
+                            UiDebugOutline {
                                 enabled: false,
                                 ..default()
                             },
@@ -2413,7 +2413,7 @@ mod debug_outlines {
                         scrollbar_width: 10.,
                         ..default()
                     },
-                    UiDebugOptions {
+                    UiDebugOutline {
                         line_width: 3.,
                         outline_scrollbars: true,
                         show_hidden: false,
@@ -2430,7 +2430,7 @@ mod debug_outlines {
                                     ..default()
                                 }
                             )],
-                            UiDebugOptions {
+                            UiDebugOutline {
                                 enabled: false,
                                 ..default()
                             },
@@ -2449,7 +2449,7 @@ mod debug_outlines {
                         ..default()
                     },
                     ScrollPosition(Vec2::new(300., 0.)),
-                    UiDebugOptions {
+                    UiDebugOutline {
                         line_width: 3.,
                         outline_scrollbars: true,
                         show_hidden: false,
@@ -2466,14 +2466,14 @@ mod debug_outlines {
                                 move |j| {
                                     (
                                         Text(format!("Item {}", (i * 5) + j)),
-                                        UiDebugOptions {
+                                        UiDebugOutline {
                                             enabled: false,
                                             ..default()
                                         },
                                     )
                                 }
                             }))),
-                            UiDebugOptions {
+                            UiDebugOutline {
                                 enabled: false,
                                 ..default()
                             },
