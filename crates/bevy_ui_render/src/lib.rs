@@ -1131,10 +1131,10 @@ fn prepare_uinodes(
                 existing_batch.range.end = ui_meta.indices.len() as u32;
                 existing_batch.texture_changes.end = ui_meta.texture_changes.len() as u32;
                 for (_, texture) in &ui_meta.texture_changes[new_texture_changes_start..] {
-                    let gpu_image = gpu_images
-                        .get(*texture)
-                        .expect("Image was checked in push_text_vertices");
                     image_bind_groups.values.entry(*texture).or_insert_with(|| {
+                        let gpu_image = gpu_images
+                            .get(*texture)
+                            .expect("Image was checked in push_text_vertices");
                         render_device.create_bind_group(
                             "ui_material_bind_group",
                             &pipeline_cache.get_bind_group_layout(&ui_pipeline.image_layout),
