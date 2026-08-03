@@ -992,6 +992,20 @@ fn prepare_uinodes(
         &BindGroupEntries::single(view_binding),
     ));
 
+    #[cfg(feature = "bevy_ui_debug")]
+    if let Some(gpu_image) = gpu_images.get(AssetId::<Image>::default()) {
+        image_bind_groups
+            .values
+            .entry(AssetId::default())
+            .or_insert_with(|| {
+                render_device.create_bind_group(
+                    "ui_material_bind_group",
+                    &pipeline_cache.get_bind_group_layout(&ui_pipeline.image_layout),
+                    &BindGroupEntries::sequential((&gpu_image.texture_view, &gpu_image.sampler)),
+                )
+            });
+    }
+
     // for each sorted render phase corresponding to a UI view
     for (retained_view_entity, ui_phase) in phases.iter_mut() {
         #[cfg(feature = "bevy_ui_debug")]
