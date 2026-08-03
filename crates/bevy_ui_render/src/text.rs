@@ -17,8 +17,8 @@ use bevy_render::{
 };
 use bevy_text::{
     ComputedTextBlock, EditableText, PositionedGlyph, Strikethrough, StrikethroughColor,
-    TextBackgroundColor, TextColor, TextCursorStyle, TextLayoutInfo, TextSpan, Underline,
-    UnderlineColor,
+    TextBackgroundColor, TextColor, TextCursorStyle, TextLayoutInfo, TextReadWriteMode, TextSpan,
+    Underline, UnderlineColor,
 };
 use bevy_ui::{
     widget::{Text, TextShadow},
@@ -83,6 +83,7 @@ pub fn extract_text(
                         Changed<EditableText>,
                     )>,
                     Or<(
+                        Changed<TextReadWriteMode>,
                         Changed<TextBackgroundColor>,
                         Changed<Strikethrough>,
                         Changed<Underline>,
@@ -115,6 +116,7 @@ pub fn extract_text(
             &ComputedTextBlock,
             &TextColor,
             &TextLayoutInfo,
+            Option<&TextReadWriteMode>,
             Option<&EditableText>,
             Option<&TextCursorStyle>,
             Option<&TextShadow>,
@@ -153,12 +155,14 @@ pub fn extract_text(
         mut removed_underline_query,
         mut removed_strikethrough_color_query,
         mut removed_underline_color_query,
+        mut removed_read_write_mode_query,
     ): (
         Extract<RemovedComponents<TextBackgroundColor>>,
         Extract<RemovedComponents<Strikethrough>>,
         Extract<RemovedComponents<Underline>>,
         Extract<RemovedComponents<StrikethroughColor>>,
         Extract<RemovedComponents<UnderlineColor>>,
+        Extract<RemovedComponents<TextReadWriteMode>,
     ),
     input_focus: Extract<Option<Res<InputFocus>>>,
     mut nodes_to_extract: Local<MainEntityHashSet>,
@@ -210,6 +214,7 @@ pub fn extract_text(
             computed_block,
             text_color,
             text_layout_info,
+            rwmode,
             editable_text,
             cursor_style,
             shadow,
@@ -237,7 +242,7 @@ pub fn extract_text(
             .as_ref()
             .is_some_and(|input_focus| input_focus.get() == Some(entity));
 
-        let selection_color = if focused {
+        let selection_color = if focused && rwmode.is_some_and(|rwmode| *rwmode == TextReadWriteMode::Editable) {
             cursor_style.selection_color
         } else {
             cursor_style.unfocused_selection_color
@@ -246,6 +251,7 @@ pub fn extract_text(
         if has_cursor_style
             && !text_layout_info.selection_rects.is_empty()
             && !selection_color.is_fully_transparent()
+            && rwmode.is_some_and(|rwmode| *rwmode != TextReadWriteMode::Static)
         {
             let selection_radius = cursor_style.selection_radius.clamp(0.0, 0.5);
 
@@ -426,6 +432,7 @@ pub fn extract_text(
             && let Some((true, cursor)) = text_layout_info.cursor
             && !cursor.is_empty()
             && !cursor_style.color.is_fully_transparent()
+            && rwmode.is_some_and(|rwmode| rwmode != TextReadWriteMode::Static)
         {
             Some(cursor)
         } else {
