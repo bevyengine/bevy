@@ -406,8 +406,6 @@ mod test {
     /// callback skipped that loop, and the executor (declared first, dropped
     /// last) would later drop queued futures whose Drop glue accessed
     /// already-freed `results` / `pending_tasks`.
-    ///
-    /// This test should pass under Miri without reporting any UB.
     #[test]
     fn scope_panic_cancels_pending_futures() {
         let pool = TaskPool::new();
