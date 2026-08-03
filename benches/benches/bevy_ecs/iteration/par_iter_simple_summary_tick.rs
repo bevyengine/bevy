@@ -75,4 +75,3 @@ impl<'w> Benchmark<'w> {
             .for_each(|(v, mut p)| p.0 += v.0);
     }
 }
-
