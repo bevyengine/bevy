@@ -255,6 +255,7 @@ pub enum NumberInputValue {
 }
 
 /// Indicates whether the number input should wrap around the min/max value.
+/// This component only applies to [`HardLimit`].
 #[derive(Component, Default, Debug, PartialEq, Clone, Copy, Reflect)]
 #[reflect(Component, Default)]
 pub enum NumberInputWrap {
