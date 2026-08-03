@@ -31,7 +31,7 @@ use bevy_ui::{ResolvedBorderRadius, UiStack};
 /// Configuration for the UI debug overlay
 ///
 /// Can be added as a `Component` to individual UI node entities.
-/// This overwrites the default [`GlobalUiDebugOutline`] resource.
+/// This overwrites the default [`UiDebugOverlay`] resource.
 #[derive(Component, Reflect, Clone)]
 #[reflect(Component)]
 pub struct UiDebugOutline {
@@ -88,7 +88,7 @@ impl From<UiDebugOverlay> for UiDebugOutline {
 
 /// Configuration for the UI debug overlay
 ///
-/// A global `resource` that can be overridden by local component [`UiDebugOptions`] override on individual UI node entities
+/// A global `resource` that can be overridden by local component [`UiDebugOutline`] override on individual UI node entities
 #[derive(Default, Resource, Reflect, Clone, Deref, DerefMut)]
 #[reflect(Resource)]
 pub struct UiDebugOverlay(pub UiDebugOutline);
@@ -300,6 +300,7 @@ pub fn push_debug_overlay_vertices(
     ui_meta: &mut UiMeta,
     extracted_ui_layout: &ExtractedUiLayout,
     extracted_ui_debug_overlay: &ExtractedUiDebugOverlay,
+    extracted_camera: Entity,
 ) {
     if !extracted_ui_debug_overlay.default_outline.enabled
         && extracted_ui_debug_overlay.per_node_outline.is_empty()
@@ -308,6 +309,10 @@ pub fn push_debug_overlay_vertices(
     }
 
     for (main_entity, layout) in extracted_ui_layout.layout.iter() {
+        if layout.extracted_camera != extracted_camera {
+            continue;
+        }
+
         let debug_outline = extracted_ui_debug_overlay.get(main_entity);
         if !debug_outline.enabled {
             continue;

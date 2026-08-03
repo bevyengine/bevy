@@ -1142,6 +1142,12 @@ fn prepare_uinodes(
             }
 
             #[cfg(feature = "bevy_ui_debug")]
+            if let Some(extracted_camera) = extracted_ui_debug_overlay
+                .extracted_camera_view_to_ids
+                .iter()
+                .find_map(|(extracted_camera, item_ids)| {
+                    (*item_ids == (entity, main_entity)).then_some(*extracted_camera)
+                })
             {
                 if !batch_open {
                     batch_start_item_index = phase_item_index;
@@ -1156,6 +1162,7 @@ fn prepare_uinodes(
                     &mut ui_meta,
                     &extracted_layout,
                     &extracted_ui_debug_overlay,
+                    extracted_camera,
                 );
 
                 let existing_batch = &mut batches.last_mut().unwrap().1;
