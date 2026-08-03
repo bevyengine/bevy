@@ -9,7 +9,6 @@ use bevy_ecs::resource::Resource;
 use bevy_ecs::system::Query;
 use bevy_math::Affine2;
 use bevy_math::Rect;
-use bevy_math::Vec2;
 use bevy_render::sync_world::MainEntityHashMap;
 use bevy_render::sync_world::MainEntityHashSet;
 use bevy_render::Extract;
@@ -24,9 +23,6 @@ pub struct ExtractedUiNodeLayout {
     pub uinode: ComputedNode,
     pub transform: Affine2,
     pub clip: Option<Rect>,
-    pub atlas_scaling: Option<Vec2>,
-    pub flip_x: bool,
-    pub flip_y: bool,
     pub stack_index: u32,
     pub visible: bool,
 }
@@ -128,14 +124,11 @@ pub fn extract_ui_layout(
             continue;
         };
 
-        let uinode_geometry = ExtractedUiNodeLayout {
+        let uinode_layout = ExtractedUiNodeLayout {
             extracted_camera: extracted_camera_entity,
             uinode: *computed_node,
             transform: transform.into(),
             clip: clip.map(|clip| clip.clip),
-            atlas_scaling: None,
-            flip_x: false,
-            flip_y: false,
             stack_index: stack_index.0,
             visible: inherited_visibility.get(),
         };
@@ -158,14 +151,14 @@ pub fn extract_ui_layout(
                         .or_default()
                         .insert(main_entity);
                 }
-                entry.insert(uinode_geometry);
+                entry.insert(uinode_layout);
             }
             bevy_platform::collections::hash_map::Entry::Vacant(entry) => {
                 extracted_camera_to_main_uinode_map
                     .entry(extracted_camera_entity)
                     .or_default()
                     .insert(main_entity);
-                entry.insert(uinode_geometry);
+                entry.insert(uinode_layout);
             }
         }
     }
