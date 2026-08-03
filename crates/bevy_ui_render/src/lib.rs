@@ -977,8 +977,7 @@ fn prepare_uinodes(
         // used to store the index of the first phase item in a batch
         let mut batch_start_item_index = 0;
 
-        // Setting batch_image_handle to None is used to signal the end of the current batch.
-        let mut batch_image_handle = None;
+        let mut batch_open = false;
 
         for phase_item_index in 0..ui_phase.items.len() {
             let main_entity = ui_phase.items[phase_item_index].main_entity();
@@ -990,29 +989,24 @@ fn prepare_uinodes(
                 .and_then(|(render_entity, style)| (*render_entity == entity).then_some(style))
             {
                 let Some(layout) = extracted_ui_layout.layout.get(&main_entity) else {
-                    batch_image_handle = None;
+                    batch_open = false;
                     continue;
                 };
                 let image = style
                     .image
                     .filter(|image| gpu_images.get(*image).is_some())
                     .unwrap_or_default();
+                let Some(gpu_image) = gpu_images.get(image) else {
+                    batch_open = false;
+                    continue;
+                };
 
                 ui_phase.items[phase_item_index].batch_range =
                     phase_item_index as u32..phase_item_index as u32;
                 let mut existing_batch = batches.last_mut();
-                if batch_image_handle.is_none()
-                    || existing_batch.is_none()
-                    || (batch_image_handle != Some(AssetId::default())
-                        && image != AssetId::default()
-                        && batch_image_handle != Some(image))
-                {
-                    let Some(gpu_image) = gpu_images.get(image) else {
-                        batch_image_handle = None;
-                        continue;
-                    };
+                if !batch_open || existing_batch.is_none() {
                     batch_start_item_index = phase_item_index;
-                    batch_image_handle = Some(image);
+                    batch_open = true;
 
                     let changes_start = ui_meta.texture_changes.len() as u32;
                     batches.push((
@@ -1023,44 +1017,18 @@ fn prepare_uinodes(
                             texture_changes: changes_start..changes_start,
                         },
                     ));
-                    image_bind_groups.values.entry(image).or_insert_with(|| {
-                        render_device.create_bind_group(
-                            "ui_material_bind_group",
-                            &pipeline_cache.get_bind_group_layout(&ui_pipeline.image_layout),
-                            &BindGroupEntries::sequential((
-                                &gpu_image.texture_view,
-                                &gpu_image.sampler,
-                            )),
-                        )
-                    });
                     existing_batch = batches.last_mut();
-                } else if batch_image_handle == Some(AssetId::default())
-                    && image != AssetId::default()
-                {
-                    if let Some(ref mut existing_batch) = existing_batch
-                        && let Some(gpu_image) = gpu_images.get(image)
-                    {
-                        batch_image_handle = Some(image);
-                        existing_batch.1.image = image;
-                        image_bind_groups.values.entry(image).or_insert_with(|| {
-                            render_device.create_bind_group(
-                                "ui_material_bind_group",
-                                &pipeline_cache.get_bind_group_layout(&ui_pipeline.image_layout),
-                                &BindGroupEntries::sequential((
-                                    &gpu_image.texture_view,
-                                    &gpu_image.sampler,
-                                )),
-                            )
-                        });
-                    } else {
-                        batch_image_handle = None;
-                        continue;
-                    }
                 }
-
-                let gpu_image = gpu_images
-                    .get(image)
-                    .expect("Image was checked during batching and should still exist");
+                image_bind_groups.values.entry(image).or_insert_with(|| {
+                    render_device.create_bind_group(
+                        "ui_material_bind_group",
+                        &pipeline_cache.get_bind_group_layout(&ui_pipeline.image_layout),
+                        &BindGroupEntries::sequential((
+                            &gpu_image.texture_view,
+                            &gpu_image.sampler,
+                        )),
+                    )
+                });
                 let range_start = ui_meta.indices.len() as u32;
                 push_uinode_vertices(&mut ui_meta, layout, style, image, gpu_image);
                 let range_end = ui_meta.indices.len() as u32;
@@ -1097,7 +1065,7 @@ fn prepare_uinodes(
                 .and_then(|(render_entity, style)| (*render_entity == entity).then_some(style))
             {
                 let Some(layout) = extracted_ui_layout.layout.get(&main_entity) else {
-                    batch_image_handle = None;
+                    batch_open = false;
                     continue;
                 };
                 let image = style
@@ -1110,21 +1078,16 @@ fn prepare_uinodes(
                     })
                     .unwrap_or_default();
                 let Some(gpu_image) = gpu_images.get(image) else {
-                    batch_image_handle = None;
+                    batch_open = false;
                     continue;
                 };
 
                 ui_phase.items[phase_item_index].batch_range =
                     phase_item_index as u32..phase_item_index as u32;
                 let mut existing_batch = batches.last_mut();
-                if batch_image_handle.is_none()
-                    || existing_batch.is_none()
-                    || (batch_image_handle != Some(AssetId::default())
-                        && image != AssetId::default()
-                        && batch_image_handle != Some(image))
-                {
+                if !batch_open || existing_batch.is_none() {
                     batch_start_item_index = phase_item_index;
-                    batch_image_handle = Some(image);
+                    batch_open = true;
                     batches.push((
                         entity,
                         UiBatch {
@@ -1135,12 +1098,6 @@ fn prepare_uinodes(
                         },
                     ));
                     existing_batch = batches.last_mut();
-                } else if batch_image_handle == Some(AssetId::default())
-                    && image != AssetId::default()
-                    && let Some(existing_batch) = &mut existing_batch
-                {
-                    batch_image_handle = Some(image);
-                    existing_batch.1.image = image;
                 }
                 image_bind_groups.values.entry(image).or_insert_with(|| {
                     render_device.create_bind_group(
@@ -1185,9 +1142,6 @@ fn prepare_uinodes(
                         )
                     });
                 }
-                if let Some((_, texture)) = ui_meta.texture_changes.last() {
-                    batch_image_handle = Some(*texture);
-                }
                 ui_phase.items[batch_start_item_index].batch_range_mut().end += 1;
                 continue;
             }
@@ -1195,7 +1149,7 @@ fn prepare_uinodes(
             #[cfg(feature = "bevy_ui_debug")]
             {
                 let mut existing_batch = batches.last_mut();
-                if batch_image_handle.is_none() || existing_batch.is_none() {
+                if !batch_open || existing_batch.is_none() {
                     batch_start_item_index = phase_item_index;
                     batches.push((
                         ui_phase.items[batch_start_item_index].entity(),
@@ -1239,7 +1193,7 @@ fn prepare_uinodes(
                 ui_phase.items[batch_start_item_index].batch_range_mut().end += 1;
             }
 
-            batch_image_handle = None;
+            batch_open = false;
         }
     }
 
