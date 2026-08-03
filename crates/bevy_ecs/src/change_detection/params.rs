@@ -972,6 +972,9 @@ impl<'w, T: ?Sized> Mut<'w, T> {
     /// - `last_changed` - A [`Tick`] that stores the last time the wrapped value was changed.
     ///   This will be updated to the value of `change_tick` if the returned smart pointer
     ///   is modified.
+    /// - `summary_tick` - A [`Tick`] that stores the most recent changed
+    ///   timestamp that was written to any component instance in the column.
+    ///   "Most recent" refers to the wall clock.
     /// - `last_run` - A [`Tick`], occurring before `this_run`, which is used
     ///   as a reference to determine whether the wrapped value is newly added or changed.
     /// - `this_run` - A [`Tick`] corresponding to the current point in time -- "now".
@@ -979,7 +982,7 @@ impl<'w, T: ?Sized> Mut<'w, T> {
         value: &'w mut T,
         added: &'w mut Tick,
         last_changed: &'w mut Tick,
-        column_tick: Option<&'w AtomicTick>,
+        summary_tick: Option<&'w AtomicTick>,
         last_run: Tick,
         this_run: Tick,
         caller: MaybeLocation<&'w mut &'static Location<'static>>,
@@ -992,7 +995,7 @@ impl<'w, T: ?Sized> Mut<'w, T> {
                 changed_by: caller,
                 last_run,
                 this_run,
-                summary_tick: column_tick,
+                summary_tick,
             },
         }
     }
