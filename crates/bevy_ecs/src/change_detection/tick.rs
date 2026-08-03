@@ -121,7 +121,12 @@ impl AtomicTick {
     /// full mutex lock or similar barrier is required if you need to coordinate
     /// the synchronization of this value with other memory locations.
     pub fn set(&self, new_tick: Tick) {
-        self.tick.store(new_tick.get(), Ordering::Relaxed);
+        // Do an unsynchronized read first.
+        // This is important on x86-64 to avoid a performance cliff that I
+        // believe is related to the store reorder buffer.
+        if self.tick.load(Ordering::Relaxed) != new_tick.get() {
+            self.tick.store(new_tick.get(), Ordering::Relaxed);
+        }
     }
 }
 

@@ -25,6 +25,7 @@ mod iter_simple_wide;
 mod iter_simple_wide_sparse_set;
 mod par_iter_simple;
 mod par_iter_simple_foreach_hybrid;
+mod par_iter_simple_summary_tick;
 
 use criterion::{criterion_group, Criterion};
 use heavy_compute::*;
@@ -170,4 +171,10 @@ fn par_iter_simple(c: &mut Criterion) {
         let mut bench = par_iter_simple_foreach_hybrid::Benchmark::new();
         b.iter(move || bench.run());
     });
+    for f in [0, 10, 100, 1000] {
+        group.bench_function(format!("summary_tick_with_{f}_fragment"), |b| {
+            let mut bench = par_iter_simple_summary_tick::Benchmark::new(f);
+            b.iter(move || bench.run());
+        });
+    }
 }
