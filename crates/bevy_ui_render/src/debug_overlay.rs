@@ -255,7 +255,7 @@ fn push_debug_outline(
             color,
             flags: flags | shader_flags::CORNERS[i],
             radius: border_radius.into(),
-            border: [line_width, line_width, line_width, line_width],
+            border: [line_width; 4],
             size: size.into(),
             point: (QUAD_VERTEX_POSITIONS[i] * size + positions_diff[i]).into(),
         });
