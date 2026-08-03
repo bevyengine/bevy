@@ -202,9 +202,13 @@ impl<'w> ContiguousComponentTicksRef<'w> {
             .map(|v| v.is_newer_than(self.last_run, self.this_run))
     }
 
-    /// Returns true if this component has a summary tick and any component in
-    /// this column has been changed since the last time the associated query
-    /// ran.
+    /// Returns `Some(true)` if this component has a summary tick and any
+    /// component in this column has been changed since the last time the
+    /// associated query ran.
+    ///
+    /// If the component has no summary tick, this method returns `None`. If
+    /// there is a summary tick, but there has been no change since the last
+    /// time the query ran, this method returns `Some(false)`.
     pub fn summary_tick_is_changed(&self) -> Option<bool> {
         self.summary_tick.map(|summary_tick| {
             summary_tick
