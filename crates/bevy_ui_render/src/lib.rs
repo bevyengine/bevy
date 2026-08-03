@@ -1013,16 +1013,16 @@ fn prepare_uinodes(
                 ui_phase.items[phase_item_index].batch_range =
                     phase_item_index as u32..phase_item_index as u32;
                 let mut existing_batch = batches.last_mut();
-                if !batch_open || existing_batch.is_none() {
+                if !batch_open {
                     batch_start_item_index = phase_item_index;
                     batch_open = true;
 
-                    let changes_start = ui_meta.texture_changes.len() as u32;
                     batches.push((
                         entity,
                         UiBatch {
                             range: ui_meta.indices.len() as u32..ui_meta.indices.len() as u32,
-                            texture_changes: changes_start..changes_start,
+                            texture_changes: ui_meta.texture_changes.len() as u32
+                                ..ui_meta.texture_changes.len() as u32,
                         },
                     ));
                     existing_batch = batches.last_mut();
