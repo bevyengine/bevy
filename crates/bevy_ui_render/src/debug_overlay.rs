@@ -321,7 +321,7 @@ pub fn push_debug_overlay_vertices(
             debug_outline
                 .line_color_override
                 .unwrap_or_else(|| Hsla::sequential_dispersed(main_entity.index_u32()).into()),
-            debug_outline.line_width,
+            debug_outline.line_width / layout.uinode.inverse_scale_factor(),
             layout.clip.filter(|_| !debug_outline.show_clipped),
             layout.transform,
         );
