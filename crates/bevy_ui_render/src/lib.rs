@@ -1022,12 +1022,11 @@ fn prepare_uinodes(
 
                 ui_phase.items[phase_item_index].batch_range =
                     phase_item_index as u32..phase_item_index as u32;
-                let mut existing_batch = batches.last_mut();
+
                 if !batch_open {
                     batch_start_item_index = phase_item_index;
                     batch_open = true;
                     batches.push((entity, UiBatch::empty(&ui_meta)));
-                    existing_batch = batches.last_mut();
                 }
                 image_bind_groups.values.entry(image).or_insert_with(|| {
                     render_device.create_bind_group(
@@ -1042,8 +1041,8 @@ fn prepare_uinodes(
                 let range_start = ui_meta.indices.len() as u32;
                 push_uinode_vertices(&mut ui_meta, layout, style, image, gpu_image);
                 let range_end = ui_meta.indices.len() as u32;
-                let existing_batch = existing_batch.unwrap();
-                existing_batch.1.range.end = range_end;
+                let existing_batch = &mut batches.last_mut().unwrap().1;
+                existing_batch.range.end = range_end;
                 if let Some((range, texture)) = ui_meta.texture_changes.last_mut() {
                     if image == AssetId::default() || *texture == image {
                         range.end = range_end;
@@ -1057,14 +1056,14 @@ fn prepare_uinodes(
                         .texture_changes
                         .push((range_start..range_end, image));
                 }
-                let texture_changes_start = existing_batch.1.texture_changes.start as usize;
+                let texture_changes_start = existing_batch.texture_changes.start as usize;
                 if 0 < texture_changes_start
-                    && existing_batch.1.range.start
+                    && existing_batch.range.start
                         < ui_meta.texture_changes[texture_changes_start - 1].0.end
                 {
-                    existing_batch.1.texture_changes.start -= 1;
+                    existing_batch.texture_changes.start -= 1;
                 }
-                existing_batch.1.texture_changes.end = ui_meta.texture_changes.len() as u32;
+                existing_batch.texture_changes.end = ui_meta.texture_changes.len() as u32;
                 ui_phase.items[batch_start_item_index].batch_range_mut().end += 1;
                 continue;
             }
@@ -1094,12 +1093,11 @@ fn prepare_uinodes(
 
                 ui_phase.items[phase_item_index].batch_range =
                     phase_item_index as u32..phase_item_index as u32;
-                let mut existing_batch = batches.last_mut();
-                if !batch_open || existing_batch.is_none() {
+
+                if !batch_open {
                     batch_start_item_index = phase_item_index;
                     batch_open = true;
                     batches.push((entity, UiBatch::empty(&ui_meta)));
-                    existing_batch = batches.last_mut();
                 }
                 image_bind_groups.values.entry(image).or_insert_with(|| {
                     render_device.create_bind_group(
@@ -1112,23 +1110,23 @@ fn prepare_uinodes(
                     )
                 });
 
-                let existing_batch = existing_batch.unwrap();
+                let existing_batch = &mut batches.last_mut().unwrap().1;
                 ui_meta
                     .texture_changes
                     .reserve(style.sections.len().saturating_mul(2).saturating_add(1));
                 push_text_vertices(&mut ui_meta, layout, style, &gpu_images, image);
-                existing_batch.1.range.end = ui_meta.indices.len() as u32;
-                let texture_changes_start = existing_batch.1.texture_changes.start as usize;
+                existing_batch.range.end = ui_meta.indices.len() as u32;
+                let texture_changes_start = existing_batch.texture_changes.start as usize;
                 if 0 < texture_changes_start
-                    && existing_batch.1.range.start
+                    && existing_batch.range.start
                         < ui_meta.texture_changes[texture_changes_start - 1].0.end
                 {
-                    existing_batch.1.texture_changes.start -= 1;
+                    existing_batch.texture_changes.start -= 1;
                 }
-                existing_batch.1.texture_changes.end = ui_meta.texture_changes.len() as u32;
-                for (_, texture) in &ui_meta.texture_changes[existing_batch.1.texture_changes.start
+                existing_batch.texture_changes.end = ui_meta.texture_changes.len() as u32;
+                for (_, texture) in &ui_meta.texture_changes[existing_batch.texture_changes.start
                     as usize
-                    ..existing_batch.1.texture_changes.end as usize]
+                    ..existing_batch.texture_changes.end as usize]
                 {
                     let gpu_image = gpu_images
                         .get(*texture)
@@ -1150,14 +1148,12 @@ fn prepare_uinodes(
 
             #[cfg(feature = "bevy_ui_debug")]
             {
-                let mut existing_batch = batches.last_mut();
-                if !batch_open || existing_batch.is_none() {
+                if !batch_open {
                     batch_start_item_index = phase_item_index;
                     batches.push((
                         ui_phase.items[batch_start_item_index].entity(),
                         UiBatch::empty(&ui_meta),
                     ));
-                    existing_batch = batches.last_mut();
                 }
 
                 let range_start = ui_meta.indices.len() as u32;
@@ -1167,9 +1163,9 @@ fn prepare_uinodes(
                     &extracted_ui_debug_overlay,
                 );
 
-                let existing_batch = existing_batch.unwrap();
+                let existing_batch = &mut batches.last_mut().unwrap().1;
                 let range_end = ui_meta.indices.len() as u32;
-                existing_batch.1.range.end = range_end;
+                existing_batch.range.end = range_end;
                 if range_start < range_end {
                     if let Some((range, _)) = ui_meta.texture_changes.last_mut() {
                         range.end = range_end;
@@ -1179,14 +1175,14 @@ fn prepare_uinodes(
                             .push((range_start..range_end, AssetId::default()));
                     }
                 }
-                let texture_changes_start = existing_batch.1.texture_changes.start as usize;
+                let texture_changes_start = existing_batch.texture_changes.start as usize;
                 if 0 < texture_changes_start
-                    && existing_batch.1.range.start
+                    && existing_batch.range.start
                         < ui_meta.texture_changes[texture_changes_start - 1].0.end
                 {
-                    existing_batch.1.texture_changes.start -= 1;
+                    existing_batch.texture_changes.start -= 1;
                 }
-                existing_batch.1.texture_changes.end = ui_meta.texture_changes.len() as u32;
+                existing_batch.texture_changes.end = ui_meta.texture_changes.len() as u32;
                 ui_phase.items[batch_start_item_index].batch_range_mut().end += 1;
             }
 
