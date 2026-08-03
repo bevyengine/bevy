@@ -189,6 +189,8 @@ pub struct ExtractedBoxShadow {
 pub struct ExtractedBoxShadows {
     /// Box shadows grouped by their main-world UI entity.
     pub box_shadows: MainEntityHashMap<EntityIndexMap<ExtractedBoxShadow>>,
+    /// List of UI entities with changed shadows, cleared each frame before extraction.
+    pub changed_this_frame: MainEntityHashSet,
 }
 
 pub fn extract_shadows(
@@ -204,13 +206,12 @@ pub fn extract_shadows(
         Extract<RemovedComponents<BoxShadow>>,
         Extract<RemovedComponents<ComputedUiRenderTargetInfo>>,
     ),
-    mut nodes_processed_this_frame: Local<MainEntityHashSet>,
 ) {
-    nodes_processed_this_frame.clear();
+    extracted_box_shadows.changed_this_frame.clear();
 
     for (entity, box_shadow, target) in &box_shadow_query {
         let main_entity = MainEntity::from(entity);
-        nodes_processed_this_frame.insert(main_entity);
+        extracted_box_shadows.changed_this_frame.insert(main_entity);
 
         let shadows = extracted_box_shadows
             .box_shadows
@@ -252,7 +253,10 @@ pub fn extract_shadows(
         .chain(removed_computed_ui_render_target_info_query.read())
     {
         let main_entity = MainEntity::from(main_entity);
-        if nodes_processed_this_frame.contains(&main_entity) {
+        if extracted_box_shadows
+            .changed_this_frame
+            .contains(&main_entity)
+        {
             continue;
         }
         let Some(mut extracted_nodes) = extracted_box_shadows.box_shadows.remove(&main_entity)
