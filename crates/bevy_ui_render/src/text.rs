@@ -67,7 +67,7 @@ pub fn extract_text(
         Query<
             Entity,
             (
-                With<Text>,
+                Or<(With<Text>, With<EditableText>)>,
                 Or<(
                     Or<(
                         Changed<ComputedTextBlock>,
