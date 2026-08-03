@@ -941,9 +941,9 @@ fn prepare_uinodes(
     render_queue: Res<RenderQueue>,
     pipeline_cache: Res<PipelineCache>,
     mut ui_meta: ResMut<UiMeta>,
-    extracted_uinodes: Res<ExtractedUiNodeStyles>,
+    extracted_styles: Res<ExtractedUiNodeStyles>,
     extracted_glyph_layouts: Res<ExtractedGlyphLayouts>,
-    extracted_ui_layout: Res<ExtractedUiLayout>,
+    extracted_layout: Res<ExtractedUiLayout>,
     view_uniforms: Res<ViewUniforms>,
     ui_pipeline: Res<UiPipeline>,
     mut image_bind_groups: ResMut<ImageNodeBindGroups>,
@@ -996,12 +996,8 @@ fn prepare_uinodes(
             let main_entity = ui_phase.items[phase_item_index].main_entity();
             let entity = ui_phase.items[phase_item_index].entity();
 
-            if let Some(style) = extracted_uinodes
-                .uinodes
-                .get(&main_entity)
-                .and_then(|(render_entity, style)| (*render_entity == entity).then_some(style))
-            {
-                let Some(layout) = extracted_ui_layout.layout.get(&main_entity) else {
+            if let Some(style) = extracted_styles.get_style(main_entity, entity) {
+                let Some(layout) = extracted_layout.layout.get(&main_entity) else {
                     batch_open = false;
                     continue;
                 };
@@ -1076,7 +1072,7 @@ fn prepare_uinodes(
                 .get(&main_entity)
                 .and_then(|(render_entity, style)| (*render_entity == entity).then_some(style))
             {
-                let Some(layout) = extracted_ui_layout.layout.get(&main_entity) else {
+                let Some(layout) = extracted_layout.layout.get(&main_entity) else {
                     batch_open = false;
                     continue;
                 };
@@ -1176,7 +1172,7 @@ fn prepare_uinodes(
                 let range_start = ui_meta.indices.len() as u32;
                 debug_overlay::push_debug_overlay_vertices(
                     &mut ui_meta,
-                    &extracted_ui_layout,
+                    &extracted_layout,
                     &extracted_ui_debug_overlay,
                 );
 
