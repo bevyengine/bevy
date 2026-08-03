@@ -262,9 +262,6 @@ pub struct Scope<'scope, 'env: 'scope, T> {
     // Vector to gather results of all futures spawned during scope run
     results_ref: &'env RefCell<Vec<Option<T>>>,
     // Task handles for spawned futures, so they can be cancelled on drop.
-    // Without this, a panic in the scope callback would skip the completion
-    // loop, and the executor's own Drop would later drop queued futures after
-    // the borrowed Scope state has been freed (use-after-free).
     spawned: RefCell<Vec<Task<()>>>,
     // make `Scope` invariant over 'scope and 'env
     scope: PhantomData<&'scope mut &'scope ()>,
