@@ -229,11 +229,8 @@ pub fn queue_debug_overlay(
 /// Clip each debug outline quad, compute its vertices, and push them onto the vertex buffer
 fn push_debug_outline(
     rect: Rect,
-    line_color: LinearRgba,
-    line_width: f32,
     border_radius: ResolvedBorderRadius,
-    clip: Option<Rect>,
-    transform: Affine2,
+    (line_color, line_width, clip, transform): &(LinearRgba, f32, Option<Rect>, Affine2),
     ui_meta: &mut UiMeta,
 ) {
     let size = rect.size();
@@ -287,7 +284,7 @@ fn push_debug_outline(
             color,
             flags: flags | shader_flags::CORNERS[i],
             radius: border_radius.into(),
-            border: [line_width; 4],
+            border: [*line_width; 4],
             size: size.into(),
             point: (QUAD_VERTEX_POSITIONS[i] * size + positions_diff[i]).into(),
         });
@@ -320,19 +317,20 @@ pub fn push_debug_overlay_vertices(
             continue;
         }
 
-        let clip = layout.clip.filter(|_| !debug_outline.show_clipped);
-        let line_color = debug_outline
-            .line_color_override
-            .unwrap_or_else(|| Hsla::sequential_dispersed(main_entity.index_u32()).into());
+        let style = &(
+            debug_outline
+                .line_color_override
+                .unwrap_or_else(|| Hsla::sequential_dispersed(main_entity.index_u32()).into()),
+            debug_outline.line_width,
+            layout.clip.filter(|_| !debug_outline.show_clipped),
+            layout.transform,
+        );
 
         if debug_outline.outline_border_box {
             push_debug_outline(
                 layout.uinode.border_box(),
-                line_color,
-                debug_outline.line_width,
                 layout.uinode.border_radius,
-                clip,
-                layout.transform,
+                style,
                 ui_meta,
             );
         }
@@ -340,11 +338,8 @@ pub fn push_debug_overlay_vertices(
         if debug_outline.outline_padding_box {
             push_debug_outline(
                 layout.uinode.padding_box(),
-                line_color,
-                debug_outline.line_width,
                 layout.uinode.inner_radius(),
-                clip,
-                layout.transform,
+                style,
                 ui_meta,
             );
         }
@@ -352,59 +347,34 @@ pub fn push_debug_overlay_vertices(
         if debug_outline.outline_content_box {
             push_debug_outline(
                 layout.uinode.content_box(),
-                line_color,
-                debug_outline.line_width,
                 ResolvedBorderRadius::ZERO,
-                clip,
-                layout.transform,
+                style,
                 ui_meta,
             );
         }
 
         if debug_outline.outline_scrollbars {
             if let Some((gutter, [thumb_min, thumb_max])) = layout.uinode.horizontal_scrollbar() {
-                push_debug_outline(
-                    gutter,
-                    line_color,
-                    debug_outline.line_width,
-                    ResolvedBorderRadius::ZERO,
-                    clip,
-                    layout.transform,
-                    ui_meta,
-                );
+                push_debug_outline(gutter, ResolvedBorderRadius::ZERO, style, ui_meta);
                 push_debug_outline(
                     Rect {
                         min: Vec2::new(thumb_min, gutter.min.y),
                         max: Vec2::new(thumb_max, gutter.max.y),
                     },
-                    line_color,
-                    debug_outline.line_width,
                     ResolvedBorderRadius::ZERO,
-                    clip,
-                    layout.transform,
+                    style,
                     ui_meta,
                 );
             }
             if let Some((gutter, [thumb_min, thumb_max])) = layout.uinode.vertical_scrollbar() {
-                push_debug_outline(
-                    gutter,
-                    line_color,
-                    debug_outline.line_width,
-                    ResolvedBorderRadius::ZERO,
-                    clip,
-                    layout.transform,
-                    ui_meta,
-                );
+                push_debug_outline(gutter, ResolvedBorderRadius::ZERO, style, ui_meta);
                 push_debug_outline(
                     Rect {
                         min: Vec2::new(gutter.min.x, thumb_min),
                         max: Vec2::new(gutter.max.x, thumb_max),
                     },
-                    line_color,
-                    debug_outline.line_width,
                     ResolvedBorderRadius::ZERO,
-                    clip,
-                    layout.transform,
+                    style,
                     ui_meta,
                 );
             }
