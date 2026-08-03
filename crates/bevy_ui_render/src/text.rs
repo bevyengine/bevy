@@ -1,18 +1,19 @@
+use crate::{
+    extract_layout::ExtractedUiLayout, stack_z_offsets, DrawUi, TransparentUi, UiAntiAlias,
+    UiCameraView, UiPipeline, UiPipelineKey,
+};
 use bevy_asset::AssetId;
-use bevy_color::{Alpha, ColorToComponents, LinearRgba};
+use bevy_color::{Alpha, LinearRgba};
 use bevy_ecs::prelude::*;
 use bevy_image::Image;
 use bevy_input_focus::InputFocus;
-use bevy_math::{Affine2, FloatOrd, Rect, Vec2};
+use bevy_math::{FloatOrd, Rect, Vec2};
 use bevy_platform::collections::hash_map::Entry;
 use bevy_render::{
-    render_asset::RenderAssets,
-    render_phase::{DrawFunctions, PhaseItem, PhaseItemExtraIndex, ViewSortedRenderPhases},
-    render_resource::{BindGroupEntries, PipelineCache, SpecializedRenderPipelines},
-    renderer::{RenderDevice, RenderQueue},
+    render_phase::{DrawFunctions, PhaseItemExtraIndex, ViewSortedRenderPhases},
+    render_resource::{PipelineCache, SpecializedRenderPipelines},
     sync_world::{MainEntity, MainEntityHashMap, MainEntityHashSet},
-    texture::GpuImage,
-    view::{ExtractedView, ViewUniforms},
+    view::ExtractedView,
     Extract,
 };
 use bevy_text::{
@@ -25,12 +26,6 @@ use bevy_ui::{
     ResolvedBorderRadius,
 };
 use core::ops::Range;
-
-use crate::{
-    extract_layout::ExtractedUiLayout, shader_flags, stack_z_offsets, DrawUi, ImageNodeBindGroups,
-    TransparentUi, UiAntiAlias, UiBatch, UiCameraView, UiMeta, UiPipeline, UiPipelineKey, UiVertex,
-    QUAD_INDICES, QUAD_VERTEX_POSITIONS,
-};
 
 pub struct ExtractedGlyph {
     pub color: LinearRgba,
