@@ -154,12 +154,7 @@ impl CachedRenderPipelinePhaseItem for TransparentUi {
     }
 }
 
-pub type DrawUi = (
-    SetItemPipeline,
-    SetUiViewBindGroup<0>,
-    SetUiTextureBindGroup<1>,
-    DrawUiNode,
-);
+pub type DrawUi = (SetItemPipeline, SetUiViewBindGroup<0>, DrawUiNode);
 
 pub struct SetUiViewBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetUiViewBindGroup<I> {
@@ -178,29 +173,6 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetUiViewBindGroup<I> {
             return RenderCommandResult::Failure("view_bind_group not available");
         };
         pass.set_bind_group(I, view_bind_group, &[view_uniform.offset]);
-        RenderCommandResult::Success
-    }
-}
-pub struct SetUiTextureBindGroup<const I: usize>;
-impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetUiTextureBindGroup<I> {
-    type Param = SRes<ImageNodeBindGroups>;
-    type ViewQuery = ();
-    type ItemQuery = Read<UiBatch>;
-
-    #[inline]
-    fn render<'w>(
-        _item: &P,
-        _view: (),
-        batch: Option<&'w UiBatch>,
-        image_bind_groups: SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
-    ) -> RenderCommandResult {
-        let image_bind_groups = image_bind_groups.into_inner();
-        let Some(batch) = batch else {
-            return RenderCommandResult::Skip;
-        };
-
-        pass.set_bind_group(I, image_bind_groups.values.get(&batch.image).unwrap(), &[]);
         RenderCommandResult::Success
     }
 }
@@ -237,9 +209,8 @@ impl<P: PhaseItem> RenderCommand<P> for DrawUiNode {
             indices.slice(..),
             bevy_render::render_resource::IndexFormat::Uint32,
         );
+        let image_bind_groups = image_bind_groups.into_inner();
         if !batch.texture_changes.is_empty() {
-            let image_bind_groups = image_bind_groups.into_inner();
-
             for range_index in batch.texture_changes.clone() {
                 let (texture_range, image) = &ui_meta.texture_changes[range_index as usize];
                 let start = texture_range.start.max(batch.range.start);
@@ -250,6 +221,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawUiNode {
             return RenderCommandResult::Success;
         }
         // Draw the vertices
+        pass.set_bind_group(1, image_bind_groups.values.get(&batch.image).unwrap(), &[]);
         pass.draw_indexed(batch.range.clone(), 0, 0..1);
         RenderCommandResult::Success
     }
