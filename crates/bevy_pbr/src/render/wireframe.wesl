@@ -6,7 +6,7 @@
 @if(WIREFRAME_WIDE) import bevy_render::maths::affine3_to_square;
 @if(!WIREFRAME_WIDE) import bevy_pbr::render::forward_io::VertexOutput;
 
-@if(WIREFRAME_WIDE)
+@if(WIREFRAME_WIDE) {
 struct Immediates {
     color: vec4<f32>,
     line_width: f32,
@@ -17,30 +17,24 @@ struct Immediates {
     _pad1: f32,
 }
 
-@if(WIREFRAME_WIDE)
 var<immediate> immediates: Immediates;
 
-@if(WIREFRAME_WIDE)
 struct VertexPullParams {
     index_offset: u32,
     vertex_stride: u32,
     position_offset: u32,
 }
 
-@if(WIREFRAME_WIDE) {
 @group(3) @binding(0) var<storage, read> vertex_data: array<u32>;
 @group(3) @binding(1) var<storage, read> index_data: array<u32>;
 @group(3) @binding(2) var<uniform> vp_params: VertexPullParams;
-}
 
-@if(WIREFRAME_WIDE)
 struct WireframeVertexOutput {
     @builtin(position) position: vec4<f32>,
     @location(0) @interpolate(linear) edge_distance: vec4<f32>,
 }
 
 // unsigned perpendicular distance from point p to the infinite line through a and b.
-@if(WIREFRAME_WIDE)
 fn point_line_distance(p: vec2<f32>, a: vec2<f32>, b: vec2<f32>) -> f32 {
     let edge = b - a;
     let len = length(edge);
@@ -53,7 +47,6 @@ fn point_line_distance(p: vec2<f32>, a: vec2<f32>, b: vec2<f32>) -> f32 {
 // finds the local-space vertex position for a given vertex index by reading from the vertex buffer using the provided
 // parameters. the vertex buffer is interpreted as an array of u32s, so the parameters allow us to calculate the
 // correct offset for the position attribute of the vertex at the given index.
-@if(WIREFRAME_WIDE)
 fn read_local_position(first_vertex: u32, vertex_index: u32) -> vec3<f32> {
     let base = (first_vertex + vertex_index) * vp_params.vertex_stride
                + vp_params.position_offset;
@@ -64,7 +57,6 @@ fn read_local_position(first_vertex: u32, vertex_index: u32) -> vec3<f32> {
     );
 }
 
-@if(WIREFRAME_WIDE)
 @vertex
 fn vertex(
     @builtin(vertex_index) vertex_index: u32,
@@ -227,7 +219,6 @@ fn vertex(
     return out;
 }
 
-@if(WIREFRAME_WIDE)
 @fragment
 fn fragment(in: WireframeVertexOutput) -> @location(0) vec4<f32> {
     let d = min(min(in.edge_distance.x, in.edge_distance.y),
@@ -251,19 +242,19 @@ fn fragment(in: WireframeVertexOutput) -> @location(0) vec4<f32> {
 
     return vec4<f32>(immediates.color.rgb, alpha);
 }
+}
+
 
 // the fast path for thin wireframes that render as lines
-
-@if(!WIREFRAME_WIDE)
+@if(!WIREFRAME_WIDE) {
 struct Immediates {
     color: vec4<f32>,
 }
 
-@if(!WIREFRAME_WIDE)
 var<immediate> immediates: Immediates;
 
-@if(!WIREFRAME_WIDE)
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     return immediates.color;
+}
 }

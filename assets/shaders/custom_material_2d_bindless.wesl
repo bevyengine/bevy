@@ -20,7 +20,7 @@ struct MaterialBindings {
 @group(constants::MATERIAL_BIND_GROUP) @binding(0) var<storage> materials: array<MaterialBindings>;
 @group(constants::MATERIAL_BIND_GROUP) @binding(10) var<storage> material_color: binding_array<Color>;
 }
-@if(!BINDLESS) {
+@else {
 @group(constants::MATERIAL_BIND_GROUP) @binding(0) var<uniform> material_color: Color;
 @group(constants::MATERIAL_BIND_GROUP) @binding(1) var material_color_texture: texture_2d<f32>;
 @group(constants::MATERIAL_BIND_GROUP) @binding(2) var material_color_sampler: sampler;
@@ -28,21 +28,17 @@ struct MaterialBindings {
 
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
-    @if(BINDLESS)
+    @if(BINDLESS) {
     let slot = mesh[in.instance_index].material_bind_group_slot;
-    @if(BINDLESS)
     let base_color = material_color[materials[slot].material].base_color;
-    @else   // BINDLESS
-    let base_color = material_color.base_color;
-
-    @if(BINDLESS)
     let texture = bindless_textures_2d[materials[slot].color_texture];
-    @else
-    let texture = material_color_texture;
-    @if(BINDLESS)
     let color_sampler = bindless_samplers_filtering[materials[slot].color_texture_sampler];
-    @else
+    }
+    @else {
+    let base_color = material_color.base_color;
+    let texture = material_color_texture;
     let color_sampler = material_color_sampler;
+    }
     return base_color * textureSampleLevel(
         texture,
         color_sampler,

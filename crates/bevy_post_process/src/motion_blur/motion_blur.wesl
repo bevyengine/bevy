@@ -8,7 +8,7 @@ import bevy_render::globals::Globals;
 @group(0) @binding(1) var motion_vectors: texture_multisampled_2d<f32>;
 @group(0) @binding(2) var depth: texture_multisampled_2d<f32>;
 }
-@if(!MULTISAMPLED) {
+@else {
 @group(0) @binding(0) var screen_texture: texture_2d<f32>;
 @group(0) @binding(1) var motion_vectors: texture_2d<f32>;
 @group(0) @binding(2) var depth: texture_2d<f32>;
@@ -49,7 +49,7 @@ fn fragment(
     let this_depth = textureLoad(depth, frag_coords, i32(sample_index)).x;
 @else
     let this_depth = textureLoad(depth, frag_coords, 0).x;
-    
+
     // The exposure vector is the distance that this fragment moved while the camera shutter was
     // open. This is the motion vector (total distance traveled) multiplied by the shutter angle (a
     // fraction). In film, the shutter angle is commonly 0.5 or "180 degrees" (out of 360 total).

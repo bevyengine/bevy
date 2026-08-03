@@ -7,7 +7,7 @@ enable wgpu_binding_array;
 @group(2) @binding(4) var lightmaps_textures: binding_array<texture_2d<f32>, 4>;
 @group(2) @binding(5) var lightmaps_samplers: binding_array<sampler, 4>;
 }
-@if(!MULTIPLE_LIGHTMAPS_IN_ARRAY) {
+@else {
 @group(2) @binding(4) var lightmaps_texture: texture_2d<f32>;
 @group(2) @binding(5) var lightmaps_sampler: sampler;
 }

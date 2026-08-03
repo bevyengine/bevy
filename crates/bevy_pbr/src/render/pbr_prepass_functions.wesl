@@ -43,20 +43,17 @@ fn prepass_alpha_discard(material_flags: u32, alpha_cutoff: f32, output_color: v
 fn prepass_sample_color_and_alpha_discard(in: VertexOutput) {
 
 @if(MAY_DISCARD) {
-@if(BINDLESS)
+@if(BINDLESS) {
     let slot = mesh[in.instance_index].material_and_lightmap_bind_group_slot & 0xffffu;
-@if(BINDLESS)
     var output_color: vec4<f32> = pbr_bindings::material_array[material_indices[slot].material].base_color;
-@if(BINDLESS)
     let flags = pbr_bindings::material_array[material_indices[slot].material].flags;
-@if(BINDLESS)
     let alpha_cutoff = pbr_bindings::material_array[material_indices[slot].material].alpha_cutoff;
-@if(!BINDLESS)
+}
+@else {
     var output_color: vec4<f32> = pbr_bindings::material.base_color;
-@if(!BINDLESS)
     let flags = pbr_bindings::material.flags;
-@if(!BINDLESS)
     let alpha_cutoff = pbr_bindings::material.alpha_cutoff;
+}
 
 @if(VERTEX_UVS) {
 @if(STANDARD_MATERIAL_BASE_COLOR_UV_B)
