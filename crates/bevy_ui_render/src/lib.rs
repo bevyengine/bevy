@@ -821,14 +821,12 @@ pub(crate) const QUAD_INDICES: [usize; 6] = [0, 2, 3, 0, 1, 2];
 
 #[derive(Component, Debug)]
 pub struct UiBatch {
-    pub range: Range<u32>,
     pub texture_changes: Range<u32>,
 }
 
 impl UiBatch {
     fn empty(ui_meta: &UiMeta) -> Self {
         UiBatch {
-            range: ui_meta.indices.len() as u32..ui_meta.indices.len() as u32,
             texture_changes: ui_meta.texture_changes.len() as u32
                 ..ui_meta.texture_changes.len() as u32,
         }
@@ -1050,7 +1048,6 @@ fn prepare_uinodes(
                 push_uinode_vertices(&mut ui_meta, layout, style, image, gpu_image);
                 let range_end = ui_meta.indices.len() as u32;
                 let existing_batch = &mut batches.last_mut().unwrap().1;
-                existing_batch.range.end = range_end;
                 if existing_batch.texture_changes.is_empty() {
                     if range_start < range_end {
                         ui_meta
@@ -1126,7 +1123,6 @@ fn prepare_uinodes(
                     existing_batch.texture_changes.start as usize,
                 );
 
-                existing_batch.range.end = ui_meta.indices.len() as u32;
                 existing_batch.texture_changes.end = ui_meta.texture_changes.len() as u32;
                 for (_, texture) in &ui_meta.texture_changes[new_texture_changes_start..] {
                     image_bind_groups.values.entry(*texture).or_insert_with(|| {
@@ -1169,7 +1165,6 @@ fn prepare_uinodes(
 
                 let existing_batch = &mut batches.last_mut().unwrap().1;
                 let range_end = ui_meta.indices.len() as u32;
-                existing_batch.range.end = range_end;
                 if range_start < range_end {
                     if existing_batch.texture_changes.is_empty() {
                         let image = ui_meta
