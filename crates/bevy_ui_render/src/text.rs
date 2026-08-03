@@ -162,7 +162,7 @@ pub fn extract_text(
         Extract<RemovedComponents<Underline>>,
         Extract<RemovedComponents<StrikethroughColor>>,
         Extract<RemovedComponents<UnderlineColor>>,
-        Extract<RemovedComponents<TextReadWriteMode>,
+        Extract<RemovedComponents<TextReadWriteMode>>,
     ),
     input_focus: Extract<Option<Res<InputFocus>>>,
     mut nodes_to_extract: Local<MainEntityHashSet>,
@@ -181,6 +181,7 @@ pub fn extract_text(
             .chain(removed_text_cursor_style_query.read())
             .chain(removed_text_shadow_query.read())
             .chain(removed_editable_text_query.read())
+            .chain(removed_read_write_mode_query.read())
             .map(MainEntity::from),
     );
 
@@ -242,11 +243,12 @@ pub fn extract_text(
             .as_ref()
             .is_some_and(|input_focus| input_focus.get() == Some(entity));
 
-        let selection_color = if focused && rwmode.is_some_and(|rwmode| *rwmode == TextReadWriteMode::Editable) {
-            cursor_style.selection_color
-        } else {
-            cursor_style.unfocused_selection_color
-        };
+        let selection_color =
+            if focused && rwmode.is_some_and(|rwmode| *rwmode == TextReadWriteMode::Editable) {
+                cursor_style.selection_color
+            } else {
+                cursor_style.unfocused_selection_color
+            };
         let mut selections = vec![];
         if has_cursor_style
             && !text_layout_info.selection_rects.is_empty()
@@ -432,7 +434,7 @@ pub fn extract_text(
             && let Some((true, cursor)) = text_layout_info.cursor
             && !cursor.is_empty()
             && !cursor_style.color.is_fully_transparent()
-            && rwmode.is_some_and(|rwmode| rwmode != TextReadWriteMode::Static)
+            && rwmode.is_some_and(|rwmode| *rwmode != TextReadWriteMode::Static)
         {
             Some(cursor)
         } else {
