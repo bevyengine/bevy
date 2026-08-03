@@ -272,7 +272,7 @@ where
         {
             QueryContiguousIter::new(self.world, self.state, self.last_run, self.this_run)
                 .unwrap()
-                .fold(init, func);
+                .fold(init(), func);
         }
 
         #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
