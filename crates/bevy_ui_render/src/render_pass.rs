@@ -210,19 +210,13 @@ impl<P: PhaseItem> RenderCommand<P> for DrawUiNode {
             bevy_render::render_resource::IndexFormat::Uint32,
         );
         let image_bind_groups = image_bind_groups.into_inner();
-        if !batch.texture_changes.is_empty() {
-            for range_index in batch.texture_changes.clone() {
-                let (texture_range, image) = &ui_meta.texture_changes[range_index as usize];
-                let start = texture_range.start.max(batch.range.start);
-                let end = texture_range.end.min(batch.range.end);
-                pass.set_bind_group(1, image_bind_groups.values.get(image).unwrap(), &[]);
-                pass.draw_indexed(start..end, 0, 0..1);
-            }
-            return RenderCommandResult::Success;
+        for range_index in batch.texture_changes.clone() {
+            let (texture_range, image) = &ui_meta.texture_changes[range_index as usize];
+            let start = texture_range.start.max(batch.range.start);
+            let end = texture_range.end.min(batch.range.end);
+            pass.set_bind_group(1, image_bind_groups.values.get(image).unwrap(), &[]);
+            pass.draw_indexed(start..end, 0, 0..1);
         }
-        // Draw the vertices
-        pass.set_bind_group(1, image_bind_groups.values.get(&batch.image).unwrap(), &[]);
-        pass.draw_indexed(batch.range.clone(), 0, 0..1);
         RenderCommandResult::Success
     }
 }

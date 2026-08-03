@@ -807,7 +807,6 @@ pub(crate) const QUAD_INDICES: [usize; 6] = [0, 2, 3, 0, 1, 2];
 #[derive(Component, Debug)]
 pub struct UiBatch {
     pub range: Range<u32>,
-    pub image: AssetId<Image>,
     pub texture_changes: Range<u32>,
 }
 
@@ -1013,7 +1012,6 @@ fn prepare_uinodes(
                         entity,
                         UiBatch {
                             range: ui_meta.indices.len() as u32..ui_meta.indices.len() as u32,
-                            image,
                             texture_changes: changes_start..changes_start,
                         },
                     ));
@@ -1092,7 +1090,6 @@ fn prepare_uinodes(
                         entity,
                         UiBatch {
                             range: ui_meta.indices.len() as u32..ui_meta.indices.len() as u32,
-                            image,
                             texture_changes: ui_meta.texture_changes.len() as u32
                                 ..ui_meta.texture_changes.len() as u32,
                         },
@@ -1155,7 +1152,6 @@ fn prepare_uinodes(
                         ui_phase.items[batch_start_item_index].entity(),
                         UiBatch {
                             range: ui_meta.indices.len() as u32..ui_meta.indices.len() as u32,
-                            image: AssetId::default(),
                             texture_changes: ui_meta.texture_changes.len() as u32
                                 ..ui_meta.texture_changes.len() as u32,
                         },
