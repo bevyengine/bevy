@@ -254,6 +254,18 @@ pub enum NumberInputValue {
     I64(i64),
 }
 
+/// Indicates whether the number input should wrap around the min/max value.
+/// This component only applies to [`HardLimit`].
+#[derive(Component, Default, Debug, PartialEq, Clone, Copy, Reflect)]
+#[reflect(Component, Default)]
+pub enum NumberInputWrap {
+    /// The number input will not wrap around the min/max value.
+    #[default]
+    NoWrap,
+    /// The number input will wrap around the min/max value.
+    Wrap,
+}
+
 impl core::fmt::Display for NumberInputValue {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
@@ -354,6 +366,32 @@ impl NumberInputRange {
             }
             (Self::I64(r), NumberInputValue::I64(v)) => {
                 NumberInputValue::I64(v.clamp(r.start, r.end))
+            }
+            (range, value) => {
+                warn_once!("Number input range type mismatch: {range:?} {value:?}");
+                n
+            }
+        }
+    }
+
+    /// Wrap a numeric value of varying type to be within this range.
+    pub fn wrap(&self, n: NumberInputValue) -> NumberInputValue {
+        match (self, n) {
+            (Self::F32(r), NumberInputValue::F32(v)) => {
+                let range = r.end - r.start;
+                NumberInputValue::F32(r.start + (v - r.start).rem_euclid(range))
+            }
+            (Self::F64(r), NumberInputValue::F64(v)) => {
+                let range = r.end - r.start;
+                NumberInputValue::F64(r.start + (v - r.start).rem_euclid(range))
+            }
+            (Self::I32(r), NumberInputValue::I32(v)) => {
+                let range = r.end - r.start;
+                NumberInputValue::I32(r.start + (v - r.start).rem_euclid(range))
+            }
+            (Self::I64(r), NumberInputValue::I64(v)) => {
+                let range = r.end - r.start;
+                NumberInputValue::I64(r.start + (v - r.start).rem_euclid(range))
             }
             (range, value) => {
                 warn_once!("Number input range type mismatch: {range:?} {value:?}");
@@ -753,7 +791,14 @@ fn number_input_hovered(
 fn number_input_on_enter_key(
     key_input: On<FocusedInput<KeyboardInput>>,
     q_parent: Query<&ChildOf>,
-    q_number_input: Query<(&NumberInputValue, Option<&HardLimit>), With<FeathersNumberInput>>,
+    q_number_input: Query<
+        (
+            &NumberInputValue,
+            Option<&HardLimit>,
+            Option<&NumberInputWrap>,
+        ),
+        With<FeathersNumberInput>,
+    >,
     mut q_text_input: Query<(&EditableText, &mut DragState)>,
     mut commands: Commands,
 ) {
@@ -763,7 +808,7 @@ fn number_input_on_enter_key(
 
     let text_id = key_input.event_target();
     if let Ok(&ChildOf(root)) = q_parent.get(text_id)
-        && let Ok((input_value, hard_limit)) = q_number_input.get(root)
+        && let Ok((input_value, hard_limit, wrap)) = q_number_input.get(root)
         && let Ok((editable_text, mut drag_state)) = q_text_input.get_mut(text_id)
     {
         let text_value = editable_text.value().to_string();
@@ -779,6 +824,7 @@ fn number_input_on_enter_key(
             input_value.format(),
             root,
             hard_limit,
+            wrap,
             &mut commands,
             true,
         );
@@ -801,6 +847,7 @@ fn number_input_on_focus_lost(
             &NumberInputValue,
             Has<InteractionDisabled>,
             Option<&HardLimit>,
+            Option<&NumberInputWrap>,
         ),
         With<FeathersNumberInput>,
     >,
@@ -810,7 +857,7 @@ fn number_input_on_focus_lost(
     let editable_text_id = focus_lost.event_target();
 
     if let Ok(&ChildOf(root)) = q_parent.get(editable_text_id)
-        && let Ok((input_value, disabled, hard_limit)) = q_number_input.get(root)
+        && let Ok((input_value, disabled, hard_limit, wrap)) = q_number_input.get(root)
         && let Ok((editable_text, mut drag_state)) = q_text_input.get_mut(editable_text_id)
     {
         let text_value = editable_text.value().to_string();
@@ -819,6 +866,7 @@ fn number_input_on_focus_lost(
             input_value.format(),
             root,
             hard_limit,
+            wrap,
             &mut commands,
             true,
         );
@@ -997,6 +1045,7 @@ fn scrubber_on_drag(
         Option<&HardLimit>,
         Option<&NumberInputPrecision>,
         Has<InteractionDisabled>,
+        Option<&NumberInputWrap>,
     )>,
     mut q_text_input: Query<&mut DragState>,
     mut q_scrubber: Query<&UiGlobalTransform>,
@@ -1007,7 +1056,7 @@ fn scrubber_on_drag(
 ) {
     if let Ok(&ChildOf(text_id)) = q_parent.get(drag.event_target())
         && let Ok(&ChildOf(root_id)) = q_parent.get(text_id)
-        && let Ok((soft_limit, hard_limit, precision, disabled)) = q_root.get(root_id)
+        && let Ok((soft_limit, hard_limit, precision, disabled, wrap)) = q_root.get(root_id)
         && let Ok(mut drag_state) = q_text_input.get_mut(text_id)
         && let Ok(transform) = q_scrubber.get_mut(drag.entity)
         && drag_state.mode == EditMode::Scrubbing
@@ -1027,6 +1076,7 @@ fn scrubber_on_drag(
                 soft_limit,
                 hard_limit,
                 precision,
+                wrap,
                 &mut drag_state,
                 false,
             );
@@ -1041,6 +1091,7 @@ fn scrubber_on_drag_end(
         Option<&HardLimit>,
         Option<&NumberInputPrecision>,
         Has<InteractionDisabled>,
+        Option<&NumberInputWrap>,
         Option<&ThemeContext>,
     )>,
     mut q_text_input: Query<(&Hovered, &mut BackgroundGradient, &mut DragState)>,
@@ -1050,7 +1101,7 @@ fn scrubber_on_drag_end(
 ) {
     if let Ok(&ChildOf(text_id)) = q_parent.get(drag_end.event_target())
         && let Ok(&ChildOf(root_id)) = q_parent.get(text_id)
-        && let Ok((soft_limit, hard_limit, precision, disabled, theme_context)) =
+        && let Ok((soft_limit, hard_limit, precision, disabled, wrap, theme_context)) =
             q_root.get(root_id)
         && let Ok((&Hovered(hovered), mut gradient, mut drag_state)) = q_text_input.get_mut(text_id)
         && drag_state.mode == EditMode::Scrubbing
@@ -1063,6 +1114,7 @@ fn scrubber_on_drag_end(
                 soft_limit,
                 hard_limit,
                 precision,
+                wrap,
                 &mut drag_state,
                 true,
             );
@@ -1200,6 +1252,7 @@ fn emit_drag_value_change(
     soft_limit: Option<&SoftLimit>,
     hard_limit: Option<&HardLimit>,
     precision: Option<&NumberInputPrecision>,
+    wrap: Option<&NumberInputWrap>,
     drag_state: &mut DragState,
     is_final: bool,
 ) {
@@ -1214,9 +1267,15 @@ fn emit_drag_value_change(
         value = precision.round(value);
     }
     // Hard limit is absolute and always applied last.
-    if let Some(HardLimit(range)) = hard_limit {
-        value = range.clamp(value);
-    }
+    let value = match (wrap, hard_limit) {
+        (Some(NumberInputWrap::Wrap), Some(HardLimit(range))) => range.wrap(value),
+        (Some(NumberInputWrap::Wrap), None) => {
+            warn_once!("NumberInputWrap::Wrap specified without a HardLimit; ignoring wrap");
+            value
+        }
+        (_, Some(HardLimit(range))) => range.clamp(value),
+        (_, None) => value,
+    };
 
     trigger_value_change(commands, value, source, is_final);
 }
@@ -1226,6 +1285,7 @@ fn emit_value_change(
     format: NumberFormat,
     source: Entity,
     hard_limit: Option<&HardLimit>,
+    wrap: Option<&NumberInputWrap>,
     commands: &mut Commands,
     is_final: bool,
 ) {
@@ -1240,12 +1300,17 @@ fn emit_value_change(
         return;
     };
 
-    let clamped_value = match hard_limit {
-        Some(limit) => limit.0.clamp(new_value),
-        None => new_value,
+    let value = match (wrap, hard_limit) {
+        (Some(NumberInputWrap::Wrap), Some(HardLimit(range))) => range.wrap(new_value),
+        (Some(NumberInputWrap::Wrap), None) => {
+            warn_once!("NumberInputWrap::Wrap specified without a HardLimit; ignoring wrap");
+            new_value
+        }
+        (_, Some(HardLimit(range))) => range.clamp(new_value),
+        (_, None) => new_value,
     };
 
-    trigger_value_change(commands, clamped_value, source, is_final);
+    trigger_value_change(commands, value, source, is_final);
 }
 
 /// Decompose the input value enum and trigger a [`ValueChange`] with the appropriate generic
