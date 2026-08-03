@@ -9,3 +9,6 @@ bevy = { path = "../../" }
 
 [dev-dependencies]
 bevy = { path = "../../" }
+
+[patch.crates-io]
+wesl = { git = "https://github.com/webgpu-tools/wesl-rs", rev = "2e24e41d80f5f453dad2c70b5471160ff42f396e" }

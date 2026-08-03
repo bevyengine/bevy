@@ -3,14 +3,14 @@ import bevy_pbr::render::mesh_bindings::mesh;
 @if(MULTIPLE_LIGHTMAPS_IN_ARRAY)
 enable wgpu_binding_array;
 
-@if(MULTIPLE_LIGHTMAPS_IN_ARRAY)
+@if(MULTIPLE_LIGHTMAPS_IN_ARRAY) {
 @group(2) @binding(4) var lightmaps_textures: binding_array<texture_2d<f32>, 4>;
-@if(MULTIPLE_LIGHTMAPS_IN_ARRAY)
 @group(2) @binding(5) var lightmaps_samplers: binding_array<sampler, 4>;
-@if(!MULTIPLE_LIGHTMAPS_IN_ARRAY)
+}
+@if(!MULTIPLE_LIGHTMAPS_IN_ARRAY) {
 @group(2) @binding(4) var lightmaps_texture: texture_2d<f32>;
-@if(!MULTIPLE_LIGHTMAPS_IN_ARRAY)
 @group(2) @binding(5) var lightmaps_sampler: sampler;
+}
 
 // Samples the lightmap, if any, and returns indirect illumination from it.
 fn lightmap(uv: vec2<f32>, exposure: f32, instance_index: u32) -> vec3<f32> {

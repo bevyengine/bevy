@@ -4,119 +4,77 @@
 @group(0) @binding(0) var sampler_linear_clamp: sampler;
 @group(0) @binding(1) var<uniform> constants: Constants;
 
-@if(ARRAY_TEXTURE && COMBINE_BIND_GROUP)
+@if(ARRAY_TEXTURE && COMBINE_BIND_GROUP) {
 @group(0) @binding(2) var mip_0: texture_2d_array<f32>;
-@if(ARRAY_TEXTURE && COMBINE_BIND_GROUP)
 @group(0) @binding(3) var mip_1: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
-@if(ARRAY_TEXTURE && COMBINE_BIND_GROUP)
 @group(0) @binding(4) var mip_2: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
-@if(ARRAY_TEXTURE && COMBINE_BIND_GROUP)
 @group(0) @binding(5) var mip_3: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
-@if(ARRAY_TEXTURE && COMBINE_BIND_GROUP)
 @group(0) @binding(6) var mip_4: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
-@if(ARRAY_TEXTURE && COMBINE_BIND_GROUP)
 @group(0) @binding(7) var mip_5: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
-@if(ARRAY_TEXTURE && COMBINE_BIND_GROUP)
 @group(0) @binding(8) var mip_6: texture_storage_2d_array<##TEXTURE_FORMAT##, read_write>;
-@if(ARRAY_TEXTURE && COMBINE_BIND_GROUP)
 @group(0) @binding(9) var mip_7: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
-@if(ARRAY_TEXTURE && COMBINE_BIND_GROUP)
 @group(0) @binding(10) var mip_8: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
-@if(ARRAY_TEXTURE && COMBINE_BIND_GROUP)
 @group(0) @binding(11) var mip_9: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
-@if(ARRAY_TEXTURE && COMBINE_BIND_GROUP)
 @group(0) @binding(12) var mip_10: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
-@if(ARRAY_TEXTURE && COMBINE_BIND_GROUP)
 @group(0) @binding(13) var mip_11: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
-@if(ARRAY_TEXTURE && COMBINE_BIND_GROUP)
 @group(0) @binding(14) var mip_12: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
+}
 
-@if(ARRAY_TEXTURE && FIRST_PASS)
+@if(ARRAY_TEXTURE && FIRST_PASS) {
 @group(0) @binding(2) var mip_0: texture_2d_array<f32>;
-@if(ARRAY_TEXTURE && FIRST_PASS)
 @group(0) @binding(3) var mip_1: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
-@if(ARRAY_TEXTURE && FIRST_PASS)
 @group(0) @binding(4) var mip_2: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
-@if(ARRAY_TEXTURE && FIRST_PASS)
 @group(0) @binding(5) var mip_3: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
-@if(ARRAY_TEXTURE && FIRST_PASS)
 @group(0) @binding(6) var mip_4: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
-@if(ARRAY_TEXTURE && FIRST_PASS)
 @group(0) @binding(7) var mip_5: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
-@if(ARRAY_TEXTURE && FIRST_PASS)
 @group(0) @binding(8) var mip_6: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
+}
 
-@if(ARRAY_TEXTURE && SECOND_PASS)
+@if(ARRAY_TEXTURE && SECOND_PASS) {
 @group(0) @binding(2) var mip_6: texture_2d_array<f32>;
-@if(ARRAY_TEXTURE && SECOND_PASS)
 @group(0) @binding(3) var mip_7: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
-@if(ARRAY_TEXTURE && SECOND_PASS)
 @group(0) @binding(4) var mip_8: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
-@if(ARRAY_TEXTURE && SECOND_PASS)
 @group(0) @binding(5) var mip_9: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
-@if(ARRAY_TEXTURE && SECOND_PASS)
 @group(0) @binding(6) var mip_10: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
-@if(ARRAY_TEXTURE && SECOND_PASS)
 @group(0) @binding(7) var mip_11: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
-@if(ARRAY_TEXTURE && SECOND_PASS)
 @group(0) @binding(8) var mip_12: texture_storage_2d_array<##TEXTURE_FORMAT##, write>;
+}
 
-@if(!ARRAY_TEXTURE && COMBINE_BIND_GROUP)
+@if(!ARRAY_TEXTURE && COMBINE_BIND_GROUP) {
 @group(0) @binding(2) var mip_0: texture_2d<f32>;
-@if(!ARRAY_TEXTURE && COMBINE_BIND_GROUP)
 @group(0) @binding(3) var mip_1: texture_storage_2d<##TEXTURE_FORMAT##, write>;
-@if(!ARRAY_TEXTURE && COMBINE_BIND_GROUP)
 @group(0) @binding(4) var mip_2: texture_storage_2d<##TEXTURE_FORMAT##, write>;
-@if(!ARRAY_TEXTURE && COMBINE_BIND_GROUP)
 @group(0) @binding(5) var mip_3: texture_storage_2d<##TEXTURE_FORMAT##, write>;
-@if(!ARRAY_TEXTURE && COMBINE_BIND_GROUP)
 @group(0) @binding(6) var mip_4: texture_storage_2d<##TEXTURE_FORMAT##, write>;
-@if(!ARRAY_TEXTURE && COMBINE_BIND_GROUP)
 @group(0) @binding(7) var mip_5: texture_storage_2d<##TEXTURE_FORMAT##, write>;
-@if(!ARRAY_TEXTURE && COMBINE_BIND_GROUP)
 @group(0) @binding(8) var mip_6: texture_storage_2d<##TEXTURE_FORMAT##, read_write>;
-@if(!ARRAY_TEXTURE && COMBINE_BIND_GROUP)
 @group(0) @binding(9) var mip_7: texture_storage_2d<##TEXTURE_FORMAT##, write>;
-@if(!ARRAY_TEXTURE && COMBINE_BIND_GROUP)
 @group(0) @binding(10) var mip_8: texture_storage_2d<##TEXTURE_FORMAT##, write>;
-@if(!ARRAY_TEXTURE && COMBINE_BIND_GROUP)
 @group(0) @binding(11) var mip_9: texture_storage_2d<##TEXTURE_FORMAT##, write>;
-@if(!ARRAY_TEXTURE && COMBINE_BIND_GROUP)
 @group(0) @binding(12) var mip_10: texture_storage_2d<##TEXTURE_FORMAT##, write>;
-@if(!ARRAY_TEXTURE && COMBINE_BIND_GROUP)
 @group(0) @binding(13) var mip_11: texture_storage_2d<##TEXTURE_FORMAT##, write>;
-@if(!ARRAY_TEXTURE && COMBINE_BIND_GROUP)
 @group(0) @binding(14) var mip_12: texture_storage_2d<##TEXTURE_FORMAT##, write>;
+}
 
-@if(!ARRAY_TEXTURE && FIRST_PASS)
+@if(!ARRAY_TEXTURE && FIRST_PASS) {
 @group(0) @binding(2) var mip_0: texture_2d<f32>;
-@if(!ARRAY_TEXTURE && FIRST_PASS)
 @group(0) @binding(3) var mip_1: texture_storage_2d<##TEXTURE_FORMAT##, write>;
-@if(!ARRAY_TEXTURE && FIRST_PASS)
 @group(0) @binding(4) var mip_2: texture_storage_2d<##TEXTURE_FORMAT##, write>;
-@if(!ARRAY_TEXTURE && FIRST_PASS)
 @group(0) @binding(5) var mip_3: texture_storage_2d<##TEXTURE_FORMAT##, write>;
-@if(!ARRAY_TEXTURE && FIRST_PASS)
 @group(0) @binding(6) var mip_4: texture_storage_2d<##TEXTURE_FORMAT##, write>;
-@if(!ARRAY_TEXTURE && FIRST_PASS)
 @group(0) @binding(7) var mip_5: texture_storage_2d<##TEXTURE_FORMAT##, write>;
-@if(!ARRAY_TEXTURE && FIRST_PASS)
 @group(0) @binding(8) var mip_6: texture_storage_2d<##TEXTURE_FORMAT##, write>;
+}
 
-@if(!ARRAY_TEXTURE && SECOND_PASS)
+@if(!ARRAY_TEXTURE && SECOND_PASS) {
 @group(0) @binding(2) var mip_6: texture_2d<f32>;
-@if(!ARRAY_TEXTURE && SECOND_PASS)
 @group(0) @binding(3) var mip_7: texture_storage_2d<##TEXTURE_FORMAT##, write>;
-@if(!ARRAY_TEXTURE && SECOND_PASS)
 @group(0) @binding(4) var mip_8: texture_storage_2d<##TEXTURE_FORMAT##, write>;
-@if(!ARRAY_TEXTURE && SECOND_PASS)
 @group(0) @binding(5) var mip_9: texture_storage_2d<##TEXTURE_FORMAT##, write>;
-@if(!ARRAY_TEXTURE && SECOND_PASS)
 @group(0) @binding(6) var mip_10: texture_storage_2d<##TEXTURE_FORMAT##, write>;
-@if(!ARRAY_TEXTURE && SECOND_PASS)
 @group(0) @binding(7) var mip_11: texture_storage_2d<##TEXTURE_FORMAT##, write>;
-@if(!ARRAY_TEXTURE && SECOND_PASS)
 @group(0) @binding(8) var mip_12: texture_storage_2d<##TEXTURE_FORMAT##, write>;
+}
 
 struct Constants { mips: u32, inverse_input_size: vec2f }
 

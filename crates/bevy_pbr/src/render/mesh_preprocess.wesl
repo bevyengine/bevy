@@ -98,25 +98,25 @@ struct Immediates {
 @group(0) @binding(7) var<storage, read_write> indirect_parameters_metadata:
     array<IndirectParametersMetadata>;
 
-@if(FRUSTUM_CULLING)
+@if(FRUSTUM_CULLING) {
 // Data needed to cull the meshes.
 //
 // At the moment, this consists only of AABBs.
 @group(0) @binding(9) var<storage> mesh_culling_data: array<MeshCullingData>;
 
-@if(FRUSTUM_CULLING)
 @group(0) @binding(10) var<storage> visibility_ranges: array<vec4<f32>>;
+}
 
 @if(OCCLUSION_CULLING)
 @group(0) @binding(11) var depth_pyramid: texture_2d<f32>;
 
-@if(OCCLUSION_CULLING && EARLY_PHASE)
+@if(OCCLUSION_CULLING && EARLY_PHASE) {
 @group(0) @binding(12) var<storage, read_write> late_preprocess_work_items:
     array<PreprocessWorkItem>;
 
-@if(OCCLUSION_CULLING && EARLY_PHASE)
 @group(0) @binding(13) var<storage, read_write> late_preprocess_work_item_indirect_parameters:
     array<LatePreprocessWorkItemIndirectParameters>;
+}
 
 @if(OCCLUSION_CULLING && LATE_PHASE)
 @group(0) @binding(13) var<storage, read> late_preprocess_work_item_indirect_parameters:

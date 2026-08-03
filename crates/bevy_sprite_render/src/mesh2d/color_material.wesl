@@ -34,18 +34,17 @@ const COLOR_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE: u32        = 0u;          // (0u32
 const COLOR_MATERIAL_FLAGS_ALPHA_MODE_MASK: u32          = 1073741824u; // (1u32 << 30)
 const COLOR_MATERIAL_FLAGS_ALPHA_MODE_BLEND: u32         = 2147483648u; // (2u32 << 30)
 
-@if(BINDLESS)
+@if(BINDLESS) {
 @group(constants::MATERIAL_BIND_GROUP) @binding(0) var<storage> color_material_indices:
     array<ColorMaterialBindings>;
-@if(BINDLESS)
 @group(constants::MATERIAL_BIND_GROUP) @binding(10) var<storage> color_materials: array<ColorMaterial>;
+}
 
-@if(!BINDLESS)
+@if(!BINDLESS) {
 @group(constants::MATERIAL_BIND_GROUP) @binding(0) var<uniform> material: ColorMaterial;
-@if(!BINDLESS)
 @group(constants::MATERIAL_BIND_GROUP) @binding(1) var texture: texture_2d<f32>;
-@if(!BINDLESS)
 @group(constants::MATERIAL_BIND_GROUP) @binding(2) var texture_sampler: sampler;
+}
 
 @fragment
 fn fragment(

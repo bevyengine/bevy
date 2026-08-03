@@ -27,12 +27,11 @@ struct VertexPullParams {
     position_offset: u32,
 }
 
-@if(WIREFRAME_WIDE)
+@if(WIREFRAME_WIDE) {
 @group(3) @binding(0) var<storage, read> vertex_data: array<u32>;
-@if(WIREFRAME_WIDE)
 @group(3) @binding(1) var<storage, read> index_data: array<u32>;
-@if(WIREFRAME_WIDE)
 @group(3) @binding(2) var<uniform> vp_params: VertexPullParams;
+}
 
 @if(WIREFRAME_WIDE)
 struct WireframeVertexOutput {

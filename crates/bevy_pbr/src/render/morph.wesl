@@ -1,20 +1,17 @@
 @if(MORPH_TARGETS) import bevy_pbr::render::mesh_types::{MorphAttributes, MorphDescriptor, MorphWeights};
 
-@if(MORPH_TARGETS && SKINS_USE_UNIFORM_BUFFERS)
+@if(MORPH_TARGETS && SKINS_USE_UNIFORM_BUFFERS) {
 @group(2) @binding(2) var<uniform> morph_weights: MorphWeights;
-@if(MORPH_TARGETS && SKINS_USE_UNIFORM_BUFFERS)
 @group(2) @binding(3) var morph_targets: texture_3d<f32>;
-@if(MORPH_TARGETS && SKINS_USE_UNIFORM_BUFFERS)
 @group(2) @binding(7) var<uniform> prev_morph_weights: MorphWeights;
+}
 
-@if(MORPH_TARGETS && !SKINS_USE_UNIFORM_BUFFERS)
+@if(MORPH_TARGETS && !SKINS_USE_UNIFORM_BUFFERS) {
 @group(2) @binding(2) var<storage> morph_weights: array<f32>;
-@if(MORPH_TARGETS && !SKINS_USE_UNIFORM_BUFFERS)
 @group(2) @binding(3) var<storage> morph_targets: array<MorphAttributes>;
-@if(MORPH_TARGETS && !SKINS_USE_UNIFORM_BUFFERS)
 @group(2) @binding(7) var<storage> prev_morph_weights: array<f32>;
-@if(MORPH_TARGETS && !SKINS_USE_UNIFORM_BUFFERS)
 @group(2) @binding(8) var<storage> morph_descriptors: array<MorphDescriptor>;
+}
 
 // NOTE: Those are the "hardcoded" values found in `MorphAttributes` struct
 // in crates/bevy_render/src/mesh/morph/visitors.rs

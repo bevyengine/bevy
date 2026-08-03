@@ -15,29 +15,22 @@ enable wgpu_binding_array;
 
 // Binding 0 is the bindless index table.
 // Filtering samplers.
-@if(BINDLESS)
+@if(BINDLESS) {
 @group(constants::MATERIAL_BIND_GROUP) @binding(1) var bindless_samplers_filtering: binding_array<sampler>;
 // Non-filtering samplers (nearest neighbor).
-@if(BINDLESS)
 @group(constants::MATERIAL_BIND_GROUP) @binding(2) var bindless_samplers_non_filtering: binding_array<sampler>;
 // Comparison samplers (typically for shadow mapping).
-@if(BINDLESS)
 @group(constants::MATERIAL_BIND_GROUP) @binding(3) var bindless_samplers_comparison: binding_array<sampler>;
 // 1D textures.
-@if(BINDLESS)
 @group(constants::MATERIAL_BIND_GROUP) @binding(4) var bindless_textures_1d: binding_array<texture_1d<f32>>;
 // 2D textures.
-@if(BINDLESS)
 @group(constants::MATERIAL_BIND_GROUP) @binding(5) var bindless_textures_2d: binding_array<texture_2d<f32>>;
 // 2D array textures.
-@if(BINDLESS)
 @group(constants::MATERIAL_BIND_GROUP) @binding(6) var bindless_textures_2d_array: binding_array<texture_2d_array<f32>>;
 // 3D textures.
-@if(BINDLESS)
 @group(constants::MATERIAL_BIND_GROUP) @binding(7) var bindless_textures_3d: binding_array<texture_3d<f32>>;
 // Cubemap textures.
-@if(BINDLESS)
 @group(constants::MATERIAL_BIND_GROUP) @binding(8) var bindless_textures_cube: binding_array<texture_cube<f32>>;
 // Cubemap array textures.
-@if(BINDLESS)
 @group(constants::MATERIAL_BIND_GROUP) @binding(9) var bindless_textures_cube_array: binding_array<texture_cube_array<f32>>;
+}

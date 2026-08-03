@@ -19,10 +19,10 @@ struct DebugBufferConfig {
 @group(1) @binding(1) var background_texture: texture_2d<f32>;
 @group(1) @binding(2) var background_sampler: sampler;
 
-@if(DEBUG_DEPTH_PYRAMID)
+@if(DEBUG_DEPTH_PYRAMID) {
 @group(1) @binding(3) var depth_pyramid_texture: texture_2d<f32>;
-@if(DEBUG_DEPTH_PYRAMID)
 @group(1) @binding(4) var depth_pyramid_sampler: sampler;
+}
 
 @fragment
 fn fragment(@builtin(position) frag_coord: vec4<f32>) -> @location(0) vec4<f32> {

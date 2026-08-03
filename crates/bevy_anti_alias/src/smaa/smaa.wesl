@@ -329,19 +329,17 @@ struct NeighborhoodBlendingVaryings {
 @if(SMAA_EDGE_DETECTION)
 @group(1) @binding(0) var color_sampler: sampler;
 
-@if(SMAA_BLENDING_WEIGHT_CALCULATION)
+@if(SMAA_BLENDING_WEIGHT_CALCULATION) {
 @group(1) @binding(0) var edges_texture: texture_2d<f32>;
-@if(SMAA_BLENDING_WEIGHT_CALCULATION)
 @group(1) @binding(1) var edges_sampler: sampler;
-@if(SMAA_BLENDING_WEIGHT_CALCULATION)
 @group(1) @binding(2) var search_texture: texture_2d<f32>;
-@if(SMAA_BLENDING_WEIGHT_CALCULATION)
 @group(1) @binding(3) var area_texture: texture_2d<f32>;
+}
 
-@if(SMAA_NEIGHBORHOOD_BLENDING)
+@if(SMAA_NEIGHBORHOOD_BLENDING) {
 @group(1) @binding(0) var blend_texture: texture_2d<f32>;
-@if(SMAA_NEIGHBORHOOD_BLENDING)
 @group(1) @binding(1) var blend_sampler: sampler;
+}
 
 //-----------------------------------------------------------------------------
 // SMAA Presets

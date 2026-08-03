@@ -23,12 +23,12 @@ import bevy_pbr::render::view_transformations::{
 };
 
 // Allows us to sample from the depth buffer with bilinear filtering.
-@if(USE_DEPTH_SAMPLERS)
+@if(USE_DEPTH_SAMPLERS) {
 @group(2) @binding(2) var depth_linear_sampler: sampler;
 
 // Allows us to sample from the depth buffer with nearest-neighbor filtering.
-@if(USE_DEPTH_SAMPLERS)
 @group(2) @binding(3) var depth_nearest_sampler: sampler;
+}
 
 // Manual depth fetch helpers used on WebGPU where depth + filtering sampler is invalid.
 @if(!USE_DEPTH_SAMPLERS)

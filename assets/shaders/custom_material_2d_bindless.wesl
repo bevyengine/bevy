@@ -16,16 +16,15 @@ struct MaterialBindings {
     color_texture_sampler: u32, // 2
 }
 
-@if(BINDLESS)
+@if(BINDLESS) {
 @group(constants::MATERIAL_BIND_GROUP) @binding(0) var<storage> materials: array<MaterialBindings>;
-@if(BINDLESS)
 @group(constants::MATERIAL_BIND_GROUP) @binding(10) var<storage> material_color: binding_array<Color>;
-@if(!BINDLESS)
+}
+@if(!BINDLESS) {
 @group(constants::MATERIAL_BIND_GROUP) @binding(0) var<uniform> material_color: Color;
-@if(!BINDLESS)
 @group(constants::MATERIAL_BIND_GROUP) @binding(1) var material_color_texture: texture_2d<f32>;
-@if(!BINDLESS)
 @group(constants::MATERIAL_BIND_GROUP) @binding(2) var material_color_sampler: sampler;
+}
 
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {

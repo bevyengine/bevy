@@ -76,10 +76,10 @@ struct VolumetricFog {
 @else
 @group(1) @binding(1) var depth_texture: texture_depth_2d;
 
-@if(DENSITY_TEXTURE)
+@if(DENSITY_TEXTURE) {
 @group(1) @binding(2) var density_texture: texture_3d<f32>;
-@if(DENSITY_TEXTURE)
 @group(1) @binding(3) var density_sampler: sampler;
+}
 
 // 1 / (4π)
 const FRAC_4_PI: f32 = 0.07957747154594767;
