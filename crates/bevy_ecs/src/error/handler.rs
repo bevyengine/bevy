@@ -1,6 +1,10 @@
 use core::fmt::Display;
 
-use crate::{change_detection::Tick, error::BevyError, prelude::Resource};
+use crate::{
+    change_detection::Tick,
+    error::BevyError,
+    prelude::{Commands, Resource},
+};
 use bevy_ecs::error::Severity;
 use bevy_utils::prelude::DebugName;
 use derive_more::derive::{Deref, DerefMut};
@@ -107,7 +111,11 @@ macro_rules! inner {
 /// consider setting [`PANIC_ORIGINATES_FROM_ERROR_HANDLER`].
 /// This lets the executor know that a panic doesn't need to be
 /// converted back to a [`BevyError`] and passed to the [`FallbackErrorHandler`].
-pub type ErrorHandler = fn(BevyError, ErrorContext);
+///
+/// Error handlers can queue deferred work using the provided [`Commands`].
+/// The [`Commands`] must be returned, even if they are not used.
+pub type ErrorHandler =
+    for<'w, 's> fn(BevyError, ErrorContext, Commands<'w, 's>) -> Commands<'w, 's>;
 
 /// Fallback error handler to call when an error is not handled otherwise.
 /// Defaults to [`match_severity()`].
@@ -138,22 +146,30 @@ std::thread_local! {
 /// Error handler that defers to an error's [`Severity`].
 #[track_caller]
 #[inline]
-pub fn match_severity(err: BevyError, ctx: ErrorContext) {
+pub fn match_severity<'w, 's>(
+    err: BevyError,
+    ctx: ErrorContext,
+    commands: Commands<'w, 's>,
+) -> Commands<'w, 's> {
     match err.severity() {
-        Severity::Ignore => ignore(err, ctx),
-        Severity::Trace => trace(err, ctx),
-        Severity::Debug => debug(err, ctx),
-        Severity::Info => info(err, ctx),
-        Severity::Warning => warn(err, ctx),
-        Severity::Error => error(err, ctx),
-        Severity::Panic => panic(err, ctx),
+        Severity::Ignore => ignore(err, ctx, commands),
+        Severity::Trace => trace(err, ctx, commands),
+        Severity::Debug => debug(err, ctx, commands),
+        Severity::Info => info(err, ctx, commands),
+        Severity::Warning => warn(err, ctx, commands),
+        Severity::Error => error(err, ctx, commands),
+        Severity::Panic => panic(err, ctx, commands),
     }
 }
 
 /// Error handler that panics with the system error.
 #[track_caller]
 #[inline]
-pub fn panic(error: BevyError, ctx: ErrorContext) {
+pub fn panic<'w, 's>(
+    error: BevyError,
+    ctx: ErrorContext,
+    _commands: Commands<'w, 's>,
+) -> Commands<'w, 's> {
     #[cfg(feature = "std")]
     PANIC_ORIGINATES_FROM_ERROR_HANDLER.set(true);
     inner!(panic, error, ctx);
@@ -162,39 +178,70 @@ pub fn panic(error: BevyError, ctx: ErrorContext) {
 /// Error handler that logs the system error at the `error` level.
 #[track_caller]
 #[inline]
-pub fn error(error: BevyError, ctx: ErrorContext) {
+pub fn error<'w, 's>(
+    error: BevyError,
+    ctx: ErrorContext,
+    commands: Commands<'w, 's>,
+) -> Commands<'w, 's> {
     inner!(log::error, error, ctx);
+    commands
 }
 
 /// Error handler that logs the system error at the `warn` level.
 #[track_caller]
 #[inline]
-pub fn warn(error: BevyError, ctx: ErrorContext) {
+pub fn warn<'w, 's>(
+    error: BevyError,
+    ctx: ErrorContext,
+    commands: Commands<'w, 's>,
+) -> Commands<'w, 's> {
     inner!(log::warn, error, ctx);
+    commands
 }
 
 /// Error handler that logs the system error at the `info` level.
 #[track_caller]
 #[inline]
-pub fn info(error: BevyError, ctx: ErrorContext) {
+pub fn info<'w, 's>(
+    error: BevyError,
+    ctx: ErrorContext,
+    commands: Commands<'w, 's>,
+) -> Commands<'w, 's> {
     inner!(log::info, error, ctx);
+    commands
 }
 
 /// Error handler that logs the system error at the `debug` level.
 #[track_caller]
 #[inline]
-pub fn debug(error: BevyError, ctx: ErrorContext) {
+pub fn debug<'w, 's>(
+    error: BevyError,
+    ctx: ErrorContext,
+    commands: Commands<'w, 's>,
+) -> Commands<'w, 's> {
     inner!(log::debug, error, ctx);
+    commands
 }
 
 /// Error handler that logs the system error at the `trace` level.
 #[track_caller]
 #[inline]
-pub fn trace(error: BevyError, ctx: ErrorContext) {
+pub fn trace<'w, 's>(
+    error: BevyError,
+    ctx: ErrorContext,
+    commands: Commands<'w, 's>,
+) -> Commands<'w, 's> {
     inner!(log::trace, error, ctx);
+    commands
 }
 
 /// Error handler that ignores the system error.
 #[track_caller]
 #[inline]
-pub fn ignore(_: BevyError, _: ErrorContext) {}
+pub fn ignore<'w, 's>(
+    _: BevyError,
+    _: ErrorContext,
+    commands: Commands<'w, 's>,
+) -> Commands<'w, 's> {
+    commands
+}

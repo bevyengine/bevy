@@ -1494,12 +1494,26 @@ impl App {
     /// # Example
     /// ```
     /// # use bevy_app::*;
-    /// # use bevy_ecs::error::warn;
-    /// # fn MyPlugins(_: &mut App) {}
-    /// App::new()
-    ///     .set_error_handler(warn)
-    ///     .add_plugins(MyPlugins)
-    ///     .run();
+    /// # use bevy_ecs::{error::{BevyError, ErrorContext, Result}, system::Commands};
+    /// fn exit_on_error<'w, 's>(
+    ///     _: BevyError,
+    ///     _: ErrorContext,
+    ///     mut commands: Commands<'w, 's>,
+    /// ) -> Commands<'w, 's> {
+    ///     commands.write_message(AppExit::error());
+    ///     commands
+    /// }
+    ///
+    /// fn fallible_system() -> Result {
+    ///     Err("The system failed".into())
+    /// }
+    ///
+    /// let mut app = App::new();
+    /// app.set_error_handler(exit_on_error)
+    ///     .add_systems(Update, fallible_system)
+    ///     .update();
+    ///
+    /// assert_eq!(app.should_exit(), Some(AppExit::error()));
     /// ```
     ///
     /// [fallback error handler]: bevy_ecs::error::FallbackErrorHandler

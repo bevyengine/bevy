@@ -2,7 +2,7 @@
 
 use bevy::{
     ecs::{
-        error::{BevyError, ErrorContext},
+        error::ErrorHandler,
         schedule::{FixedBitSet, SystemExecutor, SystemSchedule},
     },
     prelude::*,
@@ -19,7 +19,7 @@ impl SystemExecutor for CustomExecutor {
         schedule: &mut SystemSchedule,
         world: &mut World,
         _skip_systems: Option<&FixedBitSet>,
-        _error_handler: fn(BevyError, ErrorContext),
+        _error_handler: ErrorHandler,
     ) {
         #[expect(unsafe_code, reason = "CustomExecutor's require unsafe")]
         // SAFETY: `run` is a trait method on `System`

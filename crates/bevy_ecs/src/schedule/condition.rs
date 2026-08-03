@@ -1653,7 +1653,7 @@ mod tests {
         message::Message,
         query::With,
         schedule::{IntoScheduleConfigs, Schedule},
-        system::{IntoSystem, Local, System},
+        system::{Commands, IntoSystem, Local, System},
         world::World,
     };
     use bevy_ecs_macros::{Resource, SystemSet};
@@ -2052,12 +2052,17 @@ mod tests {
             true
         }
 
-        fn my_error_handler(_: BevyError, ctx: ErrorContext) {
+        fn my_error_handler<'w, 's>(
+            _: BevyError,
+            ctx: ErrorContext,
+            commands: Commands<'w, 's>,
+        ) -> Commands<'w, 's> {
             let a = IntoSystem::into_system(system_a);
             let b = IntoSystem::into_system(system_b);
             assert!(
                 matches!(ctx, ErrorContext::RunCondition { system, on_set, .. } if (on_set && system == b.name()) || (!on_set && system == a.name()))
             );
+            commands
         }
 
         fn system_a() {}

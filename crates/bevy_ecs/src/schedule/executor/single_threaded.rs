@@ -10,18 +10,17 @@ use alloc::string::ToString as _;
 #[cfg(feature = "trace")]
 use tracing::info_span;
 
+use crate::{
+    error::{BevyError, ErrorContext, ErrorHandler},
+    schedule::{is_apply_deferred, ConditionWithAccess, SystemExecutor, SystemSchedule},
+    system::{Commands, RunSystemError, ScheduleSystem},
+    world::{CommandQueue, World},
+};
 #[cfg(feature = "std")]
 use crate::{
-    error::{BevyError, Severity, PANIC_ORIGINATES_FROM_ERROR_HANDLER},
+    error::{Severity, PANIC_ORIGINATES_FROM_ERROR_HANDLER},
+    schedule::BoxedCondition,
     system::BoxedSystem,
-};
-use crate::{
-    error::{ErrorContext, ErrorHandler},
-    schedule::{
-        is_apply_deferred, BoxedCondition, ConditionWithAccess, SystemExecutor, SystemSchedule,
-    },
-    system::{RunSystemError, ScheduleSystem},
-    world::World,
 };
 
 #[cfg(feature = "hotpatching")]
@@ -43,6 +42,8 @@ pub struct SingleThreadedExecutor {
     unapplied_systems: FixedBitSet,
     /// Setting when true applies deferred system buffers after all systems have run
     apply_final_deferred: bool,
+    /// Commands queued by the fallback error handler.
+    error_handler_command_queue: CommandQueue,
 }
 
 impl SystemExecutor for SingleThreadedExecutor {
@@ -95,6 +96,7 @@ impl SystemExecutor for SingleThreadedExecutor {
                     &mut schedule.set_conditions[set_idx],
                     world,
                     error_handler,
+                    &mut self.error_handler_command_queue,
                     system,
                     true,
                 );
@@ -113,6 +115,7 @@ impl SystemExecutor for SingleThreadedExecutor {
                 &mut schedule.system_conditions[system_index],
                 world,
                 error_handler,
+                &mut self.error_handler_command_queue,
                 system,
                 false,
             );
@@ -139,11 +142,29 @@ impl SystemExecutor for SingleThreadedExecutor {
                 continue;
             }
 
-            let f = |system: &mut _| {
+            #[cfg(feature = "std")]
+            {
+                handle_errors(
+                    |system, world| {
+                        __rust_begin_short_backtrace::run_without_applying_deferred(system, world)
+                    },
+                    system,
+                    world,
+                    error_handler,
+                    &mut self.error_handler_command_queue,
+                    "System panicked",
+                );
+            }
+
+            #[cfg(not(feature = "std"))]
+            {
                 if let Err(RunSystemError::Failed(err)) =
                     __rust_begin_short_backtrace::run_without_applying_deferred(system, world)
                 {
-                    error_handler(
+                    run_error_handler(
+                        world,
+                        &mut self.error_handler_command_queue,
+                        error_handler,
                         err,
                         ErrorContext::System {
                             name: system.name(),
@@ -151,17 +172,6 @@ impl SystemExecutor for SingleThreadedExecutor {
                         },
                     );
                 }
-            };
-
-            #[cfg(feature = "std")]
-            {
-                handle_unwind(f, system, error_handler, "System panicked");
-            }
-
-            #[cfg(not(feature = "std"))]
-            {
-                let mut f = f;
-                (f)(system);
             }
 
             self.unapplied_systems.insert(system_index);
@@ -189,6 +199,7 @@ impl SingleThreadedExecutor {
             completed_systems: FixedBitSet::new(),
             unapplied_systems: FixedBitSet::new(),
             apply_final_deferred: true,
+            error_handler_command_queue: CommandQueue::new(),
         }
     }
 
@@ -208,16 +219,24 @@ impl SingleThreadedExecutor {
 
             #[cfg(feature = "std")]
             {
-                handle_unwind(
-                    |system| system.apply_deferred(world),
+                handle_errors(
+                    |system, world| {
+                        system.apply_deferred(world);
+                        Ok(())
+                    },
                     system,
+                    world,
                     error_handler,
+                    &mut self.error_handler_command_queue,
                     "Encountered a panic while applying system buffers",
                 );
             }
         }
 
         self.unapplied_systems.clear();
+        if !self.error_handler_command_queue.is_empty() {
+            self.error_handler_command_queue.apply(world);
+        }
     }
 }
 
@@ -225,6 +244,7 @@ fn evaluate_and_fold_conditions(
     conditions: &mut [ConditionWithAccess],
     world: &mut World,
     error_handler: ErrorHandler,
+    error_handler_command_queue: &mut CommandQueue,
     for_system: &ScheduleSystem,
     on_set: bool,
 ) -> bool {
@@ -245,58 +265,79 @@ fn evaluate_and_fold_conditions(
             if hotpatch_tick.is_newer_than(condition.get_last_run(), world.change_tick()) {
                 condition.refresh_hotpatch();
             }
-            let f = |condition: &mut BoxedCondition| {
-                __rust_begin_short_backtrace::readonly_run(&mut **condition, world).unwrap_or_else(
-                    |err| {
-                        if let RunSystemError::Failed(err) = err {
-                            error_handler(
-                                err,
-                                ErrorContext::RunCondition {
-                                    name: condition.name(),
-                                    last_run: condition.get_last_run(),
-                                    system: for_system.name(),
-                                    on_set,
-                                },
-                            );
-                        };
-                        false
-                    },
-                )
-            };
             #[cfg(not(feature = "std"))]
-            let result = {
-                let mut f = f;
-                f(condition)
+            let result = match __rust_begin_short_backtrace::readonly_run(&mut **condition, world) {
+                Ok(result) => result,
+                Err(RunSystemError::Failed(err)) => {
+                    run_error_handler(
+                        world,
+                        error_handler_command_queue,
+                        error_handler,
+                        err,
+                        ErrorContext::RunCondition {
+                            name: condition.name(),
+                            last_run: condition.get_last_run(),
+                            system: for_system.name(),
+                            on_set,
+                        },
+                    );
+                    false
+                }
+                Err(RunSystemError::Skipped(_)) => false,
             };
             #[cfg(feature = "std")]
-            let result =
-                handle_unwind_in_run_condition(f, condition, for_system, on_set, error_handler);
+            let result = handle_unwind_in_run_condition(
+                |condition, world| {
+                    __rust_begin_short_backtrace::readonly_run(&mut **condition, world)
+                },
+                condition,
+                world,
+                for_system,
+                on_set,
+                error_handler,
+                error_handler_command_queue,
+            );
             result
         })
         .fold(true, |acc, res| acc && res)
 }
 
-/// Handle a potential panic by invoking the error handler
+/// Handle a potential panic or failed system by invoking the error handler.
 #[cfg(feature = "std")]
-fn handle_unwind(
-    f: impl FnOnce(&mut BoxedSystem),
+fn handle_errors(
+    f: impl FnOnce(&mut BoxedSystem, &mut World) -> Result<(), RunSystemError>,
     system: &mut BoxedSystem,
+    world: &mut World,
     error_handler: ErrorHandler,
+    error_handler_command_queue: &mut CommandQueue,
     error_message: &str,
 ) {
     PANIC_ORIGINATES_FROM_ERROR_HANDLER.set(false);
-    let potential_unwind = std::panic::catch_unwind(AssertUnwindSafe(|| f(system)));
+    let potential_unwind = std::panic::catch_unwind(AssertUnwindSafe(|| {
+        if let Err(RunSystemError::Failed(err)) = f(system, world) {
+            run_error_handler(
+                world,
+                error_handler_command_queue,
+                error_handler,
+                err,
+                ErrorContext::System {
+                    name: system.name(),
+                    last_run: system.get_last_run(),
+                },
+            );
+        }
+    }));
     let panic_originates_from_error_handler = PANIC_ORIGINATES_FROM_ERROR_HANDLER.replace(false);
     if let Err(payload) = potential_unwind {
         if panic_originates_from_error_handler {
             std::panic::resume_unwind(payload);
         }
 
-        let err =
-            BevyError::new_with_backtrace(Severity::Panic, error_message, Backtrace::disabled());
-        __rust_begin_short_backtrace::error_handler(
+        run_error_handler(
+            world,
+            error_handler_command_queue,
             error_handler,
-            err,
+            BevyError::new_with_backtrace(Severity::Panic, error_message, Backtrace::disabled()),
             ErrorContext::System {
                 name: system.name(),
                 last_run: system.get_last_run(),
@@ -308,30 +349,49 @@ fn handle_unwind(
 /// Handle a potential panic by invoking the error handler
 #[cfg(feature = "std")]
 fn handle_unwind_in_run_condition(
-    f: impl FnOnce(&mut BoxedCondition) -> bool,
+    f: impl FnOnce(&mut BoxedCondition, &mut World) -> Result<bool, RunSystemError>,
     condition: &mut BoxedCondition,
+    world: &mut World,
     for_system: &ScheduleSystem,
     on_set: bool,
     error_handler: ErrorHandler,
+    error_handler_command_queue: &mut CommandQueue,
 ) -> bool {
     PANIC_ORIGINATES_FROM_ERROR_HANDLER.set(false);
-    let potential_unwind = std::panic::catch_unwind(AssertUnwindSafe(|| f(condition)));
+    let potential_unwind =
+        std::panic::catch_unwind(AssertUnwindSafe(|| match f(condition, world) {
+            Ok(result) => result,
+            Err(RunSystemError::Failed(err)) => {
+                run_error_handler(
+                    world,
+                    error_handler_command_queue,
+                    error_handler,
+                    err,
+                    ErrorContext::RunCondition {
+                        name: condition.name(),
+                        last_run: condition.get_last_run(),
+                        system: for_system.name(),
+                        on_set,
+                    },
+                );
+                false
+            }
+            Err(RunSystemError::Skipped(_)) => false,
+        }));
     let panic_originates_from_error_handler = PANIC_ORIGINATES_FROM_ERROR_HANDLER.replace(false);
     match potential_unwind {
-        Ok(r) => r,
-        Err(payload) => {
-            if panic_originates_from_error_handler {
-                std::panic::resume_unwind(payload);
-            }
-
-            let err = BevyError::new_with_backtrace(
-                Severity::Panic,
-                "Encountered panic",
-                Backtrace::disabled(),
-            );
-            __rust_begin_short_backtrace::error_handler(
+        Ok(result) => result,
+        Err(payload) if panic_originates_from_error_handler => std::panic::resume_unwind(payload),
+        Err(_) => {
+            run_error_handler(
+                world,
+                error_handler_command_queue,
                 error_handler,
-                err,
+                BevyError::new_with_backtrace(
+                    Severity::Panic,
+                    "Encountered panic",
+                    Backtrace::disabled(),
+                ),
                 ErrorContext::RunCondition {
                     name: condition.name(),
                     last_run: condition.get_last_run(),
@@ -342,4 +402,18 @@ fn handle_unwind_in_run_condition(
             false
         }
     }
+}
+
+fn run_error_handler(
+    world: &World,
+    error_handler_command_queue: &mut CommandQueue,
+    error_handler: ErrorHandler,
+    error: BevyError,
+    context: ErrorContext,
+) {
+    let commands = Commands::new(error_handler_command_queue, world);
+    #[cfg(feature = "std")]
+    let _ = __rust_begin_short_backtrace::error_handler(error_handler, error, context, commands);
+    #[cfg(not(feature = "std"))]
+    let _ = error_handler(error, context, commands);
 }
