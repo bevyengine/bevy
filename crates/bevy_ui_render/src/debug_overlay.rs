@@ -217,9 +217,10 @@ pub fn push_debug_outline(
     transform: Affine2,
     ui_meta: &mut UiMeta,
 ) {
-    let rect_size = rect.size();
+    let size = rect.size();
+    let transform = transform * Affine2::from_translation(rect.center());
     let positions =
-        QUAD_VERTEX_POSITIONS.map(|pos| transform.transform_point2(pos * rect_size).extend(0.));
+        QUAD_VERTEX_POSITIONS.map(|pos| transform.transform_point2(pos * size).extend(0.));
     let positions_diff = if let Some(clip) = clip {
         [
             Vec2::new(
@@ -248,7 +249,7 @@ pub fn push_debug_outline(
         positions[2] + positions_diff[2].extend(0.),
         positions[3] + positions_diff[3].extend(0.),
     ];
-    let transformed_rect_size = transform.transform_vector2(rect_size).abs();
+    let transformed_rect_size = transform.transform_vector2(size).abs();
     if transform.x_axis[1] == 0.0
         && (positions_diff[0].x - positions_diff[1].x >= transformed_rect_size.x
             || positions_diff[1].y - positions_diff[2].y >= transformed_rect_size.y)
@@ -268,8 +269,8 @@ pub fn push_debug_outline(
             flags: flags | shader_flags::CORNERS[i],
             radius: border_radius.into(),
             border: [line_width, line_width, line_width, line_width],
-            size: rect_size.into(),
-            point: (QUAD_VERTEX_POSITIONS[i] * rect_size + positions_diff[i]).into(),
+            size: size.into(),
+            point: (QUAD_VERTEX_POSITIONS[i] * size + positions_diff[i]).into(),
         });
     }
     for &index in &QUAD_INDICES {
@@ -278,7 +279,7 @@ pub fn push_debug_outline(
 }
 
 /// Debug layout can just
-fn generate_debug_layout_quads(
+fn generate_debug_layer_quads(
     ui_meta: &mut UiMeta,
     extracted_ui_layout: &ExtractedUiLayout,
     extracted_ui_debug_layer: &ExtractedUiDebugLayer,
@@ -301,50 +302,87 @@ fn generate_debug_layout_quads(
 
         if debug_outline.outline_border_box {
             push_debug_outline(
-                rect,
+                layout.uinode.border_box(),
                 line_color,
                 debug_outline.line_width,
-                border_radius,
-                clip,
-                transform,
-                ui_meta,
-            );
-        }
-
-        if debug_outline.outline_content_box {
-            push_debug_outline(
-                rect,
-                line_color,
-                debug_outline.line_width,
-                border_radius,
-                clip,
-                transform,
+                layout.uinode.border_radius,
+                layout.clip,
+                layout.transform,
                 ui_meta,
             );
         }
 
         if debug_outline.outline_padding_box {
             push_debug_outline(
-                rect,
+                layout.ui_node.padding_box(),
                 line_color,
                 debug_outline.line_width,
-                border_radius,
-                clip,
-                transform,
+                layout.uinode.inner_radius(),
+                layout.clip,
+                layout.transform,
+                ui_meta,
+            );
+        }
+
+        if debug_outline.outline_content_box {
+            push_debug_outline(
+                layout.uinode.content_box(),
+                line_color,
+                debug_outline.line_width,
+                ResolvedBorderRadius::ZERO,
+                layout.clip,
+                layout.transform,
                 ui_meta,
             );
         }
 
         if debug_outline.outline_scrollbars {
-            push_debug_outline(
-                rect,
-                line_color,
-                debug_outline.line_width,
-                border_radius,
-                clip,
-                transform,
-                ui_meta,
-            );
+            if let Some((gutter, [thumb_min, thumb_max])) = layout.uinode.horizontal_scrollbar() {
+                push_debug_outline(
+                    gutter,
+                    line_color,
+                    debug_outline.line_width,
+                    ResolvedBorderRadius::ZERO,
+                    layout.clip,
+                    layout.transform,
+                    ui_meta,
+                );
+                push_debug_outline(
+                    Rect {
+                        min: Vec2::new(thumb_min, gutter.min.y),
+                        max: Vec2::new(thumb_max, gutter.max.y),
+                    },
+                    line_color,
+                    debug_outline.line_width,
+                    ResolvedBorderRadius::ZERO,
+                    layout.clip,
+                    layout.transform,
+                    ui_meta,
+                );
+            }
+            if let Some((gutter, [thumb_min, thumb_max])) = layout.uinode.vertical_scrollbar() {
+                push_debug_outline(
+                    gutter,
+                    line_color,
+                    debug_outline.line_width,
+                    ResolvedBorderRadius::ZERO,
+                    layout.clip,
+                    layout.transform,
+                    ui_meta,
+                );
+                push_debug_outline(
+                    Rect {
+                        min: Vec2::new(gutter.min.x, thumb_min),
+                        max: Vec2::new(gutter.max.x, thumb_max),
+                    },
+                    line_color,
+                    debug_outline.line_width,
+                    ResolvedBorderRadius::ZERO,
+                    layout.clip,
+                    layout.transform,
+                    ui_meta,
+                );
+            }
         }
     }
 }
