@@ -839,7 +839,10 @@ mod tests {
     // Declare a couple of components that have summary ticks.
     #[derive(Component)]
     #[component(summary_tick)]
-    #[expect(dead_code, "Nothing reads the interior value but it's nice for debugging anyway")]
+    #[expect(
+        dead_code,
+        "Nothing reads the interior value but it's nice for debugging anyway"
+    )]
     struct SA(usize);
     #[derive(Component)]
     #[component(summary_tick)]
