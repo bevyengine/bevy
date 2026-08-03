@@ -387,6 +387,20 @@ pub struct ExtractedUiNodeStyles {
     pub changed_this_frame: MainEntityHashSet,
 }
 
+impl ExtractedUiNodeStyles {
+    pub fn get_style(
+        &self,
+        main_entity: MainEntity,
+        render_entity: Entity,
+    ) -> Option<&ExtractedUiNodeStyle> {
+        self.uinodes
+            .get(&main_entity)
+            .and_then(|(style_render_entity, style)| {
+                (render_entity == *style_render_entity).then_some(style)
+            })
+    }
+}
+
 pub fn extract_uinode_styles(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodeStyles>,
