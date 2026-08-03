@@ -4,10 +4,15 @@ use crate::{
     QUAD_VERTEX_POSITIONS,
 };
 
+use bevy_camera::{Camera2d, Camera3d};
 use bevy_color::{ColorToComponents, Hsla, LinearRgba};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    entity::Entity, lifecycle::RemovedComponents, prelude::*, query::Changed, resource::Resource,
+    entity::{Entity, EntityHashMap, EntityHashSet},
+    lifecycle::RemovedComponents,
+    prelude::*,
+    query::Changed,
+    resource::Resource,
 };
 
 use bevy_math::{Affine2, FloatOrd, Rect, Vec2};
@@ -16,7 +21,7 @@ use bevy_reflect::Reflect;
 use bevy_render::{
     render_phase::{DrawFunctions, PhaseItemExtraIndex, ViewSortedRenderPhases},
     render_resource::{PipelineCache, SpecializedRenderPipelines},
-    sync_world::{MainEntity, MainEntityHashMap, MainEntityHashSet},
+    sync_world::{MainEntity, MainEntityHashMap, MainEntityHashSet, RenderEntity},
     view::ExtractedView,
     Extract,
 };
@@ -100,6 +105,7 @@ pub struct ExtractedUiDebugOverlay {
     /// z_index of whole visualization.
     pub z_offset: f32,
     pub default_outline: UiDebugOutline,
+    pub extracted_camera_view_to_ids: EntityHashMap<(Entity, MainEntity)>,
     pub per_node_outline: MainEntityHashMap<UiDebugOutline>,
     pub changed_this_frame: MainEntityHashSet,
 }
@@ -114,15 +120,37 @@ impl ExtractedUiDebugOverlay {
 }
 
 pub fn extract_debug_overlay(
+    mut commands: Commands,
     global_debug_options: Extract<Res<UiDebugOverlay>>,
     mut extracted_debug_layer: ResMut<ExtractedUiDebugOverlay>,
+    camera_query: Extract<Query<(Entity, RenderEntity), Or<(With<Camera2d>, With<Camera3d>)>>>,
     ui_debug_outlines_query: Extract<Query<(Entity, &UiDebugOutline), Changed<UiDebugOutline>>>,
     mut removed_debug_options: Extract<RemovedComponents<UiDebugOutline>>,
     ui_stack: Extract<Res<UiStack>>,
+    mut live_camera_views: Local<EntityHashSet>,
 ) {
     extracted_debug_layer.changed_this_frame.clear();
     extracted_debug_layer.z_offset = ui_stack.uinodes.len() as f32;
     extracted_debug_layer.default_outline = global_debug_options.0.clone();
+
+    live_camera_views.clear();
+    for (main_entity, extracted_camera_view) in camera_query.iter() {
+        live_camera_views.insert(extracted_camera_view);
+        extracted_debug_layer
+            .extracted_camera_view_to_ids
+            .entry(extracted_camera_view)
+            .or_insert_with(|| (commands.spawn_empty().id(), main_entity.into()));
+    }
+    extracted_debug_layer.extracted_camera_view_to_ids.retain(
+        |extracted_camera_view, (render_entity, _)| {
+            if live_camera_views.contains(extracted_camera_view) {
+                true
+            } else {
+                commands.entity(*render_entity).despawn();
+                false
+            }
+        },
+    );
 
     // iter through all nodes with UiDebugOptions
     // add to processed this frame list, so they aren't removed if tagged by removal detection
@@ -182,10 +210,14 @@ pub fn queue_debug_overlay(
             continue;
         };
 
+        let Some(item_ids) = extracted_overlays.extracted_camera_view_to_ids.get(&entity) else {
+            continue;
+        };
+
         transparent_phase.add_transient(TransparentUi {
             draw_function,
             pipeline: *pipeline,
-            entity: (entity, entity.into()),
+            entity: *item_ids,
             sort_key: FloatOrd(extracted_overlays.z_offset),
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::None,
