@@ -489,6 +489,8 @@ pub fn queue_text(
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
     let draw_function = draw_functions.read().id::<DrawUi>();
+    let mut current_camera_entity = Entity::PLACEHOLDER;
+    let mut current_phase = None;
 
     for (main_entity, (render_entity, _)) in extracted_glyph_layouts.uinodes.iter() {
         let Some(layout) = extracted_layout.layout.get(main_entity) else {
@@ -499,30 +501,42 @@ pub fn queue_text(
             continue;
         }
 
-        let Some((default_camera_view, ui_anti_alias)) =
-            render_views.get(layout.extracted_camera).ok()
-        else {
+        if current_camera_entity != layout.extracted_camera {
+            current_phase = render_views.get(layout.extracted_camera).ok().and_then(
+                |(default_camera_view, ui_anti_alias)| {
+                    camera_views
+                        .get(default_camera_view.0)
+                        .ok()
+                        .and_then(|view| {
+                            transparent_render_phases
+                                .get_mut(&view.retained_view_entity)
+                                .map(|transparent_phase| {
+                                    let pipeline = pipelines.specialize(
+                                        &pipeline_cache,
+                                        &ui_pipeline,
+                                        UiPipelineKey {
+                                            target_format: view.target_format,
+                                            anti_alias: matches!(
+                                                ui_anti_alias,
+                                                None | Some(UiAntiAlias::On)
+                                            ),
+                                        },
+                                    );
+                                    (pipeline, transparent_phase)
+                                })
+                        })
+                },
+            );
+            current_camera_entity = layout.extracted_camera;
+        }
+
+        let Some((pipeline, transparent_phase)) = current_phase.as_mut() else {
             continue;
         };
-        let Some(view) = camera_views.get(default_camera_view.0).ok() else {
-            continue;
-        };
-        let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
-        else {
-            continue;
-        };
-        let pipeline = pipelines.specialize(
-            &pipeline_cache,
-            &ui_pipeline,
-            UiPipelineKey {
-                target_format: view.target_format,
-                anti_alias: matches!(ui_anti_alias, None | Some(UiAntiAlias::On)),
-            },
-        );
 
         transparent_phase.add_transient(TransparentUi {
             draw_function,
-            pipeline,
+            pipeline: *pipeline,
             entity: (*render_entity, *main_entity),
             sort_key: FloatOrd(layout.stack_index as f32 + stack_z_offsets::TEXT),
             batch_range: 0..0,

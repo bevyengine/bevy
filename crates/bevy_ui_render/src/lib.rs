@@ -879,10 +879,8 @@ pub fn queue_uinodes(
             continue;
         }
 
-        let extracted_camera_entity = layout.extracted_camera;
-
-        if current_camera_entity != extracted_camera_entity {
-            current_phase = render_views.get(extracted_camera_entity).ok().and_then(
+        if current_camera_entity != layout.extracted_camera {
+            current_phase = render_views.get(layout.extracted_camera).ok().and_then(
                 |(default_camera_view, ui_anti_alias)| {
                     camera_views
                         .get(default_camera_view.0)
@@ -907,7 +905,7 @@ pub fn queue_uinodes(
                         })
                 },
             );
-            current_camera_entity = extracted_camera_entity;
+            current_camera_entity = layout.extracted_camera;
         }
 
         let Some((pipeline, transparent_phase)) = current_phase.as_mut() else {
