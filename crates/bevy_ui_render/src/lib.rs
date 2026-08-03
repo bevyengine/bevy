@@ -824,6 +824,16 @@ pub struct UiBatch {
     pub texture_changes: Range<u32>,
 }
 
+impl UiBatch {
+    fn empty(ui_meta: &UiMeta) -> Self {
+        UiBatch {
+            range: ui_meta.indices.len() as u32..ui_meta.indices.len() as u32,
+            texture_changes: ui_meta.texture_changes.len() as u32
+                ..ui_meta.texture_changes.len() as u32,
+        }
+    }
+}
+
 /// The values here should match the values for the constants in `ui.wgsl`
 pub mod shader_flags {
     /// Texture should be ignored
@@ -1016,15 +1026,7 @@ fn prepare_uinodes(
                 if !batch_open {
                     batch_start_item_index = phase_item_index;
                     batch_open = true;
-
-                    batches.push((
-                        entity,
-                        UiBatch {
-                            range: ui_meta.indices.len() as u32..ui_meta.indices.len() as u32,
-                            texture_changes: ui_meta.texture_changes.len() as u32
-                                ..ui_meta.texture_changes.len() as u32,
-                        },
-                    ));
+                    batches.push((entity, UiBatch::empty(&ui_meta)));
                     existing_batch = batches.last_mut();
                 }
                 image_bind_groups.values.entry(image).or_insert_with(|| {
@@ -1096,14 +1098,7 @@ fn prepare_uinodes(
                 if !batch_open || existing_batch.is_none() {
                     batch_start_item_index = phase_item_index;
                     batch_open = true;
-                    batches.push((
-                        entity,
-                        UiBatch {
-                            range: ui_meta.indices.len() as u32..ui_meta.indices.len() as u32,
-                            texture_changes: ui_meta.texture_changes.len() as u32
-                                ..ui_meta.texture_changes.len() as u32,
-                        },
-                    ));
+                    batches.push((entity, UiBatch::empty(&ui_meta)));
                     existing_batch = batches.last_mut();
                 }
                 image_bind_groups.values.entry(image).or_insert_with(|| {
@@ -1160,11 +1155,7 @@ fn prepare_uinodes(
                     batch_start_item_index = phase_item_index;
                     batches.push((
                         ui_phase.items[batch_start_item_index].entity(),
-                        UiBatch {
-                            range: ui_meta.indices.len() as u32..ui_meta.indices.len() as u32,
-                            texture_changes: ui_meta.texture_changes.len() as u32
-                                ..ui_meta.texture_changes.len() as u32,
-                        },
+                        UiBatch::empty(&ui_meta),
                     ));
                     existing_batch = batches.last_mut();
                 }
