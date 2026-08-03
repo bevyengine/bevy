@@ -19,7 +19,7 @@ use bevy_picking::{
 use bevy_time::{Real, Time};
 use bevy_transform::components::GlobalTransform;
 use bevy_transform::prelude::Transform;
-use bevy_window::{PrimaryWindow, WindowRef};
+use bevy_window::{PrimaryWindow, Window, WindowRef};
 use core::{f32::consts::*, fmt};
 
 /// A plugin that enables 2D camera panning and zooming controls.
@@ -55,6 +55,8 @@ pub struct PanCamera {
     pub max_zoom: f32,
     /// Translation speed for panning movement.
     pub zoom_speed: f32,
+    /// The focal point for zooming
+    pub zoom_target: ZoomTarget,
     /// [`KeyCode`] to zoom in.
     pub key_zoom_in: Option<KeyCode>,
     /// [`KeyCode`] to zoom out.
@@ -87,6 +89,14 @@ pub struct MousePanSettings {
     pub button: PointerButton,
 }
 
+/// Target focal point for zooming using the ['PanCamera'] controller
+pub enum ZoomTarget{
+    /// Zoom to / from the center of the window
+    Center,
+    /// Zoom to / from the position of the cursor if the cursor is over the window
+    Cursor,
+}
+
 /// Provides the default values for the `PanCamera` controller.
 ///
 /// The default settings are:
@@ -112,6 +122,7 @@ impl Default for PanCamera {
             min_zoom: 0.1,
             max_zoom: 5.0,
             zoom_speed: 0.1,
+            zoom_target: ZoomTarget::Center,
             key_zoom_in: Some(KeyCode::Equal),
             key_zoom_out: Some(KeyCode::Minus),
             pan_speed: 500.0,
@@ -171,11 +182,12 @@ fn run_pancamera_controller(
     key_input: Res<ButtonInput<KeyCode>>,
     accumulated_mouse_scroll: Res<AccumulatedMouseScroll>,
     mouse_scroll_conversion: Res<MouseScrollPixelsPerLine>,
-    mut query: Query<(&mut Transform, &mut PanCamera), With<Camera>>,
+    window: Single<&Window>,
+    mut query: Query<(&Camera, &GlobalTransform, &mut Transform, &mut PanCamera)>
 ) {
     let dt = time.delta_secs();
 
-    let Ok((mut transform, mut controller)) = query.single_mut() else {
+    let Ok((camera, global, mut transform, mut controller)) = query.single_mut() else {
         return;
     };
 
@@ -250,10 +262,24 @@ fn run_pancamera_controller(
         .y;
     zoom_amount += mouse_scroll * controller.zoom_speed;
 
+    let prev_zoom = controller.zoom_factor;
+
     controller.zoom_factor =
         (controller.zoom_factor - zoom_amount).clamp(controller.min_zoom, controller.max_zoom);
 
+    // If Zoom target is Cursor, then also translate the camera so that the world coordinates of
+    // the cursor maintain the same viewport coordinates.
+    if let ZoomTarget::Cursor = controller.zoom_target {
+        if let Some(cursor_pos) = window.cursor_position()
+            && let Ok(world_pos) = camera.viewport_to_world_2d(global, cursor_pos) {
+            let cursor_vec = world_pos - transform.translation.truncate() ;
+            let delta_cursor_vec = (1. - controller.zoom_factor / prev_zoom ) * cursor_vec;
+            transform.translation += delta_cursor_vec.extend(0.)
+        }
+    }
+
     transform.scale = Vec3::splat(controller.zoom_factor);
+
 }
 
 /// A component attached to window entities that holds the id of an
