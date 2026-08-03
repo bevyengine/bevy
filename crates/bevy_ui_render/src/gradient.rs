@@ -371,14 +371,21 @@ pub fn extract_gradients(
         .iter()
         .chain(gradients_query.iter_many(removed_gradients.iter().map(ContainsEntity::entity)))
     {
+        let main_entity = MainEntity::from(entity);
+
+        if !extracted_gradients.changed_this_frame.insert(main_entity) {
+            continue;
+        }
         if node_gradient.is_none() && border_gradient.is_none() {
+            if let Some(mut gradients) = extracted_gradients.items.remove(&main_entity) {
+                for (render_entity, _) in gradients.drain(..) {
+                    commands.entity(render_entity).despawn();
+                }
+            }
             continue;
         }
 
-        let main_entity = MainEntity::from(entity);
-        extracted_gradients.changed_this_frame.insert(main_entity);
-
-        let extracted_gradients = extracted_gradients.items.entry(main_entity).or_default();
+        let gradients_map = extracted_gradients.items.entry(main_entity).or_default();
         let mut gradient_count = 0;
 
         for (node_gradients, node_type) in [
@@ -386,7 +393,7 @@ pub fn extract_gradients(
             (border_gradient.map(|g| &g.0), NodeType::Border(BORDER_ALL)),
         ]
         .iter()
-        .filter_map(|(g, n)| g.map(|g| (g, *n)))
+        .filter_map(|(gradients, node_type)| gradients.map(|gradients| (gradients, *node_type)))
         {
             for gradient in node_gradients.iter() {
                 if gradient.is_empty() {
@@ -398,13 +405,24 @@ pub fn extract_gradients(
                     node_type,
                     target: *target,
                 };
-                if let Some((_, gradient)) = extracted_gradients.get_index_mut(gradient_count) {
+
+                if let Some((_, gradient)) = gradients_map.get_index_mut(gradient_count) {
                     *gradient = extracted_gradient;
                 } else {
-                    extracted_gradients.insert(commands.spawn_empty().id(), extracted_gradient);
+                    gradients_map.insert(commands.spawn_empty().id(), extracted_gradient);
                 }
+
                 gradient_count += 1;
             }
+        }
+
+        // Despawn the retained entries that no longer correspond to a gradient
+        for (render_entity, _) in gradients_map.drain(gradient_count..) {
+            commands.entity(render_entity).despawn();
+        }
+
+        if gradients_map.is_empty() {
+            extracted_gradients.items.remove(&main_entity);
         }
     }
 
