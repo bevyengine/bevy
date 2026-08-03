@@ -89,7 +89,7 @@ pub struct MousePanSettings {
     pub button: PointerButton,
 }
 
-/// Target focal point for zooming using the ['PanCamera'] controller
+/// Target focal point for zooming using the [`PanCamera`] controller
 pub enum ZoomTarget {
     /// Zoom to / from the center of the window
     Center,
@@ -275,7 +275,7 @@ fn run_pancamera_controller(
         {
             let cursor_vec = world_pos - transform.translation.truncate();
             let delta_cursor_vec = (1. - controller.zoom_factor / prev_zoom) * cursor_vec;
-            transform.translation += delta_cursor_vec.extend(0.)
+            transform.translation += delta_cursor_vec.extend(0.);
         }
     }
 
