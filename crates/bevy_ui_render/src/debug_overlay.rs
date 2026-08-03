@@ -1,40 +1,27 @@
-use std::arch::global_asm;
-
 use crate::{
-    extract_layout::ExtractedUiLayout, shader_flags, DrawUi, ImageNodeBindGroups, NodeType,
-    TransparentUi, UiAntiAlias, UiBatch, UiCameraMap, UiCameraView, UiMeta, UiPipeline,
-    UiPipelineKey, UiVertex, QUAD_INDICES, QUAD_UVS, QUAD_VERTEX_POSITIONS,
+    extract_layout::ExtractedUiLayout, shader_flags, DrawUi, TransparentUi, UiAntiAlias,
+    UiCameraView, UiMeta, UiPipeline, UiPipelineKey, UiVertex, QUAD_INDICES, QUAD_UVS,
+    QUAD_VERTEX_POSITIONS,
 };
-use bevy_asset::AssetId;
-use bevy_camera::visibility::InheritedVisibility;
+
 use bevy_color::{ColorToComponents, Hsla, LinearRgba};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    entity::{hash_map, Entity, EntityHashMap},
-    lifecycle::RemovedComponents,
-    prelude::*,
-    query::{Changed, EcsAccessLevel},
-    resource::Resource,
+    entity::Entity, lifecycle::RemovedComponents, prelude::*, query::Changed, resource::Resource,
 };
-use bevy_image::Image;
+
 use bevy_math::{Affine2, FloatOrd, Rect, Vec2};
-use bevy_platform::collections::hash_table::Entry;
+
 use bevy_reflect::Reflect;
 use bevy_render::{
-    render_asset::RenderAssets,
-    render_phase::{DrawFunctions, PhaseItem, PhaseItemExtraIndex, ViewSortedRenderPhases},
-    render_resource::{BindGroupEntries, PipelineCache, SpecializedRenderPipelines},
-    renderer::RenderDevice,
+    render_phase::{DrawFunctions, PhaseItemExtraIndex, ViewSortedRenderPhases},
+    render_resource::{PipelineCache, SpecializedRenderPipelines},
     sync_world::{MainEntity, MainEntityHashMap, MainEntityHashSet},
-    texture::GpuImage,
     view::ExtractedView,
     Extract,
 };
-use bevy_sprite::BorderRect;
-use bevy_ui::{
-    ui_transform::UiGlobalTransform, CalculatedClip, ComputedNode, ComputedStackIndex,
-    ComputedUiTargetCamera, ResolvedBorderRadius, UiStack, UiTargetCamera,
-};
+
+use bevy_ui::{ResolvedBorderRadius, UiStack};
 
 /// Configuration for the UI debug overlay
 ///
@@ -131,7 +118,7 @@ pub fn extract_debug_overlay(
     mut extracted_debug_layer: ResMut<ExtractedUiDebugOverlay>,
     ui_debug_outlines_query: Extract<Query<(Entity, &UiDebugOutline), Changed<UiDebugOutline>>>,
     mut removed_debug_options: Extract<RemovedComponents<UiDebugOutline>>,
-    ui_stack: Res<UiStack>,
+    ui_stack: Extract<Res<UiStack>>,
 ) {
     extracted_debug_layer.changed_this_frame.clear();
     extracted_debug_layer.z_offset = ui_stack.uinodes.len() as f32;
