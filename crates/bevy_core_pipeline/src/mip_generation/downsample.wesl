@@ -160,7 +160,7 @@ fn spd_downsample_mips_0_1(x: u32, y: u32, workgroup_id: vec2u, local_invocation
         spd_store_intermediate(x / 2u + 8u, y / 2u + 8u, v[3]);
     }
 }
-@else {   // SUBGROUP_SUPPORT
+@else {
     for (var i = 0u; i < 4u; i++) {
         spd_store_intermediate(x, y, v[i]);
         workgroupBarrier();
@@ -212,7 +212,7 @@ fn spd_downsample_mip_2(x: u32, y: u32, workgroup_id: vec2u, local_invocation_in
         spd_store_intermediate(x + (y / 2u) % 2u, y, v);
     }
 }
-@else {   // SUBGROUP_SUPPORT
+@else {
     if local_invocation_index < 64u {
         let v = spd_reduce_intermediate(
             vec2(x * 2u + 0u, y * 2u + 0u),
@@ -344,11 +344,11 @@ fn remap_for_wave_reduction(a: u32) -> vec2u {
     // This function maps linear thread IDs to 2D coordinates in a special pattern
     // to ensure that neighboring threads process neighboring pixels
     // For example, this transforms linear thread IDs 0,1,2,3 into a 2×2 square
-    
+
     // Extract bits to form the X and Y coordinates
     let x = insertBits(extractBits(a, 2u, 3u), a, 0u, 1u);
     let y = insertBits(extractBits(a, 3u, 3u), extractBits(a, 1u, 2u), 0u, 2u);
-    
+
     return vec2u(x, y);
 }
 

@@ -25,7 +25,7 @@ fn vertex(vertex: Vertex) -> VertexOutput {
     let slot = mesh2d_bindings::mesh[instance_index].material_bind_group_slot;
 @if(BINDLESS)
     let vertex_scale = material[material_indices[slot].material].vertex_scale;
-@else   // BINDLESS
+@else
     let vertex_scale = material.vertex_scale;
 @if(BINDLESS)
     let vertex_offset = material[material_indices[slot].material].vertex_offset;

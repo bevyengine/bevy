@@ -106,7 +106,7 @@ fn unpack_clusterable_object_index_ranges(cluster_index: u32) -> ClusterableObje
         last_clusterable_offset
     );
 
-} @else {   // AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
+} @else {
 
     let raw_offset_and_counts = bindings::cluster_offsets_and_counts.data[cluster_index >> 2u][cluster_index & ((1u << 2u) - 1u)];
     //  [ 31     ..     18 | 17      ..      9 | 8       ..     0 ]

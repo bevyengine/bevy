@@ -78,7 +78,7 @@ fn pbr_input_from_standard_material(
     let slot = mesh[in.instance_index].material_and_lightmap_bind_group_slot & 0xffffu;
 @if(BINDLESS)
     let flags = pbr_bindings::material_array[material_indices[slot].material].flags;
-@else   // BINDLESS
+@else
     let flags = pbr_bindings::material.flags;
 @if(BINDLESS)
     let base_color = pbr_bindings::material_array[material_indices[slot].material].base_color;
@@ -111,7 +111,7 @@ fn pbr_input_from_standard_material(
     bias.ddx_uv = in.ddx_uv;
     bias.ddy_uv = in.ddy_uv;
 }
-@else {   // MESHLET_MESH_MATERIAL_PASS
+@else {
     bias.mip_bias = view.mip_bias;
 }
 
@@ -228,7 +228,7 @@ pbr_input.material.uv_transform = uv_transform;
 
 @if(BINDLESS)
         let alpha_cutoff = pbr_bindings::material_array[material_indices[slot].material].alpha_cutoff;
-@else   // BINDLESS
+@else
         let alpha_cutoff = pbr_bindings::material.alpha_cutoff;
 
         pbr_input.material.base_color.a = (pbr_input.material.base_color.a - alpha_cutoff) /
@@ -250,7 +250,7 @@ pbr_input.material.uv_transform = uv_transform;
         pbr_input.material.attenuation_distance =
                 pbr_bindings::material_array[material_indices[slot].material].attenuation_distance;
 }
-@else {   // BINDLESS
+@else {
         pbr_input.material.ior = pbr_bindings::material.ior;
         pbr_input.material.attenuation_color = pbr_bindings::material.attenuation_color;
         pbr_input.material.attenuation_distance = pbr_bindings::material.attenuation_distance;
@@ -260,7 +260,7 @@ pbr_input.material.uv_transform = uv_transform;
 @if(BINDLESS)
         pbr_input.material.reflectance =
                 pbr_bindings::material_array[material_indices[slot].material].reflectance;
-@else   // BINDLESS
+@else
         pbr_input.material.reflectance = pbr_bindings::material.reflectance;
 
 @if(PBR_SPECULAR_TEXTURES_SUPPORTED && VERTEX_UVS) {
@@ -314,7 +314,7 @@ pbr_input.material.uv_transform = uv_transform;
         // emissive
 @if(BINDLESS)
         var emissive: vec4<f32> = pbr_bindings::material_array[material_indices[slot].material].emissive;
-@else   // BINDLESS
+@else
         var emissive: vec4<f32> = pbr_bindings::material.emissive;
 
 @if(VERTEX_UVS)
@@ -341,7 +341,7 @@ pbr_input.material.uv_transform = uv_transform;
         // metallic and perceptual roughness
 @if(BINDLESS)
         var metallic: f32 = pbr_bindings::material_array[material_indices[slot].material].metallic;
-@else   // BINDLESS
+@else
         var metallic: f32 = pbr_bindings::material.metallic;
 @if(BINDLESS)
         var perceptual_roughness: f32 = pbr_bindings::material_array[material_indices[slot].material].perceptual_roughness;
@@ -377,7 +377,7 @@ pbr_input.material.uv_transform = uv_transform;
 @if(BINDLESS)
         pbr_input.material.clearcoat =
                 pbr_bindings::material_array[material_indices[slot].material].clearcoat;
-@else   // BINDLESS
+@else
         pbr_input.material.clearcoat = pbr_bindings::material.clearcoat;
 
 @if(VERTEX_UVS && PBR_MULTI_LAYER_MATERIAL_TEXTURES_SUPPORTED)
@@ -404,7 +404,7 @@ pbr_input.material.uv_transform = uv_transform;
 @if(BINDLESS)
         pbr_input.material.clearcoat_perceptual_roughness =
             pbr_bindings::material_array[material_indices[slot].material].clearcoat_perceptual_roughness;
-@else   // BINDLESS
+@else
         pbr_input.material.clearcoat_perceptual_roughness =
             pbr_bindings::material.clearcoat_perceptual_roughness;
 
@@ -431,7 +431,7 @@ pbr_input.material.uv_transform = uv_transform;
 @if(BINDLESS)
         var specular_transmission: f32 =
                 pbr_bindings::material_array[material_indices[slot].material].specular_transmission;
-@else   // BINDLESS
+@else
         var specular_transmission: f32 = pbr_bindings::material.specular_transmission;
 
 @if(VERTEX_UVS && PBR_TRANSMISSION_TEXTURES_SUPPORTED)
@@ -461,7 +461,7 @@ pbr_input.material.uv_transform = uv_transform;
 
 @if(BINDLESS)
         var thickness: f32 = pbr_bindings::material_array[material_indices[slot].material].thickness;
-@else   // BINDLESS
+@else
         var thickness: f32 = pbr_bindings::material.thickness;
 
 @if(VERTEX_UVS && PBR_TRANSMISSION_TEXTURES_SUPPORTED)
@@ -494,7 +494,7 @@ pbr_input.material.uv_transform = uv_transform;
 @if(BINDLESS)
         var diffuse_transmission =
                 pbr_bindings::material_array[material_indices[slot].material].diffuse_transmission;
-@else   // BINDLESS
+@else
         var diffuse_transmission = pbr_bindings::material.diffuse_transmission;
 
 @if(VERTEX_UVS && PBR_TRANSMISSION_TEXTURES_SUPPORTED)
@@ -635,7 +635,7 @@ pbr_input.material.uv_transform = uv_transform;
 @if(BINDLESS)
         var anisotropy_strength =
                 pbr_bindings::material_array[material_indices[slot].material].anisotropy_strength;
-@else   // BINDLESS
+@else
         var anisotropy_strength = pbr_bindings::material.anisotropy_strength;
 @if(BINDLESS)
         var anisotropy_direction =
@@ -687,7 +687,7 @@ pbr_input.material.uv_transform = uv_transform;
 @if(BINDLESS)
         let lightmap_exposure =
                 pbr_bindings::material_array[material_indices[slot].material].lightmap_exposure;
-@else   // BINDLESS
+@else
         let lightmap_exposure = pbr_bindings::material.lightmap_exposure;
 
         pbr_input.lightmap_light = lightmap(in.uv_b, lightmap_exposure, in.instance_index);

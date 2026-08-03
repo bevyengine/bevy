@@ -63,7 +63,7 @@ fn prepass_sample_color_and_alpha_discard(in: VertexOutput) {
 
 @if(BINDLESS)
     let uv_transform = pbr_bindings::material_array[material_indices[slot].material].uv_transform;
-@else   // BINDLESS
+@else
     let uv_transform = pbr_bindings::material.uv_transform;
 
     uv = (uv_transform * vec3(uv, 1.0)).xy;

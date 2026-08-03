@@ -34,7 +34,7 @@ fn sample_sprite_texture(uv: vec2<f32>, instance_index: u32) -> vec4<f32> {
         bindless_samplers_filtering[material_indices[slot].texture_sampler],
         final_uv
     );
-@else   // BINDLESS
+@else
     return textureSample(texture, texture_sampler, final_uv);
 }
 
@@ -61,7 +61,7 @@ fn apply_flip(uv: vec2<f32>, instance_index: u32) -> vec2<f32> {
     let slot = mesh[instance_index].material_bind_group_slot;
 @if(BINDLESS)
     let flags = material[material_indices[slot].material].flags;
-@else   // BINDLESS
+@else
     let flags = material.flags;
 
     var out = uv;
@@ -81,7 +81,7 @@ fn apply_tiling(uv: vec2<f32>, instance_index: u32) -> vec2<f32> {
     let slot = mesh[instance_index].material_bind_group_slot;
 @if(BINDLESS)
     let flags = material[material_indices[slot].material].flags;
-@else   // BINDLESS
+@else
     let flags = material.flags;
 @if(BINDLESS)
     let tile_stretch_value = material[material_indices[slot].material].tile_stretch_value;
@@ -102,12 +102,12 @@ fn apply_tiling(uv: vec2<f32>, instance_index: u32) -> vec2<f32> {
 // Applies the sprite's UV transform,
 // which is used for sampling the correct region from a texture atlas
 // and scaling the sprite when `image_mode` is `Scaled`.
-fn apply_uv_transform(uv: vec2<f32>, instance_index: u32) -> vec2<f32> { 
+fn apply_uv_transform(uv: vec2<f32>, instance_index: u32) -> vec2<f32> {
 @if(BINDLESS)
     let slot = mesh[instance_index].material_bind_group_slot;
 @if(BINDLESS)
     let uv_transform = material[material_indices[slot].material].uv_transform;
-@else   // BINDLESS
+@else
     let uv_transform = material.uv_transform;
 
     return (uv_transform * vec3(uv, 1.0)).xy;
@@ -119,7 +119,7 @@ fn apply_slicing(uv: vec2<f32>, instance_index: u32) -> vec2<f32> {
     let slot = mesh[instance_index].material_bind_group_slot;
 @if(BINDLESS)
     let scale = material[material_indices[slot].material].scale;
-@else   // BINDLESS
+@else
     let scale = material.scale;
 @if(BINDLESS)
     let min_inset = material[material_indices[slot].material].min_inset;
@@ -222,7 +222,7 @@ fn apply_tint(sprite_color: vec4<f32>, instance_index: u32) -> vec4<f32> {
     let slot = mesh[instance_index].material_bind_group_slot;
 @if(BINDLESS)
     let color = material[material_indices[slot].material].color;
-@else   // BINDLESS
+@else
     let color = material.color;
 
     return sprite_color * color;
@@ -234,7 +234,7 @@ fn alpha_discard(output_color: vec4<f32>, instance_index: u32) -> vec4<f32> {
     let slot = mesh[instance_index].material_bind_group_slot;
 @if(BINDLESS)
     let flags = material[material_indices[slot].material].flags;
-@else   // BINDLESS
+@else
     let flags = material.flags;
 @if(BINDLESS)
     let alpha_cutoff = material[material_indices[slot].material].alpha_cutoff;

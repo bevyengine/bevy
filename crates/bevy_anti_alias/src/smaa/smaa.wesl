@@ -346,13 +346,13 @@ struct NeighborhoodBlendingVaryings {
 
 @if(SMAA_PRESET_LOW)
 const SMAA_THRESHOLD: f32 = 0.15;
-@elif(SMAA_PRESET_MEDIUM)  // SMAA_PRESET_LOW
+@elif(SMAA_PRESET_MEDIUM)
 const SMAA_THRESHOLD: f32 = 0.1;
-@elif(SMAA_PRESET_HIGH)    // SMAA_PRESET_MEDIUM
+@elif(SMAA_PRESET_HIGH)
 const SMAA_THRESHOLD: f32 = 0.1;
-@elif(SMAA_PRESET_ULTRA)   // SMAA_PRESET_HIGH
+@elif(SMAA_PRESET_ULTRA)
 const SMAA_THRESHOLD: f32 = 0.05;
-@else                           // SMAA_PRESET_ULTRA
+@else
 const SMAA_THRESHOLD: f32 = 0.1;
 @if(SMAA_PRESET_LOW)
 const SMAA_MAX_SEARCH_STEPS: u32 = 4u;
@@ -415,7 +415,7 @@ const SMAA_CORNER_ROUNDING: u32 = 25u;
  *
  * Range: [0, 20]
  *
- * On high-end machines it is cheap (between a 0.8x and 0.9x slower for 16 
+ * On high-end machines it is cheap (between a 0.8x and 0.9x slower for 16
  * steps), but it can have a significant impact on older machines.
  *
  * Define SMAA_DISABLE_DIAG_DETECTION to disable diagonal processing.
@@ -686,7 +686,7 @@ fn search_diag_2(tex_coord: vec2<f32>, dir: vec2<f32>, e: ptr<function, vec2<f32
     return coord.zw;
 }
 
-/** 
+/**
  * Similar to SMAAArea, this calculates the area corresponding to a certain
  * diagonal distance and crossing edges 'e'.
  */
@@ -793,7 +793,7 @@ fn calculate_diag_weights(tex_coord: vec2<f32>, e: vec2<f32>, subsample_indices:
 
 /**
  * This allows to determine how much length should we add in the last step
- * of the searches. It takes the bilinearly interpolated edge (see 
+ * of the searches. It takes the bilinearly interpolated edge (see
  * @PSEUDO_GATHER4), and adds 0, 1 or 2, depending on which edges and
  * crossing edges are active.
  */
@@ -887,7 +887,7 @@ fn search_y_down(in_tex_coord: vec2<f32>, end: f32) -> f32 {
     return -smaa_info.rt_metrics.y * offset + tex_coord.y;
 }
 
-/** 
+/**
  * Ok, we have the distance and both crossing edges. So, what are the areas
  * at each side of current edge?
  */
@@ -929,7 +929,7 @@ fn detect_horizontal_corner_pattern(weights: vec2<f32>, tex_coord: vec4<f32>, d:
         textureSampleLevel(edges_texture, edges_sampler, tex_coord.zw, 0.0, vec2(1, -2)).r;
 
     return weights * saturate(factor);
-} @else {   // SMAA_DISABLE_CORNER_DETECTION
+} @else {
     return weights;
 }
 }
@@ -954,7 +954,7 @@ fn detect_vertical_corner_pattern(weights: vec2<f32>, tex_coord: vec4<f32>, d: v
         textureSampleLevel(edges_texture, edges_sampler, tex_coord.zw, 0.0, vec2(-2, 1)).g;
 
     return weights * saturate(factor);
-} @else {   // SMAA_DISABLE_CORNER_DETECTION
+} @else {
     return weights;
 }
 }
@@ -978,7 +978,7 @@ fn blending_weight_calculation_fragment_main(in: BlendingWeightCalculationVaryin
         // one of the boundaries is enough.
         weights = vec4(calculate_diag_weights(in.tex_coord, e, subsample_indices), weights.ba);
 
-        // We give priority to diagonals, so if we find a diagonal we skip 
+        // We give priority to diagonals, so if we find a diagonal we skip
         // horizontal/vertical processing.
         if (weights.r + weights.g != 0.0) {
             return weights;

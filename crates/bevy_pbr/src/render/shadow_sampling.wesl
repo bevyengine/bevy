@@ -35,7 +35,7 @@ fn search_for_blockers_in_shadow_map_hardware(
     // Make sure that the WebGL 2 compiler doesn't see `sampled_depth` sampled
     // with different samplers, or it'll blow up.
     return vec2(0.0);
-    } @else {   // WEBGL2
+    } @else {
 
     @if(PCSS_SAMPLERS_AVAILABLE) {
 
@@ -56,7 +56,7 @@ fn search_for_blockers_in_shadow_map_hardware(
     );
     return select(vec2(0.0), vec2(sampled_depth, 1.0), sampled_depth >= depth);
 
-    } @else {   // PCSS_SAMPLERS_AVAILABLE
+    } @else {
     return vec2(0.0);
     }
 
@@ -344,7 +344,7 @@ fn search_for_blockers_in_shadow_cubemap_hardware(
     // Make sure that the WebGL 2 compiler doesn't see `sampled_depth` sampled
     // with different samplers, or it'll blow up.
     return vec2(0.0);
-    } @else {   // WEBGL2
+    } @else {
 
     @if(PCSS_SAMPLERS_AVAILABLE) {
 
@@ -364,7 +364,7 @@ fn search_for_blockers_in_shadow_cubemap_hardware(
 
     return select(vec2(0.0), vec2(sampled_depth, 1.0), sampled_depth >= depth);
 
-    } @else {   // PCSS_SAMPLERS_AVAILABLE
+    } @else {
     return vec2(0.0);
     }
 

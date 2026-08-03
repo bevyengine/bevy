@@ -68,7 +68,7 @@ fn fragment(
     // Calculate the UV for the texture we're about to sample.
     @if(BINDLESS)
     let uv_transform = material_array[material_indices[slot].material].uv_transform;
-    @else   // BINDLESS
+    @else
     let uv_transform = material.uv_transform;
     let uv = (uv_transform * vec3(in.uv, 1.0)).xy;
 
@@ -83,7 +83,7 @@ fn fragment(
         ],
         uv
     ) * example_extended_material[example_extended_material_indices[slot].material].modulate_color;
-    @else   // BINDLESS
+    @else
     pbr_input.material.base_color *= textureSample(modulate_texture, modulate_sampler, uv) *
         example_extended_material.modulate_color;
 

@@ -52,7 +52,7 @@ fn fragment(
 
 @if(BINDLESS)
     var output_color: vec4<f32> = color_materials[color_material_indices[slot].material].color;
-@else   // BINDLESS
+@else
     var output_color: vec4<f32> = material.color;
 
 @if(VERTEX_COLORS)
@@ -60,7 +60,7 @@ fn fragment(
 
 @if(BINDLESS)
     let uv_transform = color_materials[color_material_indices[slot].material].uv_transform;
-@else   // BINDLESS
+@else
     let uv_transform = material.uv_transform;
 @if(BINDLESS)
     let flags = color_materials[color_material_indices[slot].material].flags;
@@ -80,7 +80,7 @@ fn fragment(
             bindless_samplers_filtering[color_material_indices[slot].color_sampler],
             uv
         );
-        @else   // BINDLESS
+        @else
         output_color = output_color * textureSample(texture, texture_sampler, uv);
     }
 
