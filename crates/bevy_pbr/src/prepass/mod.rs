@@ -4,7 +4,7 @@ use crate::{
     alpha_mode_pipeline_key, binding_arrays_are_usable, buffer_layout,
     collect_meshes_for_gpu_building, init_material_pipeline, set_mesh_motion_vector_flags,
     setup_morph_and_skinning_defs, skin, DeferredAlphaMaskDrawFunction, DeferredFragmentShader,
-    DeferredOpaqueDrawFunction, DeferredVertexShader, DrawMesh, MaterialPipeline,
+    DeferredOpaqueDrawFunction, DeferredVertexShader, DfgLut, DrawMesh, MaterialPipeline,
     MaterialPropertiesExt, MeshLayouts, MeshPipeline, MeshPipelineKey, PreparedMaterial,
     PrepassAlphaMaskDrawFunction, PrepassFragmentShader, PrepassOpaqueDepthOnlyDrawFunction,
     PrepassOpaqueDrawFunction, PrepassVertexShader, RenderLightmaps, RenderMaterialInstances,
@@ -35,9 +35,13 @@ use bevy_render::{
     mesh::{allocator::MeshAllocator, RenderMesh},
     render_asset::{prepare_assets, RenderAssets},
     render_phase::*,
-    render_resource::{binding_types::uniform_buffer, *},
+    render_resource::{
+        binding_types::{sampler, texture_2d, uniform_buffer},
+        *,
+    },
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     sync_world::{MainEntityHashSet, RenderEntity},
+    texture::{FallbackImage, GpuImage},
     view::{
         ExtractedView, Msaa, RenderVisibilityRanges, RenderVisibleEntities, RetainedViewEntity,
         ViewUniform, ViewUniformOffset, ViewUniforms, VISIBILITY_RANGES_STORAGE_BUFFER_COUNT,
@@ -283,52 +287,67 @@ pub fn init_prepass_pipeline(
     let visibility_ranges_buffer_binding_type =
         render_device.get_supported_read_only_binding_type(VISIBILITY_RANGES_STORAGE_BUFFER_COUNT);
 
-    let view_layout_motion_vectors = BindGroupLayoutDescriptor::new(
-        "prepass_view_layout_motion_vectors",
-        &BindGroupLayoutEntries::with_indices(
-            ShaderStages::VERTEX_FRAGMENT,
+    let mut motion_vector_entries = DynamicBindGroupLayoutEntries::new_with_indices(
+        ShaderStages::VERTEX_FRAGMENT,
+        (
+            // View
+            (0, uniform_buffer::<ViewUniform>(true)),
+            // Globals
+            (1, uniform_buffer::<GlobalsUniform>(false)),
+            // PreviousViewUniforms
+            (2, uniform_buffer::<PreviousViewData>(true)),
+            // VisibilityRanges
             (
-                // View
-                (0, uniform_buffer::<ViewUniform>(true)),
-                // Globals
-                (1, uniform_buffer::<GlobalsUniform>(false)),
-                // PreviousViewUniforms
-                (2, uniform_buffer::<PreviousViewData>(true)),
-                // VisibilityRanges
-                (
-                    14,
-                    buffer_layout(
-                        visibility_ranges_buffer_binding_type,
-                        false,
-                        Some(Vec4::min_size()),
-                    )
-                    .visibility(ShaderStages::VERTEX),
-                ),
+                14,
+                buffer_layout(
+                    visibility_ranges_buffer_binding_type,
+                    false,
+                    Some(Vec4::min_size()),
+                )
+                .visibility(ShaderStages::VERTEX),
+            ),
+        ),
+    );
+    let mut no_motion_vector_entries = DynamicBindGroupLayoutEntries::new_with_indices(
+        ShaderStages::VERTEX_FRAGMENT,
+        (
+            // View
+            (0, uniform_buffer::<ViewUniform>(true)),
+            // Globals
+            (1, uniform_buffer::<GlobalsUniform>(false)),
+            // VisibilityRanges
+            (
+                14,
+                buffer_layout(
+                    visibility_ranges_buffer_binding_type,
+                    false,
+                    Some(Vec4::min_size()),
+                )
+                .visibility(ShaderStages::VERTEX),
             ),
         ),
     );
 
+    if cfg!(feature = "dfg_lut") {
+        let dfg_lut_entries = (
+            (
+                37,
+                texture_2d(TextureSampleType::Float { filterable: true }),
+            ),
+            (38, sampler(SamplerBindingType::Filtering)),
+        );
+
+        motion_vector_entries = motion_vector_entries.extend_with_indices(dfg_lut_entries);
+        no_motion_vector_entries = no_motion_vector_entries.extend_with_indices(dfg_lut_entries);
+    }
+
+    let view_layout_motion_vectors = BindGroupLayoutDescriptor::new(
+        "prepass_view_layout_motion_vectors",
+        &motion_vector_entries,
+    );
     let view_layout_no_motion_vectors = BindGroupLayoutDescriptor::new(
         "prepass_view_layout_no_motion_vectors",
-        &BindGroupLayoutEntries::with_indices(
-            ShaderStages::VERTEX_FRAGMENT,
-            (
-                // View
-                (0, uniform_buffer::<ViewUniform>(true)),
-                // Globals
-                (1, uniform_buffer::<GlobalsUniform>(false)),
-                // VisibilityRanges
-                (
-                    14,
-                    buffer_layout(
-                        visibility_ranges_buffer_binding_type,
-                        false,
-                        Some(Vec4::min_size()),
-                    )
-                    .visibility(ShaderStages::VERTEX),
-                ),
-            ),
-        ),
+        &no_motion_vector_entries,
     );
 
     let depth_clip_control_supported = render_device
@@ -419,6 +438,10 @@ impl PrepassPipeline {
         // (PBR code will use this to detect that it's running in deferred mode,
         // since that's the only time it gets called from a prepass pipeline.)
         shader_defs.push("PREPASS_PIPELINE".into());
+
+        if cfg!(feature = "dfg_lut") {
+            shader_defs.push("DFG_LUT".into());
+        }
 
         shader_defs.push(ShaderDefVal::UInt(
             "MATERIAL_BIND_GROUP".into(),
@@ -861,6 +884,9 @@ pub fn prepare_prepass_view_bind_group(
     globals_buffer: Res<GlobalsBuffer>,
     previous_view_uniforms: Res<PreviousViewUniforms>,
     visibility_ranges: Res<RenderVisibilityRanges>,
+    images: Res<RenderAssets<GpuImage>>,
+    fallback_image: Res<FallbackImage>,
+    dfg_lut: Res<DfgLut>,
     mut prepass_view_bind_group: ResMut<PrepassViewBindGroup>,
 ) {
     if let (Some(view_binding), Some(globals_binding), Some(visibility_ranges_buffer)) = (
@@ -868,26 +894,43 @@ pub fn prepare_prepass_view_bind_group(
         globals_buffer.buffer.binding(),
         visibility_ranges.buffer().buffer(),
     ) {
+        let (dfg_view, dfg_sampler) = images
+            .get(&dfg_lut.texture)
+            .map(|img| (&img.texture_view, &img.sampler))
+            .unwrap_or((&fallback_image.d2.texture_view, &fallback_image.d2.sampler));
+
+        let mut no_motion_vector_entries = DynamicBindGroupEntries::new_with_indices((
+            (0, view_binding.clone()),
+            (1, globals_binding.clone()),
+            (14, visibility_ranges_buffer.as_entire_binding()),
+        ));
+        if cfg!(feature = "dfg_lut") {
+            no_motion_vector_entries =
+                no_motion_vector_entries.extend_with_indices(((37, dfg_view), (38, dfg_sampler)));
+        }
+
         prepass_view_bind_group.no_motion_vectors = Some(render_device.create_bind_group(
             "prepass_view_no_motion_vectors_bind_group",
             &pipeline_cache.get_bind_group_layout(&prepass_pipeline.view_layout_no_motion_vectors),
-            &BindGroupEntries::with_indices((
-                (0, view_binding.clone()),
-                (1, globals_binding.clone()),
-                (14, visibility_ranges_buffer.as_entire_binding()),
-            )),
+            &no_motion_vector_entries,
         ));
 
         if let Some(previous_view_uniforms_binding) = previous_view_uniforms.uniforms.binding() {
+            let mut motion_vector_entries = DynamicBindGroupEntries::new_with_indices((
+                (0, view_binding),
+                (1, globals_binding),
+                (2, previous_view_uniforms_binding),
+                (14, visibility_ranges_buffer.as_entire_binding()),
+            ));
+            if cfg!(feature = "dfg_lut") {
+                motion_vector_entries =
+                    motion_vector_entries.extend_with_indices(((37, dfg_view), (38, dfg_sampler)));
+            }
+
             prepass_view_bind_group.motion_vectors = Some(render_device.create_bind_group(
                 "prepass_view_motion_vectors_bind_group",
                 &pipeline_cache.get_bind_group_layout(&prepass_pipeline.view_layout_motion_vectors),
-                &BindGroupEntries::with_indices((
-                    (0, view_binding),
-                    (1, globals_binding),
-                    (2, previous_view_uniforms_binding),
-                    (14, visibility_ranges_buffer.as_entire_binding()),
-                )),
+                &motion_vector_entries,
             ));
         }
     }
