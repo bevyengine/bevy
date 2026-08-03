@@ -142,11 +142,11 @@ pub fn extract_ui_layout(
 
         let ExtractedUiLayout {
             extracted_camera_to_main_uinode_map,
-            layout: uinode_geometries,
+            layout: uinode_layouts,
             ..
         } = &mut *extracted_ui_layout;
 
-        match uinode_geometries.entry(main_entity) {
+        match uinode_layouts.entry(main_entity) {
             bevy_platform::collections::hash_map::Entry::Occupied(mut entry) => {
                 let old_extracted_camera = entry.get().extracted_camera;
                 if old_extracted_camera != extracted_camera_entity {
