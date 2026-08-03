@@ -178,7 +178,7 @@ fn compute_radiances(
                 parallax_correct,
                 view_rotation,
             );
-            radiances.irradiance = textureSampleLevel(
+            radiances.irradiance += textureSampleLevel(
                 bindings::diffuse_environment_maps[query_result.texture_index],
                 bindings::environment_map_sampler,
                 irradiance_sample_dir,
