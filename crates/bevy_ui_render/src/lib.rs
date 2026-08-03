@@ -1116,9 +1116,9 @@ fn prepare_uinodes(
                 });
 
                 let existing_batch = &mut batches.last_mut().unwrap().1;
-                ui_meta
-                    .texture_changes
-                    .reserve(style.sections.len().saturating_mul(2).saturating_add(1));
+
+                let new_texture_changes_start = ui_meta.texture_changes.len();
+
                 push_text_vertices(
                     &mut ui_meta,
                     layout,
@@ -1127,15 +1127,13 @@ fn prepare_uinodes(
                     image,
                     existing_batch.texture_changes.start as usize,
                 );
+
                 existing_batch.range.end = ui_meta.indices.len() as u32;
                 existing_batch.texture_changes.end = ui_meta.texture_changes.len() as u32;
-                for (_, texture) in &ui_meta.texture_changes[existing_batch.texture_changes.start
-                    as usize
-                    ..existing_batch.texture_changes.end as usize]
-                {
+                for (_, texture) in &ui_meta.texture_changes[new_texture_changes_start..] {
                     let gpu_image = gpu_images
                         .get(*texture)
-                        .expect("Image was checked during quad generation and should still exist");
+                        .expect("Image was checked in push_text_vertices");
                     image_bind_groups.values.entry(*texture).or_insert_with(|| {
                         render_device.create_bind_group(
                             "ui_material_bind_group",
