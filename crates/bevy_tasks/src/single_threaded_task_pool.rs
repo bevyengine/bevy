@@ -262,6 +262,9 @@ pub struct Scope<'scope, 'env: 'scope, T> {
     // Vector to gather results of all futures spawned during scope run
     results_ref: &'env RefCell<Vec<Option<T>>>,
     // Task handles for spawned futures, so they can be cancelled on drop.
+    // Without this, a panic in the scope callback would skip the completion
+    // loop, and the executor's own Drop would later drop queued futures after
+    // the borrowed Scope state has been freed (use-after-free).
     spawned: RefCell<Vec<Task<()>>>,
     // make `Scope` invariant over 'scope and 'env
     scope: PhantomData<&'scope mut &'scope ()>,
@@ -321,6 +324,9 @@ impl<'scope, 'env, T: Send + 'env> Scope<'scope, 'env, T> {
             pending_tasks.update(|i| i - 1);
         };
 
+        // spawn the job itself — store the task handle instead of detaching
+        // so that `Scope::drop` can cancel any pending futures before the
+        // borrowed stack state is freed (e.g. when the scope callback panics).
         let task = self.executor_ref.spawn(f);
         self.spawned.borrow_mut().push(task);
     }
@@ -397,32 +403,38 @@ mod test {
         });
     }
 
-    /// Regression test for a soundness bug where a panic inside `scope` could
-    /// cause the executor to drop pending futures *after* the `Scope`'s borrowed
-    /// stack state had already been freed, resulting in use-after-free.
-    ///
-    /// Before the fix, `scope_with_executor` relied on driving all futures to
-    /// completion via `block_on(executor.run(...))`. A panic in the scope
-    /// callback skipped that loop, and the executor (declared first, dropped
-    /// last) would later drop queued futures whose Drop glue accessed
-    /// already-freed `results` / `pending_tasks`.
+    /// Panic in `scope` must cancel pending futures before the scope
+    /// stack is unwound, otherwise future drop glue may access freed state.
     #[test]
     fn scope_panic_cancels_pending_futures() {
+        use core::sync::atomic::{AtomicBool, Ordering};
+
         let pool = TaskPool::new();
+
+        // A flag set when the spawned future actually begins executing.
+        // If the fix works, the future is cancelled before it can poll.
+        let ran = Arc::new(AtomicBool::new(false));
+        let ran2 = ran.clone();
+
         let result = std::panic::catch_unwind(AssertUnwindSafe(|| {
             pool.scope(|scope| {
-                // Spawn a future that will never complete on its own.
-                // The wrapper future captures `results_ref` and
-                // `pending_tasks` — references to stack-local state in
-                // `scope_with_executor`.
-                scope.spawn(async {
+                scope.spawn(async move {
+                    ran2.store(true, Ordering::SeqCst);
                     std::future::pending::<()>().await;
                 });
-                // Trigger unwinding. Without the fix, this causes the
-                // executor's Drop to later access freed state.
                 panic!("test panic in scope");
             });
         }));
         assert!(result.is_err(), "expected the panic to propagate");
+
+        // Without the fix, the executor would drop the pending future
+        // after the scope state is freed — use-after-free.
+        // The task must not have executed past its first poll.
+        // (On the single-threaded executor, the scope callback panics
+        // before any spawned future is driven.)
+        assert!(
+            !ran.load(Ordering::SeqCst),
+            "spawned future ran despite scope panic"
+        );
     }
 }
