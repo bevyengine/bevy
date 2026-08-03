@@ -238,6 +238,7 @@ pub struct ExtractedGradients {
     /// This is a two-level data structure so that we can quickly remove all
     /// gradients associated with a main-world entity when it changes.
     pub items: MainEntityHashMap<EntityIndexMap<ExtractedGradient>>,
+    pub changed_this_frame: MainEntityHashSet,
 }
 
 // Interpolate implicit stops (where position is `f32::NAN`)
@@ -356,6 +357,7 @@ pub fn extract_gradients(
     ),
     mut removed_gradients: Local<MainEntityHashSet>,
 ) {
+    extracted_gradients.changed_this_frame.clear();
     removed_gradients.clear();
     removed_gradients.extend(
         removed_computed_ui_render_target_info_query
@@ -365,18 +367,23 @@ pub fn extract_gradients(
             .map(MainEntity::from),
     );
 
-    for (entity, target, (gradient, gradient_border)) in changed_gradients_query
+    for (entity, target, (node_gradient, border_gradient)) in changed_gradients_query
         .iter()
         .chain(gradients_query.iter_many(removed_gradients.iter().map(ContainsEntity::entity)))
     {
-        let main_entity = MainEntity::from(entity);
+        if node_gradient.is_none() && border_gradient.is_none() {
+            continue;
+        }
 
-        let gradients = extracted_gradients.items.entry(main_entity).or_default();
+        let main_entity = MainEntity::from(entity);
+        extracted_gradients.changed_this_frame.insert(main_entity);
+
+        let extracted_gradients = extracted_gradients.items.entry(main_entity).or_default();
         let mut gradient_count = 0;
 
         for (node_gradients, node_type) in [
-            (gradient.map(|g| &g.0), NodeType::Rect),
-            (gradient_border.map(|g| &g.0), NodeType::Border(BORDER_ALL)),
+            (node_gradient.map(|g| &g.0), NodeType::Rect),
+            (border_gradient.map(|g| &g.0), NodeType::Border(BORDER_ALL)),
         ]
         .iter()
         .filter_map(|(g, n)| g.map(|g| (g, *n)))
@@ -391,21 +398,13 @@ pub fn extract_gradients(
                     node_type,
                     target: *target,
                 };
-                if let Some((_, gradient)) = gradients.get_index_mut(gradient_count) {
+                if let Some((_, gradient)) = extracted_gradients.get_index_mut(gradient_count) {
                     *gradient = extracted_gradient;
                 } else {
-                    gradients.insert(commands.spawn_empty().id(), extracted_gradient);
+                    extracted_gradients.insert(commands.spawn_empty().id(), extracted_gradient);
                 }
                 gradient_count += 1;
             }
-        }
-
-        for (render_entity, _) in gradients.drain(gradient_count..) {
-            commands.entity(render_entity).despawn();
-        }
-
-        if gradients.is_empty() {
-            extracted_gradients.items.remove(&main_entity);
         }
     }
 
