@@ -779,6 +779,7 @@ pub struct UiMeta {
     pub(crate) vertices: RawBufferVec<UiVertex>,
     pub(crate) indices: RawBufferVec<u32>,
     view_bind_group: Option<BindGroup>,
+    texture_changes: Vec<(Range<u32>, AssetId<Image>)>,
 }
 
 impl Default for UiMeta {
@@ -787,6 +788,7 @@ impl Default for UiMeta {
             vertices: RawBufferVec::new(BufferUsages::VERTEX),
             indices: RawBufferVec::new(BufferUsages::INDEX),
             view_bind_group: None,
+            texture_changes: Vec::default(),
         }
     }
 }
@@ -806,7 +808,7 @@ pub(crate) const QUAD_INDICES: [usize; 6] = [0, 2, 3, 0, 1, 2];
 pub struct UiBatch {
     pub range: Range<u32>,
     pub image: AssetId<Image>,
-    pub texture_ranges: Vec<(Range<u32>, AssetId<Image>)>,
+    pub texture_changes: Range<u32>,
 }
 
 /// The values here should match the values for the constants in `ui.wgsl`
@@ -1015,7 +1017,7 @@ fn prepare_uinodes(
                         UiBatch {
                             range: ui_meta.indices.len() as u32..ui_meta.indices.len() as u32,
                             image,
-                            texture_ranges: vec![],
+                            texture_changes: vec![],
                         },
                     ));
                     image_bind_groups.values.entry(image).or_insert_with(|| {
@@ -1061,13 +1063,13 @@ fn prepare_uinodes(
                 let range_end = ui_meta.indices.len() as u32;
                 let existing_batch = existing_batch.unwrap();
                 existing_batch.1.range.end = range_end;
-                if let Some((range, texture)) = existing_batch.1.texture_ranges.last_mut() {
+                if let Some((range, texture)) = existing_batch.1.texture_changes.last_mut() {
                     if image == AssetId::default() || *texture == image {
                         range.end = range_end;
                     } else if range_start < range_end {
                         existing_batch
                             .1
-                            .texture_ranges
+                            .texture_changes
                             .push((range_start..range_end, image));
                     }
                 }
@@ -1114,7 +1116,7 @@ fn prepare_uinodes(
                         UiBatch {
                             range: ui_meta.indices.len() as u32..ui_meta.indices.len() as u32,
                             image,
-                            texture_ranges: Vec::with_capacity(
+                            texture_changes: Vec::with_capacity(
                                 style.sections.len().saturating_mul(2).saturating_add(1),
                             ),
                         },
@@ -1141,13 +1143,13 @@ fn prepare_uinodes(
                 let existing_batch = existing_batch.unwrap();
                 existing_batch
                     .1
-                    .texture_ranges
+                    .texture_changes
                     .reserve(style.sections.len().saturating_mul(2).saturating_add(1));
-                if existing_batch.1.texture_ranges.is_empty() && !existing_batch.1.range.is_empty()
+                if existing_batch.1.texture_changes.is_empty() && !existing_batch.1.range.is_empty()
                 {
                     existing_batch
                         .1
-                        .texture_ranges
+                        .texture_changes
                         .push((existing_batch.1.range.clone(), existing_batch.1.image));
                 }
                 push_text_vertices(
@@ -1156,9 +1158,9 @@ fn prepare_uinodes(
                     style,
                     &gpu_images,
                     image,
-                    &mut existing_batch.1.texture_ranges,
+                    &mut existing_batch.1.texture_changes,
                 );
-                for (_, texture) in &existing_batch.1.texture_ranges {
+                for (_, texture) in &existing_batch.1.texture_changes {
                     let gpu_image = gpu_images
                         .get(*texture)
                         .expect("Image was checked during quad generation and should still exist");
@@ -1174,7 +1176,7 @@ fn prepare_uinodes(
                     });
                 }
                 existing_batch.1.range.end = ui_meta.indices.len() as u32;
-                if let Some((_, texture)) = existing_batch.1.texture_ranges.last() {
+                if let Some((_, texture)) = existing_batch.1.texture_changes.last() {
                     batch_image_handle = Some(*texture);
                 }
                 ui_phase.items[batch_start_item_index].batch_range_mut().end += 1;
@@ -1191,7 +1193,7 @@ fn prepare_uinodes(
                         UiBatch {
                             range: ui_meta.indices.len() as u32..ui_meta.indices.len() as u32,
                             image: AssetId::default(),
-                            texture_ranges: vec![],
+                            texture_changes: vec![],
                         },
                     ));
                     existing_batch = batches.last_mut();
@@ -1205,7 +1207,7 @@ fn prepare_uinodes(
 
                 let existing_batch = existing_batch.unwrap();
                 existing_batch.1.range.end = ui_meta.indices.len() as u32;
-                if let Some((range, _)) = existing_batch.1.texture_ranges.last_mut() {
+                if let Some((range, _)) = existing_batch.1.texture_changes.last_mut() {
                     range.end = ui_meta.indices.len() as u32;
                 }
                 ui_phase.items[batch_start_item_index].batch_range_mut().end += 1;
