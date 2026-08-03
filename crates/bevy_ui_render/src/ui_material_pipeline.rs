@@ -298,6 +298,7 @@ pub struct ExtractedUiMaterial<M: UiMaterial> {
 pub struct ExtractedUiMaterialNodes<M: UiMaterial> {
     /// Map from main-world UI entity to render entity and UI material node
     pub uinodes: MainEntityHashMap<(Entity, ExtractedUiMaterial<M>)>,
+    pub changed_this_frame: MainEntityHashSet,
 }
 
 impl<M: UiMaterial> Default for ExtractedUiMaterialNodes<M> {
@@ -315,9 +316,9 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
     uinode_query: Extract<Query<(Entity, &MaterialNode<M>), Changed<MaterialNode<M>>>>,
     (mut removed_material_node_query,): (Extract<RemovedComponents<MaterialNode<M>>>,),
     mut nodes_to_reextract_next_frame: Local<MainEntityHashSet>,
-    mut nodes_processed_this_frame: Local<MainEntityHashSet>,
 ) {
-    nodes_processed_this_frame.clear();
+    extracted_uinodes.changed_this_frame.clear();
+
     let nodes_to_reextract = mem::take(&mut *nodes_to_reextract_next_frame);
 
     for (entity, handle) in uinode_query.iter().chain(
@@ -330,7 +331,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
         // Make sure we don't process the same node more than once.
         // This is possible if the node was marked for reextraction on the
         // previous frame and was also otherwise changed on this frame.
-        if nodes_processed_this_frame.contains(&main_entity) {
+        if extracted_uinodes.changed_this_frame.contains(&main_entity) {
             continue;
         }
 
@@ -341,7 +342,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
             continue;
         }
 
-        nodes_processed_this_frame.insert(main_entity);
+        extracted_uinodes.changed_this_frame.insert(main_entity);
 
         match extracted_uinodes.uinodes.entry(main_entity) {
             Entry::Occupied(mut entry) => {
@@ -365,7 +366,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
     // frame.
     for main_entity in removed_material_node_query.read() {
         let main_entity = MainEntity::from(main_entity);
-        if nodes_processed_this_frame.contains(&main_entity) {
+        if extracted_uinodes.changed_this_frame.contains(&main_entity) {
             continue;
         }
         let Some((entity, _)) = extracted_uinodes.uinodes.remove(&main_entity) else {

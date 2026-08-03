@@ -205,6 +205,7 @@ pub struct ExtractedUiTextureSlice {
 pub struct ExtractedUiTextureSlices {
     /// Map from main-world UI entity to render entity and texture slice.
     pub slices: MainEntityHashMap<(Entity, ExtractedUiTextureSlice)>,
+    pub changed_this_frame: MainEntityHashSet,
 }
 
 pub fn extract_ui_texture_slices(
@@ -225,13 +226,12 @@ pub fn extract_ui_texture_slices(
         >,
     >,
     (mut removed_image_node_query,): (Extract<RemovedComponents<ImageNode>>,),
-    mut nodes_processed_this_frame: Local<MainEntityHashSet>,
 ) {
-    nodes_processed_this_frame.clear();
+    extracted_ui_slicers.changed_this_frame.clear();
 
     for (entity, image) in &slicers_query {
         let main_entity = MainEntity::from(entity);
-        nodes_processed_this_frame.insert(main_entity);
+        extracted_ui_slicers.changed_this_frame.insert(main_entity);
 
         if image.color.is_fully_transparent() || image.image.id() == TRANSPARENT_IMAGE_HANDLE.id() {
             if let Some((render_entity, _)) = extracted_ui_slicers.slices.remove(&main_entity) {
@@ -303,7 +303,10 @@ pub fn extract_ui_texture_slices(
     // frame.
     for main_entity in removed_image_node_query.read() {
         let main_entity = MainEntity::from(main_entity);
-        if nodes_processed_this_frame.contains(&main_entity) {
+        if extracted_ui_slicers
+            .changed_this_frame
+            .contains(&main_entity)
+        {
             continue;
         }
         let Some((render_entity, _)) = extracted_ui_slicers.slices.remove(&main_entity) else {
