@@ -284,6 +284,11 @@ pub fn push_debug_overlay_vertices(
             continue;
         }
 
+        if !layout.visible && !debug_outline.show_hidden {
+            continue;
+        }
+
+        let clip = layout.clip.filter(|_| !debug_outline.show_clipped);
         let line_color = debug_outline
             .line_color_override
             .unwrap_or_else(|| Hsla::sequential_dispersed(main_entity.index_u32()).into());
@@ -294,7 +299,7 @@ pub fn push_debug_overlay_vertices(
                 line_color,
                 debug_outline.line_width,
                 layout.uinode.border_radius,
-                layout.clip,
+                clip,
                 layout.transform,
                 ui_meta,
             );
@@ -306,7 +311,7 @@ pub fn push_debug_overlay_vertices(
                 line_color,
                 debug_outline.line_width,
                 layout.uinode.inner_radius(),
-                layout.clip,
+                clip,
                 layout.transform,
                 ui_meta,
             );
@@ -318,7 +323,7 @@ pub fn push_debug_overlay_vertices(
                 line_color,
                 debug_outline.line_width,
                 ResolvedBorderRadius::ZERO,
-                layout.clip,
+                clip,
                 layout.transform,
                 ui_meta,
             );
@@ -331,7 +336,7 @@ pub fn push_debug_overlay_vertices(
                     line_color,
                     debug_outline.line_width,
                     ResolvedBorderRadius::ZERO,
-                    layout.clip,
+                    clip,
                     layout.transform,
                     ui_meta,
                 );
@@ -343,7 +348,7 @@ pub fn push_debug_overlay_vertices(
                     line_color,
                     debug_outline.line_width,
                     ResolvedBorderRadius::ZERO,
-                    layout.clip,
+                    clip,
                     layout.transform,
                     ui_meta,
                 );
@@ -354,7 +359,7 @@ pub fn push_debug_overlay_vertices(
                     line_color,
                     debug_outline.line_width,
                     ResolvedBorderRadius::ZERO,
-                    layout.clip,
+                    clip,
                     layout.transform,
                     ui_meta,
                 );
@@ -366,7 +371,7 @@ pub fn push_debug_overlay_vertices(
                     line_color,
                     debug_outline.line_width,
                     ResolvedBorderRadius::ZERO,
-                    layout.clip,
+                    clip,
                     layout.transform,
                     ui_meta,
                 );

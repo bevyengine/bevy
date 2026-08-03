@@ -28,7 +28,7 @@ pub struct ExtractedUiNodeLayout {
     pub flip_x: bool,
     pub flip_y: bool,
     pub stack_index: u32,
-    pub is_visible: bool,
+    pub visible: bool,
 }
 
 /// Uinode geometries and list of geometries that changed this frame.
@@ -137,7 +137,7 @@ pub fn extract_ui_layout(
             flip_x: false,
             flip_y: false,
             stack_index: stack_index.0,
-            is_visible: inherited_visibility.get(),
+            visible: inherited_visibility.get(),
         };
 
         let ExtractedUiLayout {
