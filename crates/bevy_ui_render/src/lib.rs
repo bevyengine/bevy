@@ -1203,7 +1203,11 @@ fn prepare_uinodes(
                     &extracted_ui_debug_overlay,
                 );
 
-                existing_batch.unwrap().1.range.end = ui_meta.indices.len() as u32;
+                let existing_batch = existing_batch.unwrap();
+                existing_batch.1.range.end = ui_meta.indices.len() as u32;
+                if let Some((range, _)) = existing_batch.1.texture_ranges.last_mut() {
+                    range.end = ui_meta.indices.len() as u32;
+                }
                 ui_phase.items[batch_start_item_index].batch_range_mut().end += 1;
             }
 
