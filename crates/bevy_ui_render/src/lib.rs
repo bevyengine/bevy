@@ -610,6 +610,7 @@ pub struct CachedUiViewData {
     /// The unique, stable identifier for the view across frames.
     retained_view_entity: RetainedViewEntity,
 }
+pub struct UiExtractedView;
 
 /// Extracts all UI elements associated with a camera into the render world.
 pub fn extract_ui_camera_view(
@@ -826,7 +827,7 @@ pub mod shader_flags {
 
 pub fn queue_uinodes(
     extracted_uinodes: Res<ExtractedUiNodeStyles>,
-    extracted_geometry: Res<ExtractedUiLayout>,
+    extracted_layout: Res<ExtractedUiLayout>,
     ui_pipeline: Res<UiPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiPipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
@@ -840,11 +841,11 @@ pub fn queue_uinodes(
     let mut current_phase = None;
 
     for (main_entity, (render_entity, _)) in extracted_uinodes.uinodes.iter() {
-        let Some(geometry) = extracted_geometry.layout.get(main_entity) else {
+        let Some(layout) = extracted_layout.layout.get(main_entity) else {
             continue;
         };
 
-        let extracted_camera_entity = geometry.extracted_camera;
+        let extracted_camera_entity = layout.extracted_camera;
 
         if current_camera_entity != extracted_camera_entity {
             current_phase = render_views.get(extracted_camera_entity).ok().and_then(
@@ -883,7 +884,7 @@ pub fn queue_uinodes(
             draw_function,
             pipeline: *pipeline,
             entity: (*render_entity, *main_entity),
-            sort_key: FloatOrd(geometry.stack_index as f32),
+            sort_key: FloatOrd(layout.stack_index as f32),
             // batch_range will be calculated in prepare_uinodes
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::None,
@@ -1174,7 +1175,7 @@ fn prepare_uinodes(
 
             #[cfg(feature = "bevy_ui_debug")]
             if let Some(style) = extracted_debug_overlays
-                .local
+                .local_debug_options
                 .get(&main_entity)
                 .and_then(|(render_entity, style)| (*render_entity == entity).then_some(style))
             {
@@ -1682,77 +1683,5 @@ fn generate_text_quads(
     let range_end = ui_meta.indices.len() as u32;
     if texture_range_start < range_end {
         texture_ranges.push((texture_range_start..range_end, current_texture));
-    }
-}
-
-/// generate quads from extracted layout and debug options
-#[cfg(feature = "bevy_ui_debug")]
-fn generate_debug_quads(ui_meta: &mut UiMeta, style: &debug_overlay::ExtractedUiDebugOverlay) {
-    let color = style.color.to_f32_array();
-    for (rect, radius) in &style.outlines {
-        let rect_size = rect.size();
-        let transform = style.transform * Affine2::from_translation(rect.center());
-        let positions = QUAD_VERTEX_POSITIONS
-            .map(|position| transform.transform_point2(position * rect_size).extend(0.));
-        let positions_diff = if let Some(clip) = style.clip {
-            [
-                Vec2::new(
-                    f32::max(clip.min.x - positions[0].x, 0.),
-                    f32::max(clip.min.y - positions[0].y, 0.),
-                ),
-                Vec2::new(
-                    f32::min(clip.max.x - positions[1].x, 0.),
-                    f32::max(clip.min.y - positions[1].y, 0.),
-                ),
-                Vec2::new(
-                    f32::min(clip.max.x - positions[2].x, 0.),
-                    f32::min(clip.max.y - positions[2].y, 0.),
-                ),
-                Vec2::new(
-                    f32::max(clip.min.x - positions[3].x, 0.),
-                    f32::min(clip.max.y - positions[3].y, 0.),
-                ),
-            ]
-        } else {
-            [Vec2::ZERO; 4]
-        };
-        let positions_clipped = [
-            positions[0] + positions_diff[0].extend(0.),
-            positions[1] + positions_diff[1].extend(0.),
-            positions[2] + positions_diff[2].extend(0.),
-            positions[3] + positions_diff[3].extend(0.),
-        ];
-        let transformed_rect_size = transform.transform_vector2(rect_size).abs();
-        if transform.x_axis[1] == 0.0
-            && (positions_diff[0].x - positions_diff[1].x >= transformed_rect_size.x
-                || positions_diff[1].y - positions_diff[2].y >= transformed_rect_size.y)
-        {
-            continue;
-        }
-
-        let vertex_start = ui_meta.vertices.len() as u32;
-        let points = QUAD_VERTEX_POSITIONS.map(|position| position * rect_size);
-        for i in 0..4 {
-            ui_meta.vertices.push(UiVertex {
-                position: positions_clipped[i].into(),
-                uv: [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y][i].into(),
-                color,
-                flags: shader_flags::UNTEXTURED
-                    | shader_flags::BORDER_ALL
-                    | shader_flags::CORNERS[i],
-                radius: (*radius).into(),
-                border: [
-                    style.border.min_inset.x,
-                    style.border.min_inset.y,
-                    style.border.max_inset.x,
-                    style.border.max_inset.y,
-                ],
-                size: rect_size.into(),
-                point: (points[i] + positions_diff[i]).into(),
-            });
-        }
-        for &index in &QUAD_INDICES {
-            ui_meta.indices.push(vertex_start + index as u32);
-        }
     }
 }
