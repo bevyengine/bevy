@@ -476,7 +476,7 @@ pub fn extract_text(
 
 pub fn queue_text(
     extracted_glyph_layouts: Res<ExtractedGlyphLayouts>,
-    extracted_geometry: Res<ExtractedUiLayout>,
+    extracted_layout: Res<ExtractedUiLayout>,
     ui_pipeline: Res<UiPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiPipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
@@ -488,11 +488,16 @@ pub fn queue_text(
     let draw_function = draw_functions.read().id::<DrawUi>();
 
     for (main_entity, (render_entity, _)) in extracted_glyph_layouts.uinodes.iter() {
-        let Some(geometry) = extracted_geometry.layout.get(main_entity) else {
+        let Some(layout) = extracted_layout.layout.get(main_entity) else {
             continue;
         };
+
+        if !layout.visible {
+            continue;
+        }
+
         let Some((default_camera_view, ui_anti_alias)) =
-            render_views.get(geometry.extracted_camera).ok()
+            render_views.get(layout.extracted_camera).ok()
         else {
             continue;
         };
@@ -516,7 +521,7 @@ pub fn queue_text(
             draw_function,
             pipeline,
             entity: (*render_entity, *main_entity),
-            sort_key: FloatOrd(geometry.stack_index as f32 + stack_z_offsets::TEXT),
+            sort_key: FloatOrd(layout.stack_index as f32 + stack_z_offsets::TEXT),
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::None,
             indexed: true,

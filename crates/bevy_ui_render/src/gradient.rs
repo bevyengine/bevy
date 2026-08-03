@@ -427,7 +427,7 @@ pub fn extract_gradients(
 )]
 pub fn queue_gradient(
     extracted_gradients: Res<ExtractedGradients>,
-    extracted_geometry: Res<ExtractedUiLayout>,
+    extracted_layout: Res<ExtractedUiLayout>,
     gradients_pipeline: Res<GradientPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<GradientPipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
@@ -441,12 +441,16 @@ pub fn queue_gradient(
     let mut current_phase = None;
 
     for (main_entity, sub_gradients) in extracted_gradients.items.iter() {
-        let Some(geometry) = extracted_geometry.layout.get(main_entity) else {
+        let Some(layout) = extracted_layout.layout.get(main_entity) else {
             continue;
         };
 
-        if current_camera_entity != geometry.extracted_camera {
-            current_phase = render_views.get(geometry.extracted_camera).ok().and_then(
+        if !layout.visible {
+            continue;
+        }
+
+        if current_camera_entity != layout.extracted_camera {
+            current_phase = render_views.get(layout.extracted_camera).ok().and_then(
                 |(default_camera_view, ui_anti_alias)| {
                     camera_views
                         .get(default_camera_view.0)
@@ -460,7 +464,7 @@ pub fn queue_gradient(
                         })
                 },
             );
-            current_camera_entity = geometry.extracted_camera;
+            current_camera_entity = layout.extracted_camera;
         }
 
         let Some((target_format, ui_anti_alias, transparent_phase)) = current_phase.as_mut() else {
@@ -482,7 +486,7 @@ pub fn queue_gradient(
                 pipeline,
                 entity: (*render_entity, *main_entity),
                 sort_key: FloatOrd(
-                    geometry.stack_index as f32
+                    layout.stack_index as f32
                         + match gradient.node_type {
                             NodeType::Rect | NodeType::Inverted => stack_z_offsets::GRADIENT,
                             NodeType::Border(_) => stack_z_offsets::BORDER_GRADIENT,

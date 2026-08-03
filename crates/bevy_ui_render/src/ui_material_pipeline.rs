@@ -594,7 +594,7 @@ impl<M: UiMaterial> RenderAsset for PreparedUiMaterial<M> {
 
 pub fn queue_ui_material_nodes<M: UiMaterial>(
     extracted_uinodes: Res<ExtractedUiMaterialNodes<M>>,
-    extracted_geometry: Res<ExtractedUiLayout>,
+    extracted_layout: Res<ExtractedUiLayout>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
     ui_material_pipeline: Res<UiMaterialPipeline<M>>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiMaterialPipeline<M>>>,
@@ -611,10 +611,15 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
     let mut current_phase = None;
 
     for (main_entity, (render_entity, extracted_uinode)) in extracted_uinodes.uinodes.iter() {
-        let Some(geometry) = extracted_geometry.layout.get(main_entity) else {
+        let Some(layout) = extracted_layout.layout.get(main_entity) else {
             continue;
         };
-        let extracted_camera_entity = geometry.extracted_camera;
+
+        if !layout.visible {
+            continue;
+        }
+
+        let extracted_camera_entity = layout.extracted_camera;
 
         if current_camera_entity != extracted_camera_entity {
             current_phase =
@@ -661,7 +666,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
             draw_function,
             pipeline,
             entity: (*render_entity, *main_entity),
-            sort_key: FloatOrd(geometry.stack_index as f32 + M::stack_z_offset()),
+            sort_key: FloatOrd(layout.stack_index as f32 + M::stack_z_offset()),
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::None,
             indexed: false,

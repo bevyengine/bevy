@@ -275,7 +275,7 @@ pub fn extract_shadows(
 )]
 pub fn queue_shadows(
     extracted_box_shadows: Res<ExtractedBoxShadows>,
-    extracted_geometry: Res<ExtractedUiLayout>,
+    extracted_layout: Res<ExtractedUiLayout>,
     box_shadow_pipeline: Res<BoxShadowPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<BoxShadowPipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
@@ -289,12 +289,16 @@ pub fn queue_shadows(
     let mut current_phase = None;
 
     for (main_entity, extracted_sub_shadows) in extracted_box_shadows.box_shadows.iter() {
-        let Some(geometry) = extracted_geometry.layout.get(main_entity) else {
+        let Some(layout) = extracted_layout.layout.get(main_entity) else {
             continue;
         };
 
-        if current_camera_entity != geometry.extracted_camera {
-            current_phase = render_views.get(geometry.extracted_camera).ok().and_then(
+        if !layout.visible {
+            continue;
+        }
+
+        if current_camera_entity != layout.extracted_camera {
+            current_phase = render_views.get(layout.extracted_camera).ok().and_then(
                 |(default_camera_view, shadow_samples)| {
                     camera_views
                         .get(default_camera_view.0)
@@ -316,7 +320,7 @@ pub fn queue_shadows(
                         })
                 },
             );
-            current_camera_entity = geometry.extracted_camera;
+            current_camera_entity = layout.extracted_camera;
         }
 
         let Some((pipeline, transparent_phase)) = current_phase.as_mut() else {
@@ -327,7 +331,7 @@ pub fn queue_shadows(
                 draw_function,
                 pipeline: *pipeline,
                 entity: (*entity, *main_entity),
-                sort_key: FloatOrd(geometry.stack_index as f32 + stack_z_offsets::BOX_SHADOW),
+                sort_key: FloatOrd(layout.stack_index as f32 + stack_z_offsets::BOX_SHADOW),
 
                 batch_range: 0..0,
                 extra_index: PhaseItemExtraIndex::None,

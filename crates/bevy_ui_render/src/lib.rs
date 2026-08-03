@@ -849,6 +849,10 @@ pub fn queue_uinodes(
             continue;
         };
 
+        if !layout.visible {
+            continue;
+        }
+
         let extracted_camera_entity = layout.extracted_camera;
 
         if current_camera_entity != extracted_camera_entity {
