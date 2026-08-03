@@ -321,9 +321,6 @@ impl<'scope, 'env, T: Send + 'env> Scope<'scope, 'env, T> {
             pending_tasks.update(|i| i - 1);
         };
 
-        // spawn the job itself — store the task handle instead of detaching
-        // so that `Scope::drop` can cancel any pending futures before the
-        // borrowed stack state is freed (e.g. when the scope callback panics).
         let task = self.executor_ref.spawn(f);
         self.spawned.borrow_mut().push(task);
     }
