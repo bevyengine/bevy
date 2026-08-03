@@ -274,13 +274,12 @@ fn run_pancamera_controller(
             && let Ok(world_pos) = camera.viewport_to_world_2d(global, cursor_pos)
         {
             let cursor_vec = world_pos - transform.translation.truncate();
-            let delta_cursor_vec = (1. - controller.zoom_factor / prev_zoom ) * cursor_vec;
+            let delta_cursor_vec = (1. - controller.zoom_factor / prev_zoom) * cursor_vec;
             transform.translation += delta_cursor_vec.extend(0.)
         }
     }
 
     transform.scale = Vec3::splat(controller.zoom_factor);
-
 }
 
 /// A component attached to window entities that holds the id of an
