@@ -1056,9 +1056,9 @@ fn prepare_uinodes(
                         .push((range_start..range_end, image));
                 }
                 let texture_changes_start = existing_batch.1.texture_changes.start as usize;
-                if texture_changes_start > 0
-                    && ui_meta.texture_changes[texture_changes_start - 1].0.end
-                        > existing_batch.1.range.start
+                if 0 < texture_changes_start
+                    && existing_batch.1.range.start
+                        < ui_meta.texture_changes[texture_changes_start - 1].0.end
                 {
                     existing_batch.1.texture_changes.start -= 1;
                 }
@@ -1124,9 +1124,9 @@ fn prepare_uinodes(
                 push_text_vertices(&mut ui_meta, layout, style, &gpu_images, image);
                 existing_batch.1.range.end = ui_meta.indices.len() as u32;
                 let texture_changes_start = existing_batch.1.texture_changes.start as usize;
-                if texture_changes_start > 0
-                    && ui_meta.texture_changes[texture_changes_start - 1].0.end
-                        > existing_batch.1.range.start
+                if 0 < texture_changes_start
+                    && existing_batch.1.range.start
+                        < ui_meta.texture_changes[texture_changes_start - 1].0.end
                 {
                     existing_batch.1.texture_changes.start -= 1;
                 }
@@ -1189,9 +1189,9 @@ fn prepare_uinodes(
                     }
                 }
                 let texture_changes_start = existing_batch.1.texture_changes.start as usize;
-                if texture_changes_start > 0
-                    && ui_meta.texture_changes[texture_changes_start - 1].0.end
-                        > existing_batch.1.range.start
+                if 0 < texture_changes_start
+                    && existing_batch.1.range.start
+                        < ui_meta.texture_changes[texture_changes_start - 1].0.end
                 {
                     existing_batch.1.texture_changes.start -= 1;
                 }
@@ -1413,7 +1413,7 @@ fn push_uinode_vertices(
         }
     }
 
-    if !style.outline_color.is_fully_transparent() && uinode.outline_width() > 0. {
+    if !style.outline_color.is_fully_transparent() && 0. < uinode.outline_width() {
         push_quad(
             style.outline_color,
             Rect {
