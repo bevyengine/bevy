@@ -88,8 +88,8 @@ impl Default for UiDebugOutline {
     }
 }
 
-impl From<GlobalUiDebugOptions> for UiDebugOutline {
-    fn from(other: GlobalUiDebugOptions) -> Self {
+impl From<UiDebugOverlay> for UiDebugOutline {
+    fn from(other: UiDebugOverlay) -> Self {
         other.0.clone()
     }
 }
@@ -99,9 +99,9 @@ impl From<GlobalUiDebugOptions> for UiDebugOutline {
 /// A global `resource` that can be overridden by local component [`UiDebugOptions`] override on individual UI node entities
 #[derive(Default, Resource, Reflect, Clone, Deref, DerefMut)]
 #[reflect(Resource)]
-pub struct GlobalUiDebugOptions(pub UiDebugOutline);
+pub struct UiDebugOverlay(pub UiDebugOutline);
 
-impl From<UiDebugOutline> for GlobalUiDebugOptions {
+impl From<UiDebugOutline> for UiDebugOverlay {
     fn from(other: UiDebugOutline) -> Self {
         Self(other)
     }
@@ -109,7 +109,7 @@ impl From<UiDebugOutline> for GlobalUiDebugOptions {
 
 /// The debug visualization is just outlines, so it can be extracted as a single phase item for each extracted camera.
 #[derive(Resource, Default)]
-pub struct ExtractedUiDebugLayer {
+pub struct ExtractedUiDebugOverlay {
     /// z_index of whole visualization.
     pub z_offset: f32,
     pub default_outline: UiDebugOutline,
@@ -117,7 +117,7 @@ pub struct ExtractedUiDebugLayer {
     pub changed_this_frame: MainEntityHashSet,
 }
 
-impl ExtractedUiDebugLayer {
+impl ExtractedUiDebugOverlay {
     pub fn get(&self, main_entity: &MainEntity) -> &UiDebugOutline {
         &self
             .per_node_outline
@@ -127,8 +127,8 @@ impl ExtractedUiDebugLayer {
 }
 
 pub fn extract_debug_overlay(
-    global_debug_options: Extract<Res<GlobalUiDebugOptions>>,
-    mut extracted_debug_layer: ResMut<ExtractedUiDebugLayer>,
+    global_debug_options: Extract<Res<UiDebugOverlay>>,
+    mut extracted_debug_layer: ResMut<ExtractedUiDebugOverlay>,
     ui_debug_outlines_query: Extract<Query<(Entity, &UiDebugOutline), Changed<UiDebugOutline>>>,
     mut removed_debug_options: Extract<RemovedComponents<UiDebugOutline>>,
     ui_stack: Res<UiStack>,
@@ -160,7 +160,7 @@ pub fn extract_debug_overlay(
 }
 
 pub fn queue_debug_overlay(
-    extracted_overlays: Res<ExtractedUiDebugLayer>,
+    extracted_overlays: Res<ExtractedUiDebugOverlay>,
     ui_pipeline: Res<UiPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiPipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
@@ -208,7 +208,7 @@ pub fn queue_debug_overlay(
 }
 
 /// Clip each debug outline quad, compute its vertices, and push them onto the vertex buffer
-pub fn push_debug_outline(
+fn push_debug_outline(
     rect: Rect,
     line_color: LinearRgba,
     line_width: f32,
@@ -278,20 +278,21 @@ pub fn push_debug_outline(
     }
 }
 
-/// Debug layout can just
-fn generate_debug_layer_quads(
+/// The debug overlay consists of just outlines drawn above the UI, so one phase item can hold
+/// all the outlines per camera
+pub fn push_debug_overlay_vertices(
     ui_meta: &mut UiMeta,
     extracted_ui_layout: &ExtractedUiLayout,
-    extracted_ui_debug_layer: &ExtractedUiDebugLayer,
+    extracted_ui_debug_overlay: &ExtractedUiDebugOverlay,
 ) {
-    if !extracted_ui_debug_layer.default_outline.enabled
-        && extracted_ui_debug_layer.per_node_outline.is_empty()
+    if !extracted_ui_debug_overlay.default_outline.enabled
+        && extracted_ui_debug_overlay.per_node_outline.is_empty()
     {
         return;
     }
 
     for (main_entity, layout) in extracted_ui_layout.layout.iter() {
-        let debug_outline = extracted_ui_debug_layer.get(main_entity);
+        let debug_outline = extracted_ui_debug_overlay.get(main_entity);
         if !debug_outline.enabled {
             continue;
         }
@@ -314,7 +315,7 @@ fn generate_debug_layer_quads(
 
         if debug_outline.outline_padding_box {
             push_debug_outline(
-                layout.ui_node.padding_box(),
+                layout.uinode.padding_box(),
                 line_color,
                 debug_outline.line_width,
                 layout.uinode.inner_radius(),

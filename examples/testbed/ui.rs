@@ -2245,7 +2245,7 @@ mod debug_outlines {
         ui_render::UiDebugOutline,
     };
 
-    pub fn setup(mut commands: Commands, mut debug_options: ResMut<GlobalUiDebugOptions>) {
+    pub fn setup(mut commands: Commands, mut debug_options: ResMut<UiDebugOverlay>) {
         debug_options.enabled = true;
         debug_options.line_width = 5.;
         debug_options.line_color_override = Some(LinearRgba::GREEN);
@@ -2483,8 +2483,8 @@ mod debug_outlines {
             });
     }
 
-    pub fn teardown(mut debug_options: ResMut<GlobalUiDebugOptions>) {
-        *debug_options = GlobalUiDebugOptions::default();
+    pub fn teardown(mut debug_options: ResMut<UiDebugOverlay>) {
+        *debug_options = UiDebugOverlay::default();
     }
 }
 
