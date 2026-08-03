@@ -965,6 +965,7 @@ fn prepare_uinodes(
     // UiMeta contains the vertex and index buffer data and the current view
     ui_meta.vertices.clear();
     ui_meta.indices.clear();
+    ui_meta.texture_changes.clear();
     ui_meta.view_bind_group = Some(render_device.create_bind_group(
         "ui_view_bind_group",
         &pipeline_cache.get_bind_group_layout(&ui_pipeline.view_layout),
@@ -1012,12 +1013,14 @@ fn prepare_uinodes(
                     };
                     batch_start_item_index = phase_item_index;
                     batch_image_handle = Some(image);
+
+                    let changes_start = ui_meta.texture_changes.len() as u32;
                     batches.push((
                         entity,
                         UiBatch {
                             range: ui_meta.indices.len() as u32..ui_meta.indices.len() as u32,
                             image,
-                            texture_changes: vec![],
+                            texture_changes: changes_start..changes_start,
                         },
                     ));
                     image_bind_groups.values.entry(image).or_insert_with(|| {
@@ -1063,16 +1066,27 @@ fn prepare_uinodes(
                 let range_end = ui_meta.indices.len() as u32;
                 let existing_batch = existing_batch.unwrap();
                 existing_batch.1.range.end = range_end;
-                if let Some((range, texture)) = existing_batch.1.texture_changes.last_mut() {
+                if let Some((range, texture)) = ui_meta.texture_changes.last_mut() {
                     if image == AssetId::default() || *texture == image {
                         range.end = range_end;
                     } else if range_start < range_end {
-                        existing_batch
-                            .1
+                        ui_meta
                             .texture_changes
                             .push((range_start..range_end, image));
                     }
+                } else if range_start < range_end {
+                    ui_meta
+                        .texture_changes
+                        .push((range_start..range_end, image));
                 }
+                let texture_changes_start = existing_batch.1.texture_changes.start as usize;
+                if texture_changes_start > 0
+                    && ui_meta.texture_changes[texture_changes_start - 1].0.end
+                        > existing_batch.1.range.start
+                {
+                    existing_batch.1.texture_changes.start -= 1;
+                }
+                existing_batch.1.texture_changes.end = ui_meta.texture_changes.len() as u32;
                 ui_phase.items[batch_start_item_index].batch_range_mut().end += 1;
                 continue;
             }
@@ -1116,9 +1130,8 @@ fn prepare_uinodes(
                         UiBatch {
                             range: ui_meta.indices.len() as u32..ui_meta.indices.len() as u32,
                             image,
-                            texture_changes: Vec::with_capacity(
-                                style.sections.len().saturating_mul(2).saturating_add(1),
-                            ),
+                            texture_changes: ui_meta.texture_changes.len() as u32
+                                ..ui_meta.texture_changes.len() as u32,
                         },
                     ));
                     existing_batch = batches.last_mut();
@@ -1141,26 +1154,23 @@ fn prepare_uinodes(
                 });
 
                 let existing_batch = existing_batch.unwrap();
-                existing_batch
-                    .1
+                ui_meta
                     .texture_changes
                     .reserve(style.sections.len().saturating_mul(2).saturating_add(1));
-                if existing_batch.1.texture_changes.is_empty() && !existing_batch.1.range.is_empty()
+                push_text_vertices(&mut ui_meta, layout, style, &gpu_images, image);
+                existing_batch.1.range.end = ui_meta.indices.len() as u32;
+                let texture_changes_start = existing_batch.1.texture_changes.start as usize;
+                if texture_changes_start > 0
+                    && ui_meta.texture_changes[texture_changes_start - 1].0.end
+                        > existing_batch.1.range.start
                 {
-                    existing_batch
-                        .1
-                        .texture_changes
-                        .push((existing_batch.1.range.clone(), existing_batch.1.image));
+                    existing_batch.1.texture_changes.start -= 1;
                 }
-                push_text_vertices(
-                    &mut ui_meta,
-                    layout,
-                    style,
-                    &gpu_images,
-                    image,
-                    &mut existing_batch.1.texture_changes,
-                );
-                for (_, texture) in &existing_batch.1.texture_changes {
+                existing_batch.1.texture_changes.end = ui_meta.texture_changes.len() as u32;
+                for (_, texture) in &ui_meta.texture_changes[existing_batch.1.texture_changes.start
+                    as usize
+                    ..existing_batch.1.texture_changes.end as usize]
+                {
                     let gpu_image = gpu_images
                         .get(*texture)
                         .expect("Image was checked during quad generation and should still exist");
@@ -1175,8 +1185,7 @@ fn prepare_uinodes(
                         )
                     });
                 }
-                existing_batch.1.range.end = ui_meta.indices.len() as u32;
-                if let Some((_, texture)) = existing_batch.1.texture_changes.last() {
+                if let Some((_, texture)) = ui_meta.texture_changes.last() {
                     batch_image_handle = Some(*texture);
                 }
                 ui_phase.items[batch_start_item_index].batch_range_mut().end += 1;
@@ -1193,12 +1202,14 @@ fn prepare_uinodes(
                         UiBatch {
                             range: ui_meta.indices.len() as u32..ui_meta.indices.len() as u32,
                             image: AssetId::default(),
-                            texture_changes: vec![],
+                            texture_changes: ui_meta.texture_changes.len() as u32
+                                ..ui_meta.texture_changes.len() as u32,
                         },
                     ));
                     existing_batch = batches.last_mut();
                 }
 
+                let range_start = ui_meta.indices.len() as u32;
                 debug_overlay::push_debug_overlay_vertices(
                     &mut ui_meta,
                     &extracted_ui_layout,
@@ -1206,10 +1217,25 @@ fn prepare_uinodes(
                 );
 
                 let existing_batch = existing_batch.unwrap();
-                existing_batch.1.range.end = ui_meta.indices.len() as u32;
-                if let Some((range, _)) = existing_batch.1.texture_changes.last_mut() {
-                    range.end = ui_meta.indices.len() as u32;
+                let range_end = ui_meta.indices.len() as u32;
+                existing_batch.1.range.end = range_end;
+                if range_start < range_end {
+                    if let Some((range, _)) = ui_meta.texture_changes.last_mut() {
+                        range.end = range_end;
+                    } else {
+                        ui_meta
+                            .texture_changes
+                            .push((range_start..range_end, AssetId::default()));
+                    }
                 }
+                let texture_changes_start = existing_batch.1.texture_changes.start as usize;
+                if texture_changes_start > 0
+                    && ui_meta.texture_changes[texture_changes_start - 1].0.end
+                        > existing_batch.1.range.start
+                {
+                    existing_batch.1.texture_changes.start -= 1;
+                }
+                existing_batch.1.texture_changes.end = ui_meta.texture_changes.len() as u32;
                 ui_phase.items[batch_start_item_index].batch_range_mut().end += 1;
             }
 
@@ -1492,7 +1518,6 @@ fn push_text_vertices(
     style: &ExtractedGlyphLayout,
     gpu_images: &RenderAssets<GpuImage>,
     image: AssetId<Image>,
-    texture_ranges: &mut Vec<(Range<u32>, AssetId<Image>)>,
 ) {
     let uinode = &layout.uinode;
     let shadow_offset = style.shadow_offset / uinode.inverse_scale_factor();
@@ -1512,7 +1537,8 @@ fn push_text_vertices(
     } else {
         layout.clip
     };
-    let (mut texture_range_start, mut current_texture) = texture_ranges
+    let (mut texture_range_start, mut current_texture) = ui_meta
+        .texture_changes
         .pop()
         .map_or((ui_meta.indices.len() as u32, image), |(range, texture)| {
             (range.start, texture)
@@ -1569,7 +1595,9 @@ fn push_text_vertices(
                 let range_end = ui_meta.indices.len() as u32;
                 if current_texture != atlas_texture {
                     if texture_range_start < range_end {
-                        texture_ranges.push((texture_range_start..range_end, current_texture));
+                        ui_meta
+                            .texture_changes
+                            .push((texture_range_start..range_end, current_texture));
                     }
                     texture_range_start = range_end;
                     current_texture = atlas_texture;
@@ -1685,6 +1713,8 @@ fn push_text_vertices(
     }
     let range_end = ui_meta.indices.len() as u32;
     if texture_range_start < range_end {
-        texture_ranges.push((texture_range_start..range_end, current_texture));
+        ui_meta
+            .texture_changes
+            .push((texture_range_start..range_end, current_texture));
     }
 }
