@@ -996,7 +996,16 @@ fn prepare_uinodes(
     ));
 
     // for each sorted render phase corresponding to a UI view
-    for ui_phase in phases.values_mut() {
+    for (retained_view_entity, ui_phase) in phases.iter_mut() {
+        #[cfg(feature = "bevy_ui_debug")]
+        let extracted_debug_overlay = extracted_ui_debug_overlay
+            .extracted_camera_view_to_ids
+            .iter()
+            .find_map(|(extracted_camera, item_ids)| {
+                (item_ids.1 == retained_view_entity.main_entity)
+                    .then_some((*extracted_camera, *item_ids))
+            });
+
         // used to store the index of the first phase item in a batch
         let mut batch_start_item_index = 0;
 
@@ -1142,12 +1151,8 @@ fn prepare_uinodes(
             }
 
             #[cfg(feature = "bevy_ui_debug")]
-            if let Some(extracted_camera) = extracted_ui_debug_overlay
-                .extracted_camera_view_to_ids
-                .iter()
-                .find_map(|(extracted_camera, item_ids)| {
-                    (*item_ids == (entity, main_entity)).then_some(*extracted_camera)
-                })
+            if let Some((extracted_camera, item_ids)) = extracted_debug_overlay
+                && item_ids == (entity, main_entity)
             {
                 if !batch_open {
                     batch_start_item_index = phase_item_index;
