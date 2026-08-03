@@ -126,9 +126,9 @@ pub enum RenderUiSystems {
     ExtractBoxShadows,
     ExtractBackgrounds,
     ExtractTextureSlice,
+    ExtractGradient,
     ExtractText,
     ExtractDebug,
-    ExtractGradient,
 }
 
 /// Marker for controlling whether UI is rendered with or without anti-aliasing
@@ -237,6 +237,7 @@ impl Plugin for UiRenderPlugin {
                     RenderUiSystems::ExtractBoxShadows,
                     RenderUiSystems::ExtractBackgrounds,
                     RenderUiSystems::ExtractTextureSlice,
+                    RenderUiSystems::ExtractGradient,
                     RenderUiSystems::ExtractText,
                     RenderUiSystems::ExtractDebug,
                 )
