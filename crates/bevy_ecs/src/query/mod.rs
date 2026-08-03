@@ -841,7 +841,7 @@ mod tests {
     #[component(summary_tick)]
     #[expect(
         dead_code,
-        "Nothing reads the interior value but it's nice for debugging anyway"
+        reason = "Nothing reads the interior value but it's nice for debugging anyway"
     )]
     struct SA(usize);
     #[derive(Component)]
