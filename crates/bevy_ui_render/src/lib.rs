@@ -1053,7 +1053,7 @@ fn prepare_uinodes(
                     .get(image)
                     .expect("Image was checked during batching and should still exist");
                 let range_start = ui_meta.indices.len() as u32;
-                generate_uinodes_quads(&mut ui_meta, layout, style, image, gpu_image);
+                push_uinode_vertices(&mut ui_meta, layout, style, image, gpu_image);
                 let range_end = ui_meta.indices.len() as u32;
                 let existing_batch = existing_batch.unwrap();
                 existing_batch.1.range.end = range_end;
@@ -1146,7 +1146,7 @@ fn prepare_uinodes(
                         .texture_ranges
                         .push((existing_batch.1.range.clone(), existing_batch.1.image));
                 }
-                generate_text_quads(
+                push_text_vertices(
                     &mut ui_meta,
                     layout,
                     style,
@@ -1214,8 +1214,8 @@ fn prepare_uinodes(
     ui_meta.indices.write_buffer(&render_device, &render_queue);
 }
 
-/// generates quads from extracted uinode syle and layout
-fn generate_uinodes_quads(
+/// generates vertices from extracted uinode syle and layout
+fn push_uinode_vertices(
     ui_meta: &mut UiMeta,
     layout: &ExtractedUiNodeLayout,
     style: &ExtractedUiNodeStyle,
@@ -1318,7 +1318,7 @@ fn generate_uinodes_quads(
         match node_type {
             NodeType::Border(border_flags) => flags |= border_flags,
             NodeType::Inverted => flags |= INVERT,
-            NodeType::Rect => {}
+            _ => {}
         }
 
         let vertex_start = ui_meta.vertices.len() as u32;
@@ -1475,8 +1475,8 @@ fn generate_uinodes_quads(
     }
 }
 
-/// generates quads from extracted uinode syle and glyph layout
-fn generate_text_quads(
+/// generates vertices from extracted uinode syle and glyph layout
+fn push_text_vertices(
     ui_meta: &mut UiMeta,
     layout: &ExtractedUiNodeLayout,
     style: &ExtractedGlyphLayout,
