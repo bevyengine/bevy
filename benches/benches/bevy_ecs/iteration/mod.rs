@@ -19,6 +19,7 @@ mod iter_simple_foreach_wide_sparse_set;
 mod iter_simple_no_detection;
 mod iter_simple_no_detection_contiguous;
 mod iter_simple_sparse_set;
+mod iter_simple_summary_tick;
 mod iter_simple_system;
 mod iter_simple_wide;
 mod iter_simple_wide_sparse_set;
@@ -100,6 +101,10 @@ fn iter_simple(c: &mut Criterion) {
     });
     group.bench_function("foreach_hybrid", |b| {
         let mut bench = iter_simple_foreach_hybrid::Benchmark::new();
+        b.iter(move || bench.run());
+    });
+    group.bench_function("summary_tick", |b| {
+        let mut bench = iter_simple_summary_tick::Benchmark::new();
         b.iter(move || bench.run());
     });
     group.finish();
