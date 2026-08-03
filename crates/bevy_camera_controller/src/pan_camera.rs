@@ -90,7 +90,7 @@ pub struct MousePanSettings {
 }
 
 /// Target focal point for zooming using the ['PanCamera'] controller
-pub enum ZoomTarget{
+pub enum ZoomTarget {
     /// Zoom to / from the center of the window
     Center,
     /// Zoom to / from the position of the cursor if the cursor is over the window
@@ -183,7 +183,7 @@ fn run_pancamera_controller(
     accumulated_mouse_scroll: Res<AccumulatedMouseScroll>,
     mouse_scroll_conversion: Res<MouseScrollPixelsPerLine>,
     window: Single<&Window>,
-    mut query: Query<(&Camera, &GlobalTransform, &mut Transform, &mut PanCamera)>
+    mut query: Query<(&Camera, &GlobalTransform, &mut Transform, &mut PanCamera)>,
 ) {
     let dt = time.delta_secs();
 
@@ -271,7 +271,8 @@ fn run_pancamera_controller(
     // the cursor maintain the same viewport coordinates.
     if let ZoomTarget::Cursor = controller.zoom_target {
         if let Some(cursor_pos) = window.cursor_position()
-            && let Ok(world_pos) = camera.viewport_to_world_2d(global, cursor_pos) {
+            && let Ok(world_pos) = camera.viewport_to_world_2d(global, cursor_pos)
+        {
             let cursor_vec = world_pos - transform.translation.truncate() ;
             let delta_cursor_vec = (1. - controller.zoom_factor / prev_zoom ) * cursor_vec;
             transform.translation += delta_cursor_vec.extend(0.)
