@@ -159,8 +159,14 @@ impl<'w> ComponentsRegistrator<'w> {
     ///
     /// * [`Components::component_id()`]
     /// * [`ComponentsRegistrator::register_component_with_descriptor()`]
+    // This doesn't check for required component recursion if the component already exists.
+    // Use `register_component_checked` if that's a concern.
     #[inline]
     pub fn register_component<T: Component>(&mut self) -> ComponentId {
+        if let Some(&id) = self.indices.get(&TypeId::of::<T>()) {
+            return id;
+        }
+
         self.register_component_checked(
             TypeId::of::<T>(),
             ComponentDescriptor::new::<T>,
@@ -170,7 +176,7 @@ impl<'w> ComponentsRegistrator<'w> {
     }
 
     // This exists to cut down on monomorphized code in register_component, which reduces compile times and binary sizes.
-    fn register_component_checked(
+    pub(crate) fn register_component_checked(
         &mut self,
         type_id: TypeId,
         descriptor: fn() -> ComponentDescriptor,

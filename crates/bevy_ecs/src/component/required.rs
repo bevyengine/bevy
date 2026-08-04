@@ -1,15 +1,16 @@
 use alloc::{format, vec::Vec};
 use bevy_platform::{hash::FixedHasher, sync::Arc};
 use bevy_ptr::OwningPtr;
-use core::fmt::Debug;
+use core::{any::TypeId, fmt::Debug};
 use indexmap::{IndexMap, IndexSet};
 use thiserror::Error;
 
 use crate::{
     bundle::BundleInfo,
     change_detection::{MaybeLocation, Tick},
-    component::{Component, ComponentId, Components, ComponentsRegistrator},
+    component::{Component, ComponentDescriptor, ComponentId, Components, ComponentsRegistrator},
     entity::Entity,
+    lifecycle::ComponentHooks,
     query::DebugCheckedUnwrap as _,
     storage::{SparseSets, Table, TableRow},
 };
@@ -157,7 +158,13 @@ impl RequiredComponents {
         components: &mut ComponentsRegistrator<'_>,
         constructor: impl Fn() -> C + 'static,
     ) {
-        let id = components.register_component::<C>();
+        let id = components.register_component_checked(
+            TypeId::of::<C>(),
+            ComponentDescriptor::new::<C>,
+            C::register_required_components,
+            ComponentHooks::update_from_component::<C>,
+        );
+
         // SAFETY:
         // - `id` was just registered in `components`;
         // - the caller guarantees all other components were registered in `components`.
