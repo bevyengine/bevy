@@ -560,7 +560,7 @@ fn range_controls(value: f32, app_number_input: AppNumberInput) -> impl Scene {
         template_value(NumberInputValue::F32(value))
         template_value(app_number_input)
         NumberInputPrecision(3)
-        HardLimit::f32(0.0..1.0)
+        HardLimit::f32(0.0..=1.0)
         Node {
             align_items: AlignItems::Center,
         }
