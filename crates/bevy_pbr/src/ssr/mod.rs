@@ -5,7 +5,7 @@ use core::ops::Range;
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_embedded_asset, AssetServer, Handle};
 use bevy_core_pipeline::{
-    core_3d::{main_opaque_pass_3d, DEPTH_PREPASS_TEXTURE_SUPPORTED},
+    core_3d::{main_merged_pass_3d, DEPTH_PREPASS_TEXTURE_SUPPORTED},
     prepass::{DeferredPrepass, DepthPrepass},
     schedule::{Core3d, Core3dSystems},
     FullscreenShader,
@@ -217,7 +217,7 @@ impl Plugin for ScreenSpaceReflectionsPlugin {
                 Core3d,
                 screen_space_reflections
                     .after(deferred_lighting)
-                    .before(main_opaque_pass_3d)
+                    .before(main_merged_pass_3d)
                     .in_set(Core3dSystems::MainPass),
             );
     }

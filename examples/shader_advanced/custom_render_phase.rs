@@ -18,7 +18,7 @@ use bevy::mesh::MeshAttributeCompressionFlags;
 use bevy::pbr::{self, MeshPipelineSystems, SetMeshViewEmptyBindGroup, ViewKeyCache};
 use bevy::{
     camera::MainPassResolutionOverride,
-    core_pipeline::{core_3d::main_opaque_pass_3d, schedule::Core3d, Core3dSystems},
+    core_pipeline::{core_3d::main_merged_pass_3d, schedule::Core3d, Core3dSystems},
     ecs::{
         entity::EntityHash,
         system::{lifetimeless::SRes, SystemParamItem},
@@ -149,7 +149,7 @@ impl Plugin for MeshStencilPhasePlugin {
             .add_systems(
                 Core3d,
                 custom_draw_system
-                    .after(main_opaque_pass_3d)
+                    .before(main_merged_pass_3d)
                     .in_set(Core3dSystems::MainPass),
             );
     }

@@ -97,7 +97,7 @@ impl<C: ExtractComponent<RenderApp, F>, F: 'static + Send + Sync> Plugin
 }
 
 /// This system extracts all components of the corresponding [`ExtractComponent`], for entities that are synced via [`crate::sync_world::SyncToRenderWorld`].
-fn extract_components<C: ExtractComponent<RenderApp, F>, F>(
+pub fn extract_components<C: ExtractComponent<RenderApp, F>, F>(
     mut commands: Commands,
     mut previous_len: Local<usize>,
     query: Extract<Query<(RenderEntity, C::QueryData), C::QueryFilter>>,
@@ -115,7 +115,7 @@ fn extract_components<C: ExtractComponent<RenderApp, F>, F>(
 }
 
 /// This system extracts all components of the corresponding [`ExtractComponent`], for entities that are visible and synced via [`crate::sync_world::SyncToRenderWorld`].
-fn extract_visible_components<C: ExtractComponent<RenderApp, F>, F>(
+pub fn extract_visible_components<C: ExtractComponent<RenderApp, F>, F>(
     mut commands: Commands,
     mut previous_len: Local<usize>,
     query: Extract<Query<(RenderEntity, &ViewVisibility, C::QueryData), C::QueryFilter>>,

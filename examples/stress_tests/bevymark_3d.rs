@@ -9,6 +9,7 @@ use argh::FromArgs;
 use bevy::{
     asset::RenderAssetUsages,
     color::palettes::basic::*,
+    core_pipeline::core_3d::Core3dMainPassMode,
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
     render::render_resource::{Extent3d, TextureDimension, TextureFormat},
@@ -64,16 +65,41 @@ struct Args {
     material_texture_count: usize,
 
     /// the alpha mode used to spawn the cubes
-    #[argh(option, default = "AlphaMode::Opaque")]
+    #[argh(option, default = "AlphaMode::Mixed")]
     alpha_mode: AlphaMode,
+
+    /// the main pass mode used for core3d
+    #[argh(
+        option,
+        default = "Core3dMainPassModeArg(Core3dMainPassMode::Separate)"
+    )]
+    main_pass_mode: Core3dMainPassModeArg,
+}
+
+#[derive(Clone, Copy)]
+struct Core3dMainPassModeArg(Core3dMainPassMode);
+
+impl FromStr for Core3dMainPassModeArg {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "merged" => Ok(Self(Core3dMainPassMode::Merged)),
+            "separate" => Ok(Self(Core3dMainPassMode::Separate)),
+            _ => Err(format!(
+                "Unknown main pass mode: '{s}', valid modes: 'merged', 'separate'"
+            )),
+        }
+    }
 }
 
 #[derive(Default, Clone)]
 enum AlphaMode {
-    #[default]
     Opaque,
     Blend,
     AlphaMask,
+    #[default]
+    Mixed,
 }
 
 impl FromStr for AlphaMode {
@@ -84,8 +110,9 @@ impl FromStr for AlphaMode {
             "opaque" => Ok(Self::Opaque),
             "blend" => Ok(Self::Blend),
             "alpha_mask" => Ok(Self::AlphaMask),
+            "mixed" => Ok(Self::Mixed),
             _ => Err(format!(
-                "Unknown alpha mode: '{s}', valid modes: 'opaque', 'blend', 'alpha_mask'"
+                "Unknown alpha mode: '{s}', valid modes: 'opaque', 'blend', 'alpha_mask', 'mixed'"
             )),
         }
     }
@@ -115,6 +142,7 @@ fn main() {
             LogDiagnosticsPlugin::default(),
         ))
         .insert_resource(WinitSettings::continuous())
+        .insert_resource(args.main_pass_mode.0)
         .insert_resource(args)
         .insert_resource(BevyCounter {
             count: 0,
@@ -516,17 +544,26 @@ fn init_materials(
     }
     capacity = capacity.max(1);
 
-    let alpha_mode = match args.alpha_mode {
+    let mut alpha_mode_rng = ChaCha8Rng::seed_from_u64(43);
+    let mut get_alpha_mode = || match args.alpha_mode {
         AlphaMode::Opaque => bevy::prelude::AlphaMode::Opaque,
         AlphaMode::Blend => bevy::prelude::AlphaMode::Blend,
         AlphaMode::AlphaMask => bevy::prelude::AlphaMode::Mask(0.5),
+        AlphaMode::Mixed => [
+            bevy::prelude::AlphaMode::Opaque,
+            bevy::prelude::AlphaMode::Blend,
+            bevy::prelude::AlphaMode::Mask(0.5),
+        ]
+        .choose(&mut alpha_mode_rng)
+        .copied()
+        .unwrap(),
     };
 
     let mut materials = Vec::with_capacity(capacity);
     materials.push(assets.add(StandardMaterial {
         base_color: Color::WHITE,
         base_color_texture: textures.first().cloned(),
-        alpha_mode,
+        alpha_mode: get_alpha_mode(),
         ..default()
     }));
 
@@ -541,7 +578,7 @@ fn init_materials(
                     color_rng.random(),
                 ),
                 base_color_texture: textures.choose(&mut texture_rng).cloned(),
-                alpha_mode,
+                alpha_mode: get_alpha_mode(),
                 ..default()
             })
         })
