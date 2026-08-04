@@ -19,12 +19,12 @@ use bevy_ecs::{
 };
 use bevy_input_focus::{tab_navigation::TabIndex, AutoFocus};
 use bevy_log::{info, warn};
-use bevy_math::Vec3;
+use bevy_math::{Vec2, Vec3};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::prelude::*;
 use bevy_ui::{
-    prelude::AccessibleLabel, px, widget::Text, AlignItems, AlignSelf, Display, FlexDirection,
-    GridPlacement, GridTrack, JustifySelf, Node, RepeatedGridTrack, UiRect,
+    prelude::AccessibleLabel, px, AlignItems, AlignSelf, Display, FlexDirection, GridPlacement,
+    GridTrack, JustifySelf, Node, RepeatedGridTrack, UiRect,
 };
 use bevy_ui_widgets::{
     popover::{Popover, PopoverAlign, PopoverPlacement, PopoverSide},
@@ -39,10 +39,9 @@ use crate::{
         FeathersMenuPopup, FeathersMenuToolButton, FeathersNumberInput, FeathersTextInput,
         FeathersTextInputContainer, NumberInputPrecision, NumberInputValue,
     },
-    display::label,
+    display::{caption, label},
     font_styles::InheritableFont,
     rounded_corners::RoundedCorners,
-    theme::ThemedText,
 };
 
 /// Component that contains the value of the color input.
@@ -221,7 +220,7 @@ fn color_input_popup() -> Box<dyn Scene> {
                     (
                         #mode_rgb
                         @FeathersButton {
-                            @caption: bsn! { Text("RGB") ThemedText },
+                            @caption: bsn! { caption("RGB") },
                             @corners: RoundedCorners::Left,
                         }
                         Node {
@@ -237,7 +236,7 @@ fn color_input_popup() -> Box<dyn Scene> {
                     (
                         #mode_hsl
                         @FeathersButton {
-                            @caption: bsn! { Text("HSL") ThemedText },
+                            @caption: bsn! { caption("HSL") },
                             @corners: RoundedCorners::None,
                         }
                         Node {
@@ -252,7 +251,7 @@ fn color_input_popup() -> Box<dyn Scene> {
                     (
                         #mode_recent
                         @FeathersButton {
-                            @caption: bsn! { Text("Recent") ThemedText },
+                            @caption: bsn! { caption("Recent") },
                             @variant: ButtonVariant::Primary,
                             @corners: RoundedCorners::Right,
                         }
@@ -274,6 +273,7 @@ fn color_input_popup() -> Box<dyn Scene> {
                     width: px(256 + 8),
                     height: px(256 + 8),
                 }
+                on(handle_rg_color_plane)
             ),
             Node {
                 display: Display::Grid,
@@ -423,6 +423,28 @@ fn color_input_popup() -> Box<dyn Scene> {
     ))
 }
 
+fn handle_rg_color_plane(
+    change: On<ValueChange<Vec2>>,
+    q_parent: Query<&ChildOf>,
+    q_value: Query<(Entity, &ColorInputValue)>,
+    mut commands: Commands,
+) {
+    if let Some((root_id, ColorInputValue(color))) = q_parent
+        .iter_ancestors(change.source)
+        .find_map(|e| q_value.get(e).ok())
+    {
+        let mut rgb = color.to_srgba();
+        rgb.red = change.value.x;
+        rgb.green = change.value.y;
+        info!("Plane: {rgb:?}");
+        commands.trigger(ValueChange {
+            source: root_id,
+            value: rgb,
+            is_final: change.is_final,
+        });
+    }
+}
+
 fn handle_update_input_color(
     insert: On<Insert, ColorInputValue>,
     q_color_input: Query<
@@ -537,12 +559,14 @@ fn handle_popup_init(
 
     let rgb: Srgba = value.to_srgba();
 
-    if let Ok(mut color_plane_value) = q_color_plane.get_mut(refs.rg_plane) {
-        color_plane_value.set_if_neq(ColorPlaneValue(Vec3::new(rgb.red, rgb.green, rgb.blue)));
-    }
-    // commands
-    //     .entity(refs.rg_plane)
-    //     .insert(ColorPlaneValue(Vec3::new(rgb.red, rgb.green, rgb.blue)));
+    // if let Ok(mut color_plane_value) = q_color_plane.get_mut(refs.rg_plane) {
+    //     color_plane_value.set_if_neq(ColorPlaneValue(Vec3::new(rgb.red, rgb.green, rgb.blue)));
+    // } else {
+    //     warn!("Color plane not found: {:?}", refs.rg_plane);
+    // }
+    commands
+        .entity(refs.rg_plane)
+        .insert(ColorPlaneValue(Vec3::new(rgb.red, rgb.green, rgb.blue)));
     commands.entity(refs.r_slider).insert(SliderValue(rgb.red));
     commands
         .entity(refs.g_slider)
