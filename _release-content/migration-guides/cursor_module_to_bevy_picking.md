@@ -9,10 +9,13 @@ from `bevy_feathers::cursor` to `bevy_picking::cursor`.
 The `custom_cursor` feature has also been moved to `bevy_picking`.
 
 Before:
+
 ```rust
 use bevy_feathers::cursor::{CursorIconPlugin, DefaultCursor, EntityCursor, OverrideCursor};
 ```
+
 After:
+
 ```rust
 use bevy_picking::cursor::{CursorIconPlugin, DefaultCursor, EntityCursor, OverrideCursor};
 ```
