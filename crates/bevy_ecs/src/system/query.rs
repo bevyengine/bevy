@@ -871,17 +871,15 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///     list: Vec<Entity>,
     /// }
     ///
-    /// fn error_system(
+    /// fn matching_system(
     ///     friends_query: Query<&Friends>,
     ///     counter_query: Query<&Counter>,
-    /// ) -> Result<(), BevyError> {
+    /// ) {
     ///     for friends in &friends_query {
-    ///         for counter_result in counter_query.iter_many(&friends.list) {
-    ///             let counter = counter_result?;
+    ///         for counter in counter_query.iter_many(&friends.list).matched() {
     ///             println!("Friend's counter: {}", counter.value);
     ///         }
     ///     }
-    ///     Ok(())
     /// }
     ///
     /// fn unwrapping_system(
@@ -895,19 +893,21 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///     }
     /// }
     ///
-    /// fn matching_system(
+    /// fn error_system(
     ///     friends_query: Query<&Friends>,
     ///     counter_query: Query<&Counter>,
-    /// ) {
+    /// ) -> Result<(), BevyError> {
     ///     for friends in &friends_query {
-    ///         for counter in counter_query.iter_many(&friends.list).matched() {
+    ///         for counter_result in counter_query.iter_many(&friends.list) {
+    ///             let counter = counter_result?;
     ///             println!("Friend's counter: {}", counter.value);
     ///         }
     ///     }
+    ///     Ok(())
     /// }
-    /// # bevy_ecs::system::assert_is_system::<(), Result<(), BevyError>, _>(error_system);
-    /// # bevy_ecs::system::assert_is_system(unwrapping_system);
     /// # bevy_ecs::system::assert_is_system(matching_system);
+    /// # bevy_ecs::system::assert_is_system(unwrapping_system);
+    /// # bevy_ecs::system::assert_is_system::<(), Result<(), BevyError>, _>(error_system);
     /// ```
     ///
     /// # See also
