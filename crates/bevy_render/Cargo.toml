@@ -132,6 +132,8 @@ weak-table = "0.3"
 [dev-dependencies]
 proptest = "1"
 proptest-derive = "0.2"
+# noop backend used for tests via test_utils.rs
+wgpu = { version = "29.0.3", default-features = false, features = ["noop"] }
 
 [target.'cfg(all(target_arch = "wasm32", target_feature = "atomics"))'.dependencies]
 send_wrapper = { version = "0.6.0" }
