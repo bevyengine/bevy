@@ -109,9 +109,9 @@ jobs:
       - name: Install toolchain
         id: rust
         run: |
-          rustup toolchain install ${{ env.RUST_TOOLCHAIN }} --no-self-update --profile=minimal
-          rustup target add ${{ env.RUST_TARGET }} --toolchain ${{ env.RUST_TOOLCHAIN }}
-          rustup override set ${{ env.RUST_TOOLCHAIN }}
+          rustup toolchain install ${RUST_TOOLCHAIN} --no-self-update --profile=minimal
+          rustup target add ${RUST_TARGET} --toolchain ${RUST_TOOLCHAIN}
+          rustup override set ${RUST_TOOLCHAIN}
           cargo -V
         env:
           RUST_TOOLCHAIN: ${{ matrix.toolchain }}
