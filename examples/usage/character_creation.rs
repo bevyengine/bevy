@@ -255,8 +255,10 @@ fn on_changed_editable_text(
         character.changed_fields.push(ChangedField::Name);
     }
 
-    // We do not need to update the ui widget view because it updates itself.
-    // However, that is not the norm with headless widgets!
+    // We do not need to update the ui widget view in our app because `EditableText`
+    // manages its own state internally; it updates the text the user sees automatically.
+
+    // Because character has been modified, refresh_character will run and update the other half of the "View".
 }
 
 // --- END TEXT INPUT -- //
@@ -393,6 +395,8 @@ fn on_value_change_age_slider(
     for mut text in age_slider_text_q.iter_mut() {
         *text = Text::new(format!("{}", character.age));
     }
+
+    // Because character has been modified, refresh_character will run and update the other half of the "View".
 }
 
 // --- END SLIDER -- //
