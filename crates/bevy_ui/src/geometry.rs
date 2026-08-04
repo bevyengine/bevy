@@ -166,6 +166,7 @@ impl PartialEq for Val {
 impl Val {
     pub const DEFAULT: Self = Self::Auto;
     pub const ZERO: Self = Self::Px(0.0);
+    pub const MAX: Self = Self::Px(f32::MAX);
 
     /// Returns a [`UiRect`] with its `left` equal to this value,
     /// and all other fields set to `Val::ZERO`.
