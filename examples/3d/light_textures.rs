@@ -21,15 +21,15 @@ use bevy::{
     ui_widgets::ValueChange,
 };
 use light_consts::lux::{AMBIENT_DAYLIGHT, CLEAR_SUNRISE};
-use number_input::number_input_f32;
+use number_input_f32::number_input_f32;
 use ops::{acos, cos, sin};
 use radio::{feathers_option_buttons, main_ui_node_scene, RadioButtonOptionValue};
 
 #[path = "../helpers/radio.rs"]
 mod radio;
 
-#[path = "../helpers/number_input.rs"]
-mod number_input;
+#[path = "../helpers/number_input_f32.rs"]
+mod number_input_f32;
 
 #[path = "../helpers/theme.rs"]
 mod theme;
@@ -299,11 +299,12 @@ fn spawn_buttons(commands: &mut Commands) {
 
             // The number inputs start off hidden because Camera is selected first.
             Visibility::Hidden
-            number_input_f32("Scale Multiplier", Some(AppNumberInput::Scale), 1.0, NumberInputPrecision(2), 0.01..5.)
+            number_input_f32("Scale Multiplier", Some(AppNumberInput::Scale), 1.0, NumberInputPrecision(2), 0.01..=5.)
             ,
 
             Visibility::Hidden
-            number_input_f32("Roll (-π to π)", Some(AppNumberInput::Roll), 0.0, NumberInputPrecision(2), -PI..PI)
+            // + epsilon and next_down are used since roll recalculation likes to switch between -PI and PI upon recalculating roll.
+            number_input_f32("Roll (-π to π)", Some(AppNumberInput::Roll), 0.0, NumberInputPrecision(2), -PI + f32::EPSILON ..=PI.next_down())
             ,
         ]
     });

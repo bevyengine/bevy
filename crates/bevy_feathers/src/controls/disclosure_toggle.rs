@@ -156,7 +156,9 @@ impl Plugin for DisclosureTogglePlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             PreUpdate,
-            (update_toggle_styles, update_toggle_styles_remove).in_set(PickingSystems::Last),
+            (update_toggle_styles, update_toggle_styles_remove)
+                .chain()
+                .in_set(PickingSystems::Last),
         );
     }
 }

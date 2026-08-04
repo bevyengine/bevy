@@ -1,4 +1,4 @@
-/// Helpers to create a basic number input using `FeathersNumberInput`
+/// Helpers to create a basic i32 number input using `FeathersNumberInput`
 /// Using these helpers requires the `bevy_feathers` feature to be enabled.
 use bevy::{
     feathers::{
@@ -8,21 +8,21 @@ use bevy::{
     prelude::*,
 };
 
-/// Creates an f32 number input.
+/// Creates an i32 number input.
 ///
 /// `number_input_identifier` should be a component that will distinguish this
 /// number input from any others if needed.
 ///
-/// Examples that use this to create a number input should handle its `ValueChange<f32>` events.
+/// Examples that use this to create a number input should handle its `ValueChange<i32>` events.
 /// If there is a need to identify the number input that originated the value change,
 /// query which `number_input_identifier` with the `FeathersNumberInput` is
 /// the value change's source entity.
-pub fn number_input_f32<T>(
+pub fn number_input_i32<T>(
     name: &'static str,
     number_input_identifier: Option<T>,
-    value: f32,
+    value: i32,
     precision: NumberInputPrecision,
-    limits: core::ops::Range<f32>,
+    limits: core::ops::RangeInclusive<i32>,
 ) -> Box<dyn Scene>
 where
     T: Template<Output: Component> + Send + Sync + Unpin + 'static,
@@ -42,14 +42,16 @@ where
                     label(name)
                 ],
 
-                Node {
-                    align_items: AlignItems::Center,
-                }
                 template_value(identifier)
                 @FeathersNumberInput
-                template_value(NumberInputValue::F32(value))
+                template_value(NumberInputValue::I32(value))
                 template_value(precision)
-                HardLimit::f32(limits)
+                HardLimit::i32(limits)
+                Node {
+                    align_items: AlignItems::Center,
+                    flex_grow: 1.0,
+                    min_width: px(50),
+                }
             ]
         })
     } else {
@@ -67,13 +69,15 @@ where
                     label(name)
                 ],
 
+                @FeathersNumberInput
+                template_value(NumberInputValue::I32(value))
+                template_value(precision)
+                HardLimit::i32(limits)
                 Node {
                     align_items: AlignItems::Center,
+                    flex_grow: 1.0,
+                    min_width: px(50),
                 }
-                @FeathersNumberInput
-                template_value(NumberInputValue::F32(value))
-                template_value(precision)
-                HardLimit::f32(limits)
             ]
         })
     }

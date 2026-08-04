@@ -63,6 +63,8 @@ pub mod slab_allocator;
 pub mod storage;
 pub mod sync_component;
 pub mod sync_world;
+#[cfg(test)]
+pub(crate) mod test_utils;
 pub mod texture;
 pub mod uniform;
 pub mod view;
@@ -314,16 +316,17 @@ impl Render {
                 Cleanup,
                 PostCleanup,
             )
-                .chain(),
+                .chain_weak(),
         );
         schedule.ignore_ambiguity(Specialize, Specialize);
 
-        schedule.configure_sets((ExtractCommands, PrepareAssets, PrepareMeshes, Prepare).chain());
+        schedule
+            .configure_sets((ExtractCommands, PrepareAssets, PrepareMeshes, Prepare).chain_weak());
         schedule.configure_sets(
             (QueueMeshes, QueueSweep)
-                .chain()
+                .chain_weak()
                 .in_set(Queue)
-                .after(prepare_assets::<RenderMesh>),
+                .after_weak(prepare_assets::<RenderMesh>),
         );
         schedule.configure_sets(
             (
@@ -334,7 +337,7 @@ impl Render {
                 PrepareResourcesFlush,
                 PrepareBindGroups,
             )
-                .chain()
+                .chain_weak()
                 .in_set(Prepare),
         );
 
