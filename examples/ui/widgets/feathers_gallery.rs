@@ -812,7 +812,7 @@ fn demo_column_2() -> impl Scene {
                                                 @FeathersNumberInput
                                                 DemoScalarField
                                                 NumberInputPrecision(2)
-                                                HardLimit::f32(0.0..100.0)
+                                                HardLimit::f32(0.0..=100.0)
                                                 Node {
                                                     flex_grow: 1.0,
                                                     max_width: px(100),
