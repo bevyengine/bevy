@@ -43,7 +43,6 @@ accesskit = "0.24"
 
 [features]
 default = []
-custom_cursor = ["bevy_window/custom_cursor"]
 webgl = []
 webgpu = []
 

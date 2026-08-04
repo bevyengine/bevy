@@ -11,7 +11,7 @@ use bevy_ecs::{
     template::template,
 };
 use bevy_input_focus::tab_navigation::TabIndex;
-use bevy_picking::PickingSystems;
+use bevy_picking::{cursor::EntityCursor, PickingSystems};
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_scene::prelude::*;
@@ -26,7 +26,6 @@ use bevy_ui_widgets::TextInput;
 
 use crate::{
     constants::{fonts, size},
-    cursor::EntityCursor,
     focus::FocusWithinIndicator,
     font_styles::InheritableFont,
     theme::{
