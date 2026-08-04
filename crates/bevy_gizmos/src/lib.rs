@@ -92,7 +92,7 @@ use bevy_reflect::TypePath;
 use crate::{config::ErasedGizmoConfigGroup, gizmos::GizmoBuffer};
 
 use bevy_time::Fixed;
-use bevy_utils::TypeIdMap;
+use bevy_utils::TypeIdIndexMap;
 use config::{DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore};
 use core::{any::TypeId, marker::PhantomData, mem};
 use gizmos::{GizmoStorage, Swap};
@@ -198,18 +198,18 @@ impl AppGizmoBuilder for App {
 }
 
 /// Holds handles to the line gizmos for each gizmo configuration group
-// As `TypeIdMap` iteration order depends on the order of insertions and deletions, this uses
+// As `TypeIdIndexMap` iteration order depends on the order of insertions and deletions, this uses
 // `Option<Handle>` to be able to reserve the slot when creating the gizmo configuration group.
 // That way iteration order is stable across executions and depends on the order of configuration
 // group creation.
 #[derive(Resource, Default)]
 pub struct GizmoHandles {
-    handles: TypeIdMap<Option<Handle<GizmoAsset>>>,
+    handles: TypeIdIndexMap<Option<Handle<GizmoAsset>>>,
 }
 
 impl GizmoHandles {
     /// The handles to the gizmo assets of each gizmo configuration group.
-    pub fn handles(&self) -> &TypeIdMap<Option<Handle<GizmoAsset>>> {
+    pub fn handles(&self) -> &TypeIdIndexMap<Option<Handle<GizmoAsset>>> {
         &self.handles
     }
 }

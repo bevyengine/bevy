@@ -37,7 +37,7 @@ impl Plugin for CopyDeferredLightingIdPlugin {
     }
 }
 
-pub(crate) fn copy_deferred_lighting_id(
+pub fn copy_deferred_lighting_id(
     view: ViewQuery<(
         &ViewTarget,
         &ViewPrepassTextures,
@@ -92,7 +92,7 @@ pub(crate) fn copy_deferred_lighting_id(
 }
 
 #[derive(Resource)]
-pub(crate) struct CopyDeferredLightingIdPipeline {
+pub struct CopyDeferredLightingIdPipeline {
     layout: BindGroupLayoutDescriptor,
     pipeline_id: CachedRenderPipelineId,
 }
