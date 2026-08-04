@@ -32,7 +32,11 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
-      - run: rustup override set stable
+      - name: Install toolchain
+        run: |
+          rustup toolchain install stable --no-self-update --profile=minimal
+          rustup override set stable
+          cargo -V
       - name: get MSRV
         id: msrv
         run: |
@@ -102,11 +106,13 @@ jobs:
           ref: "main"
           persist-credentials: false
 
-      - name: Setup Rust
+      - name: Install toolchain
         id: rust
         run: |
-          rustup override set ${RUST_TOOLCHAIN}
-          rustup target add ${RUST_TARGET}
+          rustup toolchain install ${{ env.RUST_TOOLCHAIN }} --no-self-update --profile=minimal
+          rustup target add ${{ env.RUST_TARGET }} --toolchain ${{ env.RUST_TOOLCHAIN }}
+          rustup override set ${{ env.RUST_TOOLCHAIN }}
+          cargo -V
         env:
           RUST_TOOLCHAIN: ${{ matrix.toolchain }}
           RUST_TARGET: ${{ matrix.target }}

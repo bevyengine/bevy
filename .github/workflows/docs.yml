@@ -39,7 +39,11 @@ jobs:
         with:
           persist-credentials: false
 
-      - run: rustup override set ${{ env.NIGHTLY_TOOLCHAIN }}
+      - name: Install toolchain
+        run: |
+          rustup toolchain install ${{ env.NIGHTLY_TOOLCHAIN }} --no-self-update --profile=minimal
+          rustup override set ${{ env.NIGHTLY_TOOLCHAIN }}
+          cargo -V
 
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
