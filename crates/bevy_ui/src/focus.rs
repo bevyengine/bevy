@@ -48,7 +48,8 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-pub enum Interaction {
+// TODO this should be removed in 0.20.
+pub(crate) enum DeprecatedInteraction {
     /// The node has been pressed.
     ///
     /// Note: This does not capture click/press-release action.
@@ -59,10 +60,29 @@ pub enum Interaction {
     None,
 }
 
+#[deprecated(
+    since = "0.20.0",
+    note = "Use picking::hover::Hovered and ui::Pressed."
+)]
+#[expect(
+    private_interfaces,
+    reason = "We have to use a type alias here to deprecate `Interaction` because\
+              deprecating the `DeprecatedInteraction` struct would cause lints that are not `expect`able."
+)]
+pub type Interaction = DeprecatedInteraction;
+
+#[expect(
+    deprecated,
+    reason = "Should be removed after 0.20 is released when Interaction is removed."
+)]
 impl Interaction {
     const DEFAULT: Self = Self::None;
 }
 
+#[expect(
+    deprecated,
+    reason = "Should be removed after 0.20 is released when Interaction is removed."
+)]
 impl Default for Interaction {
     fn default() -> Self {
         Self::DEFAULT
@@ -135,7 +155,8 @@ pub struct NodeQuery {
     entity: Entity,
     node: &'static ComputedNode,
     transform: &'static UiGlobalTransform,
-    interaction: Option<&'static mut Interaction>,
+    // TODO this should be removed in 0.20.
+    interaction: Option<&'static mut DeprecatedInteraction>,
     relative_cursor_position: Option<&'static mut RelativeCursorPosition>,
     focus_policy: Option<&'static FocusPolicy>,
     inherited_visibility: Option<&'static InheritedVisibility>,
@@ -145,6 +166,10 @@ pub struct NodeQuery {
 /// The system that sets Interaction for all UI elements based on the mouse cursor activity
 ///
 /// Entities with a hidden [`InheritedVisibility`] are always treated as released.
+#[expect(
+    deprecated,
+    reason = "Should be removed after 0.20 is released when Interaction is removed."
+)]
 pub fn ui_focus_system(
     mut hovered_nodes: Local<Vec<Entity>>,
     mut state: Local<State>,

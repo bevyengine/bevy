@@ -247,6 +247,18 @@ pub fn extract_ui_texture_slices(
             )>,
         >,
     >,
+    unfiltered_slicers_query: Extract<
+        Query<(
+            Entity,
+            &ComputedNode,
+            &ComputedStackIndex,
+            &UiGlobalTransform,
+            &InheritedVisibility,
+            Option<&CalculatedClip>,
+            &ComputedUiTargetCamera,
+            &ImageNode,
+        )>,
+    >,
     camera_map: Extract<UiCameraMap>,
     (
         mut removed_computed_node_query,
@@ -271,7 +283,11 @@ pub fn extract_ui_texture_slices(
     let mut camera_mapper = camera_map.get_mapper();
 
     for (entity, uinode, stack_index, transform, inherited_visibility, clip, camera, image) in
-        &slicers_query
+        slicers_query.iter().chain(
+            removed_calculated_clip_query
+                .read()
+                .filter_map(|entity| unfiltered_slicers_query.get(entity).ok()),
+        )
     {
         let main_entity = MainEntity::from(entity);
 
@@ -375,7 +391,6 @@ pub fn extract_ui_texture_slices(
         .chain(removed_computed_stack_index_query.read())
         .chain(removed_ui_global_transform_query.read())
         .chain(removed_inherited_visibility_query.read())
-        .chain(removed_calculated_clip_query.read())
         .chain(removed_computed_ui_target_camera_query.read())
         .chain(removed_image_node_query.read())
     {

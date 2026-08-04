@@ -84,6 +84,10 @@ fn demo_root() -> impl Scene {
                 InteractionDisabled
                 template_value(SoftLimit(NumberInputRange::F32(0.0..10.0)))
             )),
+            demo_field_f32("hard limit + wrap", 0.0, bsn!(
+                template_value(HardLimit(NumberInputRange::F32(-180.0..180.0)))
+                template_value(NumberInputWrap::Wrap)
+            )),
         ]
     }
 }
