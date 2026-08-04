@@ -29,7 +29,11 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
-      - run: rustup override set stable
+      - name: Install toolchain
+        run: |
+          rustup toolchain install stable --no-self-update --profile=minimal
+          rustup override set stable
+          cargo -V
       - name: Install cargo-deny
         run: cargo install cargo-deny
       - name: Check for security advisories and unmaintained crates
@@ -41,7 +45,11 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
-      - run: rustup override set stable
+      - name: Install toolchain
+        run: |
+          rustup toolchain install stable --no-self-update --profile=minimal
+          rustup override set stable
+          cargo -V
       - name: Install cargo-deny
         run: cargo install cargo-deny
       - name: Check for banned and duplicated dependencies
@@ -53,7 +61,11 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
-      - run: rustup override set stable
+      - name: Install toolchain
+        run: |
+          rustup toolchain install stable --no-self-update --profile=minimal
+          rustup override set stable
+          cargo -V
       - name: Install cargo-deny
         run: cargo install cargo-deny
       - name: Check for unauthorized licenses
@@ -65,7 +77,11 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
-      - run: rustup override set stable
+      - name: Install toolchain
+        run: |
+          rustup toolchain install stable --no-self-update --profile=minimal
+          rustup override set stable
+          cargo -V
       - name: Install cargo-deny
         run: cargo install cargo-deny
       - name: Checked for unauthorized crate sources
