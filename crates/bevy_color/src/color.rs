@@ -1182,6 +1182,9 @@ impl TryStableInterpolate for Color {
             (Color::Oklaba(a), Color::Oklaba(b)) => Ok(Color::Oklaba(a.mix(b, t))),
             (Color::Oklcha(a), Color::Oklcha(b)) => Ok(Color::Oklcha(a.mix(b, t))),
             (Color::Xyza(a), Color::Xyza(b)) => Ok(Color::Xyza(a.mix(b, t))),
+            (Color::Okhsla(a), Color::Okhsla(b)) => Ok(Color::Okhsla(a.mix(b, t))),
+            (Color::Okhsva(a), Color::Okhsva(b)) => Ok(Color::Okhsva(a.mix(b, t))),
+            (Color::Okhwba(a), Color::Okhwba(b)) => Ok(Color::Okhwba(a.mix(b, t))),
             _ => Err(MismatchedUnitsError),
         }
     }
