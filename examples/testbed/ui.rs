@@ -3735,8 +3735,7 @@ mod change_detection {
                 children![(
                     Node {
                         position_type: PositionType::Absolute,
-                        margin: px(25).all(),
-                        column_gap: px(10),
+                        margin: px(100).all(),
                         ..default()
                     },
                     Outline {
@@ -3759,8 +3758,8 @@ mod change_detection {
                         ),
                         (
                             Node {
-                                width: px(100),
-                                height: px(100),
+                                width: px(300),
+                                height: px(300),
                                 ..default()
                             },
                             BackgroundGradient::from(RadialGradient {
