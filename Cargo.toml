@@ -5645,6 +5645,3 @@ name = "Material - 2D Bindless"
 description = "Demonstrates bindless materials in 2D"
 category = "Shaders"
 wasm = false
-
-[patch.crates-io]
-wesl = { git = "https://github.com/webgpu-tools/wesl-rs", rev = "a019d97d4c1c1c9da1827c13a09761b48a3239d6" }
