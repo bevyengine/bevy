@@ -672,6 +672,37 @@ pub struct StandardMaterial {
     /// Whether to enable fog for this material.
     pub fog_enabled: bool,
 
+    /// Whether to enable geometric specular aa.
+    ///
+    /// When enabled, the PBR shader widens the roughness based on the
+    /// screen space variance of the shading normal, suppressing the
+    /// shimmering specular "fireflies" that high freq normal maps and
+    /// sharp geometric curvature produce at low roughness...
+    ///
+    /// Based on Tokuyoshi and Kaplanyan, "Improved Geometric Specular
+    /// Antialiasing" (I3D 2019):
+    /// <https://www.jp.square-enix.com/tech/library/pdf/ImprovedGeometricSpecularAA.pdf>.
+    ///
+    /// Defaults to `false`.
+    pub specular_anti_aliasing: bool,
+
+    /// Strength of [`StandardMaterial::specular_anti_aliasing`], the
+    /// screen-space variance σ of the filtering kernel. Higher values
+    /// widen the roughness more aggressively.
+    ///
+    /// Only has an effect when [`StandardMaterial::specular_anti_aliasing`]
+    /// is `true`. Defaults to `0.5`.
+    pub specular_anti_aliasing_screen_space_variance: f32,
+
+    /// Clamping threshold κ for [`StandardMaterial::specular_anti_aliasing`].
+    /// Caps the maximum amount of squared roughness the filter is allowed
+    /// to add, preventing over-filtering where screen-space derivatives
+    /// spike.
+    ///
+    /// Only has an effect when [`StandardMaterial::specular_anti_aliasing`]
+    /// is `true`. Defaults to `0.18`.
+    pub specular_anti_aliasing_threshold: f32,
+
     /// How to apply the alpha channel of the `base_color_texture`.
     ///
     /// See [`AlphaMode`] for details. Defaults to [`AlphaMode::Opaque`].
@@ -926,6 +957,9 @@ impl Default for StandardMaterial {
             cull_mode: Some(Face::Back),
             unlit: false,
             fog_enabled: true,
+            specular_anti_aliasing: false,
+            specular_anti_aliasing_screen_space_variance: 0.5,
+            specular_anti_aliasing_threshold: 0.18,
             alpha_mode: AlphaMode::Opaque,
             depth_bias: 0.0,
             depth_map: None,
@@ -989,6 +1023,7 @@ bitflags::bitflags! {
         const ANISOTROPY_TEXTURE         = 1 << 17;
         const SPECULAR_TEXTURE           = 1 << 18;
         const SPECULAR_TINT_TEXTURE      = 1 << 19;
+        const SPECULAR_ANTI_ALIASING     = 1 << 20;
         const ALPHA_MODE_RESERVED_BITS   = Self::ALPHA_MODE_MASK_BITS << Self::ALPHA_MODE_SHIFT_BITS; // ← Bitmask reserving bits for the `AlphaMode`
         const ALPHA_MODE_OPAQUE          = 0 << Self::ALPHA_MODE_SHIFT_BITS;                          // ← Values are just sequential values bitshifted into
         const ALPHA_MODE_MASK            = 1 << Self::ALPHA_MODE_SHIFT_BITS;                          //   the bitmask, and can range from 0 to 7.
@@ -1061,6 +1096,10 @@ pub struct StandardMaterialUniform {
     pub max_relief_mapping_search_steps: u32,
     /// ID for specifying which deferred lighting pass should be used for rendering this material, if any.
     pub deferred_lighting_pass_id: u32,
+    /// Screen-space variance (σ) for geometric specular anti-aliasing.
+    pub specular_anti_aliasing_screen_space_variance: f32,
+    /// Clamping threshold (κ) for geometric specular anti-aliasing.
+    pub specular_anti_aliasing_threshold: f32,
 }
 
 impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
@@ -1089,6 +1128,9 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
         }
         if self.fog_enabled {
             flags |= StandardMaterialFlags::FOG_ENABLED;
+        }
+        if self.specular_anti_aliasing {
+            flags |= StandardMaterialFlags::SPECULAR_ANTI_ALIASING;
         }
         if self.depth_map.is_some() {
             flags |= StandardMaterialFlags::DEPTH_MAP;
@@ -1215,6 +1257,9 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
             max_relief_mapping_search_steps: self.parallax_mapping_method.max_steps(),
             deferred_lighting_pass_id: self.deferred_lighting_pass_id as u32,
             uv_transform: self.uv_transform.into(),
+            specular_anti_aliasing_screen_space_variance: self
+                .specular_anti_aliasing_screen_space_variance,
+            specular_anti_aliasing_threshold: self.specular_anti_aliasing_threshold,
         }
     }
 }
