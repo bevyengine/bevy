@@ -12,7 +12,7 @@ use bevy_camera::{
 };
 use bevy_mesh::{Mesh, Mesh2d, Mesh3d};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_shape::{bounding::Aabb3d, Ray3d};
+use bevy_shape::{Aabb3d, Ray3d};
 
 use intersections::*;
 pub use intersections::{ray_aabb_intersection_3d, ray_mesh_intersection, RayMeshHit};

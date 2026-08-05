@@ -1,9 +1,8 @@
 //! Contains [`Bounded3d`] implementations for [3d geometric primitives](crate::dim3).
 
 use crate::{
-    bounding::{Bounded2d, BoundingCircle, BoundingVolume},
-    Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, InfinitePlane3d, Line3d, Segment3d, Sphere,
-    Torus, Triangle2d, Triangle3d,
+    Bounded2d, BoundingCircle, BoundingVolume, Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder,
+    InfinitePlane3d, Line3d, Segment3d, Sphere, Torus, Triangle2d, Triangle3d,
 };
 use bevy_math::{ops, Isometry2d, Isometry3d, Mat3, Vec2, Vec3, Vec3A};
 
@@ -363,12 +362,12 @@ impl Bounded3d for Triangle3d {
 
 #[cfg(test)]
 mod tests {
-    use crate::bounding::BoundingVolume;
+    use crate::BoundingVolume;
     use bevy_math::{ops, Dir3, Isometry3d, Quat, Vec3, Vec3A};
 
     use crate::{
-        bounding::Bounded3d, Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, InfinitePlane3d,
-        Line3d, Polyline3d, Segment3d, Sphere, Torus, Triangle3d,
+        Bounded3d, Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, InfinitePlane3d, Line3d,
+        Polyline3d, Segment3d, Sphere, Torus, Triangle3d,
     };
 
     #[test]

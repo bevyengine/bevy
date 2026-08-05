@@ -5,7 +5,7 @@ use bevy_math::{vec2, Vec2, Vec3, Vec3A, Vec3Swizzles};
 #[cfg(feature = "serialize")]
 use bevy_platform::collections::HashMap;
 use bevy_platform::collections::HashSet;
-use bevy_shape::bounding::{Aabb2d, Aabb3d, BoundingVolume};
+use bevy_shape::{Aabb2d, Aabb3d, BoundingVolume};
 use bytemuck::{bytes_of, cast_slice};
 use core::hash::{Hash, Hasher};
 #[cfg(feature = "serialize")]

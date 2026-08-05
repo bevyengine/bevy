@@ -18,10 +18,7 @@ use bevy_asset::{Asset, RenderAssetUsages};
 use bevy_math::*;
 use bevy_platform::collections::{hash_map, HashMap};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_shape::{
-    bounding::{Aabb2d, Aabb3d},
-    Triangle3d,
-};
+use bevy_shape::{Aabb2d, Aabb3d, Triangle3d};
 use bytemuck::cast_slice;
 use core::hash::{Hash, Hasher};
 use core::ptr;
@@ -3051,8 +3048,7 @@ mod tests {
     use crate::{MeshAttributeCompressionFlags, MeshVertexAttribute, PrimitiveTopology};
     use bevy_asset::RenderAssetUsages;
     use bevy_math::{Vec3, Vec3A};
-    use bevy_shape::bounding::Aabb3d;
-    use bevy_shape::Triangle3d;
+    use bevy_shape::{Aabb3d, Triangle3d};
     use bevy_transform::components::Transform;
 
     #[test]
