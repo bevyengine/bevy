@@ -378,19 +378,19 @@ impl NumberInputRange {
     pub fn wrap(&self, n: NumberInputValue) -> NumberInputValue {
         match (self, n) {
             (Self::F32(r), NumberInputValue::F32(v)) => {
-                let range = r.end() - r.start();
+                let range = r.end().next_up() - r.start();
                 NumberInputValue::F32(r.start() + (v - r.start()).rem_euclid(range))
             }
             (Self::F64(r), NumberInputValue::F64(v)) => {
-                let range = r.end() - r.start();
+                let range = r.end().next_up() - r.start();
                 NumberInputValue::F64(r.start() + (v - r.start()).rem_euclid(range))
             }
             (Self::I32(r), NumberInputValue::I32(v)) => {
-                let range = r.end() - r.start();
+                let range = r.end() - r.start() + 1;
                 NumberInputValue::I32(r.start() + (v - r.start()).rem_euclid(range))
             }
             (Self::I64(r), NumberInputValue::I64(v)) => {
-                let range = r.end() - r.start();
+                let range = r.end() - r.start() + 1;
                 NumberInputValue::I64(r.start() + (v - r.start()).rem_euclid(range))
             }
             (range, value) => {
