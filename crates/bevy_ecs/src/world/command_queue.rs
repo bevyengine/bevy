@@ -4,7 +4,7 @@ use crate::{
     world::{DeferredWorld, World},
 };
 
-use alloc::{boxed::Box, vec::Vec};
+use alloc::vec::Vec;
 use bevy_ptr::{OwningPtr, Unaligned};
 use core::{
     fmt::Debug,
@@ -15,6 +15,8 @@ use log::warn;
 
 #[cfg(feature = "std")]
 use crate::error::{BevyError, ErrorContext, Severity, PANIC_ORIGINATES_FROM_ERROR_HANDLER};
+#[cfg(feature = "std")]
+use alloc::boxed::Box;
 #[cfg(feature = "std")]
 use bevy_utils::DebugName;
 #[cfg(feature = "std")]
