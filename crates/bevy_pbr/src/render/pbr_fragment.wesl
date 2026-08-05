@@ -143,8 +143,6 @@ pbr_input.material.uv_transform = uv_transform;
         let N = TBN[2];
         // Transform V from fragment to camera in world space to tangent space.
         let Vt = vec3(dot(V, T), dot(V, B), dot(V, N));
-@if(VERTEX_UVS_A) {
-        // TODO: Transforming UVs mean we need to apply derivative chain rule for meshlet mesh material pass
         @if(BINDLESS)
         let parallax_depth_scale = pbr_bindings::material_array[material_indices[slot].material].parallax_depth_scale;
         @else
@@ -157,6 +155,8 @@ pbr_input.material.uv_transform = uv_transform;
         let max_relief_mapping_search_steps = pbr_bindings::material_array[material_indices[slot].material].max_relief_mapping_search_steps;
         @else
         let max_relief_mapping_search_steps = pbr_bindings::material.max_relief_mapping_search_steps;
+@if(VERTEX_UVS_A) {
+        // TODO: Transforming UVs mean we need to apply derivative chain rule for meshlet mesh material pass
         uv = parallaxed_uv(
             parallax_depth_scale,
             max_parallax_layer_count,
@@ -172,18 +172,6 @@ pbr_input.material.uv_transform = uv_transform;
 
 @if(VERTEX_UVS_B) {
         // TODO: Transforming UVs mean we need to apply derivative chain rule for meshlet mesh material pass
-        @if(BINDLESS)
-        let parallax_depth_scale = pbr_bindings::material_array[material_indices[slot].material].parallax_depth_scale;
-        @else
-        let parallax_depth_scale = pbr_bindings::material.parallax_depth_scale;
-        @if(BINDLESS)
-        let max_parallax_layer_count = pbr_bindings::material_array[material_indices[slot].material].max_parallax_layer_count;
-        @else
-        let max_parallax_layer_count = pbr_bindings::material.max_parallax_layer_count;
-        @if(BINDLESS)
-        let max_relief_mapping_search_steps = pbr_bindings::material_array[material_indices[slot].material].max_relief_mapping_search_steps;
-        @else
-        let max_relief_mapping_search_steps = pbr_bindings::material.max_relief_mapping_search_steps;
         uv_b = parallaxed_uv(
             parallax_depth_scale,
             max_parallax_layer_count,
@@ -598,21 +586,21 @@ pbr_input.material.uv_transform = uv_transform;
 @if(STANDARD_MATERIAL_CLEARCOAT_NORMAL_MAP) {
 
         @if(BINDLESS)
-        let texture = bindless_textures_2d[material_indices[slot].clearcoat_normal_texture];
+        let clearcoat_texture = bindless_textures_2d[material_indices[slot].clearcoat_normal_texture];
         @else
-        let texture = pbr_bindings::clearcoat_normal_texture;
+        let clearcoat_texture = pbr_bindings::clearcoat_normal_texture;
         @if(BINDLESS)
-        let sampler_ = bindless_samplers_filtering[material_indices[slot].clearcoat_normal_sampler];
+        let clearcoat_sampler = bindless_samplers_filtering[material_indices[slot].clearcoat_normal_sampler];
         @else
-        let sampler_ = pbr_bindings::clearcoat_normal_sampler;
+        let clearcoat_sampler = pbr_bindings::clearcoat_normal_sampler;
         @if(STANDARD_MATERIAL_CLEARCOAT_NORMAL_UV_B)
-        let coords = uv_b;
+        let clearcoat_coords = uv_b;
         @else
-        let coords = uv;
+        let clearcoat_coords = uv;
         @if(MESHLET_MESH_MATERIAL_PASS)
-        let clearcoat_Nt = textureSampleGrad(texture, sampler_, coords, bias.ddx_uv, bias.ddy_uv).rgb;
+        let clearcoat_Nt = textureSampleGrad(clearcoat_texture, clearcoat_sampler, clearcoat_coords, bias.ddx_uv, bias.ddy_uv).rgb;
         @else
-        let clearcoat_Nt = textureSampleBias(texture, sampler_, coords, bias.mip_bias).rgb;
+        let clearcoat_Nt = textureSampleBias(clearcoat_texture, clearcoat_sampler, clearcoat_coords, bias.mip_bias).rgb;
 
         pbr_input.clearcoat_N = pbr_functions::apply_normal_mapping(
             flags,
