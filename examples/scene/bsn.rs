@@ -9,7 +9,7 @@ fn main() {
 }
 
 fn scene() -> impl SceneList {
-    bsn_list![Camera2d, ui()]
+    bsn_list![Camera2d, @ui()]
 }
 
 fn ui() -> impl Scene {
@@ -23,12 +23,12 @@ fn ui() -> impl Scene {
         }
         Children [
             (
-                button("Ok")
-                on(|_event: On<Pointer<Press>>| println!("Ok pressed!"))
+                @button("Ok")
+                |_event: On<Pointer<Press>>| { println!("Ok pressed!") }
             ),
             (
-                button("Cancel")
-                on(|_event: On<Pointer<Press>>| println!("Cancel pressed!"))
+                @button("Cancel")
+                |_event: On<Pointer<Press>>| { println!("Cancel pressed!") }
                 BackgroundColor(Color::srgb(0.4, 0.15, 0.15))
             ),
         ]

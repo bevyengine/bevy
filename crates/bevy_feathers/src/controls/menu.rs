@@ -12,7 +12,6 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
-    template::template,
 };
 use bevy_log::{info, warn};
 use bevy_picking::{hover::Hovered, PickingSystems};
@@ -194,8 +193,8 @@ fn on_lazy_menu_event(
             commands
                 .entity(ev.source)
                 .queue_spawn_related_scenes::<Children>(bsn!(
-                    popup()
-                    template_value(MenuFocusState::Opening(nav))
+                    @popup()
+                    @template_value(MenuFocusState::Opening(nav))
                     Visibility::Visible
                 ));
         }
@@ -219,8 +218,8 @@ fn on_lazy_menu_event(
                 commands
                     .entity(ev.source)
                     .queue_spawn_related_scenes::<Children>(bsn!(
-                        popup()
-                        template_value(MenuFocusState::Opening(NavAction::First))
+                        @popup()
+                        @template_value(MenuFocusState::Opening(NavAction::First))
                         Visibility::Visible
                     ));
             }
@@ -298,7 +297,7 @@ impl FeathersMenuButton {
                         Node {
                             flex_grow: 1.0,
                         },
-                        icon(icons::CHEVRON_DOWN),
+                        @icon(icons::CHEVRON_DOWN),
                     ))
                 }
             ]
@@ -332,7 +331,7 @@ impl FeathersMenuToolButton {
                 {
                     props.arrow.then(|| bsn_list!(
                         Node { min_width: px(2) },
-                        icon(icons::CHEVRON_DOWN),
+                        @icon(icons::CHEVRON_DOWN),
                     ))
                 }
             ]
@@ -363,7 +362,7 @@ impl FeathersMenuPopup {
             Visibility::Hidden
             ThemeBackgroundColor(tokens::MENU_BG)
             ThemeBorderColor(tokens::MENU_BORDER)
-            template(|_| Ok(Propagate(ThemeContext(SurfaceLevel::Floating))))
+            Propagate::<ThemeContext>(ThemeContext(SurfaceLevel::Floating))
             BoxShadow::new(
                 Srgba::BLACK.with_alpha(0.9).into(),
                 px(0),

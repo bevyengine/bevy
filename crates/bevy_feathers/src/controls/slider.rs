@@ -120,7 +120,7 @@ impl FeathersSlider {
                     font_size: size::SMALL_FONT,
                     weight: FontWeight::NORMAL,
                 }
-                Children [(caption("10.0") SliderValueText)]
+                Children [(@caption("10.0") SliderValueText)]
             )]
         }
     }

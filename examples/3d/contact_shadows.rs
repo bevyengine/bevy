@@ -284,9 +284,9 @@ fn rotate_light(
 
 fn spawn_buttons(commands: &mut Commands, app_status: &AppStatus) {
     commands.spawn_scene(bsn! {
-        main_ui_node_scene()
+        @main_ui_node_scene()
         Children [
-            feathers_option_buttons(
+            @feathers_option_buttons(
                 "Contact Shadows",
                 &[
                     (
@@ -307,7 +307,7 @@ fn spawn_buttons(commands: &mut Commands, app_status: &AppStatus) {
                     }
                 },
             ),
-            feathers_option_buttons(
+            @feathers_option_buttons(
                 "Shadow Maps",
                 &[
                     (ExampleSetting::ShadowMaps(ShadowMaps::Enabled), "On"),
@@ -322,7 +322,7 @@ fn spawn_buttons(commands: &mut Commands, app_status: &AppStatus) {
                     }
                 },
             ),
-            feathers_option_buttons(
+            @feathers_option_buttons(
                 "Light Rotation",
                 &[
                     (ExampleSetting::LightRotation(LightRotation::Rotating), "On"),
@@ -340,7 +340,7 @@ fn spawn_buttons(commands: &mut Commands, app_status: &AppStatus) {
                     }
                 },
             ),
-            feathers_option_buttons(
+            @feathers_option_buttons(
                 "Light Type",
                 &[
                     (
@@ -358,7 +358,7 @@ fn spawn_buttons(commands: &mut Commands, app_status: &AppStatus) {
                     }
                 },
             ),
-            feathers_option_buttons(
+            @feathers_option_buttons(
                 "Receive Shadows",
                 &[
                     (
