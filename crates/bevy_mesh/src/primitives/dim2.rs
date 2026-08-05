@@ -1123,7 +1123,7 @@ impl From<Rectangle> for Mesh {
 pub struct Capsule2dMeshBuilder {
     /// The [`Capsule2d`] shape.
     pub capsule: Capsule2d,
-    /// The number of vertices used for one hemicircle.
+    /// The number of vertices used for one semicircle.
     /// The total number of vertices for the capsule mesh will be two times the resolution.
     ///
     /// The default is `16`.
@@ -1141,7 +1141,7 @@ impl Default for Capsule2dMeshBuilder {
 
 impl Capsule2dMeshBuilder {
     /// Creates a new [`Capsule2dMeshBuilder`] from a given radius, length, and the number of vertices
-    /// used for one hemicircle. The total number of vertices for the capsule mesh will be two times the resolution.
+    /// used for one semicircle. The total number of vertices for the capsule mesh will be two times the resolution.
     #[inline]
     pub fn new(radius: f32, length: f32, resolution: u32) -> Self {
         Self {
@@ -1150,7 +1150,7 @@ impl Capsule2dMeshBuilder {
         }
     }
 
-    /// Sets the number of vertices used for one hemicircle.
+    /// Sets the number of vertices used for one semicircle.
     /// The total number of vertices for the capsule mesh will be two times the resolution.
     #[inline]
     pub const fn resolution(mut self, resolution: u32) -> Self {
@@ -1182,7 +1182,7 @@ impl MeshBuilder for Capsule2dMeshBuilder {
             0.0
         };
 
-        // How much the hemicircle radius is of the total half-height of the capsule.
+        // How much the semicircle radius is of the total half-height of the capsule.
         // This is used to prevent the UVs from stretching between the semicircles.
         let radius_frac = self.capsule.radius / (self.capsule.half_length + self.capsule.radius);
 

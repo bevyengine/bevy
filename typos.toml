@@ -33,6 +33,10 @@ vOt2 = "vOt2"
 locale = "en-us"
 # Ignored typos regexes
 extend-ignore-re = [
+  # bevy_math things
+  ".*_ba",
+  "abd",
+  # end bevy_math things
   "\\bBelen Masia\\b",            # The surname of one of the authors of SMAA
   "\\bBig Sur\\b",                # macOS Big Sur
   "\\bgeneric-rpg-ui-inventario", # Inventory in Portuguese
