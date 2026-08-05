@@ -143,11 +143,11 @@ pub fn mark_3d_meshes_as_changed_if_their_assets_changed(
         return;
     }
 
-    for mut mesh_3d in &mut meshes_3d {
+    meshes_3d.par_iter_mut().for_each(|mut mesh_3d| {
         if changed_meshes.contains(&mesh_3d.0.id()) {
             mesh_3d.set_changed();
         }
-    }
+    });
 }
 
 /// A component that stores an arbitrary index used to identify the mesh instance when rendering.

@@ -49,6 +49,7 @@ pub mod extract_resource;
 pub mod globals;
 pub mod gpu_component_array_buffer;
 pub mod gpu_readback;
+pub mod material_bind_groups;
 pub mod mesh;
 pub mod occlusion_culling;
 #[cfg(not(target_arch = "wasm32"))]
@@ -62,6 +63,8 @@ pub mod slab_allocator;
 pub mod storage;
 pub mod sync_component;
 pub mod sync_world;
+#[cfg(test)]
+pub(crate) mod test_utils;
 pub mod texture;
 pub mod uniform;
 pub mod view;
@@ -76,7 +79,6 @@ pub mod prelude {
         view::Msaa, ExtractSchedule,
     };
 }
-
 pub use extract_param::Extract;
 pub use extract_plugin::{ExtractSchedule, MainWorld};
 
@@ -85,6 +87,7 @@ use crate::{
     error_handler::{RenderErrorHandler, RenderState},
     extract_plugin::ExtractPlugin,
     gpu_readback::GpuReadbackPlugin,
+    material_bind_groups::MaterialBindGroupPlugin,
     mesh::{MeshRenderAssetPlugin, RenderMesh},
     render_asset::prepare_assets,
     render_resource::{PipelineCache, SparseBufferPlugin},
@@ -96,7 +99,7 @@ use crate::{
 };
 use alloc::sync::Arc;
 use batching::gpu_preprocessing::BatchingPlugin;
-use bevy_app::{App, AppLabel, Plugin, SubApp};
+use bevy_app::{App, AppLabel, First, Plugin, SubApp};
 use bevy_asset::{AssetApp, AssetServer};
 use bevy_derive::Deref;
 use bevy_ecs::{
@@ -256,7 +259,7 @@ pub struct RenderScheduleOrder {
 impl Default for RenderScheduleOrder {
     fn default() -> Self {
         Self {
-            labels: vec![Render.intern()],
+            labels: vec![First.intern(), Render.intern()],
         }
     }
 }
@@ -284,6 +287,8 @@ impl RenderScheduleOrder {
 }
 
 /// The main render schedule.
+///
+/// See also [`RenderGraph`] for more details.
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
 pub struct Render;
 
@@ -310,16 +315,17 @@ impl Render {
                 Cleanup,
                 PostCleanup,
             )
-                .chain(),
+                .chain_weak(),
         );
         schedule.ignore_ambiguity(Specialize, Specialize);
 
-        schedule.configure_sets((ExtractCommands, PrepareAssets, PrepareMeshes, Prepare).chain());
+        schedule
+            .configure_sets((ExtractCommands, PrepareAssets, PrepareMeshes, Prepare).chain_weak());
         schedule.configure_sets(
             (QueueMeshes, QueueSweep)
-                .chain()
+                .chain_weak()
                 .in_set(Queue)
-                .after(prepare_assets::<RenderMesh>),
+                .after_weak(prepare_assets::<RenderMesh>),
         );
         schedule.configure_sets(
             (
@@ -330,7 +336,7 @@ impl Render {
                 PrepareResourcesFlush,
                 PrepareBindGroups,
             )
-                .chain()
+                .chain_weak()
                 .in_set(Prepare),
         );
 
@@ -358,9 +364,13 @@ impl Plugin for RenderPlugin {
         if insert_future_resources(&self.render_creation, app.world_mut()) {
             // We only create the render world and set up extraction if we
             // have a rendering backend available.
-            app.add_plugins(ExtractPlugin {
-                pre_extract: error_handler::update_state,
-            });
+            app.add_plugins(ExtractPlugin::<RenderApp>::new(
+                error_handler::update_state,
+                Render::base_schedule,
+                Render.intern(),
+                RenderSystems::ExtractCommands.intern(),
+                RenderSystems::PostCleanup.intern(),
+            ));
         };
 
         app.add_plugins((
@@ -377,6 +387,7 @@ impl Plugin for RenderPlugin {
             GpuReadbackPlugin::default(),
             OcclusionCullingPlugin,
             SparseBufferPlugin,
+            MaterialBindGroupPlugin,
             #[cfg(feature = "tracing-tracy")]
             diagnostic::RenderDiagnosticsPlugin,
         ));

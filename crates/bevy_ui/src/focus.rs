@@ -46,7 +46,8 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-pub enum Interaction {
+// TODO this should be removed in 0.20.
+pub(crate) enum DeprecatedInteraction {
     /// The node has been pressed.
     ///
     /// Note: This does not capture click/press-release action.
@@ -57,10 +58,29 @@ pub enum Interaction {
     None,
 }
 
+#[deprecated(
+    since = "0.20.0",
+    note = "Use picking::hover::Hovered and ui::Pressed."
+)]
+#[expect(
+    private_interfaces,
+    reason = "We have to use a type alias here to deprecate `Interaction` because\
+              deprecating the `DeprecatedInteraction` struct would cause lints that are not `expect`able."
+)]
+pub type Interaction = DeprecatedInteraction;
+
+#[expect(
+    deprecated,
+    reason = "Should be removed after 0.20 is released when Interaction is removed."
+)]
 impl Interaction {
     const DEFAULT: Self = Self::None;
 }
 
+#[expect(
+    deprecated,
+    reason = "Should be removed after 0.20 is released when Interaction is removed."
+)]
 impl Default for Interaction {
     fn default() -> Self {
         Self::DEFAULT
@@ -133,7 +153,8 @@ pub struct NodeQuery {
     entity: Entity,
     node: &'static ComputedNode,
     transform: &'static UiGlobalTransform,
-    interaction: Option<&'static mut Interaction>,
+    // TODO this should be removed in 0.20.
+    interaction: Option<&'static mut DeprecatedInteraction>,
     relative_cursor_position: Option<&'static mut RelativeCursorPosition>,
     focus_policy: Option<&'static FocusPolicy>,
     inherited_visibility: Option<&'static InheritedVisibility>,
@@ -144,6 +165,10 @@ pub struct NodeQuery {
 /// The system that sets Interaction for all UI elements based on the mouse cursor activity
 ///
 /// Entities with a hidden [`InheritedVisibility`] are always treated as released.
+#[expect(
+    deprecated,
+    reason = "Should be removed after 0.20 is released when Interaction is removed."
+)]
 pub fn ui_focus_system(
     mut hovered_nodes: Local<Vec<Entity>>,
     mut state: Local<State>,
@@ -301,7 +326,7 @@ pub fn ui_focus_system(
     // set Pressed or Hovered on top nodes. as soon as a node with a `Block` focus policy is detected,
     // the iteration will stop on it because it "captures" the interaction.
     let mut hovered_nodes = hovered_nodes.iter();
-    let mut iter = node_query.iter_many_mut(hovered_nodes.by_ref());
+    let mut iter = node_query.iter_many_mut(hovered_nodes.by_ref()).matched();
     while let Some(node) = iter.fetch_next() {
         if let Some(mut interaction) = node.interaction {
             if mouse_clicked {
@@ -328,7 +353,7 @@ pub fn ui_focus_system(
     }
     // reset `Interaction` for the remaining lower nodes to `None`. those are the nodes that remain in
     // `moused_over_nodes` after the previous loop is exited.
-    let mut iter = node_query.iter_many_mut(hovered_nodes);
+    let mut iter = node_query.iter_many_mut(hovered_nodes).matched();
     while let Some(node) = iter.fetch_next() {
         if let Some(mut interaction) = node.interaction {
             // don't reset pressed nodes because they're handled separately

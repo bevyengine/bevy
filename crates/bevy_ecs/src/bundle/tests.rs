@@ -1,6 +1,10 @@
 use crate::{
-    archetype::ArchetypeCreated, lifecycle::HookContext, prelude::*, world::DeferredWorld,
+    archetype::{Archetype, ArchetypeCreated, ArchetypeId},
+    lifecycle::HookContext,
+    prelude::*,
+    world::DeferredWorld,
 };
+use alloc::{vec, vec::Vec};
 
 #[derive(Component)]
 struct A;
@@ -253,6 +257,32 @@ fn new_archetype_created() {
     e.insert(A);
 
     assert_eq!(world.resource::<Count>().0, 3);
+}
+
+#[test]
+fn new_archetype_created_triggered_first() {
+    let mut world = World::new();
+    #[derive(Resource, Default)]
+    struct Log(Vec<(Option<ArchetypeId>, &'static str)>);
+    world.init_resource::<Log>();
+    world.add_observer(|t: On<ArchetypeCreated>, mut log: ResMut<Log>| {
+        log.0.push((Some(t.event().0), "Archetype created"));
+    });
+    world.add_observer(|t: On<Insert, A>, mut log: ResMut<Log>| {
+        log.0.push((
+            t.trigger().new_archetype.map(Archetype::id),
+            "Bundle inserted",
+        ));
+    });
+
+    let archetype = world.spawn(A).archetype().id();
+    assert_eq!(
+        world.resource::<Log>().0,
+        vec![
+            (Some(archetype), "Archetype created"),
+            (Some(archetype), "Bundle inserted")
+        ]
+    );
 }
 
 #[derive(Bundle)]

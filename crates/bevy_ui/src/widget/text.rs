@@ -174,8 +174,13 @@ pub struct TextMeasure {
 impl TextMeasure {
     /// Checks if the Parley text layout is needed for measuring the text.
     #[inline]
-    pub const fn needs_buffer(height: Option<f32>, available_width: AvailableSpace) -> bool {
-        height.is_none() && matches!(available_width, AvailableSpace::Definite(_))
+    pub const fn needs_buffer(
+        width: Option<f32>,
+        height: Option<f32>,
+        available_width: AvailableSpace,
+    ) -> bool {
+        height.is_none()
+            && (width.is_some() || matches!(available_width, AvailableSpace::Definite(_)))
     }
 }
 
@@ -225,8 +230,8 @@ impl Measure for TextMeasure {
             .maybe_clamp(width.min, width.max);
 
         let size = height.effective.map_or_else(
-            || match available_width {
-                AvailableSpace::Definite(_) => {
+            || {
+                if width.effective.is_some() || available_width.is_definite() {
                     if let Some(buffer) = buffer {
                         self.info
                             .compute_size(TextBounds::new_horizontal(x), buffer, font_system)
@@ -234,9 +239,13 @@ impl Measure for TextMeasure {
                         error!("text measure failed, buffer is missing");
                         Vec2::default()
                     }
+                } else {
+                    match available_width {
+                        AvailableSpace::MinContent => Vec2::new(x, self.info.min.y),
+                        AvailableSpace::MaxContent => Vec2::new(x, self.info.max.y),
+                        _ => unreachable!(),
+                    }
                 }
-                AvailableSpace::MinContent => Vec2::new(x, self.info.min.y),
-                AvailableSpace::MaxContent => Vec2::new(x, self.info.max.y),
             },
             |y| Vec2::new(x, y),
         );

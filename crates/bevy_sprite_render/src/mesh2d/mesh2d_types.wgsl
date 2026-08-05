@@ -13,6 +13,8 @@ struct Mesh2d {
     local_from_world_transpose_b: f32,
     // 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
     flags: u32,
+    // Index of the material in the bind group data.
+    material_bind_group_slot: u32,
     tag: u32,
     /// The index of the mesh metadata buffer.
     metadata_index: u32,

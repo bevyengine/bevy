@@ -625,6 +625,7 @@ fn apply_pbr_lighting(
         if ((in.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
                 && (view_bindings::lights.directional_lights[i].flags & mesh_view_types::DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
             shadow = shadows::fetch_directional_shadow(i, in.world_position, in.world_normal, view_z, in.frag_coord.xy);
+            shadow *= in.directional_shadow_factor;
         }
 
 #ifdef CONTACT_SHADOWS
@@ -844,7 +845,8 @@ fn apply_pbr_lighting(
     //
     // <https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_materials_clearcoat/README.md#emission>
 #ifdef STANDARD_MATERIAL_CLEARCOAT
-    emissive_light = emissive_light * (0.04 + (1.0 - 0.04) * pow(1.0 - clearcoat_NdotV, 5.0));
+    let clearcoat_fresnel = lighting::F_Schlick(0.04, 1.0, clearcoat_NdotV);
+    emissive_light = emissive_light * (1.0 - clearcoat * clearcoat_fresnel);
 #endif
 
     emissive_light = emissive_light * mix(1.0, view_bindings::view.exposure, emissive.a);

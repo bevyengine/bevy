@@ -72,7 +72,7 @@ impl HalfSpace {
     /// Returns the bisecting plane's unit normal vector and the signed distance
     /// from the plane to the origin.
     #[inline]
-    pub fn normal_d(&self) -> Vec4 {
+    pub const fn normal_d(&self) -> Vec4 {
         self.normal_d
     }
 

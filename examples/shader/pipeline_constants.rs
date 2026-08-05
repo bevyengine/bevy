@@ -16,7 +16,7 @@ use bevy::{
         AsBindGroup, RenderPipelineDescriptor, SpecializedMeshPipelineError,
     },
     shader::ShaderRef,
-    sprite_render::{Material2d, Material2dKey, Material2dPlugin},
+    sprite_render::{Material2d, Material2dKey, Material2dPipeline, Material2dPlugin},
 };
 
 const SHADER_ASSET_PATH: &str = "shaders/pipeline_constants.wgsl";
@@ -83,6 +83,7 @@ impl Material2d for PosterizeMaterial {
     }
 
     fn specialize(
+        _pipeline: &Material2dPipeline,
         descriptor: &mut RenderPipelineDescriptor,
         _layout: &MeshVertexBufferLayoutRef,
         key: Material2dKey<Self>,

@@ -1,4 +1,4 @@
-use std::{f32::consts::PI, ops::Range};
+use std::{f32::consts::PI, ops::RangeInclusive};
 
 use bevy_app::{Plugin, PreUpdate, PropagateOver};
 use bevy_color::Color;
@@ -10,18 +10,16 @@ use bevy_ecs::{
     hierarchy::{ChildOf, Children},
     lifecycle::{Add, Insert, Remove},
     observer::On,
-    query::{Has, With},
+    query::{Changed, Has, With, Without},
     reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
-    system::{Commands, Query, Res, ResMut},
+    system::{Commands, Query, Res},
 };
 use bevy_input::{
     keyboard::{Key, KeyCode, KeyboardInput},
     ButtonInput,
 };
-use bevy_input_focus::{
-    AcquireFocus, FocusCause, FocusGained, FocusLost, FocusedInput, InputFocus,
-};
+use bevy_input_focus::{FocusGained, FocusLost, FocusedInput, InputFocus, InputFocusSystems};
 use bevy_log::{warn, warn_once};
 use bevy_math::ops;
 use bevy_picking::{
@@ -35,23 +33,24 @@ use bevy_reflect::Reflect;
 use bevy_scene::prelude::*;
 use bevy_text::{
     EditableText, EditableTextFilter, FontSourceTemplate, Justify, LineHeight, TextEdit, TextFont,
-    TextLayout,
+    TextLayout, TextReadWriteMode,
 };
 use bevy_ui::{
-    percent, px,
-    widget::{Text, TextScroll},
-    AlignItems, AlignSelf, BackgroundGradient, ColorStop, ComputedNode, ComputedUiRenderTargetInfo,
-    Display, Gradient, InteractionDisabled, InterpolationColorSpace, JustifyContent,
-    LinearGradient, Node, PositionType, UiGlobalTransform, UiRect, UiScale,
+    percent, px, widget::Text, AlignItems, AlignSelf, BackgroundGradient, ColorStop, ComputedNode,
+    ComputedUiRenderTargetInfo, Display, Gradient, InteractionDisabled, InterpolationColorSpace,
+    JustifyContent, LinearGradient, Node, PositionType, UiGlobalTransform, UiRect, UiScale,
 };
 use bevy_ui_widgets::ValueChange;
 
 use crate::{
     constants::{fonts, size},
-    controls::{FeathersTextInput, FeathersTextInputContainer},
+    controls::{FeathersSlider, FeathersTextInput, FeathersTextInputContainer},
     cursor::EntityCursor,
     rounded_corners::RoundedCorners,
-    theme::{ThemeBackgroundColor, ThemeBorderColor, ThemeTextColor, ThemeToken, UiTheme},
+    theme::{
+        SurfaceLevel, ThemeBackgroundColor, ThemeBorderColor, ThemeContext, ThemeTextColor,
+        ThemeToken, UiTheme,
+    },
     tokens,
 };
 
@@ -106,7 +105,7 @@ pub struct FeathersNumberInputProps {
 impl Default for FeathersNumberInputProps {
     fn default() -> Self {
         Self {
-            sigil_color: tokens::TEXT_INPUT_BG,
+            sigil_color: tokens::TEXT_INPUT_LABEL_BG,
             label_text: None,
         }
     }
@@ -119,7 +118,7 @@ impl FeathersNumberInput {
             Node {
                 column_gap: px(0),
                 border: UiRect {
-                    left: px(if props.label_text.is_some() { 3.0 } else { 0.0 }),
+                    left: px(if props.label_text.is_some() { 4.0 } else { 0.0 }),
                 },
                 padding: UiRect {
                     left: px(0.0),
@@ -162,6 +161,7 @@ impl FeathersNumberInput {
                     @FeathersTextInput {
                         @max_characters: 20usize,
                     }
+                    DragState
                     Node {
                         flex_grow: 1.0,
                         align_items: AlignItems::Center,
@@ -187,8 +187,8 @@ impl FeathersNumberInput {
                     BackgroundGradient(vec![Gradient::Linear(LinearGradient {
                         angle: PI * 0.5,
                         stops: vec![
-                            ColorStop::new(Color::WHITE, percent(0)),
-                            ColorStop::new(Color::WHITE, percent(50)),
+                            ColorStop::new(Color::NONE, percent(0)),
+                            ColorStop::new(Color::NONE, percent(50)),
                             ColorStop::new(Color::NONE, percent(50)),
                             ColorStop::new(Color::NONE, percent(100)),
                         ],
@@ -204,7 +204,6 @@ impl FeathersNumberInput {
                         (
                             // Invisible child on top of input field which intercepts drag
                             // events (conditionally) and handles scrubbing gestures.
-                            ScrubberDragState
                             Node {
                                 position_type: PositionType::Absolute,
                                 left: px(0),
@@ -212,7 +211,6 @@ impl FeathersNumberInput {
                                 bottom: px(0),
                                 right: px(0),
                             }
-                            on(scrubber_on_acquire_focus)
                             on(scrubber_on_press)
                             on(scrubber_on_release)
                             on(scrubber_on_drag_start)
@@ -254,6 +252,18 @@ pub enum NumberInputValue {
     I32(i32),
     /// An `i64` value
     I64(i64),
+}
+
+/// Indicates whether the number input should wrap around the min/max value.
+/// This component only applies to [`HardLimit`].
+#[derive(Component, Default, Debug, PartialEq, Clone, Copy, Reflect)]
+#[reflect(Component, Default)]
+pub enum NumberInputWrap {
+    /// The number input will not wrap around the min/max value.
+    #[default]
+    NoWrap,
+    /// The number input will wrap around the min/max value.
+    Wrap,
 }
 
 impl core::fmt::Display for NumberInputValue {
@@ -332,13 +342,13 @@ impl Default for NumberInputValue {
 #[derive(Debug, PartialEq, Clone, Reflect)]
 pub enum NumberInputRange {
     /// An 'f32' range.
-    F32(Range<f32>),
+    F32(RangeInclusive<f32>),
     /// An 'f64' range.
-    F64(Range<f64>),
+    F64(RangeInclusive<f64>),
     /// An 'i32' range.
-    I32(Range<i32>),
+    I32(RangeInclusive<i32>),
     /// An 'i64' range.
-    I64(Range<i64>),
+    I64(RangeInclusive<i64>),
 }
 
 impl NumberInputRange {
@@ -346,16 +356,42 @@ impl NumberInputRange {
     pub fn clamp(&self, n: NumberInputValue) -> NumberInputValue {
         match (self, n) {
             (Self::F32(r), NumberInputValue::F32(v)) => {
-                NumberInputValue::F32(v.clamp(r.start, r.end))
+                NumberInputValue::F32(v.clamp(*r.start(), *r.end()))
             }
             (Self::F64(r), NumberInputValue::F64(v)) => {
-                NumberInputValue::F64(v.clamp(r.start, r.end))
+                NumberInputValue::F64(v.clamp(*r.start(), *r.end()))
             }
             (Self::I32(r), NumberInputValue::I32(v)) => {
-                NumberInputValue::I32(v.clamp(r.start, r.end))
+                NumberInputValue::I32(v.clamp(*r.start(), *r.end()))
             }
             (Self::I64(r), NumberInputValue::I64(v)) => {
-                NumberInputValue::I64(v.clamp(r.start, r.end))
+                NumberInputValue::I64(v.clamp(*r.start(), *r.end()))
+            }
+            (range, value) => {
+                warn_once!("Number input range type mismatch: {range:?} {value:?}");
+                n
+            }
+        }
+    }
+
+    /// Wrap a numeric value of varying type to be within this range.
+    pub fn wrap(&self, n: NumberInputValue) -> NumberInputValue {
+        match (self, n) {
+            (Self::F32(r), NumberInputValue::F32(v)) => {
+                let range = r.end() - r.start();
+                NumberInputValue::F32(r.start() + (v - r.start()).rem_euclid(range))
+            }
+            (Self::F64(r), NumberInputValue::F64(v)) => {
+                let range = r.end() - r.start();
+                NumberInputValue::F64(r.start() + (v - r.start()).rem_euclid(range))
+            }
+            (Self::I32(r), NumberInputValue::I32(v)) => {
+                let range = r.end() - r.start();
+                NumberInputValue::I32(r.start() + (v - r.start()).rem_euclid(range))
+            }
+            (Self::I64(r), NumberInputValue::I64(v)) => {
+                let range = r.end() - r.start();
+                NumberInputValue::I64(r.start() + (v - r.start()).rem_euclid(range))
             }
             (range, value) => {
                 warn_once!("Number input range type mismatch: {range:?} {value:?}");
@@ -369,32 +405,32 @@ impl NumberInputRange {
     pub fn thumb_position(&self, value: NumberInputValue) -> f32 {
         match (self, value) {
             (Self::F32(range), NumberInputValue::F32(n)) => {
-                if range.end > range.start {
-                    (n - range.start) / (range.end - range.start)
+                if range.end() > range.start() {
+                    (n - range.start()) / (range.end() - range.start())
                 } else {
                     0.5
                 }
             }
 
             (Self::F64(range), NumberInputValue::F64(n)) => {
-                if range.end > range.start {
-                    ((n - range.start) / (range.end - range.start)) as f32
+                if range.end() > range.start() {
+                    ((n - range.start()) / (range.end() - range.start())) as f32
                 } else {
                     0.5
                 }
             }
 
             (Self::I32(range), NumberInputValue::I32(n)) => {
-                if range.end > range.start {
-                    (n - range.start) as f32 / (range.end - range.start) as f32
+                if range.end() > range.start() {
+                    (n - range.start()) as f32 / (range.end() - range.start()) as f32
                 } else {
                     0.5
                 }
             }
 
             (Self::I64(range), NumberInputValue::I64(n)) => {
-                if range.end > range.start {
-                    (n - range.start) as f32 / (range.end - range.start) as f32
+                if range.end() > range.start() {
+                    (n - range.start()) as f32 / (range.end() - range.start()) as f32
                 } else {
                     0.5
                 }
@@ -410,7 +446,7 @@ impl NumberInputRange {
 
 impl Default for NumberInputRange {
     fn default() -> Self {
-        Self::F32(0.0..0.0)
+        Self::F32(0.0..=0.0)
     }
 }
 
@@ -421,22 +457,22 @@ pub struct SoftLimit(pub NumberInputRange);
 
 impl SoftLimit {
     /// Create a [`SoftLimit`] for `f32` values.
-    pub fn f32(range: Range<f32>) -> Self {
+    pub fn f32(range: RangeInclusive<f32>) -> Self {
         Self(NumberInputRange::F32(range))
     }
 
     /// Create a [`SoftLimit`] for `f64` values.
-    pub fn f64(range: Range<f64>) -> Self {
+    pub fn f64(range: RangeInclusive<f64>) -> Self {
         Self(NumberInputRange::F64(range))
     }
 
     /// Create a [`SoftLimit`] for `i32` values.
-    pub fn i32(range: Range<i32>) -> Self {
+    pub fn i32(range: RangeInclusive<i32>) -> Self {
         Self(NumberInputRange::I32(range))
     }
 
     /// Create a [`SoftLimit`] for `i64` values.
-    pub fn i64(range: Range<i64>) -> Self {
+    pub fn i64(range: RangeInclusive<i64>) -> Self {
         Self(NumberInputRange::I64(range))
     }
 }
@@ -449,22 +485,22 @@ pub struct HardLimit(pub NumberInputRange);
 
 impl HardLimit {
     /// Create a [`HardLimit`] for `f32` values.
-    pub fn f32(range: Range<f32>) -> Self {
+    pub fn f32(range: RangeInclusive<f32>) -> Self {
         Self(NumberInputRange::F32(range))
     }
 
     /// Create a [`HardLimit`] for `f64` values.
-    pub fn f64(range: Range<f64>) -> Self {
+    pub fn f64(range: RangeInclusive<f64>) -> Self {
         Self(NumberInputRange::F64(range))
     }
 
     /// Create a [`HardLimit`] for `i32` values.
-    pub fn i32(range: Range<i32>) -> Self {
+    pub fn i32(range: RangeInclusive<i32>) -> Self {
         Self(NumberInputRange::I32(range))
     }
 
     /// Create a [`HardLimit`] for `i64` values.
-    pub fn i64(range: Range<i64>) -> Self {
+    pub fn i64(range: RangeInclusive<i64>) -> Self {
         Self(NumberInputRange::I64(range))
     }
 }
@@ -523,12 +559,37 @@ impl Default for NumberInputStep {
     }
 }
 
+/// Manage state transitions between scrubbing and dragging modes
+#[derive(Default, Clone, Reflect, PartialEq, Debug)]
+enum EditMode {
+    /// Neither scrubbing nor dragging (unfocused)
+    #[default]
+    Idle,
+    /// Drag value via scrubbing
+    Scrubbing,
+    /// Edit value by typing
+    Editing,
+}
+
 /// Component used to manage the state of a number during dragging ("scrubbing").
+///
+/// State transitions:
+///
+/// if not editing, then a click puts us into "dragging" mode. Once the drag is finished
+/// we check max movement, if it's less than the threshold, we transition to "editing" mode.
+///
+/// Loss of focus, or hitting the return key, cancels "editing" mode.
+///
+/// Changing [`EditMode`] affects:
+/// * Cursor shape
+/// * [`TextReadWriteMode`]
+/// * How drag events are handled
+/// * Background and text color (not yet implemented).
 #[derive(Component, Default, Clone, Reflect)]
 #[reflect(Component)]
-struct ScrubberDragState {
+struct DragState {
     /// Whether the input is currently being dragged.
-    dragging: bool,
+    mode: EditMode,
 
     /// Conversion factor from pixels dragged to value
     drag_speed: f64,
@@ -579,7 +640,10 @@ fn number_input_on_insert_value(
 fn number_input_on_insert_disabled(
     insert: On<Insert, InteractionDisabled>,
     q_children: Query<&Children>,
-    q_number_input: Query<Has<InteractionDisabled>, With<FeathersNumberInput>>,
+    q_number_input: Query<
+        (Has<InteractionDisabled>, Option<&ThemeContext>),
+        With<FeathersNumberInput>,
+    >,
     mut q_text_input: Query<(&Hovered, &mut BackgroundGradient)>,
     theme: Res<UiTheme>,
     input_focus: Res<InputFocus>,
@@ -591,11 +655,12 @@ fn number_input_on_insert_disabled(
 
     if let Some(text_id) = text_input_id
         && let Ok((&Hovered(hovered), mut gradient)) = q_text_input.get_mut(text_id)
-        && let Ok(is_disabled) = q_number_input.get(insert.event_target())
+        && let Ok((is_disabled, theme_context)) = q_number_input.get(insert.event_target())
     {
         set_slidebar_styles(
             text_id,
             &theme,
+            theme_context.map(|tc| tc.0).unwrap_or(SurfaceLevel::Base),
             is_disabled,
             false,
             hovered,
@@ -603,6 +668,7 @@ fn number_input_on_insert_disabled(
             &mut gradient,
             &mut commands,
         );
+        commands.entity(text_id).insert(TextReadWriteMode::ReadOnly);
     }
 }
 
@@ -610,7 +676,10 @@ fn number_input_on_insert_disabled(
 fn number_input_on_remove_disabled(
     remove: On<Remove, InteractionDisabled>,
     q_children: Query<&Children>,
-    q_number_input: Query<Has<InteractionDisabled>, With<FeathersNumberInput>>,
+    q_number_input: Query<
+        (Has<InteractionDisabled>, Option<&ThemeContext>),
+        With<FeathersNumberInput>,
+    >,
     mut q_text_input: Query<(&Hovered, &mut BackgroundGradient)>,
     theme: Res<UiTheme>,
     input_focus: Res<InputFocus>,
@@ -622,11 +691,12 @@ fn number_input_on_remove_disabled(
 
     if let Some(text_id) = text_input_id
         && let Ok((&Hovered(hovered), mut gradient)) = q_text_input.get_mut(text_id)
-        && let Ok(is_disabled) = q_number_input.get(remove.event_target())
+        && let Ok((is_disabled, theme_context)) = q_number_input.get(remove.event_target())
     {
         set_slidebar_styles(
             text_id,
             &theme,
+            theme_context.map(|tc| tc.0).unwrap_or(SurfaceLevel::Base),
             is_disabled,
             false,
             hovered,
@@ -634,6 +704,7 @@ fn number_input_on_remove_disabled(
             &mut gradient,
             &mut commands,
         );
+        commands.entity(text_id).insert(TextReadWriteMode::Editable);
     }
 }
 
@@ -646,6 +717,7 @@ fn number_input_init(
             &NumberInputValue,
             Option<&SoftLimit>,
             Has<InteractionDisabled>,
+            Option<&ThemeContext>,
         ),
         With<FeathersNumberInput>,
     >,
@@ -657,7 +729,7 @@ fn number_input_init(
     let text_id = insert.event_target();
     if let Ok((mut editable_text, &Hovered(hovered), mut gradient)) = q_text_input.get_mut(text_id)
         && let Ok(&ChildOf(root_id)) = q_parent.get(text_id)
-        && let Ok((input_value, limit, is_disabled)) = q_number_input.get(root_id)
+        && let Ok((input_value, limit, is_disabled, theme_context)) = q_number_input.get(root_id)
     {
         let new_digits = input_value.to_string();
         let old_digits = editable_text.value().to_string();
@@ -670,6 +742,7 @@ fn number_input_init(
         set_slidebar_styles(
             text_id,
             &theme,
+            theme_context.map(|tc| tc.0).unwrap_or(SurfaceLevel::Base),
             is_disabled,
             false,
             hovered,
@@ -677,6 +750,9 @@ fn number_input_init(
             &mut gradient,
             &mut commands,
         );
+        if is_disabled {
+            commands.entity(text_id).insert(TextReadWriteMode::ReadOnly);
+        }
     }
 }
 
@@ -684,57 +760,71 @@ fn number_input_init(
 fn number_input_hovered(
     insert: On<Insert, Hovered>,
     q_parent: Query<&ChildOf>,
-    q_number_input: Query<Has<InteractionDisabled>, With<FeathersNumberInput>>,
-    mut q_text_input: Query<(&Hovered, &mut BackgroundGradient)>,
+    q_number_input: Query<
+        (Has<InteractionDisabled>, Option<&ThemeContext>),
+        With<FeathersNumberInput>,
+    >,
+    mut q_text_input: Query<(&Hovered, &mut BackgroundGradient, &DragState)>,
     theme: Res<UiTheme>,
     input_focus: Res<InputFocus>,
     mut commands: Commands,
 ) {
     let text_id = insert.event_target();
-    if let Ok((&Hovered(hovered), mut gradient)) = q_text_input.get_mut(text_id)
+    if let Ok((&Hovered(hovered), mut gradient, drag_state)) = q_text_input.get_mut(text_id)
         && let Ok(&ChildOf(root_id)) = q_parent.get(text_id)
-        && let Ok(is_disabled) = q_number_input.get(root_id)
+        && let Ok((is_disabled, theme_context)) = q_number_input.get(root_id)
     {
         set_slidebar_styles(
             text_id,
             &theme,
+            theme_context.map(|tc| tc.0).unwrap_or(SurfaceLevel::Base),
             is_disabled,
-            false,
+            drag_state.mode == EditMode::Scrubbing,
             hovered,
             input_focus.get() == Some(text_id),
             &mut gradient,
             &mut commands,
         );
-
-        if input_focus.get() == Some(text_id) {
-            commands
-                .entity(text_id)
-                .insert(EntityCursor::System(bevy_window::SystemCursorIcon::Text));
-        }
     }
 }
 
 fn number_input_on_enter_key(
     key_input: On<FocusedInput<KeyboardInput>>,
     q_parent: Query<&ChildOf>,
-    q_number_input: Query<(&NumberInputValue, Option<&HardLimit>), With<FeathersNumberInput>>,
-    q_text_input: Query<&EditableText>,
+    q_number_input: Query<
+        (
+            &NumberInputValue,
+            Option<&HardLimit>,
+            Option<&NumberInputWrap>,
+        ),
+        With<FeathersNumberInput>,
+    >,
+    mut q_text_input: Query<(&EditableText, &mut DragState)>,
     mut commands: Commands,
 ) {
     if key_input.input.key_code != KeyCode::Enter {
         return;
     }
 
-    if let Ok(&ChildOf(root)) = q_parent.get(key_input.event_target())
-        && let Ok((input_value, hard_limit)) = q_number_input.get(root)
-        && let Ok(editable_text) = q_text_input.get(key_input.event_target())
+    let text_id = key_input.event_target();
+    if let Ok(&ChildOf(root)) = q_parent.get(text_id)
+        && let Ok((input_value, hard_limit, wrap)) = q_number_input.get(root)
+        && let Ok((editable_text, mut drag_state)) = q_text_input.get_mut(text_id)
     {
         let text_value = editable_text.value().to_string();
+        drag_state.mode = EditMode::Idle; // Boot us out of editing mode
+        commands
+            .entity(text_id)
+            .insert(TextReadWriteMode::Static) // Hide selection
+            .insert(EntityCursor::System(
+                bevy_window::SystemCursorIcon::ColResize,
+            ));
         emit_value_change(
             text_value,
             input_value.format(),
             root,
             hard_limit,
+            wrap,
             &mut commands,
             true,
         );
@@ -752,15 +842,23 @@ fn number_input_on_focus_gained(focus_gained: On<FocusGained>, mut commands: Com
 fn number_input_on_focus_lost(
     focus_lost: On<FocusLost>,
     q_parent: Query<&ChildOf>,
-    q_number_input: Query<(&NumberInputValue, Option<&HardLimit>), With<FeathersNumberInput>>,
-    mut q_text_input: Query<&mut EditableText>,
+    q_number_input: Query<
+        (
+            &NumberInputValue,
+            Has<InteractionDisabled>,
+            Option<&HardLimit>,
+            Option<&NumberInputWrap>,
+        ),
+        With<FeathersNumberInput>,
+    >,
+    mut q_text_input: Query<(&EditableText, &mut DragState)>,
     mut commands: Commands,
 ) {
     let editable_text_id = focus_lost.event_target();
 
     if let Ok(&ChildOf(root)) = q_parent.get(editable_text_id)
-        && let Ok((input_value, hard_limit)) = q_number_input.get(root)
-        && let Ok(editable_text) = q_text_input.get_mut(editable_text_id)
+        && let Ok((input_value, disabled, hard_limit, wrap)) = q_number_input.get(root)
+        && let Ok((editable_text, mut drag_state)) = q_text_input.get_mut(editable_text_id)
     {
         let text_value = editable_text.value().to_string();
         emit_value_change(
@@ -768,39 +866,50 @@ fn number_input_on_focus_lost(
             input_value.format(),
             root,
             hard_limit,
+            wrap,
             &mut commands,
             true,
         );
 
-        // Restore cursor back to normal.
+        drag_state.mode = EditMode::Idle;
+
+        // Restore cursor and rwmode back to normal.
         commands
             .entity(editable_text_id)
             .insert(EntityCursor::System(
                 bevy_window::SystemCursorIcon::ColResize,
-            ));
+            ))
+            .insert(if disabled {
+                TextReadWriteMode::ReadOnly
+            } else {
+                TextReadWriteMode::Static
+            });
     }
-}
-
-/// Suppress the standard "click to focus" behavior, we want to handle this ourselves (focus
-/// happens on release rather than press so we can detect drags).
-fn scrubber_on_acquire_focus(mut acquire_focus: On<AcquireFocus>) {
-    acquire_focus.propagate(false);
 }
 
 fn scrubber_on_press(
     mut press: On<Pointer<Press>>,
-    mut q_scrubber: Query<&mut ScrubberDragState>,
+    mut q_text_input: Query<&mut DragState>,
+    q_number_input: Query<Has<InteractionDisabled>, With<FeathersNumberInput>>,
     q_parent: Query<&ChildOf>,
-    mut focus: ResMut<InputFocus>,
+    mut commands: Commands,
 ) {
     if let Ok(&ChildOf(text_id)) = q_parent.get(press.event_target())
-        && let Ok(mut drag_state) = q_scrubber.get_mut(press.entity)
+        && let Ok(&ChildOf(root_id)) = q_parent.get(text_id)
+        && let Ok(disabled) = q_number_input.get(root_id)
+        && let Ok(mut drag_state) = q_text_input.get_mut(text_id)
     {
         drag_state.max_distance = 0.0;
-        // If the text input has focus, then allow the press event to go through
-        if focus.get() != Some(text_id) {
-            // If some other widget has focus, clear it.
-            focus.clear();
+        if disabled {
+            drag_state.mode = EditMode::Idle;
+            commands.entity(text_id).insert(TextReadWriteMode::ReadOnly);
+            press.propagate(false);
+        } else if drag_state.mode == EditMode::Editing {
+            // Let events propagate to text edit if editing mode.
+            commands.entity(text_id).insert(TextReadWriteMode::Editable);
+        } else {
+            drag_state.mode = EditMode::Scrubbing;
+            commands.entity(text_id).insert(TextReadWriteMode::Static);
             press.propagate(false);
         }
     }
@@ -810,33 +919,28 @@ fn scrubber_on_release(
     mut release: On<Pointer<Release>>,
     mut q_text: Query<(
         &mut EditableText,
+        &mut DragState,
         &ComputedNode,
         &ComputedUiRenderTargetInfo,
         &UiGlobalTransform,
-        &TextScroll,
     )>,
-    q_scrubber: Query<(&ComputedNode, &UiGlobalTransform, &mut ScrubberDragState)>,
-    q_root: Query<Has<InteractionDisabled>>,
     q_parent: Query<&ChildOf>,
-    mut input_focus: ResMut<InputFocus>,
     ui_scale: Res<UiScale>,
+    mut commands: Commands,
 ) {
     if let Ok(&ChildOf(text_id)) = q_parent.get(release.event_target())
-        && let Ok(&ChildOf(root_id)) = q_parent.get(text_id)
-        && let Ok((mut editable_text, node, target, transform, text_scroll)) =
+        && let Ok((mut editable_text, mut drag_state, node, target, transform)) =
             q_text.get_mut(text_id)
-        && let Ok((_, _, drag_state)) = q_scrubber.get(release.entity)
-        && let Ok(disabled) = q_root.get(root_id)
     {
-        // If editable text has focus, then pass the event through.
-        if input_focus.get() == Some(text_id) {
+        // If we're in editing mode, let event propagate so that text input can handle it.
+        if drag_state.mode == EditMode::Editing {
             return;
         }
 
         release.propagate(false);
 
         // Copy of logic from EditableText / text_input, but done on pointer up instead of down.
-        if !disabled && drag_state.max_distance <= DRAG_THRESHOLD_DISTANCE {
+        if drag_state.max_distance <= DRAG_THRESHOLD_DISTANCE {
             if release.button != PointerButton::Primary {
                 return;
             }
@@ -850,13 +954,17 @@ fn scrubber_on_release(
                 inverse.transform_point2(
                     release.pointer_location.position * target.scale_factor() / ui_scale.0,
                 ) - node.content_box().min
-                    + text_scroll.0
+                    + editable_text.viewport.offset
             }) else {
                 return;
             };
 
+            drag_state.mode = EditMode::Editing;
+            commands
+                .entity(text_id)
+                .insert(TextReadWriteMode::Editable)
+                .insert(EntityCursor::System(bevy_window::SystemCursorIcon::Text));
             editable_text.queue_edit(TextEdit::MoveToPoint(local_pos));
-            input_focus.set(text_id, FocusCause::Pressed);
         }
     }
 }
@@ -869,9 +977,10 @@ fn scrubber_on_drag_start(
         Option<&NumberInputPrecision>,
         Option<&NumberInputStep>,
         Has<InteractionDisabled>,
+        Option<&ThemeContext>,
     )>,
-    mut q_text_input: Query<&mut BackgroundGradient>,
-    mut q_scrubber: Query<(&ComputedNode, &mut ScrubberDragState)>,
+    mut q_text_input: Query<(&mut BackgroundGradient, &mut DragState)>,
+    mut q_scrubber: Query<&ComputedNode>,
     q_parent: Query<&ChildOf>,
     input_focus: Res<InputFocus>,
     theme: Res<UiTheme>,
@@ -879,25 +988,25 @@ fn scrubber_on_drag_start(
 ) {
     if let Ok(&ChildOf(text_id)) = q_parent.get(drag_start.event_target())
         && let Ok(&ChildOf(root_id)) = q_parent.get(text_id)
-        && let Ok((input_value, soft_limit, precision, step, disabled)) = q_root.get(root_id)
-        && let Ok(mut gradient) = q_text_input.get_mut(text_id)
+        && let Ok((input_value, soft_limit, precision, step, disabled, theme_context)) =
+            q_root.get(root_id)
+        && let Ok((mut gradient, mut drag)) = q_text_input.get_mut(text_id)
         && !disabled
-        && input_focus.get() != Some(text_id)
-        && let Ok((node, mut drag)) = q_scrubber.get_mut(drag_start.event_target())
+        && let Ok(node) = q_scrubber.get_mut(drag_start.event_target())
+        && drag.mode == EditMode::Scrubbing
     {
         let slider_size = (node.size().x * node.inverse_scale_factor).max(1.0) as f64;
         drag_start.propagate(false);
-        drag.dragging = true;
         drag.base_value = *input_value;
         drag.max_distance = 0.0;
         drag.value_offset = 0.0f64;
         // Use various heuristics to determine drag speed based on which components are present.
         drag.drag_speed = if let Some(SoftLimit(nrange)) = soft_limit {
             match nrange {
-                NumberInputRange::F32(range) => (range.end - range.start) as f64 / slider_size,
-                NumberInputRange::F64(range) => (range.end - range.start) / slider_size,
-                NumberInputRange::I32(range) => (range.end - range.start) as f64 / slider_size,
-                NumberInputRange::I64(range) => (range.end - range.start) as f64 / slider_size,
+                NumberInputRange::F32(range) => (range.end() - range.start()) as f64 / slider_size,
+                NumberInputRange::F64(range) => (range.end() - range.start()) / slider_size,
+                NumberInputRange::I32(range) => (range.end() - range.start()) as f64 / slider_size,
+                NumberInputRange::I64(range) => (range.end() - range.start()) as f64 / slider_size,
             }
         } else if let Some(NumberInputStep(step)) = step {
             *step * BASE_DRAG_SPEED
@@ -918,6 +1027,7 @@ fn scrubber_on_drag_start(
         set_slidebar_styles(
             text_id,
             &theme,
+            theme_context.map(|tc| tc.0).unwrap_or(SurfaceLevel::Base),
             disabled,
             true,
             false,
@@ -935,23 +1045,25 @@ fn scrubber_on_drag(
         Option<&HardLimit>,
         Option<&NumberInputPrecision>,
         Has<InteractionDisabled>,
+        Option<&NumberInputWrap>,
     )>,
-    mut q_scrubber: Query<(&UiGlobalTransform, &mut ScrubberDragState)>,
+    mut q_text_input: Query<&mut DragState>,
+    mut q_scrubber: Query<&UiGlobalTransform>,
     q_parent: Query<&ChildOf>,
-    focus: Res<InputFocus>,
     mut commands: Commands,
     ui_scale: Res<UiScale>,
     keys: Res<ButtonInput<Key>>,
 ) {
     if let Ok(&ChildOf(text_id)) = q_parent.get(drag.event_target())
-        && focus.get() != Some(text_id)
         && let Ok(&ChildOf(root_id)) = q_parent.get(text_id)
-        && let Ok((soft_limit, hard_limit, precision, disabled)) = q_root.get(root_id)
-        && let Ok((transform, mut drag_state)) = q_scrubber.get_mut(drag.entity)
+        && let Ok((soft_limit, hard_limit, precision, disabled, wrap)) = q_root.get(root_id)
+        && let Ok(mut drag_state) = q_text_input.get_mut(text_id)
+        && let Ok(transform) = q_scrubber.get_mut(drag.entity)
+        && drag_state.mode == EditMode::Scrubbing
     {
         drag_state.max_distance = drag_state.max_distance.max(drag.distance.length());
         drag.propagate(false);
-        if drag_state.dragging && !disabled && drag_state.max_distance > DRAG_THRESHOLD_DISTANCE {
+        if !disabled && drag_state.max_distance > DRAG_THRESHOLD_DISTANCE {
             let drag_delta = transform.transform_vector2(drag.delta / ui_scale.0).x;
             let mut delta = drag_delta as f64 * drag_state.drag_speed;
             if keys.pressed(Key::Shift) {
@@ -964,6 +1076,7 @@ fn scrubber_on_drag(
                 soft_limit,
                 hard_limit,
                 precision,
+                wrap,
                 &mut drag_state,
                 false,
             );
@@ -978,65 +1091,69 @@ fn scrubber_on_drag_end(
         Option<&HardLimit>,
         Option<&NumberInputPrecision>,
         Has<InteractionDisabled>,
+        Option<&NumberInputWrap>,
+        Option<&ThemeContext>,
     )>,
-    mut q_text_input: Query<(&Hovered, &mut BackgroundGradient)>,
-    mut q_scrubber: Query<&mut ScrubberDragState>,
+    mut q_text_input: Query<(&Hovered, &mut BackgroundGradient, &mut DragState)>,
     q_parent: Query<&ChildOf>,
-    input_focus: Res<InputFocus>,
     mut commands: Commands,
     theme: Res<UiTheme>,
 ) {
     if let Ok(&ChildOf(text_id)) = q_parent.get(drag_end.event_target())
-        && input_focus.get() != Some(text_id)
         && let Ok(&ChildOf(root_id)) = q_parent.get(text_id)
-        && let Ok((soft_limit, hard_limit, precision, disabled)) = q_root.get(root_id)
-        && let Ok(mut drag_state) = q_scrubber.get_mut(drag_end.entity)
-        && let Ok((&Hovered(hovered), mut gradient)) = q_text_input.get_mut(text_id)
+        && let Ok((soft_limit, hard_limit, precision, disabled, wrap, theme_context)) =
+            q_root.get(root_id)
+        && let Ok((&Hovered(hovered), mut gradient, mut drag_state)) = q_text_input.get_mut(text_id)
+        && drag_state.mode == EditMode::Scrubbing
     {
         drag_end.propagate(false);
-        if drag_state.dragging {
-            if !disabled {
-                emit_drag_value_change(
-                    &mut commands,
-                    root_id,
-                    soft_limit,
-                    hard_limit,
-                    precision,
-                    &mut drag_state,
-                    true,
-                );
-            }
-            set_slidebar_styles(
-                text_id,
-                &theme,
-                disabled,
-                false,
-                hovered,
-                false,
-                &mut gradient,
+        if !disabled {
+            emit_drag_value_change(
                 &mut commands,
+                root_id,
+                soft_limit,
+                hard_limit,
+                precision,
+                wrap,
+                &mut drag_state,
+                true,
             );
-            drag_state.dragging = false;
         }
+        set_slidebar_styles(
+            text_id,
+            &theme,
+            theme_context.map(|tc| tc.0).unwrap_or(SurfaceLevel::Base),
+            disabled,
+            false,
+            hovered,
+            false,
+            &mut gradient,
+            &mut commands,
+        );
     }
 }
 
 fn scrubber_on_drag_cancel(
     mut drag_cancel: On<Pointer<Cancel>>,
     q_parent: Query<&ChildOf>,
-    mut q_text_input: Query<(&Hovered, &mut BackgroundGradient)>,
-    mut q_scrubber: Query<&mut ScrubberDragState>,
+    mut q_text_input: Query<(
+        &Hovered,
+        &mut BackgroundGradient,
+        &mut DragState,
+        Option<&ThemeContext>,
+    )>,
     theme: Res<UiTheme>,
     input_focus: Res<InputFocus>,
     mut commands: Commands,
 ) {
     if let Ok(&ChildOf(text_id)) = q_parent.get(drag_cancel.event_target())
-        && let Ok(mut drag_state) = q_scrubber.get_mut(drag_cancel.entity)
-        && let Ok((&Hovered(hovered), mut gradient)) = q_text_input.get_mut(text_id)
+        && let Ok((&Hovered(hovered), mut gradient, mut drag_state, theme_context)) =
+            q_text_input.get_mut(text_id)
     {
         set_slidebar_styles(
             text_id,
             &theme,
+            theme_context.map(|tc| tc.0).unwrap_or(SurfaceLevel::Base),
             false,
             false,
             hovered,
@@ -1045,7 +1162,7 @@ fn scrubber_on_drag_cancel(
             &mut commands,
         );
         drag_cancel.propagate(false);
-        drag_state.dragging = false;
+        drag_state.mode = EditMode::Idle;
     }
 }
 
@@ -1069,6 +1186,7 @@ fn update_slider_pos(
 fn set_slidebar_styles(
     slidebar_id: Entity,
     theme: &UiTheme,
+    context: SurfaceLevel,
     disabled: bool,
     pressed: bool,
     hovered: bool,
@@ -1076,27 +1194,33 @@ fn set_slidebar_styles(
     gradient: &mut BackgroundGradient,
     commands: &mut Commands,
 ) {
-    let bar_color = theme.color(&if disabled {
-        tokens::SLIDER_BAR_DISABLED
-    } else if pressed {
-        tokens::SLIDER_BAR_PRESSED
-    } else if hovered {
-        tokens::SLIDER_BAR_HOVER
-    } else {
-        tokens::SLIDER_BAR
-    });
+    let bar_color = theme.context_color(
+        &if disabled {
+            tokens::SLIDER_BAR_DISABLED
+        } else if pressed {
+            tokens::SLIDER_BAR_PRESSED
+        } else if hovered {
+            tokens::SLIDER_BAR_HOVER
+        } else {
+            tokens::SLIDER_BAR
+        },
+        context,
+    );
 
-    let bg_color = theme.color(&if focused {
-        tokens::TEXT_INPUT_BG
-    } else if disabled {
-        tokens::SLIDER_BG_DISABLED
-    } else if pressed {
-        tokens::SLIDER_BG_PRESSED
-    } else if hovered {
-        tokens::SLIDER_BG_HOVER
-    } else {
-        tokens::SLIDER_BG
-    });
+    let bg_color = theme.context_color(
+        &if focused {
+            tokens::TEXT_INPUT_BG
+        } else if disabled {
+            tokens::SLIDER_BG_DISABLED
+        } else if pressed {
+            tokens::SLIDER_BG_PRESSED
+        } else if hovered {
+            tokens::SLIDER_BG_HOVER
+        } else {
+            tokens::SLIDER_BG
+        },
+        context,
+    );
 
     let font_color_token = match disabled {
         true => tokens::TEXT_INPUT_TEXT_DISABLED,
@@ -1105,7 +1229,7 @@ fn set_slidebar_styles(
 
     let cursor_shape = match disabled {
         true => bevy_window::SystemCursorIcon::NotAllowed,
-        false => bevy_window::SystemCursorIcon::EwResize,
+        false => bevy_window::SystemCursorIcon::ColResize,
     };
 
     if let [Gradient::Linear(linear_gradient)] = &mut gradient.0[..] {
@@ -1128,7 +1252,8 @@ fn emit_drag_value_change(
     soft_limit: Option<&SoftLimit>,
     hard_limit: Option<&HardLimit>,
     precision: Option<&NumberInputPrecision>,
-    drag_state: &mut ScrubberDragState,
+    wrap: Option<&NumberInputWrap>,
+    drag_state: &mut DragState,
     is_final: bool,
 ) {
     // Relative scrub: always measured from the value at drag start.
@@ -1142,9 +1267,15 @@ fn emit_drag_value_change(
         value = precision.round(value);
     }
     // Hard limit is absolute and always applied last.
-    if let Some(HardLimit(range)) = hard_limit {
-        value = range.clamp(value);
-    }
+    let value = match (wrap, hard_limit) {
+        (Some(NumberInputWrap::Wrap), Some(HardLimit(range))) => range.wrap(value),
+        (Some(NumberInputWrap::Wrap), None) => {
+            warn_once!("NumberInputWrap::Wrap specified without a HardLimit; ignoring wrap");
+            value
+        }
+        (_, Some(HardLimit(range))) => range.clamp(value),
+        (_, None) => value,
+    };
 
     trigger_value_change(commands, value, source, is_final);
 }
@@ -1154,6 +1285,7 @@ fn emit_value_change(
     format: NumberFormat,
     source: Entity,
     hard_limit: Option<&HardLimit>,
+    wrap: Option<&NumberInputWrap>,
     commands: &mut Commands,
     is_final: bool,
 ) {
@@ -1168,12 +1300,17 @@ fn emit_value_change(
         return;
     };
 
-    let clamped_value = match hard_limit {
-        Some(limit) => limit.0.clamp(new_value),
-        None => new_value,
+    let value = match (wrap, hard_limit) {
+        (Some(NumberInputWrap::Wrap), Some(HardLimit(range))) => range.wrap(new_value),
+        (Some(NumberInputWrap::Wrap), None) => {
+            warn_once!("NumberInputWrap::Wrap specified without a HardLimit; ignoring wrap");
+            new_value
+        }
+        (_, Some(HardLimit(range))) => range.clamp(new_value),
+        (_, None) => new_value,
     };
 
-    trigger_value_change(commands, clamped_value, source, is_final);
+    trigger_value_change(commands, value, source, is_final);
 }
 
 /// Decompose the input value enum and trigger a [`ValueChange`] with the appropriate generic
@@ -1211,8 +1348,15 @@ fn trigger_value_change(
 /// Re-apply the slidebar gradient colors for every number input when the theme changes.
 fn update_slidebar_styles_theme(
     q_children: Query<&Children>,
-    q_number_input: Query<(Entity, Has<InteractionDisabled>), With<FeathersNumberInput>>,
-    mut q_text_input: Query<(&Hovered, &mut BackgroundGradient)>,
+    q_number_input: Query<
+        (Entity, Has<InteractionDisabled>, Option<&ThemeContext>),
+        With<FeathersNumberInput>,
+    >,
+    // Without<FeathersSlider> to avoid ambiguity with FeathersSlider systems.
+    mut q_text_input: Query<
+        (&Hovered, &mut BackgroundGradient),
+        (With<FeathersTextInput>, Without<FeathersSlider>),
+    >,
     theme: Res<UiTheme>,
     input_focus: Res<InputFocus>,
     mut commands: Commands,
@@ -1220,7 +1364,7 @@ fn update_slidebar_styles_theme(
     if !theme.is_changed() {
         return;
     }
-    for (root_entity, is_disabled) in q_number_input.iter() {
+    for (root_entity, is_disabled, theme_context) in q_number_input.iter() {
         let Some(text_entity) = q_children
             .iter_descendants(root_entity)
             .find(|e| q_text_input.contains(*e))
@@ -1231,6 +1375,46 @@ fn update_slidebar_styles_theme(
             set_slidebar_styles(
                 text_entity,
                 &theme,
+                theme_context.map(|tc| tc.0).unwrap_or(SurfaceLevel::Base),
+                is_disabled,
+                false,
+                hovered,
+                input_focus.get() == Some(text_entity),
+                &mut gradient,
+                &mut commands,
+            );
+        }
+    }
+}
+
+/// Re-apply the slidebar gradient colors for every number input when the theme context changes.
+fn update_slidebar_styles_context(
+    q_children: Query<&Children>,
+    q_number_input: Query<
+        (Entity, Has<InteractionDisabled>, Option<&ThemeContext>),
+        (With<FeathersNumberInput>, Changed<ThemeContext>),
+    >,
+    // Without<FeathersSlider> to avoid ambiguity with FeathersSlider systems.
+    mut q_text_input: Query<
+        (&Hovered, &mut BackgroundGradient),
+        (With<FeathersTextInput>, Without<FeathersSlider>),
+    >,
+    theme: Res<UiTheme>,
+    input_focus: Res<InputFocus>,
+    mut commands: Commands,
+) {
+    for (root_entity, is_disabled, theme_context) in q_number_input.iter() {
+        let Some(text_entity) = q_children
+            .iter_descendants(root_entity)
+            .find(|e| q_text_input.contains(*e))
+        else {
+            continue;
+        };
+        if let Ok((&Hovered(hovered), mut gradient)) = q_text_input.get_mut(text_entity) {
+            set_slidebar_styles(
+                text_entity,
+                &theme,
+                theme_context.map(|tc| tc.0).unwrap_or(SurfaceLevel::Base),
                 is_disabled,
                 false,
                 hovered,
@@ -1249,7 +1433,11 @@ impl Plugin for NumberInputPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.add_systems(
             PreUpdate,
-            update_slidebar_styles_theme.in_set(PickingSystems::Last),
+            (update_slidebar_styles_context, update_slidebar_styles_theme)
+                .chain()
+                .in_set(PickingSystems::Last)
+                // After Dispatch systems so that these systems use the most updated `InputFocus`.
+                .after(InputFocusSystems::Dispatch),
         );
     }
 }

@@ -887,10 +887,11 @@ impl Default for CameraOutputMode {
 
 /// The "target" that a [`Camera`] will render to. For example, this could be a `Window`
 /// swapchain or an [`Image`].
-#[derive(Component, Debug, Clone, Reflect, From)]
+#[derive(Component, FromTemplate, Debug, Clone, Reflect, From)]
 #[reflect(Clone, Component)]
 pub enum RenderTarget {
     /// Window to which the camera's view is rendered.
+    #[default]
     Window(WindowRef),
     /// Image to which the camera's view is rendered.
     Image(ImageRenderTarget),
@@ -980,7 +981,7 @@ pub enum NormalizedRenderTarget {
 pub struct ManualTextureViewHandle(pub u32);
 
 /// A render target that renders to an [`Image`].
-#[derive(Debug, Clone, Reflect)]
+#[derive(FromTemplate, Debug, Clone, Reflect)]
 #[reflect(Clone, PartialEq, Hash)]
 pub struct ImageRenderTarget {
     /// The image to render to.
@@ -1066,11 +1067,13 @@ impl CameraMainTextureUsages {
 #[cfg(test)]
 mod test {
     use bevy_math::{Vec2, Vec3};
+    use bevy_scene::bsn;
     use bevy_transform::components::GlobalTransform;
+    use bevy_window::WindowRef;
 
     use crate::{
-        Camera, OrthographicProjection, PerspectiveProjection, Projection, RenderTargetInfo,
-        Viewport,
+        Camera, OrthographicProjection, PerspectiveProjection, Projection, RenderTarget,
+        RenderTargetInfo, Viewport,
     };
 
     fn make_camera(mut projection: Projection, physical_size: Vec2) -> Camera {
@@ -1145,5 +1148,12 @@ mod test {
         let ray = camera.viewport_to_world(&transform, size * 0.5).unwrap();
         assert_eq!(ray.direction, transform.forward());
         assert_eq!(ray.origin, transform.forward() * 0.1);
+    }
+
+    #[test]
+    fn render_target_in_bsn() {
+        let _ = bsn! {
+            RenderTarget::Window(WindowRef::default())
+        };
     }
 }

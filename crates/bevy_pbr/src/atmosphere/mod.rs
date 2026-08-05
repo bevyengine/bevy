@@ -55,7 +55,7 @@ use bevy_ecs::{
     system::{Commands, Query},
 };
 use bevy_light::{atmosphere::ScatteringMedium, Atmosphere};
-use bevy_math::{Mat4, UVec2, UVec3, Vec3};
+use bevy_math::{Mat4, Quat, UVec2, UVec3, Vec3};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::{ExtractComponentPlugin, UniformComponentPlugin},
@@ -89,7 +89,8 @@ use crate::resources::prepare_atmosphere_buffers;
 
 use self::resources::{
     prepare_atmosphere_bind_groups, prepare_atmosphere_textures, AtmosphereBindGroupLayouts,
-    AtmosphereLutPipelines, AtmosphereSampler,
+    AtmosphereBindGroups, AtmosphereLutPipelines, AtmosphereSampler, AtmosphereTextures,
+    AtmosphereTransformsOffset, RenderSkyPipelineId,
 };
 
 #[doc(hidden)]
@@ -205,24 +206,28 @@ impl Plugin for AtmospherePlugin {
 pub fn extract_atmosphere(
     mut commands: Commands,
     atmosphere_entities: Extract<Query<(Entity, &Atmosphere, &GlobalTransform)>>,
-    cameras: Extract<Query<(RenderEntity, &AtmosphereSettings, &GlobalTransform), With<Camera3d>>>,
+    cameras: Extract<
+        Query<(RenderEntity, Option<&AtmosphereSettings>, &GlobalTransform), With<Camera3d>>,
+    >,
 ) {
     let candidates: Vec<(Entity, &Atmosphere, &GlobalTransform)> =
         atmosphere_entities.iter().collect();
 
-    if candidates.is_empty() {
-        for (render_entity, ..) in &cameras {
-            commands
-                .entity(render_entity)
-                .remove::<ExtractedAtmosphere>();
-            commands
-                .entity(render_entity)
-                .remove::<GpuAtmosphereSettings>();
-        }
-        return;
-    }
-
     for (render_entity, settings, cam_global) in &cameras {
+        // Remove any stale render-world state when AtmosphereSettings is removed or candidates is empty
+        let (Some(settings), false) = (settings, candidates.is_empty()) else {
+            commands.entity(render_entity).try_remove::<(
+                ExtractedAtmosphere,
+                GpuAtmosphereSettings,
+                GpuAtmosphere,
+                AtmosphereTextures,
+                AtmosphereTransformsOffset,
+                RenderSkyPipelineId,
+                AtmosphereBindGroups,
+            )>();
+            continue;
+        };
+
         let cam_world = cam_global.translation();
         let selected = candidates
             .iter()
@@ -234,13 +239,20 @@ pub fn extract_atmosphere(
             .expect("checked non-empty above");
         let atmo = selected.1;
         let gt = selected.2;
+        // Atmospheres are spherically symmetric, so ignore their orientation.
+        let (scale, _, translation) = gt.to_scale_rotation_translation();
 
         let extracted = ExtractedAtmosphere {
             inner_radius: atmo.inner_radius,
             outer_radius: atmo.outer_radius,
             ground_albedo: atmo.ground_albedo,
             medium: atmo.medium.id(),
-            world_to_atmosphere: gt.to_matrix().inverse(),
+            world_to_atmosphere: Mat4::from_scale_rotation_translation(
+                scale,
+                Quat::IDENTITY,
+                translation,
+            )
+            .inverse(),
         };
         commands.entity(render_entity).insert(extracted);
         commands
@@ -391,7 +403,7 @@ impl From<AtmosphereSettings> for GpuAtmosphereSettings {
     }
 }
 
-impl SyncComponent for AtmosphereSettings {
+impl SyncComponent<RenderApp> for AtmosphereSettings {
     type Target = GpuAtmosphereSettings;
 }
 
