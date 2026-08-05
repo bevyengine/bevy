@@ -18,6 +18,8 @@ const flip_z: vec3<f32> = vec3<f32>(1.0, 1.0, -1.0);
 
 fn fetch_point_shadow(
     light_id: u32,
+    point_spot_shadow_map_count: u32,
+    point_spot_shadow_map_add_offset: u32,
     frag_position: vec4<f32>,
     surface_normal: vec3<f32>,
     frag_coord_xy: vec2<f32>,
@@ -52,12 +54,13 @@ fn fetch_point_shadow(
     // If soft shadows are enabled, use the PCSS path. Cubemaps assume a
     // left-handed coordinate space, so we have to flip the z-axis when
     // sampling.
+    let array_index = light_id * point_spot_shadow_map_count + point_spot_shadow_map_add_offset;
     if ((*light).soft_shadow_size > 0.0) {
         return sample_shadow_cubemap_pcss(
             frag_ls * flip_z,
             distance_to_light,
             depth,
-            light_id,
+            array_index,
             (*light).soft_shadow_size,
             frag_coord_xy,
         );
@@ -65,11 +68,13 @@ fn fetch_point_shadow(
 
     // Do the lookup, using HW PCF and comparison. Cubemaps assume a left-handed
     // coordinate space, so we have to flip the z-axis when sampling.
-    return sample_shadow_cubemap(frag_ls * flip_z, distance_to_light, depth, light_id, frag_coord_xy);
+    return sample_shadow_cubemap(frag_ls * flip_z, distance_to_light, depth, array_index, frag_coord_xy);
 }
 
 fn fetch_spot_shadow(
     light_id: u32,
+    point_spot_shadow_map_count: u32,
+    point_spot_shadow_map_index: u32,
     frag_position: vec4<f32>,
     surface_normal: vec3<f32>,
     near_z: f32,
@@ -112,7 +117,8 @@ fn fetch_spot_shadow(
     let depth = near_z / -projected_position.z;
 
     // If soft shadows are enabled, use the PCSS path.
-    let array_index = i32(light_id) + view_bindings::lights.spot_light_shadowmap_offset;
+    let array_index = i32(light_id * point_spot_shadow_map_count) + i32(point_spot_shadow_map_index)
+        + view_bindings::lights.spot_light_shadowmap_offset;
     if ((*light).soft_shadow_size > 0.0) {
         return sample_shadow_map_pcss(
             shadow_uv,

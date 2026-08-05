@@ -410,6 +410,17 @@ pub struct Camera {
     pub invert_culling: bool,
     /// If set, this camera will be a sub camera of a large view, defined by a [`SubCameraView`].
     pub sub_camera_view: Option<SubCameraView>,
+    /// Whether this camera will generate its own shadow maps for any point lights and spot lights in the scene.
+    ///
+    /// If true, point and spot light shadow maps unique to this camera will be generated.
+    /// The shadow maps will be generated using the same render layers and HLOD configuration as this camera.
+    /// The light's render layers **must** be a superset of this camera's render layers in order for this to work properly.
+    ///
+    /// Enabling this setting can have a negative impact on performance. Point lights in particular
+    /// will generate 6 additional shadow maps per camera that opts to have its own shadow maps.
+    ///
+    /// Defaults to `false`.
+    pub has_own_point_and_spot_light_shadow_maps: bool,
 }
 
 impl Default for Camera {
@@ -424,6 +435,7 @@ impl Default for Camera {
             clear_color: Default::default(),
             invert_culling: false,
             sub_camera_view: None,
+            has_own_point_and_spot_light_shadow_maps: false,
         }
     }
 }
