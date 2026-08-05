@@ -17,16 +17,15 @@ struct DataRanges {
 
 @compute @workgroup_size(1)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
-    // this loop is iterating over the full list of (position, normal, uv)
-    // data what we have in `vertices`.
-    // `192` is used because arrayLength on const arrays doesn't work
-    for (var i = 0u; i < 192; i++) {
+    // this loop is iterating on the VERTEX_COUNT and assemble the data
+    // of an array of 8 elements of f32 (position(3), normal(3), uv(2)).
+    for (var i = 0u; i < VERTEX_COUNT; i++) {
         // The vertex_data buffer is bigger than just the mesh we're
         // processing because Bevy stores meshes in the mesh_allocator
         // which allocates slabs that each can contain multiple meshes.
         // This buffer is one slab, and data_range.vertex_start is the
         // starting offset for the mesh we care about.
-        // So the 0 starting value in the for loop is added to 
+        // So the 0 starting value in the for loop is added to
         // data_range.vertex_start which means we start writing at the
         // correct offset.
         //
@@ -36,10 +35,24 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         // past the end of the range *because you should not write past the
         // end of the range ever*. Doing this can overwrite a different
         // mesh's data.
-        vertex_data[i + data_range.vertex_start] = vertices[i];
+
+        let v = vertices[i];
+        let n = normals[i];
+        let uv = uvs[i];
+
+
+        // assemble the vertex data element here which is an array of 8 f32's
+        //
+        // NOTE: you can change the STRIDE to 6 alongside disabling the inserstion `Mesh::ATTRIBUTE_UV_0`
+        // in the empty mesh to ignore the UV data
+        const STRIDE = 8;
+        let vertex = array<f32, 8>(v.x, v.y, v.z, n.x, n.y, n.z, uv.x, uv.y);
+        for (var j = 0u; j < STRIDE; j++) {
+            vertex_data[i * STRIDE + j + data_range.vertex_start] = vertex[j];
+        }
     }
     // `36` is the length of the `indices` array
-    for (var i = 0u; i < 36; i++) {
+    for (var i = 0u; i < INDICES_COUNT; i++) {
         // This is doing the same as the vertex_data offset described above
         index_data[i + data_range.index_start] = u32(indices[i]);
     }
@@ -51,42 +64,114 @@ const half_size = vec3(1.5);
 const min = -half_size;
 const max = half_size;
 
+
+const VERTEX_COUNT = 24;
 // Suppose Y-up right hand, and camera look from +Z to -Z
-const vertices = array(
-    // xyz, normal.xyz, uv.xy
+const vertices = array<vec3<f32>, VERTEX_COUNT>(
     // Front
-    min.x, min.y, max.z, 0.0, 0.0, 1.0, 0.0, 0.0,
-    max.x, min.y, max.z, 0.0, 0.0, 1.0, 1.0, 0.0,
-    max.x, max.y, max.z, 0.0, 0.0, 1.0, 1.0, 1.0,
-    min.x, max.y, max.z, 0.0, 0.0, 1.0, 0.0, 1.0,
+    vec3(min.x, min.y, max.z),
+    vec3(max.x, min.y, max.z),
+    vec3(max.x, max.y, max.z),
+    vec3(min.x, max.y, max.z),
     // Back
-    min.x, max.y, min.z, 0.0, 0.0, -1.0, 1.0, 0.0,
-    max.x, max.y, min.z, 0.0, 0.0, -1.0, 0.0, 0.0,
-    max.x, min.y, min.z, 0.0, 0.0, -1.0, 0.0, 1.0,
-    min.x, min.y, min.z, 0.0, 0.0, -1.0, 1.0, 1.0,
+    vec3(min.x, max.y, min.z),
+    vec3(max.x, max.y, min.z),
+    vec3(max.x, min.y, min.z),
+    vec3(min.x, min.y, min.z),
     // Right
-    max.x, min.y, min.z, 1.0, 0.0, 0.0, 0.0, 0.0,
-    max.x, max.y, min.z, 1.0, 0.0, 0.0, 1.0, 0.0,
-    max.x, max.y, max.z, 1.0, 0.0, 0.0, 1.0, 1.0,
-    max.x, min.y, max.z, 1.0, 0.0, 0.0, 0.0, 1.0,
+    vec3(max.x, min.y, min.z),
+    vec3(max.x, max.y, min.z),
+    vec3(max.x, max.y, max.z),
+    vec3(max.x, min.y, max.z),
     // Left
-    min.x, min.y, max.z, -1.0, 0.0, 0.0, 1.0, 0.0,
-    min.x, max.y, max.z, -1.0, 0.0, 0.0, 0.0, 0.0,
-    min.x, max.y, min.z, -1.0, 0.0, 0.0, 0.0, 1.0,
-    min.x, min.y, min.z, -1.0, 0.0, 0.0, 1.0, 1.0,
+    vec3(min.x, min.y, max.z),
+    vec3(min.x, max.y, max.z),
+    vec3(min.x, max.y, min.z),
+    vec3(min.x, min.y, min.z),
     // Top
-    max.x, max.y, min.z, 0.0, 1.0, 0.0, 1.0, 0.0,
-    min.x, max.y, min.z, 0.0, 1.0, 0.0, 0.0, 0.0,
-    min.x, max.y, max.z, 0.0, 1.0, 0.0, 0.0, 1.0,
-    max.x, max.y, max.z, 0.0, 1.0, 0.0, 1.0, 1.0,
+    vec3(max.x, max.y, min.z),
+    vec3(min.x, max.y, min.z),
+    vec3(min.x, max.y, max.z),
+    vec3(max.x, max.y, max.z),
     // Bottom
-    max.x, min.y, max.z, 0.0, -1.0, 0.0, 0.0, 0.0,
-    min.x, min.y, max.z, 0.0, -1.0, 0.0, 1.0, 0.0,
-    min.x, min.y, min.z, 0.0, -1.0, 0.0, 1.0, 1.0,
-    max.x, min.y, min.z, 0.0, -1.0, 0.0, 0.0, 1.0
+    vec3(max.x, min.y, max.z),
+    vec3(min.x, min.y, max.z),
+    vec3(min.x, min.y, min.z),
+    vec3(max.x, min.y, min.z),
 );
 
-const indices = array(
+
+const normals = array<vec3<f32>, VERTEX_COUNT>(
+    // Front
+    vec3(0.0, 0.0, 1.0),
+    vec3(0.0, 0.0, 1.0),
+    vec3(0.0, 0.0, 1.0),
+    vec3(0.0, 0.0, 1.0),
+    // Back
+    vec3(0.0, 0.0, -1.0),
+    vec3(0.0, 0.0, -1.0),
+    vec3(0.0, 0.0, -1.0),
+    vec3(0.0, 0.0, -1.0),
+    // Right
+    vec3(1.0, 0.0, 0.0),
+    vec3(1.0, 0.0, 0.0),
+    vec3(1.0, 0.0, 0.0),
+    vec3(1.0, 0.0, 0.0),
+    // Left
+    vec3(-1.0, 0.0, 0.0),
+    vec3(-1.0, 0.0, 0.0),
+    vec3(-1.0, 0.0, 0.0),
+    vec3(-1.0, 0.0, 0.0),
+    // Top
+    vec3(0.0, 1.0, 0.0),
+    vec3(0.0, 1.0, 0.0),
+    vec3(0.0, 1.0, 0.0),
+    vec3(0.0, 1.0, 0.0),
+    // Bottom
+    vec3(0.0, -1.0, 0.0),
+    vec3(0.0, -1.0, 0.0),
+    vec3(0.0, -1.0, 0.0),
+    vec3(0.0, -1.0, 0.0),
+);
+
+
+const uvs = array<vec2<f32>, VERTEX_COUNT>(
+    // Front
+    vec2(0.0, 0.0),
+    vec2(1.0, 0.0),
+    vec2(1.0, 1.0),
+    vec2(0.0, 1.0),
+    // Back
+    vec2(1.0, 0.0),
+    vec2(0.0, 0.0),
+    vec2(0.0, 1.0),
+    vec2(1.0, 1.0),
+    // Right
+    vec2(0.0, 0.0),
+    vec2(1.0, 0.0),
+    vec2(1.0, 1.0),
+    vec2(0.0, 1.0),
+    // Left
+    vec2(1.0, 0.0),
+    vec2(0.0, 0.0),
+    vec2(0.0, 1.0),
+    vec2(1.0, 1.0),
+    // Top
+    vec2(1.0, 0.0),
+    vec2(0.0, 0.0),
+    vec2(0.0, 1.0),
+    vec2(1.0, 1.0),
+    // Bottom
+    vec2(0.0, 0.0),
+    vec2(1.0, 0.0),
+    vec2(1.0, 1.0),
+    vec2(0.0, 1.0)
+);
+
+
+const INDICES_COUNT = 36;
+
+const indices = array<u32, INDICES_COUNT>(
     0, 1, 2, 2, 3, 0, // front
     4, 5, 6, 6, 7, 4, // back
     8, 9, 10, 10, 11, 8, // right
