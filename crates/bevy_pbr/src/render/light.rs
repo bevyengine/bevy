@@ -211,6 +211,10 @@ pub struct GpuLights {
     // z is cluster_dimensions.z / log(far / near)
     // w is cluster_dimensions.z * log(near) / log(far / near)
     cluster_factors: Vec4,
+    // xy are the near and far depths of the cluster grid; zw are unused.
+    // The GPU clustering shaders read these directly, as they can't be
+    // recovered from `cluster_factors`, which are infinite when far == near.
+    cluster_z_bounds: Vec4,
     n_directional_lights: u32,
     // offset from spot light's light index to spot light's shadow map index
     spot_light_shadowmap_offset: i32,
@@ -1816,6 +1820,7 @@ pub fn prepare_lights(
                 cluster_factors_zw.x,
                 cluster_factors_zw.y,
             ),
+            cluster_z_bounds: Vec4::new(clusters.near, clusters.far, 0.0, 0.0),
             cluster_dimensions: clusters.dimensions.extend(n_clusters),
             n_directional_lights: num_directional_lights_for_this_view as u32,
             // spotlight shadow maps are stored in the directional light array, starting at num_directional_cascades_enabled.

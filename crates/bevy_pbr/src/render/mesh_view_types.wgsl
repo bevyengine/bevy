@@ -79,6 +79,10 @@ struct Lights {
     // z is -near
     // w is cluster_dimensions.z / (-far - -near)
     cluster_factors: vec4<f32>,
+    // xy are the near and far depths of the cluster grid; zw are unused.
+    // The GPU clustering shaders read these directly, as they can't be
+    // recovered from `cluster_factors`, which are infinite when far == near.
+    cluster_z_bounds: vec4<f32>,
     n_directional_lights: u32,
     spot_light_shadowmap_offset: i32,
     ambient_light_flags: u32,

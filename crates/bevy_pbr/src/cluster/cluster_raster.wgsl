@@ -172,9 +172,12 @@ fn fragment_main(varyings: Varyings) -> @location(0) vec4<f32> {
     let screen_size = view.viewport.zw;
     let tile_size = screen_size / vec2<f32>(lights.cluster_dimensions.xy);
 
-    let z_near_far = compute_z_near_and_z_far(is_orthographic);
-    let z_near = z_near_far.x;
-    let z_far = z_near_far.y;
+    // The near and far depths of the cluster grid. These can't be recovered
+    // from `lights.cluster_factors`: when every clusterable object is nearer
+    // than the first slice depth, `z_far == z_near` and the factors are
+    // infinite, so deriving the depths from them yields NaN.
+    let z_near = lights.cluster_z_bounds.x;
+    let z_far = lights.cluster_z_bounds.y;
 
     // Determine the AABB of the cluster this fragment represents.
     let cluster_position = vec3<u32>(vec2<u32>(floor(varyings.position.xy)), z_slice);
@@ -346,22 +349,6 @@ fn line_intersection_to_z_plane(origin: vec3<f32>, p: vec3<f32>, z: f32) -> vec3
     let v = p - origin;
     let t = (z - dot(vec3(0.0, 0.0, 1.0), origin)) / dot(vec3(0.0, 0.0, 1.0), v);
     return origin + t * v;
-}
-
-// Computes the near and far extents of the cluster grid.
-fn compute_z_near_and_z_far(is_orthographic: bool) -> vec2<f32> {
-    let cluster_dimensions = vec3<f32>(lights.cluster_dimensions.xyz);
-    let cluster_factors = lights.cluster_factors;
-    var z_near: f32;
-    var z_far: f32;
-    if (is_orthographic) {
-        z_near = -cluster_factors.z;
-        z_far = -(cluster_dimensions.z + cluster_factors.w * cluster_factors.z) / cluster_factors.w;
-    } else {
-        z_near = exp(cluster_factors.w / cluster_factors.z);
-        z_far = exp((cluster_dimensions.z + cluster_factors.w - 1.0) / cluster_factors.z);
-    }
-    return vec2<f32>(z_near, z_far);
 }
 
 // Returns true if a spot light should be culled.
