@@ -1,9 +1,8 @@
-use bevy_core_pipeline::FullscreenShader;
+use super::{settings::BloomUniforms, Bloom, BloomCompositeMode, BLOOM_TEXTURE_FORMAT};
+use crate::lens_dirt::{create_lens_dirt_bind_group_layout, LensDirt};
 
-use super::{
-    downsampling_pipeline::BloomUniforms, Bloom, BloomCompositeMode, BLOOM_TEXTURE_FORMAT,
-};
 use bevy_asset::{load_embedded_asset, AssetServer, Handle};
+use bevy_core_pipeline::FullscreenShader;
 use bevy_ecs::{
     prelude::{Component, Entity},
     resource::Resource,
@@ -11,23 +10,26 @@ use bevy_ecs::{
 };
 use bevy_render::{
     render_resource::{
-        binding_types::{sampler, texture_2d, uniform_buffer},
+        binding_types::{sampler, storage_buffer_read_only_sized, texture_2d, uniform_buffer},
         *,
     },
     view::ExtractedView,
 };
 use bevy_shader::Shader;
 use bevy_utils::default;
+use core::num::NonZero;
 
 #[derive(Component)]
 pub struct UpsamplingPipelineIds {
     pub id_main: CachedRenderPipelineId,
     pub id_final: CachedRenderPipelineId,
+    pub id_final_dirt: Option<CachedRenderPipelineId>,
 }
 
 #[derive(Resource)]
 pub struct BloomUpsamplingPipeline {
     pub bind_group_layout: BindGroupLayoutDescriptor,
+    pub lens_dirt_bind_group_layout: BindGroupLayoutDescriptor,
     /// The asset handle for the fullscreen vertex shader.
     pub fullscreen_shader: FullscreenShader,
     /// The fragment shader asset handle.
@@ -38,6 +40,7 @@ pub struct BloomUpsamplingPipeline {
 pub struct BloomUpsamplingPipelineKeys {
     composite_mode: BloomCompositeMode,
     target_format: TextureFormat,
+    lens_dirt: bool,
 }
 
 pub fn init_bloom_upscaling_pipeline(
@@ -50,18 +53,19 @@ pub fn init_bloom_upscaling_pipeline(
         &BindGroupLayoutEntries::sequential(
             ShaderStages::FRAGMENT,
             (
-                // Input texture
                 texture_2d(TextureSampleType::Float { filterable: true }),
-                // Sampler
                 sampler(SamplerBindingType::Filtering),
-                // BloomUniforms
                 uniform_buffer::<BloomUniforms>(true),
+                storage_buffer_read_only_sized(false, NonZero::<u64>::new(4)),
             ),
         ),
     );
 
+    let lens_dirt_bind_group_layout = create_lens_dirt_bind_group_layout();
+
     commands.insert_resource(BloomUpsamplingPipeline {
         bind_group_layout,
+        lens_dirt_bind_group_layout,
         fullscreen_shader: fullscreen_shader.clone(),
         fragment_shader: load_embedded_asset!(asset_server.as_ref(), "bloom.wgsl"),
     });
@@ -72,43 +76,37 @@ impl SpecializedRenderPipeline for BloomUpsamplingPipeline {
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         let color_blend = match key.composite_mode {
-            BloomCompositeMode::EnergyConserving => {
-                // At the time of developing this we decided to blend our
-                // blur pyramid levels using native WGPU render pass blend
-                // constants. They are set in the bloom node's run function.
-                // This seemed like a good approach at the time which allowed
-                // us to perform complex calculations for blend levels on the CPU,
-                // however, we missed the fact that this prevented us from using
-                // textures to customize bloom appearance on individual parts
-                // of the screen and create effects such as lens dirt or
-                // screen blur behind certain UI elements.
-                //
-                // TODO: Use alpha instead of blend constants and move
-                // compute_blend_factor to the shader. The shader
-                // will likely need to know current mip number or
-                // mip "angle" (original texture is 0deg, max mip is 90deg)
-                // so make sure you give it that as a uniform.
-                // That does have to be provided per each pass unlike other
-                // uniforms that are set once.
-                BlendComponent {
-                    src_factor: BlendFactor::Constant,
-                    dst_factor: BlendFactor::OneMinusConstant,
-                    operation: BlendOperation::Add,
-                }
-            }
+            BloomCompositeMode::EnergyConserving => BlendComponent {
+                src_factor: BlendFactor::SrcAlpha,
+                dst_factor: BlendFactor::OneMinusSrcAlpha,
+                operation: BlendOperation::Add,
+            },
             BloomCompositeMode::Additive => BlendComponent {
-                src_factor: BlendFactor::Constant,
+                src_factor: BlendFactor::SrcAlpha,
                 dst_factor: BlendFactor::One,
                 operation: BlendOperation::Add,
             },
         };
 
+        let (layout, shader_defs) = if key.lens_dirt {
+            (
+                vec![
+                    self.bind_group_layout.clone(),
+                    self.lens_dirt_bind_group_layout.clone(),
+                ],
+                vec!["LENS_DIRT".into()],
+            )
+        } else {
+            (vec![self.bind_group_layout.clone()], vec![])
+        };
+
         RenderPipelineDescriptor {
             label: Some("bloom_upsampling_pipeline".into()),
-            layout: vec![self.bind_group_layout.clone()],
+            layout,
             vertex: self.fullscreen_shader.to_vertex_state(),
             fragment: Some(FragmentState {
                 shader: self.fragment_shader.clone(),
+                shader_defs,
                 entry_point: Some("upsample".into()),
                 targets: vec![Some(ColorTargetState {
                     format: key.target_format,
@@ -134,15 +132,16 @@ pub fn prepare_upsampling_pipeline(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<BloomUpsamplingPipeline>>,
     pipeline: Res<BloomUpsamplingPipeline>,
-    views: Query<(&ExtractedView, Entity, &Bloom)>,
+    views: Query<(&ExtractedView, Entity, &Bloom, Option<&LensDirt>)>,
 ) {
-    for (view, entity, bloom) in &views {
+    for (view, entity, bloom, maybe_lens_dirt) in &views {
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
             BloomUpsamplingPipelineKeys {
                 composite_mode: bloom.composite_mode,
                 target_format: BLOOM_TEXTURE_FORMAT,
+                lens_dirt: false,
             },
         );
 
@@ -152,12 +151,26 @@ pub fn prepare_upsampling_pipeline(
             BloomUpsamplingPipelineKeys {
                 composite_mode: bloom.composite_mode,
                 target_format: view.target_format,
+                lens_dirt: false,
             },
         );
+
+        let pipeline_final_dirt_id = maybe_lens_dirt.is_some().then(|| {
+            pipelines.specialize(
+                &pipeline_cache,
+                &pipeline,
+                BloomUpsamplingPipelineKeys {
+                    composite_mode: bloom.composite_mode,
+                    target_format: view.target_format,
+                    lens_dirt: true,
+                },
+            )
+        });
 
         commands.entity(entity).insert(UpsamplingPipelineIds {
             id_main: pipeline_id,
             id_final: pipeline_final_id,
+            id_final_dirt: pipeline_final_dirt_id,
         });
     }
 }
