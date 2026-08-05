@@ -24,7 +24,7 @@ mod tilemap_chunk;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        ColorMaterial, ExtendedMaterial2d, MaterialExtension2d, MeshMaterial2d, SpriteMaterial,
+        ColorMaterial, ExtendedMaterial2d, MaterialExtension2d, MeshMaterial2d, SpriteMeshMaterial,
     };
 }
 
