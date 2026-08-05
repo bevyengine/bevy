@@ -35,6 +35,7 @@ use crate::{
     alpha_pattern::{AlphaPatternMaterial, AlphaPatternResource},
     controls::ControlsPlugin,
     cursor::{CursorIconPlugin, DefaultCursor, EntityCursor},
+    display::popover::FeathersPopoverPlugin,
     theme::{ThemeContext, ThemedText, UiTheme},
 };
 
@@ -74,9 +75,11 @@ impl Plugin for FeathersCorePlugin {
         // Embedded shader
         embedded_asset!(app, "assets/shaders/alpha_pattern.wgsl");
         embedded_asset!(app, "assets/shaders/color_plane.wgsl");
+        embedded_asset!(app, "assets/shaders/popover_arrow.wgsl");
 
         app.add_plugins((
             ControlsPlugin,
+            FeathersPopoverPlugin,
             CursorIconPlugin,
             HierarchyPropagatePlugin::<TextColor, With<ThemedText>>::new(PostUpdate),
             HierarchyPropagatePlugin::<TextFont, With<ThemedText>>::new(PostUpdate),
