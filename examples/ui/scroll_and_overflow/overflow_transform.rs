@@ -62,6 +62,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                             margin: auto().all(),
                                             border_radius: BorderRadius::all(percent(20.)),
                                             align_items: AlignItems::Center,
+                                            justify_content: JustifyContent::SpaceAround,
                                             border: px(5.).all(),
                                             padding: px(5.).all(),
                                             ..default()
