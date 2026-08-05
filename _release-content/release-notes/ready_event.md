@@ -17,18 +17,18 @@ This enables the following:
 struct Widget;
 
 impl Widget {
-	fn scene() -> impl Scene {
-		bsn! {
-			Node { width: px(100), height: px(100) }
-			on(|ready: On<Ready>| {
-				info!("The full scene, including 'widget.bsn' contents, is available here")
-			})
-			Children [
-				Text("hello"),
-				:"widget.bsn"
-			]
-		}
-	}
+    fn scene() -> impl Scene {
+        bsn! {
+            Node { width: px(100), height: px(100) }
+            on(|ready: On<Ready>| {
+                info!("The full scene, including 'widget.bsn' contents, is available here")
+            })
+            Children [
+                Text("hello"),
+                :"widget.bsn"
+            ]
+        }
+    }
 }
 
 world.spawn(bsn!{ @Widget })
