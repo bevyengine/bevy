@@ -119,8 +119,8 @@ Add a `flake.nix` file to the root of your GitHub repository containing:
   outputs =
     {
       nixpkgs,
-      rust-overlay,
       flake-utils,
+      rust-overlay,
       ...
     }:
     flake-utils.lib.eachDefaultSystem (
@@ -135,38 +135,40 @@ Add a `flake.nix` file to the root of your GitHub repository containing:
         devShells.default =
           with pkgs;
           mkShell {
-            buildInputs =
-              [
-                # Rust dependencies
-                (rust-bin.stable.latest.default.override { extensions = [ "rust-src" ]; })
-                pkg-config
-              ]
-              ++ lib.optionals (lib.strings.hasInfix "linux" system) [
-                # for Linux
-                # Audio (Linux only)
-                alsa-lib
-                # Cross Platform 3D Graphics API
-                vulkan-loader
-                # For debugging around vulkan
-                vulkan-tools
-                # Other dependencies
-                libudev-zero
-                libx11
-                libxcursor
-                libxi
-                libxrandr
-                libxkbcommon
-                wayland
-              ];
-            RUST_SRC_PATH = "${pkgs.rust.packages.stable.rustPlatform.rustLibSrc}";
-            LD_LIBRARY_PATH = lib.makeLibraryPath [
+            nativeBuildInputs = [ pkg-config ];
+            packages = [
+              # Rust dependencies
+              (rust-bin.stable.latest.default.override { extensions = [ "rust-src" "rust-analyzer" ]; })
+            ]
+            ++ lib.optionals stdenv.isLinux [
+              # for Linux
+              # Audio (Linux only)
+              alsa-lib
+              # Cross Platform 3D Graphics API
               vulkan-loader
+              # For debugging around vulkan
+              vulkan-tools
+              # Other dependencies
+              libudev-zero
               libx11
-              libxi
               libxcursor
+              libxi
+              libxrandr
               libxkbcommon
               wayland
             ];
+
+            LD_LIBRARY_PATH = lib.optionalString stdenv.isLinux (
+              lib.makeLibraryPath [
+                libX11
+                libxcursor
+                libxi
+                libxkbcommon
+                libxrandr
+                vulkan-loader
+                wayland
+              ]
+            );
           };
       }
     );
