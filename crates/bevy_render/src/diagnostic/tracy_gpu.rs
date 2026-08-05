@@ -10,15 +10,13 @@ pub fn new_tracy_gpu_context(
     device: &RenderDevice,
     queue: &RenderQueue,
 ) -> Option<GpuContext> {
-    if !device.features().contains(
-        wgpu::Features::TIMESTAMP_QUERY
-            | wgpu::Features::TIMESTAMP_QUERY_INSIDE_ENCODERS
-            | wgpu::Features::TIMESTAMP_QUERY_INSIDE_PASSES,
-    ) {
+    if !device
+        .features()
+        .contains(wgpu::Features::TIMESTAMP_QUERY | wgpu::Features::TIMESTAMP_QUERY_INSIDE_ENCODERS)
+    {
         bevy_log::warn!(
             "Failed to create tracy gpu context because device lacks features: \
-            `wgpu::Features::TIMESTAMP_QUERY | wgpu::Features::TIMESTAMP_QUERY_INSIDE_ENCODERS \
-            | wgpu::Features::TIMESTAMP_QUERY_INSIDE_PASSES`"
+            `wgpu::Features::TIMESTAMP_QUERY | wgpu::Features::TIMESTAMP_QUERY_INSIDE_ENCODERS`"
         );
         return None;
     }
