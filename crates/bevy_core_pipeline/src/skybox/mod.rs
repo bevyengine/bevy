@@ -38,7 +38,7 @@ impl Plugin for SkyboxPlugin {
         embedded_asset!(app, "skybox.wesl");
 
         app.add_plugins((
-            SyncComponentPlugin::<Skybox, Self>::default(),
+            SyncComponentPlugin::<Skybox, RenderApp, Self>::default(),
             UniformComponentPlugin::<SkyboxUniforms>::default(),
         ));
 

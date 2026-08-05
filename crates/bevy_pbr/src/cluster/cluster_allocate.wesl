@@ -98,7 +98,9 @@ fn allocate_global_main(@builtin(local_invocation_id) local_id: vec3<u32>) {
     // March along the chunks sequentially, accumulating as we go.
     var current_offset = 0u;
     for (var i = 0u; i < cluster_count; i += 256u) {
-        offsets_and_counts.data[i + local_id.x][0].x += current_offset;
+        if (i + local_id.x < cluster_count) {
+            offsets_and_counts.data[i + local_id.x][0].x += current_offset;
+        }
         storageBarrier();
 
         if (i + 255u < cluster_count) {

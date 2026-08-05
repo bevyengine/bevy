@@ -655,6 +655,7 @@ Example | Description
 
 Example | Description
 --- | ---
+[Character Creation with UI Widgets](../examples/usage/character_creation.rs) | Demonstrates how to use headless widgets to power a Character Creation Menu
 [Context Menu](../examples/usage/context_menu.rs) | Example of a context menu
 [Cooldown](../examples/usage/cooldown.rs) | Example for cooldown on button clicks
 [Debug Frustum Culling](../examples/usage/debug_frustum_culling.rs) | Example demonstrating how to debug frustum culling

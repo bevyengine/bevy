@@ -811,8 +811,10 @@ fn apply_pbr_lighting(
     // Consequently, the emission is darkened by the Fresnel term."
     //
     // <https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_materials_clearcoat/README.md#emission>
-    @if(STANDARD_MATERIAL_CLEARCOAT)
-    emissive_light = emissive_light * (0.04 + (1.0 - 0.04) * pow(1.0 - clearcoat_NdotV, 5.0));
+    @if(STANDARD_MATERIAL_CLEARCOAT) {
+    let clearcoat_fresnel = lighting::F_Schlick(0.04, 1.0, clearcoat_NdotV);
+    emissive_light = emissive_light * (1.0 - clearcoat * clearcoat_fresnel);
+    }
 
     emissive_light = emissive_light * mix(1.0, view_bindings::view.exposure, emissive.a);
 

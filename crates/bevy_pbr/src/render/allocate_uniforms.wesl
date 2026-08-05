@@ -136,8 +136,11 @@ fn allocate_local_scan(
     // instances (plus the first output mesh uniform index if we're the first
     // workgroup) in the fan buffer in preparation for the next phase.
     if (local_id.x == WORKGROUP_SIZE - 1u) {
-        fan_buffer[group_id.x] = output_offsets[WORKGROUP_SIZE - 1u] +
-            bin_metadata[global_id.x].instance_count;
+        var chunk_total = output_offsets[WORKGROUP_SIZE - 1u];
+        if (global_id.x < block_end) {
+            chunk_total += bin_metadata[global_id.x].instance_count;
+        }
+        fan_buffer[group_id.x] = chunk_total;
     }
 }
 

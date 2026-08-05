@@ -4916,7 +4916,7 @@ wasm = true
 name = "clearcoat"
 path = "examples/3d/clearcoat.rs"
 doc-scrape-examples = true
-required-features = ["pbr_multi_layer_material_textures"]
+required-features = ["pbr_multi_layer_material_textures", "bevy_feathers"]
 
 [package.metadata.example.clearcoat]
 name = "Clearcoat"
@@ -5434,6 +5434,17 @@ doc-scrape-examples = true
 name = "Standard Widgets"
 description = "Demonstrates use of core (headless) widgets in Bevy UI"
 category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "character_creation"
+path = "examples/usage/character_creation.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.character_creation]
+name = "Character Creation with UI Widgets"
+description = "Demonstrates how to use headless widgets to power a Character Creation Menu"
+category = "Usage"
 wasm = true
 
 [[example]]
