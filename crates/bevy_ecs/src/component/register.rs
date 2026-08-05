@@ -159,11 +159,10 @@ impl<'w> ComponentsRegistrator<'w> {
     ///
     /// * [`Components::component_id()`]
     /// * [`ComponentsRegistrator::register_component_with_descriptor()`]
-    // This doesn't check for required component recursion if the component already exists.
-    // Use `register_component_checked` if that's a concern.
     #[inline]
     pub fn register_component<T: Component>(&mut self) -> ComponentId {
         if let Some(&id) = self.indices.get(&TypeId::of::<T>()) {
+            enforce_no_required_components_recursion(self, &self.recursion_check_stack, id);
             return id;
         }
 
