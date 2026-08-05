@@ -158,7 +158,6 @@ impl RequiredComponents {
         constructor: impl Fn() -> C + 'static,
     ) {
         let id = components.register_component::<C>();
-
         // SAFETY:
         // - `id` was just registered in `components`;
         // - the caller guarantees all other components were registered in `components`.

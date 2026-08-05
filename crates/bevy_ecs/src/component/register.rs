@@ -161,11 +161,6 @@ impl<'w> ComponentsRegistrator<'w> {
     /// * [`ComponentsRegistrator::register_component_with_descriptor()`]
     #[inline]
     pub fn register_component<T: Component>(&mut self) -> ComponentId {
-        if let Some(&id) = self.indices.get(&TypeId::of::<T>()) {
-            enforce_no_required_components_recursion(self, &self.recursion_check_stack, id);
-            return id;
-        }
-
         self.register_component_checked(
             TypeId::of::<T>(),
             ComponentDescriptor::new::<T>,
