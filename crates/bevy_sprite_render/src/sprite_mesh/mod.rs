@@ -19,6 +19,9 @@ use bevy_platform::collections::HashMap;
 use bevy_shader::load_shader_library;
 use bevy_sprite::{prelude::SpriteMesh, Anchor};
 
+mod sprite_extended_material;
+pub use sprite_extended_material::*;
+
 mod sprite_mesh_material;
 pub use sprite_mesh_material::*;
 
@@ -77,30 +80,30 @@ fn add_mesh(
 // for hot reload.
 fn add_material(
     sprites: Query<
-        (Entity, &SpriteMesh, &Anchor),
-        Or<(Changed<SpriteMesh>, Changed<Anchor>, Added<Mesh2d>)>,
+        (Entity, &SpriteMesh, &Anchor, Option<&SpriteMaterialCount>),
+        Or<(
+            Changed<SpriteMesh>,
+            Changed<Anchor>,
+            Changed<SpriteMaterialCount>,
+            Added<Mesh2d>,
+        )>,
     >,
     texture_atlas_layouts: Res<Assets<TextureAtlasLayout>>,
     mut cached_materials: Local<HashMap<(SpriteMesh, Anchor), Handle<SpriteMeshMaterial>>>,
     mut materials: ResMut<Assets<SpriteMeshMaterial>>,
     mut commands: Commands,
 ) {
-    for (entity, sprite, anchor) in sprites {
+    for (entity, sprite, anchor, count) in sprites {
+        if count.is_some_and(|c| c.0 != 0) {
+            continue;
+        }
+
         if let Some(handle) = cached_materials.get(&(sprite.clone(), *anchor)) {
             commands
                 .entity(entity)
                 .insert(MeshMaterial2d(handle.clone()));
         } else {
-            let mut material = SpriteMeshMaterial::from_sprite_mesh(sprite.clone());
-            material.anchor = **anchor;
-
-            if let Some(texture_atlas) = &sprite.texture_atlas
-                && let Some(texture_atlas_layout) =
-                    texture_atlas_layouts.get(texture_atlas.layout.id())
-            {
-                material.texture_atlas_layout = Some(texture_atlas_layout.clone());
-                material.texture_atlas_index = texture_atlas.index;
-            }
+            let material = make_sprite_mesh_material(&texture_atlas_layouts, sprite, anchor);
 
             let handle = materials.add(material);
             cached_materials.insert((sprite.clone(), *anchor), handle.clone());
@@ -110,4 +113,22 @@ fn add_material(
                 .insert(MeshMaterial2d(handle.clone()));
         }
     }
+}
+
+fn make_sprite_mesh_material(
+    texture_atlas_layouts: &Assets<TextureAtlasLayout>,
+    sprite: &SpriteMesh,
+    anchor: &Anchor,
+) -> SpriteMeshMaterial {
+    let mut material = SpriteMeshMaterial::from_sprite_mesh(sprite.clone());
+    material.anchor = **anchor;
+
+    if let Some(texture_atlas) = &sprite.texture_atlas
+        && let Some(texture_atlas_layout) = texture_atlas_layouts.get(texture_atlas.layout.id())
+    {
+        material.texture_atlas_layout = Some(texture_atlas_layout.clone());
+        material.texture_atlas_index = texture_atlas.index;
+    }
+
+    material
 }
