@@ -14,9 +14,6 @@ use bevy::{
     math::Isometry2d,
     mesh::{Extrudable, ExtrusionBuilder, PerimeterSegment},
     prelude::*,
-    shape::bounding::{
-        Aabb2d, Bounded2d, Bounded3d, BoundedExtrusion, BoundingCircle, BoundingVolume,
-    },
 };
 
 const HEART: Heart = Heart::new(0.5);

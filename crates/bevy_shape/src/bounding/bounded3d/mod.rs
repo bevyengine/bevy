@@ -293,8 +293,7 @@ impl IntersectsVolume<BoundingSphere> for Aabb3d {
 mod aabb3d_tests {
     use approx::assert_relative_eq;
 
-    use super::Aabb3d;
-    use crate::bounding::{BoundingSphere, BoundingVolume, IntersectsVolume};
+    use crate::{Aabb3d, BoundingSphere, BoundingVolume, IntersectsVolume};
     use bevy_math::{ops, EulerRot, Quat, Vec3, Vec3A};
 
     #[test]
@@ -690,8 +689,7 @@ impl IntersectsVolume<Aabb3d> for BoundingSphere {
 mod bounding_sphere_tests {
     use approx::assert_relative_eq;
 
-    use super::BoundingSphere;
-    use crate::bounding::{BoundingVolume, IntersectsVolume};
+    use crate::{BoundingSphere, BoundingVolume, IntersectsVolume};
     use bevy_math::{ops, Quat, Vec3, Vec3A};
 
     #[test]

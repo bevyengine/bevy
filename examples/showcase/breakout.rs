@@ -2,10 +2,7 @@
 //!
 //! Demonstrates Bevy's stepping capabilities if compiled with the `bevy_debug_stepping` feature.
 
-use bevy::{
-    prelude::*,
-    shape::bounding::{Aabb2d, BoundingCircle, BoundingVolume, IntersectsVolume},
-};
+use bevy::prelude::*;
 
 mod stepping;
 

@@ -1,9 +1,8 @@
 //! Contains [`Bounded2d`] implementations for [2d geometric primitives](crate::dim2).
 
 use crate::{
-    bounding::BoundingVolume, Annulus, Arc2d, Capsule2d, Circle, CircularSector, CircularSegment,
-    Ellipse, Line2d, Plane2d, Primitive2d, Rectangle, RegularPolygon, Rhombus, Ring, Segment2d,
-    Triangle2d,
+    Annulus, Arc2d, BoundingVolume, Capsule2d, Circle, CircularSector, CircularSegment, Ellipse,
+    Line2d, Plane2d, Primitive2d, Rectangle, RegularPolygon, Rhombus, Ring, Segment2d, Triangle2d,
 };
 use bevy_math::{ops, Dir2, Isometry2d, Mat2, Rot2, Vec2};
 use core::f32::consts::{FRAC_PI_2, PI, TAU};
@@ -448,9 +447,9 @@ mod tests {
     };
 
     use crate::{
-        bounding::Bounded2d, Annulus, Arc2d, Capsule2d, Circle, CircularSector, CircularSegment,
-        Ellipse, Line2d, Plane2d, Polygon, Polyline2d, Rectangle, RegularPolygon, Rhombus,
-        Segment2d, Triangle2d,
+        Annulus, Arc2d, Bounded2d, Capsule2d, Circle, CircularSector, CircularSegment, Ellipse,
+        Line2d, Plane2d, Polygon, Polyline2d, Rectangle, RegularPolygon, Rhombus, Segment2d,
+        Triangle2d,
     };
 
     #[test]
