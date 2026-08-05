@@ -1,7 +1,10 @@
 #import bevy_pbr::forward_io::VertexOutput
-#import bevy_pbr::irradiance_volume
 #import bevy_pbr::mesh_view_bindings
 #import bevy_pbr::clustered_forward
+
+#ifdef IRRADIANCE_VOLUME
+#import bevy_pbr::irradiance_volume
+#endif
 
 struct VoxelVisualizationIrradianceVolumeInfo {
     world_from_voxel: mat4x4<f32>,
@@ -37,6 +40,7 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
     var clusterable_object_index_ranges =
         clustered_forward::unpack_clusterable_object_index_ranges(cluster_index);
 
+#ifdef IRRADIANCE_VOLUME
     // `irradiance_volume_light()` multiplies by intensity, so cancel it out.
     // If we take intensity into account, the cubes will be way too bright.
     let rgb = irradiance_volume::irradiance_volume_light(
@@ -44,6 +48,9 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
         mesh.world_normal,
         &clusterable_object_index_ranges,
     ) / irradiance_volume_info.intensity;
+#else
+    let rgb = vec3<f32>(0.0);
+#endif
 
     return vec4<f32>(rgb, 1.0f);
 }

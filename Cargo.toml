@@ -1650,9 +1650,7 @@ doc-scrape-examples = true
 name = "Irradiance Volumes"
 description = "Demonstrates irradiance volumes"
 category = "3D Rendering"
-# On WebGL and WebGPU, the number of texture bindings is too low
-# See <https://github.com/bevyengine/bevy/issues/11885>
-wasm = false
+wasm = true
 
 [[example]]
 name = "meshlet"

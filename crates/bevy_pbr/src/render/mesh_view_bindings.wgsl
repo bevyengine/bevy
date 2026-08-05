@@ -144,14 +144,12 @@ const VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE: u32 = 64u;
 #endif
 
 #ifdef IRRADIANCE_VOLUME
-#ifdef IRRADIANCE_VOLUMES_ARE_USABLE
 #ifdef MULTIPLE_LIGHT_PROBES_IN_ARRAY
 @group(1) @binding(3) var irradiance_volumes: binding_array<texture_3d<f32>, 8u>;
 #else
 @group(1) @binding(3) var irradiance_volume: texture_3d<f32>;
 #endif
 @group(1) @binding(4) var irradiance_volume_sampler: sampler;
-#endif
 #endif
 
 #ifdef CLUSTERED_DECALS_ARE_USABLE
