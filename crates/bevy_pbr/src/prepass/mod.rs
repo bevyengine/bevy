@@ -547,6 +547,14 @@ impl PrepassPipeline {
                 }
                 vertex_attributes.push(Mesh::ATTRIBUTE_TANGENT.at_shader_location(4));
             }
+            if layout
+                .0
+                .get_attribute_compression()
+                .contains(MeshAttributeCompressionFlags::PACKED_AXIS_ANGLE_TBN)
+            {
+                shader_defs.push("VERTEX_TANGENTS".into());
+                shader_defs.push("VERTEX_PACKED_AXIS_ANGLE_TBN".into());
+            }
         }
         if mesh_key
             .intersects(MeshPipelineKey::MOTION_VECTOR_PREPASS | MeshPipelineKey::DEFERRED_PREPASS)

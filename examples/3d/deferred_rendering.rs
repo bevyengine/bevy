@@ -11,6 +11,7 @@ use bevy::{
     },
     material::OpaqueRendererMethod,
     math::ops,
+    mesh::MeshAttributeCompressionFlags,
     pbr::DefaultOpaqueRendererMethod,
     prelude::*,
 };
@@ -232,6 +233,10 @@ fn setup_parallax(
     // NOTE: for normal maps and depth maps to work, the mesh
     // needs tangents generated.
     cube.generate_tangents().unwrap();
+    let cube = cube.compressed_mesh(
+        MeshAttributeCompressionFlags::all_with_color_float16(),
+        true,
+    );
 
     let parallax_material = materials.add(StandardMaterial {
         perceptual_roughness: 0.4,
