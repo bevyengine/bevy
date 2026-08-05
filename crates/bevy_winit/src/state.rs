@@ -187,6 +187,8 @@ impl ApplicationHandler<WinitUserEvent> for WinitAppRunnerState {
         match event {
             WinitUserEvent::WakeUp => {
                 self.redraw_requested = true;
+                // this guarantees that app.update() will be called
+                self.ran_update_since_last_redraw = false;
             }
             WinitUserEvent::WindowAdded => {
                 let mut create_window =
