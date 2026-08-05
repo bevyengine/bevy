@@ -24,7 +24,7 @@ fn on_virtual_key_pressed(virtual_key_pressed: On<VirtualKeyPressed<&'static str
 }
 
 fn scene() -> impl SceneList {
-    bsn_list![Camera2d, keyboard()]
+    bsn_list![Camera2d, @keyboard()]
 }
 
 fn keyboard() -> impl Scene {

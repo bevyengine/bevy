@@ -178,7 +178,7 @@ impl FeathersNumberInput {
                     EditableTextFilter::new(|c| {
                         c.is_ascii_digit() || matches!(c, '.' | '-' | '+' | 'e' | 'E')
                     })
-                    template_value(LineHeight::Px(24.0)) // TODO: Make const for this
+                    LineHeight::Px(24.0) // TODO: Make const for this
                     TextLayout {
                         justify: Justify::Center,
                     }

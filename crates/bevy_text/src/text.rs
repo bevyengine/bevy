@@ -3,6 +3,7 @@ use alloc::borrow::Cow;
 use bevy_asset::{Assets, Handle};
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::VariantDefaults;
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
 use bevy_math::Vec2;
 use bevy_reflect::prelude::*;
@@ -1304,7 +1305,7 @@ impl From<&FontVariations> for parley::style::FontVariations<'static> {
 /// Specifies the height of each line of text for `Text` and `Text2d`
 ///
 /// Default is 1.2x the font size
-#[derive(Component, Debug, Clone, Copy, PartialEq, Reflect)]
+#[derive(Component, Debug, Clone, Copy, PartialEq, Reflect, VariantDefaults)]
 #[reflect(Component, Debug, Clone, PartialEq)]
 pub enum LineHeight {
     /// Set line height to a specific number of pixels

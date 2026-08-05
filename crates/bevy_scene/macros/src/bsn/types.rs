@@ -17,8 +17,10 @@ pub enum BsnEntry {
     Name(Ident),
     FromTemplatePatch(BsnType),
     TemplatePatch(BsnType),
+    TemplateValue(TokenStream),
     FromTemplateConstructor(BsnConstructor),
     TemplateConstructor(BsnConstructor),
+    Observer { closure: TokenStream, is_move: bool },
     TemplateConst { type_path: Path, const_ident: Ident },
     UncachedScene(BsnScene),
     CachedScene(BsnScene),
@@ -75,14 +77,6 @@ pub struct BsnConstructor {
 pub enum BsnFields {
     Named(Vec<BsnNamedField>),
     Tuple(Vec<BsnUnnamedField>),
-}
-impl BsnFields {
-    pub fn len(&self) -> usize {
-        match self {
-            BsnFields::Named(vec) => vec.len(),
-            BsnFields::Tuple(vec) => vec.len(),
-        }
-    }
 }
 
 #[derive(Debug)]

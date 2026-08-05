@@ -4,15 +4,15 @@ use crate::_bsn::types::{
     BsnSceneListItems, BsnTuple, BsnType, BsnUnnamedField, BsnValue,
 };
 use bevy_macro_utils::{path_to_string, PathType};
-use proc_macro2::{Delimiter, TokenStream, TokenTree};
-use quote::quote;
+use proc_macro2::{Delimiter, Spacing, TokenStream, TokenTree};
+use quote::{quote, ToTokens};
 use syn::{
     braced, bracketed,
     buffer::Cursor,
     parenthesized,
     parse::{discouraged::Speculative, Parse, ParseBuffer, ParseStream},
     spanned::Spanned,
-    token::{At, Brace, Bracket, Colon, Comma, Paren, Tilde},
+    token::{At, Brace, Bracket, Colon, Comma, Dot, Move, Paren, Tilde},
     Block, Ident, Lit, LitStr, Path, Result, Token,
 };
 
@@ -99,17 +99,40 @@ impl<const ALLOW_FLAT: bool> Parse for Bsn<ALLOW_FLAT> {
 impl BsnEntry {
     fn parse(input: ParseStream) -> Result<Self> {
         Ok(if input.peek(Token![:]) && !input.peek(Token![::]) {
-            BsnEntry::CachedScene(BsnScene::parse(input)?)
+            let cached = input.parse::<Token![:]>()?;
+            let scene = BsnScene::parse(input)?;
+            if !matches!(scene, BsnScene::Asset(_)) {
+                return Err(syn::Error::new(
+                    cached.span(),
+                    "Caching is currently only supported for asset scenes. Consider replacing `:` with `@`",
+                ));
+            }
+            BsnEntry::CachedScene(scene)
         } else if input.peek(Token![#]) {
             input.parse::<Token![#]>()?;
             BsnEntry::Name(input.parse::<Ident>()?)
-        } else if input.peek(Brace) || input.peek(At) {
+        } else if input.peek(At) {
+            let _ = input.parse::<At>()?;
             BsnEntry::UncachedScene(BsnScene::parse(input)?)
+        } else if input.peek(Move) {
+            input.parse::<Move>()?;
+            let tokens = parse_closure_loose(input)?;
+            BsnEntry::Observer {
+                is_move: true,
+                closure: tokens,
+            }
+        } else if input.peek(Token![|]) {
+            let tokens = parse_closure_loose(input)?;
+            BsnEntry::Observer {
+                is_move: false,
+                closure: tokens,
+            }
         } else {
             let is_template = input.peek(Tilde);
             if is_template {
                 input.parse::<Tilde>()?;
             }
+            let start_type = input.cursor();
             let mut path = input.parse::<Path>()?;
             let path_type = PathType::new(&path);
             match path_type {
@@ -135,7 +158,14 @@ impl BsnEntry {
                         if is_template {
                             BsnEntry::TemplatePatch(bsn_type)
                         } else {
-                            BsnEntry::FromTemplatePatch(bsn_type)
+                            if input.peek(Dot) {
+                                let end_cursor = input.cursor();
+                                let dot_expr = parse_extended_dot_expression(input)?;
+                                let tokens = tokens_between(start_type, end_cursor);
+                                BsnEntry::TemplateValue(quote! {#tokens #dot_expr})
+                            } else {
+                                BsnEntry::FromTemplatePatch(bsn_type)
+                            }
                         }
                     }
                 }
@@ -163,15 +193,32 @@ impl BsnEntry {
                     if is_template {
                         BsnEntry::TemplateConstructor(bsn_constructor)
                     } else {
-                        BsnEntry::FromTemplateConstructor(bsn_constructor)
+                        if input.peek(Dot) {
+                            let end_cursor = input.cursor();
+                            let dot_expr = parse_extended_dot_expression(input)?;
+                            let tokens = tokens_between(start_type, end_cursor);
+                            BsnEntry::TemplateValue(quote! {#tokens #dot_expr})
+                        } else {
+                            BsnEntry::FromTemplateConstructor(bsn_constructor)
+                        }
                     }
                 }
                 PathType::Function => {
                     if input.peek(Paren) {
-                        let args = input.parse::<BsnFnArgs>()?;
-                        BsnEntry::UncachedScene(BsnScene::Fn(BsnSceneFn { path, args }))
+                        let contents = group_tokens(input, Delimiter::Parenthesis)?;
+                        if input.peek(Dot) {
+                            let dot_expr = parse_extended_dot_expression(input)?;
+                            BsnEntry::TemplateValue(quote! {#path #contents #dot_expr})
+                        } else {
+                            BsnEntry::TemplateValue(quote! {#path #contents})
+                        }
                     } else {
-                        BsnEntry::UncachedScene(BsnScene::Expression(quote! {#path}))
+                        if input.peek(Dot) {
+                            let dot_expr = parse_extended_dot_expression(input)?;
+                            BsnEntry::TemplateValue(quote! {#path #dot_expr})
+                        } else {
+                            BsnEntry::TemplateValue(path.into_token_stream())
+                        }
                     }
                 }
             }
@@ -207,76 +254,28 @@ impl Parse for BsnSceneListItem {
 
 impl BsnScene {
     fn parse(input: ParseStream) -> Result<Self> {
-        let cached = if input.peek(Token![:]) {
-            Some(input.parse::<Token![:]>()?)
-        } else {
-            None
-        };
-
-        let err_if_cached = |msg: &str| {
-            if let Some(colon) = cached {
-                Err(syn::Error::new(colon.span(), msg))
-            } else {
-                Ok(())
-            }
-        };
-
-        // It may seem odd how this is checking LitStr again
-        // and how there doesn't seem to be a need for all the specific `err_if_cached`
-        // in later code. But since caching is planned, and will very likely
-        // have the limitations which are ensured by the other errors below,
-        // this is its own block so its very simple to remove once caching is implemented.
-        if !input.peek(LitStr) {
-            err_if_cached("Currently, caching is only supported for scene assets. Please remove the ':' prefix for now.")?;
-        }
-
         Ok(if input.peek(LitStr) {
             let path = input.parse::<LitStr>()?;
-            if cached.is_none() {
-                return Err(syn::Error::new(
-                    path.span(),
-                    "Cannot use scene assets without caching, please add the ':' prefix.",
-                ));
-            }
             BsnScene::Asset(path)
         } else if input.peek(Brace) {
-            err_if_cached("Cannot cache scene expressions")?;
             BsnScene::Expression(braced_tokens(input)?)
-        } else if input.peek(At) {
-            input.parse::<At>()?;
-            let sc = input.parse::<BsnType>()?;
-            if sc.fields.len() > 0 {
-                err_if_cached("Cannot cache Scene Components with props/fields")?;
-            }
-            BsnScene::SceneComponent(sc)
         } else {
             // PERF: do we really need this fork here?
             let path = input.fork().parse::<Path>()?;
             match PathType::new(&path) {
                 PathType::Type | PathType::Enum => {
-                    // Scene components are parsed before this if an @ is found.
-                    // If this path is hit, that means it wasn't prefixed by @
-                    return Err(syn::Error::new(
-                        path.span(),
-                        format!(
-                            "Scene component {} needs to be prefixed by '@'",
-                            path_to_string(&path),
-                        ),
-                    ));
+                    BsnScene::SceneComponent(input.parse::<BsnType>()?)
                 }
                 PathType::Function | PathType::TypeFunction => {
                     let path = input.parse::<Path>()?;
                     let args = input.parse::<BsnFnArgs>()?;
-                    if !args.0.is_empty() {
-                        err_if_cached("Cannot cache Scene function with arguments")?;
-                    }
                     BsnScene::Fn(BsnSceneFn { path, args })
                 }
                 path_type => {
                     return Err(syn::Error::new(
                         path.span(),
                         format!(
-                            "Cannot cache path {} of type {:?}",
+                            "Scenes with path {} of type {:?} are not supported",
                             path_to_string(&path),
                             path_type,
                         ),
@@ -438,21 +437,68 @@ fn parse_closure_loose(input: &ParseBuffer) -> Result<TokenStream> {
         let mut rest = *cursor;
         while let Some((tt, next)) = rest.token_tree() {
             match &tt {
-                TokenTree::Punct(punct) if punct.as_char() == '|' => {
-                    if let Some((TokenTree::Group(group), next)) = next.token_tree()
-                        && group.delimiter() == Delimiter::Brace
+                TokenTree::Punct(punct) if punct.as_char() == '|' => match next.token_tree() {
+                    Some((TokenTree::Group(group), next))
+                        if group.delimiter() == Delimiter::Brace =>
                     {
                         return Ok((tokens_between(start, next), next));
-                    } else {
-                        return Err(cursor.error("closures expect '{' to follow '|'"));
                     }
-                }
+                    Some((TokenTree::Punct(punct), next))
+                        if punct.as_char() == '-' && punct.spacing() == Spacing::Joint =>
+                    {
+                        if let Some((TokenTree::Punct(punct), after_arrow)) = next.token_tree()
+                            && punct.as_char() == '>'
+                            && punct.spacing() == Spacing::Alone
+                        {
+                            if let Some((TokenTree::Ident(_), after_ident)) =
+                                after_arrow.token_tree()
+                            {
+                                if let Some((TokenTree::Group(group), next)) =
+                                    after_ident.token_tree()
+                                    && group.delimiter() == Delimiter::Brace
+                                {
+                                    return Ok((tokens_between(start, next), next));
+                                } else {
+                                    return Err(cursor
+                                        .error("closures expect '{' or `-> Type` to follow '|'"));
+                                }
+                            } else {
+                                return Err(
+                                    cursor.error("closures expect '{' or `-> Type` to follow '|'")
+                                );
+                            }
+                        } else {
+                            return Err(
+                                cursor.error("closures expect '{' or `-> Type` to follow '|'")
+                            );
+                        }
+                    }
+                    _ => {
+                        return Err(cursor.error("closures expect '{' or `-> Type` to follow '|'"));
+                    }
+                },
                 _ => rest = next,
             }
         }
         Err(cursor.error("no matching `|` was found after this point"))
     })?;
     Ok(tokens)
+}
+
+/// Parses "dot expressions" in the style of .foo().bar.baz::<A>()
+fn parse_extended_dot_expression(input: &ParseBuffer) -> Result<TokenStream> {
+    let start = input.cursor();
+    while input.peek(Dot) {
+        let _ = input.parse::<Dot>()?;
+        let _ = input.parse::<Path>()?;
+        if input.peek(Paren) {
+            let _ = parse_tuple_loose(input)?;
+        }
+    }
+
+    let end = input.cursor();
+
+    Ok(tokens_between(start, end))
 }
 
 // Used to parse a block "loosely" without caring about the content in `{...}`. This ensures autocomplete works.
@@ -467,6 +513,17 @@ fn parenthesized_tokens(input: &ParseBuffer) -> Result<TokenStream> {
     let content;
     parenthesized!(content in input);
     content.parse::<TokenStream>()
+}
+
+fn group_tokens(input: &ParseBuffer, delimiter: Delimiter) -> Result<TokenStream> {
+    let tree = input.parse::<TokenTree>()?;
+    if let TokenTree::Group(group) = &tree
+        && group.delimiter() == delimiter
+    {
+        Ok(tree.into_token_stream())
+    } else {
+        Err(input.error(format!("Expected {:?}", delimiter)))
+    }
 }
 
 // Used to parse bracketed tokens "loosely" without caring about the content in `[...]`. This ensures autocomplete works.
