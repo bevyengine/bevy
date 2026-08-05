@@ -322,6 +322,7 @@ impl World {
     /// happens automatically during system initialization.
     #[doc(alias = "register_resource")]
     pub fn register_component<T: Component>(&mut self) -> ComponentId {
+        // This is a hot path, so return early to avoid the `Vec::new` in `ComponentsRegistrator`
         if let Some(id) = self.component_id::<T>() {
             return id;
         }
@@ -3356,6 +3357,7 @@ impl World {
     }
 
     pub(crate) fn register_bundle_info<B: Bundle>(&mut self) -> BundleId {
+        // This is a hot path, so return early to avoid the `Vec::new` in `ComponentsRegistrator`
         if let Some(bundle_id) = self.bundles.get_id(TypeId::of::<B>()) {
             return bundle_id;
         }
@@ -3372,6 +3374,7 @@ impl World {
     }
 
     pub(crate) fn register_contributed_bundle_info<B: Bundle>(&mut self) -> BundleId {
+        // This is a hot path, so return early to avoid the `Vec::new` in `ComponentsRegistrator`
         if let Some(bundle_id) = self.bundles.get_contributed_bundle_id(TypeId::of::<B>()) {
             return bundle_id;
         }

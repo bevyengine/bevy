@@ -432,7 +432,7 @@ impl Bundles {
     /// or if `type_id` does not correspond to a type of bundle.
     #[inline]
     pub fn get_id(&self, type_id: TypeId) -> Option<BundleId> {
-        self.bundle_ids.get(&type_id).cloned()
+        self.bundle_ids.get(&type_id).copied()
     }
 
     /// Gets the value identifying a specific type of bundle
@@ -441,7 +441,7 @@ impl Bundles {
     /// Returns `None` if the bundle does not exist in the world,
     /// or if `type_id` does not correspond to a type of bundle.
     pub fn get_contributed_bundle_id(&self, type_id: TypeId) -> Option<BundleId> {
-        self.contributed_bundle_ids.get(&type_id).cloned()
+        self.contributed_bundle_ids.get(&type_id).copied()
     }
 
     /// Registers a new [`BundleInfo`] for a statically known type.
