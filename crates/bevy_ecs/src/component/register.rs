@@ -175,7 +175,7 @@ impl<'w> ComponentsRegistrator<'w> {
     }
 
     // This exists to cut down on monomorphized code in register_component, which reduces compile times and binary sizes.
-    pub(crate) fn register_component_checked(
+    fn register_component_checked(
         &mut self,
         type_id: TypeId,
         descriptor: fn() -> ComponentDescriptor,
