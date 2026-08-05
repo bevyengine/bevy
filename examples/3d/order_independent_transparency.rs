@@ -381,7 +381,7 @@ fn change_setting(
         if *group_setting != radio_group_setting {
             continue;
         }
-        for (entity, setting) in setting_q.iter_many(children) {
+        for (entity, setting) in setting_q.iter_many(children).matched() {
             if setting.0 == *new_app_setting {
                 commands.entity(entity).insert(Checked);
             } else {

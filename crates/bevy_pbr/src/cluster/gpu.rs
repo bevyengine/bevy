@@ -130,6 +130,7 @@ impl Plugin for GpuClusteringPlugin {
 
         app.add_plugins(ExtractResourcePlugin::<
             GlobalClusterSettings,
+            RenderApp,
             GpuClusteringPlugin,
         >::default());
     }
