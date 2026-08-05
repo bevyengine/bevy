@@ -61,9 +61,16 @@ pub struct CommandQueue {
 impl Default for CommandQueue {
     #[track_caller]
     fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl CommandQueue {
+    #[track_caller]
+    pub(crate) const fn new() -> Self {
         Self {
-            bytes: Default::default(),
-            cursor: Default::default(),
+            bytes: Vec::new(),
+            cursor: 0,
             caller: MaybeLocation::caller(),
             warn_on_unapplied: true,
         }
@@ -414,7 +421,10 @@ fn handle_panic_payload(
     };
     let error =
         BevyError::new_with_backtrace(Severity::Panic, "Command panicked", Backtrace::disabled());
-    world.fallback_error_handler()(error, ErrorContext::Command { name });
+    let error_handler = world.fallback_error_handler();
+    let commands = world.commands();
+    let _ = error_handler(error, ErrorContext::Command { name }, commands);
+    world.flush();
 }
 
 impl Drop for CommandQueueRunner<'_> {
@@ -592,8 +602,13 @@ mod test {
         // handles the panicking command.
         queue.push(SpawnCommand);
 
-        fn record_last_error(error: BevyError, context: ErrorContext) {
+        fn record_last_error<'w, 's>(
+            error: BevyError,
+            context: ErrorContext,
+            commands: crate::system::Commands<'w, 's>,
+        ) -> crate::system::Commands<'w, 's> {
             *LAST_ERROR.lock().unwrap() = Some((error, context));
+            commands
         }
         static LAST_ERROR: Mutex<Option<(BevyError, ErrorContext)>> = Mutex::new(None);
         *LAST_ERROR.lock().unwrap() = None;
@@ -651,8 +666,13 @@ mod test {
         #[derive(Resource, Default)]
         struct Order(Vec<usize>);
 
-        fn record_last_error(error: BevyError, context: ErrorContext) {
+        fn record_last_error<'w, 's>(
+            error: BevyError,
+            context: ErrorContext,
+            commands: crate::system::Commands<'w, 's>,
+        ) -> crate::system::Commands<'w, 's> {
             *LAST_ERROR.lock().unwrap() = Some((error, context));
+            commands
         }
         static LAST_ERROR: Mutex<Option<(BevyError, ErrorContext)>> = Mutex::new(None);
         *LAST_ERROR.lock().unwrap() = None;

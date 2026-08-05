@@ -63,20 +63,26 @@ pub trait Command: Send + 'static {
     /// Takes a [`Command`] that returns a Result and uses a given error handler function to convert it into
     /// a [`Command`] that internally handles an error if it occurs and returns `()`.
     #[inline]
-    fn handle_error_with(
-        self,
-        error_handler: impl FnOnce(BevyError, ErrorContext) + Send + 'static,
-    ) -> impl Command<Out = ()>
+    fn handle_error_with<F>(self, error_handler: F) -> impl Command<Out = ()>
     where
         Self: Sized,
+        F: for<'w, 's> FnOnce(
+                BevyError,
+                ErrorContext,
+                crate::system::Commands<'w, 's>,
+            ) -> crate::system::Commands<'w, 's>
+            + Send
+            + 'static,
     {
         move |world: &mut World| {
             if let Some(error) = self.apply(world).to_err() {
-                error_handler(
+                let commands = world.commands();
+                let _ = error_handler(
                     error,
                     ErrorContext::Command {
                         name: DebugName::type_name::<Self>(),
                     },
+                    commands,
                 );
             }
         }
@@ -91,11 +97,14 @@ pub trait Command: Send + 'static {
     {
         move |world: &mut World| {
             if let Some(error) = self.apply(world).to_err() {
-                world.fallback_error_handler()(
+                let error_handler = world.fallback_error_handler();
+                let commands = world.commands();
+                let _ = error_handler(
                     error,
                     ErrorContext::Command {
                         name: DebugName::type_name::<Self>(),
                     },
+                    commands,
                 );
             }
         }

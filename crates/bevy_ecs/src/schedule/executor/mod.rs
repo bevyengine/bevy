@@ -15,7 +15,7 @@ pub use fixedbitset::FixedBitSet;
 
 use crate::{
     change_detection::{CheckChangeTicks, Tick},
-    error::{BevyError, ErrorContext, Result},
+    error::{ErrorHandler, Result},
     prelude::{IntoSystemSet, SystemSet},
     query::FilteredAccessSet,
     schedule::{
@@ -36,7 +36,7 @@ pub trait SystemExecutor: Send + Sync {
         schedule: &mut SystemSchedule,
         world: &mut World,
         skip_systems: Option<&FixedBitSet>,
-        error_handler: fn(BevyError, ErrorContext),
+        error_handler: ErrorHandler,
     );
     /// Sets whether deferred system buffers should be applied after all systems have run.
     fn set_apply_final_deferred(&mut self, value: bool);
@@ -243,6 +243,8 @@ mod __rust_begin_short_backtrace {
     use core::hint::black_box;
 
     #[cfg(feature = "std")]
+    use crate::system::Commands;
+    #[cfg(feature = "std")]
     use crate::world::unsafe_world_cell::UnsafeWorldCell;
     use crate::{
         error::Result,
@@ -314,13 +316,15 @@ mod __rust_begin_short_backtrace {
 
     #[inline(never)]
     #[cfg(feature = "std")]
-    pub(super) fn error_handler(
+    pub(super) fn error_handler<'w, 's>(
         error_handler: crate::error::ErrorHandler,
         err: crate::error::BevyError,
         err_context: crate::error::ErrorContext,
-    ) {
-        error_handler(err, err_context);
+        commands: Commands<'w, 's>,
+    ) -> Commands<'w, 's> {
+        let commands = error_handler(err, err_context, commands);
         black_box(());
+        commands
     }
 }
 

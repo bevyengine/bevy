@@ -191,8 +191,9 @@ fn failing_commands(mut commands: Commands) {
 
             Ok(())
         },
-        |error, context| {
+        |error, context, commands| {
             error!("{error}, {context}");
+            commands
         },
     );
 }

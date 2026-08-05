@@ -111,12 +111,15 @@ pub(super) unsafe fn observer_system_runner<E: Event, B: Bundle, S: ObserverSyst
             let handler = state
                 .error_handler
                 .unwrap_or_else(|| world.fallback_error_handler());
-            handler(
+            let mut deferred_world = world.into_deferred();
+            let commands = deferred_world.commands();
+            let _commands = handler(
                 err,
                 ErrorContext::Observer {
                     name: (*system).name(),
                     last_run: (*system).get_last_run(),
                 },
+                commands,
             );
         };
         (*system).queue_deferred(world.into_deferred());

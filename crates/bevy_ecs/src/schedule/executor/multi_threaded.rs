@@ -24,8 +24,8 @@ use crate::{
     schedule::{
         is_apply_deferred, ConditionWithAccess, SystemExecutor, SystemSchedule, SystemWithAccess,
     },
-    system::{BoxedSystem, RunSystemError, ScheduleSystem},
-    world::{unsafe_world_cell::UnsafeWorldCell, World},
+    system::{BoxedSystem, Commands, RunSystemError, ScheduleSystem},
+    world::{unsafe_world_cell::UnsafeWorldCell, CommandQueue, World},
 };
 #[cfg(feature = "hotpatching")]
 use crate::{prelude::DetectChanges, HotPatchChanges};
@@ -100,6 +100,8 @@ pub struct MultiThreadedExecutor {
     apply_final_deferred: bool,
     /// When set, tells the executor that a thread has panicked.
     panic_payload: Mutex<Option<Box<dyn Any + Send>>>,
+    /// Commands queued by the fallback error handler.
+    error_handler_command_queue: Mutex<CommandQueue>,
     starting_systems: FixedBitSet,
     /// Cached tracing span
     #[cfg(feature = "trace")]
@@ -302,7 +304,13 @@ impl SystemExecutor for MultiThreadedExecutor {
         if self.apply_final_deferred {
             // Do one final apply buffers after all systems have completed
             // Commands should be applied while on the scope's thread, not the executor's thread
-            let res = apply_deferred(&state.unapplied_systems, systems, world, error_handler);
+            let res = apply_deferred(
+                &state.unapplied_systems,
+                systems,
+                world,
+                error_handler,
+                &self.error_handler_command_queue,
+            );
             if let Err(payload) = res {
                 let panic_payload = self.panic_payload.get_mut().unwrap();
                 *panic_payload = Some(payload);
@@ -399,6 +407,7 @@ impl MultiThreadedExecutor {
             starting_systems: FixedBitSet::new(),
             apply_final_deferred: true,
             panic_payload: Mutex::new(None),
+            error_handler_command_queue: Mutex::new(CommandQueue::default()),
             #[cfg(feature = "trace")]
             executor_span: info_span!("multithreaded executor"),
         }
@@ -512,6 +521,7 @@ impl ExecutorState {
                         conditions,
                         context.environment.world_cell,
                         context.error_handler,
+                        &context.environment.executor.error_handler_command_queue,
                     )
                 } {
                     self.skip_system_and_signal_dependents(system_index);
@@ -596,6 +606,7 @@ impl ExecutorState {
         conditions: &mut Conditions,
         world: UnsafeWorldCell,
         error_handler: ErrorHandler,
+        error_handler_command_queue: &Mutex<CommandQueue>,
     ) -> bool {
         let mut should_run = !self.skipped_systems.contains(system_index);
 
@@ -613,6 +624,7 @@ impl ExecutorState {
                     &mut conditions.set_conditions[set_idx],
                     world,
                     error_handler,
+                    error_handler_command_queue,
                     system,
                     true,
                 )
@@ -636,6 +648,7 @@ impl ExecutorState {
                 &mut conditions.system_conditions[system_index],
                 world,
                 error_handler,
+                error_handler_command_queue,
                 system,
                 false,
             )
@@ -678,7 +691,9 @@ impl ExecutorState {
                     }
                 },
                 system,
+                context.environment.world_cell,
                 context.error_handler,
+                &context.environment.executor.error_handler_command_queue,
                 "System panicked",
             );
             context.system_completed(system_index, res, system);
@@ -713,6 +728,7 @@ impl ExecutorState {
                     context.environment.systems,
                     world,
                     context.error_handler,
+                    &context.environment.executor.error_handler_command_queue,
                 );
                 context.system_completed(system_index, res, system);
             };
@@ -726,7 +742,9 @@ impl ExecutorState {
                 let res = handle_errors(
                     |system| __rust_begin_short_backtrace::run(system, world),
                     system,
+                    context.environment.world_cell,
                     context.error_handler,
+                    &context.environment.executor.error_handler_command_queue,
                     "Exclusive system panicked",
                 );
                 context.system_completed(system_index, res, system);
@@ -783,19 +801,30 @@ fn apply_deferred(
     systems: &[SyncUnsafeCell<SystemWithAccess>],
     world: &mut World,
     error_handler: ErrorHandler,
+    error_handler_command_queue: &Mutex<CommandQueue>,
 ) -> Result<(), Box<dyn Any + Send>> {
     for system_index in unapplied_systems.ones() {
         // SAFETY: none of these systems are running, no other references exist
         let system = &mut unsafe { &mut *systems[system_index].get() }.system;
+        let world_cell = world.as_unsafe_world_cell();
         handle_errors(
             |system| {
-                system.apply_deferred(world);
+                // SAFETY: No systems are running while deferred buffers are applied.
+                system.apply_deferred(unsafe { world_cell.world_mut() });
                 Ok(())
             },
             system,
+            world_cell,
             error_handler,
+            error_handler_command_queue,
             "Encountered a panic while applying system buffers",
         )?;
+    }
+    let mut error_handler_command_queue = error_handler_command_queue
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    if !error_handler_command_queue.is_empty() {
+        error_handler_command_queue.apply(world);
     }
     Ok(())
 }
@@ -807,6 +836,7 @@ unsafe fn evaluate_and_fold_conditions(
     conditions: &mut [ConditionWithAccess],
     world: UnsafeWorldCell,
     error_handler: ErrorHandler,
+    error_handler_command_queue: &Mutex<CommandQueue>,
     for_system: &ScheduleSystem,
     on_set: bool,
 ) -> bool {
@@ -830,7 +860,9 @@ unsafe fn evaluate_and_fold_conditions(
                 Err(payload) if panic_originates_from_error_handler => std::panic::resume_unwind(payload),
                 // Let the error handler handle the panic
                 Err(_) => {
-                    __rust_begin_short_backtrace::error_handler(
+                    run_error_handler(
+                        world,
+                        error_handler_command_queue,
                         error_handler,
                         BevyError::new_with_backtrace(
                             Severity::Panic,
@@ -846,7 +878,9 @@ unsafe fn evaluate_and_fold_conditions(
                     ); false},
                 // Condition returned an error, let the error handler handle it
                 Ok(Err(RunSystemError::Failed(err))) => {
-                    __rust_begin_short_backtrace::error_handler(
+                    run_error_handler(
+                        world,
+                        error_handler_command_queue,
                         error_handler,
                         err,
                         ErrorContext::RunCondition {
@@ -869,7 +903,9 @@ unsafe fn evaluate_and_fold_conditions(
 fn handle_errors(
     f: impl FnOnce(&mut BoxedSystem) -> Result<(), RunSystemError>,
     system: &mut BoxedSystem,
+    world: UnsafeWorldCell,
     error_handler: ErrorHandler,
+    error_handler_command_queue: &Mutex<CommandQueue>,
     error_message: &str,
 ) -> Result<(), Box<dyn Any + Send>> {
     PANIC_ORIGINATES_FROM_ERROR_HANDLER.set(false);
@@ -880,7 +916,9 @@ fn handle_errors(
         Err(payload) if panic_originates_from_error_handler => Err(payload),
         // Let the error handler handle the panic, passing on any panic it throws
         Err(_) => std::panic::catch_unwind(AssertUnwindSafe(|| {
-            __rust_begin_short_backtrace::error_handler(
+            run_error_handler(
+                world,
+                error_handler_command_queue,
                 error_handler,
                 BevyError::new_with_backtrace(
                     Severity::Panic,
@@ -895,7 +933,9 @@ fn handle_errors(
         })),
         // System returned an error, let the error handler handle it, passing on any panic it throws
         Ok(Err(RunSystemError::Failed(err))) => std::panic::catch_unwind(AssertUnwindSafe(|| {
-            __rust_begin_short_backtrace::error_handler(
+            run_error_handler(
+                world,
+                error_handler_command_queue,
                 error_handler,
                 err,
                 ErrorContext::System {
@@ -907,6 +947,24 @@ fn handle_errors(
         // Success (or skipped system)
         _ => Ok(()),
     }
+}
+
+fn run_error_handler(
+    world: UnsafeWorldCell,
+    error_handler_command_queue: &Mutex<CommandQueue>,
+    error_handler: ErrorHandler,
+    error: BevyError,
+    context: ErrorContext,
+) {
+    let mut command_queue = error_handler_command_queue
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let commands = Commands::new_from_entities(
+        &mut command_queue,
+        world.entity_allocator(),
+        world.entities(),
+    );
+    let _ = __rust_begin_short_backtrace::error_handler(error_handler, error, context, commands);
 }
 
 /// New-typed [`ThreadExecutor`] [`Resource`] that is used to run systems on the main thread
@@ -994,9 +1052,14 @@ mod tests {
         });
 
         static HANDLER_CALLED: AtomicBool = AtomicBool::new(false);
-        fn handle(_: BevyError, ctx: ErrorContext) {
+        fn handle<'w, 's>(
+            _: BevyError,
+            ctx: ErrorContext,
+            commands: Commands<'w, 's>,
+        ) -> Commands<'w, 's> {
             assert!(matches!(ctx, ErrorContext::System { .. }));
             HANDLER_CALLED.store(true, Relaxed);
+            commands
         }
         world.insert_resource(FallbackErrorHandler(handle));
 
@@ -1010,7 +1073,11 @@ mod tests {
         assert!(HANDLER_CALLED.load(Relaxed));
 
         const PANIC_PAYLOAD: &str = "UwU";
-        fn panic(_: BevyError, ctx: ErrorContext) {
+        fn panic<'w, 's>(
+            _: BevyError,
+            ctx: ErrorContext,
+            _commands: Commands<'w, 's>,
+        ) -> Commands<'w, 's> {
             assert!(matches!(ctx, ErrorContext::System { .. }));
             PANIC_ORIGINATES_FROM_ERROR_HANDLER.set(true);
             panic!("{}", PANIC_PAYLOAD);

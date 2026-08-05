@@ -15,7 +15,7 @@ use core::marker::PhantomData;
 
 use crate::{
     component::{ComponentCloneBehavior, ComponentId, Mutable, StorageType},
-    error::{ErrorContext, ErrorHandler},
+    error::ErrorHandler,
     event::EventKey,
     lifecycle::{ComponentHook, HookContext},
     observer::{
@@ -338,7 +338,7 @@ impl Observer {
     /// Sets the error handler to use for this observer.
     ///
     /// See the [`error` module-level documentation](crate::error) for more information.
-    pub fn with_error_handler(mut self, error_handler: fn(BevyError, ErrorContext)) -> Self {
+    pub fn with_error_handler(mut self, error_handler: ErrorHandler) -> Self {
         self.error_handler = Some(error_handler);
         self
     }

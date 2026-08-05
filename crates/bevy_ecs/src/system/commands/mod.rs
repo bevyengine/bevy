@@ -692,11 +692,16 @@ impl<'w, 's> Commands<'w, 's> {
     /// # bevy_ecs::system::assert_is_system(add_three_to_counter_system);
     /// # bevy_ecs::system::assert_is_system(add_twenty_five_to_counter_system);
     /// ```
-    pub fn queue_handled(
-        &mut self,
-        command: impl Command,
-        error_handler: impl FnOnce(BevyError, ErrorContext) + Send + 'static,
-    ) {
+    pub fn queue_handled<F>(&mut self, command: impl Command, error_handler: F)
+    where
+        F: for<'world, 'state> FnOnce(
+                BevyError,
+                ErrorContext,
+                Commands<'world, 'state>,
+            ) -> Commands<'world, 'state>
+            + Send
+            + 'static,
+    {
         self.queue_internal(command.handle_error_with(error_handler));
     }
 
@@ -2066,11 +2071,16 @@ impl<'a> EntityCommands<'a> {
     /// # }
     /// # bevy_ecs::system::assert_is_system(my_system);
     /// ```
-    pub fn queue_handled(
-        &mut self,
-        command: impl EntityCommand,
-        error_handler: impl FnOnce(BevyError, ErrorContext) + Send + 'static,
-    ) -> &mut Self {
+    pub fn queue_handled<F>(&mut self, command: impl EntityCommand, error_handler: F) -> &mut Self
+    where
+        F: for<'world, 'state> FnOnce(
+                BevyError,
+                ErrorContext,
+                Commands<'world, 'state>,
+            ) -> Commands<'world, 'state>
+            + Send
+            + 'static,
+    {
         self.commands
             .queue_handled(command.with_entity(self.entity), error_handler);
         self

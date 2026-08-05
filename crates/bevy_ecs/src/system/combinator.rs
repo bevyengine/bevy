@@ -8,8 +8,8 @@ use crate::{
     prelude::World,
     query::FilteredAccessSet,
     schedule::InternedSystemSet,
-    system::{input::SystemInput, SystemIn},
-    world::unsafe_world_cell::UnsafeWorldCell,
+    system::{input::SystemInput, Commands, SystemIn},
+    world::{unsafe_world_cell::UnsafeWorldCell, CommandQueue},
 };
 
 use super::{IntoSystem, ReadOnlySystem, RunSystemError, System};
@@ -117,6 +117,7 @@ pub struct CombinatorSystem<Func, A, B> {
     a: A,
     b: B,
     name: DebugName,
+    error_handler_command_queue: CommandQueue,
 }
 
 impl<Func, A, B> CombinatorSystem<Func, A, B> {
@@ -129,6 +130,7 @@ impl<Func, A, B> CombinatorSystem<Func, A, B> {
             a,
             b,
             name,
+            error_handler_command_queue: CommandQueue::default(),
         }
     }
 }
@@ -156,7 +158,10 @@ where
         input: SystemIn<'_, Self>,
         world: UnsafeWorldCell,
     ) -> Result<Self::Out, RunSystemError> {
-        struct PrivateUnsafeWorldCell<'w>(UnsafeWorldCell<'w>);
+        struct PrivateUnsafeWorldCell<'w, 'q> {
+            world: UnsafeWorldCell<'w>,
+            error_handler_command_queue: &'q mut CommandQueue,
+        }
 
         // Since control over handling system run errors is passed on to the
         // implementation of `Func::combine`, which may run the two closures
@@ -168,18 +173,24 @@ where
             world: &mut PrivateUnsafeWorldCell,
         ) -> Result<S::Out, RunSystemError> {
             // SAFETY: see comment on `Func::combine` call
-            match unsafe { system.run_unsafe(input, world.0) } {
+            match unsafe { system.run_unsafe(input, world.world) } {
                 // let the world's fallback error handler handle the error if `Failed(_)`
                 Err(RunSystemError::Failed(err)) => {
                     // SAFETY: We registered access to FallbackErrorHandler in `initialize`.
-                    (unsafe { world.0.fallback_error_handler() })(
+                    let error_handler = unsafe { world.world.fallback_error_handler() };
+                    let commands = Commands::new_from_entities(
+                        world.error_handler_command_queue,
+                        world.world.entity_allocator(),
+                        world.world.entities(),
+                    );
+                    let _commands = error_handler(
                         err,
                         ErrorContext::System {
                             name: system.name(),
                             last_run: system.get_last_run(),
                         },
+                        commands,
                     );
-
                     // Since the error handler takes the error by value, create a new error:
                     // The original error has already been handled, including
                     // the reason for the failure here isn't important.
@@ -194,7 +205,10 @@ where
 
         Func::combine(
             input,
-            &mut PrivateUnsafeWorldCell(world),
+            &mut PrivateUnsafeWorldCell {
+                world,
+                error_handler_command_queue: &mut self.error_handler_command_queue,
+            },
             // SAFETY: The world accesses for both underlying systems have been registered,
             // so the caller will guarantee that no other systems will conflict with (`a` or `b`) and the `FallbackErrorHandler` resource.
             // If either system has `is_exclusive()`, then the combined system also has `is_exclusive`.
@@ -222,12 +236,20 @@ where
     fn apply_deferred(&mut self, world: &mut World) {
         self.a.apply_deferred(world);
         self.b.apply_deferred(world);
+        if !self.error_handler_command_queue.is_empty() {
+            self.error_handler_command_queue.apply(world);
+        }
     }
 
     #[inline]
     fn queue_deferred(&mut self, mut world: crate::world::DeferredWorld) {
         self.a.queue_deferred(world.reborrow());
-        self.b.queue_deferred(world);
+        self.b.queue_deferred(world.reborrow());
+        if !self.error_handler_command_queue.is_empty() {
+            world
+                .commands()
+                .append(&mut self.error_handler_command_queue);
+        }
     }
 
     fn initialize(&mut self, world: &mut World) -> FilteredAccessSet {
