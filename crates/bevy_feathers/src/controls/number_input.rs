@@ -1032,7 +1032,6 @@ fn scrubber_on_release(
                 editable_text.queue_edit(TextEdit::SelectAll);
                 editable_text.queue_edit(TextEdit::Insert(editable_digits.into()));
             }
-            // TODO: Reformat
             editable_text.queue_edit(TextEdit::MoveToPoint(local_pos));
         }
     }
