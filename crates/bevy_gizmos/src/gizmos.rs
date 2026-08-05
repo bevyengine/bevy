@@ -20,7 +20,7 @@ use bevy_ecs::{
 };
 use bevy_math::{Isometry2d, Isometry3d, Vec2, Vec3};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_shape::bounding::Aabb3d;
+use bevy_shape::Aabb3d;
 use bevy_transform::TransformPoint;
 use bevy_utils::default;
 
@@ -666,7 +666,8 @@ where
     /// ```
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_transform::prelude::*;
-    /// # use bevy_math::{bounding::Aabb3d, Vec3};
+    /// # use bevy_math::Vec3;
+    /// # use bevy_shape::Aabb3d;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
     ///     gizmos.aabb_3d(Aabb3d::new(Vec3::ZERO, Vec3::ONE), Transform::IDENTITY, GREEN);

@@ -9,7 +9,6 @@ use bevy::{
     math::Isometry2d,
     mesh::{CircularMeshUvMode, CircularSectorMeshBuilder, CircularSegmentMeshBuilder},
     prelude::*,
-    shape::bounding::{Bounded2d, BoundingVolume},
 };
 
 fn main() {

@@ -38,7 +38,8 @@ mod inset;
 pub use inset::*;
 mod ray;
 pub use ray::{Ray2d, Ray3d};
-pub mod bounding;
+mod bounding;
+pub use bounding::*;
 
 #[cfg(feature = "rand")]
 pub mod sampling;

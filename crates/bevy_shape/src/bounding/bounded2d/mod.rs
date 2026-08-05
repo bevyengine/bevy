@@ -269,8 +269,7 @@ impl IntersectsVolume<BoundingCircle> for Aabb2d {
 mod aabb2d_tests {
     use approx::assert_relative_eq;
 
-    use super::Aabb2d;
-    use crate::bounding::{BoundingCircle, BoundingVolume, IntersectsVolume};
+    use crate::{Aabb2d, BoundingCircle, BoundingVolume, IntersectsVolume};
     use bevy_math::{ops, Vec2};
 
     #[test]
@@ -636,8 +635,7 @@ impl IntersectsVolume<Aabb2d> for BoundingCircle {
 
 #[cfg(test)]
 mod bounding_circle_tests {
-    use super::BoundingCircle;
-    use crate::bounding::{BoundingVolume, IntersectsVolume};
+    use crate::{BoundingCircle, BoundingVolume, IntersectsVolume};
     use bevy_math::{ops, Vec2};
 
     #[test]

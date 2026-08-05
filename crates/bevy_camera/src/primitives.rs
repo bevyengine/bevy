@@ -5,10 +5,7 @@ use bevy_ecs::{component::Component, entity::EntityHashMap, reflect::ReflectComp
 use bevy_math::{Affine3A, Mat3A, Vec3, Vec3A};
 use bevy_mesh::{Mesh, VertexAttributeValues};
 use bevy_reflect::prelude::*;
-use bevy_shape::{
-    bounding::{Aabb3d, BoundingVolume},
-    HalfSpace, ViewFrustum,
-};
+use bevy_shape::{Aabb3d, BoundingVolume, HalfSpace, ViewFrustum};
 
 pub trait MeshAabb {
     /// Compute the Axis-Aligned Bounding Box of the mesh vertices in model space,
