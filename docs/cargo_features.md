@@ -114,6 +114,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |bluenoise_texture|Include spatio-temporal blue noise KTX2 file used by generated environment maps, Solari and atmosphere|
 |bmp|BMP image format support|
 |clipboard_image|Enables image copy/paste via the system clipboard. Not supported on WASM.|
+|complex_script_segmentation|Enables dictionary-based segmentation for complex scripts (CJK, Thai, Khmer, Lao, Myanmar), at the cost of a larger binary|
 |compressed_image_saver|Texture compression asset processor (BCn for desktop, ASTC for mobile via env var)|
 |compressed_image_saver_universal|Texture compression asset processor (cross-platform, transcodes to any GPU format at load time)|
 |critical-section|`critical-section` provides the building blocks for synchronization primitives on all platforms, including `no_std`.|
