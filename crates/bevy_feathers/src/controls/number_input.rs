@@ -1779,7 +1779,7 @@ impl StandardUnitKind for AngleDegrees {
     }
 }
 
-/// Resource which contains registry of various units, which allows unit defintions to be serialized
+/// Resource which contains registry of various units, which allows unit definitions to be serialized
 /// and references in the editor.
 #[derive(Resource, Default)]
 pub struct UnitsRegistry(HashMap<&'static str, &'static dyn UnitsFormat>);
