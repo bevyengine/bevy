@@ -5467,6 +5467,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "character_creation"
+path = "examples/usage/character_creation.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.character_creation]
+name = "Character Creation with UI Widgets"
+description = "Demonstrates how to use headless widgets to power a Character Creation Menu"
+category = "Usage"
+wasm = true
+
+[[example]]
 name = "standard_widgets_observers"
 path = "examples/ui/widgets/standard_widgets_observers.rs"
 doc-scrape-examples = true
