@@ -43,7 +43,7 @@ pub struct GradientPlugin;
 
 impl Plugin for GradientPlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "gradient.wgsl");
+        embedded_asset!(app, "gradient.wesl");
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -108,7 +108,7 @@ pub fn init_gradient_pipeline(mut commands: Commands, asset_server: Res<AssetSer
 
     commands.insert_resource(GradientPipeline {
         view_layout,
-        shader: load_embedded_asset!(asset_server.as_ref(), "gradient.wgsl"),
+        shader: load_embedded_asset!(asset_server.as_ref(), "gradient.wesl"),
     });
 }
 
