@@ -417,6 +417,10 @@ pub fn prepare_ui_slices(
         };
     }
 
+    if extracted_slices.slices.is_empty() || extracted_geometry.layout.is_empty() {
+        return;
+    }
+
     if let Some(view_binding) = view_uniforms.uniforms.binding() {
         let mut batches: Vec<(Entity, UiTextureSlicerBatch)> = Vec::with_capacity(*previous_len);
 
