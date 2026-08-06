@@ -20,7 +20,7 @@ use bevy_scene::prelude::*;
 use bevy_text::FontWeight;
 use bevy_ui::{
     px, AlignItems, BorderRadius, Checked, Display, FlexDirection, InteractionDisabled,
-    JustifyContent, Node, Pressed, UiRect,
+    JustifyContent, LayoutConfig, Node, Pressed, UiRect,
 };
 use bevy_ui_widgets::{ActivateOnPress, RadioButton};
 
@@ -42,6 +42,9 @@ use crate::{
 /// * [`bevy_ui_widgets::ValueChange<Entity>`] with the selected entity's id when a new radio button is selected.
 ///
 ///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
+///
+/// A more complete explanation of how to control this widget can be found in the documentation
+/// for [`RadioButton`] and [`bevy_ui_widgets`].
 #[derive(SceneComponent, Default, Clone)]
 #[scene(FeathersRadioProps)]
 #[derive(Reflect)]
@@ -96,12 +99,16 @@ impl FeathersRadio {
                 RadioOutline
                 FocusIndicator
                 ThemeBorderColor(tokens::RADIO_BORDER)
+                ThemeBackgroundColor(tokens::RADIO_BG)
                 Children [(
-                    // Cheesy checkmark: rotated node with L-shaped border.
                     Node {
-                        width: px(8),
-                        height: px(8),
+                        width: px(12),
+                        height: px(12),
+                        border: px(2),
                         border_radius: BorderRadius::MAX,
+                    }
+                    LayoutConfig {
+                        use_rounding: false,
                     }
                     RadioMark
                     ThemeBackgroundColor(tokens::RADIO_MARK)
@@ -171,8 +178,8 @@ pub fn radio_bundle<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle
                 RadioOutline,
                 FocusIndicator,
                 ThemeBorderColor(tokens::RADIO_BORDER),
+                ThemeBackgroundColor(tokens::RADIO_BG),
                 children![(
-                    // Cheesy checkmark: rotated node with L-shaped border.
                     Node {
                         width: px(8),
                         height: px(8),
@@ -332,6 +339,28 @@ fn set_radio_styles(
     font_color: &InheritableThemeTextColor,
     commands: &mut Commands,
 ) {
+    let outline_bg_token = if checked {
+        if disabled {
+            tokens::RADIO_BG_CHECKED_DISABLED
+        } else if pressed && !activate_on_press {
+            tokens::RADIO_BG_CHECKED_PRESSED
+        } else if hovered {
+            tokens::RADIO_BG_CHECKED_HOVER
+        } else {
+            tokens::RADIO_BG_CHECKED
+        }
+    } else {
+        if disabled {
+            tokens::RADIO_BG_DISABLED
+        } else if pressed && !activate_on_press {
+            tokens::RADIO_BG_PRESSED
+        } else if hovered {
+            tokens::RADIO_BG_HOVER
+        } else {
+            tokens::RADIO_BG
+        }
+    };
+
     let outline_border_token = if checked {
         if disabled {
             tokens::RADIO_BORDER_CHECKED_DISABLED
@@ -378,7 +407,8 @@ fn set_radio_styles(
     if outline_border.0 != outline_border_token {
         commands
             .entity(outline_ent)
-            .insert(ThemeBorderColor(outline_border_token));
+            .insert(ThemeBorderColor(outline_border_token))
+            .insert(ThemeBackgroundColor(outline_bg_token));
     }
 
     // Change mark color

@@ -88,8 +88,8 @@ impl Plugin for GizmoRenderPlugin {
     fn build(&self, app: &mut App) {
         {
             use bevy_asset::embedded_asset;
-            embedded_asset!(app, "lines.wgsl");
-            embedded_asset!(app, "line_joints.wgsl");
+            embedded_asset!(app, "lines.wesl");
+            embedded_asset!(app, "line_joints.wesl");
         }
 
         app.add_plugins(UniformComponentPlugin::<LineGizmoUniform>::default())
@@ -621,6 +621,7 @@ fn line_joint_gizmo_vertex_buffer_layouts() -> Vec<VertexBufferLayout> {
 /// can be added and therefore three potential entities.
 #[derive(Clone, Reflect, Resource, ExtractResource)]
 #[reflect(Clone, Resource)]
+#[extract_app(RenderApp)]
 pub struct LineGizmoEntities {
     /// An entity that regular line phase items are associated with.
     pub line_gizmo_renderer: MainEntity,

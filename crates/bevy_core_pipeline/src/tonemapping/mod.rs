@@ -33,6 +33,7 @@ use crate::FullscreenShader;
 
 /// 3D LUT (look up table) textures used for tonemapping
 #[derive(Resource, Clone, ExtractResource)]
+#[extract_app(RenderApp)]
 pub struct TonemappingLuts {
     pub blender_filmic: Handle<Image>,
     pub agx: Handle<Image>,
@@ -43,10 +44,9 @@ pub struct TonemappingPlugin;
 
 impl Plugin for TonemappingPlugin {
     fn build(&self, app: &mut App) {
-        load_shader_library!(app, "tonemapping_shared.wgsl");
-        load_shader_library!(app, "lut_bindings.wgsl");
+        load_shader_library!(app, "lut_bindings.wesl");
 
-        embedded_asset!(app, "tonemapping.wgsl");
+        embedded_asset!(app, "tonemapping_frag.wesl");
 
         if !app.world().is_resource_added::<TonemappingLuts>() {
             let mut images = app.world_mut().resource_mut::<Assets<Image>>();
@@ -116,6 +116,7 @@ pub struct TonemappingPipeline {
 )]
 #[extract_component_filter(With<Camera>)]
 #[reflect(Component, Debug, Hash, Default, PartialEq)]
+#[extract_app(RenderApp)]
 pub enum Tonemapping {
     /// Bypass tonemapping.
     None,
@@ -321,7 +322,7 @@ pub fn init_tonemapping_pipeline(
         texture_bind_group: tonemap_texture_bind_group,
         sampler,
         fullscreen_shader: fullscreen_shader.clone(),
-        fragment_shader: load_embedded_asset!(asset_server.as_ref(), "tonemapping.wgsl"),
+        fragment_shader: load_embedded_asset!(asset_server.as_ref(), "tonemapping_frag.wesl"),
     });
 }
 
@@ -380,6 +381,7 @@ pub fn prepare_view_tonemapping_pipelines(
 )]
 #[extract_component_filter(With<Camera>)]
 #[reflect(Component, Debug, Hash, Default, PartialEq)]
+#[extract_app(RenderApp)]
 pub enum DebandDither {
     #[default]
     Disabled,

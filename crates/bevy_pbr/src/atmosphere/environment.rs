@@ -24,12 +24,14 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice, ViewQuery},
     texture::{CachedTexture, GpuImage},
     view::{ViewUniform, ViewUniformOffset, ViewUniforms},
+    RenderApp,
 };
 use bevy_utils::default;
 use tracing::warn;
 
 // Render world representation of an environment map light for the atmosphere
 #[derive(Component, ExtractComponent, Clone, FromTemplate)]
+#[extract_app(RenderApp)]
 pub struct AtmosphereEnvironmentMap {
     pub environment_map: Handle<Image>,
     pub size: UVec2,
@@ -174,7 +176,7 @@ pub fn init_atmosphere_probe_pipeline(
     let environment = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
         label: Some("environment_pipeline".into()),
         layout: vec![layouts.environment.clone()],
-        shader: load_embedded_asset!(asset_server.as_ref(), "environment.wgsl"),
+        shader: load_embedded_asset!(asset_server.as_ref(), "environment.wesl"),
         ..default()
     });
     commands.insert_resource(AtmosphereProbePipeline { environment });

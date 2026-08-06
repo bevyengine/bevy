@@ -4,8 +4,8 @@
 use crate::{
     io::Reader,
     meta::{loader_settings_meta_transform, MetaTransform, Settings},
-    Asset, AssetLoadError, AssetPath, ErasedAssetLoader, ErasedLoadedAsset, Handle, LoadContext,
-    LoadDirectError, LoadedAsset, LoadedUntypedAsset, UntypedHandle,
+    Asset, AssetPath, ErasedAssetLoader, ErasedLoadedAsset, Handle, LoadContext, LoadDirectError,
+    LoadedAsset, LoadedUntypedAsset, RequestedHandleTypeMismatchError, UntypedHandle,
 };
 use alloc::{borrow::ToOwned, boxed::Box, sync::Arc};
 use core::any::{type_name, TypeId};
@@ -342,12 +342,15 @@ impl<'ctx, 'builder> NestedLoadBuilder<'ctx, 'builder> {
                     .downcast::<A>()
                     .map_err(|_| LoadDirectError::LoadError {
                         dependency: path.clone(),
-                        error: Box::new(AssetLoadError::RequestedHandleTypeMismatch {
-                            path,
-                            requested: TypeId::of::<A>(),
-                            actual_asset_name: loader.asset_type_name(),
-                            loader_name: loader.type_path(),
-                        }),
+                        error: Box::new(
+                            Box::new(RequestedHandleTypeMismatchError {
+                                path,
+                                requested: TypeId::of::<A>(),
+                                actual_asset_name: loader.asset_type_name(),
+                                loader_name: loader.type_path(),
+                            })
+                            .into(),
+                        ),
                     })
             })
     }

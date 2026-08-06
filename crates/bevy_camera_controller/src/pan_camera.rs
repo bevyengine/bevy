@@ -9,10 +9,13 @@ use bevy_app::{App, Plugin, RunFixedMainLoop, RunFixedMainLoopSystems};
 use bevy_camera::{Camera, RenderTarget};
 use bevy_ecs::prelude::*;
 use bevy_input::keyboard::KeyCode;
-use bevy_input::mouse::{AccumulatedMouseScroll, MouseButton, MouseScrollPixelsPerLine};
+use bevy_input::mouse::{AccumulatedMouseScroll, MouseScrollPixelsPerLine};
 use bevy_input::ButtonInput;
 use bevy_math::{Vec2, Vec3};
-use bevy_picking::events::{Drag, DragEnd, DragStart, Pointer};
+use bevy_picking::{
+    events::{Drag, DragEnd, DragStart, Pointer},
+    pointer::PointerButton,
+};
 use bevy_time::{Real, Time};
 use bevy_transform::components::GlobalTransform;
 use bevy_transform::prelude::Transform;
@@ -81,7 +84,7 @@ pub struct MousePanSettings {
     /// Whether the mouse panning is enabled.
     pub enabled: bool,
     /// The mouse button to use for panning.
-    pub button: MouseButton,
+    pub button: PointerButton,
 }
 
 /// Provides the default values for the `PanCamera` controller.
@@ -121,7 +124,7 @@ impl Default for PanCamera {
             key_rotate_cw: Some(KeyCode::KeyE),
             mouse_pan_settings: MousePanSettings {
                 enabled: true,
-                button: MouseButton::Left,
+                button: PointerButton::Primary,
             },
         }
     }
@@ -311,7 +314,10 @@ fn handle_mouse_pan(
     mut pan_cameras: Query<(&Camera, &GlobalTransform, &mut Transform, &PanCamera)>,
 ) {
     for (camera, global_transform, mut transform, pan_camera_controller) in pan_cameras.iter_mut() {
-        if !pan_camera_controller.enabled || !pan_camera_controller.mouse_pan_settings.enabled {
+        if !pan_camera_controller.enabled
+            || !pan_camera_controller.mouse_pan_settings.enabled
+            || drag.button != pan_camera_controller.mouse_pan_settings.button
+        {
             return;
         }
 

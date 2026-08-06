@@ -42,6 +42,7 @@ mod font_loader;
 mod glyph;
 mod parley_context;
 mod pipeline;
+mod scroll;
 mod text;
 mod text_access;
 mod text_edit;
@@ -57,6 +58,7 @@ pub use font_loader::*;
 pub use glyph::*;
 pub use parley_context::*;
 pub use pipeline::*;
+pub use scroll::*;
 pub use text::*;
 pub use text_access::*;
 pub use text_edit::*;
@@ -68,12 +70,12 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         Font, FontHinting, FontSize, FontSmoothing, FontSource, FontStyle, FontWeight, FontWidth,
-        Justify, LineBreak, Strikethrough, StrikethroughColor, TextColor, TextError, TextFont,
-        TextLayout, TextSpan, Underline, UnderlineColor,
+        GenericFontFamily, Justify, LineBreak, Strikethrough, StrikethroughColor, TextColor,
+        TextError, TextFont, TextLayout, TextSpan, Underline, UnderlineColor,
     };
 }
 
-use bevy_app::prelude::*;
+use bevy_app::{prelude::*, PropagateSet};
 use bevy_asset::AssetApp;
 use bevy_ecs::prelude::*;
 
@@ -128,7 +130,8 @@ impl Plugin for TextPlugin {
                     load_font_assets_into_font_collection,
                     detect_text_needs_rerender,
                 )
-                    .chain(),
+                    .chain()
+                    .after(PropagateSet::<TextFont>::default()),
             )
             .add_systems(Last, trim_source_cache)
             .add_systems(

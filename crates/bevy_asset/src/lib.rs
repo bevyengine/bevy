@@ -150,6 +150,7 @@ extern crate std;
 // Required to make proc macros work in bevy itself.
 extern crate self as bevy_asset;
 
+pub mod asset_changed;
 pub mod io;
 pub mod meta;
 pub mod processor;
@@ -170,7 +171,6 @@ pub mod prelude {
     };
 }
 
-mod asset_changed;
 mod assets;
 mod direct_access_ext;
 mod event;
@@ -3001,13 +3001,9 @@ mod tests {
     impl From<&AssetLoadError> for TestAssetLoadError {
         fn from(value: &AssetLoadError) -> TestAssetLoadError {
             match value {
-                AssetLoadError::RequestedHandleTypeMismatch {
-                    requested,
-                    actual_asset_name,
-                    ..
-                } => Self::RequestedHandleTypeMismatch {
-                    requested: *requested,
-                    actual_asset_name,
+                AssetLoadError::RequestedHandleTypeMismatch (err) => Self::RequestedHandleTypeMismatch {
+                    requested: err.requested,
+                    actual_asset_name: err.actual_asset_name,
                 },
                 AssetLoadError::MissingAssetLoader { .. } => Self::MissingAssetLoader,
                 AssetLoadError::AssetReaderError(AssetReaderError::NotFound(_)) => {
