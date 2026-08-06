@@ -140,9 +140,17 @@ pub trait Enum: PartialReflect {
         format!("{}::{}", self.reflect_type_path(), self.variant_name())
     }
 
+    /// Returns the [runtime] [`EnumInfo`], if available.
+    ///
+    /// [runtime]: crate#comptime-vs-runtime-types
+    fn runtime_enum_info(&self) -> Option<&'static EnumInfo> {
+        self.runtime_type_info()?.as_enum().ok()
+    }
+
     /// Will return `None` if [`TypeInfo`] is not available.
     ///
     /// [`TypeInfo`]: crate::TypeInfo
+    #[deprecated(since = "0.20.0", note = "Use [`Enum::runtime_enum_info`] instead")]
     fn get_represented_enum_info(&self) -> Option<&'static EnumInfo> {
         self.runtime_type_info()?.as_enum().ok()
     }

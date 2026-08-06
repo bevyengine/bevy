@@ -71,9 +71,17 @@ pub trait Tuple: PartialReflect {
         })
     }
 
-    /// Will return `None` if [`TypeInfo`] is not available.
-    fn get_represented_tuple_info(&self) -> Option<&'static TupleInfo> {
+    /// Returns the [runtime] [`TupleInfo`], if available.
+    ///
+    /// [runtime]: crate#comptime-vs-runtime-types
+    fn runtime_tuple_info(&self) -> Option<&'static TupleInfo> {
         self.runtime_type_info()?.as_tuple().ok()
+    }
+
+    /// Will return `None` if [`TypeInfo`] is not available.
+    #[deprecated(since = "0.20.0", note = "Use [`Tuple::runtime_tuple_info`] instead")]
+    fn get_represented_tuple_info(&self) -> Option<&'static TupleInfo> {
+        self.runtime_tuple_info()
     }
 }
 

@@ -101,6 +101,13 @@ pub trait Set: PartialReflect {
 
     /// Checks if the given value is contained in the set
     fn contains(&self, value: &dyn PartialReflect) -> bool;
+
+    /// Returns the [runtime] [`SetInfo`], if available.
+    ///
+    /// [runtime]: crate#comptime-vs-runtime-types
+    fn runtime_set_info(&self) -> Option<&'static SetInfo> {
+        self.runtime_type_info()?.as_set().ok()
+    }
 }
 
 /// A container for compile-time set info.

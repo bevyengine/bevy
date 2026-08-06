@@ -84,9 +84,17 @@ pub trait Array: PartialReflect {
         })
     }
 
-    /// Will return `None` if [`TypeInfo`] is not available.
-    fn get_represented_array_info(&self) -> Option<&'static ArrayInfo> {
+    /// Returns the [runtime] [`ArrayInfo`], if available.
+    ///
+    /// [runtime]: crate#comptime-vs-runtime-types
+    fn runtime_array_info(&self) -> Option<&'static ArrayInfo> {
         self.runtime_type_info()?.as_array().ok()
+    }
+
+    /// Will return `None` if [`TypeInfo`] is not available.
+    #[deprecated(since = "0.20.0", note = "Use [`Array::runtime_array_info`] instead")]
+    fn get_represented_array_info(&self) -> Option<&'static ArrayInfo> {
+        self.runtime_array_info()
     }
 }
 

@@ -108,9 +108,19 @@ pub trait Map: PartialReflect {
     /// If the map did have this key present, the removed value is returned.
     fn remove(&mut self, key: &dyn PartialReflect) -> Option<Box<dyn PartialReflect>>;
 
-    /// Will return `None` if [`TypeInfo`] is not available.
-    fn get_represented_map_info(&self) -> Option<&'static MapInfo> {
+    /// Returns the [runtime] [`MapInfo`], if available.
+    ///
+    /// [runtime]: crate#comptime-vs-runtime-types
+    fn runtime_map_info(&self) -> Option<&'static MapInfo> {
         self.runtime_type_info()?.as_map().ok()
+    }
+
+    /// Will return `None` if [`TypeInfo`] is not available.
+    ///
+    /// [`TypeInfo`]: crate::TypeInfo
+    #[deprecated(since = "0.20.0", note = "Use [`Map::runtime_map_info`] instead")]
+    fn get_represented_map_info(&self) -> Option<&'static MapInfo> {
+        self.runtime_map_info()
     }
 }
 

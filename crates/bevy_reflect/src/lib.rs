@@ -2883,7 +2883,7 @@ mod tests {
     }
 
     #[test]
-    fn get_represented_kind_info() {
+    fn runtime_kind_info() {
         #[derive(Reflect)]
         struct SomeStruct;
 
@@ -2897,24 +2897,24 @@ mod tests {
         }
 
         let dyn_struct: &dyn Struct = &SomeStruct;
-        let _: &StructInfo = dyn_struct.get_represented_struct_info().unwrap();
+        let _: &StructInfo = dyn_struct.runtime_struct_info().unwrap();
 
         let dyn_map: &dyn Map = &HashMap::<(), ()>::default();
-        let _: &MapInfo = dyn_map.get_represented_map_info().unwrap();
+        let _: &MapInfo = dyn_map.runtime_map_info().unwrap();
 
         let dyn_array: &dyn Array = &[1, 2, 3];
-        let _: &ArrayInfo = dyn_array.get_represented_array_info().unwrap();
+        let _: &ArrayInfo = dyn_array.runtime_array_info().unwrap();
 
         let dyn_list: &dyn List = &vec![1, 2, 3];
-        let _: &ListInfo = dyn_list.get_represented_list_info().unwrap();
+        let _: &ListInfo = dyn_list.runtime_list_info().unwrap();
 
         let dyn_tuple_struct: &dyn TupleStruct = &SomeTupleStruct(5.0);
         let _: &TupleStructInfo = dyn_tuple_struct
-            .get_represented_tuple_struct_info()
+            .runtime_tuple_struct_info()
             .unwrap();
 
         let dyn_enum: &dyn Enum = &SomeEnum::Foo;
-        let _: &EnumInfo = dyn_enum.get_represented_enum_info().unwrap();
+        let _: &EnumInfo = dyn_enum.runtime_enum_info().unwrap();
     }
 
     #[test]

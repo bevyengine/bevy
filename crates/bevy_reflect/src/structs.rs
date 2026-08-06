@@ -88,9 +88,17 @@ pub trait Struct: PartialReflect {
         Ok(dynamic_struct)
     }
 
-    /// Will return `None` if [`TypeInfo`] is not available.
-    fn get_represented_struct_info(&self) -> Option<&'static StructInfo> {
+    /// Returns the [runtime] [`StructInfo`], if available.
+    ///
+    /// [runtime]: crate#comptime-vs-runtime-types
+    fn runtime_struct_info(&self) -> Option<&'static StructInfo> {
         self.runtime_type_info()?.as_struct().ok()
+    }
+
+    /// Will return `None` if [`TypeInfo`] is not available.
+    #[deprecated(since = "0.20.0", note = "Use [`Struct::runtime_struct_info`] instead")]
+    fn get_represented_struct_info(&self) -> Option<&'static StructInfo> {
+        self.runtime_struct_info()
     }
 }
 

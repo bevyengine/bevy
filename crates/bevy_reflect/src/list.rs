@@ -2,13 +2,12 @@
 //!
 //! [list-like]: https://doc.rust-lang.org/book/ch08-01-vectors.html
 use alloc::{boxed::Box, vec::Vec};
+use bevy_reflect_derive::impl_type_path;
 use core::{
     any::Any,
     fmt::{Debug, Formatter},
     hash::{Hash, Hasher},
 };
-
-use bevy_reflect_derive::impl_type_path;
 
 use crate::generics::impl_generic_info_methods;
 use crate::{
@@ -119,9 +118,19 @@ pub trait List: PartialReflect {
         })
     }
 
-    /// Will return `None` if [`TypeInfo`] is not available.
-    fn get_represented_list_info(&self) -> Option<&'static ListInfo> {
+    /// Returns the [runtime] [`ListInfo`], if available.
+    ///
+    /// [runtime]: crate#comptime-vs-runtime-types
+    fn runtime_list_info(&self) -> Option<&'static ListInfo> {
         self.runtime_type_info()?.as_list().ok()
+    }
+
+    /// Will return `None` if [`TypeInfo`] is not available.
+    ///
+    /// [`TypeInfo`]: crate::TypeInfo
+    #[deprecated(since = "0.20.0", note = "Use [`List::runtime_list_info`] instead")]
+    fn get_represented_list_info(&self) -> Option<&'static ListInfo> {
+        self.runtime_list_info()
     }
 }
 
