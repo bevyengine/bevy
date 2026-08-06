@@ -40,7 +40,7 @@ use radio::{feathers_option_buttons, main_ui_node_scene};
 use theme::basic_example_theme;
 
 /// This example uses a shader source file from the assets subdirectory
-const SHADER_ASSET_PATH: &str = "shaders/water_material.wgsl";
+const SHADER_ASSET_PATH: &str = "shaders/water_material.wesl";
 
 // The speed of camera movement.
 const CAMERA_KEYBOARD_ZOOM_SPEED: f32 = 0.1;

@@ -32,8 +32,7 @@
 //!
 //! Currently, reflection probes (i.e. environment maps attached to light
 //! probes) use binding arrays (also known as bindless textures) and
-//! consequently aren't supported on WebGL2 or WebGPU. Reflection probes are
-//! also unsupported if GLSL is in use, due to `naga` limitations. Environment
+//! consequently aren't supported on WebGL2 or WebGPU. Environment
 //! maps attached to views are, however, supported on all platforms.
 //!
 //! [split-sum approximation]: https://cdn2.unrealengine.com/Resources/files/2013SiggraphPresentationsNotes-26915738.pdf
