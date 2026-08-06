@@ -28,7 +28,7 @@ use bevy_shader::Shader;
 use bevy_sprite::{SliceScaleMode, SpriteImageMode, TextureSlicer};
 use bevy_sprite_render::SpriteAssetEvents;
 use bevy_ui::widget::NodeImageMode;
-use bevy_ui::{ComputedStackIndex, VisualBox};
+use bevy_ui::VisualBox;
 use bevy_utils::default;
 use binding_types::{sampler, texture_2d};
 use bytemuck::{Pod, Zeroable};
@@ -191,28 +191,21 @@ impl SpecializedRenderPipeline for UiTextureSlicePipeline {
 }
 
 pub struct ExtractedUiTextureSlice {
-    pub stack_index: u32,
-    pub transform: Affine2,
-    pub rect: Rect,
     pub atlas_rect: Option<Rect>,
     pub image: AssetId<Image>,
-    pub clip: Option<Rect>,
     pub color: LinearRgba,
     pub image_scale_mode: SpriteImageMode,
     pub flip_x: bool,
     pub flip_y: bool,
-    pub inverse_scale_factor: f32,
+    pub visual_box: VisualBox,
 }
 
 /// A render-world resource that stores all texture slices in the scene.
 #[derive(Resource, Default)]
 pub struct ExtractedUiTextureSlices {
-    /// The list of texture slices grouped by their main-world entity, along with
-    /// each group's target camera entity.
-    ///
-    /// This is a two-level data structure so that we can quickly remove all
-    /// texture slices associated with a main-world entity when it changes.
-    pub slices: MainEntityHashMap<(Entity, EntityIndexMap<ExtractedUiTextureSlice>)>,
+    /// Map from main-world UI entity to render entity and texture slice.
+    pub slices: MainEntityHashMap<(Entity, ExtractedUiTextureSlice)>,
+    pub changed_this_frame: MainEntityHashSet,
 }
 
 pub fn extract_ui_texture_slices(
@@ -221,23 +214,8 @@ pub fn extract_ui_texture_slices(
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     slicers_query: Extract<
         Query<
-            (
-                Entity,
-                &ComputedNode,
-                &ComputedStackIndex,
-                &UiGlobalTransform,
-                &InheritedVisibility,
-                Option<&CalculatedClip>,
-                &ComputedUiTargetCamera,
-                &ImageNode,
-            ),
+            (Entity, &ImageNode),
             Or<(
-                Changed<ComputedNode>,
-                Changed<ComputedStackIndex>,
-                Changed<UiGlobalTransform>,
-                Changed<InheritedVisibility>,
-                Changed<CalculatedClip>,
-                Changed<ComputedUiTargetCamera>,
                 Changed<ImageNode>,
                 // The `bevy_ui::widget::update_image_content_size_system` marks
                 // `ImageNodeSize` as changed to indicate that the image metrics
@@ -247,72 +225,18 @@ pub fn extract_ui_texture_slices(
             )>,
         >,
     >,
-    unfiltered_slicers_query: Extract<
-        Query<(
-            Entity,
-            &ComputedNode,
-            &ComputedStackIndex,
-            &UiGlobalTransform,
-            &InheritedVisibility,
-            Option<&CalculatedClip>,
-            &ComputedUiTargetCamera,
-            &ImageNode,
-        )>,
-    >,
-    camera_map: Extract<UiCameraMap>,
-    (
-        mut removed_computed_node_query,
-        mut removed_computed_stack_index_query,
-        mut removed_ui_global_transform_query,
-        mut removed_inherited_visibility_query,
-        mut removed_calculated_clip_query,
-        mut removed_computed_ui_target_camera_query,
-        mut removed_image_node_query,
-    ): (
-        Extract<RemovedComponents<ComputedNode>>,
-        Extract<RemovedComponents<ComputedStackIndex>>,
-        Extract<RemovedComponents<UiGlobalTransform>>,
-        Extract<RemovedComponents<InheritedVisibility>>,
-        Extract<RemovedComponents<CalculatedClip>>,
-        Extract<RemovedComponents<ComputedUiTargetCamera>>,
-        Extract<RemovedComponents<ImageNode>>,
-    ),
-    mut nodes_processed_this_frame: Local<MainEntityHashSet>,
+    (mut removed_image_node_query,): (Extract<RemovedComponents<ImageNode>>,),
 ) {
-    nodes_processed_this_frame.clear();
-    let mut camera_mapper = camera_map.get_mapper();
+    extracted_ui_slicers.changed_this_frame.clear();
 
-    for (entity, uinode, stack_index, transform, inherited_visibility, clip, camera, image) in
-        slicers_query.iter().chain(
-            removed_calculated_clip_query
-                .read()
-                .filter_map(|entity| unfiltered_slicers_query.get(entity).ok()),
-        )
-    {
+    for (entity, image) in &slicers_query {
         let main_entity = MainEntity::from(entity);
+        extracted_ui_slicers.changed_this_frame.insert(main_entity);
 
-        // If there were any previous UI slices for this entity, despawn them.
-        for (render_entity, _) in extracted_ui_slicers
-            .slices
-            .get_mut(&main_entity)
-            .iter_mut()
-            .flat_map(|(_, slices)| slices.drain(..))
-        {
-            commands.entity(render_entity).despawn();
-        }
-
-        let visual_box = match image.visual_box {
-            VisualBox::ContentBox => uinode.content_box(),
-            VisualBox::PaddingBox => uinode.padding_box(),
-            VisualBox::BorderBox => uinode.border_box(),
-        };
-
-        // Skip invisible images
-        if !inherited_visibility.get()
-            || image.color.is_fully_transparent()
-            || image.image.id() == TRANSPARENT_IMAGE_HANDLE.id()
-            || visual_box.size().cmple(Vec2::ZERO).any()
-        {
+        if image.color.is_fully_transparent() || image.image.id() == TRANSPARENT_IMAGE_HANDLE.id() {
+            if let Some((render_entity, _)) = extracted_ui_slicers.slices.remove(&main_entity) {
+                commands.entity(render_entity).despawn();
+            }
             continue;
         }
 
@@ -327,17 +251,13 @@ pub fn extract_ui_texture_slices(
                 tile_y,
                 stretch_value,
             },
-            _ => continue,
+            _ => {
+                if let Some((render_entity, _)) = extracted_ui_slicers.slices.remove(&main_entity) {
+                    commands.entity(render_entity).despawn();
+                }
+                continue;
+            }
         };
-
-        let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
-            continue;
-        };
-        if let Some((camera_entity, _)) = extracted_ui_slicers.slices.get_mut(&main_entity) {
-            *camera_entity = extracted_camera_entity;
-        }
-
-        nodes_processed_this_frame.insert(main_entity);
 
         let atlas_rect = image
             .texture_atlas
@@ -356,55 +276,43 @@ pub fn extract_ui_texture_slices(
             }
         };
 
-        extracted_ui_slicers
-            .slices
-            .entry(main_entity)
-            .or_insert_with(|| (extracted_camera_entity, Default::default()))
-            .1
-            .insert(
-                commands.spawn_empty().id(),
-                ExtractedUiTextureSlice {
-                    stack_index: stack_index.0,
-                    transform: Affine2::from(*transform)
-                        * Affine2::from_translation(visual_box.center()),
-                    color: image.color.into(),
-                    rect: Rect {
-                        min: Vec2::ZERO,
-                        max: visual_box.size(),
-                    },
-                    clip: clip.map(|clip| clip.clip),
-                    image: image.image.id(),
-                    image_scale_mode,
-                    atlas_rect,
-                    flip_x: image.flip_x,
-                    flip_y: image.flip_y,
-                    inverse_scale_factor: uinode.inverse_scale_factor,
-                },
-            );
+        let texture_slice = ExtractedUiTextureSlice {
+            color: image.color.into(),
+            image: image.image.id(),
+            image_scale_mode,
+            atlas_rect,
+            flip_x: image.flip_x,
+            flip_y: image.flip_y,
+            visual_box: image.visual_box,
+        };
+
+        match extracted_ui_slicers.slices.entry(main_entity) {
+            Entry::Occupied(mut entry) => {
+                let (_, extracted_slice) = entry.get_mut();
+                *extracted_slice = texture_slice;
+            }
+            Entry::Vacant(entry) => {
+                let entity = commands.spawn_empty().id();
+                entry.insert((entity, texture_slice));
+            }
+        }
     }
 
     // Only remove the render-world data if we didn't handle the node above.
     // It's possible that a relevant component was removed and added in the same
     // frame.
-    for main_entity in removed_computed_node_query
-        .read()
-        .chain(removed_computed_stack_index_query.read())
-        .chain(removed_ui_global_transform_query.read())
-        .chain(removed_inherited_visibility_query.read())
-        .chain(removed_computed_ui_target_camera_query.read())
-        .chain(removed_image_node_query.read())
-    {
+    for main_entity in removed_image_node_query.read() {
         let main_entity = MainEntity::from(main_entity);
-        if nodes_processed_this_frame.contains(&main_entity) {
+        if extracted_ui_slicers
+            .changed_this_frame
+            .contains(&main_entity)
+        {
             continue;
         }
-        let Some((_, mut extracted_nodes)) = extracted_ui_slicers.slices.remove(&main_entity)
-        else {
+        let Some((render_entity, _)) = extracted_ui_slicers.slices.remove(&main_entity) else {
             continue;
         };
-        for (render_entity, _) in extracted_nodes.drain(..) {
-            commands.entity(render_entity).despawn();
-        }
+        commands.entity(render_entity).despawn();
     }
 }
 
@@ -413,7 +321,8 @@ pub fn extract_ui_texture_slices(
     reason = "it's a system that needs a lot of them"
 )]
 pub fn queue_ui_slices(
-    extracted_ui_slicers: ResMut<ExtractedUiTextureSlices>,
+    extracted_ui_slicers: Res<ExtractedUiTextureSlices>,
+    extracted_geometry: Res<ExtractedUiLayout>,
     ui_slicer_pipeline: Res<UiTextureSlicePipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiTextureSlicePipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
@@ -426,11 +335,21 @@ pub fn queue_ui_slices(
     let mut current_camera_entity = Entity::PLACEHOLDER;
     let mut current_phase = None;
 
-    for (main_entity, (extracted_camera_entity, subslices)) in extracted_ui_slicers.slices.iter() {
-        if current_camera_entity != *extracted_camera_entity {
+    for (main_entity, (render_entity, _)) in extracted_ui_slicers.slices.iter() {
+        let Some(layout) = extracted_geometry.layout.get(main_entity) else {
+            continue;
+        };
+
+        if !layout.visible {
+            continue;
+        }
+
+        let extracted_camera_entity = layout.extracted_camera;
+
+        if current_camera_entity != extracted_camera_entity {
             current_phase =
                 render_views
-                    .get(*extracted_camera_entity)
+                    .get(extracted_camera_entity)
                     .ok()
                     .and_then(|default_camera_view| {
                         camera_views
@@ -451,23 +370,21 @@ pub fn queue_ui_slices(
                                     })
                             })
                     });
-            current_camera_entity = *extracted_camera_entity;
+            current_camera_entity = extracted_camera_entity;
         }
 
         let Some((pipeline, transparent_phase)) = current_phase.as_mut() else {
             continue;
         };
-        for (render_entity, extracted_slicer) in subslices.iter() {
-            transparent_phase.add_transient(TransparentUi {
-                draw_function,
-                pipeline: *pipeline,
-                entity: (*render_entity, *main_entity),
-                sort_key: FloatOrd(extracted_slicer.stack_index as f32 + stack_z_offsets::IMAGE),
-                batch_range: 0..0,
-                extra_index: PhaseItemExtraIndex::None,
-                indexed: true,
-            });
-        }
+        transparent_phase.add_transient(TransparentUi {
+            draw_function,
+            pipeline: *pipeline,
+            entity: (*render_entity, *main_entity),
+            sort_key: FloatOrd(layout.stack_index as f32 + stack_z_offsets::IMAGE),
+            batch_range: 0..0,
+            extra_index: PhaseItemExtraIndex::None,
+            indexed: true,
+        });
     }
 }
 
@@ -478,6 +395,7 @@ pub fn prepare_ui_slices(
     pipeline_cache: Res<PipelineCache>,
     mut ui_meta: ResMut<UiTextureSliceMeta>,
     extracted_slices: Res<ExtractedUiTextureSlices>,
+    extracted_geometry: Res<ExtractedUiLayout>,
     view_uniforms: Res<ViewUniforms>,
     texture_slicer_pipeline: Res<UiTextureSlicePipeline>,
     mut image_bind_groups: ResMut<UiTextureSliceImageBindGroups>,
@@ -497,6 +415,10 @@ pub fn prepare_ui_slices(
                 image_bind_groups.values.remove(id);
             }
         };
+    }
+
+    if extracted_slices.slices.is_empty() || extracted_geometry.layout.is_empty() {
+        return;
     }
 
     if let Some(view_binding) = view_uniforms.uniforms.binding() {
@@ -521,11 +443,21 @@ pub fn prepare_ui_slices(
 
             for item_index in 0..ui_phase.items.len() {
                 let item = &mut ui_phase.items[item_index];
-                if let Some(texture_slices) = extracted_slices
-                    .slices
-                    .get(&item.main_entity())
-                    .and_then(|(_, subslices)| subslices.get(&item.entity()))
+                if let Some((render_entity, texture_slices)) =
+                    extracted_slices.slices.get(&item.main_entity())
+                    && *render_entity == item.entity()
+                    && let Some(geometry) = extracted_geometry.layout.get(&item.main_entity())
                 {
+                    let visual_box = match texture_slices.visual_box {
+                        VisualBox::ContentBox => geometry.uinode.content_box(),
+                        VisualBox::PaddingBox => geometry.uinode.padding_box(),
+                        VisualBox::BorderBox => geometry.uinode.border_box(),
+                    };
+                    if visual_box.size().cmple(Vec2::ZERO).any() {
+                        batch_image_handle = None;
+                        continue;
+                    }
+
                     // Initialize the batch range to be zero-length initially.
                     // We'll extend it as we accumulate items into this batch.
                     item.batch_range = (item_index as u32)..(item_index as u32);
@@ -599,18 +531,22 @@ pub fn prepare_ui_slices(
                         }
                     }
 
-                    let uinode_rect = texture_slices.rect;
+                    let uinode_rect = Rect {
+                        min: Vec2::ZERO,
+                        max: visual_box.size(),
+                    };
 
                     let rect_size = uinode_rect.size();
+                    let transform =
+                        geometry.transform * Affine2::from_translation(visual_box.center());
 
                     // Specify the corners of the node
-                    let positions = QUAD_VERTEX_POSITIONS.map(|pos| {
-                        (texture_slices.transform.transform_point2(pos * rect_size)).extend(0.)
-                    });
+                    let positions = QUAD_VERTEX_POSITIONS
+                        .map(|pos| transform.transform_point2(pos * rect_size).extend(0.));
 
                     // Calculate the effect of clipping
                     // Note: this won't work with rotation/scaling, but that's much more complex (may need more that 2 quads)
-                    let positions_diff = if let Some(clip) = texture_slices.clip {
+                    let positions_diff = if let Some(clip) = geometry.clip {
                         [
                             Vec2::new(
                                 f32::max(clip.min.x - positions[0].x, 0.),
@@ -640,8 +576,7 @@ pub fn prepare_ui_slices(
                         positions[3] + positions_diff[3].extend(0.),
                     ];
 
-                    let transformed_rect_size =
-                        texture_slices.transform.transform_vector2(rect_size).abs();
+                    let transformed_rect_size = transform.transform_vector2(rect_size).abs();
 
                     // Don't try to cull nodes that have a rotation
                     // In a rotation around the Z-axis, this value is 0.0 for an angle of 0.0 or π
@@ -649,7 +584,7 @@ pub fn prepare_ui_slices(
                     // horizontal / vertical lines
                     // For all other angles, bypass the culling check
                     // This does not properly handles all rotations on all axis
-                    if texture_slices.transform.x_axis[1] == 0.0 {
+                    if transform.x_axis[1] == 0.0 {
                         // Cull nodes that are completely clipped
                         if positions_diff[0].x - positions_diff[1].x >= transformed_rect_size.x
                             || positions_diff[1].y - positions_diff[2].y >= transformed_rect_size.y
@@ -714,7 +649,7 @@ pub fn prepare_ui_slices(
 
                     let [slices, border, repeat] = compute_texture_slices(
                         image_size,
-                        uinode_rect.size() * texture_slices.inverse_scale_factor,
+                        uinode_rect.size() * geometry.uinode.inverse_scale_factor,
                         &texture_slices.image_scale_mode,
                     );
 

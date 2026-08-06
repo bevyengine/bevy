@@ -1,44 +1,40 @@
-use super::ExtractedUiItem;
-use super::ExtractedUiNode;
-use super::ExtractedUiNodes;
-use super::NodeType;
-use super::UiCameraMap;
-use crate::shader_flags;
-use bevy_asset::AssetId;
-use bevy_camera::visibility::InheritedVisibility;
-use bevy_color::Hsla;
-use bevy_color::LinearRgba;
-use bevy_ecs::entity::ContainsEntity as _;
-use bevy_ecs::entity::Entity;
-use bevy_ecs::prelude::Component;
-use bevy_ecs::prelude::ReflectComponent;
-use bevy_ecs::prelude::ReflectResource;
-use bevy_ecs::resource::Resource;
-use bevy_ecs::system::Commands;
-use bevy_ecs::system::Query;
-use bevy_ecs::system::Res;
-use bevy_ecs::system::ResMut;
-use bevy_math::Affine2;
-use bevy_math::Rect;
-use bevy_math::Vec2;
+use crate::{
+    extract_layout::ExtractedUiLayout, shader_flags, DrawUi, TransparentUi, UiAntiAlias,
+    UiCameraView, UiMeta, UiPipeline, UiPipelineKey, UiVertex, QUAD_INDICES, QUAD_UVS,
+    QUAD_VERTEX_POSITIONS,
+};
+
+use bevy_camera::{Camera2d, Camera3d};
+use bevy_color::{ColorToComponents, Hsla, LinearRgba};
+use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::{
+    entity::{Entity, EntityHashMap, EntityHashSet},
+    lifecycle::RemovedComponents,
+    prelude::*,
+    query::Changed,
+    resource::Resource,
+};
+
+use bevy_math::{Affine2, FloatOrd, Rect, Vec2};
+
 use bevy_reflect::Reflect;
-use bevy_render::Extract;
-use bevy_sprite::BorderRect;
-use bevy_ui::ui_transform::UiGlobalTransform;
-use bevy_ui::CalculatedClip;
-use bevy_ui::ComputedNode;
-use bevy_ui::ComputedStackIndex;
-use bevy_ui::ComputedUiTargetCamera;
-use bevy_ui::ResolvedBorderRadius;
-use bevy_ui::UiStack;
+use bevy_render::{
+    render_phase::{DrawFunctions, PhaseItemExtraIndex, ViewSortedRenderPhases},
+    render_resource::{PipelineCache, SpecializedRenderPipelines},
+    sync_world::{MainEntity, MainEntityHashMap, MainEntityHashSet, RenderEntity},
+    view::ExtractedView,
+    Extract,
+};
+
+use bevy_ui::{ResolvedBorderRadius, UiStack};
 
 /// Configuration for the UI debug overlay
 ///
 /// Can be added as a `Component` to individual UI node entities.
-/// This overwrites the default [`GlobalUiDebugOptions`] resource.
-#[derive(Component, Reflect, Copy, Clone)]
+/// This overwrites the default [`UiDebugOverlay`] resource.
+#[derive(Component, Reflect, Clone)]
 #[reflect(Component)]
-pub struct UiDebugOptions {
+pub struct UiDebugOutline {
     /// Set to true to enable the UI debug overlay
     pub enabled: bool,
     /// Show outlines for the border boxes of UI nodes
@@ -61,13 +57,13 @@ pub struct UiDebugOptions {
     pub ignore_border_radius: bool,
 }
 
-impl UiDebugOptions {
+impl UiDebugOutline {
     pub fn toggle(&mut self) {
         self.enabled = !self.enabled;
     }
 }
 
-impl Default for UiDebugOptions {
+impl Default for UiDebugOutline {
     fn default() -> Self {
         Self {
             enabled: false,
@@ -84,215 +80,307 @@ impl Default for UiDebugOptions {
     }
 }
 
-impl From<GlobalUiDebugOptions> for UiDebugOptions {
-    fn from(other: GlobalUiDebugOptions) -> Self {
-        Self {
-            enabled: other.enabled,
-            outline_border_box: other.outline_border_box,
-            outline_padding_box: other.outline_padding_box,
-            outline_content_box: other.outline_content_box,
-            outline_scrollbars: other.outline_scrollbars,
-            line_width: other.line_width,
-            line_color_override: other.line_color_override,
-            show_hidden: other.show_hidden,
-            show_clipped: other.show_clipped,
-            ignore_border_radius: other.ignore_border_radius,
-        }
+impl From<UiDebugOverlay> for UiDebugOutline {
+    fn from(other: UiDebugOverlay) -> Self {
+        other.0.clone()
     }
 }
 
 /// Configuration for the UI debug overlay
 ///
-/// A global `resource` that can be overridden by local component [`UiDebugOptions`] override on individual UI node entities
-#[derive(Resource, Reflect, Copy, Clone)]
+/// A global `resource` that can be overridden by local component [`UiDebugOutline`] override on individual UI node entities
+#[derive(Default, Resource, Reflect, Clone, Deref, DerefMut)]
 #[reflect(Resource)]
-pub struct GlobalUiDebugOptions {
-    /// Set to true to enable the UI debug overlay
-    pub enabled: bool,
-    /// Show outlines for the border boxes of UI nodes
-    pub outline_border_box: bool,
-    /// Show outlines for the padding boxes of UI nodes
-    pub outline_padding_box: bool,
-    /// Show outlines for the content boxes of UI nodes
-    pub outline_content_box: bool,
-    /// Show outlines for the scrollbar regions of UI nodes
-    pub outline_scrollbars: bool,
-    /// Width of the overlay's lines in logical pixels
-    pub line_width: f32,
-    /// Override Color for the overlay's lines
-    pub line_color_override: Option<LinearRgba>,
-    /// Show outlines for non-visible UI nodes
-    pub show_hidden: bool,
-    /// Show outlines for clipped sections of UI nodes
-    pub show_clipped: bool,
-    /// Draw outlines with sharp corners even if the UI nodes have border radii
-    pub ignore_border_radius: bool,
-}
+pub struct UiDebugOverlay(pub UiDebugOutline);
 
-impl GlobalUiDebugOptions {
-    pub fn toggle(&mut self) {
-        self.enabled = !self.enabled;
+impl From<UiDebugOutline> for UiDebugOverlay {
+    fn from(other: UiDebugOutline) -> Self {
+        Self(other)
     }
 }
 
-impl Default for GlobalUiDebugOptions {
-    fn default() -> Self {
-        Self {
-            enabled: false,
-            line_width: 1.,
-            line_color_override: None,
-            show_hidden: false,
-            show_clipped: false,
-            ignore_border_radius: false,
-            outline_border_box: true,
-            outline_padding_box: false,
-            outline_content_box: false,
-            outline_scrollbars: false,
-        }
-    }
+/// The debug visualization is just outlines, so it can be extracted as a single phase item for each extracted camera.
+#[derive(Resource, Default)]
+pub struct ExtractedUiDebugOverlay {
+    /// z_index of whole visualization.
+    pub z_offset: f32,
+    pub default_outline: UiDebugOutline,
+    pub extracted_camera_view_to_ids: EntityHashMap<(Entity, MainEntity)>,
+    pub per_node_outline: MainEntityHashMap<UiDebugOutline>,
+    pub changed_this_frame: MainEntityHashSet,
 }
 
-impl From<UiDebugOptions> for GlobalUiDebugOptions {
-    fn from(other: UiDebugOptions) -> Self {
-        Self {
-            enabled: other.enabled,
-            outline_border_box: other.outline_border_box,
-            outline_padding_box: other.outline_padding_box,
-            outline_content_box: other.outline_content_box,
-            outline_scrollbars: other.outline_scrollbars,
-            line_width: other.line_width,
-            line_color_override: other.line_color_override,
-            show_hidden: other.show_hidden,
-            show_clipped: other.show_clipped,
-            ignore_border_radius: other.ignore_border_radius,
-        }
+impl ExtractedUiDebugOverlay {
+    pub fn get(&self, main_entity: &MainEntity) -> &UiDebugOutline {
+        &self
+            .per_node_outline
+            .get(main_entity)
+            .unwrap_or(&self.default_outline)
     }
 }
 
 pub fn extract_debug_overlay(
     mut commands: Commands,
-    debug_options: Extract<Res<GlobalUiDebugOptions>>,
-    extracted_uinodes: ResMut<ExtractedUiNodes>,
-    uinode_query: Extract<
-        Query<(
-            Entity,
-            &ComputedNode,
-            &ComputedStackIndex,
-            &UiGlobalTransform,
-            &InheritedVisibility,
-            Option<&CalculatedClip>,
-            &ComputedUiTargetCamera,
-            Option<&UiDebugOptions>,
-        )>,
-    >,
+    global_debug_options: Extract<Res<UiDebugOverlay>>,
+    mut extracted_debug_layer: ResMut<ExtractedUiDebugOverlay>,
+    camera_query: Extract<Query<(Entity, RenderEntity), Or<(With<Camera2d>, With<Camera3d>)>>>,
+    ui_debug_outlines_query: Extract<Query<(Entity, &UiDebugOutline), Changed<UiDebugOutline>>>,
+    mut removed_debug_options: Extract<RemovedComponents<UiDebugOutline>>,
     ui_stack: Extract<Res<UiStack>>,
-    camera_map: Extract<UiCameraMap>,
+    mut live_camera_views: Local<EntityHashSet>,
 ) {
-    let extracted_uinodes = extracted_uinodes.into_inner();
-    let mut camera_mapper = camera_map.get_mapper();
+    extracted_debug_layer.changed_this_frame.clear();
+    extracted_debug_layer.z_offset = ui_stack.uinodes.len() as f32;
+    extracted_debug_layer.default_outline = global_debug_options.0.clone();
 
-    for (entity, uinode, stack_index, transform, visibility, maybe_clip, computed_target, debug) in
-        extracted_uinodes
-            .changed
-            .iter()
-            .flat_map(|main_entity| uinode_query.get(main_entity.entity()).ok())
-    {
-        let debug_options = debug.copied().unwrap_or((*debug_options.as_ref()).into());
-        if !debug_options.enabled {
-            continue;
-        }
-        if !debug_options.show_hidden && !visibility.get() {
-            continue;
-        }
-
-        let Some(extracted_camera_entity) = camera_mapper.map(computed_target) else {
-            continue;
-        };
-
-        let color = debug_options
-            .line_color_override
-            .unwrap_or_else(|| Hsla::sequential_dispersed(entity.index_u32()).into());
-        let z_order = (ui_stack.uinodes.len() as u32 + stack_index.0) as f32;
-        let border = BorderRect::all(debug_options.line_width / uinode.inverse_scale_factor());
-        let transform = transform.affine();
-
-        let mut push_outline = |rect: Rect, radius: ResolvedBorderRadius| {
-            if rect.is_empty() {
-                return;
+    live_camera_views.clear();
+    for (main_entity, extracted_camera_view) in camera_query.iter() {
+        live_camera_views.insert(extracted_camera_view);
+        extracted_debug_layer
+            .extracted_camera_view_to_ids
+            .entry(extracted_camera_view)
+            .or_insert_with(|| (commands.spawn_empty().id(), main_entity.into()));
+    }
+    extracted_debug_layer.extracted_camera_view_to_ids.retain(
+        |extracted_camera_view, (render_entity, _)| {
+            if live_camera_views.contains(extracted_camera_view) {
+                true
+            } else {
+                commands.entity(*render_entity).despawn();
+                false
             }
+        },
+    );
 
-            extracted_uinodes
-                .uinodes
-                .entry(entity.into())
-                .or_insert_with(|| (extracted_camera_entity, Default::default()))
-                .1
-                .insert(
-                    commands.spawn_empty().id(),
-                    ExtractedUiNode {
-                        // Keep all overlays above UI, and nudge each type slightly in Z so ordering is stable.
-                        z_order,
-                        clip: maybe_clip
-                            .filter(|_| !debug_options.show_clipped)
-                            .map(|clip| clip.clip),
-                        image: AssetId::default(),
-                        transform: transform * Affine2::from_translation(rect.center()),
-                        item: ExtractedUiItem::Node {
-                            color,
-                            rect: Rect {
-                                min: Vec2::ZERO,
-                                max: rect.size(),
+    // iter through all nodes with UiDebugOptions
+    // add to processed this frame list, so they aren't removed if tagged by removal detection
+    for (entity, debug_outlines) in ui_debug_outlines_query.iter() {
+        let main_entity = MainEntity::from(entity);
+        extracted_debug_layer.changed_this_frame.insert(main_entity);
+
+        extracted_debug_layer
+            .per_node_outline
+            .insert(main_entity, debug_outlines.clone());
+    }
+
+    for main_entity in removed_debug_options.read().map(MainEntity::from) {
+        if extracted_debug_layer
+            .changed_this_frame
+            .contains(&main_entity)
+        {
+            continue;
+        }
+        extracted_debug_layer.per_node_outline.remove(&main_entity);
+    }
+}
+
+pub fn queue_debug_overlay(
+    extracted_overlays: Res<ExtractedUiDebugOverlay>,
+    ui_pipeline: Res<UiPipeline>,
+    mut pipelines: ResMut<SpecializedRenderPipelines<UiPipeline>>,
+    mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
+    render_views: Query<(Entity, &UiCameraView, Option<&UiAntiAlias>), With<ExtractedView>>,
+    camera_views: Query<&ExtractedView>,
+    pipeline_cache: Res<PipelineCache>,
+    draw_functions: Res<DrawFunctions<TransparentUi>>,
+) {
+    let draw_function = draw_functions.read().id::<DrawUi>();
+
+    for (entity, default_camera_view, ui_anti_alias) in render_views.iter() {
+        let mut current_phase = camera_views
+            .get(default_camera_view.0)
+            .ok()
+            .and_then(|view| {
+                transparent_render_phases
+                    .get_mut(&view.retained_view_entity)
+                    .map(|transparent_phase| {
+                        let pipeline = pipelines.specialize(
+                            &pipeline_cache,
+                            &ui_pipeline,
+                            UiPipelineKey {
+                                target_format: view.target_format,
+                                anti_alias: matches!(ui_anti_alias, None | Some(UiAntiAlias::On)),
                             },
-                            atlas_scaling: None,
-                            flip_x: false,
-                            flip_y: false,
-                            border,
-                            border_radius: radius,
-                            node_type: NodeType::Border(shader_flags::BORDER_ALL),
-                        },
-                    },
-                );
+                        );
+                        (pipeline, transparent_phase)
+                    })
+            });
+
+        let Some((pipeline, transparent_phase)) = current_phase.as_mut() else {
+            continue;
         };
 
-        let border_box = Rect::from_center_size(Vec2::ZERO, uinode.size);
+        let Some(item_ids) = extracted_overlays.extracted_camera_view_to_ids.get(&entity) else {
+            continue;
+        };
 
-        if debug_options.outline_border_box {
-            push_outline(border_box, uinode.border_radius());
+        transparent_phase.add_transient(TransparentUi {
+            draw_function,
+            pipeline: *pipeline,
+            entity: *item_ids,
+            sort_key: FloatOrd(extracted_overlays.z_offset),
+            batch_range: 0..0,
+            extra_index: PhaseItemExtraIndex::None,
+            indexed: true,
+        });
+    }
+}
+
+/// Clip each debug outline quad, compute its vertices, and push them onto the vertex buffer
+fn push_debug_outline(
+    rect: Rect,
+    border_radius: ResolvedBorderRadius,
+    (line_color, line_width, clip, transform): &(LinearRgba, f32, Option<Rect>, Affine2),
+    ui_meta: &mut UiMeta,
+) {
+    let size = rect.size();
+    let transform = transform * Affine2::from_translation(rect.center());
+    let positions =
+        QUAD_VERTEX_POSITIONS.map(|pos| transform.transform_point2(pos * size).extend(0.));
+    let positions_diff = if let Some(clip) = clip {
+        [
+            Vec2::new(
+                f32::max(clip.min.x - positions[0].x, 0.),
+                f32::max(clip.min.y - positions[0].y, 0.),
+            ),
+            Vec2::new(
+                f32::min(clip.max.x - positions[1].x, 0.),
+                f32::max(clip.min.y - positions[1].y, 0.),
+            ),
+            Vec2::new(
+                f32::min(clip.max.x - positions[2].x, 0.),
+                f32::min(clip.max.y - positions[2].y, 0.),
+            ),
+            Vec2::new(
+                f32::max(clip.min.x - positions[3].x, 0.),
+                f32::min(clip.max.y - positions[3].y, 0.),
+            ),
+        ]
+    } else {
+        [Vec2::ZERO; 4]
+    };
+    let positions_clipped = [
+        positions[0] + positions_diff[0].extend(0.),
+        positions[1] + positions_diff[1].extend(0.),
+        positions[2] + positions_diff[2].extend(0.),
+        positions[3] + positions_diff[3].extend(0.),
+    ];
+    let transformed_rect_size = transform.transform_vector2(size).abs();
+    if transform.x_axis[1] == 0.0
+        && (positions_diff[0].x - positions_diff[1].x >= transformed_rect_size.x
+            || positions_diff[1].y - positions_diff[2].y >= transformed_rect_size.y)
+    {
+        return;
+    }
+
+    let flags = shader_flags::UNTEXTURED | shader_flags::BORDER_ALL;
+    let vertex_start = ui_meta.vertices.len() as u32;
+    let color = line_color.to_f32_array();
+
+    for i in 0..4 {
+        ui_meta.vertices.push(UiVertex {
+            position: positions_clipped[i].into(),
+            uv: QUAD_UVS[i].into(),
+            color,
+            flags: flags | shader_flags::CORNERS[i],
+            radius: border_radius.into(),
+            border: [*line_width; 4],
+            size: size.into(),
+            point: (QUAD_VERTEX_POSITIONS[i] * size + positions_diff[i]).into(),
+        });
+    }
+    for &index in &QUAD_INDICES {
+        ui_meta.indices.push(vertex_start + index as u32);
+    }
+}
+
+/// The debug overlay consists of just outlines drawn above the UI, so one phase item can hold
+/// all the outlines per camera
+pub fn push_debug_overlay_vertices(
+    ui_meta: &mut UiMeta,
+    extracted_ui_layout: &ExtractedUiLayout,
+    extracted_ui_debug_overlay: &ExtractedUiDebugOverlay,
+    extracted_camera: Entity,
+) {
+    if !extracted_ui_debug_overlay.default_outline.enabled
+        && extracted_ui_debug_overlay.per_node_outline.is_empty()
+    {
+        return;
+    }
+
+    for (main_entity, layout) in extracted_ui_layout.layout.iter() {
+        if layout.extracted_camera != extracted_camera {
+            continue;
         }
 
-        if debug_options.outline_padding_box {
-            let mut padding_box = border_box;
-            padding_box.min += uinode.border.min_inset;
-            padding_box.max -= uinode.border.max_inset;
-            push_outline(padding_box, uinode.inner_radius());
+        let debug_outline = extracted_ui_debug_overlay.get(main_entity);
+        if !debug_outline.enabled {
+            continue;
         }
 
-        if debug_options.outline_content_box {
-            let mut content_box = border_box;
-            let content_inset = uinode.content_inset();
-            content_box.min += content_inset.min_inset;
-            content_box.max -= content_inset.max_inset;
-            push_outline(content_box, ResolvedBorderRadius::ZERO);
+        if !layout.visible && !debug_outline.show_hidden {
+            continue;
         }
 
-        if debug_options.outline_scrollbars {
-            if let Some((gutter, [thumb_min, thumb_max])) = uinode.horizontal_scrollbar() {
-                push_outline(gutter, ResolvedBorderRadius::ZERO);
-                push_outline(
+        let style = &(
+            debug_outline
+                .line_color_override
+                .unwrap_or_else(|| Hsla::sequential_dispersed(main_entity.index_u32()).into()),
+            debug_outline.line_width / layout.uinode.inverse_scale_factor(),
+            layout.clip.filter(|_| !debug_outline.show_clipped),
+            layout.transform,
+        );
+
+        if debug_outline.outline_border_box {
+            push_debug_outline(
+                layout.uinode.border_box(),
+                layout.uinode.border_radius,
+                style,
+                ui_meta,
+            );
+        }
+
+        if debug_outline.outline_padding_box {
+            push_debug_outline(
+                layout.uinode.padding_box(),
+                layout.uinode.inner_radius(),
+                style,
+                ui_meta,
+            );
+        }
+
+        if debug_outline.outline_content_box {
+            push_debug_outline(
+                layout.uinode.content_box(),
+                ResolvedBorderRadius::ZERO,
+                style,
+                ui_meta,
+            );
+        }
+
+        if debug_outline.outline_scrollbars {
+            if let Some((gutter, [thumb_min, thumb_max])) = layout.uinode.horizontal_scrollbar() {
+                push_debug_outline(gutter, ResolvedBorderRadius::ZERO, style, ui_meta);
+                push_debug_outline(
                     Rect {
                         min: Vec2::new(thumb_min, gutter.min.y),
                         max: Vec2::new(thumb_max, gutter.max.y),
                     },
                     ResolvedBorderRadius::ZERO,
+                    style,
+                    ui_meta,
                 );
             }
-            if let Some((gutter, [thumb_min, thumb_max])) = uinode.vertical_scrollbar() {
-                push_outline(gutter, ResolvedBorderRadius::ZERO);
-                push_outline(
+            if let Some((gutter, [thumb_min, thumb_max])) = layout.uinode.vertical_scrollbar() {
+                push_debug_outline(gutter, ResolvedBorderRadius::ZERO, style, ui_meta);
+                push_debug_outline(
                     Rect {
                         min: Vec2::new(gutter.min.x, thumb_min),
                         max: Vec2::new(gutter.max.x, thumb_max),
                     },
                     ResolvedBorderRadius::ZERO,
+                    style,
+                    ui_meta,
                 );
             }
         }
