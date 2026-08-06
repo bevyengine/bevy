@@ -975,6 +975,24 @@ fn prepare_uinodes(
         };
     }
 
+    if extracted_layout.layout.is_empty() {
+        return;
+    }
+
+    #[cfg(not(feature = "bevy_ui_debug"))]
+    if extracted_glyph_layouts.uinodes.is_empty() && extracted_styles.uinodes.is_empty() {
+        return;
+    }
+
+    #[cfg(feature = "bevy_ui_debug")]
+    if extracted_glyph_layouts.uinodes.is_empty()
+        && extracted_styles.uinodes.is_empty()
+        && !extracted_ui_debug_overlay.default_outline.enabled
+        && extracted_ui_debug_overlay.per_node_outline.is_empty()
+    {
+        return;
+    }
+
     let Some(view_binding) = view_uniforms.uniforms.binding() else {
         // If there are no view bindings, give up.
         return;

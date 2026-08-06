@@ -584,6 +584,10 @@ pub fn prepare_gradient(
     mut phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
     mut previous_len: Local<usize>,
 ) {
+    if extracted_gradients.items.is_empty() || extracted_geometry.layout.is_empty() {
+        return;
+    }
+
     if let Some(view_binding) = view_uniforms.uniforms.binding() {
         let mut batches: Vec<(Entity, GradientBatch)> = Vec::with_capacity(*previous_len);
 

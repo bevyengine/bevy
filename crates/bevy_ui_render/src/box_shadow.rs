@@ -353,6 +353,10 @@ pub fn prepare_shadows(
     mut phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
     mut previous_len: Local<usize>,
 ) {
+    if extracted_shadows.box_shadows.is_empty() || extracted_geometry.layout.is_empty() {
+        return;
+    }
+
     if let Some(view_binding) = view_uniforms.uniforms.binding() {
         let mut batches: Vec<(Entity, UiShadowsBatch)> = Vec::with_capacity(*previous_len);
 

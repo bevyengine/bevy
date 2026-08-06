@@ -391,6 +391,10 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
     mut phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
     mut previous_len: Local<usize>,
 ) {
+    if extracted_materials.uinodes.is_empty() || extracted_geometry.layout.is_empty() {
+        return;
+    }
+
     if let (Some(view_binding), Some(globals_binding)) = (
         view_uniforms.uniforms.binding(),
         globals_buffer.buffer.binding(),
