@@ -1059,16 +1059,14 @@ impl Mesh {
         if values.is_empty() {
             return Err(MeshVertexCompressionError::EmptyAttribute(attr));
         }
+
+        let expected = VertexFormat::Snorm16x4;
         let Some(aabb) = Self::compute_aabb(values) else {
             return Err(
-                MeshVertexCompressionError::UnsupportedAttributeForCompression {
-                    attr,
-                    expected: attr.format,
-                    provided: values.into(),
-                },
+                MeshVertexCompressionError::UnsupportedAttributeForCompression { attr, expected },
             );
         };
-        attr.format = VertexFormat::Snorm16x4;
+        attr.format = expected;
         self.insert_attribute(attr, values.create_compressed_positions(aabb).unwrap());
         self.final_aabb = Some(aabb);
         self.attribute_compression |= MeshAttributeCompressionFlags::COMPRESS_POSITION;
@@ -1086,16 +1084,14 @@ impl Mesh {
         if values.is_empty() {
             return Err(MeshVertexCompressionError::EmptyAttribute(attr));
         }
+
+        let expected = VertexFormat::Unorm16x2;
         let Some(uv_range) = Self::compute_uv_range(values) else {
             return Err(
-                MeshVertexCompressionError::UnsupportedAttributeForCompression {
-                    attr,
-                    expected: attr.format,
-                    provided: values.into(),
-                },
+                MeshVertexCompressionError::UnsupportedAttributeForCompression { attr, expected },
             );
         };
-        attr.format = VertexFormat::Unorm16x2;
+        attr.format = expected;
         self.insert_attribute(attr, values.create_compressed_uvs(uv_range).unwrap());
         ok(self, uv_range);
         Ok(self)
@@ -1141,16 +1137,14 @@ impl Mesh {
         let Some(values) = self.attribute(attr) else {
             return Err(MeshVertexCompressionError::MissingAttribute(attr.id));
         };
-        attr.format = VertexFormat::Snorm16x2;
+
+        let expected = VertexFormat::Snorm16x2;
         let Some(values) = values.create_octahedral_encode_normals() else {
             return Err(
-                MeshVertexCompressionError::UnsupportedAttributeForCompression {
-                    attr,
-                    expected: attr.format,
-                    provided: values.into(),
-                },
+                MeshVertexCompressionError::UnsupportedAttributeForCompression { attr, expected },
             );
         };
+        attr.format = expected;
         self.insert_attribute(attr, values);
         self.attribute_compression |= MeshAttributeCompressionFlags::COMPRESS_NORMAL;
         Ok(self)
@@ -1168,16 +1162,14 @@ impl Mesh {
         let Some(values) = self.attribute(attr) else {
             return Err(MeshVertexCompressionError::MissingAttribute(attr.id));
         };
-        attr.format = VertexFormat::Snorm16x2;
+
+        let expected = VertexFormat::Snorm16x2;
         let Some(values) = values.create_octahedral_encode_tangents() else {
             return Err(
-                MeshVertexCompressionError::UnsupportedAttributeForCompression {
-                    attr,
-                    expected: attr.format,
-                    provided: values.into(),
-                },
+                MeshVertexCompressionError::UnsupportedAttributeForCompression { attr, expected },
             );
         };
+        attr.format = expected;
         self.insert_attribute(attr, values);
         self.attribute_compression |= MeshAttributeCompressionFlags::COMPRESS_TANGENT;
         Ok(self)
@@ -1202,10 +1194,7 @@ impl Mesh {
         };
         let Some(quantized_values) = values.create_quantized_values(quantization) else {
             return Err(
-                MeshVertexCompressionError::UnsupportedAttributeForQuantizing {
-                    attr: *attribute,
-                    provided: (&*values).into(),
-                },
+                MeshVertexCompressionError::UnsupportedAttributeForQuantizing { attr: *attribute },
             );
         };
         attribute.format = (&quantized_values).into();
@@ -3043,17 +3032,15 @@ pub enum MeshVertexCompressionError {
     MissingAttribute(MeshVertexAttributeId),
     #[error("Vertex attribute {0:?} must not be empty")]
     EmptyAttribute(MeshVertexAttribute),
-    #[error("Vertex attribute {attr:?} must have format {expected:?} before compressing/quantizing, but got {provided:?}")]
+    #[error(
+        "Vertex attribute {attr:?} must have format {expected:?} before compressing/quantizing"
+    )]
     UnsupportedAttributeForCompression {
         attr: MeshVertexAttribute,
         expected: VertexFormat,
-        provided: VertexFormat,
     },
-    #[error("Vertex attribute {attr:?} must have format `Float32`, `Float32x2` or `Float32x4` before quantizing, but got {provided:?}")]
-    UnsupportedAttributeForQuantizing {
-        attr: MeshVertexAttribute,
-        provided: VertexFormat,
-    },
+    #[error("Vertex attribute {attr:?} must have format `Float32`, `Float32x2` or `Float32x4` before quantizing")]
+    UnsupportedAttributeForQuantizing { attr: MeshVertexAttribute },
 }
 
 /// Error that can occur when calling [`Mesh::merge_duplicate_vertices`]
