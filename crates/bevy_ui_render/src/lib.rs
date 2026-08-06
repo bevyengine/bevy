@@ -12,7 +12,6 @@ mod gradient;
 mod image;
 pub use image::ImageNodeAssetChangedSystems;
 mod pipeline;
-pub mod render_object;
 pub mod render_pass;
 mod text;
 pub mod ui_material;
