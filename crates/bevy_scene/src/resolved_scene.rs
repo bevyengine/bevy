@@ -1,7 +1,7 @@
 use crate::{Ready, ResolveContext, ResolveSceneError, Scene, SceneList, ScenePatch};
 use bevy_asset::{AssetId, AssetPath, AssetServer, Assets, Handle, UntypedAssetId};
 use bevy_ecs::{
-    bundle::{Bundle, BundleScratch, BundleWriter},
+    bundle::{Bundle, BundleScratch, BundleWriter, NoBundleEffect},
     component::{Component, ComponentsRegistrator},
     entity::Entity,
     error::{BevyError, Result},
@@ -163,10 +163,12 @@ impl ResolvedSceneListRoot {
 /// [`Children`]: bevy_ecs::hierarchy::Children
 #[derive(Default)]
 pub struct ResolvedScene {
-    /// The collection of component [`Template`]s to apply to a spawned [`Entity`]. This can have multiple copies of the same [`Template`].
-    component_templates: Vec<Box<dyn ErasedComponentTemplate>>,
-    /// The collection of Bundle templates to apply to a spawned [`Entity`].
-    bundle_templates: Vec<Box<dyn ErasedBundleTemplate>>,
+    /// The collection of [`Template`]s to apply to a spawned [`Entity`]. This can have multiple copies of the same [`Template`].
+    /// The results of these templates will be inserted together as a single bundle.
+    templates: Vec<Box<dyn ErasedTemplate>>,
+    /// The collection of Bundle templates with effects to apply to a spawned [`Entity`]. These will be inserted one-by-ne, separately
+    /// from `templates`.
+    effect_bundle_templates: Vec<Box<dyn ErasedEffectBundleTemplate>>,
     /// The collection of [`RelatedResolvedScenes`], which will be spawned as "related" entities (ex: [`Children`] entities).
     ///
     /// [`Children`]: bevy_ecs::hierarchy::Children
@@ -326,7 +328,7 @@ impl ResolvedScene {
         bundle_writer: &mut BundleWriter,
         skip_templates: impl SkipTemplate,
     ) -> Result<(), ApplySceneError> {
-        for template in &self.component_templates {
+        for template in &self.templates {
             if skip_templates.should_skip((**template).type_id()) {
                 continue;
             }
@@ -339,7 +341,7 @@ impl ResolvedScene {
             }
         }
 
-        for template in &self.bundle_templates {
+        for template in &self.effect_bundle_templates {
             // SAFETY: bundle_writer is used with the same World across all template.apply calls,
             // and the next bundle_writer.write call
             unsafe {
@@ -427,7 +429,9 @@ impl ResolvedScene {
     }
 
     /// Inserts the given [`Template`]. This will overwrite the existing [`Template`] of that type if it already exists.
-    pub fn insert_template<T: Template<Output: Component> + Send + Sync + 'static>(
+    pub fn insert_template<
+        T: Template<Output: Bundle<Effect: NoBundleEffect>> + Send + Sync + 'static,
+    >(
         &mut self,
         template: T,
     ) {
@@ -435,21 +439,17 @@ impl ResolvedScene {
     }
 
     /// Inserts the given [`Template`] with the given `type_id`. This will overwrite the existing [`Template`] of that type if it already exists.
-    pub fn insert_erased_template(
-        &mut self,
-        type_id: TypeId,
-        template: Box<dyn ErasedComponentTemplate>,
-    ) {
+    pub fn insert_erased_template(&mut self, type_id: TypeId, template: Box<dyn ErasedTemplate>) {
         match self.template_indices.entry(type_id) {
             bevy_utils::TypeIdHashMapEntry::Occupied(occupied_entry) => {
                 let index = *occupied_entry.get();
                 // SAFETY: just looked up a valid index
-                let stored_template = unsafe { self.component_templates.get_unchecked_mut(index) };
+                let stored_template = unsafe { self.templates.get_unchecked_mut(index) };
                 *stored_template = template;
             }
             bevy_utils::TypeIdHashMapEntry::Vacant(vacant_entry) => {
-                vacant_entry.insert(self.component_templates.len());
-                self.component_templates.push(template);
+                vacant_entry.insert(self.templates.len());
+                self.templates.push(template);
             }
         }
     }
@@ -467,11 +467,11 @@ impl ResolvedScene {
         &'a mut self,
         context: &mut ResolveContext,
         type_id: TypeId,
-        default: fn() -> Box<dyn ErasedComponentTemplate>,
-    ) -> &'a mut dyn ErasedComponentTemplate {
+        default: fn() -> Box<dyn ErasedTemplate>,
+    ) -> &'a mut dyn ErasedTemplate {
         let mut is_cached = false;
         let index = self.template_indices.entry(type_id).or_insert_with(|| {
-            let index = self.component_templates.len();
+            let index = self.templates.len();
             let value = if let Some(cached_patch) = &mut context.cached
                 && let Some(resolved_cached) = &cached_patch.resolved
                 && let Some(cached_template) =
@@ -482,11 +482,11 @@ impl ResolvedScene {
             } else {
                 default()
             };
-            self.component_templates.push(value);
+            self.templates.push(value);
             index
         });
         let template = self
-            .component_templates
+            .templates
             .get_mut(*index)
             .map(|value| &mut **value)
             .unwrap();
@@ -503,16 +503,15 @@ impl ResolvedScene {
     }
 
     /// Returns the [`ErasedComponentTemplate`] for the given `type_id`, if it exists in this [`ResolvedScene`]. This ignores cached scenes.
-    pub fn get_direct_erased_template(
-        &self,
-        type_id: TypeId,
-    ) -> Option<&dyn ErasedComponentTemplate> {
+    pub fn get_direct_erased_template(&self, type_id: TypeId) -> Option<&dyn ErasedTemplate> {
         let index = self.template_indices.get(&type_id)?;
-        Some(&*self.component_templates[*index])
+        Some(&*self.templates[*index])
     }
 
     /// Adds the `template` to the "back" of the [`ResolvedScene`] (it will applied later than earlier [`Template`]s).
-    pub fn push_template<T: Template<Output: Component> + Send + Sync + 'static>(
+    pub fn push_template<
+        T: Template<Output: Bundle<Effect: NoBundleEffect>> + Send + Sync + 'static,
+    >(
         &mut self,
         template: T,
     ) {
@@ -520,22 +519,25 @@ impl ResolvedScene {
     }
 
     /// Adds the `template` to the "back" of the [`ResolvedScene`] (it will applied later than earlier [`Template`]s).
-    pub fn push_template_erased(&mut self, template: Box<dyn ErasedComponentTemplate>) {
-        self.component_templates.push(template);
+    pub fn push_template_erased(&mut self, template: Box<dyn ErasedTemplate>) {
+        self.templates.push(template);
     }
-
-    /// Adds the `template` to the "back" of the [`ResolvedScene`] (it will applied later than earlier [`Template`]s).
-    pub fn push_bundle_template<T: Template<Output: Bundle> + Send + Sync + 'static>(
+    /// Adds the "effect bundle" `template` to the "back" of the [`ResolvedScene`] (it will applied later than earlier [`Template`]s).
+    pub fn push_effect_bundle_template<T: Template<Output: Bundle> + Send + Sync + 'static>(
         &mut self,
         template: T,
     ) {
-        self.push_bundle_template_erased(Box::new(template));
+        self.push_effect_bundle_template_erased(Box::new(template));
     }
 
-    /// Adds the `template` to the "back" of the [`ResolvedScene`] (it will applied later than earlier [`Template`]s).
-    pub fn push_bundle_template_erased(&mut self, template: Box<dyn ErasedBundleTemplate>) {
-        self.bundle_templates.push(template);
+    /// Adds the erased "effect bundle" `template` to the "back" of the [`ResolvedScene`] (it will applied later than earlier [`Template`]s).
+    pub fn push_effect_bundle_template_erased(
+        &mut self,
+        template: Box<dyn ErasedEffectBundleTemplate>,
+    ) {
+        self.effect_bundle_templates.push(template);
     }
+
     /// This will return the existing [`RelatedResolvedScenes`], if it exists. If not, a new empty [`RelatedResolvedScenes`] will be inserted and returned.
     ///
     /// This is used to add new related scenes and read existing related scenes.
@@ -558,7 +560,7 @@ impl ResolvedScene {
                 path: cached.handle.path().cloned(),
             });
         }
-        if !(self.component_templates.is_empty() && self.related.is_empty()) {
+        if !(self.templates.is_empty() && self.related.is_empty()) {
             return Err(CachedSceneError::LateCached {
                 id: handle.id().untyped(),
                 path: handle.path().cloned(),
@@ -696,9 +698,9 @@ impl RelatedResolvedScenes {
     }
 }
 
-/// A type-erased, object-safe, downcastable version of [`Template`] that produces a [`Component`], which will be added to the
+/// A type-erased, object-safe, downcastable version of [`Template`] that produces a [`Bundle`], which will be added to the
 /// given [`BundleWriter`].
-pub trait ErasedComponentTemplate: Any + Send + Sync {
+pub trait ErasedTemplate: Any + Send + Sync {
     /// Applies this template to the given `entity`.
     ///
     /// # Safety
@@ -713,32 +715,36 @@ pub trait ErasedComponentTemplate: Any + Send + Sync {
     ) -> Result<(), BevyError>;
 
     /// Clones this template. See [`Clone`].
-    fn clone_template(&self) -> Box<dyn ErasedComponentTemplate>;
+    fn clone_template(&self) -> Box<dyn ErasedTemplate>;
 }
 
-impl<T: Template<Output: Component> + Send + Sync + 'static> ErasedComponentTemplate for T {
+impl<T: Template<Output: Bundle<Effect: NoBundleEffect>> + Send + Sync + 'static> ErasedTemplate
+    for T
+{
     unsafe fn apply(
         &self,
         context: &mut TemplateContext,
         bundle_writer: &mut BundleWriter,
     ) -> Result<(), BevyError> {
-        let component = self.build_template(context)?;
+        let bundle = self.build_template(context)?;
         // SAFETY: world_mut is only used to register components, which does not affect entity location
         let mut components = unsafe { context.entity.world_mut().components_registrator() };
         // SAFETY: The caller verifies that `bundle_writer` is always used with the same World.
-        unsafe { bundle_writer.push_component(&mut components, component) };
+        unsafe { bundle_writer.push_bundle(&mut components, bundle) };
 
         Ok(())
     }
 
-    fn clone_template(&self) -> Box<dyn ErasedComponentTemplate> {
+    fn clone_template(&self) -> Box<dyn ErasedTemplate> {
         Box::new(Template::clone_template(self))
     }
 }
 
-/// A type-erased, object-safe, downcastable version of [`Template`] that produces a [`Bundle`], which will be added
-/// immediately to a given `entity`.
-pub trait ErasedBundleTemplate: Any + Send + Sync {
+/// A type-erased, object-safe, downcastable version of [`Template`] that produces a [`Bundle`], which can have an effect,
+/// which will be added immediately to a given `entity`.
+///
+/// In general, [`ErasedTemplate`] should be preferred for efficiency, for [`Bundle`]s that do not have an effect.
+pub trait ErasedEffectBundleTemplate: Any + Send + Sync {
     /// Applies this template to the given `entity`.
     ///
     /// # Safety
@@ -749,17 +755,17 @@ pub trait ErasedBundleTemplate: Any + Send + Sync {
     unsafe fn apply(&self, context: &mut TemplateContext) -> Result<(), BevyError>;
 
     /// Clones this template. See [`Clone`].
-    fn clone_template(&self) -> Box<dyn ErasedBundleTemplate>;
+    fn clone_template(&self) -> Box<dyn ErasedEffectBundleTemplate>;
 }
 
-impl<T: Template<Output: Bundle> + Send + Sync + 'static> ErasedBundleTemplate for T {
+impl<T: Template<Output: Bundle> + Send + Sync + 'static> ErasedEffectBundleTemplate for T {
     unsafe fn apply(&self, context: &mut TemplateContext) -> Result<(), BevyError> {
         let bundle = self.build_template(context)?;
         context.entity.insert(bundle);
         Ok(())
     }
 
-    fn clone_template(&self) -> Box<dyn ErasedBundleTemplate> {
+    fn clone_template(&self) -> Box<dyn ErasedEffectBundleTemplate> {
         Box::new(Template::clone_template(self))
     }
 }

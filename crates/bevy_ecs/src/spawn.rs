@@ -11,6 +11,7 @@ use crate::{
 use alloc::vec::Vec;
 use bevy_ptr::{move_as_ptr, MovingPtr};
 use core::{
+    alloc::Layout,
     marker::PhantomData,
     mem::{self, MaybeUninit},
 };
@@ -316,7 +317,7 @@ impl<R: Relationship, L: SpawnableList<R>> DynamicBundle for SpawnRelatedBundle<
 
     unsafe fn get_components(
         ptr: MovingPtr<'_, Self>,
-        func: &mut impl FnMut(crate::component::StorageType, bevy_ptr::OwningPtr<'_>),
+        func: &mut impl FnMut(crate::component::StorageType, bevy_ptr::OwningPtr<'_>, Option<Layout>),
     ) {
         let target =
             <R::RelationshipTarget as RelationshipTarget>::with_capacity(ptr.list.size_hint());
@@ -366,7 +367,7 @@ impl<R: Relationship, B: Bundle> DynamicBundle for SpawnOneRelated<R, B> {
 
     unsafe fn get_components(
         ptr: MovingPtr<'_, Self>,
-        func: &mut impl FnMut(crate::component::StorageType, bevy_ptr::OwningPtr<'_>),
+        func: &mut impl FnMut(crate::component::StorageType, bevy_ptr::OwningPtr<'_>, Option<Layout>),
     ) {
         let target = <R::RelationshipTarget as RelationshipTarget>::with_capacity(1);
         move_as_ptr!(target);

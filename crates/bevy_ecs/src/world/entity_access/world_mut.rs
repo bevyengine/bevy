@@ -27,7 +27,7 @@ use crate::{
 
 use alloc::vec::Vec;
 use bevy_ptr::{move_as_ptr, MovingPtr, OwningPtr};
-use core::{any::TypeId, marker::PhantomData, mem::MaybeUninit};
+use core::{alloc::Layout, any::TypeId, marker::PhantomData, mem::MaybeUninit};
 
 /// A mutable reference to a particular [`Entity`], and the entire world.
 ///
@@ -2419,9 +2419,9 @@ unsafe fn insert_dynamic_bundle<
         type Effect = ();
         unsafe fn get_components(
             mut ptr: MovingPtr<'_, Self>,
-            func: &mut impl FnMut(StorageType, OwningPtr<'_>),
+            func: &mut impl FnMut(StorageType, OwningPtr<'_>, Option<Layout>),
         ) {
-            (&mut ptr.components).for_each(|(t, ptr)| func(t, ptr));
+            (&mut ptr.components).for_each(|(t, ptr)| func(t, ptr, None));
         }
 
         unsafe fn apply_effect(
