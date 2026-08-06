@@ -380,8 +380,8 @@ impl<'a> Iterator for ArrayIter<'a> {
 
     #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let size = self.array.len();
-        (size, Some(size))
+        let remaining = self.array.len().saturating_sub(self.index);
+        (remaining, Some(remaining))
     }
 }
 
