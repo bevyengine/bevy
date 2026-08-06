@@ -1299,16 +1299,20 @@ impl UntypedPhaseIndirectParametersBuffers {
                 indirect_parameters_count: 0,
             });
             self.indexed
-                .view_to_indirect_parameters_batch_range
-                .insert(*retained_view_entity, indirect_parameters_range.clone());
+                .view_to_indirect_parameters_batch_ranges
+                .entry(*retained_view_entity)
+                .or_default()
+                .push(indirect_parameters_range.clone());
         } else {
             self.non_indexed.batch_sets.push(IndirectBatchSet {
                 indirect_parameters_base: indirect_parameters_range.start,
                 indirect_parameters_count: 0,
             });
             self.non_indexed
-                .view_to_indirect_parameters_batch_range
-                .insert(*retained_view_entity, indirect_parameters_range.clone());
+                .view_to_indirect_parameters_batch_ranges
+                .entry(*retained_view_entity)
+                .or_default()
+                .push(indirect_parameters_range.clone());
         }
     }
 
@@ -1434,9 +1438,9 @@ where
     /// many indirect draw commands to process.
     batch_sets: RawBufferVec<IndirectBatchSet>,
 
-    /// A mapping from each view to the range of batch instances within the
+    /// A mapping from each view to the ranges of batch instances within the
     /// indirect parameters buffer for that view, render phase, and mesh class.
-    view_to_indirect_parameters_batch_range: HashMap<RetainedViewEntity, Range<u32>>,
+    view_to_indirect_parameters_batch_ranges: HashMap<RetainedViewEntity, Vec<Range<u32>>>,
 }
 
 /// GPU-side indirect draw parameters for either indexed or non-indexed meshes.
@@ -1464,7 +1468,7 @@ where
                 format!("{} indirect parameters metadata buffer", IP::debug_label()),
             ),
             batch_sets: RawBufferVec::new(indirect_parameter_buffer_usages),
-            view_to_indirect_parameters_batch_range: HashMap::new(),
+            view_to_indirect_parameters_batch_ranges: HashMap::new(),
         }
     }
 
@@ -1531,7 +1535,7 @@ where
         self.indirect_draw_parameters.clear();
         self.metadata.clear();
         self.batch_sets.clear();
-        self.view_to_indirect_parameters_batch_range.clear();
+        self.view_to_indirect_parameters_batch_ranges.clear();
     }
 }
 
@@ -1673,21 +1677,28 @@ pub struct BuildIndirectParametersMetadata(
 /// Metadata that describes how to dispatch the indirect parameters building
 /// shader for a single view.
 ///
-/// The embedded [`TypeIdMap`] maps the type ID of a render phase to the
+/// The embedded [`TypeIdHashMap`] maps the type ID of a render phase to the
 /// indirect parameters building metadata for that phase.
 #[derive(Default, Debug, Deref, DerefMut)]
-pub struct ViewBuildIndirectParametersMetadata(pub TypeIdHashMap<PhaseBuildIndirectParametersMetadata>);
+pub struct ViewBuildIndirectParametersMetadata(
+    pub TypeIdHashMap<PhaseBuildIndirectParametersMetadata>,
+);
 
 /// Metadata that describes how to dispatch the indirect parameters building
 /// shader for a single render phase in a single view.
-#[derive(Clone, Copy, Default, Debug)]
+#[derive(Clone, Default, Debug)]
 pub struct PhaseBuildIndirectParametersMetadata {
     /// Metadata that describes how to dispatch the indirect parameters building
     /// shader for indexed meshes.
-    pub indexed: MeshClassBuildIndirectParametersMetadata,
+    ///
+    /// There will be one such element for each invocation of the shader.
+    pub indexed: Vec<MeshClassBuildIndirectParametersMetadata>,
+
     /// Metadata that describes how to dispatch the indirect parameters building
     /// shader for non-indexed meshes.
-    pub non_indexed: MeshClassBuildIndirectParametersMetadata,
+    ///
+    /// There will be one such element for each invocation of the shader.
+    pub non_indexed: Vec<MeshClassBuildIndirectParametersMetadata>,
 }
 
 /// Metadata that describes how to dispatch the indirect parameters building
@@ -2564,11 +2575,10 @@ where
         IP: Clone + ShaderSize + WriteInto,
     {
         indirect_parameters_buffers
-            .view_to_indirect_parameters_batch_range
-            .insert(
-                retained_view_entity,
-                self.initial_indirect_parameters_index..self.indirect_parameters_index,
-            );
+            .view_to_indirect_parameters_batch_ranges
+            .entry(retained_view_entity)
+            .or_default()
+            .push(self.initial_indirect_parameters_index..self.indirect_parameters_index);
     }
 }
 
@@ -2643,46 +2653,55 @@ pub fn prepare_indirect_parameters_build_jobs(
     // Make sure the clear out the indirect parameters build jobs in preparation
     // for a new frame.
     indirect_parameters_build_jobs.clear();
+    build_indirect_parameters_metadata.clear();
 
     // Prepare the build jobs for all views.
     for (phase_type_id, phase_indirect_parameters_buffers) in indirect_parameters_buffers.iter() {
         // Prepare the indexed indirect parameters build jobs.
-        for (retained_view_entity, indirect_parameters_range) in phase_indirect_parameters_buffers
+        for (retained_view_entity, indirect_parameters_ranges) in phase_indirect_parameters_buffers
             .indexed
-            .view_to_indirect_parameters_batch_range
+            .view_to_indirect_parameters_batch_ranges
             .iter()
         {
-            let uniform_offset = indirect_parameters_build_jobs.push(
-                IndirectParametersBuildJob::new(indirect_parameters_range.clone()),
-            );
-            build_indirect_parameters_metadata
-                .entry(*retained_view_entity)
-                .or_default()
-                .entry(*phase_type_id)
-                .or_default()
-                .indexed = MeshClassBuildIndirectParametersMetadata {
-                uniform_offset,
-                batch_count: indirect_parameters_range.end - indirect_parameters_range.start,
+            for indirect_parameters_range in indirect_parameters_ranges {
+                let uniform_offset = indirect_parameters_build_jobs.push(
+                    IndirectParametersBuildJob::new(indirect_parameters_range.clone()),
+                );
+                build_indirect_parameters_metadata
+                    .entry(*retained_view_entity)
+                    .or_default()
+                    .entry(*phase_type_id)
+                    .or_default()
+                    .indexed
+                    .push(MeshClassBuildIndirectParametersMetadata {
+                        uniform_offset,
+                        batch_count: indirect_parameters_range.end
+                            - indirect_parameters_range.start,
+                    });
             }
         }
 
         // Prepare the non-indexed indirect parameters build jobs.
-        for (retained_view_entity, indirect_parameters_range) in phase_indirect_parameters_buffers
+        for (retained_view_entity, indirect_parameters_ranges) in phase_indirect_parameters_buffers
             .non_indexed
-            .view_to_indirect_parameters_batch_range
+            .view_to_indirect_parameters_batch_ranges
             .iter()
         {
-            let uniform_offset = indirect_parameters_build_jobs.push(
-                IndirectParametersBuildJob::new(indirect_parameters_range.clone()),
-            );
-            build_indirect_parameters_metadata
-                .entry(*retained_view_entity)
-                .or_default()
-                .entry(*phase_type_id)
-                .or_default()
-                .non_indexed = MeshClassBuildIndirectParametersMetadata {
-                uniform_offset,
-                batch_count: indirect_parameters_range.end - indirect_parameters_range.start,
+            for indirect_parameters_range in indirect_parameters_ranges {
+                let uniform_offset = indirect_parameters_build_jobs.push(
+                    IndirectParametersBuildJob::new(indirect_parameters_range.clone()),
+                );
+                build_indirect_parameters_metadata
+                    .entry(*retained_view_entity)
+                    .or_default()
+                    .entry(*phase_type_id)
+                    .or_default()
+                    .non_indexed
+                    .push(MeshClassBuildIndirectParametersMetadata {
+                        uniform_offset,
+                        batch_count: indirect_parameters_range.end
+                            - indirect_parameters_range.start,
+                    });
             }
         }
     }

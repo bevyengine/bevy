@@ -1314,19 +1314,21 @@ pub(crate) fn run_build_indirect_parameters(
             }
 
             compute_pass.set_pipeline(build_indexed_indirect_params_pipeline);
-            compute_pass.set_bind_group(
-                0,
-                build_indirect_indexed_params_bind_group,
-                &[build_indirect_parameters_uniform_index
-                    .indexed
-                    .uniform_offset],
-            );
-            let workgroup_count = build_indirect_parameters_uniform_index
-                .indexed
-                .batch_count
-                .div_ceil(WORKGROUP_SIZE as u32);
-            if workgroup_count > 0 {
-                compute_pass.dispatch_workgroups(workgroup_count, 1, 1);
+
+            for indexed_build_indirect_parameters_metadata in
+                &build_indirect_parameters_uniform_index.indexed
+            {
+                compute_pass.set_bind_group(
+                    0,
+                    build_indirect_indexed_params_bind_group,
+                    &[indexed_build_indirect_parameters_metadata.uniform_offset],
+                );
+                let workgroup_count = indexed_build_indirect_parameters_metadata
+                    .batch_count
+                    .div_ceil(WORKGROUP_SIZE as u32);
+                if workgroup_count > 0 {
+                    compute_pass.dispatch_workgroups(workgroup_count, 1, 1);
+                }
             }
         }
 
@@ -1348,19 +1350,21 @@ pub(crate) fn run_build_indirect_parameters(
             }
 
             compute_pass.set_pipeline(build_non_indexed_indirect_params_pipeline);
-            compute_pass.set_bind_group(
-                0,
-                build_indirect_non_indexed_params_bind_group,
-                &[build_indirect_parameters_uniform_index
-                    .non_indexed
-                    .uniform_offset],
-            );
-            let workgroup_count = build_indirect_parameters_uniform_index
-                .non_indexed
-                .batch_count
-                .div_ceil(WORKGROUP_SIZE as u32);
-            if workgroup_count > 0 {
-                compute_pass.dispatch_workgroups(workgroup_count, 1, 1);
+
+            for non_indexed_build_indirect_parameters_metadata in
+                &build_indirect_parameters_uniform_index.non_indexed
+            {
+                compute_pass.set_bind_group(
+                    0,
+                    build_indirect_non_indexed_params_bind_group,
+                    &[non_indexed_build_indirect_parameters_metadata.uniform_offset],
+                );
+                let workgroup_count = non_indexed_build_indirect_parameters_metadata
+                    .batch_count
+                    .div_ceil(WORKGROUP_SIZE as u32);
+                if workgroup_count > 0 {
+                    compute_pass.dispatch_workgroups(workgroup_count, 1, 1);
+                }
             }
         }
     }
