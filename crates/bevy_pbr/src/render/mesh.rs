@@ -3272,6 +3272,35 @@ fn is_skinned(layout: &MeshVertexBufferLayoutRef) -> bool {
     layout.0.contains(Mesh::ATTRIBUTE_JOINT_INDEX)
         && layout.0.contains(Mesh::ATTRIBUTE_JOINT_WEIGHT)
 }
+
+pub(crate) fn skinning_influence_count(layout: &MeshVertexBufferLayoutRef) -> usize {
+    if !is_skinned(layout) {
+        return 0;
+    }
+
+    let mut influence_count = 4;
+    for (joint_indices, joint_weights) in [
+        (
+            Mesh::ATTRIBUTE_JOINT_INDEX_1,
+            Mesh::ATTRIBUTE_JOINT_WEIGHT_1,
+        ),
+        (
+            Mesh::ATTRIBUTE_JOINT_INDEX_2,
+            Mesh::ATTRIBUTE_JOINT_WEIGHT_2,
+        ),
+        (
+            Mesh::ATTRIBUTE_JOINT_INDEX_3,
+            Mesh::ATTRIBUTE_JOINT_WEIGHT_3,
+        ),
+    ] {
+        if !layout.0.contains(joint_indices) || !layout.0.contains(joint_weights) {
+            break;
+        }
+        influence_count += 4;
+    }
+    influence_count
+}
+
 pub fn setup_morph_and_skinning_defs(
     mesh_layouts: &MeshLayouts,
     layout: &MeshVertexBufferLayoutRef,
@@ -3284,6 +3313,7 @@ pub fn setup_morph_and_skinning_defs(
     let is_morphed = key.intersects(MeshPipelineKey::MORPH_TARGETS);
     let is_lightmapped = key.intersects(MeshPipelineKey::LIGHTMAPPED);
     let motion_vector_prepass = key.intersects(MeshPipelineKey::MOTION_VECTOR_PREPASS);
+    let skinning_influence_count = skinning_influence_count(layout);
 
     if skins_use_uniform_buffers {
         shader_defs.push("SKINS_USE_UNIFORM_BUFFERS".into());
@@ -3293,6 +3323,21 @@ pub fn setup_morph_and_skinning_defs(
         shader_defs.push("SKINNED".into());
         vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_INDEX.at_shader_location(offset));
         vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_WEIGHT.at_shader_location(offset + 1));
+        if skinning_influence_count >= 8 {
+            shader_defs.push("SKINNED_8".into());
+            vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_INDEX_1.at_shader_location(offset + 2));
+            vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_WEIGHT_1.at_shader_location(offset + 3));
+        }
+        if skinning_influence_count >= 12 {
+            shader_defs.push("SKINNED_12".into());
+            vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_INDEX_2.at_shader_location(offset + 4));
+            vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_WEIGHT_2.at_shader_location(offset + 5));
+        }
+        if skinning_influence_count >= 16 {
+            shader_defs.push("SKINNED_16".into());
+            vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_INDEX_3.at_shader_location(offset + 6));
+            vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_WEIGHT_3.at_shader_location(offset + 7));
+        }
     };
 
     match (
@@ -4821,12 +4866,290 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
 mod tests {
     use core::sync::atomic::{AtomicU64, Ordering};
 
+    use bevy_asset::{AssetId, Assets, RenderAssetUsages};
+    use bevy_mesh::{Mesh, MeshVertexBufferLayouts, PrimitiveTopology, VertexAttributeValues};
+    use bevy_shader::{
+        Shader, ShaderCache, ShaderCacheError, ShaderCacheSource, ShaderDefVal, ValidateShader,
+    };
+
     use super::{AtomicU64ZeroBitIter, MeshPipelineKey};
 
     #[test]
     fn mesh_key_msaa_samples() {
         for i in [1, 2, 4, 8, 16, 32, 64, 128] {
             assert_eq!(MeshPipelineKey::from_msaa_samples(i).msaa_samples(), i);
+        }
+    }
+
+    #[test]
+    fn direct_twelve_influence_mesh_uses_twelve_influence_layout() {
+        let mesh = Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::default(),
+        )
+        .with_inserted_attribute(
+            Mesh::ATTRIBUTE_JOINT_INDEX,
+            VertexAttributeValues::Uint16x4(vec![[0; 4]]),
+        )
+        .with_inserted_attribute(Mesh::ATTRIBUTE_JOINT_WEIGHT, vec![[0.0; 4]])
+        .with_inserted_attribute(
+            Mesh::ATTRIBUTE_JOINT_INDEX_1,
+            VertexAttributeValues::Uint16x4(vec![[0; 4]]),
+        )
+        .with_inserted_attribute(Mesh::ATTRIBUTE_JOINT_WEIGHT_1, vec![[0.0; 4]])
+        .with_inserted_attribute(
+            Mesh::ATTRIBUTE_JOINT_INDEX_2,
+            VertexAttributeValues::Uint16x4(vec![[0; 4]]),
+        )
+        .with_inserted_attribute(Mesh::ATTRIBUTE_JOINT_WEIGHT_2, vec![[0.0; 4]]);
+        let layout = mesh.get_mesh_vertex_buffer_layout(&mut MeshVertexBufferLayouts::default());
+
+        assert_eq!(super::skinning_influence_count(&layout), 12);
+    }
+
+    #[test]
+    fn extended_influence_skinning_shaders_compose() {
+        fn load_module(
+            _device: &(),
+            _source: ShaderCacheSource,
+            _validate_shader: &ValidateShader,
+        ) -> Result<(), ShaderCacheError> {
+            Ok(())
+        }
+
+        fn add_shader(
+            cache: &mut ShaderCache<(), ()>,
+            shaders: &mut Assets<Shader>,
+            shader: Shader,
+        ) -> AssetId<Shader> {
+            let id = shaders.add(shader).id();
+            cache.set_shader(id, shaders.remove(id).unwrap());
+            id
+        }
+
+        for use_uniform_buffers in [false, true] {
+            let mut cache = ShaderCache::new((), load_module);
+            let mut shaders = Assets::<Shader>::default();
+
+            add_shader(
+                &mut cache,
+                &mut shaders,
+                Shader::from_wesl(
+                    r#"
+struct SkinnedMesh {
+    data: array<mat4x4<f32>, 256u>,
+}
+"#,
+                    "embedded://bevy_pbr/render/mesh_types.wesl",
+                ),
+            );
+            add_shader(
+                &mut cache,
+                &mut shaders,
+                Shader::from_wesl(
+                    r#"
+struct Mesh {
+    current_skin_index: u32,
+}
+@group(2) @binding(0) var<storage, read> mesh: array<Mesh>;
+"#,
+                    "embedded://bevy_pbr/render/mesh_bindings.wesl",
+                ),
+            );
+            add_shader(
+                &mut cache,
+                &mut shaders,
+                Shader::from_wesl(
+                    include_str!("skinning.wesl"),
+                    "embedded://bevy_pbr/render/skinning.wesl",
+                ),
+            );
+            add_shader(
+                &mut cache,
+                &mut shaders,
+                Shader::from_wesl(
+                    r#"
+struct MeshMetadata {
+    aabb_center: vec3<f32>,
+    aabb_half_extents: vec3<f32>,
+    uv_channels_min_and_extents: array<vec4<f32>, 2>,
+}
+fn get_metadata(instance_index: u32) -> MeshMetadata {
+    return MeshMetadata(vec3<f32>(0.0), vec3<f32>(1.0), array(vec4<f32>(0.0), vec4<f32>(0.0)));
+}
+"#,
+                    "embedded://bevy_pbr/render/mesh_functions.wesl",
+                ),
+            );
+            add_shader(
+                &mut cache,
+                &mut shaders,
+                Shader::from_wesl(
+                    include_str!("../../../bevy_render/src/utils.wesl"),
+                    "embedded://bevy_render/utils.wesl",
+                ),
+            );
+            add_shader(
+                &mut cache,
+                &mut shaders,
+                Shader::from_wesl(
+                    include_str!("forward_io.wesl"),
+                    "embedded://bevy_pbr/render/forward_io.wesl",
+                ),
+            );
+            add_shader(
+                &mut cache,
+                &mut shaders,
+                Shader::from_wesl(
+                    include_str!("../prepass/io.wesl"),
+                    "embedded://bevy_pbr/prepass/io.wesl",
+                ),
+            );
+            let main_shader = add_shader(
+                &mut cache,
+                &mut shaders,
+                Shader::from_wesl(
+                    r#"
+import bevy_pbr::render::skinning::{skin_model_8, skin_prev_model_8, skin_model_12, skin_prev_model_12, skin_model_16, skin_prev_model_16};
+
+@compute @workgroup_size(1)
+fn main() {
+    let indexes = vec4<u32>(0u);
+    let weights = vec4<f32>(0.125);
+    let model = skin_model_8(indexes, weights, indexes, weights, 0u);
+    let previous_model = skin_prev_model_8(indexes, weights, indexes, weights, 0u);
+    let model_12 = skin_model_12(
+        indexes, weights, indexes, weights, indexes, weights, 0u
+    );
+    let previous_model_12 = skin_prev_model_12(
+        indexes, weights, indexes, weights, indexes, weights, 0u
+    );
+    let model_16 = skin_model_16(
+        indexes, weights, indexes, weights, indexes, weights, indexes, weights, 0u
+    );
+    let previous_model_16 = skin_prev_model_16(
+        indexes, weights, indexes, weights, indexes, weights, indexes, weights, 0u
+    );
+}
+"#,
+                    "shaders/skinning_main_test.wesl",
+                ),
+            );
+
+            let mut shader_defs = vec![
+                ShaderDefVal::from("SKINNED"),
+                ShaderDefVal::from("SKINNED_8"),
+                ShaderDefVal::from("SKINNED_12"),
+                ShaderDefVal::from("SKINNED_16"),
+            ];
+            if use_uniform_buffers {
+                shader_defs.push(ShaderDefVal::from("SKINS_USE_UNIFORM_BUFFERS"));
+            }
+            cache.get(0, main_shader, &shader_defs).unwrap();
+
+            let forward_io_main_shader = add_shader(
+                &mut cache,
+                &mut shaders,
+                Shader::from_wesl(
+                    r#"
+import bevy_pbr::render::forward_io::{Vertex, decompress_vertex};
+
+@vertex
+fn main(vertex: Vertex) -> @builtin(position) vec4<f32> {
+    let uncompressed = decompress_vertex(vertex, vertex.instance_index);
+    let weight_sum = dot(uncompressed.joint_weights, vec4<f32>(1.0))
+        + dot(uncompressed.joint_weights_b, vec4<f32>(1.0))
+        + dot(uncompressed.joint_weights_c, vec4<f32>(1.0))
+        + dot(uncompressed.joint_weights_d, vec4<f32>(1.0));
+    return vec4<f32>(uncompressed.position * weight_sum, 1.0);
+}
+"#,
+                    "shaders/forward_io_main_test.wesl",
+                ),
+            );
+            let mut io_shader_defs = shader_defs.clone();
+            io_shader_defs.push(ShaderDefVal::from("VERTEX_POSITIONS"));
+            io_shader_defs.push(ShaderDefVal::from("VERTEX_COLORS"));
+            cache
+                .get(1, forward_io_main_shader, &io_shader_defs)
+                .unwrap();
+
+            let prepass_io_main_shader = add_shader(
+                &mut cache,
+                &mut shaders,
+                Shader::from_wesl(
+                    r#"
+import bevy_pbr::prepass::io::{Vertex, decompress_vertex};
+
+@vertex
+fn main(vertex: Vertex) -> @builtin(position) vec4<f32> {
+    let uncompressed = decompress_vertex(vertex, vertex.instance_index);
+    let weight_sum = dot(uncompressed.joint_weights, vec4<f32>(1.0))
+        + dot(uncompressed.joint_weights_b, vec4<f32>(1.0))
+        + dot(uncompressed.joint_weights_c, vec4<f32>(1.0))
+        + dot(uncompressed.joint_weights_d, vec4<f32>(1.0));
+    return vec4<f32>(uncompressed.position * weight_sum, 1.0);
+}
+"#,
+                    "shaders/prepass_io_main_test.wesl",
+                ),
+            );
+            cache
+                .get(2, prepass_io_main_shader, &io_shader_defs)
+                .unwrap();
+
+            let twelve_io_shader_defs = vec![
+                ShaderDefVal::from("SKINNED"),
+                ShaderDefVal::from("SKINNED_8"),
+                ShaderDefVal::from("SKINNED_12"),
+                ShaderDefVal::from("VERTEX_POSITIONS"),
+                ShaderDefVal::from("VERTEX_COLORS"),
+            ];
+            let forward_twelve_main_shader = add_shader(
+                &mut cache,
+                &mut shaders,
+                Shader::from_wesl(
+                    r#"
+import bevy_pbr::render::forward_io::{Vertex, decompress_vertex};
+
+@vertex
+fn main(vertex: Vertex) -> @builtin(position) vec4<f32> {
+    let uncompressed = decompress_vertex(vertex, vertex.instance_index);
+    let weight_sum = dot(uncompressed.joint_weights, vec4<f32>(1.0))
+        + dot(uncompressed.joint_weights_b, vec4<f32>(1.0))
+        + dot(uncompressed.joint_weights_c, vec4<f32>(1.0));
+    return vec4<f32>(uncompressed.position * weight_sum, 1.0);
+}
+"#,
+                    "shaders/forward_twelve_main_test.wesl",
+                ),
+            );
+            cache
+                .get(3, forward_twelve_main_shader, &twelve_io_shader_defs)
+                .unwrap();
+
+            let prepass_twelve_main_shader = add_shader(
+                &mut cache,
+                &mut shaders,
+                Shader::from_wesl(
+                    r#"
+import bevy_pbr::prepass::io::{Vertex, decompress_vertex};
+
+@vertex
+fn main(vertex: Vertex) -> @builtin(position) vec4<f32> {
+    let uncompressed = decompress_vertex(vertex, vertex.instance_index);
+    let weight_sum = dot(uncompressed.joint_weights, vec4<f32>(1.0))
+        + dot(uncompressed.joint_weights_b, vec4<f32>(1.0))
+        + dot(uncompressed.joint_weights_c, vec4<f32>(1.0));
+    return vec4<f32>(uncompressed.position * weight_sum, 1.0);
+}
+"#,
+                    "shaders/prepass_twelve_main_test.wesl",
+                ),
+            );
+            cache
+                .get(4, prepass_twelve_main_shader, &twelve_io_shader_defs)
+                .unwrap();
         }
     }
 
