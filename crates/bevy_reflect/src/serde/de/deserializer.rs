@@ -402,7 +402,7 @@ impl<'de, P: ReflectDeserializerProcessor> DeserializeSeed<'de>
                             processor: self.processor,
                         },
                     )?;
-                    dynamic_struct.set_represented_type(Some(self.registration.type_info()));
+                    dynamic_struct.set_runtime_type(Some(self.registration.type_info()));
                     Box::new(dynamic_struct)
                 }
                 TypeInfo::TupleStruct(tuple_struct_info) => {
@@ -430,7 +430,7 @@ impl<'de, P: ReflectDeserializerProcessor> DeserializeSeed<'de>
                             },
                         )?
                     };
-                    dynamic_tuple_struct.set_represented_type(Some(self.registration.type_info()));
+                    dynamic_tuple_struct.set_runtime_type(Some(self.registration.type_info()));
                     Box::new(dynamic_tuple_struct)
                 }
                 TypeInfo::List(list_info) => {
@@ -439,7 +439,7 @@ impl<'de, P: ReflectDeserializerProcessor> DeserializeSeed<'de>
                         registry: self.registry,
                         processor: self.processor,
                     })?;
-                    dynamic_list.set_represented_type(Some(self.registration.type_info()));
+                    dynamic_list.set_runtime_type(Some(self.registration.type_info()));
                     Box::new(dynamic_list)
                 }
                 TypeInfo::Array(array_info) => {
@@ -451,7 +451,7 @@ impl<'de, P: ReflectDeserializerProcessor> DeserializeSeed<'de>
                             processor: self.processor,
                         },
                     )?;
-                    dynamic_array.set_represented_type(Some(self.registration.type_info()));
+                    dynamic_array.set_runtime_type(Some(self.registration.type_info()));
                     Box::new(dynamic_array)
                 }
                 TypeInfo::Map(map_info) => {
@@ -460,7 +460,7 @@ impl<'de, P: ReflectDeserializerProcessor> DeserializeSeed<'de>
                         registry: self.registry,
                         processor: self.processor,
                     })?;
-                    dynamic_map.set_represented_type(Some(self.registration.type_info()));
+                    dynamic_map.set_runtime_type(Some(self.registration.type_info()));
                     Box::new(dynamic_map)
                 }
                 TypeInfo::Set(set_info) => {
@@ -469,7 +469,7 @@ impl<'de, P: ReflectDeserializerProcessor> DeserializeSeed<'de>
                         registry: self.registry,
                         processor: self.processor,
                     })?;
-                    dynamic_set.set_represented_type(Some(self.registration.type_info()));
+                    dynamic_set.set_runtime_type(Some(self.registration.type_info()));
                     Box::new(dynamic_set)
                 }
                 TypeInfo::Tuple(tuple_info) => {
@@ -482,7 +482,7 @@ impl<'de, P: ReflectDeserializerProcessor> DeserializeSeed<'de>
                             processor: self.processor,
                         },
                     )?;
-                    dynamic_tuple.set_represented_type(Some(self.registration.type_info()));
+                    dynamic_tuple.set_runtime_type(Some(self.registration.type_info()));
                     Box::new(dynamic_tuple)
                 }
                 TypeInfo::Enum(enum_info) => {
@@ -507,7 +507,7 @@ impl<'de, P: ReflectDeserializerProcessor> DeserializeSeed<'de>
                             },
                         )?
                     };
-                    dynamic_enum.set_represented_type(Some(self.registration.type_info()));
+                    dynamic_enum.set_runtime_type(Some(self.registration.type_info()));
                     Box::new(dynamic_enum)
                 }
                 TypeInfo::Opaque(_) => {

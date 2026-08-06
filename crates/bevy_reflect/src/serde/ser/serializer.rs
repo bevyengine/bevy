@@ -108,7 +108,7 @@ impl<P: ReflectSerializerProcessor> Serialize for ReflectSerializer<'_, P> {
                 .ok_or_else(|| {
                     if self.value.is_dynamic() {
                         make_custom_error(format_args!(
-                            "cannot serialize dynamic value without represented type: `{}`",
+                            "cannot serialize dynamic value without runtime type: `{}`",
                             self.value.reflect_type_path()
                         ))
                     } else {

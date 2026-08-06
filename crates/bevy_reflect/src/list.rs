@@ -111,7 +111,7 @@ pub trait List: PartialReflect {
     /// Returns an error if any element cannot be converted via [`PartialReflect::to_dynamic`].
     fn to_dynamic_list(&self) -> Result<DynamicList, ReflectCloneError> {
         Ok(DynamicList {
-            represented_type: self.runtime_type_info(),
+            runtime_type: self.runtime_type_info(),
             values: self
                 .iter()
                 .map(PartialReflect::to_dynamic)
@@ -184,26 +184,42 @@ impl ListInfo {
 /// A list of reflected values.
 #[derive(Default)]
 pub struct DynamicList {
-    represented_type: Option<&'static TypeInfo>,
+    runtime_type: Option<&'static TypeInfo>,
     values: Vec<Box<dyn PartialReflect>>,
 }
 
 impl DynamicList {
+    /// Sets the [runtime type] to be represented by this `DynamicList`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the given [`TypeInfo`] is not a [`TypeInfo::List`].
+    ///
+    /// [runtime type]: crate#comptime-vs-runtime-types
+    pub fn set_runtime_type(&mut self, runtime_type: Option<&'static TypeInfo>) {
+        if let Some(runtime_type) = runtime_type {
+            assert!(
+                matches!(runtime_type, TypeInfo::List(_)),
+                "expected TypeInfo::List but received: {runtime_type:?}"
+            );
+        }
+
+        self.runtime_type = runtime_type;
+    }
+
     /// Sets the [type] to be represented by this `DynamicList`.
+    ///
     /// # Panics
     ///
     /// Panics if the given [type] is not a [`TypeInfo::List`].
     ///
     /// [type]: TypeInfo
+    #[deprecated(
+        since = "0.20.0",
+        note = "Use [`DynamicList::set_runtime_type`] instead"
+    )]
     pub fn set_represented_type(&mut self, represented_type: Option<&'static TypeInfo>) {
-        if let Some(represented_type) = represented_type {
-            assert!(
-                matches!(represented_type, TypeInfo::List(_)),
-                "expected TypeInfo::List but received: {represented_type:?}"
-            );
-        }
-
-        self.represented_type = represented_type;
+        self.set_runtime_type(represented_type);
     }
 
     /// Appends a typed value to the list.
@@ -258,12 +274,12 @@ impl List for DynamicList {
 impl PartialReflect for DynamicList {
     #[inline]
     fn runtime_type_info(&self) -> Option<&'static TypeInfo> {
-        self.represented_type
+        self.runtime_type
     }
 
     #[inline]
     fn runtime_type(&self) -> Option<Type> {
-        self.represented_type.map(TypeInfo::ty).copied()
+        self.runtime_type.map(TypeInfo::ty).copied()
     }
 
     #[inline]
@@ -357,7 +373,7 @@ impl Debug for DynamicList {
 impl FromIterator<Box<dyn PartialReflect>> for DynamicList {
     fn from_iter<I: IntoIterator<Item = Box<dyn PartialReflect>>>(values: I) -> Self {
         Self {
-            represented_type: None,
+            runtime_type: None,
             values: values.into_iter().collect(),
         }
     }

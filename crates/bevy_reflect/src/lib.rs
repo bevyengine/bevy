@@ -204,6 +204,7 @@
 //!
 //! They are most commonly used as "proxies" for other types,
 //! where they contain the same data as— and therefore, represent— a concrete type.
+//! The type that these dynamic types represent is known as its "runtime type."
 //! The [`PartialReflect::to_dynamic`] method will return a dynamic type for all non-opaque types,
 //! allowing all types to essentially be "cloned" into a dynamic type.
 //! And since dynamic types themselves implement [`PartialReflect`],
@@ -236,6 +237,19 @@
 //! value.apply(&patch);
 //! assert_eq!(None, value);
 //! ```
+//!
+//! ## Comptime vs Runtime Types
+//!
+//! All Rust types know their type at compile time, and we refer to this specifically as a type's "comptime type".
+//! `bevy_reflect` provides access to this comptime type dynamically via [`PartialReflect::comptime_type`].
+//!
+//! In addition to a comptime type, reflected types also have a "runtime type"
+//! accessible via [`PartialReflect::runtime_type`].
+//! In most cases, this ends up being the exact same as the comptime type.
+//! However, because dynamic types may proxy another type,
+//! they may present an entirely different runtime type—or none at all if they're not actively proxying any other type.
+//!
+//! Generally, you will want to query for a type's _runtime_ type so that you also account for these dynamic proxies.
 //!
 //! ## `FromReflect`
 //!
@@ -560,6 +574,8 @@
 //! [`DynamicTupleStruct`]: crate::tuple_struct::DynamicTupleStruct
 //! [`DynamicEnum`]: crate::enums::DynamicEnum
 //! [derive macro documentation]: derive@crate::Reflect
+//! [`Type`]: crate::ty::Type
+//! [`TypeId`]: core::any::TypeId
 //! [deriving `Reflect`]: derive@crate::Reflect
 //! [type data]: TypeData
 //! [`ReflectDefault`]: std_traits::ReflectDefault
@@ -876,6 +892,7 @@ mod tests {
         hash::Hash,
         marker::PhantomData,
     };
+    use std::ops::Deref;
     use disqualified::ShortName;
     use ron::{
         ser::{to_string_pretty, PrettyConfig},
@@ -2922,18 +2939,18 @@ mod tests {
     }
 
     #[test]
-    fn should_permit_valid_represented_type_for_dynamic() {
+    fn should_permit_valid_runtime_type_for_dynamic() {
         let type_info = <[i32; 2] as Typed>::type_info();
         let mut dynamic_array = [123; 2].to_dynamic_array().unwrap();
-        dynamic_array.set_represented_type(Some(type_info));
+        dynamic_array.set_runtime_type(Some(type_info));
     }
 
     #[test]
     #[should_panic(expected = "expected TypeInfo::Array but received")]
-    fn should_prohibit_invalid_represented_type_for_dynamic() {
+    fn should_prohibit_invalid_runtime_type_for_dynamic() {
         let type_info = <(i32, i32) as Typed>::type_info();
         let mut dynamic_array = [123; 2].to_dynamic_array().unwrap();
-        dynamic_array.set_represented_type(Some(type_info));
+        dynamic_array.set_runtime_type(Some(type_info));
     }
 
     #[cfg(feature = "reflect_documentation")]
@@ -3568,7 +3585,7 @@ bevy_reflect::tests::Test {
         }
 
         let mut patch = DynamicStruct::default();
-        patch.set_represented_type(Some(MyType::type_info()));
+        patch.set_runtime_type(Some(MyType::type_info()));
         patch.insert("value", "Goodbye".to_string());
 
         let mut data = MyType(external_crate::TheirType {
@@ -3588,7 +3605,7 @@ bevy_reflect::tests::Test {
         }
 
         let mut patch = DynamicStruct::default();
-        patch.set_represented_type(Some(ContainerStruct::type_info()));
+        patch.set_runtime_type(Some(ContainerStruct::type_info()));
         patch.insert(
             "their_type",
             MyType(external_crate::TheirType {
@@ -3611,7 +3628,7 @@ bevy_reflect::tests::Test {
         struct ContainerTupleStruct(#[reflect(remote = MyType)] external_crate::TheirType);
 
         let mut patch = DynamicTupleStruct::default();
-        patch.set_represented_type(Some(ContainerTupleStruct::type_info()));
+        patch.set_runtime_type(Some(ContainerTupleStruct::type_info()));
         patch.insert(MyType(external_crate::TheirType {
             value: "Goodbye".to_string(),
         }));
@@ -3666,7 +3683,7 @@ bevy_reflect::tests::Test {
         }
 
         let mut patch = DynamicStruct::default();
-        patch.set_represented_type(Some(ContainerStruct::type_info()));
+        patch.set_runtime_type(Some(ContainerStruct::type_info()));
         patch.insert(
             "their_type",
             MyType(external_crate::TheirType {
@@ -3689,7 +3706,7 @@ bevy_reflect::tests::Test {
         struct ContainerTupleStruct(#[reflect(remote = MyType)] external_crate::TheirType);
 
         let mut patch = DynamicTupleStruct::default();
-        patch.set_represented_type(Some(ContainerTupleStruct::type_info()));
+        patch.set_runtime_type(Some(ContainerTupleStruct::type_info()));
         patch.insert(MyType(external_crate::TheirType {
             value: "Goodbye".to_string(),
         }));
@@ -3838,7 +3855,7 @@ bevy_reflect::tests::Test {
         struct MyInner<T: FromReflect>(pub T);
 
         let mut patch = DynamicStruct::default();
-        patch.set_represented_type(Some(MyOuter::<i32>::type_info()));
+        patch.set_runtime_type(Some(MyOuter::<i32>::type_info()));
         patch.insert("a", MyInner(external_crate::TheirInner(321_i32)));
         patch.insert("b", MyInner(external_crate::TheirInner(true)));
 

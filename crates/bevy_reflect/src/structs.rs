@@ -81,7 +81,7 @@ pub trait Struct: PartialReflect {
     /// Returns an error if any field cannot be converted via [`PartialReflect::to_dynamic`].
     fn to_dynamic_struct(&self) -> Result<DynamicStruct, ReflectCloneError> {
         let mut dynamic_struct = DynamicStruct::default();
-        dynamic_struct.set_represented_type(self.runtime_type_info());
+        dynamic_struct.set_runtime_type(self.runtime_type_info());
         for (name, value) in self.iter_fields() {
             dynamic_struct.insert_boxed(name, value.to_dynamic()?);
         }
@@ -304,13 +304,31 @@ impl GetField for dyn Struct {
 /// A struct type which allows fields to be added at runtime.
 #[derive(Default)]
 pub struct DynamicStruct {
-    represented_type: Option<&'static TypeInfo>,
+    runtime_type: Option<&'static TypeInfo>,
     fields: Vec<Box<dyn PartialReflect>>,
     field_names: Vec<Cow<'static, str>>,
     field_indices: HashMap<Cow<'static, str>, usize>,
 }
 
 impl DynamicStruct {
+    /// Sets the [runtime type] to be represented by this `DynamicStruct`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the given [`TypeInfo`] is not a [`TypeInfo::Struct`].
+    ///
+    /// [runtime type]: crate#comptime-vs-runtime-types
+    pub fn set_runtime_type(&mut self, runtime_type: Option<&'static TypeInfo>) {
+        if let Some(runtime_type) = runtime_type {
+            assert!(
+                matches!(runtime_type, TypeInfo::Struct(_)),
+                "expected TypeInfo::Struct but received: {runtime_type:?}"
+            );
+        }
+
+        self.runtime_type = runtime_type;
+    }
+
     /// Sets the [type] to be represented by this `DynamicStruct`.
     ///
     /// # Panics
@@ -318,15 +336,12 @@ impl DynamicStruct {
     /// Panics if the given [type] is not a [`TypeInfo::Struct`].
     ///
     /// [type]: TypeInfo
+    #[deprecated(
+        since = "0.20.0",
+        note = "Use [`DynamicStruct::set_runtime_type`] instead"
+    )]
     pub fn set_represented_type(&mut self, represented_type: Option<&'static TypeInfo>) {
-        if let Some(represented_type) = represented_type {
-            assert!(
-                matches!(represented_type, TypeInfo::Struct(_)),
-                "expected TypeInfo::Struct but received: {represented_type:?}"
-            );
-        }
-
-        self.represented_type = represented_type;
+        self.set_runtime_type(represented_type);
     }
 
     /// Inserts a field named `name` with value `value` into the struct.
@@ -468,12 +483,12 @@ impl Struct for DynamicStruct {
 impl PartialReflect for DynamicStruct {
     #[inline]
     fn runtime_type_info(&self) -> Option<&'static TypeInfo> {
-        self.represented_type
+        self.runtime_type
     }
 
     #[inline]
     fn runtime_type(&self) -> Option<Type> {
-        self.represented_type.map(TypeInfo::ty).copied()
+        self.runtime_type.map(TypeInfo::ty).copied()
     }
 
     #[inline]
@@ -565,7 +580,7 @@ impl<'a, N> FromIterator<(N, Box<dyn PartialReflect>)> for DynamicStruct
 where
     N: Into<Cow<'a, str>>,
 {
-    /// Create a dynamic struct that doesn't represent a type from the
+    /// Create a dynamic struct without a dedicated runtime type from the
     /// field name, field value pairs.
     fn from_iter<I: IntoIterator<Item = (N, Box<dyn PartialReflect>)>>(fields: I) -> Self {
         let mut dynamic_struct = Self::default();

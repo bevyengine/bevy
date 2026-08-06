@@ -80,7 +80,7 @@ pub trait Set: PartialReflect {
     /// Returns an error if any value cannot be converted via [`PartialReflect::to_dynamic`].
     fn to_dynamic_set(&self) -> Result<DynamicSet, ReflectCloneError> {
         let mut set = DynamicSet::default();
-        set.set_represented_type(self.runtime_type_info());
+        set.set_runtime_type(self.runtime_type_info());
         for value in self.iter() {
             set.insert_boxed(value.to_dynamic()?);
         }
@@ -152,11 +152,29 @@ impl SetInfo {
 /// An unordered set of reflected values.
 #[derive(Default)]
 pub struct DynamicSet {
-    represented_type: Option<&'static TypeInfo>,
+    runtime_type: Option<&'static TypeInfo>,
     hash_table: HashTable<Box<dyn PartialReflect>>,
 }
 
 impl DynamicSet {
+    /// Sets the [runtime type] to be represented by this `DynamicSet`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the given [`TypeInfo`] is not a [`TypeInfo::Set`].
+    ///
+    /// [runtime type]: crate#comptime-vs-runtime-types
+    pub fn set_runtime_type(&mut self, runtime_type: Option<&'static TypeInfo>) {
+        if let Some(runtime_type) = runtime_type {
+            assert!(
+                matches!(runtime_type, TypeInfo::Set(_)),
+                "expected TypeInfo::Set but received: {runtime_type:?}"
+            );
+        }
+
+        self.runtime_type = runtime_type;
+    }
+
     /// Sets the [type] to be represented by this `DynamicSet`.
     ///
     /// # Panics
@@ -164,15 +182,12 @@ impl DynamicSet {
     /// Panics if the given [type] is not a [`TypeInfo::Set`].
     ///
     /// [type]: TypeInfo
+    #[deprecated(
+        since = "0.20.0",
+        note = "Use [`DynamicSet::set_runtime_type`] instead"
+    )]
     pub fn set_represented_type(&mut self, represented_type: Option<&'static TypeInfo>) {
-        if let Some(represented_type) = represented_type {
-            assert!(
-                matches!(represented_type, TypeInfo::Set(_)),
-                "expected TypeInfo::Set but received: {represented_type:?}"
-            );
-        }
-
-        self.represented_type = represented_type;
+        self.set_runtime_type(represented_type);
     }
 
     /// Inserts a typed value into the set.
@@ -261,12 +276,12 @@ impl Set for DynamicSet {
 impl PartialReflect for DynamicSet {
     #[inline]
     fn runtime_type_info(&self) -> Option<&'static TypeInfo> {
-        self.represented_type
+        self.runtime_type
     }
 
     #[inline]
     fn runtime_type(&self) -> Option<Type> {
-        self.represented_type.map(TypeInfo::ty).copied()
+        self.runtime_type.map(TypeInfo::ty).copied()
     }
 
     #[inline]
@@ -350,7 +365,7 @@ impl Debug for DynamicSet {
 impl FromIterator<Box<dyn PartialReflect>> for DynamicSet {
     fn from_iter<I: IntoIterator<Item = Box<dyn PartialReflect>>>(values: I) -> Self {
         let mut this = Self {
-            represented_type: None,
+            runtime_type: None,
             hash_table: HashTable::new(),
         };
 
@@ -365,7 +380,7 @@ impl FromIterator<Box<dyn PartialReflect>> for DynamicSet {
 impl<T: Reflect> FromIterator<T> for DynamicSet {
     fn from_iter<I: IntoIterator<Item = T>>(values: I) -> Self {
         let mut this = Self {
-            represented_type: None,
+            runtime_type: None,
             hash_table: HashTable::new(),
         };
 

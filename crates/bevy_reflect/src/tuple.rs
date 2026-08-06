@@ -63,7 +63,7 @@ pub trait Tuple: PartialReflect {
     /// Returns an error if any field cannot be converted via [`PartialReflect::to_dynamic`].
     fn to_dynamic_tuple(&self) -> Result<DynamicTuple, ReflectCloneError> {
         Ok(DynamicTuple {
-            represented_type: self.runtime_type_info(),
+            runtime_type: self.runtime_type_info(),
             fields: self
                 .iter_fields()
                 .map(PartialReflect::to_dynamic)
@@ -227,11 +227,28 @@ impl TupleInfo {
 /// A tuple which allows fields to be added at runtime.
 #[derive(Default, Debug)]
 pub struct DynamicTuple {
-    represented_type: Option<&'static TypeInfo>,
+    runtime_type: Option<&'static TypeInfo>,
     fields: Vec<Box<dyn PartialReflect>>,
 }
 
 impl DynamicTuple {
+    /// Sets the [runtime type] to be represented by this `DynamicTuple`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the given [`TypeInfo`] is not a [`TypeInfo::Tuple`].
+    ///
+    /// [runtime type]: crate#comptime-vs-runtime-types
+    pub fn set_runtime_type(&mut self, runtime_type: Option<&'static TypeInfo>) {
+        if let Some(runtime_type) = runtime_type {
+            assert!(
+                matches!(runtime_type, TypeInfo::Tuple(_)),
+                "expected TypeInfo::Tuple but received: {runtime_type:?}"
+            );
+        }
+        self.runtime_type = runtime_type;
+    }
+
     /// Sets the [type] to be represented by this `DynamicTuple`.
     ///
     /// # Panics
@@ -239,25 +256,23 @@ impl DynamicTuple {
     /// Panics if the given [type] is not a [`TypeInfo::Tuple`].
     ///
     /// [type]: TypeInfo
+    #[deprecated(
+        since = "0.20.0",
+        note = "Use [`DynamicTuple::set_runtime_type`] instead"
+    )]
     pub fn set_represented_type(&mut self, represented_type: Option<&'static TypeInfo>) {
-        if let Some(represented_type) = represented_type {
-            assert!(
-                matches!(represented_type, TypeInfo::Tuple(_)),
-                "expected TypeInfo::Tuple but received: {represented_type:?}"
-            );
-        }
-        self.represented_type = represented_type;
+        self.set_runtime_type(represented_type);
     }
 
     /// Appends an element with value `value` to the tuple.
     pub fn insert_boxed(&mut self, value: Box<dyn PartialReflect>) {
-        self.represented_type = None;
+        self.runtime_type = None;
         self.fields.push(value);
     }
 
     /// Appends a typed element with value `value` to the tuple.
     pub fn insert<T: PartialReflect>(&mut self, value: T) {
-        self.represented_type = None;
+        self.runtime_type = None;
         self.insert_boxed(Box::new(value));
     }
 }
@@ -295,12 +310,12 @@ impl Tuple for DynamicTuple {
 impl PartialReflect for DynamicTuple {
     #[inline]
     fn runtime_type_info(&self) -> Option<&'static TypeInfo> {
-        self.represented_type
+        self.runtime_type
     }
 
     #[inline]
     fn runtime_type(&self) -> Option<Type> {
-        self.represented_type.map(TypeInfo::ty).copied()
+        self.runtime_type.map(TypeInfo::ty).copied()
     }
 
     #[inline]
@@ -381,7 +396,7 @@ impl_type_path!((in bevy_reflect) DynamicTuple);
 impl FromIterator<Box<dyn PartialReflect>> for DynamicTuple {
     fn from_iter<I: IntoIterator<Item = Box<dyn PartialReflect>>>(fields: I) -> Self {
         Self {
-            represented_type: None,
+            runtime_type: None,
             fields: fields.into_iter().collect(),
         }
     }
