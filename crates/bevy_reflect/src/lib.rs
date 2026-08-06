@@ -892,7 +892,6 @@ mod tests {
         hash::Hash,
         marker::PhantomData,
     };
-    use std::ops::Deref;
     use disqualified::ShortName;
     use ron::{
         ser::{to_string_pretty, PrettyConfig},
