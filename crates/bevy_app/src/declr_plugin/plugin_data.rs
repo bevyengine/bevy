@@ -13,7 +13,7 @@ use core::{
 use std::{boxed::Box, vec::Vec};
 
 use crate::{
-    approval::Approval, erased_resource::StagedResource, erased_schedule::StagedSystem, App,
+    approval::Approval, erased::resource::StagedResource, erased::schedule::StagedSystem, App,
     DeclarativePlugin,
 };
 

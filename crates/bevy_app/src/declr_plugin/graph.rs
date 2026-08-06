@@ -3,8 +3,8 @@ use core::{any::TypeId, convert::identity, hash::Hash};
 use std::{boxed::Box, collections::VecDeque, vec::Vec};
 
 use crate::{
-    erased_resource::StagedResource,
-    erased_schedule::{StagedScheduleLabel, StagedSystem},
+    erased::resource::StagedResource,
+    erased::schedule::{StagedScheduleLabel, StagedSystem},
     plugin_data::{MessageRegistration, PluginDependency, PluginTypeId},
     DeclarativePlugin, PluginOutput,
 };
@@ -363,13 +363,27 @@ impl ItemsGraph {
             Err(graph)
         }
     }
+
+    pub(crate) fn compute_resources(&mut self) -> Result<(), ()> {
+        Ok(())
+    }
+
+    pub(crate) fn final_items_order(&mut self) -> Result<OrderedPluginItems, ()> {
+        Err(())
+    }
+}
+
+pub(crate) struct DeclrSet {
+    messages: HashMap<TypeId, MessageRegistration>,
+    resources: HashMap<TypeId, StagedResource>,
 }
 
 /// Items that can be added to a world.
 #[allow(unused)]
 pub(crate) enum DeclrItem {
-    Message(MessageRegistration),
-    Resource(StagedResource),
     System(StagedSystem),
     ScheduleLabel(StagedScheduleLabel),
+    Event(()),
+    Observer(()),
+    State(()),
 }

@@ -1,13 +1,14 @@
-use core::{any::TypeId, clone};
+use core::{any::TypeId, hash::Hasher};
+use std::hash::DefaultHasher;
 
-use alloc::boxed::Box;
 use bevy_ecs::{
-    schedule::{self, IntoScheduleConfigs, ScheduleLabel, Schedules},
-    system::{IntoSystem, ScheduleSystem},
+    label::DynHash,
+    schedule::{IntoScheduleConfigs, ScheduleLabel, Schedules},
+    system::ScheduleSystem,
     world::World,
 };
 
-use crate::{metadata_ptr::MetadataPtr, MainScheduleOrder, Update};
+use crate::{metadata_ptr::MetadataPtr, MainScheduleOrder};
 
 pub(crate) struct ErasedScheduleLabel(MetadataPtr);
 
@@ -24,6 +25,11 @@ impl<S> BeforeOrAfter<S> {
             BeforeOrAfter::After(label) => BeforeOrAfter::After(f(label)),
         }
     }
+    fn get(&self) -> &S {
+        match self {
+            BeforeOrAfter::Before(s) | BeforeOrAfter::After(s) => s,
+        }
+    }
 }
 
 impl ErasedScheduleLabel {
@@ -38,9 +44,10 @@ impl ErasedScheduleLabel {
 pub(crate) struct StagedScheduleLabel {
     staged: Staged<ErasedScheduleLabel>,
     // we store these to be able to order how new schedule labels are registered later.
-    label_id: TypeId,
-    // schedules can have data (i.e. `OnEnter(State)`), so we can't rely on this and should instead use DynHash.
-    other_id: BeforeOrAfter<TypeId>,
+    // Both the typeid and the dynhash output because otherwise it's difficult to
+    label_id: (TypeId, u64),
+
+    other_id: BeforeOrAfter<(TypeId, u64)>,
 }
 
 impl StagedScheduleLabel {
@@ -48,10 +55,12 @@ impl StagedScheduleLabel {
         label: S,
         relative_to: BeforeOrAfter<O>,
     ) -> Option<Self> {
-        let label_id = TypeId::of::<S>();
+        let label_hash = Self::hash(&label);
+        let label_id = (TypeId::of::<S>(), label_hash);
+        let other_hash = Self::hash(relative_to.get());
         let other_id = match &relative_to {
-            BeforeOrAfter::Before(_) => BeforeOrAfter::Before(TypeId::of::<O>()),
-            BeforeOrAfter::After(_) => BeforeOrAfter::After(TypeId::of::<O>()),
+            BeforeOrAfter::Before(_) => BeforeOrAfter::Before((TypeId::of::<O>(), other_hash)),
+            BeforeOrAfter::After(_) => BeforeOrAfter::After((TypeId::of::<O>(), other_hash)),
         };
         Some(Self {
             staged: Staged {
@@ -72,6 +81,19 @@ impl StagedScheduleLabel {
             label_id,
             other_id,
         })
+    }
+
+    fn hasher() -> DefaultHasher {
+        DefaultHasher::new()
+    }
+
+    fn hash<H>(i: &H) -> u64
+    where
+        H: DynHash,
+    {
+        let mut hasher = Self::hasher();
+        i.dyn_hash(&mut hasher);
+        hasher.finish()
     }
 }
 
