@@ -2768,18 +2768,34 @@ impl BorderRadius {
         rem_size: RemSize,
     ) -> ResolvedBorderRadius {
         ResolvedBorderRadius {
-            top_left: self
-                .top_left
-                .resolve(scale_factor, node_size, viewport_size),
-            top_right: self
-                .top_right
-                .resolve(scale_factor, node_size, viewport_size),
-            bottom_left: self
-                .bottom_left
-                .resolve(scale_factor, node_size, viewport_size),
-            bottom_right: self
-                .bottom_right
-                .resolve(scale_factor, node_size, viewport_size),
+            top_left: self.top_left.resolve(
+                scale_factor,
+                node_size,
+                viewport_size,
+                em_size,
+                rem_size,
+            ),
+            top_right: self.top_right.resolve(
+                scale_factor,
+                node_size,
+                viewport_size,
+                em_size,
+                rem_size,
+            ),
+            bottom_left: self.bottom_left.resolve(
+                scale_factor,
+                node_size,
+                viewport_size,
+                em_size,
+                rem_size,
+            ),
+            bottom_right: self.bottom_right.resolve(
+                scale_factor,
+                node_size,
+                viewport_size,
+                em_size,
+                rem_size,
+            ),
         }
     }
 }

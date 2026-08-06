@@ -1326,7 +1326,14 @@ impl CornerRadius {
     }
 
     /// Resolves this corner radius into horizontal and vertical radii in physical pixels.
-    pub fn resolve(self, scale_factor: f32, size: Vec2, viewport_size: Vec2) -> Vec2 {
+    pub fn resolve(
+        self,
+        scale_factor: f32,
+        size: Vec2,
+        viewport_size: Vec2,
+        em_size: EmSize,
+        rem_size: RemSize,
+    ) -> Vec2 {
         match self {
             Self {
                 x: Val::Auto,
@@ -1341,13 +1348,21 @@ impl CornerRadius {
                 y: radius,
             } => Vec2::splat(
                 radius
-                    .resolve(scale_factor, size.min_element(), viewport_size)
+                    .resolve(
+                        scale_factor,
+                        size.min_element(),
+                        viewport_size,
+                        em_size,
+                        rem_size,
+                    )
                     .unwrap_or(0.)
                     .clamp(0., 0.5 * size.min_element()),
             ),
             Self { x, y } => Vec2::new(
-                x.resolve(scale_factor, size.x, viewport_size).unwrap_or(0.),
-                y.resolve(scale_factor, size.y, viewport_size).unwrap_or(0.),
+                x.resolve(scale_factor, size.x, viewport_size, em_size, rem_size)
+                    .unwrap_or(0.),
+                y.resolve(scale_factor, size.y, viewport_size, em_size, rem_size)
+                    .unwrap_or(0.),
             )
             .clamp(Vec2::ZERO, 0.5 * size),
         }
@@ -1448,7 +1463,7 @@ mod tests {
                 x: Val::Px(100.),
                 y: Val::Auto,
             }
-            .resolve(1., size, viewport_size),
+            .resolve(1., size, viewport_size, EmSize(20.0), RemSize(20.0)),
             vec2(25., 25.)
         );
         assert_eq!(
@@ -1456,7 +1471,7 @@ mod tests {
                 x: Val::Px(40.),
                 y: Val::Px(40.),
             }
-            .resolve(1., size, viewport_size),
+            .resolve(1., size, viewport_size, EmSize(20.0), RemSize(20.0)),
             vec2(40., 25.)
         );
         assert_eq!(
@@ -1464,11 +1479,11 @@ mod tests {
                 x: Val::ZERO,
                 y: Val::Px(20.),
             }
-            .resolve(1., size, viewport_size),
+            .resolve(1., size, viewport_size, EmSize(20.0), RemSize(20.0)),
             vec2(0., 20.)
         );
         assert_eq!(
-            CornerRadius::default().resolve(1., size, viewport_size),
+            CornerRadius::default().resolve(1., size, viewport_size, EmSize(20.0), RemSize(20.0)),
             vec2(0., 0.)
         );
     }
