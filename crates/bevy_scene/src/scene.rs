@@ -1,4 +1,4 @@
-use crate::{CachedSceneError, ErasedComponentTemplate, ResolvedScene, SceneList, ScenePatch};
+use crate::{CachedSceneError, ErasedTemplate, ResolvedScene, SceneList, ScenePatch};
 use bevy_asset::{Asset, AssetPath, AssetServer, Assets};
 use bevy_ecs::{
     bundle::Bundle,
@@ -351,7 +351,7 @@ pub struct InsertTemplate {
     /// The type id of the [`Template`] in `template`.
     pub type_id: TypeId,
     /// The template to insert.
-    pub template: Box<dyn ErasedComponentTemplate>,
+    pub template: Box<dyn ErasedTemplate>,
 }
 impl Scene for InsertTemplate {
     fn resolve(
@@ -559,7 +559,7 @@ impl<
         _context: &mut ResolveContext,
         scene: &mut ResolvedScene,
     ) -> Result<(), ResolveSceneError> {
-        scene.push_bundle_template(OnTemplate(self.0, PhantomData));
+        scene.push_template(OnTemplate(self.0, PhantomData));
         Ok(())
     }
 }

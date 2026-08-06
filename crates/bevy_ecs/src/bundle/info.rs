@@ -5,7 +5,7 @@ use bevy_platform::{
 };
 use bevy_ptr::{MovingPtr, OwningPtr};
 use bevy_utils::TypeIdHashMap;
-use core::{any::TypeId, ptr::NonNull};
+use core::{alloc::Layout, any::TypeId, ptr::NonNull};
 use indexmap::{IndexMap, IndexSet};
 
 use crate::{
@@ -252,7 +252,7 @@ impl BundleInfo {
         // NOTE: get_components calls `write_component` on each component in "bundle order".
         // bundle_info.component_ids are also in "bundle order"
         let mut bundle_component = 0;
-        let mut write_component = bind_lifetime(|storage_type, component_ptr| {
+        let mut write_component = bind_lifetime(|storage_type, component_ptr, _layout| {
             // SAFETY: bundle_component is a valid index per unsafe bundle impl
             let component_id = *unsafe {
                 self.contributed_component_ids
@@ -310,7 +310,7 @@ impl BundleInfo {
             bundle_component += 1;
         });
         // Remove this once closure_lifetime_binder is stable
-        fn bind_lifetime<F: FnMut(StorageType, OwningPtr<'_>)>(func: F) -> F {
+        fn bind_lifetime<F: FnMut(StorageType, OwningPtr<'_>, Option<Layout>)>(func: F) -> F {
             func
         }
         // SAFETY:

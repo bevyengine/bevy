@@ -2,7 +2,7 @@
 // It is certainly a useful thing to have.
 #![expect(unsafe_code, reason = "Unsafe code is used to improve performance.")]
 
-use core::{marker::PhantomData, mem};
+use core::{alloc::Layout, marker::PhantomData, mem};
 
 use bevy_ecs::{
     bundle::{Bundle, DynamicBundle},
@@ -49,7 +49,11 @@ impl<E: EntityEvent, B: Bundle, M, I: IntoObserverSystem<E, B, M>> DynamicBundle
     #[inline]
     unsafe fn get_components(
         ptr: bevy_ecs::ptr::MovingPtr<'_, Self>,
-        _func: &mut impl FnMut(bevy_ecs::component::StorageType, bevy_ecs::ptr::OwningPtr<'_>),
+        _func: &mut impl FnMut(
+            bevy_ecs::component::StorageType,
+            bevy_ecs::ptr::OwningPtr<'_>,
+            Option<Layout>,
+        ),
     ) {
         // SAFETY: We must not drop the pointer here, or it will be uninitialized in `apply_effect`
         // below.
