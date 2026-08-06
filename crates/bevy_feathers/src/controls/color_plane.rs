@@ -118,7 +118,7 @@ impl From<&ColorPlaneMaterial> for ColorPlaneMaterialKey {
 
 impl UiMaterial for ColorPlaneMaterial {
     fn fragment_shader() -> ShaderRef {
-        "embedded://bevy_feathers/assets/shaders/color_plane.wgsl".into()
+        "embedded://bevy_feathers/assets/shaders/color_plane.wesl".into()
     }
 
     fn specialize(
