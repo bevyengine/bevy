@@ -12,6 +12,7 @@ mod gradient;
 mod image;
 pub use image::ImageNodeAssetChangedSystems;
 mod pipeline;
+pub mod render_object;
 pub mod render_pass;
 mod text;
 pub mod ui_material;
@@ -24,7 +25,7 @@ pub mod extract_layout;
 
 use bevy_a11y::AccessibilitySystems;
 use bevy_camera::{Camera, Camera2d, Camera3d, RenderTarget};
-use bevy_ecs::entity::{EntityHashSet, EntityIndexMap};
+use bevy_ecs::entity::{EntityHashMap, EntityHashSet, EntityIndexMap};
 use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_render::camera::{extract_cameras, CameraMainPassTextureFormats};
@@ -859,67 +860,87 @@ pub fn queue_uinodes(
     ui_pipeline: Res<UiPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiPipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    render_views: Query<(&UiCameraView, Option<&UiAntiAlias>), With<ExtractedView>>,
+    render_views: Query<(Entity, &UiCameraView, Option<&UiAntiAlias>), With<ExtractedView>>,
     camera_views: Query<&ExtractedView>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
+    mut queued_uinodes: Local<MainEntityHashMap<(Entity, RetainedViewEntity)>>,
+    mut view_keys: Local<HashMap<RetainedViewEntity, UiPipelineKey>>,
+    mut changed_uinodes: Local<MainEntityHashSet>,
 ) {
     let draw_function = draw_functions.read().id::<DrawUi>();
-    let mut current_camera_entity = Entity::PLACEHOLDER;
-    let mut current_phase = None;
 
-    for (main_entity, (render_entity, _)) in extracted_uinodes.uinodes.iter() {
-        let Some(layout) = extracted_layout.layout.get(main_entity) else {
+    changed_uinodes.clear();
+    changed_uinodes.extend(extracted_uinodes.changed_this_frame.iter().copied());
+    changed_uinodes.extend(extracted_layout.changed.iter().copied());
+
+    let mut current_views = EntityHashMap::default();
+    let mut live_views: HashSet<RetainedViewEntity> = HashSet::default();
+
+    for (camera_entity, ui_camera_view, ui_anti_alias) in &render_views {
+        let Ok(view) = camera_views.get(ui_camera_view.0) else {
             continue;
         };
 
-        if !layout.visible {
+        let key = UiPipelineKey {
+            target_format: view.target_format,
+            anti_alias: matches!(ui_anti_alias, None | Some(UiAntiAlias::On)),
+        };
+        let retained_view_entity = view.retained_view_entity;
+
+        live_views.insert(retained_view_entity);
+
+        if view_keys.insert(retained_view_entity, key) != Some(key)
+            && let Some(entities) = extracted_layout
+                .extracted_camera_to_main_uinode_map
+                .get(&camera_entity)
+        {
+            changed_uinodes.extend(entities.iter().copied());
+        }
+
+        let pipeline = pipelines.specialize(&pipeline_cache, &ui_pipeline, key);
+        current_views.insert(camera_entity, (retained_view_entity, pipeline));
+    }
+
+    view_keys.retain(|view, _| live_views.contains(view));
+
+    for main_entity in changed_uinodes.drain() {
+        if let Some((render_entity, retained_view_entity)) = queued_uinodes.remove(&main_entity)
+            && let Some(phase) = transparent_render_phases.get_mut(&retained_view_entity)
+        {
+            phase.remove(render_entity, main_entity);
+        }
+
+        let Some((render_entity, _)) = extracted_uinodes.uinodes.get(&main_entity) else {
             continue;
-        }
-
-        if current_camera_entity != layout.extracted_camera {
-            current_phase = render_views.get(layout.extracted_camera).ok().and_then(
-                |(default_camera_view, ui_anti_alias)| {
-                    camera_views
-                        .get(default_camera_view.0)
-                        .ok()
-                        .and_then(|view| {
-                            transparent_render_phases
-                                .get_mut(&view.retained_view_entity)
-                                .map(|transparent_phase| {
-                                    let pipeline = pipelines.specialize(
-                                        &pipeline_cache,
-                                        &ui_pipeline,
-                                        UiPipelineKey {
-                                            target_format: view.target_format,
-                                            anti_alias: matches!(
-                                                ui_anti_alias,
-                                                None | Some(UiAntiAlias::On)
-                                            ),
-                                        },
-                                    );
-                                    (pipeline, transparent_phase)
-                                })
-                        })
-                },
-            );
-            current_camera_entity = layout.extracted_camera;
-        }
-
-        let Some((pipeline, transparent_phase)) = current_phase.as_mut() else {
+        };
+        let Some(layout) = extracted_layout
+            .layout
+            .get(&main_entity)
+            .filter(|layout| layout.visible)
+        else {
+            continue;
+        };
+        let Some(&(retained_view_entity, pipeline)) = current_views.get(&layout.extracted_camera)
+        else {
+            continue;
+        };
+        let Some(phase) = transparent_render_phases.get_mut(&retained_view_entity) else {
             continue;
         };
 
-        transparent_phase.add_transient(TransparentUi {
+        phase.add_retained(TransparentUi {
             draw_function,
-            pipeline: *pipeline,
-            entity: (*render_entity, *main_entity),
+            pipeline,
+            entity: (*render_entity, main_entity),
             sort_key: FloatOrd(layout.stack_index as f32),
             // batch_range will be calculated in prepare_uinodes
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::None,
             indexed: true,
         });
+
+        queued_uinodes.insert(main_entity, (*render_entity, retained_view_entity));
     }
 }
 
