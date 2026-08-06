@@ -149,7 +149,7 @@ impl ResolvedSceneListRoot {
 }
 
 /// A final resolved scene (usually produced by calling [`Scene::resolve`]). This consists of:
-/// 1. A collection of [`Template`]s to apply to a spawned [`Entity`], which are stored as [`ErasedComponentTemplate`]s and [`ErasedBundleTemplate`]s.
+/// 1. A collection of [`Template`]s to apply to a spawned [`Entity`], which are stored as [`ErasedTemplate`]s and [`ErasedEffectBundleTemplate`]s.
 /// 2. A collection of [`RelatedResolvedScenes`], which will be spawned as "related" entities (ex: [`Children`] entities).
 /// 3. An optional cached [`ScenePatch`].
 ///
@@ -454,8 +454,8 @@ impl ResolvedScene {
         }
     }
 
-    /// This will get the [`ErasedComponentTemplate`] for the given [`TypeId`], if it already exists in this [`ResolvedScene`]. If it doesn't exist,
-    /// it will use the `default` function to create a new [`ErasedComponentTemplate`]. _For correctness, the [`TypeId`] of the [`Template`] returned
+    /// This will get the [`ErasedTemplate`] for the given [`TypeId`], if it already exists in this [`ResolvedScene`]. If it doesn't exist,
+    /// it will use the `default` function to create a new [`ErasedTemplate`]. _For correctness, the [`TypeId`] of the [`Template`] returned
     /// by `default` should match the passed in `type_id`_.
     ///
     /// This uses "copy-on-write" behavior for cached scenes. If a [`Template`] is requested which the cached scene has as well,
@@ -502,7 +502,7 @@ impl ResolvedScene {
         template
     }
 
-    /// Returns the [`ErasedComponentTemplate`] for the given `type_id`, if it exists in this [`ResolvedScene`]. This ignores cached scenes.
+    /// Returns the [`ErasedTemplate`] for the given `type_id`, if it exists in this [`ResolvedScene`]. This ignores cached scenes.
     pub fn get_direct_erased_template(&self, type_id: TypeId) -> Option<&dyn ErasedTemplate> {
         let index = self.template_indices.get(&type_id)?;
         Some(&*self.templates[*index])
