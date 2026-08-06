@@ -218,7 +218,7 @@ pub struct GltfLoaderSettings {
     pub convert_coordinates: Option<GltfConvertCoordinates>,
     /// Optionally overrides [`GltfPlugin::skinned_mesh_bounds_policy`](crate::GltfPlugin).
     pub skinned_mesh_bounds_policy: Option<GltfSkinnedMeshBoundsPolicy>,
-    /// Mesh attribute compression flags for the loaded meshes.
+    /// Mesh attribute compression arguments for the loaded meshes.
     /// If `None`, uses the global default set by [`GltfPlugin::mesh_compression`](crate::GltfPlugin::mesh_compression).
     pub mesh_compression: Option<MeshCompressionArgs>,
 }

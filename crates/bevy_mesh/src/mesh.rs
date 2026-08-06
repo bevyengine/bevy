@@ -1076,7 +1076,7 @@ impl Mesh {
     fn compress_uvs(
         &mut self,
         mut attr: MeshVertexAttribute,
-        ok: impl Fn(&mut Mesh, Aabb2d),
+        on_compressed: impl Fn(&mut Mesh, Aabb2d),
     ) -> Result<&mut Mesh, MeshVertexCompressionError> {
         let Some(values) = self.attribute(attr) else {
             return Err(MeshVertexCompressionError::MissingAttribute(attr.id));
@@ -1093,7 +1093,7 @@ impl Mesh {
         };
         attr.format = expected;
         self.insert_attribute(attr, values.create_compressed_uvs(uv_range).unwrap());
-        ok(self, uv_range);
+        on_compressed(self, uv_range);
         Ok(self)
     }
 

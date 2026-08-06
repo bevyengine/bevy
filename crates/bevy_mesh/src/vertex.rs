@@ -263,6 +263,9 @@ impl AttributeQuantization {
         &self,
         values: &[[f32; N]],
     ) -> VertexAttributeValues {
+        const {
+            assert!(N == 1 || N == 2 || N == 4);
+        }
         match self {
             AttributeQuantization::Unorm8 => {
                 let values = values.iter().map(|v| arr_f32_to_unorm8(*v)).collect();
