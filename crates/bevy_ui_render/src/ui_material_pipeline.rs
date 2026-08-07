@@ -767,6 +767,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
                 batch_range: 0..0,
                 extra_index: PhaseItemExtraIndex::None,
                 indexed: false,
+                batch_index: None,
             });
         }
     }
