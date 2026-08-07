@@ -394,7 +394,7 @@ pub fn extract_mesh_materials_2d<M: Material2d>(
         if view_visibility.get() {
             add_mesh_instance(entity, material, &mut material_instances);
         } else {
-            remove_mesh_instance(entity, &mut material_instances);
+            remove_mesh_instance::<M>(entity, &mut material_instances);
         }
     }
 
@@ -403,7 +403,7 @@ pub fn extract_mesh_materials_2d<M: Material2d>(
         // It's possible that a necessary component was removed and re-added in
         // the same frame.
         if !changed_meshes_query.contains(entity) {
-            remove_mesh_instance(entity, &mut material_instances);
+            remove_mesh_instance::<M>(entity, &mut material_instances);
         }
     }
 
@@ -417,8 +417,20 @@ pub fn extract_mesh_materials_2d<M: Material2d>(
         material_instances.insert(entity.into(), material.id().untyped());
     }
 
-    fn remove_mesh_instance(entity: Entity, material_instances: &mut RenderMaterial2dInstances) {
-        material_instances.remove(&MainEntity::from(entity));
+    fn remove_mesh_instance<M: 'static>(
+        entity: Entity,
+        material_instances: &mut RenderMaterial2dInstances,
+    ) {
+        let main_entity = MainEntity::from(entity);
+        if material_instances
+            .get(&main_entity)
+            // Make sure the instance is from this material and not some other.
+            // This check is necessary in the case where material `A` was replaced with material `B` in the same frame
+            // and material `B` was extracted before this system ran for material `A`.
+            .is_some_and(|id| id.type_id() == TypeId::of::<M>())
+        {
+            material_instances.remove(&main_entity);
+        }
     }
 }
 
