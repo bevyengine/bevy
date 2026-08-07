@@ -3712,11 +3712,7 @@ mod font_relative_units {
             },
             BackgroundColor(Color::srgb(0.12, 0.12, 0.16)),
             DespawnOnExit(super::Scene::FontRelativeUnits),
-            children![
-                text_font_row(10.),
-                text_font_row(20.),
-                text_font_row(30.),
-            ],
+            children![text_font_row(12.), text_font_row(24.), text_font_row(36.),],
         ));
     }
 
@@ -3741,7 +3737,7 @@ mod font_relative_units {
                 // `em` padding: scales with this node's own font size.
                 (
                     Node {
-                        width: rem(15),
+                        width: rem(20),
                         justify_content: JustifyContent::Center,
                         ..default()
                     },
@@ -3757,14 +3753,14 @@ mod font_relative_units {
                         BackgroundColor(DARK_SLATE_BLUE.into()),
                         BorderColor::all(LAVENDER),
                         children![(
-                            Text::new("1em padding"),
+                            Text::new("em sizing"),
                             TextFont::from_font_size(font_size),
                             BackgroundColor(PEACHPUFF.into()),
                             TextColor(DARK_SLATE_GRAY.into())
                         )],
                     )],
                 ),
-                // Always 15rem across
+                // Always 10rem across
                 (
                     Node {
                         flex_direction: FlexDirection::Row,
@@ -3774,10 +3770,10 @@ mod font_relative_units {
                     EmSize(font_size),
                     children![(
                         Node {
-                            width: rem(15),
+                            width: rem(10),
                             ..default()
                         },
-                        Text::new("< 15rem >"),
+                        Text::new("< rem >"),
                         TextLayout {
                             justify: Justify::Center,
                             ..default()
@@ -3790,7 +3786,7 @@ mod font_relative_units {
                 // Grid tracks: left is 5em sized, right is 10rem, padding is 0.5rem
                 (
                     Node {
-                        width: rem(20),
+                        width: rem(24),
                         justify_content: JustifyContent::End,
                         ..default()
                     },
@@ -3813,12 +3809,12 @@ mod font_relative_units {
                                     grid_column: GridPlacement::span(2),
                                     ..default()
                                 },
-                                Text::new("10px padding"),
-                                TextFont::from_font_size(font_size),
+                                Text::new("px sizing"),
+                                TextFont::from_font_size(px(16)),
                                 TextColor(LAVENDER.into()),
                             ),
                             (
-                                Text::new("< 5em >"),
+                                Text::new("< em >"),
                                 TextLayout {
                                     justify: Justify::Center,
                                     ..default()
@@ -3828,7 +3824,7 @@ mod font_relative_units {
                                 TextColor(DARK_SLATE_GRAY.into())
                             ),
                             (
-                                Text::new("< 10rem >"),
+                                Text::new("< rem >"),
                                 TextLayout {
                                     justify: Justify::Center,
                                     ..default()
