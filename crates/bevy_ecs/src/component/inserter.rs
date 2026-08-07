@@ -178,8 +178,10 @@ mod backing_ptr {
                 // - `self.ptr` is not used again except for `dealloc`
                 unsafe { drop_fn(self.ptr) };
             }
-            // SAFETY: ptr came from a box and it's not used after this
-            unsafe { dealloc(self.ptr.as_ptr(), self.layout) };
+            if self.layout.size() > 0 {
+                // SAFETY: ptr came from a box and it's not used after this
+                unsafe { dealloc(self.ptr.as_ptr(), self.layout) };
+            }
         }
     }
 }
