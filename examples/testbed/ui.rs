@@ -61,6 +61,11 @@ fn main() {
     .add_systems(OnEnter(Scene::BoxedContent), boxed_content::setup)
     .add_systems(OnEnter(Scene::EditableText), editable_text::setup)
     .add_systems(OnEnter(Scene::NodeMaterial), node_material::setup)
+    .add_systems(OnEnter(Scene::ChangeDetection), change_detection::setup)
+    .add_systems(
+        Update,
+        change_detection::update.run_if(in_state(Scene::ChangeDetection)),
+    )
     .add_systems(Update, switch_scene);
 
     match args.scene {
@@ -107,6 +112,7 @@ enum Scene {
     BoxedContent,
     EditableText,
     NodeMaterial,
+    ChangeDetection,
 }
 
 impl Scene {
@@ -134,6 +140,7 @@ impl Scene {
         Scene::BoxedContent,
         Scene::EditableText,
         Scene::NodeMaterial,
+        Scene::ChangeDetection,
     ];
 }
 
@@ -3685,5 +3692,115 @@ mod node_material {
                 ),
             ],
         ));
+    }
+}
+
+mod change_detection {
+    use super::node_material::DefaultUiMaterial;
+    use bevy::prelude::*;
+
+    #[derive(Component)]
+    pub struct Counter {
+        material: Handle<DefaultUiMaterial>,
+        frames_remaining: u32,
+    }
+
+    #[derive(Component)]
+    pub struct ClippingNodeMarker;
+
+    pub fn setup(mut commands: Commands, materials: Res<Assets<DefaultUiMaterial>>) {
+        commands.spawn((
+            Camera2d,
+            BoxShadowSamples(0),
+            DespawnOnExit(super::Scene::ChangeDetection),
+        ));
+
+        let material = materials.reserve_handle();
+
+        commands.spawn((
+            Node {
+                width: percent(100),
+                height: percent(100),
+                ..default()
+            },
+            DespawnOnExit(super::Scene::ChangeDetection),
+            children![(
+                Node {
+                    width: px(0),
+                    height: px(0),
+                    overflow: Overflow::clip(),
+                    ..default()
+                },
+                ClippingNodeMarker,
+                children![(
+                    Node {
+                        position_type: PositionType::Absolute,
+                        margin: px(100).all(),
+                        ..default()
+                    },
+                    Outline {
+                        color: Color::srgb(0.8, 0.2, 0.2),
+                        width: px(4),
+                        ..default()
+                    },
+                    children![
+                        (
+                            Node {
+                                width: px(300),
+                                height: px(300),
+                                ..default()
+                            },
+                            MaterialNode(material.clone()),
+                            BoxShadow::from(ShadowStyle {
+                                color: bevy::color::palettes::css::NAVY.into(),
+                                ..default()
+                            }),
+                        ),
+                        (
+                            Node {
+                                width: px(300),
+                                height: px(300),
+                                ..default()
+                            },
+                            BackgroundGradient::from(RadialGradient {
+                                stops: vec![
+                                    ColorStop::auto(Color::BLACK),
+                                    ColorStop::new(Color::WHITE, px(20)),
+                                    ColorStop::auto(bevy::color::palettes::css::RED),
+                                ],
+                                ..default()
+                            }),
+                        ),
+                    ]
+                ),],
+            )],
+        ));
+
+        commands.spawn((
+            Counter {
+                material,
+                frames_remaining: 10,
+            },
+            DespawnOnExit(super::Scene::ChangeDetection),
+        ));
+    }
+
+    pub fn update(
+        mut commands: Commands,
+        mut counter: Single<(Entity, &mut Counter)>,
+        mut clipping_node: Single<&mut Node, With<ClippingNodeMarker>>,
+        mut materials: ResMut<Assets<DefaultUiMaterial>>,
+        mut box_shadow_samples: Single<&mut BoxShadowSamples>,
+    ) {
+        let (entity, ref mut counter) = *counter;
+        counter.frames_remaining -= 1;
+        if counter.frames_remaining == 0 {
+            **box_shadow_samples = BoxShadowSamples::default();
+            materials
+                .insert(&counter.material, DefaultUiMaterial {})
+                .unwrap();
+            clipping_node.overflow = Overflow::visible();
+            commands.entity(entity).despawn();
+        }
     }
 }
