@@ -11,7 +11,7 @@ use bevy_ecs::{
     entity::{Entity, EntityHashSet},
     hierarchy::{ChildOf, Children},
     lifecycle::RemovedComponents,
-    query::{Added, Has, Or, With},
+    query::{Added, Has, With},
     system::{Query, Res, ResMut},
     world::Ref,
 };
@@ -73,24 +73,28 @@ impl Default for LayoutContext {
     }
 }
 
-/// Resolve a node's em size: its own `TextFont` if present, else its
-/// `EmSize` component, else the global rem size.
-fn node_em_size(
-    node_em_sizes_query: &Query<
-        (Option<Ref<TextFont>>, Option<Ref<EmSize>>),
-        (With<Node>, Or<(With<TextFont>, With<EmSize>)>),
+/// For any entity with a [`TextFont`], set [`EmSize`] to the font size resolved
+/// into pixels. Nodes without `TextFont` keep their `EmSize` intact, if `TextFont`
+/// is removed the `EmSize` remains unchanged.
+pub fn sync_font_size_to_em_size(
+    mut em_size_query: Query<
+        (&mut EmSize, Ref<TextFont>, Ref<ComputedUiRenderTargetInfo>),
+        With<Node>,
     >,
-    entity: Entity,
-    logical_size: Vec2,
-    rem_size: RemSize,
-) -> EmSize {
-    match node_em_sizes_query.get(entity) {
-        Ok((Some(text_font), _)) => {
-            EmSize::from_font_size(text_font.font_size, logical_size, rem_size)
+    rem_size: Res<RemSize>,
+) {
+    // `Val::Rem` resolves from rem size so need to recalc when this changes
+    let rem_size_changed = rem_size.is_changed();
+
+    for (mut em_size, text_font, computed_ui_render_target_info) in em_size_query.iter_mut() {
+        if text_font.is_changed() || computed_ui_render_target_info.is_changed() || rem_size_changed
+        {
+            em_size.set_if_neq(EmSize::from_font_size(
+                text_font.font_size,
+                computed_ui_render_target_info.logical_size(),
+                *rem_size,
+            ));
         }
-        // the `Or` filter guarantees `EmSize` is present when `TextFont` is not
-        Ok((None, em_size)) => *em_size.unwrap(),
-        Err(_) => rem_size.into(),
     }
 }
 
@@ -103,6 +107,7 @@ pub fn ui_layout_system(
     mut node_query: Query<(
         Entity,
         Ref<Node>,
+        Ref<EmSize>,
         &mut ContentSize,
         Ref<ComputedUiRenderTargetInfo>,
     )>,
@@ -113,32 +118,20 @@ pub fn ui_layout_system(
         &UiTransform,
         &mut UiGlobalTransform,
         &Node,
+        &EmSize,
         Option<&LayoutConfig>,
         Option<&Outline>,
         Option<&ScrollPosition>,
         Option<&IgnoreScroll>,
-        &ComputedUiRenderTargetInfo,
         Has<FixedNode>,
     )>,
     mut buffer_query: Query<&mut ComputedTextBlock>,
     mut font_system: ResMut<FontCx>,
-    (
-        mut removed_children,
-        mut removed_nodes,
-        mut removed_fixed_nodes,
-        mut removed_text_fonts,
-        mut removed_em_sizes,
-    ): (
+    (mut removed_children, mut removed_nodes, mut removed_fixed_nodes): (
         RemovedComponents<Children>,
         RemovedComponents<Node>,
         RemovedComponents<FixedNode>,
-        RemovedComponents<TextFont>,
-        RemovedComponents<EmSize>,
     ),
-    node_em_sizes_query: Query<
-        (Option<Ref<TextFont>>, Option<Ref<EmSize>>),
-        (With<Node>, Or<(With<TextFont>, With<EmSize>)>),
-    >,
     rem_size: Res<RemSize>,
     #[cfg(feature = "ghost_nodes")]
     (mut removed_ghost_nodes, added_ghost_node_query, ghost_node_query): (
@@ -147,39 +140,22 @@ pub fn ui_layout_system(
         Query<(), With<GhostNode>>,
     ),
 ) {
+    // `Val::Rem` resolves from rem size so need to recalc when this changes
     let rem_size_changed = rem_size.is_changed();
 
-    let em_removed: EntityHashSet = removed_text_fonts
-        .read()
-        .chain(removed_em_sizes.read())
-        .collect();
-
     // Sync Node and ContentSize to Taffy for all nodes
-    node_query
-        .iter_mut()
-        .for_each(|(entity, node, mut content_size, computed_target)| {
+    node_query.iter_mut().for_each(
+        |(entity, node, em_size, mut content_size, computed_target)| {
             if computed_target.is_changed()
                 || node.is_changed()
                 || content_size.is_changed()
                 || rem_size_changed
-                || em_removed.contains(&entity)
-                // either TextFont or EmSize exist and are changed
-                || node_em_sizes_query
-                    .get(entity)
-                    .is_ok_and(|(text_font, em_size)| {
-                        text_font.is_some_and(|f| f.is_changed())
-                            || em_size.is_some_and(|e| e.is_changed())
-                    })
+                || em_size.is_changed()
             {
                 let layout_context = LayoutContext::new(
                     computed_target.scale_factor,
                     computed_target.physical_size.as_vec2(),
-                    node_em_size(
-                        &node_em_sizes_query,
-                        entity,
-                        computed_target.logical_size(),
-                        *rem_size,
-                    ),
+                    *em_size,
                     *rem_size,
                 );
                 if content_size.is_changed() && content_size.measure.is_none() {
@@ -188,7 +164,8 @@ pub fn ui_layout_system(
                 let measure = content_size.bypass_change_detection().measure.take();
                 ui_surface.upsert_node(&layout_context, entity, &node, measure);
             }
-        });
+        },
+    );
 
     // update and remove children
     #[cfg(not(feature = "ghost_nodes"))]
@@ -285,7 +262,7 @@ pub fn ui_layout_system(
             ui_root_entity,
         );
 
-        let Ok((_, _, _, computed_target)) = node_query.get(ui_root_entity) else {
+        let Ok((_, _, _, _, computed_target)) = node_query.get(ui_root_entity) else {
             warn!("UI root {ui_root_entity} not found");
             continue;
         };
@@ -309,7 +286,6 @@ pub fn ui_layout_system(
             computed_target.scale_factor.recip(),
             Vec2::ZERO,
             Vec2::ZERO,
-            &node_em_sizes_query,
             *rem_size,
         );
     }
@@ -327,21 +303,17 @@ pub fn ui_layout_system(
             &UiTransform,
             &mut UiGlobalTransform,
             &Node,
+            &EmSize,
             Option<&LayoutConfig>,
             Option<&Outline>,
             Option<&ScrollPosition>,
             Option<&IgnoreScroll>,
-            &ComputedUiRenderTargetInfo,
             Has<FixedNode>,
         )>,
         ui_children: &UiChildren,
         inverse_target_scale_factor: f32,
         parent_size: Vec2,
         parent_scroll_position: Vec2,
-        node_em_sizes_query: &Query<
-            (Option<Ref<TextFont>>, Option<Ref<EmSize>>),
-            (With<Node>, Or<(With<TextFont>, With<EmSize>)>),
-        >,
         rem_size: RemSize,
     ) {
         if let Ok((
@@ -349,11 +321,11 @@ pub fn ui_layout_system(
             transform,
             mut global_transform,
             style,
+            em_size,
             maybe_layout_config,
             maybe_outline,
             maybe_scroll_position,
             maybe_scroll_sticky,
-            computed_target,
             is_fixed_node,
         )) = node_update_query.get_mut(entity)
         {
@@ -412,14 +384,8 @@ pub fn ui_layout_system(
                 node.padding = new_padding;
             }
 
-            let em_size = node_em_size(
-                node_em_sizes_query,
-                entity,
-                computed_target.logical_size(),
-                rem_size,
-            );
-            if node.em_size != em_size {
-                node.em_size = em_size;
+            if node.em_size != *em_size {
+                node.em_size = *em_size;
             }
             if node.rem_size != rem_size {
                 node.rem_size = rem_size;
@@ -430,7 +396,7 @@ pub fn ui_layout_system(
                 inverse_target_scale_factor.recip(),
                 layout_size,
                 target_size,
-                em_size,
+                *em_size,
                 rem_size,
             );
             local_transform.translation += local_center;
@@ -446,7 +412,7 @@ pub fn ui_layout_system(
                 inverse_target_scale_factor.recip(),
                 node.size,
                 target_size,
-                em_size,
+                *em_size,
                 rem_size,
             );
             if node.border_radius != new_border_radius {
@@ -462,7 +428,7 @@ pub fn ui_layout_system(
                             inverse_target_scale_factor.recip(),
                             node.size().x,
                             target_size,
-                            em_size,
+                            *em_size,
                             rem_size,
                         )
                         .unwrap_or(0.)
@@ -481,7 +447,7 @@ pub fn ui_layout_system(
                         inverse_target_scale_factor.recip(),
                         node.size().x,
                         target_size,
-                        em_size,
+                        *em_size,
                         rem_size,
                     )
                     .unwrap_or(0.)
@@ -539,7 +505,6 @@ pub fn ui_layout_system(
                     inverse_target_scale_factor,
                     layout_size,
                     physical_scroll_position,
-                    node_em_sizes_query,
                     rem_size,
                 );
             }

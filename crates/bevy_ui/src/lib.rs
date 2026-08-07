@@ -292,6 +292,9 @@ fn build_text_interop(app: &mut App) {
                 .ambiguous_with(widget::text_system)
                 .ambiguous_with(bevy_sprite::update_text2d_layout)
                 .ambiguous_with(bevy_sprite::calculate_bounds_text2d),
+            sync_font_size_to_em_size
+                .in_set(UiSystems::Content)
+                .after(bevy_text::load_font_assets_into_font_collection),
         ),
     );
 

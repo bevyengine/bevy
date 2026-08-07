@@ -58,9 +58,15 @@ pub struct ComputedNode {
     /// Inverse scale factor for this Node.
     /// Multiply physical coordinates by the inverse scale factor to give logical coordinates.
     pub inverse_scale_factor: f32,
-    /// Stored em spacing for this Node.
+    /// The font size used to resolve this node's `Val::Em` lengths, in logical pixels.
+    ///
+    /// Copied from the node's [`EmSize`] component during layout.
     pub em_size: EmSize,
-    /// Stored rem spacing for this Node. Technically could be shared but easier to store here
+    /// The root font size used to resolve this node's `Val::Rem` lengths, in logical pixels.
+    ///
+    /// Copied from the [`RemSize`] resource during layout.
+    // Stored per node rather than read from the resource because `ComputedNode` is extracted
+    // to the render world and `RemSize` is not.
     pub rem_size: RemSize,
 }
 
@@ -466,7 +472,8 @@ impl From<BVec2> for IgnoreScroll {
     FocusPolicy,
     ScrollPosition,
     Visibility,
-    ZIndex
+    ZIndex,
+    EmSize
 )]
 #[reflect(Component, Default, PartialEq, Debug, Clone)]
 #[cfg_attr(

@@ -55,9 +55,15 @@ pub enum Val {
     VMin(f32),
     /// Set this value in percent of the viewport's larger dimension.
     VMax(f32),
-    /// Use an `EmSize` component or the global `RemSize` resource to turn into pixels
+    /// Set this value as a multiple of the node's own font size.
+    ///
+    /// `1em` is the node's font size, so `Val::Em(2.0)` is twice that.
+    /// Resolved from the node's [`EmSize`] component.
     Em(f32),
-    /// Use the `RemSize` resource (if available) to turn into pixels
+    /// Set this value as a multiple of the root font size.
+    ///
+    /// Unlike [`Val::Em`] this ignores the node's own font size, so it means the same
+    /// length anywhere in the hierarchy. Resolved from the [`RemSize`] resource.
     Rem(f32),
 }
 
@@ -144,6 +150,8 @@ impl PartialEq for Val {
                 | (Self::Rem(_), Self::Rem(_))
         );
 
+        // as long as the units are the same comparing `inner`
+        // is valid.
         let left = self.inner();
         let right = other.inner();
 
@@ -160,8 +168,11 @@ impl Val {
     pub const DEFAULT: Self = Self::Auto;
     pub const ZERO: Self = Self::Px(0.0);
 
-    /// Returns the raw inner from a `Val` if it has one
-    pub fn inner(self) -> Option<f32> {
+    /// Returns the number this `Val` wraps, whatever its unit, or `None` for [`Val::Auto`].
+    ///
+    /// The number is meaningless without the variant it came from — `Val::Px(4.0)` and
+    /// `Val::Rem(4.0)` both return `4.0`. Use [`Val::resolve`] for a length in pixels.
+    pub(crate) fn inner(self) -> Option<f32> {
         match self {
             Self::Auto => None,
             Self::Px(v)
@@ -466,7 +477,7 @@ pub enum ValArithmeticError {
 
 impl Val {
     /// Resolves this [`Val`] to a value in physical pixels from the given `scale_factor`, `physical_base_value`,
-    /// and `physical_target_size` context values.
+    /// `physical_target_size`, `em_size`, and `rem_size` context values.
     ///
     /// Returns a [`ValArithmeticError::NonEvaluable`] if the [`Val`] is impossible to resolve into a concrete value.
     pub const fn resolve(
@@ -496,6 +507,11 @@ impl Val {
 }
 
 impl From<Val> for FontSize {
+    /// Converts a [`Val`] into a [`FontSize`].
+    ///
+    /// [`Val::Em`] becomes [`FontSize::Rem`]: em is relative to the font size of the node
+    /// itself, which is the very thing being defined here, so it resolves against the root
+    /// size instead to avoid the circularity.
     fn from(val: Val) -> Self {
         match val {
             Val::Auto => FontSize::Rem(1.),
@@ -506,10 +522,7 @@ impl From<Val> for FontSize {
             Val::VMin(vmin) => FontSize::VMin(vmin),
             Val::VMax(vmax) => FontSize::VMax(vmax),
             Val::Rem(rem) => FontSize::Rem(rem),
-            // `em` is relative to the font size of the node itself, which is
-            // what's being defined here, so fall back to the rem base,
-            // consistent with how `Val::Em` resolves on nodes without a `TextFont`.
-            Val::Em(em) => FontSize::Rem(em),
+            Val::Em(em) => FontSize::Rem(em), // see comment above
         }
     }
 }
@@ -1229,9 +1242,12 @@ impl From<(Val, Val)> for UiPosition {
 /// ```
 /// # use bevy_math::{Vec2, Vec2Swizzles};
 /// # use bevy_ui::{CornerRadius, Val};
+/// # use bevy_text::{EmSize, RemSize};
 /// let radius = Val::Px(10.0);
 /// let size = Vec2::new(100.0, 50.0);
 /// let viewport_size = Vec2::new(1920.0, 1080.0);
+/// let em_size = EmSize(20.0);
+/// let rem_size = RemSize(20.0);
 ///
 /// let c1 = CornerRadius {
 ///     x: radius,
@@ -1241,10 +1257,10 @@ impl From<(Val, Val)> for UiPosition {
 ///     x: Val::ZERO,
 ///     y: radius,
 /// };
-/// let r = c1.resolve(1.0, size, viewport_size);
+/// let r = c1.resolve(1.0, size, viewport_size, em_size, rem_size);
 /// assert_eq!(
 ///     r,
-///     c2.resolve(1.0, size, viewport_size).yx(),
+///     c2.resolve(1.0, size, viewport_size, em_size, rem_size).yx(),
 /// );
 /// assert_eq!(
 ///     r,
@@ -1291,9 +1307,12 @@ impl CornerRadius {
     /// ```
     /// # use bevy_math::Vec2;
     /// # use bevy_ui::{CornerRadius, Val};
+    /// # use bevy_text::{EmSize, RemSize};
     /// let radius = Val::Px(30.0);
     /// let size = Vec2::new(100.0, 50.0);
     /// let viewport_size = Vec2::new(1920.0, 1080.0);
+    /// let em_size = EmSize(20.0);
+    /// let rem_size = RemSize(20.0);
     ///
     /// let c1 = CornerRadius::circular(radius);
     /// let c2 = CornerRadius {
@@ -1301,10 +1320,10 @@ impl CornerRadius {
     ///     y: radius,
     /// };
     ///
-    /// let r = c1.resolve(1.0, size, viewport_size);
+    /// let r = c1.resolve(1.0, size, viewport_size, em_size, rem_size);
     /// assert_eq!(
     ///     r,
-    ///     c2.resolve(1.0, size, viewport_size),
+    ///     c2.resolve(1.0, size, viewport_size, em_size, rem_size),
     /// );
     /// assert_eq!(
     ///     r,
