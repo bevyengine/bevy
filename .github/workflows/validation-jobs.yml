@@ -268,3 +268,86 @@ jobs:
           exit $CODE
       - name: Build with patches
         run: cargo build
+
+  compile-for-size-on-base:
+    if: ${{ github.event_name == 'merge_group' }}
+    runs-on: macos-latest
+    timeout-minutes: 30
+    outputs:
+      size: ${{ steps.size.outputs.SIZE }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.merge_group.base_ref }}
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/cache/restore@v4
+        with:
+          # key won't match, will rely on restore-keys
+          key: ${{ runner.os }}-stable--${{ hashFiles('**/Cargo.toml') }}-
+          # See .github/workflows/validation-jobs.yml for how keys are generated
+          restore-keys: |
+            ${{ runner.os }}-stable--${{ hashFiles('**/Cargo.toml') }}-
+            ${{ runner.os }}-stable--
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+      - name: Build
+        run: cargo build --release --example breakout
+      - name: Get bin size
+        id: size
+        run: |
+          size=$(du -k target/release/examples/breakout | cut -f1)
+          echo "SIZE=$size" >> "$GITHUB_OUTPUT"
+
+  compile-for-size-on-head:
+    if: ${{ github.event_name == 'merge_group' }}
+    runs-on: macos-latest
+    timeout-minutes: 30
+    outputs:
+      size: ${{ steps.size.outputs.SIZE }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.merge_group.head_ref }}
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/cache/restore@v4
+        with:
+          # key won't match, will rely on restore-keys
+          key: ${{ runner.os }}-stable--${{ hashFiles('**/Cargo.toml') }}-
+          # See .github/workflows/validation-jobs.yml for how keys are generated
+          restore-keys: |
+            ${{ runner.os }}-stable--${{ hashFiles('**/Cargo.toml') }}-
+            ${{ runner.os }}-stable--
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+      - name: Build
+        run: cargo build --release --example breakout
+      - name: Get bin size
+        id: size
+        run: |
+          size=$(du -k target/release/examples/breakout | cut -f1)
+          echo "SIZE=$size" >> "$GITHUB_OUTPUT"
+
+  compare-compiled-size:
+    if: ${{ github.event_name == 'merge_group' }}
+    runs-on: macos-latest
+    timeout-minutes: 30
+    needs: ["compile-for-size-on-base", "compile-for-size-on-head"]
+    steps:
+      - name: Compare
+        run: |
+          before=${{ needs.compile-for-size-on-base.outputs.size }}
+          after=${{ needs.compile-for-size-on-head.outputs.size }}
+
+          echo "Before: $before"
+          echo "After: $after"
+
+          # Allowing a 0.5% increase
+          [ $after -lt $(( before * 1005 / 1000 )) ] || exit 1
