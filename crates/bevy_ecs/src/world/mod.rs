@@ -13,6 +13,7 @@ pub mod error;
 pub mod reflect;
 pub mod unsafe_world_cell;
 
+use crate::component::ComponentInserter;
 pub use crate::{
     change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD},
     world::command_queue::CommandQueue,
@@ -3874,6 +3875,28 @@ impl World {
         let mut schedules = self.remove_resource::<Schedules>().unwrap_or_default();
         schedules.allow_ambiguous_resource::<T>(self);
         self.insert_resource(schedules);
+    }
+
+    /// Create a new inserter from a world and a constructor.
+    ///
+    /// The constructor will be called each time this inserter is used to insert its component.
+    /// This will register the component first if necessary.
+    #[inline]
+    pub fn component_inserter<C: Component>(
+        &mut self,
+        constructor: impl Fn() -> C + Send + Sync + 'static,
+    ) -> ComponentInserter {
+        self.register_component::<C>();
+        ComponentInserter::new(self, constructor)
+    }
+
+    /// Create a new inserter that will insert the default value.
+    ///
+    /// This will register the component first if necessary.
+    #[inline]
+    pub fn component_inserter_with_default<C: Component + Default>(&mut self) -> ComponentInserter {
+        self.register_component::<C>();
+        ComponentInserter::new_with_default::<C>(self)
     }
 }
 
