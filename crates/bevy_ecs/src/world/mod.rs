@@ -322,6 +322,11 @@ impl World {
     /// happens automatically during system initialization.
     #[doc(alias = "register_resource")]
     pub fn register_component<T: Component>(&mut self) -> ComponentId {
+        // This is a hot path, so return early to avoid the `Vec::new` in `ComponentsRegistrator`
+        if let Some(id) = self.component_id::<T>() {
+            return id;
+        }
+
         self.components_registrator().register_component::<T>()
     }
 
@@ -3352,6 +3357,11 @@ impl World {
     }
 
     pub(crate) fn register_bundle_info<B: Bundle>(&mut self) -> BundleId {
+        // This is a hot path, so return early to avoid the `Vec::new` in `ComponentsRegistrator`
+        if let Some(bundle_id) = self.bundles.get_id(TypeId::of::<B>()) {
+            return bundle_id;
+        }
+
         // SAFETY: These come from the same world. `Self.components_registrator` can't be used since we borrow other fields too.
         let mut registrator =
             unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.component_ids) };
@@ -3364,6 +3374,11 @@ impl World {
     }
 
     pub(crate) fn register_contributed_bundle_info<B: Bundle>(&mut self) -> BundleId {
+        // This is a hot path, so return early to avoid the `Vec::new` in `ComponentsRegistrator`
+        if let Some(bundle_id) = self.bundles.get_contributed_bundle_id(TypeId::of::<B>()) {
+            return bundle_id;
+        }
+
         // SAFETY: These come from the same world. `Self.components_registrator` can't be used since we borrow other fields too.
         let mut registrator =
             unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.component_ids) };
