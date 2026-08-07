@@ -9,7 +9,9 @@ import bevy_pbr::render::mesh_view_types::OitFragmentNode;
 @group(0) @binding(2) var<storage, read_write> heads: array<u32>; // No need to be atomic
 @group(0) @binding(3) var<storage, read_write> atomic_counter: u32; // No need to be atomic
 
-@if(!DEPTH_PREPASS)
+@if(!DEPTH_PREPASS && MULTISAMPLED)
+@group(1) @binding(0) var depth: texture_depth_multisampled_2d;
+@if(!DEPTH_PREPASS && !MULTISAMPLED)
 @group(1) @binding(0) var depth: texture_depth_2d;
 
 struct OitFragment {

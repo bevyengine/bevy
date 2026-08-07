@@ -15,7 +15,6 @@ use bevy_render::{
         UninitBufferVec,
     },
     renderer::{RenderDevice, RenderQueue},
-    view::Msaa,
     Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::load_shader_library;
@@ -91,8 +90,7 @@ impl Plugin for OrderIndependentTransparencyPlugin {
         app.add_plugins((
             ExtractComponentPlugin::<OrderIndependentTransparencySettings>::default(),
             OitResolvePlugin,
-        ))
-        .add_systems(Update, check_msaa);
+        ));
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -130,14 +128,6 @@ fn configure_camera_depth_usages(
 ) {
     for mut camera in &mut cameras {
         camera.depth_texture_usages.0 |= TextureUsages::TEXTURE_BINDING.bits();
-    }
-}
-
-fn check_msaa(cameras: Query<&Msaa, With<OrderIndependentTransparencySettings>>) {
-    for msaa in &cameras {
-        if msaa.samples() > 1 {
-            panic!("MSAA is not supported when using OrderIndependentTransparency");
-        }
     }
 }
 
