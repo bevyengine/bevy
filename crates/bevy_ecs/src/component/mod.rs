@@ -3,12 +3,14 @@
 mod clone;
 mod constants;
 mod info;
+mod inserter;
 mod register;
 mod required;
 
 pub use clone::*;
 pub use constants::*;
 pub use info::*;
+pub use inserter::*;
 pub use register::*;
 pub use required::*;
 
