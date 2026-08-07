@@ -1676,7 +1676,7 @@ pub struct BuildIndirectParametersMetadata(
 /// The embedded [`TypeIdMap`] maps the type ID of a render phase to the
 /// indirect parameters building metadata for that phase.
 #[derive(Default, Debug, Deref, DerefMut)]
-pub struct ViewBuildIndirectParametersMetadata(pub TypeIdMap<PhaseBuildIndirectParametersMetadata>);
+pub struct ViewBuildIndirectParametersMetadata(pub TypeIdHashMap<PhaseBuildIndirectParametersMetadata>);
 
 /// Metadata that describes how to dispatch the indirect parameters building
 /// shader for a single render phase in a single view.

@@ -18,7 +18,7 @@ pub struct OcclusionCullingPlugin;
 
 impl Plugin for OcclusionCullingPlugin {
     fn build(&self, app: &mut App) {
-        load_shader_library!(app, "mesh_preprocess_types.wgsl");
+        load_shader_library!(app, "mesh_preprocess_types.wesl");
     }
 }
 
