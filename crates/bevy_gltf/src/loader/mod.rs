@@ -1,6 +1,7 @@
 pub mod extensions;
 pub mod gltf_ext;
 
+use alloc::borrow::Cow;
 use alloc::sync::Arc;
 use async_lock::RwLock;
 #[cfg(feature = "bevy_animation")]
@@ -22,8 +23,7 @@ use bevy_ecs::{
     world::World,
 };
 use bevy_image::{
-    CompressedImageFormats, Image, ImageLoaderSettings, ImageSampler, ImageSamplerDescriptor,
-    ImageType, TextureError,
+    CompressedImageFormats, Image, ImageSampler, ImageSamplerDescriptor, ImageType, TextureError,
 };
 use bevy_light::{DirectionalLight, PointLight, SpotLight};
 use bevy_math::{Mat4, Vec3};
@@ -36,8 +36,6 @@ use bevy_mesh::{
 };
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::TypePath;
-#[cfg(not(target_arch = "wasm32"))]
-use bevy_tasks::IoTaskPool;
 use bevy_transform::components::Transform;
 use bevy_world_serialization::WorldAsset;
 use gltf::{
@@ -55,9 +53,10 @@ use tracing::{error, info_span, warn};
 use wgpu_types::Face;
 
 use crate::{
-    convert_coordinates::ConvertCoordinates as _, vertex_attributes::convert_attribute, Gltf,
-    GltfAssetLabel, GltfExtras, GltfMaterial, GltfMaterialExtras, GltfMaterialName, GltfMeshExtras,
-    GltfMeshName, GltfNode, GltfSceneExtras, GltfSceneName, GltfSkin, GltfSkinnedMeshBoundsPolicy,
+    convert_coordinates::ConvertCoordinates as _, extensions::GltfExtensionTextureLoadResult,
+    vertex_attributes::convert_attribute, Gltf, GltfAssetLabel, GltfExtras, GltfMaterial,
+    GltfMaterialExtras, GltfMaterialName, GltfMeshExtras, GltfMeshName, GltfNode, GltfSceneExtras,
+    GltfSceneName, GltfSkin, GltfSkinnedMeshBoundsPolicy,
 };
 
 #[cfg(feature = "bevy_animation")]
@@ -628,56 +627,37 @@ impl GltfLoader {
         // later in the loader when looking up handles for materials. However this would mean
         // that the material's load context would no longer track those images as dependencies.
         let mut texture_handles = Vec::new();
-        if gltf.textures().len() == 1 || cfg!(target_arch = "wasm32") {
-            for texture in gltf.textures() {
-                let image = load_image(
-                    texture.clone(),
-                    &buffer_data,
-                    &linear_textures,
-                    load_context.path(),
-                    loader.supported_compressed_formats,
-                    default_sampler,
-                    settings,
-                )
-                .await?;
-                image.process_loaded_texture(load_context, &mut texture_handles);
-                // let extensions handle texture data
+        let asset_path = load_context.path().clone();
+        for texture in gltf.textures() {
+            let image_source = parse_texture(
+                &texture,
+                &buffer_data,
+                &linear_textures,
+                &asset_path,
+                default_sampler,
+                settings,
+            )?;
+            let handle = 'b: {
                 for extension in extensions.iter_mut() {
-                    extension.on_texture(&texture, texture_handles.last().unwrap().clone());
+                    match extension.on_texture_load(
+                        load_context,
+                        image_source.clone(),
+                        loader.supported_compressed_formats,
+                    ) {
+                        GltfExtensionTextureLoadResult::Bypass => continue,
+                        GltfExtensionTextureLoadResult::Loaded(res) => break 'b res,
+                    };
                 }
-            }
-        } else {
-            // This cfg is redundant, but if we don't explicitly cfg it out, Wasm will compile it
-            // and fail.
-            #[cfg(not(target_arch = "wasm32"))]
-            {
-                let textures = IoTaskPool::get().scope(|scope| {
-                    gltf.textures().for_each(|gltf_texture| {
-                        let asset_path = load_context.path().clone();
-                        let linear_textures = &linear_textures;
-                        let buffer_data = &buffer_data;
-                        scope.spawn(async move {
-                            load_image(
-                                gltf_texture,
-                                buffer_data,
-                                linear_textures,
-                                &asset_path,
-                                loader.supported_compressed_formats,
-                                default_sampler,
-                                settings,
-                            )
-                            .await
-                        });
-                    });
-                });
-                // order is preserved if the futures are only spawned from the root scope
-                for (result, texture) in textures.into_iter().zip(gltf.textures()) {
-                    result?.process_loaded_texture(load_context, &mut texture_handles);
-                    // let extensions handle texture data
-                    for extension in extensions.iter_mut() {
-                        extension.on_texture(&texture, texture_handles.last().unwrap().clone());
-                    }
-                }
+                // Fall back to `Image::from_buffer` and `ImageLoader`.
+                load_texture_fallback(
+                    load_context,
+                    image_source,
+                    loader.supported_compressed_formats,
+                )
+            }?;
+            texture_handles.push(handle.clone());
+            for extension in extensions.iter_mut() {
+                extension.on_texture(&texture, handle.clone());
             }
         }
 
@@ -1203,73 +1183,131 @@ impl AssetLoader for GltfLoader {
     }
 }
 
-/// Loads a glTF texture as a bevy [`Image`] and returns it together with its label.
-async fn load_image<'a, 'b>(
-    gltf_texture: gltf::Texture<'a>,
-    buffer_data: &[Vec<u8>],
+/// Parse a glTF texture as a [`GltfParsedImage`] and returns it.
+#[expect(clippy::result_large_err, reason = "TODO")]
+fn parse_texture<'a>(
+    gltf_texture: &gltf::Texture<'a>,
+    buffer_data: &'a [Vec<u8>],
     linear_textures: &HashSet<usize>,
-    gltf_path: &'b AssetPath<'b>,
-    supported_compressed_formats: CompressedImageFormats,
+    gltf_path: &AssetPath<'_>,
     default_sampler: &ImageSamplerDescriptor,
     settings: &GltfLoaderSettings,
-) -> Result<ImageOrPath, GltfError> {
+) -> Result<GltfParsedImage<'a>, GltfError> {
     let is_srgb = !linear_textures.contains(&gltf_texture.index());
     let sampler_descriptor = if settings.override_sampler {
         default_sampler.clone()
     } else {
-        texture_sampler(&gltf_texture, default_sampler)
+        texture_sampler(gltf_texture, default_sampler)
     };
-
-    match gltf_texture.source().source() {
+    let label = GltfAssetLabel::Texture(gltf_texture.index());
+    let image_source = match gltf_texture.source().source() {
         Source::View { view, mime_type } => {
+            let mime_type = Cow::Borrowed(mime_type);
             let start = view.offset();
             let end = view.offset() + view.length();
             let buffer = &buffer_data[view.buffer().index()][start..end];
-            let image = Image::from_buffer(
-                buffer,
-                ImageType::MimeType(mime_type),
-                supported_compressed_formats,
-                is_srgb,
-                ImageSampler::Descriptor(sampler_descriptor),
-                settings.load_materials,
-            )?;
-            Ok(ImageOrPath::Image {
-                image,
-                label: GltfAssetLabel::Texture(gltf_texture.index()),
+            Ok(ImageSource::Embedded {
+                buffer: Cow::Borrowed(buffer),
+                mime_type,
             })
         }
         Source::Uri { uri, mime_type } => {
             let uri = percent_encoding::percent_decode_str(uri)
                 .decode_utf8()
                 .unwrap();
-            let uri = uri.as_ref();
-            if let Ok(data_uri) = DataUri::parse(uri) {
+            let mime_type = mime_type.map(Cow::Borrowed);
+            if let Ok(data_uri) = DataUri::parse(&uri) {
                 let bytes = data_uri.decode()?;
-                let image_type = ImageType::MimeType(data_uri.mime_type);
-                Ok(ImageOrPath::Image {
-                    image: Image::from_buffer(
-                        &bytes,
-                        mime_type.map(ImageType::MimeType).unwrap_or(image_type),
-                        supported_compressed_formats,
-                        is_srgb,
-                        ImageSampler::Descriptor(sampler_descriptor),
-                        settings.load_materials,
-                    )?,
-                    label: GltfAssetLabel::Texture(gltf_texture.index()),
+                Ok(ImageSource::Embedded {
+                    buffer: Cow::Owned(bytes),
+                    mime_type: mime_type.unwrap_or_else(|| data_uri.mime_type.to_string().into()),
                 })
             } else {
                 let image_path = gltf_path
-                    .resolve_embed_str(uri)
-                    .map_err(|err| GltfError::InvalidImageUri(uri.to_owned(), err))?;
-                Ok(ImageOrPath::Path {
+                    .resolve_embed_str(&uri)
+                    .map_err(|err| GltfError::InvalidImageUri(uri.to_string(), err))?;
+                Ok(ImageSource::External {
                     path: image_path,
-                    is_srgb,
-                    sampler_descriptor,
-                    render_asset_usages: settings.load_materials,
+                    mime_type,
                 })
             }
         }
-    }
+    };
+    image_source.map(|source| GltfParsedImage {
+        label,
+        source,
+        is_srgb,
+        sampler: ImageSampler::Descriptor(sampler_descriptor),
+        asset_usages: settings.load_materials,
+    })
+}
+
+#[expect(clippy::result_large_err, reason = "TODO")]
+fn load_texture_fallback(
+    load_context: &mut LoadContext<'_>,
+    image_source: GltfParsedImage<'_>,
+    supported_compressed_formats: CompressedImageFormats,
+) -> Result<Handle<Image>, GltfError> {
+    let GltfParsedImage {
+        label,
+        source,
+        is_srgb,
+        sampler,
+        asset_usages,
+    } = image_source;
+    let handle = match source {
+        ImageSource::Embedded { buffer, mime_type } => {
+            match Image::from_buffer(
+                &buffer,
+                ImageType::MimeType(&mime_type),
+                supported_compressed_formats,
+                is_srgb,
+                sampler,
+                asset_usages,
+            ) {
+                Ok(image) => load_context.add_labeled_asset(label.to_string(), image),
+                Err(err) => return Err(err.into()),
+            }
+        }
+        ImageSource::External { path, mime_type: _ } => 'b: {
+            let loader = load_context.load_builder();
+            if let Some(ext) = path.get_extension() {
+                // TODO: We use the hardcoded file extentions to find loaders for now, which is not ideal.
+                // Might be worth considering a way to let loaders recognize paths and extensionless files.
+                #[cfg(feature = "hdr")]
+                if ext == "hdr" {
+                    break 'b loader
+                        .with_settings(
+                            move |settings: &mut bevy_image::HdrTextureLoaderSettings| {
+                                // TODO: Add sampler to settings.
+                                settings.asset_usage = asset_usages;
+                            },
+                        )
+                        .load(path);
+                }
+                #[cfg(feature = "exr")]
+                if ext == "exr" {
+                    break 'b loader
+                        .with_settings(
+                            move |settings: &mut bevy_image::ExrTextureLoaderSettings| {
+                                // TODO: Add sampler to settings.
+                                settings.asset_usage = asset_usages;
+                            },
+                        )
+                        .load(path);
+                }
+            }
+
+            loader
+                .with_settings(move |settings: &mut bevy_image::ImageLoaderSettings| {
+                    settings.is_srgb = is_srgb;
+                    settings.sampler = sampler.clone();
+                    settings.asset_usage = asset_usages;
+                })
+                .load(path)
+        }
+    };
+    Ok(handle)
 }
 
 /// Loads a glTF material as a bevy [`GltfMaterial`] and returns the label and material.
@@ -2000,50 +2038,40 @@ impl<'a> DataUri<'a> {
     }
 }
 
-enum ImageOrPath {
-    Image {
-        image: Image,
-        label: GltfAssetLabel,
-    },
-    Path {
-        path: AssetPath<'static>,
-        is_srgb: bool,
-        sampler_descriptor: ImageSamplerDescriptor,
-        render_asset_usages: RenderAssetUsages,
-    },
+/// The parsed result of [`gltf::Texture`].
+#[derive(Clone)]
+pub struct GltfParsedImage<'a> {
+    /// Label of this image. Can be used for [`LoadContext::add_labeled_asset`].
+    pub label: GltfAssetLabel,
+    /// The gltf image data source.
+    pub source: ImageSource<'a>,
+    /// Detected srgb-ness of the texture.
+    /// This is false if it's used as normal, occlusion or metallic-roughness, etc., in materials.
+    /// Otherwise this is true.
+    pub is_srgb: bool,
+    /// The texture sampler of the image.
+    pub sampler: ImageSampler,
+    /// The asset usages of the image.
+    pub asset_usages: RenderAssetUsages,
 }
 
-impl ImageOrPath {
-    // TODO: use the threaded impl on wasm once wasm thread pool doesn't deadlock on it
-    // See https://github.com/bevyengine/bevy/issues/1924 for more details
-    // The taskpool use is also avoided when there is only one texture for performance reasons and
-    // to avoid https://github.com/bevyengine/bevy/pull/2725
-    // PERF: could this be a Vec instead? Are gltf texture indices dense?
-    fn process_loaded_texture(
-        self,
-        load_context: &mut LoadContext,
-        handles: &mut Vec<Handle<Image>>,
-    ) {
-        let handle = match self {
-            ImageOrPath::Image { label, image } => {
-                load_context.add_labeled_asset(label.to_string(), image)
-            }
-            ImageOrPath::Path {
-                path,
-                is_srgb,
-                sampler_descriptor,
-                render_asset_usages,
-            } => load_context
-                .load_builder()
-                .with_settings(move |settings: &mut ImageLoaderSettings| {
-                    settings.is_srgb = is_srgb;
-                    settings.sampler = ImageSampler::Descriptor(sampler_descriptor.clone());
-                    settings.asset_usage = render_asset_usages;
-                })
-                .load(path),
-        };
-        handles.push(handle);
-    }
+/// The gltf image data source.
+#[derive(Clone)]
+pub enum ImageSource<'a> {
+    /// The image is embedded in a gltf buffer view, or data uri.
+    Embedded {
+        /// The image bytes in a gltf buffer view, or bytes parsed from data uri.
+        buffer: Cow<'a, [u8]>,
+        /// The mime type of the image.
+        mime_type: Cow<'a, str>,
+    },
+    /// The image is external.
+    External {
+        /// The path of the image.
+        path: AssetPath<'a>,
+        /// The mime type of the image if provided.
+        mime_type: Option<Cow<'a, str>>,
+    },
 }
 
 /// An Iterator that iterates over morph target positions, normals,
