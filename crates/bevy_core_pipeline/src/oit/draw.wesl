@@ -4,7 +4,7 @@ import bevy_pbr::prepass::utils as prepass_utils;
 
 @if(OIT_ENABLED)
 // Add the fragment to the oit buffer
-fn oit_draw(position: vec4f, color: vec4f) {
+fn oit_draw(position: vec4f, color: vec4f, sample_mask: u32) {
     @if(DEPTH_PREPASS)
     if position.z < prepass_utils::prepass_depth(position, 0u) {
         return;
@@ -33,6 +33,7 @@ fn oit_draw(position: vec4f, color: vec4f) {
     node.next = atomicExchange(&oit_heads[screen_index], new_node_index + 1u) - 1u;
     node.color = bevy_pbr::render::rgb9e5::vec3_to_rgb9e5_(color.rgb);
     node.depth_alpha = pack_24bit_depth_8bit_alpha(position.z, color.a);
+    node.sample_mask = sample_mask;
     oit_nodes[new_node_index] = node;
 }
 

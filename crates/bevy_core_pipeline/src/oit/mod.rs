@@ -70,7 +70,9 @@ impl Default for OrderIndependentTransparencySettings {
 /// To enable OIT you need to add the [`OrderIndependentTransparencySettings`] component to the camera and set `Material::enable_oit` to true.
 /// Currently the supported alpha modes are `AlphaMode::Blend`, `AlphaMode::Premultiplied` and `AlphaMode::Add`.
 ///
-/// If you want to use OIT for your custom material you need to call `oit_draw(position, color)` in your fragment shader.
+/// If you want to use OIT for your custom material you need to call `oit_draw(position, color, sample_mask)`
+/// in your fragment shader, where `sample_mask` is the fragment's `@builtin(sample_mask)` input
+/// (stored with the fragment so the resolve pass can composite each MSAA sample separately).
 /// You also need to make sure that your fragment shader doesn't output any colors.
 ///
 /// # Implementation details
@@ -136,6 +138,10 @@ pub struct OitFragmentNode {
     pub color: u32,
     pub depth_alpha: u32,
     pub next: u32,
+    /// The MSAA sample coverage mask of the fragment. For example a triangle may
+    /// be covering only three of the four msaa samples. Used by the resolve pass
+    /// to composite each sample separately when MSAA is enabled.
+    pub sample_mask: u32,
 }
 
 /// Holds the buffers that contain the data of all OIT layers.

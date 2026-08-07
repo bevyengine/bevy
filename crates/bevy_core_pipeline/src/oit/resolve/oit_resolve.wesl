@@ -28,7 +28,13 @@ const LINKED_LIST_END_SENTINEL: u32 = 0xFFFFFFFFu;
 const SORTED_FRAGMENT_MAX_COUNT: u32 = constants::SORTED_FRAGMENT_MAX_COUNT;
 
 @fragment
-fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
+fn fragment(
+    in: FullscreenVertexOutput,
+    @if(MULTISAMPLED)
+        @builtin(sample_index) sample_index: u32,
+) -> @location(0) vec4<f32> {
+    @if(!MULTISAMPLED)
+    let sample_index = 0u;
     atomic_counter = 0u;
     let screen_index = u32(floor(in.position.x) + floor(in.position.y) * view.viewport.z);
 
@@ -45,16 +51,16 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
         // This is necessary because early z doesn't seem to trigger in the transparent pass.
         // This should be done during the draw pass so those fragments simply don't exist in the list,
         // but this requires a bigger refactor
-        let d = textureLoad(depth, vec2<i32>(in.position.xy), 0);
+        let d = textureLoad(depth, vec2<i32>(in.position.xy), i32(sample_index));
         @else
         let d = 0.0;
-        let color = resolve(head, d);
+        let color = resolve(head, d, sample_index);
         heads[screen_index] = 0u; // LINKED_LIST_END_SENTINEL + 1u;
         return color;
     }
 }
 
-fn resolve(head: u32, opaque_depth: f32) -> vec4<f32> {
+fn resolve(head: u32, opaque_depth: f32, sample_index: u32) -> vec4<f32> {
     // Contains all the colors and depth for this specific fragment
     // Fragments are sorted from front to back (depth values are in descending order)
     // This should make insertion sort slightly faster
@@ -70,6 +76,12 @@ fn resolve(head: u32, opaque_depth: f32) -> vec4<f32> {
     while current_node != LINKED_LIST_END_SENTINEL {
         let fragment_node = nodes[current_node];
         current_node = fragment_node.next;
+
+        @if(MULTISAMPLED)
+        // Only composite fragments that cover this sample.
+        if (fragment_node.sample_mask & (1u << sample_index)) == 0u {
+            continue;
+        }
 
         @if(!DEPTH_PREPASS)
         // depth testing

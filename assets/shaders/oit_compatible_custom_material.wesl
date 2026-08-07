@@ -14,6 +14,8 @@ import bevy_core_pipeline::oit::draw::oit_draw;
 @fragment
 fn fragment(
     in: VertexOutput,
+    @if(MATERIAL_OIT_ENABLED)
+        @builtin(sample_mask) sample_mask: u32,
 ) -> @location(0) vec4<f32> {
 
     // This produces a noise-like varying transparency.
@@ -24,7 +26,7 @@ fn fragment(
 
 @if(MATERIAL_OIT_ENABLED) {
     // The input color of `oit_draw` should be alpha-premultiplied.
-    oit_draw(in.position, vec4f(color.rgb * color.a, color.a));
+    oit_draw(in.position, vec4f(color.rgb * color.a, color.a), sample_mask);
     discard;
 }
 
