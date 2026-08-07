@@ -588,12 +588,12 @@ pub fn px<T: ValNum>(value: T) -> Val {
     Val::Px(value.val_num_f32())
 }
 
-/// Returns a [`Val::Em`]
+/// Returns a [`Val::Em`] representing a value proportional to the node's own font size, represented by an [`EmSize`] component.
 pub fn em<T: ValNum>(value: T) -> Val {
     Val::Em(value.val_num_f32())
 }
 
-/// Returns a [`Val::Rem`]
+/// Returns a [`Val::Rem`] representing a value proportional to the root font size.
 pub fn rem<T: ValNum>(value: T) -> Val {
     Val::Rem(value.val_num_f32())
 }
