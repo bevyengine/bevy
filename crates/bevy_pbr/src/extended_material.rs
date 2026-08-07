@@ -1,15 +1,12 @@
-use alloc::borrow::Cow;
-
 use bevy_asset::Asset;
 use bevy_ecs::system::SystemParamItem;
 use bevy_material::{AlphaMode, OpaqueRendererMethod};
 use bevy_mesh::MeshVertexBufferLayoutRef;
-use bevy_platform::{collections::HashSet, hash::FixedHasher};
 use bevy_reflect::{impl_type_path, Reflect};
 use bevy_render::{
     render_resource::{
         AsBindGroup, AsBindGroupError, BindGroupLayout, BindGroupLayoutEntry, BindlessDescriptor,
-        BindlessResourceType, BindlessSlabResourceLimit, RenderPipelineDescriptor,
+        BindlessSlabResourceLimit, CombinedBindGroup as Cbg, RenderPipelineDescriptor,
         SpecializedMeshPipelineError, UnpreparedBindGroup,
     },
     renderer::RenderDevice,
@@ -168,156 +165,60 @@ where
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash)]
-#[repr(C, packed)]
-pub struct MaterialExtensionBindGroupData<B, E> {
-    pub base: B,
-    pub extension: E,
-}
-
 // We don't use the `TypePath` derive here due to a bug where `#[reflect(type_path = false)]`
 // causes the `TypePath` derive to not generate an implementation.
 impl_type_path!((in bevy_pbr::extended_material) ExtendedMaterial<B: Material, E: MaterialExtension>);
 
 impl<B: Material, E: MaterialExtension> AsBindGroup for ExtendedMaterial<B, E> {
-    type Data = MaterialExtensionBindGroupData<B::Data, E::Data>;
-    type Param = (<B as AsBindGroup>::Param, <E as AsBindGroup>::Param);
+    type Data = <Cbg<'static, B, E> as AsBindGroup>::Data;
+    type Param = <Cbg<'static, B, E> as AsBindGroup>::Param;
 
     fn bindless_slot_count() -> Option<BindlessSlabResourceLimit> {
-        // We only enable bindless if both the base material and its extension
-        // are bindless. If we do enable bindless, we choose the smaller of the
-        // two slab size limits.
-        match (B::bindless_slot_count()?, E::bindless_slot_count()?) {
-            (BindlessSlabResourceLimit::Auto, BindlessSlabResourceLimit::Auto) => {
-                Some(BindlessSlabResourceLimit::Auto)
-            }
-            (BindlessSlabResourceLimit::Auto, BindlessSlabResourceLimit::Custom(limit))
-            | (BindlessSlabResourceLimit::Custom(limit), BindlessSlabResourceLimit::Auto) => {
-                Some(BindlessSlabResourceLimit::Custom(limit))
-            }
-            (
-                BindlessSlabResourceLimit::Custom(base_limit),
-                BindlessSlabResourceLimit::Custom(extended_limit),
-            ) => Some(BindlessSlabResourceLimit::Custom(
-                base_limit.min(extended_limit),
-            )),
-        }
+        Cbg::<'static, B, E>::bindless_slot_count()
     }
 
     fn bindless_supported(render_device: &RenderDevice) -> bool {
-        B::bindless_supported(render_device) && E::bindless_supported(render_device)
+        Cbg::<'static, B, E>::bindless_supported(render_device)
     }
 
     fn label() -> &'static str {
-        E::label()
+        Cbg::<'static, B, E>::label()
     }
 
     fn bind_group_data(&self) -> Self::Data {
-        MaterialExtensionBindGroupData {
-            base: self.base.bind_group_data(),
-            extension: self.extension.bind_group_data(),
+        Cbg {
+            base: &self.base,
+            extension: &self.extension,
         }
+        .bind_group_data()
     }
 
     fn unprepared_bind_group(
         &self,
         layout: &BindGroupLayout,
         render_device: &RenderDevice,
-        (base_param, extended_param): &mut SystemParamItem<'_, '_, Self::Param>,
-        mut force_non_bindless: bool,
+        param: &mut SystemParamItem<'_, '_, Self::Param>,
+        force_no_bindless: bool,
     ) -> Result<UnpreparedBindGroup, AsBindGroupError> {
-        force_non_bindless = force_non_bindless || Self::bindless_slot_count().is_none();
-
-        // add together the bindings of the base material and the extension
-        let UnpreparedBindGroup { mut bindings } = B::unprepared_bind_group(
-            &self.base,
-            layout,
-            render_device,
-            base_param,
-            force_non_bindless,
-        )?;
-        let UnpreparedBindGroup {
-            bindings: extension_bindings,
-        } = E::unprepared_bind_group(
-            &self.extension,
-            layout,
-            render_device,
-            extended_param,
-            force_non_bindless,
-        )?;
-
-        bindings.extend(extension_bindings.0);
-
-        Ok(UnpreparedBindGroup { bindings })
+        Cbg {
+            base: &self.base,
+            extension: &self.extension,
+        }
+        .unprepared_bind_group(layout, render_device, param, force_no_bindless)
     }
 
     fn bind_group_layout_entries(
         render_device: &RenderDevice,
-        mut force_non_bindless: bool,
+        force_no_bindless: bool,
     ) -> Vec<BindGroupLayoutEntry>
     where
         Self: Sized,
     {
-        force_non_bindless = force_non_bindless || Self::bindless_slot_count().is_none();
-
-        // Add together the bindings of the standard material and the user
-        // material, skipping duplicate bindings. Duplicate bindings will occur
-        // when bindless mode is on, because of the common bindless resource
-        // arrays, and we need to eliminate the duplicates or `wgpu` will
-        // complain.
-        let base_entries = B::bind_group_layout_entries(render_device, force_non_bindless);
-        let extension_entries = E::bind_group_layout_entries(render_device, force_non_bindless);
-
-        let mut seen_bindings = HashSet::<u32>::with_hasher(FixedHasher);
-
-        base_entries
-            .into_iter()
-            .chain(extension_entries)
-            .filter(|entry| seen_bindings.insert(entry.binding))
-            .collect()
+        Cbg::<'static, B, E>::bind_group_layout_entries(render_device, force_no_bindless)
     }
 
     fn bindless_descriptor() -> Option<BindlessDescriptor> {
-        // We're going to combine the two bindless descriptors.
-        let base_bindless_descriptor = B::bindless_descriptor()?;
-        let extended_bindless_descriptor = E::bindless_descriptor()?;
-
-        // Combining the buffers and index tables is straightforward.
-
-        let mut buffers = base_bindless_descriptor.buffers.to_vec();
-        let mut index_tables = base_bindless_descriptor.index_tables.to_vec();
-
-        buffers.extend(extended_bindless_descriptor.buffers.iter().cloned());
-        index_tables.extend(extended_bindless_descriptor.index_tables.iter().cloned());
-
-        // Combining the resources is a little trickier because the resource
-        // array is indexed by bindless index, so we have to merge the two
-        // arrays, not just concatenate them.
-        let max_bindless_index = base_bindless_descriptor
-            .resources
-            .len()
-            .max(extended_bindless_descriptor.resources.len());
-        let mut resources = Vec::with_capacity(max_bindless_index);
-        for bindless_index in 0..max_bindless_index {
-            // In the event of a conflicting bindless index, we choose the
-            // base's binding.
-            match base_bindless_descriptor.resources.get(bindless_index) {
-                None | Some(&BindlessResourceType::None) => resources.push(
-                    extended_bindless_descriptor
-                        .resources
-                        .get(bindless_index)
-                        .copied()
-                        .unwrap_or(BindlessResourceType::None),
-                ),
-                Some(&resource_type) => resources.push(resource_type),
-            }
-        }
-
-        Some(BindlessDescriptor {
-            resources: Cow::Owned(resources),
-            buffers: Cow::Owned(buffers),
-            index_tables: Cow::Owned(index_tables),
-        })
+        Cbg::<'static, B, E>::bindless_descriptor()
     }
 }
 
