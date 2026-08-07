@@ -1,10 +1,11 @@
 use crate::{
+    bundle::{Bundle, DynamicBundle, NoBundleEffect},
     component::{Component, ComponentId, Components, ComponentsRegistrator},
     relationship::RelationshipHookMode,
     world::EntityWorldMut,
 };
 use alloc::vec::Vec;
-use bevy_ptr::OwningPtr;
+use bevy_ptr::{move_as_ptr, OwningPtr};
 use bumpalo::Bump;
 use core::{alloc::Layout, ptr::NonNull};
 
@@ -124,6 +125,39 @@ impl<'a> BundleWriter<'a> {
         self.0.component_ptrs.push(ptr);
     }
 
+    /// Pushes the bundle onto the dynamic bundle
+    ///
+    /// # Safety
+    ///
+    /// `components` must be from the same world that all previous [`Self::push_component`] or [`Self::push_component_by_id`] calls were called with,
+    /// and the _next_ [`Self::write`] or [`Self::write_with_relationship_hook_insert_mode`] call.
+    // Note: Bundle::Effect must be `NoBundleEffect` here, as we discard it.
+    pub unsafe fn push_bundle<B: Bundle<Effect: NoBundleEffect>>(
+        &mut self,
+        components: &mut ComponentsRegistrator,
+        bundle: B,
+    ) {
+        self.0.component_ids.extend(B::component_ids(components));
+        move_as_ptr!(bundle);
+        // SAFETY: called exactly once, and this bundle has no effect
+        unsafe {
+            <B as DynamicBundle>::get_components(bundle, &mut |_storage, component_ptr, layout| {
+                let layout =
+                    layout.expect("Layout should be present because this is not a dynamic Bundle");
+                let target_ptr = self.0.alloc.alloc_layout(layout);
+                // SAFETY:
+                // - `component_ptr` points to a valid value with this layout per precondition
+                // - `target_ptr` was just allocated (so cannot overlap) and has the same layout
+                core::ptr::copy_nonoverlapping(
+                    component_ptr.as_ptr(),
+                    target_ptr.as_ptr(),
+                    layout.size(),
+                );
+                self.0.component_ptrs.push(target_ptr);
+            });
+        }
+    }
+
     /// Writes the current contents of the bundle to the given `entity` and clears the scratch space.
     ///
     /// Runs with [`RelationshipHookMode::Run`] by default.
@@ -183,9 +217,15 @@ mod tests {
     use crate::{bundle::BundleScratch, component::Component, name::Name, world::World};
 
     #[test]
-    fn write_component() {
+    fn write_bundle_scratch() {
         #[derive(Component)]
         struct X;
+
+        #[derive(Component)]
+        struct Y(usize);
+
+        #[derive(Component)]
+        struct Z(usize);
 
         let mut world = World::new();
         let mut bundle_scratch = BundleScratch::default();
@@ -195,11 +235,14 @@ mod tests {
             let mut components = world.components_registrator();
             bundle_writer.push_component(&mut components, X);
             bundle_writer.push_component(&mut components, Name::new("Hi"));
+            bundle_writer.push_bundle(&mut components, (Y(1), Z(2)));
             let mut entity = world.spawn_empty();
             bundle_writer.write(&mut entity);
 
             assert_eq!(entity.get::<Name>().unwrap().as_str(), "Hi");
             assert!(entity.contains::<X>());
+            assert_eq!(entity.get::<Y>().unwrap().0, 1);
+            assert_eq!(entity.get::<Z>().unwrap().0, 2);
         }
     }
 }

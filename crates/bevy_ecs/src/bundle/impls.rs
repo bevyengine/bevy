@@ -1,4 +1,4 @@
-use core::{any::TypeId, iter};
+use core::{alloc::Layout, any::TypeId, iter};
 
 use bevy_ptr::{MovingPtr, OwningPtr};
 use core::mem::MaybeUninit;
@@ -45,9 +45,13 @@ impl<C: Component> DynamicBundle for C {
     #[inline]
     unsafe fn get_components(
         ptr: MovingPtr<'_, Self>,
-        func: &mut impl FnMut(StorageType, OwningPtr<'_>),
+        func: &mut impl FnMut(StorageType, OwningPtr<'_>, Option<Layout>),
     ) -> Self::Effect {
-        func(C::STORAGE_TYPE, OwningPtr::from(ptr));
+        func(
+            C::STORAGE_TYPE,
+            OwningPtr::from(ptr),
+            Some(Layout::new::<C>()),
+        );
     }
 
     #[inline]
@@ -134,7 +138,7 @@ macro_rules! tuple_impl {
                 reason = "Zero-length tuples will generate a function body equivalent to `()`; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
             )]
             #[inline(always)]
-            unsafe fn get_components(ptr: MovingPtr<'_, Self>, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) {
+            unsafe fn get_components(ptr: MovingPtr<'_, Self>, func: &mut impl FnMut(StorageType, OwningPtr<'_>, Option<Layout>)) {
                 bevy_ptr::deconstruct_moving_ptr!({
                     let tuple { $($index: $alias,)* } = ptr;
                 });

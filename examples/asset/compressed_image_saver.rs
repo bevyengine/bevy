@@ -79,8 +79,8 @@ fn spawn_scene(
                 illuminance: 7300.0,
                 shadow_maps_enabled: true,
             }
-            template_value(Transform::from_xyz(4.0, 8.0, 4.0).looking_at(Vec3::ZERO, Vec3::Y))
-            template_value(CascadeShadowConfigBuilder {
+            Transform::from_xyz(4.0, 8.0, 4.0).looking_at(Vec3::ZERO, Vec3::Y)
+            @template_value(CascadeShadowConfigBuilder {
                 num_cascades: 1,
                 maximum_distance: 20.0,
                 ..default()
@@ -89,7 +89,7 @@ fn spawn_scene(
         (
             Camera3d
             Hdr
-            template_value(Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y))
+            Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y)
             EnvironmentMapLight {
                 diffuse_map: diffuse_env_map,
                 specular_map: specular_env_map,

@@ -312,7 +312,7 @@
 //!
 //! ## Composition
 //!
-//! Composition relies on patching to work nicely, allowing you to include other scenes in the current ones.
+//! Composition relies on patching, which allows you to include other scenes in the current ones by layering them "on top".
 //! All of their patches will be applied at the position they're included.
 //!
 //! Example:
@@ -342,7 +342,7 @@
 //!
 //! // Include `enemy()` and patch just the `max` field:
 //! world.spawn_scene(bsn! {
-//!     enemy()
+//!     @enemy()
 //!     Health { max: 200 }
 //! });
 //! ```
@@ -371,12 +371,12 @@
 //! This scene includes an uncached "enemy" scene:
 //! ```ignore
 //! bsn! {
-//!     enemy()
+//!     @enemy()
 //!     Health { max: 200 }
 //! }
 //! ```
 //!
-//! This scene caches the "enemy" scene by adding the  `:` prefix (however caching scene functions like this is not currently supported)
+//! This scene caches the "enemy" scene by using the  `:` prefix (however caching scene functions like this is not currently supported)
 //! ```ignore
 //! bsn! {
 //!     :enemy
@@ -497,7 +497,7 @@
 //! }
 //!
 //! // Call it like an ordinary Rust function
-//! commands.spawn_scene(bsn! { enemy(200, "goblin") });
+//! commands.spawn_scene(bsn! { @enemy(200, "goblin") });
 //! ```
 //!
 //! Braces are required when the macro would otherwise misparse the expression
@@ -505,16 +505,14 @@
 //!
 //! ### Dynamic template values
 //!
-//! A [`Template`] value, such as an instance of a Component, cannot be directly passed in to a `bsn!` block, as `bsn!`
-//! expects "scene variables" in that position. Instead use `template_value(...)` which accepts a given component [`Template`] value
-//! and returns a [`Scene`] implementation for it.
+//! A [`Template`] value, such as an instance of a Component, can directly passed in to a `bsn!` block.
 //!
 //! ```ignore
 //! fn enemy(translation: Vec3){
 //!     let transform = Transform::from_translation(translation);
 //!     bsn! {
 //!         #Foo
-//!         template_value(transform)
+//!         transform
 //!     }
 //!
 //! }
@@ -538,7 +536,21 @@
 //!
 //! ### Expressions as scenes
 //!
-//! You can insert a [`Scene`] or [`SceneList`] in another Scene using curly-bracketed expressions:
+//! You can insert a [`Scene`] in another Scene using `@{}`:
+//!
+//! ```ignore
+//! fn widget(scene: impl Scene) -> impl Scene {
+//!     bsn! {
+//!         Node
+//!         @{scene}
+//!     }
+//! }
+//!
+//! let items = bsn_list![#A, #B, #C]; // or bsn! if container takes a `impl Scene`
+//! commands.spawn_scene(container(items));
+//! ```
+//!
+//! You can insert a [`SceneList`] in another Scene using curly-bracketed expressions inside of a relationship:
 //!
 //! ```ignore
 //! fn container(contents: impl SceneList) -> impl Scene {
@@ -1021,7 +1033,7 @@ mod tests {
 
         fn b() -> impl Scene {
             bsn! {
-                a()
+                @a()
                 Position { x: 1. }
                 Children [ #Y ]
             }
@@ -1075,7 +1087,7 @@ mod tests {
         fn b() -> impl Scene {
             bsn! {
                 Position { x: 1., y: 1., z: 1. }
-                a()
+                @a()
             }
         }
 
@@ -1209,7 +1221,7 @@ mod tests {
 
         fn b() -> impl Scene {
             bsn! {
-                a()
+                @a()
                 Position { x: 1. }
                 Children [ #Y ]
             }
@@ -1335,7 +1347,7 @@ mod tests {
             bsn! {
                 #X
                 Children [
-                    (b() Reference(#X))
+                    (@b() Reference(#X))
                 ]
             }
         }
@@ -1346,7 +1358,7 @@ mod tests {
                 #X
                 Children [
                     Reference(#X),
-                    (inline Reference(#X)),
+                    (@{inline} Reference(#X)),
                 ]
             }
         }
@@ -1442,7 +1454,7 @@ mod tests {
                         Reference(#Y)
                     ]
                 ),
-                (b() #Z)
+                (@b() #Z)
             ]
         }
 
@@ -1492,9 +1504,9 @@ mod tests {
 
         fn scene() -> impl Scene {
             bsn! {
-                on(|explode: On<Explode>, mut exploded: ResMut<Exploded>|{
+                |explode: On<Explode>, mut exploded: ResMut<Exploded>| {
                     exploded.0 = Some(explode.0);
-                })
+                }
             }
         }
 
@@ -1607,7 +1619,7 @@ mod tests {
                 #Root
                 Children [
                     #First,
-                    ({item}),
+                    @{item},
                     #Last
                 ]
             }
@@ -1638,14 +1650,14 @@ mod tests {
             let scene: Box<dyn Scene> = if is_boss {
                 Box::new(bsn! {
                     Boss
-                    Children [ unit(false, level - 1) #Grunt1, unit(false, level - 1) #Grunt2]
+                    Children [ @unit(false, level - 1) #Grunt1, @unit(false, level - 1) #Grunt2]
                 })
             } else {
                 Box::new(bsn! { Grunt })
             };
             bsn! {
                 Level(level)
-                {scene}
+                @{scene}
             }
         }
         let mut app = test_app();
@@ -1700,7 +1712,7 @@ mod tests {
 
         fn unit_with_armor(unit_base: impl Scene) -> impl Scene {
             bsn! {
-                {unit_base}
+                @{unit_base}
                 Armor(50)
             }
         }
@@ -1716,7 +1728,7 @@ mod tests {
 
         // inheritance is the same!
         let entity_b = bsn! {
-            armor()
+            @armor()
             Health { current: 100, max: 100 }
         };
         let idb = world.spawn_scene(entity_b).unwrap().id();
@@ -1752,21 +1764,21 @@ mod tests {
 
         fn b() -> impl Scene {
             bsn! {
-                a()
+                @a()
                 Foo::Bar { x: 1 }
             }
         }
 
         fn c() -> impl Scene {
             bsn! {
-                b()
+                @b()
                 Foo::Bar { y: 2 }
             }
         }
 
         fn d() -> impl Scene {
             bsn! {
-                c()
+                @c()
                 Foo::Qux
             }
         }
@@ -1816,7 +1828,7 @@ mod tests {
 
         fn b() -> impl Scene {
             bsn! {
-                a()
+                @a()
                 Foo {
                     y: 2,
                     nested: Bar(2),
@@ -1866,7 +1878,7 @@ mod tests {
 
         fn b() -> impl Scene {
             bsn! {
-                a()
+                @a()
                 Foo {
                     y: 2,
                     nested: Bar(2),
@@ -2005,7 +2017,7 @@ mod tests {
 
         fn b() -> impl Scene {
             bsn! {
-                a()
+                @a()
                 Foo::<Position> {
                     value: Position { y: 2 },
                     number: 10,
@@ -2027,18 +2039,6 @@ mod tests {
     }
 
     #[test]
-    fn empty_scene_expressions() {
-        let mut app = test_app();
-        let world = app.world_mut();
-        fn a() -> impl Scene {
-            bsn! {
-                {}
-            }
-        }
-        world.spawn_scene(a()).unwrap();
-    }
-
-    #[test]
     fn closures_in_bsn() {
         #[derive(Resource, Default)]
         struct TotalHealed(u32);
@@ -2052,9 +2052,9 @@ mod tests {
 
         fn non_move_scene() -> impl Scene {
             bsn! {
-                on(|_: On<Heal>, mut healed: ResMut<TotalHealed>| {
+                |_: On<Heal>, mut healed: ResMut<TotalHealed>| {
                     healed.0 += 1;
-                })
+                }
             }
         }
 
@@ -2078,9 +2078,9 @@ mod tests {
 
         fn move_scene(bonus: u32) -> impl Scene {
             bsn! {
-                on(move |_: On<Heal>, mut healed: ResMut<TotalHealed>| {
+                move |_: On<Heal>, mut healed: ResMut<TotalHealed>| {
                     healed.0 += bonus;
-                })
+                }
             }
         }
 
@@ -2369,7 +2369,7 @@ mod tests {
         let pass_expr = bsn! {
             #Name
             Children [
-                widget(placeholder_widget.into())
+                @widget(placeholder_widget.into())
             ]
         };
         let entity = world.spawn_scene(pass_expr).unwrap().id();
@@ -2381,7 +2381,7 @@ mod tests {
         let pass_name = bsn! {
             #Name
             Children [
-                widget(#Name)
+                @widget(#Name)
             ]
         };
         let entity = world.spawn_scene(pass_name).unwrap().id();
@@ -2397,7 +2397,7 @@ mod tests {
             Name({format!("Foo{i}")})
             Children [
                 #Name
-                widget(#Root)
+                @widget(#Root)
             ]
         };
         let entity = world.spawn_scene(pass_name_expr).unwrap().id();
@@ -2633,21 +2633,21 @@ mod tests {
         // why not doctests? because the macro can't depend on this crate
         // why not include! it here and include_str! it in the docs? because rust-analyzer inline docs ignores #[doc = include_str!()]
         let scene = bsn! {
-            some_scene()        // include a scene function
+            @some_scene()        // include a scene function
             #SomeName           // entity name, will insert Name("SomeName")
             ComponentA          // component without a value will use default
             ComponentB(0.0)     // passing a value, other fields will use default
             Node {
                 height: px(0.1) // same with named fields, unmentioned ones stay default
             }
-            on(|evt: On<MyEntityEvent>, mut query: Query<&mut ComponentB>| {  // add an observer
+            |evt: On<MyEntityEvent>, mut query: Query<&mut ComponentB>| {  // add an observer
                 let mut b = query.get_mut(evt.entity).unwrap();
                 b.0 += evt.value;
-            })
+            }
             Children [                   // spawning multiple related entities using a RelationshipTarget component
                 #Child1 ComponentA       // whitespace doesn't have to be newlines
                 ,                        // entities are comma-separated
-                (other_scene() #Child3), // parentheses around a single entity are optional
+                (@other_scene() #Child3), // parentheses around a single entity are optional
                 Link(#SomeName),         // passing a entity reference to a component as `Entity`, component has to implement FromTemplate
                 @MySceneComponent {      // components which derive SceneComponent have scenes and can be inherited from
                     @some_prop: 3,       // props, look like fields prefixed with @ but end up passed to the components scene as arguments
@@ -2662,7 +2662,7 @@ mod tests {
                         @items: {
                             bsn_list![                // sometimes you may need to nest macro calls
                                 #item1 SomeComponent, // note: the name #item1 here is in its own scope
-                                some_scene() #item2
+                                @some_scene() #item2
                             ]
                         }
                     }
@@ -2877,7 +2877,7 @@ mod tests {
         let entity = world
             .spawn_scene(bsn! {
                 #MaybeFoo
-                {optional_component}
+                @{optional_component}
             })
             .unwrap();
         assert!(entity.get::<Foo>().is_some());
@@ -2900,7 +2900,7 @@ mod tests {
 
         let root = bsn! {
             #root
-            patch
+            @{patch}
         };
 
         let expected_id = Some(world.spawn_scene(root).unwrap().id());
@@ -2930,7 +2930,7 @@ mod tests {
         };
 
         let root = bsn_list! {
-            #root patch
+            #root @{patch}
         };
 
         let expected_id = Some(world.spawn_scene_list(root).unwrap()[0]);

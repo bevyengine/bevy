@@ -16,7 +16,7 @@ pub(crate) use remove::BundleRemover;
 pub(crate) use spawner::BundleSpawner;
 
 use bevy_ptr::MovingPtr;
-use core::mem::MaybeUninit;
+use core::{alloc::Layout, mem::MaybeUninit};
 pub use info::*;
 pub use writer::*;
 
@@ -266,7 +266,7 @@ pub trait DynamicBundle: Sized {
     // information.
     unsafe fn get_components(
         ptr: MovingPtr<'_, Self>,
-        func: &mut impl FnMut(StorageType, OwningPtr<'_>),
+        func: &mut impl FnMut(StorageType, OwningPtr<'_>, Option<Layout>),
     );
 
     /// Applies the after-effects of spawning this bundle.
