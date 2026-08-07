@@ -1,17 +1,13 @@
-//! Contains [`Bounded3d`] implementations for [geometric primitives](crate::primitives).
+//! Contains [`Bounded3d`] implementations for [3d geometric primitives](crate::dim3).
 
 use crate::{
-    bounding::{Bounded2d, BoundingCircle, BoundingVolume},
-    ops,
-    primitives::{
-        Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, InfinitePlane3d, Line3d, Segment3d,
-        Sphere, Torus, Triangle2d, Triangle3d,
-    },
-    Isometry2d, Isometry3d, Mat3, Vec2, Vec3, Vec3A,
+    Bounded2d, BoundingCircle, BoundingVolume, Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder,
+    InfinitePlane3d, Line3d, Segment3d, Sphere, Torus, Triangle2d, Triangle3d,
 };
+use bevy_math::{ops, Isometry2d, Isometry3d, Mat3, Vec2, Vec3, Vec3A};
 
 #[cfg(feature = "alloc")]
-use crate::primitives::Polyline3d;
+use crate::Polyline3d;
 
 use super::{Aabb3d, Bounded3d, BoundingSphere};
 
@@ -366,16 +362,12 @@ impl Bounded3d for Triangle3d {
 
 #[cfg(test)]
 mod tests {
-    use crate::{bounding::BoundingVolume, ops, Isometry3d};
-    use glam::{Quat, Vec3, Vec3A};
+    use crate::BoundingVolume;
+    use bevy_math::{ops, Dir3, Isometry3d, Quat, Vec3, Vec3A};
 
     use crate::{
-        bounding::Bounded3d,
-        primitives::{
-            Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, InfinitePlane3d, Line3d, Polyline3d,
-            Segment3d, Sphere, Torus, Triangle3d,
-        },
-        Dir3,
+        Bounded3d, Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, InfinitePlane3d, Line3d,
+        Polyline3d, Segment3d, Sphere, Torus, Triangle3d,
     };
 
     #[test]

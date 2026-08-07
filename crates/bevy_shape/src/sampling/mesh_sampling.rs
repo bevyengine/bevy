@@ -1,10 +1,8 @@
 //! Functionality related to random sampling from triangle meshes.
 
-use crate::{
-    primitives::{Measured2d, Triangle3d},
-    ShapeSample, Vec3,
-};
+use crate::{Measured2d, ShapeSample, Triangle3d};
 use alloc::vec::Vec;
+use bevy_math::Vec3;
 use rand::RngExt;
 use rand_distr::{
     weighted::{Error as WeightedError, WeightedAliasIndex},
@@ -20,8 +18,8 @@ use rand_distr::{
 ///
 /// Example
 /// ```
-/// # use bevy_math::{Vec3, primitives::*};
-/// # use bevy_math::sampling::mesh_sampling::UniformMeshSampler;
+/// # use bevy_math::Vec3;
+/// # use bevy_shape::{*, sampling::mesh_sampling::UniformMeshSampler};
 /// # use rand::{SeedableRng, rngs::StdRng, distr::Distribution};
 /// let faces = Tetrahedron::default().faces();
 /// let sampler = UniformMeshSampler::try_new(faces).unwrap();
