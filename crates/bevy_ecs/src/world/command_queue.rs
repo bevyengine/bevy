@@ -265,7 +265,8 @@ where
 {
     /// Constructs a new [`CommandQueueRunner`] for the given queue.
     ///
-    /// This runs commands from `start` to the current end of the queue.
+    /// This applies or drops commands from `start` to the current end of the queue,
+    /// and will truncate the queue to `start` when dropped.
     ///
     /// Stores references to just the [`World`] (when running the world command queue), to just a [`CommandQueue`] (when dropping), or both (when running any other queues).
     /// In the case of the world's command queue, this allows us to fetch a new reference to the queue after every command, as the command can invalidate it due to receiving the `&mut World`.
@@ -289,6 +290,10 @@ where
         }
     }
 
+    /// Applies or drops the commands in the queue.
+    ///
+    /// If `world` returns [`Some`], this will apply the queued [commands](`Command`) to that `World`.
+    /// If `world` returns [`None`], this will drop the queued [commands](`Command`) (without applying them).
     pub fn run(&mut self, world: impl Fn(&mut D) -> Option<&mut World>) {
         #[cfg(feature = "std")]
         {
