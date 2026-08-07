@@ -54,7 +54,7 @@ pub fn extract_text_cursor(
         editable_text,
     ) in extracted_uinodes
         .changed
-        .iter()
+        .keys()
         .flat_map(|main_entity| text_node_query.get(main_entity.entity()).ok())
     {
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
@@ -148,7 +148,7 @@ pub fn extract_text_cursor(
                 }
 
                 extracted_uinodes
-                    .uinodes
+                    .objects
                     .entry(entity.into())
                     .or_insert_with(|| (extracted_camera_entity, Default::default()))
                     .1
@@ -183,7 +183,7 @@ pub fn extract_text_cursor(
             && *rwmode != TextReadWriteMode::Static
         {
             extracted_uinodes
-                .uinodes
+                .objects
                 .entry(entity.into())
                 .or_insert_with(|| (extracted_camera_entity, Default::default()))
                 .1
@@ -251,7 +251,7 @@ pub fn extract_preedit_underlines(
         editable_text,
     ) in extracted_uinodes
         .changed
-        .iter()
+        .keys()
         .flat_map(|main_entity| text_node_query.get(main_entity.entity()).ok())
     {
         if !inherited_visibility.get()
@@ -278,7 +278,7 @@ pub fn extract_preedit_underlines(
 
         for rect in text_layout_info.preedit_underline_rects.iter() {
             extracted_uinodes
-                .uinodes
+                .objects
                 .entry(entity.into())
                 .or_insert_with(|| (extracted_camera_entity, Default::default()))
                 .1

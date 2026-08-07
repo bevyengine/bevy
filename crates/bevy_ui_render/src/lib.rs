@@ -10,6 +10,9 @@
 pub mod box_shadow;
 mod gradient;
 mod image;
+use bevy_ecs::query::QueryData;
+use bevy_render::render_resource::SpecializedRenderPipeline;
+use bevy_utils::default;
 pub use image::ImageNodeAssetChangedSystems;
 mod pipeline;
 pub mod render_pass;
@@ -45,7 +48,7 @@ use bevy_core_pipeline::schedule::{Core2d, Core2dSystems, Core3d, Core3dSystems}
 use bevy_core_pipeline::upscaling::upscaling;
 use bevy_ecs::prelude::*;
 use bevy_ecs::schedule::IntoScheduleConfigs;
-use bevy_ecs::system::SystemParam;
+use bevy_ecs::system::{StaticSystemParam, SystemParam, SystemParamItem};
 use bevy_image::{prelude::*, TRANSPARENT_IMAGE_HANDLE};
 use bevy_math::{proj, Affine2, FloatOrd, Rect, UVec4, Vec2};
 use bevy_render::{
@@ -77,6 +80,8 @@ use bevy_transform::components::GlobalTransform;
 use box_shadow::BoxShadowPlugin;
 use bytemuck::{Pod, Zeroable};
 use core::ops::Range;
+use smallvec::SmallVec;
+use std::marker::Send;
 use std::mem;
 
 pub use pipeline::*;
@@ -279,7 +284,7 @@ impl Plugin for UiRenderPlugin {
             .add_systems(
                 Render,
                 (
-                    queue_uinodes.in_set(RenderSystems::Queue),
+                    queue_ui_items::<ExtractedUiNode>.in_set(RenderSystems::Queue),
                     sort_phase_system::<TransparentUi>.in_set(RenderSystems::PhaseSort),
                     prepare_uinodes.in_set(RenderSystems::PrepareBindGroups),
                     clear_batches.in_set(RenderSystems::Cleanup),
@@ -355,6 +360,40 @@ pub struct ExtractedUiNode {
     pub transform: Affine2,
 }
 
+impl UiRenderObject for ExtractedUiNode {
+    type DrawFunctions = DrawUi;
+    type ViewPipelineKeyBuilder = UiNodePipelineKeyBuilder;
+    type ViewQueryData = Option<&'static UiAntiAlias>;
+    type SpecializedRenderPipeline = UiPipeline;
+    type PipelineKeySystemParam = ();
+
+    fn get_sort_key(&self) -> FloatOrd {
+        FloatOrd(self.z_order)
+    }
+
+    fn create_view_pipeline_key_builder<'w, 's>(
+        item: <<Self::ViewQueryData as QueryData>::ReadOnly as QueryData>::Item<'w, 's>,
+    ) -> Self::ViewPipelineKeyBuilder {
+        UiNodePipelineKeyBuilder {
+            anti_alias: item.cloned(),
+        }
+    }
+
+    fn create_pipeline_key(
+        &self,
+        cached_camera_view: &CachedCameraView<Self::ViewPipelineKeyBuilder>,
+        _: &mut SystemParamItem<Self::PipelineKeySystemParam>,
+    ) -> Option<<Self::SpecializedRenderPipeline as SpecializedRenderPipeline>::Key> {
+        Some(UiPipelineKey {
+            target_format: cached_camera_view.extracted_view.target_format,
+            anti_alias: matches!(
+                cached_camera_view.pipeline_key_builder.anti_alias,
+                None | Some(UiAntiAlias::On)
+            ),
+        })
+    }
+}
+
 /// The type of UI node.
 /// This is used to determine how to render the UI node.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -395,17 +434,12 @@ pub struct ExtractedGlyph {
 /// The list of UI nodes, as well as the set of nodes that changed.
 ///
 /// This is a two-level data structure so that we can quickly remove all
-/// gradients associated with a main-world entity when it changes.
-#[derive(Resource, Default)]
-pub struct ExtractedUiNodes {
-    /// The list of UI nodes grouped by their main-world entity, along with
-    /// each group's target camera entity.
-    ///
-    /// This is a two-level data structure so that we can quickly remove all UI
-    /// nodes associated with a main-world entity when it changes.
-    pub uinodes: MainEntityHashMap<(Entity, EntityIndexMap<ExtractedUiNode>)>,
-    /// UI nodes that changed this frame.
-    pub changed: MainEntityHashSet,
+/// nodes associated with a main-world entity when it changes.
+pub type ExtractedUiNodes = UiRenderObjects<ExtractedUiNode>;
+
+pub struct ChangedUiObject {
+    render_entity: Entity,
+    prev_camera_entity: Entity,
 }
 
 /// A query filter that matches all UI nodes.
@@ -664,11 +698,17 @@ pub fn extract_uinode_changes(
     ) {
         // Mark the node as changed so that the other `extract_` systems will
         // know to process it.
-        extracted_uinodes.changed.insert(main_entity);
+        let changed_ui_nodes = extracted_uinodes.changed.entry(main_entity).or_default();
 
-        if let Some((_, mut render_entities)) = extracted_uinodes.uinodes.remove(&main_entity) {
+        if let Some((prev_camera_entity, mut render_entities)) =
+            extracted_uinodes.objects.remove(&main_entity)
+        {
             for (render_entity, _) in render_entities.drain(..) {
                 commands.entity(render_entity).despawn();
+                changed_ui_nodes.push(ChangedUiObject {
+                    render_entity,
+                    prev_camera_entity,
+                });
             }
         }
 
@@ -728,7 +768,7 @@ pub fn extract_uinode_background_colors(
         maybe_outer_color,
     ) in extracted_uinodes
         .changed
-        .iter()
+        .keys()
         .flat_map(|main_entity| uinode_query.get(main_entity.entity()).ok())
     {
         // Skip invisible backgrounds
@@ -740,7 +780,7 @@ pub fn extract_uinode_background_colors(
             continue;
         }
 
-        let extracted_sub_uinodes = match extracted_uinodes.uinodes.entry(entity.into()) {
+        let extracted_sub_uinodes = match extracted_uinodes.objects.entry(entity.into()) {
             Entry::Occupied(entry) => &mut entry.into_mut().1,
             Entry::Vacant(entry) => {
                 let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
@@ -840,7 +880,7 @@ pub fn extract_uinode_images(
         image_size,
     ) in extracted_uinodes
         .changed
-        .iter()
+        .keys()
         .flat_map(|main_entity| uinode_query.get(main_entity.entity()).ok())
     {
         let visual_box = match image.visual_box {
@@ -903,7 +943,7 @@ pub fn extract_uinode_images(
         };
 
         extracted_uinodes
-            .uinodes
+            .objects
             .entry(entity.into())
             .or_insert_with(|| (extracted_camera_entity, Default::default()))
             .1
@@ -964,7 +1004,7 @@ pub fn extract_uinode_borders(
         (maybe_border_color, maybe_outline),
     ) in extracted_uinodes
         .changed
-        .iter()
+        .keys()
         .flat_map(|main_entity| uinode_query.get(main_entity.entity()).ok())
     {
         // Skip invisible borders and removed nodes
@@ -1034,7 +1074,7 @@ pub fn extract_uinode_borders(
                 };
 
                 extracted_uinodes
-                    .uinodes
+                    .objects
                     .entry(entity.into())
                     .or_insert_with(|| (extracted_camera_entity, Default::default()))
                     .1
@@ -1050,7 +1090,7 @@ pub fn extract_uinode_borders(
         {
             let outline_size = computed_node.outlined_node_size();
             extracted_uinodes
-                .uinodes
+                .objects
                 .entry(entity.into())
                 .or_insert_with(|| (extracted_camera_entity, Default::default()))
                 .1
@@ -1296,7 +1336,7 @@ pub fn extract_viewport_nodes(
         viewport_node,
     ) in extracted_uinodes
         .changed
-        .iter()
+        .keys()
         .flat_map(|main_entity| uinode_query.get(main_entity.entity()).ok())
     {
         // Skip invisible images
@@ -1320,7 +1360,7 @@ pub fn extract_viewport_nodes(
         };
 
         extracted_uinodes
-            .uinodes
+            .objects
             .entry(entity.into())
             .or_insert_with(|| (extracted_camera_entity, Default::default()))
             .1
@@ -1391,7 +1431,7 @@ pub fn extract_text_sections(
         cursor_style,
     ) in extracted_uinodes
         .changed
-        .iter()
+        .keys()
         .flat_map(|main_entity| uinode_query.get(main_entity.entity()).ok())
     {
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
@@ -1480,7 +1520,7 @@ pub fn extract_text_sections(
                 .is_none_or(|info| info.atlas_info.texture != atlas_info.texture)
             {
                 extracted_uinodes
-                    .uinodes
+                    .objects
                     .entry(entity.into())
                     .or_insert_with(|| (extracted_camera_entity, Default::default()))
                     .1
@@ -1541,7 +1581,7 @@ pub fn extract_text_shadows(
         editable_text,
     ) in extracted_uinodes
         .changed
-        .iter()
+        .keys()
         .flat_map(|main_entity| uinode_query.get(main_entity.entity()).ok())
     {
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
@@ -1591,7 +1631,7 @@ pub fn extract_text_shadows(
                     || info.atlas_info.texture != atlas_info.texture
             }) {
                 extracted_uinodes
-                    .uinodes
+                    .objects
                     .entry(entity.into())
                     .or_insert_with(|| (extracted_camera_entity, Default::default()))
                     .1
@@ -1625,7 +1665,7 @@ pub fn extract_text_shadows(
 
             if has_strikethrough {
                 extracted_uinodes
-                    .uinodes
+                    .objects
                     .entry(entity.into())
                     .or_insert_with(|| (extracted_camera_entity, Default::default()))
                     .1
@@ -1656,7 +1696,7 @@ pub fn extract_text_shadows(
 
             if has_underline {
                 extracted_uinodes
-                    .uinodes
+                    .objects
                     .entry(entity.into())
                     .or_insert_with(|| (extracted_camera_entity, Default::default()))
                     .1
@@ -1731,7 +1771,7 @@ pub fn extract_text_decorations(
         editable_text,
     ) in extracted_uinodes
         .changed
-        .iter()
+        .keys()
         .flat_map(|main_entity| uinode_query.get(main_entity.entity()).ok())
     {
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
@@ -1780,7 +1820,7 @@ pub fn extract_text_decorations(
 
             if let Some(text_background_color) = text_background_color {
                 extracted_uinodes
-                    .uinodes
+                    .objects
                     .entry(entity.into())
                     .or_insert_with(|| (extracted_camera_entity, Default::default()))
                     .1
@@ -1815,7 +1855,7 @@ pub fn extract_text_decorations(
                     .to_linear();
 
                 extracted_uinodes
-                    .uinodes
+                    .objects
                     .entry(entity.into())
                     .or_insert_with(|| (extracted_camera_entity, Default::default()))
                     .1
@@ -1851,7 +1891,7 @@ pub fn extract_text_decorations(
                     .to_linear();
 
                 extracted_uinodes
-                    .uinodes
+                    .objects
                     .entry(entity.into())
                     .or_insert_with(|| (extracted_camera_entity, Default::default()))
                     .1
@@ -1956,61 +1996,107 @@ pub mod shader_flags {
     pub const INVERT: u32 = 4096;
 }
 
-pub fn queue_uinodes(
-    extracted_uinodes: Res<ExtractedUiNodes>,
-    ui_pipeline: Res<UiPipeline>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<UiPipeline>>,
+/// Processes changed render objects of a single type, inserting and removing
+/// sorted phase items as necessary.
+///
+/// This system runs once per frame for each type of render object (normal UI
+/// nodes, box shadows, gradients, etc.) It examines the list of changed render
+/// nodes and adds and removes phase items as necessary.
+pub fn queue_ui_items<E>(
+    extracted_nodes: Res<UiRenderObjects<E>>,
+    pipeline: Res<E::SpecializedRenderPipeline>,
+    mut pipelines: ResMut<SpecializedRenderPipelines<E::SpecializedRenderPipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    render_views: Query<(&UiCameraView, Option<&UiAntiAlias>), With<ExtractedView>>,
-    camera_views: Query<&ExtractedView>,
+    render_views: Query<E::ViewQueryData, With<ExtractedView>>,
+    ui_camera_views: Query<&UiCameraView>,
+    extracted_views: Query<&ExtractedView>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
-) {
-    let draw_function = draw_functions.read().id::<DrawUi>();
-    let mut current_camera_entity = Entity::PLACEHOLDER;
-    let mut current_phase = None;
+    system_param: StaticSystemParam<E::PipelineKeySystemParam>,
+) where
+    E: UiRenderObject,
+    <E::SpecializedRenderPipeline as SpecializedRenderPipeline>::Key: Send + Sync,
+{
+    let mut system_param = system_param.into_inner();
+    let draw_function = draw_functions.read().id::<E::DrawFunctions>();
 
-    for (main_entity, (extracted_camera_entity, extracted_sub_uinodes)) in
-        extracted_uinodes.uinodes.iter()
-    {
-        if current_camera_entity != *extracted_camera_entity {
-            current_phase = render_views.get(*extracted_camera_entity).ok().and_then(
-                |(default_camera_view, ui_anti_alias)| {
-                    camera_views
-                        .get(default_camera_view.0)
-                        .ok()
-                        .and_then(|view| {
-                            transparent_render_phases
-                                .get_mut(&view.retained_view_entity)
-                                .map(|transparent_phase| {
-                                    let pipeline = pipelines.specialize(
-                                        &pipeline_cache,
-                                        &ui_pipeline,
-                                        UiPipelineKey {
-                                            target_format: view.target_format,
-                                            anti_alias: matches!(
-                                                ui_anti_alias,
-                                                None | Some(UiAntiAlias::On)
-                                            ),
-                                        },
-                                    );
-                                    (pipeline, transparent_phase)
-                                })
-                        })
-                },
+    // To avoid having to look up information about the camera over and over
+    // again for each changed render object, we cache the most recent view we
+    // looked at here.
+    let mut maybe_cached_camera_view = None;
+
+    // Loop over all changed nodes.
+    for (main_entity, extracted_sub_uinodes) in extracted_nodes.changed.iter() {
+        // Examine all changed nodes (which includes nodes that were removed),
+        // and remove all the corresponding phase items.
+        for changed_uinode in extracted_sub_uinodes.iter() {
+            // Refresh the cached camera view.
+            CachedCameraView::<E::ViewPipelineKeyBuilder>::update::<E>(
+                &mut maybe_cached_camera_view,
+                changed_uinode.prev_camera_entity,
+                &render_views,
+                &ui_camera_views,
+                &extracted_views,
             );
-            current_camera_entity = *extracted_camera_entity;
+            let Some(ref mut cached_camera_view) = maybe_cached_camera_view else {
+                continue;
+            };
+
+            // Fetch the transparent render phase, and remove the appropriate
+            // phase items from it.
+            let Some(transparent_render_phase) = transparent_render_phases
+                .get_mut(&cached_camera_view.extracted_view.retained_view_entity)
+            else {
+                continue;
+            };
+            transparent_render_phase.remove(changed_uinode.render_entity, *main_entity);
         }
 
-        let Some((pipeline, transparent_phase)) = current_phase.as_mut() else {
+        // If the UI node no longer exists, stop here.
+        let Some((extracted_camera_entity, extracted_sub_uinodes)) =
+            extracted_nodes.objects.get(main_entity)
+        else {
             continue;
         };
+
+        // Now look at all the changed UI nodes again. For each, add the
+        // appropriate render objects of this type.
         for (render_entity, extracted_uinode) in extracted_sub_uinodes.iter() {
-            transparent_phase.add_transient(TransparentUi {
+            // Refresh the cached camera view.
+            CachedCameraView::<E::ViewPipelineKeyBuilder>::update::<E>(
+                &mut maybe_cached_camera_view,
+                *extracted_camera_entity,
+                &render_views,
+                &ui_camera_views,
+                &extracted_views,
+            );
+            let Some(ref mut cached_camera_view) = maybe_cached_camera_view else {
+                continue;
+            };
+
+            // Fetch the transparent render phase.
+            let Some(transparent_render_phase) = transparent_render_phases
+                .get_mut(&cached_camera_view.extracted_view.retained_view_entity)
+            else {
+                continue;
+            };
+
+            // Get the pipeline key, and specialize the pipeline. We need a
+            // pipeline in order to construct a `TransparentUi` phase item.
+            let Some(pipeline_key) =
+                extracted_uinode.create_pipeline_key(cached_camera_view, &mut system_param)
+            else {
+                continue;
+            };
+            let pipeline = pipelines.specialize(&pipeline_cache, &pipeline, pipeline_key);
+
+            // Add the phase item. Note that this phase item will be retained
+            // from frame to frame.
+            transparent_render_phase.add_retained(TransparentUi {
                 draw_function,
-                pipeline: *pipeline,
+                pipeline,
                 entity: (*render_entity, *main_entity),
-                sort_key: FloatOrd(extracted_uinode.z_order),
+                sort_key: extracted_uinode.get_sort_key(),
                 // batch_range will be calculated in prepare_uinodes
                 batch_range: 0..0,
                 extra_index: PhaseItemExtraIndex::None,
@@ -2018,6 +2104,13 @@ pub fn queue_uinodes(
             });
         }
     }
+}
+
+/// Information from the view necessary to construct the pipeline key for a
+/// plain UI node.
+pub struct UiNodePipelineKeyBuilder {
+    /// Whether anti-aliasing is requested for UI nodes in this view.
+    anti_alias: Option<UiAntiAlias>,
 }
 
 #[derive(Resource, Default)]
@@ -2075,7 +2168,7 @@ pub fn prepare_uinodes(
             for item_index in 0..ui_phase.items.len() {
                 let item = &mut ui_phase.items[item_index];
                 let Some(extracted_uinode) = extracted_uinodes
-                    .uinodes
+                    .objects
                     .get(&item.main_entity())
                     .and_then(|(_, sub_uinodes)| sub_uinodes.get(&item.entity()))
                 else {
@@ -2445,5 +2538,140 @@ pub fn prepare_uinodes(
 pub fn clear_batches(mut commands: Commands, batches_query: Query<Entity, With<UiBatch>>) {
     for entity in &batches_query {
         commands.entity(entity).remove::<UiBatch>();
+    }
+}
+
+/// A render-world resource that holds all UI render objects of a single type.
+///
+/// Types of UI render objects include normal UI nodes, box shadows, gradients,
+/// texture slices, and so forth.
+///
+/// This resource is retained from frame to frame. The various `extract_`
+/// systems keep it up to date.
+#[derive(Resource)]
+pub struct UiRenderObjects<E>
+where
+    E: UiRenderObject,
+{
+    /// The list of UI objects grouped by their main-world entity, along with
+    /// each group's target camera entity.
+    ///
+    /// This is a two-level data structure so that we can quickly remove all UI
+    /// render objects associated with a main-world entity when it changes.
+    pub objects: MainEntityHashMap<(Entity, EntityIndexMap<E>)>,
+
+    /// UI render objects that changed this frame.
+    pub changed: MainEntityHashMap<SmallVec<[ChangedUiObject; 4]>>,
+}
+
+impl<RO> Default for UiRenderObjects<RO>
+where
+    RO: UiRenderObject,
+{
+    fn default() -> UiRenderObjects<RO> {
+        UiRenderObjects {
+            objects: default(),
+            changed: default(),
+        }
+    }
+}
+
+/// A piece of a UI node that renders using a specific shader and can enqueue
+/// the phase items necessary to render itself.
+///
+/// Types of UI render objects include normal UI nodes, box shadows, gradients,
+/// texture slices, and so forth.
+pub trait UiRenderObject: Send + Sync + 'static {
+    /// The set of draw functions that draw render objects of this type.
+    type DrawFunctions: 'static;
+
+    /// A type that stores all information taken from a view that will be needed
+    /// to create the pipeline key for objects of this type.
+    ///
+    /// If no such data is required, this can be `()`.
+    type ViewPipelineKeyBuilder: Sized;
+
+    /// ECS data from the [`ExtractedView`] needed to construct the
+    /// [`Self::ViewPipelineKeyBuilder`].
+    ///
+    /// If no such data is required, this can be `()`.
+    type ViewQueryData: QueryData;
+
+    /// The shader pipeline that renders UI objects of this type.
+    type SpecializedRenderPipeline: SpecializedRenderPipeline + Resource;
+
+    /// Any extra system data needed in order to create a pipeline key.
+    type PipelineKeySystemParam: SystemParam;
+
+    /// Returns the sort order for this render object.
+    fn get_sort_key(&self) -> FloatOrd;
+
+    /// Extracts whatever render-world data is necessary to construct the
+    /// pipeline key from a single view.
+    fn create_view_pipeline_key_builder<'w, 's>(
+        view: <<Self::ViewQueryData as QueryData>::ReadOnly as QueryData>::Item<'w, 's>,
+    ) -> Self::ViewPipelineKeyBuilder;
+
+    /// Creates the pipeline key needed to render this object from the
+    /// information fetched in [`Self::create_view_pipeline_key_builder`].
+    fn create_pipeline_key(
+        &self,
+        cached_camera_view: &CachedCameraView<Self::ViewPipelineKeyBuilder>,
+        system_param: &mut SystemParamItem<Self::PipelineKeySystemParam>,
+    ) -> Option<<Self::SpecializedRenderPipeline as SpecializedRenderPipeline>::Key>;
+}
+
+/// Information about a single view that [`queue_ui_items`] caches.
+///
+/// All information needed to construct the pipeline key must be in this structure.
+pub struct CachedCameraView<'w, PKB> {
+    /// The render-world entity of the current camera.
+    current_camera_entity: Entity,
+
+    /// The [`ExtractedView`] structure corresponding to that camera.
+    extracted_view: &'w ExtractedView,
+
+    /// Any render-object-specific data needed to construct a pipeline key.
+    ///
+    /// The [`UiRenderObject::ViewPipelineKeyBuilder`] specifies this type.
+    pipeline_key_builder: PKB,
+}
+
+impl<'w, PKB> CachedCameraView<'w, PKB> {
+    fn update<E>(
+        maybe_self: &'_ mut Option<CachedCameraView<'w, PKB>>,
+        this_camera_entity: Entity,
+        render_views: &'w Query<E::ViewQueryData, With<ExtractedView>>,
+        ui_camera_views: &'w Query<&UiCameraView>,
+        extracted_views: &'w Query<&ExtractedView>,
+    ) where
+        E: UiRenderObject<ViewPipelineKeyBuilder = PKB>,
+    {
+        if maybe_self.as_ref().is_some_and(|cached_camera_view| {
+            cached_camera_view.current_camera_entity == this_camera_entity
+        }) {
+            return;
+        }
+
+        let maybe_current_view =
+            ui_camera_views
+                .get(this_camera_entity)
+                .ok()
+                .and_then(|default_camera_view| {
+                    let view = extracted_views.get(default_camera_view.0).ok()?;
+                    let pipeline_key_builder = render_views.get(default_camera_view.0).ok()?;
+                    Some((view, pipeline_key_builder))
+                });
+
+        let Some((extracted_view, pipeline_key_builder_item)) = maybe_current_view else {
+            *maybe_self = None;
+            return;
+        };
+
+        *maybe_self = Some(CachedCameraView {
+            current_camera_entity: this_camera_entity,
+            extracted_view,
+            pipeline_key_builder: E::create_view_pipeline_key_builder(pipeline_key_builder_item),
+        });
     }
 }

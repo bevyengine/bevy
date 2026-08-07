@@ -6,7 +6,6 @@ use bevy_app::prelude::*;
 use bevy_asset::*;
 use bevy_camera::visibility::InheritedVisibility;
 use bevy_color::{Alpha, ColorToComponents, LinearRgba};
-use bevy_ecs::entity::EntityIndexMap;
 use bevy_ecs::prelude::*;
 use bevy_ecs::{
     prelude::Component,
@@ -17,7 +16,7 @@ use bevy_ecs::{
 };
 use bevy_math::{vec2, Affine2, FloatOrd, Rect, Vec2};
 use bevy_mesh::VertexBufferLayout;
-use bevy_render::sync_world::{MainEntity, MainEntityHashMap, MainEntityHashSet};
+use bevy_render::sync_world::{MainEntity, MainEntityHashSet};
 use bevy_render::{
     render_phase::*,
     render_resource::{binding_types::uniform_buffer, *},
@@ -34,9 +33,12 @@ use bevy_ui::{
 use bevy_utils::default;
 use bytemuck::{Pod, Zeroable};
 
-use crate::{BoxShadowSamples, RenderUiSystems, TransparentUi, UiCameraMap};
+use crate::{
+    queue_ui_items, BoxShadowSamples, CachedCameraView, ChangedUiObject, RenderUiSystems,
+    TransparentUi, UiCameraMap, UiRenderObject, UiRenderObjects,
+};
 
-use super::{stack_z_offsets, UiCameraView, QUAD_INDICES, QUAD_VERTEX_POSITIONS};
+use super::{stack_z_offsets, QUAD_INDICES, QUAD_VERTEX_POSITIONS};
 
 /// A plugin that enables the rendering of box shadows.
 pub struct BoxShadowPlugin;
@@ -59,7 +61,7 @@ impl Plugin for BoxShadowPlugin {
                 .add_systems(
                     Render,
                     (
-                        queue_shadows.in_set(RenderSystems::Queue),
+                        queue_ui_items::<ExtractedBoxShadow>.in_set(RenderSystems::Queue),
                         prepare_shadows.in_set(RenderSystems::PrepareBindGroups),
                     ),
                 );
@@ -194,16 +196,43 @@ pub struct ExtractedBoxShadow {
     pub size: Vec2,
 }
 
-/// List of extracted shadows to be sorted and queued for rendering
-#[derive(Resource, Default)]
-pub struct ExtractedBoxShadows {
-    /// The list of box shadows grouped by their main-world entity, along with
-    /// each group's target camera entity.
-    ///
-    /// This is a two-level data structure so that we can quickly remove all box
-    /// shadows associated with a main-world entity when it changes.
-    pub box_shadows: MainEntityHashMap<(Entity, EntityIndexMap<ExtractedBoxShadow>)>,
+impl UiRenderObject for ExtractedBoxShadow {
+    type DrawFunctions = DrawBoxShadows;
+    type ViewPipelineKeyBuilder = UiBoxShadowViewPipelineKeyBuilder;
+    type ViewQueryData = Option<&'static BoxShadowSamples>;
+    type SpecializedRenderPipeline = BoxShadowPipeline;
+    type PipelineKeySystemParam = ();
+
+    fn get_sort_key(&self) -> FloatOrd {
+        FloatOrd(self.stack_index as f32 + stack_z_offsets::BOX_SHADOW)
+    }
+
+    fn create_view_pipeline_key_builder<'w, 's>(
+        box_shadow_samples: Option<&BoxShadowSamples>,
+    ) -> Self::ViewPipelineKeyBuilder {
+        UiBoxShadowViewPipelineKeyBuilder {
+            box_shadow_samples: box_shadow_samples.cloned(),
+        }
+    }
+
+    fn create_pipeline_key(
+        &self,
+        cached_camera_view: &CachedCameraView<Self::ViewPipelineKeyBuilder>,
+        _: &mut SystemParamItem<Self::PipelineKeySystemParam>,
+    ) -> Option<BoxShadowPipelineKey> {
+        Some(BoxShadowPipelineKey {
+            target_format: cached_camera_view.extracted_view.target_format,
+            samples: cached_camera_view
+                .pipeline_key_builder
+                .box_shadow_samples
+                .unwrap_or_default()
+                .0,
+        })
+    }
 }
+
+/// List of extracted shadows to be sorted and queued for rendering
+pub type ExtractedBoxShadows = UiRenderObjects<ExtractedBoxShadow>;
 
 pub fn extract_shadows(
     mut commands: Commands,
@@ -269,6 +298,7 @@ pub fn extract_shadows(
     mut nodes_processed_this_frame: Local<MainEntityHashSet>,
 ) {
     nodes_processed_this_frame.clear();
+    extracted_box_shadows.changed.clear();
 
     let mut mapping = camera_map.get_mapper();
 
@@ -281,14 +311,22 @@ pub fn extract_shadows(
     {
         let main_entity = MainEntity::from(entity);
 
-        // If there were any previous box shadows for this entity, despawn them.
-        for (render_entity, _) in extracted_box_shadows
-            .box_shadows
-            .get_mut(&main_entity)
-            .iter_mut()
-            .flat_map(|(_, shadows)| shadows.drain(..))
+        // If there were any previous box shadows for this entity, despawn them
+        // and record them as changed so the render phase entry can be removed.
+        if let Some((prev_camera_entity, mut shadows)) =
+            extracted_box_shadows.objects.remove(&main_entity)
         {
-            commands.entity(render_entity).despawn();
+            let changed = extracted_box_shadows
+                .changed
+                .entry(main_entity)
+                .or_default();
+            for (render_entity, _) in shadows.drain(..) {
+                commands.entity(render_entity).despawn();
+                changed.push(ChangedUiObject {
+                    render_entity,
+                    prev_camera_entity,
+                });
+            }
         }
 
         // Skip if no visible shadows
@@ -299,7 +337,7 @@ pub fn extract_shadows(
         let Some(extracted_camera_entity) = mapping.map(camera) else {
             continue;
         };
-        if let Some((camera_entity, _)) = extracted_box_shadows.box_shadows.get_mut(&main_entity) {
+        if let Some((camera_entity, _)) = extracted_box_shadows.objects.get_mut(&main_entity) {
             *camera_entity = extracted_camera_entity;
         }
 
@@ -347,7 +385,7 @@ pub fn extract_shadows(
             };
 
             extracted_box_shadows
-                .box_shadows
+                .objects
                 .entry(main_entity)
                 .or_insert_with(|| (extracted_camera_entity, Default::default()))
                 .1
@@ -383,81 +421,31 @@ pub fn extract_shadows(
         if nodes_processed_this_frame.contains(&main_entity) {
             continue;
         }
-        let Some((_, mut extracted_nodes)) = extracted_box_shadows.box_shadows.remove(&main_entity)
+        let Some((prev_camera_entity, mut extracted_nodes)) =
+            extracted_box_shadows.objects.remove(&main_entity)
         else {
             continue;
         };
+        let changed = extracted_box_shadows
+            .changed
+            .entry(main_entity)
+            .or_default();
         for (render_entity, _) in extracted_nodes.drain(..) {
             commands.entity(render_entity).despawn();
+            changed.push(ChangedUiObject {
+                render_entity,
+                prev_camera_entity,
+            });
         }
     }
 }
 
-#[expect(
-    clippy::too_many_arguments,
-    reason = "it's a system that needs a lot of them"
-)]
-pub fn queue_shadows(
-    extracted_box_shadows: ResMut<ExtractedBoxShadows>,
-    box_shadow_pipeline: Res<BoxShadowPipeline>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<BoxShadowPipeline>>,
-    mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    render_views: Query<(&UiCameraView, Option<&BoxShadowSamples>), With<ExtractedView>>,
-    camera_views: Query<&ExtractedView>,
-    pipeline_cache: Res<PipelineCache>,
-    draw_functions: Res<DrawFunctions<TransparentUi>>,
-) {
-    let draw_function = draw_functions.read().id::<DrawBoxShadows>();
-    let mut current_camera_entity = Entity::PLACEHOLDER;
-    let mut current_phase = None;
-
-    for (main_entity, (extracted_camera_entity, extracted_sub_shadows)) in
-        extracted_box_shadows.box_shadows.iter()
-    {
-        if current_camera_entity != *extracted_camera_entity {
-            current_phase = render_views.get(*extracted_camera_entity).ok().and_then(
-                |(default_camera_view, shadow_samples)| {
-                    camera_views
-                        .get(default_camera_view.0)
-                        .ok()
-                        .and_then(|view| {
-                            transparent_render_phases
-                                .get_mut(&view.retained_view_entity)
-                                .map(|transparent_phase| {
-                                    let pipeline = pipelines.specialize(
-                                        &pipeline_cache,
-                                        &box_shadow_pipeline,
-                                        BoxShadowPipelineKey {
-                                            target_format: view.target_format,
-                                            samples: shadow_samples.copied().unwrap_or_default().0,
-                                        },
-                                    );
-                                    (pipeline, transparent_phase)
-                                })
-                        })
-                },
-            );
-            current_camera_entity = *extracted_camera_entity;
-        }
-
-        let Some((pipeline, transparent_phase)) = current_phase.as_mut() else {
-            continue;
-        };
-        for (entity, extracted_shadow) in extracted_sub_shadows.iter() {
-            transparent_phase.add_transient(TransparentUi {
-                draw_function,
-                pipeline: *pipeline,
-                entity: (*entity, *main_entity),
-                sort_key: FloatOrd(
-                    extracted_shadow.stack_index as f32 + stack_z_offsets::BOX_SHADOW,
-                ),
-
-                batch_range: 0..0,
-                extra_index: PhaseItemExtraIndex::None,
-                indexed: true,
-            });
-        }
-    }
+/// Information that the box shadow renderer needs from each view to construct
+/// the pipeline key.
+pub struct UiBoxShadowViewPipelineKeyBuilder {
+    /// The number of samples that this view requests to render box shadows
+    /// with.
+    box_shadow_samples: Option<BoxShadowSamples>,
 }
 
 pub fn prepare_shadows(
@@ -491,7 +479,7 @@ pub fn prepare_shadows(
             for item_index in 0..ui_phase.items.len() {
                 let item = &mut ui_phase.items[item_index];
                 let Some((extracted_camera_entity, box_shadow)) = extracted_shadows
-                    .box_shadows
+                    .objects
                     .get(&item.main_entity())
                     .and_then(|(extracted_camera_entity, sub_shadows)| {
                         sub_shadows

@@ -54,7 +54,7 @@ impl Plugin for UiTextureSlicerPlugin {
                 .add_systems(
                     Render,
                     (
-                        queue_ui_slices.in_set(RenderSystems::Queue),
+                        queue_ui_items::<ExtractedUiTextureSlice>.in_set(RenderSystems::Queue),
                         prepare_ui_slices.in_set(RenderSystems::PrepareBindGroups),
                     ),
                 );
@@ -204,16 +204,32 @@ pub struct ExtractedUiTextureSlice {
     pub inverse_scale_factor: f32,
 }
 
-/// A render-world resource that stores all texture slices in the scene.
-#[derive(Resource, Default)]
-pub struct ExtractedUiTextureSlices {
-    /// The list of texture slices grouped by their main-world entity, along with
-    /// each group's target camera entity.
-    ///
-    /// This is a two-level data structure so that we can quickly remove all
-    /// texture slices associated with a main-world entity when it changes.
-    pub slices: MainEntityHashMap<(Entity, EntityIndexMap<ExtractedUiTextureSlice>)>,
+impl UiRenderObject for ExtractedUiTextureSlice {
+    type DrawFunctions = DrawUiTextureSlices;
+    type ViewQueryData = ();
+    type SpecializedRenderPipeline = UiTextureSlicePipeline;
+    type ViewPipelineKeyBuilder = ();
+    type PipelineKeySystemParam = ();
+
+    fn get_sort_key(&self) -> FloatOrd {
+        FloatOrd(self.stack_index as f32 + stack_z_offsets::IMAGE)
+    }
+
+    fn create_view_pipeline_key_builder<'w, 's>(_: ()) {}
+
+    fn create_pipeline_key(
+        &self,
+        cached_camera_view: &CachedCameraView<Self::ViewPipelineKeyBuilder>,
+        _: &mut SystemParamItem<Self::PipelineKeySystemParam>,
+    ) -> Option<<Self::SpecializedRenderPipeline as SpecializedRenderPipeline>::Key> {
+        Some(UiTextureSlicePipelineKey {
+            target_format: cached_camera_view.extracted_view.target_format,
+        })
+    }
 }
+
+/// A render-world resource that stores all texture slices in the scene.
+pub type ExtractedUiTextureSlices = UiRenderObjects<ExtractedUiTextureSlice>;
 
 pub fn extract_ui_texture_slices(
     mut commands: Commands,
@@ -280,6 +296,7 @@ pub fn extract_ui_texture_slices(
     mut nodes_processed_this_frame: Local<MainEntityHashSet>,
 ) {
     nodes_processed_this_frame.clear();
+    extracted_ui_slicers.changed.clear();
     let mut camera_mapper = camera_map.get_mapper();
 
     for (entity, uinode, stack_index, transform, inherited_visibility, clip, camera, image) in
@@ -291,14 +308,19 @@ pub fn extract_ui_texture_slices(
     {
         let main_entity = MainEntity::from(entity);
 
-        // If there were any previous UI slices for this entity, despawn them.
-        for (render_entity, _) in extracted_ui_slicers
-            .slices
-            .get_mut(&main_entity)
-            .iter_mut()
-            .flat_map(|(_, slices)| slices.drain(..))
+        // If there were any previous UI slices for this entity, despawn them
+        // and record them as changed so the render phase entry can be removed.
+        if let Some((prev_camera_entity, mut slices)) =
+            extracted_ui_slicers.objects.remove(&main_entity)
         {
-            commands.entity(render_entity).despawn();
+            let changed = extracted_ui_slicers.changed.entry(main_entity).or_default();
+            for (render_entity, _) in slices.drain(..) {
+                commands.entity(render_entity).despawn();
+                changed.push(ChangedUiObject {
+                    render_entity,
+                    prev_camera_entity,
+                });
+            }
         }
 
         let visual_box = match image.visual_box {
@@ -333,7 +355,7 @@ pub fn extract_ui_texture_slices(
         let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
             continue;
         };
-        if let Some((camera_entity, _)) = extracted_ui_slicers.slices.get_mut(&main_entity) {
+        if let Some((camera_entity, _)) = extracted_ui_slicers.objects.get_mut(&main_entity) {
             *camera_entity = extracted_camera_entity;
         }
 
@@ -357,7 +379,7 @@ pub fn extract_ui_texture_slices(
         };
 
         extracted_ui_slicers
-            .slices
+            .objects
             .entry(main_entity)
             .or_insert_with(|| (extracted_camera_entity, Default::default()))
             .1
@@ -398,74 +420,17 @@ pub fn extract_ui_texture_slices(
         if nodes_processed_this_frame.contains(&main_entity) {
             continue;
         }
-        let Some((_, mut extracted_nodes)) = extracted_ui_slicers.slices.remove(&main_entity)
+        let Some((prev_camera_entity, mut extracted_nodes)) =
+            extracted_ui_slicers.objects.remove(&main_entity)
         else {
             continue;
         };
+        let changed = extracted_ui_slicers.changed.entry(main_entity).or_default();
         for (render_entity, _) in extracted_nodes.drain(..) {
             commands.entity(render_entity).despawn();
-        }
-    }
-}
-
-#[expect(
-    clippy::too_many_arguments,
-    reason = "it's a system that needs a lot of them"
-)]
-pub fn queue_ui_slices(
-    extracted_ui_slicers: ResMut<ExtractedUiTextureSlices>,
-    ui_slicer_pipeline: Res<UiTextureSlicePipeline>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<UiTextureSlicePipeline>>,
-    mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    render_views: Query<&UiCameraView, With<ExtractedView>>,
-    camera_views: Query<&ExtractedView>,
-    pipeline_cache: Res<PipelineCache>,
-    draw_functions: Res<DrawFunctions<TransparentUi>>,
-) {
-    let draw_function = draw_functions.read().id::<DrawUiTextureSlices>();
-    let mut current_camera_entity = Entity::PLACEHOLDER;
-    let mut current_phase = None;
-
-    for (main_entity, (extracted_camera_entity, subslices)) in extracted_ui_slicers.slices.iter() {
-        if current_camera_entity != *extracted_camera_entity {
-            current_phase =
-                render_views
-                    .get(*extracted_camera_entity)
-                    .ok()
-                    .and_then(|default_camera_view| {
-                        camera_views
-                            .get(default_camera_view.0)
-                            .ok()
-                            .and_then(|view| {
-                                transparent_render_phases
-                                    .get_mut(&view.retained_view_entity)
-                                    .map(|transparent_phase| {
-                                        let pipeline = pipelines.specialize(
-                                            &pipeline_cache,
-                                            &ui_slicer_pipeline,
-                                            UiTextureSlicePipelineKey {
-                                                target_format: view.target_format,
-                                            },
-                                        );
-                                        (pipeline, transparent_phase)
-                                    })
-                            })
-                    });
-            current_camera_entity = *extracted_camera_entity;
-        }
-
-        let Some((pipeline, transparent_phase)) = current_phase.as_mut() else {
-            continue;
-        };
-        for (render_entity, extracted_slicer) in subslices.iter() {
-            transparent_phase.add_transient(TransparentUi {
-                draw_function,
-                pipeline: *pipeline,
-                entity: (*render_entity, *main_entity),
-                sort_key: FloatOrd(extracted_slicer.stack_index as f32 + stack_z_offsets::IMAGE),
-                batch_range: 0..0,
-                extra_index: PhaseItemExtraIndex::None,
-                indexed: true,
+            changed.push(ChangedUiObject {
+                render_entity,
+                prev_camera_entity,
             });
         }
     }
@@ -522,7 +487,7 @@ pub fn prepare_ui_slices(
             for item_index in 0..ui_phase.items.len() {
                 let item = &mut ui_phase.items[item_index];
                 if let Some(texture_slices) = extracted_slices
-                    .slices
+                    .objects
                     .get(&item.main_entity())
                     .and_then(|(_, subslices)| subslices.get(&item.entity()))
                 {

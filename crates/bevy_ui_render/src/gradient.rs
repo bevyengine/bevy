@@ -61,7 +61,7 @@ impl Plugin for GradientPlugin {
                 .add_systems(
                     Render,
                     (
-                        queue_gradient.in_set(RenderSystems::Queue),
+                        queue_ui_items::<ExtractedGradient>.in_set(RenderSystems::Queue),
                         prepare_gradient.in_set(RenderSystems::PrepareBindGroups),
                     ),
                 );
@@ -243,15 +243,49 @@ pub struct ExtractedGradient {
     pub color_space: InterpolationColorSpace,
 }
 
-/// A render-world resource that stores all gradients in the scene.
-#[derive(Resource, Default)]
-pub struct ExtractedGradients {
-    /// The list of gradients grouped by their main-world entity, along with each group's target camera entity.
-    ///
-    /// This is a two-level data structure so that we can quickly remove all
-    /// gradients associated with a main-world entity when it changes.
-    pub items: MainEntityHashMap<(Entity, EntityIndexMap<ExtractedGradient>)>,
+impl UiRenderObject for ExtractedGradient {
+    type DrawFunctions = DrawGradientFns;
+    type ViewQueryData = Option<&'static UiAntiAlias>;
+    type SpecializedRenderPipeline = GradientPipeline;
+    type ViewPipelineKeyBuilder = UiGradientViewPipelineKeyBuilder;
+    type PipelineKeySystemParam = ();
+
+    fn get_sort_key(&self) -> FloatOrd {
+        FloatOrd(
+            self.stack_index as f32
+                + match self.node_type {
+                    NodeType::Rect | NodeType::Inverted => stack_z_offsets::GRADIENT,
+                    NodeType::Border(_) => stack_z_offsets::BORDER_GRADIENT,
+                },
+        )
+    }
+
+    fn create_view_pipeline_key_builder<'w, 's>(
+        anti_alias: Option<&UiAntiAlias>,
+    ) -> Self::ViewPipelineKeyBuilder {
+        UiGradientViewPipelineKeyBuilder {
+            anti_alias: anti_alias.cloned(),
+        }
+    }
+
+    fn create_pipeline_key(
+        &self,
+        cached_camera_view: &CachedCameraView<Self::ViewPipelineKeyBuilder>,
+        _: &mut SystemParamItem<Self::PipelineKeySystemParam>,
+    ) -> Option<UiGradientPipelineKey> {
+        Some(UiGradientPipelineKey {
+            anti_alias: matches!(
+                cached_camera_view.pipeline_key_builder.anti_alias,
+                None | Some(UiAntiAlias::On)
+            ),
+            color_space: self.color_space,
+            target_format: cached_camera_view.extracted_view.target_format,
+        })
+    }
 }
+
+/// A render-world resource that stores all gradients in the scene.
+pub type ExtractedGradients = UiRenderObjects<ExtractedGradient>;
 
 // Interpolate implicit stops (where position is `f32::NAN`)
 // If the first and last stops are implicit set them to the `min` and `max` values
@@ -401,6 +435,7 @@ pub fn extract_gradients(
     mut nodes_processed_this_frame: Local<MainEntityHashSet>,
 ) {
     nodes_processed_this_frame.clear();
+    extracted_gradients.changed.clear();
     let mut camera_mapper = camera_map.get_mapper();
     let mut sorted_stops = vec![];
 
@@ -421,14 +456,19 @@ pub fn extract_gradients(
     ) {
         let main_entity = MainEntity::from(entity);
 
-        // If there were any previous gradients for this entity, despawn them.
-        for (render_entity, _) in extracted_gradients
-            .items
-            .get_mut(&main_entity)
-            .iter_mut()
-            .flat_map(|(_, gradients)| gradients.drain(..))
+        // If there were any previous gradients for this entity, despawn them
+        // and record them as changed so the render phase entry can be removed.
+        if let Some((prev_camera_entity, mut gradients)) =
+            extracted_gradients.objects.remove(&main_entity)
         {
-            commands.entity(render_entity).despawn();
+            let changed = extracted_gradients.changed.entry(main_entity).or_default();
+            for (render_entity, _) in gradients.drain(..) {
+                commands.entity(render_entity).despawn();
+                changed.push(ChangedUiObject {
+                    render_entity,
+                    prev_camera_entity,
+                });
+            }
         }
 
         // Skip invisible images
@@ -439,7 +479,7 @@ pub fn extract_gradients(
         let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
             continue;
         };
-        if let Some((camera_entity, _)) = extracted_gradients.items.get_mut(&main_entity) {
+        if let Some((camera_entity, _)) = extracted_gradients.objects.get_mut(&main_entity) {
             *camera_entity = extracted_camera_entity;
         }
 
@@ -471,7 +511,7 @@ pub fn extract_gradients(
                         &mut sorted_stops,
                     );
                     extracted_gradients
-                        .items
+                        .objects
                         .entry(main_entity)
                         .or_insert_with(|| (extracted_camera_entity, Default::default()))
                         .1
@@ -512,7 +552,7 @@ pub fn extract_gradients(
                         );
 
                         extracted_gradients
-                            .items
+                            .objects
                             .entry(main_entity)
                             .or_insert_with(|| (extracted_camera_entity, Default::default()))
                             .1
@@ -565,7 +605,7 @@ pub fn extract_gradients(
                         );
 
                         extracted_gradients
-                            .items
+                            .objects
                             .entry(main_entity)
                             .or_insert_with(|| (extracted_camera_entity, Default::default()))
                             .1
@@ -624,7 +664,7 @@ pub fn extract_gradients(
                         interpolate_color_stops(&mut extracted_color_stops, 0., TAU);
 
                         extracted_gradients
-                            .items
+                            .objects
                             .entry(main_entity)
                             .or_insert_with(|| (extracted_camera_entity, Default::default()))
                             .1
@@ -672,84 +712,26 @@ pub fn extract_gradients(
         if nodes_processed_this_frame.contains(&main_entity) {
             continue;
         }
-        let Some((_, mut extracted_nodes)) = extracted_gradients.items.remove(&main_entity) else {
+        let Some((prev_camera_entity, mut extracted_nodes)) =
+            extracted_gradients.objects.remove(&main_entity)
+        else {
             continue;
         };
+        let changed = extracted_gradients.changed.entry(main_entity).or_default();
         for (render_entity, _) in extracted_nodes.drain(..) {
             commands.entity(render_entity).despawn();
+            changed.push(ChangedUiObject {
+                render_entity,
+                prev_camera_entity,
+            });
         }
     }
 }
 
-#[expect(
-    clippy::too_many_arguments,
-    reason = "it's a system that needs a lot of them"
-)]
-pub fn queue_gradient(
-    extracted_gradients: ResMut<ExtractedGradients>,
-    gradients_pipeline: Res<GradientPipeline>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<GradientPipeline>>,
-    mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    render_views: Query<(&UiCameraView, Option<&UiAntiAlias>), With<ExtractedView>>,
-    camera_views: Query<&ExtractedView>,
-    pipeline_cache: Res<PipelineCache>,
-    draw_functions: Res<DrawFunctions<TransparentUi>>,
-) {
-    let draw_function = draw_functions.read().id::<DrawGradientFns>();
-    let mut current_camera_entity = Entity::PLACEHOLDER;
-    let mut current_phase = None;
-
-    for (main_entity, (extracted_camera_entity, sub_gradients)) in extracted_gradients.items.iter()
-    {
-        if current_camera_entity != *extracted_camera_entity {
-            current_phase = render_views.get(*extracted_camera_entity).ok().and_then(
-                |(default_camera_view, ui_anti_alias)| {
-                    camera_views
-                        .get(default_camera_view.0)
-                        .ok()
-                        .and_then(|view| {
-                            transparent_render_phases
-                                .get_mut(&view.retained_view_entity)
-                                .map(|transparent_phase| {
-                                    (view.target_format, ui_anti_alias, transparent_phase)
-                                })
-                        })
-                },
-            );
-            current_camera_entity = *extracted_camera_entity;
-        }
-
-        let Some((target_format, ui_anti_alias, transparent_phase)) = current_phase.as_mut() else {
-            continue;
-        };
-        for (render_entity, gradient) in sub_gradients.iter() {
-            let pipeline = pipelines.specialize(
-                &pipeline_cache,
-                &gradients_pipeline,
-                UiGradientPipelineKey {
-                    anti_alias: matches!(ui_anti_alias, None | Some(UiAntiAlias::On)),
-                    color_space: gradient.color_space,
-                    target_format: *target_format,
-                },
-            );
-
-            transparent_phase.add_transient(TransparentUi {
-                draw_function,
-                pipeline,
-                entity: (*render_entity, *main_entity),
-                sort_key: FloatOrd(
-                    gradient.stack_index as f32
-                        + match gradient.node_type {
-                            NodeType::Rect | NodeType::Inverted => stack_z_offsets::GRADIENT,
-                            NodeType::Border(_) => stack_z_offsets::BORDER_GRADIENT,
-                        },
-                ),
-                batch_range: 0..0,
-                extra_index: PhaseItemExtraIndex::None,
-                indexed: true,
-            });
-        }
-    }
+/// Information from a view needed to construct a pipeline key for gradients.
+pub struct UiGradientViewPipelineKeyBuilder {
+    /// Whether anti-aliasing is requested for UI nodes in this view.
+    anti_alias: Option<UiAntiAlias>,
 }
 
 #[repr(C)]
@@ -836,7 +818,7 @@ pub fn prepare_gradient(
             for item_index in 0..ui_phase.items.len() {
                 let item = &mut ui_phase.items[item_index];
                 if let Some(gradient) = extracted_gradients
-                    .items
+                    .objects
                     .get(&item.main_entity())
                     .and_then(|(_, subgradients)| subgradients.get(&item.entity()))
                 {
