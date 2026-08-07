@@ -103,7 +103,7 @@ impl ComponentInserter {
     #[track_caller]
     #[inline]
     pub fn insert(&self) -> impl EntityCommand + 'static {
-        let c = (self.constructor)();
+        let mut c = (self.constructor)();
         let component_id = self.component_id;
         let world_id = self.world_id;
         let created = self.created;
@@ -129,6 +129,7 @@ impl ComponentInserter {
 mod backing_ptr {
     use core::alloc::Layout;
     use core::ptr::NonNull;
+    use core::{mem, ptr};
 
     use alloc::alloc::dealloc;
     use alloc::boxed::Box;
@@ -139,6 +140,9 @@ mod backing_ptr {
     pub(super) struct BackingPtr {
         layout: Layout,
         ptr: NonNull<u8>,
+        /// # Safety
+        /// It must be valid to pass `self.ptr` to `self.drop_fn`
+        drop_fn: Option<unsafe fn(NonNull<u8>)>,
     }
 
     impl BackingPtr {
@@ -146,12 +150,18 @@ mod backing_ptr {
             Self {
                 layout: Layout::new::<C>(),
                 ptr: NonNull::new(Box::into_raw(c)).unwrap().cast(),
+                drop_fn: mem::needs_drop::<C>().then_some(|p| {
+                    // SAFETY: caller upholds requirements
+                    unsafe { ptr::drop_in_place(p.cast::<C>().as_ptr()) };
+                }),
             }
         }
 
         /// # Safety
-        /// Only one [`OwningPtr`] may be crated from any given [`BackingPtr`]
-        pub(super) unsafe fn owning_ptr(&self) -> OwningPtr<'_> {
+        /// Only one [`OwningPtr`] may be created from any given [`BackingPtr`]
+        pub(super) unsafe fn owning_ptr(&mut self) -> OwningPtr<'_> {
+            // the OwningPtr is now responsible for dropping it
+            self.drop_fn = None;
             // SAFETY: ptr came from a box and the caller guarantees that only one is created
             unsafe { OwningPtr::new(self.ptr) }
         }
@@ -162,6 +172,12 @@ mod backing_ptr {
 
     impl Drop for BackingPtr {
         fn drop(&mut self) {
+            if let Some(drop_fn) = self.drop_fn {
+                // SAFETY:
+                // - `Self::new` ensures ptr is valid
+                // - `self.ptr` is not used again except for `dealloc`
+                unsafe { drop_fn(self.ptr) };
+            }
             // SAFETY: ptr came from a box and it's not used after this
             unsafe { dealloc(self.ptr.as_ptr(), self.layout) };
         }
