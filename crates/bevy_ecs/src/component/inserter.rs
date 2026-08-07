@@ -183,3 +183,82 @@ mod backing_ptr {
         }
     }
 }
+
+#[cfg(test)]
+#[allow(
+    clippy::allow_attributes,
+    clippy::undocumented_unsafe_blocks,
+    reason = "tests"
+)]
+mod tests {
+    use core::sync::atomic::{AtomicU8, Ordering};
+
+    use super::*;
+
+    #[test]
+    fn backing_ptr_drop() {
+        static DROP_FLAG: AtomicU8 = AtomicU8::new(0);
+
+        #[expect(dead_code, reason = "need this not to be a ZST")]
+        struct Thing(usize);
+
+        impl Drop for Thing {
+            fn drop(&mut self) {
+                DROP_FLAG.fetch_add(1, Ordering::SeqCst);
+            }
+        }
+
+        let p = BackingPtr::new(Box::new(Thing(42)));
+        drop(p);
+        assert_eq!(DROP_FLAG.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn backing_ptr_no_drop() {
+        static DROP_FLAG: AtomicU8 = AtomicU8::new(0);
+
+        #[expect(dead_code, reason = "need this not to be a ZST")]
+        struct Thing(usize);
+
+        impl Drop for Thing {
+            fn drop(&mut self) {
+                DROP_FLAG.fetch_add(1, Ordering::SeqCst);
+            }
+        }
+
+        let mut p = BackingPtr::new(Box::new(Thing(42)));
+        unsafe { p.owning_ptr() };
+        drop(p);
+        assert_eq!(DROP_FLAG.load(Ordering::SeqCst), 0);
+    }
+
+    #[test]
+    fn backing_ptr_zst() {
+        static DROP_FLAG: AtomicU8 = AtomicU8::new(0);
+
+        struct Thing;
+
+        impl Drop for Thing {
+            fn drop(&mut self) {
+                DROP_FLAG.fetch_add(1, Ordering::SeqCst);
+            }
+        }
+
+        let p = BackingPtr::new(Box::new(Thing));
+        drop(p);
+        assert_eq!(DROP_FLAG.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    #[should_panic(expected = "expected panic from constructor")]
+    fn component_inserter_constructor_panic() {
+        #[derive(Component)]
+        struct Thing;
+
+        let mut world = World::new();
+        let inserter =
+            world.component_inserter::<Thing>(|| panic!("expected panic from constructor"));
+        let entity = world.spawn_empty();
+        inserter.insert().apply(entity);
+    }
+}
