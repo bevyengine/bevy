@@ -119,7 +119,7 @@ impl ComponentInserter {
             let p = unsafe { c.owning_ptr() };
             // SAFETY:
             // - already checked that the ComponentId came from the same world as `entity`
-            // - checked in constructor that the component is a ZST, so the dangling pointer is valid
+            // - p comes from the constructor which is type-checked in `Self::new`
             unsafe { entity.insert_by_id(component_id, p) };
             Ok(())
         }
