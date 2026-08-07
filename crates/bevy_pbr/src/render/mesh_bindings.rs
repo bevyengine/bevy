@@ -15,9 +15,8 @@ const MORPH_WEIGHT_SIZE: usize = size_of::<f32>();
 
 /// Buffer size used to store [`MAX_MORPH_WEIGHTS`] morph weights.
 ///
-/// The maximum is chosen to work on all supported GPUs. Supporting more morph
-/// weights would require checking GPU/platform limits at runtime instead of
-/// relying on const buffer sizes.
+/// See [`MAX_MORPH_WEIGHTS`] for why the limit is fixed at compile time instead
+/// of being derived from GPU/platform limits at runtime.
 pub const MORPH_BUFFER_SIZE: usize = MAX_MORPH_WEIGHTS * MORPH_WEIGHT_SIZE;
 
 const JOINT_SIZE: usize = size_of::<Mat4>();
