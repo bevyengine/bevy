@@ -265,11 +265,11 @@ where
 {
     /// Constructs a new [`CommandQueueRunner`] for the given queue.
     ///
-    /// This runs commands from `start` to the end of the queue.
+    /// This runs commands from `start` to the current end of the queue.
     ///
-    /// To support running commands from the queue owned by the [`World`],
-    /// this stores references to the [`World`] and/or a [`CommandQueue`] as opaque `data`,
-    /// and uses the `command_queue` function to extract the reference to the queue.
+    /// Stores references to just the [`World`] (when running the world command queue), to just a [`CommandQueue`] (when dropping), or both (when running any other queues).
+    /// In the case of the world's command queue, this allows us to fetch a new reference to the queue after every command, as the command can invalidate it due to receiving the `&mut World`.
+    /// References to other command queues can be stored directly.
     ///
     /// # Safety
     ///
