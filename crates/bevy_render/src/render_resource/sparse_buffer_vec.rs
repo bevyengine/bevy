@@ -212,7 +212,7 @@ pub fn update_sparse_buffers(
             timestamp_writes: None,
         });
     sparse_buffer_update_pass.set_pipeline(compute_pipeline);
-    let time_span = diagnostics.time_span(&mut sparse_buffer_update_pass, "sparse buffer updates");
+    let pass_span = diagnostics.pass_span(&mut sparse_buffer_update_pass, "sparse buffer updates");
 
     // Process each sparse buffer update job.
     for sparse_buffer_update_job in sparse_buffer_update_jobs.iter() {
@@ -235,7 +235,7 @@ pub fn update_sparse_buffers(
         );
     }
 
-    time_span.end(&mut sparse_buffer_update_pass);
+    pass_span.end(&mut sparse_buffer_update_pass);
 }
 
 /// A system that clears out the sparse buffer update jobs in preparation for a
