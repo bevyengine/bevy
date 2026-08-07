@@ -3,10 +3,10 @@ pub use wgpu_types::PrimitiveTopology;
 
 use super::{
     skinning::{SkinnedMeshBounds, SkinnedMeshBoundsError},
-    triangle_area_normal, triangle_normal, FourIterators, Indices, MeshAttributeData,
-    MeshTrianglesError, MeshVertexAttribute, MeshVertexAttributeId, MeshVertexBufferLayout,
-    MeshVertexBufferLayoutRef, MeshVertexBufferLayouts, MeshWindingInvertError,
-    VertexAttributeValues, VertexBufferLayout,
+    triangle_area_normal, triangle_normal, try_normalize_range_safe, FourIterators, Indices,
+    MeshAttributeData, MeshTrianglesError, MeshVertexAttribute, MeshVertexAttributeId,
+    MeshVertexBufferLayout, MeshVertexBufferLayoutRef, MeshVertexBufferLayouts,
+    MeshWindingInvertError, VertexAttributeValues, VertexBufferLayout,
 };
 use crate::arr_f32_to_unorm8;
 #[cfg(feature = "morph")]
@@ -1708,6 +1708,7 @@ impl Mesh {
     /// Panics if [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
     /// Panics if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
     /// Panics if the mesh does not have indices defined.
+    /// Panics if the number of indices is not a multiple of 3.
     /// Panics when the mesh data has already been extracted to `RenderWorld`. To handle
     /// this as an error use [`Mesh::try_compute_smooth_normals`]
     pub fn compute_smooth_normals(&mut self) {
@@ -1731,37 +1732,33 @@ impl Mesh {
     /// Panics if [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
     /// Panics if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
     /// Panics if the mesh does not have indices defined.
+    /// Panics if the number of indices is not a multiple of 3.
     pub fn try_compute_smooth_normals(&mut self) -> Result<(), MeshAccessError> {
         self.try_compute_custom_smooth_normals(|[a, b, c], positions, normals| {
             let pa = Vec3::from(positions[a]);
             let pb = Vec3::from(positions[b]);
             let pc = Vec3::from(positions[c]);
 
-            let ab = pb - pa;
-            let ba = pa - pb;
-            let bc = pc - pb;
-            let cb = pb - pc;
-            let ca = pa - pc;
-            let ac = pc - pa;
-
-            const EPS: f32 = f32::EPSILON;
-            let weight_a = if ab.length_squared() * ac.length_squared() > EPS {
-                ab.angle_between(ac)
-            } else {
-                0.0
+            let Some(ab) = try_normalize_range_safe(pb - pa) else {
+                return;
             };
-            let weight_b = if ba.length_squared() * bc.length_squared() > EPS {
-                ba.angle_between(bc)
-            } else {
-                0.0
+            let Some(bc) = try_normalize_range_safe(pc - pb) else {
+                return;
             };
-            let weight_c = if ca.length_squared() * cb.length_squared() > EPS {
-                ca.angle_between(cb)
-            } else {
-                0.0
+            let Some(ca) = try_normalize_range_safe(pa - pc) else {
+                return;
             };
 
-            let normal = Vec3::from(triangle_normal(positions[a], positions[b], positions[c]));
+            let ba = -ab;
+            let cb = -bc;
+            let ac = -ca;
+            let Some(normal) = try_normalize_range_safe(ab.cross(ac)) else {
+                return;
+            };
+
+            let weight_a = ab.angle_between(ac);
+            let weight_b = ba.angle_between(bc);
+            let weight_c = ca.angle_between(cb);
 
             normals[a] += normal * weight_a;
             normals[b] += normal * weight_b;
@@ -1787,6 +1784,7 @@ impl Mesh {
     /// Panics if [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
     /// Panics if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
     /// Panics if the mesh does not have indices defined.
+    /// Panics if the number of indices is not a multiple of 3.
     /// Panics when the mesh data has already been extracted to `RenderWorld`. To handle
     /// this as an error use [`Mesh::try_compute_area_weighted_normals`]
     pub fn compute_area_weighted_normals(&mut self) {
@@ -1812,6 +1810,7 @@ impl Mesh {
     /// Panics if [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
     /// Panics if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
     /// Panics if the mesh does not have indices defined.
+    /// Panics if the number of indices is not a multiple of 3.
     pub fn try_compute_area_weighted_normals(&mut self) -> Result<(), MeshAccessError> {
         self.try_compute_custom_smooth_normals(|[a, b, c], positions, normals| {
             let normal = Vec3::from(triangle_area_normal(
@@ -1819,9 +1818,9 @@ impl Mesh {
                 positions[b],
                 positions[c],
             ));
-            [a, b, c].into_iter().for_each(|pos| {
-                normals[pos] += normal;
-            });
+            for index in [a, b, c] {
+                normals[index] += normal;
+            }
         })
     }
 
@@ -1857,6 +1856,7 @@ impl Mesh {
     /// Panics if [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
     /// Panics if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
     /// Panics if the mesh does not have indices defined.
+    /// Panics if the number of indices is not a multiple of 3.
     /// Panics when the mesh data has already been extracted to `RenderWorld`. To handle
     /// this as an error use [`Mesh::try_compute_custom_smooth_normals`]
     //
@@ -1909,6 +1909,7 @@ impl Mesh {
     /// Panics if [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
     /// Panics if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
     /// Panics if the mesh does not have indices defined.
+    /// Panics if the number of indices is not a multiple of 3.
     //
     // FIXME: This should handle more cases since this is called as a part of gltf
     // mesh loading where we can't really blame users for loading meshes that might
@@ -1932,6 +1933,12 @@ impl Mesh {
             "smooth normals can only be computed on indexed meshes"
         );
 
+        let indices = self.try_indices()?;
+        assert!(
+            indices.len().is_multiple_of(3),
+            "smooth normals can only be computed when the index count is a multiple of 3"
+        );
+
         let positions = self
             .try_attribute(Mesh::ATTRIBUTE_POSITION)?
             .as_float3()
@@ -1939,7 +1946,7 @@ impl Mesh {
 
         let mut normals = vec![Vec3::ZERO; positions.len()];
 
-        match self.try_indices()? {
+        match indices {
             Indices::U16(vec) => vec.as_chunks().0.iter().for_each(|&chunk| {
                 per_triangle(chunk.map(|i| i as usize), positions, &mut normals);
             }),
@@ -1949,7 +1956,7 @@ impl Mesh {
         }
 
         for normal in &mut normals {
-            *normal = normal.try_normalize().unwrap_or(Vec3::ZERO);
+            *normal = try_normalize_range_safe(*normal).unwrap_or(Vec3::ZERO);
         }
 
         self.try_insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
@@ -2253,6 +2260,7 @@ impl Mesh {
 
         // No need to transform normals or tangents if rotation is near identity and scale is uniform
         if transform.rotation.is_near_identity()
+            && transform.scale.x >= 0.0
             && transform.scale.x == transform.scale.y
             && transform.scale.y == transform.scale.z
         {
@@ -2273,13 +2281,18 @@ impl Mesh {
         if let Some(VertexAttributeValues::Float32x4(tangents)) =
             self.try_attribute_mut_option(Mesh::ATTRIBUTE_TANGENT)?
         {
-            // Transform tangents, taking into account non-uniform scaling and rotation
+            // Transform tangents, taking into account non-uniform scaling and rotation.
+            let handedness_scale = if transform.scale.is_negative_bitmask().count_ones() & 1 == 1 {
+                -1.0
+            } else {
+                1.0
+            };
             tangents.iter_mut().for_each(|tangent| {
-                let handedness = tangent[3];
                 let scaled_tangent = Vec3::from_slice(tangent) * transform.scale;
-                *tangent = (transform.rotation * scaled_tangent.normalize_or_zero())
-                    .extend(handedness)
-                    .to_array();
+                *tangent = (transform.rotation
+                    * try_normalize_range_safe(scaled_tangent).unwrap_or(Vec3::ZERO))
+                .extend(tangent[3] * handedness_scale)
+                .to_array();
             });
         }
 
@@ -2392,7 +2405,9 @@ impl Mesh {
         {
             // Transform normals
             normals.iter_mut().for_each(|normal| {
-                *normal = (rotation * Vec3::from_slice(normal).normalize_or_zero()).to_array();
+                *normal = (rotation
+                    * try_normalize_range_safe(Vec3::from_slice(normal)).unwrap_or(Vec3::ZERO))
+                .to_array();
             });
         }
 
@@ -2402,9 +2417,10 @@ impl Mesh {
             // Transform tangents
             tangents.iter_mut().for_each(|tangent| {
                 let handedness = tangent[3];
-                *tangent = (rotation * Vec3::from_slice(tangent).normalize_or_zero())
-                    .extend(handedness)
-                    .to_array();
+                *tangent = (rotation
+                    * try_normalize_range_safe(Vec3::from_slice(tangent)).unwrap_or(Vec3::ZERO))
+                .extend(handedness)
+                .to_array();
             });
         }
 
@@ -2463,7 +2479,7 @@ impl Mesh {
         }
 
         // No need to transform normals or tangents if scale is uniform
-        if scale.x == scale.y && scale.y == scale.z {
+        if scale.x >= 0.0 && scale.x == scale.y && scale.y == scale.z {
             return Ok(());
         }
 
@@ -2479,13 +2495,17 @@ impl Mesh {
         if let Some(VertexAttributeValues::Float32x4(tangents)) =
             self.try_attribute_mut_option(Mesh::ATTRIBUTE_TANGENT)?
         {
-            // Transform tangents, taking into account non-uniform scaling
+            // Transform tangents, taking into account non-uniform scaling.
+            let handedness_scale = if scale.is_negative_bitmask().count_ones() & 1 == 1 {
+                -1.0
+            } else {
+                1.0
+            };
             tangents.iter_mut().for_each(|tangent| {
-                let handedness = tangent[3];
                 let scaled_tangent = Vec3::from_slice(tangent) * scale;
-                *tangent = scaled_tangent
-                    .normalize_or_zero()
-                    .extend(handedness)
+                *tangent = try_normalize_range_safe(scaled_tangent)
+                    .unwrap_or(Vec3::ZERO)
+                    .extend(tangent[3] * handedness_scale)
                     .to_array();
             });
         }
@@ -2866,7 +2886,7 @@ pub(crate) fn scale_normal(normal: Vec3, scale_recip: Vec3) -> Vec3 {
     // If n is finite, no component of `scale_recip` was infinite or the normal was perpendicular to the scale
     // else the scale had at least one zero-component and the normal needs to point along the direction of that component
     if n.is_finite() {
-        n.normalize_or_zero()
+        try_normalize_range_safe(n).unwrap_or(Vec3::ZERO)
     } else {
         Vec3::select(n.abs().cmpeq(Vec3::INFINITY), n.signum(), Vec3::ZERO).normalize()
     }
@@ -3325,6 +3345,131 @@ mod tests {
             assert!(new.abs() >= MIN, "{new} < {MIN}");
             assert!(new.abs() <= MAX, "{new} > {MAX}");
         }
+    }
+
+    #[test]
+    fn compute_smooth_normals_handles_extreme_scales() {
+        for scale in [1.0e-20_f32, 1.0e20_f32] {
+            let mut mesh = Mesh::new(
+                PrimitiveTopology::TriangleList,
+                RenderAssetUsages::default(),
+            )
+            .with_inserted_attribute(
+                Mesh::ATTRIBUTE_POSITION,
+                vec![[0.0, 0.0, 0.0], [scale, 0.0, 0.0], [0.0, scale, 0.0]],
+            )
+            .with_inserted_indices(Indices::U32(vec![0, 1, 2]));
+
+            mesh.compute_smooth_normals();
+
+            let normals = mesh
+                .attribute(Mesh::ATTRIBUTE_NORMAL)
+                .unwrap()
+                .as_float3()
+                .unwrap();
+            assert_eq!(normals, &[[0.0, 0.0, 1.0]; 3]);
+        }
+    }
+
+    #[test]
+    fn compute_smooth_normals_skips_invalid_triangles() {
+        for invalid_position in [[0.0, 0.0, 0.0], [0.0, 2.0, 0.0], [f32::INFINITY, 0.0, 0.0]] {
+            let mut mesh = Mesh::new(
+                PrimitiveTopology::TriangleList,
+                RenderAssetUsages::default(),
+            )
+            .with_inserted_attribute(
+                Mesh::ATTRIBUTE_POSITION,
+                vec![
+                    [0.0, 0.0, 0.0],
+                    [1.0, 0.0, 0.0],
+                    [0.0, 1.0, 0.0],
+                    invalid_position,
+                ],
+            )
+            .with_inserted_indices(Indices::U32(vec![0, 1, 2, 0, 3, 2]));
+
+            mesh.compute_smooth_normals();
+
+            let normals = mesh
+                .attribute(Mesh::ATTRIBUTE_NORMAL)
+                .unwrap()
+                .as_float3()
+                .unwrap();
+            assert_eq!(
+                normals,
+                &[
+                    [0.0, 0.0, 1.0],
+                    [0.0, 0.0, 1.0],
+                    [0.0, 0.0, 1.0],
+                    [0.0, 0.0, 0.0],
+                ]
+            );
+        }
+    }
+
+    #[test]
+    fn mesh_scaling_updates_tangent_handedness() {
+        let cases = [
+            (
+                Vec3::new(-1.0, 1.0, 1.0),
+                [0.0, 0.0, 1.0],
+                [-1.0, 0.0, 0.0, -1.0],
+            ),
+            (
+                Vec3::new(-1.0, -1.0, 1.0),
+                [0.0, 0.0, 1.0],
+                [-1.0, 0.0, 0.0, 1.0],
+            ),
+            (
+                Vec3::new(-1.0, -1.0, -1.0),
+                [0.0, 0.0, -1.0],
+                [-1.0, 0.0, 0.0, -1.0],
+            ),
+        ];
+
+        for (scale, expected_normal, expected_tangent) in cases {
+            let mut mesh = Mesh::new(
+                PrimitiveTopology::TriangleList,
+                RenderAssetUsages::default(),
+            )
+            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, vec![[1.0, 1.0, 1.0]])
+            .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, vec![[0.0, 0.0, 1.0]])
+            .with_inserted_attribute(Mesh::ATTRIBUTE_TANGENT, vec![[1.0, 0.0, 0.0, 1.0]]);
+
+            mesh.scale_by(scale);
+
+            let normals = mesh
+                .attribute(Mesh::ATTRIBUTE_NORMAL)
+                .unwrap()
+                .as_float3()
+                .unwrap();
+            let VertexAttributeValues::Float32x4(tangents) =
+                mesh.attribute(Mesh::ATTRIBUTE_TANGENT).unwrap()
+            else {
+                panic!("Mesh tangent attribute is not `Float32x4`");
+            };
+            assert_eq!(normals[0], expected_normal);
+            assert_eq!(tangents[0], expected_tangent);
+        }
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "smooth normals can only be computed when the index count is a multiple of 3"
+    )]
+    fn compute_smooth_normals_rejects_incomplete_indices() {
+        let mut mesh = Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::default(),
+        )
+        .with_inserted_attribute(
+            Mesh::ATTRIBUTE_POSITION,
+            vec![[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
+        )
+        .with_inserted_indices(Indices::U32(vec![0, 1, 2, 0]));
+
+        mesh.compute_smooth_normals();
     }
 
     #[test]
