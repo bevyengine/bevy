@@ -759,7 +759,7 @@ impl Default for TextFont {
     fn default() -> Self {
         Self {
             font: Default::default(),
-            font_size: FontSize::from(20.),
+            font_size: FontSize::Rem(1.),
             style: FontStyle::Normal,
             weight: FontWeight::NORMAL,
             width: FontWidth::NORMAL,
@@ -802,7 +802,7 @@ impl FontSize {
         // Viewport size in logical pixels
         logical_viewport_size: Vec2,
         // Base Rem size in logical pixels
-        rem_size: f32,
+        rem_size: RemSize,
     ) -> f32 {
         match self {
             FontSize::Px(s) => s,
@@ -810,7 +810,7 @@ impl FontSize {
             FontSize::Vh(s) => logical_viewport_size.y * s / 100.,
             FontSize::VMin(s) => logical_viewport_size.min_element() * s / 100.,
             FontSize::VMax(s) => logical_viewport_size.max_element() * s / 100.,
-            FontSize::Rem(s) => rem_size * s,
+            FontSize::Rem(s) => rem_size.0 * s,
         }
     }
 }
@@ -864,13 +864,52 @@ impl From<f32> for FontSize {
     }
 }
 
-/// Base value used to resolve `Rem` units for font sizes.
-#[derive(Resource, Copy, Clone, Debug, PartialEq, Deref, DerefMut)]
+/// Default [`RemSize`] and [`EmSize`], in logical pixels
+pub const DEFAULT_REM_SIZE_PX: f32 = 20.0;
+
+/// The root font size, in logical pixels.
+///
+/// `Rem` units always resolve against this one global resource, including
+/// `FontSize::Rem`, `LetterSpacing::Rem` and `Val::Rem`.
+#[derive(Resource, Copy, Clone, Debug, PartialEq, Deref, DerefMut, Reflect)]
 pub struct RemSize(pub f32);
 
 impl Default for RemSize {
     fn default() -> Self {
-        Self(20.)
+        Self(DEFAULT_REM_SIZE_PX)
+    }
+}
+
+/// The font size, in logical pixels, used to resolve `Val::Em` values in a UI node.
+///
+/// `Em` units are relative to the font size of the node they sit on, and this is that
+/// font size made concrete. Required by `Node`, so every UI node has one.
+///
+/// If the node has a `TextFont`, this is derived from it before layout each frame and
+/// any value you set is overwritten. If it does not, the value is yours to set and is
+/// left alone. It defaults to [`DEFAULT_REM_SIZE_PX`], which matches the default
+/// [`RemSize`] but does not track changes to it. Use `Val::Rem` instead for values that
+/// should follow the root font size.
+///
+/// Removing a `TextFont` leaves the last derived value in place.
+#[derive(Debug, PartialEq, Clone, Copy, Reflect, Component)]
+#[reflect(Default, PartialEq, Debug, Clone, Component)]
+pub struct EmSize(pub f32);
+
+impl Default for EmSize {
+    fn default() -> Self {
+        EmSize(DEFAULT_REM_SIZE_PX)
+    }
+}
+
+impl EmSize {
+    /// Resolves a [`FontSize`] to a concrete [`EmSize`] in logical pixels.
+    pub fn from_font_size(
+        font_size: FontSize,
+        logical_viewport_size: Vec2,
+        rem_size: RemSize,
+    ) -> Self {
+        EmSize(font_size.eval(logical_viewport_size, rem_size))
     }
 }
 
@@ -1337,15 +1376,18 @@ impl Default for LineHeight {
 pub enum LetterSpacing {
     /// Set letter spacing to a specific number of logical pixels
     Px(f32),
-    /// Set letter spacing to a multiple of the font size
+    /// Set letter spacing to a multiple of the root font size ([`RemSize`])
     Rem(f32),
 }
 
 impl LetterSpacing {
-    pub(crate) fn eval(self, rem_size: f32) -> f32 {
+    /// Evaluate a [`LetterSpacing`] into logical pixels either
+    /// because it specifies them directly or using the global
+    /// [`RemSize`] resource.
+    pub(crate) fn eval(self, rem_size: RemSize) -> f32 {
         match self {
             LetterSpacing::Px(px) => px,
-            LetterSpacing::Rem(rem) => rem * rem_size,
+            LetterSpacing::Rem(rem) => rem * rem_size.0,
         }
     }
 }

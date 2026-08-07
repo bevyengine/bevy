@@ -401,6 +401,8 @@ pub(crate) fn update_scrollbar_thumb(
                 target_info.scale_factor(),
                 thumb_physical_size,
                 target_info.physical_size().as_vec2(),
+                thumb_node.em_size,
+                thumb_node.rem_size,
             );
             if thumb_node.border_radius != border_radius {
                 thumb_node.border_radius = border_radius;
@@ -411,6 +413,8 @@ pub(crate) fn update_scrollbar_thumb(
                     target_info.scale_factor(),
                     thumb_physical_size.x,
                     target_info.physical_size().as_vec2(),
+                    thumb_node.em_size,
+                    thumb_node.rem_size,
                 )
                 .unwrap_or(0.)
             };
@@ -447,6 +451,8 @@ pub(crate) fn update_scrollbar_thumb(
                     target_info.scale_factor(),
                     thumb_physical_size,
                     target_info.physical_size().as_vec2(),
+                    thumb_node.em_size,
+                    thumb_node.rem_size,
                 )
                 * Affine2::from_translation(thumb_center * target_info.scale_factor());
 
