@@ -61,6 +61,10 @@ fn main() {
     .add_systems(OnEnter(Scene::BoxedContent), boxed_content::setup)
     .add_systems(OnEnter(Scene::EditableText), editable_text::setup)
     .add_systems(OnEnter(Scene::NodeMaterial), node_material::setup)
+    .add_systems(
+        OnEnter(Scene::FontRelativeUnits),
+        font_relative_units::setup,
+    )
     .add_systems(Update, switch_scene);
 
     match args.scene {
@@ -107,6 +111,7 @@ enum Scene {
     BoxedContent,
     EditableText,
     NodeMaterial,
+    FontRelativeUnits,
 }
 
 impl Scene {
@@ -134,6 +139,7 @@ impl Scene {
         Scene::BoxedContent,
         Scene::EditableText,
         Scene::NodeMaterial,
+        Scene::FontRelativeUnits,
     ];
 }
 
@@ -3685,5 +3691,135 @@ mod node_material {
                 ),
             ],
         ));
+    }
+}
+
+mod font_relative_units {
+    use bevy::{color::palettes::css::*, prelude::*};
+
+    pub fn setup(mut commands: Commands) {
+        commands.spawn((Camera2d, DespawnOnExit(super::Scene::FontRelativeUnits)));
+
+        commands.spawn((
+            Node {
+                width: percent(100),
+                height: percent(100),
+                flex_direction: FlexDirection::Row,
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                column_gap: rem(1),
+                ..default()
+            },
+            BackgroundColor(Color::srgb(0.12, 0.12, 0.16)),
+            DespawnOnExit(super::Scene::FontRelativeUnits),
+            children![
+                text_font_column("10px Text", 10.),
+                text_font_column("20px Text", 20.),
+                text_font_column("30px Text", 30.),
+            ],
+        ));
+    }
+
+    fn text_font_column(title: &'static str, font_size: f32) -> impl Bundle {
+        (
+            Node {
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::Center,
+                row_gap: rem(1),
+                ..default()
+            },
+            children![
+                (
+                    Text::new(title),
+                    TextFont::from_font_size(font_size),
+                    TextColor(LAVENDER.into()),
+                ),
+                // `em` padding: scales with this node's own font size.
+                (
+                    Node {
+                        padding: UiRect::all(em(1)),
+                        flex_basis: Val::Auto,
+                        border_radius: em(1).into(),
+                        ..default()
+                    },
+                    EmSize(font_size),
+                    BackgroundColor(DARK_SLATE_BLUE.into()),
+                    children![(
+                        Text::new("1em padding"),
+                        TextFont::from_font_size(font_size),
+                        BackgroundColor(PEACHPUFF.into()),
+                        TextColor(DARK_SLATE_GRAY.into())
+                    )],
+                ),
+                // Always 20rem across
+                (
+                    Node {
+                        flex_direction: FlexDirection::Row,
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                    EmSize(font_size),
+                    children![(
+                        Node {
+                            width: rem(20),
+                            ..default()
+                        },
+                        Text::new("< 20rem >"),
+                        TextLayout {
+                            justify: Justify::Center,
+                            ..default()
+                        },
+                        TextFont::from_font_size(font_size),
+                        BackgroundColor(PALE_TURQUOISE.into()),
+                        TextColor(DARK_SLATE_GRAY.into())
+                    )],
+                ),
+                // Grid tracks: left is 5em sized, right is 10rem, padding is 0.5rem
+                (
+                    Node {
+                        display: Display::Grid,
+                        grid_template_columns: vec![GridTrack::em(5.), GridTrack::rem(10.)],
+                        padding: rem(0.5).into(),
+                        border_radius: rem(0.5).into(),
+                        column_gap: rem(0.5),
+                        ..default()
+                    },
+                    EmSize(font_size),
+                    BackgroundColor(DARK_SLATE_BLUE.into()),
+                    children![
+                        (
+                            Node {
+                                display: Display::Grid,
+                                grid_column: GridPlacement::span(2),
+                                ..default()
+                            },
+                            Text::new("0.5rem padding"),
+                            TextFont::from_font_size(font_size),
+                            TextColor(LAVENDER.into()),
+                        ),
+                        (
+                            Text::new("< 5em >"),
+                            TextLayout {
+                                justify: Justify::Center,
+                                ..default()
+                            },
+                            TextFont::from_font_size(font_size),
+                            BackgroundColor(PEACHPUFF.into()),
+                            TextColor(DARK_SLATE_GRAY.into())
+                        ),
+                        (
+                            Text::new("< 10rem >"),
+                            TextLayout {
+                                justify: Justify::Center,
+                                ..default()
+                            },
+                            TextFont::from_font_size(font_size),
+                            BackgroundColor(PALE_TURQUOISE.into()),
+                            TextColor(DARK_SLATE_GRAY.into())
+                        ),
+                    ]
+                ),
+            ],
+        )
     }
 }
