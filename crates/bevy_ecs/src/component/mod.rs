@@ -530,6 +530,11 @@ pub trait Component: Send + Sync + 'static {
         None
     }
 
+    /// Gets the `on_mutate` [`ComponentHook`] for this [`Component`] if one is defined.
+    fn on_mutate() -> Option<ComponentHook> {
+        None
+    }
+
     /// Gets the `on_discard` [`ComponentHook`] for this [`Component`] if one is defined.
     fn on_discard() -> Option<ComponentHook> {
         None
@@ -732,6 +737,12 @@ pub enum StorageType {
     Table,
     /// Provides fast addition and removal of components, but slower iteration.
     SparseSet,
+}
+
+/// A trait to get the [`ComponentId`]s an type contains.
+pub trait ContainsComponents {
+    /// Gets the [`ComponentId`]s
+    fn components(&self) -> &[ComponentId];
 }
 
 /// A [`SystemParam`] that provides access to the [`ComponentId`] for a specific component type.

@@ -46,10 +46,12 @@ use crate::{
     entity::{Entities, Entity, EntityAllocator, EntityNotSpawnedError, SpawnError},
     entity_disabling::DefaultQueryFilters,
     error::{ErrorHandler, FallbackErrorHandler},
-    lifecycle::{ComponentHooks, RemovedComponentMessages, ADD, DESPAWN, DISCARD, INSERT, REMOVE},
+    lifecycle::{
+        ComponentHooks, RemovedComponentMessages, ADD, DESPAWN, DISCARD, INSERT, MUTATE, REMOVE,
+    },
     message::{Message, MessageId, Messages, WriteBatchIds},
     observer::Observers,
-    prelude::{Add, Despawn, Discard, Insert, Remove},
+    prelude::{Add, Despawn, Discard, Insert, Mutate, Remove},
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
     relationship::RelationshipHookMode,
     resource::{IsResource, Resource, ResourceEntities, IS_RESOURCE},
@@ -158,6 +160,9 @@ impl World {
 
         let on_insert = self.register_event_key::<Insert>();
         assert_eq!(INSERT, on_insert);
+
+        let on_mutate = self.register_event_key::<Mutate>();
+        assert_eq!(MUTATE, on_mutate);
 
         let on_discard = self.register_event_key::<Discard>();
         assert_eq!(DISCARD, on_discard);

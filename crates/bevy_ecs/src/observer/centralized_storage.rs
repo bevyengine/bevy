@@ -28,6 +28,7 @@ pub struct Observers {
     // Cached ECS observers to save a lookup for high-traffic built-in event types.
     add: CachedObservers,
     insert: CachedObservers,
+    mutate: CachedObservers,
     discard: CachedObservers,
     remove: CachedObservers,
     despawn: CachedObservers,
@@ -42,6 +43,7 @@ impl Observers {
         match event_key {
             ADD => &mut self.add,
             INSERT => &mut self.insert,
+            MUTATE => &mut self.mutate,
             DISCARD => &mut self.discard,
             REMOVE => &mut self.remove,
             DESPAWN => &mut self.despawn,
@@ -65,6 +67,7 @@ impl Observers {
         match event_key {
             ADD => Some(&self.add),
             INSERT => Some(&self.insert),
+            MUTATE => Some(&self.mutate),
             DISCARD => Some(&self.discard),
             REMOVE => Some(&self.remove),
             DESPAWN => Some(&self.despawn),
@@ -78,6 +81,7 @@ impl Observers {
         match event_key {
             ADD => Some(ArchetypeFlags::ON_ADD_OBSERVER),
             INSERT => Some(ArchetypeFlags::ON_INSERT_OBSERVER),
+            MUTATE => Some(ArchetypeFlags::ON_MUTATE_OBSERVER),
             DISCARD => Some(ArchetypeFlags::ON_DISCARD_OBSERVER),
             REMOVE => Some(ArchetypeFlags::ON_REMOVE_OBSERVER),
             DESPAWN => Some(ArchetypeFlags::ON_DESPAWN_OBSERVER),
@@ -96,6 +100,10 @@ impl Observers {
 
         if self.insert.component_observers.contains_key(&component_id) {
             flags.insert(ArchetypeFlags::ON_INSERT_OBSERVER);
+        }
+
+        if self.mutate.component_observers.contains_key(&component_id) {
+            flags.insert(ArchetypeFlags::ON_MUTATE_OBSERVER);
         }
 
         if self.discard.component_observers.contains_key(&component_id) {

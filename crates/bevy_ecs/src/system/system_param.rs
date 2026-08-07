@@ -5,14 +5,19 @@
 
 pub use crate::change_detection::{NonSend, NonSendMut, Res, ResMut};
 use crate::{
-    archetype::Archetypes,
+    archetype::{ArchetypeEntity, Archetypes},
     bundle::Bundles,
-    change_detection::{ComponentTicksMut, ComponentTicksRef, Tick},
-    component::{ComponentId, Components, Mutable},
+    change_detection::{ComponentTicksMut, ComponentTicksRef, MaybeLocation, Tick},
+    component::{
+        ComponentId, Components, Mutable,
+        StorageType::{SparseSet, Table},
+    },
     entity::{Entities, EntityAllocator},
+    lifecycle::{Mutate, MUTATE},
     query::{
-        Access, FilteredAccess, FilteredAccessSet, IterQueryData, QueryData, QueryFilter,
-        QuerySingleError, QueryState, ReadOnlyQueryData,
+        Access, FilteredAccess, FilteredAccessSet,
+        InvertibleComponentIdSet::{Excluded, Included},
+        IterQueryData, QueryData, QueryFilter, QuerySingleError, QueryState, ReadOnlyQueryData,
     },
     resource::{Resource, IS_RESOURCE},
     system::{Query, Single, SystemMeta},
@@ -334,6 +339,263 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
         // The caller ensures the world matches the one used in init_state.
         Ok(unsafe { state.query_unchecked_with_ticks(world, system_meta.last_run, change_tick) })
     }
+
+    fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
+        let muts = state.component_access().access().writes();
+        if let Included(m) = muts
+            && m.is_clear()
+        {
+            return;
+        }
+
+        let last_run = system_meta.get_last_run();
+        let archs = state.matched_archetypes();
+        let tables = &raw const world.storages().tables;
+        let sparse_sets = &raw const world.storages().sparse_sets;
+        let archetypes = &raw const *world.archetypes();
+        let has_global_or_entity_observer =
+            if let Some(o) = world.observers().try_get_observers(MUTATE) {
+                !o.global_observers().is_empty() || !o.entity_observers().is_empty()
+            } else {
+                false
+            };
+
+        archs
+            .filter_map(|arch| unsafe { (*archetypes).get(arch) })
+            .for_each(|a| {
+                let has_hook = a.has_mutate_hook();
+                let has_observer = a.has_mutate_observer() || has_global_or_entity_observer;
+                if !has_hook && !has_observer {
+                    return;
+                }
+                a.entities().iter().for_each(|e| {
+                    let entity = e.id();
+                    let table_row = e.table_row();
+                    let comps = match muts {
+                        Included(m) => m
+                            .iter()
+                            .filter(|c| {
+                                if let Some(s) = a.get_storage_type(*c) {
+                                    match s {
+                                        Table => {
+                                            let tables = unsafe { &*tables };
+                                            if let Some(t) = tables.get(a.table_id()) {
+                                                if let Some(tick) =
+                                                    t.get_changed_tick(*c, table_row)
+                                                {
+                                                    unsafe {
+                                                        return *(tick.get()) == last_run;
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        SparseSet => {
+                                            let sparse_sets = unsafe { &*sparse_sets };
+                                            if let Some(s_s) = sparse_sets.get(*c) {
+                                                if let Some(tick) = s_s.get_changed_tick(entity) {
+                                                    unsafe {
+                                                        return *(tick.get()) == last_run;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                return false;
+                            })
+                            .collect::<Vec<_>>(),
+                        Excluded(m) => {
+                            // Unbounded Access, so naively scan all components not excluded.
+                            a.iter_components()
+                                .filter(|c| m.contains(*c))
+                                .filter(|c| {
+                                    if let Some(s) = a.get_storage_type(*c) {
+                                        match s {
+                                            Table => {
+                                                let tables = unsafe { &*tables };
+                                                if let Some(t) = tables.get(a.table_id()) {
+                                                    if let Some(tick) =
+                                                        t.get_changed_tick(*c, table_row)
+                                                    {
+                                                        unsafe {
+                                                            return *(tick.get()) == last_run;
+                                                        }
+                                                    }
+                                                }
+                                            }
+
+                                            SparseSet => {
+                                                let sparse_sets = unsafe { &*sparse_sets };
+                                                if let Some(s_s) = sparse_sets.get(*c) {
+                                                    if let Some(tick) = s_s.get_changed_tick(entity)
+                                                    {
+                                                        unsafe {
+                                                            return *(tick.get()) == last_run;
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    return false;
+                                })
+                                .collect::<Vec<_>>()
+                        }
+                    };
+                    if !comps.is_empty() {
+                        if has_hook {
+                            unsafe {
+                                world
+                                    .as_unsafe_world_cell()
+                                    .into_deferred()
+                                    .trigger_on_mutate(
+                                        entity,
+                                        comps.iter().copied(),
+                                        MaybeLocation::caller(),
+                                    );
+                            }
+                        }
+                        if has_observer {
+                            world.trigger(Mutate {
+                                entity,
+                                components: comps,
+                            });
+                        }
+                    }
+                });
+            });
+    }
+
+    fn queue(state: &mut Self::State, system_meta: &SystemMeta, mut world: DeferredWorld) {
+        let muts = state.component_access().access().writes();
+        if let Included(m) = muts
+            && m.is_clear()
+        {
+            return;
+        }
+
+        let last_run = system_meta.get_last_run();
+        let archs = state.matched_archetypes();
+        let tables = &raw const world.storages().tables;
+        let sparse_sets = &raw const world.storages().sparse_sets;
+        let archetypes = &raw const *world.archetypes();
+        let has_global_or_entity_observer =
+            if let Some(o) = world.observers().try_get_observers(MUTATE) {
+                !o.global_observers().is_empty() || !o.entity_observers().is_empty()
+            } else {
+                false
+            };
+        let mut commands = world.commands();
+
+        archs
+            .filter_map(|arch| unsafe { (*archetypes).get(arch) })
+            .for_each(|a| {
+                let has_hook = a.has_mutate_hook();
+                let has_observer = a.has_mutate_observer() || has_global_or_entity_observer;
+                if !has_hook && !has_observer {
+                    return;
+                }
+                a.entities().iter().for_each(|e| {
+                    let entity = e.id();
+                    let table_row = e.table_row();
+                    let comps = match muts {
+                        Included(m) => m
+                            .iter()
+                            .filter(|c| {
+                                if let Some(s) = a.get_storage_type(*c) {
+                                    match s {
+                                        Table => {
+                                            let tables = unsafe { &*tables };
+                                            if let Some(t) = tables.get(a.table_id()) {
+                                                if let Some(tick) =
+                                                    t.get_changed_tick(*c, table_row)
+                                                {
+                                                    unsafe {
+                                                        return *(tick.get()) == last_run;
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        SparseSet => {
+                                            let sparse_sets = unsafe { &*sparse_sets };
+                                            if let Some(s_s) = sparse_sets.get(*c) {
+                                                if let Some(tick) = s_s.get_changed_tick(entity) {
+                                                    unsafe {
+                                                        return *(tick.get()) == last_run;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                return false;
+                            })
+                            .collect::<Vec<_>>(),
+                        Excluded(m) => {
+                            // Unbounded Access, so naively scan all components not excluded.
+                            a.iter_components()
+                                .filter(|c| m.contains(*c))
+                                .filter(|c| {
+                                    if let Some(s) = a.get_storage_type(*c) {
+                                        match s {
+                                            Table => {
+                                                let tables = unsafe { &*tables };
+                                                if let Some(t) = tables.get(a.table_id()) {
+                                                    if let Some(tick) =
+                                                        t.get_changed_tick(*c, table_row)
+                                                    {
+                                                        unsafe {
+                                                            return *(tick.get()) == last_run;
+                                                        }
+                                                    }
+                                                }
+                                            }
+
+                                            SparseSet => {
+                                                let sparse_sets = unsafe { &*sparse_sets };
+                                                if let Some(s_s) = sparse_sets.get(*c) {
+                                                    if let Some(tick) = s_s.get_changed_tick(entity)
+                                                    {
+                                                        unsafe {
+                                                            return *(tick.get()) == last_run;
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    return false;
+                                })
+                                .collect::<Vec<_>>()
+                        }
+                    };
+                    if !comps.is_empty() {
+                        commands.queue(move |world: &mut World| {
+                            if has_hook {
+                                unsafe {
+                                    world
+                                        .as_unsafe_world_cell()
+                                        .into_deferred()
+                                        .trigger_on_mutate(
+                                            entity,
+                                            comps.iter().copied(),
+                                            MaybeLocation::caller(),
+                                        );
+                                }
+                            }
+                            if has_observer {
+                                world.trigger(Mutate {
+                                    entity,
+                                    components: comps,
+                                });
+                            }
+                        });
+                    }
+                });
+            });
+    }
 }
 
 // SAFETY: Relevant query ComponentId access is applied to SystemMeta. If
@@ -381,6 +643,14 @@ unsafe impl<'a, 'b, D: IterQueryData + 'static, F: QueryFilter + 'static> System
             ),
         }
     }
+
+    fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
+        Query::apply(state, system_meta, world);
+    }
+
+    fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {
+        Query::queue(state, system_meta, world);
+    }
 }
 
 // SAFETY: QueryState is constrained to read-only fetches, so it only reads World.
@@ -426,6 +696,14 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
         } else {
             Ok(Populated(query))
         }
+    }
+
+    fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
+        Query::apply(state, system_meta, world);
+    }
+
+    fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {
+        Query::queue(state, system_meta, world);
     }
 }
 
@@ -778,6 +1056,202 @@ unsafe impl<'a, T: Resource<Mutability = Mutable>> SystemParam for ResMut<'a, T>
                 this_run: change_tick,
             },
         })
+    }
+
+    fn apply(&mut component_id: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
+        let (entity, table_row, storage, table_id, has_hook, has_observer) = {
+            let archetype = if let Some(h) = world.archetypes().component_index().get(&component_id)
+            {
+                let a = h.iter().next().unwrap();
+                if let Some(a) = world.archetypes().get(*a.0) {
+                    a
+                } else {
+                    return;
+                }
+            } else {
+                return;
+            };
+            let arch_entity = archetype.entities()[0];
+            let has_observer = archetype.has_mutate_observer()
+                || world
+                    .observers()
+                    .try_get_observers(MUTATE)
+                    .map_or(false, |o| {
+                        !o.global_observers().is_empty() || !o.entity_observers().is_empty()
+                    });
+
+            (
+                arch_entity.id(),
+                arch_entity.table_row(),
+                archetype.get_storage_type(component_id).unwrap(),
+                archetype.table_id(),
+                archetype.has_mutate_hook(),
+                has_observer,
+            )
+        };
+        if !has_hook && !has_observer {
+            return;
+        }
+
+        let last_run = system_meta.last_run;
+        match storage {
+            Table => {
+                let tables = &world.storages().tables;
+                if let Some(t) = tables.get(table_id) {
+                    if let Some(tick) = t.get_changed_tick(component_id, table_row) {
+                        unsafe {
+                            if *(tick.get()) == last_run {
+                                if has_hook {
+                                    world
+                                        .as_unsafe_world_cell()
+                                        .into_deferred()
+                                        .trigger_on_mutate(
+                                            entity,
+                                            [component_id].iter().copied(),
+                                            MaybeLocation::caller(),
+                                        );
+                                }
+                                if has_observer {
+                                    world.trigger(Mutate {
+                                        entity,
+                                        components: [component_id].into(),
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            SparseSet => {
+                let sparse_sets = &world.storages().sparse_sets;
+                if let Some(s) = sparse_sets.get(component_id) {
+                    if let Some(tick) = s.get_changed_tick(entity) {
+                        unsafe {
+                            if *(tick.get()) == last_run {
+                                if has_hook {
+                                    world
+                                        .as_unsafe_world_cell()
+                                        .into_deferred()
+                                        .trigger_on_mutate(
+                                            entity,
+                                            [component_id].iter().copied(),
+                                            MaybeLocation::caller(),
+                                        );
+                                }
+                                if has_observer {
+                                    world.trigger(Mutate {
+                                        entity,
+                                        components: [component_id].into(),
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    fn queue(
+        &mut component_id: &mut Self::State,
+        system_meta: &SystemMeta,
+        mut world: DeferredWorld,
+    ) {
+        let (entity, table_row, storage, table_id, has_hook, has_observer) = {
+            let archetype = if let Some(h) = world.archetypes().component_index().get(&component_id)
+            {
+                let a = h.iter().next().unwrap();
+                if let Some(a) = world.archetypes().get(*a.0) {
+                    a
+                } else {
+                    return;
+                }
+            } else {
+                return;
+            };
+            let arch_entity = archetype.entities()[0];
+            let has_observer = archetype.has_mutate_observer()
+                || world
+                    .observers()
+                    .try_get_observers(MUTATE)
+                    .map_or(false, |o| {
+                        !o.global_observers().is_empty() || !o.entity_observers().is_empty()
+                    });
+
+            (
+                arch_entity.id(),
+                arch_entity.table_row(),
+                archetype.get_storage_type(component_id).unwrap(),
+                archetype.table_id(),
+                archetype.has_mutate_hook(),
+                has_observer,
+            )
+        };
+        if !has_hook && !has_observer {
+            return;
+        }
+
+        let last_run = system_meta.last_run;
+        match storage {
+            Table => {
+                let tables = &world.storages().tables;
+                if let Some(t) = tables.get(table_id) {
+                    if let Some(tick) = t.get_changed_tick(component_id, table_row) {
+                        unsafe {
+                            if *(tick.get()) == last_run {
+                                world.commands().queue(move |world: &mut World| {
+                                    if has_hook {
+                                        world
+                                            .as_unsafe_world_cell()
+                                            .into_deferred()
+                                            .trigger_on_mutate(
+                                                entity,
+                                                [component_id].iter().copied(),
+                                                MaybeLocation::caller(),
+                                            );
+                                    }
+                                    if has_observer {
+                                        world.trigger(Mutate {
+                                            entity,
+                                            components: [component_id].into(),
+                                        });
+                                    }
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+            SparseSet => {
+                let sparse_sets = &world.storages().sparse_sets;
+                if let Some(s) = sparse_sets.get(component_id) {
+                    if let Some(tick) = s.get_changed_tick(entity) {
+                        unsafe {
+                            if *(tick.get()) == last_run {
+                                world.commands().queue(move |world: &mut World| {
+                                    if has_hook {
+                                        world
+                                            .as_unsafe_world_cell()
+                                            .into_deferred()
+                                            .trigger_on_mutate(
+                                                entity,
+                                                [component_id].iter().copied(),
+                                                MaybeLocation::caller(),
+                                            );
+                                    }
+                                    if has_observer {
+                                        world.trigger(Mutate {
+                                            entity,
+                                            components: [component_id].into(),
+                                        });
+                                    }
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -2651,6 +3125,422 @@ unsafe impl SystemParam for FilteredResourcesMut<'_, '_> {
         // SAFETY: The caller ensures that `world` has access to anything registered in `init_access`,
         // and we registered all resource access in `state``.
         Ok(unsafe { FilteredResourcesMut::new(world, state, system_meta.last_run, change_tick) })
+    }
+
+    fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
+        let muts = state.writes();
+        if let Included(m) = muts
+            && m.is_clear()
+        {
+            return;
+        }
+
+        let last_run = system_meta.get_last_run();
+        let tables = &raw const world.storages().tables;
+        let sparse_sets = &raw const world.storages().sparse_sets;
+        let archetypes = &raw const *world.archetypes();
+        let has_global_or_entity_observer =
+            if let Some(o) = world.observers().try_get_observers(MUTATE) {
+                !o.global_observers().is_empty() || !o.entity_observers().is_empty()
+            } else {
+                false
+            };
+
+        match muts {
+            Included(m) => {
+                m.iter()
+                    .filter_map(|c| unsafe {
+                        let a = *(*archetypes)
+                            .component_index()
+                            .get(&c)
+                            .unwrap()
+                            .iter()
+                            .next()
+                            .unwrap()
+                            .0;
+                        Some((c, (*archetypes).get(a)?))
+                    })
+                    .for_each(|(c, a)| {
+                        let has_hook = a.has_mutate_hook();
+                        let has_observer = a.has_mutate_observer() || has_global_or_entity_observer;
+                        if !has_hook && !has_observer {
+                            return;
+                        }
+                        a.entities().iter().for_each(|e| {
+                            let entity = e.id();
+                            let table_row = e.table_row();
+                            if let Some(s) = a.get_storage_type(c) {
+                                match s {
+                                    Table => {
+                                        let tables = unsafe { &*tables };
+                                        if let Some(t) = tables.get(a.table_id()) {
+                                            if let Some(tick) = t.get_changed_tick(c, table_row) {
+                                                unsafe {
+                                                    if *(tick.get()) == last_run {
+                                                        if has_hook {
+                                                            world
+                                                                .as_unsafe_world_cell()
+                                                                .into_deferred()
+                                                                .trigger_on_mutate(
+                                                                    entity,
+                                                                    [c].iter().copied(),
+                                                                    MaybeLocation::caller(),
+                                                                );
+                                                        }
+                                                        if has_observer {
+                                                            world.trigger(Mutate {
+                                                                entity,
+                                                                components: [c].into(),
+                                                            });
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    SparseSet => {
+                                        let sparse_sets = unsafe { &*sparse_sets };
+                                        if let Some(s_s) = sparse_sets.get(c) {
+                                            if let Some(tick) = s_s.get_changed_tick(entity) {
+                                                unsafe {
+                                                    if *(tick.get()) == last_run {
+                                                        if has_hook {
+                                                            world
+                                                                .as_unsafe_world_cell()
+                                                                .into_deferred()
+                                                                .trigger_on_mutate(
+                                                                    entity,
+                                                                    [c].iter().copied(),
+                                                                    MaybeLocation::caller(),
+                                                                );
+                                                        }
+                                                        if has_observer {
+                                                            world.trigger(Mutate {
+                                                                entity,
+                                                                components: [c].into(),
+                                                            });
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                    });
+            }
+            Excluded(m) => world
+                .resource_entities()
+                .iter()
+                .filter_map(|(c, _)| if m.contains(c) { Some(c) } else { None })
+                .collect::<Vec<_>>()
+                .iter()
+                .copied()
+                .for_each(|c| {
+                    let (entity, table_row, table_id, storage, has_hook, has_observer) = {
+                        let arch = *world
+                            .archetypes()
+                            .component_index()
+                            .get(&c)
+                            .unwrap()
+                            .iter()
+                            .next()
+                            .unwrap()
+                            .0;
+                        let a = world.archetypes().get(arch).unwrap();
+                        let arch_entity = a.entities()[0];
+                        let has_global_or_entity_observer = world
+                            .observers()
+                            .try_get_observers(MUTATE)
+                            .map_or(false, |o| {
+                                !o.global_observers().is_empty() || !o.entity_observers().is_empty()
+                            });
+                        (
+                            arch_entity.id(),
+                            arch_entity.table_row(),
+                            a.table_id(),
+                            a.get_storage_type(c),
+                            a.has_mutate_hook(),
+                            a.has_mutate_observer() || has_global_or_entity_observer,
+                        )
+                    };
+                    if let Some(s) = storage {
+                        match s {
+                            Table => {
+                                let tables = unsafe { &*tables };
+                                if let Some(t) = tables.get(table_id) {
+                                    if let Some(tick) = t.get_changed_tick(c, table_row) {
+                                        unsafe {
+                                            if *(tick.get()) == last_run {
+                                                if has_hook {
+                                                    world
+                                                        .as_unsafe_world_cell()
+                                                        .into_deferred()
+                                                        .trigger_on_mutate(
+                                                            entity,
+                                                            [c].iter().copied(),
+                                                            MaybeLocation::caller(),
+                                                        );
+                                                }
+                                                if has_observer {
+                                                    world.trigger(Mutate {
+                                                        entity,
+                                                        components: [c].into(),
+                                                    });
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            SparseSet => {
+                                let sparse_sets = unsafe { &*sparse_sets };
+                                if let Some(s_s) = sparse_sets.get(c) {
+                                    if let Some(tick) = s_s.get_changed_tick(entity) {
+                                        unsafe {
+                                            if *(tick.get()) == last_run {
+                                                if has_hook {
+                                                    world
+                                                        .as_unsafe_world_cell()
+                                                        .into_deferred()
+                                                        .trigger_on_mutate(
+                                                            entity,
+                                                            [c].iter().copied(),
+                                                            MaybeLocation::caller(),
+                                                        );
+                                                }
+                                                if has_observer {
+                                                    world.trigger(Mutate {
+                                                        entity,
+                                                        components: [c].into(),
+                                                    });
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }),
+        };
+    }
+
+    fn queue(state: &mut Self::State, system_meta: &SystemMeta, mut world: DeferredWorld) {
+        let muts = state.writes();
+        if let Included(m) = muts
+            && m.is_clear()
+        {
+            return;
+        }
+
+        let last_run = system_meta.get_last_run();
+        let tables = &raw const world.storages().tables;
+        let sparse_sets = &raw const world.storages().sparse_sets;
+        let archetypes = &raw const *world.archetypes();
+        let has_global_or_entity_observer =
+            if let Some(o) = world.observers().try_get_observers(MUTATE) {
+                !o.global_observers().is_empty() || !o.entity_observers().is_empty()
+            } else {
+                false
+            };
+
+        match muts {
+            Included(m) => {
+                m.iter()
+                    .filter_map(|c| unsafe {
+                        let a = *(*archetypes)
+                            .component_index()
+                            .get(&c)
+                            .unwrap()
+                            .iter()
+                            .next()
+                            .unwrap()
+                            .0;
+                        Some((c, (*archetypes).get(a)?))
+                    })
+                    .for_each(|(c, a)| {
+                        let has_hook = a.has_mutate_hook();
+                        let has_observer = a.has_mutate_observer() || has_global_or_entity_observer;
+                        if !has_hook && !has_observer {
+                            return;
+                        }
+                        a.entities().iter().for_each(|e| {
+                            let entity = e.id();
+                            let table_row = e.table_row();
+                            if let Some(s) = a.get_storage_type(c) {
+                                match s {
+                                    Table => {
+                                        let tables = unsafe { &*tables };
+                                        if let Some(t) = tables.get(a.table_id()) {
+                                            if let Some(tick) = t.get_changed_tick(c, table_row) {
+                                                unsafe {
+                                                    if *(tick.get()) == last_run {
+                                                        world.commands().queue(
+                                                            move |world: &mut World| {
+                                                                if has_hook {
+                                                                    world
+                                                                        .as_unsafe_world_cell()
+                                                                        .into_deferred()
+                                                                        .trigger_on_mutate(
+                                                                            entity,
+                                                                            [c].iter().copied(),
+                                                                            MaybeLocation::caller(),
+                                                                        );
+                                                                }
+                                                                if has_observer {
+                                                                    world.trigger(Mutate {
+                                                                        entity,
+                                                                        components: [c].into(),
+                                                                    });
+                                                                }
+                                                            },
+                                                        );
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    SparseSet => {
+                                        let sparse_sets = unsafe { &*sparse_sets };
+                                        if let Some(s_s) = sparse_sets.get(c) {
+                                            if let Some(tick) = s_s.get_changed_tick(entity) {
+                                                unsafe {
+                                                    if *(tick.get()) == last_run {
+                                                        world.commands().queue(
+                                                            move |world: &mut World| {
+                                                                if has_hook {
+                                                                    world
+                                                                        .as_unsafe_world_cell()
+                                                                        .into_deferred()
+                                                                        .trigger_on_mutate(
+                                                                            entity,
+                                                                            [c].iter().copied(),
+                                                                            MaybeLocation::caller(),
+                                                                        );
+                                                                }
+                                                                if has_observer {
+                                                                    world.trigger(Mutate {
+                                                                        entity,
+                                                                        components: [c].into(),
+                                                                    });
+                                                                }
+                                                            },
+                                                        );
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                    });
+            }
+            Excluded(m) => world
+                .resource_entities()
+                .iter()
+                .filter_map(|(c, _)| if m.contains(c) { Some(c) } else { None })
+                .collect::<Vec<_>>()
+                .iter()
+                .copied()
+                .for_each(|c| {
+                    let (entity, table_row, table_id, storage, has_hook, has_observer) = {
+                        let arch = *world
+                            .archetypes()
+                            .component_index()
+                            .get(&c)
+                            .unwrap()
+                            .iter()
+                            .next()
+                            .unwrap()
+                            .0;
+                        let a = world.archetypes().get(arch).unwrap();
+                        let arch_entity = a.entities()[0];
+                        let has_global_or_entity_observer = world
+                            .observers()
+                            .try_get_observers(MUTATE)
+                            .map_or(false, |o| {
+                                !o.global_observers().is_empty() || !o.entity_observers().is_empty()
+                            });
+                        (
+                            arch_entity.id(),
+                            arch_entity.table_row(),
+                            a.table_id(),
+                            a.get_storage_type(c),
+                            a.has_mutate_hook(),
+                            a.has_mutate_observer() || has_global_or_entity_observer,
+                        )
+                    };
+                    if let Some(s) = storage {
+                        match s {
+                            Table => {
+                                let tables = unsafe { &*tables };
+                                if let Some(t) = tables.get(table_id) {
+                                    if let Some(tick) = t.get_changed_tick(c, table_row) {
+                                        unsafe {
+                                            if *(tick.get()) == last_run {
+                                                world.commands().queue(move |world: &mut World| {
+                                                    if has_hook {
+                                                        world
+                                                            .as_unsafe_world_cell()
+                                                            .into_deferred()
+                                                            .trigger_on_mutate(
+                                                                entity,
+                                                                [c].iter().copied(),
+                                                                MaybeLocation::caller(),
+                                                            );
+                                                    }
+                                                    if has_observer {
+                                                        world.trigger(Mutate {
+                                                            entity,
+                                                            components: [c].into(),
+                                                        });
+                                                    }
+                                                });
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            SparseSet => {
+                                let sparse_sets = unsafe { &*sparse_sets };
+                                if let Some(s_s) = sparse_sets.get(c) {
+                                    if let Some(tick) = s_s.get_changed_tick(entity) {
+                                        unsafe {
+                                            if *(tick.get()) == last_run {
+                                                world.commands().queue(move |world: &mut World| {
+                                                    if has_hook {
+                                                        world
+                                                            .as_unsafe_world_cell()
+                                                            .into_deferred()
+                                                            .trigger_on_mutate(
+                                                                entity,
+                                                                [c].iter().copied(),
+                                                                MaybeLocation::caller(),
+                                                            );
+                                                    }
+                                                    if has_observer {
+                                                        world.trigger(Mutate {
+                                                            entity,
+                                                            components: [c].into(),
+                                                        });
+                                                    }
+                                                });
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }),
+        };
     }
 }
 
