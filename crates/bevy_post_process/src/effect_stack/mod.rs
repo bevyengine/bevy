@@ -242,7 +242,7 @@ impl SpecializedRenderPipeline for PostProcessingPipeline {
 
 pub(crate) fn post_processing(
     view: ViewQuery<(
-        &ViewTarget,
+        &mut ViewTarget,
         &PostProcessingPipelineId,
         AnyOf<(&ChromaticAberration, &Vignette, &LensDistortion)>,
         &PostProcessingUniformBufferOffsets,
@@ -254,7 +254,7 @@ pub(crate) fn post_processing(
     default_lut: Res<DefaultChromaticAberrationLut>,
     mut ctx: RenderContext,
 ) {
-    let (view_target, pipeline_id, post_effects, post_processing_uniform_buffer_offsets) =
+    let (mut view_target, pipeline_id, post_effects, post_processing_uniform_buffer_offsets) =
         view.into_inner();
 
     let (maybe_chromatic_aberration, maybe_vignette, maybe_lens_distortion) = post_effects;

@@ -183,7 +183,7 @@ impl Plugin for MotionBlurPlugin {
 
 pub fn motion_blur(
     view: ViewQuery<(
-        &ViewTarget,
+        &mut ViewTarget,
         &MotionBlurPipelineId,
         &ViewPrepassTextures,
         &ViewDepthStencilTexture,
@@ -196,7 +196,7 @@ pub fn motion_blur(
     globals_buffer: Res<GlobalsBuffer>,
     mut ctx: RenderContext,
 ) {
-    let (view_target, pipeline_id, prepass_textures, depth, motion_blur_uniform, msaa) =
+    let (mut view_target, pipeline_id, prepass_textures, depth, motion_blur_uniform, msaa) =
         view.into_inner();
     let Some(depth_view) = depth.attachment.depth_stencil_views().depth_only_view() else {
         return;

@@ -74,7 +74,7 @@ struct PostProcessBindGroupCache {
 
 fn post_process_system(
     view: ViewQuery<(
-        &ViewTarget,
+        &mut ViewTarget,
         &PostProcessSettings,
         &DynamicUniformIndex<PostProcessSettings>,
     )>,
@@ -88,7 +88,7 @@ fn post_process_system(
         return;
     };
 
-    let (view_target, _post_process_settings, settings_index) = view.into_inner();
+    let (mut view_target, _post_process_settings, settings_index) = view.into_inner();
 
     let Some(pipeline) = pipeline_cache.get_render_pipeline(post_process_pipeline.pipeline_id)
     else {
