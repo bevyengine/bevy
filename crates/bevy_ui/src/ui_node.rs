@@ -1542,6 +1542,10 @@ pub enum MinTrackSizingFunction {
     Px(f32),
     /// Track minimum size should be a percentage value
     Percent(f32),
+    /// Track minimum size should be a multiple of the grid container's font size.
+    Em(f32),
+    /// Track minimum size should be a multiple of the root font size.
+    Rem(f32),
     /// Track minimum size should be content sized under a min-content constraint
     MinContent,
     /// Track minimum size should be content sized under a max-content constraint
@@ -1571,6 +1575,10 @@ pub enum MaxTrackSizingFunction {
     Px(f32),
     /// Track maximum size should be a percentage value
     Percent(f32),
+    /// Track maximum size should be a multiple of the grid container's font size.
+    Em(f32),
+    /// Track maximum size should be a multiple of the root font size.
+    Rem(f32),
     /// Track maximum size should be content sized under a min-content constraint
     MinContent,
     /// Track maximum size should be content sized under a max-content constraint
@@ -1631,6 +1639,24 @@ impl GridTrack {
         Self {
             min_sizing_function: MinTrackSizingFunction::Percent(value),
             max_sizing_function: MaxTrackSizingFunction::Percent(value),
+        }
+        .into()
+    }
+
+    /// Create a grid track with size as a multiple of the grid container's font size.
+    pub fn em<T: From<Self>>(value: f32) -> T {
+        Self {
+            min_sizing_function: MinTrackSizingFunction::Em(value),
+            max_sizing_function: MaxTrackSizingFunction::Em(value),
+        }
+        .into()
+    }
+
+    /// Create a grid track with size as a multiple of the root font size.
+    pub fn rem<T: From<Self>>(value: f32) -> T {
+        Self {
+            min_sizing_function: MinTrackSizingFunction::Rem(value),
+            max_sizing_function: MaxTrackSizingFunction::Rem(value),
         }
         .into()
     }
@@ -1840,6 +1866,24 @@ impl RepeatedGridTrack {
         Self {
             repetition: repetition.into(),
             tracks: SmallVec::from_buf([GridTrack::percent(value)]),
+        }
+        .into()
+    }
+
+    /// Create a repeating set of grid tracks with size as a multiple of the grid containers's font size.
+    pub fn em<T: From<Self>>(repetition: impl Into<GridTrackRepetition>, value: f32) -> T {
+        Self {
+            repetition: repetition.into(),
+            tracks: SmallVec::from_buf([GridTrack::em(value)]),
+        }
+        .into()
+    }
+
+    /// Create a repeating set of grid tracks with size as a multiple of the root font size.
+    pub fn rem<T: From<Self>>(repetition: impl Into<GridTrackRepetition>, value: f32) -> T {
+        Self {
+            repetition: repetition.into(),
+            tracks: SmallVec::from_buf([GridTrack::rem(value)]),
         }
         .into()
     }
