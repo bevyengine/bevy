@@ -15,10 +15,16 @@ seq-macro = "0.3.6"
 
 # Bevy crates
 bevy_app = { path = "../crates/bevy_app", optional = true }
-bevy_ecs = { path = "../crates/bevy_ecs", optional = true, features = ["multi_threaded"] }
+bevy_ecs = { path = "../crates/bevy_ecs", optional = true, features = [
+  "multi_threaded",
+] }
 bevy_math = { path = "../crates/bevy_math", optional = true }
-bevy_picking = { path = "../crates/bevy_picking", optional = true, features = ["mesh_picking"] }
-bevy_reflect = { path = "../crates/bevy_reflect", optional = true, features = ["functions"] }
+bevy_picking = { path = "../crates/bevy_picking", optional = true, features = [
+  "mesh_picking",
+] }
+bevy_reflect = { path = "../crates/bevy_reflect", optional = true, features = [
+  "functions",
+] }
 bevy_camera = { path = "../crates/bevy_camera", optional = true }
 bevy_mesh = { path = "../crates/bevy_mesh", optional = true }
 bevy_asset = { path = "../crates/bevy_asset", optional = true }
@@ -50,64 +56,68 @@ bytemuck = { version = "1", default-features = false, features = [
 
 [features]
 default = [
-    "bench_camera",
-    "bench_ecs",
-    "bench_math",
-    "bench_picking",
-    "bench_platform",
-    "bench_reflect",
-    "bench_render",
-    "bench_scene",
-    "bench_tasks",
-    "bench_transform",
+  "bench_camera",
+  "bench_ecs",
+  "bench_math",
+  "bench_picking",
+  "bench_platform",
+  "bench_reflect",
+  "bench_render",
+  "bench_scene",
+  "bench_tasks",
+  "bench_transform",
 ]
 
 bench_camera = ["dep:bevy_camera", "dep:bevy_math"]
 
 bench_ecs = [
-    "dep:bevy_ecs",
-    "dep:bevy_app",
-    "dep:bevy_math",
-    "dep:bevy_reflect",
-    "dep:bevy_tasks",
-    "bevy_math/bevy_reflect",
+  "dep:bevy_ecs",
+  "dep:bevy_app",
+  "dep:bevy_math",
+  "dep:bevy_reflect",
+  "dep:bevy_tasks",
+  "bevy_math/bevy_reflect",
 ]
 
 bench_math = ["dep:bevy_math"]
 
 bench_picking = ["dep:bevy_picking", "dep:bevy_math"]
 
-bench_platform = ["dep:bevy_platform", "dep:bevy_math", "bytemuck/min_const_generics"]
+bench_platform = [
+  "dep:bevy_platform",
+  "dep:bevy_math",
+  "bytemuck/min_const_generics",
+]
 
 bench_reflect = ["dep:bevy_reflect", "dep:bevy_platform"]
 
 bench_render = [
-    "dep:bevy_render",
-    "dep:bevy_app",
-    "dep:bevy_asset",
-    "dep:bevy_camera",
-    "dep:bevy_ecs",
-    "dep:bevy_mesh",
-    "dep:bevy_reflect",
+  "dep:bevy_render",
+  "dep:bevy_app",
+  "dep:bevy_asset",
+  "dep:bevy_camera",
+  "dep:bevy_ecs",
+  "dep:bevy_mesh",
+  "dep:bevy_reflect",
 ]
 
 bench_scene = [
-    "dep:bevy_scene",
-    "dep:bevy_app",
-    "dep:bevy_asset",
-    "dep:bevy_ecs",
-    "dep:bevy_ui",
-    "dep:bevy_ui_widgets",
-    "dep:bevy_reflect",
+  "dep:bevy_scene",
+  "dep:bevy_app",
+  "dep:bevy_asset",
+  "dep:bevy_ecs",
+  "dep:bevy_ui",
+  "dep:bevy_ui_widgets",
+  "dep:bevy_reflect",
 ]
 
 bench_tasks = ["dep:bevy_tasks"]
 
 bench_transform = [
-    "dep:bevy_transform",
-    "dep:bevy_ecs",
-    "dep:bevy_math",
-    "dep:bevy_tasks",
+  "dep:bevy_transform",
+  "dep:bevy_ecs",
+  "dep:bevy_math",
+  "dep:bevy_tasks",
 ]
 
 [lints.clippy]
