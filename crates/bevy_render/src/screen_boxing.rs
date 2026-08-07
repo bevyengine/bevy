@@ -115,15 +115,15 @@ pub fn box_cameras(
                     let render_width = (render_height as f32 * aspect_ratio.ratio()).round() as u32;
 
                     (
-                        UVec2::new(physical_size.x / 2 - render_width / 2, 0),
                         UVec2::new(render_width, render_height),
+                        UVec2::new(physical_size.x / 2 - render_width / 2, 0),
                     )
                 } else {
                     let render_width = physical_size.x;
                     let render_height = (render_width as f32 / aspect_ratio.ratio()).round() as u32;
                     (
-                        UVec2::new(0, physical_size.y / 2 - render_height / 2),
                         UVec2::new(render_width, render_height),
+                        UVec2::new(0, physical_size.y / 2 - render_height / 2),
                     )
                 };
 
@@ -133,6 +133,10 @@ pub fn box_cameras(
             }
             CameraBox::LetterBox { top, bottom } => {
                 let letterbox_height = top + bottom;
+                if physical_size.y <= letterbox_height {
+                    camera.viewport = None;
+                    continue;
+                }
 
                 let render_resolution =
                     UVec2::new(physical_size.x, physical_size.y - letterbox_height);
@@ -152,6 +156,11 @@ pub fn box_cameras(
             }
             CameraBox::PillarBox { left, right } => {
                 let pillarbox_width = left + right;
+                if physical_size.x <= pillarbox_width {
+                    camera.viewport = None;
+                    continue;
+                }
+
                 let render_resolution =
                     UVec2::new(physical_size.x - pillarbox_width, physical_size.y);
 
@@ -175,10 +184,14 @@ pub fn box_cameras(
             } => {
                 let letterbox_height = top + bottom;
                 let pillarbox_width = left + right;
+                if physical_size.x <= letterbox_height || physical_size.y <= pillarbox_width {
+                    camera.viewport = None;
+                    continue;
+                }
 
                 let render_resolution = UVec2::new(
-                    physical_size.y - letterbox_height,
                     physical_size.x - pillarbox_width,
+                    physical_size.y - letterbox_height,
                 );
 
                 let render_position = UVec2::new(*left, *top);
@@ -207,13 +220,13 @@ fn is_within_rect(rect: &UVec2, position: &UVec2, size: &UVec2) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     mod systems {
-        use bevy_app::{App, First};
         use super::*;
+        use crate::camera::CameraPlugin;
+        use bevy_app::{App, First};
         use bevy_camera::RenderTarget;
         use bevy_window::{WindowRef, WindowResolution};
-        use crate::camera::CameraPlugin;
 
         const W360P: UVec2 = UVec2::new(640, 360);
         const W720P: UVec2 = UVec2::new(1280, 720);
@@ -290,13 +303,8 @@ mod tests {
 
         #[test]
         fn test_basic_pillarboxing() {
-            let (mut app, camera_id) = setup_app(
-                CameraBox::PillarBox {
-                    left: 2,
-                    right: 2,
-                },
-                W360P.into(),
-            );
+            let (mut app, camera_id) =
+                setup_app(CameraBox::PillarBox { left: 2, right: 2 }, W360P.into());
             app.update();
             let viewport = app
                 .world()
@@ -308,13 +316,8 @@ mod tests {
             assert_eq!(viewport.physical_position, UVec2::new(2, 0));
             assert_eq!(viewport.physical_size, UVec2::new(636, 360));
 
-            let (mut app, camera_id) = setup_app(
-                CameraBox::PillarBox {
-                    left: 5,
-                    right: 0,
-                },
-                W360P.into(),
-            );
+            let (mut app, camera_id) =
+                setup_app(CameraBox::PillarBox { left: 5, right: 0 }, W360P.into());
             app.update();
             let viewport = app
                 .world()
@@ -326,13 +329,8 @@ mod tests {
             assert_eq!(viewport.physical_position, UVec2::new(5, 0));
             assert_eq!(viewport.physical_size, UVec2::new(635, 360));
 
-            let (mut app, camera_id) = setup_app(
-                CameraBox::PillarBox {
-                    left: 0,
-                    right: 5,
-                },
-                W360P.into(),
-            );
+            let (mut app, camera_id) =
+                setup_app(CameraBox::PillarBox { left: 0, right: 5 }, W360P.into());
             app.update();
             let viewport = app
                 .world()
@@ -344,13 +342,8 @@ mod tests {
             assert_eq!(viewport.physical_position, UVec2::new(0, 0));
             assert_eq!(viewport.physical_size, UVec2::new(635, 360));
 
-            let (mut app, camera_id) = setup_app(
-                CameraBox::PillarBox {
-                    left: 5,
-                    right: 10,
-                },
-                W360P.into(),
-            );
+            let (mut app, camera_id) =
+                setup_app(CameraBox::PillarBox { left: 5, right: 10 }, W360P.into());
             app.update();
             let viewport = app
                 .world()
@@ -362,13 +355,8 @@ mod tests {
             assert_eq!(viewport.physical_position, UVec2::new(5, 0));
             assert_eq!(viewport.physical_size, UVec2::new(625, 360));
 
-            let (mut app, camera_id) = setup_app(
-                CameraBox::PillarBox {
-                    left: 10,
-                    right: 5,
-                },
-                W360P.into(),
-            );
+            let (mut app, camera_id) =
+                setup_app(CameraBox::PillarBox { left: 10, right: 5 }, W360P.into());
             app.update();
             let viewport = app
                 .world()
@@ -399,13 +387,8 @@ mod tests {
 
         #[test]
         fn test_basic_letterboxing() {
-            let (mut app, camera_id) = setup_app(
-                CameraBox::LetterBox {
-                    top: 2,
-                    bottom: 2,
-                },
-                W360P.into(),
-            );
+            let (mut app, camera_id) =
+                setup_app(CameraBox::LetterBox { top: 2, bottom: 2 }, W360P.into());
             app.update();
             let viewport = app
                 .world()
@@ -417,13 +400,8 @@ mod tests {
             assert_eq!(viewport.physical_position, UVec2::new(0, 2));
             assert_eq!(viewport.physical_size, UVec2::new(640, 356));
 
-            let (mut app, camera_id) = setup_app(
-                CameraBox::LetterBox {
-                    top: 5,
-                    bottom: 0,
-                },
-                W360P.into(),
-            );
+            let (mut app, camera_id) =
+                setup_app(CameraBox::LetterBox { top: 5, bottom: 0 }, W360P.into());
             app.update();
             let viewport = app
                 .world()
@@ -435,13 +413,8 @@ mod tests {
             assert_eq!(viewport.physical_position, UVec2::new(0, 5));
             assert_eq!(viewport.physical_size, UVec2::new(640, 355));
 
-            let (mut app, camera_id) = setup_app(
-                CameraBox::LetterBox {
-                    top: 0,
-                    bottom: 5,
-                },
-                W360P.into(),
-            );
+            let (mut app, camera_id) =
+                setup_app(CameraBox::LetterBox { top: 0, bottom: 5 }, W360P.into());
             app.update();
             let viewport = app
                 .world()
@@ -453,13 +426,8 @@ mod tests {
             assert_eq!(viewport.physical_position, UVec2::new(0, 0));
             assert_eq!(viewport.physical_size, UVec2::new(640, 355));
 
-            let (mut app, camera_id) = setup_app(
-                CameraBox::LetterBox {
-                    top: 10,
-                    bottom: 5,
-                },
-                W360P.into(),
-            );
+            let (mut app, camera_id) =
+                setup_app(CameraBox::LetterBox { top: 10, bottom: 5 }, W360P.into());
             app.update();
             let viewport = app
                 .world()
@@ -471,13 +439,8 @@ mod tests {
             assert_eq!(viewport.physical_position, UVec2::new(0, 10));
             assert_eq!(viewport.physical_size, UVec2::new(640, 345));
 
-            let (mut app, camera_id) = setup_app(
-                CameraBox::LetterBox {
-                    top: 5,
-                    bottom: 10,
-                },
-                W360P.into(),
-            );
+            let (mut app, camera_id) =
+                setup_app(CameraBox::LetterBox { top: 5, bottom: 10 }, W360P.into());
             app.update();
             let viewport = app
                 .world()
@@ -504,7 +467,6 @@ mod tests {
                 .to_owned()
                 .viewport;
             assert!(viewport.is_none());
-
         }
 
         #[test]
