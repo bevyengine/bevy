@@ -16,7 +16,9 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use core::marker::PhantomData;
-use wgpu::{BufferSlice, CommandEncoder};
+use wgpu::{
+    BufferSlice, CommandEncoder, ComputePassTimestampWrites, QuerySet, RenderPassTimestampWrites,
+};
 
 use bevy_app::{App, Plugin, PreUpdate};
 
@@ -28,7 +30,8 @@ use crate::{
 use self::internal::{sync_diagnostics, Pass, RenderDiagnosticsMutex, WriteTimestamp};
 pub use self::{
     erased_render_asset_diagnostic_plugin::ErasedRenderAssetDiagnosticPlugin,
-    internal::DiagnosticsRecorder, mesh_allocator_diagnostic_plugin::MeshAllocatorDiagnosticPlugin,
+    internal::{DiagnosticsRecorder, PassKind},
+    mesh_allocator_diagnostic_plugin::MeshAllocatorDiagnosticPlugin,
     render_asset_diagnostic_plugin::RenderAssetDiagnosticPlugin,
 };
 
@@ -58,8 +61,9 @@ use crate::renderer::RenderDevice;
 ///     ```
 ///
 /// # Supported platforms
-/// Timestamp queries and pipeline statistics are currently supported only on Vulkan and DX12.
-/// On other platforms (Metal, WebGPU, WebGL2) only CPU time will be recorded.
+/// Timestamp queries and pipeline statistics are supported when the backend
+/// exposes the corresponding wgpu features. Metal supports whole-pass GPU
+/// timestamps through pass descriptor boundary writes.
 #[derive(Default)]
 pub struct RenderDiagnosticsPlugin;
 
@@ -137,6 +141,24 @@ fn finish_diagnostics_frame(
 
 /// Allows recording diagnostic spans.
 pub trait RecordDiagnostics: Send + Sync {
+    /// Prepares a pass diagnostic span before its descriptor is constructed.
+    ///
+    /// This follows the same begin/end model as [`RecordDiagnostics::pass_span`],
+    /// while also supplying automatic descriptor timestamps on backends that
+    /// cannot write timestamps inside an active pass.
+    fn pass_span_descriptor<N>(&self, kind: PassKind, name: N) -> PassDescriptorSpan<'_, Self>
+    where
+        N: Into<Cow<'static, str>>,
+    {
+        let name = name.into();
+        let timestamps = self.begin_pass_boundary_fallback(kind, name.clone());
+        PassDescriptorSpan {
+            recorder: self,
+            name,
+            timestamps,
+        }
+    }
+
     /// Begin a time span, which will record elapsed CPU and GPU time.
     ///
     /// Returns a guard, which will panic on drop unless you end the span.
@@ -195,6 +217,113 @@ pub trait RecordDiagnostics: Send + Sync {
 
     #[doc(hidden)]
     fn end_pass_span<P: Pass>(&self, pass: &mut P);
+
+    #[doc(hidden)]
+    fn begin_pass_boundary_fallback(
+        &self,
+        kind: PassKind,
+        name: Cow<'static, str>,
+    ) -> Option<PassBoundaryTimestamps>;
+
+    #[doc(hidden)]
+    fn end_pass_boundary_fallback(&self);
+}
+
+/// Query indices reserved for automatic beginning/end timestamp writes on a
+/// render or compute pass descriptor.
+#[doc(hidden)]
+pub struct PassBoundaryTimestamps {
+    query_set: QuerySet,
+    beginning_of_pass_write_index: u32,
+    end_of_pass_write_index: u32,
+}
+
+/// A pass diagnostic span prepared before constructing its pass descriptor.
+pub struct PassDescriptorSpan<'a, R: ?Sized> {
+    recorder: &'a R,
+    name: Cow<'static, str>,
+    timestamps: Option<PassBoundaryTimestamps>,
+}
+
+impl<'a, R: RecordDiagnostics + ?Sized> PassDescriptorSpan<'a, R> {
+    /// Returns timestamp writes suitable for a [`wgpu::RenderPassDescriptor`].
+    pub fn render_timestamp_writes(&self) -> Option<RenderPassTimestampWrites<'_>> {
+        self.timestamps
+            .as_ref()
+            .map(|timestamps| RenderPassTimestampWrites {
+                query_set: &timestamps.query_set,
+                beginning_of_pass_write_index: Some(timestamps.beginning_of_pass_write_index),
+                end_of_pass_write_index: Some(timestamps.end_of_pass_write_index),
+            })
+    }
+
+    /// Returns timestamp writes suitable for a [`wgpu::ComputePassDescriptor`].
+    pub fn compute_timestamp_writes(&self) -> Option<ComputePassTimestampWrites<'_>> {
+        self.timestamps
+            .as_ref()
+            .map(|timestamps| ComputePassTimestampWrites {
+                query_set: &timestamps.query_set,
+                beginning_of_pass_write_index: Some(timestamps.beginning_of_pass_write_index),
+                end_of_pass_write_index: Some(timestamps.end_of_pass_write_index),
+            })
+    }
+
+    /// Begins recording after the pass has been constructed.
+    pub fn begin<P: Pass>(self, pass: &mut P) -> DescriptorPassSpanGuard<'a, R, P> {
+        let uses_descriptor_timestamps = self.timestamps.is_some();
+        if !uses_descriptor_timestamps {
+            self.recorder.begin_pass_span(pass, self.name.clone());
+        }
+
+        let guard = DescriptorPassSpanGuard {
+            recorder: self.recorder,
+            name: self.name.clone(),
+            uses_descriptor_timestamps,
+            marker: PhantomData,
+        };
+        core::mem::forget(self);
+        guard
+    }
+}
+
+impl<R: ?Sized> Drop for PassDescriptorSpan<'_, R> {
+    fn drop(&mut self) {
+        if self.timestamps.is_some() {
+            panic!(
+                "PassDescriptorSpan::begin was never called for {}",
+                self.name
+            );
+        }
+    }
+}
+
+/// Guard returned by [`PassDescriptorSpan::begin`].
+pub struct DescriptorPassSpanGuard<'a, R: ?Sized, P> {
+    recorder: &'a R,
+    name: Cow<'static, str>,
+    uses_descriptor_timestamps: bool,
+    marker: PhantomData<P>,
+}
+
+impl<R: RecordDiagnostics + ?Sized, P: Pass> DescriptorPassSpanGuard<'_, R, P> {
+    /// Ends the pass diagnostic span.
+    pub fn end(self, pass: &mut P) {
+        if self.uses_descriptor_timestamps {
+            self.recorder.end_pass_boundary_fallback();
+        } else {
+            self.recorder.end_pass_span(pass);
+        }
+        core::mem::forget(self);
+    }
+}
+
+impl<R: ?Sized, P> Drop for DescriptorPassSpanGuard<'_, R, P> {
+    fn drop(&mut self) {
+        panic!(
+            "DescriptorPassSpanGuard::end was never called for {}",
+            self.name
+        );
+    }
 }
 
 /// Guard returned by [`RecordDiagnostics::time_span`].
@@ -284,6 +413,21 @@ impl<T: RecordDiagnostics> RecordDiagnostics for Option<Arc<T>> {
             recorder.end_pass_span(pass);
         }
     }
+
+    fn begin_pass_boundary_fallback(
+        &self,
+        kind: PassKind,
+        name: Cow<'static, str>,
+    ) -> Option<PassBoundaryTimestamps> {
+        self.as_ref()
+            .and_then(|recorder| recorder.begin_pass_boundary_fallback(kind, name))
+    }
+
+    fn end_pass_boundary_fallback(&self) {
+        if let Some(recorder) = self {
+            recorder.end_pass_boundary_fallback();
+        }
+    }
 }
 
 impl<'a, T: RecordDiagnostics> RecordDiagnostics for Option<&'a T> {
@@ -326,6 +470,20 @@ impl<'a, T: RecordDiagnostics> RecordDiagnostics for Option<&'a T> {
     fn end_pass_span<P: Pass>(&self, pass: &mut P) {
         if let Some(recorder) = self {
             recorder.end_pass_span(pass);
+        }
+    }
+
+    fn begin_pass_boundary_fallback(
+        &self,
+        kind: PassKind,
+        name: Cow<'static, str>,
+    ) -> Option<PassBoundaryTimestamps> {
+        self.and_then(|recorder| recorder.begin_pass_boundary_fallback(kind, name))
+    }
+
+    fn end_pass_boundary_fallback(&self) {
+        if let Some(recorder) = self {
+            recorder.end_pass_boundary_fallback();
         }
     }
 }
