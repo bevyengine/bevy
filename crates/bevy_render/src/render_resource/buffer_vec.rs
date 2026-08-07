@@ -5,14 +5,13 @@ use crate::{
     renderer::{RenderDevice, RenderQueue},
 };
 use bytemuck::{must_cast_slice, NoUninit};
+use const_shader_layout::ShaderLayout;
 use encase::{
     internal::{WriteInto, Writer},
     ShaderType,
 };
 use thiserror::Error;
 use wgpu::{BindingResource, BufferAddress, BufferUsages};
-
-use super::GpuArrayBufferable;
 
 /// A structure for storing raw bytes that have already been properly formatted
 /// for use by the GPU.
@@ -683,12 +682,9 @@ where
 ///
 /// This type is useful when you're accumulating "output slots" for a GPU
 /// compute shader to write into.
-///
-/// The type `T` need not be [`NoUninit`], unlike [`RawBufferVec`]; it only has to
-/// be [`GpuArrayBufferable`].
 pub struct UninitBufferVec<T>
 where
-    T: GpuArrayBufferable,
+    T: ShaderLayout,
 {
     buffer: Option<Buffer>,
     len: usize,
@@ -702,7 +698,7 @@ where
 
 impl<T> UninitBufferVec<T>
 where
-    T: GpuArrayBufferable,
+    T: ShaderLayout,
 {
     /// Creates a new [`UninitBufferVec`] with the given [`BufferUsages`].
     pub const fn new(buffer_usage: BufferUsages) -> Self {

@@ -4,7 +4,7 @@ use bevy_ecs::prelude::*;
 use bevy_math::Vec3;
 use bevy_reflect::prelude::*;
 use bytemuck::{Pod, Zeroable};
-use encase::ShaderType;
+use const_shader_layout::ShaderLayout;
 use thiserror::Error;
 
 /// The maximum size of the morph target texture, if morph target textures are
@@ -130,7 +130,7 @@ pub enum MeshMorphWeights {
 }
 
 /// Attributes **differences** used for morph targets.
-#[derive(Copy, Clone, PartialEq, Debug, Reflect, ShaderType, Pod, Zeroable, Default)]
+#[derive(Copy, Clone, PartialEq, Debug, Reflect, ShaderLayout, Pod, Zeroable, Default)]
 #[reflect(Clone, Default)]
 #[repr(C)]
 pub struct MorphAttributes {

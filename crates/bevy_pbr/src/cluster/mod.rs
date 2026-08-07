@@ -20,6 +20,7 @@ use bevy_render::{
     Extract,
 };
 use bytemuck::{Pod, Zeroable};
+use const_shader_layout::{ShaderLayout, ShaderLayoutCompat};
 use tracing::{error, info, trace, warn};
 
 use crate::{MeshPipeline, RenderViewLightProbes};
@@ -32,7 +33,7 @@ pub const MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS: usize = 204;
 // Make sure that the clusterable object buffer doesn't overflow the maximum
 // size of a UBO on WebGL 2.
 const _: () =
-    assert!(size_of::<GpuClusteredLight>() * MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS <= 16384);
+    assert!(GpuClusteredLight::SIZE.get() * MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS as u64 <= 16384);
 
 // NOTE: Clustered-forward rendering requires 3 storage buffer bindings so check that
 // at least that many are supported using this constant and SupportedBindingType::from_device()
@@ -107,7 +108,7 @@ pub(crate) fn make_global_cluster_settings(world: &World) -> GlobalClusterSettin
 /// (point or spot).
 ///
 /// This is *not* used for other clustered objects, such as light probes.
-#[derive(Copy, Clone, ShaderType, Default, Pod, Zeroable, Debug)]
+#[derive(Copy, Clone, ShaderLayoutCompat, Default, Pod, Zeroable, Debug)]
 #[repr(C)]
 pub struct GpuClusteredLight {
     // For point lights: the lower-right 2x2 values of the projection matrix [2][2] [2][3] [3][2] [3][3]
@@ -330,10 +331,9 @@ impl GpuClusteredLights {
 
     pub fn min_size(buffer_binding_type: BufferBindingType) -> NonZero<u64> {
         match buffer_binding_type {
-            BufferBindingType::Storage { .. } => GpuClusteredLight::min_size(),
-            BufferBindingType::Uniform => NonZero::try_from(
-                u64::from(GpuClusteredLight::min_size())
-                    * MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS as u64,
+            BufferBindingType::Storage { .. } => GpuClusteredLight::SIZE,
+            BufferBindingType::Uniform => NonZero::<u64>::new(
+                GpuClusteredLight::SIZE.get() * MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS as u64,
             )
             .unwrap(),
         }

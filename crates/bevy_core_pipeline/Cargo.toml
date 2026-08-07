@@ -41,6 +41,9 @@ bevy_platform = { path = "../bevy_platform", version = "0.20.0-dev", default-fea
 bitflags = "2.3"
 nonmax = "0.5"
 indexmap = "2"
+const_shader_layout = { version = "0.4", default-features = false, features = [
+  "derive",
+] }
 
 [lints]
 workspace = true

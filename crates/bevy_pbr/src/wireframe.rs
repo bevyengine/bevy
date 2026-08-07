@@ -59,7 +59,8 @@ use bevy_render::{
 };
 use bevy_shader::Shader;
 use bytemuck::{Pod, Zeroable};
-use core::{any::TypeId, hash::Hash, mem::size_of, ops::Range};
+use const_shader_layout::ShaderLayout;
+use core::{any::TypeId, hash::Hash, ops::Range};
 use tracing::{error, warn};
 
 /// A [`Plugin`] that draws wireframes.
@@ -641,14 +642,14 @@ impl<P: PhaseItem> RenderCommand<P> for DrawWireframeMeshPulled {
                 };
 
                 let indirect_parameters_offset = indirect_parameters_range.start as u64
-                    * size_of::<IndirectParametersNonIndexed>() as u64;
+                    * IndirectParametersNonIndexed::SIZE.get();
                 let indirect_parameters_count =
                     indirect_parameters_range.end - indirect_parameters_range.start;
 
                 match batch_set_index {
                     Some(batch_set_index) => {
                         let count_offset =
-                            u32::from(batch_set_index) * (size_of::<IndirectBatchSet>() as u32);
+                            u32::from(batch_set_index) * (IndirectBatchSet::SIZE.get() as u32);
                         pass.multi_draw_indirect_count(
                             indirect_buffer,
                             indirect_parameters_offset,
