@@ -1,5 +1,6 @@
 mod prepass_bindings;
 
+use crate::render::skinning_influence_count;
 use crate::{
     alpha_mode_pipeline_key, binding_arrays_are_usable, buffer_layout,
     collect_meshes_for_gpu_building, init_material_pipeline, set_mesh_motion_vector_flags,
@@ -564,7 +565,13 @@ impl PrepassPipeline {
         }
         if layout.0.contains(Mesh::ATTRIBUTE_COLOR) {
             shader_defs.push("VERTEX_COLORS".into());
-            vertex_attributes.push(Mesh::ATTRIBUTE_COLOR.at_shader_location(7));
+            let color_shader_location = match skinning_influence_count(layout) {
+                16 => 13,
+                12 => 11,
+                8 => 9,
+                _ => 7,
+            };
+            vertex_attributes.push(Mesh::ATTRIBUTE_COLOR.at_shader_location(color_shader_location));
         }
         if mesh_key.contains(MeshPipelineKey::MOTION_VECTOR_PREPASS) {
             shader_defs.push("MOTION_VECTOR_PREPASS".into());

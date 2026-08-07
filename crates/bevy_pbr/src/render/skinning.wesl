@@ -37,6 +37,57 @@ fn skin_model(
         + weights.w * joint_matrices[skin_index + indexes.w];
 }
 
+@if(SKINNED_8)
+fn skin_model_8(
+    indexes: vec4<u32>,
+    weights: vec4<f32>,
+    indexes_1: vec4<u32>,
+    weights_1: vec4<f32>,
+    instance_index: u32,
+) -> mat4x4<f32> {
+    return skin_model(indexes, weights, instance_index)
+        + skin_model(indexes_1, weights_1, instance_index);
+}
+
+@if(SKINNED_12)
+fn skin_model_12(
+    indexes: vec4<u32>,
+    weights: vec4<f32>,
+    indexes_1: vec4<u32>,
+    weights_1: vec4<f32>,
+    indexes_2: vec4<u32>,
+    weights_2: vec4<f32>,
+    instance_index: u32,
+) -> mat4x4<f32> {
+    return skin_model(indexes, weights, instance_index)
+        + skin_model(indexes_1, weights_1, instance_index)
+        + skin_model(indexes_2, weights_2, instance_index);
+}
+
+@if(SKINNED_16)
+fn skin_model_16(
+    indexes: vec4<u32>,
+    weights: vec4<f32>,
+    indexes_1: vec4<u32>,
+    weights_1: vec4<f32>,
+    indexes_2: vec4<u32>,
+    weights_2: vec4<f32>,
+    indexes_3: vec4<u32>,
+    weights_3: vec4<f32>,
+    instance_index: u32,
+) -> mat4x4<f32> {
+    return skin_model_12(
+        indexes,
+        weights,
+        indexes_1,
+        weights_1,
+        indexes_2,
+        weights_2,
+        instance_index,
+    )
+        + skin_model(indexes_3, weights_3, instance_index);
+}
+
 // Returns the skinned position of a vertex with the given weights from the
 // previous frame.
 //
@@ -59,6 +110,57 @@ fn skin_prev_model(
         + weights.y * prev_joint_matrices[skin_index + indexes.y]
         + weights.z * prev_joint_matrices[skin_index + indexes.z]
         + weights.w * prev_joint_matrices[skin_index + indexes.w];
+}
+
+@if(SKINNED_8)
+fn skin_prev_model_8(
+    indexes: vec4<u32>,
+    weights: vec4<f32>,
+    indexes_1: vec4<u32>,
+    weights_1: vec4<f32>,
+    instance_index: u32,
+) -> mat4x4<f32> {
+    return skin_prev_model(indexes, weights, instance_index)
+        + skin_prev_model(indexes_1, weights_1, instance_index);
+}
+
+@if(SKINNED_12)
+fn skin_prev_model_12(
+    indexes: vec4<u32>,
+    weights: vec4<f32>,
+    indexes_1: vec4<u32>,
+    weights_1: vec4<f32>,
+    indexes_2: vec4<u32>,
+    weights_2: vec4<f32>,
+    instance_index: u32,
+) -> mat4x4<f32> {
+    return skin_prev_model(indexes, weights, instance_index)
+        + skin_prev_model(indexes_1, weights_1, instance_index)
+        + skin_prev_model(indexes_2, weights_2, instance_index);
+}
+
+@if(SKINNED_16)
+fn skin_prev_model_16(
+    indexes: vec4<u32>,
+    weights: vec4<f32>,
+    indexes_1: vec4<u32>,
+    weights_1: vec4<f32>,
+    indexes_2: vec4<u32>,
+    weights_2: vec4<f32>,
+    indexes_3: vec4<u32>,
+    weights_3: vec4<f32>,
+    instance_index: u32,
+) -> mat4x4<f32> {
+    return skin_prev_model_12(
+        indexes,
+        weights,
+        indexes_1,
+        weights_1,
+        indexes_2,
+        weights_2,
+        instance_index,
+    )
+        + skin_prev_model(indexes_3, weights_3, instance_index);
 }
 
 @if(SKINNED)
