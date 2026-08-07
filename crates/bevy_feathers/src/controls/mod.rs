@@ -17,6 +17,7 @@ mod select;
 mod slider;
 mod text_input;
 mod toggle_switch;
+mod tooltip;
 mod virtual_keyboard;
 
 pub use button::*;
@@ -35,6 +36,7 @@ pub use select::*;
 pub use slider::*;
 pub use text_input::*;
 pub use toggle_switch::*;
+pub use tooltip::*;
 pub use virtual_keyboard::*;
 
 use crate::alpha_pattern::AlphaPatternPlugin;
@@ -67,6 +69,7 @@ impl Plugin for ControlsPlugin {
                 ColorSliderPlugin,
                 ColorSwatchPlugin,
             ),
+            FeathersTooltipPlugin,
         ));
     }
 }
