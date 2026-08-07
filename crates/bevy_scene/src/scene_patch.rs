@@ -1,6 +1,6 @@
 use crate::{
-    ApplySceneError, ResolveSceneError, ResolvedSceneListRoot, ResolvedSceneRoot, Scene,
-    SceneDependencies, SceneList,
+    ApplySceneError, RelationshipBehavior, ResolveSceneError, ResolvedSceneListRoot,
+    ResolvedSceneRoot, Scene, SceneDependencies, SceneList,
 };
 use alloc::sync::Arc;
 use bevy_asset::{Asset, AssetServer, Assets, Handle, LoadFromPath, UntypedHandle};
@@ -79,12 +79,26 @@ impl ScenePatch {
 
     /// Applies the scene to the given `entity`. This should only be called after [`ScenePatch::resolve`]
     pub fn apply<'w>(&self, entity: &'w mut EntityWorldMut) -> Result<(), SpawnSceneError> {
+        self.patch(entity, RelationshipBehavior::Overwrite)
+    }
+
+    /// Applies the scene to the given `entity` using the given [`RelationshipBehavior`].
+    /// This should only be called after [`ScenePatch::resolve`].
+    pub(crate) fn patch<'w>(
+        &self,
+        entity: &'w mut EntityWorldMut,
+        relationship_behavior: RelationshipBehavior,
+    ) -> Result<(), SpawnSceneError> {
         let resolved = self
             .resolved
             .as_deref()
             .ok_or(SpawnSceneError::UnresolvedSceneError)?;
         resolved
-            .apply(entity, &mut BundleScratch::default())
+            .patch(
+                entity,
+                &mut BundleScratch::default(),
+                relationship_behavior,
+            )
             .map_err(SpawnSceneError::ApplySceneError)
     }
 }
