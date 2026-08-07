@@ -4,7 +4,7 @@ use argh::FromArgs;
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     gltf::GltfPlugin,
-    mesh::MeshAttributeCompressionFlags,
+    mesh::MeshCompressionArgs,
     post_process::motion_blur::MotionBlur,
     prelude::*,
     window::{PresentMode, WindowResolution},
@@ -132,9 +132,9 @@ struct Args {
     #[argh(switch)]
     motion_blur: bool,
 
-    /// whether to enable vertex compression.
+    /// whether to enable mesh compression.
     #[argh(switch)]
-    vertex_compression: bool,
+    mesh_compression: bool,
 }
 
 fn main() {
@@ -158,11 +158,10 @@ fn main() {
                     ..Default::default()
                 })
                 .set(GltfPlugin {
-                    mesh_attribute_compression: if args.vertex_compression {
-                        MeshAttributeCompressionFlags::all()
-                            .with_color(MeshAttributeCompressionFlags::COMPRESS_COLOR_UNORM8)
+                    mesh_compression: if args.mesh_compression {
+                        MeshCompressionArgs::regular()
                     } else {
-                        MeshAttributeCompressionFlags::empty()
+                        MeshCompressionArgs::none()
                     },
                     ..default()
                 }),
