@@ -61,11 +61,11 @@ fn setup(mut commands: Commands, character: Res<Character>) {
         // via observers and systems. The observers and systems update the
         // state and also update the look of the UI widgets
         // (i.e. changing text color of a selected option, inserting an X).
-        ui(&character),
+        @ui(&character),
 
         // This scene will serve as the other half of our "View" in our MVC design.
         // The user will see the character they are creating.
-        character_view(&character),
+        @character_view(&character),
     });
 }
 
@@ -180,16 +180,12 @@ fn ui(character: &Character) -> impl Scene {
                 // Pane header
                 Node
                 Children[
-                    Text::new("Character Creator")
+                    Text("Character Creator")
                 ],
-
-                name_text_input_row(character),
-
-                age_slider_row(character),
-
-                hat_type_radio_group_row(character),
-
-                tint_yellow_checkbox_row(character),
+                @name_text_input_row(character),
+                @age_slider_row(character),
+                @hat_type_radio_group_row(character),
+                @tint_yellow_checkbox_row(character),
             ]
         ]
     }
@@ -210,8 +206,7 @@ fn name_text_input_row(character: &Character) -> impl Scene {
             Children [
                 Text::new("Name: ")
             ],
-
-            name_text_input(character)
+            @name_text_input(character)
         ]
     }
 }
@@ -280,15 +275,13 @@ fn age_slider_row(character: &Character) -> impl Scene {
             Children [
                 Text::new("Age:")
             ],
-
-            age_slider(character),
-
+            @age_slider(character),
             Node {
                 width: px(30),
             }
             Children [
                 AgeSliderText
-                Text::new(format!("{}", age))
+                Text(format!("{}", age))
             ],
         ]
     }
@@ -418,7 +411,7 @@ fn hat_type_radio_group_row(character: &Character) -> impl Scene {
         Children [
             Node
             Children [
-                Text::new("Hat: ")
+                Text("Hat: ")
             ],
 
             {
@@ -439,7 +432,7 @@ fn hat_type_radio_button(hat_type: HatType, character: &Character) -> Box<dyn Sc
                 padding: UiRect::axes(px(5), px(2)),
             }
             RadioButton
-            template_value(hat_type)
+            hat_type
             BackgroundColor(Color::BLACK)
             on(on_pointer_over_pointer_cursor)
             on(on_pointer_out_default_cursor)
@@ -447,7 +440,7 @@ fn hat_type_radio_button(hat_type: HatType, character: &Character) -> Box<dyn Sc
     };
     if character.hat_type == hat_type {
         Box::new(bsn! {
-            base_radio_button()
+            @base_radio_button()
             // The selected hat_type must have the `Checked` component.
             Checked
             Children [
@@ -458,9 +451,9 @@ fn hat_type_radio_button(hat_type: HatType, character: &Character) -> Box<dyn Sc
         })
     } else {
         Box::new(bsn! {
-            base_radio_button()
+            @base_radio_button()
             Children [
-                Text::new(format!("{hat_type:?}"))
+                Text(format!("{hat_type:?}"))
                 TextColor(palettes::basic::WHITE)
             ]
         })
@@ -530,10 +523,9 @@ fn tint_yellow_checkbox_row(character: &Character) -> impl Scene {
         Children [
             Node
             Children [
-                Text::new("Tint Yellow: ")
+                Text("Tint Yellow: ")
             ],
-
-            tint_yellow_checkbox(character)
+            @tint_yellow_checkbox(character)
         ]
     }
 }
@@ -556,18 +548,18 @@ fn tint_yellow_checkbox(character: &Character) -> Box<dyn Scene> {
 
     if character.tint_yellow {
         Box::new(bsn! {
-            base_checkbox()
+            @base_checkbox()
             Checked
             Children [
-                Text::new("X")
+                Text("X")
                 TextColor(palettes::basic::GREEN)
             ]
         })
     } else {
         Box::new(bsn! {
-            base_checkbox()
+            @base_checkbox()
             Children [
-                Text::new(" ")
+                Text(" ")
                 TextColor(palettes::basic::GREEN)
             ]
         })
@@ -623,13 +615,11 @@ fn character_view(character: &Character) -> impl Scene {
     bsn! {
         CharacterView
         Transform::from_xyz(320., 0., 0.)
-        template_value(Visibility::Inherited)
+        Visibility::Inherited
         Children [
-            character_sprite(&character),
-
-            character_hat(&character),
-
-            character_name_and_age(&character),
+            @character_sprite(&character),
+            @character_hat(&character),
+            @character_name_and_age(&character),
         ]
     }
 }
@@ -711,7 +701,7 @@ fn character_sprite(character: &Character) -> Box<dyn Scene> {
                 image: "branding/icon.png",
                 color: palettes::basic::YELLOW
             }
-            Transform::default()
+            Transform
         })
     } else {
         Box::new(bsn! {
@@ -719,7 +709,7 @@ fn character_sprite(character: &Character) -> Box<dyn Scene> {
             Sprite {
                 image: "branding/icon.png",
             }
-            Transform::default()
+            Transform
         })
     }
 }
@@ -733,21 +723,21 @@ fn character_hat(character: &Character) -> Box<dyn Scene> {
             CharacterHat
             // 0.78 radians ~ PI / 4
             Transform::from_rotation(Quat::from_rotation_z(0.78))
-            template_value(Visibility::Inherited)
+            Visibility::Inherited
             Children [
                 // bottom wider portion of the top hat.
                 Mesh2d(asset_value(Rectangle::new(
                     40., 10.
                 )))
                 MeshMaterial2d<ColorMaterial>(asset_value(ColorMaterial::from_color(Color::BLACK)))
-                template_value(Transform::from_xyz(55., 60., 1.)),
+                Transform::from_xyz(55., 60., 1.),
 
                 // top longer portion of the top hat
                 Mesh2d(asset_value(Rectangle::new(
                     20., 50.
                 )))
                 MeshMaterial2d<ColorMaterial>(asset_value(ColorMaterial::from_color(Color::BLACK)))
-                template_value(Transform::from_xyz(55., 85., 1.)),
+                Transform::from_xyz(55., 85., 1.),
             ]
         }),
         HatType::DunceCap => Box::new(bsn! {
@@ -758,7 +748,7 @@ fn character_hat(character: &Character) -> Box<dyn Scene> {
                 Vec2::new(20., 0.)
             )))
             MeshMaterial2d<ColorMaterial>(asset_value(ColorMaterial::from_color(palettes::basic::TEAL)))
-            template_value(Transform::from_xyz(0., 80., 1.).with_rotation(Quat::from_rotation_z(0.78)))
+            Transform::from_xyz(0., 80., 1.).with_rotation(Quat::from_rotation_z(0.78))
         }),
     }
 }
@@ -769,8 +759,8 @@ fn character_name_and_age(character: &Character) -> impl Scene {
     let years = if age == 1 { "year" } else { "years" };
     bsn! {
         CharacterNameAndAge
-        Text2d::new(format!("Hi! My name is {name}.\nI am {age} {years} old."))
-        template_value(Transform::from_xyz(0., -200., 0.))
+        Text2d(format!("Hi! My name is {name}.\nI am {age} {years} old."))
+        Transform::from_xyz(0., -200., 0.)
     }
 }
 
