@@ -1,5 +1,5 @@
 ---
-title: `UnpreparedBindGroup` is now `BindGroupBuilder`
+title: "`UnpreparedBindGroup` is now `BindGroupBuilder`"
 pull_requests: [25058]
 ---
 
