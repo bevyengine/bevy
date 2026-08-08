@@ -4603,6 +4603,29 @@ mod tests {
     }
 
     #[test]
+    fn removing_disabling_marks_components_changed() {
+        let mut world = World::new();
+        world.register_disabling_component::<Foo>();
+
+        let with_disabled = world.spawn((Bar, Disabled)).id();
+        let with_custom = world.spawn((Bar, Foo)).id();
+
+        world.increment_change_tick();
+
+        world.entity_mut(with_disabled).remove::<Disabled>();
+        world.entity_mut(with_custom).remove::<Foo>();
+
+        assert!(world
+            .entity_mut(with_disabled)
+            .get_change_ticks::<Bar>()
+            .is_some_and(|ticks| ticks.changed.get() == 2));
+        assert!(world
+            .entity_mut(with_custom)
+            .get_change_ticks::<Bar>()
+            .is_some_and(|ticks| ticks.changed.get() == 2));
+    }
+
+    #[test]
     fn entities_and_commands() {
         #[derive(Component, PartialEq, Debug)]
         struct Foo(u32);
