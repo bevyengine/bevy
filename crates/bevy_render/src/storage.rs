@@ -293,8 +293,12 @@ impl RenderAsset for GpuShaderBuffer {
 
     fn prepare_asset(
         source_asset: Self::SourceAsset,
-        _asset_id: AssetId<Self::SourceAsset>,
-        &mut (ref render_device, ref render_queue, _): &mut SystemParamItem<Self::Param>,
+        asset_id: AssetId<Self::SourceAsset>,
+        &mut (
+            ref render_device,
+            ref render_queue,
+            ref mut changed_shader_buffers,
+        ): &mut SystemParamItem<Self::Param>,
         previous_asset: Option<&Self>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         let had_data = matches!(source_asset.data, ShaderBufferData::Initialized(_));
@@ -310,12 +314,14 @@ impl RenderAsset for GpuShaderBuffer {
             }
             prev.buffer.clone()
         } else if let ShaderBufferData::Initialized(ref data) = source_asset.data {
+            changed_shader_buffers.insert(asset_id);
             render_device.create_buffer_with_data(&BufferInitDescriptor {
                 label: Some(&*source_asset.label),
                 contents: data,
                 usage: source_asset.buffer_usage,
             })
         } else {
+            changed_shader_buffers.insert(asset_id);
             let new_buffer = render_device.create_buffer(&BufferDescriptor {
                 label: Some(&*source_asset.label),
                 size: source_asset.len(),
