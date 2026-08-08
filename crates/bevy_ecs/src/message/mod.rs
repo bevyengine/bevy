@@ -104,6 +104,7 @@ pub trait Message: Send + Sync + 'static {}
 pub(crate) struct MessageInstance<M: Message> {
     pub message_id: MessageId<M>,
     pub message: M,
+    pub deleted: bool,
 }
 
 /// A [`MessageId`] uniquely identifies a message stored in a specific [`World`].
