@@ -1636,7 +1636,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # struct Velocity { x: f32, y: f32, z: f32 }
     /// fn gravity_system(mut query: Query<&mut Velocity>) {
     ///     const DELTA: f32 = 1.0 / 60.0;
-    ///     query.contiguous_par_iter_mut().for_each(|mut velocities| {
+    ///     query.contiguous_par_iter_mut().unwrap().for_each(|mut velocities| {
     ///         for mut velocity in velocities {
     ///             velocity.y -= 9.8 * DELTA;
     ///         }

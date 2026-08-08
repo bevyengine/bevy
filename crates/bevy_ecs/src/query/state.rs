@@ -19,7 +19,6 @@ use crate::{
 use crate::entity::UniqueEntityEquivalentSlice;
 
 use alloc::{format, vec::Vec};
-use arrayvec::ArrayVec;
 use bevy_utils::prelude::DebugName;
 use core::{fmt, ptr};
 use fixedbitset::FixedBitSet;
@@ -1557,8 +1556,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// let mut query_state = world.query::<&mut A>();
     ///
-    /// query_state.contiguous_par_iter_mut(&mut world).for_each(|mut as| {
-    ///     for a in as {
+    /// query_state.contiguous_par_iter_mut(&mut world).unwrap().for_each(|mut batch| {
+    ///     for a in batch {
     ///         a.0 += 5;
     ///     }
     /// });
