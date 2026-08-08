@@ -290,13 +290,13 @@ pub enum AnimationGraphLoadError {
 pub struct ThreadedAnimationGraphs {
     /// The mapping from each animation graph to its threaded animation graph
     /// acceleration structure.
+    ///
+    /// Note that, because graphs can load before their clips do, when a clip
+    /// loads, we have to invalidate portions of this table.
     pub(crate) threaded_graphs: HashMap<AssetId<AnimationGraph>, ThreadedAnimationGraph>,
 
     /// A mapping from the ID of each animation clip to the IDs of the graphs
     /// that reference that clip.
-    ///
-    /// Note that, because graphs can load before their clips do, when a clip
-    /// loads, we have to invalidate portions of this table.
     clip_to_graphs: HashMap<AssetId<AnimationClip>, HashSet<AssetId<AnimationGraph>>>,
 }
 
@@ -423,8 +423,11 @@ pub struct ThreadedAnimationSubgraph {
     /// See [`ThreadedAnimationGraph::threaded_graph`] for more information.
     pub threaded_graph: Vec<AnimationNodeIndex>,
 
-    /// A mapping from each parent node index to the range within
-    /// [`Self::sorted_edges`].
+    /// A mapping from the index of each element of [`Self::threaded_graph`] to
+    /// the range within [`Self::sorted_edges`].
+    ///
+    /// In other words, this array is parallel to the [`Self::threaded_graph`]
+    /// array.
     ///
     /// See [`ThreadedAnimationGraph::sorted_edge_ranges`] for more information.
     pub sorted_edge_ranges: Vec<Range<u32>>,
@@ -917,6 +920,13 @@ pub(crate) fn thread_animation_graphs(
     mut animation_clip_asset_events: MessageReader<AssetEvent<AnimationClip>>,
     mut animation_target_graphs_rebuilt_this_frame: Local<HashSet<AssetId<AnimationGraph>>>,
 ) {
+    // Early out here to avoid running `threaded_animation_graphs.into_inner()`
+    // and marking `ThreadedAnimationGraphs` as changed if there are obviously
+    // no changes.
+    if animation_graph_asset_events.is_empty() && animation_clip_asset_events.is_empty() {
+        return;
+    }
+
     let threaded_animation_graphs = threaded_animation_graphs.into_inner();
 
     animation_target_graphs_rebuilt_this_frame.clear();
@@ -1013,6 +1023,7 @@ impl ThreadedAnimationGraph {
         self.sorted_edge_ranges.clear();
         self.sorted_edges.clear();
         self.animation_clips.clear();
+        self.animation_target_to_threaded_subgraph.clear();
     }
 
     /// Prepares the [`ThreadedAnimationGraph`] for recursion.
@@ -1091,8 +1102,7 @@ impl ThreadedAnimationGraph {
         let mut seen_animation_clips = HashSet::new();
 
         // Create a vector for each node that stores whether the node is
-        // relevant to the target in question. We cache this bit vector from
-        // frame to frame to reuse allocations.
+        // relevant to the target in question.
         let mut node_is_relevant: BitVec = iter::repeat_n(false, graph.node_count()).collect();
 
         // Search for animation clips. When we find one we haven't seen before,
