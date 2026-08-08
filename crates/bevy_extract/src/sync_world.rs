@@ -17,7 +17,7 @@ use bevy_ecs::{
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
-/// A plugin that synchronizes entities with [`SyncToSubWorld`] between the main world and the render world.
+/// A plugin that synchronizes entities with [`SyncToSubWorld`] between the main world and the sub world.
 ///
 /// All entities with the [`SyncToSubWorld`] component are kept in sync. It
 /// is automatically added as a required component by [`ExtractComponentPlugin`]
@@ -31,25 +31,25 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 /// This is called "Pipelined Rendering", see [`PipelinedRenderingPlugin`] for more information.
 ///
 /// [`SyncWorldPlugin`] is the first thing that runs every frame and it maintains an entity-to-entity mapping
-/// between the main world and the render world.
-/// It does so by spawning and despawning entities in the render world, to match spawned and despawned entities in the main world.
+/// between the main world and the sub world.
+/// It does so by spawning and despawning entities in the sub world, to match spawned and despawned entities in the main world.
 /// The link between synced entities is maintained by the [`SubEntity`] and [`MainEntity`] components.
 ///
-/// The [`SubEntity`] contains the corresponding render world entity of a main world entity, while [`MainEntity`] contains
-/// the corresponding main world entity of a render world entity.
+/// The [`SubEntity`] contains the corresponding sub world entity of a main world entity, while [`MainEntity`] contains
+/// the corresponding main world entity of a sub world entity.
 /// For convenience, [`QueryData`](bevy_ecs::query::QueryData) implementations are provided for both components:
 /// adding [`MainEntity`] to a query (without a `&`) will return the corresponding main world [`Entity`],
-/// and adding [`SubEntity`] will return the corresponding render world [`Entity`].
+/// and adding [`SubEntity`] will return the corresponding sub world [`Entity`].
 /// If you have access to the component itself, the underlying entities can be accessed by calling `.id()`.
 ///
 /// Synchronization is necessary preparation for extraction ([`ExtractSchedule`](crate::ExtractSchedule)), which copies over component data from the main
-/// to the render world for these entities.
+/// to the sub world for these entities.
 ///
 /// ```text
 /// |--------------------------------------------------------------------|
 /// |      |         |          Main world update                        |
 /// | sync | extract |---------------------------------------------------|
-/// |      |         |         Render world update                       |
+/// |      |         |         Sub world update                       |
 /// |--------------------------------------------------------------------|
 /// ```
 ///
@@ -63,7 +63,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 /// | ID: 18v1 | PointLight | SubEntity(ID: 5V1) | SyncToSubWorld |
 /// |-------------------------------------------------------------------|
 ///
-/// |----------Render World-----------|
+/// |----------Sub world-----------|
 /// |  Entity  |       Component      |
 /// |---------------------------------|
 /// | ID: 3v1  | MainEntity(ID: 1V1)  |
@@ -72,23 +72,24 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 ///
 /// ```
 ///
-/// Note that this effectively establishes a link between the main world entity and the render world entity.
+/// Note that this effectively establishes a link between the main world entity and the sub world entity.
 /// Not every entity needs to be synchronized, however; only entities with the [`SyncToSubWorld`] component are synced.
 /// Adding [`SyncToSubWorld`] to a main world component will establish such a link.
-/// Once a synchronized main entity is despawned, its corresponding render entity will be automatically
+/// Once a synchronized main entity is despawned, its corresponding sub entity will be automatically
 /// despawned in the next `sync`.
 ///
 /// The sync step does not copy any of component data between worlds, since its often not necessary to transfer over all
 /// the components of a main world entity.
-/// The render world probably cares about a `Position` component, but not a `Velocity` component.
+/// The sub world probably cares about a `Position` component, but not a `Velocity` component.
 /// The extraction happens in its own step, independently from, and after synchronization.
 ///
-/// Moreover, [`SyncWorldPlugin`] only synchronizes *entities*. [`RenderAsset`](crate::render_asset::RenderAsset)s like meshes and textures are handled
+/// Moreover, [`SyncWorldPlugin`] only synchronizes *entities*. [`RenderAsset`]s like meshes and textures are handled
 /// differently.
 ///
-/// [`PipelinedRenderingPlugin`]: crate::pipelined_rendering::PipelinedRenderingPlugin
+/// [`PipelinedRenderingPlugin`]: https://docs.rs/bevy/latest/bevy/render/pipelined_rendering/struct.PipelinedRenderingPlugin.html
 /// [`ExtractComponentPlugin`]: crate::extract_component::ExtractComponentPlugin
 /// [`SyncComponentPlugin`]: crate::sync_component::SyncComponentPlugin
+/// [`RenderAsset`]: https://docs.rs/bevy/latest/bevy/render/render_asset/trait.RenderAsset.html
 #[derive(Default)]
 pub struct SyncWorldPlugin<L: AppLabel>(PhantomData<L>);
 
@@ -126,16 +127,12 @@ impl<L: AppLabel + Default + Clone + Copy + Eq> Plugin for SyncWorldPlugin<L> {
 #[component(storage = "SparseSet")]
 pub struct SyncToSubWorld<L: AppLabel + Default + Clone>(PhantomData<L>);
 
-pub type SyncToRenderWorld = SyncToSubWorld<crate::RenderApp>;
-
 /// Component added on the main world entities that are synced to the Sub World in order to keep track of the corresponding sub world entity.
 ///
 /// Can also be used as a newtype wrapper for sub world entities.
 #[derive(Component, Deref, Copy, Clone, Debug, Eq, Hash, PartialEq)]
 #[component(clone_behavior = Ignore)]
 pub struct SubEntity<L: AppLabel + Clone + Copy + Eq>(#[deref] Entity, PhantomData<L>);
-
-pub type RenderEntity = SubEntity<crate::RenderApp>;
 
 impl<L: AppLabel + Clone + Copy + Eq> SubEntity<L> {
     #[inline]
@@ -203,8 +200,6 @@ pub type MainEntityHashSet = EntityEquivalentHashSet<MainEntity>;
 #[derive(Component, Copy, Clone, Debug, Default, Reflect)]
 #[reflect(Component, Default, Clone)]
 pub struct TemporaryEntity<L: AppLabel + Clone + Eq + Copy + Default>(PhantomData<L>);
-
-pub type TemporaryRenderEntity = TemporaryEntity<crate::RenderApp>;
 
 /// A record enum to what entities with [`SyncToSubWorld`] have been added or removed.
 #[derive(Debug)]
@@ -572,7 +567,7 @@ mod sub_entities_world_query_impls {
 mod tests {
     use core::marker::PhantomData;
 
-    use bevy_app::AppLabel;
+    use bevy_derive::AppLabel;
     use bevy_ecs::{
         component::Component,
         entity::Entity,
