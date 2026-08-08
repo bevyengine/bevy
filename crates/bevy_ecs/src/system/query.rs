@@ -6,10 +6,10 @@ use crate::{
     entity::{Entity, EntityEquivalent, EntitySet, UniqueEntityArray},
     query::{
         ArchetypeFilter, ContiguousQueryData, DebugCheckedUnwrap, IterQueryData, NopWorldQuery,
-        QueryCombinationIter, QueryContiguousIter, QueryData, QueryEntityError, QueryFilter,
-        QueryIter, QueryManyIter, QueryManyUniqueIter, QueryNotDenseError, QueryParIter,
-        QueryParManyIter, QueryParManyUniqueIter, QuerySingleError, QueryState, ROQueryItem,
-        ReadOnlyQueryData, SingleEntityQueryData,
+        QueryCombinationIter, QueryContiguousIter, QueryContiguousParIter, QueryData,
+        QueryEntityError, QueryFilter, QueryIter, QueryManyIter, QueryManyUniqueIter,
+        QueryNotDenseError, QueryParIter, QueryParManyIter, QueryParManyUniqueIter,
+        QuerySingleError, QueryState, ROQueryItem, ReadOnlyQueryData, SingleEntityQueryData,
     },
     world::unsafe_world_cell::UnsafeWorldCell,
 };
@@ -1574,6 +1574,111 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         // - `self.world` has permission to access the required components
         // - `self.world` was used to initialize `self.state`
         unsafe { QueryContiguousIter::new(self.world, self.state, self.last_run, self.this_run) }
+            .ok_or(QueryNotDenseError(DebugName::type_name::<Self>()))
+    }
+
+    /// Returns a parallel iterator over contiguous query results for the given
+    /// [`World`].
+    ///
+    /// Contiguous iteration enables getting slices of contiguously laid out
+    /// components that reside in the same table. These slices may for example
+    /// be used for SIMD operations.
+    ///
+    /// This parallel iterator is always guaranteed to return results from each
+    /// matching entity once and only once. Iteration order and thread
+    /// assignment is not guaranteed.
+    ///
+    /// If the `multithreaded` feature is disabled, iterating with this operates
+    /// identically to [`Iterator::for_each`] on [`QueryContiguousIter`].
+    ///
+    /// This can only be called for read-only queries. For queries that may
+    /// write to the components they query, see [`Self::par_iter_mut`].
+    ///
+    /// Note that you must use the `for_each` method to iterate over the
+    /// results. See [`Self::contiguous_par_iter_mut`] for an example.
+    ///
+    /// [`World`]: crate::world::World
+    pub fn contiguous_par_iter(
+        &self,
+    ) -> Result<QueryContiguousParIter<'_, 's, D::ReadOnly, F>, QueryNotDenseError>
+    where
+        D::ReadOnly: ContiguousQueryData,
+        F: ArchetypeFilter,
+    {
+        self.as_readonly().contiguous_par_iter_inner()
+    }
+
+    /// Returns a parallel iterator over contiguous query results for the given
+    /// [`World`].
+    ///
+    /// Contiguous iteration enables getting slices of contiguously laid out
+    /// components that reside in the same table. These slices may for example
+    /// be used for SIMD operations.
+    ///
+    /// This parallel contiguous iterator is always guaranteed to return results
+    /// from each matching entity once and only once. Iteration order and thread
+    /// assignment is not guaranteed.
+    ///
+    /// If the `multithreaded` feature is disabled, iterating with this operates
+    /// identically to [`Iterator::for_each`] on [`QueryContiguousIter`].
+    ///
+    /// This can only be called for mutable queries. See [`par_iter`] for
+    /// read-only queries.
+    ///
+    /// # Example
+    ///
+    /// Here, the `gravity_system` updates the `Velocity` component of every entity that contains it:
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct Velocity { x: f32, y: f32, z: f32 }
+    /// fn gravity_system(mut query: Query<&mut Velocity>) {
+    ///     const DELTA: f32 = 1.0 / 60.0;
+    ///     query.contiguous_par_iter_mut().unwrap().for_each(|mut velocities| {
+    ///         for mut velocity in velocities {
+    ///             velocity.y -= 9.8 * DELTA;
+    ///         }
+    ///     });
+    /// }
+    /// # bevy_ecs::system::assert_is_system(gravity_system);
+    /// ```
+    ///
+    /// [`par_iter`]: Self::par_iter
+    /// [`World`]: crate::world::World
+    pub fn contiguous_par_iter_mut(
+        &mut self,
+    ) -> Result<QueryContiguousParIter<'_, 's, D, F>, QueryNotDenseError>
+    where
+        D: ContiguousQueryData,
+        F: ArchetypeFilter,
+    {
+        self.reborrow().contiguous_par_iter_inner()
+    }
+
+    /// Returns a parallel iterator over contiguous query results for the given
+    /// [`World`](crate::world::World). This consumes the [`Query`] to return
+    /// results with the actual "inner" world lifetime.
+    ///
+    /// Contiguous iteration enables getting slices of contiguously laid out
+    /// components that reside in the same table. These slices may for example
+    /// be used for SIMD operations.
+    ///
+    /// This parallel iterator is always guaranteed to return results from each
+    /// matching entity once and only once.  Iteration order and thread
+    /// assignment is not guaranteed.
+    ///
+    /// If the `multithreaded` feature is disabled, iterating with this operates
+    /// identically to [`Iterator::for_each`] on [`QueryContiguousIter`].
+    pub fn contiguous_par_iter_inner(
+        self,
+    ) -> Result<QueryContiguousParIter<'w, 's, D, F>, QueryNotDenseError>
+    where
+        D: ContiguousQueryData,
+        F: ArchetypeFilter,
+    {
+        QueryContiguousParIter::new(self.world, self.state, self.last_run, self.this_run)
             .ok_or(QueryNotDenseError(DebugName::type_name::<Self>()))
     }
 

@@ -4247,9 +4247,11 @@ impl<C: Component, T: Copy, S: Copy> Copy for StorageSwitch<C, T, S> {}
 
 #[cfg(test)]
 mod tests {
+    use core::sync::atomic::{AtomicUsize, Ordering};
+
     use super::*;
     use crate::change_detection::DetectChanges;
-    use crate::query::Without;
+    use crate::query::{QueryNotDenseError, Without};
     use crate::system::{assert_is_system, Query};
     use bevy_ecs::prelude::Schedule;
     use bevy_ecs_macros::QueryData;
@@ -4660,5 +4662,82 @@ mod tests {
         }
 
         assert_eq!(present, [true; 3]);
+    }
+
+    // Tests that contiguous parallel iteration can correctly mutate all
+    // instances of a component in the world.
+    #[test]
+    fn contiguous_par_iter_success_test() {
+        // Declare a couple of components.
+
+        #[derive(Component, PartialEq, Eq, Debug)]
+        pub struct C {
+            id: i32,
+            found: bool,
+        }
+
+        #[derive(Component, PartialEq, Eq, Debug)]
+        pub struct D(i32);
+
+        // Build a task pool.
+        bevy_tasks::ComputeTaskPool::get_or_init(bevy_tasks::TaskPool::new);
+
+        // Spawn a world with a couple of tables.
+        let mut world = World::new();
+        for id in 0..100 {
+            world.spawn(C { id, found: false });
+        }
+        for id in 100..150 {
+            world.spawn((C { id, found: false }, D(id)));
+        }
+
+        // Update every row, and check that the correct number of rows were
+        // matched contiguously.
+        let total_found = AtomicUsize::new(0);
+        let mut contiguous_query = world.query::<&mut C>();
+        contiguous_query
+            .contiguous_par_iter_mut(&mut world)
+            .unwrap()
+            .for_each(|cs| {
+                for c in cs {
+                    c.found = true;
+                    total_found.fetch_add(1, Ordering::Relaxed);
+                }
+            });
+        assert_eq!(total_found.load(Ordering::Relaxed), 150);
+
+        // Check that the query updated every row.
+        let mut check_query = world.query::<&C>();
+        assert!(check_query.iter(&world).all(|c| c.found));
+    }
+
+    // Tests that attempting to contiguously iterate in parallel over a query
+    // that contains sparse sets fails (as the query isn't dense).
+    #[test]
+    fn contiguous_par_iter_failure_test() {
+        // Declare a couple of components, one of which is a sparse set.
+
+        #[derive(Component, Clone, Copy)]
+        struct C;
+
+        #[derive(Component, Clone, Copy)]
+        #[component(storage = "SparseSet")]
+        struct S;
+
+        // Build a task pool.
+        bevy_tasks::ComputeTaskPool::get_or_init(bevy_tasks::TaskPool::new);
+
+        // Spawn a world with those two components.
+        let mut world = World::new();
+        for _ in 0..100 {
+            world.spawn((C, S));
+        }
+
+        // This query should fail, as queries over sparse sets aren't dense.
+        let mut sparse_query = world.query::<(&C, &S)>();
+        assert!(matches!(
+            sparse_query.contiguous_par_iter(&world),
+            Err(QueryNotDenseError(_))
+        ));
     }
 }

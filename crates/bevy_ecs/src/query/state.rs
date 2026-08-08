@@ -7,8 +7,8 @@ use crate::{
     prelude::FromWorld,
     query::{
         ArchetypeFilter, ContiguousQueryData, FilteredAccess, FilteredAccessSet, IterQueryData,
-        QueryCombinationIter, QueryContiguousIter, QueryIter, QueryNotDenseError, QueryParIter,
-        SingleEntityQueryData, WorldQuery,
+        QueryCombinationIter, QueryContiguousIter, QueryContiguousParIter, QueryIter,
+        QueryNotDenseError, QueryParIter, SingleEntityQueryData, WorldQuery,
     },
     storage::TableId,
     system::Query,
@@ -1503,6 +1503,97 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         self.query_mut(world).contiguous_iter_inner()
     }
 
+    /// Returns a parallel contiguous iterator over the query results for the
+    /// given [`World`] or [`Err`] with [`QueryNotDenseError`] if the query is
+    /// not dense hence not contiguously iterable.
+    ///
+    /// This can only be called for read-only queries. See
+    /// [`Self::contiguous_par_iter_mut`] for queries that may write to the
+    /// components.
+    ///
+    /// Note that you must use the [`QueryContiguousParIter::for_each`] method
+    /// to iterate over the results. See [`Self::contiguous_par_iter_mut`] for
+    /// an example.
+    ///
+    /// # Panics
+    /// The [`ComputeTaskPool`] is not initialized. If using this from a query
+    /// that is being initialized and run from the ECS scheduler, this should
+    /// never panic.
+    ///
+    /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
+    #[inline]
+    pub fn contiguous_par_iter<'w, 's>(
+        &'s mut self,
+        world: &'w World,
+    ) -> Result<QueryContiguousParIter<'w, 's, D::ReadOnly, F>, QueryNotDenseError>
+    where
+        D::ReadOnly: ContiguousQueryData,
+        F: ArchetypeFilter,
+    {
+        self.query(world).contiguous_par_iter_inner()
+    }
+
+    /// Returns a parallel contiguous iterator over the query results for the
+    /// given [`World`] or [`Err`] with [`QueryNotDenseError`] if the query is
+    /// not dense hence not contiguously iterable.
+    ///
+    /// This version of the method is for mutable queries. For read-only
+    /// queries, see [`Self::contiguous_par_iter`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    /// use bevy_ecs::query::QueryEntityError;
+    ///
+    /// #[derive(Component, PartialEq, Debug)]
+    /// struct A(usize);
+    ///
+    /// # bevy_tasks::ComputeTaskPool::get_or_init(|| bevy_tasks::TaskPool::new());
+    ///
+    /// let mut world = World::new();
+    ///
+    /// # let entities: Vec<Entity> = (0..3).map(|i| world.spawn(A(i)).id()).collect();
+    /// # let entities: [Entity; 3] = entities.try_into().unwrap();
+    ///
+    /// let mut query_state = world.query::<&mut A>();
+    ///
+    /// query_state.contiguous_par_iter_mut(&mut world).unwrap().for_each(|mut batch| {
+    ///     for a in batch {
+    ///         a.0 += 5;
+    ///     }
+    /// });
+    ///
+    /// # let component_values = query_state.get_many(&world, entities).unwrap();
+    ///
+    /// # assert_eq!(component_values, [&A(5), &A(6), &A(7)]);
+    ///
+    /// # let wrong_entity = Entity::from_raw_u32(57).unwrap();
+    /// # let invalid_entity = world.spawn_empty().id();
+    ///
+    /// # assert_eq!(match query_state.get_many(&mut world, [wrong_entity]).unwrap_err() {QueryEntityError::NotSpawned(error) => error.entity(), _ => panic!()}, wrong_entity);
+    /// assert_eq!(match query_state.get_many_mut(&mut world, [invalid_entity]).unwrap_err() {QueryEntityError::QueryDoesNotMatch(entity, _) => entity, _ => panic!()}, invalid_entity);
+    /// # assert_eq!(query_state.get_many_mut(&mut world, [entities[0], entities[0]]).unwrap_err(), QueryEntityError::AliasedMutability(entities[0]));
+    /// ```
+    ///
+    /// # Panics
+    /// The [`ComputeTaskPool`] is not initialized. If using this from a query
+    /// that is being initialized and run from the ECS scheduler, this should
+    /// never panic.
+    ///
+    /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
+    #[inline]
+    pub fn contiguous_par_iter_mut<'w, 's>(
+        &'s mut self,
+        world: &'w mut World,
+    ) -> Result<QueryContiguousParIter<'w, 's, D, F>, QueryNotDenseError>
+    where
+        D: ContiguousQueryData,
+        F: ArchetypeFilter,
+    {
+        self.query_mut(world).contiguous_par_iter_inner()
+    }
+
     /// Runs `func` on each query result in parallel for the given [`World`], where the last change and
     /// the current change tick are given. This is faster than the equivalent
     /// `iter()` method, but cannot be chained like a normal [`Iterator`].
@@ -1677,6 +1768,79 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             self.query_unchecked_manual_with_ticks(world, last_run, this_run)
                 .iter_many_unique_inner(remainder)
                 .fold(accum, &mut func);
+        });
+    }
+
+    #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
+    pub(crate) unsafe fn contiguous_par_fold_init_unchecked_manual<'w, 's, T>(
+        &'s self,
+        init_accum: impl Fn() -> T + Send + Sync + Clone,
+        world: UnsafeWorldCell<'w>,
+        batch_size: u32,
+        func: impl Fn(T, D::Contiguous<'w, 's>) -> T + Send + Sync + Clone,
+        last_run: Tick,
+        this_run: Tick,
+    ) where
+        D: ContiguousQueryData,
+        F: ArchetypeFilter,
+    {
+        debug_assert!(self.is_dense);
+
+        use arrayvec::ArrayVec;
+
+        bevy_tasks::ComputeTaskPool::get().scope(|scope| {
+            // SAFETY: We only access table data that has been registered in
+            // `self.component_access`.
+            let tables = unsafe { &world.storages().tables };
+            let mut batch_queue = ArrayVec::new();
+            let mut queue_entity_count = 0;
+
+            let submit_batch_queue = |queue: ArrayVec<TableId, 128>| {
+                let (func, init_accum) = (func.clone(), init_accum.clone());
+                scope.spawn(async move {
+                    #[cfg(feature = "trace")]
+                    let _span = self.par_iter_span.enter();
+                    // SAFETY: Contiguous iteration can only process tables, so
+                    // we must have a table here.
+                    let tables = unsafe { &world.storages().tables };
+                    let mut fetch = D::init_fetch(world, &self.fetch_state, last_run, this_run);
+                    let mut accum = init_accum();
+                    for table_id in queue {
+                        let table = tables.get(table_id).expect("Table must be present");
+                        D::set_table(&mut fetch, &self.fetch_state, table);
+                        let item =
+                            D::fetch_contiguous(&self.fetch_state, &mut fetch, table.entities());
+                        accum = func(accum, item);
+                    }
+                });
+            };
+
+            for storage_id in &self.matched_storage_ids {
+                let table_id = storage_id.table_id;
+                let count = tables[table_id].entity_count();
+
+                // Skip empty tables.
+                if count == 0 {
+                    continue;
+                }
+                // Immediately submit large storage.
+                if count >= batch_size {
+                    submit_batch_queue(TryFrom::try_from(&[table_id][..]).unwrap());
+                    continue;
+                }
+                // Merge small tables.
+                batch_queue.push(table_id);
+                queue_entity_count += count;
+
+                // Submit batch queue.
+                if queue_entity_count >= batch_size || batch_queue.is_full() {
+                    submit_batch_queue(core::mem::take(&mut batch_queue));
+                    queue_entity_count = 0;
+                }
+            }
+            if !batch_queue.is_empty() {
+                submit_batch_queue(batch_queue);
+            }
         });
     }
 }
