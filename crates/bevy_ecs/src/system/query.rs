@@ -1588,6 +1588,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// matching entity once and only once. Iteration order and thread
     /// assignment is not guaranteed.
     ///
+    /// If the query isn't contiguously iterable because it isn't dense, this
+    /// method returns a [`QueryNotDenseError`].
+    ///
     /// If the `multithreaded` feature is disabled, iterating with this operates
     /// identically to [`Iterator::for_each`] on [`QueryContiguousIter`].
     ///

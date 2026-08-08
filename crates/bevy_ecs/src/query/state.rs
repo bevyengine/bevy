@@ -1795,6 +1795,12 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             let mut batch_queue = ArrayVec::new();
             let mut queue_entity_count = 0;
 
+            // Submit a list of tables which are smaller than the batch size as
+            // a single task.
+            //
+            // The 128 table limit is an arbitrary tuning parameter unrelated to
+            // the batch size. It matches the limit in
+            // `Self::par_fold_init_unchecked_manual`.
             let submit_batch_queue = |queue: ArrayVec<TableId, 128>| {
                 let (func, init_accum) = (func.clone(), init_accum.clone());
                 scope.spawn(async move {
@@ -1806,7 +1812,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                     let mut fetch = D::init_fetch(world, &self.fetch_state, last_run, this_run);
                     let mut accum = init_accum();
                     for table_id in queue {
-                        let table = tables.get(table_id).expect("Table must be present");
+                        let table = &tables[table_id];
                         D::set_table(&mut fetch, &self.fetch_state, table);
                         let item =
                             D::fetch_contiguous(&self.fetch_state, &mut fetch, table.entities());
