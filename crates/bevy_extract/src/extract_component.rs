@@ -14,7 +14,7 @@ use core::marker::PhantomData;
 
 pub use bevy_extract_macros::ExtractComponent;
 
-/// Describes how a component gets extracted for processing.
+/// Describes how a component gets extracted from the main app to a sub app.
 ///
 /// Therefore the component is transferred from the "app world" into the "sub
 /// world" in the [`ExtractSchedule`] step. This functionality is enabled by
