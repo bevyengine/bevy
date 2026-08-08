@@ -51,7 +51,7 @@ pub struct InfiniteGridPlugin;
 
 impl Plugin for InfiniteGridPlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "infinite_grid.wgsl");
+        embedded_asset!(app, "infinite_grid.wesl");
         app.register_type::<InfiniteGrid>()
             .register_type::<InfiniteGridSettings>();
     }
@@ -453,7 +453,7 @@ impl FromWorld for InfiniteGridPipeline {
                 ),
             ),
         );
-        let shader = load_embedded_asset!(world.resource::<AssetServer>(), "infinite_grid.wgsl");
+        let shader = load_embedded_asset!(world.resource::<AssetServer>(), "infinite_grid.wesl");
         let fullscreen_shader = world.resource::<FullscreenShader>().clone();
 
         Self {

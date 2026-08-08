@@ -444,7 +444,7 @@ pub(crate) fn attempt_grab(
         CursorGrabMode::None => winit_window.set_cursor_grab(WinitCursorGrabMode::None),
         CursorGrabMode::Confined => winit_window
             .set_cursor_grab(WinitCursorGrabMode::Confined)
-            .or_else(|_e| winit_window.set_cursor_grab(WinitCursorGrabMode::Locked)),
+            .or_else(|_e| winit_window.set_cursor_grab(WinitCursorGrabMode::None)),
         CursorGrabMode::Locked => winit_window
             .set_cursor_grab(WinitCursorGrabMode::Locked)
             .or_else(|_e| winit_window.set_cursor_grab(WinitCursorGrabMode::Confined)),

@@ -720,7 +720,8 @@ mod tests {
         world.spawn(B(0));
         {
             fn system(has_a: Query<Entity, With<A>>, has_a_and_b: Query<(&A, &B)>) {
-                assert_eq!(has_a_and_b.iter_many(&has_a).count(), 2);
+                assert_eq!(has_a_and_b.iter_many(&has_a).matched().count(), 2);
+                assert_eq!(has_a_and_b.iter_many(&has_a).count(), 3);
             }
             let mut system = IntoSystem::into_system(system);
             system.initialize(&mut world);
@@ -728,7 +729,7 @@ mod tests {
         }
         {
             fn system(has_a: Query<Entity, With<A>>, mut b_query: Query<&mut B>) {
-                let mut iter = b_query.iter_many_mut(&has_a);
+                let mut iter = b_query.iter_many_mut(&has_a).matched();
                 while let Some(mut b) = iter.fetch_next() {
                     b.0 = 1;
                 }
@@ -765,7 +766,7 @@ mod tests {
         let _: Option<&Foo> = q.iter(&world).next();
         let _: Option<[&Foo; 2]> = q.iter_combinations::<2>(&world).next();
         let _: Option<&Foo> = q.iter_manual(&world).next();
-        let _: Option<&Foo> = q.iter_many(&world, [e]).next();
+        let _: Option<&Foo> = q.iter_many(&world, [e]).next().map(Result::unwrap);
         q.iter(&world).for_each(|_: &Foo| ());
 
         let _: Option<&Foo> = q.get(&world, e).ok();
@@ -779,7 +780,7 @@ mod tests {
         let q = q.get_mut(&mut world).unwrap();
         let _: Option<&Foo> = q.iter().next();
         let _: Option<[&Foo; 2]> = q.iter_combinations::<2>().next();
-        let _: Option<&Foo> = q.iter_many([e]).next();
+        let _: Option<&Foo> = q.iter_many([e]).next().map(Result::unwrap);
         q.iter().for_each(|_: &Foo| ());
 
         let _: Option<&Foo> = q.get(e).ok();
