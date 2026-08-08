@@ -742,6 +742,7 @@ mod tests {
         UnapprovedPathMode, UntypedHandle, VisitAssetDependencies, WriteDefaultMetaError,
     };
     use alloc::{
+        borrow::Cow,
         boxed::Box,
         format,
         string::{String, ToString},
@@ -876,6 +877,9 @@ mod tests {
     }
 
     impl AssetReader for UnstableMemoryAssetReader {
+        fn root_path(&self) -> Cow<'_, PathBuf> {
+            self.memory_reader.root_path()
+        }
         async fn is_directory<'a>(&'a self, path: &'a Path) -> Result<bool, AssetReaderError> {
             self.memory_reader.is_directory(path).await
         }
