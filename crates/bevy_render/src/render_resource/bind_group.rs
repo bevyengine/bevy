@@ -708,6 +708,13 @@ impl BindGroupBuilder {
                 .collect(),
         )
     }
+
+    /// Clears out this [`BindGroupBuilder`] so that it can be used to construct
+    /// a new bind group, while preserving the allocations.
+    pub fn clear(&mut self) {
+        self.binding_resources.clear();
+        self.data_buffer.clear();
+    }
 }
 
 /// An owned binding resource of any type (ex: a [`Buffer`], [`TextureView`], etc).
@@ -777,15 +784,6 @@ impl UnpreparedBindingResource {
             UnpreparedBindingResource::Sampler(_, sampler) => BindingResource::Sampler(sampler),
             UnpreparedBindingResource::Data(_) => panic!("Data ranges have no binding resource"),
         }
-    }
-}
-
-impl BindGroupBuilder {
-    /// Clears out this [`BindGroupBuilder`] so that it can be used to construct
-    /// a new bind group, while preserving the allocations.
-    pub fn clear(&mut self) {
-        self.binding_resources.clear();
-        self.data_buffer.clear();
     }
 }
 
