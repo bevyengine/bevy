@@ -181,7 +181,10 @@ pub struct DefaultQueryFilters {
 impl FromWorld for DefaultQueryFilters {
     fn from_world(world: &mut World) -> Self {
         let mut filters = DefaultQueryFilters::empty();
-        let disabled_component_id = world.register_component::<Disabled>();
+        let disabled_component_id = world
+            .components_registrator()
+            .register_disabling_component::<Disabled>();
+
         filters.register_disabling_component(disabled_component_id);
         filters
     }
