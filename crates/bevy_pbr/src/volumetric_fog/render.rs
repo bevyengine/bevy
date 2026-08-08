@@ -641,7 +641,8 @@ pub fn prepare_volumetric_fog_uniforms(
 
             // Determine whether the camera is inside or outside the volume, and
             // calculate the clip space transform.
-            let interior = camera_is_inside_fog_volume(&local_from_view);
+            let interior =
+                camera_is_inside_fog_volume(&local_from_view, &extracted_view.clip_from_view);
             let hull_clip_from_local = calculate_fog_volume_clip_from_local_transforms(
                 interior,
                 &extracted_view.clip_from_view,
@@ -721,14 +722,6 @@ fn get_far_planes(view_from_local: &Affine3A) -> [Vec4; 6] {
         let view_position = view_from_local.transform_point3a(-local_normal * 0.5);
         let plane_coords = view_normal.extend(-view_normal.dot(view_position));
 
-        // Filter planes that are facing away from the camera.
-        if plane_coords.w <= 0.0 {
-            // When planes are filtered here, the `far_planes` array will be padded with
-            // one or more "zero" planes: (0.0, 0.0, 0.0, 0.0), these planes will be
-            // correctly ignored by the shader in the plane sorting step.
-            continue;
-        }
-
         far_planes[next_index] = plane_coords;
         next_index += 1;
     }
@@ -763,13 +756,25 @@ impl VolumetricFogBindGroupLayoutKey {
 }
 
 /// Given the transform from the view to the 1×1×1 cube in local fog volume
-/// space, returns true if the camera is inside the volume.
-fn camera_is_inside_fog_volume(local_from_view: &Affine3A) -> bool {
-    local_from_view
-        .translation
-        .abs()
-        .cmple(Vec3A::splat(0.5))
-        .all()
+/// space, returns true if the volume reaches the camera's near clip rectangle.
+fn camera_is_inside_fog_volume(local_from_view: &Affine3A, clip_from_view: &Mat4) -> bool {
+    let view_from_clip = clip_from_view.inverse();
+    let (mut min, mut max) = (local_from_view.translation, local_from_view.translation);
+    // Reverse-z: the near plane is at NDC depth 1.0.
+    for ndc in [
+        vec4(-1.0, -1.0, 1.0, 1.0),
+        vec4(1.0, -1.0, 1.0, 1.0),
+        vec4(-1.0, 1.0, 1.0, 1.0),
+        vec4(1.0, 1.0, 1.0, 1.0),
+    ] {
+        let view_corner = view_from_clip * ndc;
+        let local_corner =
+            local_from_view.transform_point3a(Vec3A::from(view_corner.truncate() / view_corner.w));
+        min = min.min(local_corner);
+        max = max.max(local_corner);
+    }
+
+    min.cmple(Vec3A::splat(0.5)).all() && max.cmpge(Vec3A::splat(-0.5)).all()
 }
 
 /// Given the local transforms, returns the matrix that transforms model space
@@ -794,4 +799,90 @@ fn calculate_fog_volume_clip_from_local_transforms(
         vec4(0.0, 0.0, 0.0, 0.0),
         vec4(0.0, 0.0, z_near, z_near),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy_math::{proj, Quat};
+    use core::f32::consts::FRAC_PI_4;
+
+    const NEAR: f32 = 0.1;
+
+    fn local_from_view_at(camera: Vec3) -> Affine3A {
+        let volume = Affine3A::from_scale_rotation_translation(
+            Vec3::new(12.0, 45.8, 12.0),
+            Quat::IDENTITY,
+            Vec3::new(0.0, -21.1, 0.0),
+        );
+        volume.inverse() * Affine3A::from_translation(camera)
+    }
+
+    fn clip_from_view() -> Mat4 {
+        proj::perspective_infinite_reverse(FRAC_PI_4, 16.0 / 9.0, NEAR)
+    }
+
+    fn eye_is_outside(local_from_view: &Affine3A) -> bool {
+        !local_from_view
+            .translation
+            .abs()
+            .cmple(Vec3A::splat(0.5))
+            .all()
+    }
+
+    #[test]
+    fn camera_well_outside_uses_the_cube() {
+        let local_from_view = local_from_view_at(Vec3::new(-7.0, -21.1, 0.0));
+        assert!(!camera_is_inside_fog_volume(
+            &local_from_view,
+            &clip_from_view()
+        ));
+    }
+
+    #[test]
+    fn camera_inside_uses_the_full_screen_quad() {
+        let local_from_view = local_from_view_at(Vec3::new(0.0, -21.1, 0.0));
+        assert!(camera_is_inside_fog_volume(
+            &local_from_view,
+            &clip_from_view()
+        ));
+    }
+
+    #[test]
+    fn near_plane_reaching_into_volume_uses_the_full_screen_quad() {
+        let local_from_view = local_from_view_at(Vec3::new(-6.05, -21.1, 0.0));
+        assert!(eye_is_outside(&local_from_view));
+        assert!(camera_is_inside_fog_volume(
+            &local_from_view,
+            &clip_from_view()
+        ));
+    }
+
+    #[test]
+    fn far_planes_describe_every_face() {
+        let view_from_local = local_from_view_at(Vec3::new(-30.0, -21.1, 0.0)).inverse();
+        let planes = get_far_planes(&view_from_local);
+
+        assert!(
+            planes.iter().all(|plane| plane.truncate() != Vec3::ZERO),
+            "every face plane must be present, got {planes:?}"
+        );
+
+        let inside = |plane: Vec4, local: Vec3| {
+            let view = view_from_local.transform_point3a(Vec3A::from(local));
+            plane.truncate().dot(Vec3::from(view)) + plane.w >= 0.0
+        };
+
+        for plane in planes {
+            assert!(inside(plane, Vec3::ZERO));
+        }
+
+        for axis in [Vec3::X, Vec3::Y, Vec3::Z] {
+            for sign in [1.0, -1.0] {
+                let outside = axis * sign * 0.6;
+                let failed = planes.iter().filter(|p| !inside(**p, outside)).count();
+                assert_eq!(failed, 1, "point {outside:?} should fail exactly one plane");
+            }
+        }
+    }
 }
