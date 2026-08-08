@@ -18,7 +18,7 @@ use bevy_window::{
 use tracing::{error, info, warn};
 
 use winit::{
-    dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize},
+    dpi::{validate_scale_factor, LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize},
     event_loop::ActiveEventLoop,
 };
 
@@ -40,6 +40,24 @@ use bevy_math::{IVec2, UVec2};
 use winit::platform::ios::WindowExtIOS;
 #[cfg(target_arch = "wasm32")]
 use winit::platform::web::WindowExtWebSys;
+
+/// Clears an invalid scale factor override on `window` before it is handed to winit for
+/// window creation.
+///
+/// A scale factor override can be set via reflection (e.g. by an inspector), bypassing
+/// `set_scale_factor_override`. An invalid value (zero, non-finite, or negative) would panic
+/// inside winit's dpi conversions during creation, so clear it here.
+pub(crate) fn sanitize_scale_factor_override(window: &mut Window) {
+    if let Some(sf) = window.resolution.scale_factor_override()
+        && !validate_scale_factor(sf as f64)
+    {
+        warn!(
+            "Ignoring invalid scale factor override {sf} for window {}: scale factors must be finite and positive.",
+            window.title.as_str()
+        );
+        window.resolution.set_scale_factor_override(None);
+    }
+}
 
 /// Creates new windows on the [`winit`] backend for each entity with a newly-added
 /// [`Window`] component.
@@ -65,6 +83,8 @@ pub fn create_windows(
                 }
 
                 info!("Creating new window {} ({})", window.title.as_str(), entity);
+
+                sanitize_scale_factor_override(&mut window);
 
                 let winit_window = winit_windows.create_window(
                     event_loop,
@@ -327,6 +347,23 @@ pub(crate) fn changed_windows(
             let Some(winit_window) = winit_windows.get_window(entity) else {
                 continue;
             };
+
+            // A scale factor override set via reflection (e.g. by an inspector) bypasses
+            // `set_scale_factor_override`, so it can hold an invalid value that would panic
+            // in winit's dpi conversions. Revert to the last valid override from the cache
+            // (which does not derive `Reflect`, so it is always trusted) before anything
+            // below reads it — notably the `Centered` branch of the position block.
+            if let Some(sf) = window.resolution.scale_factor_override()
+                && !validate_scale_factor(sf as f64)
+            {
+                warn!(
+                    "Ignoring invalid scale factor override {sf} for window {}: scale factors must be finite and positive. Reverting to the previous value.",
+                    window.title.as_str()
+                );
+                window
+                    .resolution
+                    .set_scale_factor_override(cache.resolution.scale_factor_override());
+            }
 
             if window.title != cache.title {
                 winit_window.set_title(window.title.as_str());
@@ -643,3 +680,28 @@ pub(crate) fn changed_cursor_options(
 /// When a window is unfocused, this is used to send key release events for all the currently held keys.
 #[derive(Default, Component)]
 pub struct WinitWindowPressedKeys(pub(crate) HashMap<KeyCode, Key>);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sanitize_scale_factor_override_clears_only_invalid() {
+        // An invalid override (zero here) is cleared so winit's dpi conversions cannot panic.
+        let mut window = Window::default();
+        window.resolution.set_scale_factor_override(Some(0.0));
+        sanitize_scale_factor_override(&mut window);
+        assert_eq!(window.resolution.scale_factor_override(), None);
+
+        // A valid override is left untouched.
+        let mut window = Window::default();
+        window.resolution.set_scale_factor_override(Some(2.0));
+        sanitize_scale_factor_override(&mut window);
+        assert_eq!(window.resolution.scale_factor_override(), Some(2.0));
+
+        // An absent override stays absent.
+        let mut window = Window::default();
+        sanitize_scale_factor_override(&mut window);
+        assert_eq!(window.resolution.scale_factor_override(), None);
+    }
+}

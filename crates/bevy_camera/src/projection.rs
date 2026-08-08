@@ -387,9 +387,14 @@ impl CameraProjection for PerspectiveProjection {
     }
 
     fn update(&mut self, width: f32, height: f32) {
-        self.aspect_ratio = AspectRatio::try_new(width, height)
-            .expect("Failed to update PerspectiveProjection: width and height must be positive, non-zero values")
-            .ratio();
+        // A degenerate render area (zero or non-finite width/height, e.g. a minimized
+        // window or a scale factor of 0.0) makes `AspectRatio::try_new` return an error.
+        // Keep the previous valid aspect ratio instead of panicking. `bevy_camera` has no
+        // logging dependency (adding one is out of scope) and `update` returns `()`, so the
+        // error cannot be surfaced; the transient degenerate frame is simply skipped.
+        if let Ok(aspect_ratio) = AspectRatio::try_new(width, height) {
+            self.aspect_ratio = aspect_ratio.ratio();
+        }
     }
 
     fn far(&self) -> f32 {
@@ -817,5 +822,37 @@ mod tests {
         // The w_axis.z element of an infinite reverse perspective matrix equals
         // the near plane distance. Verify it matches what we requested.
         assert_eq!(custom_matrix.w_axis.z, 0.01);
+    }
+
+    /// Updating a projection with a degenerate render area (zero or non-finite
+    /// width/height) must not panic and must leave the previous valid aspect ratio
+    /// untouched, while a valid update still applies. Regression test for issue #24273.
+    #[test]
+    fn update_with_degenerate_size_keeps_previous_aspect_ratio() {
+        let mut proj = PerspectiveProjection::default();
+
+        // Establish a known-good aspect ratio.
+        proj.update(16.0, 9.0);
+        let valid_aspect = proj.aspect_ratio;
+        assert_eq!(valid_aspect, 16.0 / 9.0);
+
+        // Each degenerate input must be ignored, leaving the aspect ratio unchanged.
+        for (width, height) in [
+            (0.0, 9.0),
+            (16.0, 0.0),
+            (f32::NAN, 9.0),
+            (16.0, f32::INFINITY),
+            (f32::NEG_INFINITY, 9.0),
+        ] {
+            proj.update(width, height);
+            assert_eq!(
+                proj.aspect_ratio, valid_aspect,
+                "degenerate size ({width}, {height}) must not change the aspect ratio"
+            );
+        }
+
+        // A subsequent valid update still applies.
+        proj.update(4.0, 3.0);
+        assert_eq!(proj.aspect_ratio, 4.0 / 3.0);
     }
 }
