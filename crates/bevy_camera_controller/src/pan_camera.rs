@@ -32,8 +32,12 @@ impl Plugin for PanCameraPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             RunFixedMainLoop,
-            run_pancamera_controller.in_set(RunFixedMainLoopSystems::BeforeFixedMainLoop),
+            (
+                run_pancamera_controller.in_set(RunFixedMainLoopSystems::BeforeFixedMainLoop),
+                run_pan_to_cursor_on_zoom.after(run_pancamera_controller),
+            ),
         )
+        .add_message::<ZoomEvent>()
         .add_observer(add_window_observer)
         .add_observer(remove_window_observer);
     }
@@ -89,6 +93,7 @@ pub struct MousePanSettings {
     pub button: PointerButton,
 }
 
+#[derive(Eq, PartialEq)]
 /// Target focal point for zooming using the [`PanCamera`] controller
 pub enum ZoomTarget {
     /// Zoom to / from the center of the window
@@ -97,6 +102,10 @@ pub enum ZoomTarget {
     Cursor,
 }
 
+/// Message for communicating how much the camera's scale has changed this frame
+#[derive(Message)]
+pub struct ZoomEvent(f32);
+
 /// Provides the default values for the `PanCamera` controller.
 ///
 /// The default settings are:
@@ -104,6 +113,7 @@ pub enum ZoomTarget {
 /// - Min zoom: 0.1
 /// - Max zoom: 5.0
 /// - Zoom speed: 0.1
+/// - Zoom target: center
 /// - Zoom in/out key: +/-
 /// - Pan speed: 500.0
 /// - Move up/down: W/S
@@ -172,6 +182,34 @@ PanCamera Controls:
 
 /// This system is typically added via the [`PanCameraPlugin`].
 ///
+/// Reads ZoomEvent messages from the pan_camera_controller system and pans the
+/// camera so that the focus of the zoom is the cursor. Assumes that if a message is
+/// received, then the PanCamera's ZoomTarget is set to Cursor.
+///
+/// **Note**: Should be scheduled to run after the pan_camera_controller system
+fn run_pan_to_cursor_on_zoom(
+    window: Single<&Window>,
+    query: Single<(&Camera, &GlobalTransform, &mut Transform), With<PanCamera>>,
+    mut reader: MessageReader<ZoomEvent>,
+) {
+    let (camera, global, mut transform) = query.into_inner();
+
+    for ZoomEvent(delta_zoom) in reader.read() {
+        // If a ZoomEvent message is received, assume that ZoomTarget is Cursor.
+        // Translate the camera so that the pixel at the world coordinates of the cursor
+        // maintains the same viewport coordinates.
+        if let Some(cursor_pos) = window.cursor_position()
+            && let Ok(world_pos) = camera.viewport_to_world_2d(global, cursor_pos)
+        {
+            let cursor_vec = world_pos - transform.translation.truncate();
+            let delta_cursor_vec = (1. - delta_zoom) * cursor_vec;
+            transform.translation += delta_cursor_vec.extend(0.);
+        }
+    }
+}
+
+/// This system is typically added via the [`PanCameraPlugin`].
+///
 /// Reads inputs and then moves the camera entity according
 /// to the settings given in [`PanCamera`].
 ///
@@ -182,12 +220,12 @@ fn run_pancamera_controller(
     key_input: Res<ButtonInput<KeyCode>>,
     accumulated_mouse_scroll: Res<AccumulatedMouseScroll>,
     mouse_scroll_conversion: Res<MouseScrollPixelsPerLine>,
-    window: Single<&Window>,
-    mut query: Query<(&Camera, &GlobalTransform, &mut Transform, &mut PanCamera)>,
+    mut query: Query<(&mut Transform, &mut PanCamera), With<Camera>>,
+    mut writer: MessageWriter<ZoomEvent>,
 ) {
     let dt = time.delta_secs();
 
-    let Ok((camera, global, mut transform, mut controller)) = query.single_mut() else {
+    let Ok((mut transform, mut controller)) = query.single_mut() else {
         return;
     };
 
@@ -267,16 +305,10 @@ fn run_pancamera_controller(
     controller.zoom_factor =
         (controller.zoom_factor - zoom_amount).clamp(controller.min_zoom, controller.max_zoom);
 
-    // If Zoom target is Cursor, then also translate the camera so that the world coordinates of
-    // the cursor maintain the same viewport coordinates.
-    if let ZoomTarget::Cursor = controller.zoom_target {
-        if let Some(cursor_pos) = window.cursor_position()
-            && let Ok(world_pos) = camera.viewport_to_world_2d(global, cursor_pos)
-        {
-            let cursor_vec = world_pos - transform.translation.truncate();
-            let delta_cursor_vec = (1. - controller.zoom_factor / prev_zoom) * cursor_vec;
-            transform.translation += delta_cursor_vec.extend(0.);
-        }
+    // If Zoom target is Cursor, send a message with the change in zoom so that the camera
+    // can also be panned.
+    if controller.zoom_target == ZoomTarget::Cursor {
+        writer.write(ZoomEvent(controller.zoom_factor / prev_zoom));
     }
 
     transform.scale = Vec3::splat(controller.zoom_factor);
