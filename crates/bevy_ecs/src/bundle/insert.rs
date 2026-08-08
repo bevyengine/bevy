@@ -524,17 +524,6 @@ impl<'w> BundleInserter<'w> {
                 }
             }
         }
-
-        // Because this is a newly inserted row, we need to update the summary
-        // ticks for all components in the table that have them.
-        let table_id = new_archetype.table_id();
-        if let Some(new_table) = deferred_world.storages().tables.get(table_id) {
-            for component_id in new_archetype.table_components() {
-                if let Some(summary_tick) = new_table.get_summary_tick(component_id) {
-                    summary_tick.set(change_tick);
-                }
-            }
-        }
     }
 
     #[inline]

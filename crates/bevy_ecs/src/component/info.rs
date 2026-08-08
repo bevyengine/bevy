@@ -270,6 +270,11 @@ impl ComponentDescriptor {
 
     /// Create a new `ComponentDescriptor` for the type `T`.
     pub fn new<T: Component>() -> Self {
+        assert!(
+            !T::has_summary_tick() || matches!(T::STORAGE_TYPE, StorageType::Table),
+            "Summary ticks are only supported for table components"
+        );
+
         Self {
             name: DebugName::type_name::<T>(),
             storage_type: T::STORAGE_TYPE,
@@ -310,6 +315,11 @@ impl ComponentDescriptor {
             layout,
             "Layout size must be a multiple of its alignment.  Consider calling `pad_to_align()`."
         );
+        assert!(
+            !summary_tick || matches!(T::STORAGE_TYPE, StorageType::Table),
+            "Summary ticks are only supported for table components"
+        );
+
         Self {
             name: name.into().into(),
             storage_type,

@@ -190,6 +190,9 @@ impl Column {
             .as_mut()
             .map(|changed_by| changed_by.get_unchecked_mut(row.index()).get_mut())
             .assign(caller);
+        if let Some(summary_tick) = self.summary_tick {
+            summary_tick.set(tick);
+        }
     }
 
     /// Overwrites component data to the column at given row. The previous value is dropped.
@@ -212,6 +215,9 @@ impl Column {
             .as_mut()
             .map(|changed_by| changed_by.get_unchecked_mut(row.index()).get_mut())
             .assign(caller);
+        if let Some(summary_tick) = self.summary_tick {
+            summary_tick.set(tick);
+        }
     }
 
     /// Removes the element from `other` at `src_row` and inserts it
@@ -259,7 +265,8 @@ impl Column {
         );
     }
 
-    /// Call [`Tick::check_tick`] on all of the ticks stored in this column.
+    /// Calls [`Tick::check_tick`] on all of the ticks stored in this column, as
+    /// well as the summary tick, if one is present.
     ///
     /// # Safety
     /// `len` is the actual length of this column
@@ -278,6 +285,14 @@ impl Column {
             unsafe { self.changed_ticks.get_unchecked_mut(i) }
                 .get_mut()
                 .check_tick(check);
+        }
+
+        // Update the summary tick, if one is present.
+        if let Some(summary_tick) = self.summary_tick {
+            let mut summary_tick_value = summary_tick.get();
+            if summary_tick_value.check_tick(check) {
+                summary_tick.set(summary_tick_value);
+            }
         }
     }
 

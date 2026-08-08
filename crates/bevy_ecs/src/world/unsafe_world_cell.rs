@@ -633,11 +633,7 @@ impl<'w> UnsafeWorldCell<'w> {
             // - index is in-bounds because the column is initialized and non-empty
             // - no other reference to the ticks of the same row can exist at the same time
             unsafe {
-                ComponentTicksMut::from_tick_cells(
-                    ticks,
-                    self.last_change_tick(),
-                    change_tick,
-                )
+                ComponentTicksMut::from_tick_cells(ticks, self.last_change_tick(), change_tick)
             };
 
         Some(MutUntyped {

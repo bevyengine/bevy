@@ -452,6 +452,10 @@ impl<'w> ContiguousComponentTicksMut<'w> {
         for t in self.changed.iter_mut() {
             *t = this_run;
         }
+
+        if let Some(summary_tick) = self.summary_tick {
+            summary_tick.set(this_run);
+        }
     }
 
     /// Returns a `ContiguousComponentTicksMut` with a smaller lifetime.
