@@ -121,13 +121,12 @@ impl AsAssetId for Mesh3d {
     }
 }
 
-/// A system that marks a [`Mesh2d`] as changed if the associated [`Mesh`] asset
-/// has changed.
+/// A system that marks a [`Mesh2d`] as changed if the associated [`Mesh2d`]
+/// asset has changed.
 ///
 /// This is needed because the system that extracts meshes, `extract_2d_meshes`,
-/// write some metadata about the mesh (like the location within each slab) into
-/// the GPU structures that they build that needs to be kept up to date if the
-/// contents of the mesh change.
+/// write some metadata about the mesh into the GPU structures that they build
+/// that needs to be kept up to date if the contents of the mesh change.
 pub fn mark_2d_meshes_as_changed_if_their_assets_changed(
     mut meshes_2d: Query<&mut Mesh2d>,
     mut mesh_asset_events: MessageReader<AssetEvent<Mesh>>,

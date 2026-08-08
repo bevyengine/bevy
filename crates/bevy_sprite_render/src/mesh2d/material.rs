@@ -1426,14 +1426,24 @@ where
 /// ensure that [`super::mesh::extract_2d_meshes`] re-extracts a mesh is to mark
 /// its [`Mesh2d`] as changed, so that's what this system does.
 fn mark_2d_meshes_as_changed_if_their_materials_changed<M>(
-    mut changed_meshes_query: Query<
-        &mut Mesh2d,
-        Or<(Changed<MeshMaterial2d<M>>, AssetChanged<MeshMaterial2d<M>>)>,
-    >,
+    mut queries: ParamSet<(
+        Query<&mut Mesh2d, Or<(Changed<MeshMaterial2d<M>>, AssetChanged<MeshMaterial2d<M>>)>>,
+        Query<&mut Mesh2d>,
+    )>,
+    mut removed_materials_query: Extract<RemovedComponents<MeshMaterial2d<M>>>,
 ) where
     M: Material2d,
 {
-    changed_meshes_query.par_iter_mut().for_each(|mut mesh| {
+    // Mark meshes corresponding to changed materials.
+    queries.p0().par_iter_mut().for_each(|mut mesh| {
         mesh.set_changed();
     });
+
+    // Mark meshes corresponding to removed materials.
+    let mut all_meshes_query = queries.p1();
+    for entity in removed_materials_query.read() {
+        if let Ok(mut mesh) = all_meshes_query.get_mut(entity) {
+            mesh.set_changed();
+        }
+    }
 }

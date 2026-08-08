@@ -315,9 +315,16 @@ pub fn extract_2d_meshes(
             )>,
         >,
     >,
-    all_meshes_query: Query<Mesh2dExtractionQuery>,
-    mut removed_mesh2d_components: Extract<RemovedComponents<Mesh2d>>,
-    mut removed_no_automatic_batching_components: Extract<RemovedComponents<NoAutomaticBatching>>,
+    all_meshes_query: Extract<Query<Mesh2dExtractionQuery>>,
+    (
+        mut removed_mesh2d_components,
+        mut removed_no_automatic_batching_components,
+        mut removed_mesh_tag_components,
+    ): (
+        Extract<RemovedComponents<Mesh2d>>,
+        Extract<RemovedComponents<NoAutomaticBatching>>,
+        Extract<RemovedComponents<MeshTag>>,
+    ),
     mut reextract_entities: Local<MainEntityHashSet>,
     mut reextract_entities_temp: Local<MainEntityHashSet>,
 ) {
@@ -329,6 +336,7 @@ pub fn extract_2d_meshes(
     for reextract_entity in reextract_entities_temp.drain().chain(
         removed_no_automatic_batching_components
             .read()
+            .chain(removed_mesh_tag_components.read())
             .map(MainEntity::from),
     ) {
         let Ok((_, view_visibility, transform, handle, tag, no_automatic_batching)) =
