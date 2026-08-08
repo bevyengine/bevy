@@ -491,7 +491,8 @@ impl<'w, 's> FilteredResourcesMut<'w, 's> {
             .ok_or(ResourceFetchError::DoesNotExist(component_id))?;
 
         // SAFETY: Resource is present, so its component info exists
-        let mutable = unsafe { self.world.components().get_info_unchecked(component_id) }.mutable();
+        let component_info = unsafe { self.world.components().get_info_unchecked(component_id) };
+        let mutable = component_info.mutable();
         if !mutable {
             return Err(ResourceFetchError::Immutable(component_id));
         }

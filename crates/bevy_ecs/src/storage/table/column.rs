@@ -1,6 +1,6 @@
 use super::*;
 use crate::{
-    change_detection::MaybeLocation,
+    change_detection::{AtomicTick, MaybeLocation},
     storage::{blob_array::BlobArray, thin_array_ptr::ThinArrayPtr},
 };
 use core::{mem::needs_drop, panic::Location};
@@ -27,6 +27,7 @@ pub struct Column {
     pub(super) added_ticks: ThinArrayPtr<UnsafeCell<Tick>>,
     pub(super) changed_ticks: ThinArrayPtr<UnsafeCell<Tick>>,
     pub(super) changed_by: MaybeLocation<ThinArrayPtr<UnsafeCell<&'static Location<'static>>>>,
+    pub(super) summary_tick: Option<AtomicTick>,
 }
 
 impl Column {
@@ -42,6 +43,11 @@ impl Column {
             added_ticks: ThinArrayPtr::with_capacity(capacity),
             changed_ticks: ThinArrayPtr::with_capacity(capacity),
             changed_by: MaybeLocation::new_with(|| ThinArrayPtr::with_capacity(capacity)),
+            summary_tick: if component_info.summary_tick() {
+                Some(AtomicTick::default())
+            } else {
+                None
+            },
         }
     }
 
@@ -435,5 +441,35 @@ impl Column {
     #[inline]
     pub fn get_drop(&self) -> Option<unsafe fn(OwningPtr<'_>)> {
         self.data.get_drop()
+    }
+
+    /// Returns a reference to the summary tick for this column, if the
+    /// component that this column is associated with has a summary tick.
+    ///
+    /// The summary tick stores the most recent changed timestamp that was
+    /// written to any component instance of this column. "Most recent" here
+    /// refers to the wall clock.
+    ///
+    /// Be careful when using this value, as it's easy to misuse. Because
+    /// multiple systems with different ticks can be concurrently writing to a
+    /// single column, and because "most recent" is in reference to wall clock
+    /// time, *there may be ticks in the column that are logically later than
+    /// the summary tick.* It's therefore incorrect to assume that the summary
+    /// tick represents the latest tick stored in the column.
+    ///
+    /// Importantly, however, this situation can only occur when multiple
+    /// systems are *actually* concurrently writing to a column. This can only
+    /// happen when both systems are writing to a column with sparse queries.
+    /// Systems that iterate over components with dense iteration have immutable
+    /// or exclusive access to the columns corresponding to those components in
+    /// the tables that they iterate over (and this fact is what makes
+    /// contiguous iteration safe to begin with). So, *for a dense query*, we
+    /// can guarantee that if the `last_run` tick for that query is *t*, then if
+    /// the summary tick has a value earlier than *t*, then there have been no
+    /// changes to the column values. Again, this is *only* true for dense
+    /// iteration.
+    #[inline]
+    pub fn get_summary_tick(&self) -> Option<&AtomicTick> {
+        self.summary_tick.as_ref()
     }
 }

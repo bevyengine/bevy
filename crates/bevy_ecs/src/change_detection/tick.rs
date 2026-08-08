@@ -1,7 +1,12 @@
 use bevy_ecs_macros::Event;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
-use core::{cell::UnsafeCell, panic::Location};
+use core::{
+    cell::UnsafeCell,
+    fmt::{self, Debug, Formatter},
+    panic::Location,
+    sync::atomic::{AtomicU32, Ordering},
+};
 
 use crate::change_detection::{MaybeLocation, MAX_CHANGE_AGE};
 
@@ -85,6 +90,54 @@ impl Tick {
     }
 }
 
+/// A tick that can be updated from multiple threads.
+///
+/// This has exactly the same semantics as [`Tick`] but can be updated
+/// atomically. It's used for summary ticks.
+#[derive(Default)]
+pub struct AtomicTick {
+    /// The atomic tick value.
+    tick: AtomicU32,
+}
+
+impl AtomicTick {
+    /// Returns the current value of the tick.
+    pub fn get(&self) -> Tick {
+        Tick {
+            tick: self.tick.load(Ordering::Relaxed),
+        }
+    }
+
+    #[expect(
+        clippy::doc_markdown,
+        reason = "The word 'ARMv6' does not require backticks"
+    )]
+    /// Sets a new value for the tick.
+    ///
+    /// Note that this method takes `&self` and can therefore be called from
+    /// multiple threads. The tick is updated using relaxed ordering and is
+    /// therefore cheap to update on common architectures (x86-64, ARMv6 and
+    /// newer). However, be warned that, because it uses relaxed ordering, a
+    /// full mutex lock or similar barrier is required if you need to coordinate
+    /// the synchronization of this value with other memory locations.
+    pub fn set(&self, new_tick: Tick) {
+        // Do an unsynchronized read first.
+        // This is important on x86-64 to avoid a performance cliff that I
+        // believe is related to the store reorder buffer.
+        if self.tick.load(Ordering::Relaxed) != new_tick.get() {
+            self.tick.store(new_tick.get(), Ordering::Relaxed);
+        }
+    }
+}
+
+impl Debug for AtomicTick {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("AtomicTick")
+            .field("tick", &self.get().get())
+            .finish()
+    }
+}
+
 /// An [`Event`] that can be used to maintain [`Tick`]s in custom data structures, enabling to make
 /// use of bevy's periodic checks that clamps ticks to a certain range, preventing overflows and thus
 /// keeping methods like [`Tick::is_newer_than`] reliably return `false` for ticks that got too old.
@@ -129,6 +182,9 @@ pub struct ComponentTickCells<'a> {
     pub changed: &'a UnsafeCell<Tick>,
     /// The calling location that last modified the value.
     pub changed_by: MaybeLocation<&'a UnsafeCell<&'static Location<'static>>>,
+    /// The summary tick for the column, if the component is dense and has a
+    /// summary tick.
+    pub summary_tick: Option<&'a AtomicTick>,
 }
 
 /// Records when a component or resource was added and when it was last mutably dereferenced (or added).

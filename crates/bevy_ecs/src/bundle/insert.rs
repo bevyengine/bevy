@@ -427,6 +427,7 @@ impl<'w> BundleInserter<'w> {
             insert_mode,
             caller,
             relationship_hook_mode,
+            self.change_tick,
             archetype_after_insert,
             old_archetype,
             new_archetype,
@@ -445,6 +446,7 @@ impl<'w> BundleInserter<'w> {
         insert_mode: InsertMode,
         caller: MaybeLocation,
         relationship_hook_mode: RelationshipHookMode,
+        change_tick: Tick,
         archetype_after_insert: &ArchetypeAfterBundleInsert,
         old_archetype: &Archetype,
         new_archetype: &Archetype,
@@ -519,6 +521,17 @@ impl<'w> BundleInserter<'w> {
                             caller,
                         );
                     }
+                }
+            }
+        }
+
+        // Because this is a newly inserted row, we need to update the summary
+        // ticks for all components in the table that have them.
+        let table_id = new_archetype.table_id();
+        if let Some(new_table) = deferred_world.storages().tables.get(table_id) {
+            for component_id in new_archetype.table_components() {
+                if let Some(summary_tick) = new_table.get_summary_tick(component_id) {
+                    summary_tick.set(change_tick);
                 }
             }
         }
