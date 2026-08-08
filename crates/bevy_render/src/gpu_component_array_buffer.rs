@@ -353,7 +353,7 @@ mod tests {
                     tag_to_entity: vec![],
                     phantom: PhantomData,
                 },
-                buffer: ShaderBuffer::new(vec![], RenderAssetUsages::all()),
+                buffer: ShaderBuffer::new::<MockComponentData>(vec![], RenderAssetUsages::all()),
 
                 // Create some entities.
                 entity_a: Entity::from_index(EntityIndex::new(NonMaxU32::new(1).unwrap())),
