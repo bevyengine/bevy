@@ -1117,9 +1117,21 @@ pub fn animate_targets(
                 return;
             };
 
-            let Some(threaded_animation_graph) =
-                threaded_animation_graphs.0.get(&animation_graph_id)
+            let Some(threaded_animation_graph) = threaded_animation_graphs
+                .threaded_graphs
+                .get(&animation_graph_id)
             else {
+                return;
+            };
+
+            let Some(threaded_animation_subgraph) = threaded_animation_graph
+                .animation_target_to_threaded_subgraph
+                .get(&target_id)
+            else {
+                trace!(
+                    "Failed to find threaded subgraph for {:?}; animation won't play",
+                    target_id
+                );
                 return;
             };
 
@@ -1134,7 +1146,11 @@ pub fn animate_targets(
             let evaluation_state = &mut *evaluation_state;
 
             // Evaluate the graph.
-            for &animation_graph_node_index in threaded_animation_graph.threaded_graph.iter() {
+            for (&animation_graph_node_index, sorted_edge_range) in threaded_animation_subgraph
+                .threaded_graph
+                .iter()
+                .zip(threaded_animation_subgraph.sorted_edge_ranges.iter())
+            {
                 let Some(animation_graph_node) = animation_graph.get(animation_graph_node_index)
                 else {
                     continue;
@@ -1143,12 +1159,9 @@ pub fn animate_targets(
                 match animation_graph_node.node_type {
                     AnimationNodeType::Blend => {
                         // This is a blend node.
-                        for edge_index in threaded_animation_graph.sorted_edge_ranges
-                            [animation_graph_node_index.index()]
-                        .clone()
-                        {
+                        for edge_index in sorted_edge_range.clone() {
                             if let Err(err) = evaluation_state.blend_all(
-                                threaded_animation_graph.sorted_edges[edge_index as usize],
+                                threaded_animation_subgraph.sorted_edges[edge_index as usize],
                             ) {
                                 warn!("Failed to blend animation: {:?}", err);
                             }
@@ -1164,13 +1177,10 @@ pub fn animate_targets(
 
                     AnimationNodeType::Add => {
                         // This is an additive blend node.
-                        for edge_index in threaded_animation_graph.sorted_edge_ranges
-                            [animation_graph_node_index.index()]
-                        .clone()
-                        {
-                            if let Err(err) = evaluation_state
-                                .add_all(threaded_animation_graph.sorted_edges[edge_index as usize])
-                            {
+                        for edge_index in sorted_edge_range.clone() {
+                            if let Err(err) = evaluation_state.add_all(
+                                threaded_animation_subgraph.sorted_edges[edge_index as usize],
+                            ) {
                                 warn!("Failed to blend animation: {:?}", err);
                             }
                         }
