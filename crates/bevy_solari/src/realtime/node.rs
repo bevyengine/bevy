@@ -163,6 +163,9 @@ pub fn solari_lighting(
         return;
     };
 
+    // Past every bail-out, so this view's reservoirs will be brought up to this frame's light ids
+    scene_bindings.note_light_translations_consumed();
+
     let view_target_attachment = view_target.get_unsampled_color_attachment();
 
     let s = solari_lighting_resources;
