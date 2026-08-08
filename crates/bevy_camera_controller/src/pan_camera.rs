@@ -182,11 +182,11 @@ PanCamera Controls:
 
 /// This system is typically added via the [`PanCameraPlugin`].
 ///
-/// Reads ZoomEvent messages from the pan_camera_controller system and pans the
+/// Reads [`ZoomEvent`] messages from the [`pan_camera_controller`] system and pans the
 /// camera so that the focus of the zoom is the cursor. Assumes that if a message is
-/// received, then the PanCamera's ZoomTarget is set to Cursor.
+/// received, then the [`PanCamera`] [`ZoomTarget`] is set to Cursor.
 ///
-/// **Note**: Should be scheduled to run after the pan_camera_controller system
+/// **Note**: Should be scheduled to run after the [`pan_camera_controller`] system
 fn run_pan_to_cursor_on_zoom(
     window: Single<&Window>,
     query: Single<(&Camera, &GlobalTransform, &mut Transform), With<PanCamera>>,
