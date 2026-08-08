@@ -30,6 +30,9 @@ use crate::{
 /// state.
 ///
 /// This is spawnable by inheriting it as a "scene component".
+///
+/// A more complete explanation of how to control this widget can be found in the documentation
+/// for [`Checkbox`] and [`bevy_ui_widgets`].
 #[derive(SceneComponent, Default, Clone, Reflect)]
 #[reflect(Component, Default, Clone)]
 pub struct FeathersDisclosureToggle;
@@ -153,7 +156,9 @@ impl Plugin for DisclosureTogglePlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             PreUpdate,
-            (update_toggle_styles, update_toggle_styles_remove).in_set(PickingSystems::Last),
+            (update_toggle_styles, update_toggle_styles_remove)
+                .chain()
+                .in_set(PickingSystems::Last),
         );
     }
 }

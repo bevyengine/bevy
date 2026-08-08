@@ -14,7 +14,7 @@ use bevy_ecs::{
 };
 use bevy_platform::collections::{hash_map::Entry, HashMap, HashSet};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_utils::{default, TypeIdMap};
+use bevy_utils::{default, TypeIdHashMap};
 use bytemuck::{Pod, Zeroable};
 use core::hash::Hash;
 use core::{cmp::Ordering, iter, mem, ops::Range};
@@ -66,7 +66,7 @@ pub struct RenderMaterialBindings(HashMap<UntypedAssetId, MaterialBindingId>);
 /// materials. This resource provides a common interface to the specific
 /// allocator in use.
 #[derive(Resource, Deref, DerefMut, Default)]
-pub struct MaterialBindGroupAllocators(TypeIdMap<MaterialBindGroupAllocator>);
+pub struct MaterialBindGroupAllocators(TypeIdHashMap<MaterialBindGroupAllocator>);
 
 /// The allocator that manages a specific material.
 pub enum MaterialBindGroupAllocator {

@@ -15,10 +15,10 @@ use bevy_ecs::{
     system::{Commands, If, Local, Query, ResMut},
 };
 use bevy_mesh::MeshTag;
+use bevy_platform::collections::AlignedVec;
 use bytemuck::Pod;
 use core::marker::PhantomData;
 use encase::ShaderType;
-use std::iter;
 use wgpu::BufferUsages;
 
 /// Buffer sizes are rounded up to the nearest power of this value.
@@ -100,7 +100,7 @@ where
     /// into.
     pub fn new(shader_buffer_assets: &mut Assets<ShaderBuffer>) -> Self {
         let buffer = shader_buffer_assets.add(ShaderBuffer {
-            data: ShaderBufferData::Initialized(vec![0; size_of::<C::Out>()]),
+            data: ShaderBufferData::Initialized(AlignedVec::from(vec![0; size_of::<C::Out>()])),
             label: C::label(),
             buffer_usage: C::buffer_usage(),
             asset_usage: RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
@@ -215,10 +215,7 @@ where
         let current_buffer_len = data_buffer.len() / size_of::<C::Out>();
         if needed_buffer_len > current_buffer_len {
             let next_buffer_len = round_buffer_size_up(needed_buffer_len);
-            data_buffer.extend(iter::repeat_n(
-                0,
-                next_buffer_len * size_of::<C::Out>() - data_buffer.len(),
-            ));
+            data_buffer.resize(next_buffer_len * size_of::<C::Out>(), 0);
         }
         bytemuck::cast_slice_mut(data_buffer.as_mut_slice())[tag as usize] = data;
 
@@ -381,7 +378,9 @@ mod tests {
                 self.gpu_component_array.tag_to_entity.len(),
                 expected_data.len()
             );
-            assert!(self.buffer.len() >= expected_data.len() * size_of::<MockComponentData>());
+            assert!(
+                self.buffer.len() >= (expected_data.len() * size_of::<MockComponentData>()) as u64
+            );
 
             for (tag, (entity, data)) in expected_data.iter().enumerate() {
                 assert_eq!(

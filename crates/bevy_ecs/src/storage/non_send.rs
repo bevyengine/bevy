@@ -33,22 +33,29 @@ pub struct NonSendData {
 
 impl Drop for NonSendData {
     fn drop(&mut self) {
-        // We need to validate that correct thread is dropping the data.
-        // This validation is not needed if there is no data.
-        if self.is_present() {
-            // If this thread is already panicking, panicking again will cause
-            // the entire process to abort. In this case we choose to avoid
-            // dropping or checking this altogether and just leak the column.
-            #[cfg(feature = "std")]
-            if std::thread::panicking() {
-                return;
-            }
-            self.validate_access();
+        // If this is running on the wrong thread to access the data
+        // then it cannot be dropped and must be forgotten,
+        // but the memory can still be deallocated.
+        // TODO: Handle no_std non-send.
+        // Currently, no_std is single-threaded only, so this is safe to ignore.
+        // To support no_std multithreading, an alternative will be required.
+        #[cfg(feature = "std")]
+        if self.is_present()
+            && self.data.get_drop().is_some()
+            && self.origin_thread_id != Some(std::thread::current().id())
+        {
+            log::warn!(
+                "Attempted drop non-send data {} from thread {:?} while dropping `World` in thread {:?}.  The data will be forgotten instead.",
+                self.type_name,
+                self.origin_thread_id,
+                std::thread::current().id()
+            );
+            self.is_present = false;
         }
         // SAFETY: Drop is only called once upon dropping the NonSendData
         // and is inaccessible after this as the parent NonSendData has
-        // been dropped. The validate_access call above will check that the
-        // data is dropped on the thread it was inserted from.
+        // been dropped. The check above will ensure that the
+        // data is only dropped on the thread it was inserted from.
         unsafe {
             self.data.drop(1, self.is_present().into());
         }

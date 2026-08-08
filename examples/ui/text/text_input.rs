@@ -1,6 +1,6 @@
-//! Demonstrates a simple, unstyled [`EditableText`] widget.
+//! Demonstrates a simple, unstyled [`TextInput`] widget.
 //!
-//! [`EditableText`] is a basic primitive for text input in Bevy UI.
+//! [`TextInput`] is a basic primitive for text input in Bevy UI.
 //! In most cases, this should be combined with other entities to create a compound widget
 //! that includes e.g. a background, border, and text label.
 //!
@@ -26,17 +26,17 @@ use bevy::color::palettes::css::DARK_GREY;
 use bevy::color::palettes::tailwind::SLATE_300;
 use bevy::input_focus::AutoFocus;
 use bevy::input_focus::{
-    pointer_focus::PointerFocusPlugin,
     tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
     InputFocus,
 };
 use bevy::prelude::*;
 use bevy::text::{EditableText, TextCursorStyle};
+use bevy::ui_widgets::TextInput;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugins((TabNavigationPlugin, PointerFocusPlugin))
+        .add_plugins(TabNavigationPlugin)
         .add_systems(Startup, setup)
         .add_systems(Update, text_submission)
         .run();
@@ -125,6 +125,7 @@ fn build_input_text(commands: &mut Commands, is_left: bool, font_size: f32) -> E
             },
             BorderColor::from(Color::from(SLATE_300)),
             Name::new(if is_left { "Left" } else { "Right" }),
+            TextInput,
             EditableText {
                 visible_width: Some(10.),
                 allow_newlines: false,

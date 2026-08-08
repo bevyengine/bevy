@@ -2,7 +2,6 @@
 //! extracted and uploaded to the GPU for use in shaders.
 
 use alloc::borrow::Cow;
-use std::mem;
 
 use crate::{
     render_asset::{AssetExtractionError, PrepareAssetError, RenderAsset, RenderAssetPlugin},
@@ -21,10 +20,9 @@ use bevy_ecs::{
         ResMut, SystemParamItem,
     },
 };
-use bevy_platform::collections::HashSet;
+use bevy_platform::collections::{AlignedVec, HashSet};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_utils::default;
-use encase::{internal::WriteInto, ShaderType};
 use wgpu::util::BufferInitDescriptor;
 use wgpu_types::BufferDescriptor;
 
@@ -71,6 +69,7 @@ pub struct ShaderBuffer {
     /// The asset usage of the storage buffer.
     pub asset_usage: RenderAssetUsages,
     /// Whether this buffer should be copied on the GPU when resized.
+    /// The buffer should have `BufferUsages::COPY_SRC | BufferUsages::COPY_DST` usages to be copyable.
     pub copy_on_resize: bool,
 }
 
@@ -81,14 +80,15 @@ pub struct ShaderBuffer {
 /// reallocations.
 #[derive(Reflect, Debug, Clone)]
 #[reflect(Default, Debug, Clone)]
+#[reflect(opaque)]
 pub enum ShaderBufferData {
     /// The buffer will be uninitialized when created and has the given size in
     /// bytes.
-    Uninitialized(usize),
+    Uninitialized(wgpu_types::BufferAddress),
     /// The buffer will be initialized with the given data.
     ///
     /// The size of the buffer is equal to the size of the data.
-    Initialized(Vec<u8>),
+    Initialized(AlignedVec),
 }
 
 impl Default for ShaderBuffer {
@@ -110,17 +110,17 @@ impl Default for ShaderBufferData {
 }
 
 impl ShaderBuffer {
-    /// Creates a new storage buffer with the given data and asset usage.
-    pub fn new(data: Vec<u8>, asset_usage: RenderAssetUsages) -> Self {
+    /// Creates a new initialized storage buffer with the given data and asset usage, with alignment `align_of::<T>()`.
+    pub fn new<T: bytemuck::NoUninit>(data: Vec<T>, asset_usage: RenderAssetUsages) -> Self {
         ShaderBuffer {
-            data: ShaderBufferData::Initialized(data.to_vec()),
+            data: ShaderBufferData::Initialized(AlignedVec::from(data)),
             asset_usage,
             ..default()
         }
     }
 
-    /// Creates a new storage buffer with the given size and asset usage.
-    pub fn with_size(size: usize, asset_usage: RenderAssetUsages) -> Self {
+    /// Creates a new uninitialized storage buffer with the given size and asset usage.
+    pub fn with_size(size: u64, asset_usage: RenderAssetUsages) -> Self {
         ShaderBuffer {
             data: ShaderBufferData::Uninitialized(size),
             asset_usage,
@@ -128,53 +128,92 @@ impl ShaderBuffer {
         }
     }
 
-    /// Sets the data of the storage buffer to the given [`ShaderType`].
-    pub fn set_data<T>(&mut self, value: T)
+    /// Clear [`Self::data`] with its capacity reserved if it is [`ShaderBufferData::Initialized`].
+    pub fn clear(&mut self) {
+        if let ShaderBufferData::Initialized(data) = &mut self.data {
+            data.clear();
+        }
+    }
+
+    /// Extends the data with a slice of [`bytemuck::NoUninit`].
+    /// If [`Self::data`] is uninitialized, it will be initialized with alignment `align_of::<T>()`
+    pub fn extend_from_slice<T>(&mut self, values: &[T])
     where
-        T: ShaderType + WriteInto,
+        T: bytemuck::NoUninit,
     {
-        let size = value.size().get() as usize;
-        let mut wrapper = encase::StorageBuffer::<Vec<u8>>::new(Vec::with_capacity(size));
-        wrapper.write(&value).unwrap();
-        self.data = ShaderBufferData::Initialized(wrapper.into_inner());
+        let data = core::mem::take(&mut self.data);
+        let mut data = match data {
+            ShaderBufferData::Uninitialized(_) => AlignedVec::new(align_of::<T>()),
+            ShaderBufferData::Initialized(aligned_vec) => aligned_vec,
+        };
+        data.extend_from_slice(bytemuck::cast_slice(values));
+        self.data = ShaderBufferData::Initialized(data);
+    }
+
+    /// Extends the data with an iterator of [`bytemuck::NoUninit`].
+    /// If [`Self::data`] is uninitialized, it will be initialized with alignment `align_of::<T>()`
+    pub fn extend<T>(&mut self, values: impl IntoIterator<Item = T>)
+    where
+        T: bytemuck::NoUninit,
+    {
+        let values = values.into_iter();
+        let data = core::mem::take(&mut self.data);
+        let mut data = match data {
+            ShaderBufferData::Uninitialized(_) => AlignedVec::new(align_of::<T>()),
+            ShaderBufferData::Initialized(aligned_vec) => aligned_vec,
+        };
+        data.reserve(values.size_hint().0 * size_of::<T>());
+        for value in values {
+            data.extend_from_slice(bytemuck::bytes_of(&value));
+        }
+        self.data = ShaderBufferData::Initialized(data);
+    }
+
+    /// Returns a slice of `T` of [`ShaderBufferData::Initialized`], otherwise returns `None`
+    ///
+    /// Panics:
+    /// * If `T` has a greater alignment requirement and the `AlignedVec` isn't aligned.
+    /// * If the size of `AlignedVec` is not a multiple of `size_of::<T>()`
+    pub fn as_slice<T: bytemuck::AnyBitPattern>(&self) -> Option<&[T]> {
+        match &self.data {
+            ShaderBufferData::Uninitialized(_) => None,
+            ShaderBufferData::Initialized(aligned_vec) => Some(aligned_vec.cast_slice()),
+        }
+    }
+
+    /// Returns a mutable slice of `T` of [`ShaderBufferData::Initialized`], otherwise returns `None`
+    ///
+    /// Panics:
+    /// * If `T` has a greater alignment requirement than the `AlignedVec`.
+    /// * If the size of `AlignedVec` is not a multiple of `size_of::<T>()`
+    pub fn as_mut_slice<T: bytemuck::NoUninit + bytemuck::AnyBitPattern>(
+        &mut self,
+    ) -> Option<&mut [T]> {
+        match &mut self.data {
+            ShaderBufferData::Uninitialized(_) => None,
+            ShaderBufferData::Initialized(aligned_vec) => Some(aligned_vec.cast_slice_mut()),
+        }
     }
 
     /// Resizes the buffer to the new size.
     ///
     /// If CPU data is present, it will be truncated or zero-extended.
-    /// Does not preserve GPU data when the descriptor changes.
-    pub fn resize(&mut self, new_size: u64) {
+    /// If no CPU data is present, the GPU buffer will be reallocated. Preserves GPU data If `copy_on_resize` is true.
+    pub fn resize(&mut self, new_size: wgpu_types::BufferAddress) {
         match self.data {
             ShaderBufferData::Initialized(ref mut data) => {
                 data.resize(new_size as usize, 0);
             }
             ShaderBufferData::Uninitialized(ref mut size) => {
-                *size = new_size as usize;
-                self.copy_on_resize = true;
-            }
-        }
-    }
-
-    /// Resizes the buffer to the new size, preserving existing data.
-    ///
-    /// If CPU data is present, it will be truncated or zero-extended.
-    /// If no CPU data is present, sets `copy_on_resize` to preserve GPU data.
-    pub fn resize_in_place(&mut self, new_size: u64) {
-        match self.data {
-            ShaderBufferData::Initialized(ref mut data) => {
-                data.resize(new_size as usize, 0);
-            }
-            ShaderBufferData::Uninitialized(ref mut size) => {
-                *size = new_size as usize;
-                self.copy_on_resize = true;
+                *size = new_size;
             }
         }
     }
 
     /// Returns the size of the buffer in bytes.
-    pub fn len(&self) -> usize {
+    pub fn len(&self) -> wgpu_types::BufferAddress {
         match self.data {
-            ShaderBufferData::Initialized(ref data) => data.len(),
+            ShaderBufferData::Initialized(ref data) => data.len() as wgpu_types::BufferAddress,
             ShaderBufferData::Uninitialized(len) => len,
         }
     }
@@ -186,15 +225,10 @@ impl ShaderBuffer {
     }
 }
 
-impl<T> From<T> for ShaderBuffer
-where
-    T: ShaderType + WriteInto,
-{
-    fn from(value: T) -> Self {
-        let size = value.size().get() as usize;
-        let mut wrapper = encase::StorageBuffer::<Vec<u8>>::new(Vec::with_capacity(size));
-        wrapper.write(&value).unwrap();
-        Self::new(wrapper.into_inner(), RenderAssetUsages::default())
+impl<T: bytemuck::NoUninit> From<Vec<T>> for ShaderBuffer {
+    /// Creates a new initialized storage buffer with the given data, with alignment `align_of::<T>()`.
+    fn from(value: Vec<T>) -> Self {
+        Self::new(value, Default::default())
     }
 }
 
@@ -243,7 +277,8 @@ impl RenderAsset for GpuShaderBuffer {
         source: &mut Self::SourceAsset,
         previous_gpu_asset: Option<&Self>,
     ) -> Result<Self::SourceAsset, AssetExtractionError> {
-        let data = mem::take(&mut source.data);
+        let len = source.len();
+        let data = core::mem::replace(&mut source.data, ShaderBufferData::Uninitialized(len));
 
         let valid_upload = matches!(data, ShaderBufferData::Initialized(_))
             || previous_gpu_asset.is_none_or(|prev| !prev.had_data);
@@ -258,16 +293,14 @@ impl RenderAsset for GpuShaderBuffer {
 
     fn prepare_asset(
         source_asset: Self::SourceAsset,
-        asset_id: AssetId<Self::SourceAsset>,
-        &mut (ref render_device, ref render_queue, ref mut changed_shader_buffers): &mut SystemParamItem<
-            Self::Param,
-        >,
+        _asset_id: AssetId<Self::SourceAsset>,
+        &mut (ref render_device, ref render_queue, _): &mut SystemParamItem<Self::Param>,
         previous_asset: Option<&Self>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         let had_data = matches!(source_asset.data, ShaderBufferData::Initialized(_));
 
         let buffer = if let Some(prev) = previous_asset
-            && prev.buffer.size() >= source_asset.len() as u64
+            && prev.buffer.size() == source_asset.len()
             && prev.buffer.usage() == source_asset.buffer_usage
             && *prev.label == *source_asset.label
             && (!had_data || source_asset.buffer_usage.contains(BufferUsages::COPY_DST))
@@ -277,21 +310,15 @@ impl RenderAsset for GpuShaderBuffer {
             }
             prev.buffer.clone()
         } else if let ShaderBufferData::Initialized(ref data) = source_asset.data {
-            // We have to resize the buffer, so mark it as changed.
-            changed_shader_buffers.insert(asset_id);
-
             render_device.create_buffer_with_data(&BufferInitDescriptor {
                 label: Some(&*source_asset.label),
                 contents: data,
                 usage: source_asset.buffer_usage,
             })
         } else {
-            // We have to resize the buffer, so mark it as changed.
-            changed_shader_buffers.insert(asset_id);
-
             let new_buffer = render_device.create_buffer(&BufferDescriptor {
                 label: Some(&*source_asset.label),
-                size: source_asset.len() as u64,
+                size: source_asset.len(),
                 usage: source_asset.buffer_usage,
                 mapped_at_creation: false,
             });
@@ -300,7 +327,7 @@ impl RenderAsset for GpuShaderBuffer {
                 && previous.buffer.usage().contains(BufferUsages::COPY_SRC)
                 && source_asset.buffer_usage.contains(BufferUsages::COPY_DST)
             {
-                let copy_size = (source_asset.len() as u64).min(previous.buffer.size());
+                let copy_size = source_asset.len().min(previous.buffer.size());
                 let mut encoder =
                     render_device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
                         label: Some("copy_buffer_on_resize"),

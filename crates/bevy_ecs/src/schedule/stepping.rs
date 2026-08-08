@@ -5,7 +5,7 @@ use crate::{
 };
 use alloc::vec::Vec;
 use bevy_platform::collections::HashMap;
-use bevy_utils::TypeIdMap;
+use bevy_utils::TypeIdHashMap;
 use core::any::TypeId;
 use fixedbitset::FixedBitSet;
 use log::{info, warn};
@@ -608,7 +608,7 @@ struct ScheduleState {
 
     /// changes to system behavior that should be applied the next time
     /// [`ScheduleState::skipped_systems()`] is called
-    behavior_updates: TypeIdMap<Option<SystemBehavior>>,
+    behavior_updates: TypeIdHashMap<Option<SystemBehavior>>,
 
     /// This field contains the first steppable system in the schedule.
     first: Option<usize>,

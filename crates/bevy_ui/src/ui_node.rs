@@ -1,6 +1,6 @@
 use crate::{
     ui_transform::{UiGlobalTransform, UiTransform},
-    ComputedStackIndex, ContentSize, FocusPolicy, UiRect, Val,
+    ComputedStackIndex, ContentSize, CornerRadius, FocusPolicy, UiRect, Val,
 };
 use bevy_camera::{visibility::Visibility, Camera, RenderTarget};
 use bevy_color::{Alpha, Color};
@@ -140,11 +140,11 @@ impl ComputedNode {
     #[inline]
     pub const fn outline_radius(&self) -> ResolvedBorderRadius {
         let outer_distance = self.outline_width + self.outline_offset;
-        const fn compute_radius(radius: f32, outer_distance: f32) -> f32 {
-            if radius > 0. {
-                radius + outer_distance
+        const fn compute_radius(radius: Vec2, outer_distance: f32) -> Vec2 {
+            if 0. < radius.x && 0. < radius.y {
+                Vec2::new(radius.x + outer_distance, radius.y + outer_distance)
             } else {
-                0.
+                Vec2::ZERO
             }
         }
         ResolvedBorderRadius {
@@ -173,10 +173,8 @@ impl ComputedNode {
 
     /// Returns the inner border radius for each of the node's corners in physical pixels.
     pub fn inner_radius(&self) -> ResolvedBorderRadius {
-        fn clamp_corner(r: f32, size: Vec2, offset: Vec2) -> f32 {
-            let s = 0.5 * size + offset;
-            let sm = s.x.min(s.y);
-            r.min(sm)
+        fn clamp_corner(r: Vec2, size: Vec2, offset: Vec2) -> Vec2 {
+            r.min(0.5 * size + offset)
         }
         let b = Vec4::from((self.border.min_inset, self.border.max_inset));
         let s = self.size() - b.xy() - b.zw();
@@ -231,10 +229,12 @@ impl ComputedNode {
         };
         let r = if local_point.y < 0. { top } else { bottom };
         let corner_to_point = local_point.abs() - 0.5 * self.size;
+        let inside_straight_edge = corner_to_point.max_element() < 0.;
+        if !inside_straight_edge || r.cmple(Vec2::ZERO).any() {
+            return inside_straight_edge;
+        }
         let q = corner_to_point + r;
-        let l = q.max(Vec2::ZERO).length();
-        let m = q.max_element().min(0.);
-        l + m - r < 0.
+        q.cmple(Vec2::ZERO).any() || (q / r).length_squared() < 1.
     }
 
     /// Transform a point to normalized node space with the center of the node at the origin and the corners at [+/-0.5, +/-0.5]
@@ -460,7 +460,6 @@ impl From<BVec2> for IgnoreScroll {
 /// # See also
 ///
 /// - [`RelativeCursorPosition`](crate::RelativeCursorPosition) to obtain the cursor position relative to this node
-/// - [`Interaction`](crate::Interaction) to obtain the interaction state of this node
 
 #[derive(Component, Clone, PartialEq, Debug, Reflect)]
 #[require(
@@ -2339,14 +2338,15 @@ impl Default for BorderColor {
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ui::prelude::*;
+/// # use bevy_picking::hover::Hovered;
 /// # use bevy_color::Color;
 /// fn outline_hovered_button_system(
 ///     mut commands: Commands,
-///     mut node_query: Query<(Entity, &Interaction, Option<&mut Outline>), Changed<Interaction>>,
+///     mut node_query: Query<(Entity, &Hovered, Option<&mut Outline>), Changed<Hovered>>,
 /// ) {
-///     for (entity, interaction, mut maybe_outline) in node_query.iter_mut() {
+///     for (entity, hovered, mut maybe_outline) in node_query.iter_mut() {
 ///         let outline_color =
-///             if matches!(*interaction, Interaction::Hovered) {
+///             if hovered.get() {
 ///                 Color::WHITE
 ///             } else {
 ///                 Color::NONE
@@ -2475,12 +2475,11 @@ impl<T: Into<Color>> From<T> for OuterColor {
 }
 
 /// Used to add rounded corners to a UI node. You can set a UI node to have uniformly
-/// rounded corners or specify different radii for each corner. If a given radius exceeds half
-/// the length of the smallest dimension between the node's height or width, the radius will
-/// calculated as half the smallest dimension.
+/// rounded corners, elliptical corners, or specify a different radius for each corner. If a given
+/// radius exceeds half the length of the node's height or width, the radius will be calculated
+/// as half the height or width.
 ///
-/// Elliptical nodes are not supported yet. Percentage values are based on the node's smallest
-/// dimension, either width or height.
+/// Percentage horizontal and vertical values are based on the node's width and height, respectively.
 ///
 /// # Example
 /// ```rust
@@ -2493,16 +2492,14 @@ impl<T: Into<Color>> From<T> for OuterColor {
 ///             width: Val::Px(100.),
 ///             height: Val::Px(100.),
 ///             border: UiRect::all(Val::Px(2.)),
-///             border_radius: BorderRadius::new(
-///                 // top left
-///                 Val::Px(10.),
-///                 // top right
-///                 Val::Px(20.),
-///                 // bottom right
-///                 Val::Px(30.),
-///                 // bottom left
-///                 Val::Px(40.),
-///             ),
+///             border_radius: BorderRadius {
+///                 // rounded corners, x and y radii equal
+///                 top_left: CornerRadius::circular(px(10.)),
+///                 top_right: percent(20.).into(),
+///                 // elliptical corner
+///                 bottom_right: CornerRadius::new(px(30.), px(20.)),
+///                 bottom_left: CornerRadius { x: px(10.), y: px(40.) },
+///             },
 ///             ..Default::default()
 ///         },
 ///         BackgroundColor(BLUE.into()),
@@ -2519,10 +2516,14 @@ impl<T: Into<Color>> From<T> for OuterColor {
     reflect(Serialize, Deserialize)
 )]
 pub struct BorderRadius {
-    pub top_left: Val,
-    pub top_right: Val,
-    pub bottom_right: Val,
-    pub bottom_left: Val,
+    /// Border radius of the top left corner
+    pub top_left: CornerRadius,
+    /// Border radius of the top right corner
+    pub top_right: CornerRadius,
+    /// Border radius of the bottom right corner
+    pub bottom_right: CornerRadius,
+    /// Border radius of the bottom left corner
+    pub bottom_left: CornerRadius,
 }
 
 impl Default for BorderRadius {
@@ -2535,14 +2536,33 @@ impl BorderRadius {
     pub const DEFAULT: Self = Self::ZERO;
 
     /// Zero curvature. All the corners will be right-angled.
-    pub const ZERO: Self = Self::all(Val::Px(0.));
+    pub const ZERO: Self = Self {
+        top_left: CornerRadius::ZERO,
+        top_right: CornerRadius::ZERO,
+        bottom_right: CornerRadius::ZERO,
+        bottom_left: CornerRadius::ZERO,
+    };
 
     /// Maximum curvature. The UI Node will take a capsule shape or circular if width and height are equal.
-    pub const MAX: Self = Self::all(Val::Px(f32::MAX));
+    pub const MAX: Self = Self {
+        top_left: CornerRadius::MAX,
+        top_right: CornerRadius::MAX,
+        bottom_right: CornerRadius::MAX,
+        bottom_left: CornerRadius::MAX,
+    };
 
-    #[inline]
+    //// The node will be drawn as an ellipse with a horizontal radius of half its width and a vertical radius of half its height.
+    pub const MAX_ELLIPTICAL: Self = Self {
+        top_left: CornerRadius::MAX_ELLIPTICAL,
+        top_right: CornerRadius::MAX_ELLIPTICAL,
+        bottom_right: CornerRadius::MAX_ELLIPTICAL,
+        bottom_left: CornerRadius::MAX_ELLIPTICAL,
+    };
+
     /// Set all four corners to the same curvature.
-    pub const fn all(radius: Val) -> Self {
+    #[inline]
+    pub fn all(radius: impl Into<CornerRadius>) -> Self {
+        let radius = radius.into();
         Self {
             top_left: radius,
             top_right: radius,
@@ -2552,28 +2572,33 @@ impl BorderRadius {
     }
 
     #[inline]
-    pub const fn new(top_left: Val, top_right: Val, bottom_right: Val, bottom_left: Val) -> Self {
+    pub fn new(
+        top_left: impl Into<CornerRadius>,
+        top_right: impl Into<CornerRadius>,
+        bottom_right: impl Into<CornerRadius>,
+        bottom_left: impl Into<CornerRadius>,
+    ) -> Self {
         Self {
-            top_left,
-            top_right,
-            bottom_right,
-            bottom_left,
+            top_left: top_left.into(),
+            top_right: top_right.into(),
+            bottom_right: bottom_right.into(),
+            bottom_left: bottom_left.into(),
         }
     }
 
+    /// Sets each corner to a circular radius in logical pixels.
     #[inline]
-    /// Sets the radii to logical pixel values.
     pub const fn px(top_left: f32, top_right: f32, bottom_right: f32, bottom_left: f32) -> Self {
         Self {
-            top_left: Val::Px(top_left),
-            top_right: Val::Px(top_right),
-            bottom_right: Val::Px(bottom_right),
-            bottom_left: Val::Px(bottom_left),
+            top_left: CornerRadius::circular(Val::Px(top_left)),
+            top_right: CornerRadius::circular(Val::Px(top_right)),
+            bottom_right: CornerRadius::circular(Val::Px(bottom_right)),
+            bottom_left: CornerRadius::circular(Val::Px(bottom_left)),
         }
     }
 
+    /// Sets each corners to a circular radius in percentage values.
     #[inline]
-    /// Sets the radii to percentage values.
     pub const fn percent(
         top_left: f32,
         top_right: f32,
@@ -2581,57 +2606,58 @@ impl BorderRadius {
         bottom_left: f32,
     ) -> Self {
         Self {
-            top_left: Val::Percent(top_left),
-            top_right: Val::Percent(top_right),
-            bottom_right: Val::Percent(bottom_right),
-            bottom_left: Val::Percent(bottom_left),
+            top_left: CornerRadius::circular(Val::Percent(top_left)),
+            top_right: CornerRadius::circular(Val::Percent(top_right)),
+            bottom_right: CornerRadius::circular(Val::Percent(bottom_right)),
+            bottom_left: CornerRadius::circular(Val::Percent(bottom_left)),
         }
     }
 
-    #[inline]
     /// Sets the radius for the top left corner.
     /// Remaining corners will be right-angled.
-    pub const fn top_left(radius: Val) -> Self {
+    #[inline]
+    pub fn top_left(radius: impl Into<CornerRadius>) -> Self {
         Self {
-            top_left: radius,
+            top_left: radius.into(),
             ..Self::DEFAULT
         }
     }
 
-    #[inline]
     /// Sets the radius for the top right corner.
     /// Remaining corners will be right-angled.
-    pub const fn top_right(radius: Val) -> Self {
+    #[inline]
+    pub fn top_right(radius: impl Into<CornerRadius>) -> Self {
         Self {
-            top_right: radius,
+            top_right: radius.into(),
             ..Self::DEFAULT
         }
     }
 
-    #[inline]
     /// Sets the radius for the bottom right corner.
     /// Remaining corners will be right-angled.
-    pub const fn bottom_right(radius: Val) -> Self {
+    #[inline]
+    pub fn bottom_right(radius: impl Into<CornerRadius>) -> Self {
         Self {
-            bottom_right: radius,
+            bottom_right: radius.into(),
             ..Self::DEFAULT
         }
     }
 
-    #[inline]
-    /// Sets the radius for the bottom left corner.
+    /// Sets the radii for the bottom left corner.
     /// Remaining corners will be right-angled.
-    pub const fn bottom_left(radius: Val) -> Self {
+    #[inline]
+    pub fn bottom_left(radius: impl Into<CornerRadius>) -> Self {
         Self {
-            bottom_left: radius,
+            bottom_left: radius.into(),
             ..Self::DEFAULT
         }
     }
 
-    #[inline]
     /// Sets the radii for the top left and bottom left corners.
     /// Remaining corners will be right-angled.
-    pub const fn left(radius: Val) -> Self {
+    #[inline]
+    pub fn left(radius: impl Into<CornerRadius>) -> Self {
+        let radius = radius.into();
         Self {
             top_left: radius,
             bottom_left: radius,
@@ -2639,10 +2665,11 @@ impl BorderRadius {
         }
     }
 
-    #[inline]
     /// Sets the radii for the top right and bottom right corners.
     /// Remaining corners will be right-angled.
-    pub const fn right(radius: Val) -> Self {
+    #[inline]
+    pub fn right(radius: impl Into<CornerRadius>) -> Self {
+        let radius = radius.into();
         Self {
             top_right: radius,
             bottom_right: radius,
@@ -2650,10 +2677,11 @@ impl BorderRadius {
         }
     }
 
-    #[inline]
     /// Sets the radii for the top left and top right corners.
+    #[inline]
     /// Remaining corners will be right-angled.
-    pub const fn top(radius: Val) -> Self {
+    pub fn top(radius: impl Into<CornerRadius>) -> Self {
+        let radius = radius.into();
         Self {
             top_left: radius,
             top_right: radius,
@@ -2664,7 +2692,8 @@ impl BorderRadius {
     #[inline]
     /// Sets the radii for the bottom left and bottom right corners.
     /// Remaining corners will be right-angled.
-    pub const fn bottom(radius: Val) -> Self {
+    pub fn bottom(radius: impl Into<CornerRadius>) -> Self {
+        let radius = radius.into();
         Self {
             bottom_left: radius,
             bottom_right: radius,
@@ -2674,35 +2703,36 @@ impl BorderRadius {
 
     /// Returns the [`BorderRadius`] with its `top_left` field set to the given value.
     #[inline]
-    pub const fn with_top_left(mut self, radius: Val) -> Self {
-        self.top_left = radius;
+    pub fn with_top_left(mut self, radius: impl Into<CornerRadius>) -> Self {
+        self.top_left = radius.into();
         self
     }
 
     /// Returns the [`BorderRadius`] with its `top_right` field set to the given value.
     #[inline]
-    pub const fn with_top_right(mut self, radius: Val) -> Self {
-        self.top_right = radius;
+    pub fn with_top_right(mut self, radius: impl Into<CornerRadius>) -> Self {
+        self.top_right = radius.into();
         self
     }
 
     /// Returns the [`BorderRadius`] with its `bottom_right` field set to the given value.
     #[inline]
-    pub const fn with_bottom_right(mut self, radius: Val) -> Self {
-        self.bottom_right = radius;
+    pub fn with_bottom_right(mut self, radius: impl Into<CornerRadius>) -> Self {
+        self.bottom_right = radius.into();
         self
     }
 
     /// Returns the [`BorderRadius`] with its `bottom_left` field set to the given value.
     #[inline]
-    pub const fn with_bottom_left(mut self, radius: Val) -> Self {
-        self.bottom_left = radius;
+    pub fn with_bottom_left(mut self, radius: impl Into<CornerRadius>) -> Self {
+        self.bottom_left = radius.into();
         self
     }
 
     /// Returns the [`BorderRadius`] with its `top_left` and `bottom_left` fields set to the given value.
     #[inline]
-    pub const fn with_left(mut self, radius: Val) -> Self {
+    pub fn with_left(mut self, radius: impl Into<CornerRadius>) -> Self {
+        let radius = radius.into();
         self.top_left = radius;
         self.bottom_left = radius;
         self
@@ -2710,7 +2740,8 @@ impl BorderRadius {
 
     /// Returns the [`BorderRadius`] with its `top_right` and `bottom_right` fields set to the given value.
     #[inline]
-    pub const fn with_right(mut self, radius: Val) -> Self {
+    pub fn with_right(mut self, radius: impl Into<CornerRadius>) -> Self {
+        let radius = radius.into();
         self.top_right = radius;
         self.bottom_right = radius;
         self
@@ -2718,7 +2749,8 @@ impl BorderRadius {
 
     /// Returns the [`BorderRadius`] with its `top_left` and `top_right` fields set to the given value.
     #[inline]
-    pub const fn with_top(mut self, radius: Val) -> Self {
+    pub fn with_top(mut self, radius: impl Into<CornerRadius>) -> Self {
+        let radius = radius.into();
         self.top_left = radius;
         self.top_right = radius;
         self
@@ -2726,99 +2758,83 @@ impl BorderRadius {
 
     /// Returns the [`BorderRadius`] with its `bottom_left` and `bottom_right` fields set to the given value.
     #[inline]
-    pub const fn with_bottom(mut self, radius: Val) -> Self {
+    pub fn with_bottom(mut self, radius: impl Into<CornerRadius>) -> Self {
+        let radius = radius.into();
         self.bottom_left = radius;
         self.bottom_right = radius;
         self
     }
 
-    /// Resolve the border radius for a single corner from the given context values.
-    /// Returns the radius of the corner in physical pixels.
-    pub const fn resolve_single_corner(
-        radius: Val,
-        scale_factor: f32,
-        min_length: f32,
-        viewport_size: Vec2,
-    ) -> f32 {
-        if let Ok(radius) = radius.resolve(scale_factor, min_length, viewport_size) {
-            radius.clamp(0., 0.5 * min_length)
-        } else {
-            0.
-        }
-    }
-
     /// Resolve the border radii for the corners from the given context values.
     /// Returns the radii of the each corner in physical pixels.
-    pub const fn resolve(
+    pub fn resolve(
         &self,
         scale_factor: f32,
         node_size: Vec2,
         viewport_size: Vec2,
     ) -> ResolvedBorderRadius {
-        let length = node_size.x.min(node_size.y);
         ResolvedBorderRadius {
-            top_left: Self::resolve_single_corner(
-                self.top_left,
-                scale_factor,
-                length,
-                viewport_size,
-            ),
-            top_right: Self::resolve_single_corner(
-                self.top_right,
-                scale_factor,
-                length,
-                viewport_size,
-            ),
-            bottom_left: Self::resolve_single_corner(
-                self.bottom_left,
-                scale_factor,
-                length,
-                viewport_size,
-            ),
-            bottom_right: Self::resolve_single_corner(
-                self.bottom_right,
-                scale_factor,
-                length,
-                viewport_size,
-            ),
+            top_left: self
+                .top_left
+                .resolve(scale_factor, node_size, viewport_size),
+            top_right: self
+                .top_right
+                .resolve(scale_factor, node_size, viewport_size),
+            bottom_left: self
+                .bottom_left
+                .resolve(scale_factor, node_size, viewport_size),
+            bottom_right: self
+                .bottom_right
+                .resolve(scale_factor, node_size, viewport_size),
         }
     }
 }
 
-impl From<Val> for BorderRadius {
-    fn from(value: Val) -> Self {
+impl<T> From<T> for BorderRadius
+where
+    T: Into<CornerRadius>,
+{
+    fn from(value: T) -> Self {
         Self::all(value)
     }
 }
 
-/// Represents the resolved border radius values for a UI node.
+/// Represents the resolved border radii values for a UI node.
 ///
 /// The values are in physical pixels.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Reflect)]
 #[reflect(Clone, PartialEq, Default)]
 pub struct ResolvedBorderRadius {
-    pub top_left: f32,
-    pub top_right: f32,
-    pub bottom_right: f32,
-    pub bottom_left: f32,
+    pub top_left: Vec2,
+    pub top_right: Vec2,
+    pub bottom_right: Vec2,
+    pub bottom_left: Vec2,
 }
 
 impl ResolvedBorderRadius {
     pub const ZERO: Self = Self {
-        top_left: 0.,
-        top_right: 0.,
-        bottom_right: 0.,
-        bottom_left: 0.,
+        top_left: Vec2::ZERO,
+        top_right: Vec2::ZERO,
+        bottom_right: Vec2::ZERO,
+        bottom_left: Vec2::ZERO,
     };
 }
 
-impl From<ResolvedBorderRadius> for [f32; 4] {
+impl From<ResolvedBorderRadius> for [[f32; 4]; 2] {
     fn from(radius: ResolvedBorderRadius) -> Self {
         [
-            radius.top_left,
-            radius.top_right,
-            radius.bottom_right,
-            radius.bottom_left,
+            [
+                radius.top_left.x,
+                radius.top_right.x,
+                radius.bottom_right.x,
+                radius.bottom_left.x,
+            ],
+            [
+                radius.top_left.y,
+                radius.top_right.y,
+                radius.bottom_right.y,
+                radius.bottom_left.y,
+            ],
         ]
     }
 }
@@ -3006,24 +3022,16 @@ impl<'w, 's> DefaultUiCamera<'w, 's> {
 /// Derived information about the camera target for this UI node.
 ///
 /// Updated in [`UiSystems::Prepare`](crate::UiSystems::Prepare) by [`propagate_ui_target_cameras`](crate::update::propagate_ui_target_cameras)
-#[derive(Component, Clone, Copy, Debug, Reflect, PartialEq)]
+#[derive(Component, Clone, Copy, Debug, Reflect, PartialEq, Default)]
 #[reflect(Component, Default, PartialEq, Clone)]
 pub struct ComputedUiTargetCamera {
-    pub(crate) camera: Entity,
-}
-
-impl Default for ComputedUiTargetCamera {
-    fn default() -> Self {
-        Self {
-            camera: Entity::PLACEHOLDER,
-        }
-    }
+    pub(crate) camera: Option<Entity>,
 }
 
 impl ComputedUiTargetCamera {
     /// Returns the id of the target camera for this UI node.
     pub fn get(&self) -> Option<Entity> {
-        Some(self.camera).filter(|&entity| entity != Entity::PLACEHOLDER)
+        self.camera
     }
 }
 

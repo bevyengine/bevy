@@ -75,6 +75,9 @@ pub enum TrackClick {
 /// optional step size can be specified via [`SliderStep`], and you can control the rounding
 /// during dragging with [`SliderPrecision`].
 ///
+/// The canonical way to update the slider value is to insert a new [`SliderValue`] component,
+/// overwriting the old one. The value can be set during initial construction and updated later.
+///
 /// You can also control the slider remotely by triggering a [`SetSliderValue`] event on it. This
 /// can be useful in a console environment for controlling the value gamepad inputs.
 ///
@@ -92,6 +95,10 @@ pub enum TrackClick {
 ///
 /// In cases where overhang is desired for artistic reasons, the thumb may have additional
 /// decorative child elements, absolutely positioned, which don't affect the size measurement.
+///
+/// **Note:** For information on how widget state is managed
+/// and how to respond to state changes, see the [crate-level documentation].
+/// [crate-level documentation]: crate
 #[derive(Component, Debug, Default, Clone)]
 #[require(
     AccessibilityNode(accesskit::Node::new(Role::Slider)),

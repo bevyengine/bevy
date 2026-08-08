@@ -32,10 +32,11 @@ use bevy_ui_widgets::{
 use crate::{
     constants::{fonts, size},
     cursor::EntityCursor,
+    display::caption,
     focus::FocusIndicator,
     font_styles::InheritableFont,
     rounded_corners::RoundedCorners,
-    theme::{InheritableThemeTextColor, ThemedText, UiTheme},
+    theme::{InheritableThemeTextColor, SurfaceLevel, ThemeContext, ThemedText, UiTheme},
     tokens,
 };
 
@@ -47,7 +48,10 @@ use crate::{
 ///
 /// * [`bevy_ui_widgets::ValueChange<f32>`] when the slider value is changed.
 ///
-///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
+/// These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
+///
+/// A more complete explanation of how to control this widget can be found in the documentation
+/// for [`Slider`] and [`bevy_ui_widgets`].
 #[derive(SceneComponent, Default, Clone, Reflect)]
 #[scene(FeathersSliderProps)]
 #[require(Slider)]
@@ -116,7 +120,7 @@ impl FeathersSlider {
                     font_size: size::SMALL_FONT,
                     weight: FontWeight::NORMAL,
                 }
-                Children [(Text("10.0") ThemedText SliderValueText)]
+                Children [(caption("10.0") SliderValueText)]
             )]
         }
     }
@@ -204,6 +208,7 @@ fn update_slider_styles(
             &Hovered,
             &mut BackgroundGradient,
             &InheritableThemeTextColor,
+            Option<&ThemeContext>,
         ),
         (
             With<FeathersSlider>,
@@ -211,6 +216,7 @@ fn update_slider_styles(
                 Spawned,
                 Added<InteractionDisabled>,
                 Changed<Hovered>,
+                Changed<ThemeContext>,
                 Added<Pressed>,
             )>,
         ),
@@ -218,10 +224,13 @@ fn update_slider_styles(
     theme: Res<UiTheme>,
     mut commands: Commands,
 ) {
-    for (slider_ent, disabled, pressed, hovered, mut gradient, font_color) in q_sliders.iter_mut() {
+    for (slider_ent, disabled, pressed, hovered, mut gradient, font_color, theme_context) in
+        q_sliders.iter_mut()
+    {
         set_slider_styles(
             slider_ent,
             &theme,
+            theme_context.map(|tc| tc.0).unwrap_or(SurfaceLevel::Base),
             disabled,
             pressed,
             hovered.0,
@@ -241,6 +250,7 @@ fn update_slider_styles_remove(
             &Hovered,
             &mut BackgroundGradient,
             &InheritableThemeTextColor,
+            Option<&ThemeContext>,
         ),
         With<FeathersSlider>,
     >,
@@ -253,12 +263,20 @@ fn update_slider_styles_remove(
         .read()
         .chain(remove_pressed.read())
         .for_each(|ent| {
-            if let Ok((slider_ent, disabled, pressed, hovered, mut gradient, font_color)) =
-                q_sliders.get_mut(ent)
+            if let Ok((
+                slider_ent,
+                disabled,
+                pressed,
+                hovered,
+                mut gradient,
+                font_color,
+                theme_context,
+            )) = q_sliders.get_mut(ent)
             {
                 set_slider_styles(
                     slider_ent,
                     &theme,
+                    theme_context.map(|tc| tc.0).unwrap_or(SurfaceLevel::Base),
                     disabled,
                     pressed,
                     hovered.0,
@@ -280,6 +298,7 @@ fn update_slider_styles_theme(
             &Hovered,
             &mut BackgroundGradient,
             &InheritableThemeTextColor,
+            Option<&ThemeContext>,
         ),
         With<FeathersSlider>,
     >,
@@ -289,10 +308,13 @@ fn update_slider_styles_theme(
     if !theme.is_changed() {
         return;
     }
-    for (slider_ent, disabled, pressed, hovered, mut gradient, font_color) in q_sliders.iter_mut() {
+    for (slider_ent, disabled, pressed, hovered, mut gradient, font_color, theme_context) in
+        q_sliders.iter_mut()
+    {
         set_slider_styles(
             slider_ent,
             &theme,
+            theme_context.map(|tc| tc.0).unwrap_or(SurfaceLevel::Base),
             disabled,
             pressed,
             hovered.0,
@@ -306,6 +328,7 @@ fn update_slider_styles_theme(
 fn set_slider_styles(
     slider_ent: Entity,
     theme: &Res<'_, UiTheme>,
+    context: SurfaceLevel,
     disabled: bool,
     pressed: bool,
     hovered: bool,
@@ -313,25 +336,31 @@ fn set_slider_styles(
     font_color: &InheritableThemeTextColor,
     commands: &mut Commands,
 ) {
-    let bar_color = theme.color(&if disabled {
-        tokens::SLIDER_BAR_DISABLED
-    } else if pressed {
-        tokens::SLIDER_BAR_PRESSED
-    } else if hovered {
-        tokens::SLIDER_BAR_HOVER
-    } else {
-        tokens::SLIDER_BAR
-    });
+    let bar_color = theme.context_color(
+        &if disabled {
+            tokens::SLIDER_BAR_DISABLED
+        } else if pressed {
+            tokens::SLIDER_BAR_PRESSED
+        } else if hovered {
+            tokens::SLIDER_BAR_HOVER
+        } else {
+            tokens::SLIDER_BAR
+        },
+        context,
+    );
 
-    let bg_color = theme.color(&if disabled {
-        tokens::SLIDER_BG_DISABLED
-    } else if pressed {
-        tokens::SLIDER_BG_PRESSED
-    } else if hovered {
-        tokens::SLIDER_BG_HOVER
-    } else {
-        tokens::SLIDER_BG
-    });
+    let bg_color = theme.context_color(
+        &if disabled {
+            tokens::SLIDER_BG_DISABLED
+        } else if pressed {
+            tokens::SLIDER_BG_PRESSED
+        } else if hovered {
+            tokens::SLIDER_BG_HOVER
+        } else {
+            tokens::SLIDER_BG
+        },
+        context,
+    );
 
     let text_token = if disabled {
         tokens::SLIDER_TEXT_DISABLED
@@ -427,6 +456,7 @@ impl Plugin for SliderPlugin {
                 update_slider_styles_theme,
                 update_slider_pos,
             )
+                .chain()
                 .in_set(PickingSystems::Last),
         );
     }

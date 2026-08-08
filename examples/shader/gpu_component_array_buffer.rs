@@ -28,7 +28,7 @@ use chacha20::ChaCha8Rng;
 use rand::{seq::IndexedRandom, RngExt as _, SeedableRng as _};
 
 /// This example uses a shader source file from the assets subdirectory.
-const SHADER_ASSET_PATH: &str = "shaders/gpu_component_array_buffer.wgsl";
+const SHADER_ASSET_PATH: &str = "shaders/gpu_component_array_buffer.wesl";
 
 /// Data that the example uses.
 #[derive(Resource)]
