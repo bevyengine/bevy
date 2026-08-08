@@ -240,8 +240,9 @@ where
     /// struct T;
     /// fn system(query: Query<&T>){
     ///     let mut queue: Parallel<usize> = Parallel::default();
-    ///     // queue.borrow_local_mut() will get or create a thread_local queue for each task/thread;
-    ///     query.contiguous_par_iter().for_each_init(|| queue.borrow_local_mut(),|local_queue, items| {
+    ///     // queue.borrow_local_mut() will get or create a thread_local queue for each task/thread.
+    ///     // We unwrap the call to `contiguous_par_iter()` because we know the query in question is dense.
+    ///     query.contiguous_par_iter().unwrap().for_each_init(|| queue.borrow_local_mut(),|local_queue, items| {
     ///         for _ in items {
     ///             **local_queue += 1;
     ///         }
