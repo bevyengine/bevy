@@ -1256,7 +1256,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// Returns an [`Iterator`] over the read-only query items generated from an [`Entity`] list.
     ///
     /// Items are returned in the order of the list of entities.
-    /// Entities that don't match the query are skipped.
+    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is generated instead.
     ///
     /// If you need to iterate multiple times at once but get borrowing errors,
     /// consider using [`Self::update_archetypes`] followed by multiple [`Self::iter_many_manual`] calls.
@@ -1276,7 +1276,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// Returns an [`Iterator`] over the read-only query items generated from an [`Entity`] list.
     ///
     /// Items are returned in the order of the list of entities.
-    /// Entities that don't match the query are skipped.
+    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is generated instead.
     ///
     /// If `world` archetypes changed since [`Self::update_archetypes`] was last called,
     /// this will skip entities contained in new archetypes.
@@ -1299,7 +1299,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// Returns an iterator over the query items generated from an [`Entity`] list.
     ///
     /// Items are returned in the order of the list of entities.
-    /// Entities that don't match the query are skipped.
+    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is generated instead.
     #[inline]
     pub fn iter_many_mut<'w, 's, EntityList: IntoIterator<Item: EntityEquivalent>>(
         &'s mut self,
@@ -1312,7 +1312,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// Returns an [`Iterator`] over the unique read-only query items generated from an [`EntitySet`].
     ///
     /// Items are returned in the order of the list of entities.
-    /// Entities that don't match the query are skipped.
+    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is generated instead.
     ///
     /// # See also
     ///
@@ -1329,7 +1329,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// Returns an [`Iterator`] over the unique read-only query items generated from an [`EntitySet`].
     ///
     /// Items are returned in the order of the list of entities.
-    /// Entities that don't match the query are skipped.
+    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is generated instead.
     ///
     /// If `world` archetypes changed since [`Self::update_archetypes`] was last called,
     /// this will skip entities contained in new archetypes.
@@ -1353,7 +1353,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// Returns an iterator over the unique query items generated from an [`EntitySet`].
     ///
     /// Items are returned in the order of the list of entities.
-    /// Entities that don't match the query are skipped.
+    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is generated instead.
     #[inline]
     pub fn iter_many_unique_mut<'w, 's, EntityList: EntitySet>(
         &'s mut self,
@@ -1733,7 +1733,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         last_run: Tick,
         this_run: Tick,
     ) where
-        FN: Fn(T, D::Item<'w, 's>) -> T + Send + Sync + Clone,
+        FN: Fn(T, Result<D::Item<'w, 's>, QueryEntityError>) -> T + Send + Sync + Clone,
         INIT: Fn() -> T + Sync + Send + Clone,
         E: EntityEquivalent + Sync,
         D: IterQueryData,
@@ -1768,6 +1768,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         });
     }
 
+    #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
     pub(crate) unsafe fn contiguous_par_fold_init_unchecked_manual<'w, 's, T>(
         &'s self,
         init_accum: impl Fn() -> T + Send + Sync + Clone,
@@ -1867,7 +1868,7 @@ impl<D: ReadOnlyQueryData, F: QueryFilter> QueryState<D, F> {
         last_run: Tick,
         this_run: Tick,
     ) where
-        FN: Fn(T, D::Item<'w, 's>) -> T + Send + Sync + Clone,
+        FN: Fn(T, Result<D::Item<'w, 's>, QueryEntityError>) -> T + Send + Sync + Clone,
         INIT: Fn() -> T + Sync + Send + Clone,
         E: EntityEquivalent + Sync,
     {

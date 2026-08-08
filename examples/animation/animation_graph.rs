@@ -310,7 +310,7 @@ fn setup_node_rects(commands: &mut Commands) {
                     Children [
                         ZIndex(1)
                         number_input_f32(clip.text, Some(clip.clone()),
-                            ExampleAnimationWeights::default().weights[clip.index], NumberInputPrecision(2), 0. ..1.),
+                            ExampleAnimationWeights::default().weights[clip.index], NumberInputPrecision(2), 0. ..=1.),
 
                         // The background node that fills up based on the number input value.
                         WeightBackground

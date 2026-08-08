@@ -1,11 +1,11 @@
 use bevy_app::{App, AppLabel};
 use bevy_asset::{Asset, AssetApp, AssetEvent, AssetId, Assets, RenderAssetUsages};
-use bevy_ecs::prelude::*;
+use bevy_ecs::{prelude::*, schedule::ScheduleLabel};
 use bevy_reflect::TypePath;
 use bevy_render::{
     extract_plugin::ExtractPlugin,
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin},
-    RenderApp,
+    Render, RenderApp, RenderSystems,
 };
 use criterion::{criterion_group, BenchmarkId, Criterion, Throughput};
 use std::time::{Duration, Instant};
@@ -33,6 +33,8 @@ impl RenderAsset for DummyRenderAsset {
     }
 }
 
+pub(crate) fn pre_extract(_main_world: &mut World, _render_world: &mut World) {}
+
 fn extract_render_asset_bench(c: &mut Criterion) {
     let mut group = c.benchmark_group("extract_render_asset");
 
@@ -45,7 +47,13 @@ fn extract_render_asset_bench(c: &mut Criterion) {
 
             app.add_plugins(bevy_asset::AssetPlugin::default());
             app.init_asset::<DummyAsset>();
-            app.add_plugins(ExtractPlugin::default());
+            app.add_plugins(ExtractPlugin::<RenderApp>::new(
+                pre_extract,
+                Render::base_schedule,
+                Render.intern(),
+                RenderSystems::ExtractCommands.intern(),
+                RenderSystems::PostCleanup.intern(),
+            ));
             app.add_plugins(RenderAssetPlugin::<DummyRenderAsset>::default());
 
             app.finish();
