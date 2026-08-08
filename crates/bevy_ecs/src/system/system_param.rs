@@ -16,11 +16,12 @@ use crate::{
     },
     resource::{Resource, IS_RESOURCE},
     system::{Query, Single, SystemMeta},
-    world::{
-        unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FilteredResources, FilteredResourcesMut,
-        FromWorld, World,
-    },
+    world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FromWorld, World},
 };
+
+#[expect(deprecated, reason = "`FilteredResources` will be removed.")]
+use crate::world::{FilteredResources, FilteredResourcesMut};
+
 use alloc::{borrow::Cow, boxed::Box, vec::Vec};
 pub use bevy_ecs_macros::SystemParam;
 use bevy_platform::cell::SyncCell;
@@ -2567,6 +2568,7 @@ unsafe impl SystemParam for DynSystemParam<'_, '_> {
 
 // SAFETY: Resource ComponentId access is applied to the access. If this FilteredResources
 // conflicts with any prior access, a panic will occur.
+#[expect(deprecated, reason = "`FilteredResources` will be removed.")]
 unsafe impl SystemParam for FilteredResources<'_, '_> {
     type State = Access;
 
@@ -2609,10 +2611,12 @@ unsafe impl SystemParam for FilteredResources<'_, '_> {
 }
 
 // SAFETY: FilteredResources only reads resources.
+#[expect(deprecated, reason = "`FilteredResources` will be removed.")]
 unsafe impl ReadOnlySystemParam for FilteredResources<'_, '_> {}
 
 // SAFETY: Resource ComponentId access is applied to the access. If this FilteredResourcesMut
 // conflicts with any prior access, a panic will occur.
+#[expect(deprecated, reason = "`FilteredResourcesMut` will be removed.")]
 unsafe impl SystemParam for FilteredResourcesMut<'_, '_> {
     type State = Access;
 
