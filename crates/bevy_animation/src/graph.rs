@@ -23,6 +23,7 @@ use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
 use bitvec::vec::BitVec;
 use derive_more::derive::From;
+use hashbrown::hash_map::Entry;
 use petgraph::{
     graph::{DiGraph, NodeIndex},
     Direction,
@@ -1223,8 +1224,12 @@ impl ThreadedAnimationGraph {
         clip_to_graphs: &mut HashMap<AssetId<AnimationClip>, HashSet<AssetId<AnimationGraph>>>,
     ) {
         for clip_id in &self.animation_clips {
-            if let Some(graphs) = clip_to_graphs.get_mut(clip_id) {
-                graphs.remove(&graph_id);
+            let Entry::Occupied(mut graphs) = clip_to_graphs.entry(*clip_id) else {
+                continue;
+            };
+            graphs.get_mut().remove(&graph_id);
+            if graphs.get().is_empty() {
+                graphs.remove();
             }
         }
     }
