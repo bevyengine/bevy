@@ -67,7 +67,7 @@ struct CustomMaterial {
 }
 
 /// The per-mesh-instance data that will be extracted from the ECS and supplied
-/// ot the GPU.
+/// to the GPU.
 #[derive(Clone, Copy, Component, Debug)]
 struct CustomMaterialData {
     /// A tint color to modulate the texture by.

@@ -222,7 +222,6 @@ fn setup(
             {
                 // Todo: Needs a better design that works with responsive sizing.
 
-                use bevy_render::storage::ShaderBufferData;
                 let font_size = 20.;
                 p.spawn((
                     Node {
