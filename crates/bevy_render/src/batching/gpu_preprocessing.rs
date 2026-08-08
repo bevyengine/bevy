@@ -2277,6 +2277,11 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                             &mut phase_indirect_parameters_buffers.buffers,
                             indirect_parameters_index,
                         );
+                        phase_indirect_parameters_buffers.buffers.add_batch_set(
+                            key.0.indexed(),
+                            &extracted_view.retained_view_entity,
+                            indirect_parameters_index..(indirect_parameters_index + 1),
+                        );
                         work_item_buffer.push(
                             key.0.indexed(),
                             PreprocessWorkItem {
@@ -2325,14 +2330,18 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                         // but not multidrawable if multidraw is in use.
                         // However, custom render pipelines might do so, such as
                         // the `specialized_mesh_pipeline` example.
+                        let batch_set_index = match batch.extra_index {
+                            PhaseItemExtraIndex::IndirectParametersIndex {
+                                batch_set_index: Some(batch_set_index),
+                                ..
+                            } => u32::from(batch_set_index),
+                            _ => 0,
+                        };
                         vec.push(BinnedRenderPhaseBatchSet {
                             first_batch: batch,
                             batch_count: 1,
                             bin_key: key.1.clone(),
-                            index: phase_indirect_parameters_buffers
-                                .buffers
-                                .batch_set_count(key.0.indexed())
-                                as u32,
+                            index: batch_set_index,
                             // Unused.
                             first_work_item_index: 0,
                             // Unused.
