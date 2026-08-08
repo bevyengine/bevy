@@ -957,9 +957,17 @@ impl Plugin for ScenePlugin {
     }
 }
 
+/// An [`Event`] triggered for each entity in a scene after it (and all of its children) have been fully spawned.
+/// This will only be triggered when a scene (and its dependencies) have been fully loaded.
+#[derive(EntityEvent, Copy, Clone, Debug)]
+pub struct Ready {
+    /// The "ready" entity.
+    pub entity: Entity,
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::{self as bevy_scene, ScenePlugin};
+    use crate::{self as bevy_scene, Ready, ScenePlugin};
     use crate::{prelude::*, ScenePatch};
     use alloc::sync::Arc;
     use bevy_app::{App, TaskPoolPlugin};
@@ -1130,25 +1138,7 @@ mod tests {
         app.finish();
         app.cleanup();
         // Create a fake loader to act as a ScenePatch loaded from a file.
-        app.register_asset_loader(FakeSceneLoader);
-
-        #[derive(TypePath)]
-        struct FakeSceneLoader;
-
-        impl AssetLoader for FakeSceneLoader {
-            type Asset = ScenePatch;
-            type Error = std::io::Error;
-            type Settings = ();
-
-            async fn load(
-                &self,
-                _reader: &mut dyn bevy_asset::io::Reader,
-                _settings: &Self::Settings,
-                load_context: &mut bevy_asset::LoadContext<'_>,
-            ) -> Result<Self::Asset, Self::Error> {
-                Ok(ScenePatch::load_with(load_context, a()))
-            }
-        }
+        app.register_asset_loader(FakeSceneLoader::new(a));
 
         // Insert an asset that the fake loader can fake read.
         dir.insert_asset_text(Path::new("a.bsn"), "");
@@ -2374,17 +2364,19 @@ mod tests {
         let mut app = test_app();
         let world = app.world_mut();
 
+        let placeholder_widget = world.spawn_empty().id();
+
         let pass_expr = bsn! {
             #Name
             Children [
-                widget(Entity::PLACEHOLDER.into())
+                widget(placeholder_widget.into())
             ]
         };
         let entity = world.spawn_scene(pass_expr).unwrap().id();
         let root = world.entity(entity);
         let children = root.get::<Children>().unwrap();
         let child_widget = world.entity(children[0]).get::<Reference>().unwrap();
-        assert_eq!(child_widget.0, Entity::PLACEHOLDER);
+        assert_eq!(child_widget.0, placeholder_widget);
 
         let pass_name = bsn! {
             #Name
@@ -2442,10 +2434,12 @@ mod tests {
         let mut app = test_app();
         let world = app.world_mut();
 
+        let placeholder_widget = world.spawn_empty().id();
+
         let prop_expr = bsn! {
             Children [
                 @Widget {
-                    @entity: Entity::PLACEHOLDER
+                    @entity: placeholder_widget
                 }
             ]
         };
@@ -2453,7 +2447,7 @@ mod tests {
         let root = world.entity(entity);
         let children = root.get::<Children>().unwrap();
         let child_widget = world.entity(children[0]).get::<Reference>().unwrap();
-        assert_eq!(child_widget.0, Entity::PLACEHOLDER);
+        assert_eq!(child_widget.0, placeholder_widget);
         let scene_prop = bsn! {
             #Name
             Children [
@@ -2948,5 +2942,120 @@ mod tests {
             .map(|r| r.0);
 
         assert_eq!(expected_id, actual_id);
+    }
+
+    #[test]
+    fn ready_event() {
+        #[derive(Component, FromTemplate)]
+        struct Foo(usize);
+
+        fn root() -> impl Scene {
+            bsn! {
+                Foo(0)
+                Children [ :"child.bsn" ]
+            }
+        }
+
+        fn child() -> impl Scene {
+            bsn! {
+                Foo(1)
+                Children [ Foo(2), Foo(3) ]
+            }
+        }
+
+        #[derive(SceneComponent, Default, Clone)]
+        #[scene(root)]
+        struct AWidget;
+
+        let mut app = App::new();
+        let dir = Dir::default();
+        let dir_clone = dir.clone();
+        app.register_asset_source(
+            AssetSourceId::Default,
+            AssetSourceBuilder::new(move || {
+                Box::new(MemoryAssetReader {
+                    root: dir_clone.clone(),
+                })
+            }),
+        );
+        app.add_plugins((
+            TaskPoolPlugin::default(),
+            AssetPlugin::default(),
+            ScenePlugin,
+        ));
+
+        let ready_tracker = Arc::new(Mutex::new(Vec::new()));
+        let cloned_tracker = ready_tracker.clone();
+
+        app.add_observer(move |ready: On<Ready>| {
+            cloned_tracker.lock().unwrap().push(ready.entity);
+        });
+
+        app.finish();
+        app.cleanup();
+        // Create a fake loader to act as a ScenePatch loaded from a file.
+        app.register_asset_loader(FakeSceneLoader::new(child));
+
+        // Insert an asset that the fake loader can fake read.
+        dir.insert_asset_text(Path::new("child.bsn"), "");
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let handle = asset_server.load("child.bsn");
+        assert!(app.world().get_resource::<Assets<ScenePatch>>().is_some());
+        run_app_until(&mut app, || asset_server.is_loaded(&handle));
+        let patch = app
+            .world()
+            .resource::<Assets<ScenePatch>>()
+            .get(&handle)
+            .unwrap();
+        assert!(patch.resolved.is_some());
+
+        let world = app.world_mut();
+        let root_id = world.spawn_scene(bsn! {@AWidget}).unwrap().id();
+        let root = world.entity(root_id);
+
+        assert!(root.get::<AWidget>().is_some());
+        assert_eq!(root.get::<Foo>().unwrap().0, 0);
+        let children = root.get::<Children>().unwrap();
+        assert_eq!(children.len(), 1);
+
+        let child_id = children[0];
+        let child = world.entity(child_id);
+        assert_eq!(child.get::<Foo>().unwrap().0, 1);
+        let grand_children = child.get::<Children>().unwrap();
+        assert_eq!(grand_children.len(), 2);
+        let grand_child_1 = grand_children[0];
+        let grand_child_2 = grand_children[1];
+        assert_eq!(world.entity(grand_child_1).get::<Foo>().unwrap().0, 2);
+        assert_eq!(world.entity(grand_child_2).get::<Foo>().unwrap().0, 3);
+
+        let ready_events = ready_tracker.lock().unwrap();
+        assert_eq!(
+            *ready_events,
+            vec![grand_child_1, grand_child_2, child_id, root_id]
+        );
+    }
+
+    #[derive(TypePath)]
+    struct FakeSceneLoader(Box<dyn Fn() -> Box<dyn Scene> + Send + Sync + 'static>);
+
+    impl FakeSceneLoader {
+        fn new<F: Fn() -> S + Send + Sync + 'static, S: Scene>(func: F) -> Self {
+            Self(Box::new(move || Box::new(func())))
+        }
+    }
+
+    impl AssetLoader for FakeSceneLoader {
+        type Asset = ScenePatch;
+        type Error = std::io::Error;
+        type Settings = ();
+
+        async fn load(
+            &self,
+            _reader: &mut dyn bevy_asset::io::Reader,
+            _settings: &Self::Settings,
+            load_context: &mut bevy_asset::LoadContext<'_>,
+        ) -> Result<Self::Asset, Self::Error> {
+            Ok(ScenePatch::load_with(load_context, (self.0)()))
+        }
     }
 }

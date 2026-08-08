@@ -289,7 +289,7 @@ pub struct SmaaSpecializedRenderPipelines {
 impl Plugin for SmaaPlugin {
     fn build(&self, app: &mut App) {
         // Load the shader.
-        embedded_asset!(app, "smaa.wgsl");
+        embedded_asset!(app, "smaa.wesl");
 
         #[cfg(feature = "smaa_luts")]
         let smaa_luts = {
@@ -433,7 +433,7 @@ pub fn init_smaa_pipelines(mut commands: Commands, asset_server: Res<AssetServer
         ),
     );
 
-    let shader = load_embedded_asset!(asset_server.as_ref(), "smaa.wgsl");
+    let shader = load_embedded_asset!(asset_server.as_ref(), "smaa.wesl");
 
     commands.insert_resource(SmaaPipelines {
         edge_detection: SmaaEdgeDetectionPipeline {
@@ -459,7 +459,8 @@ impl SpecializedRenderPipeline for SmaaEdgeDetectionPipeline {
     type Key = SmaaPreset;
 
     fn specialize(&self, preset: Self::Key) -> RenderPipelineDescriptor {
-        let shader_defs = vec!["SMAA_EDGE_DETECTION".into(), preset.shader_def()];
+        let mut shader_defs = vec!["SMAA_EDGE_DETECTION".into()];
+        shader_defs.extend(preset.shader_defs());
 
         // We mark the pixels that we touched with a 1 so that the blending
         // weight calculation (phase 2) will only consider those. This reduces
@@ -517,10 +518,8 @@ impl SpecializedRenderPipeline for SmaaBlendingWeightCalculationPipeline {
     type Key = SmaaPreset;
 
     fn specialize(&self, preset: Self::Key) -> RenderPipelineDescriptor {
-        let shader_defs = vec![
-            "SMAA_BLENDING_WEIGHT_CALCULATION".into(),
-            preset.shader_def(),
-        ];
+        let mut shader_defs = vec!["SMAA_BLENDING_WEIGHT_CALCULATION".into()];
+        shader_defs.extend(preset.shader_defs());
 
         // Only consider the pixels that were touched in phase 1.
         let stencil_face_state = StencilFaceState {
@@ -575,7 +574,8 @@ impl SpecializedRenderPipeline for SmaaNeighborhoodBlendingPipeline {
     type Key = SmaaNeighborhoodBlendingPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let shader_defs = vec!["SMAA_NEIGHBORHOOD_BLENDING".into(), key.preset.shader_def()];
+        let mut shader_defs = vec!["SMAA_NEIGHBORHOOD_BLENDING".into()];
+        shader_defs.extend(key.preset.shader_defs());
 
         RenderPipelineDescriptor {
             label: Some("SMAA neighborhood blending".into()),
@@ -820,14 +820,22 @@ fn prepare_smaa_bind_groups(
 }
 
 impl SmaaPreset {
-    /// Returns the `#define` in the shader corresponding to this quality
+    /// Returns the shader defs corresponding to this quality
     /// preset.
-    fn shader_def(&self) -> ShaderDefVal {
+    fn shader_defs(&self) -> Vec<ShaderDefVal> {
         match *self {
-            SmaaPreset::Low => "SMAA_PRESET_LOW".into(),
-            SmaaPreset::Medium => "SMAA_PRESET_MEDIUM".into(),
-            SmaaPreset::High => "SMAA_PRESET_HIGH".into(),
-            SmaaPreset::Ultra => "SMAA_PRESET_ULTRA".into(),
+            SmaaPreset::Low => vec![
+                "SMAA_PRESET_LOW".into(),
+                "SMAA_DISABLE_DIAG_DETECTION".into(),
+                "SMAA_DISABLE_CORNER_DETECTION".into(),
+            ],
+            SmaaPreset::Medium => vec![
+                "SMAA_PRESET_MEDIUM".into(),
+                "SMAA_DISABLE_DIAG_DETECTION".into(),
+                "SMAA_DISABLE_CORNER_DETECTION".into(),
+            ],
+            SmaaPreset::High => vec!["SMAA_PRESET_HIGH".into()],
+            SmaaPreset::Ultra => vec!["SMAA_PRESET_ULTRA".into()],
         }
     }
 }

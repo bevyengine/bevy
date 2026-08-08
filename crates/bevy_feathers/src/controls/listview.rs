@@ -12,7 +12,9 @@ use bevy_ecs::{
     schedule::IntoScheduleConfigs as _,
     system::{Commands, Query, Res},
 };
-use bevy_input_focus::{tab_navigation::TabIndex, InputFocus, InputFocusVisible};
+use bevy_input_focus::{
+    tab_navigation::TabIndex, InputFocus, InputFocusSystems, InputFocusVisible,
+};
 use bevy_picking::{hover::Hovered, PickingSystems};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::{bsn, bsn_list, Scene, SceneComponent, SceneList};
@@ -21,11 +23,13 @@ use bevy_ui::{
     px, AlignItems, BorderRadius, Display, FlexDirection, InteractionDisabled, JustifyContent,
     Node, Overflow, PositionType, Selected, UiRect,
 };
-use bevy_ui_widgets::{ActiveDescendant, ControlOrientation, ListBox, ListItem, ScrollArea};
+use bevy_ui_widgets::{
+    ActiveDescendant, ControlOrientation, ListBox, ListItem, MenuFocusSystem, ScrollArea,
+};
 
 use crate::{
     constants::{fonts, size},
-    controls::FeathersScrollbar,
+    controls::{FeathersScrollbar, ScrollbarGutter},
     cursor::EntityCursor,
     font_styles::InheritableFont,
     theme::{InheritableThemeTextColor, ThemeBackgroundColor, ThemeBorderColor},
@@ -66,9 +70,10 @@ impl FeathersListView {
                 align_items: AlignItems::Stretch,
                 justify_content: JustifyContent::Start,
                 padding: UiRect {
-                    right: px(10) // Room for scrollbar
-                }
+                    right: px(14) // Room for scrollbar
+                },
             }
+            ScrollbarGutter(px(14))
             ListBox
             AccessibilityNode(accesskit::Node::new(Role::ListBox))
             TabIndex(0)
@@ -95,7 +100,7 @@ impl FeathersListView {
                 }
                 Node {
                     position_type: PositionType::Absolute,
-                    right: px(0),
+                    right: px(4),
                     top: px(0),
                     bottom: px(0),
                     width: px(6),
@@ -331,6 +336,11 @@ impl Plugin for ListViewPlugin {
             PreUpdate,
             (update_listrow_styles, update_listrow_styles_remove).in_set(PickingSystems::Last),
         );
-        app.add_systems(PostUpdate, on_change_focus);
+        app.add_systems(
+            PostUpdate,
+            on_change_focus
+                .after(MenuFocusSystem)
+                .before(InputFocusSystems::FocusChangeEvents),
+        );
     }
 }

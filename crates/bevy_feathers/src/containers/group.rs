@@ -1,3 +1,5 @@
+use bevy_app::Propagate;
+use bevy_ecs::template::template;
 use bevy_scene::{bsn, Scene};
 use bevy_text::FontWeight;
 use bevy_ui::{px, AlignItems, Display, FlexDirection, JustifyContent, Node, UiRect};
@@ -5,8 +7,10 @@ use bevy_ui::{px, AlignItems, Display, FlexDirection, JustifyContent, Node, UiRe
 use crate::{
     constants::{fonts, size},
     font_styles::InheritableFont,
-    rounded_corners::RoundedCorners,
-    theme::{InheritableThemeTextColor, ThemeBackgroundColor, ThemeBorderColor},
+    theme::{
+        InheritableThemeTextColor, SurfaceLevel, ThemeBackgroundColor, ThemeBorderColor,
+        ThemeContext,
+    },
     tokens,
 };
 
@@ -17,7 +21,12 @@ pub fn group() -> impl Scene {
             display: Display::Flex,
             flex_direction: FlexDirection::Column,
             align_items: AlignItems::Stretch,
+            border: px(1),
+            border_radius: px(4),
         }
+        ThemeBackgroundColor(tokens::GROUP_BG)
+        ThemeBorderColor(tokens::GROUP_BORDER)
+        template(|_| Ok(Propagate(ThemeContext(SurfaceLevel::Highest))))
     }
 }
 
@@ -29,18 +38,10 @@ pub fn group_header() -> impl Scene {
             flex_direction: FlexDirection::Row,
             align_items: AlignItems::Center,
             justify_content: JustifyContent::SpaceBetween,
-            border: UiRect {
-                left: px(1),
-                top: px(1),
-                right: px(1),
-            },
             padding: UiRect::horizontal(px(10)),
             min_height: size::HEADER_HEIGHT,
             column_gap: px(4),
-            border_radius: {RoundedCorners::Top.to_border_radius(4.0)}
         }
-        ThemeBackgroundColor(tokens::GROUP_HEADER_BG)
-        ThemeBorderColor(tokens::GROUP_HEADER_BORDER)
         InheritableThemeTextColor(tokens::GROUP_HEADER_TEXT)
         InheritableFont {
             font: fonts::REGULAR,
@@ -56,17 +57,10 @@ pub fn group_body() -> impl Scene {
         Node {
             display: Display::Flex,
             flex_direction: FlexDirection::Column,
-            border: UiRect {
-                left: px(1),
-                right: px(1),
-                bottom: px(1),
-            },
             row_gap: px(4),
             padding: px(6),
-            border_radius: {RoundedCorners::Bottom.to_border_radius(4.0)}
         }
-        ThemeBackgroundColor(tokens::GROUP_BODY_BG)
-        ThemeBorderColor(tokens::GROUP_BODY_BORDER)
+        InheritableThemeTextColor(tokens::GROUP_HEADER_TEXT)
         InheritableFont {
             font: fonts::REGULAR,
             font_size: size::MEDIUM_FONT,
