@@ -11,7 +11,9 @@ rust-version = "1.94.0"
 
 [dependencies]
 glam = { version = "0.33.2", default-features = false, features = [
-  "all-types",
+  "f64",
+  "i32",
+  "u32",
   "bytemuck",
 ] }
 thiserror = { version = "2", default-features = false }
