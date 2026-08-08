@@ -1265,12 +1265,12 @@ impl ThreadedAnimationSubgraph {
         let sorted_edge_range_start = self.sorted_edges.len() as u32;
         let original_sorted_edge_list_start_offset =
             original_sorted_edge_list_offsets[node_index.index()];
-        let original_sorted_edge_listend_offset = original_sorted_edge_list_offsets
+        let original_sorted_edge_list_end_offset = original_sorted_edge_list_offsets
             .get(node_index.index() + 1)
             .copied()
             .unwrap_or(original_sorted_edges.len() as u32);
         for original_sorted_edge_index in
-            original_sorted_edge_list_start_offset..original_sorted_edge_listend_offset
+            original_sorted_edge_list_start_offset..original_sorted_edge_list_end_offset
         {
             let edge_dest = original_sorted_edges[original_sorted_edge_index as usize];
             // Make sure to only copy an edge if it points to a node that we
