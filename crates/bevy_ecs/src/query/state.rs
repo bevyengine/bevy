@@ -1519,6 +1519,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// The [`ComputeTaskPool`] is not initialized. If using this from a query
     /// that is being initialized and run from the ECS scheduler, this should
     /// never panic.
+    ///
+    /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     #[inline]
     pub fn contiguous_par_iter<'w, 's>(
         &'s mut self,
@@ -1578,6 +1580,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// The [`ComputeTaskPool`] is not initialized. If using this from a query
     /// that is being initialized and run from the ECS scheduler, this should
     /// never panic.
+    ///
+    /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     #[inline]
     pub fn contiguous_par_iter_mut<'w, 's>(
         &'s mut self,

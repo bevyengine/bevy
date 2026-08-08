@@ -1592,7 +1592,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// identically to [`Iterator::for_each`] on [`QueryContiguousIter`].
     ///
     /// This can only be called for read-only queries. For queries that may
-    /// write to the components they query, see [`par_iter_mut`].
+    /// write to the components they query, see [`Self::par_iter_mut`].
     ///
     /// Note that you must use the `for_each` method to iterate over the
     /// results. See [`Self::contiguous_par_iter_mut`] for an example.
