@@ -38,10 +38,10 @@ pub struct RaytracingScenePlugin;
 
 impl Plugin for RaytracingScenePlugin {
     fn build(&self, app: &mut App) {
-        load_shader_library!(app, "brdf.wgsl");
-        load_shader_library!(app, "raytracing_scene_bindings.wgsl");
-        load_shader_library!(app, "sampling.wgsl");
-        embedded_asset!(app, "binder/setup_tlas_instances.wgsl");
+        load_shader_library!(app, "brdf.wesl");
+        load_shader_library!(app, "bindings.wesl");
+        load_shader_library!(app, "sampling.wesl");
+        embedded_asset!(app, "binder/setup_tlas_instances.wesl");
     }
 
     fn finish(&self, app: &mut App) {
