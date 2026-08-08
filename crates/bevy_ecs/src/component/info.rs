@@ -102,6 +102,8 @@ impl ComponentInfo {
         self.descriptor.is_send_and_sync
     }
 
+    /// Returns whether this component is a "disabling" component, using [default query filters](crate::entity_disabling::DefaultQueryFilters) to exclude entities with the component from queries.
+    #[inline]
     pub fn is_disabling(&self) -> bool {
         self.is_disabling
     }

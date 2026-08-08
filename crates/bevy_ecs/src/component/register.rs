@@ -295,6 +295,12 @@ impl<'w> ComponentsRegistrator<'w> {
         id
     }
 
+    /// Registers a "disabling" component of type `T` with this instance.
+    /// If a component of this type has already been registered, this will return
+    /// the ID of the pre-existing component.
+    ///
+    /// Disabling components use [default query filters](crate::entity_disabling::DefaultQueryFilters) to exclude entities with the component from queries.
+    #[inline]
     pub fn register_disabling_component<T: Component>(&mut self) -> ComponentId {
         self.register_component_checked(
             TypeId::of::<T>(),
