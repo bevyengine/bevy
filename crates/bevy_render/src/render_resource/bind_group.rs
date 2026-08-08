@@ -566,14 +566,14 @@ pub trait AsBindGroup {
 
     fn bind_group_data(&self) -> Self::Data;
 
-    /// Populates an [`BindGroupBuilder`] with all bindings that this
-    /// type exposes.
+    /// Populates a [`BindGroupBuilder`] with all bindings that this type
+    /// exposes.
     ///
-    /// In cases where `OwnedBindingResource` is not available (as for bindless
-    /// texture arrays currently), an implementor may return
-    /// `AsBindGroupError::CreateBindGroupDirectly` from this function and
-    /// instead define `as_bind_group` directly. This may prevent certain
-    /// features, such as bindless mode, from working correctly.
+    /// If the bind group builder API isn't sufficient to produce bind groups
+    /// for this type (e.g. if the type uses its own bindless texture arrays),
+    /// an implementor may return `AsBindGroupError::CreateBindGroupDirectly`
+    /// from this function and instead define `as_bind_group` directly. This may
+    /// prevent certain features, such as bindless mode, from working correctly.
     ///
     /// Set `force_no_bindless` to true to require that bindless textures *not*
     /// be used. `ExtendedMaterial` uses this in order to ensure that the base
