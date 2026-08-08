@@ -44,9 +44,9 @@ where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
     fn build(&self, app: &mut App) {
-        load_shader_library!(app, "ui_vertex_output.wgsl");
+        load_shader_library!(app, "ui_vertex_output.wesl");
 
-        embedded_asset!(app, "ui_material.wgsl");
+        embedded_asset!(app, "ui_material.wesl");
 
         app.init_asset::<M>()
             .register_type::<MaterialNode<M>>()
@@ -193,7 +193,7 @@ pub fn init_ui_material_pipeline<M: UiMaterial>(
         ),
     );
 
-    let load_default = || load_embedded_asset!(asset_server.as_ref(), "ui_material.wgsl");
+    let load_default = || load_embedded_asset!(asset_server.as_ref(), "ui_material.wesl");
 
     commands.insert_resource(UiMaterialPipeline::<M> {
         ui_layout,
@@ -347,6 +347,18 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
             )>,
         >,
     >,
+    unfiltered_uinode_query: Extract<
+        Query<(
+            Entity,
+            &ComputedNode,
+            &ComputedStackIndex,
+            &UiGlobalTransform,
+            &MaterialNode<M>,
+            &InheritedVisibility,
+            Option<&CalculatedClip>,
+            &ComputedUiTargetCamera,
+        )>,
+    >,
     camera_map: Extract<UiCameraMap>,
     (
         mut removed_computed_node_query,
@@ -384,7 +396,9 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
     ) in uinode_query.iter().chain(
         nodes_to_reextract
             .into_iter()
-            .filter_map(|main_entity| uinode_query.get(main_entity.entity()).ok()),
+            .map(|main_entity| main_entity.entity())
+            .chain(removed_calculated_clip_query.read())
+            .filter_map(|entity| unfiltered_uinode_query.get(entity).ok()),
     ) {
         let main_entity = MainEntity::from(entity);
 
@@ -456,7 +470,6 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
         .chain(removed_ui_global_transform_query.read())
         .chain(removed_material_node_query.read())
         .chain(removed_inherited_visibility_query.read())
-        .chain(removed_calculated_clip_query.read())
         .chain(removed_computed_ui_target_camera_query.read())
     {
         let main_entity = MainEntity::from(main_entity);
