@@ -26,6 +26,10 @@ import bevy_render::view::View;
 @group(1) @binding(1) var linear_clamp_sampler: sampler;
 @group(1) @binding(2) var<uniform> view: View;
 
+fn linearize_depth(ndc_depth: f32) -> f32 {
+    let near = view.clip_from_view[3][2];
+    return near / max(ndc_depth, 0.000001);
+}
 
 // Using 4 depths from the previous MIP, compute a weighted average for the depth of the current MIP
 fn weighted_average(depth0: f32, depth1: f32, depth2: f32, depth3: f32) -> f32 {
@@ -36,11 +40,16 @@ fn weighted_average(depth0: f32, depth1: f32, depth2: f32, depth3: f32) -> f32 {
     let falloff_mul = -1.0 / falloff_range;
     let falloff_add = falloff_from / falloff_range + 1.0;
 
-    let min_depth = min(min(depth0, depth1), min(depth2, depth3));
-    let weight0 = saturate((depth0 - min_depth) * falloff_mul + falloff_add);
-    let weight1 = saturate((depth1 - min_depth) * falloff_mul + falloff_add);
-    let weight2 = saturate((depth2 - min_depth) * falloff_mul + falloff_add);
-    let weight3 = saturate((depth3 - min_depth) * falloff_mul + falloff_add);
+    let linear_depth0 = linearize_depth(depth0);
+    let linear_depth1 = linearize_depth(depth1);
+    let linear_depth2 = linearize_depth(depth2);
+    let linear_depth3 = linearize_depth(depth3);
+
+    let min_depth = min(min(linear_depth0, linear_depth1), min(linear_depth2, linear_depth3));
+    let weight0 = saturate((linear_depth0 - min_depth) * falloff_mul + falloff_add);
+    let weight1 = saturate((linear_depth1 - min_depth) * falloff_mul + falloff_add);
+    let weight2 = saturate((linear_depth2 - min_depth) * falloff_mul + falloff_add);
+    let weight3 = saturate((linear_depth3 - min_depth) * falloff_mul + falloff_add);
     let weight_total = weight0 + weight1 + weight2 + weight3;
 
     return ((weight0 * depth0) + (weight1 * depth1) + (weight2 * depth2) + (weight3 * depth3)) / weight_total;
