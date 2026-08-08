@@ -33,6 +33,10 @@ fn main() {
         }),
         ..Default::default()
     }))
+    .add_plugins((
+        UiMaterialPlugin::<node_material::DefaultUiMaterial>::default(),
+        UiMaterialPlugin::<node_material::CustomUiMaterial>::default(),
+    ))
     .add_systems(OnEnter(Scene::Image), image::setup)
     .add_systems(OnEnter(Scene::ImageMeasure), image_measure::setup)
     .add_systems(OnEnter(Scene::Text), text::setup)
@@ -56,6 +60,7 @@ fn main() {
     .add_systems(OnEnter(Scene::OuterColor), outer_color::setup)
     .add_systems(OnEnter(Scene::BoxedContent), boxed_content::setup)
     .add_systems(OnEnter(Scene::EditableText), editable_text::setup)
+    .add_systems(OnEnter(Scene::NodeMaterial), node_material::setup)
     .add_systems(Update, switch_scene);
 
     match args.scene {
@@ -101,6 +106,7 @@ enum Scene {
     OuterColor,
     BoxedContent,
     EditableText,
+    NodeMaterial,
 }
 
 impl Scene {
@@ -127,6 +133,7 @@ impl Scene {
         Scene::OuterColor,
         Scene::BoxedContent,
         Scene::EditableText,
+        Scene::NodeMaterial,
     ];
 }
 
@@ -1283,11 +1290,23 @@ mod elliptical_border_radius {
                         width: px(200),
                         height: px(100),
                         border: UiRect::all(px(8)),
-                        border_radius: BorderRadius::elliptical(
-                            Val2::new(px(90), px(24)),
-                            Val2::new(px(18), px(70)),
-                            Val2::new(px(110), px(32)),
-                            Val2::new(px(28), px(58)),
+                        border_radius: BorderRadius::new(
+                            CornerRadius {
+                                x: px(90),
+                                y: px(24),
+                            },
+                            CornerRadius {
+                                x: px(18),
+                                y: px(70),
+                            },
+                            CornerRadius {
+                                x: px(110),
+                                y: px(32),
+                            },
+                            CornerRadius {
+                                x: px(28),
+                                y: px(58),
+                            },
                         ),
                         ..default()
                     },
@@ -1324,11 +1343,23 @@ mod elliptical_border_radius {
                             top: px(24),
                             bottom: px(8),
                         },
-                        border_radius: BorderRadius::elliptical(
-                            Val2::new(percent(65), percent(20)),
-                            Val2::new(percent(20), percent(65)),
-                            Val2::new(percent(65), percent(20)),
-                            Val2::new(percent(20), percent(65)),
+                        border_radius: BorderRadius::new(
+                            CornerRadius {
+                                x: percent(65),
+                                y: percent(20),
+                            },
+                            CornerRadius {
+                                x: percent(20),
+                                y: percent(65),
+                            },
+                            CornerRadius {
+                                x: percent(65),
+                                y: percent(20),
+                            },
+                            CornerRadius {
+                                x: percent(20),
+                                y: percent(65),
+                            },
                         ),
                         ..default()
                     },
@@ -1350,11 +1381,23 @@ mod elliptical_border_radius {
                         width: px(210),
                         height: px(75),
                         border: UiRect::axes(px(12), px(4)),
-                        border_radius: BorderRadius::elliptical(
-                            Val2::new(px(140), px(18)),
-                            Val2::new(px(140), px(18)),
-                            Val2::new(px(42), px(54)),
-                            Val2::new(px(42), px(54)),
+                        border_radius: BorderRadius::new(
+                            CornerRadius {
+                                x: px(140),
+                                y: px(18),
+                            },
+                            CornerRadius {
+                                x: px(140),
+                                y: px(18),
+                            },
+                            CornerRadius {
+                                x: px(42),
+                                y: px(54),
+                            },
+                            CornerRadius {
+                                x: px(42),
+                                y: px(54),
+                            },
                         ),
                         ..default()
                     },
@@ -1375,11 +1418,23 @@ mod elliptical_border_radius {
                         width: px(160),
                         height: px(120),
                         border: UiRect::axes(px(20), px(20)),
-                        border_radius: BorderRadius::elliptical(
-                            Val2::new(px(50), px(10)),
-                            Val2::new(px(50), px(10)),
-                            Val2::new(px(50), px(10)),
-                            Val2::new(px(50), px(10)),
+                        border_radius: BorderRadius::new(
+                            CornerRadius {
+                                x: px(50),
+                                y: px(10),
+                            },
+                            CornerRadius {
+                                x: px(50),
+                                y: px(10),
+                            },
+                            CornerRadius {
+                                x: px(50),
+                                y: px(10),
+                            },
+                            CornerRadius {
+                                x: px(50),
+                                y: px(10),
+                            },
                         ),
                         ..default()
                     },
@@ -1401,7 +1456,7 @@ mod elliptical_border_radius {
                         width: px(160),
                         height: px(120),
                         border: UiRect::axes(px(20), px(20)),
-                        border_radius: BorderRadius::all(px(30)),
+                        border_radius: BorderRadius::all(px(1000)),
                         ..default()
                     },
                     BackgroundColor(RED.into()),
@@ -1422,11 +1477,55 @@ mod elliptical_border_radius {
                         width: px(160),
                         height: px(120),
                         border: UiRect::axes(px(20), px(20)),
-                        border_radius: BorderRadius::elliptical(
-                            Val2::new(px(25), px(20)),
-                            Val2::new(px(20), px(25)),
-                            Val2::new(px(20), px(25)),
-                            Val2::new(px(20), px(25)),
+                        border_radius: BorderRadius {
+                            top_left: CornerRadius {
+                                x: px(1000),
+                                y: auto(),
+                            },
+                            top_right: CornerRadius {
+                                x: auto(),
+                                y: px(1000),
+                            },
+                            bottom_right: CornerRadius::circular(px(1000)),
+                            bottom_left: CornerRadius::circular(px(1000)),
+                        },
+                        ..default()
+                    },
+                    BackgroundColor(RED.into()),
+                    BorderColor::all(WHITE),
+                    Outline {
+                        width: px(3),
+                        offset: px(5),
+                        color: SKY_BLUE.into(),
+                    },
+                    BoxShadow::from(ShadowStyle {
+                        blur_radius: px(5),
+                        ..default()
+                    }),
+                ));
+
+                builder.spawn((
+                    Node {
+                        width: px(160),
+                        height: px(120),
+                        border: UiRect::axes(px(20), px(20)),
+                        border_radius: BorderRadius::new(
+                            CornerRadius {
+                                x: px(25),
+                                y: px(20),
+                            },
+                            CornerRadius {
+                                x: px(20),
+                                y: px(25),
+                            },
+                            CornerRadius {
+                                x: px(20),
+                                y: px(25),
+                            },
+                            CornerRadius {
+                                x: px(20),
+                                y: px(25),
+                            },
                         ),
                         ..default()
                     },
@@ -1449,11 +1548,23 @@ mod elliptical_border_radius {
                         width: px(160),
                         height: px(120),
                         border: UiRect::axes(px(10), px(10)),
-                        border_radius: BorderRadius::elliptical(
-                            Val2::new(px(40), px(30)),
-                            Val2::new(px(40), px(30)),
-                            Val2::new(px(40), px(30)),
-                            Val2::new(px(40), px(30)),
+                        border_radius: BorderRadius::new(
+                            CornerRadius {
+                                x: px(40),
+                                y: px(30),
+                            },
+                            CornerRadius {
+                                x: px(40),
+                                y: px(30),
+                            },
+                            CornerRadius {
+                                x: px(40),
+                                y: px(30),
+                            },
+                            CornerRadius {
+                                x: px(40),
+                                y: px(30),
+                            },
                         ),
                         ..default()
                     },
@@ -1475,11 +1586,23 @@ mod elliptical_border_radius {
                         width: px(160),
                         height: px(80),
                         border: UiRect::axes(px(10), px(10)),
-                        border_radius: BorderRadius::elliptical(
-                            Val2::new(percent(50), percent(50)),
-                            Val2::new(percent(50), percent(50)),
-                            Val2::new(percent(50), percent(50)),
-                            Val2::new(percent(50), percent(50)),
+                        border_radius: BorderRadius::new(
+                            CornerRadius {
+                                x: percent(50),
+                                y: percent(50),
+                            },
+                            CornerRadius {
+                                x: percent(50),
+                                y: percent(50),
+                            },
+                            CornerRadius {
+                                x: percent(50),
+                                y: percent(50),
+                            },
+                            CornerRadius {
+                                x: percent(50),
+                                y: percent(50),
+                            },
                         ),
                         ..default()
                     },
@@ -1502,11 +1625,23 @@ mod elliptical_border_radius {
                         width: px(80),
                         height: px(160),
                         border: UiRect::axes(px(10), px(10)),
-                        border_radius: BorderRadius::elliptical(
-                            Val2::new(percent(50), percent(50)),
-                            Val2::new(percent(50), percent(50)),
-                            Val2::new(percent(50), percent(50)),
-                            Val2::new(percent(50), percent(50)),
+                        border_radius: BorderRadius::new(
+                            CornerRadius {
+                                x: percent(50),
+                                y: percent(50),
+                            },
+                            CornerRadius {
+                                x: percent(50),
+                                y: percent(50),
+                            },
+                            CornerRadius {
+                                x: percent(50),
+                                y: percent(50),
+                            },
+                            CornerRadius {
+                                x: percent(50),
+                                y: percent(50),
+                            },
                         ),
                         ..default()
                     },
@@ -1529,11 +1664,23 @@ mod elliptical_border_radius {
                         width: px(160),
                         height: px(80),
                         border: UiRect::axes(px(20), px(10)),
-                        border_radius: BorderRadius::elliptical(
-                            Val2::new(percent(50), percent(50)),
-                            Val2::new(percent(50), percent(50)),
-                            Val2::new(percent(50), percent(50)),
-                            Val2::new(percent(50), percent(50)),
+                        border_radius: BorderRadius::new(
+                            CornerRadius {
+                                x: percent(50),
+                                y: percent(50),
+                            },
+                            CornerRadius {
+                                x: percent(50),
+                                y: percent(50),
+                            },
+                            CornerRadius {
+                                x: percent(50),
+                                y: percent(50),
+                            },
+                            CornerRadius {
+                                x: percent(50),
+                                y: percent(50),
+                            },
                         ),
                         ..default()
                     },
@@ -1556,11 +1703,23 @@ mod elliptical_border_radius {
                         width: px(80),
                         height: px(160),
                         border: UiRect::all(px(10)).with_right(px(25)),
-                        border_radius: BorderRadius::elliptical(
-                            Val2::new(percent(50), percent(50)),
-                            Val2::new(percent(50), percent(50)),
-                            Val2::new(percent(50), percent(50)),
-                            Val2::new(percent(50), percent(50)),
+                        border_radius: BorderRadius::new(
+                            CornerRadius {
+                                x: percent(50),
+                                y: percent(50),
+                            },
+                            CornerRadius {
+                                x: percent(50),
+                                y: percent(50),
+                            },
+                            CornerRadius {
+                                x: percent(50),
+                                y: percent(50),
+                            },
+                            CornerRadius {
+                                x: percent(50),
+                                y: percent(50),
+                            },
                         ),
                         ..default()
                     },
@@ -1582,11 +1741,23 @@ mod elliptical_border_radius {
                         width: px(160),
                         height: px(80),
                         border: UiRect::all(px(5)),
-                        border_radius: BorderRadius::elliptical(
-                            Val2::new(percent(50), percent(50)),
-                            Val2::new(percent(50), percent(50)),
-                            Val2::new(percent(50), percent(50)),
-                            Val2::new(px(20), px(20)),
+                        border_radius: BorderRadius::new(
+                            CornerRadius {
+                                x: percent(50),
+                                y: percent(50),
+                            },
+                            CornerRadius {
+                                x: percent(50),
+                                y: percent(50),
+                            },
+                            CornerRadius {
+                                x: percent(50),
+                                y: percent(50),
+                            },
+                            CornerRadius {
+                                x: px(20),
+                                y: px(20),
+                            },
                         ),
                         ..default()
                     },
@@ -1633,7 +1804,7 @@ mod box_shadow {
                         Vec2::ZERO,
                         10.,
                         0.,
-                        BorderRadius::bottom_right(Val2::all(px(10))),
+                        BorderRadius::bottom_right(px(10)),
                     ),
                     (Vec2::new(200., 50.), Vec2::ZERO, 10., 0., BorderRadius::MAX),
                     (
@@ -1648,7 +1819,7 @@ mod box_shadow {
                         Vec2::splat(20.),
                         10.,
                         10.,
-                        BorderRadius::bottom_right(Val2::all(px(10))),
+                        BorderRadius::bottom_right(px(10)),
                     ),
                     (
                         Vec2::splat(100.),
@@ -2213,7 +2384,7 @@ mod transformations {
                                 Node {
                                     width: px(100),
                                     height: px(100),
-                                    border_radius: BorderRadius::bottom_right(Val2::all(px(25.))),
+                                    border_radius: BorderRadius::bottom_right(px(25.)),
                                     ..default()
                                 },
                                 BackgroundColor(background.into()),
@@ -2224,7 +2395,7 @@ mod transformations {
                                 Node {
                                     width: px(100),
                                     height: px(100),
-                                    border_radius: BorderRadius::bottom_right(Val2::all(px(25.))),
+                                    border_radius: BorderRadius::bottom_right(px(25.)),
                                     ..default()
                                 },
                                 BackgroundColor(background.into()),
@@ -2577,7 +2748,7 @@ mod outer_color {
     use bevy::prelude::*;
 
     pub fn setup(mut commands: Commands) {
-        let radius = Val2::all(percent(33.));
+        let radius = CornerRadius::from(percent(33.));
         let width = px(10.);
 
         commands.spawn((Camera2d, DespawnOnExit(super::Scene::OuterColor)));
@@ -2813,6 +2984,7 @@ mod editable_text {
     use bevy::text::EditableText;
     use bevy::text::TextCursorStyle;
     use bevy::text::TextEdit;
+    use bevy::ui_widgets::TextInput;
 
     const DUMMY_TEXT: &str = "one\ntwo\nthree\nfour\nfive\nsix\nseven\neight\nnine\nten";
     const LOREM_TEXT: &str = concat!(
@@ -2821,14 +2993,14 @@ mod editable_text {
         "Cum sociis natoque penatibus et magnis dis parturient montes, nascetur reprehenderit mus. ",
         "Donec quam felis, ultricies nec, pellentesque eu, pretium quis, sem. ",
         "Nulla consequat massa quis enim. Donec pede justo, fringilla vel, aliquet nec, vulputate eget, arcu. ",
-        "In enim justo, rhoncus ut, imperdiet a, venenatis vitae, justo. ", 
-        "Nullam dictum felis eu pede mollis pretium. Integer tincidunt. ", 
+        "In enim justo, rhoncus ut, imperdiet a, venenatis vitae, justo. ",
+        "Nullam dictum felis eu pede mollis pretium. Integer tincidunt. ",
         "Cras dapibus. Vivamus elementum semper nisi. Aenean vulputate eleifend tellus. ",
         "Aenean leo ligula, porttitor eu, consequat vitae, eleifend ac, enim. ",
         "Aliquam lorem ante, dapibus in, viverra quis, feugiat a, tellus. ",
         "Phasellus viverra nulla ut metus officia laoreet. Quisque rutrum. ",
-        "Aenean imperdiet. Etiam ultricies nisi vel augue. Curabitur ullamcorper ultricies nisi.", 
-        " Qui eget dui. Etiam rhoncus. Maecenas tempus, tellus eget condimentum rhoncus, ", 
+        "Aenean imperdiet. Etiam ultricies nisi vel augue. Curabitur ullamcorper ultricies nisi.",
+        " Qui eget dui. Etiam rhoncus. Maecenas tempus, tellus eget condimentum rhoncus, ",
         "sem quam semper libero, sit amet adipiscing sem neque sed ipsum. ",
         "Qui quam nunc, blandit vel, luctus pulvinar, hendrerit id, lorem. ",
         "Maecenas nec odio et ante tincidunt tempus. Donec vitae sapien ut libero venenatis faucibus. ",
@@ -2861,6 +3033,7 @@ mod editable_text {
                     children![
                         Text::new("Single line"),
                         (
+                            TextInput,
                             EditableText {
                                 pending_edits: vec![TextEdit::Insert(
                                     "Single line EditableText".into(),
@@ -2898,6 +3071,7 @@ mod editable_text {
                         ),
                         Text::new("Insert end"),
                         (
+                            TextInput,
                             EditableText {
                                 pending_edits: vec![TextEdit::Insert(LOREM_TEXT.into())],
                                 ..default()
@@ -2917,6 +3091,7 @@ mod editable_text {
                         ),
                         Text::new("Select line start"),
                         (
+                            TextInput,
                             EditableText {
                                 pending_edits: vec![
                                     TextEdit::Insert(LOREM_TEXT.into()),
@@ -2948,6 +3123,7 @@ mod editable_text {
                     children![
                         Text::new("Wrapped start"),
                         (
+                            TextInput,
                             EditableText {
                                 pending_edits: vec![
                                     TextEdit::Insert(LOREM_TEXT.into()),
@@ -2979,6 +3155,7 @@ mod editable_text {
                     children![
                         Text::new("Wrapped selection"),
                         (
+                            TextInput,
                             EditableText {
                                 pending_edits: vec![
                                     TextEdit::Insert(LOREM_TEXT.into()),
@@ -3012,6 +3189,7 @@ mod editable_text {
                     children![
                         Text::new("Clamp top"),
                         (
+                            TextInput,
                             EditableText {
                                 pending_edits: vec![
                                     TextEdit::Insert(DUMMY_TEXT.into()),
@@ -3043,6 +3221,7 @@ mod editable_text {
                     children![
                         Text::new("Home, Scroll 1"),
                         (
+                            TextInput,
                             EditableText {
                                 pending_edits: vec![
                                     TextEdit::Insert(DUMMY_TEXT.into()),
@@ -3075,6 +3254,7 @@ mod editable_text {
                     children![
                         Text::new("Home, Scroll 2"),
                         (
+                            TextInput,
                             EditableText {
                                 pending_edits: vec![
                                     TextEdit::Insert(DUMMY_TEXT.into()),
@@ -3107,6 +3287,7 @@ mod editable_text {
                     children![
                         Text::new("Clamp bottom"),
                         (
+                            TextInput,
                             EditableText {
                                 pending_edits: vec![
                                     TextEdit::Insert(DUMMY_TEXT.into()),
@@ -3139,6 +3320,7 @@ mod editable_text {
                     children![
                         Text::new("Bottom -1"),
                         (
+                            TextInput,
                             EditableText {
                                 pending_edits: vec![
                                     TextEdit::Insert(DUMMY_TEXT.into()),
@@ -3172,6 +3354,7 @@ mod editable_text {
                     children![
                         Text::new("Top +3"),
                         (
+                            TextInput,
                             EditableText {
                                 pending_edits: vec![
                                     TextEdit::Insert(DUMMY_TEXT.into()),
@@ -3204,6 +3387,7 @@ mod editable_text {
                     children![
                         Text::new("Select down 3"),
                         (
+                            TextInput,
                             EditableText {
                                 pending_edits: vec![
                                     TextEdit::Insert(DUMMY_TEXT.into()),
@@ -3239,6 +3423,7 @@ mod editable_text {
                     children![
                         Text::new("End, Scroll 1"),
                         (
+                            TextInput,
                             EditableText {
                                 pending_edits: vec![
                                     TextEdit::Insert(DUMMY_TEXT.into()),
@@ -3270,6 +3455,7 @@ mod editable_text {
                     children![
                         Text::new("End, Scroll -0.5"),
                         (
+                            TextInput,
                             EditableText {
                                 pending_edits: vec![
                                     TextEdit::Insert(DUMMY_TEXT.into()),
@@ -3292,6 +3478,211 @@ mod editable_text {
                         ),
                     ],
                 )
+            ],
+        ));
+    }
+}
+
+mod node_material {
+    use bevy::{
+        color::palettes::tailwind::{CYAN_100, RED_500, YELLOW_100},
+        prelude::*,
+        render::render_resource::AsBindGroup,
+        shader::ShaderRef,
+    };
+    const SHADER_ASSET_PATH: &str = "shaders/custom_ui_material.wesl";
+
+    #[derive(AsBindGroup, Asset, TypePath, Debug, Clone)]
+    pub(super) struct DefaultUiMaterial {}
+
+    impl UiMaterial for DefaultUiMaterial {}
+
+    #[derive(AsBindGroup, Asset, TypePath, Debug, Clone)]
+    pub(super) struct CustomUiMaterial {
+        /// Color multiplied with the image
+        #[uniform(0)]
+        color: Vec4,
+        /// Represents how much of the image is visible
+        /// Goes from 0 to 1
+        /// A `Vec4` is used here because Bevy with webgl2 requires that uniforms are 16-byte aligned but only the first component is read.
+        #[uniform(1)]
+        slider: Vec4,
+        /// Image used to represent the slider
+        #[texture(2)]
+        #[sampler(3)]
+        color_texture: Handle<Image>,
+        /// Color of the image's border
+        #[uniform(4)]
+        border_color: Vec4,
+    }
+
+    impl UiMaterial for CustomUiMaterial {
+        fn fragment_shader() -> ShaderRef {
+            SHADER_ASSET_PATH.into()
+        }
+    }
+
+    pub fn setup(
+        mut commands: Commands,
+        mut default_ui_materials: ResMut<Assets<DefaultUiMaterial>>,
+        mut ui_materials: ResMut<Assets<CustomUiMaterial>>,
+        asset_server: Res<AssetServer>,
+    ) {
+        let default_material = default_ui_materials.add(DefaultUiMaterial {});
+        let custom_material = |slider| CustomUiMaterial {
+            color: LinearRgba::from(CYAN_100).to_vec4(),
+            slider: Vec4::splat(slider),
+            color_texture: asset_server.load("branding/banner.png"),
+            border_color: LinearRgba::from(YELLOW_100).to_vec4(),
+        };
+        let full_material = ui_materials.add(custom_material(1.));
+        let material_node = Node {
+            width: px(200),
+            height: px(80),
+            border: px(10).all(),
+            border_radius: BorderRadius::all(px(20)),
+            ..default()
+        };
+        let material_label = |text: &str| (Text::new(text), TextFont::from_font_size(px(10.)));
+
+        commands.spawn((Camera2d, DespawnOnExit(super::Scene::NodeMaterial)));
+        commands.spawn((
+            Node {
+                display: Display::Grid,
+                // two column grid, labels then materials, first row is spanned by title.
+                width: percent(100),
+                height: percent(100),
+                grid_template_columns: vec![GridTrack::auto(), GridTrack::px(200.)],
+                align_items: AlignItems::Center,
+                align_content: AlignContent::Center,
+                justify_content: JustifyContent::Center,
+                row_gap: px(10.),
+                column_gap: px(20.),
+                ..default()
+            },
+            DespawnOnExit(super::Scene::NodeMaterial),
+            children![
+                (
+                    Text::new("MaterialNode"),
+                    TextFont::from_font_size(px(30.)),
+                    TextLayout::justify(Justify::Center),
+                    Node {
+                        grid_column: GridPlacement::span(2),
+                        margin: px(10.).bottom(),
+                        ..default()
+                    },
+                ),
+                // Default UI material (just white with the default ui_material.wgsl shader for the bevy_ui crate)
+                material_label("'ui_material.wgsl' default material"),
+                (material_node.clone(), MaterialNode(default_material),),
+                // Custom UI material, 1./3 full.
+                material_label("'custom_ui_material.wgsl' 1/3"),
+                (
+                    material_node.clone(),
+                    MaterialNode(ui_materials.add(custom_material(1. / 3.))),
+                ),
+                // Custom UI material, 2./3 full.
+                material_label("'custom_ui_material.wgsl' 2/3"),
+                (
+                    material_node.clone(),
+                    MaterialNode(ui_materials.add(custom_material(2. / 3.)))
+                ),
+                // Custom UI material, full.
+                material_label("'custom_ui_material.wgsl' Full"),
+                (material_node.clone(), MaterialNode(full_material.clone()),),
+                // Custom UI material, full. Clipped using overflow so bottom 50% missing
+                material_label("'custom_ui_material.wgsl' clipped vertically"),
+                (
+                    Node {
+                        width: material_node.width,
+                        height: material_node.height,
+                        ..default()
+                    },
+                    Outline {
+                        width: px(1),
+                        color: RED_500.into(),
+                        ..default()
+                    },
+                    children![(
+                        Node {
+                            width: percent(100),
+                            height: percent(50),
+                            overflow: Overflow::clip(),
+                            ..default()
+                        },
+                        children![(material_node.clone(), MaterialNode(full_material.clone()))],
+                    )],
+                ),
+                // Custom UI material clipped on both axis so bottom 25% and right 25% not visible.
+                material_label("'custom_ui_material.wgsl' end clipped on both axis"),
+                (
+                    Node {
+                        width: material_node.width,
+                        height: material_node.height,
+                        ..default()
+                    },
+                    Outline {
+                        width: px(1),
+                        color: RED_500.into(),
+                        ..default()
+                    },
+                    children![(
+                        Node {
+                            width: percent(75),
+                            height: percent(75),
+                            overflow: Overflow::clip(),
+                            ..default()
+                        },
+                        children![(
+                            Node {
+                                position_type: PositionType::Absolute,
+                                width: px(200),
+                                height: px(80),
+                                border: px(10).all(),
+                                border_radius: BorderRadius::all(px(20)),
+                                ..default()
+                            },
+                            MaterialNode(full_material.clone()),
+                        )],
+                    )],
+                ),
+                // Custom UI material clipped on both axis so top 25% and left 25% not visible.
+                material_label("'custom_ui_material.wgsl' start clipped on both axis"),
+                (
+                    Node {
+                        width: material_node.width,
+                        height: material_node.height,
+                        align_items: AlignItems::End,
+                        justify_content: JustifyContent::End,
+                        ..default()
+                    },
+                    Outline {
+                        width: px(1),
+                        color: RED_500.into(),
+                        ..default()
+                    },
+                    children![(
+                        Node {
+                            width: percent(75),
+                            height: percent(75),
+                            overflow: Overflow::clip(),
+                            ..default()
+                        },
+                        children![(
+                            Node {
+                                position_type: PositionType::Absolute,
+                                width: px(200),
+                                height: px(80),
+                                right: px(0),
+                                bottom: px(0),
+                                border: px(10).all(),
+                                border_radius: BorderRadius::all(px(20)),
+                                ..default()
+                            },
+                            MaterialNode(full_material),
+                        )],
+                    )],
+                ),
             ],
         ));
     }

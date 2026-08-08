@@ -20,7 +20,7 @@ use bevy::{
 use std::{num::NonZero, process::exit};
 
 /// This example uses a shader source file from the assets subdirectory
-const SHADER_ASSET_PATH: &str = "shaders/texture_binding_array.wgsl";
+const SHADER_ASSET_PATH: &str = "shaders/texture_binding_array.wesl";
 
 fn main() {
     let mut app = App::new();

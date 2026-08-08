@@ -143,7 +143,7 @@ pub struct DepthOfFieldUniform {
     /// The distance in meters to the location in focus.
     focal_distance: f32,
 
-    /// The focal length. See the comment in `DepthOfFieldParams` in `dof.wgsl`
+    /// The focal length. See the comment in `DepthOfFieldParams` in `dof.wesl`
     /// for more information.
     focal_length: f32,
 
@@ -194,7 +194,7 @@ enum DofPass {
 
 impl Plugin for DepthOfFieldPlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "dof.wgsl");
+        embedded_asset!(app, "dof.wesl");
 
         app.add_plugins(UniformComponentPlugin::<DepthOfFieldUniform>::default());
 
@@ -522,7 +522,7 @@ pub fn prepare_depth_of_field_pipelines(
             view_bind_group_layouts: view_bind_group_layouts.clone(),
             global_bind_group_layout: global_bind_group_layout.layout.clone(),
             fullscreen_shader: fullscreen_shader.clone(),
-            fragment_shader: load_embedded_asset!(asset_server.as_ref(), "dof.wgsl"),
+            fragment_shader: load_embedded_asset!(asset_server.as_ref(), "dof.wesl"),
         };
 
         // We'll need these two flags to create the `DepthOfFieldPipelineKey`s.

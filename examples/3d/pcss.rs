@@ -22,6 +22,9 @@ use bevy::{
 #[path = "../helpers/radio.rs"]
 mod radio;
 
+#[path = "../helpers/theme.rs"]
+mod theme;
+
 /// The size of the light, which affects the size of the penumbras.
 const LIGHT_RADIUS: f32 = 10.0;
 
@@ -105,7 +108,7 @@ fn main() {
 
     App::new()
         .init_resource::<AppStatus>()
-        .insert_resource(UiTheme(radio::basic_radio_button_theme()))
+        .insert_resource(UiTheme(theme::basic_example_theme(Color::BLACK)))
         .add_plugins((
             DefaultPlugins.set(WindowPlugin {
                 primary_window: Some(Window {
@@ -206,6 +209,7 @@ fn spawn_buttons(commands: &mut Commands) {
                     (LightType::Point, "Point"),
                     (LightType::Spot, "Spot"),
                 ],
+                0,
             ),
             radio::feathers_option_buttons(
                 "Shadow Filter",
@@ -216,6 +220,7 @@ fn spawn_buttons(commands: &mut Commands) {
                     ),
                     (ShadowFilter::Temporal, "Temporal"),
                 ],
+                0,
             ),
             radio::feathers_option_buttons(
                 "Soft Shadows",
@@ -223,6 +228,7 @@ fn spawn_buttons(commands: &mut Commands) {
                     (SoftShadows(true), "On"),
                     (SoftShadows(false), "Off"),
                 ],
+                0,
             ),
         ]
     });
