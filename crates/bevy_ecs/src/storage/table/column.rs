@@ -190,7 +190,7 @@ impl Column {
             .as_mut()
             .map(|changed_by| changed_by.get_unchecked_mut(row.index()).get_mut())
             .assign(caller);
-        if let Some(summary_tick) = self.summary_tick {
+        if let Some(summary_tick) = &self.summary_tick {
             summary_tick.set(tick);
         }
     }
@@ -215,8 +215,8 @@ impl Column {
             .as_mut()
             .map(|changed_by| changed_by.get_unchecked_mut(row.index()).get_mut())
             .assign(caller);
-        if let Some(summary_tick) = self.summary_tick {
-            summary_tick.set(tick);
+        if let Some(summary_tick) = &self.summary_tick {
+            summary_tick.set(change_tick);
         }
     }
 
@@ -297,7 +297,7 @@ impl Column {
         }
 
         // Update the summary tick, if one is present.
-        if let Some(summary_tick) = self.summary_tick {
+        if let Some(summary_tick) = &self.summary_tick {
             let mut summary_tick_value = summary_tick.get();
             if summary_tick_value.check_tick(check) {
                 summary_tick.set(summary_tick_value);

@@ -316,7 +316,7 @@ impl ComponentDescriptor {
             "Layout size must be a multiple of its alignment.  Consider calling `pad_to_align()`."
         );
         assert!(
-            !summary_tick || matches!(T::STORAGE_TYPE, StorageType::Table),
+            !summary_tick || matches!(storage_type, StorageType::Table),
             "Summary ticks are only supported for table components"
         );
 
