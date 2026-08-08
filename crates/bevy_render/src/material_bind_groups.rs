@@ -23,17 +23,19 @@ use tracing::{error, trace};
 
 use crate::{
     erased_render_asset::PrepareAssetError,
-    render_resource::{AsBindGroup, AsBindGroupError, BindlessSlabResourceLimit, PipelineCache},
+    render_resource::{
+        AsBindGroup, AsBindGroupError, BindGroupBuilder, BindlessSlabResourceLimit, PipelineCache,
+        UnpreparedBindingResource, UnpreparedBindingResources,
+    },
     GpuResourceAppExt as _, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use crate::{
     render_resource::{
         BindGroup, BindGroupEntry, BindGroupLayoutDescriptor, BindingNumber, BindingResource,
-        BindingResources, BindlessDescriptor, BindlessIndex, BindlessIndexTableDescriptor,
-        BindlessResourceType, Buffer, BufferBinding, BufferDescriptor, BufferId,
-        BufferInitDescriptor, BufferUsages, CompareFunction, FilterMode, MipmapFilterMode,
-        OwnedBindingResource, PreparedBindGroup, RawBufferVec, Sampler, SamplerDescriptor,
-        SamplerId, TextureView, TextureViewDimension, TextureViewId, UnpreparedBindGroup,
+        BindlessDescriptor, BindlessIndex, BindlessIndexTableDescriptor, BindlessResourceType,
+        Buffer, BufferBinding, BufferDescriptor, BufferId, BufferInitDescriptor, BufferUsages,
+        CompareFunction, FilterMode, MipmapFilterMode, PreparedBindGroup, RawBufferVec, Sampler,
+        SamplerDescriptor, SamplerId, TextureView, TextureViewDimension, TextureViewId,
         WgpuSampler, WgpuTextureView,
     },
     renderer::{RenderDevice, RenderQueue},
@@ -57,7 +59,18 @@ pub struct MaterialBindGroupAllocators(TypeIdHashMap<MaterialBindGroupAllocator>
 /// `M` type parameter, so it can be used in untyped contexts like
 /// `collect_meshes_for_gpu_building`.
 #[derive(Resource, Default, Deref, DerefMut)]
-pub struct RenderMaterialBindings(HashMap<UntypedAssetId, MaterialBindingId>);
+pub struct RenderMaterialBindings {
+    /// The mapping from each asset ID to its location within the material bind
+    /// group allocator.
+    #[deref]
+    bindings: HashMap<UntypedAssetId, MaterialBindingId>,
+
+    /// The bind group we're building up.
+    ///
+    /// This is cleared and reused for every asset that we build in order to
+    /// reuse allocations.
+    bind_group_builder: BindGroupBuilder,
+}
 
 /// A resource that places materials into bind groups and tracks their
 /// resources.
@@ -223,7 +236,7 @@ enum MaterialNonBindlessAllocatedBindGroup {
     /// called.
     Unprepared {
         /// The unprepared bind group, including extra data.
-        bind_group: UnpreparedBindGroup,
+        bind_group: BindGroupBuilder,
         /// The layout of that bind group.
         layout: BindGroupLayoutDescriptor,
     },
@@ -323,6 +336,7 @@ pub struct MaterialBindGroupSlot(pub u32);
 ///
 /// Currently, the only buffer that we maintain is the
 /// [`MaterialBindlessIndexTable`].
+#[derive(Clone, Copy, PartialEq)]
 enum BufferDirtyState {
     /// The buffer is currently synchronized between the CPU and GPU.
     Clean,
@@ -332,12 +346,12 @@ enum BufferDirtyState {
     NeedsUpload,
 }
 
-/// Information that describes a potential allocation of an
-/// [`UnpreparedBindGroup`] into a slab.
+/// Information that describes a potential allocation of a [`BindGroupBuilder`]
+/// into a slab.
 struct BindlessAllocationCandidate {
-    /// A map that, for every resource in the [`UnpreparedBindGroup`] that
-    /// already existed in this slab, maps bindless index of that resource to
-    /// its slot in the appropriate binding array.
+    /// A map that, for every resource in the [`BindGroupBuilder`] that already
+    /// existed in this slab, maps bindless index of that resource to its slot
+    /// in the appropriate binding array.
     pre_existing_resources: HashMap<BindlessIndex, u32>,
     /// Stores the number of free slots that are needed to satisfy this
     /// allocation.
@@ -439,15 +453,16 @@ impl From<MaterialBindGroupSlot> for u32 {
     }
 }
 
-impl<'a> From<&'a OwnedBindingResource> for BindingResourceId {
-    fn from(value: &'a OwnedBindingResource) -> Self {
+impl<'a> From<&'a UnpreparedBindingResource> for BindingResourceId {
+    fn from(value: &'a UnpreparedBindingResource) -> Self {
         match *value {
-            OwnedBindingResource::Buffer(ref buffer) => BindingResourceId::Buffer(buffer.id()),
-            OwnedBindingResource::Data(_) => BindingResourceId::DataBuffer,
-            OwnedBindingResource::TextureView(ref texture_view_dimension, ref texture_view) => {
-                BindingResourceId::TextureView(*texture_view_dimension, texture_view.id())
-            }
-            OwnedBindingResource::Sampler(_, ref sampler) => {
+            UnpreparedBindingResource::Buffer(ref buffer) => BindingResourceId::Buffer(buffer.id()),
+            UnpreparedBindingResource::Data(_) => BindingResourceId::DataBuffer,
+            UnpreparedBindingResource::TextureView(
+                ref texture_view_dimension,
+                ref texture_view,
+            ) => BindingResourceId::TextureView(*texture_view_dimension, texture_view.id()),
+            UnpreparedBindingResource::Sampler(_, ref sampler) => {
                 BindingResourceId::Sampler(sampler.id())
             }
         }
@@ -544,7 +559,8 @@ impl MaterialBindGroupAllocator {
         }
     }
 
-    /// Allocates an [`UnpreparedBindGroup`] and returns the resulting binding ID.
+    /// Allocates the resources within a [`BindGroupBuilder`] and returns the
+    /// resulting binding ID.
     ///
     /// This method should generally be preferred over
     /// [`Self::allocate_prepared`], because this method supports both bindless
@@ -552,7 +568,7 @@ impl MaterialBindGroupAllocator {
     /// you need to prepare the bind group yourself.
     pub fn allocate_unprepared(
         &mut self,
-        unprepared_bind_group: UnpreparedBindGroup,
+        unprepared_bind_group: &mut BindGroupBuilder,
         bind_group_layout: &BindGroupLayoutDescriptor,
     ) -> MaterialBindingId {
         match *self {
@@ -603,6 +619,34 @@ impl MaterialBindGroupAllocator {
             MaterialBindGroupAllocator::NonBindless(
                 ref mut material_bind_group_non_bindless_allocator,
             ) => material_bind_group_non_bindless_allocator.free(material_binding_id),
+        }
+    }
+
+    /// Attempts to replace the given `existing_binding_id` with a new material,
+    /// without actually reallocating any GPU resources.
+    ///
+    /// That is, if the given `unprepared_bind_group` represents exactly the
+    /// same GPU resource bindings as the already-allocated material, this
+    /// method updates the POD only and returns true. Otherwise, if the supplied
+    /// bind group represents different resources, this method returns false.
+    ///
+    /// This is an optional fast path to handle POD-only material changes. If
+    /// this method returns false, then the caller should call [`Self::free`]
+    /// and [`Self::allocate_unprepared`] to reallocate the GPU resources.
+    pub fn try_update_data(
+        &mut self,
+        existing_binding_id: MaterialBindingId,
+        unprepared_bind_group: &mut BindGroupBuilder,
+    ) -> bool {
+        match *self {
+            MaterialBindGroupAllocator::Bindless(
+                ref mut material_bind_group_bindless_allocator,
+            ) => material_bind_group_bindless_allocator
+                .try_update_data(existing_binding_id, unprepared_bind_group),
+            MaterialBindGroupAllocator::NonBindless(_) => {
+                // TODO: Have a fast path for non-bindless materials.
+                false
+            }
         }
     }
 
@@ -868,18 +912,15 @@ impl MaterialBindGroupBindlessAllocator {
     /// created, and the material is allocated into it.
     fn allocate_unprepared(
         &mut self,
-        mut unprepared_bind_group: UnpreparedBindGroup,
+        unprepared_bind_group: &mut BindGroupBuilder,
     ) -> MaterialBindingId {
         for (slab_index, slab) in self.slabs.iter_mut().enumerate() {
             trace!("Trying to allocate in slab {}", slab_index);
-            match slab.try_allocate(unprepared_bind_group, self.slab_capacity) {
-                Ok(slot) => {
-                    return MaterialBindingId {
-                        group: MaterialBindGroupIndex(slab_index as u32),
-                        slot,
-                    };
-                }
-                Err(bind_group) => unprepared_bind_group = bind_group,
+            if let Ok(slot) = slab.try_allocate(unprepared_bind_group, self.slab_capacity) {
+                return MaterialBindingId {
+                    group: MaterialBindGroupIndex(slab_index as u32),
+                    slot,
+                };
             }
         }
 
@@ -898,6 +939,23 @@ impl MaterialBindGroupBindlessAllocator {
         };
 
         MaterialBindingId { group, slot }
+    }
+
+    /// Attempts to replace the given `existing_binding_id` with a new material,
+    /// without actually reallocating any GPU resources.
+    ///
+    /// See [`MaterialBindGroupAllocator::try_update_data`] for more
+    /// information.
+    fn try_update_data(
+        &mut self,
+        existing_binding_id: MaterialBindingId,
+        unprepared_bind_group: &mut BindGroupBuilder,
+    ) -> bool {
+        self.slabs
+            .get_mut(existing_binding_id.group.0 as usize)
+            .is_some_and(|slab| {
+                slab.try_update_data(existing_binding_id.slot, unprepared_bind_group)
+            })
     }
 
     /// Deallocates the material with the given binding ID.
@@ -962,12 +1020,14 @@ impl MaterialBindlessSlab {
     /// so that it can try to allocate again.
     fn try_allocate(
         &mut self,
-        unprepared_bind_group: UnpreparedBindGroup,
+        unprepared_bind_group: &mut BindGroupBuilder,
         slot_capacity: u32,
-    ) -> Result<MaterialBindGroupSlot, UnpreparedBindGroup> {
+    ) -> Result<MaterialBindGroupSlot, ()> {
         // Locate pre-existing resources, and determine how many free slots we need.
-        let Some(allocation_candidate) = self.check_allocation(&unprepared_bind_group) else {
-            return Err(unprepared_bind_group);
+        let Some(allocation_candidate) =
+            self.check_allocation(&unprepared_bind_group.binding_resources)
+        else {
+            return Err(());
         };
 
         // Check to see if we have enough free space.
@@ -983,7 +1043,7 @@ impl MaterialBindlessSlab {
                 > slot_capacity
         {
             trace!("Slab is full, can't allocate");
-            return Err(unprepared_bind_group);
+            return Err(());
         }
 
         // OK, we can allocate in this slab. Assign a slot ID.
@@ -994,7 +1054,7 @@ impl MaterialBindlessSlab {
                 // the GPU, so spill to a new slab before we would overflow.
                 if self.live_allocation_count > 0xFFFF {
                     trace!("Slab material bind group slot would overflow, can't allocate");
-                    return Err(unprepared_bind_group);
+                    return Err(());
                 }
                 MaterialBindGroupSlot(self.live_allocation_count)
             }
@@ -1005,7 +1065,7 @@ impl MaterialBindlessSlab {
 
         // Insert the resources into the binding arrays.
         let allocated_resource_slots =
-            self.insert_resources(unprepared_bind_group.bindings, allocation_candidate);
+            self.insert_resources(unprepared_bind_group, allocation_candidate);
 
         // Serialize the allocated resource slots.
         for bindless_index_table in &mut self.bindless_index_tables {
@@ -1018,21 +1078,63 @@ impl MaterialBindlessSlab {
         Ok(slot)
     }
 
+    /// Attempts to replace the material in the `existing_slot` with a new
+    /// material, without actually reallocating any GPU resources.
+    ///
+    /// See [`MaterialBindGroupAllocator::try_update_data`] for more
+    /// information.
+    fn try_update_data(
+        &mut self,
+        existing_slot: MaterialBindGroupSlot,
+        unprepared_bind_group: &mut BindGroupBuilder,
+    ) -> bool {
+        // If the GPU resources have changed, bail. The caller will need to
+        // explicitly deallocate and reallocate the bind group.
+        if !self
+            .bindless_index_tables
+            .iter()
+            .all(|bindless_index_table| {
+                self.gpu_resources_are_unchanged(
+                    &unprepared_bind_group.binding_resources,
+                    existing_slot,
+                    bindless_index_table,
+                )
+            })
+        {
+            return false;
+        }
+
+        // Update all data in each bindless index table.
+        // We can't directly iterate over `Self::bindless_index_tables` for
+        // borrow check reasons.
+        for bindless_index_table_index in 0..self.bindless_index_tables.len() {
+            self.update_data(
+                unprepared_bind_group,
+                existing_slot,
+                bindless_index_table_index,
+            );
+        }
+
+        true
+    }
+
     /// Gathers the information needed to determine whether the given unprepared
     /// bind group can be allocated in this slab.
     fn check_allocation(
         &self,
-        unprepared_bind_group: &UnpreparedBindGroup,
+        unprepared_binding_resources: &UnpreparedBindingResources,
     ) -> Option<BindlessAllocationCandidate> {
         let mut allocation_candidate = BindlessAllocationCandidate {
             pre_existing_resources: HashMap::default(),
             needed_free_slots: 0,
         };
 
-        for &(bindless_index, ref owned_binding_resource) in unprepared_bind_group.bindings.iter() {
+        for &(bindless_index, ref unprepared_binding_resource) in
+            unprepared_binding_resources.iter()
+        {
             let bindless_index = BindlessIndex(bindless_index);
-            match *owned_binding_resource {
-                OwnedBindingResource::Buffer(ref buffer) => {
+            match *unprepared_binding_resource {
+                UnpreparedBindingResource::Buffer(ref buffer) => {
                     let Some(binding_array) = self.buffers.get(&bindless_index) else {
                         error!(
                             "Binding array wasn't present for buffer at index {:?}",
@@ -1050,11 +1152,14 @@ impl MaterialBindlessSlab {
                     }
                 }
 
-                OwnedBindingResource::Data(_) => {
+                UnpreparedBindingResource::Data(_) => {
                     // The size of a data buffer is unlimited.
                 }
 
-                OwnedBindingResource::TextureView(texture_view_dimension, ref texture_view) => {
+                UnpreparedBindingResource::TextureView(
+                    texture_view_dimension,
+                    ref texture_view,
+                ) => {
                     let bindless_resource_type = BindlessResourceType::from(texture_view_dimension);
                     match self
                         .textures
@@ -1075,7 +1180,7 @@ impl MaterialBindlessSlab {
                     }
                 }
 
-                OwnedBindingResource::Sampler(sampler_binding_type, ref sampler) => {
+                UnpreparedBindingResource::Sampler(sampler_binding_type, ref sampler) => {
                     let bindless_resource_type = BindlessResourceType::from(sampler_binding_type);
                     match self
                         .samplers
@@ -1099,33 +1204,34 @@ impl MaterialBindlessSlab {
         Some(allocation_candidate)
     }
 
-    /// Inserts the given [`BindingResources`] into this slab.
+    /// Inserts the bind group resources described by the given
+    /// [`BindGroupBuilder`] into this slab.
     ///
     /// Returns a table that maps the bindless index of each resource to its
     /// slot in its binding array.
     fn insert_resources(
         &mut self,
-        mut binding_resources: BindingResources,
+        unprepared_bind_group: &BindGroupBuilder,
         allocation_candidate: BindlessAllocationCandidate,
     ) -> HashMap<BindlessIndex, u32> {
         let mut allocated_resource_slots = HashMap::default();
 
-        for (bindless_index, owned_binding_resource) in binding_resources.drain(..) {
-            let bindless_index = BindlessIndex(bindless_index);
+        for (bindless_index, unprepared_binding_resource) in unprepared_bind_group.iter() {
+            let bindless_index = BindlessIndex(*bindless_index);
 
             let pre_existing_slot = allocation_candidate
                 .pre_existing_resources
                 .get(&bindless_index);
 
             // Otherwise, we need to insert it anew.
-            let binding_resource_id = BindingResourceId::from(&owned_binding_resource);
-            let increment_allocated_resource_count = match owned_binding_resource {
-                OwnedBindingResource::Buffer(buffer) => {
+            let binding_resource_id = BindingResourceId::from(unprepared_binding_resource);
+            let increment_allocated_resource_count = match unprepared_binding_resource {
+                UnpreparedBindingResource::Buffer(buffer) => {
                     let slot = self
                         .buffers
                         .get_mut(&bindless_index)
                         .expect("Buffer binding array should exist")
-                        .insert(binding_resource_id, buffer);
+                        .insert(binding_resource_id, buffer.clone());
                     allocated_resource_slots.insert(bindless_index, slot);
 
                     if let Some(pre_existing_slot) = pre_existing_slot {
@@ -1136,7 +1242,7 @@ impl MaterialBindlessSlab {
                         true
                     }
                 }
-                OwnedBindingResource::Data(data) => {
+                UnpreparedBindingResource::Data(data_range) => {
                     if pre_existing_slot.is_some() {
                         panic!("Data buffers can't be deduplicated")
                     }
@@ -1145,17 +1251,21 @@ impl MaterialBindlessSlab {
                         .data_buffers
                         .get_mut(&bindless_index)
                         .expect("Data buffer binding array should exist")
-                        .insert(&data);
+                        .insert(
+                            &unprepared_bind_group.data_buffer
+                                [(data_range.start as usize)..(data_range.end as usize)],
+                        );
                     allocated_resource_slots.insert(bindless_index, slot);
                     false
                 }
-                OwnedBindingResource::TextureView(texture_view_dimension, texture_view) => {
-                    let bindless_resource_type = BindlessResourceType::from(texture_view_dimension);
+                UnpreparedBindingResource::TextureView(texture_view_dimension, texture_view) => {
+                    let bindless_resource_type =
+                        BindlessResourceType::from(*texture_view_dimension);
                     let slot = self
                         .textures
                         .get_mut(&bindless_resource_type)
                         .expect("Texture array should exist")
-                        .insert(binding_resource_id, texture_view);
+                        .insert(binding_resource_id, texture_view.clone());
                     allocated_resource_slots.insert(bindless_index, slot);
 
                     if let Some(pre_existing_slot) = pre_existing_slot {
@@ -1166,13 +1276,13 @@ impl MaterialBindlessSlab {
                         true
                     }
                 }
-                OwnedBindingResource::Sampler(sampler_binding_type, sampler) => {
-                    let bindless_resource_type = BindlessResourceType::from(sampler_binding_type);
+                UnpreparedBindingResource::Sampler(sampler_binding_type, sampler) => {
+                    let bindless_resource_type = BindlessResourceType::from(*sampler_binding_type);
                     let slot = self
                         .samplers
                         .get_mut(&bindless_resource_type)
                         .expect("Sampler should exist")
-                        .insert(binding_resource_id, sampler);
+                        .insert(binding_resource_id, sampler.clone());
                     allocated_resource_slots.insert(bindless_index, slot);
 
                     if let Some(pre_existing_slot) = pre_existing_slot {
@@ -1259,6 +1369,149 @@ impl MaterialBindlessSlab {
         // Release the slot ID.
         self.free_slots.push(slot);
         self.live_allocation_count -= 1;
+    }
+
+    /// Returns true if all the GPU resources in the given
+    /// [`UnpreparedBindingResources`] described by the given bindless index
+    /// table are identical to the resources referenced in the
+    /// `bind_group_slot`.
+    ///
+    /// The [`Self::try_update_data`] fast path uses this method to determine
+    /// whether the fast path can be used.
+    fn gpu_resources_are_unchanged(
+        &self,
+        binding_resources: &UnpreparedBindingResources,
+        bind_group_slot: MaterialBindGroupSlot,
+        bindless_index_table: &MaterialBindlessIndexTable,
+    ) -> bool {
+        for (bindless_index, unprepared_binding_resource) in binding_resources.iter() {
+            let bindless_index = BindlessIndex(*bindless_index);
+            let binding_resource_id = BindingResourceId::from(unprepared_binding_resource);
+
+            match unprepared_binding_resource {
+                UnpreparedBindingResource::Buffer(_) => {
+                    // Ignore this buffer if it's not in our bindless index
+                    // table.
+                    if bindless_index_table
+                        .get_binding(bind_group_slot, bindless_index)
+                        .is_some_and(|binding_index| {
+                            // Make sure that the slot references the correct
+                            // buffer.
+                            !self
+                                .buffers
+                                .get(&bindless_index)
+                                .is_some_and(|binding_array| {
+                                    binding_array
+                                        .slot_references(binding_index, binding_resource_id)
+                                })
+                        })
+                    {
+                        return false;
+                    }
+                }
+
+                UnpreparedBindingResource::TextureView(texture_view_dimension, _) => {
+                    let bindless_resource_type =
+                        BindlessResourceType::from(*texture_view_dimension);
+                    // Ignore this texture if it's not in our bindless index
+                    // table.
+                    if bindless_index_table
+                        .get_binding(bind_group_slot, bindless_index)
+                        .is_some_and(|binding_index| {
+                            // Make sure that the slot references the correct
+                            // texture.
+                            !self.textures.get(&bindless_resource_type).is_some_and(
+                                |binding_array| {
+                                    binding_array
+                                        .slot_references(binding_index, binding_resource_id)
+                                },
+                            )
+                        })
+                    {
+                        return false;
+                    }
+                }
+
+                UnpreparedBindingResource::Sampler(sampler_binding_type, _) => {
+                    let bindless_resource_type = BindlessResourceType::from(*sampler_binding_type);
+                    // Ignore this sampler if it's not in our bindless index
+                    // table.
+                    if bindless_index_table
+                        .get_binding(bind_group_slot, bindless_index)
+                        .is_some_and(|binding_index| {
+                            // Make sure that the slot references the correct
+                            // sampler.
+                            !self.samplers.get(&bindless_resource_type).is_some_and(
+                                |binding_array| {
+                                    binding_array
+                                        .slot_references(binding_index, binding_resource_id)
+                                },
+                            )
+                        })
+                    {
+                        return false;
+                    }
+                }
+
+                UnpreparedBindingResource::Data(_) => {
+                    // Ignore POD.
+                }
+            }
+        }
+
+        true
+    }
+
+    // TODO: In the future, this could be `&self`, which would allow this method
+    // to operate in parallel. We would probably want `Self::data_buffers` to be
+    // `AtomicSparseBufferVec`s in that case.
+
+    /// Replaces the POD ([`UnpreparedBindingResource::Data`]) with new data,
+    /// without touching the allocation.
+    ///
+    /// It's the caller's responsibility to ensure that this is a reasonable
+    /// thing to do (probably by calling [`Self::gpu_resources_are_unchanged`]).
+    fn update_data(
+        &mut self,
+        unprepared_bind_group: &BindGroupBuilder,
+        bind_group_slot: MaterialBindGroupSlot,
+        bindless_index_table_index: usize,
+    ) {
+        let bindless_index_table = &self.bindless_index_tables[bindless_index_table_index];
+
+        // Go over the index table looking for POD.
+        for (bindless_index, unprepared_binding_resource) in
+            unprepared_bind_group.binding_resources.iter()
+        {
+            let bindless_index = BindlessIndex(*bindless_index);
+
+            match unprepared_binding_resource {
+                // Ignore all resources other than data.
+                UnpreparedBindingResource::Buffer(_)
+                | UnpreparedBindingResource::TextureView(..)
+                | UnpreparedBindingResource::Sampler(..) => {}
+
+                UnpreparedBindingResource::Data(data_range) => {
+                    // Ignore this resource unless it represents data we're
+                    // responsible for.
+                    let Some(binding_index) =
+                        bindless_index_table.get_binding(bind_group_slot, bindless_index)
+                    else {
+                        continue;
+                    };
+
+                    // Poke the new data into the buffer.
+                    self.data_buffers
+                        .get_mut(&bindless_index)
+                        .expect("Data buffer should exist if we're in the fast path")
+                        .set(
+                            binding_index,
+                            &unprepared_bind_group.data_buffer
+                                [(data_range.start as usize)..(data_range.end as usize)],
+                        );
+                }
+            }
+        }
     }
 
     /// Recreates the bind group and bindless index table buffer if necessary.
@@ -1684,6 +1937,18 @@ where
         self.resource_to_slot.get(&binding_resource_id).copied()
     }
 
+    /// Returns true if the given slot points to the given binding resource and
+    /// false otherwise.
+    fn slot_references(&self, slot: u32, binding_resource_id: BindingResourceId) -> bool {
+        self.bindings
+            .get(slot as usize)
+            .is_some_and(|maybe_binding| {
+                maybe_binding.as_ref().is_some_and(|binding| {
+                    binding.resource.binding_resource_id(self.resource_type) == binding_resource_id
+                })
+            })
+    }
+
     /// Inserts a bindless resource into a binding array and returns the index
     /// of the slot it was inserted into.
     fn insert(&mut self, binding_resource_id: BindingResourceId, resource: R) -> u32 {
@@ -1941,11 +2206,18 @@ impl MaterialBindGroupNonBindlessAllocator {
     /// [`MaterialBindingId`].
     fn allocate_unprepared(
         &mut self,
-        unprepared_bind_group: UnpreparedBindGroup,
+        unprepared_bind_group: &mut BindGroupBuilder,
         bind_group_layout: BindGroupLayoutDescriptor,
     ) -> MaterialBindingId {
         self.allocate(MaterialNonBindlessAllocatedBindGroup::Unprepared {
-            bind_group: unprepared_bind_group,
+            // FIXME: This is slow as it takes all the allocations, meaning that
+            // the next material to be prepared is going to have to reallocate
+            // the unprepared bind group. But there's a reason for it: we have
+            // to hold onto the data allocations so that we can upload them
+            // later, in `Self::prepare_bind_groups`. Addressing this will
+            // require either moving those allocations to happen earlier or
+            // setting up some sort of buffer recycling scheme.
+            bind_group: mem::take(unprepared_bind_group),
             layout: bind_group_layout,
         })
     }
@@ -2004,14 +2276,15 @@ impl MaterialBindGroupNonBindlessAllocator {
 
             // Pack any `Data` into uniform buffers.
             let mut uniform_buffers = vec![];
-            for (index, binding) in unprepared_bind_group.bindings.iter() {
-                let OwnedBindingResource::Data(ref owned_data) = *binding else {
+            for (index, binding) in unprepared_bind_group.binding_resources.iter() {
+                let UnpreparedBindingResource::Data(ref data_range) = *binding else {
                     continue;
                 };
                 let label = format!("material uniform data {}", *index);
                 let uniform_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
                     label: Some(&label),
-                    contents: &owned_data.0,
+                    contents: &unprepared_bind_group.data_buffer
+                        [(data_range.start as usize)..(data_range.end as usize)],
                     usage: BufferUsages::COPY_DST | BufferUsages::UNIFORM,
                 });
                 uniform_buffers.push(uniform_buffer);
@@ -2020,9 +2293,9 @@ impl MaterialBindGroupNonBindlessAllocator {
             // Create bind group entries.
             let mut bind_group_entries = vec![];
             let mut uniform_buffers_iter = uniform_buffers.iter();
-            for (index, binding) in unprepared_bind_group.bindings.iter() {
+            for (index, binding) in unprepared_bind_group.binding_resources.iter() {
                 match *binding {
-                    OwnedBindingResource::Data(_) => {
+                    UnpreparedBindingResource::Data(_) => {
                         bind_group_entries.push(BindGroupEntry {
                             binding: *index,
                             resource: uniform_buffers_iter
@@ -2048,7 +2321,7 @@ impl MaterialBindGroupNonBindlessAllocator {
             self.bind_groups[*bind_group_index as usize] =
                 Some(MaterialNonBindlessAllocatedBindGroup::Prepared {
                     bind_group: PreparedBindGroup {
-                        bindings: unprepared_bind_group.bindings,
+                        bindings: unprepared_bind_group.into_binding_resources(),
                         bind_group,
                     },
                     uniform_buffers,
@@ -2122,6 +2395,22 @@ impl MaterialDataBuffer {
         self.len += 1;
         self.buffer.dirty = BufferDirtyState::NeedsReserve;
         slot
+    }
+
+    /// Updates the given slot with new data.
+    fn set(&mut self, slot: u32, data: &[u8]) {
+        // Make sure the data is of the right length.
+        debug_assert_eq!(data.len(), self.aligned_element_size as usize);
+
+        // Calculate the range we're going to copy to.
+        let start = slot as usize * self.aligned_element_size as usize;
+        let end = (slot as usize + 1) * self.aligned_element_size as usize;
+
+        self.buffer.values_mut()[start..end].copy_from_slice(data);
+
+        if self.buffer.dirty == BufferDirtyState::Clean {
+            self.buffer.dirty = BufferDirtyState::NeedsUpload;
+        }
     }
 
     /// Marks the given slot as free.
@@ -2207,30 +2496,46 @@ impl RenderMaterialBindings {
     {
         let actual_material_layout = pipeline_cache.get_bind_group_layout(material_layout);
 
-        match material.unprepared_bind_group(
+        // Clear out the bind group builder (but retain its heap allocations; we
+        // don't want to allocate here).
+        self.bind_group_builder.clear();
+
+        // Ask the material to build the bind group.
+        match material.build_bind_group(
             &actual_material_layout,
             render_device,
             material_param,
             false,
+            &mut self.bind_group_builder,
         ) {
-            Ok(unprepared) => {
+            Ok(()) => {
                 let bind_group_allocator =
                     bind_group_allocators.get_mut(&TypeId::of::<M>()).unwrap();
                 // Allocate or update the material.
-                match self.entry(material_id.into()) {
+                match self.bindings.entry(material_id.into()) {
                     Entry::Occupied(mut occupied_entry) => {
-                        // TODO: Have a fast path that doesn't require
-                        // recreating the bind group if only buffer contents
-                        // change. For now, we just delete and recreate the bind
-                        // group.
-                        bind_group_allocator.free(*occupied_entry.get());
-                        let new_binding =
-                            bind_group_allocator.allocate_unprepared(unprepared, material_layout);
-                        *occupied_entry.get_mut() = new_binding;
-                        Ok(new_binding)
+                        // First, try a fast path. If none of the GPU resource
+                        // bindings have changed, then we can just update the
+                        // POD and don't have to update any of the bindings in
+                        // the bind group allocator.
+                        let old_binding = *occupied_entry.get();
+                        if bind_group_allocator
+                            .try_update_data(old_binding, &mut self.bind_group_builder)
+                        {
+                            Ok(old_binding)
+                        } else {
+                            // Otherwise, fall back to the slow path. Deallocate
+                            // the GPU resource bindings, and reallocate them.
+                            bind_group_allocator.free(old_binding);
+                            let new_binding = bind_group_allocator
+                                .allocate_unprepared(&mut self.bind_group_builder, material_layout);
+                            *occupied_entry.get_mut() = new_binding;
+                            Ok(new_binding)
+                        }
                     }
                     Entry::Vacant(vacant_entry) => Ok(*vacant_entry.insert(
-                        bind_group_allocator.allocate_unprepared(unprepared, material_layout),
+                        bind_group_allocator
+                            .allocate_unprepared(&mut self.bind_group_builder, material_layout),
                     )),
                 }
             }
