@@ -1159,20 +1159,28 @@ pub fn animate_targets(
             let evaluation_state = &mut *evaluation_state;
 
             // Evaluate the graph.
-            for (&animation_graph_node_index, sorted_edge_range) in threaded_animation_subgraph
+            for (sorted_node_index, &animation_graph_node_index) in threaded_animation_subgraph
                 .threaded_graph
                 .iter()
-                .zip(threaded_animation_subgraph.sorted_edge_ranges.iter())
+                .enumerate()
             {
                 let Some(animation_graph_node) = animation_graph.get(animation_graph_node_index)
                 else {
                     continue;
                 };
 
+                let sorted_edge_range_start =
+                    threaded_animation_subgraph.sorted_edge_list_offsets[sorted_node_index];
+                let sorted_edge_range_end = threaded_animation_subgraph
+                    .sorted_edge_list_offsets
+                    .get(sorted_node_index + 1)
+                    .copied()
+                    .unwrap_or(threaded_animation_subgraph.sorted_edges.len() as u32);
+
                 match animation_graph_node.node_type {
                     AnimationNodeType::Blend => {
                         // This is a blend node.
-                        for edge_index in sorted_edge_range.clone() {
+                        for edge_index in sorted_edge_range_start..sorted_edge_range_end {
                             if let Err(err) = evaluation_state.blend_all(
                                 threaded_animation_subgraph.sorted_edges[edge_index as usize],
                             ) {
@@ -1190,7 +1198,7 @@ pub fn animate_targets(
 
                     AnimationNodeType::Add => {
                         // This is an additive blend node.
-                        for edge_index in sorted_edge_range.clone() {
+                        for edge_index in sorted_edge_range_start..sorted_edge_range_end {
                             if let Err(err) = evaluation_state.add_all(
                                 threaded_animation_subgraph.sorted_edges[edge_index as usize],
                             ) {

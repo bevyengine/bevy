@@ -3,7 +3,7 @@
 use core::{
     fmt::Write,
     iter,
-    ops::{Index, IndexMut, Range},
+    ops::{Index, IndexMut},
 };
 use std::io;
 
@@ -425,13 +425,14 @@ pub struct ThreadedAnimationSubgraph {
     pub threaded_graph: Vec<AnimationNodeIndex>,
 
     /// A mapping from the index of each element of [`Self::threaded_graph`] to
-    /// the range within [`Self::sorted_edges`].
+    /// the index of the first such edge within [`Self::sorted_edges`].
     ///
     /// In other words, this array is parallel to the [`Self::threaded_graph`]
     /// array.
     ///
-    /// See [`ThreadedAnimationGraph::sorted_edge_ranges`] for more information.
-    pub sorted_edge_ranges: Vec<Range<u32>>,
+    /// See [`ThreadedAnimationGraph::sorted_edge_list_offsets`] for more
+    /// information.
+    pub sorted_edge_list_offsets: Vec<u32>,
 
     /// A list of the children of each node, sorted in ascending order.
     pub sorted_edges: Vec<AnimationNodeIndex>,
@@ -1246,9 +1247,9 @@ impl ThreadedAnimationSubgraph {
     /// Copies a node from a threaded animation graph to its subgraph and adds
     /// the index of the node to the `node_is_relevant` table.
     ///
-    /// `original_sorted_edge_ranges` and `original_sorted_edges` are expected
-    /// to be the [`ThreadedAnimationGraph::sorted_edge_ranges`] and
-    /// [`ThreadedAnimationGraph::sorted_edges`] fields from the containing
+    /// `original_sorted_edge_list_offsets` and `original_sorted_edges` are
+    /// expected to be the [`ThreadedAnimationGraph::sorted_edge_list_offsets`]
+    /// and [`ThreadedAnimationGraph::sorted_edges`] fields from the containing
     /// threaded graph respectively.
     fn add_node(
         &mut self,
@@ -1283,9 +1284,7 @@ impl ThreadedAnimationSubgraph {
                 self.sorted_edges.push(edge_dest);
             }
         }
-        let sorted_edge_range_end = self.sorted_edges.len() as u32;
-        self.sorted_edge_ranges
-            .push(sorted_edge_range_start..sorted_edge_range_end);
+        self.sorted_edge_list_offsets.push(sorted_edge_range_start);
     }
 }
 
