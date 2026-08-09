@@ -463,6 +463,19 @@ impl AnimationClip {
             ),
         }
     }
+
+    /// Returns true if this animation clip is *relevant* to the animation
+    /// target with the given ID.
+    ///
+    /// An animation clip is relevant if it animates the given target and/or has
+    /// events that fire for the given target.
+    pub(crate) fn is_relevant_to_target(&self, animation_target_id: AnimationTargetId) -> bool {
+        self.curves_for_target(animation_target_id).is_some()
+            || self
+                .events
+                .get(&AnimationEventTarget::Node(animation_target_id))
+                .is_some_and(|events| !events.is_empty())
+    }
 }
 
 /// Repetition behavior of an animation.

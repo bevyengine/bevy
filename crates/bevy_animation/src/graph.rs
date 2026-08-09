@@ -1165,11 +1165,11 @@ impl ThreadedAnimationGraph {
 
             match &node.node_type {
                 AnimationNodeType::Clip(clip_handle) => {
-                    // Only add this node if the clip has curves that affect
-                    // this target.
+                    // Only add this node if the clip has curves and/or events
+                    // that affect this target.
                     if clips
                         .get(clip_handle)
-                        .is_some_and(|clip| clip.curves_for_target(animation_target_id).is_some())
+                        .is_some_and(|clip| clip.is_relevant_to_target(animation_target_id))
                     {
                         threaded_subgraph.add_node(
                             *node_index,
