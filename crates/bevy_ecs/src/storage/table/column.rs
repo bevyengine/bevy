@@ -224,6 +224,8 @@ impl Column {
     /// into this column to initialize the values at `dst_row`.
     /// Does not do any bounds checking.
     ///
+    /// `change_tick` must be the change tick of the current system.
+    ///
     /// # Safety
     ///  - `src` must have the same data layout as `self`
     ///  - `src_row` must be in bounds for `src`
@@ -238,6 +240,7 @@ impl Column {
         src_last_element_index: usize,
         src_row: TableRow,
         dst_row: TableRow,
+        change_tick: Tick,
     ) {
         debug_assert!(self.data.layout() == src.data.layout());
         // SAFETY:
@@ -271,6 +274,9 @@ impl Column {
                     );
                 },
             );
+            if let Some(summary_tick) = &self.summary_tick {
+                summary_tick.set(change_tick);
+            }
         }
     }
 

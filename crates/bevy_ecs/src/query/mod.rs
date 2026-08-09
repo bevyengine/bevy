@@ -904,6 +904,22 @@ mod tests {
         assert_eq!(ticks_sb.summary_tick_is_changed(), Some(true));
     }
 
+    /// Ensure that, when an entity changes archetype due to the removal of a
+    /// component, that the components in the destination table with summary
+    /// ticks have those summary ticks updated.
+    #[test]
+    fn summary_tick_is_updated_when_archetypes_change_on_remove() {
+        let mut world = World::new();
+        let entity = world.spawn((SA(1), SB(2))).id();
+
+        world.entity_mut(entity).remove::<SB>();
+
+        let mut query = world.query::<Ref<SA>>();
+        let item_sa = query.contiguous_iter(&world).unwrap().next().unwrap();
+        let (_, ticks_sa) = ContiguousRef::split(item_sa);
+        assert_eq!(ticks_sa.summary_tick_is_changed(), Some(true));
+    }
+
     /// Ensure that, when multiple instances of a component in a single table
     /// are updated, the summary tick is also updated.
     #[test]

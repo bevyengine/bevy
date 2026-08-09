@@ -144,6 +144,7 @@ impl<'w> BundleInserter<'w> {
         archetype_after_insert: &ArchetypeAfterBundleInsert,
         world: &'a UnsafeWorldCell<'w>,
         archetype_move_type: &'a mut ArchetypeMoveType,
+        change_tick: Tick,
     ) -> (
         &'a Archetype,
         EntityLocation,
@@ -294,6 +295,7 @@ impl<'w> BundleInserter<'w> {
                         location.table_id,
                         new_archetype.table_id(),
                         result.table_row,
+                        change_tick,
                     )
                 };
 
@@ -390,6 +392,7 @@ impl<'w> BundleInserter<'w> {
                     archetype_after_insert,
                     &self.world,
                     &mut self.archetype_move_type,
+                    self.change_tick,
                 )
             };
 
