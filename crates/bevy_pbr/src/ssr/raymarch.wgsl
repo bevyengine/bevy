@@ -39,7 +39,7 @@ fn depth_sample_linear(uv: vec2<f32>, tex_size: vec2<f32>) -> f32 {
     // Manual depth fetch helpers used on WebGPU where depth + filtering sampler is invalid.
     let texel_coord = uv * vec2f(tex_size);
     // load the 4 texels
-    let texel = textureGather(0, depth_prepass_texture, depth_nearest_sampler, uv);
+    let texel = textureGather(depth_prepass_texture, depth_nearest_sampler, uv);
     let m = bevy_pbr::utils::bilinear_weights(texel_coord);
     return dot(texel, m);
 #endif
