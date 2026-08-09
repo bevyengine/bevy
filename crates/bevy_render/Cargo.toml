@@ -9,23 +9,11 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-# Bevy users should _never_ turn this feature on.
-#
-# Bevy/wgpu developers can turn this feature on to test a newer version of wgpu without needing to also update naga_oil.
-#
-# When turning this feature on, you can add the following to bevy/Cargo.toml (not this file), and then run `cargo update`:
-# [patch.crates-io]
-# wgpu = { git = "https://github.com/gfx-rs/wgpu", rev = "..." }
-# wgpu-core = { git = "https://github.com/gfx-rs/wgpu", rev = "..." }
-# wgpu-hal = { git = "https://github.com/gfx-rs/wgpu", rev = "..." }
-# wgpu-types = { git = "https://github.com/gfx-rs/wgpu", rev = "..." }
-decoupled_naga = ["bevy_shader/decoupled_naga"]
-
 multi_threaded = ["bevy_tasks/multi_threaded", "bevy_transform/multi_threaded"]
 
 morph = ["bevy_mesh/morph"]
 
-shader_format_spirv = ["bevy_shader/shader_format_spirv", "wgpu/spirv"]
+shader_format_spirv = ["wgpu/spirv"]
 
 # Enable SPIR-V shader passthrough
 spirv_shader_passthrough = ["wgpu/spirv"]
@@ -101,11 +89,9 @@ wgpu = { version = "30", default-features = false, features = [
   "dx12",
   "metal",
   "vulkan",
-  "naga-ir",
   "fragile-send-sync-non-atomic-wasm",
 ] }
 wgpu-types = { version = "30", default-features = false }
-naga = { version = "30", features = ["wgsl-in"] }
 bytemuck = { version = "1.5", features = ["derive", "must_cast"] }
 downcast-rs = { version = "2", default-features = false, features = ["std"] }
 thiserror = { version = "2", default-features = false }

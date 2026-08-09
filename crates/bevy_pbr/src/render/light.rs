@@ -128,7 +128,7 @@ pub struct ExtractedDirectionalLight {
     pub sun_disk_intensity: f32,
 }
 
-// NOTE: These must match the bit flags in bevy_pbr/src/render/mesh_view_types.wgsl!
+// NOTE: These must match the bit flags in bevy_pbr/src/render/mesh_view_types.wesl!
 bitflags::bitflags! {
     #[repr(transparent)]
     struct PointLightFlags: u32 {
@@ -167,7 +167,7 @@ pub struct GpuDirectionalLight {
     sun_disk_intensity: f32,
 }
 
-// NOTE: These must match the bit flags in bevy_pbr/src/render/mesh_view_types.wgsl!
+// NOTE: These must match the bit flags in bevy_pbr/src/render/mesh_view_types.wesl!
 bitflags::bitflags! {
     #[repr(transparent)]
     struct DirectionalLightFlags: u32 {
@@ -191,7 +191,7 @@ pub struct GpuRectLight {
     range: f32,
 }
 
-// NOTE: These must match the bit flags in bevy_pbr/src/render/mesh_view_types.wgsl!
+// NOTE: These must match the bit flags in bevy_pbr/src/render/mesh_view_types.wesl!
 bitflags::bitflags! {
     #[repr(transparent)]
     struct AmbientLightFlags: u32 {
@@ -220,7 +220,7 @@ pub struct GpuLights {
 }
 
 // NOTE: When running bevy on Adreno GPU chipsets in WebGL, any value above 1 will result in a crash
-// when loading the wgsl "pbr_functions.wgsl" in the function apply_fog.
+// when loading "pbr_functions.wesl" in the function apply_fog.
 #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
 pub const MAX_DIRECTIONAL_LIGHTS: usize = 1;
 #[cfg(any(
