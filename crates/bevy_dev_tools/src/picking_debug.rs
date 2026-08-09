@@ -82,7 +82,9 @@ pub struct DebugPickingPlugin;
 
 impl Plugin for DebugPickingPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<DebugPickingMode>()
+        app.register_type::<PointerDebugOverlayOf>()
+            .register_type::<PointerDebugOverlay>()
+            .init_resource::<DebugPickingMode>()
             .add_systems(
                 PreUpdate,
                 pointer_debug_visibility.in_set(PickingSystems::PostHover),
@@ -146,26 +148,52 @@ pub fn log_pointer_event_trace<E: Debug + Clone + Reflect>(
     }
 }
 
-/// Adds [`PointerDebug`] to pointers automatically.
-pub fn add_pointer_debug(
-    mut commands: Commands,
-    pointers: Query<Entity, (With<PointerId>, Without<PointerDebug>)>,
-) {
-    for entity in &pointers {
-        commands.entity(entity).insert(PointerDebug::default());
+/// Relates a debug overlay entity to the pointer it visualizes.
+#[derive(Component, Reflect)]
+#[reflect(Component)]
+#[relationship(relationship_target = PointerDebugOverlay)]
+pub struct PointerDebugOverlayOf {
+    /// The pointer visualized by this debug overlay.
+    #[relationship]
+    pub pointer: Entity,
+}
+
+/// Stores the debug overlay entity associated with a pointer.
+#[derive(Component, Reflect)]
+#[reflect(Component)]
+#[relationship_target(relationship = PointerDebugOverlayOf, linked_spawn)]
+pub struct PointerDebugOverlay {
+    overlay: Entity,
+}
+
+impl PointerDebugOverlay {
+    /// Returns the entity containing the pointer's debug overlay.
+    pub fn overlay(&self) -> Entity {
+        self.overlay
     }
 }
 
-/// Hide text from pointers.
+/// Adds [`PointerDebug`] to pointers automatically.
+pub fn add_pointer_debug(
+    mut commands: Commands,
+    pointers: Query<Entity, (With<PointerId>, Without<PointerDebugOverlay>)>,
+) {
+    for pointer in &pointers {
+        commands.spawn(PointerDebugOverlayOf { pointer });
+        commands.entity(pointer).insert(PointerDebug::default());
+    }
+}
+
+/// Hide pointer debug overlays.
 pub fn pointer_debug_visibility(
     debug: Res<DebugPickingMode>,
-    mut pointers: Query<&mut Visibility, With<PointerId>>,
+    mut overlays: Query<&mut Visibility, With<PointerDebugOverlayOf>>,
 ) {
     let visible = match *debug {
         DebugPickingMode::Disabled => Visibility::Hidden,
         _ => Visibility::Visible,
     };
-    for mut vis in &mut pointers {
+    for mut vis in &mut overlays {
         *vis = visible;
     }
 }
@@ -245,10 +273,10 @@ pub fn debug_draw(
     mut commands: Commands,
     camera_query: Query<(Entity, &Camera, &RenderTarget)>,
     primary_window: Query<Entity, With<bevy_window::PrimaryWindow>>,
-    pointers: Query<(Entity, &PointerId, &PointerDebug)>,
+    pointers: Query<(&PointerDebugOverlay, &PointerId, &PointerDebug)>,
     scale: Res<UiScale>,
 ) {
-    for (entity, id, debug) in &pointers {
+    for (overlay, id, debug) in &pointers {
         let Some(pointer_location) = &debug.location else {
             continue;
         };
@@ -269,7 +297,7 @@ pub fn debug_draw(
             }
 
             commands
-                .entity(entity)
+                .entity(overlay.overlay())
                 .despawn_related::<Children>()
                 .insert((
                     Node {

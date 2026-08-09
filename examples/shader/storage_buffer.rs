@@ -7,7 +7,7 @@ use bevy::{
     shader::ShaderRef,
 };
 
-const SHADER_ASSET_PATH: &str = "shaders/storage_buffer.wgsl";
+const SHADER_ASSET_PATH: &str = "shaders/storage_buffer.wesl";
 
 fn main() {
     App::new()
