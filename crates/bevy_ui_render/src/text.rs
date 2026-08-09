@@ -4,7 +4,7 @@ use bevy_color::Alpha;
 use bevy_ecs::prelude::*;
 use bevy_input_focus::InputFocus;
 use bevy_math::{Affine2, Rect, Vec2};
-use bevy_render::Extract;
+use bevy_render::{sync_world::MainEntityHashSet, Extract};
 use bevy_sprite::BorderRect;
 use bevy_text::{EditableText, TextColor, TextCursorStyle, TextLayoutInfo, TextReadWriteMode};
 use bevy_ui::{
@@ -36,9 +36,12 @@ pub fn extract_text_cursor(
     >,
     camera_map: Extract<UiCameraMap>,
     input_focus: Extract<Option<Res<InputFocus>>>,
+    mut changed_entities: Local<MainEntityHashSet>,
 ) {
     let extracted_uinodes = extracted_uinodes.into_inner();
     let mut camera_mapper = camera_map.get_mapper();
+
+    changed_entities.extend(extracted_uinodes.changed.keys().copied());
 
     for (
         entity,
@@ -52,10 +55,9 @@ pub fn extract_text_cursor(
         cursor_style,
         rwmode,
         editable_text,
-    ) in extracted_uinodes
-        .changed
-        .keys()
-        .flat_map(|main_entity| text_node_query.get(main_entity.entity()).ok())
+    ) in changed_entities
+        .drain()
+        .filter_map(|main_entity| text_node_query.get(main_entity.entity()).ok())
     {
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
         if !inherited_visibility.get() || uinode.is_empty() {
@@ -147,33 +149,30 @@ pub fn extract_text_cursor(
                     }
                 }
 
-                extracted_uinodes
-                    .objects
-                    .entry(entity.into())
-                    .or_insert_with(|| (extracted_camera_entity, Default::default()))
-                    .1
-                    .insert(
-                        commands.spawn_empty().id(),
-                        ExtractedUiNode {
-                            z_order: stack_index.0 as f32 + stack_z_offsets::TEXT_SELECTION,
-                            clip,
-                            image: AssetId::default(),
-                            transform: transform * Affine2::from_translation(selection.center()),
-                            item: ExtractedUiItem::Node {
-                                color: selection_color,
-                                rect: Rect {
-                                    min: Vec2::ZERO,
-                                    max: selection.size(),
-                                },
-                                atlas_scaling: None,
-                                flip_x: false,
-                                flip_y: false,
-                                border: BorderRect::default(),
-                                border_radius,
-                                node_type: NodeType::Rect,
+                extracted_uinodes.add(
+                    &mut commands,
+                    entity.into(),
+                    extracted_camera_entity,
+                    ExtractedUiNode {
+                        z_order: stack_index.0 as f32 + stack_z_offsets::TEXT_SELECTION,
+                        clip,
+                        image: AssetId::default(),
+                        transform: transform * Affine2::from_translation(selection.center()),
+                        item: ExtractedUiItem::Node {
+                            color: selection_color,
+                            rect: Rect {
+                                min: Vec2::ZERO,
+                                max: selection.size(),
                             },
+                            atlas_scaling: None,
+                            flip_x: false,
+                            flip_y: false,
+                            border: BorderRect::default(),
+                            border_radius,
+                            node_type: NodeType::Rect,
                         },
-                    );
+                    },
+                );
             }
         }
 
@@ -182,33 +181,30 @@ pub fn extract_text_cursor(
             && !cursor_style.color.is_fully_transparent()
             && *rwmode != TextReadWriteMode::Static
         {
-            extracted_uinodes
-                .objects
-                .entry(entity.into())
-                .or_insert_with(|| (extracted_camera_entity, Default::default()))
-                .1
-                .insert(
-                    commands.spawn_empty().id(),
-                    ExtractedUiNode {
-                        z_order: stack_index.0 as f32 + stack_z_offsets::TEXT_CURSOR,
-                        clip,
-                        image: AssetId::default(),
-                        transform: transform * Affine2::from_translation(cursor_rect.center()),
-                        item: ExtractedUiItem::Node {
-                            color: cursor_style.color.to_linear(),
-                            rect: Rect {
-                                min: Vec2::ZERO,
-                                max: cursor_rect.size(),
-                            },
-                            atlas_scaling: None,
-                            flip_x: false,
-                            flip_y: false,
-                            border: BorderRect::default(),
-                            border_radius: ResolvedBorderRadius::default(),
-                            node_type: NodeType::Rect,
+            extracted_uinodes.add(
+                &mut commands,
+                entity.into(),
+                extracted_camera_entity,
+                ExtractedUiNode {
+                    z_order: stack_index.0 as f32 + stack_z_offsets::TEXT_CURSOR,
+                    clip,
+                    image: AssetId::default(),
+                    transform: transform * Affine2::from_translation(cursor_rect.center()),
+                    item: ExtractedUiItem::Node {
+                        color: cursor_style.color.to_linear(),
+                        rect: Rect {
+                            min: Vec2::ZERO,
+                            max: cursor_rect.size(),
                         },
+                        atlas_scaling: None,
+                        flip_x: false,
+                        flip_y: false,
+                        border: BorderRect::default(),
+                        border_radius: ResolvedBorderRadius::default(),
+                        node_type: NodeType::Rect,
                     },
-                );
+                },
+            );
         }
     }
 }
@@ -234,9 +230,12 @@ pub fn extract_preedit_underlines(
         >,
     >,
     camera_map: Extract<UiCameraMap>,
+    mut changed_entities: Local<MainEntityHashSet>,
 ) {
     let extracted_uinodes = extracted_uinodes.into_inner();
     let mut camera_mapper = camera_map.get_mapper();
+
+    changed_entities.extend(extracted_uinodes.changed.keys().copied());
 
     for (
         entity,
@@ -249,10 +248,9 @@ pub fn extract_preedit_underlines(
         target_camera,
         stack_index,
         editable_text,
-    ) in extracted_uinodes
-        .changed
-        .keys()
-        .flat_map(|main_entity| text_node_query.get(main_entity.entity()).ok())
+    ) in changed_entities
+        .drain()
+        .filter_map(|main_entity| text_node_query.get(main_entity.entity()).ok())
     {
         if !inherited_visibility.get()
             || uinode.is_empty()
@@ -277,33 +275,30 @@ pub fn extract_preedit_underlines(
         let color = text_color.0.to_linear();
 
         for rect in text_layout_info.preedit_underline_rects.iter() {
-            extracted_uinodes
-                .objects
-                .entry(entity.into())
-                .or_insert_with(|| (extracted_camera_entity, Default::default()))
-                .1
-                .insert(
-                    commands.spawn_empty().id(),
-                    ExtractedUiNode {
-                        z_order: stack_index.0 as f32 + stack_z_offsets::TEXT_STRIKETHROUGH,
-                        clip,
-                        image: AssetId::default(),
-                        transform: transform * Affine2::from_translation(rect.center()),
-                        item: ExtractedUiItem::Node {
-                            color,
-                            rect: Rect {
-                                min: Vec2::ZERO,
-                                max: rect.size(),
-                            },
-                            atlas_scaling: None,
-                            flip_x: false,
-                            flip_y: false,
-                            border: BorderRect::default(),
-                            border_radius: ResolvedBorderRadius::default(),
-                            node_type: NodeType::Rect,
+            extracted_uinodes.add(
+                &mut commands,
+                entity.into(),
+                extracted_camera_entity,
+                ExtractedUiNode {
+                    z_order: stack_index.0 as f32 + stack_z_offsets::TEXT_STRIKETHROUGH,
+                    clip,
+                    image: AssetId::default(),
+                    transform: transform * Affine2::from_translation(rect.center()),
+                    item: ExtractedUiItem::Node {
+                        color,
+                        rect: Rect {
+                            min: Vec2::ZERO,
+                            max: rect.size(),
                         },
+                        atlas_scaling: None,
+                        flip_x: false,
+                        flip_y: false,
+                        border: BorderRect::default(),
+                        border_radius: ResolvedBorderRadius::default(),
+                        node_type: NodeType::Rect,
                     },
-                );
+                },
+            );
         }
     }
 }

@@ -15,6 +15,7 @@ use bevy_ecs::prelude::ReflectComponent;
 use bevy_ecs::prelude::ReflectResource;
 use bevy_ecs::resource::Resource;
 use bevy_ecs::system::Commands;
+use bevy_ecs::system::Local;
 use bevy_ecs::system::Query;
 use bevy_ecs::system::Res;
 use bevy_ecs::system::ResMut;
@@ -22,6 +23,7 @@ use bevy_math::Affine2;
 use bevy_math::Rect;
 use bevy_math::Vec2;
 use bevy_reflect::Reflect;
+use bevy_render::sync_world::MainEntityHashSet;
 use bevy_render::Extract;
 use bevy_sprite::BorderRect;
 use bevy_ui::ui_transform::UiGlobalTransform;
@@ -187,15 +189,17 @@ pub fn extract_debug_overlay(
     >,
     ui_stack: Extract<Res<UiStack>>,
     camera_map: Extract<UiCameraMap>,
+    mut changed_entities: Local<MainEntityHashSet>,
 ) {
     let extracted_uinodes = extracted_uinodes.into_inner();
     let mut camera_mapper = camera_map.get_mapper();
 
+    changed_entities.extend(extracted_uinodes.changed.keys().copied());
+
     for (entity, uinode, stack_index, transform, visibility, maybe_clip, computed_target, debug) in
-        extracted_uinodes
-            .changed
-            .keys()
-            .flat_map(|main_entity| uinode_query.get(main_entity.entity()).ok())
+        changed_entities
+            .drain()
+            .filter_map(|main_entity| uinode_query.get(main_entity.entity()).ok())
     {
         let debug_options = debug.copied().unwrap_or((*debug_options.as_ref()).into());
         if !debug_options.enabled {
@@ -221,36 +225,33 @@ pub fn extract_debug_overlay(
                 return;
             }
 
-            extracted_uinodes
-                .objects
-                .entry(entity.into())
-                .or_insert_with(|| (extracted_camera_entity, Default::default()))
-                .1
-                .insert(
-                    commands.spawn_empty().id(),
-                    ExtractedUiNode {
-                        // Keep all overlays above UI, and nudge each type slightly in Z so ordering is stable.
-                        z_order,
-                        clip: maybe_clip
-                            .filter(|_| !debug_options.show_clipped)
-                            .map(|clip| clip.clip),
-                        image: AssetId::default(),
-                        transform: transform * Affine2::from_translation(rect.center()),
-                        item: ExtractedUiItem::Node {
-                            color,
-                            rect: Rect {
-                                min: Vec2::ZERO,
-                                max: rect.size(),
-                            },
-                            atlas_scaling: None,
-                            flip_x: false,
-                            flip_y: false,
-                            border,
-                            border_radius: radius,
-                            node_type: NodeType::Border(shader_flags::BORDER_ALL),
+            extracted_uinodes.add(
+                &mut commands,
+                entity.into(),
+                extracted_camera_entity,
+                ExtractedUiNode {
+                    // Keep all overlays above UI, and nudge each type slightly in Z so ordering is stable.
+                    z_order,
+                    clip: maybe_clip
+                        .filter(|_| !debug_options.show_clipped)
+                        .map(|clip| clip.clip),
+                    image: AssetId::default(),
+                    transform: transform * Affine2::from_translation(rect.center()),
+                    item: ExtractedUiItem::Node {
+                        color,
+                        rect: Rect {
+                            min: Vec2::ZERO,
+                            max: rect.size(),
                         },
+                        atlas_scaling: None,
+                        flip_x: false,
+                        flip_y: false,
+                        border,
+                        border_radius: radius,
+                        node_type: NodeType::Border(shader_flags::BORDER_ALL),
                     },
-                );
+                },
+            );
         };
 
         let border_box = Rect::from_center_size(Vec2::ZERO, uinode.size);

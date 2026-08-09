@@ -324,7 +324,7 @@ pub fn extract_shadows(
                 commands.entity(render_entity).despawn();
                 changed.push(ChangedUiObject {
                     render_entity,
-                    prev_camera_entity,
+                    camera_entity: prev_camera_entity,
                 });
             }
         }
@@ -434,7 +434,7 @@ pub fn extract_shadows(
             commands.entity(render_entity).despawn();
             changed.push(ChangedUiObject {
                 render_entity,
-                prev_camera_entity,
+                camera_entity: prev_camera_entity,
             });
         }
     }

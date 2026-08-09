@@ -466,7 +466,7 @@ pub fn extract_gradients(
                 commands.entity(render_entity).despawn();
                 changed.push(ChangedUiObject {
                     render_entity,
-                    prev_camera_entity,
+                    camera_entity: prev_camera_entity,
                 });
             }
         }
@@ -510,29 +510,26 @@ pub fn extract_gradients(
                         target.physical_size().as_vec2(),
                         &mut sorted_stops,
                     );
-                    extracted_gradients
-                        .objects
-                        .entry(main_entity)
-                        .or_insert_with(|| (extracted_camera_entity, Default::default()))
-                        .1
-                        .insert(
-                            commands.spawn_empty().id(),
-                            ExtractedGradient {
-                                stack_index: stack_index.0,
-                                transform: transform.into(),
-                                stops: extracted_stops,
-                                rect: Rect {
-                                    min: Vec2::ZERO,
-                                    max: uinode.size,
-                                },
-                                clip: clip.map(|clip| clip.clip),
-                                node_type,
-                                border_radius: uinode.border_radius,
-                                border: uinode.border,
-                                resolved_gradient: ResolvedGradient::Linear { angle: 0.0 },
-                                color_space: gradient.get_color_space(),
+                    extracted_gradients.add(
+                        &mut commands,
+                        main_entity,
+                        extracted_camera_entity,
+                        ExtractedGradient {
+                            stack_index: stack_index.0,
+                            transform: transform.into(),
+                            stops: extracted_stops,
+                            rect: Rect {
+                                min: Vec2::ZERO,
+                                max: uinode.size,
                             },
-                        );
+                            clip: clip.map(|clip| clip.clip),
+                            node_type,
+                            border_radius: uinode.border_radius,
+                            border: uinode.border,
+                            resolved_gradient: ResolvedGradient::Linear { angle: 0.0 },
+                            color_space: gradient.get_color_space(),
+                        },
+                    );
                     continue;
                 }
                 match gradient {
@@ -551,29 +548,26 @@ pub fn extract_gradients(
                             &mut sorted_stops,
                         );
 
-                        extracted_gradients
-                            .objects
-                            .entry(main_entity)
-                            .or_insert_with(|| (extracted_camera_entity, Default::default()))
-                            .1
-                            .insert(
-                                commands.spawn_empty().id(),
-                                ExtractedGradient {
-                                    stack_index: stack_index.0,
-                                    transform: transform.into(),
-                                    stops: extracted_stops,
-                                    rect: Rect {
-                                        min: Vec2::ZERO,
-                                        max: uinode.size,
-                                    },
-                                    clip: clip.map(|clip| clip.clip),
-                                    node_type,
-                                    border_radius: uinode.border_radius,
-                                    border: uinode.border,
-                                    resolved_gradient: ResolvedGradient::Linear { angle: *angle },
-                                    color_space: *color_space,
+                        extracted_gradients.add(
+                            &mut commands,
+                            main_entity,
+                            extracted_camera_entity,
+                            ExtractedGradient {
+                                stack_index: stack_index.0,
+                                transform: transform.into(),
+                                stops: extracted_stops,
+                                rect: Rect {
+                                    min: Vec2::ZERO,
+                                    max: uinode.size,
                                 },
-                            );
+                                clip: clip.map(|clip| clip.clip),
+                                node_type,
+                                border_radius: uinode.border_radius,
+                                border: uinode.border,
+                                resolved_gradient: ResolvedGradient::Linear { angle: *angle },
+                                color_space: *color_space,
+                            },
+                        );
                     }
                     Gradient::Radial(RadialGradient {
                         color_space,
@@ -604,29 +598,26 @@ pub fn extract_gradients(
                             &mut sorted_stops,
                         );
 
-                        extracted_gradients
-                            .objects
-                            .entry(main_entity)
-                            .or_insert_with(|| (extracted_camera_entity, Default::default()))
-                            .1
-                            .insert(
-                                commands.spawn_empty().id(),
-                                ExtractedGradient {
-                                    stack_index: stack_index.0,
-                                    transform: transform.into(),
-                                    stops: computed_stops,
-                                    rect: Rect {
-                                        min: Vec2::ZERO,
-                                        max: uinode.size,
-                                    },
-                                    clip: clip.map(|clip| clip.clip),
-                                    node_type,
-                                    border_radius: uinode.border_radius,
-                                    border: uinode.border,
-                                    resolved_gradient: ResolvedGradient::Radial { center: c, size },
-                                    color_space: *color_space,
+                        extracted_gradients.add(
+                            &mut commands,
+                            main_entity,
+                            extracted_camera_entity,
+                            ExtractedGradient {
+                                stack_index: stack_index.0,
+                                transform: transform.into(),
+                                stops: computed_stops,
+                                rect: Rect {
+                                    min: Vec2::ZERO,
+                                    max: uinode.size,
                                 },
-                            );
+                                clip: clip.map(|clip| clip.clip),
+                                node_type,
+                                border_radius: uinode.border_radius,
+                                border: uinode.border,
+                                resolved_gradient: ResolvedGradient::Radial { center: c, size },
+                                color_space: *color_space,
+                            },
+                        );
                     }
                     Gradient::Conic(ConicGradient {
                         color_space,
@@ -663,32 +654,29 @@ pub fn extract_gradients(
 
                         interpolate_color_stops(&mut extracted_color_stops, 0., TAU);
 
-                        extracted_gradients
-                            .objects
-                            .entry(main_entity)
-                            .or_insert_with(|| (extracted_camera_entity, Default::default()))
-                            .1
-                            .insert(
-                                commands.spawn_empty().id(),
-                                ExtractedGradient {
-                                    stack_index: stack_index.0,
-                                    transform: transform.into(),
-                                    stops: extracted_color_stops,
-                                    rect: Rect {
-                                        min: Vec2::ZERO,
-                                        max: uinode.size,
-                                    },
-                                    clip: clip.map(|clip| clip.clip),
-                                    node_type,
-                                    border_radius: uinode.border_radius,
-                                    border: uinode.border,
-                                    resolved_gradient: ResolvedGradient::Conic {
-                                        start: *start,
-                                        center: g_start,
-                                    },
-                                    color_space: *color_space,
+                        extracted_gradients.add(
+                            &mut commands,
+                            main_entity,
+                            extracted_camera_entity,
+                            ExtractedGradient {
+                                stack_index: stack_index.0,
+                                transform: transform.into(),
+                                stops: extracted_color_stops,
+                                rect: Rect {
+                                    min: Vec2::ZERO,
+                                    max: uinode.size,
                                 },
-                            );
+                                clip: clip.map(|clip| clip.clip),
+                                node_type,
+                                border_radius: uinode.border_radius,
+                                border: uinode.border,
+                                resolved_gradient: ResolvedGradient::Conic {
+                                    start: *start,
+                                    center: g_start,
+                                },
+                                color_space: *color_space,
+                            },
+                        );
                     }
                 }
             }
@@ -722,7 +710,7 @@ pub fn extract_gradients(
             commands.entity(render_entity).despawn();
             changed.push(ChangedUiObject {
                 render_entity,
-                prev_camera_entity,
+                camera_entity: prev_camera_entity,
             });
         }
     }

@@ -318,7 +318,7 @@ pub fn extract_ui_texture_slices(
                 commands.entity(render_entity).despawn();
                 changed.push(ChangedUiObject {
                     render_entity,
-                    prev_camera_entity,
+                    camera_entity: prev_camera_entity,
                 });
             }
         }
@@ -378,31 +378,28 @@ pub fn extract_ui_texture_slices(
             }
         };
 
-        extracted_ui_slicers
-            .objects
-            .entry(main_entity)
-            .or_insert_with(|| (extracted_camera_entity, Default::default()))
-            .1
-            .insert(
-                commands.spawn_empty().id(),
-                ExtractedUiTextureSlice {
-                    stack_index: stack_index.0,
-                    transform: Affine2::from(*transform)
-                        * Affine2::from_translation(visual_box.center()),
-                    color: image.color.into(),
-                    rect: Rect {
-                        min: Vec2::ZERO,
-                        max: visual_box.size(),
-                    },
-                    clip: clip.map(|clip| clip.clip),
-                    image: image.image.id(),
-                    image_scale_mode,
-                    atlas_rect,
-                    flip_x: image.flip_x,
-                    flip_y: image.flip_y,
-                    inverse_scale_factor: uinode.inverse_scale_factor,
+        extracted_ui_slicers.add(
+            &mut commands,
+            main_entity,
+            extracted_camera_entity,
+            ExtractedUiTextureSlice {
+                stack_index: stack_index.0,
+                transform: Affine2::from(*transform)
+                    * Affine2::from_translation(visual_box.center()),
+                color: image.color.into(),
+                rect: Rect {
+                    min: Vec2::ZERO,
+                    max: visual_box.size(),
                 },
-            );
+                clip: clip.map(|clip| clip.clip),
+                image: image.image.id(),
+                image_scale_mode,
+                atlas_rect,
+                flip_x: image.flip_x,
+                flip_y: image.flip_y,
+                inverse_scale_factor: uinode.inverse_scale_factor,
+            },
+        );
     }
 
     // Only remove the render-world data if we didn't handle the node above.
@@ -430,7 +427,7 @@ pub fn extract_ui_texture_slices(
             commands.entity(render_entity).despawn();
             changed.push(ChangedUiObject {
                 render_entity,
-                prev_camera_entity,
+                camera_entity: prev_camera_entity,
             });
         }
     }

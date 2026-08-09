@@ -70,7 +70,7 @@ pub use debug_overlay::{GlobalUiDebugOptions, UiDebugOptions};
 
 use gradient::GradientPlugin;
 
-use bevy_platform::collections::{hash_map::Entry, HashMap, HashSet};
+use bevy_platform::collections::{HashMap, HashSet};
 use bevy_text::{
     ComputedTextBlock, EditableText, PositionedGlyph, Strikethrough, StrikethroughColor,
     TextBackgroundColor, TextColor, TextCursorStyle, TextLayoutInfo, TextSpan, Underline,
@@ -438,9 +438,10 @@ pub struct ExtractedGlyph {
 /// nodes associated with a main-world entity when it changes.
 pub type ExtractedUiNodes = UiRenderObjects<ExtractedUiNode>;
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ChangedUiObject {
     render_entity: Entity,
-    prev_camera_entity: Entity,
+    camera_entity: Entity,
 }
 
 /// A query filter that matches all UI nodes.
@@ -708,7 +709,7 @@ pub fn extract_uinode_changes(
                 commands.entity(render_entity).despawn();
                 changed_ui_nodes.push(ChangedUiObject {
                     render_entity,
-                    prev_camera_entity,
+                    camera_entity: prev_camera_entity,
                 });
             }
         }
@@ -753,9 +754,12 @@ pub fn extract_uinode_background_colors(
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
+    mut changed_entities: Local<MainEntityHashSet>,
 ) {
     let extracted_uinodes = extracted_uinodes.into_inner();
     let mut camera_mapper = camera_map.get_mapper();
+
+    changed_entities.extend(extracted_uinodes.changed.keys().copied());
 
     for (
         entity,
@@ -767,10 +771,9 @@ pub fn extract_uinode_background_colors(
         camera,
         background_color,
         maybe_outer_color,
-    ) in extracted_uinodes
-        .changed
-        .keys()
-        .flat_map(|main_entity| uinode_query.get(main_entity.entity()).ok())
+    ) in changed_entities
+        .drain()
+        .filter_map(|main_entity| uinode_query.get(main_entity.entity()).ok())
     {
         // Skip invisible backgrounds
         if !inherited_visibility.get()
@@ -781,21 +784,15 @@ pub fn extract_uinode_background_colors(
             continue;
         }
 
-        let extracted_sub_uinodes = match extracted_uinodes.objects.entry(entity.into()) {
-            Entry::Occupied(entry) => &mut entry.into_mut().1,
-            Entry::Vacant(entry) => {
-                let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
-                    continue;
-                };
-                &mut entry
-                    .insert((extracted_camera_entity, Default::default()))
-                    .1
-            }
+        let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
+            continue;
         };
 
         if !background_color.is_fully_transparent() {
-            extracted_sub_uinodes.insert(
-                commands.spawn_empty().id(),
+            extracted_uinodes.add(
+                &mut commands,
+                entity.into(),
+                extracted_camera_entity,
                 ExtractedUiNode {
                     z_order: stack_index.0 as f32 + stack_z_offsets::BACKGROUND_COLOR,
                     clip: clip.map(|clip| clip.clip),
@@ -821,8 +818,10 @@ pub fn extract_uinode_background_colors(
         if let Some(outer_color) = maybe_outer_color
             && !outer_color.0.is_fully_transparent()
         {
-            extracted_sub_uinodes.insert(
-                commands.spawn_empty().id(),
+            extracted_uinodes.add(
+                &mut commands,
+                entity.into(),
+                extracted_camera_entity,
                 ExtractedUiNode {
                     z_order: stack_index.0 as f32 + stack_z_offsets::BACKGROUND_COLOR,
                     clip: clip.map(|clip| clip.clip),
@@ -865,9 +864,12 @@ pub fn extract_uinode_images(
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
+    mut changed_entities: Local<MainEntityHashSet>,
 ) {
     let extracted_uinodes = extracted_uinodes.into_inner();
     let mut camera_mapper = camera_map.get_mapper();
+
+    changed_entities.extend(extracted_uinodes.changed.keys().copied());
 
     for (
         entity,
@@ -879,9 +881,8 @@ pub fn extract_uinode_images(
         camera,
         image,
         image_size,
-    ) in extracted_uinodes
-        .changed
-        .keys()
+    ) in changed_entities
+        .drain()
         .flat_map(|main_entity| uinode_query.get(main_entity.entity()).ok())
     {
         let visual_box = match image.visual_box {
@@ -943,31 +944,28 @@ pub fn extract_uinode_images(
             None
         };
 
-        extracted_uinodes
-            .objects
-            .entry(entity.into())
-            .or_insert_with(|| (extracted_camera_entity, Default::default()))
-            .1
-            .insert(
-                commands.spawn_empty().id(),
-                ExtractedUiNode {
-                    z_order: stack_index.0 as f32 + stack_z_offsets::IMAGE,
-                    clip: clip.map(|clip| clip.clip),
-                    image: image.image.id(),
-                    transform: Affine2::from(*transform)
-                        * Affine2::from_translation(visual_box.center()),
-                    item: ExtractedUiItem::Node {
-                        color: image.color.into(),
-                        rect,
-                        atlas_scaling,
-                        flip_x: image.flip_x,
-                        flip_y: image.flip_y,
-                        border: BorderRect::ZERO,
-                        border_radius: uinode.border_radius,
-                        node_type: NodeType::Rect,
-                    },
+        extracted_uinodes.add(
+            &mut commands,
+            entity.into(),
+            extracted_camera_entity,
+            ExtractedUiNode {
+                z_order: stack_index.0 as f32 + stack_z_offsets::IMAGE,
+                clip: clip.map(|clip| clip.clip),
+                image: image.image.id(),
+                transform: Affine2::from(*transform)
+                    * Affine2::from_translation(visual_box.center()),
+                item: ExtractedUiItem::Node {
+                    color: image.color.into(),
+                    rect,
+                    atlas_scaling,
+                    flip_x: image.flip_x,
+                    flip_y: image.flip_y,
+                    border: BorderRect::ZERO,
+                    border_radius: uinode.border_radius,
+                    node_type: NodeType::Rect,
                 },
-            );
+            },
+        );
     }
 }
 
@@ -2013,6 +2011,7 @@ pub fn queue_ui_items<E>(
     extracted_views: Query<&ExtractedView>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
+    mut processed_ui_objects: Local<HashSet<ChangedUiObject>>,
     system_param: StaticSystemParam<E::PipelineKeySystemParam>,
 ) where
     E: UiRenderObject,
@@ -2027,14 +2026,19 @@ pub fn queue_ui_items<E>(
     let mut maybe_cached_camera_view = None;
 
     // Loop over all changed nodes.
-    for (main_entity, extracted_sub_uinodes) in extracted_nodes.changed.iter() {
+    for (main_entity, extracted_sub_ui_objects) in extracted_nodes.changed.iter() {
         // Examine all changed nodes (which includes nodes that were removed),
         // and remove all the corresponding phase items.
-        for changed_uinode in extracted_sub_uinodes.iter() {
+        processed_ui_objects.clear();
+        for changed_ui_object in extracted_sub_ui_objects.iter() {
+            if !processed_ui_objects.insert(*changed_ui_object) {
+                continue;
+            }
+
             // Refresh the cached camera view.
             CachedCameraView::<E::ViewPipelineKeyBuilder>::update::<E>(
                 &mut maybe_cached_camera_view,
-                changed_uinode.prev_camera_entity,
+                changed_ui_object.camera_entity,
                 &render_views,
                 &ui_camera_views,
                 &extracted_views,
@@ -2050,7 +2054,7 @@ pub fn queue_ui_items<E>(
             else {
                 continue;
             };
-            transparent_render_phase.remove(changed_uinode.render_entity, *main_entity);
+            transparent_render_phase.remove(changed_ui_object.render_entity, *main_entity);
         }
 
         // If the UI node no longer exists, stop here.
@@ -2574,6 +2578,35 @@ where
             objects: default(),
             changed: default(),
         }
+    }
+}
+
+impl<E> UiRenderObjects<E>
+where
+    E: UiRenderObject,
+{
+    pub fn add(
+        &mut self,
+        commands: &mut Commands,
+        main_entity: MainEntity,
+        extracted_camera_entity: Entity,
+        object: E,
+    ) {
+        let render_entity = commands.spawn_empty().id();
+
+        self.objects
+            .entry(main_entity)
+            .or_insert_with(|| (extracted_camera_entity, Default::default()))
+            .1
+            .insert(render_entity, object);
+
+        self.changed
+            .entry(main_entity)
+            .or_default()
+            .push(ChangedUiObject {
+                render_entity,
+                camera_entity: extracted_camera_entity,
+            });
     }
 }
 

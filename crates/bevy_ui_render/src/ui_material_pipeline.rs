@@ -438,7 +438,7 @@ pub fn extract_ui_material_nodes<M>(
                 commands.entity(render_entity).despawn();
                 changed.push(ChangedUiObject {
                     render_entity,
-                    prev_camera_entity,
+                    camera_entity: prev_camera_entity,
                 });
             }
         }
@@ -464,26 +464,23 @@ pub fn extract_ui_material_nodes<M>(
 
         nodes_processed_this_frame.insert(main_entity);
 
-        extracted_uinodes
-            .objects
-            .entry(main_entity)
-            .or_insert_with(|| (extracted_camera_entity, Default::default()))
-            .1
-            .insert(
-                commands.spawn_empty().id(),
-                ExtractedUiMaterialNode {
-                    stack_index: stack_index.0,
-                    transform: transform.into(),
-                    material: handle.id(),
-                    rect: Rect {
-                        min: Vec2::ZERO,
-                        max: computed_node.size(),
-                    },
-                    border: computed_node.border(),
-                    border_radius: computed_node.border_radius().into(),
-                    clip: clip.map(|clip| clip.clip),
+        extracted_uinodes.add(
+            &mut commands,
+            main_entity,
+            extracted_camera_entity,
+            ExtractedUiMaterialNode {
+                stack_index: stack_index.0,
+                transform: transform.into(),
+                material: handle.id(),
+                rect: Rect {
+                    min: Vec2::ZERO,
+                    max: computed_node.size(),
                 },
-            );
+                border: computed_node.border(),
+                border_radius: computed_node.border_radius().into(),
+                clip: clip.map(|clip| clip.clip),
+            },
+        );
     }
 
     // Only remove the render-world data if we didn't handle the node above.
@@ -511,7 +508,7 @@ pub fn extract_ui_material_nodes<M>(
             commands.entity(render_entity).despawn();
             changed.push(ChangedUiObject {
                 render_entity,
-                prev_camera_entity,
+                camera_entity: prev_camera_entity,
             });
         }
     }
