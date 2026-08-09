@@ -171,13 +171,13 @@ fn load_module<'a>(
         for msg in shader_compilation_msg.iter() {
             match msg.message_type {
                 wgpu::CompilationMessageType::Error => {
-                    bevy_log::error!("Shader compilation: {} at {:?}", msg.message, msg.location)
+                    bevy_log::error!("Shader compilation: {} at {:?}", msg.message, msg.location);
                 }
                 wgpu::CompilationMessageType::Warning => {
-                    bevy_log::warn!("Shader compilation: {} at {:?}", msg.message, msg.location)
+                    bevy_log::warn!("Shader compilation: {} at {:?}", msg.message, msg.location);
                 }
                 wgpu::CompilationMessageType::Info => {
-                    bevy_log::info!("Shader compilation: {} at {:?}", msg.message, msg.location)
+                    bevy_log::info!("Shader compilation: {} at {:?}", msg.message, msg.location);
                 }
             }
         }
@@ -375,6 +375,7 @@ impl PipelineCache {
     }
 
     /// Wait for a render pipeline to finish compiling.
+    #[cfg(not(target_arch = "wasm32"))]
     #[inline]
     pub fn block_on_render_pipeline(&mut self, id: CachedRenderPipelineId) {
         if self.pipelines.len() <= id.id() {
@@ -478,7 +479,11 @@ impl PipelineCache {
 
     /// Inserts a [`Shader`] into this cache with the provided [`AssetId`].
     pub fn set_shader(&mut self, id: AssetId<Shader>, shader: Shader) {
+        #[cfg(target_arch = "wasm32")]
+        let mut shader_cache = self.shader_cache.try_lock().unwrap();
+        #[cfg(not(target_arch = "wasm32"))]
         let mut shader_cache = bevy_tasks::block_on(self.shader_cache.lock());
+
         let pipelines_to_queue = shader_cache.set_shader(id, shader);
         for cached_pipeline in pipelines_to_queue {
             self.pipelines[cached_pipeline].state = CachedPipelineState::Queued;
@@ -488,7 +493,11 @@ impl PipelineCache {
 
     /// Removes a [`Shader`] from this cache if it exists.
     pub fn remove_shader(&mut self, shader: AssetId<Shader>) {
+        #[cfg(target_arch = "wasm32")]
+        let mut shader_cache = self.shader_cache.try_lock().unwrap();
+        #[cfg(not(target_arch = "wasm32"))]
         let mut shader_cache = bevy_tasks::block_on(self.shader_cache.lock());
+
         let pipelines_to_queue = shader_cache.remove(shader);
         for cached_pipeline in pipelines_to_queue {
             self.pipelines[cached_pipeline].state = CachedPipelineState::Queued;
@@ -862,6 +871,31 @@ fn pipeline_error_context(cached_pipeline: &CachedPipeline) -> String {
     }
 }
 
+#[cfg(target_arch = "wasm32")]
+fn create_pipeline_task(
+    task: impl Future<Output = Result<Pipeline, ShaderCacheError>> + Send + 'static,
+    _sync: bool,
+) -> CachedPipelineState {
+    // On wasm, `block_on` is unsupported there ("condvar wait not supported").
+    // Spawn onto the task pool instead, which runs tasks on the JS event loop.
+    // The task is polled by [`PipelineCache::process_queue`] until it completes.
+    CachedPipelineState::Creating(bevy_tasks::AsyncComputeTaskPool::get().spawn_local(task))
+}
+
+#[cfg(all(
+    not(target_arch = "wasm32"),
+    any(target_os = "macos", not(feature = "multi_threaded"))
+))]
+fn create_pipeline_task(
+    task: impl Future<Output = Result<Pipeline, ShaderCacheError>> + Send + 'static,
+    _sync: bool,
+) -> CachedPipelineState {
+    match bevy_tasks::block_on(task) {
+        Ok(pipeline) => CachedPipelineState::Ok(pipeline),
+        Err(err) => CachedPipelineState::Err(err),
+    }
+}
+
 #[cfg(all(
     not(target_arch = "wasm32"),
     not(target_os = "macos"),
@@ -875,21 +909,6 @@ fn create_pipeline_task(
         return CachedPipelineState::Creating(bevy_tasks::AsyncComputeTaskPool::get().spawn(task));
     }
 
-    match bevy_tasks::block_on(task) {
-        Ok(pipeline) => CachedPipelineState::Ok(pipeline),
-        Err(err) => CachedPipelineState::Err(err),
-    }
-}
-
-#[cfg(any(
-    target_arch = "wasm32",
-    target_os = "macos",
-    not(feature = "multi_threaded")
-))]
-fn create_pipeline_task(
-    task: impl Future<Output = Result<Pipeline, ShaderCacheError>> + Send + 'static,
-    _sync: bool,
-) -> CachedPipelineState {
     match bevy_tasks::block_on(task) {
         Ok(pipeline) => CachedPipelineState::Ok(pipeline),
         Err(err) => CachedPipelineState::Err(err),
