@@ -116,6 +116,7 @@ bitflags = "2"
 itertools = "0.14"
 weak-table = "0.3"
 tracing = "0.1"
+async-lock = { version = "3.0", default-features = false }
 
 [dev-dependencies]
 proptest = "1"

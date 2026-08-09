@@ -86,6 +86,18 @@ impl<T> Default for ShaderData<T> {
     }
 }
 
+/// The type of function used to load shader module.
+///
+/// The returned future is tied to the lifetime of its inputs, allowing the
+/// loader to borrow from `shader_source` (e.g. `SpirV` data) while it runs.
+pub type ShaderLoadFn<ShaderModule, RenderDevice> = for<'a> fn(
+    &'a RenderDevice,
+    ShaderCacheSource<'a>,
+    &'a ValidateShader,
+) -> core::pin::Pin<
+    Box<dyn Future<Output = Result<ShaderModule, ShaderCacheError>> + Send + 'a>,
+>;
+
 /// A cache for shaders and shader imports, with asset state-tracking for
 /// waiting to load shaders until all imports are resolved.
 ///
@@ -96,11 +108,7 @@ impl<T> Default for ShaderData<T> {
 pub struct ShaderCache<ShaderModule, RenderDevice> {
     device: RenderDevice,
     data: HashMap<AssetId<Shader>, ShaderData<ShaderModule>>,
-    load_module: fn(
-        &RenderDevice,
-        ShaderCacheSource,
-        &ValidateShader,
-    ) -> Result<ShaderModule, ShaderCacheError>,
+    load_module: ShaderLoadFn<ShaderModule, RenderDevice>,
     module_path_to_asset_id: HashMap<wesl::syntax::ModulePath, AssetId<Shader>>,
     shaders: HashMap<AssetId<Shader>, Shader>,
     import_path_shaders: HashMap<ShaderImport, AssetId<Shader>>,
@@ -147,11 +155,7 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
     /// source into a module usable by the render device.
     pub fn new(
         device: RenderDevice,
-        load_module: fn(
-            &RenderDevice,
-            ShaderCacheSource,
-            &ValidateShader,
-        ) -> Result<ShaderModule, ShaderCacheError>,
+        load_module: ShaderLoadFn<ShaderModule, RenderDevice>,
     ) -> Self {
         Self {
             device,
@@ -175,7 +179,7 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
     /// the same `shader_defs` in a different order, or with redundancies, will
     /// not result in cache hits, and thus require re-composing the module and
     /// calling `load_module` again.
-    pub fn get(
+    pub async fn get(
         &mut self,
         pipeline: CachedPipelineId,
         id: AssetId<Shader>,
@@ -337,7 +341,8 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
                 };
 
                 let shader_module =
-                    (self.load_module)(&self.device, shader_source, &shader.validate_shader)?;
+                    (self.load_module)(&self.device, shader_source, &shader.validate_shader)
+                        .await?;
 
                 entry.insert(Arc::new(shader_module))
             }
@@ -547,10 +552,34 @@ mod tests {
     use super::*;
 
     fn test_cache() -> ShaderCache<String, ()> {
-        ShaderCache::new((), |_, source, _| match source {
-            ShaderCacheSource::Wgsl(wgsl) => Ok(wgsl),
-            _ => panic!("expected wgsl output"),
+        ShaderCache::new((), |_, source, _| {
+            Box::pin(async move {
+                match source {
+                    ShaderCacheSource::Wgsl(wgsl) => Ok(wgsl),
+                    _ => panic!("expected wgsl output"),
+                }
+            })
         })
+    }
+
+    trait ShaderModuleGetBlocking {
+        fn get_blocking(
+            &mut self,
+            pipeline: CachedPipelineId,
+            id: AssetId<Shader>,
+            shader_defs: &[ShaderDefVal],
+        ) -> Result<Arc<String>, ShaderCacheError>;
+    }
+
+    impl ShaderModuleGetBlocking for ShaderCache<String, ()> {
+        fn get_blocking(
+            &mut self,
+            pipeline: CachedPipelineId,
+            id: AssetId<Shader>,
+            shader_defs: &[ShaderDefVal],
+        ) -> Result<Arc<String>, ShaderCacheError> {
+            bevy_tasks::block_on(self.get(pipeline, id, shader_defs))
+        }
     }
 
     #[test]
@@ -560,7 +589,7 @@ mod tests {
         let (maths_id, lighting_id, root_id) = set_test_shaders(&mut cache);
 
         let compiled = cache
-            .get(0, root_id, &[ShaderDefVal::Bool("BRIGHT".into(), true)])
+            .get_blocking(0, root_id, &[ShaderDefVal::Bool("BRIGHT".into(), true)])
             .unwrap();
         assert!(compiled.contains("fn fragment"));
         assert!(compiled.contains("* 2.0"));
@@ -568,7 +597,7 @@ mod tests {
 
         let (maths, lighting, _) = test_shaders();
         assert!(cache.set_shader(lighting_id, lighting).contains(&0));
-        let _ = cache.get(0, root_id, &[ShaderDefVal::Bool("BRIGHT".into(), true)]);
+        let _ = cache.get_blocking(0, root_id, &[ShaderDefVal::Bool("BRIGHT".into(), true)]);
         assert!(cache.set_shader(maths_id, maths).contains(&0));
     }
 
@@ -594,7 +623,7 @@ fn fragment() -> @location(0) vec4<f32> {
         cache.set_shader(id, shader);
 
         let compiled = cache
-            .get(
+            .get_blocking(
                 0,
                 id,
                 &[ShaderDefVal::UInt("MATERIAL_BIND_GROUP".into(), 2)],
@@ -618,7 +647,7 @@ fn fragment() -> @location(0) vec4<f32> {
         cache.set_shader(root_id, root);
 
         let error = cache
-            .get(0, root_id, &[ShaderDefVal::Bool("BRIGHT".into(), true)])
+            .get_blocking(0, root_id, &[ShaderDefVal::Bool("BRIGHT".into(), true)])
             .expect_err("syntax error");
         let ShaderCacheError::ProcessShaderError(message) = error else {
             panic!("expected ProcessShaderError, got: {error:?}");
@@ -634,13 +663,13 @@ fn fragment() -> @location(0) vec4<f32> {
 
         cache.set_shader(root_id, root);
         assert!(matches!(
-            cache.get(0, root_id, &[]),
+            cache.get_blocking(0, root_id, &[]),
             Err(ShaderCacheError::ShaderImportNotYetAvailable)
         ));
 
         cache.set_shader(lighting_id, lighting);
         cache.set_shader(maths_id, maths);
-        cache.get(0, root_id, &[]).unwrap();
+        cache.get_blocking(0, root_id, &[]).unwrap();
     }
 
     fn test_shaders() -> (Shader, Shader, Shader) {
@@ -715,8 +744,8 @@ fn fragment() -> @location(0) vec4<f32> { return batch_b[0]; }
         cache.set_shader(id(3), root_a);
         cache.set_shader(id(4), root_b);
 
-        let compiled_a = cache.get(0, id(3), &[]).unwrap();
-        let compiled_b = cache.get(1, id(4), &[]).unwrap();
+        let compiled_a = cache.get_blocking(0, id(3), &[]).unwrap();
+        let compiled_b = cache.get_blocking(1, id(4), &[]).unwrap();
         assert!(compiled_a.contains("= 3;") && !compiled_a.contains("= 7;"));
         assert!(compiled_b.contains("= 7;") && !compiled_b.contains("= 3;"));
     }

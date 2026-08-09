@@ -24,7 +24,7 @@ use bevy_shader::{
 };
 use bevy_tasks::Task;
 use bevy_utils::default;
-use core::{future::Future, mem};
+use core::{future::Future, mem, pin::Pin};
 use std::sync::{Mutex, PoisonError};
 use wgpu::{PipelineCompilationOptions, VertexBufferLayout as RawVertexBufferLayout};
 
@@ -122,54 +122,72 @@ impl LayoutCache {
     }
 }
 
-fn load_module(
-    render_device: &RenderDevice,
-    shader_source: ShaderCacheSource,
-    validate_shader: &ValidateShader,
-) -> Result<WgpuWrapper<ShaderModule>, ShaderCacheError> {
-    let shader_source = match shader_source {
-        #[cfg(feature = "shader_format_spirv")]
-        ShaderCacheSource::SpirV(data) => wgpu::util::make_spirv(data),
-        #[cfg(not(feature = "shader_format_spirv"))]
-        ShaderCacheSource::SpirV(_) => {
-            unimplemented!("Enable feature \"shader_format_spirv\" to use SPIR-V shaders")
+fn load_module<'a>(
+    render_device: &'a RenderDevice,
+    shader_source: ShaderCacheSource<'a>,
+    validate_shader: &'a ValidateShader,
+) -> Pin<Box<dyn Future<Output = Result<WgpuWrapper<ShaderModule>, ShaderCacheError>> + Send + 'a>>
+{
+    Box::pin(async move {
+        let shader_source = match shader_source {
+            #[cfg(feature = "shader_format_spirv")]
+            ShaderCacheSource::SpirV(data) => wgpu::util::make_spirv(data),
+            #[cfg(not(feature = "shader_format_spirv"))]
+            ShaderCacheSource::SpirV(_) => {
+                unimplemented!("Enable feature \"shader_format_spirv\" to use SPIR-V shaders")
+            }
+            ShaderCacheSource::Wgsl(src) => ShaderSource::Wgsl(Cow::Owned(src)),
+        };
+        let module_descriptor = ShaderModuleDescriptor {
+            label: None,
+            source: shader_source,
+        };
+
+        let scope = render_device
+            .wgpu_device()
+            .push_error_scope(wgpu::ErrorFilter::Validation);
+
+        let shader_module = WgpuWrapper::new(match validate_shader {
+            ValidateShader::Enabled => {
+                render_device.create_and_validate_shader_module(module_descriptor)
+            }
+            // SAFETY: we are interfacing with shader code, which may contain undefined behavior,
+            // such as indexing out of bounds.
+            // The checks required are prohibitively expensive and a poor default for game engines.
+            ValidateShader::Disabled => unsafe {
+                render_device.create_shader_module(module_descriptor)
+            },
+        });
+
+        let error = scope.pop().await;
+
+        let validation_error = if let Some(wgpu::Error::Validation { description, .. }) = error {
+            Some(description)
+        } else {
+            None
+        };
+
+        let shader_compilation_msg = shader_module.get_compilation_info().await.messages;
+        for msg in shader_compilation_msg.iter() {
+            match msg.message_type {
+                wgpu::CompilationMessageType::Error => {
+                    bevy_log::error!("Shader compilation: {} at {:?}", msg.message, msg.location)
+                }
+                wgpu::CompilationMessageType::Warning => {
+                    bevy_log::warn!("Shader compilation: {} at {:?}", msg.message, msg.location)
+                }
+                wgpu::CompilationMessageType::Info => {
+                    bevy_log::info!("Shader compilation: {} at {:?}", msg.message, msg.location)
+                }
+            }
         }
-        ShaderCacheSource::Wgsl(src) => ShaderSource::Wgsl(Cow::Owned(src)),
-    };
-    let module_descriptor = ShaderModuleDescriptor {
-        label: None,
-        source: shader_source,
-    };
 
-    let scope = render_device
-        .wgpu_device()
-        .push_error_scope(wgpu::ErrorFilter::Validation);
-
-    let shader_module = WgpuWrapper::new(match validate_shader {
-        ValidateShader::Enabled => {
-            render_device.create_and_validate_shader_module(module_descriptor)
+        if let Some(validation_error) = validation_error {
+            return Err(ShaderCacheError::CreateShaderModule(validation_error));
         }
-        // SAFETY: we are interfacing with shader code, which may contain undefined behavior,
-        // such as indexing out of bounds.
-        // The checks required are prohibitively expensive and a poor default for game engines.
-        ValidateShader::Disabled => unsafe {
-            render_device.create_shader_module(module_descriptor)
-        },
-    });
 
-    let error = scope.pop();
-
-    // `now_or_never` will return Some if the future is ready and None otherwise.
-    // On native platforms, wgpu will yield the error immediately while on wasm it may take longer since the browser APIs are asynchronous.
-    // So to keep the complexity of the ShaderCache low, we will only catch this error early on native platforms,
-    // and on wasm the error will be handled by wgpu and crash the application.
-    if let Some(Some(wgpu::Error::Validation { description, .. })) =
-        bevy_tasks::futures::now_or_never(error)
-    {
-        return Err(ShaderCacheError::CreateShaderModule(description));
-    }
-
-    Ok(shader_module)
+        Ok(shader_module)
+    })
 }
 
 #[derive(Default)]
@@ -209,9 +227,9 @@ impl BindGroupLayoutCache {
 /// [`RenderSystems::Render`]: crate::RenderSystems::Render
 #[derive(Resource)]
 pub struct PipelineCache {
-    layout_cache: Arc<Mutex<LayoutCache>>,
+    layout_cache: Arc<async_lock::Mutex<LayoutCache>>,
     bindgroup_layout_cache: Arc<Mutex<BindGroupLayoutCache>>,
-    shader_cache: Arc<Mutex<ShaderCache<WgpuWrapper<ShaderModule>, RenderDevice>>>,
+    shader_cache: Arc<async_lock::Mutex<ShaderCache<WgpuWrapper<ShaderModule>, RenderDevice>>>,
     device: RenderDevice,
     pipelines: Vec<CachedPipeline>,
     waiting_pipelines: HashSet<CachedPipelineId>,
@@ -266,7 +284,10 @@ impl PipelineCache {
         ));
 
         Self {
-            shader_cache: Arc::new(Mutex::new(ShaderCache::new(device.clone(), load_module))),
+            shader_cache: Arc::new(async_lock::Mutex::new(ShaderCache::new(
+                device.clone(),
+                load_module,
+            ))),
             device,
             layout_cache: default(),
             bindgroup_layout_cache: default(),
@@ -457,7 +478,7 @@ impl PipelineCache {
 
     /// Inserts a [`Shader`] into this cache with the provided [`AssetId`].
     pub fn set_shader(&mut self, id: AssetId<Shader>, shader: Shader) {
-        let mut shader_cache = self.shader_cache.lock().unwrap();
+        let mut shader_cache = bevy_tasks::block_on(self.shader_cache.lock());
         let pipelines_to_queue = shader_cache.set_shader(id, shader);
         for cached_pipeline in pipelines_to_queue {
             self.pipelines[cached_pipeline].state = CachedPipelineState::Queued;
@@ -467,7 +488,7 @@ impl PipelineCache {
 
     /// Removes a [`Shader`] from this cache if it exists.
     pub fn remove_shader(&mut self, shader: AssetId<Shader>) {
-        let mut shader_cache = self.shader_cache.lock().unwrap();
+        let mut shader_cache = bevy_tasks::block_on(self.shader_cache.lock());
         let pipelines_to_queue = shader_cache.remove(shader);
         for cached_pipeline in pipelines_to_queue {
             self.pipelines[cached_pipeline].state = CachedPipelineState::Queued;
@@ -494,21 +515,27 @@ impl PipelineCache {
 
         create_pipeline_task(
             async move {
-                let mut shader_cache = shader_cache.lock().unwrap();
-                let mut layout_cache = layout_cache.lock().unwrap();
+                let mut shader_cache = shader_cache.lock().await;
+                let mut layout_cache = layout_cache.lock().await;
 
-                let vertex_module = match shader_cache.get(
-                    id,
-                    descriptor.vertex.shader.id(),
-                    &descriptor.vertex.shader_defs,
-                ) {
+                let vertex_module = match shader_cache
+                    .get(
+                        id,
+                        descriptor.vertex.shader.id(),
+                        &descriptor.vertex.shader_defs,
+                    )
+                    .await
+                {
                     Ok(module) => module,
                     Err(err) => return Err(err),
                 };
 
                 let fragment_module = match &descriptor.fragment {
                     Some(fragment) => {
-                        match shader_cache.get(id, fragment.shader.id(), &fragment.shader_defs) {
+                        match shader_cache
+                            .get(id, fragment.shader.id(), &fragment.shader_defs)
+                            .await
+                        {
                             Ok(module) => Some(module),
                             Err(err) => return Err(err),
                         }
@@ -616,14 +643,16 @@ impl PipelineCache {
 
         create_pipeline_task(
             async move {
-                let mut shader_cache = shader_cache.lock().unwrap();
-                let mut layout_cache = layout_cache.lock().unwrap();
+                let mut shader_cache = shader_cache.lock().await;
+                let mut layout_cache = layout_cache.lock().await;
 
-                let compute_module =
-                    match shader_cache.get(id, descriptor.shader.id(), &descriptor.shader_defs) {
-                        Ok(module) => module,
-                        Err(err) => return Err(err),
-                    };
+                let compute_module = match shader_cache
+                    .get(id, descriptor.shader.id(), &descriptor.shader_defs)
+                    .await
+                {
+                    Ok(module) => module,
+                    Err(err) => return Err(err),
+                };
 
                 let layout = if descriptor.layout.is_empty() && descriptor.immediate_size == 0 {
                     None
@@ -728,8 +757,8 @@ impl PipelineCache {
                     error!("failed to process shader error:\n{}", error_detail);
                     return;
                 }
-                ShaderCacheError::CreateShaderModule(description) => {
-                    error!("failed to create shader module: {}", description);
+                ShaderCacheError::CreateShaderModule { .. } => {
+                    error!("{err}");
                     return;
                 }
             },
