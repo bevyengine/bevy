@@ -84,7 +84,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
 
     // In non-bindless mode, we only have one buffer, so we simply use the tag
     // as an index into the array.
-    let color = material_data[tag].color;
+    let color = material_data.data_array[tag].color;
 
     let texture_color = textureSample(color_texture, color_texture_sampler, in.uv).rgb;
 
