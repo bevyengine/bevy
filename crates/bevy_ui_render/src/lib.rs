@@ -123,6 +123,7 @@ pub mod stack_z_offsets {
     pub const BORDER_GRADIENT: f32 = 0.03;
     pub const IMAGE: f32 = 0.04;
     pub const MATERIAL: f32 = 0.05;
+    pub const TEXT_SHADOW: f32 = 0.0525;
     pub const TEXT_SELECTION: f32 = 0.055;
     pub const TEXT: f32 = 0.06;
     pub const TEXT_STRIKETHROUGH: f32 = 0.07;
@@ -1639,7 +1640,7 @@ pub fn extract_text_shadows(
                         commands.spawn_empty().id(),
                         ExtractedUiNode {
                             transform: node_transform,
-                            z_order: stack_index.0 as f32 + stack_z_offsets::TEXT,
+                            z_order: stack_index.0 as f32 + stack_z_offsets::TEXT_SHADOW,
                             image: atlas_info.texture,
                             clip,
                             item: ExtractedUiItem::Glyphs {
@@ -1672,7 +1673,7 @@ pub fn extract_text_shadows(
                     .insert(
                         commands.spawn_empty().id(),
                         ExtractedUiNode {
-                            z_order: stack_index.0 as f32 + stack_z_offsets::TEXT,
+                            z_order: stack_index.0 as f32 + stack_z_offsets::TEXT_SHADOW,
                             clip,
                             image: AssetId::default(),
                             transform: node_transform
