@@ -2496,12 +2496,8 @@ impl RenderMaterialBindings {
     {
         let actual_material_layout = pipeline_cache.get_bind_group_layout(material_layout);
 
-        // Clear out the bind group builder (but retain its heap allocations; we
-        // don't want to allocate here).
-        self.bind_group_builder.clear();
-
         // Ask the material to build the bind group.
-        match material.build_bind_group(
+        let result = match material.build_bind_group(
             &actual_material_layout,
             render_device,
             material_param,
@@ -2565,7 +2561,13 @@ impl RenderMaterialBindings {
                 }
             }
             Err(other) => Err(PrepareAssetError::AsBindGroupError(other)),
-        }
+        };
+
+        // Clear out the bind group builder (but retain its heap allocations; we
+        // don't want to allocate here).
+        self.bind_group_builder.clear();
+
+        result
     }
 
     /// Removes a material asset from the render world.

@@ -247,7 +247,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                                 &mut #render_path::render_resource::encase::internal::Writer::new(
                                     &converted,
                                     &mut output.data_buffer,
-                                    0,
+                                    start_offset,
                                 ).unwrap(),
                             );
                             let min_size = <#converted_shader_type as #render_path::render_resource::ShaderType>::min_size().get() as usize;
