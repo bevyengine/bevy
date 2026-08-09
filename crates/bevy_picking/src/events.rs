@@ -74,8 +74,10 @@ use crate::{
 pub struct Pointer {
     /// The pointer that triggered this event
     pub id: PointerId,
-    /// The location of the pointer during this event
-    pub location: Location,
+    /// The [`NormalizedRenderTarget`] associated with the pointer, usually a window.
+    pub target: NormalizedRenderTarget,
+    /// The position of the pointer in the `target`.
+    pub position: Vec2,
     /// Whether to propagate the event via `PointerTraversal`
     /// For [`PointerEnter`] and [`PointerLeave`] events, this is set to false.
     pub(crate) propagate: bool,
@@ -86,7 +88,8 @@ impl Pointer {
     pub fn new(id: PointerId, location: Location) -> Self {
         Self {
             id,
-            location,
+            target: location.target,
+            position: location.position,
             propagate: true,
         }
     }
@@ -94,8 +97,17 @@ impl Pointer {
     pub(crate) fn without_propagate(&self) -> Self {
         Self {
             id: self.id,
-            location: self.location.clone(),
+            target: self.target.clone(),
+            position: self.position,
             propagate: false,
+        }
+    }
+
+    /// Returns the [`Location`] of this pointer.
+    pub fn location(&self) -> Location {
+        Location {
+            position: self.position,
+            target: self.target.clone(),
         }
     }
 }
@@ -135,7 +147,7 @@ where
 
         // Otherwise, send it to the window entity (unless this is a window entity).
         if window.is_none()
-            && let NormalizedRenderTarget::Window(window_ref) = event.pointer().location.target
+            && let NormalizedRenderTarget::Window(window_ref) = event.pointer().target
         {
             return Some(window_ref.entity());
         }
@@ -1036,11 +1048,7 @@ pub fn pointer_events(
         action,
     } in input_events.read().cloned()
     {
-        let pointer = Pointer {
-            id: pointer_id,
-            location: location.clone(),
-            propagate: true,
-        };
+        let pointer = Pointer::new(pointer_id, location.clone());
         match action {
             PointerAction::Press(button) => {
                 let state = pointer_state.get_mut(pointer_id, button);

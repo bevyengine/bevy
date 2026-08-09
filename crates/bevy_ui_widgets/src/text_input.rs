@@ -276,8 +276,8 @@ fn on_pointer_press(
     }
 
     let Some(local_pos) = transform.try_inverse().and_then(|inverse| {
-        let local_pos = inverse
-            .transform_point2(press.pointer.location.position * target.scale_factor() / ui_scale.0);
+        let local_pos =
+            inverse.transform_point2(press.pointer.position * target.scale_factor() / ui_scale.0);
         node.content_box()
             .contains(local_pos)
             .then(|| local_pos - node.content_box().min + editable_text.viewport.offset)
@@ -340,8 +340,7 @@ fn on_pointer_drag(
     }
 
     let Some(local_point) = transform.try_inverse().map(|inverse| {
-        inverse
-            .transform_point2(drag.pointer.location.position * target.scale_factor() / ui_scale.0)
+        inverse.transform_point2(drag.pointer.position * target.scale_factor() / ui_scale.0)
     }) else {
         return;
     };

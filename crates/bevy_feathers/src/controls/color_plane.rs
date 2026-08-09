@@ -346,7 +346,7 @@ fn on_pointer_press(
                 node,
                 node_target,
                 transform,
-                press.pointer.location.position,
+                press.pointer.position,
                 ui_scale.0,
                 false,
             );
@@ -401,7 +401,7 @@ fn on_drag(
                 node,
                 node_target,
                 transform,
-                drag.pointer.location.position,
+                drag.pointer.position,
                 ui_scale.0,
                 false,
             );
@@ -438,7 +438,7 @@ fn on_drag_end(
                 node,
                 node_target,
                 transform,
-                drag_end.pointer.location.position,
+                drag_end.pointer.position,
                 ui_scale.0,
                 true,
             );

@@ -276,8 +276,7 @@ fn spawn_box(
     }
 
     let (camera, camera_transform) = camera.into_inner();
-    let Ok(click_point) =
-        camera.viewport_to_world_2d(camera_transform, press.pointer.location.position)
+    let Ok(click_point) = camera.viewport_to_world_2d(camera_transform, press.pointer.position)
     else {
         return;
     };

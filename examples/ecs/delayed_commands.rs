@@ -42,7 +42,7 @@ fn click(
     for (entity, transform) in squares.iter() {
         // convert the pointer position to world position
         let mouse_world_pos = camera
-            .viewport_to_world_2d(camera_transform, click.pointer.location.position)
+            .viewport_to_world_2d(camera_transform, click.pointer.position)
             .unwrap();
 
         // delay the blinkiness by distance to cursor

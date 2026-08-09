@@ -194,14 +194,14 @@ struct TryPlot {
 fn on_drag_start(drag_start: On<PointerDragStart>, mut commands: Commands) {
     commands.trigger(TryPlot {
         entity: drag_start.entity,
-        location: drag_start.pointer.location.clone(),
+        location: drag_start.pointer.location(),
     });
 }
 
 fn on_drag(drag: On<PointerDrag>, mut commands: Commands) {
     commands.trigger(TryPlot {
         entity: drag.entity,
-        location: drag.pointer.location.clone(),
+        location: drag.pointer.location(),
     });
 }
 

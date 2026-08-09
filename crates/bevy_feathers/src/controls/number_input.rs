@@ -953,9 +953,9 @@ fn scrubber_on_release(
             }
 
             let Some(local_pos) = transform.try_inverse().map(|inverse| {
-                inverse.transform_point2(
-                    release.pointer.location.position * target.scale_factor() / ui_scale.0,
-                ) - node.content_box().min
+                inverse
+                    .transform_point2(release.pointer.position * target.scale_factor() / ui_scale.0)
+                    - node.content_box().min
                     + editable_text.viewport.offset
             }) else {
                 return;

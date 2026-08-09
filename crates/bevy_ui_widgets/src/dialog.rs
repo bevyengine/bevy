@@ -169,7 +169,7 @@ fn dialog_drag_start(
         warn!("Cannot get translation from dialog for dragging");
         state.start_dialog_translation = Val2::ZERO;
     }
-    state.start_pointer_location = drag_start.pointer.location.position / ui_scale.0;
+    state.start_pointer_location = drag_start.pointer.position / ui_scale.0;
 }
 
 /// Move a dialog by dragging its [`DialogDragHandle`], positioning it at the

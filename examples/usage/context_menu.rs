@@ -71,12 +71,12 @@ fn setup(mut commands: Commands) {
     commands.spawn_scene(bsn! {
         background()
         on(|press: On<PointerPress>, query: Query<(), With<ContextMenu>>, mut commands: Commands| {
-            debug!("click: {}", press.pointer.location.position);
+            debug!("click: {}", press.pointer.position);
 
             if query.is_empty() {
                 // Open the context menu at the pointer location if one does not exist
                 commands.trigger(OpenContextMenu {
-                    pos: press.pointer.location.position,
+                    pos: press.pointer.position,
                 });
             } else {
                 // Close the context menu if it exists

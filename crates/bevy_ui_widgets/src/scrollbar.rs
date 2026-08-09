@@ -160,7 +160,7 @@ fn scrollbar_on_pointer_down(
 
         let Some(normalized_pos) = node.normalize_point(
             *transform,
-            press.pointer.location.position * node_target.scale_factor() / ui_scale.0,
+            press.pointer.position * node_target.scale_factor() / ui_scale.0,
         ) else {
             return;
         };
