@@ -2,10 +2,10 @@
 
 use bevy::{
     color::palettes::basic,
+    ecs::event::PropagateEntityTrigger,
     prelude::*,
     ui_widgets::{ListBox, ListItem, ValueChange},
 };
-use bevy_ecs::event::PropagateEntityTrigger;
 
 /// event opening a new context menu at position `pos`
 #[derive(Event)]
