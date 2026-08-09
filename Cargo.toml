@@ -4556,7 +4556,7 @@ wasm = true
 name = "transform_gizmo"
 path = "examples/gizmos/transform_gizmo.rs"
 doc-scrape-examples = true
-required-features = ["free_camera"]
+required-features = ["free_camera", "bevy_feathers"]
 
 [package.metadata.example.transform_gizmo]
 name = "Transform Gizmo"
