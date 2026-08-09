@@ -16,9 +16,8 @@ use bevy_ecs::{
 };
 use bevy_mesh::MeshTag;
 use bevy_platform::collections::AlignedVec;
-use bytemuck::Pod;
+use bytemuck::{AnyBitPattern, NoUninit};
 use core::marker::PhantomData;
-use encase::ShaderType;
 use wgpu::BufferUsages;
 
 /// Buffer sizes are rounded up to the nearest power of this value.
@@ -39,7 +38,7 @@ pub trait GpuComponentArrayBuffer: Component + Send + Sync + 'static {
     /// An optional filter to apply to the query.
     type QueryFilter: QueryFilter;
     /// The packed GPU data.
-    type Out: Pod + ShaderType + Default;
+    type Out: NoUninit + AnyBitPattern;
 
     /// Packs the component into a form suitable for the GPU.
     ///

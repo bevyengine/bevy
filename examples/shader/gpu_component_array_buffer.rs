@@ -17,7 +17,7 @@ use bevy::{
         gpu_component_array_buffer::{
             GpuComponentArray, GpuComponentArrayBuffer, GpuComponentArrayBufferPlugin,
         },
-        render_resource::{AsBindGroup, ShaderType},
+        render_resource::AsBindGroup,
         storage::ShaderBuffer,
     },
     shader::ShaderRef,
@@ -79,7 +79,7 @@ struct CustomMaterialData {
 /// This is copied byte-by-byte to the GPU, not processed through
 /// [`ShaderType`]. Consequently, we must insert all padding ourselves. We pad
 /// the value out to 16 bytes, which is a good conservative practice.
-#[derive(Clone, Copy, Default, ShaderType, Pod, Zeroable)]
+#[derive(Clone, Copy, Pod, Zeroable)]
 #[repr(C)]
 struct GpuCustomMaterialData {
     /// The tint color to modulate the texture by.
