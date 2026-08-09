@@ -18,7 +18,7 @@ use bevy_input_focus::tab_navigation::TabGroup;
 use bevy_log::warn;
 use bevy_math::Vec2;
 use bevy_picking::{
-    events::{Drag, DragStart, Pointer, Press},
+    events::{PointerDrag, PointerDragStart, PointerPress},
     pointer::PointerButton,
 };
 use bevy_reflect::Reflect;
@@ -120,7 +120,7 @@ fn sync_dialog_z(stack: Res<DialogStack>, mut commands: Commands) {
 
 /// Raise a floating dialog to the front of the stack when it is pressed.
 fn bring_to_front(
-    press: On<Pointer<Press>>,
+    press: On<PointerPress>,
     q_dialog: Query<&Dialog, Without<ModalDialog>>,
     q_parent: Query<&ChildOf>,
     mut stack: ResMut<DialogStack>,
@@ -141,7 +141,7 @@ fn bring_to_front(
 
 /// Record the dialog's translation when a drag begins on its [`DialogDragHandle`].
 fn dialog_drag_start(
-    drag_start: On<Pointer<DragStart>>,
+    drag_start: On<PointerDragStart>,
     q_dialog: Query<(), With<Dialog>>,
     q_parent: Query<&ChildOf>,
     q_transform: Query<&UiTransform>,
@@ -169,13 +169,13 @@ fn dialog_drag_start(
         warn!("Cannot get translation from dialog for dragging");
         state.start_dialog_translation = Val2::ZERO;
     }
-    state.start_pointer_location = drag_start.pointer_location.position / ui_scale.0;
+    state.start_pointer_location = drag_start.pointer.location.position / ui_scale.0;
 }
 
 /// Move a dialog by dragging its [`DialogDragHandle`], positioning it at the
 /// drag-start translation plus the drag's cumulative distance.
 fn dialog_drag(
-    drag: On<Pointer<Drag>>,
+    drag: On<PointerDrag>,
     q_handle: Query<&DialogDragState, With<DialogDragHandle>>,
     q_dialog: Query<(), With<Dialog>>,
     q_parent: Query<&ChildOf>,

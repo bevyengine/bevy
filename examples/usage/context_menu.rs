@@ -5,7 +5,7 @@ use bevy::{
     prelude::*,
     ui_widgets::{ListBox, ListItem, ValueChange},
 };
-use std::fmt::Debug;
+use bevy_ecs::event::PropagateEntityTrigger;
 
 /// event opening a new context menu at position `pos`
 #[derive(Event)]
@@ -35,17 +35,20 @@ fn main() {
         .add_systems(Startup, setup)
         .add_observer(on_trigger_menu)
         .add_observer(on_trigger_close_menus)
-        .add_observer(text_color_on_hover::<Out>(basic::WHITE.into()))
-        .add_observer(text_color_on_hover::<Over>(basic::RED.into()))
+        .add_observer(text_color_on_hover::<PointerOut>(basic::WHITE.into()))
+        .add_observer(text_color_on_hover::<PointerOver>(basic::RED.into()))
         .run();
 }
 
 /// helper function to reduce code duplication when generating almost identical observers for the hover text color change effect
-fn text_color_on_hover<T: Debug + Clone + Reflect>(
+fn text_color_on_hover<
+    E: EntityEvent
+        + PointerEvent
+        + for<'a> Event<Trigger<'a> = PropagateEntityTrigger<true, E, PointerTraversal>>,
+>(
     color: Color,
-) -> impl FnMut(On<Pointer<T>>, Query<&mut TextColor, With<ContextMenuItemText>>, Query<&Children>)
-{
-    move |mut event: On<Pointer<T>>,
+) -> impl FnMut(On<E>, Query<&mut TextColor, With<ContextMenuItemText>>, Query<&Children>) {
+    move |mut event: On<E>,
           mut text_color: Query<&mut TextColor, With<ContextMenuItemText>>,
           children: Query<&Children>| {
         let Ok(children) = children.get(event.original_event_target()) else {
@@ -67,13 +70,13 @@ fn setup(mut commands: Commands) {
 
     commands.spawn_scene(bsn! {
         background()
-        on(|event: On<Pointer<Press>>, query: Query<(), With<ContextMenu>>, mut commands: Commands| {
-            debug!("click: {}", event.pointer_location.position);
+        on(|press: On<PointerPress>, query: Query<(), With<ContextMenu>>, mut commands: Commands| {
+            debug!("click: {}", press.pointer.location.position);
 
             if query.is_empty() {
                 // Open the context menu at the pointer location if one does not exist
                 commands.trigger(OpenContextMenu {
-                    pos: event.pointer_location.position,
+                    pos: press.pointer.location.position,
                 });
             } else {
                 // Close the context menu if it exists

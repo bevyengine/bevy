@@ -191,33 +191,34 @@ struct TryPlot {
     location: Location,
 }
 
-fn on_drag_start(event: On<Pointer<DragStart>>, mut commands: Commands) {
+fn on_drag_start(drag_start: On<PointerDragStart>, mut commands: Commands) {
     commands.trigger(TryPlot {
-        entity: event.entity,
-        location: event.pointer_location.clone(),
+        entity: drag_start.entity,
+        location: drag_start.pointer.location.clone(),
     });
 }
 
-fn on_drag(event: On<Pointer<Drag>>, mut commands: Commands) {
+fn on_drag(drag: On<PointerDrag>, mut commands: Commands) {
     commands.trigger(TryPlot {
-        entity: event.entity,
-        location: event.pointer_location.clone(),
+        entity: drag.entity,
+        location: drag.pointer.location.clone(),
     });
 }
 
 fn try_plot(
-    event: On<TryPlot>,
+    try_plot: On<TryPlot>,
     sprite: Query<(&Sprite, &Anchor, &GlobalTransform), With<SpriteToSave>>,
     camera: Single<(&Camera, &GlobalTransform)>,
     texture_atlases: Res<Assets<TextureAtlasLayout>>,
     draw_color: Res<DrawColor>,
     mut images: ResMut<Assets<Image>>,
 ) {
-    let Ok((sprite, anchor, sprite_transform)) = sprite.get(event.entity) else {
+    let Ok((sprite, anchor, sprite_transform)) = sprite.get(try_plot.entity) else {
         return;
     };
     let (camera, camera_transform) = camera.into_inner();
-    let Ok(world_position) = camera.viewport_to_world_2d(camera_transform, event.location.position)
+    let Ok(world_position) =
+        camera.viewport_to_world_2d(camera_transform, try_plot.location.position)
     else {
         return;
     };
@@ -256,7 +257,7 @@ const HIGHLIGHT_COLOR: Color = Color::Srgba(tailwind::NEUTRAL_500);
 const SELECTED_COLOR: Color = Color::Srgba(tailwind::RED_600);
 
 fn on_enter_selectable(
-    event: On<Pointer<Enter>>,
+    event: On<PointerEnter>,
     mut border: Query<&mut BorderColor, (With<SelectableColor>, Without<Selected>)>,
 ) {
     let Ok(mut border) = border.get_mut(event.entity) else {
@@ -267,7 +268,7 @@ fn on_enter_selectable(
 }
 
 fn on_leave_selectable(
-    event: On<Pointer<Leave>>,
+    event: On<PointerLeave>,
     mut border: Query<&mut BorderColor, (With<SelectableColor>, Without<Selected>)>,
 ) {
     let Ok(mut border) = border.get_mut(event.entity) else {
@@ -278,7 +279,7 @@ fn on_leave_selectable(
 }
 
 fn on_press_selectable(
-    event: On<Pointer<Press>>,
+    event: On<PointerPress>,
     mut borders: Query<(Entity, &mut BorderColor, &BackgroundColor), With<SelectableColor>>,
     mut draw_color: ResMut<DrawColor>,
     mut commands: Commands,

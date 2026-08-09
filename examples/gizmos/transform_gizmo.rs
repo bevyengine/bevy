@@ -120,7 +120,7 @@ fn setup(
 }
 
 fn on_click_select(
-    click: On<Pointer<Click>>,
+    click: On<PointerClick>,
     mut commands: Commands,
     existing: Query<Entity, With<TransformGizmoFocus>>,
 ) {

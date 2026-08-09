@@ -23,7 +23,9 @@ use bevy_input_focus::{FocusGained, FocusLost, FocusedInput, InputFocus, InputFo
 use bevy_log::{warn, warn_once};
 use bevy_math::ops;
 use bevy_picking::{
-    events::{Cancel, Drag, DragEnd, DragStart, Pointer, Press, Release},
+    events::{
+        PointerCancel, PointerDrag, PointerDragEnd, PointerDragStart, PointerPress, PointerRelease,
+    },
     hover::Hovered,
     pointer::PointerButton,
     PickingSystems,
@@ -888,7 +890,7 @@ fn number_input_on_focus_lost(
 }
 
 fn scrubber_on_press(
-    mut press: On<Pointer<Press>>,
+    mut press: On<PointerPress>,
     mut q_text_input: Query<&mut DragState>,
     q_number_input: Query<Has<InteractionDisabled>, With<FeathersNumberInput>>,
     q_parent: Query<&ChildOf>,
@@ -916,7 +918,7 @@ fn scrubber_on_press(
 }
 
 fn scrubber_on_release(
-    mut release: On<Pointer<Release>>,
+    mut release: On<PointerRelease>,
     mut q_text: Query<(
         &mut EditableText,
         &mut DragState,
@@ -952,7 +954,7 @@ fn scrubber_on_release(
 
             let Some(local_pos) = transform.try_inverse().map(|inverse| {
                 inverse.transform_point2(
-                    release.pointer_location.position * target.scale_factor() / ui_scale.0,
+                    release.pointer.location.position * target.scale_factor() / ui_scale.0,
                 ) - node.content_box().min
                     + editable_text.viewport.offset
             }) else {
@@ -970,7 +972,7 @@ fn scrubber_on_release(
 }
 
 fn scrubber_on_drag_start(
-    mut drag_start: On<Pointer<DragStart>>,
+    mut drag_start: On<PointerDragStart>,
     q_root: Query<(
         &NumberInputValue,
         Option<&SoftLimit>,
@@ -1039,7 +1041,7 @@ fn scrubber_on_drag_start(
 }
 
 fn scrubber_on_drag(
-    mut drag: On<Pointer<Drag>>,
+    mut drag: On<PointerDrag>,
     q_root: Query<(
         Option<&SoftLimit>,
         Option<&HardLimit>,
@@ -1085,7 +1087,7 @@ fn scrubber_on_drag(
 }
 
 fn scrubber_on_drag_end(
-    mut drag_end: On<Pointer<DragEnd>>,
+    mut drag_end: On<PointerDragEnd>,
     q_root: Query<(
         Option<&SoftLimit>,
         Option<&HardLimit>,
@@ -1134,7 +1136,7 @@ fn scrubber_on_drag_end(
 }
 
 fn scrubber_on_drag_cancel(
-    mut drag_cancel: On<Pointer<Cancel>>,
+    mut drag_cancel: On<PointerCancel>,
     q_parent: Query<&ChildOf>,
     mut q_text_input: Query<(
         &Hovered,
