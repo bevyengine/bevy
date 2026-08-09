@@ -17,9 +17,9 @@
 //! # struct MyComponent;
 //! # let mut world = World::new();
 //! world.spawn(MyComponent)
-//!     .observe(|mut event: On<PointerClick>| {
+//!     .observe(|mut click: On<PointerClick>| {
 //!         // Read the underlying pointer event data
-//!         println!("Pointer {:?} was just clicked!", event.pointer_id);
+//!         println!("Pointer {:?} was just clicked!", click.pointer.id);
 //!         // Stop the event from bubbling up the entity hierarchy
 //!         event.propagate(false);
 //!     });
