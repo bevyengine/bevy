@@ -27,7 +27,7 @@ mod debug_overlay;
 use bevy_a11y::AccessibilitySystems;
 use bevy_camera::visibility::InheritedVisibility;
 use bevy_camera::{Camera, Camera2d, Camera3d, RenderTarget};
-use bevy_ecs::entity::EntityIndexMap;
+use bevy_ecs::entity::{EntityHashSet, EntityIndexMap};
 use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_render::camera::{extract_cameras, CameraMainPassTextureFormats};
@@ -146,6 +146,7 @@ pub enum RenderUiSystems {
     ExtractCursor,
     ExtractDebug,
     ExtractGradient,
+    ExtractWipePhaseItemsIfCameraComponentsChanged,
 }
 
 /// Marker for controlling whether UI is rendered with or without anti-aliasing
@@ -258,6 +259,8 @@ impl Plugin for UiRenderPlugin {
                     RenderUiSystems::ExtractText,
                     RenderUiSystems::ExtractCursor,
                     RenderUiSystems::ExtractDebug,
+                    RenderUiSystems::ExtractGradient,
+                    RenderUiSystems::ExtractWipePhaseItemsIfCameraComponentsChanged,
                 )
                     .chain_weak(),
             )
@@ -278,6 +281,8 @@ impl Plugin for UiRenderPlugin {
                     extract_text_sections.in_set(RenderUiSystems::ExtractText),
                     extract_text_cursor.in_set(RenderUiSystems::ExtractCursor),
                     extract_preedit_underlines.in_set(RenderUiSystems::ExtractCursor),
+                    wipe_phase_items_if_camera_component_changed::<ExtractedUiNode, UiAntiAlias>
+                        .in_set(RenderUiSystems::ExtractWipePhaseItemsIfCameraComponentsChanged),
                     #[cfg(feature = "bevy_ui_debug")]
                     debug_overlay::extract_debug_overlay.in_set(RenderUiSystems::ExtractDebug),
                 ),
@@ -986,10 +991,13 @@ pub fn extract_uinode_borders(
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
+    mut changed_entities: Local<MainEntityHashSet>,
 ) {
     let extracted_uinodes = extracted_uinodes.into_inner();
     let image = AssetId::<Image>::default();
     let mut camera_mapper = camera_map.get_mapper();
+
+    changed_entities.extend(extracted_uinodes.changed.keys().copied());
 
     for (
         entity,
@@ -1001,10 +1009,9 @@ pub fn extract_uinode_borders(
         maybe_clip,
         camera,
         (maybe_border_color, maybe_outline),
-    ) in extracted_uinodes
-        .changed
-        .keys()
-        .flat_map(|main_entity| uinode_query.get(main_entity.entity()).ok())
+    ) in changed_entities
+        .drain()
+        .filter_map(|main_entity| uinode_query.get(main_entity.entity()).ok())
     {
         // Skip invisible borders and removed nodes
         if !inherited_visibility.get() || node.is_some_and(|node| node.display == Display::None) {
@@ -1072,12 +1079,7 @@ pub fn extract_uinode_borders(
                     },
                 };
 
-                extracted_uinodes
-                    .objects
-                    .entry(entity.into())
-                    .or_insert_with(|| (extracted_camera_entity, Default::default()))
-                    .1
-                    .insert(commands.spawn_empty().id(), node);
+                extracted_uinodes.add(&mut commands, entity.into(), extracted_camera_entity, node);
             }
         }
 
@@ -1088,33 +1090,30 @@ pub fn extract_uinode_borders(
         if let Some(outline) = maybe_outline.filter(|outline| !outline.color.is_fully_transparent())
         {
             let outline_size = computed_node.outlined_node_size();
-            extracted_uinodes
-                .objects
-                .entry(entity.into())
-                .or_insert_with(|| (extracted_camera_entity, Default::default()))
-                .1
-                .insert(
-                    commands.spawn_empty().id(),
-                    ExtractedUiNode {
-                        z_order: stack_index.0 as f32 + stack_z_offsets::BORDER,
-                        image,
-                        clip: maybe_clip.map(|clip| clip.clip),
-                        transform: transform.into(),
-                        item: ExtractedUiItem::Node {
-                            color: outline.color.into(),
-                            rect: Rect {
-                                max: outline_size,
-                                ..Default::default()
-                            },
-                            atlas_scaling: None,
-                            flip_x: false,
-                            flip_y: false,
-                            border: BorderRect::all(computed_node.outline_width()),
-                            border_radius: computed_node.outline_radius(),
-                            node_type: NodeType::Border(shader_flags::BORDER_ALL),
+            extracted_uinodes.add(
+                &mut commands,
+                entity.into(),
+                extracted_camera_entity,
+                ExtractedUiNode {
+                    z_order: stack_index.0 as f32 + stack_z_offsets::BORDER,
+                    image,
+                    clip: maybe_clip.map(|clip| clip.clip),
+                    transform: transform.into(),
+                    item: ExtractedUiItem::Node {
+                        color: outline.color.into(),
+                        rect: Rect {
+                            max: outline_size,
+                            ..Default::default()
                         },
+                        atlas_scaling: None,
+                        flip_x: false,
+                        flip_y: false,
+                        border: BorderRect::all(computed_node.outline_width()),
+                        border_radius: computed_node.outline_radius(),
+                        node_type: NodeType::Border(shader_flags::BORDER_ALL),
                     },
-                );
+                },
+            );
         }
     }
 }
@@ -1303,6 +1302,52 @@ pub fn extract_ui_camera_view(
     transparent_render_phases.retain(|entity, _| live_entities.contains(entity));
 }
 
+pub fn wipe_phase_items_if_camera_component_changed<E, C>(
+    changed_cameras_query: Extract<
+        Query<Entity, (Changed<C>, Or<(With<Camera2d>, With<Camera3d>)>)>,
+    >,
+    all_cameras_query: Extract<Query<RenderEntity, Or<(With<Camera2d>, With<Camera3d>)>>>,
+    mut removed_components: Extract<RemovedComponents<C>>,
+    render_objects: ResMut<UiRenderObjects<E>>,
+    mut cameras_to_invalidate: Local<EntityHashSet>,
+) where
+    E: UiRenderObject,
+    C: Component,
+{
+    for main_entity in changed_cameras_query
+        .iter()
+        .chain(removed_components.read())
+    {
+        let main_entity = MainEntity::from(main_entity);
+        if let Ok(camera_render_entity) = all_cameras_query.get(main_entity.entity()) {
+            cameras_to_invalidate.insert(camera_render_entity);
+        }
+    }
+
+    if cameras_to_invalidate.is_empty() {
+        return;
+    }
+
+    let render_objects = render_objects.into_inner();
+    for (main_entity, (camera_entity, render_entities)) in render_objects.objects.iter() {
+        if !cameras_to_invalidate.contains(camera_entity) {
+            continue;
+        }
+        for render_entity in render_entities.keys() {
+            render_objects
+                .changed
+                .entry(*main_entity)
+                .or_default()
+                .push(ChangedUiObject {
+                    render_entity: *render_entity,
+                    camera_entity: *camera_entity,
+                });
+        }
+    }
+
+    cameras_to_invalidate.clear();
+}
+
 pub fn extract_viewport_nodes(
     mut commands: Commands,
     extracted_uinodes: ResMut<ExtractedUiNodes>,
@@ -1320,9 +1365,12 @@ pub fn extract_viewport_nodes(
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
+    mut changed_entities: Local<MainEntityHashSet>,
 ) {
     let extracted_uinodes = extracted_uinodes.into_inner();
     let mut camera_mapper = camera_map.get_mapper();
+
+    changed_entities.extend(extracted_uinodes.changed.keys().copied());
 
     for (
         entity,
@@ -1333,10 +1381,9 @@ pub fn extract_viewport_nodes(
         clip,
         camera,
         viewport_node,
-    ) in extracted_uinodes
-        .changed
-        .keys()
-        .flat_map(|main_entity| uinode_query.get(main_entity.entity()).ok())
+    ) in changed_entities
+        .drain()
+        .filter_map(|main_entity| uinode_query.get(main_entity.entity()).ok())
     {
         // Skip invisible images
         if !inherited_visibility.get() || uinode.is_empty() {
@@ -1358,33 +1405,30 @@ pub fn extract_viewport_nodes(
             continue;
         };
 
-        extracted_uinodes
-            .objects
-            .entry(entity.into())
-            .or_insert_with(|| (extracted_camera_entity, Default::default()))
-            .1
-            .insert(
-                commands.spawn_empty().id(),
-                ExtractedUiNode {
-                    z_order: stack_index.0 as f32 + stack_z_offsets::IMAGE,
-                    clip: clip.map(|clip| clip.clip),
-                    image: image.id(),
-                    transform: transform.into(),
-                    item: ExtractedUiItem::Node {
-                        color: LinearRgba::WHITE,
-                        rect: Rect {
-                            min: Vec2::ZERO,
-                            max: uinode.size,
-                        },
-                        atlas_scaling: None,
-                        flip_x: false,
-                        flip_y: false,
-                        border: uinode.border(),
-                        border_radius: uinode.border_radius(),
-                        node_type: NodeType::Rect,
+        extracted_uinodes.add(
+            &mut commands,
+            entity.into(),
+            extracted_camera_entity,
+            ExtractedUiNode {
+                z_order: stack_index.0 as f32 + stack_z_offsets::IMAGE,
+                clip: clip.map(|clip| clip.clip),
+                image: image.id(),
+                transform: transform.into(),
+                item: ExtractedUiItem::Node {
+                    color: LinearRgba::WHITE,
+                    rect: Rect {
+                        min: Vec2::ZERO,
+                        max: uinode.size,
                     },
+                    atlas_scaling: None,
+                    flip_x: false,
+                    flip_y: false,
+                    border: uinode.border(),
+                    border_radius: uinode.border_radius(),
+                    node_type: NodeType::Rect,
                 },
-            );
+            },
+        );
     }
 }
 
@@ -1409,9 +1453,12 @@ pub fn extract_text_sections(
     >,
     text_styles: Extract<Query<&TextColor>>,
     camera_map: Extract<UiCameraMap>,
+    mut changed_entities: Local<MainEntityHashSet>,
 ) {
     let extracted_uinodes = extracted_uinodes.into_inner();
     let mut camera_mapper = camera_map.get_mapper();
+
+    changed_entities.extend(extracted_uinodes.changed.keys().copied());
 
     let mut glyphs = vec![];
 
@@ -1428,10 +1475,9 @@ pub fn extract_text_sections(
         text_layout_info,
         editable_text,
         cursor_style,
-    ) in extracted_uinodes
-        .changed
-        .keys()
-        .flat_map(|main_entity| uinode_query.get(main_entity.entity()).ok())
+    ) in changed_entities
+        .drain()
+        .filter_map(|main_entity| uinode_query.get(main_entity.entity()).ok())
     {
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
         if !inherited_visibility.get() || uinode.is_empty() {
@@ -1518,23 +1564,20 @@ pub fn extract_text_sections(
                 .get(i + 1)
                 .is_none_or(|info| info.atlas_info.texture != atlas_info.texture)
             {
-                extracted_uinodes
-                    .objects
-                    .entry(entity.into())
-                    .or_insert_with(|| (extracted_camera_entity, Default::default()))
-                    .1
-                    .insert(
-                        commands.spawn_empty().id(),
-                        ExtractedUiNode {
-                            z_order: stack_index.0 as f32 + stack_z_offsets::TEXT,
-                            image: atlas_info.texture,
-                            clip,
-                            item: ExtractedUiItem::Glyphs {
-                                glyphs: mem::take(&mut glyphs),
-                            },
-                            transform,
+                extracted_uinodes.add(
+                    &mut commands,
+                    entity.into(),
+                    extracted_camera_entity,
+                    ExtractedUiNode {
+                        z_order: stack_index.0 as f32 + stack_z_offsets::TEXT,
+                        image: atlas_info.texture,
+                        clip,
+                        item: ExtractedUiItem::Glyphs {
+                            glyphs: mem::take(&mut glyphs),
                         },
-                    );
+                        transform,
+                    },
+                );
             }
         }
     }
@@ -1560,9 +1603,12 @@ pub fn extract_text_shadows(
     >,
     text_decoration_query: Extract<Query<(Has<Strikethrough>, Has<Underline>)>>,
     camera_map: Extract<UiCameraMap>,
+    mut changed_entities: Local<MainEntityHashSet>,
 ) {
     let extracted_uinodes = extracted_uinodes.into_inner();
     let mut camera_mapper = camera_map.get_mapper();
+
+    changed_entities.extend(extracted_uinodes.changed.keys().copied());
 
     let mut glyphs = vec![];
 
@@ -1578,10 +1624,9 @@ pub fn extract_text_shadows(
         shadow,
         computed_block,
         editable_text,
-    ) in extracted_uinodes
-        .changed
-        .keys()
-        .flat_map(|main_entity| uinode_query.get(main_entity.entity()).ok())
+    ) in changed_entities
+        .drain()
+        .filter_map(|main_entity| uinode_query.get(main_entity.entity()).ok())
     {
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
         if !inherited_visibility.get() || uinode.is_empty() {
@@ -1629,23 +1674,20 @@ pub fn extract_text_shadows(
                 info.section_index != *section_index
                     || info.atlas_info.texture != atlas_info.texture
             }) {
-                extracted_uinodes
-                    .objects
-                    .entry(entity.into())
-                    .or_insert_with(|| (extracted_camera_entity, Default::default()))
-                    .1
-                    .insert(
-                        commands.spawn_empty().id(),
-                        ExtractedUiNode {
-                            transform: node_transform,
-                            z_order: stack_index.0 as f32 + stack_z_offsets::TEXT_SHADOW,
-                            image: atlas_info.texture,
-                            clip,
-                            item: ExtractedUiItem::Glyphs {
-                                glyphs: mem::take(&mut glyphs),
-                            },
+                extracted_uinodes.add(
+                    &mut commands,
+                    entity.into(),
+                    extracted_camera_entity,
+                    ExtractedUiNode {
+                        transform: node_transform,
+                        z_order: stack_index.0 as f32 + stack_z_offsets::TEXT_SHADOW,
+                        image: atlas_info.texture,
+                        clip,
+                        item: ExtractedUiItem::Glyphs {
+                            glyphs: mem::take(&mut glyphs),
                         },
-                    );
+                    },
+                );
             }
         }
 
@@ -1663,65 +1705,59 @@ pub fn extract_text_shadows(
             };
 
             if has_strikethrough {
-                extracted_uinodes
-                    .objects
-                    .entry(entity.into())
-                    .or_insert_with(|| (extracted_camera_entity, Default::default()))
-                    .1
-                    .insert(
-                        commands.spawn_empty().id(),
-                        ExtractedUiNode {
-                            z_order: stack_index.0 as f32 + stack_z_offsets::TEXT_SHADOW,
-                            clip,
-                            image: AssetId::default(),
-                            transform: node_transform
-                                * Affine2::from_translation(run.strikethrough_position()),
-                            item: ExtractedUiItem::Node {
-                                color: shadow.color.into(),
-                                rect: Rect {
-                                    min: Vec2::ZERO,
-                                    max: run.strikethrough_size(),
-                                },
-                                atlas_scaling: None,
-                                flip_x: false,
-                                flip_y: false,
-                                border: BorderRect::ZERO,
-                                border_radius: ResolvedBorderRadius::ZERO,
-                                node_type: NodeType::Rect,
+                extracted_uinodes.add(
+                    &mut commands,
+                    entity.into(),
+                    extracted_camera_entity,
+                    ExtractedUiNode {
+                        z_order: stack_index.0 as f32 + stack_z_offsets::TEXT_SHADOW,
+                        clip,
+                        image: AssetId::default(),
+                        transform: node_transform
+                            * Affine2::from_translation(run.strikethrough_position()),
+                        item: ExtractedUiItem::Node {
+                            color: shadow.color.into(),
+                            rect: Rect {
+                                min: Vec2::ZERO,
+                                max: run.strikethrough_size(),
                             },
+                            atlas_scaling: None,
+                            flip_x: false,
+                            flip_y: false,
+                            border: BorderRect::ZERO,
+                            border_radius: ResolvedBorderRadius::ZERO,
+                            node_type: NodeType::Rect,
                         },
-                    );
+                    },
+                );
             }
 
             if has_underline {
-                extracted_uinodes
-                    .objects
-                    .entry(entity.into())
-                    .or_insert_with(|| (extracted_camera_entity, Default::default()))
-                    .1
-                    .insert(
-                        commands.spawn_empty().id(),
-                        ExtractedUiNode {
-                            z_order: stack_index.0 as f32 + stack_z_offsets::TEXT,
-                            clip,
-                            image: AssetId::default(),
-                            transform: node_transform
-                                * Affine2::from_translation(run.underline_position()),
-                            item: ExtractedUiItem::Node {
-                                color: shadow.color.into(),
-                                rect: Rect {
-                                    min: Vec2::ZERO,
-                                    max: run.underline_size(),
-                                },
-                                atlas_scaling: None,
-                                flip_x: false,
-                                flip_y: false,
-                                border: BorderRect::ZERO,
-                                border_radius: ResolvedBorderRadius::ZERO,
-                                node_type: NodeType::Rect,
+                extracted_uinodes.add(
+                    &mut commands,
+                    entity.into(),
+                    extracted_camera_entity,
+                    ExtractedUiNode {
+                        z_order: stack_index.0 as f32 + stack_z_offsets::TEXT,
+                        clip,
+                        image: AssetId::default(),
+                        transform: node_transform
+                            * Affine2::from_translation(run.underline_position()),
+                        item: ExtractedUiItem::Node {
+                            color: shadow.color.into(),
+                            rect: Rect {
+                                min: Vec2::ZERO,
+                                max: run.underline_size(),
                             },
+                            atlas_scaling: None,
+                            flip_x: false,
+                            flip_y: false,
+                            border: BorderRect::ZERO,
+                            border_radius: ResolvedBorderRadius::ZERO,
+                            node_type: NodeType::Rect,
                         },
-                    );
+                    },
+                );
             }
         }
     }
@@ -1753,9 +1789,12 @@ pub fn extract_text_decorations(
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
+    mut changed_entities: Local<MainEntityHashSet>,
 ) {
     let extracted_uinodes = extracted_uinodes.into_inner();
     let mut camera_mapper = camera_map.get_mapper();
+
+    changed_entities.extend(extracted_uinodes.changed.keys().copied());
 
     for (
         entity,
@@ -1768,10 +1807,9 @@ pub fn extract_text_decorations(
         camera,
         text_layout_info,
         editable_text,
-    ) in extracted_uinodes
-        .changed
-        .keys()
-        .flat_map(|main_entity| uinode_query.get(main_entity.entity()).ok())
+    ) in changed_entities
+        .drain()
+        .filter_map(|main_entity| uinode_query.get(main_entity.entity()).ok())
     {
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
         if !inherited_visibility.get() || uinode.is_empty() {
@@ -1818,33 +1856,30 @@ pub fn extract_text_decorations(
             };
 
             if let Some(text_background_color) = text_background_color {
-                extracted_uinodes
-                    .objects
-                    .entry(entity.into())
-                    .or_insert_with(|| (extracted_camera_entity, Default::default()))
-                    .1
-                    .insert(
-                        commands.spawn_empty().id(),
-                        ExtractedUiNode {
-                            z_order: stack_index.0 as f32 + stack_z_offsets::TEXT,
-                            clip,
-                            image: AssetId::default(),
-                            transform: transform * Affine2::from_translation(run.bounds.center()),
-                            item: ExtractedUiItem::Node {
-                                color: text_background_color.0.to_linear(),
-                                rect: Rect {
-                                    min: Vec2::ZERO,
-                                    max: run.bounds.size(),
-                                },
-                                atlas_scaling: None,
-                                flip_x: false,
-                                flip_y: false,
-                                border: BorderRect::ZERO,
-                                border_radius: ResolvedBorderRadius::ZERO,
-                                node_type: NodeType::Rect,
+                extracted_uinodes.add(
+                    &mut commands,
+                    entity.into(),
+                    extracted_camera_entity,
+                    ExtractedUiNode {
+                        z_order: stack_index.0 as f32 + stack_z_offsets::TEXT,
+                        clip,
+                        image: AssetId::default(),
+                        transform: transform * Affine2::from_translation(run.bounds.center()),
+                        item: ExtractedUiItem::Node {
+                            color: text_background_color.0.to_linear(),
+                            rect: Rect {
+                                min: Vec2::ZERO,
+                                max: run.bounds.size(),
                             },
+                            atlas_scaling: None,
+                            flip_x: false,
+                            flip_y: false,
+                            border: BorderRect::ZERO,
+                            border_radius: ResolvedBorderRadius::ZERO,
+                            node_type: NodeType::Rect,
                         },
-                    );
+                    },
+                );
             }
 
             if maybe_strikethrough.is_some() {
@@ -1853,34 +1888,31 @@ pub fn extract_text_decorations(
                     .unwrap_or(text_color.0)
                     .to_linear();
 
-                extracted_uinodes
-                    .objects
-                    .entry(entity.into())
-                    .or_insert_with(|| (extracted_camera_entity, Default::default()))
-                    .1
-                    .insert(
-                        commands.spawn_empty().id(),
-                        ExtractedUiNode {
-                            z_order: stack_index.0 as f32 + stack_z_offsets::TEXT_STRIKETHROUGH,
-                            clip,
-                            image: AssetId::default(),
-                            transform: transform
-                                * Affine2::from_translation(run.strikethrough_position()),
-                            item: ExtractedUiItem::Node {
-                                color,
-                                rect: Rect {
-                                    min: Vec2::ZERO,
-                                    max: run.strikethrough_size(),
-                                },
-                                atlas_scaling: None,
-                                flip_x: false,
-                                flip_y: false,
-                                border: BorderRect::ZERO,
-                                border_radius: ResolvedBorderRadius::ZERO,
-                                node_type: NodeType::Rect,
+                extracted_uinodes.add(
+                    &mut commands,
+                    entity.into(),
+                    extracted_camera_entity,
+                    ExtractedUiNode {
+                        z_order: stack_index.0 as f32 + stack_z_offsets::TEXT_STRIKETHROUGH,
+                        clip,
+                        image: AssetId::default(),
+                        transform: transform
+                            * Affine2::from_translation(run.strikethrough_position()),
+                        item: ExtractedUiItem::Node {
+                            color,
+                            rect: Rect {
+                                min: Vec2::ZERO,
+                                max: run.strikethrough_size(),
                             },
+                            atlas_scaling: None,
+                            flip_x: false,
+                            flip_y: false,
+                            border: BorderRect::ZERO,
+                            border_radius: ResolvedBorderRadius::ZERO,
+                            node_type: NodeType::Rect,
                         },
-                    );
+                    },
+                );
             }
 
             if maybe_underline.is_some() {
@@ -1889,34 +1921,30 @@ pub fn extract_text_decorations(
                     .unwrap_or(text_color.0)
                     .to_linear();
 
-                extracted_uinodes
-                    .objects
-                    .entry(entity.into())
-                    .or_insert_with(|| (extracted_camera_entity, Default::default()))
-                    .1
-                    .insert(
-                        commands.spawn_empty().id(),
-                        ExtractedUiNode {
-                            z_order: stack_index.0 as f32 + stack_z_offsets::TEXT_STRIKETHROUGH,
-                            clip,
-                            image: AssetId::default(),
-                            transform: transform
-                                * Affine2::from_translation(run.underline_position()),
-                            item: ExtractedUiItem::Node {
-                                color,
-                                rect: Rect {
-                                    min: Vec2::ZERO,
-                                    max: run.underline_size(),
-                                },
-                                atlas_scaling: None,
-                                flip_x: false,
-                                flip_y: false,
-                                border: BorderRect::ZERO,
-                                border_radius: ResolvedBorderRadius::ZERO,
-                                node_type: NodeType::Rect,
+                extracted_uinodes.add(
+                    &mut commands,
+                    entity.into(),
+                    extracted_camera_entity,
+                    ExtractedUiNode {
+                        z_order: stack_index.0 as f32 + stack_z_offsets::TEXT_STRIKETHROUGH,
+                        clip,
+                        image: AssetId::default(),
+                        transform: transform * Affine2::from_translation(run.underline_position()),
+                        item: ExtractedUiItem::Node {
+                            color,
+                            rect: Rect {
+                                min: Vec2::ZERO,
+                                max: run.underline_size(),
                             },
+                            atlas_scaling: None,
+                            flip_x: false,
+                            flip_y: false,
+                            border: BorderRect::ZERO,
+                            border_radius: ResolvedBorderRadius::ZERO,
+                            node_type: NodeType::Rect,
                         },
-                    );
+                    },
+                );
             }
         }
     }
@@ -2693,7 +2721,7 @@ impl<'w, PKB> CachedCameraView<'w, PKB> {
                 .ok()
                 .and_then(|default_camera_view| {
                     let view = extracted_views.get(default_camera_view.0).ok()?;
-                    let pipeline_key_builder = render_views.get(default_camera_view.0).ok()?;
+                    let pipeline_key_builder = render_views.get(this_camera_entity).ok()?;
                     Some((view, pipeline_key_builder))
                 });
 

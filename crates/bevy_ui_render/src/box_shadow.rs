@@ -34,8 +34,9 @@ use bevy_utils::default;
 use bytemuck::{Pod, Zeroable};
 
 use crate::{
-    queue_ui_items, BoxShadowSamples, CachedCameraView, ChangedUiObject, RenderUiSystems,
-    TransparentUi, UiCameraMap, UiRenderObject, UiRenderObjects,
+    queue_ui_items, wipe_phase_items_if_camera_component_changed, BoxShadowSamples,
+    CachedCameraView, ChangedUiObject, RenderUiSystems, TransparentUi, UiCameraMap, UiRenderObject,
+    UiRenderObjects,
 };
 
 use super::{stack_z_offsets, QUAD_INDICES, QUAD_VERTEX_POSITIONS};
@@ -56,7 +57,16 @@ impl Plugin for BoxShadowPlugin {
                 .add_systems(RenderStartup, init_box_shadow_pipeline)
                 .add_systems(
                     ExtractSchedule,
-                    extract_shadows.in_set(RenderUiSystems::ExtractBoxShadows),
+                    (
+                        extract_shadows.in_set(RenderUiSystems::ExtractBoxShadows),
+                        wipe_phase_items_if_camera_component_changed::<
+                            ExtractedBoxShadow,
+                            BoxShadowSamples,
+                        >
+                            .in_set(
+                                RenderUiSystems::ExtractWipePhaseItemsIfCameraComponentsChanged,
+                            ),
+                    ),
                 )
                 .add_systems(
                     Render,
@@ -384,24 +394,21 @@ pub fn extract_shadows(
                 bottom_right: uinode.border_radius.bottom_right * spread_ratio,
             };
 
-            extracted_box_shadows
-                .objects
-                .entry(main_entity)
-                .or_insert_with(|| (extracted_camera_entity, Default::default()))
-                .1
-                .insert(
-                    commands.spawn_empty().id(),
-                    ExtractedBoxShadow {
-                        stack_index: stack_index.0,
-                        transform: Affine2::from(transform) * Affine2::from_translation(offset),
-                        color: drop_shadow.color.into(),
-                        bounds: shadow_size + 6. * blur_radius,
-                        clip: clip.map(|clip| clip.clip),
-                        radius,
-                        blur_radius,
-                        size: shadow_size,
-                    },
-                );
+            extracted_box_shadows.add(
+                &mut commands,
+                main_entity,
+                extracted_camera_entity,
+                ExtractedBoxShadow {
+                    stack_index: stack_index.0,
+                    transform: Affine2::from(transform) * Affine2::from_translation(offset),
+                    color: drop_shadow.color.into(),
+                    bounds: shadow_size + 6. * blur_radius,
+                    clip: clip.map(|clip| clip.clip),
+                    radius,
+                    blur_radius,
+                    size: shadow_size,
+                },
+            );
         }
     }
 

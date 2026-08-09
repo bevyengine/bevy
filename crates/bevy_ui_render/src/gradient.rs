@@ -54,9 +54,18 @@ impl Plugin for GradientPlugin {
                 .add_systems(RenderStartup, init_gradient_pipeline)
                 .add_systems(
                     ExtractSchedule,
-                    extract_gradients
-                        .in_set(RenderUiSystems::ExtractGradient)
-                        .after(extract_uinode_background_colors),
+                    (
+                        extract_gradients
+                            .in_set(RenderUiSystems::ExtractGradient)
+                            .after(extract_uinode_background_colors),
+                        wipe_phase_items_if_camera_component_changed::<
+                            ExtractedGradient,
+                            UiAntiAlias,
+                        >
+                            .in_set(
+                                RenderUiSystems::ExtractWipePhaseItemsIfCameraComponentsChanged,
+                            ),
+                    ),
                 )
                 .add_systems(
                     Render,
