@@ -1615,9 +1615,10 @@ impl<S: StandardUnitKind> UnitsFormat for S {
         let mut has_dot = false;
         let mut has_exp = false;
 
+        // TODO: replace with a better parser, once we settle on a standard parser for Bevy.
         for (i, c) in trimmed.chars().enumerate() {
             match c {
-                '0'..='9' => {
+                '0'..='9' | '+' | '-' => {
                     magnitude_end = i + 1;
                 }
                 '.' if !has_dot && !has_exp => {
@@ -1626,13 +1627,6 @@ impl<S: StandardUnitKind> UnitsFormat for S {
                 }
                 'e' | 'E' if !has_exp => {
                     has_exp = true;
-                    magnitude_end = i + 1;
-                }
-                '+' | '-'
-                    if has_exp
-                        && (trimmed.chars().nth(i - 1) == Some('e')
-                            || trimmed.chars().nth(i - 1) == Some('E')) =>
-                {
                     magnitude_end = i + 1;
                 }
                 ' ' | '\t' => {
@@ -1847,7 +1841,6 @@ mod tests {
     fn test_length_meters_parse() {
         let length = LengthMeters;
         let result = length.parse("100m".to_string(), NumberFormat::F64);
-        assert!(result.is_ok());
         match result.unwrap() {
             NumberInputValue::F64(val) => assert!((val - 100.0).abs() < 1e-6),
             _ => panic!("Expected F64 variant"),
@@ -1869,7 +1862,6 @@ mod tests {
     fn test_length_meters_convert_mm_to_m() {
         let length = LengthMeters;
         let result = length.parse("1mm".to_string(), NumberFormat::F64);
-        assert!(result.is_ok());
         match result.unwrap() {
             NumberInputValue::F64(val) => assert!((val - 0.001).abs() < 1e-6),
             _ => panic!("Expected F64 variant"),
@@ -1891,7 +1883,6 @@ mod tests {
     fn test_angle_degrees_parse() {
         let angle = AngleDegrees;
         let result = angle.parse("45d".to_string(), NumberFormat::F64);
-        assert!(result.is_ok());
         match result.unwrap() {
             NumberInputValue::F64(val) => assert!((val - std::f64::consts::PI / 4.0).abs() < 1e-6),
             _ => panic!("Expected F64 variant"),
@@ -1902,7 +1893,6 @@ mod tests {
     fn test_angle_degrees_convert_rad_to_deg() {
         let angle = AngleDegrees;
         let result = angle.parse("1rad".to_string(), NumberFormat::F64);
-        assert!(result.is_ok());
         match result.unwrap() {
             NumberInputValue::F64(val) => assert!((val - 1.0).abs() < 1e-6),
             _ => panic!("Expected F64 variant"),
@@ -1913,9 +1903,24 @@ mod tests {
     fn test_angle_degrees_parse_deg_suffix() {
         let angle = AngleDegrees;
         let result = angle.parse("90deg".to_string(), NumberFormat::F64);
-        assert!(result.is_ok());
         match result.unwrap() {
             NumberInputValue::F64(val) => assert!((val - std::f64::consts::PI / 2.0).abs() < 1e-6),
+            _ => panic!("Expected F64 variant"),
+        }
+    }
+
+    #[test]
+    fn test_parse_negative_numbers() {
+        let length = LengthMeters;
+        let result = length.parse("-100".to_string(), NumberFormat::F64);
+        match result.unwrap() {
+            NumberInputValue::F64(val) => assert!((val - (-100.0)).abs() < 1e-6),
+            _ => panic!("Expected F64 variant"),
+        }
+
+        let result = length.parse("-50.5cm".to_string(), NumberFormat::F64);
+        match result.unwrap() {
+            NumberInputValue::F64(val) => assert!((val - (-0.505)).abs() < 1e-6),
             _ => panic!("Expected F64 variant"),
         }
     }
