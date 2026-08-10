@@ -74,8 +74,6 @@ pub mod encase {
 
 pub use self::encase::{ShaderSize, ShaderType};
 
-pub use naga::ShaderStage;
-
 pub use bevy_material::{
     bind_group_layout_entries::{
         binding_types, BindGroupLayoutEntries, BindGroupLayoutEntryBuilder,

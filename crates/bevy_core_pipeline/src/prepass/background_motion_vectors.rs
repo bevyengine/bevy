@@ -12,7 +12,7 @@ use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    query::{Has, QueryItem, With, Without},
+    query::{Has, Or, QueryItem, With, Without},
     reflect::ReflectComponent,
     resource::Resource,
     schedule::IntoScheduleConfigs,
@@ -58,11 +58,11 @@ use crate::{
 #[reflect(Component, Default, Clone)]
 pub struct NoBackgroundMotionVectors;
 
-impl SyncComponent for NoBackgroundMotionVectors {
+impl SyncComponent<RenderApp> for NoBackgroundMotionVectors {
     type Target = Self;
 }
 
-impl ExtractComponent for NoBackgroundMotionVectors {
+impl ExtractComponent<RenderApp> for NoBackgroundMotionVectors {
     type QueryData = Read<NoBackgroundMotionVectors>;
     type QueryFilter = ();
     type Out = Self;
@@ -96,7 +96,7 @@ impl BackgroundMotionVectorsPlugin {
 
 impl Plugin for BackgroundMotionVectorsPlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "background_motion_vectors.wgsl");
+        embedded_asset!(app, "background_motion_vectors.wesl");
         app.register_type::<NoBackgroundMotionVectors>()
             .add_plugins(ExtractComponentPlugin::<NoBackgroundMotionVectors>::default());
 
@@ -127,6 +127,7 @@ impl Plugin for BackgroundMotionVectorsPlugin {
             .add_systems(
                 Render,
                 (
+                    cleanup_background_motion_vectors.in_set(RenderSystems::Prepare),
                     prepare_background_motion_vectors_pipelines.in_set(RenderSystems::Prepare),
                     prepare_background_motion_vectors_bind_groups
                         .in_set(RenderSystems::PrepareBindGroups),
@@ -179,7 +180,7 @@ fn init_background_motion_vectors_pipeline(
         fullscreen_shader: fullscreen_shader.clone(),
         fragment_shader: load_embedded_asset!(
             asset_server.as_ref(),
-            "background_motion_vectors.wgsl"
+            "background_motion_vectors.wesl"
         ),
     });
 }
@@ -245,6 +246,27 @@ impl SpecializedRenderPipeline for BackgroundMotionVectorsPipeline {
             }),
             ..default()
         }
+    }
+}
+
+fn cleanup_background_motion_vectors(
+    mut commands: Commands,
+    views: Query<
+        Entity,
+        (
+            With<BackgroundMotionVectorsPipelineId>,
+            Or<(
+                Without<MotionVectorPrepass>,
+                With<NoBackgroundMotionVectors>,
+            )>,
+        ),
+    >,
+) {
+    for entity in &views {
+        commands.entity(entity).remove::<(
+            BackgroundMotionVectorsPipelineId,
+            BackgroundMotionVectorsBindGroup,
+        )>();
     }
 }
 

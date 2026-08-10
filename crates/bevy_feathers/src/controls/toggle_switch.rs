@@ -8,7 +8,7 @@ use bevy_ecs::{
     entity::Entity,
     hierarchy::Children,
     lifecycle::RemovedComponents,
-    query::{Added, Changed, Has, Or, With},
+    query::{Added, Changed, Has, Or, With, Without},
     reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
     system::{Commands, Query},
@@ -20,11 +20,13 @@ use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::prelude::*;
 use bevy_ui::{
     percent, px, BorderRadius, Checked, InteractionDisabled, Node, PositionType, Pressed, UiRect,
+    UiSystems,
 };
 use bevy_ui_widgets::{ActivateOnPress, Checkbox};
 
 use crate::{
     constants::size,
+    controls::ColorSliderThumb,
     cursor::EntityCursor,
     focus::FocusIndicator,
     theme::{ThemeBackgroundColor, ThemeBorderColor},
@@ -39,6 +41,9 @@ use crate::{
 /// * [`bevy_ui_widgets::ValueChange<bool>`] with the new value when the toggle switch changes state.
 ///
 /// These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the bundle
+///
+/// A more complete explanation of how to control this widget can be found in the documentation
+/// for [`Checkbox`] and [`bevy_ui_widgets`].
 #[derive(SceneComponent, Default, Clone, Reflect)]
 #[reflect(Component, Clone, Default)]
 pub struct FeathersToggleSwitch;
@@ -82,7 +87,7 @@ impl FeathersToggleSwitch {
 /// Marker for the toggle switch slide
 #[derive(Component, Default, Clone, Reflect)]
 #[reflect(Component, Clone, Default)]
-struct ToggleSwitchSlide;
+pub(crate) struct ToggleSwitchSlide;
 
 /// Template function to spawn a toggle switch.
 ///
@@ -216,7 +221,7 @@ fn update_switch_styles_remove(
     q_children: Query<&Children>,
     mut q_slide: Query<
         (&mut Node, &ThemeBackgroundColor, &ThemeBorderColor),
-        With<ToggleSwitchSlide>,
+        (With<ToggleSwitchSlide>, Without<ColorSliderThumb>),
     >,
     mut removed_disabled: RemovedComponents<InteractionDisabled>,
     mut removed_checked: RemovedComponents<Checked>,
@@ -428,7 +433,13 @@ impl Plugin for ToggleSwitchPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.add_systems(
             PreUpdate,
-            (update_switch_styles, update_switch_styles_remove).in_set(PickingSystems::Last),
+            // .after(UiSystems::Focus) can be removed after Interaction is removed.
+            (
+                update_switch_styles.after(UiSystems::Focus),
+                update_switch_styles_remove,
+            )
+                .chain()
+                .in_set(PickingSystems::Last),
         );
     }
 }

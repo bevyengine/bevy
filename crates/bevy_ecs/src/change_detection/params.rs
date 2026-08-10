@@ -1363,6 +1363,16 @@ impl<'w> DetectChanges for MutUntyped<'w> {
     fn added(&self) -> Tick {
         *self.ticks.added
     }
+
+    #[inline]
+    fn this_run(&self) -> Tick {
+        self.ticks.this_run
+    }
+
+    #[inline]
+    fn last_run(&self) -> Tick {
+        self.ticks.last_run
+    }
 }
 
 impl<'w> DetectChangesMut for MutUntyped<'w> {

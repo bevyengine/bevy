@@ -44,11 +44,11 @@ pub struct ScreenSpaceAmbientOcclusionPlugin;
 
 impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
     fn build(&self, app: &mut App) {
-        load_shader_library!(app, "ssao_utils.wgsl");
+        load_shader_library!(app, "utils.wesl");
 
-        embedded_asset!(app, "preprocess_depth.wgsl");
-        embedded_asset!(app, "ssao.wgsl");
-        embedded_asset!(app, "spatial_denoise.wgsl");
+        embedded_asset!(app, "preprocess_depth.wesl");
+        embedded_asset!(app, "ssao.wesl");
+        embedded_asset!(app, "spatial_denoise.wesl");
 
         app.add_plugins(SyncComponentPlugin::<ScreenSpaceAmbientOcclusion>::default());
     }
@@ -113,6 +113,7 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
 #[require(DepthPrepass, NormalPrepass)]
 #[extract_component_sync_target((Self, ScreenSpaceAmbientOcclusionResources, SsaoPipelineId, SsaoBindGroups))]
 #[doc(alias = "Ssao")]
+#[extract_app(RenderApp)]
 pub struct ScreenSpaceAmbientOcclusion {
     /// Quality of the SSAO effect.
     pub quality_level: ScreenSpaceAmbientOcclusionQualityLevel,
@@ -421,7 +422,7 @@ impl FromWorld for SsaoPipelines {
                     preprocess_depth_bind_group_layout.clone(),
                     common_bind_group_layout.clone(),
                 ],
-                shader: load_embedded_asset!(world, "preprocess_depth.wgsl"),
+                shader: load_embedded_asset!(world, "preprocess_depth.wesl"),
                 shader_defs: shader_defs.clone(),
                 ..default()
             });
@@ -433,7 +434,7 @@ impl FromWorld for SsaoPipelines {
                     spatial_denoise_bind_group_layout.clone(),
                     common_bind_group_layout.clone(),
                 ],
-                shader: load_embedded_asset!(world, "spatial_denoise.wgsl"),
+                shader: load_embedded_asset!(world, "spatial_denoise.wesl"),
                 shader_defs,
                 ..default()
             });
@@ -451,7 +452,7 @@ impl FromWorld for SsaoPipelines {
             point_clamp_sampler,
             linear_clamp_sampler,
 
-            shader: load_embedded_asset!(world, "ssao.wgsl"),
+            shader: load_embedded_asset!(world, "ssao.wesl"),
             depth_format,
         }
     }
@@ -703,6 +704,9 @@ fn prepare_ssao_bind_groups(
     };
 
     for (entity, ssao_resources, prepass_textures) in &views {
+        let Some(depth_view) = prepass_textures.depth_only_view() else {
+            continue;
+        };
         let common_bind_group = render_device.create_bind_group(
             "ssao_common_bind_group",
             &pipeline_cache.get_bind_group_layout(&pipelines.common_bind_group_layout),
@@ -848,7 +852,7 @@ fn prepare_ssao_bind_groups(
                 &BindGroupEntries::sequential((
                     prepass_depth_view
                         .as_ref()
-                        .unwrap_or_else(|| prepass_textures.depth_view().unwrap()),
+                        .unwrap_or(depth_view),
                     &mip0,
                     &mip1,
                     &mip2,

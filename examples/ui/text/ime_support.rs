@@ -14,6 +14,7 @@ use bevy::input_focus::{
 };
 use bevy::prelude::*;
 use bevy::text::{EditableText, TextCursorStyle};
+use bevy::ui_widgets::TextInput;
 
 fn main() {
     App::new()
@@ -53,15 +54,17 @@ fn setup(mut commands: Commands) {
             // includes support for Chinese, Japanese, and Korean characters.
             // Note that using system fonts requires the "bevy/system-fonts" feature to be enabled.
             TextFont {
-                font: FontSource::SansSerif,
+                font: FontSource::sans_serif(),
                 font_size: FontSize::Px(32.0),
                 ..default()
             },
             BorderColor::from(Color::from(SLATE_300)),
+            TextInput,
             EditableText {
                 allow_newlines: true,
                 ..default()
             },
+            TextLayout::no_wrap(),
             TextCursorStyle::default(),
             TabIndex(0),
             BackgroundColor(DARK_GREY.into()),
@@ -72,7 +75,7 @@ fn setup(mut commands: Commands) {
         .spawn((
             Text::new("Your text here!"),
             TextFont {
-                font: FontSource::SansSerif,
+                font: FontSource::sans_serif(),
                 font_size: FontSize::Px(32.0),
                 ..default()
             },

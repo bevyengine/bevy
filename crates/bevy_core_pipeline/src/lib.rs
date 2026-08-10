@@ -36,7 +36,6 @@ use crate::{
     upscaling::UpscalingPlugin,
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::embedded_asset;
 use bevy_render::renderer::{RenderGraph, RenderGraphSystems};
 use bevy_render::RenderApp;
 use bevy_shader::load_shader_library;
@@ -47,8 +46,9 @@ pub struct CorePipelinePlugin;
 
 impl Plugin for CorePipelinePlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "fullscreen_vertex_shader/fullscreen.wgsl");
-        load_shader_library!(app, "input_texture.wgsl");
+        load_shader_library!(app, "fullscreen_vertex_shader.wesl");
+        load_shader_library!(app, "tonemapping.wesl");
+        load_shader_library!(app, "input_texture.wesl");
 
         app.add_plugins((Core2dPlugin, Core3dPlugin, CopyDeferredLightingIdPlugin))
             .add_plugins((

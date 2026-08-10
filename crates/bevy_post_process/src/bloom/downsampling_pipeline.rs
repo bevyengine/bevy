@@ -112,7 +112,7 @@ pub fn init_bloom_downsampling_pipeline(
         bind_group_layout_multiview,
         sampler,
         fullscreen_shader: fullscreen_shader.clone(),
-        fragment_shader: load_embedded_asset!(asset_server.as_ref(), "bloom.wgsl"),
+        fragment_shader: load_embedded_asset!(asset_server.as_ref(), "bloom.wesl"),
     });
 }
 
@@ -174,6 +174,7 @@ impl SpecializedRenderPipeline for BloomDownsamplingPipeline {
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
+                constants: vec![],
             }),
             ..default()
         }

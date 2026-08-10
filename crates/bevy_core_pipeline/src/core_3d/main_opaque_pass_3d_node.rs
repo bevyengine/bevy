@@ -13,7 +13,9 @@ use bevy_render::{
     render_phase::ViewBinnedRenderPhases,
     render_resource::{PipelineCache, RenderPassDescriptor, StoreOp},
     renderer::{RenderContext, ViewQuery},
-    view::{ExtractedMultiview, ExtractedView, ViewDepthTexture, ViewTarget, ViewUniformOffset},
+    view::{
+        ExtractedMultiview, ExtractedView, ViewDepthStencilTexture, ViewTarget, ViewUniformOffset,
+    },
 };
 use core::num::NonZeroU32;
 
@@ -25,7 +27,7 @@ pub fn main_opaque_pass_3d(
         &ExtractedCamera,
         &ExtractedView,
         &ViewTarget,
-        &ViewDepthTexture,
+        &ViewDepthStencilTexture,
         Option<&SkyboxPipelineId>,
         Option<&SkyboxBindGroup>,
         &ViewUniformOffset,

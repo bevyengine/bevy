@@ -36,7 +36,7 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice, RenderQueue, ViewQuery},
     sync_world::RenderEntity,
     texture::GpuImage,
-    view::{ExtractedMultiview, ExtractedView, Msaa, ViewDepthTexture, ViewTarget},
+    view::{ExtractedMultiview, ExtractedView, Msaa, ViewDepthStencilTexture, ViewTarget},
     Extract,
 };
 use bevy_shader::{Shader, ShaderDefVal};
@@ -248,7 +248,7 @@ pub fn init_volumetric_fog_pipeline(
     commands.insert_resource(VolumetricFogPipeline {
         mesh_view_layouts: mesh_view_layouts.clone(),
         volumetric_view_bind_group_layouts: bind_group_layouts,
-        shader: load_embedded_asset!(asset_server.as_ref(), "volumetric_fog.wgsl"),
+        shader: load_embedded_asset!(asset_server.as_ref(), "volumetric_fog.wesl"),
     });
 }
 
@@ -299,7 +299,7 @@ pub fn extract_volumetric_fog(
 pub fn volumetric_fog(
     view: ViewQuery<(
         &ViewTarget,
-        &ViewDepthTexture,
+        &ViewDepthStencilTexture,
         &ViewVolumetricFogPipelines,
         &ViewVolumetricFog,
         &MeshViewBindGroup,
@@ -347,6 +347,14 @@ pub fn volumetric_fog(
     command_encoder.push_debug_group("volumetric_lighting");
 
     for view_fog_volume in view_fog_volumes.iter() {
+        let Some(depth_view) = view_depth_texture
+            .attachment
+            .depth_stencil_views()
+            .depth_only_view()
+        else {
+            return;
+        };
+
         // If the camera is outside the fog volume, pick the cube mesh;
         // otherwise, pick the plane mesh. In the latter case we'll be
         // effectively rendering a full-screen quad.
@@ -394,7 +402,7 @@ pub fn volumetric_fog(
         // texture will only be filled in if that texture is present.
         let mut bind_group_entries = DynamicBindGroupEntries::sequential((
             volumetric_lighting_uniform_buffer_binding.clone(),
-            BindingResource::TextureView(view_depth_texture.view()),
+            BindingResource::TextureView(depth_view),
         ));
         if let Some(density_image) = density_image {
             bind_group_layout_key.insert(VolumetricFogBindGroupLayoutKey::DENSITY_TEXTURE);

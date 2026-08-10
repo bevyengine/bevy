@@ -26,7 +26,7 @@ use bevy_ecs::{
 };
 use bevy_ecs::{schedule::IntoScheduleConfigs, template::FromTemplate};
 use bevy_image::{Image, TextureFormatPixelInfo};
-use bevy_log::warn;
+use bevy_log::{debug, warn};
 use bevy_platform::collections::HashMap;
 use bevy_reflect::Reflect;
 use bevy_render_macros::ExtractComponent;
@@ -81,6 +81,7 @@ impl Plugin for GpuReadbackPlugin {
 /// Data is read asynchronously and will be triggered on the entity via the [`ReadbackComplete`] event
 /// when complete. If this component is not removed, the readback will be attempted every frame
 #[derive(Component, ExtractComponent, Clone, Debug, FromTemplate)]
+#[extract_app(RenderApp)]
 pub enum Readback {
     #[default]
     Texture(Handle<Image>),
@@ -403,12 +404,12 @@ fn map_buffers(mut readbacks: ResMut<GpuReadbacks>) {
         slice.map_async(wgpu::MapMode::Read, move |res| {
             res.expect("Failed to map buffer");
             let buffer_slice = buffer.slice(..);
-            let data = buffer_slice.get_mapped_range();
+            let data = buffer_slice.get_mapped_range().unwrap();
             let result = Vec::from(&*data);
             drop(data);
             buffer.unmap();
             if let Err(e) = tx.try_send((entity, buffer, result)) {
-                warn!("Failed to send readback result: {}", e);
+                debug!("Failed to send readback result: {}", e);
             }
         });
         readbacks.mapped.push(readback);
@@ -422,7 +423,7 @@ pub(crate) const fn align_byte_size(value: u32) -> u32 {
     RenderDevice::align_copy_bytes_per_row(value as usize) as u32
 }
 
-/// Get the size of a image when the size of each row has been rounded up to [`wgpu::COPY_BYTES_PER_ROW_ALIGNMENT`].
+/// Get the size of an image when the size of each row has been rounded up to [`wgpu::COPY_BYTES_PER_ROW_ALIGNMENT`].
 pub(crate) const fn get_aligned_size(extent: Extent3d, pixel_size: u32) -> u32 {
     extent.height * align_byte_size(extent.width * pixel_size) * extent.depth_or_array_layers
 }

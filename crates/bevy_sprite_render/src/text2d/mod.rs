@@ -86,7 +86,7 @@ pub fn extract_text2d_sprite(
             let Ok(text_background_color) = text_background_colors_query.get(section_entity) else {
                 continue;
             };
-            let render_entity = commands.spawn(TemporaryRenderEntity).id();
+            let render_entity = commands.spawn(TemporaryRenderEntity::default()).id();
             let offset = run.bounds.center();
             let transform = *global_transform
                 * GlobalTransform::from_translation(top_left.extend(0.))
@@ -135,7 +135,7 @@ pub fn extract_text2d_sprite(
                     .get(i + 1)
                     .is_none_or(|info| info.atlas_info.texture != atlas_info.texture)
                 {
-                    let render_entity = commands.spawn(TemporaryRenderEntity).id();
+                    let render_entity = commands.spawn(TemporaryRenderEntity::default()).id();
                     extracted_sprites.sprites.push(ExtractedSprite {
                         main_entity,
                         render_entity,
@@ -163,7 +163,7 @@ pub fn extract_text2d_sprite(
                 };
 
                 if has_strikethrough {
-                    let render_entity = commands.spawn(TemporaryRenderEntity).id();
+                    let render_entity = commands.spawn(TemporaryRenderEntity::default()).id();
                     let offset = run.strikethrough_position();
                     let transform =
                         shadow_transform * GlobalTransform::from_translation(offset.extend(0.));
@@ -185,7 +185,7 @@ pub fn extract_text2d_sprite(
                 }
 
                 if has_underline {
-                    let render_entity = commands.spawn(TemporaryRenderEntity).id();
+                    let render_entity = commands.spawn(TemporaryRenderEntity::default()).id();
                     let offset = run.underline_position();
                     let transform =
                         shadow_transform * GlobalTransform::from_translation(offset.extend(0.));
@@ -224,14 +224,10 @@ pub fn extract_text2d_sprite(
         ) in text_layout_info.glyphs.iter().enumerate()
         {
             if *section_index != current_section {
-                color = text_colors
-                    .get(
-                        computed_block
-                            .entities()
-                            .get(*section_index as usize)
-                            .map(|t| t.entity)
-                            .unwrap_or(Entity::PLACEHOLDER),
-                    )
+                color = computed_block
+                    .entities()
+                    .get(*section_index as usize)
+                    .and_then(|t| text_colors.get(t.entity).ok())
                     .map(|text_color| LinearRgba::from(text_color.0))
                     .unwrap_or_default();
                 current_section = *section_index;
@@ -246,7 +242,7 @@ pub fn extract_text2d_sprite(
                 info.section_index != current_section
                     || info.atlas_info.texture != atlas_info.texture
             }) {
-                let render_entity = commands.spawn(TemporaryRenderEntity).id();
+                let render_entity = commands.spawn(TemporaryRenderEntity::default()).id();
                 extracted_sprites.sprites.push(ExtractedSprite {
                     main_entity,
                     render_entity,
@@ -282,7 +278,7 @@ pub fn extract_text2d_sprite(
                     .map(|c| c.0)
                     .unwrap_or(text_color.0)
                     .to_linear();
-                let render_entity = commands.spawn(TemporaryRenderEntity).id();
+                let render_entity = commands.spawn(TemporaryRenderEntity::default()).id();
                 let offset = run.strikethrough_position();
                 let transform = *global_transform
                     * GlobalTransform::from_translation(top_left.extend(0.))
@@ -310,7 +306,7 @@ pub fn extract_text2d_sprite(
                     .map(|c| c.0)
                     .unwrap_or(text_color.0)
                     .to_linear();
-                let render_entity = commands.spawn(TemporaryRenderEntity).id();
+                let render_entity = commands.spawn(TemporaryRenderEntity::default()).id();
                 let offset = run.underline_position();
                 let transform = *global_transform
                     * GlobalTransform::from_translation(top_left.extend(0.))

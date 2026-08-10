@@ -4,15 +4,17 @@ use crate::{
     change_detection::Mut,
     entity::Entity,
     error::BevyError,
+    prelude::{FromTemplate, Template},
     system::{
         input::SystemInput, BoxedSystem, Commands, If, IntoSystem, Res, RunSystemError,
         SystemParamValidationError,
     },
+    template::TemplateContext,
     world::World,
 };
 use alloc::boxed::Box;
 use bevy_ecs_macros::{Component, Resource};
-use bevy_platform::sync::Arc;
+use bevy_platform::sync::{Arc, Mutex};
 use bevy_utils::prelude::DebugName;
 use concurrent_queue::ConcurrentQueue;
 use core::{any::TypeId, marker::PhantomData};
@@ -288,6 +290,134 @@ impl<I: SystemInput, O> core::fmt::Debug for SystemId<I, O> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_tuple("SystemId").field(&self.entity).finish()
     }
+}
+
+impl<I: SystemInput, O> From<&SystemHandle<I, O>> for SystemId<I, O> {
+    fn from(handle: &SystemHandle<I, O>) -> Self {
+        Self::from_entity(handle.entity())
+    }
+}
+
+impl<I: SystemInput, O> From<SystemHandle<I, O>> for SystemId<I, O> {
+    fn from(handle: SystemHandle<I, O>) -> Self {
+        (&handle).into()
+    }
+}
+
+impl<I: SystemInput + 'static, O: 'static> FromTemplate for SystemHandle<I, O> {
+    type Template = SystemHandleTemplate<I, O>;
+}
+
+/// A [`Template`] that produces a [`SystemHandle`].
+pub enum SystemHandleTemplate<I: SystemInput + 'static = (), O: 'static = ()> {
+    /// Creates a [`SystemHandle`] by cloning the given [`SystemHandle`] value.
+    Handle(SystemHandle<I, O>),
+    /// Creates a [`SystemHandle`] by registering the given system value using
+    /// [`World::register_tracked_boxed_system`]. This will cache the resulting
+    /// [`SystemHandle`]
+    /// on the template and reuse it for future template builds.
+    ///
+    /// This should generally be constructed using [`SystemHandleTemplate::value`]
+    /// or [`system_value`].
+    Value(SystemHandleValue<I, O>),
+}
+
+/// Stores an [`Arc<Mutex<SystemHandleOrValue<I, O>>>`].
+pub struct SystemHandleValue<I: SystemInput + 'static = (), O: 'static = ()>(
+    Arc<Mutex<SystemHandleOrValue<I, O>>>,
+);
+
+impl<I: SystemInput + 'static, O: 'static> Clone for SystemHandleValue<I, O> {
+    fn clone(&self) -> Self {
+        Self(Arc::clone(&self.0))
+    }
+}
+
+enum SystemHandleOrValue<I: SystemInput + 'static = (), O: 'static = ()> {
+    Handle(SystemHandle<I, O>),
+    Value(Option<BoxedSystem<I, O>>),
+}
+
+impl<I: SystemInput + 'static, O: 'static> SystemHandleTemplate<I, O> {
+    /// This will create a new [`SystemHandleTemplate`] for the given `system` value.
+    /// This makes it possible to define systems "inline" in templates / scenes
+    /// that produce a [`SystemId`].
+    pub fn value<M>(system: impl IntoSystem<I, O, M>) -> Self {
+        Self::Value(SystemHandleValue(Arc::new(Mutex::new(
+            SystemHandleOrValue::Value(Some(Box::new(IntoSystem::into_system(system)))),
+        ))))
+    }
+}
+
+impl<I: SystemInput + 'static, O: 'static> Template for SystemHandleTemplate<I, O> {
+    type Output = SystemHandle<I, O>;
+
+    fn build_template(
+        &self,
+        context: &mut TemplateContext,
+    ) -> crate::prelude::Result<Self::Output> {
+        match self {
+            Self::Handle(handle) => Ok(handle.clone()),
+            Self::Value(value) => {
+                let mut value_or_id = value.0.lock().unwrap();
+                match &mut *value_or_id {
+                    SystemHandleOrValue::Handle(handle) => Ok(handle.clone()),
+                    SystemHandleOrValue::Value(system) => {
+                        let system = system.take().unwrap();
+                        let id = context
+                            .entity
+                            .world_scope(|world| world.register_tracked_boxed_system(system));
+                        *value_or_id = SystemHandleOrValue::Handle(id.clone());
+                        Ok(id)
+                    }
+                }
+            }
+        }
+    }
+
+    fn clone_template(&self) -> Self {
+        match self {
+            Self::Handle(handle) => Self::Handle(handle.clone()),
+            Self::Value(value) => Self::Value(value.clone()),
+        }
+    }
+}
+
+impl<I: SystemInput + 'static, O: 'static> Default for SystemHandleTemplate<I, O> {
+    fn default() -> Self {
+        Self::Handle(SystemHandle::Weak(SystemId::from_entity(
+            Entity::PLACEHOLDER,
+        )))
+    }
+}
+
+impl<I: SystemInput + 'static, O: 'static> From<SystemHandle<I, O>> for SystemHandleTemplate<I, O> {
+    fn from(handle: SystemHandle<I, O>) -> Self {
+        Self::Handle(handle)
+    }
+}
+
+impl<I: SystemInput + 'static, O: 'static> From<BoxedSystem<I, O>> for SystemHandleTemplate<I, O> {
+    fn from(system: BoxedSystem<I, O>) -> Self {
+        Self::Value(SystemHandleValue(Arc::new(Mutex::new(
+            SystemHandleOrValue::Value(Some(system)),
+        ))))
+    }
+}
+
+impl<I: SystemInput + 'static, O: 'static> From<SystemId<I, O>> for SystemHandleTemplate<I, O> {
+    fn from(id: SystemId<I, O>) -> Self {
+        Self::Handle(SystemHandle::Weak(id))
+    }
+}
+
+/// This will create a new [`SystemHandleTemplate`] for the given `system` value.
+/// This makes it possible to define systems "inline" in templates / scenes that
+/// produce a [`SystemHandle`].
+pub fn system_value<I: SystemInput + 'static, O: 'static, M>(
+    system: impl IntoSystem<I, O, M>,
+) -> SystemHandleTemplate<I, O> {
+    SystemHandleTemplate::value(system)
 }
 
 /// A cached [`SystemId`] distinguished by the unique function type of its system.
@@ -782,7 +912,10 @@ mod tests {
 
     use crate::{
         prelude::*,
-        system::{despawn_unused_registered_systems, RegisteredSystemError, SystemId},
+        system::{
+            despawn_unused_registered_systems, system_value, RegisteredSystemError, SystemHandle,
+            SystemHandleTemplate, SystemId,
+        },
     };
 
     #[derive(Resource, Default, PartialEq, Debug)]
@@ -1270,5 +1403,48 @@ mod tests {
             .unwrap();
 
         assert!(world.get_entity(entity).is_err());
+    }
+
+    #[test]
+    fn system_handle_template() {
+        fn my_system() {}
+
+        let mut world = World::new();
+
+        {
+            let my_system_handle = world.register_tracked_system(my_system);
+            let system_handle = world
+                .spawn_empty()
+                .build_template(&SystemHandleTemplate::Handle(my_system_handle.clone()))
+                .unwrap();
+            assert_eq!(system_handle, my_system_handle);
+        }
+
+        {
+            let template = system_value(my_system);
+
+            let a = world.spawn_empty().build_template(&template).unwrap();
+            let b = world.spawn_empty().build_template(&template).unwrap();
+
+            assert!(matches!(a, SystemHandle::Strong(_)));
+            assert!(matches!(b, SystemHandle::Strong(_)));
+
+            assert_eq!(a, b);
+        }
+    }
+
+    #[test]
+    fn run_system_with_owned_system_handle() {
+        fn increment(mut counter: ResMut<Counter>) {
+            counter.0 += 1;
+        }
+
+        let mut world = World::new();
+        world.insert_resource(Counter(0));
+
+        let handle = world.register_tracked_system(increment);
+        world.run_system(handle).expect("system runs successfully");
+
+        assert_eq!(*world.resource::<Counter>(), Counter(1));
     }
 }

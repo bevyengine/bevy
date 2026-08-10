@@ -83,6 +83,19 @@ impl DebugName {
         }
     }
 
+    /// Create a new `DebugName` from a type by using its [`core::any::type_name`]
+    ///
+    /// This is the same as `type_name::<T>()`, but can be used where the type of a
+    /// variable is not easily available.
+    ///
+    /// The value will be ignored if the `debug` feature is not enabled
+    pub fn type_name_of_val<T>(_val: &T) -> Self {
+        DebugName {
+            #[cfg(feature = "debug")]
+            name: Cow::Borrowed(type_name::<T>()),
+        }
+    }
+
     /// Get the [`ShortName`] corresponding to this debug name
     ///
     /// The value will be a static string if the `debug` feature is not enabled

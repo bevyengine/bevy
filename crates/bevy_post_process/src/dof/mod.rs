@@ -49,7 +49,7 @@ use bevy_render::{
     sync_world::RenderEntity,
     texture::{CachedTexture, TextureCache},
     view::{
-        prepare_view_targets, ExtractedMultiview, ExtractedView, Msaa, ViewDepthTexture,
+        prepare_view_targets, ExtractedMultiview, ExtractedView, Msaa, ViewDepthStencilTexture,
         ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms,
     },
     Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
@@ -144,7 +144,7 @@ pub struct DepthOfFieldUniform {
     /// The distance in meters to the location in focus.
     focal_distance: f32,
 
-    /// The focal length. See the comment in `DepthOfFieldParams` in `dof.wgsl`
+    /// The focal length. See the comment in `DepthOfFieldParams` in `dof.wesl`
     /// for more information.
     focal_length: f32,
 
@@ -201,7 +201,7 @@ enum DofPass {
 
 impl Plugin for DepthOfFieldPlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "dof.wgsl");
+        embedded_asset!(app, "dof.wesl");
 
         app.add_plugins(UniformComponentPlugin::<DepthOfFieldUniform>::default());
 
@@ -540,7 +540,7 @@ pub fn prepare_depth_of_field_pipelines(
             view_bind_group_layouts: view_bind_group_layouts.clone(),
             global_bind_group_layout: global_bind_group_layout.layout.clone(),
             fullscreen_shader: fullscreen_shader.clone(),
-            fragment_shader: load_embedded_asset!(asset_server.as_ref(), "dof.wgsl"),
+            fragment_shader: load_embedded_asset!(asset_server.as_ref(), "dof.wesl"),
         };
 
         // We'll need these two flags to create the `DepthOfFieldPipelineKey`s.
@@ -680,13 +680,14 @@ impl SpecializedRenderPipeline for DepthOfFieldPipeline {
                     DofPass::BokehPass1 => "bokeh_pass_b".into(),
                 }),
                 targets,
+                constants: vec![],
             }),
             ..default()
         }
     }
 }
 
-impl SyncComponent for DepthOfField {
+impl SyncComponent<RenderApp> for DepthOfField {
     type Target = (
         DepthOfField,
         DepthOfFieldUniform,
@@ -715,7 +716,7 @@ fn extract_depth_of_field_settings(
 
         // Depth of field is nonsensical without a perspective projection.
         let Projection::Perspective(ref perspective_projection) = *projection else {
-            entity_commands.remove::<<DepthOfField as SyncComponent>::Target>();
+            entity_commands.remove::<<DepthOfField as SyncComponent<RenderApp>>::Target>();
 
             continue;
         };
@@ -800,7 +801,7 @@ pub(crate) fn depth_of_field(
     view: ViewQuery<(
         &ViewUniformOffset,
         &ViewTarget,
-        &ViewDepthTexture,
+        &ViewDepthStencilTexture,
         &DepthOfFieldPipelines,
         &ViewDepthOfFieldBindGroupLayouts,
         &DynamicUniformIndex<DepthOfFieldUniform>,
@@ -820,7 +821,13 @@ pub(crate) fn depth_of_field(
         depth_of_field_uniform_index,
         auxiliary_dof_texture,
     ) = view.into_inner();
-
+    let Some(depth_view) = view_depth_texture
+        .attachment
+        .depth_stencil_views()
+        .depth_only_view()
+    else {
+        return;
+    };
     // We can be in either Gaussian blur or bokeh mode here. Both modes are
     // similar, consisting of two passes each.
     for pipeline_render_info in view_pipelines.pipeline_render_info().iter() {
@@ -853,7 +860,7 @@ pub(crate) fn depth_of_field(
                 &pipeline_cache.get_bind_group_layout(dual_input_bind_group_layout),
                 &BindGroupEntries::sequential((
                     view_uniforms_binding,
-                    view_depth_texture.view(),
+                    depth_view,
                     postprocess.source,
                     &auxiliary_dof_texture.default_view,
                 )),
@@ -864,7 +871,7 @@ pub(crate) fn depth_of_field(
                 &pipeline_cache.get_bind_group_layout(&view_bind_group_layouts.single_input),
                 &BindGroupEntries::sequential((
                     view_uniforms_binding,
-                    view_depth_texture.view(),
+                    depth_view,
                     postprocess.source,
                 )),
             )

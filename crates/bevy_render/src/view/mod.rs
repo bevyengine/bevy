@@ -16,12 +16,13 @@ use crate::{
     render_asset::RenderAssets,
     render_phase::ViewRangefinder3d,
     render_resource::{
-        DynamicArrayIndex, DynamicArrayUniformBuffer, ShaderType, Texture, TextureView,
+        BindGroup, DynamicArrayIndex, DynamicArrayUniformBuffer, ShaderType, Texture, TextureView,
+        TextureViewId,
     },
     renderer::{RenderDevice, RenderQueue},
     sync_world::MainEntity,
     texture::{
-        CachedTexture, ColorAttachment, DepthAttachment, GpuImage, ManualTextureViews,
+        CachedTexture, ColorAttachment, DepthStencilAttachment, GpuImage, ManualTextureViews,
         OutputColorAttachment, TextureCache,
     },
     GpuResourceAppExt, Render, RenderApp, RenderSystems,
@@ -36,7 +37,6 @@ use bevy_math::{mat3, vec2, vec3, Mat3, Mat4, UVec4, Vec2, Vec3, Vec4, Vec4Swizz
 use bevy_platform::collections::{hash_map::Entry, HashMap};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render_macros::ExtractComponent;
-use bevy_shader::load_shader_library;
 use bevy_transform::components::GlobalTransform;
 use core::{
     num::NonZeroU32,
@@ -171,8 +171,6 @@ pub struct ViewPlugin;
 
 impl Plugin for ViewPlugin {
     fn build(&self, app: &mut App) {
-        load_shader_library!(app, "view.wgsl");
-
         app
             // NOTE: windows.is_changed() handles cases where a window was resized
             .add_plugins((
@@ -240,6 +238,7 @@ impl Plugin for ViewPlugin {
     Debug,
 )]
 #[reflect(Component, Default, PartialEq, Hash, Debug)]
+#[extract_app(RenderApp)]
 pub enum Msaa {
     Off = 1,
     Sample2 = 2,
@@ -286,9 +285,7 @@ pub struct RetainedViewEntity {
     /// the light and subview index aren't themselves enough to uniquely
     /// identify a shadow cascade: we need the camera that the cascade is
     /// associated with as well. This entity stores that camera.
-    ///
-    /// If not present, this will be `MainEntity(Entity::PLACEHOLDER)`.
-    pub auxiliary_entity: MainEntity,
+    pub auxiliary_entity: Option<MainEntity>,
 
     /// The index of the view corresponding to the entity.
     ///
@@ -311,7 +308,7 @@ impl RetainedViewEntity {
     ) -> Self {
         Self {
             main_entity,
-            auxiliary_entity: auxiliary_entity.unwrap_or(Entity::PLACEHOLDER.into()),
+            auxiliary_entity,
             subview_index,
         }
     }
@@ -890,9 +887,13 @@ impl ViewTarget {
         layer: u32,
     ) -> RenderPassColorAttachment<'_> {
         if self.main_texture.load(Ordering::SeqCst) == 0 {
-            self.main_textures.a.get_unsampled_attachment_for_layer(layer)
+            self.main_textures
+                .a
+                .get_unsampled_attachment_for_layer(layer)
         } else {
-            self.main_textures.b.get_unsampled_attachment_for_layer(layer)
+            self.main_textures
+                .b
+                .get_unsampled_attachment_for_layer(layer)
         }
     }
 
@@ -1042,23 +1043,117 @@ impl ViewTarget {
     }
 }
 
-#[derive(Component)]
-pub struct ViewDepthTexture {
-    pub texture: Texture,
-    attachment: DepthAttachment,
+pub trait CreatePostProcessBindGroup:
+    Fn(&TextureView) -> (TextureViewId, BindGroup) + Copy
+{
 }
 
-impl ViewDepthTexture {
-    pub fn new(texture: CachedTexture, clear_value: Option<f32>) -> Self {
-        let attachment = DepthAttachment::new_multi_layer(
-            texture.texture.clone(),
-            texture.default_view.clone(),
-            clear_value,
-        );
+impl<T: Fn(&TextureView) -> (TextureViewId, BindGroup) + Copy> CreatePostProcessBindGroup for T {}
+
+/// Used to create a [`PostProcessBindGroupCache`]
+pub struct PostProcessBindGroupCacheBuilder<F>
+where
+    F: CreatePostProcessBindGroup,
+{
+    create_bind_group: F,
+}
+
+impl<F> PostProcessBindGroupCacheBuilder<F>
+where
+    F: CreatePostProcessBindGroup,
+{
+    /// Initializes the [`PostProcessBindGroupCacheBuilder`]
+    ///
+    /// The closure should create the bind group that contains the source texture of a post
+    /// processing effect
+    pub fn new(create_bind_group: F) -> Self {
+        Self { create_bind_group }
+    }
+
+    /// Generates the bind group cache based on the `Self::create_bind_group` closure
+    pub fn generate_bind_groups(&self, view_target: &ViewTarget) -> PostProcessBindGroupCache {
+        PostProcessBindGroupCache::new(view_target, self.create_bind_group)
+    }
+}
+
+/// Caches the bind groups for each main textures used when making a post processing effect
+pub struct PostProcessBindGroupCache {
+    a: (TextureViewId, BindGroup),
+    b: (TextureViewId, BindGroup),
+}
+
+impl PostProcessBindGroupCache {
+    /// Creates the bind group for both main textures used in post processing effects
+    pub fn new<F: CreatePostProcessBindGroup>(
+        view_target: &ViewTarget,
+        create_bind_group: F,
+    ) -> Self {
         Self {
-            texture: texture.texture,
-            attachment,
+            a: create_bind_group(view_target.main_texture_view()),
+            b: create_bind_group(view_target.main_texture_other_view()),
         }
+    }
+
+    /// Determines if the bind groups need to be updated based on the main textures id
+    ///
+    /// If you have anything else that determines if the bind groups need to be
+    /// updated you need to do it manually
+    pub fn should_update(&self, view_target: &ViewTarget) -> bool {
+        let (texture_a, _) = &self.a;
+        if *texture_a != view_target.main_texture_view().id() {
+            return true;
+        }
+        let (texture_b, _) = &self.b;
+        if *texture_b != view_target.main_texture_other_view().id() {
+            return true;
+        }
+
+        false
+    }
+
+    /// Updates the bind group associated with each main textures
+    ///
+    /// Use the builder to get the callback used when creating the bind group
+    pub fn update<F: CreatePostProcessBindGroup>(
+        &mut self,
+        view_target: &ViewTarget,
+        builder: PostProcessBindGroupCacheBuilder<F>,
+    ) {
+        self.a = (builder.create_bind_group)(view_target.main_texture_view());
+        self.b = (builder.create_bind_group)(view_target.main_texture_other_view());
+    }
+
+    /// Gets the bind group associated with the current main texture
+    ///
+    /// Generally, this will be the bind group associated with the source texture
+    pub fn get_current_bind_group(&self, texture: &TextureView) -> &BindGroup {
+        let (_, bind_group) = if self.a.0 == texture.id() {
+            &self.a
+        } else {
+            &self.b
+        };
+        bind_group
+    }
+}
+
+#[derive(Component)]
+pub struct ViewDepthStencilTexture {
+    pub attachment: DepthStencilAttachment,
+}
+
+impl ViewDepthStencilTexture {
+    pub fn new(
+        texture: CachedTexture,
+        depth_clear_value: Option<f32>,
+        stencil_clear_value: Option<u32>,
+    ) -> Self {
+        let attachment =
+            DepthStencilAttachment::new(texture, None, depth_clear_value, stencil_clear_value);
+        Self { attachment }
+    }
+
+    pub fn texture(&self) -> &Texture {
+        &self.attachment.texture.texture
     }
 
     pub fn get_attachment(&self, store: StoreOp) -> RenderPassDepthStencilAttachment<'_> {
@@ -1074,10 +1169,6 @@ impl ViewDepthTexture {
         store: StoreOp,
     ) -> RenderPassDepthStencilAttachment<'_> {
         self.attachment.get_attachment_for_layer(layer, store)
-    }
-
-    pub fn view(&self) -> &TextureView {
-        &self.attachment.view
     }
 }
 
@@ -1126,7 +1217,7 @@ pub fn prepare_view_uniforms(
             main_pass_viewport.w = resolution_override.0.y as f32;
         }
 
-        // Map Frustum type to shader array<vec4<f32>, 6>.
+        // Map Frustum type to shader array<vec4<f32>, 6>
         let frustum = frustum
             .map(|frustum| frustum.half_spaces.map(|h| h.normal_d()))
             .unwrap_or([Vec4::ZERO; 6]);
@@ -1138,36 +1229,35 @@ pub fn prepare_view_uniforms(
         let lod_view_world_position = match (&extracted_camera, &shadow_lod_origin) {
             (Some(_), _) | (None, None) => {
                 // If we're rendering a camera directly (i.e. we're not
-                // rendering a shadow map), we use this camera's position as
-                // the LOD view position.
+                // rendering a shadow map), we use this camera's position as the
+                // LOD view position.
                 extracted_view.world_from_view.translation()
             }
             (None, Some(shadow_lod_origin))
-                if extracted_view.retained_view_entity.auxiliary_entity
-                    == MainEntity::from(Entity::PLACEHOLDER) =>
+                if extracted_view
+                    .retained_view_entity
+                    .auxiliary_entity
+                    .is_none() =>
             {
-                // If this is a shadow map not associated with a camera (a
-                // point light or spot light shadow map), use the shadow LOD
-                // origin.
+                // If this is a shadow map not associated with a camera (a point
+                // light or spot light shadow map), use the shadow LOD origin.
                 shadow_lod_origin.0
             }
             (None, Some(shadow_lod_origin)) => {
-                // Otherwise, if we're rendering a shadow map that is
-                // associated with a camera (i.e. a directional light shadow
-                // map, at present), we use the position of that camera as
-                // the LOD view position. This ensures that each rendered
-                // object has a shadow and that no invisible objects have
-                // shadows.
-                match views.get(
-                    extracted_view
-                        .retained_view_entity
-                        .auxiliary_entity
-                        .entity(),
-                ) {
-                    Ok((_, _, camera_view, _, _, _, _, _)) => {
+                // Otherwise, if we're rendering a shadow map that is associated
+                // with a camera (i.e. a directional light shadow map, at
+                // present), we use the position of that camera as the LOD view
+                // position. This ensures that each rendered object has a shadow
+                // and that no invisible objects have shadows.
+                match extracted_view
+                    .retained_view_entity
+                    .auxiliary_entity
+                    .and_then(|entity| views.get(*entity).ok())
+                {
+                    Some((_, _, camera_view, _, _, _, _, _)) => {
                         camera_view.world_from_view.translation()
                     }
-                    Err(_) => shadow_lod_origin.0,
+                    None => shadow_lod_origin.0,
                 }
             }
         };
@@ -1222,9 +1312,7 @@ pub fn prepare_view_uniforms(
     // Pass 2: attach the resolved offset to each entity.
     for (entity, array_index) in per_entity {
         let offset = view_uniforms.uniforms.get_array_offset(array_index);
-        commands
-            .entity(entity)
-            .insert(ViewUniformOffset { offset });
+        commands.entity(entity).insert(ViewUniformOffset { offset });
     }
 }
 
@@ -1300,11 +1388,11 @@ struct MainTargetTextures {
 
 /// Prepares the view target [`OutputColorAttachment`] for each view in the current frame.
 pub fn prepare_view_attachments(
-    windows: Res<ExtractedWindows>,
     images: Res<RenderAssets<GpuImage>>,
     manual_texture_views: Res<ManualTextureViews>,
     cameras: Query<&ExtractedCamera>,
     mut view_target_attachments: ResMut<ViewTargetAttachments>,
+    windows: Query<(MainEntity, &ExtractedWindow)>,
 ) {
     for camera in cameras.iter() {
         let Some(target) = &camera.target else {
@@ -1339,12 +1427,12 @@ pub fn clear_view_attachments(mut view_target_attachments: ResMut<ViewTargetAtta
 
 pub fn cleanup_view_targets_for_resize(
     mut commands: Commands,
-    windows: Res<ExtractedWindows>,
+    windows: Query<(MainEntity, &ExtractedWindow)>,
     cameras: Query<(Entity, &ExtractedCamera), With<ViewTarget>>,
 ) {
     for (entity, camera) in &cameras {
         if let Some(NormalizedRenderTarget::Window(window_ref)) = &camera.target
-            && let Some(window) = windows.get(&window_ref.entity())
+            && let Some((_, window)) = windows.iter().find(|(e, _)| *e == window_ref.entity())
             && (window.size_changed || window.present_mode_changed)
         {
             commands.entity(entity).remove::<ViewTarget>();

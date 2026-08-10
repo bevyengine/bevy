@@ -7,7 +7,6 @@ use bevy_render::render_resource::{
     BindGroupLayoutEntryBuilder, TextureAspect, TextureSampleType, TextureView,
     TextureViewDescriptor, TextureViewDimension,
 };
-use bevy_utils::default;
 
 use crate::MeshPipelineViewLayoutKey;
 
@@ -82,62 +81,69 @@ pub fn get_bind_group_layout_entries(
 /// typed WGSL bindings. Under multiview each texture carries `view_count`
 /// layers; the `D2Array` view wraps the full array and the consumer reads
 /// its eye's slice via `current_view_index`.
+///
+/// The non-multiview path returns the prepass textures' prebuilt views
+/// unchanged, so single-view rendering is unaffected.
 pub fn get_bindings(
     prepass_textures: Option<&ViewPrepassTextures>,
     multiview_array: bool,
     deferred_multiview: bool,
 ) -> [Option<TextureView>; 4] {
-    let view_dimension = if multiview_array {
-        Some(TextureViewDimension::D2Array)
-    } else {
-        None
-    };
-
-    let depth_desc = TextureViewDescriptor {
-        label: Some("prepass_depth"),
-        aspect: TextureAspect::DepthOnly,
-        dimension: view_dimension,
-        ..default()
-    };
-    let depth_view = prepass_textures
-        .and_then(|x| x.depth.as_ref())
-        .map(|texture| texture.texture.texture.create_view(&depth_desc));
-
     let make_array_view = |label: &'static str, cached: &bevy_render::texture::CachedTexture| {
         cached.texture.create_view(&TextureViewDescriptor {
             label: Some(label),
             dimension: Some(TextureViewDimension::D2Array),
-            ..default()
+            ..Default::default()
         })
     };
 
-    let normal_view = prepass_textures.and_then(|pt| {
-        pt.normal.as_ref().map(|att| {
-            if multiview_array {
-                make_array_view("prepass_normal_array", &att.texture)
-            } else {
-                att.texture.default_view.clone()
-            }
+    let depth_view = if multiview_array {
+        prepass_textures
+            .and_then(|x| x.depth.as_ref())
+            .map(|attachment| {
+                attachment
+                    .texture
+                    .texture
+                    .create_view(&TextureViewDescriptor {
+                        label: Some("prepass_depth_array"),
+                        aspect: TextureAspect::DepthOnly,
+                        dimension: Some(TextureViewDimension::D2Array),
+                        ..Default::default()
+                    })
+            })
+    } else {
+        prepass_textures.and_then(|pt| pt.depth_only_view().cloned())
+    };
+
+    let normal_view = if multiview_array {
+        prepass_textures.and_then(|pt| {
+            pt.normal
+                .as_ref()
+                .map(|att| make_array_view("prepass_normal_array", &att.texture))
         })
-    });
-    let motion_view = prepass_textures.and_then(|pt| {
-        pt.motion_vectors.as_ref().map(|att| {
-            if multiview_array {
-                make_array_view("prepass_motion_vectors_array", &att.texture)
-            } else {
-                att.texture.default_view.clone()
-            }
+    } else {
+        prepass_textures.and_then(|pt| pt.normal_view().cloned())
+    };
+
+    let motion_view = if multiview_array {
+        prepass_textures.and_then(|pt| {
+            pt.motion_vectors
+                .as_ref()
+                .map(|att| make_array_view("prepass_motion_vectors_array", &att.texture))
         })
-    });
-    let deferred_view = prepass_textures.and_then(|pt| {
-        pt.deferred.as_ref().map(|att| {
-            if deferred_multiview {
-                make_array_view("prepass_deferred_array", &att.texture)
-            } else {
-                att.texture.default_view.clone()
-            }
+    } else {
+        prepass_textures.and_then(|pt| pt.motion_vectors_view().cloned())
+    };
+
+    let deferred_view = if deferred_multiview {
+        prepass_textures.and_then(|pt| {
+            pt.deferred
+                .as_ref()
+                .map(|att| make_array_view("prepass_deferred_array", &att.texture))
         })
-    });
+    } else {
+        prepass_textures.and_then(|pt| pt.deferred_view().cloned())
+    };
 
     [depth_view, normal_view, motion_view, deferred_view]
 }

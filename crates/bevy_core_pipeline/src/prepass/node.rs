@@ -13,7 +13,8 @@ use bevy_render::{
     render_resource::{PipelineCache, RenderPassDescriptor, StoreOp},
     renderer::{RenderContext, ViewQuery},
     view::{
-        ExtractedMultiview, ExtractedView, NoIndirectDrawing, ViewDepthTexture, ViewUniformOffset,
+        ExtractedMultiview, ExtractedView, NoIndirectDrawing, ViewDepthStencilTexture,
+        ViewUniformOffset,
     },
 };
 
@@ -31,7 +32,7 @@ type PrepassViewQueryData = (
     (
         &'static ExtractedCamera,
         &'static ExtractedView,
-        &'static ViewDepthTexture,
+        &'static ViewDepthStencilTexture,
         &'static ViewPrepassTextures,
         &'static ViewUniformOffset,
     ),
@@ -148,7 +149,7 @@ fn run_prepass_system(
     view_entity: Entity,
     camera: &ExtractedCamera,
     extracted_view: &ExtractedView,
-    view_depth_texture: &ViewDepthTexture,
+    view_depth_texture: &ViewDepthStencilTexture,
     view_prepass_textures: &ViewPrepassTextures,
     view_uniform_offset: &ViewUniformOffset,
     deferred_prepass: Option<&DeferredPrepass>,
@@ -311,7 +312,7 @@ fn run_prepass_system(
         // Source + dest extents both carry `depth_or_array_layers = view_count`
         // post-C2 sub-A, so this single call copies every layer.
         ctx.command_encoder().copy_texture_to_texture(
-            view_depth_texture.texture.as_image_copy(),
+            view_depth_texture.texture().as_image_copy(),
             prepass_depth_texture.texture.texture.as_image_copy(),
             view_prepass_textures.size,
         );

@@ -695,7 +695,7 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn queue_handled(
         &mut self,
         command: impl Command,
-        error_handler: fn(BevyError, ErrorContext),
+        error_handler: impl FnOnce(BevyError, ErrorContext) + Send + 'static,
     ) {
         self.queue_internal(command.handle_error_with(error_handler));
     }
@@ -952,7 +952,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// It will internally return a [`RegisteredSystemError`](crate::system::system_registry::RegisteredSystemError),
     /// which will be handled by [logging the error at the `warn` level](warn).
-    pub fn run_system(&mut self, id: SystemId) {
+    pub fn run_system(&mut self, id: impl Into<SystemId> + Send) {
         self.queue(command::run_system(id).handle_error_with(warn));
     }
 
@@ -974,8 +974,11 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// It will internally return a [`RegisteredSystemError`](crate::system::system_registry::RegisteredSystemError),
     /// which will be handled by [logging the error at the `warn` level](warn).
-    pub fn run_system_with<I>(&mut self, id: SystemId<I>, input: I::Inner<'static>)
-    where
+    pub fn run_system_with<I>(
+        &mut self,
+        id: impl Into<SystemId<I>> + Send,
+        input: I::Inner<'static>,
+    ) where
         I: SystemInput<Inner<'static>: Send> + 'static,
     {
         self.queue(command::run_system_with(id, input).handle_error_with(warn));
@@ -2066,7 +2069,7 @@ impl<'a> EntityCommands<'a> {
     pub fn queue_handled(
         &mut self,
         command: impl EntityCommand,
-        error_handler: fn(BevyError, ErrorContext),
+        error_handler: impl FnOnce(BevyError, ErrorContext) + Send + 'static,
     ) -> &mut Self {
         self.commands
             .queue_handled(command.with_entity(self.entity), error_handler);

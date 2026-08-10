@@ -23,7 +23,9 @@ use bevy_render::{
     render_resource::{binding_types::*, *},
     renderer::{RenderDevice, RenderQueue},
     texture::{CachedTexture, TextureCache},
-    view::{ExtractedMultiview, ExtractedView, Msaa, ViewDepthTexture, ViewUniform, ViewUniforms},
+    view::{
+        ExtractedMultiview, ExtractedView, Msaa, ViewDepthStencilTexture, ViewUniform, ViewUniforms,
+    },
 };
 use bevy_shader::{Shader, ShaderDefVal};
 use bevy_utils::default;
@@ -256,7 +258,7 @@ impl FromWorld for RenderSkyBindGroupLayouts {
             render_sky_msaa,
             render_sky_multiview,
             fullscreen_shader: world.resource::<FullscreenShader>().clone(),
-            fragment_shader: load_embedded_asset!(world, "render_sky.wgsl"),
+            fragment_shader: load_embedded_asset!(world, "render_sky.wesl"),
         }
     }
 }
@@ -295,7 +297,7 @@ impl FromWorld for AtmosphereLutPipelines {
         let transmittance_lut = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
             label: Some("transmittance_lut_pipeline".into()),
             layout: vec![layouts.transmittance_lut.clone()],
-            shader: load_embedded_asset!(world, "transmittance_lut.wgsl"),
+            shader: load_embedded_asset!(world, "transmittance_lut.wesl"),
             ..default()
         });
 
@@ -303,21 +305,21 @@ impl FromWorld for AtmosphereLutPipelines {
             pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
                 label: Some("multi_scattering_lut_pipeline".into()),
                 layout: vec![layouts.multiscattering_lut.clone()],
-                shader: load_embedded_asset!(world, "multiscattering_lut.wgsl"),
+                shader: load_embedded_asset!(world, "multiscattering_lut.wesl"),
                 ..default()
             });
 
         let sky_view_lut = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
             label: Some("sky_view_lut_pipeline".into()),
             layout: vec![layouts.sky_view_lut.clone()],
-            shader: load_embedded_asset!(world, "sky_view_lut.wgsl"),
+            shader: load_embedded_asset!(world, "sky_view_lut.wesl"),
             ..default()
         });
 
         let aerial_view_lut = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
             label: Some("aerial_view_lut_pipeline".into()),
             layout: vec![layouts.aerial_view_lut.clone()],
-            shader: load_embedded_asset!(world, "aerial_view_lut.wgsl"),
+            shader: load_embedded_asset!(world, "aerial_view_lut.wesl"),
             ..default()
         });
 
@@ -625,7 +627,11 @@ pub(super) fn prepare_atmosphere_transforms(
         // World-horizontal reference for back, projected orthogonal to atmo_y.
         let world_ref = Vec3A::NEG_Z;
         let ref_horizontal = world_ref - atmo_y * atmo_y.dot(world_ref);
-        let atmo_z = ref_horizontal.normalize();
+        let atmo_z = ref_horizontal.try_normalize().unwrap_or_else(|| {
+            // `NEG_Z` is degenerate at the poles of a Z-up world.
+            let fallback_ref = Vec3A::NEG_Y;
+            (fallback_ref - atmo_y * atmo_y.dot(fallback_ref)).normalize()
+        });
         let atmo_x = atmo_y.cross(atmo_z).normalize();
 
         let world_from_atmosphere = Mat4::from(Affine3A::from_cols(
@@ -678,7 +684,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
             Entity,
             &ExtractedAtmosphere,
             &AtmosphereTextures,
-            &ViewDepthTexture,
+            &ViewDepthStencilTexture,
             &Msaa,
             Option<&ExtractedMultiview>,
         ),
@@ -728,6 +734,13 @@ pub(super) fn prepare_atmosphere_bind_groups(
     for (entity, atmosphere, textures, view_depth_texture, msaa, multiview) in &views {
         let multiview_view_count = multiview.map(|m| m.subviews.len() as u32).unwrap_or(1);
         let use_multiview_layout = multiview_view_count > 1 && *msaa == Msaa::Off;
+        let Some(depth_view) = view_depth_texture
+            .attachment
+            .depth_stencil_views()
+            .depth_only_view()
+        else {
+            continue;
+        };
         let gpu_medium = gpu_media
             .get(atmosphere.medium)
             .ok_or(ScatteringMediumMissingError(atmosphere.medium))?;
@@ -840,7 +853,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
                 (11, &textures.aerial_view_lut.default_view),
                 (12, &**atmosphere_sampler),
                 // view depth texture
-                (13, view_depth_texture.view()),
+                (13, depth_view),
             )),
         );
 

@@ -75,8 +75,9 @@ pub fn upscaling(
     };
 
     let Some(pipeline) = pipeline_cache.get_render_pipeline(upscaling_target.0) else {
-        // we need to do some work on the swapchain to avoid pink screen uninit on macos
-        #[cfg(target_os = "macos")]
+        // we need to do some work on the swapchain to avoid uninitialized-drawable
+        // artifacts (a pink/magenta screen) on Metal platforms
+        #[cfg(any(target_os = "macos", target_os = "ios"))]
         ctx.command_encoder().begin_render_pass(&pass_descriptor);
         return;
     };

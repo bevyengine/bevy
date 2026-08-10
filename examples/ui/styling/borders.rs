@@ -151,64 +151,155 @@ fn setup(mut commands: Commands) {
         }
     };
 
+    let rounded_border_radii = borders.map(|border| {
+        BorderRadius::px(
+            border_size(border.left, border.top),
+            border_size(border.right, border.top),
+            border_size(border.right, border.bottom),
+            border_size(border.left, border.bottom),
+        )
+    });
+
+    let elliptical_border_labels = [
+        "Ellipse Wide",
+        "Ellipse Tall",
+        "Ellipse Mixed",
+        "Ellipse Percent",
+    ];
+    let elliptical_borders = [
+        UiRect::all(px(10)),
+        UiRect::all(px(10)),
+        UiRect::all(px(10)),
+        UiRect::all(px(10)),
+    ];
+    let elliptical_border_radii = [
+        BorderRadius {
+            top_left: CornerRadius {
+                x: px(25),
+                y: px(8),
+            },
+            top_right: CornerRadius {
+                x: px(25),
+                y: px(8),
+            },
+            bottom_right: CornerRadius {
+                x: px(25),
+                y: px(8),
+            },
+            bottom_left: CornerRadius {
+                x: px(25),
+                y: px(8),
+            },
+        },
+        BorderRadius {
+            top_left: (px(8), px(25)).into(),
+            top_right: (px(8), px(25)).into(),
+            bottom_right: [px(8), px(25)].into(),
+            bottom_left: [px(8), px(25)].into(),
+        },
+        BorderRadius {
+            top_left: CornerRadius {
+                x: px(25),
+                y: px(12),
+            },
+            top_right: CornerRadius {
+                x: px(12),
+                y: px(25),
+            },
+            bottom_right: CornerRadius {
+                x: px(25),
+                y: px(12),
+            },
+            bottom_left: CornerRadius {
+                x: px(12),
+                y: px(25),
+            },
+        },
+        BorderRadius {
+            top_left: CornerRadius {
+                x: percent(50),
+                y: percent(20),
+            },
+            top_right: CornerRadius {
+                x: percent(20),
+                y: percent(50),
+            },
+            bottom_right: CornerRadius {
+                x: percent(50),
+                y: percent(20),
+            },
+            bottom_left: CornerRadius {
+                x: percent(20),
+                y: percent(50),
+            },
+        },
+    ];
+
     let borders_examples_rounded = (
         Node {
             margin: px(25).all(),
             flex_wrap: FlexWrap::Wrap,
             ..default()
         },
-        Children::spawn(SpawnIter(border_labels.into_iter().zip(borders).map(
-            move |(label, border)| {
-                (
-                    Node {
-                        flex_direction: FlexDirection::Column,
-                        align_items: AlignItems::Center,
-                        ..default()
-                    },
-                    children![
-                        (
-                            Node {
-                                width: px(50),
-                                height: px(50),
-                                border,
-                                margin: px(20).all(),
-                                align_items: AlignItems::Center,
-                                justify_content: JustifyContent::Center,
-                                border_radius: BorderRadius::px(
-                                    border_size(border.left, border.top),
-                                    border_size(border.right, border.top),
-                                    border_size(border.right, border.bottom,),
-                                    border_size(border.left, border.bottom),
-                                ),
-                                ..default()
-                            },
-                            BackgroundColor(MAROON.into()),
-                            BorderColor {
-                                top: RED.into(),
-                                bottom: YELLOW.into(),
-                                left: GREEN.into(),
-                                right: BLUE.into(),
-                            },
-                            Outline {
-                                width: px(6),
-                                offset: px(6),
-                                color: Color::WHITE,
-                            },
-                            children![(
+        Children::spawn(SpawnIter(
+            border_labels
+                .into_iter()
+                .zip(borders)
+                .zip(rounded_border_radii)
+                .map(|((label, border), border_radius)| (label, border, border_radius))
+                .chain(
+                    elliptical_border_labels
+                        .into_iter()
+                        .zip(elliptical_borders)
+                        .zip(elliptical_border_radii)
+                        .map(|((label, border), border_radius)| (label, border, border_radius)),
+                )
+                .map(move |(label, border, border_radius)| {
+                    (
+                        Node {
+                            flex_direction: FlexDirection::Column,
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                        children![
+                            (
                                 Node {
-                                    width: px(10),
-                                    height: px(10),
-                                    border_radius: BorderRadius::MAX,
+                                    width: px(50),
+                                    height: px(50),
+                                    border,
+                                    margin: px(20).all(),
+                                    align_items: AlignItems::Center,
+                                    justify_content: JustifyContent::Center,
+                                    border_radius,
                                     ..default()
                                 },
-                                BackgroundColor(YELLOW.into()),
-                            )],
-                        ),
-                        (Text::new(label), TextFont::from_font_size(9.0))
-                    ],
-                )
-            },
-        ))),
+                                BackgroundColor(MAROON.into()),
+                                BorderColor {
+                                    top: RED.into(),
+                                    bottom: YELLOW.into(),
+                                    left: GREEN.into(),
+                                    right: BLUE.into(),
+                                },
+                                Outline {
+                                    width: px(6),
+                                    offset: px(6),
+                                    color: Color::WHITE,
+                                },
+                                children![(
+                                    Node {
+                                        width: px(10),
+                                        height: px(10),
+                                        border_radius: BorderRadius::MAX,
+                                        ..default()
+                                    },
+                                    BackgroundColor(YELLOW.into()),
+                                )],
+                            ),
+                            (Text::new(label), TextFont::from_font_size(9.0))
+                        ],
+                    )
+                }),
+        )),
     );
 
     commands.spawn((
