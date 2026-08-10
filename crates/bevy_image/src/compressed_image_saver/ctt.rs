@@ -88,11 +88,11 @@ impl CompressedImageSaverCtt {
             quality: Quality::default(),
             output_color_space: None,
             output_alpha: Some(bevy_to_ctt_alpha_mode(settings.output_alpha_mode)),
+            allow_discarding_alpha: settings.is_normal_map,
             swizzle: None,
             mipmap: settings.generate_mipmaps,
             mipmap_count: None,
             mipmap_filter: if settings.is_normal_map {
-                // TODO: https://github.com/cwfitzgerald/ctt/issues/65
                 MipmapFilter::Triangle
             } else {
                 MipmapFilter::Lanczos3

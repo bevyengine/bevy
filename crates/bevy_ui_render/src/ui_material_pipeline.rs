@@ -44,9 +44,9 @@ where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
     fn build(&self, app: &mut App) {
-        load_shader_library!(app, "ui_vertex_output.wgsl");
+        load_shader_library!(app, "ui_vertex_output.wesl");
 
-        embedded_asset!(app, "ui_material.wgsl");
+        embedded_asset!(app, "ui_material.wesl");
 
         app.init_asset::<M>()
             .register_type::<MaterialNode<M>>()
@@ -193,7 +193,7 @@ pub fn init_ui_material_pipeline<M: UiMaterial>(
         ),
     );
 
-    let load_default = || load_embedded_asset!(asset_server.as_ref(), "ui_material.wgsl");
+    let load_default = || load_embedded_asset!(asset_server.as_ref(), "ui_material.wesl");
 
     commands.insert_resource(UiMaterialPipeline::<M> {
         ui_layout,
@@ -299,20 +299,17 @@ pub struct ExtractedUiMaterialNode<M: UiMaterial> {
     pub border_radius: [[f32; 4]; 2],
     pub material: AssetId<M>,
     pub clip: Option<Rect>,
-    // Camera to render this UI node to. By the time it is extracted,
-    // it is defaulted to a single camera if only one exists.
-    // Nodes with ambiguous camera will be ignored.
-    pub extracted_camera_entity: Entity,
 }
 
 /// A render-world resource that stores all material nodes in the scene.
 #[derive(Resource)]
 pub struct ExtractedUiMaterialNodes<M: UiMaterial> {
-    /// The list of material nodes.
+    /// The list of material nodes grouped by their main-world entity, along with
+    /// each group's target camera entity.
     ///
     /// This is a two-level data structure so that we can quickly remove all
     /// material nodes associated with a main-world entity when it changes.
-    pub uinodes: MainEntityHashMap<EntityIndexMap<ExtractedUiMaterialNode<M>>>,
+    pub uinodes: MainEntityHashMap<(Entity, EntityIndexMap<ExtractedUiMaterialNode<M>>)>,
 }
 
 impl<M: UiMaterial> Default for ExtractedUiMaterialNodes<M> {
@@ -349,6 +346,18 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
                 Changed<ComputedUiTargetCamera>,
             )>,
         >,
+    >,
+    unfiltered_uinode_query: Extract<
+        Query<(
+            Entity,
+            &ComputedNode,
+            &ComputedStackIndex,
+            &UiGlobalTransform,
+            &MaterialNode<M>,
+            &InheritedVisibility,
+            Option<&CalculatedClip>,
+            &ComputedUiTargetCamera,
+        )>,
     >,
     camera_map: Extract<UiCameraMap>,
     (
@@ -387,7 +396,9 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
     ) in uinode_query.iter().chain(
         nodes_to_reextract
             .into_iter()
-            .filter_map(|main_entity| uinode_query.get(main_entity.entity()).ok()),
+            .map(|main_entity| main_entity.entity())
+            .chain(removed_calculated_clip_query.read())
+            .filter_map(|entity| unfiltered_uinode_query.get(entity).ok()),
     ) {
         let main_entity = MainEntity::from(entity);
 
@@ -402,7 +413,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
             .uinodes
             .get_mut(&main_entity)
             .iter_mut()
-            .flat_map(|main_entity| main_entity.drain(..))
+            .flat_map(|(_, nodes)| nodes.drain(..))
         {
             commands.entity(render_entity).despawn();
         }
@@ -422,13 +433,17 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
         let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
             continue;
         };
+        if let Some((camera_entity, _)) = extracted_uinodes.uinodes.get_mut(&main_entity) {
+            *camera_entity = extracted_camera_entity;
+        }
 
         nodes_processed_this_frame.insert(main_entity);
 
         extracted_uinodes
             .uinodes
             .entry(main_entity)
-            .or_default()
+            .or_insert_with(|| (extracted_camera_entity, Default::default()))
+            .1
             .insert(
                 commands.spawn_empty().id(),
                 ExtractedUiMaterialNode {
@@ -442,7 +457,6 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
                     border: computed_node.border(),
                     border_radius: computed_node.border_radius().into(),
                     clip: clip.map(|clip| clip.clip),
-                    extracted_camera_entity,
                 },
             );
     }
@@ -456,14 +470,13 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
         .chain(removed_ui_global_transform_query.read())
         .chain(removed_material_node_query.read())
         .chain(removed_inherited_visibility_query.read())
-        .chain(removed_calculated_clip_query.read())
         .chain(removed_computed_ui_target_camera_query.read())
     {
         let main_entity = MainEntity::from(main_entity);
         if nodes_processed_this_frame.contains(&main_entity) {
             continue;
         }
-        let Some(mut extracted_nodes) = extracted_uinodes.uinodes.remove(&main_entity) else {
+        let Some((_, mut extracted_nodes)) = extracted_uinodes.uinodes.remove(&main_entity) else {
             continue;
         };
         for (render_entity, _) in extracted_nodes.drain(..) {
@@ -508,7 +521,7 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
                 if let Some(extracted_uinode) = extracted_uinodes
                     .uinodes
                     .get(&item.main_entity())
-                    .and_then(|subnodes| subnodes.get(&item.entity()))
+                    .and_then(|(_, subnodes)| subnodes.get(&item.entity()))
                 {
                     // Initialize the batch range to be zero-length initially.
                     // We'll extend it as we accumulate items into this batch.
@@ -693,32 +706,43 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
     pipeline_cache: Res<PipelineCache>,
     render_materials: Res<RenderAssets<PreparedUiMaterial<M>>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    mut render_views: Query<&UiCameraView, With<ExtractedView>>,
+    render_views: Query<&UiCameraView, With<ExtractedView>>,
     camera_views: Query<&ExtractedView>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
     let draw_function = draw_functions.read().id::<DrawUiMaterial<M>>();
+    let mut current_camera_entity = Entity::PLACEHOLDER;
+    let mut current_phase = None;
 
-    for (main_entity, extracted_sub_uinodes) in extracted_uinodes.uinodes.iter() {
+    for (main_entity, (extracted_camera_entity, extracted_sub_uinodes)) in
+        extracted_uinodes.uinodes.iter()
+    {
+        if current_camera_entity != *extracted_camera_entity {
+            current_phase =
+                render_views
+                    .get(*extracted_camera_entity)
+                    .ok()
+                    .and_then(|default_camera_view| {
+                        camera_views
+                            .get(default_camera_view.0)
+                            .ok()
+                            .and_then(|view| {
+                                transparent_render_phases
+                                    .get_mut(&view.retained_view_entity)
+                                    .map(|transparent_phase| {
+                                        (view.target_format, transparent_phase)
+                                    })
+                            })
+                    });
+            current_camera_entity = *extracted_camera_entity;
+        }
+
+        let Some((target_format, transparent_phase)) = current_phase.as_mut() else {
+            continue;
+        };
         for (render_entity, extracted_uinode) in extracted_sub_uinodes.iter() {
             let Some(material) = render_materials.get(extracted_uinode.material) else {
-                continue;
-            };
-
-            let Ok(default_camera_view) =
-                render_views.get_mut(extracted_uinode.extracted_camera_entity)
-            else {
-                continue;
-            };
-
-            let Ok(view) = camera_views.get(default_camera_view.0) else {
-                continue;
-            };
-
-            let Some(transparent_phase) =
-                transparent_render_phases.get_mut(&view.retained_view_entity)
-            else {
                 continue;
             };
 
@@ -726,7 +750,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
                 &pipeline_cache,
                 &ui_material_pipeline,
                 UiMaterialKey {
-                    target_format: view.target_format,
+                    target_format: *target_format,
                     bind_group_data: material.key.clone(),
                 },
             );

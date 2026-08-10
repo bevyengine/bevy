@@ -188,6 +188,7 @@ fn spawn_buttons(commands: &mut Commands) {
                     (TintType::Solid, "SOLID"),
                     (TintType::Map,   "MAP"),
                 ],
+                0,
             )
         ]
     });

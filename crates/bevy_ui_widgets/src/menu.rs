@@ -40,7 +40,7 @@ use bevy_ecs::{
     observer::On,
     query::{Has, With},
     reflect::{ReflectComponent, ReflectEvent},
-    schedule::IntoScheduleConfigs,
+    schedule::{IntoScheduleConfigs, SystemSet},
     system::{Commands, Query, Res, ResMut},
 };
 use bevy_input::{
@@ -54,9 +54,9 @@ use bevy_input_focus::{
 use bevy_log::warn;
 use bevy_picking::events::{Cancel, Click, DragEnd, Pointer, Press, Release};
 use bevy_reflect::Reflect;
-use bevy_ui::{widget::Button, InteractionDisabled, Pressed, UiSystems};
+use bevy_ui::{InteractionDisabled, Pressed, UiSystems};
 
-use crate::{text_input::text_input_autoscroll_system, Activate, ActivateOnPress};
+use crate::{text_input::text_input_autoscroll_system, Activate, ActivateOnPress, Button};
 
 /// Action type for [`MenuEvent`].
 #[derive(Clone, Copy, Debug, Reflect)]
@@ -150,6 +150,14 @@ pub enum MenuFocusState {
     Closed,
 }
 
+/// System set for the system that menus use to acquire focus on one of its items upon first opening.
+/// It potentially modifies [`InputFocus`].
+///
+/// These system runs in the [`PostUpdate`] schedule.
+#[derive(Debug, PartialEq, Eq, Hash, Clone, SystemSet)]
+pub struct MenuFocusSystem;
+
+/// System that sets the focus to an item in the menu when the menu is opening.
 fn menu_acquire_focus(
     mut q_menus: Query<(Entity, &mut MenuFocusState), With<MenuPopup>>,
     mut focus: ResMut<InputFocus>,
@@ -474,7 +482,10 @@ impl Plugin for MenuPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             PostUpdate,
-            (menu_acquire_focus, menu_on_lose_focus)
+            (
+                menu_acquire_focus.in_set(MenuFocusSystem),
+                menu_on_lose_focus,
+            )
                 .chain()
                 .after(VisibilitySystems::VisibilityPropagate)
                 .before(InputFocusSystems::FocusChangeEvents)
