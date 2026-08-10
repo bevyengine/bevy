@@ -206,10 +206,7 @@ async fn get_or_create_shader_module(
         EntryRef::Vacant(vacant_entry_ref) => {
             let module = load_module(device, processed_shader).await?;
             Ok(vacant_entry_ref
-                .insert_with_key(
-                    ShaderModuleCacheKey(*shader_id, shader_defs.into()),
-                    module,
-                )
+                .insert_with_key(ShaderModuleCacheKey(*shader_id, shader_defs.into()), module)
                 .clone())
         }
     }
@@ -532,6 +529,21 @@ impl PipelineCache {
             .get(&self.device, bind_group_layout_descriptor)
     }
 
+    /// Drops all cached shader modules that were compiled from the given shader.
+    ///
+    /// On wasm32 there is no way to block on the lock, so this is best-effort: if a pipeline
+    /// task currently holds it, the stale modules are left in place until the next cleanup.
+    fn clear_shader_modules(&self, shader: AssetId<Shader>) {
+        #[cfg(not(target_arch = "wasm32"))]
+        self.shader_module_cache
+            .lock_blocking()
+            .retain(|key, _| key.0 != shader);
+        #[cfg(target_arch = "wasm32")]
+        if let Some(mut shader_module_cache) = self.shader_module_cache.try_lock() {
+            shader_module_cache.retain(|key, _| key.0 != shader);
+        }
+    }
+
     /// Inserts a [`Shader`] into this cache with the provided [`AssetId`].
     pub fn set_shader(&mut self, id: AssetId<Shader>, shader: Shader) {
         let mut shader_cache = self.shader_cache.lock().unwrap();
@@ -541,6 +553,10 @@ impl PipelineCache {
             self.pipelines[cached_pipeline].state = CachedPipelineState::Queued;
             self.waiting_pipelines.insert(cached_pipeline);
         }
+
+        // The shader may have been modified: drop any compiled modules built from the
+        // previous version of this shader so they get recompiled.
+        self.clear_shader_modules(id);
     }
 
     /// Removes a [`Shader`] from this cache if it exists.
@@ -552,6 +568,9 @@ impl PipelineCache {
             self.pipelines[cached_pipeline].state = CachedPipelineState::Queued;
             self.waiting_pipelines.insert(cached_pipeline);
         }
+
+        // Drop all compiled shader modules built from the removed shader.
+        self.clear_shader_modules(shader);
     }
 
     /// Collects the GPU bind group layouts for a pipeline's layout descriptors.
@@ -723,11 +742,8 @@ impl PipelineCache {
                     let mut shader_cache = shader_cache.lock().unwrap();
                     let mut layout_cache = layout_cache.lock().unwrap();
 
-                    let compute_module = shader_cache.get(
-                        id,
-                        descriptor.shader.id(),
-                        &descriptor.shader_defs,
-                    )?;
+                    let compute_module =
+                        shader_cache.get(id, descriptor.shader.id(), &descriptor.shader_defs)?;
 
                     let layout = get_or_create_pipeline_layout(
                         &mut layout_cache,
