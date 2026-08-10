@@ -585,6 +585,11 @@ impl NumberInputUnits {
     pub fn new_inline(text: &str) -> Self {
         Self(SmolStr::new_inline(text))
     }
+
+    /// Construct a [`NumberInputUnits`] given a [`UnitsFormat`] reference.
+    pub fn new(format: &dyn UnitsFormat) -> Self {
+        Self(SmolStr::new_static(format.id()))
+    }
 }
 
 /// Manage state transitions between scrubbing and dragging modes
