@@ -75,8 +75,8 @@ fn calculate_neighboring_depth_differences(pixel_coordinates: vec2<i32>) -> f32 
     return depth_center;
 }
 
-fn load_normal_view_space(uv: vec2<f32>) -> vec3<f32> {
-    var world_normal = textureSampleLevel(normals, point_clamp_sampler, uv, 0.0).xyz;
+fn load_normal_view_space(uv_normals: vec2<f32>) -> vec3<f32> {
+    var world_normal = textureSampleLevel(normals, point_clamp_sampler, uv_normals, 0.0).xyz;
     world_normal = (world_normal * 2.0) - 1.0;
     let view_from_world = mat3x3<f32>(
         view.view_from_world[0].xyz,
@@ -144,6 +144,8 @@ fn ssao(@builtin(global_invocation_id) global_id: vec3<u32>) {
     pixel_depth += 0.00001; // Avoid depth precision issues
 
     let pixel_position = reconstruct_view_space_position(pixel_depth, uv);
+    let normals_size = vec2<f32>(textureDimensions(normals));
+    let uv_normals = (vec2<f32>(pixel_coordinates) + 0.5 + view.viewport.xy) / normals_size;
     let pixel_normal = load_normal_view_space(uv);
     let view_vec = normalize(-pixel_position);
 
