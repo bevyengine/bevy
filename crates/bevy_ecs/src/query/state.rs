@@ -1789,19 +1789,26 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         use arrayvec::ArrayVec;
 
         bevy_tasks::ComputeTaskPool::get().scope(|scope| {
+            use core::ops::Range;
+
             // SAFETY: We only access table data that has been registered in
             // `self.component_access`.
             let tables = unsafe { &world.storages().tables };
+
+            // Unlike ordinary parallel iteration, contiguous iteration uses a
+            // unified queuing system that accumulates row *ranges* from
+            // multiple tables, not tables as a whole. This allows individual
+            // jobs to include any combination of entire tables and portions of
+            // tables.
             let mut batch_queue = ArrayVec::new();
             let mut queue_entity_count = 0;
 
-            // Submit a list of tables which are smaller than the batch size as
-            // a single task.
+            // Submits a full batch
             //
             // The 128 table limit is an arbitrary tuning parameter unrelated to
             // the batch size. It matches the limit in
             // `Self::par_fold_init_unchecked_manual`.
-            let submit_batch_queue = |queue: ArrayVec<TableId, 128>| {
+            let submit_batch_queue = |queue: ArrayVec<(TableId, Range<u32>), 128>| {
                 let (func, init_accum) = (func.clone(), init_accum.clone());
                 scope.spawn(async move {
                     #[cfg(feature = "trace")]
@@ -1811,39 +1818,54 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                     let tables = unsafe { &world.storages().tables };
                     let mut fetch = D::init_fetch(world, &self.fetch_state, last_run, this_run);
                     let mut accum = init_accum();
-                    for table_id in queue {
+                    for (table_id, range) in queue {
                         let table = &tables[table_id];
                         D::set_table(&mut fetch, &self.fetch_state, table);
                         let item =
                             D::fetch_contiguous(&self.fetch_state, &mut fetch, table.entities());
+                        let item = D::slice_contiguous(item, range);
                         accum = func(accum, item);
                     }
                 });
             };
 
+            // Go over all the tables.
             for storage_id in &self.matched_storage_ids {
                 let table_id = storage_id.table_id;
-                let count = tables[table_id].entity_count();
+                let row_count = tables[table_id].entity_count();
 
-                // Skip empty tables.
-                if count == 0 {
-                    continue;
-                }
-                // Immediately submit large storage.
-                if count >= batch_size {
-                    submit_batch_queue(TryFrom::try_from(&[table_id][..]).unwrap());
-                    continue;
-                }
-                // Merge small tables.
-                batch_queue.push(table_id);
-                queue_entity_count += count;
+                // Accumulate rows until we either hit the `batch_size` or hit
+                // the maximum number of tables (128).
+                let mut row_start_offset = 0;
+                while row_start_offset < row_count {
+                    // If we hit the maximum number of tables, force a submit.
+                    if batch_queue.is_full() {
+                        submit_batch_queue(core::mem::take(&mut batch_queue));
+                        queue_entity_count = 0;
+                    }
 
-                // Submit batch queue.
-                if queue_entity_count >= batch_size || batch_queue.is_full() {
-                    submit_batch_queue(core::mem::take(&mut batch_queue));
-                    queue_entity_count = 0;
+                    // Can we include the entire remainder of the table, or do
+                    // we need to split it?
+                    if queue_entity_count + row_count - row_start_offset > batch_size {
+                        // We need to split the table. Push the portion that fits.
+                        let row_end_offset =
+                            row_start_offset + (batch_size - queue_entity_count);
+                        batch_queue.push((table_id, row_start_offset..row_end_offset));
+                        row_start_offset = row_end_offset;
+
+                        // And submit it.
+                        submit_batch_queue(core::mem::take(&mut batch_queue));
+                        queue_entity_count = 0;
+                    } else {
+                        // We can fit the entire remainder of the table.
+                        batch_queue.push((table_id, row_start_offset..row_count));
+                        queue_entity_count += row_count - row_start_offset;
+                        row_start_offset = row_count;
+                    }
                 }
             }
+
+            // If we have any rows left over, submit them now.
             if !batch_queue.is_empty() {
                 submit_batch_queue(batch_queue);
             }

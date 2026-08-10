@@ -7,7 +7,7 @@ use crate::{
 use bevy_ptr::{Ptr, ThinSlicePtr, UnsafeCellDeref};
 use core::{
     cell::UnsafeCell,
-    ops::{Deref, DerefMut},
+    ops::{Deref, DerefMut, Range},
     panic::Location,
 };
 
@@ -195,6 +195,21 @@ impl<'w> ContiguousComponentTicksRef<'w> {
         self.added
             .iter()
             .map(|v| v.is_newer_than(self.last_run, self.this_run))
+    }
+
+    /// Narrows the range of rows that this set of ticks represents.
+    ///
+    /// If the range is out of range, this method will panic.
+    pub fn slice(self, range: Range<u32>) -> Self {
+        Self {
+            added: &self.added[(range.start as usize)..(range.end as usize)],
+            changed: &self.changed[(range.start as usize)..(range.end as usize)],
+            changed_by: self
+                .changed_by
+                .map(|changed_by| &changed_by[(range.start as usize)..(range.end as usize)]),
+            last_run: self.last_run,
+            this_run: self.this_run,
+        }
     }
 }
 
@@ -431,6 +446,21 @@ impl<'w> ContiguousComponentTicksMut<'w> {
             added: self.added,
             changed: self.changed,
             changed_by: self.changed_by.as_deref_mut(),
+            last_run: self.last_run,
+            this_run: self.this_run,
+        }
+    }
+
+    /// Narrows the range of rows that this set of ticks represents.
+    ///
+    /// If the range is out of range, this method will panic.
+    pub fn slice(self, range: Range<u32>) -> Self {
+        ContiguousComponentTicksMut {
+            added: &mut self.added[(range.start as usize)..(range.end as usize)],
+            changed: &mut self.changed[(range.start as usize)..(range.end as usize)],
+            changed_by: self
+                .changed_by
+                .map(|changed_by| &mut changed_by[(range.start as usize)..(range.end as usize)]),
             last_run: self.last_run,
             this_run: self.this_run,
         }
@@ -829,6 +859,16 @@ impl<'w, T> ContiguousRef<'w, T> {
     pub fn from_parts(value: &'w [T], ticks: ContiguousComponentTicksRef<'w>) -> Option<Self> {
         (value.len() == ticks.changed.len()).then_some(Self { value, ticks })
     }
+
+    /// Narrows the set of rows that this [`ContiguousRef`] represents.
+    ///
+    /// If the given `range` is out of bounds, this method will panic.
+    pub fn slice(self, range: Range<u32>) -> Self {
+        Self {
+            value: &self.value[(range.start as usize)..(range.end as usize)],
+            ticks: self.ticks.slice(range),
+        }
+    }
 }
 
 impl<'w, T> Deref for ContiguousRef<'w, T> {
@@ -1127,6 +1167,16 @@ impl<'w, T> ContiguousMut<'w, T> {
     /// `ticks` and `value` come from the same [`Self::split`] or [`Self::bypass_change_detection_split`] call.
     pub fn from_parts(value: &'w mut [T], ticks: ContiguousComponentTicksMut<'w>) -> Option<Self> {
         (value.len() == ticks.changed.len()).then_some(Self { value, ticks })
+    }
+
+    /// Narrows the range of rows that this [`ContiguousMut`] represents.
+    ///
+    /// If the given `range` is out of bounds, this method will panic.
+    pub fn slice(self, range: Range<u32>) -> Self {
+        Self {
+            value: &mut self.value[(range.start as usize)..(range.end as usize)],
+            ticks: self.ticks.slice(range),
+        }
     }
 }
 

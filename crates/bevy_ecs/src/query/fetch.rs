@@ -21,7 +21,7 @@ use crate::{
 };
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
 use bevy_utils::prelude::DebugName;
-use core::{cell::UnsafeCell, iter, marker::PhantomData, panic::Location};
+use core::{cell::UnsafeCell, iter, marker::PhantomData, ops::Range, panic::Location};
 use variadics_please::all_tuples;
 
 /// Types that can be fetched from a [`World`] using a [`Query`].
@@ -425,6 +425,19 @@ pub trait ContiguousQueryData: ArchetypeQueryData + IterQueryData {
         fetch: &mut Self::Fetch<'w>,
         entities: &'w [Entity],
     ) -> Self::Contiguous<'w, 's>;
+
+    /// Narrows the contiguous chunk of memory that this query data represents
+    /// to only the given range of rows.
+    ///
+    /// Typically, this is used in conjunction with parallel iteration, to allow
+    /// individual threads to process pieces of a single table.
+    ///
+    /// If the given range is out of bounds of the contiguous chunk, this method
+    /// may (but also may not) panic.
+    fn slice_contiguous<'w, 's>(
+        item: Self::Contiguous<'w, 's>,
+        range: Range<u32>,
+    ) -> Self::Contiguous<'w, 's>;
 }
 
 /// A [`QueryData`] for which instances may be alive for different entities concurrently.
@@ -613,6 +626,13 @@ impl ContiguousQueryData for Entity {
         entities: &'w [Entity],
     ) -> Self::Contiguous<'w, 's> {
         entities
+    }
+
+    fn slice_contiguous<'w, 's>(
+        item: Self::Contiguous<'w, 's>,
+        range: Range<u32>,
+    ) -> Self::Contiguous<'w, 's> {
+        &item[(range.start as usize)..(range.end as usize)]
     }
 }
 
@@ -2049,6 +2069,13 @@ impl<T: Component> ContiguousQueryData for &T {
             },
         )
     }
+
+    fn slice_contiguous<'w, 's>(
+        item: Self::Contiguous<'w, 's>,
+        range: Range<u32>,
+    ) -> Self::Contiguous<'w, 's> {
+        &item[(range.start as usize)..(range.end as usize)]
+    }
 }
 
 // SAFETY: access is read only and only on the current entity
@@ -2343,6 +2370,13 @@ impl<T: Component> ContiguousQueryData for Ref<'_, T> {
             },
         )
     }
+
+    fn slice_contiguous<'w, 's>(
+        item: Self::Contiguous<'w, 's>,
+        range: Range<u32>,
+    ) -> Self::Contiguous<'w, 's> {
+        item.slice(range)
+    }
 }
 
 /// The [`WorldQuery::Fetch`] type for `&mut T`.
@@ -2617,6 +2651,13 @@ impl<T: Component<Mutability = Mutable>> ContiguousQueryData for &mut T {
             },
         )
     }
+
+    fn slice_contiguous<'w, 's>(
+        item: Self::Contiguous<'w, 's>,
+        range: Range<u32>,
+    ) -> Self::Contiguous<'w, 's> {
+        item.slice(range)
+    }
 }
 
 /// When `Mut<T>` is used in a query, it will be converted to `Ref<T>` when transformed into its read-only form, providing access to change detection methods.
@@ -2763,6 +2804,13 @@ impl<'__w, T: Component<Mutability = Mutable>> ContiguousQueryData for Mut<'__w,
         entities: &'w [Entity],
     ) -> Self::Contiguous<'w, 's> {
         <&mut T as ContiguousQueryData>::fetch_contiguous(state, fetch, entities)
+    }
+
+    fn slice_contiguous<'w, 's>(
+        item: Self::Contiguous<'w, 's>,
+        range: Range<u32>,
+    ) -> Self::Contiguous<'w, 's> {
+        item.slice(range)
     }
 }
 
@@ -3343,6 +3391,13 @@ impl<T: ContiguousQueryData> ContiguousQueryData for Option<T> {
             // SAFETY: The invariants are upheld by the caller
             .then(|| unsafe { T::fetch_contiguous(state, &mut fetch.fetch, entities) })
     }
+
+    fn slice_contiguous<'w, 's>(
+        item: Self::Contiguous<'w, 's>,
+        range: Range<u32>,
+    ) -> Self::Contiguous<'w, 's> {
+        item.map(|item| T::slice_contiguous(item, range))
+    }
 }
 
 /// Returns a bool that describes if an entity has the component `T`.
@@ -3549,6 +3604,13 @@ impl<T: Component> ContiguousQueryData for Has<T> {
     ) -> Self::Contiguous<'w, 's> {
         *fetch
     }
+
+    fn slice_contiguous<'w, 's>(
+        item: Self::Contiguous<'w, 's>,
+        _: Range<u32>,
+    ) -> Self::Contiguous<'w, 's> {
+        item
+    }
 }
 
 /// The `AnyOf` query parameter fetches entities with any of the component types included in T.
@@ -3679,6 +3741,14 @@ macro_rules! impl_tuple_query_data {
                 let ($($name,)*) = fetch;
                 // SAFETY: The invariants are upheld by the caller.
                 ($(unsafe {$name::fetch_contiguous($state, $name, entities)},)*)
+            }
+
+            fn slice_contiguous<'w, 's>(
+                item: Self::Contiguous<'w, 's>,
+                range: Range<u32>,
+            ) -> Self::Contiguous<'w, 's> {
+                let ($($name,)*) = item;
+                ($($name::slice_contiguous($name, range.clone()),)*)
             }
         }
     };
@@ -3938,6 +4008,14 @@ macro_rules! impl_anytuple_fetch {
                     // SAFETY: The invariants are upheld by the caller
                     $name.1.then(|| unsafe { $name::fetch_contiguous($state, &mut $name.0, entities) }),
                 )*)
+            }
+
+            fn slice_contiguous<'w, 's>(
+                item: Self::Contiguous<'w, 's>,
+                range: Range<u32>,
+            ) -> Self::Contiguous<'w, 's> {
+                let ($($name,)*) = item;
+                ($($name.map(|v| $name::slice_contiguous(v, range.clone())),)*)
             }
         }
     };
@@ -4248,13 +4326,18 @@ impl<C: Component, T: Copy, S: Copy> Copy for StorageSwitch<C, T, S> {}
 #[cfg(test)]
 mod tests {
     use core::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Mutex;
 
     use super::*;
+    use crate::batching::BatchingStrategy;
     use crate::change_detection::DetectChanges;
     use crate::query::{QueryNotDenseError, Without};
     use crate::system::{assert_is_system, Query};
+    use alloc::sync::Arc;
+    use alloc::{vec, vec::Vec};
     use bevy_ecs::prelude::Schedule;
     use bevy_ecs_macros::QueryData;
+    use fixedbitset::FixedBitSet;
 
     #[derive(Component)]
     pub struct A;
@@ -4667,7 +4750,7 @@ mod tests {
     // Tests that contiguous parallel iteration can correctly mutate all
     // instances of a component in the world.
     #[test]
-    fn contiguous_par_iter_success_test() {
+    fn contiguous_par_iter_basic_test() {
         // Declare a couple of components.
 
         #[derive(Component, PartialEq, Eq, Debug)]
@@ -4709,6 +4792,282 @@ mod tests {
         // Check that the query updated every row.
         let mut check_query = world.query::<&C>();
         assert!(check_query.iter(&world).all(|c| c.found));
+    }
+
+    // Tests that parallel contiguous iteration on a single large table
+    // correctly splits up the table into individual jobs.
+    #[test]
+    fn contiguous_par_iter_single_table_scheduling_test() {
+        // Declare the ID component.
+        #[derive(Clone, Copy, PartialEq, Eq, Debug, Component)]
+        struct C(i32);
+
+        // Build a task pool.
+        bevy_tasks::ComputeTaskPool::get_or_init(bevy_tasks::TaskPool::new);
+
+        // Spawn 1000 entities in a single table.
+        let mut world = World::new();
+        for id in 0..1000 {
+            world.spawn(C(id));
+        }
+
+        // Do a contiguous parallel query, and mutate the components as we do
+        // so. We ask for 64 rows per job in order to ensure that there will be
+        // many jobs. Using a vector of bitsets, record which jobs processed
+        // which entity.
+        let (total_chunks, total_rows) = (AtomicUsize::new(0), AtomicUsize::new(0));
+        let mut contiguous_query = world.query::<&mut C>();
+        contiguous_query
+            .contiguous_par_iter_mut(&mut world)
+            .unwrap()
+            .batching_strategy(BatchingStrategy::fixed(64))
+            .for_each(|cs| {
+                total_chunks.fetch_add(1, Ordering::Relaxed);
+                for c in cs {
+                    c.0 += 1;
+                    total_rows.fetch_add(1, Ordering::Relaxed);
+                }
+            });
+
+        // Make sure that we visited every row.
+        assert_eq!(total_rows.load(Ordering::Relaxed), 1000);
+
+        // Make sure that the scheduler used multiple jobs to process the table.
+        assert!(total_chunks.load(Ordering::Relaxed) > 1);
+
+        // Make sure that the rows were indeed updated.
+        let mut query = world.query::<&C>();
+        let mut all_ids = query.iter(&world).map(|c| c.0).collect::<Vec<_>>();
+        all_ids.sort_unstable();
+        assert_eq!(all_ids, (1..1001).collect::<Vec<_>>());
+    }
+
+    // Tests that contiguous iteration can yield jobs that simultaneously span
+    // multiple small tables and represent portions of large tables.
+    #[test]
+    fn contiguous_par_iter_multi_table_scheduling_test() {
+        // Declare the ID component.
+        #[derive(Clone, Copy, PartialEq, Eq, Debug, Component)]
+        struct CMain(i32);
+
+        // Declare a few extra components so that we can place our entities into
+        // different tables.
+        #[derive(Clone, Copy, PartialEq, Eq, Debug, Component)]
+        struct CExtra0;
+        #[derive(Clone, Copy, PartialEq, Eq, Debug, Component)]
+        struct CExtra1;
+        #[derive(Clone, Copy, PartialEq, Eq, Debug, Component)]
+        struct CExtra2;
+
+        // Build a task pool.
+        bevy_tasks::ComputeTaskPool::get_or_init(bevy_tasks::TaskPool::new);
+
+        // We have four tables:
+        // 1. Entities [0, 120): `CMain`
+        // 2. Entities [120, 125): `CMain`, `CExtra0`
+        // 3. Entities [125, 130): `CMain`, `CExtra1`
+        // 4. Entities [130, 135): `CMain`, `CExtra2`
+        let mut world = World::new();
+        for id in 0..120 {
+            world.spawn(CMain(id));
+        }
+        for id in 120..125 {
+            world.spawn((CMain(id), CExtra0));
+        }
+        for id in 125..130 {
+            world.spawn((CMain(id), CExtra1));
+        }
+        for id in 130..135 {
+            world.spawn((CMain(id), CExtra2));
+        }
+
+        // Do a contiguous parallel query. We ask for 50 rows per job, which
+        // simultaneously guarantees that (a) one of the jobs will contain
+        // multiple tables and that (b) the large table (`CMain`) will be split
+        // over multiple jobs. Using a vector of bitsets, record which jobs
+        // processed which entity.
+        let mut contiguous_query = world.query::<&mut CMain>();
+        let all_jobs = Mutex::new(vec![]);
+        contiguous_query
+            .contiguous_par_iter_mut(&mut world)
+            .unwrap()
+            .batching_strategy(BatchingStrategy::fixed(50))
+            .for_each_init(
+                || {
+                    let job = Arc::new(Mutex::new(FixedBitSet::with_capacity(135)));
+                    all_jobs.lock().unwrap().push(job.clone());
+                    job
+                },
+                |job, components| {
+                    let mut job = job.lock().unwrap();
+                    for component in components {
+                        assert!(!job[component.0 as usize]);
+                        job.insert(component.0 as usize);
+                    }
+                },
+            );
+
+        // Pull out our bitsets.
+        let all_jobs = all_jobs
+            .into_inner()
+            .unwrap()
+            .into_iter()
+            .map(|job| Arc::try_unwrap(job).unwrap().into_inner().unwrap())
+            .collect::<Vec<_>>();
+
+        // Make sure every row was visited.
+        assert!(all_jobs
+            .iter()
+            .fold(FixedBitSet::with_capacity(135), |mut acc, item| {
+                acc.union_with(item);
+                acc
+            })
+            .is_full());
+
+        // Make sure every row was visited once.
+        assert_eq!(
+            all_jobs.iter().map(|job| job.count_ones(..)).sum::<usize>(),
+            135
+        );
+
+        // Make sure no job exceeded the batch size.
+        assert!(all_jobs.iter().all(|job| job.count_ones(..) <= 50));
+
+        // Make sure that the `CMain` table was split across at least two jobs.
+        assert!(
+            all_jobs
+                .iter()
+                .filter(|job| job.contains_any_in_range(0..120))
+                .count()
+                >= 2
+        );
+
+        // Make sure that there's at least one job with multiple tables in it.
+        assert!(all_jobs.iter().any(|job| {
+            let has_main_table = job.contains_any_in_range(0..120);
+            let has_extra_table_0 = job.contains_any_in_range(120..125);
+            let has_extra_table_1 = job.contains_any_in_range(125..130);
+            let has_extra_table_2 = job.contains_any_in_range(130..135);
+            ((has_main_table as u32)
+                + (has_extra_table_0 as u32)
+                + (has_extra_table_1 as u32)
+                + (has_extra_table_2 as u32))
+                >= 2
+        }));
+    }
+
+    // Tests that contiguous iteration workloads that exceed the maximum number
+    // of tables per job (currently 128) work properly.
+    #[test]
+    fn contiguous_par_iter_table_job_limit_test() {
+        // Declare the ID component.
+        #[derive(Clone, Copy, PartialEq, Eq, Debug, Component)]
+        struct CMain(i32);
+
+        // Now we need to create a lot of tables. We do so by creating a set of
+        // 8 components. Each combination of components (present, not present)
+        // will require a separate table, and thus we have 2⁸ = 256 different
+        // tables.
+        #[derive(Clone, Copy, PartialEq, Eq, Debug, Component)]
+        struct CExtra0;
+        #[derive(Clone, Copy, PartialEq, Eq, Debug, Component)]
+        struct CExtra1;
+        #[derive(Clone, Copy, PartialEq, Eq, Debug, Component)]
+        struct CExtra2;
+        #[derive(Clone, Copy, PartialEq, Eq, Debug, Component)]
+        struct CExtra3;
+        #[derive(Clone, Copy, PartialEq, Eq, Debug, Component)]
+        struct CExtra4;
+        #[derive(Clone, Copy, PartialEq, Eq, Debug, Component)]
+        struct CExtra5;
+        #[derive(Clone, Copy, PartialEq, Eq, Debug, Component)]
+        struct CExtra6;
+        #[derive(Clone, Copy, PartialEq, Eq, Debug, Component)]
+        struct CExtra7;
+
+        // Build a task pool.
+        bevy_tasks::ComputeTaskPool::get_or_init(bevy_tasks::TaskPool::new);
+
+        // Spawn our entities. We will have 256 different entities, each of
+        // which has its own table.
+        let mut world = World::new();
+        for id in 0..256 {
+            let mut entity = world.spawn(CMain(id));
+            if id & (1 << 0) != 0 {
+                entity.insert(CExtra0);
+            }
+            if id & (1 << 1) != 0 {
+                entity.insert(CExtra1);
+            }
+            if id & (1 << 2) != 0 {
+                entity.insert(CExtra2);
+            }
+            if id & (1 << 3) != 0 {
+                entity.insert(CExtra3);
+            }
+            if id & (1 << 4) != 0 {
+                entity.insert(CExtra4);
+            }
+            if id & (1 << 5) != 0 {
+                entity.insert(CExtra5);
+            }
+            if id & (1 << 6) != 0 {
+                entity.insert(CExtra6);
+            }
+            if id & (1 << 7) != 0 {
+                entity.insert(CExtra7);
+            }
+        }
+
+        // Do a contiguous parallel query. We ask for 1024 rows per job, which
+        // we won't get as the maximum number of tables per job is 128. Using a
+        // vector of bitsets, record which jobs processed which entity.
+        let mut contiguous_query = world.query::<&mut CMain>();
+        let all_jobs = Mutex::new(vec![]);
+        contiguous_query
+            .contiguous_par_iter_mut(&mut world)
+            .unwrap()
+            .batching_strategy(BatchingStrategy::fixed(1024))
+            .for_each_init(
+                || {
+                    let job = Arc::new(Mutex::new(FixedBitSet::with_capacity(256)));
+                    all_jobs.lock().unwrap().push(job.clone());
+                    job
+                },
+                |job, components| {
+                    let mut job = job.lock().unwrap();
+                    for component in components {
+                        assert!(!job[component.0 as usize]);
+                        job.insert(component.0 as usize);
+                    }
+                },
+            );
+
+        // Pull out our bitsets.
+        let all_jobs = all_jobs
+            .into_inner()
+            .unwrap()
+            .into_iter()
+            .map(|job| Arc::try_unwrap(job).unwrap().into_inner().unwrap())
+            .collect::<Vec<_>>();
+
+        // Make sure every row was visited.
+        assert!(all_jobs
+            .iter()
+            .fold(FixedBitSet::with_capacity(256), |mut acc, item| {
+                acc.union_with(item);
+                acc
+            })
+            .is_full());
+
+        // Make sure every row was visited once.
+        assert_eq!(
+            all_jobs.iter().map(|job| job.count_ones(..)).sum::<usize>(),
+            256
+        );
+
+        // Make sure there were at least two jobs.
+        assert!(all_jobs.len() >= 2);
     }
 
     // Tests that attempting to contiguously iterate in parallel over a query

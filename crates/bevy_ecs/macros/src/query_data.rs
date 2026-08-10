@@ -117,6 +117,18 @@ fn contiguous_query_data_impl(
                     )*
                 }
             }
+
+            fn slice_contiguous<'w, 's>(
+                item: Self::Contiguous<'w, 's>,
+                range: ::core::ops::Range<u32>,
+            ) -> Self::Contiguous<'w, 's> {
+                #contiguous_item_struct_name {
+                    #(
+                        #field_members:
+                        <#field_types>::slice_contiguous(item.#field_members, range.clone()),
+                    )*
+                }
+            }
         }
     }
 }
