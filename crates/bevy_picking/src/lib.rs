@@ -21,7 +21,7 @@
 //!         // Read the underlying pointer event data
 //!         println!("Pointer {:?} was just clicked!", click.pointer.id);
 //!         // Stop the event from bubbling up the entity hierarchy
-//!         event.propagate(false);
+//!         click.propagate(false);
 //!     });
 //! ```
 //!
