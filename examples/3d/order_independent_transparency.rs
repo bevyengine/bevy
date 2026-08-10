@@ -33,6 +33,14 @@ const SCENES: &[(&str, &str, fn(&mut Commands, &mut SceneResources))] = &[
     ("5", "Custom material demo", spawn_custom_material),
 ];
 
+/// The MSAA levels offered by the [M] key and the MSAA radio buttons
+const MSAA_LEVELS: &[(Msaa, &str)] = &[
+    (Msaa::Off, "Off"),
+    (Msaa::Sample2, "2x"),
+    (Msaa::Sample4, "4x"),
+    (Msaa::Sample8, "8x"),
+];
+
 /// Application state
 #[derive(Resource)]
 struct AppState {
@@ -42,6 +50,8 @@ struct AppState {
     use_oit: bool,
     /// Using a depth prepass helps cull transparent fragment against opaque ones earlier
     use_depth_prepass: bool,
+    /// The current MSAA level.
+    msaa: Msaa,
     /// The current scene being displayed
     current_scene_id: usize,
 }
@@ -52,9 +62,18 @@ impl Default for AppState {
             oit_settings: Default::default(),
             use_oit: true,
             use_depth_prepass: true,
+            msaa: Msaa::default(),
             current_scene_id: 0,
         }
     }
+}
+
+/// Returns the index of `msaa` in [`MSAA_LEVELS`]
+fn msaa_level_index(msaa: Msaa) -> usize {
+    MSAA_LEVELS
+        .iter()
+        .position(|(level, _)| *level == msaa)
+        .unwrap_or_default()
 }
 
 /// Tweakable settings
@@ -64,6 +83,8 @@ enum AppSetting {
     EnableOIT(bool),
     /// Change whether `DepthPrepass` is used or not
     UseDepthPrepass(bool),
+    /// Change the MSAA level
+    SetMsaa(Msaa),
     /// Change the displayed scene
     ChangeScene(usize),
 }
@@ -81,6 +102,7 @@ enum RadioGroupSetting {
     #[default]
     EnableOIT,
     UseDepthPrepass,
+    SetMsaa,
     ChangeScene,
 }
 
@@ -175,8 +197,7 @@ fn setup(
         Camera3d::default(),
         Transform::from_xyz(0.0, 0.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
         RenderLayers::layer(1),
-        // Msaa currently doesn't work with OIT
-        Msaa::Off,
+        app_state.msaa,
     ));
 
     if app_state.use_oit {
@@ -227,6 +248,9 @@ fn handle_keyboard_shortcuts(
         AppSetting::EnableOIT(!app_state.use_oit)
     } else if keyboard_input.just_pressed(KeyCode::KeyD) {
         AppSetting::UseDepthPrepass(!app_state.use_depth_prepass)
+    } else if keyboard_input.just_pressed(KeyCode::KeyM) {
+        let next = (msaa_level_index(app_state.msaa) + 1) % MSAA_LEVELS.len();
+        AppSetting::SetMsaa(MSAA_LEVELS[next].0)
     } else {
         return;
     };
@@ -307,6 +331,16 @@ fn spawn_ui(commands: &mut Commands, app_state: &AppState) {
                     1
                 }
             ),
+
+            template_value(RadioGroupSetting::SetMsaa)
+            feathers_option_buttons(
+                "[M]SAA",
+                &(MSAA_LEVELS
+                    .iter()
+                    .map(|(msaa, name)| (AppSetting::SetMsaa(*msaa), *name))
+                    .collect::<Vec<_>>()),
+                msaa_level_index(app_state.msaa),
+            ),
         ]
     });
 }
@@ -366,6 +400,11 @@ fn change_setting(
                 commands.entity(camera.0).remove::<DepthPrepass>();
             }
             RadioGroupSetting::UseDepthPrepass
+        }
+        AppSetting::SetMsaa(value) => {
+            app_state.msaa = value;
+            commands.entity(camera.0).insert(value);
+            RadioGroupSetting::SetMsaa
         }
         AppSetting::ChangeScene(id) => {
             if id != app_state.current_scene_id {
