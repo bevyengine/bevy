@@ -171,7 +171,10 @@ async fn load_module<'a>(
     for msg in shader_compilation_msg.iter() {
         match msg.message_type {
             wgpu::CompilationMessageType::Error => {
-                bevy_log::error!("Shader compilation: {} at {:?}", msg.message, msg.location);
+                // wgpu validation error already contains shader compilation error so we don't print it twice.
+                //
+                // TODO: Uncomment this once wgpu no longer includes compilation error in validation error.
+                // bevy_log::error!("Shader compilation: {} at {:?}", msg.message, msg.location);
             }
             wgpu::CompilationMessageType::Warning => {
                 bevy_log::warn!("Shader compilation: {} at {:?}", msg.message, msg.location);
