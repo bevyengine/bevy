@@ -17,6 +17,7 @@ arguments, `em_size: EmSize` and `rem_size: RemSize`:
 - `CornerRadius::resolve`
 - `RadialGradientShape::resolve`
 - `UiTransform::compute_affine`
+- `BorderRadius::resolve`
 
 ```rust
 // 0.19
@@ -37,13 +38,15 @@ node out, so when resolving a `Val` against an existing node you can take them f
 for example).
 
 `Node` now requires `EmSize` (from `bevy_text`, re-exported in `bevy_ui::prelude`), the per-node
-font size that `Val::Em` resolves against. If the node has a `TextFont`, `EmSize` is derived from it
-before layout each frame and any value you set is overwritten. If it does not, the value is yours to
-set and is left alone; it defaults to `DEFAULT_REM_SIZE_PX`, which matches the default `RemSize` but
-does not track changes to it. Propagating `EmSize` is the responsibility of an app, not `bevy_ui`.
+font size that `Val::Em` resolves against. If the node has a `TextFont`, `EmSize` is derived when `TextFont`,
+`RemSize`, or render-target info changes; values you set persist until then. If the node does not
+have a `TextFont` component then the value is yours to set and is left alone; it defaults to
+`DEFAULT_REM_SIZE_PX`, which matches the default `RemSize` but does not track changes to it. Propagating
+`EmSize` is the responsibility of an app, not `bevy_ui`.
 
 Use `GridTrack::em`, `GridTrack::rem`, `RepeatedGridTrack::em` and `RepeatedGridTrack::rem` to construct
-grid tracks sized in these units.
+grid tracks sized in these units using new `MinTrackSizingFunction::Em`, `MinTrackSizingFunction::Rem`,
+`MaxTrackSizingFunction::Em` and `MaxTrackSizingFunction::Rem` variants.
 
 `FontSize::eval` now takes a `RemSize` rather than an `f32`:
 

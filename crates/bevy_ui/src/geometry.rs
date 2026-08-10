@@ -172,7 +172,7 @@ impl Val {
     ///
     /// The number is meaningless without the variant it came from — `Val::Px(4.0)` and
     /// `Val::Rem(4.0)` both return `4.0`. Use [`Val::resolve`] for a length in pixels.
-    pub(crate) fn inner(self) -> Option<f32> {
+    const fn inner(self) -> Option<f32> {
         match self {
             Self::Auto => None,
             Self::Px(v)

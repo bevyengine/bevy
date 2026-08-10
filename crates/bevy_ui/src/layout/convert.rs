@@ -26,11 +26,9 @@ impl Val {
             }
             Val::Vw(value) => style_helpers::length(context.physical_size.x * value / 100.),
             Val::Vh(value) => style_helpers::length(context.physical_size.y * value / 100.),
-            Val::Em(value) => {
-                style_helpers::length(context.scale_factor * value * context.em_size.0)
-            }
+            Val::Em(value) => style_helpers::length(context.scale_factor * value * context.em_size),
             Val::Rem(value) => {
-                style_helpers::length(context.scale_factor * value * context.rem_size.0)
+                style_helpers::length(context.scale_factor * value * context.rem_size)
             }
         }
     }
@@ -48,11 +46,9 @@ impl Val {
             }
             Val::Vw(value) => style_helpers::length(context.physical_size.x * value / 100.),
             Val::Vh(value) => style_helpers::length(context.physical_size.y * value / 100.),
-            Val::Em(value) => {
-                style_helpers::length(context.scale_factor * value * context.em_size.0)
-            }
+            Val::Em(value) => style_helpers::length(context.scale_factor * value * context.em_size),
             Val::Rem(value) => {
-                style_helpers::length(context.scale_factor * value * context.rem_size.0)
+                style_helpers::length(context.scale_factor * value * context.rem_size)
             }
         }
     }

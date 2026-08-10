@@ -885,9 +885,10 @@ impl Default for RemSize {
 /// `Em` units are relative to the font size of the node they sit on, and this is that
 /// font size made concrete. Required by `Node`, so every UI node has one.
 ///
-/// If the node has a `TextFont`, this is derived from it before layout each frame and
-/// any value you set is overwritten. If it does not, the value is yours to set and is
-/// left alone. It defaults to [`DEFAULT_REM_SIZE_PX`], which matches the default
+/// If the node has a `TextFont`, the `EmSize` is derived from it whenever the `TextFont`,
+/// `RemSize` or render-target info changes; until then any value you place on it persists.
+/// If it does not have a `TextFont`, the value is yours to set, for example by an app-level
+/// propagation system. `EmSize` defaults to [`DEFAULT_REM_SIZE_PX`], which matches the default
 /// [`RemSize`] but does not track changes to it. Use `Val::Rem` instead for values that
 /// should follow the root font size.
 ///

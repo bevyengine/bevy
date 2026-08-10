@@ -31,16 +31,16 @@ pub mod ui_surface;
 pub struct LayoutContext {
     pub scale_factor: f32,
     pub physical_size: Vec2,
-    pub em_size: EmSize,
-    pub rem_size: RemSize,
+    pub em_size: f32,
+    pub rem_size: f32,
 }
 
 impl LayoutContext {
     pub const DEFAULT: Self = Self {
         scale_factor: 1.0,
         physical_size: Vec2::ZERO,
-        em_size: EmSize(DEFAULT_REM_SIZE_PX),
-        rem_size: RemSize(DEFAULT_REM_SIZE_PX),
+        em_size: DEFAULT_REM_SIZE_PX,
+        rem_size: DEFAULT_REM_SIZE_PX,
     };
     /// Create a new [`LayoutContext`] from the window's physical size and scale factor
     #[inline]
@@ -53,8 +53,8 @@ impl LayoutContext {
         Self {
             scale_factor,
             physical_size,
-            em_size,
-            rem_size,
+            em_size: em_size.0,
+            rem_size: rem_size.0,
         }
     }
 }
@@ -74,8 +74,9 @@ impl Default for LayoutContext {
 }
 
 /// For any entity with a [`TextFont`], set [`EmSize`] to the font size resolved
-/// into pixels. Nodes without `TextFont` keep their `EmSize` intact, if `TextFont`
-/// is removed the `EmSize` remains unchanged.
+/// into pixels when the `TextFont`, render target or `RemSize` changes. Nodes
+/// without `TextFont` keep their `EmSize` intact. If `TextFont` is removed the
+/// `EmSize` remains unchanged.
 pub fn sync_font_size_to_em_size(
     mut em_size_query: Query<
         (&mut EmSize, Ref<TextFont>, Ref<ComputedUiRenderTargetInfo>),
