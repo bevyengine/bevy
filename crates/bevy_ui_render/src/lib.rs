@@ -7,6 +7,8 @@
 
 //! Provides rendering functionality for `bevy_ui`.
 
+extern crate alloc;
+
 pub mod box_shadow;
 mod gradient;
 mod image;
@@ -48,6 +50,7 @@ use bevy_ecs::system::SystemParam;
 use bevy_image::{prelude::*, TRANSPARENT_IMAGE_HANDLE};
 use bevy_math::{proj, Affine2, FloatOrd, Rect, UVec4, Vec2};
 use bevy_render::{
+    impl_atomic_pod,
     render_asset::RenderAssets,
     render_phase::{
         sort_phase_system, AddRenderCommand, DrawFunctions, PhaseItem, PhaseItemExtraIndex,
@@ -66,6 +69,7 @@ pub use debug_overlay::{GlobalUiDebugOptions, UiDebugOptions};
 
 use gradient::GradientPlugin;
 
+use alloc::sync::Arc;
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_text::{
     ComputedTextBlock, EditableText, PositionedGlyph, Strikethrough, StrikethroughColor,
@@ -1925,7 +1929,7 @@ pub fn extract_text_decorations(
 }
 
 #[repr(C)]
-#[derive(Copy, Clone, Debug, Pod, Zeroable)]
+#[derive(Copy, Clone, Debug, Default, Pod, Zeroable)]
 pub(crate) struct UiVertex {
     pub position: [f32; 3],
     pub uv: [f32; 2],
@@ -1945,18 +1949,32 @@ pub(crate) struct UiVertex {
     pub point: [f32; 2],
 }
 
+impl_atomic_pod!(UiVertex, UiVertexBlob);
+
 #[derive(Resource)]
 pub struct UiMeta {
-    vertices: RawBufferVec<UiVertex>,
+    vertices: AtomicSparseBufferVec<UiVertex>,
     indices: RawBufferVec<u32>,
     view_bind_group: Option<BindGroup>,
     batches: Vec<UiBatch>,
 }
 
-impl Default for UiMeta {
-    fn default() -> Self {
+impl FromWorld for UiMeta {
+    fn from_world(world: &mut World) -> Self {
+        // The sparse update shader binds the vertex buffer as a read-write
+        // storage buffer, so check usage.
+        let mut vertex_usages = BufferUsages::VERTEX;
+        if world
+            .resource::<RenderDevice>()
+            .limits()
+            .max_storage_buffers_per_shader_stage
+            >= 3
+        {
+            vertex_usages |= BufferUsages::STORAGE;
+        }
+
         Self {
-            vertices: RawBufferVec::new(BufferUsages::VERTEX),
+            vertices: AtomicSparseBufferVec::new(vertex_usages, Arc::from("ui_vertices")),
             indices: RawBufferVec::new(BufferUsages::INDEX),
             view_bind_group: None,
             batches: Vec::new(),
@@ -2088,8 +2106,7 @@ pub(crate) struct ArenaSlot {
 }
 
 /// A slotted sub-allocator for UI vertices.
-/// Tracks newly freed slots and unused quads, as well as
-/// vertex ranges that actually change in a frame.
+/// Tracks newly freed slots and unused quads.
 #[derive(Default)]
 pub(crate) struct UiVertexArena {
     /// Slot for each live render entity
@@ -2100,8 +2117,6 @@ pub(crate) struct UiVertexArena {
     top: u32,
     /// Quad capacity not used sitting in free lists
     dead_quads: u32,
-    /// Vertex ranges written this frame.
-    dirty: Vec<Range<u32>>,
 }
 
 impl UiVertexArena {
@@ -2143,13 +2158,12 @@ impl UiVertexArena {
         self.free_lists.clear();
         self.top = 0;
         self.dead_quads = 0;
-        self.dirty.clear();
     }
 }
 
 fn place_item(
     arena: &mut UiVertexArena,
-    vertices: &mut RawBufferVec<UiVertex>,
+    vertices: &mut AtomicSparseBufferVec<UiVertex>,
     scratch: &mut Vec<UiVertex>,
     render_entity: Entity,
     extracted: &ExtractedUiNode,
@@ -2169,14 +2183,10 @@ fn place_item(
         }
     } else {
         let (start, capacity_quads) = arena.alloc(quads);
-        let end = (start + capacity_quads * 4) as usize;
-        let values = vertices.values_mut();
-        if values.len() < end {
-            values.resize(end, UiVertex::zeroed());
+        vertices.grow(start + capacity_quads * 4);
+        for (offset, vertex) in scratch.iter().enumerate() {
+            vertices.set(start + offset as u32, *vertex);
         }
-        let start_usize = start as usize;
-        values[start_usize..start_usize + scratch.len()].copy_from_slice(scratch);
-        arena.dirty.push(start..start + quads * 4);
         ArenaSlot {
             item: ItemVertices {
                 vertex_start: start,
@@ -2187,6 +2197,14 @@ fn place_item(
         }
     };
     arena.slots.insert(render_entity, slot);
+}
+
+/// Render world resources needed to sparse update within `prepare_uinodes`   
+#[derive(SystemParam)]
+pub(crate) struct SparseBufferUpdateParams<'w> {
+    jobs: ResMut<'w, SparseBufferUpdateJobs>,
+    bind_groups: ResMut<'w, SparseBufferUpdateBindGroups>,
+    pipelines: Res<'w, SparseBufferUpdatePipelines>,
 }
 
 pub(crate) fn prepare_uinodes(
@@ -2204,6 +2222,7 @@ pub(crate) fn prepare_uinodes(
     mut previous_len: Local<usize>,
     mut arena: Local<UiVertexArena>,
     mut scratch: Local<Vec<UiVertex>>,
+    mut sparse_buffer_updates: SparseBufferUpdateParams,
 ) {
     // If an image has changed, the GpuImage has (probably) changed
     for event in &events.images {
@@ -2384,33 +2403,19 @@ pub(crate) fn prepare_uinodes(
             }
         }
 
-        // Upload check logic
-        // TODO:: Would an AtomicSparseBufferVec fit here as the buffer?  
-        let is_full_upload = needs_compact || arena.top as usize > ui_meta.vertices.capacity();
-        if is_full_upload {
-            ui_meta
-                .vertices
-                .values_mut()
-                .resize(arena.top as usize, UiVertex::zeroed());
-            ui_meta.vertices.write_buffer(&render_device, &render_queue);
-            arena.dirty.clear();
-        } else {
-            let ranges = mem::take(&mut arena.dirty);
-            let mut fallback = false;
-            for range in &ranges {
-                if ui_meta
-                    .vertices
-                    .write_buffer_range(&render_queue, range.start as usize..range.end as usize)
-                    .is_err()
-                {
-                    fallback = true;
-                    break;
-                }
-            }
-            if fallback {
-                ui_meta.vertices.write_buffer(&render_device, &render_queue);
-            }
-        }
+        // Vertex buffer tracks dirty elements, so it checks
+        // whether to scatter the dirty vertices or reupload in bulk.
+        ui_meta.vertices.grow(arena.top);
+        ui_meta
+            .vertices
+            .write_buffers(&render_device, &render_queue);
+        ui_meta.vertices.prepare_to_populate_buffers(
+            &render_device,
+            &pipeline_cache,
+            &mut sparse_buffer_updates.jobs,
+            &mut sparse_buffer_updates.bind_groups,
+            &sparse_buffer_updates.pipelines,
+        );
 
         ui_meta.indices.write_buffer(&render_device, &render_queue);
         *previous_len = batches.len();
