@@ -49,8 +49,7 @@ fn prepare_view_upscaling_pipelines(
     mut commands: Commands,
     #[cfg_attr(
         target_arch = "wasm32",
-        expect(unused_mut),
-        reason = "`block_on_render_pipeline` is unused on wasm32"
+        expect(unused_mut, reason = "`block_on_render_pipeline` is unused on wasm32")
     )]
     mut pipeline_cache: ResMut<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<BlitPipeline>>,
