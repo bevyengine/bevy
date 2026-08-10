@@ -4,20 +4,28 @@ use std::f32::consts::{FRAC_PI_2, PI};
 
 use bevy::{
     color::palettes::css::{DARK_CYAN, GOLD, GRAY, ORANGE, PURPLE},
+    feathers::{
+        controls::FeathersSlider, dark_theme::create_dark_theme, theme::UiTheme, FeathersPlugins,
+    },
     prelude::*,
+    ui_widgets::{radio_self_update, SliderPrecision, SliderStep, SliderValue, ValueChange},
 };
+
+use radio::{feathers_option_buttons, main_ui_node_scene, RadioButtonOptionValue};
+
+#[path = "../helpers/radio.rs"]
+mod radio;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins((DefaultPlugins, FeathersPlugins))
+        .insert_resource(UiTheme(create_dark_theme()))
         .add_systems(Startup, setup)
         .add_systems(Update, rotate_camera)
-        .add_systems(Update, update_config)
+        .add_observer(update_radio_button)
+        .add_observer(radio_self_update)
         .run();
 }
-
-#[derive(Component)]
-struct GizmoColorText;
 
 fn gizmo_color_text(config: &LightGizmoConfigGroup) -> String {
     match config.color {
@@ -36,12 +44,92 @@ fn gizmo_color_text(config: &LightGizmoConfigGroup) -> String {
     }
 }
 
+/// Whether the depth mode for gizmos is on or off.
+#[derive(Clone, Copy, Component, Default, PartialEq, Debug)]
+enum GizmoDepthModeSetting {
+    #[default]
+    On,
+    Off,
+}
+
+/// Whether drawing of light gizmos is on or off.
+#[derive(Clone, Copy, Component, Default, PartialEq, Debug)]
+enum DrawingLightGizmoSetting {
+    #[default]
+    On,
+    Off,
+}
+
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut config_store: ResMut<GizmoConfigStore>,
 ) {
+    let (_, light_config) = config_store.config_mut::<LightGizmoConfigGroup>();
+    light_config.draw_all = true;
+
+    let label_for = |color: LightGizmoColor| -> String {
+        gizmo_color_text(&LightGizmoConfigGroup {
+            color,
+            ..light_config.clone()
+        })
+    };
+
+    commands.spawn_scene(bsn! {
+        main_ui_node_scene()
+        Children [
+            (
+                feathers_option_buttons(
+                    "Toggle drawing gizmos on top of everything else in the scene",
+                    &[
+                        (GizmoDepthModeSetting::On, "ON"),
+                        (GizmoDepthModeSetting::Off, "OFF"),
+                    ], 1)
+            ),
+            (
+                feathers_option_buttons("Toggle drawing of the light gizmos",
+                    &[
+                        (DrawingLightGizmoSetting::On, "ON"),
+                        (DrawingLightGizmoSetting::Off, "OFF"),
+                    ], 0)
+            ),
+            (
+                feathers_option_buttons("Gizmo color mode",
+                    &[
+                        (LightGizmoColor::Varied, label_for(LightGizmoColor::Varied).as_str()),
+                        (LightGizmoColor::MatchLightColor, label_for(LightGizmoColor::MatchLightColor).as_str()),
+                        (LightGizmoColor::ByLightType, label_for(LightGizmoColor::ByLightType).as_str()),
+                        (LightGizmoColor::Manual(GRAY.into()), label_for(LightGizmoColor::Manual(GRAY.into())).as_str()),
+                    ], 1)
+            ),
+            (
+                Node {
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    column_gap: px(4)
+                }
+                Children [
+                    (
+                        Text::new("Change the line width of the gizmos ")
+                        TextFont{
+                            font_size: 14.0_f32,
+                        }
+                    ),
+                    (
+                        @FeathersSlider{
+                            @max: 50.,
+                            @min: 0.,
+                        }
+                        SliderValue(2.)
+                        SliderPrecision(2)
+                        SliderStep(1.)
+                        on(slider_update)
+                    )
+                ]
+            )
+        ]
+    });
     // Circular base.
     commands.spawn((
         Mesh3d(meshes.add(Circle::new(4.0))),
@@ -110,79 +198,44 @@ fn setup(
         Camera3d::default(),
         Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
-
-    // Example instructions and gizmo config.
-    {
-        commands.spawn((
-            Text::new(
-                "Press 'D' to toggle drawing gizmos on top of everything else in the scene\n\
-            Hold 'Left' or 'Right' to change the line width of the gizmos\n\
-            Press 'A' to toggle drawing of the light gizmos\n\
-            Press 'C' to cycle between the light gizmos coloring modes",
-            ),
-            Node {
-                position_type: PositionType::Absolute,
-                top: px(12),
-                left: px(12),
-                ..default()
-            },
-        ));
-
-        let (_, light_config) = config_store.config_mut::<LightGizmoConfigGroup>();
-        light_config.draw_all = true;
-        light_config.color = LightGizmoColor::MatchLightColor;
-
-        commands
-            .spawn((
-                Text::new("Gizmo color mode: "),
-                GizmoColorText,
-                Node {
-                    position_type: PositionType::Absolute,
-                    bottom: px(12),
-                    left: px(12),
-                    ..default()
-                },
-            ))
-            .with_child(TextSpan(gizmo_color_text(light_config)));
-    }
 }
 
 fn rotate_camera(mut transform: Single<&mut Transform, With<Camera>>, time: Res<Time>) {
     transform.rotate_around(Vec3::ZERO, Quat::from_rotation_y(time.delta_secs() / 2.));
 }
 
-fn update_config(
+fn update_radio_button(
+    event: On<ValueChange<Entity>>,
+    depth_mode_query: Query<&RadioButtonOptionValue<GizmoDepthModeSetting>>,
+    drawing_gizmo_query: Query<&RadioButtonOptionValue<DrawingLightGizmoSetting>>,
+    color_mode_query: Query<&RadioButtonOptionValue<LightGizmoColor>>,
     mut config_store: ResMut<GizmoConfigStore>,
-    keyboard: Res<ButtonInput<KeyCode>>,
-    time: Res<Time>,
-    color_text_query: Single<Entity, With<GizmoColorText>>,
-    mut writer: TextUiWriter,
 ) {
-    if keyboard.just_pressed(KeyCode::KeyD) {
-        for (_, config, _) in config_store.iter_mut() {
-            config.depth_bias = if config.depth_bias == 0. { -1. } else { 0. };
-        }
-    }
-
     let (config, light_config) = config_store.config_mut::<LightGizmoConfigGroup>();
-    if keyboard.pressed(KeyCode::ArrowRight) {
-        config.line.width += 5. * time.delta_secs();
-        config.line.width = config.line.width.clamp(0., 50.);
-    }
-    if keyboard.pressed(KeyCode::ArrowLeft) {
-        config.line.width -= 5. * time.delta_secs();
-        config.line.width = config.line.width.clamp(0., 50.);
-    }
-    if keyboard.just_pressed(KeyCode::KeyA) {
-        config.enabled ^= true;
-    }
-    if keyboard.just_pressed(KeyCode::KeyC) {
-        light_config.color = match light_config.color {
-            LightGizmoColor::Manual(_) => LightGizmoColor::Varied,
-            LightGizmoColor::Varied => LightGizmoColor::MatchLightColor,
-            LightGizmoColor::MatchLightColor => LightGizmoColor::ByLightType,
-            LightGizmoColor::ByLightType => LightGizmoColor::Manual(GRAY.into()),
+    if let Ok(RadioButtonOptionValue(depth)) = depth_mode_query.get(event.value) {
+        let bias = match depth {
+            GizmoDepthModeSetting::On => -1.,
+            GizmoDepthModeSetting::Off => 0.,
         };
-        *writer.text(*color_text_query, 1) = gizmo_color_text(light_config);
+        for (_, config, _) in config_store.iter_mut() {
+            config.depth_bias = bias;
+        }
+    } else if let Ok(RadioButtonOptionValue(drawing)) = drawing_gizmo_query.get(event.value) {
+        config.enabled = matches!(drawing, DrawingLightGizmoSetting::On);
+    } else if let Ok(RadioButtonOptionValue(color)) = color_mode_query.get(event.value) {
+        light_config.color = *color;
     }
+}
+
+fn slider_update(
+    value_change: On<ValueChange<f32>>,
+    mut config_store: ResMut<GizmoConfigStore>,
+    mut commands: Commands,
+) {
+    commands
+        .entity(value_change.source)
+        .insert(SliderValue(value_change.value));
+
+    let (config, _) = config_store.config_mut::<LightGizmoConfigGroup>();
+    config.line.width = value_change.value;
 }
