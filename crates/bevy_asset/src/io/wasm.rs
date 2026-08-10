@@ -99,7 +99,12 @@ impl HttpWasmAssetReader {
             .map_err(js_value_to_err("convert fetch to Response"))?;
         match resp.status() {
             200 => {
-                let data = JsFuture::from(resp.array_buffer().unwrap()).await.unwrap();
+                let buffer = resp
+                    .array_buffer()
+                    .map_err(js_value_to_err("get Response ArrayBuffer"))?;
+                let data = JsFuture::from(buffer)
+                    .await
+                    .map_err(js_value_to_err("read Response body"))?;
                 let bytes = Uint8Array::new(&data).to_vec();
                 let reader = VecReader::new(bytes);
                 Ok(reader)

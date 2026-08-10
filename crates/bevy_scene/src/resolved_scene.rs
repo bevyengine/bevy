@@ -1,4 +1,4 @@
-use crate::{ResolveContext, ResolveSceneError, Scene, SceneList, ScenePatch};
+use crate::{Ready, ResolveContext, ResolveSceneError, Scene, SceneList, ScenePatch};
 use bevy_asset::{AssetId, AssetPath, AssetServer, Assets, Handle, UntypedAssetId};
 use bevy_ecs::{
     bundle::{Bundle, BundleScratch, BundleWriter},
@@ -307,6 +307,11 @@ impl ResolvedScene {
                 self.apply_related(context, bundle_scratch)?;
             }
         };
+
+        let entity = context.entity.id();
+        context.entity.world_scope(|world| {
+            world.trigger(Ready { entity });
+        });
 
         Ok(())
     }

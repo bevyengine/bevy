@@ -1,6 +1,6 @@
 //! Simple example demonstrating overflow behavior.
 
-use bevy::{color::palettes::css::*, prelude::*};
+use bevy::{color::palettes::css::*, picking::hover::Hovered, prelude::*};
 
 fn main() {
     App::new()
@@ -81,7 +81,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         min_height: px(100),
                                         ..default()
                                     },
-                                    Interaction::default(),
+                                    Hovered::default(),
                                     Outline {
                                         width: px(2),
                                         offset: px(2),
@@ -94,13 +94,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         });
 }
 
-fn update_outlines(mut outlines_query: Query<(&mut Outline, Ref<Interaction>)>) {
-    for (mut outline, interaction) in outlines_query.iter_mut() {
-        if interaction.is_changed() {
-            outline.color = match *interaction {
-                Interaction::Pressed => RED.into(),
-                Interaction::Hovered => WHITE.into(),
-                Interaction::None => Color::NONE,
+fn update_outlines(mut outlines_query: Query<(&mut Outline, Ref<Hovered>)>) {
+    for (mut outline, hovered) in outlines_query.iter_mut() {
+        if hovered.is_changed() {
+            outline.color = if hovered.get() {
+                RED.into()
+            } else {
+                Color::NONE
             };
         }
     }

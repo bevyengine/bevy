@@ -6,7 +6,7 @@ use bevy::{
 };
 
 /// This example uses a shader source file from the assets subdirectory
-const SHADER_ASSET_PATH: &str = "shaders/animate_shader.wgsl";
+const SHADER_ASSET_PATH: &str = "shaders/animate_shader.wesl";
 
 fn main() {
     App::new()

@@ -1,17 +1,23 @@
 //! Demonstrates how to combine baked and dynamic lighting.
 
 use bevy::{
+    feathers::{theme::UiTheme, FeathersPlugins},
     gltf::GltfMeshName,
     pbr::Lightmap,
     picking::{backend::HitData, pointer::PointerInteraction},
     prelude::*,
+    ui_widgets::{radio_self_update, ValueChange},
     world_serialization::WorldInstanceReady,
 };
 
-use crate::widgets::{RadioButton, RadioButtonText, WidgetClickEvent, WidgetClickSender};
+use crate::radio::{feathers_option_buttons, main_ui_node_scene, RadioButtonOptionValue};
+use crate::theme::basic_example_theme;
 
-#[path = "../helpers/widgets.rs"]
-mod widgets;
+#[path = "../helpers/radio.rs"]
+mod radio;
+
+#[path = "../helpers/theme.rs"]
+mod theme;
 
 /// How bright the lightmaps are.
 const LIGHTMAP_EXPOSURE: f32 = 600.0;
@@ -28,7 +34,7 @@ struct AppStatus {
 }
 
 /// The type of lighting to use in the scene.
-#[derive(Clone, Copy, PartialEq, Default)]
+#[derive(Clone, Component, Copy, PartialEq, Default)]
 enum LightingMode {
     /// All light is computed ahead of time; no lighting takes place at runtime.
     ///
@@ -116,29 +122,31 @@ const INITIAL_SPHERE_POSITION: Vec3 = vec3(0.0, 0.5233223, 0.0);
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "Bevy Mixed Lighting Example".into(),
+        .add_plugins((
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    title: "Bevy Mixed Lighting Example".into(),
+                    ..default()
+                }),
                 ..default()
             }),
-            ..default()
-        }))
+            FeathersPlugins,
+        ))
         .add_plugins(MeshPickingPlugin)
+        .insert_resource(UiTheme(basic_example_theme(Color::BLACK)))
         .insert_resource(GlobalAmbientLight {
             color: ClearColor::default().0,
             brightness: 10000.0,
             affects_lightmapped_meshes: true,
         })
         .init_resource::<AppStatus>()
-        .add_message::<WidgetClickEvent<LightingMode>>()
         .add_message::<LightingModeChanged>()
         .add_systems(Startup, setup)
         .add_systems(Update, update_lightmaps)
         .add_systems(Update, update_directional_light)
         .add_systems(Update, make_sphere_nonpickable)
-        .add_systems(Update, update_radio_buttons)
-        .add_systems(Update, handle_lighting_mode_change)
-        .add_systems(Update, widgets::handle_ui_interactions::<LightingMode>)
+        .add_observer(handle_lighting_mode_change)
+        .add_observer(radio_self_update)
         .add_systems(Update, reset_sphere_position)
         .add_systems(Update, move_sphere)
         .add_systems(Update, adjust_help_text)
@@ -183,18 +191,20 @@ fn spawn_scene(commands: &mut Commands, asset_server: &AssetServer) {
 
 /// Spawns the buttons that allow the user to change the lighting mode.
 fn spawn_buttons(commands: &mut Commands) {
-    commands.spawn((
-        widgets::main_ui_node(),
-        children![widgets::option_buttons(
-            "Lighting",
-            &[
-                (LightingMode::Baked, "Baked"),
-                (LightingMode::MixedDirect, "Mixed (Direct)"),
-                (LightingMode::MixedIndirect, "Mixed (Indirect)"),
-                (LightingMode::RealTime, "Real-Time"),
-            ],
-        )],
-    ));
+    commands.spawn_scene(bsn! {
+            main_ui_node_scene()
+            Children [
+                feathers_option_buttons(
+                "Lighting",
+                &[
+                    (LightingMode::Baked, "Baked"),
+                    (LightingMode::MixedDirect, "Mixed (Direct)"),
+                    (LightingMode::MixedIndirect, "Mixed (Indirect)"),
+                    (LightingMode::RealTime, "Real-Time"),
+                ],
+                2 // Initially set to MixedIndirect
+            )]
+    });
 }
 
 /// Spawns the help text at the top of the window.
@@ -356,44 +366,20 @@ fn update_directional_light(
     }
 }
 
-/// Updates the state of the selection widgets at the bottom of the window when
-/// the lighting mode changes.
-fn update_radio_buttons(
-    mut widgets: Query<
-        (
-            Entity,
-            Option<&mut BackgroundColor>,
-            Has<Text>,
-            &WidgetClickSender<LightingMode>,
-        ),
-        Or<(With<RadioButton>, With<RadioButtonText>)>,
-    >,
-    app_status: Res<AppStatus>,
-    mut writer: TextUiWriter,
-) {
-    for (entity, image, has_text, sender) in &mut widgets {
-        let selected = **sender == app_status.lighting_mode;
-
-        if let Some(mut bg_color) = image {
-            widgets::update_ui_radio_button(&mut bg_color, selected);
-        }
-        if has_text {
-            widgets::update_ui_radio_button_text(entity, &mut writer, selected);
-        }
-    }
-}
-
 /// Handles clicks on the widgets at the bottom of the screen and fires
 /// [`LightingModeChanged`] events.
 fn handle_lighting_mode_change(
-    mut widget_click_event_reader: MessageReader<WidgetClickEvent<LightingMode>>,
+    event: On<ValueChange<Entity>>,
+    new_value_q: Query<&RadioButtonOptionValue<LightingMode>>,
     mut lighting_mode_changed_writer: MessageWriter<LightingModeChanged>,
     mut app_status: ResMut<AppStatus>,
 ) {
-    for event in widget_click_event_reader.read() {
-        app_status.lighting_mode = **event;
-        lighting_mode_changed_writer.write(LightingModeChanged);
-    }
+    let Ok(RadioButtonOptionValue(new_lighting_mode)) = new_value_q.get(event.value) else {
+        return;
+    };
+
+    app_status.lighting_mode = *new_lighting_mode;
+    lighting_mode_changed_writer.write(LightingModeChanged);
 }
 
 /// Moves the sphere to its original position when the user selects the baked

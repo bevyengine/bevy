@@ -94,7 +94,7 @@ impl BackgroundMotionVectorsPlugin {
 
 impl Plugin for BackgroundMotionVectorsPlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "background_motion_vectors.wgsl");
+        embedded_asset!(app, "background_motion_vectors.wesl");
         app.register_type::<NoBackgroundMotionVectors>()
             .add_plugins(ExtractComponentPlugin::<NoBackgroundMotionVectors>::default());
 
@@ -166,7 +166,7 @@ fn init_background_motion_vectors_pipeline(
         fullscreen_shader: fullscreen_shader.clone(),
         fragment_shader: load_embedded_asset!(
             asset_server.as_ref(),
-            "background_motion_vectors.wgsl"
+            "background_motion_vectors.wesl"
         ),
     });
 }

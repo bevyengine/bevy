@@ -58,7 +58,7 @@ struct ScreenSpaceTextureExtension {
 
 impl MaterialExtension for ScreenSpaceTextureExtension {
     fn fragment_shader() -> ShaderRef {
-        "shaders/screen_space_texture_material.wgsl".into()
+        "shaders/screen_space_texture_material.wesl".into()
     }
 }
 
@@ -331,6 +331,7 @@ fn spawn_buttons(commands: &mut Commands) {
                 (DragAction::MoveCamera, "Move Camera"),
                 (DragAction::MoveFox, "Move Fox"),
             ],
+            0,
         )]
     });
 }

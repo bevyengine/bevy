@@ -28,6 +28,7 @@ bevy_scene = { path = "../crates/bevy_scene" }
 bevy_tasks = { path = "../crates/bevy_tasks" }
 bevy_transform = { path = "../crates/bevy_transform" }
 bevy_ui = { path = "../crates/bevy_ui" }
+bevy_ui_widgets = { path = "../crates/bevy_ui_widgets" }
 bevy_platform = { path = "../crates/bevy_platform", default-features = false, features = [
   "std",
   "bytemuck",

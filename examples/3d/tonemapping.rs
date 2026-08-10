@@ -17,7 +17,7 @@ use bevy::{
 use std::f32::consts::PI;
 
 /// This example uses a shader source file from the assets subdirectory
-const SHADER_ASSET_PATH: &str = "shaders/tonemapping_test_patterns.wgsl";
+const SHADER_ASSET_PATH: &str = "shaders/tonemapping_test_patterns.wesl";
 
 fn main() {
     App::new()

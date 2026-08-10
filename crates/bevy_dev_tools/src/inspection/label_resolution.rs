@@ -21,9 +21,10 @@ use bevy_platform::collections::HashMap;
 use bevy_sprite::{Sprite, Text2d};
 use bevy_text::TextSpan;
 use bevy_ui::{
-    widget::{Button, ImageNode, Text, ViewportNode},
+    widget::{ImageNode, Text, ViewportNode},
     Node,
 };
+use bevy_ui_widgets::Button;
 use bevy_window::{Monitor, Window};
 use core::{
     any::TypeId,

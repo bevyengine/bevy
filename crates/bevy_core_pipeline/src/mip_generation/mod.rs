@@ -61,7 +61,7 @@ pub mod experimental;
 #[derive(Clone, Resource)]
 pub struct DownsampleShaders {
     /// The experimental shader that downsamples depth
-    /// (`downsample_depth.wgsl`).
+    /// (`downsample_depth.wesl`).
     pub depth: Handle<Shader>,
     /// The shaders that perform downsampling of color textures.
     ///
@@ -253,18 +253,17 @@ pub struct MipGenerationPlugin;
 
 impl Plugin for MipGenerationPlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "experimental/downsample_depth.wgsl");
-        embedded_asset!(app, "downsample.wgsl");
+        embedded_asset!(app, "experimental/downsample_depth.wesl");
+        embedded_asset!(app, "downsample.wesl");
 
-        let depth_shader = load_embedded_asset!(app, "experimental/downsample_depth.wgsl");
+        let depth_shader = load_embedded_asset!(app, "experimental/downsample_depth.wesl");
 
-        // We don't have string-valued shader definitions in `naga_oil`, so we
-        // use a text-pasting hack. The `downsample.wgsl` shader is eagerly
+        // We don't have string-valued shader definitions, so we use a
+        // text-pasting hack. The `downsample.wesl` shader is eagerly
         // specialized for each texture format by replacing `##TEXTURE_FORMAT##`
         // with each possible format.
-        // When we have WESL, we should probably revisit this.
         let mut shader_assets = app.world_mut().resource_mut::<Assets<Shader>>();
-        let shader_template_source = include_str!("downsample.wgsl");
+        let shader_template_source = include_str!("downsample.wesl");
         let general_shaders: HashMap<_, _> = TEXTURE_FORMATS
             .iter()
             .map(|(target_format, identifier)| {
@@ -272,7 +271,10 @@ impl Plugin for MipGenerationPlugin {
                     shader_template_source.replace("##TEXTURE_FORMAT##", identifier);
                 (
                     *target_format,
-                    shader_assets.add(Shader::from_wgsl(shader_source, "downsample.wgsl")),
+                    shader_assets.add(Shader::from_wesl(
+                        shader_source,
+                        format!("downsample_{identifier}.wesl"),
+                    )),
                 )
             })
             .collect();

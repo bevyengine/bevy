@@ -360,7 +360,7 @@ mod tests {
 
     #[test]
     fn hit_data_extra() {
-        let camera = Entity::PLACEHOLDER;
+        let camera = World::default().spawn_empty().id();
 
         let hit = HitData::new_with_extra(
             camera,

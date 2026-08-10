@@ -30,7 +30,7 @@ pub use identifier::WorldId;
 pub use spawn_batch::*;
 
 use crate::{
-    archetype::{ArchetypeId, Archetypes},
+    archetype::{ArchetypeCreated, ArchetypeId, Archetypes, ARCHETYPE_CREATED},
     bundle::{
         Bundle, BundleId, BundleInfo, BundleInserter, BundleSpawner, Bundles, DynamicBundle,
         InsertMode, NoBundleEffect,
@@ -170,6 +170,9 @@ impl World {
 
         let is_resource = self.register_component::<IsResource>();
         assert_eq!(IS_RESOURCE, is_resource);
+
+        let archetype_created = self.register_event_key::<ArchetypeCreated>();
+        assert_eq!(ARCHETYPE_CREATED, archetype_created);
 
         // This sets up `Disabled` as a disabling component, via the FromWorld impl
         self.init_resource::<DefaultQueryFilters>();

@@ -853,9 +853,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// Returns an [`Iterator`] over the read-only query items generated from an [`Entity`] list.
     ///
     /// Items are returned in the order of the list of entities, and may not be unique if the input
-    /// doesn't guarantee uniqueness. Entities that don't match the query are skipped.
+    /// doesn't guarantee uniqueness.
+    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is generated instead.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
@@ -870,17 +871,43 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///     list: Vec<Entity>,
     /// }
     ///
-    /// fn system(
+    /// fn matching_system(
     ///     friends_query: Query<&Friends>,
     ///     counter_query: Query<&Counter>,
     /// ) {
     ///     for friends in &friends_query {
-    ///         for counter in counter_query.iter_many(&friends.list) {
+    ///         for counter in counter_query.iter_many(&friends.list).matched() {
     ///             println!("Friend's counter: {}", counter.value);
     ///         }
     ///     }
     /// }
-    /// # bevy_ecs::system::assert_is_system(system);
+    ///
+    /// fn unwrapping_system(
+    ///     friends_query: Query<&Friends>,
+    ///     counter_query: Query<&Counter>,
+    /// ) {
+    ///     for friends in &friends_query {
+    ///         for counter in counter_query.iter_many(&friends.list).unwrapped() {
+    ///             println!("Friend's counter: {}", counter.value);
+    ///         }
+    ///     }
+    /// }
+    ///
+    /// fn error_system(
+    ///     friends_query: Query<&Friends>,
+    ///     counter_query: Query<&Counter>,
+    /// ) -> Result<(), BevyError> {
+    ///     for friends in &friends_query {
+    ///         for counter_result in counter_query.iter_many(&friends.list) {
+    ///             let counter = counter_result?;
+    ///             println!("Friend's counter: {}", counter.value);
+    ///         }
+    ///     }
+    ///     Ok(())
+    /// }
+    /// # bevy_ecs::system::assert_is_system(matching_system);
+    /// # bevy_ecs::system::assert_is_system(unwrapping_system);
+    /// # bevy_ecs::system::assert_is_system::<(), Result<(), BevyError>, _>(error_system);
     /// ```
     ///
     /// # See also
@@ -898,7 +925,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// Returns an iterator over the query items generated from an [`Entity`] list.
     ///
     /// Items are returned in the order of the list of entities, and may not be unique if the input
-    /// doesn't guarantee uniqueness. Entities that don't match the query are skipped.
+    /// doesn't guarantee uniqueness.
+    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is generated instead.
     ///
     /// # Examples
     ///
@@ -919,7 +947,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///     mut counter_query: Query<&mut Counter>,
     /// ) {
     ///     for friends in &friends_query {
-    ///         let mut iter = counter_query.iter_many_mut(&friends.list);
+    ///         let mut iter = counter_query.iter_many_mut(&friends.list).matched();
     ///         while let Some(mut counter) = iter.fetch_next() {
     ///             println!("Friend's counter: {}", counter.value);
     ///             counter.value += 1;
@@ -944,7 +972,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// This consumes the [`Query`] to return results with the actual "inner" world lifetime.
     ///
     /// Items are returned in the order of the list of entities, and may not be unique if the input
-    /// doesn't guarantee uniqueness. Entities that don't match the query are skipped.
+    /// doesn't guarantee uniqueness.
+    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is generated instead.
     ///
     /// # See also
     ///
@@ -969,7 +998,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
 
     /// Returns an [`Iterator`] over the unique read-only query items generated from an [`EntitySet`].
     ///
-    /// Items are returned in the order of the list of entities. Entities that don't match the query are skipped.
+    /// Items are returned in the order of the list of entities.
+    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is generated instead.
     ///
     /// # Example
     ///
@@ -1003,7 +1033,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///     counter_query: Query<&Counter>,
     /// ) {
     ///     for friends in &friends_query {
-    ///         for counter in counter_query.iter_many_unique(friends) {
+    ///         for counter in counter_query.iter_many_unique(friends).matched() {
     ///             println!("Friend's counter: {:?}", counter.value);
     ///         }
     ///     }
@@ -1025,7 +1055,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
 
     /// Returns an iterator over the unique query items generated from an [`EntitySet`].
     ///
-    /// Items are returned in the order of the list of entities. Entities that don't match the query are skipped.
+    /// Items are returned in the order of the list of entities.
+    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is generated instead.
     ///
     /// # Examples
     ///
@@ -1058,7 +1089,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///     mut counter_query: Query<&mut Counter>,
     /// ) {
     ///     for friends in &friends_query {
-    ///         for mut counter in counter_query.iter_many_unique_mut(friends) {
+    ///         for mut counter in counter_query.iter_many_unique_mut(friends).matched() {
     ///             println!("Friend's counter: {:?}", counter.value);
     ///             counter.value += 1;
     ///         }
@@ -1084,7 +1115,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// Returns an iterator over the unique query items generated from an [`EntitySet`].
     /// This consumes the [`Query`] to return results with the actual "inner" world lifetime.
     ///
-    /// Items are returned in the order of the list of entities. Entities that don't match the query are skipped.
+    /// Items are returned in the order of the list of entities.
+    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is generated instead.
     ///
     /// # Examples
     ///
@@ -1117,7 +1149,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///     mut counter_query: Query<&mut Counter>,
     /// ) {
     ///     let friends = friends_query.single().unwrap();
-    ///     for mut counter in counter_query.iter_many_unique_inner(friends) {
+    ///     for mut counter in counter_query.iter_many_unique_inner(friends).matched() {
     ///         println!("Friend's counter: {:?}", counter.value);
     ///         counter.value += 1;
     ///     }
@@ -1204,7 +1236,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// Returns an [`Iterator`] over the query items generated from an [`Entity`] list.
     ///
     /// Items are returned in the order of the list of entities, and may not be unique if the input
-    /// doesnn't guarantee uniqueness. Entities that don't match the query are skipped.
+    /// doesnn't guarantee uniqueness.
+    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is generated instead.
     ///
     /// # Safety
     ///
@@ -1225,7 +1258,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
 
     /// Returns an [`Iterator`] over the unique query items generated from an [`Entity`] list.
     ///
-    /// Items are returned in the order of the list of entities. Entities that don't match the query are skipped.
+    /// Items are returned in the order of the list of entities.
+    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is generated instead.
     ///
     /// # Safety
     ///
@@ -1348,7 +1382,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
 
     /// Returns a parallel iterator over the read-only query items generated from an [`Entity`] list.
     ///
-    /// Entities that don't match the query are skipped. Iteration order and thread assignment is not guaranteed.
+    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is generated instead.
+    /// Iteration order and thread assignment is not guaranteed.
     ///
     /// If the `multithreaded` feature is disabled, iterating with this operates identically to [`Iterator::for_each`]
     /// on [`QueryManyIter`].
@@ -1378,7 +1413,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
 
     /// Returns a parallel iterator over the unique read-only query items generated from an [`EntitySet`].
     ///
-    /// Entities that don't match the query are skipped. Iteration order and thread assignment is not guaranteed.
+    /// Iteration order and thread assignment is not guaranteed.
+    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is generated instead.
     ///
     /// If the `multithreaded` feature is disabled, iterating with this operates identically to [`Iterator::for_each`]
     /// on [`QueryManyUniqueIter`].
@@ -1407,7 +1443,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
 
     /// Returns a parallel iterator over the unique query items generated from an [`EntitySet`].
     ///
-    /// Entities that don't match the query are skipped. Iteration order and thread assignment is not guaranteed.
+    /// Iteration order and thread assignment is not guaranteed.
+    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is generated instead.
     ///
     /// If the `multithreaded` feature is disabled, iterating with this operates identically to [`Iterator::for_each`]
     /// on [`QueryManyUniqueIter`].

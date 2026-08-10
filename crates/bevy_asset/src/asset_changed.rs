@@ -284,6 +284,8 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
     ) -> bool {
         set_contains_id(state.asset_id)
     }
+
+    fn update_archetypes(_state: &mut Self::State, _world: UnsafeWorldCell) {}
 }
 
 #[expect(unsafe_code, reason = "QueryFilter is an unsafe trait.")]

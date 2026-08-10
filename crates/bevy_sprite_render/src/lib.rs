@@ -62,9 +62,9 @@ pub enum SpriteSystems {
 
 impl Plugin for SpriteRenderPlugin {
     fn build(&self, app: &mut App) {
-        load_shader_library!(app, "render/sprite_view_bindings.wgsl");
+        load_shader_library!(app, "render/sprite_view_bindings.wesl");
 
-        embedded_asset!(app, "render/sprite.wgsl");
+        embedded_asset!(app, "render/sprite.wesl");
 
         if !app.is_plugin_added::<TextureAtlasPlugin>() {
             app.add_plugins(TextureAtlasPlugin);

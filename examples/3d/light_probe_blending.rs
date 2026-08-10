@@ -334,18 +334,21 @@ fn spawn_buttons(commands: &mut Commands) {
         Children [
             feathers_option_buttons(
                 "Gizmos",
-                &[(GizmosEnabled::On, "On"), (GizmosEnabled::Off, "Off"),]
+                &[(GizmosEnabled::On, "On"), (GizmosEnabled::Off, "Off"),],
+                0,
             ),
             feathers_option_buttons(
                 "Object to Show",
                 &[
                     (ObjectToShow::Sphere, "Sphere"),
                     (ObjectToShow::Prism, "Prism"),
-                ]
+                ],
+                0,
             ),
             feathers_option_buttons(
                 "Camera Mode",
-                &[(CameraMode::Orbit, "Orbit"), (CameraMode::Free, "Free"),]
+                &[(CameraMode::Orbit, "Orbit"), (CameraMode::Free, "Free"),],
+                0,
             ),
         ]
     });

@@ -10,6 +10,7 @@ App::new()
         .add_plugins(DefaultPlugins)
         .insert_resource(RenderDebugOverlayKeybindings {
             enable_keybindings: true,
+            ..Default::default()
         })
 ```
 

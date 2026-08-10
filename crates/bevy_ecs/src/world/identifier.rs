@@ -31,13 +31,29 @@ impl WorldId {
     /// Please note that the [`WorldId`]s created from this method are unique across
     /// time - if a given [`WorldId`] is [`Drop`]ped its value still cannot be reused
     pub fn new() -> Option<Self> {
-        MAX_WORLD_ID
-            // We use `Relaxed` here since this atomic only needs to be consistent with itself
-            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |val| {
-                val.checked_add(1)
-            })
-            .map(WorldId)
-            .ok()
+        // NOTE: this is not really a std vs. no_std change.
+        // The split is done to silence a warning and also satisfy builds for an older no_std target on CI.
+        // Once you see the deprecation warning for no_std, collapse the function into this first branch.
+        #[cfg(feature = "std")]
+        {
+            MAX_WORLD_ID
+                // We use `Relaxed` here since this atomic only needs to be consistent with itself
+                .try_update(Ordering::Relaxed, Ordering::Relaxed, |val| {
+                    val.checked_add(1)
+                })
+                .map(WorldId)
+                .ok()
+        }
+        #[cfg(not(feature = "std"))]
+        {
+            MAX_WORLD_ID
+                // We use `Relaxed` here since this atomic only needs to be consistent with itself
+                .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |val| {
+                    val.checked_add(1)
+                })
+                .map(WorldId)
+                .ok()
+        }
     }
 }
 

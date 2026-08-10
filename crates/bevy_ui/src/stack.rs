@@ -70,7 +70,9 @@ pub fn ui_stack_system(
     ui_stack.uinodes.clear();
     visited_root_nodes.clear();
 
-    for (id, maybe_global_zindex, maybe_zindex) in root_node_query.iter_many(ui_root_nodes.iter()) {
+    for (id, maybe_global_zindex, maybe_zindex) in
+        root_node_query.iter_many(ui_root_nodes.iter()).matched()
+    {
         root_nodes.push((
             id,
             (

@@ -29,8 +29,8 @@ impl Plugin for FrameTimeGraphPlugin {
         load_internal_asset!(
             app,
             FRAME_TIME_GRAPH_SHADER_HANDLE,
-            "frame_time_graph.wgsl",
-            Shader::from_wgsl
+            "frame_time_graph.wesl",
+            Shader::from_wesl
         );
 
         // TODO: Use plugin dependencies, see https://github.com/bevyengine/bevy/issues/69

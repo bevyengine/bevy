@@ -116,7 +116,7 @@ pub const MATERIAL_BIND_GROUP_INDEX: usize = 3;
 /// // functions that are relevant for your material.
 /// impl Material for CustomMaterial {
 ///     fn fragment_shader() -> ShaderRef {
-///         "shaders/custom_material.wgsl".into()
+///         "shaders/custom_material.wesl".into()
 ///     }
 /// }
 ///

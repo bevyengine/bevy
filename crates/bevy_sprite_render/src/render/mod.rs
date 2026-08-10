@@ -86,7 +86,7 @@ pub fn init_sprite_pipeline(mut commands: Commands, asset_server: Res<AssetServe
     commands.insert_resource(SpritePipeline {
         view_layout,
         material_layout,
-        shader: load_embedded_asset!(asset_server.as_ref(), "sprite.wgsl"),
+        shader: load_embedded_asset!(asset_server.as_ref(), "sprite.wesl"),
     });
 }
 
@@ -866,7 +866,7 @@ pub fn prepare_sprite_image_bind_groups(
             // The sprite shader can then use the two least significant bits as the vertex index.
             // The rest of the properties to transform the vertex positions and UVs (which are
             // implicit) are baked into the instance transform, and UV offset and scale.
-            // See bevy_sprite_render/src/render/sprite.wgsl for the details.
+            // See bevy_sprite_render/src/render/sprite.wesl for the details.
             sprite_meta.sprite_index_buffer.push(2);
             sprite_meta.sprite_index_buffer.push(0);
             sprite_meta.sprite_index_buffer.push(1);

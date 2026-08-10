@@ -112,7 +112,7 @@ impl RawHandleWrapper {
     /// # Safety
     ///
     /// The passed in [`RawDisplayHandle`] must be a valid display handle.
-    pub fn set_display_handle(&mut self, display_handle: RawDisplayHandle) -> &mut Self {
+    pub unsafe fn set_display_handle(&mut self, display_handle: RawDisplayHandle) -> &mut Self {
         self.display_handle = display_handle;
 
         self

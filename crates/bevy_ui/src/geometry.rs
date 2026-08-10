@@ -1163,6 +1163,179 @@ impl From<(Val, Val)> for UiPosition {
     }
 }
 
+/// The horizontal and vertical radii of a rounded corner's elliptical arc.
+/// If one field is auto, the resolved radius will be circular and clamped to half the length of the node's shortest side.
+/// If either field is zero, or both are auto, the node will have square corners.
+///
+/// # Example
+///
+/// ```
+/// # use bevy_math::{Vec2, Vec2Swizzles};
+/// # use bevy_ui::{CornerRadius, Val};
+/// let radius = Val::Px(10.0);
+/// let size = Vec2::new(100.0, 50.0);
+/// let viewport_size = Vec2::new(1920.0, 1080.0);
+///
+/// let c1 = CornerRadius {
+///     x: radius,
+///     y: Val::ZERO,
+/// };
+/// let c2 = CornerRadius {
+///     x: Val::ZERO,
+///     y: radius,
+/// };
+/// let r = c1.resolve(1.0, size, viewport_size);
+/// assert_eq!(
+///     r,
+///     c2.resolve(1.0, size, viewport_size).yx(),
+/// );
+/// assert_eq!(
+///     r,
+///     Vec2::new(10.0, 0.0),
+/// );
+/// ```
+#[derive(Debug, Clone, Copy, Reflect)]
+#[reflect(Default, PartialEq, Debug, Clone)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct CornerRadius {
+    /// Responsive horizontal radius.
+    pub x: Val,
+    /// Responsive vertical radius.
+    pub y: Val,
+}
+
+impl CornerRadius {
+    /// A fully rounded corner with a circular radius of half the length of the node's shortest side.
+    pub const MAX: Self = Self {
+        x: Val::Px(f32::MAX),
+        y: Val::Auto,
+    };
+
+    /// An elliptical corner with a horizontal radius of half the node's width and a vertical radius of half its height.
+    pub const MAX_ELLIPTICAL: Self = Self {
+        x: Val::Px(f32::MAX),
+        y: Val::Px(f32::MAX),
+    };
+
+    /// A square corner.
+    pub const ZERO: Self = Self {
+        x: Val::ZERO,
+        y: Val::ZERO,
+    };
+
+    /// Creates a circular corner radius, with `radius` resolved relative to the node's shortest side and clamped to half its length.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_math::Vec2;
+    /// # use bevy_ui::{CornerRadius, Val};
+    /// let radius = Val::Px(30.0);
+    /// let size = Vec2::new(100.0, 50.0);
+    /// let viewport_size = Vec2::new(1920.0, 1080.0);
+    ///
+    /// let c1 = CornerRadius::circular(radius);
+    /// let c2 = CornerRadius {
+    ///     x: Val::Auto,
+    ///     y: radius,
+    /// };
+    ///
+    /// let r = c1.resolve(1.0, size, viewport_size);
+    /// assert_eq!(
+    ///     r,
+    ///     c2.resolve(1.0, size, viewport_size),
+    /// );
+    /// assert_eq!(
+    ///     r,
+    ///     Vec2::splat(25.0)
+    /// );
+    /// ```
+    #[inline]
+    pub const fn circular(radius: Val) -> Self {
+        Self {
+            x: radius,
+            y: Val::Auto,
+        }
+    }
+
+    /// Creates a corner radius with the given horizontal (`x`) and vertical (`y`) radii.
+    #[inline]
+    pub const fn new(x: Val, y: Val) -> Self {
+        Self { x, y }
+    }
+
+    /// Resolves this corner radius into horizontal and vertical radii in physical pixels.
+    pub fn resolve(self, scale_factor: f32, size: Vec2, viewport_size: Vec2) -> Vec2 {
+        match self {
+            Self {
+                x: Val::Auto,
+                y: Val::Auto,
+            } => Vec2::ZERO,
+            Self {
+                x: radius,
+                y: Val::Auto,
+            }
+            | Self {
+                x: Val::Auto,
+                y: radius,
+            } => Vec2::splat(
+                radius
+                    .resolve(scale_factor, size.min_element(), viewport_size)
+                    .unwrap_or(0.)
+                    .clamp(0., 0.5 * size.min_element()),
+            ),
+            Self { x, y } => Vec2::new(
+                x.resolve(scale_factor, size.x, viewport_size).unwrap_or(0.),
+                y.resolve(scale_factor, size.y, viewport_size).unwrap_or(0.),
+            )
+            .clamp(Vec2::ZERO, 0.5 * size),
+        }
+    }
+}
+
+impl Default for CornerRadius {
+    fn default() -> Self {
+        Self {
+            x: auto(),
+            y: auto(),
+        }
+    }
+}
+
+impl From<Val> for CornerRadius {
+    fn from(x: Val) -> Self {
+        Self { x, y: auto() }
+    }
+}
+
+impl From<(Val, Val)> for CornerRadius {
+    fn from((x, y): (Val, Val)) -> Self {
+        Self { x, y }
+    }
+}
+
+impl From<[Val; 2]> for CornerRadius {
+    fn from([x, y]: [Val; 2]) -> Self {
+        Self { x, y }
+    }
+}
+
+impl PartialEq for CornerRadius {
+    fn eq(&self, other: &Self) -> bool {
+        // `Val::Auto` is used to indicate that the radius on an axis is unset and that the value on the other axis should be interpreted as a circular radius.
+        // So  `CornerRadius { x: v, y: Val::AUTO } == CornerRadius { x: Val::Auto, y: v }`
+        match (self, other) {
+            (Self { x: r, y: Val::Auto }, Self { x: Val::Auto, y: s })
+            | (Self { x: Val::Auto, y: r }, Self { x: s, y: Val::Auto }) => r == s,
+            _ => self.x == other.x && self.y == other.y,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::geometry::*;
@@ -1189,6 +1362,41 @@ mod tests {
         assert_eq!(result, 30.);
         let result = Val::Px(10.).resolve(0.25, size, viewport_size).unwrap();
         assert_eq!(result, 2.5);
+    }
+
+    #[test]
+    fn corner_radius_resolve() {
+        let size = vec2(100., 50.);
+        let viewport_size = vec2(1000., 500.);
+
+        assert_eq!(
+            CornerRadius {
+                x: Val::Px(100.),
+                y: Val::Auto,
+            }
+            .resolve(1., size, viewport_size),
+            vec2(25., 25.)
+        );
+        assert_eq!(
+            CornerRadius {
+                x: Val::Px(40.),
+                y: Val::Px(40.),
+            }
+            .resolve(1., size, viewport_size),
+            vec2(40., 25.)
+        );
+        assert_eq!(
+            CornerRadius {
+                x: Val::ZERO,
+                y: Val::Px(20.),
+            }
+            .resolve(1., size, viewport_size),
+            vec2(0., 20.)
+        );
+        assert_eq!(
+            CornerRadius::default().resolve(1., size, viewport_size),
+            vec2(0., 0.)
+        );
     }
 
     #[test]
@@ -1406,5 +1614,17 @@ mod tests {
         assert_eq!(vh(0.0), Val::Vh(0.0));
         assert_eq!(vmin(0.0), Val::VMin(0.0));
         assert_eq!(vmax(0.0), Val::VMax(0.0));
+    }
+
+    #[test]
+    fn corner_radius_partial_eq_with_auto() {
+        assert_eq!(
+            CornerRadius::new(px(1.), Val::Auto),
+            CornerRadius::new(Val::Auto, px(1.)),
+        );
+        assert_eq!(
+            CornerRadius::new(Val::Auto, percent(1.)),
+            CornerRadius::new(percent(1.), Val::Auto),
+        );
     }
 }

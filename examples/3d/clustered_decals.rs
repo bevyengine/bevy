@@ -28,14 +28,14 @@ use ops::{acos, cos, sin};
 #[path = "../helpers/radio.rs"]
 mod radio;
 
-#[path = "../helpers/number_input.rs"]
-mod number_input;
+#[path = "../helpers/number_input_f32.rs"]
+mod number_input_f32;
 
-use number_input::number_input_f32;
+use number_input_f32::number_input_f32;
 
 /// The custom material shader that we use to demonstrate how to use the decal
 /// `tag` field.
-const SHADER_ASSET_PATH: &str = "shaders/custom_clustered_decal.wgsl";
+const SHADER_ASSET_PATH: &str = "shaders/custom_clustered_decal.wesl";
 
 /// The speed at which the cube rotates, in radians per frame.
 const CUBE_ROTATION_SPEED: f32 = 0.02;
@@ -238,15 +238,16 @@ fn spawn_buttons(commands: &mut Commands) {
                 (Selection::Camera, "Camera"),
                 (Selection::DecalA, "Decal A"),
                 (Selection::DecalB, "Decal B"),
-            ]),
+            ], 0),
 
             // The number inputs start off hidden because Camera is selected first.
             Visibility::Hidden
-            number_input_f32("Scale Multiplier", Some(AppNumberInput::Scale), 1.0, NumberInputPrecision(2), 0.05..10.)
+            number_input_f32("Scale Multiplier", Some(AppNumberInput::Scale), 1.0, NumberInputPrecision(2), 0.05..=10.)
             ,
 
             Visibility::Hidden
-            number_input_f32("Roll (-π to π)", Some(AppNumberInput::Roll), 0.0, NumberInputPrecision(2), -PI..PI)
+            // + epsilon and next_down are used since roll recalculation likes to switch between -PI and PI upon recalculating roll.
+            number_input_f32("Roll (-π to π)", Some(AppNumberInput::Roll), 0.0, NumberInputPrecision(2), -PI + f32::EPSILON ..=PI.next_down())
             ,
         ]
     });
@@ -418,7 +419,6 @@ fn handle_drag_as_movement(
     {
         return;
     }
-
     for (mut transform, selection) in &mut selections {
         if app_status.selection != *selection {
             continue;

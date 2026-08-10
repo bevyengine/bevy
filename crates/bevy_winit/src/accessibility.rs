@@ -81,7 +81,9 @@ impl AccessKitState {
     fn build_initial_tree(&mut self) -> TreeUpdate {
         let root = self.build_root();
         let accesskit_window_id = NodeId(self.entity.to_bits());
-        let tree = Tree::new(accesskit_window_id);
+        let mut tree = Tree::new(accesskit_window_id);
+        tree.toolkit_name = Some("Bevy".into());
+        tree.toolkit_version = Some(env!("CARGO_PKG_VERSION").into());
         self.requested.set(true);
 
         TreeUpdate {

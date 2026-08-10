@@ -156,6 +156,14 @@ fn gizmo_mode_keys(
             TransformGizmoSpace::Local => TransformGizmoSpace::World,
         };
     }
+    if settings.mode == TransformGizmoMode::Scale {
+        if keyboard.just_pressed(KeyCode::ArrowUp) {
+            settings.scale_sensitivity = (settings.scale_sensitivity + 0.1).min(2.0);
+        }
+        if keyboard.just_pressed(KeyCode::ArrowDown) {
+            settings.scale_sensitivity = (settings.scale_sensitivity - 0.1).max(0.1);
+        }
+    }
 }
 
 #[derive(Component)]
@@ -174,7 +182,15 @@ fn update_instructions(
         TransformGizmoSpace::World => "World",
         TransformGizmoSpace::Local => "Local",
     };
-    text.0 = format!(
+    let base = format!(
         "Click an object to select it\n1: Translate | 2: Rotate | 3: Scale | X: World/Local space\nMode: {mode_str} | Space: {space_str}"
     );
+    text.0 = if settings.mode == TransformGizmoMode::Scale {
+        format!(
+            "{base}\nArrowUp or ArrowDown: Scale sensitivity {:.2}",
+            settings.scale_sensitivity
+        )
+    } else {
+        base
+    };
 }

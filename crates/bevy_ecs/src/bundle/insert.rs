@@ -5,13 +5,13 @@ use core::ptr::NonNull;
 use crate::{
     archetype::{
         Archetype, ArchetypeAfterBundleInsert, ArchetypeCreated, ArchetypeId, Archetypes,
-        ComponentStatus,
+        ComponentStatus, ARCHETYPE_CREATED,
     },
     bundle::{ArchetypeMoveType, Bundle, BundleId, BundleInfo, DynamicBundle, InsertMode},
     change_detection::{MaybeLocation, Tick},
     component::{Components, StorageType},
     entity::{Entities, Entity, EntityLocation},
-    event::EntityComponentsTrigger,
+    event::{EntityComponentsTrigger, GlobalTrigger},
     lifecycle::{Add, Discard, Insert, ADD, DISCARD, INSERT},
     observer::Observers,
     query::DebugCheckedUnwrap as _,
@@ -116,7 +116,16 @@ impl<'w> BundleInserter<'w> {
             // SAFETY:
             // - we have exclusive ownership of the world and hold no references to command queue or component data
             // - as this goes through `DeferredWorld`, our pointers will not be invalidated
-            unsafe { inserter.world.into_deferred() }.trigger(ArchetypeCreated(new_archetype_id));
+            let mut world = unsafe { inserter.world.into_deferred() };
+            // SAFETY: the ARCHETYPE_CREATED event_key corresponds to the ArchetypeCreated event's type
+            unsafe {
+                world.trigger_raw(
+                    ARCHETYPE_CREATED,
+                    &mut ArchetypeCreated(new_archetype_id),
+                    &mut GlobalTrigger,
+                    MaybeLocation::caller(),
+                );
+            }
         }
         inserter
     }

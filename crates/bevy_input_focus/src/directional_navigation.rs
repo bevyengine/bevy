@@ -569,13 +569,15 @@ mod tests {
         let mut neighbors = NavNeighbors::EMPTY;
         assert_eq!(neighbors.get(CompassOctant::SouthEast), NavNeighbor::Auto);
 
-        neighbors.set(CompassOctant::SouthEast, Entity::PLACEHOLDER);
+        let entity = World::default().spawn_empty().id();
+
+        neighbors.set(CompassOctant::SouthEast, entity);
 
         for i in 0..8 {
             if i == CompassOctant::SouthEast.to_index() {
                 assert_eq!(
                     neighbors.get(CompassOctant::SouthEast),
-                    NavNeighbor::Set(Entity::PLACEHOLDER)
+                    NavNeighbor::Set(entity)
                 );
             } else {
                 assert_eq!(

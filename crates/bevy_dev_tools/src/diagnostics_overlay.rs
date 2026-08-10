@@ -471,7 +471,9 @@ fn collapse_on_click_to_header(
         let Ok(children) = diagnostics_overlays.get_mut(child_of.get()) else {
             unreachable!("DiagnosticsOverlay has been tempered with. Do not despawn its children.");
         };
-        let mut lists_iter = diagnostics_overlay_contents.iter_many_mut(children.collection());
+        let mut lists_iter = diagnostics_overlay_contents
+            .iter_many_mut(children.collection())
+            .matched();
 
         let Some(mut node) = lists_iter.fetch_next() else {
             panic!(

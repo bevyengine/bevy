@@ -38,7 +38,7 @@ use bevy::{
 };
 use std::{any::TypeId, sync::Arc};
 
-const SHADER_ASSET_PATH: &str = "shaders/manual_material.wgsl";
+const SHADER_ASSET_PATH: &str = "shaders/manual_material.wesl";
 
 fn main() {
     App::new()

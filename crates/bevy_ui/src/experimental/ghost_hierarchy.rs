@@ -47,6 +47,7 @@ impl<'w, 's> UiRootNodes<'w, 's> {
             .chain(self.root_ghost_node_query.iter().flat_map(|root_ghost| {
                 self.all_nodes_query
                     .iter_many(self.ui_children.iter_ui_children(root_ghost))
+                    .matched()
             }))
     }
 }
@@ -113,6 +114,7 @@ impl<'w, 's> UiChildren<'w, 's> {
                 .flat_map(|children| {
                     self.ghost_nodes_query
                         .iter_many(children)
+                        .matched()
                         .flat_map(|entity| {
                             core::iter::once(entity).chain(self.iter_ghost_nodes(entity))
                         })
@@ -232,7 +234,7 @@ mod tests {
         let mut system_state = SystemState::<(UiRootNodes, Query<&A>)>::new(world);
         let (ui_root_nodes, a_query) = system_state.get(world).unwrap();
 
-        let result: Vec<_> = a_query.iter_many(ui_root_nodes.iter()).collect();
+        let result: Vec<_> = a_query.iter_many(ui_root_nodes.iter()).matched().collect();
 
         assert_eq!([&A(1), &A(6), &A(8)], result.as_slice());
     }
@@ -267,6 +269,7 @@ mod tests {
 
         let result: Vec<_> = a_query
             .iter_many(ui_children.iter_ui_children(n1))
+            .matched()
             .collect();
 
         assert_eq!([&A(5), &A(4), &A(8), &A(10)], result.as_slice());

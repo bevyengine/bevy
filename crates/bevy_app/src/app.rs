@@ -36,7 +36,8 @@ use std::{
 };
 
 bevy_ecs::define_label!(
-    /// A strongly-typed class of labels used to identify an [`App`].
+    /// A strongly-typed class of labels used to uniquely identify an [`App`].
+    /// An [`AppLabel`] should not be an enum.
     #[diagnostic::on_unimplemented(
         note = "consider annotating `{Self}` with `#[derive(AppLabel)]`"
     )]
@@ -1946,7 +1947,7 @@ mod tests {
     fn test_extract_sees_changes() {
         use super::AppLabel;
 
-        #[derive(AppLabel, Clone, Copy, Hash, PartialEq, Eq, Debug)]
+        #[derive(AppLabel, Clone, Copy, Hash, PartialEq, Eq, Debug, Default)]
         struct MySubApp;
 
         #[derive(Resource)]

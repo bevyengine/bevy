@@ -164,6 +164,7 @@ fn spawn_buttons(commands: &mut Commands) {
                     (PccmEnableStatus::Enabled, "On"),
                     (PccmEnableStatus::Disabled, "Off"),
                 ],
+                0,
             )
         ]
     });

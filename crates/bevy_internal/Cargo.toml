@@ -11,16 +11,17 @@ categories = ["game-engines", "graphics", "gui", "rendering"]
 
 [features]
 trace = [
+  "bevy_anti_alias?/trace",
   "bevy_app/trace",
   "bevy_asset?/trace",
   "bevy_core_pipeline?/trace",
-  "bevy_anti_alias?/trace",
   "bevy_ecs/trace",
   "bevy_log/trace",
   "bevy_pbr?/trace",
-  "bevy_render?/trace",
-  "bevy_winit?/trace",
   "bevy_post_process?/trace",
+  "bevy_render?/trace",
+  "bevy_transform/trace",
+  "bevy_winit?/trace",
 ]
 trace_chrome = ["bevy_log/tracing-chrome"]
 trace_tracy = ["bevy_render?/tracing-tracy", "bevy_log/tracing-tracy"]
@@ -114,15 +115,7 @@ symphonia-vorbis = ["bevy_audio/symphonia-vorbis"]
 symphonia-wav = ["bevy_audio/symphonia-wav"]
 
 # Shader formats
-shader_format_glsl = [
-  "bevy_shader/shader_format_glsl",
-  "bevy_pbr?/shader_format_glsl",
-]
-shader_format_spirv = [
-  "bevy_shader/shader_format_spirv",
-  "bevy_render?/shader_format_spirv",
-]
-shader_format_wesl = ["bevy_shader/shader_format_wesl"]
+shader_format_spirv = ["bevy_render?/shader_format_spirv"]
 
 serialize = [
   "bevy_a11y?/serialize",

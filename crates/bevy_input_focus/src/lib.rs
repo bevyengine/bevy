@@ -551,14 +551,14 @@ mod tests {
         }
     }
 
-    fn key_a_message() -> KeyboardInput {
+    fn key_a_message(window: Entity) -> KeyboardInput {
         KeyboardInput {
             key_code: KeyCode::KeyA,
             logical_key: Key::Character("A".into()),
             state: ButtonState::Pressed,
             text: Some("A".into()),
             repeat: false,
-            window: Entity::PLACEHOLDER,
+            window,
         }
     }
 
@@ -658,7 +658,10 @@ mod tests {
         app.add_plugins((InputPlugin, InputFocusPlugin, InputDispatchPlugin))
             .add_observer(gather_keyboard_events);
 
-        app.world_mut().spawn((Window::default(), PrimaryWindow));
+        let window = app
+            .world_mut()
+            .spawn((Window::default(), PrimaryWindow))
+            .id();
 
         // Run the world for a single frame to set up the initial focus
         app.update();
@@ -687,7 +690,7 @@ mod tests {
         assert!(!app.world().is_focus_visible(child_of_b));
 
         // entity_a should receive this event
-        app.world_mut().write_message(key_a_message());
+        app.world_mut().write_message(key_a_message(window));
         app.update();
 
         assert_eq!(get_gathered(&app, entity_a), "A");
@@ -700,7 +703,7 @@ mod tests {
         assert!(!app.world().is_focus_visible(entity_a));
 
         // This event should be lost
-        app.world_mut().write_message(key_a_message());
+        app.world_mut().write_message(key_a_message(window));
         app.update();
 
         assert_eq!(get_gathered(&app, entity_a), "A");
@@ -721,7 +724,7 @@ mod tests {
 
         // These events should be received by entity_b and child_of_b
         app.world_mut()
-            .write_message_batch(core::iter::repeat_n(key_a_message(), 4));
+            .write_message_batch(core::iter::repeat_n(key_a_message(window), 4));
         app.update();
 
         assert_eq!(get_gathered(&app, entity_a), "A");
@@ -774,7 +777,10 @@ mod tests {
         let mut app = App::new();
         app.add_plugins((InputPlugin, InputFocusPlugin, InputDispatchPlugin));
 
-        app.world_mut().spawn((Window::default(), PrimaryWindow));
+        let window = app
+            .world_mut()
+            .spawn((Window::default(), PrimaryWindow))
+            .id();
         app.update();
 
         let entity = app.world_mut().spawn_empty().id();
@@ -785,7 +791,7 @@ mod tests {
         assert_eq!(app.world().resource::<InputFocus>().get(), Some(entity));
 
         // Send input event - this should clear focus instead of panicking
-        app.world_mut().write_message(key_a_message());
+        app.world_mut().write_message(key_a_message(window));
         app.update();
 
         assert_eq!(app.world().resource::<InputFocus>().get(), None);

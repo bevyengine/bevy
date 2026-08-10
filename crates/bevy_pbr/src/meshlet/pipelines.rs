@@ -96,25 +96,25 @@ pub fn init_meshlet_pipelines(
     let fill_counts_layout = resource_manager.fill_counts_bind_group_layout.clone();
 
     let clear_visibility_buffer =
-        load_embedded_asset!(asset_server.as_ref(), "clear_visibility_buffer.wgsl");
-    let cull_instances = load_embedded_asset!(asset_server.as_ref(), "cull_instances.wgsl");
-    let cull_bvh = load_embedded_asset!(asset_server.as_ref(), "cull_bvh.wgsl");
-    let cull_clusters = load_embedded_asset!(asset_server.as_ref(), "cull_clusters.wgsl");
+        load_embedded_asset!(asset_server.as_ref(), "clear_visibility_buffer.wesl");
+    let cull_instances = load_embedded_asset!(asset_server.as_ref(), "cull_instances.wesl");
+    let cull_bvh = load_embedded_asset!(asset_server.as_ref(), "cull_bvh.wesl");
+    let cull_clusters = load_embedded_asset!(asset_server.as_ref(), "cull_clusters.wesl");
     let visibility_buffer_software_raster = load_embedded_asset!(
         asset_server.as_ref(),
-        "visibility_buffer_software_raster.wgsl"
+        "visibility_buffer_software_raster.wesl"
     );
     let visibility_buffer_hardware_raster = load_embedded_asset!(
         asset_server.as_ref(),
-        "visibility_buffer_hardware_raster.wgsl"
+        "visibility_buffer_hardware_raster.wesl"
     );
     let resolve_render_targets =
-        load_embedded_asset!(asset_server.as_ref(), "resolve_render_targets.wgsl");
+        load_embedded_asset!(asset_server.as_ref(), "resolve_render_targets.wesl");
     let remap_1d_to_2d_dispatch =
-        load_embedded_asset!(asset_server.as_ref(), "remap_1d_to_2d_dispatch.wgsl");
-    let fill_counts = load_embedded_asset!(asset_server.as_ref(), "fill_counts.wgsl");
+        load_embedded_asset!(asset_server.as_ref(), "remap_1d_to_2d_dispatch.wesl");
+    let fill_counts = load_embedded_asset!(asset_server.as_ref(), "fill_counts.wesl");
     let meshlet_mesh_material =
-        load_embedded_asset!(asset_server.as_ref(), "meshlet_mesh_material.wgsl");
+        load_embedded_asset!(asset_server.as_ref(), "meshlet_mesh_material.wesl");
 
     commands.insert_resource(MeshletPipelines {
         clear_visibility_buffer: pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {

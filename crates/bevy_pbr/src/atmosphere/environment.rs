@@ -176,7 +176,7 @@ pub fn init_atmosphere_probe_pipeline(
     let environment = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
         label: Some("environment_pipeline".into()),
         layout: vec![layouts.environment.clone()],
-        shader: load_embedded_asset!(asset_server.as_ref(), "environment.wgsl"),
+        shader: load_embedded_asset!(asset_server.as_ref(), "environment.wesl"),
         ..default()
     });
     commands.insert_resource(AtmosphereProbePipeline { environment });
