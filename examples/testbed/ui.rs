@@ -3727,7 +3727,7 @@ mod change_detection {
             Node {
                 width: percent(100),
                 height: percent(100),
-                padding: px(0.5 * size).all(),
+                padding: px(0.5 * SIZE).all(),
                 column_gap: px(10),
                 ..default()
             },
