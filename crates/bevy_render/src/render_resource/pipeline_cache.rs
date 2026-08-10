@@ -593,14 +593,16 @@ impl PipelineCache {
                     }
                 };
 
-                let fragment_module = if let Some(frag) = fragment_module {
+                let fragment_module = if let (Some(fragment_module), Some(desc_fragment)) =
+                    (&fragment_module, &descriptor.fragment)
+                {
                     match shader_module_cache.entry_ref(&ShaderModuleCacheKeyRef(
-                        &descriptor.vertex.shader.id(),
-                        &descriptor.vertex.shader_defs,
+                        &desc_fragment.shader.id(),
+                        &desc_fragment.shader_defs,
                     )) {
                         EntryRef::Occupied(occupied_entry) => Some(occupied_entry.get().clone()),
                         EntryRef::Vacant(vacant_entry_ref) => {
-                            let module = match load_module(&device, &frag).await {
+                            let module = match load_module(&device, &fragment_module).await {
                                 Ok(module) => module,
                                 Err(err) => return Err(err),
                             };
@@ -608,8 +610,8 @@ impl PipelineCache {
                                 vacant_entry_ref
                                     .insert_with_key(
                                         ShaderModuleCacheKey(
-                                            descriptor.vertex.shader.id(),
-                                            descriptor.vertex.shader_defs.as_slice().into(),
+                                            desc_fragment.shader.id(),
+                                            desc_fragment.shader_defs.as_slice().into(),
                                         ),
                                         module,
                                     )
