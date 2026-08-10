@@ -11,6 +11,7 @@ pub mod box_shadow;
 mod gradient;
 mod image;
 use bevy_ecs::query::QueryData;
+use bevy_render::render_phase::DrawFunctionId;
 use bevy_render::render_resource::SpecializedRenderPipeline;
 use bevy_utils::default;
 pub use image::ImageNodeAssetChangedSystems;
@@ -2023,6 +2024,13 @@ pub mod shader_flags {
     pub const INVERT: u32 = 4096;
 }
 
+#[derive(Default)]
+pub struct QueueUiItemsLocalData {
+    processed_ui_objects: HashSet<ChangedUiObject>,
+    ui_objects_to_retry_this_frame: HashSet<(MainEntity, ChangedUiObject)>,
+    ui_objects_to_retry_next_frame: HashSet<(MainEntity, ChangedUiObject)>,
+}
+
 /// Processes changed render objects of a single type, inserting and removing
 /// sorted phase items as necessary.
 ///
@@ -2039,7 +2047,7 @@ pub fn queue_ui_items<E>(
     extracted_views: Query<&ExtractedView>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
-    mut processed_ui_objects: Local<HashSet<ChangedUiObject>>,
+    mut local_data: Local<QueueUiItemsLocalData>,
     system_param: StaticSystemParam<E::PipelineKeySystemParam>,
 ) where
     E: UiRenderObject,
@@ -2047,6 +2055,13 @@ pub fn queue_ui_items<E>(
 {
     let mut system_param = system_param.into_inner();
     let draw_function = draw_functions.read().id::<E::DrawFunctions>();
+    let local_data = &mut *local_data;
+
+    mem::swap(
+        &mut local_data.ui_objects_to_retry_this_frame,
+        &mut local_data.ui_objects_to_retry_next_frame,
+    );
+    local_data.ui_objects_to_retry_next_frame.clear();
 
     // To avoid having to look up information about the camera over and over
     // again for each changed render object, we cache the most recent view we
@@ -2057,9 +2072,9 @@ pub fn queue_ui_items<E>(
     for (main_entity, extracted_sub_ui_objects) in extracted_nodes.changed.iter() {
         // Examine all changed nodes (which includes nodes that were removed),
         // and remove all the corresponding phase items.
-        processed_ui_objects.clear();
+        local_data.processed_ui_objects.clear();
         for changed_ui_object in extracted_sub_ui_objects.iter() {
-            if !processed_ui_objects.insert(*changed_ui_object) {
+            if !local_data.processed_ui_objects.insert(*changed_ui_object) {
                 continue;
             }
 
@@ -2095,47 +2110,120 @@ pub fn queue_ui_items<E>(
         // Now look at all the changed UI nodes again. For each, add the
         // appropriate render objects of this type.
         for (render_entity, extracted_uinode) in extracted_sub_uinodes.iter() {
-            // Refresh the cached camera view.
-            CachedCameraView::<E::ViewPipelineKeyBuilder>::update::<E>(
-                &mut maybe_cached_camera_view,
+            try_add_phase_item(
+                *main_entity,
+                *render_entity,
+                extracted_uinode,
                 *extracted_camera_entity,
+                &mut maybe_cached_camera_view,
+                draw_function,
+                &pipeline,
+                &mut pipelines,
+                &mut transparent_render_phases,
                 &render_views,
                 &ui_camera_views,
                 &extracted_views,
+                &pipeline_cache,
+                &mut local_data.ui_objects_to_retry_next_frame,
+                &mut system_param,
             );
-            let Some(ref mut cached_camera_view) = maybe_cached_camera_view else {
-                continue;
-            };
-
-            // Fetch the transparent render phase.
-            let Some(transparent_render_phase) = transparent_render_phases
-                .get_mut(&cached_camera_view.extracted_view.retained_view_entity)
-            else {
-                continue;
-            };
-
-            // Get the pipeline key, and specialize the pipeline. We need a
-            // pipeline in order to construct a `TransparentUi` phase item.
-            let Some(pipeline_key) =
-                extracted_uinode.create_pipeline_key(cached_camera_view, &mut system_param)
-            else {
-                continue;
-            };
-            let pipeline = pipelines.specialize(&pipeline_cache, &pipeline, pipeline_key);
-
-            // Add the phase item. Note that this phase item will be retained
-            // from frame to frame.
-            transparent_render_phase.add_retained(TransparentUi {
-                draw_function,
-                pipeline,
-                entity: (*render_entity, *main_entity),
-                sort_key: extracted_uinode.get_sort_key(),
-                // batch_range will be calculated in prepare_uinodes
-                batch_range: 0..0,
-                extra_index: PhaseItemExtraIndex::None,
-                indexed: true,
-            });
         }
+    }
+
+    for (main_entity, changed_object) in local_data.ui_objects_to_retry_this_frame.drain() {
+        let Some((extracted_camera_entity, extracted_sub_nodes)) =
+            extracted_nodes.objects.get(&main_entity)
+        else {
+            continue;
+        };
+        let Some(extracted_uinode) = extracted_sub_nodes.get(&changed_object.render_entity) else {
+            continue;
+        };
+        try_add_phase_item(
+            main_entity,
+            changed_object.render_entity,
+            extracted_uinode,
+            *extracted_camera_entity,
+            &mut maybe_cached_camera_view,
+            draw_function,
+            &pipeline,
+            &mut pipelines,
+            &mut transparent_render_phases,
+            &render_views,
+            &ui_camera_views,
+            &extracted_views,
+            &pipeline_cache,
+            &mut local_data.ui_objects_to_retry_next_frame,
+            &mut system_param,
+        );
+    }
+
+    fn try_add_phase_item<'w, E>(
+        main_entity: MainEntity,
+        render_entity: Entity,
+        extracted_uinode: &E,
+        extracted_camera_entity: Entity,
+        maybe_cached_camera_view: &mut Option<CachedCameraView<'w, E::ViewPipelineKeyBuilder>>,
+        draw_function: DrawFunctionId,
+        pipeline: &E::SpecializedRenderPipeline,
+        pipelines: &mut SpecializedRenderPipelines<E::SpecializedRenderPipeline>,
+        transparent_render_phases: &mut ViewSortedRenderPhases<TransparentUi>,
+        render_views: &'w Query<E::ViewQueryData, With<ExtractedView>>,
+        ui_camera_views: &'w Query<&UiCameraView>,
+        extracted_views: &'w Query<&ExtractedView>,
+        pipeline_cache: &PipelineCache,
+        ui_objects_to_retry_next_frame: &mut HashSet<(MainEntity, ChangedUiObject)>,
+        system_param: &mut <E::PipelineKeySystemParam as SystemParam>::Item<'_, '_>,
+    ) where
+        E: UiRenderObject,
+    {
+        // Refresh the cached camera view.
+        CachedCameraView::<E::ViewPipelineKeyBuilder>::update::<E>(
+            maybe_cached_camera_view,
+            extracted_camera_entity,
+            render_views,
+            ui_camera_views,
+            extracted_views,
+        );
+        let Some(ref mut cached_camera_view) = *maybe_cached_camera_view else {
+            return;
+        };
+
+        // Fetch the transparent render phase.
+        let Some(transparent_render_phase) = transparent_render_phases
+            .get_mut(&cached_camera_view.extracted_view.retained_view_entity)
+        else {
+            return;
+        };
+
+        // Get the pipeline key, and specialize the pipeline. We need a
+        // pipeline in order to construct a `TransparentUi` phase item.
+        let Some(pipeline_key) =
+            extracted_uinode.create_pipeline_key(cached_camera_view, system_param)
+        else {
+            ui_objects_to_retry_next_frame.insert((
+                main_entity,
+                ChangedUiObject {
+                    render_entity,
+                    camera_entity: extracted_camera_entity,
+                },
+            ));
+            return;
+        };
+        let pipeline = pipelines.specialize(pipeline_cache, pipeline, pipeline_key);
+
+        // Add the phase item. Note that this phase item will be retained
+        // from frame to frame.
+        transparent_render_phase.add_retained(TransparentUi {
+            draw_function,
+            pipeline,
+            entity: (render_entity, main_entity),
+            sort_key: extracted_uinode.get_sort_key(),
+            // batch_range will be calculated in prepare_uinodes
+            batch_range: 0..0,
+            extra_index: PhaseItemExtraIndex::None,
+            indexed: true,
+        });
     }
 }
 
