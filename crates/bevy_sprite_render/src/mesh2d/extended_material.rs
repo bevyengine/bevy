@@ -7,9 +7,10 @@ use bevy_material::{
 use bevy_mesh::MeshVertexBufferLayoutRef;
 use bevy_reflect::{Reflect, TypePath};
 use bevy_render::{
+    combined_bind_group as cbg,
     render_resource::{
         AsBindGroup, AsBindGroupError, BindGroupBuilder, BindGroupLayout, BindGroupLayoutEntry,
-        BindlessDescriptor, BindlessSlabResourceLimit, CombinedBindGroup as Cbg,
+        BindlessDescriptor, BindlessSlabResourceLimit,
     },
     renderer::RenderDevice,
 };
@@ -126,27 +127,23 @@ where
 }
 
 impl<B: Material2d, E: MaterialExtension2d> AsBindGroup for ExtendedMaterial2d<B, E> {
-    type Data = <Cbg<'static, B, E> as AsBindGroup>::Data;
-    type Param = <Cbg<'static, B, E> as AsBindGroup>::Param;
+    type Data = cbg::CombinedBindGroupData<B::Data, E::Data>;
+    type Param = (B::Param, E::Param);
 
     fn bindless_slot_count() -> Option<BindlessSlabResourceLimit> {
-        Cbg::<'static, B, E>::bindless_slot_count()
+        cbg::bindless_slot_count::<B, E>()
     }
 
     fn bindless_supported(render_device: &RenderDevice) -> bool {
-        Cbg::<'static, B, E>::bindless_supported(render_device)
+        B::bindless_supported(render_device) && E::bindless_supported(render_device)
     }
 
     fn label() -> &'static str {
-        Cbg::<'static, B, E>::label()
+        E::label()
     }
 
     fn bind_group_data(&self) -> Self::Data {
-        Cbg {
-            base: &self.base,
-            extension: &self.extension,
-        }
-        .bind_group_data()
+        cbg::bind_group_data(&self.base, &self.extension)
     }
 
     fn build_bind_group(
@@ -157,11 +154,15 @@ impl<B: Material2d, E: MaterialExtension2d> AsBindGroup for ExtendedMaterial2d<B
         force_no_bindless: bool,
         output: &mut BindGroupBuilder,
     ) -> Result<(), AsBindGroupError> {
-        Cbg {
-            base: &self.base,
-            extension: &self.extension,
-        }
-        .build_bind_group(layout, render_device, param, force_no_bindless, output)
+        cbg::build_bind_group(
+            &self.base,
+            &self.extension,
+            layout,
+            render_device,
+            param,
+            force_no_bindless,
+            output,
+        )
     }
 
     fn bind_group_layout_entries(
@@ -171,10 +172,10 @@ impl<B: Material2d, E: MaterialExtension2d> AsBindGroup for ExtendedMaterial2d<B
     where
         Self: Sized,
     {
-        Cbg::<'static, B, E>::bind_group_layout_entries(render_device, force_no_bindless)
+        cbg::bind_group_layout_entries::<B, E>(render_device, force_no_bindless)
     }
 
     fn bindless_descriptor() -> Option<BindlessDescriptor> {
-        Cbg::<'static, B, E>::bindless_descriptor()
+        cbg::bindless_descriptor::<B, E>()
     }
 }
