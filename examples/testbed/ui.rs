@@ -3497,7 +3497,7 @@ mod node_material {
         render::render_resource::AsBindGroup,
         shader::ShaderRef,
     };
-    const SHADER_ASSET_PATH: &str = "shaders/custom_ui_material.wgsl";
+    const SHADER_ASSET_PATH: &str = "shaders/custom_ui_material.wesl";
 
     #[derive(AsBindGroup, Asset, TypePath, Debug, Clone)]
     pub(super) struct DefaultUiMaterial {}

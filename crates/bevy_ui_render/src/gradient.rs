@@ -43,7 +43,7 @@ pub struct GradientPlugin;
 
 impl Plugin for GradientPlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "gradient.wgsl");
+        embedded_asset!(app, "gradient.wesl");
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -108,7 +108,7 @@ pub fn init_gradient_pipeline(mut commands: Commands, asset_server: Res<AssetSer
 
     commands.insert_resource(GradientPipeline {
         view_layout,
-        shader: load_embedded_asset!(asset_server.as_ref(), "gradient.wgsl"),
+        shader: load_embedded_asset!(asset_server.as_ref(), "gradient.wesl"),
     });
 }
 
@@ -363,6 +363,19 @@ pub fn extract_gradients(
             )>,
         >,
     >,
+    unfilitered_gradients_query: Extract<
+        Query<(
+            Entity,
+            &ComputedNode,
+            &ComputedStackIndex,
+            &ComputedUiTargetCamera,
+            &ComputedUiRenderTargetInfo,
+            &UiGlobalTransform,
+            &InheritedVisibility,
+            Option<&CalculatedClip>,
+            AnyOf<(&BackgroundGradient, &BorderGradient)>,
+        )>,
+    >,
     (
         mut removed_computed_node_query,
         mut removed_computed_stack_index_query,
@@ -401,8 +414,11 @@ pub fn extract_gradients(
         inherited_visibility,
         clip,
         (gradient, gradient_border),
-    ) in &gradients_query
-    {
+    ) in gradients_query.iter().chain(
+        removed_calculated_clip_query
+            .read()
+            .filter_map(|entity| unfilitered_gradients_query.get(entity).ok()),
+    ) {
         let main_entity = MainEntity::from(entity);
 
         // If there were any previous gradients for this entity, despawn them.
@@ -649,7 +665,6 @@ pub fn extract_gradients(
         .chain(removed_computed_ui_render_target_info_query.read())
         .chain(removed_ui_global_transform_query.read())
         .chain(removed_inherited_visibility_query.read())
-        .chain(removed_calculated_clip_query.read())
         .chain(removed_background_gradient_query.read())
         .chain(removed_border_gradient_query.read())
     {
