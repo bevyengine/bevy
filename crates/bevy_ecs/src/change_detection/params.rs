@@ -833,6 +833,9 @@ impl<'w, T> ContiguousRef<'w, T> {
     /// - `value` - The values wrapped by `ContiguousRef`.
     /// - `added` - [`Tick`]s that store the tick when the wrapped value was created.
     /// - `changed` - [`Tick`]s that store the last time the wrapped value was changed.
+    /// - `summary_tick` - A [`Tick`] that stores the most recent changed
+    ///   timestamp that was written to any component instance in the column.
+    ///   "Most recent" refers to the wall clock.
     /// - `last_run` - A [`Tick`], occurring before `this_run`, which is used
     ///   as a reference to determine whether the wrapped value is newly added or changed.
     /// - `this_run` - A [`Tick`] corresponding to the current point in time -- "now".
@@ -1104,6 +1107,9 @@ impl<'w, T> ContiguousMut<'w, T> {
     /// - `value` - The values wrapped by `ContiguousMut`.
     /// - `added` - [`Tick`]s that store the tick when the wrapped value was created.
     /// - `changed` - [`Tick`]s that store the last time the wrapped value was changed.
+    /// - `summary_tick` - A [`Tick`] that stores the most recent changed
+    ///   timestamp that was written to any component instance in the column.
+    ///   "Most recent" refers to the wall clock.
     /// - `last_run` - A [`Tick`], occurring before `this_run`, which is used
     ///   as a reference to determine whether the wrapped value is newly added or changed.
     /// - `this_run` - A [`Tick`] corresponding to the current point in time -- "now".

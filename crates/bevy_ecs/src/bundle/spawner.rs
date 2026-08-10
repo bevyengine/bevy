@@ -152,14 +152,6 @@ impl<'w> BundleSpawner<'w> {
                 entities.mark_spawned_or_despawned(entity.index(), caller, self.change_tick);
             }
 
-            // Because this is a newly spawned row, we need to update the
-            // summary ticks for all components in the table that have them.
-            for component_id in archetype.table_components() {
-                if let Some(summary_tick) = table.get_summary_tick(component_id) {
-                    summary_tick.set(self.change_tick);
-                }
-            }
-
             location
         };
 
