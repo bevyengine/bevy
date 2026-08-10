@@ -192,6 +192,45 @@ async fn load_module<'a>(
     Ok(shader_module)
 }
 
+/// Fetches a compiled [`ShaderModule`] from `shader_module_cache`, compiling it with
+/// [`load_module`] and caching the result on a cache miss.
+async fn get_or_create_shader_module(
+    device: &RenderDevice,
+    shader_module_cache: &mut HashMap<ShaderModuleCacheKey, WgpuWrapper<ShaderModule>>,
+    shader_id: &AssetId<Shader>,
+    shader_defs: &[ShaderDefVal],
+    processed_shader: &ProcessedShader,
+) -> Result<WgpuWrapper<ShaderModule>, ShaderCacheError> {
+    match shader_module_cache.entry_ref(&ShaderModuleCacheKeyRef(shader_id, shader_defs)) {
+        EntryRef::Occupied(occupied_entry) => Ok(occupied_entry.get().clone()),
+        EntryRef::Vacant(vacant_entry_ref) => {
+            let module = load_module(device, processed_shader).await?;
+            Ok(vacant_entry_ref
+                .insert_with_key(
+                    ShaderModuleCacheKey(*shader_id, shader_defs.into()),
+                    module,
+                )
+                .clone())
+        }
+    }
+}
+
+/// Creates the pipeline layout for a pipeline, or returns `None` when the pipeline has no
+/// layout and no immediate size.
+fn get_or_create_pipeline_layout(
+    layout_cache: &mut LayoutCache,
+    device: &RenderDevice,
+    bind_group_layouts: &[BindGroupLayout],
+    descriptor_layout: &[BindGroupLayoutDescriptor],
+    immediate_size: u32,
+) -> Option<Arc<WgpuWrapper<PipelineLayout>>> {
+    if descriptor_layout.is_empty() && immediate_size == 0 {
+        None
+    } else {
+        Some(layout_cache.get(device, bind_group_layouts, immediate_size))
+    }
+}
+
 #[derive(Default)]
 struct BindGroupLayoutCache {
     bgls: HashMap<BindGroupLayoutDescriptor, BindGroupLayout>,
@@ -515,6 +554,18 @@ impl PipelineCache {
         }
     }
 
+    /// Collects the GPU bind group layouts for a pipeline's layout descriptors.
+    fn collect_bind_group_layouts(
+        &self,
+        layout: &[BindGroupLayoutDescriptor],
+    ) -> SmallVec<[BindGroupLayout; BIND_GROUP_LAYOUTS_INLINE_CAPACITY]> {
+        let mut bindgroup_layout_cache = self.bindgroup_layout_cache.lock().unwrap();
+        layout
+            .iter()
+            .map(|descriptor| bindgroup_layout_cache.get(&self.device, descriptor))
+            .collect()
+    }
+
     fn start_create_render_pipeline(
         &mut self,
         id: CachedPipelineId,
@@ -524,14 +575,7 @@ impl PipelineCache {
         let shader_cache = self.shader_cache.clone();
         let shader_module_cache = self.shader_module_cache.clone();
         let layout_cache = self.layout_cache.clone();
-        let mut bindgroup_layout_cache = self.bindgroup_layout_cache.lock().unwrap();
-        let bind_group_layout = descriptor
-            .layout
-            .iter()
-            .map(|bind_group_layout_descriptor| {
-                bindgroup_layout_cache.get(&self.device, bind_group_layout_descriptor)
-            })
-            .collect::<SmallVec<[_; BIND_GROUP_LAYOUTS_INLINE_CAPACITY]>>();
+        let bind_group_layout = self.collect_bind_group_layouts(&descriptor.layout);
 
         create_pipeline_task(
             async move {
@@ -539,91 +583,55 @@ impl PipelineCache {
                     let mut shader_cache = shader_cache.lock().unwrap();
                     let mut layout_cache = layout_cache.lock().unwrap();
 
-                    let vertex_module = match shader_cache.get(
+                    let vertex_module = shader_cache.get(
                         id,
                         descriptor.vertex.shader.id(),
                         &descriptor.vertex.shader_defs,
-                    ) {
-                        Ok(module) => module,
-                        Err(err) => return Err(err),
-                    };
+                    )?;
 
                     let fragment_module = match &descriptor.fragment {
-                        Some(fragment) => {
-                            match shader_cache.get(id, fragment.shader.id(), &fragment.shader_defs)
-                            {
-                                Ok(module) => Some(module),
-                                Err(err) => return Err(err),
-                            }
-                        }
+                        Some(fragment) => Some(shader_cache.get(
+                            id,
+                            fragment.shader.id(),
+                            &fragment.shader_defs,
+                        )?),
                         None => None,
                     };
 
-                    let layout = if descriptor.layout.is_empty() && descriptor.immediate_size == 0 {
-                        None
-                    } else {
-                        Some(layout_cache.get(
-                            &device,
-                            &bind_group_layout,
-                            descriptor.immediate_size,
-                        ))
-                    };
+                    let layout = get_or_create_pipeline_layout(
+                        &mut layout_cache,
+                        &device,
+                        &bind_group_layout,
+                        &descriptor.layout,
+                        descriptor.immediate_size,
+                    );
 
                     (vertex_module, fragment_module, layout)
                 };
 
                 let mut shader_module_cache = shader_module_cache.lock().await;
 
-                let vertex_module = match shader_module_cache.entry_ref(&ShaderModuleCacheKeyRef(
+                let vertex_module = get_or_create_shader_module(
+                    &device,
+                    &mut shader_module_cache,
                     &descriptor.vertex.shader.id(),
                     &descriptor.vertex.shader_defs,
-                )) {
-                    EntryRef::Occupied(occupied_entry) => occupied_entry.get().clone(),
-                    EntryRef::Vacant(vacant_entry_ref) => {
-                        let module = match load_module(&device, &vertex_module).await {
-                            Ok(module) => module,
-                            Err(err) => return Err(err),
-                        };
-                        vacant_entry_ref
-                            .insert_with_key(
-                                ShaderModuleCacheKey(
-                                    descriptor.vertex.shader.id(),
-                                    descriptor.vertex.shader_defs.as_slice().into(),
-                                ),
-                                module,
-                            )
-                            .clone()
-                    }
-                };
+                    &vertex_module,
+                )
+                .await?;
 
-                let fragment_module = if let (Some(fragment_module), Some(desc_fragment)) =
-                    (&fragment_module, &descriptor.fragment)
-                {
-                    match shader_module_cache.entry_ref(&ShaderModuleCacheKeyRef(
-                        &desc_fragment.shader.id(),
-                        &desc_fragment.shader_defs,
-                    )) {
-                        EntryRef::Occupied(occupied_entry) => Some(occupied_entry.get().clone()),
-                        EntryRef::Vacant(vacant_entry_ref) => {
-                            let module = match load_module(&device, &fragment_module).await {
-                                Ok(module) => module,
-                                Err(err) => return Err(err),
-                            };
-                            Some(
-                                vacant_entry_ref
-                                    .insert_with_key(
-                                        ShaderModuleCacheKey(
-                                            desc_fragment.shader.id(),
-                                            desc_fragment.shader_defs.as_slice().into(),
-                                        ),
-                                        module,
-                                    )
-                                    .clone(),
-                            )
-                        }
-                    }
-                } else {
-                    None
+                let fragment_module = match (&fragment_module, &descriptor.fragment) {
+                    (Some(fragment_module), Some(desc_fragment)) => Some(
+                        get_or_create_shader_module(
+                            &device,
+                            &mut shader_module_cache,
+                            &desc_fragment.shader.id(),
+                            &desc_fragment.shader_defs,
+                            fragment_module,
+                        )
+                        .await?,
+                    ),
+                    _ => None,
                 };
 
                 let vertex_buffer_layouts = descriptor
@@ -707,14 +715,7 @@ impl PipelineCache {
         let device = self.device.clone();
         let shader_cache = self.shader_cache.clone();
         let layout_cache = self.layout_cache.clone();
-        let mut bindgroup_layout_cache = self.bindgroup_layout_cache.lock().unwrap();
-        let bind_group_layout = descriptor
-            .layout
-            .iter()
-            .map(|bind_group_layout_descriptor| {
-                bindgroup_layout_cache.get(&self.device, bind_group_layout_descriptor)
-            })
-            .collect::<SmallVec<[_; BIND_GROUP_LAYOUTS_INLINE_CAPACITY]>>();
+        let bind_group_layout = self.collect_bind_group_layouts(&descriptor.layout);
 
         create_pipeline_task(
             async move {
@@ -722,30 +723,24 @@ impl PipelineCache {
                     let mut shader_cache = shader_cache.lock().unwrap();
                     let mut layout_cache = layout_cache.lock().unwrap();
 
-                    let compute_module =
-                        match shader_cache.get(id, descriptor.shader.id(), &descriptor.shader_defs)
-                        {
-                            Ok(module) => module,
-                            Err(err) => return Err(err),
-                        };
+                    let compute_module = shader_cache.get(
+                        id,
+                        descriptor.shader.id(),
+                        &descriptor.shader_defs,
+                    )?;
 
-                    let layout = if descriptor.layout.is_empty() && descriptor.immediate_size == 0 {
-                        None
-                    } else {
-                        Some(layout_cache.get(
-                            &device,
-                            &bind_group_layout,
-                            descriptor.immediate_size,
-                        ))
-                    };
+                    let layout = get_or_create_pipeline_layout(
+                        &mut layout_cache,
+                        &device,
+                        &bind_group_layout,
+                        &descriptor.layout,
+                        descriptor.immediate_size,
+                    );
 
                     (compute_module, layout)
                 };
 
-                let compute_module = match load_module(&device, &compute_module).await {
-                    Ok(module) => module,
-                    Err(err) => return Err(err),
-                };
+                let compute_module = load_module(&device, &compute_module).await?;
 
                 let constants: Vec<(&str, f64)> = descriptor
                     .constants
