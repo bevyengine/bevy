@@ -2024,10 +2024,26 @@ pub mod shader_flags {
     pub const INVERT: u32 = 4096;
 }
 
+/// Information that the [`queue_ui_items`] system keeps internally.
 #[derive(Default)]
 pub struct QueueUiItemsLocalData {
+    /// A list of all UI objects that were processed this frame.
     processed_ui_objects: HashSet<ChangedUiObject>,
+
+    /// A list of UI objects that couldn't have pipeline keys generated for them
+    /// on the previous frame.
+    ///
+    /// [`queue_ui_items`] will attempt to re-queue them on subsequent frames
+    /// until they successfully enqueue.
+    ///
+    /// Typically, a pipeline key will fail to be generated because a dependent
+    /// asset (e.g. a material) hasn't loaded yet.
     ui_objects_to_retry_this_frame: HashSet<(MainEntity, ChangedUiObject)>,
+
+    /// A list of UI objects that couldn't have pipeline keys generated for them
+    /// on this frame.
+    ///
+    /// [`queue_ui_items`] will attempt to re-queue them on subsequent frames.
     ui_objects_to_retry_next_frame: HashSet<(MainEntity, ChangedUiObject)>,
 }
 
@@ -2057,6 +2073,9 @@ pub fn queue_ui_items<E>(
     let draw_function = draw_functions.read().id::<E::DrawFunctions>();
     let local_data = &mut *local_data;
 
+    // Save the list of UI objects we need to attempt to re-queue this frame.
+    // After processing current changes, we need to retry those in case they
+    // succeed now.
     mem::swap(
         &mut local_data.ui_objects_to_retry_this_frame,
         &mut local_data.ui_objects_to_retry_next_frame,
@@ -2107,8 +2126,8 @@ pub fn queue_ui_items<E>(
             continue;
         };
 
-        // Now look at all the changed UI nodes again. For each, add the
-        // appropriate render objects of this type.
+        // Now look at all the changed UI nodes again. For each, attempt to add
+        // the appropriate render objects of this type.
         for (render_entity, extracted_uinode) in extracted_sub_uinodes.iter() {
             try_add_phase_item(
                 *main_entity,
@@ -2130,6 +2149,8 @@ pub fn queue_ui_items<E>(
         }
     }
 
+    // Finally, attempt to re-queue all UI objects that we couldn't re-queue
+    // last frame (usually because a dependent asset hadn't loaded yet).
     for (main_entity, changed_object) in local_data.ui_objects_to_retry_this_frame.drain() {
         let Some((extracted_camera_entity, extracted_sub_nodes)) =
             extracted_nodes.objects.get(&main_entity)
@@ -2139,6 +2160,7 @@ pub fn queue_ui_items<E>(
         let Some(extracted_uinode) = extracted_sub_nodes.get(&changed_object.render_entity) else {
             continue;
         };
+
         try_add_phase_item(
             main_entity,
             changed_object.render_entity,
@@ -2158,6 +2180,9 @@ pub fn queue_ui_items<E>(
         );
     }
 
+    // Attempts to enqueue a single phase item. If enqueuing fails because the
+    // pipeline key couldn't be generated, then this function adds the item to
+    // `ui_objects_to_retry_next_frame` and bails out.
     fn try_add_phase_item<'w, E>(
         main_entity: MainEntity,
         render_entity: Entity,
@@ -2201,6 +2226,8 @@ pub fn queue_ui_items<E>(
         let Some(pipeline_key) =
             extracted_uinode.create_pipeline_key(cached_camera_view, system_param)
         else {
+            // If we couldn't create the pipeline key, then make a note of this
+            // item so that we will try to enqueue it later, and bail out.
             ui_objects_to_retry_next_frame.insert((
                 main_entity,
                 ChangedUiObject {
@@ -2701,6 +2728,11 @@ impl<E> UiRenderObjects<E>
 where
     E: UiRenderObject,
 {
+    /// Spawns a new render entity corresponding to a UI node that changed since
+    /// the previous frame, and records the information needed to render it.
+    ///
+    /// There can be multiple render entities corresponding to a single
+    /// main-world UI node.
     pub fn add(
         &mut self,
         commands: &mut Commands,
@@ -2710,12 +2742,15 @@ where
     ) {
         let render_entity = commands.spawn_empty().id();
 
+        // Associate the newly spawned render world entity with the main world
+        // entity and camera.
         self.objects
             .entry(main_entity)
             .or_insert_with(|| (extracted_camera_entity, Default::default()))
             .1
             .insert(render_entity, object);
 
+        // Note that it's changed so that we queue it later.
         self.changed
             .entry(main_entity)
             .or_default()
