@@ -6,9 +6,7 @@
 
 use bevy::{
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
-    feathers::{
-        controls::FeathersSlider, dark_theme::create_dark_theme, theme::UiTheme, FeathersPlugins,
-    },
+    feathers::{controls::FeathersSlider, display::label, theme::UiTheme, FeathersPlugins},
     gizmos::transform_gizmo::{
         TransformGizmoCamera, TransformGizmoFocus, TransformGizmoMode, TransformGizmoPlugin,
         TransformGizmoSettings, TransformGizmoSpace,
@@ -23,6 +21,9 @@ use radio::{feathers_option_buttons, main_ui_node_scene, RadioButtonOptionValue}
 #[path = "../helpers/radio.rs"]
 mod radio;
 
+#[path = "../helpers/theme.rs"]
+mod theme;
+
 fn main() {
     App::new()
         .add_plugins((
@@ -32,7 +33,7 @@ fn main() {
             TransformGizmoPlugin,
             FeathersPlugins,
         ))
-        .insert_resource(UiTheme(create_dark_theme()))
+        .insert_resource(UiTheme(theme::basic_example_theme(Color::WHITE)))
         .add_systems(Startup, setup)
         .add_systems(Update, toggle_scale_slider)
         .add_observer(update_radio_button)
@@ -49,7 +50,7 @@ fn setup(
         main_ui_node_scene()
         Children [
             (
-                Text::new("Click an object to select it")
+                label("Click an object to select it")
             ),
             (
                 feathers_option_buttons("",
@@ -68,17 +69,13 @@ fn setup(
             ),
             (
                 Node {
-                    flex_direction: FlexDirection::Row,
                     align_items: AlignItems::Center,
                     column_gap: px(4)
                 }
                 ScaleSensitivitySlider
                 Children [
                     (
-                        Text::new("Sensitivity ")
-                        TextFont{
-                            font_size: 14.0_f32,
-                        }
+                        label("Sensitivity")
                     ),
                     (
                         @FeathersSlider{
