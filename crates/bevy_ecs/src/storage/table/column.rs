@@ -178,12 +178,16 @@ impl Column {
         caller: MaybeLocation,
     ) {
         self.data.initialize_unchecked(row.index(), data);
-        *self.added_ticks.get_unchecked_mut(row.index()).get_mut() = tick;
-        *self.changed_ticks.get_unchecked_mut(row.index()).get_mut() = tick;
+        self.added_ticks
+            .initialize_unchecked(row.index(), UnsafeCell::new(tick));
+        self.changed_ticks
+            .initialize_unchecked(row.index(), UnsafeCell::new(tick));
         self.changed_by
             .as_mut()
-            .map(|changed_by| changed_by.get_unchecked_mut(row.index()).get_mut())
-            .assign(caller);
+            .zip(caller)
+            .map(|(changed_by, caller)| {
+                changed_by.initialize_unchecked(row.index(), UnsafeCell::new(caller))
+            });
     }
 
     /// Overwrites component data to the column at given row. The previous value is dropped.
