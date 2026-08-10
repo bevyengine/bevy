@@ -1322,7 +1322,7 @@ pub fn prepare_view_uniforms(
 /// once per subview while sharing the camera-level computations
 /// (`viewport`, `frustum`, `lod_view_world_position`, etc.) between layers.
 fn build_view_uniform(
-    clip_from_view: Mat4,
+    mut clip_from_view: Mat4,
     world_from_view: GlobalTransform,
     extracted_view: &ExtractedView,
     extracted_camera: Option<&ExtractedCamera>,
@@ -1334,8 +1334,9 @@ fn build_view_uniform(
     lod_view_world_position: Vec3,
     frame_count: u32,
 ) -> ViewUniform {
+    // Capture the projection before jitter so `unjittered_clip_from_world` can
+    // be derived from it; `clip_from_view` is then jittered in place.
     let unjittered_projection = clip_from_view;
-    let mut clip_from_view = unjittered_projection;
     if let Some(temporal_jitter) = temporal_jitter {
         temporal_jitter.jitter_projection(&mut clip_from_view, main_pass_viewport.zw());
     }

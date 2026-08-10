@@ -494,7 +494,7 @@ pub struct ClusteringRasterPipelineKey {
 }
 
 /// The pipeline key that identifies specializations of the
-/// `cluster_z_slice.wgsl` shader.
+/// `cluster_z_slice.wesl` shader.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub struct ClusteringZSlicingPipelineKey {
     /// Per-camera multiview layer count. `1` is the non-multiview case;

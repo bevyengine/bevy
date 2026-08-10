@@ -78,7 +78,7 @@ pub fn main_opaque_pass_3d(
     // Custom material authors who ship their own fragment WGSL entry must
     // declare `@builtin(view_index)` and assign
     // `bevy_pbr::mesh_view_bindings::current_view_index = view_index;`
-    // under `#ifdef MULTIVIEW` to avoid silent eye-0-broadcast on lighting
+    // under `@if(MULTIVIEW)` to avoid silent eye-0-broadcast on lighting
     // and camera-relative effects — see the `Material` trait docstring.
     //
     // Mask formula `u32::MAX >> (32 - view_count)` is the shift-safe

@@ -18,8 +18,8 @@ pub fn get_bind_group_layout_entries(
     let multisampled = layout_key.contains(MeshPipelineViewLayoutKey::MULTISAMPLED);
     // WGSL has no multisampled-array texture type, so the MSAA + multiview
     // combination keeps the single-layer multisampled shape. Mirrors the
-    // shader-side `#ifdef MULTISAMPLED` / `#ifdef MULTIVIEW` interleave in
-    // `mesh_view_bindings.wgsl`.
+    // shader-side `@if(MULTISAMPLED)` / `@if(MULTIVIEW)` conditions in
+    // `mesh_view_bindings.wesl`.
     let multiview_array =
         !multisampled && layout_key.contains(MeshPipelineViewLayoutKey::MULTIVIEW);
 

@@ -80,7 +80,7 @@ pub(crate) fn msaa_writeback(
         ctx.render_device(),
         post_process.source,
         &pipeline_cache,
-        target.multiview_count().map_or(1, |n| n.get()),
+        target.multiview_count().map_or(1, core::num::NonZeroU32::get),
     );
 
     let diagnostics = ctx.diagnostic_recorder();

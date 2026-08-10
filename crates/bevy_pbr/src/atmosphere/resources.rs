@@ -47,8 +47,8 @@ pub(crate) struct RenderSkyBindGroupLayouts {
     /// Variant used on multiview cameras when MSAA is off: binding 13 is a
     /// `texture_depth_2d_array` so the fragment can read its own eye's depth
     /// via `@builtin(view_index)`. MSAA + multiview keeps the non-multiview
-    /// `render_sky_msaa` layout — see the carve-out in `render_sky.wgsl` and
-    /// `mesh_view_bindings.wgsl:99-106`.
+    /// `render_sky_msaa` layout — see the carve-out in `render_sky.wesl` and
+    /// the prepass-texture bindings in `mesh_view_bindings.wesl`.
     pub render_sky_multiview: BindGroupLayoutDescriptor,
     pub fullscreen_shader: FullscreenShader,
     pub fragment_shader: Handle<Shader>,
@@ -359,8 +359,8 @@ impl SpecializedRenderPipeline for RenderSkyBindGroupLayouts {
         }
 
         // WGSL has no `texture_depth_multisampled_2d_array`, so MULTIVIEW only
-        // kicks in on non-MSAA cameras. See `render_sky.wgsl` and
-        // `mesh_view_bindings.wgsl:99-106`.
+        // kicks in on non-MSAA cameras. See `render_sky.wesl` and the
+        // prepass-texture bindings in `mesh_view_bindings.wesl`.
         let push_multiview = key.multiview_view_count > 1 && key.msaa_samples == 1;
         if push_multiview {
             shader_defs.push("MULTIVIEW".into());
