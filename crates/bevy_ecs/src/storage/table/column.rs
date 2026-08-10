@@ -186,7 +186,7 @@ impl Column {
             .as_mut()
             .zip(caller)
             .map(|(changed_by, caller)| {
-                changed_by.initialize_unchecked(row.index(), UnsafeCell::new(caller))
+                changed_by.initialize_unchecked(row.index(), UnsafeCell::new(caller));
             });
     }
 
