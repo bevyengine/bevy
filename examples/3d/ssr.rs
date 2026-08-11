@@ -564,7 +564,7 @@ fn range_controls(value: f32, app_number_input: AppNumberInput) -> impl Scene {
         Node {
             align_items: AlignItems::Center,
         }
-        on(handle_value_change_number_input)
+        @on(handle_value_change_number_input)
     }
 }
 

@@ -238,7 +238,7 @@ fn radio_button_scene(
             ]
         ]
         // Observers for updating text on hover/leave
-        on(|event: On<Pointer<Over>>,
+        @on(|event: On<Pointer<Over>>,
             has_checked_query: Query<&Checked>,
             child_q: Query<&Children>,
             mut commands: Commands| {
@@ -250,7 +250,7 @@ fn radio_button_scene(
                 commands.entity(text_entity).insert(TextColor(HOVERED_TEXT_COLOR));
             }
         })
-        on(|event: On<Pointer<Out>>,
+        @on(|event: On<Pointer<Out>>,
             has_checked_query: Query<&Checked>,
             child_q: Query<&Children>,
             mut commands: Commands| {

@@ -126,7 +126,7 @@ use syn::{parse_macro_input, DeriveInput};
 ///     Node {
 ///         height: px(0.1) // same with named fields, unmentioned ones stay default
 ///     }
-///     on(|evt: On<MyEntityEvent>, mut query: Query<&mut ComponentB>| {  // add an observer
+///     @on(|evt: On<MyEntityEvent>, mut query: Query<&mut ComponentB>| {  // add an observer
 ///         let mut b = query.get_mut(evt.entity).unwrap();
 ///         b.0 += evt.value;
 ///     })

@@ -228,8 +228,8 @@ fn name_text_input(character: &Character) -> impl Scene {
         // This is necessary so that the text cursor pops up when the input has focus.
         TextCursorStyle::default()
         BackgroundColor(Color::BLACK)
-        on(on_pointer_over_text_cursor)
-        on(on_pointer_out_default_cursor)
+        @on(on_pointer_over_text_cursor)
+        @on(on_pointer_out_default_cursor)
     }
 }
 
@@ -305,11 +305,11 @@ fn age_slider(character: &Character) -> impl Scene {
         SliderRange::new(1., 100.)
         BackgroundColor(Color::BLACK)
         // This observer is part of the Controller -- it reacts to the user's input!
-        on(on_value_change_age_slider)
-        on(on_pointer_over_pointer_cursor)
-        on(on_pointer_drag_start_grabbing_cursor)
-        on(on_pointer_drag_end_grab_cursor)
-        on(on_pointer_out_default_cursor)
+        @on(on_value_change_age_slider)
+        @on(on_pointer_over_pointer_cursor)
+        @on(on_pointer_drag_start_grabbing_cursor)
+        @on(on_pointer_drag_end_grab_cursor)
+        @on(on_pointer_out_default_cursor)
         Children [
             // Visible Slider Track
             // It is 220px in width via its parent.
@@ -344,10 +344,10 @@ fn age_slider(character: &Character) -> impl Scene {
                     left: percent((character.age as f32 - 1.) / (100. - 1.) * 100.),
                 }
                 BackgroundColor(Color::WHITE)
-                on(on_pointer_over_grab_cursor)
-                on(on_pointer_out_default_cursor)
-                on(on_pointer_drag_start_grabbing_cursor)
-                on(on_pointer_drag_end_grab_cursor)
+                @on(on_pointer_over_grab_cursor)
+                @on(on_pointer_out_default_cursor)
+                @on(on_pointer_drag_start_grabbing_cursor)
+                @on(on_pointer_drag_end_grab_cursor)
             ]
         ]
     }
@@ -407,7 +407,7 @@ fn hat_type_radio_group_row(character: &Character) -> impl Scene {
         RadioGroup
         HatTypeRadioGroup
         // This observer is part of the Controller -- it reacts to the user's input!
-        on(on_value_change_hat_type)
+        @on(on_value_change_hat_type)
         Children [
             Node
             Children [
@@ -434,8 +434,8 @@ fn hat_type_radio_button(hat_type: HatType, character: &Character) -> Box<dyn Sc
             RadioButton
             hat_type
             BackgroundColor(Color::BLACK)
-            on(on_pointer_over_pointer_cursor)
-            on(on_pointer_out_default_cursor)
+            @on(on_pointer_over_pointer_cursor)
+            @on(on_pointer_out_default_cursor)
         }
     };
     if character.hat_type == hat_type {
@@ -539,10 +539,10 @@ fn tint_yellow_checkbox(character: &Character) -> Box<dyn Scene> {
             Checkbox
             TintYellowCheckbox
             BackgroundColor(Color::WHITE)
-            on(on_pointer_over_pointer_cursor)
-            on(on_pointer_out_default_cursor)
+            @on(on_pointer_over_pointer_cursor)
+            @on(on_pointer_out_default_cursor)
             // This observer is part of the controller -- it reacts to the user's input!
-            on(on_value_change_tint_yellow)
+            @on(on_value_change_tint_yellow)
         }
     };
 

@@ -158,7 +158,7 @@ impl FeathersFloatingDialog {
                 px(4),
             )
             // Closing despawns the window.
-            on(|close: On<RequestClose>, mut commands: Commands| {
+            @on(|close: On<RequestClose>, mut commands: Commands| {
                 commands.entity(close.event_target()).despawn();
             })
             Children [
@@ -236,7 +236,7 @@ impl FeathersDialogClose {
                 @variant: ButtonVariant::Plain,
                 @caption: bsn! { @icon(icons::X) }
             }
-            on(|activate: On<Activate>, mut commands: Commands| {
+            @on(|activate: On<Activate>, mut commands: Commands| {
                 commands.trigger(RequestClose { source: activate.event_target() });
             })
         }

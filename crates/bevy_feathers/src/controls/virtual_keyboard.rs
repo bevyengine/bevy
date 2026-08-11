@@ -47,7 +47,7 @@ impl<T: AsRef<str> + Clone + Send + Sync + 'static> VirtualKeyboard<T> {
                     Node {
                         flex_grow: 1.0,
                     }
-                    on(move |activate: On<Activate>,
+                    @on(move |activate: On<Activate>,
                             mut commands: Commands,
                             query: Query<&ChildOf>|
                             -> Result {
