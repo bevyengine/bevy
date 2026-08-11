@@ -1544,7 +1544,20 @@ required-features = ["bevy_solari", "https", "free_camera"]
 name = "Solari"
 description = "Demonstrates realtime dynamic raytraced lighting using Bevy Solari."
 category = "3D Rendering"
-wasm = false                                                                        # Raytracing is not supported on the web
+wasm = false
+
+[[example]]
+name = "solari_reflections"
+path = "examples/3d/solari_reflections.rs"
+doc-scrape-examples = true
+required-features = ["bevy_solari", "free_camera"]
+
+[package.metadata.example.solari_reflections]
+name = "Solari Reflections"
+description = "Test bed for Solari reflections."
+category = "3D Rendering"
+wasm = false
+hidden = true
 
 [[example]]
 name = "spherical_area_lights"
