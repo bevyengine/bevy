@@ -860,8 +860,6 @@ pub struct IndirectParametersBuildJob {
     pub last_batch_index: u32,
     // Padding to pad out to 256 bytes (the minimum dynamic uniform alignment on
     // Metal).
-    // If you're wondering why we cap the array length at 30, that's so that we
-    // get the auto impl of `Default`.``
     pad_a: u32,
     pad_b: u32,
     pad_c: [UVec4; 15],
@@ -2294,7 +2292,7 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                             instance_range: output_index..output_index + 1,
                             extra_index: PhaseItemExtraIndex::IndirectParametersIndex {
                                 range: indirect_parameters_index..(indirect_parameters_index + 1),
-                                batch_set_index: None,
+                                batch_set_index,
                             },
                         });
                     }
@@ -2659,7 +2657,7 @@ pub fn prepare_indirect_parameters_build_jobs(
     mut indirect_parameters_build_jobs: ResMut<IndirectParametersBuildJobs>,
     indirect_parameters_buffers: Res<IndirectParametersBuffers>,
 ) {
-    // Make sure the clear out the indirect parameters build jobs in preparation
+    // Make sure to clear out the indirect parameters build jobs in preparation
     // for a new frame.
     indirect_parameters_build_jobs.clear();
     build_indirect_parameters_metadata.clear();
