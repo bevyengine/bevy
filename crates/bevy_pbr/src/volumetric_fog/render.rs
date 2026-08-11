@@ -800,4 +800,3 @@ fn calculate_fog_volume_clip_from_local_transforms(
         vec4(0.0, 0.0, z_near, z_near),
     )
 }
-
