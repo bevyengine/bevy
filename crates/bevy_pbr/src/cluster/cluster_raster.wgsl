@@ -550,15 +550,7 @@ fn get_object_bounding_sphere(object_index: u32, object_type: u32) -> vec4<f32> 
     var position = vec3<f32>(0.0);
     var radius = 0.0;
     switch (object_type) {
-        case CLUSTERABLE_OBJECT_TYPE_POINT_LIGHT: {
-            position = clustered_lights.data[object_index].position_radius.xyz;
-            radius = clustered_lights.data[object_index].range;
-        }
-        case CLUSTERABLE_OBJECT_TYPE_SPOT_LIGHT: {
-            position = clustered_lights.data[object_index].position_radius.xyz;
-            radius = clustered_lights.data[object_index].range;
-        }
-        case CLUSTERABLE_OBJECT_TYPE_RECT_LIGHT: {
+        case CLUSTERABLE_OBJECT_TYPE_POINT_LIGHT, CLUSTERABLE_OBJECT_TYPE_SPOT_LIGHT, CLUSTERABLE_OBJECT_TYPE_RECT_LIGHT: {
             position = clustered_lights.data[object_index].position_radius.xyz;
             radius = clustered_lights.data[object_index].range;
         }
