@@ -57,14 +57,17 @@ use crate::{
     storage::{NonSendData, Storages},
     system::Commands,
     world::{
-        command_queue::RawCommandQueue,
+        command_queue::CommandQueueRunner,
         error::{
             EntityDespawnError, EntityMutableFetchError, TryInsertBatchError, TryRunScheduleError,
         },
     },
 };
-use alloc::{boxed::Box, vec::Vec};
-use bevy_platform::sync::atomic::{AtomicU32, Ordering};
+use alloc::vec::Vec;
+use bevy_platform::{
+    cell::SyncUnsafeCell,
+    sync::atomic::{AtomicU32, Ordering},
+};
 use bevy_ptr::{move_as_ptr, MovingPtr, OwningPtr, Ptr};
 use bevy_utils::prelude::DebugName;
 use core::{any::TypeId, fmt, mem::ManuallyDrop};
@@ -106,7 +109,19 @@ pub struct World {
     pub(crate) last_change_tick: Tick,
     pub(crate) last_check_tick: Tick,
     pub(crate) last_trigger_id: u32,
-    pub(crate) command_queue: RawCommandQueue,
+    /// The byte index in [`Self::command_queue`] at which unapplied command start.
+    ///
+    /// This is nonzero while running commands to allow the same buffer to be shared by nested commands.
+    command_queue_start: usize,
+    /// The world's command queue.
+    ///
+    /// This is stored inside a [`SyncUnsafeCell`] to allow mutable access to
+    /// commands from an [`UnsafeWorldCell`] without being invalidated by `&World`
+    /// references used for metadata.
+    ///
+    /// This must not be exposed as a `&mut` to untrusted code,
+    /// as calling `apply()` on it could execute commands before [`Self::command_queue_start`].
+    command_queue: SyncUnsafeCell<CommandQueue>,
 }
 
 impl Default for World {
@@ -128,22 +143,12 @@ impl Default for World {
             last_change_tick: Tick::new(0),
             last_check_tick: Tick::new(0),
             last_trigger_id: 0,
-            command_queue: RawCommandQueue::new(),
+            command_queue_start: 0,
+            command_queue: SyncUnsafeCell::new(CommandQueue::silent()),
             component_ids: ComponentIds::default(),
         };
         world.bootstrap();
         world
-    }
-}
-
-impl Drop for World {
-    fn drop(&mut self) {
-        // SAFETY: Not passing a pointer so the argument is always valid
-        unsafe { self.command_queue.apply_or_drop_queued(None) };
-        // SAFETY: Pointers in internal command queue are only invalidated here
-        drop(unsafe { Box::from_raw(self.command_queue.bytes.as_ptr()) });
-        // SAFETY: Pointers in internal command queue are only invalidated here
-        drop(unsafe { Box::from_raw(self.command_queue.cursor.as_ptr()) });
     }
 }
 
@@ -305,14 +310,11 @@ impl World {
     /// Use [`World::flush`] to apply all queued commands
     #[inline]
     pub fn commands(&mut self) -> Commands<'_, '_> {
-        // SAFETY: command_queue is stored on world and always valid while the world exists
-        unsafe {
-            Commands::new_raw_from_entities(
-                self.command_queue.clone(),
-                &self.entity_allocator,
-                &self.entities,
-            )
-        }
+        Commands::new_from_entities(
+            self.command_queue.get_mut(),
+            &self.entity_allocator,
+            &self.entities,
+        )
     }
 
     /// Registers a new [`Component`] type and returns the [`ComponentId`] created for it.
@@ -322,6 +324,11 @@ impl World {
     /// happens automatically during system initialization.
     #[doc(alias = "register_resource")]
     pub fn register_component<T: Component>(&mut self) -> ComponentId {
+        // This is a hot path, so return early to avoid the `Vec::new` in `ComponentsRegistrator`
+        if let Some(id) = self.component_id::<T>() {
+            return id;
+        }
+
         self.components_registrator().register_component::<T>()
     }
 
@@ -1039,11 +1046,7 @@ impl World {
         // SAFETY:
         // - `&mut self` gives mutable access to the entire world, and prevents simultaneous access.
         // - Command queue access does not conflict with entity access.
-        let raw_queue = unsafe { cell.get_raw_command_queue() };
-        // SAFETY: `&mut self` ensures the commands does not outlive the world.
-        let commands = unsafe {
-            Commands::new_raw_from_entities(raw_queue, cell.entity_allocator(), cell.entities())
-        };
+        let commands = unsafe { cell.commands() };
 
         (fetcher, commands)
     }
@@ -1115,8 +1118,7 @@ impl World {
 
         let mut entity_location = Some(entity_location);
 
-        // SAFETY: command_queue is not referenced anywhere else
-        if !unsafe { self.command_queue.is_empty() } {
+        if !self.command_queue_is_empty() {
             self.flush();
             entity_location = self.entities().get_spawned(entity).ok();
         }
@@ -3064,13 +3066,53 @@ impl World {
     /// This will panic if any of the queued commands are [`spawn`](Commands::spawn).
     /// If this is possible, you should instead use [`flush`](Self::flush).
     pub(crate) fn flush_commands(&mut self) {
-        // SAFETY: `self.command_queue` is only de-allocated in `World`'s `Drop`
-        if !unsafe { self.command_queue.is_empty() } {
-            // SAFETY: `self.command_queue` is only de-allocated in `World`'s `Drop`
-            unsafe {
-                self.command_queue.clone().apply_or_drop_queued(Some(self));
-            };
+        if self.command_queue_is_empty() {
+            return;
         }
+
+        // Prevent nested calls to `flush_commands()` from accessing the commands being run now.
+        // Set `command_queue_start` to the end of the buffer,
+        // and use a RAII type to set it back when done.
+        struct Guard<'a> {
+            world: &'a mut World,
+            start: usize,
+        }
+        impl Drop for Guard<'_> {
+            fn drop(&mut self) {
+                // Return `command_queue_start` to its original value.
+                // `CommandQueueRunner` will have set `len()` to `start`,
+                // so this will result in a zero-length queue.
+                debug_assert_eq!(self.world.command_queue.get_mut().len(), self.start);
+                self.world.command_queue_start = self.start;
+            }
+        }
+
+        let start = self.command_queue_start;
+        let end = self.command_queue.get_mut().len();
+        let guard = Guard { world: self, start };
+        guard.world.command_queue_start = end;
+
+        // SAFETY:
+        // * The world's command queue is always returned
+        // * `start` was set by a call to `flush_commands` to equal `end`,
+        //   so any new commands started there
+        // * `command_queue_start = end` prevents nested calls from accessing commands between `start` and `command_queue.len`
+        let mut runner = unsafe {
+            CommandQueueRunner::new(
+                &mut *guard.world,
+                |world| world.command_queue.get_mut(),
+                start,
+            )
+        };
+        runner.run(|world| Some(world));
+    }
+
+    /// Returns false if there are any commands in the queue.
+    ///
+    /// This must be used instead of [`CommandQueue::is_empty`]
+    /// to ignore any commands earlier than [`Self::command_queue_start`].
+    fn command_queue_is_empty(&mut self) -> bool {
+        self.command_queue_start >= self.command_queue.get_mut().len()
     }
 
     /// Applies any queued component registration.
@@ -3353,6 +3395,11 @@ impl World {
     }
 
     pub(crate) fn register_bundle_info<B: Bundle>(&mut self) -> BundleId {
+        // This is a hot path, so return early to avoid the `Vec::new` in `ComponentsRegistrator`
+        if let Some(bundle_id) = self.bundles.get_id(TypeId::of::<B>()) {
+            return bundle_id;
+        }
+
         // SAFETY: These come from the same world. `Self.components_registrator` can't be used since we borrow other fields too.
         let mut registrator =
             unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.component_ids) };
@@ -3365,6 +3412,11 @@ impl World {
     }
 
     pub(crate) fn register_contributed_bundle_info<B: Bundle>(&mut self) -> BundleId {
+        // This is a hot path, so return early to avoid the `Vec::new` in `ComponentsRegistrator`
+        if let Some(bundle_id) = self.bundles.get_contributed_bundle_id(TypeId::of::<B>()) {
+            return bundle_id;
+        }
+
         // SAFETY: These come from the same world. `Self.components_registrator` can't be used since we borrow other fields too.
         let mut registrator =
             unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.component_ids) };
