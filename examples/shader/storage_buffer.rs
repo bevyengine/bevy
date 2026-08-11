@@ -7,7 +7,7 @@ use bevy::{
     shader::ShaderRef,
 };
 
-const SHADER_ASSET_PATH: &str = "shaders/storage_buffer.wgsl";
+const SHADER_ASSET_PATH: &str = "shaders/storage_buffer.wesl";
 
 fn main() {
     App::new()
@@ -74,19 +74,16 @@ fn update(
     let material = materials.get_mut(&material_handles.0).unwrap();
 
     let mut buffer = buffers.get_mut(&material.colors).unwrap();
-    buffer.set_data(
-        (0..5)
-            .map(|i| {
-                let t = time.elapsed_secs() * 5.0;
-                [
-                    ops::sin(t + i as f32) / 2.0 + 0.5,
-                    ops::sin(t + i as f32 + 2.0) / 2.0 + 0.5,
-                    ops::sin(t + i as f32 + 4.0) / 2.0 + 0.5,
-                    1.0,
-                ]
-            })
-            .collect::<Vec<[f32; 4]>>(),
-    );
+    buffer.clear();
+    buffer.extend((0..5).map(|i| {
+        let t = time.elapsed_secs() * 5.0;
+        [
+            ops::sin(t + i as f32) / 2.0 + 0.5,
+            ops::sin(t + i as f32 + 2.0) / 2.0 + 0.5,
+            ops::sin(t + i as f32 + 4.0) / 2.0 + 0.5,
+            1.0,
+        ]
+    }));
 }
 
 // Holds handles to the custom materials

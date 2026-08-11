@@ -1,9 +1,5 @@
-use crate::contact_shadows::ViewContactShadowsUniformOffset;
-use crate::{
-    material_bind_groups::{MaterialBindGroupIndex, MaterialBindGroupSlot},
-    resources::prepare_atmosphere_buffers,
-    skin::skin_uniforms_from_world,
-};
+use crate::contact_shadows::ContactShadows;
+use crate::{resources::prepare_atmosphere_buffers, skin::skin_uniforms_from_world};
 use alloc::sync::Arc;
 use bevy_asset::uuid::Uuid;
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetId, AssetIndex, AssetServer};
@@ -44,6 +40,9 @@ use bevy_render::batching::gpu_preprocessing::{
     BufferDataInput, PreviousInstanceInputUniformBuffer,
 };
 use bevy_render::impl_atomic_pod;
+use bevy_render::material_bind_groups::{
+    MaterialBindGroupIndex, MaterialBindGroupSlot, MaterialBindingId, RenderMaterialBindings,
+};
 use bevy_render::mesh::allocator::{MeshSlabId, MeshSlabs};
 use bevy_render::mesh::morph::{
     MorphTargetImage, MorphTargetsResource, RenderMorphTargetAllocator,
@@ -53,7 +52,7 @@ use bevy_render::{
     batching::{
         gpu_preprocessing::{
             self, GpuPreprocessingSupport, IndirectBatchSet, IndirectParametersBuffers,
-            IndirectParametersCpuMetadata, IndirectParametersIndexed, IndirectParametersNonIndexed,
+            IndirectParametersIndexed, IndirectParametersMetadata, IndirectParametersNonIndexed,
             InstanceInputUniformBuffer, UntypedPhaseIndirectParametersBuffers,
         },
         no_gpu_preprocessing, GetBatchData, GetFullBatchData, NoAutomaticBatching,
@@ -73,13 +72,12 @@ use bevy_render::{
 };
 use bevy_shader::{load_shader_library, Shader, ShaderDefVal, ShaderSettings};
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{default, Parallel, TypeIdMap};
+use bevy_utils::{default, Parallel, TypeIdHashMap};
 use core::any::TypeId;
 use core::iter;
 use core::mem::size_of;
 use core::sync::atomic::{AtomicU64, Ordering};
 use indexmap::IndexSet;
-use material_bind_groups::MaterialBindingId;
 use static_assertions::const_assert_eq;
 use std::sync::mpsc;
 #[cfg(feature = "trace")]
@@ -150,8 +148,8 @@ pub struct MeshPipelineSystems;
 
 impl Plugin for MeshRenderPlugin {
     fn build(&self, app: &mut App) {
-        load_shader_library!(app, "forward_io.wgsl");
-        load_shader_library!(app, "mesh_view_types.wgsl", |settings| *settings =
+        load_shader_library!(app, "forward_io.wesl");
+        load_shader_library!(app, "mesh_view_types.wesl", |settings| *settings =
             ShaderSettings {
                 shader_defs: vec![
                     ShaderDefVal::UInt(
@@ -163,16 +161,16 @@ impl Plugin for MeshRenderPlugin {
                         MAX_CASCADES_PER_LIGHT as u32,
                     ),
                     ShaderDefVal::UInt("MAX_RECT_LIGHTS".into(), MAX_RECT_LIGHTS as u32,),
-                ]
+                ],
             });
-        load_shader_library!(app, "mesh_view_bindings.wgsl");
-        load_shader_library!(app, "mesh_types.wgsl");
-        load_shader_library!(app, "mesh_functions.wgsl");
-        load_shader_library!(app, "skinning.wgsl");
-        load_shader_library!(app, "morph.wgsl");
-        load_shader_library!(app, "occlusion_culling.wgsl");
+        load_shader_library!(app, "mesh_view_bindings.wesl");
+        load_shader_library!(app, "mesh_types.wesl");
+        load_shader_library!(app, "mesh_functions.wesl");
+        load_shader_library!(app, "skinning.wesl");
+        load_shader_library!(app, "morph.wesl");
+        load_shader_library!(app, "occlusion_culling.wesl");
 
-        embedded_asset!(app, "mesh.wgsl");
+        embedded_asset!(app, "mesh.wesl");
 
         if app.get_sub_app(RenderApp).is_none() {
             return;
@@ -198,7 +196,7 @@ impl Plugin for MeshRenderPlugin {
                 .init_resource::<RenderMaterialInstances>()
                 .configure_sets(
                     ExtractSchedule,
-                    MeshExtractionSystems.after(view::extract_visibility_ranges),
+                    MeshExtractionSystems.after_weak(view::extract_visibility_ranges),
                 )
                 .add_systems(
                     ExtractSchedule,
@@ -330,7 +328,7 @@ impl Plugin for MeshRenderPlugin {
 
         // Load the mesh_bindings shader module here as it depends on runtime information about
         // whether storage buffers are supported, or the maximum uniform buffer binding size.
-        load_shader_library!(app, "mesh_bindings.wgsl", move |settings| *settings =
+        load_shader_library!(app, "mesh_bindings.wesl", move |settings| *settings =
             ShaderSettings {
                 shader_defs: mesh_bindings_shader_defs.clone(),
             });
@@ -387,7 +385,7 @@ pub fn check_views_need_specialization(
             Has<OrderIndependentTransparencySettings>,
             Has<ExtractedAtmosphere>,
             Has<ScreenSpaceReflectionsUniform>,
-            Has<ViewContactShadowsUniformOffset>,
+            Has<ContactShadows>,
         ),
     )>,
 ) {
@@ -721,7 +719,7 @@ impl MeshUniform {
     }
 }
 
-// NOTE: These must match the bit flags in bevy_pbr/src/render/mesh_types.wgsl!
+// NOTE: These must match the bit flags in bevy_pbr/src/render/mesh_types.wesl!
 bitflags::bitflags! {
     /// Various flags and tightly-packed values on a mesh.
     ///
@@ -1677,7 +1675,6 @@ impl Default for MeshCullingDataBuffer {
     fn default() -> Self {
         Self(AtomicSparseBufferVec::new(
             BufferUsages::STORAGE,
-            8,
             Arc::from("mesh culling data buffer"),
         ))
     }
@@ -2712,12 +2709,11 @@ pub struct MeshPipeline {
     /// are used and this will be `None`, otherwise uniform buffers will be used with batches
     /// of this many `MeshUniform`s, stored at dynamic offsets within the uniform buffer.
     /// Use code like this in custom shaders:
-    /// ```wgsl
-    /// ##ifdef PER_OBJECT_BUFFER_BATCH_SIZE
-    /// @group(1) @binding(0) var<uniform> mesh: array<Mesh, #{PER_OBJECT_BUFFER_BATCH_SIZE}u>;
-    /// ##else
+    /// ```wesl
+    /// @if(PER_OBJECT_BUFFER_BATCH_SIZE)
+    /// @group(1) @binding(0) var<uniform> mesh: array<Mesh, u32(constants::PER_OBJECT_BUFFER_BATCH_SIZE)>;
+    /// @else
     /// @group(1) @binding(0) var<storage> mesh: array<Mesh>;
-    /// ##endif // PER_OBJECT_BUFFER_BATCH_SIZE
     /// ```
     pub per_object_buffer_batch_size: Option<u32>,
 
@@ -2746,7 +2742,7 @@ fn init_mesh_pipeline(
     view_layouts: Res<MeshPipelineViewLayouts>,
     asset_server: Res<AssetServer>,
 ) {
-    let shader = load_embedded_asset!(asset_server.as_ref(), "mesh.wgsl");
+    let shader = load_embedded_asset!(asset_server.as_ref(), "mesh.wesl");
 
     let clustered_forward_buffer_binding_type =
         render_device.get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT);
@@ -3015,12 +3011,16 @@ impl GetFullBatchData for MeshPipeline {
         phase_indirect_parameters_buffers: &mut UntypedPhaseIndirectParametersBuffers,
         indirect_parameters_offset: u32,
     ) {
-        let indirect_parameters = IndirectParametersCpuMetadata {
+        let indirect_parameters = IndirectParametersMetadata {
             base_output_index,
             batch_set_index: match batch_set_index {
                 Some(batch_set_index) => u32::from(batch_set_index),
                 None => !0,
             },
+            // These fields are filled in by the GPU:
+            mesh_index: 0,
+            early_instance_count: 0,
+            late_instance_count: 0,
         };
 
         if indexed {
@@ -3469,25 +3469,16 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("CONTACT_SHADOWS".into());
         }
 
+        if key.contains(MeshPipelineKey::OIT_ENABLED) {
+            shader_defs.push("OIT_ENABLED".into());
+        }
+
         let vertex_buffer_layout = layout.0.get_layout(&vertex_attributes)?;
 
         let (label, blend, depth_write_enabled);
         let pass = key.intersection(MeshPipelineKey::BLEND_RESERVED_BITS);
         let (mut is_opaque, mut alpha_to_coverage_enabled) = (false, false);
-        if key.contains(MeshPipelineKey::OIT_ENABLED)
-            && matches!(
-                pass,
-                MeshPipelineKey::BLEND_ALPHA | MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA
-            )
-        {
-            label = "oit_mesh_pipeline".into();
-            // TODO tail blending would need alpha blending
-            blend = None;
-            shader_defs.push("OIT_ENABLED".into());
-            // TODO it should be possible to use this to combine MSAA and OIT
-            // alpha_to_coverage_enabled = true;
-            depth_write_enabled = false;
-        } else if pass == MeshPipelineKey::BLEND_ALPHA {
+        if pass == MeshPipelineKey::BLEND_ALPHA {
             label = "alpha_blend_mesh_pipeline".into();
             blend = Some(BlendState::ALPHA_BLENDING);
             // For the transparent pass, fragments that are closer will be alpha blended
@@ -3698,7 +3689,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
         let format = key.target_format();
 
         // This is defined here so that custom shaders that use something other than
-        // the mesh binding from bevy_pbr::mesh_bindings can easily make use of this
+        // the mesh binding from bevy_pbr::render::mesh_bindings can easily make use of this
         // in their own shaders.
         if let Some(per_object_buffer_batch_size) = self.per_object_buffer_batch_size {
             shader_defs.push(ShaderDefVal::UInt(
@@ -3830,7 +3821,7 @@ pub enum MeshBindGroups {
     CpuPreprocessing(MeshPhaseBindGroups),
     /// A mapping from the type ID of a phase (e.g. [`Opaque3d`]) to the mesh
     /// bind groups for that phase.
-    GpuPreprocessing(TypeIdMap<MeshPhaseBindGroups>),
+    GpuPreprocessing(TypeIdHashMap<MeshPhaseBindGroups>),
 }
 
 impl MeshPhaseBindGroups {
@@ -4015,7 +4006,7 @@ pub fn prepare_mesh_bind_groups(
     if let Some(gpu_batched_instance_buffers) = gpu_batched_instance_buffers {
         // Reuse allocations
         let mut gpu_preprocessing_mesh_bind_groups = match mesh_bind_groups.as_deref_mut() {
-            None | Some(MeshBindGroups::CpuPreprocessing(_)) => TypeIdMap::default(),
+            None | Some(MeshBindGroups::CpuPreprocessing(_)) => TypeIdHashMap::default(),
             Some(MeshBindGroups::GpuPreprocessing(gpu_preprocessing_mesh_bind_groups)) => {
                 core::mem::take(gpu_preprocessing_mesh_bind_groups)
             }

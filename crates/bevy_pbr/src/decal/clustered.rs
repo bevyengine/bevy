@@ -15,7 +15,7 @@
 //! can use these 4 textures for whatever you wish. Additionally, you can use
 //! the built-in *tag* field to store additional application-specific data; by
 //! reading the tag in the shader, you can modify the appearance of a clustered
-//! decal arbitrarily. See the documentation in `clustered.wgsl` for more
+//! decal arbitrarily. See the documentation in `clustered.wesl` for more
 //! information and the `clustered_decals` example for an example of use.
 
 use core::{num::NonZero, ops::Deref};
@@ -159,9 +159,9 @@ impl Default for DecalsBuffer {
 
 impl Plugin for ClusteredDecalPlugin {
     fn build(&self, app: &mut App) {
-        load_shader_library!(app, "clustered.wgsl");
+        load_shader_library!(app, "clustered.wesl");
 
-        app.add_plugins(SyncComponentPlugin::<ClusteredDecal, Self>::default());
+        app.add_plugins(SyncComponentPlugin::<ClusteredDecal, RenderApp, Self>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -184,7 +184,7 @@ impl Plugin for ClusteredDecalPlugin {
     }
 }
 
-impl SyncComponent<ClusteredDecalPlugin> for ClusteredDecal {
+impl SyncComponent<RenderApp, ClusteredDecalPlugin> for ClusteredDecal {
     type Target = Self;
 }
 

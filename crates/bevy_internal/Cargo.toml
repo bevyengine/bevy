@@ -11,16 +11,17 @@ categories = ["game-engines", "graphics", "gui", "rendering"]
 
 [features]
 trace = [
+  "bevy_anti_alias?/trace",
   "bevy_app/trace",
   "bevy_asset?/trace",
   "bevy_core_pipeline?/trace",
-  "bevy_anti_alias?/trace",
   "bevy_ecs/trace",
   "bevy_log/trace",
   "bevy_pbr?/trace",
-  "bevy_render?/trace",
-  "bevy_winit?/trace",
   "bevy_post_process?/trace",
+  "bevy_render?/trace",
+  "bevy_transform/trace",
+  "bevy_winit?/trace",
 ]
 trace_chrome = ["bevy_log/tracing-chrome"]
 trace_tracy = ["bevy_render?/tracing-tracy", "bevy_log/tracing-tracy"]
@@ -29,7 +30,12 @@ detailed_trace = ["bevy_ecs/detailed_trace", "bevy_render?/detailed_trace"]
 
 sysinfo_plugin = ["bevy_diagnostic/sysinfo_plugin"]
 
-# Enables compressed KTX2 UASTC texture output on the asset processor
+# Texture compression asset processor (cross-platform, transcodes to any GPU format at load time)
+compressed_image_saver_universal = [
+  "bevy_image/compressed_image_saver_universal",
+]
+
+# Texture compression asset processor (BCn for desktop, ASTC for mobile via env var)
 compressed_image_saver = ["bevy_image/compressed_image_saver"]
 
 # For ktx2 supercompression
@@ -109,19 +115,12 @@ symphonia-vorbis = ["bevy_audio/symphonia-vorbis"]
 symphonia-wav = ["bevy_audio/symphonia-wav"]
 
 # Shader formats
-shader_format_glsl = [
-  "bevy_shader/shader_format_glsl",
-  "bevy_pbr?/shader_format_glsl",
-]
-shader_format_spirv = [
-  "bevy_shader/shader_format_spirv",
-  "bevy_render?/shader_format_spirv",
-]
-shader_format_wesl = ["bevy_shader/shader_format_wesl"]
+shader_format_spirv = ["bevy_render?/shader_format_spirv"]
 
 serialize = [
   "bevy_a11y?/serialize",
   "bevy_color?/serialize",
+  "bevy_dev_tools?/serialize",
   "bevy_ecs/serialize",
   "bevy_image?/serialize",
   "bevy_input/serialize",
@@ -130,6 +129,7 @@ serialize = [
   "bevy_time/serialize",
   "bevy_transform/serialize",
   "bevy_ui?/serialize",
+  "bevy_utils/serialize",
   "bevy_window?/serialize",
   "bevy_winit?/serialize",
   "bevy_platform/serialize",
