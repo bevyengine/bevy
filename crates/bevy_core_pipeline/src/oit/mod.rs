@@ -19,6 +19,7 @@ use bevy_render::{
     Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::load_shader_library;
+use const_shader_layout::ShaderLayout;
 use resolve::OitResolvePlugin;
 
 use crate::{
@@ -141,7 +142,8 @@ fn check_msaa(cameras: Query<&Msaa, With<OrderIndependentTransparencySettings>>)
     }
 }
 
-#[derive(Clone, Copy, ShaderType)]
+#[derive(Clone, Copy, ShaderLayout)]
+#[repr(C)]
 pub struct OitFragmentNode {
     pub color: u32,
     pub depth_alpha: u32,
@@ -285,7 +287,9 @@ pub fn prepare_oit_buffers(
         trace!(
             "OIT nodes buffer updated in {:.01}ms with total size {} MiB",
             start.elapsed().as_millis(),
-            (buffers.nodes.capacity() * size_of::<OitFragmentNode>()) as f32 / 1024.0 / 1024.0,
+            (buffers.nodes.capacity() as u64 * OitFragmentNode::SIZE.get()) as f32
+                / 1024.0
+                / 1024.0,
         );
     }
 

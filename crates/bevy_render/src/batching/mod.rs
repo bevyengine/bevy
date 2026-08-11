@@ -3,6 +3,7 @@ use bevy_ecs::{
     entity::Entity,
     system::{ResMut, SystemParam, SystemParamItem},
 };
+use const_shader_layout::ShaderLayoutCompat;
 use gpu_preprocessing::UntypedPhaseIndirectParametersBuffers;
 use nonmax::NonMaxU32;
 
@@ -95,7 +96,7 @@ pub trait GetBatchData {
     /// The per-instance data to be inserted into the
     /// [`crate::render_resource::GpuArrayBuffer`] containing these data for all
     /// instances.
-    type BufferData: GpuArrayBufferable + Sync + Send + 'static;
+    type BufferData: GpuArrayBufferable + ShaderLayoutCompat + Sync + Send + 'static;
     /// Get the per-instance data to be inserted into the
     /// [`crate::render_resource::GpuArrayBuffer`]. If the instance can be
     /// batched, also return the data used for comparison when deciding whether
