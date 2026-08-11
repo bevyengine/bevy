@@ -1518,6 +1518,9 @@ fn update_slidebar_styles_context(
 pub trait UnitsFormat: Send + Sync {
     /// Unique id of this format, e.g. ``"length_meters"``. This will be stored in the
     /// [`NumberInputUnits`] component and used to locate this object in the units registry.
+    ///
+    ///  The naming convention is `<dimension>_<preferred_display_unit>`, so examples are
+    /// `length_meters`, `time_seconds`, or `angle_degrees`.
     fn id(&self) -> &'static str;
 
     /// Format the value as a string, with the default units. The `editing` parameter allows us
