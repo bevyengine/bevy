@@ -18,7 +18,7 @@ image = [
   "dep:wgpu-types",
   "arboard/image-data",
 ]
-wayland = ["arboard/wayland-data-control"]
+wayland = ["arboard?/wayland-data-control"]
 
 [dependencies]
 # bevy
