@@ -74,11 +74,11 @@ fn ray_for_uv(uv: vec2<f32>) -> Ray {
     let ndc = uv_to_ndc(uv);
     var ray: Ray;
     // Check ortho projection
-    if view.clip_from_view[3].w == 1.0 {
+    if view().clip_from_view[3].w == 1.0 {
         ray.origin = position_ndc_to_world(vec3<f32>(ndc, 1.0));
         ray.dir = normalize(direction_view_to_world(vec3<f32>(0.0, 0.0, -1.0)));
     } else {
-        ray.origin = view.world_position;
+        ray.origin = view().world_position;
         ray.dir = normalize(direction_view_to_world(position_ndc_to_view(vec3<f32>(ndc, 1.0))));
     }
     return ray;
@@ -116,7 +116,7 @@ fn fragment(in: FullscreenVertexOutput) -> GBufferOutput {
     pbr_input.world_position = vec4<f32>(world_pos, 1.0);
     pbr_input.world_normal = normal;
     pbr_input.N = normal;
-    pbr_input.V = normalize(view.world_position - world_pos);
+    pbr_input.V = normalize(view().world_position - world_pos);
 
     // Per-pixel base color
     let field = gyroid_field(world_pos);

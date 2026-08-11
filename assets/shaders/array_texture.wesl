@@ -38,12 +38,12 @@ fn fragment(
         is_front,
     );
 
-    pbr_input.is_orthographic = view.clip_from_view[3].w == 1.0;
+    pbr_input.is_orthographic = view().clip_from_view[3].w == 1.0;
 
     pbr_input.N = normalize(pbr_input.world_normal);
 
 @if(VERTEX_TANGENTS) {
-    let Nt = textureSampleBias(pbr_bindings::normal_map_texture, pbr_bindings::normal_map_sampler, mesh.uv, view.mip_bias).rgb;
+    let Nt = textureSampleBias(pbr_bindings::normal_map_texture, pbr_bindings::normal_map_sampler, mesh.uv, view().mip_bias).rgb;
     let TBN = fns::calculate_tbn_mikktspace(mesh.world_normal, mesh.world_tangent);
     pbr_input.N = fns::apply_normal_mapping(
         pbr_input.material.flags,
@@ -56,5 +56,5 @@ fn fragment(
 
     pbr_input.V = fns::calculate_view(mesh.world_position, pbr_input.is_orthographic);
 
-    return tone_mapping(fns::apply_pbr_lighting(pbr_input), view.color_grading);
+    return tone_mapping(fns::apply_pbr_lighting(pbr_input), view().color_grading);
 }
