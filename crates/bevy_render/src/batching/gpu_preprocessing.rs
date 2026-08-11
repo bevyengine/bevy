@@ -28,6 +28,7 @@ use bevy_utils::{default, TypeIdHashMap};
 use bytemuck::{Pod, Zeroable};
 use encase::{internal::WriteInto, ShaderSize};
 use nonmax::NonMaxU32;
+use static_assertions::assert_eq_size;
 use wgpu::{BindingResource, BufferUsages, DownlevelFlags, Features};
 
 use crate::{
@@ -864,6 +865,10 @@ pub struct IndirectParametersBuildJob {
     pad_b: u32,
     pad_c: [UVec4; 15],
 }
+
+// The minimum dynamic uniform alignment on Metal is 256. Make sure that
+// `IndirectParametersBuildJob` has that size.
+assert_eq_size!(IndirectParametersBuildJob, [u8; 256]);
 
 impl IndirectParametersBuildJob {
     /// Creates and returns a new [`IndirectParametersBuildJob`] for the given
