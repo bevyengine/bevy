@@ -166,6 +166,13 @@ impl DeriveComponent {
             ));
         }
 
+        if attrs.summary_tick && matches!(attrs.storage, Some(StorageTy::SparseSet)) {
+            return Err(syn::Error::new(
+                ast.span(),
+                "Summary ticks are only supported for components with table storage.",
+            ));
+        }
+
         Ok(attrs)
     }
 

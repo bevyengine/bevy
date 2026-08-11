@@ -270,8 +270,9 @@ impl ComponentDescriptor {
 
     /// Create a new `ComponentDescriptor` for the type `T`.
     pub fn new<T: Component>() -> Self {
+        let summary_tick = T::has_summary_tick();
         assert!(
-            !T::has_summary_tick() || matches!(T::STORAGE_TYPE, StorageType::Table),
+            !summary_tick || matches!(T::STORAGE_TYPE, StorageType::Table),
             "Summary ticks are only supported for table components"
         );
 
@@ -284,7 +285,7 @@ impl ComponentDescriptor {
             layout: Layout::new::<T>(),
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
             mutable: T::Mutability::MUTABLE,
-            summary_tick: T::has_summary_tick(),
+            summary_tick,
             clone_behavior: T::clone_behavior(),
             relationship_accessor: T::relationship_accessor().map(|v| v.initializer).into(),
         }

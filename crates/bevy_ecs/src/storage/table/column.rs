@@ -44,6 +44,9 @@ impl Column {
             changed_ticks: ThinArrayPtr::with_capacity(capacity),
             changed_by: MaybeLocation::new_with(|| ThinArrayPtr::with_capacity(capacity)),
             summary_tick: if component_info.summary_tick() {
+                // Set this to zero for now; when we initialize the column by
+                // inserting a component it'll be updated with the correct
+                // value.
                 Some(AtomicTick::default())
             } else {
                 None
@@ -240,7 +243,7 @@ impl Column {
         src_last_element_index: usize,
         src_row: TableRow,
         dst_row: TableRow,
-        change_tick: Tick,
+        this_run: Tick,
     ) {
         debug_assert!(self.data.layout() == src.data.layout());
         // SAFETY:
@@ -282,7 +285,7 @@ impl Column {
             // - There are no mutable references to the changed tick
             let row_change_tick =
                 unsafe { self.changed_ticks.get_unchecked(dst_row.index()).read() };
-            if row_change_tick.is_newer_than(summary_tick.get(), change_tick) {
+            if row_change_tick.is_newer_than(summary_tick.get(), this_run) {
                 summary_tick.set(row_change_tick);
             }
         }
