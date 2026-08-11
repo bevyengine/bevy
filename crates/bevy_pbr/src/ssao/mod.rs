@@ -490,7 +490,7 @@ fn extract_ssao_settings(
                 "SSAO is being used which requires Msaa::Off, but Msaa is currently set to Msaa::{:?}",
                 *msaa
             );
-            return;
+            continue;
         }
         let mut entity_commands = commands
             .get_entity(entity)
