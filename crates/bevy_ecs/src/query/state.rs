@@ -1848,8 +1848,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                     // we need to split it?
                     if queue_entity_count + row_count - row_start_offset > batch_size {
                         // We need to split the table. Push the portion that fits.
-                        let row_end_offset =
-                            row_start_offset + (batch_size - queue_entity_count);
+                        let row_end_offset = row_start_offset + (batch_size - queue_entity_count);
                         batch_queue.push((table_id, row_start_offset..row_end_offset));
                         row_start_offset = row_end_offset;
 
