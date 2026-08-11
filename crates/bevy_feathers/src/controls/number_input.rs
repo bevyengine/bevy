@@ -571,22 +571,32 @@ pub enum NumberInputWrap {
 
 /// Indicates the type of quantity (length, angle, time, etc.) being edited, as
 /// well as the preferred unit (meters, degrees, seconds, etc.).
+///
+/// The enclosed string should be the id of a [`UnitsFormat`] that has previously been registered,
+/// such as ``length_meters`` or ``angle_degrees``.
+///
+/// Note on serialization: it intended that this component, like most feathers-related
+/// component be serializable via reflection, so that it can be edited in the planned Bevy scene
+/// editor. The objects pointed to by this id, however, are static and not meant to be serialized.
 #[derive(Component, Default, Debug, Clone, Reflect)]
 #[reflect(Component, Default)]
-pub struct NumberInputUnits(pub SmolStr); // e.g. "length_meters", "angle_deg", etc.
+pub struct NumberInputUnits(pub SmolStr);
 
 impl NumberInputUnits {
-    /// Construct a [`NumberInputUnits`] instance from a static string slice.
+    /// Construct a [`NumberInputUnits`] instance from a static string slice. The string should
+    /// be the id of a previously-registered [`UnitsFormat`].
     pub fn new_static(text: &'static str) -> Self {
         Self(SmolStr::new_static(text))
     }
 
-    /// Construct a [`NumberInputUnits`] instance from a string slice.
+    /// Construct a [`NumberInputUnits`] instance from a string slice. The string should
+    /// be the id of a previously-registered [`UnitsFormat`].
     pub fn new_inline(text: &str) -> Self {
         Self(SmolStr::new_inline(text))
     }
 
-    /// Construct a [`NumberInputUnits`] given a [`UnitsFormat`] reference.
+    /// Construct a [`NumberInputUnits`] given a [`UnitsFormat`] reference, which must have been
+    /// previously registered.
     pub fn new(format: &dyn UnitsFormat) -> Self {
         Self(SmolStr::new_static(format.id()))
     }
@@ -1537,40 +1547,50 @@ impl UnitsFormat for Dimensionless {
     }
 }
 
-/// Contains the definition of a "standard metrical unit".
-pub struct StandardUnitDef {
+/// Contains the definition of a "standard metrical unit". The [`StandardUnitKind`] struct maintains
+/// a table of these items.
+pub struct StandardUnitItem {
     /// e.g. ["km"], or ["cm"], first entry is canonical
     pub suffixes: &'static [&'static str],
     /// multiply a value in this unit to get the base unit (meters, radians, kg...)
     pub scale: f64,
 }
 
-/// A trait that provides an implementation of standard metrical units like meters or seconds. In
-/// this case, "standard" just means that the metric doesn't do anything funny like log-scale
-/// conversion - it's just a table of suffixes with associated scale factors.
+/// A trait that provides an implementation of standard metrical units like meters or seconds.
+///  The purpose of this struct is to provide an easy and convenient implementation of the
+/// [`UnitsFormat`] trait. Whereas [`UnitsFormat`] allows arbitrary transformations between the
+/// canonical units and the display units (including advanced use cases like log-scale conversion),
+/// the [`StandardUnitKind`] just maintains a fixed, flat table of units, with an associated scale
+/// factor for each one.
 pub trait StandardUnitKind: Send + Sync {
     /// Lookup key for this unit type. The naming convention is `<dimension>_<preferred_display_unit>`,
     /// so examples are `length_meters`, `time_seconds`, or `angle_degrees`.
     const ID: &'static str;
 
-    /// All accepted suffixes, in order of preference for display.
-    fn units(&self) -> &'static [StandardUnitDef];
+    /// Returns a reference to the table of units. Each entry in the table represents a single
+    /// unit. For each unit, there's a scaling factor and a list of possible suffixes.
+    fn units(&self) -> &'static [StandardUnitItem];
 
-    /// Returns the index of the canonical unit: the unit that is the internal representation of
-    /// the value, which is contained in the [`ValueChange`] event.
+    /// Identifies the index of the table entry representing the canonical unit. This is the unit
+    /// that is used for the value's internal representation, which is contained in the
+    /// [`ValueChange`] event. For example, the canonical unit of [`LengthMeters`] is meters,
+    /// suffix "m", which is table index 0.
     fn canonical_index(&self) -> usize {
         0
     }
 
-    /// Returns the index of the preferred display unit (as an index in the units table).
+    /// Returns the table index of the preferred display unit (as an index in the units table).
     /// Most of the time this will be the same as the canonical unit; however in some cases
     /// (such as angles), an alternate unit may be more user-friendly (e.g. degrees instead of
     /// radians).
+    ///
+    /// For example, the display unit for [`AngleDegrees`] is degrees, even though the canonical
+    /// unit is radians.
     fn display_index(&self) -> usize {
         self.canonical_index()
     }
 
-    /// Returns the index of the preferred editing unit (as an index in the units table).
+    /// Returns the table index of the preferred editing unit (as an index in the units table).
     /// Most of the time this will be the same as the canonical unit, or the display unit;
     /// however, in cases where the display unit is hard to type (like ° or μs), this lets us
     /// choose a different suffix.
@@ -1677,35 +1697,35 @@ pub struct LengthMeters;
 impl StandardUnitKind for LengthMeters {
     const ID: &'static str = "length_meters";
 
-    fn units(&self) -> &'static [StandardUnitDef] {
+    fn units(&self) -> &'static [StandardUnitItem] {
         &[
             // Metric
-            StandardUnitDef {
+            StandardUnitItem {
                 suffixes: &["m"],
                 scale: 1.0,
             },
-            StandardUnitDef {
+            StandardUnitItem {
                 suffixes: &["km"],
                 scale: 1000.0,
             },
-            StandardUnitDef {
+            StandardUnitItem {
                 suffixes: &["cm"],
                 scale: 0.01,
             },
-            StandardUnitDef {
+            StandardUnitItem {
                 suffixes: &["mm"],
                 scale: 0.001,
             },
             // Imperial
-            StandardUnitDef {
+            StandardUnitItem {
                 suffixes: &["ft"],
                 scale: 0.3048,
             },
-            StandardUnitDef {
+            StandardUnitItem {
                 suffixes: &["in"],
                 scale: 0.0254,
             },
-            StandardUnitDef {
+            StandardUnitItem {
                 suffixes: &["mi"],
                 scale: 1609.34,
             },
@@ -1719,21 +1739,21 @@ pub struct TimeSeconds;
 impl StandardUnitKind for TimeSeconds {
     const ID: &'static str = "time_seconds";
 
-    fn units(&self) -> &'static [StandardUnitDef] {
+    fn units(&self) -> &'static [StandardUnitItem] {
         &[
-            StandardUnitDef {
+            StandardUnitItem {
                 suffixes: &["s"],
                 scale: 1.0,
             },
-            StandardUnitDef {
+            StandardUnitItem {
                 suffixes: &["ks"],
                 scale: 1000.0,
             },
-            StandardUnitDef {
+            StandardUnitItem {
                 suffixes: &["cs"],
                 scale: 0.01,
             },
-            StandardUnitDef {
+            StandardUnitItem {
                 suffixes: &["ms"],
                 scale: 0.001,
             },
@@ -1749,17 +1769,17 @@ pub struct AngleDegrees;
 impl StandardUnitKind for AngleDegrees {
     const ID: &'static str = "angle_degrees";
 
-    fn units(&self) -> &'static [StandardUnitDef] {
+    fn units(&self) -> &'static [StandardUnitItem] {
         &[
-            StandardUnitDef {
+            StandardUnitItem {
                 suffixes: &["rad"],
                 scale: 1.0,
             },
-            StandardUnitDef {
+            StandardUnitItem {
                 suffixes: &["°"],
                 scale: std::f64::consts::PI / 180.0f64,
             },
-            StandardUnitDef {
+            StandardUnitItem {
                 suffixes: &["d", "deg"],
                 scale: std::f64::consts::PI / 180.0f64,
             },
