@@ -182,25 +182,25 @@ fn demo_column_1() -> impl Scene {
                     @FeathersMenuItem {
                         @caption: bsn! { @caption("MenuItem 4") }
                     }
-                    |_: On<Activate>| {
+                    on(|_: On<Activate>| {
                         info!("Menu item 4 clicked!");
-                    }
+                    })
                 ),
                 (
                     @FeathersMenuItem {
                         @caption: bsn! { @caption("MenuItem 5") }
                     }
-                    |_: On<Activate>| {
+                    on(|_: On<Activate>| {
                         info!("Menu item 5 clicked!");
-                    }
+                    })
                 ),
                 (
                     @FeathersMenuItem {
                         @caption: bsn! { @caption("MenuItem 6") }
                     }
-                    |_: On<Activate>| {
+                    on(|_: On<Activate>| {
                         info!("Menu item 6 clicked!");
-                    }
+                    })
                 )
             ]
         ))
@@ -235,9 +235,9 @@ fn demo_column_1() -> impl Scene {
                             flex_grow: 1.0,
                         }
                         AccessibleLabel("Normal")
-                        |_activate: On<Activate>| {
+                        on(|_activate: On<Activate>| {
                             info!("Normal button clicked!");
-                        }
+                        })
                         AutoFocus
                     ),
                     (
@@ -250,9 +250,9 @@ fn demo_column_1() -> impl Scene {
                         AccessibleLabel("Disabled")
                         InteractionDisabled
                         DemoDisabledButton
-                        |_activate: On<Activate>| {
+                        on(|_activate: On<Activate>| {
                             info!("Disabled button clicked!");
-                        }
+                        })
                     ),
                     (
                         @FeathersButton {
@@ -263,9 +263,9 @@ fn demo_column_1() -> impl Scene {
                         Node {
                             flex_grow: 1.0,
                         }
-                        |_activate: On<Activate>| {
+                        on(|_activate: On<Activate>| {
                             info!("Primary button clicked!");
-                        }
+                        })
                     ),
                     (
                         @FeathersMenu
@@ -286,26 +286,26 @@ fn demo_column_1() -> impl Scene {
                                         @FeathersMenuItem {
                                             @caption: bsn! { @caption("MenuItem 1") }
                                         }
-                                        |_: On<Activate>| {
+                                        on(|_: On<Activate>| {
                                             info!("Menu item 1 clicked!");
-                                        }
+                                        })
                                     ),
                                     (
                                         @FeathersMenuItem {
                                             @caption: bsn! { @caption("MenuItem 2") }
                                         }
-                                        |_: On<Activate>| {
+                                        on(|_: On<Activate>| {
                                             info!("Menu item 2 clicked!");
-                                        }
+                                        })
                                     ),
                                     @FeathersMenuDivider,
                                     (
                                         @FeathersMenuItem {
                                             @caption: bsn! { @caption("MenuItem 3") }
                                         }
-                                        |_: On<Activate>| {
+                                        on(|_: On<Activate>| {
                                             info!("Menu item 3 clicked!");
-                                        }
+                                        })
                                     )
                                 ]
                             )
@@ -338,13 +338,13 @@ fn demo_column_1() -> impl Scene {
                 Node {
                     flex_grow: 1.0,
                 }
-                |change: On<ValueChange<Entity>>, q_options: Query<&OptionIndex>| {
+                on(|change: On<ValueChange<Entity>>, q_options: Query<&OptionIndex>| {
                     let Ok(option) = q_options.get(change.value) else {
                         info!("Select changed, not sure");
                         return;
                     };
                     info!("Select changed to index {}", option.0);
-                }
+                })
             ),
             (
                 @FeathersSelect {
@@ -368,12 +368,12 @@ fn demo_column_1() -> impl Scene {
                 Node {
                     flex_grow: 1.0,
                 }
-                |change: On<ValueChange<Entity>>, q_months: Query<&Months>| {
+                on(|change: On<ValueChange<Entity>>, q_months: Query<&Months>| {
                     let Ok(month) = q_months.get(change.value) else {
                         return;
                     };
                     info!("Select changed to {:?}", month);
-                }
+                })
             ),
             (
                 Node {
@@ -393,9 +393,9 @@ fn demo_column_1() -> impl Scene {
                             flex_grow: 1.0,
                         }
                         AccessibleLabel("Left")
-                        |_activate: On<Activate>| {
+                        on(|_activate: On<Activate>| {
                             info!("Left button clicked!");
-                        }
+                        })
                     ),
                     (
                         @FeathersButton {
@@ -406,9 +406,9 @@ fn demo_column_1() -> impl Scene {
                             flex_grow: 1.0,
                         }
                         AccessibleLabel("Center")
-                        |_activate: On<Activate>| {
+                        on(|_activate: On<Activate>| {
                             info!("Center button clicked!");
-                        }
+                        })
                     ),
                     (
                         @FeathersButton {
@@ -420,9 +420,9 @@ fn demo_column_1() -> impl Scene {
                             flex_grow: 1.0,
                         }
                         AccessibleLabel("Right")
-                        |_activate: On<Activate>| {
+                        on(|_activate: On<Activate>| {
                             info!("Right button clicked!");
-                        }
+                        })
                     ),
                 ]
             ),
@@ -442,14 +442,14 @@ fn demo_column_1() -> impl Scene {
                         Node {
                             flex_grow: 1.0,
                         }
-                        |_activate: On<Activate>, mut ovr: ResMut<OverrideCursor>| {
+                        on(|_activate: On<Activate>, mut ovr: ResMut<OverrideCursor>| {
                             ovr.0 = if ovr.0.is_some() {
                                 None
                             } else {
                                 Some(EntityCursor::System(SystemCursorIcon::Wait))
                             };
                             info!("Override cursor button clicked!");
-                        }
+                        })
                     ),
                     (
                         @FeathersButton {
@@ -485,7 +485,7 @@ fn demo_column_1() -> impl Scene {
                 }
                 Checked
                 AccessibleLabel("Checkbox Example")
-                |change: On<ValueChange<bool>>, query: Query<Entity, With<DemoDisabledButton>>, mut commands: Commands| {
+                on(|change: On<ValueChange<bool>>, query: Query<Entity, With<DemoDisabledButton>>, mut commands: Commands| {
                     info!("Checkbox clicked!");
                     let mut button = commands.entity(query.single().unwrap());
                     if change.value {
@@ -499,7 +499,7 @@ fn demo_column_1() -> impl Scene {
                     } else {
                         checkbox.remove::<Checked>();
                     }
-                }
+                })
             ),
             (
                 @FeathersCheckbox {
@@ -507,7 +507,7 @@ fn demo_column_1() -> impl Scene {
                 }
                 ActivateOnPress
                 AccessibleLabel("Fast Click Checkbox Example")
-                |change: On<ValueChange<bool>>, mut commands: Commands| {
+                on(|change: On<ValueChange<bool>>, mut commands: Commands| {
                     info!("Checkbox clicked!");
                     let mut checkbox = commands.entity(change.source);
                     if change.value {
@@ -515,7 +515,7 @@ fn demo_column_1() -> impl Scene {
                     } else {
                         checkbox.remove::<Checked>();
                     }
-                }
+                })
             ),
             (
                 @FeathersCheckbox {
@@ -523,9 +523,9 @@ fn demo_column_1() -> impl Scene {
                 }
                 InteractionDisabled
                 AccessibleLabel("Disabled Checkbox Example")
-                |_change: On<ValueChange<bool>>| {
+                on(|_change: On<ValueChange<bool>>| {
                     warn!("Disabled checkbox clicked!");
-                }
+                })
             ),
             (
                 @FeathersCheckbox {
@@ -534,9 +534,9 @@ fn demo_column_1() -> impl Scene {
                 InteractionDisabled
                 Checked
                 AccessibleLabel("Disabled and Checked Checkbox Example")
-                |_change: On<ValueChange<bool>>| {
+                on(|_change: On<ValueChange<bool>>| {
                     warn!("Disabled checkbox clicked!");
-                }
+                })
             ),
             (
                 Node {
@@ -646,10 +646,10 @@ fn demo_column_1() -> impl Scene {
             ),
             (
                 @FeathersColorPlane::RedBlue
-                |change: On<ValueChange<Vec2>>, mut color: ResMut<DemoWidgetStates>| {
+                on(|change: On<ValueChange<Vec2>>, mut color: ResMut<DemoWidgetStates>| {
                     color.rgb_color.red = change.value.x;
                     color.rgb_color.blue = change.value.y;
-                }
+                })
             ),
             (
                 @FeathersColorSlider {
@@ -657,9 +657,9 @@ fn demo_column_1() -> impl Scene {
                     @channel: ColorChannel::Red
                 }
                 AccessibleLabel("Red Channel")
-                |change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
+                on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
                     color.rgb_color.red = change.value;
-                }
+                })
             ),
             (
                 @FeathersColorSlider {
@@ -667,9 +667,9 @@ fn demo_column_1() -> impl Scene {
                     @channel: ColorChannel::Green
                 }
                 AccessibleLabel("Green Channel")
-                |change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
+                on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
                     color.rgb_color.green = change.value;
-                }
+                })
             ),
             (
                 @FeathersColorSlider {
@@ -677,9 +677,9 @@ fn demo_column_1() -> impl Scene {
                     @channel: ColorChannel::Blue
                 }
                 AccessibleLabel("Blue Channel")
-                |change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
+                on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
                     color.rgb_color.blue = change.value;
-                }
+                })
             ),
             (
                 @FeathersColorSlider {
@@ -687,9 +687,9 @@ fn demo_column_1() -> impl Scene {
                     @channel: ColorChannel::Alpha
                 }
                 AccessibleLabel("Alpha Channel")
-                |change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
+                on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
                     color.rgb_color.alpha = change.value;
-                }
+                })
             ),
             (
                 Node {
@@ -709,9 +709,9 @@ fn demo_column_1() -> impl Scene {
                     @channel: ColorChannel::HslHue
                 }
                 AccessibleLabel("Hue Channel")
-                |change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
+                on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
                     color.hsl_color.hue = change.value;
-                }
+                })
             ),
             (
                 @FeathersColorSlider {
@@ -719,9 +719,9 @@ fn demo_column_1() -> impl Scene {
                     @channel: ColorChannel::HslSaturation
                 }
                 AccessibleLabel("Saturation Channel")
-                |change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
+                on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
                     color.hsl_color.saturation = change.value;
-                }
+                })
             ),
             (
                 @FeathersColorSlider {
@@ -729,9 +729,9 @@ fn demo_column_1() -> impl Scene {
                     @channel: ColorChannel::HslLightness
                 }
                 AccessibleLabel("Lightness Channel")
-                |change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
+                on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
                     color.hsl_color.lightness = change.value;
-                }
+                })
             )
         ]
     }
@@ -810,9 +810,9 @@ fn demo_column_2() -> impl Scene {
                                                     flex_grow: 1.0,
                                                     max_width: px(100),
                                                 }
-                                                |value_change: On<ValueChange<f32>>, mut states: ResMut<DemoWidgetStates>| {
+                                                on(|value_change: On<ValueChange<f32>>, mut states: ResMut<DemoWidgetStates>| {
                                                     states.scalar_prop = value_change.value;
-                                                }
+                                                })
                                             ),
                                             @label_small("Scalar property (copy)"),
                                             (
@@ -823,9 +823,9 @@ fn demo_column_2() -> impl Scene {
                                                     flex_grow: 1.0,
                                                     max_width: px(100),
                                                 }
-                                                |value_change: On<ValueChange<f32>>, mut states: ResMut<DemoWidgetStates>| {
+                                                on(|value_change: On<ValueChange<f32>>, mut states: ResMut<DemoWidgetStates>| {
                                                     states.scalar_prop = value_change.value;
-                                                }
+                                                })
                                             ),
                                             @label_small("Vec3 property"),
                                             Node {
@@ -847,9 +847,9 @@ fn demo_column_2() -> impl Scene {
                                                         flex_grow: 1.0,
                                                     }
                                                     BorderColor::all(palette::X_AXIS)
-                                                    |value_change: On<ValueChange<f32>>, mut states: ResMut<DemoWidgetStates>| {
+                                                    on(|value_change: On<ValueChange<f32>>, mut states: ResMut<DemoWidgetStates>| {
                                                         states.vec3_prop.x = value_change.value;
-                                                    }
+                                                    })
                                                 ),
                                                 (
                                                     @FeathersNumberInput {
@@ -861,9 +861,9 @@ fn demo_column_2() -> impl Scene {
                                                     Node {
                                                         flex_grow: 1.0,
                                                     }
-                                                    |value_change: On<ValueChange<f32>>, mut states: ResMut<DemoWidgetStates>| {
+                                                    on(|value_change: On<ValueChange<f32>>, mut states: ResMut<DemoWidgetStates>| {
                                                         states.vec3_prop.y = value_change.value;
-                                                    }
+                                                    })
                                                 ),
                                                 (
                                                     @FeathersNumberInput {
@@ -875,9 +875,9 @@ fn demo_column_2() -> impl Scene {
                                                     Node {
                                                         flex_grow: 1.0,
                                                     }
-                                                    |value_change: On<ValueChange<f32>>, mut states: ResMut<DemoWidgetStates>| {
+                                                    on(|value_change: On<ValueChange<f32>>, mut states: ResMut<DemoWidgetStates>| {
                                                         states.vec3_prop.z = value_change.value;
-                                                    }
+                                                    })
                                                 ),
                                             ],
                                         ],
@@ -1052,9 +1052,9 @@ fn spawn_quit_dialog(activate: On<Activate>, mut commands: Commands) {
                                 @caption: bsn! { @caption("Cancel") },
                             }
                             AccessibleLabel("Cancel")
-                            |activate: On<Activate>, mut commands: Commands| {
+                            on(|activate: On<Activate>, mut commands: Commands| {
                                 commands.trigger(RequestClose { source: activate.event_target() });
-                            }
+                            })
                         ),
                         (
                             @FeathersButton {
@@ -1062,17 +1062,17 @@ fn spawn_quit_dialog(activate: On<Activate>, mut commands: Commands) {
                                 @variant: ButtonVariant::Primary,
                             }
                             AccessibleLabel("Exit Application")
-                            |_activate: On<Activate>, mut exit: MessageWriter<AppExit>| {
+                            on(|_activate: On<Activate>, mut exit: MessageWriter<AppExit>| {
                                 exit.write(AppExit::Success);
-                            }
+                            })
                         ),
 
                     ],
                 }
             }
-            |close: On<RequestClose>, mut commands: Commands| {
+            on(|close: On<RequestClose>, mut commands: Commands| {
                 commands.entity(close.event_target()).despawn();
-            }
+            })
         ));
 }
 
@@ -1095,11 +1095,11 @@ fn toggle_demo_dialog(
                 }
             }
             // The dialog despawns itself on close; this just clears the toggle.
-            |_close: On<RequestClose>, mut commands: Commands, toggles: Query<Entity, With<DemoDialogToggle>>| {
+            on(|_close: On<RequestClose>, mut commands: Commands, toggles: Query<Entity, With<DemoDialogToggle>>| {
                 for toggle in toggles.iter() {
                     commands.entity(toggle).remove::<Checked>();
                 }
-            }
+            })
         });
     } else {
         commands.entity(toggle).remove::<Checked>();

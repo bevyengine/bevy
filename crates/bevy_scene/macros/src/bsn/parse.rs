@@ -12,7 +12,7 @@ use syn::{
     parenthesized,
     parse::{discouraged::Speculative, Parse, ParseBuffer, ParseStream},
     spanned::Spanned,
-    token::{At, Brace, Bracket, Colon, Comma, Dot, Move, Paren, Tilde},
+    token::{At, Brace, Bracket, Colon, Comma, Dot, Paren, Tilde},
     Block, Ident, Lit, LitStr, Path, Result, Token,
 };
 
@@ -114,19 +114,6 @@ impl BsnEntry {
         } else if input.peek(At) {
             let _ = input.parse::<At>()?;
             BsnEntry::UncachedScene(BsnScene::parse(input)?)
-        } else if input.peek(Move) {
-            input.parse::<Move>()?;
-            let tokens = parse_closure_loose(input)?;
-            BsnEntry::Observer {
-                is_move: true,
-                closure: tokens,
-            }
-        } else if input.peek(Token![|]) {
-            let tokens = parse_closure_loose(input)?;
-            BsnEntry::Observer {
-                is_move: false,
-                closure: tokens,
-            }
         } else {
             let is_template = input.peek(Tilde);
             if is_template {

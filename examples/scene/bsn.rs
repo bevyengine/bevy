@@ -24,11 +24,11 @@ fn ui() -> impl Scene {
         Children [
             (
                 @button("Ok")
-                |_event: On<Pointer<Press>>| { println!("Ok pressed!") }
+                on(|_event: On<Pointer<Press>>| { println!("Ok pressed!") })
             ),
             (
                 @button("Cancel")
-                |_event: On<Pointer<Press>>| { println!("Cancel pressed!") }
+                on(|_event: On<Pointer<Press>>| { println!("Cancel pressed!") })
                 BackgroundColor(Color::srgb(0.4, 0.15, 0.15))
             ),
         ]

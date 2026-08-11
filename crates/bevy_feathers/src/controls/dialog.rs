@@ -5,7 +5,7 @@ use bevy_ecs::{
     system::Commands,
 };
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_scene::{bsn, bsn_list, Scene, SceneComponent, SceneList};
+use bevy_scene::{bsn, bsn_list, on, Scene, SceneComponent, SceneList};
 use bevy_text::FontWeight;
 use bevy_ui::{
     px, vh, vw, widget::Text, AlignItems, BorderRadius, BoxShadow, Display, FixedNode,
@@ -158,9 +158,9 @@ impl FeathersFloatingDialog {
                 px(4),
             )
             // Closing despawns the window.
-            |close: On<RequestClose>, mut commands: Commands| {
+            on(|close: On<RequestClose>, mut commands: Commands| {
                 commands.entity(close.event_target()).despawn();
-            }
+            })
             Children [
                 // Title bar; dragging it moves the window.
                 (
@@ -236,9 +236,9 @@ impl FeathersDialogClose {
                 @variant: ButtonVariant::Plain,
                 @caption: bsn! { @icon(icons::X) }
             }
-            |activate: On<Activate>, mut commands: Commands| {
+            on(|activate: On<Activate>, mut commands: Commands| {
                 commands.trigger(RequestClose { source: activate.event_target() });
-            }
+            })
         }
     }
 }

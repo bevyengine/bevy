@@ -296,13 +296,6 @@ impl BsnEntry {
             BsnEntry::TemplateValue(token_stream) => EntryResult::CombinedSceneFunction(quote! {
                 _scene.insert_template(#token_stream);
             }),
-            BsnEntry::Observer { closure, is_move } => {
-                EntryResult::CombinedSceneFunction(if *is_move {
-                    quote! { _scene.push_template(#bevy_scene::on(move #closure)); }
-                } else {
-                    quote! { _scene.push_template(#bevy_scene::on(#closure)); }
-                })
-            }
         })
     }
 }

@@ -1504,9 +1504,9 @@ mod tests {
 
         fn scene() -> impl Scene {
             bsn! {
-                |explode: On<Explode>, mut exploded: ResMut<Exploded>| {
+                on(|explode: On<Explode>, mut exploded: ResMut<Exploded>| {
                     exploded.0 = Some(explode.0);
-                }
+                })
             }
         }
 
@@ -2052,9 +2052,9 @@ mod tests {
 
         fn non_move_scene() -> impl Scene {
             bsn! {
-                |_: On<Heal>, mut healed: ResMut<TotalHealed>| {
+                on(|_: On<Heal>, mut healed: ResMut<TotalHealed>| {
                     healed.0 += 1;
-                }
+                })
             }
         }
 
@@ -2078,9 +2078,9 @@ mod tests {
 
         fn move_scene(bonus: u32) -> impl Scene {
             bsn! {
-                move |_: On<Heal>, mut healed: ResMut<TotalHealed>| {
+                on(move |_: On<Heal>, mut healed: ResMut<TotalHealed>| {
                     healed.0 += bonus;
-                }
+                })
             }
         }
 
@@ -2640,10 +2640,10 @@ mod tests {
             Node {
                 height: px(0.1) // same with named fields, unmentioned ones stay default
             }
-            |evt: On<MyEntityEvent>, mut query: Query<&mut ComponentB>| {  // add an observer
+            on(|evt: On<MyEntityEvent>, mut query: Query<&mut ComponentB>| {  // add an observer
                 let mut b = query.get_mut(evt.entity).unwrap();
                 b.0 += evt.value;
-            }
+            })
             Children [                   // spawning multiple related entities using a RelationshipTarget component
                 #Child1 ComponentA       // whitespace doesn't have to be newlines
                 ,                        // entities are comma-separated

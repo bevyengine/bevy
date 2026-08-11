@@ -20,7 +20,6 @@ pub enum BsnEntry {
     TemplateValue(TokenStream),
     FromTemplateConstructor(BsnConstructor),
     TemplateConstructor(BsnConstructor),
-    Observer { closure: TokenStream, is_move: bool },
     TemplateConst { type_path: Path, const_ident: Ident },
     UncachedScene(BsnScene),
     CachedScene(BsnScene),
