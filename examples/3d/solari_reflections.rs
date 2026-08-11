@@ -6,7 +6,7 @@ use bevy::{
     diagnostic::{Diagnostic, DiagnosticPath, DiagnosticsStore},
     image::{ImageAddressMode, ImageLoaderSettings},
     math::ops,
-    mesh::VertexAttributeValues,
+    mesh::{Indices, VertexAttributeValues},
     prelude::*,
     render::{diagnostic::RenderDiagnosticsPlugin, render_resource::TextureUsages},
     solari::{
@@ -16,6 +16,7 @@ use bevy::{
     ui_widgets::{
         observe, slider_self_update, Slider, SliderRange, SliderThumb, SliderValue, TrackClick,
     },
+    world_serialization::WorldInstanceReady,
 };
 
 #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
@@ -49,6 +50,7 @@ fn main() {
             pause_scene,
             toggle_metallic,
             toggle_pathtracer,
+            toggle_mirror_motion,
             select_preset,
             update_roughness,
             move_objects,
@@ -86,6 +88,8 @@ struct DemoState {
     roughness: f32,
     paused: bool,
     phase: f32,
+    pan_mirror: bool,
+    slide_mirror: bool,
 }
 
 impl Default for DemoState {
@@ -95,6 +99,8 @@ impl Default for DemoState {
             roughness: INITIAL_ROUGHNESS,
             paused: false,
             phase: 0.0,
+            pan_mirror: false,
+            slide_mirror: false,
         }
     }
 }
@@ -115,7 +121,18 @@ struct OrbitingObject;
 struct SlidingObject;
 
 #[derive(Component)]
-struct ControlText;
+struct PanningMirror;
+
+#[derive(Component)]
+enum ControlRow {
+    Pause,
+    Metallic,
+    Presets,
+    MirrorPan,
+    MirrorSlide,
+    Renderer,
+    Denoising,
+}
 
 #[derive(Component)]
 struct PerformanceText;
@@ -155,17 +172,20 @@ fn setup(
         RaytracingMesh3d(panel.clone()),
         Mesh3d(panel),
         MeshMaterial3d(test_material.clone()),
-        Transform::from_xyz(2.4, 1.7, -3.0)
-            .with_rotation(Quat::from_rotation_y(0.22) * Quat::from_rotation_x(-0.16)),
+        Transform::from_xyz(MIRROR_BASE_X, 1.7, -3.0).with_rotation(mirror_rotation(0.0)),
+        PanningMirror,
     ));
 
-    let sphere = meshes.add(raytraced(Sphere::new(1.2).mesh().build()));
-    commands.spawn((
-        RaytracingMesh3d(sphere.clone()),
-        Mesh3d(sphere),
-        MeshMaterial3d(test_material.clone()),
-        Transform::from_xyz(4.8, 1.2, -1.6),
-    ));
+    commands
+        .spawn((
+            WorldAssetRoot(asset_server.load(
+                GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"),
+            )),
+            Transform::from_xyz(4.8, 0.0, -1.6)
+                .with_scale(Vec3::splat(4.0))
+                .with_rotation(Quat::from_rotation_y(-0.4)),
+        ))
+        .observe(add_raytracing_meshes_on_scene_load);
 
     let cube = meshes.add(raytraced(Cuboid::from_length(0.6)));
     commands.spawn((
@@ -239,6 +259,43 @@ fn setup(
     let _ = &mut camera;
 
     spawn_ui(&mut commands);
+}
+
+fn add_raytracing_meshes_on_scene_load(
+    scene_ready: On<WorldInstanceReady>,
+    children: Query<&Children>,
+    mesh_query: Query<&Mesh3d>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut commands: Commands,
+) {
+    for descendant in children.iter_descendants(scene_ready.entity) {
+        if let Ok(Mesh3d(mesh_handle)) = mesh_query.get(descendant) {
+            commands
+                .entity(descendant)
+                .insert(RaytracingMesh3d(mesh_handle.clone()));
+
+            let mut mesh = meshes.get_mut(mesh_handle).unwrap();
+            if !mesh.contains_attribute(Mesh::ATTRIBUTE_UV_0) {
+                let vertex_count = mesh.count_vertices();
+                mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, vec![[0.0, 0.0]; vertex_count]);
+                mesh.insert_attribute(
+                    Mesh::ATTRIBUTE_TANGENT,
+                    vec![[0.0, 0.0, 0.0, 0.0]; vertex_count],
+                );
+            }
+            if !mesh.contains_attribute(Mesh::ATTRIBUTE_TANGENT) {
+                mesh.generate_tangents().unwrap();
+            }
+            if mesh.contains_attribute(Mesh::ATTRIBUTE_UV_1) {
+                mesh.remove_attribute(Mesh::ATTRIBUTE_UV_1);
+            }
+            if let Some(indices) = mesh.indices_mut()
+                && let Indices::U16(_) = indices
+            {
+                *indices = Indices::U32(indices.iter().map(|i| i as u32).collect());
+            }
+        }
+    }
 }
 
 fn spawn_room(
@@ -331,9 +388,23 @@ fn spawn_room(
     ));
 }
 
-const SLIDER_TRACK: Color = Color::srgb(0.05, 0.05, 0.05);
-const SLIDER_THUMB: Color = Color::srgb(0.35, 0.75, 0.35);
-const SLIDER_TICK: Color = Color::srgb(0.85, 0.7, 0.2);
+const SLIDER_TRACK: Color = Color::srgb(0.45, 0.45, 0.48);
+const SLIDER_THUMB: Color = Color::srgb(0.45, 0.95, 0.45);
+const SLIDER_TICK: Color = Color::srgb(0.95, 0.78, 0.25);
+
+const SLIDER_WIDTH: f32 = 180.0;
+const SLIDER_THUMB_SIZE: f32 = 14.0;
+const SLIDER_TRACK_HEIGHT: f32 = 8.0;
+
+const HEADING_COLOR: Color = Color::srgb(0.72, 0.83, 1.0);
+const KEY_COLOR: Color = Color::srgb(0.95, 0.82, 0.4);
+const LABEL_COLOR: Color = Color::srgb(0.92, 0.92, 0.92);
+
+const HEADING_SIZE: f32 = 10.0;
+const LABEL_SIZE: f32 = 11.0;
+
+const KEY_WIDTH: f32 = 42.0;
+const KEY_GAP: f32 = 8.0;
 
 fn spawn_ui(commands: &mut Commands) {
     commands.spawn((
@@ -343,22 +414,41 @@ fn spawn_ui(commands: &mut Commands) {
             left: px(12.0),
             flex_direction: FlexDirection::Column,
             align_items: AlignItems::FlexStart,
-            row_gap: px(8.0),
+            padding: px(10.0).all(),
+            border_radius: BorderRadius::all(px(4.0)),
             ..default()
         },
+        BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.92)),
         children![
+            heading("PLAYBACK"),
+            row("Space", ControlRow::Pause),
+            static_row("< >", "Scrub objects"),
+            heading("TEST MATERIAL"),
+            row("1", ControlRow::Metallic),
+            row("3-7", ControlRow::Presets),
             (
                 Node {
                     align_items: AlignItems::Center,
-                    column_gap: px(10.0),
+                    column_gap: px(KEY_GAP),
+                    margin: UiRect::left(px(KEY_WIDTH + KEY_GAP)),
                     ..default()
                 },
                 children![
-                    (RoughnessValueText, Text::default(), TextColor(Color::BLACK)),
+                    (
+                        RoughnessValueText,
+                        Text::default(),
+                        TextFont::from_font_size(LABEL_SIZE),
+                        TextColor(LABEL_COLOR),
+                    ),
                     roughness_slider(),
                 ],
             ),
-            (ControlText, Text::default(), TextColor(Color::BLACK)),
+            heading("RIGHT MIRROR"),
+            row("8", ControlRow::MirrorPan),
+            row("9", ControlRow::MirrorSlide),
+            heading("RENDERER"),
+            row("P", ControlRow::Renderer),
+            row("2", ControlRow::Denoising),
         ],
     ));
 
@@ -382,11 +472,75 @@ fn spawn_ui(commands: &mut Commands) {
     ));
 }
 
+fn heading(title: &str) -> impl Bundle {
+    (
+        Node {
+            margin: UiRect::top(px(7.0)).with_bottom(px(3.0)),
+            ..default()
+        },
+        Text::new(title),
+        TextFont::from_font_size(HEADING_SIZE),
+        TextColor(HEADING_COLOR),
+    )
+}
+
+fn row(key: &str, label: ControlRow) -> impl Bundle {
+    (
+        row_node(),
+        children![
+            key_label(key),
+            (
+                label,
+                Text::default(),
+                TextFont::from_font_size(LABEL_SIZE),
+                TextColor(LABEL_COLOR),
+            ),
+        ],
+    )
+}
+
+fn static_row(key: &str, label: &str) -> impl Bundle {
+    (
+        row_node(),
+        children![
+            key_label(key),
+            (
+                Text::new(label),
+                TextFont::from_font_size(LABEL_SIZE),
+                TextColor(LABEL_COLOR),
+            ),
+        ],
+    )
+}
+
+fn row_node() -> Node {
+    Node {
+        align_items: AlignItems::Center,
+        column_gap: px(KEY_GAP),
+        ..default()
+    }
+}
+
+fn key_label(key: &str) -> impl Bundle {
+    (
+        Node {
+            width: px(KEY_WIDTH),
+            justify_content: JustifyContent::FlexEnd,
+            ..default()
+        },
+        children![(
+            Text::new(key),
+            TextFont::from_font_size(LABEL_SIZE),
+            TextColor(KEY_COLOR),
+        )],
+    )
+}
+
 fn roughness_slider() -> impl Bundle {
     (
         Node {
-            width: px(180.0),
-            height: px(12.0),
+            width: px(SLIDER_WIDTH),
+            height: px(SLIDER_THUMB_SIZE),
             flex_direction: FlexDirection::Column,
             align_items: AlignItems::Stretch,
             justify_content: JustifyContent::Center,
@@ -403,8 +557,8 @@ fn roughness_slider() -> impl Bundle {
         Children::spawn((
             Spawn((
                 Node {
-                    height: px(6.0),
-                    border_radius: BorderRadius::all(px(3.0)),
+                    height: px(SLIDER_TRACK_HEIGHT),
+                    border_radius: BorderRadius::all(px(SLIDER_TRACK_HEIGHT / 2.0)),
                     ..default()
                 },
                 BackgroundColor(SLIDER_TRACK),
@@ -413,7 +567,7 @@ fn roughness_slider() -> impl Bundle {
                 Node {
                     position_type: PositionType::Absolute,
                     left: px(0.0),
-                    right: px(12.0),
+                    right: px(SLIDER_THUMB_SIZE),
                     top: px(0.0),
                     bottom: px(0.0),
                     ..default()
@@ -426,8 +580,8 @@ fn roughness_slider() -> impl Bundle {
                         SliderThumb,
                         Node {
                             position_type: PositionType::Absolute,
-                            width: px(12.0),
-                            height: px(12.0),
+                            width: px(SLIDER_THUMB_SIZE),
+                            height: px(SLIDER_THUMB_SIZE),
                             left: percent(INITIAL_ROUGHNESS * 100.0),
                             border_radius: BorderRadius::MAX,
                             ..default()
@@ -448,15 +602,15 @@ fn threshold_tick(roughness: f32) -> impl Bundle {
         Node {
             position_type: PositionType::Absolute,
             left: percent(roughness * 100.0),
-            width: px(12.0),
-            height: px(12.0),
+            width: px(SLIDER_THUMB_SIZE),
+            height: px(SLIDER_THUMB_SIZE),
             justify_content: JustifyContent::Center,
             ..default()
         },
         children![(
             Node {
                 width: px(2.0),
-                height: px(12.0),
+                height: px(SLIDER_THUMB_SIZE),
                 ..default()
             },
             BackgroundColor(SLIDER_TICK),
@@ -491,6 +645,15 @@ fn toggle_metallic(
             &mut materials.get_mut(&test_material.0).unwrap(),
             state.metallic,
         );
+    }
+}
+
+fn toggle_mirror_motion(key_input: Res<ButtonInput<KeyCode>>, mut state: ResMut<DemoState>) {
+    if key_input.just_pressed(KeyCode::Digit8) {
+        state.pan_mirror = !state.pan_mirror;
+    }
+    if key_input.just_pressed(KeyCode::Digit9) {
+        state.slide_mirror = !state.slide_mirror;
     }
 }
 
@@ -574,12 +737,30 @@ fn update_roughness(
 
 const PHASE_RATE: f32 = 0.8;
 
+const MIRROR_YAW: f32 = 0.22;
+const MIRROR_PITCH: f32 = -0.16;
+const MIRROR_PAN_RANGE: f32 = 0.55;
+const MIRROR_BASE_X: f32 = 2.4;
+const MIRROR_SLIDE_RANGE: f32 = 1.5;
+
+fn mirror_rotation(pan: f32) -> Quat {
+    Quat::from_rotation_y(MIRROR_YAW + pan) * Quat::from_rotation_x(MIRROR_PITCH)
+}
+
 fn move_objects(
     time: Res<Time>,
     key_input: Res<ButtonInput<KeyCode>>,
     mut state: ResMut<DemoState>,
     mut orbiting: Single<&mut Transform, With<OrbitingObject>>,
     mut sliding: Single<&mut Transform, (With<SlidingObject>, Without<OrbitingObject>)>,
+    mut mirror: Single<
+        &mut Transform,
+        (
+            With<PanningMirror>,
+            Without<OrbitingObject>,
+            Without<SlidingObject>,
+        ),
+    >,
 ) {
     let scrub = key_input.pressed(KeyCode::ArrowRight) as i32 as f32
         - key_input.pressed(KeyCode::ArrowLeft) as i32 as f32;
@@ -598,6 +779,19 @@ fn move_objects(
     orbiting.rotation = Quat::from_rotation_y(state.phase * 0.7);
 
     sliding.translation.x = ops::sin(state.phase * 0.7) * 5.5;
+
+    let pan = if state.pan_mirror {
+        ops::sin(state.phase * 1.1) * MIRROR_PAN_RANGE
+    } else {
+        0.0
+    };
+    mirror.rotation = mirror_rotation(pan);
+
+    mirror.translation.x = if state.slide_mirror {
+        MIRROR_BASE_X + ops::sin(state.phase * 0.9) * MIRROR_SLIDE_RANGE
+    } else {
+        MIRROR_BASE_X
+    };
 }
 
 #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
@@ -626,7 +820,7 @@ fn toggle_dlss_rr(
 }
 
 fn update_control_text(
-    mut text: Single<&mut Text, With<ControlText>>,
+    mut rows: Query<(&ControlRow, &mut Text)>,
     state: Res<DemoState>,
     pathtracing: Query<(), With<Pathtracer>>,
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))] dlss_rr_supported: Option<
@@ -637,52 +831,57 @@ fn update_control_text(
         With<SolariLighting>,
     >,
 ) {
-    text.0.clear();
+    for (row, mut text) in &mut rows {
+        text.0.clear();
 
-    if state.paused {
-        text.0.push_str("(Space): Resume");
-    } else {
-        text.0.push_str("(Space): Pause");
-    }
+        match row {
+            ControlRow::Pause => text
+                .0
+                .push_str(if state.paused { "Resume" } else { "Pause" }),
+            ControlRow::Metallic => text.0.push_str(if state.metallic {
+                "Switch to dielectric"
+            } else {
+                "Switch to metallic"
+            }),
+            ControlRow::Presets => {
+                for (_, name, roughness) in MATERIAL_PRESETS {
+                    if (roughness - state.roughness).abs() < 1e-4 {
+                        text.0.push_str(&format!("[{name}] "));
+                    } else {
+                        text.0.push_str(&format!("{name} "));
+                    }
+                }
+            }
+            ControlRow::MirrorPan => text.0.push_str(if state.pan_mirror {
+                "Stop panning"
+            } else {
+                "Pan back and forth"
+            }),
+            ControlRow::MirrorSlide => text.0.push_str(if state.slide_mirror {
+                "Stop sliding"
+            } else {
+                "Slide back and forth"
+            }),
+            ControlRow::Renderer => text.0.push_str(if pathtracing.is_empty() {
+                "Switch to reference pathtracer"
+            } else {
+                "Switch to realtime lighting  -  pause to let the pathtracer converge"
+            }),
+            ControlRow::Denoising => {
+                #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+                if dlss_rr_supported.is_some() {
+                    if matches!(dlss_camera.single(), Ok(true)) {
+                        text.0.push_str("Disable DLSS Ray Reconstruction");
+                    } else {
+                        text.0.push_str("Enable DLSS Ray Reconstruction");
+                    }
+                } else {
+                    text.0.push_str("DLSS Ray Reconstruction not supported");
+                }
 
-    if state.metallic {
-        text.0.push_str("\n(1): Switch to dielectric");
-    } else {
-        text.0.push_str("\n(1): Switch to metallic");
-    }
-
-    text.0.push_str("\n(Left/Right): Scrub objects");
-
-    if pathtracing.is_empty() {
-        text.0.push_str("\n(P): Switch to reference pathtracer");
-    } else {
-        text.0.push_str(
-            "\n(P): Switch to realtime lighting  -  pause to let the pathtracer converge",
-        );
-    }
-
-    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-    if dlss_rr_supported.is_some() {
-        if matches!(dlss_camera.single(), Ok(true)) {
-            text.0.push_str("\n(2): Disable DLSS Ray Reconstruction");
-        } else {
-            text.0.push_str("\n(2): Enable DLSS Ray Reconstruction");
-        }
-    } else {
-        text.0
-            .push_str("\nDenoising: DLSS Ray Reconstruction not supported");
-    }
-
-    #[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))]
-    text.0
-        .push_str("\nDenoising: App not compiled with DLSS support");
-
-    text.0.push_str("\n(3-7):");
-    for (_, name, roughness) in MATERIAL_PRESETS {
-        if (roughness - state.roughness).abs() < 1e-4 {
-            text.0.push_str(&format!(" [{name}]"));
-        } else {
-            text.0.push_str(&format!(" {name}"));
+                #[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))]
+                text.0.push_str("App not compiled with DLSS support");
+            }
         }
     }
 }
