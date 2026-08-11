@@ -393,7 +393,7 @@ reflect_documentation = ["bevy_reflect/reflect_documentation"]
 custom_cursor = [
   "bevy_window/custom_cursor",
   "bevy_winit/custom_cursor",
-  "bevy_feathers?/custom_cursor",
+  "bevy_picking/custom_cursor",
 ]
 
 # Experimental support for nodes that are ignored for UI layouting

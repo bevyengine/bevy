@@ -15,7 +15,7 @@ use bevy_ecs::{
     template::template,
 };
 use bevy_log::{info, warn};
-use bevy_picking::{hover::Hovered, PickingSystems};
+use bevy_picking::{cursor::EntityCursor, hover::Hovered, PickingSystems};
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_scene::prelude::*;
@@ -32,7 +32,6 @@ use bevy_ui_widgets::{
 use crate::{
     constants::{fonts, icons, size},
     controls::{ButtonVariant, FeathersButton, FeathersToolButton},
-    cursor::EntityCursor,
     display::icon,
     font_styles::InheritableFont,
     rounded_corners::RoundedCorners,
