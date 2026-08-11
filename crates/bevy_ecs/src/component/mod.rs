@@ -521,7 +521,7 @@ use core::{fmt::Debug, marker::PhantomData, ops::Deref};
 /// [`SyncCell`]: bevy_platform::cell::SyncCell
 /// [`Exclusive`]: https://doc.rust-lang.org/nightly/std/sync/struct.Exclusive.html
 /// [`ComponentHooks`]: crate::lifecycle::ComponentHooks
-/// [contiguous iteration]: crate::system::query::Query::contiguous_iter
+/// [contiguous iteration]: crate::system::Query::contiguous_iter
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not a `Component`",
     label = "invalid `Component`",
