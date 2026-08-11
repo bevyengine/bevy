@@ -124,13 +124,13 @@ pub struct SpotLight {
 
     /// Angle defining the distance from the spot light direction to the outer limit
     /// of the light's cone of effect.
-    /// `outer_angle` must be < `PI / 2.0`.
+    /// Clamped to [`SpotLight::MIN_OUTER_ANGLE`]..=[`SpotLight::MAX_OUTER_ANGLE`].
     pub outer_angle: f32,
 
     /// Angle defining the distance from the spot light direction to the inner limit
     /// of the light's cone of effect.
     /// Light is attenuated from `inner_angle` to `outer_angle` to give a smooth falloff.
-    /// `inner_angle` should be <= `outer_angle`
+    /// Values greater than `outer_angle` are clamped to it.
     pub inner_angle: f32,
 }
 
@@ -141,6 +141,27 @@ impl SpotLight {
     pub const DEFAULT_SHADOW_NORMAL_BIAS: f32 = 1.8;
     /// The default value of [`SpotLight::shadow_map_near_z`].
     pub const DEFAULT_SHADOW_MAP_NEAR_Z: f32 = 0.1;
+
+    /// The smallest supported [`SpotLight::outer_angle`], in radians.
+    ///
+    /// Zero would make the cone's `tan(outer_angle)` projection scale divide by zero.
+    pub const MIN_OUTER_ANGLE: f32 = 1.0e-3;
+
+    /// The largest supported [`SpotLight::outer_angle`], in radians (~85.9°).
+    ///
+    /// Closer to `PI / 2.0`, the shadow map collapses into the texels around the cone axis.
+    pub const MAX_OUTER_ANGLE: f32 = 1.5;
+
+    /// Returns `(inner_angle, outer_angle)` clamped to what rendering supports, with
+    /// `inner_angle <= outer_angle`.
+    #[expect(clippy::manual_clamp, reason = "`clamp` would propagate a NaN angle")]
+    pub fn clamped_angles(&self) -> (f32, f32) {
+        let outer_angle = self
+            .outer_angle
+            .max(Self::MIN_OUTER_ANGLE)
+            .min(Self::MAX_OUTER_ANGLE);
+        (self.inner_angle.max(0.0).min(outer_angle), outer_angle)
+    }
 }
 
 impl Default for SpotLight {
@@ -259,8 +280,10 @@ pub fn update_spot_light_frusta(
         let view_backward = transform.back();
 
         let spot_world_from_view = spot_light_world_from_view(transform);
+        // Must match the angle the shadow map is rendered with.
+        let (_, outer_angle) = spot_light.clamped_angles();
         let spot_clip_from_view =
-            spot_light_clip_from_view(spot_light.outer_angle, spot_light.shadow_map_near_z);
+            spot_light_clip_from_view(outer_angle, spot_light.shadow_map_near_z);
         let clip_from_world = spot_clip_from_view * spot_world_from_view.inverse();
 
         *frustum = Frustum(ViewFrustum::from_clip_from_world_custom_far(
@@ -269,5 +292,26 @@ pub fn update_spot_light_frusta(
             &view_backward,
             spot_light.range,
         ));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn clamped_angles_keep_the_cone_projection_finite() {
+        for outer_angle in [0.0, -1.0, f32::NAN, core::f32::consts::FRAC_PI_2, 100.0] {
+            let light = SpotLight {
+                outer_angle,
+                inner_angle: outer_angle,
+                ..SpotLight::default()
+            };
+            let (inner, outer) = light.clamped_angles();
+
+            assert!((SpotLight::MIN_OUTER_ANGLE..=SpotLight::MAX_OUTER_ANGLE).contains(&outer));
+            assert!((0.0..=outer).contains(&inner));
+            assert!(spot_light_clip_from_view(outer, light.shadow_map_near_z).is_finite());
+        }
     }
 }
