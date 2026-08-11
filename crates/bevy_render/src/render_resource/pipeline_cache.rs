@@ -960,7 +960,7 @@ fn pipeline_error_context(cached_pipeline: &CachedPipeline) -> String {
 
 #[cfg(target_arch = "wasm32")]
 fn create_pipeline_task(
-    task: impl Future<Output = Result<Pipeline, ShaderCacheError>> + Send + 'static,
+    task: impl Future<Output = Result<Pipeline, ShaderCacheError>> + 'static,
     _sync: bool,
 ) -> CachedPipelineState {
     // On wasm, `block_on` is unsupported there ("condvar wait not supported").

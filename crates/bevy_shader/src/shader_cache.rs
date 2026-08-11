@@ -64,12 +64,12 @@ pub enum ShaderCacheSource {
     Wgsl(String),
 }
 
-/// todo
+/// Cached shader after processing, which is used to create wgpu `ShaderModule`.
 #[derive(Clone, Debug)]
 pub struct ProcessedShader {
-    /// todo
+    /// Fully composed source code of the shader module.
     pub source: ShaderCacheSource,
-    /// todo
+    /// Whether to enable runtime shader validation. See [`Shader::validate_shader`].
     pub validate_shader: ValidateShader,
 }
 

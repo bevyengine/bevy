@@ -22,9 +22,6 @@ thiserror = { version = "2", default-features = false }
 wesl = { version = "0.4.2", features = ["naga-ext"] }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 
-[dev-dependencies]
-bevy_tasks = { path = "../bevy_tasks", version = "0.20.0-dev" }
-
 [lints]
 workspace = true
 
