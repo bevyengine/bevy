@@ -1,6 +1,6 @@
 ---
 title: "`Mesh2d` world normal and tangent computation"
-pull_requests: []
+pull_requests: [25369]
 ---
 
 `mesh2d_tangent_local_to_world` in `bevy_sprite_render::mesh2d::functions` now takes the
