@@ -3,9 +3,9 @@
 use super::cores::{EvenCore, EvenCoreError, UnevenCore, UnevenCoreError};
 use super::{Curve, Interval};
 
-use crate::StableInterpolate;
 #[cfg(feature = "bevy_reflect")]
 use alloc::format;
+use bevy_math::StableInterpolate;
 use core::any::type_name;
 use core::fmt::{self, Debug};
 
@@ -14,7 +14,7 @@ use bevy_reflect::{utility::GenericTypePathCell, Reflect, TypePath};
 
 #[cfg(feature = "bevy_reflect")]
 mod paths {
-    pub(super) const THIS_MODULE: &str = "bevy_math::curve::sample_curves";
+    pub(super) const THIS_MODULE: &str = "bevy_curve::sample_curves";
     pub(super) const THIS_CRATE: &str = "bevy_math";
 }
 
@@ -373,7 +373,7 @@ mod tests {
     //! - 'static closures
     //! - function pointers
     use super::{SampleCurve, UnevenSampleCurve};
-    use crate::{curve::Interval, VectorSpace};
+    use crate::{Interval, VectorSpace};
     use alloc::boxed::Box;
     use bevy_reflect::Reflect;
 

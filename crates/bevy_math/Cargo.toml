@@ -21,7 +21,6 @@ derive_more = { version = "2", default-features = false, features = [
   "from",
   "into",
 ] }
-itertools = { version = "0.14.0", default-features = false }
 serde = { version = "1", default-features = false, features = [
   "derive",
 ], optional = true }
@@ -52,7 +51,6 @@ std = [
   "alloc",
   "glam/std",
   "derive_more/std",
-  "itertools/use_std",
   "serde?/std",
   "approx?/std",
   "rand?/std",

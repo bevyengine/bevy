@@ -30,7 +30,6 @@ mod affine3;
 mod aspect_ratio;
 pub mod common_traits;
 mod compass;
-pub mod cubic_splines;
 mod direction;
 mod float_ord;
 mod isometry;
@@ -38,9 +37,6 @@ mod mat3;
 pub mod ops;
 mod rects;
 mod rotation2d;
-
-#[cfg(feature = "curve")]
-pub mod curve;
 
 #[cfg(feature = "rand")]
 pub mod sampling;
@@ -59,9 +55,6 @@ pub use ops::FloatPow;
 pub use rects::*;
 pub use rotation2d::Rot2;
 
-#[cfg(feature = "curve")]
-pub use curve::Curve;
-
 #[cfg(feature = "rand")]
 pub use sampling::FromRng;
 
@@ -72,7 +65,6 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         bvec2, bvec3, bvec3a, bvec4, bvec4a,
-        cubic_splines::{CubicNurbsError, CubicSegment, RationalSegment},
         direction::{Dir2, Dir3, Dir3A},
         ivec2, ivec3, ivec4, mat2, mat3, mat3a, mat4, ops, quat, uvec2, uvec3, uvec4, vec2, vec3,
         vec3a, vec4, BVec2, BVec3, BVec3A, BVec4, BVec4A, EulerRot, FloatExt, IRect, IVec2, IVec3,
@@ -80,10 +72,6 @@ pub mod prelude {
         StableInterpolate, URect, UVec2, UVec3, UVec4, Vec2, Vec2Swizzles, Vec3, Vec3A,
         Vec3Swizzles, Vec4, Vec4Swizzles,
     };
-
-    #[doc(hidden)]
-    #[cfg(feature = "curve")]
-    pub use crate::curve::*;
 
     #[doc(hidden)]
     #[cfg(feature = "rand")]
