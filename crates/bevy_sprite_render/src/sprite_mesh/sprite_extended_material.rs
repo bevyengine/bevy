@@ -389,3 +389,166 @@ fn clean_sprite_material_cache<M>(
 }
 
 type SpriteExt<M> = ExtendedMaterial2d<SpriteMeshMaterial, SpriteMaterialExtension<M>>;
+
+#[cfg(test)]
+mod tests {
+    use bevy_asset::DirectAssetAccessExt;
+
+    use super::*;
+
+    #[derive(AsBindGroup, Asset, Reflect, Hash, PartialEq, Clone, Copy)]
+    struct TestMaterial {}
+
+    impl MaterialExtension2d for TestMaterial {}
+
+    #[derive(AsBindGroup, Asset, Reflect, Hash, PartialEq, Clone, Copy)]
+    struct TestMaterial2 {}
+
+    impl MaterialExtension2d for TestMaterial2 {}
+
+    #[test]
+    fn reused_handles() {
+        let mut app = test_app();
+
+        let sprite_mesh = SpriteMesh::default();
+        let handle = app.world_mut().add_asset::<TestMaterial>(TestMaterial {});
+
+        let one = app
+            .world_mut()
+            .spawn((sprite_mesh.clone(), SpriteMaterial(handle.clone())))
+            .id();
+
+        let two = app
+            .world_mut()
+            .spawn((sprite_mesh.clone(), SpriteMaterial(handle.clone())))
+            .id();
+
+        app.update();
+        let mat1 = app
+            .world()
+            .entity(one)
+            .get::<MeshMaterial2d<SpriteExt<TestMaterial>>>()
+            .unwrap()
+            .0
+            .clone();
+
+        let mat2 = app
+            .world()
+            .entity(two)
+            .get::<MeshMaterial2d<SpriteExt<TestMaterial>>>()
+            .unwrap()
+            .0
+            .clone();
+
+        assert_eq!(mat1, mat2);
+    }
+
+    #[test]
+    fn material_insertion() {
+        let mut app = test_app();
+
+        let handle = app.world_mut().add_asset::<TestMaterial>(TestMaterial {});
+        let handle2 = app.world_mut().add_asset::<TestMaterial2>(TestMaterial2 {});
+
+        let entity = app.world_mut().spawn(SpriteMesh::default()).id();
+        app.update();
+
+        let test = |app: &mut App, sprite: bool, test: bool, test2: bool| {
+            app.update();
+            let ent = app.world().entity(entity);
+            assert_eq!(
+                ent.get::<MeshMaterial2d<SpriteMeshMaterial>>().is_some(),
+                sprite
+            );
+            assert_eq!(
+                ent.get::<MeshMaterial2d<SpriteExt<TestMaterial>>>()
+                    .is_some(),
+                test
+            );
+            assert_eq!(
+                ent.get::<MeshMaterial2d<SpriteExt<TestMaterial2>>>()
+                    .is_some(),
+                test2
+            );
+        };
+
+        test(&mut app, true, false, false);
+
+        app.world_mut()
+            .entity_mut(entity)
+            .insert(SpriteMaterial(handle));
+
+        test(&mut app, false, true, false);
+
+        app.world_mut()
+            .entity_mut(entity)
+            .insert(SpriteMaterial(handle2.clone()));
+
+        test(&mut app, false, true, true);
+
+        // make sure re-insertions don't break it
+        app.world_mut()
+            .entity_mut(entity)
+            .insert(SpriteMaterial(handle2.clone()));
+
+        test(&mut app, false, true, true);
+
+        app.world_mut()
+            .entity_mut(entity)
+            .remove::<SpriteMaterial<TestMaterial2>>();
+
+        test(&mut app, false, true, false);
+
+        app.world_mut()
+            .entity_mut(entity)
+            .remove::<SpriteMaterial<TestMaterial>>();
+
+        test(&mut app, true, false, false);
+    }
+
+    #[test]
+    fn cache_cleanup() {
+        let mut app = test_app();
+
+        let handle = app.world_mut().add_asset::<TestMaterial>(TestMaterial {});
+        let entity = app
+            .world_mut()
+            .spawn((SpriteMesh::default(), SpriteMaterial(handle)))
+            .id();
+
+        app.update();
+        assert_eq!(
+            app.world()
+                .resource::<SpriteMaterialCache<TestMaterial>>()
+                .len(),
+            1
+        );
+
+        app.world_mut().entity_mut(entity).despawn();
+        app.update();
+
+        assert_eq!(
+            app.world()
+                .resource::<SpriteMaterialCache<TestMaterial>>()
+                .len(),
+            0
+        );
+    }
+
+    fn test_app() -> App {
+        let mut app = App::new();
+
+        app.add_plugins(bevy_asset::AssetPlugin::default())
+            .init_asset::<bevy_shader::Shader>()
+            .add_plugins((
+                bevy_app::TaskPoolPlugin::default(),
+                bevy_mesh::MeshPlugin,
+                bevy_image::TextureAtlasPlugin,
+                crate::SpriteMeshPlugin,
+                SpriteMaterialPlugin::<TestMaterial>::default(),
+                SpriteMaterialPlugin::<TestMaterial2>::default(),
+            ));
+
+        app
+    }
+}
