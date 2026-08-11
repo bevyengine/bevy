@@ -23,6 +23,7 @@ use bevy_input_focus::{FocusGained, FocusLost, FocusedInput, InputFocus, InputFo
 use bevy_log::{warn, warn_once};
 use bevy_math::ops;
 use bevy_picking::{
+    cursor::EntityCursor,
     events::{Cancel, Drag, DragEnd, DragStart, Pointer, Press, Release},
     hover::Hovered,
     pointer::PointerButton,
@@ -45,7 +46,6 @@ use bevy_ui_widgets::ValueChange;
 use crate::{
     constants::{fonts, size},
     controls::{FeathersSlider, FeathersTextInput, FeathersTextInputContainer},
-    cursor::EntityCursor,
     rounded_corners::RoundedCorners,
     theme::{
         SurfaceLevel, ThemeBackgroundColor, ThemeBorderColor, ThemeContext, ThemeTextColor,
