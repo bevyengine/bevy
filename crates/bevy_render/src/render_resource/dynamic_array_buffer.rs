@@ -188,7 +188,7 @@ mod tests {
 
     fn buffer() -> DynamicArrayUniformBuffer<Item> {
         // Pick an alignment from a stand-in `Limits`. We don't touch the GPU
-        // in tests, so we only exercise the host-side queueing semantics.
+        // in tests, so we only exercise the host-side queuing semantics.
         DynamicArrayUniformBuffer::new(&Limits::downlevel_defaults())
     }
 
@@ -214,7 +214,7 @@ mod tests {
         // Distinct arrays produce distinct offsets.
         assert_ne!(buf.get_array_offset(a), buf.get_array_offset(b));
         // `write_buffer` is the GPU-side upload; we don't have a device in
-        // tests, so the binding stays `None` even though queueing is done.
+        // tests, so the binding stays `None` even though queuing is done.
         assert!(buf.binding().is_none());
     }
 
