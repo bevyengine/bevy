@@ -72,7 +72,6 @@ where
 /// define_label!(
 ///     /// Documentation of label trait
 ///     MyNewLabelTrait,
-///     MY_NEW_LABEL_TRAIT_INTERNER
 /// );
 ///
 /// /// A new label type implementing the new label trait.
@@ -97,7 +96,6 @@ where
 /// define_label!(
 ///     /// Documentation of another label trait
 ///     MyNewExtendedLabelTrait,
-///     MY_NEW_EXTENDED_LABEL_TRAIT_INTERNER,
 ///     extra_methods: {
 ///         // Extra methods for the trait can be defined here
 ///         fn additional_method(&self) -> i32;
@@ -135,10 +133,7 @@ where
 ///
 /// ```
 /// # use bevy_ecs::define_label;
-/// define_label!(
-///     Team,
-///     TEAM_INTERNER
-/// );
+/// define_label!(Team);
 ///
 /// macro_rules! define_team {
 ///     ($name:ident) => {
@@ -164,13 +159,11 @@ where
 macro_rules! define_label {
     (
         $(#[$label_attr:meta])*
-        $label_trait_name:ident,
-        $interner_name:ident
+        $label_trait_name:ident $(,)?
     ) => {
         $crate::define_label!(
             $(#[$label_attr])*
             $label_trait_name,
-            $interner_name,
             extra_methods: {},
             extra_methods_impl: {}
         );
@@ -178,9 +171,8 @@ macro_rules! define_label {
     (
         $(#[$label_attr:meta])*
         $label_trait_name:ident,
-        $interner_name:ident,
         extra_methods: { $($trait_extra_methods:tt)* },
-        extra_methods_impl: { $($interned_extra_methods_impl:tt)* }
+        extra_methods_impl: { $($interned_extra_methods_impl:tt)* }  $(,)?
     ) => {
 
         $(#[$label_attr])*
@@ -196,7 +188,10 @@ macro_rules! define_label {
             /// Returns an [`Interned`] value corresponding to `self`.
             fn intern(&self) -> $crate::intern::Interned<dyn $label_trait_name>
             where Self: ::core::marker::Sized {
-                $interner_name.intern(self)
+                static INTERNER: $crate::intern::Interner<dyn $label_trait_name> =
+                    $crate::intern::Interner::new();
+
+                INTERNER.intern(self)
             }
         }
 
@@ -252,8 +247,5 @@ macro_rules! define_label {
                 ptr::from_ref::<Self>(self).cast::<()>().hash(state);
             }
         }
-
-        static $interner_name: $crate::intern::Interner<dyn $label_trait_name> =
-            $crate::intern::Interner::new();
     };
 }

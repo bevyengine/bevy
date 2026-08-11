@@ -53,7 +53,9 @@ impl Default for BundleAttributes {
     }
 }
 
-/// Implement the `Bundle` trait.
+/// Implement the [`Bundle`] trait.
+///
+/// [`Bundle`]: trait.Bundle.html
 #[proc_macro_derive(Bundle, attributes(bundle))]
 pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
@@ -159,6 +161,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         impl #impl_generics #ecs_path::bundle::DynamicBundle for #struct_name #ty_generics #where_clause {
             type Effect = ();
             #[allow(unused_variables)]
+            #[allow(non_snake_case, reason = "deconstruct_moving_ptr uses #active_field_locals as a local binding name")]
             #[inline]
             unsafe fn get_components(
                 ptr: #ecs_path::ptr::MovingPtr<'_, Self>,
@@ -211,7 +214,9 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     })
 }
 
-/// Implement the `MapEntities` trait.
+/// Implement the [`MapEntities`] trait.
+///
+/// [`MapEntities`]: trait.MapEntities.html
 #[proc_macro_derive(MapEntities, attributes(entities))]
 pub fn derive_map_entities(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
@@ -237,7 +242,9 @@ pub fn derive_map_entities(input: TokenStream) -> TokenStream {
     })
 }
 
-/// Implement `SystemParam` to use a struct as a parameter in a system
+/// Implement [`SystemParam`] to use a struct as a parameter in a system.
+///
+/// [`SystemParam`]: trait.SystemParam.html#derive
 #[proc_macro_derive(SystemParam, attributes(system_param))]
 pub fn derive_system_param(input: TokenStream) -> TokenStream {
     let token_stream = input.clone();
@@ -486,21 +493,27 @@ fn derive_system_param_impl(
     }))
 }
 
-/// Implement `QueryData` to use a struct as a data parameter in a query
+/// Implement [`QueryData`] to use a struct as a data parameter in a query.
+///
+/// [`QueryData`]: trait.QueryData.html
 #[proc_macro_derive(QueryData, attributes(query_data))]
 pub fn derive_query_data(input: TokenStream) -> TokenStream {
     derive_query_data_impl(input)
 }
 
-/// Implement `QueryFilter` to use a struct as a filter parameter in a query
+/// Implement [`QueryFilter`] to use a struct as a filter parameter in a query.
+///
+/// [`QueryFilter`]: trait.QueryFilter.html
 #[proc_macro_derive(QueryFilter, attributes(query_filter))]
 pub fn derive_query_filter(input: TokenStream) -> TokenStream {
     derive_query_filter_impl(input)
 }
 
-/// Derive macro generating an impl of the trait `ScheduleLabel`.
+/// Derive macro generating an impl of the trait [`ScheduleLabel`].
 ///
 /// This does not work for unions.
+///
+/// [`ScheduleLabel`]: trait.ScheduleLabel.html
 #[proc_macro_derive(ScheduleLabel)]
 pub fn derive_schedule_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -512,9 +525,11 @@ pub fn derive_schedule_label(input: TokenStream) -> TokenStream {
     derive_label(input, "ScheduleLabel", &trait_path)
 }
 
-/// Derive macro generating an impl of the trait `SystemSet`.
+/// Derive macro generating an impl of the trait [`SystemSet`].
 ///
 /// This does not work for unions.
+///
+/// [`SystemSet`]: trait.SystemSet.html
 #[proc_macro_derive(SystemSet)]
 pub fn derive_system_set(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -532,12 +547,16 @@ pub(crate) fn bevy_settings_path() -> syn::Path {
     BevyManifest::shared(|manifest| manifest.get_path("bevy-settings"))
 }
 
-/// Implement the `Event` trait.
+/// Implement the [`Event`] trait.
+///
+/// [`Event`]: trait.Event.html
 #[proc_macro_derive(Event, attributes(event))]
 pub fn derive_event(input: TokenStream) -> TokenStream {
     event::derive_event(input)
 }
 
+/// Implement the [`EntityEvent`] trait.
+///
 /// Cheat sheet for derive syntax,
 /// see full explanation on `EntityEvent` trait docs.
 ///
@@ -551,18 +570,21 @@ pub fn derive_event(input: TokenStream) -> TokenStream {
 /// #[entity_event(auto_propagate)]
 /// struct MyEvent;
 /// ```
+/// [`EntityEvent`]: ../event/trait.EntityEvent.html
 #[proc_macro_derive(EntityEvent, attributes(entity_event, event_target))]
 pub fn derive_entity_event(input: TokenStream) -> TokenStream {
     event::derive_entity_event(input)
 }
 
-/// Implement the `Message` trait.
+/// Implement the [`Message`] trait.
+///
+/// [`Message`]: ../message/trait.Message.html
 #[proc_macro_derive(Message)]
 pub fn derive_message(input: TokenStream) -> TokenStream {
     message::derive_message(input)
 }
 
-/// Implement the `Resource` trait.
+/// Implement the [`Resource`] trait.
 ///
 /// ## Immutability
 /// ```ignore
@@ -582,13 +604,17 @@ pub fn derive_message(input: TokenStream) -> TokenStream {
 /// or a function call that returns a function that can be turned into
 /// a `ComponentHook`, e.g. `get_closure("Hi!")`.
 /// `function` can be elided if the path is `Self::on_add`, `Self::on_insert` etc.
+///
+/// [`Resource`]: ../resource/trait.Resource.html
 #[proc_macro_derive(Resource, attributes(component, require))]
 pub fn derive_resource(input: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(input as DeriveInput);
     TokenStream::from(resource::derive_resource(&mut ast))
 }
 
-/// Cheat sheet for derive syntax,
+/// Implement [`SettingsGroup`].
+///
+/// Cheat sheet for derive syntax.
 ///
 /// ## Group Override
 /// ```ignore
@@ -629,6 +655,8 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
 /// [my_settings_enum]
 /// my_key = "variant1"
 /// ```
+///
+/// [`SettingsGroup`]: ../bevy_settings/trait.SettingsGroup.html
 #[proc_macro_derive(SettingsGroup, attributes(settings_group))]
 pub fn derive_settings_group(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -726,8 +754,10 @@ pub fn derive_settings_group(input: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
+/// Implement the [`Component`] trait.
+///
 /// Cheat sheet for derive syntax,
-/// see full explanation and examples on the `Component` trait doc.
+/// see full explanation and examples on the [`Component`] trait doc.
 ///
 /// ## Immutability
 /// ```ignore
@@ -821,6 +851,7 @@ pub fn derive_settings_group(input: TokenStream) -> TokenStream {
 /// #[component(clone_behavior = Ignore)]
 /// struct MyComponent;
 /// ```
+/// [`Component`]: ../component/trait.Component.html
 #[proc_macro_derive(
     Component,
     attributes(component, require, relationship, relationship_target, entities)
@@ -840,7 +871,9 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     TokenStream::from(impl_component)
 }
 
-/// Implement the `FromWorld` trait.
+/// Implement the [`FromWorld`] trait.
+///
+/// [`FromWorld`]: ../world/trait.FromWorld.html
 #[proc_macro_derive(FromWorld, attributes(from_world))]
 pub fn derive_from_world(input: TokenStream) -> TokenStream {
     let bevy_ecs_path = bevy_ecs_path();
@@ -899,13 +932,18 @@ pub fn derive_from_world(input: TokenStream) -> TokenStream {
     })
 }
 
-/// Derives `FromTemplate`.
+/// Derives [`FromTemplate`].
+///
+/// [`FromTemplate`]: ../template/trait.FromTemplate.html
 #[proc_macro_derive(FromTemplate, attributes(template, default))]
 pub fn derive_from_template(input: TokenStream) -> TokenStream {
     template::derive_from_template(input)
 }
 
-/// Derives `VariantDefaults`.
+/// Derives a `default_<name>` for each branch of an `enum`
+/// for use with [`Template`].
+///
+/// [`Template`]: template/trait.Template.html
 #[proc_macro_derive(VariantDefaults)]
 pub fn derive_variant_defaults(input: TokenStream) -> TokenStream {
     variant_defaults::derive_variant_defaults(input)

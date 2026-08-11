@@ -118,7 +118,8 @@ pub struct ExecutorState {
     exclusive_running: bool,
     /// The number of systems that are running.
     num_running_systems: usize,
-    /// The number of dependencies each system has that have not completed.
+    /// The number of dependencies each system has that have not been satisfied. A dependency
+    /// is satisfied when the predecessor completes.
     num_dependencies_remaining: Vec<usize>,
     /// System sets whose conditions have been evaluated.
     evaluated_sets: FixedBitSet,
@@ -179,6 +180,7 @@ impl SystemExecutor for MultiThreadedExecutor {
                 is_send: schedule.systems[index].system.is_send(),
                 is_exclusive: schedule.systems[index].system.is_exclusive(),
             });
+            // A system with no dependencies is a starting system.
             if schedule.system_dependencies[index] == 0 {
                 self.starting_systems.insert(index);
             }
@@ -331,7 +333,9 @@ impl<'scope, 'env: 'scope, 'sys> Context<'scope, 'env, 'sys> {
         &self,
         system_index: usize,
         res: Result<(), Box<dyn Any + Send>>,
-        system: &ScheduleSystem,
+        // This must not take `&ScheduleSystem`, because Rust requires references to be valid for the entire function,
+        // and the system may be accessed by another thread running `apply_deferred` after `tick_executor()` runs.
+        system: &SyncUnsafeCell<SystemWithAccess>,
     ) {
         // tell the executor that the system finished
         self.environment
@@ -343,6 +347,8 @@ impl<'scope, 'env: 'scope, 'sys> Context<'scope, 'env, 'sys> {
             #[cfg(feature = "std")]
             #[expect(clippy::print_stderr, reason = "Allowed behind `std` feature gate.")]
             {
+                // SAFETY: this system is not running, no other reference exists
+                let system = unsafe { &(*system.get()).system };
                 eprintln!("Encountered a panic in system `{}`!", system.name());
             }
             // set the payload to propagate the error
@@ -654,8 +660,7 @@ impl ExecutorState {
     /// - `world` must have permission to access the world data
     ///   used by the specified system.
     unsafe fn spawn_system_task(&mut self, context: &Context, system_index: usize) {
-        // SAFETY: this system is not running, no other reference exists
-        let system = &mut unsafe { &mut *context.environment.systems[system_index].get() }.system;
+        let system = &context.environment.systems[system_index];
         // Move the full context object into the new future.
         let context = *context;
 
@@ -675,7 +680,8 @@ impl ExecutorState {
                         )
                     }
                 },
-                system,
+                // SAFETY: this system is not running, no other reference exists
+                unsafe { &mut (*system.get()).system },
                 context.error_handler,
                 "System panicked",
             );
@@ -693,12 +699,12 @@ impl ExecutorState {
     /// # Safety
     /// Caller must ensure no systems are currently borrowed.
     unsafe fn spawn_exclusive_system_task(&mut self, context: &Context, system_index: usize) {
-        // SAFETY: this system is not running, no other reference exists
-        let system = &mut unsafe { &mut *context.environment.systems[system_index].get() }.system;
+        let system = &context.environment.systems[system_index];
         // Move the full context object into the new future.
         let context = *context;
 
-        if is_apply_deferred(&**system) {
+        // SAFETY: this system is not running, no other reference exists
+        if is_apply_deferred(unsafe { &*(*system.get()).system }) {
             // TODO: avoid allocation
             let unapplied_systems = self.unapplied_systems.clone();
             self.unapplied_systems.clear();
@@ -723,7 +729,8 @@ impl ExecutorState {
                 let world = unsafe { context.environment.world_cell.world_mut() };
                 let res = handle_errors(
                     |system| __rust_begin_short_backtrace::run(system, world),
-                    system,
+                    // SAFETY: this system is not running, no other reference exists
+                    unsafe { &mut (*system.get()).system },
                     context.error_handler,
                     "Exclusive system panicked",
                 );
@@ -762,6 +769,8 @@ impl ExecutorState {
         self.signal_dependents(system_index);
     }
 
+    /// Called when `system_index` completes, satisfying one dependency for each of its
+    /// dependents and marking any that become ready to run.
     fn signal_dependents(&mut self, system_index: usize) {
         for &dep_idx in &self.system_task_metadata[system_index].dependents {
             let remaining = &mut self.num_dependencies_remaining[dep_idx];

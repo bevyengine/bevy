@@ -35,10 +35,10 @@ pub struct SkyboxPlugin;
 
 impl Plugin for SkyboxPlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "skybox.wgsl");
+        embedded_asset!(app, "skybox.wesl");
 
         app.add_plugins((
-            SyncComponentPlugin::<Skybox, Self>::default(),
+            SyncComponentPlugin::<Skybox, RenderApp, Self>::default(),
             UniformComponentPlugin::<SkyboxUniforms>::default(),
         ));
 
@@ -59,7 +59,7 @@ impl Plugin for SkyboxPlugin {
     }
 }
 
-impl SyncComponent<SkyboxPlugin> for Skybox {
+impl SyncComponent<RenderApp, SkyboxPlugin> for Skybox {
     type Target = (Self, SkyboxUniforms, SkyboxPipelineId, SkyboxBindGroup);
 }
 
@@ -132,7 +132,7 @@ impl SkyboxPipeline {
 }
 
 fn init_skybox_pipeline(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let shader = load_embedded_asset!(asset_server.as_ref(), "skybox.wgsl");
+    let shader = load_embedded_asset!(asset_server.as_ref(), "skybox.wesl");
     commands.insert_resource(SkyboxPipeline::new(shader));
 }
 

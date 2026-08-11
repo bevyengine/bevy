@@ -60,7 +60,7 @@ fn main() {
     // Notice here we bind it as a `dyn PartialReflect` instead of `dyn Reflect`.
     // This is because it returns a dynamic type that simply represents the original type.
     // In this case, because `Player` is a struct, it will return a `DynamicStruct`.
-    let dynamic: Box<dyn PartialReflect> = reflected.to_dynamic();
+    let dynamic: Box<dyn PartialReflect> = reflected.to_dynamic().unwrap();
     assert!(dynamic.is_dynamic());
 
     // And if we try to convert it back to a `dyn Reflect` trait object, we'll get `None`.

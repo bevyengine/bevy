@@ -98,7 +98,7 @@ impl<'a> BundleWriter<'a> {
         OwningPtr::make(component, |ptr| {
             // SAFETY: ptr points to a C component value which matches the `id` looked up above.
             // Layout matches C.
-            self.push_component_by_id(id, ptr, Layout::new::<C>());
+            unsafe { self.push_component_by_id(id, ptr, Layout::new::<C>()) };
         });
     }
 
@@ -116,7 +116,10 @@ impl<'a> BundleWriter<'a> {
         layout: Layout,
     ) {
         let ptr = self.0.alloc.alloc_layout(layout);
-        core::ptr::copy(component.as_ptr(), ptr.as_ptr(), layout.size());
+        // SAFETY:
+        // - `component` points to a valid value with this layout per precondition
+        // - `ptr` was just allocated (so cannot overlap) and has the same layout
+        unsafe { core::ptr::copy_nonoverlapping(component.as_ptr(), ptr.as_ptr(), layout.size()) };
         self.0.component_ids.push(id);
         self.0.component_ptrs.push(ptr);
     }
@@ -132,7 +135,8 @@ impl<'a> BundleWriter<'a> {
     /// [`Self::write`] or [`Self::write_with_relationship_hook_insert_mode`] were called with.
     #[track_caller]
     pub unsafe fn write(self, entity: &mut EntityWorldMut) {
-        self.write_with_relationship_hook_insert_mode(entity, RelationshipHookMode::Run);
+        // SAFETY: Same preconditions
+        unsafe { self.write_with_relationship_hook_insert_mode(entity, RelationshipHookMode::Run) };
     }
 
     /// Writes the current contents of the bundle to the given `entity` and clears the scratch space.
