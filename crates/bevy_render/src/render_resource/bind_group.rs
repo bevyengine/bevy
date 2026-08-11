@@ -733,6 +733,10 @@ pub enum OwnedBindingResource {
 /// This is the same as [`OwnedBindingResource`], except it references the
 /// [`BindGroupBuilder::data_buffer`] instead of requiring separate allocations
 /// for POD.
+///
+/// The name "unprepared" refers to the fact that this represents an individual
+/// binding resource that hasn't been added to a bind group (i.e. "prepared")
+/// yet.
 #[derive(Debug)]
 pub enum UnpreparedBindingResource {
     Buffer(Buffer),
