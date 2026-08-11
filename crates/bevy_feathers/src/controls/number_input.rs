@@ -1516,7 +1516,7 @@ fn update_slidebar_styles_context(
 /// The units are not actually stored with the numeric quantity, and are only used for display
 /// and editing.
 pub trait UnitsFormat: Send + Sync {
-    /// Unique id of this format, e.g. "length_meters". This will be stored in the
+    /// Unique id of this format, e.g. ``"length_meters"``. This will be stored in the
     /// [`NumberInputUnits`] component and used to locate this object in the units registry.
     fn id(&self) -> &'static str;
 
