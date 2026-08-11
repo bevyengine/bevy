@@ -878,10 +878,6 @@ pub fn queue_material2d_meshes<M: Material2d>(
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
-    if render_material_instances.is_empty() {
-        return;
-    }
-
     for (view_entity, view, visible_entities) in &views {
         let Some(view_specialized_material_pipeline_cache) =
             specialized_material_pipeline_cache.get(view_entity)
@@ -930,6 +926,14 @@ pub fn queue_material2d_meshes<M: Material2d>(
             transparent_phase.remove(Entity::PLACEHOLDER, *main_entity);
             opaque_phase.remove(*main_entity);
             alpha_mask_phase.remove(*main_entity);
+        }
+
+        // With no entity using this material there is nothing to queue, but the
+        // dequeue above still has to run: it is the only thing that takes items
+        // of despawned entities out of the retained phases, and it has to run on
+        // the very frame the last such entity goes away.
+        if render_material_instances.is_empty() {
+            continue;
         }
 
         // Now iterate over all newly-visible entities and those that need
