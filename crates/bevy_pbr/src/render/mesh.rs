@@ -3173,8 +3173,8 @@ impl MeshPipelineKey {
     // `MAX_VIEW_COUNT` is 32 (see `bevy_camera::multiview::MAX_VIEW_COUNT`),
     // so 6 bits is enough.
     const MAX_VIEW_COUNT_MASK_BITS: u64 = 0b111111;
-    const MAX_VIEW_COUNT_SHIFT_BITS: u64 =
-        Self::COLOR_TARGET_FORMAT_MASK_BITS.count_ones() as u64 + Self::COLOR_TARGET_FORMAT_SHIFT_BITS;
+    const MAX_VIEW_COUNT_SHIFT_BITS: u64 = Self::COLOR_TARGET_FORMAT_MASK_BITS.count_ones() as u64
+        + Self::COLOR_TARGET_FORMAT_SHIFT_BITS;
 
     pub fn from_msaa_samples(msaa_samples: u32) -> Self {
         let msaa_bits =
@@ -3219,7 +3219,8 @@ impl MeshPipelineKey {
     /// no count has been encoded (i.e. non-multiview).
     #[inline]
     pub fn max_view_count(&self) -> u32 {
-        let bits = ((self.bits() >> Self::MAX_VIEW_COUNT_SHIFT_BITS) & Self::MAX_VIEW_COUNT_MASK_BITS) as u32;
+        let bits = ((self.bits() >> Self::MAX_VIEW_COUNT_SHIFT_BITS)
+            & Self::MAX_VIEW_COUNT_MASK_BITS) as u32;
         bits.max(1)
     }
 

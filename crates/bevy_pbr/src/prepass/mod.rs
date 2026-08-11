@@ -43,7 +43,8 @@ use bevy_render::{
     sync_world::{MainEntityHashSet, RenderEntity},
     view::{
         ExtractedMultiview, ExtractedView, Msaa, RenderVisibilityRanges, RenderVisibleEntities,
-        RetainedViewEntity, ViewUniformOffset, ViewUniforms, VISIBILITY_RANGES_STORAGE_BUFFER_COUNT,
+        RetainedViewEntity, ViewUniformOffset, ViewUniforms,
+        VISIBILITY_RANGES_STORAGE_BUFFER_COUNT,
     },
     Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderDebugFlags,
     RenderStartup, RenderSystems,

@@ -186,9 +186,7 @@ pub fn queue_oit_resolve_pipeline(
     let mut current_view_entities = EntityHashSet::default();
     for (e, view, oit_settings, depth_prepass, multiview) in &cameras {
         current_view_entities.insert(e);
-        let multiview_view_count = multiview
-            .map(|m| m.subviews.len() as u32)
-            .unwrap_or(1);
+        let multiview_view_count = multiview.map(|m| m.subviews.len() as u32).unwrap_or(1);
         let key = OitResolvePipelineKey {
             target_format: view.target_format,
             sorted_fragment_max_count: oit_settings.sorted_fragment_max_count,

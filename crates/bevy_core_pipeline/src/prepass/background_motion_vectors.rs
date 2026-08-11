@@ -20,7 +20,6 @@ use bevy_ecs::{
 };
 use bevy_log::warn;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use core::num::NonZeroU32;
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_resource::{
@@ -37,6 +36,7 @@ use bevy_render::{
 };
 use bevy_shader::{Shader, ShaderDefVal};
 use bevy_utils::prelude::default;
+use core::num::NonZeroU32;
 
 use crate::{
     core_3d::CORE_3D_DEPTH_FORMAT,
@@ -276,7 +276,12 @@ fn prepare_background_motion_vectors_pipelines(
     mut pipelines: ResMut<SpecializedRenderPipelines<BackgroundMotionVectorsPipeline>>,
     pipeline: Res<BackgroundMotionVectorsPipeline>,
     views: Query<
-        (Entity, Has<NormalPrepass>, &Msaa, Option<&ExtractedMultiview>),
+        (
+            Entity,
+            Has<NormalPrepass>,
+            &Msaa,
+            Option<&ExtractedMultiview>,
+        ),
         (
             With<MotionVectorPrepass>,
             Without<NoBackgroundMotionVectors>,
@@ -284,9 +289,7 @@ fn prepare_background_motion_vectors_pipelines(
     >,
 ) {
     for (entity, normal_prepass, msaa, multiview) in &views {
-        let multiview_view_count = multiview
-            .map(|m| m.subviews.len() as u32)
-            .unwrap_or(1);
+        let multiview_view_count = multiview.map(|m| m.subviews.len() as u32).unwrap_or(1);
         let id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,

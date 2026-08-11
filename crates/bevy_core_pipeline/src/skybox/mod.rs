@@ -130,8 +130,7 @@ impl SkyboxPipeline {
                         // packed `DynamicArrayUniformBuffer<ViewUniform>` and
                         // the dynamic offset selects the per-camera array
                         // slot.
-                        uniform_buffer_sized(true, None)
-                            .visibility(ShaderStages::VERTEX_FRAGMENT),
+                        uniform_buffer_sized(true, None).visibility(ShaderStages::VERTEX_FRAGMENT),
                         uniform_buffer::<SkyboxUniforms>(true),
                     ),
                 ),
@@ -236,15 +235,10 @@ fn prepare_skybox_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<SkyboxPipeline>>,
     pipeline: Res<SkyboxPipeline>,
-    cameras: Query<
-        (Entity, &ExtractedView, &Msaa, Option<&ExtractedMultiview>),
-        With<Skybox>,
-    >,
+    cameras: Query<(Entity, &ExtractedView, &Msaa, Option<&ExtractedMultiview>), With<Skybox>>,
 ) {
     for (entity, view, msaa, multiview) in &cameras {
-        let multiview_view_count = multiview
-            .map(|m| m.subviews.len() as u32)
-            .unwrap_or(1);
+        let multiview_view_count = multiview.map(|m| m.subviews.len() as u32).unwrap_or(1);
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,

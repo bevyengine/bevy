@@ -406,8 +406,11 @@ impl DepthStencilAttachment {
         layer: u32,
         store: StoreOp,
     ) -> RenderPassDepthStencilAttachment<'_> {
-        self.depth_stencil_view_attachment
-            .get_attachment_for_layer(&self.texture.texture, layer, store)
+        self.depth_stencil_view_attachment.get_attachment_for_layer(
+            &self.texture.texture,
+            layer,
+            store,
+        )
     }
 
     /// Marks this depth attachment as unused this frame so that it'll be

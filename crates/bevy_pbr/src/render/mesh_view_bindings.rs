@@ -890,7 +890,9 @@ pub fn prepare_mesh_view_bind_groups(
             if let Some(ssao_resources) = ssao_resources {
                 layout_key |= MeshPipelineViewLayoutKey::SCREEN_SPACE_AMBIENT_OCCLUSION;
                 let ssao_view = ssao_array_view.as_ref().unwrap_or(
-                    &ssao_resources.screen_space_ambient_occlusion_texture.default_view,
+                    &ssao_resources
+                        .screen_space_ambient_occlusion_texture
+                        .default_view,
                 );
                 entries = entries.extend_with_indices(((17, ssao_view),));
             }
@@ -910,13 +912,12 @@ pub fn prepare_mesh_view_bind_groups(
             } else {
                 None
             };
-            let transmission_view: &TextureView = transmission_array_view.as_ref().unwrap_or_else(
-                || {
+            let transmission_view: &TextureView =
+                transmission_array_view.as_ref().unwrap_or_else(|| {
                     transmission_texture
                         .map(|transmission| &transmission.view)
                         .unwrap_or(&fallback_image_zero.texture_view)
-                },
-            );
+                });
 
             let transmission_sampler = transmission_texture
                 .map(|transmission| &transmission.sampler)

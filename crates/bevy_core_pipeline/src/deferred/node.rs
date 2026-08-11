@@ -210,11 +210,7 @@ fn run_deferred_prepass_system(
                 if is_late {
                     deferred_texture.get_attachment()
                 } else {
-                    #[cfg(all(
-                        feature = "webgl",
-                        target_arch = "wasm32",
-                        not(feature = "webgpu")
-                    ))]
+                    #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
                     {
                         bevy_render::render_resource::RenderPassColorAttachment {
                             view: &deferred_texture.texture.default_view,

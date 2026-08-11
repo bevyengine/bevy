@@ -97,8 +97,7 @@ pub fn main_transmissive_pass_3d(
                         occlusion_query_set: None,
                         multiview_mask: None,
                     };
-                    let mut render_pass =
-                        ctx.begin_tracked_render_pass(render_pass_descriptor);
+                    let mut render_pass = ctx.begin_tracked_render_pass(render_pass_descriptor);
                     let pass_span =
                         diagnostics.pass_span(&mut render_pass, "main_transmissive_pass_3d");
 

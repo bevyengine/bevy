@@ -34,8 +34,8 @@ use bevy_render::{
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     render_resource::{
         binding_types::{
-            sampler, texture_2d, texture_2d_array, texture_depth_2d,
-            texture_depth_2d_multisampled, uniform_buffer,
+            sampler, texture_2d, texture_2d_array, texture_depth_2d, texture_depth_2d_multisampled,
+            uniform_buffer,
         },
         BindGroup, BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries,
         CachedRenderPipelineId, ColorTargetState, ColorWrites, FilterMode, FragmentState, LoadOp,
@@ -389,8 +389,7 @@ pub fn prepare_depth_of_field_view_bind_group_layouts(
         // MSAA + multiview keeps the single-layer shape because WGSL has no
         // `texture_depth_multisampled_2d_array` (same carve-out as the
         // prepass-texture bindings in `mesh_view_bindings.wesl`).
-        let use_multiview_depth =
-            multiview.is_some_and(|m| m.subviews.len() > 1) && !is_msaa;
+        let use_multiview_depth = multiview.is_some_and(|m| m.subviews.len() > 1) && !is_msaa;
         let depth_binding = if is_msaa {
             texture_depth_2d_multisampled()
         } else if use_multiview_depth {

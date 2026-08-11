@@ -396,9 +396,7 @@ pub fn prepare_view_tonemapping_pipelines(
                 .any(|section| *section != default()),
         );
 
-        let multiview_view_count = multiview
-            .map(|m| m.subviews.len() as u32)
-            .unwrap_or(1);
+        let multiview_view_count = multiview.map(|m| m.subviews.len() as u32).unwrap_or(1);
 
         let key = TonemappingPipelineKey {
             target_format: view.target_format,

@@ -545,8 +545,7 @@ impl FromWorld for ClusteringRasterPipeline {
             // and `array<View, 1>` for the non-multiview fallback. Backing
             // storage is the packed `DynamicArrayUniformBuffer<ViewUniform>`
             // and the dynamic offset selects the per-camera array slot.
-            binding_types::uniform_buffer_sized(true, None)
-                .build(6, ShaderStages::VERTEX_FRAGMENT),
+            binding_types::uniform_buffer_sized(true, None).build(6, ShaderStages::VERTEX_FRAGMENT),
         ];
 
         let mut bind_group_layout_entries_populate_pass =
@@ -1520,9 +1519,7 @@ fn prepare_clustering_pipelines(
     clustering_allocation_pipeline: Res<ClusteringAllocationPipeline>,
 ) {
     for (view_entity, multiview) in &views_query {
-        let multiview_view_count = multiview
-            .map(|m| m.subviews.len() as u32)
-            .unwrap_or(1);
+        let multiview_view_count = multiview.map(|m| m.subviews.len() as u32).unwrap_or(1);
 
         let clustering_z_slicing_pipeline_id = clustering_z_slicing_pipelines.specialize(
             &pipeline_cache,

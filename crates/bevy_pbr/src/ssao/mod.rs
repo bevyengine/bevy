@@ -663,7 +663,7 @@ fn prepare_ssao_pipelines(
     }
 }
 
-/// Per-eye bind groups dispatched once per view layer in [`ssao`].
+/// Per-eye bind groups dispatched once per view layer by the SSAO render node.
 pub struct SsaoPerViewBindGroups {
     pub preprocess_depth_bind_group: BindGroup,
     pub ssao_bind_group: BindGroup,
@@ -833,7 +833,9 @@ fn prepare_ssao_bind_groups(
             });
             let ssao_output_layer_view = is_multiview.then(|| {
                 single_layer_view(
-                    &ssao_resources.screen_space_ambient_occlusion_texture.texture,
+                    &ssao_resources
+                        .screen_space_ambient_occlusion_texture
+                        .texture,
                     layer,
                     "ssao_output_layer_view",
                 )
@@ -850,9 +852,7 @@ fn prepare_ssao_bind_groups(
                 &pipeline_cache
                     .get_bind_group_layout(&pipelines.preprocess_depth_bind_group_layout),
                 &BindGroupEntries::sequential((
-                    prepass_depth_view
-                        .as_ref()
-                        .unwrap_or(depth_view),
+                    prepass_depth_view.as_ref().unwrap_or(depth_view),
                     &mip0,
                     &mip1,
                     &mip2,
@@ -885,8 +885,7 @@ fn prepare_ssao_bind_groups(
 
             let spatial_denoise_bind_group = render_device.create_bind_group(
                 "ssao_spatial_denoise_bind_group",
-                &pipeline_cache
-                    .get_bind_group_layout(&pipelines.spatial_denoise_bind_group_layout),
+                &pipeline_cache.get_bind_group_layout(&pipelines.spatial_denoise_bind_group_layout),
                 &BindGroupEntries::sequential((
                     ssao_noisy_layer_view
                         .as_ref()

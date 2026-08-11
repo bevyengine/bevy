@@ -22,8 +22,8 @@ use bevy_render::{
     render_asset::RenderAssets,
     render_resource::{
         binding_types::{
-            sampler, texture_2d_array, texture_3d, texture_depth_2d,
-            texture_depth_2d_multisampled, uniform_buffer,
+            sampler, texture_2d_array, texture_3d, texture_depth_2d, texture_depth_2d_multisampled,
+            uniform_buffer,
         },
         BindGroupLayoutDescriptor, BindGroupLayoutEntries, BindingResource, BlendComponent,
         BlendFactor, BlendOperation, BlendState, CachedRenderPipelineId, ColorTargetState,
@@ -325,9 +325,7 @@ pub fn volumetric_fog(
         multiview,
     ) = view.into_inner();
 
-    let multiview_view_count = multiview
-        .map(|m| m.subviews.len() as u32)
-        .unwrap_or(1);
+    let multiview_view_count = multiview.map(|m| m.subviews.len() as u32).unwrap_or(1);
 
     // Fetch the uniform buffer and binding.
     let (
@@ -596,10 +594,7 @@ pub fn prepare_volumetric_fog_pipelines(
     mut pipelines: ResMut<SpecializedRenderPipelines<VolumetricFogPipeline>>,
     volumetric_lighting_pipeline: Res<VolumetricFogPipeline>,
     fog_assets: Res<FogAssets>,
-    view_targets: Query<
-        (Entity, &ExtractedView, Option<&ExtractedMultiview>),
-        With<VolumetricFog>,
-    >,
+    view_targets: Query<(Entity, &ExtractedView, Option<&ExtractedMultiview>), With<VolumetricFog>>,
     meshes: Res<RenderAssets<RenderMesh>>,
     view_key_cache: Res<ViewKeyCache>,
 ) {
@@ -619,9 +614,7 @@ pub fn prepare_volumetric_fog_pipelines(
             vertex_buffer_layout: plane_mesh.layout.clone(),
             target_format: view.target_format,
             has_density_texture: false,
-            multiview_view_count: multiview
-                .map(|m| m.subviews.len() as u32)
-                .unwrap_or(1),
+            multiview_view_count: multiview.map(|m| m.subviews.len() as u32).unwrap_or(1),
         };
         let textureless_pipeline_id = pipelines.specialize(
             &pipeline_cache,
