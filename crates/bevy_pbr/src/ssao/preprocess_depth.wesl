@@ -26,7 +26,6 @@ import bevy_render::view::View;
 @group(1) @binding(1) var linear_clamp_sampler: sampler;
 @group(1) @binding(2) var<uniform> view: View;
 
-
 // Using 4 depths from the previous MIP, compute a weighted average for the depth of the current MIP
 fn weighted_average(depth0: f32, depth1: f32, depth2: f32, depth3: f32) -> f32 {
     let depth_range_scale_factor = 0.75;
