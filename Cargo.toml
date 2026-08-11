@@ -608,14 +608,8 @@ default_font = ["bevy_internal/default_font"]
 # Allows for discovery of preloaded system fonts
 system_font_discovery = ["bevy_internal/system_font_discovery"]
 
-# Enable support for shaders in GLSL
-shader_format_glsl = ["bevy_internal/shader_format_glsl"]
-
 # Enable support for shaders in SPIR-V
 shader_format_spirv = ["bevy_internal/shader_format_spirv"]
-
-# Enable support for shaders in WESL
-shader_format_wesl = ["bevy_internal/shader_format_wesl"]
 
 # Enable support for transmission-related textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs
 pbr_transmission_textures = ["bevy_internal/pbr_transmission_textures"]
@@ -912,6 +906,7 @@ wasm = true
 name = "2d_shapes"
 path = "examples/2d/2d_shapes.rs"
 doc-scrape-examples = true
+required-features = ["bevy_feathers"]
 
 [package.metadata.example.2d_shapes]
 name = "2D Shapes"
@@ -3235,30 +3230,6 @@ category = "Shaders"
 wasm = true
 
 [[example]]
-name = "shader_material_glsl"
-path = "examples/shader/shader_material_glsl.rs"
-doc-scrape-examples = true
-required-features = ["shader_format_glsl"]
-
-[package.metadata.example.shader_material_glsl]
-name = "Material - GLSL"
-description = "A shader that uses the GLSL shading language"
-category = "Shaders"
-wasm = true
-
-[[example]]
-name = "shader_material_wesl"
-path = "examples/shader/shader_material_wesl.rs"
-doc-scrape-examples = true
-required-features = ["shader_format_wesl"]
-
-[package.metadata.example.shader_material_wesl]
-name = "Material - WESL"
-description = "A shader that uses WESL"
-category = "Shaders"
-wasm = true
-
-[[example]]
 name = "automatic_instancing"
 path = "examples/shader/automatic_instancing.rs"
 doc-scrape-examples = true
@@ -3978,6 +3949,17 @@ doc-scrape-examples = true
 [package.metadata.example.overflow_debug]
 name = "Overflow and Clipping Debug"
 description = "An example to debug overflow and clipping behavior"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "overflow_transform"
+path = "examples/ui/scroll_and_overflow/overflow_transform.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.overflow_transform]
+name = "Overflow Transform"
+description = "Demonstrates nested transformed UI clipping"
 category = "UI (User Interface)"
 wasm = true
 
@@ -4946,7 +4928,7 @@ wasm = true
 name = "clearcoat"
 path = "examples/3d/clearcoat.rs"
 doc-scrape-examples = true
-required-features = ["pbr_multi_layer_material_textures"]
+required-features = ["pbr_multi_layer_material_textures", "bevy_feathers"]
 
 [package.metadata.example.clearcoat]
 name = "Clearcoat"
@@ -5464,6 +5446,17 @@ doc-scrape-examples = true
 name = "Standard Widgets"
 description = "Demonstrates use of core (headless) widgets in Bevy UI"
 category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "character_creation"
+path = "examples/usage/character_creation.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.character_creation]
+name = "Character Creation with UI Widgets"
+description = "Demonstrates how to use headless widgets to power a Character Creation Menu"
+category = "Usage"
 wasm = true
 
 [[example]]
