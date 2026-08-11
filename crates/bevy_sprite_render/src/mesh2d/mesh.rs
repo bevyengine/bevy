@@ -245,8 +245,8 @@ impl Mesh2dUniform {
     /// Creates a new [`Mesh2dUniform`] from the given transform, bind group
     /// slot, tag, and optional metadata index.
     ///
-    /// [`MeshFlags::SIGN_DETERMINANT_MODEL_3X3`] is derived from the transform and added to the
-    /// returned uniform's flags, so callers do not need to set it in [`Mesh2dTransforms::flags`].
+    /// [`MeshFlags::SIGN_DETERMINANT_MODEL_3X3`] is derived from the transform, so callers do not
+    /// need to set it in [`Mesh2dTransforms::flags`].
     pub fn from_components(
         mesh_transforms: &Mesh2dTransforms,
         material_bind_group_slot: MaterialBindGroupSlot,
@@ -256,9 +256,7 @@ impl Mesh2dUniform {
         let (local_from_world_transpose_a, local_from_world_transpose_b) =
             mesh_transforms.world_from_local.inverse_transpose_3x3();
 
-        // Tangents are signed relative to the handedness of the model matrix, so a mirroring
-        // transform has to flip them. This is derived here rather than taken from
-        // `Mesh2dTransforms::flags` so that custom extraction systems get it for free.
+        // A mirroring transform flips the sign of the tangent.
         let mut flags = MeshFlags::from_bits_retain(mesh_transforms.flags);
         if mesh_transforms
             .world_from_local

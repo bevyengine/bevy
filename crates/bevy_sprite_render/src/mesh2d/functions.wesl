@@ -47,9 +47,9 @@ fn mesh2d_normal_local_to_world(vertex_normal: vec3<f32>, instance_index: u32) -
     }
 }
 
-// Calculates the sign of the determinant of the 3x3 model matrix based on a
-// mesh flag.
 // Matches the `sign_determinant_model_3x3m` function in `bevy_pbr/mesh_functions.wesl`.
+// Calculates the sign of the determinant of the 3x3 model matrix based on a
+// mesh flag
 fn sign_determinant_model_3x3m(mesh_flags: u32) -> f32 {
     // bool(u32) is false if 0u else true
     // f32(bool) is 1.0 if true else 0.0

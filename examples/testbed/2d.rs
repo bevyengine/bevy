@@ -644,9 +644,7 @@ mod tangents {
 
     const SHADER_ASSET_PATH: &str = "shaders/mesh2d_tangents.wesl";
 
-    /// Draws the mesh's tangent space, turning red where a vector is not unit length, so
-    /// that a regression in `mesh2d_normal_local_to_world` or
-    /// `mesh2d_tangent_local_to_world` shows up as a color change.
+    /// Draws the mesh's tangent space, turning red where a vector is not unit length.
     #[derive(Asset, TypePath, AsBindGroup, Debug, Clone, Default)]
     pub struct TangentMaterial {}
 
@@ -672,10 +670,8 @@ mod tangents {
         );
         let material = materials.add(TangentMaterial {});
 
-        // Scaled. Both vectors have to stay unit length, so this is unaffected by the scale.
-        // Scaling z along with x and y is what makes this quad catch a missing normal
-        // normalization: normals go through the inverse transpose, so a 2D-idiomatic z of 1
-        // would leave this normal unit length by accident and only the tangent would go red.
+        // Scale z uniformly with x and y: at a z scale of 1 the inverse transpose leaves the
+        // normal unit length anyway, and a missing normal normalization would go unnoticed.
         commands.spawn((
             Mesh2d(mesh.clone()),
             MeshMaterial2d(material.clone()),
