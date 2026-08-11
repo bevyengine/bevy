@@ -1515,6 +1515,9 @@ fn update_slidebar_styles_context(
 /// with a number input widget to allow display and conversion of number values with units.
 /// The units are not actually stored with the numeric quantity, and are only used for display
 /// and editing.
+///
+/// A [`UnitsFormat`] must be added to the [`UnitsRegistry`] resource before it can be used.
+/// Widgets reference the units indirectly by id, allowing them to be serialized.
 pub trait UnitsFormat: Send + Sync {
     /// Unique id of this format, e.g. ``"length_meters"``. This will be stored in the
     /// [`NumberInputUnits`] component and used to locate this object in the units registry.
@@ -1534,7 +1537,8 @@ pub trait UnitsFormat: Send + Sync {
     fn parse(&self, value: String, fmt: NumberFormat) -> Result<NumberInputValue, String>;
 }
 
-/// A [`UnitsFormat`] meaning "no units"
+/// A [`UnitsFormat`] meaning "no units", which is the default units. This just does straight-up
+/// number parsing and formatting with no suffix.
 pub struct Dimensionless;
 
 impl UnitsFormat for Dimensionless {
@@ -1569,6 +1573,8 @@ pub struct StandardUnitItem {
 pub trait StandardUnitKind: Send + Sync {
     /// Lookup key for this unit type. The naming convention is `<dimension>_<preferred_display_unit>`,
     /// so examples are `length_meters`, `time_seconds`, or `angle_degrees`.
+    ///
+    /// This lookup key gets stored in the [`NumberInputUnits`] component.
     const ID: &'static str;
 
     /// Returns a reference to the table of units. Each entry in the table represents a single
