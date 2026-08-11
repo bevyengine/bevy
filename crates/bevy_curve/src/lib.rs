@@ -54,7 +54,7 @@
 //! simple one-off constructions and procedural uses, where flexibility is desirable. For example:
 //! ```rust
 //! # use bevy_math::vec3;
-//! # use bevy_math::curve::*;
+//! # use bevy_curve::prelude::*;
 //! // A sinusoid:
 //! let sine_curve = FunctionCurve::new(Interval::EVERYWHERE, f32::sin);
 //!
@@ -70,6 +70,7 @@
 //! more information about rasterization. Here is what an explicit sample-interpolated curve might look like:
 //! ```rust
 //! # use bevy_math::prelude::*;
+//! # use bevy_curve::prelude::*;
 //! # use std::f32::consts::FRAC_PI_2;
 //! // A list of angles that we want to traverse:
 //! let angles = [
@@ -95,6 +96,7 @@
 //! often quite straightforward:
 //! ```rust
 //! # use bevy_math::prelude::*;
+//! # use bevy_curve::prelude::*;
 //! struct ExponentialCurve {
 //!     exponent: f32,
 //! }
@@ -125,6 +127,7 @@
 //! for animation expects a `Curve<Vec3>`, since the object will move in three dimensions:
 //! ```rust
 //! # use bevy_math::{vec2, prelude::*};
+//! # use bevy_curve::prelude::*;
 //! # use std::f32::consts::TAU;
 //! // Our original curve, which may look something like this:
 //! let ellipse_curve = FunctionCurve::new(
@@ -140,6 +143,7 @@
 //! `reparametrize` methods can address this:
 //! ```rust
 //! # use bevy_math::{vec2, prelude::*};
+//! # use bevy_curve::prelude::*;
 //! # use std::f32::consts::TAU;
 //! # let ellipse_curve = FunctionCurve::new(interval(0.0, TAU).unwrap(), |t| vec2(t.cos(), t.sin() * 2.0));
 //! # let ellipse_motion_curve = ellipse_curve.map(|pos| pos.extend(0.0));
@@ -152,6 +156,7 @@
 //! changes the speed and direction in which it is traversed. For instance:
 //! ```rust
 //! # use bevy_math::{vec2, prelude::*};
+//! # use bevy_curve::prelude::*;
 //! // A line segment curve connecting two points in the plane:
 //! let start = vec2(-1.0, 1.0);
 //! let end = vec2(1.0, 1.0);
@@ -175,6 +180,7 @@
 //! curves end-to-end:
 //! ```rust
 //! # use bevy_math::{vec2, prelude::*};
+//! # use bevy_curve::prelude::*;
 //! # use std::f32::consts::PI;
 //! // A line segment connecting `(-1, 0)` to `(0, 0)`:
 //! let line_curve = FunctionCurve::new(
@@ -197,6 +203,7 @@
 //! that combines their output in a tuple:
 //! ```rust
 //! # use bevy_math::{vec2, prelude::*};
+//! # use bevy_curve::prelude::*;
 //! // Some entity's position in 2D:
 //! let position_curve = FunctionCurve::new(Interval::UNIT, |t| vec2(t.cos(), t.sin()));
 //!
@@ -219,6 +226,7 @@
 //! In effect, this allows very different curves to be rasterized and treated uniformly. For example:
 //! ```rust
 //! # use bevy_math::{vec2, prelude::*};
+//! # use bevy_curve::prelude::*;
 //! // A curve that is not easily transported because it relies on evaluating a function:
 //! let interesting_curve = FunctionCurve::new(Interval::UNIT, |t| vec2(t * 3.0, t.exp()));
 //!
@@ -250,6 +258,7 @@
 //! Here is a demonstration:
 //! ```rust
 //! # use bevy_math::prelude::*;
+//! # use bevy_curve::prelude::*;
 //! # let some_magic_constructor = || EasingCurve::new(0.0, 1.0, EaseFunction::ElasticInOut).graph();
 //! //`my_curve` is obtained somehow. It is a `Curve<(f32, f32)>`.
 //! let my_curve = some_magic_constructor();
@@ -285,8 +294,15 @@
 //! [^footnote]: In fact, universal as well, in some sense: if `curve` is any curve, then `FunctionCurve::new
 //! (curve.domain(), |t| curve.sample_unchecked(t))` is an equivalent function curve.
 
+#[cfg(feature = "std")]
+extern crate std;
+
+#[cfg(feature = "alloc")]
+extern crate alloc;
+
 pub mod adaptors;
 pub mod cores;
+pub mod cubic_splines;
 pub mod derivatives;
 pub mod easing;
 pub mod interval;
@@ -295,8 +311,9 @@ pub mod iterable;
 #[cfg(feature = "alloc")]
 pub mod sample_curves;
 
-// bevy_math::curve re-exports all commonly-needed curve-related items.
+// bevy_curve re-exports all commonly-needed curve-related items.
 pub use adaptors::*;
+pub use cubic_splines::*;
 pub use easing::*;
 pub use interval::{interval, Interval};
 
@@ -306,13 +323,13 @@ pub use {
     sample_curves::*,
 };
 
-use crate::VectorSpace;
+use bevy_math::VectorSpace;
 use core::{marker::PhantomData, ops::Deref};
 use interval::InvalidIntervalError;
 use thiserror::Error;
 
 #[cfg(feature = "alloc")]
-use {crate::StableInterpolate, itertools::Itertools};
+use {bevy_math::StableInterpolate, itertools::Itertools};
 
 /// A trait for a type that can represent values of type `T` parametrized over a fixed interval.
 ///
@@ -441,7 +458,7 @@ pub trait CurveExt<T>: Curve<T> + Sized {
     /// `[0, 2]` would be performed as follows, dividing by what might be perceived as the scaling
     /// factor rather than multiplying:
     /// ```
-    /// # use bevy_math::curve::*;
+    /// # use bevy_curve::prelude::*;
     /// let my_curve = ConstantCurve::new(Interval::UNIT, 1.0);
     /// let scaled_curve = my_curve.reparametrize(interval(0.0, 2.0).unwrap(), |t| t / 2.0);
     /// ```
@@ -451,7 +468,7 @@ pub trait CurveExt<T>: Curve<T> + Sized {
     /// # Examples
     /// ```
     /// // Reverse a curve:
-    /// # use bevy_math::curve::*;
+    /// # use bevy_curve::prelude::*;
     /// # use bevy_math::vec2;
     /// let my_curve = ConstantCurve::new(Interval::UNIT, 1.0);
     /// let domain = my_curve.domain();
@@ -737,7 +754,7 @@ pub trait CurveExt<T>: Curve<T> + Sized {
     ///
     /// # Example
     /// ```
-    /// # use bevy_math::curve::*;
+    /// # use bevy_curve::prelude::*;
     /// let my_curve = FunctionCurve::new(Interval::UNIT, |t| t * t + 1.0);
     ///
     /// // Borrow `my_curve` long enough to resample a mapped version. Note that `map` takes
@@ -793,7 +810,7 @@ pub trait CurveResampleExt<T>: Curve<T> {
     /// # Example
     /// ```
     /// # use bevy_math::*;
-    /// # use bevy_math::curve::*;
+    /// # use bevy_curve::prelude::*;
     /// let quarter_rotation = FunctionCurve::new(interval(0.0, 90.0).unwrap(), |t| Rot2::degrees(t));
     /// // A curve which only stores three data points and uses `nlerp` to interpolate them:
     /// let resampled_rotation = quarter_rotation.resample(3, |x, y, t| x.nlerp(*y, t));
@@ -826,7 +843,7 @@ pub trait CurveResampleExt<T>: Curve<T> {
     ///
     /// If `segments` is zero or if this curve has unbounded domain, a [`ResamplingError`] is returned.
     ///
-    /// [automatic interpolation]: crate::common_traits::StableInterpolate
+    /// [automatic interpolation]: bevy_math::common_traits::StableInterpolate
     fn resample_auto(&self, segments: usize) -> Result<SampleAutoCurve<T>, ResamplingError>
     where
         T: StableInterpolate,
@@ -901,7 +918,7 @@ pub trait CurveResampleExt<T>: Curve<T> {
     /// If `sample_times` doesn't contain at least two distinct times after filtering, a
     /// [`ResamplingError`] is returned.
     ///
-    /// [automatic interpolation]: crate::common_traits::StableInterpolate
+    /// [automatic interpolation]: bevy_math::common_traits::StableInterpolate
     fn resample_uneven_auto(
         &self,
         sample_times: impl IntoIterator<Item = f32>,
@@ -1004,11 +1021,10 @@ pub enum ResamplingError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{ops, Quat};
     use alloc::vec::Vec;
     use approx::{assert_abs_diff_eq, AbsDiffEq};
+    use bevy_math::{ops, Quat, Vec2};
     use core::f32::consts::TAU;
-    use glam::*;
 
     #[test]
     fn curve_can_be_made_into_an_object() {
@@ -1344,4 +1360,12 @@ mod tests {
         assert_eq!(y3, 1.0 * 3.0 + 1.0);
         assert_eq!(y4, 1.0 * 3.0 + 1.0);
     }
+}
+
+/// The curve prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
+pub mod prelude {
+    #[doc(hidden)]
+    pub use crate::*;
 }
