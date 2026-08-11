@@ -76,12 +76,30 @@ enum GlobalColorSetting {
     White,
 }
 
+impl From<GlobalColorSetting> for Color {
+    fn from(value: GlobalColorSetting) -> Self {
+        match value {
+            GlobalColorSetting::Red => RED.into(),
+            GlobalColorSetting::White => WHITE.into(),
+        }
+    }
+}
+
 /// Whether the color of the circle wireframe is red or green.
 #[derive(Clone, Copy, Component, Default, PartialEq, Debug)]
 enum ColorCircleWireframeSetting {
     #[default]
     Red,
     Green,
+}
+
+impl From<ColorCircleWireframeSetting> for Color {
+    fn from(value: ColorCircleWireframeSetting) -> Self {
+        match value {
+            ColorCircleWireframeSetting::Red => RED.into(),
+            ColorCircleWireframeSetting::Green => GREEN.into(),
+        }
+    }
 }
 
 /// Set up a simple 3D scene
@@ -165,19 +183,13 @@ fn update_radio_button(
 
     // Toggle the global wireframe color
     if let Ok(RadioButtonOptionValue(global_color)) = global_color_query.get(event.value) {
-        config.default_color = match global_color {
-            GlobalColorSetting::Red => RED.into(),
-            GlobalColorSetting::White => WHITE.into(),
-        };
+        config.default_color = (*global_color).into();
     }
 
     // Toggle the color of a wireframe using `Wireframe2dColor` and not the global color
     if let Ok(RadioButtonOptionValue(color_circle)) = color_circle_query.get(event.value) {
         for mut color in &mut wireframe_colors {
-            color.color = match color_circle {
-                ColorCircleWireframeSetting::Red => RED.into(),
-                ColorCircleWireframeSetting::Green => GREEN.into(),
-            };
+            color.color = (*color_circle).into();
         }
     }
 }
