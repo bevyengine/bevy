@@ -5,7 +5,7 @@ import bevy_pbr::{
     prepass::bindings::previous_view_uniforms,
     render::{
         mesh_bindings::mesh,
-        mesh_view_bindings::view,
+        mesh_view_bindings::{view_array, current_view_index},
         pbr_bindings,
         pbr_types,
     },
@@ -80,7 +80,7 @@ fn prepass_sample_color_and_alpha_discard(in: VertexOutput) {
             texture,
             sampler_,
             uv,
-            view().mip_bias
+            view_array[current_view_index].mip_bias
         );
     }
 }
@@ -91,7 +91,7 @@ fn prepass_sample_color_and_alpha_discard(in: VertexOutput) {
 
 @if(MOTION_VECTOR_PREPASS)
 fn calculate_motion_vector(world_position: vec4<f32>, previous_world_position: vec4<f32>) -> vec2<f32> {
-    let clip_position_t = view().unjittered_clip_from_world * world_position;
+    let clip_position_t = view_array[current_view_index].unjittered_clip_from_world * world_position;
     let clip_position = clip_position_t.xy / clip_position_t.w;
     let previous_clip_position_t = previous_view_uniforms.unjittered_clip_from_world * previous_world_position;
     let previous_clip_position = previous_clip_position_t.xy / previous_clip_position_t.w;

@@ -8,7 +8,7 @@ import bevy_pbr::{
         pbr_types,
         pbr_lighting as lighting,
         mesh_bindings::mesh,
-        mesh_view_bindings::view,
+        mesh_view_bindings::{view_array, current_view_index},
         parallax_mapping::parallaxed_uv,
     },
     prepass::utils as prepass_utils,
@@ -43,7 +43,7 @@ fn pbr_input_from_vertex_output(
 @else
     pbr_input.flags = mesh[in.instance_index].flags;
 
-    pbr_input.is_orthographic = view().clip_from_view[3].w == 1.0;
+    pbr_input.is_orthographic = view_array[current_view_index].clip_from_view[3].w == 1.0;
     pbr_input.V = pbr_functions::calculate_view(in.world_position, pbr_input.is_orthographic);
     pbr_input.frag_coord = in.position;
     pbr_input.world_position = in.world_position;
@@ -112,7 +112,7 @@ fn pbr_input_from_standard_material(
     bias.ddy_uv = in.ddy_uv;
 }
 @else {
-    bias.mip_bias = view().mip_bias;
+    bias.mip_bias = view_array[current_view_index].mip_bias;
 }
 
 // TODO: Transforming UVs mean we need to apply derivative chain rule for meshlet mesh material pass

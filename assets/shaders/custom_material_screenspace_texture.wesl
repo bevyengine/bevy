@@ -1,5 +1,5 @@
 import bevy_pbr::render::{
-    mesh_view_bindings::view,
+    mesh_view_bindings::{view_array, current_view_index},
     forward_io::VertexOutput,
     utils::coords_to_viewport_uv,
 };
@@ -11,7 +11,7 @@ import bevy_pbr::render::{
 fn fragment(
     mesh: VertexOutput,
 ) -> @location(0) vec4<f32> {
-    let viewport_uv = coords_to_viewport_uv(mesh.position.xy, view().viewport);
+    let viewport_uv = coords_to_viewport_uv(mesh.position.xy, view_array[current_view_index].viewport);
     let color = textureSample(texture, texture_sampler, viewport_uv);
     return color;
 }

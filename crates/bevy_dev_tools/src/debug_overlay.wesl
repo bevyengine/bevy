@@ -1,4 +1,4 @@
-import bevy_pbr::render::mesh_view_bindings::view;
+import bevy_pbr::render::mesh_view_bindings::{view_array, current_view_index};
 import bevy_pbr::render::mesh_view_bindings::depth_prepass_texture;
 import bevy_pbr::render::mesh_view_bindings::normal_prepass_texture;
 import bevy_pbr::render::mesh_view_bindings::motion_vector_prepass_texture;
@@ -32,7 +32,7 @@ fn fragment(
 ) -> @location(0) vec4<f32> {
 @if(MULTIVIEW)
     bevy_pbr::render::mesh_view_bindings::current_view_index = view_index;
-    let uv = frag_coord.xy / view().viewport.zw;
+    let uv = frag_coord.xy / view_array[current_view_index].viewport.zw;
     let background = textureSampleLevel(background_texture, background_sampler, uv, 0.0);
     var output_color: vec4<f32> = vec4(0.0);
 

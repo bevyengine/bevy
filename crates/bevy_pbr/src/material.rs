@@ -153,9 +153,10 @@ pub const MATERIAL_BIND_GROUP_INDEX: usize = 3;
 /// `@builtin(view_index)` and assign
 /// `bevy_pbr::render::mesh_view_bindings::current_view_index = view_index;`
 /// under `@if(MULTIVIEW)`. Otherwise `current_view_index` stays at 0
-/// on every layer, and reads through `view()` / `mesh_view_bindings::*`
-/// (and helpers built on them, e.g. `view_transformations::*`) resolve
-/// to eye 0's data — silent visual incorrectness.
+/// on every layer, and reads of `view_array[current_view_index]` /
+/// `mesh_view_bindings::*` (and helpers built on them, e.g.
+/// `view_transformations::*`) resolve to eye 0's data — silent visual
+/// incorrectness.
 ///
 /// A material that overrides [`fragment_shader`] only and keeps the
 /// default vertex entry still renders geometry correctly per layer

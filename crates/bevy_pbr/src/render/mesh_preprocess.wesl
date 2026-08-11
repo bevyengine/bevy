@@ -21,7 +21,7 @@ import bevy_pbr::render::mesh_types::{
     Mesh, MESH_FLAGS_AABB_BASED_VISIBILITY_RANGE_BIT, MESH_FLAGS_NO_FRUSTUM_CULLING_BIT,
     MESH_FLAGS_VISIBILITY_RANGE_INDEX_BITS
 };
-import bevy_pbr::render::mesh_view_bindings::view;
+import bevy_pbr::render::mesh_view_bindings::{view_array, current_view_index};
 import bevy_pbr::render::occlusion_culling;
 import bevy_pbr::prepass::bindings::previous_view_uniforms;
 import bevy_pbr::render::view_transformations::{
@@ -137,7 +137,7 @@ fn view_frustum_intersects_obb(
 
     for (var i = 0; i < 5; i += 1) {
         // Calculate relative radius of the sphere associated with this plane.
-        let plane_normal = view().frustum[i];
+        let plane_normal = view_array[current_view_index].frustum[i];
         let relative_radius = dot(
             abs(
                 vec3(
@@ -226,7 +226,7 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
             world_pos = world_from_local[3].xyz;
         }
 
-        let camera_distance = length(world_pos - view().lod_view_world_position);
+        let camera_distance = length(world_pos - view_array[current_view_index].lod_view_world_position);
         // `x` is the minimum range; `w` is the largest range.
         if (camera_distance < lod_range.x || camera_distance >= lod_range.w) {
             return;
@@ -240,7 +240,7 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     // `previous_input_index` (in fact, we can't; that index are only valid for
     // one frame and will be invalid).
     let timestamp = current_input[input_index].timestamp;
-    let mesh_changed_this_frame = timestamp == view().frame_count;
+    let mesh_changed_this_frame = timestamp == view_array[current_view_index].frame_count;
 
     // Look up the previous model matrix, if it could have been.
     let previous_input_index = current_input[input_index].previous_input_index;
@@ -307,7 +307,7 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     @if(EARLY_PHASE)
     max_depth_view = min(-previous_view_uniforms.clip_from_view[3][2], max_depth_view);
     @else   // EARLY_PHASE
-    max_depth_view = min(-view().clip_from_view[3][2], max_depth_view);
+    max_depth_view = min(-view_array[current_view_index].clip_from_view[3][2], max_depth_view);
 
     // Figure out the depth of the occluder, and compare it to our own depth.
 

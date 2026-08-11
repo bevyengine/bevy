@@ -1,4 +1,4 @@
-import bevy_pbr::render::mesh_view_bindings::{view, oit_nodes_capacity, oit_nodes, oit_heads, oit_atomic_counter, oit_settings};
+import bevy_pbr::render::mesh_view_bindings::{view_array, current_view_index, oit_nodes_capacity, oit_nodes, oit_heads, oit_atomic_counter, oit_settings};
 import bevy_pbr::render::mesh_view_types::OitFragmentNode;
 import bevy_pbr::prepass::utils as prepass_utils;
 
@@ -19,7 +19,7 @@ fn oit_draw(position: vec4f, color: vec4f) {
         return;
     }
     // get the index of the current fragment relative to the screen size
-    let screen_index = u32(floor(position.x) + floor(position.y) * view().viewport.z);
+    let screen_index = u32(floor(position.x) + floor(position.y) * view_array[current_view_index].viewport.z);
 
     var new_node_index = atomicAdd(&oit_atomic_counter, 1u);
     // exit early if we've reached the maximum amount of fragments nodes

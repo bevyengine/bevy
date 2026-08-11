@@ -20,7 +20,7 @@ import bevy_pbr::atmosphere::{
 };
 import bevy_pbr::render::mesh_functions::{get_world_from_local, mesh_position_local_to_clip};
 import bevy_pbr::render::mesh_view_bindings::{
-    globals, lights, view, clustered_lights,
+    globals, lights, view_array, current_view_index, clustered_lights,
     atmosphere, atmosphere_transmittance_texture, atmosphere_transmittance_sampler
 };
 import bevy_pbr::render::mesh_view_types::{
@@ -143,7 +143,7 @@ fn fragment(
     let jitter_strength = volumetric_fog.jitter_strength;
 
     // Unpack the view.
-    let exposure = view().exposure;
+    let exposure = view_array[current_view_index].exposure;
 
     // Sample the depth to put an upper bound on the length of the ray (as we
     // shouldn't trace through solid objects). If this is multisample, just use
@@ -215,7 +215,7 @@ fn fragment(
     let Rd_ndc = vec3(frag_coord_to_ndc(position).xy, 1.0);
     let Rd_view = normalize(position_ndc_to_view(Rd_ndc));
     var Ro_world = position_view_to_world(view_start_pos.xyz);
-    let Rd_world = normalize(position_ndc_to_world(Rd_ndc) - view().world_position);
+    let Rd_world = normalize(position_ndc_to_world(Rd_ndc) - view_array[current_view_index].world_position);
 
     // Offset by jitter.
     let jitter = interleaved_gradient_noise(position.xy, globals.frame_count) * jitter_strength;
@@ -356,7 +356,7 @@ fn fragment(
     }
 
     // Point lights and Spot lights
-    let is_orthographic = view().clip_from_view[3].w == 1.0;
+    let is_orthographic = view_array[current_view_index].clip_from_view[3].w == 1.0;
 
     // Reset `background_alpha` for a new raymarch.
     background_alpha = 1.0;

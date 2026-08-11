@@ -9,7 +9,7 @@ import bevy_pbr::{
         skinning,
         morph,
         morph::{morph_position, morph_normal, morph_tangent},
-        mesh_view_bindings::view,
+        mesh_view_bindings::{view_array, current_view_index},
         view_transformations::position_world_to_clip,
     },
 };
@@ -198,7 +198,7 @@ fn fragment(
     out.frag_depth = in.unclipped_depth;
 
 @if(MOTION_VECTOR_PREPASS) {
-    let clip_position_t = view().unjittered_clip_from_world * in.world_position;
+    let clip_position_t = view_array[current_view_index].unjittered_clip_from_world * in.world_position;
     let clip_position = clip_position_t.xy / clip_position_t.w;
     let previous_clip_position_t = prepass_bindings::previous_view_uniforms.unjittered_clip_from_world * in.previous_world_position;
     let previous_clip_position = previous_clip_position_t.xy / previous_clip_position_t.w;

@@ -28,10 +28,10 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
 
     // Look up the irradiance volume range in the cluster list.
     let view_z = dot(vec4<f32>(
-        mesh_view_bindings::view().view_from_world[0].z,
-        mesh_view_bindings::view().view_from_world[1].z,
-        mesh_view_bindings::view().view_from_world[2].z,
-        mesh_view_bindings::view().view_from_world[3].z
+        mesh_view_bindings::view_array[mesh_view_bindings::current_view_index].view_from_world[0].z,
+        mesh_view_bindings::view_array[mesh_view_bindings::current_view_index].view_from_world[1].z,
+        mesh_view_bindings::view_array[mesh_view_bindings::current_view_index].view_from_world[2].z,
+        mesh_view_bindings::view_array[mesh_view_bindings::current_view_index].view_from_world[3].z
     ), mesh.world_position);
     let cluster_index = clustered_forward::view_fragment_cluster_index(mesh.position.xy, view_z, false);
     var clusterable_object_index_ranges =

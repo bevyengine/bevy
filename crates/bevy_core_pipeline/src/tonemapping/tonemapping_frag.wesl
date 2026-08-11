@@ -10,7 +10,7 @@ import bevy_core_pipeline::{
 // View uniform, shaped the same as `bevy_pbr::render::mesh_view_bindings::view_array`
 // so the tonemapping pipeline can share the packed
 // `DynamicArrayUniformBuffer` behind `ViewUniforms`. The shader reads through
-// `view()`, which indexes the array at `current_view_index` (set from
+// `view_array[current_view_index]`, which indexes the array at `current_view_index` (set from
 // `@builtin(view_index)` at the top of the fragment under MULTIVIEW). For
 // non-multiview pipelines, `MAX_VIEW_COUNT` is undefined and the fallback
 // `array<View, 1>` matches the single `ViewUniform` packed per camera.
@@ -20,9 +20,6 @@ import bevy_core_pipeline::{
 @group(0) @binding(0) var<uniform> view_array: array<View, 1>;
 var<private> current_view_index: i32 = 0;
 
-fn view() -> View {
-    return view_array[current_view_index];
-}
 
 @group(0) @binding(1) var hdr_texture: texture_2d<f32>;
 @group(0) @binding(2) var hdr_sampler: sampler;
@@ -39,7 +36,7 @@ fn fragment(
     current_view_index = view_index;
     let hdr_color = textureSample(hdr_texture, hdr_sampler, in.uv);
 
-    var output_rgb = tone_mapping(hdr_color, view().color_grading).rgb;
+    var output_rgb = tone_mapping(hdr_color, view_array[current_view_index].color_grading).rgb;
 
 @if(DEBAND_DITHER) {
     output_rgb = powsafe(output_rgb.rgb, 1.0 / 2.2);

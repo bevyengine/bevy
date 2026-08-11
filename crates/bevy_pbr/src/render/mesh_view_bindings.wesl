@@ -17,10 +17,15 @@ enable wgpu_binding_array;
 // the fallback is a 1-element array, which matches the single ViewUniform
 // pushed by `DynamicArrayUniformBuffer` for non-multiview cameras.
 //
-// All shader code reads `view()` (not `view_array` directly). The helper
-// returns the current view via `view_array[current_view_index]`, where
+// Shader code reads `view_array[current_view_index]` directly, where
 // `current_view_index` defaults to 0 and is overwritten from
 // `@builtin(view_index)` at the top of multiview entry-point bodies.
+//
+// NOTE: do NOT wrap this in a `fn view() -> View` accessor. Returning the
+// ~784-byte `View` struct by value miscompiles on Metal and produces blocky
+// corruption in shaders that read it heavily (see the transmission example);
+// indexing the array at each use site renders byte-identically to a plain
+// `var<uniform> view: View` binding.
 @if(MAX_VIEW_COUNT)
 @group(0) @binding(0) var<uniform> view_array: array<View, constants::MAX_VIEW_COUNT>;
 @else
@@ -30,8 +35,8 @@ var<private> current_view_index: i32 = 0;
 
 // Custom WESL entries (vertex or fragment) used by user `Material`
 // implementors must thread `@builtin(view_index)` and assign it to
-// `current_view_index` under `@if(MULTIVIEW)`, otherwise `view()` (and any
-// helper that reads through it, e.g. `mesh_view_bindings::*`,
+// `current_view_index` under `@if(MULTIVIEW)`, otherwise reads of
+// `view_array[current_view_index]` (and any helper built on them, e.g.
 // `view_transformations::*`) resolves to eye 0 on every layer under a
 // multiview camera. The default `mesh.wesl` vertex entry and `pbr.wesl`
 // fragment entry already follow this pattern, so a material that overrides
@@ -55,9 +60,7 @@ var<private> current_view_index: i32 = 0;
 //
 // The default PBR fragment entry in `pbr.wesl` follows this pattern.
 
-fn view() -> View {
-    return view_array[current_view_index];
-}
+
 
 @group(0) @binding(1) var<uniform> lights: types::Lights;
 @if(NO_CUBE_ARRAY_TEXTURES_SUPPORT)

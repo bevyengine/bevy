@@ -7,7 +7,7 @@ import bevy_pbr::{
         pbr_functions,
         pbr_functions::SampleBias,
         mesh_bindings::mesh,
-        mesh_view_bindings::view,
+        mesh_view_bindings::{view_array, current_view_index},
     },
     prepass::io as prepass_io,
 };
@@ -98,7 +98,7 @@ fn fragment(
 @if(MESHLET_MESH_MATERIAL_PASS)
         bias.ddy_uv = in.ddy_uv;
 @if(!MESHLET_MESH_MATERIAL_PASS)
-        bias.mip_bias = view().mip_bias;
+        bias.mip_bias = view_array[current_view_index].mip_bias;
 
 @if(BINDLESS)
         let texture = bindless_textures_2d[material_indices[slot].normal_map_texture];

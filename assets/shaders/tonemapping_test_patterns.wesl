@@ -56,6 +56,6 @@ fn fragment(
     }
     var color = vec4(out, 1.0);
     @if(TONEMAP_IN_SHADER)
-    color = tone_mapping(color, mesh_view_bindings::view().color_grading);
+    color = tone_mapping(color, mesh_view_bindings::view_array[mesh_view_bindings::current_view_index].color_grading);
     return color;
 }

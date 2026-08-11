@@ -1,5 +1,5 @@
 ---
-title: View uniforms are now a packed array, and shaders read `view()` instead of `view`
+title: View uniforms are now a packed array, and shaders index `view_array` instead of reading `view`
 pull_requests: [24422]
 ---
 
@@ -7,28 +7,32 @@ Multiview camera support (rendering several subviews — e.g. two VR eyes — fr
 camera) requires each camera to supply *N* view uniforms rather than one. The view
 uniform buffer is now a packed array, and the WESL binding changed shape to match.
 
-## Shaders: `view` is now `view()`
+## Shaders: `view` is now `view_array[current_view_index]`
 
 `bevy_pbr::render::mesh_view_bindings` no longer exposes a `view` binding. It now
-exposes `view_array` plus a `view()` accessor, and all engine shaders read through
-`view()`:
+exposes `view_array` plus a `current_view_index`, and shaders index the array:
 
 ```wgsl
 // Before
 let position = view.clip_from_world * vec4(world_position, 1.0);
 
 // After
-let position = view().clip_from_world * vec4(world_position, 1.0);
+let position = view_array[current_view_index].clip_from_world * vec4(world_position, 1.0);
 ```
 
 This affects any custom material or post-process shader that reads the view uniform,
 including via an alias (`import ... mesh_view_bindings as view_bindings;` then
-`view_bindings::view.viewport` -> `view_bindings::view().viewport`). Importing the
-symbol by name (`import bevy_pbr::render::mesh_view_bindings::view;`) still works —
-`view` is now a function, so call sites just gain `()`.
+`view_bindings::view.viewport` ->
+`view_bindings::view_array[view_bindings::current_view_index].viewport`). If you
+imported the symbol by name, import `{view_array, current_view_index}` instead.
 
-`view()` returns `view_array[current_view_index]`. `current_view_index` is a
-`var<private>` that defaults to `0`, so single-view rendering is unchanged.
+`current_view_index` is a `var<private>` that defaults to `0`, so single-view
+rendering is unchanged.
+
+Note the array is indexed at each use site rather than wrapped in a
+`fn view() -> View` accessor: returning the ~784-byte `View` struct by value
+miscompiles on Metal and produces visible corruption in shaders that read it
+heavily.
 
 ## Shaders: custom entry points under multiview
 

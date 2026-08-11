@@ -2,7 +2,7 @@ import bevy_pbr::{
     render::{
         forward_io::VertexOutput,
         mesh_functions::get_world_from_local,
-        mesh_view_bindings::view,
+        mesh_view_bindings::{view_array, current_view_index},
         pbr_functions::calculate_tbn_mikktspace,
         view_transformations::depth_ndc_to_view_z,
     },
@@ -24,7 +24,7 @@ fn get_forward_decal_info(in: VertexOutput) -> ForwardDecalInformation {
     let scale = (world_from_local * vec4(1.0, 1.0, 1.0, 0.0)).xyz;
     let scaled_tangent = vec4(in.world_tangent.xyz / scale, in.world_tangent.w);
 
-    let V = normalize(view().world_position - in.world_position.xyz);
+    let V = normalize(view_array[current_view_index].world_position - in.world_position.xyz);
 
     // Transform V from fragment to camera in world space to tangent space.
     let TBN = calculate_tbn_mikktspace(in.world_normal, scaled_tangent);

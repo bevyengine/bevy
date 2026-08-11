@@ -7,7 +7,7 @@ import bevy_pbr::{
         pbr_lighting as lighting,
         pbr_lighting::{LAYER_BASE, LAYER_CLEARCOAT},
         mesh_view_bindings::{
-            view,
+            view_array, current_view_index,
             globals,
             depth_prepass_texture,
             deferred_prepass_texture,
@@ -324,7 +324,7 @@ fn fragment(
     // Accumulate the environment map light.
     // Note that we multiply by (1.0 - ssr_specular.a * fade) to occlude the
     // environment map if SSR hits.
-    indirect_light += (view().exposure * environment_light.specular * specular_occlusion) * (1.0 - (1.0 - ssr_specular.a) * fade);
+    indirect_light += (view_array[current_view_index].exposure * environment_light.specular * specular_occlusion) * (1.0 - (1.0 - ssr_specular.a) * fade);
 }
 
     // Write the results.

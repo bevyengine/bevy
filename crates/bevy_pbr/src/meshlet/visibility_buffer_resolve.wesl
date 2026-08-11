@@ -11,7 +11,7 @@ import bevy_pbr::{
         get_meshlet_vertex_uv,
     },
     render::{
-        mesh_view_bindings::view,
+        mesh_view_bindings::{view_array, current_view_index},
         mesh_functions::mesh_position_local_to_world,
         mesh_types::Mesh,
         view_transformations::{position_world_to_clip, frag_coord_to_ndc},
@@ -125,14 +125,14 @@ fn resolve_vertex_output(frag_coord: vec4<f32>) -> VertexOutput {
     let partial_derivatives = compute_partial_derivatives(
         array(world_position_0, world_position_1, world_position_2),
         frag_coord_ndc,
-        view().viewport.zw / 2.0,
+        view_array[current_view_index].viewport.zw / 2.0,
     );
 
     let world_position = mat3x4(world_position_0, world_position_1, world_position_2) * partial_derivatives.barycentrics;
     let world_positions_camera_relative = mat3x3(
-        world_position_0.xyz - view().world_position,
-        world_position_1.xyz - view().world_position,
-        world_position_2.xyz - view().world_position,
+        world_position_0.xyz - view_array[current_view_index].world_position,
+        world_position_1.xyz - view_array[current_view_index].world_position,
+        world_position_2.xyz - view_array[current_view_index].world_position,
     );
     let ddx_world_position = world_positions_camera_relative * partial_derivatives.ddx;
     let ddy_world_position = world_positions_camera_relative * partial_derivatives.ddy;

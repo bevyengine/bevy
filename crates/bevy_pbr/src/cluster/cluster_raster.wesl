@@ -81,7 +81,7 @@ struct ClusterOffsetsAndCountsElementAtomic {
 // pipeline can share the packed `DynamicArrayUniformBuffer` behind
 // `ViewUniforms`. Clustering output is a single set of storage buffers per
 // camera (shared across all eyes of a multiview camera), so this shader reads
-// `view()` at the default `current_view_index = 0` — i.e. eye 0's head pose —
+// `view_array[current_view_index]` at the default index 0 — i.e. eye 0's head pose —
 // to keep cluster assignment consistent across eyes. Per-eye clustering would
 // require splitting the output buffers per eye, which is future work.
 @if(MAX_VIEW_COUNT)
@@ -91,9 +91,6 @@ struct ClusterOffsetsAndCountsElementAtomic {
 
 var<private> current_view_index: i32 = 0;
 
-fn view() -> View {
-    return view_array[current_view_index];
-}
 @if(!VERTEX_SHADER && POPULATE_PASS) {
 // The number of objects in each cluster, and the offset of each list.
 @group(0) @binding(7) var<storage> offsets_and_counts: ClusterOffsetsAndCounts;
@@ -122,10 +119,10 @@ fn vertex_main(vertex: Vertex) -> Varyings {
     let position = bounding_sphere.xyz;
     let radius = bounding_sphere.w;
 
-    let view_from_world_scale = compute_view_from_world_scale(view().world_from_view);
+    let view_from_world_scale = compute_view_from_world_scale(view_array[current_view_index].world_from_view);
     let max_view_from_world_scale = max(view_from_world_scale.x,
         max(view_from_world_scale.y, view_from_world_scale.z));
-    let is_orthographic = view().clip_from_view[3].w == 1.0;
+    let is_orthographic = view_array[current_view_index].clip_from_view[3].w == 1.0;
 
     // Calculate an approximate AABB of the cluster by computing its bounding
     // sphere and converting that to the AABB.
@@ -136,8 +133,8 @@ fn vertex_main(vertex: Vertex) -> Varyings {
     let cluster_bounds = calculate_sphere_cluster_bounds(
         position,
         radius,
-        view().view_from_world,
-        view().clip_from_view,
+        view_array[current_view_index].view_from_world,
+        view_array[current_view_index].clip_from_view,
         view_from_world_scale,
         lights.cluster_dimensions.xyz,
         lights.cluster_factors.zw,
@@ -146,7 +143,7 @@ fn vertex_main(vertex: Vertex) -> Varyings {
     let cluster_bounds_xy = vec4<u32>(cluster_bounds.min.xy, cluster_bounds.max.xy + vec2<u32>(1u));
 
     // Calculate the bounding sphere's center and radius in view space.
-    let view_position = (view().view_from_world * vec4(position, 1.0)).xyz;
+    let view_position = (view_array[current_view_index].view_from_world * vec4(position, 1.0)).xyz;
     let view_radius = max_view_from_world_scale * radius;
 
     return Varyings(
@@ -181,8 +178,8 @@ fn fragment_main(varyings: Varyings) -> @location(0) vec4<f32> {
     let object_type = z_slices[instance_id].object_type;
     let z_slice = z_slices[instance_id].z_slice;
 
-    let is_orthographic = view().clip_from_view[3].w == 1.0;
-    let screen_size = view().viewport.zw;
+    let is_orthographic = view_array[current_view_index].clip_from_view[3].w == 1.0;
+    let screen_size = view_array[current_view_index].viewport.zw;
     let tile_size = screen_size / vec2<f32>(lights.cluster_dimensions.xy);
 
     let z_near_far = compute_z_near_and_z_far(is_orthographic);
@@ -196,7 +193,7 @@ fn fragment_main(varyings: Varyings) -> @location(0) vec4<f32> {
         z_far,
         tile_size,
         screen_size,
-        view().view_from_clip,
+        view_array[current_view_index].view_from_clip,
         is_orthographic,
         lights.cluster_dimensions.xyz,
         cluster_position
@@ -412,7 +409,7 @@ fn cull_spot_light(
         world_light_direction_rev_xz.y
     );
     let world_light_direction = -world_light_direction_rev;
-    let view_light_direction = normalize((view().view_from_world *
+    let view_light_direction = normalize((view_array[current_view_index].view_from_world *
         vec4(world_light_direction, 0.0)).xyz);
 
     let angle_cos = cos_atan(light_tan_angle);
