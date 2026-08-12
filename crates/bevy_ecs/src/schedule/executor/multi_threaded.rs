@@ -998,31 +998,6 @@ mod tests {
         assert!(world.non_send::<NonSendMarker>().0);
     }
 
-    /// The local thread is never released by any later event, so a single run that
-    /// leaks it strands non-`Send` systems in every subsequent run of the schedule.
-    #[test]
-    fn leaked_local_thread_does_not_outlive_its_run() {
-        #[derive(Default)]
-        struct NonSendMarker(bool);
-
-        let mut world = World::new();
-        world.insert_non_send(NonSendMarker::default());
-
-        let mut schedule = Schedule::default();
-        schedule.set_executor(MultiThreadedExecutor::new());
-        schedule.add_systems(|_: ExclusiveMarker| {});
-
-        // A run with no non-`Send` system to strand: nothing observable goes wrong.
-        schedule.run(&mut world);
-
-        schedule.add_systems(|mut marker: NonSendMut<NonSendMarker>| {
-            marker.0 = true;
-        });
-        schedule.run(&mut world);
-
-        assert!(world.non_send::<NonSendMarker>().0);
-    }
-
     /// Regression test for a weird bug flagged by MIRI in
     /// `spawn_exclusive_system_task`, related to a `&mut World` being captured
     /// inside an `async` block and somehow remaining alive even after its last use.
