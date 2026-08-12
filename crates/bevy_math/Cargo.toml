@@ -49,7 +49,7 @@ getrandom = { version = "0.4", default-features = false, features = [
 ] }
 
 [features]
-default = ["std", "rand", "curve"]
+default = ["std", "rand"]
 std = [
   "alloc",
   "glam/std",
@@ -60,11 +60,7 @@ std = [
   "rand_distr?/std",
   "bevy_reflect?/std",
 ]
-alloc = [
-  "serde?/alloc",
-  "rand?/alloc",
-  "rand_distr?/alloc",
-]
+alloc = ["serde?/alloc", "rand?/alloc", "rand_distr?/alloc"]
 
 serialize = ["dep:serde", "glam/serde"]
 # Enable approx for glam types to approximate floating point equality comparisons and assertions
@@ -80,8 +76,6 @@ glam_assert = ["glam/glam-assert"]
 debug_glam_assert = ["glam/debug-glam-assert"]
 # Enable the rand dependency for shape_sampling
 rand = ["dep:rand", "dep:rand_distr", "glam/rand"]
-# Include code related to the Curve trait
-curve = []
 # Enable bevy_reflect (requires alloc)
 bevy_reflect = ["dep:bevy_reflect", "alloc"]
 # Enable libm mathematical functions as a fallback for no_std environments.
