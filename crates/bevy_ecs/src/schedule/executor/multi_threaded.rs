@@ -969,10 +969,8 @@ mod tests {
         assert!(world.get_resource::<R>().is_some());
     }
 
-    /// An exclusive system occupies the local thread whether or not it reports itself
-    /// as `Send`, so the executor has to release the local thread when it completes.
-    /// Releasing it only for `!Send` systems leaves `local_thread_running` set forever,
-    /// and every later non-`Send` system stays stuck in `ready_systems`.
+    /// Regression test for case where exclusive system left local thread state as not
+    /// cleared and prevented subsequent non-send system runs
     #[test]
     fn exclusive_system_reporting_send_releases_the_local_thread() {
         #[derive(Default)]
@@ -994,7 +992,6 @@ mod tests {
         );
 
         schedule.run(&mut world);
-
         assert!(world.non_send::<NonSendMarker>().0);
     }
 
