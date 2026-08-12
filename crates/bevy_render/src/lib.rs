@@ -79,7 +79,6 @@ pub mod prelude {
         view::Msaa, ExtractSchedule,
     };
 }
-
 pub use extract_param::Extract;
 pub use extract_plugin::{ExtractSchedule, MainWorld};
 
@@ -357,17 +356,22 @@ impl Plugin for RenderPlugin {
     fn build(&self, app: &mut App) {
         app.init_asset::<Shader>()
             .init_asset_loader::<ShaderLoader>();
-        load_shader_library!(app, "utils.wgsl");
-        load_shader_library!(app, "maths.wgsl");
-        load_shader_library!(app, "color_operations.wgsl");
-        load_shader_library!(app, "bindless.wgsl");
+        load_shader_library!(app, "utils.wesl");
+        load_shader_library!(app, "view.wesl");
+        load_shader_library!(app, "maths.wesl");
+        load_shader_library!(app, "color_operations.wesl");
+        load_shader_library!(app, "bindless.wesl");
 
         if insert_future_resources(&self.render_creation, app.world_mut()) {
             // We only create the render world and set up extraction if we
             // have a rendering backend available.
-            app.add_plugins(ExtractPlugin {
-                pre_extract: error_handler::update_state,
-            });
+            app.add_plugins(ExtractPlugin::<RenderApp>::new(
+                error_handler::update_state,
+                Render::base_schedule,
+                Render.intern(),
+                RenderSystems::ExtractCommands.intern(),
+                RenderSystems::PostCleanup.intern(),
+            ));
         };
 
         app.add_plugins((
