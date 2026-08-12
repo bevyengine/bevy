@@ -77,7 +77,7 @@ impl<C: Component + ShaderType> Default for ComponentUniforms<C> {
     fn default() -> Self {
         let mut uniforms = DynamicUniformBuffer::default();
         uniforms.set_label(Some(&format!(
-            "{} uniforms buffer",
+            "{} ComponentUniforms buffer",
             core::any::type_name::<C>()
         )));
         Self { uniforms }
