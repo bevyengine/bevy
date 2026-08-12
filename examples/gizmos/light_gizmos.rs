@@ -115,7 +115,6 @@ fn setup(
             ),
             (
                 Node {
-                    flex_direction: FlexDirection::Row,
                     align_items: AlignItems::Center,
                     column_gap: px(4)
                 }
