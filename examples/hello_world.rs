@@ -7,5 +7,5 @@ fn main() -> AppExit {
 }
 
 fn hello_world_system() {
-    println!("hello world");
+    println!("Hello, World!");
 }
