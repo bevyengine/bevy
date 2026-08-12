@@ -76,7 +76,7 @@ impl Plugin for VolumetricFogPlugin {
         let cube_mesh = meshes.add(Cuboid::new(1.0, 1.0, 1.0).mesh());
 
         app.add_plugins(SyncComponentPlugin::<FogVolume, RenderApp, Self>::default())
-            .add_plugins(SyncComponentPlugin::<VolumetricFog, Self>::default());
+            .add_plugins(SyncComponentPlugin::<VolumetricFog, RenderApp, Self>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
