@@ -1,6 +1,6 @@
 # Zero-Day Example
 
-Beeple's "Zero-Day" sci-fi corridor (NVIDIA ORCA), path-traced with Bevy Solari. All of
+Beeple's "Zero-Day" sci-fi corridor from NVIDIA ORCA, path-traced with Bevy Solari. All of
 the light comes from approximately 10,000 emissive triangles, which Solari turns into area
 lights. The example plays the film's animation and follows the film camera.
 
@@ -8,8 +8,9 @@ lights. The example plays the film's animation and follows the film camera.
 
 Download "Zero-Day" [from developer.nvidia.com](https://developer.nvidia.com/orca/beeple-zero-day).
 
-Bevy can't load FBX assets, so convert each measure that you want with the headless Blender
-helper (Blender 4.x or 5.x) and put the result in this example's `assets/` folder:
+Bevy can't load FBX assets, so convert each measure that you want with the headless
+Blender helper and put the result in this example's `assets/` folder. The helper needs
+Blender 4.x or 5.x:
 
 ```console
 # measure_one (the default)
@@ -33,12 +34,13 @@ blender --background --python-exit-code 1 --python convert.py -- \
 ```console
 cargo run -p zero_day --release
 cargo run -p zero_day --release -- --scene measure_seven
-# with DLSS Ray Reconstruction (needs an NVIDIA RTX GPU and the DLSS SDK):
+# with DLSS Ray Reconstruction; needs an NVIDIA RTX GPU and the DLSS SDK
 cargo run -p zero_day --release --features dlss
 ```
 
-Press C to change between the film flythrough and free-fly (WASD and mouse). Press N to
-turn DLSS Ray Reconstruction on and off. Press B for benchmark (see console for results).
+Press C to change between the film flythrough and free-fly with WASD and the mouse. Press
+N to turn DLSS Ray Reconstruction on and off. Press B to run a short benchmark and print
+the result to the console.
 
 ```console
 Options:

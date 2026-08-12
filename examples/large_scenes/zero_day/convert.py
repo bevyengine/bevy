@@ -33,14 +33,14 @@ texdir = os.path.abspath(os.path.join(os.path.dirname(src), "tex"))
 bpy.ops.wm.read_factory_settings(use_empty=True)
 bpy.ops.import_scene.fbx(filepath=src, use_image_search=True)
 
-# The FBX marks many meshes as hidden (proxy shells, ON/OFF light-state variants —
-# approximately 1,700 in Measure Seven). The glTF exporter would export them as solid,
-# visible geometry that encloses the camera, so delete them.
+# The FBX marks many meshes as hidden, mostly proxy shells and light-state variants.
+# Measure Seven has approximately 1,700 of them. The glTF exporter would export them as
+# solid, visible geometry that encloses the camera, so delete them.
 #
-# Deletion starts at the leaves. A hidden mesh with a surviving child keeps its node
-# (the child needs its animated transform) but loses its geometry. Child counts come from
-# one pass over the `parent` links, because each `Object.children` access scans the full
-# file.
+# Deletion starts at the leaves. A hidden mesh with a surviving child keeps its node but
+# loses its geometry, because the child needs its animated transform. Child counts come
+# from one pass over the `parent` links, because each `Object.children` access scans the
+# full file.
 hidden = [
     obj
     for obj in bpy.context.scene.objects
@@ -89,7 +89,7 @@ def base_for_material(mat):
     nm = mat.name.lower()
     if nm in tex:
         return nm
-    # Try again without a final "_suffix" (for example "_c4d").
+    # Try again without a final underscore suffix, for example "_c4d".
     stem = nm.rsplit("_", 1)[0]
     return stem if stem in tex else None
 
@@ -105,8 +105,8 @@ flipped_normals = set()
 
 
 def load_normal_image(path):
-    """Load a normal map and invert its green channel from DirectX (+Y down) to the
-    OpenGL convention that glTF requires.
+    """Load a normal map and invert its green channel from the DirectX +Y-down
+    convention to the OpenGL convention that glTF requires.
 
     Baking the flip into the image keeps the `.glb` self-contained; the alternative,
     `flip_normal_map_y` in the example, is an invisible agreement between the script and
@@ -146,9 +146,9 @@ def rebuild(mat, base):
         n.image = load_image(channels["specular"], non_color=True)
         sep = nt.nodes.new("ShaderNodeSeparateColor")
         nt.links.new(n.outputs["Color"], sep.inputs["Color"])
-        # ORM: G is roughness, B is metallic. The occlusion channel (R) stays unused
-        # because it needs the unreliable glTF-settings node group and has only a small
-        # effect.
+        # The specular texture is packed as ORM, with roughness in green and metallic
+        # in blue. The occlusion channel in red stays unused, because it needs the
+        # unreliable glTF-settings node group and has only a small effect.
         nt.links.new(sep.outputs["Green"], bsdf.inputs["Roughness"])
         nt.links.new(sep.outputs["Blue"], bsdf.inputs["Metallic"])
 
@@ -180,7 +180,7 @@ if skipped:
     print("ZERO_DAY_SKIPPED", skipped[:20])
 
 # Solari only traces meshes whose vertex layout is exactly POSITION, NORMAL, UV0, and
-# TANGENT, so give each mesh exactly one UV layer (an empty one where a mesh has none).
+# TANGENT, so give each mesh exactly one UV layer, an empty one where a mesh has none.
 # A mesh with zero or two UV layers stops occluding and giving light, with no error
 # message.
 uv_added = uv_dropped = 0
@@ -193,8 +193,9 @@ for mesh in {obj.data for obj in bpy.context.scene.objects if obj.type == "MESH"
         uv_dropped += 1
 print("ZERO_DAY_UVS added=%d dropped_extra=%d" % (uv_added, uv_dropped))
 
-# Some actions continue past the scene's playback range (the cameras run to frame 412 or
-# 441; the scene ends at 250). Extend the range so the bake includes all of them.
+# Some actions continue past the scene's playback range. The scene ends at frame 250,
+# but the cameras run to frame 412 or 441. Extend the range so the bake includes all of
+# them.
 max_frame = 1
 for obj in bpy.context.scene.objects:
     ad = obj.animation_data
@@ -224,16 +225,15 @@ print("ZERO_DAY_EXPORT_DONE", dst)
 
 
 def normalize_materials(path):
-    """Correct the materials of the exported .glb in place (JSON chunk only).
+    """Correct the materials of the exported .glb in place, in the JSON chunk only.
 
-    Alpha mode: the ``skipped`` materials keep Blender's imported graph, which exports as
-    alpha ``BLEND``. Blended surfaces never reach the deferred G-buffer that gives Solari
-    its primary visibility, and no surface in Zero-Day needs transparency, so force
+    The ``skipped`` materials keep Blender's imported graph, which exports as alpha
+    ``BLEND``. Blended surfaces never reach the deferred G-buffer that gives Solari its
+    primary visibility, and no surface in Zero-Day needs transparency, so force
     ``OPAQUE``.
 
-    Emissive factor: a black ``emissiveFactor`` multiplies the ``emissiveTexture`` to
-    zero, and the emissive panels are the only lights in the scene, so set those factors
-    to white."""
+    A black ``emissiveFactor`` multiplies the ``emissiveTexture`` to zero, and the
+    emissive panels are the only lights in the scene, so set those factors to white."""
     with open(path, "rb") as f:
         data = f.read()
     magic, version, _ = struct.unpack_from("<III", data, 0)
@@ -254,7 +254,7 @@ def normalize_materials(path):
             emissive_promoted += 1
 
     new_json = json.dumps(gltf, separators=(",", ":")).encode("utf-8")
-    new_json += b" " * ((4 - len(new_json) % 4) % 4)  # glTF fills the JSON chunk with spaces
+    new_json += b" " * ((4 - len(new_json) % 4) % 4)  # glTF pads the JSON chunk with spaces
     total = 12 + 8 + len(new_json) + len(bin_chunk)
     with open(path, "wb") as f:
         f.write(struct.pack("<III", magic, version, total))

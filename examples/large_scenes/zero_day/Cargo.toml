@@ -15,7 +15,7 @@ bevy = { path = "../../..", features = [
 argh = "0.1.12"
 
 [features]
-# Use `--features dlss` to enable denoising with DLSS RR in Solari. It is off by default,
-# because a build with it needs the DLSS SDK.
+# Use `--features dlss` to enable denoising with DLSS Ray Reconstruction in Solari. It
+# is off by default because a build with it needs the DLSS SDK.
 dlss = ["bevy/dlss"]
 force_disable_dlss = ["bevy/force_disable_dlss"]

@@ -1,11 +1,11 @@
-//! Beeple's "Zero-Day" sci-fi corridor (NVIDIA ORCA), path-traced with Bevy Solari.
+//! Beeple's "Zero-Day" sci-fi corridor from NVIDIA ORCA, path-traced with Bevy Solari.
 //!
 //! See this example's `README.md` for how to get and convert the scene and for the
 //! command-line options.
 //!
-//! Controls: `C` changes between the film flythrough and free-fly (WASD and mouse), `N`
-//! turns DLSS Ray Reconstruction on and off, `B` runs a short benchmark and prints the
-//! result to the console.
+//! Press `C` to change between the film flythrough and free-fly with WASD and the mouse.
+//! Press `N` to turn DLSS Ray Reconstruction on and off. Press `B` to run a short
+//! benchmark and print the result to the console.
 
 use std::f32::consts::{PI, TAU};
 use std::time::{Duration, Instant};
@@ -139,7 +139,7 @@ impl argh::FromArgValue for Scene {
     }
 }
 
-// Tuning for the synthetic emissive pulse (see `animate_emissive`).
+// Tuning for the synthetic emissive pulse in `animate_emissive`.
 /// Rate of the wave in time (rad/s).
 const PULSE_FREQ: f32 = 2.0;
 /// Spatial frequency along the corridor's Z axis (rad/world-unit).
@@ -359,8 +359,8 @@ fn setup(
 
 /// Spawns the scene once its glTF and all of its dependencies are loaded, so that the
 /// `WorldInstanceReady` observers below can read the materials and animation clips. A
-/// load failure (usually a `.glb` that hasn't been converted yet) is permanent, so log it
-/// once and stop.
+/// load failure is permanent, so log it once and stop. The usual cause is a `.glb` that
+/// hasn't been converted yet.
 fn spawn_scene_when_ready(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -400,11 +400,11 @@ fn spawn_scene_when_ready(
 // Scene processing when the scene loads
 
 /// Makes the emissive panels into bright Solari light sources. This system multiplies
-/// the emissive of each unique material once (instances share material handles, so a
-/// per-entity multiply would compound), then gives each emissive instance its own
-/// material clone. Solari reads the emissive from the material asset, so panels that
-/// share a handle can only pulse together, and the clones (only ~230 instances) let
-/// `animate_emissive` flare each panel independently. `--no-pulse` skips the clones.
+/// the emissive of each unique material once, because instances share material handles
+/// and a per-entity multiply would compound. It then gives each emissive instance its
+/// own material clone. Solari reads the emissive from the material asset, so panels
+/// that share a handle can only pulse together, and the clones, about 230 instances,
+/// let `animate_emissive` flare each panel independently. `--no-pulse` skips the clones.
 fn proc_scene(
     scene_ready: On<WorldInstanceReady>,
     mut commands: Commands,
@@ -451,8 +451,8 @@ fn proc_scene(
 /// transform, which `drive_flythrough` follows.
 ///
 /// The far plane isn't copied. The film's far=100 would cut off the ~700-unit shaft in
-/// measure_seven, so the render camera keeps its far=2000. The near plane (0.001) must be
-/// copied, because Solari gets primary visibility from a rasterized prepass and the
+/// measure_seven, so the render camera keeps its far=2000. The near plane of 0.001 must
+/// be copied, because Solari gets primary visibility from a rasterized prepass and the
 /// flythrough passes within ~0.02 units of geometry, which the default near plane of 0.1
 /// would clip away. Bevy's reverse-z depth buffer keeps enough precision between 0.001
 /// and 2000.
@@ -528,9 +528,9 @@ fn setup_raytracing_meshes(
 
 // Runtime
 
-/// Plays the imported animation (approximately 550 objects plus the film camera) in a
-/// loop. The Blender exporter writes one clip per object (thousands per scene), all on
-/// the film's shared timeline.
+/// Plays the imported animation in a loop. It moves approximately 550 objects plus the
+/// film camera. The Blender exporter writes one clip per object, thousands per scene,
+/// all on the film's shared timeline.
 #[allow(clippy::too_many_arguments)]
 fn start_animation(
     scene_ready: On<WorldInstanceReady>,
@@ -738,7 +738,7 @@ fn animate_emissive(
     for (transform, panel, material) in &panels {
         let z = transform.translation().z;
         let wave = ops::sin(t * PULSE_FREQ - z * PULSE_WAVE_NUMBER + panel.phase);
-        // Sharpen the sine so each panel stays dim and flares quickly.
+        // Sharpen the sine so each panel stays dim most of the time and flares briefly.
         let flare = ops::powf(0.5 + 0.5 * wave, PULSE_SHARPNESS);
         let level = PULSE_FLOOR + (PULSE_PEAK - PULSE_FLOOR) * flare;
         if let Some(mut mat) = materials.get_mut(material.id()) {
