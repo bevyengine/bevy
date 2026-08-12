@@ -291,7 +291,7 @@ pub fn init_sparse_buffer_update_pipelines(
         bind_group_layout: Some(bind_group_layout),
         shader: Some(load_embedded_asset!(
             asset_server.as_ref(),
-            "sparse_buffer_update.wgsl"
+            "sparse_buffer_update.wesl"
         )),
     });
 }
