@@ -2,8 +2,8 @@
 
 use bevy::prelude::*;
 
-fn main() -> AppExit {
-    App::new().add_systems(Startup, hello_world_system).run()
+fn main() {
+    App::new().add_systems(Startup, hello_world_system).run();
 }
 
 fn hello_world_system() {
