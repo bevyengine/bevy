@@ -196,20 +196,6 @@ impl<T: ShaderType> Default for DynamicUniformBuffer<T> {
 }
 
 impl<T: ShaderType> DynamicUniformBuffer<T> {
-    pub fn set_label(&mut self, label: Option<&str>) {
-        let label = label.map(str::to_string);
-
-        if label != self.label {
-            self.changed = true;
-        }
-
-        self.label = label;
-    }
-
-    pub fn get_label(&self) -> Option<&str> {
-        self.label.as_deref()
-    }
-
     pub fn new_with_alignment(alignment: u64) -> Self {
         Self {
             scratch: DynamicUniformBufferWrapper::new_with_alignment(Vec::new(), alignment),
@@ -238,6 +224,20 @@ impl<T: ShaderType> DynamicUniformBuffer<T> {
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.scratch.as_ref().is_empty()
+    }
+
+    pub fn set_label(&mut self, label: Option<&str>) {
+        let label = label.map(str::to_string);
+
+        if label != self.label {
+            self.changed = true;
+        }
+
+        self.label = label;
+    }
+
+    pub fn get_label(&self) -> Option<&str> {
+        self.label.as_deref()
     }
 
     /// Add more [`BufferUsages`] to the buffer.
