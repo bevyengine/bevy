@@ -1421,6 +1421,17 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "multiview"
+path = "examples/3d/multiview.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.multiview]
+name = "Multiview"
+description = "Renders a stereo pair in a single pass and reads back both layers (Vulkan only)"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
 name = "order_independent_transparency"
 path = "examples/3d/order_independent_transparency.rs"
 doc-scrape-examples = true
