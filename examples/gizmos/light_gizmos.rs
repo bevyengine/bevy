@@ -4,9 +4,7 @@ use std::f32::consts::{FRAC_PI_2, PI};
 
 use bevy::{
     color::palettes::css::{DARK_CYAN, GOLD, GRAY, ORANGE, PURPLE},
-    feathers::{
-        controls::FeathersSlider, dark_theme::create_dark_theme, theme::UiTheme, FeathersPlugins,
-    },
+    feathers::{controls::FeathersSlider, display::label, theme::UiTheme, FeathersPlugins},
     prelude::*,
     ui_widgets::{radio_self_update, SliderPrecision, SliderStep, SliderValue, ValueChange},
 };
@@ -16,10 +14,13 @@ use radio::{feathers_option_buttons, main_ui_node_scene, RadioButtonOptionValue}
 #[path = "../helpers/radio.rs"]
 mod radio;
 
+#[path = "../helpers/theme.rs"]
+mod theme;
+
 fn main() {
     App::new()
         .add_plugins((DefaultPlugins, FeathersPlugins))
-        .insert_resource(UiTheme(create_dark_theme()))
+        .insert_resource(UiTheme(theme::basic_example_theme(Color::WHITE)))
         .add_systems(Startup, setup)
         .add_systems(Update, rotate_camera)
         .add_observer(update_radio_button)
@@ -50,6 +51,15 @@ enum GizmoDepthModeSetting {
     #[default]
     On,
     Off,
+}
+
+impl From<GizmoDepthModeSetting> for f32 {
+    fn from(setting: GizmoDepthModeSetting) -> Self {
+        match setting {
+            GizmoDepthModeSetting::On => -1.,
+            GizmoDepthModeSetting::Off => 0.,
+        }
+    }
 }
 
 /// Whether drawing of light gizmos is on or off.
@@ -111,10 +121,7 @@ fn setup(
                 }
                 Children [
                     (
-                        Text::new("Change the line width of the gizmos ")
-                        TextFont{
-                            font_size: 14.0_f32,
-                        }
+                        label("Change the line width of the gizmos")
                     ),
                     (
                         @FeathersSlider{
@@ -213,12 +220,8 @@ fn update_radio_button(
 ) {
     let (config, light_config) = config_store.config_mut::<LightGizmoConfigGroup>();
     if let Ok(RadioButtonOptionValue(depth)) = depth_mode_query.get(event.value) {
-        let bias = match depth {
-            GizmoDepthModeSetting::On => -1.,
-            GizmoDepthModeSetting::Off => 0.,
-        };
         for (_, config, _) in config_store.iter_mut() {
-            config.depth_bias = bias;
+            config.depth_bias = (*depth).into();
         }
     } else if let Ok(RadioButtonOptionValue(drawing)) = drawing_gizmo_query.get(event.value) {
         config.enabled = matches!(drawing, DrawingLightGizmoSetting::On);
