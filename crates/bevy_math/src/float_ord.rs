@@ -16,7 +16,7 @@ use bevy_reflect::Reflect;
 ///
 /// Wrapping a float with `FloatOrd` breaks conformance with the standard
 /// by sorting `NaN` as less than all other numbers and equal to any other `NaN`.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Default)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),

@@ -231,7 +231,7 @@ pub fn init_volumetric_fog_pipeline(
     commands.insert_resource(VolumetricFogPipeline {
         mesh_view_layouts: mesh_view_layouts.clone(),
         volumetric_view_bind_group_layouts: bind_group_layouts,
-        shader: load_embedded_asset!(asset_server.as_ref(), "volumetric_fog.wgsl"),
+        shader: load_embedded_asset!(asset_server.as_ref(), "volumetric_fog.wesl"),
     });
 }
 

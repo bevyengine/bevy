@@ -1,14 +1,12 @@
 use crate::{
-    ui_transform::UiGlobalTransform, ComputedNode, ComputedUiTargetCamera, Node, OverrideClip,
-    UiStack,
+    ui_transform::UiGlobalTransform, CalculatedClip, ComputedNode, ComputedUiTargetCamera, UiStack,
 };
 use bevy_camera::{visibility::InheritedVisibility, Camera, NormalizedRenderTarget, RenderTarget};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     entity::{ContainsEntity, Entity, EntityHashMap},
-    hierarchy::ChildOf,
     prelude::{Component, With},
-    query::{QueryData, Without},
+    query::QueryData,
     reflect::ReflectComponent,
     system::{Local, Query, Res},
 };
@@ -94,7 +92,7 @@ impl Default for Interaction {
 ///
 /// It can be used alongside [`Interaction`] to get the position of the press.
 ///
-/// The component is updated when it is in the same entity with [`Node`].
+/// The component is updated when it is in the same entity with [`ComputedNode`].
 #[derive(Component, Copy, Clone, Default, PartialEq, Debug, Reflect)]
 #[reflect(Component, Default, PartialEq, Debug, Clone)]
 #[cfg_attr(
@@ -161,6 +159,7 @@ pub struct NodeQuery {
     focus_policy: Option<&'static FocusPolicy>,
     inherited_visibility: Option<&'static InheritedVisibility>,
     target_camera: &'static ComputedUiTargetCamera,
+    calculated_clip: Option<&'static CalculatedClip>,
 }
 
 /// The system that sets Interaction for all UI elements based on the mouse cursor activity
@@ -180,8 +179,6 @@ pub fn ui_focus_system(
     touches_input: Res<Touches>,
     ui_stack: Res<UiStack>,
     mut node_query: Query<NodeQuery>,
-    clipping_query: Query<(&ComputedNode, &UiGlobalTransform, &Node)>,
-    child_of_query: Query<&ChildOf, Without<OverrideClip>>,
 ) {
     let primary_window = primary_window.iter().next();
 
@@ -282,7 +279,9 @@ pub fn ui_focus_system(
 
             let contains_cursor = cursor_position.is_some_and(|point| {
                 node.node.contains_point(*node.transform, *point)
-                    && clip_check_recursive(*point, entity, &clipping_query, &child_of_query)
+                    && node
+                        .calculated_clip
+                        .is_none_or(|clip| clip.contains_point(*point))
             });
 
             // The mouse position relative to the node
@@ -327,7 +326,7 @@ pub fn ui_focus_system(
     // set Pressed or Hovered on top nodes. as soon as a node with a `Block` focus policy is detected,
     // the iteration will stop on it because it "captures" the interaction.
     let mut hovered_nodes = hovered_nodes.iter();
-    let mut iter = node_query.iter_many_mut(hovered_nodes.by_ref());
+    let mut iter = node_query.iter_many_mut(hovered_nodes.by_ref()).matched();
     while let Some(node) = iter.fetch_next() {
         if let Some(mut interaction) = node.interaction {
             if mouse_clicked {
@@ -354,7 +353,7 @@ pub fn ui_focus_system(
     }
     // reset `Interaction` for the remaining lower nodes to `None`. those are the nodes that remain in
     // `moused_over_nodes` after the previous loop is exited.
-    let mut iter = node_query.iter_many_mut(hovered_nodes);
+    let mut iter = node_query.iter_many_mut(hovered_nodes).matched();
     while let Some(node) = iter.fetch_next() {
         if let Some(mut interaction) = node.interaction {
             // don't reset pressed nodes because they're handled separately
@@ -363,31 +362,4 @@ pub fn ui_focus_system(
             }
         }
     }
-}
-
-/// Walk up the tree child-to-parent checking that `point` is not clipped by any ancestor node.
-/// If `entity` has an [`OverrideClip`] component it ignores any inherited clipping and returns true.
-pub fn clip_check_recursive(
-    point: Vec2,
-    entity: Entity,
-    clipping_query: &Query<'_, '_, (&ComputedNode, &UiGlobalTransform, &Node)>,
-    child_of_query: &Query<&ChildOf, Without<OverrideClip>>,
-) -> bool {
-    let Ok(child_of) = child_of_query.get(entity) else {
-        // Reached root, point unclipped by all ancestors
-        return true;
-    };
-    if let Ok((computed_node, transform, node)) = clipping_query.get(child_of.0)
-        && !node.overflow.is_visible()
-        && transform.try_inverse().is_none_or(|affine| {
-            !computed_node
-                .resolve_clip_rect(node.overflow, node.overflow_clip_margin)
-                .contains(affine.transform_point2(point))
-        })
-    {
-        // The point is clipped (or transform not invertible) → ignore for picking
-        return false;
-    }
-
-    clip_check_recursive(point, child_of.0, clipping_query, child_of_query)
 }
