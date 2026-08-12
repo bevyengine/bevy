@@ -2,6 +2,7 @@ use crate::{
     batching::BatchingStrategy,
     change_detection::Tick,
     entity::{EntityEquivalent, UniqueEntityEquivalentVec},
+    query::QueryEntityError,
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 
@@ -190,7 +191,12 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, E: EntityEquivalent + Sync>
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     #[inline]
-    pub fn for_each<FN: Fn(QueryItem<'w, 's, D>) + Send + Sync + Clone>(self, func: FN) {
+    pub fn for_each<
+        FN: Fn(Result<QueryItem<'w, 's, D>, QueryEntityError>) + Send + Sync + Clone,
+    >(
+        self,
+        func: FN,
+    ) {
         self.for_each_init(|| {}, |_, item| func(item));
     }
 
@@ -231,12 +237,13 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, E: EntityEquivalent + Sync>
     ///     let mut queue: Parallel<usize> = Parallel::default();
     ///     // queue.borrow_local_mut() will get or create a thread_local queue for each task/thread;
     ///     query.par_iter_many(&entities).for_each_init(|| queue.borrow_local_mut(),|local_queue, item| {
-    ///         **local_queue += some_expensive_operation(item);
+    ///         **local_queue += some_expensive_operation(item.unwrap());
     ///     });
     ///
     ///     // collect value from every thread
     ///     let final_value: usize = queue.iter_mut().map(|v| *v).sum();
     /// }
+    /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     ///
     /// # Panics
@@ -247,7 +254,7 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, E: EntityEquivalent + Sync>
     #[inline]
     pub fn for_each_init<FN, INIT, T>(self, init: INIT, func: FN)
     where
-        FN: Fn(&mut T, QueryItem<'w, 's, D>) + Send + Sync + Clone,
+        FN: Fn(&mut T, Result<QueryItem<'w, 's, D>, QueryEntityError>) + Send + Sync + Clone,
         INIT: Fn() -> T + Sync + Send + Clone,
     {
         let func = |mut init, item| {
@@ -350,7 +357,12 @@ impl<'w, 's, D: IterQueryData, F: QueryFilter, E: EntityEquivalent + Sync>
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     #[inline]
-    pub fn for_each<FN: Fn(QueryItem<'w, 's, D>) + Send + Sync + Clone>(self, func: FN) {
+    pub fn for_each<
+        FN: Fn(Result<QueryItem<'w, 's, D>, QueryEntityError>) + Send + Sync + Clone,
+    >(
+        self,
+        func: FN,
+    ) {
         self.for_each_init(|| {}, |_, item| func(item));
     }
 
@@ -391,12 +403,13 @@ impl<'w, 's, D: IterQueryData, F: QueryFilter, E: EntityEquivalent + Sync>
     ///     let mut queue: Parallel<usize> = Parallel::default();
     ///     // queue.borrow_local_mut() will get or create a thread_local queue for each task/thread;
     ///     query.par_iter_many_unique(&entities).for_each_init(|| queue.borrow_local_mut(),|local_queue, item| {
-    ///         **local_queue += some_expensive_operation(item);
+    ///         **local_queue += some_expensive_operation(item.unwrap());
     ///     });
     ///
     ///     // collect value from every thread
     ///     let final_value: usize = queue.iter_mut().map(|v| *v).sum();
     /// }
+    /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     ///
     /// # Panics
@@ -407,7 +420,7 @@ impl<'w, 's, D: IterQueryData, F: QueryFilter, E: EntityEquivalent + Sync>
     #[inline]
     pub fn for_each_init<FN, INIT, T>(self, init: INIT, func: FN)
     where
-        FN: Fn(&mut T, QueryItem<'w, 's, D>) + Send + Sync + Clone,
+        FN: Fn(&mut T, Result<QueryItem<'w, 's, D>, QueryEntityError>) + Send + Sync + Clone,
         INIT: Fn() -> T + Sync + Send + Clone,
     {
         let func = |mut init, item| {

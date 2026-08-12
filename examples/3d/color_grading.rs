@@ -225,7 +225,7 @@ fn number_input_for_value(
             template_value(NumberInputValue::F32(setting.get(color_grading)))
             template_value(setting)
             NumberInputPrecision(2)
-            HardLimit::f32(0. ..10.)
+            HardLimit::f32(0. ..=10.)
         ]
     }
 }
