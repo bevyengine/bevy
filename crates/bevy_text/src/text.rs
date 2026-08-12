@@ -3,7 +3,6 @@ use alloc::borrow::Cow;
 use bevy_asset::{Assets, Handle};
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::VariantDefaults;
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
 use bevy_math::Vec2;
 use bevy_reflect::prelude::*;
@@ -593,7 +592,7 @@ impl<const N: usize> From<[FontSource; N]> for FontSource {
 }
 
 /// Generic font families that are resolved through Parley's font database.
-#[derive(Clone, Copy, Debug, Reflect, PartialEq, Eq, Hash, FromTemplate)]
+#[derive(Default, Clone, Copy, Debug, Reflect, PartialEq, Eq, Hash)]
 #[repr(u8)]
 pub enum GenericFontFamily {
     /// Fonts with serifs — small decorative strokes at the ends of letterforms.
@@ -1305,7 +1304,7 @@ impl From<&FontVariations> for parley::style::FontVariations<'static> {
 /// Specifies the height of each line of text for `Text` and `Text2d`
 ///
 /// Default is 1.2x the font size
-#[derive(Component, Debug, Clone, Copy, PartialEq, Reflect, VariantDefaults)]
+#[derive(Component, Debug, Clone, Copy, PartialEq, Reflect)]
 #[reflect(Component, Debug, Clone, PartialEq)]
 pub enum LineHeight {
     /// Set line height to a specific number of pixels

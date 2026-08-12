@@ -300,15 +300,9 @@
 //! [`FromTemplate`] derivers still have access to a default constructor of sorts though: the derive generates a companion struct
 //! for `YourType` named `YourTypeTemplate` which implements `Default`, so `YourTypeTemplate::default()` serves the same purpose.
 //!
-//! #### Enums in bsn
+//! #### Enums in BSN
 //!
-//! Enums are special-cased to allow for better implicit defaults: [`bsn!`] requires that enums have defaults for all variant arms, not just the type as a whole.
-//!
-//! When [`bsn!`] encounters a Enum, it will try to get the default value for the variant using static methods like `default_{variant_lower}`.
-//! To help with setting up these methods, theres a pseudo-`derive` called [`VariantDefaults`](bevy_ecs::VariantDefaults).
-//! It works like a normal `derive` macro, but without a matching Trait. It just generates a impl block with the `default_{variant_lower}` static methods.
-//!
-//! Deriving [`FromTemplate`] also implies/works like [`VariantDefaults`](bevy_ecs::VariantDefaults).
+//! Unlike structs in BSN, Enums require specifying every field, just like you would in normal Rust. This is because Rust has no concept of "variant defaults".
 //!
 //! ## Composition
 //!
@@ -1744,35 +1738,35 @@ mod tests {
         let mut app = test_app();
         let world = app.world_mut();
 
-        #[derive(Component, FromTemplate, PartialEq, Eq, Debug)]
+        #[derive(Component, Default, Clone, PartialEq, Eq, Debug)]
         enum Foo {
-            #[default]
             Bar {
                 x: u32,
                 y: u32,
                 z: u32,
             },
             Baz(usize),
+            #[default]
             Qux,
         }
 
         fn a() -> impl Scene {
             bsn! {
-                Foo::Baz(10)
+                Foo
             }
         }
 
         fn b() -> impl Scene {
             bsn! {
                 @a()
-                Foo::Bar { x: 1 }
+                Foo::Bar { x: 1, y: 2, z: 3 }
             }
         }
 
         fn c() -> impl Scene {
             bsn! {
                 @b()
-                Foo::Bar { y: 2 }
+                Foo::Baz(10)
             }
         }
 
@@ -1783,21 +1777,20 @@ mod tests {
             }
         }
 
-        let id = world.spawn_scene(c()).unwrap().id();
-        let root = world.entity(id);
+        let entity = world.spawn_scene(a()).unwrap();
+        let foo = entity.get::<Foo>().unwrap();
+        assert_eq!(Foo::default(), *foo);
 
-        let foo = root.get::<Foo>().unwrap();
-        assert_eq!(Foo::Bar { x: 1, y: 2, z: 0 }, *foo);
+        let entity = world.spawn_scene(b()).unwrap();
+        let foo = entity.get::<Foo>().unwrap();
+        assert_eq!(Foo::Bar { x: 1, y: 2, z: 3 }, *foo);
 
-        let id = world.spawn_scene(a()).unwrap().id();
-        let root = world.entity(id);
-
-        let foo = root.get::<Foo>().unwrap();
+        let entity = world.spawn_scene(c()).unwrap();
+        let foo = entity.get::<Foo>().unwrap();
         assert_eq!(Foo::Baz(10), *foo);
 
-        let id = world.spawn_scene(d()).unwrap().id();
-        let root = world.entity(id);
-        let foo = root.get::<Foo>().unwrap();
+        let entity = world.spawn_scene(d()).unwrap();
+        let foo = entity.get::<Foo>().unwrap();
         assert_eq!(Foo::Qux, *foo);
     }
 

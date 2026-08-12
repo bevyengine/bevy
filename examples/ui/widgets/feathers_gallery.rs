@@ -2,7 +2,6 @@
 
 use bevy::{
     color::palettes,
-    ecs::VariantDefaults,
     feathers::{
         constants::{fonts, icons},
         containers::*,
@@ -39,7 +38,7 @@ struct DemoWidgetStates {
     vec3_prop: Vec3,
 }
 
-#[derive(Component, Clone, Copy, PartialEq, FromTemplate)]
+#[derive(Component, Clone, Copy, PartialEq, Default)]
 enum SwatchType {
     #[default]
     Rgb,
@@ -58,7 +57,7 @@ struct DemoDialogToggle;
 #[derive(Component, Clone, Copy, Default)]
 struct DemoScalarField;
 
-#[derive(Component, Clone, Copy, Default, VariantDefaults)]
+#[derive(Component, Clone, Copy, Default)]
 enum DemoVec3Field {
     #[default]
     X,

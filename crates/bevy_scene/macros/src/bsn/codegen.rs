@@ -386,20 +386,34 @@ impl BsnType {
         assignments: &mut Vec<TokenStream>,
         target: PatchTarget,
     ) -> syn::Result<()> {
-        let (bevy_scene, bevy_ecs, path) = (ctx.bevy_scene, ctx.bevy_ecs, &self.path);
-        let variant_default = format_ident!("default_{}", variant.to_string().to_lowercase());
-        let template_path = quote! { #bevy_scene::macro_utils::PathResolveHelper::<<#path as #bevy_ecs::template::FromTemplate>::Template> };
-
         let maybe_deref = target.is_ref.then(|| quote! {*});
-        let maybe_borrow_mut = (!target.is_ref).then(|| quote! {&mut});
         let field_path = target.path;
 
-        let (check_pattern, binding_pattern, field_updates) = match &self.fields {
+        let value = self.enum_tokens(ctx, variant)?;
+
+        assignments.push(quote! {
+            #maybe_deref #(#field_path).* = #value;
+        });
+
+        Ok(())
+    }
+
+    fn enum_value(&self, ctx: &mut BsnCodegenCtx) -> syn::Result<TokenStream> {
+        if let Some(variant) = &self.enum_variant {
+            self.enum_tokens(ctx, variant)
+        } else {
+            self.enum_struct_tokens(ctx)
+        }
+    }
+
+    fn enum_tokens(&self, ctx: &mut BsnCodegenCtx, variant: &Ident) -> syn::Result<TokenStream> {
+        let (bevy_scene, bevy_ecs, path) = (ctx.bevy_scene, ctx.bevy_ecs, &self.path);
+        let template_path = quote! { #bevy_scene::macro_utils::PathResolveHelper::<<#path as #bevy_ecs::template::FromTemplate>::Template> };
+
+        Ok(match &self.fields {
             BsnFields::Named(fields) => {
                 let mut seen = HashSet::with_capacity(fields.len());
-                let mut names = Vec::new();
                 let mut assigns = Vec::new();
-
                 for field in fields {
                     let field_name = &field.name;
                     if !seen.insert(field_name.to_string()) {
@@ -410,48 +424,85 @@ impl BsnType {
                         continue;
                     }
 
-                    names.push(field_name);
-
-                    assigns.push(self.process_enum_field(ctx, field_name, field.value.as_ref())?);
+                    assigns.push(self.enum_field(ctx, field_name, field.value.as_ref())?);
                 }
 
-                (
-                    quote! { #variant { .. } },
-                    quote! { #variant { #(#names,)* .. } },
-                    assigns,
-                )
+                quote! {
+                    #template_path::#variant {
+                      #(#assigns)*
+                    }
+                }
             }
             BsnFields::Tuple(fields) if fields.is_empty() => {
-                (quote! { #variant }, quote! { #variant }, vec![])
+                quote! {
+                    #template_path::#variant
+                }
             }
             BsnFields::Tuple(fields) => {
-                let names: Vec<_> = (0..fields.len()).map(|i| format_ident!("t{}", i)).collect();
-                let assigns = fields
-                    .iter()
-                    .enumerate()
-                    .map(|(i, f)| self.process_enum_field(ctx, &names[i], Some(&f.value)))
-                    .collect::<syn::Result<Vec<_>>>()?;
-
-                (
-                    quote! { #variant(..) },
-                    quote! { #variant(#(#names,)* ..) },
-                    assigns,
-                )
-            }
-        };
-
-        assignments.push(quote! {
-            {
-                let _node = #maybe_borrow_mut #(#field_path).*;
-                if !::core::matches!(_node, #template_path::#check_pattern) {
-                    #maybe_deref _node = #template_path::#variant_default();
+                let mut assigns = Vec::new();
+                for field in fields {
+                    assigns.push(self.enum_field_value(ctx, &field.value)?);
                 }
-                if let #template_path::#binding_pattern = _node {
-                    #(#field_updates)*
+
+                quote! {
+                    #template_path::#variant(
+                      #(#assigns,)*
+                    )
                 }
             }
-        });
-        Ok(())
+        })
+    }
+
+    fn enum_struct_tokens(&self, ctx: &mut BsnCodegenCtx) -> syn::Result<TokenStream> {
+        let (bevy_scene, bevy_ecs, path) = (ctx.bevy_scene, ctx.bevy_ecs, &self.path);
+        let template_path = quote! { #bevy_scene::macro_utils::PathResolveHelper::<<#path as #bevy_ecs::template::FromTemplate>::Template> };
+
+        Ok(match &self.fields {
+            BsnFields::Named(fields) => {
+                let mut seen = HashSet::with_capacity(fields.len());
+                let mut assigns = Vec::new();
+                for field in fields {
+                    let field_name = &field.name;
+                    if !seen.insert(field_name.to_string()) {
+                        ctx.errors.push(syn::Error::new_spanned(
+                            field_name,
+                            format!("Duplicate field `{}` found in BSN enum variant", field_name),
+                        ));
+                        continue;
+                    }
+
+                    assigns.push(self.enum_field(ctx, field_name, field.value.as_ref())?);
+                }
+
+                if assigns.is_empty() {
+                    quote! { <#template_path as #FQDefault>::default() }
+                } else {
+                    quote! {
+                        #template_path {
+                          #(#assigns)*
+                          ..#FQDefault::default()
+                        }
+                    }
+                }
+            }
+            BsnFields::Tuple(fields) if fields.is_empty() => {
+                quote! {
+                    <#template_path as #FQDefault>::default()
+                }
+            }
+            BsnFields::Tuple(fields) => {
+                let mut assigns = Vec::new();
+                for field in fields {
+                    assigns.push(self.enum_field_value(ctx, &field.value)?);
+                }
+
+                quote! {
+                    #template_path(
+                      #(#assigns,)*
+                    )
+                }
+            }
+        })
     }
 
     fn push_struct_patch(
@@ -605,7 +656,7 @@ impl BsnType {
         Ok(())
     }
 
-    fn process_enum_field(
+    fn enum_field(
         &self,
         ctx: &mut BsnCodegenCtx,
         bind_name: &Ident,
@@ -644,14 +695,32 @@ impl BsnType {
         ) = value
         {
             let ident = ctx.hoisted_expressions.hoist(value);
-            return Ok(quote! { *#bind_name = #ident; });
+            return Ok(quote! { #bind_name: #ident, });
         }
 
         // NOTE: It is very important to still produce outputs for None field values. This is what
         // enables field autocomplete in Rust Analyzer
         value
-            .map(|v| Ok(quote! { *#bind_name = #v; }))
-            .unwrap_or(Ok(quote! { #bind_name; }))
+            .map(|v| Ok(quote! { #bind_name: #v, }))
+            .unwrap_or(Ok(quote! { #bind_name, }))
+    }
+
+    fn enum_field_value(
+        &self,
+        ctx: &mut BsnCodegenCtx,
+        value: &BsnValue,
+    ) -> syn::Result<TokenStream> {
+        Ok(match value {
+            value @ (BsnValue::Ident(_)
+            | BsnValue::Expr(_)
+            | BsnValue::Closure(_)
+            | BsnValue::Tuple(_)) => {
+                let ident = ctx.hoisted_expressions.hoist(value);
+                ident.to_token_stream()
+            }
+            BsnValue::Type(bsn_type) => bsn_type.enum_value(ctx)?,
+            value @ _ => value.to_token_stream(),
+        })
     }
 }
 
