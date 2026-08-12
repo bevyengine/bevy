@@ -1,4 +1,4 @@
-//! A minimal example that outputs "hello world"
+//! A minimal example that outputs "Hello, World!"
 
 use bevy::prelude::*;
 
