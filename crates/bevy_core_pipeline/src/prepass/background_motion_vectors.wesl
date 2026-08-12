@@ -22,7 +22,7 @@ struct PreviousViewUniforms {
 @group(0) @binding(0) var<uniform> view_array: array<View, constants::MAX_VIEW_COUNT>;
 @else
 @group(0) @binding(0) var<uniform> view_array: array<View, 1>;
-var<private> current_view_index: i32 = 0;
+var<private> current_view_index: u32 = 0u;
 
 
 @group(0) @binding(1) var<uniform> previous_view: PreviousViewUniforms;
@@ -36,7 +36,7 @@ var<private> current_view_index: i32 = 0;
 fn fragment(
     in: FullscreenVertexOutput,
 @if(MULTIVIEW)
-    @builtin(view_index) view_index: i32,
+    @builtin(view_index) view_index: u32,
 ) -> @location(1) vec4<f32> {
 @if(MULTIVIEW)
     current_view_index = view_index;

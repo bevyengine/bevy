@@ -122,7 +122,7 @@ fn henyey_greenstein(neg_LdotV: f32) -> f32 {
 fn fragment(
     @builtin(position) position: vec4<f32>,
 @if(MULTIVIEW)
-    @builtin(view_index) view_index: i32,
+    @builtin(view_index) view_index: u32,
 ) -> @location(0) vec4<f32> {
 @if(MULTIVIEW)
     current_view_index = view_index;

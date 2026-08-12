@@ -35,7 +35,7 @@ fn morph_vertex(vertex_in: UncompressedVertex, instance_index: u32) -> Uncompres
 fn vertex(
     vertex_no_morph: Vertex,
 @if(MULTIVIEW)
-    @builtin(view_index) view_index: i32,
+    @builtin(view_index) view_index: u32,
 ) -> VertexOutput {
 @if(MULTIVIEW)
     bevy_pbr::render::mesh_view_bindings::current_view_index = view_index;

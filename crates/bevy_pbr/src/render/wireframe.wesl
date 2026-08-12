@@ -62,7 +62,7 @@ fn vertex(
     @builtin(vertex_index) vertex_index: u32,
     @builtin(instance_index) instance_index: u32,
 @if(MULTIVIEW)
-    @builtin(view_index) view_index: i32,
+    @builtin(view_index) view_index: u32,
 ) -> WireframeVertexOutput {
 @if(MULTIVIEW)
     bevy_pbr::render::mesh_view_bindings::current_view_index = view_index;

@@ -9,7 +9,7 @@ import bevy_core_pipeline::input_texture::{sample_input, current_view_index};
 fn fs_main(
     in: FullscreenVertexOutput,
 @if(MULTIVIEW)
-    @builtin(view_index) view_index: i32,
+    @builtin(view_index) view_index: u32,
 ) -> @location(0) vec4<f32> {
 @if(MULTIVIEW)
     current_view_index = view_index;

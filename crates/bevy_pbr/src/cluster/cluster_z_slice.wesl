@@ -44,7 +44,7 @@ import bevy_render::view::View;
 @group(0) @binding(6) var<uniform> view_array: array<View, constants::MAX_VIEW_COUNT>;
 @else
 @group(0) @binding(6) var<uniform> view_array: array<View, 1>;
-var<private> current_view_index: i32 = 0;
+var<private> current_view_index: u32 = 0u;
 
 
 // A temporary workgroup-local buffer used to accelerate the "farthest depth of

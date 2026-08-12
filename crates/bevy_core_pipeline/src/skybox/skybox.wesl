@@ -25,7 +25,7 @@ struct SkyboxUniforms {
 @group(0) @binding(2) var<uniform> view_array: array<View, constants::MAX_VIEW_COUNT>;
 @else
 @group(0) @binding(2) var<uniform> view_array: array<View, 1>;
-var<private> current_view_index: i32 = 0;
+var<private> current_view_index: u32 = 0u;
 
 @group(0) @binding(3) var<uniform> uniforms: SkyboxUniforms;
 
@@ -87,7 +87,7 @@ fn skybox_vertex(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
 struct FragmentInput {
     @builtin(position) position: vec4<f32>,
 @if(MULTIVIEW)
-    @builtin(view_index) view_index: i32,
+    @builtin(view_index) view_index: u32,
 }
 
 @fragment

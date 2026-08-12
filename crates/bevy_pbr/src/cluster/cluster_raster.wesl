@@ -89,7 +89,7 @@ struct ClusterOffsetsAndCountsElementAtomic {
 @else
 @group(0) @binding(6) var<uniform> view_array: array<View, 1>;
 
-var<private> current_view_index: i32 = 0;
+var<private> current_view_index: u32 = 0u;
 
 @if(!VERTEX_SHADER && POPULATE_PASS) {
 // The number of objects in each cluster, and the offset of each list.

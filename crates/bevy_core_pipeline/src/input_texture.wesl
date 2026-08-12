@@ -18,7 +18,7 @@
 @else
 @group(0) @binding(0) var input_texture: texture_2d<f32>;
 
-var<private> current_view_index: i32 = 0;
+var<private> current_view_index: u32 = 0u;
 
 fn sample_input(s: sampler, uv: vec2<f32>) -> vec4<f32> {
 @if(MULTIVIEW)

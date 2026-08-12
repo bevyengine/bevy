@@ -15,7 +15,7 @@ import bevy_pbr::render::mesh_view_types::OitFragmentNode;
 @group(0) @binding(0) var<uniform> view_array: array<View, constants::MAX_VIEW_COUNT>;
 @else
 @group(0) @binding(0) var<uniform> view_array: array<View, 1>;
-var<private> current_view_index: i32 = 0;
+var<private> current_view_index: u32 = 0u;
 
 
 @group(0) @binding(1) var<storage, read> nodes: array<OitFragmentNode>;
@@ -42,7 +42,7 @@ const SORTED_FRAGMENT_MAX_COUNT: u32 = constants::SORTED_FRAGMENT_MAX_COUNT;
 fn fragment(
     in: FullscreenVertexOutput,
 @if(MULTIVIEW)
-    @builtin(view_index) view_index: i32,
+    @builtin(view_index) view_index: u32,
 ) -> @location(0) vec4<f32> {
 @if(MULTIVIEW)
     current_view_index = view_index;

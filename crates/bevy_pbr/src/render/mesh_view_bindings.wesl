@@ -31,7 +31,7 @@ enable wgpu_binding_array;
 @else
 @group(0) @binding(0) var<uniform> view_array: array<View, 1>;
 
-var<private> current_view_index: i32 = 0;
+var<private> current_view_index: u32 = 0u;
 
 // Custom WESL entries (vertex or fragment) used by user `Material`
 // implementors must thread `@builtin(view_index)` and assign it to
@@ -47,7 +47,7 @@ var<private> current_view_index: i32 = 0;
 //     struct FragmentInput {
 //         @builtin(position) frag_coord: vec4<f32>,
 //     @if(MULTIVIEW)
-//         @builtin(view_index) view_index: i32,
+//         @builtin(view_index) view_index: u32,
 //         // ... other fields ...
 //     }
 //

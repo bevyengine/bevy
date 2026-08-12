@@ -198,7 +198,7 @@ fn sample_input_3x3_tent(uv: vec2<f32>) -> vec3<f32> {
 fn downsample_first(
     @location(0) output_uv: vec2<f32>,
 @if(MULTIVIEW)
-    @builtin(view_index) view_index: i32,
+    @builtin(view_index) view_index: u32,
 ) -> @location(0) vec4<f32> {
 @if(MULTIVIEW)
     current_view_index = view_index;

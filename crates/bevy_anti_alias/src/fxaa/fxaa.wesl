@@ -66,7 +66,7 @@ fn rgb2luma(rgb: vec3<f32>) -> f32 {
 fn fragment(
     in: FullscreenVertexOutput,
 @if(MULTIVIEW)
-    @builtin(view_index) view_index: i32,
+    @builtin(view_index) view_index: u32,
 ) -> @location(0) vec4<f32> {
 @if(MULTIVIEW)
     current_view_index = view_index;

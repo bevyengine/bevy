@@ -30,7 +30,7 @@ fn fragment(
 @if(!MESHLET_MESH_MATERIAL_PASS)
     @builtin(front_facing) is_front: bool,
 @if(MULTIVIEW)
-    @builtin(view_index) view_index: i32,
+    @builtin(view_index) view_index: u32,
 ) -> prepass_io::FragmentOutput {
 @if(MULTIVIEW)
     bevy_pbr::render::mesh_view_bindings::current_view_index = view_index;
@@ -156,7 +156,7 @@ fn fragment(
 fn fragment(
     in: prepass_io::VertexOutput,
 @if(MULTIVIEW)
-    @builtin(view_index) view_index: i32,
+    @builtin(view_index) view_index: u32,
 ) {
 @if(MULTIVIEW)
     bevy_pbr::render::mesh_view_bindings::current_view_index = view_index;

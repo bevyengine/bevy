@@ -45,7 +45,7 @@ subview 0's data:
 fn fragment(
     in: VertexOutput,
 @if(MULTIVIEW)
-    @builtin(view_index) view_index: i32,
+    @builtin(view_index) view_index: u32,
 ) -> @location(0) vec4<f32> {
 @if(MULTIVIEW)
     bevy_pbr::render::mesh_view_bindings::current_view_index = view_index;

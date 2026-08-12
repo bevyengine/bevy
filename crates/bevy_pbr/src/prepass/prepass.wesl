@@ -71,7 +71,7 @@ fn morph_prev_vertex(vertex_in: UncompressedVertex, instance_index: u32) -> Unco
 fn vertex(
     vertex_no_morph: Vertex,
 @if(MULTIVIEW)
-    @builtin(view_index) view_index: i32,
+    @builtin(view_index) view_index: u32,
 ) -> VertexOutput {
 @if(MULTIVIEW)
     bevy_pbr::render::mesh_view_bindings::current_view_index = view_index;
@@ -184,7 +184,7 @@ fn vertex(
 fn fragment(
     in: VertexOutput,
 @if(MULTIVIEW)
-    @builtin(view_index) view_index: i32,
+    @builtin(view_index) view_index: u32,
 ) -> FragmentOutput {
 @if(MULTIVIEW)
     bevy_pbr::render::mesh_view_bindings::current_view_index = view_index;

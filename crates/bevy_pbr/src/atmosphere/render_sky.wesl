@@ -42,7 +42,7 @@ struct RenderSkyOutput {
 fn main(
     in: FullscreenVertexOutput,
 @if(MULTIVIEW)
-    @builtin(view_index) view_index: i32,
+    @builtin(view_index) view_index: u32,
 ) -> RenderSkyOutput {
 // Under multiview the depth binding is a per-eye array; the multisampled
 // binding stays single-layer because WGSL has no
