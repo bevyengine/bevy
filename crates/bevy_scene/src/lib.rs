@@ -988,6 +988,7 @@ mod tests {
     use bevy_ecs::world::DeferredWorld;
     use bevy_reflect::TypePath;
     use bevy_scene_macros::SceneComponent;
+    use std::ops::Range;
     use std::path::Path;
     use std::sync::Mutex;
 
@@ -3026,6 +3027,38 @@ mod tests {
             *ready_events,
             vec![grand_child_1, grand_child_2, child_id, root_id]
         );
+    }
+
+    #[test]
+    fn range_scene_value() {
+        #[derive(Component, Default, Clone)]
+        struct X(Range<i32>);
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        let entity = world.spawn_scene(bsn! { X(0..10) }).unwrap();
+        let x = entity.get::<X>().unwrap();
+        assert_eq!(x.0, 0..10);
+    }
+
+    #[test]
+    fn associated_const_ambiguity() {
+        #[derive(Component, Clone, Debug, PartialEq, Eq)]
+        enum Foo {
+            I32(i32),
+        }
+
+        impl Default for Foo {
+            fn default() -> Self {
+                Self::I32(0)
+            }
+        }
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        let entity = world.spawn_scene(bsn! { Foo::I32(1) }).unwrap();
+        let foo = entity.get::<Foo>().unwrap();
+        assert_eq!(foo, &Foo::I32(1));
     }
 
     #[derive(TypePath)]

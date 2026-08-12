@@ -160,7 +160,7 @@ impl BsnEntry {
                     return Err(syn::Error::new(
                         path.span(),
                         "Consts are not currently supported in this position",
-                    ))
+                    ));
                 }
                 PathType::TypeFunction => {
                     let function = take_last_path_ident(&mut path).unwrap();
@@ -271,14 +271,14 @@ impl Parse for BsnType {
         let mut path = input.parse::<Path>()?;
         let enum_variant = match PathType::new(&path) {
             PathType::Type => None,
-            PathType::Enum => take_last_path_ident(&mut path),
+            PathType::Enum | PathType::TypeConst => take_last_path_ident(&mut path),
             PathType::Function | PathType::TypeFunction => {
                 return Err(syn::Error::new(
                     path.span(),
                     "Expected a path to a BSN type but encountered a path to a function.",
                 ))
             }
-            PathType::Const | PathType::TypeConst => {
+            PathType::Const => {
                 return Err(syn::Error::new(
                     path.span(),
                     "Expected a path to a BSN type but encountered a path to a const.",
@@ -565,14 +565,33 @@ impl Parse for BsnValue {
                         return Err(input.error("Unexpected input after function name"));
                     }
                 }
-                PathType::Const | PathType::TypeConst => {
+                PathType::Const => {
                     input.parse::<Path>()?;
                     BsnValue::Expr(quote! { #path })
                 }
-                PathType::Type | PathType::Enum => BsnValue::Type(input.parse::<BsnType>()?),
+                PathType::Type | PathType::Enum | PathType::TypeConst => {
+                    BsnValue::Type(input.parse::<BsnType>()?)
+                }
             }
         } else if input.peek(Lit) {
-            BsnValue::Lit(input.parse::<Lit>()?)
+            let lit = input.parse::<Lit>()?;
+            if matches!(lit, Lit::Int(_) | Lit::Float(_)) && input.peek(Dot) && input.peek2(Dot) {
+                input.parse::<Dot>()?;
+                input.parse::<Dot>()?;
+                let maybe_eq = if input.peek(Token![=]) {
+                    Some(input.parse::<Token![=]>()?)
+                } else {
+                    None
+                };
+                let end = input.parse::<Lit>()?;
+                if maybe_eq.is_some() {
+                    BsnValue::Expr(quote! {#lit..=#end})
+                } else {
+                    BsnValue::Expr(quote! {#lit..#end})
+                }
+            } else {
+                BsnValue::Lit(lit)
+            }
         } else if input.peek(Paren) {
             BsnValue::Tuple(input.parse::<BsnTuple>()?)
         } else if input.peek(Token![#]) {
