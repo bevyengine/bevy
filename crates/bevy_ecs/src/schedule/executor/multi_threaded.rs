@@ -746,7 +746,9 @@ impl ExecutorState {
             self.exclusive_running = false;
         }
 
-        if !self.system_task_metadata[system_index].is_send {
+        if self.system_task_metadata[system_index].is_exclusive
+            || !self.system_task_metadata[system_index].is_send
+        {
             self.local_thread_running = false;
         }
 
@@ -941,7 +943,7 @@ mod tests {
         },
         prelude::Resource,
         schedule::{IntoScheduleConfigs, MultiThreadedExecutor, Schedule},
-        system::Commands,
+        system::{Commands, ExclusiveMarker, NonSendMut},
         world::World,
     };
 
@@ -965,6 +967,60 @@ mod tests {
         );
         schedule.run(&mut world);
         assert!(world.get_resource::<R>().is_some());
+    }
+
+    /// An exclusive system occupies the local thread whether or not it reports itself
+    /// as `Send`, so the executor has to release the local thread when it completes.
+    /// Releasing it only for `!Send` systems leaves `local_thread_running` set forever,
+    /// and every later non-`Send` system stays stuck in `ready_systems`.
+    #[test]
+    fn exclusive_system_reporting_send_releases_the_local_thread() {
+        #[derive(Default)]
+        struct NonSendMarker(bool);
+
+        let mut world = World::new();
+        world.insert_non_send(NonSendMarker::default());
+
+        let mut schedule = Schedule::default();
+        schedule.set_executor(MultiThreadedExecutor::new());
+        schedule.add_systems(
+            (
+                |_: ExclusiveMarker| {},
+                |mut marker: NonSendMut<NonSendMarker>| {
+                    marker.0 = true;
+                },
+            )
+                .chain(),
+        );
+
+        schedule.run(&mut world);
+
+        assert!(world.non_send::<NonSendMarker>().0);
+    }
+
+    /// The local thread is never released by any later event, so a single run that
+    /// leaks it strands non-`Send` systems in every subsequent run of the schedule.
+    #[test]
+    fn leaked_local_thread_does_not_outlive_its_run() {
+        #[derive(Default)]
+        struct NonSendMarker(bool);
+
+        let mut world = World::new();
+        world.insert_non_send(NonSendMarker::default());
+
+        let mut schedule = Schedule::default();
+        schedule.set_executor(MultiThreadedExecutor::new());
+        schedule.add_systems(|_: ExclusiveMarker| {});
+
+        // A run with no non-`Send` system to strand: nothing observable goes wrong.
+        schedule.run(&mut world);
+
+        schedule.add_systems(|mut marker: NonSendMut<NonSendMarker>| {
+            marker.0 = true;
+        });
+        schedule.run(&mut world);
+
+        assert!(world.non_send::<NonSendMarker>().0);
     }
 
     /// Regression test for a weird bug flagged by MIRI in
