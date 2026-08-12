@@ -1,26 +1,10 @@
 //! Beeple's "Zero-Day" sci-fi corridor (NVIDIA ORCA), path-traced with Bevy Solari.
 //!
-//! Zero-Day has no punctual lights. All of its light comes from approximately 10,000
-//! emissive triangles, as in NVIDIA's original real-time
-//! ["Measure 1"](https://www.youtube.com/watch?v=0WE7CgJMuVc) demo. This example needs
-//! Bevy Solari, because only a path tracer can light the scene this way. Solari makes the
-//! emissive meshes into area lights that give global illumination.
-//!
-//! The example plays the animation of the film: approximately 550 objects and the camera
-//! flythrough. The render camera follows the film camera.
-//!
-//! No ORCA measure contains animated *lights*. Octane made the emissive pulses of the
-//! film procedurally. They are in no exported asset, and glTF cannot carry them, because
-//! Bevy does not support `KHR_animation_pointer`. `animate_emissive` makes a substitute:
-//! a wave of light that moves along the emissive panels of the corridor.
-//!
-//! `--scene` selects the ORCA measure: `measure_one` (the default), `measure_seven`, or
-//! `measure_seven_colored_lights`. `convert.py` makes a different `.glb` for each
-//! measure. The measures have different geometry and different emissive colors. No
-//! measure has animated lights.
+//! See this example's `README.md` for how to get and convert the scene and for the
+//! command-line options.
 //!
 //! Controls: `C` changes between the film flythrough and free-fly (WASD and mouse), `N`
-//! turns DLSS Ray Reconstruction on and off, `B` does a short benchmark and prints the
+//! turns DLSS Ray Reconstruction on and off, `B` runs a short benchmark and prints the
 //! result to the console.
 
 use std::f32::consts::{PI, TAU};
@@ -46,10 +30,8 @@ use bevy::{
     world_serialization::WorldInstanceReady,
 };
 
-// DLSS Ray Reconstruction removes the noise from the Solari output when the `dlss`
-// feature is on. It needs an NVIDIA RTX GPU. Without one, the path tracer still runs.
-// DLSS adds `TemporalJitter` and `MipBias`, and the `N` key removes them together with
-// the denoiser.
+// DLSS Ray Reconstruction denoises the Solari output. It needs an NVIDIA RTX GPU, but
+// the path tracer still runs without one.
 #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
 use bevy::{
     anti_alias::dlss::{
@@ -62,44 +44,31 @@ use bevy::{
 /// Config
 #[derive(FromArgs, Resource)]
 pub struct Args {
-    /// which ORCA measure to load: measure_one (default), measure_seven, or
-    /// measure_seven_colored_lights. `convert.py` makes a different `.glb` for each.
+    /// which scene to load: measure_one (default), measure_seven, or
+    /// measure_seven_colored_lights
     #[argh(option, default = "Scene::MeasureOne")]
     scene: Scene,
 
-    /// emissive multiplier for the accent panels (default 150000). The panels are the only
-    /// lights in the scene, and they must be bright to light the space.
+    /// emissive multiplier for the light panels (default 150000)
     #[argh(option, default = "DEFAULT_EMISSIVE")]
     emissive: f32,
 
-    /// disable the synthetic emissive pulse. By default, a wave of light moves along the
-    /// panels as a substitute for the animated lights of the film, which are not in the
-    /// exported asset.
+    /// disable the synthetic emissive pulse that substitutes for the film's animated
+    /// lights
     #[argh(switch)]
     no_pulse: bool,
 
-    /// combine the thousands of per-object clips of the glTF into one clip at startup. The
-    /// playback is identical. The load is slower, but the animation evaluation in each frame
-    /// is much less expensive.
-    #[argh(switch)]
-    merge_animations: bool,
-
-    /// skip Solari and use a flat ambient light. The scene does not render correctly this
-    /// way, because the panels that Solari resolves are its only real lights. This is an
-    /// escape hatch for profiling and smoke tests, not a lighting mode. It runs on GPUs
-    /// that cannot do ray tracing.
+    /// render without Solari, with a flat ambient light instead (not representative; for
+    /// profiling and smoke tests)
     #[argh(switch)]
     no_solari: bool,
 
-    /// render resolution as `WxH` (default 1920x1080). The Solari cost increases with the
-    /// pixel count. Use a lower value (for example `1280x720`) on the heavy measures to
-    /// get more frames per second, with less sharpness.
+    /// render resolution as `WxH` (default 1920x1080)
     #[argh(option, default = "(1920, 1080)", from_str_fn(parse_resolution))]
     resolution: (u32, u32),
 
     /// DLSS quality mode: auto (default), dlaa, quality, balanced, performance, or
-    /// ultra_performance. A lower mode renders at a smaller internal resolution and gives
-    /// more frames per second.
+    /// ultra_performance
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
     #[argh(
         option,
@@ -132,10 +101,8 @@ fn parse_dlss_quality(value: &str) -> Result<DlssPerfQualityMode, String> {
     }
 }
 
-/// The ORCA "Zero-Day" measure to load. Each measure converts to its own self-contained
-/// `.glb` (see `convert.py` and the README). The flythrough camera and the emissive
-/// handling are the same for all three measures. Only the asset filename changes.
-// Keep the shared `Measure` prefix: it is the same as the ORCA asset names.
+/// The scene to load. Only the asset filename differs between measures.
+// Keep the shared `Measure` prefix, which matches the Zero-Day asset names.
 #[allow(clippy::enum_variant_names)]
 #[derive(Clone, Copy)]
 enum Scene {
@@ -145,7 +112,6 @@ enum Scene {
 }
 
 impl Scene {
-    /// The `.glb` file that this measure loads from `assets/`. Git ignores that folder.
     fn glb(self) -> &'static str {
         match self {
             Scene::MeasureOne => "zero_day_measure_one.glb",
@@ -155,9 +121,8 @@ impl Scene {
     }
 }
 
-/// Default emissive multiplier. `--emissive` replaces it. This is approximately the
-/// luminance of a bright LED fixture in nits. This one value is correct for all three
-/// measures.
+/// Default emissive multiplier, approximately the luminance of a bright LED fixture in
+/// nits.
 const DEFAULT_EMISSIVE: f32 = 150_000.0;
 
 impl argh::FromArgValue for Scene {
@@ -174,24 +139,17 @@ impl argh::FromArgValue for Scene {
     }
 }
 
-// Tuning values for the synthetic pulse (see `animate_emissive`). The film sequences its
-// lights procedurally. These values make a substitute: a wave that moves along the
-// corridor. You can change all of them.
+// Tuning for the synthetic emissive pulse (see `animate_emissive`).
 /// Rate of the wave in time (rad/s).
 const PULSE_FREQ: f32 = 2.0;
-/// Spatial frequency along the Z axis of the corridor (rad/world-unit). This sets the
-/// wavelength. Panels at different depths then flare at different times.
+/// Spatial frequency along the corridor's Z axis (rad/world-unit).
 const PULSE_WAVE_NUMBER: f32 = 0.05;
-/// Exponent that makes the sine sharper and gives distinct flares. A higher value makes
-/// each flare more sudden.
+/// Exponent that sharpens the sine into distinct flares.
 const PULSE_SHARPNESS: f32 = 2.0;
-/// Minimum and maximum levels, as a fraction of the base emissive of each panel. The
-/// minimum keeps the corridor lit between the flares. The maximum is more than 1.0, and
-/// the panels bloom when they flare.
+/// Minimum and maximum levels, as a fraction of each panel's base emissive.
 const PULSE_FLOOR: f32 = 0.4;
 const PULSE_PEAK: f32 = 1.8;
-/// Golden angle (rad). This gives each panel a different but stable phase. Panels at the
-/// same depth then do not flare together.
+/// Golden angle (rad), which gives each panel a different but stable phase.
 const PULSE_PHASE_STRIDE: f32 = 2.399_963_2;
 
 fn main() {
@@ -200,8 +158,7 @@ fn main() {
 
     let mut app = App::new();
 
-    // Set the DLSS project ID before the plugins: DLSS reads the ID when the renderer
-    // starts.
+    // DLSS reads the project ID when the renderer starts, so set it before the plugins.
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
     app.insert_resource(DlssProjectId(bevy::asset::uuid::uuid!(
         "b1a7c0de-4d2f-4e6a-9b3c-0d1e2f3a4b5c"
@@ -210,10 +167,8 @@ fn main() {
     let no_solari = args.no_solari;
 
     app.insert_resource(ClearColor(Color::BLACK))
-        // Solari makes all of the light from the emissive meshes. The scene has no
-        // ambient fill. With `--no-solari`, nothing makes light from those meshes. A
-        // flat ambient light then keeps the geometry visible. It is a substitute, not the
-        // lighting of the scene.
+        // With `--no-solari`, nothing emits light, so a flat ambient substitute keeps
+        // the geometry visible.
         .insert_resource(if no_solari {
             GlobalAmbientLight {
                 brightness: 5_000.0,
@@ -251,23 +206,21 @@ fn main() {
                 (toggle_flythrough, drive_flythrough).chain(),
                 animate_emissive,
                 benchmark,
-                // The HUD sorts the frame-time history and makes its text again, which
-                // makes the UI layout dirty. At 10 Hz that cost stays out of the frame
-                // times this example measures, and the numbers are also easier to read.
+                // Updating the HUD dirties the UI layout; at 10 Hz that cost stays out
+                // of the measured frame times.
                 (frame_stats, update_hud)
                     .chain()
                     .run_if(on_timer(Duration::from_millis(100))),
             ),
         );
 
-    // The plugin, not the camera `SolariLighting` component, requests the ray-tracing
-    // device features. Thus `--no-solari` must skip the plugin to run on any GPU.
+    // `SolariPlugins` requests the ray-tracing device features, so `--no-solari` must
+    // skip the plugin to run on any GPU.
     if !no_solari {
         app.add_plugins(SolariPlugins);
     }
 
-    // The `N` key turns DLSS on and off. Ray Reconstruction removes the noise from the
-    // Solari output. It has no function when Solari is off.
+    // Ray Reconstruction does nothing when Solari is off.
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
     app.add_systems(Update, toggle_denoiser.run_if(move || !no_solari));
 
@@ -276,13 +229,12 @@ fn main() {
 
 // Components and resources
 
-/// The render camera of the example. It holds the HDR and Solari components.
+/// The render camera of the example.
 #[derive(Component)]
 struct RenderCamera;
 
-/// The imported film camera. Each measure gives it a different name (`DynamicCamera2`,
-/// `DynamicCamera`, and others). Only its transform stays, and `drive_flythrough` follows
-/// that transform.
+/// The imported film camera. Only its animated transform is used; `drive_flythrough`
+/// follows it.
 #[derive(Component)]
 struct FilmCamera;
 
@@ -290,40 +242,34 @@ struct FilmCamera;
 #[derive(Component)]
 struct HudText;
 
-/// Keeps the full glTF loaded. Its animation clips stay available while it is loaded.
+/// Keeps the full glTF loaded so its animation clips stay available.
 #[derive(Resource)]
 struct SceneGltf(Handle<Gltf>);
 
-/// One emissive panel instance. The panels share a small number of materials, and
-/// `proc_scene` gives each emissive instance its own material clone. `animate_emissive`
-/// can then set the emissive of each panel independently: from the world position of the
-/// panel, for a wave along the corridor, and from a stable `phase`, so that adjacent
-/// panels do not flare together.
+/// One emissive panel instance, with its own material clone so `animate_emissive` can
+/// pulse each panel independently.
 #[derive(Component)]
 struct EmissivePanel {
-    /// The increased base emissive, as `proc_scene` calculated it. The pulse multiplies
-    /// this value.
+    /// The increased base emissive. The pulse multiplies this value.
     base: LinearRgba,
     /// The stable phase offset of this panel (radians).
     phase: f32,
 }
 
-/// The length of the loaded film animation (seconds), from the longest animation clip.
-/// `start_animation` sets it. The `B` benchmark uses it to measure exactly one loop of
-/// the animation. Each measure has a different number of frames.
+/// The length of the film animation (seconds), from the longest animation clip. The `B`
+/// benchmark uses it to measure exactly one loop.
 #[derive(Resource, Default)]
 struct FilmLength(f32);
 
-/// Frame-time statistics for the HUD. Solari is expensive, and these numbers show its
-/// cost. `one_percent_high_ms` is the mean of the slowest 1% of the frames.
+/// Frame-time statistics for the HUD. `one_percent_high_ms` is the mean of the slowest 1%
+/// of the frames.
 #[derive(Resource, Default)]
 struct FrameStats {
     avg_ms: f64,
     one_percent_high_ms: f64,
 }
 
-/// Selects the camera mode: follow the animated film camera (the mode at startup), or
-/// free-fly. The `C` key changes the mode.
+/// Whether the camera follows the film flythrough. The `C` key toggles free-fly.
 #[derive(Resource)]
 struct Cinematic {
     active: bool,
@@ -342,25 +288,24 @@ fn setup(
     let glb = args.scene.glb();
     println!("Loading Zero-Day `{glb}` (this is a large scene; give it a moment)");
 
-    // Load the full glTF, not only the scene. `spawn_scene_when_ready` spawns the scene
-    // when the load is complete. The full `Gltf` also keeps its animation clips available
-    // to `start_animation`.
+    // Load the full glTF, not only the scene, so the animation clips stay available to
+    // `start_animation`.
     commands.insert_resource(SceneGltf(asset_server.load(glb)));
 
-    // The camera. `setup_flythrough_camera` replaces its field of view and its near plane
-    // with the values of the film camera, but keeps the far plane. The transform below is
-    // the view that the example shows until the flythrough starts.
+    // The transform below is the view until the flythrough starts.
+    // `setup_flythrough_camera` later copies the film camera's field of view and near
+    // plane.
     let mut cam = commands.spawn((
         Camera3d::default(),
-        // The imported film camera also spawns as an active camera with order 0. A
+        // The imported film camera also spawns as an active camera with order 0. The
         // higher order keeps this camera in control until `setup_flythrough_camera`
-        // removes the other one. The rest pose of the film camera is never visible.
+        // removes the other one.
         Camera {
             order: 1,
             ..default()
         },
         Hdr,
-        // Solari and DLSS need MSAA off. It also stays off with `--no-solari`, to keep
+        // Solari and DLSS need MSAA off. It also stays off with `--no-solari` to keep
         // the profiling numbers comparable.
         Msaa::Off,
         Transform::from_xyz(-27.0, 8.0, 70.0).looking_at(Vec3::new(-27.0, 8.0, -150.0), Vec3::Y),
@@ -371,7 +316,7 @@ fn setup(
             ..default()
         }),
         RenderCamera,
-        // Glare on the panels. Their values are much higher than white.
+        // Glare on the bright panels.
         Bloom {
             intensity: 0.15,
             ..Bloom::NATURAL
@@ -390,9 +335,6 @@ fn setup(
         ),
         || !args.no_solari,
     );
-    // DLSS Ray Reconstruction removes the noise from the path-traced output if the GPU
-    // supports it. It reads the G-buffer outputs of Solari, and it stays off with
-    // `--no-solari`.
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
     if dlss_rr_supported.is_some() && !args.no_solari {
         cam.insert(dlss_rr(args.dlss_quality));
@@ -415,13 +357,10 @@ fn setup(
     ));
 }
 
-/// Spawns the scene when its glTF and all of its dependencies (materials, meshes,
-/// animation clips) are loaded, then does no more work. The `WorldInstanceReady` observers
-/// read those sub-assets directly. The scene must not spawn before all of them are
-/// available: without the materials, `proc_scene` cannot increase the emissive and the
-/// corridor stays black, because the emissive panels are its only light; without the
-/// clips, nothing moves. A load failure, usually a `.glb` that is not yet converted, is
-/// permanent. This system logs it one time and then stops.
+/// Spawns the scene once its glTF and all of its dependencies are loaded, so that the
+/// `WorldInstanceReady` observers below can read the materials and animation clips. A
+/// load failure (usually a `.glb` that hasn't been converted yet) is permanent, so log it
+/// once and stop.
 fn spawn_scene_when_ready(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -449,40 +388,23 @@ fn spawn_scene_when_ready(
         asset_server.load(format!("{}#Scene0", args.scene.glb())),
     ));
     scene
-        // Increases the emissive of the materials and clones one material per emissive
-        // instance.
         .observe(proc_scene)
-        // Makes the film camera into the source of the flythrough transform.
         .observe(setup_flythrough_camera)
-        // Plays the imported animation.
         .observe(start_animation);
     if !args.no_solari {
-        // Adds `RaytracingMesh3d` to each mesh, which lets Solari trace against it.
-        // Without `SolariPlugins`, nothing reads that component, and this observer is
-        // not necessary.
+        // Nothing reads `RaytracingMesh3d` without `SolariPlugins`.
         scene.observe(setup_raytracing_meshes);
     }
 }
 
 // Scene processing when the scene loads
 
-/// Prepares the loaded scene. This system increases the emissive of the materials, which
-/// makes the panels into bright Solari light sources. It then gives each emissive
-/// *instance* its own material, which lets the pulse animate the instances independently.
-/// `convert.py` does the material *repairs*: the normal-map convention, the alpha mode,
-/// and the black emissive factors. It also exports no lights at all. Only the tuning for
-/// this example stays here.
-///
-/// This system increases the emissive of each unique material one time. Instanced meshes
-/// share a material handle. An increase for each entity would multiply a shared emissive
-/// many times. `emissive_bases` holds the new value for all of the instances that use
-/// that material.
-///
-/// Only approximately 230 instances are emissive, and one material clone for each
-/// instance is not expensive. Solari reads the emissive from the material asset. Only
-/// different clones can therefore make adjacent panels flare at different times, because
-/// panels with one shared handle can only pulse together. With `--no-pulse`, nothing
-/// animates the panels, and this system does not make the clones.
+/// Makes the emissive panels into bright Solari light sources. This system multiplies
+/// the emissive of each unique material once (instances share material handles, so a
+/// per-entity multiply would compound), then gives each emissive instance its own
+/// material clone. Solari reads the emissive from the material asset, so panels that
+/// share a handle can only pulse together, and the clones (only ~230 instances) let
+/// `animate_emissive` flare each panel independently. `--no-pulse` skips the clones.
 fn proc_scene(
     scene_ready: On<WorldInstanceReady>,
     mut commands: Commands,
@@ -524,28 +446,19 @@ fn proc_scene(
     }
 }
 
-/// Makes the imported film camera into the source of the flythrough transform. This
-/// system removes the render components from the film camera, and copies its field of
-/// view and its near plane to the render camera. Only the render camera then draws. The
-/// film camera keeps its animated transform, which `drive_flythrough` follows. The camera
-/// entity is available at `WorldInstanceReady`.
+/// Strips the render components from the imported film camera and copies its field of
+/// view and near plane to the render camera. The film camera keeps its animated
+/// transform, which `drive_flythrough` follows.
 ///
-/// This system copies the field of view and the near plane, but not the far plane. The
-/// film has near=0.001 and far=100. The render camera keeps its far=2000, because the
-/// measures continue much further than 100 units from the camera. The shaft in
-/// measure_seven is approximately 700 units deep, and far=100 would cut it short.
+/// The far plane isn't copied. The film's far=100 would cut off the ~700-unit shaft in
+/// measure_seven, so the render camera keeps its far=2000. The near plane (0.001) must be
+/// copied, because Solari gets primary visibility from a rasterized prepass and the
+/// flythrough passes within ~0.02 units of geometry, which the default near plane of 0.1
+/// would clip away. Bevy's reverse-z depth buffer keeps enough precision between 0.001
+/// and 2000.
 ///
-/// The small near plane is necessary, and this system must copy it. Solari gets primary
-/// visibility from a *rasterized* depth and G-buffer prepass, which clips all geometry
-/// nearer than the near plane. The flythrough moves within approximately 0.02 units of the
-/// geometry, because measure seven goes through dense machinery. With a near plane at 0.1,
-/// the prepass clips those surfaces to empty depth, and the camera appears to look through
-/// them. The value of 0.001 in the film is correct for that geometry, and the reverse-z
-/// depth buffer of Bevy keeps sufficient precision between 0.001 and 2000.
-///
-/// Each measure has one camera only. This system nevertheless adds `FilmCamera` to the
-/// first camera only, and removes the render components from all of them. The `single()`
-/// call in `drive_flythrough` can thus never find more than one camera.
+/// `FilmCamera` goes on the first camera only, so the `single()` call in
+/// `drive_flythrough` can never find more than one.
 #[allow(clippy::type_complexity)]
 fn setup_flythrough_camera(
     scene_ready: On<WorldInstanceReady>,
@@ -579,14 +492,10 @@ fn setup_flythrough_camera(
     p.near = film.near;
 }
 
-/// Lets Solari trace against the meshes of the scene. This system adds `RaytracingMesh3d`
-/// to each mesh and changes 16-bit indices to 32-bit indices, which the BLAS build of
-/// Solari needs.
-///
-/// `convert.py` makes the vertex layout that Solari also needs: POSITION, NORMAL, UV0, and
-/// TANGENT only. `convert.py` owns the asset and does this one time, not at each run. It
-/// cannot set the index width, because the glTF exporter has no 32-bit option. The `.glb`
-/// contains the smallest index type that is sufficient.
+/// Adds `RaytracingMesh3d` to each mesh and widens 16-bit indices to 32-bit, which the
+/// Solari BLAS build needs. `convert.py` prepares the rest of the mesh layout, but it
+/// can't set the index width because the glTF exporter always writes the smallest
+/// sufficient index type.
 fn setup_raytracing_meshes(
     scene_ready: On<WorldInstanceReady>,
     children: Query<&Children>,
@@ -602,8 +511,8 @@ fn setup_raytracing_meshes(
             .entity(descendant)
             .insert(RaytracingMesh3d(mesh_handle.clone()));
 
-        // Examine the mesh with `get`: a call to `get_mut` marks it as Modified, which
-        // causes an upload and a BLAS build again.
+        // Check with `get`, since `get_mut` would mark the mesh Modified and trigger a
+        // re-upload and BLAS rebuild.
         let needs_widening = matches!(
             meshes.get(mesh_handle).and_then(Mesh::indices),
             Some(Indices::U16(_))
@@ -619,77 +528,34 @@ fn setup_raytracing_meshes(
 
 // Runtime
 
-/// Plays the imported animation on the animation player of the scene, in a loop. The
-/// animation moves approximately 550 objects and the film camera.
-///
-/// `convert.py` exports with the glTF `SCENE` animation mode to get one baked clip, but
-/// the Blender exporter still writes one clip *for each object*: 2315 clips for
-/// measure_one and 5032 clips for measure_seven. In each frame, the `AnimationPlayer`
-/// then advances that number of `ActiveAnimation`s and evaluates a graph of the same
-/// width. This cost comes only from the number of clips. `--merge-animations` combines
-/// them into one clip at startup. The curves of each object have a different
-/// `AnimationTargetId` and thus never collide, and the playback is identical with one
-/// active animation in the place of thousands. The clips contain no events, because FBX
-/// animation is rigid TRS, and thus no events are lost.
-///
-/// This system runs on `WorldInstanceReady`, as in `animated_mesh.rs`. When the scene has
-/// spawned, its parent glTF and the `animations` are loaded, and the player is one of its
-/// descendants. The system is thus reliable and does not have to poll.
+/// Plays the imported animation (approximately 550 objects plus the film camera) in a
+/// loop. The Blender exporter writes one clip per object (thousands per scene), all on
+/// the film's shared timeline.
 #[allow(clippy::too_many_arguments)]
 fn start_animation(
     scene_ready: On<WorldInstanceReady>,
     scene_gltf: Res<SceneGltf>,
     gltfs: Res<Assets<Gltf>>,
-    mut clips: ResMut<Assets<AnimationClip>>,
+    clips: Res<Assets<AnimationClip>>,
     mut graphs: ResMut<Assets<AnimationGraph>>,
     mut film_length: ResMut<FilmLength>,
     children: Query<&Children>,
     mut players: Query<&mut AnimationPlayer>,
-    args: Res<Args>,
     mut commands: Commands,
 ) {
     let Some(gltf) = gltfs.get(&scene_gltf.0) else {
-        warn!("zero_day: glTF asset not ready; animations will not play");
+        warn!("zero_day: glTF asset not ready; animations won't play");
         return;
     };
 
-    // The longest source clip gives the length of the animation, because the SCENE bake
-    // puts all of the objects on one shared timeline. This length sets the benchmark
-    // interval for each measure.
+    // All clips share one timeline, so the longest clip gives the film length.
     film_length.0 = gltf
         .animations
         .iter()
         .filter_map(|h| clips.get(h).map(AnimationClip::duration))
         .fold(0.0_f32, f32::max);
 
-    let (graph, nodes) = if args.merge_animations {
-        let mut merged = AnimationClip::default();
-        let mut source_clips = 0;
-        for handle in &gltf.animations {
-            // Use `remove`, not `get`: the curves move into the merged clip. A clone
-            // would keep both copies in memory, because `SceneGltf` holds the handles of
-            // the source clips.
-            let Some(mut clip) = clips.remove(handle) else {
-                continue;
-            };
-            for (target_id, curves) in clip.curves_mut().drain() {
-                merged
-                    .curves_mut()
-                    .entry(target_id)
-                    .or_default()
-                    .extend(curves);
-            }
-            source_clips += 1;
-        }
-        merged.set_duration(film_length.0);
-        info!("zero_day: merged {source_clips} clips into one");
-
-        let (graph, node) = AnimationGraph::from_clip(clips.add(merged));
-        (graph, vec![node])
-    } else {
-        AnimationGraph::from_clips(gltf.animations.iter().cloned())
-    };
-
+    let (graph, nodes) = AnimationGraph::from_clips(gltf.animations.iter().cloned());
     let graph = graphs.add(graph);
     for entity in children.iter_descendants(scene_ready.entity) {
         if let Ok(mut player) = players.get_mut(entity) {
@@ -725,9 +591,7 @@ fn dlss_rr(perf_quality_mode: DlssPerfQualityMode) -> Dlss<DlssRayReconstruction
     }
 }
 
-/// Turns DLSS Ray Reconstruction on and off with the `N` key, as the `solari` example
-/// does. DLSS also owns `TemporalJitter` and `MipBias`, and this system removes them
-/// together with DLSS.
+/// Turns DLSS Ray Reconstruction on and off with the `N` key.
 #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
 fn toggle_denoiser(
     input: Res<ButtonInput<KeyCode>>,
@@ -741,6 +605,7 @@ fn toggle_denoiser(
     }
     let (entity, has_dlss) = *camera;
     if has_dlss {
+        // DLSS inserted `TemporalJitter` and `MipBias`; remove them with it.
         commands
             .entity(entity)
             .remove::<(Dlss<DlssRayReconstructionFeature>, TemporalJitter, MipBias)>();
@@ -749,8 +614,8 @@ fn toggle_denoiser(
     }
 }
 
-/// The mean of the lowest 1% and the mean of the highest 1% of `samples`. This function
-/// sorts `samples` in place. It always uses one sample or more from each end.
+/// The mean of the lowest 1% and the mean of the highest 1% of `samples`. Sorts
+/// `samples` in place.
 fn one_percent_extremes(samples: &mut [f64]) -> (f64, f64) {
     samples.sort_by(f64::total_cmp);
     let count = (samples.len() / 100).max(1);
@@ -779,14 +644,9 @@ fn frame_stats(
     }
 }
 
-/// The `B` key starts the flythrough again from the first frame, measures one loop, and
-/// prints a summary. The rewind and the change to cinematic mode make the runs comparable:
-/// the camera path and the object movement are the same each time. This system does
-/// nothing before the animation is loaded, because its length sets the measured interval.
-///
-/// This system records the frame times and calculates the percentiles one time at the end.
-/// The 1% values thus apply to the full run, and not to the contents of `FrameStats` at
-/// one moment.
+/// The `B` key rewinds the flythrough, measures one full loop, and prints a summary.
+/// Rewinding and switching to cinematic mode make the runs comparable. The percentiles
+/// are calculated once at the end, so the 1% values cover the whole run.
 #[allow(clippy::too_many_arguments)]
 fn benchmark(
     input: Res<ButtonInput<KeyCode>>,
@@ -801,8 +661,6 @@ fn benchmark(
     mut samples: Local<Vec<f64>>,
 ) {
     if input.just_pressed(KeyCode::KeyB) && running.is_none() && film_length.0 > 0.0 {
-        // Start the animation again from frame 0 and follow the film camera. The
-        // measured interval is then identical for each run.
         cinematic.active = true;
         for mut player in &mut players {
             player.rewind_all();
@@ -856,20 +714,17 @@ fn drive_flythrough(
     let Ok(mut render) = render.single_mut() else {
         return;
     };
-    // Copy the position and the orientation only. The global transform of the film camera
-    // can contain a scale from its parent, which the render camera must not have.
+    // Copy only the position and orientation, because the film camera's global transform
+    // can carry a scale from its parent.
     let film = film.compute_transform();
     render.translation = film.translation;
     render.rotation = film.rotation;
 }
 
-/// Makes a substitute for the animated lights of the film: a wave of brightness that
-/// moves along the corridor. The wave is sharpened into distinct flares, and each panel
-/// has a stable phase, and adjacent panels thus do not pulse together. With Solari, this
-/// changes the real illumination, because each panel is its own area light and each flare
-/// lights the corridor as it moves. Octane made the sequence in the film procedurally, and
-/// it is not in the asset. This wave is only similar to it. With `--no-pulse`, the panels
-/// keep their constant increased emissive.
+/// A substitute for the film's animated lights, which aren't in the asset. A wave of
+/// brightness moves along the corridor, sharpened into distinct flares, with a stable
+/// per-panel phase so adjacent panels don't pulse together. Each panel is its own Solari
+/// area light, so each flare really lights the corridor as it moves.
 fn animate_emissive(
     time: Res<Time>,
     panels: Query<(
@@ -881,11 +736,9 @@ fn animate_emissive(
 ) {
     let t = time.elapsed_secs();
     for (transform, panel, material) in &panels {
-        // A wave along the long (Z) axis of the corridor, with a different offset for
-        // each panel. The full scene then shimmers and does not flash as one light.
         let z = transform.translation().z;
         let wave = ops::sin(t * PULSE_FREQ - z * PULSE_WAVE_NUMBER + panel.phase);
-        // Sharpen the sine. Each panel then stays dim and flares quickly.
+        // Sharpen the sine so each panel stays dim and flares quickly.
         let flare = ops::powf(0.5 + 0.5 * wave, PULSE_SHARPNESS);
         let level = PULSE_FLOOR + (PULSE_PEAK - PULSE_FLOOR) * flare;
         if let Some(mut mat) = materials.get_mut(material.id()) {

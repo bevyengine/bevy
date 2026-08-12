@@ -1,39 +1,11 @@
 """Export an ORCA Zero-Day FBX as one self-contained glTF binary (.glb) for the
 `zero_day` Bevy example.
 
-Zero-Day (NVIDIA ORCA) supplies each measure (`MEASURE_ONE`, `MEASURE_SEVEN`, and others)
-as an `.fbx` file with a `tex/` folder of `.dds` textures adjacent to it. This script
-converts the `.fbx` file that you give to it. The README of the example lists the output
-name for each measure.
-
-Bevy cannot load FBX. The FBX importer of Blender also reads the material conventions of
-this Octane export incorrectly: it puts the ORM map into `KHR_materials_specular`, changes
-the BaseColor opacity into alpha blend, and removes most of the emissive maps. This script
-does not use the imported material graph. It builds each material again from the naming
-convention that the README of the download specifies:
-
-    <name>_BaseColor.dds  RGB = base color            (sRGB)
-    <name>_Specular.dds   R = occlusion, G = roughness, B = metallic (Non-Color, ORM)
-    <name>_Normal.dds     DirectX normal map          (Non-Color)
-    <name>_Emissive.dds   RGB = emissive color        (sRGB)
-
-The roughness (G) and the metallic (B) channels of the shared `_Specular` image become one
-glTF `metallicRoughnessTexture`. The script does not use the occlusion channel (R): it
-needs the unreliable glTF-settings node group and has a small effect only. The normal maps
-use the DirectX convention (+Y down). The script inverts their green channel. The exported
-glTF then uses the OpenGL convention that the specification requires, and the example needs
-no correction at run time.
-
-The script deletes the meshes that the FBX marks as hidden. The film does not render them,
-but the glTF exporter would export them as visible, solid geometry. See the comment at the
-deletion.
-
-The script also prepares the meshes for Bevy Solari, which only traces against a mesh with
-POSITION, NORMAL, UV0, and TANGENT. Each mesh gets one UV layer only (an empty layer if it
-had none), and the export includes tangents for all of them.
-
 Usage:
     blender --background --python convert.py -- <input.fbx> <output.glb>
+
+The example's README.md lists the command line and the output filename for each measure.
+The comments at each step below explain what the conversion does and why.
 """
 
 import glob
@@ -51,30 +23,24 @@ if len(argv) != 2:
         "usage: blender --background --python convert.py -- <input.fbx> <output.glb>"
     )
 src, dst = argv
-# Keep the path absolute. Blender reads the textures again at export time, and a relative
-# path that was correct at load time fails there, because the export uses a different
-# working directory.
+# Keep the path absolute, because Blender reads the textures again at export time from a
+# different working directory.
 texdir = os.path.abspath(os.path.join(os.path.dirname(src), "tex"))
 
-# Start with an empty scene and import the FBX to get the geometry, the material
-# assignment, and the names. The script builds the materials again below, and the import is
-# necessary only for the relation between the meshes and the materials.
+# Import the FBX for the geometry, the object/material relations, and the names only.
+# Blender's FBX importer misreads the material conventions of this Octane export, so the
+# script ignores the imported material graphs and rebuilds each material below.
 bpy.ops.wm.read_factory_settings(use_empty=True)
 bpy.ops.import_scene.fbx(filepath=src, use_image_search=True)
 
-# The FBX marks many meshes as hidden, and the film does not render them (approximately
-# 1,700 in Measure Seven): proxy tubes with placeholder materials that contain the
-# flythrough camera for the full animation, ON and OFF variants of the light states, and
-# duplicate machinery. Octane and Blender do not render hidden objects, but the glTF
-# exporter exports them as usual visible geometry, and Bevy has no per-object visibility to
-# keep the difference. In a rasterized or a ray-traced render, they become solid walls
-# around the camera and unwanted emissive lights. Solari also uses each BLAS triangle as an
-# opaque occluder. The script thus deletes these meshes.
+# The FBX marks many meshes as hidden (proxy shells, ON/OFF light-state variants —
+# approximately 1,700 in Measure Seven). The glTF exporter would export them as solid,
+# visible geometry that encloses the camera, so delete them.
 #
-# The deletion starts at the leaf objects. A hidden mesh that is the parent of an object
-# that stays keeps its node, but loses its geometry, because its children must keep its
-# animated transform. The child counts come from one pass over the `parent` links: each
-# access to `Object.children` examines the full file again.
+# Deletion starts at the leaves. A hidden mesh with a surviving child keeps its node
+# (the child needs its animated transform) but loses its geometry. Child counts come from
+# one pass over the `parent` links, because each `Object.children` access scans the full
+# file.
 hidden = [
     obj
     for obj in bpy.context.scene.objects
@@ -114,14 +80,12 @@ for path in glob.glob(os.path.join(texdir, "*.dds")):
 
 
 def base_for_material(mat):
-    """The texture base name for a material, from the ORCA material NAME.
+    """The texture base name for a material, from the material name.
 
-    The README of the download uses this name as the key to `tex/`, and the relation is
-    deterministic. Thus use the name only. Do not use the BaseColor image that the FBX
-    import of Blender links, because it can refer to a different texture set and remove the
-    emissive of the material, which is the only light in the scene. If a name has no texture
-    set, this function returns None and the caller puts the material in `skipped`. The
-    mismatch is then visible, and no incorrect texture set hides it."""
+    The material name is the key to `tex/` per the download's README. Don't use the
+    BaseColor image that the FBX import links, because it can refer to a different
+    texture set. A name with no texture set returns None, and the caller records it in
+    `skipped`."""
     nm = mat.name.lower()
     if nm in tex:
         return nm
@@ -141,18 +105,13 @@ flipped_normals = set()
 
 
 def load_normal_image(path):
-    """Load a normal map and invert its green channel: DirectX (+Y down) to OpenGL.
+    """Load a normal map and invert its green channel from DirectX (+Y down) to the
+    OpenGL convention that glTF requires.
 
-    ORCA made these maps for a renderer that uses the DirectX convention, but glTF requires
-    the OpenGL convention. The inversion here becomes part of the exported image. The
-    alternative is `flip_normal_map_y` in the Bevy example, but that makes an agreement
-    between this script and the example that is not visible: nothing in the `.glb` shows
-    that the normals use a different convention, and a change to only one of the two lights
-    the full scene incorrectly.
-
-    An inversion in the node graph does not survive the export, because glTF encodes a
-    direct link from the image to the normal map only. This function changes the pixels and
-    packs the result. The exporter then reads the datablock and not the `.dds` file on the
+    Baking the flip into the image keeps the `.glb` self-contained; the alternative,
+    `flip_normal_map_y` in the example, is an invisible agreement between the script and
+    the example. A node-graph inversion doesn't survive the export, so change the pixels
+    and pack them, and the exporter then reads the datablock instead of the `.dds` on
     disk."""
     img = load_image(path, non_color=True)
     if img.name in flipped_normals:
@@ -179,21 +138,17 @@ def rebuild(mat, base):
         n = nt.nodes.new("ShaderNodeTexImage")
         n.image = load_image(channels["basecolor"], non_color=False)
         nt.links.new(n.outputs["Color"], bsdf.inputs["Base Color"])
-        # The BaseColor image also contains an opacity channel, because the decal and
-        # label materials are transparent around their glyphs. Do not link its Alpha
-        # output: Zero-Day is fully opaque here, and each rebuilt material exports as
-        # OPAQUE. Solari gets primary visibility from a deferred G-buffer, and a
-        # forward-blended surface never becomes part of that G-buffer. No surface in the
-        # scene must be transparent. Transparency would only add cost, and the trace would
-        # not show it.
+        # Don't link the Alpha output. Zero-Day is fully opaque, and blended surfaces
+        # never reach the deferred G-buffer that gives Solari its primary visibility.
 
     if "specular" in channels:
         n = nt.nodes.new("ShaderNodeTexImage")
         n.image = load_image(channels["specular"], non_color=True)
         sep = nt.nodes.new("ShaderNodeSeparateColor")
         nt.links.new(n.outputs["Color"], sep.inputs["Color"])
-        # ORM: G becomes the roughness, B becomes the metallic. The shared image becomes
-        # one glTF map.
+        # ORM: G is roughness, B is metallic. The occlusion channel (R) stays unused
+        # because it needs the unreliable glTF-settings node group and has only a small
+        # effect.
         nt.links.new(sep.outputs["Green"], bsdf.inputs["Roughness"])
         nt.links.new(sep.outputs["Blue"], bsdf.inputs["Metallic"])
 
@@ -224,12 +179,10 @@ print("ZERO_DAY_MATERIALS rebuilt=%d skipped=%d" % (rebuilt, len(skipped)))
 if skipped:
     print("ZERO_DAY_SKIPPED", skipped[:20])
 
-# Give each mesh one UV layer only. Solari traces a mesh only if its vertex layout is
-# POSITION, NORMAL, UV0, and TANGENT. Solari thus does not trace a mesh with no UV layer
-# (Zero-Day has machinery with no textures) or with a second UV layer (some FBX meshes have
-# a lightmap UV). Such a mesh stops to occlude and stops to give light, and there is no
-# error message. A new layer contains zeros only, which is correct: these meshes have no
-# textures with UV coordinates.
+# Solari only traces meshes whose vertex layout is exactly POSITION, NORMAL, UV0, and
+# TANGENT, so give each mesh exactly one UV layer (an empty one where a mesh has none).
+# A mesh with zero or two UV layers stops occluding and giving light, with no error
+# message.
 uv_added = uv_dropped = 0
 for mesh in {obj.data for obj in bpy.context.scene.objects if obj.type == "MESH"}:
     if not mesh.uv_layers:
@@ -240,10 +193,8 @@ for mesh in {obj.data for obj in bpy.context.scene.objects if obj.type == "MESH"
         uv_dropped += 1
 print("ZERO_DAY_UVS added=%d dropped_extra=%d" % (uv_added, uv_dropped))
 
-# The actions continue after the end of the playback range of the scene. The camera of
-# Measure One continues to frame 412, and the camera of Measure Seven to frame 441, but the
-# scene ends at frame 250. Thus increase the range to include all of the actions. If you do
-# not, the baked animation and the flythrough stop too soon.
+# Some actions continue past the scene's playback range (the cameras run to frame 412 or
+# 441; the scene ends at 250). Extend the range so the bake includes all of them.
 max_frame = 1
 for obj in bpy.context.scene.objects:
     ad = obj.animation_data
@@ -253,13 +204,9 @@ bpy.context.scene.frame_start = 1
 bpy.context.scene.frame_end = max_frame
 print("ZERO_DAY_FRAME_RANGE 1..%d" % max_frame)
 
-# Export one self-contained .glb. glTF is Y-up. The scene has no real lights, but it
-# contains the animated camera of the film (each measure gives it a different name:
-# `DynamicCamera2`, `DynamicCamera`, and others) and approximately 550 to 640 animated
-# objects. `export_animation_mode="SCENE"` bakes them over the frame range of the scene, and
-# all of the objects stay on the shared timeline of the film. An export for each action
-# gives each object its own duration, and a loop then plays the short animations too many
-# times.
+# `export_animation_mode="SCENE"` bakes all objects over the scene frame range, on the
+# film's shared timeline. A per-action export gives each object its own duration, and a
+# loop then plays the short animations too many times.
 bpy.ops.export_scene.gltf(
     filepath=dst,
     export_format="GLB",
@@ -269,34 +216,24 @@ bpy.ops.export_scene.gltf(
     export_animations=True,
     export_animation_mode="SCENE",
     export_apply=True,
-    # Solari needs a TANGENT attribute on each mesh that it traces. The glTF loader of
-    # Bevy runs mikktspace for materials with a normal map only. The tangents here cover
-    # the meshes with no textures, and they also keep mikktspace off the load path for the
-    # other meshes.
+    # Solari needs a TANGENT attribute on every mesh, and Bevy only generates tangents
+    # for materials with a normal map, so bake them for all meshes here.
     export_tangents=True,
 )
 print("ZERO_DAY_EXPORT_DONE", dst)
 
 
 def normalize_materials(path):
-    """Correct the materials of the exported .glb in place. This changes the JSON chunk
-    only.
+    """Correct the materials of the exported .glb in place (JSON chunk only).
 
-    There are two corrections. Without them, the example must do the same work at run time.
+    Alpha mode: the ``skipped`` materials keep Blender's imported graph, which exports as
+    alpha ``BLEND``. Blended surfaces never reach the deferred G-buffer that gives Solari
+    its primary visibility, and no surface in Zero-Day needs transparency, so force
+    ``OPAQUE``.
 
-    Alpha mode. The rebuilt materials are already ``OPAQUE``, because their BaseColor alpha
-    is not linked. But the small number of materials whose ORCA name has no texture set (the
-    ``skipped`` list) keep the graph from the FBX import of Blender, which puts the BaseColor
-    opacity into an alpha ``BLEND``. ``BLEND`` is incorrect for a Solari scene: blended
-    surfaces render in a forward pass and never become part of the deferred G-buffer that
-    gives Solari its primary visibility. The trace does not show them. No surface in Zero-Day
-    must be transparent. Thus change ``BLEND`` and ``MASK`` to ``OPAQUE`` and remove the
-    ``alphaCutoff``, which then has no function.
-
-    Emissive factor. A material with an ``emissiveTexture`` and a black ``emissiveFactor``
-    gives no light, because the factor multiplies the texture. The emissive panels are the
-    only lights in Zero-Day. A black factor here does not make one unlit surface. It makes a
-    dark corridor. Change these factors to white to let the texture through."""
+    Emissive factor: a black ``emissiveFactor`` multiplies the ``emissiveTexture`` to
+    zero, and the emissive panels are the only lights in the scene, so set those factors
+    to white."""
     with open(path, "rb") as f:
         data = f.read()
     magic, version, _ = struct.unpack_from("<III", data, 0)
