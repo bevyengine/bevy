@@ -3,7 +3,7 @@
 use bevy::prelude::*;
 
 fn main() -> AppExit {
-    App::new().add_systems(Update, hello_world_system).run()
+    App::new().add_systems(Startup, hello_world_system).run()
 }
 
 fn hello_world_system() {
