@@ -46,7 +46,7 @@ pub struct SparseBufferPlugin;
 
 impl Plugin for SparseBufferPlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "sparse_buffer_update.wgsl");
+        embedded_asset!(app, "sparse_buffer_update.wesl");
     }
 
     fn finish(&self, app: &mut App) {
