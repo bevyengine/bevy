@@ -209,9 +209,7 @@ impl<T: ShaderType> DynamicUniformBuffer<T> {
     pub fn get_label(&self) -> Option<&str> {
         self.label.as_deref()
     }
-}
 
-impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
     pub fn new_with_alignment(alignment: u64) -> Self {
         Self {
             scratch: DynamicUniformBufferWrapper::new_with_alignment(Vec::new(), alignment),
@@ -240,12 +238,6 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.scratch.as_ref().is_empty()
-    }
-
-    /// Push data into the `DynamicUniformBuffer`'s internal vector (residing on system RAM).
-    #[inline]
-    pub fn push(&mut self, value: &T) -> u32 {
-        self.scratch.write(value).unwrap() as u32
     }
 
     /// Add more [`BufferUsages`] to the buffer.
@@ -352,6 +344,14 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
     pub fn clear(&mut self) {
         self.scratch.as_mut().clear();
         self.scratch.set_offset(0);
+    }
+}
+
+impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
+    /// Push data into the `DynamicUniformBuffer`'s internal vector (residing on system RAM).
+    #[inline]
+    pub fn push(&mut self, value: &T) -> u32 {
+        self.scratch.write(value).unwrap() as u32
     }
 }
 
