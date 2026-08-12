@@ -121,8 +121,6 @@ pub mod prelude {
     pub use crate::reflect::AppFunctionRegistry;
 }
 
-pub use bevy_ecs_macros::VariantDefaults;
-
 /// Exports used by macros.
 ///
 /// These are not meant to be used directly and are subject to breaking changes.

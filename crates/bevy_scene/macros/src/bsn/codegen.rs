@@ -719,7 +719,7 @@ impl BsnType {
                 ident.to_token_stream()
             }
             BsnValue::Type(bsn_type) => bsn_type.enum_value(ctx)?,
-            value @ _ => value.to_token_stream(),
+            value => value.to_token_stream(),
         })
     }
 }

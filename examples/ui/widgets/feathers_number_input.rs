@@ -86,7 +86,7 @@ fn demo_root() -> impl Scene {
             )),
             @demo_field_f32("hard limit + wrap", 0.0, bsn!(
                 @template_value(HardLimit(NumberInputRange::F32(-180.0..=180.0)))
-                @template_value(NumberInputWrap::Wrap)
+                NumberInputWrap::Wrap
             )),
         ]
     }

@@ -194,7 +194,7 @@ fn on_lazy_menu_event(
                 .entity(ev.source)
                 .queue_spawn_related_scenes::<Children>(bsn!(
                     @popup()
-                    @template_value(MenuFocusState::Opening(nav))
+                    MenuFocusState::Opening(nav)
                     Visibility::Visible
                 ));
         }
@@ -219,7 +219,7 @@ fn on_lazy_menu_event(
                     .entity(ev.source)
                     .queue_spawn_related_scenes::<Children>(bsn!(
                         @popup()
-                        @template_value(MenuFocusState::Opening(NavAction::First))
+                        MenuFocusState::Opening(NavAction::First)
                         Visibility::Visible
                     ));
             }

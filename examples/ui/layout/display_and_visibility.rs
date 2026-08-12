@@ -324,8 +324,8 @@ fn feathers_select_display(target: EntityTemplate) -> impl Scene {
         @FeathersSelect {
             @options: {
                 bsn_list! {
-                    @FeathersListRow Selected OptionIndex(0) @template_value(NodeDisplaySetting::Flex) Children[@caption(format!("Display::{:?}", Display::Flex))],
-                    @FeathersListRow OptionIndex(1) @template_value(NodeDisplaySetting::None) Children[@caption(format!("Display::{:?}", Display::None))],
+                    @FeathersListRow Selected OptionIndex(0) NodeDisplaySetting::Flex Children[@caption(format!("Display::{:?}", Display::Flex))],
+                    @FeathersListRow OptionIndex(1) NodeDisplaySetting::None Children[@caption(format!("Display::{:?}", Display::None))],
                 }
             }
         }
@@ -340,9 +340,9 @@ fn feathers_select_visibility(target: EntityTemplate) -> impl Scene {
         @FeathersSelect {
             @options: {
                 bsn_list! {
-                    @FeathersListRow Selected OptionIndex(0) @template_value(NodeVisibilitySetting::Inherited) Children[@caption(format!("Visibility::{:?}", Visibility::Inherited))],
-                    @FeathersListRow OptionIndex(1) @template_value(NodeVisibilitySetting::Visible) Children[@caption(format!("Visibility::{:?}", Visibility::Visible))],
-                    @FeathersListRow OptionIndex(2) @template_value(NodeVisibilitySetting::Hidden) Children[@caption(format!("Visibility::{:?}", Visibility::Hidden))],
+                    @FeathersListRow Selected OptionIndex(0) NodeVisibilitySetting::Inherited Children[@caption(format!("Visibility::{:?}", Visibility::Inherited))],
+                    @FeathersListRow OptionIndex(1) NodeVisibilitySetting::Visible Children[@caption(format!("Visibility::{:?}", Visibility::Visible))],
+                    @FeathersListRow OptionIndex(2) NodeVisibilitySetting::Hidden Children[@caption(format!("Visibility::{:?}", Visibility::Hidden))],
                 }
             }
         }
