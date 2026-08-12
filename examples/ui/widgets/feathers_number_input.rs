@@ -113,7 +113,7 @@ fn demo_field_f32(label_text: &str, value: f32, options: impl Scene) -> impl Sce
             Children [
                 (
                     @FeathersNumberInput
-                    @template_value(NumberInputValue::F32(value))
+                    NumberInputValue::F32(value)
                     @{options}
                     Node {
                         flex_grow: 1.0,
@@ -157,7 +157,7 @@ fn demo_field_f32_with_sigil(label_text: &str, value: f32, options: impl Scene) 
                         @sigil_color: tokens::TEXT_INPUT_X_AXIS,
                         @label_text: "X",
                     }
-                    @template_value(NumberInputValue::F32(value))
+                    NumberInputValue::F32(value)
                     @{options}
                     Node {
                         flex_grow: 1.0,
@@ -198,7 +198,7 @@ fn demo_field_f64(label_text: &str, value: f64, options: impl Scene) -> impl Sce
             Children [
                 (
                     @FeathersNumberInput
-                    @template_value(NumberInputValue::F64(value))
+                    NumberInputValue::F64(value)
                     @{options}
                     Node {
                         flex_grow: 1.0,
@@ -239,7 +239,7 @@ fn demo_field_i32(label_text: &str, value: i32, options: impl Scene) -> impl Sce
             Children [
                 (
                     @FeathersNumberInput
-                    @template_value(NumberInputValue::I32(value))
+                    NumberInputValue::I32(value)
                     @{options}
                     Node {
                         flex_grow: 1.0,

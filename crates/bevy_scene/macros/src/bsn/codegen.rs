@@ -245,13 +245,6 @@ impl BsnEntry {
                     }
                 })
             }
-            BsnEntry::TemplateConst {
-                type_path,
-                const_ident,
-            } => EntryResult::CombinedSceneFunction(quote! {
-                let __value = _scene.get_or_insert_template::<#type_path>(_context);
-                *__value = #type_path::#const_ident;
-            }),
             BsnEntry::TemplateConstructor(BsnConstructor {
                 type_path,
                 function,
@@ -366,7 +359,7 @@ impl BsnType {
             assignments.push(quote! {#bevy_scene::macro_utils::touch_type::<#path>();});
         }
 
-        if let Some(variant) = &self.enum_variant {
+        if let Some(variant) = &self.variant {
             if is_props {
                 self.push_struct_patch(ctx, assignments, true, is_scene_component, target)?;
             } else {
@@ -399,7 +392,7 @@ impl BsnType {
     }
 
     fn enum_value(&self, ctx: &mut BsnCodegenCtx) -> syn::Result<TokenStream> {
-        if let Some(variant) = &self.enum_variant {
+        if let Some(variant) = &self.variant {
             self.enum_tokens(ctx, variant)
         } else {
             self.enum_struct_tokens(ctx)
@@ -433,11 +426,6 @@ impl BsnType {
                     }
                 }
             }
-            BsnFields::Tuple(fields) if fields.is_empty() => {
-                quote! {
-                    #template_path::#variant
-                }
-            }
             BsnFields::Tuple(fields) => {
                 let mut assigns = Vec::new();
                 for field in fields {
@@ -448,6 +436,11 @@ impl BsnType {
                     #template_path::#variant(
                       #(#assigns,)*
                     )
+                }
+            }
+            BsnFields::Unit => {
+                quote! {
+                    #template_path::#variant
                 }
             }
         })
@@ -500,6 +493,11 @@ impl BsnType {
                     #template_path(
                       #(#assigns,)*
                     )
+                }
+            }
+            BsnFields::Unit => {
+                quote! {
+                    <#template_path as #FQDefault>::default()
                 }
             }
         })
@@ -584,6 +582,7 @@ impl BsnType {
                     }
                 }
             }
+            BsnFields::Unit => {}
         }
         Ok(())
     }
@@ -634,7 +633,7 @@ impl BsnType {
                     #(#base_path.)*#member = #bevy_ecs::template::EntityTemplate::from_reference(#invocation, #index,  _call_id);
                 });
             }
-            Some(value @ BsnValue::Type(ty)) if ty.enum_variant.is_some() => {
+            Some(value @ BsnValue::Type(ty)) if ty.variant.is_some() => {
                 assignments.push(quote! {#(#base_path.)*#member = #value;});
             }
             Some(BsnValue::Type(ty)) => {
@@ -670,7 +669,7 @@ impl BsnType {
         }
 
         if let Some(BsnValue::Type(ty)) = value
-            && ty.enum_variant.is_none()
+            && ty.variant.is_none()
         {
             let mut type_assigns = Vec::new();
             ty.to_patch_tokens(
@@ -750,10 +749,7 @@ impl BsnSceneFn {
 
 impl ToTokens for BsnType {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        let (path, variant) = (
-            &self.path,
-            self.enum_variant.as_ref().map(|v| quote! {::#v}),
-        );
+        let (path, variant) = (&self.path, self.variant.as_ref().map(|v| quote! {::#v}));
         match &self.fields {
             BsnFields::Named(fields) => {
                 let assigns = fields.iter().map(|f| {
@@ -766,6 +762,7 @@ impl ToTokens for BsnType {
                 let assigns = fields.iter().map(|f| &f.value);
                 quote! { #path #variant ( #(#assigns,)* ) }
             }
+            BsnFields::Unit => quote! { #path #variant },
         }
         .to_tokens(tokens);
     }
@@ -866,7 +863,7 @@ mod tests {
         let mut assignments = vec![];
         let duplicate = BsnType {
             path: parse_quote!(Transform),
-            enum_variant: None,
+            variant: None,
             fields: BsnFields::Named(vec![
                 BsnNamedField {
                     name: parse_quote!(x),
@@ -910,14 +907,14 @@ mod tests {
         let mut assignments = vec![];
         let nested_duplicate = BsnType {
             path: parse_quote!(Parent),
-            enum_variant: None,
+            variant: None,
             fields: BsnFields::Named(vec![BsnNamedField {
                 is_prop: false,
                 is_name_shorthand: false,
                 name: parse_quote!(child_field),
                 value: Some(BsnValue::Type(BsnType {
                     path: parse_quote!(Child),
-                    enum_variant: None,
+                    variant: None,
                     fields: BsnFields::Named(vec![
                         BsnNamedField {
                             name: parse_quote!(x),
@@ -964,7 +961,7 @@ mod tests {
         let mut assignments = Vec::new();
         let missing = BsnType {
             path: parse_quote!(Transform),
-            enum_variant: None,
+            variant: None,
             fields: BsnFields::Named(vec![BsnNamedField {
                 is_prop: false,
                 is_name_shorthand: false,
@@ -1000,14 +997,14 @@ mod tests {
         let mut assignments = Vec::new();
         let font = BsnType {
             path: parse_quote!(TextFont),
-            enum_variant: None,
+            variant: None,
             fields: BsnFields::Named(vec![BsnNamedField {
                 is_prop: false,
                 is_name_shorthand: false,
                 name: parse_quote!(font_size),
                 value: Some(BsnValue::Type(BsnType {
                     path: parse_quote!(TextSize),
-                    enum_variant: Some(parse_quote!(Large)),
+                    variant: Some(parse_quote!(Large)),
                     fields: BsnFields::Named(Vec::new()),
                 })),
             }]),
@@ -1042,7 +1039,7 @@ mod tests {
         let mut assignments = vec![];
         let duplicate = BsnType {
             path: parse_quote!(MyEnum),
-            enum_variant: Some(parse_quote!(Variant)),
+            variant: Some(parse_quote!(Variant)),
             fields: BsnFields::Named(vec![
                 BsnNamedField {
                     is_prop: false,
@@ -1087,7 +1084,7 @@ mod tests {
         let mut assignments = vec![];
         let handle = BsnType {
             path: parse_quote!(FontSourceTemplate),
-            enum_variant: Some(parse_quote!(Handle)),
+            variant: Some(parse_quote!(Handle)),
             fields: BsnFields::Tuple(vec![BsnUnnamedField {
                 value: BsnValue::Expr(quote!(some_borrow.clone())),
             }]),

@@ -222,7 +222,7 @@ fn number_input_for_value(
                 width: px(50),
             }
             @FeathersNumberInput
-            @template_value(NumberInputValue::F32(setting.get(color_grading)))
+            NumberInputValue::F32({setting.get(color_grading)})
             setting
             NumberInputPrecision(2)
             HardLimit::f32(0. ..=10.)

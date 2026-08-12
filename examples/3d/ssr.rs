@@ -557,7 +557,7 @@ fn range_row(
 fn range_controls(value: f32, app_number_input: AppNumberInput) -> impl Scene {
     bsn! {
         @FeathersNumberInput
-        @template_value(NumberInputValue::F32(value))
+        NumberInputValue::F32(value)
         app_number_input
         NumberInputPrecision(3)
         HardLimit::f32(0.0..=1.0)

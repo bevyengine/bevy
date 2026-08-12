@@ -44,7 +44,7 @@ where
 
                 identifier
                 @FeathersNumberInput
-                @template_value(NumberInputValue::I32(value))
+                NumberInputValue::I32(value)
                 precision
                 HardLimit::i32(limits)
                 Node {
@@ -70,7 +70,7 @@ where
                 ],
 
                 @FeathersNumberInput
-                @template_value(NumberInputValue::I32(value))
+                NumberInputValue::I32(value)
                 precision
                 HardLimit::i32(limits)
                 Node {

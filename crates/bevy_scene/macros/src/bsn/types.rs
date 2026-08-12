@@ -20,7 +20,6 @@ pub enum BsnEntry {
     TemplateValue(TokenStream),
     FromTemplateConstructor(BsnConstructor),
     TemplateConstructor(BsnConstructor),
-    TemplateConst { type_path: Path, const_ident: Ident },
     UncachedScene(BsnScene),
     CachedScene(BsnScene),
     RelatedSceneList(BsnRelatedSceneList),
@@ -29,7 +28,7 @@ pub enum BsnEntry {
 #[derive(Debug)]
 pub struct BsnType {
     pub path: Path,
-    pub enum_variant: Option<Ident>,
+    pub variant: Option<Ident>,
     pub fields: BsnFields,
 }
 
@@ -76,6 +75,7 @@ pub struct BsnConstructor {
 pub enum BsnFields {
     Named(Vec<BsnNamedField>),
     Tuple(Vec<BsnUnnamedField>),
+    Unit,
 }
 
 #[derive(Debug)]

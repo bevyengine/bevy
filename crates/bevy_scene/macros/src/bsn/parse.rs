@@ -123,8 +123,8 @@ impl BsnEntry {
             let mut path = input.parse::<Path>()?;
             let path_type = PathType::new(&path);
             match path_type {
-                PathType::Type | PathType::Enum => {
-                    let enum_variant = if matches!(path_type, PathType::Enum) {
+                PathType::Type | PathType::Enum | PathType::TypeConst => {
+                    let variant = if matches!(path_type, PathType::Enum | PathType::TypeConst) {
                         take_last_path_ident(&mut path)
                     } else {
                         None
@@ -139,7 +139,7 @@ impl BsnEntry {
                         let fields = input.parse::<BsnFields>()?;
                         let bsn_type = BsnType {
                             path,
-                            enum_variant,
+                            variant,
                             fields,
                         };
                         if is_template {
@@ -154,13 +154,6 @@ impl BsnEntry {
                                 BsnEntry::FromTemplatePatch(bsn_type)
                             }
                         }
-                    }
-                }
-                PathType::TypeConst => {
-                    let const_ident = take_last_path_ident(&mut path).unwrap();
-                    BsnEntry::TemplateConst {
-                        type_path: path,
-                        const_ident,
                     }
                 }
                 PathType::Const => {
@@ -295,7 +288,7 @@ impl Parse for BsnType {
         let fields = input.parse::<BsnFields>()?;
         Ok(BsnType {
             path,
-            enum_variant,
+            variant: enum_variant,
             fields,
         })
     }
@@ -330,7 +323,7 @@ impl Parse for BsnFields {
             parse_punctuated_vec_autocomplete_friendly!(fields, content, BsnUnnamedField, Comma);
             BsnFields::Tuple(fields)
         } else {
-            BsnFields::Named(Vec::new())
+            BsnFields::Unit
         })
     }
 }
