@@ -122,8 +122,14 @@ impl AtomicTick {
     /// the synchronization of this value with other memory locations.
     pub fn set(&self, new_tick: Tick) {
         // Do an unsynchronized read first.
-        // This is important on x86-64 to avoid a performance cliff that I
-        // believe is related to the store reorder buffer.
+        //
+        // This is important on x86-64 (both Intel and AMD) to avoid a
+        // performance cliff. It has much smaller effects on AArch64, but it's
+        // still worth doing on e.g. Apple M2 in parallel mode, so I'm leaving
+        // it in.
+        //
+        // See benchmarks:
+        // https://github.com/bevyengine/bevy/pull/25157#issuecomment-5242287382
         if self.tick.load(Ordering::Relaxed) != new_tick.get() {
             self.tick.store(new_tick.get(), Ordering::Relaxed);
         }
