@@ -14,6 +14,7 @@ use bevy_render::{
     view::{ExtractedMultiview, Msaa, ViewTarget},
     Render, RenderApp, RenderSystems,
 };
+use core::num::NonZeroU32;
 
 /// This enables "msaa writeback" support for the `core_2d` and `core_3d` pipelines, which can be enabled on cameras
 /// using [`bevy_camera::Camera::msaa_writeback`]. See the docs on that field for more information.
@@ -55,6 +56,20 @@ pub(crate) fn msaa_writeback(
     // as a post process write!
     let post_process = target.post_process_write();
 
+    // Broadcast across every eye layer in a single pass. Kept in agreement with
+    // the mask the blit pipeline descriptor derives in
+    // `blit::BlitPipeline::specialize` from the same view count — wgpu requires
+    // the pipeline and the pass to carry the same multiview mask, and this node
+    // draws with a blit pipeline. The mask is `(1 << view_count) - 1` (one bit
+    // per eye); computed via `u32::MAX >> (32 - view_count)` to avoid the shift
+    // overflow that `1 << 32` would hit at the `MAX_VIEW_COUNT` cap.
+    let view_count = target.multiview_count().map_or(1, NonZeroU32::get);
+    let multiview_mask = if view_count > 1 {
+        NonZeroU32::new(u32::MAX >> (32 - view_count))
+    } else {
+        None
+    };
+
     let pass_descriptor = RenderPassDescriptor {
         label: Some("msaa_writeback"),
         // The target's "resolve target" is the "destination" in post_process.
@@ -73,16 +88,14 @@ pub(crate) fn msaa_writeback(
         depth_stencil_attachment: None,
         timestamp_writes: None,
         occlusion_query_set: None,
-        multiview_mask: None,
+        multiview_mask,
     };
 
     let bind_group = blit_pipeline.create_bind_group(
         ctx.render_device(),
         post_process.source,
         &pipeline_cache,
-        target
-            .multiview_count()
-            .map_or(1, core::num::NonZeroU32::get),
+        view_count,
     );
 
     let diagnostics = ctx.diagnostic_recorder();

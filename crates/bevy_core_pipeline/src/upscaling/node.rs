@@ -8,6 +8,7 @@ use bevy_render::{
     renderer::{RenderContext, ViewQuery},
     view::ViewTarget,
 };
+use core::num::NonZeroU32;
 
 #[derive(Default)]
 pub struct UpscalingBindGroupCache {
@@ -53,9 +54,7 @@ pub fn upscaling(
                 ctx.render_device(),
                 main_texture_view,
                 &pipeline_cache,
-                target
-                    .multiview_count()
-                    .map_or(1, core::num::NonZeroU32::get),
+                target.multiview_count().map_or(1, NonZeroU32::get),
             );
 
             let (_, bind_group) = cached.insert((main_texture_view.id(), bind_group));
@@ -67,13 +66,30 @@ pub fn upscaling(
         return;
     };
 
+    // Broadcast the upscale across every eye layer of the output texture in a
+    // single pass. Without this the pass writes layer 0 only, so a multiview
+    // camera rendering into an array output (an XR runtime's stereo swapchain
+    // image, say) leaves every layer above the first untouched. The blit
+    // pipeline descriptor in `blit::BlitPipeline::specialize` derives its mask
+    // from the same view count, which is what wgpu's required
+    // pipeline-vs-pass multiview-mask agreement depends on. The mask is
+    // `(1 << view_count) - 1` (one bit per eye); computed via
+    // `u32::MAX >> (32 - view_count)` to avoid the shift overflow that
+    // `1 << 32` would hit at the `MAX_VIEW_COUNT` cap.
+    let view_count = target.multiview_count().map_or(1, NonZeroU32::get);
+    let multiview_mask = if view_count > 1 {
+        NonZeroU32::new(u32::MAX >> (32 - view_count))
+    } else {
+        None
+    };
+
     let pass_descriptor = RenderPassDescriptor {
         label: Some("upscaling"),
         color_attachments: &[Some(out_attachment)],
         depth_stencil_attachment: None,
         timestamp_writes: None,
         occlusion_query_set: None,
-        multiview_mask: None,
+        multiview_mask,
     };
 
     let Some(pipeline) = pipeline_cache.get_render_pipeline(upscaling_target.0) else {

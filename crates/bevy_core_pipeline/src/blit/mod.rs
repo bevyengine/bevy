@@ -13,6 +13,7 @@ use bevy_render::{
 };
 use bevy_shader::{Shader, ShaderDefVal};
 use bevy_utils::default;
+use core::num::NonZeroU32;
 
 /// Adds support for specialized "blit pipelines", which can be used to write one texture to another.
 pub struct BlitPlugin;
@@ -144,8 +145,23 @@ impl SpecializedRenderPipeline for BlitPipeline {
             self.layout.clone()
         };
 
+        // Broadcast across every eye layer in a single pass. Every render-pass
+        // descriptor that draws with a blit pipeline sets the same mask from
+        // the same view count (`upscaling::upscaling` and
+        // `msaa_writeback::msaa_writeback`), which is what wgpu's required
+        // pipeline-vs-pass multiview-mask agreement depends on. The mask is
+        // `(1 << view_count) - 1` (one bit per eye); computed via
+        // `u32::MAX >> (32 - view_count)` to avoid the shift overflow that
+        // `1 << 32` would hit at the `MAX_VIEW_COUNT` cap.
+        let multiview_mask = if key.multiview_view_count > 1 {
+            NonZeroU32::new(u32::MAX >> (32 - key.multiview_view_count))
+        } else {
+            None
+        };
+
         RenderPipelineDescriptor {
             label: Some("blit pipeline".into()),
+            multiview_mask,
             layout: vec![layout],
             vertex: self.fullscreen_shader.to_vertex_state(),
             fragment: Some(FragmentState {
