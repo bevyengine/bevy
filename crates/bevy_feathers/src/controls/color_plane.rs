@@ -9,11 +9,13 @@ use bevy_ecs::{
     observer::On,
     query::{Changed, Has, Or, With},
     reflect::ReflectComponent,
+    schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
     template::FromTemplate,
 };
 use bevy_math::{Vec2, Vec3};
 use bevy_picking::{
+    cursor::EntityCursor,
     events::{Cancel, Drag, DragEnd, DragStart, Pointer, Press},
     Pickable,
 };
@@ -24,12 +26,12 @@ use bevy_shader::{ShaderDefVal, ShaderRef};
 use bevy_ui::{
     percent, px, AlignSelf, BorderColor, BorderRadius, ComputedNode, ComputedUiRenderTargetInfo,
     Display, InteractionDisabled, Node, Outline, PositionType, UiGlobalTransform, UiRect, UiScale,
-    UiTransform, Val2,
+    UiSystems, UiTransform, Val2,
 };
 use bevy_ui_render::{prelude::UiMaterial, ui_material::MaterialNode, UiMaterialPlugin};
 use bevy_ui_widgets::ValueChange;
 
-use crate::{cursor::EntityCursor, palette, theme::ThemeBackgroundColor, tokens};
+use crate::{palette, theme::ThemeBackgroundColor, tokens};
 
 /// A "color plane" widget, which is a 2d picker that allows selecting two
 /// components of a color space.
@@ -116,7 +118,7 @@ impl From<&ColorPlaneMaterial> for ColorPlaneMaterialKey {
 
 impl UiMaterial for ColorPlaneMaterial {
     fn fragment_shader() -> ShaderRef {
-        "embedded://bevy_feathers/assets/shaders/color_plane.wgsl".into()
+        "embedded://bevy_feathers/assets/shaders/color_plane.wesl".into()
     }
 
     fn specialize(
@@ -464,7 +466,8 @@ pub struct ColorPlanePlugin;
 impl Plugin for ColorPlanePlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.add_plugins(UiMaterialPlugin::<ColorPlaneMaterial>::default());
-        app.add_systems(PostUpdate, update_plane_color);
+        // `update_plane_color` modifies a node's `left` and `top`
+        app.add_systems(PostUpdate, update_plane_color.before(UiSystems::Layout));
         app.add_observer(on_pointer_press)
             .add_observer(on_drag_start)
             .add_observer(on_drag)

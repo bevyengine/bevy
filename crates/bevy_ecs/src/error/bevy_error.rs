@@ -636,7 +636,8 @@ macro_rules! bevy_error {
 /// Equivalent to <code>return Err([bevy_error!(\...)](bevy_error!))</code>
 /// As a result the returned error defaults to [`Severity::Panic`]. As with
 /// `bevy_error!` the severity can be changed by providing a severity as the
-/// first argument
+/// first argument. To return early only when a condition is false, use
+/// [`ensure!`](crate::ensure!).
 ///
 /// # Example
 /// ```
@@ -657,6 +658,31 @@ macro_rules! bevy_error {
 macro_rules! bail {
     ($($args:tt)+) => {
         return core::result::Result::Err($crate::bevy_error!($($args)*))
+    };
+}
+
+/// Returns early with an error if a condition is false.
+///
+/// Equivalent to <code>if !condition { [bail!](bail!)(\...) }</code>. As with
+/// [`bail!`], the returned error defaults to [`Severity::Panic`], and the
+/// severity can be changed by providing it after the condition.
+///
+/// # Example
+/// ```
+/// use bevy_ecs::{ensure, error::{BevyError, Severity}};
+///
+/// fn validate_score(score: i32) -> Result<(), BevyError> {
+///     ensure!(score >= 0, "score must not be negative: {}", score);
+///     ensure!(score <= 100, Severity::Warning, "score is too high: {}", score);
+///     Ok(())
+/// }
+/// ```
+#[macro_export]
+macro_rules! ensure {
+    ($condition:expr, $($args:tt)+) => {
+        if !$condition {
+            $crate::bail!($($args)*);
+        }
     };
 }
 
@@ -818,6 +844,32 @@ mod tests {
             )
         });
         t(|| bail!("Format string {}", 1 + 2));
+    }
+
+    #[test]
+    fn bevy_ensure_macro() {
+        fn validate(value: i32) -> Result<(), BevyError> {
+            ensure!(value != 0, "value must not be zero");
+            ensure!(
+                value > 0,
+                crate::error::Severity::Warning,
+                "value must be positive: {}",
+                value
+            );
+            Ok(())
+        }
+
+        assert!(validate(1).is_ok());
+
+        let zero = validate(0).unwrap_err();
+        assert_eq!(zero.severity(), crate::error::Severity::Panic);
+        assert!(zero.to_string().starts_with("value must not be zero"));
+
+        let negative = validate(-1).unwrap_err();
+        assert_eq!(negative.severity(), crate::error::Severity::Warning);
+        assert!(negative
+            .to_string()
+            .starts_with("value must be positive: -1"));
     }
 
     #[test]

@@ -28,6 +28,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_picking::PickingSystems;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 mod accessibility;
+pub use accessibility::AccessibilityUiSystems;
 // This module is not re-exported, but is instead made public.
 // This is intended to discourage accidental use of the experimental API.
 pub mod experimental;
@@ -62,6 +63,12 @@ pub mod prelude {
     };
     #[doc(hidden)]
     pub use crate::widget::{Text, TextShadow, TextUiReader, TextUiWriter};
+    #[expect(
+        deprecated,
+        reason = "Should be removed after 0.20 is released when Button & Interaction are removed."
+    )]
+    #[doc(hidden)]
+    pub use crate::{widget::Button, Interaction};
     #[doc(hidden)]
     pub use {
         crate::{
@@ -69,8 +76,8 @@ pub mod prelude {
             gradients::*,
             ui_node::*,
             ui_transform::*,
-            widget::{Button, ImageNode, Label, NodeImageMode, ViewportNode},
-            Interaction, UiScale,
+            widget::{ImageNode, Label, NodeImageMode, ViewportNode},
+            UiScale,
         },
         // `bevy_sprite` re-exports for texture slicing
         bevy_sprite::{BorderRect, SliceScaleMode, SpriteImageMode, TextureSlicer},
@@ -156,7 +163,7 @@ impl Plugin for UiPlugin {
                     UiSystems::Layout,
                     UiSystems::PostLayout,
                 )
-                    .chain(),
+                    .chain_weak(),
             )
             .configure_sets(
                 PostUpdate,
@@ -193,7 +200,9 @@ impl Plugin for UiPlugin {
         app.add_systems(
             PostUpdate,
             (
-                propagate_ui_target_cameras.in_set(UiSystems::Prepare),
+                propagate_ui_target_cameras
+                    .in_set(UiSystems::Prepare)
+                    .before(bevy_app::TransformGizmoRenderStep),
                 ui_layout_system
                     .in_set(UiSystems::Layout)
                     .ambiguous_with(bevy_sprite::update_text2d_layout),
@@ -239,7 +248,6 @@ fn build_text_interop(app: &mut App) {
         PostUpdate,
         (
             widget::measure_text_system
-                .chain()
                 .after(detect_text_needs_rerender)
                 .after(bevy_text::load_font_assets_into_font_collection)
                 .in_set(UiSystems::Content)

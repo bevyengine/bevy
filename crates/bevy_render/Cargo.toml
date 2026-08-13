@@ -9,23 +9,11 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-# Bevy users should _never_ turn this feature on.
-#
-# Bevy/wgpu developers can turn this feature on to test a newer version of wgpu without needing to also update naga_oil.
-#
-# When turning this feature on, you can add the following to bevy/Cargo.toml (not this file), and then run `cargo update`:
-# [patch.crates-io]
-# wgpu = { git = "https://github.com/gfx-rs/wgpu", rev = "..." }
-# wgpu-core = { git = "https://github.com/gfx-rs/wgpu", rev = "..." }
-# wgpu-hal = { git = "https://github.com/gfx-rs/wgpu", rev = "..." }
-# wgpu-types = { git = "https://github.com/gfx-rs/wgpu", rev = "..." }
-decoupled_naga = ["bevy_shader/decoupled_naga"]
-
 multi_threaded = ["bevy_tasks/multi_threaded", "bevy_transform/multi_threaded"]
 
 morph = ["bevy_mesh/morph"]
 
-shader_format_spirv = ["bevy_shader/shader_format_spirv", "wgpu/spirv"]
+shader_format_spirv = ["wgpu/spirv"]
 
 # Enable SPIR-V shader passthrough
 spirv_shader_passthrough = ["wgpu/spirv"]
@@ -85,6 +73,7 @@ bevy_shader = { path = "../bevy_shader", version = "0.20.0-dev" }
 bevy_platform = { path = "../bevy_platform", version = "0.20.0-dev", default-features = false, features = [
   "std",
   "serialize",
+  "bytemuck",
 ] }
 
 # rendering
@@ -100,11 +89,9 @@ wgpu = { version = "30", default-features = false, features = [
   "dx12",
   "metal",
   "vulkan",
-  "naga-ir",
   "fragile-send-sync-non-atomic-wasm",
 ] }
 wgpu-types = { version = "30", default-features = false }
-naga = { version = "30", features = ["wgsl-in"] }
 bytemuck = { version = "1.5", features = ["derive", "must_cast"] }
 downcast-rs = { version = "2", default-features = false, features = ["std"] }
 thiserror = { version = "2", default-features = false }
@@ -129,10 +116,13 @@ bitflags = "2"
 itertools = "0.14"
 weak-table = "0.3"
 tracing = "0.1"
+static_assertions = "1"
 
 [dev-dependencies]
 proptest = "1"
 proptest-derive = "0.8"
+# noop backend used for tests via test_utils.rs
+wgpu = { version = "30", default-features = false, features = ["noop"] }
 
 [target.'cfg(all(target_arch = "wasm32", target_feature = "atomics"))'.dependencies]
 send_wrapper = { version = "0.6.0" }
