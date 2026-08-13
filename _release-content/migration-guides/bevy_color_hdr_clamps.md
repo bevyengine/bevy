@@ -1,6 +1,6 @@
 ---
 title: "HDR-safe clamping in `bevy_color` luminance operations"
-pull_requests: []
+pull_requests: [25394]
 ---
 
 `with_luminance`, `lighter`, and `darker` now preserve HDR and wide-gamut values
