@@ -1,12 +1,9 @@
 //! Demonstrates using `SpriteMaterial`s to create custom materials for sprites
 
 use bevy::{
-    input::common_conditions::input_just_pressed,
-    prelude::*,
+    input::common_conditions::input_just_pressed, prelude::*, render::render_resource::AsBindGroup,
     shader::ShaderRef,
-    sprite_render::sprite_material::{SpriteMaterial, SpriteMaterialPlugin},
 };
-use bevy_render::render_resource::AsBindGroup;
 
 /// This example uses a shader source file from the assets subdirectory
 const SHADER_ASSET_PATH: &str = "shaders/sprite_material.wesl";
