@@ -29,13 +29,13 @@ The Bevy community aims to be a welcome space where people feel *good* about wor
 
 **Kinds and Signs of trolling:**
 
-* Rehashing: Bringing up conversational topics that have already "run the course" without material changes to the subject of the original conversations.
-* Asymmetric statements: If
-* [Sealioning](https://web.archive.org/web/20190608204429/https://wondermark.com/1k62/): Having the appearance of being a civil "debate" participant while needling those around them, "Denial of Service"ing their time and energy, especially demanding a higher standard of evidence on a topic than one is providing themself.
-* Baiting: Knowingly provoking users on topics that are high tension, especially on matters close to the subject being trolled.
+* Rehashing: Bringing up conversational topics that have already "run the course" without material changes to the subject of the original conversations and no care for how those around the troll feel about the topic.
+* Taking Advantage of Asymmetry: Holding one's resources and access over those with fewer resources, strong convictions, or differing core values that mean the troll can project being more capable or worthy than others.
+* [Sealioning](https://web.archive.org/web/20190608204429/https://wondermark.com/1k62/): Having the appearance of being a civil "debate" participant while needling those around them, "Denial of Service"ing their time and energy, especially demanding a higher standard of evidence on a topic than one is providing themself. Especially relevant in the context of a conversation that isn't a debate, but where the troll forces it to become one.
+* Baiting: Provoking users on topics that are high tension, especially on matters close to the subject being trolled.
 * Active manipulation: The troll aims to "rile up" the people around them, presenting those others as irrational, and position themself as a more rational party to be taken more seriously than those they have actively discredited.
 
-Trolling is a narrow but well-trodden subset of general manipulation and harassment. Not all harassment is trolling, and this does not aim to be a full subset of kinds of harassment that need to be moderated.
+Trolling is a narrow but well-trodden subset of general manipulation and harassment. Not all harassment and manipulation is trolling, and this does not aim to be a full subset of kinds of harassment and manipulation that need to be moderated. See also: DARVO.
 
 ## Moderation
 
