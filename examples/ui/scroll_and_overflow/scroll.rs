@@ -174,7 +174,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     ))
                                     .observe(
                                         |press: On<Pointer<Press>>, mut commands: Commands| {
-                                            if press.event().button == PointerButton::Primary {
+                                            if press.event().button == MouseButton::Left {
                                                 commands.entity(press.entity).despawn();
                                             }
                                         },

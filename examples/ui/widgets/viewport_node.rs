@@ -77,7 +77,7 @@ fn test(
 }
 
 fn on_drag_viewport(drag: On<Pointer<Drag>>, mut node_query: Query<&mut Node>) {
-    if matches!(drag.button, PointerButton::Secondary) {
+    if matches!(drag.button, MouseButton::Right) {
         let mut node = node_query.get_mut(drag.entity).unwrap();
 
         if let (Val::Px(top), Val::Px(left)) = (node.top, node.left) {
@@ -88,7 +88,7 @@ fn on_drag_viewport(drag: On<Pointer<Drag>>, mut node_query: Query<&mut Node>) {
 }
 
 fn on_drag_cuboid(drag: On<Pointer<Drag>>, mut transform_query: Query<&mut Transform>) {
-    if matches!(drag.button, PointerButton::Primary) {
+    if matches!(drag.button, MouseButton::Left) {
         let mut transform = transform_query.get_mut(drag.entity).unwrap();
         transform.rotate_y(drag.delta.x * 0.02);
         transform.rotate_x(drag.delta.y * 0.02);

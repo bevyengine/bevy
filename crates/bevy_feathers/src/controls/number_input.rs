@@ -17,7 +17,9 @@ use bevy_ecs::{
     system::{Commands, Query, Res},
 };
 use bevy_input::{
-    ButtonInput, keyboard::{Key, KeyCode, KeyboardInput}, mouse::MouseButton,
+    keyboard::{Key, KeyCode, KeyboardInput},
+    mouse::MouseButton,
+    ButtonInput,
 };
 use bevy_input_focus::{FocusGained, FocusLost, FocusedInput, InputFocus, InputFocusSystems};
 use bevy_log::{warn, warn_once};

@@ -295,9 +295,7 @@ impl PointerInput {
         for event in events.read() {
             match event.action {
                 PointerAction::Press(button) => {
-                    for (pointer_id, _, mut pointer) in pointers
-                        .iter_mut()
-{
+                    for (pointer_id, _, mut pointer) in pointers.iter_mut() {
                         if *pointer_id == event.pointer_id {
                             pointer.0.insert(button);
                         }

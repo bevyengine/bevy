@@ -26,9 +26,7 @@ use bevy_reflect::prelude::*;
 use bevy_window::{PrimaryWindow, WindowEvent, WindowRef};
 use tracing::debug;
 
-use crate::pointer::{
-    Location, PointerAction, PointerId, PointerInput, PointerLocation,
-};
+use crate::pointer::{Location, PointerAction, PointerId, PointerInput, PointerLocation};
 
 use crate::PickingSystems;
 

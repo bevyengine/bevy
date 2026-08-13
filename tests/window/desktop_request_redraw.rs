@@ -83,10 +83,10 @@ fn setup(
         ))
         .observe(
             |click: On<Pointer<Click>>, mut commands: Commands| match click.button {
-                PointerButton::Primary => {
+                MouseButton::Left => {
                     commands.entity(click.entity).insert(AnimationActive);
                 }
-                PointerButton::Secondary => {
+                MouseButton::Right => {
                     commands.entity(click.entity).remove::<AnimationActive>();
                 }
                 _ => {}

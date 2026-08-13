@@ -18,9 +18,7 @@ use bevy_input::mouse::MouseButton;
 use bevy_input_focus::tab_navigation::TabGroup;
 use bevy_log::warn;
 use bevy_math::Vec2;
-use bevy_picking::{
-    events::{Drag, DragStart, Pointer, Press},
-};
+use bevy_picking::events::{Drag, DragStart, Pointer, Press};
 use bevy_reflect::Reflect;
 use bevy_ui::{GlobalZIndex, UiScale, UiTransform, Val2};
 use bevy_window::{PrimaryWindow, Window};

@@ -812,7 +812,7 @@ fn interact_with_focused_button(
                 position: Vec2::ZERO,
             },
             Click {
-                button: PointerButton::Primary,
+                button: MouseButton::Left,
                 hit: HitData {
                     camera: Entity::PLACEHOLDER,
                     depth: 0.0,

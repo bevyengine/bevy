@@ -370,9 +370,9 @@ pub fn radio_self_update(
 mod tests {
     use super::*;
     use bevy_app::App;
-    use bevy_input::InputPlugin;
     use bevy_input::mouse::MouseButton;
-use bevy_input_focus::{tab_navigation::TabNavigationPlugin, InputFocusPlugin};
+    use bevy_input::InputPlugin;
+    use bevy_input_focus::{tab_navigation::TabNavigationPlugin, InputFocusPlugin};
     use bevy_math::Vec2;
     use bevy_picking::backend::HitData;
     use bevy_picking::pointer::{Location, PointerId};

@@ -11,7 +11,7 @@ use bevy::{
         TransformGizmoCamera, TransformGizmoFocus, TransformGizmoMode, TransformGizmoPlugin,
         TransformGizmoSettings, TransformGizmoSpace,
     },
-    picking::{pointer::PointerButton, Pickable},
+    picking::Pickable,
     prelude::*,
     ui_widgets::{radio_self_update, SliderPrecision, SliderStep, SliderValue, ValueChange},
 };
@@ -169,7 +169,7 @@ fn on_click_select(
     mut commands: Commands,
     existing: Query<Entity, With<TransformGizmoFocus>>,
 ) {
-    if click.button != PointerButton::Primary {
+    if click.button != MouseButton::Left {
         return;
     }
     // Remove focus from all entities

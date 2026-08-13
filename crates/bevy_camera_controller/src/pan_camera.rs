@@ -10,12 +10,10 @@ use bevy_camera::{Camera, RenderTarget};
 use bevy_ecs::prelude::*;
 use bevy_input::keyboard::KeyCode;
 use bevy_input::mouse::{AccumulatedMouseScroll, MouseScrollPixelsPerLine};
+use bevy_input::prelude::MouseButton;
 use bevy_input::ButtonInput;
 use bevy_math::{Vec2, Vec3};
-use bevy_picking::{
-    events::{Drag, DragEnd, DragStart, Pointer},
-};
-use bevy_input::prelude::MouseButton;
+use bevy_picking::events::{Drag, DragEnd, DragStart, Pointer};
 use bevy_time::{Real, Time};
 use bevy_transform::components::GlobalTransform;
 use bevy_transform::prelude::Transform;

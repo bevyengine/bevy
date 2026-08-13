@@ -370,17 +370,13 @@ pub(crate) fn text_input_autoscroll_system(
     let Some(entity) = input_focus.get() else {
         return;
     };
-    
-    let Some(pointer_position) = pointer_state
-        .pointer_buttons
-        .values()
-        .find_map(|button|{ 
-            match button.get(&MouseButton::Left) {
-                Some(state) => Some(state.dragging.get(&entity).map(|drag| drag.latest_pos)?),
-                None => None,
-            }
-        })
-    else {
+
+    let Some(pointer_position) = pointer_state.pointer_buttons.values().find_map(|button| {
+        match button.get(&MouseButton::Left) {
+            Some(state) => Some(state.dragging.get(&entity).map(|drag| drag.latest_pos)?),
+            None => None,
+        }
+    }) else {
         return;
     };
 

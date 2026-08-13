@@ -421,7 +421,7 @@ fn on_button_click(
     mut game: ResMut<Game>,
     mut next_state: ResMut<NextState<GameState>>,
 ) {
-    if click.button != PointerButton::Primary {
+    if click.button != MouseButton::Left {
         return;
     }
 
@@ -490,14 +490,14 @@ fn on_tile_click(
     };
 
     match click.button {
-        PointerButton::Primary => {
+        MouseButton::Left => {
             if game.field[position].mined {
                 game.game_over = true;
             } else {
                 game.field.reveal(position);
             }
         }
-        PointerButton::Secondary => {
+        MouseButton::Right => {
             if game.field[position].flagged {
                 game.field[position].flagged = false;
             } else if game.field.flag_count() < game.field.mine_count() {

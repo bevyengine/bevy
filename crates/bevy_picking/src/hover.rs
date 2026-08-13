@@ -8,7 +8,9 @@ use core::fmt::Debug;
 use std::collections::HashSet;
 
 use crate::{
-    Pickable, backend::{self, HitData}, pointer::{PointerAction, PointerId, PointerInput, PointerInteraction, PointerPress},
+    backend::{self, HitData},
+    pointer::{PointerAction, PointerId, PointerInput, PointerInteraction, PointerPress},
+    Pickable,
 };
 
 use bevy_derive::{Deref, DerefMut};

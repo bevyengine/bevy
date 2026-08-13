@@ -183,8 +183,8 @@ pub mod prelude {
     };
     #[doc(hidden)]
     pub use crate::{
-        events::*, input::PointerInputPlugin, DefaultPickingPlugins,
-        InteractionPlugin, Pickable, PickingPlugin,
+        events::*, input::PointerInputPlugin, DefaultPickingPlugins, InteractionPlugin, Pickable,
+        PickingPlugin,
     };
 }
 
