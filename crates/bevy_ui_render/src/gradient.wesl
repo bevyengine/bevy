@@ -1,10 +1,10 @@
-#import bevy_render::view::View
-#import bevy_ui::ui_node::{
+import bevy_render::view::View;
+import bevy_ui::ui_node::{
     draw_uinode_background,
     draw_uinode_border,
-}
+};
 
-#import bevy_render::color_operations::{
+import bevy_render::color_operations::{
     convert_to_linear_rgba,
     mix_oklch,
     mix_oklch_long,
@@ -19,9 +19,9 @@
     hsl_to_linear_rgb,
     oklab_to_linear_rgb,
     okhsl_to_linear_rgb,
-}
+};
 
-#import bevy_render::maths::PI
+import bevy_render::maths::PI;
 
 const TAU: f32 = 2. * PI;
 
@@ -171,56 +171,54 @@ fn mix_colors(
     end_color: vec3<f32>,
     t: f32,
 ) -> vec3<f32> {
-#ifdef IN_OKLCH
+@if(IN_OKLCH)
     return mix_oklch(start_color, end_color, t);
-#else ifdef IN_OKLCH_LONG
+@elif(IN_OKLCH_LONG)
     return mix_oklch_long(start_color, end_color, t);
-#else ifdef IN_HSV
+@elif(IN_HSV)
     return mix_hsv(start_color, end_color, t);
-#else ifdef IN_HSV_LONG
+@elif(IN_HSV_LONG)
     return mix_hsv_long(start_color, end_color, t);
-#else ifdef IN_HSL
+@elif(IN_HSL)
     return mix_hsl(start_color, end_color, t);
-#else ifdef IN_HSL_LONG
+@elif(IN_HSL_LONG)
     return mix_hsl_long(start_color, end_color, t);
-#else ifdef IN_OKHSL
+@elif(IN_OKHSL)
     return mix_okhsl(start_color, end_color, t);
-#else ifdef IN_OKHSL_LONG
+@elif(IN_OKHSL_LONG)
     return mix_okhsl_long(start_color, end_color, t);
-#else
+@else
     // Just lerp in linear RGBA, OkLab and SRGBA spaces
     return mix(start_color, end_color, t);
-#endif
 }
 
 // Convert a color from the interpolation color space to linear rgba
 fn convert_to_linear_rgba(
     color: vec4<f32>,
 ) -> vec4<f32> {
-#ifdef IN_OKLCH
+@if(IN_OKLCH)
     let rgb = oklch_to_linear_rgb(color.xyz);
-#else ifdef IN_OKLCH_LONG
+@elif(IN_OKLCH_LONG)
     let rgb = oklch_to_linear_rgb(color.xyz);
-#else ifdef IN_OKHSL
+@elif(IN_OKHSL)
     let rgb = okhsl_to_linear_rgb(color.xyz);
-#else ifdef IN_OKHSL_LONG
+@elif(IN_OKHSL_LONG)
     let rgb = okhsl_to_linear_rgb(color.xyz);
-#else ifdef IN_HSV
+@elif(IN_HSV)
     let rgb = hsv_to_linear_rgb(color.xyz);
-#else ifdef IN_HSV_LONG
+@elif(IN_HSV_LONG)
     let rgb = hsv_to_linear_rgb(color.xyz);
-#else ifdef IN_HSL
+@elif(IN_HSL)
     let rgb = hsl_to_linear_rgb(color.xyz);
-#else ifdef IN_HSL_LONG
+@elif(IN_HSL_LONG)
     let rgb = hsl_to_linear_rgb(color.xyz);
-#else ifdef IN_OKLAB
+@elif(IN_OKLAB)
     let rgb = oklab_to_linear_rgb(color.xyz);
-#else ifdef IN_SRGB
-    let rgb = pow(color.xyz, vec3(2.2));
-#else
+@elif(IN_SRGB)
+    let rgb = srgb_to_linear(color.xyz);
+@else
     // Color is already in linear rgba space
     let rgb = color.rgb;
-#endif
     return vec4(rgb, color.a);
 }
 
