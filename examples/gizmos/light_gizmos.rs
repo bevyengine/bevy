@@ -63,7 +63,7 @@ fn gizmo_color_text(config: &LightGizmoConfigGroup) -> String {
 enum CheckboxInput {
     #[default]
     GizmoDepthMode,
-    DrawingLightGizmo,
+    HideLightGizmo,
 }
 
 fn setup(
@@ -89,7 +89,7 @@ fn setup(
                 feathers_option_checkbox("Toggle drawing gizmos on top of everything else in the scene", Some(CheckboxInput::GizmoDepthMode))
             ),
             (
-                feathers_option_checkbox("Hide light gizmos", Some(CheckboxInput::DrawingLightGizmo))
+                feathers_option_checkbox("Hide light gizmos", Some(CheckboxInput::HideLightGizmo))
             ),
             (
                 feathers_option_buttons("Gizmo color mode",
@@ -208,7 +208,7 @@ fn handle_value_change_checkbox(
             CheckboxInput::GizmoDepthMode => {
                 config.depth_bias = if event.value { -1. } else { 0. };
             }
-            CheckboxInput::DrawingLightGizmo => {
+            CheckboxInput::HideLightGizmo => {
                 config.enabled = !event.value;
             }
         }
