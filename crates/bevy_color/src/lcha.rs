@@ -188,7 +188,7 @@ impl Luminance for Lcha {
 
     fn lighter(&self, amount: f32) -> Self {
         Self::new(
-            (self.lightness + amount).min(1.),
+            crate::color_ops::lighten_hdr_aware(self.lightness, amount),
             self.chroma,
             self.hue,
             self.alpha,
@@ -279,9 +279,9 @@ impl From<Laba> for Lcha {
         }: Laba,
     ) -> Self {
         // Based on http://www.brucelindbloom.com/index.html?Eqn_Lab_to_LCH.html
-        let c = ops::hypot(a, b);
-        let h = {
-            let h = ops::atan2(b.to_radians(), a.to_radians()).to_degrees();
+        let chroma = ops::hypot(a, b);
+        let hue = {
+            let h = ops::atan2(b, a).to_degrees();
 
             if h < 0.0 {
                 h + 360.0
@@ -289,9 +289,6 @@ impl From<Laba> for Lcha {
                 h
             }
         };
-
-        let chroma = c.clamp(0.0, 1.5);
-        let hue = h;
 
         Lcha::new(lightness, chroma, hue, alpha)
     }
@@ -368,6 +365,18 @@ mod tests {
             }
             assert_approx_eq!(color.lch.alpha, lcha.alpha, 0.001);
         }
+    }
+
+    #[test]
+    fn wide_gamut_chroma_preserved() {
+        let laba = Laba::new(0.8, 1.5, -1.2, 1.0);
+        let lcha: Lcha = laba.into();
+        assert!(lcha.chroma > 1.9, "chroma was clamped: {:?}", lcha);
+
+        let back: Laba = lcha.into();
+        assert_approx_eq!(laba.lightness, back.lightness, 1e-4);
+        assert_approx_eq!(laba.a, back.a, 1e-4);
+        assert_approx_eq!(laba.b, back.b, 1e-4);
     }
 
     #[test]

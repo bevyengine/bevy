@@ -123,14 +123,14 @@ impl Luminance for Xyza {
 
     fn darker(&self, amount: f32) -> Self {
         Self {
-            y: (self.y - amount).clamp(0., 1.),
+            y: (self.y - amount).max(0.),
             ..*self
         }
     }
 
     fn lighter(&self, amount: f32) -> Self {
         Self {
-            y: (self.y + amount).min(1.),
+            y: crate::color_ops::lighten_hdr_aware(self.y, amount),
             ..*self
         }
     }
@@ -262,6 +262,16 @@ mod tests {
         assert_approx_eq!(xyza.y, xyza2.y, 0.001);
         assert_approx_eq!(xyza.z, xyza2.z, 0.001);
         assert_approx_eq!(xyza.alpha, xyza2.alpha, 0.001);
+    }
+
+    #[test]
+    fn hdr_lighter_darker() {
+        let sdr = Xyza::new(0.5, 0.9, 0.5, 1.0);
+        assert_approx_eq!(sdr.lighter(0.5).y, 1.0, 1e-6);
+
+        let hdr = Xyza::new(1.0, 3.0, 1.0, 1.0);
+        assert_approx_eq!(hdr.lighter(0.5).y, 3.5, 1e-6);
+        assert_approx_eq!(hdr.darker(0.5).y, 2.5, 1e-6);
     }
 
     #[test]

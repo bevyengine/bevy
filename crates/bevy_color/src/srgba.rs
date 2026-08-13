@@ -26,11 +26,11 @@ use thiserror::Error;
     reflect(Serialize, Deserialize)
 )]
 pub struct Srgba {
-    /// The red channel. [0.0, 1.0]
+    /// The red channel. [0.0, 1.0] for SDR colors; other values are HDR or out of gamut.
     pub red: f32,
-    /// The green channel. [0.0, 1.0]
+    /// The green channel. [0.0, 1.0] for SDR colors; other values are HDR or out of gamut.
     pub green: f32,
-    /// The blue channel. [0.0, 1.0]
+    /// The blue channel. [0.0, 1.0] for SDR colors; other values are HDR or out of gamut.
     pub blue: f32,
     /// The alpha channel. [0.0, 1.0]
     pub alpha: f32,
