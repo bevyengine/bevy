@@ -10,8 +10,9 @@ sprite picking. A pointer over a pixel of an image node with an alpha value less
 This is controlled by the new `UiPickingSettings::picking_mode` field, which defaults to
 `UiPickingMode::AlphaThreshold(0.1)`.
 
-To restore the previous behavior (picking based on the node's bounding box, regardless of
-transparency), set the picking mode to `UiPickingMode::BoundingBox`:
+To restore the (slightly faster) previous behavior (picking based on the node's
+bounding box, regardless of transparency), set the picking mode to
+`UiPickingMode::BoundingBox`:
 
 ```rust
 app.insert_resource(UiPickingSettings {
