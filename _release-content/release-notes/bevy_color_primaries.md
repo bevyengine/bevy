@@ -8,4 +8,4 @@ pull_requests: [25393]
 
 - `Chromaticity`, the CIE diagram coordinates.
 - `RgbPrimaries`, with constants for `BT709`, `BT2020`, `DISPLAY_P3`, and `ACES_CG`.
-- `rgb_to_rgb_matrix`, which derives a conversion matrix between any two primary sets.
+- `RgbPrimaries::matrix_to`, which derives a conversion matrix between any two primary sets.
