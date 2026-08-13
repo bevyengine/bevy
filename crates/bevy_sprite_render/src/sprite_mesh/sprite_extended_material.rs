@@ -36,6 +36,9 @@ use crate::{
     Material2dPlugin, MaterialExtension2d, MeshMaterial2d, SpriteMeshMaterial,
 };
 
+/// Adds the necessary systems and resources for a [`SpriteMaterial`] of type `M`.
+///
+/// See [`SpriteMaterial`] for more information.
 pub struct SpriteMaterialPlugin<M>(core::marker::PhantomData<M>)
 where
     M::Data: Clone + Hash + Eq,
@@ -137,6 +140,60 @@ fn add_material<M>(
     }
 }
 
+/// Allows extending the material of a [`SpriteMesh`] using a [`MaterialExtension2d`].
+///
+/// Requires adding a [`SpriteMaterialPlugin`] to function.
+///
+/// ```
+/// # use bevy_sprite_render::{SpriteMaterialPlugin, MaterialExtension2d, AlphaMode2d};
+/// # use bevy_render::render_resource::AsBindGroup;
+/// # use bevy_shader::ShaderRef;
+/// # use bevy_asset::Asset;
+/// # use bevy_reflect::Reflect;
+/// # use bevy_app::App;
+/// # use bevy_math::Vec4;
+/// #[derive(AsBindGroup, Asset, Reflect, Clone)]
+/// struct MySpriteMaterial {
+///     // Make sure to use a high enough uniform
+///     // to avoid colliding with the sprite's bindings
+///     #[uniform(20)]
+///     some_binding: Vec4,
+/// }
+///
+/// impl MaterialExtension2d for MySpriteMaterial {
+///     fn vertex_shader() -> Option<ShaderRef> {
+///         None // Return `Some` to override the vertex shader
+///     }
+///     fn fragment_shader() -> Option<ShaderRef> {
+///         None // Return `Some` to override the fragment shader
+///     }
+///     fn depth_bias(&self) -> Option<f32> {
+///         None // Return `Some` to override the depth bias
+///     }
+///     fn alpha_mode(&self) -> Option<AlphaMode2d> {
+///         None // Return `Some` to override the alpha mode
+///     }
+/// }
+///
+/// fn plugin(app: &mut App) {
+///     // Make sure to add the plugin!
+///     app.add_plugins(SpriteMaterialPlugin::<MySpriteMaterial>::default());
+/// }
+/// ```
+///
+/// The fragment shader, if overriden, can import functions from `bevy_sprite_render::sprite_mesh::functions`, including:
+/// ```wesl
+/// // Applies all the transformations to the UV and samples the sprite's final color, including tint and alpha discard.
+/// fn sample_final_color(uv: vec2<f32>, instance_index: u32) -> vec4<f32>;
+///
+/// // Applies all the necessary transformations to the UV and samples the sprite's texture.
+/// fn sample_sprite_texture(uv: vec2<f32>, instance_index: u32) -> vec4<f32>;
+///
+/// // Applies the tint and alpha discard on the sprite's color.
+/// fn get_final_color(sprite_color: vec4<f32>, instance_index: u32) -> vec4<f32>;
+/// ```
+///
+/// See the `sprite_material` example for a complete usage example of sprite materials.
 #[derive(Component, Reflect, Deref, DerefMut, PartialEq, Debug, FromTemplate, Clone)]
 #[reflect(Component)]
 #[component(on_add, on_remove)]

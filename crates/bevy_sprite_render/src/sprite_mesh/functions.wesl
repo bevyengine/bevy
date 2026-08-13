@@ -17,7 +17,7 @@ import bevy_sprite_render::sprite_mesh::bindings::{texture, texture_sampler};
 import bevy_sprite_render::mesh2d::bindings::mesh;
 import bevy_render::bindless::{bindless_samplers_filtering, bindless_textures_2d};
 
-// Applies all the transformations to the UV and samples the sprite's final color.
+// Applies all the transformations to the UV and samples the sprite's final color, including tint and alpha discard.
 fn sample_final_color(uv: vec2<f32>, instance_index: u32) -> vec4<f32> {
     let sprite_color = sample_sprite_texture(uv, instance_index);
     return get_final_color(sprite_color, instance_index);
@@ -38,7 +38,7 @@ fn sample_sprite_texture(uv: vec2<f32>, instance_index: u32) -> vec4<f32> {
     return textureSample(texture, texture_sampler, final_uv);
 }
 
-// Applies the tint and alpha discard on the sprite color.
+// Applies the tint and alpha discard on the sprite's color.
 fn get_final_color(sprite_color: vec4<f32>, instance_index: u32) -> vec4<f32> {
     var output_color = apply_tint(sprite_color, instance_index);
     output_color = alpha_discard(output_color, instance_index);
