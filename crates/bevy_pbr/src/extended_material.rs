@@ -349,3 +349,6 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
         )
     }
 }
+
+#[deprecated = "Use `bevy_render::combined_bind_group::CombinedBindGroupData` instead"]
+pub type MaterialExtensionBindGroupData<B, E> = cbg::CombinedBindGroupData<B, E>;

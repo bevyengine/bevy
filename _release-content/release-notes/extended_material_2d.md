@@ -41,7 +41,7 @@ fn main() {
         .add_plugins((
             DefaultPlugins,
             // Make sure to add a plugin for the material!
-            Material2dPlugin::<ExtendedMaterial<ColorMaterial, MyExtendedMaterial>>::default()
+            Material2dPlugin::<ExtendedMaterial2d<ColorMaterial, MyExtendedMaterial>>::default()
         ))
         .add_systems(Startup, spawn_extended_material_mesh)
         .run();
@@ -49,11 +49,11 @@ fn main() {
 
 fn spawn_extended_material_mesh(
     mut commands: Commands,
-    mut materials: ResMut<Assets<ExtendedMaterial<ColorMaterial, MyExtendedMaterial>>>,
+    mut materials: ResMut<Assets<ExtendedMaterial2d<ColorMaterial, MyExtendedMaterial>>>,
 ) {
     // Create an extended material with a `ColorMaterial` as the base and `MyExtendedMaterial` as the extension
     // `ColorMaterial`'s bindings will be available to `MyExtendedMaterial`'s shader
-    let material = ExtendedMaterial {
+    let material = ExtendedMaterial2d {
         base: ColorMaterial::from_color(Color::WHITE),
         extension: MyExtendedMaterial {
             important_binding: Vec4::ZERO,
