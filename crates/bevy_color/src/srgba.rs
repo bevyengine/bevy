@@ -10,6 +10,9 @@ use bevy_reflect::prelude::*;
 use thiserror::Error;
 
 /// Non-linear standard RGB with alpha.
+///
+/// SDR colors are in `[0.0, 1.0]`. Values above `1.0` are HDR intensities, and
+/// negative values are outside the sRGB gamut.
 #[doc = include_str!("../docs/conversion.md")]
 /// <div>
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
@@ -26,11 +29,11 @@ use thiserror::Error;
     reflect(Serialize, Deserialize)
 )]
 pub struct Srgba {
-    /// The red channel. [0.0, 1.0] for SDR colors; other values are HDR or out of gamut.
+    /// The red channel. [0.0, 1.0] for SDR colors.
     pub red: f32,
-    /// The green channel. [0.0, 1.0] for SDR colors; other values are HDR or out of gamut.
+    /// The green channel. [0.0, 1.0] for SDR colors.
     pub green: f32,
-    /// The blue channel. [0.0, 1.0] for SDR colors; other values are HDR or out of gamut.
+    /// The blue channel. [0.0, 1.0] for SDR colors.
     pub blue: f32,
     /// The alpha channel. [0.0, 1.0]
     pub alpha: f32,
