@@ -21,9 +21,3 @@ toml-version = "v1.1.0"
 path = "https://www.schemastore.org/cargo.json"
 include = ["Cargo.toml"]
 format.rules = { array-values-order.enabled = false, table-keys-order.enabled = false }
-
-[[schemas]]
-toml-version = "v1.0.0"
-path = "https://catalog.lintel.tools/schemas/rust/clippy/latest.json"
-include = ["clippy.toml"]
-format.rules = { array-values-order.enabled = false, table-keys-order.enabled = false }
