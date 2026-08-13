@@ -4,7 +4,7 @@ use bevy_utils::prelude::DebugName;
 
 use crate::{
     archetype::Archetype,
-    change_detection::{MaybeLocation, MutUntyped, Tick},
+    change_detection::{DetectChangesMut, MaybeLocation, MutUntyped, Tick},
     component::{ComponentId, Mutable},
     entity::Entity,
     event::{EntityComponentsTrigger, Event, EventKey, Trigger},
@@ -701,8 +701,9 @@ impl<'w> DeferredWorld<'w> {
         if archetype.has_remove_hook() {
             for component_id in targets {
                 // SAFETY: Caller ensures that these components exist
-                let hooks = unsafe { self.components().get_info_unchecked(component_id) }.hooks();
-                if let Some(hook) = hooks.on_remove {
+                let info = unsafe { self.components().get_info_unchecked(component_id) };
+
+                if let Some(hook) = info.hooks().on_remove {
                     hook(
                         DeferredWorld { world: self.world },
                         HookContext {
@@ -712,6 +713,12 @@ impl<'w> DeferredWorld<'w> {
                             relationship_hook_mode: RelationshipHookMode::Run,
                         },
                     );
+                }
+
+                if info.is_disabling() {
+                    for mut component in self.entity_mut(entity).get_mut_by_id(archetype.components()).expect("Archetype::components are guaranteed to be unique and are not missing.") {
+                        component.set_changed();
+                    }
                 }
             }
         }

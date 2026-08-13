@@ -101,6 +101,12 @@ impl ComponentInfo {
         self.descriptor.is_send_and_sync
     }
 
+    /// Returns whether this component is a "disabling" component, using [default query filters](crate::entity_disabling::DefaultQueryFilters) to exclude entities with the component from queries.
+    #[inline]
+    pub fn is_disabling(&self) -> bool {
+        self.descriptor.is_disabling
+    }
+
     /// Create a new [`ComponentInfo`].
     pub(crate) fn new(id: ComponentId, descriptor: ComponentDescriptor) -> Self {
         ComponentInfo {
@@ -124,7 +130,7 @@ impl ComponentInfo {
         if self.hooks().on_discard.is_some() {
             flags.insert(ArchetypeFlags::ON_DISCARD_HOOK);
         }
-        if self.hooks().on_remove.is_some() {
+        if self.hooks().on_remove.is_some() || self.is_disabling() {
             flags.insert(ArchetypeFlags::ON_REMOVE_HOOK);
         }
         if self.hooks().on_despawn.is_some() {
@@ -227,6 +233,7 @@ pub struct ComponentDescriptor {
     // None if the underlying type doesn't need to be dropped
     drop: Option<for<'a> unsafe fn(OwningPtr<'a>)>,
     mutable: bool,
+    is_disabling: bool,
     clone_behavior: ComponentCloneBehavior,
     relationship_accessor: MaybeRelationshipAccessor,
 }
@@ -269,6 +276,7 @@ impl ComponentDescriptor {
             layout: Layout::new::<T>(),
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
             mutable: T::Mutability::MUTABLE,
+            is_disabling: false,
             clone_behavior: T::clone_behavior(),
             relationship_accessor: T::relationship_accessor().map(|v| v.initializer).into(),
         }
@@ -306,8 +314,25 @@ impl ComponentDescriptor {
             layout,
             drop,
             mutable,
+            is_disabling: false,
             clone_behavior,
             relationship_accessor: relationship_accessor.into(),
+        }
+    }
+
+    pub(super) fn new_disabling<T: Component>() -> Self {
+        Self {
+            name: DebugName::type_name::<T>(),
+            storage_type: T::STORAGE_TYPE,
+            is_send_and_sync: true,
+            type_id: Some(TypeId::of::<T>()),
+            // `T` is a rust type, so the layout will have `size()` as a multiple of `align()`
+            layout: Layout::new::<T>(),
+            drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
+            mutable: T::Mutability::MUTABLE,
+            is_disabling: true,
+            clone_behavior: T::clone_behavior(),
+            relationship_accessor: T::relationship_accessor().map(|v| v.initializer).into(),
         }
     }
 
@@ -321,6 +346,7 @@ impl ComponentDescriptor {
             layout: Layout::new::<T>(),
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
             mutable: true,
+            is_disabling: false,
             clone_behavior: ComponentCloneBehavior::Default,
             relationship_accessor: None.into(),
         }

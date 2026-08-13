@@ -290,6 +290,21 @@ impl<'w> ComponentsRegistrator<'w> {
         id
     }
 
+    /// Registers a "disabling" component of type `T` with this instance.
+    /// If a component of this type has already been registered, this will return
+    /// the ID of the pre-existing component.
+    ///
+    /// Disabling components use [default query filters](crate::entity_disabling::DefaultQueryFilters) to exclude entities with the component from queries.
+    #[inline]
+    pub fn register_disabling_component<T: Component>(&mut self) -> ComponentId {
+        self.register_component_checked(
+            TypeId::of::<T>(),
+            ComponentDescriptor::new_disabling::<T>,
+            T::register_required_components,
+            ComponentHooks::update_from_component::<T>,
+        )
+    }
+
     /// Registers a [non-send resource](crate::system::NonSend) of type `T` with this instance.
     /// If a resource of this type has already been registered, this will return
     /// the ID of the pre-existing resource.

@@ -335,7 +335,9 @@ impl World {
     /// Registers a component type as "disabling",
     /// using [default query filters](DefaultQueryFilters) to exclude entities with the component from queries.
     pub fn register_disabling_component<C: Component>(&mut self) {
-        let component_id = self.register_component::<C>();
+        let component_id = self
+            .components_registrator()
+            .register_disabling_component::<C>();
         let mut dqf = self.resource_mut::<DefaultQueryFilters>();
         dqf.register_disabling_component(component_id);
     }
@@ -4650,6 +4652,29 @@ mod tests {
         // If we explicitly remove the resource, no entities should be filtered anymore
         world.remove_resource::<DefaultQueryFilters>();
         assert_eq!(2, world.query::<&Foo>().iter(&world).count());
+    }
+
+    #[test]
+    fn removing_disabling_marks_components_changed() {
+        let mut world = World::new();
+        world.register_disabling_component::<Foo>();
+
+        let with_disabled = world.spawn((Bar, Disabled)).id();
+        let with_custom = world.spawn((Bar, Foo)).id();
+
+        world.increment_change_tick();
+
+        world.entity_mut(with_disabled).remove::<Disabled>();
+        world.entity_mut(with_custom).remove::<Foo>();
+
+        assert!(world
+            .entity_mut(with_disabled)
+            .get_change_ticks::<Bar>()
+            .is_some_and(|ticks| ticks.changed.get() == 2));
+        assert!(world
+            .entity_mut(with_custom)
+            .get_change_ticks::<Bar>()
+            .is_some_and(|ticks| ticks.changed.get() == 2));
     }
 
     #[test]
