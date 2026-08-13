@@ -80,7 +80,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 ///
 /// The sync step does not copy any of component data between worlds, since its often not necessary to transfer over all
 /// the components of a main world entity.
-/// The sub world probably cares about a `Position` component, but not a `Velocity` component.
+/// A sub world may care about a `Position` component, but may not care about a `Velocity` component.
 /// The extraction happens in its own step, independently from, and after synchronization.
 ///
 /// Moreover, [`SyncWorldPlugin`] only synchronizes *entities*. [`RenderAsset`]s like meshes and textures are handled

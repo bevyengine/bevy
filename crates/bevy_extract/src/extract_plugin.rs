@@ -58,7 +58,7 @@ impl<L: AppLabel + Default + Copy + Eq> Plugin for ExtractPlugin<L> {
 
         let mut extract_schedule = Schedule::new(ExtractSchedule);
         // We skip applying any commands during the ExtractSchedule
-        // so commands can be applied on the sub thread.
+        // so commands can be applied on the sub app’s thread.
         extract_schedule.set_build_settings(ScheduleBuildSettings {
             auto_insert_apply_deferred: false,
             ..default()

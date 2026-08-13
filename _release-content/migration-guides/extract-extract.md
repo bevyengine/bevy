@@ -36,6 +36,6 @@ You can now extract a component from the main subapp to multiple subapps. To ext
 struct SomeComponent;
 ```
 
-All above has moved to new crate `bevy_extract`.
+All of the above has moved to the new crate `bevy_extract`.
 
 Most extraction parts are re-exported by `bevy_render` , but some migrations are needed

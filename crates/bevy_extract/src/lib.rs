@@ -13,7 +13,8 @@
 )]
 #![expect(unsafe_code, reason = "Unsafe code is used to improve performance.")]
 
-//! This crate is about everything concerning extract.
+//! This crate provides a way to extract component information from
+//! an app’s main world into a sub world.
 
 extern crate alloc;
 
