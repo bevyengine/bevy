@@ -14,8 +14,8 @@ use bevy_input::ButtonInput;
 use bevy_math::{Vec2, Vec3};
 use bevy_picking::{
     events::{Drag, DragEnd, DragStart, Pointer},
-    pointer::PointerButton,
 };
+use bevy_input::prelude::MouseButton;
 use bevy_time::{Real, Time};
 use bevy_transform::components::GlobalTransform;
 use bevy_transform::prelude::Transform;
@@ -90,7 +90,7 @@ pub struct MousePanSettings {
     /// Whether the mouse panning is enabled.
     pub enabled: bool,
     /// The mouse button to use for panning.
-    pub button: PointerButton,
+    pub button: MouseButton,
 }
 
 #[derive(Eq, PartialEq)]
@@ -145,7 +145,7 @@ impl Default for PanCamera {
             key_rotate_cw: Some(KeyCode::KeyE),
             mouse_pan_settings: MousePanSettings {
                 enabled: true,
-                button: PointerButton::Primary,
+                button: MouseButton::Left,
             },
         }
     }

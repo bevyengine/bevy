@@ -11,13 +11,13 @@ use bevy_a11y::{AccessibilityNode, AccessibilitySystems};
 use bevy_app::{App, Plugin, PostUpdate, PreUpdate};
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
 use bevy_input::keyboard::{Key, KeyCode, KeyboardInput};
+use bevy_input::mouse::MouseButton;
 use bevy_input::{ButtonInput, InputSystems};
 use bevy_input_focus::{
     FocusCause, FocusGained, FocusLost, FocusedInput, InputFocus, InputFocusSystems,
 };
 use bevy_math::Vec2;
 use bevy_picking::events::{Drag, Pointer, PointerState, Press, Release};
-use bevy_picking::pointer::PointerButton;
 use bevy_reflect::Reflect;
 use bevy_text::{
     scrollable_text_layout_width, EditableText, EditableTextSystems, PreeditCursor, TextEdit,
@@ -250,7 +250,7 @@ fn on_pointer_press(
     keys: Res<ButtonInput<Key>>,
     ui_scale: Res<UiScale>,
 ) {
-    if press.button != PointerButton::Primary {
+    if press.button != MouseButton::Left {
         return;
     }
 
@@ -318,7 +318,7 @@ fn on_pointer_drag(
     >,
     ui_scale: Res<UiScale>,
 ) {
-    if drag.button != PointerButton::Primary {
+    if drag.button != MouseButton::Left {
         return;
     }
 
@@ -370,11 +370,16 @@ pub(crate) fn text_input_autoscroll_system(
     let Some(entity) = input_focus.get() else {
         return;
     };
+    
     let Some(pointer_position) = pointer_state
         .pointer_buttons
-        .iter()
-        .filter(|((_, button), ..)| *button == PointerButton::Primary)
-        .find_map(|(_, state)| state.dragging.get(&entity).map(|drag| drag.latest_pos))
+        .values()
+        .find_map(|button|{ 
+            match button.get(&MouseButton::Left) {
+                Some(state) => Some(state.dragging.get(&entity).map(|drag| drag.latest_pos)?),
+                None => None,
+            }
+        })
     else {
         return;
     };
@@ -694,7 +699,7 @@ fn apply_queued_select_all(
         return;
     };
     for pointer_release in pointer_releases.read() {
-        if pointer_release.button == PointerButton::Primary
+        if pointer_release.button == MouseButton::Left
             && let Ok(mut editable_text) = q_text_input.get_mut(target)
         {
             editable_text.queue_edit(TextEdit::SelectAllIfCollapsed);
@@ -894,7 +899,7 @@ mod tests {
         app.insert_resource(InputFocus::from_entity(entity));
         app.world_mut()
             .resource_mut::<PointerState>()
-            .get_mut(PointerId::Mouse, PointerButton::Primary)
+            .get_mut(PointerId::Mouse, MouseButton::Left)
             .dragging
             .insert(
                 entity,
@@ -952,7 +957,7 @@ mod tests {
             .clear();
         app.world_mut()
             .resource_mut::<PointerState>()
-            .get_mut(PointerId::Mouse, PointerButton::Primary)
+            .get_mut(PointerId::Mouse, MouseButton::Left)
             .dragging
             .get_mut(&entity)
             .unwrap()

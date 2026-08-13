@@ -17,8 +17,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res},
 };
 use bevy_input::{
-    keyboard::{Key, KeyCode, KeyboardInput},
-    ButtonInput,
+    ButtonInput, keyboard::{Key, KeyCode, KeyboardInput}, mouse::MouseButton,
 };
 use bevy_input_focus::{FocusGained, FocusLost, FocusedInput, InputFocus, InputFocusSystems};
 use bevy_log::{warn, warn_once};
@@ -27,7 +26,6 @@ use bevy_picking::{
     cursor::EntityCursor,
     events::{Cancel, Drag, DragEnd, DragStart, Pointer, Press, Release},
     hover::Hovered,
-    pointer::PointerButton,
     PickingSystems,
 };
 use bevy_platform::collections::HashMap;
@@ -1015,7 +1013,7 @@ fn scrubber_on_release(
 
         // Copy of logic from EditableText / text_input, but done on pointer up instead of down.
         if drag_state.max_distance <= DRAG_THRESHOLD_DISTANCE {
-            if release.button != PointerButton::Primary {
+            if release.button != MouseButton::Left {
                 return;
             }
 

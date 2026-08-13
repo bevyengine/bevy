@@ -344,7 +344,7 @@ mod tests {
     /// descendant of the widget; the events bubble up via `ChildOf` just like real pointer events.
     fn click_entity(app: &mut App, target: Entity, window: Entity) {
         let location = window_location(window);
-        let button = bevy_picking::pointer::PointerButton::Primary;
+        let button = bevy_input::mouse::MouseButton::Left;
         app.world_mut().trigger(Pointer::new(
             PointerId::Mouse,
             location.clone(),

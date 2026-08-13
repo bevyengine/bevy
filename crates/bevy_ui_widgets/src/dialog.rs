@@ -14,12 +14,12 @@ use bevy_ecs::{
     schedule::{common_conditions::resource_changed, IntoScheduleConfigs},
     system::{Commands, Query, Res, ResMut, Single},
 };
+use bevy_input::mouse::MouseButton;
 use bevy_input_focus::tab_navigation::TabGroup;
 use bevy_log::warn;
 use bevy_math::Vec2;
 use bevy_picking::{
     events::{Drag, DragStart, Pointer, Press},
-    pointer::PointerButton,
 };
 use bevy_reflect::Reflect;
 use bevy_ui::{GlobalZIndex, UiScale, UiTransform, Val2};
@@ -148,7 +148,7 @@ fn dialog_drag_start(
     mut q_state: Query<&mut DialogDragState>,
     ui_scale: Res<UiScale>,
 ) {
-    if drag_start.button != PointerButton::Primary {
+    if drag_start.button != MouseButton::Left {
         return;
     }
     // Only the handle entity itself drives the move.
@@ -184,7 +184,7 @@ fn dialog_drag(
     // TODO: multiple windows? dragging between them, etc
     primary_window: Single<&Window, With<PrimaryWindow>>,
 ) {
-    if drag.button != PointerButton::Primary {
+    if drag.button != MouseButton::Left {
         return;
     }
     let handle = drag.event_target();
