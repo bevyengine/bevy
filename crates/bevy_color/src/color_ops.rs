@@ -217,6 +217,7 @@ mod tests {
         verify_gray::<crate::Hwba>();
         verify_gray::<crate::Laba>();
         verify_gray::<crate::Lcha>();
+        verify_gray::<crate::LinearRec2020>();
         verify_gray::<crate::LinearRgba>();
         verify_gray::<crate::Oklaba>();
         verify_gray::<crate::Oklcha>();
