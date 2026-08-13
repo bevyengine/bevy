@@ -33,11 +33,3 @@ pub use sync_world::*;
 
 // Required to make proc macros work in bevy itself.
 extern crate self as bevy_extract;
-
-/// The extract prelude.
-///
-/// This includes the most common types in this crate, re-exported for your convenience.
-pub mod prelude {
-    // #[doc(hidden)]
-    // pub use crate::{ExtractPlugin, ExtractSchedule};
-}

@@ -26,10 +26,6 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 ///
 /// # Implementation
 ///
-/// Bevy's renderer is architected independently from the main app.
-/// It operates in its own separate ECS [`World`], so the renderer logic can run in parallel with the main world logic.
-/// This is called "Pipelined Rendering", see [`PipelinedRenderingPlugin`] for more information.
-///
 /// [`SyncWorldPlugin`] is the first thing that runs every frame and it maintains an entity-to-entity mapping
 /// between the main world and the sub world.
 /// It does so by spawning and despawning entities in the sub world, to match spawned and despawned entities in the main world.
@@ -83,13 +79,12 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 /// A sub world may care about a `Position` component, but may not care about a `Velocity` component.
 /// The extraction happens in its own step, independently from, and after synchronization.
 ///
-/// Moreover, [`SyncWorldPlugin`] only synchronizes *entities*. [`RenderAsset`]s like meshes and textures are handled
+/// Moreover, [`SyncWorldPlugin`] only synchronizes *entities*. [`Asset`]s like meshes and textures are handled
 /// differently.
 ///
-/// [`PipelinedRenderingPlugin`]: https://docs.rs/bevy/latest/bevy/render/pipelined_rendering/struct.PipelinedRenderingPlugin.html
 /// [`ExtractComponentPlugin`]: crate::extract_component::ExtractComponentPlugin
 /// [`SyncComponentPlugin`]: crate::sync_component::SyncComponentPlugin
-/// [`RenderAsset`]: https://docs.rs/bevy/latest/bevy/render/render_asset/trait.RenderAsset.html
+/// [`Asset`]: https://docs.rs/bevy/latest/bevy/asset/trait.Asset.html
 #[derive(Default)]
 pub struct SyncWorldPlugin<L: AppLabel>(PhantomData<L>);
 
