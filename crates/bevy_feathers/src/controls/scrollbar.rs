@@ -1,4 +1,4 @@
-use bevy_app::{Plugin, PostUpdate, PreUpdate};
+use bevy_app::{Plugin, PostUpdate, PreUpdate, TransformGizmoRenderStep};
 use bevy_camera::visibility::Visibility;
 use bevy_ecs::{
     component::Component,
@@ -11,13 +11,13 @@ use bevy_ecs::{
     template::EntityTemplate,
 };
 use bevy_math::Vec2;
-use bevy_picking::{hover::Hovered, PickingSystems};
+use bevy_picking::{cursor::EntityCursor, hover::Hovered, PickingSystems};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::prelude::*;
 use bevy_ui::{px, BorderRadius, ComputedNode, Node, UiSystems, Val};
 use bevy_ui_widgets::{ControlOrientation, Scrollbar, ScrollbarDragState, ScrollbarThumb};
 
-use crate::{cursor::EntityCursor, theme::ThemeBackgroundColor, tokens};
+use crate::{theme::ThemeBackgroundColor, tokens};
 
 /// A scrollbar. The `target` property should point to an entity whose
 /// [`ScrollPosition`](bevy_ui::ScrollPosition) will be synchronized with the scrollbar.
@@ -171,7 +171,10 @@ impl Plugin for ScrollbarPlugin {
         );
         app.add_systems(
             PostUpdate,
-            update_scrollbar_visibility.after(UiSystems::Layout),
+            update_scrollbar_visibility
+                .after(UiSystems::Layout)
+                .before(bevy_ui::update::update_clipping_system)
+                .ambiguous_with(TransformGizmoRenderStep),
         );
     }
 }

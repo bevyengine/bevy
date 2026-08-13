@@ -12,8 +12,10 @@ use bevy_ecs::{
     schedule::IntoScheduleConfigs as _,
     system::{Commands, Query, Res},
 };
-use bevy_input_focus::{tab_navigation::TabIndex, InputFocus, InputFocusVisible};
-use bevy_picking::{hover::Hovered, PickingSystems};
+use bevy_input_focus::{
+    tab_navigation::TabIndex, InputFocus, InputFocusSystems, InputFocusVisible,
+};
+use bevy_picking::{cursor::EntityCursor, hover::Hovered, PickingSystems};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::{bsn, bsn_list, Scene, SceneComponent, SceneList};
 use bevy_text::{FontSize, FontWeight};
@@ -21,12 +23,13 @@ use bevy_ui::{
     px, AlignItems, BorderRadius, Display, FlexDirection, InteractionDisabled, JustifyContent,
     Node, Overflow, PositionType, Selected, UiRect,
 };
-use bevy_ui_widgets::{ActiveDescendant, ControlOrientation, ListBox, ListItem, ScrollArea};
+use bevy_ui_widgets::{
+    ActiveDescendant, ControlOrientation, ListBox, ListItem, MenuFocusSystem, ScrollArea,
+};
 
 use crate::{
     constants::{fonts, size},
     controls::{FeathersScrollbar, ScrollbarGutter},
-    cursor::EntityCursor,
     font_styles::InheritableFont,
     theme::{InheritableThemeTextColor, ThemeBackgroundColor, ThemeBorderColor},
     tokens,
@@ -332,6 +335,11 @@ impl Plugin for ListViewPlugin {
             PreUpdate,
             (update_listrow_styles, update_listrow_styles_remove).in_set(PickingSystems::Last),
         );
-        app.add_systems(PostUpdate, on_change_focus);
+        app.add_systems(
+            PostUpdate,
+            on_change_focus
+                .after(MenuFocusSystem)
+                .before(InputFocusSystems::FocusChangeEvents),
+        );
     }
 }

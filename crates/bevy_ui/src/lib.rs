@@ -28,6 +28,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_picking::PickingSystems;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 mod accessibility;
+pub use accessibility::AccessibilityUiSystems;
 // This module is not re-exported, but is instead made public.
 // This is intended to discourage accidental use of the experimental API.
 pub mod experimental;
@@ -61,6 +62,12 @@ pub mod prelude {
     pub use crate::picking_backend::{UiPickingCamera, UiPickingPlugin, UiPickingSettings};
     #[doc(hidden)]
     pub use crate::widget::{Text, TextShadow, TextUiReader, TextUiWriter};
+    #[expect(
+        deprecated,
+        reason = "Should be removed after 0.20 is released when Button & Interaction are removed."
+    )]
+    #[doc(hidden)]
+    pub use crate::{widget::Button, Interaction};
     #[doc(hidden)]
     pub use {
         crate::{
@@ -68,8 +75,8 @@ pub mod prelude {
             gradients::*,
             ui_node::*,
             ui_transform::*,
-            widget::{Button, ImageNode, Label, NodeImageMode, ViewportNode},
-            Interaction, UiScale,
+            widget::{ImageNode, Label, NodeImageMode, ViewportNode},
+            UiScale,
         },
         // `bevy_sprite` re-exports for texture slicing
         bevy_sprite::{BorderRect, SliceScaleMode, SpriteImageMode, TextureSlicer},
@@ -155,7 +162,7 @@ impl Plugin for UiPlugin {
                     UiSystems::Layout,
                     UiSystems::PostLayout,
                 )
-                    .chain(),
+                    .chain_weak(),
             )
             .configure_sets(
                 PostUpdate,

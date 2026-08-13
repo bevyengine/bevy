@@ -74,6 +74,10 @@ where
 
     /// Additional buffer usages to add to any vertex or index buffers created.
     pub extra_buffer_usages: BufferUsages,
+
+    /// Keys that were resident in a slab whose [`Buffer`] was replaced by growth since
+    /// [`Self::clear_displaced_keys`] was last called.
+    displaced_keys: Vec<I::Key>,
 }
 
 /// Describes the type of the data that a [`SlabAllocator`] will store.
@@ -403,6 +407,9 @@ where
     pub allocator: &'a mut SlabAllocator<I>,
     /// The set of slabs that have grown and need to be reallocated.
     slabs_to_reallocate: HashMap<SlabId<I>, SlabToReallocate>,
+    /// IDs of slabs that became empty because everything in them was
+    /// reallocated elsewhere.
+    empty_slabs: HashSet<SlabId<I>>,
 }
 
 impl<'a, I> Drop for AllocationStage<'a, I>
@@ -410,10 +417,10 @@ where
     I: SlabItem,
 {
     fn drop(&mut self) {
-        if !self.slabs_to_reallocate.is_empty() {
+        if !self.slabs_to_reallocate.is_empty() || !self.empty_slabs.is_empty() {
             error!(
-                "Dropping an `AllocationStage` with uncommitted reallocations. You should call \
-                `AllocationStage::commit`."
+                "Dropping an `AllocationStage` with uncommitted reallocations or slab free \
+                operations. You should call `AllocationStage::commit`."
             );
         }
     }
@@ -425,7 +432,10 @@ where
 {
     /// Allocates space for an object of the given size with the given key and layout.
     ///
-    /// The key must not correspond to any current allocation.
+    /// If the key already corresponds to a live allocation, that allocation is
+    /// freed first. Prefer freeing it through a [`DeallocationStage`] before the
+    /// allocation stage begins, so that the allocator has every one of the
+    /// frame's holes to choose from rather than just this object's.
     pub fn allocate(
         &mut self,
         key: &I::Key,
@@ -433,6 +443,8 @@ where
         layout: I::Layout,
         settings: &SlabAllocatorSettings,
     ) {
+        self.allocator
+            .free_existing_allocation(key, &mut self.empty_slabs);
         self.allocator.allocate(
             key,
             data_byte_len,
@@ -444,14 +456,26 @@ where
 
     /// Allocates an object into its own dedicated slab.
     ///
-    /// The key must not correspond to any current allocation.
+    /// As with [`Self::allocate`], a live allocation under the same key is freed
+    /// first.
     pub fn allocate_large(&mut self, key: &I::Key, layout: I::Layout) {
+        self.allocator
+            .free_existing_allocation(key, &mut self.empty_slabs);
         self.allocator.allocate_large(key, layout);
     }
 
     /// Completes the transaction, performing any queued resize operations.
     pub fn commit(mut self, render_device: &RenderDevice, render_queue: &RenderQueue) {
+        // Drop slabs that were emptied by their contents being reallocated
+        // elsewhere. Do this before growing anything, so that we never create a
+        // buffer for a slab we're about to throw away.
+        self.allocator.free_empty_slabs(self.empty_slabs.drain());
+
         for (slab_id, slab_to_grow) in self.slabs_to_reallocate.drain() {
+            // The slab may have been freed just above.
+            if !self.allocator.slabs.contains_key(&slab_id) {
+                continue;
+            }
             self.allocator
                 .reallocate_slab(render_device, render_queue, slab_id, slab_to_grow);
         }
@@ -495,13 +519,11 @@ where
 {
     /// Schedules a free operation for the allocation with the given key.
     ///
-    /// The key must correspond to a live allocation. An error will be emitted
-    /// to the log otherwise.
+    /// Freeing a key that holds no allocation is a no-op, so callers are free to
+    /// speculatively free keys that may never have been allocated.
     pub fn free(&mut self, key: &I::Key) {
-        if let Some(slab_id) = self.allocator.key_to_slab.remove(key) {
-            self.allocator
-                .free_allocation_in_slab(key, slab_id, &mut self.empty_slabs);
-        }
+        self.allocator
+            .free_existing_allocation(key, &mut self.empty_slabs);
     }
 
     /// Performs all the free operations.
@@ -578,6 +600,7 @@ where
             key_to_slab: HashMap::default(),
             slab_layouts: HashMap::default(),
             extra_buffer_usages: BufferUsages::empty(),
+            displaced_keys: Vec::new(),
         }
     }
 }
@@ -589,6 +612,22 @@ where
     /// Creates a new empty slab allocator.
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// The keys that were already resident in a slab and had the [`Buffer`] behind them replaced by
+    /// that slab growing, so that consumers caching buffers can rebuild just the affected entries.
+    ///
+    /// This accumulates until [`Self::clear_displaced_keys`], so it is only correct
+    /// for a consumer that runs after the allocator has been updated for the frame and before the
+    /// list is cleared.
+    pub fn keys_displaced_by_slab_growth(&self) -> &[I::Key] {
+        &self.displaced_keys
+    }
+
+    /// Drops the accumulated [`Self::keys_displaced_by_slab_growth`], starting a new round of
+    /// invalidations.
+    pub fn clear_displaced_keys(&mut self) {
+        self.displaced_keys.clear();
     }
 
     /// Creates an [`AllocationStage`], enabling batched allocation of objects
@@ -603,6 +642,7 @@ where
         AllocationStage {
             allocator: self,
             slabs_to_reallocate: HashMap::default(),
+            empty_slabs: HashSet::default(),
         }
     }
 
@@ -757,6 +797,16 @@ where
         );
     }
 
+    /// Frees whatever allocation the given key currently holds, if any.
+    ///
+    /// If this empties the allocation's slab, that slab is added to the
+    /// `empty_slabs` set for the caller to reclaim on commit.
+    fn free_existing_allocation(&mut self, key: &I::Key, empty_slabs: &mut HashSet<SlabId<I>>) {
+        if let Some(slab_id) = self.key_to_slab.remove(key) {
+            self.free_allocation_in_slab(key, slab_id, empty_slabs);
+        }
+    }
+
     /// Given a slab and the key corresponding to an object within it, marks
     /// the allocation as free.
     ///
@@ -815,6 +865,11 @@ where
         };
 
         let old_buffer = slab.buffer.take();
+
+        if old_buffer.is_some() {
+            self.displaced_keys
+                .extend(slab.resident_allocations.keys().cloned());
+        }
 
         let buffer_usages = BufferUsages::COPY_SRC
             | BufferUsages::COPY_DST
@@ -902,6 +957,15 @@ where
 
     fn free_empty_slabs(&mut self, empty_slabs: impl Iterator<Item = SlabId<I>>) {
         for empty_slab in empty_slabs {
+            // The slab may have been refilled since it was marked empty, because
+            // a reallocated object usually lands back in the hole it just left.
+            // Destroying the slab here would take live data with it, so skip.
+            if let Some(Slab::General(general_slab)) = self.slabs.get(&empty_slab)
+                && !general_slab.is_empty()
+            {
+                continue;
+            }
+
             self.slab_layouts.values_mut().for_each(|slab_ids| {
                 let idx = slab_ids.iter().position(|&slab_id| slab_id == empty_slab);
                 if let Some(idx) = idx {
@@ -1113,5 +1177,190 @@ fn buffer_usages_to_str(buffer_usages: BufferUsages) -> &'static str {
         "storage "
     } else {
         ""
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_utils::create_dummy_device;
+
+    /// A [`SlabItem`] for tests, keyed by a plain integer.
+    struct TestItem;
+
+    impl SlabItem for TestItem {
+        type Key = u32;
+        type Layout = TestLayout;
+
+        fn label() -> Cow<'static, str> {
+            "test".into()
+        }
+    }
+
+    /// A four-byte element, one element per slot.
+    #[derive(Clone, PartialEq, Eq, Hash)]
+    struct TestLayout;
+
+    impl SlabItemLayout for TestLayout {
+        fn size(&self) -> u64 {
+            4
+        }
+
+        fn elements_per_slot(&self) -> u32 {
+            1
+        }
+
+        fn buffer_usages(&self) -> BufferUsages {
+            BufferUsages::VERTEX
+        }
+    }
+
+    /// Small slabs, so that a leak shows up as slab growth within a few rounds.
+    fn test_settings() -> SlabAllocatorSettings {
+        SlabAllocatorSettings {
+            // 256 slots.
+            min_slab_size: 1024,
+            // 1024 slots.
+            max_slab_size: 4096,
+            large_threshold: 4096,
+            growth_factor: 1.5,
+        }
+    }
+
+    /// Allocates `byte_len` bytes under each of `keys` and marks the results
+    /// resident, as a frame of [`MeshAllocator`](crate::mesh::MeshAllocator)
+    /// would.
+    fn allocate_round(
+        allocator: &mut SlabAllocator<TestItem>,
+        keys: impl Iterator<Item = u32> + Clone,
+        byte_len: u64,
+        device: &RenderDevice,
+        queue: &RenderQueue,
+    ) {
+        let mut stage = allocator.stage_allocation();
+        for key in keys.clone() {
+            stage.allocate(&key, byte_len, TestLayout, &test_settings());
+        }
+        stage.commit(device, queue);
+
+        for key in keys {
+            allocator.copy_element_data(&key, byte_len as usize, |_| {}, device, queue);
+        }
+    }
+
+    /// Reallocating a key that's still live must free its previous allocation
+    /// rather than orphaning it.
+    #[test]
+    fn reallocating_a_live_key_frees_the_old_allocation() {
+        let (device, queue) = create_dummy_device();
+        let mut allocator = SlabAllocator::<TestItem>::new();
+
+        allocate_round(&mut allocator, 0..8, 256, &device, &queue);
+
+        let baseline_size = allocator.slabs_size();
+        let baseline_slabs = allocator.slab_count();
+        assert!(baseline_size > 0, "nothing was allocated");
+
+        // Reallocate the same keys, without ever freeing them, many times over.
+        for _ in 0..32 {
+            allocate_round(&mut allocator, 0..8, 256, &device, &queue);
+        }
+
+        assert_eq!(
+            allocator.slabs_size(),
+            baseline_size,
+            "reallocating live keys grew the slabs, so old allocations leaked"
+        );
+        assert_eq!(allocator.slab_count(), baseline_slabs);
+        assert_eq!(allocator.key_to_slab.len(), 8);
+
+        // Every key must still be readable.
+        for key in 0..8u32 {
+            let slab_id = allocator.key_to_slab[&key];
+            assert!(allocator.slab_allocation_slice(&key, slab_id).is_some());
+        }
+    }
+
+    /// A slab emptied by a reallocation that lands back in that same slab must
+    /// not be destroyed on commit.
+    #[test]
+    fn slab_refilled_during_allocation_is_not_freed() {
+        let (device, queue) = create_dummy_device();
+        let mut allocator = SlabAllocator::<TestItem>::new();
+
+        allocate_round(&mut allocator, 0..1, 256, &device, &queue);
+        let slab_id = allocator.key_to_slab[&0];
+
+        // Freeing the sole occupant marks the slab empty mid-stage; the
+        // reallocation then drops straight back into it.
+        allocate_round(&mut allocator, 0..1, 256, &device, &queue);
+
+        assert_eq!(allocator.slab_count(), 1, "the live slab was destroyed");
+        assert_eq!(allocator.key_to_slab[&0], slab_id);
+        assert!(allocator.slab_allocation_slice(&0, slab_id).is_some());
+    }
+
+    /// Allocates a dedicated slab for each of `keys` through
+    /// [`AllocationStage::allocate_large`].
+    fn allocate_large_round(
+        allocator: &mut SlabAllocator<TestItem>,
+        keys: impl Iterator<Item = u32>,
+        device: &RenderDevice,
+        queue: &RenderQueue,
+    ) {
+        let mut stage = allocator.stage_allocation();
+        for key in keys {
+            stage.allocate_large(&key, TestLayout);
+        }
+        stage.commit(device, queue);
+    }
+
+    /// [`AllocationStage::allocate_large`] must free a live allocation under the
+    /// same key, just as [`AllocationStage::allocate`] does. Each one takes a
+    /// brand new slab, so a missed free leaks a whole slab per round.
+    #[test]
+    fn reallocating_a_live_key_with_allocate_large_frees_the_old_allocation() {
+        let (device, queue) = create_dummy_device();
+        let mut allocator = SlabAllocator::<TestItem>::new();
+
+        allocate_large_round(&mut allocator, 0..4, &device, &queue);
+        assert_eq!(allocator.slab_count(), 4);
+
+        for _ in 0..32 {
+            allocate_large_round(&mut allocator, 0..4, &device, &queue);
+        }
+
+        assert_eq!(
+            allocator.slab_count(),
+            4,
+            "reallocating live keys left the previous dedicated slabs behind"
+        );
+        assert_eq!(allocator.key_to_slab.len(), 4);
+    }
+
+    /// A slab genuinely emptied during an allocation stage must be reclaimed, or
+    /// the fix for reallocation would just trade one leak for another.
+    #[test]
+    fn slab_emptied_during_allocation_is_freed() {
+        let (device, queue) = create_dummy_device();
+        let mut allocator = SlabAllocator::<TestItem>::new();
+
+        allocate_round(&mut allocator, 0..1, 256, &device, &queue);
+        assert_eq!(allocator.slab_count(), 1);
+
+        // Reallocate the sole occupant at a size that forces it into a slab of
+        // its own, leaving the general slab empty.
+        allocate_round(&mut allocator, 0..1, 8192, &device, &queue);
+
+        assert_eq!(
+            allocator.slab_count(),
+            1,
+            "the emptied general slab was not reclaimed"
+        );
+        let slab_id = allocator.key_to_slab[&0];
+        assert!(matches!(
+            allocator.slabs.get(&slab_id),
+            Some(Slab::LargeObject(_))
+        ));
     }
 }

@@ -157,6 +157,7 @@ extern crate alloc;
 use core::time::Duration;
 
 pub mod backend;
+pub mod cursor;
 pub mod events;
 pub mod hover;
 pub mod input;

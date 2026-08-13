@@ -206,6 +206,15 @@ fn spawn_gizmo_meshes(
         .mesh()
         .build(),
     );
+    let view_scale_mesh = meshes.add(
+        Cuboid::new(
+            SCALE_CUBE_SIZE * 1.5,
+            SCALE_CUBE_SIZE * 1.5,
+            SCALE_CUBE_SIZE * 1.5,
+        )
+        .mesh()
+        .build(),
+    );
 
     // Axis rotations: cylinder default is Y-up
     let axis_rotation = |axis: TransformGizmoAxis| -> Quat {
@@ -339,6 +348,16 @@ fn spawn_gizmo_meshes(
             TransformGizmoMode::Scale,
         );
     }
+
+    // View-axis cube (scale)
+    spawn_child(
+        &mut commands,
+        view_scale_mesh,
+        make_mat(TransformGizmoAxis::View),
+        Transform::IDENTITY,
+        TransformGizmoAxis::View,
+        TransformGizmoMode::Scale,
+    );
 
     // --- Overlay camera ---
     // This camera renders only the gizmo layer, after the main camera (order: 1),
