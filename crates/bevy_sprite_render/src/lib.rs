@@ -23,7 +23,9 @@ mod tilemap_chunk;
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{ColorMaterial, MeshMaterial2d, SpriteMaterial};
+    pub use crate::{
+        ColorMaterial, ExtendedMaterial2d, MaterialExtension2d, MeshMaterial2d, SpriteMaterial,
+    };
 }
 
 use bevy_shader::load_shader_library;

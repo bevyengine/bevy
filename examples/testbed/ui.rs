@@ -57,6 +57,7 @@ fn main() {
     .add_systems(OnEnter(Scene::RadialGradient), radial_gradient::setup)
     .add_systems(OnEnter(Scene::Transformations), transformations::setup)
     .add_systems(OnEnter(Scene::ViewportCoords), viewport_coords::setup)
+    .add_systems(OnEnter(Scene::ViewportNode), viewport_node::setup)
     .add_systems(OnEnter(Scene::OuterColor), outer_color::setup)
     .add_systems(OnEnter(Scene::BoxedContent), boxed_content::setup)
     .add_systems(OnEnter(Scene::EditableText), editable_text::setup)
@@ -103,6 +104,7 @@ enum Scene {
     #[cfg(feature = "bevy_ui_debug")]
     DebugOutlines,
     ViewportCoords,
+    ViewportNode,
     OuterColor,
     BoxedContent,
     EditableText,
@@ -130,6 +132,7 @@ impl Scene {
         #[cfg(feature = "bevy_ui_debug")]
         Scene::DebugOutlines,
         Scene::ViewportCoords,
+        Scene::ViewportNode,
         Scene::OuterColor,
         Scene::BoxedContent,
         Scene::EditableText,
@@ -2741,6 +2744,66 @@ mod viewport_coords {
                     BorderColor::all(PALETTE[8]),
                 ));
             });
+    }
+}
+
+mod viewport_node {
+    use bevy::{
+        camera::RenderTarget, prelude::*, render::render_resource::TextureFormat,
+        ui::widget::ViewportNode,
+    };
+
+    pub fn setup(
+        mut commands: Commands,
+        mut images: ResMut<Assets<Image>>,
+        mut meshes: ResMut<Assets<Mesh>>,
+        mut materials: ResMut<Assets<StandardMaterial>>,
+    ) {
+        commands.spawn((
+            Camera3d::default(),
+            DespawnOnExit(super::Scene::ViewportNode),
+        ));
+
+        let image = Image::new_target_texture(0, 0, TextureFormat::Bgra8UnormSrgb, None);
+        let image_handle = images.add(image);
+
+        let camera = commands
+            .spawn((
+                Camera3d::default(),
+                Camera {
+                    order: -1,
+                    ..default()
+                },
+                RenderTarget::Image(image_handle.into()),
+                DespawnOnExit(super::Scene::ViewportNode),
+            ))
+            .id();
+
+        commands.spawn((
+            Mesh3d(meshes.add(Cuboid::new(5.0, 5.0, 5.0))),
+            MeshMaterial3d(materials.add(Color::WHITE)),
+            Transform {
+                translation: Vec3::new(0.0, 0.0, -10.0),
+                rotation: Quat::from_euler(EulerRot::XYZ, 0.4, 0.7, 0.1),
+                ..default()
+            },
+            DespawnOnExit(super::Scene::ViewportNode),
+        ));
+
+        commands.spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                top: px(50),
+                left: px(50),
+                width: px(200),
+                height: px(200),
+                border: UiRect::all(px(5)),
+                ..default()
+            },
+            BorderColor::all(Color::WHITE),
+            ViewportNode::new(camera),
+            DespawnOnExit(super::Scene::ViewportNode),
+        ));
     }
 }
 
