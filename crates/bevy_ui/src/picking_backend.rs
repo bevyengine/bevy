@@ -50,7 +50,9 @@ pub struct UiPickingCamera;
 ///
 /// The picking mode can be set globally via
 /// [`UiPickingSettings::picking_mode`], and overridden on a per-node basis by
-/// adding this component to a UI node entity.
+/// adding this component to a UI node entity. When this component is absent,
+/// the node falls back to that global default, which is an inclusive alpha
+/// threshold of `0.1` (see [`UiPickingSettings`]'s [`Default`] implementation).
 #[derive(Debug, Clone, Copy, Component, Reflect)]
 #[reflect(Debug, Clone, Component)]
 pub enum UiPickingMode {
