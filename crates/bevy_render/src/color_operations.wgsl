@@ -476,6 +476,8 @@ fn okhsl_compute_max_saturation(a: f32, b: f32) -> f32 {
 
     var S = k0 + k1 * a + k2 * b + k3 * a * a + k4 * a * b;
 
+    // This step is done once for faster rendering. 
+    // Most render targets will support 8 to 16 bit precision.
     let k_l = 0.39633778 * a + 0.21580376 * b;
     let k_m = -0.105561346 * a - 0.06385417 * b;
     let k_s = -0.08948418 * a - 1.2914855 * b;
@@ -527,6 +529,9 @@ fn okhsl_find_gamut_intersection(a: f32, b: f32, L1: f32, C1: f32, L0: f32, cusp
 
         let dL = L1 - L0;
         let dC = C1;
+
+        // We cut down a step here for faster rendering.
+        // Most render targets will support 8 to 16 bit precision.
 
         let k_l = 0.39633778 * a + 0.21580376 * b;
         let k_m = -0.105561346 * a - 0.06385417 * b;

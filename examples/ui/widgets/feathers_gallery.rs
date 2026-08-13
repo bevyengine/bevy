@@ -901,15 +901,30 @@ fn update_colors(
                     plane_value.0.y = 1.0 - states.okhsl_color.saturation;
                     plane_value.0.z = states.okhsl_color.lightness;
                 }
-                FeathersColorPlane::HueLightness | FeathersColorPlane::HueSaturation => {
+                FeathersColorPlane::HueLightness => {
                     plane_value.0.x = states.hsl_color.hue / 360.0;
                     plane_value.0.y = 1.0 - states.hsl_color.lightness;
                     plane_value.0.z = states.hsl_color.saturation;
                 }
-                _ => {
+                FeathersColorPlane::HueSaturation => {
+                    plane_value.0.x = states.hsl_color.hue / 360.0;
+                    plane_value.0.y = 1.0 - states.hsl_color.saturation;
+                    plane_value.0.z = states.hsl_color.lightness;
+                }
+                FeathersColorPlane::RedBlue => {
                     plane_value.0.x = states.rgb_color.red;
                     plane_value.0.y = states.rgb_color.blue;
                     plane_value.0.z = states.rgb_color.green;
+                }
+                FeathersColorPlane::GreenBlue => {
+                    plane_value.0.x = states.rgb_color.green;
+                    plane_value.0.y = states.rgb_color.blue;
+                    plane_value.0.z = states.rgb_color.red;
+                }
+                FeathersColorPlane::RedGreen => {
+                    plane_value.0.x = states.rgb_color.red;
+                    plane_value.0.y = states.rgb_color.green;
+                    plane_value.0.z = states.rgb_color.blue;
                 }
             }
         }
