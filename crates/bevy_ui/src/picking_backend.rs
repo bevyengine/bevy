@@ -121,8 +121,8 @@ pub struct NodeQuery {
     inherited_visibility: Option<&'static InheritedVisibility>,
     target_camera: &'static ComputedUiTargetCamera,
     text_node: Option<(&'static TextLayoutInfo, &'static ComputedTextBlock)>,
-    image: Option<&'static ImageNode>,
     calculated_clip: Option<&'static CalculatedClip>,
+    image: Option<&'static ImageNode>,
     picking_mode: Option<&'static UiPickingMode>,
 }
 
