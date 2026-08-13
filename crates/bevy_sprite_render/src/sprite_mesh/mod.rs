@@ -10,7 +10,10 @@ use bevy_asset::{Assets, Handle};
 
 use bevy_image::TextureAtlasLayout;
 use bevy_math::{primitives::Rectangle, vec2};
-use bevy_mesh::{Mesh, Mesh2d, MeshAttributeCompressionFlags, MeshBuilder, Meshable};
+use bevy_mesh::{
+    mark_2d_meshes_as_changed_if_their_assets_changed, Mesh, Mesh2d, MeshAttributeCompressionFlags,
+    MeshBuilder, Meshable,
+};
 
 use bevy_platform::collections::HashMap;
 use bevy_shader::load_shader_library;
@@ -35,7 +38,8 @@ impl Plugin for SpriteMeshPlugin {
             PostUpdate,
             (add_mesh, add_material)
                 .chain()
-                .before(check_entities_needing_specialization::<SpriteMaterial>),
+                .before(check_entities_needing_specialization::<SpriteMaterial>)
+                .before(mark_2d_meshes_as_changed_if_their_assets_changed),
         );
     }
 }

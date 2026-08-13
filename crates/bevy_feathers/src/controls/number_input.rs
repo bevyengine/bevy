@@ -12,6 +12,7 @@ use bevy_ecs::{
     observer::On,
     query::{Changed, Has, With, Without},
     reflect::ReflectComponent,
+    resource::Resource,
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res},
 };
@@ -23,17 +24,19 @@ use bevy_input_focus::{FocusGained, FocusLost, FocusedInput, InputFocus, InputFo
 use bevy_log::{warn, warn_once};
 use bevy_math::ops;
 use bevy_picking::{
+    cursor::EntityCursor,
     events::{Cancel, Drag, DragEnd, DragStart, Pointer, Press, Release},
     hover::Hovered,
     pointer::PointerButton,
     PickingSystems,
 };
+use bevy_platform::collections::HashMap;
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_scene::prelude::*;
 use bevy_text::{
-    EditableText, EditableTextFilter, FontSourceTemplate, Justify, LineHeight, TextEdit, TextFont,
-    TextLayout, TextReadWriteMode,
+    EditableText, FontSourceTemplate, Justify, LineHeight, TextEdit, TextFont, TextLayout,
+    TextReadWriteMode,
 };
 use bevy_ui::{
     percent, px, widget::Text, AlignItems, AlignSelf, BackgroundGradient, ColorStop, ComputedNode,
@@ -41,11 +44,11 @@ use bevy_ui::{
     JustifyContent, LinearGradient, Node, PositionType, UiGlobalTransform, UiRect, UiScale,
 };
 use bevy_ui_widgets::ValueChange;
+use smol_str::SmolStr;
 
 use crate::{
     constants::{fonts, size},
     controls::{FeathersSlider, FeathersTextInput, FeathersTextInputContainer},
-    cursor::EntityCursor,
     rounded_corners::RoundedCorners,
     theme::{
         SurfaceLevel, ThemeBackgroundColor, ThemeBorderColor, ThemeContext, ThemeTextColor,
@@ -159,7 +162,7 @@ impl FeathersNumberInput {
                 (
                     // The editable text entity
                     @FeathersTextInput {
-                        @max_characters: 20usize,
+                        @max_characters: 30usize, // 20 digits + units
                     }
                     DragState
                     Node {
@@ -175,9 +178,6 @@ impl FeathersNumberInput {
                         },
                     }
                     Hovered
-                    EditableTextFilter::new(|c| {
-                        c.is_ascii_digit() || matches!(c, '.' | '-' | '+' | 'e' | 'E')
-                    })
                     template_value(LineHeight::Px(24.0)) // TODO: Make const for this
                     TextLayout {
                         justify: Justify::Center,
@@ -254,18 +254,6 @@ pub enum NumberInputValue {
     I64(i64),
 }
 
-/// Indicates whether the number input should wrap around the min/max value.
-/// This component only applies to [`HardLimit`].
-#[derive(Component, Default, Debug, PartialEq, Clone, Copy, Reflect)]
-#[reflect(Component, Default)]
-pub enum NumberInputWrap {
-    /// The number input will not wrap around the min/max value.
-    #[default]
-    NoWrap,
-    /// The number input will wrap around the min/max value.
-    Wrap,
-}
-
 impl core::fmt::Display for NumberInputValue {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
@@ -287,7 +275,7 @@ impl NumberInputValue {
         }
     }
 
-    fn parse_from(value: String, fmt: NumberFormat) -> Result<Self, String> {
+    fn parse_from(value: &str, fmt: NumberFormat) -> Result<Self, String> {
         match fmt {
             NumberFormat::F32 => value
                 .parse::<f32>()
@@ -319,6 +307,16 @@ impl NumberInputValue {
             NumberInputValue::I64(v) => {
                 NumberInputValue::I64(v.saturating_add(delta.round() as i64))
             }
+        }
+    }
+
+    /// Scale this value by `scale` (in value units), preserving the variant.
+    fn scale_by(self, scale: f64) -> Self {
+        match self {
+            NumberInputValue::F32(v) => NumberInputValue::F32((v as f64 * scale) as f32),
+            NumberInputValue::F64(v) => NumberInputValue::F64(v * scale),
+            NumberInputValue::I32(v) => NumberInputValue::I32((v as f64 * scale).round() as i32),
+            NumberInputValue::I64(v) => NumberInputValue::I64((v as f64 * scale).round() as i64),
         }
     }
 
@@ -559,6 +557,51 @@ impl Default for NumberInputStep {
     }
 }
 
+/// Indicates whether the number input should wrap around the min/max value.
+/// This component only applies to [`HardLimit`].
+#[derive(Component, Default, Debug, PartialEq, Clone, Copy, Reflect)]
+#[reflect(Component, Default)]
+pub enum NumberInputWrap {
+    /// The number input will not wrap around the min/max value.
+    #[default]
+    NoWrap,
+    /// The number input will wrap around the min/max value.
+    Wrap,
+}
+
+/// Indicates the type of quantity (length, angle, time, etc.) being edited, as
+/// well as the preferred unit (meters, degrees, seconds, etc.).
+///
+/// The enclosed string should be the id of a [`UnitsFormat`] that has previously been registered,
+/// such as ``length_meters`` or ``angle_degrees``.
+///
+/// Note on serialization: it intended that this component, like most feathers-related
+/// component be serializable via reflection, so that it can be edited in the planned Bevy scene
+/// editor. The objects pointed to by this id, however, are static and not meant to be serialized.
+#[derive(Component, Default, Debug, Clone, Reflect)]
+#[reflect(Component, Default)]
+pub struct NumberInputUnits(pub SmolStr);
+
+impl NumberInputUnits {
+    /// Construct a [`NumberInputUnits`] instance from a static string slice. The string should
+    /// be the id of a previously-registered [`UnitsFormat`].
+    pub fn new_static(text: &'static str) -> Self {
+        Self(SmolStr::new_static(text))
+    }
+
+    /// Construct a [`NumberInputUnits`] instance from a string slice. The string should
+    /// be the id of a previously-registered [`UnitsFormat`].
+    pub fn new_inline(text: &str) -> Self {
+        Self(SmolStr::new_inline(text))
+    }
+
+    /// Construct a [`NumberInputUnits`] given a [`UnitsFormat`] reference, which must have been
+    /// previously registered.
+    pub fn new(format: &dyn UnitsFormat) -> Self {
+        Self(SmolStr::new_static(format.id()))
+    }
+}
+
 /// Manage state transitions between scrubbing and dragging modes
 #[derive(Default, Clone, Reflect, PartialEq, Debug)]
 enum EditMode {
@@ -571,7 +614,8 @@ enum EditMode {
     Editing,
 }
 
-/// Component used to manage the state of a number during dragging ("scrubbing").
+/// Component used to manage the state of a number during dragging ("scrubbing"). This component
+/// lives on the text edit entity, not the widget root.
 ///
 /// State transitions:
 ///
@@ -609,24 +653,33 @@ fn number_input_on_insert_value(
     update: On<Insert, NumberInputValue>,
     q_children: Query<&Children>,
     q_number_input: Query<
-        (&NumberInputValue, Option<&SoftLimit>, Option<&HardLimit>),
+        (
+            &NumberInputValue,
+            Option<&SoftLimit>,
+            Option<&HardLimit>,
+            Option<&NumberInputUnits>,
+        ),
         With<FeathersNumberInput>,
     >,
-    mut q_text_input: Query<(&mut EditableText, &mut BackgroundGradient)>,
+    mut q_text_input: Query<(&mut EditableText, &mut BackgroundGradient, &DragState)>,
+    units_registry: Res<UnitsRegistry>,
 ) {
     let text_input_id = q_children
         .iter_descendants(update.event_target())
         .find(|e| q_text_input.contains(*e));
 
-    if let Ok((&input_value, soft_limit, hard_limit)) = q_number_input.get(update.event_target())
+    if let Ok((&input_value, soft_limit, hard_limit, units)) =
+        q_number_input.get(update.event_target())
         && let Some(text_id) = text_input_id
     {
         let clamped_value = match hard_limit {
             Some(limit) => limit.0.clamp(input_value),
             None => input_value,
         };
-        let (mut editable_text, mut gradient) = q_text_input.get_mut(text_id).unwrap();
-        let new_digits = clamped_value.to_string();
+        let (mut editable_text, mut gradient, drag_state) = q_text_input.get_mut(text_id).unwrap();
+        let new_digits = units_registry
+            .resolve(units)
+            .format(clamped_value, drag_state.mode == EditMode::Editing);
         if editable_text.value() != &new_digits {
             editable_text.queue_edit(TextEdit::SelectAll);
             editable_text.queue_edit(TextEdit::Insert(new_digits.into()));
@@ -718,20 +771,31 @@ fn number_input_init(
             Option<&SoftLimit>,
             Has<InteractionDisabled>,
             Option<&ThemeContext>,
+            Option<&NumberInputUnits>,
         ),
         With<FeathersNumberInput>,
     >,
-    mut q_text_input: Query<(&mut EditableText, &Hovered, &mut BackgroundGradient)>,
+    mut q_text_input: Query<(
+        &mut EditableText,
+        &Hovered,
+        &mut BackgroundGradient,
+        &DragState,
+    )>,
     theme: Res<UiTheme>,
+    units_registry: Res<UnitsRegistry>,
     input_focus: Res<InputFocus>,
     mut commands: Commands,
 ) {
     let text_id = insert.event_target();
-    if let Ok((mut editable_text, &Hovered(hovered), mut gradient)) = q_text_input.get_mut(text_id)
+    if let Ok((mut editable_text, &Hovered(hovered), mut gradient, drag_state)) =
+        q_text_input.get_mut(text_id)
         && let Ok(&ChildOf(root_id)) = q_parent.get(text_id)
-        && let Ok((input_value, limit, is_disabled, theme_context)) = q_number_input.get(root_id)
+        && let Ok((input_value, limit, is_disabled, theme_context, units)) =
+            q_number_input.get(root_id)
     {
-        let new_digits = input_value.to_string();
+        let new_digits = units_registry
+            .resolve(units)
+            .format(*input_value, drag_state.mode == EditMode::Editing);
         let old_digits = editable_text.value().to_string();
         if old_digits != new_digits {
             editable_text.queue_edit(TextEdit::SelectAll);
@@ -796,10 +860,12 @@ fn number_input_on_enter_key(
             &NumberInputValue,
             Option<&HardLimit>,
             Option<&NumberInputWrap>,
+            Option<&NumberInputUnits>,
         ),
         With<FeathersNumberInput>,
     >,
     mut q_text_input: Query<(&EditableText, &mut DragState)>,
+    units_registry: Res<UnitsRegistry>,
     mut commands: Commands,
 ) {
     if key_input.input.key_code != KeyCode::Enter {
@@ -808,7 +874,7 @@ fn number_input_on_enter_key(
 
     let text_id = key_input.event_target();
     if let Ok(&ChildOf(root)) = q_parent.get(text_id)
-        && let Ok((input_value, hard_limit, wrap)) = q_number_input.get(root)
+        && let Ok((input_value, hard_limit, wrap, units)) = q_number_input.get(root)
         && let Ok((editable_text, mut drag_state)) = q_text_input.get_mut(text_id)
     {
         let text_value = editable_text.value().to_string();
@@ -822,6 +888,7 @@ fn number_input_on_enter_key(
         emit_value_change(
             text_value,
             input_value.format(),
+            units_registry.resolve(units),
             root,
             hard_limit,
             wrap,
@@ -848,22 +915,25 @@ fn number_input_on_focus_lost(
             Has<InteractionDisabled>,
             Option<&HardLimit>,
             Option<&NumberInputWrap>,
+            Option<&NumberInputUnits>,
         ),
         With<FeathersNumberInput>,
     >,
     mut q_text_input: Query<(&EditableText, &mut DragState)>,
+    units_registry: Res<UnitsRegistry>,
     mut commands: Commands,
 ) {
     let editable_text_id = focus_lost.event_target();
 
     if let Ok(&ChildOf(root)) = q_parent.get(editable_text_id)
-        && let Ok((input_value, disabled, hard_limit, wrap)) = q_number_input.get(root)
+        && let Ok((input_value, disabled, hard_limit, wrap, units)) = q_number_input.get(root)
         && let Ok((editable_text, mut drag_state)) = q_text_input.get_mut(editable_text_id)
     {
         let text_value = editable_text.value().to_string();
         emit_value_change(
             text_value,
             input_value.format(),
+            units_registry.resolve(units),
             root,
             hard_limit,
             wrap,
@@ -925,12 +995,16 @@ fn scrubber_on_release(
         &UiGlobalTransform,
     )>,
     q_parent: Query<&ChildOf>,
+    q_units: Query<(&NumberInputValue, Option<&NumberInputUnits>)>,
     ui_scale: Res<UiScale>,
+    units_registry: Res<UnitsRegistry>,
     mut commands: Commands,
 ) {
     if let Ok(&ChildOf(text_id)) = q_parent.get(release.event_target())
         && let Ok((mut editable_text, mut drag_state, node, target, transform)) =
             q_text.get_mut(text_id)
+        && let Ok(&ChildOf(root_id)) = q_parent.get(text_id)
+        && let Ok((value, units)) = q_units.get(root_id)
     {
         // If we're in editing mode, let event propagate so that text input can handle it.
         if drag_state.mode == EditMode::Editing {
@@ -964,6 +1038,15 @@ fn scrubber_on_release(
                 .entity(text_id)
                 .insert(TextReadWriteMode::Editable)
                 .insert(EntityCursor::System(bevy_window::SystemCursorIcon::Text));
+
+            // Replace the text before editing; this let's us change the degree symbol (°), which
+            // is hard to type, into `d`, which is easier.
+            let editable_digits = units_registry.resolve(units).format(*value, true);
+            let old_digits = editable_text.value().to_string();
+            if old_digits != editable_digits {
+                editable_text.queue_edit(TextEdit::SelectAll);
+                editable_text.queue_edit(TextEdit::Insert(editable_digits.into()));
+            }
             editable_text.queue_edit(TextEdit::MoveToPoint(local_pos));
         }
     }
@@ -1283,6 +1366,7 @@ fn emit_drag_value_change(
 fn emit_value_change(
     text_value: String,
     format: NumberFormat,
+    units: &'static dyn UnitsFormat,
     source: Entity,
     hard_limit: Option<&HardLimit>,
     wrap: Option<&NumberInputWrap>,
@@ -1294,7 +1378,7 @@ fn emit_value_change(
         return;
     }
 
-    let Ok(new_value) = NumberInputValue::parse_from(text_value.to_owned(), format) else {
+    let Ok(new_value) = units.parse(text_value.to_owned(), format) else {
         // TODO: should handle errors better than this
         warn!("number input parsing failed, invalid format");
         return;
@@ -1426,11 +1510,345 @@ fn update_slidebar_styles_context(
     }
 }
 
+/// Trait that represents numerical units such as meters, seconds, degrees, etc.
+/// [`UnitsFormat`] objects are static constants; a reference to this object can be associated
+/// with a number input widget to allow display and conversion of number values with units.
+/// The units are not actually stored with the numeric quantity, and are only used for display
+/// and editing.
+///
+/// A [`UnitsFormat`] must be added to the [`UnitsRegistry`] resource before it can be used.
+/// Widgets reference the units indirectly by id, allowing them to be serialized.
+pub trait UnitsFormat: Send + Sync {
+    /// Unique id of this format, e.g. ``"length_meters"``. This will be stored in the
+    /// [`NumberInputUnits`] component and used to locate this object in the units registry.
+    ///
+    ///  The naming convention is `<dimension>_<preferred_display_unit>`, so examples are
+    /// `length_meters`, `time_seconds`, or `angle_degrees`.
+    fn id(&self) -> &'static str;
+
+    /// Format the value as a string, with the default units. The `editing` parameter allows us
+    /// to format the string differently when the user is editing than when displaying or scrubbing.
+    /// This can be used, for example, to transform the unicode degree symbol, (°), which is hard
+    /// to type, into something easier.
+    fn format(&self, value: NumberInputValue, editing: bool) -> String;
+
+    /// Parse the input value into a numerical quantity. If the string includes a units signifier,
+    /// convert the value into the canonical units.
+    fn parse(&self, value: String, fmt: NumberFormat) -> Result<NumberInputValue, String>;
+}
+
+/// A [`UnitsFormat`] meaning "no units", which is the default units. This just does straight-up
+/// number parsing and formatting with no suffix.
+pub struct Dimensionless;
+
+impl UnitsFormat for Dimensionless {
+    fn id(&self) -> &'static str {
+        "none"
+    }
+
+    fn format(&self, value: NumberInputValue, _editing: bool) -> String {
+        value.to_string()
+    }
+
+    fn parse(&self, value: String, fmt: NumberFormat) -> Result<NumberInputValue, String> {
+        NumberInputValue::parse_from(value.as_str(), fmt)
+    }
+}
+
+/// Contains the definition of a "standard metrical unit". The [`StandardUnitKind`] struct maintains
+/// a table of these items.
+pub struct StandardUnitItem {
+    /// e.g. ["km"], or ["cm"], first entry is canonical
+    pub suffixes: &'static [&'static str],
+    /// multiply a value in this unit to get the base unit (meters, radians, kg...)
+    pub scale: f64,
+}
+
+/// A trait that provides an implementation of standard metrical units like meters or seconds.
+///  The purpose of this struct is to provide an easy and convenient implementation of the
+/// [`UnitsFormat`] trait. Whereas [`UnitsFormat`] allows arbitrary transformations between the
+/// canonical units and the display units (including advanced use cases like log-scale conversion),
+/// the [`StandardUnitKind`] just maintains a fixed, flat table of units, with an associated scale
+/// factor for each one.
+pub trait StandardUnitKind: Send + Sync {
+    /// Lookup key for this unit type. The naming convention is `<dimension>_<preferred_display_unit>`,
+    /// so examples are `length_meters`, `time_seconds`, or `angle_degrees`.
+    ///
+    /// This lookup key gets stored in the [`NumberInputUnits`] component.
+    const ID: &'static str;
+
+    /// Returns a reference to the table of units. Each entry in the table represents a single
+    /// unit. For each unit, there's a scaling factor and a list of possible suffixes.
+    fn units(&self) -> &'static [StandardUnitItem];
+
+    /// Identifies the index of the table entry representing the canonical unit. This is the unit
+    /// that is used for the value's internal representation, which is contained in the
+    /// [`ValueChange`] event. For example, the canonical unit of [`LengthMeters`] is meters,
+    /// suffix "m", which is table index 0.
+    fn canonical_index(&self) -> usize {
+        0
+    }
+
+    /// Returns the table index of the preferred display unit (as an index in the units table).
+    /// Most of the time this will be the same as the canonical unit; however in some cases
+    /// (such as angles), an alternate unit may be more user-friendly (e.g. degrees instead of
+    /// radians).
+    ///
+    /// For example, the display unit for [`AngleDegrees`] is degrees, even though the canonical
+    /// unit is radians.
+    fn display_index(&self) -> usize {
+        self.canonical_index()
+    }
+
+    /// Returns the table index of the preferred editing unit (as an index in the units table).
+    /// Most of the time this will be the same as the canonical unit, or the display unit;
+    /// however, in cases where the display unit is hard to type (like ° or μs), this lets us
+    /// choose a different suffix.
+    fn editing_index(&self) -> usize {
+        self.display_index()
+    }
+}
+
+/// Blanket impl of [`UnitsFormat`] for [`StandardUnitKind`]
+impl<S: StandardUnitKind> UnitsFormat for S {
+    fn id(&self) -> &'static str {
+        Self::ID
+    }
+
+    fn format(&self, value: NumberInputValue, editing: bool) -> String {
+        let units_table = self.units();
+        let display_unit = &units_table[if editing {
+            self.editing_index()
+        } else {
+            self.display_index()
+        }];
+        let canonical_unit = &units_table[self.canonical_index()];
+
+        // Convert from canonical units to display units. This is the inverse of the scaling
+        // applied in `parse`, which multiplies by `editing.scale / canonical.scale`.
+        let scale = canonical_unit.scale / display_unit.scale;
+
+        // Format at the value's native precision.
+        let display_value = match value {
+            NumberInputValue::F32(v) => format!("{}", (v as f64 * scale) as f32),
+            NumberInputValue::F64(v) => format!("{}", v * scale),
+            NumberInputValue::I32(v) => format!("{}", v as f64 * scale),
+            NumberInputValue::I64(v) => format!("{}", v as f64 * scale),
+        };
+
+        // Append the display suffix
+        format!("{}{}", display_value, display_unit.suffixes[0])
+    }
+
+    fn parse(&self, value: String, fmt: NumberFormat) -> Result<NumberInputValue, String> {
+        // Parse the input string, isolate the units token, find matching unit in table.
+        // This will eventually be a parser to support complex exprs.
+        let trimmed = value.trim();
+
+        // Find where the numeric part ends (after the last digit, decimal point, or exponent)
+        let mut magnitude_end = 0;
+        let mut has_dot = false;
+        let mut has_exp = false;
+
+        // TODO: replace with a better parser, once we settle on a standard parser for Bevy.
+        for (i, c) in trimmed.chars().enumerate() {
+            match c {
+                '0'..='9' | '+' | '-' => {
+                    magnitude_end = i + 1;
+                }
+                '.' if !has_dot && !has_exp => {
+                    has_dot = true;
+                    magnitude_end = i + 1;
+                }
+                'e' | 'E' if !has_exp => {
+                    has_exp = true;
+                    magnitude_end = i + 1;
+                }
+                ' ' | '\t' => {
+                    // Allow whitespace, but don't extend magnitude_end
+                }
+                _ => {
+                    // First non-numeric character found
+                    break;
+                }
+            }
+        }
+
+        let magnitude_str = trimmed[..magnitude_end].trim();
+        let suffix_str = trimmed[magnitude_end..].trim();
+
+        // Parse the magnitude
+        let magnitude = NumberInputValue::parse_from(magnitude_str, fmt)?;
+
+        // Find matching unit suffix
+        let units_table = self.units();
+        let canonical_unit = &units_table[self.canonical_index()];
+
+        let editing_unit = if suffix_str.is_empty() {
+            // If no suffix provided, use the default display unit
+            &units_table[self.display_index()]
+        } else {
+            // Search for matching suffix in any unit
+            units_table
+                .iter()
+                .find(|unit| unit.suffixes.contains(&suffix_str))
+                .ok_or_else(|| format!("Unknown unit suffix: '{}'", suffix_str))?
+        };
+
+        // Scale by editing units
+        let scale_factor = editing_unit.scale / canonical_unit.scale;
+        Ok(magnitude.scale_by(scale_factor))
+    }
+}
+
+/// Unit representing length, where the preferred unit is meters.
+pub struct LengthMeters;
+
+impl StandardUnitKind for LengthMeters {
+    const ID: &'static str = "length_meters";
+
+    fn units(&self) -> &'static [StandardUnitItem] {
+        &[
+            // Metric
+            StandardUnitItem {
+                suffixes: &["m"],
+                scale: 1.0,
+            },
+            StandardUnitItem {
+                suffixes: &["km"],
+                scale: 1000.0,
+            },
+            StandardUnitItem {
+                suffixes: &["cm"],
+                scale: 0.01,
+            },
+            StandardUnitItem {
+                suffixes: &["mm"],
+                scale: 0.001,
+            },
+            // Imperial
+            StandardUnitItem {
+                suffixes: &["ft"],
+                scale: 0.3048,
+            },
+            StandardUnitItem {
+                suffixes: &["in"],
+                scale: 0.0254,
+            },
+            StandardUnitItem {
+                suffixes: &["mi"],
+                scale: 1609.34,
+            },
+        ]
+    }
+}
+
+/// Unit representing time, where the preferred unit is seconds.
+pub struct TimeSeconds;
+
+impl StandardUnitKind for TimeSeconds {
+    const ID: &'static str = "time_seconds";
+
+    fn units(&self) -> &'static [StandardUnitItem] {
+        &[
+            StandardUnitItem {
+                suffixes: &["s"],
+                scale: 1.0,
+            },
+            StandardUnitItem {
+                suffixes: &["ks"],
+                scale: 1000.0,
+            },
+            StandardUnitItem {
+                suffixes: &["cs"],
+                scale: 0.01,
+            },
+            StandardUnitItem {
+                suffixes: &["ms"],
+                scale: 0.001,
+            },
+        ]
+    }
+}
+
+/// Unit representing an angle. Internally this is represented as radians, but the preferred
+/// display format is degrees. This will display the degree symbol (°) except when in editing
+/// mode, in which case it will use the suffix "d" which is easier to type.
+pub struct AngleDegrees;
+
+impl StandardUnitKind for AngleDegrees {
+    const ID: &'static str = "angle_degrees";
+
+    fn units(&self) -> &'static [StandardUnitItem] {
+        &[
+            StandardUnitItem {
+                suffixes: &["rad"],
+                scale: 1.0,
+            },
+            StandardUnitItem {
+                suffixes: &["°"],
+                scale: std::f64::consts::PI / 180.0f64,
+            },
+            StandardUnitItem {
+                suffixes: &["d", "deg"],
+                scale: std::f64::consts::PI / 180.0f64,
+            },
+        ]
+    }
+
+    /// Override display to show degrees, not radians
+    fn display_index(&self) -> usize {
+        1
+    }
+
+    /// When editing, show "d" rather than degree symbol.
+    fn editing_index(&self) -> usize {
+        2
+    }
+}
+
+/// Resource which contains registry of various units, which allows unit definitions to be serialized
+/// and references in the editor.
+#[derive(Resource, Default)]
+pub struct UnitsRegistry(HashMap<&'static str, &'static dyn UnitsFormat>);
+
+impl UnitsRegistry {
+    /// Register a new [`UnitsFormat`].
+    pub fn insert(&mut self, unit_format: &'static dyn UnitsFormat) -> &mut Self {
+        self.0.insert(unit_format.id(), unit_format);
+        self
+    }
+
+    /// Look up a [`UnitsFormat`] by name, defaulting to [`Dimensionless`] if it cannot be found,
+    /// or if the name is not present.
+    pub fn resolve(&self, units: Option<&NumberInputUnits>) -> &'static dyn UnitsFormat {
+        match units {
+            None => &Dimensionless,
+            Some(NumberInputUnits(name)) => {
+                self.0.get(name.as_str()).copied().unwrap_or_else(|| {
+                    warn_once!(
+                        "Unit format '{}' not found in registry, using Dimensionless",
+                        name
+                    );
+                    &Dimensionless
+                })
+            }
+        }
+    }
+}
+
 /// Plugin which keeps number-input slidebar colors in sync with the theme.
 pub struct NumberInputPlugin;
 
 impl Plugin for NumberInputPlugin {
     fn build(&self, app: &mut bevy_app::App) {
+        let mut registry = UnitsRegistry::default();
+        registry.insert(&Dimensionless);
+        registry.insert(&LengthMeters);
+        registry.insert(&TimeSeconds);
+        registry.insert(&AngleDegrees);
+        app.insert_resource(registry);
+
         app.add_systems(
             PreUpdate,
             (update_slidebar_styles_context, update_slidebar_styles_theme)
@@ -1439,5 +1857,106 @@ impl Plugin for NumberInputPlugin {
                 // After Dispatch systems so that these systems use the most updated `InputFocus`.
                 .after(InputFocusSystems::Dispatch),
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_length_meters_format() {
+        let length = LengthMeters;
+        let value = NumberInputValue::F64(100.0);
+        let formatted = length.format(value, false);
+        assert_eq!(formatted, "100m");
+    }
+
+    #[test]
+    fn test_length_meters_parse() {
+        let length = LengthMeters;
+        let result = length.parse("100m".to_string(), NumberFormat::F64);
+        match result.unwrap() {
+            NumberInputValue::F64(val) => assert!((val - 100.0).abs() < 1e-6),
+            _ => panic!("Expected F64 variant"),
+        }
+    }
+
+    #[test]
+    fn test_length_meters_convert_km_to_m() {
+        let length = LengthMeters;
+        let result = length.parse("1km".to_string(), NumberFormat::F64);
+        assert!(result.is_ok());
+        match result.unwrap() {
+            NumberInputValue::F64(val) => assert!((val - 1000.0).abs() < 1e-6),
+            _ => panic!("Expected F64 variant"),
+        }
+    }
+
+    #[test]
+    fn test_length_meters_convert_mm_to_m() {
+        let length = LengthMeters;
+        let result = length.parse("1mm".to_string(), NumberFormat::F64);
+        match result.unwrap() {
+            NumberInputValue::F64(val) => assert!((val - 0.001).abs() < 1e-6),
+            _ => panic!("Expected F64 variant"),
+        }
+    }
+
+    #[test]
+    fn test_angle_degrees_format() {
+        let angle = AngleDegrees;
+        let value = NumberInputValue::F64(std::f64::consts::PI / 4.0); // 45 degrees in radians
+        let formatted = angle.format(value, false);
+        assert_eq!(formatted, "45°");
+
+        let formatted = angle.format(value, true);
+        assert_eq!(formatted, "45d");
+    }
+
+    #[test]
+    fn test_angle_degrees_parse() {
+        let angle = AngleDegrees;
+        let result = angle.parse("45d".to_string(), NumberFormat::F64);
+        match result.unwrap() {
+            NumberInputValue::F64(val) => assert!((val - std::f64::consts::PI / 4.0).abs() < 1e-6),
+            _ => panic!("Expected F64 variant"),
+        }
+    }
+
+    #[test]
+    fn test_angle_degrees_convert_rad_to_deg() {
+        let angle = AngleDegrees;
+        let result = angle.parse("1rad".to_string(), NumberFormat::F64);
+        match result.unwrap() {
+            NumberInputValue::F64(val) => assert!((val - 1.0).abs() < 1e-6),
+            _ => panic!("Expected F64 variant"),
+        }
+    }
+
+    #[test]
+    fn test_angle_degrees_parse_deg_suffix() {
+        let angle = AngleDegrees;
+        let result = angle.parse("90deg".to_string(), NumberFormat::F64);
+        match result.unwrap() {
+            NumberInputValue::F64(val) => assert!((val - std::f64::consts::PI / 2.0).abs() < 1e-6),
+            _ => panic!("Expected F64 variant"),
+        }
+    }
+
+    #[test]
+    fn test_parse_negative_numbers() {
+        let length = LengthMeters;
+        let result = length.parse("-100".to_string(), NumberFormat::F64);
+        match result.unwrap() {
+            NumberInputValue::F64(val) => assert!((val - (-100.0)).abs() < 1e-6),
+            _ => panic!("Expected F64 variant"),
+        }
+
+        let result = length.parse("-50.5cm".to_string(), NumberFormat::F64);
+        match result.unwrap() {
+            NumberInputValue::F64(val) => assert!((val - (-0.505)).abs() < 1e-6),
+            _ => panic!("Expected F64 variant"),
+        }
     }
 }

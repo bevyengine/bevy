@@ -19,7 +19,7 @@ use bevy_picking::{
 use bevy_time::{Real, Time};
 use bevy_transform::components::GlobalTransform;
 use bevy_transform::prelude::Transform;
-use bevy_window::{PrimaryWindow, WindowRef};
+use bevy_window::{PrimaryWindow, Window, WindowRef};
 use core::{f32::consts::*, fmt};
 
 /// A plugin that enables 2D camera panning and zooming controls.
@@ -32,8 +32,12 @@ impl Plugin for PanCameraPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             RunFixedMainLoop,
-            run_pancamera_controller.in_set(RunFixedMainLoopSystems::BeforeFixedMainLoop),
+            (
+                run_pancamera_controller.in_set(RunFixedMainLoopSystems::BeforeFixedMainLoop),
+                run_pan_to_cursor_on_zoom.after(run_pancamera_controller),
+            ),
         )
+        .add_message::<ZoomEvent>()
         .add_observer(add_window_observer)
         .add_observer(remove_window_observer);
     }
@@ -43,7 +47,7 @@ impl Plugin for PanCameraPlugin {
 ///
 /// Add this component to a [`Camera`] entity to enable keyboard and mouse controls
 /// for panning, zooming, and optional rotation. Requires the [`PanCameraPlugin`].
-#[derive(Component)]
+#[derive(Component, Clone)]
 pub struct PanCamera {
     /// Enables this [`PanCamera`] when `true`.
     pub enabled: bool,
@@ -55,6 +59,8 @@ pub struct PanCamera {
     pub max_zoom: f32,
     /// Translation speed for panning movement.
     pub zoom_speed: f32,
+    /// The focal point for zooming
+    pub zoom_target: ZoomTarget,
     /// [`KeyCode`] to zoom in.
     pub key_zoom_in: Option<KeyCode>,
     /// [`KeyCode`] to zoom out.
@@ -80,12 +86,26 @@ pub struct PanCamera {
 }
 
 /// Settings for mouse panning for the [`PanCamera`] controller.
+#[derive(Clone)]
 pub struct MousePanSettings {
     /// Whether the mouse panning is enabled.
     pub enabled: bool,
     /// The mouse button to use for panning.
     pub button: PointerButton,
 }
+
+#[derive(Clone, Eq, PartialEq)]
+/// Target focal point for zooming using the [`PanCamera`] controller
+pub enum ZoomTarget {
+    /// Zoom to / from the center of the window
+    Center,
+    /// Zoom to / from the position of the cursor if the cursor is over the window
+    Cursor,
+}
+
+/// Message for communicating how much the camera's scale has changed this frame
+#[derive(Message)]
+pub struct ZoomEvent(f32);
 
 /// Provides the default values for the `PanCamera` controller.
 ///
@@ -94,6 +114,7 @@ pub struct MousePanSettings {
 /// - Min zoom: 0.1
 /// - Max zoom: 5.0
 /// - Zoom speed: 0.1
+/// - Zoom target: center
 /// - Zoom in/out key: +/-
 /// - Pan speed: 500.0
 /// - Move up/down: W/S
@@ -112,6 +133,7 @@ impl Default for PanCamera {
             min_zoom: 0.1,
             max_zoom: 5.0,
             zoom_speed: 0.1,
+            zoom_target: ZoomTarget::Center,
             key_zoom_in: Some(KeyCode::Equal),
             key_zoom_out: Some(KeyCode::Minus),
             pan_speed: 500.0,
@@ -161,6 +183,34 @@ PanCamera Controls:
 
 /// This system is typically added via the [`PanCameraPlugin`].
 ///
+/// Reads [`ZoomEvent`] messages from the [`run_pancamera_controller`] system and pans the
+/// camera so that the focus of the zoom is the cursor. Assumes that if a message is
+/// received, then the [`PanCamera`] [`ZoomTarget`] is set to Cursor.
+///
+/// **Note**: Should be scheduled to run after the [`run_pancamera_controller`] system
+fn run_pan_to_cursor_on_zoom(
+    window: Single<&Window>,
+    query: Single<(&Camera, &GlobalTransform, &mut Transform), With<PanCamera>>,
+    mut reader: MessageReader<ZoomEvent>,
+) {
+    let (camera, global, mut transform) = query.into_inner();
+
+    for ZoomEvent(delta_zoom) in reader.read() {
+        // If a ZoomEvent message is received, assume that ZoomTarget is Cursor.
+        // Translate the camera so that the pixel at the world coordinates of the cursor
+        // maintains the same viewport coordinates.
+        if let Some(cursor_pos) = window.cursor_position()
+            && let Ok(world_pos) = camera.viewport_to_world_2d(global, cursor_pos)
+        {
+            let cursor_vec = world_pos - transform.translation.truncate();
+            let delta_cursor_vec = (1. - delta_zoom) * cursor_vec;
+            transform.translation += delta_cursor_vec.extend(0.);
+        }
+    }
+}
+
+/// This system is typically added via the [`PanCameraPlugin`].
+///
 /// Reads inputs and then moves the camera entity according
 /// to the settings given in [`PanCamera`].
 ///
@@ -172,6 +222,7 @@ fn run_pancamera_controller(
     accumulated_mouse_scroll: Res<AccumulatedMouseScroll>,
     mouse_scroll_conversion: Res<MouseScrollPixelsPerLine>,
     mut query: Query<(&mut Transform, &mut PanCamera), With<Camera>>,
+    mut writer: MessageWriter<ZoomEvent>,
 ) {
     let dt = time.delta_secs();
 
@@ -250,8 +301,16 @@ fn run_pancamera_controller(
         .y;
     zoom_amount += mouse_scroll * controller.zoom_speed;
 
+    let prev_zoom = controller.zoom_factor;
+
     controller.zoom_factor =
         (controller.zoom_factor - zoom_amount).clamp(controller.min_zoom, controller.max_zoom);
+
+    // If Zoom target is Cursor, send a message with the change in zoom so that the camera
+    // can also be panned.
+    if controller.zoom_target == ZoomTarget::Cursor {
+        writer.write(ZoomEvent(controller.zoom_factor / prev_zoom));
+    }
 
     transform.scale = Vec3::splat(controller.zoom_factor);
 }
