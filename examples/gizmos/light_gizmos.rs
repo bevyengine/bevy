@@ -209,7 +209,7 @@ fn handle_value_change_checkbox(
                 config.depth_bias = if event.value { -1. } else { 0. };
             }
             CheckboxInput::DrawingLightGizmo => {
-                config.enabled = if event.value { false } else { true };
+                config.enabled = !event.value;
             }
         }
     }
