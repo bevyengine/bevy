@@ -35,7 +35,7 @@ The Bevy community aims to be a welcome space where people feel *good* about wor
 * Baiting: Provoking users on topics that are high tension, especially on matters close to the subject being trolled.
 * Active manipulation: The troll aims to "rile up" the people around them, presenting those others as irrational, and position themself as a more rational party to be taken more seriously than those they have actively discredited.
 
-Trolling is a narrow but well-trodden subset of general manipulation and harassment. Not all harassment and manipulation is trolling, and this does not aim to be a full subset of kinds of harassment and manipulation that need to be moderated. See also: DARVO.
+Trolling is a narrow but well-trodden subset of general manipulation and harassment. Not all harassment and manipulation is trolling, and this explanatory section does not aim to list all modes of trolling, or be a full subset of kinds of harassment and manipulation that need to be moderated. See also: DARVO.
 
 ## Moderation
 
