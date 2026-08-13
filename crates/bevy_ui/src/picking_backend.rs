@@ -668,4 +668,31 @@ mod tests {
             &atlases,
         ));
     }
+
+    #[test]
+    fn one_pixel_wide_image_opaque_and_transparent() {
+        let mut images = Assets::<Image>::default();
+        let atlases = Assets::<TextureAtlasLayout>::default();
+
+        // A 1px-wide image whose single column is fully opaque.
+        let opaque = ImageNode::new(images.add(make_image(UVec2::new(1, 3), &[255, 255, 255])));
+        // A 1px-wide image whose single column is fully transparent.
+        let transparent = ImageNode::new(images.add(make_image(UVec2::new(1, 3), &[0, 0, 0])));
+
+        // Sample across the whole UV range, including near the edges, to make
+        // sure a 1px-wide texture is sampled in bounds everywhere.
+        for u in [0.0, 0.25, 0.5, 0.75, 0.999] {
+            for v in [0.0, 0.5, 0.999] {
+                let uv = Vec2::new(u, v);
+                assert!(
+                    image_node_contains_opaque_pixel(&opaque, uv, 0.1, &images, &atlases),
+                    "opaque 1px-wide image should be a hit at uv {uv:?}",
+                );
+                assert!(
+                    !image_node_contains_opaque_pixel(&transparent, uv, 0.1, &images, &atlases),
+                    "transparent 1px-wide image should not be a hit at uv {uv:?}",
+                );
+            }
+        }
+    }
 }
