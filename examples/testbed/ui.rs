@@ -2774,7 +2774,7 @@ mod viewport_node {
                     order: -1,
                     ..default()
                 },
-                RenderTarget::Image(image_handle.clone().into()),
+                RenderTarget::Image(image_handle.into()),
                 DespawnOnExit(super::Scene::ViewportNode),
             ))
             .id();
