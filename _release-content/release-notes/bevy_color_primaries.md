@@ -1,7 +1,7 @@
 ---
 title: "RGB primaries and conversion matrices in `bevy_color`"
 authors: ["@stuartparmenter"]
-pull_requests: []
+pull_requests: [25393]
 ---
 
 `bevy_color` now has a `primaries` module. It holds constants derived from ITU standards:
