@@ -54,7 +54,7 @@ use smallvec::SmallVec;
 use crate::{
     camera::Camera,
     primitives::{Aabb, Frustum, MeshAabb, Sphere},
-    Projection,
+    Multiview, Projection,
 };
 use bevy_mesh::{mark_3d_meshes_as_changed_if_their_assets_changed, Mesh, Mesh2d, Mesh3d};
 
@@ -626,12 +626,27 @@ fn update_skinned_mesh_bounds(
 /// This system is used in [`CameraProjectionPlugin`](crate::CameraProjectionPlugin).
 pub fn update_frusta(
     mut views: Query<
-        (&GlobalTransform, &Projection, &mut Frustum),
-        Or<(Changed<GlobalTransform>, Changed<Projection>)>,
+        (
+            &GlobalTransform,
+            &Projection,
+            Option<&Multiview>,
+            &mut Frustum,
+        ),
+        // `Changed<Multiview>` matters as much as the other two: an XR camera
+        // typically sits still while the runtime rewrites its subviews every
+        // frame, so head movement arrives as a change to `Multiview` alone.
+        Or<(
+            Changed<GlobalTransform>,
+            Changed<Projection>,
+            Changed<Multiview>,
+        )>,
     >,
 ) {
-    for (transform, projection, mut frustum) in &mut views {
-        *frustum = projection.compute_frustum(transform);
+    for (transform, projection, multiview, mut frustum) in &mut views {
+        *frustum = match multiview {
+            Some(multiview) => projection.compute_multiview_frustum(transform, multiview),
+            None => projection.compute_frustum(transform),
+        };
     }
 }
 

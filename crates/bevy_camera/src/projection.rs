@@ -1,16 +1,19 @@
 use core::fmt::Debug;
 use core::ops::{Deref, DerefMut};
 
-use crate::{primitives::Frustum, visibility::VisibilitySystems};
+use crate::{primitives::Frustum, visibility::VisibilitySystems, Multiview};
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_ecs::prelude::*;
 use bevy_math::{
-    ops, primitives::ViewFrustum, proj, vec4, AspectRatio, Mat4, Rect, Vec2, Vec3A, Vec4,
+    ops,
+    primitives::{HalfSpace, ViewFrustum},
+    proj, vec4, AspectRatio, Mat4, Rect, Vec2, Vec3, Vec3A, Vec4,
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_transform::{components::GlobalTransform, TransformSystems};
 use derive_more::derive::From;
 use serde::{Deserialize, Serialize};
+use smallvec::SmallVec;
 
 /// Adds [`Camera`](crate::camera::Camera) driver systems for a given projection type.
 ///
@@ -77,6 +80,98 @@ pub trait CameraProjection {
             &camera_transform.back(),
             self.far(),
         ))
+    }
+
+    /// Compute a frustum enclosing every layer of a [`Multiview`] camera.
+    ///
+    /// A multiview camera renders through the projections on its
+    /// [`MultiviewSubview`]s, not through its own [`Projection`] — but culling
+    /// happens once, against a single [`Frustum`]. Using [`compute_frustum`]
+    /// there would cull geometry the individual layers can actually see, which
+    /// shows up as objects popping out at the edges of a stereo view.
+    ///
+    /// The layers cannot simply be merged by widening the field of view: each
+    /// has its own *origin* as well as its own angles, since
+    /// [`MultiviewSubview::view_from_camera`] displaces it from the camera (for
+    /// stereo, by half the interpupillary distance). So the enclosing frustum
+    /// is built by taking the first layer's plane normals and sliding each
+    /// plane outwards until it contains every layer's frustum corners. That is
+    /// conservative by construction — the result contains each layer's frustum,
+    /// so nothing visible is ever culled — and makes no assumption about the
+    /// form of the per-layer projection matrices.
+    ///
+    /// It over-includes slightly, costing a few draws that no layer can see.
+    /// That is the correct direction to err: the alternative is geometry
+    /// vanishing from a headset.
+    ///
+    /// [`compute_frustum`]: CameraProjection::compute_frustum
+    /// [`MultiviewSubview`]: crate::MultiviewSubview
+    /// [`MultiviewSubview::view_from_camera`]: crate::MultiviewSubview::view_from_camera
+    fn compute_multiview_frustum(
+        &self,
+        camera_transform: &GlobalTransform,
+        multiview: &Multiview,
+    ) -> Frustum {
+        let far = self.far();
+
+        // Sized for stereo, which is overwhelmingly the common case: this runs
+        // every frame for an XR camera, whose subviews change even when the
+        // camera does not.
+        let layer_frusta: SmallVec<[ViewFrustum; 2]> = multiview
+            .views
+            .iter()
+            .map(|subview| {
+                let world_from_view = camera_transform.mul_transform(subview.view_from_camera);
+                let clip_from_world = subview.clip_from_view * world_from_view.affine().inverse();
+                ViewFrustum::from_clip_from_world_custom_far(
+                    &clip_from_world,
+                    &world_from_view.translation(),
+                    &world_from_view.back(),
+                    far,
+                )
+            })
+            .collect();
+
+        // An empty `Multiview` is documented as "ignore this component", and a
+        // single layer is just an ordinary camera with an extra matrix.
+        let Some((first, rest)) = layer_frusta.split_first() else {
+            return self.compute_frustum(camera_transform);
+        };
+        if rest.is_empty() {
+            return Frustum(*first);
+        }
+
+        // A frustum is convex, so containing every corner is enough to contain
+        // the whole volume.
+        //
+        // A layer whose corners are undefined cannot be bounded, and there is
+        // no safe way to narrow around it — falling back to another layer's
+        // frustum would cull exactly what this function exists to preserve. So
+        // give up on culling instead: every half-space is made unbounded, which
+        // draws too much rather than too little.
+        let mut corners: SmallVec<[Vec3; 16]> = SmallVec::new();
+        for layer in &layer_frusta {
+            let Some(layer_corners) = layer.corners() else {
+                return Frustum(ViewFrustum {
+                    half_spaces: [HalfSpace::new(Vec4::new(0.0, 0.0, 1.0, f32::INFINITY)); 6],
+                });
+            };
+            corners.extend_from_slice(&layer_corners);
+        }
+
+        let mut half_spaces = first.half_spaces;
+        for half_space in &mut half_spaces {
+            let normal = half_space.normal();
+            // A point is inside when `normal · p + d >= 0`, so the smallest
+            // `normal · corner` fixes how far the plane has to slide out.
+            let min_dot = corners
+                .iter()
+                .map(|corner| normal.dot(Vec3A::from(*corner)))
+                .fold(f32::INFINITY, f32::min);
+            *half_space = HalfSpace::new(normal.extend(-min_dot));
+        }
+
+        Frustum(ViewFrustum { half_spaces })
     }
 }
 
@@ -817,5 +912,157 @@ mod tests {
         // The w_axis.z element of an infinite reverse perspective matrix equals
         // the near plane distance. Verify it matches what we requested.
         assert_eq!(custom_matrix.w_axis.z, 0.01);
+    }
+
+    /// A multiview camera must not cull what its layers can see.
+    ///
+    /// The camera's own `Projection` is narrow; the layers are wide. Culling
+    /// against the camera's frustum discards geometry that is plainly visible
+    /// to a layer, which in a headset looks like objects vanishing towards the
+    /// edges of vision.
+    #[test]
+    fn multiview_frustum_contains_what_the_layers_see() {
+        use crate::{primitives::Sphere, MultiviewSubview};
+        use bevy_transform::components::Transform;
+
+        // Narrow camera, wide layers — the mismatch this guards against.
+        let projection = Projection::Perspective(PerspectiveProjection {
+            fov: core::f32::consts::PI / 6.0,
+            aspect_ratio: 1.0,
+            ..Default::default()
+        });
+        let wide = PerspectiveProjection {
+            fov: core::f32::consts::PI / 2.0,
+            aspect_ratio: 1.0,
+            ..Default::default()
+        }
+        .get_clip_from_view();
+
+        let camera_transform = GlobalTransform::from(Transform::from_xyz(0.0, 1.6, 0.0));
+        let eye = |x: f32| MultiviewSubview {
+            view_from_camera: Transform::from_xyz(x, 0.0, 0.0),
+            clip_from_view: wide,
+        };
+        let multiview = Multiview {
+            views: vec![eye(-0.032), eye(0.032)],
+        };
+
+        let narrow = projection.compute_frustum(&camera_transform);
+        let enclosing = projection.compute_multiview_frustum(&camera_transform, &multiview);
+
+        // Off to the side and ahead: inside a 90-degree layer, outside a
+        // 30-degree camera.
+        let peripheral = Sphere {
+            center: Vec3A::new(1.4, 1.6, -2.0),
+            radius: 0.1,
+        };
+
+        assert!(
+            !narrow.intersects_sphere(&peripheral, true),
+            "test is vacuous unless the camera's own frustum culls this"
+        );
+        assert!(
+            enclosing.intersects_sphere(&peripheral, true),
+            "multiview frustum culled geometry a layer can see"
+        );
+
+        // Straight ahead stays visible, and nothing behind the camera leaks in.
+        assert!(enclosing.intersects_sphere(
+            &Sphere {
+                center: Vec3A::new(0.0, 1.6, -2.0),
+                radius: 0.1,
+            },
+            true
+        ));
+        assert!(!enclosing.intersects_sphere(
+            &Sphere {
+                center: Vec3A::new(0.0, 1.6, 5.0),
+                radius: 0.1,
+            },
+            true
+        ));
+    }
+
+    /// Layer origins are displaced from the camera, so widening the angles
+    /// alone is not enough. A layer rotated away from the camera's forward
+    /// axis must still be fully contained.
+    #[test]
+    fn multiview_frustum_accounts_for_rotated_layers() {
+        use crate::{primitives::Sphere, MultiviewSubview};
+        use bevy_math::Quat;
+        use bevy_transform::components::Transform;
+
+        let projection = Projection::Perspective(PerspectiveProjection {
+            fov: core::f32::consts::PI / 3.0,
+            aspect_ratio: 1.0,
+            ..Default::default()
+        });
+        let clip_from_view = PerspectiveProjection {
+            fov: core::f32::consts::PI / 3.0,
+            aspect_ratio: 1.0,
+            ..Default::default()
+        }
+        .get_clip_from_view();
+
+        // Canted outwards, as headsets with angled displays actually are.
+        let cant = 0.35_f32;
+        let camera_transform = GlobalTransform::from(Transform::IDENTITY);
+        let multiview = Multiview {
+            views: vec![
+                MultiviewSubview {
+                    view_from_camera: Transform::from_xyz(-0.032, 0.0, 0.0)
+                        .with_rotation(Quat::from_rotation_y(cant)),
+                    clip_from_view,
+                },
+                MultiviewSubview {
+                    view_from_camera: Transform::from_xyz(0.032, 0.0, 0.0)
+                        .with_rotation(Quat::from_rotation_y(-cant)),
+                    clip_from_view,
+                },
+            ],
+        };
+
+        let enclosing = projection.compute_multiview_frustum(&camera_transform, &multiview);
+
+        // Every corner of every layer must survive the enclosing frustum.
+        for subview in &multiview.views {
+            let world_from_view = camera_transform.mul_transform(subview.view_from_camera);
+            let clip_from_world = subview.clip_from_view * world_from_view.affine().inverse();
+            let layer = ViewFrustum::from_clip_from_world_custom_far(
+                &clip_from_world,
+                &world_from_view.translation(),
+                &world_from_view.back(),
+                projection.far(),
+            );
+            for corner in layer.corners().expect("layer frustum is well defined") {
+                assert!(
+                    enclosing.intersects_sphere(
+                        &Sphere {
+                            center: Vec3A::from(corner),
+                            radius: 0.001,
+                        },
+                        true
+                    ),
+                    "corner {corner:?} of a layer fell outside the enclosing frustum"
+                );
+            }
+        }
+    }
+
+    /// An empty `Multiview` means "ignore this component"; a single layer is an
+    /// ordinary camera. Neither should change culling behaviour.
+    #[test]
+    fn multiview_frustum_degenerate_cases() {
+        use bevy_transform::components::Transform;
+
+        let projection = Projection::default();
+        let camera_transform = GlobalTransform::from(Transform::from_xyz(1.0, 2.0, 3.0));
+        let plain = projection.compute_frustum(&camera_transform);
+
+        let empty =
+            projection.compute_multiview_frustum(&camera_transform, &Multiview { views: vec![] });
+        for (a, b) in plain.0.half_spaces.iter().zip(empty.0.half_spaces.iter()) {
+            assert!((a.normal_d() - b.normal_d()).abs().max_element() < 1e-5);
+        }
     }
 }
