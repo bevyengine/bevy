@@ -4,12 +4,24 @@ use std::f32::consts::{FRAC_PI_2, PI};
 
 use bevy::{
     color::palettes::css::{DARK_CYAN, GOLD, GRAY, ORANGE, PURPLE},
-    feathers::{controls::FeathersSlider, display::label, theme::UiTheme, FeathersPlugins},
+    feathers::{
+        controls::{FeathersCheckbox, FeathersSlider},
+        display::label,
+        theme::UiTheme,
+        FeathersPlugins,
+    },
     prelude::*,
-    ui_widgets::{radio_self_update, SliderPrecision, SliderStep, SliderValue, ValueChange},
+    ui_widgets::{
+        checkbox_self_update, radio_self_update, SliderPrecision, SliderStep, SliderValue,
+        ValueChange,
+    },
 };
 
+use checkbox::feathers_option_checkbox;
 use radio::{feathers_option_buttons, main_ui_node_scene, RadioButtonOptionValue};
+
+#[path = "../helpers/checkbox.rs"]
+mod checkbox;
 
 #[path = "../helpers/radio.rs"]
 mod radio;
@@ -24,6 +36,8 @@ fn main() {
         .add_systems(Startup, setup)
         .add_systems(Update, rotate_camera)
         .add_observer(update_radio_button)
+        .add_observer(handle_value_change_checkbox)
+        .add_observer(checkbox_self_update)
         .add_observer(radio_self_update)
         .run();
 }
@@ -45,29 +59,11 @@ fn gizmo_color_text(config: &LightGizmoConfigGroup) -> String {
     }
 }
 
-/// Whether the depth mode for gizmos is on or off.
 #[derive(Clone, Copy, Component, Default, PartialEq, Debug)]
-enum GizmoDepthModeSetting {
+enum CheckboxInput {
     #[default]
-    On,
-    Off,
-}
-
-impl From<GizmoDepthModeSetting> for f32 {
-    fn from(setting: GizmoDepthModeSetting) -> Self {
-        match setting {
-            GizmoDepthModeSetting::On => -1.,
-            GizmoDepthModeSetting::Off => 0.,
-        }
-    }
-}
-
-/// Whether drawing of light gizmos is on or off.
-#[derive(Clone, Copy, Component, Default, PartialEq, Debug)]
-enum DrawingLightGizmoSetting {
-    #[default]
-    On,
-    Off,
+    GizmoDepthMode,
+    DrawingLightGizmo,
 }
 
 fn setup(
@@ -90,19 +86,10 @@ fn setup(
         main_ui_node_scene()
         Children [
             (
-                feathers_option_buttons(
-                    "Toggle drawing gizmos on top of everything else in the scene",
-                    &[
-                        (GizmoDepthModeSetting::On, "ON"),
-                        (GizmoDepthModeSetting::Off, "OFF"),
-                    ], 1)
+                feathers_option_checkbox("Toggle drawing gizmos on top of everything else in the scene", Some(CheckboxInput::GizmoDepthMode))
             ),
             (
-                feathers_option_buttons("Toggle drawing of the light gizmos",
-                    &[
-                        (DrawingLightGizmoSetting::On, "ON"),
-                        (DrawingLightGizmoSetting::Off, "OFF"),
-                    ], 0)
+                feathers_option_checkbox("Hide light gizmos", Some(CheckboxInput::DrawingLightGizmo))
             ),
             (
                 feathers_option_buttons("Gizmo color mode",
@@ -210,21 +197,31 @@ fn rotate_camera(mut transform: Single<&mut Transform, With<Camera>>, time: Res<
     transform.rotate_around(Vec3::ZERO, Quat::from_rotation_y(time.delta_secs() / 2.));
 }
 
+fn handle_value_change_checkbox(
+    event: On<ValueChange<bool>>,
+    mut config_store: ResMut<GizmoConfigStore>,
+    checkbox_input_q: Query<&CheckboxInput, With<FeathersCheckbox>>,
+) {
+    let (config, _) = config_store.config_mut::<LightGizmoConfigGroup>();
+    if let Ok(checkbox_input) = checkbox_input_q.get(event.source) {
+        match checkbox_input {
+            CheckboxInput::GizmoDepthMode => {
+                config.depth_bias = if event.value { -1. } else { 0. };
+            }
+            CheckboxInput::DrawingLightGizmo => {
+                config.enabled = if event.value { false } else { true };
+            }
+        }
+    }
+}
+
 fn update_radio_button(
     event: On<ValueChange<Entity>>,
-    depth_mode_query: Query<&RadioButtonOptionValue<GizmoDepthModeSetting>>,
-    drawing_gizmo_query: Query<&RadioButtonOptionValue<DrawingLightGizmoSetting>>,
     color_mode_query: Query<&RadioButtonOptionValue<LightGizmoColor>>,
     mut config_store: ResMut<GizmoConfigStore>,
 ) {
-    let (config, light_config) = config_store.config_mut::<LightGizmoConfigGroup>();
-    if let Ok(RadioButtonOptionValue(depth)) = depth_mode_query.get(event.value) {
-        for (_, config, _) in config_store.iter_mut() {
-            config.depth_bias = (*depth).into();
-        }
-    } else if let Ok(RadioButtonOptionValue(drawing)) = drawing_gizmo_query.get(event.value) {
-        config.enabled = matches!(drawing, DrawingLightGizmoSetting::On);
-    } else if let Ok(RadioButtonOptionValue(color)) = color_mode_query.get(event.value) {
+    let (_, light_config) = config_store.config_mut::<LightGizmoConfigGroup>();
+    if let Ok(RadioButtonOptionValue(color)) = color_mode_query.get(event.value) {
         light_config.color = *color;
     }
 }
