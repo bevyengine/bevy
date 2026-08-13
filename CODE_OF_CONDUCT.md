@@ -23,6 +23,20 @@ And if someone takes issue with something you said or did, resist the urge to be
 * Do not make casual mention of slavery or indentured servitude and/or false comparisons of one's occupation or situation to slavery. Please consider using or asking about alternate terminology when referring to such metaphors in technology.
 * Likewise any spamming, trolling, flaming, baiting or other attention-stealing behavior is not welcome.
 
+### What Is Trolling?
+
+The Bevy community aims to be a welcome space where people feel *good* about work they do on their games and on the engine itself. This requires that people feel like their work is valued, which itself requires that they are not actively devalued or "trolled" by antagonistic parties, even when there is a veneer of respectability on the behalf of the troll.
+
+**Kinds and Signs of trolling:**
+
+- Rehashing: Bringing up conversational topics that have already "run the course" without material changes to the subject of the original conversations.
+- Asymmetric statements: If
+- [Sealioning](https://web.archive.org/web/20190608204429/https://wondermark.com/1k62/): Having the appearance of being a civil "debate" participant while needling those around them, "Denial of Service"ing their time and energy, especially demanding a higher standard of evidence on a topic than one is providing themself.
+- Baiting: Knowingly provoking users on topics that are high tension, especially on matters close to the subject being trolled.
+- Active manipulation: The troll aims to "rile up" the people around them, presenting those others as irrational, and position themself as a more rational party to be taken more seriously than those they have actively discredited.
+
+Trolling is a narrow but well-trodden subset of general manipulation and harassment. Not all harassment is trolling, and this does not aim to be a full subset of kinds of harassment that need to be moderated.
+
 ## Moderation
 
 These are the policies for upholding [our community’s standards of conduct](#our-standards). If you feel that a thread needs moderation, please contact the maintainers.
