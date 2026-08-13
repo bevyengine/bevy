@@ -149,7 +149,7 @@ pub fn ui_layout_system(
         }
     }
 
-    // remove parents of root nodes to avoid a potential panic (invalid SlotMap key used)
+    // Remove parents of root nodes to avoid a potential panic (invalid SlotMap key used).
     for root in removed_parents.read() {
         if !node_query.contains(root) {
             continue;
@@ -159,7 +159,7 @@ pub fn ui_layout_system(
             continue;
         };
 
-        let taffy_node = taffy_node.id.clone();
+        let taffy_node = taffy_node.id;
 
         let Some(taffy_parent) = ui_surface.taffy.parent(taffy_node) else {
             continue;
