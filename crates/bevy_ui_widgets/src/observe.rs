@@ -1,6 +1,8 @@
-// TODO: This probably doesn't belong in bevy_ui_widgets, but I am not sure where it should go.
-// It is certainly a useful thing to have.
 #![expect(unsafe_code, reason = "Unsafe code is used to improve performance.")]
+#![expect(
+    deprecated,
+    reason = "We need to use the pre-existing tools until this is removed."
+)]
 
 use core::{marker::PhantomData, mem};
 
@@ -11,6 +13,10 @@ use bevy_ecs::{
 };
 
 /// Helper struct that adds an observer when inserted as a [`Bundle`].
+#[deprecated(
+    since = "0.19.0",
+    note = "Use the `on` helper with bsn! instead to spawn observers as part of ECS hierarchies."
+)]
 pub struct AddObserver<E: EntityEvent, B: Bundle, M, I: IntoObserverSystem<E, B, M>> {
     observer: I,
     marker: PhantomData<(E, B, M)>,
@@ -74,6 +80,10 @@ impl<E: EntityEvent, B: Bundle, M, I: IntoObserverSystem<E, B, M>> DynamicBundle
 }
 
 /// Adds an observer as a bundle effect.
+#[deprecated(
+    since = "0.19.0",
+    note = "Use the `on` helper with bsn! instead to spawn observers as part of ECS hierarchies."
+)]
 pub fn observe<E: EntityEvent, B: Bundle, M, I: IntoObserverSystem<E, B, M>>(
     observer: I,
 ) -> AddObserver<E, B, M, I> {
