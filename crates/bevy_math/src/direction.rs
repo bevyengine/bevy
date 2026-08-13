@@ -34,7 +34,7 @@ pub enum InvalidDirectionError {
 
 impl InvalidDirectionError {
     /// Creates an [`InvalidDirectionError`] from the length of an invalid direction vector.
-    pub fn from_length(length: f32) -> Self {
+    pub const fn from_length(length: f32) -> Self {
         if length.is_nan() {
             InvalidDirectionError::NaN
         } else if !length.is_finite() {

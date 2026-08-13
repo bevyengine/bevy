@@ -28,7 +28,7 @@ use bevy_reflect::Reflect;
 /// An [`IndexSet`] pre-configured to use [`EntityHash`] hashing.
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct EntityEquivalentIndexSet<K: EntityEquivalent + Hash>(IndexSet<K, EntityHash>);
 
 /// An [`IndexSet`] pre-configured to use [`EntityHash`] hashing with an [`Entity`].
@@ -101,6 +101,12 @@ impl<K: EntityEquivalent + Hash> EntityEquivalentIndexSet<K> {
     pub fn into_boxed_slice(self) -> Box<Slice<K>> {
         // SAFETY: Slice is a transparent wrapper around indexmap::set::Slice.
         unsafe { Slice::from_boxed_slice_unchecked(self.0.into_boxed_slice()) }
+    }
+}
+
+impl<K: EntityEquivalent + Hash> Default for EntityEquivalentIndexSet<K> {
+    fn default() -> Self {
+        Self(Default::default())
     }
 }
 
@@ -626,11 +632,34 @@ impl<'a, K: EntityEquivalent + Hash> Iterator for Iter<'a, K> {
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.0.size_hint()
     }
+
+    fn count(self) -> usize {
+        self.0.count()
+    }
+
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        self.0.nth(n)
+    }
+
+    fn last(self) -> Option<Self::Item> {
+        self.0.last()
+    }
+
+    fn collect<C>(self) -> C
+    where
+        C: FromIterator<Self::Item>,
+    {
+        self.0.collect()
+    }
 }
 
 impl<K: EntityEquivalent + Hash> DoubleEndedIterator for Iter<'_, K> {
     fn next_back(&mut self) -> Option<Self::Item> {
         self.0.next_back()
+    }
+
+    fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
+        self.0.nth_back(n)
     }
 }
 
@@ -711,11 +740,34 @@ impl<K: EntityEquivalent + Hash> Iterator for IntoIter<K> {
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.0.size_hint()
     }
+
+    fn count(self) -> usize {
+        self.0.count()
+    }
+
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        self.0.nth(n)
+    }
+
+    fn last(self) -> Option<Self::Item> {
+        self.0.last()
+    }
+
+    fn collect<C>(self) -> C
+    where
+        C: FromIterator<Self::Item>,
+    {
+        self.0.collect()
+    }
 }
 
 impl<K: EntityEquivalent + Hash> DoubleEndedIterator for IntoIter<K> {
     fn next_back(&mut self) -> Option<Self::Item> {
         self.0.next_back()
+    }
+
+    fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
+        self.0.nth_back(n)
     }
 }
 
@@ -799,11 +851,34 @@ impl<'a, K: EntityEquivalent + Hash> Iterator for Drain<'a, K> {
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.0.size_hint()
     }
+
+    fn count(self) -> usize {
+        self.0.count()
+    }
+
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        self.0.nth(n)
+    }
+
+    fn last(self) -> Option<Self::Item> {
+        self.0.last()
+    }
+
+    fn collect<C>(self) -> C
+    where
+        C: FromIterator<Self::Item>,
+    {
+        self.0.collect()
+    }
 }
 
 impl<K: EntityEquivalent + Hash> DoubleEndedIterator for Drain<'_, K> {
     fn next_back(&mut self) -> Option<Self::Item> {
         self.0.next_back()
+    }
+
+    fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
+        self.0.nth_back(n)
     }
 }
 

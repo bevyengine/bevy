@@ -151,7 +151,7 @@ impl RecordDiagnostics for DiagnosticsRecorder {
     {
         assert_eq!(
             buffer.size(),
-            BufferSize::new(4).unwrap(),
+            BufferSize::new(4).unwrap().get(),
             "DiagnosticsRecorder::record_f32 buffer slice must be 4 bytes long"
         );
         assert!(
@@ -169,7 +169,7 @@ impl RecordDiagnostics for DiagnosticsRecorder {
     {
         assert_eq!(
             buffer.size(),
-            BufferSize::new(4).unwrap(),
+            BufferSize::new(4).unwrap().get(),
             "DiagnosticsRecorder::record_u32 buffer slice must be 4 bytes long"
         );
         assert!(
@@ -427,7 +427,7 @@ impl FrameData {
             buffer.offset(),
             &dest_buffer,
             0,
-            Some(buffer.size().into()),
+            Some(buffer.size()),
         );
 
         command_encoder.map_buffer_on_submit(&dest_buffer, MapMode::Read, .., |_| {});
@@ -533,7 +533,7 @@ impl FrameData {
             }
 
             for (buffer, diagnostic_path, is_f32) in self.value_buffers.drain(..) {
-                let buffer = buffer.get_mapped_range(..);
+                let buffer = buffer.get_mapped_range(..).unwrap();
                 diagnostics.push(RenderDiagnostic {
                     path: DiagnosticPath::from_components(
                         core::iter::once("render")
@@ -578,7 +578,7 @@ impl FrameData {
             return true;
         };
 
-        let data = read_buffer.slice(..).get_mapped_range();
+        let data = read_buffer.slice(..).get_mapped_range().unwrap();
 
         let timestamps = data[..(self.num_timestamps * 8) as usize]
             .as_chunks()
@@ -675,7 +675,7 @@ impl FrameData {
         }
 
         for (buffer, diagnostic_path, is_f32) in self.value_buffers.drain(..) {
-            let buffer = buffer.get_mapped_range(..);
+            let buffer = buffer.get_mapped_range(..).unwrap();
             diagnostics.push(RenderDiagnostic {
                 path: DiagnosticPath::from_components(
                     core::iter::once("render").chain(core::iter::once(diagnostic_path.as_ref())),

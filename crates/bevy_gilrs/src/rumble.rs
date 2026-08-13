@@ -70,7 +70,7 @@ fn get_base_effects(
     }
     if weak_motor > 0. {
         effects.push(BaseEffect {
-            kind: BaseEffectType::Strong {
+            kind: BaseEffectType::Weak {
                 magnitude: to_gilrs_magnitude(weak_motor),
             },
             ..Default::default()
@@ -166,7 +166,10 @@ pub(crate) fn play_gilrs_rumble(
 
 #[cfg(test)]
 mod tests {
-    use super::to_gilrs_magnitude;
+    use super::{get_base_effects, to_gilrs_magnitude};
+    use bevy_input::gamepad::GamepadRumbleIntensity;
+    use core::time::Duration;
+    use gilrs::ff::BaseEffectType;
 
     #[test]
     fn magnitude_conversion() {
@@ -181,5 +184,26 @@ mod tests {
         // they convert to something sensible in gilrs anyway.
         assert_eq!(to_gilrs_magnitude(-1.0), 0);
         assert_eq!(to_gilrs_magnitude(-0.1), 0);
+    }
+
+    #[test]
+    fn motors_map_to_their_own_effects() {
+        let duration = Duration::from_millis(10);
+
+        let strong = get_base_effects(GamepadRumbleIntensity::strong_motor(1.0), duration);
+        assert_eq!(strong.len(), 1);
+        assert!(matches!(strong[0].kind, BaseEffectType::Strong { .. }));
+
+        let weak = get_base_effects(GamepadRumbleIntensity::weak_motor(1.0), duration);
+        assert_eq!(weak.len(), 1);
+        assert!(matches!(weak[0].kind, BaseEffectType::Weak { .. }));
+
+        let both = get_base_effects(GamepadRumbleIntensity::MAX, duration);
+        assert!(both
+            .iter()
+            .any(|e| matches!(e.kind, BaseEffectType::Strong { .. })));
+        assert!(both
+            .iter()
+            .any(|e| matches!(e.kind, BaseEffectType::Weak { .. })));
     }
 }
