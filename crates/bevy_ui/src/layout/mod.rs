@@ -91,9 +91,12 @@ pub fn ui_layout_system(
     )>,
     mut buffer_query: Query<&mut ComputedTextBlock>,
     mut font_system: ResMut<FontCx>,
-    mut removed_children: RemovedComponents<Children>,
-    mut removed_nodes: RemovedComponents<Node>,
-    mut removed_fixed_nodes: RemovedComponents<FixedNode>,
+    (mut removed_children, mut removed_parents, mut removed_nodes, mut removed_fixed_nodes): (
+        RemovedComponents<Children>,
+        RemovedComponents<ChildOf>,
+        RemovedComponents<Node>,
+        RemovedComponents<FixedNode>,
+    ),
     #[cfg(feature = "ghost_nodes")] mut removed_ghost_nodes: RemovedComponents<GhostNode>,
     #[cfg(feature = "ghost_nodes")] added_ghost_node_query: Query<Entity, Added<GhostNode>>,
     #[cfg(feature = "ghost_nodes")] ghost_node_query: Query<(), With<GhostNode>>,
@@ -144,6 +147,25 @@ pub fn ui_layout_system(
                 ui_surface.dirty_ghost_children_scratch.insert(parent);
             }
         }
+    }
+
+    // remove parents of root nodes to avoid a potential panic (invalid SlotMap key used)
+    for root in removed_parents.read() {
+        if !node_query.contains(root) {
+            continue;
+        }
+
+        let Some(taffy_node) = ui_surface.entity_to_taffy.get(&root) else {
+            continue;
+        };
+
+        let taffy_node = taffy_node.id.clone();
+
+        let Some(taffy_parent) = ui_surface.taffy.parent(taffy_node) else {
+            continue;
+        };
+
+        let _ = ui_surface.taffy.remove_child(taffy_parent, taffy_node);
     }
 
     // clean up removed nodes after syncing children to avoid potential panic (invalid SlotMap key used)
