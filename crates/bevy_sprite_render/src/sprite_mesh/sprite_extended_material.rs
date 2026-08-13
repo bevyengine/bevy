@@ -60,11 +60,14 @@ where
             ))
             .add_systems(
                 PostUpdate,
-                clean_sprite_material_cache::<M>.after(AssetEventSystems),
-            )
-            .add_systems(
-                PostUpdate,
-                add_material::<M>.before(check_entities_needing_specialization::<SpriteExt<M>>),
+                (
+                    add_material::<M>.before(check_entities_needing_specialization::<SpriteExt<M>>),
+                    (
+                        update_changed_material_extensions::<M>,
+                        clean_sprite_material_cache::<M>,
+                    )
+                        .after(AssetEventSystems),
+                ),
             );
     }
 }
@@ -79,12 +82,12 @@ where
     }
 }
 
+/// Adds `MeshMaterial2d<SpriteExt<M>>`s to entities with a `SpriteMaterial<M>`
 fn add_material<M>(
     sprites: Query<
         (Entity, &SpriteMesh, &Anchor, &SpriteMaterial<M>),
         Or<(
             Changed<SpriteMaterial<M>>,
-            AssetChanged<SpriteMaterial<M>>,
             Changed<SpriteMesh>,
             Changed<Anchor>,
             Added<Mesh2d>,
@@ -103,12 +106,6 @@ fn add_material<M>(
         let handle = if let Some(handle) =
             cache.get(&(sprite_material.0.id(), sprite.clone(), *anchor))
         {
-            if let Some(mut extended) = materials.get_mut(handle)
-                && let Some(sprite_material_instance) = sprite_materials.get(&sprite_material.0)
-            {
-                extended.extension.update(sprite_material_instance);
-            }
-
             handle.clone()
         } else {
             let material = super::make_sprite_mesh_material(&texture_atlas_layouts, sprite, anchor);
@@ -137,6 +134,32 @@ fn add_material<M>(
             .entity(entity)
             .remove::<MeshMaterial2d<SpriteMeshMaterial>>()
             .insert(MeshMaterial2d(handle));
+    }
+}
+
+/// Updates `SpriteExt<M>` assets when `M` is changed
+fn update_changed_material_extensions<M>(
+    changed: Query<
+        (
+            &mut Mesh2d,
+            &MeshMaterial2d<SpriteExt<M>>,
+            &SpriteMaterial<M>,
+        ),
+        AssetChanged<SpriteMaterial<M>>,
+    >,
+    mut materials: ResMut<Assets<SpriteExt<M>>>,
+    sprite_materials: Res<Assets<M>>,
+) where
+    M::Data: Clone,
+    M: MaterialExtension2d + Asset,
+{
+    for (mut mesh, mesh_material, sprite_material) in changed {
+        if let Some(mut extended) = materials.get_mut(&mesh_material.0)
+            && let Some(sprite_material_instance) = sprite_materials.get(&sprite_material.0)
+        {
+            extended.extension.update(sprite_material_instance);
+            mesh.set_changed();
+        }
     }
 }
 
