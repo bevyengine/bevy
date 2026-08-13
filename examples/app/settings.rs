@@ -4,7 +4,8 @@
 //! Its value persists between app sessions via settings.
 //!
 //! On desktop, if you quit the app and then restart it, the counter value should display
-//! the most recent value the app had before exiting.
+//! the most recent value the app had before exiting. Settings are saved as TOML at
+//! `{preferences_dir}/org.bevy.examples.settings/settings.toml` (see [`SettingsPlugin`]).
 //! On web, if you navigate away and then come back to the window, the counter
 //! should display the most recent value the app had before navigating away.
 use std::time::Duration;

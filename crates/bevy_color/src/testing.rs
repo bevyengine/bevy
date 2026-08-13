@@ -1,6 +1,8 @@
 #[cfg(test)]
 macro_rules! assert_approx_eq {
     ($x:expr, $y:expr, $d:expr) => {
+        assert!(!f32::is_nan($x));
+        assert!(!f32::is_nan($y));
         if ($x - $y).abs() >= $d {
             panic!(
                 "assertion failed: `(left !== right)` \
@@ -11,6 +13,8 @@ macro_rules! assert_approx_eq {
     };
 
     ($x:expr, $y:expr, $d:expr, $msg:expr) => {
+        assert!(!f32::is_nan($x));
+        assert!(!f32::is_nan($y));
         if ($x - $y).abs() >= $d {
             panic!(
                 "assertion failed: `(left !== right)` \

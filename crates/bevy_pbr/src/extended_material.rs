@@ -8,9 +8,9 @@ use bevy_platform::{collections::HashSet, hash::FixedHasher};
 use bevy_reflect::{impl_type_path, Reflect};
 use bevy_render::{
     render_resource::{
-        AsBindGroup, AsBindGroupError, BindGroupLayout, BindGroupLayoutEntry, BindlessDescriptor,
-        BindlessResourceType, BindlessSlabResourceLimit, RenderPipelineDescriptor,
-        SpecializedMeshPipelineError, UnpreparedBindGroup,
+        AsBindGroup, AsBindGroupError, BindGroupBuilder, BindGroupLayout, BindGroupLayoutEntry,
+        BindlessDescriptor, BindlessResourceType, BindlessSlabResourceLimit,
+        RenderPipelineDescriptor, SpecializedMeshPipelineError,
     },
     renderer::RenderDevice,
 };
@@ -58,6 +58,14 @@ pub trait MaterialExtension: Asset + AsBindGroup + Clone + Sized {
     /// Controls if shadows are enabled for the Material.
     #[inline]
     fn enable_shadows() -> bool {
+        true
+    }
+
+    /// Controls whether order independent transparency is enabled for the Material.
+    /// This is ignored if the camera does not have [`bevy_core_pipeline::oit::OrderIndependentTransparencySettings`]
+    /// or if [`Self::alpha_mode`] is not supported by OIT.
+    #[inline]
+    fn enable_oit() -> bool {
         true
     }
 
@@ -211,36 +219,35 @@ impl<B: Material, E: MaterialExtension> AsBindGroup for ExtendedMaterial<B, E> {
         }
     }
 
-    fn unprepared_bind_group(
+    fn build_bind_group(
         &self,
         layout: &BindGroupLayout,
         render_device: &RenderDevice,
         (base_param, extended_param): &mut SystemParamItem<'_, '_, Self::Param>,
         mut force_non_bindless: bool,
-    ) -> Result<UnpreparedBindGroup, AsBindGroupError> {
+        output: &mut BindGroupBuilder,
+    ) -> Result<(), AsBindGroupError> {
         force_non_bindless = force_non_bindless || Self::bindless_slot_count().is_none();
 
         // add together the bindings of the base material and the extension
-        let UnpreparedBindGroup { mut bindings } = B::unprepared_bind_group(
+        B::build_bind_group(
             &self.base,
             layout,
             render_device,
             base_param,
             force_non_bindless,
+            output,
         )?;
-        let UnpreparedBindGroup {
-            bindings: extension_bindings,
-        } = E::unprepared_bind_group(
+        E::build_bind_group(
             &self.extension,
             layout,
             render_device,
             extended_param,
             force_non_bindless,
+            output,
         )?;
 
-        bindings.extend(extension_bindings.0);
-
-        Ok(UnpreparedBindGroup { bindings })
+        Ok(())
     }
 
     fn bind_group_layout_entries(
@@ -353,6 +360,10 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
 
     fn enable_shadows() -> bool {
         E::enable_shadows()
+    }
+
+    fn enable_oit() -> bool {
+        E::enable_oit()
     }
 
     fn prepass_vertex_shader() -> ShaderRef {

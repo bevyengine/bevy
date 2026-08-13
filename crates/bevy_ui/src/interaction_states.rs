@@ -18,6 +18,14 @@ use bevy_reflect::Reflect;
 /// the `InteractionDisabled` component should be added to the root entity of the widget - the
 /// same entity that contains the `AccessibilityNode` component. This will ensure that
 /// the a11y tree is updated correctly.
+///
+/// For developers familiar with the web and HTML, the word "disabled" as used here should be
+/// interpreted as working more like the `aria-disabled` (which doesn't prevent input focus)
+/// than the `disabled` attribute (which does). However, unlike `aria-disabled`, which is purely
+/// advisory, this does make the widget non-operable.
+///
+/// In particular, this marker currently has no effect on the "click-to-focus" observer which
+/// lives in [`bevy_input_focus`], as that is a lower-level crate that this one depends on.
 #[derive(Component, Debug, Clone, Copy, Default, Reflect)]
 #[reflect(Component, Default, Clone)]
 pub struct InteractionDisabled;
