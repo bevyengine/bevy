@@ -25,7 +25,7 @@ use bevy_reflect::prelude::*;
 pub struct Xyza {
     /// The x-axis. [0.0, 1.0]
     pub x: f32,
-    /// The y-axis, intended to represent luminance. [0.0, 1.0]
+    /// The y-axis, intended to represent luminance. [0.0, 1.0] for SDR colors.
     pub y: f32,
     /// The z-axis. [0.0, 1.0]
     pub z: f32,
