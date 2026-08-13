@@ -47,9 +47,14 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.20.0-dev", default-featu
 
 # other
 accesskit = { version = "0.24", default-features = false }
-serde = { version = "1", default-features = false, features = [
-  "alloc",
-], optional = true }
+serde = {
+  version = "1",
+  default-features = false,
+  features = [
+    "alloc",
+  ],
+  optional = true
+}
 
 [lints]
 workspace = true
