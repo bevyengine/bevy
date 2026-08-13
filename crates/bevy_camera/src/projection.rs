@@ -1050,7 +1050,7 @@ mod tests {
     }
 
     /// An empty `Multiview` means "ignore this component"; a single layer is an
-    /// ordinary camera. Neither should change culling behaviour.
+    /// ordinary camera. Neither should change culling behavior.
     #[test]
     fn multiview_frustum_degenerate_cases() {
         use bevy_transform::components::Transform;
