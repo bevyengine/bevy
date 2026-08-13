@@ -558,7 +558,7 @@ impl PipelineCache {
                     .collect();
 
                 let descriptor = RawRenderPipelineDescriptor {
-                    multiview_mask: None,
+                    multiview_mask: descriptor.multiview_mask,
                     depth_stencil: descriptor.depth_stencil.clone(),
                     label: descriptor.label.as_deref(),
                     layout: layout.as_ref().map(|layout| -> &PipelineLayout { layout }),
