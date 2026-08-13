@@ -151,6 +151,7 @@ impl<'w> BundleSpawner<'w> {
                 entities.set_location(entity.index(), Some(location));
                 entities.mark_spawned_or_despawned(entity.index(), caller, self.change_tick);
             }
+
             location
         };
 

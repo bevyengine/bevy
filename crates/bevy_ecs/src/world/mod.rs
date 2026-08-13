@@ -2940,6 +2940,7 @@ impl World {
                 changed_by: guard.caller.as_mut(),
                 last_run: last_change_tick,
                 this_run: change_tick,
+                summary_tick: None,
             },
         };
 
@@ -4272,6 +4273,7 @@ mod tests {
                     DROP_COUNT.fetch_add(1, Ordering::SeqCst);
                 }),
                 true,
+                false,
                 ComponentCloneBehavior::Default,
                 None,
             )
