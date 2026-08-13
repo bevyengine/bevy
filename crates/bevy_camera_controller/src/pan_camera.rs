@@ -94,7 +94,7 @@ pub struct MousePanSettings {
     pub button: PointerButton,
 }
 
-#[derive(Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 /// Target focal point for zooming using the [`PanCamera`] controller
 pub enum ZoomTarget {
     /// Zoom to / from the center of the window
