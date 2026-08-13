@@ -47,7 +47,7 @@ impl Plugin for PanCameraPlugin {
 ///
 /// Add this component to a [`Camera`] entity to enable keyboard and mouse controls
 /// for panning, zooming, and optional rotation. Requires the [`PanCameraPlugin`].
-#[derive(Component)]
+#[derive(Component, Clone)]
 pub struct PanCamera {
     /// Enables this [`PanCamera`] when `true`.
     pub enabled: bool,
@@ -86,6 +86,7 @@ pub struct PanCamera {
 }
 
 /// Settings for mouse panning for the [`PanCamera`] controller.
+#[derive(Clone)]
 pub struct MousePanSettings {
     /// Whether the mouse panning is enabled.
     pub enabled: bool,
