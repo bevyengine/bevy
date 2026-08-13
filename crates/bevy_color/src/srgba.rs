@@ -11,8 +11,7 @@ use thiserror::Error;
 
 /// Non-linear standard RGB with alpha.
 ///
-/// SDR colors are in `[0.0, 1.0]`. Values above `1.0` are HDR intensities, and
-/// negative values are outside the sRGB gamut.
+/// SDR colors are in `[0.0, 1.0]`. Values above `1.0` are HDR intensities.
 #[doc = include_str!("../docs/conversion.md")]
 /// <div>
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]

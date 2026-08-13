@@ -25,7 +25,7 @@ use bevy_reflect::prelude::*;
 pub struct Lcha {
     /// The lightness channel. [0.0, 1.5]
     pub lightness: f32,
-    /// The chroma channel. [0.0, 1.5]
+    /// The chroma channel. Typically [0.0, 1.5].
     pub chroma: f32,
     /// The hue channel. [0.0, 360.0]
     pub hue: f32,
@@ -41,7 +41,7 @@ impl Lcha {
     /// # Arguments
     ///
     /// * `lightness` - Lightness channel. [0.0, 1.5]
-    /// * `chroma` - Chroma channel. [0.0, 1.5]
+    /// * `chroma` - Chroma channel. Typically [0.0, 1.5].
     /// * `hue` - Hue channel. [0.0, 360.0]
     /// * `alpha` - Alpha channel. [0.0, 1.0]
     pub const fn new(lightness: f32, chroma: f32, hue: f32, alpha: f32) -> Self {
@@ -58,7 +58,7 @@ impl Lcha {
     /// # Arguments
     ///
     /// * `lightness` - Lightness channel. [0.0, 1.5]
-    /// * `chroma` - Chroma channel. [0.0, 1.5]
+    /// * `chroma` - Chroma channel. Typically [0.0, 1.5].
     /// * `hue` - Hue channel. [0.0, 360.0]
     pub const fn lch(lightness: f32, chroma: f32, hue: f32) -> Self {
         Self {
@@ -188,7 +188,7 @@ impl Luminance for Lcha {
 
     fn lighter(&self, amount: f32) -> Self {
         Self::new(
-            crate::color_ops::lighten_hdr_aware(self.lightness, amount),
+            (self.lightness + amount).min(1.),
             self.chroma,
             self.hue,
             self.alpha,
@@ -280,15 +280,8 @@ impl From<Laba> for Lcha {
     ) -> Self {
         // Based on http://www.brucelindbloom.com/index.html?Eqn_Lab_to_LCH.html
         let chroma = ops::hypot(a, b);
-        let hue = {
-            let h = ops::atan2(b, a).to_degrees();
-
-            if h < 0.0 {
-                h + 360.0
-            } else {
-                h
-            }
-        };
+        let hue = ops::atan2(b, a).to_degrees();
+        let hue = if hue < 0.0 { hue + 360.0 } else { hue };
 
         Lcha::new(lightness, chroma, hue, alpha)
     }

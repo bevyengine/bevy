@@ -183,7 +183,7 @@ impl Luminance for Oklcha {
 
     fn lighter(&self, amount: f32) -> Self {
         Self::new(
-            crate::color_ops::lighten_hdr_aware(self.lightness, amount),
+            (self.lightness + amount).min(1.),
             self.chroma,
             self.hue,
             self.alpha,

@@ -7,6 +7,8 @@ use bevy_math::{Vec3, Vec4};
 use bevy_reflect::prelude::*;
 
 /// [CIE 1931](https://en.wikipedia.org/wiki/CIE_1931_color_space) color space, also known as XYZ, with an alpha channel.
+///
+/// The SDR channel bounds below are the D65 white point, `(0.9505, 1.0, 1.0889)`.
 #[doc = include_str!("../docs/conversion.md")]
 /// <div>
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
@@ -23,11 +25,11 @@ use bevy_reflect::prelude::*;
     reflect(Serialize, Deserialize)
 )]
 pub struct Xyza {
-    /// The x-axis. [0.0, 1.0]
+    /// The x-axis. [0.0, 0.9505] for SDR colors.
     pub x: f32,
     /// The y-axis, intended to represent luminance. [0.0, 1.0] for SDR colors.
     pub y: f32,
-    /// The z-axis. [0.0, 1.0]
+    /// The z-axis. [0.0, 1.0889] for SDR colors.
     pub z: f32,
     /// The alpha channel. [0.0, 1.0]
     pub alpha: f32,
@@ -123,14 +125,14 @@ impl Luminance for Xyza {
 
     fn darker(&self, amount: f32) -> Self {
         Self {
-            y: (self.y - amount).max(0.),
+            y: (self.y - amount).clamp(0., 1.),
             ..*self
         }
     }
 
     fn lighter(&self, amount: f32) -> Self {
         Self {
-            y: crate::color_ops::lighten_hdr_aware(self.y, amount),
+            y: (self.y + amount).min(1.),
             ..*self
         }
     }
@@ -262,16 +264,6 @@ mod tests {
         assert_approx_eq!(xyza.y, xyza2.y, 0.001);
         assert_approx_eq!(xyza.z, xyza2.z, 0.001);
         assert_approx_eq!(xyza.alpha, xyza2.alpha, 0.001);
-    }
-
-    #[test]
-    fn hdr_lighter_darker() {
-        let sdr = Xyza::new(0.5, 0.9, 0.5, 1.0);
-        assert_approx_eq!(sdr.lighter(0.5).y, 1.0, 1e-6);
-
-        let hdr = Xyza::new(1.0, 3.0, 1.0, 1.0);
-        assert_approx_eq!(hdr.lighter(0.5).y, 3.5, 1e-6);
-        assert_approx_eq!(hdr.darker(0.5).y, 2.5, 1e-6);
     }
 
     #[test]

@@ -7,11 +7,8 @@ pub trait Luminance: Sized {
     /// Return the luminance of this color (0.0 - 1.0 for SDR colors, higher for HDR).
     fn luminance(&self) -> f32;
 
-    /// Return a new version of this color with the given luminance. The resulting color will
-    /// be clamped to the valid range for the color space; for some color spaces, clamping
-    /// may cause the hue or chroma to change. Spaces that support HDR, such as
-    /// [`LinearRgba`](crate::LinearRgba), do not clamp components outside `[0.0, 1.0]`
-    /// or targets above 1.0.
+    /// Return a new version of this color with the given luminance. The result is not
+    /// clamped, so an out-of-range target is stored as-is.
     fn with_luminance(&self, value: f32) -> Self;
 
     /// Return a darker version of this color. The `amount` should be between 0.0 and 1.0.
@@ -25,22 +22,11 @@ pub trait Luminance: Sized {
     /// Return a lighter version of this color. The `amount` should be between 0.0 and 1.0.
     /// The amount represents an absolute increase in luminance, and is distributive:
     /// `color.lighter(a).lighter(b) == color.lighter(a + b)`. Colors are clamped to white
-    /// if the amount would cause them to go above white. Colors already above white are not
-    /// clamped; in [`LinearRgba`](crate::LinearRgba) a single channel above `1.0` counts as
-    /// above white.
+    /// if the amount would cause them to go above white, so this operation is not suitable
+    /// for HDR colors. To scale an HDR color, use [`with_luminance`](Luminance::with_luminance).
     ///
     /// For a relative increase in luminance, you can simply `mix()` with white.
     fn lighter(&self, amount: f32) -> Self;
-}
-
-/// Adds `amount` to a lightness channel, clamping to 1.0 unless `lightness` is already above 1.0.
-pub(crate) fn lighten_hdr_aware(lightness: f32, amount: f32) -> f32 {
-    let out = lightness + amount;
-    if lightness <= 1.0 {
-        out.min(1.0)
-    } else {
-        out
-    }
 }
 
 /// Linear interpolation of two colors within a given color space.

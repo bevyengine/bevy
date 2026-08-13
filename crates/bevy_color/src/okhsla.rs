@@ -202,14 +202,14 @@ impl Luminance for Okhsla {
 
     fn darker(&self, amount: f32) -> Self {
         Self {
-            lightness: (self.lightness - amount).max(0.),
+            lightness: (self.lightness - amount).clamp(0., 1.),
             ..*self
         }
     }
 
     fn lighter(&self, amount: f32) -> Self {
         Self {
-            lightness: crate::color_ops::lighten_hdr_aware(self.lightness, amount),
+            lightness: (self.lightness + amount).min(1.),
             ..*self
         }
     }
