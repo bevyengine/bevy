@@ -1,5 +1,5 @@
-//! CIE 1931 chromaticity coordinates, RGB primary sets, and derivation of RGB to RGB
-//! conversion matrices.
+//! CIE 1931 chromaticity coordinates and RGB primary sets, used to convert linear RGB
+//! values from one color space to another.
 //!
 //! Matrices are derived from chromaticity coordinates with the
 //! [Lindbloom method](http://www.brucelindbloom.com/index.html?Eqn_RGB_XYZ_Matrix.html).
@@ -34,18 +34,15 @@ impl Chromaticity {
         Self { x, y }
     }
 
-    /// The [CIE Standard Illuminant D65](https://en.wikipedia.org/wiki/Illuminant_D65)
+    /// The [CIE Standard Illuminant D65](https://registry.color.org/rgb-registry/srgb#:~:text=White%20point%20chromaticity)
     /// white point, as specified by ITU-R BT.709 / BT.2020 and the sRGB standard.
     pub const D65: Self = Self::new(0.3127, 0.3290);
 
-    /// The ACES white point, about CIE Standard Illuminant D60.
+    /// The [ACES white point](https://docs.acescentral.com/white-point/), about
+    /// CIE Standard Illuminant D60.
     pub const D60: Self = Self::new(0.32168, 0.33767);
 
-    /// Convert this chromaticity and a luminance `Y` to a CIE 1931 XYZ tristimulus
-    /// value `(X, Y, Z)`.
-    ///
-    /// A luminance of `1.0` is the reference white luminance, matching [`Xyza`](crate::Xyza).
-    /// The conversion divides by `y`, so `y == 0.0` gives non-finite components.
+    /// Convert this chromaticity and a luminance to a CIE 1931 color space.
     pub const fn to_xyz(self, luminance: f32) -> Vec3 {
         Vec3::new(
             self.x / self.y * luminance,
@@ -63,7 +60,7 @@ impl Default for Chromaticity {
 
 /// A set of RGB primaries and a white point, given as [`Chromaticity`] coordinates.
 ///
-/// This determines the meaning of a linear RGB triple up to a luminance scale.
+/// Together they define what a linear RGB color looks like, aside from overall brightness.
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[cfg_attr(
     feature = "bevy_reflect",
@@ -107,7 +104,7 @@ impl RgbPrimaries {
         white: Chromaticity::D65,
     };
 
-    /// The [Display P3](https://en.wikipedia.org/wiki/DCI-P3#Display_P3) primaries:
+    /// The [Display P3](https://registry.color.org/rgb-registry/displayp3) primaries:
     /// the DCI-P3 primaries with a D65 white point.
     pub const DISPLAY_P3: Self = Self {
         red: Chromaticity::new(0.680, 0.320),
@@ -116,7 +113,7 @@ impl RgbPrimaries {
         white: Chromaticity::D65,
     };
 
-    /// The [ACEScg](https://docs.acescentral.com/specifications/acescg/) (AP1) primaries
+    /// The [ACEScg](https://docs.acescentral.com/encodings/acescg) (AP1) primaries
     /// with the ACES white point, used for scene-linear rendering.
     pub const ACES_CG: Self = Self {
         red: Chromaticity::new(0.713, 0.293),
@@ -146,12 +143,11 @@ impl Default for RgbPrimaries {
     }
 }
 
-/// Returns the 3x3 matrix converting linear RGB values in the `src` primary set to
-/// linear RGB values in the `dst` primary set.
+/// Returns a matrix that converts linear RGB colors from `src` primaries to `dst` primaries.
 ///
-/// No chromatic adaptation is applied. Sets with different white points (such as
-/// [`RgbPrimaries::ACES_CG`] against a D65 set) keep a small white-point shift.
-/// The derivation runs in `f64` and rounds to `f32`.
+/// White points are not adapted. Converting between sets with different whites, such as
+/// [`RgbPrimaries::ACES_CG`] and a D65 set, leaves a small shift in white.
+/// The matrix is computed in `f64` and rounded to `f32`.
 pub fn rgb_to_rgb_matrix(src: RgbPrimaries, dst: RgbPrimaries) -> Mat3 {
     (dst.rgb_to_xyz_dmat3().inverse() * src.rgb_to_xyz_dmat3()).as_mat3()
 }
@@ -221,9 +217,9 @@ mod tests {
 
     #[test]
     fn bt709_matrix_matches_crate_srgb_matrix() {
-        // The crate's `Xyza` <-> `LinearRgba` constants are the Lindbloom sRGB matrices,
-        // which use the tabulated ASTM E308 D65 white (0.95047, 1.0, 1.08883) rather than
-        // the white derived from the (0.3127, 0.3290) chromaticity, a ~2e-4 difference.
+        // This crate's sRGB matrices use Lindbloom's D65, XYZ 0.95047, 1.0, 1.08883 from
+        // ASTM E308. White from the BT.709 chromaticity 0.3127, 0.3290 differs by about
+        // 2e-4, so this check is only approximate.
         let expected = Mat3::from_cols_array_2d(&[
             [0.4124564, 0.2126729, 0.0193339],
             [0.3575761, 0.7151522, 0.119192],
