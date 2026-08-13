@@ -13,6 +13,8 @@ struct InfiniteGridSettings {
     one_over_fadeout_distance: f32,
     // 1 / dot_fadeout_strength
     one_over_dot_fadeout: f32,
+    // 1 / major_line_interval
+    one_over_major_line_interval: f32,
     x_axis_col: vec3<f32>,
     z_axis_col: vec3<f32>,
     minor_line_col: vec4<f32>,
@@ -80,8 +82,9 @@ fn fragment(in: FullscreenVertexOutput) -> FragmentOutput {
     let minor_line = min(grid.x, grid.y);
 
     // Compute major lines
-    let derivative2 = fwidth(coord * 0.1);
-    let grid2 = abs(fract((coord * 0.1) - 0.5) - 0.5) / derivative2;
+    let major_scale = grid_settings.one_over_major_line_interval;
+    let derivative2 = fwidth(coord * major_scale);
+    let grid2 = abs(fract((coord * major_scale) - 0.5) - 0.5) / derivative2;
     let major_line = min(grid2.x, grid2.y);
 
     // Compute axis lines
