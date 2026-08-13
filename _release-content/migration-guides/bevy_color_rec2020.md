@@ -1,6 +1,6 @@
 ---
 title: "New `Color::LinearRec2020` variant in `bevy_color`"
-pull_requests: []
+pull_requests: [25373]
 ---
 
 `Color` has a new variant, `Color::LinearRec2020(LinearRec2020)` which represents linear RGB

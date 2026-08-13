@@ -1,7 +1,7 @@
 ---
 title: "Rec.2020 and wide-gamut color in `bevy_color`"
 authors: ["@stuartparmenter"]
-pull_requests: []
+pull_requests: [25373]
 ---
 
 `bevy_color` now has a new `LinearRec2020` color space. You can read more on
