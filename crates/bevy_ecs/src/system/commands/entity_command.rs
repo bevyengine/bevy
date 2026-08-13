@@ -24,7 +24,7 @@ use crate::{
 };
 use bevy_ptr::{move_as_ptr, OwningPtr};
 
-use alloc::sync::Arc;
+use bevy_platform::sync::Arc;
 
 /// A command which gets executed for a given [`Entity`].
 ///
