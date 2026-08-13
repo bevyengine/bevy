@@ -3,14 +3,24 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    camera::Viewport, light::CascadeShadowConfigBuilder, prelude::*, window::WindowResized,
+    camera::Viewport,
+    feathers::{
+        controls::FeathersButton, dark_theme::create_dark_theme, display::caption, theme::UiTheme,
+        FeathersPlugins,
+    },
+    light::CascadeShadowConfigBuilder,
+    prelude::*,
+    ui_widgets::Activate,
+    window::WindowResized,
 };
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins((DefaultPlugins, FeathersPlugins))
+        .insert_resource(UiTheme(create_dark_theme()))
         .add_systems(Startup, setup)
-        .add_systems(Update, (set_camera_viewports, button_system))
+        .add_systems(Update, set_camera_viewports)
+        .add_observer(on_activate_rotate_camera)
         .run();
 }
 
@@ -82,30 +92,28 @@ fn setup(
             .id();
 
         // Set up UI
-        commands.spawn((
-            UiTargetCamera(camera),
-            Node {
-                width: percent(100),
-                height: percent(100),
-                ..default()
-            },
-            children![
-                (
+        let buttons_entity = commands.spawn_scene(buttons_panel()).id();
+        commands
+            .spawn((
+                UiTargetCamera(camera),
+                Node {
+                    width: percent(100),
+                    height: percent(100),
+                    ..default()
+                },
+                children![(
                     Text::new(*camera_name),
                     Node {
-                        position_type: PositionType::Absolute,
-                        top: px(12),
-                        left: px(12),
+                        margin: px(12).all(),
                         ..default()
                     },
-                ),
-                buttons_panel(),
-            ],
-        ));
+                ),],
+            ))
+            .add_child(buttons_entity);
     }
 
-    fn buttons_panel() -> impl Bundle {
-        (
+    fn buttons_panel() -> impl Scene {
+        bsn! {
             Node {
                 position_type: PositionType::Absolute,
                 width: percent(100),
@@ -115,31 +123,24 @@ fn setup(
                 justify_content: JustifyContent::SpaceBetween,
                 align_items: AlignItems::Center,
                 padding: UiRect::all(px(20)),
-                ..default()
-            },
-            children![
+            }
+            Children [
                 rotate_button("<", Direction::Left),
                 rotate_button(">", Direction::Right),
-            ],
-        )
+            ]
+        }
     }
 
-    fn rotate_button(caption: &str, direction: Direction) -> impl Bundle {
-        (
-            RotateCamera(direction),
-            Button,
+    fn rotate_button(text_caption: &'static str, direction: Direction) -> impl Scene {
+        bsn! {
+            RotateCamera(direction)
+            @FeathersButton {
+                @caption: bsn! { caption(text_caption) },
+            }
             Node {
                 width: px(40),
-                height: px(40),
-                border: UiRect::all(px(2)),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                ..default()
-            },
-            BorderColor::all(Color::WHITE),
-            BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
-            children![Text::new(caption)],
-        )
+            }
+        }
     }
 }
 
@@ -148,10 +149,12 @@ struct CameraPosition {
     pos: UVec2,
 }
 
-#[derive(Component)]
+#[derive(Component, Clone, Default, PartialEq)]
 struct RotateCamera(Direction);
 
+#[derive(Clone, Default, PartialEq)]
 enum Direction {
+    #[default]
     Left,
     Right,
 }
@@ -178,27 +181,25 @@ fn set_camera_viewports(
     }
 }
 
-fn button_system(
-    interaction_query: Query<
-        (&Interaction, &ComputedUiTargetCamera, &RotateCamera),
-        (Changed<Interaction>, With<Button>),
-    >,
+fn on_activate_rotate_camera(
+    event: On<Activate>,
+    button_query: Query<(&ComputedUiTargetCamera, &RotateCamera), With<FeathersButton>>,
     mut camera_query: Query<&mut Transform, With<Camera>>,
 ) {
-    for (interaction, computed_target, RotateCamera(direction)) in &interaction_query {
-        if let Interaction::Pressed = *interaction {
-            // Since TargetCamera propagates to the children, we can use it to find
-            // which side of the screen the button is on.
-            if let Some(mut camera_transform) = computed_target
-                .get()
-                .and_then(|camera| camera_query.get_mut(camera).ok())
-            {
-                let angle = match direction {
-                    Direction::Left => -0.1,
-                    Direction::Right => 0.1,
-                };
-                camera_transform.rotate_around(Vec3::ZERO, Quat::from_axis_angle(Vec3::Y, angle));
-            }
-        }
+    let Ok((computed_target, RotateCamera(direction))) = button_query.get(event.entity) else {
+        return;
+    };
+
+    // Since TargetCamera propagates to the children, we can use it to find
+    // which side of the screen the button is on.
+    if let Some(mut camera_transform) = computed_target
+        .get()
+        .and_then(|camera| camera_query.get_mut(camera).ok())
+    {
+        let angle = match direction {
+            Direction::Left => -0.1,
+            Direction::Right => 0.1,
+        };
+        camera_transform.rotate_around(Vec3::ZERO, Quat::from_axis_angle(Vec3::Y, angle));
     }
 }

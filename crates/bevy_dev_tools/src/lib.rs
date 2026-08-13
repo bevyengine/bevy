@@ -18,6 +18,8 @@ mod easy_screenshot;
 pub mod fps_overlay;
 pub mod frame_time_graph;
 
+pub mod inspection;
+
 pub mod picking_debug;
 
 #[cfg(feature = "schedule_data")]
@@ -30,3 +32,5 @@ pub use easy_screenshot::*;
 pub mod render_debug;
 
 pub mod infinite_grid;
+
+pub mod world_asset_helpers;

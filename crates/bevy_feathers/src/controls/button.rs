@@ -12,7 +12,7 @@ use bevy_ecs::{
     system::{Commands, Query},
 };
 use bevy_input_focus::tab_navigation::TabIndex;
-use bevy_picking::{hover::Hovered, PickingSystems};
+use bevy_picking::{cursor::EntityCursor, hover::Hovered, PickingSystems};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::prelude::*;
 use bevy_text::FontWeight;
@@ -21,7 +21,6 @@ use bevy_ui_widgets::Button;
 
 use crate::{
     constants::{fonts, size},
-    cursor::EntityCursor,
     focus::FocusIndicator,
     font_styles::InheritableFont,
     rounded_corners::RoundedCorners,
@@ -56,6 +55,8 @@ pub enum ButtonVariant {
 ///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
 #[derive(SceneComponent, Default, Clone)]
 #[scene(FeathersButtonProps)]
+#[derive(Reflect)]
+#[reflect(Component, Clone, Default)]
 pub struct FeathersButton;
 
 /// Props used to construct a [`FeathersButton`] scene.
@@ -121,12 +122,14 @@ impl FeathersButton {
 ///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
 #[derive(SceneComponent, Default, Clone)]
 #[scene(FeathersButtonProps)]
+#[derive(Reflect)]
+#[reflect(Component, Clone, Default)]
 pub struct FeathersToolButton;
 
 impl FeathersToolButton {
     fn scene(props: FeathersButtonProps) -> impl Scene {
         bsn! {
-            :FeathersButton {
+            @FeathersButton {
                 @caption: {props.caption},
                 @variant: {props.variant},
                 @corners: {props.corners}

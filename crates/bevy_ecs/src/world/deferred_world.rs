@@ -70,15 +70,7 @@ impl<'w> DeferredWorld<'w> {
     #[inline]
     pub fn commands(&mut self) -> Commands<'_, '_> {
         // SAFETY: &mut self ensure that there are no outstanding accesses to the queue
-        let command_queue = unsafe { self.world.get_raw_command_queue() };
-        // SAFETY: command_queue is stored on world and always valid while the world exists
-        unsafe {
-            Commands::new_raw_from_entities(
-                command_queue,
-                self.world.entity_allocator(),
-                self.world.entities(),
-            )
-        }
+        unsafe { self.world.commands() }
     }
 
     /// Retrieves a mutable reference to the given `entity`'s [`Component`] of the given type.
@@ -441,11 +433,7 @@ impl<'w> DeferredWorld<'w> {
         // SAFETY:
         // - `&mut self` gives mutable access to the entire world, and prevents simultaneous access.
         // - Command queue access does not conflict with entity access.
-        let raw_queue = unsafe { cell.get_raw_command_queue() };
-        // SAFETY: `&mut self` ensures the commands does not outlive the world.
-        let commands = unsafe {
-            Commands::new_raw_from_entities(raw_queue, cell.entity_allocator(), cell.entities())
-        };
+        let commands = unsafe { cell.commands() };
 
         (fetcher, commands)
     }
@@ -472,7 +460,7 @@ impl<'w> DeferredWorld<'w> {
     /// Use [`get_resource_mut`](DeferredWorld::get_resource_mut) instead if you want to handle this case.
     #[inline]
     #[track_caller]
-    pub fn resource_mut<R: Resource>(&mut self) -> Mut<'_, R> {
+    pub fn resource_mut<R: Resource<Mutability = Mutable>>(&mut self) -> Mut<'_, R> {
         match self.get_resource_mut() {
             Some(x) => x,
             None => panic!(
@@ -487,15 +475,9 @@ impl<'w> DeferredWorld<'w> {
 
     /// Gets a mutable reference to the resource of the given type if it exists
     #[inline]
-    pub fn get_resource_mut<R: Resource>(&mut self) -> Option<Mut<'_, R>> {
+    pub fn get_resource_mut<R: Resource<Mutability = Mutable>>(&mut self) -> Option<Mut<'_, R>> {
         // SAFETY: &mut self ensure that there are no outstanding accesses to the resource
         unsafe { self.world.get_resource_mut() }
-    }
-
-    /// Gets a mutable reference to a non-send resource of the given type, if it exists.
-    #[deprecated(since = "0.19.0", note = "use DeferredWorld::non_send_mut")]
-    pub fn non_send_resource_mut<R: 'static>(&mut self) -> Mut<'_, R> {
-        self.non_send_mut::<R>()
     }
 
     /// Gets a mutable reference to the non-send data of the given type, if it exists.
@@ -518,13 +500,6 @@ impl<'w> DeferredWorld<'w> {
                 DebugName::type_name::<R>()
             ),
         }
-    }
-
-    /// Gets a mutable reference to a non-send resource of the given type, if it exists.
-    /// Otherwise returns `None`.
-    #[deprecated(since = "0.19.0", note = "use DeferredWorld::get_non_send_mut")]
-    pub fn get_non_send_resource_mut<R: 'static>(&mut self) -> Option<Mut<'_, R>> {
-        self.get_non_send_mut::<R>()
     }
 
     /// Gets a mutable reference to non-send data of the given type, if it exists.
@@ -811,6 +786,7 @@ impl<'w> DeferredWorld<'w> {
     /// This will run any [`Observer`] of the given [`Event`] that isn't scoped to specific targets.
     ///
     /// [`Observer`]: crate::observer::Observer
+    #[track_caller]
     pub fn trigger<'a>(&mut self, event: impl Event<Trigger<'a>: Default>) {
         self.commands().trigger(event);
     }

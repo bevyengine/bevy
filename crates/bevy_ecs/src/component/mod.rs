@@ -257,7 +257,7 @@ use core::{fmt::Debug, marker::PhantomData, ops::Deref};
 /// Note that cycles in the "component require tree" will result in stack overflows when attempting to
 /// insert a component.
 ///
-/// This "multiple inheritance" pattern does mean that it is possible to have duplicate requires for a given type
+/// This "multiple inheritance" pattern does mean that it is possible to have duplicate `require`s for a given type
 /// at different levels of the inheritance tree:
 ///
 /// ```
@@ -321,7 +321,7 @@ use core::{fmt::Debug, marker::PhantomData, ops::Deref};
 /// assert_eq!(&C(2), world.entity(id).get::<C>().unwrap());
 /// ```
 ///
-/// Similar rules as before apply to duplicate requires fer a given type at different levels
+/// Similar rules as before apply to duplicate `require`s for a given type at different levels
 /// of the inheritance tree. `A` requiring `C` directly would take precedence over indirectly
 /// requiring it through `A` requiring `B` and `B` requiring `C`.
 ///

@@ -773,7 +773,7 @@ where
 /// This can be used in the following way:
 ///
 /// ```
-/// # use bevy_animation::{animation_curves::AnimatedField, animated_field};
+/// # use bevy_animation::animated_field;
 /// # use bevy_color::Srgba;
 /// # use bevy_ecs::component::Component;
 /// # use bevy_math::Vec3;
@@ -793,9 +793,10 @@ where
 #[macro_export]
 macro_rules! animated_field {
     ($component:ident::$field:tt) => {
-        AnimatedField::new_unchecked(stringify!($field), |component: &mut $component| {
-            &mut component.$field
-        })
+        $crate::animation_curves::AnimatedField::new_unchecked(
+            ::core::stringify!($field),
+            |component: &mut $component| &mut component.$field,
+        )
     };
 }
 

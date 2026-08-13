@@ -154,7 +154,10 @@
 
 extern crate alloc;
 
+use core::time::Duration;
+
 pub mod backend;
+pub mod cursor;
 pub mod events;
 pub mod hover;
 pub mod input;
@@ -299,12 +302,14 @@ impl PluginGroup for DefaultPickingPlugins {
 /// ```
 /// # use bevy_app::App;
 /// # use bevy_picking::{PickingSettings, PickingPlugin};
+/// # use core::time::Duration;
 /// App::new()
 ///     .insert_resource(PickingSettings {
 ///         is_enabled: true,
 ///         is_input_enabled: false,
 ///         is_hover_enabled: true,
 ///         is_window_picking_enabled: false,
+///         multi_click_interval: Duration::from_millis(450),
 ///     })
 ///     // or DefaultPlugins
 ///     .add_plugins(PickingPlugin);
@@ -318,6 +323,8 @@ pub struct PickingSettings {
     pub is_hover_enabled: bool,
     /// Enables or disables picking for window entities.
     pub is_window_picking_enabled: bool,
+    /// Maximum time between presses or clicks for them to count as consecutive.
+    pub multi_click_interval: Duration,
 }
 
 impl PickingSettings {
@@ -345,6 +352,7 @@ impl Default for PickingSettings {
             is_input_enabled: true,
             is_hover_enabled: true,
             is_window_picking_enabled: true,
+            multi_click_interval: Duration::from_millis(500),
         }
     }
 }
@@ -416,6 +424,7 @@ impl Plugin for InteractionPlugin {
 
         app.init_resource::<hover::HoverMap>()
             .init_resource::<hover::PreviousHoverMap>()
+            .init_resource::<PickingSettings>()
             .init_resource::<PointerState>()
             .add_message::<Pointer<Cancel>>()
             .add_message::<Pointer<Click>>()

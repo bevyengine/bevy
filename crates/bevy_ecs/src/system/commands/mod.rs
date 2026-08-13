@@ -4,6 +4,7 @@ pub mod entity_command;
 #[cfg(feature = "std")]
 mod parallel_scope;
 
+use bevy_ecs_macros::SystemParam;
 use bevy_ptr::move_as_ptr;
 pub use command::Command;
 pub use entity_command::EntityCommand;
@@ -15,7 +16,6 @@ use alloc::boxed::Box;
 use core::marker::PhantomData;
 
 use crate::{
-    self as bevy_ecs,
     bundle::{Bundle, InsertMode, NoBundleEffect},
     change_detection::{MaybeLocation, Mut},
     component::{Component, ComponentId, Mutable},
@@ -30,13 +30,8 @@ use crate::{
     relationship::RelationshipHookMode,
     resource::Resource,
     schedule::ScheduleLabel,
-    system::{
-        Deferred, IntoSystem, RegisteredSystem, SystemId, SystemInput, SystemParamValidationError,
-    },
-    world::{
-        command_queue::RawCommandQueue, unsafe_world_cell::UnsafeWorldCell, CommandQueue,
-        EntityWorldMut, FromWorld, World,
-    },
+    system::{BoxedSystem, Deferred, IntoSystem, RegisteredSystem, SystemId, SystemInput},
+    world::{CommandQueue, EntityWorldMut, FromWorld, World},
 };
 
 /// A [`Command`] queue to perform structural changes to the [`World`].
@@ -102,8 +97,13 @@ use crate::{
 /// The [`error`](crate::error) module provides some simple error handlers for convenience.
 ///
 /// [`ApplyDeferred`]: crate::schedule::ApplyDeferred
+#[derive(SystemParam)]
 pub struct Commands<'w, 's> {
-    queue: InternalQueue<'s>,
+    /// The command queue that commands will be pushed to.
+    ///
+    /// This must not be exposed as a `&mut` to untrusted code,
+    /// as calling `apply()` on it could execute commands before [`World::command_queue_start`].
+    queue: Deferred<'s, CommandQueue>,
     entities: &'w Entities,
     allocator: &'w EntityAllocator,
 }
@@ -113,107 +113,6 @@ unsafe impl Send for Commands<'_, '_> {}
 
 // SAFETY: `Commands` never gives access to the inner commands.
 unsafe impl Sync for Commands<'_, '_> {}
-
-const _: () = {
-    type __StructFieldsAlias<'w, 's> = (
-        Deferred<'s, CommandQueue>,
-        &'w EntityAllocator,
-        &'w Entities,
-    );
-    #[doc(hidden)]
-    pub struct FetchState {
-        state: <__StructFieldsAlias<'static, 'static> as bevy_ecs::system::SystemParam>::State,
-    }
-    // SAFETY: Only reads Entities
-    unsafe impl bevy_ecs::system::SystemParam for Commands<'_, '_> {
-        type State = FetchState;
-
-        type Item<'w, 's> = Commands<'w, 's>;
-
-        #[track_caller]
-        fn init_state(world: &mut World) -> Self::State {
-            FetchState {
-                state: <__StructFieldsAlias<'_, '_> as bevy_ecs::system::SystemParam>::init_state(
-                    world,
-                ),
-            }
-        }
-
-        fn init_access(
-            state: &Self::State,
-            system_meta: &mut bevy_ecs::system::SystemMeta,
-            component_access_set: &mut bevy_ecs::query::FilteredAccessSet,
-            world: &mut World,
-        ) {
-            <__StructFieldsAlias<'_, '_> as bevy_ecs::system::SystemParam>::init_access(
-                &state.state,
-                system_meta,
-                component_access_set,
-                world,
-            );
-        }
-
-        fn apply(
-            state: &mut Self::State,
-            system_meta: &bevy_ecs::system::SystemMeta,
-            world: &mut World,
-        ) {
-            <__StructFieldsAlias<'_, '_> as bevy_ecs::system::SystemParam>::apply(
-                &mut state.state,
-                system_meta,
-                world,
-            );
-        }
-
-        fn queue(
-            state: &mut Self::State,
-            system_meta: &bevy_ecs::system::SystemMeta,
-            world: bevy_ecs::world::DeferredWorld,
-        ) {
-            <__StructFieldsAlias<'_, '_> as bevy_ecs::system::SystemParam>::queue(
-                &mut state.state,
-                system_meta,
-                world,
-            );
-        }
-
-        #[inline]
-        #[track_caller]
-        unsafe fn get_param<'w, 's>(
-            state: &'s mut Self::State,
-            system_meta: &bevy_ecs::system::SystemMeta,
-            world: UnsafeWorldCell<'w>,
-            change_tick: bevy_ecs::change_detection::Tick,
-        ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
-            // SAFETY: Upheld by caller
-            let params = unsafe {
-                <__StructFieldsAlias as bevy_ecs::system::SystemParam>::get_param(
-                    &mut state.state,
-                    system_meta,
-                    world,
-                    change_tick,
-                )?
-            };
-            Ok(Commands {
-                queue: InternalQueue::CommandQueue(params.0),
-                allocator: params.1,
-                entities: params.2,
-            })
-        }
-    }
-    // SAFETY: Only reads Entities
-    unsafe impl<'w, 's> bevy_ecs::system::ReadOnlySystemParam for Commands<'w, 's>
-    where
-        Deferred<'s, CommandQueue>: bevy_ecs::system::ReadOnlySystemParam,
-        &'w Entities: bevy_ecs::system::ReadOnlySystemParam,
-    {
-    }
-};
-
-enum InternalQueue<'s> {
-    CommandQueue(Deferred<'s, CommandQueue>),
-    RawCommandQueue(RawCommandQueue),
-}
 
 impl<'w, 's> Commands<'w, 's> {
     /// Returns a new `Commands` instance from a [`CommandQueue`] and a [`World`].
@@ -228,26 +127,7 @@ impl<'w, 's> Commands<'w, 's> {
         entities: &'w Entities,
     ) -> Self {
         Self {
-            queue: InternalQueue::CommandQueue(Deferred(queue)),
-            allocator,
-            entities,
-        }
-    }
-
-    /// Returns a new `Commands` instance from a [`RawCommandQueue`] and an [`Entities`] reference.
-    ///
-    /// This is used when constructing [`Commands`] from a [`DeferredWorld`](crate::world::DeferredWorld).
-    ///
-    /// # Safety
-    ///
-    /// * Caller ensures that `queue` must outlive `'w`
-    pub(crate) unsafe fn new_raw_from_entities(
-        queue: RawCommandQueue,
-        allocator: &'w EntityAllocator,
-        entities: &'w Entities,
-    ) -> Self {
-        Self {
-            queue: InternalQueue::RawCommandQueue(queue),
+            queue: Deferred(queue),
             allocator,
             entities,
         }
@@ -288,12 +168,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// ```
     pub fn reborrow(&mut self) -> Commands<'w, '_> {
         Commands {
-            queue: match &mut self.queue {
-                InternalQueue::CommandQueue(queue) => InternalQueue::CommandQueue(queue.reborrow()),
-                InternalQueue::RawCommandQueue(queue) => {
-                    InternalQueue::RawCommandQueue(queue.clone())
-                }
-            },
+            queue: self.queue.reborrow(),
             allocator: self.allocator,
             entities: self.entities,
         }
@@ -301,13 +176,7 @@ impl<'w, 's> Commands<'w, 's> {
 
     /// Take all commands from `other` and append them to `self`, leaving `other` empty.
     pub fn append(&mut self, other: &mut CommandQueue) {
-        match &mut self.queue {
-            InternalQueue::CommandQueue(queue) => queue.bytes.append(&mut other.bytes),
-            InternalQueue::RawCommandQueue(queue) => {
-                // SAFETY: Pointers in `RawCommandQueue` are never null
-                unsafe { queue.bytes.as_mut() }.append(&mut other.bytes);
-            }
-        }
+        self.queue.bytes.append(&mut other.bytes);
     }
 
     /// Spawns a new empty [`Entity`] and returns its corresponding [`EntityCommands`].
@@ -694,7 +563,7 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn queue_handled(
         &mut self,
         command: impl Command,
-        error_handler: fn(BevyError, ErrorContext),
+        error_handler: impl FnOnce(BevyError, ErrorContext) + Send + 'static,
     ) {
         self.queue_internal(command.handle_error_with(error_handler));
     }
@@ -705,18 +574,7 @@ impl<'w, 's> Commands<'w, 's> {
     }
 
     fn queue_internal(&mut self, command: impl Command<Out = ()>) {
-        match &mut self.queue {
-            InternalQueue::CommandQueue(queue) => {
-                queue.push(command);
-            }
-            InternalQueue::RawCommandQueue(queue) => {
-                // SAFETY: `RawCommandQueue` is only every constructed in `Commands::new_raw_from_entities`
-                // where the caller of that has ensured that `queue` outlives `self`
-                unsafe {
-                    queue.push(command);
-                }
-            }
-        }
+        self.queue.push(command);
     }
 
     /// Adds a series of [`Bundles`](Bundle) to each [`Entity`] they are paired with,
@@ -951,7 +809,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// It will internally return a [`RegisteredSystemError`](crate::system::system_registry::RegisteredSystemError),
     /// which will be handled by [logging the error at the `warn` level](warn).
-    pub fn run_system(&mut self, id: SystemId) {
+    pub fn run_system(&mut self, id: impl Into<SystemId> + Send) {
         self.queue(command::run_system(id).handle_error_with(warn));
     }
 
@@ -973,8 +831,11 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// It will internally return a [`RegisteredSystemError`](crate::system::system_registry::RegisteredSystemError),
     /// which will be handled by [logging the error at the `warn` level](warn).
-    pub fn run_system_with<I>(&mut self, id: SystemId<I>, input: I::Inner<'static>)
-    where
+    pub fn run_system_with<I>(
+        &mut self,
+        id: impl Into<SystemId<I>> + Send,
+        input: I::Inner<'static>,
+    ) where
         I: SystemInput<Inner<'static>: Send> + 'static,
     {
         self.queue(command::run_system_with(id, input).handle_error_with(warn));
@@ -1046,9 +907,79 @@ impl<'w, 's> Commands<'w, 's> {
         I: SystemInput + Send + 'static,
         O: Send + 'static,
     {
-        let entity = self.spawn_empty().id();
-        let system = RegisteredSystem::<I, O>::new(Box::new(IntoSystem::into_system(system)));
-        self.entity(entity).insert(system);
+        self.register_boxed_system(Box::new(IntoSystem::into_system(system)))
+    }
+
+    /// Registers a [`BoxedSystem`] and returns its [`SystemId`] so it can later be called by
+    /// [`Commands::run_system`] or [`World::run_system`].
+    ///
+    /// This is different from adding systems to a [`Schedule`](crate::schedule::Schedule),
+    /// because the [`SystemId`] that is returned can be used anywhere in the [`World`] to run the associated system.
+    ///
+    /// Using a [`Schedule`](crate::schedule::Schedule) is still preferred for most cases
+    /// due to its better performance and ability to run non-conflicting systems simultaneously.
+    ///
+    /// # Note
+    ///
+    /// If the same system is registered more than once,
+    /// each registration will be considered a different system,
+    /// and they will each be given their own [`SystemId`].
+    ///
+    /// If you want to avoid registering the same system multiple times,
+    /// consider using [`Commands::run_system_cached`] or storing the [`SystemId`]
+    /// in a [`Local`](crate::system::Local).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::{prelude::*, world::CommandQueue, system::SystemId};
+    /// #[derive(Resource)]
+    /// struct Counter(i32);
+    ///
+    /// fn register_system(
+    ///     mut commands: Commands,
+    ///     mut local_system: Local<Option<SystemId>>,
+    /// ) {
+    ///     if let Some(system) = *local_system {
+    ///         commands.run_system(system);
+    ///     } else {
+    ///         let boxed_system = Box::new(IntoSystem::into_system(increment_counter));
+    ///         *local_system = Some(commands.register_boxed_system(boxed_system));
+    ///     }
+    /// }
+    ///
+    /// fn increment_counter(mut value: ResMut<Counter>) {
+    ///     value.0 += 1;
+    /// }
+    ///
+    /// # let mut world = World::default();
+    /// # world.insert_resource(Counter(0));
+    /// # let mut queue_1 = CommandQueue::default();
+    /// # let systemid = {
+    /// #   let mut commands = Commands::new(&mut queue_1, &world);
+    /// #   let boxed_system = Box::new(IntoSystem::into_system(increment_counter));
+    /// #   commands.register_boxed_system(boxed_system)
+    /// # };
+    /// # let mut queue_2 = CommandQueue::default();
+    /// # {
+    /// #   let mut commands = Commands::new(&mut queue_2, &world);
+    /// #   commands.run_system(systemid);
+    /// # }
+    /// # queue_1.append(&mut queue_2);
+    /// # queue_1.apply(&mut world);
+    /// # assert_eq!(1, world.resource::<Counter>().0);
+    /// # bevy_ecs::system::assert_is_system(register_system);
+    /// ```
+    ///
+    /// # See also
+    ///
+    /// - [`register_system`](Self::register_system) to register a system that has not been boxed.
+    pub fn register_boxed_system<I, O>(&mut self, system: BoxedSystem<I, O>) -> SystemId<I, O>
+    where
+        I: SystemInput + Send + 'static,
+        O: Send + 'static,
+    {
+        let entity = self.spawn(RegisteredSystem::new(system)).id();
         SystemId::from_entity(entity)
     }
 
@@ -1995,7 +1926,7 @@ impl<'a> EntityCommands<'a> {
     pub fn queue_handled(
         &mut self,
         command: impl EntityCommand,
-        error_handler: fn(BevyError, ErrorContext),
+        error_handler: impl FnOnce(BevyError, ErrorContext) + Send + 'static,
     ) -> &mut Self {
         self.commands
             .queue_handled(command.with_entity(self.entity), error_handler);

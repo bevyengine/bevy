@@ -1,12 +1,20 @@
 use core::marker::PhantomData;
 
-use bevy_app::{App, Plugin};
+use bevy_app::{App, AppLabel, Plugin};
 use bevy_ecs::{
     bundle::{Bundle, NoBundleEffect},
     component::Component,
+    lifecycle::Remove,
+    observer::On,
+    system::ResMut,
 };
 
-use crate::sync_world::{EntityRecord, PendingSyncEntity, SyncToRenderWorld};
+use crate::{
+    sync_world::{EntityRecord, PendingSyncEntity, SyncToSubWorld},
+    RenderApp,
+};
+
+use bevy_log::warn_once;
 
 /// Plugin that registers a component for automatic sync to the render world. See [`SyncWorldPlugin`] for more information.
 ///
@@ -18,14 +26,16 @@ use crate::sync_world::{EntityRecord, PendingSyncEntity, SyncToRenderWorld};
 ///
 /// # Implementation details
 ///
-/// It adds [`SyncToRenderWorld`] as a required component to make the [`SyncWorldPlugin`] aware of the component, and
+/// It adds [`SyncToSubWorld`] as a required component to make the [`SyncWorldPlugin`] aware of the component, and
 /// handles cleanup of the component in the render world when it is removed from an entity.
 ///
 /// [`ExtractComponentPlugin`]: crate::extract_component::ExtractComponentPlugin
 /// [`SyncWorldPlugin`]: crate::sync_world::SyncWorldPlugin
-pub struct SyncComponentPlugin<C, F = ()>(PhantomData<(C, F)>);
+pub struct SyncComponentPlugin<C, L: AppLabel = RenderApp, F = ()>(PhantomData<(C, L, F)>);
 
-impl<C: SyncComponent<F>, F> Default for SyncComponentPlugin<C, F> {
+// pub type SyncComponentPlugin<C, F = ()> = SyncComponentPlugin<C, RenderApp, F>;
+
+impl<C: SyncComponent<L, F>, L: AppLabel, F> Default for SyncComponentPlugin<C, L, F> {
     fn default() -> Self {
         Self(PhantomData)
     }
@@ -37,7 +47,9 @@ impl<C: SyncComponent<F>, F> Default for SyncComponentPlugin<C, F> {
 /// The marker type `F` is only used as a way to bypass the orphan rules. To
 /// implement the trait for a foreign type you can use a local type as the
 /// marker, e.g. the type of the plugin that calls [`SyncComponentPlugin`].
-pub trait SyncComponent<F = ()>: Component {
+///
+/// [`ExtractComponent`]: crate::extract_component::ExtractComponent
+pub trait SyncComponent<L: AppLabel, F = ()>: Component {
     /// Describes what components should be removed from the render world if the
     /// implementing component is removed.
     type Target: Bundle<Effect: NoBundleEffect>;
@@ -45,20 +57,56 @@ pub trait SyncComponent<F = ()>: Component {
     // type Target: Bundle<Effect: NoBundleEffect> = Self;
 }
 
-impl<C: SyncComponent<F>, F: Send + Sync + 'static> Plugin for SyncComponentPlugin<C, F> {
+impl<
+        C: SyncComponent<L, F>,
+        L: AppLabel + Default + Clone + Copy + Eq,
+        F: Send + Sync + 'static,
+    > Plugin for SyncComponentPlugin<C, L, F>
+{
     fn build(&self, app: &mut App) {
-        app.register_required_components::<C, SyncToRenderWorld>();
+        app.register_required_components::<C, SyncToSubWorld<L>>();
 
-        app.world_mut()
-            .register_component_hooks::<C>()
-            .on_remove(|mut world, context| {
-                let mut pending = world.resource_mut::<PendingSyncEntity>();
-                pending.push(EntityRecord::ComponentRemoved(
-                    context.entity,
+        app.add_observer(
+            |remove: On<Remove, C>, maybe_pending: Option<ResMut<PendingSyncEntity<L>>>| {
+                let Some(mut pending) = maybe_pending else {
+                    warn_once!("A component with sync plugin was removed, but the sub world does not exist, so there is nothing to sync. Skip sync to sub world.");
+                    return;
+                };
+                pending.push(EntityRecord::<L>::ComponentRemoved(
+                    remove.entity,
                     |mut entity| {
                         entity.remove::<C::Target>();
                     },
                 ));
-            });
+            },
+        );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use bevy_app::App;
+    use bevy_ecs::component::Component;
+
+    use super::{SyncComponent, SyncComponentPlugin};
+    use crate::RenderApp;
+
+    #[derive(Component)]
+    struct TestSyncComponent;
+
+    impl SyncComponent<RenderApp> for TestSyncComponent {
+        type Target = Self;
+    }
+
+    // Regression test for https://github.com/bevyengine/bevy/issues/24927:
+    // with `WgpuSettings { backends: None }` there is no render world, and Bevy used to crash on removing any synced component.
+    // This test checks that the bug does not happen again.
+    #[test]
+    fn remove_synced_component_without_render_world() {
+        let mut app = App::new();
+        app.add_plugins(SyncComponentPlugin::<TestSyncComponent>::default());
+
+        let entity = app.world_mut().spawn(TestSyncComponent).id();
+        app.world_mut().despawn(entity);
     }
 }
