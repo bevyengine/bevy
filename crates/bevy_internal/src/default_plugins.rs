@@ -147,39 +147,6 @@ impl Plugin for IgnoreAmbiguitiesPlugin {
             );
         }
 
-        #[cfg(all(
-            feature = "bevy_ui_widgets",
-            feature = "bevy_gizmos_render",
-            feature = "bevy_pbr"
-        ))]
-        if app.is_plugin_added::<bevy_ui_widgets::TextInputPlugin>()
-            && app.is_plugin_added::<bevy_gizmos::GizmoPlugin>()
-        {
-            // update_placeholders writes Visibility only on the placeholder
-            // label entities it spawns and owns; update_gizmo_meshes writes
-            // it only on gizmo mesh entities. Entity-disjoint by construction.
-            app.ignore_ambiguity(
-                bevy_app::PostUpdate,
-                bevy_ui_widgets::PlaceholderSystems,
-                bevy_gizmos_render::transform_gizmo_render::TransformGizmoMeshSystems,
-            );
-        }
-
-        #[cfg(all(feature = "bevy_ui_widgets", feature = "bevy_ui"))]
-        if app.is_plugin_added::<bevy_ui_widgets::TextInputPlugin>()
-            && app.is_plugin_added::<bevy_ui::UiPlugin>()
-        {
-            // update_placeholders writes Node only on its own overlay label
-            // entities, and those writes take layout effect on the NEXT
-            // frame regardless of ordering; update_clipping_system reads
-            // Node across all UI nodes within the same frame's layout.
-            app.ignore_ambiguity(
-                bevy_app::PostUpdate,
-                bevy_ui_widgets::PlaceholderSystems,
-                bevy_ui::update::update_clipping_system,
-            );
-        }
-
         // bevy_ui owns the Transform and cannot be animated
         #[cfg(all(feature = "bevy_animation", feature = "bevy_ui"))]
         if app.is_plugin_added::<bevy_animation::AnimationPlugin>()

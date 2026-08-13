@@ -700,14 +700,20 @@ pub struct Placeholder {
     pub text: String,
     /// When the hint is shown relative to focus. See [`PlaceholderMode`].
     pub mode: PlaceholderMode,
+    /// [`GlobalZIndex`] for the hint overlay. Defaults to `Some(1)`, which
+    /// stacks it above default-Z UI roots; a field inside a modal or popup
+    /// with its own `GlobalZIndex` should set a higher value here. `None`
+    /// stacks the overlay like an ordinary root node.
+    pub z_index: Option<i32>,
 }
 
 impl Placeholder {
-    /// A placeholder with the default [`PlaceholderMode`].
+    /// A placeholder with the default [`PlaceholderMode`] and z-index.
     pub fn new(text: impl Into<String>) -> Self {
         Self {
             text: text.into(),
             mode: PlaceholderMode::default(),
+            z_index: Some(1),
         }
     }
 }
@@ -718,9 +724,9 @@ pub enum PlaceholderMode {
     /// Shown whenever the buffer is empty, focused or not (web default).
     #[default]
     WhileEmpty,
-    /// Hidden the moment the field gains focus; shown again on
-    /// blur-while-empty.
-    UntilFocused,
+    /// Hidden while the field has focus; shown whenever it is empty and
+    /// unfocused.
+    UnlessFocused,
 }
 
 /// Optional color override for [`Placeholder`] text. When absent, the
@@ -771,7 +777,7 @@ fn placeholder_visibility(
     focused: bool,
 ) -> Visibility {
     let empty = editable_text.value() == "";
-    if empty && !(mode == PlaceholderMode::UntilFocused && focused) {
+    if empty && !(mode == PlaceholderMode::UnlessFocused && focused) {
         Visibility::Inherited
     } else {
         Visibility::Hidden
@@ -827,13 +833,15 @@ fn on_placeholder_added(
             overflow: Overflow::clip(),
             ..Default::default()
         },
-        // deterministically above default-Z ui roots; overlays that must
-        // cover a hinted field (popups, modals) should use a higher value.
-        GlobalZIndex(1),
         Visibility::Hidden,
         Pickable::IGNORE,
     ));
     label.add_child(text);
+    // stacking is the field author's call: the default Some(1) sits above
+    // default-Z ui roots, a modal-hosted field sets something higher
+    if let Some(z) = placeholder.z_index {
+        label.insert(GlobalZIndex(z));
+    }
     // render to the same camera as the field
     if let Some(camera) = target_camera {
         label.insert(camera.clone());
@@ -1075,7 +1083,17 @@ impl Plugin for TextInputPlugin {
                     // disjointness. It holds in practice: placeholder labels
                     // are root-level overlays, never UI children of a
                     // Button/ImageNode/Label subtree.
-                    .ambiguous_with(bevy_ui::UiAccessibilitySystems),
+                    .ambiguous_with(bevy_ui::AccessibilityUiSystems)
+                    // update_placeholders writes Visibility/Node only on the
+                    // overlay labels it spawns and owns; the gizmo step
+                    // writes gizmo meshes, update_clipping_system reads Node
+                    // across UI (and overlay Node writes take layout effect
+                    // NEXT frame regardless of ordering). Entity-disjoint by
+                    // construction. Declared here rather than in
+                    // DefaultPlugins so no feature gating is needed; the
+                    // gizmo anchor set lives in bevy_app for exactly this.
+                    .ambiguous_with(bevy_app::TransformGizmoRenderStep)
+                    .ambiguous_with(bevy_ui::update::update_clipping_system),
             );
 
         // These components cannot be registered in `bevy_text` where `EditableText` is defined,
@@ -1569,14 +1587,15 @@ mod tests {
     }
 
     #[test]
-    fn placeholder_until_focused_hides_on_focus() {
+    fn placeholder_unless_focused_hides_on_focus() {
         let mut app = placeholder_app();
         let field = spawn_placeholder_field(
             &mut app,
             EditableText::default(),
             Placeholder {
                 text: "hint".into(),
-                mode: PlaceholderMode::UntilFocused,
+                mode: PlaceholderMode::UnlessFocused,
+                z_index: Some(1),
             },
         );
         let (label, _) = find_label(&mut app, field).unwrap();
@@ -1589,7 +1608,7 @@ mod tests {
         assert_eq!(
             label_visibility(&app, label),
             Visibility::Hidden,
-            "UntilFocused hides on focus gain even while empty"
+            "UnlessFocused hides on focus gain even while empty"
         );
 
         app.world_mut().resource_mut::<InputFocus>().clear();

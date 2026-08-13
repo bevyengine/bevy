@@ -15,7 +15,7 @@ use bevy_ecs::{
     hierarchy::ChildOf,
     query::{Or, With, Without},
     resource::Resource,
-    schedule::{IntoScheduleConfigs, SystemSet},
+    schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
 };
 use bevy_math::{
@@ -90,7 +90,7 @@ impl Plugin for TransformGizmoRenderPlugin {
         .add_systems(
             PostUpdate,
             (
-                update_gizmo_meshes.in_set(TransformGizmoMeshSystems),
+                update_gizmo_meshes,
                 propagate_transforms_for::<
                     Or<(
                         With<TransformGizmoRoot>,
@@ -109,11 +109,6 @@ impl Plugin for TransformGizmoRenderPlugin {
         );
     }
 }
-
-/// System set for the transform gizmo's mesh update, used for
-/// cross-crate ambiguity resolution in `DefaultPlugins`.
-#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
-pub struct TransformGizmoMeshSystems;
 
 fn axis_vec(axis: TransformGizmoAxis) -> Vec3 {
     match axis {
