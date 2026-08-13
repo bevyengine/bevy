@@ -103,6 +103,10 @@ impl Default for UiPickingSettings {
 /// A plugin that adds picking support for UI nodes.
 ///
 /// This is included by default in [`UiPlugin`](crate::UiPlugin).
+///
+/// Its behavior is configured through the [`UiPickingSettings`] resource, and
+/// can be tuned per-node with the [`UiPickingMode`] component or per-camera
+/// with the [`UiPickingCamera`] component.
 #[derive(Clone)]
 pub struct UiPickingPlugin;
 impl Plugin for UiPickingPlugin {
