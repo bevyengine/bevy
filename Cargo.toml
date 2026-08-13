@@ -608,14 +608,8 @@ default_font = ["bevy_internal/default_font"]
 # Allows for discovery of preloaded system fonts
 system_font_discovery = ["bevy_internal/system_font_discovery"]
 
-# Enable support for shaders in GLSL
-shader_format_glsl = ["bevy_internal/shader_format_glsl"]
-
 # Enable support for shaders in SPIR-V
 shader_format_spirv = ["bevy_internal/shader_format_spirv"]
-
-# Enable support for shaders in WESL
-shader_format_wesl = ["bevy_internal/shader_format_wesl"]
 
 # Enable support for transmission-related textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs
 pbr_transmission_textures = ["bevy_internal/pbr_transmission_textures"]
@@ -912,6 +906,7 @@ wasm = true
 name = "2d_shapes"
 path = "examples/2d/2d_shapes.rs"
 doc-scrape-examples = true
+required-features = ["bevy_feathers"]
 
 [package.metadata.example.2d_shapes]
 name = "2D Shapes"
@@ -1179,6 +1174,7 @@ wasm = true
 name = "wireframe_2d"
 path = "examples/2d/wireframe_2d.rs"
 doc-scrape-examples = true
+required-features = ["bevy_feathers"]
 
 [package.metadata.example.wireframe_2d]
 name = "2D Wireframe"
@@ -1327,7 +1323,7 @@ wasm = true
 name = "contact_shadows"
 path = "examples/3d/contact_shadows.rs"
 doc-scrape-examples = true
-required-features = ["bluenoise_texture"]
+required-features = ["bluenoise_texture", "bevy_feathers"]
 
 [package.metadata.example.contact_shadows]
 name = "Contact Shadows"
@@ -1429,6 +1425,7 @@ wasm = true
 name = "order_independent_transparency"
 path = "examples/3d/order_independent_transparency.rs"
 doc-scrape-examples = true
+required-features = ["bevy_feathers"]
 
 [package.metadata.example.order_independent_transparency]
 name = "Order Independent Transparency"
@@ -1548,7 +1545,20 @@ required-features = ["bevy_solari", "https", "free_camera"]
 name = "Solari"
 description = "Demonstrates realtime dynamic raytraced lighting using Bevy Solari."
 category = "3D Rendering"
-wasm = false                                                                        # Raytracing is not supported on the web
+wasm = false
+
+[[example]]
+name = "solari_reflections"
+path = "examples/3d/solari_reflections.rs"
+doc-scrape-examples = true
+required-features = ["bevy_solari", "free_camera"]
+
+[package.metadata.example.solari_reflections]
+name = "Solari Reflections"
+description = "Test bed for Solari reflections."
+category = "3D Rendering"
+wasm = false
+hidden = true
 
 [[example]]
 name = "spherical_area_lights"
@@ -1565,6 +1575,7 @@ wasm = true
 name = "split_screen"
 path = "examples/3d/split_screen.rs"
 doc-scrape-examples = true
+required-features = ["bevy_feathers"]
 
 [package.metadata.example.split_screen]
 name = "Split Screen"
@@ -1744,6 +1755,7 @@ wasm = true
 name = "animation_graph"
 path = "examples/animation/animation_graph.rs"
 doc-scrape-examples = true
+required-features = ["bevy_feathers"]
 
 [package.metadata.example.animation_graph]
 name = "Animation Graph"
@@ -2863,6 +2875,17 @@ description = "Demonstrates how to create a loading screen that waits for all as
 category = "Games"
 wasm = true
 
+[[example]]
+name = "mines"
+path = "examples/showcase/mines.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.mines]
+name = "Mines"
+description = "A simple minesweeper-style game in Bevy UI"
+category = "Games"
+wasm = true
+
 # Input
 [[example]]
 name = "char_input_events"
@@ -3221,30 +3244,6 @@ category = "Shaders"
 wasm = true
 
 [[example]]
-name = "shader_material_glsl"
-path = "examples/shader/shader_material_glsl.rs"
-doc-scrape-examples = true
-required-features = ["shader_format_glsl"]
-
-[package.metadata.example.shader_material_glsl]
-name = "Material - GLSL"
-description = "A shader that uses the GLSL shading language"
-category = "Shaders"
-wasm = true
-
-[[example]]
-name = "shader_material_wesl"
-path = "examples/shader/shader_material_wesl.rs"
-doc-scrape-examples = true
-required-features = ["shader_format_wesl"]
-
-[package.metadata.example.shader_material_wesl]
-name = "Material - WESL"
-description = "A shader that uses WESL"
-category = "Shaders"
-wasm = true
-
-[[example]]
 name = "automatic_instancing"
 path = "examples/shader/automatic_instancing.rs"
 doc-scrape-examples = true
@@ -3298,6 +3297,18 @@ name = "Compute Shader Mesh"
 description = "A compute shader that generates a mesh that is controlled by a Handle"
 category = "Shaders"
 wasm = false
+
+[[example]]
+name = "deferred_raymarch"
+path = "examples/shader_advanced/deferred_raymarch.rs"
+doc-scrape-examples = true
+required-features = ["free_camera"]
+
+[package.metadata.example.deferred_raymarch]
+name = "Deferred Gbuffer Raymarching"
+description = "Writes a raymarched SDF into the deferred gbuffer so it is lit by the standard PBR deferred lighting pass"
+category = "Shaders Advanced"
+wasm = true
 
 [[example]]
 name = "array_texture"
@@ -3814,6 +3825,7 @@ wasm = true
 name = "box_shadow"
 path = "examples/ui/styling/box_shadow.rs"
 doc-scrape-examples = true
+required-features = ["bevy_feathers"]
 
 [package.metadata.example.box_shadow]
 name = "Box Shadow"
@@ -3858,6 +3870,7 @@ wasm = true
 name = "display_and_visibility"
 path = "examples/ui/layout/display_and_visibility.rs"
 doc-scrape-examples = true
+required-features = ["bevy_feathers"]
 
 [package.metadata.example.display_and_visibility]
 name = "Display and Visibility"
@@ -3950,6 +3963,17 @@ doc-scrape-examples = true
 [package.metadata.example.overflow_debug]
 name = "Overflow and Clipping Debug"
 description = "An example to debug overflow and clipping behavior"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "overflow_transform"
+path = "examples/ui/scroll_and_overflow/overflow_transform.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.overflow_transform]
+name = "Overflow Transform"
+description = "Demonstrates nested transformed UI clipping"
 category = "UI (User Interface)"
 wasm = true
 
@@ -4557,7 +4581,7 @@ wasm = true
 name = "transform_gizmo"
 path = "examples/gizmos/transform_gizmo.rs"
 doc-scrape-examples = true
-required-features = ["free_camera"]
+required-features = ["free_camera", "bevy_feathers"]
 
 [package.metadata.example.transform_gizmo]
 name = "Transform Gizmo"
@@ -4918,7 +4942,7 @@ wasm = true
 name = "clearcoat"
 path = "examples/3d/clearcoat.rs"
 doc-scrape-examples = true
-required-features = ["pbr_multi_layer_material_textures"]
+required-features = ["pbr_multi_layer_material_textures", "bevy_feathers"]
 
 [package.metadata.example.clearcoat]
 name = "Clearcoat"
@@ -5151,6 +5175,7 @@ wasm = true
 name = "animation_masks"
 path = "examples/animation/animation_masks.rs"
 doc-scrape-examples = true
+required-features = ["bevy_feathers"]
 
 [package.metadata.example.animation_masks]
 name = "Animation Masks"
@@ -5174,7 +5199,7 @@ wasm = false
 name = "mixed_lighting"
 path = "examples/3d/mixed_lighting.rs"
 doc-scrape-examples = true
-required-features = ["jpeg"]
+required-features = ["jpeg", "bevy_feathers"]
 
 [package.metadata.example.mixed_lighting]
 name = "Mixed lighting"
@@ -5242,6 +5267,10 @@ codegen-units = 1
 inherits = "release"
 lto = "fat"
 panic = "abort"
+
+# Keep mobile dev artifacts small enough for emulator and simulator installs.
+[profile.dev.package.bevy_mobile_example]
+strip = true
 
 [package.metadata.docs.rs]
 # This cfg is needed so that #[doc(fake_variadic)] is correctly propagated for
@@ -5368,24 +5397,13 @@ wasm = false
 name = "occlusion_culling"
 path = "examples/3d/occlusion_culling.rs"
 doc-scrape-examples = true
+required-features = ["bevy_feathers"]
 
 [package.metadata.example.occlusion_culling]
 name = "Occlusion Culling"
 description = "Demonstration of Occlusion Culling"
 category = "3D Rendering"
 wasm = false
-
-[[example]]
-name = "widgets"
-path = "examples/helpers/widgets.rs"
-doc-scrape-examples = true
-crate-type = ["lib"]
-
-[package.metadata.example.widgets]
-name = "Widgets"
-description = "Example UI Widgets"
-category = "Helpers"
-wasm = true
 
 [[example]]
 name = "no_std_library"
@@ -5442,6 +5460,17 @@ doc-scrape-examples = true
 name = "Standard Widgets"
 description = "Demonstrates use of core (headless) widgets in Bevy UI"
 category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "character_creation"
+path = "examples/usage/character_creation.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.character_creation]
+name = "Character Creation with UI Widgets"
+description = "Demonstrates how to use headless widgets to power a Character Creation Menu"
+category = "Usage"
 wasm = true
 
 [[example]]
@@ -5576,7 +5605,7 @@ wasm = false
 name = "clustered_decal_maps"
 path = "examples/3d/clustered_decal_maps.rs"
 doc-scrape-examples = true
-required-features = ["pbr_clustered_decals", "https"]
+required-features = ["pbr_clustered_decals", "https", "bevy_feathers"]
 
 [package.metadata.example.clustered_decal_maps]
 name = "Clustered Decal Maps"
@@ -5600,6 +5629,7 @@ wasm = true
 name = "dynamic_mip_generation"
 path = "examples/2d/dynamic_mip_generation.rs"
 doc-scrape-examples = true
+required-features = ["bevy_feathers"]
 
 [package.metadata.example.dynamic_mip_generation]
 name = "Dynamic Mipmap Generation"
