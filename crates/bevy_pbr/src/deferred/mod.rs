@@ -16,6 +16,7 @@ use bevy_core_pipeline::{
 use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::ExtractedCamera,
+    diagnostic::RecordDiagnostics,
     extract_component::{
         ComponentUniforms, ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin,
     },
@@ -148,6 +149,10 @@ pub fn deferred_lighting(
         return;
     };
 
+    let diagnostics = ctx.diagnostic_recorder();
+    let diagnostics = diagnostics.as_deref();
+    let time_span = diagnostics.time_span(ctx.command_encoder(), "deferred_lighting");
+
     let bind_group_2 = ctx.render_device().create_bind_group(
         "deferred_lighting_layout_group_2",
         &pipeline_cache.get_bind_group_layout(&deferred_lighting_layout.bind_group_layout_2),
@@ -180,6 +185,8 @@ pub fn deferred_lighting(
     render_pass.set_bind_group(1, &mesh_view_bind_group.binding_array, &[]);
     render_pass.set_bind_group(2, &bind_group_2, &[]);
     render_pass.draw(0..3, 0..1);
+    drop(render_pass);
+    time_span.end(ctx.command_encoder());
 }
 
 #[derive(Resource)]
