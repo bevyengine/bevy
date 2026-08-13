@@ -2749,17 +2749,20 @@ mod viewport_coords {
 
 mod viewport_node {
     use bevy::{
-        camera::RenderTarget, prelude::*,
-        render::render_resource::TextureFormat, ui::widget::ViewportNode,
+        camera::RenderTarget, prelude::*, render::render_resource::TextureFormat,
+        ui::widget::ViewportNode,
     };
 
-    pub fn setup (
+    pub fn setup(
         mut commands: Commands,
         mut images: ResMut<Assets<Image>>,
         mut meshes: ResMut<Assets<Mesh>>,
         mut materials: ResMut<Assets<StandardMaterial>>,
     ) {
-        commands.spawn((Camera3d::default(), DespawnOnExit(super::Scene::ViewportNode)));
+        commands.spawn((
+            Camera3d::default(),
+            DespawnOnExit(super::Scene::ViewportNode),
+        ));
 
         let image = Image::new_target_texture(0, 0, TextureFormat::Bgra8UnormSrgb, None);
         let image_handle = images.add(image);
@@ -2775,30 +2778,28 @@ mod viewport_node {
                 DespawnOnExit(super::Scene::ViewportNode),
             ))
             .id();
-        
-        commands
-            .spawn((
-                Mesh3d(meshes.add(Cuboid::new(5.0, 5.0, 5.0))),
-                MeshMaterial3d(materials.add(Color::WHITE)),
-                Transform::from_xyz(0.0, 0.0, -10.0),
-                DespawnOnExit(super::Scene::ViewportNode),
-            ));
 
-        commands
-            .spawn((
-                Node {
-                    position_type: PositionType::Absolute,
-                    top: px(50),
-                    left: px(50),
-                    width: px(200),
-                    height: px(200),
-                    border: UiRect::all(px(5)),
-                    ..default()
-                },
-                BorderColor::all(Color::WHITE),
-                ViewportNode::new(camera),
-                DespawnOnExit(super::Scene::ViewportNode),
-            ));
+        commands.spawn((
+            Mesh3d(meshes.add(Cuboid::new(5.0, 5.0, 5.0))),
+            MeshMaterial3d(materials.add(Color::WHITE)),
+            Transform::from_xyz(0.0, 0.0, -10.0),
+            DespawnOnExit(super::Scene::ViewportNode),
+        ));
+
+        commands.spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                top: px(50),
+                left: px(50),
+                width: px(200),
+                height: px(200),
+                border: UiRect::all(px(5)),
+                ..default()
+            },
+            BorderColor::all(Color::WHITE),
+            ViewportNode::new(camera),
+            DespawnOnExit(super::Scene::ViewportNode),
+        ));
     }
 }
 
