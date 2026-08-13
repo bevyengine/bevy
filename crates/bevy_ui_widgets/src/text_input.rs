@@ -984,7 +984,7 @@ pub enum ImeSystems {
     UpdatePosition,
 }
 
-/// System set for the placeholder sync system, used by [`EditableTextInputPlugin`].
+/// System set for the placeholder sync system, used by [`TextInputPlugin`].
 ///
 /// Runs in [`PostUpdate`]. Cross-crate ambiguities with this set are
 /// declared in `DefaultPlugins`' `IgnoreAmbiguitiesPlugin`.
