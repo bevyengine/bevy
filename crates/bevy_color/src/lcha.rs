@@ -25,7 +25,7 @@ use bevy_reflect::prelude::*;
 pub struct Lcha {
     /// The lightness channel. [0.0, 1.5]
     pub lightness: f32,
-    /// The chroma channel. Typically [0.0, 1.5].
+    /// The chroma channel. Typically [0.0, 1.5]
     pub chroma: f32,
     /// The hue channel. [0.0, 360.0]
     pub hue: f32,
@@ -41,7 +41,7 @@ impl Lcha {
     /// # Arguments
     ///
     /// * `lightness` - Lightness channel. [0.0, 1.5]
-    /// * `chroma` - Chroma channel. Typically [0.0, 1.5].
+    /// * `chroma` - Chroma channel. Typically [0.0, 1.5]
     /// * `hue` - Hue channel. [0.0, 360.0]
     /// * `alpha` - Alpha channel. [0.0, 1.0]
     pub const fn new(lightness: f32, chroma: f32, hue: f32, alpha: f32) -> Self {
@@ -58,7 +58,7 @@ impl Lcha {
     /// # Arguments
     ///
     /// * `lightness` - Lightness channel. [0.0, 1.5]
-    /// * `chroma` - Chroma channel. Typically [0.0, 1.5].
+    /// * `chroma` - Chroma channel. Typically [0.0, 1.5]
     /// * `hue` - Hue channel. [0.0, 360.0]
     pub const fn lch(lightness: f32, chroma: f32, hue: f32) -> Self {
         Self {
