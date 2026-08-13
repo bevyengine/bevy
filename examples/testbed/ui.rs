@@ -2782,7 +2782,11 @@ mod viewport_node {
         commands.spawn((
             Mesh3d(meshes.add(Cuboid::new(5.0, 5.0, 5.0))),
             MeshMaterial3d(materials.add(Color::WHITE)),
-            Transform::from_xyz(0.0, 0.0, -10.0),
+            Transform {
+                translation: Vec3::new(0.0, 0.0, -10.0),
+                rotation: Quat::from_euler(EulerRot::XYZ, 0.4, 0.7, 0.1),
+                ..default()
+            },
             DespawnOnExit(super::Scene::ViewportNode),
         ));
 
