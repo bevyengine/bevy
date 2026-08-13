@@ -302,5 +302,5 @@ pub fn atmosphere_environment(
         );
     }
 
-    time_span.end(&mut ctx.command_encoder());
+    time_span.end(ctx.command_encoder());
 }
