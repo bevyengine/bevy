@@ -38,4 +38,8 @@ struct SomeComponent;
 
 All of the above has moved to the new crate `bevy_extract`.
 
-Most extraction parts are re-exported by `bevy_render` , but some migrations are needed
+Most extraction parts are re-exported by `bevy_render` .
+
+Some migrations are needed:
+
+- `bevy_render::extract_plugin::extract()` has moved to `bevy_extract::extract_plugin::extract()`

@@ -49,8 +49,6 @@ pub mod extract_component {
 
     pub use bevy_extract::extract_component::ExtractComponent;
 }
-// pub mod extract_instances;
-// mod extract_param;
 pub mod extract_plugin {
     pub use bevy_extract::extract_plugin::ExtractPlugin;
 }
