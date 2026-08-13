@@ -124,7 +124,7 @@ pub struct PointerTraversal {
 }
 
 /// An [`EntityEvent`] that contains a [`Pointer`].
-pub trait PointerEvent {
+pub trait PointerEvent: EntityEvent {
     /// Returns the [`Pointer`] stored on this [`EntityEvent`].
     fn pointer(&self) -> &Pointer;
 }

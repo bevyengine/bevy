@@ -42,9 +42,7 @@ fn main() {
 
 /// helper function to reduce code duplication when generating almost identical observers for the hover text color change effect
 fn text_color_on_hover<
-    E: EntityEvent
-        + PointerEvent
-        + for<'a> Event<Trigger<'a> = PropagateEntityTrigger<true, E, PointerTraversal>>,
+    E: PointerEvent + for<'a> Event<Trigger<'a> = PropagateEntityTrigger<true, E, PointerTraversal>>,
 >(
     color: Color,
 ) -> impl FnMut(On<E>, Query<&mut TextColor, With<ContextMenuItemText>>, Query<&Children>) {
