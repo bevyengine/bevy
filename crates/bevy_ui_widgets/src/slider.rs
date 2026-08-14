@@ -21,7 +21,9 @@ use bevy_input::ButtonState;
 use bevy_input_focus::FocusedInput;
 use bevy_log::warn_once;
 use bevy_math::ops;
-use bevy_picking::events::{Cancel, Drag, DragEnd, DragStart, Pointer, Press, Release};
+use bevy_picking::events::{
+    PointerCancel, PointerDrag, PointerDragEnd, PointerDragStart, PointerPress, PointerRelease,
+};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_ui::{
     ComputedNode, ComputedUiRenderTargetInfo, InteractionDisabled, Pressed, UiGlobalTransform,
@@ -260,7 +262,7 @@ pub struct SliderDragState {
 }
 
 pub(crate) fn slider_on_pointer_down(
-    mut press: On<Pointer<Press>>,
+    mut press: On<PointerPress>,
     q_slider: Query<(
         Entity,
         &Slider,
@@ -322,7 +324,7 @@ pub(crate) fn slider_on_pointer_down(
         // Detect track click.
         let Some(normalized_pos) = node.normalize_point(
             *transform,
-            press.pointer_location.position * node_target.scale_factor() / ui_scale.0,
+            press.pointer.position * node_target.scale_factor() / ui_scale.0,
         ) else {
             return;
         };
@@ -376,7 +378,7 @@ pub(crate) fn slider_on_pointer_down(
 }
 
 pub(crate) fn slider_on_drag_start(
-    mut drag_start: On<Pointer<DragStart>>,
+    mut drag_start: On<PointerDragStart>,
     mut q_slider: Query<
         (&SliderValue, &mut SliderDragState, Has<InteractionDisabled>),
         With<Slider>,
@@ -392,7 +394,7 @@ pub(crate) fn slider_on_drag_start(
 }
 
 pub(crate) fn slider_on_drag(
-    mut event: On<Pointer<Drag>>,
+    mut event: On<PointerDrag>,
     q_slider: Query<
         (
             &Slider,
@@ -435,7 +437,7 @@ pub(crate) fn slider_on_drag(
 }
 
 pub(crate) fn slider_on_drag_end(
-    mut drag_end: On<Pointer<DragEnd>>,
+    mut drag_end: On<PointerDragEnd>,
     mut q_slider: Query<
         (
             Entity,
@@ -545,7 +547,7 @@ fn emit_slider_drag_value_change(
 }
 
 fn slider_on_pointer_up(
-    mut release: On<Pointer<Release>>,
+    mut release: On<PointerRelease>,
     mut q_slider: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<Slider>>,
     mut commands: Commands,
 ) {
@@ -558,7 +560,7 @@ fn slider_on_pointer_up(
 }
 
 fn slider_on_pointer_cancel(
-    mut release: On<Pointer<Cancel>>,
+    mut release: On<PointerCancel>,
     mut q_slider: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<Slider>>,
     mut commands: Commands,
 ) {

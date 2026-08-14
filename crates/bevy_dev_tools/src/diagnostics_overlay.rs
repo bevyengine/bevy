@@ -428,7 +428,7 @@ fn build_overlay(
 }
 
 fn drag_by_header(
-    mut event: On<Pointer<Drag>>,
+    mut event: On<PointerDrag>,
     mut diagnostics_overlays: Query<&mut Node, With<DiagnosticsOverlay>>,
     diagnostics_overlay_headers: Query<&ChildOf, With<DiagnosticsOverlayHeader>>,
 ) {
@@ -455,7 +455,7 @@ fn drag_by_header(
 }
 
 fn collapse_on_click_to_header(
-    mut event: On<Pointer<Click>>,
+    mut event: On<PointerClick>,
     mut diagnostics_overlays: Query<&Children, With<DiagnosticsOverlay>>,
     mut diagnostics_overlay_contents: Query<&mut Node, With<DiagnosticsOverlayContents>>,
     diagnostics_overlay_header: Query<&ChildOf, With<DiagnosticsOverlayHeader>>,
@@ -502,7 +502,7 @@ fn collapse_on_click_to_header(
 }
 
 fn bring_to_front(
-    mut event: On<Pointer<Press>>,
+    mut event: On<PointerPress>,
     mut commands: Commands,
     diagnostics_overlays: Query<(), With<DiagnosticsOverlay>>,
     diagnostics_overlay_plane: Single<Entity, With<DiagnosticsOverlayPlane>>,

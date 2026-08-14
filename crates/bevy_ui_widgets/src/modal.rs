@@ -18,7 +18,7 @@ use bevy_input_focus::{
     FocusCause, FocusedInput, InputFocus, InputFocusVisible,
 };
 use bevy_log::warn;
-use bevy_picking::events::{Pointer, Press};
+use bevy_picking::events::PointerPress;
 use bevy_reflect::Reflect;
 use bevy_time::DelayedCommandsExt;
 
@@ -47,7 +47,7 @@ fn set_modal_dialog_tab_group_modal(
 }
 
 fn modal_dialog_barrier_on_click(
-    mut ev: On<Pointer<Press>>,
+    mut ev: On<PointerPress>,
     q_barrier: Query<(), With<ModalDialogBarrier>>,
     q_dialog: Query<(), With<ModalDialog>>,
     mut commands: Commands,
