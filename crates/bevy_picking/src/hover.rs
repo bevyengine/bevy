@@ -9,7 +9,7 @@ use std::collections::HashSet;
 
 use crate::{
     backend::{self, HitData},
-    pointer::{PointerAction, PointerId, PointerInput, PointerInteraction, PointerPress},
+    pointer::{PointerAction, PointerId, PointerInput, PointerInteraction, PointerPressState},
     Pickable,
 };
 
@@ -242,7 +242,7 @@ pub fn update_interactions(
     previous_hover_map: Res<PreviousHoverMap>,
     // Outputs
     mut commands: Commands,
-    mut pointers: Query<(&PointerId, &PointerPress, &mut PointerInteraction)>,
+    mut pointers: Query<(&PointerId, &PointerPressState, &mut PointerInteraction)>,
     mut interact: Query<&mut PickingInteraction>,
 ) {
     // Create a map to hold the aggregated interaction for each entity. This is needed because we
@@ -291,7 +291,7 @@ pub fn update_interactions(
 
 /// Merge the interaction state of this entity into the aggregated map.
 fn merge_interaction_states(
-    pointer_press: &PointerPress,
+    pointer_press: &PointerPressState,
     hovered_entity: &Entity,
     new_interaction_state: &mut EntityHashMap<PickingInteraction>,
 ) {

@@ -198,7 +198,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_status: Res
             Transform::from_rotation(Quat::from_rotation_y(std::f32::consts::PI)),
         ))
         .observe(
-            |event: On<Pointer<Drag>>,
+            |event: On<PointerDrag>,
              mut query: Query<&mut Transform, With<WorldAssetRoot>>,
              mut commands: Commands,
              mut window: Query<Entity, With<PrimaryWindow>>| {
@@ -211,7 +211,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_status: Res
             },
         )
         .observe(
-            |_: On<Pointer<Over>>,
+            |_: On<PointerOver>,
              mut commands: Commands,
              mut window: Query<Entity, With<PrimaryWindow>>| {
                 commands
@@ -220,7 +220,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_status: Res
             },
         )
         .observe(
-            |_: On<Pointer<Out>>,
+            |_: On<PointerOut>,
              mut commands: Commands,
              mut window: Query<Entity, With<PrimaryWindow>>| {
                 commands
@@ -229,7 +229,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_status: Res
             },
         )
         .observe(
-            |_: On<Pointer<DragEnd>>,
+            |_: On<PointerDragEnd>,
              mut commands: Commands,
              mut window: Query<Entity, With<PrimaryWindow>>| {
                 commands
