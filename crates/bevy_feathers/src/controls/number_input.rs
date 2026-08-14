@@ -25,7 +25,9 @@ use bevy_log::{warn, warn_once};
 use bevy_math::ops;
 use bevy_picking::{
     cursor::EntityCursor,
-    events::{Cancel, Drag, DragEnd, DragStart, Pointer, Press, Release},
+    events::{
+        PointerCancel, PointerDrag, PointerDragEnd, PointerDragStart, PointerPress, PointerRelease,
+    },
     hover::Hovered,
     pointer::PointerButton,
     PickingSystems,
@@ -650,7 +652,7 @@ struct DragState {
 
 /// Observer which sets the text content of the field when the number value component changes.
 fn number_input_on_insert_value(
-    update: On<Insert, NumberInputValue>,
+    update: On<Insert<NumberInputValue>>,
     q_children: Query<&Children>,
     q_number_input: Query<
         (
@@ -691,7 +693,7 @@ fn number_input_on_insert_value(
 
 /// Observer changes the colors based on disabled status.
 fn number_input_on_insert_disabled(
-    insert: On<Insert, InteractionDisabled>,
+    insert: On<Insert<InteractionDisabled>>,
     q_children: Query<&Children>,
     q_number_input: Query<
         (Has<InteractionDisabled>, Option<&ThemeContext>),
@@ -727,7 +729,7 @@ fn number_input_on_insert_disabled(
 
 /// Observer changes the colors based on disabled status.
 fn number_input_on_remove_disabled(
-    remove: On<Remove, InteractionDisabled>,
+    remove: On<Remove<InteractionDisabled>>,
     q_children: Query<&Children>,
     q_number_input: Query<
         (Has<InteractionDisabled>, Option<&ThemeContext>),
@@ -763,7 +765,7 @@ fn number_input_on_remove_disabled(
 
 /// Observer which initializes the text edit once it has completed spawning.
 fn number_input_init(
-    insert: On<Add, EditableText>,
+    insert: On<Add<EditableText>>,
     q_parent: Query<&ChildOf>,
     q_number_input: Query<
         (
@@ -822,7 +824,7 @@ fn number_input_init(
 
 /// Observer which looks for changes in the hover state.
 fn number_input_hovered(
-    insert: On<Insert, Hovered>,
+    insert: On<Insert<Hovered>>,
     q_parent: Query<&ChildOf>,
     q_number_input: Query<
         (Has<InteractionDisabled>, Option<&ThemeContext>),
@@ -958,7 +960,7 @@ fn number_input_on_focus_lost(
 }
 
 fn scrubber_on_press(
-    mut press: On<Pointer<Press>>,
+    mut press: On<PointerPress>,
     mut q_text_input: Query<&mut DragState>,
     q_number_input: Query<Has<InteractionDisabled>, With<FeathersNumberInput>>,
     q_parent: Query<&ChildOf>,
@@ -986,7 +988,7 @@ fn scrubber_on_press(
 }
 
 fn scrubber_on_release(
-    mut release: On<Pointer<Release>>,
+    mut release: On<PointerRelease>,
     mut q_text: Query<(
         &mut EditableText,
         &mut DragState,
@@ -1025,9 +1027,9 @@ fn scrubber_on_release(
             }
 
             let Some(local_pos) = transform.try_inverse().map(|inverse| {
-                inverse.transform_point2(
-                    release.pointer_location.position * target.scale_factor() / ui_scale.0,
-                ) - node.content_box().min
+                inverse
+                    .transform_point2(release.pointer.position * target.scale_factor() / ui_scale.0)
+                    - node.content_box().min
                     + editable_text.viewport.offset
             }) else {
                 return;
@@ -1053,7 +1055,7 @@ fn scrubber_on_release(
 }
 
 fn scrubber_on_drag_start(
-    mut drag_start: On<Pointer<DragStart>>,
+    mut drag_start: On<PointerDragStart>,
     q_root: Query<(
         &NumberInputValue,
         Option<&SoftLimit>,
@@ -1122,7 +1124,7 @@ fn scrubber_on_drag_start(
 }
 
 fn scrubber_on_drag(
-    mut drag: On<Pointer<Drag>>,
+    mut drag: On<PointerDrag>,
     q_root: Query<(
         Option<&SoftLimit>,
         Option<&HardLimit>,
@@ -1168,7 +1170,7 @@ fn scrubber_on_drag(
 }
 
 fn scrubber_on_drag_end(
-    mut drag_end: On<Pointer<DragEnd>>,
+    mut drag_end: On<PointerDragEnd>,
     q_root: Query<(
         Option<&SoftLimit>,
         Option<&HardLimit>,
@@ -1217,7 +1219,7 @@ fn scrubber_on_drag_end(
 }
 
 fn scrubber_on_drag_cancel(
-    mut drag_cancel: On<Pointer<Cancel>>,
+    mut drag_cancel: On<PointerCancel>,
     q_parent: Query<&ChildOf>,
     mut q_text_input: Query<(
         &Hovered,

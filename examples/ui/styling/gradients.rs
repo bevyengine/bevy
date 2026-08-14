@@ -261,10 +261,10 @@ fn button_node_scene(caption: &'static str) -> impl Scene {
         }
         BorderColor::all(Color::WHITE)
         BackgroundColor(Color::BLACK)
-        on(|event: On<Pointer<Over>>, mut border_query: Query<&mut BorderColor, With<Button>>| {
+        on(|event: On<PointerOver>, mut border_query: Query<&mut BorderColor, With<Button>>| {
             *border_query.get_mut(event.entity).unwrap() = BorderColor::all(RED);
         })
-        on(|event: On<Pointer<Out>>, mut border_query: Query<&mut BorderColor, With<Button>>| {
+        on(|event: On<PointerOut>, mut border_query: Query<&mut BorderColor, With<Button>>| {
             *border_query.get_mut(event.entity).unwrap() = BorderColor::all(Color::WHITE);
         })
         Children [

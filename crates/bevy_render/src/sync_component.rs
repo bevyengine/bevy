@@ -67,7 +67,7 @@ impl<
         app.register_required_components::<C, SyncToSubWorld<L>>();
 
         app.add_observer(
-            |remove: On<Remove, C>, maybe_pending: Option<ResMut<PendingSyncEntity<L>>>| {
+            |remove: On<Remove<C>>, maybe_pending: Option<ResMut<PendingSyncEntity<L>>>| {
                 let Some(mut pending) = maybe_pending else {
                     warn_once!("A component with sync plugin was removed, but the sub world does not exist, so there is nothing to sync. Skip sync to sub world.");
                     return;
