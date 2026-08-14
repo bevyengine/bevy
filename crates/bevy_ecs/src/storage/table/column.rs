@@ -246,6 +246,25 @@ impl Column {
         this_run: Tick,
     ) {
         debug_assert!(self.data.layout() == src.data.layout());
+
+        // Making this a cold path avoids most of the performance cost
+        // (and is somehow a bit faster in cases that use the path too).
+        #[cold]
+        fn update_summary_tick(
+            changed_ticks: &ThinArrayPtr<UnsafeCell<Tick>>,
+            summary_tick: &AtomicTick,
+            dst_row: TableRow,
+            this_run: Tick,
+        ) {
+            // SAFETY:
+            // - Changed tick just got initialized at dst_row
+            // - There are no mutable references to the changed tick
+            let row_change_tick = unsafe { changed_ticks.get_unchecked(dst_row.index()).read() };
+            if row_change_tick.is_newer_than(summary_tick.get(), this_run) {
+                summary_tick.set(row_change_tick);
+            }
+        }
+
         // SAFETY:
         // In bounds, same layout & correct last element index as per preconditions
         unsafe {
@@ -280,7 +299,7 @@ impl Column {
         }
 
         if let Some(summary_tick) = &self.summary_tick {
-            summary_tick.set(this_run);
+            update_summary_tick(&self.changed_ticks, summary_tick, dst_row, this_run);
         }
     }
 
