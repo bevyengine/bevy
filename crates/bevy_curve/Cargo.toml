@@ -14,9 +14,7 @@ approx = { default-features = false, optional = true, version = "0.5" }
 bevy_math = { default-features = false, features = [
   "approx",
 ], path = "../bevy_math", version = "0.20.0-dev" }
-bevy_reflect = { default-features = false, features = [
-  "glam",
-], optional = true, path = "../bevy_reflect", version = "0.20.0-dev" }
+bevy_reflect = { default-features = false, optional = true, path = "../bevy_reflect", version = "0.20.0-dev" }
 itertools = { default-features = false, version = "0.14.0" }
 serde = { default-features = false, features = [
   "derive",
@@ -49,6 +47,8 @@ serialize = ["bevy_math/serialize", "dep:serde"]
 approx = ["bevy_math/approx", "dep:approx"]
 # Enable bevy_reflect (requires alloc)
 bevy_reflect = ["alloc", "dep:bevy_reflect"]
+# Enable critical-section backend
+critical-section = ["bevy_reflect?/critical-section"]
 
 [lints]
 workspace = true

@@ -1,3 +1,19 @@
+#![forbid(unsafe_code)]
+#![cfg_attr(
+    any(docsrs, docsrs_dep),
+    expect(
+        internal_features,
+        reason = "rustdoc_internals is needed for fake_variadic"
+    )
+)]
+#![cfg_attr(any(docsrs, docsrs_dep), feature(rustdoc_internals))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
+#![doc(
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
+)]
+#![no_std]
+
 //! The [`Curve`] trait, providing a domain-agnostic description of curves.
 //!
 //! ## Overview
@@ -313,6 +329,7 @@ pub mod sample_curves;
 
 // bevy_curve re-exports all commonly-needed curve-related items.
 pub use adaptors::*;
+#[cfg(feature = "alloc")]
 pub use cubic_splines::*;
 pub use easing::*;
 pub use interval::{interval, Interval};

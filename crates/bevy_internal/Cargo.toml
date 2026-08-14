@@ -126,7 +126,7 @@ serialize = [
   "bevy_image?/serialize",
   "bevy_input/serialize",
   "bevy_math/serialize",
-  "bevy_curve/serialize",
+  "bevy_curve?/serialize",
   "bevy_world_serialization?/serialize",
   "bevy_time/serialize",
   "bevy_transform/serialize",
@@ -421,7 +421,7 @@ std = [
   "bevy_input/std",
   "bevy_input_focus?/std",
   "bevy_math/std",
-  "bevy_curve/std",
+  "bevy_curve?/std",
   "bevy_platform/std",
   "bevy_reflect/std",
   "bevy_state?/std",
@@ -435,6 +435,7 @@ std = [
 critical-section = [
   "bevy_a11y?/critical-section",
   "bevy_app/critical-section",
+  "bevy_curve/critical-section",
   "bevy_diagnostic/critical-section",
   "bevy_ecs/critical-section",
   "bevy_input/critical-section",
@@ -537,6 +538,7 @@ bevy_a11y = { path = "../bevy_a11y", optional = true, version = "0.20.0-dev", fe
 ] }
 bevy_camera_controller = { path = "../bevy_camera_controller", optional = true, version = "0.20.0-dev", default-features = false }
 bevy_curve = { path = "../bevy_curve", optional = true, version = "0.20.0-dev", default-features = false, features = [
+  "alloc",
   "bevy_reflect",
 ] }
 bevy_animation = { path = "../bevy_animation", optional = true, version = "0.20.0-dev" }

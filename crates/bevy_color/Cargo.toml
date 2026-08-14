@@ -27,11 +27,12 @@ default = ["std", "bevy_reflect", "encase"]
 std = [
   "alloc",
   "bevy_math/std",
+  "bevy_curve/std",
   "serde?/std",
   "wgpu-types?/std",
   "bevy_reflect?/std",
 ]
-alloc = ["bevy_math/alloc", "serde?/alloc"]
+alloc = ["bevy_math/alloc", "bevy_curve/alloc", "serde?/alloc"]
 serialize = ["serde", "bevy_math/serialize", "bevy_curve/serialize"]
 bevy_reflect = ["dep:bevy_reflect"]
 wgpu-types = ["dep:wgpu-types"]
