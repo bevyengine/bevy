@@ -79,7 +79,7 @@ pub fn meshlet_main_opaque_pass(
         occlusion_query_set: None,
         multiview_mask: None,
     });
-    let pass_span = diagnostics.pass_span(&mut render_pass, "meshlet_main_opaque_pass");
+    let pass_span = diagnostics.pass_span(&mut render_pass, "meshlet_material_opaque_3d_pass");
 
     if let Some(viewport) =
         Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
@@ -184,7 +184,7 @@ pub fn meshlet_prepass(
         occlusion_query_set: None,
         multiview_mask: None,
     });
-    let pass_span = diagnostics.pass_span(&mut render_pass, "meshlet_prepass");
+    let pass_span = diagnostics.pass_span(&mut render_pass, "meshlet_material_prepass");
 
     if let Some(viewport) =
         Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)

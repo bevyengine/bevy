@@ -309,8 +309,9 @@ pub fn fullscreen_material_system<T: FullscreenMaterial>(
 
     let bind_group = bind_groups.cache.get_current_bind_group(source);
 
+    let pass_label = format!("fullscreen_material_pass<{}>", type_name::<T>());
     let pass_descriptor = RenderPassDescriptor {
-        label: Some("fullscreen_material_pass"),
+        label: Some(&pass_label),
         color_attachments: &[Some(RenderPassColorAttachment {
             view: destination,
             depth_slice: None,
@@ -328,7 +329,7 @@ pub fn fullscreen_material_system<T: FullscreenMaterial>(
         let diagnostics = diagnostics.as_deref();
 
         let mut render_pass = ctx.command_encoder().begin_render_pass(&pass_descriptor);
-        let pass_span = diagnostics.pass_span(&mut render_pass, "fullscreen_material");
+        let pass_span = diagnostics.pass_span(&mut render_pass, pass_label);
 
         render_pass.set_pipeline(pipeline);
         render_pass.set_bind_group(0, bind_group, &[settings_index.index()]);
