@@ -5,7 +5,6 @@ Usage:
     blender --background --python convert.py -- <input.fbx> <output.glb>
 
 The example's README.md lists the command line and the output filename for each measure.
-The comments at each step below explain what the conversion does and why.
 """
 
 import glob
@@ -106,13 +105,8 @@ flipped_normals = set()
 
 def load_normal_image(path):
     """Load a normal map and invert its green channel from the DirectX +Y-down
-    convention to the OpenGL convention that glTF requires.
-
-    Baking the flip into the image keeps the `.glb` self-contained; the alternative,
-    `flip_normal_map_y` in the example, is an invisible agreement between the script and
-    the example. A node-graph inversion doesn't survive the export, so change the pixels
-    and pack them, and the exporter then reads the datablock instead of the `.dds` on
-    disk."""
+    convention to the OpenGL convention that glTF requires. The flip changes the
+    packed image itself, so the exported `.glb` stays self-contained."""
     img = load_image(path, non_color=True)
     if img.name in flipped_normals:
         return img
