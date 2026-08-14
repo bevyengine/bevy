@@ -129,8 +129,9 @@ where
     }
 }
 
-impl<Out> EntityCommand for Arc<dyn Fn(EntityWorldMut) -> Out + Send + Sync + 'static>
+impl<Out, F> EntityCommand for Arc<F>
 where
+    F: Fn(EntityWorldMut) -> Out + Send + Sync + ?Sized + 'static,
     Out: EntityCommandOutput + 'static,
 {
     type Out = Out;
