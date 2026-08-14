@@ -1,4 +1,4 @@
-use crate::{UiPosition, Val};
+use crate::{UiPosition, Val, ValNum};
 use bevy_color::{Color, Srgba};
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_math::Vec2;
@@ -45,19 +45,19 @@ impl ColorStop {
     }
 
     /// A color stop with its position in logical pixels.
-    pub fn px(color: impl Into<Color>, px: f32) -> Self {
+    pub fn px<V: ValNum>(color: impl Into<Color>, px: V) -> Self {
         Self {
             color: color.into(),
-            point: Val::Px(px),
+            point: Val::Px(px.val_num_f32()),
             hint: 0.5,
         }
     }
 
     /// A color stop with a percentage position.
-    pub fn percent(color: impl Into<Color>, percent: f32) -> Self {
+    pub fn percent<V: ValNum>(color: impl Into<Color>, percent: V) -> Self {
         Self {
             color: color.into(),
-            point: Val::Percent(percent),
+            point: Val::Percent(percent.val_num_f32()),
             hint: 0.5,
         }
     }
@@ -501,6 +501,15 @@ impl Gradient {
                 .stops
                 .first()
                 .and_then(|stop| (gradient.stops.len() == 1).then_some(stop.color)),
+        }
+    }
+
+    /// Returns the color space that the gradient interpolates in.
+    pub fn get_color_space(&self) -> InterpolationColorSpace {
+        match self {
+            Gradient::Linear(linear_gradient) => linear_gradient.color_space,
+            Gradient::Radial(radial_gradient) => radial_gradient.color_space,
+            Gradient::Conic(conic_gradient) => conic_gradient.color_space,
         }
     }
 }

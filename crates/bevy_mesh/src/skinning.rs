@@ -1,6 +1,9 @@
 use crate::{Mesh, MeshVertexAttribute, VertexAttributeValues, VertexFormat};
 use bevy_asset::{AsAssetId, Asset, AssetId, Handle};
-use bevy_ecs::{component::Component, entity::Entity, prelude::ReflectComponent, system::Query};
+use bevy_ecs::{
+    component::Component, entity::Entity, prelude::ReflectComponent, system::Query,
+    template::FromTemplate,
+};
 use bevy_math::{
     bounding::{Aabb3d, BoundingVolume},
     Affine3A, Mat4, Vec3, Vec3A,
@@ -10,7 +13,7 @@ use bevy_transform::components::GlobalTransform;
 use core::ops::Deref;
 use thiserror::Error;
 
-#[derive(Component, Debug, Default, Clone, Reflect)]
+#[derive(Component, Debug, Default, Clone, Reflect, FromTemplate)]
 #[reflect(Component, Default, Debug, Clone)]
 pub struct SkinnedMesh {
     pub inverse_bindposes: Handle<SkinnedMeshInverseBindposes>,

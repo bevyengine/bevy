@@ -27,10 +27,10 @@ use bevy_ecs::{
     schedule::IntoScheduleConfigs as _,
     system::{Commands, Query, Res, ResMut},
 };
-use bevy_image::BevyDefault as _;
 use bevy_math::ops;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::{
+    camera::ExtractedCamera,
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     render_resource::{
         binding_types::{
@@ -48,8 +48,8 @@ use bevy_render::{
     sync_world::RenderEntity,
     texture::{CachedTexture, TextureCache},
     view::{
-        prepare_view_targets, ExtractedView, Msaa, ViewDepthTexture, ViewTarget, ViewUniform,
-        ViewUniformOffset, ViewUniforms,
+        prepare_view_targets, ExtractedView, Msaa, ViewDepthStencilTexture, ViewTarget,
+        ViewUniform, ViewUniformOffset, ViewUniforms,
     },
     Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
@@ -60,7 +60,7 @@ use tracing::{info, warn};
 
 use crate::bloom::bloom;
 use bevy_core_pipeline::{
-    core_3d::DEPTH_TEXTURE_SAMPLING_SUPPORTED, schedule::Core3d, tonemapping::tonemapping,
+    core_3d::DEPTH_PREPASS_TEXTURE_SUPPORTED, schedule::Core3d, tonemapping::tonemapping,
     FullscreenShader,
 };
 
@@ -124,8 +124,6 @@ pub enum DepthOfFieldMode {
     ///
     /// For more information, see [Wikipedia's article on *bokeh*].
     ///
-    /// This doesn't work on WebGPU.
-    ///
     /// [Wikipedia's article on *bokeh*]: https://en.wikipedia.org/wiki/Bokeh
     Bokeh,
 
@@ -135,9 +133,6 @@ pub enum DepthOfFieldMode {
     /// aesthetically pleasing but requires less video memory bandwidth.
     ///
     /// This is the default.
-    ///
-    /// This works on native and WebGPU.
-    /// If targeting native platforms, consider using [`DepthOfFieldMode::Bokeh`] instead.
     #[default]
     Gaussian,
 }
@@ -148,7 +143,7 @@ pub struct DepthOfFieldUniform {
     /// The distance in meters to the location in focus.
     focal_distance: f32,
 
-    /// The focal length. See the comment in `DepthOfFieldParams` in `dof.wgsl`
+    /// The focal length. See the comment in `DepthOfFieldParams` in `dof.wesl`
     /// for more information.
     focal_length: f32,
 
@@ -179,8 +174,7 @@ pub struct DepthOfFieldUniform {
 pub struct DepthOfFieldPipelineKey {
     /// Whether we're doing Gaussian or bokeh blur.
     pass: DofPass,
-    /// Whether we're using HDR.
-    hdr: bool,
+    target_format: TextureFormat,
     /// Whether the render target is multisampled.
     multisample: bool,
 }
@@ -200,7 +194,7 @@ enum DofPass {
 
 impl Plugin for DepthOfFieldPlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "dof.wgsl");
+        embedded_asset!(app, "dof.wesl");
 
         app.add_plugins(UniformComponentPlugin::<DepthOfFieldUniform>::default());
 
@@ -510,13 +504,16 @@ pub fn prepare_depth_of_field_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<DepthOfFieldPipeline>>,
     global_bind_group_layout: Res<DepthOfFieldGlobalBindGroupLayout>,
-    view_targets: Query<(
-        Entity,
-        &ExtractedView,
-        &DepthOfField,
-        &ViewDepthOfFieldBindGroupLayouts,
-        &Msaa,
-    )>,
+    view_targets: Query<
+        (
+            Entity,
+            &ExtractedView,
+            &DepthOfField,
+            &ViewDepthOfFieldBindGroupLayouts,
+            &Msaa,
+        ),
+        With<ExtractedCamera>,
+    >,
     fullscreen_shader: Res<FullscreenShader>,
     asset_server: Res<AssetServer>,
 ) {
@@ -525,11 +522,11 @@ pub fn prepare_depth_of_field_pipelines(
             view_bind_group_layouts: view_bind_group_layouts.clone(),
             global_bind_group_layout: global_bind_group_layout.layout.clone(),
             fullscreen_shader: fullscreen_shader.clone(),
-            fragment_shader: load_embedded_asset!(asset_server.as_ref(), "dof.wgsl"),
+            fragment_shader: load_embedded_asset!(asset_server.as_ref(), "dof.wesl"),
         };
 
         // We'll need these two flags to create the `DepthOfFieldPipelineKey`s.
-        let (hdr, multisample) = (view.hdr, *msaa != Msaa::Off);
+        let (target_format, multisample) = (view.target_format, *msaa != Msaa::Off);
 
         // Go ahead and specialize the pipelines.
         match depth_of_field.mode {
@@ -541,7 +538,7 @@ pub fn prepare_depth_of_field_pipelines(
                             &pipeline_cache,
                             &dof_pipeline,
                             DepthOfFieldPipelineKey {
-                                hdr,
+                                target_format,
                                 multisample,
                                 pass: DofPass::GaussianHorizontal,
                             },
@@ -550,7 +547,7 @@ pub fn prepare_depth_of_field_pipelines(
                             &pipeline_cache,
                             &dof_pipeline,
                             DepthOfFieldPipelineKey {
-                                hdr,
+                                target_format,
                                 multisample,
                                 pass: DofPass::GaussianVertical,
                             },
@@ -566,7 +563,7 @@ pub fn prepare_depth_of_field_pipelines(
                             &pipeline_cache,
                             &dof_pipeline,
                             DepthOfFieldPipelineKey {
-                                hdr,
+                                target_format,
                                 multisample,
                                 pass: DofPass::BokehPass0,
                             },
@@ -575,7 +572,7 @@ pub fn prepare_depth_of_field_pipelines(
                             &pipeline_cache,
                             &dof_pipeline,
                             DepthOfFieldPipelineKey {
-                                hdr,
+                                target_format,
                                 multisample,
                                 pass: DofPass::BokehPass1,
                             },
@@ -593,11 +590,7 @@ impl SpecializedRenderPipeline for DepthOfFieldPipeline {
         // Build up our pipeline layout.
         let (mut layout, mut shader_defs) = (vec![], vec![]);
         let mut targets = vec![Some(ColorTargetState {
-            format: if key.hdr {
-                ViewTarget::TEXTURE_FORMAT_HDR
-            } else {
-                TextureFormat::bevy_default()
-            },
+            format: key.target_format,
             blend: None,
             write_mask: ColorWrites::ALL,
         })];
@@ -644,17 +637,20 @@ impl SpecializedRenderPipeline for DepthOfFieldPipeline {
                 entry_point: Some(match key.pass {
                     DofPass::GaussianHorizontal => "gaussian_horizontal".into(),
                     DofPass::GaussianVertical => "gaussian_vertical".into(),
-                    DofPass::BokehPass0 => "bokeh_pass_0".into(),
-                    DofPass::BokehPass1 => "bokeh_pass_1".into(),
+                    // Entry point names that end with number don't work on wasm. Perhaps `naga_oil` bug.
+                    // See <https://github.com/bevyengine/bevy/pull/23629>
+                    DofPass::BokehPass0 => "bokeh_pass_a".into(),
+                    DofPass::BokehPass1 => "bokeh_pass_b".into(),
                 }),
                 targets,
+                constants: vec![],
             }),
             ..default()
         }
     }
 }
 
-impl SyncComponent for DepthOfField {
+impl SyncComponent<RenderApp> for DepthOfField {
     type Target = (
         DepthOfField,
         DepthOfFieldUniform,
@@ -669,7 +665,7 @@ fn extract_depth_of_field_settings(
     mut commands: Commands,
     mut query: Extract<Query<(RenderEntity, &DepthOfField, &Projection)>>,
 ) {
-    if !DEPTH_TEXTURE_SAMPLING_SUPPORTED {
+    if !DEPTH_PREPASS_TEXTURE_SUPPORTED {
         once!(info!(
             "Disabling depth of field on this platform because depth textures aren't supported correctly"
         ));
@@ -683,7 +679,7 @@ fn extract_depth_of_field_settings(
 
         // Depth of field is nonsensical without a perspective projection.
         let Projection::Perspective(ref perspective_projection) = *projection else {
-            entity_commands.remove::<<DepthOfField as SyncComponent>::Target>();
+            entity_commands.remove::<<DepthOfField as SyncComponent<RenderApp>>::Target>();
 
             continue;
         };
@@ -768,7 +764,7 @@ pub(crate) fn depth_of_field(
     view: ViewQuery<(
         &ViewUniformOffset,
         &ViewTarget,
-        &ViewDepthTexture,
+        &ViewDepthStencilTexture,
         &DepthOfFieldPipelines,
         &ViewDepthOfFieldBindGroupLayouts,
         &DynamicUniformIndex<DepthOfFieldUniform>,
@@ -788,7 +784,13 @@ pub(crate) fn depth_of_field(
         depth_of_field_uniform_index,
         auxiliary_dof_texture,
     ) = view.into_inner();
-
+    let Some(depth_view) = view_depth_texture
+        .attachment
+        .depth_stencil_views()
+        .depth_only_view()
+    else {
+        return;
+    };
     // We can be in either Gaussian blur or bokeh mode here. Both modes are
     // similar, consisting of two passes each.
     for pipeline_render_info in view_pipelines.pipeline_render_info().iter() {
@@ -821,7 +823,7 @@ pub(crate) fn depth_of_field(
                 &pipeline_cache.get_bind_group_layout(dual_input_bind_group_layout),
                 &BindGroupEntries::sequential((
                     view_uniforms_binding,
-                    view_depth_texture.view(),
+                    depth_view,
                     postprocess.source,
                     &auxiliary_dof_texture.default_view,
                 )),
@@ -832,7 +834,7 @@ pub(crate) fn depth_of_field(
                 &pipeline_cache.get_bind_group_layout(&view_bind_group_layouts.single_input),
                 &BindGroupEntries::sequential((
                     view_uniforms_binding,
-                    view_depth_texture.view(),
+                    depth_view,
                     postprocess.source,
                 )),
             )

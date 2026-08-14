@@ -26,7 +26,7 @@ use bevy::{
 };
 
 /// This example uses a shader source file from the assets subdirectory
-const SHADER_ASSET_PATH: &str = "shaders/irradiance_volume_voxel_visualization.wgsl";
+const SHADER_ASSET_PATH: &str = "shaders/irradiance_volume_voxel_visualization.wesl";
 
 // Rotation speed in radians per frame.
 const ROTATION_SPEED: f32 = 0.2;
@@ -236,7 +236,7 @@ fn spawn_camera(commands: &mut Commands, assets: &ExampleAssets) {
         Camera3d::default(),
         Transform::from_xyz(-10.012, 4.8605, 13.281).looking_at(Vec3::ZERO, Vec3::Y),
         Skybox {
-            image: assets.skybox.clone(),
+            image: Some(assets.skybox.clone()),
             brightness: 150.0,
             ..default()
         },

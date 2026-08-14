@@ -5,7 +5,8 @@ use bevy_ecs::{component::Component, reflect::ReflectComponent, template::FromTe
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::ExtractComponent,
-    render_resource::{AsBindGroup, RenderPipelineDescriptor},
+    render_resource::{AsBindGroup, RenderPipelineDescriptor, TextureFormat},
+    RenderApp,
 };
 use bevy_shader::ShaderRef;
 use derive_more::derive::From;
@@ -20,7 +21,7 @@ use derive_more::derive::From;
 /// Materials must also implement [`Asset`] so they can be treated as such.
 ///
 /// If you are only using the fragment shader, make sure your shader imports the `UiVertexOutput`
-/// from `bevy_ui::ui_vertex_output` and uses it as the input of your fragment shader like the
+/// from `bevy_ui_render::ui_vertex_output` and uses it as the input of your fragment shader like the
 /// example below does.
 ///
 /// # Example
@@ -55,7 +56,7 @@ use derive_more::derive::From;
 /// // functions that are relevant for your material.
 /// impl UiMaterial for CustomMaterial {
 ///     fn fragment_shader() -> ShaderRef {
-///         "shaders/custom_material.wgsl".into()
+///         "shaders/custom_material.wesl".into()
 ///     }
 /// }
 ///
@@ -73,15 +74,15 @@ use derive_more::derive::From;
 ///     ));
 /// }
 /// ```
-/// In WGSL shaders, the material's binding would look like this:
+/// In WESL shaders, the material's binding would look like this:
 ///
 /// If you only use the fragment shader make sure to import `UiVertexOutput` from
-/// `bevy_ui::ui_vertex_output` in your wgsl shader.
+/// `bevy_ui_render::ui_vertex_output` in your wesl shader.
 /// Also note that bind group 0 is always bound to the [`View Uniform`](bevy_render::view::ViewUniform)
 /// and the [`Globals Uniform`](bevy_render::globals::GlobalsUniform).
 ///
-/// ```wgsl
-/// #import bevy_ui::ui_vertex_output UiVertexOutput
+/// ```wesl
+/// import bevy_ui_render::ui_vertex_output::UiVertexOutput;
 ///
 /// struct CustomMaterial {
 ///     color: vec4<f32>,
@@ -125,7 +126,7 @@ pub trait UiMaterial: AsBindGroup + Asset + Clone + Sized {
 }
 
 pub struct UiMaterialKey<M: UiMaterial> {
-    pub hdr: bool,
+    pub target_format: TextureFormat,
     pub bind_group_data: M::Data,
 }
 
@@ -136,7 +137,7 @@ where
     M::Data: PartialEq,
 {
     fn eq(&self, other: &Self) -> bool {
-        self.hdr == other.hdr && self.bind_group_data == other.bind_group_data
+        self.target_format == other.target_format && self.bind_group_data == other.bind_group_data
     }
 }
 
@@ -146,7 +147,7 @@ where
 {
     fn clone(&self) -> Self {
         Self {
-            hdr: self.hdr,
+            target_format: self.target_format,
             bind_group_data: self.bind_group_data.clone(),
         }
     }
@@ -157,7 +158,7 @@ where
     M::Data: core::hash::Hash,
 {
     fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
-        self.hdr.hash(state);
+        self.target_format.hash(state);
         self.bind_group_data.hash(state);
     }
 }
@@ -177,6 +178,7 @@ where
 )]
 #[reflect(Component, Default)]
 #[require(Node)]
+#[extract_app(RenderApp)]
 pub struct MaterialNode<M: UiMaterial>(pub Handle<M>);
 
 impl<M: UiMaterial> Default for MaterialNode<M> {

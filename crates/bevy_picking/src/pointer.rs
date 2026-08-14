@@ -12,6 +12,7 @@ use bevy_camera::NormalizedRenderTarget;
 use bevy_camera::{Camera, RenderTarget};
 use bevy_ecs::prelude::*;
 use bevy_input::mouse::MouseScrollUnit;
+use bevy_input::touch::TouchPhase;
 use bevy_math::Vec2;
 use bevy_platform::collections::HashMap;
 use bevy_reflect::prelude::*;
@@ -28,7 +29,7 @@ use crate::backend::HitData;
 /// This component is needed because pointers can be spawned and despawned, but they need to have a
 /// stable ID that persists regardless of the Entity they are associated with.
 #[derive(Debug, Default, Clone, Copy, Eq, PartialEq, Hash, Component, Reflect)]
-#[require(PointerLocation, PointerPress, PointerInteraction)]
+#[require(PointerLocation, PointerPressState, PointerInteraction)]
 #[reflect(Component, Default, Debug, Hash, PartialEq, Clone)]
 pub enum PointerId {
     /// The mouse pointer.
@@ -89,7 +90,8 @@ impl Deref for PointerInteraction {
 }
 
 /// A resource that maps each [`PointerId`] to their [`Entity`] for easy lookups.
-#[derive(Debug, Clone, Default, Resource)]
+#[derive(Debug, Clone, Default, Resource, Reflect)]
+#[reflect(Debug, Clone, Default, Resource)]
 pub struct PointerMap {
     inner: HashMap<PointerId, Entity>,
 }
@@ -112,13 +114,13 @@ pub fn update_pointer_map(pointers: Query<(Entity, &PointerId)>, mut map: ResMut
 /// Tracks the state of the pointer's buttons in response to [`PointerInput`] events.
 #[derive(Debug, Default, Clone, Component, Reflect, PartialEq, Eq)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
-pub struct PointerPress {
+pub struct PointerPressState {
     primary: bool,
     secondary: bool,
     middle: bool,
 }
 
-impl PointerPress {
+impl PointerPressState {
     /// Returns true if the primary pointer button is pressed.
     #[inline]
     pub fn is_primary_pressed(&self) -> bool {
@@ -264,6 +266,10 @@ pub enum PointerAction {
         x: f32,
         /// The vertical scroll value.
         y: f32,
+        /// Touch phase of the input.
+        ///
+        /// When using a mouse, this will always be [`TouchPhase::Moved`].
+        phase: TouchPhase,
     },
     /// Cancel the pointer. Often used for touch events.
     Cancel,
@@ -316,7 +322,7 @@ impl PointerInput {
     /// Updates pointer entities according to the input events.
     pub fn receive(
         mut events: MessageReader<PointerInput>,
-        mut pointers: Query<(&PointerId, &mut PointerLocation, &mut PointerPress)>,
+        mut pointers: Query<(&PointerId, &mut PointerLocation, &mut PointerPressState)>,
     ) {
         for event in events.read() {
             match event.action {

@@ -197,7 +197,7 @@ fn add_environment_map_to_camera(
             .entity(camera_entity)
             .insert(create_camera_environment_map_light(&cubemaps))
             .insert(Skybox {
-                image: cubemaps.specular_environment_map.clone(),
+                image: Some(cubemaps.specular_environment_map.clone()),
                 brightness: ENV_MAP_INTENSITY,
                 ..default()
             });

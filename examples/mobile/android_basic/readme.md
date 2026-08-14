@@ -16,7 +16,7 @@ Please refer example [README](../../README.md#setup) for NDK/SDK related instruc
 When using `cargo-apk`, it must use `NativeActivity`, so you need to edit it in `Cargo.toml` manually like this:
 
 ```toml
-bevy = { version = "0.14", default-features = false, features = ["android-native-activity", ...] }
+bevy = { version = "0.19", features = ["android-native-activity"] }
 ```
 
 Then the following fields must be added to `Cargo.toml`:

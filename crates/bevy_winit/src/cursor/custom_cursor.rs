@@ -15,11 +15,17 @@ pub struct WinitCustomCursorCache(pub HashMap<CustomCursorCacheKey, winit::windo
 pub enum CustomCursorCacheKey {
     /// A custom cursor with an image.
     Image {
+        /// The ID of the image.
         id: AssetId<Image>,
+        /// The ID of the texture atlas layout, if any.
         texture_atlas_layout_id: Option<AssetId<TextureAtlasLayout>>,
+        /// The index into the texture atlas, if any.
         texture_atlas_index: Option<usize>,
+        /// Whether the image should be flipped along its x-axis.
         flip_x: bool,
+        /// Whether the image should be flipped along its y-axis.
         flip_y: bool,
+        /// The sub-rectangle of the image to use, if any.
         rect: Option<URect>,
     },
     #[cfg(all(target_family = "wasm", target_os = "unknown"))]
@@ -90,9 +96,10 @@ pub(crate) fn extract_rgba_pixels(image: &Image) -> Option<Vec<u8>> {
         | TextureFormat::Rgba8Uint
         | TextureFormat::Rgba8Sint => Some(image.data.clone()?),
         TextureFormat::Rgba32Float => image.data.as_ref().map(|data| {
-            data.chunks(4)
+            data.as_chunks()
+                .0
+                .iter()
                 .map(|chunk| {
-                    let chunk = chunk.try_into().unwrap();
                     let num = bytemuck::cast_ref::<[u8; 4], f32>(chunk);
                     ops::round(num.clamp(0.0, 1.0) * 255.0) as u8
                 })

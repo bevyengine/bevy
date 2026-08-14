@@ -81,6 +81,17 @@ fn draw_labels(mut text_gizmos: Gizmos, diagnostic: Res<DiagnosticsStore>) {
         Vec2::ZERO,
         Color::WHITE,
     );
+
+    text_gizmos.text_2d(
+        Isometry2d::from_translation(Vec2::new(
+            -300.,
+            START_Y - TEXT_COUNT as f32 / 5.0 * Y_STEP - 100.,
+        )),
+        "a\tb\tcd\tef",
+        50.,
+        Vec2::ZERO,
+        Color::WHITE,
+    );
 }
 
 const ALL_GLYPHS: &str = " !\"#$%&'()*\n\

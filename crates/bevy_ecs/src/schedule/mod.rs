@@ -13,7 +13,7 @@ mod stepping;
 
 pub use self::graph::GraphInfo;
 pub use self::{condition::*, config::*, error::*, executor::*, node::*, schedule::*, set::*};
-pub use pass::ScheduleBuildPass;
+pub use pass::{FlattenedDependencies, ScheduleBuildPass};
 
 /// An implementation of a graph data structure.
 pub mod graph;

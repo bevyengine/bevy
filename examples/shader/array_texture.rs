@@ -13,7 +13,7 @@ use bevy::{
 };
 
 /// This example uses a shader source file from the assets subdirectory.
-const SHADER_ASSET_PATH: &str = "shaders/array_texture.wgsl";
+const SHADER_ASSET_PATH: &str = "shaders/array_texture.wesl";
 
 /// Corresponds to the number of layers in the array texture.
 const TEXTURE_COUNT: u32 = 4;
@@ -36,14 +36,14 @@ fn setup(
     asset_server: Res<AssetServer>,
 ) {
     // Load the texture.
-    let array_texture = asset_server.load_with_settings(
-        "textures/array_texture.png",
-        |settings: &mut ImageLoaderSettings| {
+    let array_texture = asset_server
+        .load_builder()
+        .with_settings(|settings: &mut ImageLoaderSettings| {
             settings.array_layout = Some(ImageArrayLayout::RowCount {
                 rows: TEXTURE_COUNT,
             });
-        },
-    );
+        })
+        .load("textures/array_texture.png");
 
     // light
     commands.spawn((

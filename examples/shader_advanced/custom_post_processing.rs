@@ -25,7 +25,7 @@ use bevy::{
 };
 
 /// This example uses a shader source file from the assets subdirectory
-const SHADER_ASSET_PATH: &str = "shaders/post_processing.wgsl";
+const SHADER_ASSET_PATH: &str = "shaders/post_processing.wesl";
 
 fn main() {
     App::new()
@@ -211,9 +211,8 @@ fn init_post_process_pipeline(
                 shader,
                 // Make sure this matches the entry point of your shader.
                 // It can be anything as long as it matches here and in the shader.
-                // Use `format: ViewTarget::TEXTURE_FORMAT_HDR` for HDR cameras.
                 targets: vec![Some(ColorTargetState {
-                    format: TextureFormat::bevy_default(),
+                    format: TextureFormat::Rgba8UnormSrgb,
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
@@ -230,6 +229,7 @@ fn init_post_process_pipeline(
 
 // This is the component that will get passed to the shader
 #[derive(Component, Default, Clone, Copy, ExtractComponent, ShaderType)]
+#[extract_app(RenderApp)]
 struct PostProcessSettings {
     intensity: f32,
     // WebGL2 structs must be 16 byte aligned.

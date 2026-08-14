@@ -13,7 +13,7 @@ use bevy_render::{
 
 use super::{CasPipeline, CasUniform};
 
-pub(crate) fn cas(
+pub fn cas(
     view: ViewQuery<
         (
             &ViewTarget,

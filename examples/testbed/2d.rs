@@ -50,7 +50,7 @@ fn main() {
     app.run();
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, States, Default)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, States, Default)]
 enum Scene {
     #[default]
     Shapes,
@@ -61,6 +61,19 @@ enum Scene {
     Gizmos,
     TextureAtlasBuilder,
     ColorConsistency,
+}
+
+impl Scene {
+    const ALL_ORDERED: &'static [Scene] = &[
+        Scene::Shapes,
+        Scene::Bloom,
+        Scene::Text,
+        Scene::Sprite,
+        Scene::SpriteSlicing,
+        Scene::Gizmos,
+        Scene::TextureAtlasBuilder,
+        Scene::ColorConsistency,
+    ];
 }
 
 impl std::str::FromStr for Scene {
@@ -80,16 +93,12 @@ impl std::str::FromStr for Scene {
 
 impl Next for Scene {
     fn next(&self) -> Self {
-        match self {
-            Scene::Shapes => Scene::Bloom,
-            Scene::Bloom => Scene::Text,
-            Scene::Text => Scene::Sprite,
-            Scene::Sprite => Scene::SpriteSlicing,
-            Scene::SpriteSlicing => Scene::Gizmos,
-            Scene::Gizmos => Scene::TextureAtlasBuilder,
-            Scene::TextureAtlasBuilder => Scene::ColorConsistency,
-            Scene::ColorConsistency => Scene::Shapes,
-        }
+        Scene::ALL_ORDERED[(Scene::ALL_ORDERED
+            .iter()
+            .position(|scene| scene == self)
+            .unwrap()
+            + 1)
+            % Scene::ALL_ORDERED.len()]
     }
 }
 
@@ -260,7 +269,7 @@ mod text {
         ] {
             let mut text = commands.spawn((
                 Text2d::new("L R\n"),
-                TextLayout::new_with_justify(justify),
+                TextLayout::justify(justify),
                 Transform::from_translation(dest + Vec3::Z),
                 anchor,
                 DespawnOnExit(super::Scene::Text),

@@ -75,11 +75,8 @@ impl AssetLoader for GzAssetLoader {
         let mut reader = VecReader::new(bytes_uncompressed);
 
         let uncompressed = load_context
-            .loader()
-            .with_unknown_type()
-            .immediate()
-            .with_reader(&mut reader)
-            .load(contained_path)
+            .load_builder()
+            .load_untyped_value_from_reader(contained_path, &mut reader)
             .await?;
 
         Ok(GzAsset { uncompressed })

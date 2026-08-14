@@ -44,6 +44,7 @@ use bevy_ecs::{
     resource::Resource,
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
+    template::FromTemplate,
 };
 use bevy_image::Image;
 use bevy_math::{uvec2, vec4, Rect, UVec2};
@@ -58,7 +59,6 @@ use bevy_render::{
     Extract, ExtractSchedule, RenderApp, RenderStartup,
 };
 use bevy_render::{renderer::RenderDevice, sync_world::MainEntityHashMap};
-use bevy_shader::load_shader_library;
 use bevy_utils::default;
 use fixedbitset::FixedBitSet;
 use nonmax::{NonMaxU16, NonMaxU32};
@@ -83,7 +83,7 @@ pub struct LightmapPlugin;
 /// [`MeshMaterial3d<StandardMaterial>`](crate::StandardMaterial), if the mesh
 /// has a second UV layer ([`ATTRIBUTE_UV_1`](bevy_mesh::Mesh::ATTRIBUTE_UV_1)),
 /// then the lightmap will render using those UVs.
-#[derive(Component, Clone, Reflect)]
+#[derive(Component, Clone, Reflect, FromTemplate)]
 #[reflect(Component, Default, Clone)]
 pub struct Lightmap {
     /// The lightmap texture.
@@ -184,8 +184,6 @@ pub struct LightmapSlotIndex(pub(crate) NonMaxU16);
 
 impl Plugin for LightmapPlugin {
     fn build(&self, app: &mut App) {
-        load_shader_library!(app, "lightmap.wgsl");
-
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };

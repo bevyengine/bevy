@@ -1,20 +1,17 @@
 use crate::{
-    ui_transform::UiGlobalTransform, ComputedNode, ComputedUiTargetCamera, Node, OverrideClip,
-    UiStack,
+    ui_transform::UiGlobalTransform, CalculatedClip, ComputedNode, ComputedUiTargetCamera, UiStack,
 };
 use bevy_camera::{visibility::InheritedVisibility, Camera, NormalizedRenderTarget, RenderTarget};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
-    entity::{ContainsEntity, Entity},
-    hierarchy::ChildOf,
+    entity::{ContainsEntity, Entity, EntityHashMap},
     prelude::{Component, With},
-    query::{QueryData, Without},
+    query::QueryData,
     reflect::ReflectComponent,
     system::{Local, Query, Res},
 };
 use bevy_input::{mouse::MouseButton, touch::Touches, ButtonInput};
 use bevy_math::Vec2;
-use bevy_platform::collections::HashMap;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_window::{PrimaryWindow, Window};
 
@@ -49,7 +46,8 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-pub enum Interaction {
+// TODO this should be removed in 0.20.
+pub(crate) enum DeprecatedInteraction {
     /// The node has been pressed.
     ///
     /// Note: This does not capture click/press-release action.
@@ -60,10 +58,29 @@ pub enum Interaction {
     None,
 }
 
+#[deprecated(
+    since = "0.20.0",
+    note = "Use picking::hover::Hovered and ui::Pressed."
+)]
+#[expect(
+    private_interfaces,
+    reason = "We have to use a type alias here to deprecate `Interaction` because\
+              deprecating the `DeprecatedInteraction` struct would cause lints that are not `expect`able."
+)]
+pub type Interaction = DeprecatedInteraction;
+
+#[expect(
+    deprecated,
+    reason = "Should be removed after 0.20 is released when Interaction is removed."
+)]
 impl Interaction {
     const DEFAULT: Self = Self::None;
 }
 
+#[expect(
+    deprecated,
+    reason = "Should be removed after 0.20 is released when Interaction is removed."
+)]
 impl Default for Interaction {
     fn default() -> Self {
         Self::DEFAULT
@@ -75,7 +92,7 @@ impl Default for Interaction {
 ///
 /// It can be used alongside [`Interaction`] to get the position of the press.
 ///
-/// The component is updated when it is in the same entity with [`Node`].
+/// The component is updated when it is in the same entity with [`ComputedNode`].
 #[derive(Component, Copy, Clone, Default, PartialEq, Debug, Reflect)]
 #[reflect(Component, Default, PartialEq, Debug, Clone)]
 #[cfg_attr(
@@ -136,16 +153,22 @@ pub struct NodeQuery {
     entity: Entity,
     node: &'static ComputedNode,
     transform: &'static UiGlobalTransform,
-    interaction: Option<&'static mut Interaction>,
+    // TODO this should be removed in 0.20.
+    interaction: Option<&'static mut DeprecatedInteraction>,
     relative_cursor_position: Option<&'static mut RelativeCursorPosition>,
     focus_policy: Option<&'static FocusPolicy>,
     inherited_visibility: Option<&'static InheritedVisibility>,
     target_camera: &'static ComputedUiTargetCamera,
+    calculated_clip: Option<&'static CalculatedClip>,
 }
 
 /// The system that sets Interaction for all UI elements based on the mouse cursor activity
 ///
 /// Entities with a hidden [`InheritedVisibility`] are always treated as released.
+#[expect(
+    deprecated,
+    reason = "Should be removed after 0.20 is released when Interaction is removed."
+)]
 pub fn ui_focus_system(
     mut hovered_nodes: Local<Vec<Entity>>,
     mut state: Local<State>,
@@ -156,8 +179,6 @@ pub fn ui_focus_system(
     touches_input: Res<Touches>,
     ui_stack: Res<UiStack>,
     mut node_query: Query<NodeQuery>,
-    clipping_query: Query<(&ComputedNode, &UiGlobalTransform, &Node)>,
-    child_of_query: Query<&ChildOf, Without<OverrideClip>>,
 ) {
     let primary_window = primary_window.iter().next();
 
@@ -187,7 +208,7 @@ pub fn ui_focus_system(
     let mouse_clicked =
         mouse_button_input.just_pressed(MouseButton::Left) || touches_input.any_just_pressed();
 
-    let camera_cursor_positions: HashMap<Entity, Vec2> = camera_query
+    let camera_cursor_positions: EntityHashMap<Vec2> = camera_query
         .iter()
         .filter_map(|(entity, camera, render_target)| {
             // Interactions are only supported for cameras rendering to a window.
@@ -258,7 +279,9 @@ pub fn ui_focus_system(
 
             let contains_cursor = cursor_position.is_some_and(|point| {
                 node.node.contains_point(*node.transform, *point)
-                    && clip_check_recursive(*point, entity, &clipping_query, &child_of_query)
+                    && node
+                        .calculated_clip
+                        .is_none_or(|clip| clip.contains_point(*point))
             });
 
             // The mouse position relative to the node
@@ -303,7 +326,7 @@ pub fn ui_focus_system(
     // set Pressed or Hovered on top nodes. as soon as a node with a `Block` focus policy is detected,
     // the iteration will stop on it because it "captures" the interaction.
     let mut hovered_nodes = hovered_nodes.iter();
-    let mut iter = node_query.iter_many_mut(hovered_nodes.by_ref());
+    let mut iter = node_query.iter_many_mut(hovered_nodes.by_ref()).matched();
     while let Some(node) = iter.fetch_next() {
         if let Some(mut interaction) = node.interaction {
             if mouse_clicked {
@@ -330,7 +353,7 @@ pub fn ui_focus_system(
     }
     // reset `Interaction` for the remaining lower nodes to `None`. those are the nodes that remain in
     // `moused_over_nodes` after the previous loop is exited.
-    let mut iter = node_query.iter_many_mut(hovered_nodes);
+    let mut iter = node_query.iter_many_mut(hovered_nodes).matched();
     while let Some(node) = iter.fetch_next() {
         if let Some(mut interaction) = node.interaction {
             // don't reset pressed nodes because they're handled separately
@@ -339,28 +362,4 @@ pub fn ui_focus_system(
             }
         }
     }
-}
-
-/// Walk up the tree child-to-parent checking that `point` is not clipped by any ancestor node.
-/// If `entity` has an [`OverrideClip`] component it ignores any inherited clipping and returns true.
-pub fn clip_check_recursive(
-    point: Vec2,
-    entity: Entity,
-    clipping_query: &Query<'_, '_, (&ComputedNode, &UiGlobalTransform, &Node)>,
-    child_of_query: &Query<&ChildOf, Without<OverrideClip>>,
-) -> bool {
-    if let Ok(child_of) = child_of_query.get(entity) {
-        let parent = child_of.0;
-        if let Ok((computed_node, transform, node)) = clipping_query.get(parent)
-            && !computed_node
-                .resolve_clip_rect(node.overflow, node.overflow_clip_margin)
-                .contains(transform.inverse().transform_point2(point))
-        {
-            // The point is clipped and should be ignored by picking
-            return false;
-        }
-        return clip_check_recursive(point, parent, clipping_query, child_of_query);
-    }
-    // Reached root, point unclipped by all ancestors
-    true
 }

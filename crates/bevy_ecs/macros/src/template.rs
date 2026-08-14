@@ -1,13 +1,14 @@
-use bevy_macro_utils::BevyManifest;
+use bevy_macro_utils::{fq_std::FQDefault, BevyManifest};
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use syn::{
-    parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned, Data, DeriveInput,
-    Fields, FieldsUnnamed, Index, Path, Result, Token, WhereClause,
+    parse::ParseStream, parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned,
+    Data, DeriveInput, Fields, FieldsUnnamed, Ident, Index, Path, Result, Token, WhereClause,
 };
 
 const TEMPLATE_DEFAULT_ATTRIBUTE: &str = "default";
 const TEMPLATE_ATTRIBUTE: &str = "template";
+const BUILT_IN_ATTRIBUTE: &str = "built_in";
 
 pub(crate) fn derive_from_template(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
@@ -18,8 +19,7 @@ pub(crate) fn derive_from_template(input: TokenStream) -> TokenStream {
 
     let template_ident = format_ident!("{type_ident}Template");
 
-    let is_pub = matches!(ast.vis, syn::Visibility::Public(_));
-    let maybe_pub = if is_pub { quote!(pub) } else { quote!() };
+    let type_visibility = &ast.vis;
 
     let template = match &ast.data {
         Data::Struct(data_struct) => {
@@ -38,14 +38,14 @@ pub(crate) fn derive_from_template(input: TokenStream) -> TokenStream {
                 Fields::Named(_) => {
                     quote! {
                         #[allow(missing_docs)]
-                        #maybe_pub struct #template_ident #impl_generics #where_clause {
+                        #type_visibility struct #template_ident #impl_generics #where_clause {
                             #(#template_fields,)*
                         }
 
                         impl #impl_generics #bevy_ecs::template::Template for #template_ident #type_generics #where_clause {
                             type Output = #type_ident #type_generics;
                             fn build_template(&self, context: &mut #bevy_ecs::template::TemplateContext) -> #bevy_ecs::error::Result<Self::Output> {
-                                Ok(#type_ident {
+                                #bevy_ecs::error::Result::Ok(#type_ident {
                                     #(#template_field_builds,)*
                                 })
                             }
@@ -57,7 +57,7 @@ pub(crate) fn derive_from_template(input: TokenStream) -> TokenStream {
                             }
                         }
 
-                        impl #impl_generics Default for #template_ident #type_generics #where_clause {
+                        impl #impl_generics #FQDefault for #template_ident #type_generics #where_clause {
                             fn default() -> Self {
                                 Self {
                                     #(#template_field_defaults,)*
@@ -69,14 +69,14 @@ pub(crate) fn derive_from_template(input: TokenStream) -> TokenStream {
                 Fields::Unnamed(_) => {
                     quote! {
                         #[allow(missing_docs)]
-                        #maybe_pub struct #template_ident #impl_generics (
+                        #type_visibility struct #template_ident #impl_generics (
                             #(#template_fields,)*
                         )  #where_clause;
 
                         impl #impl_generics #bevy_ecs::template::Template for #template_ident #type_generics #where_clause {
                             type Output = #type_ident #type_generics;
                             fn build_template(&self, context: &mut #bevy_ecs::template::TemplateContext) -> #bevy_ecs::error::Result<Self::Output> {
-                                Ok(#type_ident (
+                                #bevy_ecs::error::Result::Ok(#type_ident (
                                     #(#template_field_builds,)*
                                 ))
                             }
@@ -88,7 +88,7 @@ pub(crate) fn derive_from_template(input: TokenStream) -> TokenStream {
                             }
                         }
 
-                        impl #impl_generics Default for #template_ident #type_generics #where_clause {
+                        impl #impl_generics #FQDefault for #template_ident #type_generics #where_clause {
                             fn default() -> Self {
                                 Self (
                                     #(#template_field_defaults,)*
@@ -100,12 +100,12 @@ pub(crate) fn derive_from_template(input: TokenStream) -> TokenStream {
                 Fields::Unit => {
                     quote! {
                         #[allow(missing_docs)]
-                        #maybe_pub struct #template_ident;
+                        #type_visibility struct #template_ident;
 
                         impl #impl_generics #bevy_ecs::template::Template for #template_ident #type_generics #where_clause {
                             type Output = #type_ident;
                             fn build_template(&self, context: &mut #bevy_ecs::template::TemplateContext) -> #bevy_ecs::error::Result<Self::Output> {
-                                Ok(#type_ident)
+                                #bevy_ecs::error::Result::Ok(#type_ident)
                             }
 
                             fn clone_template(&self) -> Self {
@@ -113,7 +113,7 @@ pub(crate) fn derive_from_template(input: TokenStream) -> TokenStream {
                             }
                         }
 
-                        impl #impl_generics Default for #template_ident #type_generics #where_clause {
+                        impl #impl_generics #FQDefault for #template_ident #type_generics #where_clause {
                             fn default() -> Self {
                                 Self
                             }
@@ -191,7 +191,7 @@ pub(crate) fn derive_from_template(input: TokenStream) -> TokenStream {
                         }
                         variant_defaults.push(quote! {
                             /// Default value for this variant, generated by a `FromTemplate` derive.
-                            #maybe_pub fn #variant_default_name() -> Self {
+                            #type_visibility fn #variant_default_name() -> Self {
                                 Self::#variant_ident {
                                     #(#template_field_defaults,)*
                                 }
@@ -236,7 +236,7 @@ pub(crate) fn derive_from_template(input: TokenStream) -> TokenStream {
 
                         variant_defaults.push(quote! {
                             /// Default value for this variant, generated by a `FromTemplate` derive.
-                            #maybe_pub fn #variant_default_name() -> Self {
+                            #type_visibility fn #variant_default_name() -> Self {
                                 Self::#variant_ident(
                                     #(#template_field_defaults,)*
                                 )
@@ -258,7 +258,7 @@ pub(crate) fn derive_from_template(input: TokenStream) -> TokenStream {
                         }
                         variant_defaults.push(quote! {
                             /// Default value for this variant, generated by a `FromTemplate` derive.
-                            #maybe_pub fn #variant_default_name() -> Self {
+                            #type_visibility fn #variant_default_name() -> Self {
                                 Self::#variant_ident
                             }
                         });
@@ -272,7 +272,7 @@ pub(crate) fn derive_from_template(input: TokenStream) -> TokenStream {
 
             quote! {
                 #[allow(missing_docs)]
-                #maybe_pub enum #template_ident #type_generics #where_clause {
+                #type_visibility enum #template_ident #type_generics #where_clause {
                     #(#variant_definitions,)*
                 }
 
@@ -283,7 +283,7 @@ pub(crate) fn derive_from_template(input: TokenStream) -> TokenStream {
                 impl #impl_generics #bevy_ecs::template::Template for #template_ident #type_generics #where_clause {
                     type Output = #type_ident #type_generics;
                     fn build_template(&self, context: &mut #bevy_ecs::template::TemplateContext) -> #bevy_ecs::error::Result<Self::Output> {
-                        Ok(match self {
+                        #bevy_ecs::error::Result::Ok(match self {
                             #(#variant_builds,)*
                         })
                     }
@@ -295,7 +295,7 @@ pub(crate) fn derive_from_template(input: TokenStream) -> TokenStream {
                     }
                 }
 
-                impl #impl_generics Default for #template_ident #type_generics #where_clause {
+                impl #impl_generics #FQDefault for #template_ident #type_generics #where_clause {
                     fn default() -> Self {
                         #variant_default_ident
                     }
@@ -319,7 +319,7 @@ pub(crate) fn derive_from_template(input: TokenStream) -> TokenStream {
             type Template = #template_ident #type_generics;
         }
 
-        impl #impl_generics Unpin for #type_ident #type_generics #unpin_where_clause {}
+        impl #impl_generics ::core::marker::Unpin for #type_ident #type_generics #unpin_where_clause {}
 
         #template
     })
@@ -330,6 +330,12 @@ struct StructImpl {
     template_field_builds: Vec<proc_macro2::TokenStream>,
     template_field_defaults: Vec<proc_macro2::TokenStream>,
     template_field_clones: Vec<proc_macro2::TokenStream>,
+}
+
+enum TemplateType {
+    FromTemplate,
+    BuiltIn,
+    Manual(Path),
 }
 
 fn struct_impl(fields: &Fields, bevy_ecs: &Path, is_enum: bool) -> Result<StructImpl> {
@@ -344,22 +350,39 @@ fn struct_impl(fields: &Fields, bevy_ecs: &Path, is_enum: bool) -> Result<Struct
         let ident = &field.ident;
         let ty = &field.ty;
         let index = Index::from(index);
-        let mut template_type = None;
+        let mut template_type = TemplateType::FromTemplate;
         for attr in &field.attrs {
             if attr.path().is_ident(TEMPLATE_ATTRIBUTE) {
-                let Ok(path) = attr.parse_args::<Path>() else {
-                    return Err(syn::Error::new(
-                        attr.span(),
-                        "Expected a Template type path",
-                    ));
-                };
-                template_type = Some(quote!(#path));
+                attr.parse_args_with(|stream: ParseStream| {
+                    let forked = stream.fork();
+                    let ident = forked.parse::<Ident>()?;
+                    if ident == BUILT_IN_ATTRIBUTE {
+                        stream.parse::<Ident>()?;
+                        template_type = TemplateType::BuiltIn;
+                    } else {
+                        if let Ok(path) = stream.parse::<Path>() {
+                            template_type = TemplateType::Manual(path);
+                        } else {
+                            return Err(syn::Error::new(
+                                attr.span(),
+                                "Expected a Template type path",
+                            ));
+                        }
+                    }
+                    Ok(())
+                })?;
             }
         }
 
-        if template_type.is_none() {
-            template_type = Some(quote!(<#ty as #bevy_ecs::template::FromTemplate>::Template));
-        }
+        let template_type = match template_type {
+            TemplateType::FromTemplate => {
+                quote!(<#ty as #bevy_ecs::template::FromTemplate>::Template)
+            }
+            TemplateType::BuiltIn => {
+                quote!(<#ty as #bevy_ecs::template::BuiltInTemplate>::Template)
+            }
+            TemplateType::Manual(path) => quote! {#path},
+        };
 
         if is_named {
             template_fields.push(quote! {
@@ -382,7 +405,7 @@ fn struct_impl(fields: &Fields, bevy_ecs: &Path, is_enum: bool) -> Result<Struct
             }
 
             template_field_defaults.push(quote! {
-                #ident: Default::default()
+                #ident: #FQDefault::default()
             });
         } else {
             template_fields.push(quote! {
@@ -405,7 +428,7 @@ fn struct_impl(fields: &Fields, bevy_ecs: &Path, is_enum: bool) -> Result<Struct
                 });
             }
             template_field_defaults.push(quote! {
-                Default::default()
+                #FQDefault::default()
             });
         }
     }

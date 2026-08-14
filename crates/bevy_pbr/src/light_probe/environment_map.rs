@@ -32,8 +32,7 @@
 //!
 //! Currently, reflection probes (i.e. environment maps attached to light
 //! probes) use binding arrays (also known as bindless textures) and
-//! consequently aren't supported on WebGL2 or WebGPU. Reflection probes are
-//! also unsupported if GLSL is in use, due to `naga` limitations. Environment
+//! consequently aren't supported on WebGL2 or WebGPU. Environment
 //! maps attached to views are, however, supported on all platforms.
 //!
 //! [split-sum approximation]: https://cdn2.unrealengine.com/Resources/files/2013SiggraphPresentationsNotes-26915738.pdf
@@ -51,24 +50,24 @@ use bevy_ecs::{
 };
 use bevy_image::Image;
 use bevy_light::{EnvironmentMapLight, ParallaxCorrection};
-use bevy_math::{Affine3A, Vec3};
+use bevy_math::{Affine3A, Quat, Vec3};
 use bevy_render::{
     extract_instances::ExtractInstance,
     render_asset::RenderAssets,
     render_resource::{
-        binding_types::{self, uniform_buffer},
-        BindGroupLayoutEntryBuilder, Sampler, SamplerBindingType, ShaderStages, TextureSampleType,
+        binding_types, BindGroupLayoutEntryBuilder, Sampler, SamplerBindingType, TextureSampleType,
         TextureView,
     },
     renderer::{RenderAdapter, RenderDevice},
     texture::{FallbackImage, GpuImage},
+    RenderApp,
 };
 
 use core::{num::NonZero, ops::Deref};
 
 use crate::{
-    add_cubemap_texture_view, binding_arrays_are_usable, EnvironmentMapUniform,
-    RenderLightProbeFlags, MAX_VIEW_LIGHT_PROBES,
+    add_cubemap_texture_view, binding_arrays_are_usable, RenderLightProbeFlags,
+    MAX_VIEW_LIGHT_PROBES,
 };
 
 use super::{LightProbeComponent, RenderViewLightProbes};
@@ -136,9 +135,11 @@ pub struct EnvironmentMapViewLightProbeInfo {
     /// Whether this lightmap affects the diffuse lighting of lightmapped
     /// meshes.
     pub(crate) affects_lightmapped_mesh_diffuse: bool,
+    /// World space rotation applied to the environment light cubemaps.
+    pub(crate) rotation: Quat,
 }
 
-impl ExtractInstance for EnvironmentMapIds {
+impl ExtractInstance<RenderApp> for EnvironmentMapIds {
     type QueryData = Read<EnvironmentMapLight>;
 
     type QueryFilter = ();
@@ -156,7 +157,7 @@ impl ExtractInstance for EnvironmentMapIds {
 pub(crate) fn get_bind_group_layout_entries(
     render_device: &RenderDevice,
     render_adapter: &RenderAdapter,
-) -> [BindGroupLayoutEntryBuilder; 4] {
+) -> [BindGroupLayoutEntryBuilder; 3] {
     let mut texture_cube_binding =
         binding_types::texture_cube(TextureSampleType::Float { filterable: true });
     if binding_arrays_are_usable(render_device, render_adapter) {
@@ -168,7 +169,6 @@ pub(crate) fn get_bind_group_layout_entries(
         texture_cube_binding,
         texture_cube_binding,
         binding_types::sampler(SamplerBindingType::Filtering),
-        uniform_buffer::<EnvironmentMapUniform>(true).visibility(ShaderStages::FRAGMENT),
     ]
 }
 
@@ -295,6 +295,7 @@ impl LightProbeComponent for EnvironmentMapLight {
             specular_map: specular_map_handle,
             intensity,
             affects_lightmapped_mesh_diffuse,
+            rotation,
             ..
         }) = view_component
             && let (Some(_), Some(specular_map)) = (
@@ -314,6 +315,7 @@ impl LightProbeComponent for EnvironmentMapLight {
                         - 1,
                     intensity: *intensity,
                     affects_lightmapped_mesh_diffuse: *affects_lightmapped_mesh_diffuse,
+                    rotation: *rotation,
                 });
         };
 
@@ -344,6 +346,7 @@ impl Default for EnvironmentMapViewLightProbeInfo {
             smallest_specular_mip_level: 0,
             intensity: 1.0,
             affects_lightmapped_mesh_diffuse: true,
+            rotation: Quat::IDENTITY,
         }
     }
 }

@@ -19,7 +19,7 @@ pub struct BlitPlugin;
 
 impl Plugin for BlitPlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "blit.wgsl");
+        embedded_asset!(app, "blit.wesl");
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -63,7 +63,7 @@ pub fn init_blit_pipeline(
         layout,
         sampler,
         fullscreen_shader: fullscreen_shader.clone(),
-        fragment_shader: load_embedded_asset!(asset_server.as_ref(), "blit.wgsl"),
+        fragment_shader: load_embedded_asset!(asset_server.as_ref(), "blit.wesl"),
     });
 }
 
@@ -84,7 +84,7 @@ impl BlitPipeline {
 
 #[derive(PartialEq, Eq, Hash, Clone, Copy)]
 pub struct BlitPipelineKey {
-    pub texture_format: TextureFormat,
+    pub target_format: TextureFormat,
     pub blend_state: Option<BlendState>,
     pub samples: u32,
     /// Color space of the source texture. When `Some(Srgb)` or `Some(Oklab)`, the blit converts
@@ -111,7 +111,7 @@ impl SpecializedRenderPipeline for BlitPipeline {
                 shader: self.fragment_shader.clone(),
                 shader_defs,
                 targets: vec![Some(ColorTargetState {
-                    format: key.texture_format,
+                    format: key.target_format,
                     blend: key.blend_state,
                     write_mask: ColorWrites::ALL,
                 })],

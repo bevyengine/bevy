@@ -1,16 +1,46 @@
 //! Standard widget components for popup menus.
+//!
+//! Generally menus are structured as follows: there's a "menu" entity which is a container for a
+//! "menu button" and a "menu popup". The popup may be pre-rendered and hidden while closed, or
+//! it can be dynamically spawned on open and despawned on close - it's up to the widget implementer
+//! to decide how they want to manage the popup.
+//!
+//! The popup should have a [`MenuPopup`] component. The menu button should have a [`MenuButton`]
+//! component. The top level menu entity does not have any special component, but should have an
+//! observer for menu events. The menu entity receives these events which bubble upward from both
+//! the button and the popup. These events control the state of the menu (open and close) as well
+//! as help manage focus.
+//!
+//! There's a tight coupling between menus and input focus: in order to detect clicks outside
+//! the popup box (which cause the menu to close), we look for focus changes. This means that menu
+//! popups only remain open as long as some child of the popup has focus. This also means that
+//! when the popup first opens, focus must be set to a child (usually the first or last menu item
+//! depending on what action caused the menu to open). Because opening the popup may not be instant,
+//! especially if it's a queued BSN spawn, we can't set focus directly via the focus API. Instead,
+//! you can insert a [`MenuFocusState`] component on the popup which will automatically focus
+//! the appropriate child item when spawning is complete.
+//!
+//! Pressing the ESC key also closes the menu, but in that case focus reverts back to the menu
+//! button.
+//!
+//! Finally, there's no rule against the menu entity having additional children besides the button
+//! and the popup; for example, for something like a combo box widget, you might have a text input
+//! widget that is a sibling of the menu button, both of which are contained inside a decorative
+//! frame.
 
 use accesskit::Role;
 use bevy_a11y::AccessibilityNode;
-use bevy_app::{App, Plugin, Update};
+use bevy_app::{App, Plugin, PostUpdate};
+use bevy_camera::visibility::VisibilitySystems;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
     event::EntityEvent,
     hierarchy::ChildOf,
     observer::On,
-    query::{Has, With, Without},
-    schedule::IntoScheduleConfigs,
+    query::{Has, With},
+    reflect::{ReflectComponent, ReflectEvent},
+    schedule::{IntoScheduleConfigs, SystemSet},
     system::{Commands, Query, Res, ResMut},
 };
 use bevy_input::{
@@ -19,40 +49,38 @@ use bevy_input::{
 };
 use bevy_input_focus::{
     tab_navigation::{NavAction, TabGroup, TabNavigation},
-    FocusedInput, InputFocus,
+    FocusCause, FocusedInput, InputFocus, InputFocusSystems,
 };
 use bevy_log::warn;
-use bevy_picking::events::{Cancel, Click, DragEnd, Pointer, Press, Release};
-use bevy_ui::{InteractionDisabled, Pressed};
+use bevy_picking::events::{
+    PointerCancel, PointerClick, PointerDragEnd, PointerPress, PointerRelease,
+};
+use bevy_reflect::Reflect;
+use bevy_ui::{InteractionDisabled, Pressed, UiSystems};
 
-use crate::Activate;
+use crate::{text_input::text_input_autoscroll_system, Activate, ActivateOnPress, Button};
 
 /// Action type for [`MenuEvent`].
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Reflect)]
 pub enum MenuAction {
-    /// Indicates we want to open the menu, if it is not already open.
-    Open,
+    /// Indicates we want to open the menu, if it is not already open, and focus the first or
+    /// last item depending on the [`NavAction`].
+    Open(NavAction),
     /// Open the menu if it's closed, close it if it's open. Generally sent from a menu button.
     Toggle,
-    /// Close the menu and despawn it. Despawning may not happen immediately if there is a closing
-    /// transition animation.
-    Close,
     /// Close the entire menu stack.
     CloseAll,
     /// Set focus to the menu button or other owner of the popup stack. This happens when
-    /// the escape key is pressed.
+    /// the menu is closed by pressing the escape key.
     FocusRoot,
 }
 
 /// Event used to control the state of the open menu. This bubbles upwards from the menu items
 /// and the menu container, through the portal relation, and to the menu owner entity.
-///
-/// Focus navigation: the menu may be part of a composite of multiple menus such as a menu bar.
-/// This means that depending on direction, focus movement may move to the next menu item, or
-/// the next menu. This also means that different events will often be handled at different
-/// levels of the hierarchy - some being handled by the popup, and some by the popup's owner.
 #[derive(EntityEvent, Clone, Debug)]
 #[entity_event(propagate, auto_propagate)]
+#[derive(Reflect)]
+#[reflect(Event)]
 pub struct MenuEvent {
     /// The [`MenuItem`] or [`MenuPopup`] that triggered this event.
     #[event_target]
@@ -63,7 +91,7 @@ pub struct MenuEvent {
 }
 
 /// Specifies the layout direction of the menu, for keyboard navigation
-#[derive(Default, Debug, Clone, PartialEq)]
+#[derive(Default, Debug, Clone, PartialEq, Reflect)]
 pub enum MenuLayout {
     /// A vertical stack. Up and down arrows to move between items.
     #[default]
@@ -94,79 +122,99 @@ pub enum MenuLayout {
     AccessibilityNode(accesskit::Node::new(Role::MenuListPopup)),
     TabGroup::modal()
 )]
-#[require(MenuAcquireFocus)]
+#[require(MenuFocusState::Closed)]
+#[derive(Reflect)]
+#[reflect(Component)]
 pub struct MenuPopup {
     /// The layout orientation of the menu
     pub layout: MenuLayout,
 }
 
 /// Component that defines a menu item.
-#[derive(Component, Debug, Clone)]
+#[derive(Component, Debug, Clone, Default)]
 #[require(AccessibilityNode(accesskit::Node::new(Role::MenuItem)))]
+#[derive(Reflect)]
+#[reflect(Component)]
 pub struct MenuItem;
 
-/// Marker component that indicates that we need to set focus to the first menu item.
-#[derive(Component, Debug, Default)]
-struct MenuAcquireFocus;
+/// Component used to manage focus on the popup. Menu popups remain open only so long as they
+/// contain focus.
+#[derive(Component, Debug, Clone, Default, PartialEq, Reflect)]
+#[reflect(Component)]
+pub enum MenuFocusState {
+    /// A newly opened menu, which needs to have focus set to the first or last item depending on
+    /// [`NavAction`].
+    Opening(NavAction),
+    /// Menu is open, and focus is set to an item within the menu
+    Open,
+    /// Menu is no longer visible, and can be cleaned up.
+    #[default]
+    Closed,
+}
 
-/// Component that indicates that the menu lost focus and is in the process of closing.
-#[derive(Component, Debug, Default)]
-struct MenuLostFocus;
+/// System set for the system that menus use to acquire focus on one of its items upon first opening.
+/// It potentially modifies [`InputFocus`].
+///
+/// These system runs in the [`PostUpdate`] schedule.
+#[derive(Debug, PartialEq, Eq, Hash, Clone, SystemSet)]
+pub struct MenuFocusSystem;
 
+/// System that sets the focus to an item in the menu when the menu is opening.
 fn menu_acquire_focus(
-    q_menus: Query<Entity, (With<MenuPopup>, With<MenuAcquireFocus>)>,
+    mut q_menus: Query<(Entity, &mut MenuFocusState), With<MenuPopup>>,
     mut focus: ResMut<InputFocus>,
     tab_navigation: TabNavigation,
-    mut commands: Commands,
 ) {
-    for menu in q_menus.iter() {
+    for (menu, mut menu_focus) in q_menus.iter_mut() {
         // When a menu is spawned, attempt to find the first focusable menu item, and set focus
         // to it.
-        match tab_navigation.initialize(menu, NavAction::First) {
-            Ok(next) => {
-                commands.entity(menu).remove::<MenuAcquireFocus>();
-                focus.0 = Some(next);
-            }
-            Err(e) => {
-                warn!(
-                    "No focusable menu items for popup menu: {}, error: {:?}",
-                    menu, e
-                );
+        if let MenuFocusState::Opening(nav) = *menu_focus {
+            match tab_navigation.initialize(menu, nav) {
+                Ok(next) => {
+                    *menu_focus = MenuFocusState::Open;
+                    focus.set(next, FocusCause::Navigated);
+                }
+                Err(e) => {
+                    warn!(
+                        "No focusable menu items for popup menu: {}, error: {:?}",
+                        menu, e
+                    );
+                }
             }
         }
     }
 }
 
 fn menu_on_lose_focus(
-    q_menus: Query<
-        Entity,
-        (
-            With<MenuPopup>,
-            Without<MenuAcquireFocus>,
-            Without<MenuLostFocus>,
-        ),
-    >,
+    mut q_menus: Query<(Entity, &mut MenuFocusState), With<MenuPopup>>,
     q_parent: Query<&ChildOf>,
     focus: Res<InputFocus>,
     mut commands: Commands,
 ) {
     // Close any menu which doesn't contain the focus entity.
-    for menu in q_menus.iter() {
-        // TODO: Change this logic when we support submenus. Don't want to send multiple close
-        // events. Perhaps what we can do is add `MenuLostFocus` to the whole stack.
-        let contains_focus = match focus.0 {
-            Some(focus_ent) => {
-                focus_ent == menu || q_parent.iter_ancestors(focus_ent).any(|ent| ent == menu)
-            }
-            None => false,
-        };
+    for (menu, mut menu_focus) in q_menus.iter_mut() {
+        match *menu_focus {
+            MenuFocusState::Opening(_) | MenuFocusState::Open => {
+                // TODO: Change this logic when we support submenus. Don't want to send multiple close
+                // events. Perhaps what we can do is add `MenuLostFocus` to the whole stack.
+                let contains_focus = match focus.get() {
+                    Some(focus_ent) => {
+                        focus_ent == menu
+                            || q_parent.iter_ancestors(focus_ent).any(|ent| ent == menu)
+                    }
+                    None => false,
+                };
 
-        if !contains_focus {
-            commands.entity(menu).insert(MenuLostFocus);
-            commands.trigger(MenuEvent {
-                source: menu,
-                action: MenuAction::CloseAll,
-            });
+                if !contains_focus {
+                    *menu_focus = MenuFocusState::Closed;
+                    commands.trigger(MenuEvent {
+                        source: menu,
+                        action: MenuAction::CloseAll,
+                    });
+                }
+            }
+
+            _ => {}
         }
     }
 }
@@ -174,7 +222,7 @@ fn menu_on_lose_focus(
 fn menu_on_key_event(
     mut ev: On<FocusedInput<KeyboardInput>>,
     q_item: Query<Has<InteractionDisabled>, With<MenuItem>>,
-    q_menu: Query<&MenuPopup>,
+    q_popup: Query<&MenuPopup>,
     tab_navigation: TabNavigation,
     mut focus: ResMut<InputFocus>,
     mut commands: Commands,
@@ -206,59 +254,82 @@ fn menu_on_key_event(
                 }
             }
         }
-    } else if let Ok(menu) = q_menu.get(ev.focused_entity) {
+    } else if let Ok(menu) = q_popup.get(ev.focused_entity) {
         let event = &ev.event().input;
         if !event.repeat && event.state == ButtonState::Pressed {
             match event.key_code {
                 // Close the popup
                 KeyCode::Escape => {
                     ev.propagate(false);
-                    // Set the focus to the menu button.
-                    commands.trigger(MenuEvent {
-                        source: ev.focused_entity,
-                        action: MenuAction::FocusRoot,
-                    });
                     // Close the stack
                     commands.trigger(MenuEvent {
                         source: ev.focused_entity,
                         action: MenuAction::CloseAll,
+                    });
+                    // Set the focus to the menu button.
+                    commands.trigger(MenuEvent {
+                        source: ev.focused_entity,
+                        action: MenuAction::FocusRoot,
                     });
                 }
 
                 // Focus the adjacent item in the up direction
                 KeyCode::ArrowUp if menu.layout == MenuLayout::Column => {
                     ev.propagate(false);
-                    focus.0 = tab_navigation.navigate(&focus, NavAction::Previous).ok();
+                    if let Ok(next) = tab_navigation.navigate(&focus, NavAction::Previous) {
+                        focus.set(next, FocusCause::Navigated);
+                    } else {
+                        focus.clear();
+                    }
                 }
 
                 // Focus the adjacent item in the down direction
                 KeyCode::ArrowDown if menu.layout == MenuLayout::Column => {
                     ev.propagate(false);
-                    focus.0 = tab_navigation.navigate(&focus, NavAction::Next).ok();
+                    if let Ok(next) = tab_navigation.navigate(&focus, NavAction::Next) {
+                        focus.set(next, FocusCause::Navigated);
+                    } else {
+                        focus.clear();
+                    }
                 }
 
                 // Focus the adjacent item in the left direction
                 KeyCode::ArrowLeft if menu.layout == MenuLayout::Row => {
                     ev.propagate(false);
-                    focus.0 = tab_navigation.navigate(&focus, NavAction::Previous).ok();
+                    if let Ok(next) = tab_navigation.navigate(&focus, NavAction::Previous) {
+                        focus.set(next, FocusCause::Navigated);
+                    } else {
+                        focus.clear();
+                    }
                 }
 
                 // Focus the adjacent item in the right direction
                 KeyCode::ArrowRight if menu.layout == MenuLayout::Row => {
                     ev.propagate(false);
-                    focus.0 = tab_navigation.navigate(&focus, NavAction::Next).ok();
+                    if let Ok(next) = tab_navigation.navigate(&focus, NavAction::Next) {
+                        focus.set(next, FocusCause::Navigated);
+                        focus.clear();
+                    }
                 }
 
                 // Focus the first item
                 KeyCode::Home => {
                     ev.propagate(false);
-                    focus.0 = tab_navigation.navigate(&focus, NavAction::First).ok();
+                    if let Ok(next) = tab_navigation.navigate(&focus, NavAction::First) {
+                        focus.set(next, FocusCause::Navigated);
+                    } else {
+                        focus.clear();
+                    }
                 }
 
                 // Focus the last item
                 KeyCode::End => {
                     ev.propagate(false);
-                    focus.0 = tab_navigation.navigate(&focus, NavAction::Last).ok();
+                    if let Ok(next) = tab_navigation.navigate(&focus, NavAction::Last) {
+                        focus.set(next, FocusCause::Navigated);
+                    } else {
+                        focus.clear();
+                    }
                 }
 
                 _ => (),
@@ -268,7 +339,7 @@ fn menu_on_key_event(
 }
 
 fn menu_item_on_pointer_click(
-    mut ev: On<Pointer<Click>>,
+    mut ev: On<PointerClick>,
     mut q_state: Query<(Has<Pressed>, Has<InteractionDisabled>), With<MenuItem>>,
     mut commands: Commands,
 ) {
@@ -292,7 +363,7 @@ fn menu_item_on_pointer_click(
 }
 
 fn menu_item_on_pointer_down(
-    mut ev: On<Pointer<Press>>,
+    mut ev: On<PointerPress>,
     mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<MenuItem>>,
     mut commands: Commands,
 ) {
@@ -305,7 +376,7 @@ fn menu_item_on_pointer_down(
 }
 
 fn menu_item_on_pointer_up(
-    mut ev: On<Pointer<Release>>,
+    mut ev: On<PointerRelease>,
     mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<MenuItem>>,
     mut commands: Commands,
 ) {
@@ -318,7 +389,7 @@ fn menu_item_on_pointer_up(
 }
 
 fn menu_item_on_pointer_drag_end(
-    mut ev: On<Pointer<DragEnd>>,
+    mut ev: On<PointerDragEnd>,
     mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<MenuItem>>,
     mut commands: Commands,
 ) {
@@ -331,7 +402,7 @@ fn menu_item_on_pointer_drag_end(
 }
 
 fn menu_item_on_pointer_cancel(
-    mut ev: On<Pointer<Cancel>>,
+    mut ev: On<PointerCancel>,
     mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<MenuItem>>,
     mut commands: Commands,
 ) {
@@ -343,61 +414,65 @@ fn menu_item_on_pointer_cancel(
     }
 }
 
-fn menu_on_menu_event(
-    mut ev: On<MenuEvent>,
-    q_popup: Query<(), With<MenuPopup>>,
+/// Headless menu button widget. This is meant to be combined with the `Button` component, and
+/// adds a few more key codes - arrow keys to open the popup.
+#[derive(Component, Default, Debug, Clone)]
+#[require(
+    AccessibilityNode(accesskit::Node::new(Role::Button)),
+    Button,
+    ActivateOnPress
+)]
+#[derive(Reflect)]
+#[reflect(Component)]
+pub struct MenuButton;
+
+fn menubutton_on_activate(
+    activate: On<Activate>,
+    q_menu_button: Query<Has<InteractionDisabled>, With<MenuButton>>,
     mut commands: Commands,
 ) {
-    if q_popup.contains(ev.source)
-        && let MenuAction::Close = ev.event().action
+    if let Ok(disabled) = q_menu_button.get(activate.entity)
+        && !disabled
     {
-        ev.propagate(false);
-        commands.entity(ev.source).despawn();
+        commands.trigger(MenuEvent {
+            source: activate.entity,
+            action: MenuAction::Toggle,
+        });
     }
 }
-
-/// Headless menu button widget. This is similar to a button, except for a few differences:
-/// * It emits a menu toggle event when pressed or activated.
-/// * It uses `Pointer<Press>` rather than click, so as to process the pointer event before
-///   stealing focus from the menu.
-#[derive(Component, Default, Debug)]
-#[require(AccessibilityNode(accesskit::Node::new(Role::Button)))]
-pub struct MenuButton;
 
 fn menubutton_on_key_event(
     mut event: On<FocusedInput<KeyboardInput>>,
-    q_state: Query<Has<InteractionDisabled>, With<MenuButton>>,
+    q_menu_button: Query<Has<InteractionDisabled>, With<MenuButton>>,
     mut commands: Commands,
 ) {
-    if let Ok(disabled) = q_state.get(event.focused_entity)
-        && !disabled
-    {
-        let input_event = &event.input;
-        if !input_event.repeat
-            && input_event.state == ButtonState::Pressed
-            && (input_event.key_code == KeyCode::Enter || input_event.key_code == KeyCode::Space)
-        {
-            event.propagate(false);
-            commands.trigger(MenuEvent {
-                action: MenuAction::Toggle,
-                source: event.focused_entity,
-            });
+    if let Ok(disabled) = q_menu_button.get(event.focused_entity) {
+        if disabled {
+            return;
         }
-    }
-}
+        let input_event = &event.input;
+        if !input_event.repeat && input_event.state == ButtonState::Pressed {
+            match input_event.key_code {
+                // Focus the last item in the menu
+                KeyCode::ArrowUp | KeyCode::ArrowLeft => {
+                    event.propagate(false);
+                    commands.trigger(MenuEvent {
+                        action: MenuAction::Open(NavAction::Last),
+                        source: event.focused_entity,
+                    });
+                }
 
-fn menubutton_on_pointer_press(
-    mut press: On<Pointer<Press>>,
-    mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<MenuButton>>,
-    mut commands: Commands,
-) {
-    if let Ok((button, disabled, pressed)) = q_state.get_mut(press.entity) {
-        press.propagate(false);
-        if !disabled && !pressed {
-            commands.trigger(MenuEvent {
-                action: MenuAction::Toggle,
-                source: button,
-            });
+                // Focus the first item in the menu
+                KeyCode::ArrowDown | KeyCode::ArrowRight => {
+                    event.propagate(false);
+                    commands.trigger(MenuEvent {
+                        action: MenuAction::Open(NavAction::First),
+                        source: event.focused_entity,
+                    });
+                }
+
+                _ => {}
+            }
         }
     }
 }
@@ -407,15 +482,141 @@ pub struct MenuPlugin;
 
 impl Plugin for MenuPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, (menu_acquire_focus, menu_on_lose_focus).chain())
-            .add_observer(menu_on_key_event)
-            .add_observer(menu_on_menu_event)
-            .add_observer(menu_item_on_pointer_down)
-            .add_observer(menu_item_on_pointer_up)
-            .add_observer(menu_item_on_pointer_click)
-            .add_observer(menu_item_on_pointer_drag_end)
-            .add_observer(menu_item_on_pointer_cancel)
-            .add_observer(menubutton_on_key_event)
-            .add_observer(menubutton_on_pointer_press);
+        app.add_systems(
+            PostUpdate,
+            (
+                menu_acquire_focus.in_set(MenuFocusSystem),
+                menu_on_lose_focus,
+            )
+                .chain()
+                .after(VisibilitySystems::VisibilityPropagate)
+                .before(InputFocusSystems::FocusChangeEvents)
+                .before(text_input_autoscroll_system)
+                .before(UiSystems::PostLayout),
+        )
+        .add_observer(menu_on_key_event)
+        .add_observer(menu_item_on_pointer_down)
+        .add_observer(menu_item_on_pointer_up)
+        .add_observer(menu_item_on_pointer_click)
+        .add_observer(menu_item_on_pointer_drag_end)
+        .add_observer(menu_item_on_pointer_cancel)
+        .add_observer(menubutton_on_key_event)
+        .add_observer(menubutton_on_activate);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy_ecs::resource::Resource;
+    use bevy_input::InputPlugin;
+    use bevy_input_focus::{tab_navigation::TabIndex, InputFocusPlugin};
+    use bevy_window::{PrimaryWindow, Window};
+
+    /// Counts `MenuEvent`s with `CloseAll`, so tests can assert the menu asked to close.
+    #[derive(Resource, Default)]
+    struct CloseAllCount(usize);
+
+    fn count_close_all(event: On<MenuEvent>, mut count: ResMut<CloseAllCount>) {
+        // `MenuEvent` bubbles up the `ChildOf` chain, so this observer runs once per ancestor. Count
+        // only the original target hop to get one increment per triggered event.
+        if matches!(event.action, MenuAction::CloseAll)
+            && event.event_target() == event.original_event_target()
+        {
+            count.0 += 1;
+        }
+    }
+
+    fn menu_app() -> (App, Entity) {
+        let mut app = App::new();
+        app.add_plugins((InputPlugin, InputFocusPlugin, MenuPlugin));
+        app.init_resource::<CloseAllCount>();
+        app.add_observer(count_close_all);
+        let window = app
+            .world_mut()
+            .spawn((Window::default(), PrimaryWindow))
+            .id();
+        app.update();
+        (app, window)
+    }
+
+    /// Spawns an open popup (state `Open`) with a single focusable menu item, and focuses that item —
+    /// the steady state of a menu that is open and holding focus.
+    fn spawn_open_menu(app: &mut App, window: Entity) -> (Entity, Entity) {
+        let popup = app
+            .world_mut()
+            .spawn((MenuPopup::default(), MenuFocusState::Open, ChildOf(window)))
+            .id();
+        let item = app
+            .world_mut()
+            .spawn((MenuItem, TabIndex(0), ChildOf(popup)))
+            .id();
+        app.world_mut()
+            .resource_mut::<InputFocus>()
+            .set(item, FocusCause::Navigated);
+        app.update();
+        (popup, item)
+    }
+
+    /// While a menu item holds focus, the menu stays open.
+    #[test]
+    fn menu_stays_open_while_item_focused() {
+        let (mut app, window) = menu_app();
+        let (popup, _item) = spawn_open_menu(&mut app, window);
+
+        app.update();
+
+        assert_eq!(
+            *app.world().entity(popup).get::<MenuFocusState>().unwrap(),
+            MenuFocusState::Open,
+            "menu must remain open while one of its items holds focus"
+        );
+        assert_eq!(app.world().resource::<CloseAllCount>().0, 0);
+    }
+
+    /// When focus leaves the popup subtree (e.g. clicking the trigger or outside), the menu
+    /// transitions to `Closed` and requests `CloseAll` — exactly once, no reopen flicker.
+    #[test]
+    fn menu_closes_when_focus_leaves() {
+        let (mut app, window) = menu_app();
+        let (popup, _item) = spawn_open_menu(&mut app, window);
+
+        // Move focus outside the popup (as clicking the trigger button / empty space would).
+        let outside = app.world_mut().spawn((TabIndex(0), ChildOf(window))).id();
+        app.world_mut()
+            .resource_mut::<InputFocus>()
+            .set(outside, FocusCause::Navigated);
+        app.update();
+
+        assert_eq!(
+            *app.world().entity(popup).get::<MenuFocusState>().unwrap(),
+            MenuFocusState::Closed,
+            "menu must close once focus leaves its subtree"
+        );
+        assert_eq!(
+            app.world().resource::<CloseAllCount>().0,
+            1,
+            "closing must fire exactly one CloseAll (no open/close/reopen flicker)"
+        );
+
+        // A subsequent frame must not fire another CloseAll now that the menu is Closed.
+        app.update();
+        assert_eq!(app.world().resource::<CloseAllCount>().0, 1);
+    }
+
+    /// When focus is cleared entirely (`None`), the menu also closes.
+    #[test]
+    fn menu_closes_when_focus_cleared() {
+        let (mut app, window) = menu_app();
+        let (popup, _item) = spawn_open_menu(&mut app, window);
+
+        app.world_mut().resource_mut::<InputFocus>().clear();
+        app.update();
+
+        assert_eq!(
+            *app.world().entity(popup).get::<MenuFocusState>().unwrap(),
+            MenuFocusState::Closed,
+        );
+        assert_eq!(app.world().resource::<CloseAllCount>().0, 1);
     }
 }

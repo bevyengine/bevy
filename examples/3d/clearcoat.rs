@@ -23,11 +23,21 @@ use bevy::{
     camera::Hdr,
     color::palettes::css::{BLUE, GOLD, WHITE},
     core_pipeline::tonemapping::Tonemapping::AcesFitted,
+    feathers::{theme::UiTheme, FeathersPlugins},
     image::ImageLoaderSettings,
     light::Skybox,
     math::vec3,
     prelude::*,
+    ui_widgets::{radio_self_update, ValueChange},
 };
+
+use radio::{feathers_option_buttons, main_ui_node_scene, RadioButtonOptionValue};
+
+#[path = "../helpers/radio.rs"]
+mod radio;
+
+#[path = "../helpers/theme.rs"]
+mod theme;
 
 /// The size of each sphere.
 const SPHERE_SCALE: f32 = 0.9;
@@ -52,10 +62,13 @@ pub fn main() {
     App::new()
         .init_resource::<LightMode>()
         .add_plugins(DefaultPlugins)
+        .add_plugins(FeathersPlugins)
+        .insert_resource(UiTheme(theme::basic_example_theme(Color::WHITE)))
         .add_systems(Startup, setup)
         .add_systems(Update, animate_light)
         .add_systems(Update, animate_spheres)
-        .add_systems(Update, (handle_input, update_help_text).chain())
+        .add_observer(handle_selection_change)
+        .add_observer(radio_self_update)
         .run();
 }
 
@@ -75,7 +88,7 @@ fn setup(
 
     spawn_light(&mut commands);
     spawn_camera(&mut commands, &asset_server);
-    spawn_text(&mut commands, &light_mode);
+    spawn_buttons(&mut commands, light_mode);
 }
 
 /// Generates a sphere.
@@ -100,18 +113,24 @@ fn spawn_car_paint_sphere(
     commands
         .spawn((
             Mesh3d(sphere.clone()),
-            MeshMaterial3d(materials.add(StandardMaterial {
-                clearcoat: 1.0,
-                clearcoat_perceptual_roughness: 0.1,
-                normal_map_texture: Some(asset_server.load_with_settings(
-                    "textures/BlueNoise-Normal.png",
-                    |settings: &mut ImageLoaderSettings| settings.is_srgb = false,
-                )),
-                metallic: 0.9,
-                perceptual_roughness: 0.5,
-                base_color: BLUE.into(),
-                ..default()
-            })),
+            MeshMaterial3d(
+                materials.add(StandardMaterial {
+                    clearcoat: 1.0,
+                    clearcoat_perceptual_roughness: 0.1,
+                    normal_map_texture: Some(
+                        asset_server
+                            .load_builder()
+                            .with_settings(|settings: &mut ImageLoaderSettings| {
+                                settings.is_srgb = false;
+                            })
+                            .load("textures/BlueNoise-Normal.png"),
+                    ),
+                    metallic: 0.9,
+                    perceptual_roughness: 0.5,
+                    base_color: BLUE.into(),
+                    ..default()
+                }),
+            ),
             Transform::from_xyz(-1.0, 1.0, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
         ))
         .insert(ExampleSphere);
@@ -166,18 +185,24 @@ fn spawn_scratched_gold_ball(
     commands
         .spawn((
             Mesh3d(sphere.clone()),
-            MeshMaterial3d(materials.add(StandardMaterial {
-                clearcoat: 1.0,
-                clearcoat_perceptual_roughness: 0.3,
-                clearcoat_normal_texture: Some(asset_server.load_with_settings(
-                    "textures/ScratchedGold-Normal.png",
-                    |settings: &mut ImageLoaderSettings| settings.is_srgb = false,
-                )),
-                metallic: 0.9,
-                perceptual_roughness: 0.1,
-                base_color: GOLD.into(),
-                ..default()
-            })),
+            MeshMaterial3d(
+                materials.add(StandardMaterial {
+                    clearcoat: 1.0,
+                    clearcoat_perceptual_roughness: 0.3,
+                    clearcoat_normal_texture: Some(
+                        asset_server
+                            .load_builder()
+                            .with_settings(|settings: &mut ImageLoaderSettings| {
+                                settings.is_srgb = false;
+                            })
+                            .load("textures/ScratchedGold-Normal.png"),
+                    ),
+                    metallic: 0.9,
+                    perceptual_roughness: 0.1,
+                    base_color: GOLD.into(),
+                    ..default()
+                }),
+            ),
             Transform::from_xyz(1.0, -1.0, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
         ))
         .insert(ExampleSphere);
@@ -203,7 +228,7 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
         ))
         .insert(Skybox {
             brightness: 5000.0,
-            image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+            image: Some(asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2")),
             ..default()
         })
         .insert(EnvironmentMapLight {
@@ -212,19 +237,6 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
             intensity: 2000.0,
             ..default()
         });
-}
-
-/// Spawns the help text.
-fn spawn_text(commands: &mut Commands, light_mode: &LightMode) {
-    commands.spawn((
-        light_mode.create_help_text(),
-        Node {
-            position_type: PositionType::Absolute,
-            bottom: px(12),
-            left: px(12),
-            ..default()
-        },
-    ));
 }
 
 /// Moves the light around.
@@ -251,42 +263,52 @@ fn animate_spheres(mut spheres: Query<&mut Transform, With<ExampleSphere>>, time
     }
 }
 
-/// Handles the user pressing Space to change the type of light from point to
-/// directional and vice versa.
-fn handle_input(
+/// Spawns buttons at the bottom of the screen which allow the user to
+/// toggle occlusion culling on or off.
+fn spawn_buttons(commands: &mut Commands, light_mode: Res<LightMode>) {
+    commands.spawn_scene(bsn! {
+        main_ui_node_scene()
+            Children [
+            feathers_option_buttons(
+                "Toggle light type",
+                &[
+                    (LightMode::Directional, "Directional"),
+                    (LightMode::Point, "Point"),
+                ],
+                if *light_mode == LightMode::Directional { 0 } else { 1 },
+            )
+        ]
+    });
+}
+
+/// Updates the light mode when the user toggles a radio.
+fn handle_selection_change(
+    event: On<ValueChange<Entity>>,
     mut commands: Commands,
     mut light_query: Query<Entity, Or<(With<PointLight>, With<DirectionalLight>)>>,
-    keyboard: Res<ButtonInput<KeyCode>>,
+    new_value_query: Query<&RadioButtonOptionValue<LightMode>>,
     mut light_mode: ResMut<LightMode>,
 ) {
-    if !keyboard.just_pressed(KeyCode::Space) {
+    let Ok(RadioButtonOptionValue(selection)) = new_value_query.get(event.value) else {
         return;
-    }
+    };
 
+    *light_mode = *selection;
     for light in light_query.iter_mut() {
         match *light_mode {
-            LightMode::Point => {
-                *light_mode = LightMode::Directional;
+            LightMode::Directional => {
                 commands
                     .entity(light)
                     .remove::<PointLight>()
                     .insert(create_directional_light());
             }
-            LightMode::Directional => {
-                *light_mode = LightMode::Point;
+            LightMode::Point => {
                 commands
                     .entity(light)
                     .remove::<DirectionalLight>()
                     .insert(create_point_light());
             }
         }
-    }
-}
-
-/// Updates the help text at the bottom of the screen.
-fn update_help_text(mut text_query: Query<&mut Text>, light_mode: Res<LightMode>) {
-    for mut text in text_query.iter_mut() {
-        *text = light_mode.create_help_text();
     }
 }
 
@@ -305,17 +327,5 @@ fn create_directional_light() -> DirectionalLight {
         color: WHITE.into(),
         illuminance: 1000.0,
         ..default()
-    }
-}
-
-impl LightMode {
-    /// Creates the help text at the bottom of the screen.
-    fn create_help_text(&self) -> Text {
-        let help_text = match *self {
-            LightMode::Point => "Press Space to switch to a directional light",
-            LightMode::Directional => "Press Space to switch to a point light",
-        };
-
-        Text::new(help_text)
     }
 }

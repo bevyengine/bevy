@@ -952,6 +952,24 @@ where
         self.uninit_element_count += count;
         first_index
     }
+
+    /// Sets the value at the given index to the given value.
+    pub fn set(&mut self, index: usize, value: T) {
+        self.values[index] = value;
+    }
+}
+
+impl<T> PartialBufferVec<T>
+where
+    T: NoUninit + Default,
+{
+    /// Pushes `count` copies of `T::default` to the array.
+    pub fn push_multiple_init(&mut self, count: usize) -> usize {
+        debug_assert_eq!(self.uninit_element_count, 0);
+        let index = self.values.len();
+        self.values.extend(iter::repeat_n(T::default(), count));
+        index
+    }
 }
 
 /// Error returned when `write_buffer_range` fails

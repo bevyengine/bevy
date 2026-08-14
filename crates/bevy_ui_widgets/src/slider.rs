@@ -13,7 +13,7 @@ use bevy_ecs::{
     component::Component,
     observer::On,
     query::With,
-    reflect::ReflectComponent,
+    reflect::{ReflectComponent, ReflectEvent},
     system::{Commands, Query},
 };
 use bevy_input::keyboard::{KeyCode, KeyboardInput};
@@ -21,10 +21,13 @@ use bevy_input::ButtonState;
 use bevy_input_focus::FocusedInput;
 use bevy_log::warn_once;
 use bevy_math::ops;
-use bevy_picking::events::{Drag, DragEnd, DragStart, Pointer, Press};
+use bevy_picking::events::{
+    PointerCancel, PointerDrag, PointerDragEnd, PointerDragStart, PointerPress, PointerRelease,
+};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_ui::{
-    ComputedNode, ComputedUiRenderTargetInfo, InteractionDisabled, UiGlobalTransform, UiScale,
+    ComputedNode, ComputedUiRenderTargetInfo, InteractionDisabled, Pressed, UiGlobalTransform,
+    UiScale,
 };
 
 use crate::ValueChange;
@@ -74,6 +77,9 @@ pub enum TrackClick {
 /// optional step size can be specified via [`SliderStep`], and you can control the rounding
 /// during dragging with [`SliderPrecision`].
 ///
+/// The canonical way to update the slider value is to insert a new [`SliderValue`] component,
+/// overwriting the old one. The value can be set during initial construction and updated later.
+///
 /// You can also control the slider remotely by triggering a [`SetSliderValue`] event on it. This
 /// can be useful in a console environment for controlling the value gamepad inputs.
 ///
@@ -91,14 +97,20 @@ pub enum TrackClick {
 ///
 /// In cases where overhang is desired for artistic reasons, the thumb may have additional
 /// decorative child elements, absolutely positioned, which don't affect the size measurement.
+///
+/// **Note:** For information on how widget state is managed
+/// and how to respond to state changes, see the [crate-level documentation].
+/// [crate-level documentation]: crate
 #[derive(Component, Debug, Default, Clone)]
 #[require(
     AccessibilityNode(accesskit::Node::new(Role::Slider)),
-    CoreSliderDragState,
+    SliderDragState,
     SliderValue,
     SliderRange,
     SliderStep
 )]
+#[derive(Reflect)]
+#[reflect(Component)]
 pub struct Slider {
     /// Set the track-clicking behavior for this slider.
     pub track_click: TrackClick,
@@ -107,17 +119,22 @@ pub struct Slider {
 }
 
 /// Marker component that identifies which descendant element is the slider thumb.
-#[derive(Component, Debug, Default, Clone)]
+#[derive(Component, Debug, Default, Clone, Reflect)]
+#[reflect(Component)]
 pub struct SliderThumb;
 
 /// A component which stores the current value of the slider.
 #[derive(Component, Debug, Default, PartialEq, Clone, Copy)]
 #[component(immutable)]
+#[derive(Reflect)]
+#[reflect(Component)]
 pub struct SliderValue(pub f32);
 
 /// A component which represents the allowed range of the slider value. Defaults to 0.0..=1.0.
 #[derive(Component, Debug, PartialEq, Clone, Copy)]
 #[component(immutable)]
+#[derive(Reflect)]
+#[reflect(Component)]
 pub struct SliderRange {
     /// The beginning of the allowed range for the slider value.
     start: f32,
@@ -236,7 +253,7 @@ impl SliderPrecision {
 /// Component used to manage the state of a slider during dragging.
 #[derive(Component, Default, Reflect)]
 #[reflect(Component)]
-pub struct CoreSliderDragState {
+pub struct SliderDragState {
     /// Whether the slider is currently being dragged.
     pub dragging: bool,
 
@@ -245,8 +262,9 @@ pub struct CoreSliderDragState {
 }
 
 pub(crate) fn slider_on_pointer_down(
-    mut press: On<Pointer<Press>>,
+    mut press: On<PointerPress>,
     q_slider: Query<(
+        Entity,
         &Slider,
         &SliderValue,
         &SliderRange,
@@ -266,6 +284,7 @@ pub(crate) fn slider_on_pointer_down(
         // Thumb click, stop propagation to prevent track click.
         press.propagate(false);
     } else if let Ok((
+        slider_ent,
         slider,
         value,
         range,
@@ -284,6 +303,8 @@ pub(crate) fn slider_on_pointer_down(
             return;
         }
 
+        commands.entity(slider_ent).insert(Pressed);
+
         let is_vertical = slider.orientation.is_vertical(node);
 
         // Find thumb size by searching descendants for the first entity with SliderThumb
@@ -301,9 +322,12 @@ pub(crate) fn slider_on_pointer_down(
             .unwrap_or(0.0);
 
         // Detect track click.
-        let local_pos = transform.try_inverse().unwrap().transform_point2(
-            press.pointer_location.position * node_target.scale_factor() / ui_scale.0,
-        );
+        let Some(normalized_pos) = node.normalize_point(
+            *transform,
+            press.pointer.position * node_target.scale_factor() / ui_scale.0,
+        ) else {
+            return;
+        };
         let track_size = if is_vertical {
             node.size().y - thumb_size
         } else {
@@ -314,13 +338,13 @@ pub(crate) fn slider_on_pointer_down(
         let click_val = if track_size > 0. {
             if is_vertical {
                 // For vertical sliders: bottom-to-top (0 at bottom, max at top)
-                // local_pos.y ranges from -height/2 (top) to +height/2 (bottom)
-                let y_from_bottom = (node.size().y / 2.0) - local_pos.y;
+                // normalized_pos.y ranges from -0.5 (top) to +0.5 (bottom)
+                let y_from_bottom = (0.5 - normalized_pos.y) * node.size().y;
                 let adjusted_y = y_from_bottom - thumb_size / 2.0;
                 adjusted_y * range.span() / track_size + range.start()
             } else {
                 // For horizontal sliders: convert from center-origin to left-origin
-                let x_from_left = local_pos.x + node.size().x / 2.0;
+                let x_from_left = (normalized_pos.x + 0.5) * node.size().x;
                 let adjusted_x = x_from_left - thumb_size / 2.0;
                 adjusted_x * range.span() / track_size + range.start()
             }
@@ -348,18 +372,15 @@ pub(crate) fn slider_on_pointer_down(
         commands.trigger(ValueChange {
             source: press.entity,
             value: new_value,
+            is_final: false,
         });
     }
 }
 
 pub(crate) fn slider_on_drag_start(
-    mut drag_start: On<Pointer<DragStart>>,
+    mut drag_start: On<PointerDragStart>,
     mut q_slider: Query<
-        (
-            &SliderValue,
-            &mut CoreSliderDragState,
-            Has<InteractionDisabled>,
-        ),
+        (&SliderValue, &mut SliderDragState, Has<InteractionDisabled>),
         With<Slider>,
     >,
 ) {
@@ -373,15 +394,15 @@ pub(crate) fn slider_on_drag_start(
 }
 
 pub(crate) fn slider_on_drag(
-    mut event: On<Pointer<Drag>>,
-    mut q_slider: Query<
+    mut event: On<PointerDrag>,
+    q_slider: Query<
         (
             &Slider,
             &ComputedNode,
             &SliderRange,
             Option<&SliderPrecision>,
             &UiGlobalTransform,
-            &mut CoreSliderDragState,
+            &SliderDragState,
             Has<InteractionDisabled>,
         ),
         With<Slider>,
@@ -392,66 +413,161 @@ pub(crate) fn slider_on_drag(
     ui_scale: Res<UiScale>,
 ) {
     if let Ok((slider, node, range, precision, transform, drag, disabled)) =
-        q_slider.get_mut(event.entity)
+        q_slider.get(event.entity)
     {
         event.propagate(false);
         if drag.dragging && !disabled {
-            let is_vertical = slider.orientation.is_vertical(node);
-
-            let mut distance = event.distance / ui_scale.0;
-            distance.y *= -1.;
-            let distance = transform.transform_vector2(distance);
-
-            // Find thumb size by searching descendants for the first entity with SliderThumb
-            let thumb_size = q_children
-                .iter_descendants(event.entity)
-                .find_map(|child_id| {
-                    q_thumb.get(child_id).ok().map(|thumb| {
-                        if is_vertical {
-                            thumb.size().y
-                        } else {
-                            thumb.size().x
-                        }
-                    })
-                })
-                .unwrap_or(0.0);
-
-            let slider_size = if is_vertical {
-                ((node.size().y - thumb_size) * node.inverse_scale_factor).max(1.0)
-            } else {
-                ((node.size().x - thumb_size) * node.inverse_scale_factor).max(1.0)
-            };
-
-            let drag_distance = if is_vertical { distance.y } else { distance.x };
-
-            let span = range.span();
-            let new_value = if span > 0. {
-                drag.offset + (drag_distance * span) / slider_size
-            } else {
-                range.start() + span * 0.5
-            };
-            let rounded_value = range.clamp(
-                precision
-                    .map(|prec| prec.round(new_value))
-                    .unwrap_or(new_value),
+            emit_slider_drag_value_change(
+                &mut commands,
+                event.entity,
+                slider,
+                node,
+                range,
+                precision,
+                transform,
+                drag,
+                &q_thumb,
+                &q_children,
+                &ui_scale,
+                event.distance,
+                false,
             );
-
-            commands.trigger(ValueChange {
-                source: event.entity,
-                value: rounded_value,
-            });
         }
     }
 }
 
 pub(crate) fn slider_on_drag_end(
-    mut drag_end: On<Pointer<DragEnd>>,
-    mut q_slider: Query<(&Slider, &mut CoreSliderDragState)>,
+    mut drag_end: On<PointerDragEnd>,
+    mut q_slider: Query<
+        (
+            Entity,
+            &Slider,
+            &ComputedNode,
+            &SliderRange,
+            Option<&SliderPrecision>,
+            &UiGlobalTransform,
+            &mut SliderDragState,
+            Has<InteractionDisabled>,
+        ),
+        With<Slider>,
+    >,
+    q_thumb: Query<&ComputedNode, With<SliderThumb>>,
+    q_children: Query<&Children>,
+    mut commands: Commands,
+    ui_scale: Res<UiScale>,
 ) {
-    if let Ok((_slider, mut drag)) = q_slider.get_mut(drag_end.entity) {
+    if let Ok((slider_ent, slider, node, range, precision, transform, mut drag, disabled)) =
+        q_slider.get_mut(drag_end.entity)
+    {
         drag_end.propagate(false);
         if drag.dragging {
+            if !disabled {
+                emit_slider_drag_value_change(
+                    &mut commands,
+                    drag_end.entity,
+                    slider,
+                    node,
+                    range,
+                    precision,
+                    transform,
+                    &drag,
+                    &q_thumb,
+                    &q_children,
+                    &ui_scale,
+                    drag_end.distance,
+                    true,
+                );
+            }
+            commands.entity(slider_ent).remove::<Pressed>();
             drag.dragging = false;
+        }
+    }
+}
+
+fn emit_slider_drag_value_change(
+    commands: &mut Commands,
+    entity: Entity,
+    slider: &Slider,
+    node: &ComputedNode,
+    range: &SliderRange,
+    precision: Option<&SliderPrecision>,
+    transform: &UiGlobalTransform,
+    drag: &SliderDragState,
+    q_thumb: &Query<&ComputedNode, With<SliderThumb>>,
+    q_children: &Query<&Children>,
+    ui_scale: &UiScale,
+    distance: bevy_math::Vec2,
+    is_final: bool,
+) {
+    let is_vertical = slider.orientation.is_vertical(node);
+
+    let mut distance = distance / ui_scale.0;
+    distance.y *= -1.;
+    let distance = transform.transform_vector2(distance);
+
+    // Find thumb size by searching descendants for the first entity with SliderThumb
+    let thumb_size = q_children
+        .iter_descendants(entity)
+        .find_map(|child_id| {
+            q_thumb.get(child_id).ok().map(|thumb| {
+                if is_vertical {
+                    thumb.size().y
+                } else {
+                    thumb.size().x
+                }
+            })
+        })
+        .unwrap_or(0.0);
+
+    let slider_size = if is_vertical {
+        ((node.size().y - thumb_size) * node.inverse_scale_factor).max(1.0)
+    } else {
+        ((node.size().x - thumb_size) * node.inverse_scale_factor).max(1.0)
+    };
+
+    let drag_distance = if is_vertical { distance.y } else { distance.x };
+
+    let span = range.span();
+    let new_value = if span > 0. {
+        drag.offset + (drag_distance * span) / slider_size
+    } else {
+        range.start() + span * 0.5
+    };
+    let rounded_value = range.clamp(
+        precision
+            .map(|prec| prec.round(new_value))
+            .unwrap_or(new_value),
+    );
+
+    commands.trigger(ValueChange {
+        source: entity,
+        value: rounded_value,
+        is_final,
+    });
+}
+
+fn slider_on_pointer_up(
+    mut release: On<PointerRelease>,
+    mut q_slider: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<Slider>>,
+    mut commands: Commands,
+) {
+    if let Ok((slider, disabled, pressed)) = q_slider.get_mut(release.entity) {
+        release.propagate(false);
+        if !disabled && pressed {
+            commands.entity(slider).remove::<Pressed>();
+        }
+    }
+}
+
+fn slider_on_pointer_cancel(
+    mut release: On<PointerCancel>,
+    mut q_slider: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<Slider>>,
+    mut commands: Commands,
+) {
+    if let Ok((slider, disabled, pressed)) = q_slider.get_mut(release.entity) {
+        release.propagate(false);
+        if !disabled && pressed {
+            commands.entity(slider).remove::<Pressed>();
         }
     }
 }
@@ -485,12 +601,13 @@ fn slider_on_key_input(
             commands.trigger(ValueChange {
                 source: focused_input.focused_entity,
                 value: new_value,
+                is_final: true,
             });
         }
     }
 }
 
-pub(crate) fn slider_on_insert(insert: On<Insert, Slider>, mut world: DeferredWorld) {
+pub(crate) fn slider_on_insert(insert: On<Insert<Slider>>, mut world: DeferredWorld) {
     let mut entity = world.entity_mut(insert.entity);
     let orientation = entity
         .get::<Slider>()
@@ -505,7 +622,7 @@ pub(crate) fn slider_on_insert(insert: On<Insert, Slider>, mut world: DeferredWo
     }
 }
 
-pub(crate) fn slider_on_insert_value(insert: On<Insert, SliderValue>, mut world: DeferredWorld) {
+pub(crate) fn slider_on_insert_value(insert: On<Insert<SliderValue>>, mut world: DeferredWorld) {
     let mut entity = world.entity_mut(insert.entity);
     let value = entity.get::<SliderValue>().unwrap().0;
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
@@ -513,7 +630,7 @@ pub(crate) fn slider_on_insert_value(insert: On<Insert, SliderValue>, mut world:
     }
 }
 
-pub(crate) fn slider_on_insert_range(insert: On<Insert, SliderRange>, mut world: DeferredWorld) {
+pub(crate) fn slider_on_insert_range(insert: On<Insert<SliderRange>>, mut world: DeferredWorld) {
     let mut entity = world.entity_mut(insert.entity);
     let range = *entity.get::<SliderRange>().unwrap();
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
@@ -522,7 +639,7 @@ pub(crate) fn slider_on_insert_range(insert: On<Insert, SliderRange>, mut world:
     }
 }
 
-pub(crate) fn slider_on_insert_step(insert: On<Insert, SliderStep>, mut world: DeferredWorld) {
+pub(crate) fn slider_on_insert_step(insert: On<Insert<SliderStep>>, mut world: DeferredWorld) {
     let mut entity = world.entity_mut(insert.entity);
     let step = entity.get::<SliderStep>().unwrap().0;
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
@@ -562,7 +679,8 @@ pub(crate) fn slider_on_insert_step(insert: On<Insert, SliderStep>, mut world: D
 ///     });
 /// }
 /// ```
-#[derive(EntityEvent, Clone)]
+#[derive(EntityEvent, Clone, Reflect)]
+#[reflect(Event)]
 pub struct SetSliderValue {
     /// The slider entity to change.
     pub entity: Entity,
@@ -571,7 +689,7 @@ pub struct SetSliderValue {
 }
 
 /// The type of slider value change to apply in [`SetSliderValue`].
-#[derive(Clone)]
+#[derive(Clone, Reflect)]
 pub enum SliderValueChange {
     /// Set the slider value to a specific value.
     Absolute(f32),
@@ -594,10 +712,13 @@ fn slider_on_set_value(
                 range.clamp(value.0 + delta * step.map(|s| s.0).unwrap_or_default())
             }
         };
-        commands.trigger(ValueChange {
-            source: set_slider_value.entity,
-            value: new_value,
-        });
+        if new_value != value.0 {
+            commands.trigger(ValueChange {
+                source: set_slider_value.entity,
+                value: new_value,
+                is_final: true,
+            });
+        }
     }
 }
 
@@ -616,6 +737,8 @@ pub struct SliderPlugin;
 impl Plugin for SliderPlugin {
     fn build(&self, app: &mut App) {
         app.add_observer(slider_on_pointer_down)
+            .add_observer(slider_on_pointer_up)
+            .add_observer(slider_on_pointer_cancel)
             .add_observer(slider_on_drag_start)
             .add_observer(slider_on_drag_end)
             .add_observer(slider_on_drag)
@@ -631,6 +754,161 @@ impl Plugin for SliderPlugin {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bevy_ecs::hierarchy::ChildOf;
+    use bevy_input::keyboard::Key;
+    use bevy_input::InputPlugin;
+    use bevy_input_focus::{
+        tab_navigation::{TabIndex, TabNavigationPlugin},
+        FocusCause, InputDispatchPlugin, InputFocus, InputFocusPlugin,
+    };
+    use bevy_window::{PrimaryWindow, Window};
+
+    /// Builds a headless app with the slider observers plus [`slider_self_update`] (so a
+    /// `ValueChange` is written back into [`SliderValue`]) and [`InputDispatchPlugin`] (so raw
+    /// [`KeyboardInput`] reaches the focused slider as `FocusedInput<KeyboardInput>`).
+    fn slider_app() -> (App, Entity) {
+        let mut app = App::new();
+        app.add_plugins((
+            InputPlugin,
+            InputFocusPlugin,
+            InputDispatchPlugin,
+            TabNavigationPlugin,
+            SliderPlugin,
+        ));
+        app.add_observer(slider_self_update);
+        let window = app
+            .world_mut()
+            .spawn((Window::default(), PrimaryWindow))
+            .id();
+        app.update();
+        (app, window)
+    }
+
+    /// Spawns a focused slider with value 50 in range [0, 100] and a step of 10.
+    fn spawn_focused_slider(app: &mut App, window: Entity) -> Entity {
+        let slider = app
+            .world_mut()
+            .spawn((
+                Slider::default(),
+                SliderValue(50.0),
+                SliderRange::new(0.0, 100.0),
+                SliderStep(10.0),
+                TabIndex(0),
+                ChildOf(window),
+            ))
+            .id();
+        app.world_mut()
+            .resource_mut::<InputFocus>()
+            .set(slider, FocusCause::Navigated);
+        app.update();
+        slider
+    }
+
+    fn press_key(app: &mut App, key_code: KeyCode, logical_key: Key, window: Entity) {
+        app.world_mut().write_message(KeyboardInput {
+            key_code,
+            logical_key,
+            state: ButtonState::Pressed,
+            text: None,
+            repeat: false,
+            window,
+        });
+        app.update();
+    }
+
+    fn slider_value(app: &App, slider: Entity) -> f32 {
+        app.world().entity(slider).get::<SliderValue>().unwrap().0
+    }
+
+    /// Arrow keys change a focused slider's value by its step, clamped to the range.
+    #[test]
+    fn arrow_keys_change_focused_slider_value() {
+        let (mut app, window) = slider_app();
+        let slider = spawn_focused_slider(&mut app, window);
+
+        press_key(&mut app, KeyCode::ArrowRight, Key::ArrowRight, window);
+        assert_eq!(
+            slider_value(&app, slider),
+            60.0,
+            "Right arrow adds one step"
+        );
+
+        press_key(&mut app, KeyCode::ArrowLeft, Key::ArrowLeft, window);
+        press_key(&mut app, KeyCode::ArrowLeft, Key::ArrowLeft, window);
+        assert_eq!(
+            slider_value(&app, slider),
+            40.0,
+            "Left arrow subtracts one step each press"
+        );
+    }
+
+    /// Home / End jump a focused slider to the range extremes.
+    #[test]
+    fn home_end_keys_jump_slider_to_extremes() {
+        let (mut app, window) = slider_app();
+        let slider = spawn_focused_slider(&mut app, window);
+
+        press_key(&mut app, KeyCode::Home, Key::Home, window);
+        assert_eq!(slider_value(&app, slider), 0.0, "Home jumps to range start");
+
+        press_key(&mut app, KeyCode::End, Key::End, window);
+        assert_eq!(slider_value(&app, slider), 100.0, "End jumps to range end");
+    }
+
+    /// Arrow keys clamp at the range boundaries rather than overshooting.
+    #[test]
+    fn arrow_keys_clamp_at_slider_bounds() {
+        let (mut app, window) = slider_app();
+        let slider = spawn_focused_slider(&mut app, window);
+
+        press_key(&mut app, KeyCode::End, Key::End, window); // 100
+        press_key(&mut app, KeyCode::ArrowRight, Key::ArrowRight, window); // still 100
+        assert_eq!(slider_value(&app, slider), 100.0, "cannot exceed range end");
+    }
+
+    /// A key press with no slider focused leaves the value untouched.
+    #[test]
+    fn arrow_keys_do_nothing_without_focus() {
+        let (mut app, window) = slider_app();
+        let slider = spawn_focused_slider(&mut app, window);
+        app.world_mut().resource_mut::<InputFocus>().clear();
+
+        press_key(&mut app, KeyCode::ArrowRight, Key::ArrowRight, window);
+        assert_eq!(
+            slider_value(&app, slider),
+            50.0,
+            "an unfocused slider must not respond to arrow keys"
+        );
+    }
+
+    /// A disabled slider ignores arrow keys.
+    #[test]
+    fn disabled_slider_ignores_arrow_keys() {
+        let (mut app, window) = slider_app();
+        let slider = app
+            .world_mut()
+            .spawn((
+                Slider::default(),
+                SliderValue(50.0),
+                SliderRange::new(0.0, 100.0),
+                SliderStep(10.0),
+                InteractionDisabled,
+                TabIndex(0),
+                ChildOf(window),
+            ))
+            .id();
+        app.world_mut()
+            .resource_mut::<InputFocus>()
+            .set(slider, FocusCause::Navigated);
+        app.update();
+
+        press_key(&mut app, KeyCode::ArrowRight, Key::ArrowRight, window);
+        assert_eq!(
+            slider_value(&app, slider),
+            50.0,
+            "a disabled slider must not respond to arrow keys"
+        );
+    }
 
     #[test]
     fn test_slider_precision_rounding() {

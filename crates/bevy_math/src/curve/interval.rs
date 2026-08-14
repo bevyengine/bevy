@@ -173,7 +173,10 @@ impl Interval {
     /// Get the linear function which maps this interval onto the `other` one. Returns an error if either
     /// interval is unbounded.
     #[inline]
-    pub(super) fn linear_map_to(self, other: Self) -> Result<impl Fn(f32) -> f32, LinearMapError> {
+    pub(super) const fn linear_map_to(
+        self,
+        other: Self,
+    ) -> Result<impl Fn(f32) -> f32, LinearMapError> {
         if !self.is_bounded() {
             return Err(LinearMapError::SourceUnbounded);
         }

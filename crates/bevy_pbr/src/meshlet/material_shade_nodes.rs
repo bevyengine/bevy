@@ -6,11 +6,7 @@ use super::{
     resource_manager::{MeshletViewBindGroups, MeshletViewResources},
     InstanceManager,
 };
-use crate::{
-    MeshViewBindGroup, PrepassViewBindGroup, ViewContactShadowsUniformOffset,
-    ViewEnvironmentMapUniformOffset, ViewFogUniformOffset, ViewLightProbesUniformOffset,
-    ViewLightsUniformOffset, ViewScreenSpaceReflectionsUniformOffset,
-};
+use crate::{MeshViewBindGroup, PrepassViewBindGroup};
 use bevy_camera::MainPassResolutionOverride;
 use bevy_camera::Viewport;
 use bevy_core_pipeline::prepass::{
@@ -34,13 +30,6 @@ pub fn meshlet_main_opaque_pass(
         &ExtractedCamera,
         &ViewTarget,
         &MeshViewBindGroup,
-        &ViewUniformOffset,
-        &ViewLightsUniformOffset,
-        &ViewFogUniformOffset,
-        &ViewLightProbesUniformOffset,
-        &ViewScreenSpaceReflectionsUniformOffset,
-        &ViewContactShadowsUniformOffset,
-        &ViewEnvironmentMapUniformOffset,
         Option<&MainPassResolutionOverride>,
         &MeshletViewMaterialsMainOpaquePass,
         &MeshletViewBindGroups,
@@ -54,13 +43,6 @@ pub fn meshlet_main_opaque_pass(
         camera,
         target,
         mesh_view_bind_group,
-        view_uniform_offset,
-        view_lights_offset,
-        view_fog_offset,
-        view_light_probes_offset,
-        view_ssr_offset,
-        view_contact_shadows_offset,
-        view_environment_map_offset,
         resolution_override,
         meshlet_view_materials,
         meshlet_view_bind_groups,
@@ -103,15 +85,7 @@ pub fn meshlet_main_opaque_pass(
     render_pass.set_bind_group(
         0,
         &mesh_view_bind_group.main,
-        &[
-            view_uniform_offset.offset,
-            view_lights_offset.offset,
-            view_fog_offset.offset,
-            **view_light_probes_offset,
-            **view_ssr_offset,
-            **view_contact_shadows_offset,
-            **view_environment_map_offset,
-        ],
+        &mesh_view_bind_group.main_offsets,
     );
     render_pass.set_bind_group(1, &mesh_view_bind_group.binding_array, &[]);
     render_pass.set_bind_group(2, meshlet_material_shade_bind_group, &[]);

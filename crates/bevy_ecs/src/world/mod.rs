@@ -1,8 +1,3 @@
-#![expect(
-    unsafe_op_in_unsafe_fn,
-    reason = "See #11590. To be removed once all applicable unsafe code has an unsafe block with a safety comment."
-)]
-
 //! Defines the [`World`] and APIs for accessing it directly.
 
 pub(crate) mod command_queue;
@@ -35,7 +30,7 @@ pub use identifier::WorldId;
 pub use spawn_batch::*;
 
 use crate::{
-    archetype::{ArchetypeId, Archetypes},
+    archetype::{ArchetypeCreated, ArchetypeId, Archetypes, ARCHETYPE_CREATED},
     bundle::{
         Bundle, BundleId, BundleInfo, BundleInserter, BundleSpawner, Bundles, DynamicBundle,
         InsertMode, NoBundleEffect,
@@ -51,10 +46,12 @@ use crate::{
     entity::{Entities, Entity, EntityAllocator, EntityNotSpawnedError, SpawnError},
     entity_disabling::DefaultQueryFilters,
     error::{ErrorHandler, FallbackErrorHandler},
-    lifecycle::{ComponentHooks, RemovedComponentMessages, ADD, DESPAWN, DISCARD, INSERT, REMOVE},
+    lifecycle::{
+        AddEvent, ComponentHooks, DespawnEvent, DiscardEvent, InsertEvent, RemoveEvent,
+        RemovedComponentMessages, ADD, DESPAWN, DISCARD, INSERT, REMOVE,
+    },
     message::{Message, MessageId, Messages, WriteBatchIds},
     observer::Observers,
-    prelude::{Add, Despawn, DetectChangesMut, Discard, Insert, Remove},
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
     relationship::RelationshipHookMode,
     resource::{IsResource, Resource, ResourceEntities, IS_RESOURCE},
@@ -62,14 +59,17 @@ use crate::{
     storage::{NonSendData, Storages},
     system::Commands,
     world::{
-        command_queue::RawCommandQueue,
+        command_queue::CommandQueueRunner,
         error::{
             EntityDespawnError, EntityMutableFetchError, TryInsertBatchError, TryRunScheduleError,
         },
     },
 };
-use alloc::{boxed::Box, vec::Vec};
-use bevy_platform::sync::atomic::{AtomicU32, Ordering};
+use alloc::vec::Vec;
+use bevy_platform::{
+    cell::SyncUnsafeCell,
+    sync::atomic::{AtomicU32, Ordering},
+};
 use bevy_ptr::{move_as_ptr, MovingPtr, OwningPtr, Ptr};
 use bevy_utils::prelude::DebugName;
 use core::{any::TypeId, fmt, mem::ManuallyDrop};
@@ -111,7 +111,19 @@ pub struct World {
     pub(crate) last_change_tick: Tick,
     pub(crate) last_check_tick: Tick,
     pub(crate) last_trigger_id: u32,
-    pub(crate) command_queue: RawCommandQueue,
+    /// The byte index in [`Self::command_queue`] at which unapplied command start.
+    ///
+    /// This is nonzero while running commands to allow the same buffer to be shared by nested commands.
+    command_queue_start: usize,
+    /// The world's command queue.
+    ///
+    /// This is stored inside a [`SyncUnsafeCell`] to allow mutable access to
+    /// commands from an [`UnsafeWorldCell`] without being invalidated by `&World`
+    /// references used for metadata.
+    ///
+    /// This must not be exposed as a `&mut` to untrusted code,
+    /// as calling `apply()` on it could execute commands before [`Self::command_queue_start`].
+    command_queue: SyncUnsafeCell<CommandQueue>,
 }
 
 impl Default for World {
@@ -133,24 +145,12 @@ impl Default for World {
             last_change_tick: Tick::new(0),
             last_check_tick: Tick::new(0),
             last_trigger_id: 0,
-            command_queue: RawCommandQueue::new(),
+            command_queue_start: 0,
+            command_queue: SyncUnsafeCell::new(CommandQueue::silent()),
             component_ids: ComponentIds::default(),
         };
         world.bootstrap();
         world
-    }
-}
-
-impl Drop for World {
-    fn drop(&mut self) {
-        // SAFETY: Not passing a pointer so the argument is always valid
-        unsafe { self.command_queue.apply_or_drop_queued(None) };
-        // SAFETY: Pointers in internal command queue are only invalidated here
-        drop(unsafe { Box::from_raw(self.command_queue.bytes.as_ptr()) });
-        // SAFETY: Pointers in internal command queue are only invalidated here
-        drop(unsafe { Box::from_raw(self.command_queue.cursor.as_ptr()) });
-        // SAFETY: Pointers in internal command queue are only invalidated here
-        drop(unsafe { Box::from_raw(self.command_queue.panic_recovery.as_ptr()) });
     }
 }
 
@@ -160,23 +160,26 @@ impl World {
     #[inline]
     fn bootstrap(&mut self) {
         // The order that we register these events is vital to ensure that the constants are correct!
-        let on_add = self.register_event_key::<Add>();
+        let on_add = self.register_event_key::<AddEvent>();
         assert_eq!(ADD, on_add);
 
-        let on_insert = self.register_event_key::<Insert>();
+        let on_insert = self.register_event_key::<InsertEvent>();
         assert_eq!(INSERT, on_insert);
 
-        let on_discard = self.register_event_key::<Discard>();
+        let on_discard = self.register_event_key::<DiscardEvent>();
         assert_eq!(DISCARD, on_discard);
 
-        let on_remove = self.register_event_key::<Remove>();
+        let on_remove = self.register_event_key::<RemoveEvent>();
         assert_eq!(REMOVE, on_remove);
 
-        let on_despawn = self.register_event_key::<Despawn>();
+        let on_despawn = self.register_event_key::<DespawnEvent>();
         assert_eq!(DESPAWN, on_despawn);
 
         let is_resource = self.register_component::<IsResource>();
         assert_eq!(IS_RESOURCE, is_resource);
+
+        let archetype_created = self.register_event_key::<ArchetypeCreated>();
+        assert_eq!(ARCHETYPE_CREATED, archetype_created);
 
         // This sets up `Disabled` as a disabling component, via the FromWorld impl
         self.init_resource::<DefaultQueryFilters>();
@@ -309,14 +312,11 @@ impl World {
     /// Use [`World::flush`] to apply all queued commands
     #[inline]
     pub fn commands(&mut self) -> Commands<'_, '_> {
-        // SAFETY: command_queue is stored on world and always valid while the world exists
-        unsafe {
-            Commands::new_raw_from_entities(
-                self.command_queue.clone(),
-                &self.entity_allocator,
-                &self.entities,
-            )
-        }
+        Commands::new_from_entities(
+            self.command_queue.get_mut(),
+            &self.entity_allocator,
+            &self.entities,
+        )
     }
 
     /// Registers a new [`Component`] type and returns the [`ComponentId`] created for it.
@@ -324,7 +324,13 @@ impl World {
     /// # Usage Notes
     /// In most cases, you don't need to call this method directly since component registration
     /// happens automatically during system initialization.
+    #[doc(alias = "register_resource")]
     pub fn register_component<T: Component>(&mut self) -> ComponentId {
+        // This is a hot path, so return early to avoid the `Vec::new` in `ComponentsRegistrator`
+        if let Some(id) = self.component_id::<T>() {
+            return id;
+        }
+
         self.components_registrator().register_component::<T>()
     }
 
@@ -643,27 +649,6 @@ impl World {
     #[inline]
     pub fn component_id<T: Component>(&self) -> Option<ComponentId> {
         self.components.component_id::<T>()
-    }
-
-    /// Registers a new [`Resource`] type and returns the [`ComponentId`] created for it.
-    ///
-    /// The [`Resource`] doesn't have a value in the [`World`], it's only registered. If you want
-    /// to insert the [`Resource`] in the [`World`], use [`World::init_resource`] or
-    /// [`World::insert_resource`] instead.
-    pub fn register_resource<R: Resource>(&mut self) -> ComponentId {
-        self.components_registrator().register_component::<R>()
-    }
-
-    /// Returns the [`ComponentId`] of the given [`Resource`] type `T`.
-    ///
-    /// The returned [`ComponentId`] is specific to the [`World`] instance it was retrieved from
-    /// and should not be used with another [`World`] instance.
-    ///
-    /// Returns [`None`] if the [`Resource`] type has not yet been initialized within the
-    /// [`World`] using [`World::register_resource`], [`World::init_resource`] or [`World::insert_resource`].
-    #[deprecated(since = "0.19.0", note = "use component_id")]
-    pub fn resource_id<T: Resource>(&self) -> Option<ComponentId> {
-        self.components.get_id(TypeId::of::<T>())
     }
 
     /// Returns [`EntityRef`]s that expose read-only operations for the given
@@ -1063,11 +1048,7 @@ impl World {
         // SAFETY:
         // - `&mut self` gives mutable access to the entire world, and prevents simultaneous access.
         // - Command queue access does not conflict with entity access.
-        let raw_queue = unsafe { cell.get_raw_command_queue() };
-        // SAFETY: `&mut self` ensures the commands does not outlive the world.
-        let commands = unsafe {
-            Commands::new_raw_from_entities(raw_queue, cell.entity_allocator(), cell.entities())
-        };
+        let commands = unsafe { cell.commands() };
 
         (fetcher, commands)
     }
@@ -1139,8 +1120,7 @@ impl World {
 
         let mut entity_location = Some(entity_location);
 
-        // SAFETY: command_queue is not referenced anywhere else
-        if !unsafe { self.command_queue.is_empty() } {
+        if !self.command_queue_is_empty() {
             self.flush();
             entity_location = self.entities().get_spawned(entity).ok();
         }
@@ -1472,6 +1452,95 @@ impl World {
 
         self.flush();
         Ok(result)
+    }
+
+    /// Temporarily removes a [`Resource`] `R` and
+    /// runs the provided closure on it, returning the result if `R` was available.
+    /// This will trigger the `Remove` and `Discard` component hooks without
+    /// causing an archetype move.
+    ///
+    /// This is most useful with immutable resources, where removal and reinsertion
+    /// is the only way to modify a value.
+    ///
+    /// If you do not need to ensure the above hooks are triggered, and your resource
+    /// is mutable, prefer using [`get_resource_mut`](World::get_resource_mut).
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// #[derive(Resource, PartialEq, Eq, Debug)]
+    /// #[component(immutable)]
+    /// struct Bar(bool);
+    ///
+    /// # let mut world = World::default();
+    /// # world.insert_resource(Bar(false));
+    /// #
+    /// world.modify_resource(|bar: &mut Bar| {
+    ///     bar.0 = true;
+    /// });
+    /// #
+    /// # assert_eq!(world.get_resource::<Bar>(), Some(&Bar(true)));
+    /// ```
+    #[inline]
+    #[track_caller]
+    pub fn modify_resource<R: Resource, S>(
+        &mut self,
+        f: impl FnOnce(&mut R) -> S,
+    ) -> Result<Option<S>, EntityMutableFetchError> {
+        let component_id = self.register_component::<R>();
+        if let Some(entity) = self.resource_entities.get(component_id) {
+            let mut world = DeferredWorld::from(&mut *self);
+            let result = world.modify_component_with_relationship_hook_mode(
+                entity,
+                RelationshipHookMode::Run,
+                f,
+            )?;
+
+            self.flush();
+            Ok(result)
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Temporarily removes a [`Resource`] identified by the provided
+    /// [`ComponentId`] and runs the provided
+    /// closure on it, returning the result if the component was available.
+    /// This will trigger the `Remove` and `Discard` component hooks without
+    /// causing an archetype move.
+    ///
+    /// This is most useful with immutable resources, where removal and reinsertion
+    /// is the only way to modify a value.
+    ///
+    /// If you do not need to ensure the above hooks are triggered, and your resource
+    /// is mutable, prefer using [`get_resource_mut_by_id`](World::get_resource_mut_by_id).
+    ///
+    /// You should prefer the typed [`modify_resource`](World::modify_resource)
+    /// whenever possible.
+    #[inline]
+    #[track_caller]
+    pub fn modify_resource_by_id<S>(
+        &mut self,
+        component_id: ComponentId,
+        f: impl for<'a> FnOnce(MutUntyped<'a>) -> S,
+    ) -> Result<Option<S>, EntityMutableFetchError> {
+        if let Some(entity) = self.resource_entities.get(component_id) {
+            let mut world = DeferredWorld::from(&mut *self);
+
+            let result = world.modify_component_by_id_with_relationship_hook_mode(
+                entity,
+                component_id,
+                RelationshipHookMode::Run,
+                f,
+            )?;
+
+            self.flush();
+            Ok(result)
+        } else {
+            Ok(None)
+        }
     }
 
     /// Despawns the given [`Entity`], if it exists.
@@ -1858,9 +1927,9 @@ impl World {
         func: impl FnOnce(&mut World) -> R,
         caller: MaybeLocation,
     ) -> (ComponentId, EntityWorldMut<'_>) {
-        let resource_id = self.register_resource::<R>();
+        let resource_id = self.register_component::<R>();
 
-        if let Some(&entity) = self.resource_entities.get(resource_id) {
+        if let Some(entity) = self.resource_entities.get(resource_id) {
             let entity_ref = self.get_entity(entity).expect("ResourceCache is in sync");
             if !entity_ref.contains_id(resource_id) {
                 let resource = func(self);
@@ -1924,12 +1993,6 @@ impl World {
         });
     }
 
-    /// Initializes a new non-send resource and returns the [`ComponentId`] created for it.
-    #[deprecated(since = "0.19.0", note = "use World::init_non_send")]
-    pub fn init_non_send_resource<R: 'static + FromWorld>(&mut self) -> ComponentId {
-        self.init_non_send::<R>()
-    }
-
     /// Initializes new non-send data and returns the [`ComponentId`] created for it.
     ///
     /// If the data already exists, nothing happens.
@@ -1963,12 +2026,6 @@ impl World {
         component_id
     }
 
-    /// Inserts a new non-send resource with the given `value`.
-    #[deprecated(since = "0.19.0", note = "use World::insert_non_send")]
-    pub fn insert_non_send_resource<R: 'static>(&mut self, value: R) {
-        self.insert_non_send(value);
-    }
-
     /// Inserts new non-send data with the given `value`.
     ///
     /// `NonSend` data cannot be sent across threads,
@@ -1995,18 +2052,12 @@ impl World {
     #[inline]
     pub fn remove_resource<R: Resource>(&mut self) -> Option<R> {
         let resource_id = self.component_id::<R>()?;
-        let entity = *self.resource_entities.get(resource_id)?;
+        let entity = self.resource_entities.get(resource_id)?;
         let value = self
             .get_entity_mut(entity)
             .expect("ResourceCache is in sync")
             .take::<R>()?;
         Some(value)
-    }
-
-    /// Removes a `!Send` resource from the world and returns it, if present.
-    #[deprecated(since = "0.19.0", note = "use World::remove_non_send")]
-    pub fn remove_non_send_resource<R: 'static>(&mut self) -> Option<R> {
-        self.remove_non_send::<R>()
     }
 
     /// Removes `!Send` data from the world and returns it, if present.
@@ -2040,7 +2091,7 @@ impl World {
     #[inline]
     pub fn contains_resource_by_id(&self, component_id: ComponentId) -> bool {
         if let Some(entity) = self.resource_entities.get(component_id)
-            && let Ok(entity_ref) = self.get_entity(*entity)
+            && let Ok(entity_ref) = self.get_entity(entity)
         {
             return entity_ref.contains_id(component_id);
         }
@@ -2130,7 +2181,7 @@ impl World {
         component_id: ComponentId,
     ) -> Option<ComponentTicks> {
         let entity = self.resource_entities.get(component_id)?;
-        let entity_ref = self.get_entity(*entity).ok()?;
+        let entity_ref = self.get_entity(entity).ok()?;
         entity_ref.get_change_ticks_by_id(component_id)
     }
 
@@ -2193,7 +2244,7 @@ impl World {
     /// use [`get_resource_or_insert_with`](World::get_resource_or_insert_with).
     #[inline]
     #[track_caller]
-    pub fn resource_mut<R: Resource>(&mut self) -> Mut<'_, R> {
+    pub fn resource_mut<R: Resource<Mutability = Mutable>>(&mut self) -> Mut<'_, R> {
         match self.get_resource_mut() {
             Some(x) => x,
             None => panic!(
@@ -2226,7 +2277,7 @@ impl World {
 
     /// Gets a mutable reference to the resource of the given type if it exists
     #[inline]
-    pub fn get_resource_mut<R: Resource>(&mut self) -> Option<Mut<'_, R>> {
+    pub fn get_resource_mut<R: Resource<Mutability = Mutable>>(&mut self) -> Option<Mut<'_, R>> {
         // SAFETY:
         // - `as_unsafe_world_cell` gives permission to access everything mutably
         // - `&mut self` ensures nothing in world is borrowed
@@ -2250,7 +2301,7 @@ impl World {
     /// ```
     #[inline]
     #[track_caller]
-    pub fn get_resource_or_insert_with<R: Resource>(
+    pub fn get_resource_or_insert_with<R: Resource<Mutability = Mutable>>(
         &mut self,
         func: impl FnOnce() -> R,
     ) -> Mut<'_, R> {
@@ -2297,7 +2348,9 @@ impl World {
     /// assert_eq!(my_res.0, 30);
     /// ```
     #[track_caller]
-    pub fn get_resource_or_init<R: Resource + FromWorld>(&mut self) -> Mut<'_, R> {
+    pub fn get_resource_or_init<R: Resource<Mutability = Mutable> + FromWorld>(
+        &mut self,
+    ) -> Mut<'_, R> {
         let caller = MaybeLocation::caller();
         let (resource_id, entity) =
             self.insert_resource_if_not_exists_with_caller(R::from_world, caller);
@@ -2308,10 +2361,12 @@ impl World {
         unsafe { untyped.with_type() }
     }
 
-    /// Gets an immutable reference to a non-send resource of the given type, if it exists.
-    #[deprecated(since = "0.19.0", note = "use World::non_send")]
-    pub fn non_send_resource<R: 'static>(&self) -> &R {
-        self.non_send::<R>()
+    /// Retrieves the [`Entity`] associated with the resource of type `R`, if it exists.
+    #[inline]
+    #[track_caller]
+    pub fn resource_entity<R: Resource>(&self) -> Option<Entity> {
+        let component_id = self.component_id::<R>()?;
+        self.resource_entities().get(component_id)
     }
 
     /// Gets an immutable reference to the non-send data of the given type, if it exists.
@@ -2336,12 +2391,6 @@ impl World {
         }
     }
 
-    /// Gets a mutable reference to a non-send resource of the given type, if it exists.
-    #[deprecated(since = "0.19.0", note = "use World::non_send_mut")]
-    pub fn non_send_resource_mut<R: 'static>(&mut self) -> Mut<'_, R> {
-        self.non_send_mut::<R>()
-    }
-
     /// Gets a mutable reference to the non-send data of the given type, if it exists.
     ///
     /// # Panics
@@ -2364,13 +2413,6 @@ impl World {
         }
     }
 
-    /// Gets a reference to a non-send resource of the given type, if it exists.
-    /// Otherwise returns `None`.
-    #[deprecated(since = "0.19.0", note = "use World::get_non_send")]
-    pub fn get_non_send_resource<R: 'static>(&self) -> Option<&R> {
-        self.get_non_send::<R>()
-    }
-
     /// Gets a reference to the non-send data of the given type, if it exists.
     /// Otherwise returns `None`.
     ///
@@ -2382,13 +2424,6 @@ impl World {
         // - `as_unsafe_world_cell_readonly` gives permission to access the entire world immutably
         // - `&self` ensures that there are no mutable borrows of world data
         unsafe { self.as_unsafe_world_cell_readonly().get_non_send() }
-    }
-
-    /// Gets a mutable reference to a non-send resource of the given type, if it exists.
-    /// Otherwise returns `None`.
-    #[deprecated(since = "0.19.0", note = "use World::get_non_send_mut")]
-    pub fn get_non_send_resource_mut<R: 'static>(&mut self) -> Option<Mut<'_, R>> {
-        self.get_non_send_mut::<R>()
     }
 
     /// Gets a mutable reference to the non-send data of the given type, if it exists.
@@ -2499,7 +2534,7 @@ impl World {
                         archetype_id: first_location.archetype_id,
                     };
                     move_as_ptr!(first_bundle);
-                    // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
+                    // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter, B::Effect: NoBundleEffect
                     unsafe {
                         cache.inserter.insert(
                             first_entity,
@@ -2529,7 +2564,7 @@ impl World {
                                     }
                                 }
                                 move_as_ptr!(bundle);
-                                // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
+                                // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter, B::Effect: NoBundleEffect
                                 unsafe {
                                     cache.inserter.insert(
                                         entity,
@@ -2650,7 +2685,7 @@ impl World {
                     move_as_ptr!(first_bundle);
                     // SAFETY:
                     // - `entity` is valid, `location` matches entity, bundle matches inserter
-                    // - `apply_effect` is never called on this bundle.
+                    // - B::Effect: NoBundleEffect`
                     // - `first_bundle` is not be accessed or dropped after this.
                     unsafe {
                         cache.inserter.insert(
@@ -2692,7 +2727,7 @@ impl World {
                     move_as_ptr!(bundle);
                     // SAFETY:
                     // - `entity` is valid, `location` matches entity, bundle matches inserter
-                    // - `apply_effect` is never called on this bundle.
+                    // - `B::Effect: NoBundleEffect`
                     // - `bundle` is not be accessed or dropped after this.
                     unsafe {
                         cache.inserter.insert(
@@ -2781,11 +2816,11 @@ impl World {
         let change_tick = self.change_tick();
 
         let component_id = self.components.valid_component_id::<R>()?;
-        let entity = *self.resource_entities.get(component_id)?;
+        let entity = self.resource_entities.get(component_id)?;
         let mut entity_mut = self.get_entity_mut(entity).ok()?;
 
         let mut ticks = entity_mut.get_change_ticks::<R>()?;
-        let mut changed_by = entity_mut.get_changed_by::<R>()?;
+        let changed_by = entity_mut.get_changed_by::<R>()?;
         let value = entity_mut.take::<R>()?;
 
         // type used to manage reinserting the resource at the end of the scope. use of a drop impl means that
@@ -2797,7 +2832,6 @@ impl World {
             entity: Entity,
             component_id: ComponentId,
             value: ManuallyDrop<R>,
-            ticks: ComponentTicks,
             caller: MaybeLocation,
         }
         impl<R: Resource> Drop for ReinsertGuard<'_, R> {
@@ -2855,11 +2889,11 @@ impl World {
                     // SAFETY:
                     // - We update the entity location like in `EntityWorldMut::insert_with_caller`.
                     let world = unsafe { entity_mut.world_mut() };
+                    let tick = world.change_tick();
                     // SAFETY:
                     // - `location.archetype_id` is part of a valid `EntityLocation`.
-                    let mut bundle_inserter = unsafe {
-                        BundleInserter::new::<R>(world, location.archetype_id, self.ticks.changed)
-                    };
+                    let mut bundle_inserter =
+                        unsafe { BundleInserter::new::<R>(world, location.archetype_id, tick) };
                     // SAFETY:
                     // - `location` matches current entity and thus must currently exist in the source
                     //   archetype for this inserter and its location within the archetype.
@@ -2880,12 +2914,6 @@ impl World {
                     });
                     entity_mut.update_location();
 
-                    // Set the added tick to the original.
-                    entity_mut
-                        .get_mut::<R>()
-                        .unwrap()
-                        .set_last_added(self.ticks.added);
-
                     // SAFETY: We update the entity location afterwards.
                     unsafe { entity_mut.world_mut() }.flush();
 
@@ -2903,7 +2931,6 @@ impl World {
             entity,
             component_id,
             value: ManuallyDrop::new(value),
-            ticks,
             caller: changed_by,
         };
 
@@ -2912,9 +2939,10 @@ impl World {
             ticks: ComponentTicksMut {
                 added: &mut ticks.added,
                 changed: &mut ticks.changed,
-                changed_by: changed_by.as_mut(),
+                changed_by: guard.caller.as_mut(),
                 last_run: last_change_tick,
                 this_run: change_tick,
+                summary_tick: None,
             },
         };
 
@@ -2974,18 +3002,21 @@ impl World {
     ) {
         // if the resource already exists, we replace it on the same entity
         let mut entity_mut = if let Some(entity) = self.resource_entities.get(component_id) {
-            self.get_entity_mut(*entity)
+            self.get_entity_mut(entity)
                 .expect("ResourceCache is in sync")
         } else {
             self.spawn_empty()
         };
-        entity_mut.insert_by_id_with_caller(
-            component_id,
-            value,
-            InsertMode::Replace,
-            caller,
-            RelationshipHookMode::Run,
-        );
+        // SAFETY: pointer valid for this component id per precondition
+        unsafe {
+            entity_mut.insert_by_id_with_caller(
+                component_id,
+                value,
+                InsertMode::Replace,
+                caller,
+                RelationshipHookMode::Run,
+            )
+        };
     }
 
     /// Inserts new `!Send` data with the given `value`. Will replace the value if it already
@@ -3037,15 +3068,53 @@ impl World {
     /// This will panic if any of the queued commands are [`spawn`](Commands::spawn).
     /// If this is possible, you should instead use [`flush`](Self::flush).
     pub(crate) fn flush_commands(&mut self) {
-        // SAFETY: `self.command_queue` is only de-allocated in `World`'s `Drop`
-        if !unsafe { self.command_queue.is_empty() } {
-            // SAFETY: `self.command_queue` is only de-allocated in `World`'s `Drop`
-            unsafe {
-                self.command_queue
-                    .clone()
-                    .apply_or_drop_queued(Some(self.into()));
-            };
+        if self.command_queue_is_empty() {
+            return;
         }
+
+        // Prevent nested calls to `flush_commands()` from accessing the commands being run now.
+        // Set `command_queue_start` to the end of the buffer,
+        // and use a RAII type to set it back when done.
+        struct Guard<'a> {
+            world: &'a mut World,
+            start: usize,
+        }
+        impl Drop for Guard<'_> {
+            fn drop(&mut self) {
+                // Return `command_queue_start` to its original value.
+                // `CommandQueueRunner` will have set `len()` to `start`,
+                // so this will result in a zero-length queue.
+                debug_assert_eq!(self.world.command_queue.get_mut().len(), self.start);
+                self.world.command_queue_start = self.start;
+            }
+        }
+
+        let start = self.command_queue_start;
+        let end = self.command_queue.get_mut().len();
+        let guard = Guard { world: self, start };
+        guard.world.command_queue_start = end;
+
+        // SAFETY:
+        // * The world's command queue is always returned
+        // * `start` was set by a call to `flush_commands` to equal `end`,
+        //   so any new commands started there
+        // * `command_queue_start = end` prevents nested calls from accessing commands between `start` and `command_queue.len`
+        let mut runner = unsafe {
+            CommandQueueRunner::new(
+                &mut *guard.world,
+                |world| world.command_queue.get_mut(),
+                start,
+            )
+        };
+        runner.run(|world| Some(world));
+    }
+
+    /// Returns false if there are any commands in the queue.
+    ///
+    /// This must be used instead of [`CommandQueue::is_empty`]
+    /// to ignore any commands earlier than [`Self::command_queue_start`].
+    fn command_queue_is_empty(&mut self) -> bool {
+        self.command_queue_start >= self.command_queue.get_mut().len()
     }
 
     /// Applies any queued component registration.
@@ -3303,11 +3372,7 @@ impl World {
     /// This can easily cause systems expecting certain resources to immediately start panicking.
     /// Use with caution.
     pub fn clear_resources(&mut self) {
-        let pairs: Vec<(ComponentId, Entity)> = self
-            .resource_entities()
-            .iter()
-            .map(|(id, entity)| (*id, *entity))
-            .collect();
+        let pairs: Vec<(ComponentId, Entity)> = self.resource_entities().iter().collect();
         for (component_id, entity) in pairs {
             self.entity_mut(entity).remove_by_id(component_id);
         }
@@ -3332,6 +3397,11 @@ impl World {
     }
 
     pub(crate) fn register_bundle_info<B: Bundle>(&mut self) -> BundleId {
+        // This is a hot path, so return early to avoid the `Vec::new` in `ComponentsRegistrator`
+        if let Some(bundle_id) = self.bundles.get_id(TypeId::of::<B>()) {
+            return bundle_id;
+        }
+
         // SAFETY: These come from the same world. `Self.components_registrator` can't be used since we borrow other fields too.
         let mut registrator =
             unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.component_ids) };
@@ -3344,6 +3414,11 @@ impl World {
     }
 
     pub(crate) fn register_contributed_bundle_info<B: Bundle>(&mut self) -> BundleId {
+        // This is a hot path, so return early to avoid the `Vec::new` in `ComponentsRegistrator`
+        if let Some(bundle_id) = self.bundles.get_contributed_bundle_id(TypeId::of::<B>()) {
+            return bundle_id;
+        }
+
         // SAFETY: These come from the same world. `Self.components_registrator` can't be used since we borrow other fields too.
         let mut registrator =
             unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.component_ids) };
@@ -3403,7 +3478,7 @@ impl World {
         }
     }
 
-    /// Gets a pointer to the resource with the id [`ComponentId`] if it exists.
+    /// Gets a pointer to the resource with the id [`ComponentId`] if it exists and is mutable.
     /// The returned pointer may be used to modify the resource, as long as the mutable borrow
     /// of the [`World`] is still valid.
     ///
@@ -3509,11 +3584,11 @@ impl World {
     #[inline]
     pub fn iter_resources(&self) -> impl Iterator<Item = (&ComponentInfo, Ptr<'_>)> {
         self.resource_entities
-            .indices()
             .iter()
-            .filter_map(|component_id| {
-                let component_info = self.components().get_info(*component_id)?;
-                let resource = self.get_resource_by_id(*component_id)?;
+            .filter_map(|(component_id, entity)| {
+                let component_info = self.components().get_info(component_id)?;
+                let entity_cell = self.get_entity(entity).ok()?;
+                let resource = entity_cell.get_by_id(component_id).ok()?;
                 Some((component_info, resource))
             })
     }
@@ -3591,7 +3666,6 @@ impl World {
 
         resource_entities
             .iter()
-            .map(|(component_id, entity)| (*component_id, *entity))
             .filter_map(move |(component_id, entity)| {
                 // SAFETY: If a resource has been initialized, a corresponding ComponentInfo must exist with its ID.
                 let component_info =
@@ -3658,7 +3732,7 @@ impl World {
     /// **You should prefer to use the typed API [`World::remove_resource`] where possible and only
     /// use this in cases where the actual types are not known at compile time.**
     pub fn remove_resource_by_id(&mut self, component_id: ComponentId) -> bool {
-        if let Some(entity) = self.resource_entities.remove(component_id)
+        if let Some(entity) = self.resource_entities.get(component_id)
             && let Ok(mut entity_mut) = self.get_entity_mut(entity)
             && entity_mut.contains_id(component_id)
         {
@@ -3867,7 +3941,6 @@ impl fmt::Debug for World {
             .field("entity_count", &self.entities.count_spawned())
             .field("archetype_count", &self.archetypes.len())
             .field("component_count", &self.components.len())
-            .field("resource_count", &self.resource_entities.len())
             .finish()
     }
 }
@@ -3935,7 +4008,7 @@ mod tests {
         component::{ComponentCloneBehavior, ComponentDescriptor, ComponentInfo, StorageType},
         entity::EntityHashSet,
         entity_disabling::{DefaultQueryFilters, Disabled},
-        prelude::{Event, Mut, On, Res},
+        prelude::{DetectChanges, Event, Mut, On, Res},
         ptr::OwningPtr,
         resource::Resource,
         world::{error::EntityMutableFetchError, DeferredWorld},
@@ -4202,6 +4275,7 @@ mod tests {
                     DROP_COUNT.fetch_add(1, Ordering::SeqCst);
                 }),
                 true,
+                false,
                 ComponentCloneBehavior::Default,
                 None,
             )
@@ -4638,5 +4712,39 @@ mod tests {
         world.flush();
 
         assert!(world.get_entity(eid).is_err());
+    }
+
+    #[test]
+    fn resource_scope_ticks() {
+        #[derive(Resource)]
+        struct R;
+
+        let mut world = World::new();
+        world.insert_resource(R);
+        world.resource_scope(|world, r: Mut<R>| {
+            assert_eq!(world.change_tick(), r.added());
+            assert_eq!(world.change_tick(), r.last_changed());
+            world.increment_change_tick();
+        });
+        assert_eq!(world.change_tick(), world.resource_ref::<R>().added());
+        assert_eq!(
+            world.change_tick(),
+            world.resource_ref::<R>().last_changed()
+        );
+    }
+
+    #[test]
+    fn world_resource_entity() {
+        #[derive(Resource)]
+        struct R1;
+
+        #[derive(Resource)]
+        struct R2;
+
+        let mut world = World::new();
+        world.insert_resource(R1);
+
+        assert!(world.resource_entity::<R1>().is_some());
+        assert!(world.resource_entity::<R2>().is_none());
     }
 }

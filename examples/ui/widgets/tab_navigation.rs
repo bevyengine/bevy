@@ -4,45 +4,21 @@ use bevy::{
     color::palettes::basic::*,
     input_focus::{
         tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
-        InputFocus,
+        FocusCause, InputFocus,
     },
+    picking::hover::Hovered,
+    platform::collections::HashSet,
     prelude::*,
+    ui::Pressed,
+    ui_widgets::Button,
 };
 
 fn main() {
     App::new()
         .add_plugins((DefaultPlugins, TabNavigationPlugin))
         .add_systems(Startup, setup)
-        .add_systems(Update, (button_system, focus_system))
+        .add_systems(Update, (focus_system, button_styles))
         .run();
-}
-
-const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
-const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
-const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
-
-fn button_system(
-    mut interaction_query: Query<
-        (&Interaction, &mut BackgroundColor, &mut BorderColor),
-        (Changed<Interaction>, With<Button>),
-    >,
-) {
-    for (interaction, mut color, mut border_color) in &mut interaction_query {
-        match *interaction {
-            Interaction::Pressed => {
-                *color = PRESSED_BUTTON.into();
-                *border_color = BorderColor::all(RED);
-            }
-            Interaction::Hovered => {
-                *color = HOVERED_BUTTON.into();
-                *border_color = BorderColor::all(Color::WHITE);
-            }
-            Interaction::None => {
-                *color = NORMAL_BUTTON.into();
-                *border_color = BorderColor::all(Color::BLACK);
-            }
-        }
-    }
 }
 
 fn focus_system(
@@ -52,7 +28,7 @@ fn focus_system(
 ) {
     if focus.is_changed() {
         for button in query.iter_mut() {
-            if focus.0 == Some(button) {
+            if focus.get() == Some(button) {
                 commands.entity(button).insert(Outline {
                     color: Color::WHITE,
                     width: px(2),
@@ -80,8 +56,8 @@ fn setup(mut commands: Commands) {
             ..default()
         })
         .observe(
-            |mut event: On<Pointer<Click>>, mut focus: ResMut<InputFocus>| {
-                focus.0 = None;
+            |mut event: On<PointerClick>, mut focus: ResMut<InputFocus>| {
+                focus.clear();
                 event.propagate(false);
             },
         )
@@ -116,6 +92,7 @@ fn setup(mut commands: Commands) {
                             parent
                                 .spawn((
                                     Button,
+                                    Hovered::default(),
                                     Node {
                                         width: px(200),
                                         height: px(65),
@@ -137,9 +114,8 @@ fn setup(mut commands: Commands) {
                                     )],
                                 ))
                                 .observe(
-                                    |mut click: On<Pointer<Click>>,
-                                    mut focus: ResMut<InputFocus>| {
-                                        focus.0 = Some(click.entity);
+                                    |mut click: On<PointerClick>, mut focus: ResMut<InputFocus>| {
+                                        focus.set(click.entity, FocusCause::Pressed);
                                         click.propagate(false);
                                     },
                                 );
@@ -147,4 +123,46 @@ fn setup(mut commands: Commands) {
                     });
             }
         });
+}
+
+const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
+const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
+const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
+
+/// System that updates button styling based on hover and pressed states, unrelated to focus.
+fn button_styles(
+    mut buttons: Query<
+        (
+            Entity,
+            Option<Ref<Pressed>>,
+            Ref<Hovered>,
+            &mut BackgroundColor,
+            &mut BorderColor,
+        ),
+        With<Button>,
+    >,
+    mut removed_pressed: RemovedComponents<Pressed>,
+) {
+    let just_unpressed: HashSet<Entity> = removed_pressed.read().collect();
+    for (entity, pressed, hovered, mut background_color, mut border_color) in &mut buttons {
+        let changed = hovered.is_changed()
+            || pressed.as_ref().is_some_and(Ref::is_changed)
+            || just_unpressed.contains(&entity);
+        if changed {
+            match (pressed.is_some(), hovered.get()) {
+                (true, _) => {
+                    *background_color = BackgroundColor(PRESSED_BUTTON);
+                    *border_color = BorderColor::all(RED);
+                }
+                (false, true) => {
+                    *background_color = BackgroundColor(HOVERED_BUTTON);
+                    *border_color = BorderColor::all(WHITE);
+                }
+                (false, false) => {
+                    *background_color = BackgroundColor(NORMAL_BUTTON);
+                    *border_color = BorderColor::all(BLACK);
+                }
+            }
+        }
+    }
 }

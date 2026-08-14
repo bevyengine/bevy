@@ -20,28 +20,18 @@ impl Image {
 
         match dyn_img {
             DynamicImage::ImageLuma8(image) => {
-                let i = DynamicImage::ImageLuma8(image).into_rgba8();
-                width = i.width();
-                height = i.height();
-                format = if is_srgb {
-                    TextureFormat::Rgba8UnormSrgb
-                } else {
-                    TextureFormat::Rgba8Unorm
-                };
+                width = image.width();
+                height = image.height();
+                format = TextureFormat::R8Unorm;
 
-                data = i.into_raw();
+                data = image.into_raw();
             }
             DynamicImage::ImageLumaA8(image) => {
-                let i = DynamicImage::ImageLumaA8(image).into_rgba8();
-                width = i.width();
-                height = i.height();
-                format = if is_srgb {
-                    TextureFormat::Rgba8UnormSrgb
-                } else {
-                    TextureFormat::Rgba8Unorm
-                };
+                width = image.width();
+                height = image.height();
+                format = TextureFormat::Rg8Unorm;
 
-                data = i.into_raw();
+                data = image.into_raw();
             }
             DynamicImage::ImageRgb8(image) => {
                 let i = DynamicImage::ImageRgb8(image).into_rgba8();
@@ -69,7 +59,7 @@ impl Image {
             DynamicImage::ImageLuma16(image) => {
                 width = image.width();
                 height = image.height();
-                format = TextureFormat::R16Uint;
+                format = TextureFormat::R16Unorm;
 
                 let raw_data = image.into_raw();
 
@@ -78,7 +68,7 @@ impl Image {
             DynamicImage::ImageLumaA16(image) => {
                 width = image.width();
                 height = image.height();
-                format = TextureFormat::Rg16Uint;
+                format = TextureFormat::Rg16Unorm;
 
                 let raw_data = image.into_raw();
 
@@ -112,12 +102,7 @@ impl Image {
                     width as usize * height as usize * format.pixel_size().unwrap_or(0),
                 );
 
-                for pixel in image.into_raw().chunks_exact(3) {
-                    // TODO: use the array_chunks method once stabilized
-                    // https://github.com/rust-lang/rust/issues/74985
-                    let r = pixel[0];
-                    let g = pixel[1];
-                    let b = pixel[2];
+                for [r, g, b] in image.into_raw().as_chunks().0 {
                     let a = 1f32;
 
                     local_data.extend_from_slice(&r.to_le_bytes());
@@ -191,8 +176,8 @@ impl Image {
             TextureFormat::Bgra8UnormSrgb | TextureFormat::Bgra8Unorm => {
                 ImageBuffer::from_raw(width, height, {
                     let mut data = data;
-                    for bgra in data.chunks_exact_mut(4) {
-                        bgra.swap(0, 2);
+                    for [b, _, r, _] in data.as_chunks_mut().0 {
+                        core::mem::swap(b, r);
                     }
                     data
                 })
@@ -240,5 +225,26 @@ mod test {
 
         // NOTE: Fails if `is_srgb = false` or the dynamic image is of the type rgb8.
         assert_eq!(initial, image.try_into_dynamic().unwrap());
+
+        let luma_a8 = Image::from_dynamic(
+            DynamicImage::new_luma_a8(1, 1),
+            false,
+            RenderAssetUsages::RENDER_WORLD,
+        );
+        assert_eq!(luma_a8.texture_descriptor.format, TextureFormat::Rg8Unorm);
+
+        let luma16 = Image::from_dynamic(
+            DynamicImage::new_luma16(1, 1),
+            false,
+            RenderAssetUsages::RENDER_WORLD,
+        );
+        assert_eq!(luma16.texture_descriptor.format, TextureFormat::R16Unorm);
+
+        let luma_a16 = Image::from_dynamic(
+            DynamicImage::new_luma_a16(1, 1),
+            false,
+            RenderAssetUsages::RENDER_WORLD,
+        );
+        assert_eq!(luma_a16.texture_descriptor.format, TextureFormat::Rg16Unorm);
     }
 }

@@ -64,8 +64,8 @@ pub struct OneHundredThings([Handle<Gltf>; 100]);
 #[derive(Debug, Resource, Deref)]
 pub struct AssetBarrier(Arc<AssetBarrierInner>);
 
-/// This guard is to be acquired by [`AssetServer::load_acquire`]
-/// and dropped once finished.
+/// This guard is to be acquired by
+/// [`LoadBuilder::with_guard`](bevy::asset::LoadBuilder::with_guard) and dropped once finished.
 #[derive(Debug, Deref)]
 pub struct AssetBarrierGuard(Arc<AssetBarrierInner>);
 
@@ -143,13 +143,16 @@ impl Drop for AssetBarrierGuard {
 
 fn setup_assets(mut commands: Commands, asset_server: Res<AssetServer>) {
     let (barrier, guard) = AssetBarrier::new();
-    commands.insert_resource(OneHundredThings(std::array::from_fn(|i| match i % 5 {
-        0 => asset_server.load_acquire("models/GolfBall/GolfBall.glb", guard.clone()),
-        1 => asset_server.load_acquire("models/AlienCake/alien.glb", guard.clone()),
-        2 => asset_server.load_acquire("models/AlienCake/cakeBirthday.glb", guard.clone()),
-        3 => asset_server.load_acquire("models/FlightHelmet/FlightHelmet.gltf", guard.clone()),
-        4 => asset_server.load_acquire("models/torus/torus.gltf", guard.clone()),
-        _ => unreachable!(),
+    commands.insert_resource(OneHundredThings(std::array::from_fn(|i| {
+        let builder = asset_server.load_builder().with_guard(guard.clone());
+        match i % 5 {
+            0 => builder.load("models/GolfBall/GolfBall.glb"),
+            1 => builder.load("models/AlienCake/alien.glb"),
+            2 => builder.load("models/AlienCake/cakeBirthday.glb"),
+            3 => builder.load("models/FlightHelmet/FlightHelmet.gltf"),
+            4 => builder.load("models/torus/torus.gltf"),
+            _ => unreachable!(),
+        }
     })));
     let future = barrier.wait_async();
     commands.insert_resource(barrier);

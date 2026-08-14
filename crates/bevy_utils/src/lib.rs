@@ -62,11 +62,13 @@ mod bloom_filter;
 pub use bloom_filter::*;
 mod debug_info;
 mod default;
+pub mod memory_size;
 mod once;
 
 #[doc(hidden)]
 pub use once::OnceFlag;
 
+pub use debug_info::DebugName;
 pub use default::default;
 
 use core::mem::ManuallyDrop;

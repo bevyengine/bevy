@@ -21,18 +21,19 @@ pub struct GpuFog {
     /// The color used for the fog where the view direction aligns with directional lights
     directional_light_color: Vec4,
     /// Allocated differently depending on fog mode.
-    /// See `mesh_view_types.wgsl` for a detailed explanation
+    /// See `mesh_view_types.wesl` for a detailed explanation
     be: Vec3,
     /// The exponent applied to the directional light alignment calculation
     directional_light_exponent: f32,
     /// Allocated differently depending on fog mode.
-    /// See `mesh_view_types.wgsl` for a detailed explanation
+    /// See `mesh_view_types.wesl` for a detailed explanation
     bi: Vec3,
     /// Unsigned int representation of the active fog falloff mode
     mode: u32,
 }
 
-// Important: These must be kept in sync with `mesh_view_types.wgsl`
+// Important: These must be kept in sync with `mesh_view_types.wesl`
+#[expect(unused, reason = "Kept in sync with `mesh_view_types.wesl`")]
 const GPU_FOG_MODE_OFF: u32 = 0;
 const GPU_FOG_MODE_LINEAR: u32 = 1;
 const GPU_FOG_MODE_EXPONENTIAL: u32 = 2;
@@ -51,7 +52,7 @@ pub fn prepare_fog(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut fog_meta: ResMut<FogMeta>,
-    views: Query<(Entity, Option<&DistanceFog>), With<ExtractedView>>,
+    views: Query<(Entity, &DistanceFog), With<ExtractedView>>,
 ) {
     let views_iter = views.iter();
     let view_count = views_iter.len();
@@ -62,7 +63,7 @@ pub fn prepare_fog(
         return;
     };
     for (entity, fog) in views_iter {
-        let gpu_fog = if let Some(fog) = fog {
+        let gpu_fog = {
             match &fog.falloff {
                 FogFalloff::Linear { start, end } => GpuFog {
                     mode: GPU_FOG_MODE_LINEAR,
@@ -104,12 +105,6 @@ pub fn prepare_fog(
                     bi: *inscattering,
                 },
             }
-        } else {
-            // If no fog is added to a camera, by default it's off
-            GpuFog {
-                mode: GPU_FOG_MODE_OFF,
-                ..Default::default()
-            }
         };
 
         // This is later read by `SetMeshViewBindGroup<I>`
@@ -131,7 +126,7 @@ pub struct FogPlugin;
 
 impl Plugin for FogPlugin {
     fn build(&self, app: &mut App) {
-        load_shader_library!(app, "fog.wgsl");
+        load_shader_library!(app, "fog.wesl");
 
         app.add_plugins(ExtractComponentPlugin::<DistanceFog>::default());
 

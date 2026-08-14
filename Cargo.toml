@@ -1,6 +1,6 @@
 [package]
 name = "bevy"
-version = "0.19.0-dev"
+version = "0.20.0-dev"
 edition = "2024"
 categories = ["game-engines", "graphics", "gui", "rendering"]
 description = "A refreshingly simple data-driven game engine and app framework"
@@ -10,10 +10,10 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/bevyengine/bevy"
 documentation = "https://docs.rs/bevy"
-rust-version = "1.92.0"
+rust-version = "1.96.0"
 
 [workspace]
-resolver = "2"
+resolver = "3"
 members = [
   # All of Bevy's official crates are within the `crates` folder!
   "crates/*",
@@ -71,7 +71,9 @@ ref_as_ptr = "warn"
 # see: https://github.com/bevyengine/bevy/pull/15375#issuecomment-2366966219
 too_long_first_doc_paragraph = "allow"
 
-std_instead_of_core = "warn"
+# currently falsely fires on std::io, even tho core::io is unstable
+# https://github.com/rust-lang/rust-clippy/issues/13158#issuecomment-4373196346
+std_instead_of_core = "allow"
 std_instead_of_alloc = "warn"
 alloc_instead_of_core = "warn"
 
@@ -173,25 +175,25 @@ picking = ["bevy_picking", "mesh_picking", "sprite_picking", "ui_picking"]
 default_app = [
   "async_executor",
   "bevy_asset",
-  "bevy_input_focus",
   "bevy_log",
   "bevy_state",
-  "bevy_window",
-  "custom_cursor",
   "reflect_auto_register",
 ]
 
 # COLLECTION: These are platform support features, such as OS support/features, windowing and input backends, etc.
 default_platform = [
   "std",
-  "android-game-activity",
   "bevy_gilrs",
   "bevy_winit",
+  # Note: OS-integrated clipboard support is gated behind the `system_clipboard` feature,
+  # which is not enabled by default for security reasons.
+  "bevy_clipboard",
   "default_font",
   "multi_threaded",
   "webgl2",
   "x11",
   "wayland",
+  "custom_cursor",
   "sysinfo_plugin",
 ]
 
@@ -206,6 +208,7 @@ common_api = [
   "bevy_shader",
   "bevy_material",
   "bevy_text",
+  "bevy_window",
   "hdr",
   "png",
 ]
@@ -250,7 +253,7 @@ common_api = [
 ]
 
 # COLLECTION: Features used to build UI Bevy apps (does not include a render backend). You generally don't need to worry about this unless you are using a custom renderer.
-ui_api = ["default_app", "common_api", "bevy_ui"]
+ui_api = ["default_app", "common_api", "bevy_input_focus", "bevy_ui"]
 
 # COLLECTION: Bevy's built-in UI renderer, built on top of `bevy_render`.
 ui_bevy_render = [
@@ -260,7 +263,7 @@ ui_bevy_render = [
   "bevy_ui_render",
 ]
 
-# COLLECTION: Recommended defaults for no_std applications.
+# COLLECTION: Recommended defaults for `no_std` applications.
 default_no_std = ["libm", "critical-section", "bevy_color", "bevy_state"]
 
 # Provides an implementation for picking meshes
@@ -272,7 +275,7 @@ sprite_picking = ["bevy_internal/sprite_picking"]
 # Provides an implementation for picking UI
 ui_picking = ["bevy_internal/ui_picking"]
 
-# Provides a debug overlay for bevy UI
+# Provides a debug overlay for Bevy UI
 bevy_ui_debug = ["bevy_internal/bevy_ui_debug"]
 
 # Force dynamic linking, which improves iterative compile times
@@ -299,7 +302,7 @@ bevy_core_pipeline = ["bevy_internal/bevy_core_pipeline"]
 # Provides post process effects such as depth of field, bloom, chromatic aberration.
 bevy_post_process = ["bevy_internal/bevy_post_process"]
 
-# Provides various anti aliasing solutions
+# Provides various anti-aliasing solutions
 bevy_anti_alias = ["bevy_internal/bevy_anti_alias"]
 
 # Adds gamepad support
@@ -395,14 +398,21 @@ bevy_log = ["bevy_internal/bevy_log"]
 # Enable input focus subsystem
 bevy_input_focus = ["bevy_internal/bevy_input_focus"]
 
-# Headless widget collection for Bevy UI.
-bevy_ui_widgets = ["bevy_internal/bevy_ui_widgets"]
+# Clipboard resource and management. See `system_clipboard` for OS-integrated clipboard support.
+bevy_clipboard = ["bevy_internal/bevy_clipboard"]
 
-# Load and save user preferences
+# Headless widget collection for Bevy UI.
+bevy_ui_widgets = [
+  "bevy_internal/bevy_ui_widgets",
+  "bevy_input_focus",
+  "bevy_ui",
+]
+
+# Load and save settings
 bevy_settings = ["bevy_internal/bevy_settings"]
 
 # Feathers widget collection.
-experimental_bevy_feathers = ["bevy_internal/bevy_feathers", "bevy_ui_widgets"]
+bevy_feathers = ["bevy_internal/bevy_feathers", "bevy_ui_widgets"]
 
 # Enable passthrough loading for SPIR-V shaders (Only supported on Vulkan, shader capabilities and extensions must agree with the platform implementation)
 spirv_shader_passthrough = ["bevy_internal/spirv_shader_passthrough"]
@@ -431,8 +441,19 @@ trace = ["bevy_internal/trace", "dep:tracing"]
 # Basis Universal compressed texture support
 basis-universal = ["bevy_internal/basis-universal"]
 
-# Enables compressed KTX2 UASTC texture output on the asset processor
+# Texture compression asset processor (cross-platform, transcodes to any GPU format at load time)
+compressed_image_saver_universal = [
+  "bevy_internal/compressed_image_saver_universal",
+]
+
+# Texture compression asset processor (BCn for desktop, ASTC for mobile via env var)
 compressed_image_saver = ["bevy_internal/compressed_image_saver"]
+
+# Enables system-level clipboard support.
+system_clipboard = ["bevy_clipboard", "bevy_internal/system_clipboard"]
+
+# Enables image copy/paste via the system clipboard. Not supported on WASM.
+clipboard_image = ["system_clipboard", "bevy_internal/clipboard_image"]
 
 # BMP image format support
 bmp = ["bevy_internal/bmp"]
@@ -482,7 +503,7 @@ webp = ["bevy_internal/webp"]
 # For KTX2 supercompression
 zlib = ["bevy_internal/zlib"]
 
-# For KTX2 Zstandard decompression using pure rust [ruzstd](https://crates.io/crates/ruzstd). This is the safe default. For maximum performance, use "zstd_c".
+# For KTX2 Zstandard decompression using pure Rust [ruzstd](https://crates.io/crates/ruzstd). This is the safe default. For maximum performance, use "zstd_c".
 zstd_rust = ["bevy_internal/zstd_rust"]
 
 # For KTX2 Zstandard decompression using [zstd](https://crates.io/crates/zstd). This is a faster backend, but uses unsafe C bindings. For the safe option, stick to the default backend with "zstd_rust".
@@ -560,10 +581,16 @@ smaa_luts = ["bevy_internal/smaa_luts"]
 # Include spatio-temporal blue noise KTX2 file used by generated environment maps, Solari and atmosphere
 bluenoise_texture = ["bevy_internal/bluenoise_texture"]
 
+# Include a preintegrated BRDF Look Up Table for more accurate specular shading.
+dfg_lut = ["bevy_internal/dfg_lut"]
+
+# Include Look Up Tables that are required for area lights.
+area_light_luts = ["bevy_internal/area_light_luts"]
+
 # NVIDIA Deep Learning Super Sampling
 dlss = ["bevy_internal/dlss"]
 
-# Forcibly disable DLSS so that cargo build --all-features works without the DLSS SDK being installed. Not meant for users.
+# Forcibly disable DLSS so that `cargo build --all-features` works without the DLSS SDK being installed. Not meant for users.
 force_disable_dlss = ["bevy_internal/force_disable_dlss"]
 
 # Enable AccessKit on Unix backends (currently only works with experimental screen readers and forks.)
@@ -581,14 +608,8 @@ default_font = ["bevy_internal/default_font"]
 # Allows for discovery of preloaded system fonts
 system_font_discovery = ["bevy_internal/system_font_discovery"]
 
-# Enable support for shaders in GLSL
-shader_format_glsl = ["bevy_internal/shader_format_glsl"]
-
 # Enable support for shaders in SPIR-V
 shader_format_spirv = ["bevy_internal/shader_format_spirv"]
-
-# Enable support for shaders in WESL
-shader_format_wesl = ["bevy_internal/shader_format_wesl"]
 
 # Enable support for transmission-related textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs
 pbr_transmission_textures = ["bevy_internal/pbr_transmission_textures"]
@@ -643,10 +664,13 @@ bevy_debug_stepping = [
   "bevy_internal/debug",
 ]
 
+# Enable collecting schedule data from the app.
+schedule_data = ["bevy_internal/schedule_data"]
+
 # Enables the meshlet renderer for dense high-poly scenes (experimental)
 meshlet = ["bevy_internal/meshlet"]
 
-# Enables processing meshes into meshlet meshes for bevy_pbr
+# Enables processing meshes into meshlet meshes for `bevy_pbr`
 meshlet_processor = ["bevy_internal/meshlet_processor"]
 
 # Enable built in global state machines
@@ -658,7 +682,7 @@ track_location = ["bevy_internal/track_location"]
 # Enable function reflection
 reflect_functions = ["bevy_internal/reflect_functions"]
 
-# Enables bevy_reflect to access documentation comments of rust code at runtime
+# Enables `bevy_reflect` to access documentation comments of Rust code at runtime
 reflect_documentation = ["bevy_internal/reflect_documentation"]
 
 # Enable automatic reflect registration
@@ -710,12 +734,12 @@ hotpatching = ["bevy_internal/hotpatching"]
 debug = ["bevy_internal/debug"]
 
 [dependencies]
-bevy_internal = { path = "crates/bevy_internal", version = "0.19.0-dev", default-features = false }
+bevy_internal = { path = "crates/bevy_internal", version = "0.20.0-dev", default-features = false }
 tracing = { version = "0.1", default-features = false, optional = true }
 
 # Wasm does not support dynamic linking.
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
-bevy_dylib = { path = "crates/bevy_dylib", version = "0.19.0-dev", default-features = false, optional = true }
+bevy_dylib = { path = "crates/bevy_dylib", version = "0.20.0-dev", default-features = false, optional = true }
 
 [dev-dependencies]
 rand = "0.10.0"
@@ -726,15 +750,16 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1.0.140"
 bytemuck = "1"
 # The following explicit dependencies are needed for proc macros to work inside of examples as they are part of the bevy crate itself.
-bevy_animation = { path = "crates/bevy_animation", version = "0.19.0-dev", default-features = false }
-bevy_asset = { path = "crates/bevy_asset", version = "0.19.0-dev", default-features = false }
-bevy_ecs = { path = "crates/bevy_ecs", version = "0.19.0-dev", default-features = false }
-bevy_gizmos = { path = "crates/bevy_gizmos", version = "0.19.0-dev", default-features = false }
-bevy_image = { path = "crates/bevy_image", version = "0.19.0-dev", default-features = false }
-bevy_reflect = { path = "crates/bevy_reflect", version = "0.19.0-dev", default-features = false }
-bevy_render = { path = "crates/bevy_render", version = "0.19.0-dev", default-features = false }
-bevy_state = { path = "crates/bevy_state", version = "0.19.0-dev", default-features = false }
-bevy_scene = { path = "crates/bevy_scene", version = "0.19.0-dev", default-features = false }
+bevy_animation = { path = "crates/bevy_animation", version = "0.20.0-dev", default-features = false }
+bevy_asset = { path = "crates/bevy_asset", version = "0.20.0-dev", default-features = false }
+bevy_ecs = { path = "crates/bevy_ecs", version = "0.20.0-dev", default-features = false }
+bevy_gizmos = { path = "crates/bevy_gizmos", version = "0.20.0-dev", default-features = false }
+bevy_image = { path = "crates/bevy_image", version = "0.20.0-dev", default-features = false }
+bevy_reflect = { path = "crates/bevy_reflect", version = "0.20.0-dev", default-features = false }
+bevy_render = { path = "crates/bevy_render", version = "0.20.0-dev", default-features = false }
+bevy-settings = { path = "crates/bevy_settings", version = "0.20.0-dev", default-features = false }
+bevy_state = { path = "crates/bevy_state", version = "0.20.0-dev", default-features = false }
+bevy_scene = { path = "crates/bevy_scene", version = "0.20.0-dev", default-features = false }
 # Needed to poll Task examples
 futures-lite = "2.0.1"
 futures-timer = { version = "3", features = ["wasm-bindgen", "gloo-timers"] }
@@ -881,6 +906,7 @@ wasm = true
 name = "2d_shapes"
 path = "examples/2d/2d_shapes.rs"
 doc-scrape-examples = true
+required-features = ["bevy_feathers"]
 
 [package.metadata.example.2d_shapes]
 name = "2D Shapes"
@@ -999,13 +1025,36 @@ category = "2D Rendering"
 wasm = true
 
 [[example]]
-name = "editable_text"
-path = "examples/ui/text/editable_text.rs"
+name = "ime_support"
+path = "examples/ui/text/ime_support.rs"
+doc-scrape-examples = true
+required-features = ["system_font_discovery"]
+
+[package.metadata.example.ime_support]
+name = "IME Support"
+description = "Demonstrates IME (Input Method Editor) support for text input"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "text_input"
+path = "examples/ui/text/text_input.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.editable_text]
-name = "Editable Text"
+[package.metadata.example.text_input]
+name = "Text Input"
 description = "Demonstrates a simple, unstyled text input widget"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "editable_text_filter"
+path = "examples/ui/text/editable_text_filter.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.editable_text_filter]
+name = "Editable Text Filter"
+description = "Demonstrates an 8-character hex input using EditableTextFilter"
 category = "UI (User Interface)"
 wasm = true
 
@@ -1125,6 +1174,7 @@ wasm = true
 name = "wireframe_2d"
 path = "examples/2d/wireframe_2d.rs"
 doc-scrape-examples = true
+required-features = ["bevy_feathers"]
 
 [package.metadata.example.wireframe_2d]
 name = "2D Wireframe"
@@ -1142,6 +1192,18 @@ doc-scrape-examples = true
 [package.metadata.example.3d_scene]
 name = "3D Scene"
 description = "Simple 3D scene with basic shapes and lighting"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "rect_light"
+path = "examples/3d/rect_light.rs"
+doc-scrape-examples = true
+required-features = ["free_camera", "area_light_luts"]
+
+[package.metadata.example.rect_light]
+name = "Rectangular Area Light"
+description = "Simple 3D scene demonstrating rectangular area lights."
 category = "3D Rendering"
 wasm = true
 
@@ -1261,7 +1323,7 @@ wasm = true
 name = "contact_shadows"
 path = "examples/3d/contact_shadows.rs"
 doc-scrape-examples = true
-required-features = ["bluenoise_texture"]
+required-features = ["bluenoise_texture", "bevy_feathers"]
 
 [package.metadata.example.contact_shadows]
 name = "Contact Shadows"
@@ -1363,6 +1425,7 @@ wasm = true
 name = "order_independent_transparency"
 path = "examples/3d/order_independent_transparency.rs"
 doc-scrape-examples = true
+required-features = ["bevy_feathers"]
 
 [package.metadata.example.order_independent_transparency]
 name = "Order Independent Transparency"
@@ -1482,7 +1545,20 @@ required-features = ["bevy_solari", "https", "free_camera"]
 name = "Solari"
 description = "Demonstrates realtime dynamic raytraced lighting using Bevy Solari."
 category = "3D Rendering"
-wasm = false                                                                        # Raytracing is not supported on the web
+wasm = false
+
+[[example]]
+name = "solari_reflections"
+path = "examples/3d/solari_reflections.rs"
+doc-scrape-examples = true
+required-features = ["bevy_solari", "free_camera"]
+
+[package.metadata.example.solari_reflections]
+name = "Solari Reflections"
+description = "Test bed for Solari reflections."
+category = "3D Rendering"
+wasm = false
+hidden = true
 
 [[example]]
 name = "spherical_area_lights"
@@ -1499,6 +1575,7 @@ wasm = true
 name = "split_screen"
 path = "examples/3d/split_screen.rs"
 doc-scrape-examples = true
+required-features = ["bevy_feathers"]
 
 [package.metadata.example.split_screen]
 name = "Split Screen"
@@ -1678,6 +1755,7 @@ wasm = true
 name = "animation_graph"
 path = "examples/animation/animation_graph.rs"
 doc-scrape-examples = true
+required-features = ["bevy_feathers"]
 
 [package.metadata.example.animation_graph]
 name = "Animation Graph"
@@ -2024,6 +2102,18 @@ doc-scrape-examples = true
 [package.metadata.example.asset_decompression]
 name = "Asset Decompression"
 description = "Demonstrates loading a compressed asset"
+category = "Assets"
+wasm = false
+
+[[example]]
+name = "compressed_image_saver"
+path = "examples/asset/compressed_image_saver.rs"
+doc-scrape-examples = true
+required-features = ["compressed_image_saver", "asset_processor", "jpeg"]
+
+[package.metadata.example.compressed_image_saver]
+name = "Compressed Image Saver"
+description = "Demonstrates compressing textures and generating mipmaps using CompressedImageSaver"
 category = "Assets"
 wasm = false
 
@@ -2785,6 +2875,17 @@ description = "Demonstrates how to create a loading screen that waits for all as
 category = "Games"
 wasm = true
 
+[[example]]
+name = "mines"
+path = "examples/showcase/mines.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.mines]
+name = "Mines"
+description = "A simple minesweeper-style game in Bevy UI"
+category = "Games"
+wasm = true
+
 # Input
 [[example]]
 name = "char_input_events"
@@ -2918,17 +3019,6 @@ description = "Prints out all touch inputs"
 category = "Input"
 wasm = false
 
-[[example]]
-name = "text_input"
-path = "examples/input/text_input.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.text_input]
-name = "Text Input"
-description = "Simple text input with IME support"
-category = "Input"
-wasm = false
-
 # Reflection
 [[example]]
 name = "reflection"
@@ -3021,6 +3111,17 @@ category = "Reflection"
 wasm = false
 
 [[example]]
+name = "mutation_by_reflection"
+path = "examples/reflection/mutation_by_reflection.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.mutation_by_reflection]
+name = "Mutation by Reflection"
+description = "Demonstrates how to mutate abstract or non-Rust data at runtime using reflection"
+category = "Reflection"
+wasm = false
+
+[[example]]
 name = "auto_register_static"
 path = "examples/reflection/auto_register_static/src/lib.rs"
 doc-scrape-examples = true
@@ -3073,6 +3174,17 @@ doc-scrape-examples = true
 [package.metadata.example.shader_defs]
 name = "Shader Defs"
 description = "A shader that uses \"shaders defs\" (a bevy tool to selectively toggle parts of a shader)"
+category = "Shaders"
+wasm = true
+
+[[example]]
+name = "pipeline_constants"
+path = "examples/shader/pipeline_constants.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.pipeline_constants]
+name = "Pipeline Constants"
+description = "Demonstrates pipeline-overridable constants (WGSL `override`) by compiling the same shader into multiple variants with different posterization levels"
 category = "Shaders"
 wasm = true
 
@@ -3132,30 +3244,6 @@ category = "Shaders"
 wasm = true
 
 [[example]]
-name = "shader_material_glsl"
-path = "examples/shader/shader_material_glsl.rs"
-doc-scrape-examples = true
-required-features = ["shader_format_glsl"]
-
-[package.metadata.example.shader_material_glsl]
-name = "Material - GLSL"
-description = "A shader that uses the GLSL shading language"
-category = "Shaders"
-wasm = true
-
-[[example]]
-name = "shader_material_wesl"
-path = "examples/shader/shader_material_wesl.rs"
-doc-scrape-examples = true
-required-features = ["shader_format_wesl"]
-
-[package.metadata.example.shader_material_wesl]
-name = "Material - WESL"
-description = "A shader that uses WESL"
-category = "Shaders"
-wasm = true
-
-[[example]]
 name = "automatic_instancing"
 path = "examples/shader/automatic_instancing.rs"
 doc-scrape-examples = true
@@ -3209,6 +3297,18 @@ name = "Compute Shader Mesh"
 description = "A compute shader that generates a mesh that is controlled by a Handle"
 category = "Shaders"
 wasm = false
+
+[[example]]
+name = "deferred_raymarch"
+path = "examples/shader_advanced/deferred_raymarch.rs"
+doc-scrape-examples = true
+required-features = ["free_camera"]
+
+[package.metadata.example.deferred_raymarch]
+name = "Deferred Gbuffer Raymarching"
+description = "Writes a raymarched SDF into the deferred gbuffer so it is lit by the standard PBR deferred lighting pass"
+category = "Shaders Advanced"
+wasm = true
 
 [[example]]
 name = "array_texture"
@@ -3530,6 +3630,30 @@ category = "Stress Tests"
 wasm = true
 
 [[example]]
+name = "many_text"
+path = "examples/stress_tests/many_text.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.many_text]
+name = "Many Text"
+description = "Displays many UI Text nodes. Used for performance testing."
+category = "Stress Tests"
+wasm = true
+
+[[example]]
+name = "many_meshlet_materials"
+path = "examples/stress_tests/many_meshlet_materials.rs"
+doc-scrape-examples = true
+required-features = ["meshlet", "https"]
+
+[package.metadata.example.many_meshlet_materials]
+name = "Many Meshlet Materials"
+description = "Benchmark to test rendering many meshlet materials (experimental)"
+category = "Stress Tests"
+# Requires compute shaders and WGPU extensions, not supported by WebGL nor WebGPU.
+wasm = false
+
+[[example]]
 name = "many_materials"
 path = "examples/stress_tests/many_materials.rs"
 doc-scrape-examples = true
@@ -3701,6 +3825,7 @@ wasm = true
 name = "box_shadow"
 path = "examples/ui/styling/box_shadow.rs"
 doc-scrape-examples = true
+required-features = ["bevy_feathers"]
 
 [package.metadata.example.box_shadow]
 name = "Box Shadow"
@@ -3745,6 +3870,7 @@ wasm = true
 name = "display_and_visibility"
 path = "examples/ui/layout/display_and_visibility.rs"
 doc-scrape-examples = true
+required-features = ["bevy_feathers"]
 
 [package.metadata.example.display_and_visibility]
 name = "Display and Visibility"
@@ -3760,6 +3886,17 @@ doc-scrape-examples = true
 [package.metadata.example.font_weights]
 name = "Font Weights"
 description = "Demonstrates how to use font weights."
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "font_variations"
+path = "examples/ui/text/font_variations.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.font_variations]
+name = "Font Variations"
+description = "Demonstrates how to use OpenType font variations."
 category = "UI (User Interface)"
 wasm = true
 
@@ -3818,7 +3955,6 @@ description = "Simple example demonstrating the OverflowClipMargin style propert
 category = "UI (User Interface)"
 wasm = true
 
-
 [[example]]
 name = "overflow_debug"
 path = "examples/ui/scroll_and_overflow/overflow_debug.rs"
@@ -3827,6 +3963,17 @@ doc-scrape-examples = true
 [package.metadata.example.overflow_debug]
 name = "Overflow and Clipping Debug"
 description = "An example to debug overflow and clipping behavior"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "overflow_transform"
+path = "examples/ui/scroll_and_overflow/overflow_transform.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.overflow_transform]
+name = "Overflow Transform"
+description = "Demonstrates nested transformed UI clipping"
 category = "UI (User Interface)"
 wasm = true
 
@@ -3927,6 +4074,17 @@ doc-scrape-examples = true
 [package.metadata.example.flex_layout]
 name = "Flex Layout"
 description = "Demonstrates how the AlignItems and JustifyContent properties can be composed to layout nodes and position text"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "fixed_node"
+path = "examples/ui/layout/fixed_node.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.fixed_node]
+name = "Fixed Node"
+description = "Demonstrates how to use FixedNode to lay out a UI node as a root node"
 category = "UI (User Interface)"
 wasm = true
 
@@ -4034,7 +4192,7 @@ wasm = true
 name = "virtual_keyboard"
 path = "examples/ui/widgets/virtual_keyboard.rs"
 doc-scrape-examples = true
-required-features = ["experimental_bevy_feathers"]
+required-features = ["bevy_feathers"]
 
 [package.metadata.example.virtual_keyboard]
 name = "Virtual Keyboard"
@@ -4257,6 +4415,7 @@ wasm = false
 name = "ambiguity_detection"
 path = "tests/ecs/ambiguity_detection.rs"
 doc-scrape-examples = true
+required-features = ["debug"]
 
 [package.metadata.example.ambiguity_detection]
 hidden = true
@@ -4422,7 +4581,7 @@ wasm = true
 name = "transform_gizmo"
 path = "examples/gizmos/transform_gizmo.rs"
 doc-scrape-examples = true
-required-features = ["free_camera"]
+required-features = ["free_camera", "bevy_feathers"]
 
 [package.metadata.example.transform_gizmo]
 name = "Transform Gizmo"
@@ -4621,6 +4780,18 @@ category = "Dev tools"
 wasm = true
 
 [[example]]
+name = "schedule_data"
+path = "examples/dev_tools/schedule_data.rs"
+doc-scrape-examples = true
+required-features = ["debug", "schedule_data"]
+
+[package.metadata.example.schedule_data]
+name = "Extract Schedule Data"
+description = "Extracts the schedule data from a default app and writes it to a file"
+category = "Dev tools"
+wasm = false
+
+[[example]]
 name = "infinite_grid"
 path = "examples/dev_tools/infinite_grid.rs"
 doc-scrape-examples = true
@@ -4736,7 +4907,7 @@ wasm = true
 name = "ssr"
 path = "examples/3d/ssr.rs"
 doc-scrape-examples = true
-required-features = ["bluenoise_texture"]
+required-features = ["bluenoise_texture", "bevy_feathers"]
 
 [package.metadata.example.ssr]
 name = "Screen Space Reflections"
@@ -4759,6 +4930,7 @@ wasm = true
 name = "color_grading"
 path = "examples/3d/color_grading.rs"
 doc-scrape-examples = true
+required-features = ["bevy_feathers"]
 
 [package.metadata.example.color_grading]
 name = "Color grading"
@@ -4770,7 +4942,7 @@ wasm = true
 name = "clearcoat"
 path = "examples/3d/clearcoat.rs"
 doc-scrape-examples = true
-required-features = ["pbr_multi_layer_material_textures"]
+required-features = ["pbr_multi_layer_material_textures", "bevy_feathers"]
 
 [package.metadata.example.clearcoat]
 name = "Clearcoat"
@@ -4828,7 +5000,7 @@ wasm = false
 name = "app_under_test"
 path = "examples/remote/app_under_test.rs"
 doc-scrape-examples = true
-required-features = ["bevy_remote"]
+required-features = ["bevy_remote", "bevy_feathers"]
 
 [package.metadata.example.app_under_test]
 name = "App Under Test"
@@ -4840,7 +5012,7 @@ wasm = false
 name = "integration_test"
 path = "examples/remote/integration_test.rs"
 doc-scrape-examples = true
-required-features = ["bevy_remote"]
+required-features = ["bevy_remote", "bevy_feathers"]
 
 [package.metadata.example.integration_test]
 name = "Integration Test"
@@ -4940,6 +5112,18 @@ category = "Picking"
 wasm = true
 
 [[example]]
+name = "custom_hit_data"
+path = "examples/picking/custom_hit_data.rs"
+doc-scrape-examples = true
+required-features = ["mesh_picking"]
+
+[package.metadata.example.custom_hit_data]
+name = "Custom Hit Data"
+description = "Demonstrates a custom picking backend with custom hit data."
+category = "Picking"
+wasm = true
+
+[[example]]
 name = "simple_picking"
 path = "examples/picking/simple_picking.rs"
 doc-scrape-examples = true
@@ -4991,6 +5175,7 @@ wasm = true
 name = "animation_masks"
 path = "examples/animation/animation_masks.rs"
 doc-scrape-examples = true
+required-features = ["bevy_feathers"]
 
 [package.metadata.example.animation_masks]
 name = "Animation Masks"
@@ -5002,7 +5187,7 @@ wasm = true
 name = "pcss"
 path = "examples/3d/pcss.rs"
 doc-scrape-examples = true
-required-features = ["experimental_pbr_pcss"]
+required-features = ["bevy_feathers", "experimental_pbr_pcss"]
 
 [package.metadata.example.pcss]
 name = "Percentage-closer soft shadows"
@@ -5014,7 +5199,7 @@ wasm = false
 name = "mixed_lighting"
 path = "examples/3d/mixed_lighting.rs"
 doc-scrape-examples = true
-required-features = ["jpeg"]
+required-features = ["jpeg", "bevy_feathers"]
 
 [package.metadata.example.mixed_lighting]
 name = "Mixed lighting"
@@ -5048,7 +5233,7 @@ wasm = true
 name = "specular_tint"
 path = "examples/3d/specular_tint.rs"
 doc-scrape-examples = true
-required-features = ["pbr_specular_textures"]
+required-features = ["pbr_specular_textures", "bevy_feathers"]
 
 [package.metadata.example.specular_tint]
 name = "Specular Tint"
@@ -5082,6 +5267,10 @@ codegen-units = 1
 inherits = "release"
 lto = "fat"
 panic = "abort"
+
+# Keep mobile dev artifacts small enough for emulator and simulator installs.
+[profile.dev.package.bevy_mobile_example]
+strip = true
 
 [package.metadata.docs.rs]
 # This cfg is needed so that #[doc(fake_variadic)] is correctly propagated for
@@ -5126,6 +5315,7 @@ hidden = true
 name = "testbed_3d"
 path = "examples/testbed/3d.rs"
 doc-scrape-examples = true
+required-features = ["area_light_luts"]
 
 [package.metadata.example.testbed_3d]
 hidden = true
@@ -5183,7 +5373,7 @@ wasm = true
 name = "clustered_decals"
 path = "examples/3d/clustered_decals.rs"
 doc-scrape-examples = true
-required-features = ["pbr_clustered_decals"]
+required-features = ["pbr_clustered_decals", "bevy_feathers"]
 
 [package.metadata.example.clustered_decals]
 name = "Clustered Decals"
@@ -5195,7 +5385,7 @@ wasm = false
 name = "light_textures"
 path = "examples/3d/light_textures.rs"
 doc-scrape-examples = true
-required-features = ["pbr_light_textures"]
+required-features = ["pbr_light_textures", "bevy_feathers"]
 
 [package.metadata.example.light_textures]
 name = "Light Textures"
@@ -5207,24 +5397,13 @@ wasm = false
 name = "occlusion_culling"
 path = "examples/3d/occlusion_culling.rs"
 doc-scrape-examples = true
+required-features = ["bevy_feathers"]
 
 [package.metadata.example.occlusion_culling]
 name = "Occlusion Culling"
 description = "Demonstration of Occlusion Culling"
 category = "3D Rendering"
 wasm = false
-
-[[example]]
-name = "widgets"
-path = "examples/helpers/widgets.rs"
-doc-scrape-examples = true
-crate-type = ["lib"]
-
-[package.metadata.example.widgets]
-name = "Widgets"
-description = "Example UI Widgets"
-category = "Helpers"
-wasm = true
 
 [[example]]
 name = "no_std_library"
@@ -5284,6 +5463,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "character_creation"
+path = "examples/usage/character_creation.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.character_creation]
+name = "Character Creation with UI Widgets"
+description = "Demonstrates how to use headless widgets to power a Character Creation Menu"
+category = "Usage"
+wasm = true
+
+[[example]]
 name = "standard_widgets_observers"
 path = "examples/ui/widgets/standard_widgets_observers.rs"
 doc-scrape-examples = true
@@ -5306,14 +5496,14 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
-name = "persisting_preferences"
-path = "examples/app/persisting_preferences.rs"
+name = "settings"
+path = "examples/app/settings.rs"
 doc-scrape-examples = true
 required-features = ["bevy_settings"]
 
-[package.metadata.example.persisting_preferences]
-name = "User Preferences"
-description = "Demonstrates persistence of user preferences"
+[package.metadata.example.settings]
+name = "Settings"
+description = "Demonstrates persistence of settings"
 category = "Application"
 wasm = true
 
@@ -5325,7 +5515,7 @@ required-features = ["bevy_settings"]
 
 [package.metadata.example.persisting_window_settings]
 name = "Save Window Position"
-description = "Demonstrates saving window position in preferences"
+description = "Demonstrates saving window position settings"
 category = "Application"
 wasm = false
 
@@ -5342,14 +5532,38 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
-name = "feathers"
-path = "examples/ui/widgets/feathers.rs"
+name = "feathers_counter"
+path = "examples/ui/widgets/feathers_counter.rs"
 doc-scrape-examples = true
-required-features = ["experimental_bevy_feathers"]
+required-features = ["bevy_feathers"]
 
-[package.metadata.example.feathers]
+[package.metadata.example.feathers_counter]
+name = "Feathers Counter"
+description = "Simple counter using feathers"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "feathers_gallery"
+path = "examples/ui/widgets/feathers_gallery.rs"
+doc-scrape-examples = true
+required-features = ["bevy_feathers"]
+
+[package.metadata.example.feathers_gallery]
 name = "Feathers Widgets"
 description = "Gallery of Feathers Widgets"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "feathers_number_input"
+path = "examples/ui/widgets/feathers_number_input.rs"
+doc-scrape-examples = true
+required-features = ["bevy_feathers"]
+
+[package.metadata.example.feathers_number_input]
+name = "Feathers Number Input"
+description = "Feathers Number Input Options"
 category = "UI (User Interface)"
 wasm = true
 
@@ -5391,7 +5605,7 @@ wasm = false
 name = "clustered_decal_maps"
 path = "examples/3d/clustered_decal_maps.rs"
 doc-scrape-examples = true
-required-features = ["pbr_clustered_decals", "https"]
+required-features = ["pbr_clustered_decals", "https", "bevy_feathers"]
 
 [package.metadata.example.clustered_decal_maps]
 name = "Clustered Decal Maps"
@@ -5403,6 +5617,7 @@ wasm = false
 name = "mirror"
 path = "examples/3d/mirror.rs"
 doc-scrape-examples = true
+required-features = ["bevy_feathers"]
 
 [package.metadata.example.mirror]
 name = "Mirror"
@@ -5414,6 +5629,7 @@ wasm = true
 name = "dynamic_mip_generation"
 path = "examples/2d/dynamic_mip_generation.rs"
 doc-scrape-examples = true
+required-features = ["bevy_feathers"]
 
 [package.metadata.example.dynamic_mip_generation]
 name = "Dynamic Mipmap Generation"
@@ -5425,7 +5641,7 @@ wasm = false
 name = "pccm"
 path = "examples/3d/pccm.rs"
 doc-scrape-examples = true
-required-features = ["free_camera", "https"]
+required-features = ["free_camera", "https", "bevy_feathers"]
 
 [package.metadata.example.pccm]
 name = "Parallax-Corrected Cubemaps"
@@ -5437,10 +5653,21 @@ wasm = true
 name = "light_probe_blending"
 path = "examples/3d/light_probe_blending.rs"
 doc-scrape-examples = true
-required-features = ["free_camera", "https"]
+required-features = ["free_camera", "https", "bevy_feathers"]
 
 [package.metadata.example.light_probe_blending]
 name = "Light Probe Blending"
 description = "Demonstrates blending between multiple reflection probes"
 category = "3D Rendering"
+wasm = false
+
+[[example]]
+name = "shader_material_2d_bindless"
+path = "examples/shader/shader_material_2d_bindless.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.shader_material_2d_bindless]
+name = "Material - 2D Bindless"
+description = "Demonstrates bindless materials in 2D"
+category = "Shaders"
 wasm = false

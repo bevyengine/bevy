@@ -314,7 +314,7 @@ pub(crate) fn generate_remote_assertions(
                 #[allow(clippy::multiple_bound_locations)]
                 fn #assertion_ident #impl_generics () #where_reflect_clause {
                     let _: <#remote_ty as #bevy_reflect_path::ReflectRemote>::Remote = (|| -> #FQOption<#ty> {
-                        None
+                        #FQOption::None
                     })().unwrap();
                 }
             }
@@ -369,7 +369,7 @@ fn generate_remote_definition_assertions(derive_data: &ReflectDerive) -> proc_ma
                 let span = create_assertion_span(field_ty.span());
 
                 output.extend(quote_spanned! {span=>
-                    #self_ident.#field_member = (|| -> #FQOption<#field_ty> {None})().unwrap();
+                    #self_ident.#field_member = (|| -> #FQOption<#field_ty> {#FQOption::None})().unwrap();
                 });
             }
 
@@ -394,7 +394,7 @@ fn generate_remote_definition_assertions(derive_data: &ReflectDerive) -> proc_ma
 
                     output.extend(quote_spanned! {span=>
                         #self_expr_path::#ident {#field_member: mut #field_ident, ..} => {
-                            #field_ident =  (|| -> #FQOption<#field_ty> {None})().unwrap();
+                            #field_ident =  (|| -> #FQOption<#field_ty> {#FQOption::None})().unwrap();
                         }
                     });
                 }

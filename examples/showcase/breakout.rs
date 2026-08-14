@@ -56,16 +56,15 @@ fn main() {
         .add_plugins(
             stepping::SteppingPlugin::default()
                 .add_schedule(Update)
-                .add_schedule(FixedUpdate)
                 .at(percent(35), percent(50)),
         )
         .insert_resource(Score(0))
         .insert_resource(ClearColor(BACKGROUND_COLOR))
         .add_systems(Startup, setup)
-        // Add our gameplay simulation systems to the fixed timestep schedule
-        // which runs at 64 Hz by default
+        // Add our simulation systems to the update schedule
+        // which is called once per frame.
         .add_systems(
-            FixedUpdate,
+            Update,
             (apply_velocity, move_paddle, check_for_collisions)
                 // `chain`ing systems together runs them in order
                 .chain(),

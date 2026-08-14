@@ -257,7 +257,7 @@ use core::{fmt::Debug, marker::PhantomData, ops::Deref};
 /// Note that cycles in the "component require tree" will result in stack overflows when attempting to
 /// insert a component.
 ///
-/// This "multiple inheritance" pattern does mean that it is possible to have duplicate requires for a given type
+/// This "multiple inheritance" pattern does mean that it is possible to have duplicate `require`s for a given type
 /// at different levels of the inheritance tree:
 ///
 /// ```
@@ -321,7 +321,7 @@ use core::{fmt::Debug, marker::PhantomData, ops::Deref};
 /// assert_eq!(&C(2), world.entity(id).get::<C>().unwrap());
 /// ```
 ///
-/// Similar rules as before apply to duplicate requires fer a given type at different levels
+/// Similar rules as before apply to duplicate `require`s for a given type at different levels
 /// of the inheritance tree. `A` requiring `C` directly would take precedence over indirectly
 /// requiring it through `A` requiring `B` and `B` requiring `C`.
 ///
@@ -500,9 +500,28 @@ use core::{fmt::Debug, marker::PhantomData, ops::Deref};
 /// }
 /// ```
 ///
+/// # Summary ticks
+/// You can request that Bevy track a *summary tick* for a component like so:
+/// ```
+/// # use bevy_ecs::prelude::*;
+///
+/// #[derive(Component)]
+/// #[component(summary_tick)]
+/// struct MyComponent;
+///
+/// ```
+///
+/// A summary tick allows systems that use [contiguous iteration] to skip entire
+/// tables if none of the components that those systems care about have changed.
+/// The downside is that performance of updating those components decreases, as
+/// the summary tick must be updated. Summary ticks are only valid for
+/// components with table storage; components that have sparse set storage may
+/// not use summary ticks.
+///
 /// [`SyncCell`]: bevy_platform::cell::SyncCell
 /// [`Exclusive`]: https://doc.rust-lang.org/nightly/std/sync/struct.Exclusive.html
 /// [`ComponentHooks`]: crate::lifecycle::ComponentHooks
+/// [contiguous iteration]: crate::system::Query::contiguous_iter
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not a `Component`",
     label = "invalid `Component`",
@@ -595,12 +614,11 @@ pub trait Component: Send + Sync + 'static {
     /// component itself, and this method will simply call that implementation.
     ///
     /// ```
-    /// # use bevy_ecs::{component::Component, entity::{Entity, MapEntities, EntityMapper}};
-    /// # use std::collections::HashMap;
+    /// # use bevy_ecs::{component::Component, entity::{Entity, MapEntities, EntityMapper, EntityHashMap}};
     /// #[derive(Component)]
     /// #[component(map_entities)]
     /// struct Inventory {
-    ///     items: HashMap<Entity, usize>
+    ///     items: EntityHashMap<usize>
     /// }
     ///
     /// impl MapEntities for Inventory {
@@ -623,13 +641,12 @@ pub trait Component: Send + Sync + 'static {
     /// In this case, the inputs of the function should mirror the inputs to this method, with the second parameter being generic.
     ///
     /// ```
-    /// # use bevy_ecs::{component::Component, entity::{Entity, MapEntities, EntityMapper}};
-    /// # use std::collections::HashMap;
+    /// # use bevy_ecs::{component::Component, entity::{Entity, MapEntities, EntityMapper, EntityHashMap}};
     /// #[derive(Component)]
     /// #[component(map_entities = map_the_map)]
     /// // Also works: map_the_map::<M> or map_the_map::<_>
     /// struct Inventory {
-    ///     items: HashMap<Entity, usize>
+    ///     items: EntityHashMap<usize>
     /// }
     ///
     /// fn map_the_map<M: EntityMapper>(inv: &mut Inventory, entity_mapper: &mut M) {
@@ -655,6 +672,25 @@ pub trait Component: Send + Sync + 'static {
     /// If component is not a [`Relationship`](crate::relationship::Relationship) or [`RelationshipTarget`](crate::relationship::RelationshipTarget), this should return `None`.
     fn relationship_accessor() -> Option<ComponentRelationshipAccessor<Self>> {
         None
+    }
+
+    /// Return true from this method if the component should track a summary
+    /// tick.
+    ///
+    /// Summary ticks allow users of contiguous iteration queries to skip
+    /// entire tables if the components that those users are interested in
+    /// haven't changed since the last time they ran the query. Tracking a
+    /// summary tick enables this functionality but adds a small amount of
+    /// overhead to mutations of the component, because the summary tick must be
+    /// updated on each such mutation.
+    ///
+    /// Summary ticks are only valid for table components. If the component is a
+    /// sparse set component, this method must return false.
+    ///
+    /// By default, this method returns false.
+    #[inline]
+    fn has_summary_tick() -> bool {
+        false
     }
 }
 

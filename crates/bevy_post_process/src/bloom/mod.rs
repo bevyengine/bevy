@@ -45,7 +45,7 @@ pub struct BloomPlugin;
 
 impl Plugin for BloomPlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "bloom.wgsl");
+        embedded_asset!(app, "bloom.wesl");
 
         app.add_plugins((
             ExtractComponentPlugin::<Bloom>::default(),
@@ -112,7 +112,7 @@ pub fn bloom(
         downsampling_pipeline_ids,
     ) = view.into_inner();
 
-    if bloom_settings.intensity == 0.0 || !view_target.is_hdr() {
+    if bloom_settings.intensity == 0.0 || !camera.hdr {
         return;
     }
 

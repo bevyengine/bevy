@@ -54,6 +54,7 @@ pub use common_traits::*;
 pub use compass::{CompassOctant, CompassQuadrant};
 pub use direction::*;
 pub use float_ord::*;
+pub use glam::camera::rh::proj::directx as proj;
 pub use isometry::{Isometry2d, Isometry3d};
 pub use mat3::*;
 pub use ops::FloatPow;
@@ -100,4 +101,4 @@ pub mod prelude {
     };
 }
 
-pub use glam::*;
+pub use glam::prelude::*;

@@ -1,9 +1,7 @@
 //! Demonstrates how to observe events: both component lifecycle events and custom events.
 
-use bevy::{
-    platform::collections::{HashMap, HashSet},
-    prelude::*,
-};
+use bevy::ecs::entity::EntityHashSet;
+use bevy::{platform::collections::HashMap, prelude::*};
 use chacha20::ChaCha8Rng;
 use rand::{RngExt, SeedableRng};
 
@@ -141,7 +139,7 @@ fn setup(mut commands: Commands) {
     commands.spawn(observer);
 }
 
-fn on_add_mine(add: On<Add, Mine>, query: Query<&Mine>, mut index: ResMut<SpatialIndex>) {
+fn on_add_mine(add: On<Add<Mine>>, query: Query<&Mine>, mut index: ResMut<SpatialIndex>) {
     let mine = query.get(add.entity).unwrap();
     let tile = (
         (mine.pos.x / CELL_SIZE).floor() as i32,
@@ -151,7 +149,7 @@ fn on_add_mine(add: On<Add, Mine>, query: Query<&Mine>, mut index: ResMut<Spatia
 }
 
 // Remove despawned mines from our index
-fn on_remove_mine(remove: On<Remove, Mine>, query: Query<&Mine>, mut index: ResMut<SpatialIndex>) {
+fn on_remove_mine(remove: On<Remove<Mine>>, query: Query<&Mine>, mut index: ResMut<SpatialIndex>) {
     let mine = query.get(remove.entity).unwrap();
     let tile = (
         (mine.pos.x / CELL_SIZE).floor() as i32,
@@ -212,7 +210,7 @@ fn handle_click(
 
 #[derive(Resource, Default)]
 struct SpatialIndex {
-    map: HashMap<(i32, i32), HashSet<Entity>>,
+    map: HashMap<(i32, i32), EntityHashSet>,
 }
 
 /// Cell size has to be bigger than any `TriggerMine::radius`

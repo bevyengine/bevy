@@ -1,6 +1,7 @@
 use async_channel::{Receiver, Sender};
 
-use bevy_app::{App, AppExit, AppLabel, Plugin, SubApp};
+use bevy_app::{App, AppExit, Plugin, SubApp};
+use bevy_derive::AppLabel;
 use bevy_ecs::{
     resource::Resource,
     schedule::MainThreadExecutor,
@@ -14,7 +15,7 @@ use crate::RenderApp;
 ///
 /// The Main schedule of this app can be used to run logic after the render schedule starts, but
 /// before I/O processing. This can be useful for something like frame pacing.
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel, Default)]
 pub struct RenderExtractApp;
 
 /// Channels used by the main app to send and receive the render app.
@@ -146,36 +147,39 @@ impl Plugin for PipelinedRenderingPlugin {
             render_to_app_receiver,
         ));
 
-        std::thread::spawn(move || {
-            #[cfg(feature = "trace")]
-            let _span = bevy_log::info_span!("render thread").entered();
+        std::thread::Builder::new()
+            .name("Render thread".into())
+            .spawn(move || {
+                #[cfg(feature = "trace")]
+                let _span = bevy_log::info_span!("render thread").entered();
 
-            let compute_task_pool = ComputeTaskPool::get();
-            loop {
-                // run a scope here to allow main world to use this thread while it's waiting for the render app
-                let sent_app = compute_task_pool
-                    .scope(|s| {
-                        s.spawn(async { app_to_render_receiver.recv().await });
-                    })
-                    .pop();
-                let Some(Ok(mut render_app)) = sent_app else {
-                    break;
-                };
+                let compute_task_pool = ComputeTaskPool::get();
+                loop {
+                    // run a scope here to allow main world to use this thread while it's waiting for the render app
+                    let sent_app = compute_task_pool
+                        .scope(|s| {
+                            s.spawn(async { app_to_render_receiver.recv().await });
+                        })
+                        .pop();
+                    let Some(Ok(mut render_app)) = sent_app else {
+                        break;
+                    };
 
-                {
-                    #[cfg(feature = "trace")]
-                    let _sub_app_span =
-                        bevy_log::info_span!("sub app", name = ?RenderApp).entered();
-                    render_app.update();
+                    {
+                        #[cfg(feature = "trace")]
+                        let _sub_app_span =
+                            bevy_log::info_span!("sub app", name = ?RenderApp).entered();
+                        render_app.update();
+                    }
+
+                    if render_to_app_sender.send_blocking(render_app).is_err() {
+                        break;
+                    }
                 }
 
-                if render_to_app_sender.send_blocking(render_app).is_err() {
-                    break;
-                }
-            }
-
-            bevy_log::debug!("exiting pipelined rendering thread");
-        });
+                bevy_log::debug!("exiting pipelined rendering thread");
+            })
+            .expect("Failed to create render thread");
     }
 }
 

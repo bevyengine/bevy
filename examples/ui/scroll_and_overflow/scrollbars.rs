@@ -5,7 +5,7 @@ use bevy::{
     input_focus::tab_navigation::{TabGroup, TabNavigationPlugin},
     picking::hover::Hovered,
     prelude::*,
-    ui_widgets::{ControlOrientation, CoreScrollbarDragState, Scrollbar, ScrollbarThumb},
+    ui_widgets::{ControlOrientation, Scrollbar, ScrollbarDragState, ScrollbarThumb},
 };
 
 fn main() {
@@ -159,10 +159,10 @@ fn text_row(caption: &str) -> impl Bundle {
 // Update the color of the scrollbar thumb.
 fn update_scrollbar_thumb(
     mut q_thumb: Query<
-        (&mut BackgroundColor, &Hovered, &CoreScrollbarDragState),
+        (&mut BackgroundColor, &Hovered, &ScrollbarDragState),
         (
             With<ScrollbarThumb>,
-            Or<(Changed<Hovered>, Changed<CoreScrollbarDragState>)>,
+            Or<(Changed<Hovered>, Changed<ScrollbarDragState>)>,
         ),
     >,
 ) {

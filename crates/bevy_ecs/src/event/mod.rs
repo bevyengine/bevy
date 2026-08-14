@@ -5,6 +5,7 @@ pub use bevy_ecs_macros::{EntityEvent, Event};
 pub use trigger::*;
 
 use crate::{
+    bundle::Bundle,
     component::{Component, ComponentId},
     entity::Entity,
     world::World,
@@ -88,6 +89,47 @@ use core::marker::PhantomData;
 pub trait Event: Send + Sync + Sized + 'static {
     /// Defines which observers will run, what data will be passed to them, and the order they will be run in. See [`Trigger`] for more info.
     type Trigger<'a>: Trigger<Self>;
+}
+
+/// Trait for types that can be 'matched' on by [`Observer`]s to register additional
+/// metadata for an [`Event`] trigger. All [`Event`]s are also implicitly
+/// [`EventPattern`]s, but this trait can be manually implemented.
+///
+/// The following are lifecycle [`EventPattern`]s that register components
+/// to watch for via their generic [`Bundle`] type parameter:
+///
+/// - [`Add`]
+/// - [`Insert`]
+/// - [`Discard`]
+/// - [`Remove`]
+/// - [`Despawn`]
+///
+/// [`Observer`]: crate::observer::Observer
+/// [`Add`]: crate::lifecycle::Add
+/// [`Insert`]: crate::lifecycle::Insert
+/// [`Discard`]: crate::lifecycle::Discard
+/// [`Remove`]: crate::lifecycle::Remove
+/// [`Despawn`]: crate::lifecycle::Despawn
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not an `Event` or `EventPattern`",
+    label = "invalid `EventPattern`",
+    note = "consider annotating `{Self}` with `#[derive(Event)]` or implementing `EventPattern` manually"
+)]
+pub trait EventPattern: Send + Sync + 'static {
+    /// The event type being observed.
+    type Event: Event;
+
+    /// Components to watch for this event. This is used by [`EntityComponentsTrigger`]
+    /// to determine which entities to run observers for.
+    ///
+    /// See [`EntityComponentsTrigger`] for more info.
+    type Components: Bundle;
+}
+
+// All events are implicitly EventPatterns, with no additional components.
+impl<E: Event> EventPattern for E {
+    type Event = Self;
+    type Components = ();
 }
 
 /// An [`EntityEvent`] is an [`Event`] that is triggered for a specific [`EntityEvent::event_target`] entity:
@@ -272,6 +314,22 @@ pub trait Event: Send + Sync + Sized + 'static {
 /// });
 /// ```
 ///
+/// ## Best practices for event propagation
+///
+/// Propagation is useful for events that should be handled by multiple entities in a hierarchy, such as UI events.
+/// In these cases, it is common for the event to be triggered on a "leaf" entity, and then propagate up to "root" entities.
+/// In this pattern, it is generally recommended to trigger the event on the most specific entity possible (the leaf), and then use propagation to have it handled by more general entities (the roots).
+///
+/// Once an event is handled by a given entity, you should stop propagation.
+/// This ensures that only a single "behavior" resolves per event sent,
+/// avoiding unexpected behavior from entities higher up the hierarchy.
+///
+/// This advice has one notable wrinkle:
+/// if an entity is "disabled" (e.g. if a UI node is grayed out),
+/// the event should still be considered "handled" by that entity,
+/// even though the observer logic should not be run.
+/// This ensures consistent behavior regardless of the enabled/disabled state of entities.
+///
 /// ## Naming and Usage Conventions
 ///
 /// In most cases, it is recommended to use a named struct field for the "event target" entity, and to use
@@ -370,9 +428,39 @@ struct EventWrapperComponent<E: Event>(PhantomData<E>);
 ///
 /// You can look up the key for your event by calling the [`World::event_key`] method.
 ///
+/// For dynamic events not backed by a Rust type, create an `EventKey` from
+/// a [`ComponentId`] using [`EventKey::new`]. Obtain a [`ComponentId`] via
+/// [`World::register_component_with_descriptor`].
+///
 /// [observers]: crate::observer
 #[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
 pub struct EventKey(pub(crate) ComponentId);
+
+impl EventKey {
+    /// Creates a new [`EventKey`] from a [`ComponentId`].
+    ///
+    /// Useful for dynamic events not backed by a Rust type. Obtain a
+    /// [`ComponentId`] via [`World::register_component_with_descriptor`].
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that `component_id` was registered for use as
+    /// an event (e.g. via [`World::register_component_with_descriptor`]).
+    /// Using an unrelated [`ComponentId`] may cause observers to receive
+    /// data with an unexpected layout.
+    ///
+    /// [`World::register_component_with_descriptor`]: crate::world::World::register_component_with_descriptor
+    #[inline]
+    pub const unsafe fn new(component_id: ComponentId) -> Self {
+        Self(component_id)
+    }
+
+    /// Returns the underlying [`ComponentId`] for this event key.
+    #[inline]
+    pub const fn component_id(self) -> ComponentId {
+        self.0
+    }
+}
 
 #[cfg(test)]
 mod tests {

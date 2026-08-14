@@ -1,5 +1,6 @@
 use crate::{
-    change_detection::{traits::*, ComponentTickCells, MaybeLocation, Tick},
+    change_detection::{traits::*, AtomicTick, ComponentTickCells, MaybeLocation, Tick},
+    component::Mutable,
     ptr::PtrMut,
     resource::Resource,
 };
@@ -56,6 +57,7 @@ pub struct ContiguousComponentTicksRef<'w> {
     pub(crate) changed_by: MaybeLocation<&'w [&'static Location<'static>]>,
     pub(crate) last_run: Tick,
     pub(crate) this_run: Tick,
+    pub(crate) summary_tick: Option<&'w AtomicTick>,
 }
 
 impl<'w> ContiguousComponentTicksRef<'w> {
@@ -65,6 +67,7 @@ impl<'w> ContiguousComponentTicksRef<'w> {
     pub(crate) unsafe fn from_slice_ptrs(
         added: ThinSlicePtr<'w, UnsafeCell<Tick>>,
         changed: ThinSlicePtr<'w, UnsafeCell<Tick>>,
+        summary_tick: Option<&'w AtomicTick>,
         changed_by: MaybeLocation<ThinSlicePtr<'w, UnsafeCell<&'static Location<'static>>>>,
         len: usize,
         this_run: Tick,
@@ -77,6 +80,7 @@ impl<'w> ContiguousComponentTicksRef<'w> {
             added: unsafe { added.cast().as_slice_unchecked(len) },
             // SAFETY: see above.
             changed: unsafe { changed.cast().as_slice_unchecked(len) },
+            summary_tick,
             // SAFETY: see above.
             changed_by: changed_by.map(|v| unsafe { v.cast().as_slice_unchecked(len) }),
             last_run,
@@ -99,6 +103,7 @@ impl<'w> ContiguousComponentTicksRef<'w> {
     pub fn new(
         added: &'w [Tick],
         changed: &'w [Tick],
+        summary_tick: Option<&'w AtomicTick>,
         last_run: Tick,
         this_run: Tick,
         caller: MaybeLocation<&'w [&'static Location<'static>]>,
@@ -111,6 +116,7 @@ impl<'w> ContiguousComponentTicksRef<'w> {
         eq.then_some(Self {
             added,
             changed,
+            summary_tick,
             changed_by: caller,
             last_run,
             this_run,
@@ -195,6 +201,21 @@ impl<'w> ContiguousComponentTicksRef<'w> {
             .iter()
             .map(|v| v.is_newer_than(self.last_run, self.this_run))
     }
+
+    /// Returns `Some(true)` if this component has a summary tick and any
+    /// component in this column may have been changed since the last time the
+    /// associated query ran.
+    ///
+    /// If the component has no summary tick, this method returns `None`. If
+    /// there is a summary tick, but there has been no change since the last
+    /// time the query ran, this method returns `Some(false)`.
+    pub fn summary_tick_is_changed(&self) -> Option<bool> {
+        self.summary_tick.map(|summary_tick| {
+            summary_tick
+                .get()
+                .is_newer_than(self.last_run, self.this_run)
+        })
+    }
 }
 
 /// Used by mutable query parameters (such as [`Mut`] and [`ResMut`])
@@ -205,6 +226,9 @@ pub(crate) struct ComponentTicksMut<'w> {
     pub(crate) changed_by: MaybeLocation<&'w mut &'static Location<'static>>,
     pub(crate) last_run: Tick,
     pub(crate) this_run: Tick,
+    /// A reference to the summary tick for the component, if the component is
+    /// dense and has a summary tick.
+    pub(crate) summary_tick: Option<&'w AtomicTick>,
 }
 
 impl<'w> ComponentTicksMut<'w> {
@@ -225,6 +249,7 @@ impl<'w> ComponentTicksMut<'w> {
             changed_by: unsafe { cells.changed_by.map(|changed_by| changed_by.deref_mut()) },
             last_run,
             this_run,
+            summary_tick: cells.summary_tick,
         }
     }
 }
@@ -253,6 +278,7 @@ pub struct ContiguousComponentTicksMut<'w> {
     pub(crate) changed_by: MaybeLocation<&'w mut [&'static Location<'static>]>,
     pub(crate) last_run: Tick,
     pub(crate) this_run: Tick,
+    pub(crate) summary_tick: Option<&'w AtomicTick>,
 }
 
 impl<'w> ContiguousComponentTicksMut<'w> {
@@ -262,6 +288,7 @@ impl<'w> ContiguousComponentTicksMut<'w> {
     pub(crate) unsafe fn from_slice_ptrs(
         added: ThinSlicePtr<'w, UnsafeCell<Tick>>,
         changed: ThinSlicePtr<'w, UnsafeCell<Tick>>,
+        summary_tick: Option<&'w AtomicTick>,
         changed_by: MaybeLocation<ThinSlicePtr<'w, UnsafeCell<&'static Location<'static>>>>,
         len: usize,
         this_run: Tick,
@@ -274,6 +301,7 @@ impl<'w> ContiguousComponentTicksMut<'w> {
             added: unsafe { added.as_mut_slice_unchecked(len) },
             // SAFETY: see above.
             changed: unsafe { changed.as_mut_slice_unchecked(len) },
+            summary_tick,
             // SAFETY: see above.
             changed_by: changed_by.map(|v| unsafe { v.as_mut_slice_unchecked(len) }),
             last_run,
@@ -296,6 +324,7 @@ impl<'w> ContiguousComponentTicksMut<'w> {
     pub fn new(
         added: &'w mut [Tick],
         changed: &'w mut [Tick],
+        summary_tick: Option<&'w AtomicTick>,
         last_run: Tick,
         this_run: Tick,
         caller: MaybeLocation<&'w mut [&'static Location<'static>]>,
@@ -309,6 +338,7 @@ impl<'w> ContiguousComponentTicksMut<'w> {
         eq.then_some(Self {
             added,
             changed,
+            summary_tick,
             changed_by: caller,
             last_run,
             this_run,
@@ -422,6 +452,10 @@ impl<'w> ContiguousComponentTicksMut<'w> {
         for t in self.changed.iter_mut() {
             *t = this_run;
         }
+
+        if let Some(summary_tick) = self.summary_tick {
+            summary_tick.set(this_run);
+        }
     }
 
     /// Returns a `ContiguousComponentTicksMut` with a smaller lifetime.
@@ -429,6 +463,7 @@ impl<'w> ContiguousComponentTicksMut<'w> {
         ContiguousComponentTicksMut {
             added: self.added,
             changed: self.changed,
+            summary_tick: self.summary_tick,
             changed_by: self.changed_by.as_deref_mut(),
             last_run: self.last_run,
             this_run: self.this_run,
@@ -441,6 +476,7 @@ impl<'w> From<ContiguousComponentTicksMut<'w>> for ContiguousComponentTicksRef<'
         Self {
             added: value.added,
             changed: value.changed,
+            summary_tick: value.summary_tick,
             changed_by: value.changed_by.map(|v| &*v),
             last_run: value.last_run,
             this_run: value.this_run,
@@ -455,9 +491,11 @@ impl<'w> From<ContiguousComponentTicksMut<'w>> for ContiguousComponentTicksRef<'
 /// If you need a unique mutable borrow, use [`ResMut`] instead.
 ///
 /// This [`SystemParam`](crate::system::SystemParam) fails validation if resource doesn't exist.
-/// This will cause a panic, but can be configured to do nothing or warn once.
+/// This will cause a panic. To skip this system without panicking when the resource
+/// is missing, use [`If<Res<T>>`](crate::system::If).
 ///
-/// Use [`Option<Res<T>>`] instead if the resource might not always exist.
+/// Use [`Option<Res<T>>`] instead if the resource might not always exist
+/// and you want to handle that case yourself.
 pub struct Res<'w, T: ?Sized + Resource> {
     pub(crate) value: &'w T,
     pub(crate) ticks: ComponentTicksRef<'w>,
@@ -487,7 +525,7 @@ impl<'w, T: Resource> Res<'w, T> {
     }
 }
 
-impl<'w, T: Resource> From<ResMut<'w, T>> for Res<'w, T> {
+impl<'w, T: Resource<Mutability = Mutable>> From<ResMut<'w, T>> for Res<'w, T> {
     fn from(res: ResMut<'w, T>) -> Self {
         Self {
             value: res.value,
@@ -528,15 +566,17 @@ impl_debug!(Res<'w, T>, Resource);
 /// If you need a shared borrow, use [`Res`] instead.
 ///
 /// This [`SystemParam`](crate::system::SystemParam) fails validation if resource doesn't exist.
-/// This will cause a panic, but can be configured to do nothing or warn once.
+/// This will cause a panic. To skip this system without panicking when the resource
+/// is missing, use [`If<ResMut<T>>`](crate::system::If).
 ///
-/// Use [`Option<ResMut<T>>`] instead if the resource might not always exist.
-pub struct ResMut<'w, T: ?Sized + Resource> {
+/// Use [`Option<ResMut<T>>`] instead if the resource might not always exist
+/// and you want to handle that case yourself.
+pub struct ResMut<'w, T: ?Sized + Resource<Mutability = Mutable>> {
     pub(crate) value: &'w mut T,
     pub(crate) ticks: ComponentTicksMut<'w>,
 }
 
-impl<'w, 'a, T: Resource> IntoIterator for &'a ResMut<'w, T>
+impl<'w, 'a, T: Resource<Mutability = Mutable>> IntoIterator for &'a ResMut<'w, T>
 where
     &'a T: IntoIterator,
 {
@@ -548,7 +588,7 @@ where
     }
 }
 
-impl<'w, 'a, T: Resource> IntoIterator for &'a mut ResMut<'w, T>
+impl<'w, 'a, T: Resource<Mutability = Mutable>> IntoIterator for &'a mut ResMut<'w, T>
 where
     &'a mut T: IntoIterator,
 {
@@ -561,12 +601,12 @@ where
     }
 }
 
-change_detection_impl!(ResMut<'w, T>, T, Resource);
-change_detection_mut_impl!(ResMut<'w, T>, T, Resource);
-impl_methods!(ResMut<'w, T>, T, Resource);
-impl_debug!(ResMut<'w, T>, Resource);
+change_detection_impl!(ResMut<'w, T>, T, Resource<Mutability = Mutable>);
+change_detection_mut_impl!(ResMut<'w, T>, T, Resource<Mutability = Mutable>);
+impl_methods!(ResMut<'w, T>, T, Resource<Mutability = Mutable>);
+impl_debug!(ResMut<'w, T>, Resource<Mutability = Mutable>);
 
-impl<'w, T: Resource> From<ResMut<'w, T>> for Mut<'w, T> {
+impl<'w, T: Resource<Mutability = Mutable>> From<ResMut<'w, T>> for Mut<'w, T> {
     /// Convert this `ResMut` into a `Mut`. This allows keeping the change-detection feature of `Mut`
     /// while losing the specificity of `ResMut` for resources.
     fn from(other: ResMut<'w, T>) -> Mut<'w, T> {
@@ -585,9 +625,11 @@ impl<'w, T: Resource> From<ResMut<'w, T>> for Mut<'w, T> {
 /// over to another thread.
 ///
 /// This [`SystemParam`](crate::system::SystemParam) fails validation if the non-send resource doesn't exist.
-/// This will cause a panic, but can be configured to do nothing or warn once.
+/// This will cause a panic. To skip this system without panicking when the resource
+/// is missing, use [`If<NonSend<T>>`](crate::system::If).
 ///
-/// Use [`Option<NonSend<T>>`] instead if the resource might not always exist.
+/// Use [`Option<NonSend<T>>`] instead if the resource might not always exist
+/// and you want to handle that case yourself.
 pub struct NonSend<'w, T: ?Sized + 'static> {
     pub(crate) value: &'w T,
     pub(crate) ticks: ComponentTicksRef<'w>,
@@ -613,9 +655,11 @@ impl<'w, T> From<NonSendMut<'w, T>> for NonSend<'w, T> {
 /// over to another thread.
 ///
 /// This [`SystemParam`](crate::system::SystemParam) fails validation if non-send resource doesn't exist.
-/// This will cause a panic, but can be configured to do nothing or warn once.
+/// This will cause a panic. To skip this system without panicking when the resource
+/// is missing, use [`If<NonSendMut<T>>`](crate::system::If).
 ///
-/// Use [`Option<NonSendMut<T>>`] instead if the resource might not always exist.
+/// Use [`Option<NonSendMut<T>>`] instead if the resource might not always exist
+/// and you want to handle that case yourself.
 pub struct NonSendMut<'w, T: ?Sized + 'static> {
     pub(crate) value: &'w mut T,
     pub(crate) ticks: ComponentTicksMut<'w>,
@@ -789,6 +833,9 @@ impl<'w, T> ContiguousRef<'w, T> {
     /// - `value` - The values wrapped by `ContiguousRef`.
     /// - `added` - [`Tick`]s that store the tick when the wrapped value was created.
     /// - `changed` - [`Tick`]s that store the last time the wrapped value was changed.
+    /// - `summary_tick` - A [`Tick`] that stores the most recent changed
+    ///   timestamp that was written to any component instance in the column.
+    ///   "Most recent" refers to the wall clock.
     /// - `last_run` - A [`Tick`], occurring before `this_run`, which is used
     ///   as a reference to determine whether the wrapped value is newly added or changed.
     /// - `this_run` - A [`Tick`] corresponding to the current point in time -- "now".
@@ -797,12 +844,22 @@ impl<'w, T> ContiguousRef<'w, T> {
         value: &'w [T],
         added: &'w [Tick],
         changed: &'w [Tick],
+        summary_tick: Option<&'w AtomicTick>,
         last_run: Tick,
         this_run: Tick,
         caller: MaybeLocation<&'w [&'static Location<'static>]>,
     ) -> Option<Self> {
         (value.len() == added.len())
-            .then(|| ContiguousComponentTicksRef::new(added, changed, last_run, this_run, caller))
+            .then(|| {
+                ContiguousComponentTicksRef::new(
+                    added,
+                    changed,
+                    summary_tick,
+                    last_run,
+                    this_run,
+                    caller,
+                )
+            })
             .flatten()
             .map(|ticks| Self { value, ticks })
     }
@@ -922,6 +979,9 @@ impl<'w, T: ?Sized> Mut<'w, T> {
     /// - `last_changed` - A [`Tick`] that stores the last time the wrapped value was changed.
     ///   This will be updated to the value of `change_tick` if the returned smart pointer
     ///   is modified.
+    /// - `summary_tick` - A [`Tick`] that stores the most recent changed
+    ///   timestamp that was written to any component instance in the column.
+    ///   "Most recent" refers to the wall clock.
     /// - `last_run` - A [`Tick`], occurring before `this_run`, which is used
     ///   as a reference to determine whether the wrapped value is newly added or changed.
     /// - `this_run` - A [`Tick`] corresponding to the current point in time -- "now".
@@ -929,6 +989,7 @@ impl<'w, T: ?Sized> Mut<'w, T> {
         value: &'w mut T,
         added: &'w mut Tick,
         last_changed: &'w mut Tick,
+        summary_tick: Option<&'w AtomicTick>,
         last_run: Tick,
         this_run: Tick,
         caller: MaybeLocation<&'w mut &'static Location<'static>>,
@@ -941,6 +1002,7 @@ impl<'w, T: ?Sized> Mut<'w, T> {
                 changed_by: caller,
                 last_run,
                 this_run,
+                summary_tick,
             },
         }
     }
@@ -1045,6 +1107,9 @@ impl<'w, T> ContiguousMut<'w, T> {
     /// - `value` - The values wrapped by `ContiguousMut`.
     /// - `added` - [`Tick`]s that store the tick when the wrapped value was created.
     /// - `changed` - [`Tick`]s that store the last time the wrapped value was changed.
+    /// - `summary_tick` - A [`Tick`] that stores the most recent changed
+    ///   timestamp that was written to any component instance in the column.
+    ///   "Most recent" refers to the wall clock.
     /// - `last_run` - A [`Tick`], occurring before `this_run`, which is used
     ///   as a reference to determine whether the wrapped value is newly added or changed.
     /// - `this_run` - A [`Tick`] corresponding to the current point in time -- "now".
@@ -1053,12 +1118,22 @@ impl<'w, T> ContiguousMut<'w, T> {
         value: &'w mut [T],
         added: &'w mut [Tick],
         changed: &'w mut [Tick],
+        summary_tick: Option<&'w AtomicTick>,
         last_run: Tick,
         this_run: Tick,
         caller: MaybeLocation<&'w mut [&'static Location<'static>]>,
     ) -> Option<Self> {
         (value.len() == added.len())
-            .then(|| ContiguousComponentTicksMut::new(added, changed, last_run, this_run, caller))
+            .then(|| {
+                ContiguousComponentTicksMut::new(
+                    added,
+                    changed,
+                    summary_tick,
+                    last_run,
+                    this_run,
+                    caller,
+                )
+            })
             .flatten()
             .map(|ticks| Self { value, ticks })
     }
@@ -1252,6 +1327,7 @@ impl<'w> MutUntyped<'w> {
                 changed_by: self.ticks.changed_by.as_deref_mut(),
                 last_run: self.ticks.last_run,
                 this_run: self.ticks.this_run,
+                summary_tick: self.ticks.summary_tick,
             },
         }
     }
@@ -1353,6 +1429,16 @@ impl<'w> DetectChanges for MutUntyped<'w> {
     #[inline]
     fn added(&self) -> Tick {
         *self.ticks.added
+    }
+
+    #[inline]
+    fn this_run(&self) -> Tick {
+        self.ticks.this_run
+    }
+
+    #[inline]
+    fn last_run(&self) -> Tick {
+        self.ticks.last_run
     }
 }
 

@@ -102,7 +102,7 @@ fn derive_dependency_visitor_internal(
 
     Ok(quote! {
         impl #impl_generics #bevy_asset_path::VisitAssetDependencies for #struct_name #type_generics #where_clause {
-            fn visit_dependencies(&self, #visit: &mut impl FnMut(#bevy_asset_path::UntypedAssetId)) {
+            fn visit_dependencies(&self, #visit: &mut impl ::core::ops::FnMut(#bevy_asset_path::UntypedAssetId)) {
                 #body
             }
         }

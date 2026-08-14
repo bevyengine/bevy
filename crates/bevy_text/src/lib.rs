@@ -33,6 +33,7 @@ extern crate alloc;
 
 mod bounds;
 mod cursor;
+mod editing;
 mod error;
 mod font;
 mod font_atlas;
@@ -41,13 +42,14 @@ mod font_loader;
 mod glyph;
 mod parley_context;
 mod pipeline;
+mod scroll;
 mod text;
 mod text_access;
 mod text_edit;
-mod text_editable;
 
 pub use bounds::*;
 pub use cursor::*;
+pub use editing::*;
 pub use error::*;
 pub use font::*;
 pub use font_atlas::*;
@@ -56,10 +58,10 @@ pub use font_loader::*;
 pub use glyph::*;
 pub use parley_context::*;
 pub use pipeline::*;
+pub use scroll::*;
 pub use text::*;
 pub use text_access::*;
 pub use text_edit::*;
-pub use text_editable::*;
 
 /// The text prelude.
 ///
@@ -68,12 +70,12 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         Font, FontHinting, FontSize, FontSmoothing, FontSource, FontStyle, FontWeight, FontWidth,
-        Justify, LineBreak, Strikethrough, StrikethroughColor, TextColor, TextError, TextFont,
-        TextLayout, TextSpan, Underline, UnderlineColor,
+        GenericFontFamily, Justify, LineBreak, Strikethrough, StrikethroughColor, TextColor,
+        TextError, TextFont, TextLayout, TextSpan, Underline, UnderlineColor,
     };
 }
 
-use bevy_app::prelude::*;
+use bevy_app::{prelude::*, PropagateSet};
 use bevy_asset::AssetApp;
 use bevy_ecs::prelude::*;
 
@@ -85,6 +87,18 @@ pub const DEFAULT_FONT_DATA: &[u8] = include_bytes!("FiraMono-subset.ttf");
 ///
 /// When the `bevy_text` feature is enabled with the `bevy` crate, this
 /// plugin is included by default in the `DefaultPlugins`.
+///
+/// ## Clipboard support
+///
+/// [`EditableText`] supports copy, cut, and paste via [`bevy_clipboard::Clipboard`].
+/// By default, clipboard operations use an in-process fallback buffer rather than the OS clipboard.
+/// To enable OS clipboard integration, activate the `system_clipboard` feature on this crate:
+///
+/// ```toml
+/// bevy_text = { version = "...", features = ["system_clipboard"] }
+/// ```
+///
+/// When using the top-level `bevy` crate, `bevy/system_clipboard` enables this transitively.
 #[derive(Default)]
 pub struct TextPlugin;
 
@@ -98,6 +112,9 @@ pub struct EditableTextSystems;
 
 impl Plugin for TextPlugin {
     fn build(&self, app: &mut App) {
+        if !app.is_plugin_added::<bevy_clipboard::ClipboardPlugin>() {
+            app.add_plugins(bevy_clipboard::ClipboardPlugin);
+        }
         app.init_asset::<Font>()
             .init_asset_loader::<FontLoader>()
             .init_resource::<FontAtlasSet>()
@@ -107,14 +124,14 @@ impl Plugin for TextPlugin {
             .init_resource::<ScaleCx>()
             .init_resource::<TextIterScratch>()
             .init_resource::<RemSize>()
-            .init_resource::<Clipboard>()
             .add_systems(
                 PostUpdate,
                 (
-                    detect_text_needs_rerender,
                     load_font_assets_into_font_collection,
+                    detect_text_needs_rerender,
                 )
-                    .chain(),
+                    .chain()
+                    .after(PropagateSet::<TextFont>::default()),
             )
             .add_systems(Last, trim_source_cache)
             .add_systems(
@@ -128,7 +145,7 @@ impl Plugin for TextPlugin {
         {
             use bevy_asset::{AssetId, Assets};
             let mut assets = app.world_mut().resource_mut::<Assets<Font>>();
-            let asset = Font::try_from_bytes(DEFAULT_FONT_DATA.to_vec(), "bevy default font");
+            let asset = Font::from_bytes(DEFAULT_FONT_DATA.to_vec());
             assets.insert(AssetId::default(), asset).unwrap();
         };
     }

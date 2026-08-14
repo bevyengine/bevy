@@ -14,6 +14,7 @@ use crate::{
     entity::Entity,
     relationship::{RelatedSpawner, RelatedSpawnerCommands},
     system::EntityCommands,
+    template::FromTemplate,
     world::{EntityWorldMut, FromWorld, World},
 };
 use alloc::vec::Vec;
@@ -75,22 +76,22 @@ use core::slice;
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # let mut world = World::new();
-/// let mut child1 = Entity::PLACEHOLDER;
-/// let mut child2 = Entity::PLACEHOLDER;
-/// let mut grandchild = Entity::PLACEHOLDER;
+/// let mut child1 = None;
+/// let mut child2 = None;
+/// let mut grandchild = None;
 /// let root = world.spawn_empty().with_children(|p| {
-///     child1 = p.spawn_empty().with_children(|p| {
-///         grandchild = p.spawn_empty().id();
-///     }).id();
-///     child2 = p.spawn_empty().id();
+///     child1 = Some(p.spawn_empty().with_children(|p| {
+///         grandchild = Some(p.spawn_empty().id());
+///     }).id());
+///     child2 = Some(p.spawn_empty().id());
 /// }).id();
 ///
-/// assert_eq!(&**world.entity(root).get::<Children>().unwrap(), &[child1, child2]);
-/// assert_eq!(&**world.entity(child1).get::<Children>().unwrap(), &[grandchild]);
+/// assert_eq!(&**world.entity(root).get::<Children>().unwrap(), &[child1.unwrap(), child2.unwrap()]);
+/// assert_eq!(&**world.entity(child1.unwrap()).get::<Children>().unwrap(), &[grandchild.unwrap()]);
 /// ```
 ///
 /// [`Relationship`]: crate::relationship::Relationship
-#[derive(Component, Clone, PartialEq, Eq, Debug)]
+#[derive(Component, FromTemplate, Clone, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 #[cfg_attr(
     feature = "bevy_reflect",
@@ -279,13 +280,6 @@ impl<'w> EntityWorldMut<'w> {
         self.add_related::<ChildOf>(children)
     }
 
-    /// Removes all the children from this entity.
-    /// See also [`detach_all_related`](Self::detach_all_related)
-    #[deprecated = "Use detach_all_children() instead"]
-    pub fn clear_children(&mut self) -> &mut Self {
-        self.detach_all_children()
-    }
-
     /// Removes all the parent-child relationships from this entity.
     /// To despawn the child entities, instead use [`EntityWorldMut::despawn_children`](EntityWorldMut::despawn_children).
     /// See also [`detach_all_related`](Self::detach_all_related)
@@ -311,22 +305,10 @@ impl<'w> EntityWorldMut<'w> {
         self.add_related::<ChildOf>(&[child])
     }
 
-    /// Removes the relationship between this entity and the given entities.
-    #[deprecated = "Use detach_children() instead"]
-    pub fn remove_children(&mut self, children: &[Entity]) -> &mut Self {
-        self.detach_children(children)
-    }
-
     /// Removes the parent-child relationship between this entity and the given entities.
     /// Does not despawn the children.
     pub fn detach_children(&mut self, children: &[Entity]) -> &mut Self {
         self.remove_related::<ChildOf>(children)
-    }
-
-    /// Removes the relationship between this entity and the given entity.
-    #[deprecated = "Use detach_child() instead"]
-    pub fn remove_child(&mut self, child: Entity) -> &mut Self {
-        self.detach_child(child)
     }
 
     /// Removes the parent-child relationship between this entity and the given entity.
@@ -392,13 +374,6 @@ impl<'a> EntityCommands<'a> {
         self.add_related::<ChildOf>(children)
     }
 
-    /// Removes all the children from this entity.
-    /// See also [`detach_all_related`](Self::detach_all_related)
-    #[deprecated = "Use detach_all_children() instead"]
-    pub fn clear_children(&mut self) -> &mut Self {
-        self.detach_all_children()
-    }
-
     /// Removes all the parent-child relationships from this entity.
     /// To despawn the child entities, instead use [`EntityWorldMut::despawn_children`](EntityWorldMut::despawn_children).
     /// See also [`detach_all_related`](Self::detach_all_related)
@@ -423,22 +398,10 @@ impl<'a> EntityCommands<'a> {
         self.add_related::<ChildOf>(&[child])
     }
 
-    /// Removes the relationship between this entity and the given entities.
-    #[deprecated = "Use detach_children() instead"]
-    pub fn remove_children(&mut self, children: &[Entity]) -> &mut Self {
-        self.detach_children(children)
-    }
-
     /// Removes the parent-child relationship between this entity and the given entities.
     /// Does not despawn the children.
     pub fn detach_children(&mut self, children: &[Entity]) -> &mut Self {
         self.remove_related::<ChildOf>(children)
-    }
-
-    /// Removes the relationship between this entity and the given entity.
-    #[deprecated = "Use detach_child() instead"]
-    pub fn remove_child(&mut self, child: Entity) -> &mut Self {
-        self.detach_child(child)
     }
 
     /// Removes the parent-child relationship between this entity and the given entity.
@@ -614,20 +577,23 @@ mod tests {
     #[test]
     fn with_children() {
         let mut world = World::new();
-        let mut child1 = Entity::PLACEHOLDER;
-        let mut child2 = Entity::PLACEHOLDER;
+        let mut child1 = None;
+        let mut child2 = None;
         let root = world
             .spawn_empty()
             .with_children(|p| {
-                child1 = p.spawn_empty().id();
-                child2 = p.spawn_empty().id();
+                child1 = Some(p.spawn_empty().id());
+                child2 = Some(p.spawn_empty().id());
             })
             .id();
 
         let hierarchy = get_hierarchy(&world, root);
         assert_eq!(
             hierarchy,
-            Node::new_with(root, vec![Node::new(child1), Node::new(child2)])
+            Node::new_with(
+                root,
+                vec![Node::new(child1.unwrap()), Node::new(child2.unwrap())]
+            )
         );
     }
 

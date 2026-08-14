@@ -6,7 +6,7 @@ use bevy_camera::{
 use bevy_color::Color;
 use bevy_ecs::prelude::*;
 use bevy_image::Image;
-use bevy_math::{primitives::ViewFrustum, Mat4};
+use bevy_math::{primitives::ViewFrustum, proj};
 use bevy_reflect::prelude::*;
 use bevy_transform::components::{GlobalTransform, Transform};
 
@@ -156,7 +156,7 @@ impl PointLight {
 /// Add to a [`PointLight`] to add a light texture effect.
 /// A texture mask is applied to the light source to modulate its intensity,  
 /// simulating patterns like window shadows, gobo/cookie effects, or soft falloffs.
-#[derive(Clone, Component, Debug, Reflect)]
+#[derive(Clone, Component, Debug, Reflect, FromTemplate)]
 #[reflect(Component, Debug)]
 #[require(PointLight)]
 pub struct PointLightTexture {
@@ -239,7 +239,7 @@ pub fn update_point_light_frusta(
             continue;
         }
 
-        let clip_from_view = Mat4::perspective_infinite_reverse_rh(
+        let clip_from_view = proj::perspective_infinite_reverse(
             core::f32::consts::FRAC_PI_2,
             1.0,
             point_light.shadow_map_near_z,

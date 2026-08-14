@@ -1,7 +1,7 @@
 use crate::{
     collect_meshes_for_gpu_building,
     render::{PreprocessBindGroups, PreprocessPipelines},
-    set_mesh_motion_vector_flags, DrawMesh, MeshPipeline, MeshPipelineKey, MeshPipelineSet,
+    set_mesh_motion_vector_flags, DrawMesh, MeshPipeline, MeshPipelineKey, MeshPipelineSystems,
     RenderLightmaps, RenderMeshInstanceFlags, RenderMeshInstances, SetMeshBindGroup,
     SetMeshViewBindGroup, SetMeshViewBindingArrayBindGroup, ViewKeyCache,
 };
@@ -50,10 +50,10 @@ use bevy_render::{
     },
     render_resource::{binding_types::*, *},
     renderer::{RenderContext, RenderDevice, RenderQueue, ViewQuery},
-    sync_world::{MainEntity, MainEntityHashMap},
+    sync_world::{MainEntity, MainEntityHashMap, MainEntityHashSet},
     view::{
         ExtractedView, NoIndirectDrawing, RenderVisibilityRanges, RenderVisibleEntities,
-        RetainedViewEntity, ViewDepthTexture, ViewTarget,
+        RetainedViewEntity, ViewDepthStencilTexture, ViewTarget,
     },
     Extract, GpuResourceAppExt, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
 };
@@ -86,7 +86,7 @@ impl WireframePlugin {
 
 impl Plugin for WireframePlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "render/wireframe.wgsl");
+        embedded_asset!(app, "render/wireframe.wesl");
 
         app.add_plugins((
             BinnedRenderPhasePlugin::<Wireframe3d, MeshPipeline>::new(self.debug_flags),
@@ -152,7 +152,7 @@ impl Plugin for WireframePlugin {
             .init_gpu_resource::<PendingWireframeQueues>()
             .add_systems(
                 RenderStartup,
-                init_wireframe_3d_pipeline.after(MeshPipelineSet),
+                init_wireframe_3d_pipeline.after(MeshPipelineSystems),
             )
             .add_systems(
                 Core3d,
@@ -723,7 +723,7 @@ pub fn init_wireframe_3d_pipeline(
 
     commands.insert_resource(Wireframe3dPipeline {
         mesh_pipeline: mesh_pipeline.clone(),
-        shader: load_embedded_asset!(asset_server.as_ref(), "render/wireframe.wgsl"),
+        shader: load_embedded_asset!(asset_server.as_ref(), "render/wireframe.wesl"),
         wide_bind_group_layout,
         wide_bind_group_layout_descriptor,
     });
@@ -746,7 +746,10 @@ impl SpecializedMeshPipeline for Wireframe3dPipeline {
         layout: &MeshVertexBufferLayoutRef,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let mut descriptor = self.mesh_pipeline.specialize(key.mesh_key, layout)?;
-        descriptor.depth_stencil.as_mut().unwrap().bias.slope_scale = 1.0;
+
+        if descriptor.primitive.topology.is_triangles() {
+            descriptor.depth_stencil.as_mut().unwrap().bias.slope_scale = 1.0;
+        }
 
         if key.wide {
             descriptor.label = Some("wireframe_3d_wide_pipeline".into());
@@ -796,7 +799,7 @@ pub fn wireframe_3d(
         &ExtractedCamera,
         &ExtractedView,
         &ViewTarget,
-        &ViewDepthTexture,
+        &ViewDepthStencilTexture,
     )>,
     wireframe_phases: Res<ViewBinnedRenderPhases<Wireframe3d>>,
     mut ctx: RenderContext,
@@ -879,6 +882,7 @@ pub enum WireframeTopology {
 
 #[derive(Resource, Debug, Clone, ExtractResource, Reflect)]
 #[reflect(Resource, Debug, Default)]
+#[extract_app(RenderApp)]
 pub struct WireframeConfig {
     /// Whether to show wireframes for all meshes.
     /// Can be overridden for individual meshes by adding a [`Wireframe`] or [`NoWireframe`] component.
@@ -928,7 +932,9 @@ pub struct RenderWireframeMaterial {
     pub topology: WireframeTopology,
 }
 
-#[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq)]
+#[derive(
+    Component, FromTemplate, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq,
+)]
 #[reflect(Component, Default, Clone, PartialEq)]
 pub struct Mesh3dWireframe(pub Handle<WireframeMaterial>);
 
@@ -1535,6 +1541,7 @@ fn queue_wireframes(
     mut wireframe_3d_phases: ResMut<ViewBinnedRenderPhases<Wireframe3d>>,
     mut pending_wireframe_queues: ResMut<PendingWireframeQueues>,
     mut views: Query<(&ExtractedView, &RenderVisibleEntities)>,
+    mut mesh_instances_queued_this_iteration_scratch_space: Local<MainEntityHashSet>,
 ) {
     for (view, visible_entities) in &mut views {
         let Some(wireframe_phase) = wireframe_3d_phases.get_mut(&view.retained_view_entity) else {
@@ -1573,6 +1580,7 @@ fn queue_wireframes(
             view.retained_view_entity,
             render_mesh_visible_entities,
             &view_pending_wireframe_queues.prev_frame,
+            &mut mesh_instances_queued_this_iteration_scratch_space,
         ) {
             let Some(wireframe_instance) = render_wireframe_instances.get(visible_entity) else {
                 continue;
@@ -1604,6 +1612,7 @@ fn queue_wireframes(
             let Some(MeshSlabs {
                 vertex_slab_id: vertex_slab,
                 index_slab_id: index_slab,
+                metadata_slab_id: metadata_slab,
                 morph_target_slab_id: morph_target_slab,
             }) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id())
             else {
@@ -1619,6 +1628,7 @@ fn queue_wireframes(
                 slabs: MeshSlabs {
                     vertex_slab_id: vertex_slab,
                     morph_target_slab_id: morph_target_slab,
+                    metadata_slab_id: metadata_slab,
                     // wide wireframes use non-indexed draws (vertex pulling
                     // from storage), so set index_slab to None to make the
                     // preprocessor emit IndirectParametersNonIndexed instead of
