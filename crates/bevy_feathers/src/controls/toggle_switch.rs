@@ -15,7 +15,7 @@ use bevy_ecs::{
     world::Mut,
 };
 use bevy_input_focus::tab_navigation::TabIndex;
-use bevy_picking::{hover::Hovered, PickingSystems};
+use bevy_picking::{cursor::EntityCursor, hover::Hovered, PickingSystems};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::prelude::*;
 use bevy_ui::{
@@ -27,7 +27,6 @@ use bevy_ui_widgets::{ActivateOnPress, Checkbox};
 use crate::{
     constants::size,
     controls::ColorSliderThumb,
-    cursor::EntityCursor,
     focus::FocusIndicator,
     theme::{ThemeBackgroundColor, ThemeBorderColor},
     tokens,

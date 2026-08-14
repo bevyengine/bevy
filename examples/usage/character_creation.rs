@@ -771,7 +771,7 @@ fn character_name_and_age(character: &Character) -> impl Scene {
 /// An observer that styles the cursor, used primarily for text input.
 /// This is not part of the Controller.
 fn on_pointer_over_text_cursor(
-    mut event: On<Pointer<Over>>,
+    mut event: On<PointerOver>,
     mut window_q: Query<Entity, With<PrimaryWindow>>,
     mut commands: Commands,
 ) {
@@ -787,7 +787,7 @@ fn on_pointer_over_text_cursor(
 /// An observer that styles the cursor, used primarily for sliders.
 /// This is not part of the Controller.
 fn on_pointer_over_grab_cursor(
-    mut event: On<Pointer<Over>>,
+    mut event: On<PointerOver>,
     mut window_q: Query<Entity, With<PrimaryWindow>>,
     mut commands: Commands,
 ) {
@@ -802,7 +802,7 @@ fn on_pointer_over_grab_cursor(
 /// An observer that styles the cursor, used primarily for sliders.
 /// This is not part of the Controller.
 fn on_pointer_drag_start_grabbing_cursor(
-    _event: On<Pointer<DragStart>>,
+    _event: On<PointerDragStart>,
     mut window_q: Query<Entity, With<PrimaryWindow>>,
     mut commands: Commands,
 ) {
@@ -819,7 +819,7 @@ fn on_pointer_drag_start_grabbing_cursor(
 /// An observer that styles the cursor, used primarily for sliders.
 /// This is not part of the Controller.
 fn on_pointer_drag_end_grab_cursor(
-    _event: On<Pointer<DragEnd>>,
+    _event: On<PointerDragEnd>,
     mut window_q: Query<Entity, With<PrimaryWindow>>,
     mut commands: Commands,
 ) {
@@ -836,7 +836,7 @@ fn on_pointer_drag_end_grab_cursor(
 /// An observer that styles the cursor, used primarily for buttons / checkboxes.
 /// This is not part of the Controller.
 fn on_pointer_over_pointer_cursor(
-    mut event: On<Pointer<Over>>,
+    mut event: On<PointerOver>,
     mut window_q: Query<Entity, With<PrimaryWindow>>,
     mut commands: Commands,
 ) {
@@ -851,7 +851,7 @@ fn on_pointer_over_pointer_cursor(
 /// An observer that styles the cursor, used for all widgets.
 /// This is not part of the Controller.
 fn on_pointer_out_default_cursor(
-    mut event: On<Pointer<Out>>,
+    mut event: On<PointerOut>,
     mut window_q: Query<Entity, With<PrimaryWindow>>,
     mut commands: Commands,
 ) {

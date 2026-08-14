@@ -404,7 +404,7 @@ fn rotate_cube(mut meshes: Query<&mut Transform, With<Mesh3d>>) {
 
 /// Process a drag event that moves the selected object.
 fn handle_drag_as_movement(
-    event: On<Pointer<Drag>>,
+    event: On<PointerDrag>,
     parent_q: Query<&ChildOf>,
     number_input_q: Query<(), With<FeathersNumberInput>>,
     mut selections: Query<(&mut Transform, &Selection)>,

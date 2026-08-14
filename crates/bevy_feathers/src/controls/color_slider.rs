@@ -16,7 +16,7 @@ use bevy_ecs::{
 };
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_log::warn_once;
-use bevy_picking::PickingSystems;
+use bevy_picking::{cursor::EntityCursor, PickingSystems};
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_scene::prelude::*;
@@ -33,7 +33,6 @@ use bevy_ui_widgets::{
 use crate::{
     alpha_pattern::{AlphaPattern, AlphaPatternMaterial},
     controls::{FeathersSlider, FeathersTextInput, ToggleSwitchSlide},
-    cursor::EntityCursor,
     focus::FocusIndicator,
     palette,
     rounded_corners::RoundedCorners,

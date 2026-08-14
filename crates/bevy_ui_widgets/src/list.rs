@@ -14,7 +14,7 @@ use bevy_ecs::{
 use bevy_input::keyboard::{KeyCode, KeyboardInput};
 use bevy_input::ButtonState;
 use bevy_input_focus::{FocusGained, FocusLost, FocusedInput, InputFocusVisible};
-use bevy_picking::events::{Click, Pointer};
+use bevy_picking::events::PointerClick;
 use bevy_reflect::Reflect;
 use bevy_ui::{InteractionDisabled, Selectable, Selected};
 
@@ -201,7 +201,7 @@ fn listbox_on_key_input(
 }
 
 fn listbox_on_row_click(
-    mut ev: On<Pointer<Click>>,
+    mut ev: On<PointerClick>,
     q_listbox: Query<(), With<ListBox>>,
     q_listitems: Query<(Has<Selected>, Has<InteractionDisabled>), With<ListItem>>,
     q_parents: Query<&ChildOf>,

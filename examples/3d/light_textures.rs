@@ -509,7 +509,7 @@ fn hide_shadows(
 
 /// Process a drag event that moves the selected object.
 fn handle_drag_as_movement(
-    event: On<Pointer<Drag>>,
+    event: On<PointerDrag>,
     parent_q: Query<&ChildOf>,
     number_input_q: Query<(), With<FeathersNumberInput>>,
     mut selections: Query<(&mut Transform, &Selection)>,

@@ -906,6 +906,7 @@ wasm = true
 name = "2d_shapes"
 path = "examples/2d/2d_shapes.rs"
 doc-scrape-examples = true
+required-features = ["bevy_feathers"]
 
 [package.metadata.example.2d_shapes]
 name = "2D Shapes"
@@ -1173,6 +1174,7 @@ wasm = true
 name = "wireframe_2d"
 path = "examples/2d/wireframe_2d.rs"
 doc-scrape-examples = true
+required-features = ["bevy_feathers"]
 
 [package.metadata.example.wireframe_2d]
 name = "2D Wireframe"
@@ -1543,7 +1545,20 @@ required-features = ["bevy_solari", "https", "free_camera"]
 name = "Solari"
 description = "Demonstrates realtime dynamic raytraced lighting using Bevy Solari."
 category = "3D Rendering"
-wasm = false                                                                        # Raytracing is not supported on the web
+wasm = false
+
+[[example]]
+name = "solari_reflections"
+path = "examples/3d/solari_reflections.rs"
+doc-scrape-examples = true
+required-features = ["bevy_solari", "free_camera"]
+
+[package.metadata.example.solari_reflections]
+name = "Solari Reflections"
+description = "Test bed for Solari reflections."
+category = "3D Rendering"
+wasm = false
+hidden = true
 
 [[example]]
 name = "spherical_area_lights"
@@ -3952,6 +3967,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "overflow_transform"
+path = "examples/ui/scroll_and_overflow/overflow_transform.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.overflow_transform]
+name = "Overflow Transform"
+description = "Demonstrates nested transformed UI clipping"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "relative_cursor_position"
 path = "examples/ui/relative_cursor_position.rs"
 doc-scrape-examples = true
@@ -4555,7 +4581,7 @@ wasm = true
 name = "transform_gizmo"
 path = "examples/gizmos/transform_gizmo.rs"
 doc-scrape-examples = true
-required-features = ["free_camera"]
+required-features = ["free_camera", "bevy_feathers"]
 
 [package.metadata.example.transform_gizmo]
 name = "Transform Gizmo"

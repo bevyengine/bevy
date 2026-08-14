@@ -85,7 +85,7 @@ struct KeyDisplay;
 // This is also triggered when `interact_with_focused_button` simulates a button click with a
 // manually sent pointer click event
 fn universal_button_click_behavior(
-    mut click: On<Pointer<Click>>,
+    mut click: On<PointerClick>,
     mut button_query: Query<(&mut BackgroundColor, &mut ResetTimer)>,
     mut focus_visible: ResMut<InputFocusVisible>,
 ) {
@@ -463,28 +463,28 @@ fn interact_with_focused_button(
         .contains(&DirectionalNavigationAction::Select)
         && let Some(focused_entity) = input_focus.get()
     {
-        commands.trigger(Pointer::new(
-            PointerId::Mouse,
-            Location {
-                target: NormalizedRenderTarget::None {
-                    width: 0,
-                    height: 0,
+        commands.trigger(PointerClick {
+            entity: focused_entity,
+            pointer: Pointer::new(
+                PointerId::Mouse,
+                Location {
+                    target: NormalizedRenderTarget::None {
+                        width: 0,
+                        height: 0,
+                    },
+                    position: Vec2::ZERO,
                 },
-                position: Vec2::ZERO,
+            ),
+            button: PointerButton::Primary,
+            hit: HitData {
+                camera: Entity::PLACEHOLDER,
+                depth: 0.0,
+                position: None,
+                normal: None,
+                extra: None,
             },
-            Click {
-                button: PointerButton::Primary,
-                hit: HitData {
-                    camera: Entity::PLACEHOLDER,
-                    depth: 0.0,
-                    position: None,
-                    normal: None,
-                    extra: None,
-                },
-                count: 1,
-                duration: Duration::from_secs_f32(0.1),
-            },
-            focused_entity,
-        ));
+            count: 1,
+            duration: Duration::from_secs_f32(0.1),
+        });
     }
 }

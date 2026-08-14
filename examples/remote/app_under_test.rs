@@ -45,7 +45,7 @@ fn main() {
 #[derive(Resource)]
 struct SeededRng(ChaCha8Rng);
 
-fn on_button_click(_click: On<Pointer<Click>>, mut exit: MessageWriter<AppExit>) {
+fn on_button_click(_click: On<PointerClick>, mut exit: MessageWriter<AppExit>) {
     info!("Button pressed!");
     exit.write(AppExit::Success);
 }
