@@ -37,7 +37,7 @@ pub struct ModalDialog;
 pub struct ModalDialogBarrier;
 
 fn set_modal_dialog_tab_group_modal(
-    add: On<Add, ModalDialog>,
+    add: On<Add<ModalDialog>>,
     mut q_tab_group: Query<&mut TabGroup>,
 ) {
     let entity = add.event_target();
@@ -80,7 +80,7 @@ fn modal_dialog_barrier_on_keypress(
     }
 }
 
-fn modal_dialog_barrier_on_spawn(add: On<Add, ModalDialog>, mut commands: Commands) {
+fn modal_dialog_barrier_on_spawn(add: On<Add<ModalDialog>>, mut commands: Commands) {
     let dialog_entity = add.event_target();
     // Need to defer setting focus until children are finished spawning. Note that we don't know,
     // in this module, what API will be used to spawn the dialog, so we have to guess how long

@@ -650,7 +650,7 @@ struct DragState {
 
 /// Observer which sets the text content of the field when the number value component changes.
 fn number_input_on_insert_value(
-    update: On<Insert, NumberInputValue>,
+    update: On<Insert<NumberInputValue>>,
     q_children: Query<&Children>,
     q_number_input: Query<
         (
@@ -691,7 +691,7 @@ fn number_input_on_insert_value(
 
 /// Observer changes the colors based on disabled status.
 fn number_input_on_insert_disabled(
-    insert: On<Insert, InteractionDisabled>,
+    insert: On<Insert<InteractionDisabled>>,
     q_children: Query<&Children>,
     q_number_input: Query<
         (Has<InteractionDisabled>, Option<&ThemeContext>),
@@ -727,7 +727,7 @@ fn number_input_on_insert_disabled(
 
 /// Observer changes the colors based on disabled status.
 fn number_input_on_remove_disabled(
-    remove: On<Remove, InteractionDisabled>,
+    remove: On<Remove<InteractionDisabled>>,
     q_children: Query<&Children>,
     q_number_input: Query<
         (Has<InteractionDisabled>, Option<&ThemeContext>),
@@ -763,7 +763,7 @@ fn number_input_on_remove_disabled(
 
 /// Observer which initializes the text edit once it has completed spawning.
 fn number_input_init(
-    insert: On<Add, EditableText>,
+    insert: On<Add<EditableText>>,
     q_parent: Query<&ChildOf>,
     q_number_input: Query<
         (
@@ -822,7 +822,7 @@ fn number_input_init(
 
 /// Observer which looks for changes in the hover state.
 fn number_input_hovered(
-    insert: On<Insert, Hovered>,
+    insert: On<Insert<Hovered>>,
     q_parent: Query<&ChildOf>,
     q_number_input: Query<
         (Has<InteractionDisabled>, Option<&ThemeContext>),

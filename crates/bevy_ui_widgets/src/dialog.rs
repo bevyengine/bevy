@@ -87,7 +87,7 @@ impl DialogStack {
 
 /// Track newly-spawned floating dialogs at the top of the stack.
 fn register_dialog(
-    add: On<Add, Dialog>,
+    add: On<Add<Dialog>>,
     q_dialog: Query<&Dialog, Without<ModalDialog>>,
     mut stack: ResMut<DialogStack>,
 ) {
@@ -99,7 +99,7 @@ fn register_dialog(
 
 /// Drop dialogs from the stack when they despawn.
 fn deregister_dialog(
-    remove: On<Remove, Dialog>,
+    remove: On<Remove<Dialog>>,
     q_dialog: Query<&Dialog, Without<ModalDialog>>,
     mut stack: ResMut<DialogStack>,
 ) {

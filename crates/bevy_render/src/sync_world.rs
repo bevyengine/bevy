@@ -96,12 +96,12 @@ impl<L: AppLabel + Default + Clone + Copy + Eq> Plugin for SyncWorldPlugin<L> {
     fn build(&self, app: &mut bevy_app::App) {
         app.init_resource::<PendingSyncEntity<L>>();
         app.add_observer(
-            |add: On<Add, SyncToSubWorld<L>>, mut pending: ResMut<PendingSyncEntity<L>>| {
+            |add: On<Add<SyncToSubWorld<L>>>, mut pending: ResMut<PendingSyncEntity<L>>| {
                 pending.push(EntityRecord::<L>::Added(add.entity));
             },
         );
         app.add_observer(
-            |remove: On<Remove, SyncToSubWorld<L>>,
+            |remove: On<Remove<SyncToSubWorld<L>>>,
              mut pending: ResMut<PendingSyncEntity<L>>,
              query: Query<&SubEntity<L>>| {
                 if let Ok(e) = query.get(remove.entity) {
@@ -600,13 +600,13 @@ mod tests {
         main_world.init_resource::<PendingSyncEntity<ExtractApp>>();
 
         main_world.add_observer(
-            |add: On<Add, SyncToSubWorld<ExtractApp>>,
+            |add: On<Add<SyncToSubWorld<ExtractApp>>>,
              mut pending: ResMut<PendingSyncEntity<ExtractApp>>| {
                 pending.push(EntityRecord::Added(add.entity));
             },
         );
         main_world.add_observer(
-            |remove: On<Remove, SyncToSubWorld<ExtractApp>>,
+            |remove: On<Remove<SyncToSubWorld<ExtractApp>>>,
              mut pending: ResMut<PendingSyncEntity<ExtractApp>>,
              query: Query<&SubEntity<ExtractApp>>| {
                 if let Ok(e) = query.get(remove.entity) {
