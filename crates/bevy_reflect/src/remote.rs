@@ -4,18 +4,15 @@ use crate::Reflect;
 ///
 /// This allows types from external libraries (remote types) to be included in reflection.
 ///
-/// # Safety
+/// The [`#[reflect_remote]`](crate::reflect_remote) attribute macro generates a
+/// `#[repr(transparent)]` wrapper and an implementation of this trait. Its conversion methods
+/// use the wrapper's transparent representation.
 ///
-/// It is highly recommended to avoid implementing this trait manually and instead use the
-/// [`#[reflect_remote]`](crate::reflect_remote) attribute macro.
-/// This is because the trait tends to rely on [`transmute`], which is [very unsafe].
-///
-/// The macro will ensure that the following safety requirements are met:
-/// - `Self` is a single-field tuple struct (i.e. a newtype) containing the remote type.
-/// - `Self` is `#[repr(transparent)]` over the remote type.
-///
-/// Additionally, the macro will automatically generate [`Reflect`] and [`FromReflect`] implementations,
-/// along with compile-time assertions to validate that the safety requirements have been met.
+/// Manual implementations may use a different representation and conversion behavior. The
+/// associated `Remote` type identifies the remote type represented by this wrapper.
+/// When implementing this trait manually, you need to design carefully about the conversion
+/// between `Self` and `Remote` type. For example, if you need to resolve the conversion of
+/// `u8` and `bool`, you can set the rule that all the values that more than 1 return false.
 ///
 /// # Example
 ///
@@ -41,9 +38,6 @@ use crate::Reflect;
 /// ```
 ///
 /// [reflectable]: Reflect
-/// [`transmute`]: core::mem::transmute
-/// [very unsafe]: https://doc.rust-lang.org/1.71.0/nomicon/transmutes.html
-/// [`FromReflect`]: crate::FromReflect
 pub trait ReflectRemote: Reflect {
     /// The remote type this type represents via reflection.
     type Remote;
