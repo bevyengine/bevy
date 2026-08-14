@@ -712,14 +712,9 @@ impl PipelineCache {
 
             CachedPipelineState::Err(err) => match err {
                 // Retry
-                ShaderCacheError::ShaderImportNotYetAvailable => {
-                    bevy_log::debug!("retry processing pipeline {id}, shader import is not loaded");
-                    cached_pipeline.state = CachedPipelineState::Queued;
-                }
-                ShaderCacheError::ShaderNotLoaded(shader_id) => {
-                    bevy_log::debug!(
-                        "retry processing pipeline {id}, shader {shader_id} is not loaded"
-                    );
+                ShaderCacheError::ShaderNotLoaded(_)
+                | ShaderCacheError::ShaderImportNotYetAvailable => {
+                    bevy_log::debug!("retry processing pipeline {id}: {err}");
                     cached_pipeline.state = CachedPipelineState::Queued;
                 }
 
