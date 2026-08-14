@@ -13,7 +13,7 @@ use bevy_input::mouse::{AccumulatedMouseScroll, MouseScrollPixelsPerLine};
 use bevy_input::ButtonInput;
 use bevy_math::{Vec2, Vec3};
 use bevy_picking::{
-    events::{Drag, DragEnd, DragStart, Pointer},
+    events::{PointerDrag, PointerDragEnd, PointerDragStart},
     pointer::PointerButton,
 };
 use bevy_time::{Real, Time};
@@ -47,7 +47,7 @@ impl Plugin for PanCameraPlugin {
 ///
 /// Add this component to a [`Camera`] entity to enable keyboard and mouse controls
 /// for panning, zooming, and optional rotation. Requires the [`PanCameraPlugin`].
-#[derive(Component)]
+#[derive(Component, Clone)]
 pub struct PanCamera {
     /// Enables this [`PanCamera`] when `true`.
     pub enabled: bool,
@@ -86,6 +86,7 @@ pub struct PanCamera {
 }
 
 /// Settings for mouse panning for the [`PanCamera`] controller.
+#[derive(Clone)]
 pub struct MousePanSettings {
     /// Whether the mouse panning is enabled.
     pub enabled: bool,
@@ -93,7 +94,7 @@ pub struct MousePanSettings {
     pub button: PointerButton,
 }
 
-#[derive(Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 /// Target focal point for zooming using the [`PanCamera`] controller
 pub enum ZoomTarget {
     /// Zoom to / from the center of the window
@@ -321,7 +322,7 @@ fn run_pancamera_controller(
 struct HandleMousePanObserver(Option<Entity>);
 
 fn add_window_observer(
-    drag_start: On<Pointer<DragStart>>,
+    drag_start: On<PointerDragStart>,
     mut commands: Commands,
     render_targets: Query<&RenderTarget, With<PanCamera>>,
     primary_window: Single<Entity, With<PrimaryWindow>>,
@@ -345,7 +346,7 @@ fn add_window_observer(
 }
 
 fn remove_window_observer(
-    drag_end: On<Pointer<DragEnd>>,
+    drag_end: On<PointerDragEnd>,
     mut commands: Commands,
     render_targets: Query<&RenderTarget, With<PanCamera>>,
     mut handle_mouse_pan_observer: Query<&mut HandleMousePanObserver>,
@@ -368,7 +369,7 @@ fn remove_window_observer(
 }
 
 fn handle_mouse_pan(
-    drag: On<Pointer<Drag>>,
+    drag: On<PointerDrag>,
     mut pan_cameras: Query<(&Camera, &GlobalTransform, &mut Transform, &PanCamera)>,
 ) {
     for (camera, global_transform, mut transform, pan_camera_controller) in pan_cameras.iter_mut() {
