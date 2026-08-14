@@ -24,7 +24,27 @@ enable wgpu_ray_query;
 @group(2) @binding(1) var specular_albedo: texture_storage_2d<rgba8unorm, write>;
 @group(2) @binding(2) var normal_roughness: texture_storage_2d<rgba16float, write>;
 @group(2) @binding(3) var specular_motion_vectors: texture_storage_2d<rg16float, write>;
+// Depth and motion vectors as seen through mirrors. These shadow the prepass pair for DLSS Ray
+// Reconstruction only; the prepass originals stay authoritative for everything else, including
+// ReSTIR's own temporal reprojection.
+@group(2) @binding(4) var dlss_rr_depth: texture_storage_2d<r32float, write>;
+@group(2) @binding(5) var dlss_rr_motion_vectors: texture_storage_2d<rg16float, write>;
 }
+
+// Roughness, as alpha, below which a surface gets a specular motion vector at all. About 0.25
+// perceptual.
+//
+// Deliberately much looser than `MIRROR_ROUGHNESS_THRESHOLD`, and separate from it. Two different
+// questions were previously answered with one number. Swapping a surface out demands its lobe really
+// be delta, because a virtual position is meaningless otherwise. Describing how its reflection
+// *moves* does not: it changes no light transport, and the reflection direction stands in for the
+// lobe centre well past the delta range - NRD's dominant-direction fit is identically the mirror
+// direction below 0.279 perceptual.
+//
+// Lives here rather than in `initial_path` because `resolve_dlss_rr_textures` needs the same number
+// to decide which pixels' defaults it must leave alone, and importing back the other way would close
+// a cycle.
+const SPECULAR_GUIDE_ROUGHNESS_THRESHOLD = 0.0625;
 
 // User-configurable settings from the `SolariLighting` component, plus per-frame
 // state. Field order and types must match `SolariLightingUniforms` in `prepare.rs`.

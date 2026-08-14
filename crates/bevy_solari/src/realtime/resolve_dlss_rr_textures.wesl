@@ -1,6 +1,6 @@
 import bevy_pbr::render::pbr_functions::{calculate_diffuse_color, calculate_F0};
 import bevy_solari::realtime::gbuffer_utils::gpixel_resolve;
-import bevy_solari::realtime::bindings::{gbuffer, depth_buffer, motion_vectors, view, diffuse_albedo, specular_albedo, normal_roughness, specular_motion_vectors};
+import bevy_solari::realtime::bindings::{gbuffer, depth_buffer, motion_vectors, view, diffuse_albedo, specular_albedo, normal_roughness, specular_motion_vectors, dlss_rr_depth, dlss_rr_motion_vectors, SPECULAR_GUIDE_ROUGHNESS_THRESHOLD};
 
 enable wgpu_ray_query;
 
@@ -9,10 +9,22 @@ fn resolve_dlss_rr_textures(@builtin(global_invocation_id) global_id: vec3<u32>)
     let pixel_id = global_id.xy;
     if any(pixel_id >= vec2u(view.main_pass_viewport.zw)) { return; }
 
-    textureStore(specular_motion_vectors, pixel_id, textureLoad(motion_vectors, pixel_id, 0));
-
     let depth = textureLoad(depth_buffer, global_id.xy, 0);
+    let surface_motion_vector = textureLoad(motion_vectors, pixel_id, 0).xy;
+
+    // Defaults describing this pixel's own surface, which is the right answer for everything that
+    // isn't a mirror. `replace_primary_surface` in `initial_path` overwrites them where it applies,
+    // which is why these have to be written for every pixel first - including the sky, which the
+    // early-out below returns from.
+    //
+    // The two mirror-aware copies are plain copies here. They exist so that DLSS Ray Reconstruction
+    // can be handed a depth and a motion vector describing the reflection while the prepass originals
+    // stay untouched for ReSTIR reprojection and super resolution.
+    textureStore(dlss_rr_motion_vectors, pixel_id, vec4(surface_motion_vector, vec2(0.0)));
+    textureStore(dlss_rr_depth, pixel_id, vec4(depth));
+
     if depth == 0.0 {
+        textureStore(specular_motion_vectors, pixel_id, vec4(surface_motion_vector, vec2(0.0)));
         textureStore(diffuse_albedo, pixel_id, vec4(0.0));
         textureStore(specular_albedo, pixel_id, vec4(0.5));
         textureStore(normal_roughness, pixel_id, vec4(0.0, 0.0, 1.0, 0.0));
@@ -20,6 +32,25 @@ fn resolve_dlss_rr_textures(@builtin(global_invocation_id) global_id: vec3<u32>)
     }
 
     let surface = gpixel_resolve(textureLoad(gbuffer, pixel_id, 0), depth, pixel_id, view.main_pass_viewport.zw, view.world_from_clip);
+
+    // The specular motion vector is deliberately *not* reset for pixels the chain is eligible to
+    // write, which is what makes glossy reflections usable at all.
+    //
+    // A glossy surface only gets a reflection distance on frames where the path tracer happens to draw
+    // its specular lobe - a coin flip weighted by `specular_lobe_sampling_probability`, so roughly
+    // half the time. Resetting to the surface vector on the other frames would hand the denoiser a
+    // motion field alternating between "this reflection moves with the reflected object" and "it is
+    // painted on and slides with the floor", frame after frame. That incoherence is worse than either
+    // answer alone.
+    //
+    // Leaving the texture untouched instead makes the guide at most a few frames stale, and always a
+    // reflection vector rather than a surface one. It works because the guide textures are allocated
+    // once and reused while the view size holds, so last frame's values are still there. The cost is a
+    // stale vector for a frame or two after a disocclusion, which is a thing DLSS already handles.
+    if surface.material.roughness > SPECULAR_GUIDE_ROUGHNESS_THRESHOLD {
+        textureStore(specular_motion_vectors, pixel_id, vec4(surface_motion_vector, vec2(0.0)));
+    }
+
     let F0 = calculate_F0(surface.material.base_color, surface.material.metallic, vec3(surface.material.reflectance));
     let wo = normalize(view.world_position - surface.world_position);
 

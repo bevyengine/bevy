@@ -75,7 +75,6 @@ pub fn dlss_ray_reconstruction(
         &MainPassResolutionOverride,
         &TemporalJitter,
         &ViewTarget,
-        &ViewPrepassTextures,
         &ViewDlssRayReconstructionTextures,
     )>,
     adapter: Res<RenderAdapter>,
@@ -87,15 +86,8 @@ pub fn dlss_ray_reconstruction(
         resolution_override,
         temporal_jitter,
         view_target,
-        prepass_textures,
         ray_reconstruction_textures,
     ) = view.into_inner();
-
-    let (Some(prepass_depth_texture), Some(prepass_motion_vectors_texture)) =
-        (&prepass_textures.depth, &prepass_textures.motion_vectors)
-    else {
-        return;
-    };
 
     let view_target = view_target.post_process_write();
 
@@ -106,8 +98,11 @@ pub fn dlss_ray_reconstruction(
         normals: &ray_reconstruction_textures.normal_roughness.default_view,
         roughness: None,
         color: &view_target.source,
-        depth: &prepass_depth_texture.texture.default_view,
-        motion_vectors: &prepass_motion_vectors_texture.texture.default_view,
+        // Not the prepass pair: under primary surface replacement these describe the surface seen
+        // through the mirror instead of the mirror itself. They are copies of the prepass values
+        // everywhere else. Super resolution above still uses the prepass originals.
+        depth: &ray_reconstruction_textures.depth.default_view,
+        motion_vectors: &ray_reconstruction_textures.motion_vectors.default_view,
         specular_guide: DlssRayReconstructionSpecularGuide::SpecularMotionVectors(
             &ray_reconstruction_textures
                 .specular_motion_vectors

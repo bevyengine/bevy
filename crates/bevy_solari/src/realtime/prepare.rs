@@ -275,6 +275,36 @@ pub fn prepare_solari_lighting_resources(
             let specular_motion_vectors_view =
                 specular_motion_vectors.create_view(&TextureViewDescriptor::default());
 
+            // Depth and motion vectors as seen through mirrors. These shadow the prepass pair for
+            // DLSS Ray Reconstruction only - the prepass originals stay authoritative for ReSTIR
+            // reprojection, super resolution, and everything else that wants the real surface.
+            // R32Float rather than a depth format because a depth texture cannot be storage-written.
+            let dlss_rr_depth = render_device.create_texture(&TextureDescriptor {
+                label: Some("solari_lighting_dlss_rr_depth"),
+                size: view_size.to_extents(),
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: TextureDimension::D2,
+                format: TextureFormat::R32Float,
+                usage: TextureUsages::TEXTURE_BINDING | TextureUsages::STORAGE_BINDING,
+                view_formats: &[],
+            });
+            let dlss_rr_depth_view = dlss_rr_depth.create_view(&TextureViewDescriptor::default());
+
+            let dlss_rr_motion_vectors = render_device.create_texture(&TextureDescriptor {
+                label: Some("solari_lighting_dlss_rr_motion_vectors"),
+                size: view_size.to_extents(),
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: TextureDimension::D2,
+                format: TextureFormat::Rg16Float,
+                usage: TextureUsages::TEXTURE_BINDING | TextureUsages::STORAGE_BINDING,
+                view_formats: &[],
+            });
+            let dlss_rr_motion_vectors_view =
+                dlss_rr_motion_vectors.create_view(&TextureViewDescriptor::default());
+
+
             commands
                 .entity(entity)
                 .insert(ViewDlssRayReconstructionTextures {
@@ -293,6 +323,14 @@ pub fn prepare_solari_lighting_resources(
                     specular_motion_vectors: CachedTexture {
                         texture: specular_motion_vectors,
                         default_view: specular_motion_vectors_view,
+                    },
+                    depth: CachedTexture {
+                        texture: dlss_rr_depth,
+                        default_view: dlss_rr_depth_view,
+                    },
+                    motion_vectors: CachedTexture {
+                        texture: dlss_rr_motion_vectors,
+                        default_view: dlss_rr_motion_vectors_view,
                     },
                 });
         }

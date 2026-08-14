@@ -362,6 +362,19 @@ pub struct ViewDlssRayReconstructionTextures {
     pub specular_albedo: CachedTexture,
     pub normal_roughness: CachedTexture,
     pub specular_motion_vectors: CachedTexture,
+    /// Depth as seen *through* any mirrors, rather than the depth of the mirror surface itself.
+    ///
+    /// Where primary surface replacement applies, this holds the reflected surface's depth, so that
+    /// the denoiser reprojects the reflection at its true optical distance. Elsewhere it is a copy of
+    /// the prepass depth. Same reverse-Z NDC convention as the prepass, since the ray reconstruction
+    /// context is created with [`DlssRayReconstructionDepthMode::Hardware`].
+    pub depth: CachedTexture,
+    /// Motion of the surface this pixel really shows, which under primary surface replacement is the
+    /// reflected surface rather than the mirror. A copy of the prepass motion vectors elsewhere.
+    ///
+    /// Kept separate from the prepass motion vectors because ReSTIR's temporal reprojection needs the
+    /// real surface's motion, and DLSS super resolution keeps using the prepass pair too.
+    pub motion_vectors: CachedTexture,
 }
 
 #[reflect_remote(DlssPerfQualityMode)]
