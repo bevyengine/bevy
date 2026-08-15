@@ -17,7 +17,7 @@ use bevy_mesh::{
     MeshBuilder, Meshable,
 };
 
-use bevy_platform::collections::HashMap;
+use bevy_platform::collections::{hash_map::Entry, HashMap};
 use bevy_shader::load_shader_library;
 use bevy_sprite::{prelude::SpriteMesh, Anchor, SpriteAlphaMode};
 
@@ -146,11 +146,13 @@ fn add_material(
     for event in material_events.read() {
         if let AssetEvent::Removed { id } = event
             && let Some(key) = reversed_cached_materials.remove(id)
-            && let Some(bucket) = cached_materials.get_mut(&key)
+            && let Entry::Occupied(mut bucket) = cached_materials.entry(key)
         {
-            bucket.retain(|(_, cached_material_id)| cached_material_id != id);
-            if bucket.is_empty() {
-                cached_materials.remove(&key);
+            bucket
+                .get_mut()
+                .retain(|(_, cached_material_id)| cached_material_id != id);
+            if bucket.get().is_empty() {
+                bucket.remove();
             }
         }
     }
