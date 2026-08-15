@@ -137,7 +137,7 @@ use bevy_extract::ExtractPlugin;
 use bevy_platform::time::Instant;
 use bevy_shader::{load_shader_library, Shader, ShaderLoader};
 use bevy_time::TimeSender;
-use bevy_window::{PrimaryWindow, RawHandleWrapperHolder};
+use bevy_window::{PrimaryWindow, RawDisplayHandleWrapper, RawHandleWrapperHolder};
 use bitflags::bitflags;
 use globals::GlobalsPlugin;
 use occlusion_culling::OcclusionCullingPlugin;
@@ -540,6 +540,8 @@ fn send_time(time_sender: Res<TimeSender>) {
 ///
 /// Returns true if creation was successful, false otherwise.
 fn insert_future_resources(render_creation: &RenderCreation, main_world: &mut World) -> bool {
+    let display = main_world.resource::<RawDisplayHandleWrapper>().clone();
+
     let primary_window = main_world
         .query_filtered::<&RawHandleWrapperHolder, With<PrimaryWindow>>()
         .single(main_world)
@@ -556,6 +558,7 @@ fn insert_future_resources(render_creation: &RenderCreation, main_world: &mut Wo
     let success = render_creation.create_render(
         future_resources.clone(),
         primary_window,
+        display,
         #[cfg(feature = "raw_vulkan_init")]
         raw_vulkan_init_settings,
     );

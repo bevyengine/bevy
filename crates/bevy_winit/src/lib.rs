@@ -16,7 +16,7 @@ extern crate alloc;
 
 use bevy_derive::Deref;
 use bevy_reflect::Reflect;
-use bevy_window::{ExitSystems, RawHandleWrapperHolder, WindowEvent};
+use bevy_window::{ExitSystems, RawDisplayHandleWrapper, RawHandleWrapperHolder, WindowEvent};
 use core::cell::RefCell;
 use winit::{event_loop::EventLoop, window::WindowId};
 
@@ -148,22 +148,26 @@ impl Plugin for WinitPlugin {
             });
         }
 
-        app.init_resource::<WinitMonitors>()
-            .init_resource::<WinitSettings>()
-            .insert_resource(DisplayHandleWrapper(event_loop.owned_display_handle()))
-            .insert_resource(EventLoopProxyWrapper(event_loop_proxy))
-            .add_message::<RawWinitWindowEvent>()
-            .set_runner(|app| winit_runner(app, event_loop))
-            .add_systems(
-                Last,
-                (
-                    changed_windows,
-                    changed_cursor_options,
-                    despawn_windows.after(ExitSystems).after(OnAppExitSystems),
-                    check_keyboard_focus_lost,
-                )
-                    .chain(),
-            );
+        app.insert_resource(
+            RawDisplayHandleWrapper::new(&event_loop)
+                .expect("Failed to get the display handle from the event loop"),
+        )
+        .init_resource::<WinitMonitors>()
+        .init_resource::<WinitSettings>()
+        .insert_resource(DisplayHandleWrapper(event_loop.owned_display_handle()))
+        .insert_resource(EventLoopProxyWrapper(event_loop_proxy))
+        .add_message::<RawWinitWindowEvent>()
+        .set_runner(|app| winit_runner(app, event_loop))
+        .add_systems(
+            Last,
+            (
+                changed_windows,
+                changed_cursor_options,
+                despawn_windows.after(ExitSystems).after(OnAppExitSystems),
+                check_keyboard_focus_lost,
+            )
+                .chain(),
+        );
 
         app.add_plugins(AccessKitPlugin);
         app.add_plugins(cursor::WinitCursorPlugin);
