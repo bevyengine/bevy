@@ -83,7 +83,7 @@ fn setup(mut commands: Commands) {
                         return;
                     };
                     camera.order += match on_pressed.button {
-                        PointerButton::Primary => 1,
+                        MouseButton::Left => 1,
                         _ => -1,
                     };
                     label_text.0 = format!("{}", camera.order);

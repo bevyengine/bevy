@@ -373,11 +373,12 @@ mod tests {
     use super::*;
     use bevy_app::App;
     use bevy_input::InputPlugin;
-    use bevy_input_focus::{tab_navigation::TabNavigationPlugin, InputFocusPlugin};
+    use bevy_input::mouse::MouseButton;
+use bevy_input_focus::{tab_navigation::TabNavigationPlugin, InputFocusPlugin};
     use bevy_math::Vec2;
     use bevy_picking::backend::HitData;
     use bevy_picking::events::Pointer;
-    use bevy_picking::pointer::{Location, PointerButton, PointerId};
+    use bevy_picking::pointer::{Location, PointerId};
     use bevy_window::{PrimaryWindow, Window, WindowRef};
 
     /// Builds a headless app with the radio-group observers plus [`radio_self_update`], so that a
@@ -413,7 +414,7 @@ mod tests {
         app.world_mut().trigger(PointerClick {
             entity: target,
             pointer: Pointer::new(PointerId::Mouse, window_location(window)),
-            button: PointerButton::Primary,
+            button: MouseButton::Left,
             hit: HitData::new(window, 0.0, None, None),
             duration: core::time::Duration::from_millis(10),
             count: 1,

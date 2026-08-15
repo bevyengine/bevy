@@ -94,13 +94,15 @@ pub fn viewport_picking(
         .collect();
 
     // Handle dragged entities, which need to be considered for dragging in and out of viewports.
-    for ((pointer_id, _), pointer_state) in pointer_state.pointer_buttons.iter() {
-        for &target in pointer_state
-            .dragging
-            .keys()
-            .filter(|&entity| viewport_query.contains(*entity))
-        {
-            viewport_picks.insert(target, *pointer_id);
+    for (pointer_id, buttons) in pointer_state.pointer_buttons.iter() {
+        for pointer_state in buttons.values() {
+            for &target in pointer_state
+                .dragging
+                .keys()
+                .filter(|&entity| viewport_query.contains(*entity))
+            {
+                viewport_picks.insert(target, *pointer_id);
+            }
         }
     }
 

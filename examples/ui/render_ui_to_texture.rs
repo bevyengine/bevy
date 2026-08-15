@@ -207,15 +207,9 @@ fn drive_diegetic_pointer(
     // Pipe pointer button presses to the virtual pointer on the UI texture.
     for window_event in window_events.read() {
         if let WindowEvent::MouseButtonInput(input) = window_event {
-            let button = match input.button {
-                MouseButton::Left => PointerButton::Primary,
-                MouseButton::Right => PointerButton::Secondary,
-                MouseButton::Middle => PointerButton::Middle,
-                _ => continue,
-            };
             let action = match input.state {
-                ButtonState::Pressed => PointerAction::Press(button),
-                ButtonState::Released => PointerAction::Release(button),
+                ButtonState::Pressed => PointerAction::Press(input.button),
+                ButtonState::Released => PointerAction::Release(input.button),
             };
             pointer_inputs.write(PointerInput::new(
                 CUBE_POINTER_ID,

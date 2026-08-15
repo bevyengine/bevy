@@ -268,7 +268,7 @@ fn spawn_box(
     camera: Single<(&Camera, &GlobalTransform)>,
     mut commands: Commands,
 ) {
-    if press.button != PointerButton::Primary {
+    if press.button != MouseButton::Left {
         return;
     }
     if !window.contains(press.entity) {
@@ -344,7 +344,7 @@ fn end_rotate_box_hue_on_out(
 
 /// Blocks propagation of pointer press events on left-clicked boxes.
 fn stop_propagate_on_clicked_box(mut event: On<PointerPress>, boxes: Query<(), With<Box>>) {
-    if event.button != PointerButton::Primary {
+    if event.button != MouseButton::Left {
         return;
     }
     if !boxes.contains(event.entity) {
@@ -355,7 +355,7 @@ fn stop_propagate_on_clicked_box(mut event: On<PointerPress>, boxes: Query<(), W
 
 /// Drags a box when you left-click on one.
 fn drag_box(event: On<PointerDrag>, mut boxes: Query<&mut Transform, With<Box>>) {
-    if event.button != PointerButton::Primary {
+    if event.button != MouseButton::Left {
         return;
     }
     let Ok(mut transform) = boxes.get_mut(event.entity) else {

@@ -289,14 +289,14 @@ pub fn checkbox_self_update(value_change: On<ValueChange<bool>>, mut commands: C
 mod tests {
     use super::*;
     use bevy_ecs::hierarchy::ChildOf;
-    use bevy_input::keyboard::Key;
+    use bevy_input::{keyboard::Key, mouse::MouseButton};
     use bevy_input::InputPlugin;
     use bevy_input_focus::{
         tab_navigation::{TabIndex, TabNavigationPlugin},
         InputDispatchPlugin, InputFocusPlugin,
     };
     use bevy_math::Vec2;
-    use bevy_picking::{backend::HitData, pointer::PointerButton};
+    use bevy_picking::{backend::HitData};
     use bevy_picking::{
         events::Pointer,
         pointer::{Location, PointerId},
@@ -349,7 +349,7 @@ mod tests {
     /// descendant of the widget; the events bubble up via `ChildOf` just like real pointer events.
     fn click_entity(app: &mut App, target: Entity, window: Entity) {
         let pointer = Pointer::new(PointerId::Mouse, window_location(window));
-        let button = PointerButton::Primary;
+        let button = MouseButton::Left;
         app.world_mut().trigger(PointerPress {
             entity: target,
             pointer: pointer.clone(),
