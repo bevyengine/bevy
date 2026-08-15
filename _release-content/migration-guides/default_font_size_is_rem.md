@@ -1,5 +1,5 @@
 ---
-title: "Default Font Size Is 1rem"
+title: "`TextFont::default()` font size is now `FontSize::Rem(1.)`"
 pull_requests: [25231]
 ---
 
