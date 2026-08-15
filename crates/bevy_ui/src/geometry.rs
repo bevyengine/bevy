@@ -1436,11 +1436,41 @@ mod tests {
     fn val_evaluate() {
         let size = 250.;
         let viewport_size = vec2(1000., 500.);
-        let result = Val::Percent(80.)
-            .resolve(1., size, viewport_size, EmSize(20.0), RemSize(20.0))
-            .unwrap();
+        let em_size = EmSize(10.);
+        let rem_size = RemSize(20.);
 
-        assert_eq!(result, size * 0.8);
+        assert_eq!(
+            Val::Percent(80.)
+                .resolve(1., size, viewport_size, em_size, rem_size)
+                .unwrap(),
+            size * 0.8
+        );
+        // Check em and rem
+        assert_eq!(
+            Val::Em(2.)
+                .resolve(1., size, viewport_size, em_size, rem_size)
+                .unwrap(),
+            em_size.0 * 2.
+        );
+        assert_eq!(
+            Val::Rem(5.)
+                .resolve(1., size, viewport_size, em_size, rem_size)
+                .unwrap(),
+            rem_size.0 * 5.
+        );
+        // Check scale_factor is considered
+        assert_eq!(
+            Val::Em(2.)
+                .resolve(2., size, viewport_size, em_size, rem_size)
+                .unwrap(),
+            em_size.0 * 2. * 2.
+        );
+        assert_eq!(
+            Val::Rem(5.)
+                .resolve(2., size, viewport_size, em_size, rem_size)
+                .unwrap(),
+            rem_size.0 * 5. * 2.
+        );
     }
 
     #[test]

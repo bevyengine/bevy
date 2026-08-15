@@ -695,12 +695,7 @@ mod tests {
     #[test]
     fn test_into_length_percentage() {
         use taffy::style::LengthPercentage;
-        let context = LayoutContext::new(
-            2.0,
-            Vec2::new(800., 600.),
-            EmSize(DEFAULT_REM_SIZE_PX),
-            RemSize(DEFAULT_REM_SIZE_PX),
-        );
+        let context = LayoutContext::new(2.0, Vec2::new(800., 600.), EmSize(10.), RemSize(20.));
         let cases = [
             (Val::Auto, LengthPercentage::length(0.)),
             (Val::Percent(1.), LengthPercentage::percent(0.01)),
@@ -709,6 +704,8 @@ mod tests {
             (Val::Vh(1.), LengthPercentage::length(6.)),
             (Val::VMin(2.), LengthPercentage::length(12.)),
             (Val::VMax(2.), LengthPercentage::length(16.)),
+            (Val::Em(2.), LengthPercentage::length(40.)),
+            (Val::Rem(3.), LengthPercentage::length(120.)),
         ];
         for (val, length) in cases {
             assert!({
