@@ -38,7 +38,7 @@ node out, so when resolving a `Val` against an existing node you can take them f
 for example).
 
 `Node` now requires `EmSize` (from `bevy_text`, re-exported in `bevy_ui::prelude`), the per-node
-font size that `Val::Em` resolves against. If the node has a `TextFont`, `EmSize` is derived when `TextFont`,
+font size that `Val::Em` resolves against. If the node has a `TextFont`, `EmSize` is recomputed when `TextFont`,
 `RemSize`, or render-target info changes; values you set persist until then. If the node does not
 have a `TextFont` component then the value is yours to set and is left alone; it defaults to
 `DEFAULT_REM_SIZE_PX`, which matches the default `RemSize` but does not track changes to it. Propagating
