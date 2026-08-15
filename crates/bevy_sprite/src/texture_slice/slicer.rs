@@ -10,7 +10,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 /// sections will be scaled or tiled.
 ///
 /// See [9-sliced](https://en.wikipedia.org/wiki/9-slice_scaling) textures.
-#[derive(Debug, Clone, Copy, Reflect, PartialEq)]
+#[derive(Debug, Clone, Reflect, PartialEq)]
 #[reflect(Clone, PartialEq)]
 pub struct TextureSlicer {
     /// Inset values in pixels that define the four slicing lines dividing the texture into nine sections.

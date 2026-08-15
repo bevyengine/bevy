@@ -162,7 +162,7 @@ impl AsAssetId for Sprite {
 }
 
 /// Controls how the image is altered when scaled.
-#[derive(Default, Debug, Clone, Copy, Reflect, PartialEq)]
+#[derive(Default, Debug, Clone, Reflect, PartialEq)]
 #[reflect(Debug, Default, Clone)]
 pub enum SpriteImageMode {
     /// The sprite will take on the size of the image by default, and will be stretched or shrunk if [`Sprite::custom_size`] is set.
