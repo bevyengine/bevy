@@ -266,7 +266,7 @@ impl BsnEntry {
                 };
                 quote! {
                     let __value = _scene.get_or_insert_template::<#type_path>(_context);
-                    *__value = <#type_path>::#function #generics_tokens #args;
+                    *__value = #type_path::#function #generics_tokens #args;
                 }
             }),
             BsnEntry::FromTemplateConstructor(BsnConstructor {
@@ -1112,61 +1112,45 @@ mod tests {
 
     #[test]
     fn bsn_root_supports_turbofish_in_template_constructor() {
-        let constructor = BsnConstructor {
-            type_path: syn::parse_str("A").unwrap(),
-            function: format_ident!("from"),
-            function_generics: Some(
-                syn::parse_str::<syn::AngleBracketedGenericArguments>("<B>").unwrap(),
-            ),
-            args: BsnFnArgs(vec![]),
-        };
+        // Arrange
+        let expected = "bevy_scene :: SceneScope ({ let _res = bevy_scene :: auto_nest_tuple ! "
+            .to_string()
+            + "(bevy_scene :: SceneFunction (move | _context , _scene | { let __value = _scene . get_or_insert_template :: < A > (_context) ; "
+            + "* __value = A :: from :: < B > () ; })) ; _res })";
 
         let mut refs = EntityRefs::default();
         let paths = TestPaths::new();
         let mut exprs = HoistedExpressions::default();
         let mut ctx = paths.ctx(&mut refs, &mut exprs);
 
-        let root = BsnRoot(Bsn {
-            entries: vec![BsnEntry::TemplateConstructor(constructor)],
-        });
+        let root: BsnRoot = syn::parse_str("~A::from::<B>()").unwrap();
 
         // Act
         let res = root.to_tokens(&mut ctx).to_string();
 
         // Assert
-        assert!(res.contains("A"));
-        assert!(res.contains("from"));
-        assert!(res.contains("< B >"));
+        assert_eq!(res, expected,);
     }
 
     #[test]
     fn bsn_root_supports_turbofish_in_from_template_constructor() {
-        let constructor = BsnConstructor {
-            type_path: syn::parse_str("A").unwrap(),
-            function: format_ident!("from"),
-            function_generics: Some(
-                syn::parse_str::<syn::AngleBracketedGenericArguments>("<B>").unwrap(),
-            ),
-            args: BsnFnArgs(vec![]),
-        };
+        // Arrange
+        let expected = "bevy_scene :: SceneScope ({ let _res = bevy_scene :: auto_nest_tuple ! "
+            .to_string()
+            + "(bevy_scene :: SceneFunction (move | _context , _scene | { let __value = _scene . get_or_insert_template :: << A as bevy_ecs :: template :: FromTemplate > :: Template > (_context) ; "
+            + "* __value = < A as bevy_ecs :: template :: FromTemplate > :: Template :: from :: < B > () ; })) ; _res })";
 
         let mut refs = EntityRefs::default();
         let paths = TestPaths::new();
         let mut exprs = HoistedExpressions::default();
         let mut ctx = paths.ctx(&mut refs, &mut exprs);
 
-        let root = BsnRoot(Bsn {
-            entries: vec![BsnEntry::FromTemplateConstructor(constructor)],
-        });
+        let root: BsnRoot = syn::parse_str("A::from::<B>()").unwrap();
 
         // Act
         let res = root.to_tokens(&mut ctx).to_string();
 
         // Assert
-        assert!(res.contains("A"));
-        assert!(res.contains("FromTemplate"));
-        assert!(res.contains("Template"));
-        assert!(res.contains("from"));
-        assert!(res.contains("< B >"));
+        assert_eq!(res, expected,);
     }
 }
