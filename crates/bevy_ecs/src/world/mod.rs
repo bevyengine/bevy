@@ -47,8 +47,8 @@ use crate::{
     entity_disabling::DefaultQueryFilters,
     error::{ErrorHandler, FallbackErrorHandler},
     lifecycle::{
-        AddEvent, ComponentHooks, DespawnEvent, DiscardEvent, InsertEvent, RemoveEvent,
-        RemovedComponentMessages, ADD, DESPAWN, DISCARD, INSERT, MUTATE, REMOVE,
+        AddEvent, ComponentHooks, DespawnEvent, DiscardEvent, InsertEvent, MutateEvent,
+        RemoveEvent, RemovedComponentMessages, ADD, DESPAWN, DISCARD, INSERT, MUTATE, REMOVE,
     },
     message::{Message, MessageId, Messages, WriteBatchIds},
     observer::Observers,

@@ -5,14 +5,15 @@
 
 pub use crate::change_detection::{NonSend, NonSendMut, Res, ResMut};
 use crate::{
-    archetype::{ArchetypeEntity, Archetypes},
+    archetype::Archetypes,
     bundle::Bundles,
     change_detection::{ComponentTicksMut, ComponentTicksRef, MaybeLocation, Tick},
     component::{
         ComponentId, Components, Mutable,
         StorageType::{SparseSet, Table},
     },
-    entity::{Entities, EntityAllocator},
+    entity::{Entities, Entity, EntityAllocator},
+    event::EntityMutateTrigger,
     lifecycle::{MutateEvent, MUTATE},
     query::{
         Access, FilteredAccess, FilteredAccessSet,
@@ -298,6 +299,62 @@ pub unsafe trait ReadOnlySystemParam: SystemParam {}
 /// Shorthand way of accessing the associated type [`SystemParam::Item`] for a given [`SystemParam`].
 pub type SystemParamItem<'w, 's, P> = <P as SystemParam>::Item<'w, 's>;
 
+impl DeferredWorld<'_> {
+    /// Triggers both Hooks and Observers for a given ["Entity"] and set of ["ComponentId"]s, depending on whether ["has_hooks"] or ["has_observers"] is true.
+    #[inline(always)]
+    fn trigger_mutate<const APPLY: bool>(
+        &mut self,
+        entity: Entity,
+        comps: Vec<ComponentId>,
+        has_hooks: bool,
+        has_observers: bool,
+        loc: MaybeLocation,
+    ) {
+        if APPLY {
+            if has_hooks {
+                unsafe {
+                    self.trigger_on_mutate(entity, comps.iter().copied(), loc);
+                }
+            }
+            if has_observers {
+                unsafe {
+                    self.trigger_raw(
+                        MUTATE,
+                        &mut MutateEvent {
+                            entity,
+                            components: comps,
+                        },
+                        &mut EntityMutateTrigger,
+                        loc,
+                    );
+                }
+            }
+        } else {
+            self.commands().queue(move |world: &mut World| {
+                let mut world = unsafe { world.as_unsafe_world_cell().into_deferred() };
+                if has_hooks {
+                    unsafe {
+                        world.trigger_on_mutate(entity, comps.iter().copied(), loc);
+                    }
+                }
+                if has_observers {
+                    unsafe {
+                        world.trigger_raw(
+                            MUTATE,
+                            &mut MutateEvent {
+                                entity,
+                                components: comps,
+                            },
+                            &mut EntityMutateTrigger,
+                            loc,
+                        );
+                    }
+                }
+            });
+        }
+    }
+}
+
 // SAFETY: QueryState is constrained to read-only fetches, so it only reads World.
 unsafe impl<'w, 's, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> ReadOnlySystemParam
     for Query<'w, 's, D, F>
@@ -341,133 +398,27 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
     }
 
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
-        let muts = state.component_access().access().writes();
-        if let Included(m) = muts
-            && m.is_clear()
-        {
-            return;
-        }
-
-        let last_run = system_meta.get_last_run();
-        let archs = state.matched_archetypes();
-        let tables = &raw const world.storages().tables;
-        let sparse_sets = &raw const world.storages().sparse_sets;
-        let archetypes = &raw const *world.archetypes();
-        let has_global_or_entity_observer =
-            if let Some(o) = world.observers().try_get_observers(MUTATE) {
-                !o.global_observers().is_empty() || !o.entity_observers().is_empty()
-            } else {
-                false
-            };
-
-        archs
-            .filter_map(|arch| unsafe { (*archetypes).get(arch) })
-            .for_each(|a| {
-                let has_hook = a.has_mutate_hook();
-                let has_observer = a.has_mutate_observer() || has_global_or_entity_observer;
-                if !has_hook && !has_observer {
-                    return;
-                }
-                a.entities().iter().for_each(|e| {
-                    let entity = e.id();
-                    let table_row = e.table_row();
-                    let comps = match muts {
-                        Included(m) => m
-                            .iter()
-                            .filter(|c| {
-                                if let Some(s) = a.get_storage_type(*c) {
-                                    match s {
-                                        Table => {
-                                            let tables = unsafe { &*tables };
-                                            if let Some(t) = tables.get(a.table_id()) {
-                                                if let Some(tick) =
-                                                    t.get_changed_tick(*c, table_row)
-                                                {
-                                                    unsafe {
-                                                        return *(tick.get()) == last_run;
-                                                    }
-                                                }
-                                            }
-                                        }
-
-                                        SparseSet => {
-                                            let sparse_sets = unsafe { &*sparse_sets };
-                                            if let Some(s_s) = sparse_sets.get(*c) {
-                                                if let Some(tick) = s_s.get_changed_tick(entity) {
-                                                    unsafe {
-                                                        return *(tick.get()) == last_run;
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                                return false;
-                            })
-                            .collect::<Vec<_>>(),
-                        Excluded(m) => {
-                            // Unbounded Access, so naively scan all components not excluded.
-                            a.iter_components()
-                                .filter(|c| m.contains(*c))
-                                .filter(|c| {
-                                    if let Some(s) = a.get_storage_type(*c) {
-                                        match s {
-                                            Table => {
-                                                let tables = unsafe { &*tables };
-                                                if let Some(t) = tables.get(a.table_id()) {
-                                                    if let Some(tick) =
-                                                        t.get_changed_tick(*c, table_row)
-                                                    {
-                                                        unsafe {
-                                                            return *(tick.get()) == last_run;
-                                                        }
-                                                    }
-                                                }
-                                            }
-
-                                            SparseSet => {
-                                                let sparse_sets = unsafe { &*sparse_sets };
-                                                if let Some(s_s) = sparse_sets.get(*c) {
-                                                    if let Some(tick) = s_s.get_changed_tick(entity)
-                                                    {
-                                                        unsafe {
-                                                            return *(tick.get()) == last_run;
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                    return false;
-                                })
-                                .collect::<Vec<_>>()
-                        }
-                    };
-                    if !comps.is_empty() {
-                        if has_hook {
-                            unsafe {
-                                world
-                                    .as_unsafe_world_cell()
-                                    .into_deferred()
-                                    .trigger_on_mutate(
-                                        entity,
-                                        comps.iter().copied(),
-                                        MaybeLocation::caller(),
-                                    );
-                            }
-                        }
-                        if has_observer {
-                            world.trigger(MutateEvent {
-                                entity,
-                                components: comps,
-                            });
-                        }
-                    }
-                });
-            });
+        Query::trigger_mutate::<true>(
+            unsafe { world.as_unsafe_world_cell().into_deferred() },
+            state,
+            system_meta,
+            MaybeLocation::caller(),
+        );
     }
 
-    fn queue(state: &mut Self::State, system_meta: &SystemMeta, mut world: DeferredWorld) {
+    fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {
+        Query::trigger_mutate::<false>(world, state, system_meta, MaybeLocation::caller());
+    }
+}
+
+impl<D: QueryData + 'static, F: QueryFilter + 'static> Query<'_, '_, D, F> {
+    #[inline(always)]
+    fn trigger_mutate<const APPLY: bool>(
+        mut world: DeferredWorld,
+        state: &mut <Self as SystemParam>::State,
+        system_meta: &SystemMeta,
+        loc: MaybeLocation,
+    ) {
         let muts = state.component_access().access().writes();
         if let Included(m) = muts
             && m.is_clear()
@@ -479,21 +430,20 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
         let archs = state.matched_archetypes();
         let tables = &raw const world.storages().tables;
         let sparse_sets = &raw const world.storages().sparse_sets;
-        let archetypes = &raw const *world.archetypes();
-        let has_global_or_entity_observer =
+        let archetypes = &raw const world.archetypes;
+        let has_global_or_entity_observers =
             if let Some(o) = world.observers().try_get_observers(MUTATE) {
                 !o.global_observers().is_empty() || !o.entity_observers().is_empty()
             } else {
                 false
             };
-        let mut commands = world.commands();
 
         archs
             .filter_map(|arch| unsafe { (*archetypes).get(arch) })
             .for_each(|a| {
-                let has_hook = a.has_mutate_hook();
-                let has_observer = a.has_mutate_observer() || has_global_or_entity_observer;
-                if !has_hook && !has_observer {
+                let has_hooks = a.has_mutate_hook();
+                let has_observers = a.has_mutate_observer() || has_global_or_entity_observers;
+                if !has_hooks && !has_observers {
                     return;
                 }
                 a.entities().iter().for_each(|e| {
@@ -572,26 +522,7 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
                         }
                     };
                     if !comps.is_empty() {
-                        commands.queue(move |world: &mut World| {
-                            if has_hook {
-                                unsafe {
-                                    world
-                                        .as_unsafe_world_cell()
-                                        .into_deferred()
-                                        .trigger_on_mutate(
-                                            entity,
-                                            comps.iter().copied(),
-                                            MaybeLocation::caller(),
-                                        );
-                                }
-                            }
-                            if has_observer {
-                                world.trigger(MutateEvent {
-                                    entity,
-                                    components: comps,
-                                });
-                            }
-                        });
+                        world.trigger_mutate::<APPLY>(entity, comps, has_hooks, has_observers, loc);
                     }
                 });
             });
@@ -1059,106 +990,29 @@ unsafe impl<'a, T: Resource<Mutability = Mutable>> SystemParam for ResMut<'a, T>
         })
     }
 
-    fn apply(&mut component_id: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
-        let (entity, table_row, storage, table_id, has_hook, has_observer) = {
-            let archetype = if let Some(h) = world.archetypes().component_index().get(&component_id)
-            {
-                let a = h.iter().next().unwrap();
-                if let Some(a) = world.archetypes().get(*a.0) {
-                    a
-                } else {
-                    return;
-                }
-            } else {
-                return;
-            };
-            let arch_entity = archetype.entities()[0];
-            let has_observer = archetype.has_mutate_observer()
-                || world
-                    .observers()
-                    .try_get_observers(MUTATE)
-                    .map_or(false, |o| {
-                        !o.global_observers().is_empty() || !o.entity_observers().is_empty()
-                    });
-
-            (
-                arch_entity.id(),
-                arch_entity.table_row(),
-                archetype.get_storage_type(component_id).unwrap(),
-                archetype.table_id(),
-                archetype.has_mutate_hook(),
-                has_observer,
-            )
-        };
-        if !has_hook && !has_observer {
-            return;
-        }
-
-        let last_run = system_meta.last_run;
-        match storage {
-            Table => {
-                let tables = &world.storages().tables;
-                if let Some(t) = tables.get(table_id) {
-                    if let Some(tick) = t.get_changed_tick(component_id, table_row) {
-                        unsafe {
-                            if *(tick.get()) == last_run {
-                                if has_hook {
-                                    world
-                                        .as_unsafe_world_cell()
-                                        .into_deferred()
-                                        .trigger_on_mutate(
-                                            entity,
-                                            [component_id].iter().copied(),
-                                            MaybeLocation::caller(),
-                                        );
-                                }
-                                if has_observer {
-                                    world.trigger(MutateEvent {
-                                        entity,
-                                        components: [component_id].into(),
-                                    });
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            SparseSet => {
-                let sparse_sets = &world.storages().sparse_sets;
-                if let Some(s) = sparse_sets.get(component_id) {
-                    if let Some(tick) = s.get_changed_tick(entity) {
-                        unsafe {
-                            if *(tick.get()) == last_run {
-                                if has_hook {
-                                    world
-                                        .as_unsafe_world_cell()
-                                        .into_deferred()
-                                        .trigger_on_mutate(
-                                            entity,
-                                            [component_id].iter().copied(),
-                                            MaybeLocation::caller(),
-                                        );
-                                }
-                                if has_observer {
-                                    world.trigger(MutateEvent {
-                                        entity,
-                                        components: [component_id].into(),
-                                    });
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
+    fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
+        Self::trigger_mutate::<true>(
+            unsafe { world.as_unsafe_world_cell().into_deferred() },
+            state,
+            system_meta,
+            MaybeLocation::caller(),
+        );
     }
 
-    fn queue(
-        &mut component_id: &mut Self::State,
-        system_meta: &SystemMeta,
+    fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {
+        Self::trigger_mutate::<false>(world, state, system_meta, MaybeLocation::caller());
+    }
+}
+
+impl<'a, T: Resource<Mutability = Mutable>> ResMut<'a, T> {
+    #[inline(always)]
+    fn trigger_mutate<const APPLY: bool>(
         mut world: DeferredWorld,
+        &mut component_id: &mut <Self as SystemParam>::State,
+        system_meta: &SystemMeta,
+        loc: MaybeLocation,
     ) {
-        let (entity, table_row, storage, table_id, has_hook, has_observer) = {
+        let (entity, table_row, storage, table_id, has_hooks, has_observers) = {
             let archetype = if let Some(h) = world.archetypes().component_index().get(&component_id)
             {
                 let a = h.iter().next().unwrap();
@@ -1171,7 +1025,7 @@ unsafe impl<'a, T: Resource<Mutability = Mutable>> SystemParam for ResMut<'a, T>
                 return;
             };
             let arch_entity = archetype.entities()[0];
-            let has_observer = archetype.has_mutate_observer()
+            let has_observers = archetype.has_mutate_observer()
                 || world
                     .observers()
                     .try_get_observers(MUTATE)
@@ -1185,10 +1039,10 @@ unsafe impl<'a, T: Resource<Mutability = Mutable>> SystemParam for ResMut<'a, T>
                 archetype.get_storage_type(component_id).unwrap(),
                 archetype.table_id(),
                 archetype.has_mutate_hook(),
-                has_observer,
+                has_observers,
             )
         };
-        if !has_hook && !has_observer {
+        if !has_hooks && !has_observers {
             return;
         }
 
@@ -1200,24 +1054,13 @@ unsafe impl<'a, T: Resource<Mutability = Mutable>> SystemParam for ResMut<'a, T>
                     if let Some(tick) = t.get_changed_tick(component_id, table_row) {
                         unsafe {
                             if *(tick.get()) == last_run {
-                                world.commands().queue(move |world: &mut World| {
-                                    if has_hook {
-                                        world
-                                            .as_unsafe_world_cell()
-                                            .into_deferred()
-                                            .trigger_on_mutate(
-                                                entity,
-                                                [component_id].iter().copied(),
-                                                MaybeLocation::caller(),
-                                            );
-                                    }
-                                    if has_observer {
-                                        world.trigger(MutateEvent {
-                                            entity,
-                                            components: [component_id].into(),
-                                        });
-                                    }
-                                });
+                                world.trigger_mutate::<APPLY>(
+                                    entity,
+                                    [component_id].into(),
+                                    has_hooks,
+                                    has_observers,
+                                    loc,
+                                );
                             }
                         }
                     }
@@ -1229,24 +1072,13 @@ unsafe impl<'a, T: Resource<Mutability = Mutable>> SystemParam for ResMut<'a, T>
                     if let Some(tick) = s.get_changed_tick(entity) {
                         unsafe {
                             if *(tick.get()) == last_run {
-                                world.commands().queue(move |world: &mut World| {
-                                    if has_hook {
-                                        world
-                                            .as_unsafe_world_cell()
-                                            .into_deferred()
-                                            .trigger_on_mutate(
-                                                entity,
-                                                [component_id].iter().copied(),
-                                                MaybeLocation::caller(),
-                                            );
-                                    }
-                                    if has_observer {
-                                        world.trigger(MutateEvent {
-                                            entity,
-                                            components: [component_id].into(),
-                                        });
-                                    }
-                                });
+                                world.trigger_mutate::<APPLY>(
+                                    entity,
+                                    [component_id].into(),
+                                    has_hooks,
+                                    has_observers,
+                                    loc,
+                                );
                             }
                         }
                     }
@@ -3129,208 +2961,26 @@ unsafe impl SystemParam for FilteredResourcesMut<'_, '_> {
     }
 
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
-        let muts = state.writes();
-        if let Included(m) = muts
-            && m.is_clear()
-        {
-            return;
-        }
-
-        let last_run = system_meta.get_last_run();
-        let tables = &raw const world.storages().tables;
-        let sparse_sets = &raw const world.storages().sparse_sets;
-        let archetypes = &raw const *world.archetypes();
-        let has_global_or_entity_observer =
-            if let Some(o) = world.observers().try_get_observers(MUTATE) {
-                !o.global_observers().is_empty() || !o.entity_observers().is_empty()
-            } else {
-                false
-            };
-
-        match muts {
-            Included(m) => {
-                m.iter()
-                    .filter_map(|c| unsafe {
-                        let a = *(*archetypes)
-                            .component_index()
-                            .get(&c)
-                            .unwrap()
-                            .iter()
-                            .next()
-                            .unwrap()
-                            .0;
-                        Some((c, (*archetypes).get(a)?))
-                    })
-                    .for_each(|(c, a)| {
-                        let has_hook = a.has_mutate_hook();
-                        let has_observer = a.has_mutate_observer() || has_global_or_entity_observer;
-                        if !has_hook && !has_observer {
-                            return;
-                        }
-                        a.entities().iter().for_each(|e| {
-                            let entity = e.id();
-                            let table_row = e.table_row();
-                            if let Some(s) = a.get_storage_type(c) {
-                                match s {
-                                    Table => {
-                                        let tables = unsafe { &*tables };
-                                        if let Some(t) = tables.get(a.table_id()) {
-                                            if let Some(tick) = t.get_changed_tick(c, table_row) {
-                                                unsafe {
-                                                    if *(tick.get()) == last_run {
-                                                        if has_hook {
-                                                            world
-                                                                .as_unsafe_world_cell()
-                                                                .into_deferred()
-                                                                .trigger_on_mutate(
-                                                                    entity,
-                                                                    [c].iter().copied(),
-                                                                    MaybeLocation::caller(),
-                                                                );
-                                                        }
-                                                        if has_observer {
-                                                            world.trigger(MutateEvent {
-                                                                entity,
-                                                                components: [c].into(),
-                                                            });
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    SparseSet => {
-                                        let sparse_sets = unsafe { &*sparse_sets };
-                                        if let Some(s_s) = sparse_sets.get(c) {
-                                            if let Some(tick) = s_s.get_changed_tick(entity) {
-                                                unsafe {
-                                                    if *(tick.get()) == last_run {
-                                                        if has_hook {
-                                                            world
-                                                                .as_unsafe_world_cell()
-                                                                .into_deferred()
-                                                                .trigger_on_mutate(
-                                                                    entity,
-                                                                    [c].iter().copied(),
-                                                                    MaybeLocation::caller(),
-                                                                );
-                                                        }
-                                                        if has_observer {
-                                                            world.trigger(MutateEvent {
-                                                                entity,
-                                                                components: [c].into(),
-                                                            });
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        });
-                    });
-            }
-            Excluded(m) => world
-                .resource_entities()
-                .iter()
-                .filter_map(|(c, _)| if m.contains(c) { Some(c) } else { None })
-                .collect::<Vec<_>>()
-                .iter()
-                .copied()
-                .for_each(|c| {
-                    let (entity, table_row, table_id, storage, has_hook, has_observer) = {
-                        let arch = *world
-                            .archetypes()
-                            .component_index()
-                            .get(&c)
-                            .unwrap()
-                            .iter()
-                            .next()
-                            .unwrap()
-                            .0;
-                        let a = world.archetypes().get(arch).unwrap();
-                        let arch_entity = a.entities()[0];
-                        let has_global_or_entity_observer = world
-                            .observers()
-                            .try_get_observers(MUTATE)
-                            .map_or(false, |o| {
-                                !o.global_observers().is_empty() || !o.entity_observers().is_empty()
-                            });
-                        (
-                            arch_entity.id(),
-                            arch_entity.table_row(),
-                            a.table_id(),
-                            a.get_storage_type(c),
-                            a.has_mutate_hook(),
-                            a.has_mutate_observer() || has_global_or_entity_observer,
-                        )
-                    };
-                    if let Some(s) = storage {
-                        match s {
-                            Table => {
-                                let tables = unsafe { &*tables };
-                                if let Some(t) = tables.get(table_id) {
-                                    if let Some(tick) = t.get_changed_tick(c, table_row) {
-                                        unsafe {
-                                            if *(tick.get()) == last_run {
-                                                if has_hook {
-                                                    world
-                                                        .as_unsafe_world_cell()
-                                                        .into_deferred()
-                                                        .trigger_on_mutate(
-                                                            entity,
-                                                            [c].iter().copied(),
-                                                            MaybeLocation::caller(),
-                                                        );
-                                                }
-                                                if has_observer {
-                                                    world.trigger(MutateEvent {
-                                                        entity,
-                                                        components: [c].into(),
-                                                    });
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-
-                            SparseSet => {
-                                let sparse_sets = unsafe { &*sparse_sets };
-                                if let Some(s_s) = sparse_sets.get(c) {
-                                    if let Some(tick) = s_s.get_changed_tick(entity) {
-                                        unsafe {
-                                            if *(tick.get()) == last_run {
-                                                if has_hook {
-                                                    world
-                                                        .as_unsafe_world_cell()
-                                                        .into_deferred()
-                                                        .trigger_on_mutate(
-                                                            entity,
-                                                            [c].iter().copied(),
-                                                            MaybeLocation::caller(),
-                                                        );
-                                                }
-                                                if has_observer {
-                                                    world.trigger(MutateEvent {
-                                                        entity,
-                                                        components: [c].into(),
-                                                    });
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }),
-        };
+        Self::trigger_mutate::<true>(
+            unsafe { world.as_unsafe_world_cell().into_deferred() },
+            state,
+            system_meta,
+            MaybeLocation::caller(),
+        );
     }
 
-    fn queue(state: &mut Self::State, system_meta: &SystemMeta, mut world: DeferredWorld) {
+    fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {
+        Self::trigger_mutate::<false>(world, state, system_meta, MaybeLocation::caller());
+    }
+}
+
+impl FilteredResourcesMut<'_, '_> {
+    fn trigger_mutate<const APPLY: bool>(
+        mut world: DeferredWorld,
+        state: &mut <Self as SystemParam>::State,
+        system_meta: &SystemMeta,
+        loc: MaybeLocation,
+    ) {
         let muts = state.writes();
         if let Included(m) = muts
             && m.is_clear()
@@ -3342,7 +2992,7 @@ unsafe impl SystemParam for FilteredResourcesMut<'_, '_> {
         let tables = &raw const world.storages().tables;
         let sparse_sets = &raw const world.storages().sparse_sets;
         let archetypes = &raw const *world.archetypes();
-        let has_global_or_entity_observer =
+        let has_global_or_entity_observers =
             if let Some(o) = world.observers().try_get_observers(MUTATE) {
                 !o.global_observers().is_empty() || !o.entity_observers().is_empty()
             } else {
@@ -3364,9 +3014,10 @@ unsafe impl SystemParam for FilteredResourcesMut<'_, '_> {
                         Some((c, (*archetypes).get(a)?))
                     })
                     .for_each(|(c, a)| {
-                        let has_hook = a.has_mutate_hook();
-                        let has_observer = a.has_mutate_observer() || has_global_or_entity_observer;
-                        if !has_hook && !has_observer {
+                        let has_hooks = a.has_mutate_hook();
+                        let has_observers =
+                            a.has_mutate_observer() || has_global_or_entity_observers;
+                        if !has_hooks && !has_observers {
                             return;
                         }
                         a.entities().iter().for_each(|e| {
@@ -3380,25 +3031,12 @@ unsafe impl SystemParam for FilteredResourcesMut<'_, '_> {
                                             if let Some(tick) = t.get_changed_tick(c, table_row) {
                                                 unsafe {
                                                     if *(tick.get()) == last_run {
-                                                        world.commands().queue(
-                                                            move |world: &mut World| {
-                                                                if has_hook {
-                                                                    world
-                                                                        .as_unsafe_world_cell()
-                                                                        .into_deferred()
-                                                                        .trigger_on_mutate(
-                                                                            entity,
-                                                                            [c].iter().copied(),
-                                                                            MaybeLocation::caller(),
-                                                                        );
-                                                                }
-                                                                if has_observer {
-                                                                    world.trigger(MutateEvent {
-                                                                        entity,
-                                                                        components: [c].into(),
-                                                                    });
-                                                                }
-                                                            },
+                                                        world.trigger_mutate::<APPLY>(
+                                                            entity,
+                                                            [c].into(),
+                                                            has_hooks,
+                                                            has_observers,
+                                                            loc,
                                                         );
                                                     }
                                                 }
@@ -3412,25 +3050,12 @@ unsafe impl SystemParam for FilteredResourcesMut<'_, '_> {
                                             if let Some(tick) = s_s.get_changed_tick(entity) {
                                                 unsafe {
                                                     if *(tick.get()) == last_run {
-                                                        world.commands().queue(
-                                                            move |world: &mut World| {
-                                                                if has_hook {
-                                                                    world
-                                                                        .as_unsafe_world_cell()
-                                                                        .into_deferred()
-                                                                        .trigger_on_mutate(
-                                                                            entity,
-                                                                            [c].iter().copied(),
-                                                                            MaybeLocation::caller(),
-                                                                        );
-                                                                }
-                                                                if has_observer {
-                                                                    world.trigger(MutateEvent {
-                                                                        entity,
-                                                                        components: [c].into(),
-                                                                    });
-                                                                }
-                                                            },
+                                                        world.trigger_mutate::<APPLY>(
+                                                            entity,
+                                                            [c].into(),
+                                                            has_hooks,
+                                                            has_observers,
+                                                            loc,
                                                         );
                                                     }
                                                 }
@@ -3438,7 +3063,7 @@ unsafe impl SystemParam for FilteredResourcesMut<'_, '_> {
                                         }
                                     }
                                 }
-                            }
+                            };
                         });
                     });
             }
@@ -3485,24 +3110,22 @@ unsafe impl SystemParam for FilteredResourcesMut<'_, '_> {
                                     if let Some(tick) = t.get_changed_tick(c, table_row) {
                                         unsafe {
                                             if *(tick.get()) == last_run {
-                                                world.commands().queue(move |world: &mut World| {
-                                                    if has_hook {
-                                                        world
-                                                            .as_unsafe_world_cell()
-                                                            .into_deferred()
-                                                            .trigger_on_mutate(
-                                                                entity,
-                                                                [c].iter().copied(),
-                                                                MaybeLocation::caller(),
-                                                            );
-                                                    }
-                                                    if has_observer {
-                                                        world.trigger(MutateEvent {
+                                                if has_hook {
+                                                    world
+                                                        .as_unsafe_world_cell()
+                                                        .into_deferred()
+                                                        .trigger_on_mutate(
                                                             entity,
-                                                            components: [c].into(),
-                                                        });
-                                                    }
-                                                });
+                                                            [c].iter().copied(),
+                                                            MaybeLocation::caller(),
+                                                        );
+                                                }
+                                                if has_observer {
+                                                    world.trigger(MutateEvent {
+                                                        entity,
+                                                        components: [c].into(),
+                                                    });
+                                                }
                                             }
                                         }
                                     }
@@ -3515,24 +3138,22 @@ unsafe impl SystemParam for FilteredResourcesMut<'_, '_> {
                                     if let Some(tick) = s_s.get_changed_tick(entity) {
                                         unsafe {
                                             if *(tick.get()) == last_run {
-                                                world.commands().queue(move |world: &mut World| {
-                                                    if has_hook {
-                                                        world
-                                                            .as_unsafe_world_cell()
-                                                            .into_deferred()
-                                                            .trigger_on_mutate(
-                                                                entity,
-                                                                [c].iter().copied(),
-                                                                MaybeLocation::caller(),
-                                                            );
-                                                    }
-                                                    if has_observer {
-                                                        world.trigger(MutateEvent {
+                                                if has_hook {
+                                                    world
+                                                        .as_unsafe_world_cell()
+                                                        .into_deferred()
+                                                        .trigger_on_mutate(
                                                             entity,
-                                                            components: [c].into(),
-                                                        });
-                                                    }
-                                                });
+                                                            [c].iter().copied(),
+                                                            MaybeLocation::caller(),
+                                                        );
+                                                }
+                                                if has_observer {
+                                                    world.trigger(MutateEvent {
+                                                        entity,
+                                                        components: [c].into(),
+                                                    });
+                                                }
                                             }
                                         }
                                     }
