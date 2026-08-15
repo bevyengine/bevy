@@ -16,7 +16,7 @@ extern crate alloc;
 
 use bevy_derive::Deref;
 use bevy_reflect::Reflect;
-use bevy_window::{ExitSystems, RawHandleWrapperHolder, WindowEvent};
+use bevy_window::{ExitSystems, RawDisplayHandleWrapper, RawHandleWrapperHolder, WindowEvent};
 use core::cell::RefCell;
 use winit::{event_loop::EventLoop, window::WindowId};
 
@@ -148,6 +148,10 @@ impl Plugin for WinitPlugin {
             });
         }
 
+        app.insert_resource(
+            RawDisplayHandleWrapper::new(&event_loop)
+                .expect("Failed to get the display handle from the event loop"),
+        );
         app.init_resource::<WinitMonitors>()
             .init_resource::<WinitSettings>()
             .insert_resource(DisplayHandleWrapper(event_loop.owned_display_handle()))

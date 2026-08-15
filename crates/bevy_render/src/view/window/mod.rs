@@ -368,7 +368,7 @@ pub fn create_surfaces(
     for (entity, mut window, handle, mut maybe_surface_data) in &mut windows {
         let Some(data) = maybe_surface_data.as_mut() else {
             let surface_target = SurfaceTargetUnsafe::RawHandle {
-                raw_display_handle: Some(handle.get_display_handle()),
+                raw_display_handle: None,
                 raw_window_handle: handle.get_window_handle(),
             };
             // SAFETY: The window handles in ExtractedWindows will always be valid objects to create surfaces on
