@@ -57,18 +57,3 @@ let size = font_size.eval(logical_viewport_size, rem_size_px);
 // 0.20
 let size = font_size.eval(logical_viewport_size, RemSize(rem_size_px));
 ```
-
-**Note: Default `TextFont` `font_size` changed**
-
-`TextFont::default()` now uses `FontSize::Rem(1.)` instead of `FontSize::Px(20.)`, so that the
-`RemSize` resource actually sets the default font size. With the default `RemSize` of 20 logical
-pixels this renders identically, but text left at the default size now scales when `RemSize`
-changes. To keep a fixed size, set it explicitly:
-
-```rust
-// 0.20
-TextFont {
-    font_size: FontSize::Px(20.),
-    ..default()
-}
-```
