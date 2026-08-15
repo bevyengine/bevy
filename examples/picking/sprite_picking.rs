@@ -61,10 +61,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         Transform::from_xyz(i * len - len, j * len - len, -1.0),
                         Pickable::default(),
                     ))
-                    .observe(recolor_on::<Pointer<Over>>(Color::srgb(0.0, 1.0, 1.0)))
-                    .observe(recolor_on::<Pointer<Out>>(Color::BLACK))
-                    .observe(recolor_on::<Pointer<Press>>(Color::srgb(1.0, 1.0, 0.0)))
-                    .observe(recolor_on::<Pointer<Release>>(Color::srgb(0.0, 1.0, 1.0)));
+                    .observe(recolor_on::<PointerOver>(Color::srgb(0.0, 1.0, 1.0)))
+                    .observe(recolor_on::<PointerOut>(Color::BLACK))
+                    .observe(recolor_on::<PointerPress>(Color::srgb(1.0, 1.0, 0.0)))
+                    .observe(recolor_on::<PointerRelease>(Color::srgb(0.0, 1.0, 1.0)));
 
                 commands
                     .spawn((
@@ -81,10 +81,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             .with_rotation(Quat::from_rotation_z((j - 1.0) * 0.2)),
                         Pickable::default(),
                     ))
-                    .observe(recolor_on::<Pointer<Over>>(Color::srgb(0.0, 1.0, 0.0)))
-                    .observe(recolor_on::<Pointer<Out>>(Color::srgb(1.0, 0.0, 0.0)))
-                    .observe(recolor_on::<Pointer<Press>>(Color::srgb(0.0, 0.0, 1.0)))
-                    .observe(recolor_on::<Pointer<Release>>(Color::srgb(0.0, 1.0, 0.0)));
+                    .observe(recolor_on::<PointerOver>(Color::srgb(0.0, 1.0, 0.0)))
+                    .observe(recolor_on::<PointerOut>(Color::srgb(1.0, 0.0, 0.0)))
+                    .observe(recolor_on::<PointerPress>(Color::srgb(0.0, 0.0, 1.0)))
+                    .observe(recolor_on::<PointerRelease>(Color::srgb(0.0, 1.0, 0.0)));
             }
         });
 }
@@ -143,10 +143,10 @@ fn setup_atlas(
             AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
             Pickable::default(),
         ))
-        .observe(recolor_on::<Pointer<Over>>(Color::srgb(0.0, 1.0, 1.0)))
-        .observe(recolor_on::<Pointer<Out>>(Color::srgb(1.0, 1.0, 1.0)))
-        .observe(recolor_on::<Pointer<Press>>(Color::srgb(1.0, 1.0, 0.0)))
-        .observe(recolor_on::<Pointer<Release>>(Color::srgb(0.0, 1.0, 1.0)));
+        .observe(recolor_on::<PointerOver>(Color::srgb(0.0, 1.0, 1.0)))
+        .observe(recolor_on::<PointerOut>(Color::srgb(1.0, 1.0, 1.0)))
+        .observe(recolor_on::<PointerPress>(Color::srgb(1.0, 1.0, 0.0)))
+        .observe(recolor_on::<PointerRelease>(Color::srgb(0.0, 1.0, 1.0)));
 }
 
 // An observer that changes the target entity's color.

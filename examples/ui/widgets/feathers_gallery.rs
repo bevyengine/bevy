@@ -7,7 +7,6 @@ use bevy::{
         constants::{fonts, icons},
         containers::*,
         controls::*,
-        cursor::{EntityCursor, OverrideCursor},
         dark_theme::create_dark_theme,
         display::{caption, icon, label, label_dim, label_small},
         font_styles::InheritableFont,
@@ -17,6 +16,7 @@ use bevy::{
         tokens, FeathersPlugins,
     },
     input_focus::{tab_navigation::TabGroup, AutoFocus, InputFocus},
+    picking::cursor::{EntityCursor, OverrideCursor},
     prelude::*,
     text::{EditableText, TextEdit, TextEditChange},
     ui::{Checked, InteractionDisabled, Selected},
@@ -813,7 +813,7 @@ fn demo_column_2() -> impl Scene {
                                                 @FeathersNumberInput
                                                 DemoScalarField
                                                 NumberInputPrecision(2)
-                                                HardLimit::f32(0.0..100.0)
+                                                HardLimit::f32(0.0..=100.0)
                                                 Node {
                                                     flex_grow: 1.0,
                                                     max_width: px(100),

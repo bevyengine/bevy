@@ -40,7 +40,7 @@ use bevy_ecs::{
     observer::On,
     query::{Has, With},
     reflect::{ReflectComponent, ReflectEvent},
-    schedule::IntoScheduleConfigs,
+    schedule::{IntoScheduleConfigs, SystemSet},
     system::{Commands, Query, Res, ResMut},
 };
 use bevy_input::{
@@ -52,7 +52,9 @@ use bevy_input_focus::{
     FocusCause, FocusedInput, InputFocus, InputFocusSystems,
 };
 use bevy_log::warn;
-use bevy_picking::events::{Cancel, Click, DragEnd, Pointer, Press, Release};
+use bevy_picking::events::{
+    PointerCancel, PointerClick, PointerDragEnd, PointerPress, PointerRelease,
+};
 use bevy_reflect::Reflect;
 use bevy_ui::{InteractionDisabled, Pressed, UiSystems};
 
@@ -150,6 +152,14 @@ pub enum MenuFocusState {
     Closed,
 }
 
+/// System set for the system that menus use to acquire focus on one of its items upon first opening.
+/// It potentially modifies [`InputFocus`].
+///
+/// These system runs in the [`PostUpdate`] schedule.
+#[derive(Debug, PartialEq, Eq, Hash, Clone, SystemSet)]
+pub struct MenuFocusSystem;
+
+/// System that sets the focus to an item in the menu when the menu is opening.
 fn menu_acquire_focus(
     mut q_menus: Query<(Entity, &mut MenuFocusState), With<MenuPopup>>,
     mut focus: ResMut<InputFocus>,
@@ -329,7 +339,7 @@ fn menu_on_key_event(
 }
 
 fn menu_item_on_pointer_click(
-    mut ev: On<Pointer<Click>>,
+    mut ev: On<PointerClick>,
     mut q_state: Query<(Has<Pressed>, Has<InteractionDisabled>), With<MenuItem>>,
     mut commands: Commands,
 ) {
@@ -353,7 +363,7 @@ fn menu_item_on_pointer_click(
 }
 
 fn menu_item_on_pointer_down(
-    mut ev: On<Pointer<Press>>,
+    mut ev: On<PointerPress>,
     mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<MenuItem>>,
     mut commands: Commands,
 ) {
@@ -366,7 +376,7 @@ fn menu_item_on_pointer_down(
 }
 
 fn menu_item_on_pointer_up(
-    mut ev: On<Pointer<Release>>,
+    mut ev: On<PointerRelease>,
     mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<MenuItem>>,
     mut commands: Commands,
 ) {
@@ -379,7 +389,7 @@ fn menu_item_on_pointer_up(
 }
 
 fn menu_item_on_pointer_drag_end(
-    mut ev: On<Pointer<DragEnd>>,
+    mut ev: On<PointerDragEnd>,
     mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<MenuItem>>,
     mut commands: Commands,
 ) {
@@ -392,7 +402,7 @@ fn menu_item_on_pointer_drag_end(
 }
 
 fn menu_item_on_pointer_cancel(
-    mut ev: On<Pointer<Cancel>>,
+    mut ev: On<PointerCancel>,
     mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<MenuItem>>,
     mut commands: Commands,
 ) {
@@ -474,7 +484,10 @@ impl Plugin for MenuPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             PostUpdate,
-            (menu_acquire_focus, menu_on_lose_focus)
+            (
+                menu_acquire_focus.in_set(MenuFocusSystem),
+                menu_on_lose_focus,
+            )
                 .chain()
                 .after(VisibilitySystems::VisibilityPropagate)
                 .before(InputFocusSystems::FocusChangeEvents)
