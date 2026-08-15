@@ -211,9 +211,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
     //
     // [2]: https://en.wikipedia.org/wiki/Beer%E2%80%93Lambert_law
 
-    // Use Beer's law again to accumulate the ambient light all along the path.
-    var accumulated_color = exp(-ray_length_view * (absorption + scattering)) * ambient_color *
-        ambient_intensity;
+    var accumulated_color = vec3(0.0);
 
     // This is the amount of the background that shows through. We're actually
     // going to recompute this over and over again for each directional light,
@@ -336,16 +334,17 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
         }
     }
 
-    // Point lights and Spot lights
+    // Point lights, Spot lights, and ambient light
     let is_orthographic = view.clip_from_view[3].w == 1.0;
 
     // Reset `background_alpha` for a new raymarch.
     background_alpha = 1.0;
+    var ambient_background_alpha = 1.0;
 
     // Start raymarching.
     for (var step = 0u; step < step_count; step += 1u) {
         // As an optimization, break if we've gotten too dark.
-        if (background_alpha < 0.001) {
+        if (background_alpha < 0.001 && (ambient_intensity <= 0.0 || ambient_background_alpha < 0.001)) {
             break;
         }
 
@@ -354,19 +353,19 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
         let P_view = view_start_pos + Rd_view * f32(step) * step_size_world;
 
         var density = density_factor;
-            // Take the density texture into account, if there is one.
-            //
-            // The uvs should never go outside the (0, 0, 0) to (1, 1, 1) box,
-            // but sometimes due to floating point error they can. Handle this
-            // case.
-            @if(DENSITY_TEXTURE)
-            let P_uvw = Ro_uvw + Rd_step_uvw * f32(step);
-            @if(DENSITY_TEXTURE)
-            if (all(P_uvw >= vec3(0.0)) && all(P_uvw <= vec3(1.0))) {
-                density *= textureSampleLevel(density_texture, density_sampler, P_uvw + density_texture_offset, 0.0).r;
-            } else {
-                density = 0.0;
-            }
+        // Take the density texture into account, if there is one.
+        //
+        // The uvs should never go outside the (0, 0, 0) to (1, 1, 1) box,
+        // but sometimes due to floating point error they can. Handle this
+        // case.
+        @if(DENSITY_TEXTURE)
+        let P_uvw = Ro_uvw + Rd_step_uvw * f32(step);
+        @if(DENSITY_TEXTURE)
+        if (all(P_uvw >= vec3(0.0)) && all(P_uvw <= vec3(1.0))) {
+            density *= textureSampleLevel(density_texture, density_sampler, P_uvw + density_texture_offset, 0.0).r;
+        } else {
+            density = 0.0;
+        }
 
         var sample_color = vec3(0.0);
 
@@ -436,6 +435,11 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
         // Process absorption and out-scattering.
         background_alpha *= sample_attenuation;
         accumulated_color += sample_color * background_alpha;
+
+        // Process ambient. Ambient background alpha decreases by an amount determined by Beer's law.
+        accumulated_color += ambient_color * ambient_intensity * fog_color * scattering *
+            density * step_size_world * background_alpha * ambient_background_alpha;
+        ambient_background_alpha *= exp(-step_size_world * density * (absorption + scattering));
     }
 
     // We're done! Return the color with alpha so it can be blended onto the
