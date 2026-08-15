@@ -163,7 +163,7 @@ impl AsAssetId for Sprite {
 }
 
 /// Controls how the image is altered when scaled.
-#[derive(Default, Debug, Clone, Reflect, PartialEq)]
+#[derive(Default, Debug, Clone, Copy, Reflect, PartialEq)]
 #[reflect(Debug, Default, Clone)]
 pub enum SpriteImageMode {
     /// The sprite will take on the size of the image by default, and will be stretched or shrunk if [`Sprite::custom_size`] is set.
@@ -255,13 +255,6 @@ pub enum SpriteScalingMode {
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
 #[doc(alias = "pivot")]
 pub struct Anchor(pub Vec2);
-
-impl Eq for Anchor {}
-impl Hash for Anchor {
-    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
-        self.0.reflect_hash().hash(state);
-    }
-}
 
 #[expect(missing_docs, reason = "the associated constants are self-documenting")]
 impl Anchor {
