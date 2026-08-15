@@ -551,7 +551,7 @@ where
 
         // draw the plane line
         let direction = -normal.perp();
-        
+
         self.primitive_2d(&Line2d { direction }, isometry, polymorphic_color)
             .draw_arrow(false);
 
