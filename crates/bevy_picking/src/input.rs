@@ -27,7 +27,7 @@ use bevy_window::{PrimaryWindow, WindowEvent, WindowRef};
 use tracing::debug;
 
 use crate::pointer::{
-    Location, PointerAction, PointerButton, PointerId, PointerInput, PointerLocation,
+    Location, PointerAction, PointerId, PointerInput, PointerLocation,
 };
 
 use crate::PickingSystems;
@@ -160,15 +160,10 @@ pub fn mouse_pick_events(
                     },
                     position: *cursor_last,
                 };
-                let button = match input.button {
-                    MouseButton::Left => PointerButton::Primary,
-                    MouseButton::Right => PointerButton::Secondary,
-                    MouseButton::Middle => PointerButton::Middle,
-                    MouseButton::Other(_) | MouseButton::Back | MouseButton::Forward => continue,
-                };
+                
                 let action = match input.state {
-                    ButtonState::Pressed => PointerAction::Press(button),
-                    ButtonState::Released => PointerAction::Release(button),
+                    ButtonState::Pressed => PointerAction::Press(input.button),
+                    ButtonState::Released => PointerAction::Release(input.button),
                 };
                 pointer_inputs.write(PointerInput::new(PointerId::Mouse, location, action));
             }
@@ -231,7 +226,7 @@ pub fn touch_pick_events(
                     pointer_inputs.write(PointerInput::new(
                         pointer,
                         location,
-                        PointerAction::Press(PointerButton::Primary),
+                        PointerAction::Press(MouseButton::Left),
                     ));
 
                     touch_cache.insert(touch.id, *touch);
@@ -256,7 +251,7 @@ pub fn touch_pick_events(
                     pointer_inputs.write(PointerInput::new(
                         pointer,
                         location,
-                        PointerAction::Release(PointerButton::Primary),
+                        PointerAction::Release(MouseButton::Left),
                     ));
                     touch_cache.remove(&touch.id);
                 }

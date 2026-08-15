@@ -11,10 +11,10 @@
 use bevy_camera::NormalizedRenderTarget;
 use bevy_camera::{Camera, RenderTarget};
 use bevy_ecs::prelude::*;
-use bevy_input::mouse::MouseScrollUnit;
+use bevy_input::mouse::{MouseButton, MouseScrollUnit};
 use bevy_input::touch::TouchPhase;
 use bevy_math::Vec2;
-use bevy_platform::collections::HashMap;
+use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::prelude::*;
 use bevy_window::PrimaryWindow;
 
@@ -114,35 +114,31 @@ pub fn update_pointer_map(pointers: Query<(Entity, &PointerId)>, mut map: ResMut
 /// Tracks the state of the pointer's buttons in response to [`PointerInput`] events.
 #[derive(Debug, Default, Clone, Component, Reflect, PartialEq, Eq)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
-pub struct PointerPressState {
-    primary: bool,
-    secondary: bool,
-    middle: bool,
-}
+pub struct PointerPressState(HashSet<MouseButton>);
 
 impl PointerPressState {
     /// Returns true if the primary pointer button is pressed.
     #[inline]
     pub fn is_primary_pressed(&self) -> bool {
-        self.primary
+        self.0.contains(&MouseButton::Left)
     }
 
     /// Returns true if the secondary pointer button is pressed.
     #[inline]
     pub fn is_secondary_pressed(&self) -> bool {
-        self.secondary
+        self.0.contains(&MouseButton::Right)
     }
 
     /// Returns true if the middle (tertiary) pointer button is pressed.
     #[inline]
     pub fn is_middle_pressed(&self) -> bool {
-        self.middle
+        self.0.contains(&MouseButton::Middle)
     }
 
     /// Returns true if any pointer button is pressed.
     #[inline]
     pub fn is_any_pressed(&self) -> bool {
-        self.primary || self.middle || self.secondary
+        !self.0.is_empty()
     }
 }
 
@@ -154,25 +150,6 @@ pub enum PressDirection {
     Pressed,
     /// The pointer button was just released
     Released,
-}
-
-/// The button that was just pressed or released
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect)]
-#[reflect(Clone, PartialEq)]
-pub enum PointerButton {
-    /// The primary pointer button
-    Primary,
-    /// The secondary pointer button
-    Secondary,
-    /// The tertiary pointer button
-    Middle,
-}
-
-impl PointerButton {
-    /// Iterator over all buttons that a pointer can have.
-    pub fn iter() -> impl Iterator<Item = PointerButton> {
-        [Self::Primary, Self::Secondary, Self::Middle].into_iter()
-    }
 }
 
 /// Component that tracks a pointer's current [`Location`].
@@ -250,9 +227,9 @@ impl Location {
 #[reflect(Clone)]
 pub enum PointerAction {
     /// Causes the pointer to press a button.
-    Press(PointerButton),
+    Press(MouseButton),
     /// Causes the pointer to release a button.
-    Release(PointerButton),
+    Release(MouseButton),
     /// Move the pointer.
     Move {
         /// How much the pointer moved from the previous position.
@@ -301,7 +278,7 @@ impl PointerInput {
 
     /// Returns true if the `target_button` of this pointer was just pressed.
     #[inline]
-    pub fn button_just_pressed(&self, target_button: PointerButton) -> bool {
+    pub fn button_just_pressed(&self, target_button: MouseButton) -> bool {
         if let PointerAction::Press(button) = self.action {
             button == target_button
         } else {
@@ -311,7 +288,7 @@ impl PointerInput {
 
     /// Returns true if the `target_button` of this pointer was just released.
     #[inline]
-    pub fn button_just_released(&self, target_button: PointerButton) -> bool {
+    pub fn button_just_released(&self, target_button: MouseButton) -> bool {
         if let PointerAction::Release(button) = self.action {
             button == target_button
         } else {
@@ -331,11 +308,7 @@ impl PointerInput {
                         .iter_mut()
                         .for_each(|(pointer_id, _, mut pointer)| {
                             if *pointer_id == event.pointer_id {
-                                match button {
-                                    PointerButton::Primary => pointer.primary = true,
-                                    PointerButton::Secondary => pointer.secondary = true,
-                                    PointerButton::Middle => pointer.middle = true,
-                                }
+                                pointer.0.insert(button);
                             }
                         });
                 }
@@ -344,11 +317,7 @@ impl PointerInput {
                         .iter_mut()
                         .for_each(|(pointer_id, _, mut pointer)| {
                             if *pointer_id == event.pointer_id {
-                                match button {
-                                    PointerButton::Primary => pointer.primary = false,
-                                    PointerButton::Secondary => pointer.secondary = false,
-                                    PointerButton::Middle => pointer.middle = false,
-                                }
+                                pointer.0.remove(&button);
                             }
                         });
                 }
