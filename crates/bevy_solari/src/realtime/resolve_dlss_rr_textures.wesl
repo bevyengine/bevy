@@ -33,9 +33,9 @@ fn resolve_dlss_rr_textures(@builtin(global_invocation_id) global_id: vec3<u32>)
     let surface_motion_vector = textureLoad(motion_vectors, pixel_id).xy;
 
     textureStore(dlss_rr_depth, pixel_id, vec4(depth));
+    textureStore(specular_motion_vectors, pixel_id, vec4(surface_motion_vector, vec2(0.0)));
 
     if depth == 0.0 {
-        textureStore(specular_motion_vectors, pixel_id, vec4(surface_motion_vector, vec2(0.0)));
         textureStore(diffuse_albedo, pixel_id, vec4(0.0));
         textureStore(specular_albedo, pixel_id, vec4(0.5));
         textureStore(normal_roughness, pixel_id, vec4(0.0, 0.0, 1.0, 0.0));
@@ -49,10 +49,6 @@ fn resolve_dlss_rr_textures(@builtin(global_invocation_id) global_id: vec3<u32>)
     textureStore(diffuse_albedo, pixel_id, vec4(calculate_diffuse_color(surface.material.base_color, surface.material.metallic, 0.0, 0.0), 0.0));
     textureStore(specular_albedo, pixel_id, vec4(env_brdf_approx2(F0, surface.material.roughness, surface.world_normal, wo), 0.0));
     textureStore(normal_roughness, pixel_id, vec4(surface.world_normal, surface.material.perceptual_roughness));
-
-    if !needs_specular_motion_vector(surface.material.roughness) {
-        textureStore(specular_motion_vectors, pixel_id, vec4(surface_motion_vector, vec2(0.0)));
-    }
 }
 
 fn needs_specular_motion_vector(roughness: f32) -> bool {
