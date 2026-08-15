@@ -961,6 +961,7 @@ fn demo_column_3() -> impl Scene {
                     label("Armor Tint"),
                     @FeathersColorInput
                     ColorInputValue(palettes::tailwind::AMBER_600)
+                    on(color_input_self_update)
                 ]
             ),
             (
@@ -974,6 +975,7 @@ fn demo_column_3() -> impl Scene {
                     label("Skin Color"),
                     @FeathersColorInput
                     ColorInputValue(palettes::tailwind::BLUE_800)
+                    on(color_input_self_update)
                 ]
             )
         ]

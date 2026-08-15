@@ -1,14 +1,13 @@
 use alloc::sync::Arc;
 
 use bevy_app::{Plugin, PostUpdate};
-use bevy_color::{Color, Srgba};
+use bevy_color::{Alpha, Color, Hsla, Srgba};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     component::Component,
     entity::Entity,
-    error::warn,
+    event::EntityEvent,
     hierarchy::{ChildOf, Children},
-    lifecycle::Insert,
     observer::On,
     query::{Changed, With},
     reflect::ReflectComponent,
@@ -17,11 +16,13 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut},
     template::FromTemplate,
 };
-use bevy_input_focus::{tab_navigation::TabIndex, AutoFocus};
-use bevy_log::{info, warn};
+use bevy_input::keyboard::{KeyCode, KeyboardInput};
+use bevy_input_focus::{tab_navigation::TabIndex, AutoFocus, FocusLost, FocusedInput};
+use bevy_log::warn;
 use bevy_math::{Vec2, Vec3};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_scene::prelude::*;
+use bevy_scene::{prelude::*, Ready};
+use bevy_text::{EditableText, Justify, TextEdit, TextLayout};
 use bevy_ui::{
     prelude::AccessibleLabel, px, AlignItems, AlignSelf, Display, FlexDirection, GridPlacement,
     GridTrack, JustifySelf, Node, RepeatedGridTrack, UiRect,
@@ -34,10 +35,11 @@ use bevy_ui_widgets::{
 use crate::{
     constants::fonts,
     controls::{
-        ButtonVariant, ColorChannel, ColorPlaneValue, ColorSwatchValue, FeathersButton,
-        FeathersColorPlane, FeathersColorSlider, FeathersColorSwatch, FeathersLazyMenu,
-        FeathersMenuPopup, FeathersMenuToolButton, FeathersNumberInput, FeathersTextInput,
-        FeathersTextInputContainer, NumberInputPrecision, NumberInputValue,
+        ButtonVariant, ColorChannel, ColorPlaneValue, ColorSlider, ColorSwatchValue,
+        FeathersButton, FeathersColorPlane, FeathersColorSlider, FeathersColorSwatch,
+        FeathersLazyMenu, FeathersMenuPopup, FeathersMenuToolButton, FeathersNumberInput,
+        FeathersTextInput, FeathersTextInputContainer, HardLimit, NumberInputPrecision,
+        NumberInputRange, NumberInputStep, NumberInputValue,
     },
     display::{caption, label},
     font_styles::InheritableFont,
@@ -112,7 +114,12 @@ struct PopupEntityRefs {
     a_slider: Entity,
     a_input: Entity,
     hex_input: Entity,
+    swatch: Entity,
 }
+
+/// Marks the number input so that we know what channel it's editing.
+#[derive(Component, Default, Clone)]
+struct NumberInputChannel(ColorChannel);
 
 impl FeathersColorInput {
     fn scene(props: FeathersColorInputProps) -> impl Scene {
@@ -137,12 +144,10 @@ impl FeathersColorInput {
                                 align_self: AlignSelf::Center,
                                 justify_self: JustifySelf::Start,
                             }
-                            on(handle_swatch_init)
                          }
                     }
                 )
             ]
-            on(handle_update_input_color)
         }
     }
 }
@@ -167,12 +172,15 @@ fn color_input_popup() -> Box<dyn Scene> {
             a_slider: #a_slider,
             a_input: #a_input,
             hex_input: #hex_input,
+            swatch: #swatch,
         }
         Node {
-            width: px(256 + 8),
+            width: px(256 + 8 + 8 + 2),
+            row_gap: px(4),
+            padding: px(4)
         }
         TabIndex
-        on(handle_popup_init)
+        on(handle_popup_ready)
         Popover {
             positions: vec![
                 PopoverPlacement {
@@ -214,7 +222,6 @@ fn color_input_popup() -> Box<dyn Scene> {
                     display: Display::Flex,
                     flex_direction: FlexDirection::Row,
                     column_gap: px(1),
-                    padding: UiRect::axes(px(4), px(0)),
                 }
                 Children [
                     (
@@ -273,7 +280,7 @@ fn color_input_popup() -> Box<dyn Scene> {
                     width: px(256 + 8),
                     height: px(256 + 8),
                 }
-                on(handle_rg_color_plane)
+                on(rg_color_plane_value_change)
             ),
             Node {
                 display: Display::Grid,
@@ -284,10 +291,8 @@ fn color_input_popup() -> Box<dyn Scene> {
                     RepeatedGridTrack::flex(1, 1.),
                     RepeatedGridTrack::px(1, 50.),
                 ],
-                // grid_template_rows: vec![RepeatedGridTrack::px(4, 24.0)],
                 grid_auto_rows: vec![GridTrack::px(24.0)],
                 align_items: AlignItems::Center,
-                margin: UiRect::axes(px(4), px(0)),
             }
             Children [
                 label("R"),
@@ -298,22 +303,20 @@ fn color_input_popup() -> Box<dyn Scene> {
                         @channel: ColorChannel::Red
                     }
                     AccessibleLabel("Red Channel")
-                    on(|_change: On<ValueChange<f32>>| {
-                        // color.rgb_color.blue = change.value;
-                    })
+                    on(color_slider_value_change)
                 ),
                 (
                     #r_input
                     @FeathersNumberInput
-                    NumberInputPrecision(2)
-                    // DemoVec3Field::X
+                    template_value(NumberInputValue::F32(0.0))
+                    template_value(HardLimit(NumberInputRange::F32(0.0..=255.0)))
+                    NumberInputPrecision(1)
+                    NumberInputStep(10.0)
+                    NumberInputChannel(ColorChannel::Red)
                     Node {
                         flex_grow: 1.0,
                     }
-                    on(
-                        |value_change: On<ValueChange<f32>>| {
-                        // states.vec3_prop.x = value_change.value;
-                    })
+                    on(number_input_value_change)
                 ),
                 label("G"),
                 (
@@ -323,22 +326,20 @@ fn color_input_popup() -> Box<dyn Scene> {
                         @channel: ColorChannel::Green
                     }
                     AccessibleLabel("Green Channel")
-                    on(|_change: On<ValueChange<f32>>| {
-                        // color.rgb_color.blue = change.value;
-                    })
+                    on(color_slider_value_change)
                 ),
                 (
                     #g_input
                     @FeathersNumberInput
-                    NumberInputPrecision(2)
-                    // DemoVec3Field::X
+                    template_value(NumberInputValue::F32(0.0))
+                    template_value(HardLimit(NumberInputRange::F32(0.0..=255.0)))
+                    NumberInputPrecision(1)
+                    NumberInputStep(10.0)
+                    NumberInputChannel(ColorChannel::Green)
                     Node {
                         flex_grow: 1.0,
                     }
-                    on(
-                        |value_change: On<ValueChange<f32>>| {
-                        // states.vec3_prop.x = value_change.value;
-                    })
+                    on(number_input_value_change)
                 ),
                 label("B"),
                 (
@@ -348,22 +349,20 @@ fn color_input_popup() -> Box<dyn Scene> {
                         @channel: ColorChannel::Blue
                     }
                     AccessibleLabel("Blue Channel")
-                    on(|_change: On<ValueChange<f32>>| {
-                        // color.rgb_color.blue = change.value;
-                    })
+                    on(color_slider_value_change)
                 ),
                 (
                     #b_input
                     @FeathersNumberInput
-                    NumberInputPrecision(2)
-                    // DemoVec3Field::X
+                    template_value(NumberInputValue::F32(0.0))
+                    template_value(HardLimit(NumberInputRange::F32(0.0..=255.0)))
+                    NumberInputPrecision(1)
+                    NumberInputStep(10.0)
+                    NumberInputChannel(ColorChannel::Blue)
                     Node {
                         flex_grow: 1.0,
                     }
-                    on(
-                        |value_change: On<ValueChange<f32>>| {
-                        // states.vec3_prop.x = value_change.value;
-                    })
+                    on(number_input_value_change)
                 ),
                 label("A"),
                 (
@@ -373,36 +372,36 @@ fn color_input_popup() -> Box<dyn Scene> {
                         @channel: ColorChannel::Alpha
                     }
                     AccessibleLabel("Alpha Channel")
-                    on(|_change: On<ValueChange<f32>>| {
-                        // color.rgb_color.alpha = change.value;
-                    })
+                    on(color_slider_value_change)
                 ),
                 (
                     #a_input
                     @FeathersNumberInput
-                    NumberInputPrecision(2)
-                    // DemoVec3Field::X
+                    template_value(NumberInputValue::F32(0.0))
+                    template_value(HardLimit(NumberInputRange::F32(0.0..=255.0)))
+                    NumberInputPrecision(1)
+                    NumberInputStep(10.0)
+                    NumberInputChannel(ColorChannel::Alpha)
                     Node {
                         flex_grow: 1.0,
                     }
-                    on(
-                        |value_change: On<ValueChange<f32>>| {
-                        // states.vec3_prop.x = value_change.value;
-                    })
+                    on(number_input_value_change)
                 ),
                 (
                     @FeathersTextInputContainer
                     Node {
                         flex_grow: 0.
                         padding: { px(4).left() },
-                        grid_column: GridPlacement::span(3),
+                        grid_column: GridPlacement::span(2),
                     }
                     Children [
                         (
                             #hex_input
                             @FeathersTextInput {
-                                // @visible_width: 10f32,
                                 @max_characters: 9usize,
+                            }
+                            TextLayout {
+                                justify: Justify::Center,
                             }
                             Node {
                                 margin: UiRect {
@@ -415,15 +414,27 @@ fn color_input_popup() -> Box<dyn Scene> {
                             InheritableFont {
                                 font: fonts::MONO
                             }
+                            on(hex_input_on_enter_key)
+                            on(hex_input_on_focus_loss)
                         )
                     ]
+                ),
+                (
+                #swatch
+                    @FeathersColorSwatch {
+                        @opaque_color_percentage: 50.0,
+                    }
+                    Node {
+                        flex_grow: 0.0,
+                        align_self: AlignSelf::Stretch,
+                    }
                 )
             ],
         ]
     ))
 }
 
-fn handle_rg_color_plane(
+fn rg_color_plane_value_change(
     change: On<ValueChange<Vec2>>,
     q_parent: Query<&ChildOf>,
     q_value: Query<(Entity, &ColorInputValue)>,
@@ -436,67 +447,212 @@ fn handle_rg_color_plane(
         let mut rgb = color.to_srgba();
         rgb.red = change.value.x;
         rgb.green = change.value.y;
-        info!("Plane: {rgb:?}");
+        let value: Color = rgb.into();
         commands.trigger(ValueChange {
             source: root_id,
-            value: rgb,
+            value,
             is_final: change.is_final,
         });
     }
 }
 
-fn handle_update_input_color(
-    insert: On<Insert, ColorInputValue>,
-    q_color_input: Query<
-        (&ColorInputValue, &ButtonEntityRefs, &Children),
-        With<FeathersColorInput>,
-    >,
-    q_popup: Query<&PopupEntityRefs, With<FeathersMenuPopup>>,
+fn color_slider_value_change(
+    change: On<ValueChange<f32>>,
+    q_slider: Query<&ColorSlider>,
+    q_parent: Query<&ChildOf>,
+    q_value: Query<(Entity, &ColorInputValue)>,
     mut commands: Commands,
 ) {
-    let input_ent = insert.entity;
-    if let Ok((&ColorInputValue(value), refs, children)) = q_color_input.get(input_ent) {
-        commands.entity(refs.0).insert(ColorSwatchValue(value));
+    let Some(slider) = q_slider.get(change.source).ok() else {
+        return;
+    };
 
-        if children.is_empty() {
-            warn!("FeathersColorInput missing children");
-        } else if let Some(refs) = children
-            .iter()
-            .find_map(|child_id| q_popup.get(*child_id).ok())
-        {
-            info!("Got refs: {refs:?}");
+    if let Some((root_id, ColorInputValue(color))) = q_parent
+        .iter_ancestors(change.source)
+        .find_map(|e| q_value.get(e).ok())
+    {
+        let new_value: Color = match slider.channel {
+            ColorChannel::Red => {
+                let mut rgb = color.to_srgba();
+                rgb.red = change.value;
+                rgb.into()
+            }
+            ColorChannel::Green => {
+                let mut rgb = color.to_srgba();
+                rgb.green = change.value;
+                rgb.into()
+            }
+            ColorChannel::Blue => {
+                let mut rgb = color.to_srgba();
+                rgb.blue = change.value;
+                rgb.into()
+            }
+            ColorChannel::HslHue => {
+                let mut hsl: Hsla = (*color).into();
+                hsl.hue = change.value;
+                hsl.into()
+            }
+            ColorChannel::HslSaturation => {
+                let mut hsl: Hsla = (*color).into();
+                hsl.saturation = change.value;
+                hsl.into()
+            }
+            ColorChannel::HslLightness => {
+                let mut hsl: Hsla = (*color).into();
+                hsl.lightness = change.value;
+                hsl.into()
+            }
+            ColorChannel::Alpha => color.with_alpha(change.value),
+        };
+        commands.trigger(ValueChange {
+            source: root_id,
+            value: new_value,
+            is_final: change.is_final,
+        });
+    }
+}
+
+fn number_input_value_change(
+    change: On<ValueChange<f32>>,
+    q_input: Query<&NumberInputChannel>,
+    q_parent: Query<&ChildOf>,
+    q_value: Query<(Entity, &ColorInputValue)>,
+    mut commands: Commands,
+) {
+    let Some(channel) = q_input.get(change.source).ok() else {
+        return;
+    };
+
+    if let Some((root_id, ColorInputValue(color))) = q_parent
+        .iter_ancestors(change.source)
+        .find_map(|e| q_value.get(e).ok())
+    {
+        let new_value: Color = match channel.0 {
+            ColorChannel::Red => {
+                let mut rgb = color.to_srgba();
+                rgb.red = change.value / 255.0;
+                rgb.into()
+            }
+            ColorChannel::Green => {
+                let mut rgb = color.to_srgba();
+                rgb.green = change.value / 255.0;
+                rgb.into()
+            }
+            ColorChannel::Blue => {
+                let mut rgb = color.to_srgba();
+                rgb.blue = change.value / 255.0;
+                rgb.into()
+            }
+            ColorChannel::HslHue => {
+                let mut hsl: Hsla = (*color).into();
+                hsl.hue = change.value;
+                hsl.into()
+            }
+            ColorChannel::HslSaturation => {
+                let mut hsl: Hsla = (*color).into();
+                hsl.saturation = change.value;
+                hsl.into()
+            }
+            ColorChannel::HslLightness => {
+                let mut hsl: Hsla = (*color).into();
+                hsl.lightness = change.value;
+                hsl.into()
+            }
+            ColorChannel::Alpha => color.with_alpha(change.value / 255.0),
+        };
+        commands.trigger(ValueChange {
+            source: root_id,
+            value: new_value,
+            is_final: change.is_final,
+        });
+    }
+}
+
+fn hex_input_on_enter_key(
+    key_input: On<FocusedInput<KeyboardInput>>,
+    q_text_input: Query<&EditableText>,
+    q_parent: Query<&ChildOf>,
+    q_value: Query<(Entity, &ColorInputValue)>,
+    mut commands: Commands,
+) {
+    if key_input.input.key_code != KeyCode::Enter {
+        return;
+    }
+
+    let Some(editable_text) = q_text_input.get(key_input.event_target()).ok() else {
+        return;
+    };
+
+    let Some((root_id, ColorInputValue(color))) = q_parent
+        .iter_ancestors(key_input.event_target())
+        .find_map(|e| q_value.get(e).ok())
+    else {
+        return;
+    };
+
+    hex_input_value_change(root_id, *color, editable_text, &mut commands);
+}
+
+fn hex_input_on_focus_loss(
+    focus_lost: On<FocusLost>,
+    q_text_input: Query<&EditableText>,
+    q_parent: Query<&ChildOf>,
+    q_value: Query<(Entity, &ColorInputValue)>,
+    mut commands: Commands,
+) {
+    let Some(editable_text) = q_text_input.get(focus_lost.event_target()).ok() else {
+        return;
+    };
+
+    let Some((root_id, ColorInputValue(color))) = q_parent
+        .iter_ancestors(focus_lost.event_target())
+        .find_map(|e| q_value.get(e).ok())
+    else {
+        return;
+    };
+
+    hex_input_value_change(root_id, *color, editable_text, &mut commands);
+}
+
+fn hex_input_value_change(
+    root_id: Entity,
+    current_color: Color,
+    editable_text: &EditableText,
+    commands: &mut Commands,
+) {
+    if let Ok(new_rgb_color) = Srgba::hex(editable_text.value().to_string()) {
+        let new_color: Color = new_rgb_color.into();
+        if new_color != current_color {
+            commands.trigger(ValueChange {
+                source: root_id,
+                value: new_color,
+                is_final: true,
+            });
         }
     }
 }
 
-fn handle_swatch_init(
-    insert: On<Insert, FeathersColorSwatch>,
-    q_parent: Query<&ChildOf>,
-    q_color_input: Query<&ColorInputValue>,
+fn color_input_value_change(
+    q_input: Query<(&ColorInputValue, &ButtonEntityRefs, &Children), Changed<ColorInputValue>>,
+    q_popup: Query<&PopupEntityRefs, With<FeathersMenuPopup>>,
+    mut q_color_plane: Query<&mut ColorPlaneValue>,
+    mut q_editable_text: Query<&mut EditableText>,
     mut commands: Commands,
 ) {
-    let Some(&ColorInputValue(value)) = q_parent
-        .iter_ancestors(insert.entity)
-        .find_map(|e| q_color_input.get(e).ok())
-    else {
-        warn!("Missing ColorInputValue");
-        return;
-    };
+    for (&ColorInputValue(value), refs, children) in q_input.iter() {
+        commands.entity(refs.0).insert(ColorSwatchValue(value));
 
-    commands
-        .entity(insert.entity)
-        .insert(ColorSwatchValue(value));
-}
-
-fn update_swatch_color(
-    q_swatch: Query<(&ColorInputValue, &Children), Changed<ColorInputValue>>,
-    mut commands: Commands,
-) {
-    for (value, children) in q_swatch.iter() {
-        if let Some(second_child) = children.get(1) {
-            // commands
-            //     .entity(*second_child)
-            //     .insert(BackgroundColor(value.0.with_alpha(1.0)));
+        if let Some(refs) = children
+            .iter()
+            .find_map(|child_id| q_popup.get(*child_id).ok())
+        {
+            update_controls(
+                &mut q_color_plane,
+                &mut q_editable_text,
+                &mut commands,
+                refs,
+                &value,
+            );
         }
     }
 }
@@ -541,10 +697,11 @@ fn set_mode_selector(
     }
 }
 
-fn handle_popup_init(
-    insert: On<Insert, PopupEntityRefs>,
+fn handle_popup_ready(
+    insert: On<Ready>,
     q_popup: Query<(&PopupEntityRefs, &ChildOf)>,
     q_color_input: Query<&ColorInputValue>,
+    mut q_editable_text: Query<&mut EditableText>,
     mut q_color_plane: Query<&mut ColorPlaneValue>,
     mut commands: Commands,
 ) {
@@ -557,13 +714,28 @@ fn handle_popup_init(
         return;
     };
 
+    update_controls(
+        &mut q_color_plane,
+        &mut q_editable_text,
+        &mut commands,
+        refs,
+        value,
+    );
+}
+
+fn update_controls(
+    q_color_plane: &mut Query<'_, '_, &mut ColorPlaneValue>,
+    q_editble_text: &mut Query<'_, '_, &mut EditableText>,
+    commands: &mut Commands<'_, '_>,
+    refs: &PopupEntityRefs,
+    value: &Color,
+) {
     let rgb: Srgba = value.to_srgba();
 
-    // if let Ok(mut color_plane_value) = q_color_plane.get_mut(refs.rg_plane) {
-    //     color_plane_value.set_if_neq(ColorPlaneValue(Vec3::new(rgb.red, rgb.green, rgb.blue)));
-    // } else {
-    //     warn!("Color plane not found: {:?}", refs.rg_plane);
-    // }
+    if let Ok(mut color_plane_value) = q_color_plane.get_mut(refs.rg_plane) {
+        color_plane_value.set_if_neq(ColorPlaneValue(Vec3::new(rgb.red, rgb.green, rgb.blue)));
+    }
+
     commands
         .entity(refs.rg_plane)
         .insert(ColorPlaneValue(Vec3::new(rgb.red, rgb.green, rgb.blue)));
@@ -575,18 +747,28 @@ fn handle_popup_init(
     commands
         .entity(refs.a_slider)
         .insert(SliderValue(rgb.alpha));
+    // Convert to nearest lower tenth, so that the string of digits
+    // won't be too long to display in the limited space.
     commands.entity(refs.r_input).insert(NumberInputValue::F32(
-        (rgb.red * 256.0 * 10.0).floor() * 0.1,
+        (rgb.red * 256.0 * 10.0).floor() / 10.0,
     ));
     commands.entity(refs.g_input).insert(NumberInputValue::F32(
-        (rgb.green * 256.0 * 10.0).floor() * 0.1,
+        (rgb.green * 256.0 * 10.0).floor() / 10.0,
     ));
     commands.entity(refs.b_input).insert(NumberInputValue::F32(
-        (rgb.blue * 256.0 * 10.0).floor() * 0.1,
+        (rgb.blue * 256.0 * 10.0).floor() / 10.0,
     ));
     commands.entity(refs.a_input).insert(NumberInputValue::F32(
-        (rgb.alpha * 256.0 * 10.0).floor() * 0.1,
+        (rgb.alpha * 256.0 * 10.0).floor() / 10.0,
     ));
+    commands
+        .entity(refs.swatch)
+        .insert(ColorSwatchValue(*value));
+
+    if let Ok(mut editable_text) = q_editble_text.get_mut(refs.hex_input) {
+        editable_text.queue_edit(TextEdit::SelectAll);
+        editable_text.queue_edit(TextEdit::Insert(rgb.to_hex().into()));
+    }
 }
 
 /// Plugin which registers the observers for updating the swatch color.
@@ -595,6 +777,13 @@ pub struct ColorInputPlugin;
 impl Plugin for ColorInputPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.init_resource::<ColorInputSettings>();
-        app.add_systems(PostUpdate, (update_mode_selector, update_swatch_color));
+        app.add_systems(PostUpdate, (update_mode_selector, color_input_value_change));
     }
+}
+
+/// Observer function which updates the color input value in response to a [`ValueChange`] event.
+pub fn color_input_self_update(value_change: On<ValueChange<Color>>, mut commands: Commands) {
+    commands
+        .entity(value_change.source)
+        .insert(ColorInputValue(value_change.value));
 }
