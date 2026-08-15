@@ -172,7 +172,7 @@ pub fn mark_dirty_trees(
         ComputeTaskPool::get().scope(|scope| {
             traversal_channels.chunk_size = 1024;
             consumer_channels.chunk_size = 1024;
-            let (traversal_rx, mut traversal_tx) = traversal_channels.unbounded();
+            let (traversal_rx, traversal_tx) = traversal_channels.unbounded();
             let (consumer_rx, mut consumer_tx) = consumer_channels.unbounded();
             let shared_bitset: &[core::sync::atomic::AtomicU64] = &shared_bitset;
             let local_bitset = &*local_bitset;
@@ -262,12 +262,11 @@ pub fn mark_dirty_trees(
             // dropped at the end of this closure, closing the channel and allowing the other tasks
             // to exit.
             //
-            // Note that we send the entity directly to the consumer as well, we do this to start
-            // feeding it work as soon as possible. The traversal worker should skip sending these
-            // leaves to the consumer because it has already been sent here.
+            // Note that we send changed entities directly to the consumer as well; we do this to
+            // start feeding it work as soon as possible. The traversal worker should skip sending
+            // these leaves to the consumer because they have already been sent here.
             let mut producer = move || {
                 for entity in orphaned.read() {
-                    let _ = traversal_tx.send_blocking(entity);
                     let _ = consumer_tx.send_blocking(entity);
                 }
                 // Changed<> table scans are slow, so we parallelize them to improve performance.
