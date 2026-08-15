@@ -23,7 +23,7 @@ use winit::{event_loop::EventLoop, window::WindowId};
 use bevy_a11y::AccessibilityRequested;
 use bevy_app::{App, Last, OnAppExitSystems, Plugin};
 use bevy_ecs::prelude::*;
-use bevy_window::{CursorOptions, Window, WindowCreated};
+use bevy_window::{CursorOptions, DisplayHandleResource, Window, WindowCreated};
 use system::{changed_cursor_options, changed_windows, check_keyboard_focus_lost, despawn_windows};
 pub use system::{create_monitors, create_windows};
 #[cfg(all(target_family = "wasm", target_os = "unknown"))]
@@ -150,9 +150,14 @@ impl Plugin for WinitPlugin {
             });
         }
 
+        let owned_display = event_loop.owned_display_handle();
+
         app.init_resource::<WinitMonitors>()
             .init_resource::<WinitSettings>()
-            .insert_resource(DisplayHandleWrapper(event_loop.owned_display_handle()))
+            .insert_resource(DisplayHandleWrapper(owned_display.clone()))
+            .insert_resource(DisplayHandleResource::new(
+                event_loop.owned_display_handle(),
+            ))
             .insert_resource(EventLoopProxyWrapper(event_loop_proxy))
             .add_message::<RawWinitWindowEvent>()
             .set_runner(|app| winit_runner(app, event_loop))

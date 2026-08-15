@@ -4,9 +4,9 @@
 )]
 
 use alloc::sync::Arc;
-use bevy_ecs::prelude::Component;
+use bevy_ecs::prelude::{Component, Resource};
 use bevy_platform::sync::Mutex;
-use core::{any::Any, marker::PhantomData, ops::Deref};
+use core::{any::Any, fmt, marker::PhantomData, ops::Deref};
 use raw_window_handle::{
     DisplayHandle, HandleError, HasDisplayHandle, HasWindowHandle, RawDisplayHandle,
     RawWindowHandle, WindowHandle,
@@ -164,3 +164,30 @@ impl HasDisplayHandle for ThreadLockedRawWindowHandleWrapper {
 /// Holder of the [`RawHandleWrapper`] with wrappers, to allow use in asynchronous context
 #[derive(Debug, Clone, Component)]
 pub struct RawHandleWrapperHolder(pub Arc<Mutex<Option<RawHandleWrapper>>>);
+
+/// A resource that provides a backend-independent display handle.
+///
+/// Allows rendering systems to access the display handle without depending
+/// on a specific windowing backend, such as `winit`.
+#[derive(Resource, Clone)]
+pub struct DisplayHandleResource(Arc<dyn HasDisplayHandle + Send + Sync>);
+
+impl DisplayHandleResource {
+    /// Creates a resource that owns the provided display handle.
+    pub fn new(handle: impl HasDisplayHandle + Send + Sync + 'static) -> Self {
+        Self(Arc::new(handle))
+    }
+}
+
+impl HasDisplayHandle for DisplayHandleResource {
+    fn display_handle(&self) -> Result<DisplayHandle<'_>, HandleError> {
+        self.0.display_handle()
+    }
+}
+
+impl fmt::Debug for DisplayHandleResource {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("DisplayHandleResource")
+            .finish_non_exhaustive()
+    }
+}
