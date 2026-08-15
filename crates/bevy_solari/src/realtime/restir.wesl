@@ -81,7 +81,7 @@ fn load_temporal_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3
         return NeighborInfo(empty_reservoir(), vec3(0.0), vec3(0.0), empty_material());
     }
 
-    let motion_vector = textureLoad(motion_vectors, pixel_id, 0).xy;
+    let motion_vector = textureLoad(motion_vectors, pixel_id).xy;
     let temporal_pixel_id_float = round(vec2<f32>(pixel_id) - (motion_vector * view.main_pass_viewport.zw));
 
     // If reprojection lands off-screen, fall back to this pixel's own previous reservoir rather than
