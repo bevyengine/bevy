@@ -1675,7 +1675,8 @@ pub(crate) fn prepare_clusters_for_gpu_clustering(
             Some(view_irradiance_volumes) => view_irradiance_volumes.len() as u32,
             None => 0,
         };
-        let decal_count = render_clustered_decals.len() as u32;
+        // Light textures share the decal buffer but aren't clusterable objects.
+        let decal_count = render_clustered_decals.clusterable_decal_count() as u32;
 
         // Initialize the metadata.
         *view_gpu_clustering_buffers
