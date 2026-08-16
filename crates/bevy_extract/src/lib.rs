@@ -26,7 +26,7 @@
 //! struct SomeComponent;
 //! ```
 //!
-//! This adds the mechanism to first sync the entities from the main world to the sub world.
+//! This adds `SyncComponent` to first sync the entities from the main world to the sub world.
 //! And then sync the component data from the main entity to the sub entity.
 //!
 //! More complex use cases may want to manually implement the `ExtractComponent` or `ExtractResource` traits directly.
@@ -36,6 +36,7 @@
 //! The sub app can access the main world in the [`ExtractSchedule`](`crate::ExtractSchedule`).
 //! Adding a system with a query wrapped in [`Extract`](`crate::Extract`) and it will run against the main app world.
 //!
+//! [`SyncComponent`]: crate::sync_component::SyncComponent
 //! [`ExtractComponent`]: crate::extract_component::ExtractComponent
 //! [`ExtractResource`]: crate::extract_resource::ExtractResource
 
