@@ -391,253 +391,6 @@ impl SparseBufferStagingBuffers {
     }
 }
 
-/// The CPU-side storage of a sparse buffer's elements.
-///
-/// This trait abstracts over element storage so that the parts of the sparse
-/// buffer logic that are shared between the atomic and non-atomic variants can
-/// be written once. The atomic variant stores elements as their
-/// [`AtomicPod::Blob`] representation, which permits thread-safe element
-/// updates; the non-atomic variant stores plain values, which requires
-/// exclusive access but has no atomic overhead.
-trait SparseBufferValues<T> {
-    /// Returns the number of elements.
-    fn len(&self) -> usize;
-    /// Returns true if the storage contains no elements.
-    fn is_empty(&self) -> bool {
-        self.len() == 0
-    }
-    /// Reads the element at the given index, or `None` if the index is out of
-    /// range.
-    fn get(&self, index: usize) -> Option<T>;
-    /// Appends the given element, returning its index.
-    fn push(&mut self, value: T) -> usize;
-    /// Removes all elements.
-    fn clear(&mut self);
-    /// Grows the storage to `new_len` elements, filling any new elements with
-    /// default values.
-    fn resize_with(&mut self, new_len: usize);
-}
-
-/// The atomic element storage: each element is kept as its
-/// [`AtomicPod::Blob`] representation, which permits thread-safe element
-/// updates.
-struct AtomicValues<T: AtomicPod>(Vec<T::Blob>);
-
-impl<T: AtomicPod> SparseBufferValues<T> for AtomicValues<T> {
-    fn len(&self) -> usize {
-        self.0.len()
-    }
-
-    fn get(&self, index: usize) -> Option<T> {
-        self.0.get(index).map(|blob| T::read_from_blob(blob))
-    }
-
-    fn push(&mut self, value: T) -> usize {
-        let index = self.0.len();
-        self.0.push(T::Blob::default());
-        value.write_to_blob_mut(&mut self.0[index]);
-        index
-    }
-
-    fn clear(&mut self) {
-        self.0.clear();
-    }
-
-    fn resize_with(&mut self, new_len: usize) {
-        self.0.resize_with(new_len, T::Blob::default);
-    }
-}
-
-/// The non-atomic element storage: plain values, updated under exclusive
-/// access.
-struct PlainValues<T>(Vec<T>);
-
-impl<T: Pod + Default> SparseBufferValues<T> for PlainValues<T> {
-    fn len(&self) -> usize {
-        self.0.len()
-    }
-
-    fn get(&self, index: usize) -> Option<T> {
-        self.0.get(index).copied()
-    }
-
-    fn push(&mut self, value: T) -> usize {
-        let index = self.0.len();
-        self.0.push(value);
-        index
-    }
-
-    fn clear(&mut self) {
-        self.0.clear();
-    }
-
-    fn resize_with(&mut self, new_len: usize) {
-        self.0.resize_with(new_len, T::default);
-    }
-}
-
-/// The variant-independent GPU state shared by both sparse buffer variants.
-struct SparseBufferState {
-    /// An ID that uniquely identifies this sparse buffer.
-    handle: SparseBufferHandle,
-    /// The GPU buffer, if allocated.
-    data_buffer: Option<Buffer>,
-    /// The GPU buffers that data is copied into in preparation to be scattered
-    /// to the [`Self::data_buffer`].
-    staging_buffers: SparseBufferStagingBuffers,
-    /// A GPU buffer that stores information such as the element size and stride
-    /// that's needed to perform sparse updates.
-    metadata_uniform: UniformBuffer<GpuSparseBufferUpdateMetadata>,
-    /// The capacity of the GPU buffer in elements.
-    capacity: usize,
-    /// The allowed `wgpu` buffer usages for the GPU buffer.
-    buffer_usages: BufferUsages,
-    /// An optional debug label to identify this buffer.
-    label: Arc<str>,
-    /// True if the entire buffer needs to be reuploaded because it resized.
-    needs_full_reupload: bool,
-    /// True if a sparse update is to be performed.
-    sparse_update_scheduled: bool,
-}
-
-impl SparseBufferState {
-    /// Creates a new [`SparseBufferState`] for elements of type `T`.
-    fn new<T: Pod>(buffer_usages: BufferUsages, label: Arc<str>) -> Self {
-        // Make sure the value is word-aligned.
-        debug_assert_eq!(size_of::<T>() % 4, 0);
-        let element_word_size = size_of::<T>() / 4;
-
-        // Create a unique ID.
-        let id = Arc::new(SparseBufferId(
-            NEXT_SPARSE_BUFFER_ID.fetch_add(1, Ordering::Relaxed),
-        ));
-
-        Self {
-            handle: id,
-            data_buffer: None,
-            staging_buffers: SparseBufferStagingBuffers::new(&label, element_word_size as u32),
-            metadata_uniform: UniformBuffer::from(GpuSparseBufferUpdateMetadata::new::<T>()),
-            capacity: 0,
-            buffer_usages: buffer_usages | BufferUsages::COPY_DST,
-            label,
-            needs_full_reupload: false,
-            sparse_update_scheduled: false,
-        }
-    }
-
-    /// Returns a handle to the buffer, if the data has been uploaded.
-    fn buffer(&self) -> Option<&Buffer> {
-        self.data_buffer.as_ref()
-    }
-
-    /// Ensures that the backing GPU buffer is present and appropriately sized
-    /// for `new_capacity` elements of the given size.
-    fn reserve(&mut self, new_capacity: usize, render_device: &RenderDevice, element_size: usize) {
-        // If the buffer is already big enough, do nothing.
-        if new_capacity == 0 || new_capacity <= self.capacity {
-            return;
-        }
-
-        self.capacity = new_capacity;
-        self.data_buffer = Some(render_device.create_buffer(&BufferDescriptor {
-            label: Some(&self.label),
-            size: element_size as u64 * new_capacity as u64,
-            usage: self.buffer_usages,
-            mapped_at_creation: false,
-        }));
-
-        // Since we resized the buffer, we need to reupload it.
-        self.needs_full_reupload = true;
-    }
-
-    /// If a sparse update has been scheduled, prepares all GPU resources
-    /// necessary to perform a sparse buffer update, other than updating the
-    /// metadata uniform.
-    fn prepare_to_populate_buffers(
-        &mut self,
-        render_device: &RenderDevice,
-        pipeline_cache: &PipelineCache,
-        sparse_buffer_update_jobs: &mut SparseBufferUpdateJobs,
-        sparse_buffer_update_bind_groups: &mut SparseBufferUpdateBindGroups,
-        sparse_buffer_update_pipelines: &SparseBufferUpdatePipelines,
-    ) {
-        if self.sparse_update_scheduled {
-            match (&self.data_buffer, self.metadata_uniform.buffer()) {
-                (Some(data_buffer), Some(metadata_buffer)) => {
-                    prepare_to_populate_buffers(
-                        self.handle.clone(),
-                        &self.label,
-                        data_buffer,
-                        &mut self.staging_buffers,
-                        metadata_buffer,
-                        render_device,
-                        pipeline_cache,
-                        sparse_buffer_update_jobs,
-                        sparse_buffer_update_bind_groups,
-                        sparse_buffer_update_pipelines,
-                    );
-                }
-                _ => {
-                    error!("Buffers should have been created by now");
-                }
-            }
-        }
-
-        // Clear out the staging buffers, now that we know the data is already
-        // on the GPU.
-        self.staging_buffers.source_data.clear();
-        self.staging_buffers.indices.clear();
-
-        // Reset the `needs_full_reupload` and `needs_sparse_update` flags.
-        self.needs_full_reupload = false;
-        self.sparse_update_scheduled = false;
-    }
-}
-
-/// A GPU buffer that can grow, is updated on the CPU with exclusive access,
-/// and is sparsely updated on the GPU if only a small number of elements have
-/// changed.
-///
-/// This is the non-atomic counterpart to [`AtomicSparseBufferVec`]: elements
-/// are stored directly instead of as [`AtomicPod`] blobs, so updates are
-/// cheaper, and all mutations require `&mut self`. Use this type when buffer
-/// updates never need to happen from multiple threads simultaneously.
-///
-/// This type is similar to
-/// [`crate::render_resource::buffer_vec::RawBufferVec`], but instead of
-/// reuploading the entire buffer to the GPU when it's changed, it tracks
-/// changes on a per-element level and uploads only the elements that changed if
-/// the number of such elements is small. It uses a compute shader to scatter
-/// those changed elements.
-///
-/// `T` must have a size that's a multiple of 4.
-pub struct SparseBufferVec<T>
-where
-    T: Pod + Default,
-{
-    /// The underlying values.
-    values: PlainValues<T>,
-    /// A bit set of dirty blocks.
-    ///
-    /// The size of this vector in bits is the number of elements divided
-    /// (rounded up) by 64: in other words, the size of this vector in *bits* is
-    /// the size of the [`Self::dirty_bits`] vector in *words*. A 1 in a bit
-    /// indicates that the block has changed since the last upload, while a 0
-    /// indicates that the block hasn't changed.
-    summary: Vec<AtomicU64>,
-    /// A bit set of dirty elements.
-    ///
-    /// The size of this vector in bits is the number of elements, rounded up to
-    /// the nearest 64. A 1 in a bit indicates that the element has changed since
-    /// the last upload, while a 0 indicates that the element hasn't changed.
-    ///
-    /// Each group of 64 elements, corresponding to a single word in this array,
-    /// is known as a *block*.
-    dirty_bits: Vec<AtomicU64>,
-    /// The variant-independent GPU state.
-    state: SparseBufferState,
-}
-
 /// A GPU buffer that can grow, can be updated atomically from multiple threads
 /// on the CPU, and is sparsely updated on the GPU if only a small number of
 /// elements have changed.
@@ -946,6 +699,253 @@ impl<T: AtomicPod> AtomicSparseBufferVec<T> {
         clear_dirty_bits(&mut self.summary, &mut self.dirty_bits);
         self.state.sparse_update_scheduled = false;
     }
+}
+
+/// The CPU-side storage of a sparse buffer's elements.
+///
+/// This trait abstracts over element storage so that the parts of the sparse
+/// buffer logic that are shared between the atomic and non-atomic variants can
+/// be written once. The atomic variant stores elements as their
+/// [`AtomicPod::Blob`] representation, which permits thread-safe element
+/// updates; the non-atomic variant stores plain values, which requires
+/// exclusive access but has no atomic overhead.
+trait SparseBufferValues<T> {
+    /// Returns the number of elements.
+    fn len(&self) -> usize;
+    /// Returns true if the storage contains no elements.
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+    /// Reads the element at the given index, or `None` if the index is out of
+    /// range.
+    fn get(&self, index: usize) -> Option<T>;
+    /// Appends the given element, returning its index.
+    fn push(&mut self, value: T) -> usize;
+    /// Removes all elements.
+    fn clear(&mut self);
+    /// Grows the storage to `new_len` elements, filling any new elements with
+    /// default values.
+    fn resize_with(&mut self, new_len: usize);
+}
+
+/// The atomic element storage: each element is kept as its
+/// [`AtomicPod::Blob`] representation, which permits thread-safe element
+/// updates.
+struct AtomicValues<T: AtomicPod>(Vec<T::Blob>);
+
+impl<T: AtomicPod> SparseBufferValues<T> for AtomicValues<T> {
+    fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    fn get(&self, index: usize) -> Option<T> {
+        self.0.get(index).map(|blob| T::read_from_blob(blob))
+    }
+
+    fn push(&mut self, value: T) -> usize {
+        let index = self.0.len();
+        self.0.push(T::Blob::default());
+        value.write_to_blob_mut(&mut self.0[index]);
+        index
+    }
+
+    fn clear(&mut self) {
+        self.0.clear();
+    }
+
+    fn resize_with(&mut self, new_len: usize) {
+        self.0.resize_with(new_len, T::Blob::default);
+    }
+}
+
+/// The non-atomic element storage: plain values, updated under exclusive
+/// access.
+struct PlainValues<T>(Vec<T>);
+
+impl<T: Pod + Default> SparseBufferValues<T> for PlainValues<T> {
+    fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    fn get(&self, index: usize) -> Option<T> {
+        self.0.get(index).copied()
+    }
+
+    fn push(&mut self, value: T) -> usize {
+        let index = self.0.len();
+        self.0.push(value);
+        index
+    }
+
+    fn clear(&mut self) {
+        self.0.clear();
+    }
+
+    fn resize_with(&mut self, new_len: usize) {
+        self.0.resize_with(new_len, T::default);
+    }
+}
+
+/// The variant-independent GPU state shared by both sparse buffer variants.
+struct SparseBufferState {
+    /// An ID that uniquely identifies this sparse buffer.
+    handle: SparseBufferHandle,
+    /// The GPU buffer, if allocated.
+    data_buffer: Option<Buffer>,
+    /// The GPU buffers that data is copied into in preparation to be scattered
+    /// to the [`Self::data_buffer`].
+    staging_buffers: SparseBufferStagingBuffers,
+    /// A GPU buffer that stores information such as the element size and stride
+    /// that's needed to perform sparse updates.
+    metadata_uniform: UniformBuffer<GpuSparseBufferUpdateMetadata>,
+    /// The capacity of the GPU buffer in elements.
+    capacity: usize,
+    /// The allowed `wgpu` buffer usages for the GPU buffer.
+    buffer_usages: BufferUsages,
+    /// An optional debug label to identify this buffer.
+    label: Arc<str>,
+    /// True if the entire buffer needs to be reuploaded because it resized.
+    needs_full_reupload: bool,
+    /// True if a sparse update is to be performed.
+    sparse_update_scheduled: bool,
+}
+
+impl SparseBufferState {
+    /// Creates a new [`SparseBufferState`] for elements of type `T`.
+    fn new<T: Pod>(buffer_usages: BufferUsages, label: Arc<str>) -> Self {
+        // Make sure the value is word-aligned.
+        debug_assert_eq!(size_of::<T>() % 4, 0);
+        let element_word_size = size_of::<T>() / 4;
+
+        // Create a unique ID.
+        let id = Arc::new(SparseBufferId(
+            NEXT_SPARSE_BUFFER_ID.fetch_add(1, Ordering::Relaxed),
+        ));
+
+        Self {
+            handle: id,
+            data_buffer: None,
+            staging_buffers: SparseBufferStagingBuffers::new(&label, element_word_size as u32),
+            metadata_uniform: UniformBuffer::from(GpuSparseBufferUpdateMetadata::new::<T>()),
+            capacity: 0,
+            buffer_usages: buffer_usages | BufferUsages::COPY_DST,
+            label,
+            needs_full_reupload: false,
+            sparse_update_scheduled: false,
+        }
+    }
+
+    /// Returns a handle to the buffer, if the data has been uploaded.
+    fn buffer(&self) -> Option<&Buffer> {
+        self.data_buffer.as_ref()
+    }
+
+    /// Ensures that the backing GPU buffer is present and appropriately sized
+    /// for `new_capacity` elements of the given size.
+    fn reserve(&mut self, new_capacity: usize, render_device: &RenderDevice, element_size: usize) {
+        // If the buffer is already big enough, do nothing.
+        if new_capacity == 0 || new_capacity <= self.capacity {
+            return;
+        }
+
+        self.capacity = new_capacity;
+        self.data_buffer = Some(render_device.create_buffer(&BufferDescriptor {
+            label: Some(&self.label),
+            size: element_size as u64 * new_capacity as u64,
+            usage: self.buffer_usages,
+            mapped_at_creation: false,
+        }));
+
+        // Since we resized the buffer, we need to reupload it.
+        self.needs_full_reupload = true;
+    }
+
+    /// If a sparse update has been scheduled, prepares all GPU resources
+    /// necessary to perform a sparse buffer update, other than updating the
+    /// metadata uniform.
+    fn prepare_to_populate_buffers(
+        &mut self,
+        render_device: &RenderDevice,
+        pipeline_cache: &PipelineCache,
+        sparse_buffer_update_jobs: &mut SparseBufferUpdateJobs,
+        sparse_buffer_update_bind_groups: &mut SparseBufferUpdateBindGroups,
+        sparse_buffer_update_pipelines: &SparseBufferUpdatePipelines,
+    ) {
+        if self.sparse_update_scheduled {
+            match (&self.data_buffer, self.metadata_uniform.buffer()) {
+                (Some(data_buffer), Some(metadata_buffer)) => {
+                    prepare_to_populate_buffers(
+                        self.handle.clone(),
+                        &self.label,
+                        data_buffer,
+                        &mut self.staging_buffers,
+                        metadata_buffer,
+                        render_device,
+                        pipeline_cache,
+                        sparse_buffer_update_jobs,
+                        sparse_buffer_update_bind_groups,
+                        sparse_buffer_update_pipelines,
+                    );
+                }
+                _ => {
+                    error!("Buffers should have been created by now");
+                }
+            }
+        }
+
+        // Clear out the staging buffers, now that we know the data is already
+        // on the GPU.
+        self.staging_buffers.source_data.clear();
+        self.staging_buffers.indices.clear();
+
+        // Reset the `needs_full_reupload` and `needs_sparse_update` flags.
+        self.needs_full_reupload = false;
+        self.sparse_update_scheduled = false;
+    }
+}
+
+/// A GPU buffer that can grow, is updated on the CPU with exclusive access,
+/// and is sparsely updated on the GPU if only a small number of elements have
+/// changed.
+///
+/// This is the non-atomic counterpart to [`AtomicSparseBufferVec`]: elements
+/// are stored directly instead of as [`AtomicPod`] blobs, so updates are
+/// cheaper, and all mutations require `&mut self`. Use this type when buffer
+/// updates never need to happen from multiple threads simultaneously.
+///
+/// This type is similar to
+/// [`crate::render_resource::buffer_vec::RawBufferVec`], but instead of
+/// reuploading the entire buffer to the GPU when it's changed, it tracks
+/// changes on a per-element level and uploads only the elements that changed if
+/// the number of such elements is small. It uses a compute shader to scatter
+/// those changed elements.
+///
+/// `T` must have a size that's a multiple of 4.
+pub struct SparseBufferVec<T>
+where
+    T: Pod + Default,
+{
+    /// The underlying values.
+    values: PlainValues<T>,
+    /// A bit set of dirty blocks.
+    ///
+    /// The size of this vector in bits is the number of elements divided
+    /// (rounded up) by 64: in other words, the size of this vector in *bits* is
+    /// the size of the [`Self::dirty_bits`] vector in *words*. A 1 in a bit
+    /// indicates that the block has changed since the last upload, while a 0
+    /// indicates that the block hasn't changed.
+    summary: Vec<AtomicU64>,
+    /// A bit set of dirty elements.
+    ///
+    /// The size of this vector in bits is the number of elements, rounded up to
+    /// the nearest 64. A 1 in a bit indicates that the element has changed since
+    /// the last upload, while a 0 indicates that the element hasn't changed.
+    ///
+    /// Each group of 64 elements, corresponding to a single word in this array,
+    /// is known as a *block*.
+    dirty_bits: Vec<AtomicU64>,
+    /// The variant-independent GPU state.
+    state: SparseBufferState,
 }
 
 impl FromWorld for SparseBufferUpdateBindGroups {
