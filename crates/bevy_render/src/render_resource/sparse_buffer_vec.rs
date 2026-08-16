@@ -495,7 +495,7 @@ macro_rules! impl_sparse_buffer_common_methods {
                 let good_size = calculate_allocation_size(self.values.len());
                 self.reserve(good_size, render_device);
 
-                if should_perform_full_reupload(&self.state, render_device, self.values.len()) {
+                if should_perform_full_reupload(&mut self.state, render_device, self.values.len()) {
                     self.write_entire_buffer(render_queue);
                 } else {
                     prepare_sparse_upload(
@@ -1047,13 +1047,16 @@ fn note_changed_index_mut(index: u32, summary: &mut [AtomicU64], dirty_bits: &mu
 
 /// Returns the total number of bits set in `dirty_bits`, using the given
 /// `summary` to accelerate the count.
-fn count_dirty_elements(summary: &[AtomicU64], dirty_bits: &[AtomicU64]) -> u32 {
+///
+/// Only called with exclusive access; the words are read through
+/// [`AtomicU64::get_mut`].
+fn count_dirty_elements(summary: &mut [AtomicU64], dirty_bits: &mut [AtomicU64]) -> u32 {
     let mut changed_element_count = 0u32;
-    for (summary_word_index, summary_word) in summary.iter().enumerate() {
-        for summary_bit_offset in BitIter::new(summary_word.load(Ordering::Relaxed)) {
+    for (summary_word_index, summary_word) in summary.iter_mut().enumerate() {
+        for summary_bit_offset in BitIter::new(*summary_word.get_mut()) {
             let dirty_word_index =
                 summary_word_index * BITS_PER_WORD as usize + summary_bit_offset as usize;
-            let dirty_word = dirty_bits[dirty_word_index].load(Ordering::Relaxed);
+            let dirty_word = *dirty_bits[dirty_word_index].get_mut();
             changed_element_count += dirty_word.count_ones();
         }
     }
@@ -1128,7 +1131,7 @@ fn clear_dirty_bits(summary: &mut [AtomicU64], dirty_bits: &mut [AtomicU64]) {
 /// because it was resized or because too much data changed for a sparse update
 /// to be worthwhile.
 fn should_perform_full_reupload(
-    state: &SparseBufferState,
+    state: &mut SparseBufferState,
     render_device: &RenderDevice,
     element_count: usize,
 ) -> bool {
@@ -1137,7 +1140,7 @@ fn should_perform_full_reupload(
         return true;
     }
 
-    let changed_element_count = count_dirty_elements(&state.summary, &state.dirty_bits);
+    let changed_element_count = count_dirty_elements(&mut state.summary, &mut state.dirty_bits);
     state
         .staging_buffers
         .should_perform_full_reupload(changed_element_count, element_count)
@@ -1156,13 +1159,13 @@ fn prepare_sparse_upload<T, V>(
     // Iterate over all dirty elements, using the summary to accelerate the
     // search.
     for (summary_word_index, summary_word) in state.summary.iter_mut().enumerate() {
-        let summary_word_value = summary_word.load(Ordering::Relaxed);
+        let summary_word_value = *summary_word.get_mut();
         for summary_bit_offset in BitIter::new(summary_word_value) {
             let dirty_word_index =
                 summary_word_index * BITS_PER_WORD as usize + summary_bit_offset as usize;
 
             // Iterate over all dirty elements in each dirty page.
-            let dirty_word_value = state.dirty_bits[dirty_word_index].load(Ordering::Relaxed);
+            let dirty_word_value = *state.dirty_bits[dirty_word_index].get_mut();
             for dirty_bit_offset in BitIter::new(dirty_word_value) {
                 let element_index =
                     dirty_word_index * BITS_PER_WORD as usize + dirty_bit_offset as usize;
@@ -1482,7 +1485,7 @@ mod tests {
                 true_dirty_element_count += 1;
             }
 
-            let calculated_dirty_element_count = count_dirty_elements(&summary, &dirty_bits);
+            let calculated_dirty_element_count = count_dirty_elements(&mut summary, &mut dirty_bits);
             assert_eq!(calculated_dirty_element_count, true_dirty_element_count);
         }
     }
@@ -1505,7 +1508,7 @@ mod tests {
 
         // All 200 pushed elements are dirty.
         assert_eq!(
-            count_dirty_elements(&buffer.state.summary, &buffer.state.dirty_bits),
+            count_dirty_elements(&mut buffer.state.summary, &mut buffer.state.dirty_bits),
             200
         );
 
@@ -1517,7 +1520,7 @@ mod tests {
         buffer.grow(300);
         assert_eq!(buffer.len(), 300);
         assert_eq!(
-            count_dirty_elements(&buffer.state.summary, &buffer.state.dirty_bits),
+            count_dirty_elements(&mut buffer.state.summary, &mut buffer.state.dirty_bits),
             300
         );
 
@@ -1538,7 +1541,7 @@ mod tests {
         assert_eq!(buffer.len(), 200);
         assert_eq!(buffer.get(42).0[0], 42.0);
         assert_eq!(
-            count_dirty_elements(&buffer.state.summary, &buffer.state.dirty_bits),
+            count_dirty_elements(&mut buffer.state.summary, &mut buffer.state.dirty_bits),
             200
         );
 
@@ -1558,7 +1561,7 @@ mod tests {
         buffer.set_mut(0, test_element(42));
         assert_eq!(buffer.get(0).0[0], 42.0);
         assert_eq!(
-            count_dirty_elements(&buffer.state.summary, &buffer.state.dirty_bits),
+            count_dirty_elements(&mut buffer.state.summary, &mut buffer.state.dirty_bits),
             1
         );
     }
