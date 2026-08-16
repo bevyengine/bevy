@@ -124,7 +124,7 @@ pub fn calculate_bounds_2d(
             Or<(AssetChanged<Mesh2d>, Changed<Mesh2d>)>,
             Without<NoFrustumCulling>,
             Without<NoAutoAabb>,
-            Without<Sprite>, // disjoint mutable query
+            Without<Sprite>,
         ),
     >,
     new_sprite_aabb: Query<
@@ -141,7 +141,7 @@ pub fn calculate_bounds_2d(
             Or<(Changed<Sprite>, Changed<Anchor>)>,
             Without<NoFrustumCulling>,
             Without<NoAutoAabb>,
-            Without<Mesh2d>, // disjoint mutable query
+            Without<Mesh2d>,
         ),
     >,
 ) {
