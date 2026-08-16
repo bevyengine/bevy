@@ -419,23 +419,6 @@ where
 {
     /// The underlying values.
     values: AtomicValues<T>,
-    /// A bit set of dirty blocks.
-    ///
-    /// The size of this vector in bits is the number of elements divided
-    /// (rounded up) by 64: in other words, the size of this vector in *bits* is
-    /// the size of the [`Self::dirty_bits`] vector in *words*. A 1 in a bit
-    /// indicates that the block has changed since the last upload, while a 0
-    /// indicates that the block hasn't changed.
-    summary: Vec<AtomicU64>,
-    /// A bit set of dirty elements.
-    ///
-    /// The size of this vector in bits is the number of elements, rounded up to
-    /// the nearest 64. A 1 in a bit indicates that the element has changed since
-    /// the last upload, while a 0 indicates that the element hasn't changed.
-    ///
-    /// Each group of 64 elements, corresponding to a single word in this array,
-    /// is known as a *block*.
-    dirty_bits: Vec<AtomicU64>,
     /// The variant-independent GPU state.
     state: SparseBufferState,
 }
@@ -468,8 +451,8 @@ macro_rules! impl_sparse_buffer_common_methods {
             /// Removes all elements from the buffer.
             pub fn clear(&mut self) {
                 self.values.clear();
-                self.summary.clear();
-                self.dirty_bits.clear();
+                self.state.summary.clear();
+                self.state.dirty_bits.clear();
             }
 
             /// Copies a value out of the buffer.
@@ -481,7 +464,7 @@ macro_rules! impl_sparse_buffer_common_methods {
 
             /// Adds a new value and returns its index.
             pub fn push(&mut self, value: T) -> u32 {
-                push_impl(&mut self.values, &mut self.summary, &mut self.dirty_bits, value)
+                push_impl(&mut self.values, &mut self.state.summary, &mut self.state.dirty_bits, value)
             }
 
             /// Ensures that the backing buffer for this buffer vector is present
@@ -497,7 +480,7 @@ macro_rules! impl_sparse_buffer_common_methods {
             ///
             /// If the buffer is already large enough, this method does nothing.
             pub fn grow(&mut self, new_len: u32) {
-                grow_impl(&mut self.values, &mut self.summary, &mut self.dirty_bits, new_len);
+                grow_impl(&mut self.values, &mut self.state.summary, &mut self.state.dirty_bits, new_len);
             }
 
             /// Writes the data to the GPU, either via a sparse upload or a bulk
@@ -512,20 +495,12 @@ macro_rules! impl_sparse_buffer_common_methods {
                 let good_size = calculate_allocation_size(self.values.len());
                 self.reserve(good_size, render_device);
 
-                if should_perform_full_reupload(
-                    &self.state,
-                    render_device,
-                    &self.summary,
-                    &self.dirty_bits,
-                    self.values.len(),
-                ) {
+                if should_perform_full_reupload(&self.state, render_device, self.values.len()) {
                     self.write_entire_buffer(render_queue);
                 } else {
                     prepare_sparse_upload(
                         &mut self.state,
                         &self.values,
-                        &mut self.summary,
-                        &mut self.dirty_bits,
                         render_device,
                         render_queue,
                     );
@@ -568,8 +543,6 @@ impl<T: Pod + Default> SparseBufferVec<T> {
     pub fn new(buffer_usages: BufferUsages, label: Arc<str>) -> Self {
         Self {
             values: PlainValues(Vec::new()),
-            summary: Vec::new(),
-            dirty_bits: Vec::new(),
             state: SparseBufferState::new::<T>(buffer_usages, label),
         }
     }
@@ -582,7 +555,7 @@ impl<T: Pod + Default> SparseBufferVec<T> {
     /// access to the buffer, as the data is stored non-atomically.
     pub fn set(&mut self, index: u32, value: T) {
         self.values.0[index as usize] = value;
-        note_changed_index_mut(index, &mut self.summary, &mut self.dirty_bits);
+        note_changed_index_mut(index, &mut self.state.summary, &mut self.state.dirty_bits);
     }
 
     /// Writes the entire buffer in bulk.
@@ -601,7 +574,7 @@ impl<T: Pod + Default> SparseBufferVec<T> {
         render_queue.write_buffer(data_buffer, 0, must_cast_slice(&self.values.0));
 
         // Mark all pages as clean.
-        clear_dirty_bits(&mut self.summary, &mut self.dirty_bits);
+        clear_dirty_bits(&mut self.state.summary, &mut self.state.dirty_bits);
         self.state.sparse_update_scheduled = false;
     }
 }
@@ -616,8 +589,6 @@ impl<T: AtomicPod> AtomicSparseBufferVec<T> {
     pub fn new(buffer_usages: BufferUsages, label: Arc<str>) -> Self {
         Self {
             values: AtomicValues(Vec::new()),
-            summary: Vec::new(),
-            dirty_bits: Vec::new(),
             state: SparseBufferState::new::<T>(buffer_usages, label),
         }
     }
@@ -650,7 +621,7 @@ impl<T: AtomicPod> AtomicSparseBufferVec<T> {
     /// ever updated from a single thread.
     pub fn set_mut(&mut self, index: u32, value: T) {
         value.write_to_blob_mut(&mut self.values.0[index as usize]);
-        note_changed_index_mut(index, &mut self.summary, &mut self.dirty_bits);
+        note_changed_index_mut(index, &mut self.state.summary, &mut self.state.dirty_bits);
     }
 
     /// Marks the given element index as dirty. Thread-safe: only requires
@@ -661,10 +632,11 @@ impl<T: AtomicPod> AtomicSparseBufferVec<T> {
             dirty_word_index / BITS_PER_WORD,
             dirty_word_index % BITS_PER_WORD,
         );
-        self.summary[summary_word_index as usize]
+        self.state.summary[summary_word_index as usize]
             .fetch_or(1 << summary_bit_offset, Ordering::Relaxed);
         let (element_word, element_in_word) = (index / BITS_PER_WORD, index % BITS_PER_WORD);
-        self.dirty_bits[element_word as usize].fetch_or(1 << element_in_word, Ordering::Relaxed);
+        self.state.dirty_bits[element_word as usize]
+            .fetch_or(1 << element_in_word, Ordering::Relaxed);
     }
 
     /// Writes the entire buffer in bulk.
@@ -696,7 +668,7 @@ impl<T: AtomicPod> AtomicSparseBufferVec<T> {
         }
 
         // Mark all pages as clean.
-        clear_dirty_bits(&mut self.summary, &mut self.dirty_bits);
+        clear_dirty_bits(&mut self.state.summary, &mut self.state.dirty_bits);
         self.state.sparse_update_scheduled = false;
     }
 }
@@ -804,6 +776,23 @@ struct SparseBufferState {
     buffer_usages: BufferUsages,
     /// An optional debug label to identify this buffer.
     label: Arc<str>,
+    /// A bit set of dirty blocks.
+    ///
+    /// The size of this vector in bits is the number of elements divided
+    /// (rounded up) by 64: in other words, the size of this vector in *bits* is
+    /// the size of the [`Self::dirty_bits`] vector in *words*. A 1 in a bit
+    /// indicates that the block has changed since the last upload, while a 0
+    /// indicates that the block hasn't changed.
+    summary: Vec<AtomicU64>,
+    /// A bit set of dirty elements.
+    ///
+    /// The size of this vector in bits is the number of elements, rounded up to
+    /// the nearest 64. A 1 in a bit indicates that the element has changed since
+    /// the last upload, while a 0 indicates that the element hasn't changed.
+    ///
+    /// Each group of 64 elements, corresponding to a single word in this array,
+    /// is known as a *block*.
+    dirty_bits: Vec<AtomicU64>,
     /// True if the entire buffer needs to be reuploaded because it resized.
     needs_full_reupload: bool,
     /// True if a sparse update is to be performed.
@@ -830,6 +819,8 @@ impl SparseBufferState {
             capacity: 0,
             buffer_usages: buffer_usages | BufferUsages::COPY_DST,
             label,
+            summary: Vec::new(),
+            dirty_bits: Vec::new(),
             needs_full_reupload: false,
             sparse_update_scheduled: false,
         }
@@ -927,23 +918,6 @@ where
 {
     /// The underlying values.
     values: PlainValues<T>,
-    /// A bit set of dirty blocks.
-    ///
-    /// The size of this vector in bits is the number of elements divided
-    /// (rounded up) by 64: in other words, the size of this vector in *bits* is
-    /// the size of the [`Self::dirty_bits`] vector in *words*. A 1 in a bit
-    /// indicates that the block has changed since the last upload, while a 0
-    /// indicates that the block hasn't changed.
-    summary: Vec<AtomicU64>,
-    /// A bit set of dirty elements.
-    ///
-    /// The size of this vector in bits is the number of elements, rounded up to
-    /// the nearest 64. A 1 in a bit indicates that the element has changed since
-    /// the last upload, while a 0 indicates that the element hasn't changed.
-    ///
-    /// Each group of 64 elements, corresponding to a single word in this array,
-    /// is known as a *block*.
-    dirty_bits: Vec<AtomicU64>,
     /// The variant-independent GPU state.
     state: SparseBufferState,
 }
@@ -1156,8 +1130,6 @@ fn clear_dirty_bits(summary: &mut [AtomicU64], dirty_bits: &mut [AtomicU64]) {
 fn should_perform_full_reupload(
     state: &SparseBufferState,
     render_device: &RenderDevice,
-    summary: &[AtomicU64],
-    dirty_bits: &[AtomicU64],
     element_count: usize,
 ) -> bool {
     if state.needs_full_reupload || render_device.limits().max_storage_buffers_per_shader_stage < 3
@@ -1165,7 +1137,7 @@ fn should_perform_full_reupload(
         return true;
     }
 
-    let changed_element_count = count_dirty_elements(summary, dirty_bits);
+    let changed_element_count = count_dirty_elements(&state.summary, &state.dirty_bits);
     state
         .staging_buffers
         .should_perform_full_reupload(changed_element_count, element_count)
@@ -1175,8 +1147,6 @@ fn should_perform_full_reupload(
 fn prepare_sparse_upload<T, V>(
     state: &mut SparseBufferState,
     values: &V,
-    summary: &mut [AtomicU64],
-    dirty_bits: &mut [AtomicU64],
     render_device: &RenderDevice,
     render_queue: &RenderQueue,
 ) where
@@ -1185,14 +1155,14 @@ fn prepare_sparse_upload<T, V>(
 {
     // Iterate over all dirty elements, using the summary to accelerate the
     // search.
-    for (summary_word_index, summary_word) in summary.iter_mut().enumerate() {
+    for (summary_word_index, summary_word) in state.summary.iter_mut().enumerate() {
         let summary_word_value = summary_word.load(Ordering::Relaxed);
         for summary_bit_offset in BitIter::new(summary_word_value) {
             let dirty_word_index =
                 summary_word_index * BITS_PER_WORD as usize + summary_bit_offset as usize;
 
             // Iterate over all dirty elements in each dirty page.
-            let dirty_word_value = dirty_bits[dirty_word_index].load(Ordering::Relaxed);
+            let dirty_word_value = state.dirty_bits[dirty_word_index].load(Ordering::Relaxed);
             for dirty_bit_offset in BitIter::new(dirty_word_value) {
                 let element_index =
                     dirty_word_index * BITS_PER_WORD as usize + dirty_bit_offset as usize;
@@ -1220,7 +1190,7 @@ fn prepare_sparse_upload<T, V>(
             }
 
             // Mark the element as clean.
-            *dirty_bits[dirty_word_index].get_mut() = 0;
+            *state.dirty_bits[dirty_word_index].get_mut() = 0;
         }
 
         // Mark the block as clean.
@@ -1535,7 +1505,7 @@ mod tests {
 
         // All 200 pushed elements are dirty.
         assert_eq!(
-            count_dirty_elements(&buffer.summary, &buffer.dirty_bits),
+            count_dirty_elements(&buffer.state.summary, &buffer.state.dirty_bits),
             200
         );
 
@@ -1547,7 +1517,7 @@ mod tests {
         buffer.grow(300);
         assert_eq!(buffer.len(), 300);
         assert_eq!(
-            count_dirty_elements(&buffer.summary, &buffer.dirty_bits),
+            count_dirty_elements(&buffer.state.summary, &buffer.state.dirty_bits),
             300
         );
 
@@ -1568,7 +1538,7 @@ mod tests {
         assert_eq!(buffer.len(), 200);
         assert_eq!(buffer.get(42).0[0], 42.0);
         assert_eq!(
-            count_dirty_elements(&buffer.summary, &buffer.dirty_bits),
+            count_dirty_elements(&buffer.state.summary, &buffer.state.dirty_bits),
             200
         );
 
@@ -1587,6 +1557,9 @@ mod tests {
 
         buffer.set_mut(0, test_element(42));
         assert_eq!(buffer.get(0).0[0], 42.0);
-        assert_eq!(count_dirty_elements(&buffer.summary, &buffer.dirty_bits), 1);
+        assert_eq!(
+            count_dirty_elements(&buffer.state.summary, &buffer.state.dirty_bits),
+            1
+        );
     }
 }
