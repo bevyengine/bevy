@@ -212,7 +212,7 @@ impl ComponentHooks {
             .expect("Component already has an on_insert hook")
     }
 
-    /// Register a [`ComponentHook`] that will be run when this component is mutated (from mutable SystemParams).
+    /// Register a [`ComponentHook`] that will be run when this component is mutated (from mutable `SystemParams`).
     ///
     /// # Panics
     ///
@@ -291,7 +291,7 @@ impl ComponentHooks {
         Some(self)
     }
 
-    /// Attempt to register a [`ComponentHook`] that will be run when this component is mutated (from mutable SystemParams)
+    /// Attempt to register a [`ComponentHook`] that will be run when this component is mutated (from mutable `SystemParams`)
     ///
     /// This is a fallible version of [`Self::on_mutate`].
     ///
@@ -426,7 +426,7 @@ pub struct MutateEvent {
 
 impl ContainsComponents for MutateEvent {
     fn components(&self) -> &[ComponentId] {
-        return &self.components;
+        &self.components
     }
 }
 
