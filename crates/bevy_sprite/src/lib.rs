@@ -56,8 +56,7 @@ use bevy_app::prelude::*;
 use bevy_asset::prelude::AssetChanged;
 use bevy_camera::visibility::NoAutoAabb;
 use bevy_ecs::prelude::*;
-use bevy_image::{Image, TextureAtlasLayout, TextureAtlasPlugin};
-use bevy_math::Vec2;
+use bevy_image::TextureAtlasPlugin;
 
 /// Adds support for 2D sprites.
 #[derive(Default)]
@@ -108,8 +107,6 @@ impl Plugin for SpritePlugin {
 pub fn calculate_bounds_2d(
     mut commands: Commands,
     meshes: Res<Assets<Mesh>>,
-    images: Res<Assets<Image>>,
-    atlases: Res<Assets<TextureAtlasLayout>>,
     new_mesh_aabb: Query<
         (Entity, &Mesh2d),
         (
@@ -125,23 +122,6 @@ pub fn calculate_bounds_2d(
             Without<NoFrustumCulling>,
             Without<NoAutoAabb>,
             Without<Sprite>,
-        ),
-    >,
-    new_sprite_aabb: Query<
-        (Entity, &Sprite, &Anchor),
-        (
-            Without<Aabb>,
-            Without<NoFrustumCulling>,
-            Without<NoAutoAabb>,
-        ),
-    >,
-    mut update_sprite_aabb: Query<
-        (&Sprite, &mut Aabb, &Anchor),
-        (
-            Or<(Changed<Sprite>, Changed<Anchor>)>,
-            Without<NoFrustumCulling>,
-            Without<NoAutoAabb>,
-            Without<Mesh2d>,
         ),
     >,
 ) {
@@ -160,45 +140,6 @@ pub fn calculate_bounds_2d(
         .for_each(|(mesh_handle, mut aabb)| {
             if let Some(new_aabb) = meshes.get(mesh_handle).and_then(MeshAabb::get_aabb) {
                 aabb.set_if_neq(new_aabb);
-            }
-        });
-
-    // Sprite helper
-    let sprite_size = |sprite: &Sprite| -> Option<Vec2> {
-        sprite
-            .custom_size
-            .or_else(|| sprite.rect.map(|rect| rect.size()))
-            .or_else(|| match &sprite.texture_atlas {
-                // We default to the texture size for regular sprites
-                None => images.get(&sprite.image).map(Image::size_f32),
-                // We default to the drawn rect for atlas sprites
-                Some(atlas) => atlas
-                    .texture_rect(&atlases)
-                    .map(|rect| rect.size().as_vec2()),
-            })
-    };
-
-    // New sprites require inserting a component
-    for (size, (entity, anchor)) in new_sprite_aabb
-        .iter()
-        .filter_map(|(entity, sprite, anchor)| sprite_size(sprite).zip(Some((entity, anchor))))
-    {
-        let aabb = Aabb {
-            center: (-anchor.as_vec() * size).extend(0.0).into(),
-            half_extents: (0.5 * size).extend(0.0).into(),
-        };
-        commands.entity(entity).try_insert(aabb);
-    }
-
-    // Updated sprites can take the fast path with parallel component mutation
-    update_sprite_aabb
-        .par_iter_mut()
-        .for_each(|(sprite, mut aabb, anchor)| {
-            if let Some(size) = sprite_size(sprite) {
-                aabb.set_if_neq(Aabb {
-                    center: (-anchor.as_vec() * size).extend(0.0).into(),
-                    half_extents: (0.5 * size).extend(0.0).into(),
-                });
             }
         });
 }
