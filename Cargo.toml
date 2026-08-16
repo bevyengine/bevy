@@ -5681,4 +5681,4 @@ doc-scrape-examples = true
 name = "GPU Component Array Buffer"
 description = "Shows how to expose per-mesh-instance data to the GPU"
 category = "Shaders"
-wasm = false
+wasm = true
