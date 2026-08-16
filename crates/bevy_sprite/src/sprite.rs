@@ -212,7 +212,7 @@ pub enum SpriteAlphaMode {
 
 impl Default for SpriteAlphaMode {
     fn default() -> Self {
-        Self::Mask(0.5)
+        Self::Blend
     }
 }
 
