@@ -435,7 +435,7 @@ impl<T: AtomicPod> SparseBufferValues<T> for AtomicValues<T> {
     fn push(&mut self, value: T) -> usize {
         let index = self.0.len();
         self.0.push(T::Blob::default());
-        value.write_to_blob(&self.0[index]);
+        value.write_to_blob_mut(&mut self.0[index]);
         index
     }
 
@@ -650,7 +650,7 @@ pub struct ElementMut<'a, T: AtomicPod> {
     #[deref]
     value: T,
     /// The blob storage the value will be written back to on drop.
-    blob: &'a T::Blob,
+    blob: &'a mut T::Blob,
     /// The index of the element, used to mark it dirty on drop.
     index: u32,
     /// The dirty-tracking summary, used to mark the element on drop.
@@ -661,7 +661,7 @@ pub struct ElementMut<'a, T: AtomicPod> {
 
 impl<T: AtomicPod> Drop for ElementMut<'_, T> {
     fn drop(&mut self) {
-        self.value.write_to_blob(self.blob);
+        self.value.write_to_blob_mut(self.blob);
         note_changed_index_mut(self.index, self.summary, self.dirty_bits);
     }
 }
@@ -924,7 +924,7 @@ impl<T: AtomicPod> AtomicSparseBufferVec<T> {
     /// instructions. Prefer it over [`Self::set`] when the buffer is only
     /// ever updated from a single thread.
     pub fn set_mut(&mut self, index: u32, value: T) {
-        value.write_to_blob(&self.values.0[index as usize]);
+        value.write_to_blob_mut(&mut self.values.0[index as usize]);
         note_changed_index_mut(index, &mut self.summary, &mut self.dirty_bits);
     }
 
@@ -938,9 +938,10 @@ impl<T: AtomicPod> AtomicSparseBufferVec<T> {
     /// requires `&mut self`, so the write-back and dirty marking don't need
     /// atomic read-modify-write instructions.
     pub fn get_mut(&mut self, index: u32) -> ElementMut<'_, T> {
+        let value = T::read_from_blob(&self.values.0[index as usize]);
         ElementMut {
-            value: T::read_from_blob(&self.values.0[index as usize]),
-            blob: &self.values.0[index as usize],
+            value,
+            blob: &mut self.values.0[index as usize],
             index,
             summary: &mut self.summary,
             dirty_bits: &mut self.dirty_bits,
@@ -1106,6 +1107,7 @@ fn set_dirty_bits_for_vector_growth(
 ///
 /// Only called with exclusive access; the words are mutated through
 /// [`AtomicU64::get_mut`].
+#[inline]
 fn note_changed_index_mut(index: u32, summary: &mut [AtomicU64], dirty_bits: &mut [AtomicU64]) {
     let dirty_word_index = index / BITS_PER_WORD;
     let (summary_word_index, summary_bit_offset) = (
@@ -1135,6 +1137,10 @@ fn count_dirty_elements(summary: &[AtomicU64], dirty_bits: &[AtomicU64]) -> u32 
 
 /// Appends an element to the CPU-side storage, growing the dirty-bit
 /// bookkeeping as needed and marking the new element dirty.
+///
+/// This is inlined into the hot push path so that pushing elements one by one
+/// doesn't pay a per-element function call overhead.
+#[inline]
 fn push_impl<T, V>(
     values: &mut V,
     summary: &mut Vec<AtomicU64>,
