@@ -130,7 +130,7 @@ fn setup(
     commands
         .entity(*window)
         .observe(
-            |event: On<Pointer<Drag>>,
+            |event: On<PointerDrag>,
              mut commands: Commands,
              mut camera_transforms: Single<
                 (&mut Transform, &BaseTransform),
@@ -150,7 +150,7 @@ fn setup(
             },
         )
         .observe(
-            |_: On<Pointer<DragStart>>,
+            |_: On<PointerDragStart>,
              mut commands: Commands,
              camera: Single<(Entity, &Transform), With<Camera3d>>| {
                 let (camera, transform) = *camera;
@@ -161,7 +161,7 @@ fn setup(
             },
         )
         .observe(
-            |_: On<Pointer<DragEnd>>,
+            |_: On<PointerDragEnd>,
              mut commands: Commands,
              window: Single<Entity, With<PrimaryWindow>>| {
                 commands
@@ -265,7 +265,7 @@ fn spawn_ui(commands: &mut Commands, app_state: &AppState) {
     commands.spawn_scene(bsn! {
         main_ui_node_scene()
         // Prevent the event from bubble up so that view drag does not initiate when interacting with the UI
-        on (|mut event: On<Pointer<Drag>>| {
+        on (|mut event: On<PointerDrag>| {
             event.propagate(false);
         })
         Children [

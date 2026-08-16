@@ -236,7 +236,7 @@ mod test {
         render_app.update_schedule = Some(MySchedule.intern());
 
         render_app.world_mut().add_observer(
-            |event: On<Add, (RenderComponent, RenderComponentExtra)>, mut commands: Commands| {
+            |event: On<Add<(RenderComponent, RenderComponentExtra)>>, mut commands: Commands| {
                 // Simulate data that's not extracted
                 commands
                     .entity(event.entity)
