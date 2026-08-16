@@ -8,7 +8,7 @@ use bevy_ecs::{
     system::{Commands, Local, Query, Res, ResMut},
 };
 
-use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
+use bevy_asset::{AssetEvent, AssetEventSystems, AssetId, Assets, Handle};
 
 use bevy_image::{Image, TextureAtlasLayout};
 use bevy_math::{primitives::Rectangle, vec2, FloatOrd};
@@ -41,7 +41,8 @@ impl Plugin for SpriteMeshPlugin {
             (add_mesh, add_material)
                 .chain()
                 .before(check_entities_needing_specialization::<SpriteMaterial>)
-                .before(mark_2d_meshes_as_changed_if_their_assets_changed),
+                .before(mark_2d_meshes_as_changed_if_their_assets_changed)
+                .after(AssetEventSystems),
         );
     }
 }
