@@ -85,8 +85,7 @@ impl<T> ThinArrayPtr<T> {
     /// - The current capacity is indeed greater than 0
     /// - The caller should update their saved `capacity` value to reflect the fact that it was changed
     pub unsafe fn realloc(&mut self, current_capacity: NonZeroUsize, new_capacity: NonZeroUsize) {
-        #[cfg(debug_assertions)]
-        assert_eq!(self.capacity, current_capacity.get());
+        debug_assert_eq!(self.capacity, current_capacity.get());
         self.set_capacity(new_capacity.get());
         if size_of::<T>() != 0 {
             let new_layout =
@@ -141,12 +140,9 @@ impl<T> ThinArrayPtr<T> {
         src_index: usize,
         dst_index: usize,
     ) {
-        #[cfg(debug_assertions)]
-        {
-            debug_assert!(src.capacity > src_last_element_index);
-            debug_assert!(src.capacity > src_index);
-            debug_assert!(self.capacity > dst_index);
-        }
+        debug_assert!(src.capacity > src_last_element_index);
+        debug_assert!(src.capacity > src_index);
+        debug_assert!(self.capacity > dst_index);
         // SAFETY:
         // - exclusive references guarantee disjointness
         // - in bounds per precondition
@@ -230,12 +226,9 @@ impl<T> ThinArrayPtr<T> {
         index_to_remove: usize,
         index_to_keep: usize,
     ) -> T {
-        #[cfg(debug_assertions)]
-        {
-            debug_assert!(self.capacity > index_to_keep);
-            debug_assert!(self.capacity > index_to_remove);
-            debug_assert_ne!(index_to_keep, index_to_remove);
-        }
+        debug_assert!(self.capacity > index_to_keep);
+        debug_assert!(self.capacity > index_to_remove);
+        debug_assert_ne!(index_to_keep, index_to_remove);
         let base_ptr = self.data.as_ptr();
         let value = ptr::read(base_ptr.add(index_to_remove));
         ptr::copy_nonoverlapping(
@@ -297,8 +290,7 @@ impl<T> ThinArrayPtr<T> {
     /// - `current_capacity` is indeed the capacity of the array
     /// - The caller must not use this `ThinArrayPtr` in any way after calling this function
     pub unsafe fn drop(&mut self, current_capacity: usize, current_len: usize) {
-        #[cfg(debug_assertions)]
-        assert_eq!(self.capacity, current_capacity);
+        debug_assert_eq!(self.capacity, current_capacity);
         if current_capacity != 0 {
             self.clear_elements(current_len);
             let layout = Layout::array::<T>(current_capacity).expect("layout should be valid");

@@ -764,7 +764,6 @@ impl Tables {
         row: TableRow,
         change_tick: Tick,
     ) -> TableMoveResult<'_> {
-        #[cfg(debug_assertions)]
         debug_assert!(old_table_id != new_table_id);
         // SAFETY:
         // - The caller ensures `old_table_id` and `new_table_id` do not overlap.
@@ -774,7 +773,6 @@ impl Tables {
                 .get_disjoint_unchecked_mut([old_table_id.as_usize(), new_table_id.as_usize()])
         };
         let last_index = (src_table.entity_count() - 1) as usize;
-        #[cfg(debug_assertions)]
         debug_assert!(row.index() <= last_index);
         // SAFETY:
         // - All pre-existing columns will be written to immediately.

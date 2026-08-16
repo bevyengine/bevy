@@ -1126,8 +1126,7 @@ impl<'a, T> ThinSlicePtr<'a, T> {
     pub unsafe fn get_unchecked(&self, index: usize) -> &'a T {
         // We cannot use `debug_assert!` here because `self.len` does not exist when not in debug
         // mode.
-        #[cfg(debug_assertions)]
-        assert!(index < self.len, "tried to index out-of-bounds of a slice");
+        debug_assert!(index < self.len, "tried to index out-of-bounds of a slice");
 
         // SAFETY: The caller guarantees `index` is in-bounds so that the resulting pointer is
         // valid to dereference.
@@ -1141,8 +1140,7 @@ impl<'a, T> ThinSlicePtr<'a, T> {
     /// - There must be no mutable aliases for the lifetime `'a` to the slice. to the slice.
     /// - `len` must be less than or equal to the length of the slice.
     pub unsafe fn as_slice_unchecked(&self, len: usize) -> &'a [T] {
-        #[cfg(debug_assertions)]
-        assert!(len <= self.len, "tried to create an out-of-bounds slice");
+        debug_assert!(len <= self.len, "tried to create an out-of-bounds slice");
 
         // SAFETY:
         // - The caller guarantees `len` is not greater than the length of the slice.
@@ -1172,8 +1170,7 @@ impl<'a, T> ThinSlicePtr<'a, UnsafeCell<T>> {
     /// - There must not be any aliases for the lifetime `'a` to the slice.
     /// - `len` must be less than or equal to the length of the slice.
     pub unsafe fn as_mut_slice_unchecked(&self, len: usize) -> &'a mut [T] {
-        #[cfg(debug_assertions)]
-        assert!(len <= self.len, "tried to create an out-of-bounds slice");
+        debug_assert!(len <= self.len, "tried to create an out-of-bounds slice");
 
         // SAFETY:
         // - The caller ensures no aliases exist and `len` is in-bounds.
