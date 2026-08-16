@@ -89,7 +89,7 @@ fn set(c: &mut Criterion) {
 
     let mut atomic = new_atomic();
     populate(&mut atomic);
-    group.bench_function("atomic", |b| {
+    group.bench_function("set", |b| {
         b.iter(|| {
             for (&index, &value) in indices.iter().zip(values.iter()) {
                 atomic.set(index, value);
@@ -98,9 +98,18 @@ fn set(c: &mut Criterion) {
         });
     });
 
+    group.bench_function("set_mut", |b| {
+        b.iter(|| {
+            for (&index, &value) in indices.iter().zip(values.iter()) {
+                atomic.set_mut(index, value);
+            }
+            black_box(atomic.len());
+        });
+    });
+
     let mut non_atomic = new_non_atomic();
     populate_non_atomic(&mut non_atomic);
-    group.bench_function("non_atomic", |b| {
+    group.bench_function("non_atomic_set", |b| {
         b.iter(|| {
             for (&index, &value) in indices.iter().zip(values.iter()) {
                 non_atomic.set(index, value);

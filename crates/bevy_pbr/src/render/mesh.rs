@@ -1666,7 +1666,7 @@ impl MeshCullingData {
         while mesh_culling_data_buffer.len() < instance_data_index + 1 {
             mesh_culling_data_buffer.push(MeshCullingData::default());
         }
-        mesh_culling_data_buffer.set(instance_data_index, *self);
+        mesh_culling_data_buffer.set_mut(instance_data_index, *self);
     }
 }
 

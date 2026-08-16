@@ -2,11 +2,7 @@
 //! have changed.
 
 use alloc::sync::{Arc, Weak};
-use core::{
-    cell::Cell,
-    marker::PhantomData,
-    sync::atomic::{AtomicU64, Ordering},
-};
+use core::sync::atomic::{AtomicU64, Ordering};
 
 use bevy_app::{App, Plugin};
 use bevy_asset::{embedded_asset, load_embedded_asset, Handle};
@@ -26,7 +22,7 @@ use bevy_material::{
     descriptor::{BindGroupLayoutDescriptor, CachedComputePipelineId, ComputePipelineDescriptor},
 };
 use bevy_shader::Shader;
-use bytemuck::{Pod, Zeroable};
+use bytemuck::{must_cast_slice, Pod, Zeroable};
 use encase::ShaderType;
 use weak_table::WeakKeyHashMap;
 use wgpu::{BufferDescriptor, BufferSize, BufferUsages, ComputePassDescriptor, ShaderStages};
@@ -395,89 +391,15 @@ impl SparseBufferStagingBuffers {
     }
 }
 
-/// A single word of dirty-tracking state: an [`AtomicU64`] for the atomic
-/// variant of the sparse buffer, or a [`Cell`]`<u64>` for the non-atomic
-/// variant.
+/// The CPU-side storage of a sparse buffer's elements.
 ///
-/// This trait lets the dirty-bit logic in this module be shared between the two
-/// variants without paying for dynamic dispatch: it is always used with a
-/// concrete (monomorphized) word type, and the operations below are trivially
-/// inlinable. Words are only ever accessed from a single thread during upload,
-/// so the atomic variant uses `Relaxed`-strength ordering and the non-atomic
-/// variant plain (non-synchronizing) accesses.
-trait SparseBufferWord {
-    /// Creates a new word with the given value.
-    fn new(value: u64) -> Self;
-    /// Reads the current value of the word.
-    fn get(&self) -> u64;
-    /// Overwrites the value of the word.
-    fn store(&self, value: u64);
-    /// ORs `mask` into the value of the word, returning the previous value.
-    fn fetch_or(&self, mask: u64) -> u64;
-}
-
-impl SparseBufferWord for AtomicU64 {
-    #[inline]
-    fn new(value: u64) -> Self {
-        AtomicU64::new(value)
-    }
-
-    #[inline]
-    fn get(&self) -> u64 {
-        self.load(Ordering::Relaxed)
-    }
-
-    #[inline]
-    fn store(&self, value: u64) {
-        self.store(value, Ordering::Relaxed);
-    }
-
-    #[inline]
-    fn fetch_or(&self, mask: u64) -> u64 {
-        self.fetch_or(mask, Ordering::Relaxed)
-    }
-}
-
-impl SparseBufferWord for Cell<u64> {
-    #[inline]
-    fn new(value: u64) -> Self {
-        Cell::new(value)
-    }
-
-    #[inline]
-    fn get(&self) -> u64 {
-        self.get()
-    }
-
-    #[inline]
-    fn store(&self, value: u64) {
-        self.set(value);
-    }
-
-    #[inline]
-    fn fetch_or(&self, mask: u64) -> u64 {
-        let old = self.get();
-        self.set(old | mask);
-        old
-    }
-}
-
-/// The CPU-side storage of a [`SparseBufferVecCore`]'s elements.
-///
-/// This trait abstracts over element storage so that the atomic and non-atomic
-/// variants of the sparse buffer vector can share a single implementation. The
-/// atomic variant stores elements as their [`AtomicPod::Blob`] representation,
-/// which permits thread-safe element updates; the non-atomic variant stores
-/// elements in [`Cell`]s, which permits cheap updates under exclusive access
-/// and prevents the buffer from being shared across threads at compile time.
-///
-/// Element writes go through `&self` (interior mutability) so that the shared
-/// implementation can offer the thread-safe [`SparseBufferVecCore::set`] of the
-/// atomic variant; the non-atomic variant re-establishes exclusive access at
-/// its public API boundary.
+/// This trait abstracts over element storage so that the parts of the sparse
+/// buffer logic that are shared between the atomic and non-atomic variants can
+/// be written once. The atomic variant stores elements as their
+/// [`AtomicPod::Blob`] representation, which permits thread-safe element
+/// updates; the non-atomic variant stores plain values, which requires
+/// exclusive access but has no atomic overhead.
 trait SparseBufferValues<T> {
-    /// Creates an empty storage.
-    fn empty() -> Self;
     /// Returns the number of elements.
     fn len(&self) -> usize;
     /// Returns true if the storage contains no elements.
@@ -487,8 +409,6 @@ trait SparseBufferValues<T> {
     /// Reads the element at the given index, or `None` if the index is out of
     /// range.
     fn get(&self, index: usize) -> Option<T>;
-    /// Overwrites the element at the given index.
-    fn set(&self, index: usize, value: T);
     /// Appends the given element, returning its index.
     fn push(&mut self, value: T) -> usize;
     /// Removes all elements.
@@ -501,23 +421,15 @@ trait SparseBufferValues<T> {
 /// The atomic element storage: each element is kept as its
 /// [`AtomicPod::Blob`] representation, which permits thread-safe element
 /// updates.
-struct AtomicSparseBufferStorage<T: AtomicPod>(Vec<T::Blob>);
+struct AtomicValues<T: AtomicPod>(Vec<T::Blob>);
 
-impl<T: AtomicPod> SparseBufferValues<T> for AtomicSparseBufferStorage<T> {
-    fn empty() -> Self {
-        Self(Vec::new())
-    }
-
+impl<T: AtomicPod> SparseBufferValues<T> for AtomicValues<T> {
     fn len(&self) -> usize {
         self.0.len()
     }
 
     fn get(&self, index: usize) -> Option<T> {
         self.0.get(index).map(|blob| T::read_from_blob(blob))
-    }
-
-    fn set(&self, index: usize, value: T) {
-        value.write_to_blob(&self.0[index]);
     }
 
     fn push(&mut self, value: T) -> usize {
@@ -536,32 +448,22 @@ impl<T: AtomicPod> SparseBufferValues<T> for AtomicSparseBufferStorage<T> {
     }
 }
 
-/// The non-atomic element storage: each element is kept in a [`Cell`], which
-/// makes element updates cheap, requires exclusive access at the public API
-/// boundary, and prevents the buffer from being shared across threads at
-/// compile time.
-struct SparseBufferStorage<T>(Vec<Cell<T>>);
+/// The non-atomic element storage: plain values, updated under exclusive
+/// access.
+struct PlainValues<T>(Vec<T>);
 
-impl<T: Pod + Default> SparseBufferValues<T> for SparseBufferStorage<T> {
-    fn empty() -> Self {
-        Self(Vec::new())
-    }
-
+impl<T: Pod + Default> SparseBufferValues<T> for PlainValues<T> {
     fn len(&self) -> usize {
         self.0.len()
     }
 
     fn get(&self, index: usize) -> Option<T> {
-        self.0.get(index).map(Cell::get)
-    }
-
-    fn set(&self, index: usize, value: T) {
-        self.0[index].set(value);
+        self.0.get(index).copied()
     }
 
     fn push(&mut self, value: T) -> usize {
         let index = self.0.len();
-        self.0.push(Cell::new(value));
+        self.0.push(value);
         index
     }
 
@@ -570,28 +472,14 @@ impl<T: Pod + Default> SparseBufferValues<T> for SparseBufferStorage<T> {
     }
 
     fn resize_with(&mut self, new_len: usize) {
-        self.0.resize_with(new_len, || Cell::new(T::default()));
+        self.0.resize_with(new_len, T::default);
     }
 }
 
-/// The shared implementation behind [`SparseBufferVec`] and
-/// [`AtomicSparseBufferVec`].
-///
-/// This type is parameterized over the element storage `V` and the
-/// dirty-tracking word `W` (see [`SparseBufferValues`] and
-/// [`SparseBufferWord`]), which lets both variants share all of their logic. It
-/// is not intended to be used directly; use one of the buffer types above
-/// instead.
-struct SparseBufferVecCore<T, V, W>
-where
-    T: Pod + Default,
-    V: SparseBufferValues<T>,
-    W: SparseBufferWord,
-{
+/// The variant-independent GPU state shared by both sparse buffer variants.
+struct SparseBufferState {
     /// An ID that uniquely identifies this sparse buffer.
     handle: SparseBufferHandle,
-    /// The underlying values.
-    values: V,
     /// The GPU buffer, if allocated.
     data_buffer: Option<Buffer>,
     /// The GPU buffers that data is copied into in preparation to be scattered
@@ -606,93 +494,15 @@ where
     buffer_usages: BufferUsages,
     /// An optional debug label to identify this buffer.
     label: Arc<str>,
-    /// A bit set of dirty blocks.
-    ///
-    /// The size of this vector in bits is the number of elements divided
-    /// (rounded up) by 64: in other words, the size of this vector in *bits* is
-    /// the size of the [`Self::dirty_bits`] vector in *words*. A 1 in a bit
-    /// indicates that the block has changed since the last upload, while a 0
-    /// indicates that the block hasn't changed.
-    summary: Vec<W>,
-    /// A bit set of dirty elements.
-    ///
-    /// The size of this vector in bits is the number of elements, rounded up to
-    /// the nearest 64. A 1 in a bit indicates that the element has changed since
-    /// the last upload, while a 0 indicates that the element hasn't changed.
-    ///
-    /// Each group of 64 elements, corresponding to a single word in this array,
-    /// is known as a *block*.
-    dirty_bits: Vec<W>,
     /// True if the entire buffer needs to be reuploaded because it resized.
     needs_full_reupload: bool,
     /// True if a sparse update is to be performed.
     sparse_update_scheduled: bool,
-    /// Marker that keeps the element type in the type signature.
-    phantom: PhantomData<T>,
 }
 
-/// A GPU buffer that can grow, is updated on the CPU with exclusive access,
-/// and is sparsely updated on the GPU if only a small number of elements have
-/// changed.
-///
-/// This is the non-atomic counterpart to [`AtomicSparseBufferVec`]: elements
-/// are stored directly instead of as [`AtomicPod`] blobs, so updates are
-/// cheaper, and all mutations require `&mut self`. Use this type when buffer
-/// updates never need to happen from multiple threads simultaneously.
-///
-/// This type is similar to
-/// [`crate::render_resource::buffer_vec::RawBufferVec`], but instead of
-/// reuploading the entire buffer to the GPU when it's changed, it tracks
-/// changes on a per-element level and uploads only the elements that changed if
-/// the number of such elements is small. It uses a compute shader to scatter
-/// those changed elements.
-///
-/// `T` must have a size that's a multiple of 4.
-pub struct SparseBufferVec<T>
-where
-    T: Pod + Default,
-{
-    inner: SparseBufferVecCore<T, SparseBufferStorage<T>, Cell<u64>>,
-}
-
-/// A GPU buffer that can grow, can be updated atomically from multiple threads
-/// on the CPU, and is sparsely updated on the GPU if only a small number of
-/// elements have changed.
-///
-/// This type is similar to
-/// [`crate::render_resource::buffer_vec::AtomicRawBufferVec`], but instead of
-/// reuploading the entire buffer to the GPU when it's changed, it tracks
-/// changes on a per-element level and uploads only the elements that changed if
-/// the number of such elements is small. It uses a compute shader to scatter
-/// those changed elements.
-///
-/// As the stored data is [`AtomicPod`], multiple threads may update the buffer
-/// simultaneously. Note that, like
-/// [`crate::render_resource::buffer_vec::AtomicRawBufferVec`], only existing
-/// elements may be updated from multiple threads; new data still requires
-/// exclusive access.
-///
-/// `T` must have a size that's a multiple of 4.
-pub struct AtomicSparseBufferVec<T>
-where
-    T: AtomicPod,
-{
-    inner: SparseBufferVecCore<T, AtomicSparseBufferStorage<T>, AtomicU64>,
-}
-
-impl<T, V, W> SparseBufferVecCore<T, V, W>
-where
-    T: Pod + Default,
-    V: SparseBufferValues<T>,
-    W: SparseBufferWord,
-{
-    /// Creates a new [`SparseBufferVecCore`] with the given set of buffer
-    /// usages and label.
-    ///
-    /// `buffer_usages` specifies the set of allowed `wgpu` buffer usages for
-    /// the buffer that this type manages.
-    /// `BufferUsages::COPY_DST` is automatically added to this set.
-    pub fn new(buffer_usages: BufferUsages, label: Arc<str>) -> Self {
+impl SparseBufferState {
+    /// Creates a new [`SparseBufferState`] for elements of type `T`.
+    fn new<T: Pod>(buffer_usages: BufferUsages, label: Arc<str>) -> Self {
         // Make sure the value is word-aligned.
         debug_assert_eq!(size_of::<T>() % 4, 0);
         let element_word_size = size_of::<T>() / 4;
@@ -704,254 +514,46 @@ where
 
         Self {
             handle: id,
-            values: V::empty(),
             data_buffer: None,
             staging_buffers: SparseBufferStagingBuffers::new(&label, element_word_size as u32),
             metadata_uniform: UniformBuffer::from(GpuSparseBufferUpdateMetadata::new::<T>()),
             capacity: 0,
             buffer_usages: buffer_usages | BufferUsages::COPY_DST,
             label,
-            summary: vec![],
-            dirty_bits: vec![],
             needs_full_reupload: false,
             sparse_update_scheduled: false,
-            phantom: PhantomData,
         }
-    }
-
-    /// Returns the number of elements in the CPU side copy of the buffer.
-    pub fn len(&self) -> u32 {
-        self.values.len() as u32
-    }
-
-    /// Returns true if there are no elements in the CPU side copy of the buffer.
-    pub fn is_empty(&self) -> bool {
-        self.values.len() == 0
     }
 
     /// Returns a handle to the buffer, if the data has been uploaded.
-    pub fn buffer(&self) -> Option<&Buffer> {
+    fn buffer(&self) -> Option<&Buffer> {
         self.data_buffer.as_ref()
     }
 
-    /// Removes all elements from the buffer.
-    pub fn clear(&mut self) {
-        self.values.clear();
-        self.summary.clear();
-        self.dirty_bits.clear();
-    }
-
-    /// Copies a value out of the buffer.
-    pub fn get(&self, index: u32) -> T {
-        self.values
-            .get(index as usize)
-            .expect("sparse buffer index out of bounds")
-    }
-
-    /// Sets the value at the given index.
-    ///
-    /// If the index isn't in range of the buffer, this method panics.
-    ///
-    /// Internally, the value is converted to its blob representation.
-    pub fn set(&self, index: u32, value: T) {
-        self.values.set(index as usize, value);
-        self.note_changed_index(index);
-    }
-
-    /// Adds a new value and returns its index.
-    pub fn push(&mut self, value: T) -> u32 {
-        let index = self.values.push(value) as u32;
-
-        let dirty_word_index = (index / BITS_PER_WORD) as usize;
-        let summary_word_index = dirty_word_index / BITS_PER_WORD as usize;
-        while self.summary.len() < summary_word_index + 1 {
-            self.summary.push(W::new(0));
-        }
-        while self.dirty_bits.len() < dirty_word_index + 1 {
-            self.dirty_bits.push(W::new(0));
-        }
-
-        self.note_changed_index(index);
-        index
-    }
-
-    /// Marks the given element index as dirty so that we know that we need to
-    /// upload it.
-    fn note_changed_index(&self, index: u32) {
-        note_changed_index(index, &self.summary, &self.dirty_bits);
-    }
-
-    /// Ensures that the backing buffer for this buffer vector is present and
-    /// appropriately sized on the GPU.
-    pub fn reserve(&mut self, new_capacity: usize, render_device: &RenderDevice) {
-        reserve(
-            new_capacity,
-            &mut self.capacity,
-            &self.label,
-            &mut self.data_buffer,
-            self.buffer_usages,
-            &mut self.needs_full_reupload,
-            size_of::<T>(),
-            render_device,
-        );
-    }
-
-    /// Grows the buffer by adding default values so that it's at least the
-    /// given size.
-    ///
-    /// This method sets all the newly-added values to dirty.
-    ///
-    /// If the buffer is already large enough, this method does nothing.
-    pub fn grow(&mut self, new_len: u32) {
-        let old_len = self.values.len() as u32;
-        if old_len >= new_len {
+    /// Ensures that the backing GPU buffer is present and appropriately sized
+    /// for `new_capacity` elements of the given size.
+    fn reserve(&mut self, new_capacity: usize, render_device: &RenderDevice, element_size: usize) {
+        // If the buffer is already big enough, do nothing.
+        if new_capacity == 0 || new_capacity <= self.capacity {
             return;
         }
 
-        self.values.resize_with(new_len as usize);
+        self.capacity = new_capacity;
+        self.data_buffer = Some(render_device.create_buffer(&BufferDescriptor {
+            label: Some(&self.label),
+            size: element_size as u64 * new_capacity as u64,
+            usage: self.buffer_usages,
+            mapped_at_creation: false,
+        }));
 
-        set_dirty_bits_for_vector_growth(old_len, new_len, &mut self.summary, &mut self.dirty_bits);
-    }
-
-    /// Writes the data to the GPU, either via a sparse upload or a bulk data
-    /// upload.
-    pub fn write_buffers(&mut self, render_device: &RenderDevice, render_queue: &RenderQueue) {
-        if self.values.is_empty() {
-            return;
-        }
-
-        // Round up the size to a good value to balance reallocation frequency
-        // against memory waste.
-        let good_size = calculate_allocation_size(self.values.len());
-        self.reserve(good_size, render_device);
-
-        if self.should_perform_full_reupload(render_device) {
-            self.write_entire_buffer(render_queue);
-        } else {
-            self.prepare_sparse_upload(render_device, render_queue);
-        }
-    }
-
-    /// Returns true if the sparse buffer should perform a full reupload, either
-    /// because it was resized or because too much data changed for a sparse
-    /// update to be worthwhile.
-    fn should_perform_full_reupload(&self, render_device: &RenderDevice) -> bool {
-        if self.needs_full_reupload
-            || render_device.limits().max_storage_buffers_per_shader_stage < 3
-        {
-            return true;
-        }
-
-        let changed_element_count = count_dirty_elements(&self.summary, &self.dirty_bits);
-        self.staging_buffers
-            .should_perform_full_reupload(changed_element_count, self.values.len())
-    }
-
-    /// Writes the entire buffer in bulk.
-    ///
-    /// This is the method used when a sparse update is not used, either because
-    /// the buffer resized or because too much data changed for a sparse update
-    /// to be worthwhile.
-    fn write_entire_buffer(&mut self, render_queue: &RenderQueue) {
-        let Some(ref mut data_buffer) = self.data_buffer else {
-            error!("Dirty sparse buffer should have created a data buffer by now");
-            return;
-        };
-
-        // Write the elements directly into wgpu's staging memory, avoiding an
-        // intermediate CPU-side copy. `write_buffer_with` returns `None` only
-        // if the buffer is not `BufferUsages::COPY_DST`, which `reserve` always
-        // ensures it is, and the view is non-empty here because `write_buffers`
-        // early-returns on empty buffers.
-        let size = BufferSize::new((self.values.len() * size_of::<T>()) as u64)
-            .expect("data buffer should be non-empty");
-        let mut view = render_queue
-            .write_buffer_with(data_buffer, 0, size)
-            .expect("data buffer should be COPY_DST");
-
-        let mut offset = 0usize;
-        for index in 0..self.values.len() {
-            let value = self.values.get(index).expect("element index in bounds");
-            let bytes = bytemuck::bytes_of(&value);
-            view.slice(offset..offset + bytes.len())
-                .copy_from_slice(bytes);
-            offset += bytes.len();
-        }
-
-        // Dropping the view schedules the transfer on the next queue
-        // submission.
-
-        // Mark all pages as clean.
-        for summary_word in self.summary.iter() {
-            summary_word.store(0);
-        }
-        for dirty_word in self.dirty_bits.iter() {
-            dirty_word.store(0);
-        }
-        self.sparse_update_scheduled = false;
-    }
-
-    /// Schedules a sparse upload of only the elements that changed.
-    fn prepare_sparse_upload(&mut self, render_device: &RenderDevice, render_queue: &RenderQueue) {
-        // Iterate over all dirty elements, using the summary to accelerate the
-        // search.
-        for (summary_word_index, summary_word) in self.summary.iter().enumerate() {
-            let summary_word_value = summary_word.get();
-            for summary_bit_offset in BitIter::new(summary_word_value) {
-                let dirty_word_index =
-                    summary_word_index * BITS_PER_WORD as usize + summary_bit_offset as usize;
-
-                // Iterate over all dirty elements in each dirty page.
-                let dirty_word = &self.dirty_bits[dirty_word_index];
-                let dirty_word_value = dirty_word.get();
-                for dirty_bit_offset in BitIter::new(dirty_word_value) {
-                    let element_index =
-                        dirty_word_index * BITS_PER_WORD as usize + dirty_bit_offset as usize;
-
-                    let Some(value) = self.values.get(element_index) else {
-                        continue;
-                    };
-
-                    // Write the index of the element so the shader will know
-                    // where to scatter the data to.
-                    self.staging_buffers.indices.push(element_index as u32);
-
-                    // Copy the element to the GPU staging buffer.
-                    self.staging_buffers
-                        .source_data
-                        .extend(bytemuck::cast_slice(&[value]).iter().copied());
-
-                    // Make sure we're aligned up to a full element.
-                    debug_assert_eq!(
-                        self.staging_buffers.source_data.len()
-                            % self.staging_buffers.element_word_size as usize,
-                        0
-                    );
-                }
-
-                // Mark the element as clean.
-                dirty_word.store(0);
-            }
-
-            // Mark the block as clean.
-            summary_word.store(0);
-        }
-
-        // Schedule a sparse update if there was something to do.
-        self.sparse_update_scheduled = !self.staging_buffers.source_data.is_empty();
-        if self.sparse_update_scheduled {
-            self.staging_buffers.write_buffers(
-                &mut self.metadata_uniform,
-                render_device,
-                render_queue,
-            );
-        }
+        // Since we resized the buffer, we need to reupload it.
+        self.needs_full_reupload = true;
     }
 
     /// If a sparse update has been scheduled, prepares all GPU resources
     /// necessary to perform a sparse buffer update, other than updating the
     /// metadata uniform.
-    pub fn prepare_to_populate_buffers(
+    fn prepare_to_populate_buffers(
         &mut self,
         render_device: &RenderDevice,
         pipeline_cache: &PipelineCache,
@@ -992,63 +594,175 @@ where
     }
 }
 
-/// Implements the delegating methods shared by [`SparseBufferVec`] and
+/// A GPU buffer that can grow, is updated on the CPU with exclusive access,
+/// and is sparsely updated on the GPU if only a small number of elements have
+/// changed.
+///
+/// This is the non-atomic counterpart to [`AtomicSparseBufferVec`]: elements
+/// are stored directly instead of as [`AtomicPod`] blobs, so updates are
+/// cheaper, and all mutations require `&mut self`. Use this type when buffer
+/// updates never need to happen from multiple threads simultaneously.
+///
+/// This type is similar to
+/// [`crate::render_resource::buffer_vec::RawBufferVec`], but instead of
+/// reuploading the entire buffer to the GPU when it's changed, it tracks
+/// changes on a per-element level and uploads only the elements that changed if
+/// the number of such elements is small. It uses a compute shader to scatter
+/// those changed elements.
+///
+/// `T` must have a size that's a multiple of 4.
+pub struct SparseBufferVec<T>
+where
+    T: Pod + Default,
+{
+    /// The underlying values.
+    values: PlainValues<T>,
+    /// A bit set of dirty blocks.
+    ///
+    /// The size of this vector in bits is the number of elements divided
+    /// (rounded up) by 64: in other words, the size of this vector in *bits* is
+    /// the size of the [`Self::dirty_bits`] vector in *words*. A 1 in a bit
+    /// indicates that the block has changed since the last upload, while a 0
+    /// indicates that the block hasn't changed.
+    summary: Vec<AtomicU64>,
+    /// A bit set of dirty elements.
+    ///
+    /// The size of this vector in bits is the number of elements, rounded up to
+    /// the nearest 64. A 1 in a bit indicates that the element has changed since
+    /// the last upload, while a 0 indicates that the element hasn't changed.
+    ///
+    /// Each group of 64 elements, corresponding to a single word in this array,
+    /// is known as a *block*.
+    dirty_bits: Vec<AtomicU64>,
+    /// The variant-independent GPU state.
+    state: SparseBufferState,
+}
+
+/// A mutable view of a single element of an [`AtomicSparseBufferVec`].
+///
+/// Returned by [`AtomicSparseBufferVec::get_mut`], this type derefs to the
+/// element's value. When it's dropped, the value is written back into the
+/// buffer's blob storage and the element is marked as changed, so the mutation
+/// is picked up by the next sparse upload.
+#[derive(Deref, DerefMut)]
+pub struct ElementMut<'a, T: AtomicPod> {
+    /// The value being mutated.
+    #[deref]
+    value: T,
+    /// The blob storage the value will be written back to on drop.
+    blob: &'a T::Blob,
+    /// The index of the element, used to mark it dirty on drop.
+    index: u32,
+    /// The dirty-tracking summary, used to mark the element on drop.
+    summary: &'a mut [AtomicU64],
+    /// The dirty-tracking bits, used to mark the element on drop.
+    dirty_bits: &'a mut [AtomicU64],
+}
+
+impl<T: AtomicPod> Drop for ElementMut<'_, T> {
+    fn drop(&mut self) {
+        self.value.write_to_blob(self.blob);
+        note_changed_index_mut(self.index, self.summary, self.dirty_bits);
+    }
+}
+
+/// A GPU buffer that can grow, can be updated atomically from multiple threads
+/// on the CPU, and is sparsely updated on the GPU if only a small number of
+/// elements have changed.
+///
+/// This type is similar to
+/// [`crate::render_resource::buffer_vec::AtomicRawBufferVec`], but instead of
+/// reuploading the entire buffer to the GPU when it's changed, it tracks
+/// changes on a per-element level and uploads only the elements that changed if
+/// the number of such elements is small. It uses a compute shader to scatter
+/// those changed elements.
+///
+/// As the stored data is [`AtomicPod`], multiple threads may update the buffer
+/// simultaneously. Note that, like
+/// [`crate::render_resource::buffer_vec::AtomicRawBufferVec`], only existing
+/// elements may be updated from multiple threads; new data still requires
+/// exclusive access.
+///
+/// When the buffer is only ever updated from a single thread, prefer
+/// [`Self::set_mut`] over [`Self::set`]: the exclusive access it requires
+/// lets the dirty tracking avoid atomic read-modify-write instructions.
+///
+/// `T` must have a size that's a multiple of 4.
+pub struct AtomicSparseBufferVec<T>
+where
+    T: AtomicPod,
+{
+    /// The underlying values.
+    values: AtomicValues<T>,
+    /// A bit set of dirty blocks.
+    ///
+    /// The size of this vector in bits is the number of elements divided
+    /// (rounded up) by 64: in other words, the size of this vector in *bits* is
+    /// the size of the [`Self::dirty_bits`] vector in *words*. A 1 in a bit
+    /// indicates that the block has changed since the last upload, while a 0
+    /// indicates that the block hasn't changed.
+    summary: Vec<AtomicU64>,
+    /// A bit set of dirty elements.
+    ///
+    /// The size of this vector in bits is the number of elements, rounded up to
+    /// the nearest 64. A 1 in a bit indicates that the element has changed since
+    /// the last upload, while a 0 indicates that the element hasn't changed.
+    ///
+    /// Each group of 64 elements, corresponding to a single word in this array,
+    /// is known as a *block*.
+    dirty_bits: Vec<AtomicU64>,
+    /// The variant-independent GPU state.
+    state: SparseBufferState,
+}
+
+/// Implements the methods that are identical across [`SparseBufferVec`] and
 /// [`AtomicSparseBufferVec`].
 ///
 /// `$bounds` are the element type bounds (`Pod + Default` for the non-atomic
-/// variant, `AtomicPod` for the atomic one). The `set` method is implemented
-/// separately for each variant, since its receiver differs (`&self` for the
-/// atomic variant, which is thread-safe and requires no `&mut`, versus
-/// `&mut self` for the non-atomic variant, which requires exclusive access).
-macro_rules! impl_sparse_buffer_vec_wrapper {
+/// variant, `AtomicPod` for the atomic one). The storage-specific methods
+/// (`new`, `set`, and the private `write_entire_buffer`) are implemented
+/// separately for each variant.
+macro_rules! impl_sparse_buffer_common_methods {
     ($wrapper:ident, $($bounds:tt)+) => {
         impl<T: $($bounds)+> $wrapper<T> {
-            /// Creates a new buffer with the given set of buffer usages and
-            /// label.
-            ///
-            /// `buffer_usages` specifies the set of allowed `wgpu` buffer
-            /// usages for the buffer that this type manages.
-            /// `BufferUsages::COPY_DST` is automatically added to this set.
-            pub fn new(buffer_usages: BufferUsages, label: Arc<str>) -> Self {
-                Self {
-                    inner: SparseBufferVecCore::new(buffer_usages, label),
-                }
-            }
-
             /// Returns the number of elements in the CPU side copy of the buffer.
             pub fn len(&self) -> u32 {
-                self.inner.len()
+                self.values.len() as u32
             }
 
             /// Returns true if there are no elements in the CPU side copy of the buffer.
             pub fn is_empty(&self) -> bool {
-                self.inner.is_empty()
+                self.values.is_empty()
             }
 
             /// Returns a handle to the buffer, if the data has been uploaded.
             pub fn buffer(&self) -> Option<&Buffer> {
-                self.inner.buffer()
+                self.state.buffer()
             }
 
             /// Removes all elements from the buffer.
             pub fn clear(&mut self) {
-                self.inner.clear();
+                self.values.clear();
+                self.summary.clear();
+                self.dirty_bits.clear();
             }
 
             /// Copies a value out of the buffer.
             pub fn get(&self, index: u32) -> T {
-                self.inner.get(index)
+                self.values
+                    .get(index as usize)
+                    .expect("sparse buffer index out of bounds")
             }
 
             /// Adds a new value and returns its index.
             pub fn push(&mut self, value: T) -> u32 {
-                self.inner.push(value)
+                push_impl(&mut self.values, &mut self.summary, &mut self.dirty_bits, value)
             }
 
             /// Ensures that the backing buffer for this buffer vector is present
             /// and appropriately sized on the GPU.
             pub fn reserve(&mut self, new_capacity: usize, render_device: &RenderDevice) {
-                self.inner.reserve(new_capacity, render_device);
+                self.state.reserve(new_capacity, render_device, size_of::<T>());
             }
 
             /// Grows the buffer by adding default values so that it's at least
@@ -1058,13 +772,39 @@ macro_rules! impl_sparse_buffer_vec_wrapper {
             ///
             /// If the buffer is already large enough, this method does nothing.
             pub fn grow(&mut self, new_len: u32) {
-                self.inner.grow(new_len);
+                grow_impl(&mut self.values, &mut self.summary, &mut self.dirty_bits, new_len);
             }
 
             /// Writes the data to the GPU, either via a sparse upload or a bulk
             /// data upload.
             pub fn write_buffers(&mut self, render_device: &RenderDevice, render_queue: &RenderQueue) {
-                self.inner.write_buffers(render_device, render_queue);
+                if self.values.is_empty() {
+                    return;
+                }
+
+                // Round up the size to a good value to balance reallocation
+                // frequency against memory waste.
+                let good_size = calculate_allocation_size(self.values.len());
+                self.reserve(good_size, render_device);
+
+                if should_perform_full_reupload(
+                    &self.state,
+                    render_device,
+                    &self.summary,
+                    &self.dirty_bits,
+                    self.values.len(),
+                ) {
+                    self.write_entire_buffer(render_queue);
+                } else {
+                    prepare_sparse_upload(
+                        &mut self.state,
+                        &self.values,
+                        &mut self.summary,
+                        &mut self.dirty_bits,
+                        render_device,
+                        render_queue,
+                    );
+                }
             }
 
             /// If a sparse update has been scheduled, prepares all GPU resources
@@ -1078,7 +818,7 @@ macro_rules! impl_sparse_buffer_vec_wrapper {
                 sparse_buffer_update_bind_groups: &mut SparseBufferUpdateBindGroups,
                 sparse_buffer_update_pipelines: &SparseBufferUpdatePipelines,
             ) {
-                self.inner.prepare_to_populate_buffers(
+                self.state.prepare_to_populate_buffers(
                     render_device,
                     pipeline_cache,
                     sparse_buffer_update_jobs,
@@ -1090,11 +830,25 @@ macro_rules! impl_sparse_buffer_vec_wrapper {
     };
 }
 
-impl_sparse_buffer_vec_wrapper!(SparseBufferVec, Pod + Default);
-
-impl_sparse_buffer_vec_wrapper!(AtomicSparseBufferVec, AtomicPod);
+impl_sparse_buffer_common_methods!(SparseBufferVec, Pod + Default);
+impl_sparse_buffer_common_methods!(AtomicSparseBufferVec, AtomicPod);
 
 impl<T: Pod + Default> SparseBufferVec<T> {
+    /// Creates a new [`SparseBufferVec`] with the given set of buffer usages
+    /// and label.
+    ///
+    /// `buffer_usages` specifies the set of allowed `wgpu` buffer usages for
+    /// the buffer that [`SparseBufferVec`] manages.
+    /// `BufferUsages::COPY_DST` is automatically added to this set.
+    pub fn new(buffer_usages: BufferUsages, label: Arc<str>) -> Self {
+        Self {
+            values: PlainValues(Vec::new()),
+            summary: Vec::new(),
+            dirty_bits: Vec::new(),
+            state: SparseBufferState::new::<T>(buffer_usages, label),
+        }
+    }
+
     /// Sets the value at the given index.
     ///
     /// If the index isn't in range of the buffer, this method panics.
@@ -1102,11 +856,47 @@ impl<T: Pod + Default> SparseBufferVec<T> {
     /// Unlike [`AtomicSparseBufferVec::set`], this method requires exclusive
     /// access to the buffer, as the data is stored non-atomically.
     pub fn set(&mut self, index: u32, value: T) {
-        self.inner.set(index, value);
+        self.values.0[index as usize] = value;
+        note_changed_index_mut(index, &mut self.summary, &mut self.dirty_bits);
+    }
+
+    /// Writes the entire buffer in bulk.
+    ///
+    /// This is the method used when a sparse update is not used, either because
+    /// the buffer resized or because too much data changed for a sparse update
+    /// to be worthwhile.
+    fn write_entire_buffer(&mut self, render_queue: &RenderQueue) {
+        let Some(data_buffer) = &self.state.data_buffer else {
+            error!("Dirty sparse buffer should have created a data buffer by now");
+            return;
+        };
+
+        // The non-atomic values are plain `T`s, so the whole buffer can be
+        // uploaded zero-copy.
+        render_queue.write_buffer(data_buffer, 0, must_cast_slice(&self.values.0));
+
+        // Mark all pages as clean.
+        clear_dirty_bits(&mut self.summary, &mut self.dirty_bits);
+        self.state.sparse_update_scheduled = false;
     }
 }
 
 impl<T: AtomicPod> AtomicSparseBufferVec<T> {
+    /// Creates a new [`AtomicSparseBufferVec`] with the given set of buffer
+    /// usages and label.
+    ///
+    /// `buffer_usages` specifies the set of allowed `wgpu` buffer usages for
+    /// the buffer that [`AtomicSparseBufferVec`] manages.
+    /// `BufferUsages::COPY_DST` is automatically added to this set.
+    pub fn new(buffer_usages: BufferUsages, label: Arc<str>) -> Self {
+        Self {
+            values: AtomicValues(Vec::new()),
+            summary: Vec::new(),
+            dirty_bits: Vec::new(),
+            state: SparseBufferState::new::<T>(buffer_usages, label),
+        }
+    }
+
     /// Sets the value at the given index.
     ///
     /// If the index isn't in range of the buffer, this method panics.
@@ -1119,7 +909,89 @@ impl<T: AtomicPod> AtomicSparseBufferVec<T> {
     /// partially-overwritten values if [`Self::get`] or similar methods are
     /// called while the write operation is occurring.
     pub fn set(&self, index: u32, value: T) {
-        self.inner.set(index, value);
+        value.write_to_blob(&self.values.0[index as usize]);
+        self.note_changed_index(index);
+    }
+
+    /// Sets the value at the given index, with exclusive access.
+    ///
+    /// If the index isn't in range of the buffer, this method panics.
+    ///
+    /// Internally, the value is converted to its blob representation.
+    ///
+    /// Unlike [`Self::set`], this method requires `&mut self`, which lets it
+    /// mark the element as dirty without atomic read-modify-write
+    /// instructions. Prefer it over [`Self::set`] when the buffer is only
+    /// ever updated from a single thread.
+    pub fn set_mut(&mut self, index: u32, value: T) {
+        value.write_to_blob(&self.values.0[index as usize]);
+        note_changed_index_mut(index, &mut self.summary, &mut self.dirty_bits);
+    }
+
+    /// Returns a mutable view of the element at the given index.
+    ///
+    /// If the index isn't in range of the buffer, this method panics.
+    ///
+    /// The returned handle derefs to the element's value. When it's dropped,
+    /// the value is written back into the buffer's blob storage and the
+    /// element is marked as changed. Like [`Self::set_mut`], this method
+    /// requires `&mut self`, so the write-back and dirty marking don't need
+    /// atomic read-modify-write instructions.
+    pub fn get_mut(&mut self, index: u32) -> ElementMut<'_, T> {
+        ElementMut {
+            value: T::read_from_blob(&self.values.0[index as usize]),
+            blob: &self.values.0[index as usize],
+            index,
+            summary: &mut self.summary,
+            dirty_bits: &mut self.dirty_bits,
+        }
+    }
+
+    /// Marks the given element index as dirty. Thread-safe: only requires
+    /// `&self`.
+    fn note_changed_index(&self, index: u32) {
+        let dirty_word_index = index / BITS_PER_WORD;
+        let (summary_word_index, summary_bit_offset) = (
+            dirty_word_index / BITS_PER_WORD,
+            dirty_word_index % BITS_PER_WORD,
+        );
+        self.summary[summary_word_index as usize]
+            .fetch_or(1 << summary_bit_offset, Ordering::Relaxed);
+        let (element_word, element_in_word) = (index / BITS_PER_WORD, index % BITS_PER_WORD);
+        self.dirty_bits[element_word as usize].fetch_or(1 << element_in_word, Ordering::Relaxed);
+    }
+
+    /// Writes the entire buffer in bulk.
+    ///
+    /// This is the method used when a sparse update is not used, either because
+    /// the buffer resized or because too much data changed for a sparse update
+    /// to be worthwhile.
+    fn write_entire_buffer(&mut self, render_queue: &RenderQueue) {
+        let Some(data_buffer) = &self.state.data_buffer else {
+            error!("Dirty sparse buffer should have created a data buffer by now");
+            return;
+        };
+
+        // Write the elements directly into wgpu's staging memory, since the
+        // atomic blob representation can't be cast to bytes directly.
+        let size = BufferSize::new((self.values.len() * size_of::<T>()) as u64)
+            .expect("data buffer should be non-empty");
+        let mut view = render_queue
+            .write_buffer_with(data_buffer, 0, size)
+            .expect("data buffer should be COPY_DST");
+
+        let mut offset = 0usize;
+        for index in 0..self.values.len() {
+            let value = self.values.get(index).expect("element index in bounds");
+            let bytes = bytemuck::bytes_of(&value);
+            view.slice(offset..offset + bytes.len())
+                .copy_from_slice(bytes);
+            offset += bytes.len();
+        }
+
+        // Mark all pages as clean.
+        clear_dirty_bits(&mut self.summary, &mut self.dirty_bits);
+        self.state.sparse_update_scheduled = false;
     }
 }
 
@@ -1153,11 +1025,15 @@ impl FromWorld for SparseBufferUpdateBindGroups {
 /// also resizes the `summary` and `dirty_bits` bitfields as necessary.
 ///
 /// `new_len` must be greater than or equal to `old_len`.
-fn set_dirty_bits_for_vector_growth<W: SparseBufferWord>(
+///
+/// This function is only ever called with exclusive access, so the words are
+/// mutated through [`AtomicU64::get_mut`] and no atomic instructions are
+/// emitted.
+fn set_dirty_bits_for_vector_growth(
     old_len: u32,
     new_len: u32,
-    summary: &mut Vec<W>,
-    dirty_bits: &mut Vec<W>,
+    summary: &mut Vec<AtomicU64>,
+    dirty_bits: &mut Vec<AtomicU64>,
 ) {
     debug_assert!(new_len >= old_len);
     if new_len == old_len {
@@ -1170,13 +1046,13 @@ fn set_dirty_bits_for_vector_growth<W: SparseBufferWord>(
         let old_final_dirty_word_index = (old_len - 1) / BITS_PER_WORD;
         let old_final_dirty_bit_offset = (old_len - 1) % BITS_PER_WORD;
         if old_final_dirty_bit_offset < BITS_PER_WORD - 1
-            && let Some(ref mut old_final_dirty_word) =
+            && let Some(old_final_dirty_word) =
                 dirty_bits.get_mut(old_final_dirty_word_index as usize)
         {
             // We add one here because we want to set every bit *after*, but not
             // including, the index we computed above.
-            old_final_dirty_word
-                .fetch_or(!((1u64 << (old_final_dirty_bit_offset + 1)).wrapping_sub(1)));
+            *old_final_dirty_word.get_mut() |=
+                !((1u64 << (old_final_dirty_bit_offset + 1)).wrapping_sub(1));
         }
 
         // Now set all the blocks from the block corresponding to `old_len - 1`
@@ -1191,36 +1067,34 @@ fn set_dirty_bits_for_vector_growth<W: SparseBufferWord>(
             old_final_summary_bit_offset += 1;
         }
         if old_final_summary_bit_offset < BITS_PER_WORD
-            && let Some(ref mut old_final_summary_word) =
+            && let Some(old_final_summary_word) =
                 summary.get_mut(old_final_summary_word_index as usize)
         {
             // We don't add one to `old_final_summary_bit_offset` here because
             // we want to include the block that `old_len - 1` is on.
-            old_final_summary_word
-                .fetch_or(!((1u64 << old_final_summary_bit_offset).wrapping_sub(1)));
+            *old_final_summary_word.get_mut() |=
+                !((1u64 << old_final_summary_bit_offset).wrapping_sub(1));
         }
     }
 
     // Add any new summary and dirty words, with all bits set.
     let new_dirty_word_count = (new_len as usize).div_ceil(BITS_PER_WORD as usize);
     let new_summary_word_count = new_dirty_word_count.div_ceil(BITS_PER_WORD as usize);
-    summary.resize_with(new_summary_word_count, || W::new(u64::MAX));
-    dirty_bits.resize_with(new_dirty_word_count, || W::new(u64::MAX));
+    summary.resize_with(new_summary_word_count, || AtomicU64::new(u64::MAX));
+    dirty_bits.resize_with(new_dirty_word_count, || AtomicU64::new(u64::MAX));
 
     // Clear all bits past the last valid element index in `dirty_bits`.
     let last_dirty_bit_offset = new_len % BITS_PER_WORD;
     if last_dirty_bit_offset != 0 {
-        let mut final_dirty_word = dirty_bits[new_dirty_word_count - 1].get();
-        final_dirty_word &= (1u64 << last_dirty_bit_offset) - 1;
-        dirty_bits[new_dirty_word_count - 1].store(final_dirty_word);
+        let final_dirty_word = dirty_bits[new_dirty_word_count - 1].get_mut();
+        *final_dirty_word &= (1u64 << last_dirty_bit_offset) - 1;
     }
 
     // Clear all bits past the last valid summary bit in `summary`.
     let last_summary_bit_offset = new_dirty_word_count % BITS_PER_WORD as usize;
     if last_summary_bit_offset != 0 {
-        let mut final_summary_word = summary[new_summary_word_count - 1].get();
-        final_summary_word &= (1u64 << last_summary_bit_offset) - 1;
-        summary[new_summary_word_count - 1].store(final_summary_word);
+        let final_summary_word = summary[new_summary_word_count - 1].get_mut();
+        *final_summary_word &= (1u64 << last_summary_bit_offset) - 1;
     }
 }
 
@@ -1229,31 +1103,181 @@ fn set_dirty_bits_for_vector_growth<W: SparseBufferWord>(
 ///
 /// This is a separate function so we can unit test it easily (i.e. without the
 /// need of a `RenderDevice`).
-fn note_changed_index<W: SparseBufferWord>(index: u32, summary: &[W], dirty_bits: &[W]) {
+///
+/// Only called with exclusive access; the words are mutated through
+/// [`AtomicU64::get_mut`].
+fn note_changed_index_mut(index: u32, summary: &mut [AtomicU64], dirty_bits: &mut [AtomicU64]) {
     let dirty_word_index = index / BITS_PER_WORD;
     let (summary_word_index, summary_bit_offset) = (
         dirty_word_index / BITS_PER_WORD,
         dirty_word_index % BITS_PER_WORD,
     );
-    summary[summary_word_index as usize].fetch_or(1 << summary_bit_offset);
+    *summary[summary_word_index as usize].get_mut() |= 1 << summary_bit_offset;
     let (element_word, element_in_word) = (index / BITS_PER_WORD, index % BITS_PER_WORD);
-    dirty_bits[element_word as usize].fetch_or(1 << element_in_word);
+    *dirty_bits[element_word as usize].get_mut() |= 1 << element_in_word;
 }
 
 /// Returns the total number of bits set in `dirty_bits`, using the given
 /// `summary` to accelerate the count.
-fn count_dirty_elements<W: SparseBufferWord>(summary: &[W], dirty_bits: &[W]) -> u32 {
+fn count_dirty_elements(summary: &[AtomicU64], dirty_bits: &[AtomicU64]) -> u32 {
     let mut changed_element_count = 0u32;
     for (summary_word_index, summary_word) in summary.iter().enumerate() {
-        for summary_bit_offset in BitIter::new(summary_word.get()) {
+        for summary_bit_offset in BitIter::new(summary_word.load(Ordering::Relaxed)) {
             let dirty_word_index =
                 summary_word_index * BITS_PER_WORD as usize + summary_bit_offset as usize;
-            let dirty_word = dirty_bits[dirty_word_index].get();
+            let dirty_word = dirty_bits[dirty_word_index].load(Ordering::Relaxed);
             changed_element_count += dirty_word.count_ones();
         }
     }
 
     changed_element_count
+}
+
+/// Appends an element to the CPU-side storage, growing the dirty-bit
+/// bookkeeping as needed and marking the new element dirty.
+fn push_impl<T, V>(
+    values: &mut V,
+    summary: &mut Vec<AtomicU64>,
+    dirty_bits: &mut Vec<AtomicU64>,
+    value: T,
+) -> u32
+where
+    V: SparseBufferValues<T>,
+{
+    let index = values.push(value) as u32;
+
+    let dirty_word_index = (index / BITS_PER_WORD) as usize;
+    let summary_word_index = dirty_word_index / BITS_PER_WORD as usize;
+    while summary.len() < summary_word_index + 1 {
+        summary.push(AtomicU64::new(0));
+    }
+    while dirty_bits.len() < dirty_word_index + 1 {
+        dirty_bits.push(AtomicU64::new(0));
+    }
+
+    note_changed_index_mut(index, summary, dirty_bits);
+    index
+}
+
+/// Grows the CPU-side storage to at least `new_len` elements, marking all
+/// newly-added elements dirty.
+fn grow_impl<T, V>(
+    values: &mut V,
+    summary: &mut Vec<AtomicU64>,
+    dirty_bits: &mut Vec<AtomicU64>,
+    new_len: u32,
+) where
+    V: SparseBufferValues<T>,
+{
+    let old_len = values.len() as u32;
+    if old_len >= new_len {
+        return;
+    }
+
+    values.resize_with(new_len as usize);
+
+    set_dirty_bits_for_vector_growth(old_len, new_len, summary, dirty_bits);
+}
+
+/// Clears all dirty-tracking bits.
+///
+/// Only called with exclusive access; the words are mutated through
+/// [`AtomicU64::get_mut`].
+fn clear_dirty_bits(summary: &mut [AtomicU64], dirty_bits: &mut [AtomicU64]) {
+    for word in summary {
+        *word.get_mut() = 0;
+    }
+    for word in dirty_bits {
+        *word.get_mut() = 0;
+    }
+}
+
+/// Returns true if the sparse buffer should perform a full reupload, either
+/// because it was resized or because too much data changed for a sparse update
+/// to be worthwhile.
+fn should_perform_full_reupload(
+    state: &SparseBufferState,
+    render_device: &RenderDevice,
+    summary: &[AtomicU64],
+    dirty_bits: &[AtomicU64],
+    element_count: usize,
+) -> bool {
+    if state.needs_full_reupload || render_device.limits().max_storage_buffers_per_shader_stage < 3
+    {
+        return true;
+    }
+
+    let changed_element_count = count_dirty_elements(summary, dirty_bits);
+    state
+        .staging_buffers
+        .should_perform_full_reupload(changed_element_count, element_count)
+}
+
+/// Schedules a sparse upload of only the elements that changed.
+fn prepare_sparse_upload<T, V>(
+    state: &mut SparseBufferState,
+    values: &V,
+    summary: &mut [AtomicU64],
+    dirty_bits: &mut [AtomicU64],
+    render_device: &RenderDevice,
+    render_queue: &RenderQueue,
+) where
+    T: Pod,
+    V: SparseBufferValues<T>,
+{
+    // Iterate over all dirty elements, using the summary to accelerate the
+    // search.
+    for (summary_word_index, summary_word) in summary.iter_mut().enumerate() {
+        let summary_word_value = summary_word.load(Ordering::Relaxed);
+        for summary_bit_offset in BitIter::new(summary_word_value) {
+            let dirty_word_index =
+                summary_word_index * BITS_PER_WORD as usize + summary_bit_offset as usize;
+
+            // Iterate over all dirty elements in each dirty page.
+            let dirty_word_value = dirty_bits[dirty_word_index].load(Ordering::Relaxed);
+            for dirty_bit_offset in BitIter::new(dirty_word_value) {
+                let element_index =
+                    dirty_word_index * BITS_PER_WORD as usize + dirty_bit_offset as usize;
+
+                let Some(value) = values.get(element_index) else {
+                    continue;
+                };
+
+                // Write the index of the element so the shader will know where
+                // to scatter the data to.
+                state.staging_buffers.indices.push(element_index as u32);
+
+                // Copy the element to the GPU staging buffer.
+                state
+                    .staging_buffers
+                    .source_data
+                    .extend(bytemuck::cast_slice(&[value]).iter().copied());
+
+                // Make sure we're aligned up to a full element.
+                debug_assert_eq!(
+                    state.staging_buffers.source_data.len()
+                        % state.staging_buffers.element_word_size as usize,
+                    0
+                );
+            }
+
+            // Mark the element as clean.
+            *dirty_bits[dirty_word_index].get_mut() = 0;
+        }
+
+        // Mark the block as clean.
+        *summary_word.get_mut() = 0;
+    }
+
+    // Schedule a sparse update if there was something to do.
+    state.sparse_update_scheduled = !state.staging_buffers.source_data.is_empty();
+    if state.sparse_update_scheduled {
+        state.staging_buffers.write_buffers(
+            &mut state.metadata_uniform,
+            render_device,
+            render_queue,
+        );
+    }
 }
 
 /// Prepares all GPU resources necessary to perform a sparse buffer update,
@@ -1319,33 +1343,6 @@ fn prepare_to_populate_buffers(
 ///
 /// The `capacity`, `data_buffer`, and `needs_full_reupload` fields are updated
 /// to reflect the new buffer.
-fn reserve(
-    new_capacity: usize,
-    capacity: &mut usize,
-    label: &str,
-    data_buffer: &mut Option<Buffer>,
-    buffer_usages: BufferUsages,
-    needs_full_reupload: &mut bool,
-    element_size: usize,
-    render_device: &RenderDevice,
-) {
-    // If the buffer is already big enough, do nothing.
-    if new_capacity == 0 || new_capacity <= *capacity {
-        return;
-    }
-
-    *capacity = new_capacity;
-    *data_buffer = Some(render_device.create_buffer(&BufferDescriptor {
-        label: Some(label),
-        size: element_size as u64 * new_capacity as u64,
-        usage: buffer_usages,
-        mapped_at_creation: false,
-    }));
-
-    // Since we resized the buffer, we need to reupload it.
-    *needs_full_reupload = true;
-}
-
 impl GpuSparseBufferUpdateMetadata {
     /// Returns a new [`GpuSparseBufferUpdateMetadata`] for the given type.
     fn new<T>() -> GpuSparseBufferUpdateMetadata {
@@ -1393,15 +1390,13 @@ mod tests {
     use alloc::sync::Arc;
 
     use super::{
-        count_dirty_elements, note_changed_index, AtomicSparseBufferStorage, AtomicSparseBufferVec,
-        BitIter, SparseBufferStorage, SparseBufferValues, SparseBufferVecCore, SparseBufferWord,
-        BITS_PER_WORD,
+        count_dirty_elements, note_changed_index_mut, AtomicSparseBufferVec, BitIter,
+        SparseBufferVec, BITS_PER_WORD,
     };
     use crate::impl_atomic_pod;
     use crate::render_resource::{AtomicPod, BufferUsages};
     use bytemuck::{Pod, Zeroable};
     use core::{
-        cell::Cell,
         iter,
         sync::atomic::{AtomicU64, Ordering},
     };
@@ -1416,11 +1411,6 @@ mod tests {
 
     fn test_element(index: u32) -> TestElement {
         TestElement([index as f32, 0.0, 0.0, 0.0])
-    }
-
-    /// Reads the raw values out of a list of dirty-tracking words.
-    fn word_values<W: SparseBufferWord>(words: &[W]) -> Vec<u64> {
-        words.iter().map(|word| word.get()).collect()
     }
 
     proptest! {
@@ -1558,89 +1548,27 @@ mod tests {
             let dirty_word_count = dirty_flags.len().div_ceil(BITS_PER_WORD as usize);
             let summary_word_count = dirty_word_count.div_ceil(BITS_PER_WORD as usize);
 
-            let dirty_bits: Vec<_> = (0..dirty_word_count).map(|_| AtomicU64::new(0)).collect();
-            let summary: Vec<_> = (0..summary_word_count).map(|_| AtomicU64::new(0)).collect();
+            let mut dirty_bits: Vec<_> =
+                (0..dirty_word_count).map(|_| AtomicU64::new(0)).collect();
+            let mut summary: Vec<_> =
+                (0..summary_word_count).map(|_| AtomicU64::new(0)).collect();
 
             let mut true_dirty_element_count = 0;
             for (element_index, _) in dirty_flags.iter().enumerate().filter(|(_, element)| **element) {
-                note_changed_index(element_index as u32, &summary, &dirty_bits);
+                note_changed_index_mut(element_index as u32, &mut summary, &mut dirty_bits);
                 true_dirty_element_count += 1;
             }
 
             let calculated_dirty_element_count = count_dirty_elements(&summary, &dirty_bits);
             assert_eq!(calculated_dirty_element_count, true_dirty_element_count);
         }
-
-        // Ensures that the non-atomic `Cell` words track dirtiness exactly
-        // like the atomic `AtomicU64` words, both when marking individual
-        // elements dirty and when marking a range dirty after growth.
-        #[test]
-        fn dirty_words_behave_identically(
-            changes: Vec<u32>,
-            old_len in 0u32..4096u32,
-            new_len in 0u32..4096u32,
-        ) {
-            let element_count = 2048u32;
-            let dirty_word_count = (element_count as usize).div_ceil(BITS_PER_WORD as usize);
-            let summary_word_count = dirty_word_count.div_ceil(BITS_PER_WORD as usize);
-
-            let atomic_summary: Vec<_> =
-                (0..summary_word_count).map(|_| AtomicU64::new(0)).collect();
-            let atomic_dirty: Vec<_> =
-                (0..dirty_word_count).map(|_| AtomicU64::new(0)).collect();
-            let cell_summary: Vec<_> =
-                (0..summary_word_count).map(|_| Cell::new(0)).collect();
-            let cell_dirty: Vec<_> =
-                (0..dirty_word_count).map(|_| Cell::new(0)).collect();
-
-            for index in changes {
-                let index = index % element_count;
-                note_changed_index(index, &atomic_summary, &atomic_dirty);
-                note_changed_index(index, &cell_summary, &cell_dirty);
-            }
-
-            assert_eq!(word_values(&atomic_summary), word_values(&cell_summary));
-            assert_eq!(word_values(&atomic_dirty), word_values(&cell_dirty));
-
-            let (old_len, new_len) = (old_len.min(new_len), old_len.max(new_len));
-            let mut atomic_growth_summary = Vec::<AtomicU64>::new();
-            let mut atomic_growth_dirty = Vec::<AtomicU64>::new();
-            let mut cell_growth_summary = Vec::<Cell<u64>>::new();
-            let mut cell_growth_dirty = Vec::<Cell<u64>>::new();
-
-            super::set_dirty_bits_for_vector_growth(
-                old_len,
-                new_len,
-                &mut atomic_growth_summary,
-                &mut atomic_growth_dirty,
-            );
-            super::set_dirty_bits_for_vector_growth(
-                old_len,
-                new_len,
-                &mut cell_growth_summary,
-                &mut cell_growth_dirty,
-            );
-
-            assert_eq!(
-                word_values(&atomic_growth_summary),
-                word_values(&cell_growth_summary)
-            );
-            assert_eq!(
-                word_values(&atomic_growth_dirty),
-                word_values(&cell_growth_dirty)
-            );
-        }
     }
 
-    /// The common CPU-side surface of [`SparseBufferVec`] and
-    /// [`AtomicSparseBufferVec`], used by the shared round-trip test below.
-    /// Runs the CPU-side round-trip against a single buffer core, which
-    /// exercises both the non-atomic and atomic storage/word combinations.
-    fn cpu_round_trip<V, W>(buffer: &mut SparseBufferVecCore<TestElement, V, W>)
-    where
-        V: SparseBufferValues<TestElement>,
-        W: SparseBufferWord,
-    {
+    /// The non-atomic variant must store and retrieve elements, and track
+    /// changes on the CPU side for the sparse upload.
+    #[test]
+    fn non_atomic_buffer_cpu_round_trip() {
+        let mut buffer = SparseBufferVec::new(BufferUsages::STORAGE, Arc::from("test"));
         assert!(buffer.is_empty());
         assert_eq!(buffer.len(), 0);
 
@@ -1675,29 +1603,52 @@ mod tests {
         assert_eq!(buffer.len(), 0);
     }
 
-    /// Both storage/word combinations must behave identically.
+    /// The atomic variant must store and retrieve elements, track changes on
+    /// the CPU side, and allow `set` through a shared reference.
     #[test]
-    fn buffers_cpu_round_trip() {
-        cpu_round_trip(&mut SparseBufferVecCore::<
-            TestElement,
-            SparseBufferStorage<TestElement>,
-            Cell<u64>,
-        >::new(BufferUsages::STORAGE, Arc::from("test")));
-        cpu_round_trip(&mut SparseBufferVecCore::<
-            TestElement,
-            AtomicSparseBufferStorage<TestElement>,
-            AtomicU64,
-        >::new(BufferUsages::STORAGE, Arc::from("test")));
+    fn atomic_buffer_cpu_round_trip() {
+        let mut buffer = AtomicSparseBufferVec::new(BufferUsages::STORAGE, Arc::from("test"));
+
+        for i in 0..200 {
+            buffer.push(test_element(i));
+        }
+        assert_eq!(buffer.len(), 200);
+        assert_eq!(buffer.get(42).0[0], 42.0);
+        assert_eq!(
+            count_dirty_elements(&buffer.summary, &buffer.dirty_bits),
+            200
+        );
+
+        // `set` is thread-safe: it can be called through a shared reference.
+        let buffer = &buffer;
+        buffer.set(7, test_element(700));
+        assert_eq!(buffer.get(7).0[0], 700.0);
     }
 
-    /// The atomic variant additionally allows `set` through a shared
-    /// reference, which is its reason for existing.
+    /// `set_mut` stores the value and marks it dirty, without atomic
+    /// read-modify-write instructions.
     #[test]
-    fn atomic_set_through_shared_reference() {
+    fn set_mut_stores_value_and_marks_dirty() {
         let mut buffer = AtomicSparseBufferVec::new(BufferUsages::STORAGE, Arc::from("test"));
         buffer.push(test_element(0));
-        let buffer = &buffer;
-        buffer.set(0, test_element(7));
-        assert_eq!(buffer.get(0).0[0], 7.0);
+
+        buffer.set_mut(0, test_element(42));
+        assert_eq!(buffer.get(0).0[0], 42.0);
+        assert_eq!(count_dirty_elements(&buffer.summary, &buffer.dirty_bits), 1);
+    }
+
+    /// `get_mut` provides a mutable view of an element; the value is written
+    /// back and the element marked dirty when the view is dropped.
+    #[test]
+    fn get_mut_writes_back_and_marks_dirty() {
+        let mut buffer = AtomicSparseBufferVec::new(BufferUsages::STORAGE, Arc::from("test"));
+        buffer.push(test_element(0));
+
+        {
+            let mut element = buffer.get_mut(0);
+            element.0[0] = 42.0;
+        }
+        assert_eq!(buffer.get(0).0[0], 42.0);
+        assert_eq!(count_dirty_elements(&buffer.summary, &buffer.dirty_bits), 1);
     }
 }

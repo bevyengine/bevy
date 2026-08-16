@@ -359,7 +359,7 @@ where
     pub fn add(&mut self, element: BDI) -> u32 {
         match self.free_uniform_indices.pop() {
             Some(uniform_index) => {
-                self.buffer.set(uniform_index, element);
+                self.buffer.set_mut(uniform_index, element);
                 uniform_index
             }
             None => self.buffer.push(element),
