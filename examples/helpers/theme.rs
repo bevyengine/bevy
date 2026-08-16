@@ -186,6 +186,88 @@ pub fn basic_example_theme(text_color: Color) -> ThemeProps {
     );
     color.insert(bevy::feathers::tokens::SLIDER_TEXT, text_color);
 
+    // Button tokens
+    color.insert(
+        bevy::feathers::tokens::BUTTON_PLAIN_BG,
+        bevy::feathers::palette::BLACK,
+    );
+    color.insert(
+        bevy::feathers::tokens::BUTTON_PLAIN_BG_HOVER,
+        bevy::feathers::palette::GRAY_0,
+    );
+    color.insert(
+        bevy::feathers::tokens::BUTTON_PLAIN_BG_PRESSED,
+        bevy::feathers::palette::GRAY_1,
+    );
+    color.insert(bevy::feathers::tokens::BUTTON_TEXT, text_color);
+
+    // Pane tokens
+    color.insert(
+        bevy::feathers::tokens::PANE_HEADER_BG,
+        bevy::feathers::palette::BLACK,
+    );
+    color.insert(
+        bevy::feathers::tokens::PANE_HEADER_BORDER,
+        bevy::feathers::palette::GRAY_0,
+    );
+    color.insert(bevy::feathers::tokens::PANE_HEADER_TEXT, text_color);
+    color.insert(
+        bevy::feathers::tokens::PANE_BODY_BG,
+        bevy::feathers::palette::GRAY_0,
+    );
+
+    // SubPane tokens
+    color.insert(
+        bevy::feathers::tokens::SUBPANE_BODY_BG,
+        bevy::feathers::palette::GRAY_1,
+    );
+    color.insert(
+        bevy::feathers::tokens::SUBPANE_BODY_BORDER,
+        bevy::feathers::palette::GRAY_2,
+    );
+    color.insert(
+        bevy::feathers::tokens::SUBPANE_HEADER_BG,
+        bevy::feathers::palette::GRAY_2,
+    );
+    color.insert(
+        bevy::feathers::tokens::SUBPANE_HEADER_BORDER,
+        bevy::feathers::palette::GRAY_2,
+    );
+    color.insert(bevy::feathers::tokens::SUBPANE_HEADER_TEXT, text_color);
+
+    // Listbox tokens
+    color.insert(
+        bevy::feathers::tokens::LISTROW_BG,
+        bevy::feathers::palette::GRAY_1,
+    );
+    color.insert(
+        bevy::feathers::tokens::LISTROW_BG_HOVER,
+        bevy::feathers::palette::GRAY_2,
+    );
+    color.insert(
+        bevy::feathers::tokens::LISTROW_BG_SELECTED,
+        bevy::feathers::palette::GRAY_3,
+    );
+    color.insert(bevy::feathers::tokens::LISTROW_TEXT, text_color);
+    color.insert(
+        bevy::feathers::tokens::FOCUS_RING,
+        bevy::feathers::palette::ACCENT.with_alpha(0.5),
+    );
+
+    // Scrollbar tokens
+    color.insert(
+        bevy::feathers::tokens::SCROLLBAR_BG,
+        bevy::feathers::palette::WARM_GRAY_1,
+    );
+    color.insert(
+        bevy::feathers::tokens::SCROLLBAR_THUMB,
+        bevy::feathers::palette::ACCENT,
+    );
+    color.insert(
+        bevy::feathers::tokens::SCROLLBAR_THUMB_HOVER,
+        bevy::feathers::palette::ACCENT.lighter(0.05),
+    );
+
     // Main text color
     color.insert(bevy::feathers::tokens::TEXT_MAIN, text_color);
     ThemeProps::new_non_contextual(color)
