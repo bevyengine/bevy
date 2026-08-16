@@ -292,7 +292,7 @@ impl Dir2 {
         // Based on a Taylor approximation of the inverse square root, see [`Dir3::fast_renormalize`] for more details.
         Self(self * (0.5 * (3.0 - length_squared)))
     }
-    
+
     /// Returns the perpendicular vector rotated to 90 degrees counterclockwise.
     #[inline]
     pub fn perpendicular(self) -> Self {
