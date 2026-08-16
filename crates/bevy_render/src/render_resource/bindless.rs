@@ -192,8 +192,6 @@ pub struct BindlessBufferDescriptor {
     pub bindless_index: BindlessIndex,
     /// The size of the buffer in bytes, if known.
     pub size: Option<usize>,
-    /// True if this buffer is a shader buffer; false if it's a raw buffer.
-    pub is_shader_buffer: bool,
 }
 
 /// Describes the layout of the bindless index table, which maps bindless
