@@ -221,7 +221,6 @@ fn setup(
             #[cfg(not(all(target_arch = "wasm32", not(feature = "webgpu"))))]
             {
                 // Todo: Needs a better design that works with responsive sizing.
-
                 let font_size = 20.;
                 p.spawn((
                     Node {
