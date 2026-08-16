@@ -33,7 +33,7 @@ pub struct DeriveComponent {
     pub on_add: Option<HookAttributeKind>,
     /// The `on_insert` hook.
     pub on_insert: Option<HookAttributeKind>,
-    /// The "on_mutate" hook.
+    /// The `on_mutate` hook.
     pub on_mutate: Option<HookAttributeKind>,
     /// The `on_discard` hook.
     pub on_discard: Option<HookAttributeKind>,

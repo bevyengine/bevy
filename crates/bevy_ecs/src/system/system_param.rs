@@ -1024,7 +1024,13 @@ impl<'a, T: Resource<Mutability = Mutable>> ResMut<'a, T> {
             } else {
                 return;
             };
-            let arch_entity = archetype.entities()[0];
+            let arch_entity = if let ents = archetype.entities()
+                && ents.len() > 0
+            {
+                ents[0]
+            } else {
+                return;
+            };
             let has_observers = archetype.has_mutate_observer()
                 || world
                     .observers()
@@ -2991,7 +2997,7 @@ impl FilteredResourcesMut<'_, '_> {
         let last_run = system_meta.get_last_run();
         let tables = &raw const world.storages().tables;
         let sparse_sets = &raw const world.storages().sparse_sets;
-        let archetypes = &raw const *world.archetypes();
+        let archetypes = &raw const world.archetypes;
         let has_global_or_entity_observers =
             if let Some(o) = world.observers().try_get_observers(MUTATE) {
                 !o.global_observers().is_empty() || !o.entity_observers().is_empty()
@@ -3003,15 +3009,8 @@ impl FilteredResourcesMut<'_, '_> {
             Included(m) => {
                 m.iter()
                     .filter_map(|c| unsafe {
-                        let a = *(*archetypes)
-                            .component_index()
-                            .get(&c)
-                            .unwrap()
-                            .iter()
-                            .next()
-                            .unwrap()
-                            .0;
-                        Some((c, (*archetypes).get(a)?))
+                        let a = *(&*archetypes).component_index().get(&c)?.iter().next()?.0;
+                        Some((c, (&*archetypes).get(a)?))
                     })
                     .for_each(|(c, a)| {
                         let has_hooks = a.has_mutate_hook();
@@ -3076,17 +3075,26 @@ impl FilteredResourcesMut<'_, '_> {
                 .copied()
                 .for_each(|c| {
                     let (entity, table_row, table_id, storage, has_hook, has_observer) = {
-                        let arch = *world
-                            .archetypes()
-                            .component_index()
-                            .get(&c)
-                            .unwrap()
-                            .iter()
-                            .next()
-                            .unwrap()
-                            .0;
-                        let a = world.archetypes().get(arch).unwrap();
-                        let arch_entity = a.entities()[0];
+                        let (arch, arch_entity) =
+                            if let Some(a_i) = world.archetypes().component_index().get(&c) {
+                                if let Some(a) = a_i.iter().next() {
+                                    if let Some(a) = world.archetypes().get(*a.0) {
+                                        if let ents = a.entities()
+                                            && ents.len() > 0
+                                        {
+                                            (a, ents[0])
+                                        } else {
+                                            return;
+                                        }
+                                    } else {
+                                        return;
+                                    }
+                                } else {
+                                    return;
+                                }
+                            } else {
+                                return;
+                            };
                         let has_global_or_entity_observer = world
                             .observers()
                             .try_get_observers(MUTATE)
@@ -3096,10 +3104,10 @@ impl FilteredResourcesMut<'_, '_> {
                         (
                             arch_entity.id(),
                             arch_entity.table_row(),
-                            a.table_id(),
-                            a.get_storage_type(c),
-                            a.has_mutate_hook(),
-                            a.has_mutate_observer() || has_global_or_entity_observer,
+                            arch.table_id(),
+                            arch.get_storage_type(c),
+                            arch.has_mutate_hook(),
+                            arch.has_mutate_observer() || has_global_or_entity_observer,
                         )
                     };
                     if let Some(s) = storage {
