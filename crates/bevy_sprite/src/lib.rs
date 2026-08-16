@@ -71,6 +71,7 @@ impl Plugin for SpritePlugin {
         app.add_systems(
             PostUpdate,
             (calculate_bounds_mesh2d, calculate_bounds_sprite)
+                .chain()
                 .in_set(VisibilitySystems::CalculateBounds)
                 .after(mark_2d_meshes_as_changed_if_their_assets_changed),
         );
