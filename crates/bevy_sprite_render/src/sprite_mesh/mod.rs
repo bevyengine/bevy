@@ -17,13 +17,14 @@ use bevy_mesh::{
 
 use bevy_platform::collections::HashMap;
 use bevy_shader::load_shader_library;
-use bevy_sprite::{prelude::SpriteMesh, Anchor};
+use bevy_sprite::{prelude::Sprite, Anchor};
 
 mod sprite_material;
 pub use sprite_material::*;
 
 use crate::{check_entities_needing_specialization, MeshMaterial2d};
 
+/// Plugin used to render a Sprite using a [`Mesh2d`] and a [`SpriteMaterial`]
 pub struct SpriteMeshPlugin;
 
 impl Plugin for SpriteMeshPlugin {
@@ -44,10 +45,10 @@ impl Plugin for SpriteMeshPlugin {
     }
 }
 
-// Insert a Mesh2d quad each time the SpriteMesh component is added.
+// Insert a Mesh2d quad each time the Sprite component is added.
 // The meshhandle is kept locally so they can be cloned.
 fn add_mesh(
-    sprites: Query<Entity, Added<SpriteMesh>>,
+    sprites: Query<Entity, Added<Sprite>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut quad: Local<Option<Handle<Mesh>>>,
     mut commands: Commands,
@@ -70,18 +71,18 @@ fn add_mesh(
     }
 }
 
-// Change the material when SpriteMesh is added / changed.
+// Add or update the material when a [`Sprite`] is added / changed.
 //
 // NOTE: This also adds the SpriteAtlasLayout into the SpriteMaterial,
 // but this should instead be read later, similar to the images, allowing
 // for hot reload.
 fn add_material(
     sprites: Query<
-        (Entity, &SpriteMesh, &Anchor),
-        Or<(Changed<SpriteMesh>, Changed<Anchor>, Added<Mesh2d>)>,
+        (Entity, &Sprite, &Anchor),
+        Or<(Changed<Sprite>, Changed<Anchor>, Added<Mesh2d>)>,
     >,
     texture_atlas_layouts: Res<Assets<TextureAtlasLayout>>,
-    mut cached_materials: Local<HashMap<(SpriteMesh, Anchor), Handle<SpriteMaterial>>>,
+    mut cached_materials: Local<HashMap<(Sprite, Anchor), Handle<SpriteMaterial>>>,
     mut materials: ResMut<Assets<SpriteMaterial>>,
     mut commands: Commands,
 ) {
@@ -91,7 +92,7 @@ fn add_material(
                 .entity(entity)
                 .insert(MeshMaterial2d(handle.clone()));
         } else {
-            let mut material = SpriteMaterial::from_sprite_mesh(sprite.clone());
+            let mut material = SpriteMaterial::from_sprite(sprite.clone());
             material.anchor = **anchor;
 
             if let Some(texture_atlas) = &sprite.texture_atlas

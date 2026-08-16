@@ -14,7 +14,7 @@ use bevy_render::{
 };
 use bevy_shader::ShaderRef;
 use bevy_sprite::{
-    prelude::SpriteMesh, SliceScaleMode, SpriteAlphaMode, SpriteImageMode, SpriteScalingMode,
+    prelude::Sprite, SliceScaleMode, SpriteAlphaMode, SpriteImageMode, SpriteScalingMode,
 };
 
 use crate::{AlphaMode2d, Material2d, Material2dPlugin};
@@ -332,8 +332,8 @@ impl Material2d for SpriteMaterial {
 }
 
 impl SpriteMaterial {
-    /// Use the [`SpriteMesh`] to build a new material.
-    pub fn from_sprite_mesh(sprite: SpriteMesh) -> Self {
+    /// Use the [`Sprite`] to build a new material.
+    pub fn from_sprite(sprite: Sprite) -> Self {
         // convert SpriteAlphaMode to AlphaMode2d.
         // (see the comment above SpriteAlphaMode for why these are different)
         let alpha_mode = match sprite.alpha_mode {
