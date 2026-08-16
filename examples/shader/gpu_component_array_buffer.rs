@@ -115,15 +115,9 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut bindless_materials: ResMut<Assets<CustomMaterial>>,
-    mut shader_buffers: ResMut<Assets<ShaderBuffer>>,
+    component_array: Res<GpuComponentArray<CustomMaterialData>>,
     asset_server: Res<AssetServer>,
 ) {
-    // Create our `GpuComponentArray` that contains the data that we're going to
-    // make available to the GPU.
-    let component_array = GpuComponentArray::<CustomMaterialData>::new(&mut shader_buffers);
-    let buffer = component_array.buffer.clone();
-    commands.insert_resource(component_array);
-
     // Create a cube mesh.
     let mesh = meshes.add(Cuboid::default());
 
@@ -135,6 +129,7 @@ fn setup(
 
     // Load the two materials. We'll randomly pick between the two when spawning
     // each cube.
+    let buffer = component_array.buffer.clone();
     let material_light = bindless_materials.add(CustomMaterial {
         data: buffer.clone(),
         color_texture: texture_light,
