@@ -402,6 +402,14 @@ where
         self.buffer.set(uniform_index, element);
     }
 
+    /// Stores a piece of buffered data at the given index, with mutable access.
+    ///
+    /// # Panics
+    /// if `uniform_index` is not in bounds of [`Self::buffer`].
+    pub fn set_mut(&mut self, uniform_index: u32, element: BDI) {
+        self.buffer.set_mut(uniform_index, element);
+    }
+
     // Ensures that the buffers are nonempty, which the GPU requires before an
     // upload can take place.
     pub fn ensure_nonempty(&mut self) {

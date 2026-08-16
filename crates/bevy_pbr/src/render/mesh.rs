@@ -1589,7 +1589,7 @@ impl RenderMeshInstanceGpuPrepared {
                 self.mesh_input_uniform.previous_input_index = previous_input_index;
 
                 // Write in the new mesh input uniform.
-                current_input_buffer.set(current_uniform_index, self.mesh_input_uniform);
+                current_input_buffer.set_mut(current_uniform_index, self.mesh_input_uniform);
 
                 // Write the instance.
                 let existing_instance = occupied_entry.get_mut();
