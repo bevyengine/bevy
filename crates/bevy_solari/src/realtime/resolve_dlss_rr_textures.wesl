@@ -13,15 +13,15 @@ enable wgpu_ray_query;
 // lobe.
 const FULL_REPLACEMENT_FRACTION = 0.9;
 
-// How far a reflector's virtual image may shift between neighbouring pixels, as a fraction of the
+// How far a reflector's virtual image may shift between neighboring pixels, as a fraction of the
 // virtual distance itself, before the surface is treated as too curved to replace.
 const MAX_VIRTUAL_DEPTH_JITTER = 0.002;
 
 // Even a perfectly flat surface measures a small nonzero normal change, because G-buffer normals are
-// 24-bit octahedral and neighbouring texels round differently.
+// 24-bit octahedral and neighboring texels round differently.
 const NORMAL_QUANTIZATION_FLOOR = 0.002;
 
-// Distance, in metres, standing in for "infinitely far" when a mirror ray finds nothing.
+// Distance, in meters, standing in for "infinitely far" when a mirror ray finds nothing.
 const ENVIRONMENT_VIRTUAL_DISTANCE = 10000.0;
 
 @compute @workgroup_size(8, 8, 1)
@@ -74,11 +74,11 @@ struct PsrState {
     // matrix it denotes.
     mirror_rotor: vec4<f32>,
     mirror_parity_odd: bool,
-    // Distance travelled since the primary surface, camera through every mirror. Not the total path
+    // Distance traveled since the primary surface, camera through every mirror. Not the total path
     // length: keeping the reflection's own share means the primary distance is only ever added, never
     // subtracted back out, so it can be recovered at the end without the two disagreeing.
     reflection_length: f32,
-    // Product of the Fresnel term at each mirror in the chain: what the reflected surface's colour is
+    // Product of the Fresnel term at each mirror in the chain: what the reflected surface's color is
     // multiplied by on its way back to the eye.
     throughput: vec3<f32>,
 }
