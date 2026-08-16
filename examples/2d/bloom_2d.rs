@@ -5,11 +5,7 @@ use bevy::{
     feathers::{
         constants::icons,
         containers::*,
-        controls::{
-            ButtonVariant, FeathersCheckbox, FeathersListRow, FeathersListView,
-            FeathersNumberInput, FeathersSlider, FeathersToolButton, NumberInputPrecision,
-            NumberInputValue,
-        },
+        controls::*,
         display::{icon, label},
         theme::UiTheme,
         FeathersPlugins,
@@ -286,6 +282,7 @@ fn bloom_settings_pane(parent: Entity) -> impl Scene {
                         (
                             @FeathersNumberInput
                             template_value(NumberInputValue::F32(0.))
+                            template_value(HardLimit(NumberInputRange::F32(0.0..=f32::INFINITY)))
                             NumberInputPrecision(2)
                             Node { flex_grow: 1. }
                             on(input_value_change)
