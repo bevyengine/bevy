@@ -321,7 +321,8 @@ where
                 .map(|id| {
                     // SAFETY: Contiguous iteration can only process tables, so
                     // we must have a table here.
-                    unsafe { tables[id.table_id].entity_count() }
+                    let table_id = unsafe { id.table_id };
+                    tables[table_id].entity_count()
                 })
                 .max()
                 .map(|v| v as usize)

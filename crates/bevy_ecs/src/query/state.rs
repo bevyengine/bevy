@@ -1843,7 +1843,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                 let mut row_start_offset = 0;
                 while row_start_offset < row_count {
                     // If we hit the maximum number of tables, force a submit.
-                    if batch_queue.len() > MAX_TABLES_PER_BATCH {
+                    if batch_queue.len() == MAX_TABLES_PER_BATCH {
                         submit_batch_queue(core::mem::take(&mut batch_queue));
                         queue_entity_count = 0;
                     }
@@ -1863,7 +1863,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                         // We can fit the entire remainder of the table.
                         batch_queue.push((table_id, row_start_offset..row_count));
                         queue_entity_count += row_count - row_start_offset;
-                        row_start_offset = row_count;
+                        break;
                     }
                 }
             }
