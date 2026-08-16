@@ -4,7 +4,7 @@ use crate::{
     experimental::{UiChildren, UiRootNodes},
     ui_transform::{UiGlobalTransform, UiTransform},
     ComputedNode, ComputedUiRenderTargetInfo, ContentSize, Display, FixedNode, IgnoreScroll,
-    LayoutConfig, Node, Outline, OverflowAxis, ScrollPosition,
+    LayoutConfig, Node, Outline, OverflowAxis, ScrollPosition, UiStack,
 };
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
@@ -12,11 +12,12 @@ use bevy_ecs::{
     hierarchy::{ChildOf, Children},
     lifecycle::RemovedComponents,
     query::{Added, Has, With},
-    system::{Query, ResMut},
-    world::Ref,
+    system::{Query, Res, ResMut, SystemParam},
+    world::{Mut, Ref},
 };
 
 use bevy_math::{Affine2, Vec2};
+use bevy_platform::collections::HashSet;
 use bevy_sprite::BorderRect;
 use ui_surface::UiSurface;
 
@@ -64,18 +65,52 @@ impl Default for LayoutContext {
     }
 }
 
+// b/c functions can only use up to 16 params!
+#[derive(SystemParam)]
+pub struct SortedNodeQuery<'w, 's> {
+    ui_stack: Res<'w, UiStack>,
+    query: Query<
+        'w,
+        's,
+        (
+            Entity,
+            Ref<'static, Node>,
+            &'static mut ContentSize,
+            Ref<'static, ComputedUiRenderTargetInfo>,
+        ),
+    >,
+}
+
+impl<'w, 's> SortedNodeQuery<'w, 's> {
+    fn sorted_query<F>(&mut self, mut f: F)
+    where
+        F: FnMut(Entity, Ref<Node>, Mut<ContentSize>, Ref<ComputedUiRenderTargetInfo>),
+    {
+        let nodes_queried: HashSet<_> =
+            HashSet::from_iter(self.query.iter().map(|(entity, _, _, _)| entity));
+
+        self.ui_stack
+            .uinodes
+            .iter()
+            .copied()
+            .filter(move |uinode| nodes_queried.contains(uinode))
+            .for_each(|entity| {
+                let Ok((_, node, content_size, computed_target)) = self.query.get_mut(entity)
+                else {
+                    unreachable!();
+                };
+                (f)(entity, node, content_size, computed_target);
+            });
+    }
+}
+
 /// Updates the UI's layout tree, computes the new layout geometry and then updates the sizes and transforms of all the UI nodes.
 pub fn ui_layout_system(
     mut ui_surface: ResMut<UiSurface>,
     ui_root_node_query: UiRootNodes,
     fixed_nodes_query: Query<Entity, (With<FixedNode>, With<ChildOf>)>,
     ui_children: UiChildren,
-    mut node_query: Query<(
-        Entity,
-        Ref<Node>,
-        &mut ContentSize,
-        Ref<ComputedUiRenderTargetInfo>,
-    )>,
+    mut node_query: SortedNodeQuery,
     added_node_query: Query<(), Added<Node>>,
     added_fixed_node_query: Query<Entity, Added<FixedNode>>,
     mut node_update_query: Query<(
@@ -99,21 +134,19 @@ pub fn ui_layout_system(
     #[cfg(feature = "ghost_nodes")] ghost_node_query: Query<(), With<GhostNode>>,
 ) {
     // Sync Node and ContentSize to Taffy for all nodes
-    node_query
-        .iter_mut()
-        .for_each(|(entity, node, mut content_size, computed_target)| {
-            if computed_target.is_changed() || node.is_changed() || content_size.is_changed() {
-                let layout_context = LayoutContext::new(
-                    computed_target.scale_factor,
-                    computed_target.physical_size.as_vec2(),
-                );
-                if content_size.is_changed() && content_size.measure.is_none() {
-                    ui_surface.try_remove_node_context(entity);
-                }
-                let measure = content_size.bypass_change_detection().measure.take();
-                ui_surface.upsert_node(&layout_context, entity, &node, measure);
+    node_query.sorted_query(|entity, node, mut content_size, computed_target| {
+        if computed_target.is_changed() || node.is_changed() || content_size.is_changed() {
+            let layout_context = LayoutContext::new(
+                computed_target.scale_factor,
+                computed_target.physical_size.as_vec2(),
+            );
+            if content_size.is_changed() && content_size.measure.is_none() {
+                ui_surface.try_remove_node_context(entity);
             }
-        });
+            let measure = content_size.bypass_change_detection().measure.take();
+            ui_surface.upsert_node(&layout_context, entity, &node, measure);
+        }
+    });
 
     // update and remove children
     #[cfg(not(feature = "ghost_nodes"))]
@@ -150,7 +183,7 @@ pub fn ui_layout_system(
     ui_surface.remove_entities(
         removed_nodes
             .read()
-            .filter(|entity| !node_query.contains(*entity)),
+            .filter(|entity| !node_query.query.contains(*entity)),
     );
 
     let fixed_node_changes = added_fixed_node_query
@@ -210,7 +243,7 @@ pub fn ui_layout_system(
             ui_root_entity,
         );
 
-        let Ok((_, _, _, computed_target)) = node_query.get(ui_root_entity) else {
+        let Ok((_, _, _, computed_target)) = node_query.query.get(ui_root_entity) else {
             warn!("UI root {ui_root_entity} not found");
             continue;
         };
