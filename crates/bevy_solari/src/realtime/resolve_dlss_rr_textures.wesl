@@ -33,9 +33,9 @@ fn resolve_dlss_rr_textures(@builtin(global_invocation_id) global_id: vec3<u32>)
     let surface_motion_vector = textureLoad(motion_vectors, pixel_id).xy;
 
     textureStore(dlss_rr_depth, pixel_id, vec4(depth));
-    textureStore(specular_motion_vectors, pixel_id, vec4(surface_motion_vector, vec2(0.0)));
 
     if depth == 0.0 {
+        textureStore(specular_motion_vectors, pixel_id, vec4(surface_motion_vector, vec2(0.0)));
         textureStore(diffuse_albedo, pixel_id, vec4(0.0));
         textureStore(specular_albedo, pixel_id, vec4(0.5));
         textureStore(normal_roughness, pixel_id, vec4(0.0, 0.0, 1.0, 0.0));
@@ -49,6 +49,13 @@ fn resolve_dlss_rr_textures(@builtin(global_invocation_id) global_id: vec3<u32>)
     textureStore(diffuse_albedo, pixel_id, vec4(calculate_diffuse_color(surface.material.base_color, surface.material.metallic, 0.0, 0.0), 0.0));
     textureStore(specular_albedo, pixel_id, vec4(env_brdf_approx2(F0, surface.material.roughness, surface.world_normal, wo), 0.0));
     textureStore(normal_roughness, pixel_id, vec4(surface.world_normal, surface.material.perceptual_roughness));
+
+    // Resetting to the specular motion vector on the frames we draw a diffuse lobe means we
+    // wouldn't be writing the motion vectors that frame, so it would alternate the guide between
+    // to values, and the denoiser blurs the reflection rather than reprojecting it.
+    if !needs_specular_motion_vector(surface.material.roughness) {
+        textureStore(specular_motion_vectors, pixel_id, vec4(surface_motion_vector, vec2(0.0)));
+    }
 }
 
 fn needs_specular_motion_vector(roughness: f32) -> bool {
@@ -123,8 +130,7 @@ fn replace_primary_surface(
     let primary_distance = length(primary_world_position - view.world_position);
     let path_length = primary_distance + psr.reflection_length;
 
-    let is_curved = 2.0 * reflector_curvature(pixel_id, primary_normal) * psr.reflection_length > MAX_VIRTUAL_DEPTH_JITTER * path_length;
-    if psr.replace_fully && is_curved {
+    if psr.replace_fully && 2.0 * reflector_curvature(pixel_id, primary_normal) * psr.reflection_length > MAX_VIRTUAL_DEPTH_JITTER * path_length {
         return;
     }
 
