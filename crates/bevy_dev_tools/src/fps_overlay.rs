@@ -239,7 +239,7 @@ fn setup(
                             // Initialize with dummy data because the default (buffer is zero-sized) will
                             // cause a panic in the shader if the frame time graph is constructed
                             // with `enabled: false`.
-                             vec![0, 0, 0, 0],
+                             vec![0.0f32],
                              Default::default()
                         )),
                         config: FrameTimeGraphConfigUniform::new(
