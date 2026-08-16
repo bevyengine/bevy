@@ -52,7 +52,9 @@ use bevy_input_focus::{
     FocusCause, FocusedInput, InputFocus, InputFocusSystems,
 };
 use bevy_log::warn;
-use bevy_picking::events::{Cancel, Click, DragEnd, Pointer, Press, Release};
+use bevy_picking::events::{
+    PointerCancel, PointerClick, PointerDragEnd, PointerPress, PointerRelease,
+};
 use bevy_reflect::Reflect;
 use bevy_ui::{InteractionDisabled, Pressed, UiSystems};
 
@@ -337,7 +339,7 @@ fn menu_on_key_event(
 }
 
 fn menu_item_on_pointer_click(
-    mut ev: On<Pointer<Click>>,
+    mut ev: On<PointerClick>,
     mut q_state: Query<(Has<Pressed>, Has<InteractionDisabled>), With<MenuItem>>,
     mut commands: Commands,
 ) {
@@ -361,7 +363,7 @@ fn menu_item_on_pointer_click(
 }
 
 fn menu_item_on_pointer_down(
-    mut ev: On<Pointer<Press>>,
+    mut ev: On<PointerPress>,
     mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<MenuItem>>,
     mut commands: Commands,
 ) {
@@ -374,7 +376,7 @@ fn menu_item_on_pointer_down(
 }
 
 fn menu_item_on_pointer_up(
-    mut ev: On<Pointer<Release>>,
+    mut ev: On<PointerRelease>,
     mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<MenuItem>>,
     mut commands: Commands,
 ) {
@@ -387,7 +389,7 @@ fn menu_item_on_pointer_up(
 }
 
 fn menu_item_on_pointer_drag_end(
-    mut ev: On<Pointer<DragEnd>>,
+    mut ev: On<PointerDragEnd>,
     mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<MenuItem>>,
     mut commands: Commands,
 ) {
@@ -400,7 +402,7 @@ fn menu_item_on_pointer_drag_end(
 }
 
 fn menu_item_on_pointer_cancel(
-    mut ev: On<Pointer<Cancel>>,
+    mut ev: On<PointerCancel>,
     mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<MenuItem>>,
     mut commands: Commands,
 ) {

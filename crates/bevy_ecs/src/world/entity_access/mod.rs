@@ -1168,7 +1168,7 @@ mod tests {
     #[should_panic]
     fn location_on_despawned_entity_panics() {
         let mut world = World::new();
-        world.add_observer(|add: On<Add, TestComponent>, mut commands: Commands| {
+        world.add_observer(|add: On<Add<TestComponent>>, mut commands: Commands| {
             commands.entity(add.entity).despawn();
         });
         let entity = world.spawn_empty().id();
@@ -1188,10 +1188,10 @@ mod tests {
     fn archetype_modifications_trigger_flush() {
         let mut world = World::new();
         world.insert_resource(TestFlush(0));
-        world.add_observer(|_: On<Add, TestComponent>, mut commands: Commands| {
+        world.add_observer(|_: On<Add<TestComponent>>, mut commands: Commands| {
             commands.queue(count_flush);
         });
-        world.add_observer(|_: On<Remove, TestComponent>, mut commands: Commands| {
+        world.add_observer(|_: On<Remove<TestComponent>>, mut commands: Commands| {
             commands.queue(count_flush);
         });
 
@@ -1262,19 +1262,19 @@ mod tests {
             .push("OrdA hook on_remove");
     }
 
-    fn ord_a_observer_on_add(_event: On<Add, OrdA>, mut res: ResMut<TestVec>) {
+    fn ord_a_observer_on_add(_event: On<Add<OrdA>>, mut res: ResMut<TestVec>) {
         res.0.push("OrdA observer on_add");
     }
 
-    fn ord_a_observer_on_insert(_event: On<Insert, OrdA>, mut res: ResMut<TestVec>) {
+    fn ord_a_observer_on_insert(_event: On<Insert<OrdA>>, mut res: ResMut<TestVec>) {
         res.0.push("OrdA observer on_insert");
     }
 
-    fn ord_a_observer_on_discard(_event: On<Discard, OrdA>, mut res: ResMut<TestVec>) {
+    fn ord_a_observer_on_discard(_event: On<Discard<OrdA>>, mut res: ResMut<TestVec>) {
         res.0.push("OrdA observer on_discard");
     }
 
-    fn ord_a_observer_on_remove(_event: On<Remove, OrdA>, mut res: ResMut<TestVec>) {
+    fn ord_a_observer_on_remove(_event: On<Remove<OrdA>>, mut res: ResMut<TestVec>) {
         res.0.push("OrdA observer on_remove");
     }
 
@@ -1313,19 +1313,19 @@ mod tests {
             .push("OrdB hook on_remove");
     }
 
-    fn ord_b_observer_on_add(_event: On<Add, OrdB>, mut res: ResMut<TestVec>) {
+    fn ord_b_observer_on_add(_event: On<Add<OrdB>>, mut res: ResMut<TestVec>) {
         res.0.push("OrdB observer on_add");
     }
 
-    fn ord_b_observer_on_insert(_event: On<Insert, OrdB>, mut res: ResMut<TestVec>) {
+    fn ord_b_observer_on_insert(_event: On<Insert<OrdB>>, mut res: ResMut<TestVec>) {
         res.0.push("OrdB observer on_insert");
     }
 
-    fn ord_b_observer_on_discard(_event: On<Discard, OrdB>, mut res: ResMut<TestVec>) {
+    fn ord_b_observer_on_discard(_event: On<Discard<OrdB>>, mut res: ResMut<TestVec>) {
         res.0.push("OrdB observer on_discard");
     }
 
-    fn ord_b_observer_on_remove(_event: On<Remove, OrdB>, mut res: ResMut<TestVec>) {
+    fn ord_b_observer_on_remove(_event: On<Remove<OrdB>>, mut res: ResMut<TestVec>) {
         res.0.push("OrdB observer on_remove");
     }
 
@@ -1621,10 +1621,10 @@ mod tests {
         world.insert_resource(Tracker { a: false, b: false });
         let entity = world.spawn(A).id();
 
-        world.add_observer(|_: On<Remove, A>, mut tracker: ResMut<Tracker>| {
+        world.add_observer(|_: On<Remove<A>>, mut tracker: ResMut<Tracker>| {
             tracker.a = true;
         });
-        world.add_observer(|_: On<Remove, B>, mut tracker: ResMut<Tracker>| {
+        world.add_observer(|_: On<Remove<B>>, mut tracker: ResMut<Tracker>| {
             tracker.b = true;
         });
 

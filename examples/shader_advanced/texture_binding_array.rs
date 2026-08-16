@@ -17,6 +17,7 @@ use bevy::{
     },
     shader::ShaderRef,
 };
+use bevy_render::material_bind_groups::FallbackBuffer;
 use std::{num::NonZero, process::exit};
 
 /// This example uses a shader source file from the assets subdirectory
@@ -105,8 +106,11 @@ impl AsBindGroup for BindlessMaterial {
         layout: &BindGroupLayoutDescriptor,
         render_device: &RenderDevice,
         pipeline_cache: &PipelineCache,
+        fallback_buffer: &FallbackBuffer,
+        shader_buffer_assets: &RenderAssets<GpuShaderBuffer>,
         (image_assets, fallback_image): &mut SystemParamItem<'_, '_, Self::Param>,
     ) -> Result<PreparedBindGroup, AsBindGroupError> {
+        let _ = shader_buffer_assets;
         // retrieve the render resources from handles
         let mut images = vec![];
         for handle in self.textures.iter().take(MAX_TEXTURE_COUNT) {
@@ -142,13 +146,14 @@ impl AsBindGroup for BindlessMaterial {
 
     fn bind_group_data(&self) -> Self::Data {}
 
-    fn unprepared_bind_group(
+    fn build_bind_group(
         &self,
         _layout: &BindGroupLayout,
         _render_device: &RenderDevice,
         _param: &mut SystemParamItem<'_, '_, Self::Param>,
         _force_no_bindless: bool,
-    ) -> Result<UnpreparedBindGroup, AsBindGroupError> {
+        _output: &mut BindGroupBuilder,
+    ) -> Result<(), AsBindGroupError> {
         // We implement `as_bind_group`` directly because bindless texture
         // arrays can't be owned.
         // Or rather, they can be owned, but then you can't make a `&'a [&'a
