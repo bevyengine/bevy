@@ -113,6 +113,7 @@ fn calculate_bounds_mesh2d(
             Without<Aabb>,
             Without<NoFrustumCulling>,
             Without<NoAutoAabb>,
+            Without<Sprite>,
         ),
     >,
     mut update_mesh_aabb: Query<
