@@ -42,6 +42,7 @@ use bevy_camera::{
     visibility::NoFrustumCulling,
     visibility::VisibilitySystems,
 };
+use bevy_math::Vec2;
 use bevy_mesh::{mark_2d_meshes_as_changed_if_their_assets_changed, Mesh, Mesh2d};
 #[cfg(feature = "bevy_text")]
 use bevy_text::detect_text_needs_rerender;
@@ -56,7 +57,7 @@ use bevy_app::prelude::*;
 use bevy_asset::prelude::AssetChanged;
 use bevy_camera::visibility::NoAutoAabb;
 use bevy_ecs::prelude::*;
-use bevy_image::TextureAtlasPlugin;
+use bevy_image::{Image, TextureAtlasLayout, TextureAtlasPlugin};
 
 /// Adds support for 2D sprites.
 #[derive(Default)]
@@ -69,7 +70,7 @@ impl Plugin for SpritePlugin {
         }
         app.add_systems(
             PostUpdate,
-            calculate_bounds_2d
+            (calculate_bounds_mesh2d, calculate_bounds_sprite)
                 .in_set(VisibilitySystems::CalculateBounds)
                 .after(mark_2d_meshes_as_changed_if_their_assets_changed),
         );
@@ -98,13 +99,11 @@ impl Plugin for SpritePlugin {
     }
 }
 
-/// System calculating and inserting an [`Aabb`] component to entities with either:
-/// - a `Mesh2d` component,
-/// - a `Sprite` and `Handle<Image>` components,
-///   and without a [`NoFrustumCulling`] component.
+/// System calculating and inserting an [`Aabb`] component to entities with a `Mesh2d` component,
+/// that aren't a [`Sprite`]
 ///
 /// Used in system set [`VisibilitySystems::CalculateBounds`].
-pub fn calculate_bounds_2d(
+fn calculate_bounds_mesh2d(
     mut commands: Commands,
     meshes: Res<Assets<Mesh>>,
     new_mesh_aabb: Query<
@@ -144,6 +143,70 @@ pub fn calculate_bounds_2d(
         });
 }
 
+/// System calculating and inserting an [`Aabb`] component to entities with a [`Sprite`] component
+///
+/// Used in system set [`VisibilitySystems::CalculateBounds`].
+fn calculate_bounds_sprite(
+    mut commands: Commands,
+    images: Res<Assets<Image>>,
+    atlases: Res<Assets<TextureAtlasLayout>>,
+    new_sprite_aabb: Query<
+        (Entity, &Sprite, &Anchor),
+        (
+            Without<Aabb>,
+            Without<NoFrustumCulling>,
+            Without<NoAutoAabb>,
+        ),
+    >,
+    mut update_sprite_aabb: Query<
+        (&Sprite, &mut Aabb, &Anchor),
+        (
+            Or<(Changed<Sprite>, Changed<Anchor>)>,
+            Without<NoFrustumCulling>,
+            Without<NoAutoAabb>,
+        ),
+    >,
+) {
+    // Sprite helper
+    let sprite_size = |sprite: &Sprite| -> Option<Vec2> {
+        sprite
+            .custom_size
+            .or_else(|| sprite.rect.map(|rect| rect.size()))
+            .or_else(|| match &sprite.texture_atlas {
+                // We default to the texture size for regular sprites
+                None => images.get(&sprite.image).map(Image::size_f32),
+                // We default to the drawn rect for atlas sprites
+                Some(atlas) => atlas
+                    .texture_rect(&atlases)
+                    .map(|rect| rect.size().as_vec2()),
+            })
+    };
+
+    // New sprites require inserting a component
+    for (size, (entity, anchor)) in new_sprite_aabb
+        .iter()
+        .filter_map(|(entity, sprite, anchor)| sprite_size(sprite).zip(Some((entity, anchor))))
+    {
+        let aabb = Aabb {
+            center: (-anchor.as_vec() * size).extend(0.0).into(),
+            half_extents: (0.5 * size).extend(0.0).into(),
+        };
+        commands.entity(entity).try_insert(aabb);
+    }
+
+    // Updated sprites can take the fast path with parallel component mutation
+    update_sprite_aabb
+        .par_iter_mut()
+        .for_each(|(sprite, mut aabb, anchor)| {
+            if let Some(size) = sprite_size(sprite) {
+                aabb.set_if_neq(Aabb {
+                    center: (-anchor.as_vec() * size).extend(0.0).into(),
+                    half_extents: (0.5 * size).extend(0.0).into(),
+                });
+            }
+        });
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -164,7 +227,7 @@ mod test {
         app.insert_resource(texture_atlas_assets);
 
         // Add system
-        app.add_systems(Update, calculate_bounds_2d);
+        app.add_systems(Update, calculate_bounds_sprite);
 
         // Add entities
         let entity = app.world_mut().spawn(Sprite::from_image(image_handle)).id();
@@ -202,7 +265,7 @@ mod test {
         app.insert_resource(texture_atlas_assets);
 
         // Add system
-        app.add_systems(Update, calculate_bounds_2d);
+        app.add_systems(Update, calculate_bounds_sprite);
 
         // Add entities
         let entity = app
@@ -265,7 +328,7 @@ mod test {
         app.insert_resource(texture_atlas_assets);
 
         // Add system
-        app.add_systems(Update, calculate_bounds_2d);
+        app.add_systems(Update, calculate_bounds_sprite);
 
         // Add entities
         let entity = app
