@@ -1786,10 +1786,14 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     {
         debug_assert!(self.is_dense);
 
-        use arrayvec::ArrayVec;
+        // The maximum number of tables we can accumulate before we must flush
+        // them into a batch.
+        const MAX_TABLES_PER_BATCH: usize = 32;
 
         bevy_tasks::ComputeTaskPool::get().scope(|scope| {
             use core::ops::Range;
+
+            use smallvec::SmallVec;
 
             // SAFETY: We only access table data that has been registered in
             // `self.component_access`.
@@ -1800,15 +1804,15 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             // multiple tables, not tables as a whole. This allows individual
             // jobs to include any combination of entire tables and portions of
             // tables.
-            let mut batch_queue = ArrayVec::new();
+            let mut batch_queue: SmallVec<[(TableId, Range<u32>); 4]> = SmallVec::new();
             let mut queue_entity_count = 0;
 
-            // Submits a full batch
+            // Submits a full batch.
             //
             // The 128 table limit is an arbitrary tuning parameter unrelated to
             // the batch size. It matches the limit in
             // `Self::par_fold_init_unchecked_manual`.
-            let submit_batch_queue = |queue: ArrayVec<(TableId, Range<u32>), 128>| {
+            let submit_batch_queue = |queue: SmallVec<[(TableId, Range<u32>); 4]>| {
                 let (func, init_accum) = (func.clone(), init_accum.clone());
                 scope.spawn(async move {
                     #[cfg(feature = "trace")]
@@ -1835,11 +1839,11 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                 let row_count = tables[table_id].entity_count();
 
                 // Accumulate rows until we either hit the `batch_size` or hit
-                // the maximum number of tables (128).
+                // the maximum number of tables.
                 let mut row_start_offset = 0;
                 while row_start_offset < row_count {
                     // If we hit the maximum number of tables, force a submit.
-                    if batch_queue.is_full() {
+                    if batch_queue.len() > MAX_TABLES_PER_BATCH {
                         submit_batch_queue(core::mem::take(&mut batch_queue));
                         queue_entity_count = 0;
                     }

@@ -4964,7 +4964,7 @@ mod tests {
     }
 
     // Tests that contiguous iteration workloads that exceed the maximum number
-    // of tables per job (currently 128) work properly.
+    // of tables per job (currently 32) work properly.
     #[test]
     fn contiguous_par_iter_table_job_limit_test() {
         // Declare the ID component.
@@ -5027,7 +5027,7 @@ mod tests {
         }
 
         // Do a contiguous parallel query. We ask for 1024 rows per job, which
-        // we won't get as the maximum number of tables per job is 128. Using a
+        // we won't get as the maximum number of tables per job is 32. Using a
         // vector of bitsets, record which jobs processed which entity.
         let mut contiguous_query = world.query::<&mut CMain>();
         let all_jobs = Mutex::new(vec![]);
