@@ -310,10 +310,14 @@ impl RenderAsset for GpuShaderBuffer {
             } else {
                 desc.mapped_at_creation = true;
                 let buffer = render_device.create_buffer(&desc);
+                // Upload at most `buffer_size` bytes. If the data is shorter, the
+                // remaining bytes stay zero-initialized; if it's longer, the tail
+                // is truncated.
+                let upload_len = (buffer_size as usize).min(data.len());
                 buffer
-                    .get_mapped_range_mut(..)
+                    .get_mapped_range_mut(..upload_len as u64)
                     .unwrap()
-                    .copy_from_slice(&data[..((buffer_size as usize).min(data.len()))]);
+                    .copy_from_slice(&data[..upload_len]);
                 buffer.unmap();
                 buffer
             }
@@ -346,5 +350,219 @@ impl RenderAsset for GpuShaderBuffer {
             buffer_usage: source_asset.buffer_usage,
             had_data,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloc::vec;
+
+    use bevy_ecs::{
+        system::{lifetimeless::SRes, SystemState},
+        world::World,
+    };
+
+    use crate::test_utils::create_dummy_device;
+
+    /// Runs the extraction step of the [`RenderAsset`] pipeline on `source` and
+    /// returns the extracted asset.
+    fn extract(
+        source: &mut ShaderBuffer,
+        previous_gpu_asset: Option<&GpuShaderBuffer>,
+    ) -> ShaderBuffer {
+        GpuShaderBuffer::take_gpu_data(source, previous_gpu_asset)
+            .expect("shader buffer should be extractable")
+    }
+
+    /// Creates a GPU buffer from an extracted [`ShaderBuffer`] using the given
+    /// noop wgpu device (no real GPU required), optionally reusing
+    /// `previous_asset`. The same device must be used across prepares when GPU
+    /// buffers from a previous prepare are passed in.
+    fn prepare(
+        extracted: ShaderBuffer,
+        previous_asset: Option<&GpuShaderBuffer>,
+        device: &RenderDevice,
+        queue: &RenderQueue,
+    ) -> GpuShaderBuffer {
+        let mut world = World::new();
+        world.insert_resource(device.clone());
+        world.insert_resource(queue.clone());
+        let mut system_state =
+            SystemState::<(SRes<RenderDevice>, SRes<RenderQueue>)>::new(&mut world);
+        let mut params = system_state
+            .get_mut(&mut world)
+            .expect("RenderDevice and RenderQueue resources should be present");
+        GpuShaderBuffer::prepare_asset(extracted, AssetId::default(), &mut params, previous_asset)
+            .expect("shader buffer should be prepared successfully")
+    }
+
+    /// Runs the full extract + prepare pipeline on a device shared with the
+    /// given `previous_asset`.
+    fn extract_and_prepare(
+        source: &mut ShaderBuffer,
+        previous_asset: Option<&GpuShaderBuffer>,
+        device: &RenderDevice,
+        queue: &RenderQueue,
+    ) -> GpuShaderBuffer {
+        let extracted = extract(source, previous_asset);
+        prepare(extracted, previous_asset, device, queue)
+    }
+
+    /// Runs the full pipeline on a fresh dummy device, for tests that don't
+    /// chain multiple prepares together.
+    fn extract_and_prepare_on_new_device(
+        source: &mut ShaderBuffer,
+        previous_asset: Option<&GpuShaderBuffer>,
+    ) -> GpuShaderBuffer {
+        let (device, queue) = create_dummy_device();
+        extract_and_prepare(source, previous_asset, &device, &queue)
+    }
+
+    /// Extracts a buffer with data and uploads it to the GPU, verifying that a
+    /// buffer of `buffer_size()` bytes is created and that extraction leaves the
+    /// source asset uninitialized with its size preserved.
+    #[test]
+    fn extract_and_create_gpu_buffer_from_data() {
+        let mut source = ShaderBuffer::new(
+            vec![1u32, 2, 3],
+            RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
+        );
+
+        // The buffer size defaults to the data length (3 * 4 = 12 bytes).
+        assert_eq!(source.buffer_size(), 12);
+        assert_eq!(source.cast_slice::<u32>(), Some(&[1, 2, 3][..]));
+
+        let gpu = extract_and_prepare_on_new_device(&mut source, None);
+
+        // Extraction moved the CPU data out of the source asset, leaving it
+        // uninitialized but keeping its buffer size.
+        assert!(matches!(source.data, ShaderBufferData::Uninitialized(12)));
+
+        // The GPU buffer has the buffer size and all extracted data uploaded.
+        assert_eq!(gpu.buffer.size(), 12);
+        assert!(gpu.had_data);
+        assert_eq!(gpu.label, source.label);
+        assert_eq!(gpu.buffer_usage, source.buffer_usage);
+    }
+
+    /// Verifies that an explicitly larger buffer size is respected: the GPU
+    /// buffer is created with `buffer_size` bytes, even though the CPU data is
+    /// shorter.
+    #[test]
+    fn create_gpu_buffer_with_buffer_size_larger_than_data() {
+        let mut source = ShaderBuffer::new(vec![1u32], RenderAssetUsages::default());
+        // Grow the GPU buffer without touching the CPU data.
+        source.resize_buffer(64);
+        assert_eq!(source.buffer_size(), 64);
+        assert_eq!(source.cast_slice::<u32>(), Some(&[1][..]));
+
+        let gpu = extract_and_prepare_on_new_device(&mut source, None);
+
+        assert_eq!(gpu.buffer.size(), 64);
+        assert!(gpu.had_data);
+    }
+
+    /// Verifies that an explicitly smaller buffer size is respected: the GPU
+    /// buffer is created with `buffer_size` bytes and only the first
+    /// `buffer_size` bytes of the CPU data are uploaded.
+    #[test]
+    fn create_gpu_buffer_with_buffer_size_smaller_than_data() {
+        let mut source = ShaderBuffer::new(vec![1u32, 2, 3, 4], RenderAssetUsages::default());
+        source.resize_buffer(8);
+        assert_eq!(source.buffer_size(), 8);
+
+        let gpu = extract_and_prepare_on_new_device(&mut source, None);
+
+        assert_eq!(gpu.buffer.size(), 8);
+        assert!(gpu.had_data);
+    }
+
+    /// Verifies that zero-sized buffers are created without attempting to map
+    /// them, both for initialized and uninitialized sources.
+    #[test]
+    fn create_zero_sized_gpu_buffer() {
+        // An initialized buffer whose data is empty.
+        let mut source = ShaderBuffer::new(Vec::<u32>::new(), RenderAssetUsages::default());
+        assert_eq!(source.buffer_size(), 0);
+
+        let gpu = extract_and_prepare_on_new_device(&mut source, None);
+        assert_eq!(gpu.buffer.size(), 0);
+        assert!(gpu.had_data);
+
+        // An uninitialized buffer with size zero.
+        let mut source = ShaderBuffer::with_size(0, RenderAssetUsages::default());
+        let gpu = extract_and_prepare_on_new_device(&mut source, None);
+        assert_eq!(gpu.buffer.size(), 0);
+        assert!(!gpu.had_data);
+    }
+
+    /// Verifies that an uninitialized buffer creates an uninitialized GPU buffer
+    /// of the requested size and is reported as having no data.
+    #[test]
+    fn create_uninitialized_gpu_buffer() {
+        let mut source = ShaderBuffer::with_size(1024, RenderAssetUsages::default());
+        assert_eq!(source.buffer_size(), 1024);
+
+        let gpu = extract_and_prepare_on_new_device(&mut source, None);
+
+        assert_eq!(gpu.buffer.size(), 1024);
+        assert!(!gpu.had_data);
+    }
+
+    /// Verifies the extraction guards: a buffer whose CPU data has already been
+    /// moved to the render world can still be extracted if there is no previous
+    /// GPU asset carrying data, but is rejected once a previous GPU asset
+    /// contained data.
+    #[test]
+    fn extraction_rejects_buffer_whose_data_would_be_lost() {
+        let mut source = ShaderBuffer::new(vec![1u32], RenderAssetUsages::default());
+        assert!(GpuShaderBuffer::take_gpu_data(&mut source, None).is_ok());
+        assert!(matches!(source.data, ShaderBufferData::Uninitialized(4)));
+
+        // The source no longer holds data, but with no previous GPU asset the
+        // GPU buffer can simply be created uninitialized.
+        assert!(GpuShaderBuffer::take_gpu_data(&mut source, None).is_ok());
+
+        // An uninitialized buffer is rejected when the previous GPU asset had
+        // data, since re-preparing it would silently drop that data.
+        let mut source = ShaderBuffer::with_size(4, RenderAssetUsages::default());
+        let previous = GpuShaderBuffer {
+            buffer: create_dummy_device().0.create_buffer(&BufferDescriptor {
+                label: Some("previous"),
+                size: 4,
+                usage: BufferUsages::STORAGE,
+                mapped_at_creation: false,
+            }),
+            label: Cow::Borrowed("shader buffer"),
+            buffer_usage: BufferUsages::STORAGE,
+            had_data: true,
+        };
+        assert!(matches!(
+            GpuShaderBuffer::take_gpu_data(&mut source, Some(&previous)),
+            Err(AssetExtractionError::AlreadyExtracted)
+        ));
+    }
+
+    /// Verifies that an unchanged buffer reuses the existing GPU buffer instead
+    /// of allocating a new one, and that changing the buffer size or losing the
+    /// data invalidates the reuse.
+    #[test]
+    fn reuses_gpu_buffer_when_unchanged() {
+        let (device, queue) = create_dummy_device();
+
+        let mut source = ShaderBuffer::new(vec![1u32, 2, 3], RenderAssetUsages::default());
+        let first = extract_and_prepare(&mut source, None, &device, &queue);
+
+        // Same size/usage/label: the existing buffer is reused.
+        let mut source = ShaderBuffer::new(vec![4u32, 5, 6], RenderAssetUsages::default());
+        let second = extract_and_prepare(&mut source, Some(&first), &device, &queue);
+        assert_eq!(second.buffer.id(), first.buffer.id());
+
+        // A different buffer size forces a new allocation.
+        let mut source = ShaderBuffer::new(vec![1u32], RenderAssetUsages::default());
+        let resized = extract_and_prepare(&mut source, Some(&first), &device, &queue);
+        assert_ne!(resized.buffer.id(), first.buffer.id());
+        assert_eq!(resized.buffer.size(), 4);
     }
 }
