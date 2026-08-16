@@ -674,7 +674,7 @@ pub trait Component: Send + Sync + 'static {
         None
     }
 
-    /// Return true from this method if the component should track a summary
+    /// Set true to this constant if the component should track a summary
     /// tick.
     ///
     /// Summary ticks allow users of contiguous iteration queries to skip
@@ -687,11 +687,8 @@ pub trait Component: Send + Sync + 'static {
     /// Summary ticks are only valid for table components. If the component is a
     /// sparse set component, this method must return false.
     ///
-    /// By default, this method returns false.
-    #[inline]
-    fn has_summary_tick() -> bool {
-        false
-    }
+    /// By default, this constant is set to false.
+    const HAS_SUMMARY_TICK: bool = false;
 }
 
 mod private {
