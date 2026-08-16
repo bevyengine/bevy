@@ -18,7 +18,7 @@ use wgpu::{
 
 use crate::renderer::{RenderAdapterInfo, RenderDevice, RenderQueue, WgpuWrapper};
 
-use super::RecordDiagnostics;
+use super::{PassBoundaryTimestamps, RecordDiagnostics};
 
 // buffer offset must be divisible by 256, so this constant must be divisible by 32 (=256/8)
 const MAX_TIMESTAMP_QUERIES: u32 = 256;
@@ -30,7 +30,10 @@ const PIPELINE_STATISTICS_SIZE: u64 = 40;
 struct DiagnosticsRecorderInternal {
     timestamp_period_ns: f32,
     features: Features,
+    defer_query_resolve: bool,
     current_frame: Mutex<FrameData>,
+    unresolved_frames: Vec<FrameData>,
+    resolved_frames_pending_map: Vec<FrameData>,
     submitted_frames: Vec<FrameData>,
     finished_frames: Vec<FrameData>,
     #[cfg(feature = "tracing-tracy")]
@@ -59,12 +62,20 @@ impl DiagnosticsRecorder {
         DiagnosticsRecorder(WgpuWrapper::new(DiagnosticsRecorderInternal {
             timestamp_period_ns: queue.get_timestamp_period(),
             features,
+            // Metal exposes automatic pass-boundary timestamps, but an
+            // end-of-pass sample may not be visible to a resolve submitted in
+            // the same frame. Resolve those query sets on the next frame.
+            defer_query_resolve: adapter_info.backend == wgpu::Backend::Metal
+                && features.contains(Features::TIMESTAMP_QUERY)
+                && !features.contains(Features::TIMESTAMP_QUERY_INSIDE_PASSES),
             current_frame: Mutex::new(FrameData::new(
                 device,
                 features,
                 #[cfg(feature = "tracing-tracy")]
                 tracy_gpu_context.clone(),
             )),
+            unresolved_frames: Vec::new(),
+            resolved_frames_pending_map: Vec::new(),
             submitted_frames: Vec::new(),
             finished_frames: Vec::new(),
             #[cfg(feature = "tracing-tracy")]
@@ -101,7 +112,18 @@ impl DiagnosticsRecorder {
     ///
     /// Should be called before [`DiagnosticsRecorder::finish_frame`].
     pub fn resolve(&mut self, encoder: &mut CommandEncoder) {
-        self.current_frame_mut().resolve(encoder);
+        if !self.0.defer_query_resolve {
+            self.current_frame_mut().resolve(encoder);
+            return;
+        }
+
+        for frame in &mut self.0.unresolved_frames {
+            frame.resolve(encoder);
+        }
+        let mut unresolved_frames = core::mem::take(&mut self.0.unresolved_frames);
+        self.0
+            .resolved_frames_pending_map
+            .append(&mut unresolved_frames);
     }
 
     /// Finishes recording diagnostics for the current frame.
@@ -119,6 +141,12 @@ impl DiagnosticsRecorder {
         let tracy_gpu_context = self.0.tracy_gpu_context.clone();
 
         let internal = &mut self.0;
+        for frame in &mut internal.resolved_frames_pending_map {
+            frame.map_after_submit();
+        }
+        let mut resolved_frames = core::mem::take(&mut internal.resolved_frames_pending_map);
+        internal.submitted_frames.append(&mut resolved_frames);
+
         internal
             .current_frame
             .get_mut()
@@ -140,7 +168,13 @@ impl DiagnosticsRecorder {
             internal.current_frame.get_mut().expect("lock poisoned"),
             new_frame,
         );
-        internal.submitted_frames.push(old_frame);
+        if internal.defer_query_resolve {
+            internal.unresolved_frames.push(old_frame);
+        } else {
+            let mut old_frame = old_frame;
+            old_frame.map_after_submit();
+            internal.submitted_frames.push(old_frame);
+        }
     }
 }
 
@@ -196,6 +230,19 @@ impl RecordDiagnostics for DiagnosticsRecorder {
 
     fn end_pass_span<P: Pass>(&self, pass: &mut P) {
         self.current_frame_lock().end_pass(pass);
+    }
+
+    fn begin_pass_boundary_fallback(
+        &self,
+        kind: PassKind,
+        name: Cow<'static, str>,
+    ) -> Option<PassBoundaryTimestamps> {
+        self.current_frame_lock()
+            .begin_pass_boundary_fallback(kind, name)
+    }
+
+    fn end_pass_boundary_fallback(&self) {
+        self.current_frame_lock().end_pass_boundary_fallback();
     }
 }
 
@@ -477,6 +524,39 @@ impl FrameData {
         span.end_instant = Some(Instant::now());
     }
 
+    fn begin_pass_boundary_fallback(
+        &mut self,
+        kind: PassKind,
+        name: Cow<'static, str>,
+    ) -> Option<PassBoundaryTimestamps> {
+        if self.supports_timestamps_inside_passes
+            || self.num_timestamps.saturating_add(2) > MAX_TIMESTAMP_QUERIES
+        {
+            return None;
+        }
+
+        let query_set = self.timestamps_query_set.as_ref()?.clone();
+        let beginning_of_pass_write_index = self.num_timestamps;
+        let end_of_pass_write_index = beginning_of_pass_write_index + 1;
+        self.num_timestamps += 2;
+
+        let span = self.open_span(Some(kind), name);
+        span.begin_instant = Some(Instant::now());
+        span.begin_timestamp_index = Some(beginning_of_pass_write_index);
+        span.end_timestamp_index = Some(end_of_pass_write_index);
+
+        Some(PassBoundaryTimestamps {
+            query_set,
+            beginning_of_pass_write_index,
+            end_of_pass_write_index,
+        })
+    }
+
+    fn end_pass_boundary_fallback(&mut self) {
+        let span = self.close_span();
+        span.end_instant = Some(Instant::now());
+    }
+
     fn resolve(&mut self, encoder: &mut CommandEncoder) {
         let Some(resolve_buffer) = &self.resolve_buffer else {
             return;
@@ -517,7 +597,7 @@ impl FrameData {
     }
 
     fn finish(&mut self, callback: impl FnOnce(RenderDiagnostics) + Send + Sync + 'static) {
-        let Some(read_buffer) = &self.read_buffer else {
+        let Some(_) = &self.read_buffer else {
             // we still have cpu timings, so let's use them
 
             let mut diagnostics = Vec::new();
@@ -553,6 +633,12 @@ impl FrameData {
         };
 
         self.callback = Some(Box::new(callback));
+    }
+
+    fn map_after_submit(&mut self) {
+        let Some(read_buffer) = &self.read_buffer else {
+            return;
+        };
 
         let is_mapped = self.is_mapped.clone();
         read_buffer.slice(..).map_async(MapMode::Read, move |res| {

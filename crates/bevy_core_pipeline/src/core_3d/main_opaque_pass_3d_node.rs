@@ -9,7 +9,7 @@ use bevy_log::error;
 use bevy_log::info_span;
 use bevy_render::{
     camera::ExtractedCamera,
-    diagnostic::RecordDiagnostics,
+    diagnostic::{PassKind, RecordDiagnostics},
     render_phase::ViewBinnedRenderPhases,
     render_resource::{PipelineCache, RenderPassDescriptor, StoreOp},
     renderer::{RenderContext, ViewQuery},
@@ -63,16 +63,17 @@ pub fn main_opaque_pass_3d(
 
     let color_attachments = [Some(target.get_color_attachment())];
     let depth_stencil_attachment = Some(depth.get_attachment(StoreOp::Store));
+    let pass_span = diagnostics.pass_span_descriptor(PassKind::Render, "main_opaque_pass_3d");
 
     let mut render_pass = ctx.begin_tracked_render_pass(RenderPassDescriptor {
         label: Some("main_opaque_pass_3d"),
         color_attachments: &color_attachments,
         depth_stencil_attachment,
-        timestamp_writes: None,
+        timestamp_writes: pass_span.render_timestamp_writes(),
         occlusion_query_set: None,
         multiview_mask: None,
     });
-    let pass_span = diagnostics.pass_span(&mut render_pass, "main_opaque_pass_3d");
+    let pass_span = pass_span.begin(&mut render_pass);
 
     if let Some(viewport) =
         Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)

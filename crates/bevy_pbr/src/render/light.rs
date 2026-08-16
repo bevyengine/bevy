@@ -43,6 +43,7 @@ use bevy_render::batching::gpu_preprocessing::{
     BuildIndirectParametersMetadata, IndirectParametersBuffers,
 };
 use bevy_render::camera::{DirtySpecializations, PendingQueues};
+use bevy_render::diagnostic::{PassKind, RecordDiagnostics};
 use bevy_render::erased_render_asset::ErasedRenderAssets;
 use bevy_render::mesh::allocator::MeshSlabs;
 use bevy_render::occlusion_culling::{
@@ -3007,19 +3008,25 @@ fn view_shadow_pass<const IS_LATE: bool>(
     let _shadow_pass_span = info_span!("", "{}", view_light.pass_name).entered();
 
     let depth_stencil_attachment = Some(view_light.depth_attachment.get_attachment(StoreOp::Store));
+    let diagnostics = ctx.diagnostic_recorder();
+    let diagnostics = diagnostics.as_deref();
+    let pass_span =
+        diagnostics.pass_span_descriptor(PassKind::Render, view_light.pass_name.clone());
 
     let mut render_pass = ctx.begin_tracked_render_pass(RenderPassDescriptor {
         label: Some(&view_light.pass_name),
         color_attachments: &[],
         depth_stencil_attachment,
-        timestamp_writes: None,
+        timestamp_writes: pass_span.render_timestamp_writes(),
         occlusion_query_set: None,
         multiview_mask: None,
     });
+    let pass_span = pass_span.begin(&mut render_pass);
 
     if let Err(err) = shadow_phase.render(&mut render_pass, world, view_light_entity) {
         error!("Error encountered while rendering the shadow phase {err:?}");
     }
+    pass_span.end(&mut render_pass);
 }
 
 /// Creates the [`ClusterableObjectType`] data for a point or spot light.

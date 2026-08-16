@@ -18,7 +18,7 @@ use bevy_image::ToExtents;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::{ExtractedCamera, TemporalJitter},
-    diagnostic::RecordDiagnostics,
+    diagnostic::{PassKind, RecordDiagnostics},
     extract_component::ExtractComponent,
     globals::{GlobalsBuffer, GlobalsUniform},
     render_resource::{
@@ -211,7 +211,8 @@ fn ssao(
 
     let diagnostics = ctx.diagnostic_recorder();
     let diagnostics = diagnostics.as_deref();
-    let time_span = diagnostics.time_span(ctx.command_encoder(), "ssao");
+    let preprocess_span =
+        diagnostics.pass_span_descriptor(PassKind::Compute, "ssao_preprocess_depth");
 
     let command_encoder = ctx.command_encoder();
     command_encoder.push_debug_group("ssao");
@@ -220,8 +221,9 @@ fn ssao(
         let mut preprocess_depth_pass =
             command_encoder.begin_compute_pass(&ComputePassDescriptor {
                 label: Some("ssao_preprocess_depth"),
-                timestamp_writes: None,
+                timestamp_writes: preprocess_span.compute_timestamp_writes(),
             });
+        let preprocess_span = preprocess_span.begin(&mut preprocess_depth_pass);
         preprocess_depth_pass.set_pipeline(preprocess_depth_pipeline);
         preprocess_depth_pass.set_bind_group(0, &bind_groups.preprocess_depth_bind_group, &[]);
         preprocess_depth_pass.set_bind_group(
@@ -234,13 +236,16 @@ fn ssao(
             camera_size.y.div_ceil(16),
             1,
         );
+        preprocess_span.end(&mut preprocess_depth_pass);
     }
 
+    let ssao_span = diagnostics.pass_span_descriptor(PassKind::Compute, "ssao");
     {
         let mut ssao_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
             label: Some("ssao"),
-            timestamp_writes: None,
+            timestamp_writes: ssao_span.compute_timestamp_writes(),
         });
+        let ssao_span = ssao_span.begin(&mut ssao_pass);
         ssao_pass.set_pipeline(ssao_pipeline);
         ssao_pass.set_bind_group(0, &bind_groups.ssao_bind_group, &[]);
         ssao_pass.set_bind_group(
@@ -249,13 +254,16 @@ fn ssao(
             &[view_uniform_offset.offset],
         );
         ssao_pass.dispatch_workgroups(camera_size.x.div_ceil(8), camera_size.y.div_ceil(8), 1);
+        ssao_span.end(&mut ssao_pass);
     }
 
+    let denoise_span = diagnostics.pass_span_descriptor(PassKind::Compute, "ssao_spatial_denoise");
     {
         let mut spatial_denoise_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
             label: Some("ssao_spatial_denoise"),
-            timestamp_writes: None,
+            timestamp_writes: denoise_span.compute_timestamp_writes(),
         });
+        let denoise_span = denoise_span.begin(&mut spatial_denoise_pass);
         spatial_denoise_pass.set_pipeline(spatial_denoise_pipeline);
         spatial_denoise_pass.set_bind_group(0, &bind_groups.spatial_denoise_bind_group, &[]);
         spatial_denoise_pass.set_bind_group(
@@ -268,10 +276,10 @@ fn ssao(
             camera_size.y.div_ceil(8),
             1,
         );
+        denoise_span.end(&mut spatial_denoise_pass);
     }
 
     command_encoder.pop_debug_group();
-    time_span.end(ctx.command_encoder());
 }
 
 #[derive(Resource)]
