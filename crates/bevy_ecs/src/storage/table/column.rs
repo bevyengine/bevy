@@ -194,7 +194,7 @@ impl Column {
             .map(|changed_by| changed_by.get_unchecked_mut(row.index()).get_mut())
             .assign(caller);
         if let Some(summary_tick) = &self.summary_tick {
-            summary_tick.set(tick);
+            Self::update_summary_tick(summary_tick, tick);
         }
     }
 
@@ -219,7 +219,7 @@ impl Column {
             .map(|changed_by| changed_by.get_unchecked_mut(row.index()).get_mut())
             .assign(caller);
         if let Some(summary_tick) = &self.summary_tick {
-            summary_tick.set(change_tick);
+            Self::update_summary_tick(summary_tick, change_tick);
         }
     }
 
@@ -247,10 +247,9 @@ impl Column {
     ) {
         debug_assert!(self.data.layout() == src.data.layout());
 
-        // Making this a cold path avoids most of the performance cost
-        // (and is somehow a bit faster in cases that use the path too).
+        // Making this a cold path avoids most of the performance cost.
         #[cold]
-        fn update_summary_tick(
+        fn update_summary_tick_from_row(
             changed_ticks: &ThinArrayPtr<UnsafeCell<Tick>>,
             summary_tick: &AtomicTick,
             dst_row: TableRow,
@@ -299,7 +298,7 @@ impl Column {
         }
 
         if let Some(summary_tick) = &self.summary_tick {
-            update_summary_tick(&self.changed_ticks, summary_tick, dst_row, this_run);
+            update_summary_tick_from_row(&self.changed_ticks, summary_tick, dst_row, this_run);
         }
     }
 
@@ -515,5 +514,12 @@ impl Column {
     #[inline]
     pub fn get_summary_tick(&self) -> Option<&AtomicTick> {
         self.summary_tick.as_ref()
+    }
+
+    /// Separate method for the sake of using `#[cold]`,
+    /// since most components won't have summary ticks.
+    #[cold]
+    fn update_summary_tick(summary_tick: &AtomicTick, tick: Tick) {
+        summary_tick.set(tick);
     }
 }
