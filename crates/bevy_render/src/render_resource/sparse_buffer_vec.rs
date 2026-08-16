@@ -638,34 +638,6 @@ where
     state: SparseBufferState,
 }
 
-/// A mutable view of a single element of an [`AtomicSparseBufferVec`].
-///
-/// Returned by [`AtomicSparseBufferVec::get_mut`], this type derefs to the
-/// element's value. When it's dropped, the value is written back into the
-/// buffer's blob storage and the element is marked as changed, so the mutation
-/// is picked up by the next sparse upload.
-#[derive(Deref, DerefMut)]
-pub struct ElementMut<'a, T: AtomicPod> {
-    /// The value being mutated.
-    #[deref]
-    value: T,
-    /// The blob storage the value will be written back to on drop.
-    blob: &'a mut T::Blob,
-    /// The index of the element, used to mark it dirty on drop.
-    index: u32,
-    /// The dirty-tracking summary, used to mark the element on drop.
-    summary: &'a mut [AtomicU64],
-    /// The dirty-tracking bits, used to mark the element on drop.
-    dirty_bits: &'a mut [AtomicU64],
-}
-
-impl<T: AtomicPod> Drop for ElementMut<'_, T> {
-    fn drop(&mut self) {
-        self.value.write_to_blob_mut(self.blob);
-        note_changed_index_mut(self.index, self.summary, self.dirty_bits);
-    }
-}
-
 /// A GPU buffer that can grow, can be updated atomically from multiple threads
 /// on the CPU, and is sparsely updated on the GPU if only a small number of
 /// elements have changed.
@@ -926,26 +898,6 @@ impl<T: AtomicPod> AtomicSparseBufferVec<T> {
     pub fn set_mut(&mut self, index: u32, value: T) {
         value.write_to_blob_mut(&mut self.values.0[index as usize]);
         note_changed_index_mut(index, &mut self.summary, &mut self.dirty_bits);
-    }
-
-    /// Returns a mutable view of the element at the given index.
-    ///
-    /// If the index isn't in range of the buffer, this method panics.
-    ///
-    /// The returned handle derefs to the element's value. When it's dropped,
-    /// the value is written back into the buffer's blob storage and the
-    /// element is marked as changed. Like [`Self::set_mut`], this method
-    /// requires `&mut self`, so the write-back and dirty marking don't need
-    /// atomic read-modify-write instructions.
-    pub fn get_mut(&mut self, index: u32) -> ElementMut<'_, T> {
-        let value = T::read_from_blob(&self.values.0[index as usize]);
-        ElementMut {
-            value,
-            blob: &mut self.values.0[index as usize],
-            index,
-            summary: &mut self.summary,
-            dirty_bits: &mut self.dirty_bits,
-        }
     }
 
     /// Marks the given element index as dirty. Thread-safe: only requires
@@ -1639,21 +1591,6 @@ mod tests {
         buffer.push(test_element(0));
 
         buffer.set_mut(0, test_element(42));
-        assert_eq!(buffer.get(0).0[0], 42.0);
-        assert_eq!(count_dirty_elements(&buffer.summary, &buffer.dirty_bits), 1);
-    }
-
-    /// `get_mut` provides a mutable view of an element; the value is written
-    /// back and the element marked dirty when the view is dropped.
-    #[test]
-    fn get_mut_writes_back_and_marks_dirty() {
-        let mut buffer = AtomicSparseBufferVec::new(BufferUsages::STORAGE, Arc::from("test"));
-        buffer.push(test_element(0));
-
-        {
-            let mut element = buffer.get_mut(0);
-            element.0[0] = 42.0;
-        }
         assert_eq!(buffer.get(0).0[0], 42.0);
         assert_eq!(count_dirty_elements(&buffer.summary, &buffer.dirty_bits), 1);
     }
