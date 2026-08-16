@@ -7,7 +7,7 @@ use bevy_render::{
 };
 use bytemuck::{Pod, Zeroable};
 use criterion::{criterion_group, Criterion, Throughput};
-use rand::{rng, RngExt};
+use rand::{rngs::StdRng, RngExt, SeedableRng};
 
 /// A 16-byte POD element, similar in size to the data types these buffers
 /// store in practice (e.g. mesh culling data).
@@ -77,7 +77,9 @@ fn set(c: &mut Criterion) {
     let mut group = c.benchmark_group("sparse_buffer/set");
     group.throughput(Throughput::Elements(UPDATE_COUNT as u64));
 
-    let mut rng = rng();
+    // Use a fixed seed so the set of updated indices is reproducible across
+    // benchmark runs.
+    let mut rng = StdRng::seed_from_u64(123);
     let indices: Vec<u32> = (0..UPDATE_COUNT)
         .map(|_| rng.random_range(0..ELEMENT_COUNT as u32))
         .collect();
