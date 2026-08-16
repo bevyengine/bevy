@@ -1296,11 +1296,6 @@ fn prepare_to_populate_buffers(
     );
 }
 
-/// Ensures that the backing buffer for a sparse buffer vector is present on the
-/// GPU.
-///
-/// The `capacity`, `data_buffer`, and `needs_full_reupload` fields are updated
-/// to reflect the new buffer.
 impl GpuSparseBufferUpdateMetadata {
     /// Returns a new [`GpuSparseBufferUpdateMetadata`] for the given type.
     fn new<T>() -> GpuSparseBufferUpdateMetadata {

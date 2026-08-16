@@ -50,7 +50,8 @@ pub trait AtomicPod: Pod + Default + Send + Sync + 'static {
     /// Copies the `self` value to the blob, with exclusive access to it.
     ///
     /// Unlike [`Self::write_to_blob`], this method takes a `&mut` blob, so the
-    /// blob's atomic words can be written through [`AtomicU32::get_mut`]
+    /// blob's atomic words can be written through
+    /// [`core::sync::atomic::AtomicU32::get_mut`]
     /// without emitting atomic instructions, and the compiler can merge the
     /// writes into wider stores. Prefer it over [`Self::write_to_blob`] when
     /// the blob is only written from a single thread.
