@@ -77,8 +77,7 @@ struct CustomMaterialData {
 /// The GPU version of the per-mesh-instance data.
 ///
 /// This is copied byte-by-byte to the GPU, not processed through
-/// [`ShaderType`]. Consequently, we must insert all padding ourselves. We pad
-/// the value out to 16 bytes, which is a good conservative practice.
+/// [`ShaderType`]. Consequently, we must insert all padding ourselves.
 #[derive(Clone, Copy, Pod, Zeroable)]
 #[repr(C)]
 struct GpuCustomMaterialData {
