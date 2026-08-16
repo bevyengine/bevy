@@ -1,5 +1,5 @@
 use crate::{
-    change_detection::{CheckChangeTicks, ComponentTicks, MaybeLocation, Tick},
+    change_detection::{AtomicTick, CheckChangeTicks, ComponentTicks, MaybeLocation, Tick},
     component::{ComponentId, ComponentInfo, Components},
     entity::Entity,
     query::DebugCheckedUnwrap,
@@ -611,6 +611,14 @@ impl Table {
         self.get_column(component_id)
             .map(|col| col.data.get_unchecked(row.index()))
     }
+
+    /// Returns a reference to this table's summary tick for the given
+    /// component, if the component is dense and the component tracks summary
+    /// ticks.
+    pub fn get_summary_tick(&self, component_id: ComponentId) -> Option<&AtomicTick> {
+        self.get_column(component_id)
+            .and_then(Column::get_summary_tick)
+    }
 }
 
 /// A collection of [`Table`] storages, indexed by [`TableId`]
@@ -736,6 +744,8 @@ impl Tables {
     /// If `DROP` is `false`, removed components will be forgotten,
     /// allowing ownership to be relinquished to the caller.
     ///
+    /// `change_tick` must be the change tick of the current system.
+    ///
     /// # Safety
     /// - `old_table_id` and `new_table_id` must not be equal.
     /// - `old_table_id` and `new_table_id` must be valid indices for this [`Tables`].
@@ -752,6 +762,7 @@ impl Tables {
         old_table_id: TableId,
         new_table_id: TableId,
         row: TableRow,
+        change_tick: Tick,
     ) -> TableMoveResult<'_> {
         #[cfg(debug_assertions)]
         debug_assert!(old_table_id != new_table_id);
@@ -793,7 +804,13 @@ impl Tables {
                 //   or by a previous caller.
                 // - `dst_row` was just allocated and has not been written to.
                 unsafe {
-                    dst_column.initialize_from_unchecked(src_column, last_index, row, dst_row);
+                    dst_column.initialize_from_unchecked(
+                        src_column,
+                        last_index,
+                        row,
+                        dst_row,
+                        change_tick,
+                    );
                 }
             } else {
                 // SAFETY:

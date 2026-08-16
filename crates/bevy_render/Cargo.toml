@@ -118,6 +118,7 @@ bitflags = "2"
 itertools = "0.14"
 weak-table = "0.3"
 tracing = "0.1"
+static_assertions = "1"
 
 [dev-dependencies]
 proptest = "1"

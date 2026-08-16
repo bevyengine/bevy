@@ -125,7 +125,7 @@ fn processSample(
         fast_acos(dot(normalize(delta_position_back_face), view_vec)),
     );
 
-    front_back_horizon = saturate(fma(vec2(sampling_direction), -front_back_horizon, n));
+    front_back_horizon = saturate(fma(vec2(sampling_direction), -front_back_horizon * (1.0 / PI), n));
     front_back_horizon = select(front_back_horizon.xy, front_back_horizon.yx, sampling_direction >= 0.0);
 
     *bitmask = updateSectors(front_back_horizon.x, front_back_horizon.y, samples_per_slice, *bitmask);

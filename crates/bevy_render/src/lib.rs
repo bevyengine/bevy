@@ -38,6 +38,7 @@ extern crate self as bevy_render;
 
 pub mod batching;
 pub mod camera;
+pub mod combined_bind_group;
 pub mod diagnostic;
 pub mod erased_render_asset;
 pub mod error_handler;
