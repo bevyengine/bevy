@@ -101,15 +101,12 @@ fn contiguous_query_data_impl(
         impl #user_impl_generics #path::query::ContiguousQueryData for #struct_name #user_ty_generics #user_where_clauses {
             type Contiguous<'__w, '__s> = #contiguous_item_struct_name #user_ty_generics_with_world_and_state;
 
-            unsafe fn fetch_contiguous<'__w, '__s, R>(
+            unsafe fn fetch_contiguous<'__w, '__s>(
                 _state: &'__s <Self as #path::query::WorldQuery>::State,
                 _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w>,
                 _entities: &'__w [#path::entity::Entity],
-                _range: R,
-            ) -> Self::Contiguous<'__w, '__s>
-            where
-                R: ::core::ops::RangeBounds<u32>,
-            {
+                _range: ::core::ops::Range<u32>,
+            ) -> Self::Contiguous<'__w, '__s> {
                 #contiguous_item_struct_name {
                     #(
                         #field_members:
@@ -117,7 +114,7 @@ fn contiguous_query_data_impl(
                             &_state.#field_aliases,
                             &mut _fetch.#field_aliases,
                             _entities,
-                            #path::utils::clone_range(&_range),
+                            _range.clone(),
                         ),
                     )*
                 }

@@ -1192,6 +1192,8 @@ impl<'w, 's, D: ContiguousQueryData, F: ArchetypeFilter> Iterator
             // no filtering because `F` implements `ArchetypeFilter` which ensures that `QueryFilter::fetch`
             // always returns true
 
+            let entities = table.entities();
+
             // SAFETY:
             // - [`D::set_table`] is executed prior.
             // - `table.entities()` return a valid entity array
@@ -1201,8 +1203,8 @@ impl<'w, 's, D: ContiguousQueryData, F: ArchetypeFilter> Iterator
                 D::fetch_contiguous(
                     &self.query_state.fetch_state,
                     &mut self.fetch,
-                    table.entities(),
-                    ..,
+                    entities,
+                    0..(entities.len() as u32),
                 )
             };
 

@@ -20,8 +20,8 @@ use crate::{
     },
 };
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
-use bevy_utils::{prelude::DebugName, u32_range_to_usize_range};
-use core::{cell::UnsafeCell, iter, marker::PhantomData, ops::RangeBounds, panic::Location};
+use bevy_utils::prelude::DebugName;
+use core::{cell::UnsafeCell, iter, marker::PhantomData, ops::Range, panic::Location};
 use variadics_please::all_tuples;
 
 /// Types that can be fetched from a [`World`] using a [`Query`].
@@ -422,14 +422,13 @@ pub trait ContiguousQueryData: ArchetypeQueryData + IterQueryData {
     /// - `entities` must match the entities of the set table.
     /// - There must not be simultaneous conflicting component access registered in `update_component_access`.
     /// - `range` must specify a valid range of rows in the table.
-    unsafe fn fetch_contiguous<'w, 's, R>(
+    /// - `range.start` must be less than `range.end`.
+    unsafe fn fetch_contiguous<'w, 's>(
         state: &'s Self::State,
         fetch: &mut Self::Fetch<'w>,
         entities: &'w [Entity],
-        range: R,
-    ) -> Self::Contiguous<'w, 's>
-    where
-        R: RangeBounds<u32>;
+        range: Range<u32>,
+    ) -> Self::Contiguous<'w, 's>;
 }
 
 /// A [`QueryData`] for which instances may be alive for different entities concurrently.
@@ -612,16 +611,13 @@ impl ArchetypeQueryData for Entity {}
 impl ContiguousQueryData for Entity {
     type Contiguous<'w, 's> = &'w [Entity];
 
-    unsafe fn fetch_contiguous<'w, 's, R>(
+    unsafe fn fetch_contiguous<'w, 's>(
         _state: &'s Self::State,
         _fetch: &mut Self::Fetch<'w>,
         entities: &'w [Entity],
-        range: R,
-    ) -> Self::Contiguous<'w, 's>
-    where
-        R: RangeBounds<u32>,
-    {
-        &entities[u32_range_to_usize_range(range)]
+        range: Range<u32>,
+    ) -> Self::Contiguous<'w, 's> {
+        &entities[(range.start as usize)..(range.end as usize)]
     }
 }
 
@@ -2035,15 +2031,12 @@ unsafe impl<T: Component> QueryData for &T {
 impl<T: Component> ContiguousQueryData for &T {
     type Contiguous<'w, 's> = &'w [T];
 
-    unsafe fn fetch_contiguous<'w, 's, R>(
+    unsafe fn fetch_contiguous<'w, 's>(
         _state: &'s Self::State,
         fetch: &mut Self::Fetch<'w>,
         entities: &'w [Entity],
-        range: R,
-    ) -> Self::Contiguous<'w, 's>
-    where
-        R: RangeBounds<u32>,
-    {
+        range: Range<u32>,
+    ) -> Self::Contiguous<'w, 's> {
         fetch.components.extract(
             |table| {
                 // SAFETY: The caller ensures `set_table` was previously called
@@ -2052,10 +2045,11 @@ impl<T: Component> ContiguousQueryData for &T {
                 // - `table` is `entities.len()` long
                 // - `UnsafeCell<T>` has the same layout as `T`
                 // - `range` refers to a valid range of the table
+                // - `range.start` is less than or equal to `range.end`
                 let slice = unsafe {
                     table
                         .cast()
-                        .slice_unchecked(u32_range_to_usize_range(range))
+                        .slice_unchecked((range.start as usize)..(range.end as usize))
                 };
                 debug_assert_eq!(slice.len(), entities.len());
                 slice
@@ -2326,26 +2320,23 @@ impl<T: Component> ArchetypeQueryData for Ref<'_, T> {}
 impl<T: Component> ContiguousQueryData for Ref<'_, T> {
     type Contiguous<'w, 's> = ContiguousRef<'w, T>;
 
-    unsafe fn fetch_contiguous<'w, 's, R>(
+    unsafe fn fetch_contiguous<'w, 's>(
         _state: &'s Self::State,
         fetch: &mut Self::Fetch<'w>,
         entities: &'w [Entity],
-        range: R,
-    ) -> Self::Contiguous<'w, 's>
-    where
-        R: RangeBounds<u32>,
-    {
+        range: Range<u32>,
+    ) -> Self::Contiguous<'w, 's> {
         fetch.components.extract(
             |table| {
                 // SAFETY: set_table was previously called
                 let (table_components, added_ticks, changed_ticks, summary_tick, callers) =
                     unsafe { table.debug_checked_unwrap() };
 
-                let range = u32_range_to_usize_range(range);
+                let range = (range.start as usize)..(range.end as usize);
 
                 let contiguous_ref = ContiguousRef {
                     // SAFETY: `entities` has the same length as the rows in the set table.
-                    value: unsafe { table_components.cast().slice_unchecked(range) },
+                    value: unsafe { table_components.cast().slice_unchecked(range.clone()) },
                     // SAFETY:
                     // - The caller ensures the permission to access ticks.
                     // - `entities` has the same length as the rows in the set table hence the
@@ -2614,26 +2605,23 @@ impl<T: Component<Mutability = Mutable>> ArchetypeQueryData for &mut T {}
 impl<T: Component<Mutability = Mutable>> ContiguousQueryData for &mut T {
     type Contiguous<'w, 's> = ContiguousMut<'w, T>;
 
-    unsafe fn fetch_contiguous<'w, 's, R>(
+    unsafe fn fetch_contiguous<'w, 's>(
         _state: &'s Self::State,
         fetch: &mut Self::Fetch<'w>,
         _entities: &'w [Entity],
-        range: R,
-    ) -> Self::Contiguous<'w, 's>
-    where
-        R: RangeBounds<u32>,
-    {
+        range: Range<u32>,
+    ) -> Self::Contiguous<'w, 's> {
         fetch.components.extract(
             |table| {
                 // SAFETY: set_table was previously called
                 let (table_components, added_ticks, changed_ticks, summary_tick, callers) =
                     unsafe { table.debug_checked_unwrap() };
 
-                let range = u32_range_to_usize_range(range);
+                let range = (range.start as usize)..(range.end as usize);
 
                 ContiguousMut {
                     // SAFETY: `entities` has the same length as the rows in the set table.
-                    value: unsafe { table_components.slice_mut_unchecked(range) },
+                    value: unsafe { table_components.slice_mut_unchecked(range.clone()) },
                     // SAFETY:
                     // - The caller ensures the permission to access ticks.
                     // - `entities` has the same length as the rows in the set table hence the
@@ -2800,15 +2788,12 @@ impl<T: Component<Mutability = Mutable>> ArchetypeQueryData for Mut<'_, T> {}
 impl<'__w, T: Component<Mutability = Mutable>> ContiguousQueryData for Mut<'__w, T> {
     type Contiguous<'w, 's> = ContiguousMut<'w, T>;
 
-    unsafe fn fetch_contiguous<'w, 's, R>(
+    unsafe fn fetch_contiguous<'w, 's>(
         state: &'s Self::State,
         fetch: &mut Self::Fetch<'w>,
         entities: &'w [Entity],
-        range: R,
-    ) -> Self::Contiguous<'w, 's>
-    where
-        R: RangeBounds<u32>,
-    {
+        range: Range<u32>,
+    ) -> Self::Contiguous<'w, 's> {
         <&mut T as ContiguousQueryData>::fetch_contiguous(state, fetch, entities, range)
     }
 }
@@ -3380,15 +3365,12 @@ impl<T: QueryData> ArchetypeQueryData for Option<T> {}
 impl<T: ContiguousQueryData> ContiguousQueryData for Option<T> {
     type Contiguous<'w, 's> = Option<T::Contiguous<'w, 's>>;
 
-    unsafe fn fetch_contiguous<'w, 's, R>(
+    unsafe fn fetch_contiguous<'w, 's>(
         state: &'s Self::State,
         fetch: &mut Self::Fetch<'w>,
         entities: &'w [Entity],
-        range: R,
-    ) -> Self::Contiguous<'w, 's>
-    where
-        R: RangeBounds<u32>,
-    {
+        range: Range<u32>,
+    ) -> Self::Contiguous<'w, 's> {
         fetch
             .matches
             // SAFETY: The invariants are upheld by the caller
@@ -3593,15 +3575,12 @@ impl<T: Component> ArchetypeQueryData for Has<T> {}
 impl<T: Component> ContiguousQueryData for Has<T> {
     type Contiguous<'w, 's> = bool;
 
-    unsafe fn fetch_contiguous<'w, 's, R>(
+    unsafe fn fetch_contiguous<'w, 's>(
         _state: &'s Self::State,
         fetch: &mut Self::Fetch<'w>,
         _entities: &'w [Entity],
-        _range: R,
-    ) -> Self::Contiguous<'w, 's>
-    where
-        R: RangeBounds<u32>,
-    {
+        _range: Range<u32>,
+    ) -> Self::Contiguous<'w, 's> {
         *fetch
     }
 }
@@ -3725,25 +3704,17 @@ macro_rules! impl_tuple_query_data {
         impl<$($name: ContiguousQueryData),*> ContiguousQueryData for ($($name,)*) {
             type Contiguous<'w, 's> = ($($name::Contiguous::<'w, 's>,)*);
 
-            unsafe fn fetch_contiguous<'w, 's, R>(
+            unsafe fn fetch_contiguous<'w, 's>(
                 state: &'s Self::State,
                 fetch: &mut Self::Fetch<'w>,
                 entities: &'w [Entity],
-                range: R,
-            ) -> Self::Contiguous<'w, 's>
-            where
-                R: RangeBounds<u32>,
-            {
+                range: Range<u32>,
+            ) -> Self::Contiguous<'w, 's> {
                 let ($($state,)*) = state;
                 let ($($name,)*) = fetch;
                 // SAFETY: The invariants are upheld by the caller.
                 ($(unsafe {
-                    $name::fetch_contiguous(
-                        $state,
-                        $name,
-                        entities,
-                        (range.start_bound(), range.end_bound())
-                    )
+                    $name::fetch_contiguous($state, $name, entities, range.clone())
                 },)*)
             }
         }
@@ -3992,27 +3963,19 @@ macro_rules! impl_anytuple_fetch {
         impl<$($name: ContiguousQueryData),*> ContiguousQueryData for AnyOf<($($name,)*)> {
             type Contiguous<'w, 's> = ($(Option<$name::Contiguous<'w,'s>>,)*);
 
-            unsafe fn fetch_contiguous<'w, 's, R>(
+            unsafe fn fetch_contiguous<'w, 's>(
                 state: &'s Self::State,
                 fetch: &mut Self::Fetch<'w>,
                 entities: &'w [Entity],
-                range: R,
-            ) -> Self::Contiguous<'w, 's>
-                    where R: RangeBounds<u32> {
+                range: Range<u32>,
+            ) -> Self::Contiguous<'w, 's> {
                 let ($($name,)*) = fetch;
                 let ($($state,)*) = state;
-                let start_bound = range.start_bound();
-                let end_bound = range.end_bound();
                 // Matches the [`QueryData::fetch`] except it always returns Some
                 ($(
                     // SAFETY: The invariants are upheld by the caller
                     $name.1.then(|| unsafe {
-                        $name::fetch_contiguous(
-                            $state,
-                            &mut $name.0,
-                            entities,
-                            (start_bound, end_bound)
-                        )
+                        $name::fetch_contiguous($state, &mut $name.0, entities, range.clone())
                     }),
                 )*)
             }

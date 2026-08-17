@@ -12,11 +12,9 @@ use core::{
     fmt::{self, Debug, Formatter, Pointer},
     marker::PhantomData,
     mem::{self, ManuallyDrop, MaybeUninit},
-    ops::{Deref, DerefMut, RangeBounds},
+    ops::{Deref, DerefMut, Range},
     ptr::{self, NonNull},
 };
-
-use bevy_utils::slice_range;
 
 /// Used as a type argument to [`Ptr`], [`PtrMut`], [`OwningPtr`], and [`MovingPtr`] to specify that the pointer is guaranteed
 /// to be [aligned].
@@ -1161,8 +1159,7 @@ impl<'a, T> ThinSlicePtr<'a, T> {
     /// - There must be no mutable aliases for the lifetime `'a` to the slice.
     /// - `range.start` and `range.end` must be less than or equal to the length of the slice.
     /// - `range.start` must be less than or equal to `range.end`.
-    pub unsafe fn slice_unchecked(&self, range: impl RangeBounds<usize>) -> &'a [T] {
-        let range = slice_range(range, self.len);
+    pub unsafe fn slice_unchecked(&self, range: Range<usize>) -> &'a [T] {
         // SAFETY: The caller guarantees that `range` is within range of the slice.
         unsafe {
             core::slice::from_raw_parts(self.ptr.as_ptr().add(range.start), range.end - range.start)
@@ -1206,8 +1203,7 @@ impl<'a, T> ThinSlicePtr<'a, UnsafeCell<T>> {
     /// - There must not be any aliases for the lifetime `'a` to the slice.
     /// - `range.start` and `range.end` must be less than or equal to the length of the slice.
     /// - `range.start` must be less than or equal to `range.end`.
-    pub unsafe fn slice_mut_unchecked(&self, range: impl RangeBounds<usize>) -> &'a mut [T] {
-        let range = slice_range(range, self.len);
+    pub unsafe fn slice_mut_unchecked(&self, range: Range<usize>) -> &'a mut [T] {
         // SAFETY: The caller guarantees that `range` is within range of the slice.
         unsafe {
             core::slice::from_raw_parts_mut(

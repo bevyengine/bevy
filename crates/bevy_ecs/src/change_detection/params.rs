@@ -7,7 +7,7 @@ use crate::{
 use bevy_ptr::{Ptr, ThinSlicePtr, UnsafeCellDeref};
 use core::{
     cell::UnsafeCell,
-    ops::{Deref, DerefMut, Range, RangeBounds},
+    ops::{Deref, DerefMut, Range},
     panic::Location,
 };
 
@@ -64,12 +64,14 @@ impl<'w> ContiguousComponentTicksRef<'w> {
     /// # Safety
     /// - The caller must have permission for all given ticks to be read.
     /// - `len` must be the length of `added`, `changed` and `changed_by` (unless none) slices.
+    /// - `range` must specify an in-bounds slice of the table rows.
+    /// - `range.start` must be less than or equal to `range.end`.
     pub(crate) unsafe fn from_slice_ptrs(
         added: ThinSlicePtr<'w, UnsafeCell<Tick>>,
         changed: ThinSlicePtr<'w, UnsafeCell<Tick>>,
         summary_tick: Option<&'w AtomicTick>,
         changed_by: MaybeLocation<ThinSlicePtr<'w, UnsafeCell<&'static Location<'static>>>>,
-        range: impl RangeBounds<usize> + Clone,
+        range: Range<usize>,
         this_run: Tick,
         last_run: Tick,
     ) -> Self {
@@ -77,17 +79,13 @@ impl<'w> ContiguousComponentTicksRef<'w> {
             // SAFETY:
             // - The caller ensures that `len` is the length of the slice.
             // - The caller ensures we have permission to read the data.
-            added: unsafe {
-                added
-                    .cast()
-                    .slice_unchecked((range.start_bound(), range.end_bound()))
-            },
+            // - The caller ensures that `range` specifies an in-bounds slice of
+            //   the table rows.
+            // - The caller ensures that `range.start` is less than or equal to
+            //   `range.end`.
+            added: unsafe { added.cast().slice_unchecked(range.clone()) },
             // SAFETY: see above.
-            changed: unsafe {
-                changed
-                    .cast()
-                    .slice_unchecked((range.start_bound(), range.end_bound()))
-            },
+            changed: unsafe { changed.cast().slice_unchecked(range.clone()) },
             summary_tick,
             // SAFETY: see above.
             changed_by: changed_by.map(|v| unsafe { v.cast().slice_unchecked(range) }),
@@ -309,12 +307,14 @@ impl<'w> ContiguousComponentTicksMut<'w> {
     /// # Safety
     /// - The caller must have permission to use all given ticks to be mutated.
     /// - `len` must be the length of `added`, `changed` and `changed_by` (unless none) slices.
+    /// - `range` must specify an in-bounds slice of the table rows.
+    /// - `range.start` must be less than or equal to `range.end`.
     pub(crate) unsafe fn from_slice_ptrs(
         added: ThinSlicePtr<'w, UnsafeCell<Tick>>,
         changed: ThinSlicePtr<'w, UnsafeCell<Tick>>,
         summary_tick: Option<&'w AtomicTick>,
         changed_by: MaybeLocation<ThinSlicePtr<'w, UnsafeCell<&'static Location<'static>>>>,
-        range: impl RangeBounds<usize>,
+        range: Range<usize>,
         this_run: Tick,
         last_run: Tick,
     ) -> Self {
@@ -322,11 +322,13 @@ impl<'w> ContiguousComponentTicksMut<'w> {
             // SAFETY:
             // - The caller ensures that `len` is the length of the slice.
             // - The caller ensures we have permission to mutate the data.
-            added: unsafe { added.slice_mut_unchecked((range.start_bound(), range.end_bound())) },
+            // - The caller ensures that `range` specifies an in-bounds slice of
+            //   the table rows.
+            // - The caller ensures that `range.start` is less than or equal to
+            //   `range.end`.
+            added: unsafe { added.slice_mut_unchecked(range.clone()) },
             // SAFETY: see above.
-            changed: unsafe {
-                changed.slice_mut_unchecked((range.start_bound(), range.end_bound()))
-            },
+            changed: unsafe { changed.slice_mut_unchecked(range.clone()) },
             summary_tick,
             // SAFETY: see above.
             changed_by: changed_by.map(|v| unsafe { v.slice_mut_unchecked(range) }),
