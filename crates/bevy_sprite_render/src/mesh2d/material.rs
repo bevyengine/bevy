@@ -340,7 +340,13 @@ where
             .add_plugins(ErasedRenderAssetPlugin::<MeshMaterial2d<M>>::default())
             .add_systems(
                 PostUpdate,
-                check_entities_needing_specialization::<M>.after(AssetEventSystems),
+                (
+                    mark_2d_meshes_as_changed_if_their_materials_changed::<M>.ambiguous_with_all(),
+                    check_entities_needing_specialization::<M>
+                        .after(AssetEventSystems)
+                        .ambiguous_with_all(),
+                )
+                    .chain(),
             );
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
@@ -394,7 +400,7 @@ pub fn extract_mesh_materials_2d<M: Material2d>(
         if view_visibility.get() {
             add_mesh_instance(entity, material, &mut material_instances);
         } else {
-            remove_mesh_instance(entity, &mut material_instances);
+            remove_mesh_instance::<M>(entity, &mut material_instances);
         }
     }
 
@@ -403,7 +409,7 @@ pub fn extract_mesh_materials_2d<M: Material2d>(
         // It's possible that a necessary component was removed and re-added in
         // the same frame.
         if !changed_meshes_query.contains(entity) {
-            remove_mesh_instance(entity, &mut material_instances);
+            remove_mesh_instance::<M>(entity, &mut material_instances);
         }
     }
 
@@ -417,8 +423,20 @@ pub fn extract_mesh_materials_2d<M: Material2d>(
         material_instances.insert(entity.into(), material.id().untyped());
     }
 
-    fn remove_mesh_instance(entity: Entity, material_instances: &mut RenderMaterial2dInstances) {
-        material_instances.remove(&MainEntity::from(entity));
+    fn remove_mesh_instance<M: 'static>(
+        entity: Entity,
+        material_instances: &mut RenderMaterial2dInstances,
+    ) {
+        let main_entity = MainEntity::from(entity);
+        if material_instances
+            .get(&main_entity)
+            // Make sure the instance is from this material and not some other.
+            // This check is necessary in the case where material `A` was replaced with material `B` in the same frame
+            // and material `B` was extracted before this system ran for material `A`.
+            .is_some_and(|id| id.type_id() == TypeId::of::<M>())
+        {
+            material_instances.remove(&main_entity);
+        }
     }
 }
 
@@ -437,7 +455,7 @@ pub struct Material2dPipelineSpecializer {
     pub(crate) properties: Arc<MaterialProperties>,
 }
 
-pub struct Material2dKey<M: Material2d> {
+pub struct Material2dKey<M: AsBindGroup> {
     pub mesh_key: Mesh2dPipelineKey,
     pub bind_group_data: M::Data,
 }
@@ -969,10 +987,6 @@ pub fn queue_material2d_meshes(
     specialized_material_pipeline_cache: ResMut<SpecializedMaterial2dPipelineCache>,
     mut mesh_instances_queued_this_iteration_scratch_space: Local<MainEntityHashSet>,
 ) {
-    if render_material_instances.is_empty() {
-        return;
-    }
-
     for (view, visible_entities) in &views {
         let Some(view_specialized_material_pipeline_cache) =
             specialized_material_pipeline_cache.get(&view.retained_view_entity)
@@ -1021,6 +1035,14 @@ pub fn queue_material2d_meshes(
             transparent_phase.remove(Entity::PLACEHOLDER, *main_entity);
             opaque_phase.remove(*main_entity);
             alpha_mask_phase.remove(*main_entity);
+        }
+
+        // With no entity using this material there is nothing to queue, but the
+        // dequeue above still has to run: it is the only thing that takes items
+        // of despawned entities out of the retained phases, and it has to run on
+        // the very frame the last such entity goes away.
+        if render_material_instances.is_empty() {
+            continue;
         }
 
         // Now iterate over all newly-visible entities and those that need
@@ -1406,4 +1428,38 @@ where
     add_shader(Material2dFragmentShader.intern(), M::fragment_shader());
 
     shaders
+}
+
+/// A system that ensures that [`super::mesh::extract_2d_meshes`] re-extracts
+/// meshes whose materials changed.
+///
+/// As [`super::mesh::extract_2d_meshes`] only considers meshes that were newly
+/// extracted, and it writes information from the [`RenderMaterial2dInstances`]
+/// into the [`RenderMesh2dInstances`] resource, we must tell
+/// [`super::mesh::extract_2d_meshes`] to re-extract a mesh if its material
+/// changed. Otherwise, the material binding information in the
+/// [`RenderMesh2dInstances`] might not be updated properly.  The easiest way to
+/// ensure that [`super::mesh::extract_2d_meshes`] re-extracts a mesh is to mark
+/// its [`Mesh2d`] as changed, so that's what this system does.
+fn mark_2d_meshes_as_changed_if_their_materials_changed<M>(
+    mut queries: ParamSet<(
+        Query<&mut Mesh2d, Or<(Changed<MeshMaterial2d<M>>, AssetChanged<MeshMaterial2d<M>>)>>,
+        Query<&mut Mesh2d>,
+    )>,
+    mut removed_materials_query: RemovedComponents<MeshMaterial2d<M>>,
+) where
+    M: Material2d,
+{
+    // Mark meshes corresponding to changed materials.
+    queries.p0().par_iter_mut().for_each(|mut mesh| {
+        mesh.set_changed();
+    });
+
+    // Mark meshes corresponding to removed materials.
+    let mut all_meshes_query = queries.p1();
+    for entity in removed_materials_query.read() {
+        if let Ok(mut mesh) = all_meshes_query.get_mut(entity) {
+            mesh.set_changed();
+        }
+    }
 }

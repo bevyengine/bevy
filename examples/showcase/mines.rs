@@ -416,7 +416,7 @@ fn rebuild_game_ui(commands: &mut Commands, root: Entity, game: &Game, assets: &
 }
 
 fn on_button_click(
-    click: On<Pointer<Click>>,
+    click: On<PointerClick>,
     buttons: Query<&ButtonAction>,
     mut game: ResMut<Game>,
     mut next_state: ResMut<NextState<GameState>>,
@@ -442,7 +442,7 @@ fn on_button_click(
 }
 
 fn on_button_over(
-    over: On<Pointer<Over>>,
+    over: On<PointerOver>,
     mut buttons: Query<(&mut BorderColor, &mut BackgroundColor), With<ButtonAction>>,
 ) {
     if let Ok((mut border, mut background)) = buttons.get_mut(over.event_target()) {
@@ -452,7 +452,7 @@ fn on_button_over(
 }
 
 fn on_button_out(
-    out: On<Pointer<Out>>,
+    out: On<PointerOut>,
     mut buttons: Query<(&mut BorderColor, &mut BackgroundColor), With<ButtonAction>>,
 ) {
     if let Ok((mut border, mut background)) = buttons.get_mut(out.event_target()) {
@@ -461,20 +461,20 @@ fn on_button_out(
     }
 }
 
-fn on_tile_over(over: On<Pointer<Over>>, mut tiles: Query<&mut BorderColor, With<TileCell>>) {
+fn on_tile_over(over: On<PointerOver>, mut tiles: Query<&mut BorderColor, With<TileCell>>) {
     if let Ok(mut border) = tiles.get_mut(over.event_target()) {
         border.set_all(HOVERED_TILE_BORDER_COLOR);
     }
 }
 
-fn on_tile_out(out: On<Pointer<Out>>, mut tiles: Query<&mut BorderColor, With<TileCell>>) {
+fn on_tile_out(out: On<PointerOut>, mut tiles: Query<&mut BorderColor, With<TileCell>>) {
     if let Ok(mut border) = tiles.get_mut(out.event_target()) {
         border.set_all(TILE_BORDER_COLOR);
     }
 }
 
 fn on_tile_click(
-    click: On<Pointer<Click>>,
+    click: On<PointerClick>,
     tiles: Query<&TileCell>,
     mut game: ResMut<Game>,
     mut commands: Commands,
