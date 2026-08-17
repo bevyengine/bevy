@@ -10,7 +10,7 @@
 //!
 //! The mesh and material are [`Handle<Mesh>`] and [`Handle<StandardMaterial>`] at the moment, neither of which implement `Component` on their own. Handles are put behind "newtypes" to prevent ambiguity, as some entities might want to have handles to meshes (or images, or materials etc.) for different purposes! All we need to do to make them rendering-relevant components is wrap the mesh handle and the material handle in [`Mesh3d`] and [`MeshMaterial3d`] respectively.
 //!
-//! You can toggle wireframes with the space bar except on wasm. Wasm does not support
+//! You can toggle wireframes via checkbox except on wasm. Wasm does not support
 //! `POLYGON_MODE_LINE` on the gpu.
 
 use std::f32::consts::PI;
