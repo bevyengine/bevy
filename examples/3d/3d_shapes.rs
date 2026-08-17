@@ -283,7 +283,7 @@ fn spawn_buttons(commands: &mut Commands) {
             Children [
                 feathers_option_checkbox("ROTATE", Some(CheckboxInput::Rotation)),
                 feathers_option_checkbox("WIREFRAME", Some(CheckboxInput::Wireframe)),
-                feathers_button("ADVANCE ROWS", Some(ButtonInput::AdvanceRows)),
+                feathers_button("ADVANCE ROWS", None::<ButtonInput>),
             ]
         });
     } else {
@@ -291,7 +291,7 @@ fn spawn_buttons(commands: &mut Commands) {
             top_left_scene()
             Children [
                 feathers_option_checkbox("ROTATE", Some(CheckboxInput::Rotation)),
-                feathers_button("ADVANCE ROWS", Some(ButtonInput::AdvanceRows)),
+                feathers_button("ADVANCE ROWS", None::<ButtonInput>),
             ]
         });
     }
