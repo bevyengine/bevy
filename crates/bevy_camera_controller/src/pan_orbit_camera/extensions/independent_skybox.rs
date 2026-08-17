@@ -1,6 +1,6 @@
 //! A `bevy_editor_cam` extension that provides a skybox rendered by a different camera with a
 //! different field of view than the camera it is added to. This allows you to use very narrow
-//! camera FOVs, or even orthographic projections, while keeping the appearance of the skybox
+//! camera FOV, or even orthographic projections, while keeping the appearance of the skybox
 //! unchanged.
 //!
 //! To use it, add a [`IndependentSkybox`] component to a camera,
