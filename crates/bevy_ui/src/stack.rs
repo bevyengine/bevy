@@ -51,14 +51,14 @@ impl ChildBufferCache {
 
 /// Generates the render stack for UI nodes.
 ///
-/// Create a list of root nodes from parentless entities and entities with a `GlobalZIndex` component.
-/// Then build the `UiStack` from a walk of the existing layout trees starting from each root node,
+/// Create a list of stack roots from parentless entities and entities with a `GlobalZIndex` component.
+/// Then build the `UiStack` from a walk of the existing layout trees starting from each stack root,
 /// filtering branches by `Without<GlobalZIndex>`so that we don't revisit nodes.
 pub fn ui_stack_system(
     mut cache: Local<ChildBufferCache>,
-    mut root_nodes: Local<Vec<(Entity, (i32, i32, bool, usize))>>,
-    mut root_node_order: Local<EntityHashMap<usize>>,
-    mut visited_root_nodes: Local<EntityHashSet>,
+    mut stack_roots: Local<Vec<(Entity, (i32, i32, bool, usize))>>,
+    mut stack_root_order: Local<EntityHashMap<usize>>,
+    mut visited_stack_roots: Local<EntityHashSet>,
     mut ui_stack: ResMut<UiStack>,
     ui_root_nodes: UiRootNodes,
     root_node_query: Query<(Entity, Option<Ref<GlobalZIndex>>, Option<Ref<ZIndex>>)>,
@@ -70,19 +70,19 @@ pub fn ui_stack_system(
     zindex_query: Query<Option<&ZIndex>, (With<ComputedStackIndex>, Without<GlobalZIndex>)>,
     mut update_query: Query<&mut ComputedStackIndex>,
 ) {
-    root_node_order.clear();
+    stack_root_order.clear();
     for (order, partition) in ui_stack.partition.iter().enumerate() {
-        root_node_order.insert(ui_stack.uinodes[partition.start], order);
+        stack_root_order.insert(ui_stack.uinodes[partition.start], order);
     }
     ui_stack.partition.clear();
     ui_stack.uinodes.clear();
-    visited_root_nodes.clear();
+    visited_stack_roots.clear();
 
     for (id, maybe_global_zindex, maybe_zindex) in
         root_node_query.iter_many(ui_root_nodes.iter()).matched()
     {
-        let previous = root_node_order.get(&id).copied();
-        root_nodes.push((
+        let previous = stack_root_order.get(&id).copied();
+        stack_roots.push((
             id,
             (
                 maybe_global_zindex.map(|z| z.0).unwrap_or(0),
@@ -93,16 +93,16 @@ pub fn ui_stack_system(
                 previous.unwrap_or(usize::MAX),
             ),
         ));
-        visited_root_nodes.insert(id);
+        visited_stack_roots.insert(id);
     }
 
     for (id, global_zindex, maybe_zindex) in zindex_global_node_query.iter() {
-        if visited_root_nodes.contains(&id) {
+        if visited_stack_roots.contains(&id) {
             continue;
         }
 
-        let previous = root_node_order.get(&id).copied();
-        root_nodes.push((
+        let previous = stack_root_order.get(&id).copied();
+        stack_roots.push((
             id,
             (
                 global_zindex.0,
@@ -115,9 +115,9 @@ pub fn ui_stack_system(
         ));
     }
 
-    root_nodes.sort_by_key(|(_, z)| *z);
+    stack_roots.sort_by_key(|(_, z)| *z);
 
-    for (root_entity, _) in root_nodes.drain(..) {
+    for (root_entity, _) in stack_roots.drain(..) {
         let start = ui_stack.uinodes.len();
         update_uistack_recursive(
             &mut cache,
