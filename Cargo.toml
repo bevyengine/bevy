@@ -389,6 +389,9 @@ free_camera = ["bevy_internal/free_camera"]
 # Enables the pan camera from bevy_camera_controller
 pan_camera = ["bevy_internal/pan_camera"]
 
+# Enables the pan camera from bevy_camera_controller
+pan_orbit_camera = ["bevy_internal/pan_orbit_camera"]
+
 # Enable the Bevy Remote Protocol
 bevy_remote = ["bevy_internal/bevy_remote"]
 
@@ -5589,6 +5592,13 @@ name = "Pan Camera"
 description = "Example Pan-Camera Styled Camera Controller for 2D scenes"
 category = "Camera"
 wasm = true
+
+[[example]]
+name = "pan_orbit_camera_cad"
+path = "examples/camera/pan_orbit_camera_cad.rs"
+doc-scrape-examples = true
+required-features = ["pan_orbit_camera"]
+
 
 [[example]]
 name = "contiguous_query"

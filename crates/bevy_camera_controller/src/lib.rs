@@ -41,3 +41,6 @@ pub mod free_camera;
 
 #[cfg(feature = "pan_camera")]
 pub mod pan_camera;
+
+#[cfg(feature = "pan_orbit_camera")]
+pub mod pan_orbit_camera;
