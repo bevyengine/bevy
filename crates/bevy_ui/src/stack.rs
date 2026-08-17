@@ -168,6 +168,7 @@ fn update_uistack_recursive(
 mod tests {
     use bevy_ecs::{
         component::Component,
+        hierarchy::ChildOf,
         schedule::Schedule,
         system::Commands,
         world::{CommandQueue, World},
@@ -401,7 +402,7 @@ mod tests {
     }
 
     #[test]
-    fn last_updated_root_should_be_on_top() {
+    fn last_updated_stack_root_should_be_on_top() {
         let mut world = World::default();
         world.init_resource::<UiStack>();
 
@@ -421,5 +422,41 @@ mod tests {
         schedule.run(&mut world);
 
         assert_eq!(first, *world.resource::<UiStack>().uinodes.last().unwrap());
+
+        let first = world.resource::<UiStack>().uinodes[0];
+
+        world.entity_mut(first).insert(ZIndex(0));
+
+        schedule.run(&mut world);
+
+        assert_eq!(first, *world.resource::<UiStack>().uinodes.last().unwrap());
+    }
+
+    #[test]
+    fn order_of_global_zindex_stack_roots_should_be_preserved_between_frames() {
+        #[derive(Component)]
+        struct Marker;
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+
+        let parent = world.spawn(Node::default()).id();
+        for _ in 0..10 {
+            world.spawn((Node::default(), GlobalZIndex(0), ChildOf(parent)));
+        }
+
+        schedule.run(&mut world);
+
+        let uinodes = world.resource::<UiStack>().uinodes.clone();
+
+        for marked_entity in uinodes.iter().filter(|entity| **entity != parent).take(3) {
+            world.entity_mut(*marked_entity).insert(Marker);
+        }
+
+        schedule.run(&mut world);
+
+        assert_eq!(uinodes, world.resource::<UiStack>().uinodes);
     }
 }
