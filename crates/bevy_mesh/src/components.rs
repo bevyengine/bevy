@@ -288,7 +288,7 @@ impl MeshTag {
     ///
     /// In debug mode, this always returns true.
     #[cfg(not(debug_assertions))]
-    pub fn type_id_is(&self) -> bool {
+    pub fn type_id_is(&self, _: TypeId) -> bool {
         true
     }
 }
