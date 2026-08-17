@@ -674,7 +674,7 @@ pub trait Component: Send + Sync + 'static {
         None
     }
 
-    /// Set true to this constant if the component should track a summary
+    /// Set this constant to true if the component should track a summary
     /// tick.
     ///
     /// Summary ticks allow users of contiguous iteration queries to skip
