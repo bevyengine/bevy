@@ -1,9 +1,9 @@
 use alloc::sync::Arc;
 
 use bevy_app::{Plugin, PostUpdate};
-use bevy_color::{Alpha, Color, Hsla, Srgba};
+use bevy_color::{Color, Hsla, Srgba};
 use bevy_ecs::{
-    change_detection::DetectChangesMut,
+    change_detection::{DetectChanges, DetectChangesMut},
     component::Component,
     entity::Entity,
     event::EntityEvent,
@@ -13,6 +13,7 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     relationship::Relationship,
     resource::Resource,
+    schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
     template::FromTemplate,
 };
@@ -55,16 +56,16 @@ pub struct ColorInputValue(pub Color);
 /// Supported color editing modes
 #[derive(Default, Clone, Copy, Reflect, PartialEq)]
 pub enum ColorInputMode {
-    /// Red/green/blue mode
+    /// Red/green/blue mode with R/G plane
     #[default]
-    RGB,
-    /// Hue/saturation/lightness mode
-    HSL,
-    /// Shows an array of recent colors
-    Recent,
+    RGPlane,
+    /// Hue/saturation/lightness mode with H/S plane
+    HSPlane,
 }
 
-/// Resource that contains user preferences for the color input
+/// Resource that contains user preferences for the color input.
+/// This is global (shared between all picker instances), because it's
+/// a user preference.
 #[derive(Resource, Default)]
 pub struct ColorInputSettings {
     /// Which color space we're editing
@@ -73,7 +74,8 @@ pub struct ColorInputSettings {
     pub recent_colors: Vec<Color>,
 }
 
-/// A color swatch widget.
+/// A button which displays a color swatch; when clicked, it displays a popup containing
+/// a color picker.
 ///
 /// This is spawnable by inheriting it as a "scene component" with optional
 /// [`FeathersColorInputProps`].
@@ -102,19 +104,102 @@ struct ButtonEntityRefs(Entity);
 struct PopupEntityRefs {
     mode_rgb: Entity,
     mode_hsl: Entity,
-    mode_recent: Entity,
     rg_plane: Entity,
-    // hs_plane: Entity,
+    hs_plane: Entity,
+
+    rgb_group: Entity,
+    hsl_group: Entity,
+
     r_slider: Entity,
     r_input: Entity,
     g_slider: Entity,
     g_input: Entity,
     b_slider: Entity,
     b_input: Entity,
+
+    h_slider: Entity,
+    h_input: Entity,
+    s_slider: Entity,
+    s_input: Entity,
+    l_slider: Entity,
+    l_input: Entity,
+
     a_slider: Entity,
     a_input: Entity,
+
     hex_input: Entity,
     swatch: Entity,
+}
+
+/// Supported color editing modes
+#[derive(Default, Clone, Copy, Debug, PartialEq)]
+enum SourceColorSpace {
+    /// RGB is currently the source of truth
+    #[default]
+    Rgb,
+    /// HSL is currently the source of truth
+    Hsl,
+}
+
+/// Used to track the current color value and which color space we are editing. We don't use
+/// the [`Color`] enum here for reasons explained below.
+#[derive(Component, Clone, Debug, FromTemplate)]
+struct ColorInputState {
+    // Which color space is the source of truth
+    source: SourceColorSpace,
+
+    /// The current RGB color
+    rgb: Srgba,
+
+    /// The current HSL color
+    hsl: Hsla,
+}
+
+impl ColorInputState {
+    /// Synchronize the colors when switching color spaces.
+    ///
+    /// The color source is determined by which panel is shown, whether it's an RGB mode panel,
+    /// an HSL mode panel, or any additional supported color sources that may be added later.
+    /// When controls are interacted with, only the current source is updated; when we switch
+    /// color sources, the new source is updated from the previous source.
+    ///
+    /// Prevents lossy conversions: for example, an RGB color that has no saturation (black, white
+    /// or gray) has an indeterminate hue. We do this by only overwriting a color model's channels
+    /// when they're well-defined in the source color, preserving the previous value otherwise.
+    fn change_source(&mut self, next_source: SourceColorSpace) {
+        if next_source != self.source {
+            match self.source {
+                SourceColorSpace::Rgb => {
+                    let hsl = Hsla::from(self.rgb);
+
+                    // Copy `hsl` into `self.hsl`, but leave indeterminate channels unchanged from
+                    // the previous value. We only adopt a channel when the channels it depends on
+                    // are well-defined; otherwise we keep the old values.
+                    const EPSILON: f32 = 1e-6;
+
+                    // Lightness and alpha are always well-defined.
+                    self.hsl.lightness = hsl.lightness;
+                    self.hsl.alpha = hsl.alpha;
+
+                    // Saturation is indeterminate for pure black and pure white.
+                    if hsl.lightness > EPSILON && hsl.lightness < 1.0 - EPSILON {
+                        self.hsl.saturation = hsl.saturation;
+
+                        // Hue is indeterminate for grays (zero saturation).
+                        if hsl.saturation > EPSILON {
+                            self.hsl.hue = hsl.hue;
+                        }
+                    }
+                }
+
+                SourceColorSpace::Hsl => {
+                    // Convert HSL to RGB
+                    self.rgb = Srgba::from(self.hsl);
+                }
+            }
+            self.source = next_source;
+        }
+    }
 }
 
 /// Marks the number input so that we know what channel it's editing.
@@ -127,6 +212,7 @@ impl FeathersColorInput {
         bsn! {
             @FeathersLazyMenu { popup }
             ButtonEntityRefs(#swatch)
+            ColorInputState
             Children [
                 (
                     @FeathersMenuToolButton {
@@ -161,21 +247,35 @@ fn color_input_popup() -> Box<dyn Scene> {
         PopupEntityRefs {
             mode_rgb: #mode_rgb,
             mode_hsl: #mode_hsl,
-            mode_recent: #mode_recent,
+
             rg_plane: #rg_plane,
+            hs_plane: #hs_plane,
+
+            rgb_group: #rgb_group,
+            hsl_group: #hsl_group,
+
             r_slider: #r_slider,
             r_input: #r_input,
             g_slider: #g_slider,
             g_input: #g_input,
             b_slider: #b_slider,
             b_input: #b_input,
+
+            h_slider: #h_slider,
+            h_input: #h_input,
+            s_slider: #s_slider,
+            s_input: #s_input,
+            l_slider: #l_slider,
+            l_input: #l_input,
+
             a_slider: #a_slider,
             a_input: #a_input,
+
             hex_input: #hex_input,
             swatch: #swatch,
         }
         Node {
-            width: px(256 + 8 + 8 + 2),
+            width: px(256 + 18), // room for 256 px wide plane widgets + padding/border
             row_gap: px(4),
             padding: px(4)
         }
@@ -236,7 +336,7 @@ fn color_input_popup() -> Box<dyn Scene> {
                         ActivateOnPress
                         AccessibleLabel("RGB")
                         on(|_activate: On<Activate>, mut settings: ResMut<ColorInputSettings>| {
-                            settings.mode = ColorInputMode::RGB;
+                            settings.mode = ColorInputMode::RGPlane;
                         })
                         AutoFocus
                     ),
@@ -244,35 +344,20 @@ fn color_input_popup() -> Box<dyn Scene> {
                         #mode_hsl
                         @FeathersButton {
                             @caption: bsn! { caption("HSL") },
-                            @corners: RoundedCorners::None,
-                        }
-                        Node {
-                            flex_grow: 1.0,
-                        }
-                        ActivateOnPress
-                        AccessibleLabel("Center")
-                        on(|_activate: On<Activate>, mut settings: ResMut<ColorInputSettings>| {
-                            settings.mode = ColorInputMode::HSL;
-                        })
-                    ),
-                    (
-                        #mode_recent
-                        @FeathersButton {
-                            @caption: bsn! { caption("Recent") },
-                            @variant: ButtonVariant::Primary,
                             @corners: RoundedCorners::Right,
                         }
                         Node {
                             flex_grow: 1.0,
                         }
                         ActivateOnPress
-                        AccessibleLabel("Recent Colors")
+                        AccessibleLabel("HSL")
                         on(|_activate: On<Activate>, mut settings: ResMut<ColorInputSettings>| {
-                            settings.mode = ColorInputMode::Recent;
+                            settings.mode = ColorInputMode::HSPlane;
                         })
                     ),
                 ]
             ),
+
             (
                 #rg_plane
                 @FeathersColorPlane::RedGreen
@@ -282,6 +367,18 @@ fn color_input_popup() -> Box<dyn Scene> {
                 }
                 on(rg_color_plane_value_change)
             ),
+
+            (
+                #hs_plane
+                @FeathersColorPlane::HueSaturation
+                Node {
+                    width: px(256 + 8),
+                    height: px(256 + 8),
+                }
+                on(hs_color_plane_value_change)
+            ),
+
+            #rgb_group
             Node {
                 display: Display::Grid,
                 column_gap: px(4),
@@ -291,7 +388,7 @@ fn color_input_popup() -> Box<dyn Scene> {
                     RepeatedGridTrack::flex(1, 1.),
                     RepeatedGridTrack::px(1, 50.),
                 ],
-                grid_auto_rows: vec![GridTrack::px(24.0)],
+                grid_auto_rows: vec![GridTrack::auto()],
                 align_items: AlignItems::Center,
             }
             Children [
@@ -313,9 +410,6 @@ fn color_input_popup() -> Box<dyn Scene> {
                     NumberInputPrecision(1)
                     NumberInputStep(10.0)
                     NumberInputChannel(ColorChannel::Red)
-                    Node {
-                        flex_grow: 1.0,
-                    }
                     on(number_input_value_change)
                 ),
                 label("G"),
@@ -336,9 +430,6 @@ fn color_input_popup() -> Box<dyn Scene> {
                     NumberInputPrecision(1)
                     NumberInputStep(10.0)
                     NumberInputChannel(ColorChannel::Green)
-                    Node {
-                        flex_grow: 1.0,
-                    }
                     on(number_input_value_change)
                 ),
                 label("B"),
@@ -359,11 +450,108 @@ fn color_input_popup() -> Box<dyn Scene> {
                     NumberInputPrecision(1)
                     NumberInputStep(10.0)
                     NumberInputChannel(ColorChannel::Blue)
+                    on(number_input_value_change)
+                ),
+            ],
+
+            #hsl_group
+            Node {
+                display: Display::Grid,
+                column_gap: px(4),
+                row_gap: px(4),
+                grid_template_columns: vec![
+                    RepeatedGridTrack::auto(1),
+                    RepeatedGridTrack::flex(1, 1.),
+                    RepeatedGridTrack::px(1, 50.),
+                ],
+                grid_auto_rows: vec![GridTrack::auto()],
+                align_items: AlignItems::Center,
+            }
+            Children [
+                label("H"),
+                (
+                    #h_slider
+                    @FeathersColorSlider {
+                        @value: 0.5,
+                        @channel: ColorChannel::HslHue
+                    }
+                    AccessibleLabel("Hue Channel")
+                    on(color_slider_value_change)
+                ),
+                (
+                    #h_input
+                    @FeathersNumberInput
+                    template_value(NumberInputValue::F32(0.0))
+                    template_value(HardLimit(NumberInputRange::F32(0.0..=360.0)))
+                    NumberInputPrecision(1)
+                    NumberInputStep(10.0)
+                    NumberInputChannel(ColorChannel::HslHue)
                     Node {
                         flex_grow: 1.0,
                     }
                     on(number_input_value_change)
                 ),
+                label("S"),
+                (
+                    #s_slider
+                    @FeathersColorSlider {
+                        @value: 0.5,
+                        @channel: ColorChannel::HslSaturation
+                    }
+                    AccessibleLabel("Saturation Channel")
+                    on(color_slider_value_change)
+                ),
+                (
+                    #s_input
+                    @FeathersNumberInput
+                    template_value(NumberInputValue::F32(0.0))
+                    template_value(HardLimit(NumberInputRange::F32(0.0..=100.0)))
+                    NumberInputPrecision(1)
+                    NumberInputStep(10.0)
+                    NumberInputChannel(ColorChannel::HslSaturation)
+                    Node {
+                        flex_grow: 1.0,
+                    }
+                    on(number_input_value_change)
+                ),
+                label("L"),
+                (
+                    #l_slider
+                    @FeathersColorSlider {
+                        @value: 0.5,
+                        @channel: ColorChannel::HslLightness
+                    }
+                    AccessibleLabel("Lightness Channel")
+                    on(color_slider_value_change)
+                ),
+                (
+                    #l_input
+                    @FeathersNumberInput
+                    template_value(NumberInputValue::F32(0.0))
+                    template_value(HardLimit(NumberInputRange::F32(0.0..=100.0)))
+                    NumberInputPrecision(1)
+                    NumberInputStep(10.0)
+                    NumberInputChannel(ColorChannel::HslLightness)
+                    Node {
+                        flex_grow: 1.0,
+                    }
+                    on(number_input_value_change)
+                ),
+            ],
+
+            Node {
+                display: Display::Grid,
+                column_gap: px(4),
+                row_gap: px(4),
+                grid_template_columns: vec![
+                    RepeatedGridTrack::auto(1),
+                    RepeatedGridTrack::flex(1, 1.),
+                    RepeatedGridTrack::px(1, 50.),
+                ],
+                grid_auto_rows: vec![GridTrack::auto()],
+                align_items: AlignItems::Center,
+            }
+            Children [
                 label("A"),
                 (
                     #a_slider
@@ -382,9 +570,6 @@ fn color_input_popup() -> Box<dyn Scene> {
                     NumberInputPrecision(1)
                     NumberInputStep(10.0)
                     NumberInputChannel(ColorChannel::Alpha)
-                    Node {
-                        flex_grow: 1.0,
-                    }
                     on(number_input_value_change)
                 ),
                 (
@@ -420,7 +605,7 @@ fn color_input_popup() -> Box<dyn Scene> {
                     ]
                 ),
                 (
-                #swatch
+                    #swatch
                     @FeathersColorSwatch {
                         @opaque_color_percentage: 50.0,
                     }
@@ -437,17 +622,39 @@ fn color_input_popup() -> Box<dyn Scene> {
 fn rg_color_plane_value_change(
     change: On<ValueChange<Vec2>>,
     q_parent: Query<&ChildOf>,
-    q_value: Query<(Entity, &ColorInputValue)>,
+    mut q_state: Query<&mut ColorInputState>,
     mut commands: Commands,
 ) {
-    if let Some((root_id, ColorInputValue(color))) = q_parent
+    if let Some(root_id) = q_parent
         .iter_ancestors(change.source)
-        .find_map(|e| q_value.get(e).ok())
+        .find(|e| q_state.contains(*e))
+        && let Ok(mut state) = q_state.get_mut(root_id)
     {
-        let mut rgb = color.to_srgba();
-        rgb.red = change.value.x;
-        rgb.green = change.value.y;
-        let value: Color = rgb.into();
+        state.rgb.red = change.value.x;
+        state.rgb.green = change.value.y;
+        let value: Color = state.rgb.into();
+        commands.trigger(ValueChange {
+            source: root_id,
+            value,
+            is_final: change.is_final,
+        });
+    }
+}
+
+fn hs_color_plane_value_change(
+    change: On<ValueChange<Vec2>>,
+    q_parent: Query<&ChildOf>,
+    mut q_state: Query<&mut ColorInputState>,
+    mut commands: Commands,
+) {
+    if let Some(root_id) = q_parent
+        .iter_ancestors(change.source)
+        .find(|e| q_state.contains(*e))
+        && let Ok(mut state) = q_state.get_mut(root_id)
+    {
+        state.hsl.hue = change.value.x * 360.0;
+        state.hsl.saturation = change.value.y;
+        let value: Color = state.hsl.into();
         commands.trigger(ValueChange {
             source: root_id,
             value,
@@ -460,50 +667,55 @@ fn color_slider_value_change(
     change: On<ValueChange<f32>>,
     q_slider: Query<&ColorSlider>,
     q_parent: Query<&ChildOf>,
-    q_value: Query<(Entity, &ColorInputValue)>,
+    mut q_state: Query<&mut ColorInputState>,
     mut commands: Commands,
 ) {
-    let Some(slider) = q_slider.get(change.source).ok() else {
+    let Ok(slider) = q_slider.get(change.source) else {
         return;
     };
 
-    if let Some((root_id, ColorInputValue(color))) = q_parent
+    if let Some(root_id) = q_parent
         .iter_ancestors(change.source)
-        .find_map(|e| q_value.get(e).ok())
+        .find(|e| q_state.contains(*e))
+        && let Ok(mut state) = q_state.get_mut(root_id)
     {
         let new_value: Color = match slider.channel {
             ColorChannel::Red => {
-                let mut rgb = color.to_srgba();
-                rgb.red = change.value;
-                rgb.into()
+                state.rgb.red = change.value;
+                state.rgb.into()
             }
             ColorChannel::Green => {
-                let mut rgb = color.to_srgba();
-                rgb.green = change.value;
-                rgb.into()
+                state.rgb.green = change.value;
+                state.rgb.into()
             }
             ColorChannel::Blue => {
-                let mut rgb = color.to_srgba();
-                rgb.blue = change.value;
-                rgb.into()
+                state.rgb.blue = change.value;
+                state.rgb.into()
             }
             ColorChannel::HslHue => {
-                let mut hsl: Hsla = (*color).into();
-                hsl.hue = change.value;
-                hsl.into()
+                state.hsl.hue = change.value;
+                state.hsl.into()
             }
             ColorChannel::HslSaturation => {
-                let mut hsl: Hsla = (*color).into();
-                hsl.saturation = change.value;
-                hsl.into()
+                state.hsl.saturation = change.value;
+                state.hsl.into()
             }
             ColorChannel::HslLightness => {
-                let mut hsl: Hsla = (*color).into();
-                hsl.lightness = change.value;
-                hsl.into()
+                state.hsl.lightness = change.value;
+                state.hsl.into()
             }
-            ColorChannel::Alpha => color.with_alpha(change.value),
+            ColorChannel::Alpha => match state.source {
+                SourceColorSpace::Rgb => {
+                    state.rgb.alpha = change.value;
+                    state.rgb.into()
+                }
+                SourceColorSpace::Hsl => {
+                    state.hsl.alpha = change.value;
+                    state.hsl.into()
+                }
+            },
         };
+
         commands.trigger(ValueChange {
             source: root_id,
             value: new_value,
@@ -516,50 +728,55 @@ fn number_input_value_change(
     change: On<ValueChange<f32>>,
     q_input: Query<&NumberInputChannel>,
     q_parent: Query<&ChildOf>,
-    q_value: Query<(Entity, &ColorInputValue)>,
+    mut q_state: Query<&mut ColorInputState>,
     mut commands: Commands,
 ) {
-    let Some(channel) = q_input.get(change.source).ok() else {
+    let Ok(channel) = q_input.get(change.source) else {
         return;
     };
 
-    if let Some((root_id, ColorInputValue(color))) = q_parent
+    if let Some(root_id) = q_parent
         .iter_ancestors(change.source)
-        .find_map(|e| q_value.get(e).ok())
+        .find(|e| q_state.contains(*e))
+        && let Ok(mut state) = q_state.get_mut(root_id)
     {
         let new_value: Color = match channel.0 {
             ColorChannel::Red => {
-                let mut rgb = color.to_srgba();
-                rgb.red = change.value / 255.0;
-                rgb.into()
+                state.rgb.red = change.value / 255.0;
+                state.rgb.into()
             }
             ColorChannel::Green => {
-                let mut rgb = color.to_srgba();
-                rgb.green = change.value / 255.0;
-                rgb.into()
+                state.rgb.green = change.value / 255.0;
+                state.rgb.into()
             }
             ColorChannel::Blue => {
-                let mut rgb = color.to_srgba();
-                rgb.blue = change.value / 255.0;
-                rgb.into()
+                state.rgb.blue = change.value / 255.0;
+                state.rgb.into()
             }
             ColorChannel::HslHue => {
-                let mut hsl: Hsla = (*color).into();
-                hsl.hue = change.value;
-                hsl.into()
+                state.hsl.hue = change.value;
+                state.hsl.into()
             }
             ColorChannel::HslSaturation => {
-                let mut hsl: Hsla = (*color).into();
-                hsl.saturation = change.value;
-                hsl.into()
+                state.hsl.saturation = change.value / 100.0;
+                state.hsl.into()
             }
             ColorChannel::HslLightness => {
-                let mut hsl: Hsla = (*color).into();
-                hsl.lightness = change.value;
-                hsl.into()
+                state.hsl.lightness = change.value / 100.0;
+                state.hsl.into()
             }
-            ColorChannel::Alpha => color.with_alpha(change.value / 255.0),
+            ColorChannel::Alpha => match state.source {
+                SourceColorSpace::Rgb => {
+                    state.rgb.alpha = change.value / 255.0;
+                    state.rgb.into()
+                }
+                SourceColorSpace::Hsl => {
+                    state.hsl.alpha = change.value / 255.0;
+                    state.hsl.into()
+                }
+            },
         };
+
         commands.trigger(ValueChange {
             source: root_id,
             value: new_value,
@@ -572,75 +789,89 @@ fn hex_input_on_enter_key(
     key_input: On<FocusedInput<KeyboardInput>>,
     q_text_input: Query<&EditableText>,
     q_parent: Query<&ChildOf>,
-    q_value: Query<(Entity, &ColorInputValue)>,
+    mut q_state: Query<&mut ColorInputState>,
     mut commands: Commands,
 ) {
     if key_input.input.key_code != KeyCode::Enter {
         return;
     }
 
-    let Some(editable_text) = q_text_input.get(key_input.event_target()).ok() else {
+    let Ok(editable_text) = q_text_input.get(key_input.event_target()) else {
         return;
     };
 
-    let Some((root_id, ColorInputValue(color))) = q_parent
+    if let Some(root_id) = q_parent
         .iter_ancestors(key_input.event_target())
-        .find_map(|e| q_value.get(e).ok())
-    else {
-        return;
-    };
-
-    hex_input_value_change(root_id, *color, editable_text, &mut commands);
+        .find(|e| q_state.contains(*e))
+        && let Ok(mut state) = q_state.get_mut(root_id)
+    {
+        hex_input_value_change(root_id, &mut state, editable_text, &mut commands);
+    }
 }
 
 fn hex_input_on_focus_loss(
     focus_lost: On<FocusLost>,
     q_text_input: Query<&EditableText>,
     q_parent: Query<&ChildOf>,
-    q_value: Query<(Entity, &ColorInputValue)>,
+    mut q_state: Query<&mut ColorInputState>,
     mut commands: Commands,
 ) {
-    let Some(editable_text) = q_text_input.get(focus_lost.event_target()).ok() else {
+    let Ok(editable_text) = q_text_input.get(focus_lost.event_target()) else {
         return;
     };
 
-    let Some((root_id, ColorInputValue(color))) = q_parent
+    if let Some(root_id) = q_parent
         .iter_ancestors(focus_lost.event_target())
-        .find_map(|e| q_value.get(e).ok())
-    else {
-        return;
-    };
-
-    hex_input_value_change(root_id, *color, editable_text, &mut commands);
+        .find(|e| q_state.contains(*e))
+        && let Ok(mut state) = q_state.get_mut(root_id)
+    {
+        hex_input_value_change(root_id, &mut state, editable_text, &mut commands);
+    }
 }
 
 fn hex_input_value_change(
     root_id: Entity,
-    current_color: Color,
+    state: &mut ColorInputState,
     editable_text: &EditableText,
     commands: &mut Commands,
 ) {
-    if let Ok(new_rgb_color) = Srgba::hex(editable_text.value().to_string()) {
-        let new_color: Color = new_rgb_color.into();
-        if new_color != current_color {
-            commands.trigger(ValueChange {
-                source: root_id,
-                value: new_color,
-                is_final: true,
-            });
-        }
+    if let Ok(new_rgb_color) = Srgba::hex(editable_text.value().to_string())
+        && state.rgb != new_rgb_color
+    {
+        state.rgb = new_rgb_color;
+        commands.trigger(ValueChange {
+            source: root_id,
+            value: Color::from(new_rgb_color),
+            is_final: true,
+        });
     }
+    // TODO: We currently have no way to report errors, so silently
+    // fail for now.
 }
 
 fn color_input_value_change(
-    q_input: Query<(&ColorInputValue, &ButtonEntityRefs, &Children), Changed<ColorInputValue>>,
+    mut q_input: Query<
+        (
+            &ColorInputValue,
+            &mut ColorInputState,
+            &ButtonEntityRefs,
+            &Children,
+        ),
+        Changed<ColorInputValue>,
+    >,
     q_popup: Query<&PopupEntityRefs, With<FeathersMenuPopup>>,
     mut q_color_plane: Query<&mut ColorPlaneValue>,
     mut q_editable_text: Query<&mut EditableText>,
     mut commands: Commands,
 ) {
-    for (&ColorInputValue(value), refs, children) in q_input.iter() {
+    for (&ColorInputValue(value), mut state, refs, children) in q_input.iter_mut() {
         commands.entity(refs.0).insert(ColorSwatchValue(value));
+
+        // Update either the RGB or HSL value depending on what mode we are in.
+        match state.source {
+            SourceColorSpace::Rgb => state.rgb = value.into(),
+            SourceColorSpace::Hsl => state.hsl = value.into(),
+        }
 
         if let Some(refs) = children
             .iter()
@@ -651,29 +882,61 @@ fn color_input_value_change(
                 &mut q_editable_text,
                 &mut commands,
                 refs,
-                &value,
+                &state,
             );
         }
     }
 }
 
 fn update_mode_selector(
-    q_refs: Query<&PopupEntityRefs>,
+    q_refs: Query<(Entity, &PopupEntityRefs)>,
+    q_parent: Query<&ChildOf>,
+    mut q_state: Query<&mut ColorInputState>,
     mut q_button: Query<&mut ButtonVariant>,
+    mut q_node: Query<&mut Node>,
+    mut q_color_plane: Query<&mut ColorPlaneValue>,
+    mut q_editable_text: Query<&mut EditableText>,
     settings: Res<ColorInputSettings>,
+    mut commands: Commands,
 ) {
-    for refs in q_refs.iter() {
-        set_mode_selector(refs, &mut q_button, &settings);
+    for (popup_id, refs) in q_refs.iter() {
+        set_mode_selector(refs, &mut q_button, settings.mode);
+        set_pane_visible(refs, &mut q_node, settings.mode);
+
+        if settings.is_changed()
+            && let Some(root_id) = q_parent
+                .iter_ancestors(popup_id)
+                .find(|e| q_state.contains(*e))
+            && let Ok(mut state) = q_state.get_mut(root_id)
+        {
+            // Make sure that the right color model is designated as the source
+            match settings.mode {
+                ColorInputMode::RGPlane => {
+                    state.change_source(SourceColorSpace::Rgb);
+                }
+                ColorInputMode::HSPlane => {
+                    state.change_source(SourceColorSpace::Hsl);
+                }
+            }
+
+            update_controls(
+                &mut q_color_plane,
+                &mut q_editable_text,
+                &mut commands,
+                refs,
+                &state,
+            );
+        }
     }
 }
 
 fn set_mode_selector(
     refs: &PopupEntityRefs,
     q_button: &mut Query<&mut ButtonVariant>,
-    settings: &ColorInputSettings,
+    mode: ColorInputMode,
 ) {
     if let Ok(mut rgb_variant) = q_button.get_mut(refs.mode_rgb) {
-        rgb_variant.set_if_neq(if settings.mode == ColorInputMode::RGB {
+        rgb_variant.set_if_neq(if mode == ColorInputMode::RGPlane {
             ButtonVariant::Primary
         } else {
             ButtonVariant::Normal
@@ -681,15 +944,7 @@ fn set_mode_selector(
     }
 
     if let Ok(mut hsl_variant) = q_button.get_mut(refs.mode_hsl) {
-        hsl_variant.set_if_neq(if settings.mode == ColorInputMode::HSL {
-            ButtonVariant::Primary
-        } else {
-            ButtonVariant::Normal
-        });
-    }
-
-    if let Ok(mut recent_variant) = q_button.get_mut(refs.mode_recent) {
-        recent_variant.set_if_neq(if settings.mode == ColorInputMode::Recent {
+        hsl_variant.set_if_neq(if mode == ColorInputMode::HSPlane {
             ButtonVariant::Primary
         } else {
             ButtonVariant::Normal
@@ -697,29 +952,88 @@ fn set_mode_selector(
     }
 }
 
+fn set_pane_visible(refs: &PopupEntityRefs, q_node: &mut Query<&mut Node>, mode: ColorInputMode) {
+    set_node_visible(
+        q_node,
+        refs.rg_plane,
+        if mode == ColorInputMode::RGPlane {
+            Display::Flex
+        } else {
+            Display::None
+        },
+    );
+    set_node_visible(
+        q_node,
+        refs.rgb_group,
+        if mode == ColorInputMode::RGPlane {
+            Display::Grid
+        } else {
+            Display::None
+        },
+    );
+    set_node_visible(
+        q_node,
+        refs.hs_plane,
+        if mode == ColorInputMode::HSPlane {
+            Display::Flex
+        } else {
+            Display::None
+        },
+    );
+    set_node_visible(
+        q_node,
+        refs.hsl_group,
+        if mode == ColorInputMode::HSPlane {
+            Display::Grid
+        } else {
+            Display::None
+        },
+    );
+}
+
+fn set_node_visible(q_node: &mut Query<&mut Node>, id: Entity, display: Display) {
+    if let Ok(mut node) = q_node.get_mut(id)
+        && node.display != display
+    {
+        node.display = display;
+    }
+}
+
 fn handle_popup_ready(
     insert: On<Ready>,
     q_popup: Query<(&PopupEntityRefs, &ChildOf)>,
-    q_color_input: Query<&ColorInputValue>,
+    mut q_color_input: Query<(&ColorInputValue, &mut ColorInputState)>,
     mut q_editable_text: Query<&mut EditableText>,
     mut q_color_plane: Query<&mut ColorPlaneValue>,
+    settings: Res<ColorInputSettings>,
     mut commands: Commands,
 ) {
     let Ok((refs, parent)) = q_popup.get(insert.entity) else {
         return;
     };
 
-    let Ok(ColorInputValue(value)) = q_color_input.get(parent.get()) else {
+    let Ok((ColorInputValue(value), mut state)) = q_color_input.get_mut(parent.get()) else {
         warn!("Could not locate popup parent");
         return;
     };
+
+    match settings.mode {
+        ColorInputMode::RGPlane => {
+            state.source = SourceColorSpace::Rgb;
+            state.rgb = (*value).into();
+        }
+        ColorInputMode::HSPlane => {
+            state.source = SourceColorSpace::Hsl;
+            state.hsl = (*value).into();
+        }
+    }
 
     update_controls(
         &mut q_color_plane,
         &mut q_editable_text,
         &mut commands,
         refs,
-        value,
+        &state,
     );
 }
 
@@ -728,46 +1042,92 @@ fn update_controls(
     q_editble_text: &mut Query<'_, '_, &mut EditableText>,
     commands: &mut Commands<'_, '_>,
     refs: &PopupEntityRefs,
-    value: &Color,
+    state: &ColorInputState,
 ) {
-    let rgb: Srgba = value.to_srgba();
-
     if let Ok(mut color_plane_value) = q_color_plane.get_mut(refs.rg_plane) {
-        color_plane_value.set_if_neq(ColorPlaneValue(Vec3::new(rgb.red, rgb.green, rgb.blue)));
+        color_plane_value.set_if_neq(ColorPlaneValue(Vec3::new(
+            state.rgb.red,
+            state.rgb.green,
+            state.rgb.blue,
+        )));
+    }
+
+    if let Ok(mut color_plane_value) = q_color_plane.get_mut(refs.hs_plane) {
+        color_plane_value.set_if_neq(ColorPlaneValue(Vec3::new(
+            state.hsl.hue / 360.0,
+            state.hsl.saturation,
+            0.5,
+        )));
     }
 
     commands
-        .entity(refs.rg_plane)
-        .insert(ColorPlaneValue(Vec3::new(rgb.red, rgb.green, rgb.blue)));
-    commands.entity(refs.r_slider).insert(SliderValue(rgb.red));
+        .entity(refs.r_slider)
+        .insert(SliderValue(state.rgb.red));
     commands
         .entity(refs.g_slider)
-        .insert(SliderValue(rgb.green));
-    commands.entity(refs.b_slider).insert(SliderValue(rgb.blue));
+        .insert(SliderValue(state.rgb.green));
+    commands
+        .entity(refs.b_slider)
+        .insert(SliderValue(state.rgb.blue));
     commands
         .entity(refs.a_slider)
-        .insert(SliderValue(rgb.alpha));
-    // Convert to nearest lower tenth, so that the string of digits
+        .insert(SliderValue(state.rgb.alpha));
+    commands
+        .entity(refs.h_slider)
+        .insert(SliderValue(state.hsl.hue));
+    commands
+        .entity(refs.s_slider)
+        .insert(SliderValue(state.hsl.saturation));
+    commands
+        .entity(refs.l_slider)
+        .insert(SliderValue(state.hsl.lightness));
+
+    // Round to nearest tenth, so that the string of digits
     // won't be too long to display in the limited space.
+    //
+    // Note that RGBA sliders go from 0..=255 (inclusive). The multiplier
+    // is arbitrary since the representation is f32, but CSS users are familiar
+    // with 8-bit colors.
     commands.entity(refs.r_input).insert(NumberInputValue::F32(
-        (rgb.red * 256.0 * 10.0).floor() / 10.0,
+        (state.rgb.red * 255.0 * 10.0).round() / 10.0,
     ));
     commands.entity(refs.g_input).insert(NumberInputValue::F32(
-        (rgb.green * 256.0 * 10.0).floor() / 10.0,
+        (state.rgb.green * 255.0 * 10.0).round() / 10.0,
     ));
     commands.entity(refs.b_input).insert(NumberInputValue::F32(
-        (rgb.blue * 256.0 * 10.0).floor() / 10.0,
+        (state.rgb.blue * 255.0 * 10.0).round() / 10.0,
     ));
+
+    commands
+        .entity(refs.h_input)
+        .insert(NumberInputValue::F32((state.hsl.hue * 10.0).floor() / 10.0));
+    commands.entity(refs.s_input).insert(NumberInputValue::F32(
+        (state.hsl.saturation * 100.0 * 10.0).round() / 10.0,
+    ));
+    commands.entity(refs.l_input).insert(NumberInputValue::F32(
+        (state.hsl.lightness * 100.0 * 10.0).round() / 10.0,
+    ));
+
     commands.entity(refs.a_input).insert(NumberInputValue::F32(
-        (rgb.alpha * 256.0 * 10.0).floor() / 10.0,
+        (match state.source {
+            SourceColorSpace::Rgb => state.rgb.alpha,
+            SourceColorSpace::Hsl => state.hsl.alpha,
+        } * 255.0
+            * 10.0)
+            .round()
+            / 10.0,
     ));
+
     commands
         .entity(refs.swatch)
-        .insert(ColorSwatchValue(*value));
+        .insert(ColorSwatchValue(state.rgb.into()));
 
     if let Ok(mut editable_text) = q_editble_text.get_mut(refs.hex_input) {
-        editable_text.queue_edit(TextEdit::SelectAll);
-        editable_text.queue_edit(TextEdit::Insert(rgb.to_hex().into()));
+        let hex_value = state.rgb.to_hex();
+        if editable_text.value() != hex_value.as_str() {
+            editable_text.queue_edit(TextEdit::SelectAll);
+            editable_text.queue_edit(TextEdit::Insert(hex_value.into()));
+        }
     }
 }
 
@@ -777,7 +1137,10 @@ pub struct ColorInputPlugin;
 impl Plugin for ColorInputPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.init_resource::<ColorInputSettings>();
-        app.add_systems(PostUpdate, (update_mode_selector, color_input_value_change));
+        app.add_systems(
+            PostUpdate,
+            (update_mode_selector, color_input_value_change).chain(),
+        );
     }
 }
 

@@ -5,11 +5,8 @@ use bevy_ecs::{
     bundle::Bundle,
     children,
     component::Component,
-    event::EntityEvent,
     hierarchy::Children,
-    lifecycle::Insert,
-    observer::On,
-    query::{Changed, With},
+    query::Changed,
     reflect::ReflectComponent,
     system::{Commands, Query},
 };
@@ -137,25 +134,6 @@ pub fn color_swatch_bundle<B: Bundle>(overrides: B) -> impl Bundle {
         )],
     )
 }
-
-// fn handle_update_swatch_color(
-//     insert: On<Insert, ColorSwatchValue>,
-//     q_swatch: Query<(&ColorSwatchValue, &Children)>,
-//     mut commands: Commands,
-// ) {
-//     let swatch_ent = insert.event_target();
-//     if let Ok((&ColorSwatchValue(value), children)) = q_swatch.get(swatch_ent) {
-//         if let Some(first_child) = children.first() {
-//             commands.entity(*first_child).insert(BackgroundColor(value));
-//         }
-
-//         if let Some(second_child) = children.get(1) {
-//             commands
-//                 .entity(*second_child)
-//                 .insert(BackgroundColor(value.with_alpha(1.0)));
-//         }
-//     }
-// }
 
 fn update_swatch_color(
     q_swatch: Query<(&ColorSwatchValue, &Children), Changed<ColorSwatchValue>>,

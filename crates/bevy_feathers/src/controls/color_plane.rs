@@ -40,7 +40,8 @@ use crate::{palette, theme::ThemeBackgroundColor, tokens};
 ///
 /// The control emits a [`ValueChange<Vec2>`] representing the current x and y values, ranging
 /// from 0 to 1. The control accepts a [`Vec3`] input value, where the third component ('z')
-/// is used to provide the fixed constant channel for the background gradient.
+/// is used to provide the fixed constant channel for the background gradient. Note that
+/// the Y component is inverted, so that upward movement increases the value.
 ///
 /// The control does not do any color space conversions internally, other than the shader code
 /// for displaying gradients. Avoiding excess conversions helps avoid gimble-lock problems when
@@ -293,7 +294,7 @@ fn update_plane_color(
         };
 
         thumb_node.left = percent(plane_value.0.x * 100.0);
-        thumb_node.top = percent(plane_value.0.y * 100.0);
+        thumb_node.top = percent((1.0 - plane_value.0.y) * 100.0);
     }
 }
 
@@ -314,9 +315,13 @@ fn emit_color_plane_value_change(
         return;
     };
 
+    let value = (pos + Vec2::splat(0.5)).clamp(Vec2::ZERO, Vec2::ONE);
+
     commands.trigger(ValueChange {
         source,
-        value: (pos + Vec2::splat(0.5)).clamp(Vec2::ZERO, Vec2::ONE),
+        // `normalize_point` is in screen space (+y down), while the plane's value is in
+        // channel space, where y increases upward.
+        value: Vec2::new(value.x, 1.0 - value.y),
         is_final,
     });
 }
