@@ -19,11 +19,10 @@ use bevy_ecs::{
     system::{Local, Res, ResMut},
     template::FromTemplate,
 };
-use bevy_platform::collections::{HashMap, HashSet};
+use bevy_platform::collections::{hash_map::Entry, HashMap, HashSet};
 use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
 use bitvec::vec::BitVec;
 use derive_more::derive::From;
-use hashbrown::hash_map::Entry;
 use petgraph::{
     graph::{DiGraph, NodeIndex},
     Direction,
