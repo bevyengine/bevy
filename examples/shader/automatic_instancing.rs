@@ -61,7 +61,7 @@ fn setup(
             Mesh3d(mesh_handle.clone()),
             MeshMaterial3d(material_handle.clone()),
             // This is an optional component that can be used to help tie external data to a mesh instance
-            MeshTag(index),
+            MeshTag::new(index),
             Transform::from_xyz(world_x, world_y, 0.0),
         ));
     }

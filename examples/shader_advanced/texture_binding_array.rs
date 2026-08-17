@@ -6,18 +6,19 @@ use bevy::{
     prelude::*,
     reflect::TypePath,
     render::{
+        material_bind_groups::FallbackBuffer,
         render_asset::RenderAssets,
         render_resource::{
             binding_types::{sampler, texture_2d},
             *,
         },
         renderer::RenderDevice,
+        storage::GpuShaderBuffer,
         texture::{FallbackImage, GpuImage},
         RenderApp, RenderStartup,
     },
     shader::ShaderRef,
 };
-use bevy_render::{material_bind_groups::FallbackBuffer, storage::GpuShaderBuffer};
 use std::{num::NonZero, process::exit};
 
 /// This example uses a shader source file from the assets subdirectory

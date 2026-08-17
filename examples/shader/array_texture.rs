@@ -66,7 +66,7 @@ fn setup(
             MeshMaterial3d(material_handle.clone()),
             // Pass a different mesh tag to allow selecting different layers of
             // the array texture in the shader.
-            MeshTag(x as u32 % TEXTURE_COUNT),
+            MeshTag::new(x as u32 % TEXTURE_COUNT),
             Transform::from_xyz(x as f32 + 0.5, 0.0, 0.0),
         ));
     }

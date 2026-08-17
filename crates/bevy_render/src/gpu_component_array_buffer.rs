@@ -14,6 +14,7 @@ use bevy_ecs::{
     resource::Resource,
     system::{Commands, If, Local, Query, ResMut},
 };
+use bevy_log::warn;
 use bevy_mesh::MeshTag;
 use bevy_platform::collections::AlignedVec;
 use bytemuck::{AnyBitPattern, NoUninit};
@@ -145,22 +146,50 @@ fn update_components<C>(
     for (entity, maybe_tag, item) in &query {
         match C::extract_component(item) {
             None => {
+                // Remove the component data. If we swapped in some new data to
+                // fill the gap, update the mesh tag of the entity that that new
+                // data corresponds to.
                 if let Some((displaced_entity, displaced_entity_new_tag)) =
                     component_array.remove(&mut buffer, entity)
                 {
                     commands
                         .entity(displaced_entity)
-                        .insert(MeshTag(displaced_entity_new_tag));
+                        .insert(MeshTag::with_type::<GpuComponentArray<C>>(
+                            displaced_entity_new_tag,
+                        ));
                 }
+
+                commands.entity(entity).remove::<MeshTag>();
             }
+
             Some(data) => match maybe_tag {
                 None => {
+                    // Give the object a new mesh tag. In debug mode, tag it
+                    // with our type so that we can catch conflicts (e.g.
+                    // multiple `GpuComponentArrayBuffer` components on the same
+                    // mesh, which isn't presently supported).
                     let tag = component_array.len();
                     component_array.push(&mut buffer, entity, data);
-                    commands.entity(entity).insert(MeshTag(tag as u32));
+                    commands
+                        .entity(entity)
+                        .insert(MeshTag::with_type::<GpuComponentArray<C>>(tag as u32));
                 }
+
                 Some(tag) => {
-                    component_array.set(&mut buffer, tag.0, data);
+                    // We're about to write a new mesh tag, so in debug mode
+                    // make sure the application hasn't put some other mesh tag
+                    // there.
+                    // This is a best-effort check and isn't foolproof but
+                    // should catch some accidental misuse.
+                    if !tag.type_is::<GpuComponentArray<C>>() {
+                        warn!(
+                            "The entity {:?} has an existing `MeshTag`. \
+                             `GpuComponentArrayBuffer` has overwritten it.",
+                            entity
+                        );
+                    }
+
+                    component_array.set(&mut buffer, tag.value, data);
                 }
             },
         }
@@ -181,7 +210,9 @@ fn update_components<C>(
         {
             commands
                 .entity(displaced_entity)
-                .insert(MeshTag(displaced_entity_new_tag));
+                .insert(MeshTag::with_type::<GpuComponentArray<C>>(
+                    displaced_entity_new_tag,
+                ));
         }
     }
 }
