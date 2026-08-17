@@ -6,26 +6,21 @@ use bevy::{
         constants::icons,
         containers::*,
         controls::*,
-        display::{icon, label},
+        display::{caption, icon, label},
         theme::UiTheme,
         FeathersPlugins,
     },
     math::Rot2,
     post_process::bloom::{Bloom, BloomCompositeMode},
     prelude::*,
-    ui::{Selected, UiTransform},
+    ui::{Checked, Selected, UiTransform},
     ui_widgets::{
         checkbox_self_update, listbox_update_selection, radio_self_update, Activate,
         SliderPrecision, SliderStep, SliderValue, ValueChange,
     },
 };
-use std::f32::consts::FRAC_PI_2;
-
-use checkbox::feathers_option_checkbox;
 use radio::{feathers_option_buttons, RadioButtonOptionValue};
-
-#[path = "../helpers/checkbox.rs"]
-mod checkbox;
+use std::f32::consts::FRAC_PI_2;
 
 /// NOTE: Requires `pub` if `main_ui_node_scene()` is not used.
 #[path = "../helpers/radio.rs"]
@@ -49,7 +44,7 @@ fn main() {
 #[derive(Clone, Copy, Component, Default, PartialEq, Debug)]
 enum CheckboxInput {
     #[default]
-    BloomOff,
+    Bloom,
 }
 
 #[derive(Clone, Copy, Component, Default, PartialEq, Debug, FromTemplate)]
@@ -77,6 +72,15 @@ struct PaneToggleIcon;
 
 #[derive(Resource)]
 struct BloomPaneParent(Entity);
+
+#[derive(Clone, Copy, Component, PartialEq, Debug)]
+struct FeathersBloomCompositeMode(BloomCompositeMode);
+
+impl Default for FeathersBloomCompositeMode {
+    fn default() -> Self {
+        Self(BloomCompositeMode::EnergyConserving)
+    }
+}
 
 fn setup(
     mut commands: Commands,
@@ -143,7 +147,13 @@ fn setup(
 // ------------------------------------------------------------------------------------------------
 fn bloom_off_checkbox(parent: Entity) -> impl Scene {
     bsn! {
-        ChildOf(parent) feathers_option_checkbox("Bloom OFF", Some(CheckboxInput::BloomOff))
+        ChildOf(parent)
+        @FeathersCheckbox {
+            @caption: bsn! { caption("Bloom") }
+        }
+        Checked
+        template_value(CheckboxInput::Bloom)
+        on(checkbox_self_update)
     }
 }
 
@@ -357,8 +367,8 @@ fn bloom_settings_pane(parent: Entity) -> impl Scene {
                         (
                             feathers_option_buttons("",
                                 &[
-                                    (BloomCompositeMode::EnergyConserving, "Energy Conserving"),
-                                    (BloomCompositeMode::Additive, "Additive"),
+                                    (FeathersBloomCompositeMode(BloomCompositeMode::EnergyConserving), "Energy Conserving"),
+                                    (FeathersBloomCompositeMode(BloomCompositeMode::Additive), "Additive"),
                                 ], 0)
                             Node { flex_grow: 1., flex_wrap: FlexWrap::Wrap, }
                         ),
@@ -443,17 +453,17 @@ fn handle_value_change_checkbox(
     let camera_entity = camera.into_inner();
     if let Ok(checkbox_input) = checkbox_input_query.get(event.source) {
         match checkbox_input {
-            CheckboxInput::BloomOff => {
+            CheckboxInput::Bloom => {
                 if event.value {
-                    commands.entity(camera_entity).remove::<Bloom>();
-                    if let Ok(pane_entity) = pane_query.single() {
-                        commands.entity(pane_entity).despawn();
-                    }
-                } else {
                     commands
                         .entity(camera_entity)
                         .insert((Bloom::default(), Tonemapping::TonyMcMapface));
                     commands.spawn_scene(bloom_settings_pane(pane_parent.0));
+                } else {
+                    commands.entity(camera_entity).remove::<Bloom>();
+                    if let Ok(pane_entity) = pane_query.single() {
+                        commands.entity(pane_entity).despawn();
+                    }
                 }
             }
         }
@@ -540,14 +550,14 @@ fn apply_tonemapping_change(
 
 fn update_radio_button(
     event: On<ValueChange<Entity>>,
-    bloom_query: Query<&RadioButtonOptionValue<BloomCompositeMode>>,
+    bloom_query: Query<&RadioButtonOptionValue<FeathersBloomCompositeMode>>,
     camera: Single<Option<&mut Bloom>, With<Camera>>,
 ) {
     let bloom = camera.into_inner();
     if let Ok(RadioButtonOptionValue(option)) = bloom_query.get(event.value)
         && let Some(mut bloom) = bloom
     {
-        bloom.composite_mode = *option;
+        bloom.composite_mode = option.0;
     }
 }
 

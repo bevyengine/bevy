@@ -213,10 +213,9 @@ pub struct BloomPrefilter {
     pub threshold_softness: f32,
 }
 
-#[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash, Copy, Default)]
+#[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash, Copy)]
 #[reflect(Clone, Hash, PartialEq)]
 pub enum BloomCompositeMode {
-    #[default]
     EnergyConserving,
     Additive,
 }
