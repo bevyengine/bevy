@@ -17,7 +17,7 @@ use bevy::{
     },
     shader::ShaderRef,
 };
-use bevy_render::material_bind_groups::FallbackBuffer;
+use bevy_render::{material_bind_groups::FallbackBuffer, storage::GpuShaderBuffer};
 use std::{num::NonZero, process::exit};
 
 /// This example uses a shader source file from the assets subdirectory

@@ -2354,7 +2354,10 @@ pub fn init_fallback_resources(mut commands: Commands, render_device: Res<Render
         &BufferDescriptor {
             label: Some("fallback buffer"),
             size: 1,
-            usage: BufferUsages::COPY_SRC | BufferUsages::COPY_DST | BufferUsages::STORAGE,
+            usage: BufferUsages::COPY_SRC
+                | BufferUsages::COPY_DST
+                | BufferUsages::STORAGE
+                | BufferUsages::UNIFORM,
             mapped_at_creation: false,
         },
     )));
