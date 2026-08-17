@@ -162,8 +162,27 @@ fn update_components<C>(
                 commands.entity(entity).remove::<MeshTag>();
             }
 
-            Some(data) => match maybe_tag {
-                None => {
+            Some(data) => {
+                if let Some(tag) = maybe_tag
+                    && tag.type_is::<GpuComponentArray<C>>()
+                {
+                    component_array.set(&mut buffer, tag.value, data);
+                } else {
+                    // We're about to write a new mesh tag, so in debug mode
+                    // make sure the application hasn't put some other mesh tag
+                    // there.
+                    // This is a best-effort check and isn't foolproof but
+                    // should catch some accidental misuse.
+                    if let Some(tag) = maybe_tag
+                        && !tag.type_is::<GpuComponentArray<C>>()
+                    {
+                        warn!(
+                            "The entity {:?} has an existing `MeshTag`. \
+                             `GpuComponentArrayBuffer` has overwritten it.",
+                            entity
+                        );
+                    }
+
                     // Give the object a new mesh tag. In debug mode, tag it
                     // with our type so that we can catch conflicts (e.g.
                     // multiple `GpuComponentArrayBuffer` components on the same
@@ -174,24 +193,7 @@ fn update_components<C>(
                         .entity(entity)
                         .insert(MeshTag::with_type::<GpuComponentArray<C>>(tag as u32));
                 }
-
-                Some(tag) => {
-                    // We're about to write a new mesh tag, so in debug mode
-                    // make sure the application hasn't put some other mesh tag
-                    // there.
-                    // This is a best-effort check and isn't foolproof but
-                    // should catch some accidental misuse.
-                    if !tag.type_is::<GpuComponentArray<C>>() {
-                        warn!(
-                            "The entity {:?} has an existing `MeshTag`. \
-                             `GpuComponentArrayBuffer` has overwritten it.",
-                            entity
-                        );
-                    }
-
-                    component_array.set(&mut buffer, tag.value, data);
-                }
-            },
+            }
         }
 
         processed_entities.insert(entity);
