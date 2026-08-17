@@ -20,7 +20,7 @@ impl Plugin for AnchorIndicatorPlugin {
         app.add_systems(
             PostUpdate,
             draw_anchor
-                .after(bevy_transform::TransformSystems::Propagate)
+                .after(TransformSystems::Propagate)
                 .after(bevy_camera::CameraUpdateSystems),
         );
     }

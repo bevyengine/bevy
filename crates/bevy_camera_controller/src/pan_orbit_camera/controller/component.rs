@@ -32,7 +32,7 @@ use super::{
 ///
 /// # Moving the Camera
 ///
-/// The [`PanOrbitCameraPlugin`](crate::DefaultPanOrbitCameraPlugins) will automatically handle sending inputs
+/// The [`PanOrbitCameraPlugin`](crate::pan_orbit_camera::DefaultPanOrbitCameraPlugins) will automatically handle sending inputs
 /// to the camera controller using [`bevy_picking`] to compute pointer hit locations for mouse,
 /// touch, and pen inputs. The picking plugin allows you to specify your own picking backend, or
 /// choose from a variety of provided backends. This is important because this camera controller
@@ -420,6 +420,7 @@ impl PanOrbitCamera {
                 // Flip the y-coordinate origin from the top to the bottom.
                 viewport_position.y = target_size.y - viewport_position.y;
                 let ndc = viewport_position * 2. / target_size - DVec2::ONE;
+                
                 let ndc_to_view = DMat4::perspective_infinite_reverse_rh(
                     perspective.fov as f64,
                     perspective.aspect_ratio as f64,

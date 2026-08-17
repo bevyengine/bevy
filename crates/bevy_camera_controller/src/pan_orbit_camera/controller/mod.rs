@@ -12,8 +12,8 @@ pub mod smoothing;
 pub mod transform_adapter;
 pub mod zoom;
 
-/// Adds [`bevy_editor_cam`](crate) functionality without an input plugin or any extensions. This
-/// requires an input plugin to function! If you don't use the [`crate::input::DefaultInputPlugin`],
+/// Adds [`PanOrbitCamera`](crate::pan_orbit_camera::prelude::component::PanOrbitCamera) functionality without an input plugin or any extensions. This
+/// requires an input plugin to function! If you don't use the [`crate::pan_orbit_camera::input::DefaultInputPlugin`],
 /// you will need to provide your own.
 pub struct MinimalPanOrbitCameraPlugin;
 

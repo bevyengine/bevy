@@ -5597,8 +5597,13 @@ wasm = true
 name = "pan_orbit_camera_cad"
 path = "examples/camera/pan_orbit_camera_cad.rs"
 doc-scrape-examples = true
-required-features = ["pan_orbit_camera"]
+required-features = ["pan_orbit_camera", "https", "3d_api", "jpeg"]
 
+[package.metadata.example.pan_orbit_camera_cad]
+name = "Pan Orbit Camera"
+description = "CAD-like controls and setup for PanOrbitCamera"
+category = "Camera"
+wasm = true
 
 [[example]]
 name = "contiguous_query"

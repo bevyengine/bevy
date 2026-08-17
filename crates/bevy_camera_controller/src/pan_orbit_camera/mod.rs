@@ -100,9 +100,9 @@
 //! # Usage
 //!
 //! This plugin only requires three things to work. The `bevy_picking` plugin for hit tests, the
-//! [`DefaultPanOrbitCameraPlugins`] plugin group, and the [`PanOrbitCamera`](crate::prelude::PanOrbitCamera)
+//! [`DefaultPanOrbitCameraPlugins`] plugin group, and the [`PanOrbitCamera`](crate::pan_orbit_camera::prelude::PanOrbitCamera)
 //! component. Controller settings are configured per-camera in the
-//! [`PanOrbitCamera`](crate::prelude::PanOrbitCamera) component.
+//! [`PanOrbitCamera`](crate::pan_orbit_camera::prelude::PanOrbitCamera) component.
 //!
 //! ## Getting Started
 //!

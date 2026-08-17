@@ -5,6 +5,7 @@
 //! - Toggle between free and constrained orbit (should the camera always be "facing up"?) (C)
 //! - Snap to 6 axis-aligned views (1-6)
 //! - Explode the model, separating its parts for inspection (E)
+//! - Toggling passing thought surface on minimal zool (Z)
 
 use std::time::Duration;
 
@@ -30,12 +31,8 @@ fn main() {
         ))
         // The camera controller works with reactive rendering:
         // .insert_resource(bevy::winit::WinitSettings::desktop_app())
-        .insert_resource(GlobalAmbientLight {
-            color: Color::WHITE.into(),
-            brightness: 100.0,
-            ..default()
-        })
-        .add_systems(Startup, (spawn_lights, spawn_world, setup).chain())
+        .insert_resource(GlobalAmbientLight::NONE)
+        .add_systems(Startup, setup)
         .add_systems(
             Update,
             (
@@ -43,111 +40,27 @@ fn main() {
                 toggle_constraint,
                 explode,
                 switch_direction,
+                toggle_zoom,
             )
                 .chain(),
         )
         .run();
 }
 
-fn spawn_lights(mut commands: Commands) {
-    // Main light
-    // commands.spawn((
-    //     PointLight {
-    //         color: Color::from(tailwind::ORANGE_300),
-    //         shadow_maps_enabled: true,
-    //         ..default()
-    //     },
-    //     Transform::from_xyz(0.0, 3.0, 0.0),
-    // ));
-    // // Light behind wall
-    // commands.spawn((
-    //     PointLight {
-    //         color: Color::WHITE,
-    //         shadow_maps_enabled: true,
-    //         ..default()
-    //     },
-    //     Transform::from_xyz(-3.5, 3.0, 0.0),
-    // ));
-    // // Light under floor
-    // commands.spawn((
-    //     PointLight {
-    //         color: Color::from(tailwind::RED_300),
-    //         shadow_maps_enabled: true,
-    //         ..default()
-    //     },
-    //     Transform::from_xyz(0.0, -0.5, 0.0),
-    // ));
-    commands.spawn((
-        DirectionalLight {
-            color: Color::srgb(0.98, 0.95, 0.82),
-            shadow_maps_enabled: true,
-            ..default()
-        },
-        Transform::from_xyz(0.0, 0.0, 0.0).looking_at(Vec3::new(-0.15, -0.05, 0.25), Vec3::Y),
-    ));
-}
-
-fn spawn_world(
-    mut commands: Commands,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut meshes: ResMut<Assets<Mesh>>,
-) {
-    let cube = meshes.add(Cuboid::new(1.0, 1.0, 1.0));
-    let floor = meshes.add(Plane3d::new(Vec3::Y, Vec2::splat(10.0)));
-    let sphere = meshes.add(Sphere::new(0.5));
-    let wall = meshes.add(Cuboid::new(0.2, 4.0, 3.0));
-
-    let blue_material = materials.add(Color::from(tailwind::BLUE_700));
-    let red_material = materials.add(Color::from(tailwind::RED_950));
-    let white_material = materials.add(Color::WHITE);
-
-    // Top side of floor
-    commands.spawn((
-        Mesh3d(floor.clone()),
-        MeshMaterial3d(white_material.clone()),
-    ));
-    // Under side of floor
-    commands.spawn((
-        Mesh3d(floor.clone()),
-        MeshMaterial3d(white_material.clone()),
-        Transform::from_xyz(0.0, -0.01, 0.0).with_rotation(Quat::from_rotation_x(PI)),
-    ));
-    // Blue sphere
-    commands.spawn((
-        Mesh3d(sphere.clone()),
-        MeshMaterial3d(blue_material.clone()),
-        Transform::from_xyz(3.0, 1.5, 0.0),
-    ));
-    // Tall wall
-    commands.spawn((
-        Mesh3d(wall.clone()),
-        MeshMaterial3d(white_material.clone()),
-        Transform::from_xyz(-3.0, 2.0, 0.0),
-    ));
-    // Cube behind wall
-    commands.spawn((
-        Mesh3d(cube.clone()),
-        MeshMaterial3d(blue_material.clone()),
-        Transform::from_xyz(-4.2, 0.5, 0.0),
-    ));
-    // Hidden cube under floor
-    commands.spawn((
-        Mesh3d(cube.clone()),
-        MeshMaterial3d(red_material.clone()),
-        Transform {
-            translation: Vec3::new(3.0, -2.0, 0.0),
-            rotation: Quat::from_euler(EulerRot::YXZEx, FRAC_PI_4, FRAC_PI_4, 0.0),
-            ..default()
-        },
-    ));
-}
-
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    // let diffuse_map = asset_server.load("environment_maps/diffuse_rgb9e5_zstd.ktx2");
-    // let specular_map = asset_server.load("environment_maps/specular_rgb9e5_zstd.ktx2");
+    // Original envmaps:
+    // let diffuse_map = asset_server.load(get_web_asset_url("bevy_editor_cam_environment_maps/diffuse_rgb9e5_zstd.ktx2"));
+    // let specular_map = asset_server.load(get_web_asset_url("bevy_editor_cam_environment_maps/specular_rgb9e5_zstd.ktx2"));
+    // let intensity = 1000.0;
+
+    let diffuse_map = asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2");
+    let specular_map = asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2");
+    let intensity = 5000.0;
+
+    let scene = asset_server.load(get_web_asset_url("PlaneEngine/scene.gltf#Scene0"));
 
     commands.spawn((
-        // WorldAssetRoot(asset_server.load("models/PlaneEngine/scene.gltf#Scene0")),
+        WorldAssetRoot(scene),
         Transform::from_scale(Vec3::splat(2.0)),
     ));
 
@@ -160,6 +73,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             cam_trans,
             Tonemapping::AcesFitted,
             Bloom::default(),
+            EnvironmentMapLight {
+                intensity,
+                diffuse_map: diffuse_map.clone(),
+                specular_map: specular_map.clone(),
+                ..Default::default()
+            },
             PanOrbitCamera {
                 orbit_constraint: OrbitConstraint::Free,
                 last_anchor_depth: -cam_trans.translation.length() as f64,
@@ -197,6 +116,26 @@ fn toggle_projection(
         });
     }
 }
+
+#[derive(Component)]
+struct ZoomStatusIndicator;
+
+fn zoom_status(zoom_through: bool) -> String {
+    format!("Zoom Through: {zoom_through}")
+}
+
+fn toggle_zoom(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut cam: Query<&mut PanOrbitCamera>,
+    mut text: Query<&mut Text, With<ZoomStatusIndicator>>,
+) {
+    if keys.just_pressed(KeyCode::KeyZ) {
+        let mut editor = cam.single_mut().unwrap();
+        editor.zoom_limits.zoom_through_objects = !editor.zoom_limits.zoom_through_objects;
+        text.single_mut().unwrap().0 = zoom_status(editor.zoom_limits.zoom_through_objects);
+    }
+}
+
 
 fn toggle_constraint(
     keys: Res<ButtonInput<KeyCode>>,
@@ -281,23 +220,27 @@ fn switch_direction(
 }
 
 fn setup_ui(mut commands: Commands, camera: Entity) {
-    let text = "
-        Left Mouse  - Pan
-        Right Mouse - Orbit
-        Scroll      - Zoom
-        P           - Toggle projection
-        C           - Toggle orbit constraint
-        E           - Toggle explode
-        1-6         - Switch direction
-    ";
+    let text = "\
+Left Mouse  - Pan
+Right Mouse - Orbit
+Scroll      - Zoom
+Z           - Toggle passing thought surface on minimal zoom
+P           - Toggle projection
+C           - Toggle orbit constraint
+E           - Toggle explode
+1-6         - Switch direction";
     commands.spawn((
-        Text::new(text),
+        children![
+            Text::new(text),
+            (Text::new(zoom_status(false)), ZoomStatusIndicator),
+        ],
         TextFont {
             font_size: FontSize::Px(20.0),
             ..default()
         },
         Node {
             margin: UiRect::all(Val::Px(20.0)),
+            flex_direction: FlexDirection::Column,
             ..Default::default()
         },
         Pickable::IGNORE,
@@ -348,4 +291,16 @@ fn explode(
     for (_, matl) in matls.iter_mut() {
         matl.perceptual_roughness = matl.perceptual_roughness.clamp(0.3, 1.0)
     }
+}
+
+/// Returns the GitHub download URL for the given asset.
+///
+/// The files are expected to be in the [repository].
+///
+/// [repository]: https://github.com/bevyengine/bevy_asset_files
+fn get_web_asset_url(name: &str) -> String {
+    format!(
+        "https://raw.githubusercontent.com/bevyengine/bevy_asset_files/refs/heads/main/{}",
+        name
+    )
 }
