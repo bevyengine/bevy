@@ -1825,9 +1825,12 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                     for (table_id, range) in queue {
                         let table = &tables[table_id];
                         D::set_table(&mut fetch, &self.fetch_state, table);
-                        let item =
-                            D::fetch_contiguous(&self.fetch_state, &mut fetch, table.entities());
-                        let item = D::slice_contiguous(item, range);
+                        let item = D::fetch_contiguous(
+                            &self.fetch_state,
+                            &mut fetch,
+                            table.entities(),
+                            range,
+                        );
                         accum = func(accum, item);
                     }
                 });

@@ -7,7 +7,7 @@ use crate::{
 use bevy_ptr::{Ptr, ThinSlicePtr, UnsafeCellDeref};
 use core::{
     cell::UnsafeCell,
-    ops::{Deref, DerefMut, Range},
+    ops::{Deref, DerefMut, Range, RangeBounds},
     panic::Location,
 };
 
@@ -69,7 +69,7 @@ impl<'w> ContiguousComponentTicksRef<'w> {
         changed: ThinSlicePtr<'w, UnsafeCell<Tick>>,
         summary_tick: Option<&'w AtomicTick>,
         changed_by: MaybeLocation<ThinSlicePtr<'w, UnsafeCell<&'static Location<'static>>>>,
-        len: usize,
+        range: impl RangeBounds<usize> + Clone,
         this_run: Tick,
         last_run: Tick,
     ) -> Self {
@@ -77,12 +77,20 @@ impl<'w> ContiguousComponentTicksRef<'w> {
             // SAFETY:
             // - The caller ensures that `len` is the length of the slice.
             // - The caller ensures we have permission to read the data.
-            added: unsafe { added.cast().as_slice_unchecked(len) },
+            added: unsafe {
+                added
+                    .cast()
+                    .slice_unchecked((range.start_bound(), range.end_bound()))
+            },
             // SAFETY: see above.
-            changed: unsafe { changed.cast().as_slice_unchecked(len) },
+            changed: unsafe {
+                changed
+                    .cast()
+                    .slice_unchecked((range.start_bound(), range.end_bound()))
+            },
             summary_tick,
             // SAFETY: see above.
-            changed_by: changed_by.map(|v| unsafe { v.cast().as_slice_unchecked(len) }),
+            changed_by: changed_by.map(|v| unsafe { v.cast().slice_unchecked(range) }),
             last_run,
             this_run,
         }
@@ -306,7 +314,7 @@ impl<'w> ContiguousComponentTicksMut<'w> {
         changed: ThinSlicePtr<'w, UnsafeCell<Tick>>,
         summary_tick: Option<&'w AtomicTick>,
         changed_by: MaybeLocation<ThinSlicePtr<'w, UnsafeCell<&'static Location<'static>>>>,
-        len: usize,
+        range: impl RangeBounds<usize>,
         this_run: Tick,
         last_run: Tick,
     ) -> Self {
@@ -314,12 +322,14 @@ impl<'w> ContiguousComponentTicksMut<'w> {
             // SAFETY:
             // - The caller ensures that `len` is the length of the slice.
             // - The caller ensures we have permission to mutate the data.
-            added: unsafe { added.as_mut_slice_unchecked(len) },
+            added: unsafe { added.slice_mut_unchecked((range.start_bound(), range.end_bound())) },
             // SAFETY: see above.
-            changed: unsafe { changed.as_mut_slice_unchecked(len) },
+            changed: unsafe {
+                changed.slice_mut_unchecked((range.start_bound(), range.end_bound()))
+            },
             summary_tick,
             // SAFETY: see above.
-            changed_by: changed_by.map(|v| unsafe { v.as_mut_slice_unchecked(len) }),
+            changed_by: changed_by.map(|v| unsafe { v.slice_mut_unchecked(range) }),
             last_run,
             this_run,
         }

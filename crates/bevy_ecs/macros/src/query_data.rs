@@ -101,11 +101,15 @@ fn contiguous_query_data_impl(
         impl #user_impl_generics #path::query::ContiguousQueryData for #struct_name #user_ty_generics #user_where_clauses {
             type Contiguous<'__w, '__s> = #contiguous_item_struct_name #user_ty_generics_with_world_and_state;
 
-            unsafe fn fetch_contiguous<'__w, '__s>(
+            unsafe fn fetch_contiguous<'__w, '__s, R>(
                 _state: &'__s <Self as #path::query::WorldQuery>::State,
                 _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w>,
                 _entities: &'__w [#path::entity::Entity],
-            ) -> Self::Contiguous<'__w, '__s> {
+                _range: R,
+            ) -> Self::Contiguous<'__w, '__s>
+            where
+                R: ::core::ops::RangeBounds<u32>,
+            {
                 #contiguous_item_struct_name {
                     #(
                         #field_members:
@@ -113,19 +117,8 @@ fn contiguous_query_data_impl(
                             &_state.#field_aliases,
                             &mut _fetch.#field_aliases,
                             _entities,
+                            #path::utils::clone_range(&_range),
                         ),
-                    )*
-                }
-            }
-
-            fn slice_contiguous<'w, 's>(
-                item: Self::Contiguous<'w, 's>,
-                range: ::core::ops::Range<u32>,
-            ) -> Self::Contiguous<'w, 's> {
-                #contiguous_item_struct_name {
-                    #(
-                        #field_members:
-                        <#field_types>::slice_contiguous(item.#field_members, range.clone()),
                     )*
                 }
             }

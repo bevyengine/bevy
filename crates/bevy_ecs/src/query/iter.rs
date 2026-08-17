@@ -1202,6 +1202,7 @@ impl<'w, 's, D: ContiguousQueryData, F: ArchetypeFilter> Iterator
                     &self.query_state.fetch_state,
                     &mut self.fetch,
                     table.entities(),
+                    ..,
                 )
             };
 

@@ -64,12 +64,14 @@ mod debug_info;
 mod default;
 pub mod memory_size;
 mod once;
+mod range;
 
 #[doc(hidden)]
 pub use once::OnceFlag;
 
 pub use debug_info::DebugName;
 pub use default::default;
+pub use range::*;
 
 use core::mem::ManuallyDrop;
 
