@@ -136,7 +136,6 @@ fn toggle_zoom(
     }
 }
 
-
 fn toggle_constraint(
     keys: Res<ButtonInput<KeyCode>>,
     mut cam: Query<(Entity, &Transform, &mut PanOrbitCamera)>,

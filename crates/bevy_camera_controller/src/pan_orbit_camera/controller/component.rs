@@ -420,7 +420,7 @@ impl PanOrbitCamera {
                 // Flip the y-coordinate origin from the top to the bottom.
                 viewport_position.y = target_size.y - viewport_position.y;
                 let ndc = viewport_position * 2. / target_size - DVec2::ONE;
-                
+
                 let ndc_to_view = DMat4::perspective_infinite_reverse_rh(
                     perspective.fov as f64,
                     perspective.aspect_ratio as f64,
