@@ -270,8 +270,8 @@ impl RenderVisibleEntitiesClass {
     /// no-CPU-culling visible entries table.
     pub fn entity_pair_is_visible(&self, entity: Entity, main_entity: MainEntity) -> bool {
         self.entities_cpu_culling
-            .binary_search(&(entity, main_entity))
-            .is_ok()
+            .binary_search_by_key(&main_entity, |(_, main_entity)| *main_entity)
+            .is_ok_and(|index| self.entities_cpu_culling[index].0 == entity)
             || self
                 .entities_gpu_culling
                 .get(&main_entity)
