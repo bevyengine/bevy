@@ -1211,6 +1211,7 @@ wasm = true
 name = "3d_shapes"
 path = "examples/3d/3d_shapes.rs"
 doc-scrape-examples = true
+required-features = ["bevy_feathers"]
 
 [package.metadata.example.3d_shapes]
 name = "3D Shapes"

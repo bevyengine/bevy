@@ -20,29 +20,63 @@ use bevy::pbr::wireframe::{WireframeConfig, WireframePlugin};
 use bevy::{
     asset::RenderAssetUsages,
     color::palettes::basic::SILVER,
-    input::common_conditions::{input_just_pressed, input_toggle_active},
+    feathers::{controls::FeathersCheckbox, theme::UiTheme, FeathersPlugins},
     prelude::*,
     render::render_resource::{Extent3d, TextureDimension, TextureFormat},
+    ui_widgets::{checkbox_self_update, Activate, ValueChange},
 };
+use button::feathers_button;
+use checkbox::feathers_option_checkbox;
+use scene::top_left_scene;
+
+#[path = "../helpers/button.rs"]
+mod button;
+
+#[path = "../helpers/checkbox.rs"]
+mod checkbox;
+
+#[path = "../helpers/theme.rs"]
+mod theme;
+
+#[path = "../helpers/scene.rs"]
+#[expect(dead_code, reason = "some scenes are not used in this example")]
+mod scene;
 
 fn main() {
     App::new()
         .add_plugins((
             DefaultPlugins.set(ImagePlugin::default_nearest()),
+            FeathersPlugins,
             #[cfg(not(target_arch = "wasm32"))]
             WireframePlugin::default(),
         ))
+        .insert_resource(UiTheme(theme::basic_example_theme(Color::WHITE)))
+        .init_resource::<AppStatus>()
         .add_systems(Startup, setup)
-        .add_systems(
-            Update,
-            (
-                rotate.run_if(input_toggle_active(true, KeyCode::KeyR)),
-                advance_rows.run_if(input_just_pressed(KeyCode::Tab)),
-                #[cfg(not(target_arch = "wasm32"))]
-                toggle_wireframe,
-            ),
-        )
+        .add_systems(Update, (rotate.run_if(rotate_checkbox_checked),))
+        .add_observer(handle_value_change_checkbox)
+        .add_observer(handle_button_press)
+        .add_observer(checkbox_self_update)
         .run();
+}
+
+/// Settings for the example.
+#[derive(Resource, Default)]
+struct AppStatus {
+    rotation: bool,
+}
+
+#[derive(Clone, Copy, Component, Debug, Default, PartialEq)]
+enum CheckboxInput {
+    #[default]
+    Rotation,
+    Wireframe,
+}
+
+#[derive(Clone, Copy, Component, Debug, Default, PartialEq)]
+enum ButtonInput {
+    #[default]
+    AdvanceRows,
 }
 
 /// A marker component for our shapes so we can query them separately from the ground plane
@@ -203,23 +237,7 @@ fn setup(
         Camera3d::default(),
         Transform::from_xyz(0.0, 7., 14.0).looking_at(Vec3::new(0., 1., 0.), Vec3::Y),
     ));
-
-    let mut text = "\
-        Press 'R' to pause/resume rotation\n\
-        Press 'Tab' to cycle through rows"
-        .to_string();
-    #[cfg(not(target_arch = "wasm32"))]
-    text.push_str("\nPress 'Space' to toggle wireframes");
-
-    commands.spawn((
-        Text::new(text),
-        Node {
-            position_type: PositionType::Absolute,
-            top: px(12),
-            left: px(12),
-            ..default()
-        },
-    ));
+    spawn_buttons(&mut commands);
 }
 
 fn rotate(mut query: Query<&mut Transform, With<Shape>>, time: Res<Time>) {
@@ -257,14 +275,58 @@ fn uv_debug_texture() -> Image {
     )
 }
 
-#[cfg(not(target_arch = "wasm32"))]
-fn toggle_wireframe(
-    mut wireframe_config: ResMut<WireframeConfig>,
-    keyboard: Res<ButtonInput<KeyCode>>,
-) {
-    if keyboard.just_pressed(KeyCode::Space) {
-        wireframe_config.global = !wireframe_config.global;
+/// Spawns the control widgets in the top left corner of the screen.
+fn spawn_buttons(commands: &mut Commands) {
+    if !cfg!(target_arch = "wasm32") {
+        commands.spawn_scene(bsn! {
+            top_left_scene()
+            Children [
+                feathers_option_checkbox("ROTATE", Some(CheckboxInput::Rotation)),
+                feathers_option_checkbox("WIREFRAME", Some(CheckboxInput::Wireframe)),
+                feathers_button("ADVANCE ROWS", Some(ButtonInput::AdvanceRows)),
+            ]
+        });
+    } else {
+        commands.spawn_scene(bsn! {
+            top_left_scene()
+            Children [
+                feathers_option_checkbox("ROTATE", Some(CheckboxInput::Rotation)),
+                feathers_button("ADVANCE ROWS", Some(ButtonInput::AdvanceRows)),
+            ]
+        });
     }
+}
+
+fn rotate_checkbox_checked(app_status: Res<AppStatus>) -> bool {
+    app_status.rotation
+}
+
+fn handle_value_change_checkbox(
+    event: On<ValueChange<bool>>,
+    #[cfg(not(target_arch = "wasm32"))] mut wireframe_config: ResMut<WireframeConfig>,
+    mut app_status: ResMut<AppStatus>,
+    checkbox_input_q: Query<&CheckboxInput, With<FeathersCheckbox>>,
+) {
+    if let Ok(checkbox_input) = checkbox_input_q.get(event.source) {
+        match checkbox_input {
+            CheckboxInput::Rotation => {
+                app_status.rotation = event.value;
+            }
+            #[cfg(target_arch = "wasm32")]
+            CheckboxInput::Wireframe => {}
+            #[cfg(not(target_arch = "wasm32"))]
+            CheckboxInput::Wireframe => {
+                wireframe_config.global = event.value;
+            }
+        }
+    }
+}
+
+fn handle_button_press(
+    _activate: On<Activate>,
+    shapes: Query<(&mut Row, &mut Transform), With<Shape>>,
+) {
+    advance_rows(shapes);
 }
 
 #[derive(Component, Clone, Copy)]
