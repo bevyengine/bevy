@@ -876,23 +876,24 @@ pub fn extract_uinode_images(
             visual_box.size()
         };
 
-        let inset = match image.visual_box {
+        let mut inset = match image.visual_box {
             VisualBox::ContentBox => uinode.content_inset(),
             VisualBox::PaddingBox => uinode.border(),
             VisualBox::BorderBox => BorderRect::ZERO,
         };
+        let image_inset = 0.5 * (visual_box.size() - size);
+        inset.min_inset += image_inset;
+        inset.max_inset += image_inset;
 
-        let mut border_radius = uinode.border_radius;
-        border_radius.top_left =
-            (border_radius.top_left - inset.min_inset).clamp(Vec2::ZERO, 0.5 * size);
-        border_radius.top_right = (border_radius.top_right
-            - Vec2::new(inset.max_inset.x, inset.min_inset.y))
-        .clamp(Vec2::ZERO, 0.5 * size);
-        border_radius.bottom_right =
-            (border_radius.bottom_right - inset.max_inset).clamp(Vec2::ZERO, 0.5 * size);
-        border_radius.bottom_left = (border_radius.bottom_left
-            - Vec2::new(inset.min_inset.x, inset.max_inset.y))
-        .clamp(Vec2::ZERO, 0.5 * size);
+        let radius = uinode.border_radius();
+        let clamped_radius = ResolvedBorderRadius {
+            top_left: (radius.top_left - inset.min_inset).clamp(Vec2::ZERO, 0.5 * size),
+            top_right: (radius.top_right - Vec2::new(inset.max_inset.x, inset.min_inset.y))
+                .clamp(Vec2::ZERO, 0.5 * size),
+            bottom_right: (radius.bottom_right - inset.max_inset).clamp(Vec2::ZERO, 0.5 * size),
+            bottom_left: (radius.bottom_left - Vec2::new(inset.min_inset.x, inset.max_inset.y))
+                .clamp(Vec2::ZERO, 0.5 * size),
+        };
 
         let atlas_rect = image
             .texture_atlas
@@ -943,7 +944,7 @@ pub fn extract_uinode_images(
                         flip_x: image.flip_x,
                         flip_y: image.flip_y,
                         border: BorderRect::ZERO,
-                        border_radius,
+                        border_radius: clamped_radius,
                         node_type: NodeType::Rect,
                     },
                 },
