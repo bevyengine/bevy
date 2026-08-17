@@ -3,7 +3,7 @@
 use core::{
     fmt::Write,
     iter,
-    ops::{Index, IndexMut},
+    ops::{Index, IndexMut, Range},
 };
 use std::io;
 
@@ -365,13 +365,13 @@ pub struct ThreadedAnimationGraph {
     /// | 12   |      | Commit     |                         |                |
     pub threaded_graph: Vec<AnimationNodeIndex>,
 
-    /// A mapping from each parent node index to its start offset within
-    /// [`Self::sorted_edges`].
+    /// A mapping from each parent node index to the range of its children
+    /// within [`Self::sorted_edges`].
     ///
     /// This allows for quick lookup of the children of each node, sorted in
     /// ascending order of node index, without having to sort the result of the
     /// `petgraph` traversal functions every frame.
-    pub sorted_edge_list_offsets: Vec<u32>,
+    pub sorted_edge_list_ranges: Vec<Range<u32>>,
 
     /// A list of the children of each node, sorted in ascending order.
     pub sorted_edges: Vec<AnimationNodeIndex>,
@@ -430,7 +430,7 @@ pub struct ThreadedAnimationSubgraph {
     /// In other words, this array is parallel to the [`Self::threaded_graph`]
     /// array.
     ///
-    /// See [`ThreadedAnimationGraph::sorted_edge_list_offsets`] for more
+    /// See [`ThreadedAnimationGraph::sorted_edge_list_ranges`] for more
     /// information.
     pub sorted_edge_list_offsets: Vec<u32>,
 
@@ -1022,7 +1022,7 @@ impl ThreadedAnimationGraph {
     /// memory around for later reuse.
     fn clear(&mut self) {
         self.threaded_graph.clear();
-        self.sorted_edge_list_offsets.clear();
+        self.sorted_edge_list_ranges.clear();
         self.sorted_edges.clear();
         self.animation_clips.clear();
         self.animation_target_to_threaded_subgraph.clear();
@@ -1036,9 +1036,9 @@ impl ThreadedAnimationGraph {
         self.threaded_graph.reserve(node_count);
         self.sorted_edges.reserve(edge_count);
 
-        self.sorted_edge_list_offsets.clear();
-        self.sorted_edge_list_offsets
-            .extend(iter::repeat_n(0, node_count));
+        self.sorted_edge_list_ranges.clear();
+        self.sorted_edge_list_ranges
+            .extend(iter::repeat_n(0..0, node_count));
 
         self.computed_masks.clear();
         self.computed_masks.extend(iter::repeat_n(0, node_count));
@@ -1077,7 +1077,8 @@ impl ThreadedAnimationGraph {
         kids.sort_unstable();
 
         // Write in the list of kids.
-        self.sorted_edge_list_offsets[node_index.index()] = self.sorted_edges.len() as u32;
+        self.sorted_edge_list_ranges[node_index.index()] =
+            (self.sorted_edges.len() as u32)..((self.sorted_edges.len() + kids.len()) as u32);
         self.sorted_edges.extend_from_slice(&kids);
 
         // Recurse. (This is a postorder traversal.)
@@ -1174,7 +1175,7 @@ impl ThreadedAnimationGraph {
                     {
                         threaded_subgraph.add_node(
                             *node_index,
-                            &self.sorted_edge_list_offsets,
+                            &self.sorted_edge_list_ranges,
                             &self.sorted_edges,
                             node_is_relevant,
                         );
@@ -1183,21 +1184,14 @@ impl ThreadedAnimationGraph {
 
                 AnimationNodeType::Add | AnimationNodeType::Blend => {
                     // Add this node if any of its children are relevant.
-                    let sorted_edge_list_start_offset =
-                        self.sorted_edge_list_offsets[node_index.index()];
-                    let sorted_edge_list_end_offset = self
-                        .sorted_edge_list_offsets
-                        .get(node_index.index() + 1)
-                        .copied()
-                        .unwrap_or(self.sorted_edges.len() as u32);
-                    if (sorted_edge_list_start_offset..sorted_edge_list_end_offset).any(
-                        |sorted_edge_index| {
-                            node_is_relevant[self.sorted_edges[sorted_edge_index as usize].index()]
-                        },
-                    ) {
+                    let sorted_edge_range =
+                        self.sorted_edge_list_ranges[node_index.index()].clone();
+                    if sorted_edge_range.into_iter().any(|sorted_edge_index| {
+                        node_is_relevant[self.sorted_edges[sorted_edge_index as usize].index()]
+                    }) {
                         threaded_subgraph.add_node(
                             *node_index,
-                            &self.sorted_edge_list_offsets,
+                            &self.sorted_edge_list_ranges,
                             &self.sorted_edges,
                             node_is_relevant,
                         );
@@ -1247,14 +1241,14 @@ impl ThreadedAnimationSubgraph {
     /// Copies a node from a threaded animation graph to its subgraph and adds
     /// the index of the node to the `node_is_relevant` table.
     ///
-    /// `original_sorted_edge_list_offsets` and `original_sorted_edges` are
-    /// expected to be the [`ThreadedAnimationGraph::sorted_edge_list_offsets`]
+    /// `original_sorted_edge_list_ranges` and `original_sorted_edges` are
+    /// expected to be the [`ThreadedAnimationGraph::sorted_edge_list_ranges`]
     /// and [`ThreadedAnimationGraph::sorted_edges`] fields from the containing
     /// threaded graph respectively.
     fn add_node(
         &mut self,
         node_index: NodeIndex<u32>,
-        original_sorted_edge_list_offsets: &[u32],
+        original_sorted_edge_list_ranges: &[Range<u32>],
         original_sorted_edges: &[NodeIndex<u32>],
         node_is_relevant: &mut BitVec,
     ) {
@@ -1264,15 +1258,9 @@ impl ThreadedAnimationSubgraph {
 
         // Copy over the edges.
         let sorted_edge_range_start = self.sorted_edges.len() as u32;
-        let original_sorted_edge_list_start_offset =
-            original_sorted_edge_list_offsets[node_index.index()];
-        let original_sorted_edge_list_end_offset = original_sorted_edge_list_offsets
-            .get(node_index.index() + 1)
-            .copied()
-            .unwrap_or(original_sorted_edges.len() as u32);
-        for original_sorted_edge_index in
-            original_sorted_edge_list_start_offset..original_sorted_edge_list_end_offset
-        {
+        let original_sorted_edge_list_range =
+            original_sorted_edge_list_ranges[node_index.index()].clone();
+        for original_sorted_edge_index in original_sorted_edge_list_range {
             let edge_dest = original_sorted_edges[original_sorted_edge_index as usize];
             // Make sure to only copy an edge if it points to a node that we
             // judged relevant.
@@ -1300,6 +1288,7 @@ mod tests {
     };
     use bevy_transform::components::Transform;
     use itertools::Itertools;
+    use petgraph::graph::NodeIndex;
 
     use crate::{
         animated_field,
@@ -1407,6 +1396,46 @@ mod tests {
                 .sorted()
                 .collect::<Vec<_>>()
         );
+    }
+
+    /// Tests that we can create subgraphs with node indices in arbitrary order.
+    #[test]
+    fn subgraphs_are_correct_with_arbitrarily_ordered_nodes() {
+        // Create a graph consisting of a root node connected to two blend
+        // nodes, each of which is in turn connected to a clip node.
+        // But create the blends before the clips.
+        let (mut graph, mut clips) = (AnimationGraph::new(), Assets::<AnimationClip>::default());
+        let blend_nodes: [NodeIndex; 2] = array::from_fn(|_| graph.add_blend(1.0, graph.root));
+        let target_ids_and_clip_nodes: [(AnimationTargetId, NodeIndex); 2] =
+            array::from_fn(|index| {
+                let target_id = AnimationTargetId::from_name(&Name::new(["A", "B"][index]));
+                let clip = clips.add(create_animation_clip_for_target(target_id));
+                let clip_node = graph.add_clip(clip, 1.0, blend_nodes[index]);
+                (target_id, clip_node)
+            });
+
+        // Create subgraphs.
+        let threaded_graph = create_threaded_graph_from_animation_graph(&graph, &clips);
+
+        // Check that there is one subgraph for each target, that there are no
+        // other subgraphs, and that the subgraphs contain only the graph root,
+        // the blend node, and the clip node.
+        assert_eq!(
+            threaded_graph.animation_target_to_threaded_subgraph.len(),
+            2
+        );
+        for (blend_node, (target_id, clip_node)) in
+            blend_nodes.iter().zip(target_ids_and_clip_nodes.iter())
+        {
+            let subgraph = &threaded_graph.animation_target_to_threaded_subgraph[target_id];
+            assert_eq!(
+                subgraph.threaded_graph.iter().sorted().collect::<Vec<_>>(),
+                [graph.root, *blend_node, *clip_node]
+                    .iter()
+                    .sorted()
+                    .collect::<Vec<_>>()
+            );
+        }
     }
 
     /// Creates a threaded graph and all the target subgraphs from the given
