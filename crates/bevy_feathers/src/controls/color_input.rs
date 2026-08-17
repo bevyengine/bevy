@@ -1,6 +1,7 @@
 use alloc::sync::Arc;
 
 use bevy_app::{Plugin, PostUpdate};
+use bevy_camera::visibility::Visibility;
 use bevy_color::{Color, Hsla, Srgba};
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
@@ -18,7 +19,9 @@ use bevy_ecs::{
     template::FromTemplate,
 };
 use bevy_input::keyboard::{KeyCode, KeyboardInput};
-use bevy_input_focus::{tab_navigation::TabIndex, AutoFocus, FocusLost, FocusedInput};
+use bevy_input_focus::{
+    tab_navigation::TabIndex, AutoFocus, FocusCause, FocusLost, FocusedInput, InputFocus,
+};
 use bevy_log::warn;
 use bevy_math::{Vec2, Vec3};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
@@ -40,7 +43,7 @@ use crate::{
         FeathersButton, FeathersColorPlane, FeathersColorSlider, FeathersColorSwatch,
         FeathersLazyMenu, FeathersMenuPopup, FeathersMenuToolButton, FeathersNumberInput,
         FeathersTextInput, FeathersTextInputContainer, HardLimit, NumberInputPrecision,
-        NumberInputRange, NumberInputStep, NumberInputValue,
+        NumberInputRange, NumberInputStep, NumberInputValue, SliderBaseColor,
     },
     display::{caption, label},
     font_styles::InheritableFont,
@@ -93,8 +96,7 @@ pub struct FeathersColorInputProps {
     pub opaque_color_percentage: f32,
 }
 
-/// Component which stores references to all the various internal widgets so that we don't have
-/// to trawl the hierarchy looking for them.
+/// Component which stores references to the button swatch entity.
 #[derive(Component, Clone, FromTemplate, Debug)]
 struct ButtonEntityRefs(Entity);
 
@@ -127,17 +129,18 @@ struct PopupEntityRefs {
     a_slider: Entity,
     a_input: Entity,
 
+    hex_input_container: Entity,
     hex_input: Entity,
     swatch: Entity,
 }
 
-/// Supported color editing modes
+/// Which color model is the current source of truth
 #[derive(Default, Clone, Copy, Debug, PartialEq)]
 enum SourceColorSpace {
-    /// RGB is currently the source of truth
+    /// RGB
     #[default]
     Rgb,
-    /// HSL is currently the source of truth
+    /// HSL
     Hsl,
 }
 
@@ -271,6 +274,7 @@ fn color_input_popup() -> Box<dyn Scene> {
             a_slider: #a_slider,
             a_input: #a_input,
 
+            hex_input_container: #hex_input_container,
             hex_input: #hex_input,
             swatch: #swatch,
         }
@@ -408,7 +412,7 @@ fn color_input_popup() -> Box<dyn Scene> {
                     template_value(NumberInputValue::F32(0.0))
                     template_value(HardLimit(NumberInputRange::F32(0.0..=255.0)))
                     NumberInputPrecision(1)
-                    NumberInputStep(10.0)
+                    NumberInputStep(20.0)
                     NumberInputChannel(ColorChannel::Red)
                     on(number_input_value_change)
                 ),
@@ -428,7 +432,7 @@ fn color_input_popup() -> Box<dyn Scene> {
                     template_value(NumberInputValue::F32(0.0))
                     template_value(HardLimit(NumberInputRange::F32(0.0..=255.0)))
                     NumberInputPrecision(1)
-                    NumberInputStep(10.0)
+                    NumberInputStep(20.0)
                     NumberInputChannel(ColorChannel::Green)
                     on(number_input_value_change)
                 ),
@@ -448,7 +452,7 @@ fn color_input_popup() -> Box<dyn Scene> {
                     template_value(NumberInputValue::F32(0.0))
                     template_value(HardLimit(NumberInputRange::F32(0.0..=255.0)))
                     NumberInputPrecision(1)
-                    NumberInputStep(10.0)
+                    NumberInputStep(20.0)
                     NumberInputChannel(ColorChannel::Blue)
                     on(number_input_value_change)
                 ),
@@ -484,7 +488,7 @@ fn color_input_popup() -> Box<dyn Scene> {
                     template_value(NumberInputValue::F32(0.0))
                     template_value(HardLimit(NumberInputRange::F32(0.0..=360.0)))
                     NumberInputPrecision(1)
-                    NumberInputStep(10.0)
+                    NumberInputStep(30.0)
                     NumberInputChannel(ColorChannel::HslHue)
                     Node {
                         flex_grow: 1.0,
@@ -573,6 +577,7 @@ fn color_input_popup() -> Box<dyn Scene> {
                     on(number_input_value_change)
                 ),
                 (
+                    #hex_input_container
                     @FeathersTextInputContainer
                     Node {
                         flex_grow: 0.
@@ -897,11 +902,12 @@ fn update_mode_selector(
     mut q_color_plane: Query<&mut ColorPlaneValue>,
     mut q_editable_text: Query<&mut EditableText>,
     settings: Res<ColorInputSettings>,
+    mut focus: ResMut<InputFocus>,
     mut commands: Commands,
 ) {
     for (popup_id, refs) in q_refs.iter() {
         set_mode_selector(refs, &mut q_button, settings.mode);
-        set_pane_visible(refs, &mut q_node, settings.mode);
+        set_pane_visible(refs, &mut q_node, settings.mode, &mut commands);
 
         if settings.is_changed()
             && let Some(root_id) = q_parent
@@ -909,13 +915,30 @@ fn update_mode_selector(
                 .find(|e| q_state.contains(*e))
             && let Ok(mut state) = q_state.get_mut(root_id)
         {
-            // Make sure that the right color model is designated as the source
+            // Make sure that the right color model is designated as the source.
+            // Also, ensure that focus moves to a widget that is not about to be hidden,
+            // as this will auto-close the popup.
             match settings.mode {
                 ColorInputMode::RGPlane => {
                     state.change_source(SourceColorSpace::Rgb);
+                    focus.set(refs.mode_rgb, FocusCause::Auto);
                 }
                 ColorInputMode::HSPlane => {
                     state.change_source(SourceColorSpace::Hsl);
+                    focus.set(refs.mode_hsl, FocusCause::Auto);
+                }
+            }
+
+            // Adjust the grid span of the swatch so that it fills the space
+            // when the text input is not visible.
+            if let Ok(mut swatch_node) = q_node.get_mut(refs.swatch) {
+                let new_span = if settings.mode == ColorInputMode::RGPlane {
+                    GridPlacement::auto()
+                } else {
+                    GridPlacement::span(3)
+                };
+                if swatch_node.grid_column != new_span {
+                    swatch_node.grid_column = new_span;
                 }
             }
 
@@ -952,7 +975,12 @@ fn set_mode_selector(
     }
 }
 
-fn set_pane_visible(refs: &PopupEntityRefs, q_node: &mut Query<&mut Node>, mode: ColorInputMode) {
+fn set_pane_visible(
+    refs: &PopupEntityRefs,
+    q_node: &mut Query<&mut Node>,
+    mode: ColorInputMode,
+    commands: &mut Commands,
+) {
     set_node_visible(
         q_node,
         refs.rg_plane,
@@ -961,6 +989,7 @@ fn set_pane_visible(refs: &PopupEntityRefs, q_node: &mut Query<&mut Node>, mode:
         } else {
             Display::None
         },
+        commands,
     );
     set_node_visible(
         q_node,
@@ -970,6 +999,17 @@ fn set_pane_visible(refs: &PopupEntityRefs, q_node: &mut Query<&mut Node>, mode:
         } else {
             Display::None
         },
+        commands,
+    );
+    set_node_visible(
+        q_node,
+        refs.hex_input_container,
+        if mode == ColorInputMode::RGPlane {
+            Display::Flex
+        } else {
+            Display::None
+        },
+        commands,
     );
     set_node_visible(
         q_node,
@@ -979,6 +1019,7 @@ fn set_pane_visible(refs: &PopupEntityRefs, q_node: &mut Query<&mut Node>, mode:
         } else {
             Display::None
         },
+        commands,
     );
     set_node_visible(
         q_node,
@@ -988,14 +1029,27 @@ fn set_pane_visible(refs: &PopupEntityRefs, q_node: &mut Query<&mut Node>, mode:
         } else {
             Display::None
         },
+        commands,
     );
 }
 
-fn set_node_visible(q_node: &mut Query<&mut Node>, id: Entity, display: Display) {
+fn set_node_visible(
+    q_node: &mut Query<&mut Node>,
+    id: Entity,
+    display: Display,
+    commands: &mut Commands,
+) {
     if let Ok(mut node) = q_node.get_mut(id)
         && node.display != display
     {
         node.display = display;
+
+        // Also set visibility to prevent tab navigation
+        commands.entity(id).insert(if display == Display::None {
+            Visibility::Hidden
+        } else {
+            Visibility::Inherited
+        });
     }
 }
 
@@ -1039,11 +1093,16 @@ fn handle_popup_ready(
 
 fn update_controls(
     q_color_plane: &mut Query<'_, '_, &mut ColorPlaneValue>,
-    q_editble_text: &mut Query<'_, '_, &mut EditableText>,
+    q_editable_text: &mut Query<'_, '_, &mut EditableText>,
     commands: &mut Commands<'_, '_>,
     refs: &PopupEntityRefs,
     state: &ColorInputState,
 ) {
+    let color = match state.source {
+        SourceColorSpace::Rgb => Color::from(state.rgb),
+        SourceColorSpace::Hsl => Color::from(state.hsl),
+    };
+
     if let Ok(mut color_plane_value) = q_color_plane.get_mut(refs.rg_plane) {
         color_plane_value.set_if_neq(ColorPlaneValue(Vec3::new(
             state.rgb.red,
@@ -1062,25 +1121,35 @@ fn update_controls(
 
     commands
         .entity(refs.r_slider)
-        .insert(SliderValue(state.rgb.red));
+        .insert(SliderValue(state.rgb.red))
+        .insert(SliderBaseColor(color));
     commands
         .entity(refs.g_slider)
-        .insert(SliderValue(state.rgb.green));
+        .insert(SliderValue(state.rgb.green))
+        .insert(SliderBaseColor(color));
     commands
         .entity(refs.b_slider)
-        .insert(SliderValue(state.rgb.blue));
+        .insert(SliderValue(state.rgb.blue))
+        .insert(SliderBaseColor(color));
     commands
         .entity(refs.a_slider)
-        .insert(SliderValue(state.rgb.alpha));
+        .insert(SliderValue(match state.source {
+            SourceColorSpace::Rgb => state.rgb.alpha,
+            SourceColorSpace::Hsl => state.hsl.alpha,
+        }))
+        .insert(SliderBaseColor(color));
     commands
         .entity(refs.h_slider)
-        .insert(SliderValue(state.hsl.hue));
+        .insert(SliderValue(state.hsl.hue))
+        .insert(SliderBaseColor(color));
     commands
         .entity(refs.s_slider)
-        .insert(SliderValue(state.hsl.saturation));
+        .insert(SliderValue(state.hsl.saturation))
+        .insert(SliderBaseColor(color));
     commands
         .entity(refs.l_slider)
-        .insert(SliderValue(state.hsl.lightness));
+        .insert(SliderValue(state.hsl.lightness))
+        .insert(SliderBaseColor(color));
 
     // Round to nearest tenth, so that the string of digits
     // won't be too long to display in the limited space.
@@ -1100,7 +1169,7 @@ fn update_controls(
 
     commands
         .entity(refs.h_input)
-        .insert(NumberInputValue::F32((state.hsl.hue * 10.0).floor() / 10.0));
+        .insert(NumberInputValue::F32((state.hsl.hue * 10.0).round() / 10.0));
     commands.entity(refs.s_input).insert(NumberInputValue::F32(
         (state.hsl.saturation * 100.0 * 10.0).round() / 10.0,
     ));
@@ -1118,11 +1187,11 @@ fn update_controls(
             / 10.0,
     ));
 
-    commands
-        .entity(refs.swatch)
-        .insert(ColorSwatchValue(state.rgb.into()));
+    // Update the color swatch
+    commands.entity(refs.swatch).insert(ColorSwatchValue(color));
 
-    if let Ok(mut editable_text) = q_editble_text.get_mut(refs.hex_input) {
+    // Update the hex input
+    if let Ok(mut editable_text) = q_editable_text.get_mut(refs.hex_input) {
         let hex_value = state.rgb.to_hex();
         if editable_text.value() != hex_value.as_str() {
             editable_text.queue_edit(TextEdit::SelectAll);
