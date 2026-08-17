@@ -88,8 +88,8 @@ pub fn ui_stack_system(
                 maybe_global_zindex.map(|z| z.0).unwrap_or(0),
                 maybe_zindex.map(|z| z.0).unwrap_or(0),
                 previous.is_none()
-                    || maybe_global_zindex.as_ref().is_some_and(|z| z.is_changed())
-                    || maybe_zindex.as_ref().is_some_and(|z| z.is_changed()),
+                    || maybe_global_zindex.as_ref().is_some_and(Ref::is_changed)
+                    || maybe_zindex.as_ref().is_some_and(Ref::is_changed),
                 previous.unwrap_or(usize::MAX),
             ),
         ));
@@ -109,7 +109,7 @@ pub fn ui_stack_system(
                 maybe_zindex.map(|z| z.0).unwrap_or(0),
                 previous.is_none()
                     || global_zindex.is_changed()
-                    || maybe_zindex.as_ref().is_some_and(|z| z.is_changed()),
+                    || maybe_zindex.as_ref().is_some_and(Ref::is_changed),
                 previous.unwrap_or(usize::MAX),
             ),
         ));
