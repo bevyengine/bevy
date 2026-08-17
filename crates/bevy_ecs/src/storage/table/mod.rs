@@ -1,3 +1,7 @@
+mod column;
+
+pub use column::Column;
+
 use crate::{
     change_detection::{AtomicTick, CheckChangeTicks, ComponentTicks, MaybeLocation, Tick},
     component::{ComponentId, ComponentInfo, Components},
@@ -7,8 +11,7 @@ use crate::{
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 use bevy_platform::collections::HashMap;
-use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
-pub use column::*;
+use bevy_ptr::{OwningPtr, Ptr};
 use core::{
     cell::UnsafeCell,
     num::NonZeroUsize,
@@ -16,7 +19,6 @@ use core::{
     panic::Location,
 };
 use nonmax::NonMaxU32;
-mod column;
 
 /// An opaque unique ID for a [`Table`] within a [`World`].
 ///
