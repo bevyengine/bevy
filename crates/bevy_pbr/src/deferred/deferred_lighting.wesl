@@ -1,4 +1,4 @@
-import bevy_pbr::{
+import package::{
     prepass::utils as prepass_utils,
     render::{
         pbr_types::STANDARD_MATERIAL_FLAGS_UNLIT_BIT,
@@ -12,8 +12,8 @@ import bevy_pbr::{
     },
 };
 
-@if(SCREEN_SPACE_AMBIENT_OCCLUSION) import bevy_pbr::render::mesh_view_bindings::screen_space_ambient_occlusion_texture;
-@if(SCREEN_SPACE_AMBIENT_OCCLUSION) import bevy_pbr::ssao::utils::ssao_multibounce;
+@if(SCREEN_SPACE_AMBIENT_OCCLUSION) import package::render::mesh_view_bindings::screen_space_ambient_occlusion_texture;
+@if(SCREEN_SPACE_AMBIENT_OCCLUSION) import package::ssao::utils::ssao_multibounce;
 
 struct FullscreenVertexOutput {
     @builtin(position)
