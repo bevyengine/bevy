@@ -57,6 +57,7 @@ fn main() {
     .add_systems(OnEnter(Scene::RadialGradient), radial_gradient::setup)
     .add_systems(OnEnter(Scene::Transformations), transformations::setup)
     .add_systems(OnEnter(Scene::ViewportCoords), viewport_coords::setup)
+    .add_systems(OnEnter(Scene::ViewportNode), viewport_node::setup)
     .add_systems(OnEnter(Scene::OuterColor), outer_color::setup)
     .add_systems(OnEnter(Scene::BoxedContent), boxed_content::setup)
     .add_systems(OnEnter(Scene::EditableText), editable_text::setup)
@@ -103,6 +104,7 @@ enum Scene {
     #[cfg(feature = "bevy_ui_debug")]
     DebugOutlines,
     ViewportCoords,
+    ViewportNode,
     OuterColor,
     BoxedContent,
     EditableText,
@@ -130,6 +132,7 @@ impl Scene {
         #[cfg(feature = "bevy_ui_debug")]
         Scene::DebugOutlines,
         Scene::ViewportCoords,
+        Scene::ViewportNode,
         Scene::OuterColor,
         Scene::BoxedContent,
         Scene::EditableText,
@@ -1290,11 +1293,23 @@ mod elliptical_border_radius {
                         width: px(200),
                         height: px(100),
                         border: UiRect::all(px(8)),
-                        border_radius: BorderRadius::elliptical(
-                            Val2::new(px(90), px(24)),
-                            Val2::new(px(18), px(70)),
-                            Val2::new(px(110), px(32)),
-                            Val2::new(px(28), px(58)),
+                        border_radius: BorderRadius::new(
+                            CornerRadius {
+                                x: px(90),
+                                y: px(24),
+                            },
+                            CornerRadius {
+                                x: px(18),
+                                y: px(70),
+                            },
+                            CornerRadius {
+                                x: px(110),
+                                y: px(32),
+                            },
+                            CornerRadius {
+                                x: px(28),
+                                y: px(58),
+                            },
                         ),
                         ..default()
                     },
@@ -1331,11 +1346,23 @@ mod elliptical_border_radius {
                             top: px(24),
                             bottom: px(8),
                         },
-                        border_radius: BorderRadius::elliptical(
-                            Val2::new(percent(65), percent(20)),
-                            Val2::new(percent(20), percent(65)),
-                            Val2::new(percent(65), percent(20)),
-                            Val2::new(percent(20), percent(65)),
+                        border_radius: BorderRadius::new(
+                            CornerRadius {
+                                x: percent(65),
+                                y: percent(20),
+                            },
+                            CornerRadius {
+                                x: percent(20),
+                                y: percent(65),
+                            },
+                            CornerRadius {
+                                x: percent(65),
+                                y: percent(20),
+                            },
+                            CornerRadius {
+                                x: percent(20),
+                                y: percent(65),
+                            },
                         ),
                         ..default()
                     },
@@ -1357,11 +1384,23 @@ mod elliptical_border_radius {
                         width: px(210),
                         height: px(75),
                         border: UiRect::axes(px(12), px(4)),
-                        border_radius: BorderRadius::elliptical(
-                            Val2::new(px(140), px(18)),
-                            Val2::new(px(140), px(18)),
-                            Val2::new(px(42), px(54)),
-                            Val2::new(px(42), px(54)),
+                        border_radius: BorderRadius::new(
+                            CornerRadius {
+                                x: px(140),
+                                y: px(18),
+                            },
+                            CornerRadius {
+                                x: px(140),
+                                y: px(18),
+                            },
+                            CornerRadius {
+                                x: px(42),
+                                y: px(54),
+                            },
+                            CornerRadius {
+                                x: px(42),
+                                y: px(54),
+                            },
                         ),
                         ..default()
                     },
@@ -1382,11 +1421,23 @@ mod elliptical_border_radius {
                         width: px(160),
                         height: px(120),
                         border: UiRect::axes(px(20), px(20)),
-                        border_radius: BorderRadius::elliptical(
-                            Val2::new(px(50), px(10)),
-                            Val2::new(px(50), px(10)),
-                            Val2::new(px(50), px(10)),
-                            Val2::new(px(50), px(10)),
+                        border_radius: BorderRadius::new(
+                            CornerRadius {
+                                x: px(50),
+                                y: px(10),
+                            },
+                            CornerRadius {
+                                x: px(50),
+                                y: px(10),
+                            },
+                            CornerRadius {
+                                x: px(50),
+                                y: px(10),
+                            },
+                            CornerRadius {
+                                x: px(50),
+                                y: px(10),
+                            },
                         ),
                         ..default()
                     },
@@ -1408,7 +1459,7 @@ mod elliptical_border_radius {
                         width: px(160),
                         height: px(120),
                         border: UiRect::axes(px(20), px(20)),
-                        border_radius: BorderRadius::all(px(30)),
+                        border_radius: BorderRadius::all(px(1000)),
                         ..default()
                     },
                     BackgroundColor(RED.into()),
@@ -1429,11 +1480,55 @@ mod elliptical_border_radius {
                         width: px(160),
                         height: px(120),
                         border: UiRect::axes(px(20), px(20)),
-                        border_radius: BorderRadius::elliptical(
-                            Val2::new(px(25), px(20)),
-                            Val2::new(px(20), px(25)),
-                            Val2::new(px(20), px(25)),
-                            Val2::new(px(20), px(25)),
+                        border_radius: BorderRadius {
+                            top_left: CornerRadius {
+                                x: px(1000),
+                                y: auto(),
+                            },
+                            top_right: CornerRadius {
+                                x: auto(),
+                                y: px(1000),
+                            },
+                            bottom_right: CornerRadius::circular(px(1000)),
+                            bottom_left: CornerRadius::circular(px(1000)),
+                        },
+                        ..default()
+                    },
+                    BackgroundColor(RED.into()),
+                    BorderColor::all(WHITE),
+                    Outline {
+                        width: px(3),
+                        offset: px(5),
+                        color: SKY_BLUE.into(),
+                    },
+                    BoxShadow::from(ShadowStyle {
+                        blur_radius: px(5),
+                        ..default()
+                    }),
+                ));
+
+                builder.spawn((
+                    Node {
+                        width: px(160),
+                        height: px(120),
+                        border: UiRect::axes(px(20), px(20)),
+                        border_radius: BorderRadius::new(
+                            CornerRadius {
+                                x: px(25),
+                                y: px(20),
+                            },
+                            CornerRadius {
+                                x: px(20),
+                                y: px(25),
+                            },
+                            CornerRadius {
+                                x: px(20),
+                                y: px(25),
+                            },
+                            CornerRadius {
+                                x: px(20),
+                                y: px(25),
+                            },
                         ),
                         ..default()
                     },
@@ -1456,11 +1551,23 @@ mod elliptical_border_radius {
                         width: px(160),
                         height: px(120),
                         border: UiRect::axes(px(10), px(10)),
-                        border_radius: BorderRadius::elliptical(
-                            Val2::new(px(40), px(30)),
-                            Val2::new(px(40), px(30)),
-                            Val2::new(px(40), px(30)),
-                            Val2::new(px(40), px(30)),
+                        border_radius: BorderRadius::new(
+                            CornerRadius {
+                                x: px(40),
+                                y: px(30),
+                            },
+                            CornerRadius {
+                                x: px(40),
+                                y: px(30),
+                            },
+                            CornerRadius {
+                                x: px(40),
+                                y: px(30),
+                            },
+                            CornerRadius {
+                                x: px(40),
+                                y: px(30),
+                            },
                         ),
                         ..default()
                     },
@@ -1482,11 +1589,23 @@ mod elliptical_border_radius {
                         width: px(160),
                         height: px(80),
                         border: UiRect::axes(px(10), px(10)),
-                        border_radius: BorderRadius::elliptical(
-                            Val2::new(percent(50), percent(50)),
-                            Val2::new(percent(50), percent(50)),
-                            Val2::new(percent(50), percent(50)),
-                            Val2::new(percent(50), percent(50)),
+                        border_radius: BorderRadius::new(
+                            CornerRadius {
+                                x: percent(50),
+                                y: percent(50),
+                            },
+                            CornerRadius {
+                                x: percent(50),
+                                y: percent(50),
+                            },
+                            CornerRadius {
+                                x: percent(50),
+                                y: percent(50),
+                            },
+                            CornerRadius {
+                                x: percent(50),
+                                y: percent(50),
+                            },
                         ),
                         ..default()
                     },
@@ -1509,11 +1628,23 @@ mod elliptical_border_radius {
                         width: px(80),
                         height: px(160),
                         border: UiRect::axes(px(10), px(10)),
-                        border_radius: BorderRadius::elliptical(
-                            Val2::new(percent(50), percent(50)),
-                            Val2::new(percent(50), percent(50)),
-                            Val2::new(percent(50), percent(50)),
-                            Val2::new(percent(50), percent(50)),
+                        border_radius: BorderRadius::new(
+                            CornerRadius {
+                                x: percent(50),
+                                y: percent(50),
+                            },
+                            CornerRadius {
+                                x: percent(50),
+                                y: percent(50),
+                            },
+                            CornerRadius {
+                                x: percent(50),
+                                y: percent(50),
+                            },
+                            CornerRadius {
+                                x: percent(50),
+                                y: percent(50),
+                            },
                         ),
                         ..default()
                     },
@@ -1536,11 +1667,23 @@ mod elliptical_border_radius {
                         width: px(160),
                         height: px(80),
                         border: UiRect::axes(px(20), px(10)),
-                        border_radius: BorderRadius::elliptical(
-                            Val2::new(percent(50), percent(50)),
-                            Val2::new(percent(50), percent(50)),
-                            Val2::new(percent(50), percent(50)),
-                            Val2::new(percent(50), percent(50)),
+                        border_radius: BorderRadius::new(
+                            CornerRadius {
+                                x: percent(50),
+                                y: percent(50),
+                            },
+                            CornerRadius {
+                                x: percent(50),
+                                y: percent(50),
+                            },
+                            CornerRadius {
+                                x: percent(50),
+                                y: percent(50),
+                            },
+                            CornerRadius {
+                                x: percent(50),
+                                y: percent(50),
+                            },
                         ),
                         ..default()
                     },
@@ -1563,11 +1706,23 @@ mod elliptical_border_radius {
                         width: px(80),
                         height: px(160),
                         border: UiRect::all(px(10)).with_right(px(25)),
-                        border_radius: BorderRadius::elliptical(
-                            Val2::new(percent(50), percent(50)),
-                            Val2::new(percent(50), percent(50)),
-                            Val2::new(percent(50), percent(50)),
-                            Val2::new(percent(50), percent(50)),
+                        border_radius: BorderRadius::new(
+                            CornerRadius {
+                                x: percent(50),
+                                y: percent(50),
+                            },
+                            CornerRadius {
+                                x: percent(50),
+                                y: percent(50),
+                            },
+                            CornerRadius {
+                                x: percent(50),
+                                y: percent(50),
+                            },
+                            CornerRadius {
+                                x: percent(50),
+                                y: percent(50),
+                            },
                         ),
                         ..default()
                     },
@@ -1589,11 +1744,23 @@ mod elliptical_border_radius {
                         width: px(160),
                         height: px(80),
                         border: UiRect::all(px(5)),
-                        border_radius: BorderRadius::elliptical(
-                            Val2::new(percent(50), percent(50)),
-                            Val2::new(percent(50), percent(50)),
-                            Val2::new(percent(50), percent(50)),
-                            Val2::new(px(20), px(20)),
+                        border_radius: BorderRadius::new(
+                            CornerRadius {
+                                x: percent(50),
+                                y: percent(50),
+                            },
+                            CornerRadius {
+                                x: percent(50),
+                                y: percent(50),
+                            },
+                            CornerRadius {
+                                x: percent(50),
+                                y: percent(50),
+                            },
+                            CornerRadius {
+                                x: px(20),
+                                y: px(20),
+                            },
                         ),
                         ..default()
                     },
@@ -1640,7 +1807,7 @@ mod box_shadow {
                         Vec2::ZERO,
                         10.,
                         0.,
-                        BorderRadius::bottom_right(Val2::all(px(10))),
+                        BorderRadius::bottom_right(px(10)),
                     ),
                     (Vec2::new(200., 50.), Vec2::ZERO, 10., 0., BorderRadius::MAX),
                     (
@@ -1655,7 +1822,7 @@ mod box_shadow {
                         Vec2::splat(20.),
                         10.,
                         10.,
-                        BorderRadius::bottom_right(Val2::all(px(10))),
+                        BorderRadius::bottom_right(px(10)),
                     ),
                     (
                         Vec2::splat(100.),
@@ -2220,7 +2387,7 @@ mod transformations {
                                 Node {
                                     width: px(100),
                                     height: px(100),
-                                    border_radius: BorderRadius::bottom_right(Val2::all(px(25.))),
+                                    border_radius: BorderRadius::bottom_right(px(25.)),
                                     ..default()
                                 },
                                 BackgroundColor(background.into()),
@@ -2231,7 +2398,7 @@ mod transformations {
                                 Node {
                                     width: px(100),
                                     height: px(100),
-                                    border_radius: BorderRadius::bottom_right(Val2::all(px(25.))),
+                                    border_radius: BorderRadius::bottom_right(px(25.)),
                                     ..default()
                                 },
                                 BackgroundColor(background.into()),
@@ -2580,11 +2747,71 @@ mod viewport_coords {
     }
 }
 
+mod viewport_node {
+    use bevy::{
+        camera::RenderTarget, prelude::*, render::render_resource::TextureFormat,
+        ui::widget::ViewportNode,
+    };
+
+    pub fn setup(
+        mut commands: Commands,
+        mut images: ResMut<Assets<Image>>,
+        mut meshes: ResMut<Assets<Mesh>>,
+        mut materials: ResMut<Assets<StandardMaterial>>,
+    ) {
+        commands.spawn((
+            Camera3d::default(),
+            DespawnOnExit(super::Scene::ViewportNode),
+        ));
+
+        let image = Image::new_target_texture(0, 0, TextureFormat::Bgra8UnormSrgb, None);
+        let image_handle = images.add(image);
+
+        let camera = commands
+            .spawn((
+                Camera3d::default(),
+                Camera {
+                    order: -1,
+                    ..default()
+                },
+                RenderTarget::Image(image_handle.into()),
+                DespawnOnExit(super::Scene::ViewportNode),
+            ))
+            .id();
+
+        commands.spawn((
+            Mesh3d(meshes.add(Cuboid::new(5.0, 5.0, 5.0))),
+            MeshMaterial3d(materials.add(Color::WHITE)),
+            Transform {
+                translation: Vec3::new(0.0, 0.0, -10.0),
+                rotation: Quat::from_euler(EulerRot::XYZ, 0.4, 0.7, 0.1),
+                ..default()
+            },
+            DespawnOnExit(super::Scene::ViewportNode),
+        ));
+
+        commands.spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                top: px(50),
+                left: px(50),
+                width: px(200),
+                height: px(200),
+                border: UiRect::all(px(5)),
+                ..default()
+            },
+            BorderColor::all(Color::WHITE),
+            ViewportNode::new(camera),
+            DespawnOnExit(super::Scene::ViewportNode),
+        ));
+    }
+}
+
 mod outer_color {
     use bevy::prelude::*;
 
     pub fn setup(mut commands: Commands) {
-        let radius = Val2::all(percent(33.));
+        let radius = CornerRadius::from(percent(33.));
         let width = px(10.);
 
         commands.spawn((Camera2d, DespawnOnExit(super::Scene::OuterColor)));
@@ -3326,7 +3553,7 @@ mod node_material {
         render::render_resource::AsBindGroup,
         shader::ShaderRef,
     };
-    const SHADER_ASSET_PATH: &str = "shaders/custom_ui_material.wgsl";
+    const SHADER_ASSET_PATH: &str = "shaders/custom_ui_material.wesl";
 
     #[derive(AsBindGroup, Asset, TypePath, Debug, Clone)]
     pub(super) struct DefaultUiMaterial {}
