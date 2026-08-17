@@ -1,5 +1,5 @@
 ---
-title: `MeshTag(x)` is now `MeshTag::new(x)`
+title: "`MeshTag(x)` is now `MeshTag::new(x)`"
 pull_requests: [24922]
 ---
 
