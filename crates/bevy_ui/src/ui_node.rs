@@ -2516,7 +2516,7 @@ pub struct ZIndex(pub i32);
 
 /// `GlobalZIndex` allows a [`Node`] entity anywhere in the UI hierarchy to escape the implicit draw ordering of the UI's layout tree and
 /// be rendered above or below other UI nodes.
-/// Root UI nodes without a `GlobalZIndex` component recieve an implicit global z-index of `0`.
+/// Root UI nodes without a `GlobalZIndex` component receive an implicit global z-index of `0`.
 /// Nodes with a `GlobalZIndex` of greater than 0 will be drawn on top of nodes without a `GlobalZIndex` or nodes with a lower `GlobalZIndex`.
 /// Nodes with a `GlobalZIndex` of less than 0 will be drawn below nodes without a `GlobalZIndex` or nodes with a greater `GlobalZIndex`.
 /// The order of nodes with the same `GlobalZIndex` is stable between frames.
