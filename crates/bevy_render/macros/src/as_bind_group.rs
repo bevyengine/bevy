@@ -472,23 +472,13 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                                 })
                             )
                         });
-                    } else if binding_array_binding.is_some() {
+                    } else {
                         binding_impls.push(quote! {
                         (
                             #binding_index,
                             #render_path::render_resource::UnpreparedBindingResource::ShaderBuffer({
                                 let handle: &#asset_path::Handle<#render_path::storage::ShaderBuffer> = (&self.#field_name);
                                 handle.clone()
-                            })
-                        )
-                        });
-                    } else {
-                        binding_impls.push(quote! {
-                        (
-                            #binding_index,
-                            #render_path::render_resource::UnpreparedBindingResource::Buffer({
-                                let handle: &#asset_path::Handle<#render_path::storage::ShaderBuffer> = (&self.#field_name);
-                                storage_buffers.get(handle).ok_or_else(|| #render_path::render_resource::AsBindGroupError::RetryNextUpdate)?.buffer.clone()
                             })
                         )
                         });

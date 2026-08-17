@@ -106,7 +106,7 @@ impl AsBindGroup for BindlessMaterial {
         layout: &BindGroupLayoutDescriptor,
         render_device: &RenderDevice,
         pipeline_cache: &PipelineCache,
-        fallback_buffer: &FallbackBuffer,
+        _: &FallbackBuffer,
         shader_buffer_assets: &RenderAssets<GpuShaderBuffer>,
         (image_assets, fallback_image): &mut SystemParamItem<'_, '_, Self::Param>,
     ) -> Result<PreparedBindGroup, AsBindGroupError> {
