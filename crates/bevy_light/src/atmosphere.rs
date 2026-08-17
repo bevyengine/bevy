@@ -29,6 +29,7 @@ use wgpu_types::TextureFormat;
 ///
 /// The scale on [`GlobalTransform`] rescales the planet in world space. Tune it with the radius offset
 /// when your scene uses other units, like kilometer-sized scenes.
+/// The rotation is ignored because the atmosphere is spherically symmetric.
 #[derive(Clone, Component, FromTemplate)]
 #[require(GlobalTransform)]
 #[component(on_add = set_default_transform)]

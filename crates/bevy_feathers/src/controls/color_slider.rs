@@ -9,18 +9,21 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     hierarchy::Children,
-    query::{Changed, Or, With},
+    query::{Changed, Or, With, Without},
+    reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
     system::Query,
 };
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_log::warn_once;
-use bevy_picking::PickingSystems;
+use bevy_picking::{cursor::EntityCursor, PickingSystems};
+use bevy_reflect::std_traits::ReflectDefault;
+use bevy_reflect::Reflect;
 use bevy_scene::prelude::*;
 use bevy_ui::{
     percent, px, AlignItems, BackgroundColor, BackgroundGradient, BorderColor, BorderRadius,
     ColorStop, Display, FlexDirection, Gradient, InterpolationColorSpace, LinearGradient, Node,
-    Outline, PositionType, UiRect, UiTransform, Val2, ZIndex,
+    Outline, PositionType, UiRect, UiSystems, UiTransform, Val2, ZIndex,
 };
 use bevy_ui_render::ui_material::MaterialNode;
 use bevy_ui_widgets::{
@@ -29,7 +32,7 @@ use bevy_ui_widgets::{
 
 use crate::{
     alpha_pattern::{AlphaPattern, AlphaPatternMaterial},
-    cursor::EntityCursor,
+    controls::{FeathersSlider, FeathersTextInput, ToggleSwitchSlide},
     focus::FocusIndicator,
     palette,
     rounded_corners::RoundedCorners,
@@ -41,7 +44,8 @@ const TRACK_RADIUS: f32 = SLIDER_HEIGHT * 0.5 - TRACK_PADDING;
 const THUMB_SIZE: f32 = SLIDER_HEIGHT - 2.0;
 
 /// Indicates which color channel we want to edit.
-#[derive(Component, Default, Copy, Clone)]
+#[derive(Component, Default, Copy, Clone, Reflect)]
+#[reflect(Component, Default, Clone)]
 pub enum ColorChannel {
     /// Editing the RGB red channel (0..=1)
     #[default]
@@ -140,7 +144,8 @@ impl ColorChannel {
 
 /// Used to store the color channels that we are not editing: the components of the color
 /// that are constant for this slider.
-#[derive(Component, Default, Clone)]
+#[derive(Component, Default, Clone, Reflect)]
+#[reflect(Component, Default, Clone)]
 pub struct SliderBaseColor(pub Color);
 
 /// A color slider widget.
@@ -154,6 +159,8 @@ pub struct SliderBaseColor(pub Color);
 ///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
 #[derive(SceneComponent, Default, Clone)]
 #[scene(FeathersColorSliderProps)]
+#[derive(Reflect)]
+#[reflect(Component, Default, Clone)]
 pub struct FeathersColorSlider;
 
 /// Props used to construct a [`FeathersColorSlider`] scene.
@@ -177,18 +184,22 @@ impl Default for FeathersColorSliderProps {
 /// A color slider widget.
 #[derive(Component, Default, Clone)]
 #[require(Slider, SliderBaseColor(Color::WHITE))]
+#[derive(Reflect)]
+#[reflect(Component, Default, Clone)]
 pub struct ColorSlider {
     /// Which channel is being edited by this slider.
     pub channel: ColorChannel,
 }
 
 /// Marker for the track
-#[derive(Component, Default, Clone)]
+#[derive(Component, Default, Clone, Reflect)]
+#[reflect(Component, Default, Clone)]
 struct ColorSliderTrack;
 
 /// Marker for the thumb
-#[derive(Component, Default, Clone)]
-struct ColorSliderThumb;
+#[derive(Component, Default, Clone, Reflect)]
+#[reflect(Component, Default, Clone)]
+pub(crate) struct ColorSliderThumb;
 
 impl FeathersColorSlider {
     fn scene(props: FeathersColorSliderProps) -> impl Scene {
@@ -240,7 +251,7 @@ impl FeathersColorSlider {
                             Node {
                                 flex_grow: 1.0,
                             }
-                            BackgroundGradient({vec![Gradient::Linear(LinearGradient {
+                            BackgroundGradient(vec![Gradient::Linear(LinearGradient {
                                 angle: PI * 0.5,
                                 stops: vec![
                                     ColorStop::new(Color::NONE, percent(0)),
@@ -248,7 +259,7 @@ impl FeathersColorSlider {
                                     ColorStop::new(Color::NONE, percent(100)),
                                 ],
                                 color_space: InterpolationColorSpace::Srgba,
-                            })]})
+                            })])
                             ZIndex(1)
                             Children [(
                                 Node {
@@ -298,6 +309,9 @@ impl FeathersColorSlider {
 /// * [`bevy_ui_widgets::ValueChange<f32>`] when the slider value is changed.
 ///
 ///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
+///
+/// **Note:** For information on how widget state is managed
+/// and how to respond to state changes, see the [`bevy_ui_widgets` documentation](bevy_ui_widgets).
 #[deprecated(since = "0.19.0", note = "Use the color_slider() BSN function")]
 pub fn color_slider_bundle<B: Bundle>(
     props: FeathersColorSliderProps,
@@ -412,7 +426,7 @@ fn update_slider_pos(
         ),
     >,
     q_children: Query<&Children>,
-    mut q_slider_thumb: Query<&mut Node, With<ColorSliderThumb>>,
+    mut q_slider_thumb: Query<&mut Node, (With<ColorSliderThumb>, Without<ToggleSwitchSlide>)>,
 ) {
     for (slider_ent, value, range) in q_sliders.iter_mut() {
         for child in q_children.iter_descendants(slider_ent) {
@@ -428,7 +442,11 @@ fn update_track_color(
     q_children: Query<&Children>,
     q_track: Query<(), With<ColorSliderTrack>>,
     mut q_background: Query<&mut BackgroundColor>,
-    mut q_gradient: Query<&mut BackgroundGradient>,
+    // Without<FeathersTextInput> and Without<FeathersSlider> to avoid ambiguity with FeathersSlider systems
+    mut q_gradient: Query<
+        &mut BackgroundGradient,
+        (Without<FeathersTextInput>, Without<FeathersSlider>),
+    >,
 ) {
     for (slider_ent, slider, SliderBaseColor(base_color)) in q_sliders.iter_mut() {
         let (start, middle, end) = slider.channel.gradient_ends(*base_color);
@@ -485,7 +503,12 @@ impl Plugin for ColorSliderPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.add_systems(
             PreUpdate,
-            (update_slider_pos, update_track_color).in_set(PickingSystems::Last),
+            // .after(UiSystems::Focus) can be removed after Interaction is removed.
+            (
+                update_slider_pos.after(UiSystems::Focus),
+                update_track_color,
+            )
+                .in_set(PickingSystems::Last),
         );
     }
 }

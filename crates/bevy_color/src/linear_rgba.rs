@@ -154,7 +154,7 @@ impl LinearRgba {
         }
     }
 
-    /// Converts this color to a u32.
+    /// Converts this color to a `u32`.
     ///
     /// Maps the RGBA channels in RGBA order to a little-endian byte array (GPUs are little-endian).
     /// `A` will be the most significant byte and `R` the least significant.

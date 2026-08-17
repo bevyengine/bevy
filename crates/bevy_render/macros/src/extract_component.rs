@@ -1,7 +1,7 @@
 use bevy_macro_utils::fq_std::{FQClone, FQOption};
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, parse_quote, DeriveInput, Path};
+use syn::{parse_macro_input, parse_quote, punctuated::Punctuated, DeriveInput, Path};
 
 pub fn derive_extract_component(input: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(input as DeriveInput);
@@ -19,6 +19,29 @@ pub fn derive_extract_component(input: TokenStream) -> TokenStream {
 
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
+
+    let Some(attr) = ast.attrs.iter().find(|a| a.path().is_ident("extract_app")) else {
+        return syn::Error::new_spanned(
+            &ast.ident,
+            "ExtractComponent requires #[extract_app(MyAppLabelA, MyAppLabelB)] to specify the target sub-app(s)",
+        )
+        .to_compile_error()
+        .into();
+    };
+
+    let app_labels: Vec<Path> =
+        match attr.parse_args_with(Punctuated::<Path, syn::Token![,]>::parse_terminated) {
+            Ok(labels) if labels.is_empty() => {
+                return syn::Error::new_spanned(
+                    attr,
+                    "#[extract_app] requires at least one AppLabel, e.g. #[extract_app(RenderApp)]",
+                )
+                .to_compile_error()
+                .into();
+            }
+            Ok(labels) => labels.into_iter().collect(),
+            Err(e) => return e.to_compile_error().into(),
+        };
 
     let filter = if let Some(attr) = ast
         .attrs
@@ -58,19 +81,22 @@ pub fn derive_extract_component(input: TokenStream) -> TokenStream {
         }
     };
 
-    TokenStream::from(quote! {
-        impl #impl_generics #bevy_render_path::sync_component::SyncComponent for #struct_name #type_generics #where_clause {
-            type Target = #sync_target;
-        }
-
-        impl #impl_generics #bevy_render_path::extract_component::ExtractComponent for #struct_name #type_generics #where_clause {
-            type QueryData = &'static Self;
-            type QueryFilter = #filter;
-            type Out = Self;
-
-            fn extract_component(item: #bevy_ecs_path::query::QueryItem<'_, '_, Self::QueryData>) -> #FQOption<Self::Out> {
-                #FQOption::Some(item.clone())
+    app_labels.iter().map(|app_label|
+        TokenStream::from(quote! {
+            impl #impl_generics #bevy_render_path::sync_component::SyncComponent<#app_label> for #struct_name #type_generics #where_clause {
+                type Target = #sync_target;
             }
-        }
-    })
+
+            impl #impl_generics #bevy_render_path::extract_component::ExtractComponent<#app_label> for #struct_name #type_generics #where_clause {
+                type QueryData = &'static Self;
+
+                type QueryFilter = #filter;
+                type Out = Self;
+
+                fn extract_component(item: #bevy_ecs_path::query::QueryItem<'_, '_, Self::QueryData>) -> #FQOption<Self::Out> {
+                    #FQOption::Some(item.clone())
+                }
+            }
+        })
+    ).collect()
 }

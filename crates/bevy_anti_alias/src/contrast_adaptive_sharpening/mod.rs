@@ -22,7 +22,7 @@ use bevy_render::{
 
 mod node;
 
-pub(crate) use node::cas;
+pub use node::cas;
 
 /// Applies a contrast adaptive sharpening (CAS) filter to the camera.
 ///
@@ -75,11 +75,11 @@ pub struct CasUniform {
     sharpness: f32,
 }
 
-impl SyncComponent for ContrastAdaptiveSharpening {
+impl SyncComponent<RenderApp> for ContrastAdaptiveSharpening {
     type Target = (DenoiseCas, CasUniform);
 }
 
-impl ExtractComponent for ContrastAdaptiveSharpening {
+impl ExtractComponent<RenderApp> for ContrastAdaptiveSharpening {
     type QueryData = &'static Self;
     type QueryFilter = With<Camera>;
     type Out = (DenoiseCas, CasUniform);
@@ -104,7 +104,7 @@ pub struct CasPlugin;
 
 impl Plugin for CasPlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "robust_contrast_adaptive_sharpening.wgsl");
+        embedded_asset!(app, "robust_contrast_adaptive_sharpening.wesl");
 
         app.add_plugins((
             ExtractComponentPlugin::<ContrastAdaptiveSharpening>::default(),
@@ -162,7 +162,7 @@ pub fn init_cas_pipeline(
 
     let fragment_shader = load_embedded_asset!(
         asset_server.as_ref(),
-        "robust_contrast_adaptive_sharpening.wgsl"
+        "robust_contrast_adaptive_sharpening.wesl"
     );
 
     let variants = Variants::new(

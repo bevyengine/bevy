@@ -87,8 +87,8 @@ impl<'a> BundleWriter<'a> {
     ///
     /// # Safety
     ///
-    /// `components` must be from the same world that all previous [`Self::push_component`] calls were called with,
-    /// and the _next_  [`Self::write`] call.
+    /// `components` must be from the same world that all previous [`Self::push_component`] or [`Self::push_component_by_id`] calls were called with,
+    /// and the _next_ [`Self::write`] or [`Self::write_with_relationship_hook_insert_mode`] call.
     pub unsafe fn push_component<C: Component>(
         &mut self,
         components: &mut ComponentsRegistrator,
@@ -98,7 +98,7 @@ impl<'a> BundleWriter<'a> {
         OwningPtr::make(component, |ptr| {
             // SAFETY: ptr points to a C component value which matches the `id` looked up above.
             // Layout matches C.
-            self.push_component_by_id(id, ptr, Layout::new::<C>());
+            unsafe { self.push_component_by_id(id, ptr, Layout::new::<C>()) };
         });
     }
 
@@ -106,8 +106,8 @@ impl<'a> BundleWriter<'a> {
     ///
     /// # Safety
     ///
-    /// `components` must be from the same world that all previous [`Self::push_component`] calls were called with,
-    /// and the _next_ [`Self::write`] call. `component` must point to a [`Component`] value that matches `id`.
+    /// `components` must be from the same world that all previous [`Self::push_component`] or [`Self::push_component_by_id`] calls were called with,
+    /// and the _next_ [`Self::write`] or [`Self::write_with_relationship_hook_insert_mode`] call. `component` must point to a [`Component`] value that matches `id`.
     /// `layout` must correspond to the layout of the [`Component`] type.
     pub unsafe fn push_component_by_id(
         &mut self,
@@ -116,18 +116,44 @@ impl<'a> BundleWriter<'a> {
         layout: Layout,
     ) {
         let ptr = self.0.alloc.alloc_layout(layout);
-        core::ptr::copy(component.as_ptr(), ptr.as_ptr(), layout.size());
+        // SAFETY:
+        // - `component` points to a valid value with this layout per precondition
+        // - `ptr` was just allocated (so cannot overlap) and has the same layout
+        unsafe { core::ptr::copy_nonoverlapping(component.as_ptr(), ptr.as_ptr(), layout.size()) };
         self.0.component_ids.push(id);
         self.0.component_ptrs.push(ptr);
     }
 
     /// Writes the current contents of the bundle to the given `entity` and clears the scratch space.
     ///
+    /// Runs with [`RelationshipHookMode::Run`] by default.
+    /// Use [`write_with_relationship_hook_insert_mode`](Self::write_with_relationship_hook_insert_mode) if you need more flexibility.
+    ///
     /// # Safety
     ///
-    /// `entity` must be from the same world that all [`Self::push_component`] calls since the last
-    /// [`Self::write`] were called with.
+    /// `entity` must be from the same world that all [`Self::push_component`] or [`Self::push_component_by_id`] calls since the last
+    /// [`Self::write`] or [`Self::write_with_relationship_hook_insert_mode`] were called with.
+    #[track_caller]
     pub unsafe fn write(self, entity: &mut EntityWorldMut) {
+        // SAFETY: Same preconditions
+        unsafe { self.write_with_relationship_hook_insert_mode(entity, RelationshipHookMode::Run) };
+    }
+
+    /// Writes the current contents of the bundle to the given `entity` and clears the scratch space.
+    ///
+    /// Also accepts [`RelationshipHookMode`] as an argument. Prefer [`write`](Self::write) to this if
+    /// [`RelationshipHookMode::Run`] by default is enough.
+    ///
+    /// # Safety
+    ///
+    /// `entity` must be from the same world that all [`Self::push_component`] or [`Self::push_component_by_id`] calls since the last
+    ///  [`Self::write`] or [`Self::write_with_relationship_hook_insert_mode`] were called with.
+    #[track_caller]
+    pub unsafe fn write_with_relationship_hook_insert_mode(
+        self,
+        entity: &mut EntityWorldMut,
+        relationship_hook_insert_mode: RelationshipHookMode,
+    ) {
         // SAFETY:
         // - All `component_ids` are from the same world as `entity`
         // - All `component_data_ptrs` are valid types represented by `component_ids`
@@ -138,7 +164,7 @@ impl<'a> BundleWriter<'a> {
                     .component_ptrs
                     .drain(..)
                     .map(|ptr| OwningPtr::new(ptr)),
-                RelationshipHookMode::Run,
+                relationship_hook_insert_mode,
             );
         }
         self.0.component_ids.clear();
