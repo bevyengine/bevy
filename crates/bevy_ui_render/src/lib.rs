@@ -850,6 +850,7 @@ pub fn extract_uinode_images(
             VisualBox::PaddingBox => uinode.padding_box(),
             VisualBox::BorderBox => uinode.border_box(),
         };
+
         // Skip invisible images
         if !inherited_visibility.get()
             || image.color.is_fully_transparent()
@@ -874,6 +875,24 @@ pub fn extract_uinode_images(
         } else {
             visual_box.size()
         };
+
+        let inset = match image.visual_box {
+            VisualBox::ContentBox => uinode.content_inset(),
+            VisualBox::PaddingBox => uinode.border(),
+            VisualBox::BorderBox => BorderRect::ZERO,
+        };
+
+        let mut border_radius = uinode.border_radius;
+        border_radius.top_left =
+            (border_radius.top_left - inset.min_inset).clamp(Vec2::ZERO, 0.5 * size);
+        border_radius.top_right = (border_radius.top_right
+            - Vec2::new(inset.max_inset.x, inset.min_inset.y))
+        .clamp(Vec2::ZERO, 0.5 * size);
+        border_radius.bottom_right =
+            (border_radius.bottom_right - inset.max_inset).clamp(Vec2::ZERO, 0.5 * size);
+        border_radius.bottom_left = (border_radius.bottom_left
+            - Vec2::new(inset.min_inset.x, inset.max_inset.y))
+        .clamp(Vec2::ZERO, 0.5 * size);
 
         let atlas_rect = image
             .texture_atlas
@@ -924,7 +943,7 @@ pub fn extract_uinode_images(
                         flip_x: image.flip_x,
                         flip_y: image.flip_y,
                         border: BorderRect::ZERO,
-                        border_radius: uinode.border_radius,
+                        border_radius,
                         node_type: NodeType::Rect,
                     },
                 },
