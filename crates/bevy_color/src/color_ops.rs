@@ -4,7 +4,8 @@ use bevy_math::{ops, Vec3, Vec4};
 /// guaranteed to produce consistent results across color spaces,
 /// but will be within a given space.
 pub trait Luminance: Sized {
-    /// Return the luminance of this color (0.0 - 1.0 for SDR colors, higher for HDR).
+    /// Return the luminance of this color. SDR colors are in `[0.0, 1.0]`. An HDR
+    /// color's luminance can be above or below 1.0.
     fn luminance(&self) -> f32;
 
     /// Return a new version of this color with the given luminance. The result is not
