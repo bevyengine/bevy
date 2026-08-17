@@ -17,6 +17,7 @@ use bevy_ecs::{
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
     template::FromTemplate,
+    world::Mut,
 };
 use bevy_input::keyboard::{KeyCode, KeyboardInput};
 use bevy_input_focus::{
@@ -201,6 +202,46 @@ impl ColorInputState {
                 }
             }
             self.source = next_source;
+        }
+    }
+
+    /// Set a single channel, returning the resulting color in the current source space.
+    fn set_channel(&mut self, channel: ColorChannel, value: f32) -> Color {
+        match channel {
+            ColorChannel::Red => {
+                self.rgb.red = value;
+                self.rgb.into()
+            }
+            ColorChannel::Green => {
+                self.rgb.green = value;
+                self.rgb.into()
+            }
+            ColorChannel::Blue => {
+                self.rgb.blue = value;
+                self.rgb.into()
+            }
+            ColorChannel::HslHue => {
+                self.hsl.hue = value;
+                self.hsl.into()
+            }
+            ColorChannel::HslSaturation => {
+                self.hsl.saturation = value;
+                self.hsl.into()
+            }
+            ColorChannel::HslLightness => {
+                self.hsl.lightness = value;
+                self.hsl.into()
+            }
+            ColorChannel::Alpha => match self.source {
+                SourceColorSpace::Rgb => {
+                    self.rgb.alpha = value;
+                    self.rgb.into()
+                }
+                SourceColorSpace::Hsl => {
+                    self.hsl.alpha = value;
+                    self.hsl.into()
+                }
+            },
         }
     }
 }
@@ -630,11 +671,7 @@ fn rg_color_plane_value_change(
     mut q_state: Query<&mut ColorInputState>,
     mut commands: Commands,
 ) {
-    if let Some(root_id) = q_parent
-        .iter_ancestors(change.source)
-        .find(|e| q_state.contains(*e))
-        && let Ok(mut state) = q_state.get_mut(root_id)
-    {
+    if let Some((root_id, mut state)) = color_input_state(&q_parent, &mut q_state, change.source) {
         state.rgb.red = change.value.x;
         state.rgb.green = change.value.y;
         let value: Color = state.rgb.into();
@@ -652,11 +689,7 @@ fn hs_color_plane_value_change(
     mut q_state: Query<&mut ColorInputState>,
     mut commands: Commands,
 ) {
-    if let Some(root_id) = q_parent
-        .iter_ancestors(change.source)
-        .find(|e| q_state.contains(*e))
-        && let Ok(mut state) = q_state.get_mut(root_id)
-    {
+    if let Some((root_id, mut state)) = color_input_state(&q_parent, &mut q_state, change.source) {
         state.hsl.hue = change.value.x * 360.0;
         state.hsl.saturation = change.value.y;
         let value: Color = state.hsl.into();
@@ -679,51 +712,11 @@ fn color_slider_value_change(
         return;
     };
 
-    if let Some(root_id) = q_parent
-        .iter_ancestors(change.source)
-        .find(|e| q_state.contains(*e))
-        && let Ok(mut state) = q_state.get_mut(root_id)
-    {
-        let new_value: Color = match slider.channel {
-            ColorChannel::Red => {
-                state.rgb.red = change.value;
-                state.rgb.into()
-            }
-            ColorChannel::Green => {
-                state.rgb.green = change.value;
-                state.rgb.into()
-            }
-            ColorChannel::Blue => {
-                state.rgb.blue = change.value;
-                state.rgb.into()
-            }
-            ColorChannel::HslHue => {
-                state.hsl.hue = change.value;
-                state.hsl.into()
-            }
-            ColorChannel::HslSaturation => {
-                state.hsl.saturation = change.value;
-                state.hsl.into()
-            }
-            ColorChannel::HslLightness => {
-                state.hsl.lightness = change.value;
-                state.hsl.into()
-            }
-            ColorChannel::Alpha => match state.source {
-                SourceColorSpace::Rgb => {
-                    state.rgb.alpha = change.value;
-                    state.rgb.into()
-                }
-                SourceColorSpace::Hsl => {
-                    state.hsl.alpha = change.value;
-                    state.hsl.into()
-                }
-            },
-        };
-
+    if let Some((root_id, mut state)) = color_input_state(&q_parent, &mut q_state, change.source) {
+        let value = state.set_channel(slider.channel, change.value);
         commands.trigger(ValueChange {
             source: root_id,
-            value: new_value,
+            value,
             is_final: change.is_final,
         });
     }
@@ -740,51 +733,11 @@ fn number_input_value_change(
         return;
     };
 
-    if let Some(root_id) = q_parent
-        .iter_ancestors(change.source)
-        .find(|e| q_state.contains(*e))
-        && let Ok(mut state) = q_state.get_mut(root_id)
-    {
-        let new_value: Color = match channel.0 {
-            ColorChannel::Red => {
-                state.rgb.red = change.value / 255.0;
-                state.rgb.into()
-            }
-            ColorChannel::Green => {
-                state.rgb.green = change.value / 255.0;
-                state.rgb.into()
-            }
-            ColorChannel::Blue => {
-                state.rgb.blue = change.value / 255.0;
-                state.rgb.into()
-            }
-            ColorChannel::HslHue => {
-                state.hsl.hue = change.value;
-                state.hsl.into()
-            }
-            ColorChannel::HslSaturation => {
-                state.hsl.saturation = change.value / 100.0;
-                state.hsl.into()
-            }
-            ColorChannel::HslLightness => {
-                state.hsl.lightness = change.value / 100.0;
-                state.hsl.into()
-            }
-            ColorChannel::Alpha => match state.source {
-                SourceColorSpace::Rgb => {
-                    state.rgb.alpha = change.value / 255.0;
-                    state.rgb.into()
-                }
-                SourceColorSpace::Hsl => {
-                    state.hsl.alpha = change.value / 255.0;
-                    state.hsl.into()
-                }
-            },
-        };
-
+    if let Some((root_id, mut state)) = color_input_state(&q_parent, &mut q_state, change.source) {
+        let value = state.set_channel(channel.0, change.value / display_scale(channel.0));
         commands.trigger(ValueChange {
             source: root_id,
-            value: new_value,
+            value,
             is_final: change.is_final,
         });
     }
@@ -805,10 +758,8 @@ fn hex_input_on_enter_key(
         return;
     };
 
-    if let Some(root_id) = q_parent
-        .iter_ancestors(key_input.event_target())
-        .find(|e| q_state.contains(*e))
-        && let Ok(mut state) = q_state.get_mut(root_id)
+    if let Some((root_id, mut state)) =
+        color_input_state(&q_parent, &mut q_state, key_input.event_target())
     {
         hex_input_value_change(root_id, &mut state, editable_text, &mut commands);
     }
@@ -825,10 +776,8 @@ fn hex_input_on_focus_loss(
         return;
     };
 
-    if let Some(root_id) = q_parent
-        .iter_ancestors(focus_lost.event_target())
-        .find(|e| q_state.contains(*e))
-        && let Ok(mut state) = q_state.get_mut(root_id)
+    if let Some((root_id, mut state)) =
+        color_input_state(&q_parent, &mut q_state, focus_lost.event_target())
     {
         hex_input_value_change(root_id, &mut state, editable_text, &mut commands);
     }
@@ -910,10 +859,7 @@ fn update_mode_selector(
         set_pane_visible(refs, &mut q_node, settings.mode, &mut commands);
 
         if settings.is_changed()
-            && let Some(root_id) = q_parent
-                .iter_ancestors(popup_id)
-                .find(|e| q_state.contains(*e))
-            && let Ok(mut state) = q_state.get_mut(root_id)
+            && let Some((_, mut state)) = color_input_state(&q_parent, &mut q_state, popup_id)
         {
             // Make sure that the right color model is designated as the source.
             // Also, ensure that focus moves to a widget that is not about to be hidden,
@@ -1153,39 +1099,54 @@ fn update_controls(
 
     // Round to nearest tenth, so that the string of digits
     // won't be too long to display in the limited space.
-    //
-    // Note that RGBA sliders go from 0..=255 (inclusive). The multiplier
-    // is arbitrary since the representation is f32, but CSS users are familiar
-    // with 8-bit colors.
-    commands.entity(refs.r_input).insert(NumberInputValue::F32(
-        (state.rgb.red * 255.0 * 10.0).round() / 10.0,
-    ));
-    commands.entity(refs.g_input).insert(NumberInputValue::F32(
-        (state.rgb.green * 255.0 * 10.0).round() / 10.0,
-    ));
-    commands.entity(refs.b_input).insert(NumberInputValue::F32(
-        (state.rgb.blue * 255.0 * 10.0).round() / 10.0,
-    ));
+    fn scaled_number_input_value(channel: ColorChannel, native: f32) -> NumberInputValue {
+        NumberInputValue::F32((native * display_scale(channel) * 10.0).round() / 10.0)
+    }
+
+    commands
+        .entity(refs.r_input)
+        .insert(scaled_number_input_value(ColorChannel::Red, state.rgb.red));
+    commands
+        .entity(refs.g_input)
+        .insert(scaled_number_input_value(
+            ColorChannel::Green,
+            state.rgb.green,
+        ));
+    commands
+        .entity(refs.b_input)
+        .insert(scaled_number_input_value(
+            ColorChannel::Blue,
+            state.rgb.blue,
+        ));
 
     commands
         .entity(refs.h_input)
-        .insert(NumberInputValue::F32((state.hsl.hue * 10.0).round() / 10.0));
-    commands.entity(refs.s_input).insert(NumberInputValue::F32(
-        (state.hsl.saturation * 100.0 * 10.0).round() / 10.0,
-    ));
-    commands.entity(refs.l_input).insert(NumberInputValue::F32(
-        (state.hsl.lightness * 100.0 * 10.0).round() / 10.0,
-    ));
+        .insert(scaled_number_input_value(
+            ColorChannel::HslHue,
+            state.hsl.hue,
+        ));
+    commands
+        .entity(refs.s_input)
+        .insert(scaled_number_input_value(
+            ColorChannel::HslSaturation,
+            state.hsl.saturation,
+        ));
+    commands
+        .entity(refs.l_input)
+        .insert(scaled_number_input_value(
+            ColorChannel::HslLightness,
+            state.hsl.lightness,
+        ));
 
-    commands.entity(refs.a_input).insert(NumberInputValue::F32(
-        (match state.source {
-            SourceColorSpace::Rgb => state.rgb.alpha,
-            SourceColorSpace::Hsl => state.hsl.alpha,
-        } * 255.0
-            * 10.0)
-            .round()
-            / 10.0,
-    ));
+    commands
+        .entity(refs.a_input)
+        .insert(scaled_number_input_value(
+            ColorChannel::Alpha,
+            match state.source {
+                SourceColorSpace::Rgb => state.rgb.alpha,
+                SourceColorSpace::Hsl => state.hsl.alpha,
+            },
+        ));
 
     // Update the color swatch
     commands.entity(refs.swatch).insert(ColorSwatchValue(color));
@@ -1197,6 +1158,32 @@ fn update_controls(
             editable_text.queue_edit(TextEdit::SelectAll);
             editable_text.queue_edit(TextEdit::Insert(hex_value.into()));
         }
+    }
+}
+
+/// Helper function used to find the [`ColorInputState`] component in the ancestor chain.
+fn color_input_state<'a>(
+    q_parent: &Query<&ChildOf>,
+    q_state: &'a mut Query<&mut ColorInputState>,
+    from: Entity,
+) -> Option<(Entity, Mut<'a, ColorInputState>)> {
+    let root_id = q_parent
+        .iter_ancestors(from)
+        .find(|e| q_state.contains(*e))?;
+    let state = q_state.get_mut(root_id).ok()?;
+    Some((root_id, state))
+}
+
+/// Scale between a number input's display units and the channel's native range.
+///
+/// Note that RGBA sliders go from 0..=255 (inclusive). The multiplier
+/// is arbitrary since the representation is f32, but CSS users are familiar
+/// with 8-bit colors.
+fn display_scale(channel: ColorChannel) -> f32 {
+    match channel {
+        ColorChannel::Red | ColorChannel::Green | ColorChannel::Blue | ColorChannel::Alpha => 255.0,
+        ColorChannel::HslSaturation | ColorChannel::HslLightness => 100.0,
+        ColorChannel::HslHue => 1.0,
     }
 }
 
