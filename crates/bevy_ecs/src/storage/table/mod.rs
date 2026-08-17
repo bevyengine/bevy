@@ -316,7 +316,7 @@ impl Table {
 
         // SAFETY: `row.index()` < `len`
         self.get_column(component_id)
-            .map(|col| unsafe { col.changed_ticks.get_unchecked(row.index()) })
+            .map(|col| unsafe { col.get_changed_tick_unchecked(row) })
     }
 
     /// Get the specific [`added tick`](Tick) of the component matching `component_id` in `row`.
@@ -331,7 +331,7 @@ impl Table {
 
         // SAFETY: `row.index()` < `len`
         self.get_column(component_id)
-            .map(|col| unsafe { col.added_ticks.get_unchecked(row.index()) })
+            .map(|col| unsafe { col.get_added_tick_unchecked(row) })
     }
 
     /// Get the specific calling location that changed the component matching `component_id` in `row`
@@ -345,12 +345,9 @@ impl Table {
                 return None;
             }
 
-            self.get_column(component_id).map(|col| {
-                // SAFETY: `row.index()` < `len`
-                col.changed_by
-                    .as_ref()
-                    .map(|changed_by| unsafe { changed_by.get_unchecked(row.index()) })
-            })
+            // SAFETY: `row.index()` < `len`
+            self.get_column(component_id)
+                .map(|col| unsafe { col.get_changed_by_unchecked(row) })
         })
     }
 
@@ -363,10 +360,8 @@ impl Table {
         component_id: ComponentId,
         row: TableRow,
     ) -> Option<ComponentTicks> {
-        self.get_column(component_id).map(|col| ComponentTicks {
-            added: col.added_ticks.get_unchecked(row.index()).read(),
-            changed: col.changed_ticks.get_unchecked(row.index()).read(),
-        })
+        self.get_column(component_id)
+            .map(|col| col.get_ticks_unchecked(row))
     }
 
     /// Fetches a read-only reference to the [`Column`] for a given [`Component`] within the table.
@@ -509,7 +504,7 @@ impl Table {
     /// Get the drop function for some component that is stored in this table.
     #[inline]
     pub fn get_drop_for(&self, component_id: ComponentId) -> Option<unsafe fn(OwningPtr<'_>)> {
-        self.get_column(component_id)?.data.drop
+        self.get_column(component_id)?.get_drop()
     }
 
     /// Gets the number of components being stored in the table.
@@ -579,8 +574,8 @@ impl Table {
     ) -> OwningPtr<'_> {
         self.get_column_mut(component_id)
             .debug_checked_unwrap()
-            .data
-            .get_unchecked_mut(row.index())
+            .get_data_unchecked(row)
+            .assert_unique()
             .promote()
     }
 
@@ -594,7 +589,7 @@ impl Table {
         row: TableRow,
     ) -> Option<Ptr<'_>> {
         self.get_column(component_id)
-            .map(|col| col.data.get_unchecked(row.index()))
+            .map(|col| col.get_data_unchecked(row))
     }
 
     /// Returns a reference to this table's summary tick for the given
