@@ -4795,6 +4795,7 @@ mod tests {
 
     // Tests that parallel contiguous iteration on a single large table
     // correctly splits up the table into individual jobs.
+    #[cfg(all(feature = "multi_threaded", feature = "std"))]
     #[test]
     fn contiguous_par_iter_single_table_scheduling_test() {
         // Declare the ID component.
@@ -4843,6 +4844,7 @@ mod tests {
 
     // Tests that contiguous iteration can yield jobs that simultaneously span
     // multiple small tables and represent portions of large tables.
+    #[cfg(all(feature = "multi_threaded", feature = "std"))]
     #[test]
     fn contiguous_par_iter_multi_table_scheduling_test() {
         // Declare the ID component.
@@ -4957,6 +4959,7 @@ mod tests {
 
     // Tests that contiguous iteration workloads that exceed the maximum number
     // of tables per job (currently 32) work properly.
+    #[cfg(all(feature = "multi_threaded", feature = "std"))]
     #[test]
     fn contiguous_par_iter_table_job_limit_test() {
         // Declare the ID component.
@@ -5071,6 +5074,7 @@ mod tests {
 
     // Tests that attempting to contiguously iterate in parallel over a query
     // that contains sparse sets fails (as the query isn't dense).
+    #[cfg(all(feature = "multi_threaded", feature = "std"))]
     #[test]
     fn contiguous_par_iter_failure_test() {
         // Declare a couple of components, one of which is a sparse set.
