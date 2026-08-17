@@ -169,7 +169,7 @@ impl TaskPool {
         // In tests, we want there to be at least two threads so that we're
         // actually testing multithreaded behavior.
         #[cfg(all(test, feature = "multi_threaded"))]
-        let num_threads = num_requested_threads.min(2);
+        let num_threads = num_requested_threads.max(2);
         #[cfg(not(all(test, feature = "multi_threaded")))]
         let num_threads = num_requested_threads;
 
