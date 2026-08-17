@@ -131,8 +131,7 @@ impl PanOrbitCamera {
     /// Gets the [`MotionInputs`], if the camera is being actively moved..
     pub fn motion_inputs(&self) -> Option<&MotionInputs> {
         match &self.current_motion {
-            CurrentMotion::Stationary => None,
-            CurrentMotion::Momentum { .. } => None,
+            CurrentMotion::Stationary | CurrentMotion::Momentum { .. } => None,
             CurrentMotion::UserControlled { motion_inputs, .. } => Some(motion_inputs),
         }
     }
@@ -283,7 +282,7 @@ impl PanOrbitCamera {
         if let CurrentMotion::UserControlled { motion_inputs, .. } = &mut self.current_motion {
             motion_inputs
                 .zoom_inputs_mut()
-                .process_input(zoom_amount, self.smoothing.zoom)
+                .process_input(zoom_amount, self.smoothing.zoom);
         }
     }
 
@@ -291,8 +290,7 @@ impl PanOrbitCamera {
     /// [`PanOrbitCamera`] for usage.
     pub fn end_move(&mut self) {
         let velocity = match self.current_motion {
-            CurrentMotion::Stationary => return,
-            CurrentMotion::Momentum { .. } => return,
+            CurrentMotion::Stationary | CurrentMotion::Momentum { .. } => return,
             CurrentMotion::UserControlled {
                 anchor,
                 ref motion_inputs,
@@ -645,13 +643,13 @@ impl PanOrbitCamera {
     }
 }
 
-/// A 64-bit version of Transform::rotate_around
+/// A 64-bit version of `Transform::rotate_around`
 pub fn rotate_around(transform: (&mut DVec3, &mut DQuat), point: DVec3, rotation: DQuat) {
     *transform.0 = point + rotation * (*transform.0 - point);
     *transform.1 = (rotation * *transform.1).normalize();
 }
 
-/// A 64-bit version of Transform::look_to. Returns the rotation quaternion for the given
+/// A 64-bit version of `Transform::look_to`. Returns the rotation quaternion for the given
 /// facing direction and up vector.
 pub fn look_to(direction: DVec3, up: DVec3) -> DQuat {
     let back = -direction;

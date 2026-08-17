@@ -57,8 +57,7 @@ impl CurrentMotion {
     /// Get the user motion inputs if they exist.
     pub fn inputs(&self) -> Option<&MotionInputs> {
         match self {
-            CurrentMotion::Stationary => None,
-            CurrentMotion::Momentum { .. } => None,
+            CurrentMotion::Stationary | CurrentMotion::Momentum { .. } => None,
             CurrentMotion::UserControlled { motion_inputs, .. } => Some(motion_inputs),
         }
     }

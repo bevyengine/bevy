@@ -1,7 +1,8 @@
 //! Implements a motion-conserving smoothed input queue.
 
+use alloc::collections::VecDeque;
+
 use std::{
-    collections::VecDeque,
     ops::{Add, AddAssign, Mul},
     time::Duration,
 };
@@ -86,7 +87,7 @@ impl<T: Copy + Default + Add<Output = T> + AddAssign<T> + Mul<f32, Output = T>> 
                 sample: T::default(),
                 fraction_remaining: 1.0,
                 smoothed_value: T::default(),
-            })
+            });
         }
         Self(queue)
     }
@@ -141,7 +142,7 @@ impl<T: Copy + Default + Add<Output = T> + AddAssign<T> + Mul<f32, Output = T>> 
             sample: new_input,
             fraction_remaining: 1.0 - target_fraction,
             smoothed_value,
-        })
+        });
     }
 
     /// Get the latest motion-conserving smoothed input value.

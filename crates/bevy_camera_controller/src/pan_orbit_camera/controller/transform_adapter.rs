@@ -20,7 +20,7 @@ pub struct TransformAdapter {
 }
 
 impl TransformAdapter {
-    /// Create a new `TransformAdapter` with custom read and apply_delta callbacks.
+    /// Create a new `TransformAdapter` with custom read and `apply_delta` callbacks.
     pub fn new(
         read: impl Fn(&EntityRef) -> Option<(DVec3, DQuat)> + Send + Sync + 'static,
         apply_delta: impl Fn(&mut EntityMut, DVec3, DQuat) + Send + Sync + 'static,
@@ -43,7 +43,7 @@ impl TransformAdapter {
         delta_translation: DVec3,
         delta_rotation: DQuat,
     ) {
-        (self.apply_delta_fn)(entity, delta_translation, delta_rotation)
+        (self.apply_delta_fn)(entity, delta_translation, delta_rotation);
     }
 }
 

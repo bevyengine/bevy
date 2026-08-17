@@ -135,8 +135,7 @@ pub fn default_camera_inputs(
                     });
                 }
             }
-            PointerId::Touch(_) => continue,
-            PointerId::Custom(_) => continue,
+            PointerId::Touch(_) | PointerId::Custom(_) => continue,
         }
     }
 
@@ -179,13 +178,12 @@ impl PanOrbitCameraInputMessage {
     /// Get the camera entity associated with this event.
     pub fn camera(&self) -> Entity {
         match self {
-            PanOrbitCameraInputMessage::Start { camera, .. } => *camera,
-            PanOrbitCameraInputMessage::End { camera } => *camera,
+            PanOrbitCameraInputMessage::Start { camera, .. }
+            | PanOrbitCameraInputMessage::End { camera } => *camera,
         }
     }
 
     /// Receive [`PanOrbitCameraInputMessage`]s, and use these to start and end moves on the [`PanOrbitCamera`].
-    #[allow(clippy::too_many_arguments)]
     pub fn receive_messages(
         mut events: MessageReader<Self>,
         mut controllers: Query<(&mut PanOrbitCamera, &GlobalTransform)>,
@@ -227,7 +225,7 @@ impl PanOrbitCameraInputMessage {
                         .filter(|p| {
                             #[cfg(debug_assertions)]
                             if !p.is_finite() {
-                                bevy_log::warn!("Non-finite input fed to camera controller: {p:?}")
+                                bevy_log::warn!("Non-finite input fed to camera controller: {p:?}");
                             }
                             p.is_finite()
                         })
@@ -301,8 +299,6 @@ impl PanOrbitCameraInputMessage {
                 .filter(|m| m.pointer_id.eq(pointer))
                 .filter_map(|m| match m.action {
                     PointerAction::Move { delta } => Some(delta),
-                    PointerAction::Press { .. } => None,
-                    PointerAction::Cancel => None,
                     _ => None,
                 })
                 .sum();

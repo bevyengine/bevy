@@ -241,7 +241,7 @@ impl DollyZoom {
                 *projection = Projection::Perspective(PerspectiveProjection {
                     fov: next_fov as f32,
                     ..last_perspective
-                })
+                });
             } else {
                 *projection = proj_end.clone();
                 if let Projection::Orthographic(ortho) = &mut *projection {

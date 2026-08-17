@@ -118,27 +118,27 @@ impl MotionInputs {
     /// Get a reference to the queue of zoom inputs.
     pub fn zoom_inputs(&self) -> &InputQueue<f32> {
         match self {
-            MotionInputs::OrbitZoom { zoom_inputs, .. } => zoom_inputs,
-            MotionInputs::PanZoom { zoom_inputs, .. } => zoom_inputs,
-            MotionInputs::Zoom { zoom_inputs } => zoom_inputs,
+            MotionInputs::OrbitZoom { zoom_inputs, .. }
+            | MotionInputs::PanZoom { zoom_inputs, .. }
+            | MotionInputs::Zoom { zoom_inputs } => zoom_inputs,
         }
     }
 
     /// Get a mutable reference to the queue of zoom inputs.
     pub fn zoom_inputs_mut(&mut self) -> &mut InputQueue<f32> {
         match self {
-            MotionInputs::OrbitZoom { zoom_inputs, .. } => zoom_inputs,
-            MotionInputs::PanZoom { zoom_inputs, .. } => zoom_inputs,
-            MotionInputs::Zoom { zoom_inputs } => zoom_inputs,
+            MotionInputs::OrbitZoom { zoom_inputs, .. }
+            | MotionInputs::PanZoom { zoom_inputs, .. }
+            | MotionInputs::Zoom { zoom_inputs } => zoom_inputs,
         }
     }
 
     /// Approximate smoothed  absolute value of the zoom velocity over the last `window`.
     pub fn zoom_velocity_abs(&self, window: Duration) -> f64 {
         let zoom_inputs = match self {
-            MotionInputs::OrbitZoom { zoom_inputs, .. } => zoom_inputs,
-            MotionInputs::PanZoom { zoom_inputs, .. } => zoom_inputs,
-            MotionInputs::Zoom { zoom_inputs } => zoom_inputs,
+            MotionInputs::OrbitZoom { zoom_inputs, .. }
+            | MotionInputs::PanZoom { zoom_inputs, .. }
+            | MotionInputs::Zoom { zoom_inputs } => zoom_inputs,
         };
 
         let velocity = zoom_inputs.approx_smoothed(window, |v| {

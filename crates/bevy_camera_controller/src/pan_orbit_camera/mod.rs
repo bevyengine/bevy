@@ -205,7 +205,6 @@ pub struct DefaultPanOrbitCameraPlugins;
 pub struct SyncCameraPosition;
 
 impl PluginGroup for DefaultPanOrbitCameraPlugins {
-    #[allow(clippy::let_and_return)] // Needed for conditional compilation
     fn build(self) -> PluginGroupBuilder {
         let group = PluginGroupBuilder::start::<Self>()
             .add(input::DefaultInputPlugin)

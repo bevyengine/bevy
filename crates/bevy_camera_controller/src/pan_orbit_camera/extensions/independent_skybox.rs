@@ -217,7 +217,7 @@ impl IndependentSkyboxCamera {
                         SkyboxFov::Fixed(fov) => fov,
                     },
                     ..editor_perspective.clone()
-                })
+                });
             }
 
             *skybox_transform = *editor_transform;
