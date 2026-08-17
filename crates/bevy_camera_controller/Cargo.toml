@@ -30,7 +30,7 @@ bevy_image = { path = "../bevy_image", version = "0.20.0-dev" }
 bevy_render = { path = "../bevy_render", version = "0.20.0-dev" }
 bevy_color = { path = "../bevy_color", version = "0.20.0-dev" }
 
-bevy_asset = { version = "0.20.0-dev", path = "../bevy_asset",  optional = true }
+bevy_asset = { version = "0.20.0-dev", path = "../bevy_asset", optional = true }
 bevy_core_pipeline = { version = "0.20.0-dev", path = "../bevy_core_pipeline", optional = true }
 bevy_gizmos = { version = "0.20.0-dev", path = "../bevy_gizmos", optional = true }
 
@@ -48,7 +48,11 @@ pan_orbit_camera = []
 # PanOrbitCamera's extensions
 
 extension_anchor_indicator = ["pan_orbit_camera", "bevy_gizmos"]
-extension_independent_skybox = ["pan_orbit_camera", "bevy_asset", "bevy_core_pipeline"]
+extension_independent_skybox = [
+  "pan_orbit_camera",
+  "bevy_asset",
+  "bevy_core_pipeline",
+]
 
 [lints]
 workspace = true
