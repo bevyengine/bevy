@@ -83,7 +83,7 @@ fn update_mesh_tags(time: Res<Time>, mut query: Query<&mut MeshTag>, mut timer: 
         for mut tag in query.iter_mut() {
             // Cycle through the texture layers to demonstrate that we can
             // select different layers of the array texture at runtime.
-            tag.0 = (tag.0 + 1) % TEXTURE_COUNT;
+            tag.value = (tag.value + 1) % TEXTURE_COUNT;
         }
     }
 }
