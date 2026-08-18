@@ -3,8 +3,8 @@
 //! While this is supported, there are some special considerations when using an orthographic camera.
 //! See comments in the code below!
 
-use bevy::prelude::*;
 use bevy::camera_controller::pan_orbit_camera::prelude::*;
+use bevy::prelude::*;
 
 fn main() {
     App::new()
