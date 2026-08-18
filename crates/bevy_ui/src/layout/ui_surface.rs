@@ -195,6 +195,12 @@ impl UiSurface {
             .entry(ui_root_entity)
             .or_insert_with(|| {
                 let root_node = self.entity_to_taffy.get_mut(&ui_root_entity).unwrap();
+
+                // remove parent node to avoid a potential panic (invalid SlotMap key used) when this `NodeId` is `remove`d
+                if let Some(parent_node) = self.taffy.parent(root_node.id) {
+                    let _ = self.taffy.remove_child(parent_node, root_node.id);
+                };
+
                 let implicit_root = self
                     .taffy
                     .new_leaf(Style {
