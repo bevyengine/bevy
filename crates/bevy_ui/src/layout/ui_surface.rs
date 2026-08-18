@@ -211,8 +211,8 @@ impl UiSurface {
                             width: taffy::style_helpers::percent(1.0_f32),
                             height: taffy::style_helpers::percent(1.0_f32),
                         },
-                        align_items: Some(taffy::style::AlignItems::Start),
-                        justify_items: Some(taffy::style::JustifyItems::Start),
+                        align_items: Some(taffy::style::AlignItems::START),
+                        justify_items: Some(taffy::style::JustifyItems::START),
                         ..default()
                     })
                     .unwrap();
