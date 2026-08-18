@@ -49,6 +49,14 @@ impl ChildBufferCache {
     }
 }
 
+#[derive(Ord, PartialOrd, PartialEq, Eq)]
+pub(crate) struct StackRoot {
+    global_z: i32,
+    local_z: i32,
+    new_or_changed: bool,
+    previous_index: usize,
+}
+
 /// Generates the render stack for UI nodes.
 ///
 /// Create a list of stack roots from parentless entities and entities with a `GlobalZIndex` component.
@@ -56,7 +64,7 @@ impl ChildBufferCache {
 /// filtering branches by `Without<GlobalZIndex>`so that we don't revisit nodes.
 pub fn ui_stack_system(
     mut cache: Local<ChildBufferCache>,
-    mut stack_roots: Local<Vec<(Entity, (i32, i32, bool, usize))>>,
+    mut stack_roots: Local<Vec<(Entity, StackRoot)>>,
     mut stack_root_order: Local<EntityHashMap<usize>>,
     mut visited_stack_roots: Local<EntityHashSet>,
     mut ui_stack: ResMut<UiStack>,
@@ -84,14 +92,14 @@ pub fn ui_stack_system(
         let previous = stack_root_order.get(&id).copied();
         stack_roots.push((
             id,
-            (
-                maybe_global_zindex.map(|z| z.0).unwrap_or(0),
-                maybe_zindex.map(|z| z.0).unwrap_or(0),
-                previous.is_none()
+            StackRoot {
+                global_z: maybe_global_zindex.map(|z| z.0).unwrap_or(0),
+                local_z: maybe_zindex.map(|z| z.0).unwrap_or(0),
+                new_or_changed: previous.is_none()
                     || maybe_global_zindex.as_ref().is_some_and(Ref::is_changed)
                     || maybe_zindex.as_ref().is_some_and(Ref::is_changed),
-                previous.unwrap_or(usize::MAX),
-            ),
+                previous_index: previous.unwrap_or(usize::MAX),
+            },
         ));
         visited_stack_roots.insert(id);
     }
@@ -104,18 +112,18 @@ pub fn ui_stack_system(
         let previous = stack_root_order.get(&id).copied();
         stack_roots.push((
             id,
-            (
-                global_zindex.0,
-                maybe_zindex.map(|z| z.0).unwrap_or(0),
-                previous.is_none()
+            StackRoot {
+                global_z: global_zindex.0,
+                local_z: maybe_zindex.map(|z| z.0).unwrap_or(0),
+                new_or_changed: previous.is_none()
                     || global_zindex.is_changed()
                     || maybe_zindex.as_ref().is_some_and(Ref::is_changed),
-                previous.unwrap_or(usize::MAX),
-            ),
+                previous_index: previous.unwrap_or(usize::MAX),
+            },
         ));
     }
 
-    stack_roots.sort_by_key(|(_, z)| *z);
+    stack_roots.sort_unstable_by(|(_, a), (_, b)| a.cmp(b));
 
     for (root_entity, _) in stack_roots.drain(..) {
         let start = ui_stack.uinodes.len();
