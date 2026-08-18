@@ -1808,10 +1808,6 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             let mut queue_entity_count = 0;
 
             // Submits a full batch.
-            //
-            // The 128 table limit is an arbitrary tuning parameter unrelated to
-            // the batch size. It matches the limit in
-            // `Self::par_fold_init_unchecked_manual`.
             let submit_batch_queue = |queue: SmallVec<[(TableId, Range<u32>); 4]>| {
                 let (func, init_accum) = (func.clone(), init_accum.clone());
                 scope.spawn(async move {
