@@ -876,6 +876,9 @@ pub fn extract_uinode_images(
             visual_box.size()
         };
 
+        // The node's border radius is subtracted from the visual box target's edge insets
+        // and then clamped to get the corner radius for the image. Ideally this should be handled
+        // on the GPU, but that might need changes to `ui.wesl`'s UV calculations.
         let mut inset = match image.visual_box {
             VisualBox::ContentBox => uinode.content_inset(),
             VisualBox::PaddingBox => uinode.border(),
