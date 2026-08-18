@@ -20,8 +20,8 @@ use bevy_reflect::Reflect;
 use bevy_scene::prelude::*;
 use bevy_ui::{
     percent, px, AlignItems, BackgroundGradient, BorderColor, BorderRadius, ColorStop, Display,
-    FlexDirection, Gradient, InterpolationColorSpace, LinearGradient, Node, Outline, PositionType,
-    UiRect, UiSystems, UiTransform, Val2, ZIndex,
+    FlexDirection, Gradient, GridPlacement, InterpolationColorSpace, LinearGradient, Node, Outline,
+    PositionType, UiRect, UiSystems, UiTransform, Val2, ZIndex,
 };
 use bevy_ui_render::ui_material::MaterialNode;
 use bevy_ui_widgets::{
@@ -203,7 +203,7 @@ impl FeathersColorSlider {
     fn scene(props: FeathersColorSliderProps) -> impl Scene {
         bsn! {
             Node {
-                display: Display::Flex,
+                display: Display::Grid,
                 flex_direction: FlexDirection::Row,
                 height: px(SLIDER_HEIGHT),
                 align_items: AlignItems::Stretch,
@@ -225,7 +225,9 @@ impl FeathersColorSlider {
                 // track
                 (
                     Node {
-                        position_type: PositionType::Absolute,
+                        display: Display::Grid,
+                        grid_row: GridPlacement::start(1),
+                        grid_column: GridPlacement::start(1),
                         left: px(0),
                         right: px(0),
                         top: px(TRACK_PADDING),
@@ -235,72 +237,72 @@ impl FeathersColorSlider {
                     ColorSliderTrack
                     AlphaPattern
                     MaterialNode::<AlphaPatternMaterial>
-                    Children [
-                        // Track with gradient
-                        (
-                            Node {
-                                position_type: PositionType::Absolute,
-                                left: px(0),
-                                right: px(0),
-                                top: px(0),
-                                bottom: px(0),
-                                border_radius: {RoundedCorners::All.to_border_radius(TRACK_RADIUS)},
-                            }
-                            BackgroundGradient(vec![
-                                Gradient::Linear(LinearGradient {
-                                    angle: LinearGradient::TO_RIGHT,
-                                    stops: vec![
-                                        ColorStop::px(Color::NONE, 0),
-                                        ColorStop::px(Color::NONE, THUMB_SIZE * 0.5),
-                                        ColorStop::percent(Color::NONE, 50),
-                                        ColorStop::percent(Color::NONE, 50),
-                                        ColorStop::percent(Color::NONE, 100),
-                                    ],
-                                    color_space: InterpolationColorSpace::Srgba,
-                                }),
-                                Gradient::Linear(LinearGradient {
-                                    angle: LinearGradient::TO_LEFT,
-                                    stops: vec![
-                                        ColorStop::px(Color::NONE, 0),
-                                        ColorStop::px(Color::NONE, THUMB_SIZE * 0.5),
-                                        ColorStop::percent(Color::NONE, 50),
-                                        ColorStop::percent(Color::NONE, 50),
-                                        ColorStop::percent(Color::NONE, 100),
-                                    ],
-                                    color_space: InterpolationColorSpace::Srgba,
-                                }),
-                            ])
-                            ZIndex(1)
-                        ),
-                        // Inset range for the thumb
-                        (
-                            Node {
-                                flex_grow: 1.0,
-                                margin: {UiRect::horizontal(px(THUMB_SIZE * 0.5))},
-                            }
-                            ZIndex(2)
-                            Children [(
-                                Node {
-                                    position_type: PositionType::Absolute,
-                                    left: percent(0),
-                                    top: percent(50),
-                                    width: px(THUMB_SIZE),
-                                    height: px(THUMB_SIZE),
-                                    border: px(2),
-                                    border_radius: BorderRadius::MAX,
-                                }
-                                SliderThumb
-                                ColorSliderThumb
-                                BorderColor::all(palette::WHITE)
-                                Outline {
-                                    width: px(1),
-                                    offset: px(0),
-                                    color: palette::BLACK
-                                }
-                                UiTransform::from_translation(Val2::percent(-50., -50.))
-                            )]
-                        )
-                    ]
+                ),
+                (
+                    Node {
+                        display: Display::Grid,
+                         grid_row: GridPlacement::start(1),
+                        grid_column: GridPlacement::start(1),
+                        left: px(0),
+                        right: px(0),
+                        top: px(0),
+                        bottom: px(0),
+                        border_radius: {RoundedCorners::All.to_border_radius(TRACK_RADIUS)},
+                    }
+                    BackgroundGradient(vec![
+                        Gradient::Linear(LinearGradient {
+                            angle: LinearGradient::TO_RIGHT,
+                            stops: vec![
+                                ColorStop::px(Color::NONE, 0),
+                                ColorStop::px(Color::NONE, THUMB_SIZE * 0.5),
+                                ColorStop::percent(Color::NONE, 50),
+                                ColorStop::percent(Color::NONE, 50),
+                                ColorStop::percent(Color::NONE, 100),
+                            ],
+                            color_space: InterpolationColorSpace::Srgba,
+                        }),
+                        Gradient::Linear(LinearGradient {
+                            angle: LinearGradient::TO_LEFT,
+                            stops: vec![
+                                ColorStop::px(Color::NONE, 0),
+                                ColorStop::px(Color::NONE, THUMB_SIZE * 0.5),
+                                ColorStop::percent(Color::NONE, 50),
+                                ColorStop::percent(Color::NONE, 50),
+                                ColorStop::percent(Color::NONE, 100),
+                            ],
+                            color_space: InterpolationColorSpace::Srgba,
+                        }),
+                    ])
+                    ZIndex(1)
+                ),
+                // Inset range for the thumb
+                (
+                    Node {
+                        display: Display::Grid,
+
+                        margin: {UiRect::horizontal(px(THUMB_SIZE * 0.5))},
+                    }
+                    ZIndex(2)
+                    Children [(
+                        Node {
+                            position_type: PositionType::Absolute,
+                            left: percent(0),
+                            top: percent(50),
+                            width: px(THUMB_SIZE),
+                            height: px(THUMB_SIZE),
+                            border: px(2),
+                            border_radius: BorderRadius::MAX,
+                        }
+                        SliderThumb
+                        ColorSliderThumb
+                        BorderColor::all(palette::WHITE)
+                        Outline {
+                            width: px(1),
+                            offset: px(0),
+                            color: palette::BLACK
+                        }
+                        UiTransform::from_translation(Val2::percent(-50., -50.))
+                    )]
                 )
             ]
         }
@@ -329,7 +331,7 @@ pub fn color_slider_bundle<B: Bundle>(
 ) -> impl Bundle {
     (
         Node {
-            display: Display::Flex,
+            display: Display::Grid,
             flex_direction: FlexDirection::Row,
             height: px(SLIDER_HEIGHT),
             align_items: AlignItems::Stretch,
@@ -353,9 +355,10 @@ pub fn color_slider_bundle<B: Bundle>(
             // track
             (
                 Node {
-                    position_type: PositionType::Absolute,
-                    left: px(0),
-                    right: px(0),
+                    grid_row: GridPlacement::start(1),
+                    grid_column: GridPlacement::start(1),
+                    left: px(1),
+                    right: px(1),
                     top: px(TRACK_PADDING),
                     bottom: px(TRACK_PADDING),
                     border_radius: RoundedCorners::All.to_border_radius(TRACK_RADIUS),
@@ -364,75 +367,75 @@ pub fn color_slider_bundle<B: Bundle>(
                 ColorSliderTrack,
                 AlphaPattern,
                 MaterialNode::<AlphaPatternMaterial>(Handle::default()),
-                children![
-                    // Track with gradient
-                    (
-                        Node {
-                            position_type: PositionType::Absolute,
-                            left: px(0),
-                            right: px(0),
-                            top: px(0),
-                            bottom: px(0),
-                            border_radius: RoundedCorners::All.to_border_radius(TRACK_RADIUS),
-                            ..Default::default()
-                        },
-                        BackgroundGradient(vec![
-                            Gradient::Linear(LinearGradient {
-                                angle: LinearGradient::TO_RIGHT,
-                                stops: vec![
-                                    ColorStop::px(Color::NONE, 0),
-                                    ColorStop::px(Color::NONE, THUMB_SIZE * 0.5),
-                                    ColorStop::percent(Color::NONE, 50),
-                                    ColorStop::percent(Color::NONE, 50),
-                                    ColorStop::percent(Color::NONE, 100),
-                                ],
-                                color_space: InterpolationColorSpace::Srgba,
-                            }),
-                            Gradient::Linear(LinearGradient {
-                                angle: LinearGradient::TO_LEFT,
-                                stops: vec![
-                                    ColorStop::px(Color::NONE, 0),
-                                    ColorStop::px(Color::NONE, THUMB_SIZE * 0.5),
-                                    ColorStop::percent(Color::NONE, 50),
-                                    ColorStop::percent(Color::NONE, 50),
-                                    ColorStop::percent(Color::NONE, 100),
-                                ],
-                                color_space: InterpolationColorSpace::Srgba,
-                            }),
-                        ]),
-                        ZIndex(1),
-                    ),
-                    // Inset range for the thumb
-                    (
-                        Node {
-                            flex_grow: 1.0,
-                            margin: UiRect::horizontal(px(THUMB_SIZE * 0.5)),
-                            ..Default::default()
-                        },
-                        ZIndex(2),
-                        children![(
-                            Node {
-                                position_type: PositionType::Absolute,
-                                left: percent(0),
-                                top: percent(50),
-                                width: px(THUMB_SIZE),
-                                height: px(THUMB_SIZE),
-                                border: UiRect::all(px(2)),
-                                border_radius: BorderRadius::MAX,
-                                ..Default::default()
-                            },
-                            SliderThumb,
-                            ColorSliderThumb,
-                            BorderColor::all(palette::WHITE),
-                            Outline {
-                                width: px(1),
-                                offset: px(0),
-                                color: palette::BLACK
-                            },
-                            UiTransform::from_translation(Val2::new(percent(-50), percent(-50),))
-                        )]
-                    ),
-                ]
+            ),
+            (
+                Node {
+                    grid_row: GridPlacement::start(1),
+                    grid_column: GridPlacement::start(1),
+                    left: px(0),
+                    right: px(0),
+                    top: px(0),
+                    bottom: px(0),
+                    border_radius: RoundedCorners::All.to_border_radius(TRACK_RADIUS),
+                    ..Default::default()
+                },
+                BackgroundGradient(vec![
+                    Gradient::Linear(LinearGradient {
+                        angle: LinearGradient::TO_RIGHT,
+                        stops: vec![
+                            ColorStop::px(Color::NONE, 0),
+                            ColorStop::px(Color::NONE, THUMB_SIZE * 0.5),
+                            ColorStop::percent(Color::NONE, 50),
+                            ColorStop::percent(Color::NONE, 50),
+                            ColorStop::percent(Color::NONE, 100),
+                        ],
+                        color_space: InterpolationColorSpace::Srgba,
+                    }),
+                    Gradient::Linear(LinearGradient {
+                        angle: LinearGradient::TO_LEFT,
+                        stops: vec![
+                            ColorStop::px(Color::NONE, 0),
+                            ColorStop::px(Color::NONE, THUMB_SIZE * 0.5),
+                            ColorStop::percent(Color::NONE, 50),
+                            ColorStop::percent(Color::NONE, 50),
+                            ColorStop::percent(Color::NONE, 100),
+                        ],
+                        color_space: InterpolationColorSpace::Srgba,
+                    }),
+                ]),
+                ZIndex(1),
+            ),
+            // Inset range for the thumb
+            (
+                Node {
+                    grid_row: GridPlacement::start(1),
+                    grid_column: GridPlacement::start(1),
+                    flex_grow: 1.0,
+                    margin: UiRect::horizontal(px(THUMB_SIZE * 0.5)),
+                    ..Default::default()
+                },
+                ZIndex(2),
+                children![(
+                    Node {
+                        position_type: PositionType::Absolute,
+                        left: percent(0),
+                        top: percent(50),
+                        width: px(THUMB_SIZE),
+                        height: px(THUMB_SIZE),
+                        border: UiRect::all(px(2)),
+                        border_radius: BorderRadius::MAX,
+                        ..Default::default()
+                    },
+                    SliderThumb,
+                    ColorSliderThumb,
+                    BorderColor::all(palette::WHITE),
+                    Outline {
+                        width: px(1),
+                        offset: px(0),
+                        color: palette::BLACK
+                    },
+                    UiTransform::from_translation(Val2::new(percent(-50), percent(-50),))
+                )]
             ),
         ],
     )
