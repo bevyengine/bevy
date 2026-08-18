@@ -21,7 +21,7 @@ use bevy_scene::prelude::*;
 use bevy_ui::{
     percent, px, AlignItems, BackgroundGradient, BorderColor, BorderRadius, ColorStop, Display,
     FlexDirection, Gradient, GridPlacement, InterpolationColorSpace, LinearGradient, Node, Outline,
-    PositionType, UiRect, UiSystems, UiTransform, Val2, ZIndex,
+    PositionType, UiRect, UiSystems, UiTransform, Val2,
 };
 use bevy_ui_render::ui_material::MaterialNode;
 use bevy_ui_widgets::{
@@ -228,10 +228,7 @@ impl FeathersColorSlider {
                         display: Display::Grid,
                         grid_row: GridPlacement::start(1),
                         grid_column: GridPlacement::start(1),
-                        left: px(0),
-                        right: px(0),
-                        top: px(TRACK_PADDING),
-                        bottom: px(TRACK_PADDING),
+                        margin: {UiRect::vertical(px(TRACK_PADDING))},
                         border_radius: {RoundedCorners::All.to_border_radius(TRACK_RADIUS)},
                     }
                     ColorSliderTrack
@@ -241,12 +238,9 @@ impl FeathersColorSlider {
                 (
                     Node {
                         display: Display::Grid,
-                         grid_row: GridPlacement::start(1),
+                        grid_row: GridPlacement::start(1),
                         grid_column: GridPlacement::start(1),
-                        left: px(0),
-                        right: px(0),
-                        top: px(0),
-                        bottom: px(0),
+                        margin: {UiRect::vertical(px(TRACK_PADDING))},
                         border_radius: {RoundedCorners::All.to_border_radius(TRACK_RADIUS)},
                     }
                     BackgroundGradient(vec![
@@ -273,16 +267,15 @@ impl FeathersColorSlider {
                             color_space: InterpolationColorSpace::Srgba,
                         }),
                     ])
-                    ZIndex(1)
                 ),
                 // Inset range for the thumb
                 (
                     Node {
                         display: Display::Grid,
-
+                        grid_row: GridPlacement::start(1),
+                        grid_column: GridPlacement::start(1),
                         margin: {UiRect::horizontal(px(THUMB_SIZE * 0.5))},
                     }
-                    ZIndex(2)
                     Children [(
                         Node {
                             position_type: PositionType::Absolute,
@@ -357,10 +350,7 @@ pub fn color_slider_bundle<B: Bundle>(
                 Node {
                     grid_row: GridPlacement::start(1),
                     grid_column: GridPlacement::start(1),
-                    left: px(1),
-                    right: px(1),
-                    top: px(TRACK_PADDING),
-                    bottom: px(TRACK_PADDING),
+                    margin: UiRect::vertical(px(TRACK_PADDING)),
                     border_radius: RoundedCorners::All.to_border_radius(TRACK_RADIUS),
                     ..Default::default()
                 },
@@ -372,10 +362,7 @@ pub fn color_slider_bundle<B: Bundle>(
                 Node {
                     grid_row: GridPlacement::start(1),
                     grid_column: GridPlacement::start(1),
-                    left: px(0),
-                    right: px(0),
-                    top: px(0),
-                    bottom: px(0),
+                    margin: UiRect::vertical(px(TRACK_PADDING)),
                     border_radius: RoundedCorners::All.to_border_radius(TRACK_RADIUS),
                     ..Default::default()
                 },
@@ -403,7 +390,6 @@ pub fn color_slider_bundle<B: Bundle>(
                         color_space: InterpolationColorSpace::Srgba,
                     }),
                 ]),
-                ZIndex(1),
             ),
             // Inset range for the thumb
             (
@@ -414,7 +400,6 @@ pub fn color_slider_bundle<B: Bundle>(
                     margin: UiRect::horizontal(px(THUMB_SIZE * 0.5)),
                     ..Default::default()
                 },
-                ZIndex(2),
                 children![(
                     Node {
                         position_type: PositionType::Absolute,
@@ -464,7 +449,6 @@ fn update_slider_pos(
 fn update_track_color(
     mut q_sliders: Query<(Entity, &ColorSlider, &SliderBaseColor), Changed<SliderBaseColor>>,
     q_children: Query<&Children>,
-    q_track: Query<(), With<ColorSliderTrack>>,
     // Without<FeathersTextInput> and Without<FeathersSlider> to avoid ambiguity with FeathersSlider systems
     mut q_gradient: Query<
         &mut BackgroundGradient,
@@ -473,15 +457,11 @@ fn update_track_color(
 ) {
     for (slider_ent, slider, SliderBaseColor(base_color)) in q_sliders.iter_mut() {
         let (start, middle, end) = slider.channel.gradient_ends(*base_color);
-        if let Some(track_ent) = q_children
+        if let Some(gradient_ent) = q_children
             .iter_descendants(slider_ent)
-            .find(|ent| q_track.contains(*ent))
+            .find(|ent| q_gradient.contains(*ent))
         {
-            let Ok(track_children) = q_children.get(track_ent) else {
-                continue;
-            };
-
-            if let Ok(mut gradient) = q_gradient.get_mut(track_children[0])
+            if let Ok(mut gradient) = q_gradient.get_mut(gradient_ent)
                 && let [Gradient::Linear(left_gradient), Gradient::Linear(right_gradient)] =
                     &mut gradient.0[..]
             {
