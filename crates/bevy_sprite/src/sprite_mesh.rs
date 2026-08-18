@@ -4,7 +4,7 @@ use bevy_color::Color;
 use bevy_ecs::{component::Component, reflect::ReflectComponent, template::FromTemplate};
 use bevy_image::{Image, TextureAtlas, TextureAtlasLayout};
 use bevy_math::{Rect, UVec2, Vec2};
-use bevy_reflect::{std_traits::ReflectDefault, PartialReflect, Reflect};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::components::Transform;
 
 use crate::{Anchor, SpriteImageMode};
@@ -44,19 +44,6 @@ pub struct SpriteMesh {
     /// set it to `Blend` instead (significantly worse for performance).
     pub alpha_mode: SpriteAlphaMode,
 }
-
-impl core::hash::Hash for SpriteMesh {
-    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
-        self.image.hash(state);
-        self.texture_atlas.hash(state);
-        self.color.reflect_hash().hash(state);
-        self.custom_size.reflect_hash().hash(state);
-        self.flip_x.hash(state);
-        self.flip_y.hash(state);
-    }
-}
-
-impl Eq for SpriteMesh {}
 
 // NOTE: The SpriteImageMode, SpriteScalingMode and Anchor are imported from the sprite module.
 
