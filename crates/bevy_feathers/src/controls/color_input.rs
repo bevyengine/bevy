@@ -955,19 +955,6 @@ fn update_mode_selector(
                 }
             }
 
-            // Adjust the grid span of the swatch so that it fills the space
-            // when the text input is not visible.
-            if let Ok(mut swatch_node) = q_node.get_mut(refs.swatch) {
-                let new_span = if settings.mode == ColorInputMode::RGPlane {
-                    GridPlacement::auto()
-                } else {
-                    GridPlacement::span(3)
-                };
-                if swatch_node.grid_column != new_span {
-                    swatch_node.grid_column = new_span;
-                }
-            }
-
             update_controls(
                 &mut q_color_plane,
                 &mut q_editable_text,
@@ -1037,6 +1024,17 @@ fn set_pane_visible(
         },
         commands,
     );
+    // The swatch fills the row the hex input vacates.
+    if let Ok(mut swatch_node) = q_node.get_mut(refs.swatch) {
+        let span = if mode == ColorInputMode::RGPlane {
+            GridPlacement::auto()
+        } else {
+            GridPlacement::span(3)
+        };
+        if swatch_node.grid_column != span {
+            swatch_node.grid_column = span;
+        }
+    }
     set_node_visible(
         q_node,
         refs.hs_plane,
