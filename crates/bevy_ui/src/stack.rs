@@ -49,6 +49,8 @@ impl ChildBufferCache {
     }
 }
 
+/// A `StackRoot` can be either a root UI node, or a parented UI node with a `GlobalZIndex` component.
+/// The stack root and its descedents, up to any nested `StackRoots`, occupy a contiguous range in the render stack.
 #[derive(Ord, PartialOrd, PartialEq, Eq)]
 pub(crate) struct StackRoot {
     global_z: i32,
@@ -59,7 +61,7 @@ pub(crate) struct StackRoot {
 
 /// Generates the render stack for UI nodes.
 ///
-/// Create a list of stack roots from parentless entities and entities with a `GlobalZIndex` component.
+/// Create a list of `StackRoot`s from parentless entities and entities with a `GlobalZIndex` component.
 /// Then build the `UiStack` from a walk of the existing layout trees starting from each stack root,
 /// filtering branches by `Without<GlobalZIndex>`so that we don't revisit nodes.
 pub fn ui_stack_system(
@@ -385,7 +387,7 @@ mod tests {
     }
 
     #[test]
-    fn order_of_ui_stack_roots_should_be_preserved_between_frames() {
+    fn order_of_stack_roots_should_be_preserved_between_frames() {
         #[derive(Component)]
         struct Marker;
         let mut world = World::default();
@@ -443,7 +445,7 @@ mod tests {
     }
 
     #[test]
-    fn order_of_global_zindex_stack_roots_should_be_preserved_between_frames() {
+    fn order_of_parented_stack_roots_should_be_preserved_between_frames() {
         #[derive(Component)]
         struct Marker;
         let mut world = World::default();
