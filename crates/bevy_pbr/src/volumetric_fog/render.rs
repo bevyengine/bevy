@@ -641,7 +641,8 @@ pub fn prepare_volumetric_fog_uniforms(
 
             // Determine whether the camera is inside or outside the volume, and
             // calculate the clip space transform.
-            let interior = camera_is_inside_fog_volume(&local_from_view);
+            let interior =
+                camera_is_inside_fog_volume(&local_from_view, &extracted_view.clip_from_view);
             let hull_clip_from_local = calculate_fog_volume_clip_from_local_transforms(
                 interior,
                 &extracted_view.clip_from_view,
@@ -721,14 +722,6 @@ fn get_far_planes(view_from_local: &Affine3A) -> [Vec4; 6] {
         let view_position = view_from_local.transform_point3a(-local_normal * 0.5);
         let plane_coords = view_normal.extend(-view_normal.dot(view_position));
 
-        // Filter planes that are facing away from the camera.
-        if plane_coords.w <= 0.0 {
-            // When planes are filtered here, the `far_planes` array will be padded with
-            // one or more "zero" planes: (0.0, 0.0, 0.0, 0.0), these planes will be
-            // correctly ignored by the shader in the plane sorting step.
-            continue;
-        }
-
         far_planes[next_index] = plane_coords;
         next_index += 1;
     }
@@ -763,13 +756,25 @@ impl VolumetricFogBindGroupLayoutKey {
 }
 
 /// Given the transform from the view to the 1×1×1 cube in local fog volume
-/// space, returns true if the camera is inside the volume.
-fn camera_is_inside_fog_volume(local_from_view: &Affine3A) -> bool {
-    local_from_view
-        .translation
-        .abs()
-        .cmple(Vec3A::splat(0.5))
-        .all()
+/// space, returns true if the volume reaches the camera's near clip rectangle.
+fn camera_is_inside_fog_volume(local_from_view: &Affine3A, clip_from_view: &Mat4) -> bool {
+    let view_from_clip = clip_from_view.inverse();
+    let (mut min, mut max) = (local_from_view.translation, local_from_view.translation);
+    // Reverse-z: the near plane is at NDC depth 1.0.
+    for ndc in [
+        vec4(-1.0, -1.0, 1.0, 1.0),
+        vec4(1.0, -1.0, 1.0, 1.0),
+        vec4(-1.0, 1.0, 1.0, 1.0),
+        vec4(1.0, 1.0, 1.0, 1.0),
+    ] {
+        let view_corner = view_from_clip * ndc;
+        let local_corner =
+            local_from_view.transform_point3a(Vec3A::from(view_corner.truncate() / view_corner.w));
+        min = min.min(local_corner);
+        max = max.max(local_corner);
+    }
+
+    min.cmple(Vec3A::splat(0.5)).all() && max.cmpge(Vec3A::splat(-0.5)).all()
 }
 
 /// Given the local transforms, returns the matrix that transforms model space

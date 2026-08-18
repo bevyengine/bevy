@@ -38,7 +38,6 @@ import bevy_pbr::render::shadow_sampling::{
 import bevy_pbr::render::shadows::{get_cascade_index, world_to_directional_light_local};
 import bevy_pbr::render::utils::interleaved_gradient_noise;
 import bevy_pbr::render::view_transformations::{
-    depth_ndc_to_view_z,
     frag_coord_to_ndc,
     position_ndc_to_view,
     position_ndc_to_world,
@@ -141,44 +140,38 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
     // faces of the AABB, this is the current fragment's depth.
     let view_start_pos = position_ndc_to_view(frag_coord_to_ndc(frag_coord));
 
-    // Calculate the end position of the ray. This requires us to raytrace the
-    // back faces of the AABB to find the one that our ray intersects.
-    var end_depth_view = 0.0;
+    // Slab test against the six face planes. `t` is relative to
+    // `view_start_pos`, so t = 1 is the fragment being drawn.
+    var t_enter = 0.0;
+    var t_exit = 3.402823e+38;
+    var misses = false;
     for (var plane_index = 0; plane_index < 6; plane_index += 1) {
         let plane = volumetric_fog.far_planes[plane_index];
-        let other_plane_a = volumetric_fog.far_planes[(plane_index + 1) % 6];
-        let other_plane_b = volumetric_fog.far_planes[(plane_index + 2) % 6];
-        let other_plane_c = volumetric_fog.far_planes[(plane_index + 3) % 6];
-        let other_plane_d = volumetric_fog.far_planes[(plane_index + 4) % 6];
-        let other_plane_e = volumetric_fog.far_planes[(plane_index + 5) % 6];
-
-        // Calculate the intersection of the ray and the plane. The ray must
-        // intersect in front of us (t > 0).
-        let t = -plane.w / dot(plane.xyz, view_start_pos.xyz);
-        if (t < 0.0) {
+        let denom = dot(plane.xyz, view_start_pos.xyz);
+        if (abs(denom) < 1e-9) {
+            if (plane.w < 0.0) {
+                misses = true;
+            }
             continue;
         }
-        let hit_pos = view_start_pos.xyz * t;
-
-        // The intersection point must be in front of the other backfaces.
-        // If those tests pass, we found our backface.
-        if (dot(vec4(hit_pos, 1.0), other_plane_a) >= 0.0 &&
-            dot(vec4(hit_pos, 1.0), other_plane_b) >= 0.0 &&
-            dot(vec4(hit_pos, 1.0), other_plane_c) >= 0.0 &&
-            dot(vec4(hit_pos, 1.0), other_plane_d) >= 0.0 &&
-            dot(vec4(hit_pos, 1.0), other_plane_e) >= 0.0)
-        {
-            end_depth_view = -hit_pos.z;
-            break;
+        let t = -plane.w / denom;
+        if (denom > 0.0) {
+            t_enter = max(t_enter, t);
+        } else {
+            t_exit = min(t_exit, t);
         }
     }
 
-    // Starting at the end depth, which we got above, figure out how long the
-    // ray we want to trace is and the length of each increment.
-    end_depth_view = min(end_depth_view, view_end_depth_from_buffer);
+    let t_start = max(t_enter, 1.0);
+    if (misses || t_exit <= t_start) {
+        return vec4(0.0, 0.0, 0.0, 0.0);
+    }
+
+    let start_pos_view = view_start_pos.xyz * t_start;
 
     // We assume world and view have the same scale here.
-    let start_depth_view = -depth_ndc_to_view_z(frag_coord.z);
+    let start_depth_view = -start_pos_view.z;
+    let end_depth_view = min(-view_start_pos.z * t_exit, view_end_depth_from_buffer);
 
     let ray_length_view = max(0.0, end_depth_view - start_depth_view);
     // If the end is behind the start of the first opaque pixel, then we know it
@@ -195,7 +188,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
     // view, and world coordinates.
     let Rd_ndc = vec3(frag_coord_to_ndc(position).xy, 1.0);
     let Rd_view = normalize(position_ndc_to_view(Rd_ndc));
-    var Ro_world = position_view_to_world(view_start_pos.xyz);
+    var Ro_world = position_view_to_world(start_pos_view);
     let Rd_world = normalize(position_ndc_to_world(Rd_ndc) - view.world_position);
 
     // Offset by jitter.
@@ -257,7 +250,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
 
             // Calculate where we are in the ray.
             let P_world = Ro_world + Rd_world * f32(step) * step_size_world;
-            let P_view = view_start_pos + Rd_view * f32(step) * step_size_world;
+            let P_view = start_pos_view + Rd_view * f32(step) * step_size_world;
 
             var density = density_factor;
             // Take the density texture into account, if there is one.
@@ -351,7 +344,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
 
         // Calculate where we are in the ray.
         let P_world = Ro_world + Rd_world * f32(step) * step_size_world;
-        let P_view = view_start_pos + Rd_view * f32(step) * step_size_world;
+        let P_view = start_pos_view + Rd_view * f32(step) * step_size_world;
 
         var density = density_factor;
             // Take the density texture into account, if there is one.
