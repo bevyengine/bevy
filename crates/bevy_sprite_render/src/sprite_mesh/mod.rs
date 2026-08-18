@@ -9,11 +9,12 @@ use bevy_ecs::{
 use bevy_asset::{Assets, Handle};
 
 use bevy_image::TextureAtlasLayout;
-use bevy_math::{primitives::Rectangle, vec2};
+use bevy_math::vec2;
 use bevy_mesh::{
     mark_2d_meshes_as_changed_if_their_assets_changed, Mesh, Mesh2d, MeshAttributeCompressionFlags,
     MeshBuilder, Meshable,
 };
+use bevy_shape::Rectangle;
 
 use bevy_platform::collections::HashMap;
 use bevy_shader::load_shader_library;
