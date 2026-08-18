@@ -9,6 +9,7 @@ use bevy_ecs::{
     entity::Entity,
     event::EntityEvent,
     hierarchy::{ChildOf, Children},
+    lifecycle::Despawn,
     observer::On,
     query::{Changed, With},
     reflect::ReflectComponent,
@@ -24,13 +25,13 @@ use bevy_input_focus::{
     tab_navigation::TabIndex, AutoFocus, FocusCause, FocusLost, FocusedInput, InputFocus,
 };
 use bevy_log::warn;
-use bevy_math::{Vec2, Vec3};
+use bevy_math::{UVec2, Vec2, Vec3};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::{prelude::*, Ready};
-use bevy_text::{EditableText, Justify, TextEdit, TextLayout};
+use bevy_text::{EditableText, Justify, LineHeight, TextEdit, TextLayout};
 use bevy_ui::{
     prelude::AccessibleLabel, px, AlignItems, AlignSelf, Display, FlexDirection, GridPlacement,
-    GridTrack, JustifySelf, Node, RepeatedGridTrack, UiRect,
+    GridTrack, JustifySelf, Node, RepeatedGridTrack,
 };
 use bevy_ui_widgets::{
     popover::{Popover, PopoverAlign, PopoverPlacement, PopoverSide},
@@ -40,16 +41,21 @@ use bevy_ui_widgets::{
 use crate::{
     constants::fonts,
     controls::{
-        ButtonVariant, ColorChannel, ColorPlaneValue, ColorSlider, ColorSwatchValue,
-        FeathersButton, FeathersColorPlane, FeathersColorSlider, FeathersColorSwatch,
-        FeathersLazyMenu, FeathersMenuPopup, FeathersMenuToolButton, FeathersNumberInput,
-        FeathersTextInput, FeathersTextInputContainer, HardLimit, NumberInputPrecision,
-        NumberInputRange, NumberInputStep, NumberInputValue, SliderBaseColor,
+        ButtonVariant, ColorChannel, ColorPlaneValue, ColorSlider, ColorSwatchGridUpdate,
+        ColorSwatchValue, FeathersButton, FeathersColorPlane, FeathersColorSlider,
+        FeathersColorSwatch, FeathersColorSwatchGrid, FeathersLazyMenu, FeathersMenuPopup,
+        FeathersMenuToolButton, FeathersNumberInput, FeathersTextInput, FeathersTextInputContainer,
+        HardLimit, NumberInputPrecision, NumberInputRange, NumberInputStep, NumberInputValue,
+        SliderBaseColor,
     },
     display::{caption, label},
     font_styles::InheritableFont,
     rounded_corners::RoundedCorners,
 };
+
+const RECENT_COLORS_COLUMNS: u32 = 12;
+const RECENT_COLORS_ROWS: u32 = 2;
+const RECENT_COLORS_COUNT: usize = (RECENT_COLORS_COLUMNS * RECENT_COLORS_ROWS) as usize;
 
 /// Component that contains the value of the color input.
 #[derive(Component, Default, Clone, Reflect)]
@@ -70,7 +76,14 @@ pub enum ColorInputMode {
 /// Resource that contains user preferences for the color input.
 /// This is global (shared between all picker instances), because it's
 /// a user preference.
+///
+/// This means that the choice of color space is "sticky": when the user chooses RGB or HSL modes,
+/// the next time the picker opens, even if it's editing a different entity or color attribute,
+/// the picker will be in that mode. The assumption is that artists have a preferred mode and will
+/// generally stick with it. (Also, we have no way to store the user's preference on a
+/// per-attribute basis.)
 #[derive(Resource, Default)]
+// #[derive(SettingsGroup)] // TODO
 pub struct ColorInputSettings {
     /// Which color space we're editing
     pub mode: ColorInputMode,
@@ -78,11 +91,32 @@ pub struct ColorInputSettings {
     pub recent_colors: Vec<Color>,
 }
 
+impl ColorInputSettings {
+    /// Push the new color onto the head of the list, and remove any duplicate entries.
+    /// Also trim the list size to 24 items, which is the size of the grid.
+    pub fn add_recent_color(&mut self, color: Color) {
+        if let Some(index) = self
+            .recent_colors
+            .iter()
+            .position(|existing| *existing == color)
+        {
+            self.recent_colors.remove(index);
+        }
+
+        self.recent_colors.insert(0, color);
+        self.recent_colors.truncate(RECENT_COLORS_COUNT);
+    }
+}
+
 /// A button which displays a color swatch; when clicked, it displays a popup containing
 /// a color picker.
 ///
 /// This is spawnable by inheriting it as a "scene component" with optional
 /// [`FeathersColorInputProps`].
+///
+/// The picker contains a number of user preferences which are sticky, and which
+/// are stored on the [`ColorInputSettings`] resource. If the bevy settings plugin in installed,
+/// these user preferences will be saved along with the user's settings.
 #[derive(SceneComponent, Default, Clone, Reflect)]
 #[reflect(Component, Clone, Default)]
 #[scene(FeathersColorInputProps)]
@@ -133,6 +167,7 @@ struct PopupEntityRefs {
     hex_input_container: Entity,
     hex_input: Entity,
     swatch: Entity,
+    recent: Entity,
 }
 
 /// Which color model is the current source of truth
@@ -167,9 +202,11 @@ impl ColorInputState {
     /// When controls are interacted with, only the current source is updated; when we switch
     /// color sources, the new source is updated from the previous source.
     ///
-    /// Prevents lossy conversions: for example, an RGB color that has no saturation (black, white
-    /// or gray) has an indeterminate hue. We do this by only overwriting a color model's channels
-    /// when they're well-defined in the source color, preserving the previous value otherwise.
+    /// This maintains separate color values for each color space, rather than a single union, so
+    /// that we can prevent lossy conversions when switching color spaces. For example, an RGB color
+    /// that has no saturation (black, white or gray) has an indeterminate hue. We do this by only
+    /// overwriting a color model's channels when they're well-defined in the source color,
+    /// preserving the previous value otherwise.
     fn change_source(&mut self, next_source: SourceColorSpace) {
         if next_source != self.source {
             match self.source {
@@ -242,6 +279,22 @@ impl ColorInputState {
                     self.hsl.into()
                 }
             },
+        }
+    }
+
+    /// Return a [`Color`] representing the current source color.
+    fn to_color(&self) -> Color {
+        match self.source {
+            SourceColorSpace::Rgb => Color::from(self.rgb),
+            SourceColorSpace::Hsl => Color::from(self.hsl),
+        }
+    }
+
+    /// Return the alpha component of the current source color
+    fn to_alpha(&self) -> f32 {
+        match self.source {
+            SourceColorSpace::Rgb => self.rgb.alpha,
+            SourceColorSpace::Hsl => self.hsl.alpha,
         }
     }
 }
@@ -318,6 +371,7 @@ fn color_input_popup() -> Box<dyn Scene> {
             hex_input_container: #hex_input_container,
             hex_input: #hex_input,
             swatch: #swatch,
+            recent: #recent,
         }
         Node {
             width: px(256 + 18), // room for 256 px wide plane widgets + padding/border
@@ -325,7 +379,8 @@ fn color_input_popup() -> Box<dyn Scene> {
             padding: px(4)
         }
         TabIndex
-        on(handle_popup_ready)
+        on(popup_ready)
+        on(popup_despawn)
         Popover {
             positions: vec![
                 PopoverPlacement {
@@ -634,17 +689,10 @@ fn color_input_popup() -> Box<dyn Scene> {
                             TextLayout {
                                 justify: Justify::Center,
                             }
-                            Node {
-                                margin: UiRect {
-                                    top: px(4),
-                                    left: px(4),
-                                    bottom: px(0),
-                                    right: px(4),
-                                }
-                            }
                             InheritableFont {
                                 font: fonts::MONO
                             }
+                            template_value(LineHeight::Px(24.0)) // TODO: Make const for this
                             on(hex_input_on_enter_key)
                             on(hex_input_on_focus_loss)
                         )
@@ -661,6 +709,14 @@ fn color_input_popup() -> Box<dyn Scene> {
                     }
                 )
             ],
+
+            // Recent colors
+            #recent
+            @FeathersColorSwatchGrid {
+                size: UVec2::new(RECENT_COLORS_COLUMNS, RECENT_COLORS_ROWS),
+                opaque_color_percentage: 50.0,
+            }
+            on(recent_color_selected)
         ]
     ))
 }
@@ -816,6 +872,8 @@ fn color_input_value_change(
     q_popup: Query<&PopupEntityRefs, With<FeathersMenuPopup>>,
     mut q_color_plane: Query<&mut ColorPlaneValue>,
     mut q_editable_text: Query<&mut EditableText>,
+    mut grid_update: ColorSwatchGridUpdate,
+    settings: Res<ColorInputSettings>,
     mut commands: Commands,
 ) {
     for (&ColorInputValue(value), mut state, refs, children) in q_input.iter_mut() {
@@ -838,7 +896,29 @@ fn color_input_value_change(
                 refs,
                 &state,
             );
+
+            grid_update.update(refs.recent, &settings.recent_colors, Some(value));
         }
+    }
+}
+
+/// Re-emit a recent color selection from the color input itself, so that it's indistinguishable
+/// from any other edit.
+fn recent_color_selected(
+    change: On<ValueChange<Color>>,
+    q_parent: Query<&ChildOf>,
+    q_state: Query<&ColorInputState>,
+    mut commands: Commands,
+) {
+    if let Some(root_id) = q_parent
+        .iter_ancestors(change.source)
+        .find(|e| q_state.contains(*e))
+    {
+        commands.trigger(ValueChange {
+            source: root_id,
+            value: change.value,
+            is_final: true,
+        });
     }
 }
 
@@ -999,16 +1079,40 @@ fn set_node_visible(
     }
 }
 
-fn handle_popup_ready(
-    insert: On<Ready>,
+/// Record the edited color in the recent colors palette when the popup closes.
+///
+/// The popup is despawned by every path which closes it, including ESC, so this is also the
+/// commit point for a cancelled edit. That's deliberate: the picker has no commit button, and
+/// the recent colors list is a convenience rather than part of the edited document.
+fn popup_despawn(
+    despawn: On<Despawn<PopupEntityRefs>>,
+    q_popup: Query<&ChildOf, With<PopupEntityRefs>>,
+    q_color_input: Query<&ColorInputValue>,
+    mut settings: ResMut<ColorInputSettings>,
+) {
+    let Ok(parent) = q_popup.get(despawn.entity) else {
+        return;
+    };
+
+    // The color input is gone too if the whole widget is being torn down.
+    let Ok(ColorInputValue(value)) = q_color_input.get(parent.get()) else {
+        return;
+    };
+
+    settings.add_recent_color(*value);
+}
+
+fn popup_ready(
+    ready: On<Ready>,
     q_popup: Query<(&PopupEntityRefs, &ChildOf)>,
     mut q_color_input: Query<(&ColorInputValue, &mut ColorInputState)>,
     mut q_editable_text: Query<&mut EditableText>,
     mut q_color_plane: Query<&mut ColorPlaneValue>,
+    mut grid_update: ColorSwatchGridUpdate,
     settings: Res<ColorInputSettings>,
     mut commands: Commands,
 ) {
-    let Ok((refs, parent)) = q_popup.get(insert.entity) else {
+    let Ok((refs, parent)) = q_popup.get(ready.entity) else {
         return;
     };
 
@@ -1035,6 +1139,8 @@ fn handle_popup_ready(
         refs,
         &state,
     );
+
+    grid_update.update(refs.recent, &settings.recent_colors, Some(*value));
 }
 
 fn update_controls(
@@ -1044,10 +1150,7 @@ fn update_controls(
     refs: &PopupEntityRefs,
     state: &ColorInputState,
 ) {
-    let color = match state.source {
-        SourceColorSpace::Rgb => Color::from(state.rgb),
-        SourceColorSpace::Hsl => Color::from(state.hsl),
-    };
+    let color = state.to_color();
 
     if let Ok(mut color_plane_value) = q_color_plane.get_mut(refs.rg_plane) {
         color_plane_value.set_if_neq(ColorPlaneValue(Vec3::new(
@@ -1079,10 +1182,7 @@ fn update_controls(
         .insert(SliderBaseColor(color));
     commands
         .entity(refs.a_slider)
-        .insert(SliderValue(match state.source {
-            SourceColorSpace::Rgb => state.rgb.alpha,
-            SourceColorSpace::Hsl => state.hsl.alpha,
-        }))
+        .insert(SliderValue(state.to_alpha()))
         .insert(SliderBaseColor(color));
     commands
         .entity(refs.h_slider)
@@ -1142,10 +1242,7 @@ fn update_controls(
         .entity(refs.a_input)
         .insert(scaled_number_input_value(
             ColorChannel::Alpha,
-            match state.source {
-                SourceColorSpace::Rgb => state.rgb.alpha,
-                SourceColorSpace::Hsl => state.hsl.alpha,
-            },
+            state.to_alpha(),
         ));
 
     // Update the color swatch

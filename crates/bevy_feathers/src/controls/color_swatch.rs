@@ -32,13 +32,24 @@ use crate::{
 pub struct FeathersColorSwatch;
 
 /// Props used to construct a [`FeathersColorSwatch`] scene.
-#[derive(Default)]
 pub struct FeathersColorSwatchProps {
     /// Set a percentage of the swatch to display the opaque version of the
     /// current color.
     pub opaque_color_percentage: f32,
     /// Rounded corners options
     pub corners: RoundedCorners,
+    /// Border radius option
+    pub border_radius: f32,
+}
+
+impl Default for FeathersColorSwatchProps {
+    fn default() -> Self {
+        Self {
+            opaque_color_percentage: Default::default(),
+            corners: Default::default(),
+            border_radius: 5.0,
+        }
+    }
 }
 
 /// Component that contains the value of the color swatch. This is copied to the child element
@@ -64,7 +75,7 @@ impl FeathersColorSwatch {
                     top: px(0),
                     bottom: px(0),
                     right: px(0),
-                    border_radius: BorderRadius::right(px(5)),
+                    border_radius: {RoundedCorners::Right.to_border_radius(props.border_radius)}, // TODO: intersect with prop
                 }
                 ColorSwatchFg
                 BackgroundColor({palette::ACCENT})
@@ -76,7 +87,7 @@ impl FeathersColorSwatch {
             Node {
                 height: size::ROW_HEIGHT,
                 min_width: size::ROW_HEIGHT,
-                border_radius: {props.corners.to_border_radius(4.0)},
+                border_radius: {props.corners.to_border_radius(props.border_radius)},
             }
             FeathersColorSwatch
             ColorSwatchValue
@@ -90,7 +101,7 @@ impl FeathersColorSwatch {
                         top: px(0),
                         bottom: px(0),
                         right: px(0),
-                        border_radius: {props.corners.to_border_radius(4.0)},
+                        border_radius: {props.corners.to_border_radius(props.border_radius)},
                     }
                     ColorSwatchFg
                     BackgroundColor({palette::ACCENT.with_alpha(0.5)})

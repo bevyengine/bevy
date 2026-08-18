@@ -7,6 +7,7 @@ mod color_input;
 mod color_plane;
 mod color_slider;
 mod color_swatch;
+mod color_swatch_grid;
 mod dialog;
 mod disclosure_toggle;
 mod listview;
@@ -26,6 +27,7 @@ pub use color_input::*;
 pub use color_plane::*;
 pub use color_slider::*;
 pub use color_swatch::*;
+pub use color_swatch_grid::*;
 pub use dialog::*;
 pub use disclosure_toggle::*;
 pub use listview::*;
@@ -55,6 +57,7 @@ impl PluginGroup for ControlsPlugin {
             .add(ColorPlanePlugin)
             .add(ColorSliderPlugin)
             .add(ColorSwatchPlugin)
+            .add(ColorSwatchGridPlugin)
             .add(DisclosureTogglePlugin)
             .add(ListViewPlugin)
             .add(MenuPlugin)
