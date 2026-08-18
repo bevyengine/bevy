@@ -270,6 +270,8 @@ impl RenderVisibleEntitiesClass {
     /// no-CPU-culling visible entries table.
     pub fn entity_pair_is_visible(&self, entity: Entity, main_entity: MainEntity) -> bool {
         self.entities_cpu_culling
+            // We need to search by the same key used to sort the vec
+            // in `collect_visible_cpu_culled_entities_for_subview()`
             .binary_search_by_key(&main_entity, |(_, main_entity)| *main_entity)
             .is_ok_and(|index| self.entities_cpu_culling[index].0 == entity)
             || self
