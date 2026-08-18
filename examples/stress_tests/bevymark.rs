@@ -91,7 +91,7 @@ impl FromStr for Mode {
             "sprite" => Ok(Self::Sprite),
             "mesh2d" => Ok(Self::Mesh2d),
             _ => Err(format!(
-                "Unknown mode: '{s}', valid modes: 'sprite', 'mesh2d', 'sprite_mesh'"
+                "Unknown mode: '{s}', valid modes: 'sprite', 'mesh2d'"
             )),
         }
     }

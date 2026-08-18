@@ -189,7 +189,7 @@ impl AsAssetId for Sprite {
 
 /// An enum describing how a sprite's alpha channel will be handled.
 /// The base color being modified is that of the texture after tinting.
-/// The default is `Mask(0.5)`.
+/// The default is `Blend`.
 #[derive(Debug, Reflect, Copy, Clone, PartialEq)]
 #[reflect(Default, Debug, Clone)]
 pub enum SpriteAlphaMode {
