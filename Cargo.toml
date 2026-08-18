@@ -5606,6 +5606,30 @@ category = "Camera"
 wasm = true
 
 [[example]]
+name = "pan_orbit_camera_minimal"
+path = "examples/camera/pan_orbit_camera_minimal.rs"
+doc-scrape-examples = true
+required-features = ["pan_orbit_camera", "https", "3d_api", "jpeg"]
+
+[package.metadata.example.pan_orbit_camera_minimal]
+name = "Minimal Pan Orbit Camera"
+description = "Minimum setup for working PanOrbitCamera"
+category = "Camera"
+wasm = true
+
+[[example]]
+name = "pan_orbit_camera_ortho"
+path = "examples/camera/pan_orbit_camera_ortho.rs"
+doc-scrape-examples = true
+required-features = ["pan_orbit_camera", "https", "3d_api", "jpeg"]
+
+[package.metadata.example.pan_orbit_camera_ortho]
+name = "Orthographic Pan Orbit Camera"
+description = "Using Pan Orbit Camera in orthographic-only projection"
+category = "Camera"
+wasm = true
+
+[[example]]
 name = "contiguous_query"
 path = "examples/ecs/contiguous_query.rs"
 doc-scrape-examples = true
