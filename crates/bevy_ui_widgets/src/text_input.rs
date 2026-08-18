@@ -19,7 +19,7 @@ use bevy_input_focus::{
     FocusCause, FocusGained, FocusLost, FocusedInput, InputFocus, InputFocusSystems,
 };
 use bevy_math::Vec2;
-use bevy_picking::events::{Drag, Pointer, PointerState, Press, Release};
+use bevy_picking::events::{PointerDrag, PointerPress, PointerRelease, PointerState};
 use bevy_picking::pointer::PointerButton;
 use bevy_picking::Pickable;
 use bevy_reflect::Reflect;
@@ -241,7 +241,7 @@ fn on_focused_keyboard_input(
 /// Note that this does not immediately apply the edits; they are queued up in [`EditableText::pending_edits`],
 /// and then applied later by the [`apply_text_edits`](`bevy_text::apply_text_edits`) system.
 fn on_pointer_press(
-    mut press: On<Pointer<Press>>,
+    mut press: On<PointerPress>,
     mut text_input_query: Query<
         (
             &mut EditableText,
@@ -281,8 +281,8 @@ fn on_pointer_press(
     }
 
     let Some(local_pos) = transform.try_inverse().and_then(|inverse| {
-        let local_pos = inverse
-            .transform_point2(press.pointer_location.position * target.scale_factor() / ui_scale.0);
+        let local_pos =
+            inverse.transform_point2(press.pointer.position * target.scale_factor() / ui_scale.0);
         node.content_box()
             .contains(local_pos)
             .then(|| local_pos - node.content_box().min + editable_text.viewport.offset)
@@ -310,7 +310,7 @@ fn on_pointer_press(
 /// Note that this does not immediately apply the edits; they are queued up in [`EditableText::pending_edits`],
 /// and then applied later by the [`apply_text_edits`](`bevy_text::apply_text_edits`) system.
 fn on_pointer_drag(
-    mut drag: On<Pointer<Drag>>,
+    mut drag: On<PointerDrag>,
     mut text_input_query: Query<
         (
             &mut EditableText,
@@ -345,8 +345,7 @@ fn on_pointer_drag(
     }
 
     let Some(local_point) = transform.try_inverse().map(|inverse| {
-        inverse
-            .transform_point2(drag.pointer_location.position * target.scale_factor() / ui_scale.0)
+        inverse.transform_point2(drag.pointer.position * target.scale_factor() / ui_scale.0)
     }) else {
         return;
     };
@@ -956,9 +955,9 @@ fn update_placeholders(
 /// `on_focus_select_all` defers selection until pointer release if the focus was gained
 /// by a pointer press. This system applies the queued selection.
 ///
-/// Note, that the `Pointer<Release>` does not have to happen on the same entity.
+/// Note, that the `PointerRelease` does not have to happen on the same entity.
 fn apply_queued_select_all(
-    mut pointer_releases: MessageReader<Pointer<Release>>,
+    mut pointer_releases: MessageReader<PointerRelease>,
     mut queued_select_all: ResMut<QueuedSelectAll>,
     mut q_text_input: Query<&mut EditableText, With<SelectAllOnFocus>>,
 ) {
