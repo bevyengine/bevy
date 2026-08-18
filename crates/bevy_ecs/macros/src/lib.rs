@@ -851,6 +851,13 @@ pub fn derive_settings_group(input: TokenStream) -> TokenStream {
 /// #[component(clone_behavior = Ignore)]
 /// struct MyComponent;
 /// ```
+///
+/// ## Summary ticks
+/// ```ignore
+/// #[derive(Component)]
+/// #[component(summary_tick)]
+/// ```
+///
 /// [`Component`]: ../component/trait.Component.html
 #[proc_macro_derive(
     Component,

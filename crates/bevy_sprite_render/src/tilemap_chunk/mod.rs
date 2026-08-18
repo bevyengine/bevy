@@ -165,15 +165,18 @@ fn on_insert_tilemap_chunk(mut world: DeferredWorld, HookContext { entity, .. }:
 
     let tile_data_image = make_chunk_tile_data_image(&chunk_size, &packed_tile_data);
 
-    let tilemap_chunk_mesh_cache = world.resource::<TilemapChunkMeshCache>();
-
     let mesh_size = chunk_size * tilemap_chunk.tile_display_size;
 
-    let mesh = if let Some(mesh) = tilemap_chunk_mesh_cache.get(&mesh_size) {
+    let mesh = if let Some(mesh) = world.resource::<TilemapChunkMeshCache>().get(&mesh_size) {
         mesh.clone()
     } else {
-        let mut meshes = world.resource_mut::<Assets<Mesh>>();
-        meshes.add(Rectangle::from_size(mesh_size.as_vec2()))
+        let mesh = world
+            .resource_mut::<Assets<Mesh>>()
+            .add(Rectangle::from_size(mesh_size.as_vec2()));
+        world
+            .resource_mut::<TilemapChunkMeshCache>()
+            .insert(mesh_size, mesh.clone());
+        mesh
     };
 
     let mut images = world.resource_mut::<Assets<Image>>();
