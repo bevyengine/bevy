@@ -37,9 +37,7 @@ pub struct Sprite {
     pub rect: Option<Rect>,
     /// How the sprite's image will be scaled.
     pub image_mode: SpriteImageMode,
-    /// The sprite's alpha mode, defaulting to `Mask(0.5)`.
-    /// If you wish to render a sprite with translucent pixels,
-    /// set it to `Blend` instead (significantly worse for performance).
+    /// The sprite's alpha mode, defaulting to `Blend`.
     pub alpha_mode: SpriteAlphaMode,
 }
 
