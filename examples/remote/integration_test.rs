@@ -176,7 +176,7 @@ fn main() -> AnyhowResult<()> {
     )?;
 
     // Step 6: Send MouseButtonInput Pressed + Released via WindowEvent messages.
-    // The picking system needs both press and release to generate a Pointer<Click>.
+    // The picking system needs both press and release to generate a PointerClick.
     println!("Sending mouse press...");
     brp_request(
         &url,

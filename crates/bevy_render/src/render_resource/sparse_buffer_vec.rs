@@ -46,7 +46,7 @@ pub struct SparseBufferPlugin;
 
 impl Plugin for SparseBufferPlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "sparse_buffer_update.wgsl");
+        embedded_asset!(app, "sparse_buffer_update.wesl");
     }
 
     fn finish(&self, app: &mut App) {
@@ -183,7 +183,9 @@ struct GpuSparseBufferUpdateMetadata {
 ///
 /// This runs as early in the pipeline as possible so that sparse buffers can be
 /// used for any subsequent pass.
-fn update_sparse_buffers(
+///
+/// Runs in [`RenderGraphSystems::Begin`].
+pub fn update_sparse_buffers(
     sparse_buffer_update_jobs: Res<SparseBufferUpdateJobs>,
     sparse_buffer_update_bind_groups: Res<SparseBufferUpdateBindGroups>,
     pipeline_cache: Res<PipelineCache>,
@@ -279,7 +281,7 @@ impl FromWorld for SparseBufferUpdatePipelines {
 
         SparseBufferUpdatePipelines {
             bind_group_layout: Some(bind_group_layout),
-            shader: Some(load_embedded_asset!(world, "sparse_buffer_update.wgsl")),
+            shader: Some(load_embedded_asset!(world, "sparse_buffer_update.wesl")),
         }
     }
 }

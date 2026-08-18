@@ -89,7 +89,7 @@ struct SphericalCoordinates {
 }
 
 /// The path to the shader that renders the depth texture.
-static SHADER_ASSET_PATH: &str = "shaders/show_depth_texture_material.wgsl";
+static SHADER_ASSET_PATH: &str = "shaders/show_depth_texture_material.wesl";
 
 /// The size in texels of a depth texture.
 const DEPTH_TEXTURE_SIZE: u32 = 256;

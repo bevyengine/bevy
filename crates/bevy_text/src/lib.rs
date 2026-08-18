@@ -75,7 +75,7 @@ pub mod prelude {
     };
 }
 
-use bevy_app::prelude::*;
+use bevy_app::{prelude::*, PropagateSet};
 use bevy_asset::AssetApp;
 use bevy_ecs::prelude::*;
 
@@ -130,7 +130,8 @@ impl Plugin for TextPlugin {
                     load_font_assets_into_font_collection,
                     detect_text_needs_rerender,
                 )
-                    .chain(),
+                    .chain()
+                    .after(PropagateSet::<TextFont>::default()),
             )
             .add_systems(Last, trim_source_cache)
             .add_systems(

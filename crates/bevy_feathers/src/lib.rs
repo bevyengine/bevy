@@ -27,14 +27,14 @@ use bevy_app::{
 use bevy_asset::embedded_asset;
 use bevy_ecs::{query::With, schedule::IntoScheduleConfigs};
 use bevy_input_focus::tab_navigation::TabNavigationPlugin;
+use bevy_picking::cursor::{CursorIconPlugin, DefaultCursor, EntityCursor};
 use bevy_text::{TextColor, TextFont};
-use bevy_ui::UiSystems;
-use bevy_ui_render::UiMaterialPlugin;
+use bevy_ui::{AccessibilityUiSystems, UiSystems};
+use bevy_ui_render::{ImageNodeAssetChangedSystems, UiMaterialPlugin};
 
 use crate::{
     alpha_pattern::{AlphaPatternMaterial, AlphaPatternResource},
     controls::ControlsPlugin,
-    cursor::{CursorIconPlugin, DefaultCursor, EntityCursor},
     theme::{ThemeContext, ThemedText, UiTheme},
 };
 
@@ -42,7 +42,6 @@ mod alpha_pattern;
 pub mod constants;
 pub mod containers;
 pub mod controls;
-pub mod cursor;
 pub mod dark_theme;
 pub mod display;
 pub mod focus;
@@ -72,8 +71,8 @@ impl Plugin for FeathersCorePlugin {
         embedded_asset!(app, "assets/icons/x.png");
 
         // Embedded shader
-        embedded_asset!(app, "assets/shaders/alpha_pattern.wgsl");
-        embedded_asset!(app, "assets/shaders/color_plane.wgsl");
+        embedded_asset!(app, "assets/shaders/alpha_pattern.wesl");
+        embedded_asset!(app, "assets/shaders/color_plane.wesl");
 
         app.add_plugins((
             ControlsPlugin,
@@ -91,6 +90,10 @@ impl Plugin for FeathersCorePlugin {
             PostUpdate,
             PropagateSet::<TextFont>::default().in_set(UiSystems::Propagate),
         );
+        app.configure_sets(
+            PostUpdate,
+            PropagateSet::<TextColor>::default().in_set(UiSystems::Propagate),
+        );
 
         app.insert_resource(DefaultCursor(EntityCursor::System(
             bevy_window::SystemCursorIcon::Default,
@@ -99,9 +102,19 @@ impl Plugin for FeathersCorePlugin {
         app.add_systems(
             PostUpdate,
             (
-                theme::update_theme,
-                display::update_themed_icons.after(PropagateSet::<TextColor>::default()),
-            ),
+                theme::update_theme.in_set(UiSystems::Prepare),
+                display::update_themed_icons
+                    .after(PropagateSet::<TextColor>::default())
+                    // These systems deal with the underlying asset of the ImageNode,
+                    // which this system does not change.
+                    .ambiguous_with(ImageNodeAssetChangedSystems)
+                    // These systems merely update the `AccessibilityNode` and do not depend
+                    // on any changes `update_themed_icons` does to an image node.
+                    .ambiguous_with(AccessibilityUiSystems)
+                    // `update_themed_icons` does not affect the size of content.
+                    .ambiguous_with(UiSystems::Content),
+            )
+                .chain(),
         )
         .add_observer(theme::on_changed_background)
         .add_observer(theme::on_changed_border)
