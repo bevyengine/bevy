@@ -609,7 +609,7 @@ impl ViewDepthPyramid {
     }
 
     /// Creates a bind group that allows the depth buffer to be attached to the
-    /// `downsample_depth.wgsl` shader.
+    /// `downsample_depth.wesl` shader.
     pub fn create_bind_group<'a, R>(
         &'a self,
         render_device: &RenderDevice,
@@ -719,7 +719,7 @@ pub fn prepare_view_depth_pyramids(
 }
 
 /// The bind group that we use to attach the depth buffer and depth pyramid for
-/// a view to the `downsample_depth.wgsl` shader.
+/// a view to the `downsample_depth.wesl` shader.
 ///
 /// This will only be present for a view if occlusion culling is enabled.
 #[derive(Component, Deref, DerefMut)]

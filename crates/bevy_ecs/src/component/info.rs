@@ -57,6 +57,14 @@ impl ComponentInfo {
         self.descriptor.mutable
     }
 
+    /// Returns `true` if this component tracks a summary tick.
+    ///
+    /// Summary ticks are only supported for table components.
+    #[inline]
+    pub fn summary_tick(&self) -> bool {
+        self.descriptor.summary_tick
+    }
+
     /// Returns [`ComponentCloneBehavior`] of the current component.
     #[inline]
     pub fn clone_behavior(&self) -> &ComponentCloneBehavior {
@@ -227,6 +235,7 @@ pub struct ComponentDescriptor {
     // None if the underlying type doesn't need to be dropped
     drop: Option<for<'a> unsafe fn(OwningPtr<'a>)>,
     mutable: bool,
+    summary_tick: bool,
     clone_behavior: ComponentCloneBehavior,
     relationship_accessor: MaybeRelationshipAccessor,
 }
@@ -241,6 +250,7 @@ impl Debug for ComponentDescriptor {
             .field("type_id", &self.type_id)
             .field("layout", &self.layout)
             .field("mutable", &self.mutable)
+            .field("summary_tick", &self.summary_tick)
             .field("clone_behavior", &self.clone_behavior)
             .field("relationship_accessor", &self.relationship_accessor)
             .finish()
@@ -260,6 +270,12 @@ impl ComponentDescriptor {
 
     /// Create a new `ComponentDescriptor` for the type `T`.
     pub fn new<T: Component>() -> Self {
+        let summary_tick = T::has_summary_tick();
+        assert!(
+            !summary_tick || matches!(T::STORAGE_TYPE, StorageType::Table),
+            "Summary ticks are only supported for table components"
+        );
+
         Self {
             name: DebugName::type_name::<T>(),
             storage_type: T::STORAGE_TYPE,
@@ -269,6 +285,7 @@ impl ComponentDescriptor {
             layout: Layout::new::<T>(),
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
             mutable: T::Mutability::MUTABLE,
+            summary_tick,
             clone_behavior: T::clone_behavior(),
             relationship_accessor: T::relationship_accessor().map(|v| v.initializer).into(),
         }
@@ -290,6 +307,7 @@ impl ComponentDescriptor {
         layout: Layout,
         drop: Option<for<'a> unsafe fn(OwningPtr<'a>)>,
         mutable: bool,
+        summary_tick: bool,
         clone_behavior: ComponentCloneBehavior,
         relationship_accessor: Option<RelationshipAccessorInitializer>,
     ) -> Self {
@@ -298,6 +316,11 @@ impl ComponentDescriptor {
             layout,
             "Layout size must be a multiple of its alignment.  Consider calling `pad_to_align()`."
         );
+        assert!(
+            !summary_tick || matches!(storage_type, StorageType::Table),
+            "Summary ticks are only supported for table components"
+        );
+
         Self {
             name: name.into().into(),
             storage_type,
@@ -306,6 +329,7 @@ impl ComponentDescriptor {
             layout,
             drop,
             mutable,
+            summary_tick,
             clone_behavior,
             relationship_accessor: relationship_accessor.into(),
         }
@@ -321,6 +345,7 @@ impl ComponentDescriptor {
             layout: Layout::new::<T>(),
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
             mutable: true,
+            summary_tick: false,
             clone_behavior: ComponentCloneBehavior::Default,
             relationship_accessor: None.into(),
         }
@@ -349,6 +374,14 @@ impl ComponentDescriptor {
     #[inline]
     pub fn mutable(&self) -> bool {
         self.mutable
+    }
+
+    /// Returns whether this component tracks a summary tick.
+    ///
+    /// Summary ticks are only supported for table components.
+    #[inline]
+    pub fn summary_tick(&self) -> bool {
+        self.summary_tick
     }
 
     fn initialize(&mut self, id: ComponentId, components: &mut Components) {
