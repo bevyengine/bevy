@@ -95,7 +95,6 @@ fn demo_root() -> impl Scene {
             height: percent(100),
             align_items: AlignItems::Start,
             align_content: AlignContent::Start,
-            justify_content: JustifyContent::Start,
             padding: px(8),
             row_gap: px(8),
             column_gap: px(8),
@@ -216,12 +215,9 @@ fn demo_column_1() -> impl SceneList {
                     display: Display::Flex,
                     flex_direction: FlexDirection::Row,
                     align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Start,
                     column_gap: px(8),
                     width: percent(30),
                     min_width: px(200),
-                    flex_grow: 0.0,
-                    flex_shrink: 0.0,
                 }
                 Children [
                     (
@@ -335,8 +331,6 @@ fn demo_column_1() -> impl SceneList {
                 Node {
                     width: percent(30),
                     min_width: px(200),
-                    flex_grow: 0.0,
-                    flex_shrink: 0.0,
                 }
                 on(|change: On<ValueChange<Entity>>, q_options: Query<&OptionIndex>| {
                     let Ok(option) = q_options.get(change.value) else {
@@ -368,8 +362,6 @@ fn demo_column_1() -> impl SceneList {
                 Node {
                     width: percent(30),
                     min_width: px(200),
-                    flex_grow: 0.0,
-                    flex_shrink: 0.0,
                 }
                 on(|change: On<ValueChange<Entity>>, q_months: Query<&Months>| {
                     let Ok(month) = q_months.get(change.value) else {
@@ -383,12 +375,9 @@ fn demo_column_1() -> impl SceneList {
                     display: Display::Flex,
                     flex_direction: FlexDirection::Row,
                     align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Start,
                     column_gap: px(1),
                     width: percent(30),
                     min_width: px(200),
-                    flex_grow: 0.0,
-                    flex_shrink: 0.0,
                 }
                 Children [
                     (
@@ -438,12 +427,9 @@ fn demo_column_1() -> impl SceneList {
                     display: Display::Flex,
                     flex_direction: FlexDirection::Row,
                     align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Start,
                     column_gap: px(8),
                     width: percent(30),
                     min_width: px(200),
-                    flex_grow: 0.0,
-                    flex_shrink: 0.0,
                 }
                 Children [
                     (
@@ -478,12 +464,9 @@ fn demo_column_1() -> impl SceneList {
                     display: Display::Flex,
                     flex_direction: FlexDirection::Row,
                     align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Start,
                     column_gap: px(8),
                     width: percent(30),
                     min_width: px(200),
-                    flex_grow: 0.0,
-                    flex_shrink: 0.0,
                 }
                 Children [
                     label("Dialog:"),
@@ -501,8 +484,6 @@ fn demo_column_1() -> impl SceneList {
                 Node {
                     width: percent(30),
                     min_width: px(200),
-                    flex_grow: 0.0,
-                    flex_shrink: 0.0,
                 }
                 Checked
                 AccessibleLabel("Checkbox Example")
@@ -533,8 +514,6 @@ fn demo_column_1() -> impl SceneList {
                 Node {
                     width: percent(30),
                     min_width: px(200),
-                    flex_grow: 0.0,
-                    flex_shrink: 0.0,
                 }
                 ActivateOnPress
                 AccessibleLabel("Fast Click Checkbox Example")
@@ -558,8 +537,6 @@ fn demo_column_1() -> impl SceneList {
                 Node {
                     width: percent(30),
                     min_width: px(200),
-                    flex_grow: 0.0,
-                    flex_shrink: 0.0,
                 }
                 InteractionDisabled
                 AccessibleLabel("Disabled Checkbox Example")
@@ -574,8 +551,6 @@ fn demo_column_1() -> impl SceneList {
                 Node {
                     width: percent(30),
                     min_width: px(200),
-                    flex_grow: 0.0,
-                    flex_shrink: 0.0,
                 }
                 InteractionDisabled
                 Checked
@@ -589,12 +564,9 @@ fn demo_column_1() -> impl SceneList {
                     display: Display::Flex,
                     flex_direction: FlexDirection::Row,
                     align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Start,
                     column_gap: px(8),
                     width: percent(30),
                     min_width: px(200),
-                    flex_grow: 0.0,
-                    flex_shrink: 0.0,
                 }
                 Children [
                     (
@@ -636,12 +608,9 @@ fn demo_column_1() -> impl SceneList {
                     display: Display::Flex,
                     flex_direction: FlexDirection::Row,
                     align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Start,
                     column_gap: px(8),
                     width: percent(30),
                     min_width: px(200),
-                    flex_grow: 0.0,
-                    flex_shrink: 0.0,
                 }
                 Children [
                     (@FeathersToggleSwitch on(checkbox_self_update)),
@@ -659,7 +628,6 @@ fn demo_column_1() -> impl SceneList {
                     width: percent(30),
                     min_width: px(200),
                     flex_grow: 0.0,
-                    flex_shrink: 0.0,
                 }
                 SliderValue(20.0)
                 SliderStep(10.)
@@ -671,11 +639,8 @@ fn demo_column_1() -> impl SceneList {
                     display: Display::Flex,
                     flex_direction: FlexDirection::Column,
                     align_items: AlignItems::Stretch,
-                    justify_content: JustifyContent::Start,
                     width: percent(30),
                     min_width: px(200),
-                    flex_grow: 0.0,
-                    flex_shrink: 0.0,
                     row_gap: px(8),
                 }
                 Children [
@@ -771,11 +736,8 @@ fn demo_column_1() -> impl SceneList {
                     display: Display::Flex,
                     flex_direction: FlexDirection::Column,
                     align_items: AlignItems::Stretch,
-                    justify_content: JustifyContent::Start,
                     width: percent(30),
                     min_width: px(200),
-                    flex_grow: 0.0,
-                    flex_shrink: 0.0,
                     row_gap: px(8),
                 }
                 Children [
@@ -834,8 +796,6 @@ fn demo_column_2() -> impl SceneList {
             Node {
                 width: percent(30),
                 min_width: px(200),
-                flex_grow: 0.0,
-                flex_shrink: 0.0,
             }
             Children [
                 pane_header() Children [
@@ -989,8 +949,6 @@ fn demo_column_2() -> impl SceneList {
         Node {
             width: percent(30),
             min_width: px(200),
-            flex_grow: 0.0,
-            flex_shrink: 0.0,
         }
         Children [
             subpane_header() Children [
