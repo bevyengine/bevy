@@ -26,6 +26,10 @@ impl Val {
             }
             Val::Vw(value) => style_helpers::length(context.physical_size.x * value / 100.),
             Val::Vh(value) => style_helpers::length(context.physical_size.y * value / 100.),
+            Val::Em(value) => style_helpers::length(context.scale_factor * value * context.em_size),
+            Val::Rem(value) => {
+                style_helpers::length(context.scale_factor * value * context.rem_size)
+            }
         }
     }
 
@@ -42,6 +46,10 @@ impl Val {
             }
             Val::Vw(value) => style_helpers::length(context.physical_size.x * value / 100.),
             Val::Vh(value) => style_helpers::length(context.physical_size.y * value / 100.),
+            Val::Em(value) => style_helpers::length(context.scale_factor * value * context.em_size),
+            Val::Rem(value) => {
+                style_helpers::length(context.scale_factor * value * context.rem_size)
+            }
         }
     }
 
@@ -343,6 +351,10 @@ impl MinTrackSizingFunction {
             MinTrackSizingFunction::Percent(val) => {
                 Val::Percent(val).into_length_percentage(context).into()
             }
+            MinTrackSizingFunction::Em(val) => Val::Em(val).into_length_percentage(context).into(),
+            MinTrackSizingFunction::Rem(val) => {
+                Val::Rem(val).into_length_percentage(context).into()
+            }
             MinTrackSizingFunction::Auto => taffy::style::MinTrackSizingFunction::auto(),
             MinTrackSizingFunction::MinContent => {
                 taffy::style::MinTrackSizingFunction::min_content()
@@ -368,6 +380,10 @@ impl MaxTrackSizingFunction {
             MaxTrackSizingFunction::Px(val) => Val::Px(val).into_length_percentage(context).into(),
             MaxTrackSizingFunction::Percent(val) => {
                 Val::Percent(val).into_length_percentage(context).into()
+            }
+            MaxTrackSizingFunction::Em(val) => Val::Em(val).into_length_percentage(context).into(),
+            MaxTrackSizingFunction::Rem(val) => {
+                Val::Rem(val).into_length_percentage(context).into()
             }
             MaxTrackSizingFunction::Auto => taffy::style::MaxTrackSizingFunction::auto(),
             MaxTrackSizingFunction::MinContent => {
@@ -452,6 +468,7 @@ impl RepeatedGridTrack {
 #[cfg(test)]
 mod tests {
     use bevy_math::Vec2;
+    use bevy_text::{EmSize, RemSize, DEFAULT_REM_SIZE_PX};
 
     use crate::BorderRadius;
 
@@ -533,7 +550,12 @@ mod tests {
             grid_column: GridPlacement::start(4),
             grid_row: GridPlacement::span(3),
         };
-        let viewport_values = LayoutContext::new(1.0, Vec2::new(800., 600.));
+        let viewport_values = LayoutContext::new(
+            1.0,
+            Vec2::new(800., 600.),
+            EmSize(DEFAULT_REM_SIZE_PX),
+            RemSize(DEFAULT_REM_SIZE_PX),
+        );
         let taffy_style = from_node(&node, &viewport_values);
         assert_eq!(taffy_style.display, taffy::style::Display::Flex);
         assert_eq!(taffy_style.box_sizing, taffy::style::BoxSizing::ContentBox);
@@ -673,7 +695,7 @@ mod tests {
     #[test]
     fn test_into_length_percentage() {
         use taffy::style::LengthPercentage;
-        let context = LayoutContext::new(2.0, Vec2::new(800., 600.));
+        let context = LayoutContext::new(2.0, Vec2::new(800., 600.), EmSize(10.), RemSize(20.));
         let cases = [
             (Val::Auto, LengthPercentage::length(0.)),
             (Val::Percent(1.), LengthPercentage::percent(0.01)),
@@ -682,6 +704,8 @@ mod tests {
             (Val::Vh(1.), LengthPercentage::length(6.)),
             (Val::VMin(2.), LengthPercentage::length(12.)),
             (Val::VMax(2.), LengthPercentage::length(16.)),
+            (Val::Em(2.), LengthPercentage::length(40.)),
+            (Val::Rem(3.), LengthPercentage::length(120.)),
         ];
         for (val, length) in cases {
             assert!({

@@ -32,6 +32,7 @@ use bevy_render::{
 use bevy_render::{GpuResourceAppExt, RenderStartup};
 use bevy_shader::Shader;
 use bevy_sprite::BorderRect;
+use bevy_text::{EmSize, RemSize};
 use bevy_ui::{
     BackgroundGradient, BorderGradient, ColorStop, ComputedStackIndex, ComputedUiRenderTargetInfo,
     ConicGradient, Gradient, InterpolationColorSpace, LinearGradient, RadialGradient,
@@ -294,13 +295,15 @@ fn compute_color_stops(
     length: f32,
     target_size: Vec2,
     scratch: &mut Vec<(LinearRgba, f32, f32)>,
+    em_size: EmSize,
+    rem_size: RemSize,
 ) -> Vec<(LinearRgba, f32, f32)> {
     let mut extracted_color_stops = vec![];
 
     // resolve the physical distances of explicit stops and sort them
     scratch.extend(stops.iter().filter_map(|stop| {
         stop.point
-            .resolve(scale_factor, length, target_size)
+            .resolve(scale_factor, length, target_size, em_size, rem_size)
             .ok()
             .map(|physical_point| (stop.color.to_linear(), physical_point, stop.hint))
     }));
@@ -470,6 +473,8 @@ pub fn extract_gradients(
                         length,
                         target.physical_size().as_vec2(),
                         &mut sorted_stops,
+                        uinode.em_size,
+                        uinode.rem_size,
                     );
                     extracted_gradients
                         .items
@@ -510,6 +515,8 @@ pub fn extract_gradients(
                             length,
                             target.physical_size().as_vec2(),
                             &mut sorted_stops,
+                            uinode.em_size,
+                            uinode.rem_size,
                         );
 
                         extracted_gradients
@@ -546,6 +553,8 @@ pub fn extract_gradients(
                             target.scale_factor(),
                             uinode.size,
                             target.physical_size().as_vec2(),
+                            uinode.em_size,
+                            uinode.rem_size,
                         );
 
                         let size = shape.resolve(
@@ -553,6 +562,8 @@ pub fn extract_gradients(
                             target.scale_factor(),
                             uinode.size,
                             target.physical_size().as_vec2(),
+                            uinode.em_size,
+                            uinode.rem_size,
                         );
 
                         let length = size.x;
@@ -563,6 +574,8 @@ pub fn extract_gradients(
                             length,
                             target.physical_size().as_vec2(),
                             &mut sorted_stops,
+                            uinode.em_size,
+                            uinode.rem_size,
                         );
 
                         extracted_gradients
@@ -599,6 +612,8 @@ pub fn extract_gradients(
                             target.scale_factor(),
                             uinode.size,
                             target.physical_size().as_vec2(),
+                            uinode.em_size,
+                            uinode.rem_size,
                         );
 
                         // sort the explicit stops
