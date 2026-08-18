@@ -19,9 +19,9 @@ use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_scene::prelude::*;
 use bevy_ui::{
-    percent, px, AlignItems, BackgroundGradient, BorderColor, BorderRadius, ColorStop, Display,
-    FlexDirection, Gradient, GridPlacement, InterpolationColorSpace, LinearGradient, Node, Outline,
-    PositionType, UiRect, UiSystems, UiTransform, Val2,
+    percent, px, BackgroundGradient, BorderColor, BorderRadius, ColorStop, Display, Gradient,
+    GridPlacement, InterpolationColorSpace, LinearGradient, Node, Outline, PositionType, UiRect,
+    UiSystems, UiTransform, Val2,
 };
 use bevy_ui_render::ui_material::MaterialNode;
 use bevy_ui_widgets::{
@@ -204,9 +204,7 @@ impl FeathersColorSlider {
         bsn! {
             Node {
                 display: Display::Grid,
-                flex_direction: FlexDirection::Row,
                 height: px(SLIDER_HEIGHT),
-                align_items: AlignItems::Stretch,
                 flex_grow: 1.0,
             }
             Slider {
@@ -225,7 +223,6 @@ impl FeathersColorSlider {
                 // track
                 (
                     Node {
-                        display: Display::Grid,
                         grid_row: GridPlacement::start(1),
                         grid_column: GridPlacement::start(1),
                         margin: {UiRect::vertical(px(TRACK_PADDING))},
@@ -237,7 +234,6 @@ impl FeathersColorSlider {
                 ),
                 (
                     Node {
-                        display: Display::Grid,
                         grid_row: GridPlacement::start(1),
                         grid_column: GridPlacement::start(1),
                         margin: {UiRect::vertical(px(TRACK_PADDING))},
@@ -271,7 +267,6 @@ impl FeathersColorSlider {
                 // Inset range for the thumb
                 (
                     Node {
-                        display: Display::Grid,
                         grid_row: GridPlacement::start(1),
                         grid_column: GridPlacement::start(1),
                         margin: {UiRect::horizontal(px(THUMB_SIZE * 0.5))},
@@ -325,9 +320,7 @@ pub fn color_slider_bundle<B: Bundle>(
     (
         Node {
             display: Display::Grid,
-            flex_direction: FlexDirection::Row,
             height: px(SLIDER_HEIGHT),
-            align_items: AlignItems::Stretch,
             flex_grow: 1.0,
             ..Default::default()
         },
@@ -396,7 +389,6 @@ pub fn color_slider_bundle<B: Bundle>(
                 Node {
                     grid_row: GridPlacement::start(1),
                     grid_column: GridPlacement::start(1),
-                    flex_grow: 1.0,
                     margin: UiRect::horizontal(px(THUMB_SIZE * 0.5)),
                     ..Default::default()
                 },
