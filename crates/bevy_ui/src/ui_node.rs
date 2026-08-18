@@ -11,7 +11,7 @@ use bevy_reflect::prelude::*;
 use bevy_sprite::BorderRect;
 use bevy_utils::once;
 use bevy_window::{PrimaryWindow, WindowRef};
-use core::{f32, num::NonZero};
+use core::num::NonZero;
 use derive_more::derive::From;
 use smallvec::SmallVec;
 use thiserror::Error;
