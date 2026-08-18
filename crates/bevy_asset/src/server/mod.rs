@@ -599,15 +599,17 @@ impl AssetServer {
             drop(guard);
         });
 
-        bevy_tasks::cfg::multi_threaded! {
+        let mut infos = bevy_tasks::cfg::multi_threaded! {
             if {
                 infos
-                    .pending_tasks
-                    .insert((&handle).try_into().unwrap(), task);
             } else {
-                task.detach();
+                // Pick the lock back up after the task got to run.
+                self.write_infos()
             }
-        }
+        };
+        infos
+            .pending_tasks
+            .insert((&handle).try_into().unwrap(), task);
     }
 
     /// Asynchronously load an asset that you do not know the type of statically. If you _do_ know the type of the asset,
@@ -699,13 +701,15 @@ impl AssetServer {
             drop(guard);
         });
 
-        bevy_tasks::cfg::multi_threaded! {
+        let mut infos = bevy_tasks::cfg::multi_threaded! {
             if {
-                infos.pending_tasks.insert(index, task);
+                infos
             } else {
-                task.detach();
+                // Pick the lock back up after the task got to run.
+                self.write_infos()
             }
-        }
+        };
+        infos.pending_tasks.insert(index, task);
 
         handle
     }
@@ -1113,13 +1117,15 @@ impl AssetServer {
             }
         });
 
-        bevy_tasks::cfg::multi_threaded! {
+        let mut infos = bevy_tasks::cfg::multi_threaded! {
             if {
-                infos.pending_tasks.insert(index, task);
+                infos
             } else {
-                task.detach();
+                // Pick the lock back up after the task got to run.
+                self.write_infos()
             }
-        }
+        };
+        infos.pending_tasks.insert(index, task);
 
         handle.typed_debug_checked()
     }
@@ -2233,11 +2239,17 @@ pub fn handle_internal_asset_events(world: &mut World) {
             server.reload_internal(path, true);
         }
 
-        bevy_tasks::cfg::multi_threaded! {
-            infos
-                .pending_tasks
-                .retain(|_, load_task| !load_task.is_finished());
-        }
+        let mut infos = bevy_tasks::cfg::multi_threaded! {
+            if {
+                infos
+            } else {
+                // Pick the lock back up after the task got to run.
+                server.write_infos()
+            }
+        };
+        infos
+            .pending_tasks
+            .retain(|_, load_task| !load_task.is_finished());
     });
 }
 
