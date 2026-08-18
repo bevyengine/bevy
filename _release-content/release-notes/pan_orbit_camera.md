@@ -1,6 +1,6 @@
 ---
 title: Pan Orbit Camera
-authors: ["@taishi-sama"]
+authors: ["@aevyrie, @taishi-sama"]
 pull_requests: [25434]
 ---
 
