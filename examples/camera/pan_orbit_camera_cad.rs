@@ -16,12 +16,10 @@ use bevy::camera_controller::pan_orbit_camera::{
 };
 use bevy::math::DVec3;
 use bevy::{
-    anti_alias::smaa::Smaa, camera::primitives::Aabb, color::palettes::tailwind,
-    core_pipeline::tonemapping::Tonemapping, pbr::ScreenSpaceAmbientOcclusion,
-    platform::time::Instant, post_process::bloom::Bloom, prelude::*, window::RequestRedraw,
+    anti_alias::smaa::Smaa, camera::primitives::Aabb, core_pipeline::tonemapping::Tonemapping,
+    pbr::ScreenSpaceAmbientOcclusion, platform::time::Instant, post_process::bloom::Bloom,
+    prelude::*, window::RequestRedraw,
 };
-use std::f32::consts::FRAC_PI_4;
-use std::f32::consts::PI;
 fn main() {
     App::new()
         .add_plugins((
@@ -288,7 +286,7 @@ fn explode(
         }
     }
     for (_, matl) in matls.iter_mut() {
-        matl.perceptual_roughness = matl.perceptual_roughness.clamp(0.3, 1.0)
+        matl.perceptual_roughness = matl.perceptual_roughness.clamp(0.3, 1.0);
     }
 }
 
