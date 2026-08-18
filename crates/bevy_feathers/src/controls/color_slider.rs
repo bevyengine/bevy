@@ -19,9 +19,9 @@ use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_scene::prelude::*;
 use bevy_ui::{
-    percent, px, AlignSelf, BackgroundGradient, BorderColor, BorderRadius, ColorStop, Display,
-    Gradient, GridPlacement, InterpolationColorSpace, LinearGradient, Node, Outline, UiRect,
-    UiSystems, UiTransform,
+    percent, px, BackgroundGradient, BorderColor, BorderRadius, ColorStop, Display, Gradient,
+    GridPlacement, InterpolationColorSpace, LinearGradient, Node, Outline, PositionType, UiRect,
+    UiSystems, UiTransform, Val2,
 };
 use bevy_ui_render::ui_material::MaterialNode;
 use bevy_ui_widgets::{
@@ -232,6 +232,7 @@ impl FeathersColorSlider {
                     AlphaPattern
                     MaterialNode::<AlphaPatternMaterial>
                 ),
+                // gradient
                 (
                     Node {
                         grid_row: GridPlacement::start(1),
@@ -264,25 +265,33 @@ impl FeathersColorSlider {
                         }),
                     ])
                 ),
+                // thumb
                 (
                     Node {
                         grid_row: GridPlacement::start(1),
                         grid_column: GridPlacement::start(1),
-                        align_self: AlignSelf::Center,
-                        left: percent(0),
-                        width: px(THUMB_SIZE),
-                        height: px(THUMB_SIZE),
-                        border: px(2),
-                        border_radius: BorderRadius::MAX,
+                        margin: {UiRect::horizontal(px(THUMB_SIZE * 0.5))},
                     }
-                    SliderThumb
-                    ColorSliderThumb
-                    BorderColor::all(palette::WHITE)
-                    Outline {
-                        width: px(1),
-                        offset: px(0),
-                        color: palette::BLACK
-                    }
+                    Children [(
+                        Node {
+                            position_type: PositionType::Absolute,
+                            left: percent(0),
+                            top: percent(50),
+                            width: px(THUMB_SIZE),
+                            height: px(THUMB_SIZE),
+                            border: px(2),
+                            border_radius: BorderRadius::MAX,
+                        }
+                        SliderThumb
+                        ColorSliderThumb
+                        BorderColor::all(palette::WHITE)
+                        Outline {
+                            width: px(1),
+                            offset: px(0),
+                            color: palette::BLACK
+                        }
+                        UiTransform::from_translation(Val2::percent(-50., -50.))
+                    )]
                 )
             ]
         }
@@ -343,6 +352,7 @@ pub fn color_slider_bundle<B: Bundle>(
                 AlphaPattern,
                 MaterialNode::<AlphaPatternMaterial>(Handle::default()),
             ),
+            // gradient
             (
                 Node {
                     grid_row: GridPlacement::start(1),
@@ -376,26 +386,35 @@ pub fn color_slider_bundle<B: Bundle>(
                     }),
                 ]),
             ),
+            // thumb
             (
                 Node {
                     grid_row: GridPlacement::start(1),
                     grid_column: GridPlacement::start(1),
-                    align_self: AlignSelf::Center,
-                    left: percent(0),
-                    width: px(THUMB_SIZE),
-                    height: px(THUMB_SIZE),
-                    border: UiRect::all(px(2)),
-                    border_radius: BorderRadius::MAX,
+                    margin: UiRect::horizontal(px(THUMB_SIZE * 0.5)),
                     ..Default::default()
                 },
-                SliderThumb,
-                ColorSliderThumb,
-                BorderColor::all(palette::WHITE),
-                Outline {
-                    width: px(1),
-                    offset: px(0),
-                    color: palette::BLACK
-                },
+                children![(
+                    Node {
+                        position_type: PositionType::Absolute,
+                        left: percent(0),
+                        top: percent(50),
+                        width: px(THUMB_SIZE),
+                        height: px(THUMB_SIZE),
+                        border: UiRect::all(px(2)),
+                        border_radius: BorderRadius::MAX,
+                        ..Default::default()
+                    },
+                    SliderThumb,
+                    ColorSliderThumb,
+                    BorderColor::all(palette::WHITE),
+                    Outline {
+                        width: px(1),
+                        offset: px(0),
+                        color: palette::BLACK
+                    },
+                    UiTransform::from_translation(Val2::new(percent(-50), percent(-50),))
+                )]
             ),
         ],
     )
@@ -410,17 +429,12 @@ fn update_slider_pos(
         ),
     >,
     q_children: Query<&Children>,
-    mut q_slider_thumb: Query<
-        (&mut Node, &mut UiTransform),
-        (With<ColorSliderThumb>, Without<ToggleSwitchSlide>),
-    >,
+    mut q_slider_thumb: Query<&mut Node, (With<ColorSliderThumb>, Without<ToggleSwitchSlide>)>,
 ) {
     for (slider_ent, value, range) in q_sliders.iter_mut() {
         for child in q_children.iter_descendants(slider_ent) {
-            if let Ok((mut thumb_node, mut thumb_transform)) = q_slider_thumb.get_mut(child) {
-                let position = range.thumb_position(value.0);
-                thumb_node.left = percent(position * 100.0);
-                thumb_transform.translation.x = percent(position * -100.0);
+            if let Ok(mut thumb_node) = q_slider_thumb.get_mut(child) {
+                thumb_node.left = percent(range.thumb_position(value.0) * 100.0);
             }
         }
     }
