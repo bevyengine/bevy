@@ -88,19 +88,21 @@ fn scene() -> impl SceneList {
 fn demo_root() -> impl Scene {
     bsn! {
         Node {
-            width: percent(100),
-            height: percent(100),
-            align_items: AlignItems::Start,
-            justify_content: JustifyContent::Start,
-            display: Display::Flex,
-            flex_direction: FlexDirection::Row,
-            column_gap: px(8),
+                display: Display::Flex,
+    flex_direction: FlexDirection::Column,
+    flex_wrap: FlexWrap::Wrap,
+    width: percent(100),
+    height: percent(100),
+    align_items: AlignItems::Start,
+    align_content: AlignContent::Start,
+    row_gap: px(8),
+    column_gap: px(8),
         }
         TabGroup
         ThemeBackgroundColor(tokens::WINDOW_BG)
         Children[
             demo_column_1(),
-            demo_column_2(),
+            { demo_column_2() },
         ]
     }
 }
@@ -744,194 +746,184 @@ fn demo_column_1() -> impl Scene {
     }
 }
 
-fn demo_column_2() -> impl Scene {
-    bsn! {
-        Node {
-            display: Display::Flex,
-            flex_direction: FlexDirection::Column,
-            align_items: AlignItems::Stretch,
-            justify_content: JustifyContent::Start,
-            padding: px(8),
-            row_gap: px(8),
-            width: percent(30),
-            min_width: px(200),
-        }
-        Children [
-            (
-                pane() Children [
-                    pane_header() Children [
-                        @FeathersToolButton {
-                            @variant: ButtonVariant::Primary,
-                            @caption: bsn! { caption("\u{0398}") }
-                        },
-                        pane_header_divider(),
-                        @FeathersToolButton {
-                            @variant: ButtonVariant::Plain,
-                            @caption: bsn! { caption("\u{00BC}") }
-                        },
-                        @FeathersToolButton {
-                            @variant: ButtonVariant::Plain,
-                            @caption: bsn! { caption("\u{00BD}") }
-                        },
-                        @FeathersToolButton {
-                            @variant: ButtonVariant::Plain,
-                            @caption: bsn! { caption("\u{00BE}") }
-                        },
-                        pane_header_divider(),
-                        @FeathersToolButton {
-                            @variant: ButtonVariant::Plain,
-                            @caption: bsn! { icon(icons::CHEVRON_DOWN) }
-                        },
-                        flex_spacer(),
-                        @FeathersToolButton {
-                            @variant: ButtonVariant::Plain,
-                            @caption: bsn! { icon(icons::X) }
-                        },
-                    ],
-                    (
-                        pane_body() Children [
-                            label_dim("A standard editor pane"),
-                            subpane() Children [
-                                subpane_header() Children [
-                                    caption("Left"),
-                                    caption("Center"),
-                                    caption("Right")
-                                ],
-                                subpane_body() Children [
-                                    label_dim("A standard sub-pane"),
-                                    group()
+fn demo_column_2() -> impl SceneList {
+    bsn_list! {
+
+        (
+            pane() Children [
+                pane_header() Children [
+                    @FeathersToolButton {
+                        @variant: ButtonVariant::Primary,
+                        @caption: bsn! { caption("\u{0398}") }
+                    },
+                    pane_header_divider(),
+                    @FeathersToolButton {
+                        @variant: ButtonVariant::Plain,
+                        @caption: bsn! { caption("\u{00BC}") }
+                    },
+                    @FeathersToolButton {
+                        @variant: ButtonVariant::Plain,
+                        @caption: bsn! { caption("\u{00BD}") }
+                    },
+                    @FeathersToolButton {
+                        @variant: ButtonVariant::Plain,
+                        @caption: bsn! { caption("\u{00BE}") }
+                    },
+                    pane_header_divider(),
+                    @FeathersToolButton {
+                        @variant: ButtonVariant::Plain,
+                        @caption: bsn! { icon(icons::CHEVRON_DOWN) }
+                    },
+                    flex_spacer(),
+                    @FeathersToolButton {
+                        @variant: ButtonVariant::Plain,
+                        @caption: bsn! { icon(icons::X) }
+                    },
+                ],
+                (
+                    pane_body() Children [
+                        label_dim("A standard editor pane"),
+                        subpane() Children [
+                            subpane_header() Children [
+                                caption("Left"),
+                                caption("Center"),
+                                caption("Right")
+                            ],
+                            subpane_body() Children [
+                                label_dim("A standard sub-pane"),
+                                group()
+                                Children [
+                                    group_header() Children [
+                                        caption("Group"),
+                                    ],
+                                    group_body()
                                     Children [
-                                        group_header() Children [
-                                            caption("Group"),
-                                        ],
-                                        group_body()
-                                        Children [
-                                            label("A standard group"),
-                                            label_small("Scalar property"),
-                                            (
-                                                @FeathersNumberInput
-                                                DemoScalarField
-                                                NumberInputPrecision(2)
-                                                HardLimit::f32(0.0..=100.0)
-                                                Node {
-                                                    flex_grow: 1.0,
-                                                    max_width: px(100),
-                                                }
-                                                on(
-                                                    |value_change: On<ValueChange<f32>>,
-                                                    mut states: ResMut<DemoWidgetStates>| {
-                                                    states.scalar_prop = value_change.value;
-                                                })
-                                            ),
-                                            label_small("Scalar property (copy)"),
-                                            (
-                                                @FeathersNumberInput
-                                                DemoScalarField
-                                                NumberInputPrecision(4)
-                                                Node {
-                                                    flex_grow: 1.0,
-                                                    max_width: px(100),
-                                                }
-                                                on(
-                                                    |value_change: On<ValueChange<f32>>,
-                                                    mut states: ResMut<DemoWidgetStates>| {
-                                                    states.scalar_prop = value_change.value;
-                                                })
-                                            ),
-                                            label_small("Vec3 property"),
+                                        label("A standard group"),
+                                        label_small("Scalar property"),
+                                        (
+                                            @FeathersNumberInput
+                                            DemoScalarField
+                                            NumberInputPrecision(2)
+                                            HardLimit::f32(0.0..=100.0)
                                             Node {
-                                                display: Display::Flex,
-                                                flex_direction: FlexDirection::Row,
-                                                column_gap: px(6),
-                                                align_items: AlignItems::Center,
-                                                justify_content: JustifyContent::SpaceBetween,
+                                                flex_grow: 1.0,
+                                                max_width: px(100),
                                             }
-                                            Children [
-                                                (
-                                                    @FeathersNumberInput {
-                                                        @sigil_color: tokens::TEXT_INPUT_X_AXIS,
-                                                        @label_text: "X",
-                                                    }
-                                                    NumberInputPrecision(2)
-                                                    DemoVec3Field::X
-                                                    Node {
-                                                        flex_grow: 1.0,
-                                                    }
-                                                    BorderColor::all(palette::X_AXIS)
-                                                    on(
-                                                        |value_change: On<ValueChange<f32>>,
-                                                        mut states: ResMut<DemoWidgetStates>| {
-                                                        states.vec3_prop.x = value_change.value;
-                                                    })
-                                                ),
-                                                (
-                                                    @FeathersNumberInput {
-                                                        @sigil_color: tokens::TEXT_INPUT_Y_AXIS,
-                                                        @label_text: "Y",
-                                                    }
-                                                    NumberInputPrecision(2)
-                                                    DemoVec3Field::Y
-                                                    Node {
-                                                        flex_grow: 1.0,
-                                                    }
-                                                    on(
-                                                        |value_change: On<ValueChange<f32>>,
-                                                        mut states: ResMut<DemoWidgetStates>| {
-                                                        states.vec3_prop.y = value_change.value;
-                                                    })
-                                                ),
-                                                (
-                                                    @FeathersNumberInput {
-                                                        @sigil_color: tokens::TEXT_INPUT_Z_AXIS,
-                                                        @label_text: "Z",
-                                                    }
-                                                    NumberInputPrecision(2)
-                                                    DemoVec3Field::Z
-                                                    Node {
-                                                        flex_grow: 1.0,
-                                                    }
-                                                    on(
-                                                        |value_change: On<ValueChange<f32>>,
-                                                        mut states: ResMut<DemoWidgetStates>| {
-                                                        states.vec3_prop.z = value_change.value;
-                                                    })
-                                                ),
-                                            ],
+                                            on(
+                                                |value_change: On<ValueChange<f32>>,
+                                                mut states: ResMut<DemoWidgetStates>| {
+                                                states.scalar_prop = value_change.value;
+                                            })
+                                        ),
+                                        label_small("Scalar property (copy)"),
+                                        (
+                                            @FeathersNumberInput
+                                            DemoScalarField
+                                            NumberInputPrecision(4)
+                                            Node {
+                                                flex_grow: 1.0,
+                                                max_width: px(100),
+                                            }
+                                            on(
+                                                |value_change: On<ValueChange<f32>>,
+                                                mut states: ResMut<DemoWidgetStates>| {
+                                                states.scalar_prop = value_change.value;
+                                            })
+                                        ),
+                                        label_small("Vec3 property"),
+                                        Node {
+                                            display: Display::Flex,
+                                            flex_direction: FlexDirection::Row,
+                                            column_gap: px(6),
+                                            align_items: AlignItems::Center,
+                                            justify_content: JustifyContent::SpaceBetween,
+                                        }
+                                        Children [
+                                            (
+                                                @FeathersNumberInput {
+                                                    @sigil_color: tokens::TEXT_INPUT_X_AXIS,
+                                                    @label_text: "X",
+                                                }
+                                                NumberInputPrecision(2)
+                                                DemoVec3Field::X
+                                                Node {
+                                                    flex_grow: 1.0,
+                                                }
+                                                BorderColor::all(palette::X_AXIS)
+                                                on(
+                                                    |value_change: On<ValueChange<f32>>,
+                                                    mut states: ResMut<DemoWidgetStates>| {
+                                                    states.vec3_prop.x = value_change.value;
+                                                })
+                                            ),
+                                            (
+                                                @FeathersNumberInput {
+                                                    @sigil_color: tokens::TEXT_INPUT_Y_AXIS,
+                                                    @label_text: "Y",
+                                                }
+                                                NumberInputPrecision(2)
+                                                DemoVec3Field::Y
+                                                Node {
+                                                    flex_grow: 1.0,
+                                                }
+                                                on(
+                                                    |value_change: On<ValueChange<f32>>,
+                                                    mut states: ResMut<DemoWidgetStates>| {
+                                                    states.vec3_prop.y = value_change.value;
+                                                })
+                                            ),
+                                            (
+                                                @FeathersNumberInput {
+                                                    @sigil_color: tokens::TEXT_INPUT_Z_AXIS,
+                                                    @label_text: "Z",
+                                                }
+                                                NumberInputPrecision(2)
+                                                DemoVec3Field::Z
+                                                Node {
+                                                    flex_grow: 1.0,
+                                                }
+                                                on(
+                                                    |value_change: On<ValueChange<f32>>,
+                                                    mut states: ResMut<DemoWidgetStates>| {
+                                                    states.vec3_prop.z = value_change.value;
+                                                })
+                                            ),
                                         ],
-                                    ]
-                                ],
-                            ]
+                                    ],
+                                ]
+                            ],
                         ]
-                    ),
-                ]
-            ),
-            subpane() Children [
-                subpane_header() Children [
-                    caption("List"),
-                ],
-                subpane_body() Children [
-                    @FeathersListView {
-                        @rows: {bsn_list![
-                            @FeathersListRow Children [caption("First World")],
-                            @FeathersListRow Selected Children [caption("Second Nature")],
-                            @FeathersListRow Children [caption("Third Degree")],
-                            @FeathersListRow InteractionDisabled Children [caption("Fourth Wall")],
-                            @FeathersListRow Children [caption("Fifth Column")],
-                            @FeathersListRow Children [caption("Sixth Sense")],
-                            @FeathersListRow Children [caption("Seventh Heaven")],
-                            @FeathersListRow Children [caption("Eighth Wonder")],
-                            @FeathersListRow Children [caption("Ninth Inning")],
-                            @FeathersListRow Children [caption("Tenth Amendment")],
-                            @FeathersListRow Children [caption("Eleventh Hour")],
-                            @FeathersListRow Children [caption("Twelfth Night")],
-                        ]}
-                    }
-                    Node {
-                        max_height: px(130)
-                    }
-                    on(listbox_update_selection)
-                ],
+                    ]
+                ),
             ]
+        ),
+
+        subpane() Children [
+            subpane_header() Children [
+                caption("List"),
+            ],
+            subpane_body() Children [
+                @FeathersListView {
+                    @rows: {bsn_list![
+                        @FeathersListRow Children [caption("First World")],
+                        @FeathersListRow Selected Children [caption("Second Nature")],
+                        @FeathersListRow Children [caption("Third Degree")],
+                        @FeathersListRow InteractionDisabled Children [caption("Fourth Wall")],
+                        @FeathersListRow Children [caption("Fifth Column")],
+                        @FeathersListRow Children [caption("Sixth Sense")],
+                        @FeathersListRow Children [caption("Seventh Heaven")],
+                        @FeathersListRow Children [caption("Eighth Wonder")],
+                        @FeathersListRow Children [caption("Ninth Inning")],
+                        @FeathersListRow Children [caption("Tenth Amendment")],
+                        @FeathersListRow Children [caption("Eleventh Hour")],
+                        @FeathersListRow Children [caption("Twelfth Night")],
+                    ]}
+                }
+                Node {
+                    max_height: px(130)
+                }
+                on(listbox_update_selection)
+            ],
         ]
     }
 }
