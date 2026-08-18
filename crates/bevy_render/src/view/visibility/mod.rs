@@ -452,10 +452,10 @@ mod tests {
         let main_b = MainEntity::from(entity_from(1, 0));
 
         let render_a = entity_from(0, 0);
-        // We fake a situation where index 0 gets reused for the render entity
+        // We need an entity with a different generation since it affects the sort order.
         // This is necessary to create a sort order that is different when sorting on the full tuple
         // compared to sorting on the main entity.
-        let render_b = entity_from(0, 1);
+        let render_b = entity_from(1, 1);
 
         let mut pairs = vec![(render_a, main_a), (render_b, main_b)];
 
