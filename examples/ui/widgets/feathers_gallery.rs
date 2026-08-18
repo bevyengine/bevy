@@ -88,20 +88,22 @@ fn scene() -> impl SceneList {
 fn demo_root() -> impl Scene {
     bsn! {
         Node {
-                display: Display::Flex,
-    flex_direction: FlexDirection::Column,
-    flex_wrap: FlexWrap::Wrap,
-    width: percent(100),
-    height: percent(100),
-    align_items: AlignItems::Start,
-    align_content: AlignContent::Start,
-    row_gap: px(8),
-    column_gap: px(8),
+            display: Display::Flex,
+            flex_direction: FlexDirection::Column,
+            flex_wrap: FlexWrap::Wrap,
+            width: percent(100),
+            height: percent(100),
+            align_items: AlignItems::Start,
+            align_content: AlignContent::Start,
+            justify_content: JustifyContent::Start,
+            padding: px(8),
+            row_gap: px(8),
+            column_gap: px(8),
         }
         TabGroup
         ThemeBackgroundColor(tokens::WINDOW_BG)
         Children[
-            demo_column_1(),
+            { demo_column_1() },
             { demo_column_2() },
         ]
     }
@@ -158,7 +160,7 @@ impl Months {
     }
 }
 
-fn demo_column_1() -> impl Scene {
+fn demo_column_1() -> impl SceneList {
     // Lazily-constructed menu popup
     let popup: Arc<dyn Fn() -> Box<dyn Scene> + Sync + Send> = Arc::new(|| {
         Box::new(bsn!(
@@ -208,18 +210,7 @@ fn demo_column_1() -> impl Scene {
         ))
     });
 
-    bsn! {
-        Node {
-            display: Display::Flex,
-            flex_direction: FlexDirection::Column,
-            align_items: AlignItems::Stretch,
-            justify_content: JustifyContent::Start,
-            padding: px(8),
-            row_gap: px(8),
-            width: percent(30),
-            min_width: px(200),
-        }
-        Children [
+    bsn_list! {
             (
                 Node {
                     display: Display::Flex,
@@ -227,6 +218,10 @@ fn demo_column_1() -> impl Scene {
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Start,
                     column_gap: px(8),
+                    width: percent(25),
+                    min_width: px(200),
+                    flex_grow: 0.0,
+                    flex_shrink: 0.0,
                 }
                 Children [
                     (
@@ -338,7 +333,10 @@ fn demo_column_1() -> impl Scene {
                     ], Some(0))},
                 }
                 Node {
-                    flex_grow: 1.0,
+                    width: percent(25),
+                    min_width: px(200),
+                    flex_grow: 0.0,
+                    flex_shrink: 0.0,
                 }
                 on(|change: On<ValueChange<Entity>>, q_options: Query<&OptionIndex>| {
                     let Ok(option) = q_options.get(change.value) else {
@@ -368,7 +366,10 @@ fn demo_column_1() -> impl Scene {
                     @max_visible: 6,
                 }
                 Node {
-                    flex_grow: 1.0,
+                    width: percent(25),
+                    min_width: px(200),
+                    flex_grow: 0.0,
+                    flex_shrink: 0.0,
                 }
                 on(|change: On<ValueChange<Entity>>, q_months: Query<&Months>| {
                     let Ok(month) = q_months.get(change.value) else {
@@ -384,6 +385,10 @@ fn demo_column_1() -> impl Scene {
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Start,
                     column_gap: px(1),
+                    width: percent(25),
+                    min_width: px(200),
+                    flex_grow: 0.0,
+                    flex_shrink: 0.0,
                 }
                 Children [
                     (
@@ -435,6 +440,10 @@ fn demo_column_1() -> impl Scene {
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Start,
                     column_gap: px(8),
+                    width: percent(25),
+                    min_width: px(200),
+                    flex_grow: 0.0,
+                    flex_shrink: 0.0,
                 }
                 Children [
                     (
@@ -471,6 +480,10 @@ fn demo_column_1() -> impl Scene {
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Start,
                     column_gap: px(8),
+                    width: percent(25),
+                    min_width: px(200),
+                    flex_grow: 0.0,
+                    flex_shrink: 0.0,
                 }
                 Children [
                     label("Dialog:"),
@@ -484,6 +497,12 @@ fn demo_column_1() -> impl Scene {
             (
                 @FeathersCheckbox {
                     @caption: bsn! { caption("Checkbox") }
+                }
+                Node {
+                    width: percent(25),
+                    min_width: px(200),
+                    flex_grow: 0.0,
+                    flex_shrink: 0.0,
                 }
                 Checked
                 AccessibleLabel("Checkbox Example")
@@ -511,6 +530,12 @@ fn demo_column_1() -> impl Scene {
                 @FeathersCheckbox {
                     @caption: bsn! { caption("Fast Click Checkbox") }
                 }
+                Node {
+                    width: percent(25),
+                    min_width: px(200),
+                    flex_grow: 0.0,
+                    flex_shrink: 0.0,
+                }
                 ActivateOnPress
                 AccessibleLabel("Fast Click Checkbox Example")
                 on(
@@ -530,6 +555,12 @@ fn demo_column_1() -> impl Scene {
                 @FeathersCheckbox {
                     @caption: bsn! { caption("Disabled") },
                 }
+                Node {
+                    width: percent(25),
+                    min_width: px(200),
+                    flex_grow: 0.0,
+                    flex_shrink: 0.0,
+                }
                 InteractionDisabled
                 AccessibleLabel("Disabled Checkbox Example")
                 on(|_change: On<ValueChange<bool>>| {
@@ -539,6 +570,12 @@ fn demo_column_1() -> impl Scene {
             (
                 @FeathersCheckbox {
                     @caption: bsn! { caption("Checked+Disabled") }
+                }
+                Node {
+                    width: percent(25),
+                    min_width: px(200),
+                    flex_grow: 0.0,
+                    flex_shrink: 0.0,
                 }
                 InteractionDisabled
                 Checked
@@ -554,6 +591,10 @@ fn demo_column_1() -> impl Scene {
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Start,
                     column_gap: px(8),
+                    width: percent(25),
+                    min_width: px(200),
+                    flex_grow: 0.0,
+                    flex_shrink: 0.0,
                 }
                 Children [
                     (
@@ -597,6 +638,10 @@ fn demo_column_1() -> impl Scene {
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Start,
                     column_gap: px(8),
+                    width: percent(25),
+                    min_width: px(200),
+                    flex_grow: 0.0,
+                    flex_shrink: 0.0,
                 }
                 Children [
                     (@FeathersToggleSwitch on(checkbox_self_update)),
@@ -610,6 +655,12 @@ fn demo_column_1() -> impl Scene {
                 @FeathersSlider {
                     @max: 100.0,
                 }
+                Node {
+                    width: percent(25),
+                    min_width: px(200),
+                    flex_grow: 0.0,
+                    flex_shrink: 0.0,
+                }
                 SliderValue(20.0)
                 SliderStep(10.)
                 SliderPrecision(2)
@@ -618,87 +669,102 @@ fn demo_column_1() -> impl Scene {
             (
                 Node {
                     display: Display::Flex,
-                    flex_direction: FlexDirection::Row,
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::SpaceBetween,
-                    column_gap: px(4),
+                    flex_direction: FlexDirection::Column,
+                    align_items: AlignItems::Stretch,
+                    justify_content: JustifyContent::Start,
+                    width: percent(25),
+                    min_width: px(200),
+                    flex_grow: 0.0,
+                    flex_shrink: 0.0,
+                    row_gap: px(8),
                 }
                 Children [
-                    label("Srgba"),
-                    // Spacer
-                    flex_spacer(),
-                    // Text input
                     (
-                        @FeathersTextInputContainer
                         Node {
-                            flex_grow: 0.
-                            padding: { px(4).left() },
+                            display: Display::Flex,
+                            flex_direction: FlexDirection::Row,
+                            align_items: AlignItems::Center,
+                            justify_content: JustifyContent::SpaceBetween,
+                            column_gap: px(4),
                         }
                         Children [
+                            label("Srgba"),
+                            // Spacer
+                            flex_spacer(),
+                            // Text input
                             (
-                                @FeathersTextInput {
-                                    @visible_width: 10f32,
-                                    @max_characters: 9usize,
+                                @FeathersTextInputContainer
+                                Node {
+                                    flex_grow: 0.
+                                    padding: { px(4).left() },
                                 }
-                                InheritableFont {
-                                    font: fonts::MONO
-                                }
-                                HexColorInput
-                                on(handle_hex_color_change)
+                                Children [
+                                    (
+                                        @FeathersTextInput {
+                                            @visible_width: 10f32,
+                                            @max_characters: 9usize,
+                                        }
+                                        InheritableFont {
+                                            font: fonts::MONO
+                                        }
+                                        HexColorInput
+                                        on(handle_hex_color_change)
+                                    )
+                                ]
                             )
+                            (@FeathersColorSwatch {
+                                @opaque_color_percentage: 30.0,
+                            } SwatchType::Rgb),
                         ]
+                    ),
+                    (
+                        @FeathersColorPlane::RedBlue
+                        on(|change: On<ValueChange<Vec2>>, mut color: ResMut<DemoWidgetStates>| {
+                            color.rgb_color.red = change.value.x;
+                            color.rgb_color.blue = change.value.y;
+                        })
+                    ),
+                    (
+                        @FeathersColorSlider {
+                            @value: 0.5,
+                            @channel: ColorChannel::Red
+                        }
+                        AccessibleLabel("Red Channel")
+                        on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
+                            color.rgb_color.red = change.value;
+                        })
+                    ),
+                    (
+                        @FeathersColorSlider {
+                            @value: 0.5,
+                            @channel: ColorChannel::Green
+                        }
+                        AccessibleLabel("Green Channel")
+                        on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
+                            color.rgb_color.green = change.value;
+                        })
+                    ),
+                    (
+                        @FeathersColorSlider {
+                            @value: 0.5,
+                            @channel: ColorChannel::Blue
+                        }
+                        AccessibleLabel("Blue Channel")
+                        on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
+                            color.rgb_color.blue = change.value;
+                        })
+                    ),
+                    (
+                        @FeathersColorSlider {
+                            @value: 0.5,
+                            @channel: ColorChannel::Alpha
+                        }
+                        AccessibleLabel("Alpha Channel")
+                        on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
+                            color.rgb_color.alpha = change.value;
+                        })
                     )
-                    (@FeathersColorSwatch {
-                        @opaque_color_percentage: 30.0,
-                    } SwatchType::Rgb),
                 ]
-            ),
-            (
-                @FeathersColorPlane::RedBlue
-                on(|change: On<ValueChange<Vec2>>, mut color: ResMut<DemoWidgetStates>| {
-                    color.rgb_color.red = change.value.x;
-                    color.rgb_color.blue = change.value.y;
-                })
-            ),
-            (
-                @FeathersColorSlider {
-                    @value: 0.5,
-                    @channel: ColorChannel::Red
-                }
-                AccessibleLabel("Red Channel")
-                on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
-                    color.rgb_color.red = change.value;
-                })
-            ),
-            (
-                @FeathersColorSlider {
-                    @value: 0.5,
-                    @channel: ColorChannel::Green
-                }
-                AccessibleLabel("Green Channel")
-                on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
-                    color.rgb_color.green = change.value;
-                })
-            ),
-            (
-                @FeathersColorSlider {
-                    @value: 0.5,
-                    @channel: ColorChannel::Blue
-                }
-                AccessibleLabel("Blue Channel")
-                on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
-                    color.rgb_color.blue = change.value;
-                })
-            ),
-            (
-                @FeathersColorSlider {
-                    @value: 0.5,
-                    @channel: ColorChannel::Alpha
-                }
-                AccessibleLabel("Alpha Channel")
-                on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
-                    color.rgb_color.alpha = change.value;
-                })
             ),
             (
                 Node {
@@ -706,6 +772,10 @@ fn demo_column_1() -> impl Scene {
                     align_items: AlignItems::Center,
                     flex_direction: FlexDirection::Row,
                     justify_content: JustifyContent::SpaceBetween,
+                    width: percent(25),
+                    min_width: px(200),
+                    flex_grow: 0.0,
+                    flex_shrink: 0.0,
                 }
                 Children [
                     label("Hsl"),
@@ -717,6 +787,12 @@ fn demo_column_1() -> impl Scene {
                     @value: 0.5,
                     @channel: ColorChannel::HslHue
                 }
+                Node {
+                    width: percent(25),
+                    min_width: px(200),
+                    flex_grow: 0.0,
+                    flex_shrink: 0.0,
+                }
                 AccessibleLabel("Hue Channel")
                 on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
                     color.hsl_color.hue = change.value;
@@ -726,6 +802,12 @@ fn demo_column_1() -> impl Scene {
                 @FeathersColorSlider {
                     @value: 0.5,
                     @channel: ColorChannel::HslSaturation
+                }
+                Node {
+                    width: percent(25),
+                    min_width: px(200),
+                    flex_grow: 0.0,
+                    flex_shrink: 0.0,
                 }
                 AccessibleLabel("Saturation Channel")
                 on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
@@ -737,12 +819,17 @@ fn demo_column_1() -> impl Scene {
                     @value: 0.5,
                     @channel: ColorChannel::HslLightness
                 }
+                Node {
+                    width: percent(25),
+                    min_width: px(200),
+                    flex_grow: 0.0,
+                    flex_shrink: 0.0,
+                }
                 AccessibleLabel("Lightness Channel")
                 on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
                     color.hsl_color.lightness = change.value;
                 })
             )
-        ]
     }
 }
 
@@ -750,7 +837,14 @@ fn demo_column_2() -> impl SceneList {
     bsn_list! {
 
         (
-            pane() Children [
+            pane()
+            Node {
+                width: percent(25),
+                min_width: px(200),
+                flex_grow: 0.0,
+                flex_shrink: 0.0,
+            }
+            Children [
                 pane_header() Children [
                     @FeathersToolButton {
                         @variant: ButtonVariant::Primary,
@@ -898,7 +992,14 @@ fn demo_column_2() -> impl SceneList {
             ]
         ),
 
-        subpane() Children [
+        subpane()
+        Node {
+            width: percent(25),
+            min_width: px(200),
+            flex_grow: 0.0,
+            flex_shrink: 0.0,
+        }
+        Children [
             subpane_header() Children [
                 caption("List"),
             ],
