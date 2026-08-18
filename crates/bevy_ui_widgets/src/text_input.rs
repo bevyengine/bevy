@@ -788,7 +788,7 @@ fn placeholder_visibility(
 /// from real layout data and reveals it (see [`PlaceholderLabel`] for why
 /// it is not a child of the field).
 fn on_placeholder_added(
-    add: On<Add, Placeholder>,
+    add: On<Add<Placeholder>>,
     q_field: Query<(
         &Placeholder,
         Option<&PlaceholderColor>,
@@ -849,7 +849,7 @@ fn on_placeholder_added(
 
 /// Despawns the label when the [`Placeholder`] is removed.
 fn on_placeholder_removed(
-    remove: On<Remove, Placeholder>,
+    remove: On<Remove<Placeholder>>,
     q_labels: Query<(Entity, &PlaceholderLabel)>,
     mut commands: Commands,
 ) {
