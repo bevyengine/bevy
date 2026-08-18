@@ -1,4 +1,4 @@
-//! A `bevy_editor_cam` extension that draws an indicator in the scene at the location of the
+//! A `pan_orbit_camera` extension that draws an indicator in the scene at the location of the
 //! anchor. This makes it more obvious to users what point in space the camera is rotating around,
 //! making it easier to use and understand.
 

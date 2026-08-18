@@ -1,4 +1,4 @@
-//! A `bevy_editor_cam` extension that adds the ability to smoothly rotate the camera about its
+//! A `pan_orbit_camera` extension that adds the ability to smoothly rotate the camera about its
 //! anchor point until it is looking in the specified direction.
 
 use std::{f64::consts::PI, time::Duration};

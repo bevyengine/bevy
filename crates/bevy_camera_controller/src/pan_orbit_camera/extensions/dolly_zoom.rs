@@ -1,4 +1,4 @@
-//! A `bevy_editor_cam` extension that adds the ability to smoothly transition between perspective
+//! A `pan_orbit_camera` extension that adds the ability to smoothly transition between perspective
 //! and orthographic projections using what's known as a "dolly zoom" in film. This is useful
 //! because it ensures that the object the user is focusing on does not change size even as the
 //! projection changes.

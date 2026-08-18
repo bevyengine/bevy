@@ -46,7 +46,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         // This plugin uses the anchor (the point in space the user is interested in) to set the
         // orthographic scale, as well as the near and far planes. This can be a bit tricky if you
         // are unfamiliar with orthographic projections. Consider using an pseudo-ortho projection
-        // (see `pseudo_ortho` example) if you don't need a true ortho projection.
+        // if you don't need a true ortho projection.
         PanOrbitCamera::default().with_initial_anchor_depth(-translation.length() as f64),
         // This is an extension made specifically for orthographic cameras. Because an ortho camera
         // projection has no field of view, a skybox can't be sensibly rendered, only a single point

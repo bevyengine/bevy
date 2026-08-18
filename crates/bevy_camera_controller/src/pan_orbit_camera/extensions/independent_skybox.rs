@@ -1,4 +1,4 @@
-//! A `bevy_editor_cam` extension that provides a skybox rendered by a different camera with a
+//! A `pan_orbit_camera` extension that provides a skybox rendered by a different camera with a
 //! different field of view than the camera it is added to. This allows you to use very narrow
 //! camera FOV, or even orthographic projections, while keeping the appearance of the skybox
 //! unchanged.

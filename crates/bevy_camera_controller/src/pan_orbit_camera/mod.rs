@@ -141,7 +141,7 @@
 //!
 //! # Other notable features
 //!
-//! I've also implemented a few other features that are handy for a camera controller like this.
+//! Crate contains implementation of few other features that are handy for a camera controller like this.
 //!
 //! ### Compatible with floating origins and other controllers
 //!
@@ -185,7 +185,7 @@ pub mod prelude {
 use bevy_app::{prelude::*, PluginGroupBuilder};
 use bevy_ecs::prelude::SystemSet;
 
-/// Adds [`bevy_editor_cam`](crate) functionality with all extensions and the default input plugin.
+/// Adds [`pan_orbit_camera`](crate::pan_orbit_camera) functionality with all extensions and the default input plugin.
 ///
 /// This is intended for a quick and easy setup. You can add the individual plugins yourself if you
 /// want more control over the setup.
