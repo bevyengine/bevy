@@ -429,3 +429,70 @@ fn collect_visible_cpu_culled_entities_for_subview(
         entities.update_cpu_culled_entities(&render_view_entities.entities);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use bevy_ecs::entity::{EntityGeneration, EntityIndex};
+    use nonmax::NonMaxU32;
+
+    use super::*;
+
+    fn entity_from(index: u32, generation: u32) -> Entity {
+        Entity::from_index_and_generation(
+            EntityIndex::new(NonMaxU32::new(index).unwrap()),
+            EntityGeneration::FIRST.after_versions(generation),
+        )
+    }
+
+    #[test]
+    fn cpu_visible_entity_pair_lookup_uses_main_entity_sort_order() {
+        struct TestVisibilityClass;
+
+        let main_a = MainEntity::from(entity_from(0, 0));
+        let main_b = MainEntity::from(entity_from(1, 0));
+
+        let render_a = entity_from(0, 0);
+        // We fake a situation where index 0 gets reused for the render entity
+        // This is necessary to create a sort order that is different when sorting on the full tuple
+        // compared to sorting on the main entity.
+        let render_b = entity_from(0, 1);
+
+        let mut pairs = vec![(render_a, main_a), (render_b, main_b)];
+
+        let mut extracted = RenderExtractedVisibleEntities {
+            classes: TypeIdHashMap::from_iter([(
+                TypeId::of::<TestVisibilityClass>(),
+                RenderExtractedVisibleEntitiesClass {
+                    entities: pairs.clone(),
+                },
+            )]),
+        };
+        let mut render_visible_entities = RenderVisibleEntities::default();
+
+        collect_visible_cpu_culled_entities_for_subview(
+            &mut render_visible_entities,
+            &mut Some(&mut extracted),
+            &mut HashSet::default(),
+        );
+
+        let visible = render_visible_entities
+            .get::<TestVisibilityClass>()
+            .unwrap();
+
+        // Sort the pairs by the full tuple and confirm that the sort for visible entities is
+        // different
+        pairs.sort();
+        assert_ne!(visible.entities_cpu_culling, pairs);
+        // Sort the pairs by only the main_entity to make sure the order is as expected
+        pairs.sort_by_key(|(_, main_entity)| *main_entity);
+        assert_eq!(visible.entities_cpu_culling, pairs);
+
+        // Make sure the visibility lookup works
+        for (entity, main_entity) in &pairs {
+            assert!(
+                visible.entity_pair_is_visible(*entity, *main_entity),
+                "expected {entity:?}/{main_entity:?} to be visible"
+            );
+        }
+    }
+}
