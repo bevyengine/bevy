@@ -36,7 +36,7 @@ struct DemoWidgetStates {
     rgb_color: Srgba,
     hsl_color: Hsla,
     scalar_prop: f32,
-    vec4_prop: Vec4,
+    vec3_prop: Vec3,
 }
 
 #[derive(Component, Clone, Copy, PartialEq, FromTemplate)]
@@ -59,12 +59,11 @@ struct DemoDialogToggle;
 struct DemoScalarField;
 
 #[derive(Component, Clone, Copy, Default, VariantDefaults)]
-enum DemoVec4Field {
+enum DemoVec3Field {
     #[default]
     X,
     Y,
     Z,
-    W,
 }
 
 fn main() {
@@ -75,7 +74,7 @@ fn main() {
             rgb_color: palettes::tailwind::EMERALD_800.with_alpha(0.7),
             hsl_color: palettes::tailwind::AMBER_800.into(),
             scalar_prop: 7.0,
-            vec4_prop: Vec4::new(10.1, 7.124, 100.0, 10.0),
+            vec3_prop: Vec3::new(10.1, 7.124, 100.0),
         })
         .add_systems(Startup, scene.spawn())
         .add_systems(Update, update_colors)
@@ -839,7 +838,7 @@ fn demo_column_2() -> impl Scene {
                                                     states.scalar_prop = value_change.value;
                                                 })
                                             ),
-                                            label_small("Vec4 property"),
+                                            label_small("Vec3 property"),
                                             Node {
                                                 display: Display::Flex,
                                                 flex_direction: FlexDirection::Row,
@@ -854,7 +853,7 @@ fn demo_column_2() -> impl Scene {
                                                         @label_text: "X",
                                                     }
                                                     NumberInputPrecision(2)
-                                                    DemoVec4Field::X
+                                                    DemoVec3Field::X
                                                     Node {
                                                         flex_grow: 1.0,
                                                     }
@@ -862,7 +861,7 @@ fn demo_column_2() -> impl Scene {
                                                     on(
                                                         |value_change: On<ValueChange<f32>>,
                                                         mut states: ResMut<DemoWidgetStates>| {
-                                                        states.vec4_prop.x = value_change.value;
+                                                        states.vec3_prop.x = value_change.value;
                                                     })
                                                 ),
                                                 (
@@ -871,14 +870,14 @@ fn demo_column_2() -> impl Scene {
                                                         @label_text: "Y",
                                                     }
                                                     NumberInputPrecision(2)
-                                                    DemoVec4Field::Y
+                                                    DemoVec3Field::Y
                                                     Node {
                                                         flex_grow: 1.0,
                                                     }
                                                     on(
                                                         |value_change: On<ValueChange<f32>>,
                                                         mut states: ResMut<DemoWidgetStates>| {
-                                                        states.vec4_prop.y = value_change.value;
+                                                        states.vec3_prop.y = value_change.value;
                                                     })
                                                 ),
                                                 (
@@ -887,31 +886,74 @@ fn demo_column_2() -> impl Scene {
                                                         @label_text: "Z",
                                                     }
                                                     NumberInputPrecision(2)
-                                                    DemoVec4Field::Z
+                                                    DemoVec3Field::Z
                                                     Node {
                                                         flex_grow: 1.0,
                                                     }
                                                     on(
                                                         |value_change: On<ValueChange<f32>>,
                                                         mut states: ResMut<DemoWidgetStates>| {
-                                                        states.vec4_prop.z = value_change.value;
+                                                        states.vec3_prop.z = value_change.value;
                                                     })
+                                                ),
+                                            ],
+                                            label_small("Color property"),
+                                            Node {
+                                                display: Display::Flex,
+                                                flex_direction: FlexDirection::Row,
+                                                column_gap: px(6),
+                                                align_items: AlignItems::Center,
+                                                justify_content: JustifyContent::SpaceBetween,
+                                            }
+                                            Children [
+                                                (
+                                                    @FeathersNumberInput {
+                                                        @sigil_color: tokens::TEXT_INPUT_X_AXIS,
+                                                        @label_text: "R",
+                                                    }
+                                                    InteractionDisabled
+                                                    NumberInputPrecision(2)
+                                                    template_value(HardLimit(NumberInputRange::F32(0.0..=1.0)))
+                                                    Node {
+                                                        flex_grow: 1.0,
+                                                    }
+                                                    BorderColor::all(palette::X_AXIS)
+                                                ),
+                                                (
+                                                    @FeathersNumberInput {
+                                                        @sigil_color: tokens::TEXT_INPUT_Y_AXIS,
+                                                        @label_text: "G",
+                                                    }
+                                                    InteractionDisabled
+                                                    NumberInputPrecision(2)
+                                                    template_value(HardLimit(NumberInputRange::F32(0.0..=1.0)))
+                                                    Node {
+                                                        flex_grow: 1.0,
+                                                    }
+                                                ),
+                                                (
+                                                    @FeathersNumberInput {
+                                                        @sigil_color: tokens::TEXT_INPUT_Z_AXIS,
+                                                        @label_text: "B",
+                                                    }
+                                                    InteractionDisabled
+                                                    NumberInputPrecision(2)
+                                                    template_value(HardLimit(NumberInputRange::F32(0.0..=1.0)))
+                                                    Node {
+                                                        flex_grow: 1.0,
+                                                    }
                                                 ),
                                                 (
                                                     @FeathersNumberInput {
                                                         @sigil_color: tokens::TEXT_INPUT_W_AXIS,
-                                                        @label_text: "W",
+                                                        @label_text: "A",
                                                     }
+                                                    InteractionDisabled
                                                     NumberInputPrecision(2)
-                                                    DemoVec4Field::W
+                                                    template_value(HardLimit(NumberInputRange::F32(0.0..=1.0)))
                                                     Node {
                                                         flex_grow: 1.0,
                                                     }
-                                                    on(
-                                                        |value_change: On<ValueChange<f32>>,
-                                                        mut states: ResMut<DemoWidgetStates>| {
-                                                        states.vec4_prop.w = value_change.value;
-                                                    })
                                                 ),
                                             ],
                                         ],
@@ -960,7 +1002,7 @@ fn update_colors(
     mut color_planes: Query<&mut ColorPlaneValue, With<FeathersColorPlane>>,
     q_text_input: Single<(Entity, &mut EditableText), With<HexColorInput>>,
     q_scalar_input: Query<Entity, With<DemoScalarField>>,
-    q_vec3_input: Query<(Entity, &DemoVec4Field)>,
+    q_vec3_input: Query<(Entity, &DemoVec3Field)>,
     mut commands: Commands,
     focus: Res<InputFocus>,
 ) {
@@ -1041,10 +1083,9 @@ fn update_colors(
 
         for (vec3_input_ent, axis) in q_vec3_input.iter() {
             let new_value = match axis {
-                DemoVec4Field::X => states.vec4_prop.x,
-                DemoVec4Field::Y => states.vec4_prop.y,
-                DemoVec4Field::Z => states.vec4_prop.z,
-                DemoVec4Field::W => states.vec4_prop.w,
+                DemoVec3Field::X => states.vec3_prop.x,
+                DemoVec3Field::Y => states.vec3_prop.y,
+                DemoVec3Field::Z => states.vec3_prop.z,
             };
 
             commands
