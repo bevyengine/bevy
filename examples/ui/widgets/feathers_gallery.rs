@@ -218,7 +218,7 @@ fn demo_column_1() -> impl SceneList {
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Start,
                     column_gap: px(8),
-                    width: percent(25),
+                    width: percent(30),
                     min_width: px(200),
                     flex_grow: 0.0,
                     flex_shrink: 0.0,
@@ -333,7 +333,7 @@ fn demo_column_1() -> impl SceneList {
                     ], Some(0))},
                 }
                 Node {
-                    width: percent(25),
+                    width: percent(30),
                     min_width: px(200),
                     flex_grow: 0.0,
                     flex_shrink: 0.0,
@@ -366,7 +366,7 @@ fn demo_column_1() -> impl SceneList {
                     @max_visible: 6,
                 }
                 Node {
-                    width: percent(25),
+                    width: percent(30),
                     min_width: px(200),
                     flex_grow: 0.0,
                     flex_shrink: 0.0,
@@ -385,7 +385,7 @@ fn demo_column_1() -> impl SceneList {
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Start,
                     column_gap: px(1),
-                    width: percent(25),
+                    width: percent(30),
                     min_width: px(200),
                     flex_grow: 0.0,
                     flex_shrink: 0.0,
@@ -440,7 +440,7 @@ fn demo_column_1() -> impl SceneList {
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Start,
                     column_gap: px(8),
-                    width: percent(25),
+                    width: percent(30),
                     min_width: px(200),
                     flex_grow: 0.0,
                     flex_shrink: 0.0,
@@ -480,7 +480,7 @@ fn demo_column_1() -> impl SceneList {
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Start,
                     column_gap: px(8),
-                    width: percent(25),
+                    width: percent(30),
                     min_width: px(200),
                     flex_grow: 0.0,
                     flex_shrink: 0.0,
@@ -499,7 +499,7 @@ fn demo_column_1() -> impl SceneList {
                     @caption: bsn! { caption("Checkbox") }
                 }
                 Node {
-                    width: percent(25),
+                    width: percent(30),
                     min_width: px(200),
                     flex_grow: 0.0,
                     flex_shrink: 0.0,
@@ -531,7 +531,7 @@ fn demo_column_1() -> impl SceneList {
                     @caption: bsn! { caption("Fast Click Checkbox") }
                 }
                 Node {
-                    width: percent(25),
+                    width: percent(30),
                     min_width: px(200),
                     flex_grow: 0.0,
                     flex_shrink: 0.0,
@@ -556,7 +556,7 @@ fn demo_column_1() -> impl SceneList {
                     @caption: bsn! { caption("Disabled") },
                 }
                 Node {
-                    width: percent(25),
+                    width: percent(30),
                     min_width: px(200),
                     flex_grow: 0.0,
                     flex_shrink: 0.0,
@@ -572,7 +572,7 @@ fn demo_column_1() -> impl SceneList {
                     @caption: bsn! { caption("Checked+Disabled") }
                 }
                 Node {
-                    width: percent(25),
+                    width: percent(30),
                     min_width: px(200),
                     flex_grow: 0.0,
                     flex_shrink: 0.0,
@@ -591,7 +591,7 @@ fn demo_column_1() -> impl SceneList {
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Start,
                     column_gap: px(8),
-                    width: percent(25),
+                    width: percent(30),
                     min_width: px(200),
                     flex_grow: 0.0,
                     flex_shrink: 0.0,
@@ -638,7 +638,7 @@ fn demo_column_1() -> impl SceneList {
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Start,
                     column_gap: px(8),
-                    width: percent(25),
+                    width: percent(30),
                     min_width: px(200),
                     flex_grow: 0.0,
                     flex_shrink: 0.0,
@@ -656,7 +656,7 @@ fn demo_column_1() -> impl SceneList {
                     @max: 100.0,
                 }
                 Node {
-                    width: percent(25),
+                    width: percent(30),
                     min_width: px(200),
                     flex_grow: 0.0,
                     flex_shrink: 0.0,
@@ -672,7 +672,7 @@ fn demo_column_1() -> impl SceneList {
                     flex_direction: FlexDirection::Column,
                     align_items: AlignItems::Stretch,
                     justify_content: JustifyContent::Start,
-                    width: percent(25),
+                    width: percent(30),
                     min_width: px(200),
                     flex_grow: 0.0,
                     flex_shrink: 0.0,
@@ -772,7 +772,7 @@ fn demo_column_1() -> impl SceneList {
                     flex_direction: FlexDirection::Column,
                     align_items: AlignItems::Stretch,
                     justify_content: JustifyContent::Start,
-                    width: percent(25),
+                    width: percent(30),
                     min_width: px(200),
                     flex_grow: 0.0,
                     flex_shrink: 0.0,
@@ -832,7 +832,7 @@ fn demo_column_2() -> impl SceneList {
         (
             pane()
             Node {
-                width: percent(25),
+                width: percent(30),
                 min_width: px(200),
                 flex_grow: 0.0,
                 flex_shrink: 0.0,
@@ -987,7 +987,7 @@ fn demo_column_2() -> impl SceneList {
 
         subpane()
         Node {
-            width: percent(25),
+            width: percent(30),
             min_width: px(200),
             flex_grow: 0.0,
             flex_shrink: 0.0,
