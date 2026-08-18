@@ -11,8 +11,6 @@
 //!
 //! - This backend does not provide `normal` in `HitData`.
 
-use core::f32;
-
 use bevy_camera::NormalizedRenderTarget;
 use bevy_ecs::prelude::*;
 
