@@ -9,10 +9,14 @@ use bevy_math::Mat2;
 use bevy_math::Rot2;
 use bevy_math::Vec2;
 use bevy_reflect::prelude::*;
+use core::fmt;
 use core::ops::Mul;
 
 /// A pair of [`Val`]s used to represent a 2-dimensional size or offset.
-#[derive(Debug, PartialEq, Clone, Copy, Reflect)]
+///
+/// - `Val::Percent` x/y values are resolved based on the computed length of the Ui Node on the respective axis.
+/// - `Val::Auto` is resolved to `0.`.
+#[derive(Clone, Copy, Reflect, PartialEq)]
 #[reflect(Default, PartialEq, Debug, Clone)]
 #[cfg_attr(
     feature = "serialize",
@@ -20,25 +24,24 @@ use core::ops::Mul;
     reflect(Serialize, Deserialize)
 )]
 pub struct Val2 {
-    /// Translate the node along the x-axis.
-    /// `Val::Percent` values are resolved based on the computed width of the Ui Node.
-    /// `Val::Auto` is resolved to `0.`.
-    pub x: Val,
-    /// Translate the node along the y-axis.
-    /// `Val::Percent` values are resolved based on the computed height of the UI Node.
-    /// `Val::Auto` is resolved to `0.`.
-    pub y: Val,
+    values: [f32; 2],
+    units: u8,
 }
 
 impl Val2 {
     pub const ZERO: Self = Self {
-        x: Val::ZERO,
-        y: Val::ZERO,
+        values: [0.; 2],
+        units: Val::PX | (Val::PX << 4),
     };
 
     /// Creates a new [`Val2`]
     pub const fn new(x: Val, y: Val) -> Self {
-        Self { x, y }
+        let (ux, vx) = x.pack();
+        let (uy, vy) = y.pack();
+        Self {
+            values: [vx, vy],
+            units: ux | uy << 4,
+        }
     }
 
     /// Creates a new [`Val2`] where both components are the same value
@@ -56,16 +59,62 @@ impl Val2 {
         Self::new(Val::Percent(x.val_num_f32()), Val::Percent(y.val_num_f32()))
     }
 
+    /// Returns the x-axis value.
+    #[inline]
+    pub const fn x(&self) -> Val {
+        Val::unpack(self.units & 0x0f, self.values[0])
+    }
+
+    /// Returns the y-axis value.
+    #[inline]
+    pub const fn y(&self) -> Val {
+        Val::unpack(self.units >> 4, self.values[1])
+    }
+
+    /// Set a new x value.
+    ///
+    /// ```
+    /// # use bevy_ui::{px, percent, Val2};
+    /// let mut val = Val2::new(percent(50), px(20));
+    /// val.set_x(px(10));
+    ///
+    /// assert_eq!(val.x(), px(10));
+    /// assert_eq!(val.y(), px(20));
+    /// ```
+    #[inline]
+    pub const fn set_x(&mut self, x: Val) {
+        let (unit, value) = x.pack();
+        self.values[0] = value;
+        self.units = (self.units & 0xf0) | unit;
+    }
+
+    /// Set a new y value.
+    ///
+    /// ```
+    /// # use bevy_ui::{px, percent, Val2};
+    /// let mut val = Val2::new(px(10), percent(50));
+    /// val.set_y(px(20));
+    ///
+    /// assert_eq!(val.x(), px(10));
+    /// assert_eq!(val.y(), px(20));
+    /// ```
+    #[inline]
+    pub const fn set_y(&mut self, y: Val) {
+        let (unit, value) = y.pack();
+        self.values[1] = value;
+        self.units = (self.units & 0x0f) | (unit << 4);
+    }
+
     /// Resolves this [`Val2`] from the given `scale_factor`, `parent_size`,
     /// and `viewport_size`.
     ///
     /// Component values of [`Val::Auto`] are resolved to 0.
     pub fn resolve(&self, scale_factor: f32, base_size: Vec2, viewport_size: Vec2) -> Vec2 {
         Vec2::new(
-            self.x
+            self.x()
                 .resolve(scale_factor, base_size.x, viewport_size)
                 .unwrap_or(0.),
-            self.y
+            self.y()
                 .resolve(scale_factor, base_size.y, viewport_size)
                 .unwrap_or(0.),
         )
@@ -84,10 +133,10 @@ impl Val2 {
     /// );
     /// ```
     pub fn try_add(self, other: Val2) -> Result<Self, ValArithmeticError> {
-        let (Ok(x), Ok(y)) = (self.x.try_add(other.x), self.y.try_add(other.y)) else {
+        let (Ok(x), Ok(y)) = (self.x().try_add(other.x()), self.y().try_add(other.y())) else {
             return Err(ValArithmeticError::IncompatibleUnits);
         };
-        Ok(Self { x, y })
+        Ok(Self::new(x, y))
     }
 
     /// Try to subtract two `Val2`s component-wise.
@@ -103,10 +152,19 @@ impl Val2 {
     /// );
     /// ```
     pub fn try_sub(self, other: Val2) -> Result<Self, ValArithmeticError> {
-        let (Ok(x), Ok(y)) = (self.x.try_sub(other.x), self.y.try_sub(other.y)) else {
+        let (Ok(x), Ok(y)) = (self.x().try_sub(other.x()), self.y().try_sub(other.y())) else {
             return Err(ValArithmeticError::IncompatibleUnits);
         };
-        Ok(Self { x, y })
+        Ok(Self::new(x, y))
+    }
+}
+
+impl fmt::Debug for Val2 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Val2")
+            .field("x", &self.x())
+            .field("y", &self.y())
+            .finish()
     }
 }
 

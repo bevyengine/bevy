@@ -49,8 +49,10 @@ struct Move;
 
 impl UpdateTransform for Move {
     fn update(&self, t: f32, transform: &mut UiTransform) {
-        transform.translation.x = percent(ops::sin(t * TAU - FRAC_PI_2) * 50.);
-        transform.translation.y = percent(-ops::cos(t * TAU - FRAC_PI_2) * 50.);
+        transform.translation = Val2::new(
+            percent(ops::sin(t * TAU - FRAC_PI_2) * 50.),
+            percent(-ops::cos(t * TAU - FRAC_PI_2) * 50.),
+        );
     }
 }
 
