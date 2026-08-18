@@ -769,66 +769,59 @@ fn demo_column_1() -> impl SceneList {
             (
                 Node {
                     display: Display::Flex,
-                    align_items: AlignItems::Center,
-                    flex_direction: FlexDirection::Row,
-                    justify_content: JustifyContent::SpaceBetween,
+                    flex_direction: FlexDirection::Column,
+                    align_items: AlignItems::Stretch,
+                    justify_content: JustifyContent::Start,
                     width: percent(25),
                     min_width: px(200),
                     flex_grow: 0.0,
                     flex_shrink: 0.0,
+                    row_gap: px(8),
                 }
                 Children [
-                    label("Hsl"),
-                    (@FeathersColorSwatch SwatchType::Hsl)
+                    (
+                        Node {
+                            display: Display::Flex,
+                            align_items: AlignItems::Center,
+                            flex_direction: FlexDirection::Row,
+                            justify_content: JustifyContent::SpaceBetween,
+                        }
+                        Children [
+                            label("Hsl"),
+                            (@FeathersColorSwatch SwatchType::Hsl)
+                        ]
+                    ),
+                    (
+                        @FeathersColorSlider {
+                            @value: 0.5,
+                            @channel: ColorChannel::HslHue
+                        }
+                        AccessibleLabel("Hue Channel")
+                        on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
+                            color.hsl_color.hue = change.value;
+                        })
+                    ),
+                    (
+                        @FeathersColorSlider {
+                            @value: 0.5,
+                            @channel: ColorChannel::HslSaturation
+                        }
+                        AccessibleLabel("Saturation Channel")
+                        on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
+                            color.hsl_color.saturation = change.value;
+                        })
+                    ),
+                    (
+                        @FeathersColorSlider {
+                            @value: 0.5,
+                            @channel: ColorChannel::HslLightness
+                        }
+                        AccessibleLabel("Lightness Channel")
+                        on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
+                            color.hsl_color.lightness = change.value;
+                        })
+                    )
                 ]
-            ),
-            (
-                @FeathersColorSlider {
-                    @value: 0.5,
-                    @channel: ColorChannel::HslHue
-                }
-                Node {
-                    width: percent(25),
-                    min_width: px(200),
-                    flex_grow: 0.0,
-                    flex_shrink: 0.0,
-                }
-                AccessibleLabel("Hue Channel")
-                on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
-                    color.hsl_color.hue = change.value;
-                })
-            ),
-            (
-                @FeathersColorSlider {
-                    @value: 0.5,
-                    @channel: ColorChannel::HslSaturation
-                }
-                Node {
-                    width: percent(25),
-                    min_width: px(200),
-                    flex_grow: 0.0,
-                    flex_shrink: 0.0,
-                }
-                AccessibleLabel("Saturation Channel")
-                on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
-                    color.hsl_color.saturation = change.value;
-                })
-            ),
-            (
-                @FeathersColorSlider {
-                    @value: 0.5,
-                    @channel: ColorChannel::HslLightness
-                }
-                Node {
-                    width: percent(25),
-                    min_width: px(200),
-                    flex_grow: 0.0,
-                    flex_shrink: 0.0,
-                }
-                AccessibleLabel("Lightness Channel")
-                on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
-                    color.hsl_color.lightness = change.value;
-                })
             )
     }
 }
