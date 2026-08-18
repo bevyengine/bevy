@@ -123,6 +123,8 @@ pub fn ui_stack_system(
         ));
     }
 
+    // An unstable sort is sufficient here. Roots that are equal must be new, and we
+    // only care about maintaining stability across frames.
     stack_roots.sort_unstable_by(|(_, a), (_, b)| a.cmp(b));
 
     for (root_entity, _) in stack_roots.drain(..) {
