@@ -1,7 +1,7 @@
 ---
 title: "Feathers Color Input and Color Swatch Grid Widgets"
 authors: ["@viridia"]
-pull_requests: []
+pull_requests: [25446]
 ---
 
 Feathers has two new widgets for editing colors:

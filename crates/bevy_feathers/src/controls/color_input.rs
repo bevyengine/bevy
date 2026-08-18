@@ -337,8 +337,6 @@ impl FeathersColorInput {
 
 // Lazily-constructed menu popup
 fn color_input_popup() -> Box<dyn Scene> {
-    // Note: because the color plane has a built-in margin, we don't want to put a padding or
-    // column gap on the popup, but instead put margins on individual children.
     Box::new(bsn!(
         @FeathersMenuPopup
         PopupEntityRefs {

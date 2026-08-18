@@ -124,8 +124,7 @@ impl ColorSwatchGridCellRing {
                 border_radius: BorderRadius::all(px(2)),
             }
             // Dark against the swatch, light against the popup background, so that one edge of
-            // the ring stays visible whatever color the swatch happens to be. Hidden by color
-            // rather than by removal, to avoid churning archetypes.
+            // the ring stays visible whatever color the swatch happens to be.
             BorderColor::all(Color::NONE)
             Outline {
                 width: px(1),
