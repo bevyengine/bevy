@@ -1,5 +1,3 @@
-use core::f32::consts::PI;
-
 use bevy_app::{Plugin, PreUpdate};
 use bevy_asset::Handle;
 use bevy_color::{Alpha, Color, Hsla};
@@ -21,9 +19,9 @@ use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_scene::prelude::*;
 use bevy_ui::{
-    percent, px, AlignItems, BackgroundColor, BackgroundGradient, BorderColor, BorderRadius,
-    ColorStop, Display, FlexDirection, Gradient, InterpolationColorSpace, LinearGradient, Node,
-    Outline, PositionType, UiRect, UiSystems, UiTransform, Val2, ZIndex,
+    percent, px, AlignItems, BackgroundGradient, BorderColor, BorderRadius, ColorStop, Display,
+    FlexDirection, Gradient, InterpolationColorSpace, LinearGradient, Node, Outline, PositionType,
+    UiRect, UiSystems, UiTransform, Val2, ZIndex,
 };
 use bevy_ui_render::ui_material::MaterialNode;
 use bevy_ui_widgets::{
@@ -238,29 +236,49 @@ impl FeathersColorSlider {
                     AlphaPattern
                     MaterialNode::<AlphaPatternMaterial>
                     Children [
-                        // Left endcap
-                        (
-                            Node {
-                                width: px(THUMB_SIZE * 0.5),
-                                border_radius: {RoundedCorners::Left.to_border_radius(TRACK_RADIUS)},
-                            }
-                            BackgroundColor(palette::X_AXIS)
-                        ),
                         // Track with gradient
                         (
                             Node {
-                                flex_grow: 1.0,
+                                position_type: PositionType::Absolute,
+                                left: px(0),
+                                right: px(0),
+                                top: px(0),
+                                bottom: px(0),
+                                border_radius: {RoundedCorners::All.to_border_radius(TRACK_RADIUS)},
                             }
-                            BackgroundGradient(vec![Gradient::Linear(LinearGradient {
-                                angle: PI * 0.5,
-                                stops: vec![
-                                    ColorStop::new(Color::NONE, percent(0)),
-                                    ColorStop::new(Color::NONE, percent(50)),
-                                    ColorStop::new(Color::NONE, percent(100)),
-                                ],
-                                color_space: InterpolationColorSpace::Srgba,
-                            })])
+                            BackgroundGradient(vec![
+                                Gradient::Linear(LinearGradient {
+                                    angle: LinearGradient::TO_RIGHT,
+                                    stops: vec![
+                                        ColorStop::px(Color::NONE, 0),
+                                        ColorStop::px(Color::NONE, THUMB_SIZE * 0.5),
+                                        ColorStop::percent(Color::NONE, 50),
+                                        ColorStop::percent(Color::NONE, 50),
+                                        ColorStop::percent(Color::NONE, 100),
+                                    ],
+                                    color_space: InterpolationColorSpace::Srgba,
+                                }),
+                                Gradient::Linear(LinearGradient {
+                                    angle: LinearGradient::TO_LEFT,
+                                    stops: vec![
+                                        ColorStop::px(Color::NONE, 0),
+                                        ColorStop::px(Color::NONE, THUMB_SIZE * 0.5),
+                                        ColorStop::percent(Color::NONE, 50),
+                                        ColorStop::percent(Color::NONE, 50),
+                                        ColorStop::percent(Color::NONE, 100),
+                                    ],
+                                    color_space: InterpolationColorSpace::Srgba,
+                                }),
+                            ])
                             ZIndex(1)
+                        ),
+                        // Inset range for the thumb
+                        (
+                            Node {
+                                flex_grow: 1.0,
+                                margin: {UiRect::horizontal(px(THUMB_SIZE * 0.5))},
+                            }
+                            ZIndex(2)
                             Children [(
                                 Node {
                                     position_type: PositionType::Absolute,
@@ -281,14 +299,6 @@ impl FeathersColorSlider {
                                 }
                                 UiTransform::from_translation(Val2::percent(-50., -50.))
                             )]
-                        ),
-                        // Right endcap
-                        (
-                            Node {
-                                width: px(THUMB_SIZE * 0.5),
-                                border_radius: {RoundedCorners::Right.to_border_radius(TRACK_RADIUS)},
-                            }
-                            BackgroundColor(palette::Z_AXIS)
                         )
                     ]
                 )
@@ -355,31 +365,51 @@ pub fn color_slider_bundle<B: Bundle>(
                 AlphaPattern,
                 MaterialNode::<AlphaPatternMaterial>(Handle::default()),
                 children![
-                    // Left endcap
-                    (
-                        Node {
-                            width: px(THUMB_SIZE * 0.5),
-                            border_radius: RoundedCorners::Left.to_border_radius(TRACK_RADIUS),
-                            ..Default::default()
-                        },
-                        BackgroundColor(palette::X_AXIS),
-                    ),
                     // Track with gradient
                     (
                         Node {
-                            flex_grow: 1.0,
+                            position_type: PositionType::Absolute,
+                            left: px(0),
+                            right: px(0),
+                            top: px(0),
+                            bottom: px(0),
+                            border_radius: RoundedCorners::All.to_border_radius(TRACK_RADIUS),
                             ..Default::default()
                         },
-                        BackgroundGradient(vec![Gradient::Linear(LinearGradient {
-                            angle: PI * 0.5,
-                            stops: vec![
-                                ColorStop::new(Color::NONE, percent(0)),
-                                ColorStop::new(Color::NONE, percent(50)),
-                                ColorStop::new(Color::NONE, percent(100)),
-                            ],
-                            color_space: InterpolationColorSpace::Srgba,
-                        })]),
+                        BackgroundGradient(vec![
+                            Gradient::Linear(LinearGradient {
+                                angle: LinearGradient::TO_RIGHT,
+                                stops: vec![
+                                    ColorStop::px(Color::NONE, 0),
+                                    ColorStop::px(Color::NONE, THUMB_SIZE * 0.5),
+                                    ColorStop::percent(Color::NONE, 50),
+                                    ColorStop::percent(Color::NONE, 50),
+                                    ColorStop::percent(Color::NONE, 100),
+                                ],
+                                color_space: InterpolationColorSpace::Srgba,
+                            }),
+                            Gradient::Linear(LinearGradient {
+                                angle: LinearGradient::TO_LEFT,
+                                stops: vec![
+                                    ColorStop::px(Color::NONE, 0),
+                                    ColorStop::px(Color::NONE, THUMB_SIZE * 0.5),
+                                    ColorStop::percent(Color::NONE, 50),
+                                    ColorStop::percent(Color::NONE, 50),
+                                    ColorStop::percent(Color::NONE, 100),
+                                ],
+                                color_space: InterpolationColorSpace::Srgba,
+                            }),
+                        ]),
                         ZIndex(1),
+                    ),
+                    // Inset range for the thumb
+                    (
+                        Node {
+                            flex_grow: 1.0,
+                            margin: UiRect::horizontal(px(THUMB_SIZE * 0.5)),
+                            ..Default::default()
+                        },
+                        ZIndex(2),
                         children![(
                             Node {
                                 position_type: PositionType::Absolute,
@@ -401,15 +431,6 @@ pub fn color_slider_bundle<B: Bundle>(
                             },
                             UiTransform::from_translation(Val2::new(percent(-50), percent(-50),))
                         )]
-                    ),
-                    // Right endcap
-                    (
-                        Node {
-                            width: px(THUMB_SIZE * 0.5),
-                            border_radius: RoundedCorners::Right.to_border_radius(TRACK_RADIUS),
-                            ..Default::default()
-                        },
-                        BackgroundColor(palette::Z_AXIS),
                     ),
                 ]
             ),
@@ -441,7 +462,6 @@ fn update_track_color(
     mut q_sliders: Query<(Entity, &ColorSlider, &SliderBaseColor), Changed<SliderBaseColor>>,
     q_children: Query<&Children>,
     q_track: Query<(), With<ColorSliderTrack>>,
-    mut q_background: Query<&mut BackgroundColor>,
     // Without<FeathersTextInput> and Without<FeathersSlider> to avoid ambiguity with FeathersSlider systems
     mut q_gradient: Query<
         &mut BackgroundGradient,
@@ -458,17 +478,17 @@ fn update_track_color(
                 continue;
             };
 
-            if let Ok(mut cap_bg) = q_background.get_mut(track_children[0]) {
-                cap_bg.0 = start;
-            }
-
-            if let Ok(mut gradient) = q_gradient.get_mut(track_children[1])
-                && let [Gradient::Linear(linear_gradient)] = &mut gradient.0[..]
+            if let Ok(mut gradient) = q_gradient.get_mut(track_children[0])
+                && let [Gradient::Linear(left_gradient), Gradient::Linear(right_gradient)] =
+                    &mut gradient.0[..]
             {
-                linear_gradient.stops[0].color = start;
-                linear_gradient.stops[1].color = middle;
-                linear_gradient.stops[2].color = end;
-                linear_gradient.color_space = match slider.channel {
+                left_gradient.stops[0].color = start;
+                left_gradient.stops[1].color = start;
+                left_gradient.stops[2].color = middle;
+                right_gradient.stops[0].color = end;
+                right_gradient.stops[1].color = end;
+                right_gradient.stops[2].color = middle;
+                let color_space = match slider.channel {
                     ColorChannel::Red | ColorChannel::Green | ColorChannel::Blue => {
                         InterpolationColorSpace::Srgba
                     }
@@ -487,10 +507,8 @@ fn update_track_color(
                         }
                     },
                 };
-            }
-
-            if let Ok(mut cap_bg) = q_background.get_mut(track_children[2]) {
-                cap_bg.0 = end;
+                left_gradient.color_space = color_space;
+                right_gradient.color_space = color_space;
             }
         }
     }
