@@ -8,6 +8,7 @@ use bevy_ecs::prelude::*;
 use bevy_ecs::resource::IsResource;
 use bevy_math::{prelude::*, DAffine3, DQuat, DVec3};
 use bevy_platform::{collections::HashMap, time::Instant};
+use bevy_transform::components::Transform;
 use bevy_window::RequestRedraw;
 
 use crate::pan_orbit_camera::prelude::*;
@@ -95,17 +96,16 @@ impl LookToTrigger {
         mut state: ResMut<LookTo>,
         mut camera_set: ParamSet<(
             Query<&mut PanOrbitCamera, Without<IsResource>>,
-            Query<EntityRef, (With<PanOrbitCamera>, Without<IsResource>)>,
+            Query<&Transform, (With<PanOrbitCamera>, Without<IsResource>)>,
         )>,
         mut redraw: MessageWriter<RequestRedraw>,
-        transform_adapter: Res<TransformAdapter>,
     ) {
         for event in events.read() {
             let camera_refs = camera_set.p1();
-            let Ok(camera_ref) = camera_refs.get(event.camera) else {
+            let Ok(cam_transform) = camera_refs.get(event.camera) else {
                 continue;
             };
-            let Some((_, camera_rotation)) = transform_adapter.read(&camera_ref) else {
+            let Some((_, camera_rotation)) = read_transform(cam_transform) else {
                 continue;
             };
             let mut cameras = camera_set.p0();
@@ -177,12 +177,11 @@ impl LookTo {
     fn update(
         mut state: ResMut<Self>,
         mut camera_set: ParamSet<(
-            Query<&mut PanOrbitCamera, Without<IsResource>>,
-            Query<EntityRef, (With<PanOrbitCamera>, Without<IsResource>)>,
-            Query<EntityMut, (With<PanOrbitCamera>, Without<IsResource>)>,
+            Query<&mut PanOrbitCamera>,
+            Query<&Transform, With<PanOrbitCamera>>,
+            Query<&mut Transform, With<PanOrbitCamera>>,
         )>,
         mut redraw: MessageWriter<RequestRedraw>,
-        transform_adapter: Res<TransformAdapter>,
     ) {
         let animation_duration = state.animation_duration;
         let animation_curve = state.animation_curve;
@@ -199,11 +198,10 @@ impl LookTo {
         ) in state.map.iter_mut()
         {
             let camera_refs = camera_set.p1();
-            let Ok(camera_ref) = camera_refs.get(*camera) else {
+            let Ok(cam_transform) = camera_refs.get(*camera) else {
                 continue;
             };
-            let Some((mut camera_translation, mut camera_rotation)) =
-                transform_adapter.read(&camera_ref)
+            let Some((mut camera_translation, mut camera_rotation)) = read_transform(cam_transform)
             else {
                 continue;
             };
@@ -250,7 +248,7 @@ impl LookTo {
 
             let mut camera_muts = camera_set.p2();
             let mut camera_mut = camera_muts.get_mut(*camera).unwrap();
-            transform_adapter.apply_delta(&mut camera_mut, delta_translation, delta_rotation);
+            apply_delta(&mut camera_mut, delta_translation, delta_rotation);
             if progress_t >= 1.0 {
                 *complete = true;
             }

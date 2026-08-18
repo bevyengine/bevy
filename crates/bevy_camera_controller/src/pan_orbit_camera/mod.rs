@@ -177,7 +177,7 @@ pub mod input;
 /// Common imports.
 pub mod prelude {
     pub use crate::{
-        pan_orbit_camera::controller::{component::*, transform_adapter::*, *},
+        pan_orbit_camera::controller::{component::*, transform_utils::*, *},
         pan_orbit_camera::DefaultPanOrbitCameraPlugins,
     };
 }

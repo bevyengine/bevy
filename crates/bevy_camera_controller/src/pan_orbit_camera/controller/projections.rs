@@ -2,8 +2,8 @@
 
 use bevy_camera::prelude::*;
 use bevy_ecs::prelude::*;
-use bevy_ecs::resource::IsResource;
 use bevy_math::{DQuat, DVec3};
+use bevy_transform::components::Transform;
 
 use crate::pan_orbit_camera::prelude::*;
 
@@ -93,10 +93,9 @@ impl Default for OrthographicSettings {
 /// Update the ortho camera projection and position based on the [`OrthographicSettings`].
 pub fn update_orthographic(
     mut camera_set: ParamSet<(
-        Query<(Entity, &mut PanOrbitCamera, Mut<Projection>), Without<IsResource>>,
-        Query<EntityMut, (With<PanOrbitCamera>, Without<IsResource>)>,
+        Query<(Entity, &mut PanOrbitCamera, Mut<Projection>)>,
+        Query<&mut Transform, With<PanOrbitCamera>>,
     )>,
-    transform_adapter: Res<TransformAdapter>,
 ) {
     camera_set
         .p0()
@@ -137,8 +136,8 @@ pub fn update_orthographic(
         .collect::<Vec<_>>()
         .iter()
         .for_each(|(entity, delta_translation)| {
-            if let Ok(mut entity_mut) = camera_set.p1().get_mut(*entity) {
-                transform_adapter.apply_delta(&mut entity_mut, *delta_translation, DQuat::IDENTITY);
+            if let Ok(mut cam_transform) = camera_set.p1().get_mut(*entity) {
+                apply_delta(&mut cam_transform, *delta_translation, DQuat::IDENTITY);
             }
         });
 }

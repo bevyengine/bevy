@@ -7,14 +7,13 @@ use std::{
 
 use bevy_camera::prelude::*;
 use bevy_ecs::prelude::*;
-use bevy_ecs::resource::IsResource;
 use bevy_log::prelude::*;
 use bevy_math::{dproj, prelude::*, DAffine3, DMat3, DMat4, DQuat, DVec2, DVec3};
 use bevy_platform::time::Instant;
 use bevy_time::prelude::*;
 use bevy_transform::prelude::*;
 
-use super::transform_adapter::TransformAdapter;
+use super::transform_utils::*;
 use bevy_window::RequestRedraw;
 
 use super::{
@@ -317,21 +316,18 @@ impl PanOrbitCamera {
     /// Called once every frame to compute motions and update the transforms of all [`PanOrbitCamera`]s
     pub fn update_camera_positions(
         mut camera_set: ParamSet<(
-            Query<EntityRef, (With<PanOrbitCamera>, Without<IsResource>)>,
-            Query<(&mut PanOrbitCamera, &Camera, Mut<Projection>), Without<IsResource>>,
-            Query<EntityMut, (With<PanOrbitCamera>, Without<IsResource>)>,
+            Query<(&Transform, Entity), With<PanOrbitCamera>>,
+            Query<(&mut PanOrbitCamera, &Camera, Mut<Projection>)>,
+            Query<&mut Transform, With<PanOrbitCamera>>,
         )>,
-        transform_adapter: Res<TransformAdapter>,
         mut event: MessageWriter<RequestRedraw>,
         time: Res<Time>,
     ) {
         camera_set
             .p0()
             .iter()
-            .filter_map(|entity_ref| {
-                transform_adapter
-                    .read(&entity_ref)
-                    .map(|transform| (entity_ref.id(), transform))
+            .filter_map(|(transform, entity)| {
+                read_transform(transform).map(|transform| (entity, transform))
             })
             .collect::<Vec<_>>()
             .iter()
@@ -357,11 +353,7 @@ impl PanOrbitCamera {
             .iter()
             .for_each(|(entity, (delta_translation, delta_rotation))| {
                 if let Ok(mut entity_mut) = camera_set.p2().get_mut(*entity) {
-                    transform_adapter.apply_delta(
-                        &mut entity_mut,
-                        *delta_translation,
-                        *delta_rotation,
-                    );
+                    apply_delta(&mut entity_mut, *delta_translation, *delta_rotation);
                 }
             });
     }

@@ -8,14 +8,15 @@ use std::time::Duration;
 use bevy_app::prelude::*;
 use bevy_camera::{prelude::*, ScalingMode};
 use bevy_ecs::prelude::*;
-use bevy_ecs::resource::IsResource;
 use bevy_log::error_once;
 use bevy_math::{prelude::*, DQuat, DVec3};
 use bevy_platform::{collections::HashMap, time::Instant};
+use bevy_transform::components::Transform;
 use bevy_window::RequestRedraw;
 
-use crate::pan_orbit_camera::prelude::{
-    motion::CurrentMotion, EnabledMotion, PanOrbitCamera, TransformAdapter,
+use crate::pan_orbit_camera::{
+    controller::transform_utils::apply_delta,
+    prelude::{motion::CurrentMotion, EnabledMotion, PanOrbitCamera},
 };
 
 /// See the [module](self) docs.
@@ -50,10 +51,9 @@ impl DollyZoomTrigger {
         mut events: MessageReader<Self>,
         mut state: ResMut<DollyZoom>,
         mut camera_set: ParamSet<(
-            Query<(&Camera, Mut<Projection>, &mut PanOrbitCamera), Without<IsResource>>,
-            Query<EntityMut, (With<PanOrbitCamera>, Without<IsResource>)>,
+            Query<(&Camera, Mut<Projection>, &mut PanOrbitCamera)>,
+            Query<&mut Transform, With<PanOrbitCamera>>,
         )>,
-        transform_adapter: Res<TransformAdapter>,
         mut redraw: MessageWriter<RequestRedraw>,
     ) {
         for event in events.read() {
@@ -137,7 +137,7 @@ impl DollyZoomTrigger {
 
             let mut camera_muts = camera_set.p1();
             let mut camera_mut = camera_muts.get_mut(event.camera).unwrap();
-            transform_adapter.apply_delta(&mut camera_mut, delta_translation, DQuat::IDENTITY);
+            apply_delta(&mut camera_mut, delta_translation, DQuat::IDENTITY);
         }
     }
 }
@@ -178,10 +178,9 @@ impl DollyZoom {
     fn update(
         mut state: ResMut<Self>,
         mut camera_set: ParamSet<(
-            Query<(&Camera, Mut<Projection>, &mut PanOrbitCamera), Without<IsResource>>,
-            Query<EntityMut, (With<PanOrbitCamera>, Without<IsResource>)>,
+            Query<(&Camera, Mut<Projection>, &mut PanOrbitCamera)>,
+            Query<&mut Transform, With<PanOrbitCamera>>,
         )>,
-        transform_adapter: Res<TransformAdapter>,
         mut redraw: MessageWriter<RequestRedraw>,
     ) {
         let animation_duration = state.animation_duration;
@@ -255,7 +254,7 @@ impl DollyZoom {
 
             let mut camera_muts = camera_set.p1();
             let mut camera_mut = camera_muts.get_mut(*camera_entity).unwrap();
-            transform_adapter.apply_delta(&mut camera_mut, delta_translation, DQuat::IDENTITY);
+            apply_delta(&mut camera_mut, delta_translation, DQuat::IDENTITY);
         }
         state.map.retain(|_, v| !v.complete);
     }
