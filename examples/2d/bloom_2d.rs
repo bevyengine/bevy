@@ -138,14 +138,14 @@ fn setup(
         })
         .id();
 
-    commands.spawn_scene(bloom_off_checkbox(root));
+    commands.spawn_scene(bloom_checkbox(root));
     commands.spawn_scene(bloom_settings_pane(root));
 
     commands.insert_resource(BloomPaneParent(root));
 }
 
 // ------------------------------------------------------------------------------------------------
-fn bloom_off_checkbox(parent: Entity) -> impl Scene {
+fn bloom_checkbox(parent: Entity) -> impl Scene {
     bsn! {
         ChildOf(parent)
         @FeathersCheckbox {
