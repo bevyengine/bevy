@@ -432,30 +432,18 @@ fn collect_visible_cpu_culled_entities_for_subview(
 
 #[cfg(test)]
 mod tests {
-    use bevy_ecs::entity::{EntityGeneration, EntityIndex};
-    use nonmax::NonMaxU32;
-
     use super::*;
-
-    fn entity_from(index: u32, generation: u32) -> Entity {
-        Entity::from_index_and_generation(
-            EntityIndex::new(NonMaxU32::new(index).unwrap()),
-            EntityGeneration::FIRST.after_versions(generation),
-        )
-    }
 
     #[test]
     fn cpu_visible_entity_pair_lookup_uses_main_entity_sort_order() {
         struct TestVisibilityClass;
 
-        let main_a = MainEntity::from(entity_from(0, 0));
-        let main_b = MainEntity::from(entity_from(1, 0));
+        let main_a = MainEntity::from(Entity::from_bits(1));
+        let main_b = MainEntity::from(Entity::from_bits(2));
 
-        let render_a = entity_from(0, 0);
-        // We need an entity with a different generation since it affects the sort order.
-        // This is necessary to create a sort order that is different when sorting on the full tuple
-        // compared to sorting on the main entity.
-        let render_b = entity_from(1, 1);
+        // We need the render entities to sort differently from the main entities
+        let render_a = Entity::from_bits(2);
+        let render_b = Entity::from_bits(1);
 
         let mut pairs = vec![(render_a, main_a), (render_b, main_b)];
 
