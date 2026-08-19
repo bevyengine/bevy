@@ -62,6 +62,21 @@ impl SystemWithAccess {
     pub fn access(&self) -> &SystemAccess {
         &self.access
     }
+
+    /// Returns a mutable reference to the access returned by [`System::initialize`].
+    ///
+    /// This lets a [`ScheduleBuildPass`](crate::schedule::ScheduleBuildPass) declare additional
+    /// access for a system it has reconfigured, so that the executor accounts for it when
+    /// determining which systems may run in parallel.
+    ///
+    /// Safety:
+    /// 
+    /// Widening the access here is always sound. Narrowing it to less than what the system
+    /// actually touches is not: the executor would then allow the system to run concurrently
+    /// with a conflicting one.
+    pub unsafe fn access_mut(&mut self) -> &mut SystemAccess {
+        &mut self.access
+    }
 }
 
 impl System for SystemWithAccess {
