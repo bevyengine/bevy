@@ -222,6 +222,52 @@ impl TextEdit {
         }
     }
 
+    /// Returns whether this actually affects the text, or is just cursor movement
+    pub fn is_destructive(&self) -> bool {
+        match self {
+            // Destructive actions
+            TextEdit::Cut
+            | TextEdit::Paste
+            | TextEdit::Insert(_)
+            | TextEdit::Backspace
+            | TextEdit::BackspaceWord
+            | TextEdit::Delete
+            | TextEdit::DeleteWord
+            | TextEdit::ImeSetCompose {
+                value: _,
+                cursor: _,
+            }
+            | TextEdit::ImeCommit { value: _ } => true,
+
+            // Nondestructive actions
+            TextEdit::Copy
+            | TextEdit::Left(_)
+            | TextEdit::Right(_)
+            | TextEdit::WordLeft(_)
+            | TextEdit::WordRight(_)
+            | TextEdit::Up(_)
+            | TextEdit::Down(_)
+            | TextEdit::TextStart(_)
+            | TextEdit::TextEnd(_)
+            | TextEdit::HardLineStart(_)
+            | TextEdit::HardLineEnd(_)
+            | TextEdit::LineStart(_)
+            | TextEdit::LineEnd(_)
+            | TextEdit::CollapseSelection
+            | TextEdit::SelectAll
+            | TextEdit::SelectAllIfCollapsed
+            | TextEdit::MoveToPoint(_)
+            | TextEdit::SelectWordAtPoint(_)
+            | TextEdit::SelectLineAtPoint(_)
+            | TextEdit::SelectedHardLineAtPoint(_)
+            | TextEdit::ExtendSelectionToPoint(_)
+            | TextEdit::ShiftClickExtension(_)
+            | TextEdit::ScrollByLines(_)
+            | TextEdit::ScrollTo(_)
+            | TextEdit::ScrollBy(_) => false,
+        }
+    }
+
     /// Apply the [`TextEdit`] to the text editor driver and viewport.
     ///
     /// Note that some edits, such as [`TextEdit::Paste`], may need to be deferred across frames due to asynchronous clipboard I/O.

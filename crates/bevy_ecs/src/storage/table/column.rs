@@ -1,6 +1,6 @@
 use super::*;
 use crate::{
-    change_detection::MaybeLocation,
+    change_detection::{AtomicTick, MaybeLocation},
     storage::{blob_array::BlobArray, thin_array_ptr::ThinArrayPtr},
 };
 use core::{mem::needs_drop, panic::Location};
@@ -16,7 +16,7 @@ use core::{mem::needs_drop, panic::Location};
 /// interface. It's highly advised to use higher level types and their safe abstractions
 /// instead of working directly with `Column`.
 ///
-/// For performance reasons, `Column` does not does not store it's capacity and length.
+/// For performance reasons, `Column` does not store its capacity and length.
 /// This type is used by [`Table`] and [`ComponentSparseSet`], where the corresponding capacity
 /// and length can be found.
 ///
@@ -27,6 +27,7 @@ pub struct Column {
     pub(super) added_ticks: ThinArrayPtr<UnsafeCell<Tick>>,
     pub(super) changed_ticks: ThinArrayPtr<UnsafeCell<Tick>>,
     pub(super) changed_by: MaybeLocation<ThinArrayPtr<UnsafeCell<&'static Location<'static>>>>,
+    pub(super) summary_tick: Option<AtomicTick>,
 }
 
 impl Column {
@@ -42,6 +43,14 @@ impl Column {
             added_ticks: ThinArrayPtr::with_capacity(capacity),
             changed_ticks: ThinArrayPtr::with_capacity(capacity),
             changed_by: MaybeLocation::new_with(|| ThinArrayPtr::with_capacity(capacity)),
+            summary_tick: if component_info.summary_tick() {
+                // Set this to zero for now; when we initialize the column by
+                // inserting a component it'll be updated with the correct
+                // value.
+                Some(AtomicTick::default())
+            } else {
+                None
+            },
         }
     }
 
@@ -178,12 +187,19 @@ impl Column {
         caller: MaybeLocation,
     ) {
         self.data.initialize_unchecked(row.index(), data);
-        *self.added_ticks.get_unchecked_mut(row.index()).get_mut() = tick;
-        *self.changed_ticks.get_unchecked_mut(row.index()).get_mut() = tick;
+        self.added_ticks
+            .initialize_unchecked(row.index(), UnsafeCell::new(tick));
+        self.changed_ticks
+            .initialize_unchecked(row.index(), UnsafeCell::new(tick));
         self.changed_by
             .as_mut()
-            .map(|changed_by| changed_by.get_unchecked_mut(row.index()).get_mut())
-            .assign(caller);
+            .zip(caller)
+            .map(|(changed_by, caller)| {
+                changed_by.initialize_unchecked(row.index(), UnsafeCell::new(caller));
+            });
+        if let Some(summary_tick) = &self.summary_tick {
+            summary_tick.set(tick);
+        }
     }
 
     /// Overwrites component data to the column at given row. The previous value is dropped.
@@ -206,54 +222,81 @@ impl Column {
             .as_mut()
             .map(|changed_by| changed_by.get_unchecked_mut(row.index()).get_mut())
             .assign(caller);
+        if let Some(summary_tick) = &self.summary_tick {
+            summary_tick.set(change_tick);
+        }
     }
 
-    /// Removes the element from `other` at `src_row` and inserts it
-    /// into the current column to initialize the values at `dst_row`.
+    /// Removes the element from `src` at `src_row` and inserts it
+    /// into this column to initialize the values at `dst_row`.
     /// Does not do any bounds checking.
     ///
+    /// `change_tick` must be the change tick of the current system.
+    ///
     /// # Safety
-    ///  - `other` must have the same data layout as `self`
-    ///  - `src_row` must be in bounds for `other`
+    ///  - `src` must have the same data layout as `self`
+    ///  - `src_row` must be in bounds for `src`
     ///  - `dst_row` must be in bounds for `self`
-    ///  - `other[src_row]` must be initialized to a valid value.
+    ///  - `src[src_row]` must be initialized to a valid value.
     ///  - `self[dst_row]` must not be initialized yet.
+    ///  - `src_last_element_index` must be the last element in `src`
     #[inline]
     pub(crate) unsafe fn initialize_from_unchecked(
         &mut self,
-        other: &mut Column,
-        other_last_element_index: usize,
+        src: &mut Column,
+        src_last_element_index: usize,
         src_row: TableRow,
         dst_row: TableRow,
+        this_run: Tick,
     ) {
-        debug_assert!(self.data.layout() == other.data.layout());
-        // Init the data
-        let src_val = other
-            .data
-            .swap_remove_unchecked(src_row.index(), other_last_element_index);
-        self.data.initialize_unchecked(dst_row.index(), src_val);
-        // Init added_ticks
-        let added_tick = other
-            .added_ticks
-            .swap_remove_unchecked(src_row.index(), other_last_element_index);
-        self.added_ticks
-            .initialize_unchecked(dst_row.index(), added_tick);
-        // Init changed_ticks
-        let changed_tick = other
-            .changed_ticks
-            .swap_remove_unchecked(src_row.index(), other_last_element_index);
-        self.changed_ticks
-            .initialize_unchecked(dst_row.index(), changed_tick);
-        self.changed_by.as_mut().zip(other.changed_by.as_mut()).map(
-            |(self_changed_by, other_changed_by)| {
-                let changed_by = other_changed_by
-                    .swap_remove_unchecked(src_row.index(), other_last_element_index);
-                self_changed_by.initialize_unchecked(dst_row.index(), changed_by);
-            },
-        );
+        debug_assert!(self.data.layout() == src.data.layout());
+        // SAFETY:
+        // In bounds, same layout & correct last element index as per preconditions
+        unsafe {
+            self.data.initialize_from_swap_remove_unchecked(
+                &mut src.data,
+                src_last_element_index,
+                src_row.index(),
+                dst_row.index(),
+            );
+            self.added_ticks.initialize_from_swap_remove_unchecked(
+                &mut src.added_ticks,
+                src_last_element_index,
+                src_row.index(),
+                dst_row.index(),
+            );
+            self.changed_ticks.initialize_from_swap_remove_unchecked(
+                &mut src.changed_ticks,
+                src_last_element_index,
+                src_row.index(),
+                dst_row.index(),
+            );
+            self.changed_by.as_mut().zip(src.changed_by.as_mut()).map(
+                |(self_changed_by, src_changed_by)| {
+                    self_changed_by.initialize_from_swap_remove_unchecked(
+                        src_changed_by,
+                        src_last_element_index,
+                        src_row.index(),
+                        dst_row.index(),
+                    );
+                },
+            );
+        }
+
+        if let Some(summary_tick) = &self.summary_tick {
+            // SAFETY:
+            // - Changed tick just got initialized at dst_row
+            // - There are no mutable references to the changed tick
+            let row_change_tick =
+                unsafe { self.changed_ticks.get_unchecked(dst_row.index()).read() };
+            if row_change_tick.is_newer_than(summary_tick.get(), this_run) {
+                summary_tick.set(row_change_tick);
+            }
+        }
     }
 
-    /// Call [`Tick::check_tick`] on all of the ticks stored in this column.
+    /// Calls [`Tick::check_tick`] on all of the ticks stored in this column, as
+    /// well as the summary tick, if one is present.
     ///
     /// # Safety
     /// `len` is the actual length of this column
@@ -272,6 +315,14 @@ impl Column {
             unsafe { self.changed_ticks.get_unchecked_mut(i) }
                 .get_mut()
                 .check_tick(check);
+        }
+
+        // Update the summary tick, if one is present.
+        if let Some(summary_tick) = &self.summary_tick {
+            let mut summary_tick_value = summary_tick.get();
+            if summary_tick_value.check_tick(check) {
+                summary_tick.set(summary_tick_value);
+            }
         }
     }
 
@@ -426,5 +477,35 @@ impl Column {
     #[inline]
     pub fn get_drop(&self) -> Option<unsafe fn(OwningPtr<'_>)> {
         self.data.get_drop()
+    }
+
+    /// Returns a reference to the summary tick for this column, if the
+    /// component that this column is associated with has a summary tick.
+    ///
+    /// The summary tick stores the most recent changed timestamp that was
+    /// written to any component instance of this column. "Most recent" here
+    /// refers to the wall clock.
+    ///
+    /// Be careful when using this value, as it's easy to misuse. Because
+    /// multiple systems with different ticks can be concurrently writing to a
+    /// single column, and because "most recent" is in reference to wall clock
+    /// time, *there may be ticks in the column that are logically later than
+    /// the summary tick.* It's therefore incorrect to assume that the summary
+    /// tick represents the latest tick stored in the column.
+    ///
+    /// Importantly, however, this situation can only occur when multiple
+    /// systems are *actually* concurrently writing to a column. This can only
+    /// happen when both systems are writing to a column with sparse queries.
+    /// Systems that iterate over components with dense iteration have immutable
+    /// or exclusive access to the columns corresponding to those components in
+    /// the tables that they iterate over (and this fact is what makes
+    /// contiguous iteration safe to begin with). So, *for a dense query*, we
+    /// can guarantee that if the `last_run` tick for that query is *t*, then if
+    /// the summary tick has a value earlier than *t*, then there have been no
+    /// changes to the column values. Again, this is *only* true for dense
+    /// iteration.
+    #[inline]
+    pub fn get_summary_tick(&self) -> Option<&AtomicTick> {
+        self.summary_tick.as_ref()
     }
 }

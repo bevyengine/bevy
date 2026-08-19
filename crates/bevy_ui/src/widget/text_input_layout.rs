@@ -92,7 +92,7 @@ pub fn update_editable_text_content_size(
             continue;
         }
 
-        let font_size = text_font.font_size.eval(target.logical_size(), rem_size.0);
+        let font_size = text_font.font_size.eval(target.logical_size(), *rem_size);
 
         let width = editable_text.visible_width.and_then(|visible_width| {
             let font_context = &mut font_cx.context;
@@ -202,7 +202,7 @@ pub fn update_editable_text_styles(
                 .editor
                 .edit_styles()
                 .insert(StyleProperty::FontSize(
-                    text_font.font_size.eval(target.logical_size(), rem_size.0),
+                    text_font.font_size.eval(target.logical_size(), *rem_size),
                 ));
         }
 
@@ -505,7 +505,7 @@ pub fn update_editable_text_layout(
             info.cursor = driver
                 .editor
                 .cursor_geometry(
-                    cursor_width * text_font.font_size.eval(target.logical_size(), rem_size.0),
+                    cursor_width * text_font.font_size.eval(target.logical_size(), *rem_size),
                 )
                 .map(bounding_box_to_rect)
                 .map(|rect| (*cursor_timer < cursor_blink_period / 2, rect));
