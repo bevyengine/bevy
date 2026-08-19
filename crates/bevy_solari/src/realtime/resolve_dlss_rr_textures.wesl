@@ -2,10 +2,10 @@ import bevy_core_pipeline::tonemapping::tonemapping_luminance as luminance;
 import bevy_pbr::deferred::types::unpack_24bit_normal;
 import bevy_pbr::render::pbr_functions::{calculate_diffuse_color, calculate_F0, calculate_F0_dielectric};
 import bevy_render::utils::octahedral_decode;
-import bevy_solari::realtime::gbuffer_utils::gpixel_resolve;
-import bevy_solari::realtime::bindings::{gbuffer, depth_buffer, motion_vectors, previous_view, view, diffuse_albedo, specular_albedo, normal_roughness, dlss_rr_depth, specular_motion_vectors};
-import bevy_solari::scene::brdf::{evaluate_specular_brdf, F_AB, lobe_reflectances};
-import bevy_solari::scene::bindings::{MIRROR_ROUGHNESS_THRESHOLD, ResolvedMaterial, ResolvedRayHitFull};
+import package::realtime::gbuffer_utils::gpixel_resolve;
+import package::realtime::bindings::{gbuffer, depth_buffer, motion_vectors, previous_view, view, diffuse_albedo, specular_albedo, normal_roughness, dlss_rr_depth, specular_motion_vectors};
+import package::scene::brdf::{evaluate_specular_brdf, F_AB, lobe_reflectances};
+import package::scene::bindings::{MIRROR_ROUGHNESS_THRESHOLD, ResolvedMaterial, ResolvedRayHitFull};
 
 enable wgpu_ray_query;
 

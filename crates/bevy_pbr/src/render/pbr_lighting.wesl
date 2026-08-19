@@ -1,4 +1,4 @@
-import bevy_pbr::{
+import package::{
     render::mesh_view_types::POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE,
     render::mesh_view_bindings as view_bindings,
     atmosphere::functions::{calculate_visible_sun_ratio, clamp_to_surface},
@@ -296,7 +296,8 @@ fn G_Smith(NdotV: f32, NdotL: f32, roughness: f32) -> f32 {
 //
 // https://google.github.io/filament/Filament.md.html#materialsystem/clearcoatmodel
 fn V_Kelemen(LdotH: f32) -> f32 {
-    return 0.25 / (LdotH * LdotH);
+    let l_dot_h = max(LdotH, 0.0001);
+    return 0.25 / (l_dot_h * l_dot_h);
 }
 
 // Fresnel function

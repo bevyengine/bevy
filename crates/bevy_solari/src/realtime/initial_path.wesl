@@ -2,15 +2,15 @@ import bevy_core_pipeline::tonemapping::tonemapping_luminance as luminance;
 import bevy_pbr::render::utils::{rand_f, rand_range_u};
 import bevy_render::maths::PI;
 import bevy_render::utils::octahedral_encode;
-import bevy_solari::scene::brdf::{brdf_pdf, evaluate_and_sample_brdf, evaluate_brdf, F_AB};
-import bevy_solari::realtime::presample_light_tiles::unpack_resolved_light_sample;
-import bevy_solari::realtime::bindings::{empty_reservoir, light_tile_resolved_samples, light_tile_samples, Reservoir, constants, view};
-import bevy_solari::scene::sampling::{calculate_resolved_light_contribution, isinf, LightSample, NULL_LIGHT_ID, power_heuristic, trace_visibility};
-import bevy_solari::scene::bindings::{light_sources, RAY_T_MAX, RAY_T_MIN, resolve_ray_hit_full, ResolvedMaterial, ResolvedRayHitFull, trace_ray};
-import bevy_solari::realtime::world_cache_query::{get_cell_size, query_world_cache, WORLD_CACHE_CELL_LIFETIME};
+import package::scene::brdf::{brdf_pdf, evaluate_and_sample_brdf, evaluate_brdf, F_AB};
+import package::realtime::presample_light_tiles::unpack_resolved_light_sample;
+import package::realtime::bindings::{empty_reservoir, light_tile_resolved_samples, light_tile_samples, Reservoir, constants, view};
+import package::scene::sampling::{calculate_resolved_light_contribution, isinf, LightSample, NULL_LIGHT_ID, power_heuristic, trace_visibility};
+import package::scene::bindings::{light_sources, RAY_T_MAX, RAY_T_MIN, resolve_ray_hit_full, ResolvedMaterial, ResolvedRayHitFull, trace_ray};
+import package::realtime::world_cache_query::{get_cell_size, query_world_cache, WORLD_CACHE_CELL_LIFETIME};
 
 @if(DLSS_RR_GUIDE_BUFFERS)
-import bevy_solari::realtime::resolve_dlss_rr_textures::{is_delta_mirror, primary_surface_glossy, psr_bounce_reflectance, psr_chain_mirror, psr_environment_miss, psr_init, replace_primary_surface};
+import package::realtime::resolve_dlss_rr_textures::{is_delta_mirror, primary_surface_glossy, psr_bounce_reflectance, psr_chain_mirror, psr_environment_miss, psr_init, replace_primary_surface};
 
 enable wgpu_ray_query;
 

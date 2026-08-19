@@ -1,4 +1,4 @@
-import bevy_pbr::{
+import package::{
     meshlet::bindings::{
         meshlet_cluster_meshlet_ids,
         meshlets,
