@@ -1,4 +1,4 @@
-import bevy_pbr::{
+import package::{
     render::{
         pbr_types::{PbrInput, pbr_input_new, STANDARD_MATERIAL_FLAGS_UNLIT_BIT},
         pbr_functions,
@@ -11,11 +11,11 @@ import bevy_pbr::{
 };
 import bevy_render::utils::{octahedral_encode, octahedral_decode};
 
-@if(MESHLET_MESH_MATERIAL_PASS) import bevy_pbr::meshlet::visibility_buffer_resolve::VertexOutput;
-@else import bevy_pbr::prepass::io::VertexOutput;
+@if(MESHLET_MESH_MATERIAL_PASS) import package::meshlet::visibility_buffer_resolve::VertexOutput;
+@else import package::prepass::io::VertexOutput;
 
 @if(MOTION_VECTOR_PREPASS)
-    import bevy_pbr::render::pbr_prepass_functions::calculate_motion_vector;
+    import package::render::pbr_prepass_functions::calculate_motion_vector;
 
 // Creates the deferred gbuffer from a PbrInput.
 fn deferred_gbuffer_from_pbr_input(in: PbrInput) -> vec4<u32> {

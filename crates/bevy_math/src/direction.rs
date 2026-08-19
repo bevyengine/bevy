@@ -292,6 +292,12 @@ impl Dir2 {
         // Based on a Taylor approximation of the inverse square root, see [`Dir3::fast_renormalize`] for more details.
         Self(self * (0.5 * (3.0 - length_squared)))
     }
+
+    /// Returns the perpendicular vector rotated to 90 degrees counterclockwise.
+    #[inline]
+    pub fn perpendicular(self) -> Self {
+        Self::new_unchecked(self.as_vec2().perp())
+    }
 }
 
 impl TryFrom<Vec2> for Dir2 {
@@ -1321,6 +1327,21 @@ mod tests {
             "Denormalization doesn't work, test is faulty"
         );
         assert!(dir_b.is_normalized(), "Renormalisation did not work.");
+    }
+
+    #[test]
+    fn dir2_perp() {
+        // (1, 0) rotated 90 deg counterclockwise becomes (0, 1)
+        assert_eq!(Dir2::X.perpendicular(), Dir2::Y);
+
+        // (0, 1) rotated 90 deg counterclockwise becomes (-1, 0)
+        assert_eq!(Dir2::Y.perpendicular(), Dir2::NEG_X);
+
+        // (-1, 0) rotated 90 deg counterclockwise becomes (0, -1)
+        assert_eq!(Dir2::NEG_X.perpendicular(), Dir2::NEG_Y);
+
+        // (0, -1) rotated 90 deg counterclockwise becomes (1, 0)
+        assert_eq!(Dir2::NEG_Y.perpendicular(), Dir2::X);
     }
 
     #[test]

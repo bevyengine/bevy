@@ -9,9 +9,10 @@ use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_math::{Affine2, BVec2, Rect, UVec2, Vec2, Vec4, Vec4Swizzles};
 use bevy_reflect::prelude::*;
 use bevy_sprite::BorderRect;
+use bevy_text::{EmSize, RemSize, DEFAULT_REM_SIZE_PX};
 use bevy_utils::once;
 use bevy_window::{PrimaryWindow, WindowRef};
-use core::{f32, num::NonZero};
+use core::num::NonZero;
 use derive_more::derive::From;
 use smallvec::SmallVec;
 use thiserror::Error;
@@ -43,35 +44,30 @@ pub struct ComputedNode {
     pub scroll_position: Vec2,
     /// The width of this node's outline in physical pixels.
     /// If this value is negative or zero then no outline will be rendered.
-    ///
-    /// [`ui_layout_system`](`super::layout::ui_layout_system`) bypasses change detection
-    /// when updating this field.
     pub outline_width: f32,
     /// The amount of space between the outline and the edge of the node.
-    ///
-    /// [`ui_layout_system`](`super::layout::ui_layout_system`) bypasses change detection
-    /// when updating this field.
     pub outline_offset: f32,
     /// The unrounded size of the node as width and height in physical pixels.
     pub unrounded_size: Vec2,
     /// Resolved border values in physical pixels.
-    ///
-    /// [`ui_layout_system`](`super::layout::ui_layout_system`) bypasses change detection
-    /// when updating this field.
     pub border: BorderRect,
     /// Resolved border radius values in physical pixels.
-    ///
-    /// [`ui_layout_system`](`super::layout::ui_layout_system`) bypasses change detection
-    /// when updating this field.
     pub border_radius: ResolvedBorderRadius,
     /// Resolved padding values in physical pixels.
-    ///
-    /// [`ui_layout_system`](`super::layout::ui_layout_system`) bypasses change detection
-    /// when updating this field.
     pub padding: BorderRect,
     /// Inverse scale factor for this Node.
     /// Multiply physical coordinates by the inverse scale factor to give logical coordinates.
     pub inverse_scale_factor: f32,
+    /// The font size used to resolve this node's `Val::Em` lengths, in logical pixels.
+    ///
+    /// Copied from the node's [`EmSize`] component during layout.
+    pub em_size: EmSize,
+    /// The root font size used to resolve this node's `Val::Rem` lengths, in logical pixels.
+    ///
+    /// Copied from the [`RemSize`] resource during layout.
+    // Stored per node rather than read from the resource because `ComputedNode` is extracted
+    // to the render world and `RemSize` is not.
+    pub rem_size: RemSize,
 }
 
 impl ComputedNode {
@@ -389,6 +385,8 @@ impl ComputedNode {
         border: BorderRect::ZERO,
         padding: BorderRect::ZERO,
         inverse_scale_factor: 1.,
+        em_size: EmSize(DEFAULT_REM_SIZE_PX),
+        rem_size: RemSize(DEFAULT_REM_SIZE_PX),
     };
 }
 
@@ -474,7 +472,8 @@ impl From<BVec2> for IgnoreScroll {
     FocusPolicy,
     ScrollPosition,
     Visibility,
-    ZIndex
+    ZIndex,
+    EmSize
 )]
 #[reflect(Component, Default, PartialEq, Debug, Clone)]
 #[cfg_attr(
@@ -1543,6 +1542,10 @@ pub enum MinTrackSizingFunction {
     Px(f32),
     /// Track minimum size should be a percentage value
     Percent(f32),
+    /// Track minimum size should be a multiple of the grid container's font size.
+    Em(f32),
+    /// Track minimum size should be a multiple of the root font size.
+    Rem(f32),
     /// Track minimum size should be content sized under a min-content constraint
     MinContent,
     /// Track minimum size should be content sized under a max-content constraint
@@ -1572,6 +1575,10 @@ pub enum MaxTrackSizingFunction {
     Px(f32),
     /// Track maximum size should be a percentage value
     Percent(f32),
+    /// Track maximum size should be a multiple of the grid container's font size.
+    Em(f32),
+    /// Track maximum size should be a multiple of the root font size.
+    Rem(f32),
     /// Track maximum size should be content sized under a min-content constraint
     MinContent,
     /// Track maximum size should be content sized under a max-content constraint
@@ -1632,6 +1639,24 @@ impl GridTrack {
         Self {
             min_sizing_function: MinTrackSizingFunction::Percent(value),
             max_sizing_function: MaxTrackSizingFunction::Percent(value),
+        }
+        .into()
+    }
+
+    /// Create a grid track with size as a multiple of the grid container's font size.
+    pub fn em<T: From<Self>>(value: f32) -> T {
+        Self {
+            min_sizing_function: MinTrackSizingFunction::Em(value),
+            max_sizing_function: MaxTrackSizingFunction::Em(value),
+        }
+        .into()
+    }
+
+    /// Create a grid track with size as a multiple of the root font size.
+    pub fn rem<T: From<Self>>(value: f32) -> T {
+        Self {
+            min_sizing_function: MinTrackSizingFunction::Rem(value),
+            max_sizing_function: MaxTrackSizingFunction::Rem(value),
         }
         .into()
     }
@@ -1841,6 +1866,24 @@ impl RepeatedGridTrack {
         Self {
             repetition: repetition.into(),
             tracks: SmallVec::from_buf([GridTrack::percent(value)]),
+        }
+        .into()
+    }
+
+    /// Create a repeating set of grid tracks with size as a multiple of the grid containers's font size.
+    pub fn em<T: From<Self>>(repetition: impl Into<GridTrackRepetition>, value: f32) -> T {
+        Self {
+            repetition: repetition.into(),
+            tracks: SmallVec::from_buf([GridTrack::em(value)]),
+        }
+        .into()
+    }
+
+    /// Create a repeating set of grid tracks with size as a multiple of the root font size.
+    pub fn rem<T: From<Self>>(repetition: impl Into<GridTrackRepetition>, value: f32) -> T {
+        Self {
+            repetition: repetition.into(),
+            tracks: SmallVec::from_buf([GridTrack::rem(value)]),
         }
         .into()
     }
@@ -2852,20 +2895,38 @@ impl BorderRadius {
         scale_factor: f32,
         node_size: Vec2,
         viewport_size: Vec2,
+        em_size: EmSize,
+        rem_size: RemSize,
     ) -> ResolvedBorderRadius {
         ResolvedBorderRadius {
-            top_left: self
-                .top_left
-                .resolve(scale_factor, node_size, viewport_size),
-            top_right: self
-                .top_right
-                .resolve(scale_factor, node_size, viewport_size),
-            bottom_left: self
-                .bottom_left
-                .resolve(scale_factor, node_size, viewport_size),
-            bottom_right: self
-                .bottom_right
-                .resolve(scale_factor, node_size, viewport_size),
+            top_left: self.top_left.resolve(
+                scale_factor,
+                node_size,
+                viewport_size,
+                em_size,
+                rem_size,
+            ),
+            top_right: self.top_right.resolve(
+                scale_factor,
+                node_size,
+                viewport_size,
+                em_size,
+                rem_size,
+            ),
+            bottom_left: self.bottom_left.resolve(
+                scale_factor,
+                node_size,
+                viewport_size,
+                em_size,
+                rem_size,
+            ),
+            bottom_right: self.bottom_right.resolve(
+                scale_factor,
+                node_size,
+                viewport_size,
+                em_size,
+                rem_size,
+            ),
         }
     }
 }
