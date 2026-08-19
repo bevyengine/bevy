@@ -897,6 +897,65 @@ fn demo_column_2() -> impl Scene {
                                                     })
                                                 ),
                                             ],
+                                            label_small("Color property"),
+                                            Node {
+                                                display: Display::Flex,
+                                                flex_direction: FlexDirection::Row,
+                                                column_gap: px(6),
+                                                align_items: AlignItems::Center,
+                                                justify_content: JustifyContent::SpaceBetween,
+                                            }
+                                            Children [
+                                                (
+                                                    @FeathersNumberInput {
+                                                        @sigil_color: tokens::TEXT_INPUT_X_AXIS,
+                                                        @label_text: "R",
+                                                    }
+                                                    InteractionDisabled
+                                                    NumberInputPrecision(2)
+                                                    template_value(HardLimit(NumberInputRange::F32(0.0..=1.0)))
+                                                    Node {
+                                                        flex_grow: 1.0,
+                                                    }
+                                                    BorderColor::all(palette::X_AXIS)
+                                                ),
+                                                (
+                                                    @FeathersNumberInput {
+                                                        @sigil_color: tokens::TEXT_INPUT_Y_AXIS,
+                                                        @label_text: "G",
+                                                    }
+                                                    InteractionDisabled
+                                                    NumberInputPrecision(2)
+                                                    template_value(HardLimit(NumberInputRange::F32(0.0..=1.0)))
+                                                    Node {
+                                                        flex_grow: 1.0,
+                                                    }
+                                                ),
+                                                (
+                                                    @FeathersNumberInput {
+                                                        @sigil_color: tokens::TEXT_INPUT_Z_AXIS,
+                                                        @label_text: "B",
+                                                    }
+                                                    InteractionDisabled
+                                                    NumberInputPrecision(2)
+                                                    template_value(HardLimit(NumberInputRange::F32(0.0..=1.0)))
+                                                    Node {
+                                                        flex_grow: 1.0,
+                                                    }
+                                                ),
+                                                (
+                                                    @FeathersNumberInput {
+                                                        @sigil_color: tokens::TEXT_INPUT_W_AXIS,
+                                                        @label_text: "A",
+                                                    }
+                                                    InteractionDisabled
+                                                    NumberInputPrecision(2)
+                                                    template_value(HardLimit(NumberInputRange::F32(0.0..=1.0)))
+                                                    Node {
+                                                        flex_grow: 1.0,
+                                                    }
+                                                ),
+                                            ],
                                         ],
                                     ]
                                 ],
