@@ -41,19 +41,6 @@ pub struct Sprite {
     pub alpha_mode: SpriteAlphaMode,
 }
 
-impl core::hash::Hash for Sprite {
-    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
-        self.image.hash(state);
-        self.texture_atlas.hash(state);
-        self.color.reflect_hash().hash(state);
-        self.custom_size.reflect_hash().hash(state);
-        self.flip_x.hash(state);
-        self.flip_y.hash(state);
-    }
-}
-
-impl Eq for Sprite {}
-
 // NOTE: The SpriteImageMode, SpriteScalingMode and Anchor are imported from the sprite module.
 
 impl Sprite {
@@ -188,7 +175,7 @@ impl AsAssetId for Sprite {
 /// An enum describing how a sprite's alpha channel will be handled.
 /// The base color being modified is that of the texture after tinting.
 /// The default is `Blend`.
-#[derive(Debug, Reflect, Copy, Clone, PartialEq)]
+#[derive(Debug, Reflect, Copy, Clone, PartialEq, Default)]
 #[reflect(Default, Debug, Clone)]
 pub enum SpriteAlphaMode {
     /// Base color alpha values are overridden to be fully opaque (1.0).
@@ -205,13 +192,8 @@ pub enum SpriteAlphaMode {
     /// The base color alpha value defines the opacity of the color.
     /// Standard alpha-blending is used to blend the fragment's color
     /// with the color behind it.
+    #[default]
     Blend,
-}
-
-impl Default for SpriteAlphaMode {
-    fn default() -> Self {
-        Self::Blend
-    }
 }
 
 /// Controls how the image is altered when scaled.
