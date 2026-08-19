@@ -206,14 +206,16 @@ pub fn update_editable_text_styles(
                 ));
         }
 
-        if text_font.is_changed() {
-            let Ok(resolved_family) = text_font.font.resolve_font_family(fonts.as_ref()) else {
-                continue;
-            };
-
+        if text_font.is_changed()
+            && let Ok(resolved_family) = text_font.font.resolve_font_family(fonts.as_ref())
+        {
             let family = resolved_family.into_owned();
             let style_set = editable_text.editor.edit_styles();
             style_set.insert(StyleProperty::FontFamily(family));
+        }
+
+        if text_font.is_changed() {
+            let style_set = editable_text.editor.edit_styles();
             style_set.insert(StyleProperty::FontWeight(text_font.weight.into()));
             style_set.insert(StyleProperty::FontWidth(text_font.width.into()));
             style_set.insert(StyleProperty::FontStyle(text_font.style.into()));
