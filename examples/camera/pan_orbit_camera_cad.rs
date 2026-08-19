@@ -30,7 +30,7 @@ fn main() {
             DefaultPlugins,
             MeshPickingPlugin,
             DefaultPanOrbitCameraPlugins,
-            // Currently PanOrbitCamera needs external InputPlugin.
+            // Currently PanOrbitCamera needs an external plugin to handle input mapping.
             CustomInputPlugin,
         ))
         // The camera controller works with reactive rendering:
