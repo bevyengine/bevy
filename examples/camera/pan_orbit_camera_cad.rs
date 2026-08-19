@@ -32,11 +32,12 @@ fn main() {
 
     if true {
         // If you need to use custom input plugin, disable `DefaultInputPlugin` and add your custom input plugin.
-        app.add_plugins(
+        app.add_plugins((
             DefaultPanOrbitCameraPlugins
                 .build()
                 .disable::<DefaultInputPlugin>(),
-        )
+            CustomInputPlugin,
+        ))
         .add_plugins(CustomInputPlugin);
     } else {
         // For most other uses just default `DefaultPanOrbitCameraPlugins` would suffice.
