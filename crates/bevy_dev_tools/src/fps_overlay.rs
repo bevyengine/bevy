@@ -300,7 +300,7 @@ fn toggle_display(
         let font_size = overlay_config
             .text_config
             .font_size
-            .eval(text_node.1.logical_size(), rem_size.0);
+            .eval(text_node.1.logical_size(), *rem_size);
         graph_node.width = Val::Px(font_size * FRAME_TIME_GRAPH_WIDTH_SCALE);
         graph_node.height = Val::Px(font_size * FRAME_TIME_GRAPH_HEIGHT_SCALE);
 

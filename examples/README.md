@@ -303,7 +303,10 @@ Example | Description
 [Custom Projection](../examples/camera/custom_projection.rs) | Shows how to create custom camera projections.
 [First person view model](../examples/camera/first_person_view_model.rs) | A first-person camera that uses a world model and a view model with different field of views (FOV)
 [Free Camera controller](../examples/camera/free_camera_controller.rs) | Demonstrates the FreeCamera controller for 3D scenes.
+[Minimal Pan Orbit Camera](../examples/camera/pan_orbit_camera_minimal.rs) | Minimum setup for working PanOrbitCamera
+[Orthographic Pan Orbit Camera](../examples/camera/pan_orbit_camera_ortho.rs) | Using Pan Orbit Camera in orthographic-only projection
 [Pan Camera](../examples/camera/pan_camera_controller.rs) | Example Pan-Camera Styled Camera Controller for 2D scenes
+[Pan Orbit Camera](../examples/camera/pan_orbit_camera_cad.rs) | CAD-like controls and setup for PanOrbitCamera
 [Projection Zoom](../examples/camera/projection_zoom.rs) | Shows how to zoom orthographic and perspective projection cameras.
 [Screen Shake](../examples/camera/2d_screen_shake.rs) | A simple 2D screen shake effect
 

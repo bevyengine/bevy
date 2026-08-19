@@ -14,8 +14,8 @@
 // [`raymarch.hlsl`]:
 // https://gist.github.com/h3r2tic/9c8356bdaefbe80b1a22ae0aaee192db
 
-import bevy_pbr::render::mesh_view_bindings::depth_prepass_texture;
-import bevy_pbr::render::view_transformations::{
+import package::render::mesh_view_bindings::depth_prepass_texture;
+import package::render::view_transformations::{
     direction_world_to_clip,
     ndc_to_uv,
     perspective_camera_near,

@@ -333,6 +333,11 @@ bevy_dev_tools = ["dep:bevy_dev_tools"]
 bevy_camera_controller = ["dep:bevy_camera_controller"]
 free_camera = ["bevy_camera_controller/free_camera"]
 pan_camera = ["bevy_camera_controller/pan_camera"]
+pan_orbit_camera = [
+  "bevy_camera_controller/pan_orbit_camera",
+  "bevy_camera_controller/extension_anchor_indicator",
+  "bevy_camera_controller/extension_independent_skybox",
+]
 
 # Enable support for the Bevy Remote Protocol
 bevy_remote = ["dep:bevy_remote", "serialize"]

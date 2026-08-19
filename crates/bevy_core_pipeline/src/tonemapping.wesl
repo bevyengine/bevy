@@ -4,7 +4,7 @@ import bevy_render::{
     maths::{PI_2, powsafe},
 };
 
-import bevy_core_pipeline::tonemapping::lut_bindings::{
+import package::tonemapping::lut_bindings::{
     dt_lut_texture,
     dt_lut_sampler,
 };
