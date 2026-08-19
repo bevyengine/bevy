@@ -739,7 +739,8 @@ mod tests {
         loader::{AssetLoader, LoadContext},
         Asset, AssetApp, AssetEvent, AssetId, AssetLoadError, AssetLoadFailedEvent, AssetPath,
         AssetPlugin, AssetServer, Assets, InvalidGenerationError, LoadState, LoadedAsset,
-        UnapprovedPathMode, UntypedHandle, VisitAssetDependencies, WriteDefaultMetaError,
+        LoadedUntypedAsset, UnapprovedPathMode, UntypedHandle, VisitAssetDependencies,
+        WriteDefaultMetaError,
     };
     use alloc::{
         boxed::Box,
@@ -783,6 +784,42 @@ mod tests {
     #[derive(Asset, TypePath, Debug)]
     pub struct SubText {
         pub text: String,
+    }
+
+    /// An asset whose loader performs a nested *untyped* load, to exercise
+    /// [`NestedLoadBuilder::load_untyped`](crate::NestedLoadBuilder::load_untyped).
+    #[derive(Asset, TypePath, Debug)]
+    pub struct UntypedDependent {
+        #[dependency]
+        pub dependency: Handle<LoadedUntypedAsset>,
+    }
+
+    #[derive(Default, TypePath)]
+    pub struct UntypedDependentLoader;
+
+    impl AssetLoader for UntypedDependentLoader {
+        type Asset = UntypedDependent;
+
+        type Settings = ();
+
+        type Error = std::io::Error;
+
+        async fn load(
+            &self,
+            reader: &mut dyn Reader,
+            _settings: &Self::Settings,
+            load_context: &mut LoadContext<'_>,
+        ) -> Result<Self::Asset, Self::Error> {
+            let mut bytes = Vec::new();
+            reader.read_to_end(&mut bytes).await?;
+            Ok(UntypedDependent {
+                dependency: load_context.load_builder().load_untyped("../a.cool.ron"),
+            })
+        }
+
+        fn extensions(&self) -> &[&str] {
+            &["untyped_dependent"]
+        }
     }
 
     #[derive(Serialize, Deserialize, Default)]
@@ -2131,6 +2168,22 @@ mod tests {
 
         dir.insert_asset_text(Path::new(a_path), a_ron);
 
+        // An approved asset that declares the unapproved asset above as a dependency, so that the
+        // unapproved path is reached through a nested load from inside an `AssetLoader`.
+        let dependent_path = "dependent.cool.ron";
+        let dependent_ron = r#"
+(
+    text: "dependent",
+    dependencies: ["../a.cool.ron"],
+    embedded_dependencies: [],
+    sub_texts: [],
+)"#;
+
+        dir.insert_asset_text(Path::new(dependent_path), dependent_ron);
+
+        // Reached through a nested *untyped* load; the contents are unused.
+        dir.insert_asset_text(Path::new("dependent.untyped_dependent"), "");
+
         let mut app = App::new();
         let memory_reader = MemoryAssetReader { root: dir };
         app.register_asset_source(
@@ -2190,6 +2243,68 @@ mod tests {
 
         // Make sure this asset actually loads.
         run_app_until(&mut app, |_| asset_server.is_loaded(&handle).then_some(()));
+    }
+
+    /// Regression test for [#21584](https://github.com/bevyengine/bevy/issues/21584).
+    ///
+    /// Rejecting an unapproved path yields a default (`Uuid`) handle, but nested loads assumed
+    /// they always received a `Strong` handle and unwrapped the conversion, panicking inside the
+    /// asset loader. The nested load should instead be skipped, matching the behavior of a
+    /// top-level [`AssetServer::load`] of an unapproved path.
+    #[test]
+    fn unapproved_path_deny_does_not_panic_in_nested_load() {
+        let mut app = unapproved_path_setup(UnapprovedPathMode::Deny);
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let handle = asset_server.load::<CoolText>("dependent.cool.ron");
+
+        run_app_until(&mut app, |_| {
+            matches!(
+                asset_server.load_state(&handle),
+                LoadState::Loaded | LoadState::Failed(_)
+            )
+            .then_some(())
+        });
+
+        assert!(
+            matches!(asset_server.load_state(&handle), LoadState::Loaded),
+            "an unapproved dependency should be rejected without failing the whole load, but got {:?}",
+            asset_server.load_state(&handle)
+        );
+
+        let cool_text = get::<CoolText>(app.world(), handle.id()).unwrap();
+        assert_eq!(cool_text.text, "dependent");
+        // The rejected dependency resolves to a default handle rather than panicking.
+        assert_eq!(cool_text.dependencies, vec![Handle::default()]);
+    }
+
+    /// Regression test for [#21584](https://github.com/bevyengine/bevy/issues/21584), covering the
+    /// untyped nested load path, which rejects unapproved paths the same way.
+    #[test]
+    fn unapproved_path_deny_does_not_panic_in_nested_untyped_load() {
+        let mut app = unapproved_path_setup(UnapprovedPathMode::Deny);
+        app.init_asset::<UntypedDependent>()
+            .register_asset_loader(UntypedDependentLoader);
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let handle = asset_server.load::<UntypedDependent>("dependent.untyped_dependent");
+
+        run_app_until(&mut app, |_| {
+            matches!(
+                asset_server.load_state(&handle),
+                LoadState::Loaded | LoadState::Failed(_)
+            )
+            .then_some(())
+        });
+
+        assert!(
+            matches!(asset_server.load_state(&handle), LoadState::Loaded),
+            "an unapproved untyped dependency should be rejected without failing the whole load, but got {:?}",
+            asset_server.load_state(&handle)
+        );
+
+        let dependent = get::<UntypedDependent>(app.world(), handle.id()).unwrap();
+        assert_eq!(dependent.dependency, Handle::default());
     }
 
     #[test]
