@@ -1,4 +1,5 @@
-//! Provides custom example input plugin for the camera. See [`DefaultInputPlugin`].
+//! Provides custom example input plugin for the camera.
+//! Based on upstreamed version from `bevy_editor_cam` and recommended to be replaced.
 
 use bevy::app::prelude::*;
 use bevy::camera::{prelude::*, RenderTarget};

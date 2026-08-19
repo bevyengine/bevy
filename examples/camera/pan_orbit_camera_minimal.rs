@@ -8,8 +8,12 @@
 //! This controller relies on picking to determine what point to orbit around and zoom towards:
 //! your motion will be relative to the point under the mouse cursor.
 
+mod pan_orbit_camera_custom_input_plugin;
+
 use bevy::camera_controller::pan_orbit_camera::prelude::*;
 use bevy::prelude::*;
+
+use crate::pan_orbit_camera_custom_input_plugin::CustomInputPlugin;
 
 fn main() {
     App::new()
@@ -17,6 +21,7 @@ fn main() {
             DefaultPlugins,
             MeshPickingPlugin, // Step 0: enable some picking backends for hit detection
             DefaultPanOrbitCameraPlugins, // Step 1: Add camera controller plugin
+            CustomInputPlugin, // Step 1.5: Add Camera input plugin
         ))
         .add_systems(Startup, setup)
         .run();
