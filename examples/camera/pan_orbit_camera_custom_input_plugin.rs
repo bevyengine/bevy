@@ -1,5 +1,5 @@
 //! Provides custom example input plugin for the camera.
-//! Based on upstreamed version from `bevy_editor_cam` and recommended to be replaced.
+//! Based on the input plugin from `bevy_editor_cam`. This will later be replaced with a first-party input-manager-integrated solution.
 
 use bevy::app::prelude::*;
 use bevy::camera::{prelude::*, RenderTarget};

@@ -21,7 +21,7 @@ fn main() {
             DefaultPlugins,
             MeshPickingPlugin, // Step 0: enable some picking backends for hit detection
             DefaultPanOrbitCameraPlugins, // Step 1: Add camera controller plugin
-            CustomInputPlugin, // Step 1.5: Add Camera input plugin
+            CustomInputPlugin, // Step 1.5: Connect the camera controller to your inputs.
         ))
         .add_systems(Startup, setup)
         .run();
