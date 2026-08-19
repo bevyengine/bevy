@@ -1796,6 +1796,31 @@ mod tests {
     }
 
     #[test]
+    fn enum_from_template() {
+        #[derive(Component, FromTemplate)]
+        enum Foo {
+            Entity(Entity),
+            #[default]
+            None,
+        }
+
+        #[derive(Component, FromTemplate)]
+        struct Bar {
+            foo: Foo,
+        }
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        let entity = world
+            .spawn_scene_list(bsn_list! {
+                #A,
+                Foo::Entity(#A),
+                Bar { foo: Foo::None }
+            })
+            .unwrap();
+    }
+
+    #[test]
     fn struct_patching() {
         let mut app = test_app();
         let world = app.world_mut();

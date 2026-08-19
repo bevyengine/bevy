@@ -668,40 +668,51 @@ impl BsnType {
             ));
         }
 
-        if let Some(BsnValue::Type(ty)) = value
-            && ty.variant.is_none()
-        {
-            let mut type_assigns = Vec::new();
-            ty.to_patch_tokens(
-                ctx,
-                &mut type_assigns,
-                false,
-                false,
-                false,
-                PatchTarget {
-                    path: &[Member::Named(bind_name.clone())],
-                    is_ref: true,
-                },
-            )?;
-            return Ok(quote! {#(#type_assigns)*});
-        }
-
-        if let Some(
-            value @ (BsnValue::Ident(_)
-            | BsnValue::Expr(_)
-            | BsnValue::Closure(_)
-            | BsnValue::Tuple(_)),
-        ) = value
-        {
-            let ident = ctx.hoisted_expressions.hoist(value);
-            return Ok(quote! { #bind_name: #ident, });
-        }
-
-        // NOTE: It is very important to still produce outputs for None field values. This is what
-        // enables field autocomplete in Rust Analyzer
-        value
-            .map(|v| Ok(quote! { #bind_name: #v, }))
-            .unwrap_or(Ok(quote! { #bind_name, }))
+        Ok(match value {
+            Some(
+                value @ (BsnValue::Ident(_)
+                | BsnValue::Expr(_)
+                | BsnValue::Closure(_)
+                | BsnValue::Tuple(_)),
+            ) => {
+                let ident = ctx.hoisted_expressions.hoist(value);
+                quote! { #bind_name: #ident, }
+            }
+            Some(BsnValue::Type(ty)) => {
+                if ty.variant.is_none() {
+                    let mut type_assigns = Vec::new();
+                    ty.to_patch_tokens(
+                        ctx,
+                        &mut type_assigns,
+                        false,
+                        false,
+                        false,
+                        PatchTarget {
+                            path: &[Member::Named(bind_name.clone())],
+                            is_ref: true,
+                        },
+                    )?;
+                    quote! {#(#type_assigns)*}
+                } else {
+                    todo!("enum variants")
+                }
+            }
+            Some(BsnValue::Name(ident)) => {
+                let index = ctx.entity_refs.get(ident.to_string());
+                let bevy_ecs = ctx.bevy_ecs;
+                let invocation = ctx.invocation_index.clone();
+                quote! {
+                    #bind_name: #bevy_ecs::template::EntityTemplate::from_reference(#invocation, #index,  _call_id)
+                }
+            }
+            value => {
+                // NOTE: It is very important to still produce outputs for None field values. This is what
+                // enables field autocomplete in Rust Analyzer
+                value
+                    .map(|v| quote! { #bind_name: #v, })
+                    .unwrap_or(quote! { #bind_name, })
+            }
+        })
     }
 
     fn enum_field_value(
@@ -717,7 +728,34 @@ impl BsnType {
                 let ident = ctx.hoisted_expressions.hoist(value);
                 ident.to_token_stream()
             }
-            BsnValue::Type(bsn_type) => bsn_type.enum_value(ctx)?,
+            BsnValue::Type(ty) => {
+                if ty.variant.is_none() {
+                    //     let mut type_assigns = Vec::new();
+                    //     ty.to_patch_tokens(
+                    //         ctx,
+                    //         &mut type_assigns,
+                    //         false,
+                    //         false,
+                    //         false,
+                    //         PatchTarget {
+                    //             path: &[Member::Named(bind_name.clone())],
+                    //             is_ref: true,
+                    //         },
+                    //     )?;
+                    //     quote! {#(#type_assigns)*}
+                    todo!()
+                } else {
+                    todo!("enum variants")
+                }
+            }
+            BsnValue::Name(ident) => {
+                let index = ctx.entity_refs.get(ident.to_string());
+                let bevy_ecs = ctx.bevy_ecs;
+                let invocation = ctx.invocation_index.clone();
+                quote! {
+                    #bevy_ecs::template::EntityTemplate::from_reference(#invocation, #index,  _call_id)
+                }
+            }
             value => value.to_token_stream(),
         })
     }
