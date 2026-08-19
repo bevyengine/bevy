@@ -21,6 +21,7 @@ use core::{cell::UnsafeCell, mem::needs_drop, num::NonZeroUsize, panic::Location
 /// This type is used by [`Table`] and [`ComponentSparseSet`], where the corresponding capacity
 /// and length can be found.
 ///
+/// [`Table`]: crate::storage::Table
 /// [`ComponentSparseSet`]: crate::storage::ComponentSparseSet
 #[derive(Debug)]
 pub struct Column {
