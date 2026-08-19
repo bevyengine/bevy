@@ -244,19 +244,6 @@ pub fn extract_volumetric_fog(
     fog_volumes: Extract<Query<(RenderEntity, &FogVolume, &GlobalTransform)>>,
     volumetric_lights: Extract<Query<(RenderEntity, &VolumetricLight)>>,
 ) {
-    if volumetric_lights.is_empty() {
-        // TODO: needs better way to handle clean up in render world
-        for (entity, ..) in view_targets.iter() {
-            commands
-                .entity(entity)
-                .remove::<(VolumetricFog, ViewVolumetricFogPipelines, ViewVolumetricFog)>();
-        }
-        for (entity, ..) in fog_volumes.iter() {
-            commands.entity(entity).remove::<FogVolume>();
-        }
-        return;
-    }
-
     for (entity, volumetric_fog) in view_targets.iter() {
         commands
             .get_entity(entity)

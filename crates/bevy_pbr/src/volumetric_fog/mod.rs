@@ -36,7 +36,7 @@ use bevy_core_pipeline::{
     schedule::{Core3d, Core3dSystems},
 };
 use bevy_ecs::{resource::Resource, schedule::IntoScheduleConfigs as _};
-use bevy_light::FogVolume;
+use bevy_light::{FogVolume, VolumetricFog};
 use bevy_math::{
     primitives::{Cuboid, Plane3d},
     Vec2, Vec3,
@@ -49,7 +49,12 @@ use bevy_render::{
 };
 use render::{volumetric_fog, VolumetricFogPipeline, VolumetricFogUniformBuffer};
 
-use crate::{volumetric_fog::render::init_volumetric_fog_pipeline, MeshPipelineSystems};
+use crate::{
+    volumetric_fog::render::{
+        init_volumetric_fog_pipeline, ViewVolumetricFog, ViewVolumetricFogPipelines,
+    },
+    MeshPipelineSystems,
+};
 
 pub mod render;
 
@@ -70,7 +75,8 @@ impl Plugin for VolumetricFogPlugin {
         let plane_mesh = meshes.add(Plane3d::new(Vec3::Z, Vec2::ONE).mesh());
         let cube_mesh = meshes.add(Cuboid::new(1.0, 1.0, 1.0).mesh());
 
-        app.add_plugins(SyncComponentPlugin::<FogVolume, RenderApp, Self>::default());
+        app.add_plugins(SyncComponentPlugin::<FogVolume, RenderApp, Self>::default())
+            .add_plugins(SyncComponentPlugin::<VolumetricFog, RenderApp, Self>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -109,4 +115,8 @@ impl Plugin for VolumetricFogPlugin {
 
 impl SyncComponent<RenderApp, VolumetricFogPlugin> for FogVolume {
     type Target = Self;
+}
+
+impl SyncComponent<RenderApp, VolumetricFogPlugin> for VolumetricFog {
+    type Target = (VolumetricFog, ViewVolumetricFogPipelines, ViewVolumetricFog);
 }
