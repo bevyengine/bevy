@@ -221,7 +221,7 @@ impl Plugin for PbrPlugin {
                 ScreenSpaceAmbientOcclusionPlugin,
                 FogPlugin,
                 ExtractResourcePlugin::<DefaultOpaqueRendererMethod>::default(),
-                SyncComponentPlugin::<ShadowFilteringMethod, RenderApp, Self>::default(),
+                SyncComponentPlugin::<ShadowFilteringMethod, Self>::default(),
                 LightmapPlugin,
                 LightProbePlugin,
                 GpuMeshPreprocessPlugin {
@@ -235,11 +235,11 @@ impl Plugin for PbrPlugin {
             ))
             .add_plugins((
                 decal::ForwardDecalPlugin,
-                SyncComponentPlugin::<DirectionalLight, RenderApp, Self>::default(),
-                SyncComponentPlugin::<PointLight, RenderApp, Self>::default(),
-                SyncComponentPlugin::<SpotLight, RenderApp, Self>::default(),
-                SyncComponentPlugin::<RectLight, RenderApp, Self>::default(),
-                SyncComponentPlugin::<AmbientLight, RenderApp, Self>::default(),
+                SyncComponentPlugin::<DirectionalLight, Self>::default(),
+                SyncComponentPlugin::<PointLight, Self>::default(),
+                SyncComponentPlugin::<SpotLight, Self>::default(),
+                SyncComponentPlugin::<RectLight, Self>::default(),
+                SyncComponentPlugin::<AmbientLight, Self>::default(),
             ))
             .add_plugins((
                 ScatteringMediumPlugin,
