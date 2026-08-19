@@ -71,7 +71,7 @@ fn add_mesh(
     }
 }
 
-/// Key used to determine in which bucket to cache the material for a [`SpriteMesh`]
+/// Key used to determine in which bucket to cache the material for a [`Sprite`]
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 struct SpriteMaterialBucketKey {
     image: AssetId<Image>,
@@ -117,11 +117,11 @@ impl SpriteMaterialBucketKey {
     }
 }
 
-/// Change the material when [`SpriteMesh`] is added / changed.
+/// Change the material when [`Sprite`] is added / changed.
 ///
-/// The materials are cached based on their [`SpriteMesh`] and [`Anchor`].
+/// The materials are cached based on their [`Sprite`] and [`Anchor`].
 ///
-/// Since not all fields of the [`SpriteMesh`] are easy to hash, we keep multiple "buckets" keyed on
+/// Since not all fields of the [`Sprite`] are easy to hash, we keep multiple "buckets" keyed on
 /// parts of the struct that are easy to hash.
 ///
 /// NOTE: This also adds the [`TextureAtlasLayout`] into the [`SpriteMaterial`],
