@@ -8,7 +8,7 @@ use super::shader_flags::BORDER_ALL;
 use crate::clipping::clip_polygon;
 use crate::*;
 use bevy_asset::*;
-use bevy_color::{ColorToComponents, Hsla, Hsva, LinearRgba, Oklaba, Oklcha, Srgba};
+use bevy_color::{ColorToComponents, Hsla, Hsva, LinearRgba, Okhsla, Oklaba, Oklcha, Srgba};
 use bevy_ecs::{
     prelude::Component,
     system::{
@@ -184,6 +184,8 @@ impl SpecializedRenderPipeline for GradientPipeline {
             InterpolationColorSpace::Oklaba => "IN_OKLAB",
             InterpolationColorSpace::Oklcha => "IN_OKLCH",
             InterpolationColorSpace::OklchaLong => "IN_OKLCH_LONG",
+            InterpolationColorSpace::Okhsla => "IN_OKHSL",
+            InterpolationColorSpace::OkhslaLong => "IN_OKHSL_LONG",
             InterpolationColorSpace::Srgba => "IN_SRGB",
             InterpolationColorSpace::LinearRgba => "IN_LINEAR_RGB",
             InterpolationColorSpace::Hsla => "IN_HSL",
@@ -801,6 +803,15 @@ fn convert_color_to_space(color: LinearRgba, space: InterpolationColorSpace) -> 
                 // The shader expects normalized hues
                 oklcha.hue / 360.,
                 oklcha.alpha,
+            ]
+        }
+        InterpolationColorSpace::Okhsla | InterpolationColorSpace::OkhslaLong => {
+            let okhsla: Okhsla = color.into();
+            [
+                okhsla.hue / 360.,
+                okhsla.saturation,
+                okhsla.lightness,
+                okhsla.alpha,
             ]
         }
         InterpolationColorSpace::Srgba => {
