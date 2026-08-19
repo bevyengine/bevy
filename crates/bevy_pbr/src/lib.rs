@@ -283,6 +283,7 @@ impl Plugin for PbrPlugin {
                     false,
                     ImageSampler::Default,
                     RenderAssetUsages::RENDER_WORLD,
+                    None,
                 )
                 .expect("Failed to decode embedded blue-noise texture");
                 image.texture_descriptor.label = Some("bluenoise");
@@ -314,6 +315,7 @@ impl Plugin for PbrPlugin {
                     false,
                     ImageSampler::linear(),
                     RenderAssetUsages::RENDER_WORLD,
+                    None,
                 )
                 .expect("Failed to decode embedded LTC LUTs");
                 image.texture_descriptor.label = Some("area_light_luts");
@@ -342,6 +344,7 @@ impl Plugin for PbrPlugin {
                     false,
                     ImageSampler::linear(),
                     RenderAssetUsages::RENDER_WORLD,
+                    None,
                 )
                 .expect("Failed to decode embedded DFG LUT"),
             );
@@ -462,6 +465,7 @@ pub fn stbn_placeholder() -> Image {
         texture_view_descriptor: None,
         asset_usage: RenderAssetUsages::RENDER_WORLD,
         copy_on_resize: false,
+        source_primaries: Default::default(),
     }
 }
 
@@ -492,6 +496,7 @@ pub fn area_light_luts_placeholder() -> Image {
         }),
         asset_usage: RenderAssetUsages::RENDER_WORLD,
         copy_on_resize: false,
+        source_primaries: Default::default(),
     }
 }
 

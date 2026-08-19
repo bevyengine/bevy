@@ -116,6 +116,7 @@ impl CompressedImageSaverCtt {
             asset_usage: image.asset_usage,
             texture_format: None,
             array_layout: None,
+            source_primaries: Some(image.source_primaries),
         })
     }
 }

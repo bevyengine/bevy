@@ -600,6 +600,7 @@ pub fn extract_mip_level(image: &Image, mip_level: u32) -> anyhow::Result<Image>
         texture_view_descriptor: image.texture_view_descriptor.clone(),
         asset_usage: RenderAssetUsages::default(),
         copy_on_resize: false,
+        source_primaries: image.source_primaries,
     })
 }
 
