@@ -6,7 +6,7 @@ import package::render::mesh_view_types::{
 };
 import package::render::pbr_lighting::{F_Schlick_vec, LightingInput, LayerLightingInput, LAYER_BASE, LAYER_CLEARCOAT};
 import package::render::clustered_forward::ClusterableObjectIndexRanges;
-import package::maths::quat_rotate;
+import bevy_render::maths::quat_rotate;
 
 // The maximum representable value in a 32-bit floating point number.
 const FLOAT_MAX: f32 = 3.40282347e+38;
