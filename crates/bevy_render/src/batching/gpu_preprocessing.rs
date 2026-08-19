@@ -359,7 +359,7 @@ where
     pub fn add(&mut self, element: BDI) -> u32 {
         match self.free_uniform_indices.pop() {
             Some(uniform_index) => {
-                self.buffer.set(uniform_index, element);
+                self.buffer.set_mut(uniform_index, element);
                 uniform_index
             }
             None => self.buffer.push(element),
@@ -400,6 +400,14 @@ where
     /// if `uniform_index` is not in bounds of [`Self::buffer`].
     pub fn set(&self, uniform_index: u32, element: BDI) {
         self.buffer.set(uniform_index, element);
+    }
+
+    /// Stores a piece of buffered data at the given index, with mutable access.
+    ///
+    /// # Panics
+    /// if `uniform_index` is not in bounds of [`Self::buffer`].
+    pub fn set_mut(&mut self, uniform_index: u32, element: BDI) {
+        self.buffer.set_mut(uniform_index, element);
     }
 
     // Ensures that the buffers are nonempty, which the GPU requires before an

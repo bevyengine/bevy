@@ -46,6 +46,18 @@ pub trait AtomicPod: Pod + Default + Send + Sync + 'static {
     /// Note that, because we're using atomics, the `blob` parameter doesn't
     /// need a mutable reference.
     fn write_to_blob(&self, blob: &Self::Blob);
+
+    /// Copies the `self` value to the blob, with exclusive access to it.
+    ///
+    /// Unlike [`Self::write_to_blob`], this method takes a `&mut` blob, so the
+    /// blob's atomic words can be written through
+    /// [`core::sync::atomic::AtomicU32::get_mut`]
+    /// without emitting atomic instructions, and the compiler can merge the
+    /// writes into wider stores. Prefer it over [`Self::write_to_blob`] when
+    /// the blob is only written from a single thread.
+    fn write_to_blob_mut(&self, blob: &mut Self::Blob) {
+        self.write_to_blob(blob);
+    }
 }
 
 /// Describes a type that has the same bit pattern as another type, but is made
@@ -161,6 +173,17 @@ macro_rules! impl_atomic_pod {
                     ::bytemuck::must_cast(*self);
                 for (dest, src) in blob.0.iter().zip(src.iter()) {
                     dest.store(*src, ::bevy_platform::sync::atomic::Ordering::Relaxed);
+                }
+            }
+
+            fn write_to_blob_mut(&self, blob: &mut Self::Blob) {
+                // Store the value word by word through `get_mut`: exclusive
+                // access lets the compiler treat these as plain writes and
+                // potentially merge them into a single wider store.
+                let src: [u32; ::core::mem::size_of::<$pod_ty>() / 4] =
+                    ::bytemuck::must_cast(*self);
+                for (dest, src) in blob.0.iter_mut().zip(src.iter()) {
+                    *dest.get_mut() = *src;
                 }
             }
         }
