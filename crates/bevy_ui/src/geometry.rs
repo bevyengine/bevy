@@ -166,7 +166,11 @@ impl PartialEq for Val {
 
 impl Val {
     pub const DEFAULT: Self = Self::Auto;
+
+    /// Zero. In [Val::Px], but zero is the same in any unit.
     pub const ZERO: Self = Self::Px(0.0);
+
+    /// The largest finite [`Val::Px`] value.
     pub const MAX: Self = Self::Px(f32::MAX);
 
     /// Returns the number this `Val` wraps, whatever its unit, or `None` for [`Val::Auto`].
@@ -1285,14 +1289,14 @@ pub struct CornerRadius {
 impl CornerRadius {
     /// A fully rounded corner with a circular radius of half the length of the node's shortest side.
     pub const MAX: Self = Self {
-        x: Val::Px(f32::MAX),
+        x: Val::MAX,
         y: Val::Auto,
     };
 
     /// An elliptical corner with a horizontal radius of half the node's width and a vertical radius of half its height.
     pub const MAX_ELLIPTICAL: Self = Self {
-        x: Val::Px(f32::MAX),
-        y: Val::Px(f32::MAX),
+        x: Val::MAX,
+        y: Val::MAX,
     };
 
     /// A square corner.
