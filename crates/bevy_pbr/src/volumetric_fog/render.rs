@@ -18,6 +18,7 @@ use bevy_light::{FogVolume, VolumetricFog, VolumetricLight};
 use bevy_math::{vec4, Affine3A, Mat4, Vec3, Vec3A, Vec4};
 use bevy_mesh::{Mesh, MeshVertexBufferLayoutRef};
 use bevy_render::{
+    diagnostic::RecordDiagnostics,
     mesh::{allocator::MeshAllocator, RenderMesh, RenderMeshBufferInfo},
     render_asset::RenderAssets,
     render_resource::{
@@ -320,6 +321,10 @@ pub fn volumetric_fog(
         return;
     };
 
+    let diagnostics = ctx.diagnostic_recorder();
+    let diagnostics = diagnostics.as_deref();
+    let time_span = diagnostics.time_span(ctx.command_encoder(), "volumetric_lighting");
+
     let command_encoder = ctx.command_encoder();
     command_encoder.push_debug_group("volumetric_lighting");
 
@@ -329,6 +334,7 @@ pub fn volumetric_fog(
             .depth_stencil_views()
             .depth_only_view()
         else {
+            time_span.end(ctx.command_encoder());
             return;
         };
 
@@ -360,6 +366,7 @@ pub fn volumetric_fog(
         // This should always succeed, but if the asset was unloaded don't
         // panic.
         let Some(render_mesh) = render_meshes.get(&mesh_handle) else {
+            time_span.end(ctx.command_encoder());
             return;
         };
 
@@ -451,6 +458,7 @@ pub fn volumetric_fog(
     }
 
     ctx.command_encoder().pop_debug_group();
+    time_span.end(ctx.command_encoder());
 }
 
 impl SpecializedRenderPipeline for VolumetricFogPipeline {

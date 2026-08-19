@@ -10,7 +10,7 @@ import bevy_render::{
     view::View,
 };
 
-import bevy_sprite_render::render::sprite_view_bindings::view;
+import package::render::sprite_view_bindings::view;
 
 struct VertexInput {
     @builtin(vertex_index) index: u32,

@@ -18,7 +18,7 @@
 import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput;
 import bevy_pbr::render::mesh_view_bindings::view;
 import bevy_pbr::render::view_transformations::depth_ndc_to_view_z;
-import bevy_post_process::gaussian_blur::gaussian_blur;
+import package::gaussian_blur::gaussian_blur;
 import bevy_render::view::View;
 
 // Parameters that control the depth of field effect. See

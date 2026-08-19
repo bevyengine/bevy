@@ -491,25 +491,10 @@ impl Table {
     /// The allocated row must be written to immediately with valid values in each column
     pub(crate) unsafe fn allocate(&mut self, entity: Entity) -> TableRow {
         self.reserve(1);
-        let len = self.entity_count();
         // SAFETY: No entity index may be in more than one table row at once, so there are no duplicates,
         // and there can not be an entity index of u32::MAX. Therefore, this can not be max either.
-        let row = unsafe { TableRow::new(NonMaxU32::new_unchecked(len)) };
-        let len = len as usize;
+        let row = unsafe { TableRow::new(NonMaxU32::new_unchecked(self.entity_count())) };
         self.entities.push(entity);
-        for col in self.columns.values_mut() {
-            col.added_ticks
-                .initialize_unchecked(len, UnsafeCell::new(Tick::new(0)));
-            col.changed_ticks
-                .initialize_unchecked(len, UnsafeCell::new(Tick::new(0)));
-            col.changed_by
-                .as_mut()
-                .zip(MaybeLocation::caller())
-                .map(|(changed_by, caller)| {
-                    changed_by.initialize_unchecked(len, UnsafeCell::new(caller));
-                });
-        }
-
         row
     }
 

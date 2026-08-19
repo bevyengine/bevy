@@ -2,18 +2,18 @@ import bevy_core_pipeline::tonemapping::tonemapping_luminance as luminance;
 import bevy_pbr::render::utils::{rand_f, rand_range_u};
 import bevy_render::maths::PI;
 import bevy_render::utils::octahedral_encode;
-import bevy_solari::scene::brdf::{brdf_pdf, evaluate_and_sample_brdf, evaluate_brdf, F_AB};
-import bevy_solari::realtime::presample_light_tiles::unpack_resolved_light_sample;
-import bevy_solari::realtime::bindings::{empty_reservoir, light_tile_resolved_samples, light_tile_samples, Reservoir, constants, view};
-import bevy_solari::scene::sampling::{calculate_resolved_light_contribution, isinf, LightSample, NULL_LIGHT_ID, power_heuristic, trace_visibility};
-import bevy_solari::scene::bindings::{light_sources, MIRROR_ROUGHNESS_THRESHOLD, RAY_T_MAX, RAY_T_MIN, resolve_ray_hit_full, ResolvedMaterial, ResolvedRayHitFull, trace_ray};
-import bevy_solari::realtime::world_cache_query::{get_cell_size, query_world_cache, WORLD_CACHE_CELL_LIFETIME};
+import package::scene::brdf::{brdf_pdf, evaluate_and_sample_brdf, evaluate_brdf, F_AB};
+import package::realtime::presample_light_tiles::unpack_resolved_light_sample;
+import package::realtime::bindings::{empty_reservoir, light_tile_resolved_samples, light_tile_samples, Reservoir, constants, view};
+import package::scene::sampling::{calculate_resolved_light_contribution, isinf, LightSample, NULL_LIGHT_ID, power_heuristic, trace_visibility};
+import package::scene::bindings::{light_sources, MIRROR_ROUGHNESS_THRESHOLD, RAY_T_MAX, RAY_T_MIN, resolve_ray_hit_full, ResolvedMaterial, ResolvedRayHitFull, trace_ray};
+import package::realtime::world_cache_query::{get_cell_size, query_world_cache, WORLD_CACHE_CELL_LIFETIME};
 @if(DLSS_RR_GUIDE_BUFFERS)
 import bevy_pbr::render::pbr_functions::{calculate_diffuse_color, calculate_F0};
 @if(DLSS_RR_GUIDE_BUFFERS)
-import bevy_solari::realtime::bindings::{diffuse_albedo, normal_roughness, previous_view, specular_albedo, specular_motion_vectors};
+import package::realtime::bindings::{diffuse_albedo, normal_roughness, previous_view, specular_albedo, specular_motion_vectors};
 @if(DLSS_RR_GUIDE_BUFFERS)
-import bevy_solari::realtime::resolve_dlss_rr_textures::env_brdf_approx2;
+import package::realtime::resolve_dlss_rr_textures::env_brdf_approx2;
 
 enable wgpu_ray_query;
 
