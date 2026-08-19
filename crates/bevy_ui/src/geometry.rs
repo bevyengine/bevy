@@ -167,7 +167,7 @@ impl PartialEq for Val {
 impl Val {
     pub const DEFAULT: Self = Self::Auto;
 
-    /// Zero. In [`Val::Px``], but zero is the same in any unit.
+    /// Zero. In [`Val::Px`], but zero is the same in any unit.
     pub const ZERO: Self = Self::Px(0.0);
 
     /// The largest finite [`Val::Px`] value.
