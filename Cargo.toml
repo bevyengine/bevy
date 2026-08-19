@@ -82,7 +82,7 @@ allow_attributes_without_reason = "warn"
 
 [workspace.lints.rust]
 missing_docs = "warn"
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(docsrs_dep)'] }
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(docsrs_dep)"] }
 unsafe_code = "deny"
 unsafe_op_in_unsafe_fn = "warn"
 unused_qualifications = "warn"
@@ -127,7 +127,7 @@ allow_attributes_without_reason = "warn"
 
 [lints.rust]
 missing_docs = "warn"
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(docsrs_dep)'] }
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(docsrs_dep)"] }
 unsafe_code = "deny"
 unsafe_op_in_unsafe_fn = "warn"
 unused_qualifications = "warn"
@@ -777,9 +777,13 @@ indexmap = "2"
 ureq = { version = "3.0.8", features = ["json"] }
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
-getrandom = { version = "0.4", default-features = false, features = [
-  "wasm_js",
-] }
+getrandom = {
+  version = "0.4",
+  default-features = false,
+  features = [
+    "wasm_js",
+  ]
+}
 wasm-bindgen = { version = "0.2" }
 web-sys = { version = "0.3", features = ["Window"] }
 
@@ -2458,7 +2462,6 @@ description = "Demonstrates how to add custom schedules"
 category = "ECS (Entity Component System)"
 wasm = false
 
-
 [[example]]
 name = "extraction"
 path = "examples/ecs/extraction.rs"
@@ -2806,7 +2809,6 @@ name = "Timers"
 description = "Illustrates ticking `Timer` resources inside systems and handling their state"
 category = "Time"
 wasm = false
-
 
 # Games
 [[example]]
@@ -4666,7 +4668,6 @@ name = "Debug Frustum Culling"
 description = "Example demonstrating how to debug frustum culling"
 category = "Usage"
 wasm = true
-
 
 [[example]]
 name = "custom_gltf_vertex_attribute"

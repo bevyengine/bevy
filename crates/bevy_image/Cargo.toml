@@ -55,17 +55,26 @@ compressed_image_saver = ["dep:ctt", "ktx2", "zstd"]
 # bevy
 bevy_app = { path = "../bevy_app", version = "0.20.0-dev" }
 bevy_asset = { path = "../bevy_asset", version = "0.20.0-dev" }
-bevy_color = { path = "../bevy_color", version = "0.20.0-dev", features = [
-  "serialize",
-  "wgpu-types",
-] }
+bevy_color = {
+  path = "../bevy_color",
+  version = "0.20.0-dev",
+  features = [
+    "serialize",
+    "wgpu-types",
+  ]
+}
 bevy_ecs = { path = "../bevy_ecs", version = "0.20.0-dev", default-features = false }
 bevy_math = { path = "../bevy_math", version = "0.20.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.20.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.20.0-dev" }
-bevy_platform = { path = "../bevy_platform", version = "0.20.0-dev", default-features = false, features = [
-  "std",
-] }
+bevy_platform = {
+  path = "../bevy_platform",
+  version = "0.20.0-dev",
+  default-features = false,
+  features = [
+    "std",
+  ]
+}
 
 # rendering
 image = { version = "0.25.2", default-features = false }

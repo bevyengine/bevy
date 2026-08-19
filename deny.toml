@@ -44,46 +44,85 @@ allow = [
 ]
 
 exceptions = [
-  { name = "unicode-ident", allow = [
-    "Unicode-DFS-2016",
-    "Unicode-3.0",
-  ] },
-  { name = "symphonia", allow = [
-    "MPL-2.0",
-  ] },
-  { name = "symphonia-bundle-flac", allow = [
-    "MPL-2.0",
-  ] },
-  { name = "symphonia-bundle-mp3", allow = [
-    "MPL-2.0",
-  ] },
-  { name = "symphonia-codec-aac", allow = [
-    "MPL-2.0",
-  ] },
-  { name = "symphonia-codec-pcm", allow = [
-    "MPL-2.0",
-  ] },
-  { name = "symphonia-codec-vorbis", allow = [
-    "MPL-2.0",
-  ] },
-  { name = "symphonia-core", allow = [
-    "MPL-2.0",
-  ] },
-  { name = "symphonia-format-isomp4", allow = [
-    "MPL-2.0",
-  ] },
-  { name = "symphonia-format-ogg", allow = [
-    "MPL-2.0",
-  ] },
-  { name = "symphonia-format-riff", allow = [
-    "MPL-2.0",
-  ] },
-  { name = "symphonia-metadata", allow = [
-    "MPL-2.0",
-  ] },
-  { name = "symphonia-utils-xiph", allow = [
-    "MPL-2.0",
-  ] },
+  {
+    name = "unicode-ident",
+    allow = [
+      "Unicode-DFS-2016",
+      "Unicode-3.0",
+    ]
+  },
+  {
+    name = "symphonia",
+    allow = [
+      "MPL-2.0",
+    ]
+  },
+  {
+    name = "symphonia-bundle-flac",
+    allow = [
+      "MPL-2.0",
+    ]
+  },
+  {
+    name = "symphonia-bundle-mp3",
+    allow = [
+      "MPL-2.0",
+    ]
+  },
+  {
+    name = "symphonia-codec-aac",
+    allow = [
+      "MPL-2.0",
+    ]
+  },
+  {
+    name = "symphonia-codec-pcm",
+    allow = [
+      "MPL-2.0",
+    ]
+  },
+  {
+    name = "symphonia-codec-vorbis",
+    allow = [
+      "MPL-2.0",
+    ]
+  },
+  {
+    name = "symphonia-core",
+    allow = [
+      "MPL-2.0",
+    ]
+  },
+  {
+    name = "symphonia-format-isomp4",
+    allow = [
+      "MPL-2.0",
+    ]
+  },
+  {
+    name = "symphonia-format-ogg",
+    allow = [
+      "MPL-2.0",
+    ]
+  },
+  {
+    name = "symphonia-format-riff",
+    allow = [
+      "MPL-2.0",
+    ]
+  },
+  {
+    name = "symphonia-metadata",
+    allow = [
+      "MPL-2.0",
+    ]
+  },
+  {
+    name = "symphonia-utils-xiph",
+    allow = [
+      "MPL-2.0",
+    ]
+  },
 ]
 
 [bans]
@@ -102,13 +141,13 @@ skip = [
   { name = "bevy_math", reason = "bevy_math has a path dev dependency on itself without a version" },
 ]
 
+# thiserror is the preferred way to derive error types
+[[bans.features]]
+crate = "derive_more"
+deny = ["error"]
+
 [sources]
 unknown-registry = "deny"
 unknown-git = "deny"
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
 allow-git = []
-
-# thiserror is the preferred way to derive error types
-[[bans.features]]
-crate = "derive_more"
-deny = ["error"]
