@@ -970,19 +970,11 @@ fn set_mode_selector(
     mode: ColorInputMode,
 ) {
     if let Ok(mut rgb_variant) = q_button.get_mut(refs.mode_rgb) {
-        rgb_variant.set_if_neq(if mode == ColorInputMode::RGPlane {
-            ButtonVariant::Primary
-        } else {
-            ButtonVariant::Normal
-        });
+        rgb_variant.set_if_neq(ButtonVariant::selected(mode == ColorInputMode::RGPlane));
     }
 
     if let Ok(mut hsl_variant) = q_button.get_mut(refs.mode_hsl) {
-        hsl_variant.set_if_neq(if mode == ColorInputMode::HSPlane {
-            ButtonVariant::Primary
-        } else {
-            ButtonVariant::Normal
-        });
+        hsl_variant.set_if_neq(ButtonVariant::selected(mode == ColorInputMode::HSPlane));
     }
 }
 

@@ -104,9 +104,7 @@ impl FeathersColorSwatchGridCell {
 
 /// Draws the selection ring for a [`FeathersColorSwatchGridCell`].
 ///
-/// This is a separate entity, positioned absolutely, so that the cell's contents can fill the
-/// cell edge to edge: a border on the cell itself would inset the swatches by a pixel and knock
-/// the grid's outer columns out of alignment with the widgets around it.
+/// This is a separate entity, positioned absolutely.
 #[derive(SceneComponent, Default, Clone, Reflect)]
 #[reflect(Component, Clone, Default)]
 pub struct ColorSwatchGridCellRing;
