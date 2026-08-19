@@ -1,4 +1,4 @@
-import bevy_render::maths::{PI_2,PI,FRAC_PI_3};
+import package::maths::{PI_2,PI,FRAC_PI_3};
 
 const HUE_GUARD: f32 = 0.0001;
 

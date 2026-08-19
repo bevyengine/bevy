@@ -1,4 +1,4 @@
-import bevy_pbr::render::clustered_forward::view_z_to_z_slice;
+import package::render::clustered_forward::view_z_to_z_slice;
 
 // Valid values for the `object_type` field.
 const CLUSTERABLE_OBJECT_TYPE_POINT_LIGHT: u32 = 0u;

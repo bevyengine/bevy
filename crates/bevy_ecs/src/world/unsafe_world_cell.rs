@@ -19,7 +19,7 @@ use crate::{
     query::{DebugCheckedUnwrap, QueryAccessError, ReleaseStateQueryData, SingleEntityQueryData},
     resource::{Resource, ResourceEntities},
     storage::{ComponentSparseSet, Storages, Table},
-    world::RawCommandQueue,
+    system::Commands,
 };
 use bevy_platform::sync::atomic::Ordering;
 use bevy_ptr::{Ptr, UnsafeCellDeref};
@@ -632,7 +632,9 @@ impl<'w> UnsafeWorldCell<'w> {
             // SAFETY: This function has exclusive access to the world so nothing aliases `ticks`.
             // - index is in-bounds because the column is initialized and non-empty
             // - no other reference to the ticks of the same row can exist at the same time
-            unsafe { ComponentTicksMut::from_tick_cells(ticks, self.last_change_tick(), change_tick) };
+            unsafe {
+                ComponentTicksMut::from_tick_cells(ticks, self.last_change_tick(), change_tick)
+            };
 
         Some(MutUntyped {
             // SAFETY: This function has exclusive access to the world so nothing aliases `ptr`.
@@ -686,17 +688,19 @@ impl<'w> UnsafeWorldCell<'w> {
             .get_with_ticks()
     }
 
-    // Returns a mutable reference to the underlying world's [`CommandQueue`].
+    /// Creates a [`Commands`] instance that pushes to the world's command queue
     /// # Safety
     /// It is the caller's responsibility to ensure that
     /// - the [`UnsafeWorldCell`] has permission to access the queue mutably
-    /// - no mutable references to the queue exist at the same time
-    pub(crate) unsafe fn get_raw_command_queue(self) -> RawCommandQueue {
+    /// - no references to the queue exist at the same time
+    pub(crate) unsafe fn commands(self) -> Commands<'w, 'w> {
         self.assert_allows_mutable_access();
         // SAFETY:
-        // - caller ensures there are no existing mutable references
+        // - caller ensures there are no existing references
         // - caller ensures that we have permission to access the queue
-        unsafe { (*self.ptr).command_queue.clone() }
+        let command_queue = unsafe { &mut *(*self.ptr).command_queue.get() };
+
+        Commands::new_from_entities(command_queue, self.entity_allocator(), self.entities())
     }
 
     /// # Safety
@@ -1011,10 +1015,12 @@ impl<'w> UnsafeEntityCell<'w> {
                 self.entity,
                 self.location,
             )
-            .map(|(value, cells)| Mut {
-                // SAFETY: returned component is of type T
-                value: value.assert_unique().deref_mut::<T>(),
-                ticks: ComponentTicksMut::from_tick_cells(cells, last_change_tick, change_tick),
+            .map(|(value, cells)| {
+                Mut {
+                    // SAFETY: returned component is of type T
+                    value: value.assert_unique().deref_mut::<T>(),
+                    ticks: ComponentTicksMut::from_tick_cells(cells, last_change_tick, change_tick),
+                }
             })
         }
     }
@@ -1133,10 +1139,12 @@ impl<'w> UnsafeEntityCell<'w> {
                 self.entity,
                 self.location,
             )
-            .map(|(value, cells)| MutUntyped {
-                // SAFETY: world access validated by caller and ties world lifetime to `MutUntyped` lifetime
-                value: value.assert_unique(),
-                ticks: ComponentTicksMut::from_tick_cells(cells, self.last_run, self.this_run),
+            .map(|(value, cells)| {
+                MutUntyped {
+                    // SAFETY: world access validated by caller and ties world lifetime to `MutUntyped` lifetime
+                    value: value.assert_unique(),
+                    ticks: ComponentTicksMut::from_tick_cells(cells, self.last_run, self.this_run),
+                }
             })
             .ok_or(GetEntityMutByIdError::ComponentNotFound)
         }
@@ -1176,10 +1184,12 @@ impl<'w> UnsafeEntityCell<'w> {
                 self.entity,
                 self.location,
             )
-            .map(|(value, cells)| MutUntyped {
-                // SAFETY: world access validated by caller and ties world lifetime to `MutUntyped` lifetime
-                value: value.assert_unique(),
-                ticks: ComponentTicksMut::from_tick_cells(cells, self.last_run, self.this_run),
+            .map(|(value, cells)| {
+                MutUntyped {
+                    // SAFETY: world access validated by caller and ties world lifetime to `MutUntyped` lifetime
+                    value: value.assert_unique(),
+                    ticks: ComponentTicksMut::from_tick_cells(cells, self.last_run, self.this_run),
+                }
             })
             .ok_or(GetEntityMutByIdError::ComponentNotFound)
         }
@@ -1307,6 +1317,7 @@ unsafe fn get_component_and_ticks(
                         changed_by: table
                             .get_changed_by(component_id, location.table_row)
                             .map(|changed_by| changed_by.debug_checked_unwrap()),
+                        summary_tick: table.get_summary_tick(component_id),
                     },
                 )
             })

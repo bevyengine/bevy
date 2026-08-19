@@ -1,5 +1,7 @@
 //! This example shows off the various Bevy Feathers widgets.
 
+use std::f32::consts::PI;
+
 use bevy::{
     feathers::{
         controls::*,
@@ -87,6 +89,15 @@ fn demo_root() -> impl Scene {
             demo_field_f32("hard limit + wrap", 0.0, bsn!(
                 template_value(HardLimit(NumberInputRange::F32(-180.0..=180.0)))
                 template_value(NumberInputWrap::Wrap)
+            )),
+            demo_field_f32("in meters", 2.0, bsn!(
+                template_value(NumberInputUnits::new(&LengthMeters))
+            )),
+            demo_field_f32("in seconds", 2.0, bsn!(
+                template_value(NumberInputUnits::new(&TimeSeconds))
+            )),
+            demo_field_f32("in degrees", PI, bsn!(
+                template_value(NumberInputUnits::new(&AngleDegrees))
             )),
         ]
     }

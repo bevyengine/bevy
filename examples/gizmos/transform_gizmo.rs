@@ -2,18 +2,27 @@
 //!
 //! Demonstrates translate, rotate, and scale gizmos with click-to-select.
 //! - Click an object to select it (primary mouse button)
-//! - **1** = Translate, **2** = Rotate, **3** = Scale
-//! - **X** = Toggle World/Local space
+//! - Radio buttons switch between Translate/Rotate/Scale modes and toggle World/Local space.
 
 use bevy::{
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
+    feathers::{controls::FeathersSlider, display::label, theme::UiTheme, FeathersPlugins},
     gizmos::transform_gizmo::{
         TransformGizmoCamera, TransformGizmoFocus, TransformGizmoMode, TransformGizmoPlugin,
         TransformGizmoSettings, TransformGizmoSpace,
     },
     picking::{pointer::PointerButton, Pickable},
     prelude::*,
+    ui_widgets::{radio_self_update, SliderPrecision, SliderStep, SliderValue, ValueChange},
 };
+
+use radio::{feathers_option_buttons, main_ui_node_scene, RadioButtonOptionValue};
+
+#[path = "../helpers/radio.rs"]
+mod radio;
+
+#[path = "../helpers/theme.rs"]
+mod theme;
 
 fn main() {
     App::new()
@@ -22,9 +31,13 @@ fn main() {
             FreeCameraPlugin,
             MeshPickingPlugin,
             TransformGizmoPlugin,
+            FeathersPlugins,
         ))
+        .insert_resource(UiTheme(theme::basic_example_theme(Color::WHITE)))
         .add_systems(Startup, setup)
-        .add_systems(Update, (gizmo_mode_keys, update_instructions))
+        .add_systems(Update, toggle_scale_slider)
+        .add_observer(update_radio_button)
+        .add_observer(radio_self_update)
         .run();
 }
 
@@ -33,19 +46,51 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    // Instructions
-    commands.spawn((
-        Text::new(
-            "Click an object to select it\n1: Translate | 2: Rotate | 3: Scale | X: World/Local space",
-        ),
-        Node {
-            position_type: PositionType::Absolute,
-            top: px(12),
-            left: px(12),
-            ..default()
-        },
-        InstructionsText,
-    ));
+    commands.spawn_scene(bsn! {
+        main_ui_node_scene()
+        Children [
+            (
+                label("Click an object to select it")
+            ),
+            (
+                feathers_option_buttons("",
+                &[
+                    (TransformGizmoMode::Translate, "Translate"),
+                    (TransformGizmoMode::Rotate, "Rotate"),
+                    (TransformGizmoMode::Scale, "Scale"),
+                ], 0)
+            ),
+            (
+                feathers_option_buttons("",
+                &[
+                    (TransformGizmoSpace::World, "World"),
+                    (TransformGizmoSpace::Local, "Local"),
+                ], 0)
+            ),
+            (
+                Node {
+                    align_items: AlignItems::Center,
+                    column_gap: px(4)
+                }
+                ScaleSensitivitySlider
+                Children [
+                    (
+                        label("Sensitivity")
+                    ),
+                    (
+                        @FeathersSlider{
+                            @max: 2.0,
+                            @min: 0.1,
+                        }
+                        SliderValue(1.0)
+                        SliderPrecision(2)
+                        SliderStep(0.1)
+                        on(slider_update)
+                    )
+                ]
+            )
+        ]
+    });
 
     // Ground plane (not pickable)
     commands.spawn((
@@ -120,7 +165,7 @@ fn setup(
 }
 
 fn on_click_select(
-    click: On<Pointer<Click>>,
+    click: On<PointerClick>,
     mut commands: Commands,
     existing: Query<Entity, With<TransformGizmoFocus>>,
 ) {
@@ -135,62 +180,41 @@ fn on_click_select(
     commands.entity(click.entity).insert(TransformGizmoFocus);
 }
 
-// Note: Using 1/2/3 instead of Blender's G/R/S because S conflicts with
-// the FreeCameraPlugin's WASD movement controls.
-fn gizmo_mode_keys(
-    keyboard: Res<ButtonInput<KeyCode>>,
+fn update_radio_button(
+    event: On<ValueChange<Entity>>,
+    mode_value_query: Query<&RadioButtonOptionValue<TransformGizmoMode>>,
+    space_value_query: Query<&RadioButtonOptionValue<TransformGizmoSpace>>,
     mut settings: ResMut<TransformGizmoSettings>,
 ) {
-    if keyboard.just_pressed(KeyCode::Digit1) {
-        settings.mode = TransformGizmoMode::Translate;
-    }
-    if keyboard.just_pressed(KeyCode::Digit2) {
-        settings.mode = TransformGizmoMode::Rotate;
-    }
-    if keyboard.just_pressed(KeyCode::Digit3) {
-        settings.mode = TransformGizmoMode::Scale;
-    }
-    if keyboard.just_pressed(KeyCode::KeyX) {
-        settings.space = match settings.space {
-            TransformGizmoSpace::World => TransformGizmoSpace::Local,
-            TransformGizmoSpace::Local => TransformGizmoSpace::World,
-        };
-    }
-    if settings.mode == TransformGizmoMode::Scale {
-        if keyboard.just_pressed(KeyCode::ArrowUp) {
-            settings.scale_sensitivity = (settings.scale_sensitivity + 0.1).min(2.0);
-        }
-        if keyboard.just_pressed(KeyCode::ArrowDown) {
-            settings.scale_sensitivity = (settings.scale_sensitivity - 0.1).max(0.1);
-        }
-    }
+    if let Ok(RadioButtonOptionValue(mode)) = mode_value_query.get(event.value) {
+        settings.mode = *mode;
+    } else if let Ok(RadioButtonOptionValue(space)) = space_value_query.get(event.value) {
+        settings.space = *space;
+    };
 }
 
-#[derive(Component)]
-struct InstructionsText;
-
-fn update_instructions(
-    settings: Res<TransformGizmoSettings>,
-    mut text: Single<&mut Text, With<InstructionsText>>,
+fn slider_update(
+    value_change: On<ValueChange<f32>>,
+    mut commands: Commands,
+    mut settings: ResMut<TransformGizmoSettings>,
 ) {
-    let mode_str = match settings.mode {
-        TransformGizmoMode::Translate => "Translate",
-        TransformGizmoMode::Rotate => "Rotate",
-        TransformGizmoMode::Scale => "Scale",
-    };
-    let space_str = match settings.space {
-        TransformGizmoSpace::World => "World",
-        TransformGizmoSpace::Local => "Local",
-    };
-    let base = format!(
-        "Click an object to select it\n1: Translate | 2: Rotate | 3: Scale | X: World/Local space\nMode: {mode_str} | Space: {space_str}"
-    );
-    text.0 = if settings.mode == TransformGizmoMode::Scale {
-        format!(
-            "{base}\nArrowUp or ArrowDown: Scale sensitivity {:.2}",
-            settings.scale_sensitivity
-        )
+    commands
+        .entity(value_change.source)
+        .insert(SliderValue(value_change.value));
+
+    settings.scale_sensitivity = value_change.value;
+}
+
+#[derive(Component, Clone, Default)]
+struct ScaleSensitivitySlider;
+
+fn toggle_scale_slider(
+    settings: Res<TransformGizmoSettings>,
+    mut slider_node: Single<&mut Node, With<ScaleSensitivitySlider>>,
+) {
+    slider_node.display = if settings.mode == TransformGizmoMode::Scale {
+        Display::Flex
     } else {
-        base
+        Display::None
     };
 }

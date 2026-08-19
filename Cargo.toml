@@ -389,6 +389,9 @@ free_camera = ["bevy_internal/free_camera"]
 # Enables the pan camera from bevy_camera_controller
 pan_camera = ["bevy_internal/pan_camera"]
 
+# Enables the pan orbit camera from bevy_camera_controller
+pan_orbit_camera = ["bevy_internal/pan_orbit_camera"]
+
 # Enable the Bevy Remote Protocol
 bevy_remote = ["bevy_internal/bevy_remote"]
 
@@ -1174,6 +1177,7 @@ wasm = true
 name = "wireframe_2d"
 path = "examples/2d/wireframe_2d.rs"
 doc-scrape-examples = true
+required-features = ["bevy_feathers"]
 
 [package.metadata.example.wireframe_2d]
 name = "2D Wireframe"
@@ -1544,7 +1548,20 @@ required-features = ["bevy_solari", "https", "free_camera"]
 name = "Solari"
 description = "Demonstrates realtime dynamic raytraced lighting using Bevy Solari."
 category = "3D Rendering"
-wasm = false                                                                        # Raytracing is not supported on the web
+wasm = false
+
+[[example]]
+name = "solari_reflections"
+path = "examples/3d/solari_reflections.rs"
+doc-scrape-examples = true
+required-features = ["bevy_solari", "free_camera"]
+
+[package.metadata.example.solari_reflections]
+name = "Solari Reflections"
+description = "Test bed for Solari reflections."
+category = "3D Rendering"
+wasm = false
+hidden = true
 
 [[example]]
 name = "spherical_area_lights"
@@ -3953,6 +3970,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "overflow_transform"
+path = "examples/ui/scroll_and_overflow/overflow_transform.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.overflow_transform]
+name = "Overflow Transform"
+description = "Demonstrates nested transformed UI clipping"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "relative_cursor_position"
 path = "examples/ui/relative_cursor_position.rs"
 doc-scrape-examples = true
@@ -4556,7 +4584,7 @@ wasm = true
 name = "transform_gizmo"
 path = "examples/gizmos/transform_gizmo.rs"
 doc-scrape-examples = true
-required-features = ["free_camera"]
+required-features = ["free_camera", "bevy_feathers"]
 
 [package.metadata.example.transform_gizmo]
 name = "Transform Gizmo"
@@ -5562,6 +5590,42 @@ required-features = ["pan_camera"]
 [package.metadata.example.pan_camera_controller]
 name = "Pan Camera"
 description = "Example Pan-Camera Styled Camera Controller for 2D scenes"
+category = "Camera"
+wasm = true
+
+[[example]]
+name = "pan_orbit_camera_cad"
+path = "examples/camera/pan_orbit_camera_cad.rs"
+doc-scrape-examples = true
+required-features = ["pan_orbit_camera", "https", "3d_api", "jpeg"]
+
+[package.metadata.example.pan_orbit_camera_cad]
+name = "Pan Orbit Camera"
+description = "CAD-like controls and setup for PanOrbitCamera"
+category = "Camera"
+wasm = true
+
+[[example]]
+name = "pan_orbit_camera_minimal"
+path = "examples/camera/pan_orbit_camera_minimal.rs"
+doc-scrape-examples = true
+required-features = ["pan_orbit_camera", "https", "3d_api", "jpeg"]
+
+[package.metadata.example.pan_orbit_camera_minimal]
+name = "Minimal Pan Orbit Camera"
+description = "Minimum setup for working PanOrbitCamera"
+category = "Camera"
+wasm = true
+
+[[example]]
+name = "pan_orbit_camera_ortho"
+path = "examples/camera/pan_orbit_camera_ortho.rs"
+doc-scrape-examples = true
+required-features = ["pan_orbit_camera", "https", "3d_api", "jpeg"]
+
+[package.metadata.example.pan_orbit_camera_ortho]
+name = "Orthographic Pan Orbit Camera"
+description = "Using Pan Orbit Camera in orthographic-only projection"
 category = "Camera"
 wasm = true
 

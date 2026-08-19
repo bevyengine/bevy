@@ -14,30 +14,30 @@
 // [2]: http://www.alexandre-pestana.com/volumetric-lights/
 
 import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput;
-import bevy_pbr::atmosphere::{
+import package::atmosphere::{
     functions::{calculate_visible_sun_ratio, clamp_to_surface},
     bruneton_functions::transmittance_lut_r_mu_to_uv,
 };
-import bevy_pbr::render::mesh_functions::{get_world_from_local, mesh_position_local_to_clip};
-import bevy_pbr::render::mesh_view_bindings::{
+import package::render::mesh_functions::{get_world_from_local, mesh_position_local_to_clip};
+import package::render::mesh_view_bindings::{
     globals, lights, view, clustered_lights,
     atmosphere, atmosphere_transmittance_texture, atmosphere_transmittance_sampler
 };
-import bevy_pbr::render::mesh_view_types::{
+import package::render::mesh_view_types::{
     DIRECTIONAL_LIGHT_FLAGS_VOLUMETRIC_BIT,
     POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT,
     POINT_LIGHT_FLAGS_VOLUMETRIC_BIT,
     POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE,
 };
-import bevy_pbr::render::shadow_sampling::{
+import package::render::shadow_sampling::{
     sample_shadow_map_hardware,
     sample_shadow_cubemap,
     sample_shadow_map,
     SPOT_SHADOW_TEXEL_SIZE
 };
-import bevy_pbr::render::shadows::{get_cascade_index, world_to_directional_light_local};
-import bevy_pbr::render::utils::interleaved_gradient_noise;
-import bevy_pbr::render::view_transformations::{
+import package::render::shadows::{get_cascade_index, world_to_directional_light_local};
+import package::render::utils::interleaved_gradient_noise;
+import package::render::view_transformations::{
     depth_ndc_to_view_z,
     frag_coord_to_ndc,
     position_ndc_to_view,
@@ -45,8 +45,8 @@ import bevy_pbr::render::view_transformations::{
     position_view_to_world
 };
 import bevy_render::maths::orthonormalize;
-import bevy_pbr::render::clustered_forward as clustering;
-import bevy_pbr::render::pbr_lighting::getDistanceAttenuation;
+import package::render::clustered_forward as clustering;
+import package::render::pbr_lighting::getDistanceAttenuation;
 
 // The GPU version of [`VolumetricFog`]. See the comments in
 // `volumetric_fog/mod.rs` for descriptions of the fields here.

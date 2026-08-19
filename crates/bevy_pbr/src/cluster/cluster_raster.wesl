@@ -1,12 +1,12 @@
-import bevy_pbr::cluster::{
+import package::cluster::{
     Aabb, CLUSTERABLE_OBJECT_TYPE_DECAL, CLUSTERABLE_OBJECT_TYPE_IRRADIANCE_VOLUME,
     CLUSTERABLE_OBJECT_TYPE_POINT_LIGHT, CLUSTERABLE_OBJECT_TYPE_REFLECTION_PROBE,
     CLUSTERABLE_OBJECT_TYPE_SPOT_LIGHT, CLUSTERABLE_OBJECT_TYPE_RECT_LIGHT, ClusterableObjectZSlice,
     calculate_sphere_cluster_bounds, compute_view_from_world_scale
 };
-import bevy_pbr::render::clustered_forward;
-import bevy_pbr::light_probe::transpose_affine_matrix;
-import bevy_pbr::render::mesh_view_types::{
+import package::render::clustered_forward;
+import package::light_probe::transpose_affine_matrix;
+import package::render::mesh_view_types::{
     ClusterOffsetsAndCounts, ClusterableObjectIndexLists, ClusteredDecals, ClusteredLights,
     LightProbes, Lights, POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE
 };

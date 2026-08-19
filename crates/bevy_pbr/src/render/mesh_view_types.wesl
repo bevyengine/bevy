@@ -186,7 +186,7 @@ struct LightProbes {
 // Settings for screen space reflections.
 //
 // For more information on these settings, see the documentation for
-// `bevy_pbr::ssr::ScreenSpaceReflections`.
+// `package::ssr::ScreenSpaceReflections`.
 struct ScreenSpaceReflectionsSettings {
     min_perceptual_roughness: f32,
     min_perceptual_roughness_fully_active: f32,

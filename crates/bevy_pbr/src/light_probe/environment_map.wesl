@@ -1,12 +1,12 @@
-import bevy_pbr::light_probe::{light_probe_iterator_new, light_probe_iterator_next};
-import bevy_pbr::render::mesh_view_bindings as bindings;
-import bevy_pbr::render::mesh_view_bindings::light_probes;
-import bevy_pbr::render::mesh_view_types::{
+import package::light_probe::{light_probe_iterator_new, light_probe_iterator_next};
+import package::render::mesh_view_bindings as bindings;
+import package::render::mesh_view_bindings::light_probes;
+import package::render::mesh_view_types::{
     LIGHT_PROBE_FLAG_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE, LIGHT_PROBE_FLAG_PARALLAX_CORRECT
 };
-import bevy_pbr::render::pbr_lighting::{F_Schlick_vec, LightingInput, LayerLightingInput, LAYER_BASE, LAYER_CLEARCOAT};
-import bevy_pbr::render::clustered_forward::ClusterableObjectIndexRanges;
-import bevy_render::maths::quat_rotate;
+import package::render::pbr_lighting::{F_Schlick_vec, LightingInput, LayerLightingInput, LAYER_BASE, LAYER_CLEARCOAT};
+import package::render::clustered_forward::ClusterableObjectIndexRanges;
+import package::maths::quat_rotate;
 
 // The maximum representable value in a 32-bit floating point number.
 const FLOAT_MAX: f32 = 3.40282347e+38;

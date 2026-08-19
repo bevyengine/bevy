@@ -1,4 +1,4 @@
-import bevy_pbr::{
+import package::{
     render::{
         forward_io::VertexOutput,
         mesh_functions::get_world_from_local,

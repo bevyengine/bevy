@@ -1,6 +1,6 @@
 import bevy_pbr::render::pbr_functions::{calculate_diffuse_color, calculate_F0};
-import bevy_solari::realtime::gbuffer_utils::gpixel_resolve;
-import bevy_solari::realtime::bindings::{gbuffer, depth_buffer, motion_vectors, view, diffuse_albedo, specular_albedo, normal_roughness, specular_motion_vectors};
+import package::realtime::gbuffer_utils::gpixel_resolve;
+import package::realtime::bindings::{gbuffer, depth_buffer, motion_vectors, view, diffuse_albedo, specular_albedo, normal_roughness, specular_motion_vectors};
 
 enable wgpu_ray_query;
 
