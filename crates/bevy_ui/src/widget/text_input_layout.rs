@@ -206,7 +206,11 @@ pub fn update_editable_text_styles(
                 ));
         }
 
-        if text_font.is_changed()
+        // `fonts.is_changed()` is a retry, not redundancy: a `FontSource::Handle`
+        // is usually still loading on the frame its field spawns, so the resolve
+        // fails, and `text_font` is only `is_changed()` that once -- without it
+        // the editor keeps parley's default family for the field's whole life.
+        if (text_font.is_changed() || fonts.is_changed())
             && let Ok(resolved_family) = text_font.font.resolve_font_family(fonts.as_ref())
         {
             let family = resolved_family.into_owned();
