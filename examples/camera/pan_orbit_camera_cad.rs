@@ -31,7 +31,7 @@ fn main() {
     app.add_plugins((DefaultPlugins, MeshPickingPlugin));
 
     if true {
-        // If you need to use custom input plugin, disable `DefaultInputPlugin` and add your custom input plugin.
+        // If you need to use custom input plugin, disable `DefaultInputPlugin` and add your custom input plugin instead.
         app.add_plugins((
             DefaultPanOrbitCameraPlugins
                 .build()
