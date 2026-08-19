@@ -751,7 +751,9 @@ impl ExecutorState {
             self.exclusive_running = false;
         }
 
-        if !self.system_task_metadata[system_index].is_send {
+        if self.system_task_metadata[system_index].is_exclusive
+            || !self.system_task_metadata[system_index].is_send
+        {
             self.local_thread_running = false;
         }
 
@@ -946,7 +948,7 @@ mod tests {
         },
         prelude::Resource,
         schedule::{IntoScheduleConfigs, MultiThreadedExecutor, Schedule},
-        system::Commands,
+        system::{Commands, ExclusiveMarker, NonSendMut},
         world::World,
     };
 
@@ -970,6 +972,32 @@ mod tests {
         );
         schedule.run(&mut world);
         assert!(world.get_resource::<R>().is_some());
+    }
+
+    /// Regression test for case where exclusive system left local thread state as not
+    /// cleared and prevented subsequent non-send system runs
+    #[test]
+    fn exclusive_system_reporting_send_releases_the_local_thread() {
+        #[derive(Default)]
+        struct NonSendMarker(bool);
+
+        let mut world = World::new();
+        world.insert_non_send(NonSendMarker::default());
+
+        let mut schedule = Schedule::default();
+        schedule.set_executor(MultiThreadedExecutor::new());
+        schedule.add_systems(
+            (
+                |_: ExclusiveMarker| {},
+                |mut marker: NonSendMut<NonSendMarker>| {
+                    marker.0 = true;
+                },
+            )
+                .chain(),
+        );
+
+        schedule.run(&mut world);
+        assert!(world.non_send::<NonSendMarker>().0);
     }
 
     /// Regression test for a weird bug flagged by MIRI in

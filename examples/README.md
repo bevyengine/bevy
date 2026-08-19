@@ -303,7 +303,10 @@ Example | Description
 [Custom Projection](../examples/camera/custom_projection.rs) | Shows how to create custom camera projections.
 [First person view model](../examples/camera/first_person_view_model.rs) | A first-person camera that uses a world model and a view model with different field of views (FOV)
 [Free Camera controller](../examples/camera/free_camera_controller.rs) | Demonstrates the FreeCamera controller for 3D scenes.
+[Minimal Pan Orbit Camera](../examples/camera/pan_orbit_camera_minimal.rs) | Minimum setup for working PanOrbitCamera
+[Orthographic Pan Orbit Camera](../examples/camera/pan_orbit_camera_ortho.rs) | Using Pan Orbit Camera in orthographic-only projection
 [Pan Camera](../examples/camera/pan_camera_controller.rs) | Example Pan-Camera Styled Camera Controller for 2D scenes
+[Pan Orbit Camera](../examples/camera/pan_orbit_camera_cad.rs) | CAD-like controls and setup for PanOrbitCamera
 [Projection Zoom](../examples/camera/projection_zoom.rs) | Shows how to zoom orthographic and perspective projection cameras.
 [Screen Shake](../examples/camera/2d_screen_shake.rs) | A simple 2D screen shake effect
 
@@ -618,6 +621,7 @@ Example | Description
 [Multiple Text Inputs](../examples/ui/text/multiple_text_inputs.rs) | Demonstrates multiple text inputs
 [Overflow](../examples/ui/scroll_and_overflow/overflow.rs) | Simple example demonstrating overflow behavior
 [Overflow Clip Margin](../examples/ui/scroll_and_overflow/overflow_clip_margin.rs) | Simple example demonstrating the OverflowClipMargin style property
+[Overflow Transform](../examples/ui/scroll_and_overflow/overflow_transform.rs) | Demonstrates nested transformed UI clipping
 [Overflow and Clipping Debug](../examples/ui/scroll_and_overflow/overflow_debug.rs) | An example to debug overflow and clipping behavior
 [Relative Cursor Position](../examples/ui/relative_cursor_position.rs) | Showcases the RelativeCursorPosition component
 [Render UI to Texture](../examples/ui/render_ui_to_texture.rs) | An example of rendering UI as a part of a 3D world

@@ -1,4 +1,4 @@
-import bevy_pbr::{
+import package::{
     prepass::utils as prepass_utils,
     render::{
         pbr_types::STANDARD_MATERIAL_FLAGS_UNLIT_BIT,
@@ -12,8 +12,8 @@ import bevy_pbr::{
     },
 };
 
-@if(SCREEN_SPACE_AMBIENT_OCCLUSION) import bevy_pbr::render::mesh_view_bindings::screen_space_ambient_occlusion_texture;
-@if(SCREEN_SPACE_AMBIENT_OCCLUSION) import bevy_pbr::ssao::utils::ssao_multibounce;
+@if(SCREEN_SPACE_AMBIENT_OCCLUSION) import package::render::mesh_view_bindings::screen_space_ambient_occlusion_texture;
+@if(SCREEN_SPACE_AMBIENT_OCCLUSION) import package::ssao::utils::ssao_multibounce;
 
 struct FullscreenVertexOutput {
     @builtin(position)
@@ -63,7 +63,8 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     if ((pbr_input.material.flags & STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u) {
 
 @if(SCREEN_SPACE_AMBIENT_OCCLUSION) {
-        let ssao = textureLoad(screen_space_ambient_occlusion_texture, vec2<i32>(in.position.xy), 0i).r;
+        let ssao_tex_pos = vec2<i32>(in.position.xy - view.viewport.xy);
+        let ssao = textureLoad(screen_space_ambient_occlusion_texture, ssao_tex_pos, 0i).r;
         let ssao_multibounce = ssao_multibounce(ssao, pbr_input.material.base_color.rgb);
         pbr_input.diffuse_occlusion = min(pbr_input.diffuse_occlusion, ssao_multibounce);
 
