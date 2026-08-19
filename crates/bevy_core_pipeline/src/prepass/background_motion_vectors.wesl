@@ -11,8 +11,10 @@ struct PreviousViewUniforms {
     view_from_clip: mat4x4<f32>,
 }
 
-@group(0) @binding(0) var<uniform> view: View;
-@group(0) @binding(1) var<uniform> previous_view: PreviousViewUniforms;
+@group(0) @binding(0)
+var<uniform> view: View;
+@group(0) @binding(1)
+var<uniform> previous_view: PreviousViewUniforms;
 
 /// Writes motion vectors for sky pixels (depth == 0 in reversed-Z) based on camera rotation.
 ///
@@ -26,7 +28,8 @@ fn fragment(in: FullscreenVertexOutput) -> @location(1) vec4<f32> {
     // Use the unjittered matrices on both sides to strip TAA jitter from the motion
     // vector.
     let curr_clip_pos = (view.unjittered_clip_from_world * world_pos).xy;
-    let prev_clip_pos = (previous_view.unjittered_clip_from_world * world_pos).xy;
+    let prev_clip_pos = (previous_view.unjittered_clip_from_world * world_pos)
+            .xy;
     let velocity = (curr_clip_pos - prev_clip_pos) * vec2(0.5, -0.5);
     return vec4(velocity.x, velocity.y, 0.0, 1.0);
 }

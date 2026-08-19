@@ -1,12 +1,9 @@
 import package::{
-    render::{
-        forward_io::VertexOutput,
-        mesh_functions::get_world_from_local,
-        mesh_view_bindings::view,
-        pbr_functions::calculate_tbn_mikktspace,
-        view_transformations::depth_ndc_to_view_z,
-    },
-    prepass::utils::prepass_depth,
+    prepass::utils::prepass_depth, render::{
+        forward_io::VertexOutput, mesh_functions::get_world_from_local,
+        mesh_view_bindings::view, pbr_functions::calculate_tbn_mikktspace,
+        view_transformations::depth_ndc_to_view_z
+    }
 };
 import bevy_render::maths::project_onto;
 
@@ -45,7 +42,10 @@ fn get_forward_decal_info(in: VertexOutput) -> ForwardDecalInformation {
     let delta_uv = normal_depth * Vt.xy * vec2(1.0, -1.0) / view_steepness;
     let uv = in.uv + delta_uv;
 
-    let world_position = vec4(in.world_position.xyz + V * diff_depth_abs, in.world_position.w);
+    let world_position = vec4(
+            in.world_position.xyz + V * diff_depth_abs,
+            in.world_position.w,
+        );
     let alpha = saturate(1.0 - (normal_depth * inv_depth_fade_factor));
 
     return ForwardDecalInformation(world_position, uv, alpha);

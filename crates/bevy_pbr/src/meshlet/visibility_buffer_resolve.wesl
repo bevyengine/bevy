@@ -1,28 +1,21 @@
 import package::{
     meshlet::bindings::{
-        Meshlet,
-        meshlet_visibility_buffer,
-        meshlet_raster_clusters,
-        meshlets,
-        meshlet_instance_uniforms,
-        get_meshlet_vertex_id,
-        get_meshlet_vertex_position,
-        get_meshlet_vertex_normal,
-        get_meshlet_vertex_uv,
-    },
-    render::{
+        Meshlet, get_meshlet_vertex_id, get_meshlet_vertex_normal,
+        get_meshlet_vertex_position, get_meshlet_vertex_uv,
+        meshlet_instance_uniforms, meshlet_raster_clusters,
+        meshlet_visibility_buffer, meshlets
+    }, render::{
+        mesh_functions::mesh_position_local_to_world, mesh_types::Mesh,
         mesh_view_bindings::view,
-        mesh_functions::mesh_position_local_to_world,
-        mesh_types::Mesh,
-        view_transformations::{position_world_to_clip, frag_coord_to_ndc},
-    },
+        view_transformations::{frag_coord_to_ndc, position_world_to_clip}
+    }
 };
 import bevy_render::maths::{affine3_to_square, mat2x4_f32_to_mat3x3_unpack};
 
 @if(PREPASS_FRAGMENT && MOTION_VECTOR_PREPASS)
 import package::{
     prepass::bindings::previous_view_uniforms,
-    render::pbr_prepass_functions::calculate_motion_vector,
+    render::pbr_prepass_functions::calculate_motion_vector
 };
 
 /// Functions to be used by materials for reading from a meshlet visibility buffer texture.
@@ -36,21 +29,37 @@ struct PartialDerivatives {
 
 // https://github.com/ConfettiFX/The-Forge/blob/9d43e69141a9cd0ce2ce2d2db5122234d3a2d5b5/Common_3/Renderer/VisibilityBuffer2/Shaders/FSL/vb_shading_utilities.h.fsl#L90-L150
 @if(MESHLET_MESH_MATERIAL_PASS)
-fn compute_partial_derivatives(vertex_world_positions: array<vec4<f32>, 3>, ndc_uv: vec2<f32>, half_screen_size: vec2<f32>) -> PartialDerivatives {
+fn compute_partial_derivatives(
+    vertex_world_positions: array<vec4<f32>, 3>,
+    ndc_uv: vec2<f32>,
+    half_screen_size: vec2<f32>,
+) -> PartialDerivatives {
     var result: PartialDerivatives;
 
-    let vertex_clip_position_0 = position_world_to_clip(vertex_world_positions[0].xyz);
-    let vertex_clip_position_1 = position_world_to_clip(vertex_world_positions[1].xyz);
-    let vertex_clip_position_2 = position_world_to_clip(vertex_world_positions[2].xyz);
+    let vertex_clip_position_0 = position_world_to_clip(
+            vertex_world_positions[0].xyz,
+        );
+    let vertex_clip_position_1 = position_world_to_clip(
+            vertex_world_positions[1].xyz,
+        );
+    let vertex_clip_position_2 = position_world_to_clip(
+            vertex_world_positions[2].xyz,
+        );
 
-    let inv_w = 1.0 / vec3(vertex_clip_position_0.w, vertex_clip_position_1.w, vertex_clip_position_2.w);
+    let inv_w = 1.0 / vec3(
+            vertex_clip_position_0.w,
+            vertex_clip_position_1.w,
+            vertex_clip_position_2.w,
+        );
     let ndc_0 = vertex_clip_position_0.xy * inv_w[0];
     let ndc_1 = vertex_clip_position_1.xy * inv_w[1];
     let ndc_2 = vertex_clip_position_2.xy * inv_w[2];
 
     let inv_det = 1.0 / determinant(mat2x2(ndc_2 - ndc_1, ndc_0 - ndc_1));
-    result.ddx = vec3(ndc_1.y - ndc_2.y, ndc_2.y - ndc_0.y, ndc_0.y - ndc_1.y) * inv_det * inv_w;
-    result.ddy = vec3(ndc_2.x - ndc_1.x, ndc_0.x - ndc_2.x, ndc_1.x - ndc_0.x) * inv_det * inv_w;
+    result.ddx = vec3(ndc_1.y - ndc_2.y, ndc_2.y - ndc_0.y, ndc_0.y - ndc_1.y)
+        * inv_det * inv_w;
+    result.ddy = vec3(ndc_2.x - ndc_1.x, ndc_0.x - ndc_2.x, ndc_1.x - ndc_0.x)
+        * inv_det * inv_w;
 
     var ddx_sum = dot(result.ddx, vec3(1.0));
     var ddy_sum = dot(result.ddy, vec3(1.0));
@@ -60,10 +69,11 @@ fn compute_partial_derivatives(vertex_world_positions: array<vec4<f32>, 3>, ndc_
     let interp_w = 1.0 / interp_inv_w;
 
     result.barycentrics = vec3(
-        interp_w * (inv_w[0] + delta_v.x * result.ddx.x + delta_v.y * result.ddy.x),
-        interp_w * (delta_v.x * result.ddx.y + delta_v.y * result.ddy.y),
-        interp_w * (delta_v.x * result.ddx.z + delta_v.y * result.ddy.z),
-    );
+            interp_w
+            * (inv_w[0] + delta_v.x * result.ddx.x + delta_v.y * result.ddy.x),
+            interp_w * (delta_v.x * result.ddx.y + delta_v.y * result.ddy.y),
+            interp_w * (delta_v.x * result.ddx.z + delta_v.y * result.ddy.z),
+        );
 
     result.ddx *= half_screen_size.x;
     result.ddy *= half_screen_size.y;
@@ -76,8 +86,12 @@ fn compute_partial_derivatives(vertex_world_positions: array<vec4<f32>, 3>, ndc_
     let interp_ddx_w = 1.0 / (interp_inv_w + ddx_sum);
     let interp_ddy_w = 1.0 / (interp_inv_w + ddy_sum);
 
-    result.ddx = interp_ddx_w * (result.barycentrics * interp_inv_w + result.ddx) - result.barycentrics;
-    result.ddy = interp_ddy_w * (result.barycentrics * interp_inv_w + result.ddy) - result.barycentrics;
+    result.ddx = interp_ddx_w
+        * (result.barycentrics * interp_inv_w + result.ddx)
+        - result.barycentrics;
+    result.ddy = interp_ddy_w
+        * (result.barycentrics * interp_inv_w + result.ddy)
+        - result.barycentrics;
     return result;
 }
 
@@ -100,15 +114,22 @@ struct VertexOutput {
 /// Load the visibility buffer texture and resolve it into a VertexOutput.
 @if(MESHLET_MESH_MATERIAL_PASS)
 fn resolve_vertex_output(frag_coord: vec4<f32>) -> VertexOutput {
-    let packed_ids = u32(textureLoad(meshlet_visibility_buffer, vec2<u32>(frag_coord.xy)).r);
+    let packed_ids = u32(
+            textureLoad(meshlet_visibility_buffer, vec2<u32>(frag_coord.xy)).r,
+        );
     let cluster_id = packed_ids >> 7u;
     let instanced_offset = meshlet_raster_clusters[cluster_id];
     let meshlet_id = instanced_offset.offset;
     var meshlet = meshlets[meshlet_id];
 
     let triangle_id = extractBits(packed_ids, 0u, 7u);
-    let index_ids = meshlet.start_index_id + (triangle_id * 3u) + vec3(0u, 1u, 2u);
-    let vertex_ids = vec3(get_meshlet_vertex_id(index_ids[0]), get_meshlet_vertex_id(index_ids[1]), get_meshlet_vertex_id(index_ids[2]));
+    let index_ids = meshlet.start_index_id + (triangle_id * 3u)
+        + vec3(0u, 1u, 2u);
+    let vertex_ids = vec3(
+            get_meshlet_vertex_id(index_ids[0]),
+            get_meshlet_vertex_id(index_ids[1]),
+            get_meshlet_vertex_id(index_ids[2]),
+        );
     let vertex_0 = load_vertex(&meshlet, vertex_ids[0]);
     let vertex_1 = load_vertex(&meshlet, vertex_ids[1]);
     let vertex_2 = load_vertex(&meshlet, vertex_ids[2]);
@@ -117,47 +138,90 @@ fn resolve_vertex_output(frag_coord: vec4<f32>) -> VertexOutput {
     var instance_uniform = meshlet_instance_uniforms[instance_id];
 
     let world_from_local = affine3_to_square(instance_uniform.world_from_local);
-    let world_position_0 = mesh_position_local_to_world(world_from_local, vec4(vertex_0.position, 1.0));
-    let world_position_1 = mesh_position_local_to_world(world_from_local, vec4(vertex_1.position, 1.0));
-    let world_position_2 = mesh_position_local_to_world(world_from_local, vec4(vertex_2.position, 1.0));
+    let world_position_0 = mesh_position_local_to_world(
+            world_from_local,
+            vec4(vertex_0.position, 1.0),
+        );
+    let world_position_1 = mesh_position_local_to_world(
+            world_from_local,
+            vec4(vertex_1.position, 1.0),
+        );
+    let world_position_2 = mesh_position_local_to_world(
+            world_from_local,
+            vec4(vertex_2.position, 1.0),
+        );
 
     let frag_coord_ndc = frag_coord_to_ndc(frag_coord).xy;
     let partial_derivatives = compute_partial_derivatives(
-        array(world_position_0, world_position_1, world_position_2),
-        frag_coord_ndc,
-        view.viewport.zw / 2.0,
-    );
+            array(world_position_0, world_position_1, world_position_2),
+            frag_coord_ndc,
+            view.viewport.zw / 2.0,
+        );
 
-    let world_position = mat3x4(world_position_0, world_position_1, world_position_2) * partial_derivatives.barycentrics;
+    let world_position = mat3x4(
+            world_position_0,
+            world_position_1,
+            world_position_2,
+        ) * partial_derivatives.barycentrics;
     let world_positions_camera_relative = mat3x3(
-        world_position_0.xyz - view.world_position,
-        world_position_1.xyz - view.world_position,
-        world_position_2.xyz - view.world_position,
-    );
-    let ddx_world_position = world_positions_camera_relative * partial_derivatives.ddx;
-    let ddy_world_position = world_positions_camera_relative * partial_derivatives.ddy;
+            world_position_0.xyz - view.world_position,
+            world_position_1.xyz - view.world_position,
+            world_position_2.xyz - view.world_position,
+        );
+    let ddx_world_position = world_positions_camera_relative
+        * partial_derivatives.ddx;
+    let ddy_world_position = world_positions_camera_relative
+        * partial_derivatives.ddy;
 
     let world_normal = mat3x3(
-        normal_local_to_world(vertex_0.normal, &instance_uniform),
-        normal_local_to_world(vertex_1.normal, &instance_uniform),
-        normal_local_to_world(vertex_2.normal, &instance_uniform),
-    ) * partial_derivatives.barycentrics;
+            normal_local_to_world(vertex_0.normal, &instance_uniform),
+            normal_local_to_world(vertex_1.normal, &instance_uniform),
+            normal_local_to_world(vertex_2.normal, &instance_uniform),
+        ) * partial_derivatives.barycentrics;
 
-    let uv = mat3x2(vertex_0.uv, vertex_1.uv, vertex_2.uv) * partial_derivatives.barycentrics;
-    let ddx_uv = mat3x2(vertex_0.uv, vertex_1.uv, vertex_2.uv) * partial_derivatives.ddx;
-    let ddy_uv = mat3x2(vertex_0.uv, vertex_1.uv, vertex_2.uv) * partial_derivatives.ddy;
+    let uv = mat3x2(vertex_0.uv, vertex_1.uv, vertex_2.uv)
+        * partial_derivatives.barycentrics;
+    let ddx_uv = mat3x2(vertex_0.uv, vertex_1.uv, vertex_2.uv)
+        * partial_derivatives.ddx;
+    let ddy_uv = mat3x2(vertex_0.uv, vertex_1.uv, vertex_2.uv)
+        * partial_derivatives.ddy;
 
-    let world_tangent = calculate_world_tangent(world_normal, ddx_world_position, ddy_world_position, ddx_uv, ddy_uv);
+    let world_tangent = calculate_world_tangent(
+            world_normal,
+            ddx_world_position,
+            ddy_world_position,
+            ddx_uv,
+            ddy_uv,
+        );
 
     var motion_vector: vec2<f32>;
-@if(PREPASS_FRAGMENT && MOTION_VECTOR_PREPASS) {
-    let previous_world_from_local = affine3_to_square(instance_uniform.previous_world_from_local);
-    let previous_world_position_0 = mesh_position_local_to_world(previous_world_from_local, vec4(vertex_0.position, 1.0));
-    let previous_world_position_1 = mesh_position_local_to_world(previous_world_from_local, vec4(vertex_1.position, 1.0));
-    let previous_world_position_2 = mesh_position_local_to_world(previous_world_from_local, vec4(vertex_2.position, 1.0));
-    let previous_world_position = mat3x4(previous_world_position_0, previous_world_position_1, previous_world_position_2) * partial_derivatives.barycentrics;
-    motion_vector = calculate_motion_vector(world_position, previous_world_position);
-}
+    @if(PREPASS_FRAGMENT && MOTION_VECTOR_PREPASS)
+    {
+    let previous_world_from_local = affine3_to_square(
+            instance_uniform.previous_world_from_local,
+        );
+    let previous_world_position_0 = mesh_position_local_to_world(
+            previous_world_from_local,
+            vec4(vertex_0.position, 1.0),
+        );
+    let previous_world_position_1 = mesh_position_local_to_world(
+            previous_world_from_local,
+            vec4(vertex_1.position, 1.0),
+        );
+    let previous_world_position_2 = mesh_position_local_to_world(
+            previous_world_from_local,
+            vec4(vertex_2.position, 1.0),
+        );
+    let previous_world_position = mat3x4(
+            previous_world_position_0,
+            previous_world_position_1,
+            previous_world_position_2,
+        ) * partial_derivatives.barycentrics;
+    motion_vector = calculate_motion_vector(
+            world_position,
+            previous_world_position,
+        );
+    }
 
     var out: VertexOutput;
     out.position = frag_coord;
@@ -169,7 +233,8 @@ fn resolve_vertex_output(frag_coord: vec4<f32>) -> VertexOutput {
     out.world_tangent = world_tangent;
     out.mesh_flags = instance_uniform.flags;
     out.cluster_id = instance_id ^ meshlet_id;
-    out.material_bind_group_slot = instance_uniform.material_and_lightmap_bind_group_slot & 0xffffu;
+    out.material_bind_group_slot = instance_uniform
+            .material_and_lightmap_bind_group_slot & 0xffffu;
     @if(PREPASS_FRAGMENT && MOTION_VECTOR_PREPASS)
     out.motion_vector = motion_vector;
     return out;
@@ -183,23 +248,29 @@ struct MeshletVertex {
 }
 
 @if(MESHLET_MESH_MATERIAL_PASS)
-fn load_vertex(meshlet: ptr<function, Meshlet>, vertex_id: u32) -> MeshletVertex {
+fn load_vertex(
+    meshlet: ptr<function, Meshlet>,
+    vertex_id: u32,
+) -> MeshletVertex {
     return MeshletVertex(
-        get_meshlet_vertex_position(meshlet, vertex_id),
-        get_meshlet_vertex_normal(meshlet, vertex_id),
-        get_meshlet_vertex_uv(meshlet, vertex_id),
-    );
+            get_meshlet_vertex_position(meshlet, vertex_id),
+            get_meshlet_vertex_normal(meshlet, vertex_id),
+            get_meshlet_vertex_uv(meshlet, vertex_id),
+        );
 }
 
 @if(MESHLET_MESH_MATERIAL_PASS)
-fn normal_local_to_world(vertex_normal: vec3<f32>, instance_uniform: ptr<function, Mesh>) -> vec3<f32> {
+fn normal_local_to_world(
+    vertex_normal: vec3<f32>,
+    instance_uniform: ptr<function, Mesh>,
+) -> vec3<f32> {
     if any(vertex_normal != vec3<f32>(0.0)) {
         return normalize(
-            mat2x4_f32_to_mat3x3_unpack(
-                (*instance_uniform).local_from_world_transpose_a,
-                (*instance_uniform).local_from_world_transpose_b,
-            ) * vertex_normal
-        );
+                mat2x4_f32_to_mat3x3_unpack(
+                    (*instance_uniform).local_from_world_transpose_a,
+                    (*instance_uniform).local_from_world_transpose_b,
+                ) * vertex_normal,
+            );
     } else {
         return vertex_normal;
     }
@@ -215,13 +286,16 @@ fn calculate_world_tangent(
     ddy_uv: vec2<f32>,
 ) -> vec4<f32> {
     // Project the position gradients onto the tangent plane
-    let ddx_world_position_s = ddx_world_position - dot(ddx_world_position, world_normal) * world_normal;
-    let ddy_world_position_s = ddy_world_position - dot(ddy_world_position, world_normal) * world_normal;
+    let ddx_world_position_s = ddx_world_position
+        - dot(ddx_world_position, world_normal) * world_normal;
+    let ddy_world_position_s = ddy_world_position
+        - dot(ddy_world_position, world_normal) * world_normal;
 
     // Compute the jacobian matrix to leverage the chain rule
     let jacobian_sign = sign(ddx_uv.x * ddy_uv.y - ddx_uv.y * ddy_uv.x);
 
-    var world_tangent = jacobian_sign * (ddy_uv.y * ddx_world_position_s - ddx_uv.y * ddy_world_position_s);
+    var world_tangent = jacobian_sign
+        * (ddy_uv.y * ddx_world_position_s - ddx_uv.y * ddy_world_position_s);
 
     // The sign intrinsic returns 0 if the argument is 0
     if jacobian_sign != 0.0 {
@@ -230,7 +304,12 @@ fn calculate_world_tangent(
 
     // The second factor here ensures a consistent handedness between
     // the tangent frame and surface basis w.r.t. screenspace.
-    let w = jacobian_sign * sign(dot(ddy_world_position, cross(world_normal, ddx_world_position)));
+    let w = jacobian_sign * sign(
+            dot(ddy_world_position, cross(world_normal, ddx_world_position)),
+        );
 
-    return vec4(world_tangent, -w); // TODO: Unclear why we need to negate this to match mikktspace generated tangents
+    return vec4(
+            world_tangent,
+            -w,
+        ); // TODO: Unclear why we need to negate this to match mikktspace generated tangents
 }

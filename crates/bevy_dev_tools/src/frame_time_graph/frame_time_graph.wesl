@@ -1,6 +1,7 @@
 import bevy_ui_render::ui_vertex_output::UiVertexOutput;
 
-@group(1) @binding(0) var<storage> values: array<f32>;
+@group(1) @binding(0)
+var<storage> values: array<f32>;
 struct Config {
     dt_min: f32,
     dt_max: f32,
@@ -8,7 +9,8 @@ struct Config {
     dt_max_log2: f32,
     proportional_width: u32,
 }
-@group(1) @binding(1) var<uniform> config: Config;
+@group(1) @binding(1)
+var<uniform> config: Config;
 
 const RED: vec4<f32> = vec4(1.0, 0.0, 0.0, 1.0);
 const GREEN: vec4<f32> = vec4(0.0, 1.0, 0.0, 1.0);
@@ -40,7 +42,7 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
 
     let len = arrayLength(&values);
     var graph_width = 0.0;
-    for (var i = 1u; i <= len; i += 1u) {
+    for(var i = 1u; i <= len; i += 1u) {
         let dt = values[len - i];
 
         var frame_width: f32;
@@ -50,13 +52,14 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
             frame_width = 0.015;
         }
 
-        let frame_height_factor = (log2(dt) - dt_min_log2) / (dt_max_log2 - dt_min_log2);
+        let frame_height_factor = (log2(dt) - dt_min_log2)
+            / (dt_max_log2 - dt_min_log2);
         let frame_height_factor_norm = min(max(0.0, frame_height_factor), 1.0);
         let frame_height = mix(0.0, 1.0, frame_height_factor_norm);
 
         let size = vec2(frame_width, frame_height) / 2.0;
         let offset = vec2(1.0 - graph_width - size.x, 1. - size.y);
-        if (sdf_square(in.uv, size, offset) < 0.0) {
+        if sdf_square(in.uv, size, offset) < 0.0 {
             return color_from_dt(dt);
         }
 
@@ -65,4 +68,3 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
 
     return vec4(0.0, 0.0, 0.0, 0.5);
 }
-

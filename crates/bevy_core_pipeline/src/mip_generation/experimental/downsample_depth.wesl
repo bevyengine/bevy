@@ -1,25 +1,44 @@
 @if(MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT)
-@group(0) @binding(0) var mip_0: texture_storage_2d<r64uint, read>;
+@group(0) @binding(0)
+var mip_0: texture_storage_2d<r64uint, read>;
 @elif(MESHLET)
-@group(0) @binding(0) var mip_0: texture_storage_2d<r32uint, read>;
+@group(0) @binding(0)
+var mip_0: texture_storage_2d<r32uint, read>;
 @elif(MULTISAMPLE)
-@group(0) @binding(0) var mip_0: texture_depth_multisampled_2d;
+@group(0) @binding(0)
+var mip_0: texture_depth_multisampled_2d;
 @else
-@group(0) @binding(0) var mip_0: texture_depth_2d;
-@group(0) @binding(1) var mip_1: texture_storage_2d<r32float, write>;
-@group(0) @binding(2) var mip_2: texture_storage_2d<r32float, write>;
-@group(0) @binding(3) var mip_3: texture_storage_2d<r32float, write>;
-@group(0) @binding(4) var mip_4: texture_storage_2d<r32float, write>;
-@group(0) @binding(5) var mip_5: texture_storage_2d<r32float, write>;
-@group(0) @binding(6) var mip_6: texture_storage_2d<r32float, read_write>;
-@group(0) @binding(7) var mip_7: texture_storage_2d<r32float, write>;
-@group(0) @binding(8) var mip_8: texture_storage_2d<r32float, write>;
-@group(0) @binding(9) var mip_9: texture_storage_2d<r32float, write>;
-@group(0) @binding(10) var mip_10: texture_storage_2d<r32float, write>;
-@group(0) @binding(11) var mip_11: texture_storage_2d<r32float, write>;
-@group(0) @binding(12) var mip_12: texture_storage_2d<r32float, write>;
-@group(0) @binding(13) var samplr: sampler;
-struct Constants { max_mip_level: u32 }
+@group(0) @binding(0)
+var mip_0: texture_depth_2d;
+@group(0) @binding(1)
+var mip_1: texture_storage_2d<r32float, write>;
+@group(0) @binding(2)
+var mip_2: texture_storage_2d<r32float, write>;
+@group(0) @binding(3)
+var mip_3: texture_storage_2d<r32float, write>;
+@group(0) @binding(4)
+var mip_4: texture_storage_2d<r32float, write>;
+@group(0) @binding(5)
+var mip_5: texture_storage_2d<r32float, write>;
+@group(0) @binding(6)
+var mip_6: texture_storage_2d<r32float, read_write>;
+@group(0) @binding(7)
+var mip_7: texture_storage_2d<r32float, write>;
+@group(0) @binding(8)
+var mip_8: texture_storage_2d<r32float, write>;
+@group(0) @binding(9)
+var mip_9: texture_storage_2d<r32float, write>;
+@group(0) @binding(10)
+var mip_10: texture_storage_2d<r32float, write>;
+@group(0) @binding(11)
+var mip_11: texture_storage_2d<r32float, write>;
+@group(0) @binding(12)
+var mip_12: texture_storage_2d<r32float, write>;
+@group(0) @binding(13)
+var samplr: sampler;
+struct Constants {
+    max_mip_level: u32,
+}
 var<immediate> constants: Constants;
 
 /// Generates a hierarchical depth buffer.
@@ -34,8 +53,7 @@ var<immediate> constants: Constants;
 
 var<workgroup> intermediate_memory: array<array<f32, 16>, 16>;
 
-@compute
-@workgroup_size(256, 1, 1)
+@compute @workgroup_size(256, 1, 1)
 fn downsample_depth_first(
     @builtin(workgroup_id) workgroup_id: vec3u,
     @builtin(local_invocation_index) local_invocation_index: u32,
@@ -49,9 +67,10 @@ fn downsample_depth_first(
     downsample_mips_2_to_5(x, y, workgroup_id.xy, local_invocation_index);
 }
 
-@compute
-@workgroup_size(256, 1, 1)
-fn downsample_depth_second(@builtin(local_invocation_index) local_invocation_index: u32) {
+@compute @workgroup_size(256, 1, 1)
+fn downsample_depth_second(
+    @builtin(local_invocation_index) local_invocation_index: u32,
+) {
     let sub_xy = remap_for_wave_reduction(local_invocation_index % 64u);
     let x = sub_xy.x + 8u * ((local_invocation_index >> 6u) % 2u);
     let y = sub_xy.y + 8u * (local_invocation_index >> 7u);
@@ -61,7 +80,12 @@ fn downsample_depth_second(@builtin(local_invocation_index) local_invocation_ind
     downsample_mips_8_to_11(x, y, local_invocation_index);
 }
 
-fn downsample_mips_0_and_1(x: u32, y: u32, workgroup_id: vec2u, local_invocation_index: u32) {
+fn downsample_mips_0_and_1(
+    x: u32,
+    y: u32,
+    workgroup_id: vec2u,
+    local_invocation_index: u32,
+) {
     var v: vec4f;
 
     var tex = vec2(workgroup_id * 64u) + vec2(x * 2u, y * 2u);
@@ -84,22 +108,24 @@ fn downsample_mips_0_and_1(x: u32, y: u32, workgroup_id: vec2u, local_invocation
     v[3] = reduce_load_mip_0(tex);
     textureStore(mip_1, pix, vec4(v[3]));
 
-    if constants.max_mip_level <= 1u { return; }
+    if constants.max_mip_level <= 1u {
+        return;
+    }
 
-    for (var i = 0u; i < 4u; i++) {
+    for(var i = 0u; i < 4u; i++) {
         intermediate_memory[x][y] = v[i];
         workgroupBarrier();
         if local_invocation_index < 64u {
-            v[i] = reduce_4(vec4(
-                intermediate_memory[x * 2u + 0u][y * 2u + 0u],
-                intermediate_memory[x * 2u + 1u][y * 2u + 0u],
-                intermediate_memory[x * 2u + 0u][y * 2u + 1u],
-                intermediate_memory[x * 2u + 1u][y * 2u + 1u],
-            ));
-            pix = (workgroup_id * 16u) + vec2(
-                x + (i % 2u) * 8u,
-                y + (i / 2u) * 8u,
-            );
+            v[i] = reduce_4(
+                    vec4(
+                        intermediate_memory[x * 2u + 0u][y * 2u + 0u],
+                        intermediate_memory[x * 2u + 1u][y * 2u + 0u],
+                        intermediate_memory[x * 2u + 0u][y * 2u + 1u],
+                        intermediate_memory[x * 2u + 1u][y * 2u + 1u],
+                    ),
+                );
+            pix = (workgroup_id * 16u)
+                + vec2(x + (i % 2u) * 8u, y + (i / 2u) * 8u);
             textureStore(mip_2, pix, vec4(v[i]));
         }
         workgroupBarrier();
@@ -113,58 +139,92 @@ fn downsample_mips_0_and_1(x: u32, y: u32, workgroup_id: vec2u, local_invocation
     }
 }
 
-fn downsample_mips_2_to_5(x: u32, y: u32, workgroup_id: vec2u, local_invocation_index: u32) {
-    if constants.max_mip_level <= 2u { return; }
+fn downsample_mips_2_to_5(
+    x: u32,
+    y: u32,
+    workgroup_id: vec2u,
+    local_invocation_index: u32,
+) {
+    if constants.max_mip_level <= 2u {
+        return;
+    }
     workgroupBarrier();
     downsample_mip_2(x, y, workgroup_id, local_invocation_index);
 
-    if constants.max_mip_level <= 3u { return; }
+    if constants.max_mip_level <= 3u {
+        return;
+    }
     workgroupBarrier();
     downsample_mip_3(x, y, workgroup_id, local_invocation_index);
 
-    if constants.max_mip_level <= 4u { return; }
+    if constants.max_mip_level <= 4u {
+        return;
+    }
     workgroupBarrier();
     downsample_mip_4(x, y, workgroup_id, local_invocation_index);
 
-    if constants.max_mip_level <= 5u { return; }
+    if constants.max_mip_level <= 5u {
+        return;
+    }
     workgroupBarrier();
     downsample_mip_5(workgroup_id, local_invocation_index);
 }
 
-fn downsample_mip_2(x: u32, y: u32, workgroup_id: vec2u, local_invocation_index: u32) {
+fn downsample_mip_2(
+    x: u32,
+    y: u32,
+    workgroup_id: vec2u,
+    local_invocation_index: u32,
+) {
     if local_invocation_index < 64u {
-        let v = reduce_4(vec4(
-            intermediate_memory[x * 2u + 0u][y * 2u + 0u],
-            intermediate_memory[x * 2u + 1u][y * 2u + 0u],
-            intermediate_memory[x * 2u + 0u][y * 2u + 1u],
-            intermediate_memory[x * 2u + 1u][y * 2u + 1u],
-        ));
+        let v = reduce_4(
+                vec4(
+                    intermediate_memory[x * 2u + 0u][y * 2u + 0u],
+                    intermediate_memory[x * 2u + 1u][y * 2u + 0u],
+                    intermediate_memory[x * 2u + 0u][y * 2u + 1u],
+                    intermediate_memory[x * 2u + 1u][y * 2u + 1u],
+                ),
+            );
         textureStore(mip_3, (workgroup_id * 8u) + vec2(x, y), vec4(v));
         intermediate_memory[x * 2u + y % 2u][y * 2u] = v;
     }
 }
 
-fn downsample_mip_3(x: u32, y: u32, workgroup_id: vec2u, local_invocation_index: u32) {
+fn downsample_mip_3(
+    x: u32,
+    y: u32,
+    workgroup_id: vec2u,
+    local_invocation_index: u32,
+) {
     if local_invocation_index < 16u {
-        let v = reduce_4(vec4(
-            intermediate_memory[x * 4u + 0u + 0u][y * 4u + 0u],
-            intermediate_memory[x * 4u + 2u + 0u][y * 4u + 0u],
-            intermediate_memory[x * 4u + 0u + 1u][y * 4u + 2u],
-            intermediate_memory[x * 4u + 2u + 1u][y * 4u + 2u],
-        ));
+        let v = reduce_4(
+                vec4(
+                    intermediate_memory[x * 4u + 0u + 0u][y * 4u + 0u],
+                    intermediate_memory[x * 4u + 2u + 0u][y * 4u + 0u],
+                    intermediate_memory[x * 4u + 0u + 1u][y * 4u + 2u],
+                    intermediate_memory[x * 4u + 2u + 1u][y * 4u + 2u],
+                ),
+            );
         textureStore(mip_4, (workgroup_id * 4u) + vec2(x, y), vec4(v));
         intermediate_memory[x * 4u + y][y * 4u] = v;
     }
 }
 
-fn downsample_mip_4(x: u32, y: u32, workgroup_id: vec2u, local_invocation_index: u32) {
+fn downsample_mip_4(
+    x: u32,
+    y: u32,
+    workgroup_id: vec2u,
+    local_invocation_index: u32,
+) {
     if local_invocation_index < 4u {
-        let v = reduce_4(vec4(
-            intermediate_memory[x * 8u + 0u + 0u + y * 2u][y * 8u + 0u],
-            intermediate_memory[x * 8u + 4u + 0u + y * 2u][y * 8u + 0u],
-            intermediate_memory[x * 8u + 0u + 1u + y * 2u][y * 8u + 4u],
-            intermediate_memory[x * 8u + 4u + 1u + y * 2u][y * 8u + 4u],
-        ));
+        let v = reduce_4(
+                vec4(
+                    intermediate_memory[x * 8u + 0u + 0u + y * 2u][y * 8u + 0u],
+                    intermediate_memory[x * 8u + 4u + 0u + y * 2u][y * 8u + 0u],
+                    intermediate_memory[x * 8u + 0u + 1u + y * 2u][y * 8u + 4u],
+                    intermediate_memory[x * 8u + 4u + 1u + y * 2u][y * 8u + 4u],
+                ),
+            );
         textureStore(mip_5, (workgroup_id * 2u) + vec2(x, y), vec4(v));
         intermediate_memory[x + y * 2u][0u] = v;
     }
@@ -172,12 +232,14 @@ fn downsample_mip_4(x: u32, y: u32, workgroup_id: vec2u, local_invocation_index:
 
 fn downsample_mip_5(workgroup_id: vec2u, local_invocation_index: u32) {
     if local_invocation_index < 1u {
-        let v = reduce_4(vec4(
-            intermediate_memory[0u][0u],
-            intermediate_memory[1u][0u],
-            intermediate_memory[2u][0u],
-            intermediate_memory[3u][0u],
-        ));
+        let v = reduce_4(
+                vec4(
+                    intermediate_memory[0u][0u],
+                    intermediate_memory[1u][0u],
+                    intermediate_memory[2u][0u],
+                    intermediate_memory[3u][0u],
+                ),
+            );
         textureStore(mip_6, workgroup_id, vec4(v));
     }
 }
@@ -205,7 +267,9 @@ fn downsample_mips_6_and_7(x: u32, y: u32) {
     v[3] = reduce_load_mip_6(tex);
     textureStore(mip_7, pix, vec4(v[3]));
 
-    if constants.max_mip_level <= 7u { return; }
+    if constants.max_mip_level <= 7u {
+        return;
+    }
 
     let vr = reduce_4(v);
     textureStore(mip_8, vec2(x, y), vec4(vr));
@@ -213,31 +277,41 @@ fn downsample_mips_6_and_7(x: u32, y: u32) {
 }
 
 fn downsample_mips_8_to_11(x: u32, y: u32, local_invocation_index: u32) {
-    if constants.max_mip_level <= 8u { return; }
+    if constants.max_mip_level <= 8u {
+        return;
+    }
     workgroupBarrier();
     downsample_mip_8(x, y, local_invocation_index);
 
-    if constants.max_mip_level <= 9u { return; }
+    if constants.max_mip_level <= 9u {
+        return;
+    }
     workgroupBarrier();
     downsample_mip_9(x, y, local_invocation_index);
 
-    if constants.max_mip_level <= 10u { return; }
+    if constants.max_mip_level <= 10u {
+        return;
+    }
     workgroupBarrier();
     downsample_mip_10(x, y, local_invocation_index);
 
-    if constants.max_mip_level <= 11u { return; }
+    if constants.max_mip_level <= 11u {
+        return;
+    }
     workgroupBarrier();
     downsample_mip_11(local_invocation_index);
 }
 
 fn downsample_mip_8(x: u32, y: u32, local_invocation_index: u32) {
     if local_invocation_index < 64u {
-        let v = reduce_4(vec4(
-            intermediate_memory[x * 2u + 0u][y * 2u + 0u],
-            intermediate_memory[x * 2u + 1u][y * 2u + 0u],
-            intermediate_memory[x * 2u + 0u][y * 2u + 1u],
-            intermediate_memory[x * 2u + 1u][y * 2u + 1u],
-        ));
+        let v = reduce_4(
+                vec4(
+                    intermediate_memory[x * 2u + 0u][y * 2u + 0u],
+                    intermediate_memory[x * 2u + 1u][y * 2u + 0u],
+                    intermediate_memory[x * 2u + 0u][y * 2u + 1u],
+                    intermediate_memory[x * 2u + 1u][y * 2u + 1u],
+                ),
+            );
         textureStore(mip_9, vec2(x, y), vec4(v));
         intermediate_memory[x * 2u + y % 2u][y * 2u] = v;
     }
@@ -245,12 +319,14 @@ fn downsample_mip_8(x: u32, y: u32, local_invocation_index: u32) {
 
 fn downsample_mip_9(x: u32, y: u32, local_invocation_index: u32) {
     if local_invocation_index < 16u {
-        let v = reduce_4(vec4(
-            intermediate_memory[x * 4u + 0u + 0u][y * 4u + 0u],
-            intermediate_memory[x * 4u + 2u + 0u][y * 4u + 0u],
-            intermediate_memory[x * 4u + 0u + 1u][y * 4u + 2u],
-            intermediate_memory[x * 4u + 2u + 1u][y * 4u + 2u],
-        ));
+        let v = reduce_4(
+                vec4(
+                    intermediate_memory[x * 4u + 0u + 0u][y * 4u + 0u],
+                    intermediate_memory[x * 4u + 2u + 0u][y * 4u + 0u],
+                    intermediate_memory[x * 4u + 0u + 1u][y * 4u + 2u],
+                    intermediate_memory[x * 4u + 2u + 1u][y * 4u + 2u],
+                ),
+            );
         textureStore(mip_10, vec2(x, y), vec4(v));
         intermediate_memory[x * 4u + y][y * 4u] = v;
     }
@@ -258,12 +334,14 @@ fn downsample_mip_9(x: u32, y: u32, local_invocation_index: u32) {
 
 fn downsample_mip_10(x: u32, y: u32, local_invocation_index: u32) {
     if local_invocation_index < 4u {
-        let v = reduce_4(vec4(
-            intermediate_memory[x * 8u + 0u + 0u + y * 2u][y * 8u + 0u],
-            intermediate_memory[x * 8u + 4u + 0u + y * 2u][y * 8u + 0u],
-            intermediate_memory[x * 8u + 0u + 1u + y * 2u][y * 8u + 4u],
-            intermediate_memory[x * 8u + 4u + 1u + y * 2u][y * 8u + 4u],
-        ));
+        let v = reduce_4(
+                vec4(
+                    intermediate_memory[x * 8u + 0u + 0u + y * 2u][y * 8u + 0u],
+                    intermediate_memory[x * 8u + 4u + 0u + y * 2u][y * 8u + 0u],
+                    intermediate_memory[x * 8u + 0u + 1u + y * 2u][y * 8u + 4u],
+                    intermediate_memory[x * 8u + 4u + 1u + y * 2u][y * 8u + 4u],
+                ),
+            );
         textureStore(mip_11, vec2(x, y), vec4(v));
         intermediate_memory[x + y * 2u][0u] = v;
     }
@@ -271,21 +349,23 @@ fn downsample_mip_10(x: u32, y: u32, local_invocation_index: u32) {
 
 fn downsample_mip_11(local_invocation_index: u32) {
     if local_invocation_index < 1u {
-        let v = reduce_4(vec4(
-            intermediate_memory[0u][0u],
-            intermediate_memory[1u][0u],
-            intermediate_memory[2u][0u],
-            intermediate_memory[3u][0u],
-        ));
+        let v = reduce_4(
+                vec4(
+                    intermediate_memory[0u][0u],
+                    intermediate_memory[1u][0u],
+                    intermediate_memory[2u][0u],
+                    intermediate_memory[3u][0u],
+                ),
+            );
         textureStore(mip_12, vec2(0u, 0u), vec4(v));
     }
 }
 
 fn remap_for_wave_reduction(a: u32) -> vec2u {
     return vec2(
-        insertBits(extractBits(a, 2u, 3u), a, 0u, 1u),
-        insertBits(extractBits(a, 3u, 3u), extractBits(a, 1u, 2u), 0u, 2u),
-    );
+            insertBits(extractBits(a, 2u, 3u), a, 0u, 1u),
+            insertBits(extractBits(a, 3u, 3u), extractBits(a, 1u, 2u), 0u, 2u),
+        );
 }
 
 fn reduce_load_mip_0(tex: vec2u) -> f32 {
@@ -297,12 +377,14 @@ fn reduce_load_mip_0(tex: vec2u) -> f32 {
 }
 
 fn reduce_load_mip_6(tex: vec2u) -> f32 {
-    return reduce_4(vec4(
-        textureLoad(mip_6, tex + vec2(0u, 0u)).r,
-        textureLoad(mip_6, tex + vec2(0u, 1u)).r,
-        textureLoad(mip_6, tex + vec2(1u, 0u)).r,
-        textureLoad(mip_6, tex + vec2(1u, 1u)).r,
-    ));
+    return reduce_4(
+            vec4(
+                textureLoad(mip_6, tex + vec2(0u, 0u)).r,
+                textureLoad(mip_6, tex + vec2(0u, 1u)).r,
+                textureLoad(mip_6, tex + vec2(1u, 0u)).r,
+                textureLoad(mip_6, tex + vec2(1u, 1u)).r,
+            ),
+        );
 }
 
 // Loads the top mip level at virtual position (x, y).
@@ -316,30 +398,38 @@ fn reduce_load_mip_6(tex: vec2u) -> f32 {
 fn load_mip_0(x: u32, y: u32) -> f32 {
     let actual_size = textureDimensions(mip_0).xy;
     let virtual_size = vec2<u32>(
-        next_power_of_two(actual_size.x),
-        next_power_of_two(actual_size.y)
-    );
-    let virtual_uv = (vec2<f32>(f32(x), f32(y)) + 0.5) / vec2<f32>(virtual_size);
-    @if(MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT) {
+            next_power_of_two(actual_size.x),
+            next_power_of_two(actual_size.y),
+        );
+    let virtual_uv = (vec2<f32>(f32(x), f32(y)) + 0.5)
+        / vec2<f32>(virtual_size);
+    @if(MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT)
+    {
     let virtual_st = virtual_uv * vec2<f32>(actual_size);
     let visibility = load_mip_0_meshlet(virtual_st, 32u);
     return reduce_4(visibility);
-    } @elif(MESHLET) {
+    }
+    @elif(MESHLET)
+    {
     let virtual_st = virtual_uv * vec2<f32>(actual_size);
     let visibility = load_mip_0_meshlet(virtual_st, 0u);
     return reduce_4(visibility);
-    } @elif(MULTISAMPLE) {
+    }
+    @elif(MULTISAMPLE)
+    {
     // Downsample the top level.
     // The top level is multisampled, so we need to loop over all the samples
     // and reduce them to 1.
     let virtual_st = virtual_uv * vec2<f32>(actual_size);
     var result = load_mip_0_single_sample(virtual_st, 0);
     let sample_count = i32(textureNumSamples(mip_0));
-    for (var sample = 1; sample < sample_count; sample += 1) {
+    for(var sample = 1; sample < sample_count; sample += 1) {
         result = min(result, load_mip_0_single_sample(virtual_st, sample));
     }
     return result;
-    } @else {
+    }
+    @else
+    {
     return reduce_4(textureGather(mip_0, samplr, virtual_uv));
     }
 }
@@ -354,11 +444,19 @@ fn load_mip_0_meshlet(st: vec2<f32>, shift: u32) -> vec4<f32> {
     let st0 = vec2<u32>(floor(st - 0.5));
     let st1 = st0 + 1u;
     return vec4<f32>(
-        bitcast<f32>(u32(textureLoad(mip_0, vec2<u32>(st0.x, st0.y)).r) >> shift),
-        bitcast<f32>(u32(textureLoad(mip_0, vec2<u32>(st0.x, st1.y)).r) >> shift),
-        bitcast<f32>(u32(textureLoad(mip_0, vec2<u32>(st1.x, st0.y)).r) >> shift),
-        bitcast<f32>(u32(textureLoad(mip_0, vec2<u32>(st1.x, st1.y)).r) >> shift)
-    );
+            bitcast<f32>(
+                u32(textureLoad(mip_0, vec2<u32>(st0.x, st0.y)).r) >> shift,
+            ),
+            bitcast<f32>(
+                u32(textureLoad(mip_0, vec2<u32>(st0.x, st1.y)).r) >> shift,
+            ),
+            bitcast<f32>(
+                u32(textureLoad(mip_0, vec2<u32>(st1.x, st0.y)).r) >> shift,
+            ),
+            bitcast<f32>(
+                u32(textureLoad(mip_0, vec2<u32>(st1.x, st1.y)).r) >> shift,
+            ),
+        );
 }
 
 // Loads a single 2×2 square of texels at the given position from the source
@@ -371,11 +469,11 @@ fn load_mip_0_single_sample(st: vec2<f32>, sample: i32) -> f32 {
     let st0 = vec2<u32>(floor(st - 0.5));
     let st1 = st0 + 1u;
     let v = vec4<f32>(
-        textureLoad(mip_0, vec2<u32>(st0.x, st0.y), sample),
-        textureLoad(mip_0, vec2<u32>(st0.x, st1.y), sample),
-        textureLoad(mip_0, vec2<u32>(st1.x, st0.y), sample),
-        textureLoad(mip_0, vec2<u32>(st1.x, st1.y), sample)
-    );
+            textureLoad(mip_0, vec2<u32>(st0.x, st0.y), sample),
+            textureLoad(mip_0, vec2<u32>(st0.x, st1.y), sample),
+            textureLoad(mip_0, vec2<u32>(st1.x, st0.y), sample),
+            textureLoad(mip_0, vec2<u32>(st1.x, st1.y), sample),
+        );
     return reduce_4(v);
 }
 

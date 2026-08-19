@@ -26,14 +26,14 @@ struct MeshInput {
     //
     // If the mesh has no morph targets, this is `u32::MAX`.
     morph_descriptor_index: u32,
-    metadata_index: u32
+    metadata_index: u32,
 }
 
 // Per-mesh-instance data that we retain from the previous frame.
 struct PreviousMeshInput {
     // The model transform.
     world_from_local: mat3x4<f32>,
-};
+}
 
 // The `wgpu` indirect parameters structure. This is a union of two structures.
 // For more information, see the corresponding comment in
@@ -146,4 +146,4 @@ struct BinMetadata {
 
     // The number of mesh instances in this bin.
     instance_count: u32,
-};
+}

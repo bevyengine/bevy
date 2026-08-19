@@ -1,7 +1,7 @@
 import package::mesh2d::vertex_output::VertexOutput;
 
 struct PushConstants {
-    color: vec4<f32>
+    color: vec4<f32>,
 }
 
 var<immediate> push_constants: PushConstants;

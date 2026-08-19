@@ -1,21 +1,24 @@
 import package::{
     atmosphere::{
         bindings::{atmosphere, settings},
-        functions::{
-            multiscattering_lut_uv_to_r_mu, sample_transmittance_lut,
-            get_local_r, get_local_up, sample_density_lut, FRAC_4_PI,
-            max_atmosphere_distance,
-            MIN_EXTINCTION, ABSORPTION_DENSITY, SCATTERING_DENSITY,
-        },
-        bruneton_functions::ray_intersects_ground
+        bruneton_functions::ray_intersects_ground, functions::{
+            ABSORPTION_DENSITY, FRAC_4_PI, MIN_EXTINCTION, SCATTERING_DENSITY,
+            get_local_r, get_local_up, max_atmosphere_distance,
+            multiscattering_lut_uv_to_r_mu, sample_density_lut,
+            sample_transmittance_lut
+        }
     }
 };
 
 import bevy_render::maths::{PI, PI_2};
 
-const PHI_2: vec2<f32> = vec2(1.3247179572447460259609088, 1.7548776662466927600495087);
+const PHI_2: vec2<f32> = vec2(
+        1.3247179572447460259609088,
+        1.7548776662466927600495087,
+    );
 
-@group(0) @binding(13) var multiscattering_lut_out: texture_storage_2d<rgba16float, write>;
+@group(0) @binding(13)
+var multiscattering_lut_out: texture_storage_2d<rgba16float, write>;
 
 fn s2_sequence(n: u32) -> vec2<f32> {
     return fract(0.5 + f32(n) * PHI_2);
@@ -34,17 +37,17 @@ fn uv_to_sphere(uv: vec2<f32>) -> vec3<f32> {
 var<workgroup> multi_scat_shared_mem: array<vec3<f32>, 64>;
 var<workgroup> l_shared_mem: array<vec3<f32>, 64>;
 
-@compute 
-@workgroup_size(1, 1, 64)
+@compute @workgroup_size(1, 1, 64)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
-    var uv = (vec2<f32>(global_id.xy) + 0.5) / vec2<f32>(settings.multiscattering_lut_size);
+    var uv = (vec2<f32>(global_id.xy) + 0.5)
+        / vec2<f32>(settings.multiscattering_lut_size);
 
     let r_mu = multiscattering_lut_uv_to_r_mu(uv);
     let light_dir = normalize(vec3(0.0, r_mu.y, -1.0));
 
     let ray_dir = uv_to_sphere(s2_sequence(global_id.z));
     let ms_sample = sample_multiscattering_dir(r_mu.x, ray_dir, light_dir);
-    
+
     // Calculate the contribution for this sample
     let sphere_solid_angle = 4.0 * PI;
     let sample_weight = sphere_solid_angle / 64.0;
@@ -54,9 +57,11 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     workgroupBarrier();
 
     // Parallel reduction bitshift to the right to divide by 2 each step
-    for (var step = 32u; step > 0u; step >>= 1u) {
+    for(var step = 32u; step > 0u; step >>= 1u) {
         if global_id.z < step {
-            multi_scat_shared_mem[global_id.z] += multi_scat_shared_mem[global_id.z + step];
+            multi_scat_shared_mem[global_id.z] += multi_scat_shared_mem[
+                    global_id.z + step
+                ];
             l_shared_mem[global_id.z] += l_shared_mem[global_id.z + step];
         }
         workgroupBarrier();
@@ -69,7 +74,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     // Apply isotropic phase function
     let f_ms = multi_scat_shared_mem[0] * FRAC_4_PI;
     let l_2 = l_shared_mem[0] * FRAC_4_PI;
-    
+
     // Equation 10 from the paper: Geometric series for infinite scattering
     let psi_ms = l_2 / (1.0 - f_ms);
     textureStore(multiscattering_lut_out, global_id.xy, vec4<f32>(psi_ms, 1.0));
@@ -78,9 +83,13 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 struct MultiscatteringSample {
     l_2: vec3<f32>,
     f_ms: vec3<f32>,
-};
+}
 
-fn sample_multiscattering_dir(r: f32, ray_dir: vec3<f32>, light_dir: vec3<f32>) -> MultiscatteringSample {
+fn sample_multiscattering_dir(
+    r: f32,
+    ray_dir: vec3<f32>,
+    light_dir: vec3<f32>,
+) -> MultiscatteringSample {
     // get the cosine of the zenith angle of the view direction with respect to the light direction
     let mu_view = ray_dir.y;
     let t_max = max_atmosphere_distance(r, mu_view);
@@ -91,7 +100,7 @@ fn sample_multiscattering_dir(r: f32, ray_dir: vec3<f32>, light_dir: vec3<f32>) 
     var l_2 = vec3(0.0);
     var f_ms = vec3(0.0);
     var throughput = vec3(1.0);
-    for (var i: u32 = 0u; i < settings.multiscattering_lut_samples; i++) {
+    for(var i: u32 = 0u; i < settings.multiscattering_lut_samples; i++) {
         let t_i = dt * (f32(i) + 0.5);
         let local_r = get_local_r(r, mu_view, t_i);
         let local_up = get_local_up(r, t_i, ray_dir);
@@ -105,15 +114,21 @@ fn sample_multiscattering_dir(r: f32, ray_dir: vec3<f32>, light_dir: vec3<f32>) 
         optical_depth += sample_optical_depth;
 
         let ms = scattering;
-        let ms_int = (ms - ms * sample_transmittance) / max(extinction, MIN_EXTINCTION);
+        let ms_int = (ms - ms * sample_transmittance)
+            / max(extinction, MIN_EXTINCTION);
         f_ms += throughput * ms_int;
 
         let mu_light = dot(light_dir, local_up);
-        let transmittance_to_light = sample_transmittance_lut(local_r, mu_light);
-        let shadow_factor = transmittance_to_light * f32(!ray_intersects_ground(local_r, mu_light));
+        let transmittance_to_light = sample_transmittance_lut(
+                local_r,
+                mu_light,
+            );
+        let shadow_factor = transmittance_to_light
+            * f32(!ray_intersects_ground(local_r, mu_light));
 
         let s = scattering * shadow_factor * FRAC_4_PI;
-        let s_int = (s - s * sample_transmittance) / max(extinction, MIN_EXTINCTION);
+        let s_int = (s - s * sample_transmittance)
+            / max(extinction, MIN_EXTINCTION);
         l_2 += throughput * s_int;
 
         throughput *= sample_transmittance;
@@ -128,7 +143,8 @@ fn sample_multiscattering_dir(r: f32, ray_dir: vec3<f32>, light_dir: vec3<f32>) 
         let local_up = get_local_up(r, t_max, ray_dir);
         let mu_light = dot(light_dir, local_up);
         let transmittance_to_light = sample_transmittance_lut(0.0, mu_light);
-        let ground_luminance = transmittance_to_light * transmittance_to_ground * max(mu_light, 0.0) * atmosphere.ground_albedo;
+        let ground_luminance = transmittance_to_light * transmittance_to_ground
+            * max(mu_light, 0.0) * atmosphere.ground_albedo;
         l_2 += ground_luminance;
     }
 

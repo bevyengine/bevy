@@ -1,27 +1,39 @@
 import package::render::{
-    mesh_types::MESH_FLAGS_SHADOW_RECEIVER_BIT,
-    pbr_types::{STANDARD_MATERIAL_FLAGS_FOG_ENABLED_BIT, STANDARD_MATERIAL_FLAGS_UNLIT_BIT},
+    mesh_types::MESH_FLAGS_SHADOW_RECEIVER_BIT, pbr_types::{
+        STANDARD_MATERIAL_FLAGS_FOG_ENABLED_BIT,
+        STANDARD_MATERIAL_FLAGS_UNLIT_BIT
+    }
 };
 
 // Maximum of 8 bits available
-const DEFERRED_FLAGS_UNLIT_BIT: u32                 = 1u << 0u;
-const DEFERRED_FLAGS_FOG_ENABLED_BIT: u32           = 1u << 1u;
-const DEFERRED_MESH_FLAGS_SHADOW_RECEIVER_BIT: u32  = 1u << 2u;
+const DEFERRED_FLAGS_UNLIT_BIT: u32 = 1u << 0u;
+const DEFERRED_FLAGS_FOG_ENABLED_BIT: u32 = 1u << 1u;
+const DEFERRED_MESH_FLAGS_SHADOW_RECEIVER_BIT: u32 = 1u << 2u;
 
-fn deferred_flags_from_mesh_material_flags(mesh_flags: u32, mat_flags: u32) -> u32 {
+fn deferred_flags_from_mesh_material_flags(
+    mesh_flags: u32,
+    mat_flags: u32,
+) -> u32 {
     var flags = 0u;
-    flags |= u32((mesh_flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u) * DEFERRED_MESH_FLAGS_SHADOW_RECEIVER_BIT;
-    flags |= u32((mat_flags & STANDARD_MATERIAL_FLAGS_FOG_ENABLED_BIT) != 0u) * DEFERRED_FLAGS_FOG_ENABLED_BIT;
-    flags |= u32((mat_flags & STANDARD_MATERIAL_FLAGS_UNLIT_BIT) != 0u) * DEFERRED_FLAGS_UNLIT_BIT;
+    flags |= u32((mesh_flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u)
+        * DEFERRED_MESH_FLAGS_SHADOW_RECEIVER_BIT;
+    flags |= u32((mat_flags & STANDARD_MATERIAL_FLAGS_FOG_ENABLED_BIT) != 0u)
+        * DEFERRED_FLAGS_FOG_ENABLED_BIT;
+    flags |= u32((mat_flags & STANDARD_MATERIAL_FLAGS_UNLIT_BIT) != 0u)
+        * DEFERRED_FLAGS_UNLIT_BIT;
     return flags;
 }
 
 fn mesh_material_flags_from_deferred_flags(deferred_flags: u32) -> vec2<u32> {
     var mat_flags = 0u;
     var mesh_flags = 0u;
-    mesh_flags |= u32((deferred_flags & DEFERRED_MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u) * MESH_FLAGS_SHADOW_RECEIVER_BIT;
-    mat_flags |= u32((deferred_flags & DEFERRED_FLAGS_FOG_ENABLED_BIT) != 0u) * STANDARD_MATERIAL_FLAGS_FOG_ENABLED_BIT;
-    mat_flags |= u32((deferred_flags & DEFERRED_FLAGS_UNLIT_BIT) != 0u) * STANDARD_MATERIAL_FLAGS_UNLIT_BIT;
+    mesh_flags |= u32(
+            (deferred_flags & DEFERRED_MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u,
+        ) * MESH_FLAGS_SHADOW_RECEIVER_BIT;
+    mat_flags |= u32((deferred_flags & DEFERRED_FLAGS_FOG_ENABLED_BIT) != 0u)
+        * STANDARD_MATERIAL_FLAGS_FOG_ENABLED_BIT;
+    mat_flags |= u32((deferred_flags & DEFERRED_FLAGS_UNLIT_BIT) != 0u)
+        * STANDARD_MATERIAL_FLAGS_UNLIT_BIT;
     return vec2(mesh_flags, mat_flags);
 }
 
@@ -34,10 +46,14 @@ const U20MAXF = 1048575.0;
 // https://jcgt.org/published/0003/02/01/paper.pdf
 // Could possibly go down to oct20 if the space is needed.
 
-fn pack_24bit_normal_and_flags(octahedral_normal: vec2<f32>, flags: u32) -> u32 {
+fn pack_24bit_normal_and_flags(
+    octahedral_normal: vec2<f32>,
+    flags: u32,
+) -> u32 {
     let unorm1 = u32(saturate(octahedral_normal.x) * U12MAXF + 0.5);
     let unorm2 = u32(saturate(octahedral_normal.y) * U12MAXF + 0.5);
-    return (unorm1 & 0xFFFu) | ((unorm2 & 0xFFFu) << 12u) | ((flags & 0xFFu) << 24u);
+    return (unorm1 & 0xFFFu) | ((unorm2 & 0xFFFu) << 12u)
+        | ((flags & 0xFFu) << 24u);
 }
 
 fn unpack_24bit_normal(packed: u32) -> vec2<f32> {
@@ -55,11 +71,11 @@ fn unpack_flags(packed: u32) -> u32 {
 // https://github.com/gfx-rs/naga/issues/2006
 fn unpack_unorm4x8_(v: u32) -> vec4<f32> {
     return vec4(
-        f32(v & 0xFFu),
-        f32((v >> 8u) & 0xFFu),
-        f32((v >> 16u) & 0xFFu),
-        f32((v >> 24u) & 0xFFu)
-    ) / 255.0;
+            f32(v & 0xFFu),
+            f32((v >> 8u) & 0xFFu),
+            f32((v >> 16u) & 0xFFu),
+            f32((v >> 24u) & 0xFFu),
+        ) / 255.0;
 }
 
 // 'packUnorm4x8' : no matching overloaded function found
@@ -79,9 +95,9 @@ fn pack_unorm3x4_plus_unorm_20_(v: vec4<f32>) -> u32 {
 // Unpack 3x 4bit unorm + 1x 20bit
 fn unpack_unorm3x4_plus_unorm_20_(v: u32) -> vec4<f32> {
     return vec4(
-        f32(v & 0xfu) / 15.0,
-        f32((v >> 4u) & 0xFu) / 15.0,
-        f32((v >> 8u) & 0xFu) / 15.0,
-        f32((v >> 12u) & 0xFFFFFFu) / U20MAXF,
-    );
+            f32(v & 0xfu) / 15.0,
+            f32((v >> 4u) & 0xFu) / 15.0,
+            f32((v >> 8u) & 0xFu) / 15.0,
+            f32((v >> 12u) & 0xFFFFFFu) / U20MAXF,
+        );
 }

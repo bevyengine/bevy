@@ -11,12 +11,15 @@ struct BloomUniforms {
     viewport: vec4<f32>,
     scale: vec2<f32>,
     aspect: f32,
-};
+}
 
-@group(0) @binding(0) var input_texture: texture_2d<f32>;
-@group(0) @binding(1) var s: sampler;
+@group(0) @binding(0)
+var input_texture: texture_2d<f32>;
+@group(0) @binding(1)
+var s: sampler;
 
-@group(0) @binding(2) var<uniform> uniforms: BloomUniforms;
+@group(0) @binding(2)
+var<uniform> uniforms: BloomUniforms;
 
 @if(FIRST_DOWNSAMPLE)
 // https://catlikecoding.com/unity/tutorials/advanced-rendering/bloom/#3.4
@@ -25,7 +28,10 @@ fn soft_threshold(color: vec3<f32>) -> vec3<f32> {
     var softness = brightness - uniforms.threshold_precomputations.y;
     softness = clamp(softness, 0.0, uniforms.threshold_precomputations.z);
     softness = softness * softness * uniforms.threshold_precomputations.w;
-    var contribution = max(brightness - uniforms.threshold_precomputations.x, softness);
+    var contribution = max(
+            brightness - uniforms.threshold_precomputations.x,
+            softness,
+        );
     contribution /= max(brightness, 0.00001); // Prevent division by 0
     return color * contribution;
 }
@@ -59,7 +65,8 @@ fn sample_input_13_tap(uv: vec2<f32>) -> vec3<f32> {
     var k: vec3<f32>;
     var l: vec3<f32>;
     var m: vec3<f32>;
-@if(UNIFORM_SCALE) {
+    @if(UNIFORM_SCALE)
+    {
     // This is the fast path. When the bloom scale is uniform, the 13 tap sampling kernel can be
     // expressed with constant offsets.
     //
@@ -80,7 +87,9 @@ fn sample_input_13_tap(uv: vec2<f32>) -> vec3<f32> {
     k = textureSample(input_texture, s, uv, vec2<i32>(1, 1)).rgb;
     l = textureSample(input_texture, s, uv, vec2<i32>(-1, -1)).rgb;
     m = textureSample(input_texture, s, uv, vec2<i32>(1, -1)).rgb;
-} @else {
+    }
+    @else
+    {
     // This is the flexible, but potentially slower, path for non-uniform sampling. Because the
     // sample is not a constant, and it can fall outside of the limits imposed on constant sample
     // offsets (-8..8), we have to compute the pixel offset in uv coordinates using the size of the
@@ -108,9 +117,10 @@ fn sample_input_13_tap(uv: vec2<f32>) -> vec3<f32> {
     k = textureSample(input_texture, s, uv + vec2<f32>(ps.x, ps.y)).rgb;
     l = textureSample(input_texture, s, uv + vec2<f32>(ns.x, ns.y)).rgb;
     m = textureSample(input_texture, s, uv + vec2<f32>(ps.x, ns.y)).rgb;
-}
+    }
 
-@if(FIRST_DOWNSAMPLE) {
+    @if(FIRST_DOWNSAMPLE)
+    {
     // [COD] slide 168
     //
     // The first downsample pass reads from the rendered frame which may exhibit
@@ -130,19 +140,22 @@ fn sample_input_13_tap(uv: vec2<f32>) -> vec3<f32> {
     group3 *= karis_average(group3);
     group4 *= karis_average(group4);
     return group0 + group1 + group2 + group3 + group4;
-} @else {
+    }
+    @else
+    {
     var sample = (a + c + g + i) * 0.03125;
     sample += (b + d + f + h) * 0.0625;
     sample += (e + j + k + l + m) * 0.125;
     return sample;
-}
+    }
 }
 
 // [COD] slide 162
 fn sample_input_3x3_tent(uv: vec2<f32>) -> vec3<f32> {
     // While this is probably technically incorrect, it makes nonuniform bloom smoother, without
     // having any impact on uniform bloom, which simply evaluates to 1.0 here.
-    let frag_size = uniforms.scale / vec2<f32>(textureDimensions(input_texture));
+    let frag_size = uniforms.scale
+        / vec2<f32>(textureDimensions(input_texture));
     let x = frag_size.x;
     let y = frag_size.y;
 
@@ -167,7 +180,10 @@ fn sample_input_3x3_tent(uv: vec2<f32>) -> vec3<f32> {
 
 @if(FIRST_DOWNSAMPLE)
 @fragment
-fn downsample_first(@location(0) output_uv: vec2<f32>) -> @location(0) vec4<f32> {
+fn downsample_first(
+    @location(0)
+    output_uv: vec2<f32>,
+) -> @location(0) vec4<f32> {
     let sample_uv = uniforms.viewport.xy + output_uv * uniforms.viewport.zw;
     var sample = sample_input_13_tap(sample_uv);
     // Lower bound of 0.0001 is to avoid propagating multiplying by 0.0 through the
@@ -176,18 +192,24 @@ fn downsample_first(@location(0) output_uv: vec2<f32>) -> @location(0) vec4<f32>
     // with f32::MAX (E+38) Chrome fails with ":value 340282346999999984391321947108527833088.0 cannot be represented as 'f32'"
     sample = clamp(sample, vec3<f32>(0.0001), vec3<f32>(3.40282347E+37));
 
-@if(USE_THRESHOLD)
+    @if(USE_THRESHOLD)
     sample = soft_threshold(sample);
 
     return vec4<f32>(sample, 1.0);
 }
 
 @fragment
-fn downsample(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
+fn downsample(
+    @location(0)
+    uv: vec2<f32>,
+) -> @location(0) vec4<f32> {
     return vec4<f32>(sample_input_13_tap(uv), 1.0);
 }
 
 @fragment
-fn upsample(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
+fn upsample(
+    @location(0)
+    uv: vec2<f32>,
+) -> @location(0) vec4<f32> {
     return vec4<f32>(sample_input_3x3_tent(uv), 1.0);
 }

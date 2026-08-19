@@ -1,10 +1,16 @@
-import package::light_probe::{light_probe_iterator_new, light_probe_iterator_next};
+import package::light_probe::{
+    light_probe_iterator_new, light_probe_iterator_next
+};
 import package::render::mesh_view_bindings as bindings;
 import package::render::mesh_view_bindings::light_probes;
 import package::render::mesh_view_types::{
-    LIGHT_PROBE_FLAG_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE, LIGHT_PROBE_FLAG_PARALLAX_CORRECT
+    LIGHT_PROBE_FLAG_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE,
+    LIGHT_PROBE_FLAG_PARALLAX_CORRECT
 };
-import package::render::pbr_lighting::{F_Schlick_vec, LightingInput, LayerLightingInput, LAYER_BASE, LAYER_CLEARCOAT};
+import package::render::pbr_lighting::{
+    F_Schlick_vec, LAYER_BASE, LAYER_CLEARCOAT, LayerLightingInput,
+    LightingInput
+};
 import package::render::clustered_forward::ClusterableObjectIndexRanges;
 
 // The maximum representable value in a 32-bit floating point number.
@@ -13,7 +19,7 @@ const FLOAT_MAX: f32 = 3.40282347e+38;
 struct EnvironmentMapLight {
     diffuse: vec3<f32>,
     specular: vec3<f32>,
-};
+}
 
 struct EnvironmentMapRadiances {
     irradiance: vec3<f32>,
@@ -48,12 +54,13 @@ fn compute_cubemap_sample_dir(
     var sample_dir: vec3<f32>;
 
     // If we're supposed to parallax correct, then intersect with the light cube.
-    if (parallax_correct) {
+    if parallax_correct {
         // Compute the direction of the ray bouncing off the surface, in light
         // probe space.
         // Recall that light probe space is a 1×1×1 cube centered at the origin.
         let ray_origin = (light_from_world * vec4(world_ray_origin, 1.0)).xyz;
-        let ray_direction = (light_from_world * vec4(world_ray_direction, 0.0)).xyz;
+        let ray_direction = (light_from_world * vec4(world_ray_direction, 0.0))
+                .xyz;
 
         // Solve for the intersection of that ray with each side of the cube.
         // Since our light probe is a 1×1×1 cube centered at the origin in light
@@ -97,10 +104,12 @@ fn compute_cubemap_sample_dir(
 // is present.
 
 @if(MULTIPLE_LIGHT_PROBES_IN_ARRAY)
-
 fn compute_radiances(
     input: LayerLightingInput,
-    clusterable_object_index_ranges: ptr<function, ClusterableObjectIndexRanges>,
+    clusterable_object_index_ranges: ptr<
+        function,
+        ClusterableObjectIndexRanges,
+    >,
     world_position: vec3<f32>,
     found_diffuse_indirect: bool,
 ) -> EnvironmentMapRadiances {
@@ -115,16 +124,16 @@ fn compute_radiances(
     // Find all reflection probes that contain the fragment. We're going to
     // accumulate all the radiance and irradiance from them in a weighted sum.
     var iterator = light_probe_iterator_new(
-        world_position,
-        /*is_irradiance_volume=*/ false,
-        clusterable_object_index_ranges,
-    );
+            world_position,
+            /*is_irradiance_volume=*/ false,
+            clusterable_object_index_ranges,
+        );
 
     var total_weight = 0.0;
     radiances.irradiance = vec3(0.0);
     radiances.radiance = vec3(0.0);
 
-    while (true) {
+    while true {
         var query_result = light_probe_iterator_next(&iterator);
         var view_rotation = vec4<f32>(0.0, 0.0, 0.0, 1.0);
 
@@ -132,19 +141,21 @@ fn compute_radiances(
         // enough reflection probes to reach a weight of 1.0, use the view
         // environment map if applicable. This allows for e.g. nice transitions
         // between the interior of a building and the outdoor environment map.
-        if (query_result.texture_index < 0 && total_weight < 0.9999) {
+        if query_result.texture_index < 0 && total_weight < 0.9999 {
             query_result.texture_index = light_probes.view_cubemap_index;
             query_result.intensity = light_probes.intensity_for_view;
             view_rotation = light_probes.view_rotation;
             query_result.light_from_world = mat4x4(
-                vec4(1.0, 0.0, 0.0, 0.0),
-                vec4(0.0, 1.0, 0.0, 0.0),
-                vec4(0.0, 0.0, 1.0, 0.0),
-                vec4(0.0, 0.0, 0.0, 1.0)
-            );
+                    vec4(1.0, 0.0, 0.0, 0.0),
+                    vec4(0.0, 1.0, 0.0, 0.0),
+                    vec4(0.0, 0.0, 1.0, 0.0),
+                    vec4(0.0, 0.0, 0.0, 1.0),
+                );
             query_result.parallax_correction_bounds = vec3(0.0);
-            if light_probes.view_environment_map_affects_lightmapped_mesh_diffuse != 0u {
-                query_result.flags = LIGHT_PROBE_FLAG_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE;
+            if light_probes
+                .view_environment_map_affects_lightmapped_mesh_diffuse != 0u {
+                query_result
+                    .flags = LIGHT_PROBE_FLAG_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE;
             } else {
                 query_result.flags = 0u;
             }
@@ -152,59 +163,69 @@ fn compute_radiances(
         }
 
         // If we reached the end, we're done.
-        if (query_result.texture_index < 0) {
+        if query_result.texture_index < 0 {
             break;
         }
 
         // Split-sum approximation for image based lighting: https://cdn2.unrealengine.com/Resources/files/2013SiggraphPresentationsNotes-26915738.pdf
-        let radiance_level = perceptual_roughness * f32(textureNumLevels(
-            bindings::specular_environment_maps[query_result.texture_index]) - 1u);
+        let radiance_level = perceptual_roughness * f32(
+                textureNumLevels(
+                    bindings::specular_environment_maps[
+                        query_result.texture_index
+                    ],
+                ) - 1u,
+            );
 
         // If we're lightmapped, and we shouldn't accumulate diffuse light from the
         // environment map, note that.
         var enable_diffuse = !found_diffuse_indirect;
         @if(LIGHTMAP)
-        enable_diffuse = enable_diffuse &&
-            (query_result.flags & LIGHT_PROBE_FLAG_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE) != 0u;
+        enable_diffuse = enable_diffuse
+            && (query_result.flags
+                & LIGHT_PROBE_FLAG_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE) != 0u;
 
-        let parallax_correct = (query_result.flags & LIGHT_PROBE_FLAG_PARALLAX_CORRECT) != 0u;
+        let parallax_correct = (query_result.flags
+                & LIGHT_PROBE_FLAG_PARALLAX_CORRECT) != 0u;
 
-        if (enable_diffuse) {
+        if enable_diffuse {
             let irradiance_sample_dir = compute_cubemap_sample_dir(
+                    world_position,
+                    N,
+                    query_result.light_from_world,
+                    query_result.parallax_correction_bounds,
+                    parallax_correct,
+                    view_rotation,
+                );
+            radiances.irradiance += textureSampleLevel(
+                    bindings::diffuse_environment_maps[
+                        query_result.texture_index
+                    ],
+                    bindings::environment_map_sampler,
+                    irradiance_sample_dir,
+                    0.0,
+                ).rgb * query_result.intensity * query_result.weight;
+        }
+
+        var radiance_sample_dir = radiance_sample_direction(N, R, roughness);
+        radiance_sample_dir = compute_cubemap_sample_dir(
                 world_position,
-                N,
+                radiance_sample_dir,
                 query_result.light_from_world,
                 query_result.parallax_correction_bounds,
                 parallax_correct,
                 view_rotation,
             );
-            radiances.irradiance += textureSampleLevel(
-                bindings::diffuse_environment_maps[query_result.texture_index],
-                bindings::environment_map_sampler,
-                irradiance_sample_dir,
-                0.0).rgb * query_result.intensity * query_result.weight;
-        }
-
-        var radiance_sample_dir = radiance_sample_direction(N, R, roughness);
-        radiance_sample_dir = compute_cubemap_sample_dir(
-            world_position,
-            radiance_sample_dir,
-            query_result.light_from_world,
-            query_result.parallax_correction_bounds,
-            parallax_correct,
-            view_rotation,
-        );
-        radiances.radiance +=
-            textureSampleLevel(
+        radiances.radiance += textureSampleLevel(
                 bindings::specular_environment_maps[query_result.texture_index],
                 bindings::environment_map_sampler,
                 radiance_sample_dir,
-                radiance_level).rgb * query_result.intensity * query_result.weight;
+                radiance_level,
+            ).rgb * query_result.intensity * query_result.weight;
 
         total_weight += query_result.weight;
     }
 
-    if (total_weight != 0.0) {
+    if total_weight != 0.0 {
         radiances.irradiance /= total_weight;
         radiances.radiance /= total_weight;
     }
@@ -212,11 +233,15 @@ fn compute_radiances(
     return radiances;
 }
 
-@else   // MULTIPLE_LIGHT_PROBES_IN_ARRAY
+@else
+// MULTIPLE_LIGHT_PROBES_IN_ARRAY
 
 fn compute_radiances(
     input: LayerLightingInput,
-    clusterable_object_index_ranges: ptr<function, ClusterableObjectIndexRanges>,
+    clusterable_object_index_ranges: ptr<
+        function,
+        ClusterableObjectIndexRanges,
+    >,
     world_position: vec3<f32>,
     found_diffuse_indirect: bool,
 ) -> EnvironmentMapRadiances {
@@ -229,7 +254,7 @@ fn compute_radiances(
     var radiances: EnvironmentMapRadiances;
 
     // If we have no light probe, bail.
-    if (light_probes.view_cubemap_index < 0) {
+    if light_probes.view_cubemap_index < 0 {
         radiances.irradiance = vec3(0.0);
         radiances.radiance = vec3(0.0);
         return radiances;
@@ -238,7 +263,8 @@ fn compute_radiances(
     // Split-sum approximation for image based lighting: https://cdn2.unrealengine.com/Resources/files/2013SiggraphPresentationsNotes-26915738.pdf
     // Technically we could use textureNumLevels(specular_environment_map) - 1 here, but we use a uniform
     // because textureNumLevels() does not work on WebGL2
-    let radiance_level = perceptual_roughness * f32(light_probes.smallest_specular_mip_level_for_view);
+    let radiance_level = perceptual_roughness
+        * f32(light_probes.smallest_specular_mip_level_for_view);
 
     let intensity = light_probes.intensity_for_view;
 
@@ -246,46 +272,56 @@ fn compute_radiances(
     // environment map, note that.
     var enable_diffuse = !found_diffuse_indirect;
     @if(LIGHTMAP)
-    enable_diffuse = enable_diffuse &&
-        light_probes.view_environment_map_affects_lightmapped_mesh_diffuse;
+    enable_diffuse = enable_diffuse
+        && light_probes.view_environment_map_affects_lightmapped_mesh_diffuse;
 
-    if (enable_diffuse) {
+    if enable_diffuse {
         var irradiance_sample_dir = N;
         // Rotating the world space ray direction by the environment map light view rotation,
         // it is equivalent to rotating the environment cubemap itself.
-        irradiance_sample_dir = quat_rotate(light_probes.view_rotation, irradiance_sample_dir);
+        irradiance_sample_dir = quat_rotate(
+                light_probes.view_rotation,
+                irradiance_sample_dir,
+            );
         // Cube maps are left-handed so we negate the z coordinate.
         irradiance_sample_dir.z = -irradiance_sample_dir.z;
         radiances.irradiance = textureSampleLevel(
-            bindings::diffuse_environment_map,
-            bindings::environment_map_sampler,
-            irradiance_sample_dir,
-            0.0).rgb * intensity;
+                bindings::diffuse_environment_map,
+                bindings::environment_map_sampler,
+                irradiance_sample_dir,
+                0.0,
+            ).rgb * intensity;
     }
 
     var radiance_sample_dir = radiance_sample_direction(N, R, roughness);
     // Rotating the world space ray direction by the environment map light view rotation,
     // it is equivalent to rotating the environment cubemap itself.
-    radiance_sample_dir = quat_rotate(light_probes.view_rotation, radiance_sample_dir);
+    radiance_sample_dir = quat_rotate(
+            light_probes.view_rotation,
+            radiance_sample_dir,
+        );
     // Cube maps are left-handed so we negate the z coordinate.
     radiance_sample_dir.z = -radiance_sample_dir.z;
     radiances.radiance = textureSampleLevel(
-        bindings::specular_environment_map,
-        bindings::environment_map_sampler,
-        radiance_sample_dir,
-        radiance_level).rgb * intensity;
+            bindings::specular_environment_map,
+            bindings::environment_map_sampler,
+            radiance_sample_dir,
+            radiance_level,
+        ).rgb * intensity;
 
     return radiances;
 }
 
 @if(STANDARD_MATERIAL_CLEARCOAT)
-
 // Adds the environment map light from the clearcoat layer to that of the base
 // layer.
 fn environment_map_light_clearcoat(
     out: ptr<function, EnvironmentMapLight>,
     input: ptr<function, LightingInput>,
-    clusterable_object_index_ranges: ptr<function, ClusterableObjectIndexRanges>,
+    clusterable_object_index_ranges: ptr<
+        function,
+        ClusterableObjectIndexRanges,
+    >,
     found_diffuse_indirect: bool,
 ) {
     // Unpack.
@@ -296,21 +332,23 @@ fn environment_map_light_clearcoat(
     // Calculate the Fresnel term `Fc` for the clearcoat layer.
     // 0.04 is a hardcoded value for F0 from the Filament spec.
     let clearcoat_F0 = vec3<f32>(0.04);
-    let Fc = F_Schlick_vec(clearcoat_F0, 1.0, clearcoat_NdotV) * clearcoat_strength;
+    let Fc = F_Schlick_vec(clearcoat_F0, 1.0, clearcoat_NdotV)
+        * clearcoat_strength;
     let inv_Fc = 1.0 - Fc;
 
     let clearcoat_radiances = compute_radiances(
-        (*input).layers[LAYER_CLEARCOAT],
-        clusterable_object_index_ranges,
-        world_position,
-        found_diffuse_indirect,
-    );
+            (*input).layers[LAYER_CLEARCOAT],
+            clusterable_object_index_ranges,
+            world_position,
+            found_diffuse_indirect,
+        );
 
     // Composite the clearcoat layer on top of the existing one.
     // These formulas are from Filament:
     // <https://google.github.io/filament/Filament.md.html#lighting/imagebasedlights/clearcoat>
     (*out).diffuse *= inv_Fc;
-    (*out).specular = (*out).specular * inv_Fc * inv_Fc + clearcoat_radiances.radiance * Fc;
+    (*out).specular = (*out).specular * inv_Fc * inv_Fc
+        + clearcoat_radiances.radiance * Fc;
 }
 
 // Multiscattering approximation: https://www.jcgt.org/published/0008/01/03/paper.pdf
@@ -333,7 +371,10 @@ fn compute_multiscatter(
 
 fn environment_map_light(
     input: ptr<function, LightingInput>,
-    clusterable_object_index_ranges: ptr<function, ClusterableObjectIndexRanges>,
+    clusterable_object_index_ranges: ptr<
+        function,
+        ClusterableObjectIndexRanges,
+    >,
     found_diffuse_indirect: bool,
 ) -> EnvironmentMapLight {
     // Unpack.
@@ -349,13 +390,14 @@ fn environment_map_light(
     var out: EnvironmentMapLight;
 
     let radiances = compute_radiances(
-        (*input).layers[LAYER_BASE],
-        clusterable_object_index_ranges,
-        world_position,
-        found_diffuse_indirect,
-    );
+            (*input).layers[LAYER_BASE],
+            clusterable_object_index_ranges,
+            world_position,
+            found_diffuse_indirect,
+        );
 
-    if (all(radiances.irradiance == vec3(0.0)) && all(radiances.radiance == vec3(0.0))) {
+    if all(radiances.irradiance == vec3(0.0))
+    && all(radiances.radiance == vec3(0.0)) {
         out.diffuse = vec3(0.0);
         out.specular = vec3(0.0);
         return out;
@@ -371,14 +413,24 @@ fn environment_map_light(
     // We can't use F0 directly as the multiscattering term is nonlinear.
     let Ems = 1.0 - (F_ab.x + F_ab.y);
 
-    let ms_dielectric = compute_multiscatter(F0_dielectric, F_ab, Ems, specular_occlusion);
-    let ms_metallic = compute_multiscatter(F0_metallic, F_ab, Ems, specular_occlusion);
+    let ms_dielectric = compute_multiscatter(
+            F0_dielectric,
+            F_ab,
+            Ems,
+            specular_occlusion,
+        );
+    let ms_metallic = compute_multiscatter(
+            F0_metallic,
+            F_ab,
+            Ems,
+            specular_occlusion,
+        );
 
     let FssEss = mix(ms_dielectric.FssEss, ms_metallic.FssEss, metallic);
     let FmsEms = mix(ms_dielectric.FmsEms, ms_metallic.FmsEms, metallic);
     let kD = diffuse_color * ms_dielectric.Edss;
 
-    if (!found_diffuse_indirect) {
+    if !found_diffuse_indirect {
         out.diffuse = (FmsEms + kD) * radiances.irradiance;
     } else {
         out.diffuse = vec3(0.0);
@@ -399,7 +451,11 @@ fn environment_map_light(
 
 // "Moving Frostbite to Physically Based Rendering 3.0", listing 22
 // https://seblagarde.wordpress.com/wp-content/uploads/2015/07/course_notes_moving_frostbite_to_pbr_v32.pdf#page=70
-fn radiance_sample_direction(N: vec3<f32>, R: vec3<f32>, roughness: f32) -> vec3<f32> {
+fn radiance_sample_direction(
+    N: vec3<f32>,
+    R: vec3<f32>,
+    roughness: f32,
+) -> vec3<f32> {
     let smoothness = saturate(1.0 - roughness);
     let lerp_factor = smoothness * (sqrt(smoothness) + roughness);
     return mix(N, R, lerp_factor);

@@ -2,8 +2,8 @@ import package::render::clustered_forward;
 import package::render::clustered_forward::ClusterableObjectIndexRanges;
 import package::render::mesh_view_bindings::light_probes;
 import package::render::mesh_view_types::{
-    LightProbe, LIGHT_PROBE_FLAG_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE,
-    LIGHT_PROBE_FLAG_PARALLAX_CORRECT
+    LIGHT_PROBE_FLAG_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE,
+    LIGHT_PROBE_FLAG_PARALLAX_CORRECT, LightProbe
 };
 
 // The result of searching for a light probe.
@@ -30,14 +30,15 @@ struct LightProbeQueryResult {
     // The flags that the light probe has: a combination of
     // `LIGHT_PROBE_FLAG_*`.
     flags: u32,
-};
+}
 
 fn transpose_affine_matrix(matrix: mat3x4<f32>) -> mat4x4<f32> {
     let matrix4x4 = mat4x4<f32>(
-        matrix[0],
-        matrix[1],
-        matrix[2],
-        vec4<f32>(0.0, 0.0, 0.0, 1.0));
+            matrix[0],
+            matrix[1],
+            matrix[2],
+            vec4<f32>(0.0, 0.0, 0.0, 1.0),
+        );
     return transpose(matrix4x4);
 }
 
@@ -64,7 +65,10 @@ struct LightProbeIterator {
 fn light_probe_iterator_new(
     world_position: vec3<f32>,
     is_irradiance_volume: bool,
-    clusterable_object_index_ranges: ptr<function, ClusterableObjectIndexRanges>,
+    clusterable_object_index_ranges: ptr<
+        function,
+        ClusterableObjectIndexRanges,
+    >,
 ) -> LightProbeIterator {
     // Reflection probe indices are followed by irradiance volume indices in the
     // cluster index list. Use this fact to create our bracketing range of
@@ -72,19 +76,22 @@ fn light_probe_iterator_new(
 
     if is_irradiance_volume {
         return LightProbeIterator(
-            (*clusterable_object_index_ranges).first_irradiance_volume_index_offset,
-            (*clusterable_object_index_ranges).first_decal_offset,
-            world_position,
-            true
-        );
+                (*clusterable_object_index_ranges)
+                    .first_irradiance_volume_index_offset,
+                (*clusterable_object_index_ranges).first_decal_offset,
+                world_position,
+                true,
+            );
     }
 
     return LightProbeIterator(
-        (*clusterable_object_index_ranges).first_reflection_probe_index_offset,
-        (*clusterable_object_index_ranges).first_irradiance_volume_index_offset,
-        world_position,
-        false
-    );
+            (*clusterable_object_index_ranges)
+                .first_reflection_probe_index_offset,
+            (*clusterable_object_index_ranges)
+                .first_irradiance_volume_index_offset,
+            world_position,
+            false,
+        );
 }
 
 // Searches for a light probe that contains the fragment and returns the next
@@ -93,22 +100,27 @@ fn light_probe_iterator_new(
 // Note that multiple light probes can affect a fragment. The caller is
 // generally expected to blend their influences together in a weighted sum.
 @if(AVAILABLE_STORAGE_BUFFER_BINDINGS__GE_3)
-fn light_probe_iterator_next(iterator: ptr<function, LightProbeIterator>) -> LightProbeQueryResult {
+fn light_probe_iterator_next(
+    iterator: ptr<function, LightProbeIterator>,
+) -> LightProbeQueryResult {
     let world_position = (*iterator).world_position;
 
     var result: LightProbeQueryResult;
     result.texture_index = -1;
     result.weight = 0.0;
 
-    while ((*iterator).current_offset < (*iterator).end_offset) {
-        let light_probe_index = i32(clustered_forward::get_clusterable_object_id(
-            (*iterator).current_offset));
+    while (*iterator).current_offset < (*iterator).end_offset {
+        let light_probe_index = i32(
+                clustered_forward::get_clusterable_object_id(
+                    (*iterator).current_offset,
+                ),
+            );
         (*iterator).current_offset += 1u;
 
         // FIXME: This happens when one or more images for the light probe
         // aren't loaded yet. Really, though, we shouldn't be clustering such
         // objects at all.
-        if (light_probe_index < 0) {
+        if light_probe_index < 0 {
             continue;
         }
 
@@ -120,30 +132,35 @@ fn light_probe_iterator_next(iterator: ptr<function, LightProbeIterator>) -> Lig
         }
 
         // Unpack the inverse transform.
-        let light_from_world =
-            transpose_affine_matrix(light_probe.light_from_world_transposed);
+        let light_from_world = transpose_affine_matrix(
+                light_probe.light_from_world_transposed,
+            );
 
         // Transform the point into local space, with the cube edges at ±0.5 on
         // each axis.
-        let probe_space_pos = (light_from_world * vec4<f32>(world_position, 1.0f)).xyz;
+        let probe_space_pos = (light_from_world
+                * vec4<f32>(world_position, 1.0f)).xyz;
         // Avoid division by zero.
         let falloff = max(light_probe.falloff, vec3(0.0001));
         // Calculate the per-axis weight by doing a linear ramp from 0.0 at the
         // inside of the falloff region to 1.0 at the outside of the falloff
         // region.
-        let axis_weights = saturate((1.0 - 2.0 * abs(probe_space_pos)) / (2.0 * falloff));
+        let axis_weights = saturate(
+                (1.0 - 2.0 * abs(probe_space_pos)) / (2.0 * falloff),
+            );
         // The actual weight is the minimum of all the per-axis weights.
         let weight = min(min(axis_weights.x, axis_weights.y), axis_weights.z);
         // If the resulting weight is zero, we're outside the light probe
         // entirely. Bail.
-        if (weight == 0.0) {
+        if weight == 0.0 {
             continue;
         }
 
         result.texture_index = light_probe.cubemap_index;
         result.intensity = light_probe.intensity;
         result.light_from_world = light_from_world;
-        result.parallax_correction_bounds = light_probe.parallax_correction_bounds;
+        result.parallax_correction_bounds = light_probe
+                .parallax_correction_bounds;
         result.flags = light_probe.flags;
         result.weight = weight;
         return result;
@@ -178,18 +195,21 @@ struct LightProbeIterator {
 fn light_probe_iterator_new(
     world_position: vec3<f32>,
     is_irradiance_volume: bool,
-    clusterable_object_index_ranges: ptr<function, ClusterableObjectIndexRanges>,
+    clusterable_object_index_ranges: ptr<
+        function,
+        ClusterableObjectIndexRanges,
+    >,
 ) -> LightProbeIterator {
     return LightProbeIterator(
-        0,
-        select(
-            light_probes.reflection_probe_count,
-            light_probes.irradiance_volume_count,
-            is_irradiance_volume
-        ),
-        world_position,
-        is_irradiance_volume
-    );
+            0,
+            select(
+                light_probes.reflection_probe_count,
+                light_probes.irradiance_volume_count,
+                is_irradiance_volume,
+            ),
+            world_position,
+            is_irradiance_volume,
+        );
 }
 
 // Searches for a light probe that contains the fragment and returns the next
@@ -201,12 +221,14 @@ fn light_probe_iterator_new(
 // used on platforms that lack bindless shaders, so there will only be at most
 // one light probe that affects the current fragment in the first place.
 @if(!AVAILABLE_STORAGE_BUFFER_BINDINGS__GE_3)
-fn light_probe_iterator_next(iterator: ptr<function, LightProbeIterator>) -> LightProbeQueryResult {
+fn light_probe_iterator_next(
+    iterator: ptr<function, LightProbeIterator>,
+) -> LightProbeQueryResult {
     var result: LightProbeQueryResult;
     result.texture_index = -1;
     result.weight = 0.0;
 
-    while (true) {
+    while true {
         let light_probe_index = (*iterator).current_index;
 
         var light_probe: LightProbe;
@@ -217,30 +239,35 @@ fn light_probe_iterator_next(iterator: ptr<function, LightProbeIterator>) -> Lig
         }
 
         // Unpack the inverse transform.
-        let light_from_world =
-            transpose_affine_matrix(light_probe.light_from_world_transposed);
+        let light_from_world = transpose_affine_matrix(
+                light_probe.light_from_world_transposed,
+            );
 
         // Transform the point into local space, with the cube edges at ±0.5 on
         // each axis.
-        let probe_space_pos = (light_from_world * vec4<f32>(world_position, 1.0f)).xyz;
+        let probe_space_pos = (light_from_world
+                * vec4<f32>(world_position, 1.0f)).xyz;
         // Avoid division by zero.
         let falloff = max(light_probe.falloff, vec3(0.0001));
         // Calculate the per-axis weight by doing a linear ramp from 0.0 at the
         // inside of the falloff region to 1.0 at the outside of the falloff
         // region.
-        let axis_weights = saturate((1.0 - 2.0 * abs(probe_space_pos)) / (2.0 * falloff));
+        let axis_weights = saturate(
+                (1.0 - 2.0 * abs(probe_space_pos)) / (2.0 * falloff),
+            );
         // The actual weight is the minimum of all the per-axis weights.
         let weight = min(min(axis_weights.x, axis_weights.y), axis_weights.z);
         // If the resulting weight is zero, we're outside the light probe
         // entirely. Bail.
-        if (weight == 0.0) {
+        if weight == 0.0 {
             continue;
         }
 
         result.texture_index = light_probe.cubemap_index;
         result.intensity = light_probe.intensity;
         result.light_from_world = light_from_world;
-        result.parallax_correction_bounds = light_probe.parallax_correction_bounds;
+        result.parallax_correction_bounds = light_probe
+                .parallax_correction_bounds;
         result.flags = light_probe.flags;
         result.weight = weight;
         return result;

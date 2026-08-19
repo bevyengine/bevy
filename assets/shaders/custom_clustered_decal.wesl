@@ -2,14 +2,14 @@
 // decal `tag` field to apply arbitrary decal effects.
 
 import bevy_pbr::{
-    decal::clustered,
-    render::{
-        clustered_forward,
-        forward_io::{VertexOutput, FragmentOutput},
-        mesh_view_bindings,
-        pbr_fragment::pbr_input_from_standard_material,
-        pbr_functions::{alpha_discard, apply_pbr_lighting, main_pass_post_lighting_processing},
-    },
+    decal::clustered, render::{
+        clustered_forward, mesh_view_bindings,
+        forward_io::{FragmentOutput, VertexOutput},
+        pbr_fragment::pbr_input_from_standard_material, pbr_functions::{
+            alpha_discard, apply_pbr_lighting,
+            main_pass_post_lighting_processing
+        }
+    }
 };
 
 @fragment
@@ -22,10 +22,10 @@ fn fragment(
 
     // Alpha discard.
     pbr_input.material.base_color = alpha_discard(
-        pbr_input.material.flags,
-        pbr_input.material.alpha_cutoff,
-        pbr_input.material.base_color,
-    );
+            pbr_input.material.flags,
+            pbr_input.material.alpha_cutoff,
+            pbr_input.material.base_color,
+        );
 
     // Apply the normal decals.
     clustered::apply_decals(&pbr_input);
@@ -34,44 +34,61 @@ fn fragment(
     // We could optionally do other things, such as adjust the normal based on a normal map.
     let view_z = clustered::get_view_z(in.world_position.xyz);
     let is_orthographic = clustered::view_is_orthographic();
-    let cluster_index =
-        clustered_forward::view_fragment_cluster_index(in.position.xy, view_z, is_orthographic);
-    var clusterable_object_index_ranges =
-        clustered_forward::unpack_clusterable_object_index_ranges(cluster_index);
-    var decal_iterator = clustered::clustered_decal_iterator_new(
-        in.world_position.xyz,
-        &clusterable_object_index_ranges
-    );
-    while (clustered::clustered_decal_iterator_next(&decal_iterator)) {
-        var decal_base_color = textureSampleLevel(
-            mesh_view_bindings::clustered_decal_textures[decal_iterator.base_color_texture_index],
-            mesh_view_bindings::clustered_decal_sampler,
-            decal_iterator.uv,
-            0.0
+    let cluster_index = clustered_forward::view_fragment_cluster_index(
+            in.position.xy,
+            view_z,
+            is_orthographic,
         );
+    var clusterable_object_index_ranges = clustered_forward
+            ::unpack_clusterable_object_index_ranges(cluster_index);
+    var decal_iterator = clustered::clustered_decal_iterator_new(
+            in.world_position.xyz,
+            &clusterable_object_index_ranges,
+        );
+    while clustered::clustered_decal_iterator_next(&decal_iterator) {
+        var decal_base_color = textureSampleLevel(
+                mesh_view_bindings::clustered_decal_textures[
+                    decal_iterator.base_color_texture_index
+                ],
+                mesh_view_bindings::clustered_decal_sampler,
+                decal_iterator.uv,
+                0.0,
+            );
 
-        switch (decal_iterator.tag) {
-            case 1u: {
+        switch decal_iterator.tag {
+            case 1u {
                 // Tint with red.
                 decal_base_color = vec4(
-                    mix(pbr_input.material.base_color.rgb, vec3(1.0, 0.0, 0.0), 0.5),
-                    decal_base_color.a,
-                );
+                        mix(
+                            pbr_input.material.base_color.rgb,
+                            vec3(1.0, 0.0, 0.0),
+                            0.5,
+                        ),
+                        decal_base_color.a,
+                    );
             }
-            case 2u: {
+            case 2u {
                 // Tint with blue.
                 decal_base_color = vec4(
-                    mix(pbr_input.material.base_color.rgb, vec3(0.0, 0.0, 1.0), 0.5),
-                    decal_base_color.a,
-                );
+                        mix(
+                            pbr_input.material.base_color.rgb,
+                            vec3(0.0, 0.0, 1.0),
+                            0.5,
+                        ),
+                        decal_base_color.a,
+                    );
             }
-            default: {}
+            default {}
         }
 
         pbr_input.material.base_color = vec4(
-            mix(pbr_input.material.base_color.rgb, decal_base_color.rgb, decal_base_color.a),
-            pbr_input.material.base_color.a + decal_base_color.a
-        );
+                mix(
+                    pbr_input.material.base_color.rgb,
+                    decal_base_color.rgb,
+                    decal_base_color.a,
+                ),
+                pbr_input.material.base_color.a + decal_base_color.a,
+            );
     }
 
     // Apply lighting.
@@ -85,4 +102,3 @@ fn fragment(
 
     return out;
 }
-
