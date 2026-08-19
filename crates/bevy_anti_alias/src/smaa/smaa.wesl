@@ -303,42 +303,63 @@ struct VertexVaryings {
 
 struct EdgeDetectionVaryings {
     @builtin(position) position: vec4<f32>,
-    @location(0) offset_0: vec4<f32>,
-    @location(1) offset_1: vec4<f32>,
-    @location(2) offset_2: vec4<f32>,
-    @location(3) tex_coord: vec2<f32>,
+    @location(0)
+    offset_0: vec4<f32>,
+    @location(1)
+    offset_1: vec4<f32>,
+    @location(2)
+    offset_2: vec4<f32>,
+    @location(3)
+    tex_coord: vec2<f32>,
 }
 
 struct BlendingWeightCalculationVaryings {
     @builtin(position) position: vec4<f32>,
-    @location(0) offset_0: vec4<f32>,
-    @location(1) offset_1: vec4<f32>,
-    @location(2) offset_2: vec4<f32>,
-    @location(3) tex_coord: vec2<f32>,
+    @location(0)
+    offset_0: vec4<f32>,
+    @location(1)
+    offset_1: vec4<f32>,
+    @location(2)
+    offset_2: vec4<f32>,
+    @location(3)
+    tex_coord: vec2<f32>,
 }
 
 struct NeighborhoodBlendingVaryings {
     @builtin(position) position: vec4<f32>,
-    @location(0) offset: vec4<f32>,
-    @location(1) tex_coord: vec2<f32>,
+    @location(0)
+    offset: vec4<f32>,
+    @location(1)
+    tex_coord: vec2<f32>,
 }
 
-@group(0) @binding(0) var color_texture: texture_2d<f32>;
-@group(0) @binding(1) var<uniform> smaa_info: SmaaInfo;
+@group(0) @binding(0)
+var color_texture: texture_2d<f32>;
+@group(0) @binding(1)
+var<uniform> smaa_info: SmaaInfo;
 
 @if(SMAA_EDGE_DETECTION)
-@group(1) @binding(0) var color_sampler: sampler;
+@group(1) @binding(0)
+var color_sampler: sampler;
 
-@if(SMAA_BLENDING_WEIGHT_CALCULATION) {
-@group(1) @binding(0) var edges_texture: texture_2d<f32>;
-@group(1) @binding(1) var edges_sampler: sampler;
-@group(1) @binding(2) var search_texture: texture_2d<f32>;
-@group(1) @binding(3) var area_texture: texture_2d<f32>;
+@if(SMAA_BLENDING_WEIGHT_CALCULATION)
+{
+@group(1) @binding(0)
+var edges_texture: texture_2d<f32>;
+@group(1) @binding(1)
+var edges_sampler: sampler;
+@group(1) @binding(2)
+var search_texture: texture_2d<f32>;
+@group(1) @binding(3)
+var area_texture: texture_2d<f32>;
 }
 
-@if(SMAA_NEIGHBORHOOD_BLENDING) {
-@group(1) @binding(0) var blend_texture: texture_2d<f32>;
-@group(1) @binding(1) var blend_sampler: sampler;
+@if(SMAA_NEIGHBORHOOD_BLENDING)
+{
+@group(1) @binding(0)
+var blend_texture: texture_2d<f32>;
+@group(1) @binding(1)
+var blend_sampler: sampler;
 }
 
 //-----------------------------------------------------------------------------
@@ -479,7 +500,9 @@ const SMAA_CORNER_ROUNDING_NORM: f32 = f32(SMAA_CORNER_ROUNDING) / 100.0;
 fn calculate_vertex_varyings(vertex_index: u32) -> VertexVaryings {
     // See the explanation above for how this works
     let uv = vec2<f32>(f32(vertex_index >> 1u), f32(vertex_index & 1u)) * 2.0;
-    let clip_position = vec2<f32>(uv * vec2<f32>(2.0, -2.0) + vec2<f32>(-1.0, 1.0));
+    let clip_position = vec2<f32>(
+            uv * vec2<f32>(2.0, -2.0) + vec2<f32>(-1.0, 1.0),
+        );
 
     return VertexVaryings(clip_position, uv);
 }
@@ -487,38 +510,36 @@ fn calculate_vertex_varyings(vertex_index: u32) -> VertexVaryings {
 //-----------------------------------------------------------------------------
 // Vertex Shaders
 
-@if(SMAA_EDGE_DETECTION)
-
-/**
+@if(SMAA_EDGE_DETECTION) /**
  * Edge Detection Vertex Shader
  */
 @vertex
-fn edge_detection_vertex_main(@builtin(vertex_index) vertex_index: u32) -> EdgeDetectionVaryings {
+fn edge_detection_vertex_main(
+    @builtin(vertex_index) vertex_index: u32,
+) -> EdgeDetectionVaryings {
     let varyings = calculate_vertex_varyings(vertex_index);
 
     var edge_detection_varyings = EdgeDetectionVaryings();
     edge_detection_varyings.position = vec4(varyings.clip_coord, 0.0, 1.0);
     edge_detection_varyings.tex_coord = varyings.tex_coord;
 
-    edge_detection_varyings.offset_0 = smaa_info.rt_metrics.xyxy * vec4(-1.0, 0.0, 0.0, -1.0) +
-        varyings.tex_coord.xyxy;
-    edge_detection_varyings.offset_1 = smaa_info.rt_metrics.xyxy * vec4(1.0, 0.0, 0.0, 1.0) +
-        varyings.tex_coord.xyxy;
-    edge_detection_varyings.offset_2 = smaa_info.rt_metrics.xyxy * vec4(-2.0, 0.0, 0.0, -2.0) +
-        varyings.tex_coord.xyxy;
+    edge_detection_varyings.offset_0 = smaa_info.rt_metrics.xyxy
+        * vec4(-1.0, 0.0, 0.0, -1.0) + varyings.tex_coord.xyxy;
+    edge_detection_varyings.offset_1 = smaa_info.rt_metrics.xyxy
+        * vec4(1.0, 0.0, 0.0, 1.0) + varyings.tex_coord.xyxy;
+    edge_detection_varyings.offset_2 = smaa_info.rt_metrics.xyxy
+        * vec4(-2.0, 0.0, 0.0, -2.0) + varyings.tex_coord.xyxy;
 
     return edge_detection_varyings;
 }
 
-
-@if(SMAA_BLENDING_WEIGHT_CALCULATION)
-
-/**
+@if(SMAA_BLENDING_WEIGHT_CALCULATION) /**
  * Blend Weight Calculation Vertex Shader
  */
 @vertex
-fn blending_weight_calculation_vertex_main(@builtin(vertex_index) vertex_index: u32)
-        -> BlendingWeightCalculationVaryings {
+fn blending_weight_calculation_vertex_main(
+    @builtin(vertex_index) vertex_index: u32,
+) -> BlendingWeightCalculationVaryings {
     let varyings = calculate_vertex_varyings(vertex_index);
 
     var weight_varyings = BlendingWeightCalculationVaryings();
@@ -526,82 +547,100 @@ fn blending_weight_calculation_vertex_main(@builtin(vertex_index) vertex_index: 
     weight_varyings.tex_coord = varyings.tex_coord;
 
     // We will use these offsets for the searches later on (see @PSEUDO_GATHER4):
-    weight_varyings.offset_0 = smaa_info.rt_metrics.xyxy * vec4(-0.25, -0.125, 1.25, -0.125) +
-        varyings.tex_coord.xyxy;
-    weight_varyings.offset_1 = smaa_info.rt_metrics.xyxy * vec4(-0.125, -0.25, -0.125, 1.25) +
-        varyings.tex_coord.xyxy;
+    weight_varyings.offset_0 = smaa_info.rt_metrics.xyxy
+        * vec4(-0.25, -0.125, 1.25, -0.125) + varyings.tex_coord.xyxy;
+    weight_varyings.offset_1 = smaa_info.rt_metrics.xyxy
+        * vec4(-0.125, -0.25, -0.125, 1.25) + varyings.tex_coord.xyxy;
 
     // And these for the searches, they indicate the ends of the loops:
-    weight_varyings.offset_2 =
-        smaa_info.rt_metrics.xxyy * vec4(-2.0, 2.0, -2.0, 2.0) * f32(SMAA_MAX_SEARCH_STEPS) +
-        vec4(weight_varyings.offset_0.xz, weight_varyings.offset_1.yw);
+    weight_varyings.offset_2 = smaa_info.rt_metrics.xxyy
+        * vec4(-2.0, 2.0, -2.0, 2.0) * f32(SMAA_MAX_SEARCH_STEPS)
+        + vec4(weight_varyings.offset_0.xz, weight_varyings.offset_1.yw);
 
     return weight_varyings;
 }
 
-
-@if(SMAA_NEIGHBORHOOD_BLENDING)
-
-/**
+@if(SMAA_NEIGHBORHOOD_BLENDING) /**
  * Neighborhood Blending Vertex Shader
  */
 @vertex
-fn neighborhood_blending_vertex_main(@builtin(vertex_index) vertex_index: u32)
-        -> NeighborhoodBlendingVaryings {
+fn neighborhood_blending_vertex_main(
+    @builtin(vertex_index) vertex_index: u32,
+) -> NeighborhoodBlendingVaryings {
     let varyings = calculate_vertex_varyings(vertex_index);
-    let offset = smaa_info.rt_metrics.xyxy * vec4(1.0, 0.0, 0.0, 1.0) + varyings.tex_coord.xyxy;
+    let offset = smaa_info.rt_metrics.xyxy * vec4(1.0, 0.0, 0.0, 1.0)
+        + varyings.tex_coord.xyxy;
     return NeighborhoodBlendingVaryings(
-        vec4(varyings.clip_coord, 0.0, 1.0),
-        offset,
-        varyings.tex_coord
-    );
+            vec4(varyings.clip_coord, 0.0, 1.0),
+            offset,
+            varyings.tex_coord,
+        );
 }
-
 
 //-----------------------------------------------------------------------------
 // Edge Detection Pixel Shaders (First Pass)
 
-@if(SMAA_EDGE_DETECTION)
-
-/**
+@if(SMAA_EDGE_DETECTION) /**
  * Luma Edge Detection
  *
  * IMPORTANT NOTICE: luma edge detection requires gamma-corrected colors, and
  * thus 'color_texture' should be a non-sRGB texture.
  */
 @fragment
-fn luma_edge_detection_fragment_main(in: EdgeDetectionVaryings) -> @location(0) vec4<f32> {
+fn luma_edge_detection_fragment_main(in: EdgeDetectionVaryings) -> @location(0)
+vec4<f32> {
     // Calculate the threshold:
     // TODO: Predication.
     let threshold = vec2(SMAA_THRESHOLD);
 
     // Calculate luma:
     let weights = vec3(0.2126, 0.7152, 0.0722);
-    let L = dot(textureSample(color_texture, color_sampler, in.tex_coord).rgb, weights);
+    let L = dot(
+            textureSample(color_texture, color_sampler, in.tex_coord).rgb,
+            weights,
+        );
 
-    let Lleft = dot(textureSample(color_texture, color_sampler, in.offset_0.xy).rgb, weights);
-    let Ltop  = dot(textureSample(color_texture, color_sampler, in.offset_0.zw).rgb, weights);
+    let Lleft = dot(
+            textureSample(color_texture, color_sampler, in.offset_0.xy).rgb,
+            weights,
+        );
+    let Ltop = dot(
+            textureSample(color_texture, color_sampler, in.offset_0.zw).rgb,
+            weights,
+        );
 
     // We do the usual threshold:
     var delta: vec4<f32> = vec4(abs(L - vec2(Lleft, Ltop)), 0.0, 0.0);
     var edges = step(threshold, delta.xy);
 
     // Then discard if there is no edge:
-    if (dot(edges, vec2(1.0)) == 0.0) {
+    if dot(edges, vec2(1.0)) == 0.0 {
         discard;
     }
 
     // Calculate right and bottom deltas:
-    let Lright  = dot(textureSample(color_texture, color_sampler, in.offset_1.xy).rgb, weights);
-    let Lbottom = dot(textureSample(color_texture, color_sampler, in.offset_1.zw).rgb, weights);
+    let Lright = dot(
+            textureSample(color_texture, color_sampler, in.offset_1.xy).rgb,
+            weights,
+        );
+    let Lbottom = dot(
+            textureSample(color_texture, color_sampler, in.offset_1.zw).rgb,
+            weights,
+        );
     delta = vec4(delta.xy, abs(L - vec2(Lright, Lbottom)));
 
     // Calculate the maximum delta in the direct neighborhood:
     var max_delta = max(delta.xy, delta.zw);
 
     // Calculate left-left and top-top deltas:
-    let Lleftleft = dot(textureSample(color_texture, color_sampler, in.offset_2.xy).rgb, weights);
-    let Ltoptop   = dot(textureSample(color_texture, color_sampler, in.offset_2.zw).rgb, weights);
+    let Lleftleft = dot(
+            textureSample(color_texture, color_sampler, in.offset_2.xy).rgb,
+            weights,
+        );
+    let Ltoptop = dot(
+            textureSample(color_texture, color_sampler, in.offset_2.zw).rgb,
+            weights,
+        );
     delta = vec4(delta.xy, abs(vec2(Lleft, Ltop) - vec2(Lleftleft, Ltoptop)));
 
     // Calculate the final maximum delta:
@@ -609,18 +648,18 @@ fn luma_edge_detection_fragment_main(in: EdgeDetectionVaryings) -> @location(0) 
     let final_delta = max(max_delta.x, max_delta.y);
 
     // Local contrast adaptation:
-    edges *= step(vec2(final_delta), SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR * delta.xy);
+    edges *= step(
+            vec2(final_delta),
+            SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR * delta.xy,
+        );
 
     return vec4(edges, 0.0, 1.0);
 }
-
-
 
 //-----------------------------------------------------------------------------
 // Diagonal Search Functions
 
 @if(SMAA_BLENDING_WEIGHT_CALCULATION && !SMAA_DISABLE_DIAG_DETECTION)
-
 /**
  * Allows to decode two binary values from a bilinear-filtered access.
  */
@@ -653,10 +692,14 @@ fn decode_diag_bilinear_access_4(e: vec4<f32>) -> vec4<f32> {
  * These functions allows to perform diagonal pattern searches.
  */
 @if(SMAA_BLENDING_WEIGHT_CALCULATION && !SMAA_DISABLE_DIAG_DETECTION)
-fn search_diag_1(tex_coord: vec2<f32>, dir: vec2<f32>, e: ptr<function, vec2<f32>>) -> vec2<f32> {
+fn search_diag_1(
+    tex_coord: vec2<f32>,
+    dir: vec2<f32>,
+    e: ptr<function, vec2<f32>>,
+) -> vec2<f32> {
     var coord = vec4(tex_coord, -1.0, 1.0);
     let t = vec3(smaa_info.rt_metrics.xy, 1.0);
-    while (coord.z < f32(SMAA_MAX_SEARCH_STEPS_DIAG - 1u) && coord.w > 0.9) {
+    while coord.z < f32(SMAA_MAX_SEARCH_STEPS_DIAG - 1u) && coord.w > 0.9 {
         coord = vec4(t * vec3(dir, 1.0) + coord.xyz, coord.w);
         *e = textureSampleLevel(edges_texture, edges_sampler, coord.xy, 0.0).rg;
         coord.w = dot(*e, vec2(0.5));
@@ -665,11 +708,15 @@ fn search_diag_1(tex_coord: vec2<f32>, dir: vec2<f32>, e: ptr<function, vec2<f32
 }
 
 @if(SMAA_BLENDING_WEIGHT_CALCULATION && !SMAA_DISABLE_DIAG_DETECTION)
-fn search_diag_2(tex_coord: vec2<f32>, dir: vec2<f32>, e: ptr<function, vec2<f32>>) -> vec2<f32> {
+fn search_diag_2(
+    tex_coord: vec2<f32>,
+    dir: vec2<f32>,
+    e: ptr<function, vec2<f32>>,
+) -> vec2<f32> {
     var coord = vec4(tex_coord, -1.0, 1.0);
     coord.x += 0.25 * smaa_info.rt_metrics.x; // See @SearchDiag2Optimization
     let t = vec3(smaa_info.rt_metrics.xy, 1.0);
-    while (coord.z < f32(SMAA_MAX_SEARCH_STEPS_DIAG - 1u) && coord.w > 0.9) {
+    while coord.z < f32(SMAA_MAX_SEARCH_STEPS_DIAG - 1u) && coord.w > 0.9 {
         coord = vec4(t * vec3(dir, 1.0) + coord.xyz, coord.w);
 
         // @SearchDiag2Optimization
@@ -695,7 +742,8 @@ fn area_diag(dist: vec2<f32>, e: vec2<f32>, offset: f32) -> vec2<f32> {
     var tex_coord = vec2(SMAA_AREATEX_MAX_DISTANCE_DIAG) * e + dist;
 
     // We do a scale and bias for mapping to texel space:
-    tex_coord = SMAA_AREATEX_PIXEL_SIZE * tex_coord + 0.5 * SMAA_AREATEX_PIXEL_SIZE;
+    tex_coord = SMAA_AREATEX_PIXEL_SIZE * tex_coord + 0.5
+        * SMAA_AREATEX_PIXEL_SIZE;
 
     // Diagonal areas are on the second half of the texture:
     tex_coord.x += 0.5;
@@ -711,14 +759,17 @@ fn area_diag(dist: vec2<f32>, e: vec2<f32>, offset: f32) -> vec2<f32> {
  * This searches for diagonal patterns and returns the corresponding weights.
  */
 @if(SMAA_BLENDING_WEIGHT_CALCULATION && !SMAA_DISABLE_DIAG_DETECTION)
-fn calculate_diag_weights(tex_coord: vec2<f32>, e: vec2<f32>, subsample_indices: vec4<f32>)
-        -> vec2<f32> {
+fn calculate_diag_weights(
+    tex_coord: vec2<f32>,
+    e: vec2<f32>,
+    subsample_indices: vec4<f32>,
+) -> vec2<f32> {
     var weights = vec2(0.0, 0.0);
 
     // Search for the line ends:
     var d = vec4(0.0);
     var end = vec2(0.0);
-    if (e.r > 0.0) {
+    if e.r > 0.0 {
         let d_xz = search_diag_1(tex_coord, vec2(-1.0, 1.0), &end);
         d = vec4(d_xz.x, d.y, d_xz.y, d.w);
         d.x += f32(end.y > 0.9);
@@ -728,14 +779,27 @@ fn calculate_diag_weights(tex_coord: vec2<f32>, e: vec2<f32>, subsample_indices:
     let d_yw = search_diag_1(tex_coord, vec2(1.0, -1.0), &end);
     d = vec4(d.x, d_yw.x, d.y, d_yw.y);
 
-    if (d.x + d.y > 2.0) {  // d.x + d.y + 1 > 3
+    if d.x + d.y > 2.0 {
+        // d.x + d.y + 1 > 3
         // Fetch the crossing edges:
-        let coords = vec4(-d.x + 0.25, d.x, d.y, -d.y - 0.25) * smaa_info.rt_metrics.xyxy +
-            tex_coord.xyxy;
+        let coords = vec4(-d.x + 0.25, d.x, d.y, -d.y - 0.25)
+            * smaa_info.rt_metrics.xyxy + tex_coord.xyxy;
         var c = vec4(
-            textureSampleLevel(edges_texture, edges_sampler, coords.xy, 0.0, vec2(-1, 0)).rg,
-            textureSampleLevel(edges_texture, edges_sampler, coords.zw, 0.0, vec2( 1, 0)).rg,
-        );
+                textureSampleLevel(
+                    edges_texture,
+                    edges_sampler,
+                    coords.xy,
+                    0.0,
+                    vec2(-1, 0),
+                ).rg,
+                textureSampleLevel(
+                    edges_texture,
+                    edges_sampler,
+                    coords.zw,
+                    0.0,
+                    vec2(1, 0),
+                ).rg,
+            );
         let c_yxwz = decode_diag_bilinear_access_4(c.xyzw);
         c = c_yxwz.yxwz;
 
@@ -759,7 +823,13 @@ fn calculate_diag_weights(tex_coord: vec2<f32>, e: vec2<f32>, subsample_indices:
 
     // Search for the line ends:
     let d_xz = search_diag_2(tex_coord, vec2(-1.0, -1.0), &end);
-    if (textureSampleLevel(edges_texture, edges_sampler, tex_coord, 0.0, vec2(1, 0)).r > 0.0) {
+    if textureSampleLevel(
+        edges_texture,
+        edges_sampler,
+        tex_coord,
+        0.0,
+        vec2(1, 0),
+    ).r > 0.0 {
         let d_yw = search_diag_2(tex_coord, vec2(1.0, 1.0), &end);
         d = vec4(d_xz.x, d_yw.x, d_xz.y, d_yw.y);
         d.y += f32(end.y > 0.9);
@@ -767,14 +837,34 @@ fn calculate_diag_weights(tex_coord: vec2<f32>, e: vec2<f32>, subsample_indices:
         d = vec4(d_xz.x, 0.0, d_xz.y, 0.0);
     }
 
-    if (d.x + d.y > 2.0) {  // d.x + d.y + 1 > 3
+    if d.x + d.y > 2.0 {
+        // d.x + d.y + 1 > 3
         // Fetch the crossing edges:
-        let coords = vec4(-d.x, -d.x, d.y, d.y) * smaa_info.rt_metrics.xyxy + tex_coord.xyxy;
+        let coords = vec4(-d.x, -d.x, d.y, d.y) * smaa_info.rt_metrics.xyxy
+            + tex_coord.xyxy;
         let c = vec4(
-            textureSampleLevel(edges_texture, edges_sampler, coords.xy, 0.0, vec2(-1,  0)).g,
-            textureSampleLevel(edges_texture, edges_sampler, coords.xy, 0.0, vec2( 0, -1)).r,
-            textureSampleLevel(edges_texture, edges_sampler, coords.zw, 0.0, vec2( 1,  0)).gr,
-        );
+                textureSampleLevel(
+                    edges_texture,
+                    edges_sampler,
+                    coords.xy,
+                    0.0,
+                    vec2(-1, 0),
+                ).g,
+                textureSampleLevel(
+                    edges_texture,
+                    edges_sampler,
+                    coords.xy,
+                    0.0,
+                    vec2(0, -1),
+                ).r,
+                textureSampleLevel(
+                    edges_texture,
+                    edges_sampler,
+                    coords.zw,
+                    0.0,
+                    vec2(1, 0),
+                ).gr,
+            );
         var cc = vec2(2.0) * c.xz + c.yw;
 
         // Remove the crossing edge if we didn't found the end of the line:
@@ -786,7 +876,6 @@ fn calculate_diag_weights(tex_coord: vec2<f32>, e: vec2<f32>, subsample_indices:
 
     return weights;
 }
-
 
 //-----------------------------------------------------------------------------
 // Horizontal/Vertical Search Functions
@@ -805,8 +894,8 @@ fn search_length(e: vec2<f32>, offset: f32) -> f32 {
     var bias = SMAA_SEARCHTEX_SIZE * vec2(offset, 1.0);
 
     // Scale and bias to access texel centers:
-    scale += vec2(-1.0,  1.0);
-    bias  += vec2( 0.5, -0.5);
+    scale += vec2(-1.0, 1.0);
+    bias += vec2(0.5, -0.5);
 
     // Convert from pixel coordinates to texcoords:
     // (We use SMAA_SEARCHTEX_PACKED_SIZE because the texture is cropped)
@@ -814,7 +903,12 @@ fn search_length(e: vec2<f32>, offset: f32) -> f32 {
     bias *= 1.0 / SMAA_SEARCHTEX_PACKED_SIZE;
 
     // Lookup the search texture:
-    return textureSampleLevel(search_texture, edges_sampler, scale * e + bias, 0.0).r;
+    return textureSampleLevel(
+            search_texture,
+            edges_sampler,
+            scale * e + bias,
+            0.0,
+        ).r;
 }
 
 /**
@@ -832,9 +926,10 @@ fn search_x_left(in_tex_coord: vec2<f32>, end: f32) -> f32 {
      * which edges are active from the four fetched ones.
      */
     var e = vec2(0.0, 1.0);
-    while (tex_coord.x > end &&
-           e.g > 0.8281 &&  // Is there some edge not activated?
-           e.r == 0.0) {    // Or is there a crossing edge that breaks the line?
+    while tex_coord.x > end && e.g > 0.8281
+    && // Is there some edge not activated?
+    e.r == 0.0 {
+        // Or is there a crossing edge that breaks the line?
         e = textureSampleLevel(edges_texture, edges_sampler, tex_coord, 0.0).rg;
         tex_coord += -vec2(2.0, 0.0) * smaa_info.rt_metrics.xy;
     }
@@ -847,9 +942,10 @@ fn search_x_right(in_tex_coord: vec2<f32>, end: f32) -> f32 {
     var tex_coord = in_tex_coord;
 
     var e = vec2(0.0, 1.0);
-    while (tex_coord.x < end &&
-           e.g > 0.8281 &&  // Is there some edge not activated?
-           e.r == 0.0) {    // Or is there a crossing edge that breaks the line?
+    while tex_coord.x < end && e.g > 0.8281
+    && // Is there some edge not activated?
+    e.r == 0.0 {
+        // Or is there a crossing edge that breaks the line?
         e = textureSampleLevel(edges_texture, edges_sampler, tex_coord, 0.0).rg;
         tex_coord += vec2(2.0, 0.0) * smaa_info.rt_metrics.xy;
     }
@@ -862,9 +958,10 @@ fn search_y_up(in_tex_coord: vec2<f32>, end: f32) -> f32 {
     var tex_coord = in_tex_coord;
 
     var e = vec2(1.0, 0.0);
-    while (tex_coord.y > end &&
-           e.r > 0.8281 &&  // Is there some edge not activated?
-           e.g == 0.0) {    // Or is there a crossing edge that breaks the line?
+    while tex_coord.y > end && e.r > 0.8281
+    && // Is there some edge not activated?
+    e.g == 0.0 {
+        // Or is there a crossing edge that breaks the line?
         e = textureSampleLevel(edges_texture, edges_sampler, tex_coord, 0.0).rg;
         tex_coord += -vec2(0.0, 2.0) * smaa_info.rt_metrics.xy;
     }
@@ -877,9 +974,10 @@ fn search_y_down(in_tex_coord: vec2<f32>, end: f32) -> f32 {
     var tex_coord = in_tex_coord;
 
     var e = vec2(1.0, 0.0);
-    while (tex_coord.y < end &&
-           e.r > 0.8281 &&  // Is there some edge not activated?
-           e.g == 0.0) {    // Or is there a crossing edge that breaks the line?
+    while tex_coord.y < end && e.r > 0.8281
+    && // Is there some edge not activated?
+    e.g == 0.0 {
+        // Or is there a crossing edge that breaks the line?
         e = textureSampleLevel(edges_texture, edges_sampler, tex_coord, 0.0).rg;
         tex_coord += vec2(0.0, 2.0) * smaa_info.rt_metrics.xy;
     }
@@ -894,10 +992,12 @@ fn search_y_down(in_tex_coord: vec2<f32>, end: f32) -> f32 {
 @if(SMAA_BLENDING_WEIGHT_CALCULATION)
 fn area(dist: vec2<f32>, e1: f32, e2: f32, offset: f32) -> vec2<f32> {
     // Rounding prevents precision errors of bilinear filtering:
-    var tex_coord = SMAA_AREATEX_MAX_DISTANCE * round(4.0 * vec2(e1, e2)) + dist;
+    var tex_coord = SMAA_AREATEX_MAX_DISTANCE * round(4.0 * vec2(e1, e2))
+        + dist;
 
     // We do a scale and bias for mapping to texel space:
-    tex_coord = SMAA_AREATEX_PIXEL_SIZE * tex_coord + 0.5 * SMAA_AREATEX_PIXEL_SIZE;
+    tex_coord = SMAA_AREATEX_PIXEL_SIZE * tex_coord + 0.5
+        * SMAA_AREATEX_PIXEL_SIZE;
 
     // Move to proper place, according to the subpixel offset:
     tex_coord.y += SMAA_AREATEX_SUBTEX_SIZE * offset;
@@ -910,53 +1010,106 @@ fn area(dist: vec2<f32>, e1: f32, e2: f32, offset: f32) -> vec2<f32> {
 // Corner Detection Functions
 
 @if(SMAA_BLENDING_WEIGHT_CALCULATION)
-fn detect_horizontal_corner_pattern(weights: vec2<f32>, tex_coord: vec4<f32>, d: vec2<f32>)
-        -> vec2<f32> {
-@if(!SMAA_DISABLE_CORNER_DETECTION) {
+fn detect_horizontal_corner_pattern(
+    weights: vec2<f32>,
+    tex_coord: vec4<f32>,
+    d: vec2<f32>,
+) -> vec2<f32> {
+    @if(!SMAA_DISABLE_CORNER_DETECTION)
+    {
     let left_right = step(d.xy, d.yx);
     var rounding = (1.0 - SMAA_CORNER_ROUNDING_NORM) * left_right;
 
-    rounding /= left_right.x + left_right.y; // Reduce blending for pixels in the center of a line.
+    rounding /= left_right.x
+        + left_right.y; // Reduce blending for pixels in the center of a line.
 
     var factor = vec2(1.0, 1.0);
-    factor.x -= rounding.x *
-        textureSampleLevel(edges_texture, edges_sampler, tex_coord.xy, 0.0, vec2(0,  1)).r;
-    factor.x -= rounding.y *
-        textureSampleLevel(edges_texture, edges_sampler, tex_coord.zw, 0.0, vec2(1,  1)).r;
-    factor.y -= rounding.x *
-        textureSampleLevel(edges_texture, edges_sampler, tex_coord.xy, 0.0, vec2(0, -2)).r;
-    factor.y -= rounding.y *
-        textureSampleLevel(edges_texture, edges_sampler, tex_coord.zw, 0.0, vec2(1, -2)).r;
+    factor.x -= rounding.x * textureSampleLevel(
+            edges_texture,
+            edges_sampler,
+            tex_coord.xy,
+            0.0,
+            vec2(0, 1),
+        ).r;
+    factor.x -= rounding.y * textureSampleLevel(
+            edges_texture,
+            edges_sampler,
+            tex_coord.zw,
+            0.0,
+            vec2(1, 1),
+        ).r;
+    factor.y -= rounding.x * textureSampleLevel(
+            edges_texture,
+            edges_sampler,
+            tex_coord.xy,
+            0.0,
+            vec2(0, -2),
+        ).r;
+    factor.y -= rounding.y * textureSampleLevel(
+            edges_texture,
+            edges_sampler,
+            tex_coord.zw,
+            0.0,
+            vec2(1, -2),
+        ).r;
 
     return weights * saturate(factor);
-} @else {
+    }
+    @else
+    {
     return weights;
-}
+    }
 }
 
 @if(SMAA_BLENDING_WEIGHT_CALCULATION)
-fn detect_vertical_corner_pattern(weights: vec2<f32>, tex_coord: vec4<f32>, d: vec2<f32>)
-        -> vec2<f32> {
-@if(!SMAA_DISABLE_CORNER_DETECTION) {
+fn detect_vertical_corner_pattern(
+    weights: vec2<f32>,
+    tex_coord: vec4<f32>,
+    d: vec2<f32>,
+) -> vec2<f32> {
+    @if(!SMAA_DISABLE_CORNER_DETECTION)
+    {
     let left_right = step(d.xy, d.yx);
     var rounding = (1.0 - SMAA_CORNER_ROUNDING_NORM) * left_right;
 
     rounding /= left_right.x + left_right.y;
 
     var factor = vec2(1.0, 1.0);
-    factor.x -= rounding.x *
-        textureSampleLevel(edges_texture, edges_sampler, tex_coord.xy, 0.0, vec2( 1, 0)).g;
-    factor.x -= rounding.y *
-        textureSampleLevel(edges_texture, edges_sampler, tex_coord.zw, 0.0, vec2( 1, 1)).g;
-    factor.y -= rounding.x *
-        textureSampleLevel(edges_texture, edges_sampler, tex_coord.xy, 0.0, vec2(-2, 0)).g;
-    factor.y -= rounding.y *
-        textureSampleLevel(edges_texture, edges_sampler, tex_coord.zw, 0.0, vec2(-2, 1)).g;
+    factor.x -= rounding.x * textureSampleLevel(
+            edges_texture,
+            edges_sampler,
+            tex_coord.xy,
+            0.0,
+            vec2(1, 0),
+        ).g;
+    factor.x -= rounding.y * textureSampleLevel(
+            edges_texture,
+            edges_sampler,
+            tex_coord.zw,
+            0.0,
+            vec2(1, 1),
+        ).g;
+    factor.y -= rounding.x * textureSampleLevel(
+            edges_texture,
+            edges_sampler,
+            tex_coord.xy,
+            0.0,
+            vec2(-2, 0),
+        ).g;
+    factor.y -= rounding.y * textureSampleLevel(
+            edges_texture,
+            edges_sampler,
+            tex_coord.zw,
+            0.0,
+            vec2(-2, 1),
+        ).g;
 
     return weights * saturate(factor);
-} @else {
+    }
+    @else
+    {
     return weights;
-}
+    }
 }
 
 //-----------------------------------------------------------------------------
@@ -964,26 +1117,34 @@ fn detect_vertical_corner_pattern(weights: vec2<f32>, tex_coord: vec4<f32>, d: v
 
 @if(SMAA_BLENDING_WEIGHT_CALCULATION)
 @fragment
-fn blending_weight_calculation_fragment_main(in: BlendingWeightCalculationVaryings)
-        -> @location(0) vec4<f32> {
-    let subsample_indices = vec4(0.0);  // Just pass zero for SMAA 1x, see @SUBSAMPLE_INDICES.
+fn blending_weight_calculation_fragment_main(
+    in: BlendingWeightCalculationVaryings,
+) -> @location(0) vec4<f32> {
+    let subsample_indices = vec4(
+            0.0,
+        ); // Just pass zero for SMAA 1x, see @SUBSAMPLE_INDICES.
 
     var weights = vec4(0.0);
 
     var e = textureSample(edges_texture, edges_sampler, in.tex_coord).rg;
 
-    if (e.g > 0.0) {    // Edge at north
-@if(!SMAA_DISABLE_DIAG_DETECTION) {
+    if e.g > 0.0 {
+        // Edge at north
+        @if(!SMAA_DISABLE_DIAG_DETECTION)
+        {
         // Diagonals have both north and west edges, so searching for them in
         // one of the boundaries is enough.
-        weights = vec4(calculate_diag_weights(in.tex_coord, e, subsample_indices), weights.ba);
+        weights = vec4(
+                calculate_diag_weights(in.tex_coord, e, subsample_indices),
+                weights.ba,
+            );
 
         // We give priority to diagonals, so if we find a diagonal we skip
         // horizontal/vertical processing.
-        if (weights.r + weights.g != 0.0) {
+        if weights.r + weights.g != 0.0 {
             return weights;
         }
-}
+        }
 
         var d: vec2<f32>;
 
@@ -997,7 +1158,12 @@ fn blending_weight_calculation_fragment_main(in: BlendingWeightCalculationVaryin
         // Now fetch the left crossing edges, two at a time using bilinear
         // filtering. Sampling at -0.25 (see @CROSSING_OFFSET) enables to
         // discern what value each edge has:
-        let e1 = textureSampleLevel(edges_texture, edges_sampler, coords.xy, 0.0).r;
+        let e1 = textureSampleLevel(
+                edges_texture,
+                edges_sampler,
+                coords.xy,
+                0.0,
+            ).r;
 
         // Find the distance to the right:
         coords.z = search_x_right(in.offset_0.zw, in.offset_2.y);
@@ -1013,7 +1179,12 @@ fn blending_weight_calculation_fragment_main(in: BlendingWeightCalculationVaryin
 
         // Fetch the right crossing edges:
         let e2 = textureSampleLevel(
-            edges_texture, edges_sampler, coords.zy, 0.0, vec2<i32>(1, 0)).r;
+                edges_texture,
+                edges_sampler,
+                coords.zy,
+                0.0,
+                vec2<i32>(1, 0),
+            ).r;
 
         // Ok, we know how this pattern looks like, now it is time for getting
         // the actual area:
@@ -1022,12 +1193,13 @@ fn blending_weight_calculation_fragment_main(in: BlendingWeightCalculationVaryin
         // Fix corners:
         coords.y = in.tex_coord.y;
         weights = vec4(
-            detect_horizontal_corner_pattern(weights.rg, coords.xyzy, d),
-            weights.ba
-        );
+                detect_horizontal_corner_pattern(weights.rg, coords.xyzy, d),
+                weights.ba,
+            );
     }
 
-    if (e.r > 0.0) {    // Edge at west
+    if e.r > 0.0 {
+        // Edge at west
         var d: vec2<f32>;
 
         // Find the distance to the top:
@@ -1038,7 +1210,12 @@ fn blending_weight_calculation_fragment_main(in: BlendingWeightCalculationVaryin
         d.x = coords.y;
 
         // Fetch the top crossing edges:
-        let e1 = textureSampleLevel(edges_texture, edges_sampler, coords.xy, 0.0).g;
+        let e1 = textureSampleLevel(
+                edges_texture,
+                edges_sampler,
+                coords.xy,
+                0.0,
+            ).g;
 
         // Find the distance to the bottom:
         coords.z = search_y_down(in.offset_1.zw, in.offset_2.w);
@@ -1053,40 +1230,57 @@ fn blending_weight_calculation_fragment_main(in: BlendingWeightCalculationVaryin
 
         // Fetch the bottom crossing edges:
         let e2 = textureSampleLevel(
-            edges_texture, edges_sampler, coords.xz, 0.0, vec2<i32>(0, 1)).g;
+                edges_texture,
+                edges_sampler,
+                coords.xz,
+                0.0,
+                vec2<i32>(0, 1),
+            ).g;
 
         // Get the area for this direction:
         weights = vec4(weights.rg, area(sqrt_d, e1, e2, subsample_indices.x));
 
         // Fix corners:
         coords.x = in.tex_coord.x;
-        weights = vec4(weights.rg, detect_vertical_corner_pattern(weights.ba, coords.xyxz, d));
+        weights = vec4(
+                weights.rg,
+                detect_vertical_corner_pattern(weights.ba, coords.xyxz, d),
+            );
     }
 
     return weights;
 }
-
 
 //-----------------------------------------------------------------------------
 // Neighborhood Blending Pixel Shader (Third Pass)
 
 @if(SMAA_NEIGHBORHOOD_BLENDING)
 @fragment
-fn neighborhood_blending_fragment_main(in: NeighborhoodBlendingVaryings) -> @location(0) vec4<f32> {
+fn neighborhood_blending_fragment_main(
+    in: NeighborhoodBlendingVaryings,
+) -> @location(0) vec4<f32> {
     // Fetch the blending weights for current pixel:
     let a = vec4(
-        textureSample(blend_texture, blend_sampler, in.offset.xy).a,    // Right
-        textureSample(blend_texture, blend_sampler, in.offset.zw).g,    // Top
-        textureSample(blend_texture, blend_sampler, in.tex_coord).zx,   // Bottom / Left
-    );
+            textureSample(blend_texture, blend_sampler, in.offset.xy)
+                .a, // Right
+            textureSample(blend_texture, blend_sampler, in.offset.zw).g, // Top
+            textureSample(blend_texture, blend_sampler, in.tex_coord)
+                .zx, // Bottom / Left
+        );
 
     // Is there any blending weight with a value greater than 0.0?
-    if (dot(a, vec4(1.0)) < 1.0e-5) {
-        let color = textureSampleLevel(color_texture, blend_sampler, in.tex_coord, 0.0);
+    if dot(a, vec4(1.0)) < 1.0e-5 {
+        let color = textureSampleLevel(
+                color_texture,
+                blend_sampler,
+                in.tex_coord,
+                0.0,
+            );
         // TODO: Reprojection
         return color;
     } else {
-        let h = max(a.x, a.z) > max(a.y, a.w);  // max(horizontal) > max(vertical)
+        let h = max(a.x, a.z)
+            > max(a.y, a.w); // max(horizontal) > max(vertical)
 
         // Calculate the blending offsets:
         var blending_offset = vec4(0.0, a.y, 0.0, a.w);
@@ -1096,16 +1290,24 @@ fn neighborhood_blending_fragment_main(in: NeighborhoodBlendingVaryings) -> @loc
         blending_weight /= dot(blending_weight, vec2(1.0));
 
         // Calculate the texture coordinates:
-        let blending_coord =
-            blending_offset * vec4(smaa_info.rt_metrics.xy, -smaa_info.rt_metrics.xy) +
-            in.tex_coord.xyxy;
+        let blending_coord = blending_offset
+            * vec4(smaa_info.rt_metrics.xy, -smaa_info.rt_metrics.xy)
+            + in.tex_coord.xyxy;
 
         // We exploit bilinear filtering to mix current pixel with the chosen
         // neighbor:
-        var color = blending_weight.x *
-            textureSampleLevel(color_texture, blend_sampler, blending_coord.xy, 0.0);
-        color += blending_weight.y *
-            textureSampleLevel(color_texture, blend_sampler, blending_coord.zw, 0.0);
+        var color = blending_weight.x * textureSampleLevel(
+                color_texture,
+                blend_sampler,
+                blending_coord.xy,
+                0.0,
+            );
+        color += blending_weight.y * textureSampleLevel(
+                color_texture,
+                blend_sampler,
+                blending_coord.zw,
+                0.0,
+            );
 
         // TODO: Reprojection
 

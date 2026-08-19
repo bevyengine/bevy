@@ -1,21 +1,20 @@
 import package::sprite_mesh::{
-    types::{
-        SPRITE_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS,
-        SPRITE_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE,
+    bindings::material, types::{
         SPRITE_MATERIAL_FLAGS_ALPHA_MODE_MASK,
-        SPRITE_MATERIAL_FLAGS_FLIP_X,
-        SPRITE_MATERIAL_FLAGS_FLIP_Y,
-        SPRITE_MATERIAL_FLAGS_TILE_X,
-        SPRITE_MATERIAL_FLAGS_TILE_Y,
-    },
-    bindings::material,
+        SPRITE_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE,
+        SPRITE_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS,
+        SPRITE_MATERIAL_FLAGS_FLIP_X, SPRITE_MATERIAL_FLAGS_FLIP_Y,
+        SPRITE_MATERIAL_FLAGS_TILE_X, SPRITE_MATERIAL_FLAGS_TILE_Y
+    }
 };
 @if(BINDLESS)
 import package::sprite_mesh::bindings::material_indices;
 @if(!BINDLESS)
 import package::sprite_mesh::bindings::{texture, texture_sampler};
 import package::mesh2d::bindings::mesh;
-import bevy_render::bindless::{bindless_samplers_filtering, bindless_textures_2d};
+import bevy_render::bindless::{
+    bindless_samplers_filtering, bindless_textures_2d
+};
 
 // Applies all the transformations to the UV and samples the sprite's final color.
 fn sample_final_color(uv: vec2<f32>, instance_index: u32) -> vec4<f32> {
@@ -26,15 +25,15 @@ fn sample_final_color(uv: vec2<f32>, instance_index: u32) -> vec4<f32> {
 // Applies all the necessary transformations to the UV and samples the sprite's texture.
 fn sample_sprite_texture(uv: vec2<f32>, instance_index: u32) -> vec4<f32> {
     let final_uv = get_final_uv(uv, instance_index);
-@if(BINDLESS)
+    @if(BINDLESS)
     let slot = mesh[instance_index].material_bind_group_slot;
-@if(BINDLESS)
+    @if(BINDLESS)
     return textureSample(
-        bindless_textures_2d[material_indices[slot].texture],
-        bindless_samplers_filtering[material_indices[slot].texture_sampler],
-        final_uv
-    );
-@else
+            bindless_textures_2d[material_indices[slot].texture],
+            bindless_samplers_filtering[material_indices[slot].texture_sampler],
+            final_uv,
+        );
+    @else
     return textureSample(texture, texture_sampler, final_uv);
 }
 
@@ -57,11 +56,11 @@ fn get_final_uv(uv: vec2<f32>, instance_index: u32) -> vec2<f32> {
 
 // Flips the UV based on the sprite's flip X and Y properties.
 fn apply_flip(uv: vec2<f32>, instance_index: u32) -> vec2<f32> {
-@if(BINDLESS)
+    @if(BINDLESS)
     let slot = mesh[instance_index].material_bind_group_slot;
-@if(BINDLESS)
+    @if(BINDLESS)
     let flags = material[material_indices[slot].material].flags;
-@else
+    @else
     let flags = material.flags;
 
     var out = uv;
@@ -77,23 +76,26 @@ fn apply_flip(uv: vec2<f32>, instance_index: u32) -> vec2<f32> {
 
 // Applies tiling to the UV based on the sprite's tiling properties when `image_mode` is `Tiled`.
 fn apply_tiling(uv: vec2<f32>, instance_index: u32) -> vec2<f32> {
-@if(BINDLESS)
+    @if(BINDLESS)
     let slot = mesh[instance_index].material_bind_group_slot;
-@if(BINDLESS)
+    @if(BINDLESS)
     let flags = material[material_indices[slot].material].flags;
-@else
+    @else
     let flags = material.flags;
-@if(BINDLESS)
-    let tile_stretch_value = material[material_indices[slot].material].tile_stretch_value;
-@else
+    @if(BINDLESS)
+    let tile_stretch_value = material[material_indices[slot].material]
+            .tile_stretch_value;
+    @else
     let tile_stretch_value = material.tile_stretch_value;
 
     var out = uv;
     if (flags & SPRITE_MATERIAL_FLAGS_TILE_X) != 0u {
-        out.x = (out.x - tile_stretch_value.x * floor(out.x / tile_stretch_value.x)) / tile_stretch_value.x;
+        out.x = (out.x - tile_stretch_value.x
+                * floor(out.x / tile_stretch_value.x)) / tile_stretch_value.x;
     }
     if (flags & SPRITE_MATERIAL_FLAGS_TILE_Y) != 0u {
-        out.y = (out.y - tile_stretch_value.y * floor(out.y / tile_stretch_value.y)) / tile_stretch_value.y;
+        out.y = (out.y - tile_stretch_value.y
+                * floor(out.y / tile_stretch_value.y)) / tile_stretch_value.y;
     }
 
     return out;
@@ -103,11 +105,11 @@ fn apply_tiling(uv: vec2<f32>, instance_index: u32) -> vec2<f32> {
 // which is used for sampling the correct region from a texture atlas
 // and scaling the sprite when `image_mode` is `Scaled`.
 fn apply_uv_transform(uv: vec2<f32>, instance_index: u32) -> vec2<f32> {
-@if(BINDLESS)
+    @if(BINDLESS)
     let slot = mesh[instance_index].material_bind_group_slot;
-@if(BINDLESS)
+    @if(BINDLESS)
     let uv_transform = material[material_indices[slot].material].uv_transform;
-@else
+    @else
     let uv_transform = material.uv_transform;
 
     return (uv_transform * vec3(uv, 1.0)).xy;
@@ -115,27 +117,29 @@ fn apply_uv_transform(uv: vec2<f32>, instance_index: u32) -> vec2<f32> {
 
 // Applies UV slicing based on the sprite's slicing properties when `image_mode` is `Sliced`.
 fn apply_slicing(uv: vec2<f32>, instance_index: u32) -> vec2<f32> {
-@if(BINDLESS)
+    @if(BINDLESS)
     let slot = mesh[instance_index].material_bind_group_slot;
-@if(BINDLESS)
+    @if(BINDLESS)
     let scale = material[material_indices[slot].material].scale;
-@else
+    @else
     let scale = material.scale;
-@if(BINDLESS)
+    @if(BINDLESS)
     let min_inset = material[material_indices[slot].material].min_inset;
-@else
+    @else
     let min_inset = material.min_inset;
-@if(BINDLESS)
+    @if(BINDLESS)
     let max_inset = material[material_indices[slot].material].max_inset;
-@else
+    @else
     let max_inset = material.max_inset;
-@if(BINDLESS)
-    let side_stretch_value = material[material_indices[slot].material].side_stretch_value;
-@else
+    @if(BINDLESS)
+    let side_stretch_value = material[material_indices[slot].material]
+            .side_stretch_value;
+    @else
     let side_stretch_value = material.side_stretch_value;
-@if(BINDLESS)
-    let center_stretch_value = material[material_indices[slot].material].center_stretch_value;
-@else
+    @if(BINDLESS)
+    let center_stretch_value = material[material_indices[slot].material]
+            .center_stretch_value;
+    @else
     let center_stretch_value = material.center_stretch_value;
 
     // using this as a temp check for slicing
@@ -158,18 +162,12 @@ fn apply_slicing(uv: vec2<f32>, instance_index: u32) -> vec2<f32> {
 
     // top-right corner
     if top && right {
-        return vec2<f32>(
-            1.0 - (1.0 - uv.x) * scale.x,
-            uv.y * scale.y,
-        );
+        return vec2<f32>(1.0 - (1.0 - uv.x) * scale.x, uv.y * scale.y);
     }
 
     // bottom-left corner
     if bottom && left {
-        return vec2<f32>(
-            uv.x * scale.x,
-            1.0 - (1.0 - uv.y) * scale.y
-        );
+        return vec2<f32>(uv.x * scale.x, 1.0 - (1.0 - uv.y) * scale.y);
     }
 
     // bottom-right corner
@@ -180,49 +178,91 @@ fn apply_slicing(uv: vec2<f32>, instance_index: u32) -> vec2<f32> {
     // top edge
     if top {
         return vec2<f32>(
-            tile_or_stretch(uv.x, min_inset_scaled.x, 1.0 - max_inset_scaled.x, min_inset.x, 1.0 - max_inset.x, side_stretch_value.x),
-            uv.y * scale.y
-        );
+                tile_or_stretch(
+                    uv.x,
+                    min_inset_scaled.x,
+                    1.0 - max_inset_scaled.x,
+                    min_inset.x,
+                    1.0 - max_inset.x,
+                    side_stretch_value.x,
+                ),
+                uv.y * scale.y,
+            );
     }
 
     // bottom edge
     if bottom {
         return vec2<f32>(
-            tile_or_stretch(uv.x, min_inset_scaled.x, 1.0 - max_inset_scaled.x, min_inset.x, 1.0 - max_inset.x, side_stretch_value.x),
-            1.0 - (1.0 - uv.y) * scale.y
-        );
+                tile_or_stretch(
+                    uv.x,
+                    min_inset_scaled.x,
+                    1.0 - max_inset_scaled.x,
+                    min_inset.x,
+                    1.0 - max_inset.x,
+                    side_stretch_value.x,
+                ),
+                1.0 - (1.0 - uv.y) * scale.y,
+            );
     }
 
     // left edge
     if left {
         return vec2<f32>(
-            uv.x * scale.x,
-            tile_or_stretch(uv.y, min_inset_scaled.y, 1.0 - max_inset_scaled.y, min_inset.y, 1.0 - max_inset.y, side_stretch_value.y)
-        );
+                uv.x * scale.x,
+                tile_or_stretch(
+                    uv.y,
+                    min_inset_scaled.y,
+                    1.0 - max_inset_scaled.y,
+                    min_inset.y,
+                    1.0 - max_inset.y,
+                    side_stretch_value.y,
+                ),
+            );
     }
 
     // right edge
     if right {
         return vec2<f32>(
-            1.0 - (1.0 - uv.x) * scale.x,
-            tile_or_stretch(uv.y, min_inset_scaled.y, 1.0 - max_inset_scaled.y, min_inset.y, 1.0 - max_inset.y, side_stretch_value.y)
-        );
+                1.0 - (1.0 - uv.x) * scale.x,
+                tile_or_stretch(
+                    uv.y,
+                    min_inset_scaled.y,
+                    1.0 - max_inset_scaled.y,
+                    min_inset.y,
+                    1.0 - max_inset.y,
+                    side_stretch_value.y,
+                ),
+            );
     }
 
     // center
     return vec2<f32>(
-        tile_or_stretch(uv.x, min_inset_scaled.x, 1.0 - max_inset_scaled.x, min_inset.x, 1.0 - max_inset.x, center_stretch_value.x),
-        tile_or_stretch(uv.y, min_inset_scaled.y, 1.0 - max_inset_scaled.y, min_inset.y, 1.0 - max_inset.y, center_stretch_value.y)
-    );
+            tile_or_stretch(
+                uv.x,
+                min_inset_scaled.x,
+                1.0 - max_inset_scaled.x,
+                min_inset.x,
+                1.0 - max_inset.x,
+                center_stretch_value.x,
+            ),
+            tile_or_stretch(
+                uv.y,
+                min_inset_scaled.y,
+                1.0 - max_inset_scaled.y,
+                min_inset.y,
+                1.0 - max_inset.y,
+                center_stretch_value.y,
+            ),
+        );
 }
 
 // Applies the tint from the sprite's `color` property.
 fn apply_tint(sprite_color: vec4<f32>, instance_index: u32) -> vec4<f32> {
-@if(BINDLESS)
+    @if(BINDLESS)
     let slot = mesh[instance_index].material_bind_group_slot;
-@if(BINDLESS)
+    @if(BINDLESS)
     let color = material[material_indices[slot].material].color;
-@else
+    @else
     let color = material.color;
 
     return sprite_color * color;
@@ -230,15 +270,15 @@ fn apply_tint(sprite_color: vec4<f32>, instance_index: u32) -> vec4<f32> {
 
 // Discards fragments based on the sprite's `alpha_cutoff` and `alpha_mode`.
 fn alpha_discard(output_color: vec4<f32>, instance_index: u32) -> vec4<f32> {
-@if(BINDLESS)
+    @if(BINDLESS)
     let slot = mesh[instance_index].material_bind_group_slot;
-@if(BINDLESS)
+    @if(BINDLESS)
     let flags = material[material_indices[slot].material].flags;
-@else
+    @else
     let flags = material.flags;
-@if(BINDLESS)
+    @if(BINDLESS)
     let alpha_cutoff = material[material_indices[slot].material].alpha_cutoff;
-@else
+    @else
     let alpha_cutoff = material.alpha_cutoff;
 
     var color = output_color;
@@ -247,9 +287,7 @@ fn alpha_discard(output_color: vec4<f32>, instance_index: u32) -> vec4<f32> {
     if alpha_mode == SPRITE_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE {
         // NOTE: If rendering as opaque, alpha should be ignored so set to 1.0
         color.a = 1.0;
-    }
-
-    else {
+    } else {
         @if(MAY_DISCARD)
         if alpha_mode == SPRITE_MATERIAL_FLAGS_ALPHA_MODE_MASK {
             if color.a >= alpha_cutoff {
@@ -266,7 +304,14 @@ fn alpha_discard(output_color: vec4<f32>, instance_index: u32) -> vec4<f32> {
 }
 
 // Maps a point p from [a, b] to [c, d], tiling it if stretch_value is not 0.
-fn tile_or_stretch(p: f32, a: f32, b: f32, c: f32, d: f32, stretch_value: f32) -> f32 {
+fn tile_or_stretch(
+    p: f32,
+    a: f32,
+    b: f32,
+    c: f32,
+    d: f32,
+    stretch_value: f32,
+) -> f32 {
     if stretch_value == 0.0 {
         return stretch_interval(p, a, b, c, d);
     }
@@ -274,9 +319,17 @@ fn tile_or_stretch(p: f32, a: f32, b: f32, c: f32, d: f32, stretch_value: f32) -
 }
 
 // Takes a point p from an interval [a, b] and maps it to a portion of the tile [c, d]
-fn tile_interval(p: f32, a: f32, b: f32, c: f32, d: f32, stretch_value: f32) -> f32 {
+fn tile_interval(
+    p: f32,
+    a: f32,
+    b: f32,
+    c: f32,
+    d: f32,
+    stretch_value: f32,
+) -> f32 {
     let value = (p - a) / (b - a);
-    let tile_value = (value - stretch_value * floor(value / stretch_value)) / stretch_value;
+    let tile_value = (value - stretch_value * floor(value / stretch_value))
+        / stretch_value;
     return tile_value * (d - c) + c;
 }
 

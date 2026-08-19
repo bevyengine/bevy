@@ -1,7 +1,6 @@
 // The time since startup data is in the globals binding which is part of the mesh_view_bindings import
 import bevy_pbr::render::{
-    mesh_view_bindings::globals,
-    forward_io::VertexOutput,
+    forward_io::VertexOutput, mesh_view_bindings::globals
 };
 
 fn oklab_to_linear_srgb(c: vec3<f32>) -> vec3<f32> {
@@ -18,10 +17,10 @@ fn oklab_to_linear_srgb(c: vec3<f32>) -> vec3<f32> {
     let s = s_ * s_ * s_;
 
     return vec3<f32>(
-        4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
-        -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
-        -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s,
-    );
+            4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+            -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+            -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s,
+        );
 }
 
 @fragment
@@ -39,7 +38,11 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let green = vec3<f32>(0.86644, -0.233887, 0.179498);
     let blue = vec3<f32>(0.701674, 0.274566, -0.169156);
     let white = vec3<f32>(1.0, 0.0, 0.0);
-    let mixed = mix(mix(red, blue, t_1), mix(green, white, t_2), distance_to_center);
+    let mixed = mix(
+            mix(red, blue, t_1),
+            mix(green, white, t_2),
+            distance_to_center,
+        );
 
     return vec4<f32>(oklab_to_linear_srgb(mixed), 1.0);
 }

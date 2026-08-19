@@ -6,18 +6,21 @@
 // The GPU-side vertex structure.
 struct Vertex {
     // The world-space position of the vertex.
-    @location(0) position: vec3<f32>,
+    @location(0)
+    position: vec3<f32>,
     // The color of the vertex.
-    @location(1) color: vec3<f32>,
-};
+    @location(1)
+    color: vec3<f32>,
+}
 
 // Information passed from the vertex shader to the fragment shader.
 struct VertexOutput {
     // The clip-space position of the vertex.
     @builtin(position) clip_position: vec4<f32>,
     // The color of the vertex.
-    @location(0) color: vec3<f32>,
-};
+    @location(0)
+    color: vec3<f32>,
+}
 
 // The vertex shader entry point.
 @vertex

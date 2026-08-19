@@ -1,7 +1,7 @@
-import bevy_render::{view::View, maths::affine3_to_square};
+import bevy_render::{maths::affine3_to_square, view::View};
 
-@group(0) @binding(0) var<uniform> view: View;
-
+@group(0) @binding(0)
+var<uniform> view: View;
 
 struct LineGizmoUniform {
     world_from_local: mat3x4<f32>,
@@ -13,37 +13,42 @@ struct LineGizmoUniform {
     _padding: f32,
 }
 
-@group(1) @binding(0) var<uniform> joints_gizmo: LineGizmoUniform;
+@group(1) @binding(0)
+var<uniform> joints_gizmo: LineGizmoUniform;
 
 struct VertexInput {
-    @location(0) position_a: vec3<f32>,
-    @location(1) position_b: vec3<f32>,
-    @location(2) position_c: vec3<f32>,
-    @location(3) color: vec4<f32>,
+    @location(0)
+    position_a: vec3<f32>,
+    @location(1)
+    position_b: vec3<f32>,
+    @location(2)
+    position_c: vec3<f32>,
+    @location(3)
+    color: vec4<f32>,
     @builtin(vertex_index) index: u32,
-};
+}
 
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
-    @location(0) color: vec4<f32>,
-};
+    @location(0)
+    color: vec4<f32>,
+}
 
 const EPSILON: f32 = 4.88e-04;
 
 @vertex
 fn vertex_bevel(vertex: VertexInput) -> VertexOutput {
-    var positions = array<vec2<f32>, 3>(
-        vec2(0, 0),
-        vec2(0, 0.5),
-        vec2(0.5, 0),
-    );
+    var positions = array<vec2<f32>, 3>(vec2(0, 0), vec2(0, 0.5), vec2(0.5, 0));
     var position = positions[vertex.index];
 
     let world_from_local = affine3_to_square(joints_gizmo.world_from_local);
 
-    var clip_a = view.clip_from_world * world_from_local * vec4(vertex.position_a, 1.);
-    var clip_b = view.clip_from_world * world_from_local * vec4(vertex.position_b, 1.);
-    var clip_c = view.clip_from_world * world_from_local * vec4(vertex.position_c, 1.);
+    var clip_a = view.clip_from_world * world_from_local
+        * vec4(vertex.position_a, 1.);
+    var clip_b = view.clip_from_world * world_from_local
+        * vec4(vertex.position_b, 1.);
+    var clip_c = view.clip_from_world * world_from_local
+        * vec4(vertex.position_c, 1.);
 
     // Manual near plane clipping to avoid errors when doing the perspective divide inside this shader.
     clip_a = clip_near_plane(clip_a, clip_c);
@@ -83,27 +88,34 @@ fn vertex_bevel(vertex: VertexInput) -> VertexOutput {
 
     let depth = depth(clip_b);
 
-    var clip_position = vec4(clip_b.w * ((2. * screen) / resolution - 1.), depth, clip_b.w);
+    var clip_position = vec4(
+            clip_b.w * ((2. * screen) / resolution - 1.),
+            depth,
+            clip_b.w,
+        );
     return VertexOutput(clip_position, color);
 }
 
 @vertex
 fn vertex_miter(vertex: VertexInput) -> VertexOutput {
     var positions = array<vec3<f32>, 6>(
-        vec3(0, 0, 0),
-        vec3(0.5, 0, 0),
-        vec3(0, 0.5, 0),
-        vec3(0, 0, 0),
-        vec3(0, 0.5, 0),
-        vec3(0, 0, 0.5),
-    );
+            vec3(0, 0, 0),
+            vec3(0.5, 0, 0),
+            vec3(0, 0.5, 0),
+            vec3(0, 0, 0),
+            vec3(0, 0.5, 0),
+            vec3(0, 0, 0.5),
+        );
     var position = positions[vertex.index];
 
     let world_from_local = affine3_to_square(joints_gizmo.world_from_local);
 
-    var clip_a = view.clip_from_world * world_from_local * vec4(vertex.position_a, 1.);
-    var clip_b = view.clip_from_world * world_from_local * vec4(vertex.position_b, 1.);
-    var clip_c = view.clip_from_world * world_from_local * vec4(vertex.position_c, 1.);
+    var clip_a = view.clip_from_world * world_from_local
+        * vec4(vertex.position_a, 1.);
+    var clip_b = view.clip_from_world * world_from_local
+        * vec4(vertex.position_b, 1.);
+    var clip_c = view.clip_from_world * world_from_local
+        * vec4(vertex.position_c, 1.);
 
     // Manual near plane clipping to avoid errors when doing the perspective divide inside this shader.
     clip_a = clip_near_plane(clip_a, clip_c);
@@ -139,12 +151,16 @@ fn vertex_miter(vertex: VertexInput) -> VertexOutput {
     var p0 = line_width * sigma * ab_norm;
     var p1 = line_width * sigma * normal / dot(normal, ab_norm);
     var p2 = line_width * sigma * cb_norm;
-    
+
     var screen = screen_b + position.x * p0 + position.y * p1 + position.z * p2;
 
     var depth = depth(clip_b);
 
-    var clip_position = vec4(clip_b.w * ((2. * screen) / resolution - 1.), depth, clip_b.w);
+    var clip_position = vec4(
+            clip_b.w * ((2. * screen) / resolution - 1.),
+            depth,
+            clip_b.w,
+        );
     return VertexOutput(clip_position, color);
 }
 
@@ -152,9 +168,12 @@ fn vertex_miter(vertex: VertexInput) -> VertexOutput {
 fn vertex_round(vertex: VertexInput) -> VertexOutput {
     let world_from_local = affine3_to_square(joints_gizmo.world_from_local);
 
-    var clip_a = view.clip_from_world * world_from_local * vec4(vertex.position_a, 1.);
-    var clip_b = view.clip_from_world * world_from_local * vec4(vertex.position_b, 1.);
-    var clip_c = view.clip_from_world * world_from_local * vec4(vertex.position_c, 1.);
+    var clip_a = view.clip_from_world * world_from_local
+        * vec4(vertex.position_a, 1.);
+    var clip_b = view.clip_from_world * world_from_local
+        * vec4(vertex.position_b, 1.);
+    var clip_c = view.clip_from_world * world_from_local
+        * vec4(vertex.position_c, 1.);
 
     // Manual near plane clipping to avoid errors when doing the perspective divide inside this shader.
     clip_a = clip_near_plane(clip_a, clip_c);
@@ -193,7 +212,8 @@ fn vertex_round(vertex: VertexInput) -> VertexOutput {
     var radius = sign(in_triangle_index) * 0.5 * line_width;
     var theta = acos(dot(ab_norm, cb_norm));
     let sigma = sign(dot(ab_norm, cb));
-    var angle = theta * (tri_index + in_triangle_index - 1) / f32(joints_gizmo.resolution);
+    var angle = theta * (tri_index + in_triangle_index - 1)
+        / f32(joints_gizmo.resolution);
     var position_x = sigma * radius * cos(angle);
     var position_y = radius * sin(angle);
 
@@ -201,7 +221,11 @@ fn vertex_round(vertex: VertexInput) -> VertexOutput {
 
     var depth = depth(clip_b);
 
-    var clip_position = vec4(clip_b.w * ((2. * screen) / resolution - 1.), depth, clip_b.w);
+    var clip_position = vec4(
+            clip_b.w * ((2. * screen) / resolution - 1.),
+            depth,
+            clip_b.w,
+        );
     return VertexOutput(clip_position, color);
 }
 
@@ -231,18 +255,21 @@ fn depth(clip: vec4<f32>) -> f32 {
         // of this value means nothing can be in front of this
         // The reason this uses an exponential function is that it makes it much easier for the
         // user to chose a value that is convenient for them
-        depth = clip.z * exp2(-joints_gizmo.depth_bias * log2(clip.w / clip.z - EPSILON));
+        depth = clip.z
+            * exp2(-joints_gizmo.depth_bias * log2(clip.w / clip.z - EPSILON));
     }
     return depth;
 }
 
 struct FragmentInput {
-    @location(0) color: vec4<f32>,
-};
+    @location(0)
+    color: vec4<f32>,
+}
 
 struct FragmentOutput {
-    @location(0) color: vec4<f32>,
-};
+    @location(0)
+    color: vec4<f32>,
+}
 
 @fragment
 fn fragment(in: FragmentInput) -> FragmentOutput {

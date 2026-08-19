@@ -1,15 +1,14 @@
 import package::{
     meshlet::visibility_buffer_resolve::resolve_vertex_output,
-    prepass::io as prepass_io,
-    render::{
-        view_transformations::uv_to_ndc,
-        pbr_prepass_functions,
-        utils::rand_f,
-    },
+    prepass::io as prepass_io, render::{
+        pbr_prepass_functions, utils::rand_f, view_transformations::uv_to_ndc
+    }
 };
 
 @vertex
-fn vertex(@builtin(vertex_index) vertex_input: u32) -> @builtin(position) vec4<f32> {
+fn vertex(@builtin(vertex_index) vertex_input: u32) -> @builtin(position) vec4<
+    f32,
+> {
     let vertex_index = vertex_input % 3u;
     let material_id = vertex_input / 3u;
     let material_depth = f32(material_id) / 65535.0;
@@ -18,7 +17,9 @@ fn vertex(@builtin(vertex_index) vertex_input: u32) -> @builtin(position) vec4<f
 }
 
 @fragment
-fn fragment(@builtin(position) frag_coord: vec4<f32>) -> @location(0) vec4<f32> {
+fn fragment(@builtin(position) frag_coord: vec4<f32>) -> @location(0) vec4<
+    f32,
+> {
     let vertex_output = resolve_vertex_output(frag_coord);
     var rng = vertex_output.cluster_id;
     let color = vec3(rand_f(&rng), rand_f(&rng), rand_f(&rng));
@@ -27,7 +28,8 @@ fn fragment(@builtin(position) frag_coord: vec4<f32>) -> @location(0) vec4<f32> 
 
 @if(PREPASS_FRAGMENT)
 @fragment
-fn prepass_fragment(@builtin(position) frag_coord: vec4<f32>) -> prepass_io::FragmentOutput {
+fn prepass_fragment(@builtin(position) frag_coord: vec4<f32>) -> prepass_io
+    ::FragmentOutput {
     let vertex_output = resolve_vertex_output(frag_coord);
 
     var out: prepass_io::FragmentOutput;
@@ -43,7 +45,12 @@ fn prepass_fragment(@builtin(position) frag_coord: vec4<f32>) -> prepass_io::Fra
     // emissive magenta out to the deferred gbuffer to be rendered by the first deferred lighting pass layer.
     // This is here so if the default prepass fragment is used for deferred magenta will be rendered, and also
     // as an example to show that a user could write to the deferred gbuffer if they were to start from this shader.
-    out.deferred = vec4(0u, package::render::rgb9e5::vec3_to_rgb9e5_(vec3(1.0, 0.0, 1.0)), 0u, 0u);
+    out.deferred = vec4(
+            0u,
+            package::render::rgb9e5::vec3_to_rgb9e5_(vec3(1.0, 0.0, 1.0)),
+            0u,
+            0u,
+        );
     @if(DEFERRED_PREPASS)
     out.deferred_lighting_pass_id = 1u;
 

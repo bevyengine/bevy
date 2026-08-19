@@ -1,7 +1,4 @@
-import bevy_render::{
-    view::View,
-    globals::Globals,
-};
+import bevy_render::{globals::Globals, view::View};
 import package::ui_vertex_output::UiVertexOutput;
 
 @group(0) @binding(0)
@@ -11,12 +8,18 @@ var<uniform> globals: Globals;
 
 @vertex
 fn vertex(
-    @location(0) vertex_position: vec3<f32>,
-    @location(1) vertex_uv: vec2<f32>,
-    @location(2) size: vec2<f32>,
-    @location(3) border_widths: vec4<f32>,
-    @location(4) border_radius_x: vec4<f32>,
-    @location(5) border_radius_y: vec4<f32>,
+    @location(0)
+    vertex_position: vec3<f32>,
+    @location(1)
+    vertex_uv: vec2<f32>,
+    @location(2)
+    size: vec2<f32>,
+    @location(3)
+    border_widths: vec4<f32>,
+    @location(4)
+    border_radius_x: vec4<f32>,
+    @location(5)
+    border_radius_y: vec4<f32>,
 ) -> UiVertexOutput {
     var out: UiVertexOutput;
     out.uv = vertex_uv;

@@ -15,11 +15,12 @@ const VISUAL_THRESHOLD: f32 = 1e-4;
 const MATH_EPSILON: f32 = 1e-6;
 
 // The settings supplied by the developer.
-@group(0) @binding(5) var<uniform> lens_distortion_settings: LensDistortionSettings;
+@group(0) @binding(5)
+var<uniform> lens_distortion_settings: LensDistortionSettings;
 
 fn lens_distortion(uv: vec2<f32>) -> vec2<f32> {
     let intensity = lens_distortion_settings.intensity;
-    if (abs(intensity) < VISUAL_THRESHOLD) {
+    if abs(intensity) < VISUAL_THRESHOLD {
         return uv;
     }
     let multiplier = lens_distortion_settings.multiplier;
@@ -43,7 +44,8 @@ fn lens_distortion(uv: vec2<f32>) -> vec2<f32> {
     let uv_distorted = direction * r_distorted + center;
 
     // Compensates for the distortion pushing pixels outside the [0,1] UV bounds.
-    let uv_scaled = (uv_distorted - center) / lens_distortion_settings.scale + center;
+    let uv_scaled = (uv_distorted - center) / lens_distortion_settings.scale
+        + center;
 
     // Discard out-of-bounds pixels to prevent edge bleeding artifacts.
     let uv_safe = clamp(uv_scaled, vec2<f32>(0.0), vec2<f32>(1.0));

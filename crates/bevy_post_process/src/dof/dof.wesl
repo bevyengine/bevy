@@ -67,35 +67,43 @@ struct DepthOfFieldParams {
 // The first bokeh pass outputs to two render targets. We declare them here.
 struct DualOutput {
     // The vertical output.
-    @location(0) output_0: vec4<f32>,
+    @location(0)
+    output_0: vec4<f32>,
     // The diagonal output.
-    @location(1) output_1: vec4<f32>,
+    @location(1)
+    output_1: vec4<f32>,
 }
 
 // @group(0) @binding(0) is `mesh_view_bindings::view`.
 
 // The depth texture for the main view.
 @if(MULTISAMPLED)
-@group(0) @binding(1) var depth_texture: texture_depth_multisampled_2d;
-@else   // MULTISAMPLED
-@group(0) @binding(1) var depth_texture: texture_depth_2d;
+@group(0) @binding(1)
+var depth_texture: texture_depth_multisampled_2d;
+@else // MULTISAMPLED
+@group(0) @binding(1)
+var depth_texture: texture_depth_2d;
 
 // The main color texture.
-@group(0) @binding(2) var color_texture_a: texture_2d<f32>;
+@group(0) @binding(2)
+var color_texture_a: texture_2d<f32>;
 
 // The auxiliary color texture that we're sampling from. This is only used as
 // part of the second bokeh pass.
 @if(DUAL_INPUT)
-@group(0) @binding(3) var color_texture_b: texture_2d<f32>;
+@group(0) @binding(3)
+var color_texture_b: texture_2d<f32>;
 
 // The global uniforms, representing data backed by buffers shared among all
 // views in the scene.
 
 // The parameters that control the depth of field effect.
-@group(1) @binding(0) var<uniform> dof_params: DepthOfFieldParams;
+@group(1) @binding(0)
+var<uniform> dof_params: DepthOfFieldParams;
 
 // The sampler that's used to fetch texels from the source color buffer.
-@group(1) @binding(1) var color_texture_sampler: sampler;
+@group(1) @binding(1)
+var color_texture_sampler: sampler;
 
 // used to ensure `depth * (focus - f)` is always a positive number,
 const EPSILON: f32 = 1.19209290e-07;
@@ -129,7 +137,8 @@ fn calculate_circle_of_confusion(in_frag_coord: vec4<f32>) -> f32 {
     // This is just the formula from Wikipedia [1].
     //
     // [1]: https://en.wikipedia.org/wiki/Circle_of_confusion#Determining_a_circle_of_confusion_diameter_from_the_object_field
-    let candidate_coc = scale * abs(depth - focus) / (depth * max(focus - f, EPSILON));
+    let candidate_coc = scale * abs(depth - focus)
+        / (depth * max(focus - f, EPSILON));
 
     let framebuffer_size = vec2<f32>(textureDimensions(color_texture_a));
     return clamp(candidate_coc * framebuffer_size.y, 0.0, max_coc_diameter);
@@ -145,16 +154,22 @@ fn calculate_circle_of_confusion(in_frag_coord: vec4<f32>) -> f32 {
 //
 // * `frag_offset` is the vector, in screen-space units, from one sample to the
 //   next. This need not be horizontal or vertical.
-fn box_blur_a(frag_coord: vec4<f32>, coc: f32, frag_offset: vec2<f32>) -> vec4<f32> {
+fn box_blur_a(frag_coord: vec4<f32>, coc: f32, frag_offset: vec2<f32>) -> vec4<
+    f32,
+> {
     let support = i32(round(coc * 0.5));
     let uv = frag_coord.xy / vec2<f32>(textureDimensions(color_texture_a));
     let offset = frag_offset / vec2<f32>(textureDimensions(color_texture_a));
 
     // Accumulate samples in a single direction.
     var sum = vec3(0.0);
-    for (var i = 0; i <= support; i += 1) {
+    for(var i = 0; i <= support; i += 1) {
         sum += textureSampleLevel(
-            color_texture_a, color_texture_sampler, uv + offset * f32(i), 0.0).rgb;
+                color_texture_a,
+                color_texture_sampler,
+                uv + offset * f32(i),
+                0.0,
+            ).rgb;
     }
 
     return vec4(sum / vec3(1.0 + f32(support)), 1.0);
@@ -171,16 +186,22 @@ fn box_blur_a(frag_coord: vec4<f32>, coc: f32, frag_offset: vec2<f32>) -> vec4<f
 // * `frag_offset` is the vector, in screen-space units, from one sample to the
 //   next. This need not be horizontal or vertical.
 @if(DUAL_INPUT)
-fn box_blur_b(frag_coord: vec4<f32>, coc: f32, frag_offset: vec2<f32>) -> vec4<f32> {
+fn box_blur_b(frag_coord: vec4<f32>, coc: f32, frag_offset: vec2<f32>) -> vec4<
+    f32,
+> {
     let support = i32(round(coc * 0.5));
     let uv = frag_coord.xy / vec2<f32>(textureDimensions(color_texture_b));
     let offset = frag_offset / vec2<f32>(textureDimensions(color_texture_b));
 
     // Accumulate samples in a single direction.
     var sum = vec3(0.0);
-    for (var i = 0; i <= support; i += 1) {
+    for(var i = 0; i <= support; i += 1) {
         sum += textureSampleLevel(
-            color_texture_b, color_texture_sampler, uv + offset * f32(i), 0.0).rgb;
+                color_texture_b,
+                color_texture_sampler,
+                uv + offset * f32(i),
+                0.0,
+            ).rgb;
     }
 
     return vec4(sum / vec3(1.0 + f32(support)), 1.0);
@@ -190,14 +211,26 @@ fn box_blur_b(frag_coord: vec4<f32>, coc: f32, frag_offset: vec2<f32>) -> vec4<f
 @fragment
 fn gaussian_horizontal(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let coc = calculate_circle_of_confusion(in.position);
-    return gaussian_blur(color_texture_a, color_texture_sampler, in.position, coc, vec2(1.0, 0.0));
+    return gaussian_blur(
+            color_texture_a,
+            color_texture_sampler,
+            in.position,
+            coc,
+            vec2(1.0, 0.0),
+        );
 }
 
 // Calculates the vertical component of the separable Gaussian blur.
 @fragment
 fn gaussian_vertical(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let coc = calculate_circle_of_confusion(in.position);
-    return gaussian_blur(color_texture_a, color_texture_sampler, in.position, coc, vec2(0.0, 1.0));
+    return gaussian_blur(
+            color_texture_a,
+            color_texture_sampler,
+            in.position,
+            coc,
+            vec2(0.0, 1.0),
+        );
 }
 
 // Calculates the vertical and first diagonal components of the separable
@@ -212,7 +245,11 @@ fn gaussian_vertical(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
 fn bokeh_pass_a(in: FullscreenVertexOutput) -> DualOutput {
     let coc = calculate_circle_of_confusion(in.position);
     let vertical = box_blur_a(in.position, coc, vec2(0.0, 1.0));
-    let diagonal = box_blur_a(in.position, coc, vec2(COS_NEG_FRAC_PI_6, SIN_NEG_FRAC_PI_6));
+    let diagonal = box_blur_a(
+            in.position,
+            coc,
+            vec2(COS_NEG_FRAC_PI_6, SIN_NEG_FRAC_PI_6),
+        );
 
     // Note that the diagonal part is pre-mixed with the vertical component.
     var output: DualOutput;
@@ -231,7 +268,15 @@ fn bokeh_pass_a(in: FullscreenVertexOutput) -> DualOutput {
 @fragment
 fn bokeh_pass_b(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let coc = calculate_circle_of_confusion(in.position);
-    let output_0 = box_blur_a(in.position, coc, vec2(COS_NEG_FRAC_PI_6, SIN_NEG_FRAC_PI_6));
-    let output_1 = box_blur_b(in.position, coc, vec2(COS_NEG_FRAC_PI_5_6, SIN_NEG_FRAC_PI_5_6));
+    let output_0 = box_blur_a(
+            in.position,
+            coc,
+            vec2(COS_NEG_FRAC_PI_6, SIN_NEG_FRAC_PI_6),
+        );
+    let output_1 = box_blur_b(
+            in.position,
+            coc,
+            vec2(COS_NEG_FRAC_PI_5_6, SIN_NEG_FRAC_PI_5_6),
+        );
     return mix(output_0, output_1, 0.5);
 }

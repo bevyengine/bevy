@@ -21,7 +21,13 @@
 //   blur this will be `vec2(0.0, 1.0)`.
 //
 // Returns the resulting color of the fragment.
-fn gaussian_blur(color_texture: texture_2d<f32>, color_texture_sampler: sampler, frag_coord: vec4<f32>, coc: f32, frag_offset: vec2<f32>) -> vec4<f32> {
+fn gaussian_blur(
+    color_texture: texture_2d<f32>,
+    color_texture_sampler: sampler,
+    frag_coord: vec4<f32>,
+    coc: f32,
+    frag_offset: vec2<f32>,
+) -> vec4<f32> {
     // Usually σ (the standard deviation) is half the radius, and the radius is
     // half the CoC. So we multiply by 0.25.
     let sigma = coc * 0.25;
@@ -39,9 +45,10 @@ fn gaussian_blur(color_texture: texture_2d<f32>, color_texture_sampler: sampler,
 
     // Accumulate samples on both sides of the current texel. Go two at a time,
     // taking advantage of bilinear filtering.
-    var sum = textureSampleLevel(color_texture, color_texture_sampler, uv, 0.0).rgb;
+    var sum = textureSampleLevel(color_texture, color_texture_sampler, uv, 0.0)
+            .rgb;
     var weight_sum = 1.0;
-    for (var i = 1; i <= support; i += 2) {
+    for(var i = 1; i <= support; i += 2) {
         // This is a well-known trick to reduce the number of needed texture
         // samples by a factor of two. We seek to accumulate two adjacent
         // samples c₀ and c₁ with weights w₀ and w₁ respectively, with a single
@@ -61,13 +68,19 @@ fn gaussian_blur(color_texture: texture_2d<f32>, color_texture_sampler: sampler,
         let uv_offset = offset * (f32(i) + w1 / (w0 + w1));
         let weight = w0 + w1;
 
-        sum += (
-            textureSampleLevel(color_texture, color_texture_sampler, uv + uv_offset, 0.0).rgb +
-            textureSampleLevel(color_texture, color_texture_sampler, uv - uv_offset, 0.0).rgb
-        ) * weight;
+        sum += (textureSampleLevel(
+                    color_texture,
+                    color_texture_sampler,
+                    uv + uv_offset,
+                    0.0,
+                ).rgb + textureSampleLevel(
+                    color_texture,
+                    color_texture_sampler,
+                    uv - uv_offset,
+                    0.0,
+                ).rgb) * weight;
         weight_sum += weight * 2.0;
     }
 
     return vec4(sum / weight_sum, 1.0);
 }
-

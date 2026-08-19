@@ -24,17 +24,17 @@ struct Mesh {
     morph_descriptor_index: u32,
     /// The index of the mesh metadata buffer.
     metadata_index: u32,
-};
+}
 
 @if(SKINNED)
 struct SkinnedMesh {
     data: array<mat4x4<f32>, 256u>,
-};
+}
 
 @if(MORPH_TARGETS)
 struct MorphWeights {
     weights: array<vec4<f32>, 64u>, // 64 = 256 / 4 (256 = MAX_MORPH_WEIGHTS)
-};
+}
 
 // Describes a single mesh instance that uses morph targets.
 @if(MORPH_TARGETS)
@@ -51,7 +51,7 @@ struct MorphDescriptor {
     vertex_count: u32,
     // The number of morph targets this mesh has.
     weight_count: u32,
-};
+}
 
 // Morph displacement for a single vertex.
 @if(MORPH_TARGETS)
@@ -68,13 +68,13 @@ struct MorphAttributes {
     tangent: vec3<f32>,
     // Padding, to ensure that each `vec3<f32>` is aligned to 16 bytes.
     pad_c: f32,
-};
+}
 
 // [2^0, 2^16)
-const MESH_FLAGS_VISIBILITY_RANGE_INDEX_BITS: u32     = (1u << 16u) - 1u;
+const MESH_FLAGS_VISIBILITY_RANGE_INDEX_BITS: u32 = (1u << 16u) - 1u;
 const MESH_FLAGS_AABB_BASED_VISIBILITY_RANGE_BIT: u32 = 1u << 27u;
-const MESH_FLAGS_NO_FRUSTUM_CULLING_BIT: u32          = 1u << 28u;
-const MESH_FLAGS_SHADOW_RECEIVER_BIT: u32             = 1u << 29u;
+const MESH_FLAGS_NO_FRUSTUM_CULLING_BIT: u32 = 1u << 28u;
+const MESH_FLAGS_SHADOW_RECEIVER_BIT: u32 = 1u << 29u;
 const MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT: u32 = 1u << 30u;
 // if the flag is set, the sign is positive, else it is negative
-const MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT: u32  = 1u << 31u;
+const MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT: u32 = 1u << 31u;

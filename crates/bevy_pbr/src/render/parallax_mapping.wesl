@@ -1,8 +1,9 @@
-import bevy_render::bindless::{bindless_samplers_filtering, bindless_textures_2d};
+import bevy_render::bindless::{
+    bindless_samplers_filtering, bindless_textures_2d
+};
 
 import package::render::{
-    pbr_bindings::{depth_map_texture, depth_map_sampler},
-    mesh_bindings::mesh
+    mesh_bindings::mesh, pbr_bindings::{depth_map_sampler, depth_map_texture}
 };
 
 @if(BINDLESS)
@@ -21,18 +22,17 @@ fn sample_depth_map(uv: vec2<f32>, material_bind_group_slot: u32) -> f32 {
     // See https://stackoverflow.com/questions/56581141/direct3d11-gradient-instruction-used-in-a-loop-with-varying-iteration-forcing
     @if(BINDLESS)
     return textureSampleLevel(
-        bindless_textures_2d[material_indices[material_bind_group_slot].depth_map_texture],
-        bindless_samplers_filtering[material_indices[material_bind_group_slot].depth_map_sampler],
-        uv,
-        0.0
-    ).r;
+            bindless_textures_2d[
+                material_indices[material_bind_group_slot].depth_map_texture
+            ],
+            bindless_samplers_filtering[
+                material_indices[material_bind_group_slot].depth_map_sampler
+            ],
+            uv,
+            0.0,
+        ).r;
     @else
-    return textureSampleLevel(
-        depth_map_texture,
-        depth_map_sampler,
-        uv,
-        0.0
-    ).r;
+    return textureSampleLevel(depth_map_texture, depth_map_sampler, uv, 0.0).r;
 }
 
 // An implementation of parallax mapping, see https://en.wikipedia.org/wiki/Parallax_mapping
@@ -70,7 +70,8 @@ fn parallaxed_uv(
     // resulting in a singularity.
     let layer_count = mix(max_layer_count, 1.0, view_steepness);
     let layer_depth = 1.0 / layer_count;
-    var delta_uv = depth_scale * layer_depth * Vt.xy * vec2(1.0, -1.0) / view_steepness;
+    var delta_uv = depth_scale * layer_depth * Vt.xy * vec2(1.0, -1.0)
+        / view_steepness;
 
     var current_layer_depth = 0.0;
     var texture_depth = sample_depth_map(uv, material_bind_group_slot);
@@ -78,13 +79,18 @@ fn parallaxed_uv(
     // texture_depth > current_layer_depth means the depth map depth is deeper
     // than the depth the ray would be at this UV offset so the ray has not
     // intersected the surface
-    for (var i: i32 = 0; texture_depth > current_layer_depth && i <= i32(layer_count); i++) {
+    for(
+        var i: i32 = 0;
+        texture_depth > current_layer_depth && i <= i32(layer_count);
+        i++
+    ) {
         current_layer_depth += layer_depth;
         uv += delta_uv;
         texture_depth = sample_depth_map(uv, material_bind_group_slot);
     }
 
-    @if(RELIEF_MAPPING) {
+    @if(RELIEF_MAPPING)
+    {
     // Relief Mapping
     // ==============
     // "Refine" the rough result from Steep Parallax Mapping
@@ -98,7 +104,7 @@ fn parallaxed_uv(
     uv -= delta_uv;
     current_layer_depth -= delta_depth;
 
-    for (var i: u32 = 0u; i < max_steps; i++) {
+    for(var i: u32 = 0u; i < max_steps; i++) {
         texture_depth = sample_depth_map(uv, material_bind_group_slot);
 
         // Halve the deltas for the next step
@@ -106,7 +112,7 @@ fn parallaxed_uv(
         delta_depth *= 0.5;
 
         // Step based on whether the current depth is above or below the depth map
-        if (texture_depth > current_layer_depth) {
+        if texture_depth > current_layer_depth {
             uv += delta_uv;
             current_layer_depth += delta_depth;
         } else {
@@ -114,7 +120,9 @@ fn parallaxed_uv(
             current_layer_depth -= delta_depth;
         }
     }
-    } @else {
+    }
+    @else
+    {
     // Parallax Occlusion mapping
     // ==========================
     // "Refine" Steep Parallax Mapping by interpolating between the
@@ -123,8 +131,8 @@ fn parallaxed_uv(
     // may skip small details and result in writhing material artifacts.
     let previous_uv = uv - delta_uv;
     let next_depth = texture_depth - current_layer_depth;
-    let previous_depth = sample_depth_map(previous_uv, material_bind_group_slot) -
-        current_layer_depth + layer_depth;
+    let previous_depth = sample_depth_map(previous_uv, material_bind_group_slot)
+        - current_layer_depth + layer_depth;
 
     let weight = next_depth / (next_depth - previous_depth);
 

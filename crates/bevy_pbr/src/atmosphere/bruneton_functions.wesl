@@ -54,9 +54,8 @@
 // THE POSSIBILITY OF SUCH DAMAGE.
 
 import package::atmosphere::{
-    types::Atmosphere,
-    bindings::atmosphere,
-    functions::{get_local_r, sample_transmittance_lut},
+    bindings::atmosphere, functions::{get_local_r, sample_transmittance_lut},
+    types::Atmosphere
 };
 
 // Bruneton's paper calls the surface and exosphere "bottom radius" and "top radius".
@@ -69,7 +68,10 @@ import package::atmosphere::{
 // See Bruneton and Neyret 2008, "Precomputed Atmospheric Scattering" section 4
 fn transmittance_lut_r_mu_to_uv(atm: Atmosphere, r: f32, mu: f32) -> vec2<f32> {
     // Distance along a horizontal ray from the ground to the top atmosphere boundary
-    let H = sqrt(atm.outer_radius * atm.outer_radius - atm.inner_radius * atm.inner_radius);
+    let H = sqrt(
+            atm.outer_radius * atm.outer_radius - atm.inner_radius
+            * atm.inner_radius,
+        );
 
     // Distance from a point at height r to the horizon
     // ignore the case where r <= atmosphere.inner_radius
@@ -79,8 +81,10 @@ fn transmittance_lut_r_mu_to_uv(atm: Atmosphere, r: f32, mu: f32) -> vec2<f32> {
     let d = distance_to_top_atmosphere_boundary(atm, r, mu);
 
     // Minimum and maximum distance to the top atmosphere boundary from a point at height r
-    let d_min = atm.outer_radius - r; // length of the ray straight up to the top atmosphere boundary
-    let d_max = rho + H; // length of the ray to the top atmosphere boundary and grazing the horizon
+    let d_min = atm.outer_radius
+        - r; // length of the ray straight up to the top atmosphere boundary
+    let d_max = rho
+        + H; // length of the ray to the top atmosphere boundary and grazing the horizon
 
     let u = (d - d_min) / (d_max - d_min);
     let v = rho / H;
@@ -90,7 +94,10 @@ fn transmittance_lut_r_mu_to_uv(atm: Atmosphere, r: f32, mu: f32) -> vec2<f32> {
 // Inverse of the mapping above, mapping from UV coordinates in the transmittance LUT to view height (r) and zenith cos angle (mu)
 fn transmittance_lut_uv_to_r_mu(uv: vec2<f32>) -> vec2<f32> {
     // Distance to top atmosphere boundary for a horizontal ray at ground level
-    let H = sqrt(atmosphere.outer_radius * atmosphere.outer_radius - atmosphere.inner_radius * atmosphere.inner_radius);
+    let H = sqrt(
+            atmosphere.outer_radius * atmosphere.outer_radius
+            - atmosphere.inner_radius * atmosphere.inner_radius,
+        );
 
     // Distance to the horizon, from which we can compute r:
     let rho = H * uv.y;
@@ -124,21 +131,33 @@ fn transmittance_lut_uv_to_r_mu(uv: vec2<f32>) -> vec2<f32> {
 /// Center of sphere, c = [0,0,0]
 /// Radius of sphere, r = atmosphere.outer_radius
 /// This function solves the quadratic equation for line-sphere intersection simplified under these assumptions
-fn distance_to_top_atmosphere_boundary(atm: Atmosphere, r: f32, mu: f32) -> f32 {
+fn distance_to_top_atmosphere_boundary(
+    atm: Atmosphere,
+    r: f32,
+    mu: f32,
+) -> f32 {
     // ignore the case where r > atm.outer_radius
-    let positive_discriminant = max(r * r * (mu * mu - 1.0) + atm.outer_radius * atm.outer_radius, 0.0);
+    let positive_discriminant = max(
+            r * r * (mu * mu - 1.0) + atm.outer_radius * atm.outer_radius,
+            0.0,
+        );
     return max(-r * mu + sqrt(positive_discriminant), 0.0);
 }
 
 /// Simplified ray-sphere intersection
 /// as above for intersections with the ground
 fn distance_to_bottom_atmosphere_boundary(r: f32, mu: f32) -> f32 {
-    let positive_discriminant = max(r * r * (mu * mu - 1.0) + atmosphere.inner_radius * atmosphere.inner_radius, 0.0);
+    let positive_discriminant = max(
+            r * r * (mu * mu - 1.0) + atmosphere.inner_radius
+            * atmosphere.inner_radius,
+            0.0,
+        );
     return max(-r * mu - sqrt(positive_discriminant), 0.0);
 }
 
 fn ray_intersects_ground(r: f32, mu: f32) -> bool {
-    return mu < 0.0 && r * r * (mu * mu - 1.0) + atmosphere.inner_radius * atmosphere.inner_radius >= 0.0;
+    return mu < 0.0 && r * r * (mu * mu - 1.0) + atmosphere.inner_radius
+        * atmosphere.inner_radius >= 0.0;
 }
 
 // NOTICE: This function is copyrighted by Eric Bruneton and INRIA, and falls
@@ -149,12 +168,15 @@ fn sample_transmittance_lut_segment(r: f32, mu: f32, t: f32) -> vec3<f32> {
 
     if ray_intersects_ground(r, mu) {
         return min(
-            sample_transmittance_lut(r_t, -mu_t) / sample_transmittance_lut(r, -mu),
-            vec3(1.0)
-        );
+                sample_transmittance_lut(r_t, -mu_t)
+                / sample_transmittance_lut(r, -mu),
+                vec3(1.0),
+            );
     } else {
         return min(
-            sample_transmittance_lut(r, mu) / sample_transmittance_lut(r_t, mu_t), vec3(1.0)
-        );
+                sample_transmittance_lut(r, mu)
+                / sample_transmittance_lut(r_t, mu_t),
+                vec3(1.0),
+            );
     }
 }

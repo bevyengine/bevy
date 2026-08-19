@@ -21,11 +21,14 @@ import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput;
 
 struct CASUniforms {
     sharpness: f32,
-};
+}
 
-@group(0) @binding(0) var screenTexture: texture_2d<f32>;
-@group(0) @binding(1) var samp: sampler;
-@group(0) @binding(2) var<uniform> uniforms: CASUniforms;
+@group(0) @binding(0)
+var screenTexture: texture_2d<f32>;
+@group(0) @binding(1)
+var samp: sampler;
+@group(0) @binding(2)
+var<uniform> uniforms: CASUniforms;
 
 // This is set at the limit of providing unnatural results for sharpening.
 const FSR_RCAS_LIMIT = 0.1875;
@@ -76,8 +79,12 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let hitMin = mn4 / (4.0 * mx4);
     let hitMax = (peakC.x - mx4) / (peakC.y + 4.0 * mn4);
     let lobeRGB = max(-hitMin, hitMax);
-    var lobe = max(-FSR_RCAS_LIMIT, min(0.0, max(lobeRGB.r, max(lobeRGB.g, lobeRGB.b)))) * uniforms.sharpness;
-@if(RCAS_DENOISE) {
+    var lobe = max(
+            -FSR_RCAS_LIMIT,
+            min(0.0, max(lobeRGB.r, max(lobeRGB.g, lobeRGB.b))),
+        ) * uniforms.sharpness;
+    @if(RCAS_DENOISE)
+    {
     // Luma times 2.
     let bL = b.b * 0.5 + (b.r * 0.5 + b.g);
     let dL = d.b * 0.5 + (d.r * 0.5 + d.g);
@@ -85,11 +92,18 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let fL = f.b * 0.5 + (f.r * 0.5 + f.g);
     let hL = h.b * 0.5 + (h.r * 0.5 + h.g);
     // Noise detection.
-    var noise = 0.25 * bL + 0.25 * dL + 0.25 * fL + 0.25 * hL - eL;;
-    noise = saturate(abs(noise) / (max(max(bL, dL), max(fL, hL)) - min(min(bL, dL), min(fL, hL))));
+    var noise = 0.25 * bL + 0.25 * dL + 0.25 * fL + 0.25 * hL - eL;
+    noise = saturate(
+            abs(noise)
+            / (max(max(bL, dL), max(fL, hL)) - min(min(bL, dL), min(fL, hL))),
+        );
     noise = 1.0 - 0.5 * noise;
     // Apply noise removal.
     lobe *= noise;
-}
-    return vec4<f32>((lobe * b + lobe * d + lobe * f + lobe * h + e.rgb) / (4.0 * lobe + 1.0), e.w);
+    }
+    return vec4<f32>(
+            (lobe * b + lobe * d + lobe * f + lobe * h + e.rgb)
+            / (4.0 * lobe + 1.0),
+            e.w,
+        );
 }

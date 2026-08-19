@@ -16,4 +16,4 @@ struct Mesh2d {
     tag: u32,
     /// The index of the mesh metadata buffer.
     metadata_index: u32,
-};
+}

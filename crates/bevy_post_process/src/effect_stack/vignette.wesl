@@ -12,17 +12,18 @@ struct VignetteSettings {
     center: vec2<f32>,
     edge_compensation: f32,
     unused: u32,
-    color: vec4<f32>
+    color: vec4<f32>,
 }
 
 const VISUAL_THRESHOLD: f32 = 1e-4;
 
 // The settings supplied by the developer.
-@group(0) @binding(4) var<uniform> vignette_settings: VignetteSettings;
+@group(0) @binding(4)
+var<uniform> vignette_settings: VignetteSettings;
 
 fn vignette(uv: vec2<f32>, color: vec3<f32>) -> vec3<f32> {
     let intensity = vignette_settings.intensity;
-    if (intensity < VISUAL_THRESHOLD) {
+    if intensity < VISUAL_THRESHOLD {
         return color;
     }
     let radius = vignette_settings.radius;
@@ -49,13 +50,14 @@ fn vignette(uv: vec2<f32>, color: vec3<f32>) -> vec3<f32> {
     // (vignette_settings.center - 0.5) maps the 0.0-1.0 input to -0.5-0.5.
     // Multiplying by (1.0, y/x) compensates for the screen's aspect ratio.
     // This ensures that a movement of 0.1 looks the same distance horizontally and vertically.
-    let offset = (vignette_settings.center - 0.5) * vec2<f32>(1.0, resolution.y / resolution.x);
+    let offset = (vignette_settings.center - 0.5)
+        * vec2<f32>(1.0, resolution.y / resolution.x);
 
     let uv_from_center = centered_uv - offset;
     var scale_vec = aspect_ratio * vec2<f32>(1.0, 1.0 / roundness);
 
     // Apply edge compensation to make the vignette fit the screen better.
-    if (screen_aspect >= 1.0) {
+    if screen_aspect >= 1.0 {
         let compensation_factor = mix(1.0, 1.0 / screen_aspect, edge_comp);
         scale_vec.x *= compensation_factor;
     } else {

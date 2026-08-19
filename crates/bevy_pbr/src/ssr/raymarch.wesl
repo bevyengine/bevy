@@ -16,18 +16,19 @@
 
 import package::render::mesh_view_bindings::depth_prepass_texture;
 import package::render::view_transformations::{
-    direction_world_to_clip,
-    ndc_to_uv,
-    perspective_camera_near,
-    position_world_to_ndc,
+    direction_world_to_clip, ndc_to_uv, perspective_camera_near,
+    position_world_to_ndc
 };
 
 // Allows us to sample from the depth buffer with bilinear filtering.
-@if(USE_DEPTH_SAMPLERS) {
-@group(2) @binding(2) var depth_linear_sampler: sampler;
+@if(USE_DEPTH_SAMPLERS)
+{
+@group(2) @binding(2)
+var depth_linear_sampler: sampler;
 
 // Allows us to sample from the depth buffer with nearest-neighbor filtering.
-@group(2) @binding(3) var depth_nearest_sampler: sampler;
+@group(2) @binding(3)
+var depth_nearest_sampler: sampler;
 }
 
 // Manual depth fetch helpers used on WebGPU where depth + filtering sampler is invalid.
@@ -64,14 +65,24 @@ fn depth_sample_bilinear_clamped(uv: vec2<f32>, tex_size: vec2<f32>) -> f32 {
 
 fn depth_sample_linear(uv: vec2<f32>, tex_size: vec2<f32>) -> f32 {
     @if(USE_DEPTH_SAMPLERS)
-    return textureSampleLevel(depth_prepass_texture, depth_linear_sampler, uv, 0u);
+    return textureSampleLevel(
+            depth_prepass_texture,
+            depth_linear_sampler,
+            uv,
+            0u,
+        );
     @else
     return depth_sample_bilinear_clamped(uv, tex_size);
 }
 
 fn depth_sample_nearest(uv: vec2<f32>, tex_size: vec2<f32>) -> f32 {
     @if(USE_DEPTH_SAMPLERS)
-    return textureSampleLevel(depth_prepass_texture, depth_nearest_sampler, uv, 0u);
+    return textureSampleLevel(
+            depth_prepass_texture,
+            depth_nearest_sampler,
+            uv,
+            0u,
+        );
     @else
     return depth_sample_nearest_clamped(uv, tex_size);
 }
@@ -125,21 +136,24 @@ fn hybrid_root_finder_find_root(
     //
     // Ray march using linear steps
 
-    if ((*root_finder).linear_steps > 0u) {
+    if (*root_finder).linear_steps > 0u {
         let candidate_t = mix(
-            min_t,
-            max_t,
-            pow(
-                (*root_finder).jitter / f32((*root_finder).linear_steps),
-                (*root_finder).linear_march_exponent
-            )
-        );
+                min_t,
+                max_t,
+                pow(
+                    (*root_finder).jitter / f32((*root_finder).linear_steps),
+                    (*root_finder).linear_march_exponent,
+                ),
+            );
 
         let candidate = start + dir * candidate_t;
-        let candidate_d = depth_raymarch_distance_fn_evaluate(distance_fn, candidate);
+        let candidate_d = depth_raymarch_distance_fn_evaluate(
+                distance_fn,
+                candidate,
+            );
         intersected = candidate_d.distance < 0.0 && candidate_d.valid;
 
-        if (intersected) {
+        if intersected {
             max_t = candidate_t;
             max_d = candidate_d;
             // The `[min_t .. max_t]` interval contains an intersection. End the linear search.
@@ -148,21 +162,25 @@ fn hybrid_root_finder_find_root(
             min_t = candidate_t;
             min_d = candidate_d;
 
-            for (var step = 1u; step < (*root_finder).linear_steps; step += 1u) {
+            for(var step = 1u; step < (*root_finder).linear_steps; step += 1u) {
                 let candidate_t = mix(
-                    (*root_finder).min_t,
-                    (*root_finder).max_t,
-                    pow(
-                        (f32(step) + (*root_finder).jitter) / f32((*root_finder).linear_steps),
-                        (*root_finder).linear_march_exponent
-                    )
-                );
+                        (*root_finder).min_t,
+                        (*root_finder).max_t,
+                        pow(
+                            (f32(step) + (*root_finder).jitter)
+                            / f32((*root_finder).linear_steps),
+                            (*root_finder).linear_march_exponent,
+                        ),
+                    );
 
                 let candidate = start + dir * candidate_t;
-                let candidate_d = depth_raymarch_distance_fn_evaluate(distance_fn, candidate);
+                let candidate_d = depth_raymarch_distance_fn_evaluate(
+                        distance_fn,
+                        candidate,
+                    );
                 intersected = candidate_d.distance < 0.0 && candidate_d.valid;
 
-                if (intersected) {
+                if intersected {
                     max_t = candidate_t;
                     max_d = candidate_d;
                     // The `[min_t .. max_t]` interval contains an intersection.
@@ -183,13 +201,16 @@ fn hybrid_root_finder_find_root(
     //
     // Refine the hit using bisection
 
-    if (intersected) {
-        for (var step = 0u; step < (*root_finder).bisection_steps; step += 1u) {
+    if intersected {
+        for(var step = 0u; step < (*root_finder).bisection_steps; step += 1u) {
             let mid_t = (min_t + max_t) * 0.5;
             let candidate = start + dir * mid_t;
-            let candidate_d = depth_raymarch_distance_fn_evaluate(distance_fn, candidate);
+            let candidate_d = depth_raymarch_distance_fn_evaluate(
+                    distance_fn,
+                    candidate,
+                );
 
-            if (candidate_d.distance < 0.0 && candidate_d.valid) {
+            if candidate_d.distance < 0.0 && candidate_d.valid {
                 // Intersection at the mid point. Refine the first half.
                 max_t = mid_t;
                 max_d = candidate_d;
@@ -200,13 +221,16 @@ fn hybrid_root_finder_find_root(
             }
         }
 
-        if ((*root_finder).use_secant) {
+        if (*root_finder).use_secant {
             // Finish with one application of the secant method
             let total_d = min_d.distance + -max_d.distance;
 
             let mid_t = mix(min_t, max_t, min_d.distance / total_d);
             let candidate = start + dir * mid_t;
-            let candidate_d = depth_raymarch_distance_fn_evaluate(distance_fn, candidate);
+            let candidate_d = depth_raymarch_distance_fn_evaluate(
+                    distance_fn,
+                    candidate,
+                );
 
             // Only accept the result of the secant method if it improves upon
             // the previous result.
@@ -214,7 +238,8 @@ fn hybrid_root_finder_find_root(
             // Technically root_finder should be `abs(candidate_d.distance) <
             // min(min_d.distance, -max_d.distance) * frac`, but root_finder seems
             // sufficient.
-            if (abs(candidate_d.distance) < min_d.distance * 0.9 && candidate_d.valid) {
+            if abs(candidate_d.distance) < min_d.distance * 0.9
+            && candidate_d.valid {
                 *hit_t = mid_t;
                 *hit_d = candidate_d;
             } else {
@@ -287,13 +312,15 @@ fn depth_raymarch_distance_fn_evaluate(
     // * The false occlusions due to duplo land are rejected because the ray stays above the smooth surface.
     // * The shrink-wrap surface is no longer continuous, so it's possible for rays to miss it.
 
-    let linear_depth = 1.0 / depth_sample_linear(interp_uv, (*distance_fn).depth_tex_size);
-    let unfiltered_depth = 1.0 / depth_sample_nearest(interp_uv, (*distance_fn).depth_tex_size);
+    let linear_depth = 1.0
+        / depth_sample_linear(interp_uv, (*distance_fn).depth_tex_size);
+    let unfiltered_depth = 1.0
+        / depth_sample_nearest(interp_uv, (*distance_fn).depth_tex_size);
 
     var max_depth: f32;
     var min_depth: f32;
 
-    if ((*distance_fn).use_sloppy_march) {
+    if (*distance_fn).use_sloppy_march {
         max_depth = unfiltered_depth;
         min_depth = unfiltered_depth;
     } else {
@@ -309,7 +336,7 @@ fn depth_raymarch_distance_fn_evaluate(
     // distance_fn will be used at the end of the ray march to potentially discard the hit.
     res.penetration = ray_depth - min_depth;
 
-    if ((*distance_fn).march_behind_surfaces) {
+    if (*distance_fn).march_behind_surfaces {
         res.valid = res.penetration < (*distance_fn).depth_thickness;
     } else {
         res.valid = true;
@@ -435,7 +462,11 @@ fn depth_ray_march_to_cs_dir_impl(
 
     // Clip ray start to the view frustum
     var delta_cs = end_cs.xyz - (*raymarch).ray_start_cs;
-    let near_edge = select(vec3(-1.0, -1.0, 0.0), vec3(1.0, 1.0, 1.0), delta_cs < vec3(0.0));
+    let near_edge = select(
+            vec3(-1.0, -1.0, 0.0),
+            vec3(1.0, 1.0, 1.0),
+            delta_cs < vec3(0.0),
+        );
     let dist_to_near_edge = (near_edge - (*raymarch).ray_start_cs) / delta_cs;
     let max_dist_to_near_edge = max(dist_to_near_edge.x, dist_to_near_edge.y);
     (*raymarch).ray_start_cs += delta_cs * max(0.0, max_dist_to_near_edge);
@@ -443,14 +474,18 @@ fn depth_ray_march_to_cs_dir_impl(
     // Clip ray end to the view frustum
 
     delta_cs = end_cs.xyz - (*raymarch).ray_start_cs;
-    let far_edge = select(vec3(-1.0, -1.0, 0.0), vec3(1.0, 1.0, 1.0), delta_cs >= vec3(0.0));
+    let far_edge = select(
+            vec3(-1.0, -1.0, 0.0),
+            vec3(1.0, 1.0, 1.0),
+            delta_cs >= vec3(0.0),
+        );
     let dist_to_far_edge = (far_edge - (*raymarch).ray_start_cs) / delta_cs;
     let min_dist_to_far_edge = min(
-        min(dist_to_far_edge.x, dist_to_far_edge.y),
-        dist_to_far_edge.z
-    );
+            min(dist_to_far_edge.x, dist_to_far_edge.y),
+            dist_to_far_edge.z,
+        );
 
-    if (infinite) {
+    if infinite {
         delta_cs *= min_dist_to_far_edge;
     } else {
         // If unbounded, would make the ray reach the end of the frustum
@@ -461,14 +496,20 @@ fn depth_ray_march_to_cs_dir_impl(
 }
 
 /// March from a clip-space position (w = 1)
-fn depth_ray_march_from_cs(raymarch: ptr<function, DepthRayMarch>, v: vec3<f32>) {
+fn depth_ray_march_from_cs(
+    raymarch: ptr<function, DepthRayMarch>,
+    v: vec3<f32>,
+) {
     (*raymarch).ray_start_cs = v;
 }
 
 /// March to a clip-space position (w = 1)
 ///
 /// Must be called after `from_cs`, as it will clip the world-space ray to the view frustum.
-fn depth_ray_march_to_cs(raymarch: ptr<function, DepthRayMarch>, end_cs: vec3<f32>) {
+fn depth_ray_march_to_cs(
+    raymarch: ptr<function, DepthRayMarch>,
+    end_cs: vec3<f32>,
+) {
     let dir = vec4(end_cs - (*raymarch).ray_start_cs, 0.0) * sign(end_cs.z);
     depth_ray_march_to_cs_dir_impl(raymarch, dir, false);
 }
@@ -476,26 +517,41 @@ fn depth_ray_march_to_cs(raymarch: ptr<function, DepthRayMarch>, end_cs: vec3<f3
 /// March towards a clip-space direction. Infinite (ray is extended to cover the whole view frustum).
 ///
 /// Must be called after `from_cs`, as it will clip the world-space ray to the view frustum.
-fn depth_ray_march_to_cs_dir(raymarch: ptr<function, DepthRayMarch>, dir: vec4<f32>) {
+fn depth_ray_march_to_cs_dir(
+    raymarch: ptr<function, DepthRayMarch>,
+    dir: vec4<f32>,
+) {
     depth_ray_march_to_cs_dir_impl(raymarch, dir, true);
 }
 
 /// March to a world-space position.
 ///
 /// Must be called after `from_cs`, as it will clip the world-space ray to the view frustum.
-fn depth_ray_march_to_ws(raymarch: ptr<function, DepthRayMarch>, end: vec3<f32>) {
+fn depth_ray_march_to_ws(
+    raymarch: ptr<function, DepthRayMarch>,
+    end: vec3<f32>,
+) {
     depth_ray_march_to_cs(raymarch, position_world_to_ndc(end));
 }
 
 /// March towards a world-space direction. Infinite (ray is extended to cover the whole view frustum).
 ///
 /// Must be called after `from_cs`, as it will clip the world-space ray to the view frustum.
-fn depth_ray_march_to_ws_dir(raymarch: ptr<function, DepthRayMarch>, dir: vec3<f32>) {
-    depth_ray_march_to_cs_dir_impl(raymarch, direction_world_to_clip(dir), true);
+fn depth_ray_march_to_ws_dir(
+    raymarch: ptr<function, DepthRayMarch>,
+    dir: vec3<f32>,
+) {
+    depth_ray_march_to_cs_dir_impl(
+        raymarch,
+        direction_world_to_clip(dir),
+        true,
+    );
 }
 
 /// Perform the ray march.
-fn depth_ray_march_march(raymarch: ptr<function, DepthRayMarch>) -> DepthRayMarchResult {
+fn depth_ray_march_march(
+    raymarch: ptr<function, DepthRayMarch>,
+) -> DepthRayMarchResult {
     var res = DepthRayMarchResult(false, 0.0, vec2(0.0), 0.0, 0.0);
 
     let ray_start_uv = ndc_to_uv((*raymarch).ray_start_cs.xy);
@@ -506,12 +562,16 @@ fn depth_ray_march_march(raymarch: ptr<function, DepthRayMarch>) -> DepthRayMarc
 
     let min_px_per_step = 1u;
     let step_count = max(
-        2,
-        min(i32((*raymarch).linear_steps), i32(floor(length(ray_len_px) / f32(min_px_per_step))))
-    );
+            2,
+            min(
+                i32((*raymarch).linear_steps),
+                i32(floor(length(ray_len_px) / f32(min_px_per_step))),
+            ),
+        );
 
     let linear_z_to_scaled_linear_z = 1.0 / perspective_camera_near();
-    let depth_thickness = (*raymarch).depth_thickness_linear_z * linear_z_to_scaled_linear_z;
+    let depth_thickness = (*raymarch).depth_thickness_linear_z
+        * linear_z_to_scaled_linear_z;
 
     var distance_fn: DepthRaymarchDistanceFn;
     distance_fn.depth_tex_size = (*raymarch).depth_tex_size;
@@ -529,18 +589,19 @@ fn depth_ray_march_march(raymarch: ptr<function, DepthRayMarch>) -> DepthRayMarc
     root_finder.linear_march_exponent = (*raymarch).linear_march_exponent;
     root_finder.jitter = (*raymarch).jitter;
     let intersected = hybrid_root_finder_find_root(
-        &root_finder,
-        (*raymarch).ray_start_cs,
-        (*raymarch).ray_end_cs,
-        &distance_fn,
-        &hit_t,
-        &miss_t,
-        &hit
-    );
+            &root_finder,
+            (*raymarch).ray_start_cs,
+            (*raymarch).ray_end_cs,
+            &distance_fn,
+            &hit_t,
+            &miss_t,
+            &hit,
+        );
 
     res.hit_t = hit_t;
 
-    if (intersected && hit.penetration < depth_thickness && hit.distance < depth_thickness) {
+    if intersected && hit.penetration < depth_thickness && hit.distance
+    < depth_thickness {
         res.hit = true;
         res.hit_uv = mix(ray_start_uv, ray_end_uv, res.hit_t);
         res.hit_penetration = hit.penetration / linear_z_to_scaled_linear_z;

@@ -1,13 +1,11 @@
 import package::atmosphere::{
-    bindings::{view, settings},
-    bruneton_functions::sample_transmittance_lut_segment,
-    functions::{
-        sample_transmittance_lut,
-        sample_sky_view_lut, direction_world_to_atmosphere,
-        uv_to_ray_direction, uv_to_ndc, sample_aerial_view_lut,
-        sample_sun_radiance, ndc_to_camera_dist, raymarch_atmosphere, 
-        get_view_position, max_atmosphere_distance
-    },
+    bindings::{settings, view},
+    bruneton_functions::sample_transmittance_lut_segment, functions::{
+        direction_world_to_atmosphere, get_view_position,
+        max_atmosphere_distance, ndc_to_camera_dist, raymarch_atmosphere,
+        sample_aerial_view_lut, sample_sky_view_lut, sample_sun_radiance,
+        sample_transmittance_lut, uv_to_ndc, uv_to_ray_direction
+    }
 };
 
 import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput;
@@ -16,17 +14,24 @@ import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput;
 enable dual_source_blending;
 
 @if(MULTISAMPLED)
-@group(0) @binding(13) var depth_texture: texture_depth_multisampled_2d;
+@group(0) @binding(13)
+var depth_texture: texture_depth_multisampled_2d;
 @else
-@group(0) @binding(13) var depth_texture: texture_depth_2d;
+@group(0) @binding(13)
+var depth_texture: texture_depth_2d;
 
 struct RenderSkyOutput {
     @if(DUAL_SOURCE_BLENDING)
-    @location(0) @blend_src(0) inscattering: vec4<f32>,
+    @blend_src(0)
+    @location(0)
+    inscattering: vec4<f32>,
     @if(DUAL_SOURCE_BLENDING)
-    @location(0) @blend_src(1) transmittance: vec4<f32>,
+    @blend_src(1)
+    @location(0)
+    transmittance: vec4<f32>,
     @else
-    @location(0) inscattering: vec4<f32>,
+    @location(0)
+    inscattering: vec4<f32>,
 }
 
 @fragment
@@ -52,7 +57,14 @@ fn main(in: FullscreenVertexOutput) -> RenderSkyOutput {
         inscattering = sample_sky_view_lut(r, ray_dir_as);
         if should_raymarch {
             let t_max = max_atmosphere_distance(r, mu);
-            let result = raymarch_atmosphere(world_pos, ray_dir_ws, t_max, max_samples, in.uv, true);
+            let result = raymarch_atmosphere(
+                    world_pos,
+                    ray_dir_ws,
+                    t_max,
+                    max_samples,
+                    in.uv,
+                    true,
+                );
             inscattering = result.inscattering;
             transmittance = result.transmittance;
         }
@@ -62,7 +74,14 @@ fn main(in: FullscreenVertexOutput) -> RenderSkyOutput {
         inscattering = sample_aerial_view_lut(in.uv, t);
         transmittance = sample_transmittance_lut_segment(r, mu, t);
         if should_raymarch {
-            let result = raymarch_atmosphere(world_pos, ray_dir_ws, t, max_samples, in.uv, false);
+            let result = raymarch_atmosphere(
+                    world_pos,
+                    ray_dir_ws,
+                    t,
+                    max_samples,
+                    in.uv,
+                    false,
+                );
             inscattering = result.inscattering;
             transmittance = result.transmittance;
         }
@@ -70,12 +89,12 @@ fn main(in: FullscreenVertexOutput) -> RenderSkyOutput {
 
     // exposure compensation
     inscattering *= view.exposure;
-    
+
     @if(DUAL_SOURCE_BLENDING)
     return RenderSkyOutput(vec4(inscattering, 0.0), vec4(transmittance, 1.0));
     @if(!DUAL_SOURCE_BLENDING)
-    let mean_transmittance = (transmittance.r + transmittance.g + transmittance.b) / 3.0;
+    let mean_transmittance = (transmittance.r + transmittance.g
+            + transmittance.b) / 3.0;
     @if(!DUAL_SOURCE_BLENDING)
     return RenderSkyOutput(vec4(inscattering, mean_transmittance));
-    
 }

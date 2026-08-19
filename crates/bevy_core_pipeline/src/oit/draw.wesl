@@ -1,4 +1,7 @@
-import bevy_pbr::render::mesh_view_bindings::{view, oit_nodes_capacity, oit_nodes, oit_heads, oit_atomic_counter, oit_settings};
+import bevy_pbr::render::mesh_view_bindings::{
+    oit_atomic_counter, oit_heads, oit_nodes, oit_nodes_capacity, oit_settings,
+    view
+};
 import bevy_pbr::render::mesh_view_types::OitFragmentNode;
 import bevy_pbr::prepass::utils as prepass_utils;
 
@@ -11,15 +14,15 @@ fn oit_draw(position: vec4f, color: vec4f) {
     }
     // Don't add fully transparent fragments to the list
     // because we don't want to have to sort them in the resolve pass
-    if color.r < oit_settings.alpha_threshold
-        && color.g < oit_settings.alpha_threshold
-        && color.b < oit_settings.alpha_threshold
-        && color.a < oit_settings.alpha_threshold
-    {
+    if color.r < oit_settings.alpha_threshold && color.g
+    < oit_settings.alpha_threshold && color.b < oit_settings.alpha_threshold
+    && color.a < oit_settings.alpha_threshold {
         return;
     }
     // get the index of the current fragment relative to the screen size
-    let screen_index = u32(floor(position.x) + floor(position.y) * view.viewport.z);
+    let screen_index = u32(
+            floor(position.x) + floor(position.y) * view.viewport.z,
+        );
 
     var new_node_index = atomicAdd(&oit_atomic_counter, 1u);
     // exit early if we've reached the maximum amount of fragments nodes
@@ -30,7 +33,8 @@ fn oit_draw(position: vec4f, color: vec4f) {
 
     var node: OitFragmentNode;
     // In `oit_heads` buffer, index starts from 1, end sentinel is 0 so that we can avoid writing `u32::MAX` from CPU. wgpu guarantees buffers are zero-initialized.
-    node.next = atomicExchange(&oit_heads[screen_index], new_node_index + 1u) - 1u;
+    node.next = atomicExchange(&oit_heads[screen_index], new_node_index + 1u)
+        - 1u;
     node.color = bevy_pbr::render::rgb9e5::vec3_to_rgb9e5_(color.rgb);
     node.depth_alpha = pack_24bit_depth_8bit_alpha(position.z, color.a);
     oit_nodes[new_node_index] = node;

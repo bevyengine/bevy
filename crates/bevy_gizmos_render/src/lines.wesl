@@ -1,8 +1,8 @@
 // TODO use common view binding
-import bevy_render::{view::View, maths::affine3_to_square};
+import bevy_render::{maths::affine3_to_square, view::View};
 
-@group(0) @binding(0) var<uniform> view: View;
-
+@group(0) @binding(0)
+var<uniform> view: View;
 
 struct LineGizmoUniform {
     world_from_local: mat3x4<f32>,
@@ -16,42 +16,52 @@ struct LineGizmoUniform {
     _padding: vec3<f32>,
 }
 
-@group(1) @binding(0) var<uniform> line_gizmo: LineGizmoUniform;
+@group(1) @binding(0)
+var<uniform> line_gizmo: LineGizmoUniform;
 
 struct VertexInput {
-    @location(0) position_a: vec3<f32>,
-    @location(1) position_b: vec3<f32>,
-    @location(2) color_a: vec4<f32>,
-    @location(3) color_b: vec4<f32>,
+    @location(0)
+    position_a: vec3<f32>,
+    @location(1)
+    position_b: vec3<f32>,
+    @location(2)
+    color_a: vec4<f32>,
+    @location(3)
+    color_b: vec4<f32>,
     @builtin(vertex_index) index: u32,
-};
+}
 
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
-    @location(0) color: vec4<f32>,
-    @location(1) uv: f32,
-    @location(2) line_fraction: f32,
-};
+    @location(0)
+    color: vec4<f32>,
+    @location(1)
+    uv: f32,
+    @location(2)
+    line_fraction: f32,
+}
 
 const EPSILON: f32 = 4.88e-04;
 
 @vertex
 fn vertex(vertex: VertexInput) -> VertexOutput {
     var positions = array<vec2<f32>, 6>(
-        vec2(-0.5, 0.),
-        vec2(-0.5, 1.),
-        vec2(0.5, 1.),
-        vec2(-0.5, 0.),
-        vec2(0.5, 1.),
-        vec2(0.5, 0.)
-    );
+            vec2(-0.5, 0.),
+            vec2(-0.5, 1.),
+            vec2(0.5, 1.),
+            vec2(-0.5, 0.),
+            vec2(0.5, 1.),
+            vec2(0.5, 0.),
+        );
     let position = positions[vertex.index];
 
     let world_from_local = affine3_to_square(line_gizmo.world_from_local);
 
     // algorithm based on https://wwwtyro.net/2019/11/18/instanced-lines.html
-    var clip_a = view.clip_from_world * world_from_local * vec4(vertex.position_a, 1.);
-    var clip_b = view.clip_from_world * world_from_local * vec4(vertex.position_b, 1.);
+    var clip_a = view.clip_from_world * world_from_local
+        * vec4(vertex.position_a, 1.);
+    var clip_b = view.clip_from_world * world_from_local
+        * vec4(vertex.position_b, 1.);
 
     // Manual near plane clipping to avoid errors when doing the perspective divide inside this shader.
     clip_a = clip_near_plane(clip_a, clip_b);
@@ -71,7 +81,8 @@ fn vertex(vertex: VertexInput) -> VertexOutput {
     var alpha = 1.;
 
     var uv: f32;
-@if(PERSPECTIVE) {
+    @if(PERSPECTIVE)
+    {
     line_width /= clip.w;
 
     // get height of near clipping plane in world space
@@ -87,22 +98,25 @@ fn vertex(vertex: VertexInput) -> VertexOutput {
     // Offset to compensate for moved clip positions. If removed dots on lines will slide when position a is ofscreen.
     let clipped_offset = length(position_a.xyz - vertex.position_a);
 
-    uv = (clipped_offset + position.y * world_distance) * resolution.y / near_clipping_plane_height / line_gizmo.line_width;
-} @else {
+    uv = (clipped_offset + position.y * world_distance) * resolution.y
+        / near_clipping_plane_height / line_gizmo.line_width;
+    }
+    @else
+    {
     // Get the distance of b to the camera along camera axes
     let camera_b = view.view_from_clip * clip_b;
 
     // This differentiates between orthographic and perspective cameras.
     // For orthographic cameras no depth adaptment (depth_adaptment = 1) is needed.
     var depth_adaptment: f32;
-    if (clip_b.w == 1.0) {
+    if clip_b.w == 1.0 {
         depth_adaptment = 1.0;
-    }
-    else {
+    } else {
         depth_adaptment = -camera_b.z;
     }
-    uv = position.y * depth_adaptment * length(screen_b - screen_a) / line_gizmo.line_width;
-}
+    uv = position.y * depth_adaptment * length(screen_b - screen_a)
+        / line_gizmo.line_width;
+    }
 
     // Line thinness fade from https://acegikmo.com/shapes/docs/#anti-aliasing
     if line_width > 0.0 && line_width < 1. {
@@ -124,12 +138,18 @@ fn vertex(vertex: VertexInput) -> VertexOutput {
         // of this value means nothing can be in front of this
         // The reason this uses an exponential function is that it makes it much easier for the
         // user to chose a value that is convenient for them
-        depth = clip.z * exp2(-line_gizmo.depth_bias * log2(clip.w / clip.z - EPSILON));
+        depth = clip.z
+            * exp2(-line_gizmo.depth_bias * log2(clip.w / clip.z - EPSILON));
     }
 
-    var clip_position = vec4(clip.w * ((2. * screen) / resolution - 1.), depth, clip.w);
+    var clip_position = vec4(
+            clip.w * ((2. * screen) / resolution - 1.),
+            depth,
+            clip.w,
+        );
 
-    let line_fraction = 2.0 * line_gizmo.line_scale / (line_gizmo.gap_scale + line_gizmo.line_scale);
+    let line_fraction = 2.0 * line_gizmo.line_scale
+        / (line_gizmo.gap_scale + line_gizmo.line_scale);
     uv /= (line_gizmo.gap_scale + line_gizmo.line_scale) / 2.0;
     return VertexOutput(clip_position, color, uv, line_fraction);
 }
@@ -151,14 +171,18 @@ fn clip_near_plane(a: vec4<f32>, b: vec4<f32>) -> vec4<f32> {
 
 struct FragmentInput {
     @builtin(position) position: vec4<f32>,
-    @location(0) color: vec4<f32>,
-    @location(1) uv: f32,
-    @location(2) line_fraction: f32,
-};
+    @location(0)
+    color: vec4<f32>,
+    @location(1)
+    uv: f32,
+    @location(2)
+    line_fraction: f32,
+}
 
 struct FragmentOutput {
-    @location(0) color: vec4<f32>,
-};
+    @location(0)
+    color: vec4<f32>,
+}
 
 @fragment
 fn fragment_solid(in: FragmentInput) -> FragmentOutput {
@@ -171,7 +195,7 @@ fn fragment_dotted(in: FragmentInput) -> FragmentOutput {
     alpha = 1 - floor(in.uv % 2.0);
     @else
     alpha = 1 - floor((in.uv * in.position.w) % 2.0);
-    
+
     return FragmentOutput(vec4(in.color.xyz, in.color.w * alpha));
 }
 
@@ -182,6 +206,6 @@ fn fragment_dashed(in: FragmentInput) -> FragmentOutput {
     @else
     let uv = in.uv * in.position.w;
     let alpha = 1.0 - floor(min((uv % 2.0) / in.line_fraction, 1.0));
-    
+
     return FragmentOutput(vec4(in.color.xyz, in.color.w * alpha));
 }

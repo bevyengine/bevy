@@ -8,18 +8,21 @@
 
 import bevy_render::occlusion_culling::mesh_preprocess_types::IndirectBatchSet;
 
-@group(0) @binding(0) var<storage, read_write> indirect_batch_sets: array<IndirectBatchSet>;
+@group(0) @binding(0)
+var<storage, read_write> indirect_batch_sets: array<IndirectBatchSet>;
 
-@compute
-@workgroup_size(64)
+@compute @workgroup_size(64)
 fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     // Figure out our instance index. If this thread doesn't correspond to any
     // index, bail.
     let instance_index = global_invocation_id.x;
-    if (instance_index >= arrayLength(&indirect_batch_sets)) {
+    if instance_index >= arrayLength(&indirect_batch_sets) {
         return;
     }
 
     // Reset the number of batch sets to 0.
-    atomicStore(&indirect_batch_sets[instance_index].indirect_parameters_count, 0u);
+    atomicStore(
+        &indirect_batch_sets[instance_index].indirect_parameters_count,
+        0u,
+    );
 }

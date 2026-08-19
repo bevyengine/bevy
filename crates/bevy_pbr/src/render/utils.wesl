@@ -37,7 +37,9 @@ fn rand_range_u(n: u32, state: ptr<function, u32>) -> u32 {
 // buffer coords can be obtained from `@builtin(position).xy`.
 // the view uniform struct contains the current camera viewport in `view.viewport`.
 // topleft = 0,0
-fn coords_to_viewport_uv(position: vec2<f32>, viewport: vec4<f32>) -> vec2<f32> {
+fn coords_to_viewport_uv(position: vec2<f32>, viewport: vec4<f32>) -> vec2<
+    f32,
+> {
     return (position - viewport.xy) / viewport.zw;
 }
 
@@ -58,28 +60,36 @@ fn hammersley_2d(i: u32, n: u32) -> vec2f {
 // TODO: Use an array here instead of a bunch of constants, once arrays work properly under DX12.
 // NOTE: The names have a final underscore to avoid the following error:
 // `Composable module identifiers must not require substitution according to naga writeback rules`
-const SPIRAL_OFFSET_0_ = vec2<f32>(-0.7071,  0.7071);
+const SPIRAL_OFFSET_0_ = vec2<f32>(-0.7071, 0.7071);
 const SPIRAL_OFFSET_1_ = vec2<f32>(-0.0000, -0.8750);
-const SPIRAL_OFFSET_2_ = vec2<f32>( 0.5303,  0.5303);
+const SPIRAL_OFFSET_2_ = vec2<f32>(0.5303, 0.5303);
 const SPIRAL_OFFSET_3_ = vec2<f32>(-0.6250, -0.0000);
-const SPIRAL_OFFSET_4_ = vec2<f32>( 0.3536, -0.3536);
-const SPIRAL_OFFSET_5_ = vec2<f32>(-0.0000,  0.3750);
+const SPIRAL_OFFSET_4_ = vec2<f32>(0.3536, -0.3536);
+const SPIRAL_OFFSET_5_ = vec2<f32>(-0.0000, 0.3750);
 const SPIRAL_OFFSET_6_ = vec2<f32>(-0.1768, -0.1768);
-const SPIRAL_OFFSET_7_ = vec2<f32>( 0.1250,  0.0000);
+const SPIRAL_OFFSET_7_ = vec2<f32>(0.1250, 0.0000);
 
 // https://www.realtimerendering.com/raytracinggems/unofficial_RayTracingGems_v1.9.pdf#0004286901.INDD%3ASec28%3A303
-fn sample_cosine_hemisphere(normal: vec3<f32>, rng: ptr<function, u32>) -> vec3<f32> {
+fn sample_cosine_hemisphere(normal: vec3<f32>, rng: ptr<function, u32>) -> vec3<
+    f32,
+> {
     let cos_theta = 1.0 - 2.0 * rand_f(rng);
     let phi = PI_2 * rand_f(rng);
     let sin_theta = sqrt(max(1.0 - cos_theta * cos_theta, 0.0));
-    let direction = normal + vec3(sin_theta * cos(phi), sin_theta * sin(phi), cos_theta);
+    let direction = normal
+        + vec3(sin_theta * cos(phi), sin_theta * sin(phi), cos_theta);
     let len_sq = dot(direction, direction);
-    if len_sq < 1e-8 { return normal; }
+    if len_sq < 1e-8 {
+        return normal;
+    }
     return direction * inverseSqrt(len_sq);
 }
 
 // https://www.pbr-book.org/3ed-2018/Monte_Carlo_Integration/2D_Sampling_with_Multidimensional_Transformations#UniformlySamplingaHemisphere
-fn sample_uniform_hemisphere(normal: vec3<f32>, rng: ptr<function, u32>) -> vec3<f32> {
+fn sample_uniform_hemisphere(
+    normal: vec3<f32>,
+    rng: ptr<function, u32>,
+) -> vec3<f32> {
     let cos_theta = rand_f(rng);
     let phi = PI_2 * rand_f(rng);
     let sin_theta = sqrt(max(1.0 - cos_theta * cos_theta, 0.0));
@@ -98,11 +108,13 @@ fn sample_disk(disk_radius: f32, rng: ptr<function, u32>) -> vec2<f32> {
     let ab = 2.0 * rand_vec2f(rng) - 1.0;
     let a = ab.x;
     var b = ab.y;
-    if (b == 0.0) { b = 1.0; }
+    if b == 0.0 {
+        b = 1.0;
+    }
 
     var phi: f32;
     var r: f32;
-    if (a * a > b * b) {
+    if a * a > b * b {
         r = disk_radius * a;
         phi = (PI / 4.0) * (b / a);
     } else {
@@ -122,14 +134,14 @@ fn sample_cube_dir(uv: vec2f, face: u32) -> vec3f {
 
     // Generate direction based on the cube face
     var dir: vec3f;
-    switch(face) {
-        case 0u: { dir = vec3f( 1.0,  -uvc.y, -uvc.x); } // +X
-        case 1u: { dir = vec3f(-1.0,  -uvc.y,  uvc.x); } // -X
-        case 2u: { dir = vec3f( uvc.x,  1.0,   uvc.y); } // +Y
-        case 3u: { dir = vec3f( uvc.x, -1.0,  -uvc.y); } // -Y
-        case 4u: { dir = vec3f( uvc.x, -uvc.y,  1.0);  } // +Z
-        case 5u: { dir = vec3f(-uvc.x, -uvc.y, -1.0);  } // -Z
-        default: { dir = vec3f(0.0); }
+    switch face {
+        case 0u { dir = vec3f(1.0, -uvc.y, -uvc.x); } // +X
+        case 1u { dir = vec3f(-1.0, -uvc.y, uvc.x); } // -X
+        case 2u { dir = vec3f(uvc.x, 1.0, uvc.y); } // +Y
+        case 3u { dir = vec3f(uvc.x, -1.0, -uvc.y); } // -Y
+        case 4u { dir = vec3f(uvc.x, -uvc.y, 1.0); } // +Z
+        case 5u { dir = vec3f(-uvc.x, -uvc.y, -1.0); } // -Z
+        default { dir = vec3f(0.0); }
     }
     return normalize(dir);
 }
@@ -145,18 +157,18 @@ fn dir_to_cube_uv(dir: vec3f) -> CubeUV {
     var uv: vec2f = vec2f(0.0);
 
     // Find the dominant axis to determine face
-    if (abs_dir.x >= abs_dir.y && abs_dir.x >= abs_dir.z) {
+    if abs_dir.x >= abs_dir.y && abs_dir.x >= abs_dir.z {
         // X axis is dominant
-        if (dir.x > 0.0) {
+        if dir.x > 0.0 {
             face = 0u; // +X
             uv = vec2f(-dir.z, -dir.y) / dir.x;
         } else {
             face = 1u; // -X
             uv = vec2f(dir.z, -dir.y) / abs_dir.x;
         }
-    } else if (abs_dir.y >= abs_dir.x && abs_dir.y >= abs_dir.z) {
+    } else if abs_dir.y >= abs_dir.x && abs_dir.y >= abs_dir.z {
         // Y axis is dominant
-        if (dir.y > 0.0) {
+        if dir.y > 0.0 {
             face = 2u; // +Y
             uv = vec2f(dir.x, dir.z) / dir.y;
         } else {
@@ -165,7 +177,7 @@ fn dir_to_cube_uv(dir: vec3f) -> CubeUV {
         }
     } else {
         // Z axis is dominant
-        if (dir.z > 0.0) {
+        if dir.z > 0.0 {
             face = 4u; // +Z
             uv = vec2f(dir.x, -dir.y) / dir.z;
         } else {
@@ -181,5 +193,8 @@ fn dir_to_cube_uv(dir: vec3f) -> CubeUV {
 // The Porter-Duff OVER operator on RGBA, correctly computing alpha of the
 // result.
 fn porter_duff_over(bg: vec4<f32>, fg: vec4<f32>) -> vec4<f32> {
-    return vec4<f32>(mix(bg.rgb * bg.a, fg.rgb, fg.a), bg.a + fg.a * (1.0 - bg.a));
+    return vec4<f32>(
+            mix(bg.rgb * bg.a, fg.rgb, fg.a),
+            bg.a + fg.a * (1.0 - bg.a),
+        );
 }
