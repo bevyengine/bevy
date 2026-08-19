@@ -30,7 +30,7 @@ pub const DEPTH_PREPASS_TEXTURE_SUPPORTED: bool = false;
 #[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
 pub const DEPTH_PREPASS_TEXTURE_SUPPORTED: bool = true;
 
-use core::{f32, ops::Range};
+use core::ops::Range;
 
 use bevy_camera::{Camera, Camera3d, Camera3dDepthLoadOp};
 use bevy_diagnostic::FrameCount;

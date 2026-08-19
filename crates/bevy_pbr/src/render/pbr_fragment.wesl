@@ -1,6 +1,6 @@
 import bevy_render::bindless::{bindless_samplers_filtering, bindless_textures_2d};
 
-import bevy_pbr::{
+import package::{
     render::{
         pbr_functions,
         pbr_functions::SampleBias,
@@ -16,19 +16,19 @@ import bevy_pbr::{
 };
 
 @if(SCREEN_SPACE_AMBIENT_OCCLUSION)
-import bevy_pbr::render::mesh_view_bindings::screen_space_ambient_occlusion_texture;
+import package::render::mesh_view_bindings::screen_space_ambient_occlusion_texture;
 @if(SCREEN_SPACE_AMBIENT_OCCLUSION)
-import bevy_pbr::ssao::utils::ssao_multibounce;
+import package::ssao::utils::ssao_multibounce;
 
 @if(MESHLET_MESH_MATERIAL_PASS)
-import bevy_pbr::meshlet::visibility_buffer_resolve::VertexOutput;
+import package::meshlet::visibility_buffer_resolve::VertexOutput;
 @elif(PREPASS_PIPELINE)
-import bevy_pbr::prepass::io::VertexOutput;
+import package::prepass::io::VertexOutput;
 @else
-import bevy_pbr::render::forward_io::VertexOutput;
+import package::render::forward_io::VertexOutput;
 
 @if(BINDLESS)
-import bevy_pbr::render::pbr_bindings::material_indices;
+import package::render::pbr_bindings::material_indices;
 
 // prepare a basic PbrInput from the vertex stage output, mesh binding and view binding
 fn pbr_input_from_vertex_output(
@@ -528,7 +528,8 @@ pbr_input.material.uv_transform = uv_transform;
             diffuse_occlusion *= textureSampleBias(texture, sampler_, coords, bias.mip_bias).r;
         }
 @if(SCREEN_SPACE_AMBIENT_OCCLUSION) {
-        let ssao = textureLoad(screen_space_ambient_occlusion_texture, vec2<i32>(in.position.xy), 0i).r;
+        let ssao_tex_pos = vec2<i32>(in.position.xy - view.viewport.xy);
+        let ssao = textureLoad(screen_space_ambient_occlusion_texture, ssao_tex_pos, 0i).r;
         let ssao_multibounce = ssao_multibounce(ssao, pbr_input.material.base_color.rgb);
         diffuse_occlusion = min(diffuse_occlusion, ssao_multibounce);
         // Use SSAO to estimate the specular occlusion.

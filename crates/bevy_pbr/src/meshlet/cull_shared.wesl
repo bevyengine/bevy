@@ -1,4 +1,4 @@
-import bevy_pbr::meshlet::bindings::{
+import package::meshlet::bindings::{
     MeshletAabb,
     DispatchIndirectArgs,
     InstancedOffset,

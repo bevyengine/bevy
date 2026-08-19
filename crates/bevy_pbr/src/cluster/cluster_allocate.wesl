@@ -1,5 +1,5 @@
-import bevy_pbr::cluster::ClusterMetadata;
-import bevy_pbr::render::mesh_view_types::{ClusterOffsetsAndCounts, Lights};
+import package::cluster::ClusterMetadata;
+import package::render::mesh_view_types::{ClusterOffsetsAndCounts, Lights};
 
 // The shader that allocates the clustered object ID buffer.
 //
