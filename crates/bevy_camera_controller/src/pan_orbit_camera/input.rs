@@ -1,9 +1,9 @@
 //! Provides a default input plugin for the camera. See [`DefaultInputPlugin`].
 
 use bevy_app::prelude::*;
-use bevy_camera::{prelude::*, RenderTarget};
+use bevy_camera::{prelude::*, NormalizedRenderTarget, RenderTarget};
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::prelude::*;
+use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_input::{
     mouse::{MouseScrollUnit, MouseWheel},
     prelude::*,
@@ -11,13 +11,17 @@ use bevy_input::{
 use bevy_math::{prelude::*, DVec2, DVec3};
 use bevy_platform::collections::HashMap;
 use bevy_transform::prelude::*;
-use bevy_window::{PrimaryWindow, Window};
+use bevy_window::{NormalizedWindowRef, PrimaryWindow, Window};
 
-use bevy_picking::pointer::{
-    PointerAction, PointerId, PointerInput, PointerInteraction, PointerLocation, PointerMap,
+use bevy_picking::{
+    events::{PointerDrag, PointerDragEnd, PointerDragStart},
+    pointer::{
+        PointerAction, PointerButton, PointerId, PointerInput, PointerInteraction, PointerLocation,
+        PointerMap,
+    },
 };
 
-use crate::pan_orbit_camera::prelude::{component::PanOrbitCamera, inputs::MotionInputs};
+use crate::pan_orbit_camera::prelude::component::PanOrbitCamera;
 
 /// The type of mutually exclusive camera motion.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -31,117 +35,21 @@ pub enum MotionKind {
     Zoom,
 }
 
-impl From<&MotionInputs> for MotionKind {
-    fn from(value: &MotionInputs) -> Self {
-        match value {
-            MotionInputs::OrbitZoom { .. } => MotionKind::OrbitZoom,
-            MotionInputs::PanZoom { .. } => MotionKind::PanZoom,
-            MotionInputs::Zoom { .. } => MotionKind::Zoom,
-        }
-    }
+#[derive(Component, Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
+pub struct PanOrbitCameraInputs {
+    pub orbit_start: PointerButton,
+    pub pan_start: PointerButton,
+    pub zoom_stop_min: f32,
 }
-
-/// A plugin that provides a default input mapping. Intended to be replaced by users with their own
-/// version of this code, if needed.
-///
-/// The input plugin is responsible for starting motions, sending inputs, and ending motions. See
-/// [`PanOrbitCamera`] for more details on how to implement this yourself.
-pub struct DefaultInputPlugin;
-impl Plugin for DefaultInputPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_message::<PanOrbitCameraInputMessage>()
-            .init_resource::<CameraPointerMap>()
-            .add_systems(
-                PreUpdate,
-                (
-                    default_camera_inputs,
-                    PanOrbitCameraInputMessage::receive_messages,
-                    PanOrbitCameraInputMessage::send_pointer_inputs,
-                )
-                    .chain()
-                    .after(bevy_picking::PickingSystems::Last)
-                    .before(PanOrbitCamera::update_camera_positions),
-            );
-    }
-}
-
-/// A default implementation of an input system
-pub fn default_camera_inputs(
-    pointers: Query<(&PointerId, &PointerLocation)>,
-    pointer_map: Res<CameraPointerMap>,
-    mut controller: MessageWriter<PanOrbitCameraInputMessage>,
-    mut mouse_wheel: MessageReader<MouseWheel>,
-    mouse_input: Res<ButtonInput<MouseButton>>,
-    cameras: Query<(Entity, &Camera, &RenderTarget, &PanOrbitCamera)>,
-    primary_window: Query<Entity, With<PrimaryWindow>>,
-) {
-    let orbit_start = MouseButton::Right;
-    let pan_start = MouseButton::Left;
-    let zoom_stop = 0.0;
-
-    if let Some(&camera) = pointer_map.get(&PointerId::Mouse) {
-        let camera_query = cameras.get(camera).ok();
-        let is_in_zoom_mode = camera_query
-            .map(|(.., editor_cam)| editor_cam.current_motion.is_zooming_only())
-            .unwrap_or_default();
-        let zoom_amount_abs = camera_query
-            .and_then(|(.., editor_cam)| {
-                editor_cam
-                    .current_motion
-                    .inputs()
-                    .map(|inputs| inputs.zoom_velocity_abs(editor_cam.smoothing.zoom.mul_f32(2.0)))
-            })
-            .unwrap_or(0.0);
-        let should_zoom_end = is_in_zoom_mode && zoom_amount_abs <= zoom_stop;
-
-        if mouse_input.any_just_released([orbit_start, pan_start]) || should_zoom_end {
-            controller.write(PanOrbitCameraInputMessage::End { camera });
+impl Default for PanOrbitCameraInputs {
+    fn default() -> Self {
+        Self {
+            orbit_start: PointerButton::Secondary,
+            pan_start: PointerButton::Primary,
+            zoom_stop_min: 0.0,
         }
     }
-
-    for (&pointer, pointer_location) in pointers
-        .iter()
-        .filter_map(|(id, loc)| loc.location().map(|loc| (id, loc)))
-    {
-        match pointer {
-            PointerId::Mouse => {
-                let Some((camera, ..)) = cameras.iter().find(|(_, camera, render_target, _)| {
-                    pointer_location.is_in_viewport(camera, render_target, &primary_window)
-                }) else {
-                    continue; // Pointer must be in viewport to start a motion.
-                };
-
-                if mouse_input.just_pressed(orbit_start) {
-                    controller.write(PanOrbitCameraInputMessage::Start {
-                        kind: MotionKind::OrbitZoom,
-                        camera,
-                        pointer,
-                    });
-                } else if mouse_input.just_pressed(pan_start) {
-                    controller.write(PanOrbitCameraInputMessage::Start {
-                        kind: MotionKind::PanZoom,
-                        camera,
-                        pointer,
-                    });
-                } else if mouse_wheel.read().map(|mw| mw.y.abs()).sum::<f32>() > 0.0 {
-                    // Note we can't just check if the mouse wheel inputs are empty, we need to
-                    // check if the y value abs greater than zero, otherwise we get a bunch of false
-                    // positives, which can cause issues with figuring out what the user is trying
-                    // to do.
-                    controller.write(PanOrbitCameraInputMessage::Start {
-                        kind: MotionKind::Zoom,
-                        camera,
-                        pointer,
-                    });
-                }
-            }
-            PointerId::Touch(_) | PointerId::Custom(_) => continue,
-        }
-    }
-
-    // This must be cleared manually because reading these inputs is conditional - we are not
-    // guaranteed to be flushing the events every frame.
-    mouse_wheel.clear();
 }
 
 /// Maps pointers to the camera they are currently controlling.
@@ -152,178 +60,96 @@ pub fn default_camera_inputs(
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 pub struct CameraPointerMap(HashMap<PointerId, Entity>);
 
-/// Messages used when implementing input systems for the [`PanOrbitCamera`].
-#[derive(Debug, Clone, Message)]
-#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
-pub enum PanOrbitCameraInputMessage {
-    /// Send this event to start moving the camera. The anchor and inputs will be computed
-    /// automatically until the [`PanOrbitCameraInputMessage::End`] event is received.
-    Start {
-        /// The kind of camera movement that is being started.
-        kind: MotionKind,
-        /// The camera to move.
-        camera: Entity,
-        /// The pointer that will be controlling the camera. The rotation anchor point in the world
-        /// will be automatically computed using picking backends.
-        pointer: PointerId,
-    },
-    /// Send this event when a user's input ends, e.g. the button is released.
-    End {
-        /// The entity of the camera that should end its current input motion.
-        camera: Entity,
-    },
+/// A plugin that provides a default input mapping. Intended to be replaced by users with their own
+/// version of this code, if needed.
+///
+/// The input plugin is responsible for starting motions, sending inputs, and ending motions. See
+/// [`PanOrbitCamera`] for more details on how to implement this yourself.
+pub struct DefaultInputPlugin;
+impl Plugin for DefaultInputPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<CameraPointerMap>()
+            // .add_observer(observe_window_drag_start)
+            // .add_observer(observe_window_drag)
+            // .add_observer(observe_window_drag_end)
+            // "we have required components at home"
+            .add_observer(
+                |evt: On<Add<PanOrbitCamera>>,
+                 query: Query<&PanOrbitCameraInputs>,
+                 rendertarget: Query<&RenderTarget>,
+                 primary_window: Query<Entity, With<PrimaryWindow>>,
+                 mut commands: Commands| {
+                    if !query.contains(evt.entity) {
+                        commands
+                            .entity(evt.entity)
+                            .insert(PanOrbitCameraInputs::default());
+                    }
+                    let target = rendertarget.get(evt.entity).unwrap();
+                    match target.normalize(primary_window.single().ok()) {
+                        Some(NormalizedRenderTarget::Window(window_ref)) => {
+                            commands
+                                .entity(window_ref.entity())
+                                .observe(observe_window_drag_start)
+                                .observe(observe_window_drag)
+                                .observe(observe_window_drag_end);
+                        }
+                        _ => (),
+                    };
+                },
+            );
+    }
 }
+// zoom: PointerScroll event
 
-impl PanOrbitCameraInputMessage {
-    /// Get the camera entity associated with this event.
-    pub fn camera(&self) -> Entity {
-        match self {
-            PanOrbitCameraInputMessage::Start { camera, .. }
-            | PanOrbitCameraInputMessage::End { camera } => *camera,
+fn observe_window_drag_start(
+    evt: On<PointerDragStart>,
+    mut controllers: Query<(
+        &mut PanOrbitCamera,
+        &PanOrbitCameraInputs,
+        &Camera,
+        &Projection,
+    )>,
+    mut pointer_cameras: ResMut<CameraPointerMap>,
+) {
+    dbg!(&evt);
+    if let Ok((mut controller, inputs, cam, proj)) = controllers.get_mut(evt.hit.camera) {
+        if controller.is_actively_controlled() {
+            return;
         }
+        let anchor = screen_to_view_space(cam, proj, &controller, evt.pointer.position);
+        // dbg!(&anchor);
+        if evt.button == inputs.orbit_start {
+            controller.start_orbit(anchor);
+        } else if evt.button == inputs.pan_start {
+            controller.start_pan(anchor);
+        } else {
+            return;
+        }
+        pointer_cameras.insert(evt.pointer.id, evt.hit.camera);
     }
-
-    /// Receive [`PanOrbitCameraInputMessage`]s, and use these to start and end moves on the [`PanOrbitCamera`].
-    pub fn receive_messages(
-        mut events: MessageReader<Self>,
-        mut controllers: Query<(&mut PanOrbitCamera, &GlobalTransform)>,
-        mut camera_map: ResMut<CameraPointerMap>,
-        pointer_map: Res<PointerMap>,
-        pointer_interactions: Query<&PointerInteraction>,
-        pointer_locations: Query<&PointerLocation>,
-        cameras: Query<(&Camera, &Projection)>,
-        windows: Query<&Window>,
-    ) {
-        for event in events.read() {
-            let Ok((mut controller, cam_transform)) = controllers.get_mut(event.camera()) else {
-                continue;
-            };
-
-            match event {
-                PanOrbitCameraInputMessage::Start { kind, pointer, .. } => {
-                    if controller.is_actively_controlled() {
-                        continue;
-                    }
-                    let anchor = pointer_map
-                        .get_entity(*pointer)
-                        .and_then(|entity| pointer_interactions.get(entity).ok())
-                        .and_then(|interaction| interaction.get_nearest_hit())
-                        // Since `bevy` 0.17.3:
-                        //
-                        // If the current hit is on a window, we cannot use the `hit.position` as an anchor
-                        // as the `hit.position` is in viewport coordinates.
-                        .filter(|(entity, _hit)| !windows.contains(*entity))
-                        .and_then(|(_, hit)| hit.position)
-                        .map(|world_space_hit| {
-                            // Convert the world space hit to view (camera) space
-                            cam_transform
-                                .to_matrix()
-                                .as_dmat4()
-                                .inverse()
-                                .transform_point3(world_space_hit.into())
-                        })
-                        .filter(|p| {
-                            #[cfg(debug_assertions)]
-                            if !p.is_finite() {
-                                bevy_log::warn!("Non-finite input fed to camera controller: {p:?}");
-                            }
-                            p.is_finite()
-                        })
-                        .or_else(|| {
-                            let camera = cameras.get(event.camera()).ok();
-                            let pointer_location = pointer_map
-                                .get_entity(*pointer)
-                                .and_then(|entity| pointer_locations.get(entity).ok())
-                                .and_then(|l| l.location());
-                            if let Some(((camera, proj), pointer_location)) =
-                                camera.zip(pointer_location)
-                            {
-                                screen_to_view_space(
-                                    camera,
-                                    proj,
-                                    &controller,
-                                    pointer_location.position,
-                                )
-                            } else {
-                                None
-                            }
-                        })
-                        .filter(|p| p.is_finite());
-
-                    match kind {
-                        MotionKind::OrbitZoom => controller.start_orbit(anchor),
-                        MotionKind::PanZoom => controller.start_pan(anchor),
-                        MotionKind::Zoom => controller.start_zoom(anchor),
-                    }
-                    camera_map.insert(*pointer, event.camera());
-                }
-                PanOrbitCameraInputMessage::End { .. } => {
-                    controller.end_move();
-                    if let Some(pointer) = camera_map
-                        .iter()
-                        .find(|(.., camera)| **camera == event.camera())
-                        .map(|(&pointer, ..)| pointer)
-                    {
-                        camera_map.remove(&pointer);
-                    }
-                }
-            }
-        }
+}
+fn observe_window_drag(
+    evt: On<PointerDrag>,
+    mut controllers: Query<&mut PanOrbitCamera>,
+    pointer_cameras: Res<CameraPointerMap>,
+) {
+    if let Some(&camera) = pointer_cameras.get(&evt.pointer.id)
+        && let Ok(mut controller) = controllers.get_mut(camera)
+    {
+        controller.send_screenspace_input(evt.delta);
     }
-
-    /// While a camera motion is active, this system will take care of sending new pointer motion to
-    /// the camera controller. The camera controller assumes that pan and orbit movements are tied
-    /// to screen space pointer motion.
-    ///
-    /// This is because some of the pixel-perfect features of the controller require that data be
-    /// passed in as screen space deltas, to compute perfect first-order control. This is also
-    /// because the plugin uses pointer information to know which camera is being controlled.
-    ///
-    /// If you want to control the camera with different inputs, you will need to replace this
-    /// system with one that tracks other input methods, and sends the required zoom and screenspace
-    /// movement information.
-    pub fn send_pointer_inputs(
-        camera_map: Res<CameraPointerMap>,
-        mut camera_controllers: Query<&mut PanOrbitCamera>,
-        mut mouse_wheel: MessageReader<MouseWheel>,
-        mut moves: MessageReader<PointerInput>,
-    ) {
-        let moves_list: Vec<_> = moves.read().collect();
-        for (pointer, camera) in camera_map.iter() {
-            let Ok(mut camera_controller) = camera_controllers.get_mut(*camera) else {
-                continue;
-            };
-
-            let screenspace_input = moves_list
-                .iter()
-                .filter(|m| m.pointer_id.eq(pointer))
-                .filter_map(|m| match m.action {
-                    PointerAction::Move { delta } => Some(delta),
-                    _ => None,
-                })
-                .sum();
-
-            let zoom_amount = match pointer {
-                // TODO: add pinch zoom support
-                PointerId::Mouse => mouse_wheel
-                    .read()
-                    .map(|mw| {
-                        let scroll_multiplier = match mw.unit {
-                            MouseScrollUnit::Line => 150.0,
-                            MouseScrollUnit::Pixel => 1.0,
-                        };
-                        mw.y * scroll_multiplier
-                    })
-                    .sum::<f32>(),
-                _ => 0.0,
-            };
-
-            camera_controller.send_screenspace_input(screenspace_input);
-            camera_controller.send_zoom_input(zoom_amount);
-        }
-        // This must be cleared manually because reading these inputs is conditional - we are not
-        // guaranteed to be flushing the events every frame.
-        mouse_wheel.clear();
+}
+fn observe_window_drag_end(
+    evt: On<PointerDragEnd>,
+    mut controllers: Query<&mut PanOrbitCamera>,
+    mut pointer_cameras: ResMut<CameraPointerMap>,
+) {
+    if let Some(&camera) = pointer_cameras.get(&evt.pointer.id)
+        && let Ok(mut controller) = controllers.get_mut(camera)
+    {
+        controller.end_move();
+        dbg!(evt.distance);
+        pointer_cameras.remove(&evt.pointer.id);
     }
 }
 

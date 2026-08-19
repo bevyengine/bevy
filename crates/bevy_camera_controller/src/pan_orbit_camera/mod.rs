@@ -173,6 +173,7 @@
 pub mod controller;
 pub mod extensions;
 pub mod input;
+pub mod old_input;
 
 /// Common imports.
 pub mod prelude {

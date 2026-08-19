@@ -12,6 +12,8 @@ use std::time::Duration;
 use bevy::camera::Hdr;
 use bevy::camera_controller::pan_orbit_camera::{
     extensions::{dolly_zoom::DollyZoomTrigger, look_to::LookToTrigger},
+    input::DefaultInputPlugin,
+    old_input::OldInputPlugin,
     prelude::*,
 };
 use bevy::math::DVec3;
@@ -25,12 +27,15 @@ fn main() {
         .add_plugins((
             DefaultPlugins,
             DefaultPanOrbitCameraPlugins,
+            //     .build()
+            //     .disable::<DefaultInputPlugin>(),
+            // OldInputPlugin,
             MeshPickingPlugin,
         ))
         // The camera controller works with reactive rendering:
         // .insert_resource(bevy::winit::WinitSettings::desktop_app())
         .insert_resource(GlobalAmbientLight::NONE)
-        .add_systems(Startup, setup)
+        .add_systems(Startup, (setup, test_cube.spawn()))
         .add_systems(
             Update,
             (
@@ -43,6 +48,23 @@ fn main() {
                 .chain(),
         )
         .run();
+}
+
+fn on_drag_rotate(mut drag: On<PointerDrag>, mut transforms: Query<&mut Transform>) {
+    if let Ok(mut transform) = transforms.get_mut(drag.entity) {
+        transform.rotate_y(drag.delta.x * 0.02);
+        transform.rotate_x(drag.delta.y * 0.02);
+        drag.propagate(false);
+    }
+}
+
+fn test_cube() -> impl SceneList {
+    bsn! {
+        Mesh3d(asset_value(Cuboid::new(0.1, 0.5, 0.2)))
+        MeshMaterial3d::<StandardMaterial>(asset_value(Color::WHITE))
+        Transform::from_xyz(0.2, 0.5, 0.0)
+        on(on_drag_rotate)
+    }
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -65,6 +87,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let cam_trans = Transform::from_xyz(2.0, 2.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y);
     let camera = commands
         .spawn((
+            Name::new("MainCam"),
             Camera3d::default(),
             Hdr,
             Camera::default(),

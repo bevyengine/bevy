@@ -61,6 +61,10 @@ pub struct PanOrbitCamera {
     pub sensitivity: Sensitivity,
     /// Amount of camera momentum after inputs have stopped.
     pub momentum: Momentum,
+    /// Minimum interval for separate input deltas to be considered one entry, for purposes of smoothing.
+    /// This helps deal with the differences between input plugins sending a single accumulated delta
+    /// for the entire frame, or many tiny deltas during the frame.
+    pub min_interval: Duration,
     /// How long should inputs attempting to start a new motion be ignored, after the last input
     /// ends? This is useful to prevent accidentally killing momentum when, for example, releasing a
     /// two finger right click on a trackpad triggers a scroll input.
@@ -90,6 +94,7 @@ impl Default for PanOrbitCamera {
             smoothing: Default::default(),
             sensitivity: Default::default(),
             momentum: Default::default(),
+            min_interval: Duration::from_micros(200),
             input_debounce: Duration::from_millis(80),
             perspective: Default::default(),
             orthographic: Default::default(),
@@ -246,7 +251,13 @@ impl PanOrbitCamera {
             CurrentMotion::UserControlled {
                 ref mut motion_inputs,
                 ..
-            } => InputQueue(motion_inputs.zoom_inputs_mut().0.drain(..).collect()),
+            } => {
+                let old = motion_inputs.zoom_inputs_mut();
+                InputQueue {
+                    queue: old.queue.drain(..).collect(),
+                    pending: old.pending,
+                }
+            }
         };
         self.current_motion = CurrentMotion::UserControlled {
             anchor,
@@ -266,12 +277,34 @@ impl PanOrbitCamera {
                 MotionInputs::OrbitZoom {
                     screenspace_inputs: movement,
                     ..
-                } => movement.process_input(screenspace_input, self.smoothing.orbit),
+                } => movement.process_input(screenspace_input),
                 MotionInputs::PanZoom {
                     screenspace_inputs: movement,
                     ..
-                } => movement.process_input(screenspace_input, self.smoothing.pan),
+                } => movement.process_input(screenspace_input),
                 MotionInputs::Zoom { .. } => (), // When in zoom-only, we ignore pan and zoom
+            }
+        }
+    }
+
+    /// Tick input queues to apply smoothing. Has to happen once per frame, before relying on the
+    /// motion queues having up-to-date state.
+    pub fn tick_smoothing(&mut self) {
+        if let CurrentMotion::UserControlled {
+            ref mut motion_inputs,
+            ..
+        } = self.current_motion
+        {
+            match motion_inputs {
+                MotionInputs::OrbitZoom {
+                    screenspace_inputs: movement,
+                    ..
+                } => movement.tick(self.smoothing.orbit),
+                MotionInputs::PanZoom {
+                    screenspace_inputs: movement,
+                    ..
+                } => movement.tick(self.smoothing.pan),
+                MotionInputs::Zoom { zoom_inputs, .. } => zoom_inputs.tick(self.smoothing.zoom),
             }
         }
     }
@@ -279,9 +312,7 @@ impl PanOrbitCamera {
     /// Send zoom inputs. See [`PanOrbitCamera`] for usage.
     pub fn send_zoom_input(&mut self, zoom_amount: f32) {
         if let CurrentMotion::UserControlled { motion_inputs, .. } = &mut self.current_motion {
-            motion_inputs
-                .zoom_inputs_mut()
-                .process_input(zoom_amount, self.smoothing.zoom);
+            motion_inputs.zoom_inputs_mut().process_input(zoom_amount);
         }
     }
 
@@ -338,6 +369,7 @@ impl PanOrbitCamera {
                     .ok()
                     .and_then(|(mut camera_controller, camera, projection)| {
                         let dt = time.delta();
+                        camera_controller.tick_smoothing();
                         camera_controller.update_transform_and_projection(
                             camera,
                             original_translation,

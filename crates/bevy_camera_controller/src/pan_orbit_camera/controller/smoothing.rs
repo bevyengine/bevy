@@ -44,7 +44,11 @@ impl Default for Smoothing {
 ///    same destination as the unsmoothed input without drifting.
 #[derive(Debug, Clone, Deref, DerefMut)]
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
-pub struct InputQueue<T>(pub VecDeque<InputStreamEntry<T>>);
+pub struct InputQueue<T> {
+    #[deref]
+    pub queue: VecDeque<InputStreamEntry<T>>,
+    pub pending: T,
+}
 
 /// Represents a single input in an [`InputQueue`].
 #[derive(Debug, Clone)]
@@ -66,8 +70,9 @@ pub struct InputStreamEntry<T> {
     smoothed_value: T,
 }
 
-impl<T: Copy + Default + Add<Output = T> + AddAssign<T> + Mul<f32, Output = T>> Default
-    for InputQueue<T>
+impl<
+        T: Copy + Default + Add<Output = T> + AddAssign<T> + Mul<f32, Output = T> + std::fmt::Debug,
+    > Default for InputQueue<T>
 {
     fn default() -> Self {
         let start = Instant::now();
@@ -89,37 +94,48 @@ impl<T: Copy + Default + Add<Output = T> + AddAssign<T> + Mul<f32, Output = T>> 
                 smoothed_value: T::default(),
             });
         }
-        Self(queue)
+        Self {
+            queue,
+            pending: T::default(),
+        }
     }
 }
 
-impl<T: Copy + Default + Add<Output = T> + AddAssign<T> + Mul<f32, Output = T>> InputQueue<T> {
+impl<
+        T: Copy + Default + Add<Output = T> + AddAssign<T> + Mul<f32, Output = T> + std::fmt::Debug,
+    > InputQueue<T>
+{
     const MAX_EVENTS: usize = 256;
 
-    /// Add an input sample to the queue, and compute the smoothed value.
+    /// Add an input sample
+    pub fn process_input(&mut self, new_input: T) {
+        self.pending += new_input;
+    }
+    /// Tick the input queue, moving the pending accumulator to the queue, and compute the smoothed value.
     ///
-    /// The smoothing must be computed at the time a sample is added to ensure no samples are over
+    /// The smoothing must be computed at the time a accumulated sample is added to ensure no samples are over
     /// or under sampled in the smoothing process.
-    pub fn process_input(&mut self, new_input: T, smoothing: Duration) {
+    pub fn tick(&mut self, smoothing: Duration) {
         let now = Instant::now();
-        let queue = &mut self.0;
+        let new_input = std::mem::take(&mut self.pending);
+        let queue = &mut self.queue;
+
+        let range_end = queue
+            .iter()
+            .position(|entry| now.duration_since(entry.time) > smoothing)
+            .unwrap_or(queue.len());
 
         // Compute the expected sampling window end index
-        let window_size = queue
-            .iter()
-            .enumerate()
-            .find(|(_i, entry)| now.duration_since(entry.time) > smoothing)
-            .map(|(i, _)| i) // `find` breaks *after* we fail, so we don't need to add one
-            .unwrap_or(0)
-            + 1; // Add one to account for the new sample being added
+        let dt = queue
+            .front()
+            .map(|e| now.duration_since(e.time))
+            .unwrap_or(smoothing);
 
-        let range_end = (window_size - 1).clamp(0, queue.len());
-
-        // Compute the smoothed value by sampling over the desired window
-        let target_fraction = 1.0 / window_size as f32;
+        let target_fraction = (dt.as_secs_f32() / smoothing.as_secs_f32()).min(1.0);
+        dbg!(&dt, &target_fraction, &new_input);
         let mut smoothed_value = new_input * target_fraction;
+
         for entry in queue.range_mut(..range_end) {
-            // Only consume what is left of a sample, to prevent oversampling
             let this_fraction = entry.fraction_remaining.min(target_fraction);
             smoothed_value += entry.sample * this_fraction;
             entry.fraction_remaining = (entry.fraction_remaining - this_fraction).max(0.0);
@@ -137,6 +153,7 @@ impl<T: Copy + Default + Add<Output = T> + AddAssign<T> + Mul<f32, Output = T>> 
         }
 
         queue.truncate(Self::MAX_EVENTS - 1);
+        dbg!(&smoothed_value);
         queue.push_front(InputStreamEntry {
             time: now,
             sample: new_input,
@@ -152,14 +169,14 @@ impl<T: Copy + Default + Add<Output = T> + AddAssign<T> + Mul<f32, Output = T>> 
 
     /// Iterator over all smoothed samples.
     pub fn iter_smoothed(&self) -> impl Iterator<Item = (Instant, T)> + '_ {
-        self.0
+        self.queue
             .iter()
             .map(|entry| (entry.time, entry.smoothed_value))
     }
 
     /// Iterate over the raw samples.
     pub fn iter_unsmoothed(&self) -> impl Iterator<Item = (Instant, T)> + '_ {
-        self.0.iter().map(|entry| (entry.time, entry.sample))
+        self.queue.iter().map(|entry| (entry.time, entry.sample))
     }
 
     /// Approximate the smoothed average sampled in the `window`.
