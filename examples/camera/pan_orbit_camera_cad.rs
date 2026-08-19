@@ -7,11 +7,14 @@
 //! - Explode the model, separating its parts for inspection (E)
 //! - Toggling passing thought surface on minimal zool (Z)
 
+mod pan_orbit_camera_custom_input_plugin;
+
 use std::time::Duration;
 
 use bevy::camera::Hdr;
 use bevy::camera_controller::pan_orbit_camera::{
     extensions::{dolly_zoom::DollyZoomTrigger, look_to::LookToTrigger},
+    input::DefaultInputPlugin,
     prelude::*,
 };
 use bevy::math::DVec3;
@@ -20,16 +23,29 @@ use bevy::{
     pbr::ScreenSpaceAmbientOcclusion, platform::time::Instant, post_process::bloom::Bloom,
     prelude::*, window::RequestRedraw,
 };
+
+use crate::pan_orbit_camera_custom_input_plugin::CustomInputPlugin;
 fn main() {
-    App::new()
-        .add_plugins((
-            DefaultPlugins,
-            DefaultPanOrbitCameraPlugins,
-            MeshPickingPlugin,
-        ))
-        // The camera controller works with reactive rendering:
-        // .insert_resource(bevy::winit::WinitSettings::desktop_app())
-        .insert_resource(GlobalAmbientLight::NONE)
+    let mut app = App::new();
+
+    app.add_plugins((DefaultPlugins, MeshPickingPlugin));
+
+    if true {
+        // If you need to use custom input plugin, disable `DefaultInputPlugin` and add your custom input plugin.
+        app.add_plugins(
+            DefaultPanOrbitCameraPlugins
+                .build()
+                .disable::<DefaultInputPlugin>(),
+        )
+        .add_plugins(CustomInputPlugin);
+    } else {
+        // For most other uses just default `DefaultPanOrbitCameraPlugins` would suffice.
+        app.add_plugins(DefaultPanOrbitCameraPlugins);
+    }
+
+    // The camera controller works with reactive rendering:
+    // app.insert_resource(bevy::winit::WinitSettings::desktop_app())
+    app.insert_resource(GlobalAmbientLight::NONE)
         .add_systems(Startup, setup)
         .add_systems(
             Update,
@@ -41,8 +57,9 @@ fn main() {
                 toggle_zoom,
             )
                 .chain(),
-        )
-        .run();
+        );
+
+    app.run();
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
