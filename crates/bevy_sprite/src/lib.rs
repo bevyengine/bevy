@@ -99,8 +99,9 @@ impl Plugin for SpritePlugin {
     }
 }
 
-/// System calculating and inserting an [`Aabb`] component to entities with a `Mesh2d` component,
-/// that aren't a [`Sprite`]
+/// System calculating and inserting an [`Aabb`] component to entities with either:
+/// - a `Mesh2d` component,
+/// - a `Sprite` and `Handle<Image>` components,
 ///
 /// Used in system set [`VisibilitySystems::CalculateBounds`].
 fn calculate_bounds_2d(
