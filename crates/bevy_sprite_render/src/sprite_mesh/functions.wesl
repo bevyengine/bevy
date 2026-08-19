@@ -1,4 +1,4 @@
-import bevy_sprite_render::sprite_mesh::{
+import package::sprite_mesh::{
     types::{
         SPRITE_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS,
         SPRITE_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE,
@@ -11,10 +11,10 @@ import bevy_sprite_render::sprite_mesh::{
     bindings::material,
 };
 @if(BINDLESS)
-import bevy_sprite_render::sprite_mesh::bindings::material_indices;
+import package::sprite_mesh::bindings::material_indices;
 @if(!BINDLESS)
-import bevy_sprite_render::sprite_mesh::bindings::{texture, texture_sampler};
-import bevy_sprite_render::mesh2d::bindings::mesh;
+import package::sprite_mesh::bindings::{texture, texture_sampler};
+import package::mesh2d::bindings::mesh;
 import bevy_render::bindless::{bindless_samplers_filtering, bindless_textures_2d};
 
 // Applies all the transformations to the UV and samples the sprite's final color.

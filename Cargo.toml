@@ -389,6 +389,9 @@ free_camera = ["bevy_internal/free_camera"]
 # Enables the pan camera from bevy_camera_controller
 pan_camera = ["bevy_internal/pan_camera"]
 
+# Enables the pan orbit camera from bevy_camera_controller
+pan_orbit_camera = ["bevy_internal/pan_orbit_camera"]
+
 # Enable the Bevy Remote Protocol
 bevy_remote = ["bevy_internal/bevy_remote"]
 
@@ -5587,6 +5590,42 @@ required-features = ["pan_camera"]
 [package.metadata.example.pan_camera_controller]
 name = "Pan Camera"
 description = "Example Pan-Camera Styled Camera Controller for 2D scenes"
+category = "Camera"
+wasm = true
+
+[[example]]
+name = "pan_orbit_camera_cad"
+path = "examples/camera/pan_orbit_camera_cad.rs"
+doc-scrape-examples = true
+required-features = ["pan_orbit_camera", "https", "3d_api", "jpeg"]
+
+[package.metadata.example.pan_orbit_camera_cad]
+name = "Pan Orbit Camera"
+description = "CAD-like controls and setup for PanOrbitCamera"
+category = "Camera"
+wasm = true
+
+[[example]]
+name = "pan_orbit_camera_minimal"
+path = "examples/camera/pan_orbit_camera_minimal.rs"
+doc-scrape-examples = true
+required-features = ["pan_orbit_camera", "https", "3d_api", "jpeg"]
+
+[package.metadata.example.pan_orbit_camera_minimal]
+name = "Minimal Pan Orbit Camera"
+description = "Minimum setup for working PanOrbitCamera"
+category = "Camera"
+wasm = true
+
+[[example]]
+name = "pan_orbit_camera_ortho"
+path = "examples/camera/pan_orbit_camera_ortho.rs"
+doc-scrape-examples = true
+required-features = ["pan_orbit_camera", "https", "3d_api", "jpeg"]
+
+[package.metadata.example.pan_orbit_camera_ortho]
+name = "Orthographic Pan Orbit Camera"
+description = "Using Pan Orbit Camera in orthographic-only projection"
 category = "Camera"
 wasm = true
 

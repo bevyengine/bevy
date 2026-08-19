@@ -26,17 +26,17 @@
 // Note that the order in which decals are returned is currently unpredictable,
 // though generally stable from frame to frame.
 
-import bevy_pbr::render::clustered_forward;
-import bevy_pbr::render::clustered_forward::ClusterableObjectIndexRanges;
-import bevy_pbr::render::mesh_view_bindings;
-import bevy_pbr::render::pbr_functions;
-import bevy_pbr::render::pbr_types::PbrInput;
-import bevy_pbr::render::utils::porter_duff_over;
+import package::render::clustered_forward;
+import package::render::clustered_forward::ClusterableObjectIndexRanges;
+import package::render::mesh_view_bindings;
+import package::render::pbr_functions;
+import package::render::pbr_types::PbrInput;
+import package::render::utils::porter_duff_over;
 import bevy_render::maths;
 
-@if(MESHLET_MESH_MATERIAL_PASS) import bevy_pbr::meshlet::visibility_buffer_resolve::VertexOutput;
-@elif(PREPASS_PIPELINE) import bevy_pbr::prepass::io::VertexOutput;
-@else import bevy_pbr::render::forward_io::VertexOutput;
+@if(MESHLET_MESH_MATERIAL_PASS) import package::meshlet::visibility_buffer_resolve::VertexOutput;
+@elif(PREPASS_PIPELINE) import package::prepass::io::VertexOutput;
+@else import package::render::forward_io::VertexOutput;
 
 // An object that allows stepping through all clustered decals that affect a
 // single fragment.

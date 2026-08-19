@@ -1,10 +1,10 @@
 import bevy_core_pipeline::tonemapping::tonemapping_luminance as luminance;
 import bevy_pbr::render::utils::{rand_f, rand_range_u, sample_cosine_hemisphere};
-import bevy_solari::realtime::presample_light_tiles::unpack_resolved_light_sample;
-import bevy_solari::scene::sampling::{calculate_resolved_light_contribution, trace_visibility};
-import bevy_solari::scene::bindings::{trace_ray, resolve_ray_hit_full, RAY_T_MIN};
-import bevy_solari::realtime::world_cache_query::query_world_cache;
-import bevy_solari::realtime::bindings::{
+import package::realtime::presample_light_tiles::unpack_resolved_light_sample;
+import package::scene::sampling::{calculate_resolved_light_contribution, trace_visibility};
+import package::scene::bindings::{trace_ray, resolve_ray_hit_full, RAY_T_MIN};
+import package::realtime::world_cache_query::query_world_cache;
+import package::realtime::bindings::{
     light_tile_resolved_samples,
     view,
     constants,

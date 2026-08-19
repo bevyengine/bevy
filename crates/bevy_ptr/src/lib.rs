@@ -575,6 +575,7 @@ impl<'a, T, A: IsAligned> MovingPtr<'a, T, A> {
     /// # Safety
     ///  - `dst` must be valid for writes.
     ///  - If the `A` type parameter is [`Aligned`] then `dst` must be [properly aligned] for `T`.
+    ///  - The `dst` and the pointer `self` contains must not point at the same memory address.
     ///
     /// [properly aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
     #[inline]
@@ -586,6 +587,7 @@ impl<'a, T, A: IsAligned> MovingPtr<'a, T, A> {
         //  - The caller is required to ensure that `dst` must be valid for writes.
         //  - As `A` is `Aligned`, the caller is required to ensure that `dst` is aligned and `src` must
         //    be aligned by the type's invariants.
+        //  - The caller is required to ensure that `dst` and `src` do not point to the same memory address.
         //  - We took self by move and forgotten it, so nothing else can observe `src` being moved out.
         unsafe { A::copy_nonoverlapping(src, dst, 1) };
     }

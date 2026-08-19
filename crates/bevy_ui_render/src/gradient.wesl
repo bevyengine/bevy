@@ -1,5 +1,5 @@
 import bevy_render::view::View;
-import bevy_ui_render::ui::{
+import package::ui::{
     draw_uinode_background,
     draw_uinode_border,
 };

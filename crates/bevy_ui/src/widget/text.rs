@@ -322,7 +322,7 @@ pub fn measure_text_system(
             &mut font_system,
             &mut layout_cx,
             computed_target.logical_size(),
-            rem_size.0,
+            *rem_size,
         ) {
             Ok(measure) => {
                 if block.linebreak == LineBreak::NoWrap {
