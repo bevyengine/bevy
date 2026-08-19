@@ -13,9 +13,10 @@
 
 use bevy_camera::NormalizedRenderTarget;
 use bevy_ecs::prelude::*;
+use bevy_platform::collections::HashMap;
 
 use crate::{
-    backend::{HitData, PointerHits},
+    backend::{ray::RayMap, HitData, PointerHits},
     pointer::{Location, PointerId, PointerLocation},
 };
 
@@ -28,19 +29,26 @@ use crate::{
 pub fn update_window_hits(
     pointers: Query<(&PointerId, &PointerLocation)>,
     mut pointer_hits_writer: MessageWriter<PointerHits>,
+    ray_map: Res<RayMap>,
 ) {
-    for (pointer_id, pointer_location) in pointers.iter() {
-        if let Some(Location {
-            target: NormalizedRenderTarget::Window(window_ref),
-            position,
-            ..
-        }) = pointer_location.location
-        {
-            let entity = window_ref.entity();
-            let hit_data = HitData::new(entity, 0.0, Some(position.extend(0.0)), None);
+    for (&ray_id, _) in ray_map.iter() {
+        if let Some((position, window_entity)) = pointers.iter().find_map(|(id, loc)| {
+            if *id == ray_id.pointer {
+                match loc.location {
+                    Some(Location {
+                        target: NormalizedRenderTarget::Window(window_ref),
+                        position,
+                        ..
+                    }) => return Some((position, window_ref.entity())),
+                    _ => (),
+                }
+            }
+            None
+        }) {
+            let hit_data = HitData::new(ray_id.camera, 0.0, Some(position.extend(0.0)), None);
             pointer_hits_writer.write(PointerHits::new(
-                *pointer_id,
-                vec![(entity, hit_data)],
+                ray_id.pointer,
+                vec![(window_entity, hit_data)],
                 f32::NEG_INFINITY,
             ));
         }
