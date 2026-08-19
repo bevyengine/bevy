@@ -79,6 +79,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |bevy_core_pipeline|Provides cameras and other basic render pipeline features|
 |bevy_debug_stepping|Enable stepping-based debugging of Bevy systems|
 |bevy_dev_tools|Provides a collection of developer tools|
+|bevy_extract|Provides the ability to extract entities from an ECS main world to a sub world|
 |bevy_feathers|Feathers widget collection.|
 |bevy_gilrs|Adds gamepad support|
 |bevy_gizmos|Adds support for gizmos|
