@@ -25,16 +25,17 @@ use bevy::{
 
 use crate::pan_orbit_camera_custom_input_plugin::CustomInputPlugin;
 fn main() {
-    let mut app = App::new();
-
-    app.add_plugins((DefaultPlugins, MeshPickingPlugin));
-
-    // Currently PanOrbitCamera needs external InputPlugin.
-    app.add_plugins(DefaultPanOrbitCameraPlugins)
-        .add_plugins(CustomInputPlugin);
-    // The camera controller works with reactive rendering:
-    // app.insert_resource(bevy::winit::WinitSettings::desktop_app())
-    app.insert_resource(GlobalAmbientLight::NONE)
+    App::new()
+        .add_plugins((
+            DefaultPlugins,
+            MeshPickingPlugin,
+            DefaultPanOrbitCameraPlugins,
+            // Currently PanOrbitCamera needs external InputPlugin.
+            CustomInputPlugin,
+        ))
+        // The camera controller works with reactive rendering:
+        // .insert_resource(bevy::winit::WinitSettings::desktop_app())
+        .insert_resource(GlobalAmbientLight::NONE)
         .add_systems(Startup, setup)
         .add_systems(
             Update,
@@ -46,9 +47,8 @@ fn main() {
                 toggle_zoom,
             )
                 .chain(),
-        );
-
-    app.run();
+        )
+        .run();
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
