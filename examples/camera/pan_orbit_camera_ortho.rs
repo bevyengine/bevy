@@ -3,8 +3,12 @@
 //! While this is supported, there are some special considerations when using an orthographic camera.
 //! See comments in the code below!
 
+mod pan_orbit_camera_custom_input_plugin;
+
 use bevy::camera_controller::pan_orbit_camera::prelude::*;
 use bevy::prelude::*;
+
+use crate::pan_orbit_camera_custom_input_plugin::CustomInputPlugin;
 
 fn main() {
     App::new()
@@ -12,6 +16,7 @@ fn main() {
             DefaultPlugins,
             MeshPickingPlugin,
             DefaultPanOrbitCameraPlugins,
+            CustomInputPlugin,
         ))
         .add_systems(Startup, (setup, setup_ui))
         .run();
