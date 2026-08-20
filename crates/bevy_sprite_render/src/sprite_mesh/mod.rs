@@ -229,3 +229,70 @@ fn make_sprite_mesh_material(
 
     material
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sprite_material_cache() {
+        let mut cache = SpriteMeshMaterialCache::default();
+        let mut assets = Assets::default();
+        let handle = cache.get_or_insert_with(
+            &SpriteMesh::default(),
+            Anchor::default(),
+            &mut assets,
+            SpriteMaterial::default,
+        );
+        assert_eq!(cache.map.len(), 1);
+        assert_eq!(cache.reversed.len(), 1);
+        assert_eq!(
+            assets.get(&handle).cloned(),
+            Some(SpriteMaterial::default())
+        );
+
+        let handle2 = cache.get_or_insert_with(
+            &SpriteMesh::default(),
+            Anchor::default(),
+            &mut assets,
+            SpriteMaterial::default,
+        );
+        assert_eq!(handle, handle2);
+        assert_eq!(cache.reversed.len(), 1);
+        assert_eq!(cache.map.len(), 1);
+
+        let mat = SpriteMaterial {
+            flip_x: true,
+            ..Default::default()
+        };
+        let handle3 = cache.get_or_insert_with(
+            &SpriteMesh::default(),
+            Anchor::BOTTOM_LEFT,
+            &mut assets,
+            || mat.clone(),
+        );
+        assert_eq!(cache.map.len(), 2);
+        assert_eq!(cache.map.len(), 2);
+        assert_ne!(handle, handle3);
+        assert_eq!(assets.get(&handle3).cloned(), Some(mat.clone()));
+
+        let handle4 = cache.get_or_insert_with(
+            &SpriteMesh::default(),
+            Anchor::BOTTOM_LEFT,
+            &mut assets,
+            || mat.clone(),
+        );
+        assert_eq!(cache.map.len(), 2);
+        assert_eq!(cache.map.len(), 2);
+        assert_eq!(handle3, handle4);
+        assert_eq!(assets.get(&handle4).cloned(), Some(mat.clone()));
+
+        cache.clean(&AssetEvent::Removed { id: handle.id() });
+        assert_eq!(cache.map.len(), 1);
+        assert_eq!(cache.reversed.len(), 1);
+
+        cache.clean(&AssetEvent::Removed { id: handle3.id() });
+        assert_eq!(cache.map.len(), 0);
+        assert_eq!(cache.reversed.len(), 0);
+    }
+}
