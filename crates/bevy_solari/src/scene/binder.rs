@@ -36,6 +36,10 @@ pub struct RaytracingSceneBindings {
     previous_frame_light_entities: Vec<Entity>,
 }
 
+#[expect(
+    clippy::drain_collect,
+    reason = "draining preserves the capacity of `previous_frame_light_entities`, which is refilled below"
+)]
 pub fn prepare_raytracing_scene_bindings(
     instances_query: Query<(
         Entity,
@@ -62,8 +66,10 @@ pub fn prepare_raytracing_scene_bindings(
     let previous_frame_tlas = raytracing_scene_bindings.previous_frame_tlas.take();
 
     let mut this_frame_entity_to_light_id = EntityHashMap::<u32>::default();
-    let previous_frame_light_entities =
-        core::mem::take(&mut raytracing_scene_bindings.previous_frame_light_entities);
+    let previous_frame_light_entities: Vec<_> = raytracing_scene_bindings
+        .previous_frame_light_entities
+        .drain(..)
+        .collect();
 
     if instances_query.iter().len() == 0 {
         return;

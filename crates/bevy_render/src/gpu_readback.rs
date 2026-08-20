@@ -394,8 +394,12 @@ pub(crate) fn submit_readback_commands(world: &World, command_encoder: &mut Comm
 }
 
 /// Move requested readbacks to mapped readbacks after commands have been submitted in render system
+#[expect(
+    clippy::drain_collect,
+    reason = "draining preserves the capacity of `requested`, which is refilled every frame"
+)]
 fn map_buffers(mut readbacks: ResMut<GpuReadbacks>) {
-    let requested = core::mem::take(&mut readbacks.requested);
+    let requested = readbacks.requested.drain(..).collect::<Vec<GpuReadback>>();
     for readback in requested {
         let slice = readback.buffer.slice(..);
         let entity = readback.entity;
