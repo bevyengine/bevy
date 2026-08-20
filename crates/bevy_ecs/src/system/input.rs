@@ -2,7 +2,7 @@ use core::ops::{Deref, DerefMut};
 
 use variadics_please::all_tuples;
 
-use crate::{event::EventPattern, prelude::On, system::System};
+use crate::{entity::Entity, event::EventPattern, prelude::On, system::System};
 
 /// Trait for types that can be used as input to [`System`]s.
 ///
@@ -324,6 +324,17 @@ all_tuples!(
     8,
     I
 );
+
+/// [`SystemInput`] types that target a specific entity may implement this in
+/// order to support [`SystemParam`]s that require access to the target entity,
+/// such as [`Target<D, F>`].
+///
+/// [`SystemParam`]: crate::system::SystemParam
+/// [`Target<D, F>`]: crate::system::Target
+pub trait TargetEntity {
+    /// Returns the [`Entity`] that the system input is targeting.
+    fn target(&self) -> Entity;
+}
 
 #[cfg(test)]
 mod tests {

@@ -3089,6 +3089,106 @@ impl<'a, 'w, 's, D: IterQueryData, F: QueryFilter> IntoIterator
     }
 }
 
+/// [System parameter] that provides access to the target entity's components.
+/// This type acts like a [`Query`], but it only contains the fetched components
+/// of the target entity.
+///
+/// This type [`Deref`]s into the queried components.
+///
+/// To fetch components for multiple entities, use [`Query`] instead.
+/// To fetch components for a singleton entity, use [`Single`] instead.
+///
+/// # Usage Notes
+///
+/// This type can **ONLY** be used as a system parameter for systems
+/// that take a [`SystemInput`] that implements [`TargetEntity`], like an
+/// [`Observer`].
+///
+/// If this type is added to a function that doesn't take any input,
+/// or whose input doesn't implement [`TargetEntity`], the function cannot be
+/// used as a system.
+///
+/// # Examples
+///
+/// ## Simple
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// #[derive(Component)]
+/// struct Health(i32);
+///
+/// # let mut world = World::new();
+/// world.add_observer(|_: On<Add<Health>>, health: Target<&Health>| {
+///     // You can access the target entity's Health directly:
+///     let health: i32 = health.0;
+///     # assert_eq!(health, 100);
+/// });
+/// # world.flush();
+///
+/// // ...
+/// world.spawn(Health(100));
+/// # world.flush();
+/// ```
+///
+/// ## Optional
+///
+/// If the target entity might not have the fetched components, use
+/// [`Option<Target<D, F>>`] instead.
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// #[derive(Component)]
+/// struct Health(i32);
+/// #[derive(Component)]
+/// struct Mana(i32);
+///
+/// # let mut world = World::new();
+/// world.add_observer(|_: On<Add<Health>>, health: Option<Target<(&Health, &Mana)>>| {
+///     // Make sure to handle where the target entity doesn't have both components.
+///     let Some((Health(health), Mana(mana))) = health.map(|h| h.into_inner()) else {
+///         return;
+///     };
+///     // Use the components...
+///     # assert_eq!(*health, 100);
+///     # assert_eq!(*mana, 50);
+/// });
+/// # world.flush();
+///
+/// // ...
+/// world.spawn(Health(100));
+/// world.spawn((Health(100), Mana(50)));
+/// # world.flush();
+/// ```
+///
+/// [System parameter]: crate::system::SystemParam
+/// [`SystemInput`]: crate::system::SystemInput
+/// [`Observer`]: crate::observer::Observer
+pub struct Target<'w, 's, D: QueryData, F: QueryFilter = ()> {
+    pub(crate) item: D::Item<'w, 's>,
+    pub(crate) _filter: PhantomData<F>,
+}
+
+impl<'w, 's, D: QueryData, F: QueryFilter> Deref for Target<'w, 's, D, F> {
+    type Target = D::Item<'w, 's>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.item
+    }
+}
+
+impl<'w, 's, D: QueryData, F: QueryFilter> DerefMut for Target<'w, 's, D, F> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.item
+    }
+}
+
+impl<'w, 's, D: QueryData, F: QueryFilter> Target<'w, 's, D, F> {
+    /// Returns the inner item with ownership.
+    pub fn into_inner(self) -> D::Item<'w, 's> {
+        self.item
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{prelude::*, query::QueryEntityError};

@@ -15,14 +15,16 @@ use crate::{
         QueryState, ReadOnlyQueryData,
     },
     resource::{Resource, ResourceEntities, IS_RESOURCE},
-    system::{Query, Single, SystemAccess, SystemInput, SystemMeta, SystemState},
+    system::{
+        Query, Single, SystemAccess, SystemInput, SystemMeta, SystemState, Target, TargetEntity,
+    },
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FromWorld, World},
 };
 
 #[expect(deprecated, reason = "`FilteredResources` will be removed.")]
 use crate::world::{FilteredResources, FilteredResourcesMut};
 
-use alloc::{borrow::Cow, boxed::Box, vec::Vec};
+use alloc::{borrow::Cow, boxed::Box, string::ToString, vec::Vec};
 pub use bevy_ecs_macros::SystemParam;
 use bevy_platform::cell::SyncCell;
 use bevy_ptr::UnsafeCellDeref;
@@ -267,6 +269,11 @@ pub unsafe trait SystemParam: Sized {
 
 /// A [`SystemParam`] that can be constructed with a given [`SystemInput`].
 ///
+/// This trait enables system params to fetch their data based on the input
+/// provided to the system, in a compile-time checked manner. For example,
+/// [`Target<D, F>`] provides ergonomic access to query data for an entity that
+/// is passed in as a system input.
+///
 /// See [`SystemParam`] for more information.
 ///
 /// # Note for implementors
@@ -297,9 +304,14 @@ pub unsafe trait SystemParam: Sized {
 /// }
 /// ```
 ///
+/// See [`Target<D, F>`] for an example of a [`SystemParam`]
+/// that is implemented for a specific [`SystemInput`] type.
+///
 /// # Safety
 ///
 /// [`SystemParamFetch::get_param`] must only access things registered in [`SystemParam::init_access`].
+///
+/// [`Target<D, F>`]: crate::system::Target
 pub unsafe trait SystemParamFetch<I: SystemInput>: SystemParam {
     /// Creates a parameter to be passed into a [`SystemParamFunction`](super::SystemParamFunction).
     ///
@@ -506,6 +518,60 @@ unsafe impl<I: SystemInput, D: IterQueryData + 'static, F: QueryFilter + 'static
 // SAFETY: QueryState is constrained to read-only fetches, so it only reads World.
 unsafe impl<'w, 's, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> ReadOnlySystemParam
     for Populated<'w, 's, D, F>
+{
+}
+
+// SAFETY: Relevant query ComponentId access is applied to SystemMeta. If
+// this Query conflicts with any prior access, a panic will occur.
+unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Target<'_, '_, D, F> {
+    type State = QueryState<D, F>;
+    type Item<'w, 's> = Target<'w, 's, D, F>;
+
+    fn init_state(world: &mut World) -> Self::State {
+        Query::init_state(world)
+    }
+
+    fn init_access(
+        state: &Self::State,
+        system_meta: &mut SystemMeta,
+        system_access: &mut SystemAccess,
+        world: &mut World,
+    ) {
+        Query::init_access(state, system_meta, system_access, world);
+    }
+}
+
+// SAFETY: `get_param` only accesses things registered in `init_access`.
+unsafe impl<I, D, F> SystemParamFetch<I> for Target<'_, '_, D, F>
+where
+    I: for<'i> SystemInput<Inner<'i>: TargetEntity>,
+    D: IterQueryData + 'static,
+    F: QueryFilter + 'static,
+{
+    unsafe fn get_param<'world, 'state>(
+        state: &'state mut Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'world>,
+        change_tick: Tick,
+        input: &I::Inner<'_>,
+    ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
+        let target = input.target();
+        // SAFETY: State ensures that the components it accesses are not accessible somewhere elsewhere.
+        // The caller ensures the world matches the one used in init_state.
+        let query =
+            unsafe { state.query_unchecked_with_ticks(world, system_meta.last_run, change_tick) };
+        Ok(Target {
+            item: query
+                .get_inner(target)
+                .map_err(|e| SystemParamValidationError::skipped::<Self>(e.to_string()))?,
+            _filter: PhantomData,
+        })
+    }
+}
+
+// SAFETY: QueryState is constrained to read-only fetches, so it only reads World.
+unsafe impl<D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> ReadOnlySystemParam
+    for Target<'_, '_, D, F>
 {
 }
 
