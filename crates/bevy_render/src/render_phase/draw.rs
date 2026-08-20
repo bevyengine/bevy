@@ -6,7 +6,7 @@ use bevy_ecs::{
     entity::Entity,
     query::{QueryEntityError, QueryState, ROQueryItem, ReadOnlyQueryData},
     resource::Resource,
-    system::{ReadOnlySystemParam, SystemParam, SystemParamItem, SystemState},
+    system::{ReadOnlySystemParam, SystemParamFetch, SystemParamItem, SystemState},
     world::World,
 };
 use bevy_utils::TypeIdHashMap;
@@ -190,7 +190,7 @@ pub trait RenderCommand<P: PhaseItem> {
     ///
     /// [`SRes`]: bevy_ecs::system::lifetimeless::SRes
     /// [`SRes::into_inner`]: bevy_ecs::system::lifetimeless::SRes::into_inner
-    type Param: SystemParam + 'static;
+    type Param: SystemParamFetch<()> + 'static;
     /// Specifies the ECS data of the view entity required by [`RenderCommand::render`].
     ///
     /// The view entity refers to the camera, or shadow-casting light, etc. from which the phase

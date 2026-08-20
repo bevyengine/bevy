@@ -12,8 +12,8 @@ use bevy_ecs::{
     change_detection::Tick,
     resource::Resource,
     system::{
-        Deferred, ReadOnlySystemParam, Res, SystemAccess, SystemBuffer, SystemMeta, SystemParam,
-        SystemParamValidationError,
+        Deferred, ReadOnlySystemParam, Res, SystemAccess, SystemBuffer, SystemInput, SystemMeta,
+        SystemParam, SystemParamFetch, SystemParamValidationError,
     },
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
@@ -222,21 +222,34 @@ where
     fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {
         GizmosState::<Config, Clear>::queue(&mut state.state, system_meta, world);
     }
+}
 
+#[expect(
+    unsafe_code,
+    reason = "We cannot implement SystemParam without using unsafe code."
+)]
+// SAFETY: All methods are delegated to existing `SystemParam` implementations
+unsafe impl<I: SystemInput, Config, Clear> SystemParamFetch<I> for Gizmos<'_, '_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     #[inline]
     unsafe fn get_param<'w, 's>(
         state: &'s mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
+        input: &I::Inner<'_>,
     ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
         // SAFETY: Delegated to existing `SystemParam` implementations.
         let (mut f0, f1) = unsafe {
-            GizmosState::<Config, Clear>::get_param(
+            <GizmosState<Config, Clear> as SystemParamFetch<I>>::get_param(
                 &mut state.state,
                 system_meta,
                 world,
                 change_tick,
+                input,
             )?
         };
 

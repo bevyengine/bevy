@@ -8,7 +8,7 @@ use crate::{
 };
 use bevy_asset::Handle;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::system::{SystemParam, SystemParamItem};
+use bevy_ecs::system::{SystemParamFetch, SystemParamItem};
 use bevy_material::descriptor::BindGroupLayoutDescriptor;
 pub use bevy_render_macros::AsBindGroup;
 use bevy_utils::define_atomic_id;
@@ -511,7 +511,7 @@ pub trait AsBindGroup {
     /// Data that will be stored alongside the "prepared" bind group.
     type Data: Send + Sync;
 
-    type Param: SystemParam + 'static;
+    type Param: SystemParamFetch<()> + 'static;
 
     /// The number of slots per bind group, if bindless mode is enabled.
     ///
