@@ -1293,14 +1293,14 @@ pub fn cleanup_view_targets_for_resize(
 /// The identity key of a camera's main textures. Cameras with equal
 /// keys share one main-texture allocation in [`prepare_view_targets`], and
 /// [`resolve_composition_spaces`] groups by the same key.
-pub(crate) type MainTextureKey = (
+type MainTextureKey = (
     Option<NormalizedRenderTarget>,
     TextureUsages,
     TextureFormat,
     Msaa,
 );
 
-pub(crate) fn main_texture_key(
+fn main_texture_key(
     camera: &ExtractedCamera,
     view: &ExtractedView,
     texture_usage: &CameraMainTextureUsages,

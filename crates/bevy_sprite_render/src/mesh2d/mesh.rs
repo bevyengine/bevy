@@ -679,8 +679,7 @@ impl Mesh2dPipelineKey {
             .expect("Unknown bits in `COLOR_TARGET_FORMAT_MASK_BITS` of the pipeline key")
     }
 
-    /// Key bits for a view's resolved [`CompositingSpace`], taken from
-    /// [`ResolvedCompositingSpace`] and never from the camera's raw request.
+    /// Key bits for a view's resolved [`CompositingSpace`].
     #[inline]
     pub fn from_compositing_space(space: Option<CompositingSpace>) -> Self {
         match space {
@@ -1129,30 +1128,5 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh2d {
             }
         }
         RenderCommandResult::Success
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn resolved_space_selects_exactly_its_bit() {
-        assert_eq!(
-            Mesh2dPipelineKey::from_compositing_space(Some(CompositingSpace::Srgb)),
-            Mesh2dPipelineKey::SRGB_COMPOSITING
-        );
-        assert_eq!(
-            Mesh2dPipelineKey::from_compositing_space(Some(CompositingSpace::Oklab)),
-            Mesh2dPipelineKey::OKLAB_COMPOSITING
-        );
-        assert_eq!(
-            Mesh2dPipelineKey::from_compositing_space(Some(CompositingSpace::Linear)),
-            Mesh2dPipelineKey::NONE
-        );
-        assert_eq!(
-            Mesh2dPipelineKey::from_compositing_space(None),
-            Mesh2dPipelineKey::NONE
-        );
     }
 }

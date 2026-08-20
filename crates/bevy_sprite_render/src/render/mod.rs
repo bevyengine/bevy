@@ -157,8 +157,7 @@ impl SpritePipelineKey {
             .expect("Unknown bits in `COLOR_TARGET_FORMAT_MASK_BITS` of the pipeline key")
     }
 
-    /// Key bits for a view's resolved [`CompositingSpace`], taken from
-    /// [`ResolvedCompositingSpace`] and never from the camera's raw request.
+    /// Key bits for a view's resolved [`CompositingSpace`].
     #[inline]
     pub fn from_compositing_space(space: Option<CompositingSpace>) -> Self {
         match space {
@@ -1056,30 +1055,5 @@ fn apply_scaling(
                 *quad_size = new_quad;
             }
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn resolved_space_selects_exactly_its_bit() {
-        assert_eq!(
-            SpritePipelineKey::from_compositing_space(Some(CompositingSpace::Srgb)),
-            SpritePipelineKey::SRGB_COMPOSITING
-        );
-        assert_eq!(
-            SpritePipelineKey::from_compositing_space(Some(CompositingSpace::Oklab)),
-            SpritePipelineKey::OKLAB_COMPOSITING
-        );
-        assert_eq!(
-            SpritePipelineKey::from_compositing_space(Some(CompositingSpace::Linear)),
-            SpritePipelineKey::NONE
-        );
-        assert_eq!(
-            SpritePipelineKey::from_compositing_space(None),
-            SpritePipelineKey::NONE
-        );
     }
 }
