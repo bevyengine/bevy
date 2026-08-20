@@ -12,7 +12,7 @@ use core::{
     fmt::{self, Debug, Formatter, Pointer},
     marker::PhantomData,
     mem::{self, ManuallyDrop, MaybeUninit},
-    ops::{Deref, DerefMut},
+    ops::{Deref, DerefMut, Range},
     ptr::{self, NonNull},
 };
 
@@ -1154,6 +1154,20 @@ impl<'a, T> ThinSlicePtr<'a, T> {
         unsafe { core::slice::from_raw_parts(self.ptr.as_ptr(), len) }
     }
 
+    /// Returns a subslice without performing bounds checks.
+    ///
+    /// # Safety
+    ///
+    /// - There must be no mutable aliases for the lifetime `'a` to the slice.
+    /// - `range.start` and `range.end` must be less than or equal to the length of the slice.
+    /// - `range.start` must be less than or equal to `range.end`.
+    pub unsafe fn slice_unchecked(&self, range: Range<usize>) -> &'a [T] {
+        // SAFETY: The caller guarantees that `range` is within range of the slice.
+        unsafe {
+            core::slice::from_raw_parts(self.ptr.as_ptr().add(range.start), range.end - range.start)
+        }
+    }
+
     /// Indexes the slice without performing bounds checks.
     ///
     /// # Safety
@@ -1182,6 +1196,23 @@ impl<'a, T> ThinSlicePtr<'a, UnsafeCell<T>> {
         // - `self.ptr` is a valid pointer for the type `T`.
         // - `len` is valid hence `len * size_of::<T>()` is less than `isize::MAX`.
         unsafe { core::slice::from_raw_parts_mut(UnsafeCell::raw_get(self.ptr.as_ptr()), len) }
+    }
+
+    /// Returns a mutable subslice of the slice.
+    ///
+    /// # Safety
+    ///
+    /// - There must not be any aliases for the lifetime `'a` to the slice.
+    /// - `range.start` and `range.end` must be less than or equal to the length of the slice.
+    /// - `range.start` must be less than or equal to `range.end`.
+    pub unsafe fn slice_mut_unchecked(&self, range: Range<usize>) -> &'a mut [T] {
+        // SAFETY: The caller guarantees that `range` is within range of the slice.
+        unsafe {
+            core::slice::from_raw_parts_mut(
+                UnsafeCell::raw_get(self.ptr.as_ptr().add(range.start)),
+                range.end - range.start,
+            )
+        }
     }
 
     /// Returns a slice pointer to the underlying type `T`.

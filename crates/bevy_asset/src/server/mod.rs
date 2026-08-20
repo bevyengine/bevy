@@ -425,9 +425,13 @@ impl AssetServer {
     ) {
         infos.stats.started_load_tasks += 1;
 
-        // drop the lock on `AssetInfos` before spawning a task that may block on it in single-threaded
-        #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
-        drop(infos);
+        bevy_tasks::cfg::multi_threaded! {
+            if {} else {
+                // drop the lock on `AssetInfos` before spawning a task that may block on it in
+                // single-threaded
+                drop(infos);
+            }
+        }
 
         let owned_handle = handle.clone();
         let server = self.clone();
@@ -441,16 +445,17 @@ impl AssetServer {
             drop(guard);
         });
 
-        #[cfg(not(any(target_arch = "wasm32", not(feature = "multi_threaded"))))]
-        {
-            let mut infos = infos;
-            infos
-                .pending_tasks
-                .insert((&handle).try_into().unwrap(), task);
-        }
-
-        #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
-        task.detach();
+        let mut infos = bevy_tasks::cfg::multi_threaded! {
+            if {
+                infos
+            } else {
+                // Pick the lock back up after the task got to run.
+                self.write_infos()
+            }
+        };
+        infos
+            .pending_tasks
+            .insert((&handle).try_into().unwrap(), task);
     }
 
     pub(crate) fn load_unknown_type_with_meta_transform<'a, G: Send + Sync + 'static>(
@@ -496,9 +501,13 @@ impl AssetServer {
 
         infos.stats.started_load_tasks += 1;
 
-        // drop the lock on `AssetInfos` before spawning a task that may block on it in single-threaded
-        #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
-        drop(infos);
+        bevy_tasks::cfg::multi_threaded! {
+            if {} else {
+                // drop the lock on `AssetInfos` before spawning a task that may block on it in
+                // single-threaded
+                drop(infos);
+            }
+        }
 
         let server = self.clone();
         let task = IoTaskPool::get().spawn(async move {
@@ -526,11 +535,15 @@ impl AssetServer {
             drop(guard);
         });
 
-        #[cfg(not(any(target_arch = "wasm32", not(feature = "multi_threaded"))))]
+        let mut infos = bevy_tasks::cfg::multi_threaded! {
+            if {
+                infos
+            } else {
+                // Pick the lock back up after the task got to run.
+                self.write_infos()
+            }
+        };
         infos.pending_tasks.insert(index, task);
-
-        #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
-        task.detach();
 
         handle
     }
@@ -869,9 +882,13 @@ impl AssetServer {
         let mut infos = self.write_infos();
         let handle = infos.create_loading_handle_untyped(TypeId::of::<A>(), type_name::<A>());
 
-        // drop the lock on `AssetInfos` before spawning a task that may block on it in single-threaded
-        #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
-        drop(infos);
+        bevy_tasks::cfg::multi_threaded! {
+            if {} else {
+                // drop the lock on `AssetInfos` before spawning a task that may block on it in
+                // single-threaded
+                drop(infos);
+            }
+        }
 
         // `create_loading_handle_untyped` always returns a Strong variant, so this is safe.
         let index = (&handle).try_into().unwrap();
@@ -905,11 +922,15 @@ impl AssetServer {
             }
         });
 
-        #[cfg(not(any(target_arch = "wasm32", not(feature = "multi_threaded"))))]
+        let mut infos = bevy_tasks::cfg::multi_threaded! {
+            if {
+                infos
+            } else {
+                // Pick the lock back up after the task got to run.
+                self.write_infos()
+            }
+        };
         infos.pending_tasks.insert(index, task);
-
-        #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
-        task.detach();
 
         handle.typed_debug_checked()
     }
@@ -2006,10 +2027,13 @@ pub fn handle_internal_asset_events(world: &mut World) {
             }
         }
 
-        // Drop the lock on `AssetInfos` before spawning a task that may block on it in
-        // single-threaded.
-        #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
-        drop(infos);
+        bevy_tasks::cfg::multi_threaded! {
+            if {} else {
+                // drop the lock on `AssetInfos` before spawning a task that may block on it in
+                // single-threaded
+                drop(infos);
+            }
+        }
 
         for (handle, path) in folders_to_reload {
             // `get_path_handles` only returns Strong variants, so this is safe.
@@ -2020,7 +2044,14 @@ pub fn handle_internal_asset_events(world: &mut World) {
             server.reload_internal(path, true);
         }
 
-        #[cfg(not(any(target_arch = "wasm32", not(feature = "multi_threaded"))))]
+        let mut infos = bevy_tasks::cfg::multi_threaded! {
+            if {
+                infos
+            } else {
+                // Pick the lock back up after the task got to run.
+                server.write_infos()
+            }
+        };
         infos
             .pending_tasks
             .retain(|_, load_task| !load_task.is_finished());
