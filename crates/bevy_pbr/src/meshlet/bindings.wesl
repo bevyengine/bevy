@@ -1,6 +1,6 @@
-import bevy_pbr::render::mesh_types::Mesh;
+import package::render::mesh_types::Mesh;
 import bevy_render::view::View;
-import bevy_pbr::prepass::bindings::PreviousViewUniforms;
+import package::prepass::bindings::PreviousViewUniforms;
 import bevy_render::utils::octahedral_decode_signed;
 
 struct BvhNode {

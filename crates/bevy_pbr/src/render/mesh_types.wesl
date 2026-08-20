@@ -7,7 +7,7 @@ struct Mesh {
     // [0].xyz, [1].x,
     // [1].yz, [2].xy
     // [2].z
-    // Use bevy_pbr::render::mesh_functions::mat2x4_f32_to_mat3x3_unpack to unpack
+    // Use package::render::mesh_functions::mat2x4_f32_to_mat3x3_unpack to unpack
     local_from_world_transpose_a: mat2x4<f32>,
     local_from_world_transpose_b: f32,
     // 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.

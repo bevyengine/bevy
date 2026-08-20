@@ -1,5 +1,3 @@
-use core::f32;
-
 use bevy_app::Plugin;
 use bevy_color::{Color, ColorToComponents};
 use bevy_image::{Image, TextureAtlas, TextureAtlasLayout};

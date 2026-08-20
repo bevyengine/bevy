@@ -103,32 +103,19 @@ fn add_material<M>(
     M::Data: Clone,
 {
     for (entity, sprite, anchor, sprite_material) in sprites {
-        let handle = if let Some(handle) =
-            cache.get(&(sprite_material.0.id(), sprite.clone(), *anchor))
-        {
-            handle.clone()
-        } else {
-            let material = super::make_sprite_mesh_material(&texture_atlas_layouts, sprite, anchor);
-            let Some(sprite_material_instance) = sprite_materials.get(&sprite_material.0) else {
-                continue;
-            };
-
-            let extended = ExtendedMaterial2d {
-                base: material,
-                extension: SpriteMaterialExtension::new(
-                    sprite_material.id(),
-                    sprite_material_instance,
-                ),
-            };
-
-            let handle = materials.add(extended);
-            cache.insert(
-                (sprite_material.id(), sprite.clone(), *anchor),
-                handle.clone(),
-            );
-
-            handle
+        let Some(instance) = sprite_materials.get(&sprite_material.0) else {
+            continue;
         };
+
+        let sprite_cache = cache.entry(sprite_material.id()).or_default();
+        let handle = sprite_cache.get_or_insert_with(sprite, *anchor, &mut materials, || {
+            let material =
+                super::make_sprite_mesh_material(&texture_atlas_layouts, sprite, *anchor);
+            ExtendedMaterial2d {
+                base: material,
+                extension: SpriteMaterialExtension::new(sprite_material.id(), instance),
+            }
+        });
 
         commands
             .entity(entity)
@@ -439,7 +426,7 @@ where
 
 /// Keeps an index of cached `SpriteExt` handles based on the [`SpriteMesh`], [`Anchor`], and the asset id of the material
 #[derive(Resource, Deref, DerefMut)]
-struct SpriteMaterialCache<M>(HashMap<(AssetId<M>, SpriteMesh, Anchor), Handle<SpriteExt<M>>>)
+struct SpriteMaterialCache<M>(HashMap<AssetId<M>, super::SpriteMaterialCache<SpriteExt<M>>>)
 where
     M::Data: Clone,
     M: Asset + MaterialExtension2d;
@@ -455,15 +442,22 @@ where
 }
 
 fn clean_sprite_material_cache<M>(
-    mut index: ResMut<SpriteMaterialCache<M>>,
+    mut cache: ResMut<SpriteMaterialCache<M>>,
     mut asset_events: MessageReader<AssetEvent<M>>,
+    mut ext_events: MessageReader<AssetEvent<SpriteExt<M>>>,
 ) where
     M::Data: Clone,
     M: Asset + MaterialExtension2d,
 {
     for message in asset_events.read() {
         if let AssetEvent::Removed { id } = *message {
-            index.retain(|(key_id, ..), _| *key_id != id);
+            cache.retain(|&key_id, _| key_id != id);
+        }
+    }
+
+    for event in ext_events.read() {
+        for el in cache.values_mut() {
+            el.clean(event);
         }
     }
 }

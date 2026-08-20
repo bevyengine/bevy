@@ -434,6 +434,8 @@ pub trait StableInterpolate: Clone {
 
     /// A version of [`interpolate_stable`] that assigns the result to `self` for convenience.
     ///
+    /// A manual implementation can be provided to optimize in-place mutation, such as avoiding memory allocations.
+    ///
     /// [`interpolate_stable`]: StableInterpolate::interpolate_stable
     fn interpolate_stable_assign(&mut self, other: &Self, t: f32) {
         *self = self.interpolate_stable(other, t);
@@ -587,12 +589,39 @@ pub trait TryStableInterpolate: Clone {
     /// Attempt to interpolate the value. This may fail if the two interpolation values have
     /// different units, or if the type is not interpolable.
     fn try_interpolate_stable(&self, other: &Self, t: f32) -> Result<Self, Self::Error>;
+
+    /// A version of [`try_interpolate_stable`] that assigns the result to `self` for convenience.
+    /// On failure, `self` remains unchanged.
+    ///
+    /// A manual implementation can be provided to optimize in-place mutation, such as avoiding memory allocations.
+    ///
+    /// [`try_interpolate_stable`]: TryStableInterpolate::try_interpolate_stable
+    fn try_interpolate_stable_assign(&mut self, other: &Self, t: f32) -> Result<(), Self::Error> {
+        *self = self.try_interpolate_stable(other, t)?;
+        Ok(())
+    }
+
+    /// Like [`StableInterpolate::smooth_nudge`] but fallible.
+    fn try_smooth_nudge(
+        &mut self,
+        target: &Self,
+        decay_rate: f32,
+        delta: f32,
+    ) -> Result<(), Self::Error> {
+        self.try_interpolate_stable_assign(target, 1.0 - ops::exp(-decay_rate * delta))?;
+        Ok(())
+    }
 }
 
 impl<T: StableInterpolate> TryStableInterpolate for T {
     type Error = Infallible;
     fn try_interpolate_stable(&self, other: &Self, t: f32) -> Result<Self, Self::Error> {
         Ok(self.interpolate_stable(other, t))
+    }
+
+    fn try_interpolate_stable_assign(&mut self, other: &Self, t: f32) -> Result<(), Self::Error> {
+        self.interpolate_stable_assign(other, t);
+        Ok(())
     }
 }
 
@@ -617,6 +646,19 @@ impl<E, T: TryStableInterpolate<Error = E>> TryStableInterpolate for alloc::vec:
                 .map(|i| self[i].try_interpolate_stable(&other[i], t))
                 .collect::<Result<alloc::vec::Vec<_>, _>>()
                 .map_err(VecInterpolateError::Inner)
+        } else {
+            Err(VecInterpolateError::MismatchedLength)
+        }
+    }
+
+    fn try_interpolate_stable_assign(&mut self, other: &Self, t: f32) -> Result<(), Self::Error> {
+        if self.len() == other.len() {
+            for i in 0..self.len() {
+                self[i]
+                    .try_interpolate_stable_assign(&other[i], t)
+                    .map_err(VecInterpolateError::Inner)?;
+            }
+            Ok(())
         } else {
             Err(VecInterpolateError::MismatchedLength)
         }
@@ -696,17 +738,24 @@ mod tests {
 
     #[test]
     fn interpolate_dynamic_arrays() {
-        let a = vec![0.0, 1.0];
+        let mut a = vec![0.0, 1.0];
         let b = vec![1.0, 0.0];
 
         assert_matches!(a.try_interpolate_stable(&b, 0.25), Ok(v) if v == vec![0.25, 0.75]);
         assert_matches!(a.try_interpolate_stable(&b, 0.5), Ok(v) if v == vec![0.5, 0.5]);
         assert_matches!(a.try_interpolate_stable(&b, 0.75), Ok(v) if v == vec![0.75, 0.25]);
+
+        assert_matches!(a.try_interpolate_stable_assign(&b, 0.25), Ok(()));
+        assert_eq!(a, vec![0.25, 0.75]);
+        assert_matches!(a.try_interpolate_stable_assign(&b, 0.5), Ok(()));
+        assert_eq!(a, vec![0.625, 0.375]);
+        assert_matches!(a.try_interpolate_stable_assign(&b, 0.75), Ok(()));
+        assert_eq!(a, vec![0.90625, 0.09375]);
     }
 
     #[test]
     fn interpolate_dynamic_arrays_different_lengths() {
-        let a = vec![0.0, 1.0];
+        let mut a = vec![0.0, 1.0];
         let b = vec![1.0, 0.0, 1.0];
 
         assert_matches!(
@@ -714,11 +763,23 @@ mod tests {
             Err(VecInterpolateError::MismatchedLength)
         );
 
-        let a: Vec<Vec<f32>> = vec![vec![0.0, 1.0], vec![1.0, 0.0]];
+        assert_matches!(
+            a.try_interpolate_stable_assign(&b, 0.5),
+            Err(VecInterpolateError::MismatchedLength)
+        );
+
+        let mut a: Vec<Vec<f32>> = vec![vec![0.0, 1.0], vec![1.0, 0.0]];
         let b: Vec<Vec<f32>> = vec![vec![1.0, 0.0], vec![0.0, 1.0, 0.0]];
 
         assert_matches!(
             a.try_interpolate_stable(&b, 0.5),
+            Err(VecInterpolateError::Inner(
+                VecInterpolateError::MismatchedLength
+            ))
+        );
+
+        assert_matches!(
+            a.try_interpolate_stable_assign(&b, 0.5),
             Err(VecInterpolateError::Inner(
                 VecInterpolateError::MismatchedLength
             ))
