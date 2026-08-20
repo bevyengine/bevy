@@ -1,4 +1,4 @@
-import bevy_pbr::render::{
+import package::render::{
     mesh_view_bindings as view_bindings,
     utils::interleaved_gradient_noise,
     utils,
