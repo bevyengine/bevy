@@ -1,4 +1,5 @@
 use bevy_app::{Plugin, PostUpdate};
+use bevy_asset::{AssetEvent, AssetEventSystems, AssetId, Assets, Handle};
 use bevy_color::ColorToComponents;
 use bevy_ecs::{
     entity::Entity,
@@ -7,25 +8,22 @@ use bevy_ecs::{
     schedule::IntoScheduleConfigs,
     system::{Commands, Local, Query, Res, ResMut},
 };
-
-use bevy_asset::{AssetEvent, AssetEventSystems, AssetId, Assets, Handle};
-
 use bevy_image::{Image, TextureAtlasLayout};
 use bevy_math::{primitives::Rectangle, vec2, FloatOrd};
 use bevy_mesh::{
     mark_2d_meshes_as_changed_if_their_assets_changed, Mesh, Mesh2d, MeshAttributeCompressionFlags,
     MeshBuilder, Meshable,
 };
-
 use bevy_platform::collections::{hash_map::Entry, HashMap};
 use bevy_shader::load_shader_library;
-use bevy_sprite::{prelude::SpriteMesh, Anchor, SpriteAlphaMode};
+use bevy_sprite::{prelude::Sprite, Anchor, SpriteAlphaMode};
 
 mod sprite_material;
 pub use sprite_material::*;
 
 use crate::{check_entities_needing_specialization, MeshMaterial2d};
 
+/// Plugin used to render a Sprite using a [`Mesh2d`] and a [`SpriteMaterial`]
 pub struct SpriteMeshPlugin;
 
 impl Plugin for SpriteMeshPlugin {
@@ -47,10 +45,10 @@ impl Plugin for SpriteMeshPlugin {
     }
 }
 
-// Insert a Mesh2d quad each time the SpriteMesh component is added.
+// Insert a Mesh2d quad each time the Sprite component is added.
 // The meshhandle is kept locally so they can be cloned.
 fn add_mesh(
-    sprites: Query<Entity, Added<SpriteMesh>>,
+    sprites: Query<Entity, Added<Sprite>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut quad: Local<Option<Handle<Mesh>>>,
     mut commands: Commands,
@@ -73,7 +71,7 @@ fn add_mesh(
     }
 }
 
-/// Key used to determine in which bucket to cache the material for a [`SpriteMesh`]
+/// Key used to determine in which bucket to cache the material for a [`Sprite`]
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 struct SpriteMaterialBucketKey {
     image: AssetId<Image>,
@@ -95,7 +93,7 @@ enum SpriteAlphaModeKey {
 }
 
 impl SpriteMaterialBucketKey {
-    fn new(sprite: &SpriteMesh, anchor: &Anchor) -> Self {
+    fn new(sprite: &Sprite, anchor: &Anchor) -> Self {
         Self {
             image: sprite.image.id(),
             texture_atlas_layout: sprite.texture_atlas.as_ref().map(|a| a.layout.id()),
@@ -119,11 +117,11 @@ impl SpriteMaterialBucketKey {
     }
 }
 
-/// Change the material when [`SpriteMesh`] is added / changed.
+/// Change the material when [`Sprite`] is added / changed.
 ///
-/// The materials are cached based on their [`SpriteMesh`] and [`Anchor`].
+/// The materials are cached based on their [`Sprite`] and [`Anchor`].
 ///
-/// Since not all fields of the [`SpriteMesh`] are easy to hash, we keep multiple "buckets" keyed on
+/// Since not all fields of the [`Sprite`] are easy to hash, we keep multiple "buckets" keyed on
 /// parts of the struct that are easy to hash.
 ///
 /// NOTE: This also adds the [`TextureAtlasLayout`] into the [`SpriteMaterial`],
@@ -132,12 +130,12 @@ impl SpriteMaterialBucketKey {
 fn add_material(
     mut commands: Commands,
     sprites: Query<
-        (Entity, &SpriteMesh, &Anchor),
-        Or<(Changed<SpriteMesh>, Changed<Anchor>, Added<Mesh2d>)>,
+        (Entity, &Sprite, &Anchor),
+        Or<(Changed<Sprite>, Changed<Anchor>, Added<Mesh2d>)>,
     >,
     texture_atlas_layouts: Res<Assets<TextureAtlasLayout>>,
     mut cached_materials: Local<
-        HashMap<SpriteMaterialBucketKey, Vec<(SpriteMesh, AssetId<SpriteMaterial>)>>,
+        HashMap<SpriteMaterialBucketKey, Vec<(Sprite, AssetId<SpriteMaterial>)>>,
     >,
     mut reversed_cached_materials: Local<HashMap<AssetId<SpriteMaterial>, SpriteMaterialBucketKey>>,
     mut materials: ResMut<Assets<SpriteMaterial>>,
@@ -171,7 +169,7 @@ fn add_material(
         let handle = match maybe_handle {
             Some(handle) => handle,
             None => {
-                let mut material = SpriteMaterial::from_sprite_mesh(sprite.clone());
+                let mut material = SpriteMaterial::from_sprite(sprite.clone());
                 material.anchor = **anchor;
 
                 if let Some(texture_atlas) = &sprite.texture_atlas
