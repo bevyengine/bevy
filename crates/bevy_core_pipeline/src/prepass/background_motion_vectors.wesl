@@ -1,5 +1,5 @@
 import bevy_render::view::View;
-import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput;
+import package::fullscreen_vertex_shader::FullscreenVertexOutput;
 import bevy_pbr::render::view_transformations::uv_to_ndc;
 
 struct PreviousViewUniforms {

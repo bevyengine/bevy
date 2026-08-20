@@ -43,6 +43,7 @@ use bevy_render::batching::gpu_preprocessing::{
     BuildIndirectParametersMetadata, IndirectParametersBuffers,
 };
 use bevy_render::camera::{DirtySpecializations, PendingQueues};
+use bevy_render::diagnostic::RecordDiagnostics;
 use bevy_render::erased_render_asset::ErasedRenderAssets;
 use bevy_render::mesh::allocator::MeshSlabs;
 use bevy_render::occlusion_culling::{
@@ -2929,6 +2930,10 @@ pub fn per_view_shadow_pass<const IS_LATE: bool>(
 ) {
     let view_lights = view.into_inner();
 
+    let diagnostics = ctx.diagnostic_recorder();
+    let diagnostics = diagnostics.as_deref();
+    let time_span = diagnostics.time_span(ctx.command_encoder(), "per_view_shadow_pass");
+
     for view_light_entity in view_lights.lights.iter().copied() {
         let Ok((
             view_light,
@@ -2982,6 +2987,8 @@ pub fn per_view_shadow_pass<const IS_LATE: bool>(
             &mut ctx,
         );
     }
+
+    time_span.end(ctx.command_encoder());
 }
 
 /// A common helper function to render a shadow map.

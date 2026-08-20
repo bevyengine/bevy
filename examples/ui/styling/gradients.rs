@@ -8,7 +8,7 @@ use bevy::{
 };
 use std::f32::consts::TAU;
 
-const COLOR_SPACES: [InterpolationColorSpace; 9] = [
+const COLOR_SPACES: [InterpolationColorSpace; 11] = [
     InterpolationColorSpace::Oklaba,
     InterpolationColorSpace::Oklcha,
     InterpolationColorSpace::OklchaLong,
@@ -18,6 +18,8 @@ const COLOR_SPACES: [InterpolationColorSpace; 9] = [
     InterpolationColorSpace::HslaLong,
     InterpolationColorSpace::Hsva,
     InterpolationColorSpace::HsvaLong,
+    InterpolationColorSpace::Okhsla,
+    InterpolationColorSpace::OkhslaLong,
 ];
 
 /// Marker component for the previous button
