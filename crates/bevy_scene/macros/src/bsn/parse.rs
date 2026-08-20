@@ -1,7 +1,8 @@
 use crate::_bsn::types::{
     Bsn, BsnConstructor, BsnEntry, BsnFields, BsnFnArg, BsnFnArgs, BsnListRoot, BsnNamedField,
-    BsnRelatedSceneList, BsnRoot, BsnScene, BsnSceneFn, BsnSceneList, BsnSceneListItem,
-    BsnSceneListItems, BsnTuple, BsnType, BsnUnnamedField, BsnValue,
+    BsnNamedFieldOrStructUpdate, BsnRelatedSceneList, BsnRoot, BsnScene, BsnSceneFn, BsnSceneList,
+    BsnSceneListItem, BsnSceneListItems, BsnStructUpdate, BsnTuple, BsnType, BsnUnnamedField,
+    BsnValue,
 };
 use bevy_macro_utils::{path_to_string, PathType};
 use proc_macro2::{Delimiter, Spacing, TokenStream, TokenTree};
@@ -13,7 +14,7 @@ use syn::{
     parse::{discouraged::Speculative, Parse, ParseBuffer, ParseStream},
     spanned::Spanned,
     token::{At, Brace, Bracket, Colon, Comma, Dot, Paren, Tilde},
-    Block, Ident, Lit, LitStr, Path, Result, Token,
+    Block, Ident, Lit, LitStr, Member, Path, Result, Token,
 };
 
 /// Functionally identical to [`Punctuated`](syn::punctuated::Punctuated), but fills the given `$list` Vec instead
@@ -294,6 +295,16 @@ impl Parse for BsnType {
     }
 }
 
+impl Parse for BsnStructUpdate {
+    fn parse(input: ParseStream) -> Result<Self> {
+        input.parse::<Dot>()?;
+        input.parse::<Dot>()?;
+        Ok(BsnStructUpdate {
+            value: Box::new(input.parse::<BsnValue>()?),
+        })
+    }
+}
+
 impl Parse for BsnTuple {
     fn parse(input: ParseStream) -> Result<Self> {
         let content;
@@ -313,17 +324,64 @@ impl Parse for BsnFields {
         Ok(if input.peek(Brace) {
             let content;
             braced![content in input];
-            let mut fields = Vec::new();
-            parse_punctuated_vec_autocomplete_friendly!(fields, content, BsnNamedField, Comma);
-            BsnFields::Named(fields)
+            let mut entries = Vec::new();
+            parse_punctuated_vec_autocomplete_friendly!(
+                entries,
+                content,
+                BsnNamedFieldOrStructUpdate,
+                Comma
+            );
+            let len = entries.len();
+            let mut fields = Vec::with_capacity(len);
+            let mut struct_update = None;
+            for (index, field) in entries.into_iter().enumerate() {
+                match field {
+                    BsnNamedFieldOrStructUpdate::Field(bsn_named_field) => {
+                        fields.push(bsn_named_field);
+                    }
+                    BsnNamedFieldOrStructUpdate::StructUpdate(bsn_struct_update) => {
+                        if index != len - 1 {
+                            return Err(
+                                content.error("Struct update syntax must come after fields")
+                            );
+                        }
+
+                        struct_update = Some(bsn_struct_update);
+                    }
+                }
+            }
+
+            BsnFields::Named {
+                fields,
+                struct_update,
+            }
         } else if input.peek(Paren) {
             let content;
             parenthesized![content in input];
             let mut fields = Vec::new();
-            parse_punctuated_vec_autocomplete_friendly!(fields, content, BsnUnnamedField, Comma);
-            BsnFields::Tuple(fields)
+            parse_punctuated_vec_autocomplete_friendly!(fields, content, BsnValue, Comma);
+            BsnFields::Tuple(
+                fields
+                    .drain(..)
+                    .enumerate()
+                    .map(|(index, value)| BsnUnnamedField {
+                        value,
+                        index: Member::Unnamed(index.into()),
+                    })
+                    .collect(),
+            )
         } else {
             BsnFields::Unit
+        })
+    }
+}
+
+impl Parse for BsnNamedFieldOrStructUpdate {
+    fn parse(input: ParseStream) -> Result<Self> {
+        Ok(if input.peek(Dot) && input.peek2(Dot) {
+            BsnNamedFieldOrStructUpdate::StructUpdate(input.parse::<BsnStructUpdate>()?)
+        } else {
+            BsnNamedFieldOrStructUpdate::Field(input.parse::<BsnNamedField>()?)
         })
     }
 }
@@ -356,13 +414,6 @@ impl Parse for BsnNamedField {
             is_prop,
             is_name_shorthand,
         })
-    }
-}
-
-impl Parse for BsnUnnamedField {
-    fn parse(input: ParseStream) -> Result<Self> {
-        let value = input.parse::<BsnValue>()?;
-        Ok(BsnUnnamedField { value })
     }
 }
 

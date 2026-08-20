@@ -1746,9 +1746,15 @@ mod tests {
                 y: u32,
                 z: u32,
             },
-            Baz(usize),
+            Baz(Nested),
             #[default]
             Qux,
+        }
+
+        #[derive(Default, Clone, PartialEq, Eq, Debug)]
+        struct Nested {
+            a: usize,
+            b: usize,
         }
 
         fn a() -> impl Scene {
@@ -1767,7 +1773,7 @@ mod tests {
         fn c() -> impl Scene {
             bsn! {
                 @b()
-                Foo::Baz(10)
+                Foo::Baz(Nested { a: 10 })
             }
         }
 
@@ -1775,6 +1781,17 @@ mod tests {
             bsn! {
                 @c()
                 Foo::Qux
+            }
+        }
+
+        fn custom_nested() -> Nested {
+            Nested { a: 1, b: 2 }
+        }
+
+        fn e() -> impl Scene {
+            bsn! {
+                @b()
+                Foo::Baz(Nested { a: 3, ..custom_nested() })
             }
         }
 
@@ -1788,36 +1805,52 @@ mod tests {
 
         let entity = world.spawn_scene(c()).unwrap();
         let foo = entity.get::<Foo>().unwrap();
-        assert_eq!(Foo::Baz(10), *foo);
+        assert_eq!(Foo::Baz(Nested { a: 10, b: 0 }), *foo);
 
         let entity = world.spawn_scene(d()).unwrap();
         let foo = entity.get::<Foo>().unwrap();
         assert_eq!(Foo::Qux, *foo);
+
+        let entity = world.spawn_scene(e()).unwrap();
+        let foo = entity.get::<Foo>().unwrap();
+        assert_eq!(Foo::Baz(Nested { a: 3, b: 2 }), *foo);
     }
 
     #[test]
     fn enum_from_template() {
-        #[derive(Component, FromTemplate)]
+        #[derive(Component, FromTemplate, PartialEq, Eq, Debug)]
         enum Foo {
             Entity(Entity),
             #[default]
             None,
         }
 
-        #[derive(Component, FromTemplate)]
+        #[derive(Component, FromTemplate, PartialEq, Eq, Debug)]
         struct Bar {
             foo: Foo,
         }
 
         let mut app = test_app();
         let world = app.world_mut();
-        let entity = world
+        let entities = world
             .spawn_scene_list(bsn_list! {
                 #A,
                 Foo::Entity(#A),
-                Bar { foo: Foo::None }
+                Bar { foo: FooTemplate::Entity(#A) }
             })
             .unwrap();
+
+        assert_eq!(
+            &Foo::Entity(entities[0]),
+            world.entity(entities[1]).get::<Foo>().unwrap()
+        );
+
+        assert_eq!(
+            &Bar {
+                foo: Foo::Entity(entities[0])
+            },
+            world.entity(entities[2]).get::<Bar>().unwrap()
+        );
     }
 
     #[test]
@@ -2480,6 +2513,30 @@ mod tests {
         let children = root.get::<Children>().unwrap();
         let child_widget = world.entity(children[0]).get::<Reference>().unwrap();
         assert_eq!(child_widget.0, entity);
+    }
+
+    #[test]
+    fn scene_component_enum() {
+        #[derive(SceneComponent, FromTemplate)]
+        enum Widget {
+            #[default]
+            X,
+        }
+
+        impl Widget {
+            fn scene() -> impl Scene {
+                bsn! {}
+            }
+        }
+        let mut app = test_app();
+        let world = app.world_mut();
+
+        let entity = world
+            .spawn_scene(bsn! {
+                @Widget::X
+            })
+            .unwrap();
+        assert!(matches!(entity.get::<Widget>().unwrap(), Widget::X));
     }
 
     #[test]

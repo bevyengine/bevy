@@ -1,5 +1,5 @@
 use proc_macro2::TokenStream;
-use syn::{Ident, Lit, LitStr, Path, Stmt};
+use syn::{Ident, Lit, LitStr, Member, Path, Stmt};
 
 #[derive(Debug)]
 pub struct BsnRoot(pub Bsn<true>);
@@ -30,6 +30,11 @@ pub struct BsnType {
     pub path: Path,
     pub variant: Option<Ident>,
     pub fields: BsnFields,
+}
+
+#[derive(Debug)]
+pub struct BsnStructUpdate {
+    pub value: Box<BsnValue>,
 }
 
 #[derive(Debug)]
@@ -73,7 +78,10 @@ pub struct BsnConstructor {
 
 #[derive(Debug)]
 pub enum BsnFields {
-    Named(Vec<BsnNamedField>),
+    Named {
+        fields: Vec<BsnNamedField>,
+        struct_update: Option<BsnStructUpdate>,
+    },
     Tuple(Vec<BsnUnnamedField>),
     Unit,
 }
@@ -92,8 +100,14 @@ pub struct BsnNamedField {
     pub value: Option<BsnValue>,
 }
 
+pub enum BsnNamedFieldOrStructUpdate {
+    Field(BsnNamedField),
+    StructUpdate(BsnStructUpdate),
+}
+
 #[derive(Debug)]
 pub struct BsnUnnamedField {
+    pub index: Member,
     pub value: BsnValue,
 }
 
