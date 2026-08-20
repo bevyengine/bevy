@@ -1,6 +1,6 @@
 import bevy_render::maths::{PI, HALF_PI, PI_2, fast_acos, fast_acos_4, fast_atan2, ray_sphere_intersect};
 
-import bevy_pbr::atmosphere::{
+import package::atmosphere::{
     types::Atmosphere,
     bindings::{
         atmosphere, settings, view, lights, transmittance_lut, atmosphere_lut_sampler,

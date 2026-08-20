@@ -850,6 +850,7 @@ pub fn extract_uinode_images(
             VisualBox::PaddingBox => uinode.padding_box(),
             VisualBox::BorderBox => uinode.border_box(),
         };
+
         // Skip invisible images
         if !inherited_visibility.get()
             || image.color.is_fully_transparent()
@@ -873,6 +874,28 @@ pub fn extract_uinode_images(
             }
         } else {
             visual_box.size()
+        };
+
+        // The node's border radius is subtracted from the visual box target's edge insets
+        // and then clamped to get the corner radius for the image. Ideally this should be handled
+        // on the GPU, but that might need changes to `ui.wesl`'s UV calculations.
+        let mut inset = match image.visual_box {
+            VisualBox::ContentBox => uinode.content_inset(),
+            VisualBox::PaddingBox => uinode.border(),
+            VisualBox::BorderBox => BorderRect::ZERO,
+        };
+        let image_inset = 0.5 * (visual_box.size() - size);
+        inset.min_inset += image_inset;
+        inset.max_inset += image_inset;
+
+        let radius = uinode.border_radius();
+        let clamped_radius = ResolvedBorderRadius {
+            top_left: (radius.top_left - inset.min_inset).clamp(Vec2::ZERO, 0.5 * size),
+            top_right: (radius.top_right - Vec2::new(inset.max_inset.x, inset.min_inset.y))
+                .clamp(Vec2::ZERO, 0.5 * size),
+            bottom_right: (radius.bottom_right - inset.max_inset).clamp(Vec2::ZERO, 0.5 * size),
+            bottom_left: (radius.bottom_left - Vec2::new(inset.min_inset.x, inset.max_inset.y))
+                .clamp(Vec2::ZERO, 0.5 * size),
         };
 
         let atlas_rect = image
@@ -924,7 +947,7 @@ pub fn extract_uinode_images(
                         flip_x: image.flip_x,
                         flip_y: image.flip_y,
                         border: BorderRect::ZERO,
-                        border_radius: uinode.border_radius,
+                        border_radius: clamped_radius,
                         node_type: NodeType::Rect,
                     },
                 },

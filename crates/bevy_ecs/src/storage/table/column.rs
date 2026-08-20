@@ -1,9 +1,10 @@
-use super::*;
 use crate::{
-    change_detection::{AtomicTick, MaybeLocation},
-    storage::{blob_array::BlobArray, thin_array_ptr::ThinArrayPtr},
+    change_detection::{AtomicTick, CheckChangeTicks, ComponentTicks, MaybeLocation, Tick},
+    component::ComponentInfo,
+    storage::{blob_array::BlobArray, thin_array_ptr::ThinArrayPtr, TableRow},
 };
-use core::{mem::needs_drop, panic::Location};
+use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
+use core::{cell::UnsafeCell, mem::needs_drop, num::NonZeroUsize, panic::Location};
 
 /// A type-erased contiguous container for data of a homogeneous type.
 ///
@@ -20,14 +21,15 @@ use core::{mem::needs_drop, panic::Location};
 /// This type is used by [`Table`] and [`ComponentSparseSet`], where the corresponding capacity
 /// and length can be found.
 ///
+/// [`Table`]: crate::storage::Table
 /// [`ComponentSparseSet`]: crate::storage::ComponentSparseSet
 #[derive(Debug)]
 pub struct Column {
-    pub(super) data: BlobArray,
-    pub(super) added_ticks: ThinArrayPtr<UnsafeCell<Tick>>,
-    pub(super) changed_ticks: ThinArrayPtr<UnsafeCell<Tick>>,
-    pub(super) changed_by: MaybeLocation<ThinArrayPtr<UnsafeCell<&'static Location<'static>>>>,
-    pub(super) summary_tick: Option<AtomicTick>,
+    data: BlobArray,
+    added_ticks: ThinArrayPtr<UnsafeCell<Tick>>,
+    changed_ticks: ThinArrayPtr<UnsafeCell<Tick>>,
+    changed_by: MaybeLocation<ThinArrayPtr<UnsafeCell<&'static Location<'static>>>>,
+    summary_tick: Option<AtomicTick>,
 }
 
 impl Column {
@@ -187,12 +189,16 @@ impl Column {
         caller: MaybeLocation,
     ) {
         self.data.initialize_unchecked(row.index(), data);
-        *self.added_ticks.get_unchecked_mut(row.index()).get_mut() = tick;
-        *self.changed_ticks.get_unchecked_mut(row.index()).get_mut() = tick;
+        self.added_ticks
+            .initialize_unchecked(row.index(), UnsafeCell::new(tick));
+        self.changed_ticks
+            .initialize_unchecked(row.index(), UnsafeCell::new(tick));
         self.changed_by
             .as_mut()
-            .map(|changed_by| changed_by.get_unchecked_mut(row.index()).get_mut())
-            .assign(caller);
+            .zip(caller)
+            .map(|(changed_by, caller)| {
+                changed_by.initialize_unchecked(row.index(), UnsafeCell::new(caller));
+            });
         if let Some(summary_tick) = &self.summary_tick {
             Self::update_summary_tick(summary_tick, tick);
         }

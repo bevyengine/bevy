@@ -1,4 +1,4 @@
-import bevy_pbr::render::{
+import package::render::{
     pbr_lighting::{EnvBRDFApprox, F_AB},
     mesh_view_bindings::lights,
 };
