@@ -16,7 +16,7 @@ use super::{CasPipeline, CasUniform};
 pub fn cas(
     view: ViewQuery<
         (
-            &ViewTarget,
+            &mut ViewTarget,
             &ViewCasPipeline,
             &DynamicUniformIndex<CasUniform>,
         ),
@@ -28,7 +28,7 @@ pub fn cas(
     mut ctx: RenderContext,
     mut cached_bind_group: Local<Option<(BufferId, TextureViewId, BindGroup)>>,
 ) {
-    let (target, pipeline, uniform_index) = view.into_inner();
+    let (mut target, pipeline, uniform_index) = view.into_inner();
 
     let uniforms_id = uniforms.buffer().unwrap().id();
     let Some(uniforms_binding) = uniforms.binding() else {

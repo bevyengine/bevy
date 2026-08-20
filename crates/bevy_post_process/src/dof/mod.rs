@@ -764,7 +764,7 @@ impl DepthOfFieldPipelines {
 pub(crate) fn depth_of_field(
     view: ViewQuery<(
         &ViewUniformOffset,
-        &ViewTarget,
+        &mut ViewTarget,
         &ViewDepthStencilTexture,
         &DepthOfFieldPipelines,
         &ViewDepthOfFieldBindGroupLayouts,
@@ -778,7 +778,7 @@ pub(crate) fn depth_of_field(
 ) {
     let (
         view_uniform_offset,
-        view_target,
+        mut view_target,
         view_depth_texture,
         view_pipelines,
         view_bind_group_layouts,
