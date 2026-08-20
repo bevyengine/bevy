@@ -1,14 +1,31 @@
 //! Demonstrates anisotropy with the glTF sample barn lamp model.
 
-use std::fmt::Display;
-
 use bevy::{
     color::palettes::{self, css::WHITE},
+    feathers::{controls::FeathersCheckbox, theme::UiTheme, FeathersPlugins},
     light::Skybox,
     math::vec3,
     prelude::*,
     time::Stopwatch,
+    ui_widgets::{checkbox_self_update, radio_self_update, ValueChange},
 };
+use checkbox::{feathers_option_checkbox, IsChecked};
+use radio::{feathers_option_buttons, RadioButtonOptionValue};
+use scene::bottom_left_scene;
+
+#[path = "../helpers/radio.rs"]
+#[expect(dead_code, reason = "main_ui_node_scene not used in this example")]
+mod radio;
+
+#[path = "../helpers/theme.rs"]
+mod theme;
+
+#[path = "../helpers/checkbox.rs"]
+mod checkbox;
+
+#[path = "../helpers/scene.rs"]
+#[expect(dead_code, reason = "some scenes are not used in this example")]
+mod scene;
 
 /// The initial position of the camera.
 const CAMERA_INITIAL_POSITION: Vec3 = vec3(-0.4, 0.0, 0.0);
@@ -26,7 +43,7 @@ struct AppStatus {
 
 /// Which type of light we're using: a directional light, a point light, or an
 /// environment map.
-#[derive(Clone, Copy, PartialEq, Default)]
+#[derive(Clone, Copy, PartialEq, Resource, Default, Debug)]
 enum LightMode {
     /// A rotating directional light.
     #[default]
@@ -51,30 +68,17 @@ struct MaterialVariants {
     isotropic: Handle<StandardMaterial>,
 }
 
-#[derive(Default, Clone, Copy, PartialEq, Eq, Component)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Component)]
 enum Scene {
     #[default]
     BarnLamp,
     Sphere,
 }
 
-impl Scene {
-    fn next(&self) -> Self {
-        match self {
-            Self::BarnLamp => Self::Sphere,
-            Self::Sphere => Self::BarnLamp,
-        }
-    }
-}
-
-impl Display for Scene {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let scene_name = match self {
-            Self::BarnLamp => "Barn Lamp",
-            Self::Sphere => "Sphere",
-        };
-        write!(f, "{scene_name}")
-    }
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Component)]
+enum CheckboxInput {
+    #[default]
+    Anisotropy,
 }
 
 /// The application entry point.
@@ -88,16 +92,23 @@ fn main() {
             }),
             ..default()
         }))
+        .add_plugins(FeathersPlugins)
+        .init_resource::<LightMode>()
+        .insert_resource(UiTheme(theme::basic_example_theme(Color::WHITE)))
         .add_systems(Startup, setup)
         .add_systems(Update, create_material_variants)
         .add_systems(Update, animate_light)
         .add_systems(Update, rotate_camera)
-        .add_systems(Update, (handle_input, update_help_text).chain())
+        .add_observer(handle_value_change_checkbox)
+        .add_observer(handle_scene_selection_change)
+        .add_observer(handle_light_mode_selection_change)
+        .add_observer(radio_self_update)
+        .add_observer(checkbox_self_update)
         .run();
 }
 
 /// Creates the initial scene.
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_status: Res<AppStatus>) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>, light_mode: Res<LightMode>) {
     commands.spawn((
         Camera3d::default(),
         Transform::from_translation(CAMERA_INITIAL_POSITION).looking_at(Vec3::ZERO, Vec3::Y),
@@ -131,25 +142,162 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_status: Res
         Visibility::Hidden,
     ));
 
-    spawn_text(&mut commands, &app_status);
+    spawn_buttons(&mut commands, light_mode, Scene::BarnLamp);
 }
 
-/// Spawns the help text.
-fn spawn_text(commands: &mut Commands, app_status: &AppStatus) {
-    commands.spawn((
-        app_status.create_help_text(),
-        Node {
-            position_type: PositionType::Absolute,
-            bottom: px(12),
-            left: px(12),
-            ..default()
-        },
-    ));
+/// Spawns UI controls in the bottom left corner of the screen.
+fn spawn_buttons(commands: &mut Commands, light_mode: Res<LightMode>, scene: Scene) {
+    commands.spawn_scene(bsn! {
+        bottom_left_scene()
+            Children [
+            feathers_option_checkbox("Enable Anisotropy",
+                Some(CheckboxInput::Anisotropy),
+                IsChecked(true),
+            ),
+            feathers_option_buttons(
+                "",
+                &[
+                    (Scene::BarnLamp, "Barn Lamp"),
+                    (Scene::Sphere, "Sphere"),
+                ],
+                if scene == Scene::Sphere { 1 } else { 0 },
+            ),
+            feathers_option_buttons(
+                "",
+                &[
+                    (LightMode::EnvironmentMap, "Environment Map"),
+                    (LightMode::Directional, "Directional"),
+                    (LightMode::Point, "Point"),
+                ],
+                if *light_mode == LightMode::Point { 0 } else { 1 },
+            ),
+        ]
+    });
+}
+
+/// Updates the light mode when the user toggles that setting's radio.
+fn handle_light_mode_selection_change(
+    event: On<ValueChange<Entity>>,
+    commands: Commands,
+    cameras: Query<Entity, With<Camera>>,
+    asset_server: Res<AssetServer>,
+    mut app_status: ResMut<AppStatus>,
+    lights: Query<Entity, Or<(With<PointLight>, With<DirectionalLight>)>>,
+    new_value_query: Query<&RadioButtonOptionValue<LightMode>>,
+) {
+    let Ok(RadioButtonOptionValue(selection)) = new_value_query.get(event.value) else {
+        return;
+    };
+    let old_setting = app_status.light_mode;
+
+    app_status.light_mode = *selection;
+    light_mode_update_helper(
+        commands,
+        asset_server,
+        old_setting,
+        app_status.light_mode,
+        cameras,
+        lights,
+    );
+}
+
+/// Helper to spawn new light entities on a selection change.
+fn light_mode_spawn_helper(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    new_setting: LightMode,
+    cameras: Query<Entity, With<Camera>>,
+) {
+    match new_setting {
+        LightMode::Directional => {
+            spawn_directional_light(&mut commands);
+        }
+        LightMode::Point => {
+            spawn_point_light(&mut commands);
+        }
+        LightMode::EnvironmentMap => {
+            for camera in cameras.iter() {
+                add_skybox_and_environment_map(&mut commands, &asset_server, camera);
+            }
+        }
+    }
+}
+
+/// Helper to teardown light entities on a selection change.
+fn light_mode_update_helper(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    old_setting: LightMode,
+    new_setting: LightMode,
+    cameras: Query<Entity, With<Camera>>,
+    lights: Query<Entity, Or<(With<PointLight>, With<DirectionalLight>)>>,
+) {
+    match old_setting {
+        LightMode::Directional | LightMode::Point => {
+            for light in lights.iter() {
+                commands.entity(light).despawn();
+            }
+        }
+        LightMode::EnvironmentMap => {
+            for camera in cameras.iter() {
+                commands
+                    .entity(camera)
+                    .remove::<Skybox>()
+                    .remove::<EnvironmentMapLight>();
+            }
+        }
+    }
+    light_mode_spawn_helper(commands, asset_server, new_setting, cameras);
+}
+
+/// Updates the scene when the user toggles that setting's radio.
+fn handle_scene_selection_change(
+    event: On<ValueChange<Entity>>,
+    mut app_status: ResMut<AppStatus>,
+    new_value_query: Query<&RadioButtonOptionValue<Scene>>,
+    mut scenes: Query<(&mut Visibility, &Scene)>,
+) {
+    let Ok(RadioButtonOptionValue(scene_selection)) = new_value_query.get(event.value) else {
+        return;
+    };
+    app_status.visible_scene = *scene_selection;
+    for (mut visibility, scene) in scenes.iter_mut() {
+        let new_vis = if *scene == app_status.visible_scene {
+            Visibility::Inherited
+        } else {
+            Visibility::Hidden
+        };
+        *visibility = new_vis;
+    }
+}
+
+fn handle_value_change_checkbox(
+    event: On<ValueChange<bool>>,
+    mut app_status: ResMut<AppStatus>,
+    checkbox_input_q: Query<&CheckboxInput, With<FeathersCheckbox>>,
+    mut meshes: Query<(&mut MeshMaterial3d<StandardMaterial>, &MaterialVariants)>,
+) {
+    if let Ok(checkbox_input) = checkbox_input_q.get(event.source) {
+        match checkbox_input {
+            CheckboxInput::Anisotropy => {
+                app_status.anisotropy_enabled = event.value;
+            }
+        }
+    };
+
+    // Go through each mesh and alter its material.
+    for (mut material_handle, material_variants) in meshes.iter_mut() {
+        material_handle.0 = if app_status.anisotropy_enabled {
+            material_variants.anisotropic.clone()
+        } else {
+            material_variants.isotropic.clone()
+        }
+    }
 }
 
 /// For each material, creates a version with the anisotropy removed.
 ///
-/// This allows the user to press Enter to toggle anisotropy on and off.
+/// This allows the user to check a checkbox to toggle anisotropy on and off.
 fn create_material_variants(
     mut commands: Commands,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -169,7 +317,6 @@ fn create_material_variants(
         commands.entity(entity).insert(MaterialVariants {
             anisotropic: anisotropic_material_handle.0.clone(),
             isotropic: materials.add(StandardMaterial {
-                anisotropy_texture: None,
                 anisotropy_strength: 0.0,
                 anisotropy_rotation: 0.0,
                 ..anisotropic_material
@@ -210,91 +357,6 @@ fn rotate_camera(
     }
 }
 
-/// Handles requests from the user to change the lighting or toggle anisotropy.
-fn handle_input(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    cameras: Query<Entity, With<Camera>>,
-    lights: Query<Entity, Or<(With<DirectionalLight>, With<PointLight>)>>,
-    mut meshes: Query<(&mut MeshMaterial3d<StandardMaterial>, &MaterialVariants)>,
-    mut scenes: Query<(&mut Visibility, &Scene)>,
-    keyboard: Res<ButtonInput<KeyCode>>,
-    mut app_status: ResMut<AppStatus>,
-) {
-    // If Space was pressed, change the lighting.
-    if keyboard.just_pressed(KeyCode::Space) {
-        match app_status.light_mode {
-            LightMode::Directional => {
-                // Switch to a point light. Despawn all existing lights and
-                // create the light point.
-                app_status.light_mode = LightMode::Point;
-                for light in lights.iter() {
-                    commands.entity(light).despawn();
-                }
-                spawn_point_light(&mut commands);
-            }
-
-            LightMode::Point => {
-                // Switch to the environment map. Despawn all existing lights,
-                // and create the skybox and environment map.
-                app_status.light_mode = LightMode::EnvironmentMap;
-                for light in lights.iter() {
-                    commands.entity(light).despawn();
-                }
-                for camera in cameras.iter() {
-                    add_skybox_and_environment_map(&mut commands, &asset_server, camera);
-                }
-            }
-
-            LightMode::EnvironmentMap => {
-                // Switch back to a directional light. Despawn the skybox and
-                // environment map light, and recreate the directional light.
-                app_status.light_mode = LightMode::Directional;
-                for camera in cameras.iter() {
-                    commands
-                        .entity(camera)
-                        .remove::<Skybox>()
-                        .remove::<EnvironmentMapLight>();
-                }
-                spawn_directional_light(&mut commands);
-            }
-        }
-    }
-
-    // If Enter was pressed, toggle anisotropy on and off.
-    if keyboard.just_pressed(KeyCode::Enter) {
-        app_status.anisotropy_enabled = !app_status.anisotropy_enabled;
-
-        // Go through each mesh and alter its material.
-        for (mut material_handle, material_variants) in meshes.iter_mut() {
-            material_handle.0 = if app_status.anisotropy_enabled {
-                material_variants.anisotropic.clone()
-            } else {
-                material_variants.isotropic.clone()
-            }
-        }
-    }
-
-    if keyboard.just_pressed(KeyCode::KeyQ) {
-        app_status.visible_scene = app_status.visible_scene.next();
-        for (mut visibility, scene) in scenes.iter_mut() {
-            let new_vis = if *scene == app_status.visible_scene {
-                Visibility::Inherited
-            } else {
-                Visibility::Hidden
-            };
-            *visibility = new_vis;
-        }
-    }
-}
-
-/// A system that updates the help text based on the current app status.
-fn update_help_text(mut text_query: Query<&mut Text>, app_status: Res<AppStatus>) {
-    for mut text in text_query.iter_mut() {
-        *text = app_status.create_help_text();
-    }
-}
-
 /// Adds the skybox and environment map to the scene.
 fn add_skybox_and_environment_map(
     commands: &mut Commands,
@@ -332,31 +394,6 @@ fn spawn_point_light(commands: &mut Commands) {
         intensity: 200000.0,
         ..default()
     });
-}
-
-impl AppStatus {
-    /// Creates the help text as appropriate for the current app status.
-    fn create_help_text(&self) -> Text {
-        // Choose the appropriate help text for the anisotropy toggle.
-        let material_variant_help_text = if self.anisotropy_enabled {
-            "Press Enter to disable anisotropy"
-        } else {
-            "Press Enter to enable anisotropy"
-        };
-
-        // Choose the appropriate help text for the light toggle.
-        let light_help_text = match self.light_mode {
-            LightMode::Directional => "Press Space to switch to a point light",
-            LightMode::Point => "Press Space to switch to an environment map",
-            LightMode::EnvironmentMap => "Press Space to switch to a directional light",
-        };
-
-        // Choose the appropriate help text for the scene selector.
-        let mesh_help_text = format!("Press Q to change to {}", self.visible_scene.next());
-
-        // Build the `Text` object.
-        format!("{material_variant_help_text}\n{light_help_text}\n{mesh_help_text}",).into()
-    }
 }
 
 impl Default for AppStatus {
