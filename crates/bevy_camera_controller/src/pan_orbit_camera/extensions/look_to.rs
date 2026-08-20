@@ -8,7 +8,7 @@ use bevy_ecs::prelude::*;
 use bevy_ecs::resource::IsResource;
 use bevy_math::{prelude::*, DAffine3, DQuat, DVec3};
 use bevy_platform::collections::HashMap;
-use bevy_time::{Real, Time, Timer};
+use bevy_time::{Real, Time, Timer, TimerMode};
 use bevy_transform::components::Transform;
 use bevy_window::RequestRedraw;
 
@@ -121,14 +121,14 @@ impl LookToTrigger {
                 .map
                 .entry(event.camera)
                 .and_modify(|e| {
-                    e.animation_timer = Timer::new(animation_duration, bevy_time::TimerMode::Once);
+                    e.animation_timer = Timer::new(animation_duration, TimerMode::Once);
                     e.initial_facing_direction = camera_forward;
                     e.initial_up_direction = camera_up;
                     e.target_facing_direction = event.target_facing_direction;
                     e.target_up_direction = event.target_up_direction;
                 })
                 .or_insert(LookToEntry {
-                    animation_timer: Timer::new(animation_duration, bevy_time::TimerMode::Once),
+                    animation_timer: Timer::new(animation_duration, TimerMode::Once),
                     initial_facing_direction: camera_forward,
                     initial_up_direction: camera_up,
                     target_facing_direction: event.target_facing_direction,
