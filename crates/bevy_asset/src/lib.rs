@@ -765,6 +765,7 @@ mod tests {
     use bevy_reflect::{Reflect, TypePath};
     use bevy_tasks::block_on;
     use core::{any::TypeId, time::Duration};
+    use crossbeam_channel::TryRecvError;
     use futures_lite::AsyncReadExt;
     use ron::ser::PrettyConfig;
     use serde::{Deserialize, Serialize};
@@ -2357,6 +2358,9 @@ mod tests {
     struct GatedLoader {
         in_loader_sender: Sender<()>,
         gate_receiver: Receiver<()>,
+        /// An extra sender for indicating whether the task continued after the gate was opened or
+        /// not.
+        finished_sender: Option<crossbeam_channel::Sender<u32>>,
     }
 
     impl AssetLoader for GatedLoader {
@@ -2370,8 +2374,24 @@ mod tests {
             _settings: &Self::Settings,
             _load_context: &mut LoadContext<'_>,
         ) -> Result<Self::Asset, Self::Error> {
+            struct SendOnDrop {
+                sender: crossbeam_channel::Sender<u32>,
+            }
+            impl Drop for SendOnDrop {
+                fn drop(&mut self) {
+                    let _ = self.sender.send(999);
+                }
+            }
+            let _on_drop = self
+                .finished_sender
+                .clone()
+                .map(|sender| SendOnDrop { sender });
+
             self.in_loader_sender.send_blocking(()).unwrap();
             let _ = self.gate_receiver.recv().await;
+            if let Some(finished_sender) = self.finished_sender.as_ref() {
+                finished_sender.send(1).unwrap();
+            }
             Ok(TestAsset)
         }
 
@@ -2386,11 +2406,13 @@ mod tests {
 
         let (in_loader_sender, in_loader_receiver) = async_channel::bounded(1);
         let (gate_sender, gate_receiver) = async_channel::bounded(1);
+        let (finished_sender, finished_receiver) = crossbeam_channel::bounded(1);
 
         app.init_asset::<TestAsset>()
             .register_asset_loader(GatedLoader {
                 in_loader_sender,
                 gate_receiver,
+                finished_sender: Some(finished_sender),
             });
 
         let path = Path::new("abc.ron");
@@ -2414,17 +2436,24 @@ mod tests {
 
         // Unblock the loader and then update a few times, showing that the asset never loads.
         gate_sender.send_blocking(()).unwrap();
-        for _ in 0..10 {
-            app.update();
-            for message in app
-                .world()
-                .resource::<Messages<AssetEvent<TestAsset>>>()
-                .iter_current_update_messages()
-            {
-                match message {
-                    AssetEvent::Unused { .. } => {}
-                    message => panic!("No asset events are allowed: {message:?}"),
-                }
+        let mut messages = vec![];
+        run_app_until(&mut app, |world| {
+            messages.extend(
+                world
+                    .resource::<Messages<AssetEvent<TestAsset>>>()
+                    .iter_current_update_messages(),
+            );
+            match finished_receiver.try_recv() {
+                Ok(999) => Some(()),
+                Ok(x) => panic!("only expected drop message, but got {x}"),
+                Err(TryRecvError::Empty) => None,
+                Err(TryRecvError::Disconnected) => panic!("cannot be disconnected"),
+            }
+        });
+        for message in messages {
+            match message {
+                AssetEvent::Unused { .. } => {}
+                message => panic!("No asset events are allowed: {message:?}"),
             }
         }
     }
@@ -2435,11 +2464,13 @@ mod tests {
 
         let (in_loader_sender, in_loader_receiver) = async_channel::bounded(1);
         let (gate_sender, gate_receiver) = async_channel::bounded(1);
+        let (finished_sender, finished_receiver) = crossbeam_channel::bounded(1);
 
         app.init_asset::<TestAsset>()
             .register_asset_loader(GatedLoader {
                 in_loader_sender,
                 gate_receiver,
+                finished_sender: Some(finished_sender),
             });
 
         let path = Path::new("abc.ron");
@@ -2465,17 +2496,24 @@ mod tests {
 
         // Unblock the loader and then update a few times, showing that the asset never loads.
         gate_sender.send_blocking(()).unwrap();
-        for _ in 0..10 {
-            app.update();
-            for message in app
-                .world()
-                .resource::<Messages<AssetEvent<TestAsset>>>()
-                .iter_current_update_messages()
-            {
-                match message {
-                    AssetEvent::Unused { .. } => {}
-                    message => panic!("No asset events are allowed: {message:?}"),
-                }
+        let mut messages = vec![];
+        run_app_until(&mut app, |world| {
+            messages.extend(
+                world
+                    .resource::<Messages<AssetEvent<TestAsset>>>()
+                    .iter_current_update_messages(),
+            );
+            match finished_receiver.try_recv() {
+                Ok(999) => Some(()),
+                Ok(x) => panic!("only expected drop message, but got {x}"),
+                Err(TryRecvError::Empty) => None,
+                Err(TryRecvError::Disconnected) => panic!("cannot be disconnected"),
+            }
+        });
+        for message in messages {
+            match message {
+                AssetEvent::Unused { .. } => {}
+                message => panic!("No asset events are allowed: {message:?}"),
             }
         }
     }
@@ -3048,6 +3086,7 @@ mod tests {
             .register_asset_loader(GatedLoader {
                 in_loader_sender,
                 gate_receiver,
+                finished_sender: None,
             })
             .register_asset_loader(AssetWithDepLoader);
 

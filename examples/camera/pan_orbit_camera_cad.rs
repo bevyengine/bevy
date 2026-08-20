@@ -7,6 +7,8 @@
 //! - Explode the model, separating its parts for inspection (E)
 //! - Toggling passing thought surface on minimal zool (Z)
 
+mod pan_orbit_camera_custom_input_plugin;
+
 use std::time::Duration;
 
 use bevy::camera::Hdr;
@@ -20,12 +22,16 @@ use bevy::{
     pbr::ScreenSpaceAmbientOcclusion, platform::time::Instant, post_process::bloom::Bloom,
     prelude::*, window::RequestRedraw,
 };
+
+use crate::pan_orbit_camera_custom_input_plugin::CustomInputPlugin;
 fn main() {
     App::new()
         .add_plugins((
             DefaultPlugins,
-            DefaultPanOrbitCameraPlugins,
             MeshPickingPlugin,
+            DefaultPanOrbitCameraPlugins,
+            // Currently PanOrbitCamera needs an external plugin to handle input mapping.
+            CustomInputPlugin,
         ))
         // The camera controller works with reactive rendering:
         // .insert_resource(bevy::winit::WinitSettings::desktop_app())

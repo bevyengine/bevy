@@ -67,7 +67,7 @@ use bevy_render::{
     render_resource::{
         CachedRenderPipelineId, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
     },
-    renderer::RenderDevice,
+    renderer::{RenderAdapter, RenderDevice},
     sync_world::{MainEntity, RenderEntity},
     texture::{ColorAttachment, TextureCache},
     view::{ExtractedView, ViewDepthStencilTexture},
@@ -764,6 +764,7 @@ pub fn prepare_prepass_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
+    render_adapter: Res<RenderAdapter>,
     frame_count: Res<FrameCount>,
     opaque_3d_prepass_phases: Res<ViewBinnedRenderPhases<Opaque3dPrepass>>,
     alpha_mask_3d_prepass_phases: Res<ViewBinnedRenderPhases<AlphaMask3dPrepass>>,
@@ -782,6 +783,11 @@ pub fn prepare_prepass_textures(
         Has<DeferredPrepassDoubleBuffer>,
     )>,
 ) {
+    let motion_vector_storage_binding = render_adapter
+        .get_texture_format_features(MOTION_VECTOR_PREPASS_FORMAT)
+        .allowed_usages
+        .contains(TextureUsages::STORAGE_BINDING);
+
     let mut depth_textures1 = <HashMap<_, _>>::default();
     let mut depth_textures2 = <HashMap<_, _>>::default();
     let mut normal_textures = <HashMap<_, _>>::default();
@@ -894,8 +900,13 @@ pub fn prepare_prepass_textures(
                             sample_count: msaa.samples(),
                             dimension: TextureDimension::D2,
                             format: MOTION_VECTOR_PREPASS_FORMAT,
-                            usage: TextureUsages::RENDER_ATTACHMENT
-                                | TextureUsages::TEXTURE_BINDING,
+                            usage: if motion_vector_storage_binding && msaa.samples() == 1 {
+                                TextureUsages::RENDER_ATTACHMENT
+                                    | TextureUsages::TEXTURE_BINDING
+                                    | TextureUsages::STORAGE_BINDING
+                            } else {
+                                TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING
+                            },
                             view_formats: &[],
                         },
                     )

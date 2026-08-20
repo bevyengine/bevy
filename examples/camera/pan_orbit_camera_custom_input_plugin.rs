@@ -1,27 +1,28 @@
-//! Provides a default input plugin for the camera. See [`DefaultInputPlugin`].
+//! Provides custom example input plugin for the camera.
+//! Based on the input plugin from `bevy_editor_cam`. This will later be replaced with a first-party input-manager-integrated solution.
 
-use bevy_app::prelude::*;
-use bevy_camera::{prelude::*, RenderTarget};
-use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::prelude::*;
-use bevy_input::{
+use bevy::app::prelude::*;
+use bevy::camera::{prelude::*, RenderTarget};
+use bevy::ecs::prelude::*;
+use bevy::input::{
     mouse::{MouseScrollUnit, MouseWheel},
     prelude::*,
 };
-use bevy_math::{prelude::*, DVec2, DVec3};
-use bevy_platform::collections::HashMap;
-use bevy_transform::prelude::*;
-use bevy_window::{PrimaryWindow, Window};
+use bevy::math::{prelude::*, DVec2, DVec3};
+use bevy::platform::collections::HashMap;
+use bevy::prelude::*;
+use bevy::window::{PrimaryWindow, Window};
 
-use bevy_picking::pointer::{
+use bevy::picking::pointer::{
     PointerAction, PointerId, PointerInput, PointerInteraction, PointerLocation, PointerMap,
 };
 
-use crate::pan_orbit_camera::prelude::{component::PanOrbitCamera, inputs::MotionInputs};
+use bevy::camera_controller::pan_orbit_camera::prelude::{
+    component::PanOrbitCamera, inputs::MotionInputs,
+};
 
 /// The type of mutually exclusive camera motion.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 pub enum MotionKind {
     /// The camera is orbiting and zooming.
     OrbitZoom,
@@ -41,32 +42,31 @@ impl From<&MotionInputs> for MotionKind {
     }
 }
 
-/// A plugin that provides a default input mapping. Intended to be replaced by users with their own
-/// version of this code, if needed.
+/// A plugin that provides a example input mapping.
 ///
 /// The input plugin is responsible for starting motions, sending inputs, and ending motions. See
 /// [`PanOrbitCamera`] for more details on how to implement this yourself.
-pub struct DefaultInputPlugin;
-impl Plugin for DefaultInputPlugin {
+pub struct CustomInputPlugin;
+impl Plugin for CustomInputPlugin {
     fn build(&self, app: &mut App) {
         app.add_message::<PanOrbitCameraInputMessage>()
             .init_resource::<CameraPointerMap>()
             .add_systems(
                 PreUpdate,
                 (
-                    default_camera_inputs,
+                    custom_camera_inputs,
                     PanOrbitCameraInputMessage::receive_messages,
                     PanOrbitCameraInputMessage::send_pointer_inputs,
                 )
                     .chain()
-                    .after(bevy_picking::PickingSystems::Last)
+                    .after(bevy::picking::PickingSystems::Last)
                     .before(PanOrbitCamera::update_camera_positions),
             );
     }
 }
 
-/// A default implementation of an input system
-pub fn default_camera_inputs(
+/// A custom implementation of an input system
+pub fn custom_camera_inputs(
     pointers: Query<(&PointerId, &PointerLocation)>,
     pointer_map: Res<CameraPointerMap>,
     mut controller: MessageWriter<PanOrbitCameraInputMessage>,
@@ -149,12 +149,10 @@ pub fn default_camera_inputs(
 /// This is needed so we can automatically track pointer movements and update camera movement after
 /// a [`PanOrbitCameraInputMessage::Start`] has been received.
 #[derive(Debug, Clone, Default, Deref, DerefMut, Resource)]
-#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 pub struct CameraPointerMap(HashMap<PointerId, Entity>);
 
 /// Messages used when implementing input systems for the [`PanOrbitCamera`].
 #[derive(Debug, Clone, Message)]
-#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 pub enum PanOrbitCameraInputMessage {
     /// Send this event to start moving the camera. The anchor and inputs will be computed
     /// automatically until the [`PanOrbitCameraInputMessage::End`] event is received.
@@ -225,7 +223,9 @@ impl PanOrbitCameraInputMessage {
                         .filter(|p| {
                             #[cfg(debug_assertions)]
                             if !p.is_finite() {
-                                bevy_log::warn!("Non-finite input fed to camera controller: {p:?}");
+                                bevy::log::warn!(
+                                    "Non-finite input fed to camera controller: {p:?}"
+                                );
                             }
                             p.is_finite()
                         })
