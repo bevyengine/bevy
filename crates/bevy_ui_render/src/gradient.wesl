@@ -11,10 +11,13 @@ import bevy_render::color_operations::{
     mix_hsv_long,
     mix_hsl,
     mix_hsl_long,
+    mix_okhsl,
+    mix_okhsl_long,
     oklch_to_linear_rgb,
     hsv_to_linear_rgb,
     hsl_to_linear_rgb,
     oklab_to_linear_rgb,
+    okhsl_to_linear_rgb,
     srgb_to_linear,
 };
 
@@ -183,6 +186,10 @@ fn mix_colors(
     return mix_hsl(start_color, end_color, t);
 @elif(IN_HSL_LONG)
     return mix_hsl_long(start_color, end_color, t);
+@elif(IN_OKHSL)
+    return mix_okhsl(start_color, end_color, t);
+@elif(IN_OKHSL_LONG)
+    return mix_okhsl_long(start_color, end_color, t);
 @else
     // Just lerp in linear RGBA, OkLab and SRGBA spaces
     return mix(start_color, end_color, t);
@@ -196,6 +203,10 @@ fn convert_to_linear_rgba(
     let rgb = oklch_to_linear_rgb(color.xyz);
 @elif(IN_OKLCH_LONG)
     let rgb = oklch_to_linear_rgb(color.xyz);
+@elif(IN_OKHSL)
+    let rgb = okhsl_to_linear_rgb(color.xyz);
+@elif(IN_OKHSL_LONG)
+    let rgb = okhsl_to_linear_rgb(color.xyz);
 @elif(IN_HSV)
     let rgb = hsv_to_linear_rgb(color.xyz);
 @elif(IN_HSV_LONG)

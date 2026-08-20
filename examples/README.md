@@ -493,6 +493,7 @@ Example | Description
 [Custom phase item](../examples/shader_advanced/custom_phase_item.rs) | Demonstrates how to enqueue custom draw commands in a render phase
 [Extended Bindless Material](../examples/shader/extended_material_bindless.rs) | Demonstrates bindless `ExtendedMaterial`
 [Extended Material](../examples/shader/extended_material.rs) | A custom shader that builds on the standard material
+[GPU Component Array Buffer](../examples/shader/gpu_component_array_buffer.rs) | Shows how to expose per-mesh-instance data to the GPU
 [GPU readback](../examples/shader/gpu_readback.rs) | A very simple compute shader that writes to a buffer that is read by the cpu
 [Instancing](../examples/shader/automatic_instancing.rs) | Shows that multiple instances of a cube are automatically instanced in one draw call
 [Instancing](../examples/shader_advanced/custom_shader_instancing.rs) | A shader that renders a mesh multiple times in one draw call using low level rendering api
