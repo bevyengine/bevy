@@ -145,8 +145,10 @@ impl Plugin for Wireframe2dPlugin {
             .add_systems(
                 Render,
                 (
+                    // Reads `ViewKeyCache`, which `check_views_need_specialization`
+                    // writes in `CreateViews`, so this runs in the later `Specialize` set.
                     specialize_wireframes
-                        .in_set(RenderSystems::PrepareMeshes)
+                        .in_set(RenderSystems::Specialize)
                         .after(prepare_assets::<RenderWireframeMaterial>)
                         .after(prepare_assets::<RenderMesh>),
                     queue_wireframes

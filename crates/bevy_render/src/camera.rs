@@ -12,7 +12,8 @@ use crate::{
     view::{
         ColorGrading, ExtractedView, ExtractedWindow, Msaa, NoIndirectDrawing,
         RenderExtractedVisibleEntities, RenderVisibleEntities, RenderVisibleEntitiesClass,
-        RetainedViewEntity, ViewUniformOffset, VisibilityExtractionSystemParam,
+        ResolvedCompositingSpace, RetainedViewEntity, ViewUniformOffset,
+        VisibilityExtractionSystemParam,
     },
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
@@ -470,6 +471,11 @@ pub struct ExtractedCamera {
     pub hdr: bool,
     /// When [`CompositingSpace::Srgb`], the main texture uses linear storage (`Rgba8Unorm`)
     /// and shaders output sRGB-encoded values for gamma-encoded blending.
+    ///
+    /// This is the camera's raw request. It feeds the extract-time main-texture
+    /// format choice. Key sites read the view's
+    /// [`ResolvedCompositingSpace`]
+    /// instead.
     pub compositing_space: Option<CompositingSpace>,
 }
 
@@ -516,6 +522,7 @@ pub fn extract_cameras(
         ExtractedCamera,
         ExtractedView,
         RenderVisibleEntities,
+        ResolvedCompositingSpace,
         TemporalJitter,
         MipBias,
         RenderLayers,
@@ -647,6 +654,7 @@ pub fn extract_cameras(
                     hdr,
                     compositing_space: compositing_space.copied(),
                 },
+                ResolvedCompositingSpace(compositing_space.copied()),
                 ExtractedView {
                     retained_view_entity: RetainedViewEntity::new(main_entity.into(), None, 0),
                     clip_from_view: camera.clip_from_view(),

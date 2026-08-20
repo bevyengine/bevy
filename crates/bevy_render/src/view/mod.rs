@@ -1,3 +1,4 @@
+pub mod composition;
 pub mod visibility;
 pub mod window;
 
@@ -6,6 +7,7 @@ use bevy_camera::{
     Exposure, MainPassResolutionOverride, NormalizedRenderTarget,
 };
 use bevy_diagnostic::FrameCount;
+pub use composition::*;
 pub use visibility::*;
 pub use window::*;
 
@@ -178,9 +180,16 @@ impl Plugin for ViewPlugin {
             ));
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.configure_sets(
+                Render,
+                ResolveCompositingSpaces
+                    .in_set(RenderSystems::CreateViews)
+                    .after(crate::camera::sort_cameras),
+            );
             render_app.add_systems(
                 Render,
                 (
+                    resolve_composition_spaces.in_set(ResolveCompositingSpaces),
                     // `TextureView`s need to be dropped before reconfiguring window surfaces.
                     clear_view_attachments
                         .in_set(RenderSystems::PrepareViews)
@@ -699,8 +708,6 @@ pub struct ViewTarget {
     main_texture: Arc<AtomicUsize>,
     /// The final output attachment this view will present to, if available.
     out_texture: Option<OutputColorAttachment>,
-    /// Color space of values stored in the main texture (for blit conversion to output)
-    pub compositing_space: Option<CompositingSpace>,
 }
 
 /// Contains [`OutputColorAttachment`] used for each target present on any view in the current
@@ -1283,12 +1290,29 @@ pub fn cleanup_view_targets_for_resize(
     }
 }
 
-type MainTextureKey = (
+/// The identity key of a camera's main textures. Cameras with equal
+/// keys share one main-texture allocation in [`prepare_view_targets`], and
+/// [`resolve_composition_spaces`] groups by the same key.
+pub(crate) type MainTextureKey = (
     Option<NormalizedRenderTarget>,
     TextureUsages,
     TextureFormat,
     Msaa,
 );
+
+pub(crate) fn main_texture_key(
+    camera: &ExtractedCamera,
+    view: &ExtractedView,
+    texture_usage: &CameraMainTextureUsages,
+    msaa: Msaa,
+) -> MainTextureKey {
+    (
+        camera.target.clone(),
+        texture_usage.0,
+        view.target_format,
+        msaa,
+    )
+}
 
 pub fn prepare_view_targets(
     mut commands: Commands,
@@ -1301,6 +1325,7 @@ pub fn prepare_view_targets(
         &ExtractedView,
         &CameraMainTextureUsages,
         &Msaa,
+        Option<&ResolvedCompositingSpace>,
     )>,
     view_target_attachments: Res<ViewTargetAttachments>,
     mut main_texture_atomics: Local<HashMap<MainTextureKey, Weak<AtomicUsize>>>,
@@ -1308,7 +1333,7 @@ pub fn prepare_view_targets(
     main_texture_atomics.retain(|_, weak| weak.strong_count() > 0);
 
     let mut textures = <HashMap<_, _>>::default();
-    for (entity, camera, view, texture_usage, msaa) in cameras.iter() {
+    for (entity, camera, view, texture_usage, msaa, resolved_space) in cameras.iter() {
         let Some(target_size) = camera.physical_target_size else {
             // If we don't have a target size, we can't create the main texture and have to bail
             commands.entity(entity).try_remove::<ViewTarget>();
@@ -1336,20 +1361,16 @@ pub fn prepare_view_targets(
         };
 
         // Convert clear color to the format expected by the main texture
+        let resolved_space = ResolvedCompositingSpace::space(resolved_space);
         let converted_clear_color: Option<WgpuColor> =
-            clear_color.map(|color| match camera.compositing_space {
+            clear_color.map(|color| match resolved_space {
                 // If main texture stores Oklab or Srgb, convert Color to it for correct clear.
                 Some(CompositingSpace::Oklab) => Oklaba::from(color).into(),
                 Some(CompositingSpace::Srgb) => Srgba::from(color).into(),
                 Some(CompositingSpace::Linear) | None => LinearRgba::from(color).into(),
             });
 
-        let key: MainTextureKey = (
-            camera.target.clone(),
-            texture_usage.0,
-            main_texture_format,
-            *msaa,
-        );
+        let key = main_texture_key(camera, view, texture_usage, *msaa);
         let (a, b, sampled, main_texture) = textures.entry(key.clone()).or_insert_with(|| {
             let descriptor = TextureDescriptor {
                 label: None,
@@ -1424,7 +1445,6 @@ pub fn prepare_view_targets(
             main_textures,
             main_texture_format,
             out_texture: out_attachment.cloned(),
-            compositing_space: camera.compositing_space,
         });
     }
 }
