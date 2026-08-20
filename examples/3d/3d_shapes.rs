@@ -26,7 +26,7 @@ use bevy::{
     ui_widgets::{checkbox_self_update, Activate, ValueChange},
 };
 use button::feathers_button;
-use checkbox::{feathers_option_checkbox, IsChecked}; 
+use checkbox::{feathers_option_checkbox, IsChecked};
 use scene::top_left_scene;
 
 #[path = "../helpers/button.rs"]
