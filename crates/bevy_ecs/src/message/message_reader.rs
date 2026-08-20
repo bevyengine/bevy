@@ -2,7 +2,7 @@
 use crate::message::MessageParIter;
 use crate::{
     message::{Message, MessageCursor, MessageIterator, MessageIteratorWithId, Messages},
-    system::{Local, Res, SystemParam, SystemParamValidationError},
+    system::{Local, Res, SystemInput, SystemParam, SystemParamFetch, SystemParamValidationError},
 };
 
 /// Reads [`Message`]s of type `T` in order and tracks which messages have already been read.
@@ -171,15 +171,27 @@ unsafe impl<'w, 's, M: Message> SystemParam for PopulatedMessageReader<'w, 's, M
     ) {
         MessageReader::<M>::init_access(state, system_meta, system_access, world);
     }
+}
 
+// SAFETY: relies on MessageReader to uphold soundness requirements
+unsafe impl<I: SystemInput, M: Message> SystemParamFetch<I> for PopulatedMessageReader<'_, '_, M> {
     unsafe fn get_param<'world, 'state>(
         state: &'state mut Self::State,
         system_meta: &crate::system::SystemMeta,
         world: crate::world::unsafe_world_cell::UnsafeWorldCell<'world>,
         change_tick: crate::change_detection::Tick,
+        input: &I::Inner<'_>,
     ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
         // SAFETY: requirements are upheld by MessageReader's implementation
-        let reader = unsafe { MessageReader::get_param(state, system_meta, world, change_tick)? };
+        let reader = unsafe {
+            <MessageReader<'_, '_, M> as SystemParamFetch<I>>::get_param(
+                state,
+                system_meta,
+                world,
+                change_tick,
+                input,
+            )?
+        };
         if reader.is_empty() {
             Err(SystemParamValidationError::skipped::<Self>(
                 "message queue is empty",

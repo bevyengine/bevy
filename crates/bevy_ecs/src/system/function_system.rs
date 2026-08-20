@@ -6,7 +6,7 @@ use crate::{
     schedule::{InternedSystemSet, SystemSet},
     system::{
         check_system_change_tick, FromInput, ReadOnlySystemParam, System, SystemAccess, SystemIn,
-        SystemInput, SystemParam, SystemParamItem,
+        SystemInput, SystemParam, SystemParamFetch, SystemParamItem,
     },
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World, WorldId},
 };
@@ -260,6 +260,8 @@ macro_rules! impl_build_system {
                 self,
                 func: F,
             ) -> FunctionSystem<Marker, (), Out, F>
+            where
+                $($param: SystemParamFetch<()>,)*
             {
                 self.build_any_system(func)
             }
@@ -280,7 +282,10 @@ macro_rules! impl_build_system {
             (
                 self,
                 func: F,
-            ) -> FunctionSystem<Marker, In, Out, F> {
+            ) -> FunctionSystem<Marker, In, Out, F>
+            where
+                $($param: SystemParamFetch<InnerIn>,)*
+            {
                 self.build_any_system(func)
             }
         }
@@ -369,7 +374,7 @@ impl<Param: SystemParam> SystemState<Param> {
         world: &'w World,
     ) -> Result<SystemParamItem<'w, 's, Param>, SystemParamValidationError>
     where
-        Param: ReadOnlySystemParam,
+        Param: ReadOnlySystemParam + SystemParamFetch<()>,
     {
         self.validate_world(world.id());
         // SAFETY: Param is read-only and doesn't allow mutable access to World.
@@ -385,7 +390,10 @@ impl<Param: SystemParam> SystemState<Param> {
     pub fn get_mut<'w, 's>(
         &'s mut self,
         world: &'w mut World,
-    ) -> Result<SystemParamItem<'w, 's, Param>, SystemParamValidationError> {
+    ) -> Result<SystemParamItem<'w, 's, Param>, SystemParamValidationError>
+    where
+        Param: SystemParamFetch<()>,
+    {
         self.validate_world(world.id());
         // SAFETY: World is uniquely borrowed and matches the World this SystemState was created with.
         unsafe { self.get_unchecked(world.as_unsafe_world_cell()) }
@@ -422,6 +430,88 @@ impl<Param: SystemParam> SystemState<Param> {
         }
     }
 
+    /// Retrieve the [`SystemParam`] values. This can only be called when all parameters are read-only.
+    ///
+    /// Returns an error if system parameter validation fails.
+    #[inline]
+    pub fn get_with<'w, 's, I: SystemInput>(
+        &'s mut self,
+        world: &'w World,
+        input: &I::Inner<'_>,
+    ) -> Result<SystemParamItem<'w, 's, Param>, SystemParamValidationError>
+    where
+        Param: ReadOnlySystemParam + SystemParamFetch<I>,
+    {
+        self.validate_world(world.id());
+        // SAFETY: Param is read-only and doesn't allow mutable access to World.
+        // It also matches the World this SystemState was created with.
+        unsafe { self.get_unchecked_with(world.as_unsafe_world_cell_readonly(), input) }
+    }
+
+    /// Retrieve the mutable [`SystemParam`] values.
+    ///
+    /// Returns an error if system parameter validation fails.
+    #[inline]
+    #[track_caller]
+    pub fn get_mut_with<'w, 's, I: SystemInput>(
+        &'s mut self,
+        world: &'w mut World,
+        input: &I::Inner<'_>,
+    ) -> Result<SystemParamItem<'w, 's, Param>, SystemParamValidationError>
+    where
+        Param: SystemParamFetch<I>,
+    {
+        self.validate_world(world.id());
+        // SAFETY: World is uniquely borrowed and matches the World this SystemState was created with.
+        unsafe { self.get_unchecked_with(world.as_unsafe_world_cell(), input) }
+    }
+
+    /// Retrieve the [`SystemParam`] values.
+    ///
+    /// Returns an error if system parameter validation fails.
+    ///
+    /// # Safety
+    /// This call might access any of the input parameters in a way that violates Rust's mutability rules. Make sure the data
+    /// access is safe in the context of global [`World`] access. The passed-in [`World`] _must_ be the [`World`] the [`SystemState`] was
+    /// created with.
+    #[inline]
+    #[track_caller]
+    pub unsafe fn get_unchecked_with<'w, 's, I: SystemInput>(
+        &'s mut self,
+        world: UnsafeWorldCell<'w>,
+        input: &I::Inner<'_>,
+    ) -> Result<SystemParamItem<'w, 's, Param>, SystemParamValidationError>
+    where
+        Param: SystemParamFetch<I>,
+    {
+        let change_tick = world.increment_change_tick();
+        // SAFETY: The invariants are upheld by the caller.
+        unsafe { self.fetch_with(world, change_tick, input) }
+    }
+
+    /// # Safety
+    /// This call might access any of the input parameters in a way that violates Rust's mutability rules. Make sure the data
+    /// access is safe in the context of global [`World`] access. The passed-in [`World`] _must_ be the [`World`] the [`SystemState`] was
+    /// created with.
+    #[inline]
+    #[track_caller]
+    unsafe fn fetch_with<'w, 's, I: SystemInput>(
+        &'s mut self,
+        world: UnsafeWorldCell<'w>,
+        change_tick: Tick,
+        input: &I::Inner<'_>,
+    ) -> Result<SystemParamItem<'w, 's, Param>, SystemParamValidationError>
+    where
+        Param: SystemParamFetch<I>,
+    {
+        // SAFETY: The invariants are upheld by the caller.
+        let param = unsafe {
+            Param::get_param(&mut self.param_state, &self.meta, world, change_tick, input)
+        }?;
+        self.meta.last_run = change_tick;
+        Ok(param)
+    }
+
     /// Retrieve the [`SystemParam`] values.
     ///
     /// Returns an error if system parameter validation fails.
@@ -435,7 +525,10 @@ impl<Param: SystemParam> SystemState<Param> {
     pub unsafe fn get_unchecked<'w, 's>(
         &'s mut self,
         world: UnsafeWorldCell<'w>,
-    ) -> Result<SystemParamItem<'w, 's, Param>, SystemParamValidationError> {
+    ) -> Result<SystemParamItem<'w, 's, Param>, SystemParamValidationError>
+    where
+        Param: SystemParamFetch<()>,
+    {
         let change_tick = world.increment_change_tick();
         // SAFETY: The invariants are upheld by the caller.
         unsafe { self.fetch(world, change_tick) }
@@ -451,10 +544,14 @@ impl<Param: SystemParam> SystemState<Param> {
         &'s mut self,
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
-    ) -> Result<SystemParamItem<'w, 's, Param>, SystemParamValidationError> {
+    ) -> Result<SystemParamItem<'w, 's, Param>, SystemParamValidationError>
+    where
+        Param: SystemParamFetch<()>,
+    {
         // SAFETY: The invariants are upheld by the caller.
-        let param =
-            unsafe { Param::get_param(&mut self.param_state, &self.meta, world, change_tick) }?;
+        let param = unsafe {
+            Param::get_param(&mut self.param_state, &self.meta, world, change_tick, &())
+        }?;
         self.meta.last_run = change_tick;
         Ok(param)
     }
@@ -672,7 +769,13 @@ where
         // - All world accesses used by `F::Param` have been registered, so the caller
         //   will ensure that there are no data access conflicts.
         let params = unsafe {
-            F::Param::get_param(&mut state.param, &self.system_meta, world, change_tick)
+            F::Param::get_param(
+                &mut state.param,
+                &self.system_meta,
+                world,
+                change_tick,
+                &input,
+            )
         }?;
 
         #[cfg(feature = "hotpatching")]
@@ -851,7 +954,7 @@ pub trait SystemParamFunction<Marker>: Send + Sync + 'static {
     type Out;
 
     /// The [`SystemParam`]/s used by this system to access the [`World`].
-    type Param: SystemParam;
+    type Param: SystemParamFetch<Self::In>;
 
     /// Executes this system once. See [`System::run`] or [`System::run_unsafe`].
     fn run(
@@ -875,7 +978,7 @@ macro_rules! impl_system_function {
             non_snake_case,
             reason = "Certain variable names are provided by the caller, not by us."
         )]
-        impl<Out, Func, $($param: SystemParam),*> SystemParamFunction<fn($($param,)*) -> Out> for Func
+        impl<Out, Func, $($param: SystemParamFetch<()>),*> SystemParamFunction<fn($($param,)*) -> Out> for Func
         where
             Func: Send + Sync + 'static,
             for <'a> &'a mut Func:
@@ -910,7 +1013,7 @@ macro_rules! impl_system_function {
             non_snake_case,
             reason = "Certain variable names are provided by the caller, not by us."
         )]
-        impl<In, Out, Func, $($param: SystemParam),*> SystemParamFunction<(HasSystemInput, fn(In, $($param,)*) -> Out)> for Func
+        impl<In, Out, Func, $($param: SystemParamFetch<In>),*> SystemParamFunction<(HasSystemInput, fn(In, $($param,)*) -> Out)> for Func
         where
             Func: Send + Sync + 'static,
             for <'a> &'a mut Func:

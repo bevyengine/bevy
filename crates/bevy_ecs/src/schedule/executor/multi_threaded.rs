@@ -911,7 +911,8 @@ mod tests {
         prelude::Resource,
         schedule::{IntoScheduleConfigs, MultiThreadedExecutor, Schedule},
         system::{
-            Commands, NonSendMut, SystemAccess, SystemMeta, SystemParam, SystemParamValidationError,
+            Commands, NonSendMut, SystemAccess, SystemInput, SystemMeta, SystemParam,
+            SystemParamFetch, SystemParamValidationError,
         },
         world::{unsafe_world_cell::UnsafeWorldCell, World},
     };
@@ -936,12 +937,16 @@ mod tests {
         ) {
             system_access.require_exclusive_access::<Self>(system_meta);
         }
+    }
 
+    // SAFETY: No world data is accessed.
+    unsafe impl<I: SystemInput> SystemParamFetch<I> for ExclusiveMarker {
         unsafe fn get_param<'world, 'state>(
             _state: &'state mut Self::State,
             _system_meta: &SystemMeta,
             _world: UnsafeWorldCell<'world>,
             _change_tick: Tick,
+            _input: &I::Inner<'_>,
         ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
             Ok(ExclusiveMarker)
         }
