@@ -1104,17 +1104,17 @@ mod tests {
     }
 
     #[test]
+    fn replace_overwrites() {
+        PluginGroupG
+            .build()
+            .replace::<PluginA>(PluginC);
+    }
+
+    #[test]
     #[should_panic = "cannot replace plugin `bevy_app::plugin_group::tests::PluginB` because it does not exist"]
     fn replace_doesnt_exist() {
         PluginGroupG
             .build()
             .replace::<PluginB>(PluginD);
-    }
-
-    #[test]
-    fn replace_intentionally_overwrite() {
-        PluginGroupG
-            .build()
-            .replace::<PluginA>(PluginB);
     }
 }
