@@ -10,6 +10,7 @@ keywords = ["bevy", "no_std"]
 rust-version = "1.85.0"
 
 [dependencies]
+bevy_utils = { path = "../bevy_utils", version = "0.20.0-dev", default-features = false }
 
 [lints]
 workspace = true

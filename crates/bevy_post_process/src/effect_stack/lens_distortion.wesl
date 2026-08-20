@@ -1,6 +1,6 @@
 // The lens distortion postprocessing effect.
 
-// See `bevy_post_process::effect_stack::LensDistortion` for more
+// See `package::effect_stack::LensDistortion` for more
 // information on these fields.
 struct LensDistortionSettings {
     intensity: f32,

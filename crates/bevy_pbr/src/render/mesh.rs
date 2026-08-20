@@ -25,7 +25,7 @@ use bevy_ecs::{
     relationship::RelationshipSourceCollection,
     system::{lifetimeless::*, SystemParamItem},
 };
-use bevy_image::{ImageSampler, TextureFormatPixelInfo};
+use bevy_image::TextureFormatPixelInfo;
 use bevy_light::{
     EnvironmentMapLight, IrradianceVolume, NotShadowCaster, NotShadowReceiver,
     ShadowFilteringMethod, TransmittedShadowReceiver,
@@ -2783,12 +2783,8 @@ pub fn build_dummy_white_gpu_image(
 ) -> GpuImage {
     let image = Image::default();
     let texture = render_device.create_texture(&image.texture_descriptor);
-    let sampler = match image.sampler {
-        ImageSampler::Default => (**default_sampler).clone(),
-        ImageSampler::Descriptor(ref descriptor) => {
-            render_device.create_sampler(&descriptor.as_wgpu())
-        }
-    };
+    // The default image always uses the default sampler.
+    let sampler = (**default_sampler).clone();
 
     if let Ok(format_size) = image.texture_descriptor.format.pixel_size() {
         render_queue.write_texture(
