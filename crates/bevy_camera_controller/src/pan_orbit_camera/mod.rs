@@ -208,7 +208,8 @@ impl PluginGroup for DefaultPanOrbitCameraPlugins {
         let group = PluginGroupBuilder::start::<Self>()
             .add(controller::MinimalPanOrbitCameraPlugin)
             .add(extensions::dolly_zoom::DollyZoomPlugin)
-            .add(extensions::look_to::LookToPlugin);
+            .add(extensions::look_to::LookToPlugin)
+            .add(input::DefaultInputPlugin);
 
         #[cfg(feature = "extension_anchor_indicator")]
         let group = group.add(extensions::anchor_indicator::AnchorIndicatorPlugin);

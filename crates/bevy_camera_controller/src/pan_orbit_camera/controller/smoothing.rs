@@ -120,19 +120,19 @@ impl<
         let new_input = std::mem::take(&mut self.pending);
         let queue = &mut self.queue;
 
+        // Compute the expected sampling window end index
         let range_end = queue
             .iter()
             .position(|entry| now.duration_since(entry.time) > smoothing)
             .unwrap_or(queue.len());
 
-        // Compute the expected sampling window end index
+        // Get the duration since the last sample
         let dt = queue
             .front()
             .map(|e| now.duration_since(e.time))
             .unwrap_or(smoothing);
 
         let target_fraction = (dt.as_secs_f32() / smoothing.as_secs_f32()).min(1.0);
-        dbg!(&dt, &target_fraction, &new_input);
         let mut smoothed_value = new_input * target_fraction;
 
         for entry in queue.range_mut(..range_end) {
@@ -153,7 +153,6 @@ impl<
         }
 
         queue.truncate(Self::MAX_EVENTS - 1);
-        dbg!(&smoothed_value);
         queue.push_front(InputStreamEntry {
             time: now,
             sample: new_input,

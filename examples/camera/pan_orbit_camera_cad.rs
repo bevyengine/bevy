@@ -15,7 +15,6 @@ use bevy::camera::Hdr;
 use bevy::camera_controller::pan_orbit_camera::{
     extensions::{dolly_zoom::DollyZoomTrigger, look_to::LookToTrigger},
     input::DefaultInputPlugin,
-    old_input::OldInputPlugin,
     prelude::*,
 };
 use bevy::math::DVec3;
@@ -31,9 +30,10 @@ fn main() {
         .add_plugins((
             DefaultPlugins,
             MeshPickingPlugin,
-            DefaultPanOrbitCameraPlugins,
-            // Currently PanOrbitCamera needs an external plugin to handle input mapping.
-            CustomInputPlugin,
+            DefaultPanOrbitCameraPlugins, // .build()
+                                          // .disable::<DefaultInputPlugin>(),
+                                          // Currently PanOrbitCamera needs an external plugin to handle input mapping.
+                                          // CustomInputPlugin,
         ))
         // The camera controller works with reactive rendering:
         // .insert_resource(bevy::winit::WinitSettings::desktop_app())
