@@ -1,0 +1,8 @@
+(
+    setup: (
+        fixed_frame_time: Some(0.05),
+    ),
+    events: [
+        (300, ScreenshotAndExit),
+    ]
+)
