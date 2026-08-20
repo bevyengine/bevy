@@ -5,7 +5,7 @@ use alloc::{
     vec::Vec,
 };
 use bevy_utils::{TypeIdHashMap, TypeIdHashMapEntry as Entry};
-use core::any::TypeId;
+use core::any::{TypeId, type_name, type_name_of_val};
 use log::{debug, warn};
 
 /// A macro for generating a well-documented [`PluginGroup`] from a list of [`Plugin`] paths.
@@ -557,6 +557,93 @@ impl PluginGroupBuilder {
         self
     }
 
+    /// Attempts to replace the plugin `Old` with `New`.
+    /// if `New` is already in the group it is replaced.
+    ///
+    /// if successful `New` is inserted after `Old` and `Old` is disabled,
+    /// if this function errors the group is left unchanged.
+    ///
+    /// **NOTE:** any plugins that where after `Old` are also after `New`,
+    ///     but any plugins added after `Old` after this function is called will be before `New`
+    ///
+    /// # Errors
+    /// Returns an error containing `New` if `Old` is not in the group.
+    pub fn try_replace_overwrite<Old: Plugin, New: Plugin>(mut self, new: New) -> Result<Self, (Self, New)> {
+        if !self.contains::<Old>() {
+            return Err((self, new))
+        }
+
+        self = self
+            .disable::<Old>()
+            .add_after::<Old>(new);
+
+        Ok(self)
+    }
+
+    /// Attempts to replace the plugin `Old` with `New`.
+    ///
+    /// if successful `New` is inserted after `Old` and `Old` is disabled,
+    /// if this function errors the group is left unchanged.
+    ///
+    /// **NOTE:** any plugins that where after `Old` are also after `New`,
+    ///     but any plugins added after `Old` after this function is called will be before `New`
+    ///
+    /// # Errors
+    /// Returns an error containing `New` if `Old` is not in the group,
+    /// or `New` is already in the group.
+    pub fn try_replace<Old: Plugin, New: Plugin>(self, new: New) -> Result<Self, (Self, New)> {
+        if self.contains::<New>() {
+            return Err((self, new));
+        }
+
+        self.try_replace_overwrite::<Old, _>(new)
+    }
+
+    /// Attempts to replace the plugin `Old` with `New`.
+    ///
+    /// if successful `New` is inserted after `Old` and `Old` is disabled.
+    ///
+    /// **NOTE:** any plugins that where after `Old` are also after `new`,
+    ///     but any plugins added after `Old` after this function is called will be before `new`.
+    /// 
+    /// # Panics
+    /// panics if `Old` is not in the group or `new` is in the group.
+    pub fn replace<Old: Plugin>(self, new: impl Plugin) -> Self {
+        fn contains_helpe<P: Plugin>(this: &PluginGroupBuilder, _: &P) -> bool {
+            this.contains::<P>()
+        }
+
+        
+        self.try_replace::<Old, _>(new).unwrap_or_else(|(this, new)| {
+            let contains_new = contains_helpe(&this, &new);
+            let old_name = type_name::<Old>();
+            let new_name = type_name_of_val(&new);
+
+            match (this.contains::<Old>(), contains_new) {
+                (false, false) => panic!("cannot replace plugin `{}` because it does not exist", old_name),
+                (true, true) => panic!("cannot replace plugin `{}` with `{}` because the new plugin already exists", old_name, new_name),
+                (false, true) => panic!("cannot replace plugin `{}` with `{}` because the old plugin does not exist and the new plugin already exists", old_name, new_name),
+                (true, false) => unreachable!(),
+            }
+        })
+    }
+
+    /// Attempts to replace the plugin `Old` with `New`.
+    /// if `new` is already in the group it is replaced.
+    ///
+    /// if successful `New` is inserted after `Old` and `Old` is disabled.
+    ///
+    /// **NOTE:** any plugins that where after `Old` are also after `new`,
+    ///     but any plugins added after `Old` after this function is called will be before `new`.
+    /// 
+    /// # Panics
+    /// panics if `Old` is not in the group.
+    pub fn replace_overwrite<Old: Plugin>(self, new: impl Plugin) -> Self {
+        self.try_replace_overwrite::<Old, _>(new).unwrap_or_else(|_| {
+            panic!("cannot replace plugin `{}` because it does not exist", type_name::<Old>());
+        })
+    }
+
     /// Consumes the [`PluginGroupBuilder`] and [builds](Plugin::build) the contained [`Plugin`]s
     /// in the order specified.
     ///
@@ -998,5 +1085,68 @@ mod tests {
                 type_id_of(plugin_e),
             ]
         );
+    }
+
+    plugin_group! {
+        struct PluginGroupG {
+            :PluginA,
+            :PluginC,
+        }
+    }
+
+    struct PluginD;
+
+    impl Plugin for PluginD {
+        fn build(&self, _app: &mut App) {}
+    }
+
+    #[test]
+    fn replace_successful() {
+        let group = PluginGroupG
+            .build()
+            .add_after::<PluginA>(PluginB)
+            .replace::<PluginA>(PluginD);
+
+
+        assert_eq!(
+            group.order,
+            vec![
+                TypeId::of::<PluginA>(),
+                TypeId::of::<PluginD>(),
+                TypeId::of::<PluginB>(),
+                TypeId::of::<PluginC>(),
+            ],
+        );
+
+        assert!(!group.plugins.get(&TypeId::of::<PluginA>()).unwrap().enabled);
+    }
+
+    #[test]
+    #[should_panic = "cannot replace plugin `bevy_app::plugin_group::tests::PluginA` with `bevy_app::plugin_group::tests::PluginC` because the new plugin already exists"] fn replace_would_overwrite() {
+        PluginGroupG
+            .build()
+            .replace::<PluginA>(PluginC);
+    }
+
+    #[test]
+    #[should_panic = "cannot replace plugin `bevy_app::plugin_group::tests::PluginB` because it does not exist"] fn replace_doesnt_exist() {
+        PluginGroupG
+            .build()
+            .replace::<PluginB>(PluginD);
+    }
+
+    #[test]
+    #[should_panic = "cannot replace plugin `bevy_app::plugin_group::tests::PluginB` with `bevy_app::plugin_group::tests::PluginA` because the old plugin does not exist and the new plugin already exists"]
+    fn replace_doesnt_exist_and_would_overwrite() {
+        PluginGroupG
+            .build()
+            .replace::<PluginB>(PluginA);
+    }
+
+    #[test]
+    fn replace_intentionally_overwrite() {
+        PluginGroupG
+            .build()
+            .replace_overwrite::<PluginA>(PluginB);
     }
 }
