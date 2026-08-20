@@ -90,14 +90,14 @@ fn demo_root() -> impl Scene {
                 HardLimit(NumberInputRange::F32(-180.0..=180.0))
                 NumberInputWrap::Wrap
             )),
-            demo_field_f32("in meters", 2.0, bsn!(
-                template_value(NumberInputUnits::new(&LengthMeters))
+            @demo_field_f32("in meters", 2.0, bsn!(
+                @template_value(NumberInputUnits::new(&LengthMeters))
             )),
-            demo_field_f32("in seconds", 2.0, bsn!(
-                template_value(NumberInputUnits::new(&TimeSeconds))
+            @demo_field_f32("in seconds", 2.0, bsn!(
+                @template_value(NumberInputUnits::new(&TimeSeconds))
             )),
-            demo_field_f32("in degrees", PI, bsn!(
-                template_value(NumberInputUnits::new(&AngleDegrees))
+            @demo_field_f32("in degrees", PI, bsn!(
+                @template_value(NumberInputUnits::new(&AngleDegrees))
             )),
         ]
     }
