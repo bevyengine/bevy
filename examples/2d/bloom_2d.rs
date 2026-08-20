@@ -6,6 +6,7 @@ use bevy::{
         constants::icons,
         containers::*,
         controls::*,
+        dark_theme::create_dark_theme,
         display::{caption, icon, label},
         theme::UiTheme,
         FeathersPlugins,
@@ -26,13 +27,10 @@ use std::f32::consts::FRAC_PI_2;
 #[path = "../helpers/radio.rs"]
 pub mod radio;
 
-#[path = "../helpers/theme.rs"]
-mod theme;
-
 fn main() {
     App::new()
         .add_plugins((DefaultPlugins, FeathersPlugins))
-        .insert_resource(UiTheme(theme::basic_example_theme(Color::WHITE)))
+        .insert_resource(UiTheme(create_dark_theme()))
         .add_systems(Startup, setup)
         .add_observer(handle_value_change_checkbox)
         .add_observer(update_radio_button)
