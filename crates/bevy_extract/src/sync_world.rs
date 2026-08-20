@@ -88,7 +88,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 #[derive(Default)]
 pub struct SyncWorldPlugin<L: AppLabel>(PhantomData<L>);
 
-impl<L: AppLabel + Default + Clone + Copy + Eq> Plugin for SyncWorldPlugin<L> {
+impl<L: AppLabel> Plugin for SyncWorldPlugin<L> {
     fn build(&self, app: &mut bevy_app::App) {
         app.init_resource::<PendingSyncEntity<L>>();
         app.add_observer(
@@ -120,36 +120,36 @@ impl<L: AppLabel + Default + Clone + Copy + Eq> Plugin for SyncWorldPlugin<L> {
 /// [`SyncComponentPlugin`]: crate::sync_component::SyncComponentPlugin
 #[derive(Component, Copy, Clone, Debug, Default)]
 #[component(storage = "SparseSet")]
-pub struct SyncToSubWorld<L: AppLabel + Default + Clone>(PhantomData<L>);
+pub struct SyncToSubWorld<L: AppLabel>(PhantomData<L>);
 
 /// Component added on the main world entities that are synced to the Sub World in order to keep track of the corresponding sub world entity.
 ///
 /// Can also be used as a newtype wrapper for sub world entities.
 #[derive(Component, Deref, Copy, Clone, Debug, Eq, Hash, PartialEq)]
 #[component(clone_behavior = Ignore)]
-pub struct SubEntity<L: AppLabel + Clone + Copy + Eq>(#[deref] Entity, PhantomData<L>);
+pub struct SubEntity<L: AppLabel>(#[deref] Entity, PhantomData<L>);
 
-impl<L: AppLabel + Clone + Copy + Eq> SubEntity<L> {
+impl<L: AppLabel> SubEntity<L> {
     #[inline]
     pub fn id(&self) -> Entity {
         self.0
     }
 }
 
-impl<L: AppLabel + Clone + Copy + Eq> From<Entity> for SubEntity<L> {
+impl<L: AppLabel> From<Entity> for SubEntity<L> {
     fn from(entity: Entity) -> Self {
         SubEntity(entity, PhantomData)
     }
 }
 
-impl<L: AppLabel + Clone + Copy + Eq> ContainsEntity for SubEntity<L> {
+impl<L: AppLabel> ContainsEntity for SubEntity<L> {
     fn entity(&self) -> Entity {
         self.id()
     }
 }
 
 // SAFETY: SubEntity is a newtype around Entity that derives its comparison traits.
-unsafe impl<L: AppLabel + Clone + Copy + Eq> EntityEquivalent for SubEntity<L> {}
+unsafe impl<L: AppLabel> EntityEquivalent for SubEntity<L> {}
 
 /// Component added on the sub world entities to keep track of the corresponding main world entity.
 ///
@@ -194,11 +194,11 @@ pub type MainEntityHashSet = EntityEquivalentHashSet<MainEntity>;
 /// Marker component that indicates that its entity needs to be despawned at the end of the frame.
 #[derive(Component, Copy, Clone, Debug, Default, Reflect)]
 #[reflect(Component, Default, Clone)]
-pub struct TemporaryEntity<L: AppLabel + Clone + Eq + Copy + Default>(PhantomData<L>);
+pub struct TemporaryEntity<L: AppLabel>(PhantomData<L>);
 
 /// A record enum to what entities with [`SyncToSubWorld`] have been added or removed.
 #[derive(Debug)]
-pub(crate) enum EntityRecord<L: AppLabel + Clone + Copy + Eq> {
+pub(crate) enum EntityRecord<L: AppLabel> {
     /// When an entity is spawned on the main world, notify the sub world so that it can spawn a corresponding
     /// entity. This contains the main world entity.
     Added(Entity),
@@ -212,16 +212,13 @@ pub(crate) enum EntityRecord<L: AppLabel + Clone + Copy + Eq> {
 
 // Entity Record in MainWorld pending to Sync
 #[derive(Resource, Default, Deref, DerefMut)]
-pub(crate) struct PendingSyncEntity<L: AppLabel + Clone + Copy + Eq> {
+pub(crate) struct PendingSyncEntity<L: AppLabel> {
     #[deref]
     records: Vec<EntityRecord<L>>,
     marker: PhantomData<L>,
 }
 
-pub(crate) fn entity_sync_system<L: AppLabel + Clone + Copy + Eq>(
-    main_world: &mut World,
-    sub_world: &mut World,
-) {
+pub(crate) fn entity_sync_system<L: AppLabel>(main_world: &mut World, sub_world: &mut World) {
     main_world.resource_scope(|world, mut pending: Mut<PendingSyncEntity<L>>| {
         // TODO : batching record
         for record in pending.drain(..) {
@@ -258,7 +255,7 @@ pub(crate) fn entity_sync_system<L: AppLabel + Clone + Copy + Eq>(
     });
 }
 
-pub(crate) fn despawn_temporary_entities<L: AppLabel + Copy + Default + Eq>(
+pub(crate) fn despawn_temporary_entities<L: AppLabel>(
     world: &mut World,
     state: &mut SystemState<Query<Entity, With<TemporaryEntity<L>>>>,
     mut local: Local<Vec<Entity>>,
@@ -297,7 +294,7 @@ mod sub_entities_world_query_impls {
 
     // SAFETY: defers completely to `&SubEntity` implementation,
     // and then only modifies the output safely.
-    unsafe impl<L: AppLabel + Clone + Copy + Eq> WorldQuery for SubEntity<L> {
+    unsafe impl<L: AppLabel> WorldQuery for SubEntity<L> {
         type Fetch<'w> = <&'static SubEntity<L> as WorldQuery>::Fetch<'w>;
         type State = <&'static SubEntity<L> as WorldQuery>::State;
 
@@ -377,7 +374,7 @@ mod sub_entities_world_query_impls {
 
     // SAFETY: Component access of Self::ReadOnly is a subset of Self.
     // Self::ReadOnly matches exactly the same archetypes/tables as Self.
-    unsafe impl<L: AppLabel + Clone + Copy + Eq> QueryData for SubEntity<L> {
+    unsafe impl<L: AppLabel> QueryData for SubEntity<L> {
         const IS_READ_ONLY: bool = true;
         const IS_ARCHETYPAL: bool = <&MainEntity as QueryData>::IS_ARCHETYPAL;
         type ReadOnly = SubEntity<L>;
@@ -410,17 +407,17 @@ mod sub_entities_world_query_impls {
     }
 
     /// SAFETY: access is read only and only on the current entity
-    unsafe impl<L: AppLabel + Clone + Copy + Eq> IterQueryData for SubEntity<L> {}
+    unsafe impl<L: AppLabel> IterQueryData for SubEntity<L> {}
 
     /// SAFETY: access is read only
-    unsafe impl<L: AppLabel + Clone + Copy + Eq> ReadOnlyQueryData for SubEntity<L> {}
+    unsafe impl<L: AppLabel> ReadOnlyQueryData for SubEntity<L> {}
 
     /// SAFETY: access is only on the current entity
-    unsafe impl<L: AppLabel + Clone + Copy + Eq> SingleEntityQueryData for SubEntity<L> {}
+    unsafe impl<L: AppLabel> SingleEntityQueryData for SubEntity<L> {}
 
-    impl<L: AppLabel + Clone + Copy + Eq> ArchetypeQueryData for SubEntity<L> {}
+    impl<L: AppLabel> ArchetypeQueryData for SubEntity<L> {}
 
-    impl<L: AppLabel + Clone + Copy + Eq> ReleaseStateQueryData for SubEntity<L> {
+    impl<L: AppLabel> ReleaseStateQueryData for SubEntity<L> {
         fn release_state<'w>(item: Self::Item<'w, '_>) -> Self::Item<'w, 'static> {
             item
         }
