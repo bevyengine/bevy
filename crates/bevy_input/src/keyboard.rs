@@ -67,13 +67,15 @@
 
 use crate::{ButtonInput, ButtonState};
 #[cfg(feature = "bevy_reflect")]
-use bevy_ecs::prelude::ReflectMessage;
+use bevy_ecs::prelude::{Local, ReflectMessage};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     entity::Entity,
     message::{Message, MessageReader},
     system::ResMut,
 };
+use bevy_platform::collections::HashMap;
+use bevy_platform::prelude::Vec;
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
@@ -172,6 +174,8 @@ pub fn keyboard_input_system(
     mut key_input: ResMut<ButtonInput<Key>>,
     mut keyboard_input_reader: MessageReader<KeyboardInput>,
     mut keyboard_focus_lost_reader: MessageReader<KeyboardFocusLost>,
+    mut held_key_codes: Local<HashMap<KeyCode, Vec<Key>>>,
+    mut held_keys: Local<HashMap<Key, u16>>,
 ) {
     // Avoid clearing if not empty to ensure change detection is not triggered.
     keycode_input.bypass_change_detection().clear();
@@ -186,12 +190,53 @@ pub fn keyboard_input_system(
         } = event;
         match state {
             ButtonState::Pressed => {
+                let held_key_code = held_key_codes.entry(*key_code).or_default();
+
+                // There should realistically never be more than 2-3 `Keys` pressed by a single `KeyCode`
+                // so using linear search should be faster.
+                if held_key_code.iter().find(|i| *i == logical_key).is_none() {
+                    held_key_code.push(logical_key.clone());
+                    *held_keys.entry(logical_key.clone()).or_default() += 1;
+                }
+
                 keycode_input.press(*key_code);
                 key_input.press(logical_key.clone());
             }
             ButtonState::Released => {
+                for logical_key in held_key_codes.remove(key_code).unwrap_or_default() {
+                    let Some(pressing_keys) = held_keys.get_mut(&logical_key) else {
+                        continue;
+                    };
+
+                    // When a physical key that had recently pressed this logical key is released,
+                    // check if any other physical keys are holding it down.
+                    //
+                    // This is to prevent situations like:
+                    // 1. Press `KeyCode::AltLeft` -> `Key::Alt`
+                    // 2. Press `KeyCode::AltRight` -> `Key::Alt`
+                    // 3. Release `KeyCode::AltLeft`, releasing `Key::Alt`
+                    // 4. `KeyCode::AltRight` is still held & the user expects `Key::Alt` to be held, but it is not
+
+                    *pressing_keys -= 1;
+
+                    key_input.release(logical_key.clone());
+
+                    if *pressing_keys == 0 {
+                        held_keys.remove(&logical_key);
+                    } else {
+                        // Even though the `Key` was just released, it's still being held by other keys,
+                        // like with Right & Left Shift.
+                        // It doesn't make sense to clear `ButtonInput::pressed` while the button is still pressed.
+                        let just_pressed = key_input.just_pressed(logical_key.clone());
+                        key_input.press(logical_key.clone());
+
+                        if !just_pressed {
+                            key_input.clear_just_pressed(logical_key);
+                        }
+                    }
+                }
+
                 keycode_input.release(*key_code);
-                key_input.release(logical_key.clone());
             }
         }
     }
@@ -199,6 +244,7 @@ pub fn keyboard_input_system(
     // Release all cached input to avoid having stuck input when switching between windows in os
     if !keyboard_focus_lost_reader.is_empty() {
         keycode_input.release_all();
+        key_input.release_all();
         keyboard_focus_lost_reader.clear();
     }
 }
