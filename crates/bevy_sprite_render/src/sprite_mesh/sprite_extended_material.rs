@@ -193,13 +193,13 @@ fn update_changed_material_extensions<M>(
 ///
 /// The fragment shader, if overridden, can import functions from `bevy_sprite_render::sprite_mesh::functions`, including:
 /// ```wesl
-/// // Applies all the transformations to the UV and samples the sprite's final color, including tint and alpha discard.
+/// // Samples the sprite's final color, including the tint and alpha discard, at a given UV.
 /// fn sample_final_color(uv: vec2<f32>, instance_index: u32) -> vec4<f32>;
 ///
-/// // Applies all the necessary transformations to the UV and samples the sprite's texture.
+/// // Samples the sprite's texture without tint and alpha discard at a given UV.
 /// fn sample_sprite_texture(uv: vec2<f32>, instance_index: u32) -> vec4<f32>;
 ///
-/// // Applies the tint and alpha discard on the sprite's color.
+/// // Applies tint and alpha discard to the sprite's color.
 /// fn get_final_color(sprite_color: vec4<f32>, instance_index: u32) -> vec4<f32>;
 /// ```
 ///
