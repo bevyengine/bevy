@@ -743,13 +743,13 @@ fn demo_column_1() -> impl Scene {
                     justify_content: JustifyContent::SpaceBetween,
                 }
                 Children [
-                    label("Okhsl"),
+                    @label("Okhsl"),
                     (@FeathersColorSwatch SwatchType::Okhsl)
                 ]
             ),
             (
                 @FeathersColorPlane::OkhslHueLightness
-                on(|change: On<ValueChange<Vec2>>, mut color: ResMut<DemoWidgetStates>| {
+                @on(|change: On<ValueChange<Vec2>>, mut color: ResMut<DemoWidgetStates>| {
                     color.okhsl_color.hue = change.value.x * 360.0;
                     color.okhsl_color.lightness = 1.0 - change.value.y;
                 })
@@ -760,7 +760,7 @@ fn demo_column_1() -> impl Scene {
                     @channel: ColorChannel::OkhslHue
                 }
                 AccessibleLabel("Okhsl Hue Channel")
-                on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
+                @on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
                     color.okhsl_color.hue = change.value;
                 })
             ),
@@ -770,7 +770,7 @@ fn demo_column_1() -> impl Scene {
                     @channel: ColorChannel::OkhslSaturation
                 }
                 AccessibleLabel("Okhsl Saturation Channel")
-                on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
+                @on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
                     color.okhsl_color.saturation = change.value;
                 })
             ),
@@ -780,7 +780,7 @@ fn demo_column_1() -> impl Scene {
                     @channel: ColorChannel::OkhslLightness
                 }
                 AccessibleLabel("Okhsl Lightness Channel")
-                on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
+                @on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
                     color.okhsl_color.lightness = change.value;
                 })
             )
@@ -931,7 +931,7 @@ fn demo_column_2() -> impl Scene {
                                                     })
                                                 ),
                                             ],
-                                            label_small("Color property"),
+                                            @label_small("Color property"),
                                             Node {
                                                 display: Display::Flex,
                                                 flex_direction: FlexDirection::Row,
@@ -947,7 +947,7 @@ fn demo_column_2() -> impl Scene {
                                                     }
                                                     InteractionDisabled
                                                     NumberInputPrecision(2)
-                                                    template_value(HardLimit(NumberInputRange::F32(0.0..=1.0)))
+                                                    HardLimit(NumberInputRange::F32(0.0..=1.0))
                                                     Node {
                                                         flex_grow: 1.0,
                                                     }
@@ -960,7 +960,7 @@ fn demo_column_2() -> impl Scene {
                                                     }
                                                     InteractionDisabled
                                                     NumberInputPrecision(2)
-                                                    template_value(HardLimit(NumberInputRange::F32(0.0..=1.0)))
+                                                    HardLimit(NumberInputRange::F32(0.0..=1.0))
                                                     Node {
                                                         flex_grow: 1.0,
                                                     }
@@ -972,7 +972,7 @@ fn demo_column_2() -> impl Scene {
                                                     }
                                                     InteractionDisabled
                                                     NumberInputPrecision(2)
-                                                    template_value(HardLimit(NumberInputRange::F32(0.0..=1.0)))
+                                                    HardLimit(NumberInputRange::F32(0.0..=1.0))
                                                     Node {
                                                         flex_grow: 1.0,
                                                     }
@@ -984,7 +984,7 @@ fn demo_column_2() -> impl Scene {
                                                     }
                                                     InteractionDisabled
                                                     NumberInputPrecision(2)
-                                                    template_value(HardLimit(NumberInputRange::F32(0.0..=1.0)))
+                                                    HardLimit(NumberInputRange::F32(0.0..=1.0))
                                                     Node {
                                                         flex_grow: 1.0,
                                                     }

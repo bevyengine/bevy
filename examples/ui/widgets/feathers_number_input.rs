@@ -91,13 +91,13 @@ fn demo_root() -> impl Scene {
                 NumberInputWrap::Wrap
             )),
             @demo_field_f32("in meters", 2.0, bsn!(
-                @template_value(NumberInputUnits::new(&LengthMeters))
+                NumberInputUnits::new(&LengthMeters)
             )),
             @demo_field_f32("in seconds", 2.0, bsn!(
-                @template_value(NumberInputUnits::new(&TimeSeconds))
+                NumberInputUnits::new(&TimeSeconds)
             )),
             @demo_field_f32("in degrees", PI, bsn!(
-                @template_value(NumberInputUnits::new(&AngleDegrees))
+                NumberInputUnits::new(&AngleDegrees)
             )),
         ]
     }
