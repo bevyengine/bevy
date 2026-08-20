@@ -11,6 +11,7 @@ With this release, it's now possible to create custom materials for sprites by i
 inserting the `SpriteMaterial` component and adding the `SpriteMaterialPlugin` to your app.
 
 The shader can use functions exported from `bevy_sprite_render::sprite_mesh::functions`, including:
+
 ```wesl
 // Samples the sprite's final color, including the tint and alpha discard, at a given UV.
 fn sample_final_color(uv: vec2<f32>, instance_index: u32) -> vec4<f32>;
