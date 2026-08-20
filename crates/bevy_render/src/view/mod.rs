@@ -264,8 +264,8 @@ impl Msaa {
 
 /// Optionally enables a tonemapping shader that attempts to map linear input stimulus into a perceptually uniform image for a given [`Camera`] entity.
 ///
-/// The tonemapping pass lives in `bevy_core_pipeline`. The type lives here so
-/// render-world systems in `bevy_render` can consume it.
+/// The tonemapping pass lives in `bevy_core_pipeline`. The type is defined in
+/// `bevy_render` so render-world code can read it.
 #[derive(
     Component, Debug, Hash, Clone, Copy, Reflect, Default, ExtractComponent, PartialEq, Eq,
 )]
