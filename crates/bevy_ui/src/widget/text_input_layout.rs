@@ -206,7 +206,12 @@ pub fn update_editable_text_styles(
                 ));
         }
 
-        if text_font.is_changed()
+        // A `FontSource::Handle` is usually still loading on the frame its field
+        // spawns and `text_font.is_changed()` will only be true after another
+        // change, so to guarantee the editor gets the correct family,
+        // `resolve_font_family()` is retried on `fonts.is_changed()` after the
+        // load completes.
+        if (text_font.is_changed() || fonts.is_changed())
             && let Ok(resolved_family) = text_font.font.resolve_font_family(fonts.as_ref())
         {
             let family = resolved_family.into_owned();
