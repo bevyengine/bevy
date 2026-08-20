@@ -246,7 +246,7 @@ impl PanOrbitCamera {
             CurrentMotion::UserControlled {
                 ref mut motion_inputs,
                 ..
-            } => InputQueue(motion_inputs.zoom_inputs_mut().0.drain(..).collect()),
+            } => InputQueue(core::mem::take(&mut motion_inputs.zoom_inputs_mut().0)),
         };
         self.current_motion = CurrentMotion::UserControlled {
             anchor,
