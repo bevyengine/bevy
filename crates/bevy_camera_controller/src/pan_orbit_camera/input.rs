@@ -69,32 +69,23 @@ pub struct DefaultInputPlugin;
 impl Plugin for DefaultInputPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<CameraPointerMap>()
-            // .add_observer(observe_window_drag_start)
-            // .add_observer(observe_window_drag)
-            // .add_observer(observe_window_drag_end)
+            .add_observer(|evt: On<Add<Window>>, mut commands: Commands| {
+                commands
+                    .entity(evt.entity)
+                    .observe(observe_window_drag_start)
+                    .observe(observe_window_drag)
+                    .observe(observe_window_drag_end);
+            })
             // "we have required components at home"
             .add_observer(
                 |evt: On<Add<PanOrbitCamera>>,
                  query: Query<&PanOrbitCameraInputs>,
-                 rendertarget: Query<&RenderTarget>,
-                 primary_window: Query<Entity, With<PrimaryWindow>>,
                  mut commands: Commands| {
                     if !query.contains(evt.entity) {
                         commands
                             .entity(evt.entity)
                             .insert(PanOrbitCameraInputs::default());
                     }
-                    let target = rendertarget.get(evt.entity).unwrap();
-                    match target.normalize(primary_window.single().ok()) {
-                        Some(NormalizedRenderTarget::Window(window_ref)) => {
-                            commands
-                                .entity(window_ref.entity())
-                                .observe(observe_window_drag_start)
-                                .observe(observe_window_drag)
-                                .observe(observe_window_drag_end);
-                        }
-                        _ => (),
-                    };
                 },
             );
     }
