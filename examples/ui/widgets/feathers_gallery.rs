@@ -88,8 +88,8 @@ fn scene() -> impl SceneList {
     bsn_list![Camera2d, demo_root()]
 }
 
-fn demo_root() -> Box<dyn Scene> {
-    Box::new(bsn! {
+fn demo_root() -> impl Scene {
+    bsn! {
         Node {
             width: percent(100),
             height: percent(100),
@@ -105,7 +105,7 @@ fn demo_root() -> Box<dyn Scene> {
             demo_column_1(),
             demo_column_2(),
         ]
-    })
+    }
 }
 
 #[derive(Component, Debug, Clone, Default, PartialEq)]
