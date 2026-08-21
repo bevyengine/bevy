@@ -947,7 +947,7 @@ mod tests {
                     &[],
                     &mut buffer_query,
                     &mut font_system,
-                    rem_size,
+                    *rem_size,
                 )
                 .unwrap();
         }
@@ -2005,7 +2005,7 @@ mod tests {
         }
 
         #[test]
-        fn unghosting_node_keeps_fixed_child_as_layout_root() {
+        fn unghost_ghost_node_with_fixed_and_normal_children() {
             let mut app = setup_ui_test_app();
             let world = app.world_mut();
 
