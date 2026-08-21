@@ -9,10 +9,10 @@ pub const CORE_3D_DEPTH_FORMAT: TextureFormat = TextureFormat::Depth32Float;
 /// WebGL 2:
 /// - doesn't support `copy_texture_to_texture` for depth textures yet, thus it doesn't support `DepthPrepass`.
 /// - doesn't support creating multisampled textures if they are not pure `RENDER_ATTACHMENT`,
-///   so it doesn't support Msaa when reading `ViewDepthTexture`.
+///   so it doesn't support Msaa when reading `ViewDepthStencilTexture`.
 /// - shadow sampler `texture_depth_2d` doesn't support sampling, only supports comparison.
 ///
-/// To read depth texture on WebGL 2, we can only use `ViewDepthTexture` with `Msaa::Off` and bind depth texture as unfilterable `texture_2d<f32>`.
+/// To read depth texture on WebGL 2, we can only use `ViewDepthStencilTexture` with `Msaa::Off` and bind depth texture as unfilterable `texture_2d<f32>`.
 /// Therefore we disable depth of field and screen space reflections entirely on WebGL 2.
 #[cfg(not(any(feature = "webgpu", not(target_arch = "wasm32"))))]
 pub const DEPTH_PREPASS_TEXTURE_SUPPORTED: bool = false;
@@ -22,15 +22,15 @@ pub const DEPTH_PREPASS_TEXTURE_SUPPORTED: bool = false;
 /// WebGL 2:
 /// - doesn't support `copy_texture_to_texture` for depth textures yet, thus it doesn't support `DepthPrepass`.
 /// - doesn't support creating multisampled textures if they are not pure `RENDER_ATTACHMENT`,
-///   so it doesn't support Msaa when reading `ViewDepthTexture`.
+///   so it doesn't support Msaa when reading `ViewDepthStencilTexture`.
 /// - shadow sampler `texture_depth_2d` doesn't support sampling, only supports comparison.
 ///
-/// To read depth texture on WebGL 2, we can only use `ViewDepthTexture` with `Msaa::Off` and bind depth texture as unfilterable `texture_2d<f32>`.
+/// To read depth texture on WebGL 2, we can only use `ViewDepthStencilTexture` with `Msaa::Off` and bind depth texture as unfilterable `texture_2d<f32>`.
 /// Therefore we disable depth of field and screen space reflections entirely on WebGL 2.
 #[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
 pub const DEPTH_PREPASS_TEXTURE_SUPPORTED: bool = true;
 
-use core::{f32, ops::Range};
+use core::ops::Range;
 
 use bevy_camera::{Camera, Camera3d, Camera3dDepthLoadOp};
 use bevy_diagnostic::FrameCount;
@@ -40,7 +40,7 @@ use bevy_render::{
     mesh::allocator::MeshSlabs,
     occlusion_culling::OcclusionCulling,
     render_phase::{PhaseItemBatchSetKey, ViewRangefinder3d},
-    texture::CachedTexture,
+    texture::{CachedTexture, DepthStencilAttachment},
     view::{prepare_view_targets, NoIndirectDrawing, RetainedViewEntity},
 };
 use indexmap::IndexMap;
@@ -67,10 +67,10 @@ use bevy_render::{
     render_resource::{
         CachedRenderPipelineId, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
     },
-    renderer::RenderDevice,
+    renderer::{RenderAdapter, RenderDevice},
     sync_world::{MainEntity, RenderEntity},
     texture::{ColorAttachment, TextureCache},
-    view::{ExtractedView, ViewDepthTexture},
+    view::{ExtractedView, ViewDepthStencilTexture},
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use nonmax::NonMaxU32;
@@ -714,12 +714,13 @@ pub fn prepare_core_3d_depth_textures(
             })
             .clone();
 
-        commands.entity(entity).insert(ViewDepthTexture::new(
+        commands.entity(entity).insert(ViewDepthStencilTexture::new(
             cached_texture,
             match camera_3d.depth_load_op {
                 Camera3dDepthLoadOp::Clear(v) => Some(v),
                 Camera3dDepthLoadOp::Load => None,
             },
+            None,
         ));
     }
 }
@@ -763,6 +764,7 @@ pub fn prepare_prepass_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
+    render_adapter: Res<RenderAdapter>,
     frame_count: Res<FrameCount>,
     opaque_3d_prepass_phases: Res<ViewBinnedRenderPhases<Opaque3dPrepass>>,
     alpha_mask_3d_prepass_phases: Res<ViewBinnedRenderPhases<AlphaMask3dPrepass>>,
@@ -781,6 +783,11 @@ pub fn prepare_prepass_textures(
         Has<DeferredPrepassDoubleBuffer>,
     )>,
 ) {
+    let motion_vector_storage_binding = render_adapter
+        .get_texture_format_features(MOTION_VECTOR_PREPASS_FORMAT)
+        .allowed_usages
+        .contains(TextureUsages::STORAGE_BINDING);
+
     let mut depth_textures1 = <HashMap<_, _>>::default();
     let mut depth_textures2 = <HashMap<_, _>>::default();
     let mut normal_textures = <HashMap<_, _>>::default();
@@ -893,8 +900,13 @@ pub fn prepare_prepass_textures(
                             sample_count: msaa.samples(),
                             dimension: TextureDimension::D2,
                             format: MOTION_VECTOR_PREPASS_FORMAT,
-                            usage: TextureUsages::RENDER_ATTACHMENT
-                                | TextureUsages::TEXTURE_BINDING,
+                            usage: if motion_vector_storage_binding && msaa.samples() == 1 {
+                                TextureUsages::RENDER_ATTACHMENT
+                                    | TextureUsages::TEXTURE_BINDING
+                                    | TextureUsages::STORAGE_BINDING
+                            } else {
+                                TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING
+                            },
                             view_formats: &[],
                         },
                     )
@@ -969,7 +981,7 @@ pub fn prepare_prepass_textures(
         });
 
         commands.entity(entity).insert(ViewPrepassTextures {
-            depth: package_double_buffered_texture(
+            depth: package_double_buffered_depth_texture(
                 cached_depth_texture1,
                 cached_depth_texture2,
                 frame_count.0,
@@ -1017,6 +1029,21 @@ fn package_double_buffered_texture(
             Some(t1),
             Some(LinearRgba::BLACK.into()),
         )),
+        _ => None,
+    }
+}
+
+fn package_double_buffered_depth_texture(
+    texture1: Option<CachedTexture>,
+    texture2: Option<CachedTexture>,
+    frame_count: u32,
+) -> Option<DepthStencilAttachment> {
+    match (texture1, texture2) {
+        (Some(t1), None) => Some(DepthStencilAttachment::new(t1, None, Some(0.0), None)),
+        (Some(t1), Some(t2)) if frame_count.is_multiple_of(2) => {
+            Some(DepthStencilAttachment::new(t1, Some(t2), Some(0.0), None))
+        }
+        (Some(t1), Some(t2)) => Some(DepthStencilAttachment::new(t2, Some(t1), Some(0.0), None)),
         _ => None,
     }
 }

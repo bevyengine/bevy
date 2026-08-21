@@ -52,7 +52,6 @@ git checkout v0.4.0
   - [Embedded](#embedded)
   - [Games](#games)
   - [Gizmos](#gizmos)
-  - [Helpers](#helpers)
   - [Input](#input)
   - [Math](#math)
   - [Movement](#movement)
@@ -262,6 +261,7 @@ Example | Description
 [Asset Saving](../examples/asset/asset_saving.rs) | Demonstrates how to save an asset
 [Asset Saving with Subassets](../examples/asset/asset_saving_with_subassets.rs) | Demonstrates how to save an asset with subassets
 [Asset Settings](../examples/asset/asset_settings.rs) | Demonstrates various methods of applying settings when loading an asset
+[Compressed Image Saver](../examples/asset/compressed_image_saver.rs) | Demonstrates compressing textures and generating mipmaps using CompressedImageSaver
 [Custom Asset](../examples/asset/custom_asset.rs) | Implements a custom asset loader
 [Custom Asset IO](../examples/asset/custom_asset_reader.rs) | Implements a custom AssetReader
 [Embedded Asset](../examples/asset/embedded_asset.rs) | Embed an asset in the application binary and load it
@@ -303,7 +303,10 @@ Example | Description
 [Custom Projection](../examples/camera/custom_projection.rs) | Shows how to create custom camera projections.
 [First person view model](../examples/camera/first_person_view_model.rs) | A first-person camera that uses a world model and a view model with different field of views (FOV)
 [Free Camera controller](../examples/camera/free_camera_controller.rs) | Demonstrates the FreeCamera controller for 3D scenes.
+[Minimal Pan Orbit Camera](../examples/camera/pan_orbit_camera_minimal.rs) | Minimum setup for working PanOrbitCamera
+[Orthographic Pan Orbit Camera](../examples/camera/pan_orbit_camera_ortho.rs) | Using Pan Orbit Camera in orthographic-only projection
 [Pan Camera](../examples/camera/pan_camera_controller.rs) | Example Pan-Camera Styled Camera Controller for 2D scenes
+[Pan Orbit Camera](../examples/camera/pan_orbit_camera_cad.rs) | CAD-like controls and setup for PanOrbitCamera
 [Projection Zoom](../examples/camera/projection_zoom.rs) | Shows how to zoom orthographic and perspective projection cameras.
 [Screen Shake](../examples/camera/2d_screen_shake.rs) | A simple 2D screen shake effect
 
@@ -379,6 +382,7 @@ Example | Description
 [Desk Toy](../examples/showcase/desk_toy.rs) | Bevy logo as a desk toy using transparent windows! Now with Googly Eyes!
 [Game Menu](../examples/showcase/game_menu.rs) | A simple game menu
 [Loading Screen](../examples/showcase/loading_screen.rs) | Demonstrates how to create a loading screen that waits for all assets to be loaded and render pipelines to be compiled.
+[Mines](../examples/showcase/mines.rs) | A simple minesweeper-style game in Bevy UI
 
 ### Gizmos
 
@@ -393,12 +397,6 @@ Example | Description
 [Text Gizmos 3d](../examples/gizmos/3d_text_gizmos.rs) | A scene showcasing 3d text gizmos
 [Text Gizmos Font](../examples/gizmos/text_gizmos_font.rs) | Example displaying the font used by text gizmos
 [Transform Gizmo](../examples/gizmos/transform_gizmo.rs) | Interactive transform gizmo for translating, rotating, and scaling entities
-
-### Helpers
-
-Example | Description
---- | ---
-[Widgets](../examples/helpers/widgets.rs) | Example UI Widgets
 
 ### Input
 
@@ -454,6 +452,7 @@ Example | Description
 [Dynamic Types](../examples/reflection/dynamic_types.rs) | How dynamic types are used with reflection
 [Function Reflection](../examples/reflection/function_reflection.rs) | Demonstrates how functions can be called dynamically using reflection
 [Generic Reflection](../examples/reflection/generic_reflection.rs) | Registers concrete instances of generic types that may be used with reflection
+[Mutation by Reflection](../examples/reflection/mutation_by_reflection.rs) | Demonstrates how to mutate abstract or non-Rust data at runtime using reflection
 [Reflection](../examples/reflection/reflection.rs) | Demonstrates how reflection in Bevy provides a way to dynamically interact with Rust types
 [Reflection Types](../examples/reflection/reflection_types.rs) | Illustrates the various reflection types available
 [Serialization](../examples/reflection/serialization.rs) | Demonstrates serialization and deserialization using reflection without serde's Serialize/Deserialize traits
@@ -494,15 +493,15 @@ Example | Description
 [Custom phase item](../examples/shader_advanced/custom_phase_item.rs) | Demonstrates how to enqueue custom draw commands in a render phase
 [Extended Bindless Material](../examples/shader/extended_material_bindless.rs) | Demonstrates bindless `ExtendedMaterial`
 [Extended Material](../examples/shader/extended_material.rs) | A custom shader that builds on the standard material
+[GPU Component Array Buffer](../examples/shader/gpu_component_array_buffer.rs) | Shows how to expose per-mesh-instance data to the GPU
 [GPU readback](../examples/shader/gpu_readback.rs) | A very simple compute shader that writes to a buffer that is read by the cpu
 [Instancing](../examples/shader/automatic_instancing.rs) | Shows that multiple instances of a cube are automatically instanced in one draw call
 [Instancing](../examples/shader_advanced/custom_shader_instancing.rs) | A shader that renders a mesh multiple times in one draw call using low level rendering api
 [Material](../examples/shader/shader_material.rs) | A shader and a material that uses it
 [Material](../examples/shader/shader_material_2d.rs) | A shader and a material that uses it on a 2d mesh
+[Material - 2D Bindless](../examples/shader/shader_material_2d_bindless.rs) | Demonstrates bindless materials in 2D
 [Material - Bindless](../examples/shader/shader_material_bindless.rs) | Demonstrates how to make materials that use bindless textures
-[Material - GLSL](../examples/shader/shader_material_glsl.rs) | A shader that uses the GLSL shading language
 [Material - Screenspace Texture](../examples/shader/shader_material_screenspace_texture.rs) | A shader that samples a texture with view-independent UV coordinates
-[Material - WESL](../examples/shader/shader_material_wesl.rs) | A shader that uses WESL
 [Material Prepass](../examples/shader/shader_prepass.rs) | A shader that uses the various textures generated by the prepass
 [Pipeline Constants](../examples/shader/pipeline_constants.rs) | Demonstrates pipeline-overridable constants (WGSL `override`) by compiling the same shader into multiple variants with different posterization levels
 [Post Processing - Custom Render Pass](../examples/shader_advanced/custom_post_processing.rs) | A custom post processing effect, using a custom render pass that runs after the main pass
@@ -516,6 +515,7 @@ Example | Description
 
 Example | Description
 --- | ---
+[Deferred Gbuffer Raymarching](../examples/shader_advanced/deferred_raymarch.rs) | Writes a raymarched SDF into the deferred gbuffer so it is lit by the standard PBR deferred lighting pass
 [Fullscreen Material](../examples/shader_advanced/fullscreen_material.rs) | Demonstrates how to write a fullscreen material
 [Manual Material Implementation](../examples/shader_advanced/manual_material.rs) | Demonstrates how to implement a material manually using the mid-level render APIs
 
@@ -622,6 +622,7 @@ Example | Description
 [Multiple Text Inputs](../examples/ui/text/multiple_text_inputs.rs) | Demonstrates multiple text inputs
 [Overflow](../examples/ui/scroll_and_overflow/overflow.rs) | Simple example demonstrating overflow behavior
 [Overflow Clip Margin](../examples/ui/scroll_and_overflow/overflow_clip_margin.rs) | Simple example demonstrating the OverflowClipMargin style property
+[Overflow Transform](../examples/ui/scroll_and_overflow/overflow_transform.rs) | Demonstrates nested transformed UI clipping
 [Overflow and Clipping Debug](../examples/ui/scroll_and_overflow/overflow_debug.rs) | An example to debug overflow and clipping behavior
 [Relative Cursor Position](../examples/ui/relative_cursor_position.rs) | Showcases the RelativeCursorPosition component
 [Render UI to Texture](../examples/ui/render_ui_to_texture.rs) | An example of rendering UI as a part of a 3D world
@@ -659,6 +660,7 @@ Example | Description
 
 Example | Description
 --- | ---
+[Character Creation with UI Widgets](../examples/usage/character_creation.rs) | Demonstrates how to use headless widgets to power a Character Creation Menu
 [Context Menu](../examples/usage/context_menu.rs) | Example of a context menu
 [Cooldown](../examples/usage/cooldown.rs) | Example for cooldown on button clicks
 [Debug Frustum Culling](../examples/usage/debug_frustum_culling.rs) | Example demonstrating how to debug frustum culling
@@ -701,6 +703,8 @@ Example | Description
 [How to Test Systems](../tests/how_to_test_systems.rs) | How to test systems with commands, queries or resources
 
 ## Platform-Specific Examples
+
+`bevy_mobile_example` sets `strip = true` in the workspace `Cargo.toml` to keep app bundles reasonable. Remove the `strip` override if you need native debug symbols.
 
 ### Android
 

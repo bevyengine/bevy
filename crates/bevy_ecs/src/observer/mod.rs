@@ -37,10 +37,10 @@ impl World {
     /// struct A;
     ///
     /// # let mut world = World::new();
-    /// world.add_observer(|_: On<Add, A>| {
+    /// world.add_observer(|_: On<Add<A>>| {
     ///     // ...
     /// });
-    /// world.add_observer(|_: On<Remove, A>| {
+    /// world.add_observer(|_: On<Remove<A>>| {
     ///     // ...
     /// });
     /// ```
@@ -380,6 +380,26 @@ impl World {
 
     /// Remove the observer from the cache, called when an observer gets despawned
     pub(crate) fn unregister_observer(&mut self, entity: Entity, descriptor: ObserverDescriptor) {
+        // Remove this observer from all the corresponding ObservedBy components.
+        for &observing in descriptor.entities.iter() {
+            let Ok(mut observing) = self.get_entity_mut(observing) else {
+                // This can happen when ObservedBy is despawning and is despawning the related
+                // observers.
+                continue;
+            };
+            let Some(mut observed_by) = observing.get_mut::<ObservedBy>() else {
+                // In "normal" usage, this should be impossible, but there's nothing stopping a user
+                // from just removing the ObservedBy component themselves. While that's odd usage,
+                // there's no reason to panic if a user does so.
+                continue;
+            };
+
+            observed_by.0.retain(|e| *e != entity);
+            if observed_by.0.is_empty() {
+                observing.remove::<ObservedBy>();
+            }
+        }
+
         let archetypes = &mut self.archetypes;
         let observers = &mut self.observers;
 
@@ -449,7 +469,7 @@ impl World {
 #[cfg(test)]
 mod tests {
     use alloc::{vec, vec::Vec};
-    use core::any::type_name;
+    use core::{any::type_name, marker::PhantomData};
 
     use bevy_ptr::OwningPtr;
 
@@ -457,9 +477,10 @@ mod tests {
         archetype::{Archetype, ArchetypeId},
         change_detection::MaybeLocation,
         error::Result,
-        event::{EntityComponentsTrigger, Event, GlobalTrigger},
+        event::{EntityComponentsTrigger, Event, EventPattern, GlobalTrigger},
         hierarchy::ChildOf,
-        observer::{Discard, Observer},
+        lifecycle::RemoveEvent,
+        observer::{Discard, ObservedBy, Observer},
         prelude::*,
         world::DeferredWorld,
     };
@@ -483,6 +504,13 @@ mod tests {
     #[derive(EntityEvent)]
     #[entity_event(trigger = EntityComponentsTrigger<'a>)]
     struct EntityComponentsEvent(Entity);
+
+    struct EntityComponents<B: Bundle>(PhantomData<B>);
+
+    impl<B: Bundle> EventPattern for EntityComponents<B> {
+        type Event = EntityComponentsEvent;
+        type Components = B;
+    }
 
     #[derive(Event)]
     struct EventWithData {
@@ -508,12 +536,12 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<Order>();
 
-        world.add_observer(|_: On<Add, A>, mut res: ResMut<Order>| res.observed("add"));
-        world.add_observer(|_: On<Insert, A>, mut res: ResMut<Order>| res.observed("insert"));
-        world.add_observer(|_: On<Discard, A>, mut res: ResMut<Order>| {
+        world.add_observer(|_: On<Add<A>>, mut res: ResMut<Order>| res.observed("add"));
+        world.add_observer(|_: On<Insert<A>>, mut res: ResMut<Order>| res.observed("insert"));
+        world.add_observer(|_: On<Discard<A>>, mut res: ResMut<Order>| {
             res.observed("discard");
         });
-        world.add_observer(|_: On<Remove, A>, mut res: ResMut<Order>| res.observed("remove"));
+        world.add_observer(|_: On<Remove<A>>, mut res: ResMut<Order>| res.observed("remove"));
 
         let entity = world.spawn(A).id();
         world.despawn(entity);
@@ -528,12 +556,12 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<Order>();
 
-        world.add_observer(|_: On<Add, A>, mut res: ResMut<Order>| res.observed("add"));
-        world.add_observer(|_: On<Insert, A>, mut res: ResMut<Order>| res.observed("insert"));
-        world.add_observer(|_: On<Discard, A>, mut res: ResMut<Order>| {
+        world.add_observer(|_: On<Add<A>>, mut res: ResMut<Order>| res.observed("add"));
+        world.add_observer(|_: On<Insert<A>>, mut res: ResMut<Order>| res.observed("insert"));
+        world.add_observer(|_: On<Discard<A>>, mut res: ResMut<Order>| {
             res.observed("discard");
         });
-        world.add_observer(|_: On<Remove, A>, mut res: ResMut<Order>| res.observed("remove"));
+        world.add_observer(|_: On<Remove<A>>, mut res: ResMut<Order>| res.observed("remove"));
 
         let mut entity = world.spawn_empty();
         entity.insert(A);
@@ -550,12 +578,12 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<Order>();
 
-        world.add_observer(|_: On<Add, S>, mut res: ResMut<Order>| res.observed("add"));
-        world.add_observer(|_: On<Insert, S>, mut res: ResMut<Order>| res.observed("insert"));
-        world.add_observer(|_: On<Discard, S>, mut res: ResMut<Order>| {
+        world.add_observer(|_: On<Add<S>>, mut res: ResMut<Order>| res.observed("add"));
+        world.add_observer(|_: On<Insert<S>>, mut res: ResMut<Order>| res.observed("insert"));
+        world.add_observer(|_: On<Discard<S>>, mut res: ResMut<Order>| {
             res.observed("discard");
         });
-        world.add_observer(|_: On<Remove, S>, mut res: ResMut<Order>| res.observed("remove"));
+        world.add_observer(|_: On<Remove<S>>, mut res: ResMut<Order>| res.observed("remove"));
 
         let mut entity = world.spawn_empty();
         entity.insert(S);
@@ -574,12 +602,12 @@ mod tests {
 
         let entity = world.spawn(A).id();
 
-        world.add_observer(|_: On<Add, A>, mut res: ResMut<Order>| res.observed("add"));
-        world.add_observer(|_: On<Insert, A>, mut res: ResMut<Order>| res.observed("insert"));
-        world.add_observer(|_: On<Discard, A>, mut res: ResMut<Order>| {
+        world.add_observer(|_: On<Add<A>>, mut res: ResMut<Order>| res.observed("add"));
+        world.add_observer(|_: On<Insert<A>>, mut res: ResMut<Order>| res.observed("insert"));
+        world.add_observer(|_: On<Discard<A>>, mut res: ResMut<Order>| {
             res.observed("discard");
         });
-        world.add_observer(|_: On<Remove, A>, mut res: ResMut<Order>| res.observed("remove"));
+        world.add_observer(|_: On<Remove<A>>, mut res: ResMut<Order>| res.observed("remove"));
 
         let mut entity = world.entity_mut(entity);
         entity.insert(A);
@@ -592,25 +620,25 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<Order>();
         world.add_observer(
-            |add: On<Add, A>, mut res: ResMut<Order>, mut commands: Commands| {
+            |add: On<Add<A>>, mut res: ResMut<Order>, mut commands: Commands| {
                 res.observed("add_a");
                 commands.entity(add.entity).insert(B);
             },
         );
         world.add_observer(
-            |remove: On<Remove, A>, mut res: ResMut<Order>, mut commands: Commands| {
+            |remove: On<Remove<A>>, mut res: ResMut<Order>, mut commands: Commands| {
                 res.observed("remove_a");
                 commands.entity(remove.entity).remove::<B>();
             },
         );
 
         world.add_observer(
-            |add: On<Add, B>, mut res: ResMut<Order>, mut commands: Commands| {
+            |add: On<Add<B>>, mut res: ResMut<Order>, mut commands: Commands| {
                 res.observed("add_b");
                 commands.entity(add.entity).remove::<A>();
             },
         );
-        world.add_observer(|_: On<Remove, B>, mut res: ResMut<Order>| {
+        world.add_observer(|_: On<Remove<B>>, mut res: ResMut<Order>| {
             res.observed("remove_b");
         });
 
@@ -642,8 +670,8 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<Order>();
 
-        world.add_observer(|_: On<Add, A>, mut res: ResMut<Order>| res.observed("add_1"));
-        world.add_observer(|_: On<Add, A>, mut res: ResMut<Order>| res.observed("add_2"));
+        world.add_observer(|_: On<Add<A>>, mut res: ResMut<Order>| res.observed("add_1"));
+        world.add_observer(|_: On<Add<A>>, mut res: ResMut<Order>| res.observed("add_2"));
 
         world.spawn(A).flush();
         assert_eq!(vec!["add_2", "add_1"], world.resource::<Order>().0);
@@ -656,11 +684,11 @@ mod tests {
     fn observer_multiple_events() {
         let mut world = World::new();
         world.init_resource::<Order>();
-        let on_remove = world.register_event_key::<Remove>();
+        let on_remove = world.register_event_key::<RemoveEvent>();
         world.spawn(
             // SAFETY: Add and Remove are both unit types, so this is safe
             unsafe {
-                Observer::new(|_: On<Add, A>, mut res: ResMut<Order>| {
+                Observer::new(|_: On<Add<A>>, mut res: ResMut<Order>| {
                     res.observed("add/remove");
                 })
                 .with_event_key(on_remove)
@@ -682,7 +710,7 @@ mod tests {
         world.register_component::<A>();
         world.register_component::<B>();
 
-        world.add_observer(|_: On<Add, (A, B)>, mut res: ResMut<Order>| {
+        world.add_observer(|_: On<Add<(A, B)>>, mut res: ResMut<Order>| {
             res.observed("add_ab");
         });
 
@@ -695,7 +723,7 @@ mod tests {
     fn observer_despawn() {
         let mut world = World::new();
 
-        let system: fn(On<Add, A>) = |_| {
+        let system: fn(On<Add<A>>) = |_| {
             panic!("Observer triggered after being despawned.");
         };
         let observer = world.add_observer(system).id();
@@ -711,11 +739,11 @@ mod tests {
 
         let entity = world.spawn((A, B)).flush();
 
-        world.add_observer(|_: On<Remove, A>, mut res: ResMut<Order>| {
+        world.add_observer(|_: On<Remove<A>>, mut res: ResMut<Order>| {
             res.observed("remove_a");
         });
 
-        let system: fn(On<Remove, B>) = |_: On<Remove, B>| {
+        let system: fn(On<Remove<B>>) = |_: On<Remove<B>>| {
             panic!("Observer triggered after being despawned.");
         };
 
@@ -732,7 +760,7 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<Order>();
 
-        world.add_observer(|_: On<Add, (A, B)>, mut res: ResMut<Order>| {
+        world.add_observer(|_: On<Add<(A, B)>>, mut res: ResMut<Order>| {
             res.observed("add_ab");
         });
 
@@ -776,29 +804,28 @@ mod tests {
         // targets (entity_1, A)
         let entity_1 = world
             .spawn_empty()
-            .observe(|_: On<EntityComponentsEvent, A>, mut res: ResMut<R>| res.0 += 1)
+            .observe(|_: On<EntityComponents<A>>, mut res: ResMut<R>| res.0 += 1)
             .id();
         // targets (entity_2, B)
         let entity_2 = world
             .spawn_empty()
-            .observe(|_: On<EntityComponentsEvent, B>, mut res: ResMut<R>| res.0 += 10)
+            .observe(|_: On<EntityComponents<B>>, mut res: ResMut<R>| res.0 += 10)
             .id();
         // targets any entity or component
         world.add_observer(|_: On<EntityComponentsEvent>, mut res: ResMut<R>| res.0 += 100);
         // targets any entity, and components A or B
-        world
-            .add_observer(|_: On<EntityComponentsEvent, (A, B)>, mut res: ResMut<R>| res.0 += 1000);
+        world.add_observer(|_: On<EntityComponents<(A, B)>>, mut res: ResMut<R>| res.0 += 1000);
         // test all tuples
         world.add_observer(
-            |_: On<EntityComponentsEvent, (A, B, (A, B))>, mut res: ResMut<R>| res.0 += 10000,
+            |_: On<EntityComponents<(A, B, (A, B))>>, mut res: ResMut<R>| res.0 += 10000,
         );
         world.add_observer(
-            |_: On<EntityComponentsEvent, (A, B, (A, B), ((A, B), (A, B)))>, mut res: ResMut<R>| {
+            |_: On<EntityComponents<(A, B, (A, B), ((A, B), (A, B)))>>, mut res: ResMut<R>| {
                 res.0 += 100000;
             },
         );
         world.add_observer(
-            |_: On<EntityComponentsEvent, (A, B, (A, B), (B, A), (A, B, ((A, B), (B, A))))>,
+            |_: On<EntityComponents<(A, B, (A, B), (B, A), (A, B, ((A, B), (B, A))))>>,
              mut res: ResMut<R>| res.0 += 1000000,
         );
 
@@ -866,7 +893,7 @@ mod tests {
 
         let component_id = world.register_component::<A>();
         world.spawn(
-            Observer::new(|_: On<Add>, mut res: ResMut<Order>| res.observed("event_a"))
+            Observer::new(|_: On<Add<()>>, mut res: ResMut<Order>| res.observed("event_a"))
                 .with_component(component_id),
         );
 
@@ -933,6 +960,7 @@ mod tests {
                     Layout::new::<u32>(),
                     None,
                     false,
+                    false,
                     crate::component::ComponentCloneBehavior::Ignore,
                     None,
                 )
@@ -986,6 +1014,7 @@ mod tests {
                     crate::component::StorageType::Table,
                     Layout::new::<u32>(),
                     None,
+                    false,
                     false,
                     crate::component::ComponentCloneBehavior::Ignore,
                     None,
@@ -1077,6 +1106,7 @@ mod tests {
                     Layout::new::<u32>(),
                     None,
                     false,
+                    false,
                     crate::component::ComponentCloneBehavior::Ignore,
                     None,
                 )
@@ -1094,6 +1124,7 @@ mod tests {
                     crate::component::StorageType::Table,
                     Layout::new::<()>(),
                     None,
+                    false,
                     false,
                     crate::component::ComponentCloneBehavior::Ignore,
                     None,
@@ -1415,7 +1446,7 @@ mod tests {
     // Originally for https://github.com/bevyengine/bevy/issues/18452
     #[test]
     fn observer_modifies_relationship() {
-        fn on_add(add: On<Add, A>, mut commands: Commands) {
+        fn on_add(add: On<Add<A>>, mut commands: Commands) {
             commands
                 .entity(add.entity)
                 .with_related_entities::<crate::hierarchy::ChildOf>(|rsc| {
@@ -1435,7 +1466,7 @@ mod tests {
         let mut world = World::new();
 
         // Observe the removal of A - this will run during despawn
-        world.add_observer(|_: On<Remove, A>, mut cmd: Commands| {
+        world.add_observer(|_: On<Remove<A>>, mut cmd: Commands| {
             // Spawn a new entity - this reserves a new ID and requires a flush
             // afterward before Entities::free can be called.
             cmd.spawn_empty();
@@ -1507,10 +1538,10 @@ mod tests {
 
         let caller = MaybeLocation::caller();
         let mut world = World::new();
-        world.add_observer(move |event: On<Add, Component>| {
+        world.add_observer(move |event: On<Add<Component>>| {
             assert_eq!(event.caller(), caller);
         });
-        world.add_observer(move |event: On<Remove, Component>| {
+        world.add_observer(move |event: On<Remove<Component>>| {
             assert_eq!(event.caller(), caller);
         });
         world.commands().spawn(Component).clear();
@@ -1798,12 +1829,13 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<Changes>();
 
-        fn observer<E: for<'a> Event<Trigger<'a> = EntityComponentsTrigger<'a>>>(
-            e: On<E, A>,
-            mut c: ResMut<Changes>,
-        ) {
+        fn observer<E>(e: On<E>, mut c: ResMut<Changes>)
+        where
+            E: EventPattern,
+            E::Event: for<'a> Event<Trigger<'a> = EntityComponentsTrigger<'a>>,
+        {
             c.0.push((
-                type_name::<E>(),
+                type_name::<E::Event>(),
                 e.trigger().old_archetype.map(Archetype::id),
                 e.trigger().new_archetype.map(Archetype::id),
             ));
@@ -1813,11 +1845,11 @@ mod tests {
         let a = world.spawn(A).archetype().id();
         let ab = world.spawn((A, B)).archetype().id();
 
-        world.add_observer(observer::<Add>);
-        world.add_observer(observer::<Insert>);
-        world.add_observer(observer::<Discard>);
-        world.add_observer(observer::<Remove>);
-        world.add_observer(observer::<Despawn>);
+        world.add_observer(observer::<Add<A>>);
+        world.add_observer(observer::<Insert<A>>);
+        world.add_observer(observer::<Discard<A>>);
+        world.add_observer(observer::<Remove<A>>);
+        world.add_observer(observer::<Despawn<A>>);
 
         let mut entity = world.spawn((A, B));
         entity.remove::<(A, B)>();
@@ -1828,18 +1860,69 @@ mod tests {
         assert_eq!(
             &world.resource_mut::<Changes>().0,
             &[
-                ("bevy_ecs::lifecycle::Add", None, Some(ab)),
-                ("bevy_ecs::lifecycle::Insert", None, Some(ab)),
-                ("bevy_ecs::lifecycle::Discard", Some(ab), Some(empty)),
-                ("bevy_ecs::lifecycle::Remove", Some(ab), Some(empty)),
-                ("bevy_ecs::lifecycle::Add", Some(empty), Some(a)),
-                ("bevy_ecs::lifecycle::Insert", Some(empty), Some(a)),
-                ("bevy_ecs::lifecycle::Discard", Some(a), Some(a)),
-                ("bevy_ecs::lifecycle::Insert", Some(a), Some(a)),
-                ("bevy_ecs::lifecycle::Despawn", Some(a), None),
-                ("bevy_ecs::lifecycle::Discard", Some(a), None),
-                ("bevy_ecs::lifecycle::Remove", Some(a), None),
+                ("bevy_ecs::lifecycle::AddEvent", None, Some(ab)),
+                ("bevy_ecs::lifecycle::InsertEvent", None, Some(ab)),
+                ("bevy_ecs::lifecycle::DiscardEvent", Some(ab), Some(empty)),
+                ("bevy_ecs::lifecycle::RemoveEvent", Some(ab), Some(empty)),
+                ("bevy_ecs::lifecycle::AddEvent", Some(empty), Some(a)),
+                ("bevy_ecs::lifecycle::InsertEvent", Some(empty), Some(a)),
+                ("bevy_ecs::lifecycle::DiscardEvent", Some(a), Some(a)),
+                ("bevy_ecs::lifecycle::InsertEvent", Some(a), Some(a)),
+                ("bevy_ecs::lifecycle::DespawnEvent", Some(a), None),
+                ("bevy_ecs::lifecycle::DiscardEvent", Some(a), None),
+                ("bevy_ecs::lifecycle::RemoveEvent", Some(a), None),
             ],
         );
+    }
+
+    #[test]
+    fn despawning_observer_removes_observed_by() {
+        let mut world = World::new();
+
+        #[derive(EntityEvent)]
+        struct Hi {
+            entity: Entity,
+        }
+
+        let target = world.spawn_empty().id();
+        let observer = world
+            .spawn(Observer::new(|_: On<Hi>| {}).with_entity(target))
+            .id();
+
+        assert_eq!(
+            world.entity(target).get::<ObservedBy>().unwrap().get(),
+            &[observer]
+        );
+
+        world.entity_mut(observer).despawn();
+
+        assert!(!world.entity(target).contains::<ObservedBy>());
+    }
+
+    #[test]
+    fn despawning_observer_removes_observed_by_repeated() {
+        let mut world = World::new();
+
+        #[derive(EntityEvent)]
+        struct Hi {
+            entity: Entity,
+        }
+
+        let target = world.spawn_empty().id();
+        let observer = world
+            // Observe the same entity multiple times.
+            .spawn(Observer::new(|_: On<Hi>| {}).with_entities([target, target]))
+            .id();
+
+        // Having an observer observe the same entity multiple times is likely not desired, but
+        // preventing this is not worth it, so make sure it behaves correctly.
+        assert_eq!(
+            world.entity(target).get::<ObservedBy>().unwrap().get(),
+            &[observer, observer]
+        );
+
+        world.entity_mut(observer).despawn();
+
+        assert!(!world.entity(target).contains::<ObservedBy>());
     }
 }

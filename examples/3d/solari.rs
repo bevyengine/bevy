@@ -653,18 +653,7 @@ fn update_performance_text(
         "World cache",
         "render/solari_lighting/world_cache/elapsed_gpu",
     );
-    (add_diagnostic)(
-        "Direct lighting",
-        "render/solari_lighting/direct_lighting/elapsed_gpu",
-    );
-    (add_diagnostic)(
-        "Diffuse indirect",
-        "render/solari_lighting/diffuse_indirect_lighting/elapsed_gpu",
-    );
-    (add_diagnostic)(
-        "Specular indirect",
-        "render/solari_lighting/specular_indirect_lighting/elapsed_gpu",
-    );
+    (add_diagnostic)("Lighting", "render/solari_lighting/lighting/elapsed_gpu");
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
     if matches!(dlss_camera.single(), Ok(true)) {
         (add_diagnostic)("DLSS-RR", "render/dlss_ray_reconstruction/elapsed_gpu");

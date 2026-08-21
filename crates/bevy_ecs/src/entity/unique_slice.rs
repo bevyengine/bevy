@@ -80,6 +80,27 @@ impl<T: EntityEquivalent> UniqueEntityEquivalentSlice<T> {
         unsafe { Box::from_raw(Box::into_raw(slice) as *mut Self) }
     }
 
+    /// Casts a reference to `self` to the inner slice.
+    #[expect(
+        clippy::borrowed_box,
+        reason = "We wish to access the Box API of the inner type, without consuming it."
+    )]
+    pub const fn as_boxed_inner(self: &Box<Self>) -> &Box<[T]> {
+        // SAFETY: UniqueEntityEquivalentSlice is a transparent wrapper around [T].
+        unsafe { &*(ptr::from_ref(self).cast::<Box<[T]>>()) }
+    }
+
+    // Do not publicize until mutable slice functionality is added, safety comment may need expansion.
+    /// Casts a mutable reference to `self` to the inner slice.
+    ///
+    /// # Safety
+    ///
+    /// The returned slice must only ever contain unique elements.
+    const unsafe fn as_mut_boxed_inner(self: &mut Box<Self>) -> &mut Box<[T]> {
+        // SAFETY: UniqueEntityEquivalentSlice is a transparent wrapper around [T].
+        unsafe { &mut *(ptr::from_mut(self).cast::<Box<[T]>>()) }
+    }
+
     /// Casts `self` to the inner slice.
     pub fn into_boxed_inner(self: Box<Self>) -> Box<[T]> {
         // SAFETY: UniqueEntityEquivalentSlice is a transparent wrapper around [T].
@@ -996,7 +1017,18 @@ impl<T: EntityEquivalent> Borrow<[T]> for UniqueEntityEquivalentSlice<T> {
 
 impl<T: EntityEquivalent + Clone> Clone for Box<UniqueEntityEquivalentSlice<T>> {
     fn clone(&self) -> Self {
-        self.to_vec().into_boxed_slice()
+        // SAFETY: This is a clone of a valid slice.
+        unsafe {
+            UniqueEntityEquivalentSlice::from_boxed_slice_unchecked(self.as_boxed_inner().clone())
+        }
+    }
+
+    fn clone_from(&mut self, source: &Self) {
+        // SAFETY: This is a clone of a valid slice.
+        unsafe {
+            self.as_mut_boxed_inner()
+                .clone_from(source.as_boxed_inner());
+        };
     }
 }
 

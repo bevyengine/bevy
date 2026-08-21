@@ -2,28 +2,28 @@ use core::f32::consts::PI;
 
 use bevy_app::{Plugin, PreUpdate};
 use bevy_asset::Handle;
-use bevy_color::{Alpha, Color, Hsla};
+use bevy_color::{Alpha, Color, Hsla, Okhsla};
 use bevy_ecs::{
     bundle::Bundle,
     children,
     component::Component,
     entity::Entity,
     hierarchy::Children,
-    query::{Changed, Or, With},
+    query::{Changed, Or, With, Without},
     reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
     system::Query,
 };
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_log::warn_once;
-use bevy_picking::PickingSystems;
+use bevy_picking::{cursor::EntityCursor, PickingSystems};
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_scene::prelude::*;
 use bevy_ui::{
     percent, px, AlignItems, BackgroundColor, BackgroundGradient, BorderColor, BorderRadius,
     ColorStop, Display, FlexDirection, Gradient, InterpolationColorSpace, LinearGradient, Node,
-    Outline, PositionType, UiRect, UiTransform, Val2, ZIndex,
+    Outline, PositionType, UiRect, UiSystems, UiTransform, Val2, ZIndex,
 };
 use bevy_ui_render::ui_material::MaterialNode;
 use bevy_ui_widgets::{
@@ -32,7 +32,7 @@ use bevy_ui_widgets::{
 
 use crate::{
     alpha_pattern::{AlphaPattern, AlphaPatternMaterial},
-    cursor::EntityCursor,
+    controls::{FeathersSlider, FeathersTextInput, ToggleSwitchSlide},
     focus::FocusIndicator,
     palette,
     rounded_corners::RoundedCorners,
@@ -62,6 +62,12 @@ pub enum ColorChannel {
     HslLightness,
     /// Editing the alpha channel (0..=1)
     Alpha,
+    /// Editing the Okhsl Hue channel (0..=360)
+    OkhslHue,
+    /// Editing the Okhsl Saturation channel (0..=1)
+    OkhslSaturation,
+    /// Editing the Okhsl Lightness channel (0..=1)
+    OkhslLightness,
 }
 
 impl ColorChannel {
@@ -73,8 +79,10 @@ impl ColorChannel {
             | ColorChannel::Blue
             | ColorChannel::Alpha
             | ColorChannel::HslSaturation
-            | ColorChannel::HslLightness => SliderRange::new(0., 1.),
-            ColorChannel::HslHue => SliderRange::new(0., 360.),
+            | ColorChannel::HslLightness
+            | ColorChannel::OkhslSaturation
+            | ColorChannel::OkhslLightness => SliderRange::new(0., 1.),
+            ColorChannel::HslHue | ColorChannel::OkhslHue => SliderRange::new(0., 360.),
         }
     }
 
@@ -133,6 +141,29 @@ impl ColorChannel {
                 )
             }
 
+            ColorChannel::OkhslHue => (
+                Color::okhsl(0.0 + 0.0001, 1.0, 0.5),
+                Color::okhsl(180.0, 1.0, 0.5),
+                Color::okhsl(360.0 - 0.0001, 1.0, 0.5),
+            ),
+
+            ColorChannel::OkhslSaturation => {
+                let base_okhsla: Okhsla = base_color.into();
+                (
+                    Color::okhsl(base_okhsla.hue, 0.0, base_okhsla.lightness),
+                    Color::okhsl(base_okhsla.hue, 0.5, base_okhsla.lightness),
+                    Color::okhsl(base_okhsla.hue, 1.0, base_okhsla.lightness),
+                )
+            }
+
+            ColorChannel::OkhslLightness => {
+                let base_okhsla: Okhsla = base_color.into();
+                (
+                    Color::okhsl(base_okhsla.hue, base_okhsla.saturation, 0.0),
+                    Color::okhsl(base_okhsla.hue, base_okhsla.saturation, 0.5),
+                    Color::okhsl(base_okhsla.hue, base_okhsla.saturation, 1.0),
+                )
+            }
             ColorChannel::Alpha => (
                 base_color.with_alpha(0.),
                 base_color.with_alpha(0.5),
@@ -199,7 +230,7 @@ struct ColorSliderTrack;
 /// Marker for the thumb
 #[derive(Component, Default, Clone, Reflect)]
 #[reflect(Component, Default, Clone)]
-struct ColorSliderThumb;
+pub(crate) struct ColorSliderThumb;
 
 impl FeathersColorSlider {
     fn scene(props: FeathersColorSliderProps) -> impl Scene {
@@ -309,6 +340,9 @@ impl FeathersColorSlider {
 /// * [`bevy_ui_widgets::ValueChange<f32>`] when the slider value is changed.
 ///
 ///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
+///
+/// **Note:** For information on how widget state is managed
+/// and how to respond to state changes, see the [`bevy_ui_widgets` documentation](bevy_ui_widgets).
 #[deprecated(since = "0.19.0", note = "Use the color_slider() BSN function")]
 pub fn color_slider_bundle<B: Bundle>(
     props: FeathersColorSliderProps,
@@ -423,7 +457,7 @@ fn update_slider_pos(
         ),
     >,
     q_children: Query<&Children>,
-    mut q_slider_thumb: Query<&mut Node, With<ColorSliderThumb>>,
+    mut q_slider_thumb: Query<&mut Node, (With<ColorSliderThumb>, Without<ToggleSwitchSlide>)>,
 ) {
     for (slider_ent, value, range) in q_sliders.iter_mut() {
         for child in q_children.iter_descendants(slider_ent) {
@@ -439,7 +473,11 @@ fn update_track_color(
     q_children: Query<&Children>,
     q_track: Query<(), With<ColorSliderTrack>>,
     mut q_background: Query<&mut BackgroundColor>,
-    mut q_gradient: Query<&mut BackgroundGradient>,
+    // Without<FeathersTextInput> and Without<FeathersSlider> to avoid ambiguity with FeathersSlider systems
+    mut q_gradient: Query<
+        &mut BackgroundGradient,
+        (Without<FeathersTextInput>, Without<FeathersSlider>),
+    >,
 ) {
     for (slider_ent, slider, SliderBaseColor(base_color)) in q_sliders.iter_mut() {
         let (start, middle, end) = slider.channel.gradient_ends(*base_color);
@@ -468,12 +506,16 @@ fn update_track_color(
                     ColorChannel::HslHue
                     | ColorChannel::HslLightness
                     | ColorChannel::HslSaturation => InterpolationColorSpace::Hsla,
+                    ColorChannel::OkhslHue
+                    | ColorChannel::OkhslLightness
+                    | ColorChannel::OkhslSaturation => InterpolationColorSpace::Okhsla,
                     ColorChannel::Alpha => match base_color {
                         Color::Srgba(_) => InterpolationColorSpace::Srgba,
                         Color::LinearRgba(_) => InterpolationColorSpace::LinearRgba,
                         Color::Oklaba(_) => InterpolationColorSpace::Oklaba,
                         Color::Oklcha(_) => InterpolationColorSpace::OklchaLong,
                         Color::Hsla(_) | Color::Hsva(_) => InterpolationColorSpace::Hsla,
+                        Color::Okhsla(_) => InterpolationColorSpace::Okhsla,
                         _ => {
                             warn_once!("Unsupported color space for ColorSlider: {:?}", base_color);
                             InterpolationColorSpace::Srgba
@@ -496,7 +538,12 @@ impl Plugin for ColorSliderPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.add_systems(
             PreUpdate,
-            (update_slider_pos, update_track_color).in_set(PickingSystems::Last),
+            // .after(UiSystems::Focus) can be removed after Interaction is removed.
+            (
+                update_slider_pos.after(UiSystems::Focus),
+                update_track_color,
+            )
+                .in_set(PickingSystems::Last),
         );
     }
 }

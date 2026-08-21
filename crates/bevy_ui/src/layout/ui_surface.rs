@@ -114,13 +114,14 @@ impl UiSurface {
         ui_root_entity: Entity,
         render_target_resolution: UVec2,
         ui_children: &UiChildren,
-        node_query: &Query<(Ref<Node>, Ref<ComputedUiRenderTargetInfo>)>,
+        node_query: &Query<(Ref<Node>, Ref<ComputedUiRenderTargetInfo>, Ref<EmSize>)>,
         content_size_query: &Query<Ref<ContentSize>>,
         computed_layout_query: &mut Query<&mut ComputedLayout>,
         fixed_nodes_query: &Query<Entity, (With<FixedNode>, With<bevy_ecs::hierarchy::ChildOf>)>,
         fixed_node_changes: &[Entity],
         buffer_query: &mut Query<&mut ComputedTextBlock>,
         font_system: &mut FontCx,
+        rem_size: RemSize,
     ) -> Result<(), LayoutError> {
         let mut runtime_nodes = HashMap::default();
         let Some(_) = build_runtime_layout_tree(
@@ -132,6 +133,7 @@ impl UiSurface {
             fixed_nodes_query,
             fixed_node_changes,
             &mut runtime_nodes,
+            rem_size,
         )?
         else {
             return Err(LayoutError::InvalidHierarchy);
@@ -161,6 +163,7 @@ impl UiSurface {
                 };
                 let buffer = get_text_buffer(
                     crate::widget::TextMeasure::needs_buffer(
+                        known_dimensions.width,
                         known_dimensions.height,
                         available_space.width,
                     ),
@@ -204,12 +207,13 @@ struct BuiltNode {
 fn build_runtime_layout_tree<'a>(
     entity: Entity,
     ui_children: &UiChildren,
-    node_query: &'a Query<(Ref<Node>, Ref<ComputedUiRenderTargetInfo>)>,
+    node_query: &'a Query<(Ref<Node>, Ref<ComputedUiRenderTargetInfo>, Ref<EmSize>)>,
     content_size_query: &Query<Ref<ContentSize>>,
     computed_layout_query: &mut Query<&mut ComputedLayout>,
     fixed_nodes_query: &Query<Entity, (With<FixedNode>, With<bevy_ecs::hierarchy::ChildOf>)>,
     fixed_node_changes: &[Entity],
     runtime_nodes: &mut HashMap<NodeId, RuntimeLayoutNode<'a>>,
+    rem_size: RemSize,
 ) -> Result<Option<BuiltNode>, LayoutError> {
     let mut child_ids = Vec::new();
     let mut subtree_dirty = false;
@@ -229,13 +233,14 @@ fn build_runtime_layout_tree<'a>(
             fixed_nodes_query,
             fixed_node_changes,
             runtime_nodes,
+            rem_size,
         )? {
             child_ids.push(entity_node_id(child));
             subtree_dirty |= built_child.subtree_dirty;
         }
     }
 
-    let Ok((node, computed_target)) = node_query.get(entity) else {
+    let Ok((node, computed_target, em_size)) = node_query.get(entity) else {
         return Ok(None);
     };
     let Ok(mut computed_layout) = computed_layout_query.get_mut(entity) else {
@@ -257,6 +262,8 @@ fn build_runtime_layout_tree<'a>(
     let layout_context = LayoutContext::new(
         computed_target.scale_factor(),
         computed_target.physical_size().as_vec2(),
+        em_size.0,
+        rem_size,
     );
     let node = node.into_inner();
 
@@ -389,6 +396,7 @@ impl<'tree, 'w, 's, 'layout, 'node> LayoutPartialTree
                 (Display::Block, true) => compute_block_layout(tree, node_id, inputs, None),
                 (Display::Flex, true) => compute_flexbox_layout(tree, node_id, inputs),
                 (Display::Grid, true) => compute_grid_layout(tree, node_id, inputs),
+                (Display::FlowRoot, true) => compute_grid_layout(tree, node_id, inputs),
                 (_, false) => compute_leaf_layout(
                     inputs,
                     &style,

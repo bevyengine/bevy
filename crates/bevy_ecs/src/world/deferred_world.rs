@@ -8,7 +8,7 @@ use crate::{
     component::{ComponentId, Mutable},
     entity::Entity,
     event::{EntityComponentsTrigger, Event, EventKey, Trigger},
-    lifecycle::{Discard, HookContext, Insert, DISCARD, INSERT},
+    lifecycle::{DiscardEvent, HookContext, InsertEvent, DISCARD, INSERT},
     message::{Message, MessageId, Messages, WriteBatchIds},
     observer::TriggerContext,
     prelude::{Component, QueryState},
@@ -70,15 +70,7 @@ impl<'w> DeferredWorld<'w> {
     #[inline]
     pub fn commands(&mut self) -> Commands<'_, '_> {
         // SAFETY: &mut self ensure that there are no outstanding accesses to the queue
-        let command_queue = unsafe { self.world.get_raw_command_queue() };
-        // SAFETY: command_queue is stored on world and always valid while the world exists
-        unsafe {
-            Commands::new_raw_from_entities(
-                command_queue,
-                self.world.entity_allocator(),
-                self.world.entities(),
-            )
-        }
+        unsafe { self.world.commands() }
     }
 
     /// Retrieves a mutable reference to the given `entity`'s [`Component`] of the given type.
@@ -176,7 +168,7 @@ impl<'w> DeferredWorld<'w> {
                 // SAFETY: the DISCARD event_key corresponds to the Discard event's type
                 self.trigger_raw(
                     DISCARD,
-                    &mut Discard { entity },
+                    &mut DiscardEvent { entity },
                     &mut EntityComponentsTrigger {
                         components: &[component_id],
                         old_archetype: Some(archetype),
@@ -221,7 +213,7 @@ impl<'w> DeferredWorld<'w> {
                 // SAFETY: the INSERT event_key corresponds to the Insert event's type
                 self.trigger_raw(
                     INSERT,
-                    &mut Insert { entity },
+                    &mut InsertEvent { entity },
                     &mut EntityComponentsTrigger {
                         components: &[component_id],
                         old_archetype: Some(archetype),
@@ -441,11 +433,7 @@ impl<'w> DeferredWorld<'w> {
         // SAFETY:
         // - `&mut self` gives mutable access to the entire world, and prevents simultaneous access.
         // - Command queue access does not conflict with entity access.
-        let raw_queue = unsafe { cell.get_raw_command_queue() };
-        // SAFETY: `&mut self` ensures the commands does not outlive the world.
-        let commands = unsafe {
-            Commands::new_raw_from_entities(raw_queue, cell.entity_allocator(), cell.entities())
-        };
+        let commands = unsafe { cell.commands() };
 
         (fetcher, commands)
     }
