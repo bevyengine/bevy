@@ -240,8 +240,8 @@ impl<'a> Iterator for FieldIter<'a> {
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let size = self.struct_val.field_len();
-        (size, Some(size))
+        let remaining = self.struct_val.field_len().saturating_sub(self.index);
+        (remaining, Some(remaining))
     }
 }
 

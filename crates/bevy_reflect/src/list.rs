@@ -411,8 +411,8 @@ impl<'a> Iterator for ListIter<'a> {
 
     #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let size = self.list.len();
-        (size, Some(size))
+        let remaining = self.list.len().saturating_sub(self.index);
+        (remaining, Some(remaining))
     }
 }
 
