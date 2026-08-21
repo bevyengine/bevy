@@ -8,7 +8,7 @@ use crate::Reflect;
 /// `#[repr(transparent)]` wrapper and an implementation of this trait. Its conversion methods
 /// use the wrapper's transparent representation.
 ///
-/// Manual implementations may use a different representation and conversion behavior. The
+/// Manual implementations may use different representation and conversion behavior. The
 /// associated `Remote` type identifies the remote type represented by this wrapper.
 /// When implementing this trait manually, you need to design carefully about the conversion
 /// between `Self` and `Remote` type. For example, if you need to resolve the conversion of
