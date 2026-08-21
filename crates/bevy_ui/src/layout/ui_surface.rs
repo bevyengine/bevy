@@ -11,7 +11,7 @@ use bevy_ecs::{
 };
 use bevy_math::{UVec2, Vec2};
 use bevy_platform::collections::HashMap;
-use bevy_text::{ComputedTextBlock, FontCx};
+use bevy_text::{ComputedTextBlock, EmSize, FontCx, RemSize};
 use taffy::{
     compute_block_layout, compute_cached_layout, compute_flexbox_layout, compute_grid_layout,
     compute_hidden_layout, compute_leaf_layout, compute_root_layout, round_layout,
@@ -262,7 +262,7 @@ fn build_runtime_layout_tree<'a>(
     let layout_context = LayoutContext::new(
         computed_target.scale_factor(),
         computed_target.physical_size().as_vec2(),
-        em_size.0,
+        *em_size,
         rem_size,
     );
     let node = node.into_inner();

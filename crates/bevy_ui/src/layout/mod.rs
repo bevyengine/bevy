@@ -1,12 +1,11 @@
 use crate::{
     experimental::{UiChildren, UiRootNodes},
-    rem,
     ui_transform::{UiGlobalTransform, UiTransform},
     ComputedNode, ComputedUiRenderTargetInfo, ContentSize, Display, FixedNode, IgnoreScroll,
     LayoutConfig, Node, Outline, OverflowAxis, ScrollPosition,
 };
 use bevy_ecs::{
-    change_detection::DetectChangesMut,
+    change_detection::{DetectChanges, DetectChangesMut},
     entity::Entity,
     hierarchy::ChildOf,
     lifecycle::RemovedComponents,
@@ -123,7 +122,7 @@ pub fn ui_layout_system(
             &mut UiGlobalTransform,
             &Node,
             &ComputedLayout,
-            &Emsize,
+            &EmSize,
             Option<&LayoutConfig>,
             Option<&Outline>,
             Option<&ScrollPosition>,
@@ -928,12 +927,13 @@ mod tests {
             In(root_node_entity): In<Entity>,
             mut ui_surface: ResMut<UiSurface>,
             ui_children: UiChildren,
-            node_query: Query<(Ref<Node>, Ref<ComputedUiRenderTargetInfo>)>,
+            node_query: Query<(Ref<Node>, Ref<ComputedUiRenderTargetInfo>, Ref<EmSize>)>,
             content_size_query: Query<Ref<ContentSize>>,
             mut computed_layout_query: Query<&mut ComputedLayout>,
             fixed_nodes_query: Query<Entity, (With<FixedNode>, With<ChildOf>)>,
             mut buffer_query: Query<&mut bevy_text::ComputedTextBlock>,
             mut font_system: ResMut<bevy_text::FontCx>,
+            rem_size: Res<RemSize>,
         ) {
             ui_surface
                 .compute_layout(
@@ -947,6 +947,7 @@ mod tests {
                     &[],
                     &mut buffer_query,
                     &mut font_system,
+                    rem_size,
                 )
                 .unwrap();
         }
