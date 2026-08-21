@@ -67,13 +67,15 @@
 
 use crate::{ButtonInput, ButtonState};
 #[cfg(feature = "bevy_reflect")]
-use bevy_ecs::prelude::ReflectMessage;
+use bevy_ecs::prelude::{Local, ReflectMessage};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     entity::Entity,
     message::{Message, MessageReader},
     system::ResMut,
 };
+use bevy_platform::collections::HashMap;
+use bevy_platform::prelude::Vec;
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
@@ -172,6 +174,13 @@ pub fn keyboard_input_system(
     mut key_input: ResMut<ButtonInput<Key>>,
     mut keyboard_input_reader: MessageReader<KeyboardInput>,
     mut keyboard_focus_lost_reader: MessageReader<KeyboardFocusLost>,
+    // Keep track of what `KeyCode`s are pressed and which `Key`s they have not yet released.
+    // `KeyCode`s have to be released at some point, but `Key`s do not because of
+    // modifier heys, platform bugs, unusual legacy behavior, or keyboard layout swaps during an input.
+    mut held_key_codes: Local<HashMap<KeyCode, Vec<Key>>>,
+    // Keep track of how many `KeyCode`s are pressing each `Key` to prevent them from being released early.
+    // For example when holding both left & right shift, then releasing either `Key::Shift` is still held by the user
+    mut held_keys: Local<HashMap<Key, u16>>,
 ) {
     // Avoid clearing if not empty to ensure change detection is not triggered.
     keycode_input.bypass_change_detection().clear();
@@ -186,12 +195,42 @@ pub fn keyboard_input_system(
         } = event;
         match state {
             ButtonState::Pressed => {
+                let held_key_code = held_key_codes.entry(*key_code).or_default();
+
+                // There should realistically never be more than 2-3 `Keys` pressed by a single `KeyCode`
+                // so using linear search should be faster.
+                if held_key_code.iter().find(|i| *i == logical_key).is_none() {
+                    held_key_code.push(logical_key.clone());
+                    *held_keys.entry(logical_key.clone()).or_default() += 1;
+                }
+
                 keycode_input.press(*key_code);
                 key_input.press(logical_key.clone());
             }
             ButtonState::Released => {
+                for logical_key in held_key_codes.remove(key_code).unwrap_or_default() {
+                    let Some(pressing_keys) = held_keys.get_mut(&logical_key) else {
+                        continue;
+                    };
+
+                    // When a physical key that had recently pressed this logical key is released,
+                    // check if any other physical keys are holding it down.
+                    //
+                    // This is to prevent situations like:
+                    // 1. Press `KeyCode::AltLeft` -> `Key::Alt`
+                    // 2. Press `KeyCode::AltRight` -> `Key::Alt`
+                    // 3. Release `KeyCode::AltLeft`, releasing `Key::Alt`
+                    // 4. `KeyCode::AltRight` is still held & the user expects `Key::Alt` to be held, but it is not
+
+                    *pressing_keys -= 1;
+
+                    if *pressing_keys == 0 {
+                        held_keys.remove(&logical_key);
+                        key_input.release(logical_key.clone());
+                    }
+                }
+
                 keycode_input.release(*key_code);
-                key_input.release(logical_key.clone());
             }
         }
     }
@@ -199,6 +238,9 @@ pub fn keyboard_input_system(
     // Release all cached input to avoid having stuck input when switching between windows in os
     if !keyboard_focus_lost_reader.is_empty() {
         keycode_input.release_all();
+        key_input.release_all();
+        held_key_codes.clear();
+        held_keys.clear();
         keyboard_focus_lost_reader.clear();
     }
 }
@@ -1556,4 +1598,412 @@ pub enum Key {
     F34,
     /// General-purpose function key.
     F35,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy_app::App;
+
+    #[test]
+    fn normal_keypress() {
+        let mut app = App::new();
+        app.add_plugins(crate::InputPlugin);
+
+        app.world_mut().write_message(KeyboardInput {
+            key_code: KeyCode::KeyA,
+            logical_key: Key::Character("a".into()),
+            state: ButtonState::Pressed,
+            text: Some("a".into()),
+            repeat: false,
+            window: Entity::PLACEHOLDER,
+        });
+        app.update();
+
+        assert_eq!(
+            app.world_mut()
+                .get_resource::<ButtonInput<Key>>()
+                .unwrap()
+                .get_pressed()
+                .cloned()
+                .collect::<Vec<Key>>(),
+            [Key::Character("a".into())]
+        );
+
+        app.world_mut().write_message(KeyboardInput {
+            key_code: KeyCode::KeyA,
+            logical_key: Key::Character("a".into()),
+            state: ButtonState::Released,
+            text: Some("a".into()),
+            repeat: false,
+            window: Entity::PLACEHOLDER,
+        });
+        app.update();
+
+        assert_eq!(
+            app.world_mut()
+                .get_resource::<ButtonInput<Key>>()
+                .unwrap()
+                .get_pressed()
+                .cloned()
+                .collect::<Vec<Key>>(),
+            []
+        );
+    }
+
+    #[test]
+    fn alt_key_weirdness() {
+        let mut app = App::new();
+        app.add_plugins(crate::InputPlugin);
+
+        app.world_mut().write_message(KeyboardInput {
+            key_code: KeyCode::AltLeft,
+            logical_key: Key::Alt,
+            state: ButtonState::Pressed,
+            text: None,
+            repeat: false,
+            window: Entity::PLACEHOLDER,
+        });
+        app.update();
+
+        assert_eq!(
+            app.world_mut()
+                .get_resource::<ButtonInput<Key>>()
+                .unwrap()
+                .get_pressed()
+                .cloned()
+                .collect::<Vec<Key>>(),
+            [Key::Alt]
+        );
+
+        app.world_mut().write_message(KeyboardInput {
+            key_code: KeyCode::AltLeft,
+            logical_key: Key::GroupPrevious,
+            state: ButtonState::Released,
+            text: None,
+            repeat: false,
+            window: Entity::PLACEHOLDER,
+        });
+        app.update();
+
+        assert_eq!(
+            app.world_mut()
+                .get_resource::<ButtonInput<Key>>()
+                .unwrap()
+                .get_pressed()
+                .cloned()
+                .collect::<Vec<Key>>(),
+            []
+        );
+    }
+
+    #[test]
+    fn double_shift() {
+        let mut app = App::new();
+        app.add_plugins(crate::InputPlugin);
+
+        app.world_mut().write_message(KeyboardInput {
+            key_code: KeyCode::ShiftLeft,
+            logical_key: Key::Shift,
+            state: ButtonState::Pressed,
+            text: None,
+            repeat: false,
+            window: Entity::PLACEHOLDER,
+        });
+        app.update();
+
+        assert_eq!(
+            app.world_mut()
+                .get_resource::<ButtonInput<Key>>()
+                .unwrap()
+                .get_pressed()
+                .cloned()
+                .collect::<Vec<Key>>(),
+            [Key::Shift]
+        );
+
+        app.world_mut().write_message(KeyboardInput {
+            key_code: KeyCode::ShiftRight,
+            logical_key: Key::Shift,
+            state: ButtonState::Pressed,
+            text: None,
+            repeat: false,
+            window: Entity::PLACEHOLDER,
+        });
+        app.update();
+
+        assert_eq!(
+            app.world_mut()
+                .get_resource::<ButtonInput<Key>>()
+                .unwrap()
+                .get_pressed()
+                .cloned()
+                .collect::<Vec<Key>>(),
+            [Key::Shift]
+        );
+
+        app.world_mut().write_message(KeyboardInput {
+            key_code: KeyCode::ShiftLeft,
+            logical_key: Key::Alt,
+            state: ButtonState::Released,
+            text: None,
+            repeat: false,
+            window: Entity::PLACEHOLDER,
+        });
+        app.update();
+
+        assert_eq!(
+            app.world_mut()
+                .get_resource::<ButtonInput<Key>>()
+                .unwrap()
+                .get_pressed()
+                .cloned()
+                .collect::<Vec<Key>>(),
+            [Key::Shift]
+        );
+
+        app.world_mut().write_message(KeyboardInput {
+            key_code: KeyCode::ShiftRight,
+            logical_key: Key::Alt,
+            state: ButtonState::Released,
+            text: None,
+            repeat: false,
+            window: Entity::PLACEHOLDER,
+        });
+        app.update();
+
+        assert_eq!(
+            app.world_mut()
+                .get_resource::<ButtonInput<Key>>()
+                .unwrap()
+                .get_pressed()
+                .cloned()
+                .collect::<Vec<Key>>(),
+            []
+        );
+    }
+
+    #[test]
+    fn modified_key() {
+        let mut app = App::new();
+        app.add_plugins(crate::InputPlugin);
+
+        app.world_mut().write_message(KeyboardInput {
+            key_code: KeyCode::KeyA,
+            logical_key: Key::Character("a".into()),
+            state: ButtonState::Pressed,
+            text: None,
+            repeat: false,
+            window: Entity::PLACEHOLDER,
+        });
+        app.update();
+
+        assert_eq!(
+            app.world_mut()
+                .get_resource::<ButtonInput<Key>>()
+                .unwrap()
+                .get_pressed()
+                .cloned()
+                .collect::<Vec<Key>>(),
+            [Key::Character("a".into())]
+        );
+
+        app.world_mut().write_message(KeyboardInput {
+            key_code: KeyCode::ShiftLeft,
+            logical_key: Key::Shift,
+            state: ButtonState::Pressed,
+            text: None,
+            repeat: false,
+            window: Entity::PLACEHOLDER,
+        });
+        app.update();
+
+        let keys = app
+            .world_mut()
+            .get_resource::<ButtonInput<Key>>()
+            .unwrap()
+            .get_pressed()
+            .cloned()
+            .collect::<Vec<Key>>();
+
+        assert!(keys.contains(&Key::Shift));
+        assert!(keys.contains(&Key::Character("a".into())));
+
+        app.world_mut().write_message(KeyboardInput {
+            key_code: KeyCode::KeyA,
+            logical_key: Key::Character("A".into()),
+            state: ButtonState::Pressed,
+            text: None,
+            repeat: false,
+            window: Entity::PLACEHOLDER,
+        });
+        app.update();
+
+        let keys = app
+            .world_mut()
+            .get_resource::<ButtonInput<Key>>()
+            .unwrap()
+            .get_pressed()
+            .cloned()
+            .collect::<Vec<Key>>();
+
+        assert!(keys.contains(&Key::Shift));
+        assert!(keys.contains(&Key::Character("a".into())));
+        assert!(keys.contains(&Key::Character("A".into())));
+
+        app.world_mut().write_message(KeyboardInput {
+            key_code: KeyCode::KeyA,
+            logical_key: Key::Character("A".into()),
+            state: ButtonState::Released,
+            text: None,
+            repeat: false,
+            window: Entity::PLACEHOLDER,
+        });
+        app.update();
+
+        assert_eq!(
+            app.world_mut()
+                .get_resource::<ButtonInput<Key>>()
+                .unwrap()
+                .get_pressed()
+                .cloned()
+                .collect::<Vec<Key>>(),
+            [Key::Shift]
+        );
+    }
+
+    #[test]
+    fn layout_swap() {
+        let mut app = App::new();
+        app.add_plugins(crate::InputPlugin);
+
+        app.world_mut().write_message(KeyboardInput {
+            key_code: KeyCode::KeyS,
+            logical_key: Key::Character("s".into()),
+            state: ButtonState::Pressed,
+            text: None,
+            repeat: false,
+            window: Entity::PLACEHOLDER,
+        });
+        app.update();
+
+        assert_eq!(
+            app.world_mut()
+                .get_resource::<ButtonInput<Key>>()
+                .unwrap()
+                .get_pressed()
+                .cloned()
+                .collect::<Vec<Key>>(),
+            [Key::Character("s".into())]
+        );
+
+        // qwerty -> dvorak
+
+        app.world_mut().write_message(KeyboardInput {
+            key_code: KeyCode::KeyS,
+            logical_key: Key::Character("o".into()),
+            state: ButtonState::Pressed,
+            text: None,
+            repeat: false,
+            window: Entity::PLACEHOLDER,
+        });
+        app.update();
+
+        let keys = app
+            .world_mut()
+            .get_resource::<ButtonInput<Key>>()
+            .unwrap()
+            .get_pressed()
+            .cloned()
+            .collect::<Vec<Key>>();
+
+        assert!(keys.contains(&Key::Character("s".into())));
+        assert!(keys.contains(&Key::Character("o".into())));
+
+        app.world_mut().write_message(KeyboardInput {
+            key_code: KeyCode::KeyS,
+            logical_key: Key::Character("o".into()),
+            state: ButtonState::Released,
+            text: None,
+            repeat: false,
+            window: Entity::PLACEHOLDER,
+        });
+        app.update();
+
+        assert_eq!(
+            app.world_mut()
+                .get_resource::<ButtonInput<Key>>()
+                .unwrap()
+                .get_pressed()
+                .cloned()
+                .collect::<Vec<Key>>(),
+            []
+        );
+    }
+
+    #[test]
+    fn keyboard_focus_lost() {
+        let mut app = App::new();
+        app.add_plugins(crate::InputPlugin);
+
+        app.world_mut().write_message(KeyboardInput {
+            key_code: KeyCode::AltLeft,
+            logical_key: Key::Alt,
+            state: ButtonState::Pressed,
+            text: None,
+            repeat: false,
+            window: Entity::PLACEHOLDER,
+        });
+        app.update();
+
+        assert_eq!(
+            app.world_mut()
+                .get_resource::<ButtonInput<Key>>()
+                .unwrap()
+                .get_pressed()
+                .cloned()
+                .collect::<Vec<Key>>(),
+            [Key::Alt]
+        );
+
+        app.world_mut().write_message(KeyboardFocusLost);
+        app.update();
+
+        assert_eq!(
+            app.world_mut()
+                .get_resource::<ButtonInput<Key>>()
+                .unwrap()
+                .get_pressed()
+                .cloned()
+                .collect::<Vec<Key>>(),
+            []
+        );
+    }
+
+    #[test]
+    fn weird_keyboard_focus_lost() {
+        let mut app = App::new();
+        app.add_plugins(crate::InputPlugin);
+
+        // inject a ghost key
+        app.world_mut()
+            .get_resource_mut::<ButtonInput<Key>>()
+            .unwrap()
+            .press(Key::Alt);
+
+        // & 'click off' the window to clear it
+
+        app.world_mut().write_message(KeyboardFocusLost);
+        app.update();
+
+        assert_eq!(
+            app.world_mut()
+                .get_resource::<ButtonInput<Key>>()
+                .unwrap()
+                .get_pressed()
+                .cloned()
+                .collect::<Vec<Key>>(),
+            []
+        );
+    }
 }
