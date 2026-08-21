@@ -10,7 +10,7 @@ keywords = ["bevy", "color"]
 rust-version = "1.85.0"
 
 [dependencies]
-bevy_curve = { path = "../bevy_curve", version = "0.20.0-dev" }
+bevy_curve = { path = "../bevy_curve", default-features = false, version = "0.20.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.20.0-dev", default-features = false }
 bevy_reflect = { path = "../bevy_reflect", version = "0.20.0-dev", default-features = false, optional = true }
 bytemuck = { version = "1", features = ["derive"] }
