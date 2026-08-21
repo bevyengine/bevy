@@ -57,6 +57,93 @@ pub fn composites_fullscreen(camera: &ExtractedCamera) -> bool {
     matches!(camera.clear_color, ClearColorConfig::None) && camera.viewport.is_none()
 }
 
+/// Writes each camera view's [`ResolvedCompositingSpace`]. Runs in
+/// [`ResolveCompositingSpaces`].
+///
+/// `Has<Camera2d>` reads the marker that `bevy_core_pipeline` extracts.
+/// Without that plugin every view counts as non-2d.
+pub fn resolve_composition_spaces(
+    mut views: Query<(
+        Entity,
+        &ExtractedCamera,
+        &ExtractedView,
+        &CameraMainTextureUsages,
+        &Msaa,
+        Has<Camera2d>,
+        &mut ResolvedCompositingSpace,
+    )>,
+) {
+    // When every camera requests linear or nothing, all views resolve to
+    // linear and no diagnostic can fire, so skip the grouping.
+    let any_request = views.iter().any(|(_, camera, ..)| {
+        camera
+            .compositing_space
+            .is_some_and(|space| !space.is_linear())
+    });
+    if !any_request {
+        for (.., mut resolved) in views.iter_mut() {
+            *resolved = ResolvedCompositingSpace(None);
+        }
+        return;
+    }
+
+    let inputs: Vec<(MainTextureKey, SpaceInput)> = views
+        .iter()
+        .map(
+            |(entity, camera, view, texture_usage, msaa, is_camera_2d, _)| {
+                (
+                    main_texture_key(camera, view, texture_usage, *msaa),
+                    SpaceInput {
+                        entity,
+                        sorted_index: camera.sorted_camera_index_for_target,
+                        request: camera.compositing_space,
+                        composites_fullscreen: composites_fullscreen(camera),
+                        is_camera_2d,
+                        signed_float_storage: matches!(
+                            view.target_format,
+                            TextureFormat::Rgba16Float | TextureFormat::Rgba32Float
+                        ),
+                    },
+                )
+            },
+        )
+        .collect();
+
+    let (spaces, diagnostics) = resolve_spaces(inputs);
+    // A view missing from the map falls back to linear, the resolver's own
+    // default, so no unwrap is needed.
+    for (entity, .., mut resolved) in views.iter_mut() {
+        *resolved = ResolvedCompositingSpace(spaces.get(&entity).copied().flatten());
+    }
+
+    for diagnostic in diagnostics {
+        match diagnostic {
+            CompositingSpaceResolutionError::ConflictingStackRequests { requests } => warn_once!(
+                "Cameras stacked on one shared main texture request conflicting compositing \
+                spaces: {requests:?}. The stack composites in linear instead. Give every \
+                camera in the stack the same CompositingSpace."
+            ),
+            CompositingSpaceResolutionError::MixedSharedTextureRequests { requests } => warn_once!(
+                "Cameras sharing a render target mix compositing-space requests: {requests:?}. \
+                Blending between their pixels will be wrong where their regions meet. Use one \
+                CompositingSpace for every camera on a shared target."
+            ),
+            CompositingSpaceResolutionError::NonCamera2dRequest { non_camera_2d } => warn_once!(
+                "A CompositingSpace request resolves to linear because the views \
+                {non_camera_2d:?} are not Camera2d views and their render paths do not encode \
+                into compositing spaces. Remove the CompositingSpace component or use a Camera2d."
+            ),
+            CompositingSpaceResolutionError::OklabWithoutSignedFloatStorage { entities } => {
+                warn_once!(
+                    "CompositingSpace::Oklab on views {entities:?} resolves to linear because \
+                    the main texture format cannot store the signed Oklab channels. Add the Hdr \
+                    component to the camera to get a signed-float main texture."
+                );
+            }
+        }
+    }
+}
+
 /// Per-view input to [`resolve_spaces`].
 struct SpaceInput {
     entity: Entity,
@@ -212,93 +299,6 @@ fn resolve_members(
 
     for member in members {
         resolved.insert(member.entity, space);
-    }
-}
-
-/// Writes each camera view's [`ResolvedCompositingSpace`]. Runs in
-/// [`ResolveCompositingSpaces`].
-///
-/// `Has<Camera2d>` reads the marker that `bevy_core_pipeline` extracts.
-/// Without that plugin every view counts as non-2d.
-pub fn resolve_composition_spaces(
-    mut views: Query<(
-        Entity,
-        &ExtractedCamera,
-        &ExtractedView,
-        &CameraMainTextureUsages,
-        &Msaa,
-        Has<Camera2d>,
-        &mut ResolvedCompositingSpace,
-    )>,
-) {
-    // When every camera requests linear or nothing, all views resolve to
-    // linear and no diagnostic can fire, so skip the grouping.
-    let any_request = views.iter().any(|(_, camera, ..)| {
-        camera
-            .compositing_space
-            .is_some_and(|space| !space.is_linear())
-    });
-    if !any_request {
-        for (.., mut resolved) in views.iter_mut() {
-            *resolved = ResolvedCompositingSpace(None);
-        }
-        return;
-    }
-
-    let inputs: Vec<(MainTextureKey, SpaceInput)> = views
-        .iter()
-        .map(
-            |(entity, camera, view, texture_usage, msaa, is_camera_2d, _)| {
-                (
-                    main_texture_key(camera, view, texture_usage, *msaa),
-                    SpaceInput {
-                        entity,
-                        sorted_index: camera.sorted_camera_index_for_target,
-                        request: camera.compositing_space,
-                        composites_fullscreen: composites_fullscreen(camera),
-                        is_camera_2d,
-                        signed_float_storage: matches!(
-                            view.target_format,
-                            TextureFormat::Rgba16Float | TextureFormat::Rgba32Float
-                        ),
-                    },
-                )
-            },
-        )
-        .collect();
-
-    let (spaces, diagnostics) = resolve_spaces(inputs);
-    // A view missing from the map falls back to linear, the resolver's own
-    // default, so no unwrap is needed.
-    for (entity, .., mut resolved) in views.iter_mut() {
-        *resolved = ResolvedCompositingSpace(spaces.get(&entity).copied().flatten());
-    }
-
-    for diagnostic in diagnostics {
-        match diagnostic {
-            CompositingSpaceResolutionError::ConflictingStackRequests { requests } => warn_once!(
-                "Cameras stacked on one shared main texture request conflicting compositing \
-                spaces: {requests:?}. The stack composites in linear instead. Give every \
-                camera in the stack the same CompositingSpace."
-            ),
-            CompositingSpaceResolutionError::MixedSharedTextureRequests { requests } => warn_once!(
-                "Cameras sharing a render target mix compositing-space requests: {requests:?}. \
-                Blending between their pixels will be wrong where their regions meet. Use one \
-                CompositingSpace for every camera on a shared target."
-            ),
-            CompositingSpaceResolutionError::NonCamera2dRequest { non_camera_2d } => warn_once!(
-                "A CompositingSpace request resolves to linear because the views \
-                {non_camera_2d:?} are not Camera2d views and their render paths do not encode \
-                into compositing spaces. Remove the CompositingSpace component or use a Camera2d."
-            ),
-            CompositingSpaceResolutionError::OklabWithoutSignedFloatStorage { entities } => {
-                warn_once!(
-                    "CompositingSpace::Oklab on views {entities:?} resolves to linear because \
-                    the main texture format cannot store the signed Oklab channels. Add the Hdr \
-                    component to the camera to get a signed-float main texture."
-                );
-            }
-        }
     }
 }
 
