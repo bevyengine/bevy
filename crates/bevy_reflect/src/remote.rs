@@ -10,9 +10,6 @@ use crate::Reflect;
 ///
 /// Manual implementations may use different representation and conversion behavior. The
 /// associated `Remote` type identifies the remote type represented by this wrapper.
-/// When implementing this trait manually, you need to design carefully about the conversion
-/// between `Self` and `Remote` type. For example, if you need to resolve the conversion of
-/// `u8` and `bool`, you can set the rule that all the values that more than 1 return false.
 ///
 /// # Example
 ///
