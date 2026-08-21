@@ -9,8 +9,6 @@ import package::render::clustered_forward::ClusterableObjectIndexRanges;
 
 @if(LIGHTMAP) import package::render::mesh_view_types::LIGHT_PROBE_FLAG_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE;
 
-@if(IRRADIANCE_VOLUMES_ARE_USABLE)
-
 // See:
 // https://advances.realtimerendering.com/s2006/Mitchell-ShadingInValvesSourceEngine.pdf
 // Slide 28, "Ambient Cube Basis"
