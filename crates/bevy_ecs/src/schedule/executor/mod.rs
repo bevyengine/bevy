@@ -584,9 +584,9 @@ mod validation_tests {
         prelude::{Component, In, IntoSystem, Resource, Schedule},
         schedule::{MultiThreadedExecutor, SingleThreadedExecutor},
         system::{
-            DynParamBuilder, DynSystemParam, ExclusiveSystemParam, Local, ParamBuilder, ParamSet,
-            Query, Res, ResMut, RunSystemError, RunSystemOnce, Single, SystemMeta,
-            SystemParamBuilder, SystemParamValidationError,
+            DynParamBuilder, DynSystemParam, Local, ParamBuilder, ParamSet, Query, Res, ResMut,
+            RunSystemError, RunSystemOnce, Single, SystemMeta, SystemParam, SystemParamBuilder,
+            SystemParamValidationError,
         },
         world::World,
     };
@@ -601,19 +601,30 @@ mod validation_tests {
     #[derive(Resource)]
     struct MissingResource;
 
-    /// An [`ExclusiveSystemParam`] that always fails validation.
+    /// A [`SystemParam`] that always fails validation.
     struct AlwaysInvalid;
 
-    impl ExclusiveSystemParam for AlwaysInvalid {
+    // SAFETY: No world access.
+    unsafe impl SystemParam for AlwaysInvalid {
         type State = ();
-        type Item<'s> = AlwaysInvalid;
+        type Item<'world, 'state> = AlwaysInvalid;
 
-        fn init(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
+        fn init_state(_world: &mut World) -> Self::State {}
 
-        fn get_param<'s>(
-            _state: &'s mut Self::State,
+        fn init_access(
+            _state: &Self::State,
+            _system_meta: &mut SystemMeta,
+            _component_access_set: &mut crate::query::FilteredAccessSet,
+            _world: &mut World,
+        ) {
+        }
+
+        unsafe fn get_param<'world, 'state>(
+            _state: &'state mut Self::State,
             _system_meta: &SystemMeta,
-        ) -> Result<Self::Item<'s>, SystemParamValidationError> {
+            _world: crate::world::unsafe_world_cell::UnsafeWorldCell<'world>,
+            _change_tick: crate::change_detection::Tick,
+        ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
             Err(SystemParamValidationError::invalid::<Self>(
                 "always invalid",
             ))

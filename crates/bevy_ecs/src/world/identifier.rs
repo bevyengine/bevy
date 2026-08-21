@@ -2,10 +2,7 @@ use crate::{
     change_detection::Tick,
     query::FilteredAccessSet,
     storage::SparseSetIndex,
-    system::{
-        ExclusiveSystemParam, ReadOnlySystemParam, SystemMeta, SystemParam,
-        SystemParamValidationError,
-    },
+    system::{ReadOnlySystemParam, SystemMeta, SystemParam, SystemParamValidationError},
     world::{FromWorld, World},
 };
 use bevy_platform::sync::atomic::{AtomicUsize, Ordering};
@@ -91,22 +88,6 @@ unsafe impl SystemParam for WorldId {
         _: Tick,
     ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
         Ok(world.id())
-    }
-}
-
-impl ExclusiveSystemParam for WorldId {
-    type State = WorldId;
-    type Item<'s> = WorldId;
-
-    fn init(world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
-        world.id()
-    }
-
-    fn get_param<'s>(
-        state: &'s mut Self::State,
-        _system_meta: &SystemMeta,
-    ) -> Result<Self::Item<'s>, SystemParamValidationError> {
-        Ok(*state)
     }
 }
 
