@@ -757,9 +757,14 @@ pub fn sort_cameras(
             ambiguities.insert(new_order_target.clone());
         }
         if let Some(target) = &sorted_camera.target {
-            // Keyed by target alone, so every camera sharing a target gets a unique index
-            // even when `Hdr` differs. The upscaling auto-blend and `Auto` MSAA writeback
-            // read that bottom-to-top order.
+            // Cameras that share a render target are indexed bottom to top. The index
+            // does not affect render graph ordering. It is read at the end of
+            // rendering, when each camera's image is written out to the target. By
+            // default the bottom camera replaces what is there and every camera above
+            // it alpha-blends on top. The map is keyed by the target alone. Splitting
+            // the count by a camera setting such as `Hdr` would leave a mixed stack
+            // with two bottom cameras, and the top one would overwrite the base
+            // instead of blending over it.
             let count = target_counts.entry(target.clone()).or_insert(0usize);
             let (_, mut camera) = cameras.get_mut(sorted_camera.entity).unwrap();
             camera.sorted_camera_index_for_target = *count;
