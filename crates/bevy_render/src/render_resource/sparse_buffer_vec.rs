@@ -8,13 +8,12 @@ use core::{
 };
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{embedded_asset, load_embedded_asset, Handle};
+use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     resource::Resource,
     schedule::IntoScheduleConfigs as _,
-    system::{Res, ResMut},
-    world::{FromWorld, World},
+    system::{Commands, Res, ResMut},
 };
 use bevy_log::{debug, error, info};
 use bevy_material::{
@@ -31,13 +30,14 @@ use weak_table::WeakKeyHashMap;
 use wgpu::{BufferDescriptor, BufferUsages, ComputePassDescriptor, ShaderStages};
 
 use crate::{
-    diagnostic::{DiagnosticsRecorder, RecordDiagnostics as _},
+    diagnostic::RecordDiagnostics as _,
+    init_gpu_resource,
     render_resource::{
         AtomicPod, BindGroup, BindGroupEntries, Buffer, PipelineCache, RawBufferVec,
         SpecializedComputePipeline, SpecializedComputePipelines, UniformBuffer,
     },
-    renderer::{RenderDevice, RenderGraph, RenderGraphSystems, RenderQueue},
-    ExtractSchedule, RenderApp,
+    renderer::{RenderContext, RenderDevice, RenderGraph, RenderGraphSystems, RenderQueue},
+    ExtractSchedule, GpuResourceAppExt, RenderApp, RenderStartup,
 };
 
 /// A plugin that allows sparse updates of GPU buffers if only a small number of
@@ -46,7 +46,7 @@ pub struct SparseBufferPlugin;
 
 impl Plugin for SparseBufferPlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "sparse_buffer_update.wgsl");
+        embedded_asset!(app, "sparse_buffer_update.wesl");
     }
 
     fn finish(&self, app: &mut App) {
@@ -55,11 +55,17 @@ impl Plugin for SparseBufferPlugin {
         };
 
         render_app
-            .init_resource::<SparseBufferUpdateJobs>()
-            .init_resource::<SparseBufferUpdatePipelines>()
-            .init_resource::<SpecializedComputePipelines<SparseBufferUpdatePipelines>>()
-            .init_resource::<SparseBufferUpdateBindGroups>()
+            .init_gpu_resource::<SparseBufferUpdateJobs>()
+            .init_gpu_resource::<SpecializedComputePipelines<SparseBufferUpdatePipelines>>()
             .add_systems(ExtractSchedule, clear_sparse_buffer_jobs)
+            .add_systems(
+                RenderStartup,
+                (
+                    init_sparse_buffer_update_pipelines,
+                    init_sparse_buffer_update_bind_groups.after(init_gpu_resource::<SpecializedComputePipelines<SparseBufferUpdatePipelines>>),
+                )
+                    .chain(),
+            )
             .add_systems(
                 RenderGraph,
                 // We perform sparse buffer updates very early so that sparse
@@ -131,7 +137,7 @@ pub struct SparseBufferUpdateBindGroups {
     /// the bind group for that buffer goes away as well.
     bind_groups: WeakKeyHashMap<Weak<SparseBufferId>, SparseBufferUpdateBindGroup>,
     /// The ID of the update shader pipeline shared among all sparse buffers.
-    pipeline_id: CachedComputePipelineId,
+    pipeline_id: Option<CachedComputePipelineId>,
 }
 
 /// A single bind group for the sparse buffer update shader.
@@ -153,8 +159,6 @@ pub struct SparseBufferUpdateJob {
     updated_element_count: u32,
     /// The size of each element in 32-bit words.
     element_word_size: u32,
-    /// A debugging label for the buffer.
-    label: Arc<str>,
 }
 
 impl SparseBufferUpdateJob {
@@ -185,37 +189,37 @@ struct GpuSparseBufferUpdateMetadata {
 ///
 /// This runs as early in the pipeline as possible so that sparse buffers can be
 /// used for any subsequent pass.
-fn update_sparse_buffers(
+///
+/// Runs in [`RenderGraphSystems::Begin`].
+pub fn update_sparse_buffers(
     sparse_buffer_update_jobs: Res<SparseBufferUpdateJobs>,
     sparse_buffer_update_bind_groups: Res<SparseBufferUpdateBindGroups>,
     pipeline_cache: Res<PipelineCache>,
-    mut diagnostics: Option<ResMut<DiagnosticsRecorder>>,
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
+    mut render_context: RenderContext,
 ) {
     // Bail if we have nothing to do.
     if sparse_buffer_update_jobs.is_empty() {
         return;
     }
 
-    // We need to create a command encoder since this pass isn't associated with
-    // a view.
-    let mut command_encoder =
-        render_device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("sparse buffer update"),
-        });
-
-    let time_span = diagnostics
-        .as_mut()
-        .map(|diagnostics| diagnostics.time_span(&mut command_encoder, "sparse buffer update"));
-
-    command_encoder.push_debug_group("sparse buffer update");
-
-    let Some(compute_pipeline) =
-        pipeline_cache.get_compute_pipeline(sparse_buffer_update_bind_groups.pipeline_id)
-    else {
+    let Some(pipeline_id) = sparse_buffer_update_bind_groups.pipeline_id else {
         return;
     };
+    let Some(compute_pipeline) = pipeline_cache.get_compute_pipeline(pipeline_id) else {
+        return;
+    };
+
+    let diagnostics = render_context.diagnostic_recorder();
+    let diagnostics = diagnostics.as_deref();
+    let command_encoder = render_context.command_encoder();
+
+    let mut sparse_buffer_update_pass =
+        command_encoder.begin_compute_pass(&ComputePassDescriptor {
+            label: Some("sparse buffer updates"),
+            timestamp_writes: None,
+        });
+    sparse_buffer_update_pass.set_pipeline(compute_pipeline);
+    let time_span = diagnostics.time_span(&mut sparse_buffer_update_pass, "sparse buffer updates");
 
     // Process each sparse buffer update job.
     for sparse_buffer_update_job in sparse_buffer_update_jobs.iter() {
@@ -226,15 +230,6 @@ fn update_sparse_buffers(
             continue;
         };
 
-        let mut sparse_buffer_update_pass =
-            command_encoder.begin_compute_pass(&ComputePassDescriptor {
-                label: Some(&*format!(
-                    "sparse buffer update ({})",
-                    sparse_buffer_update_job.label
-                )),
-                timestamp_writes: None,
-            });
-        sparse_buffer_update_pass.set_pipeline(compute_pipeline);
         sparse_buffer_update_pass.set_bind_group(
             0,
             &sparse_buffer_update_bind_group.bind_group,
@@ -247,12 +242,7 @@ fn update_sparse_buffers(
         );
     }
 
-    command_encoder.pop_debug_group();
-    if let Some(time_span) = time_span {
-        time_span.end(&mut command_encoder);
-    }
-
-    render_queue.submit([command_encoder.finish()]);
+    time_span.end(&mut sparse_buffer_update_pass);
 }
 
 /// A system that clears out the sparse buffer update jobs in preparation for a
@@ -261,56 +251,59 @@ fn clear_sparse_buffer_jobs(mut sparse_buffer_update_jobs: ResMut<SparseBufferUp
     sparse_buffer_update_jobs.clear();
 }
 
-impl FromWorld for SparseBufferUpdatePipelines {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-        let limit = render_device.limits().max_storage_buffers_per_shader_stage;
-
-        if limit < 3 {
-            info!(
-                "Sparse buffer updates disabled. RenderDevice lacks support: max_storage_buffers_per_shader_stage ({}) < 3.",
-                limit
-            );
-
-            return SparseBufferUpdatePipelines {
-                bind_group_layout: None,
-                shader: None,
-            };
-        }
-
-        let bind_group_layout = BindGroupLayoutDescriptor::new(
-            "sparse buffer update bind group layout",
-            &BindGroupLayoutEntries::sequential(
-                ShaderStages::COMPUTE,
-                (
-                    // @group(0) @binding(0) var<storage, read_write> dest_buffer: array<u32>;
-                    storage_buffer::<u32>(false),
-                    // @group(0) @binding(1) var<storage> src_buffer: array<u32>;
-                    storage_buffer_read_only::<u32>(false),
-                    // @group(0) @binding(2) var<storage> indices: array<u32>;
-                    storage_buffer_read_only::<u32>(false),
-                    // @group(0) @binding(3) var<uniform> metadata:
-                    // SparseBufferUpdateMetadata;
-                    uniform_buffer::<GpuSparseBufferUpdateMetadata>(false),
-                ),
-            ),
+pub fn init_sparse_buffer_update_pipelines(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    render_device: Res<RenderDevice>,
+) {
+    let limit = render_device.limits().max_storage_buffers_per_shader_stage;
+    if limit < 3 {
+        info!(
+            "Sparse buffer updates disabled. RenderDevice lacks support: max_storage_buffers_per_shader_stage ({}) < 3.",
+            limit
         );
-
-        SparseBufferUpdatePipelines {
-            bind_group_layout: Some(bind_group_layout),
-            shader: Some(load_embedded_asset!(world, "sparse_buffer_update.wgsl")),
-        }
+        commands.insert_resource(SparseBufferUpdatePipelines {
+            bind_group_layout: None,
+            shader: None,
+        });
+        return;
     }
+
+    let bind_group_layout = BindGroupLayoutDescriptor::new(
+        "sparse buffer update bind group layout",
+        &BindGroupLayoutEntries::sequential(
+            ShaderStages::COMPUTE,
+            (
+                // @group(0) @binding(0) var<storage, read_write> dest_buffer: array<u32>;
+                storage_buffer::<u32>(false),
+                // @group(0) @binding(1) var<storage> src_buffer: array<u32>;
+                storage_buffer_read_only::<u32>(false),
+                // @group(0) @binding(2) var<storage> indices: array<u32>;
+                storage_buffer_read_only::<u32>(false),
+                // @group(0) @binding(3) var<uniform> metadata:
+                // SparseBufferUpdateMetadata;
+                uniform_buffer::<GpuSparseBufferUpdateMetadata>(false),
+            ),
+        ),
+    );
+
+    commands.insert_resource(SparseBufferUpdatePipelines {
+        bind_group_layout: Some(bind_group_layout),
+        shader: Some(load_embedded_asset!(
+            asset_server.as_ref(),
+            "sparse_buffer_update.wesl"
+        )),
+    });
 }
 
 impl SpecializedComputePipeline for SparseBufferUpdatePipelines {
-    type Key = ();
+    type Key = Handle<Shader>;
 
-    fn specialize(&self, _: Self::Key) -> ComputePipelineDescriptor {
+    fn specialize(&self, key: Self::Key) -> ComputePipelineDescriptor {
         ComputePipelineDescriptor {
             label: Some("sparse buffer update pipeline".into()),
             layout: self.bind_group_layout.clone().into_iter().collect(),
-            shader: self.shader.clone().unwrap_or_default(),
+            shader: key,
             shader_defs: vec![],
             ..ComputePipelineDescriptor::default()
         }
@@ -785,26 +778,26 @@ where
     }
 }
 
-impl FromWorld for SparseBufferUpdateBindGroups {
-    fn from_world(world: &mut World) -> Self {
-        world.resource_scope::<SpecializedComputePipelines<SparseBufferUpdatePipelines>, _>(
-            |world, mut specialized_sparse_buffer_update_pipelines| {
-                let pipeline_cache = world.resource::<PipelineCache>();
-                let sparse_buffer_update_pipelines =
-                    world.resource::<SparseBufferUpdatePipelines>();
-                let pipeline_id = specialized_sparse_buffer_update_pipelines.specialize(
-                    pipeline_cache,
-                    sparse_buffer_update_pipelines,
-                    (),
-                );
-
-                SparseBufferUpdateBindGroups {
-                    bind_groups: WeakKeyHashMap::default(),
-                    pipeline_id,
-                }
-            },
+pub fn init_sparse_buffer_update_bind_groups(
+    mut commands: Commands,
+    mut specialized_sparse_buffer_update_pipelines: ResMut<
+        SpecializedComputePipelines<SparseBufferUpdatePipelines>,
+    >,
+    pipeline_cache: Res<PipelineCache>,
+    sparse_buffer_update_pipelines: Res<SparseBufferUpdatePipelines>,
+) {
+    let pipeline_id = sparse_buffer_update_pipelines.shader.clone().map(|shader| {
+        specialized_sparse_buffer_update_pipelines.specialize(
+            &pipeline_cache,
+            &sparse_buffer_update_pipelines,
+            shader,
         )
-    }
+    });
+
+    commands.insert_resource(SparseBufferUpdateBindGroups {
+        bind_groups: WeakKeyHashMap::default(),
+        pipeline_id,
+    });
 }
 
 /// Marks elements within the range `old_len..new_len` as dirty, under the
@@ -952,7 +945,6 @@ fn prepare_to_populate_buffers(
         sparse_buffer_handle: sparse_buffer_handle.clone(),
         updated_element_count: staging_buffers.updated_element_count(),
         element_word_size: staging_buffers.element_word_size,
-        label: (*label).clone(),
     });
 
     // Create the bind group.

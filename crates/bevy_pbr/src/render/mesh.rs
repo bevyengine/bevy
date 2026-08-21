@@ -25,7 +25,7 @@ use bevy_ecs::{
     relationship::RelationshipSourceCollection,
     system::{lifetimeless::*, SystemParamItem},
 };
-use bevy_image::{ImageSampler, TextureFormatPixelInfo};
+use bevy_image::TextureFormatPixelInfo;
 use bevy_light::{
     EnvironmentMapLight, IrradianceVolume, NotShadowCaster, NotShadowReceiver,
     ShadowFilteringMethod, TransmittedShadowReceiver,
@@ -72,7 +72,7 @@ use bevy_render::{
 };
 use bevy_shader::{load_shader_library, Shader, ShaderDefVal, ShaderSettings};
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{default, Parallel, TypeIdMap};
+use bevy_utils::{default, Parallel, TypeIdHashMap};
 use core::any::TypeId;
 use core::iter;
 use core::mem::size_of;
@@ -148,8 +148,8 @@ pub struct MeshPipelineSystems;
 
 impl Plugin for MeshRenderPlugin {
     fn build(&self, app: &mut App) {
-        load_shader_library!(app, "forward_io.wgsl");
-        load_shader_library!(app, "mesh_view_types.wgsl", |settings| *settings =
+        load_shader_library!(app, "forward_io.wesl");
+        load_shader_library!(app, "mesh_view_types.wesl", |settings| *settings =
             ShaderSettings {
                 shader_defs: vec![
                     ShaderDefVal::UInt(
@@ -161,16 +161,16 @@ impl Plugin for MeshRenderPlugin {
                         MAX_CASCADES_PER_LIGHT as u32,
                     ),
                     ShaderDefVal::UInt("MAX_RECT_LIGHTS".into(), MAX_RECT_LIGHTS as u32,),
-                ]
+                ],
             });
-        load_shader_library!(app, "mesh_view_bindings.wgsl");
-        load_shader_library!(app, "mesh_types.wgsl");
-        load_shader_library!(app, "mesh_functions.wgsl");
-        load_shader_library!(app, "skinning.wgsl");
-        load_shader_library!(app, "morph.wgsl");
-        load_shader_library!(app, "occlusion_culling.wgsl");
+        load_shader_library!(app, "mesh_view_bindings.wesl");
+        load_shader_library!(app, "mesh_types.wesl");
+        load_shader_library!(app, "mesh_functions.wesl");
+        load_shader_library!(app, "skinning.wesl");
+        load_shader_library!(app, "morph.wesl");
+        load_shader_library!(app, "occlusion_culling.wesl");
 
-        embedded_asset!(app, "mesh.wgsl");
+        embedded_asset!(app, "mesh.wesl");
 
         if app.get_sub_app(RenderApp).is_none() {
             return;
@@ -196,7 +196,7 @@ impl Plugin for MeshRenderPlugin {
                 .init_resource::<RenderMaterialInstances>()
                 .configure_sets(
                     ExtractSchedule,
-                    MeshExtractionSystems.after(view::extract_visibility_ranges),
+                    MeshExtractionSystems.after_weak(view::extract_visibility_ranges),
                 )
                 .add_systems(
                     ExtractSchedule,
@@ -328,7 +328,7 @@ impl Plugin for MeshRenderPlugin {
 
         // Load the mesh_bindings shader module here as it depends on runtime information about
         // whether storage buffers are supported, or the maximum uniform buffer binding size.
-        load_shader_library!(app, "mesh_bindings.wgsl", move |settings| *settings =
+        load_shader_library!(app, "mesh_bindings.wesl", move |settings| *settings =
             ShaderSettings {
                 shader_defs: mesh_bindings_shader_defs.clone(),
             });
@@ -719,7 +719,7 @@ impl MeshUniform {
     }
 }
 
-// NOTE: These must match the bit flags in bevy_pbr/src/render/mesh_types.wgsl!
+// NOTE: These must match the bit flags in bevy_pbr/src/render/mesh_types.wesl!
 bitflags::bitflags! {
     /// Various flags and tightly-packed values on a mesh.
     ///
@@ -2709,12 +2709,11 @@ pub struct MeshPipeline {
     /// are used and this will be `None`, otherwise uniform buffers will be used with batches
     /// of this many `MeshUniform`s, stored at dynamic offsets within the uniform buffer.
     /// Use code like this in custom shaders:
-    /// ```wgsl
-    /// ##ifdef PER_OBJECT_BUFFER_BATCH_SIZE
-    /// @group(1) @binding(0) var<uniform> mesh: array<Mesh, #{PER_OBJECT_BUFFER_BATCH_SIZE}u>;
-    /// ##else
+    /// ```wesl
+    /// @if(PER_OBJECT_BUFFER_BATCH_SIZE)
+    /// @group(1) @binding(0) var<uniform> mesh: array<Mesh, u32(constants::PER_OBJECT_BUFFER_BATCH_SIZE)>;
+    /// @else
     /// @group(1) @binding(0) var<storage> mesh: array<Mesh>;
-    /// ##endif // PER_OBJECT_BUFFER_BATCH_SIZE
     /// ```
     pub per_object_buffer_batch_size: Option<u32>,
 
@@ -2743,7 +2742,7 @@ fn init_mesh_pipeline(
     view_layouts: Res<MeshPipelineViewLayouts>,
     asset_server: Res<AssetServer>,
 ) {
-    let shader = load_embedded_asset!(asset_server.as_ref(), "mesh.wgsl");
+    let shader = load_embedded_asset!(asset_server.as_ref(), "mesh.wesl");
 
     let clustered_forward_buffer_binding_type =
         render_device.get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT);
@@ -2784,12 +2783,8 @@ pub fn build_dummy_white_gpu_image(
 ) -> GpuImage {
     let image = Image::default();
     let texture = render_device.create_texture(&image.texture_descriptor);
-    let sampler = match image.sampler {
-        ImageSampler::Default => (**default_sampler).clone(),
-        ImageSampler::Descriptor(ref descriptor) => {
-            render_device.create_sampler(&descriptor.as_wgpu())
-        }
-    };
+    // The default image always uses the default sampler.
+    let sampler = (**default_sampler).clone();
 
     if let Ok(format_size) = image.texture_descriptor.format.pixel_size() {
         render_queue.write_texture(
@@ -3690,7 +3685,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
         let format = key.target_format();
 
         // This is defined here so that custom shaders that use something other than
-        // the mesh binding from bevy_pbr::mesh_bindings can easily make use of this
+        // the mesh binding from bevy_pbr::render::mesh_bindings can easily make use of this
         // in their own shaders.
         if let Some(per_object_buffer_batch_size) = self.per_object_buffer_batch_size {
             shader_defs.push(ShaderDefVal::UInt(
@@ -3822,7 +3817,7 @@ pub enum MeshBindGroups {
     CpuPreprocessing(MeshPhaseBindGroups),
     /// A mapping from the type ID of a phase (e.g. [`Opaque3d`]) to the mesh
     /// bind groups for that phase.
-    GpuPreprocessing(TypeIdMap<MeshPhaseBindGroups>),
+    GpuPreprocessing(TypeIdHashMap<MeshPhaseBindGroups>),
 }
 
 impl MeshPhaseBindGroups {
@@ -4007,7 +4002,7 @@ pub fn prepare_mesh_bind_groups(
     if let Some(gpu_batched_instance_buffers) = gpu_batched_instance_buffers {
         // Reuse allocations
         let mut gpu_preprocessing_mesh_bind_groups = match mesh_bind_groups.as_deref_mut() {
-            None | Some(MeshBindGroups::CpuPreprocessing(_)) => TypeIdMap::default(),
+            None | Some(MeshBindGroups::CpuPreprocessing(_)) => TypeIdHashMap::default(),
             Some(MeshBindGroups::GpuPreprocessing(gpu_preprocessing_mesh_bind_groups)) => {
                 core::mem::take(gpu_preprocessing_mesh_bind_groups)
             }

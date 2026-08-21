@@ -156,6 +156,8 @@ pub struct TransformGizmoSettings {
     pub confine_cursor: bool,
     /// Screen-space scale factor. Set to 0.0 to disable constant-size behavior.
     pub screen_scale_factor: f32,
+    /// Controls how fast objects change scale when the scale handle is used.
+    pub scale_sensitivity: f32,
 }
 
 impl Default for TransformGizmoSettings {
@@ -171,6 +173,7 @@ impl Default for TransformGizmoSettings {
             snap_scale: None,
             confine_cursor: true,
             screen_scale_factor: 0.1,
+            scale_sensitivity: 1.0,
         }
     }
 }
@@ -385,7 +388,13 @@ fn transform_gizmo_hover(
                 VIEW_RING_MAJOR * scale,
             )
         }
-        TransformGizmoMode::Scale => f32::MAX, // no view handle for scale
+        TransformGizmoMode::Scale => {
+            if let Ok(center_screen) = camera.world_to_viewport(cam_tf, gizmo_pos) {
+                (cursor_pos - center_screen).length()
+            } else {
+                f32::MAX
+            }
+        }
     };
 
     if view_dist < threshold && view_dist < best_dist {
@@ -429,7 +438,7 @@ fn transform_gizmo_drag(
             };
 
             let drag_start_world = match settings.mode {
-                TransformGizmoMode::Translate => {
+                TransformGizmoMode::Translate | TransformGizmoMode::Scale => {
                     if axis == TransformGizmoAxis::View {
                         // View-plane translate: use camera forward as normal
                         let plane_normal = cam_tf.forward().as_vec3();
@@ -447,14 +456,6 @@ fn transform_gizmo_drag(
                         let cursor_vec = intersection - gizmo_pos;
                         cursor_vec.dot(axis_dir.normalize()) * axis_dir.normalize() + gizmo_pos
                     }
-                }
-                TransformGizmoMode::Scale => {
-                    let plane_normal = translation_plane_normal(ray, axis_dir);
-                    let Some(intersection) = intersect_plane(ray, plane_normal, gizmo_pos) else {
-                        return;
-                    };
-                    let cursor_vec = intersection - gizmo_pos;
-                    cursor_vec.dot(axis_dir.normalize()) * axis_dir.normalize() + gizmo_pos
                 }
                 TransformGizmoMode::Rotate => {
                     let rot_axis = if axis == TransformGizmoAxis::View {
@@ -567,18 +568,38 @@ fn transform_gizmo_drag(
                 transform.rotation = rotation_delta * state.start_transform.rotation;
             }
             TransformGizmoMode::Scale => {
-                let plane_normal = translation_plane_normal(ray, axis_dir);
+                let (plane_normal, projection_dir) = if axis == TransformGizmoAxis::View {
+                    let start_vec = state.drag_start_world - gizmo_origin;
+                    let len = start_vec.length();
+                    if len <= f32::EPSILON {
+                        return;
+                    }
+                    (cam_tf.forward().as_vec3(), start_vec / len)
+                } else {
+                    (
+                        translation_plane_normal(ray, axis_dir),
+                        axis_dir.normalize(),
+                    )
+                };
                 let Some(intersection) = intersect_plane(ray, plane_normal, gizmo_origin) else {
                     return;
                 };
-                let axis_norm = axis_dir.normalize();
-                let cursor_projected = (intersection - gizmo_origin).dot(axis_norm);
-                let start_projected = (state.drag_start_world - gizmo_origin).dot(axis_norm);
+                let cursor_projected = (intersection - gizmo_origin).dot(projection_dir);
+                let start_projected = (state.drag_start_world - gizmo_origin).dot(projection_dir);
 
-                let scale_factor = if start_projected.abs() > f32::EPSILON {
-                    cursor_projected / start_projected
-                } else {
-                    1.0
+                let scale_factor = match axis {
+                    TransformGizmoAxis::X | TransformGizmoAxis::Y | TransformGizmoAxis::Z => {
+                        if start_projected.abs() > f32::EPSILON {
+                            let ratio = cursor_projected / start_projected;
+                            1.0 + (ratio - 1.0) * settings.scale_sensitivity
+                        } else {
+                            1.0
+                        }
+                    }
+                    TransformGizmoAxis::View => {
+                        let delta = cursor_projected - start_projected;
+                        bevy_math::ops::exp(delta * settings.scale_sensitivity)
+                    }
                 };
 
                 let mut new_scale = state.start_transform.scale;

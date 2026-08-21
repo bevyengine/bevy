@@ -25,11 +25,11 @@ use bevy_ecs::{
     system::{Commands, Query, Res},
 };
 use bevy_ecs::{schedule::IntoScheduleConfigs, template::FromTemplate};
+use bevy_extract_macros::ExtractComponent;
 use bevy_image::{Image, TextureFormatPixelInfo};
 use bevy_log::{debug, warn};
 use bevy_platform::collections::HashMap;
 use bevy_reflect::Reflect;
-use bevy_render_macros::ExtractComponent;
 use encase::internal::ReadFrom;
 use encase::private::Reader;
 use encase::ShaderType;
@@ -394,6 +394,10 @@ pub(crate) fn submit_readback_commands(world: &World, command_encoder: &mut Comm
 }
 
 /// Move requested readbacks to mapped readbacks after commands have been submitted in render system
+#[expect(
+    clippy::drain_collect,
+    reason = "draining preserves the capacity of `requested`, which is refilled every frame"
+)]
 fn map_buffers(mut readbacks: ResMut<GpuReadbacks>) {
     let requested = readbacks.requested.drain(..).collect::<Vec<GpuReadback>>();
     for readback in requested {
@@ -404,7 +408,7 @@ fn map_buffers(mut readbacks: ResMut<GpuReadbacks>) {
         slice.map_async(wgpu::MapMode::Read, move |res| {
             res.expect("Failed to map buffer");
             let buffer_slice = buffer.slice(..);
-            let data = buffer_slice.get_mapped_range();
+            let data = buffer_slice.get_mapped_range().unwrap();
             let result = Vec::from(&*data);
             drop(data);
             buffer.unmap();
