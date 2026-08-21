@@ -133,8 +133,8 @@ impl<'w> BundleSpawner<'w> {
             // - `apply_effect` called if needed per precondition
             // - table_row was just allocated, bundle matches
             // No component existed beforehand, therefore no drop can have panicked
-            let _ = unsafe {
-                bundle_info.write_components(
+            unsafe {
+                let _ = bundle_info.write_components(
                     table,
                     sparse_sets,
                     &SpawnBundleStatus,
@@ -146,7 +146,7 @@ impl<'w> BundleSpawner<'w> {
                     InsertMode::Replace,
                     caller,
                 );
-            };
+            }
             // SAFETY: Entity was just spawned at this location
             unsafe {
                 entities.set_location(entity.index(), Some(location));
