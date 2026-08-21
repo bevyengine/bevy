@@ -164,7 +164,7 @@ pub fn check_views_need_specialization(
 
         if !camera.hdr
             && let Some(tonemapping) = tonemapping
-            && *tonemapping != Tonemapping::None
+            && tonemapping.is_enabled()
         {
             view_key |= Mesh2dPipelineKey::TONEMAP_IN_SHADER;
             view_key |= tonemapping_pipeline_key(*tonemapping);

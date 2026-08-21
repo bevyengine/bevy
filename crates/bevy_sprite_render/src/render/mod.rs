@@ -539,7 +539,7 @@ pub fn queue_sprites(
 
         if !camera.hdr
             && let Some(tonemapping) = tonemapping
-            && *tonemapping != Tonemapping::None
+            && tonemapping.is_enabled()
         {
             view_key |= SpritePipelineKey::TONEMAP_IN_SHADER;
             view_key |= match tonemapping {
