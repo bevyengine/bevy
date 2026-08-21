@@ -1,11 +1,11 @@
 //! Resolution of per-camera [`CompositingSpace`] requests.
 //!
-//! Cameras that render to the same target share one set of main textures, and
-//! that buffer holds one compositing space at a time when its cameras
-//! composite over each other. Each frame, views group by the key
-//! [`prepare_view_targets`](super::prepare_view_targets) dedups allocations
-//! on, and each compositing stack resolves to one space in
-//! [`ResolvedCompositingSpace`].
+//! Cameras with matching texture settings that render to the same target
+//! share one set of main textures. Cameras that composite over each other in
+//! the shared texture form a stack, and later passes need to know how the
+//! texture is encoded, so the whole stack has to agree on one compositing
+//! space. Each frame this module resolves a compositing space for every
+//! camera and stores the result in [`ResolvedCompositingSpace`].
 
 use bevy_camera::{Camera2d, CameraMainTextureUsages, ClearColorConfig, CompositingSpace};
 use bevy_ecs::{
@@ -22,14 +22,18 @@ use wgpu::TextureFormat;
 use super::{main_texture_key, ExtractedView, MainTextureKey, Msaa};
 use crate::camera::ExtractedCamera;
 
-/// A camera view's per-frame resolved compositing space. Never
-/// `Some(Linear)`, so equal behavior hashes to equal pipeline keys.
+/// A camera view's per-frame resolved compositing space.
 ///
-/// Read this instead of [`ExtractedCamera::compositing_space`], the raw
-/// request, which only feeds the extract-time main-texture format choice.
+/// `None` means the view composites in linear light. An explicit
+/// [`CompositingSpace::Linear`] request also resolves to `None`, so a request
+/// for linear and no request produce the same pipeline keys.
+///
+/// Read this instead of [`ExtractedCamera::compositing_space`], which holds
+/// the camera's raw request and feeds the extract-time choice of main-texture
+/// format.
 ///
 /// Spawning or despawning an overlay camera can flip the base view's space
-/// and respecialize its 2d pipelines for one frame.
+/// and trigger a one-frame respecialization of its 2d pipelines.
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ResolvedCompositingSpace(pub Option<CompositingSpace>);
 
@@ -40,15 +44,15 @@ impl ResolvedCompositingSpace {
     }
 }
 
-/// Where [`ResolvedCompositingSpace`] is written, inside
+/// The system set that writes [`ResolvedCompositingSpace`]. It runs in
 /// [`RenderSystems::CreateViews`](crate::RenderSystems::CreateViews) after
-/// `sort_cameras`. Order `CreateViews` consumers of the component after it.
+/// `sort_cameras`. Order `CreateViews` readers of the component after this
+/// set.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemSet)]
 pub struct ResolveCompositingSpaces;
 
 /// Whether a camera composites over the previous camera's output and covers
-/// the whole target: [`ClearColorConfig::None`] and no viewport. Decides
-/// stack membership; public so downstream resolvers share the definition.
+/// the whole render target. This decides membership in a compositing stack.
 pub fn composites_fullscreen(camera: &ExtractedCamera) -> bool {
     matches!(camera.clear_color, ClearColorConfig::None) && camera.viewport.is_none()
 }
@@ -58,52 +62,47 @@ struct SpaceInput {
     entity: Entity,
     /// The camera's position in its render target's sorted camera order.
     sorted_index: usize,
-    /// The camera's request. `resolve_spaces` normalizes `Some(Linear)` away.
     request: Option<CompositingSpace>,
     composites_fullscreen: bool,
     is_camera_2d: bool,
-    /// Whether the main-texture format stores signed floats
-    /// (`Rgba16Float`/`Rgba32Float`). The format is part of the texture key,
-    /// so the value is uniform within a group.
+    /// Whether the main-texture format stores signed floats. The format is
+    /// part of the texture key, so the value is uniform within a group.
     signed_float_storage: bool,
 }
 
-/// A misconfiguration found during space resolution.
-/// `resolve_composition_spaces` reports each variant as a `warn_once`.
+/// A misconfiguration found while resolving compositing spaces.
+/// `resolve_composition_spaces` reports each one as a warning.
 /// `resolve_spaces` returns them so tests can check the trigger conditions.
 #[derive(Debug, PartialEq, Eq)]
-enum SpaceDiagnostic {
+enum CompositingSpaceResolutionError {
     /// A compositing stack requests both `Srgb` and `Oklab`.
     ConflictingStackRequests {
         requests: Vec<(Entity, CompositingSpace)>,
     },
-    /// Views sharing a main texture without forming a stack mix
-    /// Linear-normalized requests, at least one of them `Srgb`/`Oklab`.
+    /// Views that share a main texture without forming a stack disagree on a
+    /// compositing space.
     MixedSharedTextureRequests {
         requests: Vec<(Entity, Option<CompositingSpace>)>,
     },
-    /// A non-`Camera2d` view, or a stack holding one, requests `Srgb`/`Oklab`.
+    /// A view that isn't a `Camera2d`, or a stack that holds one, requests
+    /// `Srgb` or `Oklab`.
     NonCamera2dRequest { non_camera_2d: Vec<Entity> },
     /// A resolved `Oklab` lands on a main texture without signed-float storage.
     OklabWithoutSignedFloatStorage { entities: Vec<Entity> },
 }
 
-/// A group of two or more views is a compositing stack when every member
-/// after the first composites fullscreen. Stacks resolve as one unit; other
-/// groups resolve per member after a mixed-request check.
+/// Resolves one compositing space per view. Views that composite over each
+/// other must agree on the shared texture's encoding, so a stack resolves as
+/// one unit. Members of other shared-texture groups resolve on their own.
 fn resolve_spaces(
     views: impl IntoIterator<Item = (MainTextureKey, SpaceInput)>,
 ) -> (
     EntityHashMap<Option<CompositingSpace>>,
-    Vec<SpaceDiagnostic>,
+    Vec<CompositingSpaceResolutionError>,
 ) {
     let mut groups: HashMap<MainTextureKey, Vec<SpaceInput>> = HashMap::default();
     for (texture, mut view) in views {
-        // Normalize `Some(Linear)` away so identical behavior can't fork
-        // pipeline-key caches.
-        view.request = view
-            .request
-            .filter(|&space| space != CompositingSpace::Linear);
+        view.request = view.request.filter(|space| !space.is_linear());
         groups.entry(texture).or_default().push(view);
     }
 
@@ -116,8 +115,8 @@ fn resolve_spaces(
             resolve_members(group, &mut resolved, &mut diagnostics);
         } else {
             warn_on_mixed_requests(group, &mut diagnostics);
-            // Non-stack members resolve like solo views: each keeps its own
-            // request and the overrides apply per view.
+            // Non-stack members resolve like solo views, each with its own
+            // request and its own overrides.
             for member in 0..group.len() {
                 resolve_members(&group[member..=member], &mut resolved, &mut diagnostics);
             }
@@ -126,9 +125,13 @@ fn resolve_spaces(
     (resolved, diagnostics)
 }
 
-/// Warns when a non-stack shared-texture group mixes requests, at least one
-/// of them `Srgb`/`Oklab`. Blending is per-pixel wrong where regions meet.
-fn warn_on_mixed_requests(members: &[SpaceInput], diagnostics: &mut Vec<SpaceDiagnostic>) {
+/// Warns when views that share a texture without forming a stack disagree on
+/// a compositing space. Blending between their pixels is wrong where their
+/// regions meet.
+fn warn_on_mixed_requests(
+    members: &[SpaceInput],
+    diagnostics: &mut Vec<CompositingSpaceResolutionError>,
+) {
     if members.len() < 2 {
         return;
     }
@@ -136,26 +139,29 @@ fn warn_on_mixed_requests(members: &[SpaceInput], diagnostics: &mut Vec<SpaceDia
     let mixed = members[1..].iter().any(|member| member.request != first);
     let any_space = members.iter().any(|member| member.request.is_some());
     if mixed && any_space {
-        diagnostics.push(SpaceDiagnostic::MixedSharedTextureRequests {
-            requests: members
-                .iter()
-                .map(|member| (member.entity, member.request))
-                .collect(),
-        });
+        diagnostics.push(
+            CompositingSpaceResolutionError::MixedSharedTextureRequests {
+                requests: members
+                    .iter()
+                    .map(|member| (member.entity, member.request))
+                    .collect(),
+            },
+        );
     }
 }
 
-/// Resolves one space for a compositing unit, a whole stack or a single view
-/// of a non-stack group: the single distinct `Srgb`/`Oklab` request among the
-/// members, or linear when there is none or the requests conflict.
+/// Resolves one space for a whole stack, or for a single view of a non-stack
+/// group. The single distinct request among the members wins. With no
+/// request, or with conflicting requests, the unit resolves to linear.
 ///
-/// Two overrides apply in order. A non-`Camera2d` member forces linear, since
-/// non-2d render paths do not writer-encode. Resolved `Oklab` degrades to
-/// linear when the main texture would clamp the signed a/b channels.
+/// Two overrides apply in order. A member that isn't a `Camera2d` forces
+/// linear because only 2d render paths encode their output. A resolved
+/// `Oklab` degrades to linear when the main texture would clamp its signed
+/// channels.
 fn resolve_members(
     members: &[SpaceInput],
     resolved: &mut EntityHashMap<Option<CompositingSpace>>,
-    diagnostics: &mut Vec<SpaceDiagnostic>,
+    diagnostics: &mut Vec<CompositingSpaceResolutionError>,
 ) {
     let mut has_srgb = false;
     let mut has_oklab = false;
@@ -171,7 +177,7 @@ fn resolve_members(
         (true, false) => Some(CompositingSpace::Srgb),
         (false, true) => Some(CompositingSpace::Oklab),
         (true, true) => {
-            diagnostics.push(SpaceDiagnostic::ConflictingStackRequests {
+            diagnostics.push(CompositingSpaceResolutionError::ConflictingStackRequests {
                 requests: members
                     .iter()
                     .filter_map(|member| member.request.map(|space| (member.entity, space)))
@@ -184,7 +190,7 @@ fn resolve_members(
     if has_non_camera_2d {
         // Warn only when a request exists to be overridden.
         if has_srgb || has_oklab {
-            diagnostics.push(SpaceDiagnostic::NonCamera2dRequest {
+            diagnostics.push(CompositingSpaceResolutionError::NonCamera2dRequest {
                 non_camera_2d: members
                     .iter()
                     .filter(|member| !member.is_camera_2d)
@@ -196,9 +202,11 @@ fn resolve_members(
     }
 
     if space == Some(CompositingSpace::Oklab) && !members[0].signed_float_storage {
-        diagnostics.push(SpaceDiagnostic::OklabWithoutSignedFloatStorage {
-            entities: members.iter().map(|member| member.entity).collect(),
-        });
+        diagnostics.push(
+            CompositingSpaceResolutionError::OklabWithoutSignedFloatStorage {
+                entities: members.iter().map(|member| member.entity).collect(),
+            },
+        );
         space = None;
     }
 
@@ -207,11 +215,12 @@ fn resolve_members(
     }
 }
 
-/// The ECS shell around [`resolve_spaces`].
+/// Writes each camera view's [`ResolvedCompositingSpace`]. Runs in
+/// [`ResolveCompositingSpaces`].
 ///
-/// `Has<Camera2d>` reads the marker `bevy_core_pipeline` extracts. Without
-/// that plugin every view counts as non-2d.
-pub(crate) fn resolve_composition_spaces(
+/// `Has<Camera2d>` reads the marker that `bevy_core_pipeline` extracts.
+/// Without that plugin every view counts as non-2d.
+pub fn resolve_composition_spaces(
     mut views: Query<(
         Entity,
         &ExtractedCamera,
@@ -222,13 +231,12 @@ pub(crate) fn resolve_composition_spaces(
         &mut ResolvedCompositingSpace,
     )>,
 ) {
-    // Without an `Srgb`/`Oklab` request anywhere, every view resolves to
+    // When every camera requests linear or nothing, all views resolve to
     // linear and no diagnostic can fire, so skip the grouping.
     let any_request = views.iter().any(|(_, camera, ..)| {
-        matches!(
-            camera.compositing_space,
-            Some(CompositingSpace::Srgb | CompositingSpace::Oklab)
-        )
+        camera
+            .compositing_space
+            .is_some_and(|space| !space.is_linear())
     });
     if !any_request {
         for (.., mut resolved) in views.iter_mut() {
@@ -260,34 +268,36 @@ pub(crate) fn resolve_composition_spaces(
         .collect();
 
     let (spaces, diagnostics) = resolve_spaces(inputs);
-    // Every queried view fed the resolver, so the lookup always hits.
+    // A view missing from the map falls back to linear, the resolver's own
+    // default, so no unwrap is needed.
     for (entity, .., mut resolved) in views.iter_mut() {
         *resolved = ResolvedCompositingSpace(spaces.get(&entity).copied().flatten());
     }
 
     for diagnostic in diagnostics {
         match diagnostic {
-            SpaceDiagnostic::ConflictingStackRequests { requests } => warn_once!(
+            CompositingSpaceResolutionError::ConflictingStackRequests { requests } => warn_once!(
                 "Cameras stacked on one shared main texture request conflicting compositing \
-                spaces: {requests:?}. The stack composites in linear instead; give every \
+                spaces: {requests:?}. The stack composites in linear instead. Give every \
                 camera in the stack the same CompositingSpace."
             ),
-            SpaceDiagnostic::MixedSharedTextureRequests { requests } => warn_once!(
+            CompositingSpaceResolutionError::MixedSharedTextureRequests { requests } => warn_once!(
                 "Cameras sharing a render target mix compositing-space requests: {requests:?}. \
-                Blending is per-pixel wrong wherever their regions meet; use one \
+                Blending between their pixels will be wrong where their regions meet. Use one \
                 CompositingSpace for every camera on a shared target."
             ),
-            SpaceDiagnostic::NonCamera2dRequest { non_camera_2d } => warn_once!(
-                "A CompositingSpace::Srgb/Oklab request resolves to linear because \
-                non-Camera2d views {non_camera_2d:?} render into the shared buffer and 3d/UI \
-                render paths do not encode into compositing spaces. Remove the \
-                CompositingSpace component or use a Camera2d."
+            CompositingSpaceResolutionError::NonCamera2dRequest { non_camera_2d } => warn_once!(
+                "A CompositingSpace request resolves to linear because the views \
+                {non_camera_2d:?} are not Camera2d views and their render paths do not encode \
+                into compositing spaces. Remove the CompositingSpace component or use a Camera2d."
             ),
-            SpaceDiagnostic::OklabWithoutSignedFloatStorage { entities } => warn_once!(
-                "CompositingSpace::Oklab on views {entities:?} resolves to linear because the \
-                main texture format cannot store the signed Oklab a/b channels. Add the Hdr \
-                component to the camera to get a signed-float main texture."
-            ),
+            CompositingSpaceResolutionError::OklabWithoutSignedFloatStorage { entities } => {
+                warn_once!(
+                    "CompositingSpace::Oklab on views {entities:?} resolves to linear because \
+                    the main texture format cannot store the signed Oklab channels. Add the Hdr \
+                    component to the camera to get a signed-float main texture."
+                );
+            }
         }
     }
 }
@@ -339,28 +349,40 @@ mod tests {
         *output.get(&entity(raw)).expect("view must be resolved")
     }
 
-    fn has_conflict(diagnostics: &[SpaceDiagnostic]) -> bool {
-        diagnostics
-            .iter()
-            .any(|d| matches!(d, SpaceDiagnostic::ConflictingStackRequests { .. }))
+    fn has_conflict(diagnostics: &[CompositingSpaceResolutionError]) -> bool {
+        diagnostics.iter().any(|d| {
+            matches!(
+                d,
+                CompositingSpaceResolutionError::ConflictingStackRequests { .. }
+            )
+        })
     }
 
-    fn has_mixed(diagnostics: &[SpaceDiagnostic]) -> bool {
-        diagnostics
-            .iter()
-            .any(|d| matches!(d, SpaceDiagnostic::MixedSharedTextureRequests { .. }))
+    fn has_mixed(diagnostics: &[CompositingSpaceResolutionError]) -> bool {
+        diagnostics.iter().any(|d| {
+            matches!(
+                d,
+                CompositingSpaceResolutionError::MixedSharedTextureRequests { .. }
+            )
+        })
     }
 
-    fn has_non_camera_2d(diagnostics: &[SpaceDiagnostic]) -> bool {
-        diagnostics
-            .iter()
-            .any(|d| matches!(d, SpaceDiagnostic::NonCamera2dRequest { .. }))
+    fn has_non_camera_2d(diagnostics: &[CompositingSpaceResolutionError]) -> bool {
+        diagnostics.iter().any(|d| {
+            matches!(
+                d,
+                CompositingSpaceResolutionError::NonCamera2dRequest { .. }
+            )
+        })
     }
 
-    fn has_oklab_storage(diagnostics: &[SpaceDiagnostic]) -> bool {
-        diagnostics
-            .iter()
-            .any(|d| matches!(d, SpaceDiagnostic::OklabWithoutSignedFloatStorage { .. }))
+    fn has_oklab_storage(diagnostics: &[CompositingSpaceResolutionError]) -> bool {
+        diagnostics.iter().any(|d| {
+            matches!(
+                d,
+                CompositingSpaceResolutionError::OklabWithoutSignedFloatStorage { .. }
+            )
+        })
     }
 
     #[test]
