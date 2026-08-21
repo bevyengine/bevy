@@ -129,6 +129,9 @@ impl ComponentInfo {
         if self.hooks().on_insert.is_some() {
             flags.insert(ArchetypeFlags::ON_INSERT_HOOK);
         }
+        if self.hooks().on_mutate.is_some() {
+            flags.insert(ArchetypeFlags::ON_MUTATE_HOOK);
+        }
         if self.hooks().on_discard.is_some() {
             flags.insert(ArchetypeFlags::ON_DISCARD_HOOK);
         }
