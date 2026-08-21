@@ -5,7 +5,7 @@ use bevy_asset::{embedded_asset, load_embedded_asset, AssetId, AssetServer, Hand
 use bevy_camera::{visibility::ViewVisibility, Camera2d, CompositingSpace};
 use bevy_platform::collections::HashMap;
 use bevy_render::{
-    camera::{DirtySpecializations, ExtractedCamera},
+    camera::{DirtySpecializations, DirtyWireframeSpecializations, ExtractedCamera},
     material_bind_groups::{
         MaterialBindGroupIndex, MaterialBindGroupSlot, MaterialBindingId, RenderMaterialBindings,
     },
@@ -136,6 +136,7 @@ pub struct ViewKeyCache(MainEntityHashMap<Mesh2dPipelineKey>);
 pub fn check_views_need_specialization(
     mut view_key_cache: ResMut<ViewKeyCache>,
     mut dirty_specializations: ResMut<DirtySpecializations>,
+    mut dirty_wireframe_specializations: ResMut<DirtyWireframeSpecializations>,
     cameras: Query<(
         &MainEntity,
         &ExtractedView,
@@ -178,6 +179,9 @@ pub fn check_views_need_specialization(
         {
             view_key_cache.insert(*view_entity, view_key);
             dirty_specializations
+                .views
+                .insert(view.retained_view_entity);
+            dirty_wireframe_specializations
                 .views
                 .insert(view.retained_view_entity);
         }
