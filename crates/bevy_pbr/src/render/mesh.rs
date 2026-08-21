@@ -476,11 +476,12 @@ pub fn check_views_need_specialization(
             }
         }
 
-        if !camera.is_some_and(|camera| camera.hdr) {
-            if let Some(tonemapping) = tonemapping {
-                view_key |= MeshPipelineKey::TONEMAP_IN_SHADER;
-                view_key |= tonemapping_pipeline_key(*tonemapping);
-            }
+        if !camera.is_some_and(|camera| camera.hdr)
+            && let Some(tonemapping) = tonemapping
+            && *tonemapping != Tonemapping::None
+        {
+            view_key |= MeshPipelineKey::TONEMAP_IN_SHADER;
+            view_key |= tonemapping_pipeline_key(*tonemapping);
             if let Some(DebandDither::Enabled) = dither {
                 view_key |= MeshPipelineKey::DEBAND_DITHER;
             }

@@ -162,11 +162,12 @@ pub fn check_views_need_specialization(
             view_key |= Mesh2dPipelineKey::OKLAB_COMPOSITING;
         }
 
-        if !camera.hdr {
-            if let Some(tonemapping) = tonemapping {
-                view_key |= Mesh2dPipelineKey::TONEMAP_IN_SHADER;
-                view_key |= tonemapping_pipeline_key(*tonemapping);
-            }
+        if !camera.hdr
+            && let Some(tonemapping) = tonemapping
+            && *tonemapping != Tonemapping::None
+        {
+            view_key |= Mesh2dPipelineKey::TONEMAP_IN_SHADER;
+            view_key |= tonemapping_pipeline_key(*tonemapping);
             if let Some(DebandDither::Enabled) = dither {
                 view_key |= Mesh2dPipelineKey::DEBAND_DITHER;
             }

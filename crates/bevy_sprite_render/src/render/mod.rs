@@ -537,25 +537,26 @@ pub fn queue_sprites(
             view_key |= SpritePipelineKey::OKLAB_COMPOSITING;
         }
 
-        if !camera.hdr {
-            if let Some(tonemapping) = tonemapping {
-                view_key |= SpritePipelineKey::TONEMAP_IN_SHADER;
-                view_key |= match tonemapping {
-                    Tonemapping::None => SpritePipelineKey::TONEMAP_METHOD_NONE,
-                    Tonemapping::Reinhard => SpritePipelineKey::TONEMAP_METHOD_REINHARD,
-                    Tonemapping::ReinhardLuminance => {
-                        SpritePipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE
-                    }
-                    Tonemapping::AcesFitted => SpritePipelineKey::TONEMAP_METHOD_ACES_FITTED,
-                    Tonemapping::AgX => SpritePipelineKey::TONEMAP_METHOD_AGX,
-                    Tonemapping::SomewhatBoringDisplayTransform => {
-                        SpritePipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
-                    }
-                    Tonemapping::TonyMcMapface => SpritePipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE,
-                    Tonemapping::BlenderFilmic => SpritePipelineKey::TONEMAP_METHOD_BLENDER_FILMIC,
-                    Tonemapping::KhronosPbrNeutral => SpritePipelineKey::TONEMAP_METHOD_PBR_NEUTRAL,
-                };
-            }
+        if !camera.hdr
+            && let Some(tonemapping) = tonemapping
+            && *tonemapping != Tonemapping::None
+        {
+            view_key |= SpritePipelineKey::TONEMAP_IN_SHADER;
+            view_key |= match tonemapping {
+                Tonemapping::None | Tonemapping::Linear => SpritePipelineKey::TONEMAP_METHOD_NONE,
+                Tonemapping::Reinhard => SpritePipelineKey::TONEMAP_METHOD_REINHARD,
+                Tonemapping::ReinhardLuminance => {
+                    SpritePipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE
+                }
+                Tonemapping::AcesFitted => SpritePipelineKey::TONEMAP_METHOD_ACES_FITTED,
+                Tonemapping::AgX => SpritePipelineKey::TONEMAP_METHOD_AGX,
+                Tonemapping::SomewhatBoringDisplayTransform => {
+                    SpritePipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
+                }
+                Tonemapping::TonyMcMapface => SpritePipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE,
+                Tonemapping::BlenderFilmic => SpritePipelineKey::TONEMAP_METHOD_BLENDER_FILMIC,
+                Tonemapping::KhronosPbrNeutral => SpritePipelineKey::TONEMAP_METHOD_PBR_NEUTRAL,
+            };
             if let Some(DebandDither::Enabled) = dither {
                 view_key |= SpritePipelineKey::DEBAND_DITHER;
             }
