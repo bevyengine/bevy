@@ -11,10 +11,14 @@ use serde::{Deserialize, Serialize};
 /// refer to. The white point is the color that equal amounts of all three produce.
 /// Together they set the image's gamut, the range of colors it can express. Two images
 /// with identical pixel values but different primaries show different colors.
-/// [`RgbPrimaries`] documents the chromaticity coordinates behind each named set here.
 ///
 /// This is metadata only. It records the gamut the pixel values were authored in.
 /// Setting it does not convert the pixel data.
+///
+/// The set is closed and named so the renderer can hash, compare, and match it, for
+/// example in pipeline keys, and so loader settings can name it in `.meta` files.
+/// [`RgbPrimaries`] carries the chromaticity data behind each variant; convert with
+/// [`to_rgb_primaries`](Self::to_rgb_primaries).
 ///
 /// Loaders resolve the stamped value in this order:
 /// 1. An explicit `source_color_primaries` loader setting, for example on
@@ -49,10 +53,17 @@ impl SourceColorPrimaries {
 
     /// The per-coordinate tolerance used by [`SourceColorPrimaries::from_chromaticities`].
     ///
-    /// A file matches a primary set when every coordinate is within this distance of the
-    /// set's value. Files write primaries with three or four decimal places, so `2e-3`
-    /// absorbs that rounding. The supported sets all differ by at least `0.09` in some
-    /// coordinate, so a file can never match two sets.
+    /// Files describe primaries as eight decimals, two per color. A Radiance header can
+    /// read `PRIMARIES= 0.640 0.330 0.300 0.600 0.150 0.060 0.3127 0.3290`, and EXR
+    /// stores the same eight numbers in its `chromaticities` attribute. Each supported
+    /// set is defined by its own well-known eight numbers, so matching a file means
+    /// comparing its numbers against each set's.
+    ///
+    /// Writers round differently. The standard white point is `0.3127`, but many files
+    /// carry `0.313`, so exact equality fails on files that clearly mean a supported
+    /// set. A tolerance of `2e-3` per coordinate absorbs that rounding. It cannot match
+    /// the wrong set, because any two supported sets differ by at least `0.09` in some
+    /// coordinate, 45 times the tolerance.
     const CHROMATICITY_MATCH_TOLERANCE: f32 = 2e-3;
 
     /// Resolves the primaries to stamp on an [`Image`](crate::Image).
