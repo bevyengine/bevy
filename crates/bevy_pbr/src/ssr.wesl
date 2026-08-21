@@ -1,7 +1,7 @@
 // A postprocessing pass that performs screen-space reflections.
 
 import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput;
-import bevy_pbr::{
+import package::{
     render::{
         clustered_forward,
         pbr_lighting as lighting,
@@ -42,7 +42,7 @@ import bevy_render::{
     maths::orthonormalize,
 };
 
-@if(ENVIRONMENT_MAP) import bevy_pbr::light_probe::environment_map;
+@if(ENVIRONMENT_MAP) import package::light_probe::environment_map;
 
 // The texture representing the color framebuffer.
 @group(2) @binding(0) var color_texture: texture_2d<f32>;

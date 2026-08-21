@@ -279,6 +279,7 @@ impl ColorInputState {
                     self.hsl.into()
                 }
             },
+            _ => unreachable!("Unsupported color plane type"),
         }
     }
 
@@ -1269,6 +1270,7 @@ fn display_scale(channel: ColorChannel) -> f32 {
         ColorChannel::Red | ColorChannel::Green | ColorChannel::Blue | ColorChannel::Alpha => 255.0,
         ColorChannel::HslSaturation | ColorChannel::HslLightness => 100.0,
         ColorChannel::HslHue => 1.0,
+        _ => unreachable!("Unsupported color plane type"),
     }
 }
 
