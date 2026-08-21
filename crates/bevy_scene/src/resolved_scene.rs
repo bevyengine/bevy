@@ -556,7 +556,7 @@ impl ResolvedScene {
             .map(|related| related.scenes.as_slice())
     }
 
-    /// Returns an iterator over every relationship in this scene, keyed by the [`Relationship`]'s [`TypeId`].
+    /// Returns an iterator over the [`ResolvedScene`]'s relationships, keyed by the [`Relationship`]'s [`TypeId`].
     pub fn related_scenes(&self) -> impl Iterator<Item = (TypeId, &RelatedResolvedScenes)> {
         self.related
             .iter()
