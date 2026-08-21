@@ -1,5 +1,9 @@
+mod column;
+
+pub use column::Column;
+
 use crate::{
-    change_detection::{CheckChangeTicks, ComponentTicks, MaybeLocation, Tick},
+    change_detection::{AtomicTick, CheckChangeTicks, ComponentTicks, MaybeLocation, Tick},
     component::{ComponentId, ComponentInfo, Components},
     entity::Entity,
     query::DebugCheckedUnwrap,
@@ -7,8 +11,7 @@ use crate::{
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 use bevy_platform::collections::HashMap;
-use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
-pub use column::*;
+use bevy_ptr::{OwningPtr, Ptr};
 use core::{
     any::Any,
     cell::UnsafeCell,
@@ -18,7 +21,6 @@ use core::{
     panic::Location,
 };
 use nonmax::NonMaxU32;
-mod column;
 
 /// An opaque unique ID for a [`Table`] within a [`World`].
 ///
@@ -340,7 +342,7 @@ impl Table {
 
         // SAFETY: `row.index()` < `len`
         self.get_column(component_id)
-            .map(|col| unsafe { col.changed_ticks.get_unchecked(row.index()) })
+            .map(|col| unsafe { col.get_changed_tick_unchecked(row) })
     }
 
     /// Get the specific [`added tick`](Tick) of the component matching `component_id` in `row`.
@@ -355,7 +357,7 @@ impl Table {
 
         // SAFETY: `row.index()` < `len`
         self.get_column(component_id)
-            .map(|col| unsafe { col.added_ticks.get_unchecked(row.index()) })
+            .map(|col| unsafe { col.get_added_tick_unchecked(row) })
     }
 
     /// Get the specific calling location that changed the component matching `component_id` in `row`
@@ -369,12 +371,9 @@ impl Table {
                 return None;
             }
 
-            self.get_column(component_id).map(|col| {
-                // SAFETY: `row.index()` < `len`
-                col.changed_by
-                    .as_ref()
-                    .map(|changed_by| unsafe { changed_by.get_unchecked(row.index()) })
-            })
+            // SAFETY: `row.index()` < `len`
+            self.get_column(component_id)
+                .map(|col| unsafe { col.get_changed_by_unchecked(row) })
         })
     }
 
@@ -387,10 +386,8 @@ impl Table {
         component_id: ComponentId,
         row: TableRow,
     ) -> Option<ComponentTicks> {
-        self.get_column(component_id).map(|col| ComponentTicks {
-            added: col.added_ticks.get_unchecked(row.index()).read(),
-            changed: col.changed_ticks.get_unchecked(row.index()).read(),
-        })
+        self.get_column(component_id)
+            .map(|col| col.get_ticks_unchecked(row))
     }
 
     /// Fetches a read-only reference to the [`Column`] for a given [`Component`] within the table.
@@ -515,25 +512,10 @@ impl Table {
     /// The allocated row must be written to immediately with valid values in each column
     pub(crate) unsafe fn allocate(&mut self, entity: Entity) -> TableRow {
         self.reserve(1);
-        let len = self.entity_count();
         // SAFETY: No entity index may be in more than one table row at once, so there are no duplicates,
         // and there can not be an entity index of u32::MAX. Therefore, this can not be max either.
-        let row = unsafe { TableRow::new(NonMaxU32::new_unchecked(len)) };
-        let len = len as usize;
+        let row = unsafe { TableRow::new(NonMaxU32::new_unchecked(self.entity_count())) };
         self.entities.push(entity);
-        for col in self.columns.values_mut() {
-            col.added_ticks
-                .initialize_unchecked(len, UnsafeCell::new(Tick::new(0)));
-            col.changed_ticks
-                .initialize_unchecked(len, UnsafeCell::new(Tick::new(0)));
-            col.changed_by
-                .as_mut()
-                .zip(MaybeLocation::caller())
-                .map(|(changed_by, caller)| {
-                    changed_by.initialize_unchecked(len, UnsafeCell::new(caller));
-                });
-        }
-
         row
     }
 
@@ -548,7 +530,7 @@ impl Table {
     /// Get the drop function for some component that is stored in this table.
     #[inline]
     pub fn get_drop_for(&self, component_id: ComponentId) -> Option<unsafe fn(OwningPtr<'_>)> {
-        self.get_column(component_id)?.data.drop
+        self.get_column(component_id)?.get_drop()
     }
 
     /// Gets the number of components being stored in the table.
@@ -618,8 +600,8 @@ impl Table {
     ) -> OwningPtr<'_> {
         self.get_column_mut(component_id)
             .debug_checked_unwrap()
-            .data
-            .get_unchecked_mut(row.index())
+            .get_data_unchecked(row)
+            .assert_unique()
             .promote()
     }
 
@@ -633,7 +615,15 @@ impl Table {
         row: TableRow,
     ) -> Option<Ptr<'_>> {
         self.get_column(component_id)
-            .map(|col| col.data.get_unchecked(row.index()))
+            .map(|col| col.get_data_unchecked(row))
+    }
+
+    /// Returns a reference to this table's summary tick for the given
+    /// component, if the component is dense and the component tracks summary
+    /// ticks.
+    pub fn get_summary_tick(&self, component_id: ComponentId) -> Option<&AtomicTick> {
+        self.get_column(component_id)
+            .and_then(Column::get_summary_tick)
     }
 }
 
@@ -762,6 +752,8 @@ impl Tables {
     /// If `DROP` is `false`, removed components will be forgotten,
     /// allowing ownership to be relinquished to the caller.
     ///
+    /// `change_tick` must be the change tick of the current system.
+    ///
     /// # Safety
     /// - `old_table_id` and `new_table_id` must not be equal.
     /// - `old_table_id` and `new_table_id` must be valid indices for this [`Tables`].
@@ -778,6 +770,7 @@ impl Tables {
         old_table_id: TableId,
         new_table_id: TableId,
         row: TableRow,
+        change_tick: Tick,
     ) -> TableMoveResult<'_> {
         #[cfg(debug_assertions)]
         debug_assert!(old_table_id != new_table_id);
@@ -821,7 +814,13 @@ impl Tables {
                 //   or by a previous caller.
                 // - `dst_row` was just allocated and has not been written to.
                 unsafe {
-                    dst_column.initialize_from_unchecked(src_column, last_index, row, dst_row);
+                    dst_column.initialize_from_unchecked(
+                        src_column,
+                        last_index,
+                        row,
+                        dst_row,
+                        change_tick,
+                    );
                 }
             } else {
                 let maybe_panic = bevy_utils::catch_unwind_if_available(AssertUnwindSafe(||

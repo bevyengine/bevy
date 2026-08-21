@@ -20,6 +20,9 @@
 //! - [`Oklaba`] (lightness, a-axis, b-axis, alpha)
 //! - [`Oklcha`] (lightness, chroma, hue, alpha)
 //! - [`Xyza`] (x-axis, y-axis, z-axis, alpha)
+//! - [`Okhsla`] (hue, saturation, lightness, alpha)
+//! - [`Okhsva`] (hue, saturation, value, alpha)
+//! - [`Okhwba`] (hue, whiteness, blackness, alpha)
 //!
 //! Each of these color spaces is represented as a distinct Rust type.
 //!
@@ -109,9 +112,14 @@ mod interpolate;
 mod laba;
 mod lcha;
 mod linear_rgba;
+mod okcolor_convert;
+mod okhsla;
+mod okhsva;
+mod okhwba;
 mod oklaba;
 mod oklcha;
 pub mod palettes;
+mod primaries;
 mod srgba;
 #[cfg(test)]
 mod test_colors;
@@ -125,7 +133,7 @@ mod xyza;
 pub mod prelude {
     pub use crate::{
         color::*, color_ops::*, hsla::*, hsva::*, hwba::*, laba::*, lcha::*, linear_rgba::*,
-        oklaba::*, oklcha::*, srgba::*, xyza::*,
+        okhsla::*, okhsva::*, okhwba::*, oklaba::*, oklcha::*, srgba::*, xyza::*,
     };
 }
 
@@ -140,8 +148,12 @@ pub use hwba::*;
 pub use laba::*;
 pub use lcha::*;
 pub use linear_rgba::*;
+pub use okhsla::*;
+pub use okhsva::*;
+pub use okhwba::*;
 pub use oklaba::*;
 pub use oklcha::*;
+pub use primaries::*;
 pub use srgba::*;
 pub use xyza::*;
 
@@ -171,6 +183,9 @@ where
     Self: From<Oklaba> + Into<Oklaba>,
     Self: From<Oklcha> + Into<Oklcha>,
     Self: From<Xyza> + Into<Xyza>,
+    Self: From<Okhsla> + Into<Okhsla>,
+    Self: From<Okhsva> + Into<Okhsva>,
+    Self: From<Okhwba> + Into<Okhwba>,
     Self: Alpha,
 {
 }

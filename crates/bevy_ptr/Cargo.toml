@@ -1,6 +1,6 @@
 [package]
 name = "bevy_ptr"
-version = "0.19.0-dev"
+version = "0.20.0-dev"
 edition = "2024"
 description = "Utilities for working with untyped pointers in a more safe way"
 homepage = "https://bevy.org"
@@ -10,6 +10,7 @@ keywords = ["bevy", "no_std"]
 rust-version = "1.85.0"
 
 [dependencies]
+bevy_utils = { path = "../bevy_utils", version = "0.20.0-dev", default-features = false }
 
 [lints]
 workspace = true

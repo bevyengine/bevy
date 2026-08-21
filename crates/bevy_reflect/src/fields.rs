@@ -1,6 +1,6 @@
 use crate::{
     attributes::{impl_custom_attribute_methods, CustomAttributes},
-    type_info::impl_type_methods,
+    ty::impl_type_methods,
     MaybeTyped, PartialReflect, Type, TypeInfo, TypePath,
 };
 use alloc::borrow::Cow;

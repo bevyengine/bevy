@@ -18,18 +18,21 @@ use bevy_image::Image;
 use bevy_light::{AtmosphereEnvironmentMapLight, GeneratedEnvironmentMapLight};
 use bevy_math::{Quat, UVec2};
 use bevy_render::{
+    diagnostic::RecordDiagnostics,
     extract_component::{ComponentUniforms, DynamicUniformIndex, ExtractComponent},
     render_asset::RenderAssets,
     render_resource::{binding_types::*, *},
     renderer::{RenderContext, RenderDevice, ViewQuery},
     texture::{CachedTexture, GpuImage},
     view::{ViewUniform, ViewUniformOffset, ViewUniforms},
+    RenderApp,
 };
 use bevy_utils::default;
 use tracing::warn;
 
 // Render world representation of an environment map light for the atmosphere
 #[derive(Component, ExtractComponent, Clone, FromTemplate)]
+#[extract_app(RenderApp)]
 pub struct AtmosphereEnvironmentMap {
     pub environment_map: Handle<Image>,
     pub size: UVec2,
@@ -174,7 +177,7 @@ pub fn init_atmosphere_probe_pipeline(
     let environment = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
         label: Some("environment_pipeline".into()),
         layout: vec![layouts.environment.clone()],
-        shader: load_embedded_asset!(asset_server.as_ref(), "environment.wgsl"),
+        shader: load_embedded_asset!(asset_server.as_ref(), "environment.wesl"),
         ..default()
     });
     commands.insert_resource(AtmosphereProbePipeline { environment });
@@ -268,6 +271,10 @@ pub fn atmosphere_environment(
         lights_uniforms_offset,
     ) = view.into_inner();
 
+    let diagnostics = ctx.diagnostic_recorder();
+    let diagnostics = diagnostics.as_deref();
+    let time_span = diagnostics.time_span(ctx.command_encoder(), "atmosphere_environment");
+
     for (bind_groups, env_map_light) in probe_query.iter() {
         let command_encoder = ctx.command_encoder();
         let mut pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
@@ -294,4 +301,6 @@ pub fn atmosphere_environment(
             6, // 6 cubemap faces
         );
     }
+
+    time_span.end(ctx.command_encoder());
 }

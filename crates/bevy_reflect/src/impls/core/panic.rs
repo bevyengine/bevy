@@ -1,9 +1,9 @@
 use crate::{
     error::ReflectCloneError,
+    info::{OpaqueInfo, TypeInfo, Typed},
     kind::{ReflectKind, ReflectMut, ReflectOwned, ReflectRef},
     prelude::*,
     reflect::ApplyError,
-    type_info::{OpaqueInfo, TypeInfo, Typed},
     type_path::DynamicTypePath,
     type_registry::{GetTypeRegistration, ReflectFromPtr, TypeRegistration},
     utility::{reflect_hasher, NonGenericTypeInfoCell},

@@ -24,7 +24,7 @@ use bevy::{
             Buffer, BufferDescriptor, BufferUsages, CommandEncoderDescriptor, Extent3d, MapMode,
             PollType, TexelCopyBufferInfo, TexelCopyBufferLayout, TextureFormat, TextureUsages,
         },
-        renderer::{RenderContext, RenderDevice, RenderGraph, RenderQueue},
+        renderer::{RenderContext, RenderDevice, RenderGraph, RenderGraphSystems, RenderQueue},
         Extract, Render, RenderApp, RenderSystems,
     },
     window::ExitCondition,
@@ -219,7 +219,10 @@ impl Plugin for ImageCopyPlugin {
                 Render,
                 receive_image_from_buffer.after(RenderSystems::Render),
             )
-            .add_systems(RenderGraph, image_copy_driver);
+            .add_systems(
+                RenderGraph,
+                image_copy_driver.after(RenderGraphSystems::Submit),
+            );
     }
 }
 
@@ -433,7 +436,7 @@ fn receive_image_from_buffer(
         r.recv().expect("Failed to receive the map_async message");
 
         // This could fail on app exit, if Main world clears resources (including receiver) while Render world still renders
-        let _ = sender.send(buffer_slice.get_mapped_range().to_vec());
+        let _ = sender.send(buffer_slice.get_mapped_range().unwrap().to_vec());
 
         // We need to make sure all `BufferView`'s are dropped before we do what we're about
         // to do.

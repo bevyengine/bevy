@@ -1,10 +1,9 @@
-use crate::{CachedSceneError, ResolvedScene, SceneList, ScenePatch};
+use crate::{CachedSceneError, ErasedComponentTemplate, ResolvedScene, SceneList, ScenePatch};
 use bevy_asset::{Asset, AssetPath, AssetServer, Assets};
 use bevy_ecs::{
-    bundle::Bundle,
     component::Component,
     error::Result,
-    event::EntityEvent,
+    event::{EntityEvent, EventPattern},
     name::Name,
     relationship::Relationship,
     system::IntoObserverSystem,
@@ -211,9 +210,9 @@ macro_rules! scene_impl {
 
 all_tuples!(scene_impl, 0, 12, P);
 
-impl<P> Scene for Option<P>
+impl<S> Scene for Option<S>
 where
-    P: Scene,
+    S: Scene,
 {
     #[inline]
     fn resolve(
@@ -221,8 +220,37 @@ where
         context: &mut ResolveContext,
         scene: &mut ResolvedScene,
     ) -> Result<(), ResolveSceneError> {
-        self.map(|optional_scene| optional_scene.resolve(context, scene))
+        self.map(|value| value.resolve(context, scene))
             .unwrap_or(Ok(()))
+    }
+
+    #[inline]
+    fn register_dependencies(&self, dependencies: &mut SceneDependencies) {
+        if let Some(value) = &self {
+            value.register_dependencies(dependencies);
+        }
+    }
+}
+
+impl<L: SceneList> SceneList for Option<L>
+where
+    L: SceneList,
+{
+    #[inline]
+    fn resolve_list(
+        self,
+        context: &mut ResolveContext,
+        scenes: &mut Vec<ResolvedScene>,
+    ) -> Result<(), ResolveSceneError> {
+        self.map(|scene_list| scene_list.resolve_list(context, scenes))
+            .unwrap_or(Ok(()))
+    }
+
+    #[inline]
+    fn register_dependencies(&self, dependencies: &mut SceneDependencies) {
+        if let Some(scene_list) = &self {
+            scene_list.register_dependencies(dependencies);
+        }
     }
 }
 
@@ -256,15 +284,13 @@ pub struct TemplatePatch<F: FnOnce(&mut T, &mut ResolveContext), T>(pub F, pub P
 
 /// Returns a [`Scene`] that completely overwrites the current value of a [`Template`] `T` with the given `value`.
 /// The `value` is cloned each time the [`Template`] is built.
-pub fn template_value<T: Template>(
+pub fn template_value<T: Template<Output: Component> + Send + Sync + 'static>(
     value: T,
-) -> TemplatePatch<impl FnOnce(&mut T, &mut ResolveContext), T> {
-    TemplatePatch(
-        move |input: &mut T, _context: &mut ResolveContext| {
-            *input = value;
-        },
-        PhantomData,
-    )
+) -> InsertTemplate {
+    InsertTemplate {
+        type_id: TypeId::of::<T>(),
+        template: Box::new(value),
+    }
 }
 
 /// A helper function that returns a [`TemplatePatch`] [`Scene`] for something that implements [`FromTemplate`].
@@ -315,6 +341,24 @@ impl<
     ) -> Result<(), ResolveSceneError> {
         let template = scene.get_or_insert_template::<T>(context);
         (self.0)(template, context);
+        Ok(())
+    }
+}
+
+/// A [`Scene`] that replaces the given template with the given value
+pub struct InsertTemplate {
+    /// The type id of the [`Template`] in `template`.
+    pub type_id: TypeId,
+    /// The template to insert.
+    pub template: Box<dyn ErasedComponentTemplate>,
+}
+impl Scene for InsertTemplate {
+    fn resolve(
+        self,
+        _context: &mut ResolveContext,
+        scene: &mut ResolvedScene,
+    ) -> Result<(), ResolveSceneError> {
+        scene.insert_erased_template(self.type_id, self.template);
         Ok(())
     }
 }
@@ -485,10 +529,13 @@ impl<L: SceneList> SceneList for SceneListScope<L> {
 /// This is typically initialized using the [`on()`] function, which returns an [`OnTemplate`].
 ///
 /// [`Observer`]: bevy_ecs::observer::Observer
-pub struct OnTemplate<I, E, B, M>(pub I, pub PhantomData<fn() -> (E, B, M)>);
+pub struct OnTemplate<I, E, M>(pub I, pub PhantomData<fn() -> (E, M)>);
 
-impl<I: IntoObserverSystem<E, B, M> + Clone, E: EntityEvent, B: Bundle, M: 'static> Template
-    for OnTemplate<I, E, B, M>
+impl<I, E, M> Template for OnTemplate<I, E, M>
+where
+    I: IntoObserverSystem<E, M> + Clone,
+    E: EventPattern<Event: EntityEvent>,
+    M: 'static,
 {
     type Output = ();
 
@@ -502,12 +549,11 @@ impl<I: IntoObserverSystem<E, B, M> + Clone, E: EntityEvent, B: Bundle, M: 'stat
     }
 }
 
-impl<
-        I: IntoObserverSystem<E, B, M> + Clone + Send + Sync,
-        E: EntityEvent,
-        B: Bundle,
-        M: 'static,
-    > Scene for OnTemplate<I, E, B, M>
+impl<I, E, M> Scene for OnTemplate<I, E, M>
+where
+    I: IntoObserverSystem<E, M> + Clone + Send + Sync,
+    E: EventPattern<Event: EntityEvent>,
+    M: 'static,
 {
     fn resolve(
         self,
@@ -522,15 +568,24 @@ impl<
 /// Returns an [`OnTemplate`] that will create an [`Observer`] of a given [`EntityEvent`] on the current [`Scene`] entity.
 ///
 /// [`Observer`]: bevy_ecs::observer::Observer
-pub fn on<I: IntoObserverSystem<E, B, M>, E: EntityEvent, B: Bundle, M: 'static>(
-    observer: I,
-) -> OnTemplate<I, E, B, M> {
+pub fn on<I, E, M>(observer: I) -> OnTemplate<I, E, M>
+where
+    I: IntoObserverSystem<E, M>,
+    E: EventPattern<Event: EntityEvent>,
+    M: 'static,
+{
     OnTemplate(observer, PhantomData)
 }
 
 impl<S: Scene> From<SceneScope<S>> for Box<dyn Scene> {
     fn from(value: SceneScope<S>) -> Self {
         Box::new(value)
+    }
+}
+
+impl<S: Scene> From<SceneScope<S>> for Option<Box<dyn Scene>> {
+    fn from(value: SceneScope<S>) -> Self {
+        Some(Box::new(value))
     }
 }
 
@@ -543,6 +598,18 @@ impl<S: SceneList> From<SceneListScope<S>> for Box<dyn SceneList> {
 impl<S: Scene> From<SceneScope<S>> for Box<dyn SceneList> {
     fn from(value: SceneScope<S>) -> Self {
         Box::new(value)
+    }
+}
+
+impl<S: Scene> From<SceneScope<S>> for Option<Box<dyn SceneList>> {
+    fn from(value: SceneScope<S>) -> Self {
+        Some(Box::new(value))
+    }
+}
+
+impl<S: SceneList> From<SceneListScope<S>> for Option<Box<dyn SceneList>> {
+    fn from(value: SceneListScope<S>) -> Self {
+        Some(Box::new(value))
     }
 }
 

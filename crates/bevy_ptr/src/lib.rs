@@ -12,7 +12,7 @@ use core::{
     fmt::{self, Debug, Formatter, Pointer},
     marker::PhantomData,
     mem::{self, ManuallyDrop, MaybeUninit},
-    ops::{Deref, DerefMut},
+    ops::{Deref, DerefMut, Range},
     ptr::{self, NonNull},
 };
 
@@ -221,7 +221,7 @@ impl<T: ?Sized> ConstNonNull<T> {
     ///
     /// * The pointer must be [properly aligned].
     ///
-    /// * It must be "dereferenceable" in the sense defined in [the module documentation].
+    /// * It must be "dereferenceable" in the sense defined in [the `core::ptr` documentation].
     ///
     /// * The pointer must point to an initialized instance of `T`.
     ///
@@ -246,7 +246,7 @@ impl<T: ?Sized> ConstNonNull<T> {
     /// println!("{ref_x}");
     /// ```
     ///
-    /// [the module documentation]: core::ptr#safety
+    /// [the `core::ptr` documentation]: core::ptr#safety
     /// [properly aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
     #[inline]
     pub unsafe fn as_ref<'a>(&self) -> &'a T {
@@ -575,6 +575,7 @@ impl<'a, T, A: IsAligned> MovingPtr<'a, T, A> {
     /// # Safety
     ///  - `dst` must be valid for writes.
     ///  - If the `A` type parameter is [`Aligned`] then `dst` must be [properly aligned] for `T`.
+    ///  - The `dst` and the pointer `self` contains must not point at the same memory address.
     ///
     /// [properly aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
     #[inline]
@@ -586,6 +587,7 @@ impl<'a, T, A: IsAligned> MovingPtr<'a, T, A> {
         //  - The caller is required to ensure that `dst` must be valid for writes.
         //  - As `A` is `Aligned`, the caller is required to ensure that `dst` is aligned and `src` must
         //    be aligned by the type's invariants.
+        //  - The caller is required to ensure that `dst` and `src` do not point to the same memory address.
         //  - We took self by move and forgotten it, so nothing else can observe `src` being moved out.
         unsafe { A::copy_nonoverlapping(src, dst, 1) };
     }
@@ -1152,6 +1154,20 @@ impl<'a, T> ThinSlicePtr<'a, T> {
         unsafe { core::slice::from_raw_parts(self.ptr.as_ptr(), len) }
     }
 
+    /// Returns a subslice without performing bounds checks.
+    ///
+    /// # Safety
+    ///
+    /// - There must be no mutable aliases for the lifetime `'a` to the slice.
+    /// - `range.start` and `range.end` must be less than or equal to the length of the slice.
+    /// - `range.start` must be less than or equal to `range.end`.
+    pub unsafe fn slice_unchecked(&self, range: Range<usize>) -> &'a [T] {
+        // SAFETY: The caller guarantees that `range` is within range of the slice.
+        unsafe {
+            core::slice::from_raw_parts(self.ptr.as_ptr().add(range.start), range.end - range.start)
+        }
+    }
+
     /// Indexes the slice without performing bounds checks.
     ///
     /// # Safety
@@ -1180,6 +1196,23 @@ impl<'a, T> ThinSlicePtr<'a, UnsafeCell<T>> {
         // - `self.ptr` is a valid pointer for the type `T`.
         // - `len` is valid hence `len * size_of::<T>()` is less than `isize::MAX`.
         unsafe { core::slice::from_raw_parts_mut(UnsafeCell::raw_get(self.ptr.as_ptr()), len) }
+    }
+
+    /// Returns a mutable subslice of the slice.
+    ///
+    /// # Safety
+    ///
+    /// - There must not be any aliases for the lifetime `'a` to the slice.
+    /// - `range.start` and `range.end` must be less than or equal to the length of the slice.
+    /// - `range.start` must be less than or equal to `range.end`.
+    pub unsafe fn slice_mut_unchecked(&self, range: Range<usize>) -> &'a mut [T] {
+        // SAFETY: The caller guarantees that `range` is within range of the slice.
+        unsafe {
+            core::slice::from_raw_parts_mut(
+                UnsafeCell::raw_get(self.ptr.as_ptr().add(range.start)),
+                range.end - range.start,
+            )
+        }
     }
 
     /// Returns a slice pointer to the underlying type `T`.

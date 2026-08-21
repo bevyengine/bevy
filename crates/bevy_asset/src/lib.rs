@@ -150,6 +150,7 @@ extern crate std;
 // Required to make proc macros work in bevy itself.
 extern crate self as bevy_asset;
 
+pub mod asset_changed;
 pub mod io;
 pub mod meta;
 pub mod processor;
@@ -170,7 +171,6 @@ pub mod prelude {
     };
 }
 
-mod asset_changed;
 mod assets;
 mod direct_access_ext;
 mod event;
@@ -207,6 +207,8 @@ use crate::{
     processor::{AssetProcessor, Process},
 };
 use alloc::{
+    boxed::Box,
+    collections::{BTreeMap, BTreeSet, VecDeque},
     string::{String, ToString},
     sync::Arc,
     vec::Vec,
@@ -465,6 +467,7 @@ pub trait AsAssetId: Component {
 ///
 /// Note that this trait is automatically implemented when deriving [`Asset`].
 pub trait VisitAssetDependencies {
+    /// Apply the `visit` closure to every asset dependency.
     fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId));
 }
 
@@ -474,25 +477,9 @@ impl<A: Asset> VisitAssetDependencies for Handle<A> {
     }
 }
 
-impl<A: Asset> VisitAssetDependencies for Option<Handle<A>> {
-    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
-        if let Some(handle) = self {
-            visit(handle.id().untyped());
-        }
-    }
-}
-
 impl VisitAssetDependencies for UntypedHandle {
     fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
         visit(self.id());
-    }
-}
-
-impl VisitAssetDependencies for Option<UntypedHandle> {
-    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
-        if let Some(handle) = self {
-            visit(handle.id());
-        }
     }
 }
 
@@ -502,23 +489,45 @@ impl VisitAssetDependencies for UntypedAssetId {
     }
 }
 
-impl<A: Asset, const N: usize> VisitAssetDependencies for [Handle<A>; N] {
+impl<V: VisitAssetDependencies> VisitAssetDependencies for Option<V> {
     fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
-        for dependency in self {
-            visit(dependency.id().untyped());
+        if let Some(dependency) = self {
+            dependency.visit_dependencies(visit);
         }
     }
 }
 
-impl<const N: usize> VisitAssetDependencies for [UntypedHandle; N] {
+impl<V: VisitAssetDependencies, const N: usize> VisitAssetDependencies for [V; N] {
     fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
         for dependency in self {
-            visit(dependency.id());
+            dependency.visit_dependencies(visit);
         }
+    }
+}
+
+impl<V: VisitAssetDependencies> VisitAssetDependencies for [V] {
+    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
+        for dependency in self {
+            dependency.visit_dependencies(visit);
+        }
+    }
+}
+
+impl<V: VisitAssetDependencies> VisitAssetDependencies for Box<V> {
+    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
+        self.as_ref().visit_dependencies(visit);
     }
 }
 
 impl<V: VisitAssetDependencies> VisitAssetDependencies for Vec<V> {
+    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
+        for dependency in self {
+            dependency.visit_dependencies(visit);
+        }
+    }
+}
+
+impl<V: VisitAssetDependencies> VisitAssetDependencies for VecDeque<V> {
     fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
         for dependency in self {
             dependency.visit_dependencies(visit);
@@ -534,18 +543,26 @@ impl<V: VisitAssetDependencies> VisitAssetDependencies for HashSet<V> {
     }
 }
 
-impl<A: Asset, K> VisitAssetDependencies for HashMap<K, Handle<A>> {
+impl<V: VisitAssetDependencies, K> VisitAssetDependencies for HashMap<K, V> {
     fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
         for dependency in self.values() {
-            visit(dependency.id().untyped());
+            dependency.visit_dependencies(visit);
         }
     }
 }
 
-impl<K> VisitAssetDependencies for HashMap<K, UntypedHandle> {
+impl<V: VisitAssetDependencies> VisitAssetDependencies for BTreeSet<V> {
+    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
+        for dependency in self {
+            dependency.visit_dependencies(visit);
+        }
+    }
+}
+
+impl<V: VisitAssetDependencies, K> VisitAssetDependencies for BTreeMap<K, V> {
     fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
         for dependency in self.values() {
-            visit(dependency.id());
+            dependency.visit_dependencies(visit);
         }
     }
 }
@@ -722,7 +739,8 @@ mod tests {
         loader::{AssetLoader, LoadContext},
         Asset, AssetApp, AssetEvent, AssetId, AssetLoadError, AssetLoadFailedEvent, AssetPath,
         AssetPlugin, AssetServer, Assets, InvalidGenerationError, LoadState, LoadedAsset,
-        UnapprovedPathMode, UntypedHandle, VisitAssetDependencies, WriteDefaultMetaError,
+        LoadedUntypedAsset, UnapprovedPathMode, UntypedHandle, VisitAssetDependencies,
+        WriteDefaultMetaError,
     };
     use alloc::{
         boxed::Box,
@@ -747,6 +765,7 @@ mod tests {
     use bevy_reflect::{Reflect, TypePath};
     use bevy_tasks::block_on;
     use core::{any::TypeId, time::Duration};
+    use crossbeam_channel::TryRecvError;
     use futures_lite::AsyncReadExt;
     use ron::ser::PrettyConfig;
     use serde::{Deserialize, Serialize};
@@ -766,6 +785,42 @@ mod tests {
     #[derive(Asset, TypePath, Debug)]
     pub struct SubText {
         pub text: String,
+    }
+
+    /// An asset whose loader performs a nested *untyped* load, to exercise
+    /// [`NestedLoadBuilder::load_untyped`](crate::NestedLoadBuilder::load_untyped).
+    #[derive(Asset, TypePath, Debug)]
+    pub struct UntypedDependent {
+        #[dependency]
+        pub dependency: Handle<LoadedUntypedAsset>,
+    }
+
+    #[derive(Default, TypePath)]
+    pub struct UntypedDependentLoader;
+
+    impl AssetLoader for UntypedDependentLoader {
+        type Asset = UntypedDependent;
+
+        type Settings = ();
+
+        type Error = std::io::Error;
+
+        async fn load(
+            &self,
+            reader: &mut dyn Reader,
+            _settings: &Self::Settings,
+            load_context: &mut LoadContext<'_>,
+        ) -> Result<Self::Asset, Self::Error> {
+            let mut bytes = Vec::new();
+            reader.read_to_end(&mut bytes).await?;
+            Ok(UntypedDependent {
+                dependency: load_context.load_builder().load_untyped("../a.cool.ron"),
+            })
+        }
+
+        fn extensions(&self) -> &[&str] {
+            &["untyped_dependent"]
+        }
     }
 
     #[derive(Serialize, Deserialize, Default)]
@@ -2114,6 +2169,22 @@ mod tests {
 
         dir.insert_asset_text(Path::new(a_path), a_ron);
 
+        // An approved asset that declares the unapproved asset above as a dependency, so that the
+        // unapproved path is reached through a nested load from inside an `AssetLoader`.
+        let dependent_path = "dependent.cool.ron";
+        let dependent_ron = r#"
+(
+    text: "dependent",
+    dependencies: ["../a.cool.ron"],
+    embedded_dependencies: [],
+    sub_texts: [],
+)"#;
+
+        dir.insert_asset_text(Path::new(dependent_path), dependent_ron);
+
+        // Reached through a nested *untyped* load; the contents are unused.
+        dir.insert_asset_text(Path::new("dependent.untyped_dependent"), "");
+
         let mut app = App::new();
         let memory_reader = MemoryAssetReader { root: dir };
         app.register_asset_source(
@@ -2175,6 +2246,68 @@ mod tests {
         run_app_until(&mut app, |_| asset_server.is_loaded(&handle).then_some(()));
     }
 
+    /// Regression test for [#21584](https://github.com/bevyengine/bevy/issues/21584).
+    ///
+    /// Rejecting an unapproved path yields a default (`Uuid`) handle, but nested loads assumed
+    /// they always received a `Strong` handle and unwrapped the conversion, panicking inside the
+    /// asset loader. The nested load should instead be skipped, matching the behavior of a
+    /// top-level [`AssetServer::load`] of an unapproved path.
+    #[test]
+    fn unapproved_path_deny_does_not_panic_in_nested_load() {
+        let mut app = unapproved_path_setup(UnapprovedPathMode::Deny);
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let handle = asset_server.load::<CoolText>("dependent.cool.ron");
+
+        run_app_until(&mut app, |_| {
+            matches!(
+                asset_server.load_state(&handle),
+                LoadState::Loaded | LoadState::Failed(_)
+            )
+            .then_some(())
+        });
+
+        assert!(
+            matches!(asset_server.load_state(&handle), LoadState::Loaded),
+            "an unapproved dependency should be rejected without failing the whole load, but got {:?}",
+            asset_server.load_state(&handle)
+        );
+
+        let cool_text = get::<CoolText>(app.world(), handle.id()).unwrap();
+        assert_eq!(cool_text.text, "dependent");
+        // The rejected dependency resolves to a default handle rather than panicking.
+        assert_eq!(cool_text.dependencies, vec![Handle::default()]);
+    }
+
+    /// Regression test for [#21584](https://github.com/bevyengine/bevy/issues/21584), covering the
+    /// untyped nested load path, which rejects unapproved paths the same way.
+    #[test]
+    fn unapproved_path_deny_does_not_panic_in_nested_untyped_load() {
+        let mut app = unapproved_path_setup(UnapprovedPathMode::Deny);
+        app.init_asset::<UntypedDependent>()
+            .register_asset_loader(UntypedDependentLoader);
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let handle = asset_server.load::<UntypedDependent>("dependent.untyped_dependent");
+
+        run_app_until(&mut app, |_| {
+            matches!(
+                asset_server.load_state(&handle),
+                LoadState::Loaded | LoadState::Failed(_)
+            )
+            .then_some(())
+        });
+
+        assert!(
+            matches!(asset_server.load_state(&handle), LoadState::Loaded),
+            "an unapproved untyped dependency should be rejected without failing the whole load, but got {:?}",
+            asset_server.load_state(&handle)
+        );
+
+        let dependent = get::<UntypedDependent>(app.world(), handle.id()).unwrap();
+        assert_eq!(dependent.dependency, Handle::default());
+    }
+
     #[test]
     fn unapproved_path_allow_loads() {
         let mut app = unapproved_path_setup(UnapprovedPathMode::Allow);
@@ -2225,6 +2358,9 @@ mod tests {
     struct GatedLoader {
         in_loader_sender: Sender<()>,
         gate_receiver: Receiver<()>,
+        /// An extra sender for indicating whether the task continued after the gate was opened or
+        /// not.
+        finished_sender: Option<crossbeam_channel::Sender<u32>>,
     }
 
     impl AssetLoader for GatedLoader {
@@ -2238,8 +2374,24 @@ mod tests {
             _settings: &Self::Settings,
             _load_context: &mut LoadContext<'_>,
         ) -> Result<Self::Asset, Self::Error> {
+            struct SendOnDrop {
+                sender: crossbeam_channel::Sender<u32>,
+            }
+            impl Drop for SendOnDrop {
+                fn drop(&mut self) {
+                    let _ = self.sender.send(999);
+                }
+            }
+            let _on_drop = self
+                .finished_sender
+                .clone()
+                .map(|sender| SendOnDrop { sender });
+
             self.in_loader_sender.send_blocking(()).unwrap();
             let _ = self.gate_receiver.recv().await;
+            if let Some(finished_sender) = self.finished_sender.as_ref() {
+                finished_sender.send(1).unwrap();
+            }
             Ok(TestAsset)
         }
 
@@ -2254,11 +2406,13 @@ mod tests {
 
         let (in_loader_sender, in_loader_receiver) = async_channel::bounded(1);
         let (gate_sender, gate_receiver) = async_channel::bounded(1);
+        let (finished_sender, finished_receiver) = crossbeam_channel::bounded(1);
 
         app.init_asset::<TestAsset>()
             .register_asset_loader(GatedLoader {
                 in_loader_sender,
                 gate_receiver,
+                finished_sender: Some(finished_sender),
             });
 
         let path = Path::new("abc.ron");
@@ -2282,17 +2436,24 @@ mod tests {
 
         // Unblock the loader and then update a few times, showing that the asset never loads.
         gate_sender.send_blocking(()).unwrap();
-        for _ in 0..10 {
-            app.update();
-            for message in app
-                .world()
-                .resource::<Messages<AssetEvent<TestAsset>>>()
-                .iter_current_update_messages()
-            {
-                match message {
-                    AssetEvent::Unused { .. } => {}
-                    message => panic!("No asset events are allowed: {message:?}"),
-                }
+        let mut messages = vec![];
+        run_app_until(&mut app, |world| {
+            messages.extend(
+                world
+                    .resource::<Messages<AssetEvent<TestAsset>>>()
+                    .iter_current_update_messages(),
+            );
+            match finished_receiver.try_recv() {
+                Ok(999) => Some(()),
+                Ok(x) => panic!("only expected drop message, but got {x}"),
+                Err(TryRecvError::Empty) => None,
+                Err(TryRecvError::Disconnected) => panic!("cannot be disconnected"),
+            }
+        });
+        for message in messages {
+            match message {
+                AssetEvent::Unused { .. } => {}
+                message => panic!("No asset events are allowed: {message:?}"),
             }
         }
     }
@@ -2303,11 +2464,13 @@ mod tests {
 
         let (in_loader_sender, in_loader_receiver) = async_channel::bounded(1);
         let (gate_sender, gate_receiver) = async_channel::bounded(1);
+        let (finished_sender, finished_receiver) = crossbeam_channel::bounded(1);
 
         app.init_asset::<TestAsset>()
             .register_asset_loader(GatedLoader {
                 in_loader_sender,
                 gate_receiver,
+                finished_sender: Some(finished_sender),
             });
 
         let path = Path::new("abc.ron");
@@ -2333,17 +2496,24 @@ mod tests {
 
         // Unblock the loader and then update a few times, showing that the asset never loads.
         gate_sender.send_blocking(()).unwrap();
-        for _ in 0..10 {
-            app.update();
-            for message in app
-                .world()
-                .resource::<Messages<AssetEvent<TestAsset>>>()
-                .iter_current_update_messages()
-            {
-                match message {
-                    AssetEvent::Unused { .. } => {}
-                    message => panic!("No asset events are allowed: {message:?}"),
-                }
+        let mut messages = vec![];
+        run_app_until(&mut app, |world| {
+            messages.extend(
+                world
+                    .resource::<Messages<AssetEvent<TestAsset>>>()
+                    .iter_current_update_messages(),
+            );
+            match finished_receiver.try_recv() {
+                Ok(999) => Some(()),
+                Ok(x) => panic!("only expected drop message, but got {x}"),
+                Err(TryRecvError::Empty) => None,
+                Err(TryRecvError::Disconnected) => panic!("cannot be disconnected"),
+            }
+        });
+        for message in messages {
+            match message {
+                AssetEvent::Unused { .. } => {}
+                message => panic!("No asset events are allowed: {message:?}"),
             }
         }
     }
@@ -2916,6 +3086,7 @@ mod tests {
             .register_asset_loader(GatedLoader {
                 in_loader_sender,
                 gate_receiver,
+                finished_sender: None,
             })
             .register_asset_loader(AssetWithDepLoader);
 
@@ -2984,13 +3155,9 @@ mod tests {
     impl From<&AssetLoadError> for TestAssetLoadError {
         fn from(value: &AssetLoadError) -> TestAssetLoadError {
             match value {
-                AssetLoadError::RequestedHandleTypeMismatch {
-                    requested,
-                    actual_asset_name,
-                    ..
-                } => Self::RequestedHandleTypeMismatch {
-                    requested: *requested,
-                    actual_asset_name,
+                AssetLoadError::RequestedHandleTypeMismatch (err) => Self::RequestedHandleTypeMismatch {
+                    requested: err.requested,
+                    actual_asset_name: err.actual_asset_name,
                 },
                 AssetLoadError::MissingAssetLoader { .. } => Self::MissingAssetLoader,
                 AssetLoadError::AssetReaderError(AssetReaderError::NotFound(_)) => {

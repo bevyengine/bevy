@@ -292,6 +292,18 @@ impl<I: SystemInput, O> core::fmt::Debug for SystemId<I, O> {
     }
 }
 
+impl<I: SystemInput, O> From<&SystemHandle<I, O>> for SystemId<I, O> {
+    fn from(handle: &SystemHandle<I, O>) -> Self {
+        Self::from_entity(handle.entity())
+    }
+}
+
+impl<I: SystemInput, O> From<SystemHandle<I, O>> for SystemId<I, O> {
+    fn from(handle: SystemHandle<I, O>) -> Self {
+        (&handle).into()
+    }
+}
+
 impl<I: SystemInput + 'static, O: 'static> FromTemplate for SystemHandle<I, O> {
     type Template = SystemHandleTemplate<I, O>;
 }
@@ -1419,5 +1431,20 @@ mod tests {
 
             assert_eq!(a, b);
         }
+    }
+
+    #[test]
+    fn run_system_with_owned_system_handle() {
+        fn increment(mut counter: ResMut<Counter>) {
+            counter.0 += 1;
+        }
+
+        let mut world = World::new();
+        world.insert_resource(Counter(0));
+
+        let handle = world.register_tracked_system(increment);
+        world.run_system(handle).expect("system runs successfully");
+
+        assert_eq!(*world.resource::<Counter>(), Counter(1));
     }
 }

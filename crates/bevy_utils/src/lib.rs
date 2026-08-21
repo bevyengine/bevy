@@ -62,6 +62,7 @@ mod bloom_filter;
 pub use bloom_filter::*;
 mod debug_info;
 mod default;
+pub mod memory_size;
 mod once;
 
 #[doc(hidden)]
