@@ -345,6 +345,10 @@ pub fn create_dark_theme() -> ThemeProps {
             (tokens::DIALOG_HEADER_BG, semantic::SURFACE_WINDOW),
             (tokens::DIALOG_TEXT, semantic::TEXT_DEFAULT),
             (tokens::DIALOG_HEADER_TEXT, semantic::TEXT_DEFAULT),
+            // Tooltip
+            (tokens::TOOLTIP_BG, semantic::SURFACE_WINDOW),
+            (tokens::TOOLTIP_TEXT, semantic::TEXT_ON_ACCENT),
+            (tokens::TOOLTIP_BORDER, semantic::BORDER_DEFAULT),
         ]),
     }
 }
