@@ -351,9 +351,25 @@ impl ApplicationHandler<WinitUserEvent> for WinitAppRunnerState {
                         }
                     }
                     WindowEvent::Touch(touch) => {
-                        let location = touch
-                            .location
-                            .to_logical(win.resolution.scale_factor() as f64);
+                        // A touch can arrive in the same winit event batch as a reflect-corrupted
+                        // scale factor override, before `changed_windows` reverts it. Fall back to
+                        // the OS-provided base scale factor — which is validated too, since the
+                        // whole `WindowResolution` is reflect-writable and the base can be corrupted
+                        // as well — with `1.0` as a last resort, so the dpi conversion below cannot
+                        // panic. `changed_windows` warns about the invalid override on the same
+                        // frame, so stay silent here.
+                        let scale_factor = win.resolution.scale_factor() as f64;
+                        let scale_factor = if winit::dpi::validate_scale_factor(scale_factor) {
+                            scale_factor
+                        } else {
+                            let base = win.resolution.base_scale_factor() as f64;
+                            if winit::dpi::validate_scale_factor(base) {
+                                base
+                            } else {
+                                1.0
+                            }
+                        };
+                        let location = touch.location.to_logical(scale_factor);
                         self.bevy_window_events
                             .send(converters::convert_touch_input(touch, location, window));
                     }
@@ -565,8 +581,14 @@ impl WinitAppRunnerState {
                 let mut query = self.world_mut()
                     .query_filtered::<(Entity, &Window, &CursorOptions), (With<CachedWindow>, Without<RawHandleWrapper>)>();
                 if let Ok((entity, window, cursor_options)) = query.single(&self.world()) {
-                    let window = window.clone();
+                    let mut window = window.clone();
                     let cursor_options = cursor_options.clone();
+
+                    // Sanitize the cloned window before recreating it: an invalid scale factor
+                    // override could have been set via reflection while the app was suspended,
+                    // and `changed_windows` cannot revert it while the window is gone. The live
+                    // component is reverted by `changed_windows` once the window exists again.
+                    crate::system::sanitize_scale_factor_override(&mut window);
 
                     WINIT_WINDOWS.with_borrow_mut(|winit_windows| {
                         ACCESS_KIT_ADAPTERS.with_borrow_mut(|adapters| {
