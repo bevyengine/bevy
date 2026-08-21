@@ -244,6 +244,9 @@ pub struct Mesh2dUniform {
 impl Mesh2dUniform {
     /// Creates a new [`Mesh2dUniform`] from the given transform, bind group
     /// slot, tag, and optional metadata index.
+    ///
+    /// [`MeshFlags::SIGN_DETERMINANT_MODEL_3X3`] is derived from the transform, so callers do not
+    /// need to set it in [`Mesh2dTransforms::flags`].
     pub fn from_components(
         mesh_transforms: &Mesh2dTransforms,
         material_bind_group_slot: MaterialBindGroupSlot,
@@ -252,22 +255,37 @@ impl Mesh2dUniform {
     ) -> Self {
         let (local_from_world_transpose_a, local_from_world_transpose_b) =
             mesh_transforms.world_from_local.inverse_transpose_3x3();
+
+        // A mirroring transform flips the sign of the tangent.
+        let mut flags = MeshFlags::from_bits_retain(mesh_transforms.flags);
+        if mesh_transforms
+            .world_from_local
+            .matrix3
+            .determinant()
+            .is_sign_positive()
+        {
+            flags |= MeshFlags::SIGN_DETERMINANT_MODEL_3X3;
+        }
+
         Self {
             world_from_local: mesh_transforms.world_from_local.to_transpose(),
             local_from_world_transpose_a,
             local_from_world_transpose_b,
             material_bind_group_slot: material_bind_group_slot.0,
-            flags: mesh_transforms.flags,
+            flags: flags.bits(),
             tag,
             metadata_index: metadata_index.unwrap_or(0),
         }
     }
 }
 
-// NOTE: These must match the bit flags in bevy_sprite_render/src/mesh2d/mesh2d.wesl!
+// NOTE: These must match the bit flags in bevy_sprite_render/src/mesh2d/types.wesl!
 bitflags::bitflags! {
     #[repr(transparent)]
     pub struct MeshFlags: u32 {
+        /// Indicates the sign of the determinant of the 3x3 model matrix. If the sign is positive,
+        /// then the flag should be set, else it should not be set.
+        const SIGN_DETERMINANT_MODEL_3X3 = 1 << 31;
         const NONE                       = 0;
         const UNINITIALIZED              = 0xFFFF;
     }
