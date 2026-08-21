@@ -7,11 +7,17 @@ use serde::{Deserialize, Serialize};
 
 /// The color primaries that an [`Image`](crate::Image)'s RGB data is expressed in.
 ///
+/// An image's color primaries are the exact red, green and blue that its RGB values
+/// refer to. The white point is the color that equal amounts of all three produce.
+/// Together they set the image's gamut, the range of colors it can express. Two images
+/// with identical pixel values but different primaries show different colors.
+/// [`RgbPrimaries`] documents the chromaticity coordinates behind each named set here.
+///
 /// This is metadata only. It records the gamut the pixel values were authored in.
 /// Setting it does not convert the pixel data.
 ///
 /// Loaders resolve the stamped value in this order:
-/// 1. An explicit `source_primaries` loader setting, for example on
+/// 1. An explicit `source_color_primaries` loader setting, for example on
 ///    [`ImageLoaderSettings`](crate::ImageLoaderSettings).
 /// 2. Color-primary metadata in the file. The KTX2, PNG, Radiance HDR and EXR loaders
 ///    read it.
@@ -26,11 +32,14 @@ use serde::{Deserialize, Serialize};
 #[cfg_attr(not(feature = "bevy_reflect"), derive(TypePath))]
 pub enum SourceColorPrimaries {
     /// The ITU-R BT.709 primaries with a D65 white point. sRGB uses the same primaries.
+    /// See [`RgbPrimaries::BT709`] for the chromaticities and the standards link.
     #[default]
     Bt709,
     /// The ITU-R BT.2020 wide-gamut primaries with a D65 white point, also known as Rec. 2020.
+    /// See [`RgbPrimaries::BT2020`] for the chromaticities and the standards link.
     Bt2020,
     /// The Display P3 primaries, which are the DCI-P3 primaries with a D65 white point.
+    /// See [`RgbPrimaries::DISPLAY_P3`] for the chromaticities and the standards link.
     DisplayP3,
 }
 

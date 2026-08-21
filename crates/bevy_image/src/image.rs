@@ -239,8 +239,6 @@ impl Plugin for ImagePlugin {
         app.init_asset::<Image>();
         #[cfg(feature = "bevy_reflect")]
         app.register_asset_reflect::<Image>();
-        #[cfg(feature = "bevy_reflect")]
-        app.register_type::<SourceColorPrimaries>();
 
         let mut image_assets = app.world_mut().resource_mut::<Assets<Image>>();
 
@@ -677,7 +675,7 @@ pub struct Image {
     /// Whether this image should be copied on the GPU when resized.
     pub copy_on_resize: bool,
     /// The color primaries the image data is expressed in.
-    pub source_primaries: SourceColorPrimaries,
+    pub source_color_primaries: SourceColorPrimaries,
 }
 
 #[cfg(feature = "serialize")]
@@ -1179,7 +1177,7 @@ impl Image {
             texture_view_descriptor: None,
             asset_usage,
             copy_on_resize: false,
-            source_primaries: SourceColorPrimaries::default(),
+            source_color_primaries: SourceColorPrimaries::default(),
         }
     }
 
@@ -1311,7 +1309,7 @@ impl Image {
             }),
             asset_usage: RenderAssetUsages::default(),
             copy_on_resize: true,
-            source_primaries: SourceColorPrimaries::default(),
+            source_color_primaries: SourceColorPrimaries::default(),
         }
     }
 
@@ -1556,7 +1554,7 @@ impl Image {
             texture_view_descriptor: self.texture_view_descriptor.clone(),
             asset_usage: self.asset_usage,
             copy_on_resize: self.copy_on_resize,
-            source_primaries: self.source_primaries,
+            source_color_primaries: self.source_color_primaries,
         };
 
         Ok(new_image)
@@ -1589,7 +1587,7 @@ impl Image {
             })
             .map(|(dyn_img, is_srgb)| {
                 let mut image = Self::from_dynamic(dyn_img, is_srgb, self.asset_usage);
-                image.source_primaries = self.source_primaries;
+                image.source_color_primaries = self.source_color_primaries;
                 image
             })
     }
@@ -1597,9 +1595,9 @@ impl Image {
     /// Load a bytes buffer in a [`Image`], according to type `image_type`, using the `image`
     /// crate
     ///
-    /// `source_primaries` overrides the color primaries stamped on the image. With
-    /// `None`, the file's own color metadata wins where the format carries any, then
-    /// [`SourceColorPrimaries::Bt709`].
+    /// `source_color_primaries` overrides the color primaries stamped on the image. With
+    /// `None`, color metadata embedded in the buffer wins where the format carries any,
+    /// then [`SourceColorPrimaries::Bt709`].
     pub fn from_buffer(
         buffer: &[u8],
         image_type: ImageType,
@@ -1611,7 +1609,7 @@ impl Image {
         is_srgb: bool,
         image_sampler: ImageSampler,
         asset_usage: RenderAssetUsages,
-        source_primaries: Option<SourceColorPrimaries>,
+        source_color_primaries: Option<SourceColorPrimaries>,
     ) -> Result<Image, TextureError> {
         let format = image_type.to_image_format()?;
 
@@ -1633,7 +1631,7 @@ impl Image {
                 buffer,
                 supported_compressed_formats,
                 is_srgb,
-                source_primaries,
+                source_color_primaries,
             )?,
             #[expect(
                 clippy::allow_attributes,
@@ -1658,9 +1656,9 @@ impl Image {
                 let mut image = Self::from_dynamic(dyn_img, is_srgb, asset_usage);
                 #[cfg(feature = "png")]
                 if matches!(format, ImageFormat::Png) {
-                    image.source_primaries =
-                        SourceColorPrimaries::resolve(source_primaries, || {
-                            crate::png::png_source_primaries(buffer)
+                    image.source_color_primaries =
+                        SourceColorPrimaries::resolve(source_color_primaries, || {
+                            crate::png::png_source_color_primaries(buffer)
                         });
                 }
                 image
@@ -1669,8 +1667,8 @@ impl Image {
         // Applies the override for the formats without color metadata. The KTX2 and
         // PNG arms resolved it themselves, so their file reads and warnings are
         // skipped when it is set; re-storing the same value here is fine.
-        if let Some(source_primaries) = source_primaries {
-            image.source_primaries = source_primaries;
+        if let Some(source_color_primaries) = source_color_primaries {
+            image.source_color_primaries = source_color_primaries;
         }
         image.sampler = image_sampler;
         image.asset_usage = asset_usage;
@@ -2539,7 +2537,7 @@ mod test {
     }
 
     #[test]
-    fn image_source_primaries_default_to_bt709() {
+    fn image_source_color_primaries_default_to_bt709() {
         for image in [
             Image::default(),
             Image::default_uninit(),
@@ -2553,7 +2551,7 @@ mod test {
                 RenderAssetUsages::MAIN_WORLD,
             ),
         ] {
-            assert_eq!(image.source_primaries, SourceColorPrimaries::Bt709);
+            assert_eq!(image.source_color_primaries, SourceColorPrimaries::Bt709);
         }
     }
 

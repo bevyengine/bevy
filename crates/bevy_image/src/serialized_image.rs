@@ -31,7 +31,7 @@ pub struct SerializedImage {
     sampler: ImageSampler,
     texture_view_descriptor: Option<SerializedTextureViewDescriptor>,
     #[serde(default)]
-    source_primaries: SourceColorPrimaries,
+    source_color_primaries: SourceColorPrimaries,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -120,7 +120,7 @@ impl SerializedImage {
             texture_view_descriptor: image.texture_view_descriptor.map(|descriptor| {
                 SerializedTextureViewDescriptor::from_texture_view_descriptor(descriptor)
             }),
-            source_primaries: image.source_primaries,
+            source_color_primaries: image.source_color_primaries,
         }
     }
 
@@ -147,7 +147,7 @@ impl SerializedImage {
                 .map(SerializedTextureViewDescriptor::into_texture_view_descriptor),
             asset_usage: RenderAssetUsages::RENDER_WORLD,
             copy_on_resize: false,
-            source_primaries: self.source_primaries,
+            source_color_primaries: self.source_color_primaries,
         }
     }
 }
@@ -171,7 +171,7 @@ mod tests {
             TextureFormat::Rgba8UnormSrgb,
             RenderAssetUsages::RENDER_WORLD,
         );
-        image.source_primaries = SourceColorPrimaries::Bt2020;
+        image.source_color_primaries = SourceColorPrimaries::Bt2020;
 
         let serialized_image = SerializedImage::from_image(image.clone());
         let serialized_string = serde_json::to_string(&serialized_image).unwrap();

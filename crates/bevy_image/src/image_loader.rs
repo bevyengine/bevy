@@ -156,11 +156,11 @@ pub struct ImageLoaderSettings {
     /// uniform type.
     #[serde(default)]
     pub array_layout: Option<ImageArrayLayout>,
-    /// Overrides the primaries stamped on [`Image::source_primaries`]. With the default
-    /// `None`, the loader reads the file's color metadata, KTX2 and PNG only. See
-    /// [`SourceColorPrimaries`] for the resolution order.
+    /// Overrides the color primaries stamped on [`Image::source_color_primaries`]. With
+    /// the default `None`, the loader reads the file's color metadata, KTX2 and PNG
+    /// only. See [`SourceColorPrimaries`] for the resolution order.
     #[serde(default)]
-    pub source_primaries: Option<SourceColorPrimaries>,
+    pub source_color_primaries: Option<SourceColorPrimaries>,
 }
 
 impl Default for ImageLoaderSettings {
@@ -172,7 +172,7 @@ impl Default for ImageLoaderSettings {
             sampler: ImageSampler::Default,
             asset_usage: RenderAssetUsages::default(),
             array_layout: None,
-            source_primaries: None,
+            source_color_primaries: None,
         }
     }
 }
@@ -238,7 +238,7 @@ impl AssetLoader for ImageLoader {
             settings.is_srgb,
             settings.sampler.clone(),
             settings.asset_usage,
-            settings.source_primaries,
+            settings.source_color_primaries,
         )
         .map_err(|err| FileTextureError {
             error: err,
@@ -293,14 +293,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn settings_metadata_without_source_primaries_still_deserializes() {
+    fn settings_metadata_without_source_color_primaries_still_deserializes() {
         let mut serialized = serde_json::to_value(ImageLoaderSettings::default()).unwrap();
         assert!(serialized
             .as_object_mut()
             .unwrap()
-            .remove("source_primaries")
+            .remove("source_color_primaries")
             .is_some());
         let deserialized: ImageLoaderSettings = serde_json::from_value(serialized).unwrap();
-        assert_eq!(deserialized.source_primaries, None);
+        assert_eq!(deserialized.source_color_primaries, None);
     }
 }

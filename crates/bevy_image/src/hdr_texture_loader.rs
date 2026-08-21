@@ -18,11 +18,11 @@ pub struct HdrTextureLoader;
 pub struct HdrTextureLoaderSettings {
     /// Where the asset will be used - see the docs on [`RenderAssetUsages`] for details.
     pub asset_usage: RenderAssetUsages,
-    /// Overrides the primaries stamped on [`Image::source_primaries`]. With the default
-    /// `None`, the loader reads the file's `PRIMARIES=` header line. See
+    /// Overrides the color primaries stamped on [`Image::source_color_primaries`]. With
+    /// the default `None`, the loader reads the file's `PRIMARIES=` header line. See
     /// [`SourceColorPrimaries`] for the resolution order.
     #[serde(default)]
-    pub source_primaries: Option<SourceColorPrimaries>,
+    pub source_color_primaries: Option<SourceColorPrimaries>,
 }
 
 /// Possible errors that can be produced by [`HdrTextureLoader`]
@@ -82,9 +82,10 @@ impl AssetLoader for HdrTextureLoader {
             format,
             settings.asset_usage,
         );
-        image.source_primaries = SourceColorPrimaries::resolve(settings.source_primaries, || {
-            parse_radiance_primaries(&info.custom_attributes)
-        });
+        image.source_color_primaries =
+            SourceColorPrimaries::resolve(settings.source_color_primaries, || {
+                parse_radiance_primaries(&info.custom_attributes)
+            });
         Ok(image)
     }
 
@@ -113,19 +114,19 @@ fn parse_radiance_primaries(
         // A `PRIMARIES=` line carries exactly eight coordinates.
         return None;
     }
-    let source_primaries = SourceColorPrimaries::from_chromaticities(RgbPrimaries {
+    let source_color_primaries = SourceColorPrimaries::from_chromaticities(RgbPrimaries {
         red: Chromaticity::new(coordinates[0], coordinates[1]),
         green: Chromaticity::new(coordinates[2], coordinates[3]),
         blue: Chromaticity::new(coordinates[4], coordinates[5]),
         white: Chromaticity::new(coordinates[6], coordinates[7]),
     });
-    if source_primaries.is_none() {
+    if source_color_primaries.is_none() {
         once!(warn!(
             "Radiance HDR file declares PRIMARIES \"{value}\", which Bevy does not support. \
             Assuming BT.709 primaries.",
         ));
     }
-    source_primaries
+    source_color_primaries
 }
 
 #[cfg(test)]

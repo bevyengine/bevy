@@ -1,14 +1,19 @@
 ---
-title: "`Image` has a new `source_primaries` field"
+title: "`Image` has a new `source_color_primaries` field"
 pull_requests: [25472]
 ---
 
-`Image` has a new `source_primaries: SourceColorPrimaries` field recording the color
+`Image` has a new `source_color_primaries: SourceColorPrimaries` field recording the color
 primaries the image data is expressed in. It is metadata only and defaults to `Bt709`.
 Exhaustive `Image { .. }` literals must add it, for example as
-`source_primaries: Default::default()`. The image loader settings structs gain the same
-field as an `Option` that defaults to `None`, so existing `.meta` files keep working.
+`source_color_primaries: Default::default()`.
 
-`Image::from_buffer` and `ktx2_buffer_to_image` gain a trailing
-`source_primaries: Option<SourceColorPrimaries>` parameter. It overrides the stamped
-metadata, and with `None` the file's own metadata wins.
+`ImageLoaderSettings`, `ExrTextureLoaderSettings`, and `HdrTextureLoaderSettings` gain a
+`source_color_primaries: Option<SourceColorPrimaries>` field, so exhaustive literals of
+these structs must add it too. Existing `.meta` files need no changes.
+
+`Image::from_buffer` and `ktx2_buffer_to_image` take a new trailing
+`source_color_primaries: Option<SourceColorPrimaries>` parameter. Pass `None` to keep the
+previous behavior, which uses the color metadata embedded in the image data when the
+format carries any and falls back to `Bt709`. Pass `Some(..)` to force a specific primary
+set.

@@ -26,7 +26,7 @@ use {bevy_utils::once, tracing::warn};
 
 /// Converts KTX2 bytes to a bevy [`Image`] using the given compressed format support.
 ///
-/// `source_primaries` overrides the color primaries stamped on the image. With `None`,
+/// `source_color_primaries` overrides the color primaries stamped on the image. With `None`,
 /// the data format descriptor's `colorPrimaries` wins, then
 /// [`SourceColorPrimaries::Bt709`].
 ///
@@ -39,7 +39,7 @@ pub fn ktx2_buffer_to_image(
     buffer: &[u8],
     supported_compressed_formats: CompressedImageFormats,
     is_srgb: bool,
-    source_primaries: Option<SourceColorPrimaries>,
+    source_color_primaries: Option<SourceColorPrimaries>,
 ) -> Result<Image, TextureError> {
     let ktx2 = ktx2::Reader::new(buffer)
         .map_err(|err| TextureError::InvalidData(format!("Failed to parse ktx2 file: {err:?}")))?;
@@ -315,16 +315,16 @@ pub fn ktx2_buffer_to_image(
     image.texture_descriptor.format = texture_format;
     image.data = Some(image_data);
     image.data_order = wgpu_types::TextureDataOrder::MipMajor;
-    image.source_primaries = SourceColorPrimaries::resolve(source_primaries, || {
+    image.source_color_primaries = SourceColorPrimaries::resolve(source_color_primaries, || {
         ktx2.color_primaries().and_then(|color_primaries| {
-            let source_primaries = ktx2_color_primaries_to_source_primaries(color_primaries);
-            if source_primaries.is_none() {
+            let source_color_primaries = ktx2_to_source_color_primaries(color_primaries);
+            if source_color_primaries.is_none() {
                 once!(warn!(
                     "KTX2 file declares color primaries {color_primaries:?}, which Bevy does not \
                     support. Assuming BT.709 primaries.",
                 ));
             }
-            source_primaries
+            source_color_primaries
         })
     });
     // Note: we must give wgpu the logical texture dimensions, so it can correctly compute mip sizes.
@@ -479,7 +479,7 @@ pub fn ktx2_get_texture_format<Data: AsRef<[u8]>>(
 
 /// Maps KTX2 color primaries to [`SourceColorPrimaries`]. Returns `None` for
 /// unsupported primaries.
-fn ktx2_color_primaries_to_source_primaries(
+fn ktx2_to_source_color_primaries(
     color_primaries: ktx2::ColorPrimaries,
 ) -> Option<SourceColorPrimaries> {
     match color_primaries {
@@ -1744,7 +1744,7 @@ mod tests {
             let image = ktx2_buffer_to_image(&buffer, CompressedImageFormats::empty(), false, None)
                 .unwrap();
             assert_eq!(
-                image.source_primaries, expected,
+                image.source_color_primaries, expected,
                 "DFD colorPrimaries byte {color_primaries} should stamp {expected:?}",
             );
             assert_eq!(
@@ -1756,7 +1756,7 @@ mod tests {
     }
 
     #[test]
-    fn source_primaries_override_wins_over_the_dfd() {
+    fn source_color_primaries_override_wins_over_the_dfd() {
         let buffer = minimal_rgba8_ktx2(/* BT2020 */ 4, /* Linear */ 1);
         let image = ktx2_buffer_to_image(
             &buffer,
@@ -1765,7 +1765,10 @@ mod tests {
             Some(SourceColorPrimaries::DisplayP3),
         )
         .unwrap();
-        assert_eq!(image.source_primaries, SourceColorPrimaries::DisplayP3);
+        assert_eq!(
+            image.source_color_primaries,
+            SourceColorPrimaries::DisplayP3
+        );
     }
 
     #[test]
@@ -1777,7 +1780,7 @@ mod tests {
             image.texture_descriptor.format,
             wgpu_types::TextureFormat::Rgba8UnormSrgb,
         );
-        assert_eq!(image.source_primaries, SourceColorPrimaries::Bt709);
+        assert_eq!(image.source_color_primaries, SourceColorPrimaries::Bt709);
     }
 
     #[test]

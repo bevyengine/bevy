@@ -102,7 +102,7 @@ impl AssetSaver for ImageSaver {
             sampler: asset.sampler.clone(),
             asset_usage: asset.asset_usage,
             array_layout: None,
-            source_primaries: Some(asset.source_primaries),
+            source_color_primaries: Some(asset.source_color_primaries),
         })
     }
 }

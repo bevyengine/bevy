@@ -68,7 +68,7 @@ impl CompressedImageSaverUniversal {
             asset_usage: image.asset_usage,
             texture_format: None,
             array_layout: None,
-            source_primaries: Some(image.source_primaries),
+            source_color_primaries: Some(image.source_color_primaries),
         })
     }
 }

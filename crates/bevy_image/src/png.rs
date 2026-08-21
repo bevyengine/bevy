@@ -7,7 +7,7 @@ use {bevy_utils::once, tracing::warn};
 /// Returns `None` when the chunk is absent, the header cannot be parsed, or the
 /// primaries are not supported. Unsupported primaries warn once, and so does a PQ or
 /// HLG transfer function, since the data is loaded as if it were sRGB-encoded.
-pub(crate) fn png_source_primaries(bytes: &[u8]) -> Option<SourceColorPrimaries> {
+pub(crate) fn png_source_color_primaries(bytes: &[u8]) -> Option<SourceColorPrimaries> {
     // Errors are swallowed. This is best-effort metadata, and any structural problem
     // with the file surfaces in the decode instead. `read_info` stops at the image
     // data, and the ignore flags keep it from inflating the ICC profile, buffering
@@ -27,20 +27,20 @@ pub(crate) fn png_source_primaries(bytes: &[u8]) -> Option<SourceColorPrimaries>
             function to display it correctly.",
         ));
     }
-    let source_primaries = cicp_color_primaries_to_source_primaries(cicp.color_primaries);
-    if source_primaries.is_none() {
+    let source_color_primaries = cicp_to_source_color_primaries(cicp.color_primaries);
+    if source_color_primaries.is_none() {
         once!(warn!(
             "PNG file declares cICP color primaries code {}, which Bevy does not support. \
             Assuming BT.709 primaries.",
             cicp.color_primaries,
         ));
     }
-    source_primaries
+    source_color_primaries
 }
 
 /// Maps a cICP color primaries code from ITU-T H.273 to [`SourceColorPrimaries`].
 /// Returns `None` for unsupported primaries.
-fn cicp_color_primaries_to_source_primaries(code: u8) -> Option<SourceColorPrimaries> {
+fn cicp_to_source_color_primaries(code: u8) -> Option<SourceColorPrimaries> {
     match code {
         1 => Some(SourceColorPrimaries::Bt709),
         9 => Some(SourceColorPrimaries::Bt2020),
@@ -88,7 +88,7 @@ mod tests {
             (12, SourceColorPrimaries::DisplayP3),
         ] {
             assert_eq!(
-                png_source_primaries(&write_test_png(Some([code, /* sRGB */ 13]))),
+                png_source_color_primaries(&write_test_png(Some([code, /* sRGB */ 13]))),
                 Some(expected)
             );
         }
@@ -98,14 +98,14 @@ mod tests {
     fn unknown_cicp_primaries_yield_none() {
         // BT.601 (code 6) is a valid file value but not a supported variant.
         assert_eq!(
-            png_source_primaries(&write_test_png(Some([6, /* sRGB */ 13]))),
+            png_source_color_primaries(&write_test_png(Some([6, /* sRGB */ 13]))),
             None
         );
     }
 
     #[test]
     fn png_without_cicp_yields_none() {
-        assert_eq!(png_source_primaries(&write_test_png(None)), None);
+        assert_eq!(png_source_color_primaries(&write_test_png(None)), None);
     }
 
     #[test]
@@ -120,6 +120,6 @@ mod tests {
             None,
         )
         .unwrap();
-        assert_eq!(image.source_primaries, SourceColorPrimaries::Bt2020);
+        assert_eq!(image.source_color_primaries, SourceColorPrimaries::Bt2020);
     }
 }

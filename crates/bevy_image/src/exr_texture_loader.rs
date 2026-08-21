@@ -19,11 +19,11 @@ pub struct ExrTextureLoader;
 pub struct ExrTextureLoaderSettings {
     /// Where the asset will be used - see the docs on [`RenderAssetUsages`] for details.
     pub asset_usage: RenderAssetUsages,
-    /// Overrides the primaries stamped on [`Image::source_primaries`]. With the default
-    /// `None`, the loader reads the file's `chromaticities` attribute. See
+    /// Overrides the color primaries stamped on [`Image::source_color_primaries`]. With
+    /// the default `None`, the loader reads the file's `chromaticities` attribute. See
     /// [`SourceColorPrimaries`] for the resolution order.
     #[serde(default)]
-    pub source_primaries: Option<SourceColorPrimaries>,
+    pub source_color_primaries: Option<SourceColorPrimaries>,
 }
 
 /// Possible errors that can be produced by [`ExrTextureLoader`]
@@ -85,9 +85,10 @@ impl AssetLoader for ExrTextureLoader {
         );
         // The `image` crate's OpenEXR decoder drops the header color metadata, so read
         // the header again with the decoder's own `exr` crate.
-        image.source_primaries = SourceColorPrimaries::resolve(settings.source_primaries, || {
-            read_exr_chromaticities(&bytes)
-        });
+        image.source_color_primaries =
+            SourceColorPrimaries::resolve(settings.source_color_primaries, || {
+                read_exr_chromaticities(&bytes)
+            });
         Ok(image)
     }
 
@@ -107,19 +108,19 @@ fn read_exr_chromaticities(bytes: &[u8]) -> Option<SourceColorPrimaries> {
     let metadata =
         exr::meta::MetaData::read_from_buffered(std::io::Cursor::new(bytes), false).ok()?;
     let chromaticities = metadata.headers.first()?.shared_attributes.chromaticities?;
-    let source_primaries = SourceColorPrimaries::from_chromaticities(RgbPrimaries {
+    let source_color_primaries = SourceColorPrimaries::from_chromaticities(RgbPrimaries {
         red: Chromaticity::new(chromaticities.red.0, chromaticities.red.1),
         green: Chromaticity::new(chromaticities.green.0, chromaticities.green.1),
         blue: Chromaticity::new(chromaticities.blue.0, chromaticities.blue.1),
         white: Chromaticity::new(chromaticities.white.0, chromaticities.white.1),
     });
-    if source_primaries.is_none() {
+    if source_color_primaries.is_none() {
         once!(warn!(
             "OpenEXR file declares chromaticities {chromaticities:?}, which Bevy does not \
             support. Assuming BT.709 primaries.",
         ));
     }
-    source_primaries
+    source_color_primaries
 }
 
 #[cfg(test)]
