@@ -255,23 +255,35 @@ impl BsnEntry {
             BsnEntry::TemplateConstructor(BsnConstructor {
                 type_path,
                 function,
+                function_generics,
                 args,
             }) => EntryResult::CombinedSceneFunction({
                 let args = args.to_tokens(ctx);
+                let generics_tokens = if let Some(function_generics) = function_generics {
+                    quote! { #function_generics }
+                } else {
+                    quote! {}
+                };
                 quote! {
                     let __value = _scene.get_or_insert_template::<#type_path>(_context);
-                    *__value = #type_path::#function #args;
+                    *__value = #type_path::#function #generics_tokens #args;
                 }
             }),
             BsnEntry::FromTemplateConstructor(BsnConstructor {
                 type_path,
                 function,
+                function_generics,
                 args,
             }) => EntryResult::CombinedSceneFunction({
                 let args = args.to_tokens(ctx);
+                let generics_tokens = if let Some(function_generics) = function_generics {
+                    quote! { #function_generics }
+                } else {
+                    quote! {}
+                };
                 quote! {
                     let __value = _scene.get_or_insert_template::<<#type_path as #bevy_ecs::template::FromTemplate>::Template>(_context);
-                    *__value = <#type_path as #bevy_ecs::template::FromTemplate>::Template::#function #args;
+                    *__value = <#type_path as #bevy_ecs::template::FromTemplate>::Template::#function #generics_tokens #args;
                 }
             }),
             BsnEntry::RelatedSceneList(BsnRelatedSceneList {
@@ -1090,6 +1102,50 @@ mod tests {
             "Test Error",
         ));
         let root = BsnListRoot(BsnSceneListItems(vec![]));
+
+        // Act
+        let res = root.to_tokens(&mut ctx).to_string();
+
+        // Assert
+        assert_eq!(res, expected,);
+    }
+
+    #[test]
+    fn bsn_root_supports_turbofish_in_template_constructor() {
+        // Arrange
+        let expected = "bevy_scene :: SceneScope ({ let _res = bevy_scene :: auto_nest_tuple ! "
+            .to_string()
+            + "(bevy_scene :: SceneFunction (move | _context , _scene | { let __value = _scene . get_or_insert_template :: < A > (_context) ; "
+            + "* __value = A :: from :: < B > () ; })) ; _res })";
+
+        let mut refs = EntityRefs::default();
+        let paths = TestPaths::new();
+        let mut exprs = HoistedExpressions::default();
+        let mut ctx = paths.ctx(&mut refs, &mut exprs);
+
+        let root: BsnRoot = syn::parse_str("~A::from::<B>()").unwrap();
+
+        // Act
+        let res = root.to_tokens(&mut ctx).to_string();
+
+        // Assert
+        assert_eq!(res, expected,);
+    }
+
+    #[test]
+    fn bsn_root_supports_turbofish_in_from_template_constructor() {
+        // Arrange
+        let expected = "bevy_scene :: SceneScope ({ let _res = bevy_scene :: auto_nest_tuple ! "
+            .to_string()
+            + "(bevy_scene :: SceneFunction (move | _context , _scene | { let __value = _scene . get_or_insert_template :: << A as bevy_ecs :: template :: FromTemplate > :: Template > (_context) ; "
+            + "* __value = < A as bevy_ecs :: template :: FromTemplate > :: Template :: from :: < B > () ; })) ; _res })";
+
+        let mut refs = EntityRefs::default();
+        let paths = TestPaths::new();
+        let mut exprs = HoistedExpressions::default();
+        let mut ctx = paths.ctx(&mut refs, &mut exprs);
+
+        let root: BsnRoot = syn::parse_str("A::from::<B>()").unwrap();
 
         // Act
         let res = root.to_tokens(&mut ctx).to_string();
