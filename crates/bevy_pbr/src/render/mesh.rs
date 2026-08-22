@@ -476,7 +476,7 @@ pub fn check_views_need_specialization(
             }
         }
 
-        if !camera.is_some_and(|camera| camera.hdr)
+        if camera.is_none_or(|camera| !camera.hdr)
             && let Some(tonemapping) = tonemapping
             && tonemapping.is_enabled()
         {
