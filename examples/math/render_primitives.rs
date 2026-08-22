@@ -69,6 +69,7 @@ enum PrimitiveSelected {
     RectangleAndCuboid,
     CircleAndSphere,
     Ellipse,
+    Ellipsoid,
     Triangle,
     Plane,
     Line,
@@ -100,10 +101,11 @@ impl std::fmt::Display for PrimitiveSelected {
 }
 
 impl PrimitiveSelected {
-    const ALL: [Self; 20] = [
+    const ALL: [Self; 21] = [
         Self::RectangleAndCuboid,
         Self::CircleAndSphere,
         Self::Ellipse,
+        Self::Ellipsoid,
         Self::Triangle,
         Self::Plane,
         Self::Line,
@@ -159,6 +161,9 @@ const CUBOID: Cuboid = Cuboid {
 
 const CIRCLE: Circle = Circle { radius: BIG_2D };
 const SPHERE: Sphere = Sphere { radius: BIG_3D };
+const ELLIPSOID: Ellipsoid = Ellipsoid {
+    radii: Vec3::new(SMALL_3D * 1.0, SMALL_3D * 2.0, SMALL_3D * 3.0),
+};
 
 const ELLIPSE: Ellipse = Ellipse {
     half_size: Vec2::new(BIG_2D, SMALL_2D),
@@ -445,6 +450,7 @@ fn draw_gizmos_2d(mut gizmos: Gizmos, state: Res<State<PrimitiveSelected>>, time
             gizmos.primitive_2d(&CIRCLE, isometry, color);
         }
         PrimitiveSelected::Ellipse => drop(gizmos.primitive_2d(&ELLIPSE, isometry, color)),
+        PrimitiveSelected::Ellipsoid => {}
         PrimitiveSelected::Triangle => gizmos.primitive_2d(&TRIANGLE_2D, isometry, color),
         PrimitiveSelected::Plane => gizmos.primitive_2d(&PLANE_2D, isometry, color),
         PrimitiveSelected::Line => drop(gizmos.primitive_2d(&LINE_2D, isometry, color)),
@@ -526,6 +532,7 @@ fn spawn_primitive_2d(
         Some(RECTANGLE.mesh().build()),
         Some(CIRCLE.mesh().build()),
         Some(ELLIPSE.mesh().build()),
+        None, // ellipsoid
         Some(TRIANGLE_2D.mesh().build()),
         None, // plane
         None, // line
@@ -577,6 +584,7 @@ fn spawn_primitive_3d(
         Some(CUBOID.mesh().build()),
         Some(SPHERE.mesh().build()),
         None, // ellipse
+        Some(ELLIPSOID.mesh().build()),
         Some(TRIANGLE_3D.mesh().build()),
         Some(PLANE_3D.mesh().build()),
         None, // line
@@ -700,6 +708,7 @@ fn draw_gizmos_3d(mut gizmos: Gizmos, state: Res<State<PrimitiveSelected>>, time
                 .resolution(resolution),
         ),
         PrimitiveSelected::Ellipse => {}
+        PrimitiveSelected::Ellipsoid => drop(gizmos.primitive_3d(&ELLIPSOID, isometry, color)),
         PrimitiveSelected::Triangle => gizmos.primitive_3d(&TRIANGLE_3D, isometry, color),
         PrimitiveSelected::Plane => drop(gizmos.primitive_3d(&PLANE_3D, isometry, color)),
         PrimitiveSelected::Line => gizmos.primitive_3d(&LINE_3D, isometry, color),

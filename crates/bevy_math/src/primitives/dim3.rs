@@ -88,6 +88,74 @@ impl Measured3d for Sphere {
     }
 }
 
+/// An ellipsoid primitive representing all points whose distance from the origin is scaled
+/// independently along each axis
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default, Clone)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
+pub struct Ellipsoid {
+    /// The radii of the ellipsoid in each dimension
+    pub radii: Vec3,
+}
+
+impl Primitive3d for Ellipsoid {}
+
+impl Default for Ellipsoid {
+    /// Returns the default [`Ellipsoid`] with a radius of `0.5` in each dimension.
+    fn default() -> Self {
+        Self {
+            radii: Vec3::splat(0.5),
+        }
+    }
+}
+
+impl Ellipsoid {
+    /// Create a new [`Ellipsoid`] from a `radii`.
+    #[inline]
+    pub const fn new(radii: Vec3) -> Self {
+        Self { radii }
+    }
+
+    /// Get the diameter of the ellipsoid in each dimension.
+    ///
+    /// This is a [`Vec3`] where the components refer to the diameter in each dimension.
+    #[inline]
+    pub fn diameter(&self) -> Vec3 {
+        2.0 * self.radii
+    }
+}
+
+impl Measured3d for Ellipsoid {
+    /// Get the surface area of the ellipsoid.
+    ///
+    /// This is only an approximation with a relative error of about 1.061%.
+    ///
+    /// See <https://en.wikipedia.org/wiki/Ellipsoid#Approximate_formula>
+    #[inline]
+    fn area(&self) -> f32 {
+        let p = 1.6075;
+        let pow_p = |x| ops::powf(x, p);
+        let inner_sqrt = pow_p(self.radii.x) * pow_p(self.radii.y)
+            + pow_p(self.radii.y) * pow_p(self.radii.z)
+            + pow_p(self.radii.z) * pow_p(self.radii.x);
+        4.0 * PI * ops::powf(inner_sqrt / 3.0, p.recip())
+    }
+
+    /// Get the volume of the ellipsoid.
+    #[inline]
+    fn volume(&self) -> f32 {
+        4.0 * FRAC_PI_3 * self.radii.x * self.radii.y * self.radii.z
+    }
+}
+
 /// A bounded plane in 3D space. It forms a surface starting from the origin with a defined height and width.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -1690,6 +1758,20 @@ mod tests {
         assert_eq!(sphere.diameter(), 8.0, "incorrect diameter");
         assert_eq!(sphere.area(), 201.06193, "incorrect area");
         assert_eq!(sphere.volume(), 268.08257, "incorrect volume");
+    }
+
+    #[test]
+    fn ellipsoid_math() {
+        let ellipsoid = Ellipsoid {
+            radii: Vec3::new(1.0, 2.0, 3.0),
+        };
+        assert_eq!(
+            ellipsoid.diameter(),
+            Vec3::new(2.0, 4.0, 6.0),
+            "incorrect diameter"
+        );
+        assert_eq!(ellipsoid.area(), 48.971935, "incorrect area");
+        assert_eq!(ellipsoid.volume(), 25.132742, "incorrect volume");
     }
 
     #[test]
