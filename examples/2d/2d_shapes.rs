@@ -19,7 +19,7 @@ use bevy::{
     feathers::{controls::FeathersCheckbox, theme::UiTheme, FeathersPlugins},
     ui_widgets::{checkbox_self_update, ValueChange},
 };
-use checkbox::feathers_option_checkbox;
+use checkbox::{feathers_option_checkbox, IsChecked};
 use scene::{bottom_left_scene, top_left_scene};
 
 #[path = "../helpers/checkbox.rs"]
@@ -172,15 +172,15 @@ fn spawn_buttons(commands: &mut Commands) {
         commands.spawn_scene(bsn! {
             bottom_left_scene()
             Children [
-                feathers_option_checkbox("ROTATE", Some(CheckboxInput::Rotation)),
-                feathers_option_checkbox("WIREFRAME", Some(CheckboxInput::Wireframe)),
+                feathers_option_checkbox("ROTATE", Some(CheckboxInput::Rotation), IsChecked(false)),
+                feathers_option_checkbox("WIREFRAME", Some(CheckboxInput::Wireframe), IsChecked(false)),
             ]
         });
     } else {
         commands.spawn_scene(bsn! {
             top_left_scene() // so the user can immediately see the control in browser w/o scrolling
             Children [
-                feathers_option_checkbox("ROTATE", Some(CheckboxInput::Rotation)),
+                feathers_option_checkbox("ROTATE", Some(CheckboxInput::Rotation), IsChecked(false)),
             ]
         });
     }
