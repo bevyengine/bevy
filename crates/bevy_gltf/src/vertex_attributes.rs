@@ -317,6 +317,36 @@ pub fn convert_attribute(
             ConversionMode::JointWeight,
             false,
         )),
+        gltf::Semantic::Joints(1) => Some((
+            Mesh::ATTRIBUTE_JOINT_INDEX_1,
+            ConversionMode::JointIndex,
+            false,
+        )),
+        gltf::Semantic::Weights(1) => Some((
+            Mesh::ATTRIBUTE_JOINT_WEIGHT_1,
+            ConversionMode::JointWeight,
+            false,
+        )),
+        gltf::Semantic::Joints(2) => Some((
+            Mesh::ATTRIBUTE_JOINT_INDEX_2,
+            ConversionMode::JointIndex,
+            false,
+        )),
+        gltf::Semantic::Weights(2) => Some((
+            Mesh::ATTRIBUTE_JOINT_WEIGHT_2,
+            ConversionMode::JointWeight,
+            false,
+        )),
+        gltf::Semantic::Joints(3) => Some((
+            Mesh::ATTRIBUTE_JOINT_INDEX_3,
+            ConversionMode::JointIndex,
+            false,
+        )),
+        gltf::Semantic::Weights(3) => Some((
+            Mesh::ATTRIBUTE_JOINT_WEIGHT_3,
+            ConversionMode::JointWeight,
+            false,
+        )),
         gltf::Semantic::Extras(name) => custom_vertex_attributes
             .get(name.as_str())
             .map(|attr| (*attr, ConversionMode::Any, false)),
@@ -348,5 +378,94 @@ pub fn convert_attribute(
         }
     } else {
         Err(ConvertAttributeError::UnknownName(semantic.to_string()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn converts_additional_joint_influence_sets() {
+        let json = br#"
+        {
+            "asset": { "version": "2.0" },
+            "buffers": [{ "byteLength": 20 }],
+            "bufferViews": [
+                { "buffer": 0, "byteOffset": 0, "byteLength": 4 },
+                { "buffer": 0, "byteOffset": 4, "byteLength": 16 }
+            ],
+            "accessors": [
+                { "bufferView": 0, "componentType": 5121, "count": 1, "type": "VEC4" },
+                { "bufferView": 1, "componentType": 5126, "count": 1, "type": "VEC4" }
+            ],
+            "meshes": [{
+                "primitives": [{
+                    "attributes": {
+                        "JOINTS_1": 0,
+                        "WEIGHTS_1": 1,
+                        "JOINTS_2": 0,
+                        "WEIGHTS_2": 1,
+                        "JOINTS_3": 0,
+                        "WEIGHTS_3": 1
+                    }
+                }]
+            }]
+        }
+        "#;
+        let gltf = gltf::Gltf::from_slice_without_validation(json).unwrap();
+        let mut bytes = vec![1, 2, 3, 4];
+        for weight in [0.1_f32, 0.2, 0.3, 0.4] {
+            bytes.extend_from_slice(&weight.to_le_bytes());
+        }
+        let buffer_data = vec![bytes];
+        let custom_vertex_attributes = HashMap::default();
+        let mut converted_attribute_count = 0;
+
+        for (semantic, accessor) in gltf
+            .meshes()
+            .next()
+            .unwrap()
+            .primitives()
+            .next()
+            .unwrap()
+            .attributes()
+        {
+            let (attribute, values) = convert_attribute(
+                semantic.clone(),
+                accessor,
+                &buffer_data,
+                &custom_vertex_attributes,
+                false,
+            )
+            .unwrap();
+
+            match semantic {
+                gltf::Semantic::Joints(set_index) => {
+                    let expected_attribute = match set_index {
+                        1 => Mesh::ATTRIBUTE_JOINT_INDEX_1,
+                        2 => Mesh::ATTRIBUTE_JOINT_INDEX_2,
+                        3 => Mesh::ATTRIBUTE_JOINT_INDEX_3,
+                        _ => panic!("unexpected joint set {set_index}"),
+                    };
+                    assert_eq!(attribute, expected_attribute);
+                    assert_eq!(values, Values::Uint16x4(vec![[1, 2, 3, 4]]));
+                }
+                gltf::Semantic::Weights(set_index) => {
+                    let expected_attribute = match set_index {
+                        1 => Mesh::ATTRIBUTE_JOINT_WEIGHT_1,
+                        2 => Mesh::ATTRIBUTE_JOINT_WEIGHT_2,
+                        3 => Mesh::ATTRIBUTE_JOINT_WEIGHT_3,
+                        _ => panic!("unexpected weight set {set_index}"),
+                    };
+                    assert_eq!(attribute, expected_attribute);
+                    assert_eq!(values, Values::Float32x4(vec![[0.1, 0.2, 0.3, 0.4]]));
+                }
+                semantic => panic!("unexpected semantic {semantic:?}"),
+            }
+            converted_attribute_count += 1;
+        }
+
+        assert_eq!(converted_attribute_count, 6);
     }
 }
