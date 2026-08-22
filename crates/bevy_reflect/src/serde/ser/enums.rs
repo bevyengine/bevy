@@ -22,7 +22,7 @@ impl<P: ReflectSerializerProcessor> Serialize for EnumSerializer<'_, P> {
     where
         S: serde::Serializer,
     {
-        let type_info = self.enum_value.get_represented_type_info().ok_or_else(|| {
+        let type_info = self.enum_value.runtime_type_info().ok_or_else(|| {
             make_custom_error(format_args!(
                 "cannot get type info for `{}`",
                 self.enum_value.reflect_type_path()
