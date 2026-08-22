@@ -22,10 +22,10 @@ use crossbeam_channel::Sender;
 use thiserror::Error;
 use tracing::warn;
 
-#[derive(Debug)]
 pub(crate) struct AssetInfo {
     weak_handle: Weak<StrongHandle>,
     pub(crate) path: Option<AssetPath<'static>>,
+    pub(crate) meta_transform: Option<MetaTransform>,
     pub(crate) load_state: LoadState,
     pub(crate) dep_load_state: DependencyLoadState,
     pub(crate) rec_dep_load_state: RecursiveDependencyLoadState,
@@ -49,11 +49,52 @@ pub(crate) struct AssetInfo {
     pub(crate) waiting_tasks: Vec<Waker>,
 }
 
+// Manual Debug impl since MetaTransform is not Debug.
+impl core::fmt::Debug for AssetInfo {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("AssetInfo")
+            .field("weak_handle", &self.weak_handle)
+            .field("path", &self.path)
+            .field(
+                "meta_transform",
+                if self.meta_transform.is_some() {
+                    &"yes"
+                } else {
+                    &"no"
+                },
+            )
+            .field("load_state", &self.load_state)
+            .field("dep_load_state", &self.dep_load_state)
+            .field("rec_dep_load_state", &self.rec_dep_load_state)
+            .field("loading_dependencies", &self.loading_dependencies)
+            .field("failed_dependencies", &self.failed_dependencies)
+            .field("loading_rec_dependencies", &self.loading_rec_dependencies)
+            .field("failed_rec_dependencies", &self.failed_rec_dependencies)
+            .field(
+                "dependents_waiting_on_load",
+                &self.dependents_waiting_on_load,
+            )
+            .field(
+                "dependents_waiting_on_recursive_dep_load",
+                &self.dependents_waiting_on_recursive_dep_load,
+            )
+            .field("loader_dependencies", &self.loader_dependencies)
+            .field("handle_drops_to_skip", &self.handle_drops_to_skip)
+            .field("waiting_tasks", &self.waiting_tasks)
+            .finish()
+    }
+}
+
 impl AssetInfo {
-    fn new(weak_handle: Weak<StrongHandle>, path: Option<AssetPath<'static>>) -> Self {
+    fn new(
+        weak_handle: Weak<StrongHandle>,
+        path: Option<AssetPath<'static>>,
+        meta_transform: Option<MetaTransform>,
+    ) -> Self {
         Self {
             weak_handle,
             path,
+            meta_transform,
             load_state: LoadState::NotLoaded,
             dep_load_state: DependencyLoadState::NotLoaded,
             rec_dep_load_state: RecursiveDependencyLoadState::NotLoaded,
@@ -153,8 +194,8 @@ impl AssetInfos {
             }
         }
 
-        let handle = provider.reserve_handle_internal(true, path.clone(), meta_transform);
-        let mut info = AssetInfo::new(Arc::downgrade(&handle), path);
+        let handle = provider.reserve_handle_internal(true, path.clone());
+        let mut info = AssetInfo::new(Arc::downgrade(&handle), path, meta_transform);
         if loading {
             info.load_state = LoadState::Loading;
             info.dep_load_state = DependencyLoadState::Loading;
@@ -223,6 +264,12 @@ impl AssetInfos {
 
         match handles.entry(type_id) {
             TypeIdHashMapEntry::Occupied(entry) => {
+                // If we already have an entry for this path + type_id combo, we will ignore the
+                // meta_transform. This means that loading with_settings after the first load are
+                // **ignored**. It would be nice to fix this in the future. For now, drop the
+                // meta_transform to make sure we don't use it.
+                drop(meta_transform);
+
                 let index = *entry.get();
                 // if there is a path_to_id entry, info always exists
                 let info = self
@@ -258,7 +305,7 @@ impl AssetInfos {
                         .handle_providers
                         .get(&type_id)
                         .ok_or(MissingHandleProviderError(type_id))?;
-                    let handle = provider.get_handle(index, true, Some(path), meta_transform);
+                    let handle = provider.get_handle(index, true, Some(path));
                     info.weak_handle = Arc::downgrade(&handle);
                     Ok((UntypedHandle::Strong(handle), should_load))
                 }
