@@ -1843,7 +1843,7 @@ impl<'a> LoadBuilder<'a> {
         self.asset_server.write_infos().stats.started_load_tasks += 1;
 
         self.asset_server
-            .load_internal(None, path, false, None)
+            .load_internal(None, path, false, self.meta_transform)
             .await
             .map(|h| h.expect("handle must be returned, since we didn't pass in an input handle"))
     }
