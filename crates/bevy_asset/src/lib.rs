@@ -764,7 +764,7 @@ mod tests {
     };
     use bevy_reflect::{Reflect, TypePath};
     use bevy_tasks::{block_on, futures::check_ready, AsyncComputeTaskPool};
-    use core::{any::TypeId, time::Duration};
+    use core::{any::TypeId, assert_matches, time::Duration};
     use crossbeam_channel::TryRecvError;
     use futures_lite::AsyncReadExt;
     use ron::ser::PrettyConfig;
@@ -2333,7 +2333,10 @@ mod tests {
         });
 
         run_app_until(&mut app, |_| task.is_finished().then_some(()));
-        assert!(check_ready(&mut task).unwrap().is_err());
+        assert_matches!(
+            check_ready(&mut task).unwrap(),
+            Err(AssetLoadError::UnapprovedPath(path)) if path == AssetPath::from("../a.cool.ron")
+        );
     }
 
     #[test]
