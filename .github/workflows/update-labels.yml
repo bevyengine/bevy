@@ -22,4 +22,4 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          ./tools/labels/label-merge-conflicts.sh
+          ./.github/tools/label-merge-conflicts.sh
