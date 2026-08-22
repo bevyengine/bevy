@@ -10,12 +10,6 @@ macro_rules! wgpu_wrapper {
                 pub fn new(t: $wgputy) -> Self {
                     Self(t)
                 }
-
-                /// Unwraps the value.
-                #[allow(dead_code)]
-                pub fn into_inner(self) -> $wgputy {
-                    self.0
-                }
             }
 
             const _: () = {
@@ -43,6 +37,12 @@ macro_rules! wgpu_wrapper {
                     &mut self.0
                 }
             }
+
+            impl Into<$wgputy> for $name {
+                fn into(self) -> $wgputy {
+                    self.0
+                }
+            }
         )+
     };
 }
@@ -59,11 +59,6 @@ macro_rules! wgpu_wrapper {
                 pub fn new(t: $wgputy) -> Self {
                     Self(send_wrapper::SendWrapper::new(t))
                 }
-
-                /// Unwraps the value.
-                pub fn into_inner(self) -> $wgputy {
-                    self.0.take()
-                }
             }
 
             impl ::core::ops::Deref for $name {
@@ -77,6 +72,12 @@ macro_rules! wgpu_wrapper {
             impl ::core::ops::DerefMut for $name {
                 fn deref_mut(&mut self) -> &mut Self::Target {
                     &mut self.0
+                }
+            }
+
+            impl Into<$wgputy> for $name {
+                fn into(self) -> $wgputy {
+                    self.0.take()
                 }
             }
         )+
