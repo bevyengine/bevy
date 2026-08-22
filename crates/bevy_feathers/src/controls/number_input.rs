@@ -682,7 +682,7 @@ fn number_input_on_insert_value(
         let new_digits = units_registry
             .resolve(units)
             .format(clamped_value, drag_state.mode == EditMode::Editing);
-        if editable_text.value() != &new_digits {
+        if editable_text.value() != new_digits {
             editable_text.queue_edit(TextEdit::SelectAll);
             editable_text.queue_edit(TextEdit::Insert(new_digits.into()));
         }
