@@ -14,7 +14,7 @@ use bevy_transform::prelude::*;
 use bevy_window::{NormalizedWindowRef, PrimaryWindow, Window};
 
 use bevy_picking::{
-    events::{PointerDrag, PointerDragEnd, PointerDragStart},
+    events::{PointerDrag, PointerDragEnd, PointerDragStart, PointerScroll},
     pointer::{
         PointerAction, PointerButton, PointerId, PointerInput, PointerInteraction, PointerLocation,
         PointerMap,
@@ -41,6 +41,8 @@ pub struct PanOrbitCameraInputs {
     pub orbit_start: PointerButton,
     pub pan_start: PointerButton,
     pub zoom_stop_min: f32,
+    pub zoom_line_factor: f32,
+    pub zoom_pixel_factor: f32,
 }
 impl Default for PanOrbitCameraInputs {
     fn default() -> Self {
@@ -48,10 +50,19 @@ impl Default for PanOrbitCameraInputs {
             orbit_start: PointerButton::Secondary,
             pan_start: PointerButton::Primary,
             zoom_stop_min: 0.0,
+            zoom_line_factor: 150.0,
+            zoom_pixel_factor: 1.0,
         }
     }
 }
-
+impl PanOrbitCameraInputs {
+    fn get_zoom_factor(&self, scroll: MouseScrollUnit) -> f32 {
+        match scroll {
+            MouseScrollUnit::Line => self.zoom_line_factor,
+            MouseScrollUnit::Pixel => self.zoom_pixel_factor,
+        }
+    }
+}
 /// Maps pointers to the camera they are currently controlling.
 ///
 /// This is needed so we can automatically track pointer movements and update camera movement after
@@ -90,7 +101,19 @@ impl Plugin for DefaultInputPlugin {
             );
     }
 }
-// zoom: PointerScroll event
+fn observe_window_scroll(
+    evt: On<PointerScroll>,
+    mut controllers: Query<(
+        &mut PanOrbitCamera,
+        &PanOrbitCameraInputs,
+        &Camera,
+        &Projection,
+    )>,
+) {
+    if let Ok((mut controller, inputs, cam, proj)) = controllers.get_mut(evt.hit.camera) {
+        controller.send_zoom_input(evt.y * inputs.get_zoom_factor(evt.unit));
+    }
+}
 
 fn observe_window_drag_start(
     evt: On<PointerDragStart>,

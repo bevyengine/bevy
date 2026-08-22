@@ -71,7 +71,13 @@ pub struct InputStreamEntry<T> {
 }
 
 impl<
-        T: Copy + Default + Add<Output = T> + AddAssign<T> + Mul<f32, Output = T> + std::fmt::Debug,
+        T: Copy
+            + Default
+            + Add<Output = T>
+            + AddAssign<T>
+            + Mul<f32, Output = T>
+            + PartialEq
+            + std::fmt::Debug,
     > Default for InputQueue<T>
 {
     fn default() -> Self {
@@ -102,12 +108,20 @@ impl<
 }
 
 impl<
-        T: Copy + Default + Add<Output = T> + AddAssign<T> + Mul<f32, Output = T> + std::fmt::Debug,
+        T: Copy
+            + Default
+            + Add<Output = T>
+            + AddAssign<T>
+            + Mul<f32, Output = T>
+            + PartialEq
+            + std::fmt::Debug,
     > InputQueue<T>
 {
     const MAX_EVENTS: usize = 256;
 
-    /// Add an input sample
+    /// Add an input sample.
+    ///
+    /// If this is already an accumulated input for the entire frame, immediately call [`Self::tick`]
     pub fn process_input(&mut self, new_input: T) {
         self.pending += new_input;
     }
@@ -118,6 +132,10 @@ impl<
     pub fn tick(&mut self, smoothing: Duration) {
         let now = Instant::now();
         let new_input = std::mem::take(&mut self.pending);
+        // assuming T::default() is the zero value
+        if new_input == T::default() {
+            return;
+        }
         let queue = &mut self.queue;
 
         // Compute the expected sampling window end index
