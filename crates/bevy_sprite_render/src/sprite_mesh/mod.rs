@@ -1,4 +1,5 @@
 use bevy_app::{Plugin, PostUpdate};
+use bevy_asset::{Asset, AssetEvent, AssetEventSystems, AssetId, Assets, Handle};
 use bevy_color::ColorToComponents;
 use bevy_ecs::{
     entity::Entity,
@@ -7,8 +8,6 @@ use bevy_ecs::{
     schedule::IntoScheduleConfigs,
     system::{Commands, Local, Query, Res, ResMut},
 };
-
-use bevy_asset::{AssetEvent, AssetEventSystems, AssetId, Assets, Handle};
 
 use bevy_image::{Image, TextureAtlasLayout};
 use bevy_math::{primitives::Rectangle, vec2, FloatOrd};
@@ -119,6 +118,64 @@ impl SpriteMaterialBucketKey {
     }
 }
 
+struct SpriteMaterialCache<M: Asset> {
+    map: HashMap<SpriteMaterialBucketKey, Vec<(SpriteMesh, AssetId<M>)>>,
+    reversed: HashMap<AssetId<M>, SpriteMaterialBucketKey>,
+}
+
+impl<M: Asset> Default for SpriteMaterialCache<M> {
+    fn default() -> Self {
+        Self {
+            map: Default::default(),
+            reversed: Default::default(),
+        }
+    }
+}
+
+type SpriteMeshMaterialCache = SpriteMaterialCache<SpriteMaterial>;
+
+impl<M: Asset> SpriteMaterialCache<M> {
+    fn clean(&mut self, event: &AssetEvent<M>) {
+        if let AssetEvent::Removed { id } = event
+            && let Some(key) = self.reversed.remove(id)
+            && let Entry::Occupied(mut bucket) = self.map.entry(key)
+        {
+            bucket
+                .get_mut()
+                .retain(|(_, cached_material_id)| cached_material_id != id);
+
+            if bucket.get().is_empty() {
+                bucket.remove();
+            }
+        }
+    }
+
+    fn get_or_insert_with(
+        &mut self,
+        sprite: &SpriteMesh,
+        anchor: Anchor,
+        materials: &mut Assets<M>,
+        get: impl FnOnce() -> M,
+    ) -> Handle<M> {
+        let key = SpriteMaterialBucketKey::new(sprite, &anchor);
+        let bucket = self.map.entry(key).or_default();
+        let maybe_handle = bucket
+            .iter()
+            .find(|(cached_sprite, _)| cached_sprite == sprite)
+            .and_then(|(_, id)| materials.get_strong_handle(*id));
+
+        match maybe_handle {
+            Some(handle) => handle,
+            None => {
+                let handle = materials.add(get());
+                bucket.push((sprite.clone(), handle.id()));
+                self.reversed.insert(handle.id(), key);
+                handle
+            }
+        }
+    }
+}
+
 /// Change the material when [`SpriteMesh`] is added / changed.
 ///
 /// The materials are cached based on their [`SpriteMesh`] and [`Anchor`].
@@ -136,60 +193,106 @@ fn add_material(
         Or<(Changed<SpriteMesh>, Changed<Anchor>, Added<Mesh2d>)>,
     >,
     texture_atlas_layouts: Res<Assets<TextureAtlasLayout>>,
-    mut cached_materials: Local<
-        HashMap<SpriteMaterialBucketKey, Vec<(SpriteMesh, AssetId<SpriteMaterial>)>>,
-    >,
-    mut reversed_cached_materials: Local<HashMap<AssetId<SpriteMaterial>, SpriteMaterialBucketKey>>,
+    mut cached_materials: Local<SpriteMeshMaterialCache>,
     mut materials: ResMut<Assets<SpriteMaterial>>,
     mut material_events: MessageReader<AssetEvent<SpriteMaterial>>,
 ) {
-    // Remove materials from the cache
     for event in material_events.read() {
-        if let AssetEvent::Removed { id } = event
-            && let Some(key) = reversed_cached_materials.remove(id)
-            && let Entry::Occupied(mut bucket) = cached_materials.entry(key)
-        {
-            bucket
-                .get_mut()
-                .retain(|(_, cached_material_id)| cached_material_id != id);
-            if bucket.get().is_empty() {
-                bucket.remove();
-            }
-        }
+        cached_materials.clean(event);
     }
 
     for (entity, sprite, anchor) in sprites {
-        // Get the bucket for the sprite and anchor
-        let bucket_key = SpriteMaterialBucketKey::new(sprite, anchor);
-        let bucket = cached_materials.entry(bucket_key).or_default();
-
-        let maybe_handle = bucket
-            .iter()
-            .find(|(cached_sprite, _)| cached_sprite == sprite)
-            .and_then(|(_, id)| materials.get_strong_handle(*id));
-
-        let handle = match maybe_handle {
-            Some(handle) => handle,
-            None => {
-                let mut material = SpriteMaterial::from_sprite_mesh(sprite.clone());
-                material.anchor = **anchor;
-
-                if let Some(texture_atlas) = &sprite.texture_atlas
-                    && let Some(texture_atlas_layout) =
-                        texture_atlas_layouts.get(texture_atlas.layout.id())
-                {
-                    material.texture_atlas_layout = Some(texture_atlas_layout.clone());
-                    material.texture_atlas_index = texture_atlas.index;
-                }
-
-                let handle = materials.add(material);
-                bucket.push((sprite.clone(), handle.id()));
-                handle
-            }
-        };
+        let handle = cached_materials.get_or_insert_with(sprite, *anchor, &mut materials, || {
+            make_sprite_mesh_material(&texture_atlas_layouts, sprite, *anchor)
+        });
 
         commands
             .entity(entity)
             .insert(MeshMaterial2d(handle.clone()));
+    }
+}
+
+fn make_sprite_mesh_material(
+    texture_atlas_layouts: &Assets<TextureAtlasLayout>,
+    sprite: &SpriteMesh,
+    anchor: Anchor,
+) -> SpriteMaterial {
+    let mut material = SpriteMaterial::from_sprite_mesh(sprite.clone());
+    material.anchor = *anchor;
+
+    if let Some(texture_atlas) = &sprite.texture_atlas
+        && let Some(texture_atlas_layout) = texture_atlas_layouts.get(texture_atlas.layout.id())
+    {
+        material.texture_atlas_layout = Some(texture_atlas_layout.clone());
+        material.texture_atlas_index = texture_atlas.index;
+    }
+
+    material
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sprite_material_cache() {
+        let mut cache = SpriteMeshMaterialCache::default();
+        let mut assets = Assets::default();
+        let handle = cache.get_or_insert_with(
+            &SpriteMesh::default(),
+            Anchor::default(),
+            &mut assets,
+            SpriteMaterial::default,
+        );
+        assert_eq!(cache.map.len(), 1);
+        assert_eq!(cache.reversed.len(), 1);
+        assert_eq!(
+            assets.get(&handle).cloned(),
+            Some(SpriteMaterial::default())
+        );
+
+        let handle2 = cache.get_or_insert_with(
+            &SpriteMesh::default(),
+            Anchor::default(),
+            &mut assets,
+            SpriteMaterial::default,
+        );
+        assert_eq!(handle, handle2);
+        assert_eq!(cache.reversed.len(), 1);
+        assert_eq!(cache.map.len(), 1);
+
+        let mat = SpriteMaterial {
+            flip_x: true,
+            ..Default::default()
+        };
+        let handle3 = cache.get_or_insert_with(
+            &SpriteMesh::default(),
+            Anchor::BOTTOM_LEFT,
+            &mut assets,
+            || mat.clone(),
+        );
+        assert_eq!(cache.map.len(), 2);
+        assert_eq!(cache.map.len(), 2);
+        assert_ne!(handle, handle3);
+        assert_eq!(assets.get(&handle3).cloned(), Some(mat.clone()));
+
+        let handle4 = cache.get_or_insert_with(
+            &SpriteMesh::default(),
+            Anchor::BOTTOM_LEFT,
+            &mut assets,
+            || mat.clone(),
+        );
+        assert_eq!(cache.map.len(), 2);
+        assert_eq!(cache.map.len(), 2);
+        assert_eq!(handle3, handle4);
+        assert_eq!(assets.get(&handle4).cloned(), Some(mat.clone()));
+
+        cache.clean(&AssetEvent::Removed { id: handle.id() });
+        assert_eq!(cache.map.len(), 1);
+        assert_eq!(cache.reversed.len(), 1);
+
+        cache.clean(&AssetEvent::Removed { id: handle3.id() });
+        assert_eq!(cache.map.len(), 0);
+        assert_eq!(cache.reversed.len(), 0);
     }
 }
