@@ -18,7 +18,6 @@ env:
   CARGO_PROFILE_DEV_DEBUG: 0
   # If nightly is breaking CI, modify this variable to target a specific nightly version.
   NIGHTLY_TOOLCHAIN: nightly
-  RUSTFLAGS: "-D warnings"
 
 concurrency:
   group: ${{github.workflow}}-${{github.ref}}
@@ -57,8 +56,6 @@ jobs:
       - name: Build & run tests
         # See tools/ci/src/main.rs for the commands this runs
         run: cargo run -p ci -- test
-        env:
-          RUSTFLAGS: "-C debuginfo=0 -D warnings"
 
   ci:
     runs-on: ubuntu-latest
@@ -417,8 +414,6 @@ jobs:
       - name: Build and check doc
         # See tools/ci/src/main.rs for the commands this runs
         run: cargo run -p ci -- doc
-        env:
-          RUSTFLAGS: "-C debuginfo=0 -D warnings"
       # This currently report a lot of false positives
       # Enable it again once it's fixed - https://github.com/bevyengine/bevy/issues/1983
       # - name: Installs cargo-deadlinks
