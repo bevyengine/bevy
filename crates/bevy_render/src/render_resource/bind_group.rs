@@ -1,9 +1,12 @@
 use crate::{
+    material_bind_groups::FallbackBuffer,
     render_asset::RenderAssets,
     render_resource::{BindGroupLayout, Buffer, PipelineCache, Sampler, TextureView},
     renderer::{RenderDevice, WgpuWrapper},
+    storage::{GpuShaderBuffer, ShaderBuffer},
     texture::GpuImage,
 };
+use bevy_asset::Handle;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::system::{SystemParam, SystemParamItem};
 use bevy_material::descriptor::BindGroupLayoutDescriptor;
@@ -14,7 +17,8 @@ use encase::ShaderType;
 use std::ops::Range;
 use thiserror::Error;
 use wgpu::{
-    BindGroupEntry, BindGroupLayoutEntry, BindingResource, SamplerBindingType, TextureViewDimension,
+    BindGroupEntry, BindGroupLayoutEntry, BindingResource, BufferBinding, SamplerBindingType,
+    TextureViewDimension,
 };
 
 use super::{BindlessDescriptor, BindlessSlabResourceLimit};
@@ -533,6 +537,8 @@ pub trait AsBindGroup {
         layout_descriptor: &BindGroupLayoutDescriptor,
         render_device: &RenderDevice,
         pipeline_cache: &PipelineCache,
+        fallback_buffer: &FallbackBuffer,
+        shader_buffer_assets: &RenderAssets<GpuShaderBuffer>,
         param: &mut SystemParamItem<'_, '_, Self::Param>,
     ) -> Result<PreparedBindGroup, AsBindGroupError> {
         let layout = &pipeline_cache.get_bind_group_layout(layout_descriptor);
@@ -552,7 +558,7 @@ pub trait AsBindGroup {
             .iter()
             .map(|(index, binding)| BindGroupEntry {
                 binding: *index,
-                resource: binding.get_binding(),
+                resource: binding.get_binding(fallback_buffer, shader_buffer_assets),
             })
             .collect::<Vec<_>>();
 
@@ -647,6 +653,50 @@ pub struct PreparedBindGroup {
     pub bind_group: BindGroup,
 }
 
+impl PreparedBindGroup {
+    pub(crate) fn unprepare(&self) -> BindGroupBuilder {
+        let mut data_buffer = vec![];
+        BindGroupBuilder {
+            binding_resources: UnpreparedBindingResources(
+                self.bindings
+                    .iter()
+                    .map(|(binding, owned_binding_resource)| {
+                        let unprepared_binding_resource = match owned_binding_resource {
+                            OwnedBindingResource::Buffer(buffer) => {
+                                UnpreparedBindingResource::Buffer(buffer.clone())
+                            }
+                            OwnedBindingResource::ShaderBuffer(handle) => {
+                                UnpreparedBindingResource::ShaderBuffer(handle.clone())
+                            }
+                            OwnedBindingResource::TextureView(
+                                texture_view_dimension,
+                                texture_view,
+                            ) => UnpreparedBindingResource::TextureView(
+                                *texture_view_dimension,
+                                texture_view.clone(),
+                            ),
+                            OwnedBindingResource::Sampler(sampler_binding_type, sampler) => {
+                                UnpreparedBindingResource::Sampler(
+                                    *sampler_binding_type,
+                                    sampler.clone(),
+                                )
+                            }
+                            OwnedBindingResource::Data(owned_data) => {
+                                let start_offset = data_buffer.len() as u32;
+                                data_buffer.extend_from_slice(&owned_data.0);
+                                let end_offset = data_buffer.len() as u32;
+                                UnpreparedBindingResource::Data(start_offset..end_offset)
+                            }
+                        };
+                        (*binding, unprepared_binding_resource)
+                    })
+                    .collect(),
+            ),
+            data_buffer,
+        }
+    }
+}
+
 /// A raw list of binding resources, suitable for either preparing into a bind
 /// group or for combining with other bind groups (perhaps via bindless).
 ///
@@ -687,6 +737,9 @@ impl BindGroupBuilder {
                         UnpreparedBindingResource::Buffer(buffer) => {
                             OwnedBindingResource::Buffer(buffer)
                         }
+                        UnpreparedBindingResource::ShaderBuffer(handle) => {
+                            OwnedBindingResource::ShaderBuffer(handle)
+                        }
                         UnpreparedBindingResource::TextureView(
                             texture_view_dimension,
                             texture_view,
@@ -723,6 +776,7 @@ impl BindGroupBuilder {
 #[derive(Debug)]
 pub enum OwnedBindingResource {
     Buffer(Buffer),
+    ShaderBuffer(Handle<ShaderBuffer>),
     TextureView(TextureViewDimension, TextureView),
     Sampler(SamplerBindingType, Sampler),
     Data(OwnedData),
@@ -740,6 +794,7 @@ pub enum OwnedBindingResource {
 #[derive(Debug)]
 pub enum UnpreparedBindingResource {
     Buffer(Buffer),
+    ShaderBuffer(Handle<ShaderBuffer>),
     TextureView(TextureViewDimension, TextureView),
     Sampler(SamplerBindingType, Sampler),
     /// Plain old data (POD).
@@ -766,6 +821,12 @@ impl OwnedBindingResource {
     pub fn get_binding(&self) -> BindingResource<'_> {
         match self {
             OwnedBindingResource::Buffer(buffer) => buffer.as_entire_binding(),
+            OwnedBindingResource::ShaderBuffer(_) => {
+                panic!(
+                    "You can't use `get_binding` with a `ShaderBuffer`; fetch the buffer from \
+                     the `RenderAssets<GpuShaderBuffer>` instead"
+                )
+            }
             OwnedBindingResource::TextureView(_, view) => BindingResource::TextureView(view),
             OwnedBindingResource::Sampler(_, sampler) => BindingResource::Sampler(sampler),
             OwnedBindingResource::Data(_) => panic!("`OwnedData` has no binding resource"),
@@ -781,11 +842,32 @@ impl UnpreparedBindingResource {
     /// [`UnpreparedBindingResource::Data`], because the range doesn't itself
     /// correspond to any binding and instead requires the
     /// `MaterialBindGroupAllocator` to pack it into a buffer.
-    pub fn get_binding(&self) -> BindingResource<'_> {
+    pub fn get_binding<'a>(
+        &'a self,
+        fallback_buffer: &'a FallbackBuffer,
+        shader_buffer_assets: &'a RenderAssets<GpuShaderBuffer>,
+    ) -> BindingResource<'a> {
         match self {
             UnpreparedBindingResource::Buffer(buffer) => buffer.as_entire_binding(),
             UnpreparedBindingResource::TextureView(_, view) => BindingResource::TextureView(view),
             UnpreparedBindingResource::Sampler(_, sampler) => BindingResource::Sampler(sampler),
+            UnpreparedBindingResource::ShaderBuffer(shader_buffer) => {
+                // Fetch the raw buffer from the
+                // `shader_buffer_assets`. If it's not there,
+                // use the fallback buffer.
+                match shader_buffer_assets.get(shader_buffer.id()) {
+                    Some(shader_buffer) => BindingResource::Buffer(BufferBinding {
+                        buffer: &shader_buffer.buffer,
+                        offset: 0,
+                        size: None,
+                    }),
+                    None => BindingResource::Buffer(BufferBinding {
+                        buffer: fallback_buffer,
+                        offset: 0,
+                        size: None,
+                    }),
+                }
+            }
             UnpreparedBindingResource::Data(_) => panic!("Data ranges have no binding resource"),
         }
     }

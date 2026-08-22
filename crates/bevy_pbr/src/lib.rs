@@ -30,7 +30,10 @@ pub mod contact_shadows;
 #[cfg(feature = "bevy_gltf")]
 pub mod gltf;
 use bevy_light::cluster::GlobalClusterSettings;
-use bevy_render::{sync_component::SyncComponent, view::RenderShadowLodOrigin};
+use bevy_render::{
+    material_bind_groups::init_fallback_resources, sync_component::SyncComponent,
+    view::RenderShadowLodOrigin,
+};
 pub use contact_shadows::{
     ContactShadows, ContactShadowsBuffer, ContactShadowsPlugin, ContactShadowsUniform,
     ViewContactShadowsUniformOffset,
@@ -221,7 +224,7 @@ impl Plugin for PbrPlugin {
                 ScreenSpaceAmbientOcclusionPlugin,
                 FogPlugin,
                 ExtractResourcePlugin::<DefaultOpaqueRendererMethod>::default(),
-                SyncComponentPlugin::<ShadowFilteringMethod, RenderApp, Self>::default(),
+                SyncComponentPlugin::<ShadowFilteringMethod, Self>::default(),
                 LightmapPlugin,
                 LightProbePlugin,
                 GpuMeshPreprocessPlugin {
@@ -235,11 +238,11 @@ impl Plugin for PbrPlugin {
             ))
             .add_plugins((
                 decal::ForwardDecalPlugin,
-                SyncComponentPlugin::<DirectionalLight, RenderApp, Self>::default(),
-                SyncComponentPlugin::<PointLight, RenderApp, Self>::default(),
-                SyncComponentPlugin::<SpotLight, RenderApp, Self>::default(),
-                SyncComponentPlugin::<RectLight, RenderApp, Self>::default(),
-                SyncComponentPlugin::<AmbientLight, RenderApp, Self>::default(),
+                SyncComponentPlugin::<DirectionalLight, Self>::default(),
+                SyncComponentPlugin::<PointLight, Self>::default(),
+                SyncComponentPlugin::<SpotLight, Self>::default(),
+                SyncComponentPlugin::<RectLight, Self>::default(),
+                SyncComponentPlugin::<AmbientLight, Self>::default(),
             ))
             .add_plugins((
                 ScatteringMediumPlugin,
@@ -361,7 +364,11 @@ impl Plugin for PbrPlugin {
         render_app
             .add_systems(
                 RenderStartup,
-                (init_shadow_samplers, init_global_clusterable_object_meta),
+                (
+                    init_shadow_samplers,
+                    init_global_clusterable_object_meta,
+                    init_fallback_resources,
+                ),
             )
             .add_systems(
                 ExtractSchedule,

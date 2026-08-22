@@ -172,7 +172,6 @@
 
 pub mod controller;
 pub mod extensions;
-pub mod input;
 
 /// Common imports.
 pub mod prelude {
@@ -193,7 +192,6 @@ use bevy_ecs::prelude::SystemSet;
 /// To be more precise, this plugin group adds the following plugins:
 ///
 /// - [`controller::MinimalPanOrbitCameraPlugin`]
-/// - [`input::DefaultInputPlugin`]
 /// - [`extensions::dolly_zoom::DollyZoomPlugin`]
 /// - [`extensions::look_to::LookToPlugin`]
 /// - [`extensions::anchor_indicator::AnchorIndicatorPlugin`] (if the `extension_anchor_indicator` feature is enabled)
@@ -207,7 +205,6 @@ pub struct SyncCameraPosition;
 impl PluginGroup for DefaultPanOrbitCameraPlugins {
     fn build(self) -> PluginGroupBuilder {
         let group = PluginGroupBuilder::start::<Self>()
-            .add(input::DefaultInputPlugin)
             .add(controller::MinimalPanOrbitCameraPlugin)
             .add(extensions::dolly_zoom::DollyZoomPlugin)
             .add(extensions::look_to::LookToPlugin);
