@@ -209,11 +209,11 @@ fn extract_windows(
     }
 }
 
+// TODO: what lifetime should this be?
 wgpu_wrapper!(struct WgpuSurface(wgpu::Surface<'static>));
 
 #[derive(Component)]
 pub struct SurfaceData {
-    // TODO: what lifetime should this be?
     surface: WgpuSurface,
     configuration: SurfaceConfiguration,
     texture_view_format: Option<TextureFormat>,
