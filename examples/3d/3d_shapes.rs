@@ -261,7 +261,6 @@ fn uv_debug_texture() -> Image {
 fn toggle_wireframe(
     mut wireframe_config: ResMut<WireframeConfig>,
     keyboard: Res<ButtonInput<KeyCode>>,
-/// Spawns the control widgets in the top left corner of the screen.
 ) {
     if keyboard.just_pressed(KeyCode::Space) {
         wireframe_config.global = !wireframe_config.global;
