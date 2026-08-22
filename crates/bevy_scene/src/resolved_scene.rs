@@ -536,6 +536,33 @@ impl ResolvedScene {
     pub fn push_bundle_template_erased(&mut self, template: Box<dyn ErasedBundleTemplate>) {
         self.bundle_templates.push(template);
     }
+
+    /// Returns an iterator over the [`ResolvedScene`]'s component templates.
+    pub fn component_templates(&self) -> impl Iterator<Item = &dyn ErasedComponentTemplate> {
+        self.component_templates.iter().map(|template| &**template)
+    }
+
+    /// Returns an iterator over the [`ResolvedScene`]'s bundle templates.
+    pub fn bundle_templates(&self) -> impl Iterator<Item = &dyn ErasedBundleTemplate> {
+        self.bundle_templates.iter().map(|template| &**template)
+    }
+
+    /// The [related scenes](RelatedResolvedScenes::scenes) for relationship `R` (e.g. [`ChildOf`] for children).
+    ///
+    /// [`ChildOf`]: bevy_ecs::hierarchy::ChildOf
+    pub fn related_scenes_for<R: Relationship>(&self) -> Option<&[ResolvedScene]> {
+        self.related
+            .get(&TypeId::of::<R>())
+            .map(|related| related.scenes.as_slice())
+    }
+
+    /// Returns an iterator over the [`ResolvedScene`]'s relationships, keyed by the [`Relationship`]'s [`TypeId`].
+    pub fn related_scenes(&self) -> impl Iterator<Item = (TypeId, &RelatedResolvedScenes)> {
+        self.related
+            .iter()
+            .map(|(type_id, related)| (*type_id, related))
+    }
+
     /// This will return the existing [`RelatedResolvedScenes`], if it exists. If not, a new empty [`RelatedResolvedScenes`] will be inserted and returned.
     ///
     /// This is used to add new related scenes and read existing related scenes.
