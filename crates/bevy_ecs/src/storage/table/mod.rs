@@ -746,7 +746,6 @@ impl Tables {
         row: TableRow,
         change_tick: Tick,
     ) -> TableMoveResult<'_> {
-        #[cfg(debug_assertions)]
         debug_assert!(old_table_id != new_table_id);
         // SAFETY:
         // - The caller ensures `old_table_id` and `new_table_id` do not overlap.
@@ -756,8 +755,6 @@ impl Tables {
                 .get_disjoint_unchecked_mut([old_table_id.as_usize(), new_table_id.as_usize()])
         };
         let last_index = (src_table.entity_count() - 1) as usize;
-        #[cfg(debug_assertions)]
-        debug_assert!(row.index() <= last_index);
         // SAFETY:
         // - All pre-existing columns will be written to immediately.
         // - The caller ensures that all new columns will be written to immediately.
@@ -766,42 +763,47 @@ impl Tables {
         let mut dst_iter = dst_table.columns.iter_mut().peekable();
 
         for (src_component_id, src_column) in src_table.columns.iter_mut() {
-            // Skip past any destination columns that don't exist in the source table.
+            // Skip any destination columns that don't exist in the source table.
             // The caller is responsible for initializing those columns.
-            while dst_iter
-                .next_if(|(dst_component_id, _)| *dst_component_id < src_component_id)
-                .is_some()
-            {}
-
-            // Then move the value in the source column if it exists in the destination table,
-            // or remove it if it does not.
-            if let Some((_, dst_column)) =
-                dst_iter.next_if(|(dst_component_id, _)| *dst_component_id == src_component_id)
-            {
-                // SAFETY:
-                // - `src_column` and `dst_column` correspond to the same `ComponentId`.
-                // - The caller ensures `row` is in-bounds for `src_column`.
-                // - `dst_row` was just allocated for the table containing `dst_column`.
-                // - `src_column` was initialized by a previous call to this function
-                //   or by a previous caller.
-                // - `dst_row` was just allocated and has not been written to.
-                unsafe {
-                    dst_column.initialize_from_unchecked(
-                        src_column,
-                        last_index,
-                        row,
-                        dst_row,
-                        change_tick,
-                    );
-                }
-            } else {
-                // SAFETY:
-                // - `last_index` is the index of the last element.
-                // - The caller ensures `row` <= `last_index`.
-                // - The length of `src_column` is given by the length of `src_table.entities`,
-                //   which has been updated.
-                unsafe {
-                    src_column.swap_remove_unchecked::<DROP>(last_index, row);
+            //
+            // Move the value from the source column if the column exists in the destination table.
+            //
+            // Remove the value from the source column if the column doesn't exist in the destination table.
+            loop {
+                if let Some((dst_component_id, dst_column)) =
+                    dst_iter.next_if(|&(dst_component_id, _)| dst_component_id <= src_component_id)
+                {
+                    if dst_component_id < src_component_id {
+                        continue;
+                    } else if dst_component_id == src_component_id {
+                        // SAFETY:
+                        // - `src_column` and `dst_column` correspond to the same `ComponentId`.
+                        // - The caller ensures `row` is in-bounds for `src_column`.
+                        // - `dst_row` was just allocated for the table containing `dst_column`.
+                        // - `src_column` was initialized by a previous call to this function
+                        //   or by a previous caller.
+                        // - `dst_row` was just allocated and has not been written to.
+                        unsafe {
+                            dst_column.initialize_from_unchecked(
+                                src_column,
+                                last_index,
+                                row,
+                                dst_row,
+                                change_tick,
+                            );
+                        }
+                        break;
+                    }
+                } else {
+                    // SAFETY:
+                    // - `last_index` is the index of the last element.
+                    // - The caller ensures `row` <= `last_index`.
+                    // - The length of `src_column` is given by the length of `src_table.entities`,
+                    //   which has been updated.
+                    unsafe {
+                        src_column.swap_remove_unchecked::<DROP>(last_index, row);
+                    }
+                    break;
                 }
             }
         }
