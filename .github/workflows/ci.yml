@@ -37,11 +37,11 @@ jobs:
       - uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           # key won't match, will rely on restore-keys
-          key: ${{ runner.os }}-stable--${{ hashFiles('**/Cargo.toml') }}-
+          key: ${{ runner.os }}-${{ env.NIGHTLY_TOOLCHAIN }}--${{ hashFiles('**/Cargo.toml') }}-
           # See .github/workflows/update-caches.yml for how keys are generated
           restore-keys: |
-            ${{ runner.os }}-stable--${{ hashFiles('**/Cargo.toml') }}-
-            ${{ runner.os }}-stable--
+            ${{ runner.os }}-${{ env.NIGHTLY_TOOLCHAIN }}--${{ hashFiles('**/Cargo.toml') }}-
+            ${{ runner.os }}-${{ env.NIGHTLY_TOOLCHAIN }}--
           path: |
             ~/.cargo/bin/
             ~/.cargo/registry/index/
@@ -50,7 +50,7 @@ jobs:
             target/
       - uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c
         with:
-          toolchain: stable
+          toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
       - name: Build & run tests
