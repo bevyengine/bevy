@@ -472,9 +472,9 @@ pub struct ExtractedCamera {
     /// When [`CompositingSpace::Srgb`], the main texture uses linear storage (`Rgba8Unorm`)
     /// and shaders output sRGB-encoded values for gamma-encoded blending.
     ///
-    /// This is the camera's raw request, which feeds the extract-time choice
-    /// of main-texture format. Pipeline keys and other consumers read the
-    /// view's [`ResolvedCompositingSpace`] instead.
+    /// The camera's request. Extraction uses it to pick the main texture
+    /// format. Everything else reads the view's [`ResolvedCompositingSpace`]
+    /// instead.
     pub compositing_space: Option<CompositingSpace>,
 }
 

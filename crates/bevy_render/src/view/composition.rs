@@ -1,11 +1,10 @@
 //! Resolution of per-camera [`CompositingSpace`] requests.
 //!
-//! Cameras with matching texture settings that render to the same target
-//! share one set of main textures. Cameras that composite over each other in
-//! the shared texture form a stack, and later passes need to know how the
-//! texture is encoded, so the whole stack has to agree on one compositing
-//! space. Each frame this module resolves a compositing space for every
-//! camera and stores the result in [`ResolvedCompositingSpace`].
+//! Cameras that render to the same target share main textures when their
+//! settings match, and composite over each other in that texture. Later
+//! passes need to know how the texture is encoded, so the whole stack has to
+//! agree on one compositing space. This module picks that space each frame
+//! and stores it in each view's [`ResolvedCompositingSpace`].
 
 use bevy_camera::{Camera2d, CameraMainTextureUsages, ClearColorConfig, CompositingSpace};
 use bevy_ecs::{
@@ -22,18 +21,17 @@ use wgpu::TextureFormat;
 use super::{main_texture_key, ExtractedView, MainTextureKey, Msaa};
 use crate::camera::ExtractedCamera;
 
-/// A camera view's per-frame resolved compositing space.
+/// The compositing space a camera view actually uses this frame.
 ///
-/// `None` means the view composites in linear light. An explicit
-/// [`CompositingSpace::Linear`] request also resolves to `None`, so a request
-/// for linear and no request produce the same pipeline keys.
+/// `None` means linear. An explicit [`CompositingSpace::Linear`] request also
+/// resolves to `None`, so both forms of linear produce the same pipeline
+/// keys.
 ///
-/// Read this instead of [`ExtractedCamera::compositing_space`], which holds
-/// the camera's raw request and feeds the extract-time choice of main-texture
-/// format.
+/// Read this instead of the request in
+/// [`ExtractedCamera::compositing_space`].
 ///
 /// Spawning or despawning an overlay camera can flip the base view's space
-/// and trigger a one-frame respecialization of its 2d pipelines.
+/// and respecialize its 2d pipelines for a frame.
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ResolvedCompositingSpace(pub Option<CompositingSpace>);
 
@@ -46,13 +44,12 @@ impl ResolvedCompositingSpace {
 
 /// The system set that writes [`ResolvedCompositingSpace`]. It runs in
 /// [`RenderSystems::CreateViews`](crate::RenderSystems::CreateViews) after
-/// `sort_cameras`. Order `CreateViews` readers of the component after this
-/// set.
+/// `sort_cameras`. Readers in `CreateViews` should order after this set.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemSet)]
 pub struct ResolveCompositingSpaces;
 
 /// Whether a camera composites over the previous camera's output and covers
-/// the whole render target. This decides membership in a compositing stack.
+/// the whole render target. Decides membership in a compositing stack.
 pub fn composites_fullscreen(camera: &ExtractedCamera) -> bool {
     matches!(camera.clear_color, ClearColorConfig::None) && camera.viewport.is_none()
 }
@@ -124,7 +121,8 @@ pub fn resolve_composition_spaces(
                 camera in the stack the same CompositingSpace."
             ),
             CompositingSpaceResolutionError::MixedSharedTextureRequests { requests } => warn_once!(
-                "Cameras sharing a render target mix compositing-space requests: {requests:?}. \
+                "Cameras sharing a render target request different compositing spaces: \
+                {requests:?}. \
                 Blending between their pixels will be wrong where their regions meet. Use one \
                 CompositingSpace for every camera on a shared target."
             ),
@@ -152,14 +150,15 @@ struct SpaceInput {
     request: Option<CompositingSpace>,
     composites_fullscreen: bool,
     is_camera_2d: bool,
-    /// Whether the main-texture format stores signed floats. The format is
-    /// part of the texture key, so the value is uniform within a group.
+    /// Whether the main texture format stores signed floats. The format is
+    /// part of the texture key, so this is the same for every view in a
+    /// group.
     signed_float_storage: bool,
 }
 
 /// A misconfiguration found while resolving compositing spaces.
 /// `resolve_composition_spaces` reports each one as a warning.
-/// `resolve_spaces` returns them so tests can check the trigger conditions.
+/// `resolve_spaces` returns them so tests can check when each fires.
 #[derive(Debug, PartialEq, Eq)]
 enum CompositingSpaceResolutionError {
     /// A compositing stack requests both `Srgb` and `Oklab`.
@@ -178,9 +177,9 @@ enum CompositingSpaceResolutionError {
     OklabWithoutSignedFloatStorage { entities: Vec<Entity> },
 }
 
-/// Resolves one compositing space per view. Views that composite over each
-/// other must agree on the shared texture's encoding, so a stack resolves as
-/// one unit. Members of other shared-texture groups resolve on their own.
+/// Resolves one compositing space per view. A stack must agree on its shared
+/// texture's encoding, so it resolves as one unit. Views that share a texture
+/// without forming a stack resolve on their own.
 fn resolve_spaces(
     views: impl IntoIterator<Item = (MainTextureKey, SpaceInput)>,
 ) -> (
@@ -237,14 +236,13 @@ fn warn_on_mixed_requests(
     }
 }
 
-/// Resolves one space for a whole stack, or for a single view of a non-stack
-/// group. The single distinct request among the members wins. With no
-/// request, or with conflicting requests, the unit resolves to linear.
+/// Resolves one space for a whole stack, or for a single view that doesn't
+/// belong to one. The single distinct request among the members wins. With no
+/// request or conflicting requests the unit resolves to linear.
 ///
-/// Two overrides apply in order. A member that isn't a `Camera2d` forces
-/// linear because only 2d render paths encode their output. A resolved
-/// `Oklab` degrades to linear when the main texture would clamp its signed
-/// channels.
+/// Two things can still force linear. A member that isn't a `Camera2d` does,
+/// because 3d render paths write linear values into the main texture. So does
+/// `Oklab` when the main texture would clamp its signed channels.
 fn resolve_members(
     members: &[SpaceInput],
     resolved: &mut EntityHashMap<Option<CompositingSpace>>,
@@ -315,8 +313,9 @@ mod tests {
         Entity::from_raw_u32(raw).unwrap()
     }
 
-    /// A `Camera2d` view on signed-float storage. Cases override what they
-    /// need. `texture` selects one of two distinct grouping keys.
+    /// A fullscreen `Camera2d` view whose main texture stores signed floats.
+    /// Tests override the fields they care about. `texture` picks which of
+    /// two texture keys the view groups under.
     fn view(
         raw: u32,
         texture: usize,
@@ -513,7 +512,7 @@ mod tests {
         assert!(diagnostics.is_empty());
     }
 
-    // The non-`Camera2d` member has no request, so it draws no non-2d warning.
+    // The non-`Camera2d` member has no request, so there is no non-2d warning.
     #[test]
     fn camera_2d_member_of_mixed_non_stack_group_keeps_request() {
         let mut camera_2d = view(1, 0, 0, SRGB);
@@ -574,8 +573,9 @@ mod tests {
     fn sorted_index_orders_the_group_not_insertion_order() {
         let mut base = view(1, 0, 0, None);
         base.1.composites_fullscreen = false;
-        // Insert the overlay first. The group is still a stack because the
-        // clearing member sorts to the front.
+        // The overlay comes first in the input. Sorting by sorted_index puts
+        // the clearing camera back at the front, so the group still counts as
+        // a stack.
         let (resolved, diagnostics) = resolve_spaces([view(2, 0, 1, SRGB), base]);
         assert_eq!(resolved_for(&resolved, 1), SRGB);
         assert_eq!(resolved_for(&resolved, 2), SRGB);

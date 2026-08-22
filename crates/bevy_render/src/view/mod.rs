@@ -1290,9 +1290,9 @@ pub fn cleanup_view_targets_for_resize(
     }
 }
 
-/// The identity key of a camera's main textures. Cameras with equal
-/// keys share one main-texture allocation in [`prepare_view_targets`], and
-/// [`resolve_composition_spaces`] groups by the same key.
+/// The settings that decide which cameras share main textures. Cameras with
+/// equal keys share one allocation in [`prepare_view_targets`], and
+/// [`resolve_composition_spaces`] groups them the same way.
 type MainTextureKey = (
     Option<NormalizedRenderTarget>,
     TextureUsages,
