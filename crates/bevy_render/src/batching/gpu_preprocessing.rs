@@ -45,7 +45,7 @@ use crate::{
         PartialBufferVec, PipelineCache, RawBufferVec, SparseBufferUpdateBindGroups,
         SparseBufferUpdateJobs, SparseBufferUpdatePipelines, UninitBufferVec,
     },
-    renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue, WgpuWrapper},
+    renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue, WgpuAdapterInfo},
     sync_world::{MainEntity, MainEntityHashMap},
     view::{ExtractedView, NoIndirectDrawing, RetainedViewEntity},
     GpuResourceAppExt, Render, RenderApp, RenderDebugFlags, RenderSystems,
@@ -1578,7 +1578,7 @@ impl FromWorld for GpuPreprocessingSupport {
             .flags
             .contains(DownlevelFlags::COMPUTE_SHADERS);
 
-        let adapter_info = RenderAdapterInfo(WgpuWrapper::new(adapter.get_info()));
+        let adapter_info = RenderAdapterInfo(WgpuAdapterInfo::new(adapter.get_info()));
 
         let max_supported_mode = if device.limits().max_compute_workgroup_size_x == 0
             || is_non_supported_android_device(&adapter_info)

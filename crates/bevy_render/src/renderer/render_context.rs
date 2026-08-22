@@ -1,8 +1,7 @@
-use super::WgpuWrapper;
 use crate::diagnostic::internal::DiagnosticsRecorder;
 use crate::render_phase::TrackedRenderPass;
 use crate::render_resource::{CommandEncoder, RenderPassDescriptor};
-use crate::renderer::RenderDevice;
+use crate::renderer::{wgpu_wrapper, RenderDevice};
 use alloc::borrow::Cow;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::change_detection::Tick;
@@ -35,13 +34,17 @@ enum PendingCommandBuffer {
     },
 }
 
+wgpu_wrapper!(struct WgpuPendingCommandBuffersInner(PendingCommandBuffersInner));
+
 /// A resource that holds command buffers and encoders that are pending submission to the render queue.
 #[derive(Resource)]
-pub struct PendingCommandBuffers(WgpuWrapper<PendingCommandBuffersInner>);
+pub struct PendingCommandBuffers(WgpuPendingCommandBuffersInner);
 
 impl Default for PendingCommandBuffers {
     fn default() -> Self {
-        Self(WgpuWrapper::new(PendingCommandBuffersInner::default()))
+        Self(WgpuPendingCommandBuffersInner::new(
+            PendingCommandBuffersInner::default(),
+        ))
     }
 }
 
@@ -162,15 +165,19 @@ impl RenderContextStateInner {
     }
 }
 
+wgpu_wrapper!(struct WgpuRenderContextStateInner(RenderContextStateInner));
+
 /// A resource that holds the current render context state, including command encoder and command buffers.
 /// This is used internally by the [`RenderContext`] system parameter. Implements [`SystemBuffer`] to
 /// append command buffers and unfinished encoders in topological system order. Pending encoders are
 /// finished in parallel immediately before submission.
-pub struct RenderContextState(WgpuWrapper<RenderContextStateInner>);
+pub struct RenderContextState(WgpuRenderContextStateInner);
 
 impl Default for RenderContextState {
     fn default() -> Self {
-        Self(WgpuWrapper::new(RenderContextStateInner::default()))
+        Self(WgpuRenderContextStateInner::new(
+            RenderContextStateInner::default(),
+        ))
     }
 }
 

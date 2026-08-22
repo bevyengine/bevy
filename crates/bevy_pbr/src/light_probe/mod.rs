@@ -22,7 +22,7 @@ use bevy_platform::collections::HashMap;
 use bevy_render::{
     render_asset::RenderAssets,
     render_resource::{DynamicUniformBuffer, Sampler, ShaderType, TextureView},
-    renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue, WgpuWrapper},
+    renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue, WgpuAdapterInfo},
     settings::WgpuFeatures,
     sync_world::{MainEntity, MainEntityHashMap, RenderEntity},
     texture::{FallbackImage, GpuImage},
@@ -776,7 +776,7 @@ pub(crate) fn binding_arrays_are_usable(
     render_device: &RenderDevice,
     render_adapter: &RenderAdapter,
 ) -> bool {
-    let adapter_info = RenderAdapterInfo(WgpuWrapper::new(render_adapter.get_info()));
+    let adapter_info = RenderAdapterInfo(WgpuAdapterInfo::new(render_adapter.get_info()));
 
     bevy_render::get_adreno_model(&adapter_info).is_none_or(|model| model > 610)
         && render_device

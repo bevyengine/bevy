@@ -7,7 +7,7 @@ use wgpu::{
     NoopBackendOptions, RequestAdapterOptions,
 };
 
-use crate::renderer::{RenderDevice, RenderQueue, WgpuWrapper};
+use crate::renderer::{RenderDevice, RenderQueue, WgpuQueue};
 
 /// Creates a dummy [`RenderDevice`] and [`RenderQueue`] on `wgpu`'s noop backend.
 ///
@@ -38,6 +38,6 @@ pub fn create_dummy_device() -> (RenderDevice, RenderQueue) {
 
     (
         RenderDevice::from(device),
-        RenderQueue(Arc::new(WgpuWrapper::new(queue))),
+        RenderQueue(Arc::new(WgpuQueue::new(queue))),
     )
 }
