@@ -171,7 +171,7 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
 
         match key.tonemapping {
             Tonemapping::None | Tonemapping::Linear => {
-                shader_defs.push("TONEMAP_METHOD_NONE".into());
+                shader_defs.push("TONEMAP_METHOD_LINEAR".into());
             }
             Tonemapping::Reinhard => shader_defs.push("TONEMAP_METHOD_REINHARD".into()),
             Tonemapping::ReinhardLuminance => {

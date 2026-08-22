@@ -12,7 +12,3 @@ working exactly as they do under the named operators.
 
 `Tonemapping::None` also stops clamping negative color channels to zero. If your
 scene relies on that clamp, `Tonemapping::Linear` keeps it.
-
-Default cameras render unchanged. `Camera3d` defaults to `Tonemapping::TonyMcMapface`,
-and `Camera2d` uses `Tonemapping::None` with default grading, which already had no
-effect.

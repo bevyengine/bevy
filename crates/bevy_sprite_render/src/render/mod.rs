@@ -104,7 +104,7 @@ bitflags::bitflags! {
         const COLOR_TARGET_FORMAT_RESERVED_BITS = Self::COLOR_TARGET_FORMAT_MASK_BITS << Self::COLOR_TARGET_FORMAT_SHIFT_BITS;
         const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
         const TONEMAP_METHOD_RESERVED_BITS      = Self::TONEMAP_METHOD_MASK_BITS << Self::TONEMAP_METHOD_SHIFT_BITS;
-        const TONEMAP_METHOD_NONE               = 0 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_LINEAR             = 0 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_REINHARD           = 1 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_REINHARD_LUMINANCE = 2 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_ACES_FITTED        = 3 << Self::TONEMAP_METHOD_SHIFT_BITS;
@@ -176,8 +176,8 @@ impl SpecializedRenderPipeline for SpritePipeline {
 
             let method = key.intersection(SpritePipelineKey::TONEMAP_METHOD_RESERVED_BITS);
 
-            if method == SpritePipelineKey::TONEMAP_METHOD_NONE {
-                shader_defs.push("TONEMAP_METHOD_NONE".into());
+            if method == SpritePipelineKey::TONEMAP_METHOD_LINEAR {
+                shader_defs.push("TONEMAP_METHOD_LINEAR".into());
             } else if method == SpritePipelineKey::TONEMAP_METHOD_REINHARD {
                 shader_defs.push("TONEMAP_METHOD_REINHARD".into());
             } else if method == SpritePipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE {
@@ -543,7 +543,7 @@ pub fn queue_sprites(
         {
             view_key |= SpritePipelineKey::TONEMAP_IN_SHADER;
             view_key |= match tonemapping {
-                Tonemapping::None | Tonemapping::Linear => SpritePipelineKey::TONEMAP_METHOD_NONE,
+                Tonemapping::None | Tonemapping::Linear => SpritePipelineKey::TONEMAP_METHOD_LINEAR,
                 Tonemapping::Reinhard => SpritePipelineKey::TONEMAP_METHOD_REINHARD,
                 Tonemapping::ReinhardLuminance => {
                     SpritePipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE
