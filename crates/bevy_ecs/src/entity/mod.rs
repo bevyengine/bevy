@@ -121,7 +121,7 @@ use crate::{
     storage::{SparseSetIndex, TableId, TableRow},
 };
 use alloc::vec::Vec;
-use core::{fmt, hash::Hash, mem, num::NonZero, panic::Location};
+use core::{fmt, hash::Hash, mem, num::NonZero, ops::Range, panic::Location};
 use derive_more::derive::Display;
 use log::warn;
 use nonmax::NonMaxU32;
@@ -708,9 +708,21 @@ pub struct EntityAllocator {
 }
 
 impl EntityAllocator {
+    /// Creates a new `EntityAllocator` with a given range
+    ///
+    /// # Warning
+    /// - Any two entity allocators must not have overlapping ranges, otherwise an entity can be allocated twice by different allocators.
+    /// - Do not free entities with an [`EntityIndex`] outside of the given range. This ensures that the allocator won't allocate out-of-range entities.
+    pub(crate) fn new(range: Range<u32>) -> Self {
+        Self {
+            inner: remote_allocator::Allocator::new(range),
+        }
+    }
+
     /// Restarts the allocator.
     pub(crate) fn restart(&mut self) {
-        self.inner = remote_allocator::Allocator::new();
+        let range = self.inner.range().clone();
+        self.inner = remote_allocator::Allocator::new(range);
     }
 
     /// Builds a new remote allocator that hooks into this [`EntityAllocator`].
@@ -729,6 +741,10 @@ impl EntityAllocator {
     /// Freeing an [`Entity`] such that one [`EntityIndex`] is in the allocator in multiple places can cause panics when spawning the allocated entity.
     /// Additionally, to differentiate versions of an [`Entity`], updating the [`EntityGeneration`] before freeing is a good idea
     /// (but not strictly necessary if you don't mind [`Entity`] id aliasing.)
+    ///
+    /// # Warning
+    /// Freeing an [`Entity`] does not check that its [`EntityIndex`] is in range. If an out-of-range entity is freed, it may be handed out again.
+    /// If you rely on entities being in range, do not free out-of-range entities.
     pub fn free(&mut self, freed: Entity) {
         self.inner.free(freed);
     }
@@ -779,7 +795,13 @@ impl EntityAllocator {
     /// More generally, manually spawning and [`despawn_no_free`](crate::world::World::despawn_no_free)ing entities allows you to skip Bevy's default entity allocator.
     /// This is useful if you want to enforce properties about the [`EntityIndex`]s of a group of entities, make a custom allocator, etc.
     pub fn alloc(&self) -> Entity {
-        self.inner.alloc()
+        self.inner.try_alloc().expect("out of entities")
+    }
+
+    /// Allocates some [`Entity`].
+    /// Returns `None` if no entities are available. This is a non-`panic`ing version of `alloc`.
+    pub fn try_alloc(&self) -> Option<Entity> {
+        self.inner.try_alloc()
     }
 
     /// A more efficient way of calling [`alloc`](Self::alloc) repeatedly `count` times.
@@ -1499,7 +1521,7 @@ mod tests {
 
     #[test]
     fn allocator() {
-        let mut allocator = EntityAllocator::default();
+        let mut allocator = EntityAllocator::new(0..u32::MAX);
         let mut entities = allocator.alloc_many(2048).collect::<Vec<_>>();
         for _ in 0..2048 {
             entities.push(allocator.alloc());
