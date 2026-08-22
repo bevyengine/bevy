@@ -8,7 +8,8 @@ pub use render_context::{
     CurrentView, FlushCommands, PendingCommandBuffers, RenderContext, RenderContextState, ViewQuery,
 };
 pub use render_device::*;
-pub use wgpu_wrapper::WgpuWrapper;
+
+pub(crate) use wgpu_wrapper::wgpu_wrapper;
 
 use crate::{
     settings::{RenderResources, WgpuSettings, WgpuSettingsPriority},
@@ -138,22 +139,34 @@ pub fn render_system(
     crate::view::screenshot::collect_screenshots(world);
 }
 
+wgpu_wrapper! {
+    pub struct WgpuQueue(Queue);
+
+    #[derive(Debug)]
+    pub struct WgpuAdapter(Adapter);
+
+    pub struct WgpuInstance(Instance);
+
+    #[derive(Clone)]
+    pub struct WgpuAdapterInfo(AdapterInfo);
+}
+
 /// This queue is used to enqueue tasks for the GPU to execute asynchronously.
 #[derive(Resource, Clone, Deref, DerefMut)]
-pub struct RenderQueue(pub Arc<WgpuWrapper<Queue>>);
+pub struct RenderQueue(pub Arc<WgpuQueue>);
 
 /// The handle to the physical device being used for rendering.
 /// See [`Adapter`] for more info.
 #[derive(Resource, Clone, Debug, Deref, DerefMut)]
-pub struct RenderAdapter(pub Arc<WgpuWrapper<Adapter>>);
+pub struct RenderAdapter(pub Arc<WgpuAdapter>);
 
 /// The GPU instance is used to initialize the [`RenderQueue`] and [`RenderDevice`],
 #[derive(Resource, Clone, Deref, DerefMut)]
-pub struct RenderInstance(pub Arc<WgpuWrapper<Instance>>);
+pub struct RenderInstance(pub Arc<WgpuInstance>);
 
 /// The [`AdapterInfo`] of the adapter in use by the renderer.
 #[derive(Resource, Clone, Deref, DerefMut)]
-pub struct RenderAdapterInfo(pub WgpuWrapper<AdapterInfo>);
+pub struct RenderAdapterInfo(pub WgpuAdapterInfo);
 
 const GPU_NOT_FOUND_ERROR_MESSAGE: &str = if cfg!(target_os = "linux") {
     "Unable to find a GPU! Make sure you have installed required drivers! For extra information, see: https://github.com/bevyengine/bevy/blob/latest/docs/linux_dependencies.md"
@@ -377,10 +390,10 @@ pub async fn initialize_renderer(
 
     RenderResources(
         RenderDevice::from(device),
-        RenderQueue(Arc::new(WgpuWrapper::new(queue))),
-        RenderAdapterInfo(WgpuWrapper::new(adapter_info)),
-        RenderAdapter(Arc::new(WgpuWrapper::new(adapter))),
-        RenderInstance(Arc::new(WgpuWrapper::new(instance))),
+        RenderQueue(Arc::new(WgpuQueue::new(queue))),
+        RenderAdapterInfo(WgpuAdapterInfo::new(adapter_info)),
+        RenderAdapter(Arc::new(WgpuAdapter::new(adapter))),
+        RenderInstance(Arc::new(WgpuInstance::new(instance))),
         #[cfg(feature = "raw_vulkan_init")]
         additional_vulkan_features,
     )

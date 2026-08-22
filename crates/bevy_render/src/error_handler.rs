@@ -11,7 +11,7 @@ pub use wgpu_types::error::ErrorType;
 use crate::{
     insert_future_resources,
     render_resource::PipelineCache,
-    renderer::{RenderDevice, WgpuWrapper},
+    renderer::{wgpu_wrapper, RenderDevice},
     settings::RenderCreation,
     FutureRenderResources, RenderStartup,
 };
@@ -83,13 +83,18 @@ impl Default for RenderErrorHandler {
     }
 }
 
+wgpu_wrapper! {
+    #[derive(Debug)]
+    pub struct WgpuErrorSource(ErrorSource);
+}
+
 /// An error encountered during rendering. These are errors reported by wgpu validation layers,
 /// and typically indicate problems in the way it is being used.
 #[derive(Debug)]
 pub struct RenderError {
     pub ty: ErrorType,
     pub description: String,
-    pub source: Option<WgpuWrapper<ErrorSource>>,
+    pub source: Option<WgpuErrorSource>,
 }
 
 /// The current state of the renderer.
@@ -105,11 +110,13 @@ pub(crate) enum RenderState {
     Reinitializing,
 }
 
+wgpu_wrapper!(struct WgpuError(wgpu::Error));
+
 /// Resource to allow polling wgpu error handlers.
 #[derive(Resource)]
 pub(crate) struct DeviceErrorHandler {
     device_lost: Arc<Mutex<Option<(wgpu::DeviceLostReason, String)>>>,
-    uncaptured: Arc<Mutex<Option<WgpuWrapper<wgpu::Error>>>>,
+    uncaptured: Arc<Mutex<Option<WgpuError>>>,
 }
 
 impl DeviceErrorHandler {
@@ -130,10 +137,7 @@ impl DeviceErrorHandler {
             });
             device.on_uncaptured_error(Arc::new(move |e| {
                 bevy_log::error!("Caught rendering error: {e}");
-                uncaptured
-                    .lock()
-                    .unwrap()
-                    .get_or_insert(WgpuWrapper::new(e));
+                uncaptured.lock().unwrap().get_or_insert(WgpuError::new(e));
             }));
         }
         Self {
@@ -153,7 +157,7 @@ impl DeviceErrorHandler {
             });
         }
         if let Some(error) = self.uncaptured.lock().unwrap().take() {
-            let (ty, description, source) = match error.into_inner() {
+            let (ty, description, source) = match wgpu::Error::from(error) {
                 wgpu::Error::OutOfMemory { source } => {
                     (ErrorType::OutOfMemory, "".to_string(), source)
                 }
@@ -169,7 +173,7 @@ impl DeviceErrorHandler {
             return Some(RenderError {
                 ty,
                 description,
-                source: Some(WgpuWrapper::new(source)),
+                source: Some(WgpuErrorSource::new(source)),
             });
         }
         None

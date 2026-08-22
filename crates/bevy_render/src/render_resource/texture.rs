@@ -1,4 +1,4 @@
-use crate::renderer::{RenderDevice, RenderQueue, WgpuWrapper};
+use crate::renderer::{wgpu_wrapper, RenderDevice, RenderQueue};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     resource::Resource,
@@ -9,6 +9,11 @@ use bevy_utils::define_atomic_id;
 use core::ops::Deref;
 
 define_atomic_id!(TextureId);
+
+wgpu_wrapper! {
+    #[derive(Clone, Debug)]
+    struct WgpuTexture(wgpu::Texture);
+}
 
 /// A GPU-accessible texture.
 ///
@@ -26,7 +31,7 @@ define_atomic_id!(TextureId);
 #[derive(Clone, Debug)]
 pub struct Texture {
     id: TextureId,
-    value: WgpuWrapper<wgpu::Texture>,
+    value: WgpuTexture,
 }
 
 impl Texture {
@@ -46,7 +51,7 @@ impl From<wgpu::Texture> for Texture {
     fn from(value: wgpu::Texture) -> Self {
         Texture {
             id: TextureId::new(),
-            value: WgpuWrapper::new(value),
+            value: WgpuTexture::new(value),
         }
     }
 }
@@ -62,20 +67,27 @@ impl Deref for Texture {
 
 define_atomic_id!(TextureViewId);
 
+wgpu_wrapper! {
+    #[derive(Clone, Debug)]
+    struct WgpuTextureView(wgpu::TextureView);
+
+    struct WgpuSurfaceTexture(wgpu::SurfaceTexture);
+}
+
 /// Describes a [`Texture`] with its associated metadata required by a pipeline or [`BindGroup`](super::BindGroup).
 #[derive(Clone, Debug)]
 pub struct TextureView {
     id: TextureViewId,
-    value: WgpuWrapper<wgpu::TextureView>,
+    value: WgpuTextureView,
 }
 
 pub struct SurfaceTexture {
-    value: WgpuWrapper<wgpu::SurfaceTexture>,
+    value: WgpuSurfaceTexture,
 }
 
 impl SurfaceTexture {
     pub fn present(self, render_queue: &RenderQueue) {
-        render_queue.present(self.value.into_inner());
+        render_queue.present(self.value.into());
     }
 }
 
@@ -91,7 +103,7 @@ impl From<wgpu::TextureView> for TextureView {
     fn from(value: wgpu::TextureView) -> Self {
         TextureView {
             id: TextureViewId::new(),
-            value: WgpuWrapper::new(value),
+            value: WgpuTextureView::new(value),
         }
     }
 }
@@ -99,7 +111,7 @@ impl From<wgpu::TextureView> for TextureView {
 impl From<wgpu::SurfaceTexture> for SurfaceTexture {
     fn from(value: wgpu::SurfaceTexture) -> Self {
         SurfaceTexture {
-            value: WgpuWrapper::new(value),
+            value: WgpuSurfaceTexture::new(value),
         }
     }
 }
@@ -124,6 +136,11 @@ impl Deref for SurfaceTexture {
 
 define_atomic_id!(SamplerId);
 
+wgpu_wrapper! {
+    #[derive(Clone, Debug)]
+    struct WgpuSampler(wgpu::Sampler);
+}
+
 /// A Sampler defines how a pipeline will sample from a [`TextureView`].
 /// They define image filters (including anisotropy) and address (wrapping) modes, among other things.
 ///
@@ -132,7 +149,7 @@ define_atomic_id!(SamplerId);
 #[derive(Clone, Debug)]
 pub struct Sampler {
     id: SamplerId,
-    value: WgpuWrapper<wgpu::Sampler>,
+    value: WgpuSampler,
 }
 
 impl Sampler {
@@ -147,7 +164,7 @@ impl From<wgpu::Sampler> for Sampler {
     fn from(value: wgpu::Sampler) -> Self {
         Sampler {
             id: SamplerId::new(),
-            value: WgpuWrapper::new(value),
+            value: WgpuSampler::new(value),
         }
     }
 }
