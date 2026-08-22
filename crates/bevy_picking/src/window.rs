@@ -13,7 +13,6 @@
 
 use bevy_camera::NormalizedRenderTarget;
 use bevy_ecs::prelude::*;
-use bevy_platform::collections::HashMap;
 
 use crate::{
     backend::{ray::RayMap, HitData, PointerHits},
@@ -33,15 +32,14 @@ pub fn update_window_hits(
 ) {
     for (&ray_id, _) in ray_map.iter() {
         if let Some((position, window_entity)) = pointers.iter().find_map(|(id, loc)| {
-            if *id == ray_id.pointer {
-                match loc.location {
-                    Some(Location {
-                        target: NormalizedRenderTarget::Window(window_ref),
-                        position,
-                        ..
-                    }) => return Some((position, window_ref.entity())),
-                    _ => (),
-                }
+            if *id == ray_id.pointer
+                && let Some(Location {
+                    target: NormalizedRenderTarget::Window(window_ref),
+                    position,
+                    ..
+                }) = loc.location
+            {
+                return Some((position, window_ref.entity()));
             }
             None
         }) {
