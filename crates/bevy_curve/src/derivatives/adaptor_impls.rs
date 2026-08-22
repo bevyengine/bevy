@@ -2,14 +2,14 @@
 //! compositionality for derivatives.
 
 use super::{SampleDerivative, SampleTwoDerivatives};
-use crate::common_traits::{HasTangent, Sum, VectorSpace, WithDerivative, WithTwoDerivatives};
-use crate::curve::{
+use crate::{
     adaptors::{
         ChainCurve, ConstantCurve, ContinuationCurve, CurveReparamCurve, ForeverCurve, GraphCurve,
         LinearReparamCurve, PingPongCurve, RepeatCurve, ReverseCurve, ZipCurve,
     },
     Curve,
 };
+use bevy_math::common_traits::{HasTangent, Sum, VectorSpace, WithDerivative, WithTwoDerivatives};
 
 // -- ConstantCurve
 
@@ -463,8 +463,8 @@ mod tests {
 
     use super::*;
     use crate::cubic_splines::{CubicBezier, CubicCardinalSpline, CubicCurve, CubicGenerator};
-    use crate::curve::{Curve, CurveExt, Interval};
-    use crate::{vec2, Vec2, Vec3};
+    use crate::{Curve, CurveExt, Interval};
+    use bevy_math::{vec2, Vec2, Vec3};
 
     fn test_curve() -> CubicCurve<Vec2> {
         let control_pts = [[

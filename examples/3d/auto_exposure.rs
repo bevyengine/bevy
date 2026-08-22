@@ -12,8 +12,9 @@
 //! | `V`                | Visualize Metering Mask                |
 
 use bevy::{
+    curve::cubic_splines::LinearSpline,
     light::Skybox,
-    math::{cubic_splines::LinearSpline, primitives::Plane3d, vec2},
+    math::{primitives::Plane3d, vec2},
     post_process::auto_exposure::{
         AutoExposure, AutoExposureCompensationCurve, AutoExposurePlugin,
     },

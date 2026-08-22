@@ -678,12 +678,12 @@ impl WinitAppRunnerState {
                         target_os = "android",
                         target_os = "ios",
                         all(target_os = "linux", any(feature = "x11", feature = "wayland"))
-                    )) =>
-                    {
+                    )) => {
                         let visible = WINIT_WINDOWS.with_borrow(|winit_windows| {
-                            winit_windows.windows.iter().any(|(_, w)| {
-                                w.is_visible().unwrap_or(false)
-                            })
+                            winit_windows
+                                .windows
+                                .iter()
+                                .any(|(_, w)| w.is_visible().unwrap_or(false))
                         });
 
                         event_loop.set_control_flow(if visible {

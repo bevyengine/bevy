@@ -43,7 +43,7 @@ collections to build your own "profile" equivalent, without needing to manually 
 |picking|Enables picking with all backends. **Feature set:** `bevy_picking`, `mesh_picking`, `sprite_picking`, `ui_picking`.|
 |default_app|The core pieces that most apps need. This serves as a baseline feature set for other higher level feature collections (such as "2d" and "3d"). It is also useful as a baseline feature set for scenarios like headless apps that require no rendering (ex: command line tools, servers, etc). **Feature set:** `async_executor`, `bevy_asset`, `bevy_log`, `bevy_state`, `reflect_auto_register`.|
 |default_platform|These are platform support features, such as OS support/features, windowing and input backends, etc. **Feature set:** `std`, `bevy_gilrs`, `bevy_winit`, `bevy_clipboard`, `default_font`, `multi_threaded`, `webgl2`, `x11`, `wayland`, `custom_cursor`, `sysinfo_plugin`.|
-|common_api|Default scene definition features. Note that this does not include an actual renderer, such as bevy_render (Bevy's default render backend). **Feature set:** `bevy_animation`, `bevy_camera`, `bevy_color`, `bevy_gizmos`, `bevy_image`, `bevy_mesh`, `bevy_shader`, `bevy_material`, `bevy_text`, `bevy_window`, `hdr`, `png`.|
+|common_api|Default scene definition features. Note that this does not include an actual renderer, such as bevy_render (Bevy's default render backend). **Feature set:** `bevy_animation`, `bevy_camera`, `bevy_color`, `bevy_curve`, `bevy_gizmos`, `bevy_image`, `bevy_mesh`, `bevy_shader`, `bevy_material`, `bevy_text`, `bevy_window`, `hdr`, `png`.|
 |2d_api|Features used to build 2D Bevy apps (does not include a render backend). You generally don't need to worry about this unless you are using a custom renderer. **Feature set:** `common_api`, `bevy_sprite`.|
 |2d_bevy_render|Bevy's built-in 2D renderer, built on top of `bevy_render`. **Feature set:** `2d_api`, `bevy_render`, `bevy_core_pipeline`, `bevy_post_process`, `bevy_sprite_render`, `bevy_gizmos_render`.|
 |3d_api|Features used to build 3D Bevy apps (does not include a render backend). You generally don't need to worry about this unless you are using a custom renderer. **Feature set:** `common_api`, `bevy_light`, `bevy_mikktspace`, `ktx2`, `morph_animation`, `morph`, `smaa_luts`, `tonemapping_luts`, `zstd_rust`.|
@@ -77,6 +77,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |bevy_clipboard|Clipboard resource and management. See `system_clipboard` for OS-integrated clipboard support.|
 |bevy_color|Provides shared color types and operations|
 |bevy_core_pipeline|Provides cameras and other basic render pipeline features|
+|bevy_curve|Provides mathematical curve functionality|
 |bevy_debug_stepping|Enable stepping-based debugging of Bevy systems|
 |bevy_dev_tools|Provides a collection of developer tools|
 |bevy_extract|Provides the ability to extract entities from an ECS main world to a sub world|
