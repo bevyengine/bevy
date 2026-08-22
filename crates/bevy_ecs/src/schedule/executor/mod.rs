@@ -619,6 +619,10 @@ mod validation_tests {
         ) {
         }
 
+        fn is_exclusive() -> bool {
+            false
+        }
+
         unsafe fn get_param<'world, 'state>(
             _state: &'state mut Self::State,
             _system_meta: &SystemMeta,

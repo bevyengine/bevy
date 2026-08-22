@@ -64,6 +64,10 @@ unsafe impl SystemParam for SystemName {
     ) {
     }
 
+    fn is_exclusive() -> bool {
+        false
+    }
+
     #[inline]
     unsafe fn get_param<'w, 's>(
         _state: &'s mut Self::State,

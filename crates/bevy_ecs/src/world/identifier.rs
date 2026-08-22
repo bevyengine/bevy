@@ -66,11 +66,13 @@ unsafe impl ReadOnlySystemParam for WorldId {}
 
 // SAFETY: No world data is accessed.
 unsafe impl SystemParam for WorldId {
-    type State = ();
+    type State = WorldId;
 
     type Item<'world, 'state> = WorldId;
 
-    fn init_state(_: &mut World) -> Self::State {}
+    fn init_state(world: &mut World) -> Self::State {
+        world.id()
+    }
 
     fn init_access(
         _state: &Self::State,
@@ -80,14 +82,18 @@ unsafe impl SystemParam for WorldId {
     ) {
     }
 
+    fn is_exclusive() -> bool {
+        false
+    }
+
     #[inline]
     unsafe fn get_param<'world, 'state>(
-        _: &'state mut Self::State,
+        state: &'state mut Self::State,
         _: &SystemMeta,
-        world: UnsafeWorldCell<'world>,
+        _: UnsafeWorldCell<'world>,
         _: Tick,
     ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
-        Ok(world.id())
+        Ok(*state)
     }
 }
 
