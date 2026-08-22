@@ -12,13 +12,13 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
 
       # This job checks each open PR if the S-Merge-Conflicts label is correct.
       # Allows for reviewers to search for ready PRs with:
       #   `is:pr is:open -label:S-Merge-Conflicts -author:@me label:S-Needs-Review -reviewed-by:@me`
       - name: Update merge conflict labels
-        with:
-          persist-credentials: false
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
