@@ -761,10 +761,12 @@ pub fn sort_cameras(
             // does not affect render graph ordering. It is read at the end of
             // rendering, when each camera's image is written out to the target. By
             // default the bottom camera replaces what is there and every camera above
-            // it alpha-blends on top. The map is keyed by the target alone. Splitting
-            // the count by a camera setting such as `Hdr` would leave a mixed stack
-            // with two bottom cameras, and the top one would overwrite the base
-            // instead of blending over it.
+            // it alpha-blends on top.
+            //
+            // The map has to be keyed by only the target, and not by anything else.
+            // Splitting the count by a camera setting such as `Hdr` would leave a
+            // mixed stack with two bottom cameras, and the top one would overwrite
+            // the base instead of blending over it. So we don't do that.
             let count = target_counts.entry(target.clone()).or_insert(0usize);
             let (_, mut camera) = cameras.get_mut(sorted_camera.entity).unwrap();
             camera.sorted_camera_index_for_target = *count;
