@@ -698,6 +698,8 @@ impl RelatedResolvedScenes {
 
 /// A type-erased, object-safe, downcastable version of [`Template`] that produces a [`Component`], which will be added to the
 /// given [`BundleWriter`].
+///
+/// Call `downcast_ref` on `dyn ErasedComponentTemplate` to recover the concrete template type.
 pub trait ErasedComponentTemplate: Any + Send + Sync {
     /// Applies this template to the given `entity`.
     ///
@@ -714,6 +716,18 @@ pub trait ErasedComponentTemplate: Any + Send + Sync {
 
     /// Clones this template. See [`Clone`].
     fn clone_template(&self) -> Box<dyn ErasedComponentTemplate>;
+
+    /// The [`TypeId`] of the [`Component`] this template produces (this is not the template's own type).
+    fn output_type_id(&self) -> TypeId;
+}
+
+impl dyn ErasedComponentTemplate {
+    /// Downcasts this template to the concrete template type `T`, by reference.
+    ///
+    /// Returns `None` if the template is not of type `T`.
+    pub fn downcast_ref<T: Any>(&self) -> Option<&T> {
+        (self as &dyn Any).downcast_ref::<T>()
+    }
 }
 
 impl<T: Template<Output: Component> + Send + Sync + 'static> ErasedComponentTemplate for T {
@@ -734,10 +748,16 @@ impl<T: Template<Output: Component> + Send + Sync + 'static> ErasedComponentTemp
     fn clone_template(&self) -> Box<dyn ErasedComponentTemplate> {
         Box::new(Template::clone_template(self))
     }
+
+    fn output_type_id(&self) -> TypeId {
+        TypeId::of::<T::Output>()
+    }
 }
 
 /// A type-erased, object-safe, downcastable version of [`Template`] that produces a [`Bundle`], which will be added
 /// immediately to a given `entity`.
+///
+/// Call `downcast_ref` on `dyn ErasedBundleTemplate` to recover the concrete template type.
 pub trait ErasedBundleTemplate: Any + Send + Sync {
     /// Applies this template to the given `entity`.
     ///
@@ -750,6 +770,15 @@ pub trait ErasedBundleTemplate: Any + Send + Sync {
 
     /// Clones this template. See [`Clone`].
     fn clone_template(&self) -> Box<dyn ErasedBundleTemplate>;
+}
+
+impl dyn ErasedBundleTemplate {
+    /// Downcasts this template to the concrete template type `T`, by reference.
+    ///
+    /// Returns `None` if the template is not of type `T`.
+    pub fn downcast_ref<T: Any>(&self) -> Option<&T> {
+        (self as &dyn Any).downcast_ref::<T>()
+    }
 }
 
 impl<T: Template<Output: Bundle> + Send + Sync + 'static> ErasedBundleTemplate for T {
