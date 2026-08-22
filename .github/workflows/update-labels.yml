@@ -18,8 +18,13 @@ jobs:
       # This job checks each open PR if the S-Merge-Conflicts label is correct.
       # Allows for reviewers to search for ready PRs with:
       #   `is:pr is:open -label:S-Merge-Conflicts -author:@me label:S-Needs-Review -reviewed-by:@me`
+      # Script runs twice if any PRs have mergeable=UNKNOWN to allow for calculation
       - name: Update merge conflict labels
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          ./.github/tools/label-merge-conflicts.sh
+          RET=$(./.github/tools/label-merge-conflicts.sh)
+          if [ "$RET" -gt 0 ]; then
+            sleep 60
+            ./.github/tools/label-merge-conflicts.sh
+          fi

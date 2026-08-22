@@ -3,7 +3,7 @@
 
 echo "Checking PRs with S-Merge-Conflicts if they are mergeable"
 
-gh pr list --repo bevyengine/bevy --json number,mergeable,title --label S-Merge-Conflicts -L 10000 > yes_conflict_label.json
+gh pr list --repo bevyengine/bevy --json number,mergeable,title --label S-Merge-Conflicts -L 1000 > yes_conflict_label.json
 
 YES_LABEL_UNKNOWN=$(jq -r 'map(select(.mergeable == "UNKNOWN")) | length' yes_conflict_label.json)
 
@@ -16,7 +16,7 @@ done
 
 echo "Checking PRs without S-Merge-Conflicts if they have conflicts"
 
-gh pr list --repo bevyengine/bevy --json number,mergeable,title --search "-label:S-Merge-Conflicts" -L 10000 > no_conflict_label.json
+gh pr list --repo bevyengine/bevy --json number,mergeable,title --search "-label:S-Merge-Conflicts" -L 1000 > no_conflict_label.json
 
 NO_LABEL_UNKNOWN=$(jq -r 'map(select(.mergeable == "UNKNOWN")) | length' no_conflict_label.json)
 
@@ -36,3 +36,10 @@ if [[ "$NO_LABEL_UNKNOWN" -gt 0 ]]; then
 fi
 
 echo "Done"
+
+
+if [ "$YES_LABEL_UNKNOWN" -gt 0 ] || [ "$NO_LABEL_UNKNOWN" -gt 0 ]; then
+    exit 1
+fi
+
+exit 0
