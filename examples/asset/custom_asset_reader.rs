@@ -9,12 +9,19 @@ use bevy::{
     },
     prelude::*,
 };
-use std::path::Path;
+use std::{
+    borrow::Cow,
+    path::{Path, PathBuf},
+};
 
 /// A custom asset reader implementation that wraps a given asset reader implementation
 struct CustomAssetReader(Box<dyn ErasedAssetReader>);
 
 impl AssetReader for CustomAssetReader {
+    fn root_path(&self) -> Cow<'_, PathBuf> {
+        self.0.root_path()
+    }
+
     async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
         info!("Reading {}", path.display());
         self.0.read(path).await
