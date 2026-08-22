@@ -1,3 +1,8 @@
+/// A macro producing wrappers to safely make `wgpu` types Send / Sync on web with atomics enabled.
+///
+/// On web with `atomics` enabled the inner value can only be accessed
+/// or dropped on the `wgpu` thread or else a panic will occur.
+/// On other platforms the wrapper simply contains the wrapped value.
 #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
 macro_rules! wgpu_wrapper {
     ($( $(#[$($attrs:tt)*])* $vis:vis struct $name:ident ($wgputy:ty) );+ $(;)?) => {
@@ -11,18 +16,6 @@ macro_rules! wgpu_wrapper {
                     Self(t)
                 }
             }
-
-            const _: () = {
-                const fn assert_sync_send<T: Sync + Send>() {}
-                assert_sync_send::<$wgputy>()
-            };
-
-            // SAFETY: We just asserted that $wgputy is Send and Sync
-            #[expect(unsafe_code, reason = "Blanket-impl Send requires unsafe.")]
-            unsafe impl Send for $name {}
-            // SAFETY: We just asserted that $wgputy is Send and Sync
-            #[expect(unsafe_code, reason = "Blanket-impl Send requires unsafe.")]
-            unsafe impl Sync for $name {}
 
             impl ::core::ops::Deref for $name {
                 type Target = $wgputy;
@@ -43,6 +36,21 @@ macro_rules! wgpu_wrapper {
                     t.0
                 }
             }
+
+            // Short-circuit the `Send + Sync` implementation.
+            // At the type-level this does effectively nothing, however in the compiler
+            // this creates a short-circuit for the trait solver that reduces recursion depth
+            // and substantially improves compile times.
+            const _: () = {
+                const fn assert_sync_send<T: Sync + Send>() {}
+                assert_sync_send::<$wgputy>()
+            };
+            // SAFETY: We just asserted that $wgputy is Send and Sync
+            #[expect(unsafe_code, reason = "Blanket-impl Send requires unsafe.")]
+            unsafe impl Send for $name {}
+            // SAFETY: We just asserted that $wgputy is Send and Sync
+            #[expect(unsafe_code, reason = "Blanket-impl Send requires unsafe.")]
+            unsafe impl Sync for $name {}
         )+
     };
 }
