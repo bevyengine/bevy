@@ -1,13 +1,13 @@
 [package]
-description = "Provides math functionality for Bevy Engine"
-edition = "2024"
-homepage = "https://bevy.org"
-keywords = ["bevy"]
-license = "MIT OR Apache-2.0"
-name = "bevy_curve"
-repository = "https://github.com/bevyengine/bevy"
+description  = "Provides curve functionality for Bevy Engine"
+edition      = "2024"
+homepage     = "https://bevy.org"
+keywords     = ["bevy"]
+license      = "MIT OR Apache-2.0"
+name         = "bevy_curve"
+repository   = "https://github.com/bevyengine/bevy"
 rust-version = "1.94.0"
-version = "0.20.0-dev"
+version      = "0.20.0-dev"
 
 [dependencies]
 approx = { default-features = false, optional = true, version = "0.5" }
@@ -48,7 +48,7 @@ serialize = ["bevy_math/serialize", "dep:serde"]
 # Enable approx for bevy_math types to approximate floating point equality comparisons and assertions
 approx = ["bevy_math/approx", "dep:approx"]
 # Enable bevy_reflect (requires alloc)
-bevy_reflect = ["alloc", "dep:bevy_reflect", "bevy_math/bevy_reflect"]
+bevy_reflect = ["alloc", "bevy_math/bevy_reflect", "dep:bevy_reflect"]
 # Enable critical-section backend
 critical-section = ["bevy_reflect?/critical-section"]
 
