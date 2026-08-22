@@ -382,22 +382,11 @@ impl AssetServer {
         override_unapproved: bool,
     ) -> UntypedHandle {
         let path = path.into().into_owned();
-        if path.path() == Path::new("") {
-            error!("Attempted to load an asset with an empty path \"{path}\"!");
+        if let Err(err) = validate_path(&path, override_unapproved, self.data.unapproved_path_mode)
+        {
+            // Log whatever we get, and then return a default handle.
+            error!("{err}");
             return UntypedHandle::default_for_type(type_id);
-        }
-
-        if path.is_unapproved() {
-            match (&self.data.unapproved_path_mode, override_unapproved) {
-                (UnapprovedPathMode::Allow, _) | (UnapprovedPathMode::Deny, true) => {}
-                (UnapprovedPathMode::Deny, false) | (UnapprovedPathMode::Forbid, _) => {
-                    error!("Asset path {path} is unapproved. See UnapprovedPathMode for details.");
-                    return UntypedHandle::Uuid {
-                        type_id,
-                        uuid: AssetId::<()>::DEFAULT_UUID,
-                    };
-                }
-            }
         }
 
         let mut infos = self.write_infos();
@@ -466,19 +455,11 @@ impl AssetServer {
         override_unapproved: bool,
     ) -> Handle<LoadedUntypedAsset> {
         let path = path.into().into_owned();
-        if path.path() == Path::new("") {
-            error!("Attempted to load an asset with an empty path \"{path}\"!");
+        if let Err(err) = validate_path(&path, override_unapproved, self.data.unapproved_path_mode)
+        {
+            // Log whatever we get, and then return a default handle.
+            error!("{err}");
             return Handle::default();
-        }
-
-        if path.is_unapproved() {
-            match (&self.data.unapproved_path_mode, override_unapproved) {
-                (UnapprovedPathMode::Allow, _) | (UnapprovedPathMode::Deny, true) => {}
-                (UnapprovedPathMode::Deny, false) | (UnapprovedPathMode::Forbid, _) => {
-                    error!("Asset path {path} is unapproved. See UnapprovedPathMode for details.");
-                    return Handle::default();
-                }
-            }
         }
 
         let untyped_source = AssetSourceId::Name(match path.source() {
@@ -1853,9 +1834,11 @@ impl<'a> LoadBuilder<'a> {
         asset_path: impl Into<AssetPath<'b>>,
     ) -> Result<UntypedHandle, AssetLoadError> {
         let path: AssetPath = asset_path.into();
-        if path.path() == Path::new("") {
-            return Err(AssetLoadError::EmptyPath(path.into_owned()));
-        }
+        validate_path(
+            &path,
+            self.override_unapproved,
+            self.asset_server.data.unapproved_path_mode,
+        )?;
 
         self.asset_server.write_infos().stats.started_load_tasks += 1;
 
@@ -2069,6 +2052,28 @@ pub fn publish_asset_server_diagnostics(
     });
 }
 
+/// Validates that the path is allowed to be loaded based on the provided flags.
+fn validate_path(
+    path: &AssetPath<'_>,
+    override_unapproved: bool,
+    unapproved_path_mode: UnapprovedPathMode,
+) -> Result<(), AssetLoadError> {
+    if path.path() == Path::new("") {
+        return Err(AssetLoadError::EmptyPath(path.clone_owned()));
+    }
+
+    if path.is_unapproved() {
+        match (unapproved_path_mode, override_unapproved) {
+            (UnapprovedPathMode::Allow, _) | (UnapprovedPathMode::Deny, true) => {}
+            (UnapprovedPathMode::Deny, false) | (UnapprovedPathMode::Forbid, _) => {
+                return Err(AssetLoadError::UnapprovedPath(path.clone_owned()));
+            }
+        }
+    }
+
+    Ok(())
+}
+
 /// Internal events for asset load results
 pub(crate) enum InternalAssetEvent {
     Loaded {
@@ -2212,8 +2217,10 @@ pub struct RequestedHandleTypeMismatchError {
     reason = "Adding docs to the variants would not add information beyond the error message and the names"
 )]
 pub enum AssetLoadError {
-    #[error("Attempted to load an asset with an empty path \"{0}\"")]
+    #[error("Attempted to load an asset with an empty path \"{0}\".")]
     EmptyPath(AssetPath<'static>),
+    #[error("Asset path \"{0}\" is unapproved. See UnapprovedPathMode for details.")]
+    UnapprovedPath(AssetPath<'static>),
     #[error(transparent)]
     RequestedHandleTypeMismatch(#[from] Box<RequestedHandleTypeMismatchError>),
     #[error("Could not find an asset loader matching: Asset Type: {asset_type_id:?}; Path: {asset_path:?};")]

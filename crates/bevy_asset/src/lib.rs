@@ -273,7 +273,7 @@ pub struct AssetPlugin {
 /// The default value is [`Forbid`](UnapprovedPathMode::Forbid).
 ///
 /// See [`AssetPath::is_unapproved`](crate::AssetPath::is_unapproved)
-#[derive(Clone, Default)]
+#[derive(Clone, Copy, Default)]
 pub enum UnapprovedPathMode {
     /// Unapproved asset loading is allowed. This is strongly discouraged.
     Allow,
@@ -377,7 +377,7 @@ impl Plugin for AssetPlugin {
                         AssetServerMode::Unprocessed,
                         self.meta_check.clone(),
                         watch,
-                        self.unapproved_path_mode.clone(),
+                        self.unapproved_path_mode,
                     ));
                 }
                 AssetMode::Processed => {
@@ -394,7 +394,7 @@ impl Plugin for AssetPlugin {
                             AssetServerMode::Processed,
                             AssetMetaCheck::Always,
                             watch,
-                            self.unapproved_path_mode.clone(),
+                            self.unapproved_path_mode,
                         ))
                         .insert_resource(processor)
                         .add_systems(bevy_app::Startup, AssetProcessor::start);
@@ -406,7 +406,7 @@ impl Plugin for AssetPlugin {
                             AssetServerMode::Processed,
                             AssetMetaCheck::Always,
                             watch,
-                            self.unapproved_path_mode.clone(),
+                            self.unapproved_path_mode,
                         ));
                     }
                 }
