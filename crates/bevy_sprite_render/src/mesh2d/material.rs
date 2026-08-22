@@ -37,9 +37,10 @@ use bevy_render::erased_render_asset::{
     ErasedRenderAsset, ErasedRenderAssetPlugin, ErasedRenderAssets, PrepareAssetError,
 };
 use bevy_render::material_bind_groups::{
-    material_uses_bindless_resources, MaterialBindGroupAllocators, MaterialBindingId,
-    RenderMaterialBindings,
+    material_uses_bindless_resources, FallbackBuffer, MaterialBindGroupAllocators,
+    MaterialBindingId, RenderMaterialBindings,
 };
+use bevy_render::storage::GpuShaderBuffer;
 use bevy_render::sync_world::MainEntityHashSet;
 use bevy_render::view::{RenderVisibleEntities, RetainedViewEntity};
 use bevy_render::{
@@ -455,7 +456,7 @@ pub struct Material2dPipelineSpecializer {
     pub(crate) properties: Arc<MaterialProperties>,
 }
 
-pub struct Material2dKey<M: Material2d> {
+pub struct Material2dKey<M: AsBindGroup> {
     pub mesh_key: Mesh2dPipelineKey,
     pub bind_group_data: M::Data,
 }
@@ -1211,6 +1212,8 @@ where
     type Param = (
         SRes<RenderDevice>,
         SRes<PipelineCache>,
+        SRes<FallbackBuffer>,
+        SRes<RenderAssets<GpuShaderBuffer>>,
         SResMut<MaterialBindGroupAllocators>,
         SResMut<RenderMaterialBindings>,
         SRes<DrawFunctions<Opaque2d>>,
@@ -1226,6 +1229,8 @@ where
         (
             render_device,
             pipeline_cache,
+            fallback_buffer,
+            shader_buffer_assets,
             bind_group_allocators,
             render_material_bindings,
             opaque_draw_functions,
@@ -1245,6 +1250,8 @@ where
             bind_group_allocators,
             render_device,
             pipeline_cache,
+            fallback_buffer,
+            shader_buffer_assets,
         )?;
 
         let mut mesh_pipeline_key_bits = Mesh2dPipelineKey::empty();

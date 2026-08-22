@@ -3,13 +3,13 @@
 import bevy_core_pipeline::tonemapping::tonemapping_luminance as luminance;
 import bevy_pbr::render::utils::{rand_f, rand_u, sample_disk};
 import bevy_render::utils::octahedral_decode;
-import bevy_solari::scene::brdf::{brdf_pdf, evaluate_brdf, F_AB};
-import bevy_solari::realtime::gbuffer_utils::{gpixel_resolve, permute_pixel, pixel_dissimilar};
-import bevy_solari::realtime::initial_path::{generate_initial_reservoir, InitialSamplingResult};
-import bevy_solari::realtime::bindings::{depth_buffer, empty_reservoir, gbuffer, motion_vectors, previous_depth_buffer, previous_gbuffer, previous_view, reservoirs_a, reservoirs_b, Reservoir, constants, view, view_output};
-import bevy_solari::scene::sampling::{balance_heuristic, calculate_resolved_light_contribution, isinf, isnan, LightSample, NULL_LIGHT_ID, power_heuristic, resolve_light_sample, ResolvedLightSample, trace_visibility, trace_visibility_previous_frame};
-import bevy_solari::scene::bindings::{light_sources, LIGHT_NOT_PRESENT_THIS_FRAME, previous_frame_light_id_translations, RAY_T_MAX, RAY_T_MIN, ResolvedMaterial};
-import bevy_solari::realtime::world_cache_query::{query_world_cache, WORLD_CACHE_CELL_LIFETIME};
+import package::scene::brdf::{brdf_pdf, evaluate_brdf, F_AB};
+import package::realtime::gbuffer_utils::{gpixel_resolve, permute_pixel, pixel_dissimilar};
+import package::realtime::initial_path::{generate_initial_reservoir, InitialSamplingResult};
+import package::realtime::bindings::{depth_buffer, empty_reservoir, gbuffer, motion_vectors, previous_depth_buffer, previous_gbuffer, previous_view, reservoirs_a, reservoirs_b, Reservoir, constants, view, view_output};
+import package::scene::sampling::{balance_heuristic, calculate_resolved_light_contribution, isinf, isnan, LightSample, NULL_LIGHT_ID, power_heuristic, resolve_light_sample, ResolvedLightSample, trace_visibility, trace_visibility_previous_frame};
+import package::scene::bindings::{light_sources, LIGHT_NOT_PRESENT_THIS_FRAME, previous_frame_light_id_translations, RAY_T_MAX, RAY_T_MIN, ResolvedMaterial};
+import package::realtime::world_cache_query::{query_world_cache, WORLD_CACHE_CELL_LIFETIME};
 
 enable wgpu_ray_query;
 
@@ -81,7 +81,7 @@ fn load_temporal_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3
         return NeighborInfo(empty_reservoir(), vec3(0.0), vec3(0.0), empty_material());
     }
 
-    let motion_vector = textureLoad(motion_vectors, pixel_id, 0).xy;
+    let motion_vector = textureLoad(motion_vectors, pixel_id).xy;
     let temporal_pixel_id_float = round(vec2<f32>(pixel_id) - (motion_vector * view.main_pass_viewport.zw));
 
     // If reprojection lands off-screen, fall back to this pixel's own previous reservoir rather than

@@ -41,10 +41,11 @@ use bevy_render::erased_render_asset::{
     ErasedRenderAsset, ErasedRenderAssetPlugin, ErasedRenderAssets, PrepareAssetError,
 };
 use bevy_render::material_bind_groups::{
-    material_uses_bindless_resources, MaterialBindGroupAllocators, MaterialBindingId,
-    RenderMaterialBindings,
+    material_uses_bindless_resources, FallbackBuffer, MaterialBindGroupAllocators,
+    MaterialBindingId, RenderMaterialBindings,
 };
 use bevy_render::render_asset::{prepare_assets, RenderAssets};
+use bevy_render::storage::GpuShaderBuffer;
 use bevy_render::sync_world::MainEntityHashSet;
 use bevy_render::view::RenderVisibleEntities;
 use bevy_render::GpuResourceAppExt;
@@ -53,7 +54,6 @@ use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingSupport,
     extract_resource::ExtractResource,
     mesh::RenderMesh,
-    prelude::*,
     render_phase::*,
     render_resource::*,
     renderer::RenderDevice,
@@ -1599,17 +1599,21 @@ where
         SRes<RenderDevice>,
         SRes<PipelineCache>,
         SRes<DefaultOpaqueRendererMethod>,
+        SRes<FallbackBuffer>,
+        SRes<RenderAssets<GpuShaderBuffer>>,
         SResMut<MaterialBindGroupAllocators>,
         SResMut<RenderMaterialBindings>,
-        SRes<DrawFunctions<Opaque3d>>,
-        SRes<DrawFunctions<AlphaMask3d>>,
-        SRes<DrawFunctions<Transmissive3d>>,
-        SRes<DrawFunctions<Transparent3d>>,
-        SRes<DrawFunctions<Opaque3dPrepass>>,
-        SRes<DrawFunctions<AlphaMask3dPrepass>>,
-        SRes<DrawFunctions<Opaque3dDeferred>>,
-        SRes<DrawFunctions<AlphaMask3dDeferred>>,
-        SRes<DrawFunctions<Shadow>>,
+        (
+            SRes<DrawFunctions<Opaque3d>>,
+            SRes<DrawFunctions<AlphaMask3d>>,
+            SRes<DrawFunctions<Transmissive3d>>,
+            SRes<DrawFunctions<Transparent3d>>,
+            SRes<DrawFunctions<Opaque3dPrepass>>,
+            SRes<DrawFunctions<AlphaMask3dPrepass>>,
+            SRes<DrawFunctions<Opaque3dDeferred>>,
+            SRes<DrawFunctions<AlphaMask3dDeferred>>,
+            SRes<DrawFunctions<Shadow>>,
+        ),
         SRes<MaterialShaders<M>>,
         M::Param,
     );
@@ -1621,17 +1625,21 @@ where
             render_device,
             pipeline_cache,
             default_opaque_render_method,
+            fallback_buffer,
+            shader_buffer_assets,
             bind_group_allocators,
             render_material_bindings,
-            opaque_draw_functions,
-            alpha_mask_draw_functions,
-            transmissive_draw_functions,
-            transparent_draw_functions,
-            opaque_prepass_draw_functions,
-            alpha_mask_prepass_draw_functions,
-            opaque_deferred_draw_functions,
-            alpha_mask_deferred_draw_functions,
-            shadow_draw_functions,
+            (
+                opaque_draw_functions,
+                alpha_mask_draw_functions,
+                transmissive_draw_functions,
+                transparent_draw_functions,
+                opaque_prepass_draw_functions,
+                alpha_mask_prepass_draw_functions,
+                opaque_deferred_draw_functions,
+                alpha_mask_deferred_draw_functions,
+                shadow_draw_functions,
+            ),
             material_shaders,
             material_param,
         ): &mut SystemParamItem<Self::Param>,
@@ -1646,6 +1654,8 @@ where
             bind_group_allocators,
             render_device,
             pipeline_cache,
+            fallback_buffer,
+            shader_buffer_assets,
         )?;
 
         let shadows_enabled = M::enable_shadows();
@@ -1757,7 +1767,7 @@ where
 
     fn unload_asset(
         source_asset: AssetId<Self::SourceAsset>,
-        (_, _, _, bind_group_allocators, render_material_bindings, ..): &mut SystemParamItem<
+        (_, _, _, _, _, bind_group_allocators, render_material_bindings, ..): &mut SystemParamItem<
             Self::Param,
         >,
     ) {

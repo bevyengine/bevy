@@ -75,8 +75,8 @@ fn calculate_neighboring_depth_differences(pixel_coordinates: vec2<i32>) -> f32 
     return depth_center;
 }
 
-fn load_normal_view_space(uv: vec2<f32>) -> vec3<f32> {
-    var world_normal = textureSampleLevel(normals, point_clamp_sampler, uv, 0.0).xyz;
+fn load_normal_view_space(uv_normals: vec2<f32>) -> vec3<f32> {
+    var world_normal = textureSampleLevel(normals, point_clamp_sampler, uv_normals, 0.0).xyz;
     world_normal = (world_normal * 2.0) - 1.0;
     let view_from_world = mat3x3<f32>(
         view.view_from_world[0].xyz,
@@ -125,7 +125,7 @@ fn processSample(
         fast_acos(dot(normalize(delta_position_back_face), view_vec)),
     );
 
-    front_back_horizon = saturate(fma(vec2(sampling_direction), -front_back_horizon, n));
+    front_back_horizon = saturate(fma(vec2(sampling_direction), -front_back_horizon * (1.0 / PI), n));
     front_back_horizon = select(front_back_horizon.xy, front_back_horizon.yx, sampling_direction >= 0.0);
 
     *bitmask = updateSectors(front_back_horizon.x, front_back_horizon.y, samples_per_slice, *bitmask);
@@ -144,7 +144,9 @@ fn ssao(@builtin(global_invocation_id) global_id: vec3<u32>) {
     pixel_depth += 0.00001; // Avoid depth precision issues
 
     let pixel_position = reconstruct_view_space_position(pixel_depth, uv);
-    let pixel_normal = load_normal_view_space(uv);
+    let normals_size = vec2<f32>(textureDimensions(normals));
+    let uv_normals = (vec2<f32>(pixel_coordinates) + 0.5 + view.viewport.xy) / normals_size;
+    let pixel_normal = load_normal_view_space(uv_normals);
     let view_vec = normalize(-pixel_position);
 
     let noise = load_noise(pixel_coordinates);

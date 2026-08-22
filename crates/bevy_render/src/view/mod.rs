@@ -2,8 +2,8 @@ pub mod visibility;
 pub mod window;
 
 use bevy_camera::{
-    primitives::Frustum, CameraMainTextureUsages, ClearColor, ClearColorConfig, CompositingSpace,
-    Exposure, MainPassResolutionOverride, NormalizedRenderTarget,
+    primitives::Frustum, Camera, CameraMainTextureUsages, ClearColor, ClearColorConfig,
+    CompositingSpace, Exposure, MainPassResolutionOverride, NormalizedRenderTarget,
 };
 use bevy_diagnostic::FrameCount;
 pub use visibility::*;
@@ -31,11 +31,11 @@ use bevy_app::{App, Plugin};
 use bevy_color::{LinearRgba, Oklaba, Srgba};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, VariantDefaults};
+use bevy_extract_macros::ExtractComponent;
 use bevy_image::ToExtents;
 use bevy_math::{mat3, vec2, vec3, Mat3, Mat4, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles};
 use bevy_platform::collections::{hash_map::Entry, HashMap};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render_macros::ExtractComponent;
 use bevy_transform::components::GlobalTransform;
 use core::{
     ops::Range,
@@ -214,7 +214,7 @@ impl Plugin for ViewPlugin {
 }
 
 /// Component for configuring the number of samples for [Multi-Sample Anti-Aliasing](https://en.wikipedia.org/wiki/Multisample_anti-aliasing)
-/// for a [`Camera`](bevy_camera::Camera).
+/// for a [`Camera`].
 ///
 /// Defaults to 4 samples. A higher number of samples results in smoother edges.
 ///
@@ -260,6 +260,87 @@ impl Msaa {
             _ => panic!("Unsupported MSAA sample count: {samples}"),
         }
     }
+}
+
+/// Optionally enables a tonemapping shader that attempts to map linear input stimulus into a perceptually uniform image for a given [`Camera`] entity.
+///
+/// The tonemapping pass lives in `bevy_core_pipeline`. The type is defined in
+/// `bevy_render` so render-world code can read it.
+#[derive(
+    Component, Debug, Hash, Clone, Copy, Reflect, Default, ExtractComponent, PartialEq, Eq,
+)]
+#[extract_component_filter(With<Camera>)]
+#[reflect(Component, Debug, Hash, Default, PartialEq)]
+#[extract_app(RenderApp)]
+pub enum Tonemapping {
+    /// Bypass tonemapping.
+    None,
+    /// Suffers from lots hue shifting, brights don't desaturate naturally.
+    /// Bright primaries and secondaries don't desaturate at all.
+    Reinhard,
+    /// Suffers from hue shifting. Brights don't desaturate much at all across the spectrum.
+    ReinhardLuminance,
+    /// Same base implementation that Godot 4.0 uses for Tonemap ACES.
+    /// <https://github.com/TheRealMJP/BakingLab/blob/master/BakingLab/ACES.hlsl>
+    /// Not neutral, has a very specific aesthetic, intentional and dramatic hue shifting.
+    /// Bright greens and reds turn orange. Bright blues turn magenta.
+    /// Significantly increased contrast. Brights desaturate across the spectrum.
+    AcesFitted,
+    /// By Troy Sobotka
+    /// <https://github.com/sobotka/AgX>
+    /// Very neutral. Image is somewhat desaturated when compared to other tonemappers.
+    /// Little to no hue shifting. Subtle [Abney shifting](https://en.wikipedia.org/wiki/Abney_effect).
+    /// NOTE: Requires the `tonemapping_luts` cargo feature.
+    AgX,
+    /// By Tomasz Stachowiak
+    /// Has little hue shifting in the darks and mids, but lots in the brights. Brights desaturate across the spectrum.
+    /// Is sort of between Reinhard and `ReinhardLuminance`. Conceptually similar to reinhard-jodie.
+    /// Designed as a compromise if you want e.g. decent skin tones in low light, but can't afford to re-do your
+    /// VFX to look good without hue shifting.
+    SomewhatBoringDisplayTransform,
+    /// Current Bevy default.
+    /// By Tomasz Stachowiak
+    /// <https://github.com/h3r2tic/tony-mc-mapface>
+    /// Very neutral. Subtle but intentional hue shifting. Brights desaturate across the spectrum.
+    /// Comment from author:
+    /// Tony is a display transform intended for real-time applications such as games.
+    /// It is intentionally boring, does not increase contrast or saturation, and stays close to the
+    /// input stimulus where compression isn't necessary.
+    /// Brightness-equivalent luminance of the input stimulus is compressed. The non-linearity resembles Reinhard.
+    /// Color hues are preserved during compression, except for a deliberate [Bezold–Brücke shift](https://en.wikipedia.org/wiki/Bezold%E2%80%93Br%C3%BCcke_shift).
+    /// To avoid posterization, selective desaturation is employed, with care to avoid the [Abney effect](https://en.wikipedia.org/wiki/Abney_effect).
+    /// NOTE: Requires the `tonemapping_luts` cargo feature.
+    #[default]
+    TonyMcMapface,
+    /// Default Filmic Display Transform from blender.
+    /// Somewhat neutral. Suffers from hue shifting. Brights desaturate across the spectrum.
+    /// NOTE: Requires the `tonemapping_luts` cargo feature.
+    BlenderFilmic,
+    /// Despite its name, it is not considered to be neutral.
+    /// Highly saturated colors and tends to produce a very high contrast image.
+    /// Suffers from significant [Abney shifting](https://en.wikipedia.org/wiki/Abney_effect), and tends to crush grays and desaturated colors.
+    /// Designed for e-commerce to faithfully reproduce the colors of brand's logos when used with low brightness grayscale lighting.
+    /// See [the KhronosGroup spec](https://github.com/KhronosGroup/ToneMapping/tree/main/PBR_Neutral) for more information.
+    KhronosPbrNeutral,
+}
+
+impl Tonemapping {
+    pub fn is_enabled(&self) -> bool {
+        *self != Tonemapping::None
+    }
+}
+
+/// Enables a debanding shader that applies dithering to mitigate color banding in the final image for a given [`Camera`] entity.
+#[derive(
+    Component, Debug, Hash, Clone, Copy, Reflect, Default, ExtractComponent, PartialEq, Eq,
+)]
+#[extract_component_filter(With<Camera>)]
+#[reflect(Component, Debug, Hash, Default, PartialEq)]
+#[extract_app(RenderApp)]
+pub enum DebandDither {
+    #[default]
+    Disabled,
+    Enabled,
 }
 
 /// An identifier for a view that is stable across frames.
@@ -390,10 +471,9 @@ impl ExtractedView {
 
 /// Configures filmic color grading parameters to adjust the image appearance.
 ///
-/// Color grading is applied just before tonemapping for a given
-/// [`Camera`](bevy_camera::Camera) entity, with the sole exception of the
-/// `post_saturation` value in [`ColorGradingGlobal`], which is applied after
-/// tonemapping.
+/// Color grading is applied just before tonemapping for a given [`Camera`]
+/// entity, with the sole exception of the `post_saturation` value in
+/// [`ColorGradingGlobal`], which is applied after tonemapping.
 #[derive(Component, Reflect, Debug, Default, Clone)]
 #[reflect(Component, Default, Debug, Clone)]
 pub struct ColorGrading {

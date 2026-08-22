@@ -124,7 +124,7 @@ fn setup(
 
 // Observer systems can also return a `Result`.
 fn fallible_observer(
-    pointer_move: On<Pointer<Move>>,
+    pointer_move: On<PointerMove>,
     mut world: DeferredWorld,
     mut step: Local<f32>,
 ) -> Result {

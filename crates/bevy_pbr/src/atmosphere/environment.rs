@@ -18,6 +18,7 @@ use bevy_image::Image;
 use bevy_light::{AtmosphereEnvironmentMapLight, GeneratedEnvironmentMapLight};
 use bevy_math::{Quat, UVec2};
 use bevy_render::{
+    diagnostic::RecordDiagnostics,
     extract_component::{ComponentUniforms, DynamicUniformIndex, ExtractComponent},
     render_asset::RenderAssets,
     render_resource::{binding_types::*, *},
@@ -270,6 +271,10 @@ pub fn atmosphere_environment(
         lights_uniforms_offset,
     ) = view.into_inner();
 
+    let diagnostics = ctx.diagnostic_recorder();
+    let diagnostics = diagnostics.as_deref();
+    let time_span = diagnostics.time_span(ctx.command_encoder(), "atmosphere_environment");
+
     for (bind_groups, env_map_light) in probe_query.iter() {
         let command_encoder = ctx.command_encoder();
         let mut pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
@@ -296,4 +301,6 @@ pub fn atmosphere_environment(
             6, // 6 cubemap faces
         );
     }
+
+    time_span.end(ctx.command_encoder());
 }

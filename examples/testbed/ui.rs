@@ -57,10 +57,15 @@ fn main() {
     .add_systems(OnEnter(Scene::RadialGradient), radial_gradient::setup)
     .add_systems(OnEnter(Scene::Transformations), transformations::setup)
     .add_systems(OnEnter(Scene::ViewportCoords), viewport_coords::setup)
+    .add_systems(OnEnter(Scene::ViewportNode), viewport_node::setup)
     .add_systems(OnEnter(Scene::OuterColor), outer_color::setup)
     .add_systems(OnEnter(Scene::BoxedContent), boxed_content::setup)
     .add_systems(OnEnter(Scene::EditableText), editable_text::setup)
     .add_systems(OnEnter(Scene::NodeMaterial), node_material::setup)
+    .add_systems(
+        OnEnter(Scene::FontRelativeUnits),
+        font_relative_units::setup,
+    )
     .add_systems(Update, switch_scene);
 
     match args.scene {
@@ -103,10 +108,12 @@ enum Scene {
     #[cfg(feature = "bevy_ui_debug")]
     DebugOutlines,
     ViewportCoords,
+    ViewportNode,
     OuterColor,
     BoxedContent,
     EditableText,
     NodeMaterial,
+    FontRelativeUnits,
 }
 
 impl Scene {
@@ -130,10 +137,12 @@ impl Scene {
         #[cfg(feature = "bevy_ui_debug")]
         Scene::DebugOutlines,
         Scene::ViewportCoords,
+        Scene::ViewportNode,
         Scene::OuterColor,
         Scene::BoxedContent,
         Scene::EditableText,
         Scene::NodeMaterial,
+        Scene::FontRelativeUnits,
     ];
 }
 
@@ -2744,6 +2753,66 @@ mod viewport_coords {
     }
 }
 
+mod viewport_node {
+    use bevy::{
+        camera::RenderTarget, prelude::*, render::render_resource::TextureFormat,
+        ui::widget::ViewportNode,
+    };
+
+    pub fn setup(
+        mut commands: Commands,
+        mut images: ResMut<Assets<Image>>,
+        mut meshes: ResMut<Assets<Mesh>>,
+        mut materials: ResMut<Assets<StandardMaterial>>,
+    ) {
+        commands.spawn((
+            Camera3d::default(),
+            DespawnOnExit(super::Scene::ViewportNode),
+        ));
+
+        let image = Image::new_target_texture(0, 0, TextureFormat::Bgra8UnormSrgb, None);
+        let image_handle = images.add(image);
+
+        let camera = commands
+            .spawn((
+                Camera3d::default(),
+                Camera {
+                    order: -1,
+                    ..default()
+                },
+                RenderTarget::Image(image_handle.into()),
+                DespawnOnExit(super::Scene::ViewportNode),
+            ))
+            .id();
+
+        commands.spawn((
+            Mesh3d(meshes.add(Cuboid::new(5.0, 5.0, 5.0))),
+            MeshMaterial3d(materials.add(Color::WHITE)),
+            Transform {
+                translation: Vec3::new(0.0, 0.0, -10.0),
+                rotation: Quat::from_euler(EulerRot::XYZ, 0.4, 0.7, 0.1),
+                ..default()
+            },
+            DespawnOnExit(super::Scene::ViewportNode),
+        ));
+
+        commands.spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                top: px(50),
+                left: px(50),
+                width: px(200),
+                height: px(200),
+                border: UiRect::all(px(5)),
+                ..default()
+            },
+            BorderColor::all(Color::WHITE),
+            ViewportNode::new(camera),
+            DespawnOnExit(super::Scene::ViewportNode),
+        ));
+    }
+}
+
 mod outer_color {
     use bevy::prelude::*;
 
@@ -3685,5 +3754,152 @@ mod node_material {
                 ),
             ],
         ));
+    }
+}
+
+mod font_relative_units {
+    use bevy::{color::palettes::css::*, prelude::*};
+
+    pub fn setup(mut commands: Commands) {
+        commands.spawn((Camera2d, DespawnOnExit(super::Scene::FontRelativeUnits)));
+
+        commands.spawn((
+            Node {
+                width: percent(100),
+                height: percent(100),
+                flex_direction: FlexDirection::Column,
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                row_gap: rem(1),
+                ..default()
+            },
+            BackgroundColor(Color::srgb(0.12, 0.12, 0.16)),
+            DespawnOnExit(super::Scene::FontRelativeUnits),
+            children![text_font_row(12.), text_font_row(24.), text_font_row(36.),],
+        ));
+    }
+
+    fn text_font_row(font_size: f32) -> impl Bundle {
+        (
+            Node {
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                column_gap: rem(1),
+                ..default()
+            },
+            children![
+                (
+                    Node {
+                        width: rem(4),
+                        ..default()
+                    },
+                    Text::new(format!("{font_size}px")),
+                    TextFont::from_font_size(font_size),
+                    TextColor(LAVENDER.into()),
+                ),
+                // `em` padding: scales with this node's own font size.
+                (
+                    Node {
+                        width: rem(20),
+                        justify_content: JustifyContent::Center,
+                        ..default()
+                    },
+                    children![(
+                        Node {
+                            padding: UiRect::all(em(1)),
+                            flex_basis: Val::Auto,
+                            border_radius: em(1).into(),
+                            border: em(0.5).into(),
+                            ..default()
+                        },
+                        EmSize(font_size),
+                        BackgroundColor(DARK_SLATE_BLUE.into()),
+                        BorderColor::all(LAVENDER),
+                        children![(
+                            Text::new("em sizing"),
+                            TextFont::from_font_size(font_size),
+                            BackgroundColor(PEACHPUFF.into()),
+                            TextColor(DARK_SLATE_GRAY.into())
+                        )],
+                    )],
+                ),
+                // Always 10rem across
+                (
+                    Node {
+                        flex_direction: FlexDirection::Row,
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                    EmSize(font_size),
+                    children![(
+                        Node {
+                            width: rem(10),
+                            ..default()
+                        },
+                        Text::new("< rem >"),
+                        TextLayout {
+                            justify: Justify::Center,
+                            ..default()
+                        },
+                        TextFont::from_font_size(font_size),
+                        BackgroundColor(PALE_TURQUOISE.into()),
+                        TextColor(DARK_SLATE_GRAY.into())
+                    )],
+                ),
+                // Grid tracks: left is 5em sized, right is 10rem, padding is 0.5rem
+                (
+                    Node {
+                        width: rem(24),
+                        justify_content: JustifyContent::End,
+                        ..default()
+                    },
+                    children![(
+                        Node {
+                            display: Display::Grid,
+                            grid_template_columns: vec![GridTrack::em(5.), GridTrack::rem(10.)],
+                            padding: px(10).into(),
+                            border_radius: px(10).into(),
+                            border: px(1).into(),
+                            ..default()
+                        },
+                        EmSize(font_size),
+                        BackgroundColor(DARK_SLATE_BLUE.into()),
+                        BorderColor::all(LAVENDER),
+                        children![
+                            (
+                                Node {
+                                    display: Display::Grid,
+                                    grid_column: GridPlacement::span(2),
+                                    ..default()
+                                },
+                                Text::new("px sizing"),
+                                TextFont::from_font_size(px(16)),
+                                TextColor(LAVENDER.into()),
+                            ),
+                            (
+                                Text::new("< em >"),
+                                TextLayout {
+                                    justify: Justify::Center,
+                                    ..default()
+                                },
+                                TextFont::from_font_size(font_size),
+                                BackgroundColor(PEACHPUFF.into()),
+                                TextColor(DARK_SLATE_GRAY.into())
+                            ),
+                            (
+                                Text::new("< rem >"),
+                                TextLayout {
+                                    justify: Justify::Center,
+                                    ..default()
+                                },
+                                TextFont::from_font_size(font_size),
+                                BackgroundColor(PALE_TURQUOISE.into()),
+                                TextColor(DARK_SLATE_GRAY.into())
+                            ),
+                        ]
+                    )]
+                ),
+            ],
+        )
     }
 }
