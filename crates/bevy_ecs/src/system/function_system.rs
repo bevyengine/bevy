@@ -655,7 +655,12 @@ where
 
     #[inline]
     fn flags(&self) -> SystemStateFlags {
-        self.system_meta.flags
+        if F::Param::is_exclusive() {
+            // This allows checking for system exclusivity before the system is initialized.
+            self.system_meta.flags | SystemStateFlags::EXCLUSIVE
+        } else {
+            self.system_meta.flags
+        }
     }
 
     #[inline]

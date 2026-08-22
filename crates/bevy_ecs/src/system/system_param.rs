@@ -15,7 +15,7 @@ use crate::{
         QuerySingleError, QueryState, ReadOnlyQueryData,
     },
     resource::{Resource, IS_RESOURCE},
-    system::{Query, Single, SystemMeta},
+    system::{Query, Single, SystemMeta, SystemState},
     world::{
         unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FilteredResources, FilteredResourcesMut,
         FromWorld, World,
@@ -238,6 +238,13 @@ pub unsafe trait SystemParam: Sized {
         world: &mut World,
     );
 
+    /// Returns whether this [`SystemParam`] requires exclusive access to the [`World`].
+    /// This function exists to allow determining if a system is exclusive prior to
+    /// [`System::initialize`] (where [`SystemMeta::set_exclusive`] is called).
+    ///
+    /// [`System::initialize`]: crate::system::System::initialize
+    fn is_exclusive() -> bool;
+
     /// Applies any deferred mutations stored in this [`SystemParam`]'s state.
     /// This is used to apply [`Commands`] during [`ApplyDeferred`](crate::prelude::ApplyDeferred).
     ///
@@ -321,6 +328,10 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
         state.init_access(Some(system_meta.name()), component_access_set, world.into());
     }
 
+    fn is_exclusive() -> bool {
+        false
+    }
+
     #[inline]
     unsafe fn get_param<'w, 's>(
         state: &'s mut Self::State,
@@ -355,6 +366,10 @@ unsafe impl<'a, 'b, D: IterQueryData + 'static, F: QueryFilter + 'static> System
         world: &mut World,
     ) {
         Query::init_access(state, system_meta, component_access_set, world);
+    }
+
+    fn is_exclusive() -> bool {
+        false
     }
 
     #[inline]
@@ -408,6 +423,10 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
         world: &mut World,
     ) {
         Query::init_access(state, system_meta, component_access_set, world);
+    }
+
+    fn is_exclusive() -> bool {
+        false
     }
 
     #[inline]
@@ -615,6 +634,10 @@ macro_rules! impl_param_set {
                 <($($param,)*) as SystemParam>::queue(state, system_meta, world.reborrow());
             }
 
+            fn is_exclusive() -> bool {
+                $($param::is_exclusive() ||)* false
+            }
+
             #[inline]
             unsafe fn get_param<'w, 's>(
                 state: &'s mut Self::State,
@@ -701,6 +724,10 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
         panic!("error[B0002]: Res<{}> in system {} conflicts with a previous system parameter. Consider removing the duplicate access using `Without<IsResource>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevy.org/learn/errors/b0002", DebugName::type_name::<T>(), system_meta.name);
     }
 
+    fn is_exclusive() -> bool {
+        false
+    }
+
     #[inline]
     unsafe fn get_param<'w, 's>(
         &mut component_id: &'s mut Self::State,
@@ -758,6 +785,10 @@ unsafe impl<'a, T: Resource<Mutability = Mutable>> SystemParam for ResMut<'a, T>
         panic!("error[B0002]: ResMut<{}> in system {} conflicts with a previous system parameter. Consider removing the duplicate access or using `Without<IsResource>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevy.org/learn/errors/b0002", DebugName::type_name::<T>(), system_meta.name);
     }
 
+    fn is_exclusive() -> bool {
+        false
+    }
+
     #[inline]
     unsafe fn get_param<'w, 's>(
         &mut component_id: &'s mut Self::State,
@@ -794,20 +825,20 @@ unsafe impl SystemParam for &'_ World {
 
     fn init_access(
         _state: &Self::State,
-        _system_meta: &mut SystemMeta,
+        system_meta: &mut SystemMeta,
         component_access_set: &mut FilteredAccessSet,
         _world: &mut World,
     ) {
-        let mut filtered_access = FilteredAccess::default();
+        assert!(
+            !component_access_set.combined_access().has_any_write(),
+            "&World in system {} conflicts with a previous access.",
+            system_meta.name
+        );
+        component_access_set.read_all();
+    }
 
-        filtered_access.read_all();
-        if !component_access_set
-            .get_conflicts_single(&filtered_access)
-            .is_empty()
-        {
-            panic!("&World conflicts with a previous mutable system parameter. Allowing this would break Rust's mutability rules");
-        }
-        component_access_set.add(filtered_access);
+    fn is_exclusive() -> bool {
+        false
     }
 
     #[inline]
@@ -817,8 +848,46 @@ unsafe impl SystemParam for &'_ World {
         world: UnsafeWorldCell<'w>,
         _change_tick: Tick,
     ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
-        // SAFETY: Read-only access to the entire world was registered in `init_state`.
+        // SAFETY: Read-only access to the entire world was registered in `init_access`.
         Ok(unsafe { world.world() })
+    }
+}
+
+// SAFETY: `write_all` access is set and conflicts result in a panic
+unsafe impl SystemParam for &'_ mut World {
+    type State = ();
+    type Item<'world, 'state> = &'world mut World;
+
+    fn init_state(_world: &mut World) -> Self::State {}
+
+    fn init_access(
+        _state: &Self::State,
+        system_meta: &mut SystemMeta,
+        component_access_set: &mut FilteredAccessSet,
+        _world: &mut World,
+    ) {
+        system_meta.set_exclusive();
+        assert!(
+            !component_access_set.combined_access().has_any_read(),
+            "&mut World in system {} conflicts with a previous access.",
+            system_meta.name,
+        );
+        component_access_set.write_all();
+    }
+
+    fn is_exclusive() -> bool {
+        true
+    }
+
+    #[inline]
+    unsafe fn get_param<'world, 'state>(
+        _state: &'state mut Self::State,
+        _system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'world>,
+        _change_tick: Tick,
+    ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
+        // SAFETY: Write access to the entire world was registered in `init_access`.
+        Ok(unsafe { world.world_mut() })
     }
 }
 
@@ -843,13 +912,17 @@ unsafe impl<'w> SystemParam for DeferredWorld<'w> {
         component_access_set.write_all();
     }
 
+    fn is_exclusive() -> bool {
+        false
+    }
+
     unsafe fn get_param<'world, 'state>(
         _state: &'state mut Self::State,
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell<'world>,
         _change_tick: Tick,
     ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
-        // SAFETY: Upheld by caller
+        // SAFETY: Write access to the entire world was registered in `init_access`
         Ok(unsafe { world.into_deferred() })
     }
 }
@@ -1031,6 +1104,10 @@ unsafe impl<'a, T: FromWorld + Send + 'static> SystemParam for Local<'a, T> {
         _component_access_set: &mut FilteredAccessSet,
         _world: &mut World,
     ) {
+    }
+
+    fn is_exclusive() -> bool {
+        false
     }
 
     #[inline]
@@ -1229,6 +1306,10 @@ unsafe impl<T: SystemBuffer> SystemParam for Deferred<'_, T> {
         system_meta.set_has_deferred();
     }
 
+    fn is_exclusive() -> bool {
+        false
+    }
+
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
         state.get().apply(system_meta, world);
     }
@@ -1277,6 +1358,10 @@ unsafe impl SystemParam for ExclusiveMarker {
     ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
         Ok(Self(PhantomData))
     }
+
+    fn is_exclusive() -> bool {
+        true
+    }
 }
 
 // SAFETY: Does not read any world state
@@ -1300,6 +1385,10 @@ unsafe impl SystemParam for NonSendMarker {
         _world: &mut World,
     ) {
         system_meta.set_non_send();
+    }
+
+    fn is_exclusive() -> bool {
+        false
     }
 
     #[inline]
@@ -1345,6 +1434,10 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
             system_meta.name,
         );
         component_access_set.add_unfiltered_component_read(component_id);
+    }
+
+    fn is_exclusive() -> bool {
+        false
     }
 
     #[inline]
@@ -1395,6 +1488,10 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
         component_access_set.add_unfiltered_component_write(component_id);
     }
 
+    fn is_exclusive() -> bool {
+        false
+    }
+
     #[inline]
     unsafe fn get_param<'w, 's>(
         &mut component_id: &'s mut Self::State,
@@ -1430,6 +1527,10 @@ unsafe impl<'a> SystemParam for &'a Archetypes {
     ) {
     }
 
+    fn is_exclusive() -> bool {
+        false
+    }
+
     #[inline]
     unsafe fn get_param<'w, 's>(
         _state: &'s mut Self::State,
@@ -1457,6 +1558,10 @@ unsafe impl<'a> SystemParam for &'a Components {
         _component_access_set: &mut FilteredAccessSet,
         _world: &mut World,
     ) {
+    }
+
+    fn is_exclusive() -> bool {
+        false
     }
 
     #[inline]
@@ -1488,6 +1593,10 @@ unsafe impl<'a> SystemParam for &'a Entities {
     ) {
     }
 
+    fn is_exclusive() -> bool {
+        false
+    }
+
     #[inline]
     unsafe fn get_param<'w, 's>(
         _state: &'s mut Self::State,
@@ -1517,6 +1626,10 @@ unsafe impl<'a> SystemParam for &'a EntityAllocator {
     ) {
     }
 
+    fn is_exclusive() -> bool {
+        false
+    }
+
     #[inline]
     unsafe fn get_param<'w, 's>(
         _state: &'s mut Self::State,
@@ -1544,6 +1657,10 @@ unsafe impl<'a> SystemParam for &'a Bundles {
         _component_access_set: &mut FilteredAccessSet,
         _world: &mut World,
     ) {
+    }
+
+    fn is_exclusive() -> bool {
+        false
     }
 
     #[inline]
@@ -1604,6 +1721,10 @@ unsafe impl SystemParam for SystemChangeTick {
     ) {
     }
 
+    fn is_exclusive() -> bool {
+        false
+    }
+
     #[inline]
     unsafe fn get_param<'w, 's>(
         _state: &'s mut Self::State,
@@ -1635,6 +1756,10 @@ unsafe impl<T: SystemParam> SystemParam for Option<T> {
         world: &mut World,
     ) {
         T::init_access(state, system_meta, component_access_set, world);
+    }
+
+    fn is_exclusive() -> bool {
+        T::is_exclusive()
     }
 
     #[inline]
@@ -1677,6 +1802,10 @@ unsafe impl<T: SystemParam> SystemParam for Result<T, SystemParamValidationError
         world: &mut World,
     ) {
         T::init_access(state, system_meta, component_access_set, world);
+    }
+
+    fn is_exclusive() -> bool {
+        T::is_exclusive()
     }
 
     #[inline]
@@ -1774,6 +1903,10 @@ unsafe impl<T: SystemParam> SystemParam for If<T> {
         T::init_access(state, system_meta, component_access_set, world);
     }
 
+    fn is_exclusive() -> bool {
+        T::is_exclusive()
+    }
+
     #[inline]
     unsafe fn get_param<'world, 'state>(
         state: &'state mut Self::State,
@@ -1822,6 +1955,10 @@ unsafe impl<T: SystemParam> SystemParam for Vec<T> {
         for state in state {
             T::init_access(state, system_meta, component_access_set, world);
         }
+    }
+
+    fn is_exclusive() -> bool {
+        T::is_exclusive()
     }
 
     #[inline]
@@ -1883,6 +2020,10 @@ unsafe impl<T: SystemParam> SystemParam for ParamSet<'_, '_, Vec<T>> {
             T::init_access(state, system_meta, &mut access_set, world);
             component_access_set.extend(access_set);
         }
+    }
+
+    fn is_exclusive() -> bool {
+        T::is_exclusive()
     }
 
     #[inline]
@@ -1979,6 +2120,10 @@ unsafe impl<T: SystemParam, const N: usize> SystemParam for SmallVec<[T; N]> {
         }
     }
 
+    fn is_exclusive() -> bool {
+        T::is_exclusive()
+    }
+
     #[inline]
     unsafe fn get_param<'world, 'state>(
         state: &'state mut Self::State,
@@ -2042,6 +2187,10 @@ macro_rules! impl_system_param_tuple {
             fn init_access(state: &Self::State, _system_meta: &mut SystemMeta, _component_access_set: &mut FilteredAccessSet, _world: &mut World) {
                 let ($($param,)*) = state;
                 $($param::init_access($param, _system_meta, _component_access_set, _world);)*
+            }
+
+            fn is_exclusive() -> bool {
+                $($param::is_exclusive() ||)* false
             }
 
             #[inline]
@@ -2218,6 +2367,10 @@ unsafe impl<P: SystemParam + 'static> SystemParam for StaticSystemParam<'_, '_, 
         P::init_access(state, system_meta, component_access_set, world);
     }
 
+    fn is_exclusive() -> bool {
+        P::is_exclusive()
+    }
+
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
         P::apply(state, system_meta, world);
     }
@@ -2253,6 +2406,10 @@ unsafe impl<T: ?Sized> SystemParam for PhantomData<T> {
     ) {
     }
 
+    fn is_exclusive() -> bool {
+        false
+    }
+
     #[inline]
     unsafe fn get_param<'world, 'state>(
         _state: &'state mut Self::State,
@@ -2266,6 +2423,79 @@ unsafe impl<T: ?Sized> SystemParam for PhantomData<T> {
 
 // SAFETY: No world access.
 unsafe impl<T: ?Sized> ReadOnlySystemParam for PhantomData<T> {}
+
+// SAFETY: No world access.
+unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
+    for &'_ mut QueryState<D, F>
+{
+    type State = QueryState<D, F>;
+    type Item<'world, 'state> = &'state mut QueryState<D, F>;
+
+    fn init_state(world: &mut World) -> Self::State {
+        QueryState::new(world)
+    }
+
+    fn init_access(
+        _state: &Self::State,
+        _system_meta: &mut SystemMeta,
+        _component_access_set: &mut FilteredAccessSet,
+        _world: &mut World,
+    ) {
+    }
+
+    fn is_exclusive() -> bool {
+        false
+    }
+
+    unsafe fn get_param<'world, 'state>(
+        state: &'state mut Self::State,
+        _system_meta: &SystemMeta,
+        _world: UnsafeWorldCell<'world>,
+        _change_tick: Tick,
+    ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
+        Ok(state)
+    }
+}
+
+// SAFETY: QueryState does not hold references to the world, so is safe to use as a read-only system parameter.
+unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> ReadOnlySystemParam
+    for &'_ mut QueryState<D, F>
+{
+}
+
+// SAFETY: No world access.
+unsafe impl<P: SystemParam + 'static> SystemParam for &'_ mut SystemState<P> {
+    type State = SystemState<P>;
+    type Item<'world, 'state> = &'state mut SystemState<P>;
+
+    fn init_state(world: &mut World) -> Self::State {
+        SystemState::new(world)
+    }
+
+    fn init_access(
+        _state: &Self::State,
+        _system_meta: &mut SystemMeta,
+        _component_access_set: &mut FilteredAccessSet,
+        _world: &mut World,
+    ) {
+    }
+
+    fn is_exclusive() -> bool {
+        false
+    }
+
+    unsafe fn get_param<'world, 'state>(
+        state: &'state mut Self::State,
+        _system_meta: &SystemMeta,
+        _world: UnsafeWorldCell<'world>,
+        _change_tick: Tick,
+    ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
+        Ok(state)
+    }
+}
+
+// SAFETY: SystemState does not hold references to the world, so is safe to use as a read-only system parameter.
+unsafe impl<P: SystemParam + 'static> ReadOnlySystemParam for &'_ mut SystemState<P> {}
 
 /// A [`SystemParam`] with a type that can be configured at runtime.
 ///
@@ -2536,6 +2766,12 @@ unsafe impl SystemParam for DynSystemParam<'_, '_> {
             .init_access(system_meta, component_access_set, world);
     }
 
+    fn is_exclusive() -> bool {
+        // Exclusivity is determined at runtime by the inner parameter, so we
+        // can't know at compile time.
+        false
+    }
+
     #[inline]
     unsafe fn get_param<'world, 'state>(
         state: &'state mut Self::State,
@@ -2597,6 +2833,10 @@ unsafe impl SystemParam for FilteredResources<'_, '_> {
         component_access_set.add(filter);
     }
 
+    fn is_exclusive() -> bool {
+        false
+    }
+
     unsafe fn get_param<'world, 'state>(
         state: &'state mut Self::State,
         system_meta: &SystemMeta,
@@ -2641,6 +2881,10 @@ unsafe impl SystemParam for FilteredResourcesMut<'_, '_> {
         filter.access_mut().extend(access);
         filter.and_with(IS_RESOURCE);
         component_access_set.add(filter);
+    }
+
+    fn is_exclusive() -> bool {
+        false
     }
 
     unsafe fn get_param<'world, 'state>(
@@ -2747,6 +2991,7 @@ mod tests {
     use super::*;
     use crate::query::Without;
     use crate::resource::IsResource;
+    use crate::schedule::Schedule;
     use crate::system::assert_is_system;
     use crate::world::EntityMut;
     use core::cell::RefCell;
@@ -2762,7 +3007,7 @@ mod tests {
         }
         let mut world = World::new();
         world.insert_non_send(A(42));
-        let mut schedule = crate::schedule::Schedule::default();
+        let mut schedule = Schedule::default();
         schedule.add_systems(my_system);
         schedule.run(&mut world);
     }
@@ -2990,7 +3235,7 @@ mod tests {
         }
 
         let mut world = World::new();
-        let mut schedule = crate::schedule::Schedule::default();
+        let mut schedule = Schedule::default();
         schedule.add_systems(non_sync_system);
         schedule.run(&mut world);
     }
@@ -3005,7 +3250,7 @@ mod tests {
 
         let mut world = World::new();
         world.insert_non_send(core::ptr::null_mut::<u8>());
-        let mut schedule = crate::schedule::Schedule::default();
+        let mut schedule = Schedule::default();
         schedule.add_systems((non_send_param_set, non_send_param_set, non_send_param_set));
         schedule.run(&mut world);
     }
@@ -3020,7 +3265,7 @@ mod tests {
 
         let mut world = World::new();
         world.insert_non_send(core::ptr::null_mut::<u8>());
-        let mut schedule = crate::schedule::Schedule::default();
+        let mut schedule = Schedule::default();
         schedule.add_systems((non_send_param_set, non_send_param_set, non_send_param_set));
         schedule.run(&mut world);
     }
@@ -3039,7 +3284,7 @@ mod tests {
         #[derive(Resource)]
         pub struct MissingResource;
 
-        let mut schedule = crate::schedule::Schedule::default();
+        let mut schedule = Schedule::default();
         schedule.add_systems(res_system);
         let mut world = World::new();
         schedule.run(&mut world);
@@ -3055,11 +3300,36 @@ mod tests {
         #[derive(Message)]
         pub struct MissingEvent;
 
-        let mut schedule = crate::schedule::Schedule::default();
+        let mut schedule = Schedule::default();
         schedule.add_systems(message_system);
         let mut world = World::new();
         schedule.run(&mut world);
 
         fn message_system(_: MessageReader<MissingEvent>) {}
+    }
+
+    #[test]
+    fn test_exclusive_system_params() {
+        #[derive(Resource, Default)]
+        struct Res {
+            test_value: u32,
+        }
+
+        fn my_system(world: &mut World, mut local: Local<u32>, _phantom: PhantomData<Vec<u32>>) {
+            assert_eq!(world.resource::<Res>().test_value, *local);
+            *local += 1;
+            world.resource_mut::<Res>().test_value += 1;
+        }
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(my_system);
+
+        let mut world = World::default();
+        world.init_resource::<Res>();
+
+        schedule.run(&mut world);
+        schedule.run(&mut world);
+
+        assert_eq!(2, world.get_resource::<Res>().unwrap().test_value);
     }
 }

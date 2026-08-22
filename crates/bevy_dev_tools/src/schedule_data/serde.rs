@@ -779,7 +779,19 @@ pub mod tests {
                 apply_deferred: false,
                 exclusive: true,
                 deferred: false,
-                filtered_accesses: vec![],
+                filtered_accesses: vec![FilteredAccessData {
+                    access: AccessData {
+                        reads: vec![],
+                        writes: vec![],
+                        reads_inverted: true,
+                        writes_inverted: true,
+                        archetypal: vec![]
+                    },
+                    filter_sets: vec![AccessFiltersData {
+                        with: vec![],
+                        without: vec![],
+                    }]
+                }],
             }]
         );
         assert_eq!(

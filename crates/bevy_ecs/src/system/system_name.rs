@@ -2,10 +2,7 @@ use crate::{
     change_detection::Tick,
     prelude::World,
     query::FilteredAccessSet,
-    system::{
-        ExclusiveSystemParam, ReadOnlySystemParam, SystemMeta, SystemParam,
-        SystemParamValidationError,
-    },
+    system::{ReadOnlySystemParam, SystemMeta, SystemParam, SystemParamValidationError},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 use bevy_utils::prelude::DebugName;
@@ -67,6 +64,10 @@ unsafe impl SystemParam for SystemName {
     ) {
     }
 
+    fn is_exclusive() -> bool {
+        false
+    }
+
     #[inline]
     unsafe fn get_param<'w, 's>(
         _state: &'s mut Self::State,
@@ -80,20 +81,6 @@ unsafe impl SystemParam for SystemName {
 
 // SAFETY: Only reads internal system state
 unsafe impl ReadOnlySystemParam for SystemName {}
-
-impl ExclusiveSystemParam for SystemName {
-    type State = ();
-    type Item<'s> = SystemName;
-
-    fn init(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
-
-    fn get_param<'s>(
-        _state: &'s mut Self::State,
-        system_meta: &SystemMeta,
-    ) -> Result<Self::Item<'s>, SystemParamValidationError> {
-        Ok(SystemName(system_meta.name.clone()))
-    }
-}
 
 #[cfg(test)]
 #[cfg(all(feature = "trace", feature = "debug"))]

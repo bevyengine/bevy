@@ -172,6 +172,10 @@ unsafe impl<'w, 's, M: Message> SystemParam for PopulatedMessageReader<'w, 's, M
         MessageReader::<M>::init_access(state, system_meta, component_access_set, world);
     }
 
+    fn is_exclusive() -> bool {
+        MessageReader::<M>::is_exclusive()
+    }
+
     unsafe fn get_param<'world, 'state>(
         state: &'state mut Self::State,
         system_meta: &crate::system::SystemMeta,

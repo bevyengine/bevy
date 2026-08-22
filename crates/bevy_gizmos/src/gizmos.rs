@@ -220,6 +220,10 @@ where
         );
     }
 
+    fn is_exclusive() -> bool {
+        false
+    }
+
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
         GizmosState::<Config, Clear>::apply(&mut state.state, system_meta, world);
     }

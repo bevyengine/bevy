@@ -362,6 +362,10 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
         );
     }
 
+    fn is_exclusive() -> bool {
+        false
+    }
+
     #[inline]
     unsafe fn get_param<'w, 's>(
         state: &'s mut Self::State,

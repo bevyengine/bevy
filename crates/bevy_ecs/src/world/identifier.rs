@@ -2,10 +2,7 @@ use crate::{
     change_detection::Tick,
     query::FilteredAccessSet,
     storage::SparseSetIndex,
-    system::{
-        ExclusiveSystemParam, ReadOnlySystemParam, SystemMeta, SystemParam,
-        SystemParamValidationError,
-    },
+    system::{ReadOnlySystemParam, SystemMeta, SystemParam, SystemParamValidationError},
     world::{FromWorld, World},
 };
 use bevy_platform::sync::atomic::{AtomicUsize, Ordering};
@@ -69,11 +66,13 @@ unsafe impl ReadOnlySystemParam for WorldId {}
 
 // SAFETY: No world data is accessed.
 unsafe impl SystemParam for WorldId {
-    type State = ();
+    type State = WorldId;
 
     type Item<'world, 'state> = WorldId;
 
-    fn init_state(_: &mut World) -> Self::State {}
+    fn init_state(world: &mut World) -> Self::State {
+        world.id()
+    }
 
     fn init_access(
         _state: &Self::State,
@@ -83,29 +82,17 @@ unsafe impl SystemParam for WorldId {
     ) {
     }
 
+    fn is_exclusive() -> bool {
+        false
+    }
+
     #[inline]
     unsafe fn get_param<'world, 'state>(
-        _: &'state mut Self::State,
+        state: &'state mut Self::State,
         _: &SystemMeta,
-        world: UnsafeWorldCell<'world>,
+        _: UnsafeWorldCell<'world>,
         _: Tick,
     ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
-        Ok(world.id())
-    }
-}
-
-impl ExclusiveSystemParam for WorldId {
-    type State = WorldId;
-    type Item<'s> = WorldId;
-
-    fn init(world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
-        world.id()
-    }
-
-    fn get_param<'s>(
-        state: &'s mut Self::State,
-        _system_meta: &SystemMeta,
-    ) -> Result<Self::Item<'s>, SystemParamValidationError> {
         Ok(*state)
     }
 }
