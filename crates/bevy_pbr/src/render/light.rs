@@ -2329,7 +2329,7 @@ pub struct SpecializedShadowMaterialPipelineCache {
 #[derive(Deref, DerefMut, Default)]
 pub struct SpecializedShadowMaterialViewPipelineCache {
     #[deref]
-    map: MainEntityHashMap<(CachedRenderPipelineId, DrawFunctionId)>,
+    map: MainEntityHashMap<(CachedRenderPipelineId, DrawFunctionId, bool)>,
 }
 
 pub fn check_views_lights_need_specialization(
@@ -2614,7 +2614,10 @@ pub(crate) fn specialize_shadows(
                     .resource_mut::<SpecializedShadowMaterialPipelineCache>()
                     .entry(item.retained_view_entity)
                     .or_default()
-                    .insert(item.visible_entity, (pipeline_id, draw_function));
+                    .insert(
+                        item.visible_entity,
+                        (pipeline_id, draw_function, is_depth_only_opaque),
+                    );
             }
             Err(err) => error!("{}", err),
         }
@@ -2685,7 +2688,7 @@ pub fn queue_shadows(
             &view_pending_shadow_queues.prev_frame,
             &mut mesh_instances_queued_this_iteration_scratch_space,
         ) {
-            let Some(&(pipeline_id, draw_function)) =
+            let Some(&(pipeline_id, draw_function, is_depth_only_opaque)) =
                 view_specialized_material_pipeline_cache.get(main_entity)
             else {
                 continue;
@@ -2713,26 +2716,22 @@ pub fn queue_shadows(
                 continue;
             }
 
-            let Some(material_instance) = render_material_instances.instances.get(main_entity)
-            else {
-                continue;
-            };
-            let Some(material) = render_materials.get(material_instance.asset_id) else {
-                // We couldn't fetch the material, probably because the
-                // material hasn't been loaded yet. Add the entity to the
-                // list of pending shadows and bail.
-                view_pending_shadow_queues
-                    .current_frame
-                    .insert((*render_entity, *main_entity));
-                continue;
-            };
-
-            let depth_only_draw_function = material
-                .properties
-                .get_draw_function(ShadowsDepthOnlyDrawFunction);
-            let material_bind_group_index = if Some(draw_function) == depth_only_draw_function {
+            let material_bind_group_index = if is_depth_only_opaque {
                 None
             } else {
+                let Some(material_instance) = render_material_instances.instances.get(main_entity)
+                else {
+                    continue;
+                };
+                let Some(material) = render_materials.get(material_instance.asset_id) else {
+                    // We couldn't fetch the material, probably because the
+                    // material hasn't been loaded yet. Add the entity to the
+                    // list of pending shadows and bail.
+                    view_pending_shadow_queues
+                        .current_frame
+                        .insert((*render_entity, *main_entity));
+                    continue;
+                };
                 Some(material.binding.group.0)
             };
 
