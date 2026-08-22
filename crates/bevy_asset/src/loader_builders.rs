@@ -282,25 +282,15 @@ impl<'ctx, 'builder> NestedLoadBuilder<'ctx, 'builder> {
             .stats
             .started_load_tasks += 1;
         let (mut meta, loader, mut reader) = if let Some(reader) = reader {
-            let loader = if let Some(type_id) = type_id {
-                self.load_context
-                    .asset_server
-                    .get_asset_loader_with_asset_type_id(type_id)
-                    .await
-                    .map_err(|error| LoadDirectError::LoadError {
-                        dependency: path.clone(),
-                        error: Box::new(error.into()),
-                    })?
-            } else {
-                self.load_context
-                    .asset_server
-                    .get_path_asset_loader(path)
-                    .await
-                    .map_err(|error| LoadDirectError::LoadError {
-                        dependency: path.clone(),
-                        error: Box::new(error.into()),
-                    })?
-            };
+            let loader = self
+                .load_context
+                .asset_server
+                .get_path_asset_loader(path)
+                .await
+                .map_err(|error| LoadDirectError::LoadError {
+                    dependency: path.clone(),
+                    error: Box::new(error.into()),
+                })?;
             let meta = loader.default_meta();
             (meta, loader, ReaderRef::Borrowed(reader))
         } else {

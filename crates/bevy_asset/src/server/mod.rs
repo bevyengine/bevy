@@ -298,25 +298,6 @@ impl AssetServer {
         loader.get().await.map_err(|_| error())
     }
 
-    /// Retrieves the default [`AssetLoader`] for the given [`Asset`] [`TypeId`], if one can be found.
-    pub async fn get_asset_loader_with_asset_type_id(
-        &self,
-        type_id: TypeId,
-    ) -> Result<Arc<dyn ErasedAssetLoader>, MissingAssetLoaderForTypeIdError> {
-        let error = || MissingAssetLoaderForTypeIdError { type_id };
-
-        let loader = self.read_loaders().get_by_type(type_id).ok_or_else(error)?;
-        loader.get().await.map_err(|_| error())
-    }
-
-    /// Retrieves the default [`AssetLoader`] for the given [`Asset`] type, if one can be found.
-    pub async fn get_asset_loader_with_asset_type<A: Asset>(
-        &self,
-    ) -> Result<Arc<dyn ErasedAssetLoader>, MissingAssetLoaderForTypeIdError> {
-        self.get_asset_loader_with_asset_type_id(TypeId::of::<A>())
-            .await
-    }
-
     /// Begins loading an [`Asset`] of type `A` stored at `path`. This will not block on the asset load. Instead,
     /// it returns a "strong" [`Handle`]. When the [`Asset`] is loaded (and enters [`LoadState::Loaded`]), it will be added to the
     /// associated [`Assets`] resource.

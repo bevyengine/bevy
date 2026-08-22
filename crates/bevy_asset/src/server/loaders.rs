@@ -6,15 +6,12 @@ use alloc::{boxed::Box, sync::Arc, vec::Vec};
 use async_broadcast::RecvError;
 use bevy_platform::collections::HashMap;
 use bevy_tasks::IoTaskPool;
-use bevy_utils::TypeIdHashMap;
-use core::any::TypeId;
 use thiserror::Error;
 use tracing::warn;
 
 #[derive(Default)]
 pub(crate) struct AssetLoaders {
     loaders: Vec<MaybeAssetLoader>,
-    type_id_to_loaders: TypeIdHashMap<Vec<usize>>,
     extension_to_loaders: HashMap<Box<str>, Vec<usize>>,
     type_path_to_loader: HashMap<&'static str, usize>,
     type_path_to_preregistered_loader: HashMap<&'static str, usize>,
@@ -29,9 +26,6 @@ impl AssetLoaders {
     /// Registers a new [`AssetLoader`]. [`AssetLoader`]s must be registered before they can be used.
     pub(crate) fn push<L: AssetLoader>(&mut self, loader: L) {
         let type_path = L::type_path();
-        // TODO: Allow using the short path of loaders.
-        let loader_asset_type = TypeId::of::<L::Asset>();
-        let loader_asset_type_name = core::any::type_name::<L::Asset>();
 
         let loader = Arc::new(loader);
 
@@ -43,7 +37,6 @@ impl AssetLoaders {
             };
 
         if is_new {
-            let existing_loaders_for_type_id = self.type_id_to_loaders.get(&loader_asset_type);
             let mut duplicate_extensions = Vec::new();
             for extension in AssetLoader::extensions(&*loader) {
                 let list = self
@@ -51,29 +44,18 @@ impl AssetLoaders {
                     .entry((*extension).into())
                     .or_default();
 
-                if !list.is_empty()
-                    && let Some(existing_loaders_for_type_id) = existing_loaders_for_type_id
-                    && list
-                        .iter()
-                        .any(|index| existing_loaders_for_type_id.contains(index))
-                {
+                if !list.is_empty() {
                     duplicate_extensions.push(extension);
                 }
 
                 list.push(loader_index);
             }
             if !duplicate_extensions.is_empty() {
-                warn!("Duplicate AssetLoader registered for Asset type `{loader_asset_type_name}` with extensions `{duplicate_extensions:?}`. \
-                Loader must be specified in a .meta file in order to load assets of this type with these extensions.");
+                warn!("Duplicate AssetLoader registered for extensions `{duplicate_extensions:?}`. \
+                Loader must be specified in a .meta file in order to load assets with these extensions.");
             }
 
             self.type_path_to_loader.insert(type_path, loader_index);
-
-            self.type_id_to_loaders
-                .entry(loader_asset_type)
-                .or_default()
-                .push(loader_index);
-
             self.loaders.push(MaybeAssetLoader::Ready(loader));
         } else {
             let maybe_loader = core::mem::replace(
@@ -98,8 +80,6 @@ impl AssetLoaders {
     /// Assets loaded with matching extensions will be blocked until the
     /// real loader is added.
     pub(crate) fn reserve<L: AssetLoader>(&mut self, extensions: &[&str]) {
-        let loader_asset_type = TypeId::of::<L::Asset>();
-        let loader_asset_type_name = core::any::type_name::<L::Asset>();
         let type_path = L::type_path();
         // TODO: Allow using the short path of loaders.
 
@@ -109,7 +89,6 @@ impl AssetLoaders {
             .insert(type_path, loader_index);
         self.type_path_to_loader.insert(type_path, loader_index);
 
-        let existing_loaders_for_type_id = self.type_id_to_loaders.get(&loader_asset_type);
         let mut duplicate_extensions = Vec::new();
         for extension in extensions {
             let list = self
@@ -117,26 +96,16 @@ impl AssetLoaders {
                 .entry((*extension).into())
                 .or_default();
 
-            if !list.is_empty()
-                && let Some(existing_loaders_for_type_id) = existing_loaders_for_type_id
-                && list
-                    .iter()
-                    .any(|index| existing_loaders_for_type_id.contains(index))
-            {
+            if !list.is_empty() {
                 duplicate_extensions.push(extension);
             }
 
             list.push(loader_index);
         }
         if !duplicate_extensions.is_empty() {
-            warn!("Duplicate AssetLoader preregistered for Asset type `{loader_asset_type_name}` with extensions `{duplicate_extensions:?}`. \
-            Loader must be specified in a .meta file in order to load assets of this type with these extensions.");
+            warn!("Duplicate AssetLoader preregistered for extensions `{duplicate_extensions:?}`. \
+            Loader must be specified in a .meta file in order to load assets with these extensions.");
         }
-
-        self.type_id_to_loaders
-            .entry(loader_asset_type)
-            .or_default()
-            .push(loader_index);
 
         let (mut sender, receiver) = async_broadcast::broadcast(1);
         sender.set_overflow(true);
@@ -179,13 +148,6 @@ impl AssetLoaders {
 
         warn!("No AssetLoader found for AssetPath: {:?};", asset_path);
         None
-    }
-
-    /// Get the [`AssetLoader`] for a given asset type
-    pub(crate) fn get_by_type(&self, type_id: TypeId) -> Option<MaybeAssetLoader> {
-        let index = self.type_id_to_loaders.get(&type_id)?.last().copied()?;
-
-        self.get_by_index(index)
     }
 
     /// Get the [`AssetLoader`] for a given extension
@@ -250,12 +212,6 @@ mod tests {
 
     #[derive(Asset, TypePath, Debug)]
     struct A;
-
-    #[derive(Asset, TypePath, Debug)]
-    struct B;
-
-    #[derive(Asset, TypePath, Debug)]
-    struct C;
 
     #[derive(TypePath)]
     struct Loader<A: Asset, const N: usize, const E: usize> {
@@ -337,74 +293,6 @@ mod tests {
 
         assert!(rx.try_recv().is_ok());
         assert!(rx.try_recv().is_err());
-    }
-
-    /// Ensure that if multiple loaders have different types but no extensions, they can be found
-    #[test]
-    fn type_resolution() {
-        let mut loaders = AssetLoaders::default();
-
-        let (loader_a1, rx_a1) = Loader::<A, 1, 0>::new();
-        let (loader_b1, rx_b1) = Loader::<B, 1, 0>::new();
-        let (loader_c1, rx_c1) = Loader::<C, 1, 0>::new();
-
-        loaders.push(loader_a1);
-        loaders.push(loader_b1);
-        loaders.push(loader_c1);
-
-        assert!(rx_a1.try_recv().is_ok());
-        assert!(rx_b1.try_recv().is_ok());
-        assert!(rx_c1.try_recv().is_ok());
-
-        let loader = block_on(loaders.get_by_type(TypeId::of::<A>()).unwrap().get()).unwrap();
-
-        loader.extensions();
-
-        assert!(rx_a1.try_recv().is_ok());
-        assert!(rx_b1.try_recv().is_err());
-        assert!(rx_c1.try_recv().is_err());
-
-        let loader = block_on(loaders.get_by_type(TypeId::of::<B>()).unwrap().get()).unwrap();
-
-        loader.extensions();
-
-        assert!(rx_a1.try_recv().is_err());
-        assert!(rx_b1.try_recv().is_ok());
-        assert!(rx_c1.try_recv().is_err());
-
-        let loader = block_on(loaders.get_by_type(TypeId::of::<C>()).unwrap().get()).unwrap();
-
-        loader.extensions();
-
-        assert!(rx_a1.try_recv().is_err());
-        assert!(rx_b1.try_recv().is_err());
-        assert!(rx_c1.try_recv().is_ok());
-    }
-
-    /// Ensure that the last loader added is selected
-    #[test]
-    fn type_resolution_shadow() {
-        let mut loaders = AssetLoaders::default();
-
-        let (loader_a1, rx_a1) = Loader::<A, 1, 0>::new();
-        let (loader_a2, rx_a2) = Loader::<A, 2, 0>::new();
-        let (loader_a3, rx_a3) = Loader::<A, 3, 0>::new();
-
-        loaders.push(loader_a1);
-        loaders.push(loader_a2);
-        loaders.push(loader_a3);
-
-        assert!(rx_a1.try_recv().is_ok());
-        assert!(rx_a2.try_recv().is_ok());
-        assert!(rx_a3.try_recv().is_ok());
-
-        let loader = block_on(loaders.get_by_type(TypeId::of::<A>()).unwrap().get()).unwrap();
-
-        loader.extensions();
-
-        assert!(rx_a1.try_recv().is_err());
-        assert!(rx_a2.try_recv().is_err());
-        assert!(rx_a3.try_recv().is_ok());
     }
 
     /// Ensure that if multiple loaders have like types but differing extensions, they can be found
