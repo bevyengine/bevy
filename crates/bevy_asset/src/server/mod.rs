@@ -1447,7 +1447,7 @@ impl AssetServer {
                 }
                 Err(AssetReaderError::NotFound(_)) => {
                     // TODO: Handle error transformation
-                    let loader = { self.read_loaders().find(asset_type_id, asset_path) };
+                    let loader = { self.read_loaders().find(asset_path) };
 
                     let error = || AssetLoadError::MissingAssetLoader {
                         asset_type_id,
@@ -1462,7 +1462,7 @@ impl AssetServer {
                 Err(err) => return Err(err.into()),
             }
         } else {
-            let loader = { self.read_loaders().find(asset_type_id, asset_path) };
+            let loader = { self.read_loaders().find(asset_path) };
 
             let error = || AssetLoadError::MissingAssetLoader {
                 asset_type_id,

@@ -152,52 +152,15 @@ impl AssetLoaders {
     }
 
     /// Find an [`AssetLoader`] based on provided search criteria
-    pub(crate) fn find(
-        &self,
-        asset_type_id: Option<TypeId>,
-        asset_path: &AssetPath<'_>,
-    ) -> Option<MaybeAssetLoader> {
-        // The presence of a label will affect loader choice
-        let label = asset_path.label();
-
-        // Try by asset type
-        let candidates = if let Some(type_id) = asset_type_id {
-            if label.is_none() {
-                Some(self.type_id_to_loaders.get(&type_id)?)
-            } else {
-                None
-            }
-        } else {
-            None
-        };
-
-        if let Some(candidates) = candidates {
-            if candidates.is_empty() {
-                return None;
-            } else if candidates.len() == 1 {
-                let index = candidates.first().copied().unwrap();
-                return self.get_by_index(index);
-            }
-        }
-
-        // Asset type is insufficient, use extension information
+    pub(crate) fn find(&self, asset_path: &AssetPath<'_>) -> Option<MaybeAssetLoader> {
         let try_extension = |extension| {
-            if let Some(indices) = self.extension_to_loaders.get(extension) {
-                if let Some(candidates) = candidates {
-                    if candidates.is_empty() {
-                        indices.last()
-                    } else {
-                        indices
-                            .iter()
-                            .rev()
-                            .find(|index| candidates.contains(index))
-                    }
-                } else {
-                    indices.last()
-                }
-            } else {
-                None
-            }
+            self.extension_to_loaders
+                .get(extension)
+                // Resolve the last loader even though there's ambiguity. Chances are that if there
+                // are multiple loaders for the same extension, the user was trying to replace the
+                // default loader for an extension, which would come after the default loader was
+                // registered.
+                .and_then(|indices| indices.last())
         };
 
         // Try extracting the extension from the path
@@ -214,27 +177,8 @@ impl AssetLoaders {
             }
         }
 
-        // Fallback if no resolution step was conclusive
-        match candidates?
-            .last()
-            .copied()
-            .and_then(|index| self.get_by_index(index))
-        {
-            Some(loader) => {
-                warn!(
-                    "Multiple AssetLoaders found for Asset: {:?}; Path: {:?};",
-                    asset_type_id, asset_path
-                );
-                Some(loader)
-            }
-            None => {
-                warn!(
-                    "No AssetLoader found for Asset: {:?}; Path: {:?};",
-                    asset_type_id, asset_path
-                );
-                None
-            }
-        }
+        warn!("No AssetLoader found for AssetPath: {:?};", asset_path);
+        None
     }
 
     /// Get the [`AssetLoader`] for a given asset type
@@ -553,171 +497,6 @@ mod tests {
         assert!(rx_c1.try_recv().is_ok());
     }
 
-    /// Full resolution algorithm
-    #[test]
-    fn total_resolution() {
-        let mut loaders = AssetLoaders::default();
-
-        let (loader_a1_a, rx_a1_a) = Loader::<A, 1, 1>::new();
-
-        let (loader_b1_b, rx_b1_b) = Loader::<B, 1, 2>::new();
-
-        let (loader_c1_a, rx_c1_a) = Loader::<C, 1, 1>::new();
-        let (loader_c1_b, rx_c1_b) = Loader::<C, 1, 2>::new();
-        let (loader_c1_c, rx_c1_c) = Loader::<C, 1, 3>::new();
-
-        loaders.push(loader_a1_a);
-        loaders.push(loader_b1_b);
-        loaders.push(loader_c1_a);
-        loaders.push(loader_c1_b);
-        loaders.push(loader_c1_c);
-
-        assert!(rx_a1_a.try_recv().is_ok());
-        assert!(rx_b1_b.try_recv().is_ok());
-        assert!(rx_c1_a.try_recv().is_ok());
-        assert!(rx_c1_b.try_recv().is_ok());
-        assert!(rx_c1_c.try_recv().is_ok());
-
-        // Type and Extension agree
-
-        let loader = block_on(
-            loaders
-                .find(
-                    Some(TypeId::of::<A>()),
-                    &AssetPath::from_path(Path::new("asset.a")),
-                )
-                .unwrap()
-                .get(),
-        )
-        .unwrap();
-
-        loader.extensions();
-
-        assert!(rx_a1_a.try_recv().is_ok());
-        assert!(rx_b1_b.try_recv().is_err());
-        assert!(rx_c1_a.try_recv().is_err());
-        assert!(rx_c1_b.try_recv().is_err());
-        assert!(rx_c1_c.try_recv().is_err());
-
-        let loader = block_on(
-            loaders
-                .find(
-                    Some(TypeId::of::<B>()),
-                    &AssetPath::from_path(Path::new("asset.b")),
-                )
-                .unwrap()
-                .get(),
-        )
-        .unwrap();
-
-        loader.extensions();
-
-        assert!(rx_a1_a.try_recv().is_err());
-        assert!(rx_b1_b.try_recv().is_ok());
-        assert!(rx_c1_a.try_recv().is_err());
-        assert!(rx_c1_b.try_recv().is_err());
-        assert!(rx_c1_c.try_recv().is_err());
-
-        let loader = block_on(
-            loaders
-                .find(
-                    Some(TypeId::of::<C>()),
-                    &AssetPath::from_path(Path::new("asset.c")),
-                )
-                .unwrap()
-                .get(),
-        )
-        .unwrap();
-
-        loader.extensions();
-
-        assert!(rx_a1_a.try_recv().is_err());
-        assert!(rx_b1_b.try_recv().is_err());
-        assert!(rx_c1_a.try_recv().is_err());
-        assert!(rx_c1_b.try_recv().is_err());
-        assert!(rx_c1_c.try_recv().is_ok());
-
-        // Type should override Extension
-
-        let loader = block_on(
-            loaders
-                .find(
-                    Some(TypeId::of::<C>()),
-                    &AssetPath::from_path(Path::new("asset.a")),
-                )
-                .unwrap()
-                .get(),
-        )
-        .unwrap();
-
-        loader.extensions();
-
-        assert!(rx_a1_a.try_recv().is_err());
-        assert!(rx_b1_b.try_recv().is_err());
-        assert!(rx_c1_a.try_recv().is_ok());
-        assert!(rx_c1_b.try_recv().is_err());
-        assert!(rx_c1_c.try_recv().is_err());
-
-        let loader = block_on(
-            loaders
-                .find(
-                    Some(TypeId::of::<C>()),
-                    &AssetPath::from_path(Path::new("asset.b")),
-                )
-                .unwrap()
-                .get(),
-        )
-        .unwrap();
-
-        loader.extensions();
-
-        assert!(rx_a1_a.try_recv().is_err());
-        assert!(rx_b1_b.try_recv().is_err());
-        assert!(rx_c1_a.try_recv().is_err());
-        assert!(rx_c1_b.try_recv().is_ok());
-        assert!(rx_c1_c.try_recv().is_err());
-
-        // Type should override bad / missing extension
-
-        let loader = block_on(
-            loaders
-                .find(
-                    Some(TypeId::of::<A>()),
-                    &AssetPath::from_path(Path::new("asset.x")),
-                )
-                .unwrap()
-                .get(),
-        )
-        .unwrap();
-
-        loader.extensions();
-
-        assert!(rx_a1_a.try_recv().is_ok());
-        assert!(rx_b1_b.try_recv().is_err());
-        assert!(rx_c1_a.try_recv().is_err());
-        assert!(rx_c1_b.try_recv().is_err());
-        assert!(rx_c1_c.try_recv().is_err());
-
-        let loader = block_on(
-            loaders
-                .find(
-                    Some(TypeId::of::<A>()),
-                    &AssetPath::from_path(Path::new("asset")),
-                )
-                .unwrap()
-                .get(),
-        )
-        .unwrap();
-
-        loader.extensions();
-
-        assert!(rx_a1_a.try_recv().is_ok());
-        assert!(rx_b1_b.try_recv().is_err());
-        assert!(rx_c1_a.try_recv().is_err());
-        assert!(rx_c1_b.try_recv().is_err());
-        assert!(rx_c1_c.try_recv().is_err());
-    }
-
     /// Ensure that if there is a complete ambiguity in [`AssetLoader`] to use, prefer most recently registered by asset type.
     #[test]
     fn ambiguity_resolution() {
@@ -737,10 +516,7 @@ mod tests {
 
         let loader = block_on(
             loaders
-                .find(
-                    Some(TypeId::of::<A>()),
-                    &AssetPath::from_path(Path::new("asset.a")),
-                )
+                .find(&AssetPath::from_path(Path::new("asset.a")))
                 .unwrap()
                 .get(),
         )
@@ -748,40 +524,7 @@ mod tests {
 
         loader.extensions();
 
-        assert!(rx_a1_a.try_recv().is_err());
-        assert!(rx_a2_a.try_recv().is_err());
-        assert!(rx_a3_a.try_recv().is_ok());
-
-        let loader = block_on(
-            loaders
-                .find(
-                    Some(TypeId::of::<A>()),
-                    &AssetPath::from_path(Path::new("asset.x")),
-                )
-                .unwrap()
-                .get(),
-        )
-        .unwrap();
-
-        loader.extensions();
-
-        assert!(rx_a1_a.try_recv().is_err());
-        assert!(rx_a2_a.try_recv().is_err());
-        assert!(rx_a3_a.try_recv().is_ok());
-
-        let loader = block_on(
-            loaders
-                .find(
-                    Some(TypeId::of::<A>()),
-                    &AssetPath::from_path(Path::new("asset")),
-                )
-                .unwrap()
-                .get(),
-        )
-        .unwrap();
-
-        loader.extensions();
-
+        // The last loader registered was run.
         assert!(rx_a1_a.try_recv().is_err());
         assert!(rx_a2_a.try_recv().is_err());
         assert!(rx_a3_a.try_recv().is_ok());
