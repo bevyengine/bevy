@@ -28,6 +28,13 @@ const MAX_TEXTURE_COUNT: NonZeroU32 = NonZeroU32::new(5_000).unwrap();
 const TEXTURE_MAP_NONE: u32 = u32::MAX;
 const LIGHT_NOT_PRESENT_THIS_FRAME: u32 = u32::MAX;
 
+/// Insert this resource into the render world to make the raytracing scene maintain the previous frame's
+/// TLAS and its light id translation table.
+///
+/// This is useful for temporal techniques that need last frame's data.
+#[derive(Resource, Default)]
+pub struct RaytracingSceneNeedsPreviousFrameData;
+
 #[derive(Resource)]
 pub struct RaytracingSceneBindings {
     pub bind_group: Option<BindGroup>,
@@ -49,6 +56,7 @@ pub fn prepare_raytracing_scene_bindings(
         Option<&PreviousGlobalTransform>,
     )>,
     directional_lights_query: Query<(Entity, &ExtractedDirectionalLight)>,
+    needs_previous_frame_data: Option<Res<RaytracingSceneNeedsPreviousFrameData>>,
     mesh_allocator: Res<MeshAllocator>,
     blas_manager: Res<BlasManager>,
     material_assets: Res<StandardMaterialAssets>,
@@ -218,10 +226,12 @@ pub fn prepare_raytracing_scene_bindings(
                     (index_slice.range.len() / 3) as u32,
                 ));
 
-            this_frame_entity_to_light_id.insert(entity, light_sources.get().len() as u32 - 1);
-            raytracing_scene_bindings
-                .previous_frame_light_entities
-                .push(entity);
+            if needs_previous_frame_data.is_some() {
+                this_frame_entity_to_light_id.insert(entity, light_sources.get().len() as u32 - 1);
+                raytracing_scene_bindings
+                    .previous_frame_light_entities
+                    .push(entity);
+            }
         }
 
         instance_id += 1;
@@ -241,20 +251,24 @@ pub fn prepare_raytracing_scene_bindings(
             .get_mut()
             .push(GpuLightSource::new_directional_light(directional_light_id));
 
-        this_frame_entity_to_light_id.insert(entity, light_sources.get().len() as u32 - 1);
-        raytracing_scene_bindings
-            .previous_frame_light_entities
-            .push(entity);
+        if needs_previous_frame_data.is_some() {
+            this_frame_entity_to_light_id.insert(entity, light_sources.get().len() as u32 - 1);
+            raytracing_scene_bindings
+                .previous_frame_light_entities
+                .push(entity);
+        }
     }
 
-    for previous_frame_light_entity in previous_frame_light_entities {
-        let current_frame_index = this_frame_entity_to_light_id
-            .get(&previous_frame_light_entity)
-            .copied()
-            .unwrap_or(LIGHT_NOT_PRESENT_THIS_FRAME);
-        previous_frame_light_id_translations
-            .get_mut()
-            .push(current_frame_index);
+    if needs_previous_frame_data.is_some() {
+        for previous_frame_light_entity in previous_frame_light_entities {
+            let current_frame_index = this_frame_entity_to_light_id
+                .get(&previous_frame_light_entity)
+                .copied()
+                .unwrap_or(LIGHT_NOT_PRESENT_THIS_FRAME);
+            previous_frame_light_id_translations
+                .get_mut()
+                .push(current_frame_index);
+        }
     }
 
     if light_sources.get().len() > u16::MAX as usize {
@@ -313,7 +327,9 @@ pub fn prepare_raytracing_scene_bindings(
         )),
     ));
 
-    raytracing_scene_bindings.previous_frame_tlas = Some(tlas);
+    if needs_previous_frame_data.is_some() {
+        raytracing_scene_bindings.previous_frame_tlas = Some(tlas);
+    }
 }
 
 impl RaytracingSceneBindings {

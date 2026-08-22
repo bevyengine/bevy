@@ -4,7 +4,7 @@ mod extract;
 mod types;
 
 use bevy_shader::load_shader_library;
-pub use binder::RaytracingSceneBindings;
+pub use binder::{RaytracingSceneBindings, RaytracingSceneNeedsPreviousFrameData};
 pub use types::RaytracingMesh3d;
 
 use crate::SolariPlugins;
