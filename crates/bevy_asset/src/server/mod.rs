@@ -563,7 +563,15 @@ impl AssetServer {
                 }
             })?;
 
+        // Either the caller put the meta_transform in the input_handle (so they had to pass None
+        // for the meta_transform), or they couldn't create the input_handle and had to pass in the
+        // meta_transform directly. Assert that at most one is Some. If this is wrong, we likely
+        // need to rethink the logic here.
+        assert!(input_handle.is_none() || meta_transform.is_none());
         if let Some(meta_transform) = input_handle.as_ref().and_then(|h| h.meta_transform()) {
+            (*meta_transform)(&mut *meta);
+        }
+        if let Some(meta_transform) = meta_transform.as_ref() {
             (*meta_transform)(&mut *meta);
         }
 
