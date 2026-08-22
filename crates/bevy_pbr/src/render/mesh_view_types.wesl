@@ -205,8 +205,7 @@ struct ContactShadowsSettings {
     linear_steps: u32,
     thickness: f32,
     length: f32,
-    @if(SIXTEEN_BYTE_ALIGNMENT)
-    _padding: f32,
+    ray_bias_degrees: f32,
 };
 
 struct EnvironmentMapUniform {
