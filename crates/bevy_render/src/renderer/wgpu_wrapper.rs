@@ -38,9 +38,9 @@ macro_rules! wgpu_wrapper {
                 }
             }
 
-            impl Into<$wgputy> for $name {
-                fn into(self) -> $wgputy {
-                    self.0
+            impl From<$name> for $wgputy {
+                fn from(t: $name) -> Self {
+                    t.0
                 }
             }
         )+
@@ -75,9 +75,9 @@ macro_rules! wgpu_wrapper {
                 }
             }
 
-            impl Into<$wgputy> for $name {
-                fn into(self) -> $wgputy {
-                    self.0.take()
+            impl From<$name> for $wgputy {
+                fn from(t: $name) -> Self {
+                    t.0.take()
                 }
             }
         )+

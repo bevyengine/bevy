@@ -157,7 +157,7 @@ impl DeviceErrorHandler {
             });
         }
         if let Some(error) = self.uncaptured.lock().unwrap().take() {
-            let (ty, description, source) = match error.into_inner() {
+            let (ty, description, source) = match wgpu::Error::from(error) {
                 wgpu::Error::OutOfMemory { source } => {
                     (ErrorType::OutOfMemory, "".to_string(), source)
                 }
