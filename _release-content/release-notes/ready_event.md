@@ -20,7 +20,7 @@ impl Widget {
     fn scene() -> impl Scene {
         bsn! {
             Node { width: px(100), height: px(100) }
-            on(|ready: On<Ready>| {
+            @on(|ready: On<Ready>| {
                 info!("The full scene, including 'widget.bsn' contents, is available here")
             })
             Children [

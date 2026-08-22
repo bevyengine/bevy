@@ -132,9 +132,9 @@ impl FeathersNumberInput {
             }
             ThemeBorderColor({props.sigil_color})
             FeathersNumberInput
-            on(number_input_on_insert_value)
-            on(number_input_on_insert_disabled)
-            on(number_input_on_remove_disabled)
+            @on(number_input_on_insert_value)
+            @on(number_input_on_insert_disabled)
+            @on(number_input_on_remove_disabled)
             Children [
                 {
                     // Label section
@@ -180,7 +180,7 @@ impl FeathersNumberInput {
                         },
                     }
                     Hovered
-                    template_value(LineHeight::Px(24.0)) // TODO: Make const for this
+                    LineHeight::Px(24.0) // TODO: Make const for this
                     TextLayout {
                         justify: Justify::Center,
                     }
@@ -197,11 +197,11 @@ impl FeathersNumberInput {
                         color_space: InterpolationColorSpace::Srgba,
                     })])
                     EntityCursor::System(bevy_window::SystemCursorIcon::ColResize)
-                    on(number_input_init)
-                    on(number_input_on_enter_key)
-                    on(number_input_on_focus_gained)
-                    on(number_input_on_focus_lost)
-                    on(number_input_hovered)
+                    @on(number_input_init)
+                    @on(number_input_on_enter_key)
+                    @on(number_input_on_focus_gained)
+                    @on(number_input_on_focus_lost)
+                    @on(number_input_hovered)
                     Children [
                         (
                             // Invisible child on top of input field which intercepts drag
@@ -213,12 +213,12 @@ impl FeathersNumberInput {
                                 bottom: px(0),
                                 right: px(0),
                             }
-                            on(scrubber_on_press)
-                            on(scrubber_on_release)
-                            on(scrubber_on_drag_start)
-                            on(scrubber_on_drag)
-                            on(scrubber_on_drag_end)
-                            on(scrubber_on_drag_cancel)
+                            @on(scrubber_on_press)
+                            @on(scrubber_on_release)
+                            @on(scrubber_on_drag_start)
+                            @on(scrubber_on_drag)
+                            @on(scrubber_on_drag_end)
+                            @on(scrubber_on_drag_cancel)
                         ),
                     ]
                 ),

@@ -47,13 +47,13 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     commands.spawn_scene(bsn! {
-        main_ui_node_scene()
+        @main_ui_node_scene()
         Children [
             (
-                label("Click an object to select it")
+                @label("Click an object to select it")
             ),
             (
-                feathers_option_buttons("",
+                @feathers_option_buttons("",
                 &[
                     (TransformGizmoMode::Translate, "Translate"),
                     (TransformGizmoMode::Rotate, "Rotate"),
@@ -61,7 +61,7 @@ fn setup(
                 ], 0)
             ),
             (
-                feathers_option_buttons("",
+                @feathers_option_buttons("",
                 &[
                     (TransformGizmoSpace::World, "World"),
                     (TransformGizmoSpace::Local, "Local"),
@@ -75,7 +75,7 @@ fn setup(
                 ScaleSensitivitySlider
                 Children [
                     (
-                        label("Sensitivity")
+                        @label("Sensitivity")
                     ),
                     (
                         @FeathersSlider{
@@ -85,7 +85,7 @@ fn setup(
                         SliderValue(1.0)
                         SliderPrecision(2)
                         SliderStep(0.1)
-                        on(slider_update)
+                        @on(slider_update)
                     )
                 ]
             )

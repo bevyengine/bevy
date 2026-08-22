@@ -1,5 +1,5 @@
 use proc_macro2::TokenStream;
-use syn::{Ident, Lit, LitStr, Path, Stmt};
+use syn::{Ident, Lit, LitStr, Member, Path, Stmt};
 
 #[derive(Debug)]
 pub struct BsnRoot(pub Bsn<true>);
@@ -17,9 +17,9 @@ pub enum BsnEntry {
     Name(Ident),
     FromTemplatePatch(BsnType),
     TemplatePatch(BsnType),
+    TemplateValue(TokenStream),
     FromTemplateConstructor(BsnConstructor),
     TemplateConstructor(BsnConstructor),
-    TemplateConst { type_path: Path, const_ident: Ident },
     UncachedScene(BsnScene),
     CachedScene(BsnScene),
     RelatedSceneList(BsnRelatedSceneList),
@@ -28,8 +28,13 @@ pub enum BsnEntry {
 #[derive(Debug)]
 pub struct BsnType {
     pub path: Path,
-    pub enum_variant: Option<Ident>,
+    pub variant: Option<Ident>,
     pub fields: BsnFields,
+}
+
+#[derive(Debug)]
+pub struct BsnStructUpdate {
+    pub value: Box<BsnValue>,
 }
 
 #[derive(Debug)]
@@ -73,16 +78,12 @@ pub struct BsnConstructor {
 
 #[derive(Debug)]
 pub enum BsnFields {
-    Named(Vec<BsnNamedField>),
+    Named {
+        fields: Vec<BsnNamedField>,
+        struct_update: Option<BsnStructUpdate>,
+    },
     Tuple(Vec<BsnUnnamedField>),
-}
-impl BsnFields {
-    pub fn len(&self) -> usize {
-        match self {
-            BsnFields::Named(vec) => vec.len(),
-            BsnFields::Tuple(vec) => vec.len(),
-        }
-    }
+    Unit,
 }
 
 #[derive(Debug)]
@@ -99,8 +100,14 @@ pub struct BsnNamedField {
     pub value: Option<BsnValue>,
 }
 
+pub enum BsnNamedFieldOrStructUpdate {
+    Field(BsnNamedField),
+    StructUpdate(BsnStructUpdate),
+}
+
 #[derive(Debug)]
 pub struct BsnUnnamedField {
+    pub index: Member,
     pub value: BsnValue,
 }
 

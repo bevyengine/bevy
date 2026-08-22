@@ -67,8 +67,8 @@ fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
 
     commands.spawn_scene(bsn! {
-        background()
-        on(|press: On<PointerPress>, query: Query<(), With<ContextMenu>>, mut commands: Commands| {
+        @background()
+        @on(|press: On<PointerPress>, query: Query<(), With<ContextMenu>>, mut commands: Commands| {
             debug!("click: {}", press.pointer.position);
 
             if query.is_empty() {
@@ -102,7 +102,7 @@ fn on_trigger_menu(event: On<OpenContextMenu>, mut commands: Commands) {
     debug!("open context menu at: {pos}");
 
     commands.spawn_scene(bsn! {
-        Name::new("context menu")
+        #ContextMenu
         ContextMenu
         Node {
             position_type: PositionType::Absolute,
@@ -115,13 +115,13 @@ fn on_trigger_menu(event: On<OpenContextMenu>, mut commands: Commands) {
         BackgroundColor(Color::linear_rgb(0.1, 0.1, 0.1))
         ListBox
         Children [
-            context_item("fuchsia", basic::FUCHSIA),
-            context_item("gray", basic::GRAY),
-            context_item("maroon", basic::MAROON),
-            context_item("purple", basic::PURPLE),
-            context_item("teal", basic::TEAL),
+            @context_item("fuchsia", basic::FUCHSIA),
+            @context_item("gray", basic::GRAY),
+            @context_item("maroon", basic::MAROON),
+            @context_item("purple", basic::PURPLE),
+            @context_item("teal", basic::TEAL),
         ]
-        on(|event: On<ValueChange<Entity>>,
+        @on(|event: On<ValueChange<Entity>>,
             menu_items: Query<&ContextMenuItem, With<ListItem>>,
             mut clear_col: ResMut<ClearColor>,
             mut commands: Commands| {
@@ -139,7 +139,7 @@ fn on_trigger_menu(event: On<OpenContextMenu>, mut commands: Commands) {
 
 fn context_item(text: &'static str, col: Srgba) -> impl Scene {
     bsn! {
-        Name::new(format!("item-{text}"))
+        Name(format!("item-{text}"))
         ListItem
         ContextMenuItem(col)
         Node {
@@ -148,7 +148,7 @@ fn context_item(text: &'static str, col: Srgba) -> impl Scene {
         Children [
             ContextMenuItemText
             Pickable::IGNORE
-            Text::new(text)
+            Text(text)
             TextFont {
                 font_size: FontSize::Px(24.0),
             }
@@ -159,7 +159,7 @@ fn context_item(text: &'static str, col: Srgba) -> impl Scene {
 
 fn background() -> impl Scene {
     bsn! {
-        Name::new("background")
+        #Background
         Node {
             width: percent(100),
             height: percent(100),

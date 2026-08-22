@@ -63,13 +63,13 @@ fn setup(mut commands: Commands) {
                 justify_content: JustifyContent::Center,
             }
             Children [
-                Text::new("Size Constraints Example")
-                font_style_scene()
+                Text("Size Constraints Example")
+                @font_style_scene()
                 Node {
                     margin: UiRect::bottom(px(25)),
                 },
 
-                bar_scene(),
+                @bar_scene(),
 
                 // Controls (radio buttons)
                 Node {
@@ -163,8 +163,8 @@ fn radio_group_scene(constraint: Constraint) -> impl Scene {
                     align_items: AlignItems::Center,
                 }
                 Children [
-                    Text::new(label)
-                    font_style_scene()
+                    Text(label)
+                    @font_style_scene()
                 ],
 
                 // Row Buttons
@@ -172,7 +172,7 @@ fn radio_group_scene(constraint: Constraint) -> impl Scene {
                 RadioGroup
                 Children [
                     Checked
-                    radio_button_scene(
+                    @radio_button_scene(
                         constraint,
                         RadioButtonValue(auto()),
                         "Auto".to_string(),
@@ -214,8 +214,8 @@ fn radio_button_scene(
         } else {
             INACTIVE_BORDER_COLOR
         })
-        template_value(constraint)
-        template_value(action)
+        constraint
+        action
         Children [
             Node {
                 width: px(100),
@@ -227,8 +227,8 @@ fn radio_button_scene(
                 INACTIVE_INNER_COLOR
             }})
             Children [
-                Text::new(label)
-                font_style_scene()
+                Text(label)
+                @font_style_scene()
                 TextColor({if active {
                     ACTIVE_TEXT_COLOR
                 } else {
@@ -238,7 +238,7 @@ fn radio_button_scene(
             ]
         ]
         // Observers for updating text on hover/leave
-        on(|event: On<PointerOver>,
+        @on(|event: On<PointerOver>,
             has_checked_query: Query<&Checked>,
             child_q: Query<&Children>,
             mut commands: Commands| {
@@ -250,7 +250,7 @@ fn radio_button_scene(
                 commands.entity(text_entity).insert(TextColor(HOVERED_TEXT_COLOR));
             }
         })
-        on(|event: On<PointerOut>,
+        @on(|event: On<PointerOut>,
             has_checked_query: Query<&Checked>,
             child_q: Query<&Children>,
             mut commands: Commands| {

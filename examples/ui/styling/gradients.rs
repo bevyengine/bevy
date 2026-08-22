@@ -233,15 +233,15 @@ fn buttons_scene() -> impl Scene {
                 CurrentColorSpaceLabel
                 template(|ctx| {
                     let current_index = ctx.resource::<AppSettings>().color_space_current_index;
-                    Ok(Text::new(format!("Current Space\n{:?}", COLOR_SPACES[current_index])))
+                    Ok(Text(format!("Current Space\n{:?}", COLOR_SPACES[current_index])))
                 })
             ],
 
             PreviousButton
-            button_node_scene("Previous"),
+            @button_node_scene("Previous"),
 
             NextButton
-            button_node_scene("Next"),
+            @button_node_scene("Next"),
         ]
     }
 }
@@ -261,14 +261,14 @@ fn button_node_scene(caption: &'static str) -> impl Scene {
         }
         BorderColor::all(Color::WHITE)
         BackgroundColor(Color::BLACK)
-        on(|event: On<PointerOver>, mut border_query: Query<&mut BorderColor, With<Button>>| {
+        @on(|event: On<PointerOver>, mut border_query: Query<&mut BorderColor, With<Button>>| {
             *border_query.get_mut(event.entity).unwrap() = BorderColor::all(RED);
         })
-        on(|event: On<PointerOut>, mut border_query: Query<&mut BorderColor, With<Button>>| {
+        @on(|event: On<PointerOut>, mut border_query: Query<&mut BorderColor, With<Button>>| {
             *border_query.get_mut(event.entity).unwrap() = BorderColor::all(Color::WHITE);
         })
         Children [
-            Text::new(caption)
+            Text(caption)
         ]
     }
 }

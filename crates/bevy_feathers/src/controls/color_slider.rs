@@ -250,7 +250,7 @@ impl FeathersColorSlider {
                 channel: {props.channel},
             }
             SliderValue({props.value})
-            template_value(props.channel.range())
+            props.channel.range()
             EntityCursor::System(bevy_window::SystemCursorIcon::Pointer)
             TabIndex(0)
             FocusIndicator

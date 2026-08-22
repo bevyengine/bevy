@@ -47,10 +47,10 @@ pub fn settings_ui() -> impl Scene {
             padding: px(8),
         }
         ThemeBackgroundColor(feathers::tokens::WINDOW_BG)
-        on(|_: On<PointerOver>, mut free_camera_state: Single<&mut FreeCameraState>| {
+        @on(|_: On<PointerOver>, mut free_camera_state: Single<&mut FreeCameraState>| {
             free_camera_state.enabled = false;
         })
-        on(|_: On<PointerOut>, mut free_camera_state: Single<&mut FreeCameraState>| {
+        @on(|_: On<PointerOut>, mut free_camera_state: Single<&mut FreeCameraState>| {
             free_camera_state.enabled = true;
         })
         Children [(
@@ -65,21 +65,21 @@ pub fn settings_ui() -> impl Scene {
                 Text("Settings"),
                 (
                     @FeathersCheckbox {
-                        @caption: bsn! { caption("Simulate Cars") }
+                        @caption: bsn! { @caption("Simulate Cars") }
                     }
                     Checked
-                    on(checkbox_self_update)
-                    on(|change: On<ValueChange<bool>>, mut settings: ResMut<Settings>| {
+                    @on(checkbox_self_update)
+                    @on(|change: On<ValueChange<bool>>, mut settings: ResMut<Settings>| {
                         settings.simulate_cars = change.value;
                     })
                 ),
                 (
                     @FeathersCheckbox {
-                        @caption: bsn! { caption("Shadow maps enabled") }
+                        @caption: bsn! { @caption("Shadow maps enabled") }
                     }
                     Checked
-                    on(checkbox_self_update)
-                    on(
+                    @on(checkbox_self_update)
+                    @on(
                         |change: On<ValueChange<bool>>,
                          mut settings: ResMut<Settings>,
                          mut directional_lights: Query<&mut DirectionalLight>| {
@@ -93,11 +93,11 @@ pub fn settings_ui() -> impl Scene {
                 ),
                 (
                     @FeathersCheckbox {
-                        @caption: bsn! { caption("Contact shadows enabled") }
+                        @caption: bsn! { @caption("Contact shadows enabled") }
                     }
                     Checked
-                    on(checkbox_self_update)
-                    on(
+                    @on(checkbox_self_update)
+                    @on(
                         |change: On<ValueChange<bool>>,
                          mut settings: ResMut<Settings>,
                          mut directional_lights: Query<&mut DirectionalLight>| {
@@ -111,10 +111,10 @@ pub fn settings_ui() -> impl Scene {
                 ),
                 (
                     @FeathersCheckbox {
-                        @caption: bsn! { caption("Wireframe Enabled") }
+                        @caption: bsn! { @caption("Wireframe Enabled") }
                     }
-                    on(checkbox_self_update)
-                    on(
+                    @on(checkbox_self_update)
+                    @on(
                         |change: On<ValueChange<bool>>,
                          mut settings: ResMut<Settings>,
                          mut wireframe_config: ResMut<WireframeConfig>| {
@@ -125,11 +125,11 @@ pub fn settings_ui() -> impl Scene {
                 ),
                 (
                     @FeathersCheckbox {
-                        @caption: bsn! { caption("CPU culling") }
+                        @caption: bsn! { @caption("CPU culling") }
                     }
                     Checked
-                    on(checkbox_self_update)
-                    on(
+                    @on(checkbox_self_update)
+                    @on(
                         |change: On<ValueChange<bool>>,
                          mut settings: ResMut<Settings>,
                          mut commands: Commands,
@@ -148,9 +148,9 @@ pub fn settings_ui() -> impl Scene {
                 ),
                 (
                     @FeathersButton {
-                        @caption: bsn! { caption("Regenerate City") }
+                        @caption: bsn! { @caption("Regenerate City") }
                     }
-                    on(
+                    @on(
                         |_activate: On<Activate>,
                          mut commands: Commands,
                          city_root: Single<Entity, With<CityRoot>>,
