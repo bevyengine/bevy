@@ -59,6 +59,9 @@ macro_rules! wgpu_wrapper {
 macro_rules! wgpu_wrapper {
     ($( $(#[$($attrs:tt)*])* $vis:vis struct $name:ident ($wgputy:ty) );+ $(;)?) => {
         $(
+            // On web + atomics we use SendWrapper to make the type unconditionally Send + Sync,
+            // but the value can only be accessed on the `wgpu` thread or it will panic.
+            // We don't need short circuits here since `SendWrapper` does it for us.
             $( #[$($attrs)*] )*
             $vis struct $name (send_wrapper::SendWrapper<$wgputy>);
 
