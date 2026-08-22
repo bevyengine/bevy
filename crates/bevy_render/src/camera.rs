@@ -469,13 +469,6 @@ pub struct ExtractedCamera {
     pub sorted_camera_index_for_target: usize,
     pub exposure: f32,
     pub hdr: bool,
-    /// When [`CompositingSpace::Srgb`], the main texture uses linear storage (`Rgba8Unorm`)
-    /// and shaders output sRGB-encoded values for gamma-encoded blending.
-    ///
-    /// The camera's request. Extraction uses it to pick the main texture
-    /// format. Everything else reads the view's [`ResolvedCompositingSpace`]
-    /// instead.
-    pub compositing_space: Option<CompositingSpace>,
 }
 
 pub fn extract_cameras(
@@ -651,7 +644,6 @@ pub fn extract_cameras(
                         .map(Exposure::exposure)
                         .unwrap_or_else(|| Exposure::default().exposure()),
                     hdr,
-                    compositing_space: compositing_space.copied(),
                 },
                 ResolvedCompositingSpace(compositing_space.copied()),
                 ExtractedView {

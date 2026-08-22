@@ -21,17 +21,16 @@ use wgpu::TextureFormat;
 use super::{main_texture_key, ExtractedView, MainTextureKey, Msaa};
 use crate::camera::ExtractedCamera;
 
-/// The compositing space a camera view actually uses this frame.
+/// The compositing space a camera view actually uses this frame, written by
+/// [`resolve_composition_spaces`].
 ///
 /// `None` means linear. An explicit [`CompositingSpace::Linear`] request also
 /// resolves to `None`, so both forms of linear produce the same pipeline
 /// keys.
 ///
-/// Read this instead of the request in
-/// [`ExtractedCamera::compositing_space`].
-///
-/// Spawning or despawning an overlay camera can flip the base view's space
-/// and respecialize its 2d pipelines for a frame.
+/// The value depends on every camera in the stack. Adding or removing a
+/// camera on a render target can change it for the cameras already there,
+/// which respecializes their 2d pipelines for a frame.
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ResolvedCompositingSpace(pub Option<CompositingSpace>);
 
@@ -56,9 +55,6 @@ pub fn composites_fullscreen(camera: &ExtractedCamera) -> bool {
 
 /// Writes each camera view's [`ResolvedCompositingSpace`]. Runs in
 /// [`ResolveCompositingSpaces`].
-///
-/// `Has<Camera2d>` reads the marker that `bevy_core_pipeline` extracts.
-/// Without that plugin every view counts as non-2d.
 pub fn resolve_composition_spaces(
     mut views: Query<(
         Entity,
@@ -72,11 +68,9 @@ pub fn resolve_composition_spaces(
 ) {
     // When every camera requests linear or nothing, all views resolve to
     // linear and no diagnostic can fire, so skip the grouping.
-    let any_request = views.iter().any(|(_, camera, ..)| {
-        camera
-            .compositing_space
-            .is_some_and(|space| !space.is_linear())
-    });
+    let any_request = views
+        .iter()
+        .any(|(.., resolved)| resolved.0.is_some_and(|space| !space.is_linear()));
     if !any_request {
         for (.., mut resolved) in views.iter_mut() {
             *resolved = ResolvedCompositingSpace(None);
@@ -87,13 +81,15 @@ pub fn resolve_composition_spaces(
     let inputs: Vec<(MainTextureKey, SpaceInput)> = views
         .iter()
         .map(
-            |(entity, camera, view, texture_usage, msaa, is_camera_2d, _)| {
+            |(entity, camera, view, texture_usage, msaa, is_camera_2d, resolved)| {
                 (
                     main_texture_key(camera, view, texture_usage, *msaa),
                     SpaceInput {
                         entity,
                         sorted_index: camera.sorted_camera_index_for_target,
-                        request: camera.compositing_space,
+                        // Extraction seeded each component with the camera's
+                        // own request.
+                        request: resolved.0,
                         composites_fullscreen: composites_fullscreen(camera),
                         is_camera_2d,
                         signed_float_storage: matches!(
@@ -242,7 +238,8 @@ fn warn_on_mixed_requests(
 ///
 /// Two things can still force linear. A member that isn't a `Camera2d` does,
 /// because 3d render paths write linear values into the main texture. So does
-/// `Oklab` when the main texture would clamp its signed channels.
+/// [`Oklab`](CompositingSpace::Oklab) unless the main texture is a float
+/// format, since unorm formats clamp the negative values Oklab colors need.
 fn resolve_members(
     members: &[SpaceInput],
     resolved: &mut EntityHashMap<Option<CompositingSpace>>,
