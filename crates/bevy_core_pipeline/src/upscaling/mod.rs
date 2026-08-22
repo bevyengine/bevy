@@ -47,6 +47,10 @@ fn clear_view_upscaling_pipelines(
 
 fn prepare_view_upscaling_pipelines(
     mut commands: Commands,
+    #[cfg_attr(
+        target_arch = "wasm32",
+        expect(unused_mut, reason = "`block_on_render_pipeline` is unused on wasm32")
+    )]
     mut pipeline_cache: ResMut<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<BlitPipeline>>,
     blit_pipeline: Res<BlitPipeline>,
@@ -98,6 +102,7 @@ fn prepare_view_upscaling_pipelines(
 
             // Ensure the pipeline is loaded before continuing the frame to prevent frames without
             // any GPU work submitted
+            #[cfg(not(target_arch = "wasm32"))]
             pipeline_cache.block_on_render_pipeline(pipeline);
 
             commands
