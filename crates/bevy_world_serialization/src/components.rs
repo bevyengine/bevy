@@ -5,8 +5,6 @@ use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_transform::components::Transform;
 use derive_more::derive::From;
 
-use bevy_camera::visibility::Visibility;
-
 use crate::{DynamicWorld, WorldAsset};
 
 /// Adding this component will spawn the world as a child of that entity.
@@ -19,7 +17,6 @@ use crate::{DynamicWorld, WorldAsset};
 )]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
 #[require(Transform)]
-#[require(Visibility)]
 pub struct WorldAssetRoot(pub Handle<WorldAsset>);
 
 impl AsAssetId for WorldAssetRoot {
@@ -37,7 +34,6 @@ impl AsAssetId for WorldAssetRoot {
 )]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
 #[require(Transform)]
-#[require(Visibility)]
 pub struct DynamicWorldRoot(pub Handle<DynamicWorld>);
 
 impl AsAssetId for DynamicWorldRoot {
