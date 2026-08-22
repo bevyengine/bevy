@@ -829,12 +829,19 @@ unsafe impl SystemParam for &'_ World {
         component_access_set: &mut FilteredAccessSet,
         _world: &mut World,
     ) {
-        assert!(
-            !component_access_set.combined_access().has_any_write(),
-            "&World in system {} conflicts with a previous access.",
-            system_meta.name
-        );
-        component_access_set.read_all();
+        let mut filtered_access = FilteredAccess::default();
+        filtered_access.read_all();
+        filtered_access.add_metadata_read();
+        if !component_access_set
+            .get_conflicts_single(&filtered_access)
+            .is_empty()
+        {
+            panic!(
+                "&World in system {} conflicts with a previous system parameter's access.",
+                system_meta.name,
+            );
+        }
+        component_access_set.add(filtered_access);
     }
 
     fn is_exclusive() -> bool {
@@ -867,12 +874,19 @@ unsafe impl SystemParam for &'_ mut World {
         _world: &mut World,
     ) {
         system_meta.set_exclusive();
-        assert!(
-            !component_access_set.combined_access().has_any_read(),
-            "&mut World in system {} conflicts with a previous access.",
-            system_meta.name,
-        );
-        component_access_set.write_all();
+        let mut filtered_access = FilteredAccess::default();
+        filtered_access.write_all();
+        filtered_access.add_metadata_write();
+        if !component_access_set
+            .get_conflicts_single(&filtered_access)
+            .is_empty()
+        {
+            panic!(
+                "&mut World in system {} conflicts with a previous system parameter's access.",
+                system_meta.name,
+            );
+        }
+        component_access_set.add(filtered_access);
     }
 
     fn is_exclusive() -> bool {
@@ -904,12 +918,19 @@ unsafe impl<'w> SystemParam for DeferredWorld<'w> {
         component_access_set: &mut FilteredAccessSet,
         _world: &mut World,
     ) {
-        assert!(
-            !component_access_set.combined_access().has_any_read(),
-            "DeferredWorld in system {} conflicts with a previous access.",
-            system_meta.name,
-        );
-        component_access_set.write_all();
+        let mut filtered_access = FilteredAccess::default();
+        filtered_access.write_all();
+        filtered_access.add_metadata_read();
+        if !component_access_set
+            .get_conflicts_single(&filtered_access)
+            .is_empty()
+        {
+            panic!(
+                "DeferredWorld in system {} conflicts with a previous system parameter's access.",
+                system_meta.name,
+            );
+        }
+        component_access_set.add(filtered_access);
     }
 
     fn is_exclusive() -> bool {
@@ -1521,10 +1542,22 @@ unsafe impl<'a> SystemParam for &'a Archetypes {
 
     fn init_access(
         _state: &Self::State,
-        _system_meta: &mut SystemMeta,
-        _component_access_set: &mut FilteredAccessSet,
+        system_meta: &mut SystemMeta,
+        component_access_set: &mut FilteredAccessSet,
         _world: &mut World,
     ) {
+        let mut filtered_access = FilteredAccess::default();
+        filtered_access.add_metadata_read();
+        if !component_access_set
+            .get_conflicts_single(&filtered_access)
+            .is_empty()
+        {
+            panic!(
+                "&Archetypes in system {} conflicts with a previous system parameter's access.",
+                system_meta.name,
+            );
+        }
+        component_access_set.add(filtered_access);
     }
 
     fn is_exclusive() -> bool {
@@ -1554,10 +1587,22 @@ unsafe impl<'a> SystemParam for &'a Components {
 
     fn init_access(
         _state: &Self::State,
-        _system_meta: &mut SystemMeta,
-        _component_access_set: &mut FilteredAccessSet,
+        system_meta: &mut SystemMeta,
+        component_access_set: &mut FilteredAccessSet,
         _world: &mut World,
     ) {
+        let mut filtered_access = FilteredAccess::default();
+        filtered_access.add_metadata_read();
+        if !component_access_set
+            .get_conflicts_single(&filtered_access)
+            .is_empty()
+        {
+            panic!(
+                "&Components in system {} conflicts with a previous system parameter's access.",
+                system_meta.name,
+            );
+        }
+        component_access_set.add(filtered_access);
     }
 
     fn is_exclusive() -> bool {
@@ -1587,10 +1632,22 @@ unsafe impl<'a> SystemParam for &'a Entities {
 
     fn init_access(
         _state: &Self::State,
-        _system_meta: &mut SystemMeta,
-        _component_access_set: &mut FilteredAccessSet,
+        system_meta: &mut SystemMeta,
+        component_access_set: &mut FilteredAccessSet,
         _world: &mut World,
     ) {
+        let mut filtered_access = FilteredAccess::default();
+        filtered_access.add_metadata_read();
+        if !component_access_set
+            .get_conflicts_single(&filtered_access)
+            .is_empty()
+        {
+            panic!(
+                "&Entities in system {} conflicts with a previous system parameter's access.",
+                system_meta.name,
+            );
+        }
+        component_access_set.add(filtered_access);
     }
 
     fn is_exclusive() -> bool {
@@ -1620,10 +1677,22 @@ unsafe impl<'a> SystemParam for &'a EntityAllocator {
 
     fn init_access(
         _state: &Self::State,
-        _system_meta: &mut SystemMeta,
-        _component_access_set: &mut FilteredAccessSet,
+        system_meta: &mut SystemMeta,
+        component_access_set: &mut FilteredAccessSet,
         _world: &mut World,
     ) {
+        let mut filtered_access = FilteredAccess::default();
+        filtered_access.add_metadata_read();
+        if !component_access_set
+            .get_conflicts_single(&filtered_access)
+            .is_empty()
+        {
+            panic!(
+                "&EntityAllocator in system {} conflicts with a previous system parameter's access.",
+                system_meta.name,
+            );
+        }
+        component_access_set.add(filtered_access);
     }
 
     fn is_exclusive() -> bool {
@@ -1653,10 +1722,22 @@ unsafe impl<'a> SystemParam for &'a Bundles {
 
     fn init_access(
         _state: &Self::State,
-        _system_meta: &mut SystemMeta,
-        _component_access_set: &mut FilteredAccessSet,
+        system_meta: &mut SystemMeta,
+        component_access_set: &mut FilteredAccessSet,
         _world: &mut World,
     ) {
+        let mut filtered_access = FilteredAccess::default();
+        filtered_access.add_metadata_read();
+        if !component_access_set
+            .get_conflicts_single(&filtered_access)
+            .is_empty()
+        {
+            panic!(
+                "&Bundles in system {} conflicts with a previous system parameter's access.",
+                system_meta.name,
+            );
+        }
+        component_access_set.add(filtered_access);
     }
 
     fn is_exclusive() -> bool {
@@ -2988,11 +3069,13 @@ impl Display for SystemParamValidationError {
 
 #[cfg(test)]
 mod tests {
+    use bevy_ecs_macros::Component;
+
     use super::*;
     use crate::query::Without;
     use crate::resource::IsResource;
     use crate::schedule::Schedule;
-    use crate::system::assert_is_system;
+    use crate::system::{assert_is_system, Commands};
     use crate::world::EntityMut;
     use core::cell::RefCell;
 
@@ -3331,5 +3414,167 @@ mod tests {
         schedule.run(&mut world);
 
         assert_eq!(2, world.get_resource::<Res>().unwrap().test_value);
+    }
+
+    #[test]
+    #[should_panic(expected = "&mut World")]
+    fn mutable_world_conflicts_with_commands_first() {
+        fn system(_: Commands, _: &mut World) {}
+        assert_is_system(system);
+    }
+
+    #[test]
+    #[should_panic(expected = "&Entities")]
+    fn mutable_world_conflicts_with_commands_second() {
+        fn system(_: &mut World, _: Commands) {}
+        assert_is_system(system);
+    }
+
+    #[test]
+    #[should_panic(expected = "&mut World")]
+    fn mutable_world_conflicts_with_entities_first() {
+        fn system(_: &Entities, _: &mut World) {}
+        assert_is_system(system);
+    }
+
+    #[test]
+    #[should_panic(expected = "&Entities")]
+    fn mutable_world_conflicts_with_entities_second() {
+        fn system(_: &mut World, _: &Entities) {}
+        assert_is_system(system);
+    }
+
+    #[test]
+    #[should_panic(expected = "&Archetypes")]
+    fn mutable_world_conflicts_with_archetypes() {
+        fn system(_: &mut World, _: &Archetypes) {}
+        assert_is_system(system);
+    }
+
+    #[test]
+    #[should_panic(expected = "&Components")]
+    fn mutable_world_conflicts_with_components() {
+        fn system(_: &mut World, _: &Components) {}
+        assert_is_system(system);
+    }
+
+    #[test]
+    #[should_panic(expected = "&EntityAllocator")]
+    fn mutable_world_conflicts_with_entity_allocator() {
+        fn system(_: &mut World, _: &EntityAllocator) {}
+        assert_is_system(system);
+    }
+
+    #[test]
+    #[should_panic(expected = "&Bundles")]
+    fn mutable_world_conflicts_with_bundles() {
+        fn system(_: &mut World, _: &Bundles) {}
+        assert_is_system(system);
+    }
+
+    #[test]
+    #[should_panic(expected = "&World")]
+    fn mutable_world_conflicts_with_immutable_world() {
+        fn system(_: &mut World, _: &World) {}
+        assert_is_system(system);
+    }
+
+    #[test]
+    #[should_panic(expected = "DeferredWorld")]
+    fn mutable_world_conflicts_with_deferred_world() {
+        fn system(_: &mut World, _: DeferredWorld) {}
+        assert_is_system(system);
+    }
+
+    #[test]
+    fn mutable_world_with_query_and_system_state_works() {
+        fn system(_: &mut World, _: &mut QueryState<()>, _: &mut SystemState<()>) {}
+        assert_is_system(system);
+    }
+
+    #[test]
+    fn mutable_world_param_set_works() {
+        fn system(_: ParamSet<(&mut World, &mut World, &Entities)>) {}
+        assert_is_system(system);
+    }
+
+    #[test]
+    #[should_panic(expected = "&mut World")]
+    fn mutable_world_param_set_conflicts_outside() {
+        fn system(_: &Entities, _: ParamSet<(&mut World, &Entities)>) {}
+        assert_is_system(system);
+    }
+
+    #[test]
+    #[should_panic(expected = "&Entities")]
+    fn mutable_world_param_set_conflicts_outside_reverse() {
+        fn system(_: ParamSet<(&mut World, &Entities)>, _: &Entities) {}
+        assert_is_system(system);
+    }
+
+    #[test]
+    #[should_panic(expected = "&Entities")]
+    fn mutable_world_conflicts_with_optional_entities() {
+        fn system(_: &mut World, _: Option<&Entities>) {}
+        assert_is_system(system);
+    }
+
+    #[test]
+    #[should_panic(expected = "error[B0001]")]
+    fn mutable_world_conflicts_with_optional_query() {
+        #[derive(Component)]
+        struct A;
+        fn system(_: &mut World, _: Option<Query<&mut A>>) {}
+        assert_is_system(system);
+    }
+
+    #[test]
+    #[should_panic(expected = "error[B0001]")]
+    fn mutable_world_conflicts_with_query() {
+        #[derive(Component)]
+        struct A;
+        fn system(_: &mut World, _: Query<&mut A>) {}
+        assert_is_system(system);
+    }
+
+    #[test]
+    fn metadata_readers_work() {
+        fn system1(
+            _: &World,
+            _: &Entities,
+            _: &Archetypes,
+            _: &Components,
+            _: &EntityAllocator,
+            _: &Bundles,
+            _: Commands,
+        ) {
+        }
+        assert_is_system(system1);
+
+        fn system2(
+            _: DeferredWorld,
+            _: &Entities,
+            _: &Archetypes,
+            _: &Components,
+            _: &EntityAllocator,
+            _: &Bundles,
+            _: Commands,
+        ) {
+        }
+        assert_is_system(system2);
+    }
+
+    #[test]
+    fn query_and_query_state_works() {
+        #[derive(Component)]
+        struct A;
+        #[derive(Component)]
+        struct B;
+
+        fn system1(_: &mut QueryState<&mut A>, _: Query<&mut B>) {}
+        assert_is_system(system1);
+
+        fn system2(_: &mut QueryState<&mut A>, _: Query<&mut A>) {}
+        assert_is_system(system2);
     }
 }
