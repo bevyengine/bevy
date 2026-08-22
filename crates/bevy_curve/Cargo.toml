@@ -42,15 +42,11 @@ std = [
   "serde?/std",
 ]
 
-libm = ["bevy_math/libm"]
-
 serialize = ["bevy_math/serialize", "dep:serde"]
 # Enable approx for bevy_math types to approximate floating point equality comparisons and assertions
 approx = ["bevy_math/approx", "dep:approx"]
 # Enable bevy_reflect (requires alloc)
 bevy_reflect = ["alloc", "bevy_math/bevy_reflect", "dep:bevy_reflect"]
-# Enable critical-section backend
-critical-section = ["bevy_reflect?/critical-section"]
 
 [lints]
 workspace = true
