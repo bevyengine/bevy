@@ -17,6 +17,7 @@ use crate::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 
+use crate::screen_boxing::box_cameras;
 use bevy_app::{App, Plugin, PostStartup, PostUpdate};
 use bevy_asset::{AssetEvent, AssetEventSystems, AssetId, Assets};
 use bevy_camera::{
@@ -70,10 +71,14 @@ impl Plugin for CameraPlugin {
                 ExtractResourcePlugin::<ClearColor>::default(),
                 ExtractComponentPlugin::<CameraMainTextureUsages>::default(),
             ))
-            .add_systems(PostStartup, camera_system.in_set(CameraUpdateSystems))
+            .add_systems(
+                PostStartup,
+                (camera_system, box_cameras).chain().in_set(CameraUpdateSystems),
+            )
             .add_systems(
                 PostUpdate,
-                camera_system
+                (camera_system, box_cameras)
+                    .chain()
                     .in_set(CameraUpdateSystems)
                     .before(AssetEventSystems)
                     .before(visibility::update_frusta),
