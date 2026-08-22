@@ -1,0 +1,21 @@
+name: Update labels
+
+on:
+  schedule:
+    - cron: '5 4 * * *'
+
+jobs:
+  run-script:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # This job checks each open PR if the S-Merge-Conflicts label is correct.
+      # Allows for reviewers to search for ready PRs with:
+      #   `is:pr is:open -label:S-Merge-Conflicts -author:@me label:S-Needs-Review -reviewed-by:@me`
+      - name: Update merge conflict labels
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ./tools/labels/label-merge-conflicts.sh
