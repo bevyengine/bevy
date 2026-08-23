@@ -122,6 +122,7 @@ impl UiSurface {
         buffer_query: &mut Query<&mut ComputedTextBlock>,
         font_system: &mut FontCx,
         rem_size: RemSize,
+        rem_size_changed: bool,
     ) -> Result<(), LayoutError> {
         let mut runtime_nodes = HashMap::default();
         let Some(_) = build_runtime_layout_tree(
@@ -134,6 +135,7 @@ impl UiSurface {
             fixed_node_changes,
             &mut runtime_nodes,
             rem_size,
+            rem_size_changed,
         )?
         else {
             return Err(LayoutError::InvalidHierarchy);
@@ -214,6 +216,7 @@ fn build_runtime_layout_tree<'a>(
     fixed_node_changes: &[Entity],
     runtime_nodes: &mut HashMap<NodeId, RuntimeLayoutNode<'a>>,
     rem_size: RemSize,
+    rem_size_changed: bool,
 ) -> Result<Option<BuiltNode>, LayoutError> {
     let mut child_ids = Vec::new();
     let mut subtree_dirty = false;
@@ -234,6 +237,7 @@ fn build_runtime_layout_tree<'a>(
             fixed_node_changes,
             runtime_nodes,
             rem_size,
+            rem_size_changed,
         )? {
             child_ids.push(entity_node_id(child));
             subtree_dirty |= built_child.subtree_dirty;
@@ -250,6 +254,8 @@ fn build_runtime_layout_tree<'a>(
 
     let node_id = entity_node_id(entity);
     let own_dirty = node.is_changed()
+        || em_size.is_changed()
+        || rem_size_changed
         || computed_target.is_changed()
         || content_size_query
             .get(entity)

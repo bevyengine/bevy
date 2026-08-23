@@ -176,6 +176,7 @@ pub fn ui_layout_system(
                 &mut buffer_query,
                 &mut font_system,
                 *rem_size,
+                rem_size.is_changed(),
             )
         };
 
@@ -948,6 +949,7 @@ mod tests {
                     &mut buffer_query,
                     &mut font_system,
                     *rem_size,
+                    rem_size.is_changed(),
                 )
                 .unwrap();
         }
@@ -2093,6 +2095,17 @@ mod tests {
             })
             .id();
 
+        let child = world
+            .spawn((
+                Node {
+                    width: Val::Em(5.),
+                    height: Val::Rem(4.),
+                    ..default()
+                },
+                ChildOf(ui_root),
+            ))
+            .id();
+
         app.update();
 
         let world = app.world_mut();
@@ -2102,7 +2115,13 @@ mod tests {
         app.update();
         let world = app.world_mut();
 
-        let c = world.entity(ui_root).get::<ComputedNode>().unwrap();
-        assert!(c.size().abs_diff_eq(Vec2::new(200., 300.), 1e-5));
+        let computed_root = world.entity(ui_root).get::<ComputedNode>().unwrap();
+        assert!(computed_root
+            .size()
+            .abs_diff_eq(Vec2::new(200., 300.), 1e-5));
+        let computed_child = world.entity(child).get::<ComputedNode>().unwrap();
+        assert!(computed_child
+            .size()
+            .abs_diff_eq(Vec2::new(500., 400.), 1e-5));
     }
 }
