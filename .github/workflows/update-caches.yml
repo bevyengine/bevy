@@ -140,7 +140,11 @@ jobs:
           key: ${{ runner.os }}-${{ matrix.toolchain }}-${{ matrix.target }}-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('Cargo.lock') }}-${{ steps.get-date.outputs.date }}
           lookup-only: true
 
-      - name: Install Bevy dependencies
+      - name: Fetch Rust dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: cargo fetch
+
+      - name: Install Linux dependencies
         if: steps.cache.outputs.cache-hit != 'true'
         uses: ./.github/actions/install-linux-deps
         with:
