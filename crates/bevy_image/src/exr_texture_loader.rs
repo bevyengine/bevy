@@ -168,7 +168,7 @@ mod tests {
 
     #[test]
     fn exr_with_unknown_chromaticities_yields_none() {
-        // ACEScg primaries are a valid file value but not a supported variant.
+        // ACEScg is not supported.
         let bytes = write_test_exr(Some(chromaticities(RgbPrimaries::ACES_CG)));
         assert_eq!(read_exr_chromaticities(&bytes), None);
     }

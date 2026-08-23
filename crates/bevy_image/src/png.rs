@@ -96,7 +96,7 @@ mod tests {
 
     #[test]
     fn unknown_cicp_primaries_yield_none() {
-        // BT.601 (code 6) is a valid file value but not a supported variant.
+        // BT.601 (code 6) is not supported.
         assert_eq!(
             png_source_color_primaries(&write_test_png(Some([6, /* sRGB */ 13]))),
             None

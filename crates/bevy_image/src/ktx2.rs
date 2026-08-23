@@ -1737,7 +1737,7 @@ mod tests {
             (1, SourceColorPrimaries::Bt709),
             (4, SourceColorPrimaries::Bt2020),
             (10, SourceColorPrimaries::DisplayP3),
-            // BT.601 is a valid file value but unsupported, so it falls back to BT.709.
+            // BT.601 is unsupported, so it falls back to BT.709.
             (2, SourceColorPrimaries::Bt709),
         ] {
             let buffer = minimal_rgba8_ktx2(color_primaries, /* Linear */ 1);

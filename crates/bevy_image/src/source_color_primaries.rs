@@ -126,7 +126,7 @@ mod tests {
 
     #[test]
     fn from_chromaticities_rejects_unknown_primaries() {
-        // ACEScg primaries are a valid file value but not a supported variant.
+        // ACEScg is not supported.
         assert_eq!(
             SourceColorPrimaries::from_chromaticities(RgbPrimaries::ACES_CG),
             None
