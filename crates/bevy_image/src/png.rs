@@ -109,7 +109,7 @@ mod tests {
     }
 
     #[test]
-    fn from_buffer_stamps_png_cicp_primaries() {
+    fn from_buffer_sets_png_cicp_primaries() {
         let image = crate::Image::from_buffer(
             &write_test_png(Some([9, /* PQ */ 16])),
             crate::ImageType::Extension("png"),

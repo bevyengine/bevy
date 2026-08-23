@@ -19,7 +19,7 @@ pub struct ExrTextureLoader;
 pub struct ExrTextureLoaderSettings {
     /// Where the asset will be used - see the docs on [`RenderAssetUsages`] for details.
     pub asset_usage: RenderAssetUsages,
-    /// Overrides the color primaries stamped on [`Image::source_color_primaries`]. With
+    /// Overrides [`Image::source_color_primaries`]. With
     /// the default `None`, the loader reads the file's `chromaticities` attribute. See
     /// [`SourceColorPrimaries`] for the resolution order.
     #[serde(default)]

@@ -1595,7 +1595,7 @@ impl Image {
     /// Load a bytes buffer in a [`Image`], according to type `image_type`, using the `image`
     /// crate
     ///
-    /// `source_color_primaries` overrides the color primaries stamped on the image. With
+    /// `source_color_primaries` overrides the color primaries set on the image. With
     /// `None`, color metadata embedded in the buffer wins where the format carries any,
     /// then [`SourceColorPrimaries::Bt709`].
     pub fn from_buffer(
@@ -1664,9 +1664,8 @@ impl Image {
                 image
             }
         };
-        // Applies the override for the formats without color metadata. The KTX2 and
-        // PNG arms resolved it themselves, so their file reads and warnings are
-        // skipped when it is set; re-storing the same value here is fine.
+        // KTX2 and PNG resolve the primaries themselves. This applies the override
+        // for the other formats, and re-applying it to those two is harmless.
         if let Some(source_color_primaries) = source_color_primaries {
             image.source_color_primaries = source_color_primaries;
         }

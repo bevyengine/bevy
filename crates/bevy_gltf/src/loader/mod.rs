@@ -1208,7 +1208,7 @@ impl AssetLoader for GltfLoader {
 ///
 /// The glTF 2.0 spec requires sRGB color textures, which use the BT.709 primaries, and
 /// says color-space metadata embedded in PNG and JPEG files must be ignored. Bevy also
-/// accepts KTX2 textures in glTF files, beyond what the spec covers, and stamps them
+/// accepts KTX2 textures in glTF files, beyond what the spec covers, and loads them as
 /// BT.709 for consistency.
 const GLTF_SOURCE_COLOR_PRIMARIES: Option<SourceColorPrimaries> = Some(SourceColorPrimaries::Bt709);
 

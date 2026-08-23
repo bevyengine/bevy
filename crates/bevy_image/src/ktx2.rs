@@ -26,7 +26,7 @@ use {bevy_utils::once, tracing::warn};
 
 /// Converts KTX2 bytes to a bevy [`Image`] using the given compressed format support.
 ///
-/// `source_color_primaries` overrides the color primaries stamped on the image. With `None`,
+/// `source_color_primaries` overrides the color primaries set on the image. With `None`,
 /// the data format descriptor's `colorPrimaries` wins, then
 /// [`SourceColorPrimaries::Bt709`].
 ///
@@ -1730,7 +1730,7 @@ mod tests {
     }
 
     #[test]
-    fn dfd_color_primaries_are_stamped_on_the_image() {
+    fn dfd_color_primaries_are_set_on_the_image() {
         for (color_primaries, expected) in [
             // Unspecified primaries fall back to the BT.709 default.
             (0, SourceColorPrimaries::Bt709),
@@ -1745,12 +1745,12 @@ mod tests {
                 .unwrap();
             assert_eq!(
                 image.source_color_primaries, expected,
-                "DFD colorPrimaries byte {color_primaries} should stamp {expected:?}",
+                "DFD colorPrimaries byte {color_primaries} should set {expected:?}",
             );
             assert_eq!(
                 image.texture_descriptor.format,
                 wgpu_types::TextureFormat::Rgba8Unorm,
-                "stamping the primaries must not change the resolved texture format",
+                "setting the primaries must not change the resolved texture format",
             );
         }
     }

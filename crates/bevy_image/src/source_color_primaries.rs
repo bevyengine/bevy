@@ -7,20 +7,12 @@ use serde::{Deserialize, Serialize};
 
 /// The color primaries that an [`Image`](crate::Image)'s RGB data is expressed in.
 ///
-/// An image's color primaries are the exact red, green and blue that its RGB values
-/// refer to. The white point is the color that equal amounts of all three produce.
-/// Together they set the image's gamut, the range of colors it can express. Two images
-/// with identical pixel values but different primaries show different colors.
+/// Two images with identical pixel values but different primaries show different
+/// colors. This is metadata only. Setting it does not convert the pixel data.
+/// [`to_rgb_primaries`](Self::to_rgb_primaries) returns a variant's chromaticities
+/// as an [`RgbPrimaries`].
 ///
-/// This is metadata only. It records the gamut the pixel values were authored in.
-/// Setting it does not convert the pixel data.
-///
-/// The set is closed and named so the renderer can hash, compare, and match it, for
-/// example in pipeline keys, and so loader settings can name it in `.meta` files.
-/// [`RgbPrimaries`] carries the chromaticity data behind each variant; convert with
-/// [`to_rgb_primaries`](Self::to_rgb_primaries).
-///
-/// Loaders resolve the stamped value in this order:
+/// Loaders pick the value in this order:
 /// 1. An explicit `source_color_primaries` loader setting, for example on
 ///    [`ImageLoaderSettings`](crate::ImageLoaderSettings).
 /// 2. Color-primary metadata in the file. The KTX2, PNG, Radiance HDR and EXR loaders
@@ -35,15 +27,12 @@ use serde::{Deserialize, Serialize};
 )]
 #[cfg_attr(not(feature = "bevy_reflect"), derive(TypePath))]
 pub enum SourceColorPrimaries {
-    /// The ITU-R BT.709 primaries with a D65 white point. sRGB uses the same primaries.
-    /// See [`RgbPrimaries::BT709`] for the chromaticities and the standards link.
+    /// The ITU-R BT.709 primaries, [`RgbPrimaries::BT709`]. Also used by sRGB.
     #[default]
     Bt709,
-    /// The ITU-R BT.2020 wide-gamut primaries with a D65 white point, also known as Rec. 2020.
-    /// See [`RgbPrimaries::BT2020`] for the chromaticities and the standards link.
+    /// The ITU-R BT.2020 primaries, [`RgbPrimaries::BT2020`]. Also known as Rec. 2020.
     Bt2020,
-    /// The Display P3 primaries, which are the DCI-P3 primaries with a D65 white point.
-    /// See [`RgbPrimaries::DISPLAY_P3`] for the chromaticities and the standards link.
+    /// The Display P3 primaries, [`RgbPrimaries::DISPLAY_P3`].
     DisplayP3,
 }
 
@@ -51,25 +40,16 @@ impl SourceColorPrimaries {
     /// Every supported primary set.
     const ALL: [Self; 3] = [Self::Bt709, Self::Bt2020, Self::DisplayP3];
 
-    /// The per-coordinate tolerance used by [`SourceColorPrimaries::from_chromaticities`].
+    /// The chromaticity tolerance used by [`SourceColorPrimaries::from_chromaticities`].
     ///
-    /// Files describe primaries as eight decimals, two per color. A Radiance header can
-    /// read `PRIMARIES= 0.640 0.330 0.300 0.600 0.150 0.060 0.3127 0.3290`, and EXR
-    /// stores the same eight numbers in its `chromaticities` attribute. Each supported
-    /// set is defined by its own well-known eight numbers, so matching a file means
-    /// comparing its numbers against each set's.
-    ///
-    /// Writers round differently. The standard white point is `0.3127`, but many files
-    /// carry `0.313`, so exact equality fails on files that clearly mean a supported
-    /// set. A tolerance of `2e-3` per coordinate absorbs that rounding. It cannot match
-    /// the wrong set, because any two supported sets differ by at least `0.09` in some
-    /// coordinate, 45 times the tolerance.
-    const CHROMATICITY_MATCH_TOLERANCE: f32 = 2e-3;
+    /// Chromaticities match a set when the absolute differences of all eight
+    /// coordinates sum to less than this value. ffmpeg and libplacebo detect
+    /// primaries the same way. The supported sets differ by at least `0.09` in
+    /// some coordinate, so no input can match two sets.
+    const CHROMATICITY_MATCH_TOLERANCE: f32 = 1e-3;
 
-    /// Resolves the primaries to stamp on an [`Image`](crate::Image).
-    ///
-    /// An explicit loader setting wins and skips the file read, then file metadata,
-    /// then the [`SourceColorPrimaries::Bt709`] default.
+    /// Resolves the primaries to set on an [`Image`](crate::Image), following the
+    /// order in the type docs.
     #[cfg(any(feature = "exr", feature = "hdr", feature = "ktx2", feature = "png"))]
     pub(crate) fn resolve(
         setting: Option<Self>,
@@ -78,8 +58,7 @@ impl SourceColorPrimaries {
         setting.or_else(file_metadata).unwrap_or_default()
     }
 
-    /// Returns the [`RgbPrimaries`] chromaticities of this primary set, for use with
-    /// [`RgbPrimaries::matrix_to`].
+    /// Returns the [`RgbPrimaries`] chromaticities of this primary set.
     pub const fn to_rgb_primaries(self) -> RgbPrimaries {
         match self {
             SourceColorPrimaries::Bt709 => RgbPrimaries::BT709,
@@ -90,22 +69,20 @@ impl SourceColorPrimaries {
 
     /// Matches CIE 1931 xy chromaticities against the supported primary sets.
     ///
-    /// Returns the matching set when every chromaticity is within a small tolerance of
-    /// it. Returns `None` when no set matches.
+    /// Returns the matching set, or `None` when no set is close enough.
     pub fn from_chromaticities(primaries: RgbPrimaries) -> Option<Self> {
         Self::ALL.into_iter().find(|candidate| {
             let reference = candidate.to_rgb_primaries();
-            [
+            let delta: f32 = [
                 (primaries.red, reference.red),
                 (primaries.green, reference.green),
                 (primaries.blue, reference.blue),
                 (primaries.white, reference.white),
             ]
             .into_iter()
-            .all(|(actual, expected)| {
-                (actual.x - expected.x).abs() <= Self::CHROMATICITY_MATCH_TOLERANCE
-                    && (actual.y - expected.y).abs() <= Self::CHROMATICITY_MATCH_TOLERANCE
-            })
+            .map(|(actual, expected)| (actual.x - expected.x).abs() + (actual.y - expected.y).abs())
+            .sum();
+            delta < Self::CHROMATICITY_MATCH_TOLERANCE
         })
     }
 }
@@ -116,19 +93,28 @@ mod tests {
     use bevy_color::Chromaticity;
 
     #[test]
-    fn from_chromaticities_matches_within_tolerance() {
+    fn from_chromaticities_matches_three_decimal_values() {
+        fn round3(c: Chromaticity) -> Chromaticity {
+            Chromaticity::new(
+                (c.x * 1000.0).round() / 1000.0,
+                (c.y * 1000.0).round() / 1000.0,
+            )
+        }
+
         for source in SourceColorPrimaries::ALL {
             let reference = source.to_rgb_primaries();
             assert_eq!(
                 SourceColorPrimaries::from_chromaticities(reference),
                 Some(source)
             );
-            let nudge = SourceColorPrimaries::CHROMATICITY_MATCH_TOLERANCE * 0.5;
+            let rounded = RgbPrimaries {
+                red: round3(reference.red),
+                green: round3(reference.green),
+                blue: round3(reference.blue),
+                white: round3(reference.white),
+            };
             assert_eq!(
-                SourceColorPrimaries::from_chromaticities(RgbPrimaries {
-                    red: Chromaticity::new(reference.red.x + nudge, reference.red.y - nudge),
-                    ..reference
-                }),
+                SourceColorPrimaries::from_chromaticities(rounded),
                 Some(source)
             );
         }
