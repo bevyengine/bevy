@@ -970,27 +970,81 @@ pub mod tests {
                     apply_deferred: false,
                     exclusive: false,
                     deferred: true,
-                    filtered_accesses: vec![],
+                    filtered_accesses: vec![
+                        FilteredAccessData {
+                            access: AccessData {
+                                reads: vec![],
+                                writes: vec![],
+                                reads_inverted: false,
+                                writes_inverted: false,
+                                archetypal: vec![]
+                            },
+                            filter_sets: vec![AccessFiltersData {
+                                with: vec![],
+                                without: vec![]
+                            }]
+                        },
+                        FilteredAccessData {
+                            access: AccessData {
+                                reads: vec![],
+                                writes: vec![],
+                                reads_inverted: false,
+                                writes_inverted: false,
+                                archetypal: vec![]
+                            },
+                            filter_sets: vec![AccessFiltersData {
+                                with: vec![],
+                                without: vec![]
+                            }]
+                        }
+                    ]
                 },
                 SystemData {
                     name: "a1".into(),
                     apply_deferred: false,
                     exclusive: false,
                     deferred: true,
-                    filtered_accesses: vec![],
+                    filtered_accesses: vec![
+                        FilteredAccessData {
+                            access: AccessData {
+                                reads: vec![],
+                                writes: vec![],
+                                reads_inverted: false,
+                                writes_inverted: false,
+                                archetypal: vec![]
+                            },
+                            filter_sets: vec![AccessFiltersData {
+                                with: vec![],
+                                without: vec![]
+                            }]
+                        },
+                        FilteredAccessData {
+                            access: AccessData {
+                                reads: vec![],
+                                writes: vec![],
+                                reads_inverted: false,
+                                writes_inverted: false,
+                                archetypal: vec![]
+                            },
+                            filter_sets: vec![AccessFiltersData {
+                                with: vec![],
+                                without: vec![]
+                            }]
+                        }
+                    ]
                 },
                 SystemData {
                     name: "apply_deferred".into(),
                     apply_deferred: true,
                     exclusive: true,
                     deferred: false,
-                    filtered_accesses: vec![],
+                    filtered_accesses: vec![]
                 },
                 simple_system("b0"),
                 simple_system("b1"),
                 simple_system("c0"),
                 simple_system("c1"),
-            ]
+            ],
         );
         assert_eq!(
             update.system_sets,

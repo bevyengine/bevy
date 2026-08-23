@@ -301,7 +301,7 @@ impl Access {
             reads: InvertibleComponentIdSet::new_all(),
             writes: InvertibleComponentIdSet::new(),
             archetypal: ComponentIdSet::new(),
-            metadata: MetadataAccess::NONE,
+            metadata: MetadataAccess::READ,
         }
     }
 
@@ -313,7 +313,7 @@ impl Access {
             reads: InvertibleComponentIdSet::new_all(),
             writes: InvertibleComponentIdSet::new_all(),
             archetypal: ComponentIdSet::new(),
-            metadata: MetadataAccess::NONE,
+            metadata: MetadataAccess::READ,
         }
     }
 
@@ -420,6 +420,7 @@ impl Access {
     #[inline]
     pub fn read_all(&mut self) {
         self.reads.all();
+        self.metadata |= MetadataAccess::READ;
     }
 
     /// Sets this as having mutable access to all components (i.e. `EntityMut` and `&mut World`).
@@ -427,6 +428,7 @@ impl Access {
     pub fn write_all(&mut self) {
         self.reads.all();
         self.writes.all();
+        self.metadata |= MetadataAccess::READ;
     }
 
     /// Returns `true` if this has access to all components (i.e. `EntityRef` and `&World`).
