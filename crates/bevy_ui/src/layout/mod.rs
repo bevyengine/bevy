@@ -515,6 +515,7 @@ pub fn ui_layout_system(
 
 #[cfg(test)]
 mod tests {
+    use crate::sync_font_size_to_em_size;
     use crate::{
         layout::ui_surface::UiSurface, prelude::*, ui_layout_system,
         update::propagate_ui_target_cameras, ContentSize, LayoutContext,
@@ -524,6 +525,7 @@ mod tests {
     use bevy_ecs::{prelude::*, system::RunSystemOnce};
     use bevy_math::{Rect, UVec2, Vec2};
     use bevy_platform::collections::HashMap;
+    use bevy_text::TextFont;
     use bevy_transform::systems::mark_dirty_trees;
     use bevy_transform::systems::{propagate_parent_transforms, sync_simple_transforms};
     use bevy_utils::prelude::default;
@@ -555,6 +557,7 @@ mod tests {
             (
                 ApplyDeferred,
                 propagate_ui_target_cameras,
+                sync_font_size_to_em_size,
                 ui_layout_system,
                 mark_dirty_trees,
                 sync_simple_transforms,
@@ -1762,6 +1765,78 @@ mod tests {
         assert!(ui_surface.is_root(c));
         assert_eq!(ui_surface.root_count(), 3);
         assert_eq!(ui_surface.total_count(), 6);
+    }
+
+    #[test]
+    fn rem_sized_node_is_rem_sized() {
+        let mut app = setup_ui_test_app();
+
+        let world = app.world_mut();
+
+        let ui_root = world
+            .spawn(Node {
+                width: Val::Rem(3.),
+                height: Val::Rem(2.),
+                ..default()
+            })
+            .id();
+
+        app.update();
+
+        let world = app.world_mut();
+
+        let rem_size = world.resource::<RemSize>();
+
+        let c = world.entity(ui_root).get::<ComputedNode>().unwrap();
+
+        assert!(c.size().abs_diff_eq(rem_size.0 * Vec2::new(3., 2.), 1e-5));
+    }
+
+    #[test]
+    fn em_and_rem_sized_nodes_are_updated_on_changes_to_em_and_rem_sizes() {
+        let mut app = setup_ui_test_app();
+
+        let world = app.world_mut();
+
+        let ui_root = world
+            .spawn((
+                Node {
+                    width: Val::Rem(20.),
+                    height: Val::Em(30.),
+                    ..default()
+                },
+                TextFont::default().with_font_size(5.),
+            ))
+            .id();
+
+        let child = world
+            .spawn((
+                Node {
+                    width: Val::Em(5.),
+                    height: Val::Rem(4.),
+                    ..default()
+                },
+                TextFont::default().with_font_size(15.),
+                ChildOf(ui_root),
+            ))
+            .id();
+
+        app.update();
+
+        let world = app.world_mut();
+
+        world.resource_mut::<RemSize>().0 = 10.;
+
+        app.update();
+        let world = app.world_mut();
+
+        let computed_root = world.entity(ui_root).get::<ComputedNode>().unwrap();
+
+        assert!(computed_root
+            .size()
+            .abs_diff_eq(Vec2::new(200., 150.), 1e-5));
+        let computed_child = world.entity(child).get::<ComputedNode>().unwrap();
+        assert!(computed_child.size().abs_diff_eq(Vec2::new(75., 40.), 1e-5));
     }
 
     #[cfg(feature = "ghost_nodes")]
