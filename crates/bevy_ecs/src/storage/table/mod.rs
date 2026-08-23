@@ -714,8 +714,8 @@ impl Tables {
     /// Moves the `row` column values from `old_table_id` to a new row in `new_table_id`,
     /// for the columns shared between both tables.
     ///
-    /// Returns the new row in `new_table_id`
-    /// and the entity swapped in to the old row in `old_table_id` (if a swap occurred).
+    /// Returns a mutable reference to the new table, the new row in the new table,
+    /// and the entity swapped in to the old row in the old table (if a swap occurred).
     ///
     /// # Note
     /// The `DROP` constant determines what happens to removed components
@@ -759,6 +759,7 @@ impl Tables {
         // - The caller ensures that all new columns will be written to immediately.
         let dst_row = unsafe { dst_table.allocate(src_table.entities.swap_remove(row.index())) };
         let last_index = src_table.entities.len();
+        let swapped_entity = src_table.entities.get(row.index()).copied();
 
         let mut dst_ids = dst_table.columns.indices.iter().copied().peekable();
         let mut dst_columns = dst_table.columns.dense.iter_mut();
@@ -767,17 +768,20 @@ impl Tables {
         let src_columns = src_table.columns.dense.iter_mut();
 
         for (src_component_id, src_column) in core::iter::zip(src_ids, src_columns) {
-            // Skip any destination columns that don't exist in the source table.
-            // The caller is responsible for initializing those columns.
+            // `dst_component_id` < `src_component_id` means `dst_component_id` was inserted.
+            // The caller is responsible for initializing those components, so we just skip them.
             //
-            // Move the value from the source column if the column exists in the destination table.
+            // `dst_component_id` == `src_component_id` means the component needs to be moved.
             //
-            // Remove the value from the source column if the column doesn't exist in the destination table.
+            // `dst_component_id` > `src_component_id` means `src_component_id` was removed.
             loop {
                 if let Some(dst_component_id) =
                     dst_ids.next_if(|&dst_component_id| dst_component_id <= src_component_id)
                 {
-                    let dst_column = dst_columns.next().debug_checked_unwrap();
+                    // SAFETY:
+                    // - A key in the `indices` field of `ImmutableSparseSet`
+                    //   will always correspond to a value at the same index in the `dense` field.
+                    let dst_column = unsafe { dst_columns.next().debug_checked_unwrap() };
                     if dst_component_id == src_component_id {
                         // SAFETY:
                         // - `src_column` and `dst_column` correspond to the same `ComponentId`.
@@ -786,6 +790,7 @@ impl Tables {
                         // - `src_column` was initialized by a previous call to this function
                         //   or by a previous caller.
                         // - `dst_row` was just allocated and has not been written to.
+                        // - `last_index` is the index of the last element in `src_column`.
                         unsafe {
                             dst_column.initialize_from_unchecked(
                                 src_column,
@@ -814,12 +819,7 @@ impl Tables {
         TableMoveResult {
             new_table: dst_table,
             new_row: dst_row,
-            swapped_entity: if row.index() == last_index {
-                None
-            } else {
-                // SAFETY: This was swap-removed and was not last, so it must be in-bounds.
-                unsafe { Some(*src_table.entities.get_unchecked(row.index())) }
-            },
+            swapped_entity,
         }
     }
 }
