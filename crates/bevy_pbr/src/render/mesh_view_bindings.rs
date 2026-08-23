@@ -13,6 +13,8 @@ use bevy_core_pipeline::{
         get_lut_bind_group_layout_entries, get_lut_bindings, Tonemapping, TonemappingLuts,
     },
 };
+#[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
+use bevy_ecs::system::Local;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -20,8 +22,6 @@ use bevy_ecs::{
     resource::Resource,
     system::{Commands, Query, Res},
 };
-#[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
-use bevy_ecs::system::Local;
 use bevy_light::{EnvironmentMapLight, IrradianceVolume};
 use bevy_math::Vec4;
 use bevy_platform::sync::Arc;
