@@ -876,12 +876,20 @@ impl Drop for Table {
         let len = self.entity_count() as usize;
         let cap = self.capacity();
         self.entities.clear();
+
+        // Drop all columns
+        let mut panic = Ok(());
         for col in self.columns.values_mut() {
-            // SAFETY: `cap` and `len` are correct. `col` is never accessed again after this call.
-            unsafe {
-                col.drop(cap, len);
+            let maybe_panic = bevy_utils::catch_unwind_if_available(AssertUnwindSafe(||
+                // SAFETY: `cap` and `len` are correct. `col` is never accessed again after this call.
+                unsafe {
+                    col.drop(cap, len);
+                }));
+            if panic.is_ok() & maybe_panic.is_err() {
+                panic = maybe_panic;
             }
         }
+        bevy_utils::resume_caught_unwind(panic);
     }
 }
 

@@ -1,7 +1,9 @@
 use alloc::alloc::handle_alloc_error;
 use bevy_ptr::{OwningPtr, Ptr, PtrMut};
 use bevy_utils::OnDrop;
-use core::{alloc::Layout, cell::UnsafeCell, num::NonZeroUsize, ptr::NonNull};
+use core::{
+    alloc::Layout, cell::UnsafeCell, num::NonZeroUsize, panic::AssertUnwindSafe, ptr::NonNull,
+};
 
 use crate::query::DebugCheckedUnwrap;
 
@@ -218,7 +220,11 @@ impl BlobArray {
         #[cfg(debug_assertions)]
         debug_assert_eq!(self.capacity, cap);
         if cap != 0 {
-            self.clear(len);
+            // Drop items
+            let maybe_panic =
+                bevy_utils::catch_unwind_if_available(AssertUnwindSafe(|| self.clear(len)));
+
+            // Deallocate
             if !self.is_zst() {
                 let layout = self.item_layout.repeat_packed(cap);
                 let layout = layout.expect("array layout should be valid");
@@ -228,6 +234,8 @@ impl BlobArray {
             {
                 self.capacity = 0;
             }
+
+            bevy_utils::resume_caught_unwind(maybe_panic);
         }
     }
 
