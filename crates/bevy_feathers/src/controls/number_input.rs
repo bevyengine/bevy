@@ -997,7 +997,11 @@ fn scrubber_on_release(
         &UiGlobalTransform,
     )>,
     q_parent: Query<&ChildOf>,
-    q_units: Query<(&NumberInputValue, Option<&NumberInputUnits>)>,
+    q_units: Query<(
+        &NumberInputValue,
+        Has<InteractionDisabled>,
+        Option<&NumberInputUnits>,
+    )>,
     ui_scale: Res<UiScale>,
     units_registry: Res<UnitsRegistry>,
     mut commands: Commands,
@@ -1006,7 +1010,8 @@ fn scrubber_on_release(
         && let Ok((mut editable_text, mut drag_state, node, target, transform)) =
             q_text.get_mut(text_id)
         && let Ok(&ChildOf(root_id)) = q_parent.get(text_id)
-        && let Ok((value, units)) = q_units.get(root_id)
+        && let Ok((value, disabled, units)) = q_units.get(root_id)
+        && !disabled
     {
         // If we're in editing mode, let event propagate so that text input can handle it.
         if drag_state.mode == EditMode::Editing {
