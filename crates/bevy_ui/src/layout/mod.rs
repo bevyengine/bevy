@@ -2161,5 +2161,31 @@ mod tests {
                 vec![child]
             );
         }
+
+        #[test]
+        fn removing_intermediate_ghost_should_relayout_parent() {
+            let mut app = setup_ui_test_app();
+            let child = world
+                .spawn(Node {
+                    width: px(50.),
+                    height: px(30.),
+                    ..default()
+                })
+                .id();
+            let ghost = world.spawn(GhostNode).add_child(child).id();
+            let root = world.spawn(Node::default()).add_child(ghost).id();
+            app.update();
+
+            world.entity_mut(ghost).remove::<GhostNode>();
+            app.update();
+
+            let world = app.world_mut();
+            assert!(world
+                .entity(ui_root)
+                .get::<ComputedNode>()
+                .unwrap()
+                .size()
+                .abs_diff_eq(Vec2::ZERO, 1e-5));
+        }
     }
 }
