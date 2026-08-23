@@ -2053,4 +2053,29 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn rem_sized_node_is_rem_sized() {
+        let mut app = setup_ui_test_app();
+
+        let world = app.world_mut();
+
+        let ui_root = world
+            .spawn(Node {
+                width: Val::Rem(3.),
+                height: Val::Rem(2.),
+                ..default()
+            })
+            .id();
+
+        app.update();
+
+        let world = app.world_mut();
+
+        let rem_size = world.resource::<RemSize>();
+
+        let c = world.entity(ui_root).get::<ComputedNode>().unwrap();
+
+        assert!(c.size().abs_diff_eq(rem_size.0 * Vec2::new(3., 2.), 1e-5));
+    }
 }
