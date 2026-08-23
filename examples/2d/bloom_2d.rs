@@ -34,6 +34,7 @@ fn main() {
         .add_systems(Startup, setup)
         .add_observer(handle_value_change_checkbox)
         .add_observer(update_radio_button)
+        .add_observer(slider_update)
         .add_observer(checkbox_self_update)
         .add_observer(radio_self_update)
         .run();
@@ -45,7 +46,7 @@ enum CheckboxInput {
     Bloom,
 }
 
-#[derive(Clone, Copy, Component, Default, PartialEq, Debug, FromTemplate)]
+#[derive(Clone, Copy, Component, Default, PartialEq, Debug)]
 enum SliderInput {
     #[default]
     Intensity,
@@ -169,111 +170,10 @@ fn bloom_settings_pane(parent: Entity) -> impl Scene {
                 on(toggle_pane_body)
             ],
             pane_body() PaneBody Children [
-                (
-                    Node {
-                        align_items: AlignItems::Center,
-                        column_gap: px(4)
-                    }
-                    Children [
-                        (
-                            Node {
-                                width: px(150),
-                                flex_shrink: 0.,
-                            }
-                            Children[label("Intensity")]
-                        ),
-                        (
-                            @FeathersSlider{
-                                @max: 1.,
-                                @min: 0.,
-                            }
-                            Node { flex_grow: 1. }
-                            SliderValue(0.15)
-                            SliderPrecision(2)
-                            SliderStep(0.1)
-                            SliderInput::Intensity
-                            on(slider_update)
-                        )
-                    ]
-                ),
-                (
-                    Node {
-                        align_items: AlignItems::Center,
-                        column_gap: px(4)
-                    }
-                    Children [
-                        (
-                            Node {
-                                width: px(150),
-                                flex_shrink: 0.,
-                            }
-                            Children [label("Low Frequency Boost")]
-                        ),
-                        (
-                            @FeathersSlider{
-                                @max: 1.,
-                                @min: 0.,
-                            }
-                            SliderValue(0.70)
-                            SliderPrecision(2)
-                            SliderStep(0.1)
-                            SliderInput::LowFrequencyBoost
-                            on(slider_update)
-                        )
-                    ]
-                ),
-                (
-                    Node {
-                        align_items: AlignItems::Center,
-                        column_gap: px(4)
-                    }
-                    Children [
-                        (
-                            Node {
-                                width: px(150),
-                                flex_shrink: 0.,
-                            }
-                            Children [label("Low Frequency Boost Curvature")]
-                        ),
-                        (
-                            @FeathersSlider{
-                                @max: 1.,
-                                @min: 0.,
-                            }
-                            SliderValue(0.95)
-                            SliderPrecision(2)
-                            SliderStep(0.1)
-                            SliderInput::LowFrequencyBoostCurvature
-                            on(slider_update)
-                        )
-                    ]
-                ),
-                (
-                    Node {
-                        align_items: AlignItems::Center,
-                        column_gap: px(4)
-                    }
-                    Children [
-                        (
-                            Node {
-                                width: px(150),
-                                flex_shrink: 0.,
-                            }
-                            Children [label("High Pass Frequency")]
-                        ),
-                        (
-                            @FeathersSlider{
-                                @max: 1.,
-                                @min: 0.,
-                            }
-                            SliderValue(1.)
-                            SliderPrecision(2)
-                            SliderStep(0.1)
-                            SliderInput::HighPassFrequency
-                            on(slider_update)
-                        )
-                    ]
-                ),
+                feathers_slider("Intensity", 1., 0., 0.15, 2, 0.1, SliderInput::Intensity),
+                feathers_slider("Low Frequency Boost", 1., 0., 0.70, 2, 0.1, SliderInput::LowFrequencyBoost),
+                feathers_slider("Low Frequency Boost Curvature", 1., 0., 0.95, 2, 0.1, SliderInput::LowFrequencyBoostCurvature),
+                feathers_slider("High Pass Frequency", 1., 0., 1., 2, 0.1, SliderInput::HighPassFrequency),
                 (
                     Node {
                         align_items: AlignItems::Center,
@@ -297,58 +197,8 @@ fn bloom_settings_pane(parent: Entity) -> impl Scene {
                         ),
                     ]
                 ),
-                (
-                    Node {
-                        align_items: AlignItems::Center,
-                        column_gap: px(4)
-                    }
-                    Children [
-                        (
-                            Node {
-                                width: px(150),
-                                flex_shrink: 0.,
-                            }
-                            Children [label("ThresholdSoftness")]
-                        ),
-                        (
-                            @FeathersSlider{
-                                @max: 1.,
-                                @min: 0.,
-                            }
-                            SliderValue(0.)
-                            SliderPrecision(2)
-                            SliderStep(0.1)
-                            SliderInput::ThresholdSoftness
-                            on(slider_update)
-                        )
-                    ]
-                ),
-                (
-                    Node {
-                        align_items: AlignItems::Center,
-                        column_gap: px(4)
-                    }
-                    Children [
-                        (
-                            Node {
-                                width: px(150),
-                                flex_shrink: 0.,
-                            }
-                            Children [label("HorizontalScale")]
-                        ),
-                        (
-                            @FeathersSlider{
-                                @max: 16.,
-                                @min: 0.,
-                            }
-                            SliderValue(1.)
-                            SliderPrecision(2)
-                            SliderStep(0.1)
-                            SliderInput::HorizontalScale
-                            on(slider_update)
-                        )
-                    ]
-                ),
+                feathers_slider("ThresholdSoftness", 1., 0., 0., 2, 0.1, SliderInput::ThresholdSoftness),
+                feathers_slider("HorizontalScale", 16., 0., 1., 2, 0.1, SliderInput::HorizontalScale),
                 (
                     Node {
                         align_items: AlignItems::Center,
@@ -436,6 +286,43 @@ fn bloom_settings_pane(parent: Entity) -> impl Scene {
                     ]
                 ),
             ]
+        ]
+    }
+}
+
+fn feathers_slider(
+    title: &str,
+    max_value: f32,
+    min_value: f32,
+    init_value: f32,
+    precision: i32,
+    step: f32,
+    input: SliderInput,
+) -> impl Scene {
+    bsn! {
+        Node {
+            align_items: AlignItems::Center,
+            column_gap: px(4)
+        }
+        Children [
+            (
+                Node {
+                    width: px(150),
+                    flex_shrink: 0.,
+                }
+                Children[label(title)]
+            ),
+            (
+                @FeathersSlider{
+                    @max: max_value,
+                    @min: min_value,
+                }
+                Node { flex_grow: 1. }
+                SliderValue(init_value)
+                SliderPrecision(precision)
+                SliderStep(step)
+                template_value(input)
+            ),
         ]
     }
 }
