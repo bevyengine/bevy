@@ -325,7 +325,7 @@ pub fn update_editable_text_layout(
         let cursor_blink_period = editable_text.cursor_blink_period;
         let cursor_margin = editable_text.cursor_margin;
         let viewport_before = editable_text.viewport;
-        
+
         // Bypass change detection, we will mark editable_text as changed
         // at the bottom if genuinely changed, however editor.driver requires
         // a mut ref.
