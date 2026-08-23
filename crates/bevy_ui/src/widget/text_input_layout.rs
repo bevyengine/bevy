@@ -5,7 +5,7 @@ use crate::{ComputedNode, ComputedUiRenderTargetInfo, ContentSize, NodeMeasure};
 use bevy_asset::Assets;
 
 use bevy_ecs::{
-    change_detection::DetectChanges,
+    change_detection::{DetectChanges, DetectChangesMut},
     entity::Entity,
     system::{Local, Query, Res, ResMut},
     world::Ref,
@@ -324,8 +324,13 @@ pub fn update_editable_text_layout(
         let cursor_width = editable_text.cursor_width;
         let cursor_blink_period = editable_text.cursor_blink_period;
         let cursor_margin = editable_text.cursor_margin;
-        let editable_text = &mut *editable_text;
-        let (editor, viewport) = (&mut editable_text.editor, &mut editable_text.viewport);
+        let viewport_before = editable_text.viewport;
+        
+        // Bypass change detection, we will mark editable_text as changed
+        // at the bottom if genuinely changed, however editor.driver requires
+        // a mut ref.
+        let inner = editable_text.bypass_change_detection();
+        let (editor, viewport) = (&mut inner.editor, &mut inner.viewport);
 
         let mut driver = editor.driver(font_cx.as_mut(), layout_cx.as_mut());
 
@@ -536,6 +541,12 @@ pub fn update_editable_text_layout(
             ),
             full_layout_size.y,
         ));
+
+        // Mark editable_text as changed if it has been, since we bypassed
+        // change detection when taking a mut ref at the top
+        if layout_changed || *viewport != viewport_before {
+            editable_text.set_changed();
+        }
     }
 
     *previous_focus = current_focus;
