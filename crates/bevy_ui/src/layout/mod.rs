@@ -1802,6 +1802,39 @@ mod tests {
         assert!(computed_child.size().abs_diff_eq(Vec2::new(75., 40.), 1e-5));
     }
 
+    #[test]
+    fn removing_node_from_ui_child_should_relayout_parent() {
+        let mut app = setup_ui_test_app();
+
+        let world = app.world_mut();
+        let ui_root = world.spawn(Node::default()).id();
+        let ui_child = world
+            .spawn((
+                Node {
+                    width: px(50.),
+                    height: px(30.),
+                    ..default()
+                },
+                ChildOf(ui_root),
+            ))
+            .id();
+
+        app.update();
+
+        let world = app.world_mut();
+        world.entity_mut(ui_child).remove::<Node>();
+
+        app.update();
+
+        let world = app.world_mut();
+        assert!(world
+            .entity(ui_root)
+            .get::<ComputedNode>()
+            .unwrap()
+            .size()
+            .abs_diff_eq(Vec2::ZERO, 1e-5));
+    }
+
     #[cfg(feature = "ghost_nodes")]
     mod ghost_node_tests {
         use super::*;
