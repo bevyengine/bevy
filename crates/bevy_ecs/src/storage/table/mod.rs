@@ -777,11 +777,8 @@ impl Tables {
             loop {
                 if let Some(dst_component_id) =
                     dst_ids.next_if(|&dst_component_id| dst_component_id <= src_component_id)
+                    && let Some(dst_column) = dst_columns.next()
                 {
-                    // SAFETY:
-                    // - A key in the `indices` field of `ImmutableSparseSet`
-                    //   will always correspond to a value at the same index in the `dense` field.
-                    let dst_column = unsafe { dst_columns.next().debug_checked_unwrap() };
                     if dst_component_id == src_component_id {
                         // SAFETY:
                         // - `src_column` and `dst_column` correspond to the same `ComponentId`.
