@@ -134,6 +134,7 @@ impl<F: FnOnce()> Drop for OnDrop<F> {
 }
 
 /// Tries to catch a panic, if `std` is enabled and unwinding on panics is enabled.
+/// Otherwise aborts on panic.
 pub fn catch_unwind_if_available<T>(
     f: impl UnwindSafe + FnOnce() -> T,
 ) -> Result<T, Box<dyn Any + Send>> {
@@ -142,7 +143,18 @@ pub fn catch_unwind_if_available<T>(
             std::panic::catch_unwind(f)
         }
         _ => {
-            Ok(f())
+            // to be replaced by core::panic::abort_on_unwind
+            struct AbortOnPanic;
+            impl Drop for AbortOnPanic {
+                fn drop(&mut self) {
+                    // Force abort through double panic
+                    panic!();
+                }
+            }
+            let drop_guard = AbortOnPanic;
+            let result = f();
+            let AbortOnPanic = drop_guard;
+            Ok(f)
         }
     }
 }
