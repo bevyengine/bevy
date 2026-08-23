@@ -10,6 +10,7 @@ use bevy_ecs::{
     observer::On,
     query::{Added, Changed, Has, Or, With},
     reflect::ReflectComponent,
+    schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
     template::FromTemplate,
 };
@@ -18,7 +19,8 @@ use bevy_input::{
     ButtonState,
 };
 use bevy_input_focus::{
-    tab_navigation::TabIndex, FocusCause, FocusedInput, InputFocus, InputFocusVisible,
+    tab_navigation::TabIndex, FocusCause, FocusedInput, InputFocus, InputFocusSystems,
+    InputFocusVisible,
 };
 use bevy_picking::{events::PointerClick, pointer::PointerButton};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
@@ -94,7 +96,12 @@ impl Plugin for TabPlugin {
     fn build(&self, app: &mut App) {
         app.add_observer(tablist_on_click)
             .add_observer(tab_on_key_input)
-            .add_systems(PostUpdate, update_tablist_derived_state);
+            .add_systems(
+                PostUpdate,
+                update_tablist_derived_state
+                    .after(crate::MenuFocusSystem)
+                    .before(InputFocusSystems::FocusChangeEvents),
+            );
     }
 }
 
