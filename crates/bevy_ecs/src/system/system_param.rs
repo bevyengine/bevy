@@ -279,6 +279,8 @@ pub unsafe trait SystemParam: Sized {
     ///
     /// - The passed [`UnsafeWorldCell`] must have access to any world data registered
     ///   in [`init_access`](SystemParam::init_access).
+    /// - The passed [`UnsafeWorldCell`] must only be accessed if [metadata read access](Access::add_metadata_read)
+    ///   is registered in [`init_access`](SystemParam::init_access).
     /// - [`SystemParam::init_access`] must not request conflicting access.
     ///   If `Self` is `ReadOnlySystemParam`, the access is read-only and can never conflict.
     ///   Otherwise, [`SystemParam::init_access`] must be called to ensure it does not panic.
