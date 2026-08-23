@@ -406,7 +406,7 @@ impl BlobArray {
         let destination = NonNull::from(unsafe { self.get_unchecked_mut(index) });
         let source = value.as_ptr();
 
-        let _finally = OnDrop::new(|| {
+        let finally = OnDrop::new(|| {
             // Copy the new value into the vector, overwriting the previous value.
             // This needs tp happen even if the drop function panics.
             // SAFETY:
@@ -436,6 +436,8 @@ impl BlobArray {
 
             drop(old_value);
         }
+
+        drop(finally);
     }
 
     /// This method will swap two elements in the array, and return the one at `index_to_remove`.
