@@ -26,7 +26,7 @@ use bevy::{
     ui_widgets::{checkbox_self_update, Activate, ValueChange},
 };
 use button::feathers_button;
-use checkbox::feathers_option_checkbox;
+use checkbox::{feathers_option_checkbox, IsChecked};
 use scene::top_left_scene;
 
 #[path = "../helpers/button.rs"]
@@ -281,8 +281,8 @@ fn spawn_buttons(commands: &mut Commands) {
         commands.spawn_scene(bsn! {
             top_left_scene()
             Children [
-                feathers_option_checkbox("ROTATE", Some(CheckboxInput::Rotation)),
-                feathers_option_checkbox("WIREFRAME", Some(CheckboxInput::Wireframe)),
+                feathers_option_checkbox("ROTATE", Some(CheckboxInput::Rotation), IsChecked(false)),
+                feathers_option_checkbox("WIREFRAME", Some(CheckboxInput::Wireframe), IsChecked(false)),
                 feathers_button("ADVANCE ROWS", None::<ButtonInput>),
             ]
         });
@@ -290,7 +290,7 @@ fn spawn_buttons(commands: &mut Commands) {
         commands.spawn_scene(bsn! {
             top_left_scene()
             Children [
-                feathers_option_checkbox("ROTATE", Some(CheckboxInput::Rotation)),
+                feathers_option_checkbox("ROTATE", Some(CheckboxInput::Rotation), IsChecked(false)),
                 feathers_button("ADVANCE ROWS", None::<ButtonInput>),
             ]
         });
