@@ -23,8 +23,11 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          RET=$(./.github/tools/label-merge-conflicts.sh)
-          if [ "$RET" -gt 0 ]; then
+          ./.github/tools/label-merge-conflicts.sh
+          RET1=$?
+          if [[ "$RET1" -gt 0 ]]; then
             sleep 60
             ./.github/tools/label-merge-conflicts.sh
+            RET2=$?
+            exit $RET2
           fi

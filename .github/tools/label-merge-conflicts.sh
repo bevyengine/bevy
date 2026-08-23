@@ -38,7 +38,7 @@ fi
 echo "Done"
 
 
-if [ "$YES_LABEL_UNKNOWN" -gt 0 ] || [ "$NO_LABEL_UNKNOWN" -gt 0 ]; then
+if [[ "$YES_LABEL_UNKNOWN" -gt 0 ]] || [[ "$NO_LABEL_UNKNOWN" -gt 0 ]]; then
     exit 1
 fi
 
