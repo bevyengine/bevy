@@ -2078,4 +2078,31 @@ mod tests {
 
         assert!(c.size().abs_diff_eq(rem_size.0 * Vec2::new(3., 2.), 1e-5));
     }
+
+    #[test]
+    fn em_and_rem_sized_nodes_are_updated_on_changes_to_em_and_rem_sizes() {
+        let mut app = setup_ui_test_app();
+
+        let world = app.world_mut();
+
+        let ui_root = world
+            .spawn(Node {
+                width: Val::Rem(2.),
+                height: Val::Em(3.),
+                ..default()
+            })
+            .id();
+
+        app.update();
+
+        let world = app.world_mut();
+
+        world.resource_mut::<RemSize>().0 = 100.;
+
+        app.update();
+        let world = app.world_mut();
+
+        let c = world.entity(ui_root).get::<ComputedNode>().unwrap();
+        assert!(c.size().abs_diff_eq(Vec2::new(200., 300.), 1e-5));
+    }
 }
