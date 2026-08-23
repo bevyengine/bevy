@@ -1,7 +1,7 @@
 ---
 title: Headless tab widgets
 authors: ["@jbuehler23"]
-pull_requests: []
+pull_requests: [25515]
 ---
 
 `bevy_ui_widgets` now has headless tab-strip behavior: a `TabList` container and `Tab` headers, with no built-in visuals.

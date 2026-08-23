@@ -269,6 +269,21 @@ fn tab_on_key_input(
     }
 }
 
+/// Derives per-tab state from each [`TabList`]'s [`SelectedTab`] value and the current keyboard
+/// focus. [`SelectedTab`] is the single source of truth; everything here is a projection of it.
+///
+/// Two pieces of state are maintained on the list's child tabs:
+///
+/// - [`Selected`] markers mirror the list's `SelectedTab`, after validating it (the referenced
+///   entity must be an enabled direct child; anything else counts as no selection). Styling and
+///   accessibility read the marker rather than re-validating the list state themselves.
+/// - [`TabIndex`] implements the roving-tabindex pattern: exactly one tab per list is focusable
+///   (index 0) so that Tab/Shift+Tab move past the strip as a whole while arrow keys move within
+///   it. The roving entry is the focused tab if focus is inside the list, otherwise the selected
+///   tab, otherwise the first enabled tab.
+///
+/// Runs in `PostUpdate`, early-returning unless a selection, child list, focus, or disabled
+/// state changed since the last run.
 fn update_tablist_derived_state(
     tablists: Query<(&SelectedTab, &Children), With<TabList>>,
     tabs: Query<(Has<InteractionDisabled>, Has<Selected>, &TabIndex), With<Tab>>,
