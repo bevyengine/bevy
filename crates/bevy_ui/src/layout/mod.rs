@@ -448,7 +448,7 @@ mod tests {
         experimental::UiChildren,
         layout::ui_surface::{ComputedLayout, UiSurface},
         prelude::*,
-        ui_layout_system,
+        sync_font_size_to_em_size, ui_layout_system,
         update::propagate_ui_target_cameras,
         ContentSize,
     };
@@ -456,6 +456,7 @@ mod tests {
     use bevy_camera::{Camera, Camera2d, ComputedCameraValues, RenderTargetInfo, Viewport};
     use bevy_ecs::{prelude::*, system::RunSystemOnce, world::Ref};
     use bevy_math::{Rect, UVec2, Vec2};
+    use bevy_text::TextFont;
     use bevy_transform::systems::mark_dirty_trees;
     use bevy_transform::systems::{propagate_parent_transforms, sync_simple_transforms};
     use bevy_utils::prelude::default;
@@ -486,6 +487,7 @@ mod tests {
             (
                 ApplyDeferred,
                 propagate_ui_target_cameras,
+                sync_font_size_to_em_size,
                 ui_layout_system,
                 mark_dirty_trees,
                 sync_simple_transforms,
@@ -2088,11 +2090,14 @@ mod tests {
         let world = app.world_mut();
 
         let ui_root = world
-            .spawn(Node {
-                width: Val::Rem(2.),
-                height: Val::Em(3.),
-                ..default()
-            })
+            .spawn((
+                Node {
+                    width: Val::Rem(2.),
+                    height: Val::Em(3.),
+                    ..default()
+                },
+                TextFont::default().with_font_size(50.),
+            ))
             .id();
 
         let child = world
@@ -2102,6 +2107,7 @@ mod tests {
                     height: Val::Rem(4.),
                     ..default()
                 },
+                TextFont::default().with_font_size(200.),
                 ChildOf(ui_root),
             ))
             .id();
@@ -2110,7 +2116,7 @@ mod tests {
 
         let world = app.world_mut();
 
-        world.resource_mut::<RemSize>().0 = 100.;
+        world.resource_mut::<RemSize>().0 = 10.;
 
         app.update();
         let world = app.world_mut();
@@ -2118,10 +2124,10 @@ mod tests {
         let computed_root = world.entity(ui_root).get::<ComputedNode>().unwrap();
         assert!(computed_root
             .size()
-            .abs_diff_eq(Vec2::new(200., 300.), 1e-5));
+            .abs_diff_eq(Vec2::new(200., 150.), 1e-5));
         let computed_child = world.entity(child).get::<ComputedNode>().unwrap();
         assert!(computed_child
             .size()
-            .abs_diff_eq(Vec2::new(500., 400.), 1e-5));
+            .abs_diff_eq(Vec2::new(1000., 400.), 1e-5));
     }
 }
