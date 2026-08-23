@@ -18,8 +18,10 @@ use bevy_ecs::{
     entity::Entity,
     query::Has,
     resource::Resource,
-    system::{Commands, Local, Query, Res},
+    system::{Commands, Query, Res},
 };
+#[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
+use bevy_ecs::system::Local;
 use bevy_light::{EnvironmentMapLight, IrradianceVolume};
 use bevy_math::Vec4;
 use bevy_platform::sync::Arc;
