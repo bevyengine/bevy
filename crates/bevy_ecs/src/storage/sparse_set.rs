@@ -543,12 +543,12 @@ pub(crate) struct ImmutableSparseSet<I, V: 'static> {
     /// The mapping from dense index to value.
     ///
     /// `dense[sparse[k]]` holds the value for `k`.
-    dense: Box<[V]>,
+    pub(crate) dense: Box<[V]>,
 
     /// The reverse mapping from dense index to key.
     ///
     /// `indices[sparse[k]] == k`
-    indices: Box<[I]>,
+    pub(crate) indices: Box<[I]>,
 
     /// The mapping from keys to dense indexes.
     sparse: ImmutableSparseArray<I, NonMaxUsize>,
