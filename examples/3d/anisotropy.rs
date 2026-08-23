@@ -1,300 +1,408 @@
-//! Here we use shape primitives to generate meshes for 3d objects as well as attaching a runtime-generated patterned texture to each 3d object.
-//!
-//! "Shape primitives" here are just the mathematical definition of certain shapes, they're not meshes on their own! A sphere with radius `1.0` can be defined with [`Sphere::new(1.0)`][Sphere::new] but all this does is store the radius. So we need to turn these descriptions of shapes into meshes.
-//!
-//! While a shape is not a mesh, turning it into one in Bevy is easy. In this example we call [`meshes.add(/* Shape here! */)`][`Assets<A>::add`] on the shape, which works because the [`Assets<A>::add`] method takes anything that can be turned into the asset type it stores. There's an implementation for [`From`] on shape primitives into [`Mesh`], so that will get called internally by [`Assets<A>::add`].
-//!
-//! [`Extrusion`] lets us turn 2D shape primitives into versions of those shapes that have volume by extruding them. A 1x1 square that gets wrapped in this with an extrusion depth of 2 will give us a rectangular prism of size 1x1x2, but here we're just extruding these 2d shapes by depth 1.
-//!
-//! The material applied to these shapes is a texture that we generate at run time by looping through a "palette" of RGBA values (stored adjacent to each other in the array) and writing values to positions in another array that represents the buffer for an 8x8 texture. This texture is then registered with the assets system just one time, with that [`Handle<StandardMaterial>`] then applied to all the shapes in this example.
-//!
-//! The mesh and material are [`Handle<Mesh>`] and [`Handle<StandardMaterial>`] at the moment, neither of which implement `Component` on their own. Handles are put behind "newtypes" to prevent ambiguity, as some entities might want to have handles to meshes (or images, or materials etc.) for different purposes! All we need to do to make them rendering-relevant components is wrap the mesh handle and the material handle in [`Mesh3d`] and [`MeshMaterial3d`] respectively.
-//!
-//! You can toggle wireframes with the space bar except on wasm. Wasm does not support
-//! `POLYGON_MODE_LINE` on the gpu.
+//! Demonstrates anisotropy with the glTF sample barn lamp model.
 
-use std::f32::consts::PI;
-
-#[cfg(not(target_arch = "wasm32"))]
-use bevy::pbr::wireframe::{WireframeConfig, WireframePlugin};
 use bevy::{
-    asset::RenderAssetUsages,
-    color::palettes::basic::SILVER,
-    input::common_conditions::{input_just_pressed, input_toggle_active},
+    color::palettes::{self, css::WHITE},
+    feathers::{controls::FeathersCheckbox, theme::UiTheme, FeathersPlugins},
+    light::Skybox,
+    math::vec3,
     prelude::*,
-    render::render_resource::{Extent3d, TextureDimension, TextureFormat},
+    time::Stopwatch,
+    ui_widgets::{checkbox_self_update, radio_self_update, ValueChange},
 };
+use checkbox::{feathers_option_checkbox, IsChecked};
+use radio::{feathers_option_buttons, RadioButtonOptionValue};
+use scene::bottom_left_scene;
 
+#[path = "../helpers/radio.rs"]
+#[expect(dead_code, reason = "main_ui_node_scene not used in this example")]
+mod radio;
+
+#[path = "../helpers/theme.rs"]
+mod theme;
+
+#[path = "../helpers/checkbox.rs"]
+mod checkbox;
+
+#[path = "../helpers/scene.rs"]
+#[expect(dead_code, reason = "some scenes are not used in this example")]
+mod scene;
+
+/// The initial position of the camera.
+const CAMERA_INITIAL_POSITION: Vec3 = vec3(-0.4, 0.0, 0.0);
+
+/// The current settings of the app, as chosen by the user.
+#[derive(Resource)]
+struct AppStatus {
+    /// Which type of light is in the scene.
+    light_mode: LightMode,
+    /// Whether anisotropy is enabled.
+    anisotropy_enabled: bool,
+    /// Which mesh is visible
+    visible_scene: Scene,
+}
+
+/// Which type of light we're using: a directional light, a point light, or an
+/// environment map.
+#[derive(Clone, Copy, PartialEq, Resource, Default, Debug)]
+enum LightMode {
+    /// A rotating directional light.
+    #[default]
+    Directional,
+    /// A rotating point light.
+    Point,
+    /// An environment map (image-based lighting, including skybox).
+    EnvironmentMap,
+}
+
+/// A component that stores the version of the material with anisotropy and the
+/// version of the material without it.
+///
+/// This is placed on each mesh with a material. It exists so that the
+/// appropriate system can replace the materials when the user presses Enter to
+/// turn anisotropy on and off.
+#[derive(Component)]
+struct MaterialVariants {
+    /// The version of the material in the glTF file, with anisotropy.
+    anisotropic: Handle<StandardMaterial>,
+    /// The version of the material with anisotropy removed.
+    isotropic: Handle<StandardMaterial>,
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Component)]
+enum Scene {
+    #[default]
+    BarnLamp,
+    Sphere,
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Component)]
+enum CheckboxInput {
+    #[default]
+    Anisotropy,
+}
+
+/// The application entry point.
 fn main() {
     App::new()
-        .add_plugins((
-            DefaultPlugins.set(ImagePlugin::default_nearest()),
-            #[cfg(not(target_arch = "wasm32"))]
-            WireframePlugin::default(),
-        ))
+        .init_resource::<AppStatus>()
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "Bevy Anisotropy Example".into(),
+                ..default()
+            }),
+            ..default()
+        }))
+        .add_plugins(FeathersPlugins)
+        .init_resource::<LightMode>()
+        .insert_resource(UiTheme(theme::basic_example_theme(Color::WHITE)))
         .add_systems(Startup, setup)
-        .add_systems(
-            Update,
-            (
-                rotate.run_if(input_toggle_active(true, KeyCode::KeyR)),
-                advance_rows.run_if(input_just_pressed(KeyCode::Tab)),
-                #[cfg(not(target_arch = "wasm32"))]
-                toggle_wireframe,
-            ),
-        )
+        .add_systems(Update, create_material_variants)
+        .add_systems(Update, animate_light)
+        .add_systems(Update, rotate_camera)
+        .add_observer(handle_value_change_checkbox)
+        .add_observer(handle_scene_selection_change)
+        .add_observer(handle_light_mode_selection_change)
+        .add_observer(radio_self_update)
+        .add_observer(checkbox_self_update)
         .run();
 }
 
-/// A marker component for our shapes so we can query them separately from the ground plane
-#[derive(Component)]
-struct Shape;
-
-const SHAPES_X_EXTENT: f32 = 14.0;
-const EXTRUSION_X_EXTENT: f32 = 14.0;
-const Z_EXTENT: f32 = 8.0;
-const THICKNESS: f32 = 0.1;
-
-fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut images: ResMut<Assets<Image>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
-    let debug_material = materials.add(StandardMaterial {
-        base_color_texture: Some(images.add(uv_debug_texture())),
-        ..default()
-    });
-
-    let shapes = [
-        meshes.add(Cuboid::default()),
-        meshes.add(Tetrahedron::default()),
-        meshes.add(Capsule3d::default()),
-        meshes.add(Torus::default()),
-        meshes.add(Cylinder::default()),
-        meshes.add(Cone::default()),
-        meshes.add(ConicalFrustum::default()),
-        meshes.add(Sphere::default().mesh().ico(5).unwrap()),
-        meshes.add(Sphere::default().mesh().uv(32, 18)),
-        meshes.add(Segment3d::default()),
-        meshes.add(Polyline3d::new(vec![
-            Vec3::new(-0.5, 0.0, 0.0),
-            Vec3::new(0.5, 0.0, 0.0),
-            Vec3::new(0.0, 0.5, 0.0),
-        ])),
-    ];
-
-    let extrusions = [
-        meshes.add(Extrusion::new(Rectangle::default(), 1.)),
-        meshes.add(Extrusion::new(Capsule2d::default(), 1.)),
-        meshes.add(Extrusion::new(Annulus::default(), 1.)),
-        meshes.add(Extrusion::new(Circle::default(), 1.)),
-        meshes.add(Extrusion::new(Ellipse::default(), 1.)),
-        meshes.add(Extrusion::new(RegularPolygon::default(), 1.)),
-        meshes.add(Extrusion::new(Triangle2d::default(), 1.)),
-        meshes.add(Extrusion::new(
-            ConvexPolygon::new(vec![
-                Vec2::new(0.0, 0.8),
-                Vec2::new(-0.47, 0.25),
-                Vec2::new(-0.47, -0.65),
-                Vec2::new(0.47, -0.65),
-                Vec2::new(0.47, 0.25),
-            ])
-            .unwrap(),
-            1.0,
-        )),
-    ];
-
-    let ring_extrusions = [
-        meshes.add(Extrusion::new(Rectangle::default().to_ring(THICKNESS), 1.)),
-        meshes.add(Extrusion::new(Capsule2d::default().to_ring(THICKNESS), 1.)),
-        meshes.add(Extrusion::new(
-            Ring::new(Circle::new(1.0), Circle::new(0.5)),
-            1.,
-        )),
-        meshes.add(Extrusion::new(Circle::default().to_ring(THICKNESS), 1.)),
-        meshes.add(Extrusion::new(
-            {
-                // This is an approximation; Ellipse does not implement Inset as concentric ellipses do not have parallel curves
-                let outer = Ellipse::default();
-                let mut inner = outer;
-                inner.half_size -= Vec2::splat(THICKNESS);
-                Ring::new(outer, inner)
-            },
-            1.,
-        )),
-        meshes.add(Extrusion::new(
-            RegularPolygon::default().to_ring(THICKNESS),
-            1.,
-        )),
-        meshes.add(Extrusion::new(Triangle2d::default().to_ring(THICKNESS), 1.)),
-    ];
-
-    let num_shapes = shapes.len();
-
-    for (i, shape) in shapes.into_iter().enumerate() {
-        commands.spawn((
-            Mesh3d(shape),
-            MeshMaterial3d(debug_material.clone()),
-            Transform::from_xyz(
-                -SHAPES_X_EXTENT / 2. + i as f32 / (num_shapes - 1) as f32 * SHAPES_X_EXTENT,
-                2.0,
-                Row::Front.z(),
-            )
-            .with_rotation(Quat::from_rotation_x(-PI / 4.)),
-            Shape,
-            Row::Front,
-        ));
-    }
-
-    let num_extrusions = extrusions.len();
-
-    for (i, shape) in extrusions.into_iter().enumerate() {
-        commands.spawn((
-            Mesh3d(shape),
-            MeshMaterial3d(debug_material.clone()),
-            Transform::from_xyz(
-                -EXTRUSION_X_EXTENT / 2.
-                    + i as f32 / (num_extrusions - 1) as f32 * EXTRUSION_X_EXTENT,
-                2.0,
-                Row::Middle.z(),
-            )
-            .with_rotation(Quat::from_rotation_x(-PI / 4.)),
-            Shape,
-            Row::Middle,
-        ));
-    }
-
-    let num_ring_extrusions = ring_extrusions.len();
-
-    for (i, shape) in ring_extrusions.into_iter().enumerate() {
-        commands.spawn((
-            Mesh3d(shape),
-            MeshMaterial3d(debug_material.clone()),
-            Transform::from_xyz(
-                -EXTRUSION_X_EXTENT / 2.
-                    + i as f32 / (num_ring_extrusions - 1) as f32 * EXTRUSION_X_EXTENT,
-                2.0,
-                Row::Rear.z(),
-            )
-            .with_rotation(Quat::from_rotation_x(-PI / 4.)),
-            Shape,
-            Row::Rear,
-        ));
-    }
-
-    commands.spawn((
-        PointLight {
-            shadow_maps_enabled: true,
-            intensity: 10_000_000.,
-            range: 100.0,
-            shadow_depth_bias: 0.2,
-            ..default()
-        },
-        Transform::from_xyz(8.0, 16.0, 8.0),
-    ));
-
-    // ground plane
-    commands.spawn((
-        Mesh3d(meshes.add(Plane3d::default().mesh().size(50.0, 50.0).subdivisions(10))),
-        MeshMaterial3d(materials.add(Color::from(SILVER))),
-    ));
-
+/// Creates the initial scene.
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>, light_mode: Res<LightMode>) {
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(0.0, 7., 14.0).looking_at(Vec3::new(0., 1., 0.), Vec3::Y),
+        Transform::from_translation(CAMERA_INITIAL_POSITION).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 
-    let mut text = "\
-        Press 'R' to pause/resume rotation\n\
-        Press 'Tab' to cycle through rows"
-        .to_string();
-    #[cfg(not(target_arch = "wasm32"))]
-    text.push_str("\nPress 'Space' to toggle wireframes");
+    spawn_directional_light(&mut commands);
 
     commands.spawn((
-        Text::new(text),
-        Node {
-            position_type: PositionType::Absolute,
-            top: px(12),
-            left: px(12),
-            ..default()
-        },
+        WorldAssetRoot(
+            asset_server.load("models/AnisotropyBarnLamp/AnisotropyBarnLamp.gltf#Scene0"),
+        ),
+        Transform::from_xyz(0.0, 0.07, -0.13),
+        Scene::BarnLamp,
     ));
+
+    commands.spawn((
+        Mesh3d(
+            asset_server.add(
+                Mesh::from(Sphere::new(0.1))
+                    .with_generated_tangents()
+                    .unwrap(),
+            ),
+        ),
+        MeshMaterial3d(asset_server.add(StandardMaterial {
+            base_color: palettes::tailwind::GRAY_300.into(),
+            anisotropy_rotation: 0.5,
+            anisotropy_strength: 1.,
+            ..default()
+        })),
+        Scene::Sphere,
+        Visibility::Hidden,
+    ));
+
+    spawn_buttons(&mut commands, light_mode, Scene::BarnLamp);
 }
 
-fn rotate(mut query: Query<&mut Transform, With<Shape>>, time: Res<Time>) {
-    for mut transform in &mut query {
-        transform.rotate_y(time.delta_secs() / 2.);
-    }
+/// Spawns UI controls in the bottom left corner of the screen.
+fn spawn_buttons(commands: &mut Commands, light_mode: Res<LightMode>, scene: Scene) {
+    commands.spawn_scene(bsn! {
+        bottom_left_scene()
+            Children [
+            feathers_option_checkbox("Enable Anisotropy",
+                Some(CheckboxInput::Anisotropy),
+                IsChecked(true),
+            ),
+            feathers_option_buttons(
+                "",
+                &[
+                    (Scene::BarnLamp, "Barn Lamp"),
+                    (Scene::Sphere, "Sphere"),
+                ],
+                if scene == Scene::Sphere { 1 } else { 0 },
+            ),
+            feathers_option_buttons(
+                "",
+                &[
+                    (LightMode::EnvironmentMap, "Environment Map"),
+                    (LightMode::Directional, "Directional"),
+                    (LightMode::Point, "Point"),
+                ],
+                if *light_mode == LightMode::Point { 0 } else { 1 },
+            ),
+        ]
+    });
 }
 
-/// Creates a colorful test pattern
-fn uv_debug_texture() -> Image {
-    const TEXTURE_SIZE: usize = 8;
-
-    let mut palette: [u8; 32] = [
-        255, 102, 159, 255, 255, 159, 102, 255, 236, 255, 102, 255, 121, 255, 102, 255, 102, 255,
-        198, 255, 102, 198, 255, 255, 121, 102, 255, 255, 236, 102, 255, 255,
-    ];
-
-    let mut texture_data = [0; TEXTURE_SIZE * TEXTURE_SIZE * 4];
-    for y in 0..TEXTURE_SIZE {
-        let offset = TEXTURE_SIZE * y * 4;
-        texture_data[offset..(offset + TEXTURE_SIZE * 4)].copy_from_slice(&palette);
-        palette.rotate_right(4);
-    }
-
-    Image::new_fill(
-        Extent3d {
-            width: TEXTURE_SIZE as u32,
-            height: TEXTURE_SIZE as u32,
-            depth_or_array_layers: 1,
-        },
-        TextureDimension::D2,
-        &texture_data,
-        TextureFormat::Rgba8UnormSrgb,
-        RenderAssetUsages::RENDER_WORLD,
-    )
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-fn toggle_wireframe(
-    mut wireframe_config: ResMut<WireframeConfig>,
-    keyboard: Res<ButtonInput<KeyCode>>,
+/// Updates the light mode when the user toggles that setting's radio.
+fn handle_light_mode_selection_change(
+    event: On<ValueChange<Entity>>,
+    commands: Commands,
+    cameras: Query<Entity, With<Camera>>,
+    asset_server: Res<AssetServer>,
+    mut app_status: ResMut<AppStatus>,
+    lights: Query<Entity, Or<(With<PointLight>, With<DirectionalLight>)>>,
+    new_value_query: Query<&RadioButtonOptionValue<LightMode>>,
 ) {
-    if keyboard.just_pressed(KeyCode::Space) {
-        wireframe_config.global = !wireframe_config.global;
-    }
+    let Ok(RadioButtonOptionValue(selection)) = new_value_query.get(event.value) else {
+        return;
+    };
+    let old_setting = app_status.light_mode;
+
+    app_status.light_mode = *selection;
+    light_mode_update_helper(
+        commands,
+        asset_server,
+        old_setting,
+        app_status.light_mode,
+        cameras,
+        lights,
+    );
 }
 
-#[derive(Component, Clone, Copy)]
-enum Row {
-    Front,
-    Middle,
-    Rear,
-}
-
-impl Row {
-    fn z(self) -> f32 {
-        match self {
-            Row::Front => Z_EXTENT / 2.,
-            Row::Middle => 0.,
-            Row::Rear => -Z_EXTENT / 2.,
+/// Helper to spawn new light entities on a selection change.
+fn light_mode_spawn_helper(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    new_setting: LightMode,
+    cameras: Query<Entity, With<Camera>>,
+) {
+    match new_setting {
+        LightMode::Directional => {
+            spawn_directional_light(&mut commands);
+        }
+        LightMode::Point => {
+            spawn_point_light(&mut commands);
+        }
+        LightMode::EnvironmentMap => {
+            for camera in cameras.iter() {
+                add_skybox_and_environment_map(&mut commands, &asset_server, camera);
+            }
         }
     }
+}
 
-    fn advance(self) -> Self {
-        match self {
-            Row::Front => Row::Rear,
-            Row::Middle => Row::Front,
-            Row::Rear => Row::Middle,
+/// Helper to teardown light entities on a selection change.
+fn light_mode_update_helper(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    old_setting: LightMode,
+    new_setting: LightMode,
+    cameras: Query<Entity, With<Camera>>,
+    lights: Query<Entity, Or<(With<PointLight>, With<DirectionalLight>)>>,
+) {
+    match old_setting {
+        LightMode::Directional | LightMode::Point => {
+            for light in lights.iter() {
+                commands.entity(light).despawn();
+            }
+        }
+        LightMode::EnvironmentMap => {
+            for camera in cameras.iter() {
+                commands
+                    .entity(camera)
+                    .remove::<Skybox>()
+                    .remove::<EnvironmentMapLight>();
+            }
+        }
+    }
+    light_mode_spawn_helper(commands, asset_server, new_setting, cameras);
+}
+
+/// Updates the scene when the user toggles that setting's radio.
+fn handle_scene_selection_change(
+    event: On<ValueChange<Entity>>,
+    mut app_status: ResMut<AppStatus>,
+    new_value_query: Query<&RadioButtonOptionValue<Scene>>,
+    mut scenes: Query<(&mut Visibility, &Scene)>,
+) {
+    let Ok(RadioButtonOptionValue(scene_selection)) = new_value_query.get(event.value) else {
+        return;
+    };
+    app_status.visible_scene = *scene_selection;
+    for (mut visibility, scene) in scenes.iter_mut() {
+        let new_vis = if *scene == app_status.visible_scene {
+            Visibility::Inherited
+        } else {
+            Visibility::Hidden
+        };
+        *visibility = new_vis;
+    }
+}
+
+fn handle_value_change_checkbox(
+    event: On<ValueChange<bool>>,
+    mut app_status: ResMut<AppStatus>,
+    checkbox_input_q: Query<&CheckboxInput, With<FeathersCheckbox>>,
+    mut meshes: Query<(&mut MeshMaterial3d<StandardMaterial>, &MaterialVariants)>,
+) {
+    if let Ok(checkbox_input) = checkbox_input_q.get(event.source) {
+        match checkbox_input {
+            CheckboxInput::Anisotropy => {
+                app_status.anisotropy_enabled = event.value;
+            }
+        }
+    };
+
+    // Go through each mesh and alter its material.
+    for (mut material_handle, material_variants) in meshes.iter_mut() {
+        material_handle.0 = if app_status.anisotropy_enabled {
+            material_variants.anisotropic.clone()
+        } else {
+            material_variants.isotropic.clone()
         }
     }
 }
 
-fn advance_rows(mut shapes: Query<(&mut Row, &mut Transform), With<Shape>>) {
-    for (mut row, mut transform) in &mut shapes {
-        *row = row.advance();
-        transform.translation.z = row.z();
+/// For each material, creates a version with the anisotropy removed.
+///
+/// This allows the user to check a checkbox to toggle anisotropy on and off.
+fn create_material_variants(
+    mut commands: Commands,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    new_meshes: Query<
+        (Entity, &MeshMaterial3d<StandardMaterial>),
+        (
+            Added<MeshMaterial3d<StandardMaterial>>,
+            Without<MaterialVariants>,
+        ),
+    >,
+) {
+    for (entity, anisotropic_material_handle) in new_meshes.iter() {
+        let Some(anisotropic_material) = materials.get(anisotropic_material_handle).cloned() else {
+            continue;
+        };
+
+        commands.entity(entity).insert(MaterialVariants {
+            anisotropic: anisotropic_material_handle.0.clone(),
+            isotropic: materials.add(StandardMaterial {
+                anisotropy_strength: 0.0,
+                anisotropy_rotation: 0.0,
+                ..anisotropic_material
+            }),
+        });
     }
 }
+
+/// A system that animates the light every frame, if there is one.
+fn animate_light(
+    mut lights: Query<&mut Transform, Or<(With<DirectionalLight>, With<PointLight>)>>,
+    time: Res<Time>,
+) {
+    let now = time.elapsed_secs();
+    for mut transform in lights.iter_mut() {
+        transform.translation = vec3(ops::cos(now), 1.0, ops::sin(now)) * vec3(3.0, 4.0, 3.0);
+        transform.look_at(Vec3::ZERO, Vec3::Y);
+    }
+}
+
+/// A system that rotates the camera if the environment map is enabled.
+fn rotate_camera(
+    mut camera: Query<&mut Transform, With<Camera>>,
+    app_status: Res<AppStatus>,
+    time: Res<Time>,
+    mut stopwatch: Local<Stopwatch>,
+) {
+    if app_status.light_mode == LightMode::EnvironmentMap {
+        stopwatch.tick(time.delta());
+    }
+
+    let now = stopwatch.elapsed_secs();
+    for mut transform in camera.iter_mut() {
+        *transform = Transform::from_translation(
+            Quat::from_rotation_y(now).mul_vec3(CAMERA_INITIAL_POSITION),
+        )
+        .looking_at(Vec3::ZERO, Vec3::Y);
+    }
+}
+
+/// Adds the skybox and environment map to the scene.
+fn add_skybox_and_environment_map(
+    commands: &mut Commands,
+    asset_server: &AssetServer,
+    entity: Entity,
+) {
+    commands
+        .entity(entity)
+        .insert(Skybox {
+            brightness: 5000.0,
+            image: Some(asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2")),
+            ..default()
+        })
+        .insert(EnvironmentMapLight {
+            diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
+            specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+            intensity: 2500.0,
+            ..default()
+        });
+}
+
+/// Spawns a rotating directional light.
+fn spawn_directional_light(commands: &mut Commands) {
+    commands.spawn(DirectionalLight {
+        color: WHITE.into(),
+        illuminance: 3000.0,
+        ..default()
+    });
+}
+
+/// Spawns a rotating point light.
+fn spawn_point_light(commands: &mut Commands) {
+    commands.spawn(PointLight {
+        color: WHITE.into(),
+        intensity: 200000.0,
+        ..default()
+    });
+}
+
+impl Default for AppStatus {
+    fn default() -> Self {
+        Self {
+            light_mode: default(),
+            anisotropy_enabled: true,
+            visible_scene: default(),
+        }
+    }
+}
+
