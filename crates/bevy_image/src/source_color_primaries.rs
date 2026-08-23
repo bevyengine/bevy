@@ -7,10 +7,14 @@ use serde::{Deserialize, Serialize};
 
 /// The color primaries that an [`Image`](crate::Image)'s RGB data is expressed in.
 ///
-/// Two images with identical pixel values but different primaries show different
-/// colors. This is metadata only. Setting it does not convert the pixel data.
-/// [`to_rgb_primaries`](Self::to_rgb_primaries) returns a variant's chromaticities
-/// as an [`RgbPrimaries`].
+/// An image's color primaries are the exact red, green and blue that its RGB values
+/// refer to. The white point is the color that equal amounts of all three produce.
+/// Together they set the image's gamut, the range of colors it can express. Two images
+/// with identical pixel values but different primaries show different colors.
+///
+/// This is metadata only. Setting it does not convert the pixel data.
+/// [`to_rgb_primaries`](Self::to_rgb_primaries) returns each set's chromaticities as
+/// an [`RgbPrimaries`].
 ///
 /// Loaders pick the value in this order:
 /// 1. An explicit `source_color_primaries` loader setting, for example on
@@ -42,14 +46,14 @@ impl SourceColorPrimaries {
 
     /// The chromaticity tolerance used by [`SourceColorPrimaries::from_chromaticities`].
     ///
-    /// Chromaticities match a set when the absolute differences of all eight
-    /// coordinates sum to less than this value. ffmpeg and libplacebo detect
-    /// primaries the same way. The supported sets differ by at least `0.09` in
-    /// some coordinate, so no input can match two sets.
+    /// Chromaticities match a set when the absolute differences of all eight coordinates
+    /// sum to less than this value. ffmpeg and libplacebo detect primaries the same way.
+    /// The supported sets differ by at least `0.09` in some coordinate, so no input can
+    /// match two sets.
     const CHROMATICITY_MATCH_TOLERANCE: f32 = 1e-3;
 
-    /// Resolves the primaries to set on an [`Image`](crate::Image), following the
-    /// order in the type docs.
+    /// Resolves the primaries to set on an [`Image`](crate::Image), following the order
+    /// in the type docs.
     #[cfg(any(feature = "exr", feature = "hdr", feature = "ktx2", feature = "png"))]
     pub(crate) fn resolve(
         setting: Option<Self>,
