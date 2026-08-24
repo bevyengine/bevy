@@ -201,10 +201,6 @@ pub(crate) fn compute_layout(
     Ok(())
 }
 
-struct BuiltNode {
-    subtree_dirty: bool,
-}
-
 fn build_runtime_layout_tree<'a>(
     entity: Entity,
     ui_children: &UiChildren,
@@ -216,7 +212,7 @@ fn build_runtime_layout_tree<'a>(
     runtime_nodes: &mut HashMap<NodeId, CoreNode<'a>>,
     rem_size: RemSize,
     rem_size_changed: bool,
-) -> Result<Option<BuiltNode>, LayoutError> {
+) -> Result<Option<bool>, LayoutError> {
     let mut child_ids = Vec::new();
     let mut subtree_dirty = false;
     for child in ui_children.iter_ui_children(entity) {
@@ -226,7 +222,7 @@ fn build_runtime_layout_tree<'a>(
             continue;
         }
 
-        if let Some(built_child) = build_runtime_layout_tree(
+        if let Some(built_child_dirty) = build_runtime_layout_tree(
             child,
             ui_children,
             node_query,
@@ -239,7 +235,7 @@ fn build_runtime_layout_tree<'a>(
             rem_size_changed,
         )? {
             child_ids.push(entity_node_id(child));
-            subtree_dirty |= built_child.subtree_dirty;
+            subtree_dirty |= built_child_dirty;
         }
     }
 
@@ -280,7 +276,7 @@ fn build_runtime_layout_tree<'a>(
 
     runtime_nodes.insert(node_id, CoreNode::from_node(node, layout_context));
 
-    Ok(Some(BuiltNode { subtree_dirty }))
+    Ok(Some(subtree_dirty))
 }
 
 #[derive(Default)]
