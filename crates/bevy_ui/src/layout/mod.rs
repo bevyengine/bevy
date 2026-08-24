@@ -917,7 +917,7 @@ mod tests {
     }
 
     #[test]
-    fn test_ui_surface_compute_camera_layout() {
+    fn compute_layout_uses_camera_viewport() {
         let mut app = setup_ui_test_app();
         let world = app.world_mut();
 
