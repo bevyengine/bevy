@@ -2039,7 +2039,7 @@ mod tests {
         }
 
         #[test]
-        fn removing_intermediate_ghost_should_relayout_parent() {
+        fn removing_and_replacing_intermediate_ghost_should_relayout_parent() {
             let mut app = setup_ui_test_app();
 
             let world = app.world_mut();
@@ -2054,18 +2054,28 @@ mod tests {
             let root = world.spawn(Node::default()).add_child(ghost).id();
             app.update();
 
-            let world = app.world_mut();
-            world.entity_mut(ghost).remove::<GhostNode>();
+            app.world_mut().entity_mut(ghost).remove::<GhostNode>();
 
             app.update();
 
-            let world = app.world_mut();
-            assert!(world
-                .entity(ui_root)
+            assert!(app
+                .world()
+                .entity(root)
                 .get::<ComputedNode>()
                 .unwrap()
                 .size()
                 .abs_diff_eq(Vec2::ZERO, 1e-5));
+            app.world_mut().entity_mut(ghost).insert(GhostNode);
+
+            app.update();
+
+            assert!(app
+                .world()
+                .entity(root)
+                .get::<ComputedNode>()
+                .unwrap()
+                .size()
+                .abs_diff_eq(Vec2::new(50., 30.), 1e-5));
         }
     }
 }
