@@ -256,18 +256,30 @@ impl CoreStyle for NodeStyle<'_> {
     }
 
     #[inline(always)]
-    fn min_size(&self) -> Size<Dimension> {
+    fn min_size(&self) -> Size<LengthPercentageAuto> {
         Size {
-            width: self.node().min_width.into_dimension(&self.context),
-            height: self.node().min_height.into_dimension(&self.context),
+            width: self
+                .node()
+                .min_width
+                .into_length_percentage_auto(&self.context),
+            height: self
+                .node()
+                .min_height
+                .into_length_percentage_auto(&self.context),
         }
     }
 
     #[inline(always)]
-    fn max_size(&self) -> Size<Dimension> {
+    fn max_size(&self) -> Size<LengthPercentageAuto> {
         Size {
-            width: self.node().max_width.into_dimension(&self.context),
-            height: self.node().max_height.into_dimension(&self.context),
+            width: self
+                .node()
+                .max_width
+                .into_length_percentage_auto(&self.context),
+            height: self
+                .node()
+                .max_height
+                .into_length_percentage_auto(&self.context),
         }
     }
 

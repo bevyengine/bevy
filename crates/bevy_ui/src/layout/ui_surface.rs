@@ -424,14 +424,14 @@ impl<'tree, 'w, 's, 'layout, 'node> LayoutPartialTree
 }
 
 impl CacheTree for UiLayoutTree<'_, '_, '_, '_, '_> {
-    fn cache_get(&self, node_id: NodeId, input: &LayoutInput) -> Option<LayoutOutput> {
+    fn cache_get(&mut self, node_id: NodeId, input: &LayoutInput) -> Option<LayoutOutput> {
         if node_id == VIEWPORT_NODE_ID {
             return self.viewport_layout.cache.get(input);
         }
 
         let entity = node_id_entity(node_id);
         self.computed_layout_query
-            .get(entity)
+            .get_mut(entity)
             .expect("missing computed layout")
             .cache
             .get(input)
