@@ -13,7 +13,7 @@ use bevy::{
         dark_theme::create_dark_theme,
         display::label,
         theme::{ThemeProps, UiTheme},
-        tokens::{PANE_BODY_BG, PANE_HEADER_BG, PANE_HEADER_BORDER},
+        tokens::semantic::{SURFACE_PANE_BODY, SURFACE_PANE_HEADER},
         FeathersPlugins,
     },
     light::CascadeShadowConfigBuilder,
@@ -225,7 +225,7 @@ fn number_input_for_value(
             template_value(NumberInputValue::F32(setting.get(color_grading)))
             template_value(setting)
             NumberInputPrecision(2)
-            HardLimit::f32(0. ..10.)
+            HardLimit::f32(0. ..=10.)
         ]
     }
 }
@@ -437,8 +437,8 @@ fn get_example_theme() -> ThemeProps {
     let mut props = create_dark_theme();
 
     // Pane background colors are made a little transparent to see the objects behind the setting controls.
-    for token in [PANE_HEADER_BG, PANE_HEADER_BORDER, PANE_BODY_BG] {
-        if let Some(color) = props.color.get_mut(&token) {
+    for token in [SURFACE_PANE_BODY, SURFACE_PANE_HEADER] {
+        if let Some(color) = props.semantic_base.get_mut(&token) {
             color.set_alpha(0.9);
         }
     }

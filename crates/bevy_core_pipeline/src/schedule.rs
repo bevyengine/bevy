@@ -23,6 +23,7 @@ use bevy_log::info_span;
 use bevy_reflect::Reflect;
 use bevy_render::{
     camera::{ExtractedCamera, SortedCameras},
+    diagnostic::{DiagnosticsRecorder, RecordDiagnostics},
     render_resource::{
         CommandEncoderDescriptor, LoadOp, Operations, RenderPassColorAttachment,
         RenderPassDescriptor, StoreOp,
@@ -65,7 +66,7 @@ impl Core3d {
             ..Default::default()
         });
 
-        schedule.configure_sets((Prepass, MainPass, EarlyPostProcess, PostProcess).chain());
+        schedule.configure_sets((Prepass, MainPass, EarlyPostProcess, PostProcess).chain_weak());
 
         schedule
     }
@@ -104,7 +105,7 @@ impl Core2d {
             ..Default::default()
         });
 
-        schedule.configure_sets((Prepass, MainPass, EarlyPostProcess, PostProcess).chain());
+        schedule.configure_sets((Prepass, MainPass, EarlyPostProcess, PostProcess).chain_weak());
 
         schedule
     }
@@ -152,6 +153,33 @@ pub fn camera_driver(
 
     let mut camera_windows = EntityHashSet::default();
 
+    let diagnostics_enabled = world.contains_resource::<DiagnosticsRecorder>();
+    let mut reached_root_camera = false;
+    if diagnostics_enabled {
+        let device = world.resource::<RenderDevice>().clone();
+        let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor {
+            label: Some("camera_driver_diagnostic_span"),
+        });
+        world
+            .resource::<DiagnosticsRecorder>()
+            .begin_time_span(&mut encoder, "auxiliary_views".into());
+        world
+            .resource_mut::<PendingCommandBuffers>()
+            .push_encoder(encoder, "camera_driver_span_begin");
+    }
+    let end_time_span = |world: &mut World| {
+        let device = world.resource::<RenderDevice>().clone();
+        let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor {
+            label: Some("camera_driver_diagnostic_span"),
+        });
+        world
+            .resource::<DiagnosticsRecorder>()
+            .end_time_span(&mut encoder);
+        world
+            .resource_mut::<PendingCommandBuffers>()
+            .push_encoder(encoder, "camera_driver_span_end");
+    };
+
     for root_view in root_views {
         let mut run_schedule = true;
         let (schedule, view_entity);
@@ -161,6 +189,10 @@ pub fn camera_driver(
                 entity: camera_entity,
                 ..
             } => {
+                if diagnostics_enabled && !reached_root_camera {
+                    reached_root_camera = true;
+                    end_time_span(world);
+                }
                 let Some(camera) = world.get::<ExtractedCamera>(camera_entity) else {
                     continue;
                 };
@@ -206,6 +238,10 @@ pub fn camera_driver(
             world.run_schedule(schedule);
         }
     }
+    if diagnostics_enabled && !reached_root_camera {
+        end_time_span(world);
+    }
+
     world.remove_resource::<CurrentView>();
 
     world.insert_resource(CameraWindows(camera_windows));

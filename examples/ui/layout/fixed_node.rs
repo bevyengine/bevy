@@ -37,12 +37,12 @@ fn setup(mut commands: Commands) {
             )],
         ))
         .observe(
-            |over: On<Pointer<Over>>, mut colors: Query<&mut BackgroundColor>| {
+            |over: On<PointerOver>, mut colors: Query<&mut BackgroundColor>| {
                 colors.get_mut(over.entity).unwrap().0 = RED.into();
             },
         )
         .observe(
-            |over: On<Pointer<Leave>>, mut colors: Query<&mut BackgroundColor>| {
+            |over: On<PointerLeave>, mut colors: Query<&mut BackgroundColor>| {
                 colors.get_mut(over.entity).unwrap().0 = BLUE.into();
             },
         );

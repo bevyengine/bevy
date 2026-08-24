@@ -94,15 +94,16 @@ impl Plugin for CameraPlugin {
                     ExtractSchedule,
                     (
                         DirtySpecializationSystems::Clear
-                            .before(DirtySpecializationSystems::CheckForChanges),
+                            .before_weak(DirtySpecializationSystems::CheckForChanges),
                         DirtySpecializationSystems::CheckForChanges
-                            .before(DirtySpecializationSystems::CheckForRemovals),
+                            .before_weak(DirtySpecializationSystems::CheckForRemovals),
                     ),
                 )
                 .add_systems(
                     ExtractSchedule,
                     (
-                        extract_cameras.after(extract_resource::<ManualTextureViews, ()>),
+                        extract_cameras
+                            .after(extract_resource::<ManualTextureViews, RenderApp, ()>),
                         clear_dirty_specializations.in_set(DirtySpecializationSystems::Clear),
                         clear_dirty_wireframe_specializations
                             .in_set(DirtySpecializationSystems::Clear),

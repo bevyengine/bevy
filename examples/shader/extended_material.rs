@@ -10,7 +10,7 @@ use bevy::{
 };
 
 /// This example uses a shader source file from the assets subdirectory
-const SHADER_ASSET_PATH: &str = "shaders/extended_material.wgsl";
+const SHADER_ASSET_PATH: &str = "shaders/extended_material.wesl";
 
 fn main() {
     App::new()
@@ -38,7 +38,7 @@ fn setup(
                 opaque_render_method: OpaqueRendererMethod::Auto,
                 // in deferred mode, only the PbrInput can be modified (uvs, color and other material properties),
                 // in forward mode, the output can also be modified after lighting is applied.
-                // see the fragment shader `extended_material.wgsl` for more info.
+                // see the fragment shader `extended_material.wesl` for more info.
                 // Note: to run in deferred mode, you must also add a `DeferredPrepass` component to the camera and either
                 // change the above to `OpaqueRendererMethod::Deferred` or add the `DefaultOpaqueRendererMethod` resource.
                 ..Default::default()

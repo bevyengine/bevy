@@ -65,6 +65,13 @@
 #
 # For more information, see the blog post at <https://blog.rust-lang.org/2023/11/09/parallel-rustc.html>.
 #
+# ## `cache-proc-macros`
+#
+# This option instructs rustc to cache (derive) proc-macro invocations using the incremental system. This can lead
+# to a 5-10% decrease of incremental compilation times.
+#
+# For more information, see https://doc.rust-lang.org/nightly/unstable-book/compiler-flags/cache-proc-macros.html
+#
 # ## `no-embed-metadata`
 #
 # This options avoids unnecessary metadata duplication and can reduce the size of the `target` directory by
@@ -89,6 +96,7 @@ rustflags = [
   # Nightly
   # "-Zshare-generics=y",
   # "-Zthreads=0",
+  # "-Zcache-proc-macros",
 ]
 # Some systems may experience linker performance issues when running doc tests.
 # See https://github.com/bevyengine/bevy/issues/12207 for details.
@@ -112,6 +120,7 @@ rustflags = [
   # Nightly
   # "-Zshare-generics=y",
   # "-Zthreads=0",
+  # "-Zcache-proc-macros",
 ]
 
 [target.aarch64-apple-darwin]
@@ -129,6 +138,7 @@ rustflags = [
   # Nightly
   # "-Zshare-generics=y",
   # "-Zthreads=0",
+  # "-Zcache-proc-macros",
 ]
 
 [target.x86_64-pc-windows-msvc]
@@ -146,6 +156,7 @@ rustflags = [
   # Nightly
   # "-Zshare-generics=n", # This needs to be off if you use dynamic linking on Windows.
   # "-Zthreads=0",
+  # "-Zcache-proc-macros",
 ]
 
 # Optional: Uncommenting the following improves compile times, but reduces the amount of debug info to 'line number tables only'.

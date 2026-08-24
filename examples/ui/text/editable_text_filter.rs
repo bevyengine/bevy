@@ -5,6 +5,7 @@ use bevy::color::palettes::tailwind::SLATE_300;
 use bevy::input_focus::AutoFocus;
 use bevy::prelude::*;
 use bevy::text::{EditableText, EditableTextFilter, TextCursorStyle};
+use bevy::ui_widgets::TextInput;
 
 fn main() {
     App::new()
@@ -32,6 +33,7 @@ fn setup(mut commands: Commands) {
                     padding: px(8.).all(),
                     ..default()
                 },
+                TextInput,
                 EditableText {
                     max_characters: Some(8),
                     ..default()
