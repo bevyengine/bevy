@@ -564,9 +564,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_initialization() {}
-
-    #[test]
     fn missing_layout_returns_none() {
         let computed_layout = ComputedLayout::default();
         assert!(computed_layout.get(true).is_none());
