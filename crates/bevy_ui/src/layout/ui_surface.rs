@@ -47,7 +47,7 @@ pub struct ComputedLayout {
     cache: Cache,
     visited: bool,
     // children from previous frame
-    previous_children: Vec<NodeId>,
+    children: Vec<NodeId>,
 }
 
 impl ComputedLayout {
@@ -64,6 +64,7 @@ impl ComputedLayout {
         if !self.visited {
             self.clear();
             self.cache.clear();
+            self.children.clear();
         }
     }
 
@@ -100,13 +101,13 @@ impl ComputedLayout {
     }
 
     // Replace the previous children list, returning true if different.
-    fn set_previous_children(&mut self, children: &[NodeId]) -> bool {
-        if self.previous_children == children {
+    fn set_children(&mut self, children: &[NodeId]) -> bool {
+        if self.children == children {
             return false;
         }
 
-        self.previous_children.clear();
-        self.previous_children.extend_from_slice(children);
+        self.children.clear();
+        self.children.extend_from_slice(children);
         true
     }
 }
