@@ -156,10 +156,7 @@ impl UiSurface {
         };
         let root_node_id = entity_node_id(ui_root_entity);
 
-        runtime_nodes.insert(
-            viewport_node_id(),
-            RuntimeLayoutNode::viewport(root_node_id),
-        );
+        runtime_nodes.insert(viewport_node_id(), CoreNode::viewport());
 
         let available_space = taffy::Size {
             width: AvailableSpace::Definite(render_target_resolution.x as f32),
@@ -205,6 +202,7 @@ impl UiSurface {
                 nodes: runtime_nodes,
                 computed_layout_query,
                 viewport_layout: LayoutState::default(),
+                viewport_children: [root_node_id],
                 measure_function: &mut measure_function,
             };
 
@@ -228,15 +226,15 @@ fn build_runtime_layout_tree<'a>(
     computed_layout_query: &mut Query<&mut ComputedLayout>,
     fixed_nodes_query: &Query<Entity, (With<FixedNode>, With<bevy_ecs::hierarchy::ChildOf>)>,
     fixed_node_changes: &[Entity],
-    runtime_nodes: &mut HashMap<NodeId, RuntimeLayoutNode<'a>>,
+    runtime_nodes: &mut HashMap<NodeId, CoreNode<'a>>,
     rem_size: RemSize,
     rem_size_changed: bool,
 ) -> Result<Option<BuiltNode>, LayoutError> {
     let mut child_ids = Vec::new();
     let mut subtree_dirty = false;
     for child in ui_children.iter_ui_children(entity) {
-        let child_fixed_changed = fixed_node_changes.contains(&child);
-        subtree_dirty |= child_fixed_changed;
+        // let child_fixed_changed = fixed_node_changes.contains(&child);
+        // subtree_dirty |= child_fixed_changed;
         if fixed_nodes_query.contains(child) {
             continue;
         }
@@ -267,14 +265,15 @@ fn build_runtime_layout_tree<'a>(
     let computed_layout = computed_layout.bypass_change_detection();
 
     let node_id = entity_node_id(entity);
+    let children_changed = computed_layout.set_children(&child_ids);
     let own_dirty = node.is_changed()
         || em_size.is_changed()
         || rem_size_changed
+        || children_changed
         || computed_target.is_changed()
         || content_size_query
             .get(entity)
             .is_ok_and(|content_size| content_size.is_changed())
-        || ui_children.is_changed(entity)
         || fixed_node_changes.contains(&entity)
         || !computed_layout.has_layout();
     subtree_dirty |= own_dirty;
@@ -292,29 +291,9 @@ fn build_runtime_layout_tree<'a>(
         computed_layout.clear_cache();
     }
 
-    runtime_nodes.insert(
-        node_id,
-        RuntimeLayoutNode {
-            style: CoreNode::from_node(node, layout_context),
-            children: child_ids,
-        },
-    );
+    runtime_nodes.insert(node_id, CoreNode::from_node(node, layout_context));
 
     Ok(Some(BuiltNode { subtree_dirty }))
-}
-
-struct RuntimeLayoutNode<'a> {
-    style: CoreNode<'a>,
-    children: Vec<NodeId>,
-}
-
-impl<'a> RuntimeLayoutNode<'a> {
-    fn viewport(root_node_id: NodeId) -> Self {
-        Self {
-            style: CoreNode::viewport(),
-            children: vec![root_node_id],
-        }
-    }
 }
 
 #[derive(Default)]
@@ -325,15 +304,29 @@ struct LayoutState {
 }
 
 struct EcsLayoutTree<'a, 'w, 's, 'layout, 'node> {
-    nodes: HashMap<NodeId, RuntimeLayoutNode<'node>>,
+    nodes: HashMap<NodeId, CoreNode<'node>>,
     computed_layout_query: &'a mut Query<'w, 's, &'layout mut ComputedLayout>,
     viewport_layout: LayoutState,
+    viewport_children: [NodeId; 1],
     measure_function: &'a mut dyn FnMut(
         taffy::Size<Option<f32>>,
         taffy::Size<AvailableSpace>,
         Entity,
         &Style,
     ) -> taffy::Size<f32>,
+}
+
+impl EcsLayoutTree<'_, '_, '_, '_, '_> {
+    fn children(&self, node_id: NodeId) -> &[NodeId] {
+        if node_id == viewport_node_id() {
+            return &self.viewport_children;
+        }
+        &self
+            .computed_layout_query
+            .get(node_id_entity(node_id))
+            .expect("missing computed layout")
+            .children
+    }
 }
 
 impl TraversePartialTree for EcsLayoutTree<'_, '_, '_, '_, '_> {
@@ -343,27 +336,15 @@ impl TraversePartialTree for EcsLayoutTree<'_, '_, '_, '_, '_> {
         Self: 'a;
 
     fn child_ids(&self, parent_node_id: NodeId) -> Self::ChildIter<'_> {
-        self.nodes
-            .get(&parent_node_id)
-            .expect("missing layout node")
-            .children
-            .iter()
-            .copied()
+        self.children(parent_node_id).iter().copied()
     }
 
     fn child_count(&self, parent_node_id: NodeId) -> usize {
-        self.nodes
-            .get(&parent_node_id)
-            .expect("missing layout node")
-            .children
-            .len()
+        self.children(parent_node_id).len()
     }
 
     fn get_child_id(&self, parent_node_id: NodeId, child_index: usize) -> NodeId {
-        self.nodes
-            .get(&parent_node_id)
-            .expect("missing layout node")
-            .children[child_index]
+        self.children(parent_node_id)[child_index]
     }
 }
 
@@ -380,7 +361,7 @@ impl<'tree, 'w, 's, 'layout, 'node> LayoutPartialTree
     type CustomIdent = String;
 
     fn get_core_container_style(&self, node_id: NodeId) -> Self::CoreContainerStyle<'_> {
-        &self.nodes.get(&node_id).expect("missing layout node").style
+        &self.nodes.get(&node_id).expect("missing layout node")
     }
 
     fn set_unrounded_layout(&mut self, node_id: NodeId, layout: &Layout) {
@@ -407,7 +388,6 @@ impl<'tree, 'w, 's, 'layout, 'node> LayoutPartialTree
                 .nodes
                 .get(&node_id)
                 .expect("missing layout node")
-                .style
                 .clone();
             let has_children = tree.child_count(node_id) > 0;
 
