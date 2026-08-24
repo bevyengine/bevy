@@ -2041,6 +2041,8 @@ mod tests {
         #[test]
         fn removing_intermediate_ghost_should_relayout_parent() {
             let mut app = setup_ui_test_app();
+
+            let world = app.world_mut();
             let child = world
                 .spawn(Node {
                     width: px(50.),
@@ -2052,7 +2054,9 @@ mod tests {
             let root = world.spawn(Node::default()).add_child(ghost).id();
             app.update();
 
+            let world = app.world_mut();
             world.entity_mut(ghost).remove::<GhostNode>();
+
             app.update();
 
             let world = app.world_mut();
