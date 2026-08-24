@@ -284,6 +284,9 @@ impl UiSurface {
     pub fn remove_entities(&mut self, entities: impl IntoIterator<Item = Entity>) {
         for entity in entities {
             if let Some(node) = self.entity_to_taffy.remove(&entity) {
+                if let Some(parent_node) = self.taffy.parent(node.id) {
+                    let _ = self.taffy.remove_child(parent_node, node.id);
+                }
                 self.taffy.remove(node.id).unwrap();
                 if let Some(viewport_node) = node.viewport_id {
                     self.taffy.remove(viewport_node).ok();
