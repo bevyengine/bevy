@@ -29,10 +29,8 @@ const fn entity_node_id(entity: Entity) -> NodeId {
     NodeId::new(entity.to_bits())
 }
 
-const fn viewport_node_id() -> NodeId {
-    // `entity.to_bits()` can't be zero
-    NodeId::new(0u64)
-}
+/// `entity.to_bits()` can't be zero
+pub const VIEWPORT_NODE_ID: NodeId = NodeId::new(0u64);
 
 fn node_id_entity(node_id: NodeId) -> Entity {
     Entity::try_from_bits(u64::from(node_id)).expect("missing layout entity")
@@ -80,8 +78,13 @@ impl ComputedLayout {
         self.unrounded.is_some() && self.rounded.is_some()
     }
 
-    fn set_unrounded(&mut self, layout: Layout) {
+    /// Returns `true` if the layout changed since the last update
+    fn set_unrounded(&mut self, layout: Layout) -> bool {
+        if self.unrounded == Some(layout) {
+            return false;
+        }
         self.unrounded = Some(layout);
+        true
     }
 
     fn set_rounded(&mut self, layout: Layout) {
@@ -145,7 +148,7 @@ pub(crate) fn compute_layout(
     let root_node_id = entity_node_id(ui_root_entity);
 
     runtime_nodes.insert(
-        viewport_node_id(),
+        VIEWPORT_NODE_ID,
         NodeStyle {
             node: &VIEWPORT_NODE,
             context: LayoutContext::default(),
@@ -200,10 +203,13 @@ pub(crate) fn compute_layout(
             viewport_layout: LayoutState::default(),
             viewport_children: [root_node_id],
             measure_function: &mut measure_function,
+            layout_changed: false,
         };
 
-        compute_root_layout(&mut tree, viewport_node_id(), available_space);
-        round_layout(&mut tree, viewport_node_id());
+        compute_root_layout(&mut tree, VIEWPORT_NODE_ID, available_space);
+        if tree.layout_changed {
+            round_layout(&mut tree, VIEWPORT_NODE_ID);
+        }
     };
 
     Ok(())
@@ -305,11 +311,12 @@ struct UiLayoutTree<'a, 'w, 's, 'layout, 'node> {
         Entity,
         &Style,
     ) -> taffy::Size<f32>,
+    layout_changed: bool,
 }
 
 impl UiLayoutTree<'_, '_, '_, '_, '_> {
     fn children(&self, node_id: NodeId) -> &[NodeId] {
-        if node_id == viewport_node_id() {
+        if node_id == VIEWPORT_NODE_ID {
             return &self.viewport_children;
         }
         &self
@@ -356,13 +363,16 @@ impl<'tree, 'w, 's, 'layout, 'node> LayoutPartialTree
     }
 
     fn set_unrounded_layout(&mut self, node_id: NodeId, layout: &Layout) {
-        if node_id == viewport_node_id() {
+        if node_id == VIEWPORT_NODE_ID {
+            // Viewport layout is only ever used unrounded.
             self.viewport_layout.unrounded = *layout;
             return;
         }
 
         let entity = node_id_entity(node_id);
-        self.computed_layout_query
+
+        self.layout_changed |= self
+            .computed_layout_query
             .get_mut(entity)
             .expect("missing computed layout")
             .bypass_change_detection()
@@ -410,7 +420,7 @@ impl<'tree, 'w, 's, 'layout, 'node> LayoutPartialTree
 
 impl CacheTree for UiLayoutTree<'_, '_, '_, '_, '_> {
     fn cache_get(&self, node_id: NodeId, input: &LayoutInput) -> Option<LayoutOutput> {
-        if node_id == viewport_node_id() {
+        if node_id == VIEWPORT_NODE_ID {
             return self.viewport_layout.cache.get(input);
         }
 
@@ -423,7 +433,7 @@ impl CacheTree for UiLayoutTree<'_, '_, '_, '_, '_> {
     }
 
     fn cache_store(&mut self, node_id: NodeId, input: &LayoutInput, layout_output: LayoutOutput) {
-        if node_id == viewport_node_id() {
+        if node_id == VIEWPORT_NODE_ID {
             self.viewport_layout.cache.store(input, layout_output);
             return;
         }
@@ -438,7 +448,7 @@ impl CacheTree for UiLayoutTree<'_, '_, '_, '_, '_> {
     }
 
     fn cache_clear(&mut self, node_id: NodeId) {
-        if node_id == viewport_node_id() {
+        if node_id == VIEWPORT_NODE_ID {
             self.viewport_layout.cache.clear();
             return;
         }
@@ -521,7 +531,7 @@ impl<'tree, 'w, 's, 'layout, 'node> LayoutGridContainer
 
 impl RoundTree for UiLayoutTree<'_, '_, '_, '_, '_> {
     fn get_unrounded_layout(&self, node_id: NodeId) -> Layout {
-        if node_id == viewport_node_id() {
+        if node_id == VIEWPORT_NODE_ID {
             return self.viewport_layout.unrounded;
         }
 
@@ -534,7 +544,7 @@ impl RoundTree for UiLayoutTree<'_, '_, '_, '_, '_> {
     }
 
     fn set_final_layout(&mut self, node_id: NodeId, layout: &Layout) {
-        if node_id == viewport_node_id() {
+        if node_id == VIEWPORT_NODE_ID {
             self.viewport_layout.rounded = *layout;
             return;
         }
