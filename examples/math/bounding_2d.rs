@@ -3,20 +3,18 @@
 use bevy::{
     color::palettes::css::*,
     feathers::{
-        constants::icons,
-        containers::*,
-        controls::*,
-        dark_theme::create_dark_theme,
-        display::{caption, icon, label},
-        theme::UiTheme,
-        FeathersPlugins,
+        containers::*, controls::*, dark_theme::create_dark_theme, display::caption,
+        theme::UiTheme, FeathersPlugins,
     },
-    math::{bounding::*, ops, Isometry2d, Rot2},
+    math::{bounding::*, ops, Isometry2d},
     prelude::*,
-    ui::{Checked, UiTransform},
-    ui_widgets::{radio_self_update, Activate, RadioGroup, ValueChange},
+    ui::Checked,
+    ui_widgets::{radio_self_update, RadioGroup, ValueChange},
 };
-use std::f32::consts::FRAC_PI_2;
+use pane::{feathers_pane_header, PaneBody};
+
+#[path = "../helpers/pane.rs"]
+mod pane;
 
 fn main() {
     App::new()
@@ -63,12 +61,6 @@ enum Test {
     AabbCast,
     CircleCast,
 }
-
-#[derive(Clone, Copy, Component, Default)]
-struct PaneToggleIcon;
-
-#[derive(Clone, Copy, Component, Default)]
-struct PaneBody;
 
 #[derive(Clone, Copy, Component, Default)]
 struct Options(Test);
@@ -270,16 +262,7 @@ fn setup(mut commands: Commands) {
 fn settings_pane(parent: Entity) -> impl Scene {
     bsn! {
         pane() ChildOf(parent) Children [
-            pane_header() Children [
-                label("Intersection test"),
-                flex_spacer(),
-                @FeathersToolButton {
-                    @variant: ButtonVariant::Plain,
-                } Children [
-                    icon(icons::CHEVRON_DOWN) PaneToggleIcon
-                ]
-                on(toggle_pane_body)
-            ],
+            feathers_pane_header("Intersection test"),
             pane_body() PaneBody Children [
                 Node {
                     display: Display::Flex,
@@ -468,34 +451,5 @@ fn circle_intersection_system(
         };
 
         **intersects = hit;
-    }
-}
-
-fn toggle_pane_body(
-    _event: On<Activate>,
-    mut commands: Commands,
-    mut pane_body_query: Query<&mut Node, With<PaneBody>>,
-    icon_query: Query<Entity, With<PaneToggleIcon>>,
-) {
-    let Ok(mut node) = pane_body_query.single_mut() else {
-        return;
-    };
-
-    let will_open = node.display == Display::None;
-    node.display = if will_open {
-        Display::Flex
-    } else {
-        Display::None
-    };
-
-    if let Ok(icon_entity) = icon_query.single() {
-        let rotation = if will_open {
-            Rot2::IDENTITY
-        } else {
-            Rot2::radians(FRAC_PI_2)
-        };
-        commands
-            .entity(icon_entity)
-            .insert(UiTransform::from_rotation(rotation));
     }
 }
