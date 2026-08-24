@@ -134,7 +134,11 @@ pub fn ui_layout_system(
             Option<&IgnoreScroll>,
             Has<FixedNode>,
         )>,
-        Query<(&mut ComputedNode, &mut UiGlobalTransform, &ComputedLayout)>,
+        Query<(
+            &mut ComputedNode,
+            &mut UiGlobalTransform,
+            &mut ComputedLayout,
+        )>,
     )>,
     mut buffer_query: Query<&mut ComputedTextBlock>,
     mut font_system: ResMut<FontCx>,
@@ -142,12 +146,6 @@ pub fn ui_layout_system(
     mut removed_fixed_nodes: RemovedComponents<FixedNode>,
     rem_size: Res<RemSize>,
 ) {
-    for mut computed_layout in &mut node_queries.p0() {
-        computed_layout
-            .bypass_change_detection()
-            .prepare_for_layout();
-    }
-
     let fixed_node_changes = added_fixed_node_query
         .iter()
         .chain(removed_fixed_nodes.read())
@@ -203,13 +201,10 @@ pub fn ui_layout_system(
         );
     }
 
-    for mut computed_layout in &mut node_queries.p0() {
-        computed_layout
-            .bypass_change_detection()
-            .clear_if_unreachable();
-    }
+    for (mut node, mut global_transform, mut computed_layout) in &mut node_queries.p2() {
+        computed_layout.clear_if_unreachable();
+        computed_layout.prepare_for_layout();
 
-    for (mut node, mut global_transform, computed_layout) in &mut node_queries.p2() {
         if computed_layout.has_layout() {
             continue;
         }
