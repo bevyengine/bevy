@@ -230,8 +230,6 @@ fn build_runtime_layout_tree<'a>(
     let mut child_ids = Vec::new();
     let mut subtree_dirty = false;
     for child in ui_children.iter_ui_children(entity) {
-        // let child_fixed_changed = fixed_node_changes.contains(&child);
-        // subtree_dirty |= child_fixed_changed;
         if fixed_nodes_query.contains(child) {
             continue;
         }
