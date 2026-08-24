@@ -41,12 +41,11 @@ fn resource_system(query: Query<FilteredEntityRef>) {
 
 So instead of a `FilteredResourcesParamBuilder` that provides a `FilteredResourcesBuilder`, which resolves to `FilteredResources`, we have a `QueryParamBuilder` that provides a `QueryBuilder` that resolves to a `Query`. The `Mut` variants also turn into `Query`, `QueryParam`, and `QueryParamBuilder`.
 Most of the migration should be rather straightforward, but there are some specifics we need to clear up.
-First, change detection was automatically included for `FilteredResources` and `FilteredResourcesMut`, which is now opt-in. You have to specify `Ref` and `Mut` in `QueryBuilder::data` if you want change detection.
-Secondly, when is adding `.with::<IsResource>` necessary? In general, `.with::<IsResource>` is used to stop system conflicts. Take a look at the following example:
+Firstly, when is adding `.with::<IsResource>` necessary? In general, `.with::<IsResource>` is used to stop system conflicts. Take a look at the following example:
 
 ```rust
 // 0.20
-fn resource_system(resource_query: Query<()>, broad_query: Query<EntityMut>) {}
+fn resource_system(resource_query: Query<FilteredEntityRef>, broad_query: Query<EntityMut>) {}
 
 let system = (
     QueryParamBuilder::new(|builder| {
@@ -63,7 +62,7 @@ In order to avoid conflicts, you can add an `IsResource` filter, like so:
 
 ```rust
 // 0.20
-fn resource_system(resource_query: Query<()>, broad_query: Query<EntityMut, Without<IsResource>>) {}
+fn resource_system(resource_query: Query<FilteredEntityRef>, broad_query: Query<EntityMut, Without<IsResource>>) {}
 
 let system = (
     QueryParamBuilder::new(|builder| {
@@ -76,3 +75,36 @@ let system = (
 ```
 
 Adding `IsResource` is therefor only occasionally necessary, as these conflicts arise. Still, since a resource entity always has an `IsResource` marker attached, it can't hurt.
+
+Secondly, there's the issue of dealing with multiple resources. Given a `Query<FilteredEntityRef>` with multiple resources, how do you extract the desired resource. For this, you'd have to know what `Entity` the resource is stored on. For this purpose, we provide the `ResourceEntities` system parameter. Querying multiple resources ends up looking as follows:
+
+```rust
+// 0.20
+#[test]
+let system = (
+    QueryParamBuilder::new(|builder| {
+        builder.data::<EntityRef>();
+        builder.with::<IsResource>();
+        builder.or(|builder| {
+            builder.with::<ResA>();
+            builder.with::<ResB>();
+        });
+    }),
+    ParamBuilder,
+    ParamBuilder,
+)
+    .build_state(&mut world)
+    .build_system(resource_system);
+
+fn resource_system(
+    query: Query<FilteredEntityRef>,
+    resource_entities: &ResourceEntities,
+    components: &Components,
+) {
+    // this can be done for every resource separately. 
+    let component_id = components.get_id(TypeId::of::<ResA>()).unwrap();
+    let entity = resource_entities.get(component_id).unwrap();
+    let entity_ref: FilteredEntityRef = query.get(entity).unwrap();
+    let value = entity_ref_a.get::<ResA>().unwrap();
+}
+```

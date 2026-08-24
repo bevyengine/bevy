@@ -14,7 +14,7 @@ use crate::{
         Access, FilteredAccess, FilteredAccessSet, IterQueryData, QueryData, QueryFilter,
         QuerySingleError, QueryState, ReadOnlyQueryData,
     },
-    resource::{Resource, IS_RESOURCE},
+    resource::{Resource, ResourceEntities, IS_RESOURCE},
     system::{Query, Single, SystemMeta},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FromWorld, World},
 };
@@ -1438,6 +1438,35 @@ unsafe impl<'a> SystemParam for &'a Archetypes {
         _change_tick: Tick,
     ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
         Ok(world.archetypes())
+    }
+}
+
+// SAFETY: Only reads World resource entities
+unsafe impl<'a> ReadOnlySystemParam for &'a ResourceEntities {}
+
+// SAFETY: no component value access
+unsafe impl<'a> SystemParam for &'a ResourceEntities {
+    type State = ();
+    type Item<'w, 's> = &'w ResourceEntities;
+
+    fn init_state(_world: &mut World) -> Self::State {}
+
+    fn init_access(
+        _state: &Self::State,
+        _system_meta: &mut SystemMeta,
+        _component_access_set: &mut FilteredAccessSet,
+        _world: &mut World,
+    ) {
+    }
+
+    #[inline]
+    unsafe fn get_param<'w, 's>(
+        _state: &'s mut Self::State,
+        _system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'w>,
+        _change_tick: Tick,
+    ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
+        Ok(world.resource_entities())
     }
 }
 
