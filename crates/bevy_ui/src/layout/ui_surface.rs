@@ -20,7 +20,7 @@ use taffy::{
 
 use crate::{
     experimental::UiChildren,
-    layout::style::{CoreNode, VIEWPORT_NODE},
+    layout::style::{NodeStyle, VIEWPORT_NODE},
     ComputedUiRenderTargetInfo, ContentSize, FixedNode, LayoutContext, LayoutError, Measure,
     MeasureArgs, Node, NodeMeasure,
 };
@@ -147,7 +147,7 @@ pub(crate) fn compute_layout(
 
     runtime_nodes.insert(
         viewport_node_id(),
-        CoreNode {
+        NodeStyle {
             node: &VIEWPORT_NODE,
             context: LayoutContext::default(),
         },
@@ -218,7 +218,7 @@ fn build_runtime_layout_tree<'a>(
     computed_layout_query: &mut Query<&mut ComputedLayout>,
     fixed_nodes_query: &Query<Entity, (With<FixedNode>, With<bevy_ecs::hierarchy::ChildOf>)>,
     fixed_node_changes: &[Entity],
-    runtime_nodes: &mut HashMap<NodeId, CoreNode<'a>>,
+    runtime_nodes: &mut HashMap<NodeId, NodeStyle<'a>>,
     rem_size: RemSize,
     rem_size_changed: bool,
 ) -> Result<Option<bool>, LayoutError> {
@@ -283,7 +283,7 @@ fn build_runtime_layout_tree<'a>(
         computed_layout.clear_cache();
     }
 
-    runtime_nodes.insert(node_id, CoreNode::from_node(node, layout_context));
+    runtime_nodes.insert(node_id, NodeStyle::from_node(node, layout_context));
 
     Ok(Some(subtree_dirty))
 }
@@ -296,7 +296,7 @@ struct LayoutState {
 }
 
 struct EcsLayoutTree<'a, 'w, 's, 'layout, 'node> {
-    nodes: HashMap<NodeId, CoreNode<'node>>,
+    nodes: HashMap<NodeId, NodeStyle<'node>>,
     computed_layout_query: &'a mut Query<'w, 's, &'layout mut ComputedLayout>,
     viewport_layout: LayoutState,
     viewport_children: [NodeId; 1],
@@ -346,7 +346,7 @@ impl<'tree, 'w, 's, 'layout, 'node> LayoutPartialTree
     for EcsLayoutTree<'tree, 'w, 's, 'layout, 'node>
 {
     type CoreContainerStyle<'a>
-        = &'a CoreNode<'node>
+        = &'a NodeStyle<'node>
     where
         Self: 'a;
 
@@ -458,12 +458,12 @@ impl<'tree, 'w, 's, 'layout, 'node> LayoutBlockContainer
     for EcsLayoutTree<'tree, 'w, 's, 'layout, 'node>
 {
     type BlockContainerStyle<'a>
-        = &'a CoreNode<'node>
+        = &'a NodeStyle<'node>
     where
         Self: 'a;
 
     type BlockItemStyle<'a>
-        = &'a CoreNode<'node>
+        = &'a NodeStyle<'node>
     where
         Self: 'a;
 
@@ -480,12 +480,12 @@ impl<'tree, 'w, 's, 'layout, 'node> LayoutFlexboxContainer
     for EcsLayoutTree<'tree, 'w, 's, 'layout, 'node>
 {
     type FlexboxContainerStyle<'a>
-        = &'a CoreNode<'node>
+        = &'a NodeStyle<'node>
     where
         Self: 'a;
 
     type FlexboxItemStyle<'a>
-        = &'a CoreNode<'node>
+        = &'a NodeStyle<'node>
     where
         Self: 'a;
 
@@ -502,12 +502,12 @@ impl<'tree, 'w, 's, 'layout, 'node> LayoutGridContainer
     for EcsLayoutTree<'tree, 'w, 's, 'layout, 'node>
 {
     type GridContainerStyle<'a>
-        = &'a CoreNode<'node>
+        = &'a NodeStyle<'node>
     where
         Self: 'a;
 
     type GridItemStyle<'a>
-        = &'a CoreNode<'node>
+        = &'a NodeStyle<'node>
     where
         Self: 'a;
 

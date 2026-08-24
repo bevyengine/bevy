@@ -21,9 +21,9 @@ use crate::{
 
 pub static VIEWPORT_NODE: Node = Node::VIEWPORT;
 
-/// Runtime style adapter that exposes Bevy [`Node`] values through Taffy's style traits.
+/// Style adapter exposing Bevy [`Node`]s through Taffy's style traits.
 #[derive(Clone)]
-pub(super) struct CoreNode<'a> {
+pub(super) struct NodeStyle<'a> {
     pub node: &'a Node,
     pub(crate) context: LayoutContext,
 }
@@ -174,7 +174,7 @@ impl<'a> Iterator for EmptyLineNameSet<'a> {
 
 impl ExactSizeIterator for EmptyLineNameSet<'_> {}
 
-impl<'a> CoreNode<'a> {
+impl<'a> NodeStyle<'a> {
     pub(super) fn from_node(node: &'a Node, context: LayoutContext) -> Self {
         Self { node, context }
     }
@@ -192,7 +192,7 @@ impl<'a> CoreNode<'a> {
     }
 }
 
-impl CoreStyle for CoreNode<'_> {
+impl CoreStyle for NodeStyle<'_> {
     type CustomIdent = String;
 
     #[inline(always)]
@@ -300,16 +300,16 @@ impl CoreStyle for CoreNode<'_> {
     }
 }
 
-impl BlockContainerStyle for CoreNode<'_> {
+impl BlockContainerStyle for NodeStyle<'_> {
     #[inline(always)]
     fn text_align(&self) -> TextAlign {
         TextAlign::Auto
     }
 }
 
-impl BlockItemStyle for CoreNode<'_> {}
+impl BlockItemStyle for NodeStyle<'_> {}
 
-impl FlexboxContainerStyle for CoreNode<'_> {
+impl FlexboxContainerStyle for NodeStyle<'_> {
     #[inline(always)]
     fn flex_direction(&self) -> FlexDirection {
         self.node().flex_direction.into()
@@ -344,7 +344,7 @@ impl FlexboxContainerStyle for CoreNode<'_> {
     }
 }
 
-impl FlexboxItemStyle for CoreNode<'_> {
+impl FlexboxItemStyle for NodeStyle<'_> {
     #[inline(always)]
     fn flex_basis(&self) -> Dimension {
         self.node().flex_basis.into_dimension(&self.context)
@@ -366,7 +366,7 @@ impl FlexboxItemStyle for CoreNode<'_> {
     }
 }
 
-impl GridContainerStyle for CoreNode<'_> {
+impl GridContainerStyle for NodeStyle<'_> {
     type Repetition<'a>
         = RepeatedGridTrackRef<'a>
     where
@@ -473,7 +473,7 @@ impl GridContainerStyle for CoreNode<'_> {
     }
 }
 
-impl GridItemStyle for CoreNode<'_> {
+impl GridItemStyle for NodeStyle<'_> {
     #[inline(always)]
     fn grid_row(&self) -> Line<TaffyGridPlacement<String>> {
         self.node().grid_row.into()
