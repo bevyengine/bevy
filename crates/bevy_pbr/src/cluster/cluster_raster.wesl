@@ -1,7 +1,7 @@
 import package::cluster::{
     Aabb, CLUSTERABLE_OBJECT_TYPE_DECAL, CLUSTERABLE_OBJECT_TYPE_IRRADIANCE_VOLUME,
     CLUSTERABLE_OBJECT_TYPE_POINT_LIGHT, CLUSTERABLE_OBJECT_TYPE_REFLECTION_PROBE,
-    CLUSTERABLE_OBJECT_TYPE_SPOT_LIGHT, ClusterableObjectZSlice,
+    CLUSTERABLE_OBJECT_TYPE_SPOT_LIGHT, CLUSTERABLE_OBJECT_TYPE_RECT_LIGHT, ClusterableObjectZSlice,
     calculate_sphere_cluster_bounds, compute_view_from_world_scale
 };
 import package::render::clustered_forward;
@@ -11,6 +11,7 @@ import package::render::mesh_view_types::{
     LightProbes, Lights, POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE
 };
 import bevy_render::view::View;
+import bevy_render::maths::quat_rotate;
 
 // The shader that performs the cluster-object intersection tests and assigns
 // objects to clusters as appropriate.
@@ -55,11 +56,11 @@ struct ClusterOffsetsAndCountsElementAtomic {
     offset: atomic<u32>,
     point_lights: atomic<u32>,
     spot_lights: atomic<u32>,
+    rect_lights: atomic<u32>,
     reflection_probes: atomic<u32>,
     irradiance_volumes: atomic<u32>,
     decals: atomic<u32>,
     pad_a: u32,
-    pad_b: u32,
 }
 
 // The list of clusterable object Z slices that we read from to.
@@ -207,6 +208,16 @@ fn fragment_main(varyings: Varyings) -> @location(0) vec4<f32> {
         length(cluster_aabb_half_size),
         varyings.sphere_position,
         varyings.sphere_radius
+    )) {
+        return vec4<f32>(0.0);
+    }
+
+    // Do further, more precise culling for rect lights.
+    if (object_type == CLUSTERABLE_OBJECT_TYPE_RECT_LIGHT && cull_rect_light(
+        object_index,
+        cluster_aabb_center,
+        length(cluster_aabb_half_size),
+        varyings.sphere_position
     )) {
         return vec4<f32>(0.0);
     }
@@ -417,6 +428,24 @@ fn cull_spot_light(
     return angle_cull || front_cull || back_cull;
 }
 
+// Returns true if a rect light should be culled.
+fn cull_rect_light(
+    object_index: u32,
+    cluster_aabb_sphere_center: vec3<f32>,
+    cluster_aabb_sphere_radius: f32,
+    sphere_position: vec3<f32>
+) -> bool {
+    let rotation = clustered_lights.data[object_index].light_custom_data;
+    let world_light_direction = quat_rotate(rotation, vec3<f32>(0.0, 0.0, -1.0));
+    let view_light_direction = normalize((view.view_from_world *
+        vec4(world_light_direction, 0.0)).xyz);
+
+    // Signed distance from the cluster center to the light plane along the
+    // facing direction. Cull if the whole cluster sphere is on the back side.
+    let signed_distance = dot(view_light_direction, cluster_aabb_sphere_center - sphere_position);
+    return signed_distance < -cluster_aabb_sphere_radius;
+}
+
 // Computes `cos(atan(x))` cheaply.
 // See https://en.wikipedia.org/wiki/List_of_trigonometric_identities
 fn cos_atan(tan_theta: f32) -> f32 {
@@ -443,10 +472,17 @@ fn allocate_list_entry(cluster_index: u32, object_type: u32) -> u32 {
                 offsets_and_counts.data[cluster_index][0u].y +
                 atomicAdd(&scratchpad_offsets_and_counts.data[cluster_index].spot_lights, 1u);
         }
+        case CLUSTERABLE_OBJECT_TYPE_RECT_LIGHT: {
+            return offsets_and_counts.data[cluster_index][0u].x +
+                offsets_and_counts.data[cluster_index][0u].y +
+                offsets_and_counts.data[cluster_index][0u].z +
+                atomicAdd(&scratchpad_offsets_and_counts.data[cluster_index].rect_lights, 1u);
+        }
         case CLUSTERABLE_OBJECT_TYPE_REFLECTION_PROBE: {
             return offsets_and_counts.data[cluster_index][0u].x +
                 offsets_and_counts.data[cluster_index][0u].y +
                 offsets_and_counts.data[cluster_index][0u].z +
+                offsets_and_counts.data[cluster_index][0u].w +
                 atomicAdd(&scratchpad_offsets_and_counts.data[cluster_index].reflection_probes, 1u);
         }
         case CLUSTERABLE_OBJECT_TYPE_IRRADIANCE_VOLUME: {
@@ -454,6 +490,7 @@ fn allocate_list_entry(cluster_index: u32, object_type: u32) -> u32 {
                 offsets_and_counts.data[cluster_index][0u].y +
                 offsets_and_counts.data[cluster_index][0u].z +
                 offsets_and_counts.data[cluster_index][0u].w +
+                offsets_and_counts.data[cluster_index][1u].x +
                 atomicAdd(
                     &scratchpad_offsets_and_counts.data[cluster_index].irradiance_volumes,
                     1u
@@ -465,6 +502,7 @@ fn allocate_list_entry(cluster_index: u32, object_type: u32) -> u32 {
                 offsets_and_counts.data[cluster_index][0u].z +
                 offsets_and_counts.data[cluster_index][0u].w +
                 offsets_and_counts.data[cluster_index][1u].x +
+                offsets_and_counts.data[cluster_index][1u].y +
                 atomicAdd(&scratchpad_offsets_and_counts.data[cluster_index].decals, 1u);
         }
         default: {}
@@ -480,6 +518,9 @@ fn increment_object_count(cluster_index: u32, object_type: u32) {
         }
         case CLUSTERABLE_OBJECT_TYPE_SPOT_LIGHT: {
             atomicAdd(&offsets_and_counts.data[cluster_index].spot_lights, 1u);
+        }
+        case CLUSTERABLE_OBJECT_TYPE_RECT_LIGHT: {
+            atomicAdd(&offsets_and_counts.data[cluster_index].rect_lights, 1u);
         }
         case CLUSTERABLE_OBJECT_TYPE_REFLECTION_PROBE: {
             atomicAdd(&offsets_and_counts.data[cluster_index].reflection_probes, 1u);
@@ -501,11 +542,7 @@ fn get_object_bounding_sphere(object_index: u32, object_type: u32) -> vec4<f32> 
     var position = vec3<f32>(0.0);
     var radius = 0.0;
     switch (object_type) {
-        case CLUSTERABLE_OBJECT_TYPE_POINT_LIGHT: {
-            position = clustered_lights.data[object_index].position_radius.xyz;
-            radius = clustered_lights.data[object_index].range;
-        }
-        case CLUSTERABLE_OBJECT_TYPE_SPOT_LIGHT: {
+        case CLUSTERABLE_OBJECT_TYPE_POINT_LIGHT, CLUSTERABLE_OBJECT_TYPE_SPOT_LIGHT, CLUSTERABLE_OBJECT_TYPE_RECT_LIGHT: {
             position = clustered_lights.data[object_index].position_radius.xyz;
             radius = clustered_lights.data[object_index].range;
         }
