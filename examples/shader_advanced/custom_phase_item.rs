@@ -35,6 +35,7 @@ use bevy::{
             Variants, VertexAttribute, VertexFormat, VertexState, VertexStepMode,
         },
         renderer::{RenderDevice, RenderQueue},
+        sync_world::MainEntityHashSet,
         view::{ExtractedView, RenderVisibleEntities},
         Render, RenderApp, RenderSystems,
     },
@@ -233,6 +234,7 @@ fn queue_custom_phase_item(
     views: Query<(&ExtractedView, &RenderVisibleEntities, &Msaa)>,
     dirty_specializations: Res<DirtySpecializations>,
     mut pending_custom_phase_item_queues: ResMut<PendingCustomPhaseItemQueues>,
+    mut mesh_instances_queued_this_iteration_scratch_space: Local<MainEntityHashSet>,
 ) {
     let draw_custom_phase_item = opaque_draw_functions
         .read()
@@ -272,6 +274,7 @@ fn queue_custom_phase_item(
             view.retained_view_entity,
             render_visible_mesh_entities,
             &view_pending_custom_phase_item_queues.prev_frame,
+            &mut mesh_instances_queued_this_iteration_scratch_space,
         ) {
             // Ordinarily, the [`SpecializedRenderPipeline::Key`] would contain
             // some per-view settings, such as whether the view is HDR, but for
@@ -322,7 +325,7 @@ struct CustomPhasePipeline {
 impl FromWorld for CustomPhasePipeline {
     fn from_world(world: &mut World) -> Self {
         let asset_server = world.resource::<AssetServer>();
-        let shader = asset_server.load("shaders/custom_phase_item.wgsl");
+        let shader = asset_server.load("shaders/custom_phase_item.wesl");
 
         let base_descriptor = RenderPipelineDescriptor {
             label: Some("custom render pipeline".into()),

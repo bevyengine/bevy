@@ -298,6 +298,14 @@ impl<'a, K: EntityEquivalent + Hash> Iterator for Iter<'a, K> {
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.0.size_hint()
     }
+
+    fn fold<B, F>(self, init: B, f: F) -> B
+    where
+        Self: Sized,
+        F: FnMut(B, Self::Item) -> B,
+    {
+        self.0.fold(init, f)
+    }
 }
 
 impl<K: EntityEquivalent + Hash> ExactSizeIterator for Iter<'_, K> {}
@@ -374,6 +382,14 @@ impl<K: EntityEquivalent + Hash> Iterator for IntoIter<K> {
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.0.size_hint()
     }
+
+    fn fold<B, F>(self, init: B, f: F) -> B
+    where
+        Self: Sized,
+        F: FnMut(B, Self::Item) -> B,
+    {
+        self.0.fold(init, f)
+    }
 }
 
 impl<K: EntityEquivalent + Hash> ExactSizeIterator for IntoIter<K> {}
@@ -443,6 +459,14 @@ impl<'a, K: EntityEquivalent + Hash> Iterator for Drain<'a, K> {
 
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.0.size_hint()
+    }
+
+    fn fold<B, F>(self, init: B, f: F) -> B
+    where
+        Self: Sized,
+        F: FnMut(B, Self::Item) -> B,
+    {
+        self.0.fold(init, f)
     }
 }
 

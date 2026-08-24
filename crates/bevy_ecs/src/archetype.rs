@@ -23,7 +23,7 @@ use crate::{
     bundle::BundleId,
     component::{ComponentId, Components, RequiredComponentConstructor, StorageType},
     entity::{Entity, EntityEquivalentHashMap, EntityLocation},
-    event::Event,
+    event::{Event, EventKey},
     observer::Observers,
     query::DebugCheckedUnwrap,
     storage::{ImmutableSparseSet, SparseArray, SparseSet, TableId, TableRow},
@@ -37,8 +37,14 @@ use core::{
 use nonmax::NonMaxU32;
 
 #[derive(Event)]
-#[expect(dead_code, reason = "Prepare for the upcoming Query as Entities")]
+#[cfg_attr(
+    not(test),
+    expect(dead_code, reason = "Prepare for the upcoming Query as Entities")
+)]
 pub(crate) struct ArchetypeCreated(pub ArchetypeId);
+
+pub(crate) const ARCHETYPE_CREATED: EventKey =
+    EventKey(ComponentId::from_u32(crate::component::ARCHETYPE_CREATED));
 
 /// An opaque location within a [`Archetype`].
 ///

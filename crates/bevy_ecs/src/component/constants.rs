@@ -12,3 +12,5 @@ pub const REMOVE: u32 = 3;
 pub const DESPAWN: u32 = 4;
 /// `u32` of the [`IsResource`](crate::resource::IsResource) component used to mark entities with resources.
 pub const IS_RESOURCE: u32 = 5;
+/// `u32` for [`ArchetypeCreated`](crate::archetype::ArchetypeCreated) component used as an observer event key.
+pub(crate) const ARCHETYPE_CREATED: u32 = 6;
