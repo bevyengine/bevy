@@ -1,23 +1,25 @@
 use core::fmt::Write;
 
-use bevy_ecs::{entity::Entity, system::Query};
+use bevy_ecs::{entity::Entity, hierarchy::ChildOf, query::With, system::Query};
 
 use crate::{
     experimental::{UiChildren, UiRootNodes},
     layout::ui_surface::ComputedLayout,
-    ContentSize, Display, Node,
+    ContentSize, Display, FixedNode, Node,
 };
 
 /// Prints the latest computed UI layout tree for each root node.
 pub fn print_ui_layout_tree(
     root_node_query: UiRootNodes,
+    fixed_nodes_query: Query<Entity, (With<FixedNode>, With<ChildOf>)>,
     ui_children: UiChildren,
     layout_query: Query<(&Node, &ComputedLayout, &ContentSize)>,
 ) {
-    for entity in root_node_query.iter() {
+    for entity in root_node_query.iter().chain(fixed_nodes_query.iter()) {
         let mut out = String::new();
         print_node(
             &ui_children,
+            &fixed_nodes_query,
             &layout_query,
             entity,
             false,
@@ -32,6 +34,7 @@ pub fn print_ui_layout_tree(
 /// Recursively navigates the layout tree printing each node's information.
 fn print_node(
     ui_children: &UiChildren,
+    fixed_nodes_query: &Query<Entity, (With<FixedNode>, With<ChildOf>)>,
     layout_query: &Query<(&Node, &ComputedLayout, &ContentSize)>,
     entity: Entity,
     has_sibling: bool,
@@ -45,7 +48,10 @@ fn print_node(
         return;
     };
 
-    let num_children = ui_children.iter_ui_children(entity).count();
+    let num_children = ui_children
+        .iter_ui_children(entity)
+        .filter(|child| !fixed_nodes_query.contains(*child))
+        .count();
 
     let display_variant = match (num_children, node.display) {
         (_, Display::None) => "NONE",
@@ -81,10 +87,15 @@ fn print_node(
     let new_string = lines_string + bar;
 
     // Recurse into children
-    for (index, child_entity) in ui_children.iter_ui_children(entity).enumerate() {
+    for (index, child_entity) in ui_children
+        .iter_ui_children(entity)
+        .filter(|child| !fixed_nodes_query.contains(*child))
+        .enumerate()
+    {
         let has_sibling = index < num_children - 1;
         print_node(
             ui_children,
+            fixed_nodes_query,
             layout_query,
             child_entity,
             has_sibling,
