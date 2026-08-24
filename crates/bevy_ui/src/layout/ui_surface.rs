@@ -29,7 +29,7 @@ const fn entity_node_id(entity: Entity) -> NodeId {
     NodeId::new(entity.to_bits())
 }
 
-/// `entity.to_bits()` can't be zero
+/// `entity.to_bits()` can't be zero, so we use a `NodeId` of zero to represent viewport nodes.
 pub const VIEWPORT_NODE_ID: NodeId = NodeId::new(0u64);
 
 fn node_id_entity(node_id: NodeId) -> Entity {
