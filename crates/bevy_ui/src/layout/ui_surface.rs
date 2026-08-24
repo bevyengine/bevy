@@ -2,7 +2,7 @@ use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
     component::Component,
     entity::Entity,
-    query::With,
+    query::{Has, With},
     system::Query,
     world::Ref,
 };
@@ -125,9 +125,9 @@ pub(crate) fn compute_layout(
         Ref<ComputedUiRenderTargetInfo>,
         Ref<EmSize>,
         Ref<ContentSize>,
+        Has<FixedNode>,
     )>,
     computed_layout_query: &mut Query<&mut ComputedLayout>,
-    fixed_nodes_query: &Query<Entity, (With<FixedNode>, With<bevy_ecs::hierarchy::ChildOf>)>,
     fixed_node_changes: &[Entity],
     buffer_query: &mut Query<&mut ComputedTextBlock>,
     font_system: &mut FontCx,
@@ -137,10 +137,10 @@ pub(crate) fn compute_layout(
     let mut runtime_nodes = HashMap::default();
     let Some(_) = build_runtime_layout_tree(
         ui_root_entity,
+        ui_root_entity,
         ui_children,
         node_query,
         computed_layout_query,
-        fixed_nodes_query,
         fixed_node_changes,
         &mut runtime_nodes,
         rem_size,
@@ -168,7 +168,7 @@ pub(crate) fn compute_layout(
                                     available_space: taffy::Size<AvailableSpace>,
                                     entity: Entity,
                                     style: &Style| {
-            let Ok((_, _, _, content_size)) = node_query.get(entity) else {
+            let Ok((_, _, _, content_size, _)) = node_query.get(entity) else {
                 return taffy::Size::ZERO;
             };
             let Some(measure) = content_size.measure.as_ref() else {
@@ -219,6 +219,7 @@ pub(crate) fn compute_layout(
 }
 
 fn build_runtime_layout_tree<'a>(
+    root: Entity,
     entity: Entity,
     ui_children: &UiChildren,
     node_query: &'a Query<(
@@ -226,27 +227,32 @@ fn build_runtime_layout_tree<'a>(
         Ref<ComputedUiRenderTargetInfo>,
         Ref<EmSize>,
         Ref<ContentSize>,
+        Has<FixedNode>,
     )>,
     computed_layout_query: &mut Query<&mut ComputedLayout>,
-    fixed_nodes_query: &Query<Entity, (With<FixedNode>, With<bevy_ecs::hierarchy::ChildOf>)>,
     fixed_node_changes: &[Entity],
     runtime_nodes: &mut HashMap<NodeId, NodeStyle<'a>>,
     rem_size: RemSize,
     rem_size_changed: bool,
 ) -> Option<bool> {
+    let Ok((node, computed_target, em_size, content_size, has_fixed_node)) = node_query.get(entity)
+    else {
+        return None;
+    };
+
+    if has_fixed_node && entity != root {
+        return None;
+    }
+
     let mut child_ids = Vec::new();
     let mut subtree_dirty = false;
     for child in ui_children.iter_ui_children(entity) {
-        if fixed_nodes_query.contains(child) {
-            continue;
-        }
-
         if let Some(built_child_dirty) = build_runtime_layout_tree(
+            root,
             child,
             ui_children,
             node_query,
             computed_layout_query,
-            fixed_nodes_query,
             fixed_node_changes,
             runtime_nodes,
             rem_size,
@@ -257,9 +263,6 @@ fn build_runtime_layout_tree<'a>(
         }
     }
 
-    let Ok((node, computed_target, em_size, content_size)) = node_query.get(entity) else {
-        return None;
-    };
     let Ok(mut computed_layout) = computed_layout_query.get_mut(entity) else {
         return None;
     };
