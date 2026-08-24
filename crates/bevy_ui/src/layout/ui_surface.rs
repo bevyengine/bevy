@@ -57,6 +57,7 @@ impl ComputedLayout {
         self.visited = false;
     }
 
+    /// Used to clear stale layout state if a node is unreachable
     pub(crate) fn clear_if_unreachable(&mut self) {
         if !self.visited {
             self.clear();
