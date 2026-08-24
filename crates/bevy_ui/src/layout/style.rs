@@ -186,7 +186,7 @@ impl<'a> NodeStyle<'a> {
     }
 
     fn node(&self) -> &Node {
-        &self.node
+        self.node
     }
 }
 

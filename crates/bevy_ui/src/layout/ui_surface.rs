@@ -186,7 +186,7 @@ pub(crate) fn compute_layout(
                     measure_args.resolve_height().effective,
                     available_space.width,
                 ),
-                &measure,
+                measure,
                 buffer_query,
             );
             measure_args.buffer = buffer;
@@ -357,7 +357,7 @@ impl<'tree, 'w, 's, 'layout, 'node> LayoutPartialTree
     type CustomIdent = String;
 
     fn get_core_container_style(&self, node_id: NodeId) -> Self::CoreContainerStyle<'_> {
-        &self.nodes.get(&node_id).expect("missing layout node")
+        self.nodes.get(&node_id).expect("missing layout node")
     }
 
     fn set_unrounded_layout(&mut self, node_id: NodeId, layout: &Layout) {
