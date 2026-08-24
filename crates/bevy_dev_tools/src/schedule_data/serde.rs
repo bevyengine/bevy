@@ -129,11 +129,11 @@ impl AccessData {
         let writes = value.writes().as_finite_set();
 
         let (reads_inverted, reads) = match reads {
-            Some(reads) => (false, trace.get_indexes(reads.iter())),
+            Some(reads) => (false, trace.get_indexes(reads.iter().copied())),
             None => (true, vec![]),
         };
         let (writes_inverted, writes) = match writes {
-            Some(writes) => (false, trace.get_indexes(writes.iter())),
+            Some(writes) => (false, trace.get_indexes(writes.iter().copied())),
             None => (true, vec![]),
         };
 
