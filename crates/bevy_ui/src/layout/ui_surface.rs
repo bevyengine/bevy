@@ -19,8 +19,10 @@ use taffy::{
 };
 
 use crate::{
-    experimental::UiChildren, layout::style::CoreNode, ComputedUiRenderTargetInfo, ContentSize,
-    FixedNode, LayoutContext, LayoutError, Measure, MeasureArgs, Node, NodeMeasure,
+    experimental::UiChildren,
+    layout::style::{CoreNode, VIEWPORT_NODE},
+    ComputedUiRenderTargetInfo, ContentSize, FixedNode, LayoutContext, LayoutError, Measure,
+    MeasureArgs, Node, NodeMeasure,
 };
 
 const fn entity_node_id(entity: Entity) -> NodeId {
@@ -143,7 +145,13 @@ pub(crate) fn compute_layout(
     };
     let root_node_id = entity_node_id(ui_root_entity);
 
-    runtime_nodes.insert(viewport_node_id(), CoreNode::viewport());
+    runtime_nodes.insert(
+        viewport_node_id(),
+        CoreNode {
+            node: &VIEWPORT_NODE,
+            context: LayoutContext::default(),
+        },
+    );
 
     let available_space = taffy::Size {
         width: AvailableSpace::Definite(render_target_resolution.x as f32),

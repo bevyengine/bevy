@@ -19,26 +19,13 @@ use crate::{
     Val,
 };
 
+pub static VIEWPORT_NODE: Node = Node::VIEWPORT;
+
 /// Runtime style adapter that exposes Bevy [`Node`] values through Taffy's style traits.
 #[derive(Clone)]
 pub(super) struct CoreNode<'a> {
-    node: NodeSource<'a>,
-    context: LayoutContext,
-}
-
-#[derive(Clone)]
-enum NodeSource<'a> {
-    Borrowed(&'a Node),
-    Owned(Node),
-}
-
-impl NodeSource<'_> {
-    fn as_ref(&self) -> &Node {
-        match self {
-            Self::Borrowed(node) => node,
-            Self::Owned(node) => node,
-        }
-    }
+    pub node: &'a Node,
+    pub(crate) context: LayoutContext,
 }
 
 #[derive(Clone)]
@@ -189,26 +176,7 @@ impl ExactSizeIterator for EmptyLineNameSet<'_> {}
 
 impl<'a> CoreNode<'a> {
     pub(super) fn from_node(node: &'a Node, context: LayoutContext) -> Self {
-        Self {
-            node: NodeSource::Borrowed(node),
-            context,
-        }
-    }
-
-    pub(super) fn viewport() -> Self {
-        let node = Node {
-            display: UiDisplay::Grid,
-            width: Val::Percent(100.0),
-            height: Val::Percent(100.0),
-            align_items: UiAlignItems::Start,
-            justify_items: UiJustifyItems::Start,
-            ..Default::default()
-        };
-
-        Self {
-            node: NodeSource::Owned(node),
-            context: LayoutContext::DEFAULT,
-        }
+        Self { node, context }
     }
 
     pub(super) fn to_taffy_style(&self) -> Style {
@@ -220,7 +188,7 @@ impl<'a> CoreNode<'a> {
     }
 
     fn node(&self) -> &Node {
-        self.node.as_ref()
+        &self.node
     }
 }
 
