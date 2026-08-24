@@ -1772,7 +1772,6 @@ mod tests {
         let mut app = setup_ui_test_app();
 
         let world = app.world_mut();
-
         let ui_root = world
             .spawn(Node {
                 width: Val::Rem(3.),
@@ -1780,16 +1779,27 @@ mod tests {
                 ..default()
             })
             .id();
+        world.insert_resource(UiScale(5.));
 
         app.update();
 
         let world = app.world_mut();
-
-        let rem_size = world.resource::<RemSize>();
-
         let c = world.entity(ui_root).get::<ComputedNode>().unwrap();
+        assert!(c.size().abs_diff_eq(
+            world.resource::<RemSize>().0 * world.resource::<UiScale>().0 * Vec2::new(3., 2.),
+            1e-5
+        ));
 
-        assert!(c.size().abs_diff_eq(rem_size.0 * Vec2::new(3., 2.), 1e-5));
+        world.insert_resource(RemSize(100.));
+
+        app.update();
+
+        let world = app.world_mut();
+        let c = world.entity(ui_root).get::<ComputedNode>().unwrap();
+        assert!(c.size().abs_diff_eq(
+            world.resource::<RemSize>().0 * world.resource::<UiScale>().0 * Vec2::new(3., 2.),
+            1e-5
+        ));
     }
 
     #[test]
@@ -1797,7 +1807,6 @@ mod tests {
         let mut app = setup_ui_test_app();
 
         let world = app.world_mut();
-
         let ui_root = world
             .spawn((
                 Node {
@@ -1808,7 +1817,6 @@ mod tests {
                 TextFont::default().with_font_size(5.),
             ))
             .id();
-
         let child = world
             .spawn((
                 Node {
@@ -1824,19 +1832,23 @@ mod tests {
         app.update();
 
         let world = app.world_mut();
-
         world.resource_mut::<RemSize>().0 = 10.;
 
         app.update();
+
         let world = app.world_mut();
-
-        let computed_root = world.entity(ui_root).get::<ComputedNode>().unwrap();
-
-        assert!(computed_root
+        assert!(world
+            .entity(ui_root)
+            .get::<ComputedNode>()
+            .unwrap()
             .size()
             .abs_diff_eq(Vec2::new(200., 150.), 1e-5));
-        let computed_child = world.entity(child).get::<ComputedNode>().unwrap();
-        assert!(computed_child.size().abs_diff_eq(Vec2::new(75., 40.), 1e-5));
+        assert!(world
+            .entity(child)
+            .get::<ComputedNode>()
+            .unwrap()
+            .size()
+            .abs_diff_eq(Vec2::new(75., 40.), 1e-5));
     }
 
     #[cfg(feature = "ghost_nodes")]
