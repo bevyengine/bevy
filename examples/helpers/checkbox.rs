@@ -11,80 +11,13 @@ use bevy::{
 /// A newtype bool wrapper to indicate a widget's checked status.
 pub struct IsChecked(pub bool);
 
-/// Helper to create a single checked feathers checkbox.
-fn checked_checkbox<T>(option_name: &str, checkbox_identifier: Option<T>) -> Box<dyn Scene>
-where
-    T: Template<Output: Component> + Clone + Default + Send + Sync + Unpin + 'static,
-{
-    if let Some(identifier) = checkbox_identifier {
-        Box::new(bsn! {
-            Node {
-                align_items: AlignItems::Center,
-                column_gap: px(5),
-            }
-            Children [
-                @FeathersCheckbox {
-                    @caption: bsn! { caption(option_name) }
-                }
-                Checked
-                Hovered::default()
-                template_value(identifier)
-                on(checkbox_self_update)
-            ]
-        })
-    } else {
-        Box::new(bsn! {
-            Node {
-                align_items: AlignItems::Center,
-                column_gap: px(5),
-            }
-            Children [
-                @FeathersCheckbox {
-                    @caption: bsn! { caption(option_name) }
-                }
-                Checked
-                Hovered::default()
-                on(checkbox_self_update)
-            ]
-        })
-    }
-}
-
-/// Helper to create a single unchecked feathers checkbox.
-fn unchecked_checkbox<T>(option_name: &str, checkbox_identifier: Option<T>) -> Box<dyn Scene>
-where
-    T: Template<Output: Component> + Clone + Default + Send + Sync + Unpin + 'static,
-{
-    if let Some(identifier) = checkbox_identifier {
-        Box::new(bsn! {
-            Node {
-                align_items: AlignItems::Center,
-                column_gap: px(5),
-            }
-            Children [
-                @FeathersCheckbox {
-                    @caption: bsn! { caption(option_name) }
-                }
-                Hovered::default()
-                template_value(identifier)
-                on(checkbox_self_update)
-            ]
-        })
-    } else {
-        Box::new(bsn! {
-            Node {
-                align_items: AlignItems::Center,
-                column_gap: px(5),
-            }
-            Children [
-                @FeathersCheckbox {
-                    @caption: bsn! { caption(option_name) }
-                }
-                Hovered::default()
-                on(checkbox_self_update)
-            ]
-        })
-    }
+impl IsChecked { 
+   fn checked(&self) -> bool { 
+       match self { 
+           IsChecked(true) => true, 
+           IsChecked(false) => false, 
+       } 
+   } 
 }
 
 /// Creates a single feathers checkbox that allows configuration of a setting.  
@@ -101,8 +34,36 @@ pub fn feathers_option_checkbox<T>(
 where
     T: Template<Output: Component> + Clone + Default + Send + Sync + Unpin + 'static,
 {
-    match status {
-        IsChecked(true) => checked_checkbox(option_name, checkbox_identifier),
-        IsChecked(false) => unchecked_checkbox(option_name, checkbox_identifier),
+    if let Some(identifier) = checkbox_identifier {
+        Box::new(bsn! {
+            Node {
+                align_items: AlignItems::Center,
+                column_gap: px(5),
+            }
+            Children [
+                @FeathersCheckbox {
+                    @caption: bsn! { caption(option_name) }
+                }
+                Hovered::default()
+                template_value(identifier)
+                on(checkbox_self_update)
+		{status.checked().then(|| bsn! { Checked })}
+            ]
+        })
+    } else {
+        Box::new(bsn! {
+            Node {
+                align_items: AlignItems::Center,
+                column_gap: px(5),
+            }
+            Children [
+                @FeathersCheckbox {
+                    @caption: bsn! { caption(option_name) }
+                }
+                Hovered::default()
+                on(checkbox_self_update)
+		{status.checked().then(|| bsn! { Checked })}
+            ]
+        })
     }
 }
