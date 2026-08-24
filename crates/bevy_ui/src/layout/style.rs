@@ -14,9 +14,7 @@ use taffy::{
 };
 
 use crate::{
-    layout::convert, AlignItems as UiAlignItems, Display as UiDisplay, GridTrack,
-    GridTrackRepetition, JustifyItems as UiJustifyItems, LayoutContext, Node, RepeatedGridTrack,
-    Val,
+    layout::convert, GridTrack, GridTrackRepetition, LayoutContext, Node, RepeatedGridTrack,
 };
 
 pub static VIEWPORT_NODE: Node = Node::VIEWPORT;
