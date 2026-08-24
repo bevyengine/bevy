@@ -23,13 +23,13 @@ use crate::{
     FixedNode, LayoutContext, LayoutError, Measure, MeasureArgs, Node, NodeMeasure,
 };
 
-fn entity_node_id(entity: Entity) -> NodeId {
-    NodeId::from(entity.to_bits())
+const fn entity_node_id(entity: Entity) -> NodeId {
+    NodeId::new(entity.to_bits())
 }
 
-fn viewport_node_id() -> NodeId {
+const fn viewport_node_id() -> NodeId {
     // `entity.to_bits()` can't be zero
-    NodeId::from(0u64)
+    NodeId::new(0u64)
 }
 
 fn node_id_entity(node_id: NodeId) -> Entity {
