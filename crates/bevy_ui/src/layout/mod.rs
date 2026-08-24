@@ -1764,6 +1764,39 @@ mod tests {
         assert_eq!(ui_surface.total_count(), 6);
     }
 
+    #[test]
+    fn removing_node_from_ui_child_should_relayout_parent() {
+        let mut app = setup_ui_test_app();
+
+        let world = app.world_mut();
+        let ui_root = world.spawn(Node::default()).id();
+        let ui_child = world
+            .spawn((
+                Node {
+                    width: px(50.),
+                    height: px(30.),
+                    ..default()
+                },
+                ChildOf(ui_root),
+            ))
+            .id();
+
+        app.update();
+
+        let world = app.world_mut();
+        world.entity_mut(ui_child).remove::<Node>();
+
+        app.update();
+
+        let world = app.world_mut();
+        assert!(world
+            .entity(ui_root)
+            .get::<ComputedNode>()
+            .unwrap()
+            .size()
+            .abs_diff_eq(Vec2::ZERO, 1e-5));
+    }
+
     #[cfg(feature = "ghost_nodes")]
     mod ghost_node_tests {
         use super::*;
@@ -2003,6 +2036,32 @@ mod tests {
 
             assert!(ui_surface.is_root(fixed));
             assert!(!ui_surface.is_root(child));
+        }
+
+        #[test]
+        fn removing_intermediate_ghost_should_relayout_parent() {
+            let mut app = setup_ui_test_app();
+            let child = world
+                .spawn(Node {
+                    width: px(50.),
+                    height: px(30.),
+                    ..default()
+                })
+                .id();
+            let ghost = world.spawn(GhostNode).add_child(child).id();
+            let root = world.spawn(Node::default()).add_child(ghost).id();
+            app.update();
+
+            world.entity_mut(ghost).remove::<GhostNode>();
+            app.update();
+
+            let world = app.world_mut();
+            assert!(world
+                .entity(ui_root)
+                .get::<ComputedNode>()
+                .unwrap()
+                .size()
+                .abs_diff_eq(Vec2::ZERO, 1e-5));
         }
     }
 }
