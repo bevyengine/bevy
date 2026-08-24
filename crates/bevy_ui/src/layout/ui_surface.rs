@@ -46,8 +46,8 @@ pub struct ComputedLayout {
     rounded: Option<Layout>,
     cache: Cache,
     visited: bool,
-    // last frame's resolved children
-    taffy_children: Vec<NodeId>,
+    // children from previous frame
+    previous_children: Vec<NodeId>,
 }
 
 impl ComputedLayout {
@@ -97,6 +97,17 @@ impl ComputedLayout {
         let unrounded_size = Vec2::new(unrounded.size.width, unrounded.size.height);
 
         Some((selected_layout, unrounded_size))
+    }
+
+    // Replace the previous children list, returning true if different.
+    fn set_previous_children(&mut self, children: &[NodeId]) -> bool {
+        if self.previous_children == children {
+            return false;
+        }
+
+        self.previous_children.clear();
+        self.previous_children.extend_from_slice(children);
+        true
     }
 }
 
