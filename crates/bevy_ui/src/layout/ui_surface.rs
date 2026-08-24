@@ -128,7 +128,7 @@ pub(crate) fn compute_layout(
     rem_size_changed: bool,
 ) -> Result<(), LayoutError> {
     let mut runtime_nodes = HashMap::default();
-    let Some(_) = build_runtime_layout_tree(
+    let Ok(Some(_)) = build_runtime_layout_tree(
         ui_root_entity,
         ui_children,
         node_query,
@@ -139,8 +139,7 @@ pub(crate) fn compute_layout(
         &mut runtime_nodes,
         rem_size,
         rem_size_changed,
-    )?
-    else {
+    ) else {
         return Err(LayoutError::InvalidHierarchy);
     };
     let root_node_id = entity_node_id(ui_root_entity);
