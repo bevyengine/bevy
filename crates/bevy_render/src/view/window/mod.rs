@@ -55,6 +55,7 @@ impl Plugin for WindowRenderPlugin {
                 .add_systems(
                     Render,
                     create_surfaces
+                        .into_configs()
                         .run_if(need_surface_configuration)
                         .before(prepare_windows),
                 )

@@ -376,6 +376,7 @@ impl Plugin for PbrPlugin {
                     extract_clusters_for_cpu_clustering
                         .run_if(not(gpu_clustering_is_enabled_during_extraction)),
                     extract_clusters_for_gpu_clustering
+                        .into_configs()
                         .run_if(gpu_clustering_is_enabled_during_extraction),
                 ),
             )

@@ -1640,8 +1640,10 @@ where
                     batching::sort_binned_render_phase::<BPI>.in_set(RenderSystems::PhaseSort),
                     (
                         no_gpu_preprocessing::batch_and_prepare_binned_render_phase::<BPI, GFBD>
+                            .into_configs()
                             .run_if(resource_exists::<BatchedInstanceBuffer<GFBD::BufferData>>),
                         gpu_preprocessing::batch_and_prepare_binned_render_phase::<BPI, GFBD>
+                            .into_configs()
                             .run_if(
                                 resource_exists::<
                                     BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>,
@@ -1651,6 +1653,7 @@ where
                         .in_set(RenderSystems::PrepareResourcesBatchPhases)
                         .ambiguous_with(RenderSystems::PrepareResourcesBatchPhases),
                     gpu_preprocessing::write_binned_instance_buffers::<BPI, GFBD>
+                        .into_configs()
                         .run_if(
                             resource_exists::<
                                 BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>,
@@ -1659,6 +1662,7 @@ where
                         .in_set(RenderSystems::PrepareResourcesWritePhaseBuffers)
                         .ambiguous_with(RenderSystems::PrepareResourcesWritePhaseBuffers),
                     gpu_preprocessing::collect_buffers_for_phase::<BPI, GFBD>
+                        .into_configs()
                         .run_if(
                             resource_exists::<
                                 BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>,
@@ -1760,8 +1764,10 @@ where
                 (
                     (
                         no_gpu_preprocessing::batch_and_prepare_sorted_render_phase::<SPI, GFBD>
+                            .into_configs()
                             .run_if(resource_exists::<BatchedInstanceBuffer<GFBD::BufferData>>),
                         gpu_preprocessing::batch_and_prepare_sorted_render_phase::<SPI, GFBD>
+                            .into_configs()
                             .run_if(
                                 resource_exists::<
                                     BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>,
@@ -1770,6 +1776,7 @@ where
                     )
                         .in_set(RenderSystems::PrepareResourcesBatchPhases),
                     gpu_preprocessing::collect_buffers_for_phase::<SPI, GFBD>
+                        .into_configs()
                         .run_if(
                             resource_exists::<
                                 BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>,
