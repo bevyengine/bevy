@@ -1,10 +1,7 @@
-use core::fmt;
-
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
     component::Component,
     entity::Entity,
-    prelude::Resource,
     query::With,
     system::Query,
     world::Ref,
@@ -112,108 +109,96 @@ impl ComputedLayout {
     }
 }
 
-#[derive(Resource, Default)]
-pub struct UiSurface;
+/// Compute and store layout results for one UI root entity.
+pub(crate) fn compute_layout(
+    ui_root_entity: Entity,
+    render_target_resolution: UVec2,
+    ui_children: &UiChildren,
+    node_query: &Query<(Ref<Node>, Ref<ComputedUiRenderTargetInfo>, Ref<EmSize>)>,
+    content_size_query: &Query<Ref<ContentSize>>,
+    computed_layout_query: &mut Query<&mut ComputedLayout>,
+    fixed_nodes_query: &Query<Entity, (With<FixedNode>, With<bevy_ecs::hierarchy::ChildOf>)>,
+    fixed_node_changes: &[Entity],
+    buffer_query: &mut Query<&mut ComputedTextBlock>,
+    font_system: &mut FontCx,
+    rem_size: RemSize,
+    rem_size_changed: bool,
+) -> Result<(), LayoutError> {
+    let mut runtime_nodes = HashMap::default();
+    let Some(_) = build_runtime_layout_tree(
+        ui_root_entity,
+        ui_children,
+        node_query,
+        content_size_query,
+        computed_layout_query,
+        fixed_nodes_query,
+        fixed_node_changes,
+        &mut runtime_nodes,
+        rem_size,
+        rem_size_changed,
+    )?
+    else {
+        return Err(LayoutError::InvalidHierarchy);
+    };
+    let root_node_id = entity_node_id(ui_root_entity);
 
-impl fmt::Debug for UiSurface {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("UiSurface").finish()
-    }
-}
+    runtime_nodes.insert(viewport_node_id(), CoreNode::viewport());
 
-impl UiSurface {
-    /// Compute and store layout results for one UI root entity.
-    pub(crate) fn compute_layout(
-        &mut self,
-        ui_root_entity: Entity,
-        render_target_resolution: UVec2,
-        ui_children: &UiChildren,
-        node_query: &Query<(Ref<Node>, Ref<ComputedUiRenderTargetInfo>, Ref<EmSize>)>,
-        content_size_query: &Query<Ref<ContentSize>>,
-        computed_layout_query: &mut Query<&mut ComputedLayout>,
-        fixed_nodes_query: &Query<Entity, (With<FixedNode>, With<bevy_ecs::hierarchy::ChildOf>)>,
-        fixed_node_changes: &[Entity],
-        buffer_query: &mut Query<&mut ComputedTextBlock>,
-        font_system: &mut FontCx,
-        rem_size: RemSize,
-        rem_size_changed: bool,
-    ) -> Result<(), LayoutError> {
-        let mut runtime_nodes = HashMap::default();
-        let Some(_) = build_runtime_layout_tree(
-            ui_root_entity,
-            ui_children,
-            node_query,
-            content_size_query,
+    let available_space = taffy::Size {
+        width: AvailableSpace::Definite(render_target_resolution.x as f32),
+        height: AvailableSpace::Definite(render_target_resolution.y as f32),
+    };
+
+    {
+        let mut measure_function = |known_dimensions: taffy::Size<Option<f32>>,
+                                    available_space: taffy::Size<AvailableSpace>,
+                                    entity: Entity,
+                                    style: &Style| {
+            let Ok(content_size) = content_size_query.get(entity) else {
+                return taffy::Size::ZERO;
+            };
+            let Some(measure) = content_size.measure.as_ref() else {
+                return taffy::Size::ZERO;
+            };
+            let mut measure_args = MeasureArgs {
+                known_width: known_dimensions.width,
+                known_height: known_dimensions.height,
+                available_width: available_space.width,
+                available_height: available_space.height,
+                font_system,
+                buffer: None,
+                style,
+            };
+            let buffer = get_text_buffer(
+                crate::widget::TextMeasure::needs_buffer(
+                    measure_args.resolve_width().effective,
+                    measure_args.resolve_height().effective,
+                    available_space.width,
+                ),
+                &measure,
+                buffer_query,
+            );
+            measure_args.buffer = buffer;
+            let size = measure.measure(measure_args);
+            taffy::Size {
+                width: size.x,
+                height: size.y,
+            }
+        };
+
+        let mut tree = EcsLayoutTree {
+            nodes: runtime_nodes,
             computed_layout_query,
-            fixed_nodes_query,
-            fixed_node_changes,
-            &mut runtime_nodes,
-            rem_size,
-            rem_size_changed,
-        )?
-        else {
-            return Err(LayoutError::InvalidHierarchy);
-        };
-        let root_node_id = entity_node_id(ui_root_entity);
-
-        runtime_nodes.insert(viewport_node_id(), CoreNode::viewport());
-
-        let available_space = taffy::Size {
-            width: AvailableSpace::Definite(render_target_resolution.x as f32),
-            height: AvailableSpace::Definite(render_target_resolution.y as f32),
+            viewport_layout: LayoutState::default(),
+            viewport_children: [root_node_id],
+            measure_function: &mut measure_function,
         };
 
-        {
-            let mut measure_function = |known_dimensions: taffy::Size<Option<f32>>,
-                                        available_space: taffy::Size<AvailableSpace>,
-                                        entity: Entity,
-                                        style: &Style| {
-                let Ok(content_size) = content_size_query.get(entity) else {
-                    return taffy::Size::ZERO;
-                };
-                let Some(measure) = content_size.measure.as_ref() else {
-                    return taffy::Size::ZERO;
-                };
-                let mut measure_args = MeasureArgs {
-                    known_width: known_dimensions.width,
-                    known_height: known_dimensions.height,
-                    available_width: available_space.width,
-                    available_height: available_space.height,
-                    font_system,
-                    buffer: None,
-                    style,
-                };
-                let buffer = get_text_buffer(
-                    crate::widget::TextMeasure::needs_buffer(
-                        measure_args.resolve_width().effective,
-                        measure_args.resolve_height().effective,
-                        available_space.width,
-                    ),
-                    &measure,
-                    buffer_query,
-                );
-                measure_args.buffer = buffer;
-                let size = measure.measure(measure_args);
-                taffy::Size {
-                    width: size.x,
-                    height: size.y,
-                }
-            };
+        compute_root_layout(&mut tree, viewport_node_id(), available_space);
+        round_layout(&mut tree, viewport_node_id());
+    };
 
-            let mut tree = EcsLayoutTree {
-                nodes: runtime_nodes,
-                computed_layout_query,
-                viewport_layout: LayoutState::default(),
-                viewport_children: [root_node_id],
-                measure_function: &mut measure_function,
-            };
-
-            compute_root_layout(&mut tree, viewport_node_id(), available_space);
-            round_layout(&mut tree, viewport_node_id());
-        };
-
-        Ok(())
-    }
+    Ok(())
 }
 
 struct BuiltNode {
@@ -582,9 +567,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_initialization() {
-        let _ui_surface = UiSurface;
-    }
+    fn test_initialization() {}
 
     #[test]
     fn missing_layout_returns_none() {

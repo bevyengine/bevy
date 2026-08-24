@@ -1,5 +1,6 @@
 use crate::{
     experimental::{UiChildren, UiRootNodes},
+    ui_surface::compute_layout,
     ui_transform::{UiGlobalTransform, UiTransform},
     ComputedNode, ComputedUiRenderTargetInfo, ContentSize, Display, FixedNode, IgnoreScroll,
     LayoutConfig, Node, Outline, OverflowAxis, ScrollPosition,
@@ -17,7 +18,7 @@ use bevy_ecs::{
 use bevy_math::{Affine2, Vec2};
 use bevy_sprite::BorderRect;
 use thiserror::Error;
-use ui_surface::{ComputedLayout, UiSurface};
+use ui_surface::ComputedLayout;
 
 use bevy_text::{ComputedTextBlock, EmSize, FontCx, RemSize, TextFont, DEFAULT_REM_SIZE_PX};
 
@@ -108,7 +109,6 @@ pub fn sync_font_size_to_em_size(
 
 /// Updates the UI's layout tree, computes the new layout geometry and then updates the sizes and transforms of all the UI nodes.
 pub fn ui_layout_system(
-    mut ui_surface: ResMut<UiSurface>,
     ui_root_node_query: UiRootNodes,
     fixed_nodes_query: Query<Entity, (With<FixedNode>, With<ChildOf>)>,
     ui_children: UiChildren,
@@ -164,7 +164,7 @@ pub fn ui_layout_system(
 
         let computed = {
             let mut computed_layout_query = node_queries.p0();
-            ui_surface.compute_layout(
+            compute_layout(
                 ui_root_entity,
                 physical_size,
                 &ui_children,
@@ -444,12 +444,10 @@ pub fn ui_layout_system(
 
 #[cfg(test)]
 mod tests {
+    use crate::ui_surface::compute_layout;
     use crate::{
-        experimental::UiChildren,
-        layout::ui_surface::{ComputedLayout, UiSurface},
-        prelude::*,
-        sync_font_size_to_em_size, ui_layout_system,
-        update::propagate_ui_target_cameras,
+        experimental::UiChildren, layout::ui_surface::ComputedLayout, prelude::*,
+        sync_font_size_to_em_size, ui_layout_system, update::propagate_ui_target_cameras,
         ContentSize,
     };
     use bevy_app::{App, HierarchyPropagatePlugin, PostUpdate, PropagateSet, TaskPoolPlugin};
@@ -475,7 +473,6 @@ mod tests {
             PostUpdate,
         ));
         app.init_resource::<UiScale>();
-        app.init_resource::<UiSurface>();
         app.init_resource::<bevy_text::TextPipeline>();
         app.init_resource::<bevy_text::FontCx>();
         app.init_resource::<RemSize>();
@@ -928,7 +925,6 @@ mod tests {
 
         fn test_system(
             In(root_node_entity): In<Entity>,
-            mut ui_surface: ResMut<UiSurface>,
             ui_children: UiChildren,
             node_query: Query<(Ref<Node>, Ref<ComputedUiRenderTargetInfo>, Ref<EmSize>)>,
             content_size_query: Query<Ref<ContentSize>>,
@@ -938,22 +934,21 @@ mod tests {
             mut font_system: ResMut<bevy_text::FontCx>,
             rem_size: Res<RemSize>,
         ) {
-            ui_surface
-                .compute_layout(
-                    root_node_entity,
-                    UVec2::new(800, 600),
-                    &ui_children,
-                    &node_query,
-                    &content_size_query,
-                    &mut computed_layout_query,
-                    &fixed_nodes_query,
-                    &[],
-                    &mut buffer_query,
-                    &mut font_system,
-                    *rem_size,
-                    rem_size.is_changed(),
-                )
-                .unwrap();
+            compute_layout(
+                root_node_entity,
+                UVec2::new(800, 600),
+                &ui_children,
+                &node_query,
+                &content_size_query,
+                &mut computed_layout_query,
+                &fixed_nodes_query,
+                &[],
+                &mut buffer_query,
+                &mut font_system,
+                *rem_size,
+                rem_size.is_changed(),
+            )
+            .unwrap();
         }
 
         world
@@ -1705,7 +1700,6 @@ mod tests {
 
         let world = app.world_mut();
         world.init_resource::<UiScale>();
-        world.init_resource::<UiSurface>();
         world.init_resource::<bevy_text::TextPipeline>();
         world.init_resource::<bevy_text::FontCx>();
         world.init_resource::<RemSize>();

@@ -88,7 +88,6 @@ use bevy_camera::CameraUpdateSystems;
 use bevy_ecs::prelude::*;
 use bevy_input::InputSystems;
 use bevy_transform::TransformSystems;
-use layout::ui_surface::UiSurface;
 use stack::ui_stack_system;
 pub use stack::{ComputedStackIndex, UiStack};
 use update::{propagate_ui_target_cameras, update_clipping_system};
@@ -148,8 +147,7 @@ struct AmbiguousWithUpdateText2dLayout;
 
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<UiSurface>()
-            .init_resource::<UiScale>()
+        app.init_resource::<UiScale>()
             .init_resource::<UiStack>()
             .configure_sets(
                 PostUpdate,
