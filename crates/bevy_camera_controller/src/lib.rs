@@ -36,8 +36,13 @@
 //! Each camera controller is stored in its own module,
 //! and gated behind a feature flag of the same name.
 
+extern crate alloc;
+
 #[cfg(feature = "free_camera")]
 pub mod free_camera;
 
 #[cfg(feature = "pan_camera")]
 pub mod pan_camera;
+
+#[cfg(feature = "pan_orbit_camera")]
+pub mod pan_orbit_camera;

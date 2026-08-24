@@ -1,7 +1,7 @@
 import bevy_pbr::render::pbr_lighting::D_GGX;
 import bevy_pbr::render::utils::{rand_vec2f, rand_u, rand_range_u};
 import bevy_render::maths::{PI_2, orthonormalize};
-import bevy_solari::scene::bindings::{trace_ray, trace_ray_previous_frame, RAY_T_MIN, RAY_T_MAX, light_sources, directional_lights, LightSource, LIGHT_SOURCE_KIND_DIRECTIONAL, resolve_triangle_data_full, ResolvedRayHitFull, MIRROR_ROUGHNESS_THRESHOLD};
+import package::scene::bindings::{trace_ray, trace_ray_previous_frame, RAY_T_MIN, RAY_T_MAX, light_sources, directional_lights, LightSource, LIGHT_SOURCE_KIND_DIRECTIONAL, resolve_triangle_data_full, ResolvedRayHitFull, MIRROR_ROUGHNESS_THRESHOLD};
 
 enable wgpu_ray_query;
 

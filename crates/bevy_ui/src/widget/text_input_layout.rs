@@ -92,7 +92,7 @@ pub fn update_editable_text_content_size(
             continue;
         }
 
-        let font_size = text_font.font_size.eval(target.logical_size(), rem_size.0);
+        let font_size = text_font.font_size.eval(target.logical_size(), *rem_size);
 
         let width = editable_text.visible_width.and_then(|visible_width| {
             let font_context = &mut font_cx.context;
@@ -202,18 +202,20 @@ pub fn update_editable_text_styles(
                 .editor
                 .edit_styles()
                 .insert(StyleProperty::FontSize(
-                    text_font.font_size.eval(target.logical_size(), rem_size.0),
+                    text_font.font_size.eval(target.logical_size(), *rem_size),
                 ));
         }
 
-        if text_font.is_changed() {
-            let Ok(resolved_family) = text_font.font.resolve_font_family(fonts.as_ref()) else {
-                continue;
-            };
-
+        if text_font.is_changed()
+            && let Ok(resolved_family) = text_font.font.resolve_font_family(fonts.as_ref())
+        {
             let family = resolved_family.into_owned();
             let style_set = editable_text.editor.edit_styles();
             style_set.insert(StyleProperty::FontFamily(family));
+        }
+
+        if text_font.is_changed() {
+            let style_set = editable_text.editor.edit_styles();
             style_set.insert(StyleProperty::FontWeight(text_font.weight.into()));
             style_set.insert(StyleProperty::FontWidth(text_font.width.into()));
             style_set.insert(StyleProperty::FontStyle(text_font.style.into()));
@@ -505,7 +507,7 @@ pub fn update_editable_text_layout(
             info.cursor = driver
                 .editor
                 .cursor_geometry(
-                    cursor_width * text_font.font_size.eval(target.logical_size(), rem_size.0),
+                    cursor_width * text_font.font_size.eval(target.logical_size(), *rem_size),
                 )
                 .map(bounding_box_to_rect)
                 .map(|rect| (*cursor_timer < cursor_blink_period / 2, rect));

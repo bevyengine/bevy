@@ -2,7 +2,7 @@ import bevy_pbr::deferred::types::unpack_24bit_normal;
 import bevy_pbr::render::rgb9e5::rgb9e5_to_vec3_;
 import bevy_render::utils::octahedral_decode;
 import bevy_render::view::{View, depth_ndc_to_view_z};
-import bevy_solari::scene::bindings::ResolvedMaterial;
+import package::scene::bindings::ResolvedMaterial;
 
 struct ResolvedGPixel {
     world_position: vec3<f32>,

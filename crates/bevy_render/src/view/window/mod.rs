@@ -33,7 +33,7 @@ impl Plugin for WindowRenderPlugin {
         // We can't use [`SyncComponentPlugin`] because it would introduce `bevy_render` as
         // a dependency to `bevy_window`
         {
-            app.add_observer(|trigger: On<Add, Window>, mut commands: Commands| {
+            app.add_observer(|trigger: On<Add<Window>>, mut commands: Commands| {
                 commands
                     .entity(trigger.entity)
                     .insert(SyncToRenderWorld::default());

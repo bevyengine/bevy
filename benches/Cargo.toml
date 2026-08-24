@@ -18,6 +18,7 @@ bevy_app = { path = "../crates/bevy_app", optional = true }
 bevy_ecs = { path = "../crates/bevy_ecs", optional = true, features = [
   "multi_threaded",
 ] }
+bevy_extract = { path = "../crates/bevy_extract", optional = true }
 bevy_math = { path = "../crates/bevy_math", optional = true }
 bevy_picking = { path = "../crates/bevy_picking", optional = true, features = [
   "mesh_picking",
@@ -97,6 +98,7 @@ bench_render = [
   "dep:bevy_asset",
   "dep:bevy_camera",
   "dep:bevy_ecs",
+  "dep:bevy_extract",
   "dep:bevy_mesh",
   "dep:bevy_reflect",
 ]
