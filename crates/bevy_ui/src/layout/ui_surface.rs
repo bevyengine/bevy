@@ -194,7 +194,7 @@ pub(crate) fn compute_layout(
             }
         };
 
-        let mut tree = EcsLayoutTree {
+        let mut tree = UiLayoutTree {
             nodes: runtime_nodes,
             computed_layout_query,
             viewport_layout: LayoutState::default(),
@@ -294,7 +294,7 @@ struct LayoutState {
     rounded: Layout,
 }
 
-struct EcsLayoutTree<'a, 'w, 's, 'layout, 'node> {
+struct UiLayoutTree<'a, 'w, 's, 'layout, 'node> {
     nodes: HashMap<NodeId, NodeStyle<'node>>,
     computed_layout_query: &'a mut Query<'w, 's, &'layout mut ComputedLayout>,
     viewport_layout: LayoutState,
@@ -307,7 +307,7 @@ struct EcsLayoutTree<'a, 'w, 's, 'layout, 'node> {
     ) -> taffy::Size<f32>,
 }
 
-impl EcsLayoutTree<'_, '_, '_, '_, '_> {
+impl UiLayoutTree<'_, '_, '_, '_, '_> {
     fn children(&self, node_id: NodeId) -> &[NodeId] {
         if node_id == viewport_node_id() {
             return &self.viewport_children;
@@ -320,7 +320,7 @@ impl EcsLayoutTree<'_, '_, '_, '_, '_> {
     }
 }
 
-impl TraversePartialTree for EcsLayoutTree<'_, '_, '_, '_, '_> {
+impl TraversePartialTree for UiLayoutTree<'_, '_, '_, '_, '_> {
     type ChildIter<'a>
         = core::iter::Copied<core::slice::Iter<'a, NodeId>>
     where
@@ -339,10 +339,10 @@ impl TraversePartialTree for EcsLayoutTree<'_, '_, '_, '_, '_> {
     }
 }
 
-impl TraverseTree for EcsLayoutTree<'_, '_, '_, '_, '_> {}
+impl TraverseTree for UiLayoutTree<'_, '_, '_, '_, '_> {}
 
 impl<'tree, 'w, 's, 'layout, 'node> LayoutPartialTree
-    for EcsLayoutTree<'tree, 'w, 's, 'layout, 'node>
+    for UiLayoutTree<'tree, 'w, 's, 'layout, 'node>
 {
     type CoreContainerStyle<'a>
         = &'a NodeStyle<'node>
@@ -408,7 +408,7 @@ impl<'tree, 'w, 's, 'layout, 'node> LayoutPartialTree
     }
 }
 
-impl CacheTree for EcsLayoutTree<'_, '_, '_, '_, '_> {
+impl CacheTree for UiLayoutTree<'_, '_, '_, '_, '_> {
     fn cache_get(&self, node_id: NodeId, input: &LayoutInput) -> Option<LayoutOutput> {
         if node_id == viewport_node_id() {
             return self.viewport_layout.cache.get(input);
@@ -454,7 +454,7 @@ impl CacheTree for EcsLayoutTree<'_, '_, '_, '_, '_> {
 }
 
 impl<'tree, 'w, 's, 'layout, 'node> LayoutBlockContainer
-    for EcsLayoutTree<'tree, 'w, 's, 'layout, 'node>
+    for UiLayoutTree<'tree, 'w, 's, 'layout, 'node>
 {
     type BlockContainerStyle<'a>
         = &'a NodeStyle<'node>
@@ -476,7 +476,7 @@ impl<'tree, 'w, 's, 'layout, 'node> LayoutBlockContainer
 }
 
 impl<'tree, 'w, 's, 'layout, 'node> LayoutFlexboxContainer
-    for EcsLayoutTree<'tree, 'w, 's, 'layout, 'node>
+    for UiLayoutTree<'tree, 'w, 's, 'layout, 'node>
 {
     type FlexboxContainerStyle<'a>
         = &'a NodeStyle<'node>
@@ -498,7 +498,7 @@ impl<'tree, 'w, 's, 'layout, 'node> LayoutFlexboxContainer
 }
 
 impl<'tree, 'w, 's, 'layout, 'node> LayoutGridContainer
-    for EcsLayoutTree<'tree, 'w, 's, 'layout, 'node>
+    for UiLayoutTree<'tree, 'w, 's, 'layout, 'node>
 {
     type GridContainerStyle<'a>
         = &'a NodeStyle<'node>
@@ -519,7 +519,7 @@ impl<'tree, 'w, 's, 'layout, 'node> LayoutGridContainer
     }
 }
 
-impl RoundTree for EcsLayoutTree<'_, '_, '_, '_, '_> {
+impl RoundTree for UiLayoutTree<'_, '_, '_, '_, '_> {
     fn get_unrounded_layout(&self, node_id: NodeId) -> Layout {
         if node_id == viewport_node_id() {
             return self.viewport_layout.unrounded;
