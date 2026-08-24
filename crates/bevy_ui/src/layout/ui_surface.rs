@@ -174,24 +174,26 @@ impl UiSurface {
                 let Some(measure) = content_size.measure.as_ref() else {
                     return taffy::Size::ZERO;
                 };
-                let buffer = get_text_buffer(
-                    crate::widget::TextMeasure::needs_buffer(
-                        known_dimensions.width,
-                        known_dimensions.height,
-                        available_space.width,
-                    ),
-                    measure,
-                    buffer_query,
-                );
-                let size = measure.measure(MeasureArgs {
+                let mut measure_args = MeasureArgs {
                     known_width: known_dimensions.width,
                     known_height: known_dimensions.height,
                     available_width: available_space.width,
                     available_height: available_space.height,
                     font_system,
-                    buffer,
+                    buffer: None,
                     style,
-                });
+                };
+                let buffer = get_text_buffer(
+                    crate::widget::TextMeasure::needs_buffer(
+                        measure_args.resolve_width().effective,
+                        measure_args.resolve_height().effective,
+                        available_space.width,
+                    ),
+                    &measure,
+                    buffer_query,
+                );
+                measure_args.buffer = buffer;
+                let size = measure.measure(measure_args);
                 taffy::Size {
                     width: size.x,
                     height: size.y,
