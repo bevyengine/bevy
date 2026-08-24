@@ -346,6 +346,20 @@ pub enum DebandDither {
     Enabled,
 }
 
+/// Marker for effects that read the scene-referred buffer before tonemapping.
+///
+/// Camera extraction reads it when it picks the main texture format. A camera carrying it
+/// renders to the scene-linear `Rgba16Float` intermediate and tonemaps in the pass rather
+/// than in the material shaders. It does not force that format on its own. Cameras with
+/// tonemapping disabled, and cameras sharing a render target, keep their 8-bit texture
+/// either way. See [`TonemapInShader`](crate::camera::TonemapInShader).
+///
+/// Effects that read that buffer, such as bloom and depth of field, pull it in as a
+/// required component.
+#[derive(Component, Default, Copy, Clone, Reflect, PartialEq, Eq, Hash, Debug)]
+#[reflect(Component, Default, PartialEq, Hash, Debug)]
+pub struct NeedsSceneLinearTarget;
+
 /// An identifier for a view that is stable across frames.
 ///
 /// We can't use [`Entity`] for this because render world entities aren't
