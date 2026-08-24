@@ -28,8 +28,14 @@ let system =
     .build_state(&mut world)
     .build_system(resource_system);
 
-fn resource_system(query: Query<()>) {
-    let resource_a: Ref<ResA> = query.single().unwrap();
+fn resource_system(query: Query<FilteredEntityRef>) {
+    let entity: FilteredEntityRef = query.single().unwrap(); // Or use `Single<FilteredEntityRef>` as a parameter!
+    let resource_a: &A = entity.get::<A>().unwrap();
+    // Or with change tracking
+    let resource_a: Ref<A> = entity.get_ref::<A>().unwrap();
+    // Or by ID
+    let resource: Ptr = entity.get_by_id(component_id).unwrap();
+    let change_ticks: ComponentTicks = entity.get_change_ticks_by_id(component_id).unwrap();
 }
 ```
 
