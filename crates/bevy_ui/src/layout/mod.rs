@@ -112,8 +112,12 @@ pub fn ui_layout_system(
     ui_root_node_query: UiRootNodes,
     fixed_nodes_query: Query<Entity, (With<FixedNode>, With<ChildOf>)>,
     ui_children: UiChildren,
-    node_query: Query<(Ref<Node>, Ref<ComputedUiRenderTargetInfo>, Ref<EmSize>)>,
-    content_size_query: Query<Ref<ContentSize>>,
+    node_query: Query<(
+        Ref<Node>,
+        Ref<ComputedUiRenderTargetInfo>,
+        Ref<EmSize>,
+        Ref<ContentSize>,
+    )>,
     mut node_queries: ParamSet<(
         Query<&mut ComputedLayout>,
         Query<(
@@ -152,7 +156,7 @@ pub fn ui_layout_system(
         let Ok((physical_size, scale_factor)) =
             node_query
                 .get(ui_root_entity)
-                .map(|(_, computed_target, _)| {
+                .map(|(_, computed_target, ..)| {
                     (
                         computed_target.physical_size(),
                         computed_target.scale_factor(),
@@ -169,7 +173,6 @@ pub fn ui_layout_system(
                 physical_size,
                 &ui_children,
                 &node_query,
-                &content_size_query,
                 &mut computed_layout_query,
                 &fixed_nodes_query,
                 &fixed_node_changes,
@@ -926,8 +929,12 @@ mod tests {
         fn test_system(
             In(root_node_entity): In<Entity>,
             ui_children: UiChildren,
-            node_query: Query<(Ref<Node>, Ref<ComputedUiRenderTargetInfo>, Ref<EmSize>)>,
-            content_size_query: Query<Ref<ContentSize>>,
+            node_query: Query<(
+                Ref<Node>,
+                Ref<ComputedUiRenderTargetInfo>,
+                Ref<EmSize>,
+                Ref<ContentSize>,
+            )>,
             mut computed_layout_query: Query<&mut ComputedLayout>,
             fixed_nodes_query: Query<Entity, (With<FixedNode>, With<ChildOf>)>,
             mut buffer_query: Query<&mut bevy_text::ComputedTextBlock>,
@@ -939,7 +946,6 @@ mod tests {
                 UVec2::new(800, 600),
                 &ui_children,
                 &node_query,
-                &content_size_query,
                 &mut computed_layout_query,
                 &fixed_nodes_query,
                 &[],

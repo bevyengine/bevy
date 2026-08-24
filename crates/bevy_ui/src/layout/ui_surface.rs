@@ -120,8 +120,12 @@ pub(crate) fn compute_layout(
     ui_root_entity: Entity,
     render_target_resolution: UVec2,
     ui_children: &UiChildren,
-    node_query: &Query<(Ref<Node>, Ref<ComputedUiRenderTargetInfo>, Ref<EmSize>)>,
-    content_size_query: &Query<Ref<ContentSize>>,
+    node_query: &Query<(
+        Ref<Node>,
+        Ref<ComputedUiRenderTargetInfo>,
+        Ref<EmSize>,
+        Ref<ContentSize>,
+    )>,
     computed_layout_query: &mut Query<&mut ComputedLayout>,
     fixed_nodes_query: &Query<Entity, (With<FixedNode>, With<bevy_ecs::hierarchy::ChildOf>)>,
     fixed_node_changes: &[Entity],
@@ -135,7 +139,6 @@ pub(crate) fn compute_layout(
         ui_root_entity,
         ui_children,
         node_query,
-        content_size_query,
         computed_layout_query,
         fixed_nodes_query,
         fixed_node_changes,
@@ -165,7 +168,7 @@ pub(crate) fn compute_layout(
                                     available_space: taffy::Size<AvailableSpace>,
                                     entity: Entity,
                                     style: &Style| {
-            let Ok(content_size) = content_size_query.get(entity) else {
+            let Ok((_, _, _, content_size)) = node_query.get(entity) else {
                 return taffy::Size::ZERO;
             };
             let Some(measure) = content_size.measure.as_ref() else {
@@ -218,8 +221,12 @@ pub(crate) fn compute_layout(
 fn build_runtime_layout_tree<'a>(
     entity: Entity,
     ui_children: &UiChildren,
-    node_query: &'a Query<(Ref<Node>, Ref<ComputedUiRenderTargetInfo>, Ref<EmSize>)>,
-    content_size_query: &Query<Ref<ContentSize>>,
+    node_query: &'a Query<(
+        Ref<Node>,
+        Ref<ComputedUiRenderTargetInfo>,
+        Ref<EmSize>,
+        Ref<ContentSize>,
+    )>,
     computed_layout_query: &mut Query<&mut ComputedLayout>,
     fixed_nodes_query: &Query<Entity, (With<FixedNode>, With<bevy_ecs::hierarchy::ChildOf>)>,
     fixed_node_changes: &[Entity],
@@ -238,7 +245,6 @@ fn build_runtime_layout_tree<'a>(
             child,
             ui_children,
             node_query,
-            content_size_query,
             computed_layout_query,
             fixed_nodes_query,
             fixed_node_changes,
@@ -251,7 +257,7 @@ fn build_runtime_layout_tree<'a>(
         }
     }
 
-    let Ok((node, computed_target, em_size)) = node_query.get(entity) else {
+    let Ok((node, computed_target, em_size, content_size)) = node_query.get(entity) else {
         return None;
     };
     let Ok(mut computed_layout) = computed_layout_query.get_mut(entity) else {
@@ -266,9 +272,7 @@ fn build_runtime_layout_tree<'a>(
         || rem_size_changed
         || children_changed
         || computed_target.is_changed()
-        || content_size_query
-            .get(entity)
-            .is_ok_and(|content_size| content_size.is_changed())
+        || content_size.is_changed()
         || fixed_node_changes.contains(&entity)
         || !computed_layout.has_layout();
     subtree_dirty |= own_dirty;
