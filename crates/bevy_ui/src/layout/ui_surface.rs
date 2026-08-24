@@ -46,6 +46,8 @@ pub struct ComputedLayout {
     rounded: Option<Layout>,
     cache: Cache,
     visited: bool,
+    // last frame's resolved children
+    taffy_children: Vec<NodeId>,
 }
 
 impl ComputedLayout {
