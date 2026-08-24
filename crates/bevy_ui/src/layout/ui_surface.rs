@@ -2,7 +2,7 @@ use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
     component::Component,
     entity::Entity,
-    query::{Has, With},
+    query::Has,
     system::Query,
     world::Ref,
 };
