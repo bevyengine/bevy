@@ -131,7 +131,7 @@ pub(crate) fn compute_layout(
     rem_size_changed: bool,
 ) -> Result<(), LayoutError> {
     let mut runtime_nodes = HashMap::default();
-    let Ok(Some(_)) = build_runtime_layout_tree(
+    let Some(_) = build_runtime_layout_tree(
         ui_root_entity,
         ui_children,
         node_query,
@@ -226,7 +226,7 @@ fn build_runtime_layout_tree<'a>(
     runtime_nodes: &mut HashMap<NodeId, NodeStyle<'a>>,
     rem_size: RemSize,
     rem_size_changed: bool,
-) -> Result<Option<bool>, LayoutError> {
+) -> Option<bool> {
     let mut child_ids = Vec::new();
     let mut subtree_dirty = false;
     for child in ui_children.iter_ui_children(entity) {
@@ -245,17 +245,17 @@ fn build_runtime_layout_tree<'a>(
             runtime_nodes,
             rem_size,
             rem_size_changed,
-        )? {
+        ) {
             child_ids.push(entity_node_id(child));
             subtree_dirty |= built_child_dirty;
         }
     }
 
     let Ok((node, computed_target, em_size)) = node_query.get(entity) else {
-        return Ok(None);
+        return None;
     };
     let Ok(mut computed_layout) = computed_layout_query.get_mut(entity) else {
-        return Ok(None);
+        return None;
     };
     let computed_layout = computed_layout.bypass_change_detection();
 
@@ -288,7 +288,7 @@ fn build_runtime_layout_tree<'a>(
 
     runtime_nodes.insert(node_id, NodeStyle::from_node(node, layout_context));
 
-    Ok(Some(subtree_dirty))
+    Some(subtree_dirty)
 }
 
 #[derive(Default)]
