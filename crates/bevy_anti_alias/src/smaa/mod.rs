@@ -376,11 +376,17 @@ impl Plugin for SmaaPlugin {
             )
             .add_systems(
                 Core3d,
-                smaa.after(tonemapping).in_set(Core3dSystems::PostProcess),
+                smaa.after(tonemapping)
+                    .in_set(Core3dSystems::PostProcess)
+                    .in_set(crate::AntiAliasingSystems)
+                    .ambiguous_with(crate::AntiAliasingSystems),
             )
             .add_systems(
                 Core2d,
-                smaa.after(tonemapping).in_set(Core2dSystems::PostProcess),
+                smaa.after(tonemapping)
+                    .in_set(Core2dSystems::PostProcess)
+                    .in_set(crate::AntiAliasingSystems)
+                    .ambiguous_with(crate::AntiAliasingSystems),
             );
     }
 }
@@ -842,7 +848,7 @@ impl SmaaPreset {
 
 pub fn smaa(
     view: ViewQuery<(
-        &ViewTarget,
+        &mut ViewTarget,
         &ViewSmaaPipelines,
         &SmaaInfoUniformOffset,
         &SmaaTextures,
@@ -854,7 +860,7 @@ pub fn smaa(
     mut ctx: RenderContext,
 ) {
     let (
-        view_target,
+        mut view_target,
         view_pipelines,
         view_smaa_uniform_offset,
         smaa_textures,

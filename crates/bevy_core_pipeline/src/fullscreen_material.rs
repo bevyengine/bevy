@@ -235,7 +235,7 @@ fn prepare_bind_groups<T: FullscreenMaterial>(
     mut commands: Commands,
     mut view: Query<(
         Entity,
-        &ViewTarget,
+        &mut ViewTarget,
         Option<&mut FullscreenMaterialBindGroup<T>>,
         Option<&T>,
     )>,
@@ -275,12 +275,12 @@ fn prepare_bind_groups<T: FullscreenMaterial>(
         });
 
         if let Some(bind_groups) = &mut maybe_bind_groups {
-            if bind_groups.cache.should_update(view_target) {
-                bind_groups.cache.update(view_target, builder);
+            if bind_groups.cache.should_update(&view_target) {
+                bind_groups.cache.update(&view_target, builder);
             }
         } else {
             commands.entity(entity).insert(FullscreenMaterialBindGroup {
-                cache: builder.generate_bind_groups(view_target),
+                cache: builder.generate_bind_groups(&view_target),
                 _marker: PhantomData::<T>,
             });
         }
@@ -289,7 +289,7 @@ fn prepare_bind_groups<T: FullscreenMaterial>(
 
 pub fn fullscreen_material_system<T: FullscreenMaterial>(
     view: ViewQuery<(
-        &ViewTarget,
+        &mut ViewTarget,
         &DynamicUniformIndex<T>,
         &FullscreenMaterialBindGroup<T>,
         &FullscreenMaterialPipelineId,
@@ -298,7 +298,7 @@ pub fn fullscreen_material_system<T: FullscreenMaterial>(
     mut ctx: RenderContext,
     mut pass_label: Local<String>,
 ) {
-    let (view_target, settings_index, bind_groups, pipeline_id) = view.into_inner();
+    let (mut view_target, settings_index, bind_groups, pipeline_id) = view.into_inner();
 
     let Some(pipeline) = pipeline_cache.get_render_pipeline(pipeline_id.0) else {
         return;

@@ -69,7 +69,10 @@ impl Plugin for TemporalAntiAliasPlugin {
 
         render_app.add_systems(
             Core3d,
-            temporal_anti_alias.in_set(Core3dSystems::EarlyPostProcess),
+            temporal_anti_alias
+                .in_set(Core3dSystems::EarlyPostProcess)
+                .in_set(crate::AntiAliasingSystems)
+                .ambiguous_with(crate::AntiAliasingSystems),
         );
     }
 }
@@ -136,7 +139,7 @@ impl SyncComponent<RenderApp> for TemporalAntiAliasing {
 pub fn temporal_anti_alias(
     view: ViewQuery<(
         &ExtractedCamera,
-        &ViewTarget,
+        &mut ViewTarget,
         &TemporalAntiAliasHistoryTextures,
         &ViewPrepassTextures,
         &TemporalAntiAliasPipelineId,
@@ -146,7 +149,7 @@ pub fn temporal_anti_alias(
     pipeline_cache: Res<PipelineCache>,
     mut ctx: RenderContext,
 ) {
-    let (camera, view_target, taa_history_textures, prepass_textures, taa_pipeline_id, msaa) =
+    let (camera, mut view_target, taa_history_textures, prepass_textures, taa_pipeline_id, msaa) =
         view.into_inner();
 
     if *msaa != Msaa::Off {

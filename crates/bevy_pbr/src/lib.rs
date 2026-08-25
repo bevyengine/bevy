@@ -422,19 +422,21 @@ impl Plugin for PbrPlugin {
                 per_view_shadow_pass::<EARLY_SHADOW_PASS>
                     .after(early_prepass_build_indirect_parameters)
                     .before(early_downsample_depth)
-                    .before(per_view_shadow_pass::<LATE_SHADOW_PASS>),
+                    .before(per_view_shadow_pass::<LATE_SHADOW_PASS>)
+                    .in_set(Core3dSystems::Prepass),
                 per_view_shadow_pass::<LATE_SHADOW_PASS>
                     .after(late_prepass_build_indirect_parameters)
                     .before(main_build_indirect_parameters)
-                    .before(Core3dSystems::MainPass),
+                    .in_set(Core3dSystems::Prepass),
                 shared_shadow_pass::<EARLY_SHADOW_PASS>
                     .after(early_prepass_build_indirect_parameters)
                     .before(early_downsample_depth)
-                    .before(shared_shadow_pass::<LATE_SHADOW_PASS>),
+                    .before(shared_shadow_pass::<LATE_SHADOW_PASS>)
+                    .in_set(Core3dSystems::Prepass),
                 shared_shadow_pass::<LATE_SHADOW_PASS>
                     .after(late_prepass_build_indirect_parameters)
                     .before(main_build_indirect_parameters)
-                    .before(Core3dSystems::MainPass),
+                    .in_set(Core3dSystems::Prepass),
             ),
         );
     }
