@@ -1889,13 +1889,13 @@ mod tests {
             let root_layout = app
                 .world()
                 .get::<ComputedLayout>(root)
-                .and_then(|layout| layout.get(true))
+                .and_then(|layout| layout.get_layout(true))
                 .unwrap()
                 .0;
             let child_layout = app
                 .world()
                 .get::<ComputedLayout>(child)
-                .and_then(|layout| layout.get(true))
+                .and_then(|layout| layout.get_layout(true))
                 .unwrap()
                 .0;
             assert_eq!(root_layout.size.width, 100.);

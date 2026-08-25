@@ -45,7 +45,7 @@ pub struct ComputedLayout {
     rounded: Option<Layout>,
     /// cached sizing results
     cache: Cache,
-    /// was visted during layout
+    /// was visited during layout
     visited: bool,
     /// children
     children: Vec<NodeId>,
