@@ -400,7 +400,7 @@ fn tone_mapping(in: vec4<f32>, in_color_grading: ColorGrading) -> vec4<f32> {
 }
 
     // tone_mapping
-@if(TONEMAP_METHOD_NONE) {
+@if(TONEMAP_METHOD_LINEAR) {
     color = color;
 } @elif(TONEMAP_METHOD_REINHARD) {
     color = tonemapping_reinhard(color.rgb);
