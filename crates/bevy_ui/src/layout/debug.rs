@@ -44,7 +44,7 @@ fn print_node(
     let Ok((node, computed_layout, content_size)) = layout_query.get(entity) else {
         return;
     };
-    let Some((layout, _)) = computed_layout.get(true) else {
+    let Some((layout, _)) = computed_layout.get_layout(true) else {
         return;
     };
 

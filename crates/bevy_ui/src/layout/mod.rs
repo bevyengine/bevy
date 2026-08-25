@@ -202,8 +202,10 @@ pub fn ui_layout_system(
     }
 
     for (mut node, mut global_transform, mut computed_layout) in &mut node_queries.p2() {
-        computed_layout.clear_if_unreachable();
-        computed_layout.prepare_for_layout();
+        if !computed_layout.visited() {
+            computed_layout.clear();
+        }
+        computed_layout.set_visited(false);
 
         if computed_layout.has_layout() {
             continue;
@@ -266,7 +268,7 @@ pub fn ui_layout_system(
                 .map(|layout_config| layout_config.use_rounding)
                 .unwrap_or(inherited_use_rounding);
 
-            let Some((layout, unrounded_size)) = computed_layout.get(use_rounding) else {
+            let Some((layout, unrounded_size)) = computed_layout.get_layout(use_rounding) else {
                 return;
             };
 
@@ -556,7 +558,7 @@ mod tests {
             let layout = app
                 .world()
                 .get::<ComputedLayout>(ui_entity)
-                .and_then(|layout| layout.get(true))
+                .and_then(|layout| layout.get_layout(true))
                 .unwrap()
                 .0;
             assert_eq!(layout.size.width, TARGET_WIDTH as f32);
@@ -650,7 +652,7 @@ mod tests {
         assert_eq!(
             world
                 .get::<ComputedLayout>(ui_entity)
-                .and_then(|layout| layout.get(true))
+                .and_then(|layout| layout.get_layout(true))
                 .unwrap()
                 .0
                 .size
@@ -848,7 +850,7 @@ mod tests {
 
             let layout = world
                 .get::<ComputedLayout>(ui_node_entity)
-                .and_then(|layout| layout.get(true))
+                .and_then(|layout| layout.get_layout(true))
                 .expect("failed to get layout")
                 .0;
 
@@ -983,7 +985,7 @@ mod tests {
         assert_eq!(
             world
                 .get::<ComputedLayout>(fixed_entity)
-                .and_then(|layout| layout.get(true))
+                .and_then(|layout| layout.get_layout(true))
                 .unwrap()
                 .0
                 .size
@@ -1020,7 +1022,7 @@ mod tests {
         assert_eq!(
             world
                 .get::<ComputedLayout>(a)
-                .and_then(|layout| layout.get(true))
+                .and_then(|layout| layout.get_layout(true))
                 .unwrap()
                 .0
                 .size
@@ -1030,7 +1032,7 @@ mod tests {
         assert_eq!(
             world
                 .get::<ComputedLayout>(b)
-                .and_then(|layout| layout.get(true))
+                .and_then(|layout| layout.get_layout(true))
                 .unwrap()
                 .0
                 .size
@@ -1045,7 +1047,7 @@ mod tests {
         assert_eq!(
             world
                 .get::<ComputedLayout>(b)
-                .and_then(|layout| layout.get(true))
+                .and_then(|layout| layout.get_layout(true))
                 .unwrap()
                 .0
                 .size
@@ -1060,7 +1062,7 @@ mod tests {
         assert_eq!(
             world
                 .get::<ComputedLayout>(b)
-                .and_then(|layout| layout.get(true))
+                .and_then(|layout| layout.get_layout(true))
                 .unwrap()
                 .0
                 .size
@@ -1075,7 +1077,7 @@ mod tests {
         assert_eq!(
             world
                 .get::<ComputedLayout>(a)
-                .and_then(|layout| layout.get(true))
+                .and_then(|layout| layout.get_layout(true))
                 .unwrap()
                 .0
                 .size
@@ -1085,7 +1087,7 @@ mod tests {
         assert_eq!(
             world
                 .get::<ComputedLayout>(b)
-                .and_then(|layout| layout.get(true))
+                .and_then(|layout| layout.get_layout(true))
                 .unwrap()
                 .0
                 .size
@@ -1100,7 +1102,7 @@ mod tests {
         assert_eq!(
             world
                 .get::<ComputedLayout>(a)
-                .and_then(|layout| layout.get(true))
+                .and_then(|layout| layout.get_layout(true))
                 .unwrap()
                 .0
                 .size
@@ -1115,7 +1117,7 @@ mod tests {
         assert_eq!(
             world
                 .get::<ComputedLayout>(a)
-                .and_then(|layout| layout.get(true))
+                .and_then(|layout| layout.get_layout(true))
                 .unwrap()
                 .0
                 .size
@@ -1166,7 +1168,7 @@ mod tests {
             assert_eq!(
                 world
                     .get::<ComputedLayout>(entity)
-                    .and_then(|layout| layout.get(true))
+                    .and_then(|layout| layout.get_layout(true))
                     .unwrap()
                     .0
                     .size
@@ -1182,7 +1184,7 @@ mod tests {
         assert_eq!(
             world
                 .get::<ComputedLayout>(a)
-                .and_then(|layout| layout.get(true))
+                .and_then(|layout| layout.get_layout(true))
                 .unwrap()
                 .0
                 .size
@@ -1193,7 +1195,7 @@ mod tests {
             assert_eq!(
                 world
                     .get::<ComputedLayout>(entity)
-                    .and_then(|layout| layout.get(true))
+                    .and_then(|layout| layout.get_layout(true))
                     .unwrap()
                     .0
                     .size
@@ -1208,7 +1210,7 @@ mod tests {
         assert_eq!(
             world
                 .get::<ComputedLayout>(b)
-                .and_then(|layout| layout.get(true))
+                .and_then(|layout| layout.get_layout(true))
                 .unwrap()
                 .0
                 .size
@@ -1219,7 +1221,7 @@ mod tests {
             assert_eq!(
                 world
                     .get::<ComputedLayout>(entity)
-                    .and_then(|layout| layout.get(true))
+                    .and_then(|layout| layout.get_layout(true))
                     .unwrap()
                     .0
                     .size
@@ -1237,7 +1239,7 @@ mod tests {
             assert_eq!(
                 world
                     .get::<ComputedLayout>(entity)
-                    .and_then(|layout| layout.get(true))
+                    .and_then(|layout| layout.get_layout(true))
                     .unwrap()
                     .0
                     .size
@@ -1279,7 +1281,7 @@ mod tests {
         assert_eq!(
             app.world()
                 .get::<ComputedLayout>(child)
-                .and_then(|layout| layout.get(true))
+                .and_then(|layout| layout.get_layout(true))
                 .unwrap()
                 .0
                 .size
@@ -1294,7 +1296,7 @@ mod tests {
         assert_eq!(
             app.world()
                 .get::<ComputedLayout>(child)
-                .and_then(|layout| layout.get(true))
+                .and_then(|layout| layout.get_layout(true))
                 .unwrap()
                 .0
                 .size
@@ -1338,7 +1340,7 @@ mod tests {
         assert_eq!(
             app.world()
                 .get::<ComputedLayout>(root)
-                .and_then(|layout| layout.get(true))
+                .and_then(|layout| layout.get_layout(true))
                 .unwrap()
                 .0
                 .size
@@ -1348,7 +1350,7 @@ mod tests {
         assert_eq!(
             app.world()
                 .get::<ComputedLayout>(child)
-                .and_then(|layout| layout.get(true))
+                .and_then(|layout| layout.get_layout(true))
                 .unwrap()
                 .0
                 .size
@@ -1377,7 +1379,7 @@ mod tests {
         let layout = app
             .world()
             .get::<ComputedLayout>(ui_entity)
-            .and_then(|layout| layout.get(true))
+            .and_then(|layout| layout.get_layout(true))
             .unwrap()
             .0;
 
@@ -1416,7 +1418,7 @@ mod tests {
         let layout = app
             .world()
             .get::<ComputedLayout>(ui_node)
-            .and_then(|layout| layout.get(true))
+            .and_then(|layout| layout.get_layout(true))
             .unwrap()
             .0;
 
@@ -1455,7 +1457,7 @@ mod tests {
         let layout = app
             .world()
             .get::<ComputedLayout>(ui_entity)
-            .and_then(|layout| layout.get(true))
+            .and_then(|layout| layout.get_layout(true))
             .unwrap()
             .0;
         assert_eq!(layout.size.width, content_size.x);
@@ -1465,7 +1467,7 @@ mod tests {
         let layout = app
             .world()
             .get::<ComputedLayout>(ui_entity)
-            .and_then(|layout| layout.get(true))
+            .and_then(|layout| layout.get_layout(true))
             .unwrap()
             .0;
         assert_eq!(layout.size.width, content_size.x);
@@ -1481,7 +1483,7 @@ mod tests {
         let layout = app
             .world()
             .get::<ComputedLayout>(ui_entity)
-            .and_then(|layout| layout.get(true))
+            .and_then(|layout| layout.get_layout(true))
             .unwrap()
             .0;
         assert_eq!(layout.size.width, 0.);
@@ -1514,13 +1516,13 @@ mod tests {
         let rounded = app
             .world()
             .get::<ComputedLayout>(child)
-            .and_then(|layout| layout.get(true))
+            .and_then(|layout| layout.get_layout(true))
             .unwrap()
             .0;
         let unrounded = app
             .world()
             .get::<ComputedLayout>(child)
-            .and_then(|layout| layout.get(false))
+            .and_then(|layout| layout.get_layout(false))
             .unwrap()
             .0;
         assert_eq!(unrounded.size.width, 50.5);
@@ -1556,7 +1558,7 @@ mod tests {
         assert_eq!(
             app.world()
                 .get::<ComputedLayout>(parent)
-                .and_then(|layout| layout.get(true))
+                .and_then(|layout| layout.get_layout(true))
                 .unwrap()
                 .0
                 .size
@@ -1566,7 +1568,7 @@ mod tests {
         assert_eq!(
             app.world()
                 .get::<ComputedLayout>(fixed)
-                .and_then(|layout| layout.get(true))
+                .and_then(|layout| layout.get_layout(true))
                 .unwrap()
                 .0
                 .size
@@ -1603,7 +1605,7 @@ mod tests {
         assert_eq!(
             app.world()
                 .get::<ComputedLayout>(child)
-                .and_then(|layout| layout.get(true))
+                .and_then(|layout| layout.get_layout(true))
                 .unwrap()
                 .0
                 .size
@@ -1616,7 +1618,7 @@ mod tests {
         assert_eq!(
             app.world()
                 .get::<ComputedLayout>(child)
-                .and_then(|layout| layout.get(true))
+                .and_then(|layout| layout.get_layout(true))
                 .unwrap()
                 .0
                 .size
@@ -1629,7 +1631,7 @@ mod tests {
         assert_eq!(
             app.world()
                 .get::<ComputedLayout>(child)
-                .and_then(|layout| layout.get(true))
+                .and_then(|layout| layout.get_layout(true))
                 .unwrap()
                 .0
                 .size

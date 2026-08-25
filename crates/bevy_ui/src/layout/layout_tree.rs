@@ -36,50 +36,43 @@ fn node_id_entity(node_id: NodeId) -> Entity {
     Entity::try_from_bits(u64::from(node_id)).expect("missing layout entity")
 }
 
+/// Cached and computed layout state for a UI node.
 #[derive(Component, Debug, Clone, Default)]
-#[doc(hidden)]
 pub struct ComputedLayout {
+    /// unrounded layout
     unrounded: Option<Layout>,
+    /// rounded layout
     rounded: Option<Layout>,
+    /// cached sizing results
     cache: Cache,
+    /// was visted during layout
     visited: bool,
-    // children from previous frame
+    /// children
     children: Vec<NodeId>,
 }
 
 impl ComputedLayout {
-    pub(crate) fn clear(&mut self) {
+    /// Clear all state
+    pub fn clear(&mut self) {
         self.unrounded = None;
         self.rounded = None;
-    }
-
-    pub(crate) fn prepare_for_layout(&mut self) {
+        self.cache.clear();
+        self.children.clear();
         self.visited = false;
     }
 
-    /// Used to clear stale layout state if a node is unreachable
-    pub(crate) fn clear_if_unreachable(&mut self) {
-        if !self.visited {
-            self.clear();
-            self.cache.clear();
-            self.children.clear();
-        }
-    }
-
-    fn mark_visited(&mut self) {
-        self.visited = true;
-    }
-
-    fn clear_cache(&mut self) {
-        self.cache.clear();
-    }
-
+    /// Returns true if both rounded and unrounded layouts are present
     pub fn has_layout(&self) -> bool {
         self.unrounded.is_some() && self.rounded.is_some()
     }
 
+    /// Set rounded layout
+    pub fn set_rounded(&mut self, layout: Layout) {
+        self.rounded = Some(layout);
+    }
+
     /// Returns `true` if the layout changed since the last update
-    fn set_unrounded(&mut self, layout: Layout) -> bool {
+    pub fn set_unrounded(&mut self, layout: Layout) -> bool {
         if self.unrounded == Some(layout) {
             return false;
         }
@@ -87,11 +80,18 @@ impl ComputedLayout {
         true
     }
 
-    fn set_rounded(&mut self, layout: Layout) {
-        self.rounded = Some(layout);
+    /// Set visited state
+    pub fn set_visited(&mut self, visited: bool) {
+        self.visited = visited;
     }
 
-    pub fn get(&self, use_rounding: bool) -> Option<(Layout, Vec2)> {
+    /// Returns true if visited
+    pub fn visited(&self) -> bool {
+        self.visited
+    }
+
+    /// Get the layout geometry and size
+    pub fn get_layout(&self, use_rounding: bool) -> Option<(Layout, Vec2)> {
         let unrounded = self.unrounded?;
         let selected_layout = if use_rounding {
             self.rounded?
@@ -101,17 +101,6 @@ impl ComputedLayout {
         let unrounded_size = Vec2::new(unrounded.size.width, unrounded.size.height);
 
         Some((selected_layout, unrounded_size))
-    }
-
-    // Replace the previous children list, returning true if different.
-    fn set_children(&mut self, children: &[NodeId]) -> bool {
-        if self.children == children {
-            return false;
-        }
-
-        self.children.clear();
-        self.children.extend_from_slice(children);
-        true
     }
 }
 
@@ -244,7 +233,7 @@ fn build_runtime_layout_tree<'a>(
         return None;
     }
 
-    let mut child_ids = Vec::new();
+    let mut new_children = Vec::new();
     let mut subtree_dirty = false;
     for child in ui_children.iter_ui_children(entity) {
         if let Some(built_child_dirty) = build_runtime_layout_tree(
@@ -258,7 +247,7 @@ fn build_runtime_layout_tree<'a>(
             rem_size,
             rem_size_changed,
         ) {
-            child_ids.push(entity_node_id(child));
+            new_children.push(entity_node_id(child));
             subtree_dirty |= built_child_dirty;
         }
     }
@@ -269,7 +258,12 @@ fn build_runtime_layout_tree<'a>(
     let computed_layout = computed_layout.bypass_change_detection();
 
     let node_id = entity_node_id(entity);
-    let children_changed = computed_layout.set_children(&child_ids);
+    let children_changed = computed_layout.children != new_children;
+    if children_changed {
+        computed_layout.children.clear();
+        computed_layout.children.extend_from_slice(&new_children);
+    }
+
     let own_dirty = node.is_changed()
         || em_size.is_changed()
         || rem_size_changed
@@ -288,9 +282,9 @@ fn build_runtime_layout_tree<'a>(
     );
     let node = node.into_inner();
 
-    computed_layout.mark_visited();
+    computed_layout.visited = true;
     if subtree_dirty {
-        computed_layout.clear_cache();
+        computed_layout.cache.clear();
     }
 
     runtime_nodes.insert(node_id, NodeStyle::from_node(node, layout_context));
@@ -588,6 +582,6 @@ mod tests {
     #[test]
     fn missing_layout_returns_none() {
         let computed_layout = ComputedLayout::default();
-        assert!(computed_layout.get(true).is_none());
+        assert!(computed_layout.get_layout(true).is_none());
     }
 }
