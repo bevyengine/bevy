@@ -1,7 +1,7 @@
 use bevy_platform::collections::hash_map::Entry;
 use core::fmt;
 use core::ops::{Deref, DerefMut};
-use taffy::{LayoutOutput, NodeId};
+use taffy::NodeId;
 use taffy::{Style, TaffyTree, TraversePartialTree};
 use thiserror::Error;
 
