@@ -1,6 +1,6 @@
 use crate::{
     experimental::{UiChildren, UiRootNodes},
-    ui_surface::compute_layout,
+    layout_tree::compute_layout,
     ui_transform::{UiGlobalTransform, UiTransform},
     ComputedNode, ComputedUiRenderTargetInfo, ContentSize, Display, FixedNode, IgnoreScroll,
     LayoutConfig, Node, Outline, OverflowAxis, ScrollPosition,
@@ -17,15 +17,15 @@ use bevy_ecs::{
 
 use bevy_math::{Affine2, Vec2};
 use bevy_sprite::BorderRect;
+use layout_tree::ComputedLayout;
 use thiserror::Error;
-use ui_surface::ComputedLayout;
 
 use bevy_text::{ComputedTextBlock, EmSize, FontCx, RemSize, TextFont, DEFAULT_REM_SIZE_PX};
 
 mod convert;
 pub mod debug;
+pub mod layout_tree;
 mod style;
-pub mod ui_surface;
 
 #[derive(Copy, Clone)]
 pub struct LayoutContext {
@@ -445,9 +445,9 @@ pub fn ui_layout_system(
 
 #[cfg(test)]
 mod tests {
-    use crate::ui_surface::compute_layout;
+    use crate::layout_tree::compute_layout;
     use crate::{
-        experimental::UiChildren, layout::ui_surface::ComputedLayout, prelude::*,
+        experimental::UiChildren, layout::layout_tree::ComputedLayout, prelude::*,
         sync_font_size_to_em_size, ui_layout_system, update::propagate_ui_target_cameras,
         ContentSize,
     };

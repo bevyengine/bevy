@@ -4,7 +4,7 @@ use bevy_ecs::{entity::Entity, hierarchy::ChildOf, query::With, system::Query};
 
 use crate::{
     experimental::{UiChildren, UiRootNodes},
-    layout::ui_surface::ComputedLayout,
+    layout::layout_tree::ComputedLayout,
     ContentSize, Display, FixedNode, Node,
 };
 
