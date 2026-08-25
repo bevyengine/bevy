@@ -5,10 +5,14 @@
 //! loads and synchronises settings with the filesystem or browser
 //! local storage, depending on platform.
 //!
-//! Settings are loaded to types that implement [`SettingsGroup`](trait@SettingsGroup),
-//! which is best implemented using the derive macro [`SettingsGroup`](derive@SettingsGroup). 
-//!  Afterwards, systems can query for settings using `Res` and
-//! `ResMut` queries.
+//! Settings are loaded into resources that implement [`SettingsGroup`](trait@SettingsGroup),
+//! which is best implemented using the derive macro [`SettingsGroup`](derive@SettingsGroup).
+//! In addition, the resource must implement [`Default`](std::default::Default),
+//! [`Resource`](bevy::prelude::Resource), and [`Reflect`](bevy::reflect::Reflect), as well
+//! as have the `#[reflect(SettingsGroup, Default)]` annotation.
+//!
+//! Once all these conditions are met, and when [`SettingsPlugin`] is added, systems can query
+//! for settings using like any other resource.
 //!
 //! Refer to [`SettingsPlugin`] for detailed usage information.
 
@@ -48,6 +52,12 @@ use store_fs::SettingsStore;
 use store_wasm::SettingsStore;
 
 /// Plugin to orchestrate loading and saving settings.
+///
+/// When added to an app, `SettingsPlugin` will load settings from storage (either the filesystem
+/// or browser local storage) into resources that implement the [`SettingsGroup`](trait@SettingsGroup),
+/// [`Default`](std::default::Default), and [`Reflect`](bevy::reflect::Reflect) traits, and, in
+/// addition, are also annotated with `#[reflect(Default, SettingsGroup)]`. The plugin can also be used
+/// to write these settings back to storage after they are changed.
 ///
 /// You are required to provide a unique application name, so that your settings don't overwrite
 /// those of other apps. To ensure global uniqueness, it is recommended to use a
@@ -163,6 +173,9 @@ impl Plugin for SettingsPlugin {
 
 /// Trait which identifies a type as corresponding to a section with a settings file.
 ///
+/// In order for [`SettingsPlugin`] to do anything with types that implement this trait, the type must also
+/// implement `Default` and `Reflect`, and be annotated with `#[reflect(SettingsGroup, Default)]`.
+///
 /// You can override the name of the section with `settings_group(group = "<name>")`.
 /// For enum `SettingGroup`s, you can also override the name of its key with `settings_group(key = "<name>")`
 /// The name should be in ``snake_case`` to be consistent with TOML style.
@@ -173,6 +186,13 @@ impl Plugin for SettingsPlugin {
 /// `settings_group(file = "<filename>")`. This should be the base name of the file without the
 /// extension. The default name is `settings`, which will cause the settings to be written out
 /// to `settings.toml` in the app's settings directory.
+///
+/// Since these resources are loaded from storage, it is possible for them to be modified by hand by users,
+/// so it's important to not rely on the validity of the data. In particular, it is important to ensure you do not
+/// rely on any invariants of the input data to ensure safety elsewhere in your code.
+///
+// FIXME(settings-reduce-silent-errors) This should be `pub trait SettingsGroup: Resource + Reflect + Default` since
+// that's the minimum needed to make the SettingsPlugin actually do things with this.
 pub trait SettingsGroup: Resource {
     /// The name of the logical section within the settings file.
     fn settings_group_name() -> &'static str;

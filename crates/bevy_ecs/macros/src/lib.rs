@@ -630,6 +630,9 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
 /// test = true
 /// ```
 ///
+/// Note that it's possible to make multiple different types share the same group and file
+/// using this, and that case isn't well tested
+///
 /// ## File Override
 /// ```ignore
 /// #[derive(SettingsGroup)]
