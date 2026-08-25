@@ -329,14 +329,7 @@ impl SystemExecutor for MultiThreadedExecutor {
 }
 
 impl<'scope, 'env: 'scope, 'sys> Context<'scope, 'env, 'sys> {
-    fn system_completed(
-        &self,
-        system_index: usize,
-        res: Result<(), Box<dyn Any + Send>>,
-        // This must not take `&ScheduleSystem`, because Rust requires references to be valid for the entire function,
-        // and the system may be accessed by another thread running `apply_deferred` after `tick_executor()` runs.
-        system: &SyncUnsafeCell<SystemWithAccess>,
-    ) {
+    fn system_completed(&self, system_index: usize, res: Result<(), Box<dyn Any + Send>>) {
         // tell the executor that the system finished
         self.environment
             .executor
@@ -344,18 +337,9 @@ impl<'scope, 'env: 'scope, 'sys> Context<'scope, 'env, 'sys> {
             .push(SystemResult { system_index })
             .unwrap_or_else(|error| unreachable!("{}", error));
         if let Err(payload) = res {
-            #[cfg(feature = "std")]
-            #[expect(clippy::print_stderr, reason = "Allowed behind `std` feature gate.")]
-            {
-                // SAFETY: this system is not running, no other reference exists
-                let system = unsafe { &(*system.get()).system };
-                eprintln!("Encountered a panic in system `{}`!", system.name());
-            }
             // set the payload to propagate the error
-            {
-                let mut panic_payload = self.environment.executor.panic_payload.lock().unwrap();
-                *panic_payload = Some(payload);
-            }
+            let mut panic_payload = self.environment.executor.panic_payload.lock().unwrap();
+            *panic_payload = Some(payload);
         }
         self.tick_executor();
     }
@@ -685,7 +669,7 @@ impl ExecutorState {
                 context.error_handler,
                 "System panicked",
             );
-            context.system_completed(system_index, res, system);
+            context.system_completed(system_index, res);
         };
 
         if system_meta.is_send {
@@ -718,7 +702,7 @@ impl ExecutorState {
                     world,
                     context.error_handler,
                 );
-                context.system_completed(system_index, res, system);
+                context.system_completed(system_index, res);
             };
 
             context.scope.spawn_on_scope(task);
@@ -734,7 +718,7 @@ impl ExecutorState {
                     context.error_handler,
                     "Exclusive system panicked",
                 );
-                context.system_completed(system_index, res, system);
+                context.system_completed(system_index, res);
             };
 
             context.scope.spawn_on_scope(task);
@@ -882,7 +866,7 @@ fn handle_errors(
     PANIC_ORIGINATES_FROM_ERROR_HANDLER.set(false);
     let potential_unwind = std::panic::catch_unwind(AssertUnwindSafe(|| f(system)));
     let panic_originates_from_error_handler = PANIC_ORIGINATES_FROM_ERROR_HANDLER.replace(false);
-    match potential_unwind {
+    let res = match potential_unwind {
         // A panic occurred, but it came from an error handler, so pass it on to be rethrown
         Err(payload) if panic_originates_from_error_handler => Err(payload),
         // Let the error handler handle the panic, passing on any panic it throws
@@ -913,7 +897,21 @@ fn handle_errors(
         })),
         // Success (or skipped system)
         _ => Ok(()),
+    };
+
+    // if the error handler panics, output some info about the system
+    if res.is_err() {
+        #[cfg(feature = "std")]
+        #[expect(clippy::print_stderr, reason = "Allowed behind `std` feature gate.")]
+        {
+            eprintln!(
+                "Error handler panicked handling system `{}`!",
+                system.name()
+            );
+        }
     }
+
+    res
 }
 
 /// New-typed [`ThreadExecutor`] [`Resource`] that is used to run systems on the main thread
