@@ -133,14 +133,13 @@ impl<M: Asset> Default for SpriteMaterialCache<M> {
 }
 
 impl<M: Asset> SpriteMaterialCache<M> {
-    fn clean(&mut self, event: &AssetEvent<M>) {
-        if let AssetEvent::Removed { id } = event
-            && let Some(key) = self.reversed.remove(id)
+    fn clean(&mut self, id: AssetId<M>) {
+        if let Some(key) = self.reversed.remove(&id)
             && let Entry::Occupied(mut bucket) = self.map.entry(key)
         {
             bucket
                 .get_mut()
-                .retain(|(_, cached_material_id)| cached_material_id != id);
+                .retain(|(_, cached_material_id)| *cached_material_id != id);
 
             if bucket.get().is_empty() {
                 bucket.remove();
@@ -196,7 +195,9 @@ fn add_material(
     mut material_events: MessageReader<AssetEvent<SpriteMaterial>>,
 ) {
     for event in material_events.read() {
-        cached_materials.clean(event);
+        if let AssetEvent::Removed { id } = event {
+            cached_materials.clean(*id);
+        }
     }
 
     for (entity, sprite, anchor) in sprites {
