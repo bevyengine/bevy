@@ -516,7 +516,7 @@ fn parse_closure_loose(input: &ParseBuffer) -> Result<TokenStream> {
     Ok(tokens)
 }
 
-/// Parses "dot expressions" in the style of .foo().bar.baz::<A>()
+/// Parses "dot expressions" in the style of `.foo().bar.baz::<A>()`
 fn parse_extended_dot_expression(input: &ParseBuffer) -> Result<TokenStream> {
     let start = input.cursor();
     while input.peek(Dot) {
