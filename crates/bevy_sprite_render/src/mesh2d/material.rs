@@ -623,7 +623,7 @@ pub const fn alpha_mode_pipeline_key_2d(alpha_mode: AlphaMode) -> Mesh2dPipeline
 
 pub const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> Mesh2dPipelineKey {
     match tonemapping {
-        Tonemapping::None => Mesh2dPipelineKey::TONEMAP_METHOD_NONE,
+        Tonemapping::None | Tonemapping::Linear => Mesh2dPipelineKey::TONEMAP_METHOD_LINEAR,
         Tonemapping::Reinhard => Mesh2dPipelineKey::TONEMAP_METHOD_REINHARD,
         Tonemapping::ReinhardLuminance => Mesh2dPipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE,
         Tonemapping::AcesFitted => Mesh2dPipelineKey::TONEMAP_METHOD_ACES_FITTED,
