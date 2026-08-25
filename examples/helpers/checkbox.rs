@@ -11,13 +11,13 @@ use bevy::{
 /// A newtype bool wrapper to indicate a widget's checked status.
 pub struct IsChecked(pub bool);
 
-impl IsChecked { 
-   fn checked(&self) -> bool { 
-       match self { 
-           IsChecked(true) => true, 
-           IsChecked(false) => false, 
-       } 
-   } 
+impl IsChecked {
+    fn checked(&self) -> bool {
+        match self {
+            IsChecked(true) => true,
+            IsChecked(false) => false,
+        }
+    }
 }
 
 /// Creates a single feathers checkbox that allows configuration of a setting.  
@@ -34,36 +34,21 @@ pub fn feathers_option_checkbox<T>(
 where
     T: Template<Output: Component> + Clone + Default + Send + Sync + Unpin + 'static,
 {
-    if let Some(identifier) = checkbox_identifier {
-        Box::new(bsn! {
-            Node {
-                align_items: AlignItems::Center,
-                column_gap: px(5),
+    Box::new(bsn! {
+        Node {
+            align_items: AlignItems::Center,
+            column_gap: px(5),
+        }
+        Children [
+            @FeathersCheckbox {
+                @caption: bsn! { caption(option_name) }
             }
-            Children [
-                @FeathersCheckbox {
-                    @caption: bsn! { caption(option_name) }
-                }
-                Hovered::default()
-                template_value(identifier)
-                on(checkbox_self_update)
-		{status.checked().then(|| bsn! { Checked })}
-            ]
-        })
-    } else {
-        Box::new(bsn! {
-            Node {
-                align_items: AlignItems::Center,
-                column_gap: px(5),
-            }
-            Children [
-                @FeathersCheckbox {
-                    @caption: bsn! { caption(option_name) }
-                }
-                Hovered::default()
-                on(checkbox_self_update)
-		{status.checked().then(|| bsn! { Checked })}
-            ]
-        })
-    }
+        Hovered::default()
+        {checkbox_identifier.is_some().then(||
+            { bsn! { template_value(checkbox_identifier.unwrap()) }
+        })}
+        on(checkbox_self_update)
+        {status.checked().then(|| bsn! { Checked })}
+        ]
+    })
 }

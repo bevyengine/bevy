@@ -20,7 +20,7 @@ use bevy::{
     ui_widgets::{checkbox_self_update, ValueChange},
 };
 use checkbox::{feathers_option_checkbox, IsChecked};
-use scene::{bottom_left_scene, top_left_scene};
+use scene::top_left_scene;
 
 #[path = "../helpers/checkbox.rs"]
 mod checkbox;
@@ -29,6 +29,7 @@ mod checkbox;
 mod theme;
 
 #[path = "../helpers/scene.rs"]
+#[expect(dead_code, reason = "not all scenes used")]
 mod scene;
 
 /// Various settings for the demo.
@@ -166,11 +167,11 @@ fn setup(
     spawn_buttons(&mut commands);
 }
 
-/// Spawns the checkboxes in the bottom left corner of the screen.
+/// Spawns the checkboxes in the top left corner of the screen.
 fn spawn_buttons(commands: &mut Commands) {
     if !cfg!(target_arch = "wasm32") {
         commands.spawn_scene(bsn! {
-            bottom_left_scene()
+            top_left_scene()
             Children [
                 feathers_option_checkbox("ROTATE", Some(CheckboxInput::Rotation), IsChecked(false)),
                 feathers_option_checkbox("WIREFRAME", Some(CheckboxInput::Wireframe), IsChecked(false)),
