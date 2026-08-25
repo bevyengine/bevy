@@ -174,7 +174,7 @@ impl Plugin for SettingsPlugin {
 /// Trait which identifies a type as corresponding to a section with a settings file.
 ///
 /// In order for [`SettingsPlugin`] to do anything with types that implement this trait, the type must also
-/// implement `Default` and `Reflect`, and be annotated with `#[reflect(SettingsGroup, Default)]`.
+/// be annotated with `#[reflect(SettingsGroup, Default)]`.
 ///
 /// You can override the name of the section with `settings_group(group = "<name>")`.
 /// For enum `SettingGroup`s, you can also override the name of its key with `settings_group(key = "<name>")`
@@ -190,10 +190,7 @@ impl Plugin for SettingsPlugin {
 /// Since these resources are loaded from storage, it is possible for them to be modified by hand by users,
 /// so it's important to not rely on the validity of the data. In particular, it is important to ensure you do not
 /// rely on any invariants of the input data to ensure safety elsewhere in your code.
-///
-// FIXME(settings-reduce-silent-errors) This should be `pub trait SettingsGroup: Resource + Reflect + Default` since
-// that's the minimum needed to make the SettingsPlugin actually do things with this.
-pub trait SettingsGroup: Resource {
+pub trait SettingsGroup: Resource + bevy_reflect::Reflect + Default {
     /// The name of the logical section within the settings file.
     fn settings_group_name() -> &'static str;
 
@@ -449,6 +446,7 @@ fn build_settings_registry(
     };
     file_index.save_timer.pause(); // Ensure timer is initially paused
 
+    let mut errors = Vec::new();
     // Scan through types looking for resources that have the necessary traits and
     // annotations.
     for ty in types.iter() {
@@ -458,13 +456,12 @@ fn build_settings_registry(
         };
 
         if !ty.contains::<ReflectDefault>() {
-            // FIXME(settings-reduce-silent-errors) In the future, as a breaking change, we could possibly change this to a panic,
-            // which is a much stronger hint to users that if you're reflecting SettingsGroup, you also need to reflect Default.
-            // But for now, to avoid breaking changes, this will just be a warning.
-            warn!(
+            // Collect all the errors into a single list so that a user can see all of them at once rather than chasing them
+            // down one by one as they fix the errors.
+            errors.push(format!(
                 "Type {} has #[reflect(SettingsGroup)], which requires #[reflect(Default)]. It will not be saved or loaded.",
                 ty.type_info().type_path()
-            );
+            ));
             continue;
         };
 
@@ -479,6 +476,9 @@ fn build_settings_registry(
             });
         pending_file.last_save = last_save;
         pending_file.resource_types.push(ty.type_id());
+    }
+    if !errors.is_empty() {
+        panic!("{}", errors.join("\n"));
     }
 
     file_index
