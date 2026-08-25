@@ -432,11 +432,19 @@ fn build_settings_registry(
     // Scan through types looking for resources that have the necessary traits and
     // annotations.
     for ty in types.iter() {
-        if !ty.contains::<ReflectDefault>() {
+        // All types that are relevant
+        let Some(reflect_group) = ty.data::<ReflectSettingsGroup>() else {
             continue;
         };
 
-        let Some(reflect_group) = ty.data::<ReflectSettingsGroup>() else {
+        if !ty.contains::<ReflectDefault>() {
+            // FIXME(settings-reduce-silent-errors) In the future, as a breaking change, we could possibly change this to a panic,
+            // which is a much stronger hint to users that if you're reflecting SettingsGroup, you also need to reflect Default.
+            // But for now, to avoid breaking changes, this will just be a warning.
+            warn!(
+                "Type {} has #[reflect(SettingsGroup)], which requires #[reflect(Default)]. It will not be saved or loaded.",
+                ty.type_info().type_path()
+            );
             continue;
         };
 
