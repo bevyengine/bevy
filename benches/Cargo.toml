@@ -22,6 +22,8 @@ bevy_math = { path = "../crates/bevy_math" }
 bevy_picking = { path = "../crates/bevy_picking", features = ["mesh_picking"] }
 bevy_reflect = { path = "../crates/bevy_reflect", features = ["functions"] }
 bevy_camera = { path = "../crates/bevy_camera" }
+bevy_color = { path = "../crates/bevy_color" }
+bevy_gizmos = { path = "../crates/bevy_gizmos" }
 bevy_mesh = { path = "../crates/bevy_mesh" }
 bevy_asset = { path = "../crates/bevy_asset" }
 bevy_render = { path = "../crates/bevy_render" }
@@ -123,6 +125,11 @@ harness = false
 [[bench]]
 name = "camera"
 path = "benches/bevy_camera/main.rs"
+harness = false
+
+[[bench]]
+name = "gizmos"
+path = "benches/bevy_gizmos/main.rs"
 harness = false
 
 [[bench]]
