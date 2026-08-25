@@ -190,6 +190,23 @@ pub struct ReflectSettingsGroup {
     settings_source: Option<&'static str>,
 }
 
+impl ReflectSettingsGroup {
+    /// Returns the groups's name.
+    pub fn settings_group_name(&self) -> &'static str {
+        self.settings_group_name
+    }
+
+    /// Returns the key name within the settings file of this group. Should only be `Some` for enums.
+    pub fn settings_key_name(&self) -> Option<&'static str> {
+        self.settings_key_name
+    }
+
+    /// Returns the name of this group's settings file.
+    pub fn settings_source(&self) -> Option<&'static str> {
+        self.settings_source
+    }
+}
+
 impl<T: SettingsGroup + FromReflect + TypePath> CreateTypeData<T> for ReflectSettingsGroup {
     fn create_type_data(_input: ()) -> Self {
         ReflectSettingsGroup {
