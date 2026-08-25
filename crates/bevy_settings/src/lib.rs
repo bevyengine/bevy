@@ -2,7 +2,7 @@
 //! applications.
 //!
 //! The core of the framework is [`SettingsPlugin`], which
-//! loads and synchronises settings with the filesystem or browser
+//! loads and synchronizes settings with the filesystem or browser
 //! local storage, depending on platform.
 //!
 //! Settings are loaded into resources that implement [`SettingsGroup`](trait@SettingsGroup),
