@@ -190,7 +190,10 @@ impl Plugin for SettingsPlugin {
 /// Since these resources are loaded from storage, it is possible for them to be modified by hand by users,
 /// so it's important to not rely on the validity of the data. In particular, it is important to ensure you do not
 /// rely on any invariants of the input data to ensure safety elsewhere in your code.
-pub trait SettingsGroup: Resource + bevy_reflect::Reflect + Default {
+///
+// FIXME(settings-reduce-silent-errors) This should be `pub trait SettingsGroup: Resource + Reflect + Default` since
+// that's the minimum needed to make the SettingsPlugin actually do things with this.
+pub trait SettingsGroup: Resource {
     /// The name of the logical section within the settings file.
     fn settings_group_name() -> &'static str;
 
@@ -446,7 +449,6 @@ fn build_settings_registry(
     };
     file_index.save_timer.pause(); // Ensure timer is initially paused
 
-    let mut error_list = Vec::new();
     // Scan through types looking for resources that have the necessary traits and
     // annotations.
     for ty in types.iter() {
@@ -456,13 +458,13 @@ fn build_settings_registry(
         };
 
         if !ty.contains::<ReflectDefault>() {
-            // If you reflect SettingsGroup, you also need to reflect Default. Collect it all into a single
-            // list so that users don't have to fix one error and recompile and run in order to find the next
-            // error.
-            error_list.push(format!(
+            // FIXME(settings-reduce-silent-errors) In the future, as a breaking change, we could possibly change this to a panic,
+            // which is a much stronger hint to users that if you're reflecting SettingsGroup, you also need to reflect Default.
+            // But for now, to avoid breaking changes, this will just be a warning.
+            warn!(
                 "Type {} has #[reflect(SettingsGroup)], which requires #[reflect(Default)]. It will not be saved or loaded.",
                 ty.type_info().type_path()
-            ));
+            );
             continue;
         };
 
@@ -477,10 +479,6 @@ fn build_settings_registry(
             });
         pending_file.last_save = last_save;
         pending_file.resource_types.push(ty.type_id());
-    }
-
-    if !error_list.is_empty() {
-        panic!("{}", error_list.join("\n"));
     }
 
     file_index
