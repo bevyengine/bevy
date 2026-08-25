@@ -286,11 +286,11 @@ mod tests {
         assert_eq!(handle3, handle4);
         assert_eq!(assets.get(&handle4).cloned(), Some(mat.clone()));
 
-        cache.clean(&AssetEvent::Removed { id: handle.id() });
+        cache.clean(handle.id());
         assert_eq!(cache.map.len(), 1);
         assert_eq!(cache.reversed.len(), 1);
 
-        cache.clean(&AssetEvent::Removed { id: handle3.id() });
+        cache.clean(handle3.id());
         assert_eq!(cache.map.len(), 0);
         assert_eq!(cache.reversed.len(), 0);
     }
