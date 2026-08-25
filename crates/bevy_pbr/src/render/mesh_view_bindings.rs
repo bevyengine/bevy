@@ -13,8 +13,6 @@ use bevy_core_pipeline::{
         get_lut_bind_group_layout_entries, get_lut_bindings, Tonemapping, TonemappingLuts,
     },
 };
-#[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
-use bevy_ecs::system::Local;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -690,11 +688,10 @@ pub fn prepare_mesh_view_bind_groups(
         Res<DfgLut>,
     ),
     // TODO: Figure out how to reuse the memory. `BindGroupEntry` is non-send on wasm with atomics.
-    #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))] mut entries_cache: Local<
-        Vec<BindGroupEntry>,
-    >,
     #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
-    mut entries_binding_array_cache: Local<Vec<BindGroupEntry>>,
+    mut entries_cache: bevy_ecs::system::Local<Vec<BindGroupEntry>>,
+    #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
+    mut entries_binding_array_cache: bevy_ecs::system::Local<Vec<BindGroupEntry>>,
 ) {
     if let (
         Some(view_binding),
