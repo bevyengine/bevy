@@ -270,7 +270,7 @@ impl ComponentDescriptor {
 
     /// Create a new `ComponentDescriptor` for the type `T`.
     pub fn new<T: Component>() -> Self {
-        let summary_tick = T::has_summary_tick();
+        let summary_tick = T::HAS_SUMMARY_TICK;
         assert!(
             !summary_tick || matches!(T::STORAGE_TYPE, StorageType::Table),
             "Summary ticks are only supported for table components"

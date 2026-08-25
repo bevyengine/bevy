@@ -1,11 +1,12 @@
-import bevy_pbr::light_probe::{light_probe_iterator_new, light_probe_iterator_next};
-import bevy_pbr::render::mesh_view_bindings as bindings;
-import bevy_pbr::render::mesh_view_bindings::light_probes;
-import bevy_pbr::render::mesh_view_types::{
+import package::light_probe::{light_probe_iterator_new, light_probe_iterator_next};
+import package::render::mesh_view_bindings as bindings;
+import package::render::mesh_view_bindings::light_probes;
+import package::render::mesh_view_types::{
     LIGHT_PROBE_FLAG_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE, LIGHT_PROBE_FLAG_PARALLAX_CORRECT
 };
-import bevy_pbr::render::pbr_lighting::{F_Schlick_vec, LightingInput, LayerLightingInput, LAYER_BASE, LAYER_CLEARCOAT};
-import bevy_pbr::render::clustered_forward::ClusterableObjectIndexRanges;
+import package::render::pbr_lighting::{F_Schlick_vec, LightingInput, LayerLightingInput, LAYER_BASE, LAYER_CLEARCOAT};
+import package::render::clustered_forward::ClusterableObjectIndexRanges;
+import bevy_render::maths::quat_rotate;
 
 // The maximum representable value in a 32-bit floating point number.
 const FLOAT_MAX: f32 = 3.40282347e+38;
@@ -403,9 +404,4 @@ fn radiance_sample_direction(N: vec3<f32>, R: vec3<f32>, roughness: f32) -> vec3
     let smoothness = saturate(1.0 - roughness);
     let lerp_factor = smoothness * (sqrt(smoothness) + roughness);
     return mix(N, R, lerp_factor);
-}
-
-fn quat_rotate(q: vec4<f32>, dir: vec3<f32>) -> vec3<f32> {
-    let t = 2.0 * cross(q.xyz, dir);
-    return dir + q.w * t + cross(q.xyz, t);
 }

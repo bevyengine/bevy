@@ -1,4 +1,4 @@
-import bevy_pbr::render::mesh_bindings::mesh;
+import package::render::mesh_bindings::mesh;
 
 @if(MULTIPLE_LIGHTMAPS_IN_ARRAY)
 enable wgpu_binding_array;
