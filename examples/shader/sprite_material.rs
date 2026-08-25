@@ -7,7 +7,6 @@ use bevy::{
 
 /// This example uses a shader source file from the assets subdirectory
 const SHADER_ASSET_PATH: &str = "shaders/sprite_material.wesl";
-const NOISE_TEXTURE: &str = "textures/perlin_noise.png";
 
 fn main() {
     App::new()
@@ -36,16 +35,14 @@ struct DissolveMaterial {
     amount: f32,
     #[uniform(20)]
     burn_edge: f32,
-    #[cfg(feature = "webgl2")]
+
     // WebGL2 requires structs to be aligned to 16 bytes
+    #[cfg(feature = "webgl2")]
     #[uniform(20)]
     _webgl2_padding_12b: u32,
     #[cfg(feature = "webgl2")]
     #[uniform(20)]
     _webgl2_padding_16b: u32,
-    #[texture(21)]
-    #[sampler(22)]
-    noise: Handle<Image>,
 }
 
 impl MaterialExtension2d for DissolveMaterial {
@@ -55,12 +52,12 @@ impl MaterialExtension2d for DissolveMaterial {
 }
 
 impl DissolveMaterial {
-    fn new(amount: f32, asset_server: &AssetServer) -> Self {
+    fn new(amount: f32) -> Self {
         Self {
             amount,
             burn_edge: 0.05,
             burn_edge_color: LinearRgba::rgb(1.0, 0.66, 0.0),
-            noise: asset_server.load(NOISE_TEXTURE),
+
             #[cfg(feature = "webgl2")]
             _webgl2_padding_12b: 0,
             #[cfg(feature = "webgl2")]
@@ -83,17 +80,16 @@ enum DissolveState {
     Hidden,
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
     commands.spawn(Text::new("Space to dissolve"));
-    let material = DissolveMaterial::new(0.0, &asset_server);
 
     commands.queue_spawn_scene(bsn! {
        SpriteMesh {
             image: "branding/bevy_bird_dark.png",
         }
         DissolveState::Visible
-        SpriteMaterial<DissolveMaterial>(asset_value(material))
+        SpriteMaterial<DissolveMaterial>(asset_value(DissolveMaterial::new(0.0)))
     });
 }
 
