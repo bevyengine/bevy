@@ -456,8 +456,12 @@ fn clean_sprite_material_cache<M>(
     }
 
     for event in ext_events.read() {
+        let AssetEvent::Removed { id } = *event else {
+            continue;
+        };
+
         for el in cache.values_mut() {
-            el.clean(event);
+            el.clean(id);
         }
     }
 }

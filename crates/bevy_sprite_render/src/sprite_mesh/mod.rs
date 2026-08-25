@@ -135,17 +135,14 @@ impl<M: Asset> Default for SpriteMaterialCache<M> {
     }
 }
 
-type SpriteMeshMaterialCache = SpriteMaterialCache<SpriteMeshMaterial>;
-
 impl<M: Asset> SpriteMaterialCache<M> {
-    fn clean(&mut self, event: &AssetEvent<M>) {
-        if let AssetEvent::Removed { id } = event
-            && let Some(key) = self.reversed.remove(id)
+    fn clean(&mut self, id: AssetId<M>) {
+        if let Some(key) = self.reversed.remove(&id)
             && let Entry::Occupied(mut bucket) = self.map.entry(key)
         {
             bucket
                 .get_mut()
-                .retain(|(_, cached_material_id)| cached_material_id != id);
+                .retain(|(_, cached_material_id)| *cached_material_id != id);
 
             if bucket.get().is_empty() {
                 bucket.remove();
@@ -196,17 +193,19 @@ fn add_material(
         Or<(
             Changed<SpriteMesh>,
             Changed<Anchor>,
-            Changed<SpriteMaterialCount>,
             Added<Mesh2d>,
+            Changed<SpriteMaterialCount>,
         )>,
     >,
     texture_atlas_layouts: Res<Assets<TextureAtlasLayout>>,
-    mut cached_materials: Local<SpriteMeshMaterialCache>,
+    mut cached_materials: Local<SpriteMaterialCache<SpriteMeshMaterial>>,
     mut materials: ResMut<Assets<SpriteMeshMaterial>>,
     mut material_events: MessageReader<AssetEvent<SpriteMeshMaterial>>,
 ) {
     for event in material_events.read() {
-        cached_materials.clean(event);
+        if let AssetEvent::Removed { id } = event {
+            cached_materials.clean(*id);
+        }
     }
 
     for (entity, sprite, anchor, count) in sprites {
@@ -248,7 +247,7 @@ mod tests {
 
     #[test]
     fn sprite_material_cache() {
-        let mut cache = SpriteMeshMaterialCache::default();
+        let mut cache = SpriteMaterialCache::<SpriteMeshMaterial>::default();
         let mut assets = Assets::default();
         let handle = cache.get_or_insert_with(
             &SpriteMesh::default(),
@@ -299,11 +298,11 @@ mod tests {
         assert_eq!(handle3, handle4);
         assert_eq!(assets.get(&handle4).cloned(), Some(mat.clone()));
 
-        cache.clean(&AssetEvent::Removed { id: handle.id() });
+        cache.clean(handle.id());
         assert_eq!(cache.map.len(), 1);
         assert_eq!(cache.reversed.len(), 1);
 
-        cache.clean(&AssetEvent::Removed { id: handle3.id() });
+        cache.clean(handle3.id());
         assert_eq!(cache.map.len(), 0);
         assert_eq!(cache.reversed.len(), 0);
     }
