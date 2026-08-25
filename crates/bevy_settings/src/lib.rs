@@ -1,6 +1,16 @@
 //! Framework for saving and loading user settings files in Bevy
 //! applications.
 //!
+//! The core of the framework is [`SettingsPlugin`], which
+//! loads and synchronises settings with the filesystem or browser
+//! local storage, depending on platform.
+//!
+//! Settings are loaded to types that implement [`trait.SettingsGroup`],
+//! which is best implemented using the derive macro [`derive.SettingsGroup`]. 
+//!
+//! Afterwards, systems can query for settings using `Res` and
+//! `ResMut` queries.
+//!
 //! Refer to [`SettingsPlugin`] for detailed usage information.
 
 use core::any::TypeId;
