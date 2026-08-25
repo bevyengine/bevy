@@ -132,8 +132,6 @@ impl<M: Asset> Default for SpriteMaterialCache<M> {
     }
 }
 
-type SpriteMeshMaterialCache = SpriteMaterialCache<SpriteMaterial>;
-
 impl<M: Asset> SpriteMaterialCache<M> {
     fn clean(&mut self, event: &AssetEvent<M>) {
         if let AssetEvent::Removed { id } = event
@@ -193,7 +191,7 @@ fn add_material(
         Or<(Changed<SpriteMesh>, Changed<Anchor>, Added<Mesh2d>)>,
     >,
     texture_atlas_layouts: Res<Assets<TextureAtlasLayout>>,
-    mut cached_materials: Local<SpriteMeshMaterialCache>,
+    mut cached_materials: Local<SpriteMaterialCache<SpriteMaterial>>,
     mut materials: ResMut<Assets<SpriteMaterial>>,
     mut material_events: MessageReader<AssetEvent<SpriteMaterial>>,
 ) {
@@ -236,7 +234,7 @@ mod tests {
 
     #[test]
     fn sprite_material_cache() {
-        let mut cache = SpriteMeshMaterialCache::default();
+        let mut cache = SpriteMaterialCache::<SpriteMaterial>::default();
         let mut assets = Assets::default();
         let handle = cache.get_or_insert_with(
             &SpriteMesh::default(),
