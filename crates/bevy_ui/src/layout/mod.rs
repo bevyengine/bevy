@@ -1874,7 +1874,7 @@ mod tests {
         let transform_b = world.get::<UiGlobalTransform>(b).unwrap();
         let a_bottom = 0.5 * computed_a.size.y + transform_a.affine().translation.y;
         let b_top = -0.5 * computed_b.size.y + transform_b.affine().translation.y;
-        assert!(b_top - a_bottom - 100. <= 1e-5);
+        assert!((b_top - a_bottom - 100.).abs() <= 1e-5);
     }
 
     #[cfg(feature = "ghost_nodes")]
