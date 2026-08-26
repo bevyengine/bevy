@@ -37,7 +37,7 @@ fn main() {
         UiMaterialPlugin::<node_material::DefaultUiMaterial>::default(),
         UiMaterialPlugin::<node_material::CustomUiMaterial>::default(),
     ))
-    .add_systems(OnEnter(Scene::Image), image::setup)
+    .add_systems(OnEnter(Scene::Image), image::setup_bsn.spawn())
     .add_systems(OnEnter(Scene::ImageMeasure), image_measure::setup)
     .add_systems(OnEnter(Scene::Text), text::setup)
     .add_systems(OnEnter(Scene::FontLists), font_lists::setup)
@@ -194,56 +194,78 @@ mod image {
     use bevy::color::palettes::css::DARK_GREY;
     use bevy::prelude::*;
 
-    pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-        commands.spawn((Camera2d, DespawnOnExit(super::Scene::Image)));
-        commands
-            .spawn(Node {
+    fn row(image_path: &'static str, border_px: i32, padding_px: i32) -> impl SceneList {
+        use super::Scene as TestbedScene;
+
+        let mut visual_boxes = vec![];
+
+        let border = px(border_px).all();
+        let padding = px(padding_px).all();
+
+        for visual_box in [
+            VisualBox::BorderBox,
+            VisualBox::PaddingBox,
+            VisualBox::ContentBox,
+        ] {
+            visual_boxes.push(bsn! {
+                ImageNode {
+                    image: image_path,
+                    visual_box
+                }
+                Node {
+                    border,
+                    padding,
+                    width: px(100.)
+                }
+                DespawnOnExit::<TestbedScene>(TestbedScene::Image)
+                Outline {
+                    color: DARK_GREY,
+                    width: px(2.)
+                }
+            });
+        }
+
+        bsn_list! { {visual_boxes} }
+    }
+
+    fn rows() -> impl SceneList {
+        let mut rows = vec![];
+        for [border_px, padding_px] in [[0, 0], [10, 0], [0, 10], [10, 10]] {
+            for image_path in ["branding/icon.png", "branding/bevy_logo_dark.png"] {
+                rows.push(bsn! {
+                    Node {
+                        justify_content: JustifyContent::SpaceAround,
+                        align_items: AlignItems::Center
+                    }
+                    Children [
+                        {row(image_path, border_px, padding_px)}
+                    ]
+                });
+            }
+        }
+
+        bsn_list![{ rows }]
+    }
+
+    pub fn setup_bsn() -> impl SceneList {
+        use super::Scene as TestbedScene;
+
+        bsn_list! [
+            Camera2d
+            // todo: These need explicit generics now with bsn
+            DespawnOnExit<TestbedScene>(TestbedScene::Image)
+            ,
+            Node {
                 width: percent(100.),
                 height: percent(100.),
                 flex_direction: FlexDirection::Column,
                 justify_content: JustifyContent::SpaceAround,
-                align_items: AlignItems::Stretch,
-                ..default()
-            })
-            .with_children(|parent| {
-                for [b, p] in [[0, 0], [10, 0], [0, 10], [10, 10]] {
-                    for image_path in ["branding/icon.png", "branding/bevy_logo_dark.png"] {
-                        parent
-                            .spawn(Node {
-                                justify_content: JustifyContent::SpaceAround,
-                                align_items: AlignItems::Center,
-                                ..default()
-                            })
-                            .with_children(|parent| {
-                                for visual_box in [
-                                    VisualBox::BorderBox,
-                                    VisualBox::PaddingBox,
-                                    VisualBox::ContentBox,
-                                ] {
-                                    parent.spawn((
-                                        ImageNode {
-                                            image: asset_server.load(image_path),
-                                            visual_box,
-                                            ..default()
-                                        },
-                                        Node {
-                                            border: px(b).all(),
-                                            padding: px(p).all(),
-                                            width: px(100.),
-                                            ..default()
-                                        },
-                                        DespawnOnExit(super::Scene::Image),
-                                        Outline {
-                                            color: DARK_GREY.into(),
-                                            width: px(2.),
-                                            ..default()
-                                        },
-                                    ));
-                                }
-                            });
-                    }
-                }
-            });
+                align_items: AlignItems::Stretch
+            }
+            Children [
+                {rows()}
+            ]
+        ]
     }
 }
 
