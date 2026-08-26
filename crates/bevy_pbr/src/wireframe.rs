@@ -882,6 +882,7 @@ pub enum WireframeTopology {
 
 #[derive(Resource, Debug, Clone, ExtractResource, Reflect)]
 #[reflect(Resource, Debug, Default)]
+#[extract_app(RenderApp)]
 pub struct WireframeConfig {
     /// Whether to show wireframes for all meshes.
     /// Can be overridden for individual meshes by adding a [`Wireframe`] or [`NoWireframe`] component.
@@ -1609,6 +1610,7 @@ fn queue_wireframes(
             let Some(MeshSlabs {
                 vertex_slab_id: vertex_slab,
                 index_slab_id: index_slab,
+                metadata_slab_id: metadata_slab,
                 morph_target_slab_id: morph_target_slab,
             }) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id())
             else {
@@ -1624,6 +1626,7 @@ fn queue_wireframes(
                 slabs: MeshSlabs {
                     vertex_slab_id: vertex_slab,
                     morph_target_slab_id: morph_target_slab,
+                    metadata_slab_id: metadata_slab,
                     // wide wireframes use non-indexed draws (vertex pulling
                     // from storage), so set index_slab to None to make the
                     // preprocessor emit IndirectParametersNonIndexed instead of

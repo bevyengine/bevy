@@ -703,7 +703,7 @@ pub const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> MeshPipelineK
         }
         Tonemapping::TonyMcMapface => MeshPipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE,
         Tonemapping::BlenderFilmic => MeshPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC,
-        Tonemapping::PbrNeutral => MeshPipelineKey::TONEMAP_METHOD_PBR_NEUTRAL,
+        Tonemapping::KhronosPbrNeutral => MeshPipelineKey::TONEMAP_METHOD_PBR_NEUTRAL,
     }
 }
 
@@ -1289,7 +1289,7 @@ pub fn queue_material_meshes(
                     else {
                         continue;
                     };
-                    transmissive_phase.add(Transmissive3d {
+                    transmissive_phase.add_retained(Transmissive3d {
                         sorting_info: TransparentSortingInfo3d::Sorted {
                             mesh_center: get_mesh_instance_world_from_local(
                                 *visible_entity,
@@ -1389,7 +1389,7 @@ pub fn queue_material_meshes(
                     else {
                         continue;
                     };
-                    transparent_phase.add(Transparent3d {
+                    transparent_phase.add_retained(Transparent3d {
                         sorting_info: TransparentSortingInfo3d::Sorted {
                             mesh_center: get_mesh_instance_world_from_local(
                                 *visible_entity,
@@ -1423,6 +1423,7 @@ pub fn queue_material_meshes(
 /// Default render method used for opaque materials.
 #[derive(Default, Resource, Clone, Debug, ExtractResource, Reflect)]
 #[reflect(Resource, Default, Debug, Clone)]
+#[extract_app(RenderApp)]
 pub struct DefaultOpaqueRendererMethod(OpaqueRendererMethod);
 
 impl DefaultOpaqueRendererMethod {
@@ -1532,10 +1533,17 @@ pub fn base_specialize(
 }
 fn prepass_specialize(
     world: &mut World,
-    key: ErasedMaterialPipelineKey,
+    key: &ErasedMaterialPipelineKey,
     layout: &MeshVertexBufferLayoutRef,
     properties: &Arc<MaterialProperties>,
 ) -> Result<CachedRenderPipelineId, SpecializedMeshPipelineError> {
+    if let Some(pipelines) =
+        world.get_resource::<SpecializedMeshPipelines<PrepassPipelineSpecializer>>()
+        && let Some(id) = pipelines.get_pipeline(key, layout)
+    {
+        return Ok(id);
+    }
+
     world.resource_scope(
         |world, mut pipelines: Mut<SpecializedMeshPipelines<PrepassPipelineSpecializer>>| {
             let prepass_pipeline = world.resource::<PrepassPipeline>().clone();
@@ -1546,7 +1554,7 @@ fn prepass_specialize(
                 properties: properties.clone(),
             };
 
-            pipelines.specialize(pipeline_cache, &specializer, key, layout)
+            pipelines.specialize(pipeline_cache, &specializer, key.clone(), layout)
         },
     )
 }
@@ -1700,7 +1708,7 @@ where
         let draw_shadows = shadow_draw_functions.read().id::<DrawPrepass>();
         let draw_shadows_depth_only = shadow_draw_functions.read().id::<DrawDepthOnlyPrepass>();
 
-        let draw_functions = SmallVec::from_iter([
+        let draw_functions = SmallVec::from_const([
             (MainPassOpaqueDrawFunction.intern(), draw_opaque_pbr),
             (MainPassAlphaMaskDrawFunction.intern(), draw_alpha_mask_pbr),
             (

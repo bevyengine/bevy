@@ -125,8 +125,8 @@ impl Plugin for TextPlugin {
             .add_systems(
                 PostUpdate,
                 (
-                    detect_text_needs_rerender,
                     load_font_assets_into_font_collection,
+                    detect_text_needs_rerender,
                 )
                     .chain(),
             )
@@ -142,7 +142,7 @@ impl Plugin for TextPlugin {
         {
             use bevy_asset::{AssetId, Assets};
             let mut assets = app.world_mut().resource_mut::<Assets<Font>>();
-            let asset = Font::from_bytes(DEFAULT_FONT_DATA.to_vec(), "bevy default font");
+            let asset = Font::from_bytes(DEFAULT_FONT_DATA.to_vec());
             assets.insert(AssetId::default(), asset).unwrap();
         };
     }

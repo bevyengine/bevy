@@ -272,6 +272,7 @@ pub enum RenderDebugOverlayEvent {
 /// Overwrites the default [`GlobalRenderDebugOverlay`] resource.
 #[derive(Component, Clone, ExtractComponent, Reflect, PartialEq)]
 #[reflect(Component, Default)]
+#[extract_app(RenderApp)]
 pub struct RenderDebugOverlay {
     /// Enables or disables drawing the overlay.
     pub enabled: bool,
@@ -295,6 +296,7 @@ impl Default for RenderDebugOverlay {
 /// Can be overwritten by using a [`RenderDebugOverlay`] component.
 #[derive(Resource, Clone, ExtractResource, ExtractComponent, Reflect, PartialEq)]
 #[reflect(Resource, Default)]
+#[extract_app(RenderApp)]
 pub struct GlobalRenderDebugOverlay {
     /// Enables or disables drawing the overlay.
     pub enabled: bool,
@@ -517,6 +519,7 @@ impl SpecializedRenderPipeline for RenderDebugOverlayPipeline {
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
+                constants: vec![],
             }),
             primitive: bevy_render::render_resource::PrimitiveState::default(),
             depth_stencil: None,

@@ -60,6 +60,7 @@ impl Plugin for GpuReadbackPlugin {
 }
 
 #[derive(Resource, ExtractResource, Clone)]
+#[extract_app(RenderApp)]
 struct ReadbackBuffer(Handle<ShaderBuffer>);
 
 fn trigger_once_readback(
@@ -78,6 +79,7 @@ fn trigger_once_readback(
 }
 
 #[derive(Resource, ExtractResource, Clone)]
+#[extract_app(RenderApp)]
 struct ReadbackImage(Handle<Image>);
 
 fn setup(

@@ -226,7 +226,7 @@ impl ResolvedScene {
         writer_ops: impl FnOnce(&mut TemplateContext, &mut BundleWriter),
     ) -> Result<(), ApplySceneError> {
         let mut bundle_writer = bundle_scratch.writer();
-        if let Some(entity_reference) = self.entity_references.first().copied() {
+        for entity_reference in self.entity_references.iter().copied() {
             context
                 .entity_references
                 .set(entity_reference, context.entity.id());

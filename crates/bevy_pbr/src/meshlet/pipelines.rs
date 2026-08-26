@@ -254,6 +254,7 @@ pub fn init_meshlet_pipelines(
                 shader_defs: vec!["MESHLET".into()],
                 entry_point: Some("downsample_depth_second".into()),
                 zero_initialize_workgroup_memory: false,
+                constants: vec![],
             },
         ),
 
@@ -436,6 +437,7 @@ pub fn init_meshlet_pipelines(
                 shader_defs: vec!["MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT".into()],
                 entry_point: Some("resolve_material_depth".into()),
                 targets: vec![],
+                constants: vec![],
             }),
             ..default()
         }),

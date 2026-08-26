@@ -74,9 +74,9 @@ pub struct MaterialProperties {
     pub reads_view_transmission_texture: bool,
     pub render_phase_type: RenderPhaseType,
     pub material_layout: Option<BindGroupLayoutDescriptor>,
-    /// Backing array is a size of 4 because the [`StandardMaterial`](https://docs.rs/bevy/latest/bevy/pbr/struct.StandardMaterial.html)
-    /// needs 4 draw functions by default
-    pub draw_functions: SmallVec<[(InternedDrawFunctionLabel, DrawFunctionId); 4]>,
+    /// Backing array is a size of 11 because the [`StandardMaterial`](https://docs.rs/bevy/latest/bevy/pbr/struct.StandardMaterial.html)
+    /// needs 11 draw functions by default
+    pub draw_functions: SmallVec<[(InternedDrawFunctionLabel, DrawFunctionId); 11]>,
     /// Backing array is a size of 6 because the [`StandardMaterial`](https://docs.rs/bevy/latest/bevy/pbr/struct.StandardMaterial.html)
     /// has 6 custom shaders (`frag`, `prepass_frag`, `deferred_frag`, `vertex`, `prepass_vertex`,
     /// `deferred vertex`) which is the most common use case

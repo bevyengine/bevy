@@ -8,11 +8,14 @@ use bevy_ecs::{
     lifecycle::RemovedComponents,
     observer::On,
     query::{Added, Changed, Has, Or, With},
+    reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
 };
 use bevy_log::warn;
 use bevy_picking::{hover::Hovered, PickingSystems};
+use bevy_reflect::std_traits::ReflectDefault;
+use bevy_reflect::Reflect;
 use bevy_scene::prelude::*;
 use bevy_text::FontWeight;
 use bevy_ui::{
@@ -42,7 +45,8 @@ use bevy_input_focus::{
 /// Top-level menu container. This wraps the menu button and provides an anchor for the popover.
 ///
 /// This is spawnable by inheriting it as a "scene component".
-#[derive(SceneComponent, Clone, Default)]
+#[derive(SceneComponent, Clone, Default, Reflect)]
+#[reflect(Component, Default, Clone)]
 pub struct FeathersMenu;
 
 impl FeathersMenu {
@@ -134,6 +138,8 @@ fn on_menu_event(
 /// This is spawnable by inheriting it as a "scene component" with optional [`FeathersMenuButtonProps`].
 #[derive(SceneComponent, Default, Clone)]
 #[scene(FeathersMenuButtonProps)]
+#[derive(Reflect)]
+#[reflect(Component, Default, Clone)]
 pub struct FeathersMenuButton;
 
 /// Props used to construct a [`FeathersMenuButton`] scene.
@@ -186,7 +192,8 @@ impl FeathersMenuButton {
 }
 
 /// A menu popup widget.
-#[derive(SceneComponent, Default, Clone)]
+#[derive(SceneComponent, Default, Clone, Reflect)]
+#[reflect(Component, Default, Clone)]
 pub struct FeathersMenuPopup;
 
 impl FeathersMenuPopup {
@@ -216,7 +223,7 @@ impl FeathersMenuPopup {
             )
             GlobalZIndex(100)
             Popover {
-                positions: {vec![
+                positions: vec![
                     PopoverPlacement {
                         side: PopoverSide::Bottom,
                         align: PopoverAlign::Start,
@@ -227,7 +234,7 @@ impl FeathersMenuPopup {
                         align: PopoverAlign::Start,
                         gap: 2.0,
                     },
-                ]},
+                ],
                 window_margin: 10.0,
             }
             OverrideClip
@@ -240,6 +247,8 @@ impl FeathersMenuPopup {
 /// This is spawnable by inheriting it as a "scene component" with optional [`FeathersMenuItemProps`].
 #[derive(SceneComponent, Default, Clone)]
 #[scene(FeathersMenuItemProps)]
+#[derive(Reflect)]
+#[reflect(Component, Default, Clone)]
 pub struct FeathersMenuItem;
 
 /// Props used to construct a [`FeathersMenuItem`] scene.
@@ -427,7 +436,8 @@ fn set_menuitem_colors(
 }
 
 /// A decorative divider between menu items
-#[derive(SceneComponent, Default, Clone)]
+#[derive(SceneComponent, Default, Clone, Reflect)]
+#[reflect(Component, Default, Clone)]
 pub struct FeathersMenuDivider;
 
 impl FeathersMenuDivider {

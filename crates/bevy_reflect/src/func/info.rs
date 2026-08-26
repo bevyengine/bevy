@@ -5,7 +5,7 @@ use crate::{
     func::args::{ArgCount, ArgCountOutOfBoundsError, ArgInfo, GetOwnership, Ownership},
     func::signature::ArgumentSignature,
     func::FunctionOverloadError,
-    type_info::impl_type_methods,
+    ty::impl_type_methods,
     Type, TypePath,
 };
 

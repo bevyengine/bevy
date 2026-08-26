@@ -579,7 +579,7 @@ pub const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> Mesh2dPipelin
         }
         Tonemapping::TonyMcMapface => Mesh2dPipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE,
         Tonemapping::BlenderFilmic => Mesh2dPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC,
-        Tonemapping::PbrNeutral => Mesh2dPipelineKey::TONEMAP_METHOD_PBR_NEUTRAL,
+        Tonemapping::KhronosPbrNeutral => Mesh2dPipelineKey::TONEMAP_METHOD_PBR_NEUTRAL,
     }
 }
 
@@ -657,7 +657,7 @@ pub struct SpecializedMaterial2dViewPipelineCache<M> {
 impl<M> Default for SpecializedMaterial2dPipelineCache<M> {
     fn default() -> Self {
         Self {
-            map: HashMap::default(),
+            map: MainEntityHashMap::default(),
             marker: PhantomData,
         }
     }
@@ -666,7 +666,7 @@ impl<M> Default for SpecializedMaterial2dPipelineCache<M> {
 impl<M> Default for SpecializedMaterial2dViewPipelineCache<M> {
     fn default() -> Self {
         Self {
-            map: HashMap::default(),
+            map: MainEntityHashMap::default(),
             marker: PhantomData,
         }
     }
@@ -1037,7 +1037,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
                     // entity field here entirely, but we currently can't do so
                     // because UI creates multiple render entities for each main
                     // entity in its sorted phases.
-                    transparent_phase.add(Transparent2d {
+                    transparent_phase.add_retained(Transparent2d {
                         entity: (Entity::PLACEHOLDER, *visible_entity),
                         draw_function: material_2d.properties.draw_function_id,
                         pipeline: pipeline_id,

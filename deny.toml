@@ -4,6 +4,10 @@ all-features = true
 [advisories]
 version = 2
 ignore = [
+  # ttf-parser was announced as unmaintained.
+  # See: https://rustsec.org/advisories/RUSTSEC-2026-0192
+  # Ignoring to unblock ci
+  "RUSTSEC-2026-0192",
   # paste was announced as unmaintained with no explanation or replacement
   # See: https://rustsec.org/advisories/RUSTSEC-2024-0436
   # Bevy relies on this in multiple indirect ways, so ignoring it is the only feasible current solution

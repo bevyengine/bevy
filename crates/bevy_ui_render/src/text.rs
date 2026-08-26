@@ -137,7 +137,7 @@ pub fn extract_text_cursor(
                 }
 
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
-                    render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                    render_entity: commands.spawn(TemporaryRenderEntity::default()).id(),
                     z_order: stack_index.0 as f32 + stack_z_offsets::TEXT_SELECTION,
                     clip,
                     image: AssetId::default(),
@@ -166,7 +166,7 @@ pub fn extract_text_cursor(
             && !cursor_style.color.is_fully_transparent()
         {
             extracted_uinodes.uinodes.push(ExtractedUiNode {
-                render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                render_entity: commands.spawn(TemporaryRenderEntity::default()).id(),
                 z_order: stack_index.0 as f32 + stack_z_offsets::TEXT_CURSOR,
                 clip,
                 image: AssetId::default(),
@@ -259,7 +259,7 @@ pub fn extract_preedit_underlines(
 
         for rect in text_layout_info.preedit_underline_rects.iter() {
             extracted_uinodes.uinodes.push(ExtractedUiNode {
-                render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                render_entity: commands.spawn(TemporaryRenderEntity::default()).id(),
                 z_order: stack_index.0 as f32 + stack_z_offsets::TEXT_STRIKETHROUGH,
                 clip,
                 image: AssetId::default(),

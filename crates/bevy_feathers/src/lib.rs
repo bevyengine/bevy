@@ -102,12 +102,18 @@ impl Plugin for FeathersCorePlugin {
             bevy_window::SystemCursorIcon::Default,
         )));
 
-        app.add_systems(PostUpdate, theme::update_theme)
-            .add_observer(theme::on_changed_background)
-            .add_observer(theme::on_changed_border)
-            .add_observer(theme::on_changed_font_color)
-            .add_observer(theme::on_changed_text_color)
-            .add_observer(font_styles::on_changed_font);
+        app.add_systems(
+            PostUpdate,
+            (
+                theme::update_theme,
+                display::update_themed_icons.after(PropagateSet::<TextColor>::default()),
+            ),
+        )
+        .add_observer(theme::on_changed_background)
+        .add_observer(theme::on_changed_border)
+        .add_observer(theme::on_changed_font_color)
+        .add_observer(theme::on_changed_text_color)
+        .add_observer(font_styles::on_changed_font);
 
         app.init_resource::<AlphaPatternResource>();
     }

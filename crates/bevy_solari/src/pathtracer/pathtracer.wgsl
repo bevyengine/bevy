@@ -50,7 +50,7 @@ fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
             // Emissive contribution
             var mis_weight = 1.0;
             if p_bounce != 0.0 { // Not first bounce
-                let p_light = random_emissive_light_pdf(ray_hit);
+                let p_light = random_emissive_light_pdf(ray_hit, ray.t, NdotV);
                 mis_weight = power_heuristic(p_bounce, p_light);
             }
             radiance += mis_weight * throughput * ray_hit.material.emissive;
@@ -64,7 +64,7 @@ fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
                 mis_weight = 1.0;
                 if direct_lighting.brdf_rays_can_hit {
                     let pdf_of_bounce = brdf_pdf(wo, direct_lighting.wi, ray_hit.world_normal, ray_hit.material, F_ab);
-                    mis_weight = power_heuristic(1.0 / direct_lighting.inverse_pdf, pdf_of_bounce);
+                    mis_weight = power_heuristic(1.0 / direct_lighting.inverse_solid_angle_pdf, pdf_of_bounce);
                 }
 
                 let direct_lighting_brdf = evaluate_brdf(wo, direct_lighting.wi, ray_hit.world_normal, ray_hit.material, F_ab);
@@ -95,4 +95,3 @@ fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
     textureStore(accumulation_texture, global_id.xy, vec4(new_color, old_color.a + 1.0));
     textureStore(view_output, global_id.xy, vec4(new_color, 1.0));
 }
-

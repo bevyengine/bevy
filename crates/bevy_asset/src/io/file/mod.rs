@@ -1,3 +1,9 @@
+//! A backend for [`Asset`] storage in the local filesystem.
+//!
+//! It can watch for changed assets and hotload them if the `file_watcher` feature is enabled.
+//!
+//! [`Asset`]: crate::Asset
+
 #[cfg(feature = "file_watcher")]
 mod file_watcher;
 

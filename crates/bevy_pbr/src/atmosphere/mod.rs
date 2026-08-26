@@ -391,7 +391,7 @@ impl From<AtmosphereSettings> for GpuAtmosphereSettings {
     }
 }
 
-impl SyncComponent for AtmosphereSettings {
+impl SyncComponent<RenderApp> for AtmosphereSettings {
     type Target = GpuAtmosphereSettings;
 }
 

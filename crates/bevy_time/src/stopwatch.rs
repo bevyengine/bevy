@@ -93,7 +93,7 @@ impl Stopwatch {
     }
 
     /// Returns the elapsed time since the last [`reset`](Stopwatch::reset)
-    /// of the stopwatch, in seconds, as f64.
+    /// of the stopwatch, in seconds, as `f64`.
     ///
     /// # See Also
     ///

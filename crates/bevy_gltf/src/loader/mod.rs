@@ -32,7 +32,7 @@ use bevy_mesh::UvChannel;
 use bevy_mesh::{
     morph::{MeshMorphWeights, MorphAttributes, MorphWeights},
     skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
-    Indices, Mesh, Mesh3d, MeshVertexAttribute, PrimitiveTopology,
+    Indices, Mesh, Mesh3d, MeshAttributeCompressionFlags, MeshVertexAttribute, PrimitiveTopology,
 };
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::TypePath;
@@ -162,6 +162,10 @@ pub struct GltfLoader {
     /// The default policy for skinned mesh bounds. Can be overridden by
     /// [`GltfLoaderSettings::skinned_mesh_bounds_policy`].
     pub default_skinned_mesh_bounds_policy: GltfSkinnedMeshBoundsPolicy,
+    /// Default Mesh attribute compression flags for the loaded meshes.
+    pub default_mesh_attribute_compression: MeshAttributeCompressionFlags,
+    /// Whether to convert mesh indices to u16 if vertex count <= 65535 and indices are u32.
+    pub default_mesh_index_compression: bool,
 }
 
 /// Specifies optional settings for processing gltfs at load time. By default, all recognized contents of
@@ -215,6 +219,12 @@ pub struct GltfLoaderSettings {
     pub convert_coordinates: Option<GltfConvertCoordinates>,
     /// Optionally overrides [`GltfPlugin::skinned_mesh_bounds_policy`](crate::GltfPlugin).
     pub skinned_mesh_bounds_policy: Option<GltfSkinnedMeshBoundsPolicy>,
+    /// Mesh attribute compression flags for the loaded meshes.
+    /// If `None`, uses the global default set by [`GltfPlugin::mesh_attribute_compression`](crate::GltfPlugin::mesh_attribute_compression).
+    pub mesh_attribute_compression: Option<MeshAttributeCompressionFlags>,
+    /// Whether to convert mesh indices to u16 if vertex count <= 65535 and indices are u32.
+    /// If `None`, uses the global default set by [`GltfPlugin::mesh_index_compression`](crate::GltfPlugin::mesh_index_compression).
+    pub mesh_index_compression: Option<bool>,
 }
 
 impl Default for GltfLoaderSettings {
@@ -231,6 +241,8 @@ impl Default for GltfLoaderSettings {
             validate: true,
             convert_coordinates: None,
             skinned_mesh_bounds_policy: None,
+            mesh_attribute_compression: None,
+            mesh_index_compression: None,
         }
     }
 }
@@ -862,7 +874,17 @@ impl GltfLoader {
                     warn!("Failed to generate skinned mesh bounds: {err}");
                 }
 
-                let mesh_handle = load_context.add_labeled_asset(primitive_label.to_string(), mesh);
+                let mesh_handle = load_context.add_labeled_asset(
+                    primitive_label.to_string(),
+                    mesh.compressed_mesh(
+                        settings
+                            .mesh_attribute_compression
+                            .unwrap_or(loader.default_mesh_attribute_compression),
+                        settings
+                            .mesh_index_compression
+                            .unwrap_or(loader.default_mesh_index_compression),
+                    ),
+                );
                 primitives.push(super::GltfPrimitive::new(
                     &gltf_mesh,
                     &primitive,
@@ -1480,15 +1502,16 @@ fn load_material(
         anisotropy_texture: anisotropy.anisotropy_texture,
         // From the `KHR_materials_specular` spec:
         // <https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_specular#materials-with-reflectance-parameter>
-        reflectance: specular.specular_factor.unwrap_or(1.0) as f32 * 0.5,
+        reflectance: specular.specular_factor * 0.5,
         #[cfg(feature = "pbr_specular_textures")]
         specular_channel: specular.specular_channel,
         #[cfg(feature = "pbr_specular_textures")]
         specular_texture: specular.specular_texture,
-        specular_tint: match specular.specular_color_factor {
-            Some(color) => Color::linear_rgb(color[0] as f32, color[1] as f32, color[2] as f32),
-            None => Color::WHITE,
-        },
+        specular_tint: Color::linear_rgb(
+            specular.specular_color_factor[0],
+            specular.specular_color_factor[1],
+            specular.specular_color_factor[2],
+        ),
         #[cfg(feature = "pbr_specular_textures")]
         specular_tint_channel: specular.specular_color_channel,
         #[cfg(feature = "pbr_specular_textures")]
@@ -1502,13 +1525,6 @@ fn load_material(
 }
 
 /// Loads a glTF node.
-#[cfg_attr(
-    not(target_arch = "wasm32"),
-    expect(
-        clippy::result_large_err,
-        reason = "`GltfError` is only barely past the threshold for large errors."
-    )
-)]
 fn load_node(
     gltf_node: &Node,
     child_spawner: &mut ChildSpawner,

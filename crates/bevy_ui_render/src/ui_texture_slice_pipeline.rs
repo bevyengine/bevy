@@ -286,7 +286,7 @@ pub fn extract_ui_texture_slices(
         };
 
         extracted_ui_slicers.slices.push(ExtractedUiTextureSlice {
-            render_entity: commands.spawn(TemporaryRenderEntity).id(),
+            render_entity: commands.spawn(TemporaryRenderEntity::default()).id(),
             stack_index: stack_index.0,
             transform: Affine2::from(*transform) * Affine2::from_translation(visual_box.center()),
             color: image.color.into(),

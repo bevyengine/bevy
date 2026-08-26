@@ -308,7 +308,7 @@ pub fn apply_text_edits(
         // so check for either before doing work.
         if !editable_text.pending_edits.is_empty() || editable_text.pending_paste.is_some() {
             editable_text.apply_pending_edits(
-                &mut font_context.0,
+                &mut font_context,
                 &mut layout_context.0,
                 &mut clipboard,
                 match filter {

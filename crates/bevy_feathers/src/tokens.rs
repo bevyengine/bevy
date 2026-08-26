@@ -157,6 +157,25 @@ pub const CHECKBOX_TEXT_DISABLED: ThemeToken =
 
 // Radio button
 
+/// Background of the radio button
+pub const RADIO_BG: ThemeToken = ThemeToken::new_static("feathers.radio.bg");
+/// Background of the radio button (hovered)
+pub const RADIO_BG_HOVER: ThemeToken = ThemeToken::new_static("feathers.radio.bg.hover");
+/// Background of the radio button (pressed)
+pub const RADIO_BG_PRESSED: ThemeToken = ThemeToken::new_static("feathers.radio.bg.pressed");
+/// Background of the radio button (disabled)
+pub const RADIO_BG_DISABLED: ThemeToken = ThemeToken::new_static("feathers.radio.bg.disabled");
+/// Background of the radio button (checked)
+pub const RADIO_BG_CHECKED: ThemeToken = ThemeToken::new_static("feathers.radio.bg.checked");
+/// Background of the radio button (checked+hovered)
+pub const RADIO_BG_CHECKED_HOVER: ThemeToken =
+    ThemeToken::new_static("feathers.radio.bg.checked.hover");
+/// Background of the radio button (checked+pressed)
+pub const RADIO_BG_CHECKED_PRESSED: ThemeToken =
+    ThemeToken::new_static("feathers.radio.bg.checked.pressed");
+/// Background of the radio button (checked+disabled)
+pub const RADIO_BG_CHECKED_DISABLED: ThemeToken =
+    ThemeToken::new_static("feathers.radio.bg.checked.disabled");
 /// Border around the radio button
 pub const RADIO_BORDER: ThemeToken = ThemeToken::new_static("feathers.radio.border");
 /// Border around the radio button (hovered)
@@ -370,3 +389,28 @@ pub const GROUP_HEADER_TEXT: ThemeToken = ThemeToken::new_static("feathers.group
 pub const GROUP_BODY_BG: ThemeToken = ThemeToken::new_static("feathers.group.body.bg");
 /// Group body border
 pub const GROUP_BODY_BORDER: ThemeToken = ThemeToken::new_static("feathers.group.body.border");
+
+// Listview
+
+/// Listview row background
+pub const LISTROW_BG: ThemeToken = ThemeToken::new_static("feathers.listrow.bg");
+/// Listview row background (hovered)
+pub const LISTROW_BG_HOVER: ThemeToken = ThemeToken::new_static("feathers.listrow.bg.hover");
+/// Listview row background (selected)
+pub const LISTROW_BG_SELECTED: ThemeToken = ThemeToken::new_static("feathers.listrow.bg.selected");
+/// Listview row text
+pub const LISTROW_TEXT: ThemeToken = ThemeToken::new_static("feathers.listrow.text");
+/// Listview row text (disabled)
+pub const LISTROW_TEXT_DISABLED: ThemeToken =
+    ThemeToken::new_static("feathers.listrow.text.disabled");
+
+// Modal Dialog
+
+/// Dialog background
+pub const DIALOG_BG: ThemeToken = ThemeToken::new_static("feathers.dialog.bg");
+/// Dialog border
+pub const DIALOG_BORDER: ThemeToken = ThemeToken::new_static("feathers.dialog.border");
+/// Dialog header background
+pub const DIALOG_HEADER_BG: ThemeToken = ThemeToken::new_static("feathers.dialog.header.bg");
+/// Dialog text
+pub const DIALOG_TEXT: ThemeToken = ThemeToken::new_static("feathers.dialog.txt");
