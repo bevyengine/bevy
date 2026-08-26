@@ -218,7 +218,7 @@ pub struct Dlss<F: DlssFeature = DlssSuperResolutionFeature> {
     pub _phantom_data: PhantomData<F>,
 }
 
-impl Default for Dlss<DlssSuperResolutionFeature> {
+impl<F: DlssFeature> Default for Dlss<F> {
     fn default() -> Self {
         Self {
             perf_quality_mode: Default::default(),
