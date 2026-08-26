@@ -17,12 +17,15 @@ use bevy::camera_controller::pan_orbit_camera::{
     input::DefaultInputPlugin,
     prelude::*,
 };
+use bevy::color::palettes::tailwind::RED_500;
+use bevy::dev_tools::picking_debug::{DebugPickingMode, DebugPickingPlugin};
 use bevy::math::DVec3;
 use bevy::{
     anti_alias::smaa::Smaa, camera::primitives::Aabb, core_pipeline::tonemapping::Tonemapping,
     pbr::ScreenSpaceAmbientOcclusion, platform::time::Instant, post_process::bloom::Bloom,
     prelude::*, window::RequestRedraw,
 };
+use bevy_gizmos::aabb::AabbGizmoPlugin;
 
 use crate::pan_orbit_camera_custom_input_plugin::CustomInputPlugin;
 fn main() {
@@ -30,6 +33,7 @@ fn main() {
         .add_plugins((
             DefaultPlugins,
             MeshPickingPlugin,
+            DebugPickingPlugin,
             DefaultPanOrbitCameraPlugins, // .build()
                                           // .disable::<DefaultInputPlugin>(),
                                           // Currently PanOrbitCamera needs an external plugin to handle input mapping.
@@ -38,6 +42,14 @@ fn main() {
         // The camera controller works with reactive rendering:
         // .insert_resource(bevy::winit::WinitSettings::desktop_app())
         .insert_resource(GlobalAmbientLight::NONE)
+        .insert_resource(DebugPickingMode::Normal)
+        .insert_gizmo_config(
+            AabbGizmoConfigGroup {
+                draw_all: true,
+                default_color: Some(Color::linear_rgb(1.0, 0.0, 0.0)),
+            },
+            GizmoConfig::default(),
+        )
         .add_systems(Startup, (setup, test_cube.spawn()))
         .add_systems(
             Update,

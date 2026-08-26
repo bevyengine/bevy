@@ -132,10 +132,6 @@ impl<
     pub fn tick(&mut self, smoothing: Duration) {
         let now = Instant::now();
         let new_input = std::mem::take(&mut self.pending);
-        // assuming T::default() is the zero value
-        if new_input == T::default() {
-            return;
-        }
         let queue = &mut self.queue;
 
         // Compute the expected sampling window end index
