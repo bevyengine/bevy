@@ -1,14 +1,19 @@
 use core::debug_assert_matches;
 
 use alloc::vec::Vec;
+use bevy_platform::collections::{HashMap, HashSet};
 use nonmax::NonMaxU32;
 
 use crate::{
-    archetype::ArchetypeRow,
+    archetype::{ArchetypeId, ArchetypeRow},
     change_detection::MaybeLocation,
-    component::Component,
+    component::{Component, StorageType},
     entity::{Entity, EntityLocation},
+    event::EntityComponentsTrigger,
+    lifecycle::{DespawnEvent, DiscardEvent, RemoveEvent, DESPAWN, DISCARD, REMOVE},
     query::With,
+    relationship::RelationshipHookMode,
+    storage::TableId,
     world::World,
 };
 
@@ -22,6 +27,139 @@ impl World {
         let Some(cid) = self.component_id::<C>() else {
             return;
         };
+
+        if let StorageType::Table = C::STORAGE_TYPE {
+            let Some(archetype_map) = self.archetypes.by_component.get(&cid) else {
+                // Component hasn't been used in any archetypes, so there's nothing to despawn
+                return;
+            };
+
+            let mut tables: HashMap<TableId, Vec<ArchetypeId>> = HashMap::new();
+
+            for archetype_id in archetype_map.keys() {
+                tables
+                    .entry(self.archetypes[*archetype_id].table_id())
+                    .or_default()
+                    .push(*archetype_id);
+            }
+
+            for (table_id, archetypes) in tables {
+                for i in 0..self.storages.tables[table_id].entities().len() {
+                    let entity = self.storages.tables[table_id].entities()[i];
+
+                    let Ok(entity_loc) = self.entities.get_spawned(entity) else {
+                        // Is continue the right thing here??
+                        continue;
+                    };
+
+                    let archetype = &self.archetypes[entity_loc.archetype_id];
+                    // SAFETY: Archetype cannot be mutably aliased by DeferredWorld
+                    let (archetype, mut deferred_world) = unsafe {
+                        let archetype: *const _ = archetype;
+                        let world = self.as_unsafe_world_cell();
+                        (&*archetype, world.into_deferred())
+                    };
+
+                    // SAFETY: All components in the archetype exist in world
+                    unsafe {
+                        if archetype.has_despawn_observer() {
+                            // SAFETY: the DESPAWN event_key corresponds to the Despawn event's type
+                            deferred_world.trigger_raw(
+                                DESPAWN,
+                                &mut DespawnEvent { entity },
+                                &mut EntityComponentsTrigger {
+                                    components: archetype.components(),
+                                    old_archetype: Some(archetype),
+                                    new_archetype: None,
+                                },
+                                caller,
+                            );
+                        }
+
+                        deferred_world.trigger_on_despawn(
+                            archetype,
+                            entity,
+                            archetype.iter_components(),
+                            caller,
+                        );
+                        if archetype.has_discard_observer() {
+                            // SAFETY: the DISCARD event_key corresponds to the Discard event's type
+                            deferred_world.trigger_raw(
+                                DISCARD,
+                                &mut DiscardEvent { entity },
+                                &mut EntityComponentsTrigger {
+                                    components: archetype.components(),
+                                    old_archetype: Some(archetype),
+                                    new_archetype: None,
+                                },
+                                caller,
+                            );
+                        }
+                        deferred_world.trigger_on_discard(
+                            archetype,
+                            entity,
+                            archetype.iter_components(),
+                            caller,
+                            RelationshipHookMode::Run,
+                        );
+                        if archetype.has_remove_observer() {
+                            // SAFETY: the REMOVE event_key corresponds to the Remove event's type
+                            deferred_world.trigger_raw(
+                                REMOVE,
+                                &mut RemoveEvent { entity },
+                                &mut EntityComponentsTrigger {
+                                    components: archetype.components(),
+                                    old_archetype: Some(archetype),
+                                    new_archetype: None,
+                                },
+                                caller,
+                            );
+                        }
+                        deferred_world.trigger_on_remove(
+                            archetype,
+                            entity,
+                            archetype.iter_components(),
+                            caller,
+                        );
+                    }
+
+                    for component_id in self.storages.tables[table_id].components() {
+                        self.removed_components.write(*component_id, entity);
+                    }
+
+                    unsafe {
+                        self.entities.update_existing_location(entity.index(), None);
+                        self.entities.mark_spawned_or_despawned(
+                            entity.index(),
+                            caller,
+                            change_tick,
+                        );
+                    }
+
+                    if let Ok(entity_loc) = self.entities.get_spawned(entity) {
+                        for component_id in
+                            self.archetypes[entity_loc.archetype_id].sparse_set_components()
+                        {
+                            let sparse_set =
+                                self.storages.sparse_sets.get_mut(component_id).unwrap();
+                            sparse_set.remove(entity);
+                        }
+                    }
+
+                    unsafe {
+                        self.entities.mark_free(entity.index(), 1);
+                    }
+                }
+
+                for archetype_id in archetypes {
+                    self.archetypes[archetype_id].clear_entities();
+                }
+
+                self.storages.tables[table_id].clear();
+            }
+        }
+
+        // --- Previous attempt below ---
 
         let Some(arches) = self
             .archetypes
