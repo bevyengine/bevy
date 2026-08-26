@@ -678,12 +678,12 @@ impl WinitAppRunnerState {
                         target_os = "android",
                         target_os = "ios",
                         all(target_os = "linux", any(feature = "x11", feature = "wayland"))
-                    )) =>
-                    {
+                    )) => {
                         let visible = WINIT_WINDOWS.with_borrow(|winit_windows| {
-                            winit_windows.windows.iter().any(|(_, w)| {
-                                w.is_visible().unwrap_or(false)
-                            })
+                            winit_windows
+                                .windows
+                                .iter()
+                                .any(|(_, w)| w.is_visible().unwrap_or(false))
                         });
 
                         event_loop.set_control_flow(if visible {
@@ -795,87 +795,115 @@ impl WinitAppRunnerState {
         }
 
         for window_event in window_events.iter() {
+            world.trigger(window_event.clone());
             match window_event.clone() {
                 BevyWindowEvent::AppLifecycle(e) => {
                     world.write_message(e);
+                    world.trigger(e);
                 }
                 BevyWindowEvent::CursorEntered(e) => {
                     world.write_message(e);
+                    world.trigger(e);
                 }
                 BevyWindowEvent::CursorLeft(e) => {
                     world.write_message(e);
+                    world.trigger(e);
                 }
                 BevyWindowEvent::CursorMoved(e) => {
                     world.write_message(e);
+                    world.trigger(e);
                 }
                 BevyWindowEvent::FileDragAndDrop(e) => {
-                    world.write_message(e);
+                    world.write_message(e.clone());
+                    world.trigger(e);
                 }
                 BevyWindowEvent::Ime(e) => {
-                    world.write_message(e);
+                    world.write_message(e.clone());
+                    world.trigger(e);
                 }
                 BevyWindowEvent::RequestRedraw(e) => {
                     world.write_message(e);
+                    world.trigger(e);
                 }
                 BevyWindowEvent::WindowBackendScaleFactorChanged(e) => {
                     world.write_message(e);
+                    world.trigger(e);
                 }
                 BevyWindowEvent::WindowCloseRequested(e) => {
                     world.write_message(e);
+                    world.trigger(e);
                 }
                 BevyWindowEvent::WindowCreated(e) => {
                     world.write_message(e);
+                    world.trigger(e);
                 }
                 BevyWindowEvent::WindowDestroyed(e) => {
                     world.write_message(e);
+                    world.trigger(e);
                 }
                 BevyWindowEvent::WindowFocused(e) => {
                     world.write_message(e);
+                    world.trigger(e);
                 }
                 BevyWindowEvent::WindowMoved(e) => {
                     world.write_message(e);
+                    world.trigger(e);
                 }
                 BevyWindowEvent::WindowOccluded(e) => {
                     world.write_message(e);
+                    world.trigger(e);
                 }
                 BevyWindowEvent::WindowResized(e) => {
                     world.write_message(e);
+                    world.trigger(e);
                 }
                 BevyWindowEvent::WindowScaleFactorChanged(e) => {
                     world.write_message(e);
+                    world.trigger(e);
                 }
                 BevyWindowEvent::WindowThemeChanged(e) => {
                     world.write_message(e);
+                    world.trigger(e);
                 }
                 BevyWindowEvent::MouseButtonInput(e) => {
                     world.write_message(e);
+                    world.trigger(e);
                 }
                 BevyWindowEvent::MouseMotion(e) => {
                     world.write_message(e);
+                    world.trigger(e);
                 }
                 BevyWindowEvent::MouseWheel(e) => {
                     world.write_message(e);
+                    world.trigger(e);
                 }
                 BevyWindowEvent::PinchGesture(e) => {
                     world.write_message(e);
+                    world.trigger(e);
                 }
                 BevyWindowEvent::RotationGesture(e) => {
                     world.write_message(e);
+                    world.trigger(e);
                 }
                 BevyWindowEvent::DoubleTapGesture(e) => {
                     world.write_message(e);
+                    world.trigger(e);
                 }
                 BevyWindowEvent::PanGesture(e) => {
                     world.write_message(e);
+                    world.trigger(e);
                 }
                 BevyWindowEvent::TouchInput(e) => {
                     world.write_message(e);
+                    world.trigger(e);
                 }
                 BevyWindowEvent::KeyboardInput(e) => {
-                    world.write_message(e);
+                    world.write_message(e.clone());
+                    world.trigger(e);
                 }
                 BevyWindowEvent::KeyboardFocusLost(e) => {
-                    world.write_message(e);
+                    world.write_message(e.clone());
+                    world.trigger(e);
                 }
             }
         }
@@ -1114,12 +1142,12 @@ mod tests {
                 let (window_backend_scale_factor_changed, window_scale_factor_changed) =
                     react_to_scale_factor_change(window.0, &mut window.1, changed_scale_factor);
                 window_backend_scale_factor_changed_writer
-                    .write(window_backend_scale_factor_changed.clone());
+                    .write(window_backend_scale_factor_changed);
                 window_event.write(BevyWindowEvent::WindowBackendScaleFactorChanged(
                     window_backend_scale_factor_changed,
                 ));
                 if let Some(window_scale_factor_changed) = window_scale_factor_changed {
-                    window_scale_factor_changed_writer.write(window_scale_factor_changed.clone());
+                    window_scale_factor_changed_writer.write(window_scale_factor_changed);
                     window_event.write(BevyWindowEvent::WindowScaleFactorChanged(
                         window_scale_factor_changed,
                     ));
@@ -1227,7 +1255,7 @@ mod tests {
                   mut window_resized_writer: MessageWriter<WindowResized>,
                   mut window_event: MessageWriter<BevyWindowEvent>| {
                 let window_resized = react_to_resize(window.0, &mut window.1, changed_size);
-                window_resized_writer.write(window_resized.clone());
+                window_resized_writer.write(window_resized);
                 window_event.write(BevyWindowEvent::WindowResized(window_resized));
             },
         );

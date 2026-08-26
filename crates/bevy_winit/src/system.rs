@@ -129,8 +129,9 @@ pub fn create_windows(
                         winit_window.focus_window();
                     }
                 }
-
-                window_created_events.write(WindowCreated { window: entity });
+                let window_create = WindowCreated { window: entity };
+                window_created_events.write(window_create);
+                commands.trigger(window_create);
             }
         });
     });
@@ -406,7 +407,8 @@ pub(crate) fn changed_windows(
                     if let Some(new_physical_size) = winit_window.request_inner_size(requested_physical_size) {
                         let event = react_to_resize(entity, &mut window, new_physical_size);
                         // Need to send two very similar events because different systems rely on those.
-                        window_resized.write(event.clone());
+                        window_resized.write(event);
+                        commands.trigger(event);
                         window_event.write(event.into());
                     }
                 }
@@ -418,7 +420,8 @@ pub(crate) fn changed_windows(
                     // If the scale factor has changed we don't query anything from winit, but send events for camera system to handle.
                     let event = WindowScaleFactorChanged { scale_factor: requested_scale_factor as f64, window: entity};
                     // Need to send two very similar events because different systems rely on those.
-                    window_rescaled.write(event.clone());
+                    window_rescaled.write(event);
+                    commands.trigger(event);
                     window_event.write(event.into());
                 }
             }
