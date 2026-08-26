@@ -11,7 +11,7 @@ use bevy_input::{
 use bevy_math::{prelude::*, DVec2, DVec3};
 use bevy_platform::collections::HashMap;
 use bevy_transform::prelude::*;
-use bevy_window::{NormalizedWindowRef, PrimaryWindow, Window};
+use bevy_window::{NormalizedWindowRef, PrimaryWindow, Window, WindowCreated};
 
 use bevy_picking::{
     events::{PointerDrag, PointerDragEnd, PointerDragStart, PointerScroll},
@@ -80,10 +80,10 @@ pub struct DefaultInputPlugin;
 impl Plugin for DefaultInputPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<CameraPointerMap>()
-            .add_observer(|evt: On<Add<Window>>, mut commands: Commands| {
+            .add_observer(|evt: On<WindowCreated>, mut commands: Commands| {
                 dbg!("Adding window observers");
                 commands
-                    .entity(evt.entity)
+                    .entity(evt.window)
                     .observe(observe_window_drag_start)
                     .observe(observe_window_drag)
                     .observe(observe_window_drag_end)
