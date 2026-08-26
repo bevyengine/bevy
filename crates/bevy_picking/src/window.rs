@@ -16,7 +16,7 @@ use bevy_ecs::prelude::*;
 
 use crate::{
     backend::{ray::RayMap, HitData, PointerHits},
-    pointer::{Location, PointerId, PointerLocation},
+    pointer::{Location, PointerLocation, PointerMap},
 };
 
 /// Generates pointer hit events for window entities.
@@ -26,23 +26,30 @@ use crate::{
 ///
 /// The depth of the hit will be listed as zero.
 pub fn update_window_hits(
-    pointers: Query<(&PointerId, &PointerLocation)>,
+    pointer_locations: Query<&PointerLocation>,
     mut pointer_hits_writer: MessageWriter<PointerHits>,
     ray_map: Res<RayMap>,
+    pointer_map: Res<PointerMap>,
 ) {
     for (&ray_id, _) in ray_map.iter() {
-        if let Some((position, window_entity)) = pointers.iter().find_map(|(id, loc)| {
-            if *id == ray_id.pointer
-                && let Some(Location {
-                    target: NormalizedRenderTarget::Window(window_ref),
-                    position,
-                    ..
-                }) = loc.location
-            {
-                return Some((position, window_ref.entity()));
-            }
-            None
-        }) {
+        if let Some((position, window_entity)) =
+            pointer_map
+                .get_entity(ray_id.pointer)
+                .and_then(|pointer_e| {
+                    if let Ok(PointerLocation {
+                        location:
+                            Some(Location {
+                                target: NormalizedRenderTarget::Window(window_ref),
+                                position,
+                                ..
+                            }),
+                    }) = pointer_locations.get(pointer_e)
+                    {
+                        return Some((position, window_ref.entity()));
+                    }
+                    None
+                })
+        {
             let hit_data = HitData::new(ray_id.camera, 0.0, Some(position.extend(0.0)), None);
             pointer_hits_writer.write(PointerHits::new(
                 ray_id.pointer,
