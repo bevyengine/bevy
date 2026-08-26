@@ -395,6 +395,7 @@ impl<'tree, 'w, 's, 'layout, 'node> LayoutPartialTree
                 (Display::Block, true) => compute_block_layout(tree, node_id, inputs, None),
                 (Display::Flex, true) => compute_flexbox_layout(tree, node_id, inputs),
                 (Display::Grid, true) => compute_grid_layout(tree, node_id, inputs),
+                // There's no matching `FlowRoot` variant for `bevy_ui::Display`, so this is unreachable.
                 (Display::FlowRoot, _) => unreachable!(),
                 (_, false) => compute_leaf_layout(
                     inputs,
