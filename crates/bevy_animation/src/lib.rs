@@ -43,6 +43,7 @@ use bevy_ecs::{
     lifecycle::HookContext,
     prelude::*,
     resource::IsResource,
+    system::entity_command,
     world::{DeferredWorld, EntityMutExcept},
 };
 use bevy_math::{FloatOrd, Quat, Vec3};
@@ -807,7 +808,11 @@ pub struct RootMotionConfig {
 }
 impl RootMotionConfig {
     fn on_remove(mut world: DeferredWorld, ctx: HookContext) {
-        world.commands().entity(ctx.entity).remove::<RootMotion>();
+        // Use queue_silenced because the entity may be despawned before the command is applied
+        world
+            .commands()
+            .entity(ctx.entity)
+            .queue_silenced(entity_command::remove::<RootMotion>());
     }
 }
 
@@ -1075,10 +1080,11 @@ impl AnimationPlayer {
 
     fn on_remove(mut world: DeferredWorld<'_>, context: HookContext) {
         // Removes potential [`RootMotion`] added by the [`AnimationPlayer`]
+        // Use queue_silenced because the entity may be despawned before the command is applied
         world
             .commands()
             .entity(context.entity)
-            .remove::<RootMotion>();
+            .queue_silenced(entity_command::remove::<RootMotion>());
     }
 }
 
