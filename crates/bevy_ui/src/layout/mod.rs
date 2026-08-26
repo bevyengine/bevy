@@ -1764,6 +1764,92 @@ mod tests {
         assert_eq!(ui_surface.total_count(), 6);
     }
 
+        #[test]
+    fn block_layouts_margins_collapse() {
+        let mut app = setup_ui_test_app();
+        let world = app.world_mut();
+        let a = world
+            .spawn(Node {
+                height: px(50),
+                margin: px(100).bottom(),
+                ..default()
+            })
+            .id();
+        let b = world
+            .spawn(Node {
+                height: px(50),
+                margin: px(50).top(),
+                ..default()
+            })
+            .id();
+        world
+            .spawn(Node {
+                display: Display::Block,
+                ..default()
+            })
+            .add_children(&[a, b]);
+
+        app.update();
+
+        let world = app.world();
+        let computed_a = world.get::<ComputedNode>(a).unwrap();
+        let transform_a = world.get::<UiGlobalTransform>(a).unwrap();
+        let computed_b = world.get::<ComputedNode>(b).unwrap();
+        let transform_b = world.get::<UiGlobalTransform>(b).unwrap();
+        let a_bottom = 0.5 * computed_a.size.y + transform_a.affine().translation.y;
+        let b_top = -0.5 * computed_b.size.y + transform_b.affine().translation.y;
+        assert!((b_top - a_bottom - 100.).abs() <= 1e-5);
+    }
+
+    #[test]
+    fn block_layouts_nested_margins_collapse() {
+        let mut app = setup_ui_test_app();
+        let world = app.world_mut();
+        let a = world
+            .spawn(Node {
+                height: px(50),
+                ..default()
+            })
+            .id();
+        let nested_child = world
+            .spawn(Node {
+                display: Display::Block,
+                margin: UiRect::vertical(px(40)),
+                ..default()
+            })
+            .id();
+        let nested = world
+            .spawn(Node {
+                display: Display::Block,
+                ..default()
+            })
+            .add_child(nested_child)
+            .id();
+        let b = world
+            .spawn(Node {
+                height: px(50),
+                ..default()
+            })
+            .id();
+        world
+            .spawn(Node {
+                display: Display::Block,
+                ..default()
+            })
+            .add_children(&[a, nested, b]);
+
+        app.update();
+
+        let world = app.world();
+        let computed_a = world.get::<ComputedNode>(a).unwrap();
+        let transform_a = world.get::<UiGlobalTransform>(a).unwrap();
+        let computed_b = world.get::<ComputedNode>(b).unwrap();
+        let transform_b = world.get::<UiGlobalTransform>(b).unwrap();
+        let a_bottom = 0.5 * computed_a.size.y + transform_a.affine().translation.y;
+        let b_top = -0.5 * computed_b.size.y + transform_b.affine().translation.y;
+        assert!((b_top - a_bottom - 40.).abs() <= 1e-5);
+    }
+
     #[cfg(feature = "ghost_nodes")]
     mod ghost_node_tests {
         use super::*;
