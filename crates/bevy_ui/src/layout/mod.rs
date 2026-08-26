@@ -1840,6 +1840,43 @@ mod tests {
             .abs_diff_eq(Vec2::ZERO, 1e-5));
     }
 
+    #[test]
+    fn block_layouts_margins_collapse() {
+        let mut app = setup_ui_test_app();
+        let world = app.world_mut();
+        let a = world
+            .spawn(Node {
+                height: px(50),
+                margin: px(100).bottom(),
+                ..default()
+            })
+            .id();
+        let b = world
+            .spawn(Node {
+                height: px(50),
+                margin: px(50).top(),
+                ..default()
+            })
+            .id();
+        world
+            .spawn(Node {
+                display: Display::Block,
+                ..default()
+            })
+            .add_children(&[a, b]);
+
+        app.update();
+
+        let world = app.world();
+        let computed_a = world.get::<ComputedNode>(a).unwrap();
+        let transform_a = world.get::<UiGlobalTransform>(a).unwrap();
+        let computed_b = world.get::<ComputedNode>(b).unwrap();
+        let transform_b = world.get::<UiGlobalTransform>(b).unwrap();
+        let a_bottom = 0.5 * computed_a.size.y + transform_a.affine().translation.y;
+        let b_top = -0.5 * computed_b.size.y + transform_b.affine().translation.y;
+        assert!(b_top - a_bottom - 100. <= 1e-5);
+    }
+
     #[cfg(feature = "ghost_nodes")]
     mod ghost_node_tests {
         use super::*;
