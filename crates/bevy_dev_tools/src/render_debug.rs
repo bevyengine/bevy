@@ -55,6 +55,7 @@ use bevy_pbr::{
 /// ```
 /// # use bevy_dev_tools::render_debug::RenderDebugOverlayKeybindings;
 /// # use bevy_ecs::prelude::World;
+/// # use bevy_utils::default;
 /// let mut world = World::new();
 /// world.insert_resource(RenderDebugOverlayKeybindings {
 ///     enable_keybindings: true,
