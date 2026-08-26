@@ -455,11 +455,11 @@
 //!     bsn! {
 //!         Health { max: 100, current: 100 }
 //!         // Each `on(...)` attaches a separate observer.
-//!         @on(|damage: On<Damage>, mut query: Query<&mut Health>| {
+//!         on(|damage: On<Damage>, mut query: Query<&mut Health>| {
 //!             let mut health = query.get_mut(damage.entity).unwrap();
 //!             health.current = health.current.saturating_sub(damage.amount);
 //!         })
-//!         @on(on_heal)
+//!         on(on_heal)
 //!     }
 //! }
 //!
@@ -1499,7 +1499,7 @@ mod tests {
 
         fn scene() -> impl Scene {
             bsn! {
-                @on(|explode: On<Explode>, mut exploded: ResMut<Exploded>| {
+                on(|explode: On<Explode>, mut exploded: ResMut<Exploded>| {
                     exploded.0 = Some(explode.0);
                 })
             }
@@ -2104,7 +2104,7 @@ mod tests {
 
         fn non_move_scene() -> impl Scene {
             bsn! {
-                @on(|_: On<Heal>, mut healed: ResMut<TotalHealed>| {
+                on(|_: On<Heal>, mut healed: ResMut<TotalHealed>| {
                     healed.0 += 1;
                 })
             }
@@ -2119,7 +2119,7 @@ mod tests {
         }
         fn function_scene() -> impl Scene {
             bsn! {
-                @on(on_heal)
+                on(on_heal)
             }
         }
 
@@ -2130,7 +2130,7 @@ mod tests {
 
         fn move_scene(bonus: u32) -> impl Scene {
             bsn! {
-                @on(move |_: On<Heal>, mut healed: ResMut<TotalHealed>| {
+                on(move |_: On<Heal>, mut healed: ResMut<TotalHealed>| {
                     healed.0 += bonus;
                 })
             }
@@ -2716,7 +2716,7 @@ mod tests {
             Node {
                 height: px(0.1) // same with named fields, unmentioned ones stay default
             }
-            @on(|evt: On<MyEntityEvent>, mut query: Query<&mut ComponentB>| {  // add an observer
+            on(|evt: On<MyEntityEvent>, mut query: Query<&mut ComponentB>| {  // add an observer
                 let mut b = query.get_mut(evt.entity).unwrap();
                 b.0 += evt.value;
             })

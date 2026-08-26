@@ -73,7 +73,7 @@ fn button() -> impl Scene {
         // Bump the counter belonging to this button's parent, then refresh every
         // label under that parent. Buttons sharing a parent share a counter, so
         // pressing either ghost child updates both of their labels.
-        @on(|activate: On<Activate>,
+        on(|activate: On<Activate>,
             child_of_query: Query<&ChildOf>,
             children_query: Query<&Children>,
             mut counter_query: Query<&mut Counter>,

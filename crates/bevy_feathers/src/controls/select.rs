@@ -116,9 +116,9 @@ impl FeathersSelect {
                             @FeathersListView {
                                 @rows: {props.options}
                             }
-                            @on(listbox_update_selection)
-                            @on(re_emit_listbox_value)
-                            @on(close_popup_on_reselect)
+                            on(listbox_update_selection)
+                            on(re_emit_listbox_value)
+                            on(close_popup_on_reselect)
                             Node {
                                 max_height: {max_height},
                             }

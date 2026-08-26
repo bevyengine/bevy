@@ -60,7 +60,7 @@ fn demo_root() -> impl Scene {
             Children [
                 (
                     @FeathersButton
-                    @on(|_activate: On<Activate>, mut counter: ResMut<Counter>| {
+                    on(|_activate: On<Activate>, mut counter: ResMut<Counter>| {
                         counter.0 -= 1;
                     })
                     Children [ @caption("-1") ]
@@ -73,7 +73,7 @@ fn demo_root() -> impl Scene {
                 ),
                 (
                     @FeathersButton
-                    @on(|_activate: On<Activate>, mut counter: ResMut<Counter>| {
+                    on(|_activate: On<Activate>, mut counter: ResMut<Counter>| {
                         counter.0 += 1;
                     })
                     Children [ @caption("+1") ]

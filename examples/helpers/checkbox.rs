@@ -32,7 +32,7 @@ where
                 }
                 Hovered
                 identifier
-                @on(checkbox_self_update)
+                on(checkbox_self_update)
             ]
         })
     } else {
@@ -46,7 +46,7 @@ where
                     @caption: bsn! { @caption(option_name) }
                 }
                 Hovered
-                @on(checkbox_self_update)
+                on(checkbox_self_update)
             ]
         })
     }

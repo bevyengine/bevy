@@ -288,7 +288,7 @@ fn settings_panel_scene(app_settings: &AppSettings) -> impl Scene {
                 @FeathersButton {
                     @caption: bsn! { @caption("Reset") }
                 }
-                @on(on_activate_reset)
+                on(on_activate_reset)
             ]
         ]
     }

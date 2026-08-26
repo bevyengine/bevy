@@ -61,7 +61,7 @@ impl FeathersMenu {
                 align_items: AlignItems::Stretch,
             }
             FeathersMenu
-            @on(on_menu_event)
+            on(on_menu_event)
         }
     }
 }
@@ -169,7 +169,7 @@ impl FeathersLazyMenu {
                 align_items: AlignItems::Stretch,
             }
             FeathersMenu
-            @on(on_lazy_menu_event)
+            on(on_lazy_menu_event)
         }
     }
 }

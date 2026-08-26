@@ -96,7 +96,7 @@ fn setup(mut commands: Commands, mut rng: ResMut<SeededRng>) {
                 top: percent(top_pct),
             }
             BorderColor::all(Color::WHITE)
-            @on(on_button_click)
+            on(on_button_click)
         ]
     });
 }

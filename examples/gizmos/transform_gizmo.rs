@@ -85,7 +85,7 @@ fn setup(
                         SliderValue(1.0)
                         SliderPrecision(2)
                         SliderStep(0.1)
-                        @on(slider_update)
+                        on(slider_update)
                     )
                 ]
             )

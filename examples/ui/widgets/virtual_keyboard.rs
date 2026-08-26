@@ -89,7 +89,7 @@ fn keyboard() -> impl Scene {
                 Text("virtual keyboard"),
                 (
                     @VirtualKeyboard::<&str> { @keys: keys }
-                    @on(on_virtual_key_pressed)
+                    on(on_virtual_key_pressed)
                 )
             ]
         )]

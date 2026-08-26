@@ -68,7 +68,7 @@ fn setup(mut commands: Commands) {
 
     commands.spawn_scene(bsn! {
         @background()
-        @on(|press: On<PointerPress>, query: Query<(), With<ContextMenu>>, mut commands: Commands| {
+        on(|press: On<PointerPress>, query: Query<(), With<ContextMenu>>, mut commands: Commands| {
             debug!("click: {}", press.pointer.position);
 
             if query.is_empty() {
@@ -121,7 +121,7 @@ fn on_trigger_menu(event: On<OpenContextMenu>, mut commands: Commands) {
             @context_item("purple", basic::PURPLE),
             @context_item("teal", basic::TEAL),
         ]
-        @on(|event: On<ValueChange<Entity>>,
+        on(|event: On<ValueChange<Entity>>,
             menu_items: Query<&ContextMenuItem, With<ListItem>>,
             mut clear_col: ResMut<ClearColor>,
             mut commands: Commands| {

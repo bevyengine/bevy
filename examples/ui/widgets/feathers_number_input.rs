@@ -130,7 +130,7 @@ fn demo_field_f32(label_text: &str, value: f32, options: impl Scene) -> impl Sce
                         flex_grow: 1.0,
                         max_width: px(120),
                     }
-                    @on(
+                    on(
                         |value_change: On<ValueChange<f32>>, mut commands: Commands| {
                         commands.entity(value_change.event_target())
                             .insert(NumberInputValue::F32(value_change.value));
@@ -174,7 +174,7 @@ fn demo_field_f32_with_sigil(label_text: &str, value: f32, options: impl Scene) 
                         flex_grow: 1.0,
                         max_width: px(120),
                     }
-                    @on(
+                    on(
                         |value_change: On<ValueChange<f32>>, mut commands: Commands| {
                         commands.entity(value_change.event_target())
                             .insert(NumberInputValue::F32(value_change.value));
@@ -215,7 +215,7 @@ fn demo_field_f64(label_text: &str, value: f64, options: impl Scene) -> impl Sce
                         flex_grow: 1.0,
                         max_width: px(120),
                     }
-                    @on(
+                    on(
                         |value_change: On<ValueChange<f64>>, mut commands: Commands| {
                         commands.entity(value_change.event_target())
                             .insert(NumberInputValue::F64(value_change.value));
@@ -256,7 +256,7 @@ fn demo_field_i32(label_text: &str, value: i32, options: impl Scene) -> impl Sce
                         flex_grow: 1.0,
                         max_width: px(120),
                     }
-                    @on(
+                    on(
                         |value_change: On<ValueChange<i32>>, mut commands: Commands| {
                         commands.entity(value_change.event_target())
                             .insert(NumberInputValue::I32(value_change.value));
