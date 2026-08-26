@@ -12,7 +12,7 @@ use bevy_ecs::{
     hierarchy::{ChildOf, Children},
     lifecycle::RemovedComponents,
     query::{Added, Has, With},
-    system::{Query, ResMut},
+    system::{Query, Res, ResMut},
     world::Ref,
 };
 
@@ -20,9 +20,7 @@ use bevy_math::{Affine2, Vec2};
 use bevy_sprite::BorderRect;
 use ui_surface::UiSurface;
 
-use bevy_text::ComputedTextBlock;
-
-use bevy_text::FontCx;
+use bevy_text::{ComputedTextBlock, EmSize, FontCx, RemSize, TextFont, DEFAULT_REM_SIZE_PX};
 
 use bevy_log::warn;
 
@@ -33,19 +31,30 @@ pub mod ui_surface;
 pub struct LayoutContext {
     pub scale_factor: f32,
     pub physical_size: Vec2,
+    pub em_size: f32,
+    pub rem_size: f32,
 }
 
 impl LayoutContext {
     pub const DEFAULT: Self = Self {
         scale_factor: 1.0,
         physical_size: Vec2::ZERO,
+        em_size: DEFAULT_REM_SIZE_PX,
+        rem_size: DEFAULT_REM_SIZE_PX,
     };
     /// Create a new [`LayoutContext`] from the window's physical size and scale factor
     #[inline]
-    const fn new(scale_factor: f32, physical_size: Vec2) -> Self {
+    const fn new(
+        scale_factor: f32,
+        physical_size: Vec2,
+        em_size: EmSize,
+        rem_size: RemSize,
+    ) -> Self {
         Self {
             scale_factor,
             physical_size,
+            em_size: em_size.0,
+            rem_size: rem_size.0,
         }
     }
 }
@@ -53,14 +62,40 @@ impl LayoutContext {
 #[cfg(test)]
 impl LayoutContext {
     pub const TEST_CONTEXT: Self = Self {
-        scale_factor: 1.0,
         physical_size: Vec2::new(1000.0, 1000.0),
+        ..Self::DEFAULT
     };
 }
 
 impl Default for LayoutContext {
     fn default() -> Self {
         Self::DEFAULT
+    }
+}
+
+/// For any entity with a [`TextFont`], set [`EmSize`] to the font size resolved
+/// into pixels when the `TextFont`, render target or `RemSize` changes. Nodes
+/// without `TextFont` keep their `EmSize` intact. If `TextFont` is removed the
+/// `EmSize` remains unchanged.
+pub fn sync_font_size_to_em_size(
+    mut em_size_query: Query<
+        (&mut EmSize, Ref<TextFont>, Ref<ComputedUiRenderTargetInfo>),
+        With<Node>,
+    >,
+    rem_size: Res<RemSize>,
+) {
+    // `Val::Rem` resolves from rem size so need to recalc when this changes
+    let rem_size_changed = rem_size.is_changed();
+
+    for (mut em_size, text_font, computed_ui_render_target_info) in em_size_query.iter_mut() {
+        if text_font.is_changed() || computed_ui_render_target_info.is_changed() || rem_size_changed
+        {
+            em_size.set_if_neq(EmSize::from_font_size(
+                text_font.font_size,
+                computed_ui_render_target_info.logical_size(),
+                *rem_size,
+            ));
+        }
     }
 }
 
@@ -73,6 +108,7 @@ pub fn ui_layout_system(
     mut node_query: Query<(
         Entity,
         Ref<Node>,
+        Ref<EmSize>,
         &mut ContentSize,
         Ref<ComputedUiRenderTargetInfo>,
     )>,
@@ -83,6 +119,7 @@ pub fn ui_layout_system(
         &UiTransform,
         &mut UiGlobalTransform,
         &Node,
+        &EmSize,
         Option<&LayoutConfig>,
         Option<&Outline>,
         Option<&ScrollPosition>,
@@ -91,21 +128,36 @@ pub fn ui_layout_system(
     )>,
     mut buffer_query: Query<&mut ComputedTextBlock>,
     mut font_system: ResMut<FontCx>,
-    mut removed_children: RemovedComponents<Children>,
-    mut removed_nodes: RemovedComponents<Node>,
-    mut removed_fixed_nodes: RemovedComponents<FixedNode>,
-    #[cfg(feature = "ghost_nodes")] mut removed_ghost_nodes: RemovedComponents<GhostNode>,
-    #[cfg(feature = "ghost_nodes")] added_ghost_node_query: Query<Entity, Added<GhostNode>>,
-    #[cfg(feature = "ghost_nodes")] ghost_node_query: Query<(), With<GhostNode>>,
+    (mut removed_children, mut removed_nodes, mut removed_fixed_nodes): (
+        RemovedComponents<Children>,
+        RemovedComponents<Node>,
+        RemovedComponents<FixedNode>,
+    ),
+    rem_size: Res<RemSize>,
+    #[cfg(feature = "ghost_nodes")]
+    (mut removed_ghost_nodes, added_ghost_node_query, ghost_node_query): (
+        RemovedComponents<GhostNode>,
+        Query<Entity, Added<GhostNode>>,
+        Query<(), With<GhostNode>>,
+    ),
 ) {
+    // `Val::Rem` resolves from rem size so need to recalc when this changes
+    let rem_size_changed = rem_size.is_changed();
+
     // Sync Node and ContentSize to Taffy for all nodes
-    node_query
-        .iter_mut()
-        .for_each(|(entity, node, mut content_size, computed_target)| {
-            if computed_target.is_changed() || node.is_changed() || content_size.is_changed() {
+    node_query.iter_mut().for_each(
+        |(entity, node, em_size, mut content_size, computed_target)| {
+            if computed_target.is_changed()
+                || node.is_changed()
+                || content_size.is_changed()
+                || rem_size_changed
+                || em_size.is_changed()
+            {
                 let layout_context = LayoutContext::new(
                     computed_target.scale_factor,
                     computed_target.physical_size.as_vec2(),
+                    *em_size,
+                    *rem_size,
                 );
                 if content_size.is_changed() && content_size.measure.is_none() {
                     ui_surface.try_remove_node_context(entity);
@@ -113,7 +165,8 @@ pub fn ui_layout_system(
                 let measure = content_size.bypass_change_detection().measure.take();
                 ui_surface.upsert_node(&layout_context, entity, &node, measure);
             }
-        });
+        },
+    );
 
     // update and remove children
     #[cfg(not(feature = "ghost_nodes"))]
@@ -210,7 +263,7 @@ pub fn ui_layout_system(
             ui_root_entity,
         );
 
-        let Ok((_, _, _, computed_target)) = node_query.get(ui_root_entity) else {
+        let Ok((_, _, _, _, computed_target)) = node_query.get(ui_root_entity) else {
             warn!("UI root {ui_root_entity} not found");
             continue;
         };
@@ -234,6 +287,7 @@ pub fn ui_layout_system(
             computed_target.scale_factor.recip(),
             Vec2::ZERO,
             Vec2::ZERO,
+            *rem_size,
         );
     }
 
@@ -250,6 +304,7 @@ pub fn ui_layout_system(
             &UiTransform,
             &mut UiGlobalTransform,
             &Node,
+            &EmSize,
             Option<&LayoutConfig>,
             Option<&Outline>,
             Option<&ScrollPosition>,
@@ -260,12 +315,14 @@ pub fn ui_layout_system(
         inverse_target_scale_factor: f32,
         parent_size: Vec2,
         parent_scroll_position: Vec2,
+        rem_size: RemSize,
     ) {
         if let Ok((
             mut node,
             transform,
             mut global_transform,
             style,
+            em_size,
             maybe_layout_config,
             maybe_outline,
             maybe_scroll_position,
@@ -310,21 +367,38 @@ pub fn ui_layout_system(
             }
 
             let content_size = Vec2::new(layout.content_size.width, layout.content_size.height);
-            node.bypass_change_detection().content_size = content_size;
+            if node.content_size != content_size {
+                node.content_size = content_size;
+            }
 
             let taffy_rect_to_border_rect = |rect: taffy::Rect<f32>| BorderRect {
                 min_inset: Vec2::new(rect.left, rect.top),
                 max_inset: Vec2::new(rect.right, rect.bottom),
             };
 
-            node.bypass_change_detection().border = taffy_rect_to_border_rect(layout.border);
-            node.bypass_change_detection().padding = taffy_rect_to_border_rect(layout.padding);
+            let new_border = taffy_rect_to_border_rect(layout.border);
+            if node.border != new_border {
+                node.border = new_border;
+            }
+            let new_padding = taffy_rect_to_border_rect(layout.padding);
+            if node.padding != new_padding {
+                node.padding = new_padding;
+            }
+
+            if node.em_size != *em_size {
+                node.em_size = *em_size;
+            }
+            if node.rem_size != rem_size {
+                node.rem_size = rem_size;
+            }
 
             // Compute the node's new global transform
             let mut local_transform = transform.compute_affine(
                 inverse_target_scale_factor.recip(),
                 layout_size,
                 target_size,
+                *em_size,
+                rem_size,
             );
             local_transform.translation += local_center;
             inherited_transform *= local_transform;
@@ -334,22 +408,29 @@ pub fn ui_layout_system(
             }
 
             // We don't trigger change detection for changes to border radius
-            node.bypass_change_detection().border_radius = style.border_radius.resolve(
+            // unless the border radius actually changed
+            let new_border_radius = style.border_radius.resolve(
                 inverse_target_scale_factor.recip(),
                 node.size,
                 target_size,
+                *em_size,
+                rem_size,
             );
+            if node.border_radius != new_border_radius {
+                node.border_radius = new_border_radius;
+            }
 
             if let Some(outline) = maybe_outline {
-                // don't trigger change detection when only outlines are changed
-                let node = node.bypass_change_detection();
-                node.outline_width = if style.display != Display::None {
+                // don't trigger change detection unless the outline actually changed
+                let new_outline_width = if style.display != Display::None {
                     outline
                         .width
                         .resolve(
                             inverse_target_scale_factor.recip(),
                             node.size().x,
                             target_size,
+                            *em_size,
+                            rem_size,
                         )
                         .unwrap_or(0.)
                         .max(0.)
@@ -357,21 +438,33 @@ pub fn ui_layout_system(
                     0.
                 };
 
-                node.outline_offset = outline
+                if node.outline_width != new_outline_width {
+                    node.outline_width = new_outline_width;
+                }
+
+                let new_outline_offset = outline
                     .offset
                     .resolve(
                         inverse_target_scale_factor.recip(),
                         node.size().x,
                         target_size,
+                        *em_size,
+                        rem_size,
                     )
                     .unwrap_or(0.)
                     // Clamp outline offsets to at least the length of the node's shorter side
                     // Negative offset outlines can be useful to create thing like in-set focus indicators
                     .max(-0.5 * node.size.min_element());
+                if node.outline_offset != new_outline_offset {
+                    node.outline_offset = new_outline_offset;
+                }
             }
 
-            node.bypass_change_detection().scrollbar_size =
+            let new_scrollbar_size =
                 Vec2::new(layout.scrollbar_size.width, layout.scrollbar_size.height);
+            if node.scrollbar_size != new_scrollbar_size {
+                node.scrollbar_size = new_scrollbar_size;
+            }
 
             let scroll_position: Vec2 = maybe_scroll_position
                 .map(|scroll_pos| {
@@ -396,7 +489,9 @@ pub fn ui_layout_system(
 
             let physical_scroll_position = clamped_scroll_position.floor();
 
-            node.bypass_change_detection().scroll_position = physical_scroll_position;
+            if node.scroll_position != physical_scroll_position {
+                node.scroll_position = physical_scroll_position;
+            }
 
             for child_uinode in ui_children.iter_ui_children(entity) {
                 update_uinode_geometry_recursive(
@@ -411,6 +506,7 @@ pub fn ui_layout_system(
                     inverse_target_scale_factor,
                     layout_size,
                     physical_scroll_position,
+                    rem_size,
                 );
             }
         }
@@ -450,6 +546,7 @@ mod tests {
         app.init_resource::<UiSurface>();
         app.init_resource::<bevy_text::TextPipeline>();
         app.init_resource::<bevy_text::FontCx>();
+        app.init_resource::<RemSize>();
         app.init_resource::<bevy_text::ScaleCx>();
         app.init_resource::<bevy_transform::StaticTransformOptimizations>();
 
@@ -1246,9 +1343,8 @@ mod tests {
         world.init_resource::<UiSurface>();
 
         world.init_resource::<bevy_text::TextPipeline>();
-
         world.init_resource::<bevy_text::FontCx>();
-
+        world.init_resource::<RemSize>();
         world.init_resource::<bevy_text::ScaleCx>();
 
         let ui_root = world

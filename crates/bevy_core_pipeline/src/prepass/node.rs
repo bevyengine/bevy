@@ -10,7 +10,7 @@ use bevy_render::{
     render_phase::ViewBinnedRenderPhases,
     render_resource::{PipelineCache, RenderPassDescriptor, StoreOp},
     renderer::{RenderContext, ViewQuery},
-    view::{ExtractedView, NoIndirectDrawing, ViewDepthTexture, ViewUniformOffset},
+    view::{ExtractedView, NoIndirectDrawing, ViewDepthStencilTexture, ViewUniformOffset},
 };
 
 use crate::prepass::background_motion_vectors::{
@@ -27,7 +27,7 @@ type PrepassViewQueryData = (
     (
         &'static ExtractedCamera,
         &'static ExtractedView,
-        &'static ViewDepthTexture,
+        &'static ViewDepthStencilTexture,
         &'static ViewPrepassTextures,
         &'static ViewUniformOffset,
     ),
@@ -139,7 +139,7 @@ fn run_prepass_system(
     view_entity: Entity,
     camera: &ExtractedCamera,
     extracted_view: &ExtractedView,
-    view_depth_texture: &ViewDepthTexture,
+    view_depth_texture: &ViewDepthStencilTexture,
     view_prepass_textures: &ViewPrepassTextures,
     view_uniform_offset: &ViewUniformOffset,
     deferred_prepass: Option<&DeferredPrepass>,
@@ -247,7 +247,7 @@ fn run_prepass_system(
     {
         // TODO: Copy depth texture fails for WebGL2, https://github.com/bevyengine/bevy/issues/9710
         ctx.command_encoder().copy_texture_to_texture(
-            view_depth_texture.texture.as_image_copy(),
+            view_depth_texture.texture().as_image_copy(),
             prepass_depth_texture.texture.texture.as_image_copy(),
             view_prepass_textures.size,
         );

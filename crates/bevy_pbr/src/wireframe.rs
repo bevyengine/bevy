@@ -38,7 +38,6 @@ use bevy_render::{
         allocator::{MeshAllocator, MeshAllocatorSettings, MeshSlabs},
         RenderMesh, RenderMeshBufferInfo,
     },
-    prelude::*,
     render_asset::{
         prepare_assets, PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets,
     },
@@ -50,12 +49,13 @@ use bevy_render::{
     },
     render_resource::{binding_types::*, *},
     renderer::{RenderContext, RenderDevice, RenderQueue, ViewQuery},
-    sync_world::{MainEntity, MainEntityHashMap},
+    sync_world::{MainEntity, MainEntityHashMap, MainEntityHashSet},
     view::{
         ExtractedView, NoIndirectDrawing, RenderVisibilityRanges, RenderVisibleEntities,
-        RetainedViewEntity, ViewDepthTexture, ViewTarget,
+        RetainedViewEntity, ViewDepthStencilTexture, ViewTarget,
     },
-    Extract, GpuResourceAppExt, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
+    Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderDebugFlags,
+    RenderStartup, RenderSystems,
 };
 use bevy_shader::Shader;
 use bytemuck::{Pod, Zeroable};
@@ -86,7 +86,7 @@ impl WireframePlugin {
 
 impl Plugin for WireframePlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "render/wireframe.wgsl");
+        embedded_asset!(app, "render/wireframe.wesl");
 
         app.add_plugins((
             BinnedRenderPhasePlugin::<Wireframe3d, MeshPipeline>::new(self.debug_flags),
@@ -723,7 +723,7 @@ pub fn init_wireframe_3d_pipeline(
 
     commands.insert_resource(Wireframe3dPipeline {
         mesh_pipeline: mesh_pipeline.clone(),
-        shader: load_embedded_asset!(asset_server.as_ref(), "render/wireframe.wgsl"),
+        shader: load_embedded_asset!(asset_server.as_ref(), "render/wireframe.wesl"),
         wide_bind_group_layout,
         wide_bind_group_layout_descriptor,
     });
@@ -799,7 +799,7 @@ pub fn wireframe_3d(
         &ExtractedCamera,
         &ExtractedView,
         &ViewTarget,
-        &ViewDepthTexture,
+        &ViewDepthStencilTexture,
     )>,
     wireframe_phases: Res<ViewBinnedRenderPhases<Wireframe3d>>,
     mut ctx: RenderContext,
@@ -1541,6 +1541,7 @@ fn queue_wireframes(
     mut wireframe_3d_phases: ResMut<ViewBinnedRenderPhases<Wireframe3d>>,
     mut pending_wireframe_queues: ResMut<PendingWireframeQueues>,
     mut views: Query<(&ExtractedView, &RenderVisibleEntities)>,
+    mut mesh_instances_queued_this_iteration_scratch_space: Local<MainEntityHashSet>,
 ) {
     for (view, visible_entities) in &mut views {
         let Some(wireframe_phase) = wireframe_3d_phases.get_mut(&view.retained_view_entity) else {
@@ -1579,6 +1580,7 @@ fn queue_wireframes(
             view.retained_view_entity,
             render_mesh_visible_entities,
             &view_pending_wireframe_queues.prev_frame,
+            &mut mesh_instances_queued_this_iteration_scratch_space,
         ) {
             let Some(wireframe_instance) = render_wireframe_instances.get(visible_entity) else {
                 continue;
