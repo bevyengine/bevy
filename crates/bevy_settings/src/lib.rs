@@ -7,9 +7,7 @@
 //!
 //! Settings are loaded into resources that implement [`SettingsGroup`](trait@SettingsGroup),
 //! which is best implemented using the derive macro [`SettingsGroup`](derive@SettingsGroup).
-//! In addition, the resource must implement [`Default`](std::default::Default),
-//! [`Resource`](bevy::prelude::Resource), and [`Reflect`](bevy::reflect::Reflect), as well
-//! as have the `#[reflect(SettingsGroup, Default)]` annotation.
+//! In addition, the resource have the `#[reflect(SettingsGroup, Default)]` annotation.
 //!
 //! Once all these conditions are met, and when [`SettingsPlugin`] is added, systems can query
 //! for settings using like any other resource.
@@ -33,8 +31,8 @@ use bevy_log::warn;
 use bevy_reflect::{
     prelude::ReflectDefault,
     serde::{TypedReflectDeserializer, TypedReflectSerializer},
-    CreateTypeData, FromReflect, PartialReflect, ReflectMut, TypeInfo, TypePath, TypeRegistration,
-    TypeRegistry,
+    CreateTypeData, FromReflect, PartialReflect, Reflect, ReflectMut, TypeInfo, TypePath,
+    TypeRegistration, TypeRegistry,
 };
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -55,7 +53,7 @@ use store_wasm::SettingsStore;
 ///
 /// When added to an app, `SettingsPlugin` will load settings from storage (either the filesystem
 /// or browser local storage) into resources that implement the [`SettingsGroup`](trait@SettingsGroup),
-/// [`Default`](std::default::Default), and [`Reflect`](bevy::reflect::Reflect) traits, and, in
+/// [`Default`], and [`Reflect`] traits, and, in
 /// addition, are also annotated with `#[reflect(Default, SettingsGroup)]`. The plugin can also be used
 /// to write these settings back to storage after they are changed.
 ///
@@ -190,7 +188,7 @@ impl Plugin for SettingsPlugin {
 /// Since these resources are loaded from storage, it is possible for them to be modified by hand by users,
 /// so it's important to not rely on the validity of the data. In particular, it is important to ensure you do not
 /// rely on any invariants of the input data to ensure safety elsewhere in your code.
-pub trait SettingsGroup: Resource + bevy_reflect::Reflect + Default {
+pub trait SettingsGroup: Resource + Reflect + Default {
     /// The name of the logical section within the settings file.
     fn settings_group_name() -> &'static str;
 
