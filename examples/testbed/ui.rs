@@ -4070,9 +4070,84 @@ mod change_detection {
 }
 
 mod block {
-    use bevy::prelude::*;
+    use bevy::{color::palettes::css::*, prelude::*};
 
     pub fn setup(mut commands: Commands) {
-        commands.spawn((Camera2d, DespawnOnExit(super::Scene::ChangeDetection)));
+        commands.spawn((Camera2d, DespawnOnExit(super::Scene::Block)));
+        commands.spawn((
+            Node {
+                display: Display::Block,
+                width: percent(100),
+                height: percent(100),
+                padding: px(40).all(),
+                ..default()
+            },
+            BackgroundColor(DARK_GRAY.into()),
+            DespawnOnExit(super::Scene::Block),
+            children![
+                (
+                    Node {
+                        height: px(80),
+                        margin: px(20).bottom(),
+                        ..default()
+                    },
+                    BackgroundColor(RED.into()),
+                ),
+                (
+                    Node {
+                        display: Display::Block,
+                        padding: px(20).all(),
+                        margin: px(20).bottom(),
+                        ..default()
+                    },
+                    BackgroundColor(BLUE.into()),
+                    // The 20px top margin should collapse, leaving a 60px gap.
+                    children![
+                        (
+                            Node {
+                                height: px(80),
+                                margin: px(60).bottom(),
+                                ..default()
+                            },
+                            BackgroundColor(AQUA.into()),
+                        ),
+                        (
+                            Node {
+                                margin: px(20).top(),
+                                height: px(80),
+                                ..default()
+                            },
+                            BackgroundColor(LIME.into()),
+                        ),
+                    ],
+                ),
+                (
+                    Node {
+                        height: px(80),
+                        ..default()
+                    },
+                    BackgroundColor(ORANGE.into()),
+                ),
+                (
+                    Node {
+                        display: Display::Block,
+                        ..default()
+                    },
+                    children![(Node {
+                        display: Display::Block,
+                        // The 40px top and bottom margins should collapse into each other, leaving a 40px gap.
+                        margin: UiRect::vertical(px(40)),
+                        ..default()
+                    },)],
+                ),
+                (
+                    Node {
+                        height: px(80),
+                        ..default()
+                    },
+                    BackgroundColor(YELLOW.into()),
+                ),
+            ],
+        ));
     }
 }
