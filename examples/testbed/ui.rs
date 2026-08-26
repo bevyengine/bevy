@@ -62,6 +62,7 @@ fn main() {
     .add_systems(OnEnter(Scene::BoxedContent), boxed_content::setup)
     .add_systems(OnEnter(Scene::EditableText), editable_text::setup)
     .add_systems(OnEnter(Scene::NodeMaterial), node_material::setup)
+    .add_systems(OnEnter(Scene::Block), block::setup)
     .add_systems(
         OnEnter(Scene::FontRelativeUnits),
         font_relative_units::setup,
@@ -120,6 +121,7 @@ enum Scene {
     NodeMaterial,
     FontRelativeUnits,
     ChangeDetection,
+    Block,
 }
 
 impl Scene {
@@ -150,6 +152,7 @@ impl Scene {
         Scene::NodeMaterial,
         Scene::FontRelativeUnits,
         Scene::ChangeDetection,
+        Scene::Block,
     ];
 }
 
@@ -4063,5 +4066,13 @@ mod change_detection {
                 radial_gradient.color_space = InterpolationColorSpace::OklchaLong;
             }
         }
+    }
+}
+
+mod block {
+    use bevy::prelude::*;
+
+    pub fn setup(mut commands: Commands) {
+        commands.spawn((Camera2d, DespawnOnExit(super::Scene::ChangeDetection)));
     }
 }
