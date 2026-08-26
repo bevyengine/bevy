@@ -1764,7 +1764,7 @@ mod tests {
         assert_eq!(ui_surface.total_count(), 6);
     }
 
-        #[test]
+    #[test]
     fn block_layouts_margins_collapse() {
         let mut app = setup_ui_test_app();
         let world = app.world_mut();
