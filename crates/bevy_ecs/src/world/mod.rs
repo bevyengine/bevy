@@ -2,6 +2,7 @@
 
 pub(crate) mod command_queue;
 mod deferred_world;
+mod despawn_all;
 mod entity_access;
 mod entity_fetch;
 mod filtered_resource;
