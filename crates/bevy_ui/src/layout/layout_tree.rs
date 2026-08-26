@@ -323,6 +323,51 @@ impl UiLayoutTree<'_, '_, '_, '_, '_> {
             .expect("missing computed layout")
             .children
     }
+
+    #[inline(always)]
+    fn compute_child_layout_with_context(
+        &mut self,
+        node_id: NodeId,
+        inputs: LayoutInput,
+        block_ctx: Option<&mut taffy::BlockContext<'_>>,
+    ) -> LayoutOutput {
+        if inputs.run_mode == RunMode::PerformHiddenLayout {
+            return compute_hidden_layout(self, node_id);
+        }
+
+        compute_cached_layout(self, node_id, inputs, |tree, node_id, inputs| {
+            let style = tree
+                .nodes
+                .get(&node_id)
+                .expect("missing layout node")
+                .clone();
+            let has_children = tree.child_count(node_id) > 0;
+
+            match (style.display(), has_children) {
+                (Display::None, _) => compute_hidden_layout(tree, node_id),
+                (Display::Block, true) => compute_block_layout(tree, node_id, inputs, block_ctx),
+                (Display::Flex, true) => compute_flexbox_layout(tree, node_id, inputs),
+                (Display::Grid, true) => compute_grid_layout(tree, node_id, inputs),
+                // There's no matching `FlowRoot` variant for `bevy_ui::Display`, so this is unreachable.
+                (Display::FlowRoot, _) => unreachable!(),
+                (_, false) => compute_leaf_layout(
+                    inputs,
+                    &style,
+                    |_, _| 0.0,
+                    |known_dimensions, available_space| {
+                        let taffy_style = style.to_taffy_style();
+                        let entity = node_id_entity(node_id);
+                        (tree.measure_function)(
+                            known_dimensions,
+                            available_space,
+                            entity,
+                            &taffy_style,
+                        )
+                    },
+                ),
+            }
+        })
+    }
 }
 
 impl TraversePartialTree for UiLayoutTree<'_, '_, '_, '_, '_> {
@@ -378,42 +423,7 @@ impl<'tree, 'w, 's, 'layout, 'node> LayoutPartialTree
     }
 
     fn compute_child_layout(&mut self, node_id: NodeId, inputs: LayoutInput) -> LayoutOutput {
-        if inputs.run_mode == RunMode::PerformHiddenLayout {
-            return compute_hidden_layout(self, node_id);
-        }
-
-        compute_cached_layout(self, node_id, inputs, |tree, node_id, inputs| {
-            let style = tree
-                .nodes
-                .get(&node_id)
-                .expect("missing layout node")
-                .clone();
-            let has_children = tree.child_count(node_id) > 0;
-
-            match (style.display(), has_children) {
-                (Display::None, _) => compute_hidden_layout(tree, node_id),
-                (Display::Block, true) => compute_block_layout(tree, node_id, inputs, None),
-                (Display::Flex, true) => compute_flexbox_layout(tree, node_id, inputs),
-                (Display::Grid, true) => compute_grid_layout(tree, node_id, inputs),
-                // There's no matching `FlowRoot` variant for `bevy_ui::Display`, so this is unreachable.
-                (Display::FlowRoot, _) => unreachable!(),
-                (_, false) => compute_leaf_layout(
-                    inputs,
-                    &style,
-                    |_, _| 0.0,
-                    |known_dimensions, available_space| {
-                        let taffy_style = style.to_taffy_style();
-                        let entity = node_id_entity(node_id);
-                        (tree.measure_function)(
-                            known_dimensions,
-                            available_space,
-                            entity,
-                            &taffy_style,
-                        )
-                    },
-                ),
-            }
-        })
+        self.compute_child_layout_with_context(node_id, inputs, None)
     }
 }
 
@@ -481,6 +491,16 @@ impl<'tree, 'w, 's, 'layout, 'node> LayoutBlockContainer
 
     fn get_block_child_style(&self, child_node_id: NodeId) -> Self::BlockItemStyle<'_> {
         self.get_core_container_style(child_node_id)
+    }
+
+    #[inline(always)]
+    fn compute_block_child_layout(
+        &mut self,
+        node_id: NodeId,
+        inputs: LayoutInput,
+        block_ctx: Option<&mut taffy::BlockContext<'_>>,
+    ) -> LayoutOutput {
+        self.compute_child_layout_with_context(node_id, inputs, block_ctx)
     }
 }
 
