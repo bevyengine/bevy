@@ -142,6 +142,7 @@ bitflags::bitflags! {
         const AFFECTS_LIGHTMAPPED_MESH_DIFFUSE  = 1 << 3;
         const CONTACT_SHADOWS_ENABLED           = 1 << 4;
         const SPOT_LIGHT                        = 1 << 5;
+        const RECT_LIGHT                        = 1 << 6;
         const NONE                              = 0;
         const UNINITIALIZED                     = 0xFFFF;
     }
@@ -219,6 +220,7 @@ pub struct GpuLights {
     // offset from spot light's light index to spot light's shadow map index
     spot_light_shadowmap_offset: i32,
     ambient_light_flags: u32,
+    // this is unused if we have access to storage buffers, in which case rect lights are clustered
     n_rect_lights: u32,
     rect_lights: [GpuRectLight; MAX_RECT_LIGHTS],
 }
@@ -1181,6 +1183,12 @@ pub fn prepare_lights(
     #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
     let max_texture_cubes = 1;
 
+    // When storage buffers are available, rect lights are clustered.
+    // Otherwise they fall back to a non-clustered uniform capped at `MAX_RECT_LIGHTS`.
+    let rect_lights_are_clustered = global_clusterable_object_meta
+        .gpu_clustered_lights
+        .is_storage_buffer();
+
     if !*max_directional_lights_warning_emitted
         && directional_light_entities.len() > MAX_DIRECTIONAL_LIGHTS
     {
@@ -1192,7 +1200,11 @@ pub fn prepare_lights(
         *max_directional_lights_warning_emitted = true;
     }
 
-    if !*max_rect_lights_warning_emitted && rect_light_entities.len() > MAX_RECT_LIGHTS {
+    // The `MAX_RECT_LIGHTS` cap only applies on the non-clustered path.
+    if !rect_lights_are_clustered
+        && !*max_rect_lights_warning_emitted
+        && rect_light_entities.len() > MAX_RECT_LIGHTS
+    {
         warn!(
             "The amount of rectangle area lights of {} is exceeding the supported limit of {}.",
             rect_light_entities.len(),
@@ -1373,8 +1385,7 @@ pub fn prepare_lights(
                 light_custom_data,
                 // premultiply color by intensity
                 // we don't use the alpha at all, so no reason to multiply only [0..3]
-                color_inverse_square_range: (Vec4::from_slice(&light.color.to_f32_array())
-                    * light.intensity)
+                color_inverse_square_range: (light.color.to_vec4() * light.intensity)
                     .xyz()
                     .extend(1.0 / (light.range * light.range)),
                 position_radius: light.transform.translation().extend(light.radius),
@@ -1402,6 +1413,38 @@ pub fn prepare_lights(
             global_clusterable_object_meta.entity_to_index.len(),
             global_clusterable_object_meta.gpu_clustered_lights.len()
         );
+    }
+
+    if rect_lights_are_clustered {
+        for entity in &rect_light_entities {
+            let light = rect_lights.get(*entity).unwrap().2;
+
+            let index = global_clusterable_object_meta.gpu_clustered_lights.len();
+            global_clusterable_object_meta
+                .gpu_clustered_lights
+                .add(GpuClusteredLight {
+                    light_custom_data: Vec4::from(light.transform.rotation()),
+                    color_inverse_square_range: (light.color.to_vec4() * light.intensity)
+                        .xyz()
+                        .extend(light.height),
+                    position_radius: light.transform.translation().extend(light.width),
+                    flags: PointLightFlags::RECT_LIGHT.bits(),
+                    shadow_depth_bias: 0.0,
+                    shadow_normal_bias: 0.0,
+                    shadow_map_near_z: 0.0,
+                    spot_light_tan_angle: 0.0,
+                    decal_index: u32::MAX,
+                    range: light.range,
+                    soft_shadow_size: 0.0,
+                });
+            global_clusterable_object_meta
+                .entity_to_index
+                .insert(*entity, index);
+            debug_assert_eq!(
+                global_clusterable_object_meta.entity_to_index.len(),
+                global_clusterable_object_meta.gpu_clustered_lights.len()
+            );
+        }
     }
 
     // iterate the views once to find the maximum number of cascade shadowmaps we will need
@@ -2032,26 +2075,28 @@ pub fn prepare_lights(
 
         // Set up rect lights.
         //
-        // FIXME: These are currently per-view because we have no mechanism for
-        // "non-clustered but non-view-specific" lights. We could introduce such
-        // a thing, but we want rect lights to be clustered anyways, so any
-        // effort spent on introducing that mechanism would be better spent on
-        // making rect lights clusterable.
+        // These are per-view because we have no mechanism for "non-clustered but non-view-specific" lights.
+        // We could introduce such a thing, but it may not be worth it for this fallback path that's only used
+        // when we have too few storage buffers to cluster area lights.
         gpu_lights.n_rect_lights = 0;
-        // TODO use light_render_layers whenever that is supported for rect_lights
-        for (index, (_, _, rect_light, _)) in rect_lights.iter().enumerate().take(MAX_RECT_LIGHTS) {
-            let right = rect_light.transform.right().into();
-            let up = rect_light.transform.up().into();
-            gpu_lights.rect_lights[index] = GpuRectLight {
-                color: Vec4::from_slice(&rect_light.color.to_f32_array()) * rect_light.intensity,
-                position: rect_light.transform.translation(),
-                right,
-                up,
-                width: rect_light.width,
-                height: rect_light.height,
-                range: rect_light.range,
-            };
-            gpu_lights.n_rect_lights += 1;
+        if !rect_lights_are_clustered {
+            // TODO use light_render_layers whenever that is supported for rect_lights
+            for (index, (_, _, rect_light, _)) in
+                rect_lights.iter().enumerate().take(MAX_RECT_LIGHTS)
+            {
+                let right = rect_light.transform.right().into();
+                let up = rect_light.transform.up().into();
+                gpu_lights.rect_lights[index] = GpuRectLight {
+                    color: rect_light.color.to_vec4() * rect_light.intensity,
+                    position: rect_light.transform.translation(),
+                    right,
+                    up,
+                    width: rect_light.width,
+                    height: rect_light.height,
+                    range: rect_light.range,
+                };
+                gpu_lights.n_rect_lights += 1;
+            }
         }
 
         commands.entity(entity).insert((
