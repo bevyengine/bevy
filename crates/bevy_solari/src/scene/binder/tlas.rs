@@ -49,7 +49,7 @@ impl FromWorld for TlasInstanceSetupPipeline {
             return Self { layout, id: None };
         }
 
-        let shader = load_embedded_asset!(world, "setup_tlas_instances.wgsl");
+        let shader = load_embedded_asset!(world, "setup_tlas_instances.wesl");
         let id =
             world
                 .resource::<PipelineCache>()
