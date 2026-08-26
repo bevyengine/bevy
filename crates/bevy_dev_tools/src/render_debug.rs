@@ -58,7 +58,7 @@ use bevy_pbr::{
 /// let mut world = World::new();
 /// world.insert_resource(RenderDebugOverlayKeybindings {
 ///     enable_keybindings: true,
-///     ..RenderDebugOverlayKeybindings::default()
+///     ..default()
 /// });
 /// ```
 ///
