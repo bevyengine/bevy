@@ -81,17 +81,20 @@ impl Plugin for DefaultInputPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<CameraPointerMap>()
             .add_observer(|evt: On<Add<Window>>, mut commands: Commands| {
+                dbg!("Adding window observers");
                 commands
                     .entity(evt.entity)
                     .observe(observe_window_drag_start)
                     .observe(observe_window_drag)
-                    .observe(observe_window_drag_end);
+                    .observe(observe_window_drag_end)
+                    .observe(observe_window_scroll);
             })
             // "we have required components at home"
             .add_observer(
                 |evt: On<Add<PanOrbitCamera>>,
                  query: Query<&PanOrbitCameraInputs>,
                  mut commands: Commands| {
+                    dbg!("adding camera inputs");
                     if !query.contains(evt.entity) {
                         commands
                             .entity(evt.entity)
@@ -128,6 +131,7 @@ fn observe_window_drag_start(
     dbg!(&evt);
     if let Ok((mut controller, inputs, cam, proj)) = controllers.get_mut(evt.hit.camera) {
         if controller.is_actively_controlled() {
+            dbg!("actively controlled");
             return;
         }
         let anchor = screen_to_view_space(cam, proj, &controller, evt.pointer.position);
