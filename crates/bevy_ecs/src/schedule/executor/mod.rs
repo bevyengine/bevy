@@ -17,12 +17,11 @@ use crate::{
     change_detection::{CheckChangeTicks, Tick},
     error::{BevyError, ErrorContext, Result},
     prelude::{IntoSystemSet, SystemSet},
-    query::FilteredAccessSet,
     schedule::{
         ConditionWithAccess, InternedSystemSet, SystemKey, SystemSetKey, SystemTypeSet,
         SystemWithAccess,
     },
-    system::{RunSystemError, System, SystemIn, SystemStateFlags},
+    system::{RunSystemError, System, SystemAccess, SystemIn, SystemStateFlags},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
 
@@ -173,8 +172,8 @@ impl System for ApplyDeferred {
     }
 
     fn flags(&self) -> SystemStateFlags {
-        // non-send , exclusive , no deferred
-        SystemStateFlags::NON_SEND | SystemStateFlags::EXCLUSIVE
+        // non-send , no deferred
+        SystemStateFlags::NON_SEND
     }
 
     unsafe fn run_unsafe(
@@ -205,8 +204,10 @@ impl System for ApplyDeferred {
 
     fn queue_deferred(&mut self, _world: DeferredWorld) {}
 
-    fn initialize(&mut self, _world: &mut World) -> FilteredAccessSet {
-        FilteredAccessSet::new()
+    fn initialize(&mut self, _world: &mut World) -> SystemAccess {
+        // The executor will apply deferred commands from other systems instead
+        // of running this system, which cannot happen in parallel with other systems.
+        SystemAccess::Exclusive
     }
 
     fn check_change_tick(&mut self, _check: CheckChangeTicks) {}
@@ -585,8 +586,8 @@ mod validation_tests {
         schedule::{MultiThreadedExecutor, SingleThreadedExecutor},
         system::{
             DynParamBuilder, DynSystemParam, Local, ParamBuilder, ParamSet, Query, Res, ResMut,
-            RunSystemError, RunSystemOnce, Single, SystemMeta, SystemParam, SystemParamBuilder,
-            SystemParamValidationError,
+            RunSystemError, RunSystemOnce, Single, SystemAccess, SystemMeta, SystemParam,
+            SystemParamBuilder, SystemParamValidationError,
         },
         world::World,
     };
@@ -614,13 +615,9 @@ mod validation_tests {
         fn init_access(
             _state: &Self::State,
             _system_meta: &mut SystemMeta,
-            _component_access_set: &mut crate::query::FilteredAccessSet,
+            _system_access: &mut SystemAccess,
             _world: &mut World,
         ) {
-        }
-
-        fn is_exclusive() -> bool {
-            false
         }
 
         unsafe fn get_param<'world, 'state>(

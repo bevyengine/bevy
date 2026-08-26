@@ -59,10 +59,12 @@ use crate::{
     message::{
         Message, MessageCursor, MessageId, MessageIterator, MessageIteratorWithId, Messages,
     },
-    query::FilteredAccessSet,
     relationship::RelationshipHookMode,
     storage::SparseSet,
-    system::{Local, ReadOnlySystemParam, SystemMeta, SystemParam, SystemParamValidationError},
+    system::{
+        Local, ReadOnlySystemParam, SystemAccess, SystemMeta, SystemParam,
+        SystemParamValidationError,
+    },
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
 
@@ -700,14 +702,11 @@ unsafe impl<'a> SystemParam for &'a RemovedComponentMessages {
 
     fn init_access(
         _state: &Self::State,
-        _system_meta: &mut SystemMeta,
-        _component_access_set: &mut FilteredAccessSet,
+        system_meta: &mut SystemMeta,
+        system_access: &mut SystemAccess,
         _world: &mut World,
     ) {
-    }
-
-    fn is_exclusive() -> bool {
-        false
+        system_access.require_shared_access::<Self>(system_meta);
     }
 
     #[inline]

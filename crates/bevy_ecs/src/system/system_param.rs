@@ -11,11 +11,11 @@ use crate::{
     component::{ComponentId, Components, Mutable},
     entity::{Entities, EntityAllocator},
     query::{
-        Access, FilteredAccess, FilteredAccessSet, IterQueryData, QueryData, QueryFilter,
-        QuerySingleError, QueryState, ReadOnlyQueryData,
+        Access, FilteredAccess, IterQueryData, QueryData, QueryFilter, QuerySingleError,
+        QueryState, ReadOnlyQueryData,
     },
     resource::{Resource, IS_RESOURCE},
-    system::{Query, Single, SystemMeta, SystemState},
+    system::{Query, Single, SystemAccess, SystemMeta, SystemState},
     world::{
         unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FilteredResources, FilteredResourcesMut,
         FromWorld, World,
@@ -230,20 +230,14 @@ pub unsafe trait SystemParam: Sized {
 
     /// Registers any [`World`] access used by this [`SystemParam`].
     ///
-    /// This method must panic if the access would conflict with any existing access in the [`FilteredAccessSet`].
+    /// This method must panic if the access would conflict with any existing
+    /// access in the [`SystemAccess`].
     fn init_access(
         state: &Self::State,
         system_meta: &mut SystemMeta,
-        component_access_set: &mut FilteredAccessSet,
+        system_access: &mut SystemAccess,
         world: &mut World,
     );
-
-    /// Returns whether this [`SystemParam`] requires exclusive access to the [`World`].
-    /// This function exists to allow determining if a system is exclusive prior to
-    /// [`System::initialize`] (where [`SystemMeta::set_exclusive`] is called).
-    ///
-    /// [`System::initialize`]: crate::system::System::initialize
-    fn is_exclusive() -> bool;
 
     /// Applies any deferred mutations stored in this [`SystemParam`]'s state.
     /// This is used to apply [`Commands`] during [`ApplyDeferred`](crate::prelude::ApplyDeferred).
@@ -279,8 +273,8 @@ pub unsafe trait SystemParam: Sized {
     ///
     /// - The passed [`UnsafeWorldCell`] must have access to any world data registered
     ///   in [`init_access`](SystemParam::init_access).
-    /// - The passed [`UnsafeWorldCell`] must only be accessed if [metadata read access](Access::add_metadata_read)
-    ///   is registered in [`init_access`](SystemParam::init_access).
+    /// - The passed [`UnsafeWorldCell`] must not be accessed in any way if no
+    ///   access was registered in [`init_access`](SystemParam::init_access).
     /// - [`SystemParam::init_access`] must not request conflicting access.
     ///   If `Self` is `ReadOnlySystemParam`, the access is read-only and can never conflict.
     ///   Otherwise, [`SystemParam::init_access`] must be called to ensure it does not panic.
@@ -324,14 +318,11 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
     fn init_access(
         state: &Self::State,
         system_meta: &mut SystemMeta,
-        component_access_set: &mut FilteredAccessSet,
+        system_access: &mut SystemAccess,
         world: &mut World,
     ) {
+        let component_access_set = system_access.require_shared_access::<Self>(system_meta);
         state.init_access(Some(system_meta.name()), component_access_set, world.into());
-    }
-
-    fn is_exclusive() -> bool {
-        false
     }
 
     #[inline]
@@ -364,14 +355,10 @@ unsafe impl<'a, 'b, D: IterQueryData + 'static, F: QueryFilter + 'static> System
     fn init_access(
         state: &Self::State,
         system_meta: &mut SystemMeta,
-        component_access_set: &mut FilteredAccessSet,
+        system_access: &mut SystemAccess,
         world: &mut World,
     ) {
-        Query::init_access(state, system_meta, component_access_set, world);
-    }
-
-    fn is_exclusive() -> bool {
-        false
+        Query::init_access(state, system_meta, system_access, world);
     }
 
     #[inline]
@@ -421,14 +408,10 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
     fn init_access(
         state: &Self::State,
         system_meta: &mut SystemMeta,
-        component_access_set: &mut FilteredAccessSet,
+        system_access: &mut SystemAccess,
         world: &mut World,
     ) {
-        Query::init_access(state, system_meta, component_access_set, world);
-    }
-
-    fn is_exclusive() -> bool {
-        false
+        Query::init_access(state, system_meta, system_access, world);
     }
 
     #[inline]
@@ -612,19 +595,19 @@ macro_rules! impl_param_set {
                 non_snake_case,
                 reason = "Certain variable names are provided by the caller, not by us."
             )]
-            fn init_access(state: &Self::State, system_meta: &mut SystemMeta, component_access_set: &mut FilteredAccessSet, world: &mut World) {
+            fn init_access(state: &Self::State, system_meta: &mut SystemMeta, system_access: &mut SystemAccess, world: &mut World) {
                 let ($($param,)*) = state;
                 $(
                     // Call `init_access` on a clone of the original access set to check for conflicts
-                    let component_access_set_clone = &mut component_access_set.clone();
-                    $param::init_access($param, system_meta, component_access_set_clone, world);
+                    let system_access_clone = &mut system_access.clone();
+                    $param::init_access($param, system_meta, system_access_clone, world);
                 )*
                 $(
                     // Pretend to add the param to the system alone to gather the new access,
                     // then merge its access into the system.
-                    let mut access_set = FilteredAccessSet::new();
-                    $param::init_access($param, system_meta, &mut access_set, world);
-                    component_access_set.extend(access_set);
+                    let mut param_access = SystemAccess::default();
+                    $param::init_access($param, system_meta, &mut param_access, world);
+                    system_access.extend(param_access);
                 )*
             }
 
@@ -634,10 +617,6 @@ macro_rules! impl_param_set {
 
             fn queue(state: &mut Self::State, system_meta: &SystemMeta, mut world: DeferredWorld) {
                 <($($param,)*) as SystemParam>::queue(state, system_meta, world.reborrow());
-            }
-
-            fn is_exclusive() -> bool {
-                $($param::is_exclusive() ||)* false
             }
 
             #[inline]
@@ -705,29 +684,21 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
     fn init_access(
         &component_id: &Self::State,
         system_meta: &mut SystemMeta,
-        component_access_set: &mut FilteredAccessSet,
+        system_access: &mut SystemAccess,
         world: &mut World,
     ) {
         let mut filter = FilteredAccess::default();
         filter.add_read(component_id);
         filter.and_with(IS_RESOURCE);
 
-        let conflicts = component_access_set.get_conflicts_single(&filter);
-        if conflicts.is_empty() {
-            component_access_set.add(filter);
-            return;
+        if let Err(conflicts) = system_access.try_add(filter) {
+            let mut accesses = conflicts.format_conflict_list(world.as_unsafe_world_cell());
+            // Access list may be empty (if access to all components requested)
+            if !accesses.is_empty() {
+                accesses.push(' ');
+            }
+            panic!("error[B0002]: Res<{}> in system {} conflicts with a previous system parameter. Consider removing the duplicate access using `Without<IsResource>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevy.org/learn/errors/b0002", DebugName::type_name::<T>(), system_meta.name);
         }
-
-        let mut accesses = conflicts.format_conflict_list(world.as_unsafe_world_cell());
-        // Access list may be empty (if access to all components requested)
-        if !accesses.is_empty() {
-            accesses.push(' ');
-        }
-        panic!("error[B0002]: Res<{}> in system {} conflicts with a previous system parameter. Consider removing the duplicate access using `Without<IsResource>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevy.org/learn/errors/b0002", DebugName::type_name::<T>(), system_meta.name);
-    }
-
-    fn is_exclusive() -> bool {
-        false
     }
 
     #[inline]
@@ -766,29 +737,21 @@ unsafe impl<'a, T: Resource<Mutability = Mutable>> SystemParam for ResMut<'a, T>
     fn init_access(
         &component_id: &Self::State,
         system_meta: &mut SystemMeta,
-        component_access_set: &mut FilteredAccessSet,
+        system_access: &mut SystemAccess,
         world: &mut World,
     ) {
         let mut filter = FilteredAccess::default();
         filter.add_write(component_id);
         filter.and_with(IS_RESOURCE);
 
-        let conflicts = component_access_set.get_conflicts_single(&filter);
-        if conflicts.is_empty() {
-            component_access_set.add(filter);
-            return;
+        if let Err(conflicts) = system_access.try_add(filter) {
+            let mut accesses = conflicts.format_conflict_list(world.as_unsafe_world_cell());
+            // Access list may be empty (if access to all components requested)
+            if !accesses.is_empty() {
+                accesses.push(' ');
+            }
+            panic!("error[B0002]: ResMut<{}> in system {} conflicts with a previous system parameter. Consider removing the duplicate access or using `Without<IsResource>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevy.org/learn/errors/b0002", DebugName::type_name::<T>(), system_meta.name);
         }
-
-        let mut accesses = conflicts.format_conflict_list(world.as_unsafe_world_cell());
-        // Access list may be empty (if access to all components requested)
-        if !accesses.is_empty() {
-            accesses.push(' ');
-        }
-        panic!("error[B0002]: ResMut<{}> in system {} conflicts with a previous system parameter. Consider removing the duplicate access or using `Without<IsResource>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevy.org/learn/errors/b0002", DebugName::type_name::<T>(), system_meta.name);
-    }
-
-    fn is_exclusive() -> bool {
-        false
     }
 
     #[inline]
@@ -828,26 +791,18 @@ unsafe impl SystemParam for &'_ World {
     fn init_access(
         _state: &Self::State,
         system_meta: &mut SystemMeta,
-        component_access_set: &mut FilteredAccessSet,
+        system_access: &mut SystemAccess,
         _world: &mut World,
     ) {
         let mut filtered_access = FilteredAccess::default();
         filtered_access.read_all();
-        filtered_access.add_metadata_read();
-        if !component_access_set
-            .get_conflicts_single(&filtered_access)
-            .is_empty()
-        {
+
+        if system_access.try_add(filtered_access).is_err() {
             panic!(
                 "&World in system {} conflicts with a previous system parameter's access.",
                 system_meta.name,
             );
         }
-        component_access_set.add(filtered_access);
-    }
-
-    fn is_exclusive() -> bool {
-        false
     }
 
     #[inline]
@@ -872,27 +827,10 @@ unsafe impl SystemParam for &'_ mut World {
     fn init_access(
         _state: &Self::State,
         system_meta: &mut SystemMeta,
-        component_access_set: &mut FilteredAccessSet,
+        system_access: &mut SystemAccess,
         _world: &mut World,
     ) {
-        system_meta.set_exclusive();
-        let mut filtered_access = FilteredAccess::default();
-        filtered_access.write_all();
-        filtered_access.add_metadata_write();
-        if !component_access_set
-            .get_conflicts_single(&filtered_access)
-            .is_empty()
-        {
-            panic!(
-                "&mut World in system {} conflicts with a previous system parameter's access.",
-                system_meta.name,
-            );
-        }
-        component_access_set.add(filtered_access);
-    }
-
-    fn is_exclusive() -> bool {
-        true
+        system_access.require_exclusive_access::<Self>(system_meta);
     }
 
     #[inline]
@@ -917,26 +855,18 @@ unsafe impl<'w> SystemParam for DeferredWorld<'w> {
     fn init_access(
         _state: &Self::State,
         system_meta: &mut SystemMeta,
-        component_access_set: &mut FilteredAccessSet,
+        system_access: &mut SystemAccess,
         _world: &mut World,
     ) {
         let mut filtered_access = FilteredAccess::default();
         filtered_access.write_all();
-        filtered_access.add_metadata_read();
-        if !component_access_set
-            .get_conflicts_single(&filtered_access)
-            .is_empty()
-        {
+
+        if system_access.try_add(filtered_access).is_err() {
             panic!(
                 "DeferredWorld in system {} conflicts with a previous system parameter's access.",
                 system_meta.name,
             );
         }
-        component_access_set.add(filtered_access);
-    }
-
-    fn is_exclusive() -> bool {
-        false
     }
 
     unsafe fn get_param<'world, 'state>(
@@ -1124,13 +1054,9 @@ unsafe impl<'a, T: FromWorld + Send + 'static> SystemParam for Local<'a, T> {
     fn init_access(
         _state: &Self::State,
         _system_meta: &mut SystemMeta,
-        _component_access_set: &mut FilteredAccessSet,
+        _system_access: &mut SystemAccess,
         _world: &mut World,
     ) {
-    }
-
-    fn is_exclusive() -> bool {
-        false
     }
 
     #[inline]
@@ -1323,14 +1249,10 @@ unsafe impl<T: SystemBuffer> SystemParam for Deferred<'_, T> {
     fn init_access(
         _state: &Self::State,
         system_meta: &mut SystemMeta,
-        _component_access_set: &mut FilteredAccessSet,
+        _system_access: &mut SystemAccess,
         _world: &mut World,
     ) {
         system_meta.set_has_deferred();
-    }
-
-    fn is_exclusive() -> bool {
-        false
     }
 
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
@@ -1352,44 +1274,6 @@ unsafe impl<T: SystemBuffer> SystemParam for Deferred<'_, T> {
     }
 }
 
-/// A dummy type to tell the executor to run the system exclusively.
-pub struct ExclusiveMarker(PhantomData<()>);
-
-// SAFETY: No world access.
-unsafe impl SystemParam for ExclusiveMarker {
-    type State = ();
-    type Item<'w, 's> = Self;
-
-    #[inline]
-    fn init_state(_world: &mut World) -> Self::State {}
-
-    fn init_access(
-        _state: &Self::State,
-        system_meta: &mut SystemMeta,
-        _component_access_set: &mut FilteredAccessSet,
-        _world: &mut World,
-    ) {
-        system_meta.set_exclusive();
-    }
-
-    #[inline]
-    unsafe fn get_param<'world, 'state>(
-        _state: &'state mut Self::State,
-        _system_meta: &SystemMeta,
-        _world: UnsafeWorldCell<'world>,
-        _change_tick: Tick,
-    ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
-        Ok(Self(PhantomData))
-    }
-
-    fn is_exclusive() -> bool {
-        true
-    }
-}
-
-// SAFETY: Does not read any world state
-unsafe impl ReadOnlySystemParam for ExclusiveMarker {}
-
 /// A dummy type that is [`!Send`](Send), to force systems to run on the main thread.
 pub struct NonSendMarker(PhantomData<*mut ()>);
 
@@ -1404,14 +1288,10 @@ unsafe impl SystemParam for NonSendMarker {
     fn init_access(
         _state: &Self::State,
         system_meta: &mut SystemMeta,
-        _component_access_set: &mut FilteredAccessSet,
+        _system_access: &mut SystemAccess,
         _world: &mut World,
     ) {
         system_meta.set_non_send();
-    }
-
-    fn is_exclusive() -> bool {
-        false
     }
 
     #[inline]
@@ -1444,23 +1324,20 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
     fn init_access(
         &component_id: &Self::State,
         system_meta: &mut SystemMeta,
-        component_access_set: &mut FilteredAccessSet,
+        system_access: &mut SystemAccess,
         _world: &mut World,
     ) {
         system_meta.set_non_send();
 
-        let combined_access = component_access_set.combined_access();
-        assert!(
-            !combined_access.has_write(component_id),
-            "error[B0002]: NonSend<{}> in system {} conflicts with a previous mutable resource access ({0}). Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
-            DebugName::type_name::<T>(),
-            system_meta.name,
-        );
-        component_access_set.add_unfiltered_component_read(component_id);
-    }
+        let mut filtered_access = FilteredAccess::default();
+        filtered_access.add_read(component_id);
 
-    fn is_exclusive() -> bool {
-        false
+        if system_access.try_add(filtered_access).is_err() {
+            panic!(
+                "error[B0002]: NonSend<{}> in system {} conflicts with a previous system parameter's access. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
+                DebugName::type_name::<T>(), system_meta.name,
+            );
+        }
     }
 
     #[inline]
@@ -1493,26 +1370,20 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
     fn init_access(
         &component_id: &Self::State,
         system_meta: &mut SystemMeta,
-        component_access_set: &mut FilteredAccessSet,
+        system_access: &mut SystemAccess,
         _world: &mut World,
     ) {
         system_meta.set_non_send();
 
-        let combined_access = component_access_set.combined_access();
-        if combined_access.has_write(component_id) {
-            panic!(
-                "error[B0002]: NonSendMut<{}> in system {} conflicts with a previous mutable resource access ({0}). Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
-                DebugName::type_name::<T>(), system_meta.name);
-        } else if combined_access.has_read(component_id) {
-            panic!(
-                "error[B0002]: NonSendMut<{}> in system {} conflicts with a previous immutable resource access ({0}). Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
-                DebugName::type_name::<T>(), system_meta.name);
-        }
-        component_access_set.add_unfiltered_component_write(component_id);
-    }
+        let mut filtered_access = FilteredAccess::default();
+        filtered_access.add_write(component_id);
 
-    fn is_exclusive() -> bool {
-        false
+        if system_access.try_add(filtered_access).is_err() {
+            panic!(
+                "error[B0002]: NonSendMut<{}> in system {} conflicts with a previous system parameter's access. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
+                DebugName::type_name::<T>(), system_meta.name,
+            );
+        }
     }
 
     #[inline]
@@ -1545,25 +1416,10 @@ unsafe impl<'a> SystemParam for &'a Archetypes {
     fn init_access(
         _state: &Self::State,
         system_meta: &mut SystemMeta,
-        component_access_set: &mut FilteredAccessSet,
+        system_access: &mut SystemAccess,
         _world: &mut World,
     ) {
-        let mut filtered_access = FilteredAccess::default();
-        filtered_access.add_metadata_read();
-        if !component_access_set
-            .get_conflicts_single(&filtered_access)
-            .is_empty()
-        {
-            panic!(
-                "&Archetypes in system {} conflicts with a previous system parameter's access.",
-                system_meta.name,
-            );
-        }
-        component_access_set.add(filtered_access);
-    }
-
-    fn is_exclusive() -> bool {
-        false
+        system_access.require_shared_access::<Self>(system_meta);
     }
 
     #[inline]
@@ -1590,25 +1446,10 @@ unsafe impl<'a> SystemParam for &'a Components {
     fn init_access(
         _state: &Self::State,
         system_meta: &mut SystemMeta,
-        component_access_set: &mut FilteredAccessSet,
+        system_access: &mut SystemAccess,
         _world: &mut World,
     ) {
-        let mut filtered_access = FilteredAccess::default();
-        filtered_access.add_metadata_read();
-        if !component_access_set
-            .get_conflicts_single(&filtered_access)
-            .is_empty()
-        {
-            panic!(
-                "&Components in system {} conflicts with a previous system parameter's access.",
-                system_meta.name,
-            );
-        }
-        component_access_set.add(filtered_access);
-    }
-
-    fn is_exclusive() -> bool {
-        false
+        system_access.require_shared_access::<Self>(system_meta);
     }
 
     #[inline]
@@ -1635,25 +1476,10 @@ unsafe impl<'a> SystemParam for &'a Entities {
     fn init_access(
         _state: &Self::State,
         system_meta: &mut SystemMeta,
-        component_access_set: &mut FilteredAccessSet,
+        system_access: &mut SystemAccess,
         _world: &mut World,
     ) {
-        let mut filtered_access = FilteredAccess::default();
-        filtered_access.add_metadata_read();
-        if !component_access_set
-            .get_conflicts_single(&filtered_access)
-            .is_empty()
-        {
-            panic!(
-                "&Entities in system {} conflicts with a previous system parameter's access.",
-                system_meta.name,
-            );
-        }
-        component_access_set.add(filtered_access);
-    }
-
-    fn is_exclusive() -> bool {
-        false
+        system_access.require_shared_access::<Self>(system_meta);
     }
 
     #[inline]
@@ -1680,25 +1506,10 @@ unsafe impl<'a> SystemParam for &'a EntityAllocator {
     fn init_access(
         _state: &Self::State,
         system_meta: &mut SystemMeta,
-        component_access_set: &mut FilteredAccessSet,
+        system_access: &mut SystemAccess,
         _world: &mut World,
     ) {
-        let mut filtered_access = FilteredAccess::default();
-        filtered_access.add_metadata_read();
-        if !component_access_set
-            .get_conflicts_single(&filtered_access)
-            .is_empty()
-        {
-            panic!(
-                "&EntityAllocator in system {} conflicts with a previous system parameter's access.",
-                system_meta.name,
-            );
-        }
-        component_access_set.add(filtered_access);
-    }
-
-    fn is_exclusive() -> bool {
-        false
+        system_access.require_shared_access::<Self>(system_meta);
     }
 
     #[inline]
@@ -1725,25 +1536,10 @@ unsafe impl<'a> SystemParam for &'a Bundles {
     fn init_access(
         _state: &Self::State,
         system_meta: &mut SystemMeta,
-        component_access_set: &mut FilteredAccessSet,
+        system_access: &mut SystemAccess,
         _world: &mut World,
     ) {
-        let mut filtered_access = FilteredAccess::default();
-        filtered_access.add_metadata_read();
-        if !component_access_set
-            .get_conflicts_single(&filtered_access)
-            .is_empty()
-        {
-            panic!(
-                "&Bundles in system {} conflicts with a previous system parameter's access.",
-                system_meta.name,
-            );
-        }
-        component_access_set.add(filtered_access);
-    }
-
-    fn is_exclusive() -> bool {
-        false
+        system_access.require_shared_access::<Self>(system_meta);
     }
 
     #[inline]
@@ -1799,13 +1595,9 @@ unsafe impl SystemParam for SystemChangeTick {
     fn init_access(
         _state: &Self::State,
         _system_meta: &mut SystemMeta,
-        _component_access_set: &mut FilteredAccessSet,
+        _system_access: &mut SystemAccess,
         _world: &mut World,
     ) {
-    }
-
-    fn is_exclusive() -> bool {
-        false
     }
 
     #[inline]
@@ -1835,14 +1627,10 @@ unsafe impl<T: SystemParam> SystemParam for Option<T> {
     fn init_access(
         state: &Self::State,
         system_meta: &mut SystemMeta,
-        component_access_set: &mut FilteredAccessSet,
+        system_access: &mut SystemAccess,
         world: &mut World,
     ) {
-        T::init_access(state, system_meta, component_access_set, world);
-    }
-
-    fn is_exclusive() -> bool {
-        T::is_exclusive()
+        T::init_access(state, system_meta, system_access, world);
     }
 
     #[inline]
@@ -1881,14 +1669,10 @@ unsafe impl<T: SystemParam> SystemParam for Result<T, SystemParamValidationError
     fn init_access(
         state: &Self::State,
         system_meta: &mut SystemMeta,
-        component_access_set: &mut FilteredAccessSet,
+        system_access: &mut SystemAccess,
         world: &mut World,
     ) {
-        T::init_access(state, system_meta, component_access_set, world);
-    }
-
-    fn is_exclusive() -> bool {
-        T::is_exclusive()
+        T::init_access(state, system_meta, system_access, world);
     }
 
     #[inline]
@@ -1980,14 +1764,10 @@ unsafe impl<T: SystemParam> SystemParam for If<T> {
     fn init_access(
         state: &Self::State,
         system_meta: &mut SystemMeta,
-        component_access_set: &mut FilteredAccessSet,
+        system_access: &mut SystemAccess,
         world: &mut World,
     ) {
-        T::init_access(state, system_meta, component_access_set, world);
-    }
-
-    fn is_exclusive() -> bool {
-        T::is_exclusive()
+        T::init_access(state, system_meta, system_access, world);
     }
 
     #[inline]
@@ -2032,16 +1812,12 @@ unsafe impl<T: SystemParam> SystemParam for Vec<T> {
     fn init_access(
         state: &Self::State,
         system_meta: &mut SystemMeta,
-        component_access_set: &mut FilteredAccessSet,
+        system_access: &mut SystemAccess,
         world: &mut World,
     ) {
         for state in state {
-            T::init_access(state, system_meta, component_access_set, world);
+            T::init_access(state, system_meta, system_access, world);
         }
-    }
-
-    fn is_exclusive() -> bool {
-        T::is_exclusive()
     }
 
     #[inline]
@@ -2088,25 +1864,21 @@ unsafe impl<T: SystemParam> SystemParam for ParamSet<'_, '_, Vec<T>> {
     fn init_access(
         state: &Self::State,
         system_meta: &mut SystemMeta,
-        component_access_set: &mut FilteredAccessSet,
+        system_access: &mut SystemAccess,
         world: &mut World,
     ) {
         for state in state {
             // Call `init_access` on a clone of the original access set to check for conflicts
-            let component_access_set_clone = &mut component_access_set.clone();
-            T::init_access(state, system_meta, component_access_set_clone, world);
+            let system_access_clone = &mut system_access.clone();
+            T::init_access(state, system_meta, system_access_clone, world);
         }
         for state in state {
             // Pretend to add the param to the system alone to gather the new access,
             // then merge its access into the system.
-            let mut access_set = FilteredAccessSet::new();
-            T::init_access(state, system_meta, &mut access_set, world);
-            component_access_set.extend(access_set);
+            let mut param_access = SystemAccess::default();
+            T::init_access(state, system_meta, &mut param_access, world);
+            system_access.extend(param_access);
         }
-    }
-
-    fn is_exclusive() -> bool {
-        T::is_exclusive()
     }
 
     #[inline]
@@ -2195,16 +1967,12 @@ unsafe impl<T: SystemParam, const N: usize> SystemParam for SmallVec<[T; N]> {
     fn init_access(
         state: &Self::State,
         system_meta: &mut SystemMeta,
-        component_access_set: &mut FilteredAccessSet,
+        system_access: &mut SystemAccess,
         world: &mut World,
     ) {
         for state in state {
-            T::init_access(state, system_meta, component_access_set, world);
+            T::init_access(state, system_meta, system_access, world);
         }
-    }
-
-    fn is_exclusive() -> bool {
-        T::is_exclusive()
     }
 
     #[inline]
@@ -2267,14 +2035,11 @@ macro_rules! impl_system_param_tuple {
                 ($($param::init_state(world),)*)
             }
 
-            fn init_access(state: &Self::State, _system_meta: &mut SystemMeta, _component_access_set: &mut FilteredAccessSet, _world: &mut World) {
+            fn init_access(state: &Self::State, _system_meta: &mut SystemMeta, _system_access: &mut SystemAccess, _world: &mut World) {
                 let ($($param,)*) = state;
-                $($param::init_access($param, _system_meta, _component_access_set, _world);)*
+                $($param::init_access($param, _system_meta, _system_access, _world);)*
             }
 
-            fn is_exclusive() -> bool {
-                $($param::is_exclusive() ||)* false
-            }
 
             #[inline]
             fn apply(($($param,)*): &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
@@ -2444,14 +2209,10 @@ unsafe impl<P: SystemParam + 'static> SystemParam for StaticSystemParam<'_, '_, 
     fn init_access(
         state: &Self::State,
         system_meta: &mut SystemMeta,
-        component_access_set: &mut FilteredAccessSet,
+        system_access: &mut SystemAccess,
         world: &mut World,
     ) {
-        P::init_access(state, system_meta, component_access_set, world);
-    }
-
-    fn is_exclusive() -> bool {
-        P::is_exclusive()
+        P::init_access(state, system_meta, system_access, world);
     }
 
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
@@ -2484,13 +2245,9 @@ unsafe impl<T: ?Sized> SystemParam for PhantomData<T> {
     fn init_access(
         _state: &Self::State,
         _system_meta: &mut SystemMeta,
-        _component_access_set: &mut FilteredAccessSet,
+        _system_access: &mut SystemAccess,
         _world: &mut World,
     ) {
-    }
-
-    fn is_exclusive() -> bool {
-        false
     }
 
     #[inline]
@@ -2521,13 +2278,9 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
     fn init_access(
         _state: &Self::State,
         _system_meta: &mut SystemMeta,
-        _component_access_set: &mut FilteredAccessSet,
+        _system_access: &mut SystemAccess,
         _world: &mut World,
     ) {
-    }
-
-    fn is_exclusive() -> bool {
-        false
     }
 
     unsafe fn get_param<'world, 'state>(
@@ -2558,13 +2311,9 @@ unsafe impl<P: SystemParam + 'static> SystemParam for &'_ mut SystemState<P> {
     fn init_access(
         _state: &Self::State,
         _system_meta: &mut SystemMeta,
-        _component_access_set: &mut FilteredAccessSet,
+        _system_access: &mut SystemAccess,
         _world: &mut World,
     ) {
-    }
-
-    fn is_exclusive() -> bool {
-        false
     }
 
     unsafe fn get_param<'world, 'state>(
@@ -2780,7 +2529,7 @@ trait DynParamState: Sync + Send + Any {
     fn init_access(
         &self,
         system_meta: &mut SystemMeta,
-        component_access_set: &mut FilteredAccessSet,
+        system_access: &mut SystemAccess,
         world: &mut World,
     );
 
@@ -2811,10 +2560,10 @@ impl<T: SystemParam + 'static> DynParamState for ParamState<T> {
     fn init_access(
         &self,
         system_meta: &mut SystemMeta,
-        component_access_set: &mut FilteredAccessSet,
+        system_access: &mut SystemAccess,
         world: &mut World,
     ) {
-        T::init_access(&self.0, system_meta, component_access_set, world);
+        T::init_access(&self.0, system_meta, system_access, world);
     }
 
     unsafe fn validate(
@@ -2841,18 +2590,10 @@ unsafe impl SystemParam for DynSystemParam<'_, '_> {
     fn init_access(
         state: &Self::State,
         system_meta: &mut SystemMeta,
-        component_access_set: &mut FilteredAccessSet,
+        system_access: &mut SystemAccess,
         world: &mut World,
     ) {
-        state
-            .0
-            .init_access(system_meta, component_access_set, world);
-    }
-
-    fn is_exclusive() -> bool {
-        // Exclusivity is determined at runtime by the inner parameter, so we
-        // can't know at compile time.
-        false
+        state.0.init_access(system_meta, system_access, world);
     }
 
     #[inline]
@@ -2899,25 +2640,18 @@ unsafe impl SystemParam for FilteredResources<'_, '_> {
     fn init_access(
         access: &Self::State,
         system_meta: &mut SystemMeta,
-        component_access_set: &mut FilteredAccessSet,
+        system_access: &mut SystemAccess,
         world: &mut World,
     ) {
-        let combined_access = component_access_set.combined_access();
-        let conflicts = combined_access.get_conflicts(access);
-        if !conflicts.is_empty() {
+        let mut filtered_access = FilteredAccess::default();
+        filtered_access.access_mut().extend(access);
+        filtered_access.and_with(IS_RESOURCE);
+
+        if let Err(conflicts) = system_access.try_add(filtered_access) {
             let accesses = conflicts.format_conflict_list(world.into());
             let system_name = &system_meta.name;
             panic!("error[B0002]: FilteredResources in system {system_name} accesses resources(s){accesses} in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002");
         }
-
-        let mut filter = FilteredAccess::matches_everything();
-        filter.access_mut().extend(access);
-        filter.and_with(IS_RESOURCE);
-        component_access_set.add(filter);
-    }
-
-    fn is_exclusive() -> bool {
-        false
     }
 
     unsafe fn get_param<'world, 'state>(
@@ -2949,25 +2683,18 @@ unsafe impl SystemParam for FilteredResourcesMut<'_, '_> {
     fn init_access(
         access: &Self::State,
         system_meta: &mut SystemMeta,
-        component_access_set: &mut FilteredAccessSet,
+        system_access: &mut SystemAccess,
         world: &mut World,
     ) {
-        let combined_access = component_access_set.combined_access();
-        let conflicts = combined_access.get_conflicts(access);
-        if !conflicts.is_empty() {
+        let mut filtered_access = FilteredAccess::default();
+        filtered_access.access_mut().extend(access);
+        filtered_access.and_with(IS_RESOURCE);
+
+        if let Err(conflicts) = system_access.try_add(filtered_access) {
             let accesses = conflicts.format_conflict_list(world.into());
             let system_name = &system_meta.name;
             panic!("error[B0002]: FilteredResourcesMut in system {system_name} accesses resources(s){accesses} in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002");
         }
-
-        let mut filter = FilteredAccess::matches_everything();
-        filter.access_mut().extend(access);
-        filter.and_with(IS_RESOURCE);
-        component_access_set.add(filter);
-    }
-
-    fn is_exclusive() -> bool {
-        false
     }
 
     unsafe fn get_param<'world, 'state>(
@@ -3419,63 +3146,63 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "&mut World")]
+    #[should_panic(expected = "World")]
     fn mutable_world_conflicts_with_commands_first() {
         fn system(_: Commands, _: &mut World) {}
         assert_is_system(system);
     }
 
     #[test]
-    #[should_panic(expected = "&Entities")]
+    #[should_panic(expected = "Entities")]
     fn mutable_world_conflicts_with_commands_second() {
         fn system(_: &mut World, _: Commands) {}
         assert_is_system(system);
     }
 
     #[test]
-    #[should_panic(expected = "&mut World")]
+    #[should_panic(expected = "World")]
     fn mutable_world_conflicts_with_entities_first() {
         fn system(_: &Entities, _: &mut World) {}
         assert_is_system(system);
     }
 
     #[test]
-    #[should_panic(expected = "&Entities")]
+    #[should_panic(expected = "Entities")]
     fn mutable_world_conflicts_with_entities_second() {
         fn system(_: &mut World, _: &Entities) {}
         assert_is_system(system);
     }
 
     #[test]
-    #[should_panic(expected = "&Archetypes")]
+    #[should_panic(expected = "Archetypes")]
     fn mutable_world_conflicts_with_archetypes() {
         fn system(_: &mut World, _: &Archetypes) {}
         assert_is_system(system);
     }
 
     #[test]
-    #[should_panic(expected = "&Components")]
+    #[should_panic(expected = "Components")]
     fn mutable_world_conflicts_with_components() {
         fn system(_: &mut World, _: &Components) {}
         assert_is_system(system);
     }
 
     #[test]
-    #[should_panic(expected = "&EntityAllocator")]
+    #[should_panic(expected = "EntityAllocator")]
     fn mutable_world_conflicts_with_entity_allocator() {
         fn system(_: &mut World, _: &EntityAllocator) {}
         assert_is_system(system);
     }
 
     #[test]
-    #[should_panic(expected = "&Bundles")]
+    #[should_panic(expected = "Bundles")]
     fn mutable_world_conflicts_with_bundles() {
         fn system(_: &mut World, _: &Bundles) {}
         assert_is_system(system);
     }
 
     #[test]
-    #[should_panic(expected = "&World")]
+    #[should_panic(expected = "World")]
     fn mutable_world_conflicts_with_immutable_world() {
         fn system(_: &mut World, _: &World) {}
         assert_is_system(system);
@@ -3501,28 +3228,28 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "&mut World")]
+    #[should_panic(expected = "World")]
     fn mutable_world_param_set_conflicts_outside() {
         fn system(_: &Entities, _: ParamSet<(&mut World, &Entities)>) {}
         assert_is_system(system);
     }
 
     #[test]
-    #[should_panic(expected = "&Entities")]
+    #[should_panic(expected = "Entities")]
     fn mutable_world_param_set_conflicts_outside_reverse() {
         fn system(_: ParamSet<(&mut World, &Entities)>, _: &Entities) {}
         assert_is_system(system);
     }
 
     #[test]
-    #[should_panic(expected = "&Entities")]
+    #[should_panic(expected = "Entities")]
     fn mutable_world_conflicts_with_optional_entities() {
         fn system(_: &mut World, _: Option<&Entities>) {}
         assert_is_system(system);
     }
 
     #[test]
-    #[should_panic(expected = "error[B0001]")]
+    #[should_panic(expected = "error[B0002]")]
     fn mutable_world_conflicts_with_optional_query() {
         #[derive(Component)]
         struct A;
@@ -3531,11 +3258,18 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "error[B0001]")]
+    #[should_panic(expected = "error[B0002]")]
     fn mutable_world_conflicts_with_query() {
         #[derive(Component)]
         struct A;
         fn system(_: &mut World, _: Query<&mut A>) {}
+        assert_is_system(system);
+    }
+
+    #[test]
+    #[should_panic(expected = "error[B0002]")]
+    fn mutable_world_conflicts_with_empty_query() {
+        fn system(_: &mut World, _: Query<()>) {}
         assert_is_system(system);
     }
 

@@ -8,9 +8,10 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::change_detection::Tick;
 use bevy_ecs::component::ComponentId;
 use bevy_ecs::prelude::*;
-use bevy_ecs::query::{FilteredAccessSet, QueryData, QueryFilter, QueryState};
+use bevy_ecs::query::{QueryData, QueryFilter, QueryState};
 use bevy_ecs::system::{
-    Deferred, SystemBuffer, SystemMeta, SystemName, SystemParam, SystemParamValidationError,
+    Deferred, SystemAccess, SystemBuffer, SystemMeta, SystemName, SystemParam,
+    SystemParamValidationError,
 };
 use bevy_ecs::world::unsafe_world_cell::UnsafeWorldCell;
 use bevy_ecs::world::DeferredWorld;
@@ -349,21 +350,18 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
     fn init_access(
         state: &Self::State,
         system_meta: &mut SystemMeta,
-        component_access_set: &mut FilteredAccessSet,
+        system_access: &mut SystemAccess,
         world: &mut World,
     ) {
+        let component_access_set = system_access.require_shared_access::<Self>(system_meta);
         component_access_set.add_resource_read(state.resource_id);
 
         <Query<'_, '_, D, F> as SystemParam>::init_access(
             &state.query_state,
             system_meta,
-            component_access_set,
+            system_access,
             world,
         );
-    }
-
-    fn is_exclusive() -> bool {
-        false
     }
 
     #[inline]

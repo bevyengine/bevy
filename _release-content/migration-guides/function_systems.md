@@ -15,3 +15,18 @@ tracked at runtime, rather than compile time.
 
 All `ExclusiveSystemParam`s that did not previously implement `SystemParam` now
 implement it, including `&mut QueryState` and `&mut SystemState`.
+
+`WorldId` no longer implements `SystemParam`; if you need to access the world ID,
+use `Local<WorldId>` instead (it will be automatically populated with the correct ID).
+
+`System::is_exclusive()` has been removed. Use `SystemAccess::is_exclusive()` instead,
+which is created by `System::initialize()` and stored in `SystemWithAccess`.
+
+`System::iniitalize()` now returns a `SystemAccess` rather than a `FilteredAccessSet`.
+`SystemAccess` is a superset of `FilteredAccessSet` that also tracks whether the
+system is exclusive, or requires no access to the world at all. If you require
+access to a `FilteredAccessSet`, call `SystemAccess::require_shared_access(system_meta)`.
+
+`ExclusiveMarker` has been removed. If you need to mark a system as exclusive,
+consider piping the system into a `fn(&mut World)` system, which will automatically
+mark it as exclusive.

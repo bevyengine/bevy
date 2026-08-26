@@ -10,9 +10,8 @@ use log::warn;
 use crate::{
     change_detection::{CheckChangeTicks, Tick},
     error::BevyError,
-    query::FilteredAccessSet,
     schedule::InternedSystemSet,
-    system::{input::SystemInput, SystemIn},
+    system::{input::SystemInput, SystemAccess, SystemIn},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
 
@@ -27,8 +26,6 @@ bitflags! {
     pub struct SystemStateFlags: u8 {
         /// Set if system cannot be sent across threads
         const NON_SEND       = 1 << 0;
-        /// Set if system requires exclusive World access
-        const EXCLUSIVE      = 1 << 1;
         /// Set if system has deferred buffers.
         const DEFERRED       = 1 << 2;
     }
@@ -68,12 +65,6 @@ pub trait System: Send + Sync + 'static {
         !self.flags().intersects(SystemStateFlags::NON_SEND)
     }
 
-    /// Returns true if the system must be run exclusively.
-    #[inline]
-    fn is_exclusive(&self) -> bool {
-        self.flags().intersects(SystemStateFlags::EXCLUSIVE)
-    }
-
     /// Returns true if system has deferred buffers.
     #[inline]
     fn has_deferred(&self) -> bool {
@@ -92,8 +83,8 @@ pub trait System: Send + Sync + 'static {
     /// - The caller must ensure that [`world`](UnsafeWorldCell) has permission to access any world data
     ///   registered in the access returned from [`System::initialize`]. There must be no conflicting
     ///   simultaneous accesses while the system is running.
-    /// - If [`System::is_exclusive`] returns `true`, then it must be valid to call
-    ///   [`UnsafeWorldCell::world_mut`] on `world`.
+    /// - If [`System::initialize`] returns a [`SystemAccess`] that is exclusive,
+    ///   then it must be valid to call [`UnsafeWorldCell::world_mut`] on `world`.
     unsafe fn run_unsafe(
         &mut self,
         input: SystemIn<'_, Self>,
@@ -146,8 +137,8 @@ pub trait System: Send + Sync + 'static {
 
     /// Initialize the system.
     ///
-    /// Returns a [`FilteredAccessSet`] with the access required to run the system.
-    fn initialize(&mut self, _world: &mut World) -> FilteredAccessSet;
+    /// Returns a [`SystemAccess`] with the access required to run the system.
+    fn initialize(&mut self, _world: &mut World) -> SystemAccess;
 
     /// Checks any [`Tick`]s stored on this system and wraps their value if they get too old.
     ///
@@ -237,7 +228,6 @@ where
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("System")
             .field("name", &self.name())
-            .field("is_exclusive", &self.is_exclusive())
             .field("is_send", &self.is_send())
             .finish_non_exhaustive()
     }

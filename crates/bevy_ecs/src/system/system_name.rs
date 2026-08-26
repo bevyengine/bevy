@@ -1,8 +1,9 @@
 use crate::{
     change_detection::Tick,
     prelude::World,
-    query::FilteredAccessSet,
-    system::{ReadOnlySystemParam, SystemMeta, SystemParam, SystemParamValidationError},
+    system::{
+        ReadOnlySystemParam, SystemAccess, SystemMeta, SystemParam, SystemParamValidationError,
+    },
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 use bevy_utils::prelude::DebugName;
@@ -59,13 +60,9 @@ unsafe impl SystemParam for SystemName {
     fn init_access(
         _state: &Self::State,
         _system_meta: &mut SystemMeta,
-        _component_access_set: &mut FilteredAccessSet,
+        _system_access: &mut SystemAccess,
         _world: &mut World,
     ) {
-    }
-
-    fn is_exclusive() -> bool {
-        false
     }
 
     #[inline]

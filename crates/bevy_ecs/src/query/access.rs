@@ -1,7 +1,6 @@
 use crate::world::unsafe_world_cell::UnsafeWorldCell;
 use crate::{component::ComponentId, resource::IS_RESOURCE};
 use alloc::{format, string::String, vec, vec::Vec};
-use bitflags::bitflags;
 use core::iter::FusedIterator;
 use core::mem;
 use core::{fmt, fmt::Debug};
@@ -220,29 +219,6 @@ impl InvertibleComponentIdSet {
     }
 }
 
-bitflags! {
-    /// World metadata access flags.
-    #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
-    pub struct MetadataAccess: u8 {
-        /// No access to world metadata.
-        const NONE = 0;
-        /// Read-only access to world metadata.
-        const READ = 1 << 0;
-        /// Exclusive access to world metadata.
-        const WRITE = 1 << 1;
-    }
-}
-
-impl MetadataAccess {
-    /// Returns true if the access and `other` can be active at the same time.
-    pub fn is_compatible(self, other: MetadataAccess) -> bool {
-        !(self.contains(MetadataAccess::WRITE)
-            && other.intersects(MetadataAccess::READ | MetadataAccess::WRITE))
-            && !(other.contains(MetadataAccess::WRITE)
-                && self.intersects(MetadataAccess::READ | MetadataAccess::WRITE))
-    }
-}
-
 /// Tracks read and write access to specific elements in a collection.
 ///
 /// Used internally to ensure soundness during system initialization and execution.
@@ -258,9 +234,6 @@ pub struct Access {
     writes: InvertibleComponentIdSet,
     // Components that are not accessed, but whose presence in an archetype affect query results.
     archetypal: ComponentIdSet,
-    /// Access to world metadata, such as [`Entities`](crate::entity::Entities)
-    /// or [`Archetypes`](crate::archetype::Archetypes).
-    metadata: MetadataAccess,
 }
 
 // This is needed since `#[derive(Clone)]` does not generate optimized `clone_from`.
@@ -270,7 +243,6 @@ impl Clone for Access {
             reads: self.reads.clone(),
             writes: self.writes.clone(),
             archetypal: self.archetypal.clone(),
-            metadata: self.metadata,
         }
     }
 
@@ -278,7 +250,6 @@ impl Clone for Access {
         self.reads.clone_from(&source.reads);
         self.writes.clone_from(&source.writes);
         self.archetypal.clone_from(&source.archetypal);
-        self.metadata = source.metadata;
     }
 }
 
@@ -289,7 +260,6 @@ impl Access {
             reads: InvertibleComponentIdSet::new(),
             writes: InvertibleComponentIdSet::new(),
             archetypal: ComponentIdSet::new(),
-            metadata: MetadataAccess::NONE,
         }
     }
 
@@ -301,7 +271,6 @@ impl Access {
             reads: InvertibleComponentIdSet::new_all(),
             writes: InvertibleComponentIdSet::new(),
             archetypal: ComponentIdSet::new(),
-            metadata: MetadataAccess::READ,
         }
     }
 
@@ -313,31 +282,18 @@ impl Access {
             reads: InvertibleComponentIdSet::new_all(),
             writes: InvertibleComponentIdSet::new_all(),
             archetypal: ComponentIdSet::new(),
-            metadata: MetadataAccess::READ,
         }
     }
 
     /// Adds access to the component given by `index`.
     pub fn add_read(&mut self, index: ComponentId) {
         self.reads.insert(index);
-        self.metadata |= MetadataAccess::READ;
     }
 
     /// Adds exclusive access to the component given by `index`.
     pub fn add_write(&mut self, index: ComponentId) {
         self.reads.insert(index);
         self.writes.insert(index);
-        self.metadata |= MetadataAccess::READ;
-    }
-
-    /// Adds read access to world metadata.
-    pub fn add_metadata_read(&mut self) {
-        self.metadata |= MetadataAccess::READ;
-    }
-
-    /// Adds exclusive access to world metadata.
-    pub fn add_metadata_write(&mut self) {
-        self.metadata |= MetadataAccess::READ | MetadataAccess::WRITE;
     }
 
     /// Removes read access to the component given by `index`.
@@ -420,7 +376,6 @@ impl Access {
     #[inline]
     pub fn read_all(&mut self) {
         self.reads.all();
-        self.metadata |= MetadataAccess::READ;
     }
 
     /// Sets this as having mutable access to all components (i.e. `EntityMut` and `&mut World`).
@@ -428,7 +383,6 @@ impl Access {
     pub fn write_all(&mut self) {
         self.reads.all();
         self.writes.all();
-        self.metadata |= MetadataAccess::READ;
     }
 
     /// Returns `true` if this has access to all components (i.e. `EntityRef` and `&World`).
@@ -446,19 +400,12 @@ impl Access {
     /// Removes all writes.
     pub fn clear_writes(&mut self) {
         self.writes.clear();
-        self.metadata.remove(MetadataAccess::WRITE);
-    }
-
-    /// Removes all world metadata access.
-    pub fn clear_metadata(&mut self) {
-        self.metadata = MetadataAccess::NONE;
     }
 
     /// Removes all accesses.
     pub fn clear(&mut self) {
         self.reads.clear();
         self.writes.clear();
-        self.metadata = MetadataAccess::NONE;
     }
 
     /// Adds all access from `other`.
@@ -466,7 +413,6 @@ impl Access {
         self.reads.union_with(&other.reads);
         self.writes.union_with(&other.writes);
         self.archetypal.union_with(&other.archetypal);
-        self.metadata |= other.metadata;
     }
 
     /// Removes any access from `self` that would conflict with `other`.
@@ -475,12 +421,6 @@ impl Access {
     pub fn remove_conflicting_access(&mut self, other: &Access) {
         self.reads.difference_with(&other.writes);
         self.writes.difference_with(&other.reads);
-        if other.metadata.contains(MetadataAccess::WRITE) {
-            self.metadata
-                .remove(MetadataAccess::READ | MetadataAccess::WRITE);
-        } else if other.metadata.contains(MetadataAccess::READ) {
-            self.metadata.remove(MetadataAccess::WRITE);
-        }
     }
 
     /// Returns `true` if the access and `other` can be active at the same time.
@@ -490,27 +430,18 @@ impl Access {
     pub fn is_compatible(&self, other: &Access) -> bool {
         // We have a conflict if we write and they read or write, or if they
         // write and we read or write.
-        self.writes.is_disjoint(&other.reads)
-            && other.writes.is_disjoint(&self.reads)
-            && self.metadata.is_compatible(other.metadata)
+        self.writes.is_disjoint(&other.reads) && other.writes.is_disjoint(&self.reads)
     }
 
     /// Returns `true` if the set is a subset of another, i.e. `other` contains
     /// at least all the values in `self`.
     pub fn is_subset(&self, other: &Access) -> bool {
-        self.reads.is_subset(&other.reads)
-            && self.writes.is_subset(&other.writes)
-            && other.metadata.contains(self.metadata)
+        self.reads.is_subset(&other.reads) && self.writes.is_subset(&other.writes)
     }
 
     /// Returns a vector of elements that the access and `other` cannot access at the same time.
     #[inline]
     pub fn get_conflicts(&self, other: &Access) -> AccessConflicts {
-        // We have a conflict if we write and they read or write, or if they
-        // write and we read or write.
-        if !self.metadata.is_compatible(other.metadata) {
-            return AccessConflicts::All;
-        }
         let mut conflicts = self.writes.intersection(&other.reads);
         conflicts.union_with(&other.writes.intersection(&self.reads));
         conflicts
@@ -817,16 +748,6 @@ impl FilteredAccess {
         self.and_with(index);
     }
 
-    /// Marks this access as reading world metadata.
-    pub fn add_metadata_read(&mut self) {
-        self.access.add_metadata_read();
-    }
-
-    /// Marks this access as writing world metadata.
-    pub fn add_metadata_write(&mut self) {
-        self.access.add_metadata_write();
-    }
-
     fn add_required(&mut self, index: ComponentId) {
         self.required.insert(index);
     }
@@ -869,8 +790,6 @@ impl FilteredAccess {
     pub fn is_compatible(&self, other: &FilteredAccess) -> bool {
         if self.access.is_compatible(&other.access) {
             return true;
-        } else if !self.access.metadata.is_compatible(other.access.metadata) {
-            return false;
         }
 
         // If the access instances are incompatible, we want to check that whether filters can
@@ -1149,7 +1068,7 @@ impl FilteredAccessSet {
     }
 
     /// Adds a read access to a component to the set.
-    pub(crate) fn add_unfiltered_component_read(&mut self, index: ComponentId) {
+    pub fn add_unfiltered_component_read(&mut self, index: ComponentId) {
         let mut filter = FilteredAccess::default();
         filter.add_read(index);
         self.add(filter);
@@ -1171,7 +1090,7 @@ impl FilteredAccessSet {
     }
 
     /// Adds a write access to a resource to the set.
-    pub(crate) fn add_unfiltered_component_write(&mut self, index: ComponentId) {
+    pub fn add_unfiltered_component_write(&mut self, index: ComponentId) {
         let mut filter = FilteredAccess::default();
         filter.add_write(index);
         self.add(filter);
@@ -1203,20 +1122,6 @@ impl FilteredAccessSet {
     pub fn write_all(&mut self) {
         let mut filter = FilteredAccess::matches_everything();
         filter.write_all();
-        self.add(filter);
-    }
-
-    /// Marks the set as reading all world metadata.
-    pub fn add_metadata_read(&mut self) {
-        let mut filter = FilteredAccess::matches_everything();
-        filter.access.add_metadata_read();
-        self.add(filter);
-    }
-
-    /// Marks the set as writing all world metadata.
-    pub fn add_metadata_write(&mut self) {
-        let mut filter = FilteredAccess::matches_everything();
-        filter.access.add_metadata_write();
         self.add(filter);
     }
 
@@ -1454,7 +1359,7 @@ mod tests {
         query::{
             access::{AccessFilters, InvertibleComponentIdSet},
             Access, AccessConflicts, ComponentAccessKind, ComponentIdSet, FilteredAccess,
-            FilteredAccessSet, MetadataAccess, UnboundedAccessError,
+            FilteredAccessSet, UnboundedAccessError,
         },
     };
     use alloc::{vec, vec::Vec};
@@ -2049,65 +1954,5 @@ mod tests {
         let mut s = set_23.clone();
         s.difference_from(&set_13);
         assert!(s.iter().eq([1].map(ComponentId::new)));
-    }
-
-    #[test]
-    fn metadata_access_compatibility() {
-        let mut read_a = Access::default();
-        read_a.add_metadata_read();
-
-        let mut read_b = Access::default();
-        read_b.add_metadata_read();
-
-        let mut write = Access::default();
-        write.add_metadata_write();
-
-        assert!(read_a.is_compatible(&read_b));
-        assert!(!read_a.is_compatible(&write));
-        assert!(!write.is_compatible(&read_b));
-        assert!(!write.is_compatible(&write));
-    }
-
-    #[test]
-    fn metadata_access_conflicts_reported() {
-        let mut read = Access::default();
-        read.add_metadata_read();
-
-        let mut write = Access::default();
-        write.add_metadata_write();
-
-        assert!(!read.get_conflicts(&write).is_empty());
-        assert!(!write.get_conflicts(&read).is_empty());
-    }
-
-    #[test]
-    fn metadata_conflicts_unaffected_by_component_filters() {
-        let mut read = FilteredAccess::default();
-        read.add_metadata_read();
-        read.and_with(ComponentId::new(1));
-
-        let mut write = FilteredAccess::default();
-        write.add_metadata_write();
-        write.and_without(ComponentId::new(1));
-
-        assert!(!read.is_compatible(&write));
-        assert!(!write.is_compatible(&read));
-        assert!(!read.get_conflicts(&write).is_empty());
-        assert!(!write.get_conflicts(&read).is_empty());
-    }
-
-    #[test]
-    fn metadata_access_clear() {
-        let mut access = Access::default();
-        access.add_metadata_write();
-
-        assert_eq!(
-            access.metadata,
-            MetadataAccess::READ | MetadataAccess::WRITE
-        );
-
-        access.clear_metadata();
-
-        assert_eq!(access.metadata, MetadataAccess::NONE);
     }
 }

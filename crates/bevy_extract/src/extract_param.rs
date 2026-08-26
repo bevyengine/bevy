@@ -2,10 +2,9 @@ use crate::MainWorld;
 use bevy_ecs::{
     change_detection::Tick,
     prelude::*,
-    query::FilteredAccessSet,
     system::{
-        ReadOnlySystemParam, SystemMeta, SystemParam, SystemParamItem, SystemParamValidationError,
-        SystemState,
+        ReadOnlySystemParam, SystemAccess, SystemMeta, SystemParam, SystemParamItem,
+        SystemParamValidationError, SystemState,
     },
     world::unsafe_world_cell::UnsafeWorldCell,
 };
@@ -85,19 +84,10 @@ where
     fn init_access(
         state: &Self::State,
         system_meta: &mut SystemMeta,
-        component_access_set: &mut FilteredAccessSet,
+        system_access: &mut SystemAccess,
         world: &mut World,
     ) {
-        Res::<MainWorld>::init_access(
-            &state.main_world_state,
-            system_meta,
-            component_access_set,
-            world,
-        );
-    }
-
-    fn is_exclusive() -> bool {
-        false
+        Res::<MainWorld>::init_access(&state.main_world_state, system_meta, system_access, world);
     }
 
     #[inline]

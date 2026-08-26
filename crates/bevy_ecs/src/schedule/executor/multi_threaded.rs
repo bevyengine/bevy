@@ -178,7 +178,7 @@ impl SystemExecutor for MultiThreadedExecutor {
                 condition_conflicting_systems: FixedBitSet::with_capacity(sys_count),
                 dependents: schedule.system_dependents[index].clone(),
                 is_send: schedule.systems[index].system.is_send(),
-                is_exclusive: schedule.systems[index].system.is_exclusive(),
+                is_exclusive: schedule.systems[index].access.is_exclusive(),
             });
             // A system with no dependencies is a starting system.
             if schedule.system_dependencies[index] == 0 {
@@ -948,7 +948,7 @@ mod tests {
         },
         prelude::Resource,
         schedule::{IntoScheduleConfigs, MultiThreadedExecutor, Schedule},
-        system::{Commands, ExclusiveMarker, NonSendMut},
+        system::{Commands, NonSendMut},
         world::World,
     };
 
@@ -988,7 +988,7 @@ mod tests {
         schedule.set_executor(MultiThreadedExecutor::new());
         schedule.add_systems(
             (
-                |_: ExclusiveMarker| {},
+                |_: &mut World| {},
                 |mut marker: NonSendMut<NonSendMarker>| {
                     marker.0 = true;
                 },

@@ -1,13 +1,8 @@
 use crate::{
-    change_detection::Tick,
-    query::FilteredAccessSet,
     storage::SparseSetIndex,
-    system::{ReadOnlySystemParam, SystemMeta, SystemParam, SystemParamValidationError},
     world::{FromWorld, World},
 };
 use bevy_platform::sync::atomic::{AtomicUsize, Ordering};
-
-use super::unsafe_world_cell::UnsafeWorldCell;
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
 // We use usize here because that is the largest `Atomic` we want to require
@@ -61,42 +56,6 @@ impl FromWorld for WorldId {
     }
 }
 
-// SAFETY: No world data is accessed.
-unsafe impl ReadOnlySystemParam for WorldId {}
-
-// SAFETY: No world data is accessed.
-unsafe impl SystemParam for WorldId {
-    type State = WorldId;
-
-    type Item<'world, 'state> = WorldId;
-
-    fn init_state(world: &mut World) -> Self::State {
-        world.id()
-    }
-
-    fn init_access(
-        _state: &Self::State,
-        _system_meta: &mut SystemMeta,
-        _component_access_set: &mut FilteredAccessSet,
-        _world: &mut World,
-    ) {
-    }
-
-    fn is_exclusive() -> bool {
-        false
-    }
-
-    #[inline]
-    unsafe fn get_param<'world, 'state>(
-        state: &'state mut Self::State,
-        _: &SystemMeta,
-        _: UnsafeWorldCell<'world>,
-        _: Tick,
-    ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
-        Ok(*state)
-    }
-}
-
 impl SparseSetIndex for WorldId {
     #[inline]
     fn sparse_set_index(&self) -> usize {
@@ -111,6 +70,8 @@ impl SparseSetIndex for WorldId {
 
 #[cfg(test)]
 mod tests {
+    use crate::system::Local;
+
     use super::*;
     use alloc::vec::Vec;
 
@@ -130,8 +91,8 @@ mod tests {
 
     #[test]
     fn world_id_system_param() {
-        fn test_system(world_id: WorldId) -> WorldId {
-            world_id
+        fn test_system(world_id: Local<WorldId>) -> WorldId {
+            *world_id
         }
 
         let mut world = World::default();
@@ -142,8 +103,8 @@ mod tests {
 
     #[test]
     fn world_id_exclusive_system_param() {
-        fn test_system(_world: &mut World, world_id: WorldId) -> WorldId {
-            world_id
+        fn test_system(_world: &mut World, world_id: Local<WorldId>) -> WorldId {
+            *world_id
         }
 
         let mut world = World::default();
