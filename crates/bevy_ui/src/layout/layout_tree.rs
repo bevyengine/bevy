@@ -192,7 +192,7 @@ pub(crate) fn compute_layout(
         let mut tree = UiLayoutTree {
             nodes: runtime_nodes,
             computed_layout_query,
-            viewport_layout: LayoutState::default(),
+            viewport_layout: ViewportLayoutState::default(),
             viewport_children: [root_node_id],
             measure_function: &mut measure_function,
             layout_changed: false,
@@ -293,16 +293,15 @@ fn build_runtime_layout_tree<'a>(
 }
 
 #[derive(Default)]
-struct LayoutState {
+struct ViewportLayoutState {
     cache: Cache,
     unrounded: Layout,
-    rounded: Layout,
 }
 
 struct UiLayoutTree<'a, 'w, 's, 'layout, 'node> {
     nodes: HashMap<NodeId, NodeStyle<'node>>,
     computed_layout_query: &'a mut Query<'w, 's, &'layout mut ComputedLayout>,
-    viewport_layout: LayoutState,
+    viewport_layout: ViewportLayoutState,
     viewport_children: [NodeId; 1],
     measure_function: &'a mut dyn FnMut(
         taffy::Size<Option<f32>>,
@@ -544,7 +543,7 @@ impl RoundTree for UiLayoutTree<'_, '_, '_, '_, '_> {
 
     fn set_final_layout(&mut self, node_id: NodeId, layout: &Layout) {
         if node_id == VIEWPORT_NODE_ID {
-            self.viewport_layout.rounded = *layout;
+            // viewport nodes only use the unrounded layout
             return;
         }
 
