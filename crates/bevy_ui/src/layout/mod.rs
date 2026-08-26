@@ -1926,6 +1926,39 @@ mod tests {
         assert!((b_top - a_bottom - 40.).abs() <= 1e-5);
     }
 
+    #[test]
+    fn block_layouts_align_content() {
+        let mut app = setup_ui_test_app();
+        let world = app.world_mut();
+        let child = world
+            .spawn(Node {
+                height: px(20),
+                ..default()
+            })
+            .id();
+        world
+            .spawn(Node {
+                display: Display::Block,
+                align_content: AlignContent::End,
+                height: px(100),
+                ..default()
+            })
+            .add_child(child);
+
+        app.update();
+
+        assert_eq!(
+            app.world()
+                .get::<ComputedLayout>(child)
+                .and_then(|layout| layout.get_layout(true))
+                .unwrap()
+                .0
+                .location
+                .y,
+            80.
+        );
+    }
+
     #[cfg(feature = "ghost_nodes")]
     mod ghost_node_tests {
         use super::*;
