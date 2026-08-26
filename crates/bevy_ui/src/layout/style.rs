@@ -315,8 +315,13 @@ impl BlockContainerStyle for NodeStyle<'_> {
     fn text_align(&self) -> TextAlign {
         TextAlign::Auto
     }
+
+    fn align_content(&self) -> Option<AlignContent> {
+        self.node().align_content.into()
+    }
 }
 
+// Doesn't need anything, we don't support tables or float layout.
 impl BlockItemStyle for NodeStyle<'_> {}
 
 impl FlexboxContainerStyle for NodeStyle<'_> {
