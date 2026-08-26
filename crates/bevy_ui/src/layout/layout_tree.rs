@@ -13,9 +13,9 @@ use taffy::{
     compute_block_layout, compute_cached_layout, compute_flexbox_layout, compute_grid_layout,
     compute_hidden_layout, compute_leaf_layout, compute_root_layout, round_layout,
     style::{AvailableSpace, Display, Style},
-    BlockContainerStyle, Cache, CacheTree, Layout, LayoutBlockContainer, LayoutFlexboxContainer,
-    LayoutGridContainer, LayoutInput, LayoutOutput, LayoutPartialTree, NodeId, RoundTree, RunMode,
-    TraversePartialTree, TraverseTree,
+    Cache, CacheTree, Layout, LayoutBlockContainer, LayoutFlexboxContainer, LayoutGridContainer,
+    LayoutInput, LayoutOutput, LayoutPartialTree, NodeId, RoundTree, RunMode, TraversePartialTree,
+    TraverseTree,
 };
 
 use crate::{
@@ -437,6 +437,7 @@ impl CacheTree for UiLayoutTree<'_, '_, '_, '_, '_> {
         self.computed_layout_query
             .get_mut(entity)
             .expect("missing computed layout")
+            .bypass_change_detection()
             .cache
             .get(input)
     }
