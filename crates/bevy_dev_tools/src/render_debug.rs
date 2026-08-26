@@ -54,11 +54,11 @@ use bevy_pbr::{
 ///
 /// ```
 /// # use bevy_dev_tools::render_debug::RenderDebugOverlayKeybindings;
-/// # use bevy_ecs::world::World;
-/// # let mut world = World::new();
+/// # use bevy_ecs::prelude::World;
+/// let mut world = World::new();
 /// world.insert_resource(RenderDebugOverlayKeybindings {
 ///     enable_keybindings: true,
-///     ..default()
+///     ..RenderDebugOverlayKeybindings::default()
 /// });
 /// ```
 ///
