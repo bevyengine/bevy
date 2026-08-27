@@ -683,7 +683,7 @@ impl<'w> UnsafeWorldCell<'w> {
     /// # Safety
     /// It is the caller's responsibility to ensure that there are no outstanding
     /// references to `last_trigger_id`.
-    pub(crate) unsafe fn increment_trigger_id(self) {
+    pub unsafe fn increment_trigger_id(self) {
         self.assert_allows_mutable_access();
         // SAFETY: Caller ensure there are no outstanding references
         unsafe {
