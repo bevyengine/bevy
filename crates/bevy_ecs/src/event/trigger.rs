@@ -12,7 +12,7 @@ use bevy_ptr::PtrMut;
 use core::{fmt, marker::PhantomData};
 
 /// [`Trigger`] determines _how_ an [`Event`] is triggered when [`World::trigger`](crate::world::World::trigger) is called.
-/// This decides which [`Observer`](crate::observer::Observer)s will run, what data gets passed to them, and the order they will
+/// This decides which [`Observer`]s will run, what data gets passed to them, and the order they will
 /// be executed in.
 ///
 /// Implementing [`Trigger`] is "advanced-level" territory, and is generally unnecessary unless you are developing highly specialized
@@ -36,7 +36,7 @@ use core::{fmt, marker::PhantomData};
 ///   This is not expressed as an explicit type constraint,, as the `for<'a> Event::Trigger<'a>` lifetime can mismatch explicit lifetimes in
 ///   some impls.
 pub unsafe trait Trigger<E: Event> {
-    /// Trigger the given `event`, running every [`Observer`](crate::observer::Observer) that matches the `event`, as defined by this
+    /// Trigger the given `event`, running every [`Observer`] that matches the `event`, as defined by this
     /// [`Trigger`] and the state stored on `self`.
     ///
     /// # Safety
@@ -58,7 +58,7 @@ pub unsafe trait Trigger<E: Event> {
 /// Shorthand for accessing an [`EventPattern`]s [`Trigger`] via its [`Event`].
 pub type EventPatternTrigger<'a, E> = <<E as EventPattern>::Event as Event>::Trigger<'a>;
 
-/// A [`Trigger`] that runs _every_ "global" [`Observer`](crate::observer::Observer) (ex: registered via [`World::add_observer`](crate::world::World::add_observer))
+/// A [`Trigger`] that runs _every_ "global" [`Observer`] (ex: registered via [`World::add_observer`](crate::world::World::add_observer))
 /// that matches the given [`Event`].
 ///
 /// The [`Event`] derive defaults to using this [`Trigger`], and it is usable for any [`Event`] type.
