@@ -133,7 +133,7 @@ pub fn init_ui_texture_slice_pipeline(mut commands: Commands, asset_server: Res<
     commands.insert_resource(UiTextureSlicePipeline {
         view_layout,
         image_layout,
-        shader: load_embedded_asset!(asset_server.as_ref(), "ui_texture_slice.wgsl"),
+        shader: load_embedded_asset!(asset_server.as_ref(), "ui_texture_slice.wesl"),
     });
 }
 

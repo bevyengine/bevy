@@ -197,7 +197,7 @@ pub fn init_ui_material_pipeline<M: UiMaterial>(
         ),
     );
 
-    let load_default = || load_embedded_asset!(asset_server.as_ref(), "ui_material.wgsl");
+    let load_default = || load_embedded_asset!(asset_server.as_ref(), "ui_material.wesl");
 
     commands.insert_resource(UiMaterialPipeline::<M> {
         ui_layout,
