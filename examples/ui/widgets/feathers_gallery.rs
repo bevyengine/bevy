@@ -7,7 +7,6 @@ use bevy::{
         constants::{fonts, icons},
         containers::*,
         controls::*,
-        cursor::{EntityCursor, OverrideCursor},
         dark_theme::create_dark_theme,
         display::{caption, icon, label, label_dim, label_small},
         font_styles::InheritableFont,
@@ -17,6 +16,7 @@ use bevy::{
         tokens, FeathersPlugins,
     },
     input_focus::{tab_navigation::TabGroup, AutoFocus, InputFocus},
+    picking::cursor::{EntityCursor, OverrideCursor},
     prelude::*,
     text::{EditableText, TextEdit, TextEditChange},
     ui::{Checked, InteractionDisabled, Selected},
@@ -35,6 +35,7 @@ use std::sync::Arc;
 struct DemoWidgetStates {
     rgb_color: Srgba,
     hsl_color: Hsla,
+    okhsl_color: Okhsla,
     scalar_prop: f32,
     vec3_prop: Vec3,
 }
@@ -44,6 +45,7 @@ enum SwatchType {
     #[default]
     Rgb,
     Hsl,
+    Okhsl,
 }
 
 #[derive(Component, Clone, Copy, Default)]
@@ -73,6 +75,7 @@ fn main() {
         .insert_resource(DemoWidgetStates {
             rgb_color: palettes::tailwind::EMERALD_800.with_alpha(0.7),
             hsl_color: palettes::tailwind::AMBER_800.into(),
+            okhsl_color: palettes::tailwind::AMBER_800.into(),
             scalar_prop: 7.0,
             vec3_prop: Vec3::new(10.1, 7.124, 100.0),
         })
@@ -739,6 +742,55 @@ fn demo_column_1() -> impl Scene {
                 on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
                     color.hsl_color.lightness = change.value;
                 })
+            ),
+            (
+                Node {
+                    display: Display::Flex,
+                    align_items: AlignItems::Center,
+                    flex_direction: FlexDirection::Row,
+                    justify_content: JustifyContent::SpaceBetween,
+                }
+                Children [
+                    label("Okhsl"),
+                    (@FeathersColorSwatch SwatchType::Okhsl)
+                ]
+            ),
+            (
+                @FeathersColorPlane::OkhslHueLightness
+                on(|change: On<ValueChange<Vec2>>, mut color: ResMut<DemoWidgetStates>| {
+                    color.okhsl_color.hue = change.value.x * 360.0;
+                    color.okhsl_color.lightness = 1.0 - change.value.y;
+                })
+            ),
+            (
+                @FeathersColorSlider {
+                    @value: 0.5,
+                    @channel: ColorChannel::OkhslHue
+                }
+                AccessibleLabel("Okhsl Hue Channel")
+                on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
+                    color.okhsl_color.hue = change.value;
+                })
+            ),
+            (
+                @FeathersColorSlider {
+                    @value: 0.5,
+                    @channel: ColorChannel::OkhslSaturation
+                }
+                AccessibleLabel("Okhsl Saturation Channel")
+                on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
+                    color.okhsl_color.saturation = change.value;
+                })
+            ),
+            (
+                @FeathersColorSlider {
+                    @value: 0.5,
+                    @channel: ColorChannel::OkhslLightness
+                }
+                AccessibleLabel("Okhsl Lightness Channel")
+                on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
+                    color.okhsl_color.lightness = change.value;
+                })
             )
         ]
     }
@@ -812,7 +864,7 @@ fn demo_column_2() -> impl Scene {
                                                 @FeathersNumberInput
                                                 DemoScalarField
                                                 NumberInputPrecision(2)
-                                                HardLimit::f32(0.0..100.0)
+                                                HardLimit::f32(0.0..=100.0)
                                                 Node {
                                                     flex_grow: 1.0,
                                                     max_width: px(100),
@@ -897,6 +949,65 @@ fn demo_column_2() -> impl Scene {
                                                     })
                                                 ),
                                             ],
+                                            label_small("Color property"),
+                                            Node {
+                                                display: Display::Flex,
+                                                flex_direction: FlexDirection::Row,
+                                                column_gap: px(6),
+                                                align_items: AlignItems::Center,
+                                                justify_content: JustifyContent::SpaceBetween,
+                                            }
+                                            Children [
+                                                (
+                                                    @FeathersNumberInput {
+                                                        @sigil_color: tokens::TEXT_INPUT_X_AXIS,
+                                                        @label_text: "R",
+                                                    }
+                                                    InteractionDisabled
+                                                    NumberInputPrecision(2)
+                                                    template_value(HardLimit(NumberInputRange::F32(0.0..=1.0)))
+                                                    Node {
+                                                        flex_grow: 1.0,
+                                                    }
+                                                    BorderColor::all(palette::X_AXIS)
+                                                ),
+                                                (
+                                                    @FeathersNumberInput {
+                                                        @sigil_color: tokens::TEXT_INPUT_Y_AXIS,
+                                                        @label_text: "G",
+                                                    }
+                                                    InteractionDisabled
+                                                    NumberInputPrecision(2)
+                                                    template_value(HardLimit(NumberInputRange::F32(0.0..=1.0)))
+                                                    Node {
+                                                        flex_grow: 1.0,
+                                                    }
+                                                ),
+                                                (
+                                                    @FeathersNumberInput {
+                                                        @sigil_color: tokens::TEXT_INPUT_Z_AXIS,
+                                                        @label_text: "B",
+                                                    }
+                                                    InteractionDisabled
+                                                    NumberInputPrecision(2)
+                                                    template_value(HardLimit(NumberInputRange::F32(0.0..=1.0)))
+                                                    Node {
+                                                        flex_grow: 1.0,
+                                                    }
+                                                ),
+                                                (
+                                                    @FeathersNumberInput {
+                                                        @sigil_color: tokens::TEXT_INPUT_W_AXIS,
+                                                        @label_text: "A",
+                                                    }
+                                                    InteractionDisabled
+                                                    NumberInputPrecision(2)
+                                                    template_value(HardLimit(NumberInputRange::F32(0.0..=1.0)))
+                                                    Node {
+                                                        flex_grow: 1.0,
+                                                    }
+                                                ),
+                                            ],
                                         ],
                                     ]
                                 ],
@@ -940,7 +1051,7 @@ fn update_colors(
     states: Res<DemoWidgetStates>,
     mut sliders: Query<(Entity, &ColorSlider, &mut SliderBaseColor)>,
     mut swatches: Query<(&mut ColorSwatchValue, &SwatchType), With<FeathersColorSwatch>>,
-    mut color_planes: Query<&mut ColorPlaneValue, With<FeathersColorPlane>>,
+    mut color_planes: Query<(&mut ColorPlaneValue, &FeathersColorPlane)>,
     q_text_input: Single<(Entity, &mut EditableText), With<HexColorInput>>,
     q_scalar_input: Query<Entity, With<DemoScalarField>>,
     q_vec3_input: Query<(Entity, &DemoVec3Field)>,
@@ -986,6 +1097,24 @@ fn update_colors(
                         .entity(slider_ent)
                         .insert(SliderValue(states.hsl_color.lightness));
                 }
+                ColorChannel::OkhslHue => {
+                    base.0 = states.okhsl_color.into();
+                    commands
+                        .entity(slider_ent)
+                        .insert(SliderValue(states.okhsl_color.hue));
+                }
+                ColorChannel::OkhslSaturation => {
+                    base.0 = states.okhsl_color.into();
+                    commands
+                        .entity(slider_ent)
+                        .insert(SliderValue(states.okhsl_color.saturation));
+                }
+                ColorChannel::OkhslLightness => {
+                    base.0 = states.okhsl_color.into();
+                    commands
+                        .entity(slider_ent)
+                        .insert(SliderValue(states.okhsl_color.lightness));
+                }
                 ColorChannel::Alpha => {
                     base.0 = states.rgb_color.into();
                     commands
@@ -999,13 +1128,48 @@ fn update_colors(
             swatch_value.0 = match swatch_type {
                 SwatchType::Rgb => states.rgb_color.into(),
                 SwatchType::Hsl => states.hsl_color.into(),
+                SwatchType::Okhsl => states.okhsl_color.into(),
             };
         }
 
-        for mut plane_value in color_planes.iter_mut() {
-            plane_value.0.x = states.rgb_color.red;
-            plane_value.0.y = states.rgb_color.blue;
-            plane_value.0.z = states.rgb_color.green;
+        for (mut plane_value, plane_type) in color_planes.iter_mut() {
+            match plane_type {
+                FeathersColorPlane::OkhslHueLightness => {
+                    plane_value.0.x = states.okhsl_color.hue / 360.0;
+                    plane_value.0.y = 1.0 - states.okhsl_color.lightness;
+                    plane_value.0.z = states.okhsl_color.saturation;
+                }
+                FeathersColorPlane::OkhslHueSaturation => {
+                    plane_value.0.x = states.okhsl_color.hue / 360.0;
+                    plane_value.0.y = 1.0 - states.okhsl_color.saturation;
+                    plane_value.0.z = states.okhsl_color.lightness;
+                }
+                FeathersColorPlane::HueLightness => {
+                    plane_value.0.x = states.hsl_color.hue / 360.0;
+                    plane_value.0.y = 1.0 - states.hsl_color.lightness;
+                    plane_value.0.z = states.hsl_color.saturation;
+                }
+                FeathersColorPlane::HueSaturation => {
+                    plane_value.0.x = states.hsl_color.hue / 360.0;
+                    plane_value.0.y = 1.0 - states.hsl_color.saturation;
+                    plane_value.0.z = states.hsl_color.lightness;
+                }
+                FeathersColorPlane::RedBlue => {
+                    plane_value.0.x = states.rgb_color.red;
+                    plane_value.0.y = states.rgb_color.blue;
+                    plane_value.0.z = states.rgb_color.green;
+                }
+                FeathersColorPlane::GreenBlue => {
+                    plane_value.0.x = states.rgb_color.green;
+                    plane_value.0.y = states.rgb_color.blue;
+                    plane_value.0.z = states.rgb_color.red;
+                }
+                FeathersColorPlane::RedGreen => {
+                    plane_value.0.x = states.rgb_color.red;
+                    plane_value.0.y = states.rgb_color.green;
+                    plane_value.0.z = states.rgb_color.blue;
+                }
+            }
         }
 
         // Only update the hex input field when it's not focused, otherwise it interferes

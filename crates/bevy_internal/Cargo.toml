@@ -16,6 +16,7 @@ trace = [
   "bevy_asset?/trace",
   "bevy_core_pipeline?/trace",
   "bevy_ecs/trace",
+  "bevy_extract/trace",
   "bevy_log/trace",
   "bevy_pbr?/trace",
   "bevy_post_process?/trace",
@@ -115,15 +116,7 @@ symphonia-vorbis = ["bevy_audio/symphonia-vorbis"]
 symphonia-wav = ["bevy_audio/symphonia-wav"]
 
 # Shader formats
-shader_format_glsl = [
-  "bevy_shader/shader_format_glsl",
-  "bevy_pbr?/shader_format_glsl",
-]
-shader_format_spirv = [
-  "bevy_shader/shader_format_spirv",
-  "bevy_render?/shader_format_spirv",
-]
-shader_format_wesl = ["bevy_shader/shader_format_wesl"]
+shader_format_spirv = ["bevy_render?/shader_format_spirv"]
 
 serialize = [
   "bevy_a11y?/serialize",
@@ -154,7 +147,7 @@ multi_threaded = [
 async-io = ["std", "bevy_tasks/async-io"]
 
 # Display server protocol support (X11 is enabled by default)
-wayland = ["bevy_winit/wayland"]
+wayland = ["bevy_winit/wayland", "bevy_clipboard?/wayland"]
 x11 = ["bevy_winit/x11"]
 
 # Android activity support (choose one)
@@ -234,6 +227,7 @@ morph = ["bevy_mesh?/morph", "bevy_render?/morph"]
 # Enables bevy_mesh and bevy_animation morph weight support
 morph_animation = ["morph", "bevy_animation?/bevy_mesh"]
 
+bevy_extract = ["dep:bevy_extract"]
 bevy_shader = ["dep:bevy_shader"]
 bevy_image = ["dep:bevy_image", "bevy_color", "bevy_asset"]
 bevy_sprite = ["dep:bevy_sprite", "bevy_camera"]
@@ -256,6 +250,7 @@ bevy_light = ["dep:bevy_light", "bevy_camera"]
 bevy_render = [
   "dep:bevy_render",
   "bevy_camera",
+  "bevy_extract",
   "bevy_shader",
   "bevy_color/wgpu-types",
   "bevy_color/encase",
@@ -341,6 +336,11 @@ bevy_dev_tools = ["dep:bevy_dev_tools"]
 bevy_camera_controller = ["dep:bevy_camera_controller"]
 free_camera = ["bevy_camera_controller/free_camera"]
 pan_camera = ["bevy_camera_controller/pan_camera"]
+pan_orbit_camera = [
+  "bevy_camera_controller/pan_orbit_camera",
+  "bevy_camera_controller/extension_anchor_indicator",
+  "bevy_camera_controller/extension_independent_skybox",
+]
 
 # Enable support for the Bevy Remote Protocol
 bevy_remote = ["dep:bevy_remote", "serialize"]
@@ -401,7 +401,7 @@ reflect_documentation = ["bevy_reflect/reflect_documentation"]
 custom_cursor = [
   "bevy_window/custom_cursor",
   "bevy_winit/custom_cursor",
-  "bevy_feathers?/custom_cursor",
+  "bevy_picking/custom_cursor",
 ]
 
 # Experimental support for nodes that are ignored for UI layouting
@@ -545,6 +545,7 @@ bevy_post_process = { path = "../bevy_post_process", optional = true, version = 
 bevy_ui_widgets = { path = "../bevy_ui_widgets", optional = true, version = "0.20.0-dev" }
 bevy_anti_alias = { path = "../bevy_anti_alias", optional = true, version = "0.20.0-dev" }
 bevy_dev_tools = { path = "../bevy_dev_tools", optional = true, version = "0.20.0-dev" }
+bevy_extract = { path = "../bevy_extract", optional = true, version = "0.20.0-dev" }
 bevy_gilrs = { path = "../bevy_gilrs", optional = true, version = "0.20.0-dev" }
 bevy_gizmos = { path = "../bevy_gizmos", optional = true, version = "0.20.0-dev", default-features = false }
 bevy_gizmos_render = { path = "../bevy_gizmos_render", optional = true, version = "0.20.0-dev", default-features = false }

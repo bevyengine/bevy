@@ -57,6 +57,7 @@ pub mod traversal;
 pub mod world;
 
 pub use bevy_ptr as ptr;
+pub use bevy_utils as utils;
 
 #[cfg(feature = "hotpatching")]
 use message::Message;
@@ -75,7 +76,7 @@ pub mod prelude {
         component::Component,
         entity::{ContainsEntity, Entity, EntityMapper},
         error::{BevyError, ContextExt, Result, ResultSeverityExt, Severity},
-        event::{EntityEvent, Event},
+        event::{EntityEvent, Event, EventPattern},
         hierarchy::{ChildOf, ChildSpawner, ChildSpawnerCommands, Children},
         lifecycle::{Add, Despawn, Discard, Insert, Remove, RemovedComponents},
         message::{
