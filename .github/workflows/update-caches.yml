@@ -107,10 +107,13 @@ jobs:
           persist-credentials: false
 
       - name: Install toolchain
+        shell: bash
         id: rust
         run: |
           rustup toolchain install ${RUST_TOOLCHAIN} --no-self-update --profile=minimal
-          rustup target add ${RUST_TARGET} --toolchain ${RUST_TOOLCHAIN}
+          if [ -n "$RUST_TARGET" ]; then
+            rustup target add "$RUST_TARGET" --toolchain "$RUST_TOOLCHAIN"
+          fi
           rustup override set ${RUST_TOOLCHAIN}
           cargo -V
         env:
