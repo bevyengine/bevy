@@ -22,7 +22,7 @@ use `Local<WorldId>` instead (it will be automatically populated with the correc
 `System::is_exclusive()` has been removed. Use `SystemAccess::is_exclusive()` instead,
 which is created by `System::initialize()` and stored in `SystemWithAccess`.
 
-`System::iniitalize()` now returns a `SystemAccess` rather than a `FilteredAccessSet`.
+`System::initialize()` now returns a `SystemAccess` rather than a `FilteredAccessSet`.
 `SystemAccess` is a superset of `FilteredAccessSet` that also tracks whether the
 system is exclusive, or requires no access to the world at all. If you require
 access to a `FilteredAccessSet`, call `SystemAccess::require_shared_access(system_meta)`.
