@@ -103,7 +103,7 @@ const fn entity_node_id(entity: Entity) -> NodeId {
 /// `entity.to_bits()` can't be zero, so we use a `NodeId` of zero to represent viewport nodes.
 pub const VIEWPORT_NODE_ID: NodeId = NodeId::new(0u64);
 
-fn node_id_entity(node_id: NodeId) -> Entity {
+pub(super) fn node_id_entity(node_id: NodeId) -> Entity {
     Entity::try_from_bits(u64::from(node_id)).expect("Tried to get an entity for a viewport node.")
 }
 
@@ -175,6 +175,10 @@ impl ComputedLayout {
         let unrounded_size = Vec2::new(unrounded.size.width, unrounded.size.height);
 
         Some((selected_layout, unrounded_size))
+    }
+
+    pub fn children(&self) -> &[NodeId] {
+        &self.children
     }
 }
 

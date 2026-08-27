@@ -1,6 +1,6 @@
 use crate::{
     experimental::{UiChildren, UiRootNodes},
-    layout_tree::{compute_layout, TaffyStyle},
+    layout_tree::{compute_layout, node_id_entity, TaffyStyle},
     ui_transform::{UiGlobalTransform, UiTransform},
     ComputedNode, ComputedUiRenderTargetInfo, ContentSize, Display, FixedNode, IgnoreScroll,
     LayoutConfig, Node, Outline, OverflowAxis, ScrollPosition,
@@ -11,7 +11,7 @@ use bevy_ecs::{
     hierarchy::ChildOf,
     lifecycle::RemovedComponents,
     query::{Added, Has, With},
-    system::{ParamSet, Query, Res, ResMut},
+    system::{Local, ParamSet, Query, Res, ResMut},
     world::Ref,
 };
 
@@ -225,7 +225,7 @@ pub fn update_computed_nodes(
         Option<&IgnoreScroll>,
         Has<FixedNode>,
     )>,
-    ui_children: UiChildren,
+    mut child_stack: Local<Vec<taffy::NodeId>>,
 ) {
     for ui_root_entity in ui_root_node_query.iter().chain(fixed_nodes_query.iter()) {
         let Ok(target_info) = targets_query.get(ui_root_entity) else {
@@ -238,12 +238,13 @@ pub fn update_computed_nodes(
             target_info.physical_size().as_vec2(),
             Affine2::IDENTITY,
             &mut computed_nodes_query,
-            &ui_children,
             target_info.scale_factor().recip(),
             Vec2::ZERO,
             Vec2::ZERO,
             *rem_size,
+            &mut child_stack,
         );
+        child_stack.clear();
     }
 }
 
@@ -267,11 +268,11 @@ fn update_uinode_geometry_recursive(
         Option<&IgnoreScroll>,
         Has<FixedNode>,
     )>,
-    ui_children: &UiChildren,
     inverse_target_scale_factor: f32,
     parent_size: Vec2,
     parent_scroll_position: Vec2,
     rem_size: RemSize,
+    child_stack: &mut Vec<taffy::NodeId>,
 ) {
     if let Ok((
         mut node,
@@ -453,21 +454,27 @@ fn update_uinode_geometry_recursive(
             node.scroll_position = physical_scroll_position;
         }
 
-        for child_uinode in ui_children.iter_ui_children(entity) {
+        let start = child_stack.len();
+        child_stack.extend_from_slice(computed_layout.children());
+        let end = child_stack.len();
+
+        for child_index in start..end {
             update_uinode_geometry_recursive(
                 root,
-                child_uinode,
+                node_id_entity(child_stack[child_index]),
                 use_rounding,
                 target_size,
                 inherited_transform,
                 node_update_query,
-                ui_children,
                 inverse_target_scale_factor,
                 layout_size,
                 physical_scroll_position,
                 rem_size,
+                child_stack,
             );
         }
+
+        child_stack.truncate(start);
     }
 }
 
