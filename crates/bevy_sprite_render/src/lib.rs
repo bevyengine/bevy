@@ -42,9 +42,10 @@ use bevy_ecs::prelude::*;
 use bevy_image::{prelude::*, TextureAtlasPlugin};
 use bevy_mesh::Mesh2d;
 use bevy_render::{
-    batching::sort_binned_render_phase, render_phase::AddRenderCommand,
-    render_resource::SpecializedRenderPipelines, sync_world::SyncToRenderWorld, ExtractSchedule,
-    GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
+    batching::sort_binned_render_phase, material_bind_groups::init_fallback_resources,
+    render_phase::AddRenderCommand, render_resource::SpecializedRenderPipelines,
+    sync_world::SyncToRenderWorld, ExtractSchedule, GpuResourceAppExt, Render, RenderApp,
+    RenderStartup, RenderSystems,
 };
 use bevy_sprite::Sprite;
 
@@ -101,7 +102,10 @@ impl Plugin for SpriteRenderPlugin {
                 .init_resource::<SpriteAssetEvents>()
                 .init_resource::<SpriteBatches>()
                 .add_render_command::<Transparent2d, DrawSprite>()
-                .add_systems(RenderStartup, init_sprite_pipeline)
+                .add_systems(
+                    RenderStartup,
+                    (init_sprite_pipeline, init_fallback_resources),
+                )
                 .add_systems(
                     ExtractSchedule,
                     (
