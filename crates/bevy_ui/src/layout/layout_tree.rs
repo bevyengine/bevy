@@ -1,3 +1,4 @@
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
     component::Component,
@@ -18,9 +19,24 @@ use taffy::{
 };
 
 use crate::{
-    experimental::UiChildren, style::TaffyStyle, ContentSize, FixedNode, LayoutError, Measure,
-    MeasureArgs, NodeMeasure,
+    experimental::UiChildren, ContentSize, FixedNode, LayoutError, Measure, MeasureArgs,
+    NodeMeasure,
 };
+
+#[expect(
+    unsafe_code,
+    reason = "taffy::Style is only thread-unsafe with the calc feature"
+)]
+unsafe impl Send for TaffyStyle {}
+
+#[expect(
+    unsafe_code,
+    reason = "taffy::Style is only thread-unsafe with the calc feature"
+)]
+unsafe impl Sync for TaffyStyle {}
+
+#[derive(Default, Component, Clone, Deref, DerefMut)]
+pub struct TaffyStyle(pub Style);
 
 pub static VIEWPORT_NODE_TAFFY_STYLE: TaffyStyle = TaffyStyle(Style {
     dummy: core::marker::PhantomData,

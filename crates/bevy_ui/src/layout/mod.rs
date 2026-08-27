@@ -1,7 +1,6 @@
 use crate::{
     experimental::{UiChildren, UiRootNodes},
-    layout_tree::compute_layout,
-    style::TaffyStyle,
+    layout_tree::{compute_layout, TaffyStyle},
     ui_transform::{UiGlobalTransform, UiTransform},
     ComputedNode, ComputedUiRenderTargetInfo, ContentSize, Display, FixedNode, IgnoreScroll,
     LayoutConfig, Node, Outline, OverflowAxis, ScrollPosition,
@@ -26,7 +25,6 @@ use bevy_text::{ComputedTextBlock, EmSize, FontCx, RemSize, TextFont, DEFAULT_RE
 mod convert;
 pub mod debug;
 pub mod layout_tree;
-pub mod style;
 
 #[derive(Copy, Clone)]
 pub struct LayoutContext {
@@ -476,7 +474,7 @@ fn update_uinode_geometry_recursive(
 #[cfg(test)]
 mod tests {
     use crate::layout_tree::compute_layout;
-    use crate::style::TaffyStyle;
+    use crate::layout_tree::TaffyStyle;
     use crate::{
         experimental::UiChildren, layout::layout_tree::ComputedLayout, prelude::*,
         sync_font_size_to_em_size, ui_layout_system, update::propagate_ui_target_cameras,
