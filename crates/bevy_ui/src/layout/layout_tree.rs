@@ -27,12 +27,14 @@ use crate::{
     unsafe_code,
     reason = "taffy::Style is only thread-unsafe with the calc feature"
 )]
+// SAFETY: taffy::Style is only thread-unsafe with the calc feature
 unsafe impl Send for TaffyStyle {}
 
 #[expect(
     unsafe_code,
     reason = "taffy::Style is only thread-unsafe with the calc feature"
 )]
+// SAFETY: taffy::Style is only thread-unsafe with the calc feature
 unsafe impl Sync for TaffyStyle {}
 
 #[derive(Default, Component, Clone, Deref, DerefMut)]
