@@ -192,24 +192,26 @@ pub fn ui_layout_system(
         );
     }
 
-    for (mut node, mut global_transform, mut computed_layout) in &mut node_queries.p1() {
-        if !computed_layout.visited() {
-            computed_layout.clear();
-        }
-        computed_layout.set_visited(false);
+    node_queries.p1().par_iter_mut().for_each(
+        |(mut node, mut global_transform, mut computed_layout)| {
+            if !computed_layout.visited() {
+                computed_layout.clear();
+            }
+            computed_layout.set_visited(false);
 
-        if computed_layout.has_layout() {
-            continue;
-        }
+            if computed_layout.has_layout() {
+                return;
+            }
 
-        if *node != ComputedNode::DEFAULT {
-            *node = ComputedNode::DEFAULT;
-        }
+            if *node != ComputedNode::DEFAULT {
+                *node = ComputedNode::DEFAULT;
+            }
 
-        if *global_transform != UiGlobalTransform::default() {
-            *global_transform = UiGlobalTransform::default();
-        }
-    }
+            if *global_transform != UiGlobalTransform::default() {
+                *global_transform = UiGlobalTransform::default();
+            }
+        },
+    );
 }
 
 pub fn update_computed_nodes(
@@ -481,8 +483,9 @@ mod tests {
     use crate::layout_tree::compute_layout;
     use crate::style::TaffyStyle;
     use crate::{
-        ui_layout_system, experimental::UiChildren, layout::layout_tree::ComputedLayout,
-        prelude::*, sync_font_size_to_em_size, update::propagate_ui_target_cameras, ContentSize,
+        experimental::UiChildren, layout::layout_tree::ComputedLayout, prelude::*,
+        sync_font_size_to_em_size, ui_layout_system, update::propagate_ui_target_cameras,
+        ContentSize,
     };
     use bevy_app::{App, HierarchyPropagatePlugin, PostUpdate, PropagateSet, TaskPoolPlugin};
     use bevy_camera::{Camera, Camera2d, ComputedCameraValues, RenderTargetInfo, Viewport};
@@ -1728,12 +1731,7 @@ mod tests {
 
         app.add_systems(
             PostUpdate,
-            (
-                propagate_ui_target_cameras,
-                ApplyDeferred,
-                ui_layout_system,
-            )
-                .chain(),
+            (propagate_ui_target_cameras, ApplyDeferred, ui_layout_system).chain(),
         );
 
         app.add_plugins(HierarchyPropagatePlugin::<ComputedUiTargetCamera>::new(
