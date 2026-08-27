@@ -1,4 +1,4 @@
-import bevy_pbr::{
+import package::{
     render::{
         pbr_lighting as lighting,
         utils::interleaved_gradient_noise,

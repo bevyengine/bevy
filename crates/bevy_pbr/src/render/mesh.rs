@@ -25,7 +25,7 @@ use bevy_ecs::{
     relationship::RelationshipSourceCollection,
     system::{lifetimeless::*, SystemParamItem},
 };
-use bevy_image::{ImageSampler, TextureFormatPixelInfo};
+use bevy_image::TextureFormatPixelInfo;
 use bevy_light::{
     EnvironmentMapLight, IrradianceVolume, NotShadowCaster, NotShadowReceiver,
     ShadowFilteringMethod, TransmittedShadowReceiver,
@@ -476,11 +476,12 @@ pub fn check_views_need_specialization(
             }
         }
 
-        if !camera.is_some_and(|camera| camera.hdr) {
-            if let Some(tonemapping) = tonemapping {
-                view_key |= MeshPipelineKey::TONEMAP_IN_SHADER;
-                view_key |= tonemapping_pipeline_key(*tonemapping);
-            }
+        if camera.is_none_or(|camera| !camera.hdr)
+            && let Some(tonemapping) = tonemapping
+            && tonemapping.is_enabled()
+        {
+            view_key |= MeshPipelineKey::TONEMAP_IN_SHADER;
+            view_key |= tonemapping_pipeline_key(*tonemapping);
             if let Some(DebandDither::Enabled) = dither {
                 view_key |= MeshPipelineKey::DEBAND_DITHER;
             }
@@ -2783,12 +2784,8 @@ pub fn build_dummy_white_gpu_image(
 ) -> GpuImage {
     let image = Image::default();
     let texture = render_device.create_texture(&image.texture_descriptor);
-    let sampler = match image.sampler {
-        ImageSampler::Default => (**default_sampler).clone(),
-        ImageSampler::Descriptor(ref descriptor) => {
-            render_device.create_sampler(&descriptor.as_wgpu())
-        }
-    };
+    // The default image always uses the default sampler.
+    let sampler = (**default_sampler).clone();
 
     if let Ok(format_size) = image.texture_descriptor.format.pixel_size() {
         render_queue.write_texture(
@@ -3094,7 +3091,7 @@ bitflags::bitflags! {
         const BLEND_ALPHA                       = 3 << Self::BLEND_SHIFT_BITS;                     //
         const BLEND_ALPHA_TO_COVERAGE           = 4 << Self::BLEND_SHIFT_BITS;                     // ← We still have room for three more values without adding more bits
         const TONEMAP_METHOD_RESERVED_BITS      = Self::TONEMAP_METHOD_MASK_BITS << Self::TONEMAP_METHOD_SHIFT_BITS;
-        const TONEMAP_METHOD_NONE               = 0 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_LINEAR             = 0 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_REINHARD           = 1 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_REINHARD_LUMINANCE = 2 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_ACES_FITTED        = 3 << Self::TONEMAP_METHOD_SHIFT_BITS;
@@ -3630,8 +3627,8 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
             let method = key.intersection(MeshPipelineKey::TONEMAP_METHOD_RESERVED_BITS);
 
-            if method == MeshPipelineKey::TONEMAP_METHOD_NONE {
-                shader_defs.push("TONEMAP_METHOD_NONE".into());
+            if method == MeshPipelineKey::TONEMAP_METHOD_LINEAR {
+                shader_defs.push("TONEMAP_METHOD_LINEAR".into());
             } else if method == MeshPipelineKey::TONEMAP_METHOD_REINHARD {
                 shader_defs.push("TONEMAP_METHOD_REINHARD".into());
             } else if method == MeshPipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE {

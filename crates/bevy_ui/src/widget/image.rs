@@ -186,6 +186,13 @@ impl ImageNode {
         self.image_mode = mode;
         self
     }
+
+    /// Set the region within the UI node where the image should be drawn.
+    #[must_use]
+    pub const fn with_visual_box(mut self, visual_box: VisualBox) -> Self {
+        self.visual_box = visual_box;
+        self
+    }
 }
 
 impl From<Handle<Image>> for ImageNode {

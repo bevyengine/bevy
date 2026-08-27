@@ -4,7 +4,7 @@ import bevy_render::{
     maths::{PI_2, powsafe},
 };
 
-import bevy_core_pipeline::tonemapping::lut_bindings::{
+import package::tonemapping::lut_bindings::{
     dt_lut_texture,
     dt_lut_sampler,
 };
@@ -400,7 +400,7 @@ fn tone_mapping(in: vec4<f32>, in_color_grading: ColorGrading) -> vec4<f32> {
 }
 
     // tone_mapping
-@if(TONEMAP_METHOD_NONE) {
+@if(TONEMAP_METHOD_LINEAR) {
     color = color;
 } @elif(TONEMAP_METHOD_REINHARD) {
     color = tonemapping_reinhard(color.rgb);
