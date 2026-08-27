@@ -389,10 +389,10 @@ impl<const AUTO_PROPAGATE: bool, E: EntityEvent, T: Traversal<E>>
         if let Some(map) = observers.entity_observers().get(&target_entity) {
             for (observer, runner) in map {
                 // SAFETY:
-                // - `observers` come from `world` and match the `event` type, enforced by the call to `trigger_entity_internal`
-                // - the passed in event pointer is an `Event`, enforced by the call to `trigger_entity_internal`
-                // - `trigger` is a matching trigger type, enforced by the call to `trigger_entity_internal`
-                // - `trigger_context`'s event_key matches `E`, enforced by the call to `trigger_entity_internal`
+                // - `observers` come from `world` and match the `event` type, enforced by the call to `trigger_internal`
+                // - the passed in event pointer is an `Event`, enforced by the call to `trigger_internal`
+                // - `trigger` is a matching trigger type, enforced by the call to `trigger_internal`
+                // - `trigger_context`'s event_key matches `E`, enforced by the call to `trigger_internal`
                 unsafe {
                     (runner)(
                         world.reborrow(),
