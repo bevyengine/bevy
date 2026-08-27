@@ -193,11 +193,6 @@ impl<'a> NodeStyle<'a> {
     pub(super) fn from_node(node: &'a Node, context: LayoutContext) -> Self {
         Self { node, context }
     }
-
-    pub(super) fn to_taffy_style(&self) -> Style {
-        convert::from_node(self.node(), &self.context)
-    }
-
     pub(super) fn display(&self) -> Display {
         self.node().display.into()
     }

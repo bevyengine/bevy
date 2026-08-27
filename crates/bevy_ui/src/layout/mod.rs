@@ -1,6 +1,7 @@
 use crate::{
     experimental::{UiChildren, UiRootNodes},
     layout_tree::compute_layout,
+    style::TaffyStyle,
     ui_transform::{UiGlobalTransform, UiTransform},
     ComputedNode, ComputedUiRenderTargetInfo, ContentSize, Display, FixedNode, IgnoreScroll,
     LayoutConfig, Node, Outline, OverflowAxis, ScrollPosition,
@@ -119,6 +120,7 @@ pub fn ui_layout_system(
         Ref<ContentSize>,
         Has<FixedNode>,
     )>,
+    style_query: Query<&TaffyStyle>,
     mut node_queries: ParamSet<(
         Query<&mut ComputedLayout>,
         Query<(
@@ -172,6 +174,7 @@ pub fn ui_layout_system(
                 physical_size,
                 &ui_children,
                 &node_query,
+                &style_query,
                 &mut computed_layout_query,
                 &fixed_node_changes,
                 &mut buffer_query,
@@ -448,6 +451,7 @@ pub fn ui_layout_system(
 #[cfg(test)]
 mod tests {
     use crate::layout_tree::compute_layout;
+    use crate::style::TaffyStyle;
     use crate::{
         experimental::UiChildren, layout::layout_tree::ComputedLayout, prelude::*,
         sync_font_size_to_em_size, ui_layout_system, update::propagate_ui_target_cameras,
@@ -936,6 +940,7 @@ mod tests {
                 Ref<ContentSize>,
                 Has<FixedNode>,
             )>,
+            style_query: Query<&TaffyStyle>,
             mut computed_layout_query: Query<&mut ComputedLayout>,
             mut buffer_query: Query<&mut bevy_text::ComputedTextBlock>,
             mut font_system: ResMut<bevy_text::FontCx>,
@@ -946,6 +951,7 @@ mod tests {
                 UVec2::new(800, 600),
                 &ui_children,
                 &node_query,
+                &style_query,
                 &mut computed_layout_query,
                 &[],
                 &mut buffer_query,

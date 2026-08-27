@@ -21,6 +21,7 @@ use taffy::{
 use crate::{
     experimental::UiChildren,
     layout::style::{NodeStyle, VIEWPORT_NODE},
+    style::TaffyStyle,
     ComputedUiRenderTargetInfo, ContentSize, FixedNode, LayoutContext, LayoutError, Measure,
     MeasureArgs, Node, NodeMeasure,
 };
@@ -116,6 +117,7 @@ pub(crate) fn compute_layout(
         Ref<ContentSize>,
         Has<FixedNode>,
     )>,
+    style_query: &Query<&TaffyStyle>,
     computed_layout_query: &mut Query<&mut ComputedLayout>,
     fixed_node_changes: &[Entity],
     buffer_query: &mut Query<&mut ComputedTextBlock>,
@@ -190,7 +192,7 @@ pub(crate) fn compute_layout(
         };
 
         let mut tree = UiLayoutTree {
-            nodes: runtime_nodes,
+            style_query,
             computed_layout_query,
             viewport_layout: ViewportLayoutState::default(),
             viewport_children: [root_node_id],
@@ -298,9 +300,10 @@ struct ViewportLayoutState {
     unrounded: Layout,
 }
 
-struct UiLayoutTree<'a, 'w, 's, 'layout, 'node> {
-    nodes: HashMap<NodeId, NodeStyle<'node>>,
-    computed_layout_query: &'a mut Query<'w, 's, &'layout mut ComputedLayout>,
+struct UiLayoutTree<'a, 'w, 's, 'u, 't, 'style, 'layout> {
+    //nodes: HashMap<NodeId, NodeStyle<'node>>,
+    style_query: &'a Query<'w, 's, &'style TaffyStyle>,
+    computed_layout_query: &'a mut Query<'u, 't, &'layout mut ComputedLayout>,
     viewport_layout: ViewportLayoutState,
     viewport_children: [NodeId; 1],
     measure_function: &'a mut dyn FnMut(
@@ -312,7 +315,7 @@ struct UiLayoutTree<'a, 'w, 's, 'layout, 'node> {
     layout_changed: bool,
 }
 
-impl UiLayoutTree<'_, '_, '_, '_, '_> {
+impl UiLayoutTree<'_, '_, '_, '_, '_, '_, '_> {
     fn children(&self, node_id: NodeId) -> &[NodeId] {
         if node_id == VIEWPORT_NODE_ID {
             return &self.viewport_children;
@@ -336,41 +339,42 @@ impl UiLayoutTree<'_, '_, '_, '_, '_> {
         }
 
         compute_cached_layout(self, node_id, inputs, |tree, node_id, inputs| {
-            let style = tree
-                .nodes
-                .get(&node_id)
-                .expect("missing layout node")
-                .clone();
             let has_children = tree.child_count(node_id) > 0;
 
-            match (style.display(), has_children) {
+            match (tree.get_core_container_style(node_id).display, has_children) {
                 (Display::None, _) => compute_hidden_layout(tree, node_id),
                 (Display::Block, true) => compute_block_layout(tree, node_id, inputs, block_ctx),
                 (Display::Flex, true) => compute_flexbox_layout(tree, node_id, inputs),
                 (Display::Grid, true) => compute_grid_layout(tree, node_id, inputs),
                 // There's no matching `FlowRoot` variant for `bevy_ui::Display`, so this is unreachable.
                 (Display::FlowRoot, _) => unreachable!(),
-                (_, false) => compute_leaf_layout(
-                    inputs,
-                    &style,
-                    |_, _| 0.0,
-                    |known_dimensions, available_space| {
-                        let taffy_style = style.to_taffy_style();
-                        let entity = node_id_entity(node_id);
-                        (tree.measure_function)(
-                            known_dimensions,
-                            available_space,
-                            entity,
-                            &taffy_style,
-                        )
-                    },
-                ),
+                (_, false) => {
+                    let style = &tree
+                        .style_query
+                        .get(node_id_entity(node_id))
+                        .expect("missing layout style")
+                        .0;
+                    compute_leaf_layout(
+                        inputs,
+                        style,
+                        |_, _| 0.0,
+                        |known_dimensions, available_space| {
+                            let entity = node_id_entity(node_id);
+                            (tree.measure_function)(
+                                known_dimensions,
+                                available_space,
+                                entity,
+                                style,
+                            )
+                        },
+                    )
+                }
             }
         })
     }
 }
 
-impl TraversePartialTree for UiLayoutTree<'_, '_, '_, '_, '_> {
+impl TraversePartialTree for UiLayoutTree<'_, '_, '_, '_, '_, '_, '_> {
     type ChildIter<'a>
         = core::iter::Copied<core::slice::Iter<'a, NodeId>>
     where
@@ -389,20 +393,24 @@ impl TraversePartialTree for UiLayoutTree<'_, '_, '_, '_, '_> {
     }
 }
 
-impl TraverseTree for UiLayoutTree<'_, '_, '_, '_, '_> {}
+impl TraverseTree for UiLayoutTree<'_, '_, '_, '_, '_, '_, '_> {}
 
-impl<'tree, 'w, 's, 'layout, 'node> LayoutPartialTree
-    for UiLayoutTree<'tree, 'w, 's, 'layout, 'node>
+impl<'tree, 'w, 's, 'u, 't, 'style, 'layout> LayoutPartialTree
+    for UiLayoutTree<'tree, 'w, 's, 'u, 't, 'style, 'layout>
 {
     type CoreContainerStyle<'a>
-        = &'a NodeStyle<'node>
+        = &'a Style
     where
         Self: 'a;
 
     type CustomIdent = String;
 
     fn get_core_container_style(&self, node_id: NodeId) -> Self::CoreContainerStyle<'_> {
-        self.nodes.get(&node_id).expect("missing layout node")
+        &self
+            .style_query
+            .get(node_id_entity(node_id))
+            .expect("missing layout node")
+            .0
     }
 
     fn set_unrounded_layout(&mut self, node_id: NodeId, layout: &Layout) {
@@ -427,7 +435,7 @@ impl<'tree, 'w, 's, 'layout, 'node> LayoutPartialTree
     }
 }
 
-impl CacheTree for UiLayoutTree<'_, '_, '_, '_, '_> {
+impl CacheTree for UiLayoutTree<'_, '_, '_, '_, '_, '_, '_> {
     fn cache_get(&mut self, node_id: NodeId, input: &LayoutInput) -> Option<LayoutOutput> {
         if node_id == VIEWPORT_NODE_ID {
             return self.viewport_layout.cache.get(input);
@@ -473,16 +481,16 @@ impl CacheTree for UiLayoutTree<'_, '_, '_, '_, '_> {
     }
 }
 
-impl<'tree, 'w, 's, 'layout, 'node> LayoutBlockContainer
-    for UiLayoutTree<'tree, 'w, 's, 'layout, 'node>
+impl<'tree, 'w, 's, 'u, 't, 'style, 'layout> LayoutBlockContainer
+    for UiLayoutTree<'tree, 'w, 's, 'u, 't, 'style, 'layout>
 {
     type BlockContainerStyle<'a>
-        = &'a NodeStyle<'node>
+        = &'a Style
     where
         Self: 'a;
 
     type BlockItemStyle<'a>
-        = &'a NodeStyle<'node>
+        = &'a Style
     where
         Self: 'a;
 
@@ -505,16 +513,16 @@ impl<'tree, 'w, 's, 'layout, 'node> LayoutBlockContainer
     }
 }
 
-impl<'tree, 'w, 's, 'layout, 'node> LayoutFlexboxContainer
-    for UiLayoutTree<'tree, 'w, 's, 'layout, 'node>
+impl<'tree, 'w, 's, 'u, 't, 'style, 'layout> LayoutFlexboxContainer
+    for UiLayoutTree<'tree, 'w, 's, 'u, 't, 'style, 'layout>
 {
     type FlexboxContainerStyle<'a>
-        = &'a NodeStyle<'node>
+        = &'a Style
     where
         Self: 'a;
 
     type FlexboxItemStyle<'a>
-        = &'a NodeStyle<'node>
+        = &'a Style
     where
         Self: 'a;
 
@@ -527,16 +535,16 @@ impl<'tree, 'w, 's, 'layout, 'node> LayoutFlexboxContainer
     }
 }
 
-impl<'tree, 'w, 's, 'layout, 'node> LayoutGridContainer
-    for UiLayoutTree<'tree, 'w, 's, 'layout, 'node>
+impl<'tree, 'w, 's, 'u, 't, 'style, 'layout> LayoutGridContainer
+    for UiLayoutTree<'tree, 'w, 's, 'u, 't, 'style, 'layout>
 {
     type GridContainerStyle<'a>
-        = &'a NodeStyle<'node>
+        = &'a Style
     where
         Self: 'a;
 
     type GridItemStyle<'a>
-        = &'a NodeStyle<'node>
+        = &'a Style
     where
         Self: 'a;
 
@@ -549,7 +557,7 @@ impl<'tree, 'w, 's, 'layout, 'node> LayoutGridContainer
     }
 }
 
-impl RoundTree for UiLayoutTree<'_, '_, '_, '_, '_> {
+impl RoundTree for UiLayoutTree<'_, '_, '_, '_, '_, '_, '_> {
     fn get_unrounded_layout(&self, node_id: NodeId) -> Layout {
         if node_id == VIEWPORT_NODE_ID {
             return self.viewport_layout.unrounded;
