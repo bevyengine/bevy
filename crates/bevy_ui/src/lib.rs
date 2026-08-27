@@ -199,7 +199,8 @@ impl Plugin for UiPlugin {
                 propagate_ui_target_cameras
                     .in_set(UiSystems::Prepare)
                     .before(bevy_app::TransformGizmoRenderStep),
-                ui_layout_system
+                (update_taffy_styles, ui_layout_system)
+                    .chain()
                     .in_set(UiSystems::Layout)
                     .ambiguous_with(bevy_sprite::update_text2d_layout),
                 ui_stack_system.in_set(UiSystems::Stack),

@@ -11,9 +11,9 @@ use bevy_ecs::{
     entity::Entity,
     hierarchy::ChildOf,
     lifecycle::RemovedComponents,
-    query::{Added, Has, With},
+    query::{Added, Changed, Has, Or, With},
     system::{ParamSet, Query, Res, ResMut},
-    world::Ref,
+    world::{Mut, Ref},
 };
 
 use bevy_math::{Affine2, Vec2};
@@ -106,6 +106,37 @@ pub fn sync_font_size_to_em_size(
             ));
         }
     }
+}
+
+pub fn update_taffy_styles(
+    rem_size: Res<RemSize>,
+    mut update_query: Query<(
+        Ref<Node>,
+        Ref<ComputedUiRenderTargetInfo>,
+        Ref<EmSize>,
+        &mut TaffyStyle,
+    )>,
+) {
+    update_query
+        .par_iter_mut()
+        .for_each(|(node, target, em_size, mut taffy_style)| {
+            if node.is_changed()
+                || target.is_changed()
+                || em_size.is_changed()
+                || rem_size.is_changed()
+            {
+                convert::update_taffy_style_from_node(
+                    &node,
+                    &LayoutContext::new(
+                        target.scale_factor(),
+                        target.physical_size().as_vec2(),
+                        *em_size,
+                        *rem_size,
+                    ),
+                    &mut taffy_style,
+                );
+            }
+        });
 }
 
 /// Updates the UI's layout tree, computes the new layout geometry and then updates the sizes and transforms of all the UI nodes.
