@@ -33,7 +33,7 @@ unsafe impl Send for TaffyStyle {}
 )]
 unsafe impl Sync for TaffyStyle {}
 
-#[derive(Component, Clone, Deref, DerefMut)]
+#[derive(Default, Component, Clone, Deref, DerefMut)]
 pub struct TaffyStyle(pub Style);
 
 /// Style adapter exposing Bevy [`Node`]s through Taffy's style traits.
