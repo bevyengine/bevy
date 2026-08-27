@@ -305,7 +305,7 @@ fn build_runtime_layout_tree<'a>(
         return None;
     };
     let computed_layout = computed_layout.bypass_change_detection();
-    let root_changed = computed_layout.is_root != (entity == root);
+    let was_root = computed_layout.is_root;
     computed_layout.is_root = entity == root;
     let children_changed = computed_layout.children != new_children;
     if children_changed {
@@ -315,7 +315,7 @@ fn build_runtime_layout_tree<'a>(
 
     let own_dirty = style.is_changed()
         || children_changed
-        || root_changed
+        || was_root != computed_layout.is_root
         || content_size.is_changed()
         || fixed_node_changes.contains(&entity)
         || !computed_layout.has_layout();
