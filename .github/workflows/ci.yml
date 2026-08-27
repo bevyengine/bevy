@@ -545,8 +545,8 @@ jobs:
           echo "msrv=$msrv" >> $GITHUB_OUTPUT
       - name: Install toolchain
         run: |
-          rustup toolchain install ${MSRV} --no-self-update --profile=minimal
-          rustup override set ${MSRV}
+          rustup toolchain install "$MSRV" --no-self-update --profile=minimal
+          rustup override set "$MSRV"
           cargo -V
         env:
           MSRV: ${{ steps.msrv.outputs.msrv }}
