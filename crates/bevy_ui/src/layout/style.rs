@@ -1,5 +1,7 @@
 use core::{marker::PhantomData, slice};
 
+use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::component::Component;
 use taffy::{
     geometry::{Line, Point, Rect, Size},
     style::{
@@ -18,6 +20,21 @@ use crate::{
 };
 
 pub static VIEWPORT_NODE: Node = Node::VIEWPORT;
+
+#[expect(
+    unsafe_code,
+    reason = "taffy::Style is only thread-unsafe with the calc feature"
+)]
+unsafe impl Send for TaffyStyle {}
+
+#[expect(
+    unsafe_code,
+    reason = "taffy::Style is only thread-unsafe with the calc feature"
+)]
+unsafe impl Sync for TaffyStyle {}
+
+#[derive(Component, Clone, Deref, DerefMut)]
+pub struct TaffyStyle(pub Style);
 
 /// Style adapter exposing Bevy [`Node`]s through Taffy's style traits.
 #[derive(Clone)]
