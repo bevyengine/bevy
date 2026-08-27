@@ -95,7 +95,7 @@ fn fbm_simplex_2d(pos: vec2<f32>) -> f32 {
     const gain = 0.5;
     // Sum of the geometric series with `octaves` as the amount of terms and `gain` as the factor
     // This is the maximum possible value that the noise can reach
-    const max = (1 - pow(gain, octaves + 1)) / (1 - gain);
+    const max = (1 - pow(gain, octaves)) / (1 - gain);
 
     var sum = 0.;
     var amplitude = 1.;

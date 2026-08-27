@@ -62,12 +62,10 @@ where
                 PostUpdate,
                 (
                     add_material::<M>.before(check_entities_needing_specialization::<SpriteExt<M>>),
-                    (
-                        update_changed_material_extensions::<M>,
-                        clean_sprite_material_cache::<M>,
-                    )
-                        .after(AssetEventSystems),
-                ),
+                    update_changed_material_extensions::<M>,
+                    clean_sprite_material_cache::<M>,
+                )
+                    .after(AssetEventSystems),
             );
     }
 }
@@ -87,6 +85,7 @@ fn add_material<M>(
     sprites: Query<
         (Entity, &SpriteMesh, &Anchor, &SpriteMaterial<M>),
         Or<(
+            AssetChanged<SpriteMaterial<M>>,
             Changed<SpriteMaterial<M>>,
             Changed<SpriteMesh>,
             Changed<Anchor>,
@@ -120,7 +119,7 @@ fn add_material<M>(
         commands
             .entity(entity)
             .remove::<MeshMaterial2d<SpriteMeshMaterial>>()
-            .insert(MeshMaterial2d(handle));
+            .insert_if_neq(MeshMaterial2d(handle));
     }
 }
 
@@ -218,34 +217,35 @@ where
     M: Asset + MaterialExtension2d,
 {
     fn on_add(mut world: DeferredWorld, context: HookContext) {
-        let mut count = world
-            .entity(context.entity)
-            .get::<SpriteMaterialCount>()
-            .map(|c| c.0)
-            .unwrap_or(0);
-
-        count += 1;
-
         world
             .commands()
             .entity(context.entity)
-            .try_insert(SpriteMaterialCount(count));
+            .queue_silenced(|mut entity: EntityWorldMut| {
+                let mut count = entity
+                    .get::<SpriteMaterialCount>()
+                    .map(|c| c.0)
+                    .unwrap_or(0);
+
+                count += 1;
+                entity.insert(SpriteMaterialCount(count));
+            });
     }
 
     fn on_remove(mut world: DeferredWorld, context: HookContext) {
-        let mut count = world
-            .entity(context.entity)
-            .get::<SpriteMaterialCount>()
-            .map(|c| c.0)
-            .unwrap_or(1);
-
-        count = count.saturating_sub(1);
-
         world
             .commands()
             .entity(context.entity)
-            .try_remove::<MeshMaterial2d<SpriteExt<M>>>()
-            .try_insert(SpriteMaterialCount(count));
+            .queue_silenced(|mut entity: EntityWorldMut| {
+                let mut count = entity
+                    .get::<SpriteMaterialCount>()
+                    .map(|c| c.0)
+                    .unwrap_or(1);
+
+                count = count.saturating_sub(1);
+                entity
+                    .insert(SpriteMaterialCount(count))
+                    .remove::<MeshMaterial2d<SpriteExt<M>>>();
+            });
     }
 }
 
@@ -312,8 +312,8 @@ impl<M: Asset + MaterialExtension2d> SpriteMaterialExtension<M> {
 
 impl<M> MaterialExtension2d for SpriteMaterialExtension<M>
 where
-    M::Data: Clone,
     M: Asset + MaterialExtension2d,
+    M::Data: Clone,
 {
     fn vertex_shader() -> Option<ShaderRef> {
         M::vertex_shader()
@@ -451,7 +451,7 @@ fn clean_sprite_material_cache<M>(
 {
     for message in asset_events.read() {
         if let AssetEvent::Removed { id } = *message {
-            cache.retain(|&key_id, _| key_id != id);
+            cache.remove(&id);
         }
     }
 
@@ -554,7 +554,7 @@ mod tests {
 
         app.world_mut()
             .entity_mut(entity)
-            .insert(SpriteMaterial(handle));
+            .insert(SpriteMaterial(handle.clone()));
 
         test(&mut app, false, true, false);
 
@@ -580,6 +580,28 @@ mod tests {
         app.world_mut()
             .entity_mut(entity)
             .remove::<SpriteMaterial<TestMaterial>>();
+
+        test(&mut app, true, false, false);
+
+        // make sure that inserting them in the same commands flush doesn't break
+        app.world_mut()
+            .entity_mut(entity)
+            .insert(SpriteMaterial(handle.clone()))
+            .insert(SpriteMaterial(handle2.clone()));
+
+        test(&mut app, false, true, true);
+        assert_eq!(
+            app.world()
+                .entity(entity)
+                .get::<SpriteMaterialCount>()
+                .map(|c| c.0),
+            Some(2)
+        );
+
+        app.world_mut()
+            .entity_mut(entity)
+            .remove::<SpriteMaterial<TestMaterial>>()
+            .remove::<SpriteMaterial<TestMaterial2>>();
 
         test(&mut app, true, false, false);
     }
