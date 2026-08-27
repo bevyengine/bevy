@@ -158,6 +158,7 @@ pub fn ui_layout_system(
     added_fixed_node_query: Query<Entity, Added<FixedNode>>,
     mut removed_fixed_nodes: RemovedComponents<FixedNode>,
     rem_size: Res<RemSize>,
+    mut child_stack: Local<Vec<taffy::NodeId>>,
 ) {
     let fixed_node_changes = added_fixed_node_query
         .iter()
@@ -182,7 +183,9 @@ pub fn ui_layout_system(
             &mut buffer_query,
             &mut font_system,
             *rem_size,
+            &mut child_stack,
         );
+        child_stack.clear();
     }
 
     node_queries.p1().par_iter_mut().for_each(
@@ -972,6 +975,7 @@ mod tests {
             mut buffer_query: Query<&mut bevy_text::ComputedTextBlock>,
             mut font_system: ResMut<bevy_text::FontCx>,
             rem_size: Res<RemSize>,
+            mut child_stack: Local<Vec<taffy::NodeId>>,
         ) {
             compute_layout(
                 root_node_entity,
@@ -984,6 +988,7 @@ mod tests {
                 &mut buffer_query,
                 &mut font_system,
                 *rem_size,
+                &mut child_stack,
             )
             .unwrap();
         }

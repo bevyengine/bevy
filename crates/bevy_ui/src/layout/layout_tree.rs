@@ -194,6 +194,7 @@ pub(crate) fn compute_layout(
     buffer_query: &mut Query<&mut ComputedTextBlock>,
     font_system: &mut FontCx,
     rem_size: RemSize,
+    child_stack: &mut Vec<NodeId>,
 ) -> Result<(), LayoutError> {
     let Some(dirty) = build_runtime_layout_tree(
         ui_root_entity,
@@ -203,6 +204,7 @@ pub(crate) fn compute_layout(
         computed_layout_query,
         fixed_node_changes,
         rem_size,
+        child_stack,
     ) else {
         return Err(LayoutError::InvalidHierarchy);
     };
@@ -281,6 +283,7 @@ fn build_runtime_layout_tree<'a>(
     computed_layout_query: &mut Query<&mut ComputedLayout>,
     fixed_node_changes: &[Entity],
     rem_size: RemSize,
+    child_stack: &mut Vec<NodeId>,
 ) -> Option<bool> {
     let Ok((style, content_size, has_fixed_node)) = node_query.get(entity) else {
         return None;
@@ -290,19 +293,25 @@ fn build_runtime_layout_tree<'a>(
         return None;
     }
 
-    let mut new_children = Vec::new();
     let mut subtree_dirty = false;
-    for child in ui_children.iter_ui_children(entity) {
+    let start = child_stack.len();
+    child_stack.extend(
+        ui_children
+            .iter_ui_children(entity)
+            .map(|entity| entity_node_id(entity)),
+    );
+    let end = child_stack.len();
+    for child_index in start..end {
         if let Some(built_child_dirty) = build_runtime_layout_tree(
             root,
-            child,
+            node_id_entity(child_stack[child_index]),
             ui_children,
             node_query,
             computed_layout_query,
             fixed_node_changes,
             rem_size,
+            child_stack,
         ) {
-            new_children.push(entity_node_id(child));
             subtree_dirty |= built_child_dirty;
         }
     }
@@ -313,11 +322,14 @@ fn build_runtime_layout_tree<'a>(
     let computed_layout = computed_layout.bypass_change_detection();
     let was_root = computed_layout.is_root;
     computed_layout.is_root = entity == root;
+    let new_children = &child_stack[start..end];
     let children_changed = computed_layout.children != new_children;
     if children_changed {
         computed_layout.children.clear();
-        computed_layout.children.extend_from_slice(&new_children);
+        computed_layout.children.extend_from_slice(new_children);
     }
+
+    child_stack.truncate(start);
 
     let own_dirty = style.is_changed()
         || children_changed
