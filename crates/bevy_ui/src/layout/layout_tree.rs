@@ -33,7 +33,7 @@ const fn entity_node_id(entity: Entity) -> NodeId {
 pub const VIEWPORT_NODE_ID: NodeId = NodeId::new(0u64);
 
 fn node_id_entity(node_id: NodeId) -> Entity {
-    Entity::try_from_bits(u64::from(node_id)).expect("missing layout entity")
+    Entity::try_from_bits(u64::from(node_id)).expect("Tried to get an entity for a viewport node.")
 }
 
 /// Cached and computed layout state for a UI node.
