@@ -53,6 +53,7 @@ pub fn create_dark_theme() -> ThemeProps {
             (semantic::AXIS_X, palette::X_AXIS),
             (semantic::AXIS_Y, palette::Y_AXIS),
             (semantic::AXIS_Z, palette::Z_AXIS),
+            (semantic::AXIS_W, palette::W_AXIS),
             (semantic::FOCUS_RING, palette::ACCENT.with_alpha(0.5)),
         ]),
         semantic_overrides: HashMap::from([
@@ -310,6 +311,7 @@ pub fn create_dark_theme() -> ThemeProps {
             (tokens::TEXT_INPUT_X_AXIS, semantic::AXIS_X),
             (tokens::TEXT_INPUT_Y_AXIS, semantic::AXIS_Y),
             (tokens::TEXT_INPUT_Z_AXIS, semantic::AXIS_Z),
+            (tokens::TEXT_INPUT_W_AXIS, semantic::AXIS_W),
             // Pane
             (tokens::PANE_HEADER_BG, semantic::SURFACE_PANE_HEADER),
             (tokens::PANE_HEADER_BORDER, semantic::SURFACE_PANE_BODY),

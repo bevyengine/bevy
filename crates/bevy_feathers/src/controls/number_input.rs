@@ -997,7 +997,7 @@ fn scrubber_on_release(
         &UiGlobalTransform,
     )>,
     q_parent: Query<&ChildOf>,
-    q_units: Query<(&NumberInputValue, Option<&NumberInputUnits>)>,
+    q_units: Query<(&NumberInputValue, Option<&NumberInputUnits>), Without<InteractionDisabled>>,
     ui_scale: Res<UiScale>,
     units_registry: Res<UnitsRegistry>,
     mut commands: Commands,
