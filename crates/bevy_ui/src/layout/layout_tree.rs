@@ -8,7 +8,7 @@ use bevy_ecs::{
 };
 use bevy_math::{UVec2, Vec2};
 use bevy_platform::collections::HashMap;
-use bevy_text::{ComputedTextBlock, EmSize, FontCx, RemSize};
+use bevy_text::{ComputedTextBlock, FontCx, RemSize};
 use taffy::{
     compute_block_layout, compute_cached_layout, compute_flexbox_layout, compute_grid_layout,
     compute_hidden_layout, compute_leaf_layout, compute_root_layout, round_layout,
@@ -22,8 +22,7 @@ use crate::{
     experimental::UiChildren,
     layout::style::{NodeStyle, VIEWPORT_NODE},
     style::TaffyStyle,
-    ComputedUiRenderTargetInfo, ContentSize, FixedNode, LayoutContext, LayoutError, Measure,
-    MeasureArgs, Node, NodeMeasure,
+    ContentSize, FixedNode, LayoutContext, LayoutError, Measure, MeasureArgs, NodeMeasure,
 };
 
 const fn entity_node_id(entity: Entity) -> NodeId {
