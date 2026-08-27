@@ -29,7 +29,7 @@ use crate::{
         OwnedBindingResource, PipelineCache, UnpreparedBindingResource, UnpreparedBindingResources,
     },
     storage::ShaderBuffer,
-    GpuResourceAppExt as _, Render, RenderApp, RenderSystems,
+    GpuResourceAppExt as _, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use crate::{
     render_resource::{
@@ -536,6 +536,7 @@ impl Plugin for MaterialBindGroupPlugin {
             .allow_ambiguous_resource::<MaterialBindGroupAllocators>()
             .init_gpu_resource::<RenderMaterialBindings>()
             .allow_ambiguous_resource::<RenderMaterialBindings>()
+            .add_systems(RenderStartup, init_fallback_resources)
             .add_systems(
                 Render,
                 (
@@ -2328,48 +2329,39 @@ impl MaterialBindlessSlab {
 }
 
 /// Creates and inserts the [`FallbackBindlessResources`] and [`FallbackBuffer`].
-pub fn init_fallback_resources(
-    mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    maybe_fallback_bindless: Option<Res<FallbackBindlessResources>>,
-    maybe_fallback_buffer: Option<Res<FallbackBuffer>>,
-) {
-    if maybe_fallback_bindless.is_none() {
-        // Create the `FallbackBindlessResources`.
-        commands.insert_resource(FallbackBindlessResources {
-            filtering_sampler: render_device.create_sampler(&SamplerDescriptor {
-                label: Some("fallback filtering sampler"),
-                ..default()
-            }),
-            non_filtering_sampler: render_device.create_sampler(&SamplerDescriptor {
-                label: Some("fallback non-filtering sampler"),
-                mag_filter: FilterMode::Nearest,
-                min_filter: FilterMode::Nearest,
-                mipmap_filter: MipmapFilterMode::Nearest,
-                ..default()
-            }),
-            comparison_sampler: render_device.create_sampler(&SamplerDescriptor {
-                label: Some("fallback comparison sampler"),
-                compare: Some(CompareFunction::Always),
-                ..default()
-            }),
-        });
-    }
+fn init_fallback_resources(mut commands: Commands, render_device: Res<RenderDevice>) {
+    // Create the `FallbackBindlessResources`.
+    commands.insert_resource(FallbackBindlessResources {
+        filtering_sampler: render_device.create_sampler(&SamplerDescriptor {
+            label: Some("fallback filtering sampler"),
+            ..default()
+        }),
+        non_filtering_sampler: render_device.create_sampler(&SamplerDescriptor {
+            label: Some("fallback non-filtering sampler"),
+            mag_filter: FilterMode::Nearest,
+            min_filter: FilterMode::Nearest,
+            mipmap_filter: MipmapFilterMode::Nearest,
+            ..default()
+        }),
+        comparison_sampler: render_device.create_sampler(&SamplerDescriptor {
+            label: Some("fallback comparison sampler"),
+            compare: Some(CompareFunction::Always),
+            ..default()
+        }),
+    });
 
-    if maybe_fallback_buffer.is_none() {
-        // Creates the `FallbackBuffer`.
-        commands.insert_resource(FallbackBuffer(render_device.create_buffer(
-            &BufferDescriptor {
-                label: Some("fallback buffer"),
-                size: 1,
-                usage: BufferUsages::COPY_SRC
-                    | BufferUsages::COPY_DST
-                    | BufferUsages::STORAGE
-                    | BufferUsages::UNIFORM,
-                mapped_at_creation: false,
-            },
-        )));
-    }
+    // Creates the `FallbackBuffer`.
+    commands.insert_resource(FallbackBuffer(render_device.create_buffer(
+        &BufferDescriptor {
+            label: Some("fallback buffer"),
+            size: 1,
+            usage: BufferUsages::COPY_SRC
+                | BufferUsages::COPY_DST
+                | BufferUsages::STORAGE
+                | BufferUsages::UNIFORM,
+            mapped_at_creation: false,
+        },
+    )));
 }
 
 impl MaterialBindGroupNonBindlessAllocator {
