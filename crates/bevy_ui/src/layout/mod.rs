@@ -10,7 +10,7 @@ use bevy_ecs::{
     entity::Entity,
     hierarchy::ChildOf,
     lifecycle::RemovedComponents,
-    query::{Added, Has, With},
+    query::{Added, Changed, Has, With},
     system::{Local, ParamSet, Query, Res, ResMut},
     world::Ref,
 };
@@ -371,19 +371,6 @@ fn update_uinode_geometry_recursive(
             *global_transform = inherited_transform.into();
         }
 
-        // We don't trigger change detection for changes to border radius
-        // unless the border radius actually changed
-        let new_border_radius = style.border_radius.resolve(
-            inverse_target_scale_factor.recip(),
-            node.size,
-            target_size,
-            *em_size,
-            rem_size,
-        );
-        if node.border_radius != new_border_radius {
-            node.border_radius = new_border_radius;
-        }
-
         if let Some(outline) = maybe_outline {
             // don't trigger change detection unless the outline actually changed
             let new_outline_width = if style.display != Display::None {
@@ -479,6 +466,34 @@ fn update_uinode_geometry_recursive(
 
         child_stack.truncate(start);
     }
+}
+
+pub fn update_border_radius(
+    mut node_update_query: Query<
+        (&mut ComputedNode, &Node, &ComputedUiRenderTargetInfo),
+        (
+            Changed<ComputedNode>,
+            Changed<Node>,
+            Changed<ComputedUiRenderTargetInfo>,
+        ),
+    >,
+) {
+    node_update_query
+        .par_iter_mut()
+        .for_each(|(mut node, style, target)| {
+            // We don't trigger change detection for changes to border radius
+            // unless the border radius actually changed
+            let new_border_radius = style.border_radius.resolve(
+                node.inverse_scale_factor.recip(),
+                node.size,
+                target.physical_size.as_vec2(),
+                node.em_size,
+                node.rem_size,
+            );
+            if node.border_radius != new_border_radius {
+                node.border_radius = new_border_radius;
+            }
+        });
 }
 
 #[cfg(test)]

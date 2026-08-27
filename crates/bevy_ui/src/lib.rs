@@ -203,6 +203,7 @@ impl Plugin for UiPlugin {
                     update_taffy_styles,
                     ui_layout_system.ambiguous_with(bevy_sprite::update_text2d_layout),
                     update_computed_nodes,
+                    update_border_radius,
                 )
                     .chain()
                     .in_set(UiSystems::Layout),
