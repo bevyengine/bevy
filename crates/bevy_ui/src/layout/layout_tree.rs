@@ -25,6 +25,62 @@ use crate::{
     ContentSize, FixedNode, LayoutContext, LayoutError, Measure, MeasureArgs, NodeMeasure,
 };
 
+pub static VIEWPORT_NODE_TAFFY_STYLE: TaffyStyle = TaffyStyle(Style {
+    dummy: core::marker::PhantomData,
+    display: Display::Grid,
+    item_is_table: false,
+    item_is_replaced: false,
+    box_sizing: taffy::BoxSizing::BorderBox,
+    direction: taffy::Direction::Ltr,
+    overflow: taffy::Point {
+        x: taffy::Overflow::Visible,
+        y: taffy::Overflow::Visible,
+    },
+    scrollbar_width: 0.0,
+    contain: taffy::Contain::NONE,
+    position: taffy::Position::Relative,
+    inset: taffy::Rect::auto(),
+    size: taffy::Size {
+        width: taffy::Dimension::percent(1.0),
+        height: taffy::Dimension::percent(1.0),
+    },
+    min_size: taffy::Size::auto(),
+    max_size: taffy::Size::auto(),
+    aspect_ratio: None,
+    margin: taffy::Rect::zero(),
+    padding: taffy::Rect::zero(),
+    border: taffy::Rect::zero(),
+    align_items: Some(taffy::AlignItems::START),
+    align_self: None,
+    justify_items: Some(taffy::JustifyItems::START),
+    justify_self: None,
+    align_content: None,
+    justify_content: None,
+    gap: taffy::Size::zero(),
+    text_align: taffy::TextAlign::Auto,
+    flex_direction: taffy::FlexDirection::Row,
+    flex_wrap: taffy::FlexWrap::NoWrap,
+    flex_basis: taffy::Dimension::auto(),
+    flex_grow: 0.0,
+    flex_shrink: 1.0,
+    grid_template_rows: Vec::new(),
+    grid_template_columns: Vec::new(),
+    grid_auto_rows: Vec::new(),
+    grid_auto_columns: Vec::new(),
+    grid_auto_flow: taffy::GridAutoFlow::Row,
+    grid_template_areas: None,
+    grid_template_column_names: Vec::new(),
+    grid_template_row_names: Vec::new(),
+    grid_row: taffy::Line {
+        start: taffy::GridPlacement::Span(1),
+        end: taffy::GridPlacement::Auto,
+    },
+    grid_column: taffy::Line {
+        start: taffy::GridPlacement::Span(1),
+        end: taffy::GridPlacement::Auto,
+    },
+});
+
 const fn entity_node_id(entity: Entity) -> NodeId {
     NodeId::new(entity.to_bits())
 }
@@ -118,7 +174,6 @@ pub(crate) fn compute_layout(
     rem_size: RemSize,
     rem_size_changed: bool,
 ) -> Result<(), LayoutError> {
-    let mut runtime_nodes = HashMap::default();
     let Some(_) = build_runtime_layout_tree(
         ui_root_entity,
         ui_root_entity,
@@ -126,21 +181,12 @@ pub(crate) fn compute_layout(
         node_query,
         computed_layout_query,
         fixed_node_changes,
-        &mut runtime_nodes,
         rem_size,
         rem_size_changed,
     ) else {
         return Err(LayoutError::InvalidHierarchy);
     };
     let root_node_id = entity_node_id(ui_root_entity);
-
-    runtime_nodes.insert(
-        VIEWPORT_NODE_ID,
-        NodeStyle {
-            node: &VIEWPORT_NODE,
-            context: LayoutContext::default(),
-        },
-    );
 
     let available_space = taffy::Size {
         width: AvailableSpace::Definite(render_target_resolution.x as f32),
@@ -209,7 +255,6 @@ fn build_runtime_layout_tree<'a>(
     node_query: &'a Query<(Ref<TaffyStyle>, Ref<ContentSize>, Has<FixedNode>)>,
     computed_layout_query: &mut Query<&mut ComputedLayout>,
     fixed_node_changes: &[Entity],
-    runtime_nodes: &mut HashMap<NodeId, NodeStyle<'a>>,
     rem_size: RemSize,
     rem_size_changed: bool,
 ) -> Option<bool> {
@@ -231,7 +276,6 @@ fn build_runtime_layout_tree<'a>(
             node_query,
             computed_layout_query,
             fixed_node_changes,
-            runtime_nodes,
             rem_size,
             rem_size_changed,
         ) {
@@ -378,11 +422,15 @@ impl<'tree, 'w, 's, 'u, 't, 'style, 'layout> LayoutPartialTree
     type CustomIdent = String;
 
     fn get_core_container_style(&self, node_id: NodeId) -> Self::CoreContainerStyle<'_> {
-        &self
-            .style_query
-            .get(node_id_entity(node_id))
-            .expect("missing layout node")
-            .0
+        if node_id == VIEWPORT_NODE_ID {
+            &VIEWPORT_NODE_TAFFY_STYLE
+        } else {
+            &self
+                .style_query
+                .get(node_id_entity(node_id))
+                .expect("missing layout node")
+                .0
+        }
     }
 
     fn set_unrounded_layout(&mut self, node_id: NodeId, layout: &Layout) {
