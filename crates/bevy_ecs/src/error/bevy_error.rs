@@ -225,7 +225,9 @@ impl BevyError {
                             skip_next_location_line = true;
                             continue;
                         }
-                        if line.contains("std::backtrace::Backtrace::") {
+                        if line.contains(": std::backtrace::Backtrace::")
+                            || line.contains(": <std::backtrace::Backtrace>::")
+                        {
                             skip_next_location_line = true;
                             continue;
                         }
@@ -717,15 +719,12 @@ mod tests {
 
         // On mac backtraces can start with Backtrace::create
         // Rust 1.95 changed the format to use angle brackets: <std::backtrace::Backtrace>::create
-        let mut skip = false;
-        if let Some(line) = lines.peek()
-            && (line[6..] == *"std::backtrace::Backtrace::create"
-                || line[6..] == *"<std::backtrace::Backtrace>::create")
-        {
-            skip = true;
-        }
-
-        if skip {
+        // Rust 1.98 stopped inlining create into capture, so more than one of these frames can appear
+        while lines.peek().is_some_and(|line| {
+            let symbol = line.get(6..).unwrap_or("");
+            symbol.starts_with("std::backtrace::Backtrace::")
+                || symbol.starts_with("<std::backtrace::Backtrace>::")
+        }) {
             lines.next().unwrap();
         }
 
@@ -769,7 +768,7 @@ mod tests {
         // on linux there is a second call_once
         let mut skip = false;
         if let Some(line) = lines.peek()
-            && &line[6..] == "<fn() -> core::result::Result<(), alloc::string::String> as core::ops::function::FnOnce<()>>::call_once"
+            && line.get(6..) == Some("<fn() -> core::result::Result<(), alloc::string::String> as core::ops::function::FnOnce<()>>::call_once")
         {
             skip = true;
         }

@@ -1,7 +1,8 @@
 use crate::{
+    clipping::clip_polygon,
     extract_layout::{ExtractedUiLayout, ExtractedUiNodeLayout},
     shader_flags, stack_z_offsets, DrawUi, TransparentUi, UiAntiAlias, UiCameraView, UiMeta,
-    UiPipeline, UiPipelineKey, UiVertex, QUAD_INDICES, QUAD_VERTEX_POSITIONS,
+    UiPipeline, UiPipelineKey, UiVertex, QUAD_VERTEX_POSITIONS,
 };
 use bevy_asset::AssetId;
 use bevy_color::{Alpha, ColorToComponents, LinearRgba};
@@ -26,7 +27,7 @@ use bevy_text::{
 };
 use bevy_ui::{
     widget::{Text, TextShadow},
-    ResolvedBorderRadius,
+    CalculatedClip, ResolvedBorderRadius, UiGlobalTransform,
 };
 use core::ops::Range;
 
@@ -559,19 +560,15 @@ pub(crate) fn push_text_vertices(
         * Affine2::from_translation(
             node_layout.uinode.content_box().min - glyph_layout.viewport_offset,
         );
+    let text_clip;
     let clip = if glyph_layout.clip_to_content_box {
-        let content_box = node_layout.uinode.content_box();
-        let text_clip = Rect::from_center_size(
-            node_layout.transform.translation + content_box.center(),
-            content_box.size(),
+        text_clip = node_layout.clip.clone().unwrap_or_default().with_rect(
+            node_layout.uinode.content_box(),
+            &UiGlobalTransform::from(node_layout.transform),
         );
-        Some(
-            node_layout
-                .clip
-                .map_or(text_clip, |clip| clip.intersect(text_clip)),
-        )
+        Some(&text_clip)
     } else {
-        node_layout.clip
+        node_layout.clip.as_ref()
     };
     let (mut texture_range_start, mut current_texture) =
         if texture_changes_start < ui_meta.texture_changes.len() {
@@ -714,75 +711,55 @@ pub(crate) fn push_text_vertices(
 fn push_untextured_vertices(
     ui_meta: &mut UiMeta,
     transform: Affine2,
-    clip: Option<Rect>,
+    clip: Option<&CalculatedClip>,
     rect: Rect,
     color: LinearRgba,
     border_radius: ResolvedBorderRadius,
 ) {
     let rect_size = rect.size();
     let rect_transform = transform * Affine2::from_translation(rect.center());
-    let positions = QUAD_VERTEX_POSITIONS
-        .map(|pos| rect_transform.transform_point2(pos * rect_size).extend(0.));
-    let positions_diff = if let Some(clip) = clip {
-        [
-            Vec2::new(
-                f32::max(clip.min.x - positions[0].x, 0.),
-                f32::max(clip.min.y - positions[0].y, 0.),
-            ),
-            Vec2::new(
-                f32::min(clip.max.x - positions[1].x, 0.),
-                f32::max(clip.min.y - positions[1].y, 0.),
-            ),
-            Vec2::new(
-                f32::min(clip.max.x - positions[2].x, 0.),
-                f32::min(clip.max.y - positions[2].y, 0.),
-            ),
-            Vec2::new(
-                f32::max(clip.min.x - positions[3].x, 0.),
-                f32::min(clip.max.y - positions[3].y, 0.),
-            ),
-        ]
-    } else {
-        [Vec2::ZERO; 4]
-    };
-    let positions_clipped = [
-        positions[0] + positions_diff[0].extend(0.),
-        positions[1] + positions_diff[1].extend(0.),
-        positions[2] + positions_diff[2].extend(0.),
-        positions[3] + positions_diff[3].extend(0.),
-    ];
-    let transformed_rect_size = rect_transform.transform_vector2(rect_size).abs();
-    if rect_transform.x_axis[1] == 0.0
-        && (positions_diff[0].x - positions_diff[1].x >= transformed_rect_size.x
-            || positions_diff[1].y - positions_diff[2].y >= transformed_rect_size.y)
-    {
+    let points = QUAD_VERTEX_POSITIONS.map(|pos| pos * rect_size);
+    let positions = points.map(|pos| rect_transform.transform_point2(pos));
+    let uvs = [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y];
+    let vertices = clip_polygon(
+        clip,
+        &[
+            (positions[0], (uvs[0], points[0])),
+            (positions[1], (uvs[1], points[1])),
+            (positions[2], (uvs[2], points[2])),
+            (positions[3], (uvs[3], points[3])),
+        ],
+        |a, b, t| (a.0.lerp(b.0, t), a.1.lerp(b.1, t)),
+    );
+    if vertices.is_empty() {
         return;
     }
 
     let vertex_start = ui_meta.vertices.len() as u32;
     let color = color.to_f32_array();
-    let uvs = [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y];
-    for i in 0..4 {
+    for &(position, (uv, point)) in &vertices {
         ui_meta.vertices.push(UiVertex {
-            position: positions_clipped[i].into(),
-            uv: uvs[i].into(),
+            position: position.extend(0.).into(),
+            uv: uv.into(),
             color,
-            flags: shader_flags::UNTEXTURED | shader_flags::CORNERS[i],
+            flags: shader_flags::UNTEXTURED,
             radius: border_radius.into(),
             border: [0.; 4],
             size: rect_size.into(),
-            point: (QUAD_VERTEX_POSITIONS[i] * rect_size + positions_diff[i]).into(),
+            point: point.into(),
         });
     }
-    for &index in &QUAD_INDICES {
-        ui_meta.indices.push(vertex_start + index as u32);
+    for i in 1..vertices.len() as u32 - 1 {
+        ui_meta.indices.push(vertex_start);
+        ui_meta.indices.push(vertex_start + i);
+        ui_meta.indices.push(vertex_start + i + 1);
     }
 }
 
 fn push_glyph_vertices(
     ui_meta: &mut UiMeta,
     transform: Affine2,
-    clip: Option<Rect>,
+    clip: Option<&CalculatedClip>,
     rect: Rect,
     color: LinearRgba,
     glyph_rect: Rect,
@@ -790,79 +767,46 @@ fn push_glyph_vertices(
 ) {
     let rect_size = rect.size();
     let rect_transform = transform * Affine2::from_translation(rect.center());
-    let positions = QUAD_VERTEX_POSITIONS
-        .map(|pos| rect_transform.transform_point2(pos * rect_size).extend(0.));
-    let positions_diff = if let Some(clip) = clip {
-        [
-            Vec2::new(
-                f32::max(clip.min.x - positions[0].x, 0.),
-                f32::max(clip.min.y - positions[0].y, 0.),
-            ),
-            Vec2::new(
-                f32::min(clip.max.x - positions[1].x, 0.),
-                f32::max(clip.min.y - positions[1].y, 0.),
-            ),
-            Vec2::new(
-                f32::min(clip.max.x - positions[2].x, 0.),
-                f32::min(clip.max.y - positions[2].y, 0.),
-            ),
-            Vec2::new(
-                f32::max(clip.min.x - positions[3].x, 0.),
-                f32::min(clip.max.y - positions[3].y, 0.),
-            ),
-        ]
-    } else {
-        [Vec2::ZERO; 4]
-    };
-    let positions_clipped = [
-        positions[0] + positions_diff[0].extend(0.),
-        positions[1] + positions_diff[1].extend(0.),
-        positions[2] + positions_diff[2].extend(0.),
-        positions[3] + positions_diff[3].extend(0.),
-    ];
-    let transformed_rect_size = rect_transform.transform_vector2(rect_size).abs();
-    if rect_transform.x_axis[1] == 0.0
-        && (positions_diff[0].x - positions_diff[1].x >= transformed_rect_size.x
-            || positions_diff[1].y - positions_diff[2].y >= transformed_rect_size.y)
-    {
+    let points = QUAD_VERTEX_POSITIONS.map(|pos| pos * rect_size);
+    let positions = points.map(|pos| rect_transform.transform_point2(pos));
+    let uvs = [
+        Vec2::new(glyph_rect.min.x, glyph_rect.min.y),
+        Vec2::new(glyph_rect.max.x, glyph_rect.min.y),
+        Vec2::new(glyph_rect.max.x, glyph_rect.max.y),
+        Vec2::new(glyph_rect.min.x, glyph_rect.max.y),
+    ]
+    .map(|pos| pos / atlas_extent);
+    let vertices = clip_polygon(
+        clip,
+        &[
+            (positions[0], (uvs[0], points[0])),
+            (positions[1], (uvs[1], points[1])),
+            (positions[2], (uvs[2], points[2])),
+            (positions[3], (uvs[3], points[3])),
+        ],
+        |a, b, t| (a.0.lerp(b.0, t), a.1.lerp(b.1, t)),
+    );
+    if vertices.is_empty() {
         return;
     }
 
-    let uvs = [
-        Vec2::new(
-            glyph_rect.min.x + positions_diff[0].x,
-            glyph_rect.min.y + positions_diff[0].y,
-        ),
-        Vec2::new(
-            glyph_rect.max.x + positions_diff[1].x,
-            glyph_rect.min.y + positions_diff[1].y,
-        ),
-        Vec2::new(
-            glyph_rect.max.x + positions_diff[2].x,
-            glyph_rect.max.y + positions_diff[2].y,
-        ),
-        Vec2::new(
-            glyph_rect.min.x + positions_diff[3].x,
-            glyph_rect.max.y + positions_diff[3].y,
-        ),
-    ]
-    .map(|pos| pos / atlas_extent);
-
     let vertex_start = ui_meta.vertices.len() as u32;
     let color = color.to_f32_array();
-    for i in 0..4 {
+    for &(position, (uv, point)) in &vertices {
         ui_meta.vertices.push(UiVertex {
-            position: positions_clipped[i].into(),
-            uv: uvs[i].into(),
+            position: position.extend(0.).into(),
+            uv: uv.into(),
             color,
-            flags: shader_flags::TEXTURED | shader_flags::CORNERS[i],
+            flags: shader_flags::TEXTURED,
             radius: ResolvedBorderRadius::ZERO.into(),
             border: [0.; 4],
             size: rect_size.into(),
-            point: (QUAD_VERTEX_POSITIONS[i] * rect_size + positions_diff[i]).into(),
+            point: point.into(),
         });
     }
-    for &index in &QUAD_INDICES {
-        ui_meta.indices.push(vertex_start + index as u32);
+    for i in 1..vertices.len() as u32 - 1 {
+        ui_meta.indices.push(vertex_start);
+        ui_meta.indices.push(vertex_start + i);
+        ui_meta.indices.push(vertex_start + i + 1);
     }
 }

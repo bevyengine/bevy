@@ -8,7 +8,6 @@ use bevy_ecs::query::Or;
 use bevy_ecs::resource::Resource;
 use bevy_ecs::system::Query;
 use bevy_math::Affine2;
-use bevy_math::Rect;
 use bevy_render::sync_world::MainEntityHashMap;
 use bevy_render::sync_world::MainEntityHashSet;
 use bevy_render::Extract;
@@ -22,7 +21,7 @@ pub struct ExtractedUiNodeLayout {
     pub extracted_camera: Entity,
     pub uinode: ComputedNode,
     pub transform: Affine2,
-    pub clip: Option<Rect>,
+    pub clip: Option<CalculatedClip>,
     pub stack_index: u32,
     pub visible: bool,
 }
@@ -128,7 +127,7 @@ pub fn extract_ui_layout(
             extracted_camera: extracted_camera_entity,
             uinode: *computed_node,
             transform: transform.into(),
-            clip: clip.map(|clip| clip.clip),
+            clip: clip.cloned(),
             stack_index: stack_index.0,
             visible: inherited_visibility.get(),
         };

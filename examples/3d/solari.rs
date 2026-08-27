@@ -164,11 +164,7 @@ fn setup_pica_pica(
     // Using DLSS Ray Reconstruction for denoising (and cheaper rendering via upscaling) is _highly_ recommended when using Solari
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
     if dlss_rr_supported.is_some() {
-        camera.insert(Dlss::<DlssRayReconstructionFeature> {
-            perf_quality_mode: Default::default(),
-            reset: Default::default(),
-            _phantom_data: Default::default(),
-        });
+        camera.insert(Dlss::<DlssRayReconstructionFeature>::default());
     }
 
     commands.spawn((
@@ -187,7 +183,7 @@ fn setup_pica_pica(
             position_type: PositionType::Absolute,
             right: px(0.0),
             padding: px(4.0).all(),
-            border_radius: BorderRadius::bottom_left(Val2::all(px(4.0))),
+            border_radius: BorderRadius::bottom_left(px(4.0)),
             ..default()
         },
         BackgroundColor(Color::srgba(0.10, 0.10, 0.10, 0.8)),
@@ -349,11 +345,7 @@ fn setup_many_lights(
     // Using DLSS Ray Reconstruction for denoising (and cheaper rendering via upscaling) is _highly_ recommended when using Solari
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
     if dlss_rr_supported.is_some() {
-        camera.insert(Dlss::<DlssRayReconstructionFeature> {
-            perf_quality_mode: Default::default(),
-            reset: Default::default(),
-            _phantom_data: Default::default(),
-        });
+        camera.insert(Dlss::<DlssRayReconstructionFeature>::default());
     }
 
     commands.spawn((
@@ -372,7 +364,7 @@ fn setup_many_lights(
             position_type: PositionType::Absolute,
             right: px(0.0),
             padding: px(4.0).all(),
-            border_radius: BorderRadius::bottom_left(Val2::all(px(4.0))),
+            border_radius: BorderRadius::bottom_left(px(4.0)),
             ..default()
         },
         BackgroundColor(Color::srgba(0.10, 0.10, 0.10, 0.8)),
@@ -475,11 +467,7 @@ fn toggle_dlss_rr(
         } else {
             commands
                 .entity(entity)
-                .insert(Dlss::<DlssRayReconstructionFeature> {
-                    perf_quality_mode: Default::default(),
-                    reset: Default::default(),
-                    _phantom_data: Default::default(),
-                });
+                .insert(Dlss::<DlssRayReconstructionFeature>::default());
         }
     }
 }

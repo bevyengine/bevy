@@ -19,7 +19,7 @@ use bevy::{
     sprite_render::{Material2d, Material2dKey, Material2dPipeline, Material2dPlugin},
 };
 
-const SHADER_ASSET_PATH: &str = "shaders/pipeline_constants.wgsl";
+const SHADER_ASSET_PATH: &str = "shaders/pipeline_constants.wesl";
 
 fn main() {
     App::new()

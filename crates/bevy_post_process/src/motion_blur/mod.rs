@@ -149,7 +149,7 @@ pub struct MotionBlurUniform {
 pub struct MotionBlurPlugin;
 impl Plugin for MotionBlurPlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "motion_blur.wgsl");
+        embedded_asset!(app, "motion_blur.wesl");
 
         app.add_plugins((
             ExtractComponentPlugin::<MotionBlur>::default(),

@@ -30,16 +30,18 @@ use bevy_ui::{BoxShadow, ComputedUiRenderTargetInfo, ResolvedBorderRadius, Shado
 use bevy_utils::default;
 use bytemuck::{Pod, Zeroable};
 
-use crate::{BoxShadowSamples, ExtractedUiLayout, RenderUiSystems, TransparentUi};
+use crate::{
+    clipping::clip_polygon, BoxShadowSamples, ExtractedUiLayout, RenderUiSystems, TransparentUi,
+};
 
-use super::{stack_z_offsets, UiCameraView, QUAD_INDICES, QUAD_VERTEX_POSITIONS};
+use super::{stack_z_offsets, UiCameraView, QUAD_VERTEX_POSITIONS};
 
 /// A plugin that enables the rendering of box shadows.
 pub struct BoxShadowPlugin;
 
 impl Plugin for BoxShadowPlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "box_shadow.wgsl");
+        embedded_asset!(app, "box_shadow.wesl");
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -116,7 +118,7 @@ pub fn init_box_shadow_pipeline(mut commands: Commands, asset_server: Res<AssetS
 
     commands.insert_resource(BoxShadowPipeline {
         view_layout,
-        shader: load_embedded_asset!(asset_server.as_ref(), "box_shadow.wgsl"),
+        shader: load_embedded_asset!(asset_server.as_ref(), "box_shadow.wesl"),
     });
 }
 
@@ -401,6 +403,8 @@ pub fn prepare_shadows(
                     Val::Vh(percent) => percent / 100. * physical_viewport_size.y,
                     Val::VMin(percent) => percent / 100. * physical_viewport_size.min_element(),
                     Val::VMax(percent) => percent / 100. * physical_viewport_size.max_element(),
+                    Val::Em(em) => em * uinode.em_size.0 * scale_factor,
+                    Val::Rem(rem) => rem * uinode.rem_size.0 * scale_factor,
                 };
                 let spread_x =
                     resolve_val(shadow.style.spread_radius, uinode.size().x, scale_factor);
@@ -432,74 +436,36 @@ pub fn prepare_shadows(
                 let rect_size = bounds;
 
                 // Specify the corners of the node
-                let positions = QUAD_VERTEX_POSITIONS
-                    .map(|pos| transform.transform_point2(pos * rect_size).extend(0.));
-
-                // Calculate the effect of clipping
-                // Note: this won't work with rotation/scaling, but that's much more complex (may need more that 2 quads)
-                let positions_diff = if let Some(clip) = geometry.clip {
-                    [
-                        Vec2::new(
-                            f32::max(clip.min.x - positions[0].x, 0.),
-                            f32::max(clip.min.y - positions[0].y, 0.),
-                        ),
-                        Vec2::new(
-                            f32::min(clip.max.x - positions[1].x, 0.),
-                            f32::max(clip.min.y - positions[1].y, 0.),
-                        ),
-                        Vec2::new(
-                            f32::min(clip.max.x - positions[2].x, 0.),
-                            f32::min(clip.max.y - positions[2].y, 0.),
-                        ),
-                        Vec2::new(
-                            f32::max(clip.min.x - positions[3].x, 0.),
-                            f32::min(clip.max.y - positions[3].y, 0.),
-                        ),
-                    ]
-                } else {
-                    [Vec2::ZERO; 4]
-                };
-
-                let positions_clipped = [
-                    positions[0] + positions_diff[0].extend(0.),
-                    positions[1] + positions_diff[1].extend(0.),
-                    positions[2] + positions_diff[2].extend(0.),
-                    positions[3] + positions_diff[3].extend(0.),
-                ];
-
-                let transformed_rect_size = transform.transform_vector2(rect_size).abs();
-
-                // Don't try to cull nodes that have a rotation
-                // In a rotation around the Z-axis, this value is 0.0 for an angle of 0.0 or π
-                // In those two cases, the culling check can proceed normally as corners will be on
-                // horizontal / vertical lines
-                // For all other angles, bypass the culling check
-                // This does not properly handles all rotations on all axis
-                if transform.x_axis[1] == 0.0 {
-                    // Cull nodes that are completely clipped
-                    if positions_diff[0].x - positions_diff[1].x >= transformed_rect_size.x
-                        || positions_diff[1].y - positions_diff[2].y >= transformed_rect_size.y
-                    {
-                        continue;
-                    }
-                }
+                let positions =
+                    QUAD_VERTEX_POSITIONS.map(|pos| transform.transform_point2(pos * rect_size));
 
                 let uvs = [
-                    Vec2::new(positions_diff[0].x, positions_diff[0].y),
-                    Vec2::new(bounds.x + positions_diff[1].x, positions_diff[1].y),
-                    Vec2::new(
-                        bounds.x + positions_diff[2].x,
-                        bounds.y + positions_diff[2].y,
-                    ),
-                    Vec2::new(positions_diff[3].x, bounds.y + positions_diff[3].y),
+                    Vec2::ZERO,
+                    Vec2::new(bounds.x, 0.),
+                    bounds,
+                    Vec2::new(0., bounds.y),
                 ]
                 .map(|pos| pos / bounds);
 
+                let vertices = clip_polygon(
+                    geometry.clip.as_ref(),
+                    &[
+                        (positions[0], uvs[0]),
+                        (positions[1], uvs[1]),
+                        (positions[2], uvs[2]),
+                        (positions[3], uvs[3]),
+                    ],
+                    Vec2::lerp,
+                );
+                if vertices.is_empty() {
+                    continue;
+                }
+
                 let color: LinearRgba = shadow.style.color.into();
-                for i in 0..4 {
+                for vertex in &vertices {
                     ui_meta.vertices.push(BoxShadowVertex {
-                        position: positions_clipped[i].into(),
-                        uvs: uvs[i].into(),
+                        position: vertex.0.extend(0.).into(),
+                        uvs: vertex.1.into(),
                         vertex_color: color.to_f32_array(),
                         size: shadow_size.into(),
                         radius: radius.into(),
@@ -508,20 +474,24 @@ pub fn prepare_shadows(
                     });
                 }
 
-                for &i in &QUAD_INDICES {
-                    ui_meta.indices.push(indices_index + i as u32);
+                for i in 1..vertices.len() as u32 - 1 {
+                    ui_meta.indices.push(indices_index);
+                    ui_meta.indices.push(indices_index + i);
+                    ui_meta.indices.push(indices_index + i + 1);
                 }
+
+                let index_count = 3 * (vertices.len() as u32 - 2);
 
                 batches.push((
                     item.entity(),
                     UiShadowsBatch {
-                        range: vertices_index..vertices_index + 6,
+                        range: vertices_index..vertices_index + index_count,
                         camera: geometry.extracted_camera,
                     },
                 ));
 
-                vertices_index += 6;
-                indices_index += 4;
+                vertices_index += index_count;
+                indices_index += vertices.len() as u32;
 
                 // shadows are sent to the gpu non-batched
                 *ui_phase.items[item_index].batch_range_mut() =

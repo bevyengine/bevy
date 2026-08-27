@@ -8,6 +8,7 @@
 //! Provides rendering functionality for `bevy_ui`.
 
 pub mod box_shadow;
+pub mod clipping;
 mod gradient;
 mod image;
 pub use image::ImageNodeAssetChangedSystems;
@@ -34,8 +35,8 @@ use bevy_shader::load_shader_library;
 use bevy_sprite_render::SpriteAssetEvents;
 use bevy_ui::widget::{ImageNode, ImageNodeSize, NodeImageMode, ViewportNode};
 use bevy_ui::{
-    BackgroundColor, BorderColor, ComputedUiTargetCamera, Node, OuterColor, Outline,
-    ResolvedBorderRadius, UiSystems, VisualBox,
+    BackgroundColor, BorderColor, CalculatedClip, ComputedUiTargetCamera, Node, OuterColor,
+    Outline, ResolvedBorderRadius, UiSystems, VisualBox,
 };
 
 use bevy_app::prelude::*;
@@ -79,6 +80,7 @@ pub use render_pass::*;
 pub use ui_material_pipeline::*;
 use ui_texture_slice_pipeline::UiTextureSlicerPlugin;
 
+use crate::clipping::clip_polygon;
 use crate::extract_layout::{ExtractedUiLayout, ExtractedUiNodeLayout};
 use crate::shader_flags::INVERT;
 use crate::text::{extract_text, push_text_vertices, queue_text, ExtractedGlyphLayouts};
@@ -193,7 +195,7 @@ pub struct UiRenderPlugin;
 
 impl Plugin for UiRenderPlugin {
     fn build(&self, app: &mut App) {
-        load_shader_library!(app, "ui.wgsl");
+        load_shader_library!(app, "ui.wesl");
 
         #[cfg(feature = "bevy_ui_debug")]
         app.init_resource::<UiDebugOverlay>();
@@ -485,7 +487,7 @@ pub fn extract_uinode_styles(
         maybe_viewport_node,
     ) in changed_uinode_query
         .iter()
-        .chain(uinode_query.iter_many(removed_uinodes.iter()))
+        .chain(uinode_query.iter_many(removed_uinodes.iter()).flatten())
     {
         let main_entity = entity.into();
 
@@ -817,8 +819,6 @@ pub(crate) const QUAD_VERTEX_POSITIONS: [Vec2; 4] = [
 
 pub(crate) const QUAD_UVS: [Vec2; 4] = [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y];
 
-pub(crate) const QUAD_INDICES: [usize; 6] = [0, 2, 3, 0, 1, 2];
-
 #[derive(Component, Debug)]
 pub struct UiBatch {
     pub texture_changes: Range<u32>,
@@ -833,7 +833,7 @@ impl UiBatch {
     }
 }
 
-/// The values here should match the values for the constants in `ui.wgsl`
+/// The values here should match the values for the constants in `ui.wesl`
 pub mod shader_flags {
     /// Texture should be ignored
     pub const UNTEXTURED: u32 = 0;
@@ -1258,7 +1258,7 @@ fn push_uinode_vertices(
                          mut rect: Rect,
                          atlas_scaling: Option<Vec2>,
                          transform: Affine2,
-                         clip: Option<Rect>,
+                         clip: Option<&CalculatedClip>,
                          border_radius: ResolvedBorderRadius,
                          border: BorderRect,
                          node_type: NodeType,
@@ -1269,78 +1269,23 @@ fn push_uinode_vertices(
             shader_flags::UNTEXTURED
         };
         let rect_size = rect.size();
-        let positions =
-            QUAD_VERTEX_POSITIONS.map(|pos| transform.transform_point2(pos * rect_size).extend(0.));
-        let mut positions_diff = if let Some(clip) = clip {
-            [
-                Vec2::new(
-                    f32::max(clip.min.x - positions[0].x, 0.),
-                    f32::max(clip.min.y - positions[0].y, 0.),
-                ),
-                Vec2::new(
-                    f32::min(clip.max.x - positions[1].x, 0.),
-                    f32::max(clip.min.y - positions[1].y, 0.),
-                ),
-                Vec2::new(
-                    f32::min(clip.max.x - positions[2].x, 0.),
-                    f32::min(clip.max.y - positions[2].y, 0.),
-                ),
-                Vec2::new(
-                    f32::max(clip.min.x - positions[3].x, 0.),
-                    f32::min(clip.max.y - positions[3].y, 0.),
-                ),
-            ]
-        } else {
-            [Vec2::ZERO; 4]
-        };
-        let positions_clipped = [
-            positions[0] + positions_diff[0].extend(0.),
-            positions[1] + positions_diff[1].extend(0.),
-            positions[2] + positions_diff[2].extend(0.),
-            positions[3] + positions_diff[3].extend(0.),
-        ];
-        let transformed_rect_size = transform.transform_vector2(rect_size).abs();
-        if transform.x_axis[1] == 0.0
-            && (positions_diff[0].x - positions_diff[1].x >= transformed_rect_size.x
-                || positions_diff[1].y - positions_diff[2].y >= transformed_rect_size.y)
-        {
-            return;
-        }
+        let points = QUAD_VERTEX_POSITIONS.map(|pos| pos * rect_size);
+        let positions = points.map(|pos| transform.transform_point2(pos));
         let uvs = if textured {
             let atlas_extent = atlas_scaling
                 .map(|scaling| gpu_image.size_2d().as_vec2() * scaling)
                 .unwrap_or(rect.max);
             if style.flip_x {
                 mem::swap(&mut rect.max.x, &mut rect.min.x);
-                positions_diff[0].x *= -1.;
-                positions_diff[1].x *= -1.;
-                positions_diff[2].x *= -1.;
-                positions_diff[3].x *= -1.;
             }
             if style.flip_y {
                 mem::swap(&mut rect.max.y, &mut rect.min.y);
-                positions_diff[0].y *= -1.;
-                positions_diff[1].y *= -1.;
-                positions_diff[2].y *= -1.;
-                positions_diff[3].y *= -1.;
             }
             [
-                Vec2::new(
-                    rect.min.x + positions_diff[0].x,
-                    rect.min.y + positions_diff[0].y,
-                ),
-                Vec2::new(
-                    rect.max.x + positions_diff[1].x,
-                    rect.min.y + positions_diff[1].y,
-                ),
-                Vec2::new(
-                    rect.max.x + positions_diff[2].x,
-                    rect.max.y + positions_diff[2].y,
-                ),
-                Vec2::new(
-                    rect.min.x + positions_diff[3].x,
-                    rect.max.y + positions_diff[3].y,
-                ),
+                Vec2::new(rect.min.x, rect.min.y),
+                Vec2::new(rect.max.x, rect.min.y),
+                Vec2::new(rect.max.x, rect.max.y),
+                Vec2::new(rect.min.x, rect.max.y),
             ]
             .map(|pos| pos / atlas_extent)
         } else {
@@ -1352,14 +1297,28 @@ fn push_uinode_vertices(
             _ => {}
         }
 
+        let vertices = clip_polygon(
+            clip,
+            &[
+                (positions[0], (uvs[0], points[0])),
+                (positions[1], (uvs[1], points[1])),
+                (positions[2], (uvs[2], points[2])),
+                (positions[3], (uvs[3], points[3])),
+            ],
+            |a, b, t| (a.0.lerp(b.0, t), a.1.lerp(b.1, t)),
+        );
+        if vertices.is_empty() {
+            return;
+        }
+
         let vertex_start = ui_meta.vertices.len() as u32;
         let color = color.to_f32_array();
-        for i in 0..4 {
+        for &(position, (uv, point)) in &vertices {
             ui_meta.vertices.push(UiVertex {
-                position: positions_clipped[i].into(),
-                uv: uvs[i].into(),
+                position: position.extend(0.).into(),
+                uv: uv.into(),
                 color,
-                flags: flags | shader_flags::CORNERS[i],
+                flags,
                 radius: border_radius.into(),
                 border: [
                     border.min_inset.x,
@@ -1368,11 +1327,13 @@ fn push_uinode_vertices(
                     border.max_inset.y,
                 ],
                 size: rect_size.into(),
-                point: (QUAD_VERTEX_POSITIONS[i] * rect_size + positions_diff[i]).into(),
+                point: point.into(),
             });
         }
-        for &index in &QUAD_INDICES {
-            ui_meta.indices.push(vertex_start + index as u32);
+        for i in 1..vertices.len() as u32 - 1 {
+            ui_meta.indices.push(vertex_start);
+            ui_meta.indices.push(vertex_start + i);
+            ui_meta.indices.push(vertex_start + i + 1);
         }
     };
 
@@ -1385,7 +1346,7 @@ fn push_uinode_vertices(
             },
             None,
             layout.transform,
-            layout.clip,
+            layout.clip.as_ref(),
             uinode.border_radius(),
             uinode.border(),
             NodeType::Rect,
@@ -1401,7 +1362,7 @@ fn push_uinode_vertices(
             },
             None,
             layout.transform,
-            layout.clip,
+            layout.clip.as_ref(),
             uinode.border_radius(),
             BorderRect::ZERO,
             NodeType::Inverted,
@@ -1439,7 +1400,7 @@ fn push_uinode_vertices(
                 },
                 None,
                 layout.transform,
-                layout.clip,
+                layout.clip.as_ref(),
                 uinode.border_radius(),
                 uinode.border(),
                 NodeType::Border(border_flags),
@@ -1457,7 +1418,7 @@ fn push_uinode_vertices(
             },
             None,
             layout.transform,
-            layout.clip,
+            layout.clip.as_ref(),
             uinode.outline_radius(),
             BorderRect::all(uinode.outline_width()),
             NodeType::Border(shader_flags::BORDER_ALL),
@@ -1477,6 +1438,24 @@ fn push_uinode_vertices(
             } else {
                 visual_box.size()
             };
+            let mut inset = match style.visual_box {
+                VisualBox::ContentBox => uinode.content_inset(),
+                VisualBox::PaddingBox => uinode.border(),
+                VisualBox::BorderBox => BorderRect::ZERO,
+            };
+            let image_inset = 0.5 * (visual_box.size() - size);
+            inset.min_inset += image_inset;
+            inset.max_inset += image_inset;
+
+            let radius = uinode.border_radius();
+            let clamped_radius = ResolvedBorderRadius {
+                top_left: (radius.top_left - inset.min_inset).clamp(Vec2::ZERO, 0.5 * size),
+                top_right: (radius.top_right - Vec2::new(inset.max_inset.x, inset.min_inset.y))
+                    .clamp(Vec2::ZERO, 0.5 * size),
+                bottom_right: (radius.bottom_right - inset.max_inset).clamp(Vec2::ZERO, 0.5 * size),
+                bottom_left: (radius.bottom_left - Vec2::new(inset.min_inset.x, inset.max_inset.y))
+                    .clamp(Vec2::ZERO, 0.5 * size),
+            };
             let mut rect = style.image_rect.unwrap_or(Rect {
                 min: Vec2::ZERO,
                 max: size,
@@ -1492,8 +1471,8 @@ fn push_uinode_vertices(
                 rect,
                 atlas_scaling,
                 layout.transform * Affine2::from_translation(visual_box.center()),
-                layout.clip,
-                uinode.border_radius(),
+                layout.clip.as_ref(),
+                clamped_radius,
                 if style.use_node_border {
                     uinode.border()
                 } else {

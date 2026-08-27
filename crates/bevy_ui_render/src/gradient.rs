@@ -5,9 +5,10 @@ use core::{
 };
 
 use super::shader_flags::BORDER_ALL;
+use crate::clipping::clip_polygon;
 use crate::*;
 use bevy_asset::*;
-use bevy_color::{ColorToComponents, Hsla, Hsva, LinearRgba, Oklaba, Oklcha, Srgba};
+use bevy_color::{ColorToComponents, Hsla, Hsva, LinearRgba, Okhsla, Oklaba, Oklcha, Srgba};
 use bevy_ecs::{
     prelude::Component,
     system::{
@@ -30,6 +31,7 @@ use bevy_render::{
 };
 use bevy_render::{GpuResourceAppExt, RenderStartup};
 use bevy_shader::Shader;
+use bevy_text::{EmSize, RemSize};
 use bevy_ui::{
     BackgroundGradient, BorderGradient, ColorStop, ComputedUiRenderTargetInfo, ConicGradient,
     Gradient, InterpolationColorSpace, LinearGradient, RadialGradient, Val,
@@ -41,7 +43,7 @@ pub struct GradientPlugin;
 
 impl Plugin for GradientPlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "gradient.wgsl");
+        embedded_asset!(app, "gradient.wesl");
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -106,7 +108,7 @@ pub fn init_gradient_pipeline(mut commands: Commands, asset_server: Res<AssetSer
 
     commands.insert_resource(GradientPipeline {
         view_layout,
-        shader: load_embedded_asset!(asset_server.as_ref(), "gradient.wgsl"),
+        shader: load_embedded_asset!(asset_server.as_ref(), "gradient.wesl"),
     });
 }
 
@@ -180,6 +182,8 @@ impl SpecializedRenderPipeline for GradientPipeline {
             InterpolationColorSpace::Oklaba => "IN_OKLAB",
             InterpolationColorSpace::Oklcha => "IN_OKLCH",
             InterpolationColorSpace::OklchaLong => "IN_OKLCH_LONG",
+            InterpolationColorSpace::Okhsla => "IN_OKHSL",
+            InterpolationColorSpace::OkhslaLong => "IN_OKHSL_LONG",
             InterpolationColorSpace::Srgba => "IN_SRGB",
             InterpolationColorSpace::LinearRgba => "IN_LINEAR_RGB",
             InterpolationColorSpace::Hsla => "IN_HSL",
@@ -281,13 +285,15 @@ fn compute_color_stops(
     length: f32,
     target_size: Vec2,
     scratch: &mut Vec<(LinearRgba, f32, f32)>,
+    em_size: EmSize,
+    rem_size: RemSize,
 ) -> Vec<(LinearRgba, f32, f32)> {
     let mut extracted_color_stops = vec![];
 
     // resolve the physical distances of explicit stops and sort them
     scratch.extend(stops.iter().filter_map(|stop| {
         stop.point
-            .resolve(scale_factor, length, target_size)
+            .resolve(scale_factor, length, target_size, em_size, rem_size)
             .ok()
             .map(|physical_point| (stop.color.to_linear(), physical_point, stop.hint))
     }));
@@ -367,10 +373,11 @@ pub fn extract_gradients(
             .map(MainEntity::from),
     );
 
-    for (entity, target, (node_gradient, border_gradient)) in changed_gradients_query
-        .iter()
-        .chain(gradients_query.iter_many(removed_gradients.iter().map(ContainsEntity::entity)))
-    {
+    for (entity, target, (node_gradient, border_gradient)) in changed_gradients_query.iter().chain(
+        gradients_query
+            .iter_many(removed_gradients.iter().map(ContainsEntity::entity))
+            .flatten(),
+    ) {
         let main_entity = MainEntity::from(entity);
 
         if !extracted_gradients.changed_this_frame.insert(main_entity) {
@@ -553,6 +560,15 @@ fn convert_color_to_space(color: LinearRgba, space: InterpolationColorSpace) -> 
                 oklcha.alpha,
             ]
         }
+        InterpolationColorSpace::Okhsla | InterpolationColorSpace::OkhslaLong => {
+            let okhsla: Okhsla = color.into();
+            [
+                okhsla.hue / 360.,
+                okhsla.saturation,
+                okhsla.lightness,
+                okhsla.alpha,
+            ]
+        }
         InterpolationColorSpace::Srgba => {
             let srgba: Srgba = color.into();
             [srgba.red, srgba.green, srgba.blue, srgba.alpha]
@@ -638,6 +654,8 @@ pub fn prepare_gradient(
                                 length,
                                 target_size,
                                 &mut sorted_stops,
+                                uinode.em_size,
+                                uinode.rem_size,
                             ),
                             ResolvedGradient::Linear { angle: 0.0 },
                         )
@@ -652,6 +670,8 @@ pub fn prepare_gradient(
                                         length,
                                         target_size,
                                         &mut sorted_stops,
+                                        uinode.em_size,
+                                        uinode.rem_size,
                                     ),
                                     ResolvedGradient::Linear { angle: *angle },
                                 )
@@ -662,9 +682,21 @@ pub fn prepare_gradient(
                                 stops,
                                 ..
                             }) => {
-                                let center = center.resolve(scale_factor, uinode.size, target_size);
-                                let size =
-                                    shape.resolve(center, scale_factor, uinode.size, target_size);
+                                let center = center.resolve(
+                                    scale_factor,
+                                    uinode.size,
+                                    target_size,
+                                    uinode.em_size,
+                                    uinode.rem_size,
+                                );
+                                let size = shape.resolve(
+                                    center,
+                                    scale_factor,
+                                    uinode.size,
+                                    target_size,
+                                    uinode.em_size,
+                                    uinode.rem_size,
+                                );
                                 (
                                     compute_color_stops(
                                         stops,
@@ -672,6 +704,8 @@ pub fn prepare_gradient(
                                         size.x,
                                         target_size,
                                         &mut sorted_stops,
+                                        uinode.em_size,
+                                        uinode.rem_size,
                                     ),
                                     ResolvedGradient::Radial { center, size },
                                 )
@@ -682,7 +716,13 @@ pub fn prepare_gradient(
                                 stops,
                                 ..
                             }) => {
-                                let center = center.resolve(scale_factor, uinode.size, target_size);
+                                let center = center.resolve(
+                                    scale_factor,
+                                    uinode.size,
+                                    target_size,
+                                    uinode.em_size,
+                                    uinode.rem_size,
+                                );
 
                                 // sort the explicit stops
                                 sorted_stops.extend(stops.iter().filter_map(|stop| {
@@ -726,70 +766,9 @@ pub fn prepare_gradient(
                     let rect_size = uinode_rect.size();
 
                     // Specify the corners of the node
-                    let positions = QUAD_VERTEX_POSITIONS.map(|pos| {
-                        geometry
-                            .transform
-                            .transform_point2(pos * rect_size)
-                            .extend(0.)
-                    });
                     let corner_points = QUAD_VERTEX_POSITIONS.map(|pos| pos * rect_size);
-
-                    // Calculate the effect of clipping
-                    // Note: this won't work with rotation/scaling, but that's much more complex (may need more that 2 quads)
-                    let positions_diff = if let Some(clip) = geometry.clip {
-                        [
-                            Vec2::new(
-                                f32::max(clip.min.x - positions[0].x, 0.),
-                                f32::max(clip.min.y - positions[0].y, 0.),
-                            ),
-                            Vec2::new(
-                                f32::min(clip.max.x - positions[1].x, 0.),
-                                f32::max(clip.min.y - positions[1].y, 0.),
-                            ),
-                            Vec2::new(
-                                f32::min(clip.max.x - positions[2].x, 0.),
-                                f32::min(clip.max.y - positions[2].y, 0.),
-                            ),
-                            Vec2::new(
-                                f32::max(clip.min.x - positions[3].x, 0.),
-                                f32::min(clip.max.y - positions[3].y, 0.),
-                            ),
-                        ]
-                    } else {
-                        [Vec2::ZERO; 4]
-                    };
-
-                    let positions_clipped = [
-                        positions[0] + positions_diff[0].extend(0.),
-                        positions[1] + positions_diff[1].extend(0.),
-                        positions[2] + positions_diff[2].extend(0.),
-                        positions[3] + positions_diff[3].extend(0.),
-                    ];
-
-                    let points = [
-                        corner_points[0] + positions_diff[0],
-                        corner_points[1] + positions_diff[1],
-                        corner_points[2] + positions_diff[2],
-                        corner_points[3] + positions_diff[3],
-                    ];
-
-                    let transformed_rect_size =
-                        geometry.transform.transform_vector2(rect_size).abs();
-
-                    // Don't try to cull nodes that have a rotation
-                    // In a rotation around the Z-axis, this value is 0.0 for an angle of 0.0 or π
-                    // In those two cases, the culling check can proceed normally as corners will be on
-                    // horizontal / vertical lines
-                    // For all other angles, bypass the culling check
-                    // This does not properly handles all rotations on all axis
-                    if geometry.transform.x_axis[1] == 0.0 {
-                        // Cull nodes that are completely clipped
-                        if positions_diff[0].x - positions_diff[1].x >= transformed_rect_size.x
-                            || positions_diff[1].y - positions_diff[2].y >= transformed_rect_size.y
-                        {
-                            continue;
-                        }
-                    }
+                    let positions =
+                        corner_points.map(|pos| geometry.transform.transform_point2(pos));
 
                     let uvs = { [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y] };
 
@@ -821,6 +800,21 @@ pub fn prepare_gradient(
 
                     flags |= g_flags;
 
+                    let vertices = clip_polygon(
+                        geometry.clip.as_ref(),
+                        &[
+                            (positions[0], (uvs[0], corner_points[0])),
+                            (positions[1], (uvs[1], corner_points[1])),
+                            (positions[2], (uvs[2], corner_points[2])),
+                            (positions[3], (uvs[3], corner_points[3])),
+                        ],
+                        |a, b, t| (a.0.lerp(b.0, t), a.1.lerp(b.1, t)),
+                    );
+                    if vertices.is_empty() {
+                        continue;
+                    }
+                    let segment_index_count = 3 * (vertices.len() as u32 - 2);
+
                     let range = 0..stops.len() - 1;
                     let mut segment_count = 0;
 
@@ -846,11 +840,11 @@ pub fn prepare_gradient(
                             stop_flags |= shader_flags::FILL_END;
                         }
 
-                        for i in 0..4 {
+                        for &(position, (uv, point)) in &vertices {
                             ui_meta.vertices.push(UiGradientVertex {
-                                position: positions_clipped[i].into(),
-                                uv: uvs[i].into(),
-                                flags: stop_flags | shader_flags::CORNERS[i],
+                                position: position.extend(0.).into(),
+                                uv: uv.into(),
+                                flags: stop_flags,
                                 radius: uinode.border_radius.into(),
                                 border: [
                                     uinode.border.min_inset.x,
@@ -861,7 +855,7 @@ pub fn prepare_gradient(
                                 size: rect_size.xy().into(),
                                 g_start,
                                 g_dir,
-                                point: points[i].into(),
+                                point: point.into(),
                                 start_color,
                                 start_len: start_stop.1,
                                 end_len: end_stop.1,
@@ -870,15 +864,17 @@ pub fn prepare_gradient(
                             });
                         }
 
-                        for &i in &QUAD_INDICES {
-                            ui_meta.indices.push(indices_index + i as u32);
+                        for i in 1..vertices.len() as u32 - 1 {
+                            ui_meta.indices.push(indices_index);
+                            ui_meta.indices.push(indices_index + i);
+                            ui_meta.indices.push(indices_index + i + 1);
                         }
-                        indices_index += 4;
+                        indices_index += vertices.len() as u32;
                         segment_count += 1;
                     }
 
                     if 0 < segment_count {
-                        let vertices_count = 6 * segment_count;
+                        let vertices_count = segment_index_count * segment_count;
 
                         batches.push((
                             item.entity(),

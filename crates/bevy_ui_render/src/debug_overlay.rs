@@ -1,6 +1,6 @@
 use crate::{
-    extract_layout::ExtractedUiLayout, shader_flags, DrawUi, TransparentUi, UiAntiAlias,
-    UiCameraView, UiMeta, UiPipeline, UiPipelineKey, UiVertex, QUAD_INDICES, QUAD_UVS,
+    clipping::clip_polygon, extract_layout::ExtractedUiLayout, shader_flags, DrawUi, TransparentUi,
+    UiAntiAlias, UiCameraView, UiMeta, UiPipeline, UiPipelineKey, UiVertex, QUAD_UVS,
     QUAD_VERTEX_POSITIONS,
 };
 
@@ -26,7 +26,7 @@ use bevy_render::{
     Extract,
 };
 
-use bevy_ui::{ResolvedBorderRadius, UiStack};
+use bevy_ui::{CalculatedClip, ResolvedBorderRadius, UiStack};
 
 /// Configuration for the UI debug overlay
 ///
@@ -230,46 +230,24 @@ pub fn queue_debug_overlay(
 fn push_debug_outline(
     rect: Rect,
     border_radius: ResolvedBorderRadius,
-    (line_color, line_width, clip, transform): &(LinearRgba, f32, Option<Rect>, Affine2),
+    (line_color, line_width, clip, transform): &(LinearRgba, f32, Option<&CalculatedClip>, Affine2),
     ui_meta: &mut UiMeta,
 ) {
     let size = rect.size();
     let transform = transform * Affine2::from_translation(rect.center());
-    let positions =
-        QUAD_VERTEX_POSITIONS.map(|pos| transform.transform_point2(pos * size).extend(0.));
-    let positions_diff = if let Some(clip) = clip {
-        [
-            Vec2::new(
-                f32::max(clip.min.x - positions[0].x, 0.),
-                f32::max(clip.min.y - positions[0].y, 0.),
-            ),
-            Vec2::new(
-                f32::min(clip.max.x - positions[1].x, 0.),
-                f32::max(clip.min.y - positions[1].y, 0.),
-            ),
-            Vec2::new(
-                f32::min(clip.max.x - positions[2].x, 0.),
-                f32::min(clip.max.y - positions[2].y, 0.),
-            ),
-            Vec2::new(
-                f32::max(clip.min.x - positions[3].x, 0.),
-                f32::min(clip.max.y - positions[3].y, 0.),
-            ),
-        ]
-    } else {
-        [Vec2::ZERO; 4]
-    };
-    let positions_clipped = [
-        positions[0] + positions_diff[0].extend(0.),
-        positions[1] + positions_diff[1].extend(0.),
-        positions[2] + positions_diff[2].extend(0.),
-        positions[3] + positions_diff[3].extend(0.),
-    ];
-    let transformed_rect_size = transform.transform_vector2(size).abs();
-    if transform.x_axis[1] == 0.0
-        && (positions_diff[0].x - positions_diff[1].x >= transformed_rect_size.x
-            || positions_diff[1].y - positions_diff[2].y >= transformed_rect_size.y)
-    {
+    let points = QUAD_VERTEX_POSITIONS.map(|pos| pos * size);
+    let positions = points.map(|pos| transform.transform_point2(pos));
+    let vertices = clip_polygon(
+        *clip,
+        &[
+            (positions[0], (QUAD_UVS[0], points[0])),
+            (positions[1], (QUAD_UVS[1], points[1])),
+            (positions[2], (QUAD_UVS[2], points[2])),
+            (positions[3], (QUAD_UVS[3], points[3])),
+        ],
+        |a, b, t| (a.0.lerp(b.0, t), a.1.lerp(b.1, t)),
+    );
+    if vertices.is_empty() {
         return;
     }
 
@@ -277,20 +255,22 @@ fn push_debug_outline(
     let vertex_start = ui_meta.vertices.len() as u32;
     let color = line_color.to_f32_array();
 
-    for i in 0..4 {
+    for &(position, (uv, point)) in &vertices {
         ui_meta.vertices.push(UiVertex {
-            position: positions_clipped[i].into(),
-            uv: QUAD_UVS[i].into(),
+            position: position.extend(0.).into(),
+            uv: uv.into(),
             color,
-            flags: flags | shader_flags::CORNERS[i],
+            flags,
             radius: border_radius.into(),
             border: [*line_width; 4],
             size: size.into(),
-            point: (QUAD_VERTEX_POSITIONS[i] * size + positions_diff[i]).into(),
+            point: point.into(),
         });
     }
-    for &index in &QUAD_INDICES {
-        ui_meta.indices.push(vertex_start + index as u32);
+    for i in 1..vertices.len() as u32 - 1 {
+        ui_meta.indices.push(vertex_start);
+        ui_meta.indices.push(vertex_start + i);
+        ui_meta.indices.push(vertex_start + i + 1);
     }
 }
 
@@ -327,7 +307,7 @@ pub fn push_debug_overlay_vertices(
                 .line_color_override
                 .unwrap_or_else(|| Hsla::sequential_dispersed(main_entity.index_u32()).into()),
             debug_outline.line_width / layout.uinode.inverse_scale_factor(),
-            layout.clip.filter(|_| !debug_outline.show_clipped),
+            layout.clip.as_ref().filter(|_| !debug_outline.show_clipped),
             layout.transform,
         );
 

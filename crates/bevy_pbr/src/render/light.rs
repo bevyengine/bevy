@@ -39,7 +39,11 @@ use bevy_math::{
 use bevy_mesh::{Mesh3d, MeshVertexBufferLayoutRef};
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_platform::hash::FixedHasher;
+use bevy_render::batching::gpu_preprocessing::{
+    BuildIndirectParametersMetadata, IndirectParametersBuffers,
+};
 use bevy_render::camera::{DirtySpecializations, PendingQueues};
+use bevy_render::diagnostic::RecordDiagnostics;
 use bevy_render::erased_render_asset::ErasedRenderAssets;
 use bevy_render::mesh::allocator::MeshSlabs;
 use bevy_render::occlusion_culling::{
@@ -128,7 +132,7 @@ pub struct ExtractedDirectionalLight {
     pub sun_disk_intensity: f32,
 }
 
-// NOTE: These must match the bit flags in bevy_pbr/src/render/mesh_view_types.wgsl!
+// NOTE: These must match the bit flags in bevy_pbr/src/render/mesh_view_types.wesl!
 bitflags::bitflags! {
     #[repr(transparent)]
     struct PointLightFlags: u32 {
@@ -138,6 +142,7 @@ bitflags::bitflags! {
         const AFFECTS_LIGHTMAPPED_MESH_DIFFUSE  = 1 << 3;
         const CONTACT_SHADOWS_ENABLED           = 1 << 4;
         const SPOT_LIGHT                        = 1 << 5;
+        const RECT_LIGHT                        = 1 << 6;
         const NONE                              = 0;
         const UNINITIALIZED                     = 0xFFFF;
     }
@@ -167,7 +172,7 @@ pub struct GpuDirectionalLight {
     sun_disk_intensity: f32,
 }
 
-// NOTE: These must match the bit flags in bevy_pbr/src/render/mesh_view_types.wgsl!
+// NOTE: These must match the bit flags in bevy_pbr/src/render/mesh_view_types.wesl!
 bitflags::bitflags! {
     #[repr(transparent)]
     struct DirectionalLightFlags: u32 {
@@ -191,7 +196,7 @@ pub struct GpuRectLight {
     range: f32,
 }
 
-// NOTE: These must match the bit flags in bevy_pbr/src/render/mesh_view_types.wgsl!
+// NOTE: These must match the bit flags in bevy_pbr/src/render/mesh_view_types.wesl!
 bitflags::bitflags! {
     #[repr(transparent)]
     struct AmbientLightFlags: u32 {
@@ -215,12 +220,13 @@ pub struct GpuLights {
     // offset from spot light's light index to spot light's shadow map index
     spot_light_shadowmap_offset: i32,
     ambient_light_flags: u32,
+    // this is unused if we have access to storage buffers, in which case rect lights are clustered
     n_rect_lights: u32,
     rect_lights: [GpuRectLight; MAX_RECT_LIGHTS],
 }
 
 // NOTE: When running bevy on Adreno GPU chipsets in WebGL, any value above 1 will result in a crash
-// when loading the wgsl "pbr_functions.wgsl" in the function apply_fog.
+// when loading "pbr_functions.wesl" in the function apply_fog.
 #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
 pub const MAX_DIRECTIONAL_LIGHTS: usize = 1;
 #[cfg(any(
@@ -952,7 +958,7 @@ pub struct DirectionalLightViewEntities(EntityHashMap<Vec<Entity>>);
 
 // TODO: using required component
 pub(crate) fn add_light_view_entities(
-    add: On<Add, ExtractedDirectionalLight>,
+    add: On<Add<ExtractedDirectionalLight>>,
     mut commands: Commands,
 ) {
     if let Ok(mut v) = commands.get_entity(add.entity) {
@@ -961,7 +967,7 @@ pub(crate) fn add_light_view_entities(
 }
 
 pub(crate) fn remove_light_view_entities(
-    remove: On<Remove, DirectionalLightViewEntities>,
+    remove: On<Remove<DirectionalLightViewEntities>>,
     query: Query<&DirectionalLightViewEntities>,
     mut commands: Commands,
 ) {
@@ -977,7 +983,7 @@ pub(crate) fn remove_light_view_entities(
 }
 
 pub(crate) fn remove_point_and_spot_light_view_entities(
-    remove: On<Remove, PointAndSpotLightViewEntities>,
+    remove: On<Remove<PointAndSpotLightViewEntities>>,
     query: Query<&PointAndSpotLightViewEntities>,
     mut commands: Commands,
 ) {
@@ -1177,6 +1183,12 @@ pub fn prepare_lights(
     #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
     let max_texture_cubes = 1;
 
+    // When storage buffers are available, rect lights are clustered.
+    // Otherwise they fall back to a non-clustered uniform capped at `MAX_RECT_LIGHTS`.
+    let rect_lights_are_clustered = global_clusterable_object_meta
+        .gpu_clustered_lights
+        .is_storage_buffer();
+
     if !*max_directional_lights_warning_emitted
         && directional_light_entities.len() > MAX_DIRECTIONAL_LIGHTS
     {
@@ -1188,7 +1200,11 @@ pub fn prepare_lights(
         *max_directional_lights_warning_emitted = true;
     }
 
-    if !*max_rect_lights_warning_emitted && rect_light_entities.len() > MAX_RECT_LIGHTS {
+    // The `MAX_RECT_LIGHTS` cap only applies on the non-clustered path.
+    if !rect_lights_are_clustered
+        && !*max_rect_lights_warning_emitted
+        && rect_light_entities.len() > MAX_RECT_LIGHTS
+    {
         warn!(
             "The amount of rectangle area lights of {} is exceeding the supported limit of {}.",
             rect_light_entities.len(),
@@ -1369,8 +1385,7 @@ pub fn prepare_lights(
                 light_custom_data,
                 // premultiply color by intensity
                 // we don't use the alpha at all, so no reason to multiply only [0..3]
-                color_inverse_square_range: (Vec4::from_slice(&light.color.to_f32_array())
-                    * light.intensity)
+                color_inverse_square_range: (light.color.to_vec4() * light.intensity)
                     .xyz()
                     .extend(1.0 / (light.range * light.range)),
                 position_radius: light.transform.translation().extend(light.radius),
@@ -1398,6 +1413,38 @@ pub fn prepare_lights(
             global_clusterable_object_meta.entity_to_index.len(),
             global_clusterable_object_meta.gpu_clustered_lights.len()
         );
+    }
+
+    if rect_lights_are_clustered {
+        for entity in &rect_light_entities {
+            let light = rect_lights.get(*entity).unwrap().2;
+
+            let index = global_clusterable_object_meta.gpu_clustered_lights.len();
+            global_clusterable_object_meta
+                .gpu_clustered_lights
+                .add(GpuClusteredLight {
+                    light_custom_data: Vec4::from(light.transform.rotation()),
+                    color_inverse_square_range: (light.color.to_vec4() * light.intensity)
+                        .xyz()
+                        .extend(light.height),
+                    position_radius: light.transform.translation().extend(light.width),
+                    flags: PointLightFlags::RECT_LIGHT.bits(),
+                    shadow_depth_bias: 0.0,
+                    shadow_normal_bias: 0.0,
+                    shadow_map_near_z: 0.0,
+                    spot_light_tan_angle: 0.0,
+                    decal_index: u32::MAX,
+                    range: light.range,
+                    soft_shadow_size: 0.0,
+                });
+            global_clusterable_object_meta
+                .entity_to_index
+                .insert(*entity, index);
+            debug_assert_eq!(
+                global_clusterable_object_meta.entity_to_index.len(),
+                global_clusterable_object_meta.gpu_clustered_lights.len()
+            );
+        }
     }
 
     // iterate the views once to find the maximum number of cascade shadowmaps we will need
@@ -2028,26 +2075,28 @@ pub fn prepare_lights(
 
         // Set up rect lights.
         //
-        // FIXME: These are currently per-view because we have no mechanism for
-        // "non-clustered but non-view-specific" lights. We could introduce such
-        // a thing, but we want rect lights to be clustered anyways, so any
-        // effort spent on introducing that mechanism would be better spent on
-        // making rect lights clusterable.
+        // These are per-view because we have no mechanism for "non-clustered but non-view-specific" lights.
+        // We could introduce such a thing, but it may not be worth it for this fallback path that's only used
+        // when we have too few storage buffers to cluster area lights.
         gpu_lights.n_rect_lights = 0;
-        // TODO use light_render_layers whenever that is supported for rect_lights
-        for (index, (_, _, rect_light, _)) in rect_lights.iter().enumerate().take(MAX_RECT_LIGHTS) {
-            let right = rect_light.transform.right().into();
-            let up = rect_light.transform.up().into();
-            gpu_lights.rect_lights[index] = GpuRectLight {
-                color: Vec4::from_slice(&rect_light.color.to_f32_array()) * rect_light.intensity,
-                position: rect_light.transform.translation(),
-                right,
-                up,
-                width: rect_light.width,
-                height: rect_light.height,
-                range: rect_light.range,
-            };
-            gpu_lights.n_rect_lights += 1;
+        if !rect_lights_are_clustered {
+            // TODO use light_render_layers whenever that is supported for rect_lights
+            for (index, (_, _, rect_light, _)) in
+                rect_lights.iter().enumerate().take(MAX_RECT_LIGHTS)
+            {
+                let right = rect_light.transform.right().into();
+                let up = rect_light.transform.up().into();
+                gpu_lights.rect_lights[index] = GpuRectLight {
+                    color: rect_light.color.to_vec4() * rect_light.intensity,
+                    position: rect_light.transform.translation(),
+                    right,
+                    up,
+                    width: rect_light.width,
+                    height: rect_light.height,
+                    range: rect_light.range,
+                };
+                gpu_lights.n_rect_lights += 1;
+            }
         }
 
         commands.entity(entity).insert((
@@ -2908,27 +2957,83 @@ pub fn shared_shadow_pass<const IS_LATE: bool>(
 pub fn per_view_shadow_pass<const IS_LATE: bool>(
     world: &World,
     view: ViewQuery<&ViewLightEntities>,
-    view_light_query: Query<(&ShadowView, &ExtractedView, Has<OcclusionCulling>)>,
+    view_light_query: Query<(
+        &ShadowView,
+        &ExtractedView,
+        Has<OcclusionCulling>,
+        Has<PreprocessBindGroups>,
+        Has<SkipGpuPreprocess>,
+        Has<NoIndirectDrawing>,
+    )>,
     shadow_render_phases: Res<ViewBinnedRenderPhases<Shadow>>,
+    preprocess_pipelines: Option<Res<PreprocessPipelines>>,
+    build_indirect_params_bind_groups: Option<Res<BuildIndirectParametersBindGroups>>,
+    pipeline_cache: Res<PipelineCache>,
+    indirect_parameters_buffers: Option<Res<IndirectParametersBuffers>>,
+    build_indirect_parameters_metadata: Option<Res<BuildIndirectParametersMetadata>>,
     mut ctx: RenderContext,
 ) {
     let view_lights = view.into_inner();
 
+    let diagnostics = ctx.diagnostic_recorder();
+    let diagnostics = diagnostics.as_deref();
+    let time_span = diagnostics.time_span(ctx.command_encoder(), "per_view_shadow_pass");
+
     for view_light_entity in view_lights.lights.iter().copied() {
-        if let Ok((view_light, extracted_light_view, occlusion_culling)) =
-            view_light_query.get(view_light_entity)
+        let Ok((
+            view_light,
+            extracted_light_view,
+            occlusion_culling,
+            has_preprocess_bind_groups,
+            has_skip_gpu_preprocess,
+            has_no_indirect_drawing,
+        )) = view_light_query.get(view_light_entity)
+        else {
+            continue;
+        };
+
+        // Make sure to build indirect parameters here, as the normal
+        // `*_prepass_build_indirect_parameters` functions only run for root
+        // views, and this shadow view isn't a root view.
+        if has_preprocess_bind_groups
+            && !has_skip_gpu_preprocess
+            && !has_no_indirect_drawing
+            && let (Some(preprocess_pipelines), Some(build_indirect_parameters_metadata)) =
+                (&preprocess_pipelines, &build_indirect_parameters_metadata)
         {
-            view_shadow_pass::<IS_LATE>(
-                view_light_entity,
-                view_light,
-                extracted_light_view,
-                occlusion_culling,
-                world,
-                &shadow_render_phases,
+            run_build_indirect_parameters(
                 &mut ctx,
+                extracted_light_view.retained_view_entity,
+                build_indirect_params_bind_groups.as_deref(),
+                &pipeline_cache,
+                indirect_parameters_buffers.as_deref(),
+                build_indirect_parameters_metadata,
+                if IS_LATE {
+                    &preprocess_pipelines.late_phase
+                } else {
+                    &preprocess_pipelines.early_phase
+                },
+                if IS_LATE {
+                    "late_view_shadow_indirect_parameters_building"
+                } else {
+                    "early_view_shadow_indirect_parameters_building"
+                },
             );
         }
+
+        // Draw the shadow map.
+        view_shadow_pass::<IS_LATE>(
+            view_light_entity,
+            view_light,
+            extracted_light_view,
+            occlusion_culling,
+            world,
+            &shadow_render_phases,
+            &mut ctx,
+        );
     }
+
+    time_span.end(ctx.command_encoder());
 }
 
 /// A common helper function to render a shadow map.
