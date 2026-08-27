@@ -116,6 +116,8 @@ pub struct ComputedLayout {
     cache: Cache,
     /// was visited during layout
     visited: bool,
+    /// is a layout root
+    is_root: bool,
     /// children
     children: Vec<NodeId>,
 }
@@ -128,6 +130,7 @@ impl ComputedLayout {
         self.cache.clear();
         self.children.clear();
         self.visited = false;
+        self.is_root = false;
     }
 
     /// Returns true if both rounded and unrounded layouts are present
@@ -302,6 +305,8 @@ fn build_runtime_layout_tree<'a>(
         return None;
     };
     let computed_layout = computed_layout.bypass_change_detection();
+    let root_changed = computed_layout.is_root != (entity == root);
+    computed_layout.is_root = entity == root;
     let children_changed = computed_layout.children != new_children;
     if children_changed {
         computed_layout.children.clear();
@@ -310,6 +315,7 @@ fn build_runtime_layout_tree<'a>(
 
     let own_dirty = style.is_changed()
         || children_changed
+        || root_changed
         || content_size.is_changed()
         || fixed_node_changes.contains(&entity)
         || !computed_layout.has_layout();
