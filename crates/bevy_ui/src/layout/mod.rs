@@ -184,7 +184,6 @@ pub fn ui_layout_system(
             &mut buffer_query,
             &mut font_system,
             *rem_size,
-            rem_size.is_changed(),
         );
     }
 
@@ -977,7 +976,6 @@ mod tests {
                 &mut buffer_query,
                 &mut font_system,
                 *rem_size,
-                rem_size.is_changed(),
             )
             .unwrap();
         }

@@ -169,7 +169,6 @@ pub(crate) fn compute_layout(
     buffer_query: &mut Query<&mut ComputedTextBlock>,
     font_system: &mut FontCx,
     rem_size: RemSize,
-    rem_size_changed: bool,
 ) -> Result<(), LayoutError> {
     let Some(_) = build_runtime_layout_tree(
         ui_root_entity,
