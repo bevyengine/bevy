@@ -360,7 +360,7 @@ fn setup(
 /// Spawns the scene once its glTF and all of its dependencies are loaded, so that the
 /// `WorldInstanceReady` observers below can read the materials and animation clips. A
 /// load failure is permanent, so log it once and stop. The usual cause is a `.glb` that
-/// hasn't been converted yet.
+/// hasn't been downloaded yet.
 fn spawn_scene_when_ready(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -374,7 +374,7 @@ fn spawn_scene_when_ready(
     if let LoadState::Failed(err) = asset_server.load_state(&scene_gltf.0) {
         *done = true;
         error!(
-            "zero_day: failed to load `{}` ({err}). Convert it first with convert.py \
+            "zero_day: failed to load `{}` ({err}). Download it first \
              (see the example README).",
             args.scene.glb()
         );
@@ -493,8 +493,8 @@ fn setup_flythrough_camera(
 }
 
 /// Adds `RaytracingMesh3d` to each mesh and widens 16-bit indices to 32-bit, which the
-/// Solari BLAS build needs. `convert.py` prepares the rest of the mesh layout, but it
-/// can't set the index width because the glTF exporter always writes the smallest
+/// Solari BLAS build needs. The conversion script prepares the rest of the mesh layout,
+/// but it can't set the index width because the glTF exporter always writes the smallest
 /// sufficient index type.
 fn setup_raytracing_meshes(
     scene_ready: On<WorldInstanceReady>,

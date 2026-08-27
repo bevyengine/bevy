@@ -6,28 +6,31 @@ lights. The example plays the film's animation and follows the film camera.
 
 ## Getting the scene
 
-Download "Zero-Day" [from developer.nvidia.com](https://developer.nvidia.com/orca/beeple-zero-day).
-
-Bevy can't load FBX assets, so convert each measure that you want with the headless
-Blender helper and put the result in this example's `assets/` folder. The helper needs
-Blender 4.x or 5.x:
+Download the converted glTF binaries from the
+[`zero-day-assets-v1` release](https://github.com/pavlov-net/bevy-examples/releases/tag/zero-day-assets-v1)
+into this example's `assets/` folder. The example loads `measure_one` by default; the
+other two measures are optional.
 
 ```console
-# measure_one (the default)
-blender --background --python-exit-code 1 --python convert.py -- \
-  "MEASURE_ONE/MEASURE_ONE.fbx" \
-  "examples/large_scenes/zero_day/assets/zero_day_measure_one.glb"
+curl -L -o examples/large_scenes/zero_day/assets/zero_day_measure_one.glb \
+  https://github.com/pavlov-net/bevy-examples/releases/download/zero-day-assets-v1/zero_day_measure_one.glb
 
-# measure_seven
-blender --background --python-exit-code 1 --python convert.py -- \
-  "MEASURE_SEVEN/MEASURE_SEVEN.fbx" \
-  "examples/large_scenes/zero_day/assets/zero_day_measure_seven.glb"
+curl -L -o examples/large_scenes/zero_day/assets/zero_day_measure_seven.glb \
+  https://github.com/pavlov-net/bevy-examples/releases/download/zero-day-assets-v1/zero_day_measure_seven.glb
 
-# measure_seven_colored_lights
-blender --background --python-exit-code 1 --python convert.py -- \
-  "MEASURE_SEVEN/MEASURE_SEVEN_COLORED_LIGHTS.fbx" \
-  "examples/large_scenes/zero_day/assets/zero_day_measure_seven_colored_lights.glb"
+curl -L -o examples/large_scenes/zero_day/assets/zero_day_measure_seven_colored_lights.glb \
+  https://github.com/pavlov-net/bevy-examples/releases/download/zero-day-assets-v1/zero_day_measure_seven_colored_lights.glb
 ```
+
+To convert the scene from source instead, download "Zero-Day"
+[from developer.nvidia.com](https://developer.nvidia.com/orca/beeple-zero-day) and run the
+[`convert.py`](https://github.com/pavlov-net/bevy-examples/blob/main/examples/zero_day/convert.py)
+Blender script per the
+[instructions in bevy-examples](https://github.com/pavlov-net/bevy-examples/tree/main/examples/zero_day#converting-from-source).
+
+"Zero-Day" is by Mike Winkelmann (Beeple), licensed
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); the converted files are
+modified from the original.
 
 ## Running
 
