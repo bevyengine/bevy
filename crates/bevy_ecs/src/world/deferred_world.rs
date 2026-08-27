@@ -767,6 +767,10 @@ impl<'w> DeferredWorld<'w> {
             let Some(observers) = observers.try_get_observers(event_key) else {
                 return;
             };
+
+            // SAFETY: There are no references to last_trigger_id
+            world.increment_trigger_id();
+
             // SAFETY: The only outstanding reference to world is `observers`
             (world.into_deferred(), observers)
         };

@@ -1,10 +1,11 @@
 use crate::event::{EventPattern, SetEntityEventTarget};
 use crate::{
+    __macro_exports::DebugCheckedUnwrap,
     archetype::Archetype,
     component::ComponentId,
     entity::Entity,
     event::{EntityEvent, Event},
-    observer::{CachedObservers, TriggerContext},
+    observer::{CachedObservers, Observer, TriggerContext},
     traversal::Traversal,
     world::DeferredWorld,
 };
@@ -100,11 +101,18 @@ impl GlobalTrigger {
         trigger_context: &TriggerContext,
         mut event: PtrMut,
     ) {
-        // SAFETY: `observers` is the only active reference to something in `world`
-        unsafe {
-            world.as_unsafe_world_cell().increment_trigger_id();
-        }
+        let current_trigger_id = world.last_trigger_id;
+
         for (observer, runner) in observers.global_observers() {
+            // SAFETY:
+            // - observers from the CachedObservers should always have an Observer component
+            let observer_component =
+                unsafe { world.get::<Observer>(*observer).debug_checked_unwrap() };
+
+            if observer_component.last_trigger_id == current_trigger_id {
+                continue;
+            }
+
             // SAFETY:
             // - `observers` come from `world` and match the `event` type, enforced by the call to `trigger_internal`
             // - the passed in event pointer is an `Event`, enforced by the call to `trigger_internal`
@@ -184,11 +192,16 @@ pub unsafe fn trigger_entity_internal(
     target_entity: Entity,
     trigger_context: &TriggerContext,
 ) {
-    // SAFETY: there are no outstanding world references
-    unsafe {
-        world.as_unsafe_world_cell().increment_trigger_id();
-    }
+    let current_trigger_id = world.last_trigger_id;
+
     for (observer, runner) in observers.global_observers() {
+        // SAFETY:
+        // - observers from the CachedObservers should always have an Observer component
+        let observer_component = unsafe { world.get::<Observer>(*observer).debug_checked_unwrap() };
+
+        if observer_component.last_trigger_id == current_trigger_id {
+            continue;
+        }
         // SAFETY:
         // - `observers` come from `world` and match the `event` type, enforced by the call to `trigger_entity_internal`
         // - the passed in event pointer is an `Event`, enforced by the call to `trigger_entity_internal`
@@ -207,6 +220,14 @@ pub unsafe fn trigger_entity_internal(
 
     if let Some(map) = observers.entity_observers().get(&target_entity) {
         for (observer, runner) in map {
+            // SAFETY:
+            // - observers from the CachedObservers should always have an Observer component
+            let observer_component =
+                unsafe { world.get::<Observer>(*observer).debug_checked_unwrap() };
+
+            if observer_component.last_trigger_id == current_trigger_id {
+                continue;
+            }
             // SAFETY:
             // - `observers` come from `world` and match the `event` type, enforced by the call to `trigger_entity_internal`
             // - the passed in event pointer is an `Event`, enforced by the call to `trigger_entity_internal`
@@ -291,11 +312,10 @@ unsafe impl<
         // - `trigger` is a matching trigger type, as it comes from `self`, which is the Trigger for `E`
         // - `trigger_context`'s event_key matches `E`, enforced by the call to `trigger`
         unsafe {
-            trigger_entity_internal(
+            self.trigger_internal(
                 world.reborrow(),
                 observers,
                 event.into(),
-                self.into(),
                 current_entity,
                 trigger_context,
             );
@@ -321,14 +341,67 @@ unsafe impl<
             // - `trigger` is a matching trigger type, as it comes from `self`, which is the Trigger for `E`
             // - `trigger_context`'s event_key matches `E`, enforced by the call to `trigger`
             unsafe {
-                trigger_entity_internal(
+                self.trigger_internal(
                     world.reborrow(),
                     observers,
                     event.into(),
-                    self.into(),
                     current_entity,
                     trigger_context,
                 );
+            }
+        }
+    }
+}
+
+impl<const AUTO_PROPAGATE: bool, E: EntityEvent, T: Traversal<E>>
+    PropagateEntityTrigger<AUTO_PROPAGATE, E, T>
+{
+    /// # Safety
+    /// - `observers` must come from the `world` [`DeferredWorld`], and correspond to observers that match the `event` type
+    /// - `event` must point to an [`Event`]
+    /// -  The `event` [`Event::Trigger`] must be [`EntityTrigger`]
+    /// - `trigger_context`'s [`TriggerContext::event_key`] must correspond to the `event` type.
+    pub unsafe fn trigger_internal(
+        &mut self,
+        mut world: DeferredWorld,
+        observers: &CachedObservers,
+        mut event: PtrMut,
+        target_entity: Entity,
+        trigger_context: &TriggerContext,
+    ) {
+        for (observer, runner) in observers.global_observers() {
+            // SAFETY:
+            // - `observers` come from `world` and match the `event` type, enforced by the call to `trigger_entity_internal`
+            // - the passed in event pointer is an `Event`, enforced by the call to `trigger_entity_internal`
+            // - `trigger` is a matching trigger type, enforced by the call to `trigger_entity_internal`
+            // - `trigger_context`'s event_key matches `E`, enforced by the call to `trigger_entity_internal`
+            unsafe {
+                (runner)(
+                    world.reborrow(),
+                    *observer,
+                    trigger_context,
+                    event.reborrow(),
+                    self.into(),
+                );
+            }
+        }
+
+        if let Some(map) = observers.entity_observers().get(&target_entity) {
+            for (observer, runner) in map {
+                // SAFETY:
+                // - `observers` come from `world` and match the `event` type, enforced by the call to `trigger_entity_internal`
+                // - the passed in event pointer is an `Event`, enforced by the call to `trigger_entity_internal`
+                // - `trigger` is a matching trigger type, enforced by the call to `trigger_entity_internal`
+                // - `trigger_context`'s event_key matches `E`, enforced by the call to `trigger_entity_internal`
+                unsafe {
+                    (runner)(
+                        world.reborrow(),
+                        *observer,
+                        trigger_context,
+                        event.reborrow(),
+                        self.into(),
+                    );
+                }
             }
         }
     }
@@ -462,6 +535,8 @@ impl<'a> EntityComponentsTrigger<'a> {
         entity: Entity,
         trigger_context: &TriggerContext,
     ) {
+        let current_trigger_id = world.last_trigger_id();
+
         // SAFETY:
         // - `observers` come from `world` and match the event type `E`, enforced by the call to `trigger`
         // - the passed in event pointer comes from `event`, which is an `Event`
@@ -483,6 +558,14 @@ impl<'a> EntityComponentsTrigger<'a> {
             if let Some(component_observers) = observers.component_observers().get(id) {
                 for (observer, runner) in component_observers.global_observers() {
                     // SAFETY:
+                    // - observers from the CachedObservers should always have an Observer component
+                    let observer_component =
+                        unsafe { world.get::<Observer>(*observer).debug_checked_unwrap() };
+
+                    if observer_component.last_trigger_id == current_trigger_id {
+                        continue;
+                    }
+                    // SAFETY:
                     // - `observers` come from `world` and match the `event` type, enforced by the call to `trigger_internal`
                     // - the passed in event pointer is an `Event`, enforced by the call to `trigger_internal`
                     // - `trigger` is a matching trigger type, enforced by the call to `trigger_internal`
@@ -503,6 +586,15 @@ impl<'a> EntityComponentsTrigger<'a> {
                     .get(&entity)
                 {
                     for (observer, runner) in map {
+                        // SAFETY:
+                        // - observers from the CachedObservers should always have an Observer component
+                        let observer_component =
+                            unsafe { world.get::<Observer>(*observer).debug_checked_unwrap() };
+
+                        if observer_component.last_trigger_id == current_trigger_id {
+                            continue;
+                        }
+
                         // SAFETY:
                         // - `observers` come from `world` and match the `event` type, enforced by the call to `trigger_internal`
                         // - the passed in event pointer is an `Event`, enforced by the call to `trigger_internal`
