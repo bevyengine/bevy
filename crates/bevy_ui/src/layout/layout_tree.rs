@@ -7,7 +7,6 @@ use bevy_ecs::{
     world::Ref,
 };
 use bevy_math::{UVec2, Vec2};
-use bevy_platform::collections::HashMap;
 use bevy_text::{ComputedTextBlock, FontCx, RemSize};
 use taffy::{
     compute_block_layout, compute_cached_layout, compute_flexbox_layout, compute_grid_layout,
@@ -19,10 +18,8 @@ use taffy::{
 };
 
 use crate::{
-    experimental::UiChildren,
-    layout::style::{NodeStyle, VIEWPORT_NODE},
-    style::TaffyStyle,
-    ContentSize, FixedNode, LayoutContext, LayoutError, Measure, MeasureArgs, NodeMeasure,
+    experimental::UiChildren, style::TaffyStyle, ContentSize, FixedNode, LayoutError, Measure,
+    MeasureArgs, NodeMeasure,
 };
 
 pub static VIEWPORT_NODE_TAFFY_STYLE: TaffyStyle = TaffyStyle(Style {
