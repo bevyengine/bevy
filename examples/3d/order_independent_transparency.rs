@@ -265,7 +265,7 @@ fn spawn_ui(commands: &mut Commands, app_state: &AppState) {
     commands.spawn_scene(bsn! {
         @main_ui_node_scene()
         // Prevent the event from bubble up so that view drag does not initiate when interacting with the UI
-        @on (|mut event: On<PointerDrag>| {
+        on (|mut event: On<PointerDrag>| {
             event.propagate(false);
         })
         Children [
