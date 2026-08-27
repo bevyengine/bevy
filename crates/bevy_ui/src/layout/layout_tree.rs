@@ -186,7 +186,7 @@ pub(crate) fn compute_layout(
     font_system: &mut FontCx,
     rem_size: RemSize,
 ) -> Result<(), LayoutError> {
-    let Some(_) = build_runtime_layout_tree(
+    let Some(dirty) = build_runtime_layout_tree(
         ui_root_entity,
         ui_root_entity,
         ui_children,
@@ -197,6 +197,11 @@ pub(crate) fn compute_layout(
     ) else {
         return Err(LayoutError::InvalidHierarchy);
     };
+
+    if !dirty {
+        return Ok(());
+    }
+
     let root_node_id = entity_node_id(ui_root_entity);
 
     let available_space = taffy::Size {
