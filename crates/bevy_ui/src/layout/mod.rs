@@ -475,6 +475,7 @@ fn update_uinode_geometry_recursive(
 mod tests {
     use crate::layout_tree::compute_layout;
     use crate::layout_tree::TaffyStyle;
+    use crate::update_computed_nodes;
     use crate::{
         experimental::UiChildren, layout::layout_tree::ComputedLayout, prelude::*,
         sync_font_size_to_em_size, ui_layout_system, update::propagate_ui_target_cameras,
@@ -517,6 +518,7 @@ mod tests {
                 sync_font_size_to_em_size,
                 update_taffy_styles,
                 ui_layout_system,
+                update_computed_nodes,
                 mark_dirty_trees,
                 sync_simple_transforms,
                 propagate_parent_transforms,
