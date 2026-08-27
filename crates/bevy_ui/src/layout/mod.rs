@@ -144,13 +144,8 @@ pub fn ui_layout_system(
     ui_root_node_query: UiRootNodes,
     fixed_nodes_query: Query<Entity, (With<FixedNode>, With<ChildOf>)>,
     ui_children: UiChildren,
-    node_query: Query<(
-        Ref<Node>,
-        Ref<ComputedUiRenderTargetInfo>,
-        Ref<EmSize>,
-        Ref<ContentSize>,
-        Has<FixedNode>,
-    )>,
+    target_query: Query<Ref<ComputedUiRenderTargetInfo>>,
+    node_query: Query<(Ref<TaffyStyle>, Ref<ContentSize>, Has<FixedNode>)>,
     style_query: Query<&TaffyStyle>,
     mut node_queries: ParamSet<(
         Query<&mut ComputedLayout>,
@@ -172,11 +167,12 @@ pub fn ui_layout_system(
         .collect::<Vec<_>>();
 
     for ui_root_entity in ui_root_node_query.iter().chain(fixed_nodes_query.iter()) {
-        let Ok((_, target, ..)) = node_query.get(ui_root_entity) else {
+        let Ok(target) = target_query.get(ui_root_entity) else {
             continue;
         };
 
         let mut computed_layout_query = node_queries.p0();
+
         let _ = compute_layout(
             ui_root_entity,
             target.physical_size(),
@@ -963,13 +959,7 @@ mod tests {
         fn test_system(
             In(root_node_entity): In<Entity>,
             ui_children: UiChildren,
-            node_query: Query<(
-                Ref<Node>,
-                Ref<ComputedUiRenderTargetInfo>,
-                Ref<EmSize>,
-                Ref<ContentSize>,
-                Has<FixedNode>,
-            )>,
+            node_query: Query<(Ref<TaffyStyle>, Ref<ContentSize>, Has<FixedNode>)>,
             style_query: Query<&TaffyStyle>,
             mut computed_layout_query: Query<&mut ComputedLayout>,
             mut buffer_query: Query<&mut bevy_text::ComputedTextBlock>,

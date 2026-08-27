@@ -110,13 +110,7 @@ pub(crate) fn compute_layout(
     ui_root_entity: Entity,
     render_target_resolution: UVec2,
     ui_children: &UiChildren,
-    node_query: &Query<(
-        Ref<Node>,
-        Ref<ComputedUiRenderTargetInfo>,
-        Ref<EmSize>,
-        Ref<ContentSize>,
-        Has<FixedNode>,
-    )>,
+    node_query: &Query<(Ref<TaffyStyle>, Ref<ContentSize>, Has<FixedNode>)>,
     style_query: &Query<&TaffyStyle>,
     computed_layout_query: &mut Query<&mut ComputedLayout>,
     fixed_node_changes: &[Entity],
@@ -159,7 +153,7 @@ pub(crate) fn compute_layout(
                                     available_space: taffy::Size<AvailableSpace>,
                                     entity: Entity,
                                     style: &Style| {
-            let Ok((_, _, _, content_size, _)) = node_query.get(entity) else {
+            let Ok((_, content_size, ..)) = node_query.get(entity) else {
                 return taffy::Size::ZERO;
             };
             let Some(measure) = content_size.measure.as_ref() else {
@@ -213,21 +207,14 @@ fn build_runtime_layout_tree<'a>(
     root: Entity,
     entity: Entity,
     ui_children: &UiChildren,
-    node_query: &'a Query<(
-        Ref<Node>,
-        Ref<ComputedUiRenderTargetInfo>,
-        Ref<EmSize>,
-        Ref<ContentSize>,
-        Has<FixedNode>,
-    )>,
+    node_query: &'a Query<(Ref<TaffyStyle>, Ref<ContentSize>, Has<FixedNode>)>,
     computed_layout_query: &mut Query<&mut ComputedLayout>,
     fixed_node_changes: &[Entity],
     runtime_nodes: &mut HashMap<NodeId, NodeStyle<'a>>,
     rem_size: RemSize,
     rem_size_changed: bool,
 ) -> Option<bool> {
-    let Ok((node, computed_target, em_size, content_size, has_fixed_node)) = node_query.get(entity)
-    else {
+    let Ok((style, content_size, has_fixed_node)) = node_query.get(entity) else {
         return None;
     };
 
@@ -258,38 +245,24 @@ fn build_runtime_layout_tree<'a>(
         return None;
     };
     let computed_layout = computed_layout.bypass_change_detection();
-
-    let node_id = entity_node_id(entity);
     let children_changed = computed_layout.children != new_children;
     if children_changed {
         computed_layout.children.clear();
         computed_layout.children.extend_from_slice(&new_children);
     }
 
-    let own_dirty = node.is_changed()
-        || em_size.is_changed()
+    let own_dirty = style.is_changed()
         || rem_size_changed
         || children_changed
-        || computed_target.is_changed()
         || content_size.is_changed()
         || fixed_node_changes.contains(&entity)
         || !computed_layout.has_layout();
     subtree_dirty |= own_dirty;
 
-    let layout_context = LayoutContext::new(
-        computed_target.scale_factor(),
-        computed_target.physical_size().as_vec2(),
-        *em_size,
-        rem_size,
-    );
-    let node = node.into_inner();
-
     computed_layout.visited = true;
     if subtree_dirty {
         computed_layout.cache.clear();
     }
-
-    runtime_nodes.insert(node_id, NodeStyle::from_node(node, layout_context));
 
     Some(subtree_dirty)
 }
