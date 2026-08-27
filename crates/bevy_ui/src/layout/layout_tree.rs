@@ -179,7 +179,6 @@ pub(crate) fn compute_layout(
         computed_layout_query,
         fixed_node_changes,
         rem_size,
-        rem_size_changed,
     ) else {
         return Err(LayoutError::InvalidHierarchy);
     };
@@ -253,7 +252,6 @@ fn build_runtime_layout_tree<'a>(
     computed_layout_query: &mut Query<&mut ComputedLayout>,
     fixed_node_changes: &[Entity],
     rem_size: RemSize,
-    rem_size_changed: bool,
 ) -> Option<bool> {
     let Ok((style, content_size, has_fixed_node)) = node_query.get(entity) else {
         return None;
@@ -274,7 +272,6 @@ fn build_runtime_layout_tree<'a>(
             computed_layout_query,
             fixed_node_changes,
             rem_size,
-            rem_size_changed,
         ) {
             new_children.push(entity_node_id(child));
             subtree_dirty |= built_child_dirty;
@@ -292,7 +289,6 @@ fn build_runtime_layout_tree<'a>(
     }
 
     let own_dirty = style.is_changed()
-        || rem_size_changed
         || children_changed
         || content_size.is_changed()
         || fixed_node_changes.contains(&entity)
