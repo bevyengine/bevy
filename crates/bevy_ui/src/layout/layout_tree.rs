@@ -144,6 +144,7 @@ impl ComputedLayout {
         self.is_root = false;
         self.layout_changed = false;
         self.subtree_dirty = false;
+        self.self_dirty = false;
     }
 
     /// Returns true if both rounded and unrounded layouts are present
