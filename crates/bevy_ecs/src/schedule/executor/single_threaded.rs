@@ -12,7 +12,7 @@ use tracing::info_span;
 
 #[cfg(feature = "std")]
 use crate::{
-    error::{BevyError, Severity, PANIC_ORIGINATES_FROM_ERROR_HANDLER},
+    error::{BevyError, Severity},
     system::BoxedSystem,
 };
 use crate::{
@@ -284,14 +284,8 @@ fn handle_unwind(
     error_handler: ErrorHandler,
     error_message: &str,
 ) {
-    PANIC_ORIGINATES_FROM_ERROR_HANDLER.set(false);
     let potential_unwind = std::panic::catch_unwind(AssertUnwindSafe(|| f(system)));
-    let panic_originates_from_error_handler = PANIC_ORIGINATES_FROM_ERROR_HANDLER.replace(false);
     if let Err(payload) = potential_unwind {
-        if panic_originates_from_error_handler {
-            std::panic::resume_unwind(payload);
-        }
-
         __rust_begin_short_backtrace::error_handler(
             error_handler,
             BevyError::panic(error_message, payload),
@@ -312,21 +306,11 @@ fn handle_unwind_in_run_condition(
     on_set: bool,
     error_handler: ErrorHandler,
 ) -> bool {
-    PANIC_ORIGINATES_FROM_ERROR_HANDLER.set(false);
     let potential_unwind = std::panic::catch_unwind(AssertUnwindSafe(|| f(condition)));
-    let panic_originates_from_error_handler = PANIC_ORIGINATES_FROM_ERROR_HANDLER.replace(false);
     match potential_unwind {
         Ok(r) => r,
         Err(payload) => {
-            if panic_originates_from_error_handler {
-                std::panic::resume_unwind(payload);
-            }
-
-            let err = BevyError::new_with_backtrace(
-                Severity::Panic,
-                "Encountered panic",
-                Backtrace::disabled(),
-            );
+            let err = BevyError::panic("Encountered panic", payload);
             __rust_begin_short_backtrace::error_handler(
                 error_handler,
                 err,

@@ -14,7 +14,7 @@ use core::{
 use log::warn;
 
 #[cfg(feature = "std")]
-use crate::error::{BevyError, ErrorContext, Severity, PANIC_ORIGINATES_FROM_ERROR_HANDLER};
+use crate::error::{BevyError, ErrorContext, Severity};
 #[cfg(feature = "std")]
 use alloc::boxed::Box;
 #[cfg(feature = "std")]
@@ -295,11 +295,6 @@ where
     /// If `world` returns [`Some`], this will apply the queued [commands](`Command`) to that `World`.
     /// If `world` returns [`None`], this will drop the queued [commands](`Command`) (without applying them).
     pub fn run(&mut self, world: impl Fn(&mut D) -> Option<&mut World>) {
-        #[cfg(feature = "std")]
-        {
-            PANIC_ORIGINATES_FROM_ERROR_HANDLER.set(false);
-        }
-
         while self.local_cursor < self.stop {
             let command_queue = (self.command_queue)(&mut self.data);
 
@@ -359,15 +354,10 @@ fn handle_panic_payload(
     payload: Box<dyn core::any::Any + Send>,
     name: DebugName,
 ) {
-    let panic_originates_from_error_handler = PANIC_ORIGINATES_FROM_ERROR_HANDLER.replace(false);
-    if panic_originates_from_error_handler {
-        resume_unwind(payload)
-    }
     let Some(world) = world else {
         resume_unwind(payload)
     };
-    let error =
-        BevyError::new_with_backtrace(Severity::Panic, "Command panicked", Backtrace::disabled());
+    let error = BevyError::panic("Command panicked", payload);
     world.fallback_error_handler()(error, ErrorContext::Command { name });
 }
 

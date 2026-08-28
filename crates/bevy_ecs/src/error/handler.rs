@@ -127,14 +127,6 @@ impl Default for FallbackErrorHandler {
     }
 }
 
-#[cfg(feature = "std")]
-std::thread_local! {
-    /// When deliberately throwing a panic in your [`ErrorHandler`],
-    /// set this to true to indicate to the executor that the panic
-    /// should not be turned back into a [`BevyError`].
-    pub static PANIC_ORIGINATES_FROM_ERROR_HANDLER: core::cell::Cell<bool>  = const {core::cell::Cell::new(false)};
-}
-
 /// Error handler that defers to an error's [`Severity`].
 #[track_caller]
 #[inline]
@@ -154,9 +146,6 @@ pub fn match_severity(err: BevyError, ctx: ErrorContext) {
 #[track_caller]
 #[inline]
 pub fn panic(mut error: BevyError, ctx: ErrorContext) {
-    #[cfg(feature = "std")]
-    PANIC_ORIGINATES_FROM_ERROR_HANDLER.set(true);
-
     // if the error originates from a panic, just resume unwinding
     if matches!(error.severity(), Severity::Panic)
         && let Some(payload) = error.take_payload()
