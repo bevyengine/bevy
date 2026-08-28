@@ -152,6 +152,14 @@ pub fn ui_layout_system(
             &mut UiGlobalTransform,
             &mut ComputedLayout,
         )>,
+        Query<(
+            &mut ComputedLayout,
+            Ref<UiTransform>,
+            Ref<ScrollPosition>,
+            Option<Ref<Outline>>,
+            Option<Ref<LayoutConfig>>,
+            Option<Ref<IgnoreScroll>>,
+        )>,
     )>,
     mut buffer_query: Query<&mut ComputedTextBlock>,
     mut font_system: ResMut<FontCx>,
@@ -170,15 +178,13 @@ pub fn ui_layout_system(
             continue;
         };
 
-        let mut computed_layout_query = node_queries.p0();
-
         let _ = compute_layout(
             ui_root_entity,
             target.physical_size(),
             &ui_children,
             &node_query,
             &style_query,
-            &mut computed_layout_query,
+            &mut node_queries,
             &fixed_node_changes,
             &mut buffer_query,
             &mut font_system,
@@ -214,7 +220,7 @@ pub fn update_computed_nodes(
     rem_size: Res<RemSize>,
     ui_root_node_query: UiRootNodes,
     fixed_nodes_query: Query<Entity, (With<FixedNode>, With<ChildOf>)>,
-    targets_query: Query<&ComputedUiRenderTargetInfo>,
+    targets_query: Query<Ref<ComputedUiRenderTargetInfo>>,
     mut computed_nodes_query: Query<(
         &mut ComputedNode,
         &UiTransform,
@@ -246,6 +252,7 @@ pub fn update_computed_nodes(
             Vec2::ZERO,
             *rem_size,
             &mut child_stack,
+            target_info.is_changed() | rem_size.is_changed(),
         );
         child_stack.clear();
     }
@@ -276,6 +283,7 @@ fn update_uinode_geometry_recursive(
     parent_scroll_position: Vec2,
     rem_size: RemSize,
     child_stack: &mut Vec<taffy::NodeId>,
+    force_update: bool,
 ) {
     if let Ok((
         mut node,
@@ -291,6 +299,10 @@ fn update_uinode_geometry_recursive(
         is_fixed_node,
     )) = node_update_query.get_mut(entity)
     {
+        if !force_update && !computed_layout.layout_changed() && !computed_layout.subtree_dirty() {
+            return;
+        }
+
         if is_fixed_node && root != entity {
             return;
         }
@@ -448,6 +460,7 @@ fn update_uinode_geometry_recursive(
         child_stack.extend_from_slice(computed_layout.child_nodes());
         let end = child_stack.len();
 
+        let inherited_force_update = force_update | computed_layout.layout_changed();
         for child_index in start..end {
             update_uinode_geometry_recursive(
                 root,
@@ -461,6 +474,7 @@ fn update_uinode_geometry_recursive(
                 physical_scroll_position,
                 rem_size,
                 child_stack,
+                inherited_force_update,
             );
         }
 
@@ -988,7 +1002,22 @@ mod tests {
             ui_children: UiChildren,
             node_query: Query<(Ref<TaffyStyle>, Ref<ContentSize>, Has<FixedNode>)>,
             style_query: Query<&TaffyStyle>,
-            mut computed_layout_query: Query<&mut ComputedLayout>,
+            mut node_queries: ParamSet<(
+                Query<&mut ComputedLayout>,
+                Query<(
+                    &mut ComputedNode,
+                    &mut UiGlobalTransform,
+                    &mut ComputedLayout,
+                )>,
+                Query<(
+                    &mut ComputedLayout,
+                    Ref<UiTransform>,
+                    Ref<ScrollPosition>,
+                    Option<Ref<Outline>>,
+                    Option<Ref<LayoutConfig>>,
+                    Option<Ref<IgnoreScroll>>,
+                )>,
+            )>,
             mut buffer_query: Query<&mut bevy_text::ComputedTextBlock>,
             mut font_system: ResMut<bevy_text::FontCx>,
             rem_size: Res<RemSize>,
@@ -1000,7 +1029,7 @@ mod tests {
                 &ui_children,
                 &node_query,
                 &style_query,
-                &mut computed_layout_query,
+                &mut node_queries,
                 &[],
                 &mut buffer_query,
                 &mut font_system,

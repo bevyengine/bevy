@@ -4,7 +4,7 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     query::Has,
-    system::Query,
+    system::{ParamSet, Query},
     world::Ref,
 };
 use bevy_math::{UVec2, Vec2};
@@ -19,8 +19,9 @@ use taffy::{
 };
 
 use crate::{
-    experimental::UiChildren, ContentSize, FixedNode, LayoutError, Measure, MeasureArgs,
-    NodeMeasure,
+    experimental::UiChildren, ComputedNode, ContentSize, FixedNode, IgnoreScroll, LayoutConfig,
+    LayoutError, Measure, MeasureArgs, NodeMeasure, Outline, ScrollPosition, UiGlobalTransform,
+    UiTransform,
 };
 
 #[expect(
@@ -147,6 +148,18 @@ impl ComputedLayout {
         self.unrounded.is_some() && self.rounded.is_some()
     }
 
+    /// True if layout changed in last update
+    #[inline]
+    pub const fn layout_changed(&self) -> bool {
+        self.layout_changed
+    }
+
+    /// True if the subtree is dirty
+    #[inline]
+    pub const fn subtree_dirty(&self) -> bool {
+        self.subtree_dirty
+    }
+
     /// Set rounded layout
     pub fn set_rounded(&mut self, layout: Layout) {
         if self.rounded == Some(layout) {
@@ -206,7 +219,22 @@ pub(crate) fn compute_layout(
     ui_children: &UiChildren,
     node_query: &Query<(Ref<TaffyStyle>, Ref<ContentSize>, Has<FixedNode>)>,
     style_query: &Query<&TaffyStyle>,
-    computed_layout_query: &mut Query<&mut ComputedLayout>,
+    node_queries: &mut ParamSet<(
+        Query<&mut ComputedLayout>,
+        Query<(
+            &mut ComputedNode,
+            &mut UiGlobalTransform,
+            &mut ComputedLayout,
+        )>,
+        Query<(
+            &mut ComputedLayout,
+            Ref<UiTransform>,
+            Ref<ScrollPosition>,
+            Option<Ref<Outline>>,
+            Option<Ref<LayoutConfig>>,
+            Option<Ref<IgnoreScroll>>,
+        )>,
+    )>,
     fixed_node_changes: &[Entity],
     buffer_query: &mut Query<&mut ComputedTextBlock>,
     font_system: &mut FontCx,
@@ -218,7 +246,7 @@ pub(crate) fn compute_layout(
         ui_root_entity,
         ui_children,
         node_query,
-        computed_layout_query,
+        node_queries,
         fixed_node_changes,
         rem_size,
         child_stack,
@@ -274,6 +302,7 @@ pub(crate) fn compute_layout(
             }
         };
 
+        let computed_layout_query = &mut node_queries.p0();
         let mut tree = UiLayoutTree {
             style_query,
             computed_layout_query,
@@ -297,7 +326,22 @@ fn build_runtime_layout_tree<'a>(
     entity: Entity,
     ui_children: &UiChildren,
     node_query: &'a Query<(Ref<TaffyStyle>, Ref<ContentSize>, Has<FixedNode>)>,
-    computed_layout_query: &mut Query<&mut ComputedLayout>,
+    node_queries: &mut ParamSet<(
+        Query<&mut ComputedLayout>,
+        Query<(
+            &mut ComputedNode,
+            &mut UiGlobalTransform,
+            &mut ComputedLayout,
+        )>,
+        Query<(
+            &mut ComputedLayout,
+            Ref<UiTransform>,
+            Ref<ScrollPosition>,
+            Option<Ref<Outline>>,
+            Option<Ref<LayoutConfig>>,
+            Option<Ref<IgnoreScroll>>,
+        )>,
+    )>,
     fixed_node_changes: &[Entity],
     rem_size: RemSize,
     child_stack: &mut Vec<NodeId>,
@@ -324,7 +368,7 @@ fn build_runtime_layout_tree<'a>(
             node_id_entity(child_stack[child_index]),
             ui_children,
             node_query,
-            computed_layout_query,
+            node_queries,
             fixed_node_changes,
             rem_size,
             child_stack,
@@ -333,7 +377,16 @@ fn build_runtime_layout_tree<'a>(
         }
     }
 
-    let Ok(mut computed_layout) = computed_layout_query.get_mut(entity) else {
+    let computed_layout_query = &mut node_queries.p2();
+    let Ok((
+        mut computed_layout,
+        transform,
+        scroll_position,
+        outline,
+        layout_config,
+        ignore_scroll,
+    )) = computed_layout_query.get_mut(entity)
+    else {
         return None;
     };
     let computed_layout = computed_layout.bypass_change_detection();
@@ -358,6 +411,12 @@ fn build_runtime_layout_tree<'a>(
 
     computed_layout.visited = true;
     computed_layout.layout_changed = false;
+
+    computed_layout.subtree_dirty = transform.is_changed()
+        || scroll_position.is_changed()
+        || outline.is_some_and(|outline| outline.is_changed())
+        || layout_config.is_some_and(|layout_config| layout_config.is_changed())
+        || ignore_scroll.is_some_and(|ignore_scroll| ignore_scroll.is_changed());
     if subtree_dirty {
         computed_layout.cache.clear();
     }
