@@ -1,7 +1,5 @@
 #[cfg(feature = "std")]
 use core::panic::AssertUnwindSafe;
-#[cfg(feature = "std")]
-use std::backtrace::Backtrace;
 
 use fixedbitset::FixedBitSet;
 
@@ -11,10 +9,7 @@ use alloc::string::ToString as _;
 use tracing::info_span;
 
 #[cfg(feature = "std")]
-use crate::{
-    error::{BevyError, Severity},
-    system::BoxedSystem,
-};
+use crate::{error::BevyError, system::BoxedSystem};
 use crate::{
     error::{ErrorContext, ErrorHandler},
     schedule::{

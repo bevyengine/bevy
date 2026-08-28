@@ -14,16 +14,13 @@ use core::{
 use log::warn;
 
 #[cfg(feature = "std")]
-use crate::error::{BevyError, ErrorContext, Severity};
+use crate::error::{BevyError, ErrorContext};
 #[cfg(feature = "std")]
 use alloc::boxed::Box;
 #[cfg(feature = "std")]
 use bevy_utils::DebugName;
 #[cfg(feature = "std")]
-use std::{
-    backtrace::Backtrace,
-    panic::{catch_unwind, resume_unwind, AssertUnwindSafe},
-};
+use std::panic::{catch_unwind, resume_unwind, AssertUnwindSafe};
 
 struct CommandMeta {
     /// SAFETY: The `value` must point to a value of type `T: Command`,

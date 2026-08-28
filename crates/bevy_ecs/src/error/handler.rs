@@ -142,7 +142,8 @@ pub fn match_severity(err: BevyError, ctx: ErrorContext) {
     }
 }
 
-/// Error handler that panics with the system error.
+/// Error handler that panics with the system error. If panics are passed as errors
+/// these will be resumed.
 #[track_caller]
 #[inline]
 pub fn panic(mut error: BevyError, ctx: ErrorContext) {
