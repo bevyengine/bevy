@@ -143,7 +143,19 @@ pub fn ui_layout_system(
     fixed_nodes_query: Query<Entity, (With<FixedNode>, With<ChildOf>)>,
     ui_children: UiChildren,
     target_query: Query<Ref<ComputedUiRenderTargetInfo>>,
-    node_query: Query<(Ref<TaffyStyle>, Ref<ContentSize>, Has<FixedNode>)>,
+    node_query: Query<
+        (
+            Ref<TaffyStyle>,
+            Ref<ContentSize>,
+            Has<FixedNode>,
+            Ref<UiTransform>,
+            Ref<ScrollPosition>,
+            Option<Ref<Outline>>,
+            Option<Ref<LayoutConfig>>,
+            Option<Ref<IgnoreScroll>>,
+        ),
+        With<Node>,
+    >,
     style_query: Query<&TaffyStyle>,
     mut node_queries: ParamSet<(
         Query<&mut ComputedLayout>,
@@ -165,12 +177,11 @@ pub fn ui_layout_system(
         .chain(removed_fixed_nodes.read())
         .collect::<Vec<_>>();
 
+    let mut computed_layout_query = node_queries.p0();
     for ui_root_entity in ui_root_node_query.iter().chain(fixed_nodes_query.iter()) {
         let Ok(target) = target_query.get(ui_root_entity) else {
             continue;
         };
-
-        let mut computed_layout_query = node_queries.p0();
 
         let _ = compute_layout(
             ui_root_entity,
@@ -214,7 +225,7 @@ pub fn update_computed_nodes(
     rem_size: Res<RemSize>,
     ui_root_node_query: UiRootNodes,
     fixed_nodes_query: Query<Entity, (With<FixedNode>, With<ChildOf>)>,
-    targets_query: Query<&ComputedUiRenderTargetInfo>,
+    targets_query: Query<Ref<ComputedUiRenderTargetInfo>>,
     mut computed_nodes_query: Query<(
         &mut ComputedNode,
         &UiTransform,
@@ -246,6 +257,7 @@ pub fn update_computed_nodes(
             Vec2::ZERO,
             *rem_size,
             &mut child_stack,
+            target_info.is_changed() | rem_size.is_changed(),
         );
         child_stack.clear();
     }
@@ -276,6 +288,7 @@ fn update_uinode_geometry_recursive(
     parent_scroll_position: Vec2,
     rem_size: RemSize,
     child_stack: &mut Vec<taffy::NodeId>,
+    force_update: bool,
 ) {
     if let Ok((
         mut node,
@@ -291,6 +304,10 @@ fn update_uinode_geometry_recursive(
         is_fixed_node,
     )) = node_update_query.get_mut(entity)
     {
+        if !force_update && !computed_layout.layout_changed() && !computed_layout.subtree_dirty() {
+            return;
+        }
+
         if is_fixed_node && root != entity {
             return;
         }
@@ -409,6 +426,9 @@ fn update_uinode_geometry_recursive(
             if node.outline_offset != new_outline_offset {
                 node.outline_offset = new_outline_offset;
             }
+        } else if node.outline_width != 0. || node.outline_offset != 0. {
+            node.outline_width = 0.;
+            node.outline_offset = 0.;
         }
 
         let new_scrollbar_size =
@@ -448,6 +468,8 @@ fn update_uinode_geometry_recursive(
         child_stack.extend_from_slice(computed_layout.child_nodes());
         let end = child_stack.len();
 
+        let inherited_force_update =
+            force_update || computed_layout.layout_changed() || computed_layout.self_dirty();
         for child_index in start..end {
             update_uinode_geometry_recursive(
                 root,
@@ -461,6 +483,7 @@ fn update_uinode_geometry_recursive(
                 physical_scroll_position,
                 rem_size,
                 child_stack,
+                inherited_force_update,
             );
         }
 
@@ -510,7 +533,7 @@ mod tests {
     use bevy_app::{App, HierarchyPropagatePlugin, PostUpdate, PropagateSet, TaskPoolPlugin};
     use bevy_camera::{Camera, Camera2d, ComputedCameraValues, RenderTargetInfo, Viewport};
     use bevy_ecs::{prelude::*, system::RunSystemOnce, world::Ref};
-    use bevy_math::{Rect, UVec2, Vec2};
+    use bevy_math::{BVec2, Rect, UVec2, Vec2};
     use bevy_text::TextFont;
     use bevy_transform::systems::mark_dirty_trees;
     use bevy_transform::systems::{propagate_parent_transforms, sync_simple_transforms};
@@ -557,14 +580,14 @@ mod tests {
             PostUpdate,
             PropagateSet::<ComputedUiTargetCamera>::default()
                 .after(propagate_ui_target_cameras)
-                .before(ui_layout_system),
+                .before(update_taffy_styles),
         );
 
         app.configure_sets(
             PostUpdate,
             PropagateSet::<ComputedUiRenderTargetInfo>::default()
                 .after(propagate_ui_target_cameras)
-                .before(ui_layout_system),
+                .before(update_taffy_styles),
         );
 
         app.world_mut().spawn((
@@ -986,9 +1009,21 @@ mod tests {
         fn test_system(
             In(root_node_entity): In<Entity>,
             ui_children: UiChildren,
-            node_query: Query<(Ref<TaffyStyle>, Ref<ContentSize>, Has<FixedNode>)>,
+            node_query: Query<
+                (
+                    Ref<TaffyStyle>,
+                    Ref<ContentSize>,
+                    Has<FixedNode>,
+                    Ref<UiTransform>,
+                    Ref<ScrollPosition>,
+                    Option<Ref<Outline>>,
+                    Option<Ref<LayoutConfig>>,
+                    Option<Ref<IgnoreScroll>>,
+                ),
+                With<Node>,
+            >,
             style_query: Query<&TaffyStyle>,
-            mut computed_layout_query: Query<&mut ComputedLayout>,
+            mut node_queries: ParamSet<(Query<&mut ComputedLayout>,)>,
             mut buffer_query: Query<&mut bevy_text::ComputedTextBlock>,
             mut font_system: ResMut<bevy_text::FontCx>,
             rem_size: Res<RemSize>,
@@ -1000,7 +1035,7 @@ mod tests {
                 &ui_children,
                 &node_query,
                 &style_query,
-                &mut computed_layout_query,
+                &mut node_queries.p0(),
                 &[],
                 &mut buffer_query,
                 &mut font_system,
@@ -2126,6 +2161,157 @@ mod tests {
                 .border_radius
                 .top_left,
             Vec2::splat(15.)
+        );
+    }
+
+    #[test]
+    fn outlines_relayout_on_outline_removal_and_addition() {
+        let mut app = setup_ui_test_app();
+
+        let entity = app
+            .world_mut()
+            .spawn((
+                Node::default(),
+                Outline {
+                    width: px(10.),
+                    offset: px(5.),
+                    ..default()
+                },
+            ))
+            .id();
+
+        app.update();
+
+        let computed_node = app.world().get::<ComputedNode>(entity).unwrap();
+        assert_eq!(computed_node.outline_width(), 10.);
+        assert_eq!(computed_node.outline_offset(), 5.);
+
+        app.world_mut().entity_mut(entity).remove::<Outline>();
+        app.update();
+
+        let computed_node = app.world().get::<ComputedNode>(entity).unwrap();
+        assert_eq!(computed_node.outline_width(), 0.);
+        assert_eq!(computed_node.outline_offset(), 0.);
+
+        app.world_mut().entity_mut(entity).insert(Outline {
+            width: px(20.),
+            offset: px(10.),
+            ..default()
+        });
+        app.update();
+
+        let computed_node = app.world().get::<ComputedNode>(entity).unwrap();
+        assert_eq!(computed_node.outline_width(), 20.);
+        assert_eq!(computed_node.outline_offset(), 10.);
+    }
+
+    #[test]
+    fn ignore_scroll_relayouts_on_removal_and_addition() {
+        let mut app = setup_ui_test_app();
+
+        let parent = app
+            .world_mut()
+            .spawn((
+                Node {
+                    width: px(100.),
+                    height: px(100.),
+                    overflow: Overflow::scroll_x(),
+                    ..default()
+                },
+                ScrollPosition(Vec2::new(20., 0.)),
+            ))
+            .id();
+        let child = app
+            .world_mut()
+            .spawn((
+                Node {
+                    width: px(200.),
+                    height: px(100.),
+                    flex_shrink: 0.,
+                    ..default()
+                },
+                IgnoreScroll(BVec2::new(true, false)),
+                ChildOf(parent),
+            ))
+            .id();
+
+        app.update();
+
+        let initial_x = app
+            .world()
+            .get::<UiGlobalTransform>(child)
+            .unwrap()
+            .translation
+            .x;
+
+        app.world_mut().entity_mut(child).remove::<IgnoreScroll>();
+        app.update();
+
+        assert_eq!(
+            app.world()
+                .get::<UiGlobalTransform>(child)
+                .unwrap()
+                .translation
+                .x,
+            initial_x - 20.
+        );
+
+        app.world_mut()
+            .entity_mut(child)
+            .insert(IgnoreScroll(BVec2::new(true, false)));
+        app.update();
+
+        assert_eq!(
+            app.world()
+                .get::<UiGlobalTransform>(child)
+                .unwrap()
+                .translation
+                .x,
+            initial_x
+        );
+    }
+
+    #[test]
+    fn layout_config_relayouts_on_removal_and_addition() {
+        let mut app = setup_ui_test_app();
+
+        let entity = app
+            .world_mut()
+            .spawn((
+                Node {
+                    width: px(10.5),
+                    height: px(10.5),
+                    ..default()
+                },
+                LayoutConfig {
+                    use_rounding: false,
+                },
+            ))
+            .id();
+
+        app.update();
+
+        assert_eq!(
+            app.world().get::<ComputedNode>(entity).unwrap().size(),
+            Vec2::splat(10.5)
+        );
+
+        app.world_mut().entity_mut(entity).remove::<LayoutConfig>();
+        app.update();
+
+        assert_eq!(
+            app.world().get::<ComputedNode>(entity).unwrap().size(),
+            Vec2::splat(11.)
+        );
+
+        app.world_mut().entity_mut(entity).insert(LayoutConfig {
+            use_rounding: false,
+        });
+        app.update();
+
+        assert_eq!(
+            app.world().get::<ComputedNode>(entity).unwrap().size(),
+            Vec2::splat(10.5)
         );
     }
 
