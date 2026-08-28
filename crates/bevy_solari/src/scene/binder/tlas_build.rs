@@ -139,7 +139,7 @@ impl<A: hal::Api> Hal<A> {
         };
         let hal_instances = buffer_address(instances)?;
         let hal_scratch = buffer_address(scratch)?;
-        // SAFETY: the handle is only read, and the buffer is not destroyed here
+        // SAFETY: the handle is only read, and the TLAS is not destroyed here
         let hal_tlas = unsafe { tlas.as_hal::<A>() }?;
 
         // SAFETY: both buffers outlive this call through the caller's borrows, and neither is
