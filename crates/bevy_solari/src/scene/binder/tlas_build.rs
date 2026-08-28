@@ -131,11 +131,15 @@ impl<A: hal::Api> Hal<A> {
     ) -> Option<()> {
         use hal::CommandEncoder as _;
 
-        // SAFETY: the handles are only read, and none of them is destroyed here
-        let hal_instances: *const A::Buffer = &*unsafe { instances.as_hal::<A>() }?;
-        // SAFETY: as above
-        let hal_scratch: *const A::Buffer = &*unsafe { scratch.as_hal::<A>() }?;
-        // SAFETY: as above
+        // Workaround for https://github.com/gfx-rs/wgpu/issues/10191
+        let buffer_address = |buffer: &Buffer| {
+            // SAFETY: the handle is only read, and the buffer is not destroyed here
+            let guard = unsafe { buffer.as_hal::<A>() }?;
+            Some(core::ptr::from_ref::<A::Buffer>(&*guard))
+        };
+        let hal_instances = buffer_address(instances)?;
+        let hal_scratch = buffer_address(scratch)?;
+        // SAFETY: the handle is only read, and the buffer is not destroyed here
         let hal_tlas = unsafe { tlas.as_hal::<A>() }?;
 
         // SAFETY: both buffers outlive this call through the caller's borrows, and neither is
