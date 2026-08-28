@@ -351,6 +351,7 @@ fn build_runtime_layout_tree<'a>(
     subtree_dirty |= own_dirty;
 
     computed_layout.visited = true;
+    computed_layout.layout_changed = false;
     if subtree_dirty {
         computed_layout.cache.clear();
     }
