@@ -1975,6 +1975,28 @@ mod tests {
                 bottom_right: Vec2::splat(10.)
             }
         );
+
+        let world = app.world_mut();
+        let mut camera_query = world.query::<&mut Camera>();
+        camera_query
+            .single_mut(world)
+            .unwrap()
+            .viewport
+            .as_mut()
+            .unwrap()
+            .physical_size
+            .y = TARGET_HEIGHT / 2;
+
+        app.update();
+
+        assert_eq!(
+            app.world()
+                .get::<ComputedNode>(entity)
+                .unwrap()
+                .border_radius
+                .top_left,
+            Vec2::splat(15.)
+        );
     }
 
     #[cfg(feature = "ghost_nodes")]
