@@ -7,10 +7,11 @@
 //!
 //! Settings are loaded into resources that implement [`SettingsGroup`](trait@SettingsGroup),
 //! which is best implemented using the derive macro [`SettingsGroup`](derive@SettingsGroup).
-//! In addition, the resource have the `#[reflect(SettingsGroup, Default)]` annotation.
+//! In addition, the resource must have the `#[reflect(SettingsGroup, Default)]` annotation in
+//! order to be saved and loaded by the plugin.
 //!
 //! Once all these conditions are met, and when [`SettingsPlugin`] is added, systems can query
-//! for settings using like any other resource.
+//! for settings using [`Res`] and [`ResMut`] like any other resource.
 //!
 //! Refer to [`SettingsPlugin`] for detailed usage information.
 
