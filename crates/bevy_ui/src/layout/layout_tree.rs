@@ -164,6 +164,12 @@ impl ComputedLayout {
         self.subtree_dirty
     }
 
+    /// True if self dirty
+    #[inline]
+    pub const fn self_dirty(&self) -> bool {
+        self.self_dirty
+    }
+
     /// Set rounded layout
     pub fn set_rounded(&mut self, layout: Layout) {
         if self.rounded == Some(layout) {

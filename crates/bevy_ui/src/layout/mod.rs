@@ -462,7 +462,8 @@ fn update_uinode_geometry_recursive(
         child_stack.extend_from_slice(computed_layout.child_nodes());
         let end = child_stack.len();
 
-        let inherited_force_update = force_update | computed_layout.layout_changed();
+        let inherited_force_update =
+            force_update || computed_layout.layout_changed() || computed_layout.self_dirty();
         for child_index in start..end {
             update_uinode_geometry_recursive(
                 root,
