@@ -404,12 +404,22 @@ fn build_runtime_layout_tree<'a>(
     computed_layout.visited = true;
     computed_layout.layout_changed = false;
 
+    let outline_changed = (computed_layout.has_outline != outline.is_some())
+        || outline.is_some_and(|outline| outline.is_changed());
+    let layout_config_changed = (computed_layout.has_layout_config != layout_config.is_some())
+        || layout_config.is_some_and(|layout_config| layout_config.is_changed());
+    let ignore_scroll_changed = (computed_layout.has_ignore_scroll != ignore_scroll.is_some())
+        || ignore_scroll.is_some_and(|ignore_scroll| ignore_scroll.is_changed());
     computed_layout.self_dirty = own_dirty
         || transform.is_changed()
         || scroll_position.is_changed()
-        || outline.is_some_and(|outline| outline.is_changed())
-        || layout_config.is_some_and(|layout_config| layout_config.is_changed())
-        || ignore_scroll.is_some_and(|ignore_scroll| ignore_scroll.is_changed());
+        || outline_changed
+        || layout_config_changed
+        || ignore_scroll_changed;
+
+    computed_layout.has_ignore_scroll = ignore_scroll.is_some();
+    computed_layout.has_layout_config = layout_config.is_some();
+    computed_layout.has_outline = outline.is_some();
 
     computed_layout.subtree_dirty = computed_layout.self_dirty || children_changed;
     if subtree_dirty {
