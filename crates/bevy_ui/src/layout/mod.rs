@@ -10,7 +10,7 @@ use bevy_ecs::{
     entity::Entity,
     hierarchy::ChildOf,
     lifecycle::RemovedComponents,
-    query::{Added, Changed, Has, With},
+    query::{Added, Changed, Has, Or, With},
     system::{Local, ParamSet, Query, Res, ResMut},
     world::Ref,
 };
@@ -471,11 +471,11 @@ fn update_uinode_geometry_recursive(
 pub fn update_border_radius(
     mut node_update_query: Query<
         (&mut ComputedNode, &Node, &ComputedUiRenderTargetInfo),
-        (
+        Or<(
             Changed<ComputedNode>,
             Changed<Node>,
             Changed<ComputedUiRenderTargetInfo>,
-        ),
+        )>,
     >,
 ) {
     node_update_query
