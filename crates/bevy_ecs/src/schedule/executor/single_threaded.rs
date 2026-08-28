@@ -292,11 +292,9 @@ fn handle_unwind(
             std::panic::resume_unwind(payload);
         }
 
-        let err =
-            BevyError::new_with_backtrace(Severity::Panic, error_message, Backtrace::disabled());
         __rust_begin_short_backtrace::error_handler(
             error_handler,
-            err,
+            BevyError::panic(error_message, payload),
             ErrorContext::System {
                 name: system.name(),
                 last_run: system.get_last_run(),

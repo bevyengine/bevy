@@ -153,9 +153,17 @@ pub fn match_severity(err: BevyError, ctx: ErrorContext) {
 /// Error handler that panics with the system error.
 #[track_caller]
 #[inline]
-pub fn panic(error: BevyError, ctx: ErrorContext) {
+pub fn panic(mut error: BevyError, ctx: ErrorContext) {
     #[cfg(feature = "std")]
     PANIC_ORIGINATES_FROM_ERROR_HANDLER.set(true);
+
+    // if the error originates from a panic, just resume unwinding
+    if matches!(error.severity(), Severity::Panic)
+        && let Some(payload) = error.take_payload()
+    {
+        std::panic::resume_unwind(payload);
+    }
+
     inner!(panic, error, ctx);
 }
 

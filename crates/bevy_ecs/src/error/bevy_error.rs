@@ -1,4 +1,5 @@
 use alloc::{borrow::Cow, boxed::Box};
+use bevy_platform::cell::SyncCell;
 use core::{
     error::Error,
     fmt::{Debug, Display},
@@ -116,6 +117,7 @@ impl BevyError {
                 error: error.into(),
                 severity,
                 context: alloc::vec![],
+                panic_payload: None,
                 #[cfg(feature = "backtrace")]
                 backtrace,
             }),
@@ -185,11 +187,11 @@ impl BevyError {
     /// Creates a new [`BevyError`] with the [`Severity::Panic`] severity.
     ///
     /// This is a shorthand for <code>[BevyError::new(Severity::Panic, error)](BevyError::new)</code>.
-    pub fn panic<E>(error: E) -> Self
+    pub fn panic<E>(error: E, payload: Box<dyn core::any::Any + Send>) -> Self
     where
         Box<dyn Error + Send + Sync>: From<E>,
     {
-        Self::new(Severity::Panic, error)
+        Self::new(Severity::Panic, error).with_payload(payload)
     }
 
     /// Checks if the internal error is of the given type.
@@ -269,6 +271,7 @@ struct InnerBevyError {
     error: Box<dyn Error + Send + Sync + 'static>,
     context: alloc::vec::Vec<Cow<'static, str>>,
     severity: Severity,
+    panic_payload: Option<SyncCell<Box<dyn core::any::Any + Send>>>,
     #[cfg(feature = "backtrace")]
     backtrace: std::backtrace::Backtrace,
 }
@@ -320,6 +323,15 @@ impl BevyError {
     pub fn with_severity(mut self, severity: Severity) -> Self {
         self.inner.severity = severity;
         self
+    }
+
+    pub fn with_payload(mut self, payload: Box<dyn core::any::Any + Send>) -> Self {
+        self.inner.panic_payload = Some(SyncCell::new(payload));
+        self
+    }
+
+    pub fn take_payload(&mut self) -> Option<Box<dyn core::any::Any + Send>> {
+        self.inner.panic_payload.take().map(SyncCell::to_inner)
     }
 }
 
@@ -525,6 +537,7 @@ where
                 error: error.into(),
                 severity: Severity::Panic,
                 context: alloc::vec![],
+                panic_payload: None,
                 #[cfg(feature = "backtrace")]
                 backtrace: std::backtrace::Backtrace::capture(),
             }),

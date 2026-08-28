@@ -870,14 +870,10 @@ fn handle_errors(
         // A panic occurred, but it came from an error handler, so pass it on to be rethrown
         Err(payload) if panic_originates_from_error_handler => Err(payload),
         // Let the error handler handle the panic, passing on any panic it throws
-        Err(_) => std::panic::catch_unwind(AssertUnwindSafe(|| {
+        Err(payload) => std::panic::catch_unwind(AssertUnwindSafe(|| {
             __rust_begin_short_backtrace::error_handler(
                 error_handler,
-                BevyError::new_with_backtrace(
-                    Severity::Panic,
-                    error_message,
-                    Backtrace::disabled(),
-                ),
+                BevyError::panic(error_message, payload),
                 ErrorContext::System {
                     name: system.name(),
                     last_run: system.get_last_run(),
