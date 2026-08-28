@@ -122,6 +122,10 @@ pub struct ComputedLayout {
     is_root: bool,
     /// children
     children: Vec<NodeId>,
+    /// true if layout changed
+    layout_changed: bool,
+    ///  true if subtree needs update
+    subtree_dirty: bool,
 }
 
 impl ComputedLayout {
@@ -133,6 +137,8 @@ impl ComputedLayout {
         self.children.clear();
         self.visited = false;
         self.is_root = false;
+        self.layout_changed = false;
+        self.subtree_dirty = false;
     }
 
     /// Returns true if both rounded and unrounded layouts are present
@@ -142,6 +148,10 @@ impl ComputedLayout {
 
     /// Set rounded layout
     pub fn set_rounded(&mut self, layout: Layout) {
+        if self.rounded == Some(layout) {
+            return;
+        }
+        self.layout_changed = true;
         self.rounded = Some(layout);
     }
 
@@ -150,6 +160,7 @@ impl ComputedLayout {
         if self.unrounded == Some(layout) {
             return false;
         }
+        self.layout_changed = true;
         self.unrounded = Some(layout);
         true
     }
