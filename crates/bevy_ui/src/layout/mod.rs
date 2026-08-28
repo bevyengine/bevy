@@ -580,14 +580,14 @@ mod tests {
             PostUpdate,
             PropagateSet::<ComputedUiTargetCamera>::default()
                 .after(propagate_ui_target_cameras)
-                .before(ui_layout_system),
+                .before(update_taffy_styles),
         );
 
         app.configure_sets(
             PostUpdate,
             PropagateSet::<ComputedUiRenderTargetInfo>::default()
                 .after(propagate_ui_target_cameras)
-                .before(ui_layout_system),
+                .before(update_taffy_styles),
         );
 
         app.world_mut().spawn((
