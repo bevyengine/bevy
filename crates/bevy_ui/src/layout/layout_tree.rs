@@ -245,7 +245,7 @@ pub(crate) fn compute_layout(
     rem_size: RemSize,
     child_stack: &mut Vec<NodeId>,
 ) -> Result<(), LayoutError> {
-    let Some(dirty) = build_runtime_layout_tree(
+    let Some((dirty, _)) = build_runtime_layout_tree(
         ui_root_entity,
         ui_root_entity,
         ui_children,
@@ -342,7 +342,7 @@ fn build_runtime_layout_tree<'a>(
     fixed_node_changes: &[Entity],
     rem_size: RemSize,
     child_stack: &mut Vec<NodeId>,
-) -> Option<bool> {
+) -> Option<(bool, bool)> {
     let Ok((
         style,
         content_size,
@@ -362,6 +362,7 @@ fn build_runtime_layout_tree<'a>(
     }
 
     let mut subtree_dirty = false;
+    let mut computed_subtree_dirty = false;
     let start = child_stack.len();
     child_stack.extend(
         ui_children
@@ -370,7 +371,7 @@ fn build_runtime_layout_tree<'a>(
     );
     let end = child_stack.len();
     for child_index in start..end {
-        if let Some(built_child_dirty) = build_runtime_layout_tree(
+        if let Some((built_child_dirty, built_computed_subtree_dirty)) = build_runtime_layout_tree(
             root,
             node_id_entity(child_stack[child_index]),
             ui_children,
@@ -381,6 +382,7 @@ fn build_runtime_layout_tree<'a>(
             child_stack,
         ) {
             subtree_dirty |= built_child_dirty;
+            computed_subtree_dirty |= built_computed_subtree_dirty;
         }
     }
 
@@ -427,12 +429,12 @@ fn build_runtime_layout_tree<'a>(
     computed_layout.has_layout_config = layout_config.is_some();
     computed_layout.has_outline = outline.is_some();
 
-    computed_layout.subtree_dirty = computed_layout.self_dirty || children_changed;
+    computed_layout.subtree_dirty = computed_layout.self_dirty || computed_subtree_dirty;
     if subtree_dirty {
         computed_layout.cache.clear();
     }
 
-    Some(subtree_dirty)
+    Some((subtree_dirty, computed_layout.subtree_dirty))
 }
 
 #[derive(Default)]
