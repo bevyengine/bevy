@@ -500,6 +500,7 @@ pub fn update_border_radius(
 mod tests {
     use crate::layout_tree::compute_layout;
     use crate::layout_tree::TaffyStyle;
+    use crate::update_border_radius;
     use crate::update_computed_nodes;
     use crate::{
         experimental::UiChildren, layout::layout_tree::ComputedLayout, prelude::*,
@@ -544,6 +545,7 @@ mod tests {
                 update_taffy_styles,
                 ui_layout_system,
                 update_computed_nodes,
+                update_border_radius,
                 mark_dirty_trees,
                 sync_simple_transforms,
                 propagate_parent_transforms,
@@ -2008,6 +2010,104 @@ mod tests {
                 .location
                 .y,
             80.
+        );
+    }
+
+    #[test]
+    fn test_border_radius_updates() {
+        let mut app = setup_ui_test_app();
+
+        let entity = app
+            .world_mut()
+            .spawn((Node {
+                height: px(100),
+                width: px(50),
+                ..default()
+            },))
+            .id();
+
+        app.update();
+
+        let computed = app.world().get::<ComputedNode>(entity).unwrap();
+        assert_eq!(computed.border_radius, ResolvedBorderRadius::ZERO);
+
+        app.world_mut()
+            .get_mut::<Node>(entity)
+            .unwrap()
+            .border_radius = BorderRadius::all(px(10));
+
+        app.update();
+
+        let computed = app.world().get::<ComputedNode>(entity).unwrap();
+        assert_eq!(
+            computed.border_radius,
+            ResolvedBorderRadius {
+                top_left: Vec2::splat(10.),
+                top_right: Vec2::splat(10.),
+                bottom_left: Vec2::splat(10.),
+                bottom_right: Vec2::splat(10.)
+            }
+        );
+
+        app.world_mut()
+            .get_mut::<Node>(entity)
+            .unwrap()
+            .border_radius
+            .top_left = CornerRadius::circular(vh(30));
+
+        app.update();
+
+        assert_eq!(
+            app.world()
+                .get::<ComputedNode>(entity)
+                .unwrap()
+                .border_radius,
+            ResolvedBorderRadius {
+                top_left: Vec2::splat(TARGET_HEIGHT as f32 * 30. / 100.).min(Vec2::splat(25.)),
+                top_right: Vec2::splat(10.),
+                bottom_left: Vec2::splat(10.),
+                bottom_right: Vec2::splat(10.)
+            }
+        );
+
+        let border_radius = &mut app
+            .world_mut()
+            .get_mut::<Node>(entity)
+            .unwrap()
+            .border_radius;
+        border_radius.top_right = CornerRadius::circular(percent(100));
+        border_radius.bottom_left = CornerRadius::new(percent(100), percent(100));
+
+        app.update();
+
+        assert_eq!(
+            app.world()
+                .get::<ComputedNode>(entity)
+                .unwrap()
+                .border_radius,
+            ResolvedBorderRadius {
+                top_left: Vec2::splat(TARGET_HEIGHT as f32 * 30. / 100.).min(Vec2::splat(25.)),
+                top_right: Vec2::splat(25.),
+                bottom_left: Vec2::new(25., 50.),
+                bottom_right: Vec2::splat(10.)
+            }
+        );
+
+        app.world_mut().get_mut::<Node>(entity).unwrap().width = px(200.);
+
+        app.update();
+
+        assert_eq!(
+            app.world()
+                .get::<ComputedNode>(entity)
+                .unwrap()
+                .border_radius,
+            ResolvedBorderRadius {
+                top_left: Vec2::splat(TARGET_HEIGHT as f32 * 30. / 100.).min(Vec2::splat(50.)),
+                top_right: Vec2::splat(50.),
+                bottom_left: Vec2::new(100., 50.),
+                bottom_right: Vec2::splat(10.)
+            }
         );
     }
 
