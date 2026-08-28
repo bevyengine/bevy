@@ -1851,7 +1851,7 @@ mod tests {
     }
 
     #[test]
-    fn block_layouts_align_content() {
+    fn block_layouts_respect_align_content() {
         let mut app = setup_ui_test_app();
         let world = app.world_mut();
         let child = world
@@ -1873,13 +1873,9 @@ mod tests {
 
         assert_eq!(
             app.world()
-                .get::<ComputedLayout>(child)
-                .and_then(|layout| layout.get_layout(true))
-                .unwrap()
-                .0
-                .location
-                .y,
-            80.
+                .get::<UiGlobalTransform>(child)
+                .map(|transform| transform.translation.y),
+            Some(90.)
         );
     }
 
