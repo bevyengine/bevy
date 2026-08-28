@@ -169,22 +169,13 @@ fn setup(
 
 /// Spawns the checkboxes in the top left corner of the screen.
 fn spawn_buttons(commands: &mut Commands) {
-    if !cfg!(target_arch = "wasm32") {
-        commands.spawn_scene(bsn! {
-            top_left_scene()
-            Children [
-                feathers_option_checkbox("ROTATE", Some(CheckboxInput::Rotation), IsChecked(false)),
-                feathers_option_checkbox("WIREFRAME", Some(CheckboxInput::Wireframe), IsChecked(false)),
-            ]
-        });
-    } else {
-        commands.spawn_scene(bsn! {
-            top_left_scene() // so the user can immediately see the control in browser w/o scrolling
-            Children [
-                feathers_option_checkbox("ROTATE", Some(CheckboxInput::Rotation), IsChecked(false)),
-            ]
-        });
-    }
+    commands.spawn_scene(bsn! {
+        top_left_scene()
+        Children [
+            feathers_option_checkbox("ROTATE", Some(CheckboxInput::Rotation), IsChecked(false)),
+            {(!cfg!(target_arch = "wasm32")).then(|| { bsn! { feathers_option_checkbox("WIREFRAME", Some(CheckboxInput::Wireframe), IsChecked(false)) }})}
+        ]
+    });
 }
 
 fn handle_value_change_checkbox(

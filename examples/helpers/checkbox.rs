@@ -44,8 +44,9 @@ where
                 @caption: bsn! { caption(option_name) }
             }
         Hovered::default()
-        {checkbox_identifier.is_some().then(||
-            { bsn! { template_value(checkbox_identifier.unwrap()) }
+        {
+            checkbox_identifier.map(|checkbox_identifier| {
+            bsn! { template_value(checkbox_identifier) }
         })}
         on(checkbox_self_update)
         {status.checked().then(|| bsn! { Checked })}
