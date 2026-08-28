@@ -128,6 +128,9 @@ pub struct ComputedLayout {
     self_dirty: bool,
     ///  true if subtree needs update
     subtree_dirty: bool,
+    has_outline: bool,
+    has_layout_config: bool,
+    has_ignore_scroll: bool,
 }
 
 impl ComputedLayout {
