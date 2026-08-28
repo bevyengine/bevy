@@ -23,7 +23,6 @@ pbr_light_textures = []
 bluenoise_texture = ["bevy_image/ktx2", "bevy_image/zstd"]
 dfg_lut = ["bevy_image/ktx2", "bevy_image/zstd"]
 area_light_luts = ["bevy_image/ktx2", "bevy_image/zstd"]
-shader_format_glsl = ["bevy_shader/shader_format_glsl"]
 trace = ["bevy_render/trace"]
 # Enables the meshlet renderer for dense high-poly scenes (experimental)
 meshlet = ["dep:lz4_flex", "dep:range-alloc"]
@@ -45,6 +44,7 @@ bevy_core_pipeline = { path = "../bevy_core_pipeline", version = "0.20.0-dev" }
 bevy_derive = { path = "../bevy_derive", version = "0.20.0-dev" }
 bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.20.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.20.0-dev" }
+bevy_extract = { path = "../bevy_extract", version = "0.20.0-dev" }
 bevy_gltf = { path = "../bevy_gltf", version = "0.20.0-dev", optional = true }
 bevy_light = { path = "../bevy_light", version = "0.20.0-dev" }
 bevy_log = { path = "../bevy_log", version = "0.20.0-dev" }
@@ -91,7 +91,7 @@ tracing = { version = "0.1", default-features = false, features = ["std"] }
 offset-allocator = "0.2"
 arrayvec = { version = "0.7", default-features = false }
 indexmap = { version = "2" }
-wgpu-types = "29.0.3"
+wgpu-types = "30"
 
 [lints]
 workspace = true

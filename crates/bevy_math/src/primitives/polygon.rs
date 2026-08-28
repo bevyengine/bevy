@@ -30,7 +30,7 @@ struct SweepLineEvent {
 
 #[cfg(feature = "alloc")]
 impl SweepLineEvent {
-    fn position(&self) -> Vec2 {
+    const fn position(&self) -> Vec2 {
         match self.endpoint {
             Endpoint::Left => self.segment.left,
             Endpoint::Right => self.segment.right,

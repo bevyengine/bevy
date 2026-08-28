@@ -307,6 +307,11 @@ impl RequiredComponents {
     pub fn iter_ids(&self) -> impl Iterator<Item = ComponentId> + '_ {
         self.all.keys().copied()
     }
+
+    /// Iterates the ids of all required components. This is only directly required components.
+    pub fn iter_direct_ids(&self) -> impl Iterator<Item = ComponentId> + '_ {
+        self.direct.keys().copied()
+    }
 }
 
 impl Components {

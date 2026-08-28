@@ -23,7 +23,9 @@ mod tilemap_chunk;
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{ColorMaterial, MeshMaterial2d, SpriteMaterial};
+    pub use crate::{
+        ColorMaterial, ExtendedMaterial2d, MaterialExtension2d, MeshMaterial2d, SpriteMaterial,
+    };
 }
 
 use bevy_shader::load_shader_library;
@@ -62,9 +64,9 @@ pub enum SpriteSystems {
 
 impl Plugin for SpriteRenderPlugin {
     fn build(&self, app: &mut App) {
-        load_shader_library!(app, "render/sprite_view_bindings.wgsl");
+        load_shader_library!(app, "render/sprite_view_bindings.wesl");
 
-        embedded_asset!(app, "render/sprite.wgsl");
+        embedded_asset!(app, "render/sprite.wesl");
 
         if !app.is_plugin_added::<TextureAtlasPlugin>() {
             app.add_plugins(TextureAtlasPlugin);
@@ -72,6 +74,7 @@ impl Plugin for SpriteRenderPlugin {
 
         app.add_plugins((
             Mesh2dRenderPlugin,
+            Materials2dPlugin,
             ColorMaterialPlugin,
             SpriteMeshPlugin,
             TilemapChunkPlugin,
@@ -113,7 +116,7 @@ impl Plugin for SpriteRenderPlugin {
                     (
                         queue_sprites
                             .in_set(RenderSystems::Queue)
-                            .ambiguous_with(queue_material2d_meshes::<ColorMaterial>),
+                            .ambiguous_with(queue_material2d_meshes),
                         prepare_sprite_image_bind_groups.in_set(RenderSystems::PrepareBindGroups),
                         prepare_sprite_view_bind_groups.in_set(RenderSystems::PrepareBindGroups),
                         sort_binned_render_phase::<Opaque2d>.in_set(RenderSystems::PhaseSort),
