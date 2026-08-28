@@ -237,7 +237,6 @@ pub fn update_computed_nodes(
         Option<&Outline>,
         Option<&ScrollPosition>,
         Option<&IgnoreScroll>,
-        Has<FixedNode>,
     )>,
     mut child_stack: Local<Vec<taffy::NodeId>>,
 ) {
@@ -281,7 +280,6 @@ fn update_uinode_geometry_recursive(
         Option<&Outline>,
         Option<&ScrollPosition>,
         Option<&IgnoreScroll>,
-        Has<FixedNode>,
     )>,
     inverse_target_scale_factor: f32,
     parent_size: Vec2,
@@ -301,14 +299,9 @@ fn update_uinode_geometry_recursive(
         maybe_outline,
         maybe_scroll_position,
         maybe_scroll_sticky,
-        is_fixed_node,
     )) = node_update_query.get_mut(entity)
     {
         if !force_update && !computed_layout.layout_changed() && !computed_layout.subtree_dirty() {
-            return;
-        }
-
-        if is_fixed_node && root != entity {
             return;
         }
 
