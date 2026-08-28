@@ -412,11 +412,12 @@ fn build_runtime_layout_tree<'a>(
     computed_layout.visited = true;
     computed_layout.layout_changed = false;
 
-    computed_layout.subtree_dirty = transform.is_changed()
+    computed_layout.subtree_dirty |= transform.is_changed()
         || scroll_position.is_changed()
         || outline.is_some_and(|outline| outline.is_changed())
         || layout_config.is_some_and(|layout_config| layout_config.is_changed())
-        || ignore_scroll.is_some_and(|ignore_scroll| ignore_scroll.is_changed());
+        || ignore_scroll.is_some_and(|ignore_scroll| ignore_scroll.is_changed())
+        || subtree_dirty;
     if subtree_dirty {
         computed_layout.cache.clear();
     }
