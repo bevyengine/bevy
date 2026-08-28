@@ -423,6 +423,9 @@ fn update_uinode_geometry_recursive(
             if node.outline_offset != new_outline_offset {
                 node.outline_offset = new_outline_offset;
             }
+        } else if node.outline_width != 0. || node.outline_offset != 0. {
+            node.outline_width = 0.;
+            node.outline_offset = 0.;
         }
 
         let new_scrollbar_size =
@@ -2153,6 +2156,47 @@ mod tests {
                 .top_left,
             Vec2::splat(15.)
         );
+    }
+
+    #[test]
+    fn outlines_relayout_on_outline_removal_and_addition() {
+        let mut app = setup_ui_test_app();
+
+        let entity = app
+            .world_mut()
+            .spawn((
+                Node::default(),
+                Outline {
+                    width: px(10.),
+                    offset: px(5.),
+                    ..default()
+                },
+            ))
+            .id();
+
+        app.update();
+
+        let computed_node = app.world().get::<ComputedNode>(entity).unwrap();
+        assert_eq!(computed_node.outline_width(), 10.);
+        assert_eq!(computed_node.outline_offset(), 5.);
+
+        app.world_mut().entity_mut(entity).remove::<Outline>();
+        app.update();
+
+        let computed_node = app.world().get::<ComputedNode>(entity).unwrap();
+        assert_eq!(computed_node.outline_width(), 0.);
+        assert_eq!(computed_node.outline_offset(), 0.);
+
+        app.world_mut().entity_mut(entity).insert(Outline {
+            width: px(20.),
+            offset: px(10.),
+            ..default()
+        });
+        app.update();
+
+        let computed_node = app.world().get::<ComputedNode>(entity).unwrap();
+        assert_eq!(computed_node.outline_width(), 20.);
+        assert_eq!(computed_node.outline_offset(), 10.);
     }
 
     #[cfg(feature = "ghost_nodes")]
