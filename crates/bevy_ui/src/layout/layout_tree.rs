@@ -370,10 +370,12 @@ fn build_runtime_layout_tree<'a>(
             .map(|entity| entity_node_id(entity)),
     );
     let end = child_stack.len();
+    let mut child_count = 0;
     for child_index in start..end {
+        let child_node = child_stack[child_index];
         if let Some((built_child_dirty, built_computed_subtree_dirty)) = build_runtime_layout_tree(
             root,
-            node_id_entity(child_stack[child_index]),
+            node_id_entity(child_node),
             ui_children,
             node_query,
             computed_layout_query,
@@ -381,10 +383,14 @@ fn build_runtime_layout_tree<'a>(
             rem_size,
             child_stack,
         ) {
+            child_stack[start + child_count] = child_node;
+            child_count += 1;
             subtree_dirty |= built_child_dirty;
             computed_subtree_dirty |= built_computed_subtree_dirty;
         }
     }
+    let end = start + child_count;
+    child_stack.truncate(end);
 
     let Ok(mut computed_layout) = computed_layout_query.get_mut(entity) else {
         return None;
