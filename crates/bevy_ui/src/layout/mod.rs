@@ -1852,7 +1852,7 @@ mod tests {
     }
 
     #[test]
-    fn scrolling_with_borders_should_clamp_with_padding_box() {
+    fn scrolling_with_borders_should_clamp_to_padding_box() {
         let mut app = setup_ui_test_app();
 
         let parent = app
