@@ -458,6 +458,9 @@ pub fn ui_layout_system(
                 if node.outline_offset != new_outline_offset {
                     node.outline_offset = new_outline_offset;
                 }
+            } else if node.outline_width != 0. || node.outline_offset != 0. {
+                node.outline_width = 0.;
+                node.outline_offset = 0.;
             }
 
             let new_scrollbar_size =
