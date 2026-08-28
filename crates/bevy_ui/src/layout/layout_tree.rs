@@ -3,7 +3,7 @@ use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
     component::Component,
     entity::Entity,
-    query::Has,
+    query::{Has, With},
     system::Query,
     world::Ref,
 };
@@ -20,7 +20,7 @@ use taffy::{
 
 use crate::{
     experimental::UiChildren, ContentSize, FixedNode, IgnoreScroll, LayoutConfig, LayoutError,
-    Measure, MeasureArgs, NodeMeasure, Outline, ScrollPosition, UiTransform,
+    Measure, MeasureArgs, Node, NodeMeasure, Outline, ScrollPosition, UiTransform,
 };
 
 #[expect(
@@ -227,16 +227,19 @@ pub(crate) fn compute_layout(
     ui_root_entity: Entity,
     render_target_resolution: UVec2,
     ui_children: &UiChildren,
-    node_query: &Query<(
-        Ref<TaffyStyle>,
-        Ref<ContentSize>,
-        Has<FixedNode>,
-        Ref<UiTransform>,
-        Ref<ScrollPosition>,
-        Option<Ref<Outline>>,
-        Option<Ref<LayoutConfig>>,
-        Option<Ref<IgnoreScroll>>,
-    )>,
+    node_query: &Query<
+        (
+            Ref<TaffyStyle>,
+            Ref<ContentSize>,
+            Has<FixedNode>,
+            Ref<UiTransform>,
+            Ref<ScrollPosition>,
+            Option<Ref<Outline>>,
+            Option<Ref<LayoutConfig>>,
+            Option<Ref<IgnoreScroll>>,
+        ),
+        With<Node>,
+    >,
     style_query: &Query<&TaffyStyle>,
     computed_layout_query: &mut Query<&mut ComputedLayout>,
     fixed_node_changes: &[Entity],
@@ -328,16 +331,19 @@ fn build_runtime_layout_tree<'a>(
     root: Entity,
     entity: Entity,
     ui_children: &UiChildren,
-    node_query: &Query<(
-        Ref<TaffyStyle>,
-        Ref<ContentSize>,
-        Has<FixedNode>,
-        Ref<UiTransform>,
-        Ref<ScrollPosition>,
-        Option<Ref<Outline>>,
-        Option<Ref<LayoutConfig>>,
-        Option<Ref<IgnoreScroll>>,
-    )>,
+    node_query: &Query<
+        (
+            Ref<TaffyStyle>,
+            Ref<ContentSize>,
+            Has<FixedNode>,
+            Ref<UiTransform>,
+            Ref<ScrollPosition>,
+            Option<Ref<Outline>>,
+            Option<Ref<LayoutConfig>>,
+            Option<Ref<IgnoreScroll>>,
+        ),
+        With<Node>,
+    >,
     computed_layout_query: &mut Query<&mut ComputedLayout>,
     fixed_node_changes: &[Entity],
     rem_size: RemSize,
