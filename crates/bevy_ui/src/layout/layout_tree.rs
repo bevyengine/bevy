@@ -136,7 +136,8 @@ impl ComputedLayout {
     }
 
     /// Returns true if both rounded and unrounded layouts are present
-    pub fn has_layout(&self) -> bool {
+    #[inline]
+    pub const fn has_layout(&self) -> bool {
         self.unrounded.is_some() && self.rounded.is_some()
     }
 
@@ -155,12 +156,14 @@ impl ComputedLayout {
     }
 
     /// Set visited state
-    pub fn set_visited(&mut self, visited: bool) {
+    #[inline]
+    pub const fn set_visited(&mut self, visited: bool) {
         self.visited = visited;
     }
 
     /// Returns true if visited
-    pub fn visited(&self) -> bool {
+    #[inline]
+    pub const fn visited(&self) -> bool {
         self.visited
     }
 
@@ -177,7 +180,10 @@ impl ComputedLayout {
         Some((selected_layout, unrounded_size))
     }
 
-    pub fn children(&self) -> &[NodeId] {
+    /// Get the UI children for this Node.
+    /// The subset of a `Node` entity's children that also have a `Node` component and need to be visible to `Taffy`.
+    #[inline]
+    pub fn child_nodes(&self) -> &[NodeId] {
         &self.children
     }
 }
