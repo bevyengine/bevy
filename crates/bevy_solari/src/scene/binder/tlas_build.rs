@@ -131,16 +131,20 @@ impl<A: hal::Api> Hal<A> {
     ) -> Option<()> {
         use hal::CommandEncoder as _;
 
-        // SAFETY: the handles are only read, and are dropped with their guards
+        // SAFETY: the handles are only read, and none of them is destroyed here
+        let hal_instances: *const A::Buffer = &*unsafe { instances.as_hal::<A>() }?;
+        // SAFETY: as above
+        let hal_scratch: *const A::Buffer = &*unsafe { scratch.as_hal::<A>() }?;
+        // SAFETY: as above
         let hal_tlas = unsafe { tlas.as_hal::<A>() }?;
-        // SAFETY: as above
-        let hal_instances = unsafe { instances.as_hal::<A>() }?;
-        // SAFETY: as above
-        let hal_scratch = unsafe { scratch.as_hal::<A>() }?;
+
+        // SAFETY: both buffers outlive this call through the caller's borrows, and neither is
+        // destroyed between reading its address and the build recording
+        let (hal_instances, hal_scratch) = unsafe { (&*hal_instances, &*hal_scratch) };
 
         let entries =
             hal::AccelerationStructureEntries::Instances(hal::AccelerationStructureInstances {
-                buffer: Some(&*hal_instances),
+                buffer: Some(hal_instances),
                 offset: 0,
                 count: instance_count,
             });
@@ -151,7 +155,7 @@ impl<A: hal::Api> Hal<A> {
             flags: TLAS_BUILD_FLAGS,
             source_acceleration_structure: None,
             destination_acceleration_structure: &*hal_tlas,
-            scratch_buffer: &*hal_scratch,
+            scratch_buffer: hal_scratch,
             scratch_buffer_offset: 0,
         };
 
