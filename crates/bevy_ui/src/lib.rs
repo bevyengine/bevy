@@ -187,12 +187,6 @@ impl Plugin for UiPlugin {
                 widget::viewport_picking.in_set(PickingSystems::PostInput),
             );
 
-        ui_layout_system
-            .in_set(UiSystems::Layout)
-            .before(TransformSystems::Propagate)
-            // Text and Text2D operate on disjoint sets of entities
-            .ambiguous_with(bevy_sprite::update_text2d_layout);
-
         app.add_systems(
             PostUpdate,
             (
