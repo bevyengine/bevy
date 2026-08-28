@@ -442,6 +442,8 @@ impl Access {
     /// Returns a vector of elements that the access and `other` cannot access at the same time.
     #[inline]
     pub fn get_conflicts(&self, other: &Access) -> AccessConflicts {
+        // We have a conflict if we write and they read or write, or if they
+        // write and we read or write.
         let mut conflicts = self.writes.intersection(&other.reads);
         conflicts.union_with(&other.writes.intersection(&self.reads));
         conflicts

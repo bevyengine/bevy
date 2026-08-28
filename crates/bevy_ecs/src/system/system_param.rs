@@ -830,6 +830,9 @@ unsafe impl SystemParam for &'_ mut World {
         system_access: &mut SystemAccess,
         _world: &mut World,
     ) {
+        // Exclusive systems must be ran on the main thread.
+        system_meta.set_non_send();
+
         system_access.require_exclusive_access::<Self>(system_meta);
     }
 
@@ -2804,7 +2807,7 @@ mod tests {
     use crate::query::Without;
     use crate::resource::IsResource;
     use crate::schedule::Schedule;
-    use crate::system::{assert_is_system, Commands};
+    use crate::system::{assert_is_system, Commands, IntoSystem, System};
     use crate::world::EntityMut;
     use core::cell::RefCell;
 
@@ -3312,5 +3315,16 @@ mod tests {
 
         fn system2(_: &mut QueryState<&mut A>, _: Query<&mut A>) {}
         assert_is_system(system2);
+    }
+
+    #[test]
+    fn exclusive_systems_are_non_send() {
+        fn test_system(_: &mut World) {}
+
+        let mut world = World::new();
+        let mut system = IntoSystem::into_system(test_system);
+        system.initialize(&mut world);
+
+        assert!(!system.is_send());
     }
 }

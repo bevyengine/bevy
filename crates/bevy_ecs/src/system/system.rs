@@ -83,8 +83,8 @@ pub trait System: Send + Sync + 'static {
     /// - The caller must ensure that [`world`](UnsafeWorldCell) has permission to access any world data
     ///   registered in the access returned from [`System::initialize`]. There must be no conflicting
     ///   simultaneous accesses while the system is running.
-    /// - If [`System::initialize`] returns a [`SystemAccess`] that is exclusive,
-    ///   then it must be valid to call [`UnsafeWorldCell::world_mut`] on `world`.
+    /// - If [`System::initialize`] returns [`SystemAccess::Exclusive`], then it
+    ///   must be valid to call [`UnsafeWorldCell::world_mut`] on `world`.
     unsafe fn run_unsafe(
         &mut self,
         input: SystemIn<'_, Self>,

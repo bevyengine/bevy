@@ -1,6 +1,8 @@
 use crate::{
+    change_detection::Tick,
     storage::SparseSetIndex,
-    world::{FromWorld, World},
+    system::{SystemAccess, SystemMeta, SystemParam, SystemParamValidationError},
+    world::{unsafe_world_cell::UnsafeWorldCell, FromWorld, World},
 };
 use bevy_platform::sync::atomic::{AtomicUsize, Ordering};
 
@@ -56,6 +58,34 @@ impl FromWorld for WorldId {
     }
 }
 
+// SAFETY: World metadata is registered and accessed.
+unsafe impl SystemParam for WorldId {
+    type State = ();
+
+    type Item<'world, 'state> = WorldId;
+
+    fn init_state(_: &mut World) -> Self::State {}
+
+    fn init_access(
+        _state: &Self::State,
+        system_meta: &mut SystemMeta,
+        system_access: &mut SystemAccess,
+        _world: &mut World,
+    ) {
+        system_access.require_shared_access::<Self>(system_meta);
+    }
+
+    #[inline]
+    unsafe fn get_param<'world, 'state>(
+        _: &'state mut Self::State,
+        _: &SystemMeta,
+        world: UnsafeWorldCell<'world>,
+        _: Tick,
+    ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
+        Ok(world.id())
+    }
+}
+
 impl SparseSetIndex for WorldId {
     #[inline]
     fn sparse_set_index(&self) -> usize {
@@ -70,7 +100,7 @@ impl SparseSetIndex for WorldId {
 
 #[cfg(test)]
 mod tests {
-    use crate::system::Local;
+    use crate::system::assert_is_system;
 
     use super::*;
     use alloc::vec::Vec;
@@ -91,8 +121,8 @@ mod tests {
 
     #[test]
     fn world_id_system_param() {
-        fn test_system(world_id: Local<WorldId>) -> WorldId {
-            *world_id
+        fn test_system(world_id: WorldId) -> WorldId {
+            world_id
         }
 
         let mut world = World::default();
@@ -102,15 +132,12 @@ mod tests {
     }
 
     #[test]
-    fn world_id_exclusive_system_param() {
-        fn test_system(_world: &mut World, world_id: Local<WorldId>) -> WorldId {
-            *world_id
+    #[should_panic]
+    fn world_id_cannot_be_exclusive_system_param() {
+        fn test_system(_world: &mut World, world_id: WorldId) -> WorldId {
+            world_id
         }
-
-        let mut world = World::default();
-        let system_id = world.register_system(test_system);
-        let world_id = world.run_system(system_id).unwrap();
-        assert_eq!(world.id(), world_id);
+        assert_is_system(test_system);
     }
 
     // We cannot use this test as-is, as it causes other tests to panic due to using the same atomic variable.

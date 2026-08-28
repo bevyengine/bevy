@@ -943,17 +943,48 @@ mod tests {
     use std::panic::catch_unwind;
 
     use crate::{
+        change_detection::Tick,
         error::{
             BevyError, ErrorContext, FallbackErrorHandler, PANIC_ORIGINATES_FROM_ERROR_HANDLER,
         },
         prelude::Resource,
         schedule::{IntoScheduleConfigs, MultiThreadedExecutor, Schedule},
-        system::{Commands, NonSendMut},
-        world::World,
+        system::{
+            Commands, NonSendMut, SystemAccess, SystemMeta, SystemParam, SystemParamValidationError,
+        },
+        world::{unsafe_world_cell::UnsafeWorldCell, World},
     };
 
     #[derive(Resource)]
     struct R;
+
+    struct ExclusiveMarker;
+
+    // SAFETY: No world data is accessed.
+    unsafe impl SystemParam for ExclusiveMarker {
+        type State = ();
+        type Item<'world, 'state> = ExclusiveMarker;
+
+        fn init_state(_world: &mut World) -> Self::State {}
+
+        fn init_access(
+            _state: &Self::State,
+            system_meta: &mut SystemMeta,
+            system_access: &mut SystemAccess,
+            _world: &mut World,
+        ) {
+            system_access.require_exclusive_access::<Self>(system_meta);
+        }
+
+        unsafe fn get_param<'world, 'state>(
+            _state: &'state mut Self::State,
+            _system_meta: &SystemMeta,
+            _world: UnsafeWorldCell<'world>,
+            _change_tick: Tick,
+        ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
+            Ok(ExclusiveMarker)
+        }
+    }
 
     #[test]
     fn skipped_systems_notify_dependents() {
@@ -988,7 +1019,7 @@ mod tests {
         schedule.set_executor(MultiThreadedExecutor::new());
         schedule.add_systems(
             (
-                |_: &mut World| {},
+                |_: ExclusiveMarker| {},
                 |mut marker: NonSendMut<NonSendMarker>| {
                     marker.0 = true;
                 },

@@ -1,3 +1,4 @@
+use alloc::borrow::Cow;
 use bevy_utils::prelude::ShortName;
 
 use crate::{
@@ -11,8 +12,7 @@ use crate::{
 /// [`World`]: crate::world::World
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub enum SystemAccess {
-    /// The system does not access the world at all, so it can run in parallel
-    /// with any other system.
+    /// The system does not access the world at all.
     #[default]
     None,
     /// The system requires shared access to the world, which means it can run
@@ -30,7 +30,7 @@ pub enum SystemAccess {
 impl SystemAccess {
     /// Returns true if the system does not access the world at all, so it can run
     /// in parallel with any other system.
-    pub fn is_empty(&self) -> bool {
+    pub fn is_none(&self) -> bool {
         matches!(self, Self::None)
     }
 
@@ -55,7 +55,7 @@ impl SystemAccess {
             (Self::Shared(access), Self::Shared(other_access)) => {
                 access.is_compatible(other_access)
             }
-            _ => false,
+            (Self::Exclusive, _) | (_, Self::Exclusive) => false,
         }
     }
 
@@ -99,21 +99,21 @@ impl SystemAccess {
             (SystemAccess::Shared(access), SystemAccess::Shared(other_access)) => {
                 access.get_conflicts(other_access)
             }
-            _ => AccessConflicts::All,
+            (SystemAccess::Exclusive, _) | (_, SystemAccess::Exclusive) => AccessConflicts::All,
         }
     }
 
     /// Converts the system's current access into a [`FilteredAccessSet`].
-    pub fn to_filtered_access_set(&self) -> FilteredAccessSet {
+    pub fn to_filtered_access_set(&self) -> Cow<'_, FilteredAccessSet> {
         match self {
-            Self::None => FilteredAccessSet::new(),
-            Self::Shared(access) => access.clone(),
+            Self::None => Cow::Owned(FilteredAccessSet::new()),
+            Self::Shared(access) => Cow::Borrowed(access),
             Self::Exclusive => {
                 let mut access_set = FilteredAccessSet::new();
                 let mut access = FilteredAccess::default();
                 access.write_all();
                 access_set.add(access);
-                access_set
+                Cow::Owned(access_set)
             }
         }
     }
@@ -129,6 +129,47 @@ impl SystemAccess {
     ///
     /// If the system already has exclusive access, this method will panic with
     /// an error message indicating the conflict.
+    ///
+    /// # Examples
+    ///
+    /// ## Only metadata access required
+    ///
+    /// If a system parameter requires access to world metadata but not any
+    /// particular components, you may call this function without modifying the
+    /// returned [`FilteredAccessSet`]:
+    ///
+    /// ```rust,no_run
+    /// # use bevy_ecs::system::{SystemAccess, SystemMeta, SystemParam, SystemParamValidationError};
+    /// # use bevy_ecs::world::{unsafe_world_cell::UnsafeWorldCell, World, WorldId};
+    /// # use bevy_ecs::change_detection::Tick;
+    /// pub struct MyWorldId(WorldId);
+    ///
+    /// // SAFETY: World metadata is registered and accessed.
+    /// unsafe impl SystemParam for MyWorldId {
+    ///     type State = ();
+    ///     type Item<'world, 'state> = MyWorldId;
+    ///
+    ///     fn init_state(_: &mut World) -> Self::State {}
+    ///
+    ///     fn init_access(
+    ///         _state: &Self::State,
+    ///         system_meta: &mut SystemMeta,
+    ///         system_access: &mut SystemAccess,
+    ///         _world: &mut World,
+    ///     ) {
+    ///         system_access.require_shared_access::<Self>(system_meta);
+    ///     }
+    ///
+    ///     unsafe fn get_param<'world, 'state>(
+    ///         _: &'state mut Self::State,
+    ///         _: &SystemMeta,
+    ///         world: UnsafeWorldCell<'world>,
+    ///         _: Tick,
+    ///     ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
+    ///         Ok(MyWorldId(world.id()))
+    ///     }
+    /// }
+    /// ```
     pub fn require_shared_access<T>(&mut self, system_meta: &SystemMeta) -> &mut FilteredAccessSet {
         match self {
             this @ Self::None => {
@@ -230,24 +271,21 @@ impl SystemAccess {
 
     /// Merges the provided [`SystemAccess`] into the system's current access.
     pub fn extend(&mut self, other: Self) {
-        match (self, other) {
-            (Self::None, Self::None) | (Self::Exclusive, _) => {
-                // Do nothing: same or maximum access level
+        match (&mut *self, other) {
+            (_, Self::None) | (Self::Exclusive, _) => {
+                // Do nothing: nothing was added, or already at maximum access level
             }
-            (this @ Self::None, Self::Shared(other_access)) => {
+            (Self::None, Self::Shared(other_access)) => {
                 // Upgrade self to Shared with the other access
-                *this = Self::Shared(other_access);
-            }
-            (this @ Self::None | this @ Self::Shared(_), Self::Exclusive) => {
-                // Upgrade self to Exclusive
-                *this = Self::Exclusive;
-            }
-            (Self::Shared(_access), Self::None) => {
-                // Do nothing: self is more permissive
+                *self = Self::Shared(other_access);
             }
             (Self::Shared(access), Self::Shared(other_access)) => {
                 // Merge the other access into self
                 access.extend(other_access);
+            }
+            (_, Self::Exclusive) => {
+                // Upgrade self to Exclusive
+                *self = Self::Exclusive;
             }
         }
     }
@@ -266,7 +304,7 @@ mod tests {
         let mut access = SystemAccess::default();
 
         assert_eq!(access, SystemAccess::None);
-        assert!(access.is_empty());
+        assert!(access.is_none());
         assert_ne!(access, SystemAccess::Shared(FilteredAccessSet::default()));
         assert!(!access.is_shared());
         assert_ne!(access, SystemAccess::Exclusive);
@@ -283,7 +321,7 @@ mod tests {
         let mut access = SystemAccess::Shared(FilteredAccessSet::default());
 
         assert_ne!(access, SystemAccess::None);
-        assert!(!access.is_empty());
+        assert!(!access.is_none());
         assert!(access.is_shared());
         assert_ne!(access, SystemAccess::Exclusive);
         assert!(!access.is_exclusive());
@@ -302,7 +340,7 @@ mod tests {
         let mut access = SystemAccess::Exclusive;
 
         assert_ne!(access, SystemAccess::None);
-        assert!(!access.is_empty());
+        assert!(!access.is_none());
         assert_ne!(access, SystemAccess::Shared(FilteredAccessSet::default()));
         assert!(!access.is_shared());
         assert!(access.is_exclusive());
@@ -418,15 +456,15 @@ mod tests {
         let access_exclusive = SystemAccess::Exclusive;
 
         assert_eq!(
-            access_none.to_filtered_access_set(),
+            access_none.to_filtered_access_set().into_owned(),
             FilteredAccessSet::new()
         );
-        assert_eq!(access_shared.to_filtered_access_set(), {
+        assert_eq!(access_shared.to_filtered_access_set().into_owned(), {
             let mut set = FilteredAccessSet::default();
             set.add_unfiltered_component_read(ComponentId::new(1));
             set
         });
-        assert_eq!(access_exclusive.to_filtered_access_set(), {
+        assert_eq!(access_exclusive.to_filtered_access_set().into_owned(), {
             let mut set = FilteredAccessSet::new();
             let mut access = FilteredAccess::default();
             access.write_all();
