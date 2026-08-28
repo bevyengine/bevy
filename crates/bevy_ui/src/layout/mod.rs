@@ -518,6 +518,7 @@ mod tests {
     use crate::layout_tree::TaffyStyle;
     use crate::update_border_radius;
     use crate::update_computed_nodes;
+    use crate::UiSystems;
     use crate::{
         experimental::UiChildren, layout::layout_tree::ComputedLayout, prelude::*,
         sync_font_size_to_em_size, ui_layout_system, update::propagate_ui_target_cameras,
@@ -1777,7 +1778,9 @@ mod tests {
 
         app.add_systems(
             PostUpdate,
-            (propagate_ui_target_cameras, ApplyDeferred, ui_layout_system).chain(),
+            (propagate_ui_target_cameras, ApplyDeferred)
+                .chain()
+                .before(UiSystems::Layout),
         );
 
         app.add_plugins(HierarchyPropagatePlugin::<ComputedUiTargetCamera>::new(
@@ -1788,7 +1791,7 @@ mod tests {
             PostUpdate,
             PropagateSet::<ComputedUiTargetCamera>::default()
                 .after(propagate_ui_target_cameras)
-                .before(ui_layout_system),
+                .before(UiSystems::Layout),
         );
 
         let world = app.world_mut();
