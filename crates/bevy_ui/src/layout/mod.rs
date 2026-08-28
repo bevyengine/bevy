@@ -483,9 +483,10 @@ pub fn ui_layout_system(
                 })
                 .unwrap_or_default();
 
-            let max_possible_offset =
-                (content_size - layout_size + node.scrollbar_size).max(Vec2::ZERO);
-            let clamped_scroll_position = scroll_position.clamp(Vec2::ZERO, max_possible_offset);
+            let clamped_scroll_position = scroll_position.clamp(
+                Vec2::ZERO,
+                Vec2::new(layout.scroll_width(), layout.scroll_height()),
+            );
 
             let physical_scroll_position = clamped_scroll_position.floor();
 
@@ -1848,6 +1849,41 @@ mod tests {
         let a_bottom = 0.5 * computed_a.size.y + transform_a.affine().translation.y;
         let b_top = -0.5 * computed_b.size.y + transform_b.affine().translation.y;
         assert!((b_top - a_bottom - 40.).abs() <= 1e-5);
+    }
+
+    #[test]
+    fn scrolling_with_borders_should_clamp_with_padding_box() {
+        let mut app = setup_ui_test_app();
+
+        let parent = app
+            .world_mut()
+            .spawn((
+                Node {
+                    width: px(100.),
+                    height: px(100.),
+                    border: px(10.).all(),
+                    overflow: Overflow::scroll_x(),
+                    ..default()
+                },
+                ScrollPosition(Vec2::new(1000., 0.)),
+                children![Node {
+                    min_width: px(200.),
+                    height: px(100.),
+                    ..default()
+                },],
+            ))
+            .id();
+
+        app.update();
+
+        // The 10px borders leave a visible space of 80px, so the 200px child can scroll by max 200px - 80px = 120px.
+        assert_eq!(
+            app.world()
+                .get::<ComputedNode>(parent)
+                .unwrap()
+                .scroll_position,
+            Vec2::new(120., 0.)
+        );
     }
 
     #[cfg(feature = "ghost_nodes")]
