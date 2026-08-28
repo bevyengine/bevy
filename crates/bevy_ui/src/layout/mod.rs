@@ -143,7 +143,16 @@ pub fn ui_layout_system(
     fixed_nodes_query: Query<Entity, (With<FixedNode>, With<ChildOf>)>,
     ui_children: UiChildren,
     target_query: Query<Ref<ComputedUiRenderTargetInfo>>,
-    node_query: Query<(Ref<TaffyStyle>, Ref<ContentSize>, Has<FixedNode>)>,
+    node_query: Query<(
+        Ref<TaffyStyle>,
+        Ref<ContentSize>,
+        Has<FixedNode>,
+        Ref<UiTransform>,
+        Ref<ScrollPosition>,
+        Option<Ref<Outline>>,
+        Option<Ref<LayoutConfig>>,
+        Option<Ref<IgnoreScroll>>,
+    )>,
     style_query: Query<&TaffyStyle>,
     mut node_queries: ParamSet<(
         Query<&mut ComputedLayout>,
@@ -151,14 +160,6 @@ pub fn ui_layout_system(
             &mut ComputedNode,
             &mut UiGlobalTransform,
             &mut ComputedLayout,
-        )>,
-        Query<(
-            &mut ComputedLayout,
-            Ref<UiTransform>,
-            Ref<ScrollPosition>,
-            Option<Ref<Outline>>,
-            Option<Ref<LayoutConfig>>,
-            Option<Ref<IgnoreScroll>>,
         )>,
     )>,
     mut buffer_query: Query<&mut ComputedTextBlock>,
@@ -173,6 +174,7 @@ pub fn ui_layout_system(
         .chain(removed_fixed_nodes.read())
         .collect::<Vec<_>>();
 
+    let mut computed_layout_query = node_queries.p0();
     for ui_root_entity in ui_root_node_query.iter().chain(fixed_nodes_query.iter()) {
         let Ok(target) = target_query.get(ui_root_entity) else {
             continue;
@@ -184,7 +186,7 @@ pub fn ui_layout_system(
             &ui_children,
             &node_query,
             &style_query,
-            &mut node_queries,
+            &mut computed_layout_query,
             &fixed_node_changes,
             &mut buffer_query,
             &mut font_system,
@@ -1000,24 +1002,18 @@ mod tests {
         fn test_system(
             In(root_node_entity): In<Entity>,
             ui_children: UiChildren,
-            node_query: Query<(Ref<TaffyStyle>, Ref<ContentSize>, Has<FixedNode>)>,
-            style_query: Query<&TaffyStyle>,
-            mut node_queries: ParamSet<(
-                Query<&mut ComputedLayout>,
-                Query<(
-                    &mut ComputedNode,
-                    &mut UiGlobalTransform,
-                    &mut ComputedLayout,
-                )>,
-                Query<(
-                    &mut ComputedLayout,
-                    Ref<UiTransform>,
-                    Ref<ScrollPosition>,
-                    Option<Ref<Outline>>,
-                    Option<Ref<LayoutConfig>>,
-                    Option<Ref<IgnoreScroll>>,
-                )>,
+            node_query: Query<(
+                Ref<TaffyStyle>,
+                Ref<ContentSize>,
+                Has<FixedNode>,
+                Ref<UiTransform>,
+                Ref<ScrollPosition>,
+                Option<Ref<Outline>>,
+                Option<Ref<LayoutConfig>>,
+                Option<Ref<IgnoreScroll>>,
             )>,
+            style_query: Query<&TaffyStyle>,
+            mut node_queries: ParamSet<(Query<&mut ComputedLayout>,)>,
             mut buffer_query: Query<&mut bevy_text::ComputedTextBlock>,
             mut font_system: ResMut<bevy_text::FontCx>,
             rem_size: Res<RemSize>,
@@ -1029,7 +1025,7 @@ mod tests {
                 &ui_children,
                 &node_query,
                 &style_query,
-                &mut node_queries,
+                &mut node_queries.p0(),
                 &[],
                 &mut buffer_query,
                 &mut font_system,
