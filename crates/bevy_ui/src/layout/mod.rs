@@ -1981,7 +1981,7 @@ mod tests {
     }
 
     #[test]
-    fn block_layouts_align_content() {
+    fn block_layouts_respect_align_content() {
         let mut app = setup_ui_test_app();
         let world = app.world_mut();
         let child = world
@@ -2003,13 +2003,9 @@ mod tests {
 
         assert_eq!(
             app.world()
-                .get::<ComputedLayout>(child)
-                .and_then(|layout| layout.get_layout(true))
-                .unwrap()
-                .0
-                .location
-                .y,
-            80.
+                .get::<UiGlobalTransform>(child)
+                .map(|transform| transform.translation.y),
+            Some(90.)
         );
     }
 
@@ -2108,6 +2104,28 @@ mod tests {
                 bottom_left: Vec2::new(100., 50.),
                 bottom_right: Vec2::splat(10.)
             }
+        );
+
+        let world = app.world_mut();
+        let mut camera_query = world.query::<&mut Camera>();
+        camera_query
+            .single_mut(world)
+            .unwrap()
+            .viewport
+            .as_mut()
+            .unwrap()
+            .physical_size
+            .y = TARGET_HEIGHT / 2;
+
+        app.update();
+
+        assert_eq!(
+            app.world()
+                .get::<ComputedNode>(entity)
+                .unwrap()
+                .border_radius
+                .top_left,
+            Vec2::splat(15.)
         );
     }
 
