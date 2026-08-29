@@ -15,6 +15,12 @@ macro_rules! wgpu_wrapper {
                 pub fn new(t: $wgputy) -> Self {
                     Self(t)
                 }
+
+                #[allow(clippy::allow_attributes, unused, reason = "This is not used on all wrappers.")]
+                /// Unwraps the value.
+                pub fn into_inner(self) -> $wgputy {
+                    self.0
+                }
             }
 
             impl ::core::ops::Deref for $name {
@@ -28,12 +34,6 @@ macro_rules! wgpu_wrapper {
             impl ::core::ops::DerefMut for $name {
                 fn deref_mut(&mut self) -> &mut Self::Target {
                     &mut self.0
-                }
-            }
-
-            impl From<$name> for $wgputy {
-                fn from(t: $name) -> Self {
-                    t.0
                 }
             }
 
@@ -69,6 +69,10 @@ macro_rules! wgpu_wrapper {
                 /// Constructs a new instance of `WgpuWrapper` which will wrap the specified value.
                 pub fn new(t: $wgputy) -> Self {
                     Self(send_wrapper::SendWrapper::new(t))
+                }
+
+                pub fn into_inner(self) -> $wgputy {
+                    self.0
                 }
             }
 
