@@ -1849,6 +1849,239 @@ mod tests {
         let b_top = -0.5 * computed_b.size.y + transform_b.affine().translation.y;
         assert!((b_top - a_bottom - 40.).abs() <= 1e-5);
     }
+    
+    #[test]
+    fn move_child_by_parent_scroll_postion() {
+        let mut app = setup_ui_test_app();
+
+        let parent = app
+            .world_mut()
+            .spawn((Node {
+                width: px(100),
+                height: px(100),
+                overflow: Overflow::scroll(),
+                ..default()
+            },))
+            .id();
+
+        let child = app
+            .world_mut()
+            .spawn((
+                Node {
+                    min_width: px(200.),
+                    min_height: px(200.),
+                    ..default()
+                },
+                ChildOf(parent),
+            ))
+            .id();
+
+        app.update();
+
+        app.world_mut().get_mut::<ScrollPosition>(parent).unwrap().0 = Vec2::new(50., 100.);
+
+        app.update();
+
+        assert_eq!(
+            Vec2::new(50., 0.),
+            app.world()
+                .get::<UiGlobalTransform>(child)
+                .unwrap()
+                .translation
+        );
+    }
+
+    #[test]
+    fn move_node_with_uitransform() {
+        let mut app = setup_ui_test_app();
+
+        let parent = app
+            .world_mut()
+            .spawn((Node {
+                width: px(100),
+                height: px(100),
+                ..default()
+            },))
+            .id();
+
+        let child = app
+            .world_mut()
+            .spawn((
+                Node {
+                    width: px(100),
+                    height: px(100),
+                    ..default()
+                },
+                ChildOf(parent),
+            ))
+            .id();
+
+        let grand_child = app
+            .world_mut()
+            .spawn((
+                Node {
+                    width: px(100),
+                    height: px(100.),
+                    ..default()
+                },
+                ChildOf(child),
+            ))
+            .id();
+
+        app.update();
+
+        app.world_mut()
+            .get_mut::<UiTransform>(parent)
+            .unwrap()
+            .translation = Val2::px(60., 40.);
+
+        app.update();
+
+        assert_eq!(
+            Vec2::new(110., 90.),
+            app.world()
+                .get::<UiGlobalTransform>(grand_child)
+                .unwrap()
+                .translation
+        );
+
+        app.world_mut()
+            .get_mut::<UiTransform>(grand_child)
+            .unwrap()
+            .translation = Val2::px(20., 30.);
+
+        app.update();
+
+        assert_eq!(
+            Vec2::new(130., 120.),
+            app.world()
+                .get::<UiGlobalTransform>(grand_child)
+                .unwrap()
+                .translation
+        );
+    }
+
+    #[test]
+    fn fixed_node_doesnt_propagate_parents_uitransform() {
+        let mut app = setup_ui_test_app();
+
+        let parent = app
+            .world_mut()
+            .spawn((
+                Node {
+                    width: px(100),
+                    height: px(100),
+                    ..default()
+                },
+                UiTransform::from_translation(px(50.).into()),
+            ))
+            .id();
+
+        let child = app
+            .world_mut()
+            .spawn((
+                Node {
+                    min_width: px(100),
+                    min_height: px(100),
+                    ..default()
+                },
+                ChildOf(parent),
+            ))
+            .id();
+
+        let grand_child = app
+            .world_mut()
+            .spawn((
+                Node {
+                    width: px(100),
+                    height: px(100.),
+                    ..default()
+                },
+                ChildOf(child),
+            ))
+            .id();
+
+        app.update();
+
+        assert_eq!(
+            Vec2::new(100., 100.),
+            app.world()
+                .get::<UiGlobalTransform>(child)
+                .unwrap()
+                .translation
+        );
+
+        assert_eq!(
+            Vec2::new(100., 100.),
+            app.world()
+                .get::<UiGlobalTransform>(grand_child)
+                .unwrap()
+                .translation
+        );
+
+        app.world_mut().entity_mut(child).insert(FixedNode);
+
+        app.update();
+
+        assert_eq!(
+            Vec2::new(50., 50.),
+            app.world()
+                .get::<UiGlobalTransform>(child)
+                .unwrap()
+                .translation
+        );
+
+        assert_eq!(
+            Vec2::new(50., 50.),
+            app.world()
+                .get::<UiGlobalTransform>(grand_child)
+                .unwrap()
+                .translation
+        );
+
+        app.world_mut()
+            .get_mut::<UiTransform>(parent)
+            .unwrap()
+            .translation = Val2::px(10., 10.);
+
+        app.update();
+
+        assert_eq!(
+            Vec2::new(50., 50.),
+            app.world()
+                .get::<UiGlobalTransform>(child)
+                .unwrap()
+                .translation
+        );
+
+        assert_eq!(
+            Vec2::new(50., 50.),
+            app.world()
+                .get::<UiGlobalTransform>(grand_child)
+                .unwrap()
+                .translation
+        );
+
+        app.world_mut().entity_mut(child).remove::<FixedNode>();
+
+        app.update();
+
+        assert_eq!(
+            Vec2::new(60., 60.),
+            app.world()
+                .get::<UiGlobalTransform>(child)
+                .unwrap()
+                .translation
+        );
+
+        assert_eq!(
+            Vec2::new(60., 60.),
+            app.world()
+                .get::<UiGlobalTransform>(grand_child)
+                .unwrap()
+                .translation
+        );
+    }
 
     #[cfg(feature = "ghost_nodes")]
     mod ghost_node_tests {
