@@ -971,14 +971,14 @@ pub mod tests {
                     apply_deferred: false,
                     exclusive: false,
                     deferred: true,
-                    filtered_accesses: vec![]
+                    filtered_accesses: vec![],
                 },
                 SystemData {
                     name: "a1".into(),
                     apply_deferred: false,
                     exclusive: false,
                     deferred: true,
-                    filtered_accesses: vec![]
+                    filtered_accesses: vec![],
                 },
                 SystemData {
                     name: "apply_deferred".into(),
@@ -1003,7 +1003,7 @@ pub mod tests {
                 simple_system("b1"),
                 simple_system("c0"),
                 simple_system("c1"),
-            ],
+            ]
         );
         assert_eq!(
             update.system_sets,
