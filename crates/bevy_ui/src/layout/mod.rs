@@ -2405,8 +2405,22 @@ mod tests {
                 .unwrap()
                 .translation
         );
-    }
 
+        app.world_mut()
+            .get_mut::<UiTransform>(grand_child)
+            .unwrap()
+            .translation = Val2::px(20., 30.);
+
+        app.update();
+
+        assert_eq!(
+            Vec2::new(130., 120.),
+            app.world()
+                .get::<UiGlobalTransform>(grand_child)
+                .unwrap()
+                .translation
+        );
+    }
     #[cfg(feature = "ghost_nodes")]
     mod ghost_node_tests {
         use super::*;
