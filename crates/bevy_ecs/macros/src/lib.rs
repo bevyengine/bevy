@@ -211,7 +211,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     no_bundle_effect_where_clause
         .predicates
         .extend(active_field_types.iter().map(|t| -> syn::WherePredicate {
-            parse_quote! { for<'a> <#t as #ecs_path::bundle::DynamicBundle>::Effect: #ecs_path::bundle::NoBundleEffect }
+            parse_quote! { for<'__a> <#t as #ecs_path::bundle::DynamicBundle>::Effect: #ecs_path::bundle::NoBundleEffect }
         }));
     let no_bundle_effect_impl = quote! {
         impl #impl_generics #ecs_path::bundle::NoBundleEffect for #struct_name #ty_generics #no_bundle_effect_where_clause {}
