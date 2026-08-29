@@ -531,7 +531,7 @@
 //! bsn! {
 //!     #Foo
 //!     template(|ctx| {
-//!         Foo(ctx.resource::<MyAssetCollection>().get("generated_asset_name"))
+//!         Ok(GameMap(ctx.resource::<MyAssetCollection>().get("generated_asset_name")?))
 //!     })
 //! }
 //! ```
