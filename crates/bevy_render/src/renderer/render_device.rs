@@ -230,9 +230,9 @@ impl RenderDevice {
         order: wgpu::util::TextureDataOrder,
         data: &[u8],
     ) -> Texture {
-        let wgpu_texture =
-            self.device
-                .create_texture_with_data(render_queue.as_ref(), desc, order, data);
+        let wgpu_texture = self
+            .device
+            .create_texture_with_data(render_queue, desc, order, data);
         Texture::from(wgpu_texture)
     }
 

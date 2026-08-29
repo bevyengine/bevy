@@ -16,9 +16,7 @@ use crate::{
     sync_world::MainEntity,
     view::{screenshot::SubmitScreenshotCommandsState, ExtractedWindow, ViewTarget},
 };
-use alloc::sync::Arc;
 use bevy_camera::NormalizedRenderTarget;
-use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::schedule::ScheduleLabel;
 use bevy_ecs::{prelude::*, system::SystemState};
 #[cfg(feature = "trace")]
@@ -140,33 +138,23 @@ pub fn render_system(
 }
 
 wgpu_wrapper! {
-    pub struct WgpuQueue(Queue);
+    /// This queue is used to enqueue tasks for the GPU to execute asynchronously.
+    #[derive(Resource, Clone)]
+    pub struct RenderQueue(Queue);
 
-    #[derive(Debug)]
-    pub struct WgpuAdapter(Adapter);
+    /// The handle to the physical device being used for rendering.
+    /// See [`Adapter`] for more info.
+    #[derive(Resource, Clone, Debug)]
+    pub struct RenderAdapter(Adapter);
 
-    pub struct WgpuInstance(Instance);
+    /// The GPU instance is used to initialize the [`RenderQueue`] and [`RenderDevice`].
+    #[derive(Resource, Clone)]
+    pub struct RenderInstance(Instance);
 
-    #[derive(Clone)]
-    pub struct WgpuAdapterInfo(AdapterInfo);
+    /// The [`AdapterInfo`] of the adapter in use by the renderer.
+    #[derive(Resource, Clone)]
+    pub struct RenderAdapterInfo(AdapterInfo);
 }
-
-/// This queue is used to enqueue tasks for the GPU to execute asynchronously.
-#[derive(Resource, Clone, Deref, DerefMut)]
-pub struct RenderQueue(pub Arc<WgpuQueue>);
-
-/// The handle to the physical device being used for rendering.
-/// See [`Adapter`] for more info.
-#[derive(Resource, Clone, Debug, Deref, DerefMut)]
-pub struct RenderAdapter(pub Arc<WgpuAdapter>);
-
-/// The GPU instance is used to initialize the [`RenderQueue`] and [`RenderDevice`],
-#[derive(Resource, Clone, Deref, DerefMut)]
-pub struct RenderInstance(pub Arc<WgpuInstance>);
-
-/// The [`AdapterInfo`] of the adapter in use by the renderer.
-#[derive(Resource, Clone, Deref, DerefMut)]
-pub struct RenderAdapterInfo(pub WgpuAdapterInfo);
 
 const GPU_NOT_FOUND_ERROR_MESSAGE: &str = if cfg!(target_os = "linux") {
     "Unable to find a GPU! Make sure you have installed required drivers! For extra information, see: https://github.com/bevyengine/bevy/blob/latest/docs/linux_dependencies.md"
@@ -390,10 +378,10 @@ pub async fn initialize_renderer(
 
     RenderResources(
         RenderDevice::from(device),
-        RenderQueue(Arc::new(WgpuQueue::new(queue))),
-        RenderAdapterInfo(WgpuAdapterInfo::new(adapter_info)),
-        RenderAdapter(Arc::new(WgpuAdapter::new(adapter))),
-        RenderInstance(Arc::new(WgpuInstance::new(instance))),
+        RenderQueue::new(queue),
+        RenderAdapterInfo::new(adapter_info),
+        RenderAdapter::new(adapter),
+        RenderInstance::new(instance),
         #[cfg(feature = "raw_vulkan_init")]
         additional_vulkan_features,
     )
