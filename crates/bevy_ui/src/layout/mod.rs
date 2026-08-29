@@ -2423,7 +2423,7 @@ mod tests {
     }
 
     #[test]
-    fn fixed_node_doesnt_propagate_uitransform() {
+    fn fixed_node_doesnt_propagate_parents_uitransform() {
         let mut app = setup_ui_test_app();
 
         let parent = app
@@ -2500,12 +2500,15 @@ mod tests {
                 .translation
         );
 
-        app.world_mut().entity_mut(child).remove::<FixedNode>();
+        app.world_mut()
+            .get_mut::<UiTransform>(parent)
+            .unwrap()
+            .translation = Val2::px(10., 10.);
 
         app.update();
 
         assert_eq!(
-            Vec2::new(100., 100.),
+            Vec2::new(50., 50.),
             app.world()
                 .get::<UiGlobalTransform>(child)
                 .unwrap()
@@ -2513,7 +2516,27 @@ mod tests {
         );
 
         assert_eq!(
-            Vec2::new(100., 100.),
+            Vec2::new(50., 50.),
+            app.world()
+                .get::<UiGlobalTransform>(grand_child)
+                .unwrap()
+                .translation
+        );
+
+        app.world_mut().entity_mut(child).remove::<FixedNode>();
+
+        app.update();
+
+        assert_eq!(
+            Vec2::new(60., 60.),
+            app.world()
+                .get::<UiGlobalTransform>(child)
+                .unwrap()
+                .translation
+        );
+
+        assert_eq!(
+            Vec2::new(60., 60.),
             app.world()
                 .get::<UiGlobalTransform>(grand_child)
                 .unwrap()
