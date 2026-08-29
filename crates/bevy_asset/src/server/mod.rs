@@ -382,22 +382,11 @@ impl AssetServer {
         override_unapproved: bool,
     ) -> UntypedHandle {
         let path = path.into().into_owned();
-        if path.path() == Path::new("") {
-            error!("Attempted to load an asset with an empty path \"{path}\"!");
+        if let Err(err) = validate_path(&path, override_unapproved, self.data.unapproved_path_mode)
+        {
+            // Log whatever we get, and then return a default handle.
+            error!("{err}");
             return UntypedHandle::default_for_type(type_id);
-        }
-
-        if path.is_unapproved() {
-            match (&self.data.unapproved_path_mode, override_unapproved) {
-                (UnapprovedPathMode::Allow, _) | (UnapprovedPathMode::Deny, true) => {}
-                (UnapprovedPathMode::Deny, false) | (UnapprovedPathMode::Forbid, _) => {
-                    error!("Asset path {path} is unapproved. See UnapprovedPathMode for details.");
-                    return UntypedHandle::Uuid {
-                        type_id,
-                        uuid: AssetId::<()>::DEFAULT_UUID,
-                    };
-                }
-            }
         }
 
         let mut infos = self.write_infos();
@@ -425,9 +414,13 @@ impl AssetServer {
     ) {
         infos.stats.started_load_tasks += 1;
 
-        // drop the lock on `AssetInfos` before spawning a task that may block on it in single-threaded
-        #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
-        drop(infos);
+        bevy_tasks::cfg::multi_threaded! {
+            if {} else {
+                // drop the lock on `AssetInfos` before spawning a task that may block on it in
+                // single-threaded
+                drop(infos);
+            }
+        }
 
         let owned_handle = handle.clone();
         let server = self.clone();
@@ -441,16 +434,17 @@ impl AssetServer {
             drop(guard);
         });
 
-        #[cfg(not(any(target_arch = "wasm32", not(feature = "multi_threaded"))))]
-        {
-            let mut infos = infos;
-            infos
-                .pending_tasks
-                .insert((&handle).try_into().unwrap(), task);
-        }
-
-        #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
-        task.detach();
+        let mut infos = bevy_tasks::cfg::multi_threaded! {
+            if {
+                infos
+            } else {
+                // Pick the lock back up after the task got to run.
+                self.write_infos()
+            }
+        };
+        infos
+            .pending_tasks
+            .insert((&handle).try_into().unwrap(), task);
     }
 
     pub(crate) fn load_unknown_type_with_meta_transform<'a, G: Send + Sync + 'static>(
@@ -461,19 +455,11 @@ impl AssetServer {
         override_unapproved: bool,
     ) -> Handle<LoadedUntypedAsset> {
         let path = path.into().into_owned();
-        if path.path() == Path::new("") {
-            error!("Attempted to load an asset with an empty path \"{path}\"!");
+        if let Err(err) = validate_path(&path, override_unapproved, self.data.unapproved_path_mode)
+        {
+            // Log whatever we get, and then return a default handle.
+            error!("{err}");
             return Handle::default();
-        }
-
-        if path.is_unapproved() {
-            match (&self.data.unapproved_path_mode, override_unapproved) {
-                (UnapprovedPathMode::Allow, _) | (UnapprovedPathMode::Deny, true) => {}
-                (UnapprovedPathMode::Deny, false) | (UnapprovedPathMode::Forbid, _) => {
-                    error!("Asset path {path} is unapproved. See UnapprovedPathMode for details.");
-                    return Handle::default();
-                }
-            }
         }
 
         let untyped_source = AssetSourceId::Name(match path.source() {
@@ -496,9 +482,13 @@ impl AssetServer {
 
         infos.stats.started_load_tasks += 1;
 
-        // drop the lock on `AssetInfos` before spawning a task that may block on it in single-threaded
-        #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
-        drop(infos);
+        bevy_tasks::cfg::multi_threaded! {
+            if {} else {
+                // drop the lock on `AssetInfos` before spawning a task that may block on it in
+                // single-threaded
+                drop(infos);
+            }
+        }
 
         let server = self.clone();
         let task = IoTaskPool::get().spawn(async move {
@@ -526,11 +516,15 @@ impl AssetServer {
             drop(guard);
         });
 
-        #[cfg(not(any(target_arch = "wasm32", not(feature = "multi_threaded"))))]
+        let mut infos = bevy_tasks::cfg::multi_threaded! {
+            if {
+                infos
+            } else {
+                // Pick the lock back up after the task got to run.
+                self.write_infos()
+            }
+        };
         infos.pending_tasks.insert(index, task);
-
-        #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
-        task.detach();
 
         handle
     }
@@ -569,7 +563,15 @@ impl AssetServer {
                 }
             })?;
 
+        // Either the caller put the meta_transform in the input_handle (so they had to pass None
+        // for the meta_transform), or they couldn't create the input_handle and had to pass in the
+        // meta_transform directly. Assert that at most one is Some. If this is wrong, we likely
+        // need to rethink the logic here.
+        assert!(input_handle.is_none() || meta_transform.is_none());
         if let Some(meta_transform) = input_handle.as_ref().and_then(|h| h.meta_transform()) {
+            (*meta_transform)(&mut *meta);
+        }
+        if let Some(meta_transform) = meta_transform.as_ref() {
             (*meta_transform)(&mut *meta);
         }
 
@@ -869,9 +871,13 @@ impl AssetServer {
         let mut infos = self.write_infos();
         let handle = infos.create_loading_handle_untyped(TypeId::of::<A>(), type_name::<A>());
 
-        // drop the lock on `AssetInfos` before spawning a task that may block on it in single-threaded
-        #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
-        drop(infos);
+        bevy_tasks::cfg::multi_threaded! {
+            if {} else {
+                // drop the lock on `AssetInfos` before spawning a task that may block on it in
+                // single-threaded
+                drop(infos);
+            }
+        }
 
         // `create_loading_handle_untyped` always returns a Strong variant, so this is safe.
         let index = (&handle).try_into().unwrap();
@@ -905,11 +911,15 @@ impl AssetServer {
             }
         });
 
-        #[cfg(not(any(target_arch = "wasm32", not(feature = "multi_threaded"))))]
+        let mut infos = bevy_tasks::cfg::multi_threaded! {
+            if {
+                infos
+            } else {
+                // Pick the lock back up after the task got to run.
+                self.write_infos()
+            }
+        };
         infos.pending_tasks.insert(index, task);
-
-        #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
-        task.detach();
 
         handle.typed_debug_checked()
     }
@@ -1832,14 +1842,16 @@ impl<'a> LoadBuilder<'a> {
         asset_path: impl Into<AssetPath<'b>>,
     ) -> Result<UntypedHandle, AssetLoadError> {
         let path: AssetPath = asset_path.into();
-        if path.path() == Path::new("") {
-            return Err(AssetLoadError::EmptyPath(path.into_owned()));
-        }
+        validate_path(
+            &path,
+            self.override_unapproved,
+            self.asset_server.data.unapproved_path_mode,
+        )?;
 
         self.asset_server.write_infos().stats.started_load_tasks += 1;
 
         self.asset_server
-            .load_internal(None, path, false, None)
+            .load_internal(None, path, false, self.meta_transform)
             .await
             .map(|h| h.expect("handle must be returned, since we didn't pass in an input handle"))
     }
@@ -2006,10 +2018,13 @@ pub fn handle_internal_asset_events(world: &mut World) {
             }
         }
 
-        // Drop the lock on `AssetInfos` before spawning a task that may block on it in
-        // single-threaded.
-        #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
-        drop(infos);
+        bevy_tasks::cfg::multi_threaded! {
+            if {} else {
+                // drop the lock on `AssetInfos` before spawning a task that may block on it in
+                // single-threaded
+                drop(infos);
+            }
+        }
 
         for (handle, path) in folders_to_reload {
             // `get_path_handles` only returns Strong variants, so this is safe.
@@ -2020,7 +2035,14 @@ pub fn handle_internal_asset_events(world: &mut World) {
             server.reload_internal(path, true);
         }
 
-        #[cfg(not(any(target_arch = "wasm32", not(feature = "multi_threaded"))))]
+        let mut infos = bevy_tasks::cfg::multi_threaded! {
+            if {
+                infos
+            } else {
+                // Pick the lock back up after the task got to run.
+                server.write_infos()
+            }
+        };
         infos
             .pending_tasks
             .retain(|_, load_task| !load_task.is_finished());
@@ -2036,6 +2058,28 @@ pub fn publish_asset_server_diagnostics(
     diagnostics.add_measurement(&AssetServer::STARTED_LOAD_COUNT, || {
         infos.stats.started_load_tasks as _
     });
+}
+
+/// Validates that the path is allowed to be loaded based on the provided flags.
+fn validate_path(
+    path: &AssetPath<'_>,
+    override_unapproved: bool,
+    unapproved_path_mode: UnapprovedPathMode,
+) -> Result<(), AssetLoadError> {
+    if path.path() == Path::new("") {
+        return Err(AssetLoadError::EmptyPath(path.clone_owned()));
+    }
+
+    if path.is_unapproved() {
+        match (unapproved_path_mode, override_unapproved) {
+            (UnapprovedPathMode::Allow, _) | (UnapprovedPathMode::Deny, true) => {}
+            (UnapprovedPathMode::Deny, false) | (UnapprovedPathMode::Forbid, _) => {
+                return Err(AssetLoadError::UnapprovedPath(path.clone_owned()));
+            }
+        }
+    }
+
+    Ok(())
 }
 
 /// Internal events for asset load results
@@ -2181,8 +2225,10 @@ pub struct RequestedHandleTypeMismatchError {
     reason = "Adding docs to the variants would not add information beyond the error message and the names"
 )]
 pub enum AssetLoadError {
-    #[error("Attempted to load an asset with an empty path \"{0}\"")]
+    #[error("Attempted to load an asset with an empty path \"{0}\".")]
     EmptyPath(AssetPath<'static>),
+    #[error("Asset path \"{0}\" is unapproved. See UnapprovedPathMode for details.")]
+    UnapprovedPath(AssetPath<'static>),
     #[error(transparent)]
     RequestedHandleTypeMismatch(#[from] Box<RequestedHandleTypeMismatchError>),
     #[error("Could not find an asset loader matching: Asset Type: {asset_type_id:?}; Path: {asset_path:?};")]

@@ -246,7 +246,7 @@ impl PanOrbitCamera {
             CurrentMotion::UserControlled {
                 ref mut motion_inputs,
                 ..
-            } => InputQueue(motion_inputs.zoom_inputs_mut().0.drain(..).collect()),
+            } => InputQueue(core::mem::take(&mut motion_inputs.zoom_inputs_mut().0)),
         };
         self.current_motion = CurrentMotion::UserControlled {
             anchor,
@@ -321,7 +321,7 @@ impl PanOrbitCamera {
             Query<&mut Transform, With<PanOrbitCamera>>,
         )>,
         mut event: MessageWriter<RequestRedraw>,
-        time: Res<Time>,
+        time: Res<Time<Real>>,
     ) {
         camera_set
             .p0()

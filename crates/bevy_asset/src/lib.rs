@@ -273,7 +273,7 @@ pub struct AssetPlugin {
 /// The default value is [`Forbid`](UnapprovedPathMode::Forbid).
 ///
 /// See [`AssetPath::is_unapproved`](crate::AssetPath::is_unapproved)
-#[derive(Clone, Default)]
+#[derive(Clone, Copy, Default)]
 pub enum UnapprovedPathMode {
     /// Unapproved asset loading is allowed. This is strongly discouraged.
     Allow,
@@ -377,7 +377,7 @@ impl Plugin for AssetPlugin {
                         AssetServerMode::Unprocessed,
                         self.meta_check.clone(),
                         watch,
-                        self.unapproved_path_mode.clone(),
+                        self.unapproved_path_mode,
                     ));
                 }
                 AssetMode::Processed => {
@@ -394,7 +394,7 @@ impl Plugin for AssetPlugin {
                             AssetServerMode::Processed,
                             AssetMetaCheck::Always,
                             watch,
-                            self.unapproved_path_mode.clone(),
+                            self.unapproved_path_mode,
                         ))
                         .insert_resource(processor)
                         .add_systems(bevy_app::Startup, AssetProcessor::start);
@@ -406,7 +406,7 @@ impl Plugin for AssetPlugin {
                             AssetServerMode::Processed,
                             AssetMetaCheck::Always,
                             watch,
-                            self.unapproved_path_mode.clone(),
+                            self.unapproved_path_mode,
                         ));
                     }
                 }
@@ -763,8 +763,9 @@ mod tests {
         sync::Mutex,
     };
     use bevy_reflect::{Reflect, TypePath};
-    use bevy_tasks::block_on;
-    use core::{any::TypeId, time::Duration};
+    use bevy_tasks::{block_on, futures::check_ready, AsyncComputeTaskPool};
+    use core::{any::TypeId, assert_matches, time::Duration};
+    use crossbeam_channel::TryRecvError;
     use futures_lite::AsyncReadExt;
     use ron::ser::PrettyConfig;
     use serde::{Deserialize, Serialize};
@@ -2320,6 +2321,61 @@ mod tests {
     }
 
     #[test]
+    fn unapproved_path_deny_async_untyped_loads() {
+        let mut app = unapproved_path_setup(UnapprovedPathMode::Forbid);
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let mut task = AsyncComputeTaskPool::get().spawn(async move {
+            asset_server
+                .load_builder()
+                .load_untyped_async("../a.cool.ron")
+                .await
+        });
+
+        run_app_until(&mut app, |_| task.is_finished().then_some(()));
+        assert_matches!(
+            check_ready(&mut task).unwrap(),
+            Err(AssetLoadError::UnapprovedPath(path)) if path == AssetPath::from("../a.cool.ron")
+        );
+    }
+
+    #[test]
+    fn load_untyped_async_loads_with_settings() {
+        let (mut app, dir) = create_app();
+
+        app.init_asset::<U8Asset>().register_asset_loader(U8Loader);
+
+        dir.insert_asset_text(Path::new("abc.u8"), "");
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let mut task = AsyncComputeTaskPool::get().spawn(async move {
+            asset_server
+                .load_builder()
+                .with_settings(|settings: &mut U8LoaderSettings| {
+                    settings.0 = 123;
+                })
+                .load_untyped_async("abc.u8")
+                .await
+        });
+
+        run_app_until(&mut app, |_| task.is_finished().then_some(()));
+        let handle = check_ready(&mut task).unwrap().unwrap();
+        // Update once more, just to make sure there's no race condition between the task finishing
+        // and the load event being processed by the app.
+        app.update();
+
+        let handle = handle.try_typed::<U8Asset>().unwrap();
+        assert_eq!(
+            app.world()
+                .resource::<Assets<U8Asset>>()
+                .get(&handle)
+                .unwrap()
+                .0,
+            123
+        );
+    }
+
+    #[test]
     fn insert_dropped_handle_returns_error() {
         let mut app = create_app().0;
 
@@ -2357,6 +2413,9 @@ mod tests {
     struct GatedLoader {
         in_loader_sender: Sender<()>,
         gate_receiver: Receiver<()>,
+        /// An extra sender for indicating whether the task continued after the gate was opened or
+        /// not.
+        finished_sender: Option<crossbeam_channel::Sender<u32>>,
     }
 
     impl AssetLoader for GatedLoader {
@@ -2370,8 +2429,24 @@ mod tests {
             _settings: &Self::Settings,
             _load_context: &mut LoadContext<'_>,
         ) -> Result<Self::Asset, Self::Error> {
+            struct SendOnDrop {
+                sender: crossbeam_channel::Sender<u32>,
+            }
+            impl Drop for SendOnDrop {
+                fn drop(&mut self) {
+                    let _ = self.sender.send(999);
+                }
+            }
+            let _on_drop = self
+                .finished_sender
+                .clone()
+                .map(|sender| SendOnDrop { sender });
+
             self.in_loader_sender.send_blocking(()).unwrap();
             let _ = self.gate_receiver.recv().await;
+            if let Some(finished_sender) = self.finished_sender.as_ref() {
+                finished_sender.send(1).unwrap();
+            }
             Ok(TestAsset)
         }
 
@@ -2386,11 +2461,13 @@ mod tests {
 
         let (in_loader_sender, in_loader_receiver) = async_channel::bounded(1);
         let (gate_sender, gate_receiver) = async_channel::bounded(1);
+        let (finished_sender, finished_receiver) = crossbeam_channel::bounded(1);
 
         app.init_asset::<TestAsset>()
             .register_asset_loader(GatedLoader {
                 in_loader_sender,
                 gate_receiver,
+                finished_sender: Some(finished_sender),
             });
 
         let path = Path::new("abc.ron");
@@ -2414,17 +2491,24 @@ mod tests {
 
         // Unblock the loader and then update a few times, showing that the asset never loads.
         gate_sender.send_blocking(()).unwrap();
-        for _ in 0..10 {
-            app.update();
-            for message in app
-                .world()
-                .resource::<Messages<AssetEvent<TestAsset>>>()
-                .iter_current_update_messages()
-            {
-                match message {
-                    AssetEvent::Unused { .. } => {}
-                    message => panic!("No asset events are allowed: {message:?}"),
-                }
+        let mut messages = vec![];
+        run_app_until(&mut app, |world| {
+            messages.extend(
+                world
+                    .resource::<Messages<AssetEvent<TestAsset>>>()
+                    .iter_current_update_messages(),
+            );
+            match finished_receiver.try_recv() {
+                Ok(999) => Some(()),
+                Ok(x) => panic!("only expected drop message, but got {x}"),
+                Err(TryRecvError::Empty) => None,
+                Err(TryRecvError::Disconnected) => panic!("cannot be disconnected"),
+            }
+        });
+        for message in messages {
+            match message {
+                AssetEvent::Unused { .. } => {}
+                message => panic!("No asset events are allowed: {message:?}"),
             }
         }
     }
@@ -2435,11 +2519,13 @@ mod tests {
 
         let (in_loader_sender, in_loader_receiver) = async_channel::bounded(1);
         let (gate_sender, gate_receiver) = async_channel::bounded(1);
+        let (finished_sender, finished_receiver) = crossbeam_channel::bounded(1);
 
         app.init_asset::<TestAsset>()
             .register_asset_loader(GatedLoader {
                 in_loader_sender,
                 gate_receiver,
+                finished_sender: Some(finished_sender),
             });
 
         let path = Path::new("abc.ron");
@@ -2465,17 +2551,24 @@ mod tests {
 
         // Unblock the loader and then update a few times, showing that the asset never loads.
         gate_sender.send_blocking(()).unwrap();
-        for _ in 0..10 {
-            app.update();
-            for message in app
-                .world()
-                .resource::<Messages<AssetEvent<TestAsset>>>()
-                .iter_current_update_messages()
-            {
-                match message {
-                    AssetEvent::Unused { .. } => {}
-                    message => panic!("No asset events are allowed: {message:?}"),
-                }
+        let mut messages = vec![];
+        run_app_until(&mut app, |world| {
+            messages.extend(
+                world
+                    .resource::<Messages<AssetEvent<TestAsset>>>()
+                    .iter_current_update_messages(),
+            );
+            match finished_receiver.try_recv() {
+                Ok(999) => Some(()),
+                Ok(x) => panic!("only expected drop message, but got {x}"),
+                Err(TryRecvError::Empty) => None,
+                Err(TryRecvError::Disconnected) => panic!("cannot be disconnected"),
+            }
+        });
+        for message in messages {
+            match message {
+                AssetEvent::Unused { .. } => {}
+                message => panic!("No asset events are allowed: {message:?}"),
             }
         }
     }
@@ -2644,41 +2737,42 @@ mod tests {
         });
     }
 
+    /// A simple asset storing just a u8.
+    #[derive(Asset, TypePath)]
+    struct U8Asset(u8);
+
+    /// Settings for [`U8Loader`], which stores the value that the returned [`U8Asset`] will store.
+    #[derive(Serialize, Deserialize, Default)]
+    struct U8LoaderSettings(u8);
+
+    /// A loader that loads a [`U8Asset`] by ignoring the reader entirely and just getting the value
+    /// from its loader settings.
+    #[derive(TypePath)]
+    struct U8Loader;
+
+    impl AssetLoader for U8Loader {
+        type Asset = U8Asset;
+        type Settings = U8LoaderSettings;
+        type Error = crate::loader::LoadDirectError;
+
+        async fn load(
+            &self,
+            _: &mut dyn Reader,
+            settings: &Self::Settings,
+            _: &mut LoadContext<'_>,
+        ) -> Result<Self::Asset, Self::Error> {
+            Ok(U8Asset(settings.0))
+        }
+
+        fn extensions(&self) -> &[&str] {
+            &["u8"]
+        }
+    }
+
     #[test]
     fn same_asset_different_settings() {
         // Test loading the same asset twice with different settings. This should
         // produce two distinct assets.
-
-        // First, implement an asset that's a single u8, whose value is copied from
-        // the loader settings.
-
-        #[derive(Asset, TypePath)]
-        struct U8Asset(u8);
-
-        #[derive(Serialize, Deserialize, Default)]
-        struct U8LoaderSettings(u8);
-
-        #[derive(TypePath)]
-        struct U8Loader;
-
-        impl AssetLoader for U8Loader {
-            type Asset = U8Asset;
-            type Settings = U8LoaderSettings;
-            type Error = crate::loader::LoadDirectError;
-
-            async fn load(
-                &self,
-                _: &mut dyn Reader,
-                settings: &Self::Settings,
-                _: &mut LoadContext<'_>,
-            ) -> Result<Self::Asset, Self::Error> {
-                Ok(U8Asset(settings.0))
-            }
-
-            fn extensions(&self) -> &[&str] {
-                &["u8"]
-            }
-        }
 
         // Create a test asset and setup the app.
 
@@ -3048,6 +3142,7 @@ mod tests {
             .register_asset_loader(GatedLoader {
                 in_loader_sender,
                 gate_receiver,
+                finished_sender: None,
             })
             .register_asset_loader(AssetWithDepLoader);
 
