@@ -30,7 +30,7 @@ mod store_fs;
 #[cfg(target_arch = "wasm32")]
 mod store_wasm;
 
-use bevy_time::{Time, Timer, TimerMode};
+use bevy_time::{Real, Time, Timer, TimerMode};
 use serde::de::DeserializeSeed;
 #[cfg(not(target_arch = "wasm32"))]
 use store_fs::SettingsStore;
@@ -612,7 +612,7 @@ fn load_properties(value: &toml::Value, resource: &mut dyn PartialReflect, types
 
 fn handle_delayed_save(
     mut settings: ResMut<SettingsFileRegistry>,
-    time: Res<Time>,
+    time: Res<Time<Real>>,
     mut commands: Commands,
 ) {
     settings.save_timer.tick(time.delta());
