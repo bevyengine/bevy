@@ -2311,6 +2311,47 @@ mod tests {
         );
     }
 
+    #[test]
+    fn move_child_by_parent_scroll_postion() {
+        let mut app = setup_ui_test_app();
+
+        let parent = app
+            .world_mut()
+            .spawn((Node {
+                width: px(100),
+                height: px(100),
+                overflow: Overflow::scroll(),
+                ..default()
+            },))
+            .id();
+
+        let child = app
+            .world_mut()
+            .spawn((
+                Node {
+                    min_width: px(200.),
+                    min_height: px(200.),
+                    ..default()
+                },
+                ChildOf(parent),
+            ))
+            .id();
+
+        app.update();
+
+        app.world_mut().get_mut::<ScrollPosition>(parent).unwrap().0 = Vec2::new(50., 100.);
+
+        app.update();
+
+        assert_eq!(
+            Vec2::new(50., 0.),
+            app.world()
+                .get::<UiGlobalTransform>(child)
+                .unwrap()
+                .translation
+        );
+    }
+
     #[cfg(feature = "ghost_nodes")]
     mod ghost_node_tests {
         use super::*;
