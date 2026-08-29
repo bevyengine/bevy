@@ -49,7 +49,7 @@ fn main() {
 #[derive(Component)]
 struct Shape;
 
-const SHAPES_X_EXTENT: f32 = 14.0;
+const SHAPES_X_EXTENT: f32 = 10.0;
 const EXTRUSION_X_EXTENT: f32 = 14.0;
 const Z_EXTENT: f32 = 8.0;
 const THICKNESS: f32 = 0.1;
@@ -67,6 +67,7 @@ fn setup(
 
     let shapes = [
         meshes.add(Cuboid::default()),
+        meshes.add(Ellipsoid::new(Vec3::new(1.0, 0.5, 0.25))),
         meshes.add(Tetrahedron::default()),
         meshes.add(Capsule3d::default()),
         meshes.add(Torus::default()),
@@ -129,20 +130,23 @@ fn setup(
         meshes.add(Extrusion::new(Triangle2d::default().to_ring(THICKNESS), 1.)),
     ];
 
-    let num_shapes = shapes.len();
+    let num_shapes_per_row = shapes.len() / 2;
 
     for (i, shape) in shapes.into_iter().enumerate() {
+        let row = if i % 2 == 0 { Row::First } else { Row::Second };
+        let z = row.z();
         commands.spawn((
             Mesh3d(shape),
             MeshMaterial3d(debug_material.clone()),
             Transform::from_xyz(
-                -SHAPES_X_EXTENT / 2. + i as f32 / (num_shapes - 1) as f32 * SHAPES_X_EXTENT,
+                -SHAPES_X_EXTENT / 2.
+                    + (i / 2) as f32 / (num_shapes_per_row - 1) as f32 * SHAPES_X_EXTENT,
                 2.0,
-                Row::Front.z(),
+                z,
             )
             .with_rotation(Quat::from_rotation_x(-PI / 4.)),
             Shape,
-            Row::Front,
+            row,
         ));
     }
 
@@ -156,11 +160,11 @@ fn setup(
                 -EXTRUSION_X_EXTENT / 2.
                     + i as f32 / (num_extrusions - 1) as f32 * EXTRUSION_X_EXTENT,
                 2.0,
-                Row::Middle.z(),
+                Row::Third.z(),
             )
             .with_rotation(Quat::from_rotation_x(-PI / 4.)),
             Shape,
-            Row::Middle,
+            Row::Third,
         ));
     }
 
@@ -174,11 +178,11 @@ fn setup(
                 -EXTRUSION_X_EXTENT / 2.
                     + i as f32 / (num_ring_extrusions - 1) as f32 * EXTRUSION_X_EXTENT,
                 2.0,
-                Row::Rear.z(),
+                Row::Fourth.z(),
             )
             .with_rotation(Quat::from_rotation_x(-PI / 4.)),
             Shape,
-            Row::Rear,
+            Row::Fourth,
         ));
     }
 
@@ -269,25 +273,28 @@ fn toggle_wireframe(
 
 #[derive(Component, Clone, Copy)]
 enum Row {
-    Front,
-    Middle,
-    Rear,
+    First,
+    Second,
+    Third,
+    Fourth,
 }
 
 impl Row {
     fn z(self) -> f32 {
         match self {
-            Row::Front => Z_EXTENT / 2.,
-            Row::Middle => 0.,
-            Row::Rear => -Z_EXTENT / 2.,
+            Row::First => Z_EXTENT / 2.,
+            Row::Second => 0.,
+            Row::Third => -Z_EXTENT / 2.,
+            Row::Fourth => -Z_EXTENT,
         }
     }
 
     fn advance(self) -> Self {
         match self {
-            Row::Front => Row::Rear,
-            Row::Middle => Row::Front,
-            Row::Rear => Row::Middle,
+            Row::First => Row::Fourth,
+            Row::Second => Row::First,
+            Row::Third => Row::Second,
+            Row::Fourth => Row::Third,
         }
     }
 }
