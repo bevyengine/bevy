@@ -1196,7 +1196,6 @@ mod tests {
             sorted_camera_index_for_target: 0,
             exposure: 1.0,
             hdr,
-            compositing_space: None,
         }
     }
 
