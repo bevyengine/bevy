@@ -1849,9 +1849,9 @@ mod tests {
         let b_top = -0.5 * computed_b.size.y + transform_b.affine().translation.y;
         assert!((b_top - a_bottom - 40.).abs() <= 1e-5);
     }
-    
+
     #[test]
-    fn move_child_by_parent_scroll_postion() {
+    fn move_child_by_parent_scroll_position() {
         let mut app = setup_ui_test_app();
 
         let parent = app
