@@ -2421,6 +2421,106 @@ mod tests {
                 .translation
         );
     }
+
+    #[test]
+    fn fixed_node_doesnt_propagate_uitransform() {
+        let mut app = setup_ui_test_app();
+
+        let parent = app
+            .world_mut()
+            .spawn((
+                Node {
+                    width: px(100),
+                    height: px(100),
+                    ..default()
+                },
+                UiTransform::from_translation(px(50.).into()),
+            ))
+            .id();
+
+        let child = app
+            .world_mut()
+            .spawn((
+                Node {
+                    min_width: px(100),
+                    min_height: px(100),
+                    ..default()
+                },
+                ChildOf(parent),
+            ))
+            .id();
+
+        let grand_child = app
+            .world_mut()
+            .spawn((
+                Node {
+                    width: px(100),
+                    height: px(100.),
+                    ..default()
+                },
+                ChildOf(child),
+            ))
+            .id();
+
+        app.update();
+
+        assert_eq!(
+            Vec2::new(100., 100.),
+            app.world()
+                .get::<UiGlobalTransform>(child)
+                .unwrap()
+                .translation
+        );
+
+        assert_eq!(
+            Vec2::new(100., 100.),
+            app.world()
+                .get::<UiGlobalTransform>(grand_child)
+                .unwrap()
+                .translation
+        );
+
+        app.world_mut().entity_mut(child).insert(FixedNode);
+
+        app.update();
+
+        assert_eq!(
+            Vec2::new(50., 50.),
+            app.world()
+                .get::<UiGlobalTransform>(child)
+                .unwrap()
+                .translation
+        );
+
+        assert_eq!(
+            Vec2::new(50., 50.),
+            app.world()
+                .get::<UiGlobalTransform>(grand_child)
+                .unwrap()
+                .translation
+        );
+
+        app.world_mut().entity_mut(child).remove::<FixedNode>();
+
+        app.update();
+
+        assert_eq!(
+            Vec2::new(100., 100.),
+            app.world()
+                .get::<UiGlobalTransform>(child)
+                .unwrap()
+                .translation
+        );
+
+        assert_eq!(
+            Vec2::new(100., 100.),
+            app.world()
+                .get::<UiGlobalTransform>(grand_child)
+                .unwrap()
+                .translation
+        );
+    }
+
     #[cfg(feature = "ghost_nodes")]
     mod ghost_node_tests {
         use super::*;
