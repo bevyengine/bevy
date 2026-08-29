@@ -1,5 +1,4 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
-#![forbid(unsafe_code)]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
     html_favicon_url = "https://bevy.org/assets/icon.png"
@@ -123,7 +122,7 @@
 //! | `KHR_texture_transform`           | ✅\**     |                                     |
 //! | `KHR_xmp_json_ld`                 | ❌        |                                     |
 //! | `EXT_mesh_gpu_instancing`         | ❌        |                                     |
-//! | `EXT_meshopt_compression`         | ❌        |                                     |
+//! | `EXT_meshopt_compression`         | ✅        | `meshopt`                           |
 //! | `EXT_texture_webp`                | ❌\*      |                                     |
 //!
 //! \*Bevy supports ktx2 and webp formats but doesn't support the extension's syntax, see [#19104](https://github.com/bevyengine/bevy/issues/19104).

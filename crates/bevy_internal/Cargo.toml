@@ -225,6 +225,9 @@ render_dev_tools = ["bevy_dev_tools/render"]
 # Enable glTF animation loading
 gltf_animation = ["bevy_animation", "bevy_gltf?/bevy_animation"]
 
+# Enables loading glTF files that use EXT_meshopt_compression
+gltf_meshopt = ["bevy_gltf?/meshopt"]
+
 # Enables support for morph target weights in bevy_mesh
 morph = ["bevy_mesh?/morph", "bevy_render?/morph"]
 
