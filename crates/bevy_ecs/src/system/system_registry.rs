@@ -29,7 +29,7 @@ pub struct RegisteredSystem<I, O> {
 }
 
 impl<I, O> RegisteredSystem<I, O> {
-    /// Create an uninitialized RegisteredSystem component with the provided boxed system
+    /// Create an uninitialized [`RegisteredSystem`] component with the provided boxed system
     pub fn new(system: BoxedSystem<I, O>) -> Self {
         RegisteredSystem {
             initialized: false,
