@@ -102,11 +102,6 @@ macro_rules! inner {
 }
 
 /// Defines how Bevy reacts to errors.
-///
-/// When writing an error handler, if you want to throw a panic,
-/// consider setting [`PANIC_ORIGINATES_FROM_ERROR_HANDLER`].
-/// This lets the executor know that a panic doesn't need to be
-/// converted back to a [`BevyError`] and passed to the [`FallbackErrorHandler`].
 pub type ErrorHandler = fn(BevyError, ErrorContext);
 
 /// Fallback error handler to call when an error is not handled otherwise.
