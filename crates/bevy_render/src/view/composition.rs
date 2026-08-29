@@ -103,8 +103,8 @@ pub fn resolve_composition_spaces(
         .collect();
 
     let (spaces, diagnostics) = resolve_spaces(inputs);
-    // A view missing from the map falls back to linear, the resolver's own
-    // default, so no unwrap is needed.
+    // `resolve_spaces` returns an entry for every view it was given. A
+    // missing entry reads as linear.
     for (entity, .., mut resolved) in views.iter_mut() {
         *resolved = ResolvedCompositingSpace(spaces.get(&entity).copied().flatten());
     }
@@ -232,14 +232,18 @@ fn warn_on_mixed_requests(
     }
 }
 
-/// Resolves one space for a whole stack, or for a single view that doesn't
-/// belong to one. The single distinct request among the members wins. With no
-/// request or conflicting requests the unit resolves to linear.
+/// Resolves the compositing space for a list of views.
 ///
-/// Two things can still force linear. A member that isn't a `Camera2d` does,
-/// because 3d render paths write linear values into the main texture. So does
-/// [`Oklab`](CompositingSpace::Oklab) unless the main texture is a float
-/// format, since unorm formats clamp the negative values Oklab colors need.
+/// It reports a diagnostic and falls back to linear in the following cases:
+/// * The views request both [`Srgb`](CompositingSpace::Srgb) and
+///   [`Oklab`](CompositingSpace::Oklab).
+/// * A view that is not a [`Camera2d`] is in the list and any view requests a
+///   non-linear compositing space. 3d render paths write linear values.
+/// * The views request [`Oklab`](CompositingSpace::Oklab) on a texture format
+///   without signed-float storage, as Oklab requires negative numbers.
+///
+/// Otherwise the requested compositing space is chosen. With no request the
+/// views resolve to linear.
 fn resolve_members(
     members: &[SpaceInput],
     resolved: &mut EntityHashMap<Option<CompositingSpace>>,

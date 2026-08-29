@@ -109,8 +109,6 @@ impl Plugin for Mesh2dRenderPlugin {
                     Render,
                     (
                         prepare_pending_mesh_material2d_queues.in_set(RenderSystems::Specialize),
-                        // The `ViewKeyCache` consumers `specialize_material2d_meshes`
-                        // and `specialize_wireframes` run in `Specialize`, after this set.
                         check_views_need_specialization
                             .in_set(RenderSystems::CreateViews)
                             .after(ResolveCompositingSpaces),
