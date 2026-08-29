@@ -66,6 +66,11 @@ fn main() {
         OnEnter(Scene::FontRelativeUnits),
         font_relative_units::setup,
     )
+    .add_systems(OnEnter(Scene::ChangeDetection), change_detection::setup)
+    .add_systems(
+        Update,
+        change_detection::update.run_if(in_state(Scene::ChangeDetection)),
+    )
     .add_systems(Update, switch_scene);
 
     match args.scene {
@@ -114,6 +119,7 @@ enum Scene {
     EditableText,
     NodeMaterial,
     FontRelativeUnits,
+    ChangeDetection,
 }
 
 impl Scene {
@@ -143,6 +149,7 @@ impl Scene {
         Scene::EditableText,
         Scene::NodeMaterial,
         Scene::FontRelativeUnits,
+        Scene::ChangeDetection,
     ];
 }
 
@@ -3901,5 +3908,160 @@ mod font_relative_units {
                 ),
             ],
         )
+    }
+}
+
+mod change_detection {
+    use super::node_material::DefaultUiMaterial;
+    use bevy::prelude::*;
+
+    const DELAY: u32 = 10;
+    const SIZE: f32 = 200.;
+
+    #[derive(Component)]
+    pub struct Counter {
+        material: Handle<DefaultUiMaterial>,
+        frames_remaining: u32,
+    }
+
+    #[derive(Component)]
+    pub struct ClippingNodeMarker;
+
+    #[derive(Component)]
+    pub struct UpdateGradientMarker;
+
+    pub fn setup(mut commands: Commands, materials: Res<Assets<DefaultUiMaterial>>) {
+        commands.spawn((
+            Camera2d,
+            BoxShadowSamples(0),
+            DespawnOnExit(super::Scene::ChangeDetection),
+        ));
+
+        let material = materials.reserve_handle();
+
+        commands.spawn((
+            Node {
+                width: percent(100),
+                height: percent(100),
+                padding: px(0.5 * SIZE).all(),
+                column_gap: px(10),
+                ..default()
+            },
+            DespawnOnExit(super::Scene::ChangeDetection),
+            children![
+                (
+                    Node {
+                        width: px(SIZE),
+                        height: px(SIZE),
+                        ..default()
+                    },
+                    BackgroundGradient::from(RadialGradient {
+                        stops: vec![
+                            ColorStop::auto(Color::WHITE),
+                            ColorStop::auto(Color::WHITE),
+                            ColorStop::auto(Color::WHITE),
+                            ColorStop::auto(Color::BLACK),
+                        ],
+                        ..default()
+                    }),
+                ),
+                (
+                    Node {
+                        width: px(0),
+                        height: px(0),
+                        overflow: Overflow::clip(),
+                        ..default()
+                    },
+                    ClippingNodeMarker,
+                    children![(
+                        Node {
+                            position_type: PositionType::Absolute,
+                            ..default()
+                        },
+                        Outline {
+                            color: Color::srgb(0.8, 0.2, 0.2),
+                            width: px(4),
+                            ..default()
+                        },
+                        children![
+                            (
+                                Node {
+                                    width: px(SIZE),
+                                    height: px(SIZE),
+                                    ..default()
+                                },
+                                MaterialNode(material.clone()),
+                                BoxShadow::from(ShadowStyle {
+                                    color: bevy::color::palettes::css::NAVY.into(),
+                                    ..default()
+                                }),
+                            ),
+                            (
+                                Node {
+                                    width: px(SIZE),
+                                    height: px(SIZE),
+                                    ..default()
+                                },
+                                BackgroundGradient::from(RadialGradient {
+                                    stops: vec![
+                                        ColorStop::auto(Color::BLACK),
+                                        ColorStop::new(Color::WHITE, px(20)),
+                                        ColorStop::auto(bevy::color::palettes::css::RED),
+                                    ],
+                                    ..default()
+                                }),
+                            ),
+                            (
+                                Node {
+                                    width: px(SIZE),
+                                    height: px(SIZE),
+                                    ..default()
+                                },
+                                BackgroundGradient::from(RadialGradient {
+                                    stops: vec![
+                                        ColorStop::auto(Color::BLACK),
+                                        ColorStop::new(Color::WHITE, px(20)),
+                                        ColorStop::auto(bevy::color::palettes::css::RED),
+                                    ],
+                                    ..default()
+                                }),
+                                UpdateGradientMarker
+                            ),
+                        ],
+                    ),],
+                ),
+            ],
+        ));
+
+        commands.spawn((
+            Counter {
+                material,
+                frames_remaining: DELAY,
+            },
+            DespawnOnExit(super::Scene::ChangeDetection),
+        ));
+    }
+
+    pub fn update(
+        mut commands: Commands,
+        mut counter: Single<(Entity, &mut Counter)>,
+        mut clipping_node: Single<&mut Node, With<ClippingNodeMarker>>,
+        mut materials: ResMut<Assets<DefaultUiMaterial>>,
+        mut box_shadow_samples: Single<&mut BoxShadowSamples>,
+        mut background_gradient: Single<&mut BackgroundGradient, With<UpdateGradientMarker>>,
+    ) {
+        let (entity, ref mut counter) = *counter;
+        counter.frames_remaining -= 1;
+        if counter.frames_remaining == 0 {
+            **box_shadow_samples = BoxShadowSamples::default();
+            materials
+                .insert(&counter.material, DefaultUiMaterial {})
+                .unwrap();
+            clipping_node.overflow = Overflow::visible();
+            commands.entity(entity).despawn();
+            if let Gradient::Radial(radial_gradient) = &mut background_gradient.0[0] {
+                radial_gradient.color_space = InterpolationColorSpace::OklchaLong;
+            }
+        }
     }
 }

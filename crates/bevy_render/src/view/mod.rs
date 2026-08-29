@@ -273,8 +273,11 @@ impl Msaa {
 #[reflect(Component, Debug, Hash, Default, PartialEq)]
 #[extract_app(RenderApp)]
 pub enum Tonemapping {
-    /// Bypass tonemapping.
+    /// Bypass tonemapping. No color grading, exposure, or dither applies.
     None,
+    /// Identity tone curve. [`ColorGrading`], exposure, and [`DebandDither`]
+    /// still apply. The output is unbounded display-linear.
+    Linear,
     /// Suffers from lots hue shifting, brights don't desaturate naturally.
     /// Bright primaries and secondaries don't desaturate at all.
     Reinhard,
