@@ -72,7 +72,7 @@ macro_rules! wgpu_wrapper {
                 }
 
                 pub fn into_inner(self) -> $wgputy {
-                    self.0
+                    self.0.take()
                 }
             }
 
