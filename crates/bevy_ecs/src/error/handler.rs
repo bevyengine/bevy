@@ -146,8 +146,14 @@ pub fn match_severity(err: BevyError, ctx: ErrorContext) {
 /// these will be resumed.
 #[track_caller]
 #[inline]
+#[expect(
+    clippy::allow_attributes,
+    reason = "allow is needed because this only applies for no-std"
+)]
+#[allow(unused_mut, reason = "mut is needed for std feature")]
 pub fn panic(mut error: BevyError, ctx: ErrorContext) {
     // if the error originates from a panic, just resume unwinding
+    #[cfg(feature = "std")]
     if matches!(error.severity(), Severity::Panic)
         && let Some(payload) = error.take_payload()
     {
