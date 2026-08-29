@@ -2352,6 +2352,61 @@ mod tests {
         );
     }
 
+    #[test]
+    fn move_node_with_uitransform() {
+        let mut app = setup_ui_test_app();
+
+        let parent = app
+            .world_mut()
+            .spawn((Node {
+                width: px(100),
+                height: px(100),
+                ..default()
+            },))
+            .id();
+
+        let child = app
+            .world_mut()
+            .spawn((
+                Node {
+                    width: px(100),
+                    height: px(100),
+                    ..default()
+                },
+                ChildOf(parent),
+            ))
+            .id();
+
+        let grand_child = app
+            .world_mut()
+            .spawn((
+                Node {
+                    width: px(100),
+                    height: px(100.),
+                    ..default()
+                },
+                ChildOf(child),
+            ))
+            .id();
+
+        app.update();
+
+        app.world_mut()
+            .get_mut::<UiTransform>(parent)
+            .unwrap()
+            .translation = Val2::px(60., 40.);
+
+        app.update();
+
+        assert_eq!(
+            Vec2::new(110., 90.),
+            app.world()
+                .get::<UiGlobalTransform>(grand_child)
+                .unwrap()
+                .translation
+        );
+    }
+
     #[cfg(feature = "ghost_nodes")]
     mod ghost_node_tests {
         use super::*;
