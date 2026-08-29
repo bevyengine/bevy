@@ -358,9 +358,7 @@ fn setup(
 }
 
 /// Spawns the scene once its glTF and all of its dependencies are loaded, so that the
-/// `WorldInstanceReady` observers below can read the materials and animation clips. A
-/// load failure is permanent, so log it once and stop. The usual cause is a `.glb` that
-/// hasn't been downloaded yet.
+/// `WorldInstanceReady` observers below can read the materials and animation clips.
 fn spawn_scene_when_ready(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -457,8 +455,8 @@ fn proc_scene(
 /// would clip away. Bevy's reverse-z depth buffer keeps enough precision between 0.001
 /// and 2000.
 ///
-/// `FilmCamera` goes on the first camera only, so the `single()` call in
-/// `drive_flythrough` can never find more than one.
+/// `FilmCamera` goes on the first camera only, so the `Single` in `drive_flythrough`
+/// can never find more than one.
 #[allow(clippy::type_complexity)]
 fn setup_flythrough_camera(
     scene_ready: On<WorldInstanceReady>,
@@ -702,18 +700,12 @@ fn benchmark(
 /// cinematic mode is active. This is the original Zero-Day flythrough.
 fn drive_flythrough(
     cinematic: Res<Cinematic>,
-    film: Query<&GlobalTransform, With<FilmCamera>>,
-    mut render: Query<&mut Transform, With<RenderCamera>>,
+    film: Single<&GlobalTransform, With<FilmCamera>>,
+    mut render: Single<&mut Transform, With<RenderCamera>>,
 ) {
     if !cinematic.active {
         return;
     }
-    let Ok(film) = film.single() else {
-        return;
-    };
-    let Ok(mut render) = render.single_mut() else {
-        return;
-    };
     // Copy only the position and orientation, because the film camera's global transform
     // can carry a scale from its parent.
     let film = film.compute_transform();

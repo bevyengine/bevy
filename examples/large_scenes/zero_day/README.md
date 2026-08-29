@@ -12,6 +12,8 @@ into this example's `assets/` folder. The example loads `measure_one` by default
 other two measures are optional.
 
 ```console
+mkdir -p examples/large_scenes/zero_day/assets
+
 curl -L -o examples/large_scenes/zero_day/assets/zero_day_measure_one.glb \
   https://github.com/pavlov-net/bevy-examples/releases/download/zero-day-assets-v1/zero_day_measure_one.glb
 
