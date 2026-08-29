@@ -624,8 +624,9 @@ fn handle_delayed_save(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bevy_ecs::change_detection::Tick;
+    use bevy_ecs::{change_detection::Tick, schedule::Schedule};
     use bevy_reflect::Reflect;
+    use bevy_time::Virtual;
     // Required to make proc macros work in bevy itself.
     extern crate self as bevy_settings;
 
@@ -1077,5 +1078,37 @@ mod tests {
         // Verify refresh_rate was preserved
         let refresh_rate = world.get_resource::<CounterRefreshRateSettings>().unwrap();
         assert_eq!(*refresh_rate, CounterRefreshRateSettings::Fast);
+    }
+
+    #[test]
+    fn test_handle_delayed_save_ticks_with_real_time_while_paused() {
+        let mut world = World::new();
+        world.insert_resource(Time::<Real>::default());
+        world.insert_resource(Time::<Virtual>::default());
+        // Virtual time is paused, so the delayed save timer must use real time.
+        world.resource_mut::<Time<Virtual>>().pause();
+
+        // SettingsFileRegistry with a delayed save timer
+        world.insert_resource(SettingsFileRegistry {
+            app_name: "test_app".to_string(),
+            files: HashMap::new(),
+            save_timer: {
+                let mut timer = Timer::new(Duration::from_millis(500), TimerMode::Once);
+                timer.unpause();
+                timer
+            },
+        });
+
+        // Simulate real time advancing
+        world
+            .resource_mut::<Time<Real>>()
+            .advance_by(Duration::from_millis(600));
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(handle_delayed_save);
+        schedule.run(&mut world);
+
+        let registry = world.resource::<SettingsFileRegistry>();
+        assert!(registry.save_timer.just_finished());
     }
 }
