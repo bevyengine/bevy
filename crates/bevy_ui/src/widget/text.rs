@@ -36,6 +36,11 @@ pub struct TextNodeFlags {
     needs_measure_fn: bool,
     /// If set then the text will be recomputed.
     needs_recompute: bool,
+    /// The most recently installed fixed measure for non-wrapping text.
+    ///
+    /// This is cached separately from [`ContentSize`] because the UI layout system moves the
+    /// measure from [`ContentSize`] into Taffy's node context.
+    no_wrap_measure: Option<Vec2>,
 }
 
 impl Default for TextNodeFlags {
@@ -43,7 +48,21 @@ impl Default for TextNodeFlags {
         Self {
             needs_measure_fn: true,
             needs_recompute: true,
+            no_wrap_measure: None,
         }
+    }
+}
+
+impl TextNodeFlags {
+    /// Caches `size`, returning whether it differs from the previously cached measure.
+    fn cache_no_wrap_measure(&mut self, size: Vec2) -> bool {
+        let changed = self.no_wrap_measure != Some(size);
+        self.no_wrap_measure = Some(size);
+        changed
+    }
+
+    fn clear_no_wrap_measure(&mut self) {
+        self.no_wrap_measure = None;
     }
 }
 
@@ -326,8 +345,13 @@ pub fn measure_text_system(
         ) {
             Ok(measure) => {
                 if block.linebreak == LineBreak::NoWrap {
-                    content_size.set(NodeMeasure::Fixed(FixedMeasure { size: measure.max }));
+                    let size = measure.max;
+                    let measure_changed = text_flags.cache_no_wrap_measure(size);
+                    if content_size.is_added() || measure_changed {
+                        content_size.set(NodeMeasure::Fixed(FixedMeasure { size }));
+                    }
                 } else {
+                    text_flags.clear_no_wrap_measure();
                     content_size.set(NodeMeasure::Text(TextMeasure { info: measure }));
                 }
 
@@ -353,6 +377,21 @@ pub fn measure_text_system(
                 panic!("Fatal error when processing text: {e}.");
             }
         };
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn unchanged_no_wrap_measure_is_reused() {
+        let mut flags = TextNodeFlags::default();
+        let size = Vec2::new(100.0, 20.0);
+
+        assert!(flags.cache_no_wrap_measure(size));
+        assert!(!flags.cache_no_wrap_measure(size));
+        assert!(flags.cache_no_wrap_measure(Vec2::new(101.0, 20.0)));
     }
 }
 

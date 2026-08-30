@@ -19,7 +19,7 @@ use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_picking::{cursor::EntityCursor, hover::Hovered, PickingSystems};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::prelude::*;
-use bevy_text::FontWeight;
+use bevy_text::{FontWeight, TextLayout};
 use bevy_ui::{
     percent, px, widget::Text, AlignItems, BackgroundGradient, ColorStop, Display, FlexDirection,
     Gradient, InteractionDisabled, InterpolationColorSpace, JustifyContent, LinearGradient, Node,
@@ -119,7 +119,7 @@ impl FeathersSlider {
                     font_size: size::SMALL_FONT,
                     weight: FontWeight::NORMAL,
                 }
-                Children [(caption("10.0") SliderValueText)]
+                Children [(caption("10.0") TextLayout::no_wrap() SliderValueText)]
             )]
         }
     }
@@ -193,7 +193,12 @@ pub fn slider_bundle<B: Bundle>(props: FeathersSliderProps, overrides: B) -> imp
                 weight: FontWeight::NORMAL,
                 ..Default::default()
             },
-            children![(Text::new("10.0"), ThemedText, SliderValueText,)],
+            children![(
+                Text::new("10.0"),
+                TextLayout::no_wrap(),
+                ThemedText,
+                SliderValueText,
+            )],
         )],
     )
 }
