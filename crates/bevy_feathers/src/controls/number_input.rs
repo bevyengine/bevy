@@ -1584,10 +1584,7 @@ fn update_chevron_visibility(
     let base_visible = hovered.0 && !has_soft_limit;
 
     let (is_at_min, is_at_max) = if let Some(HardLimit(range)) = hard_limit {
-        (
-            is_at_limit_min(&value, &range),
-            is_at_limit_max(&value, &range),
-        )
+        (is_at_limit_min(value, range), is_at_limit_max(value, range))
     } else {
         (false, false)
     };
