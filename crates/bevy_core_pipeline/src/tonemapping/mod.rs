@@ -28,6 +28,7 @@ pub use bevy_render::view::{DebandDither, Tonemapping};
 use bevy_utils::default;
 pub use node::tonemapping;
 
+use crate::camera_stack::{StackRole, ViewStackContract};
 use crate::FullscreenShader;
 
 /// 3D LUT (look up table) textures used for tonemapping
@@ -274,13 +275,25 @@ pub fn prepare_view_tonemapping_pipelines(
         (
             Entity,
             &ExtractedView,
+            Option<&ViewStackContract>,
             Option<&Tonemapping>,
             Option<&DebandDither>,
+            Has<ViewTonemappingPipeline>,
         ),
+        // `ViewTarget` filters out stale contracts; see `ViewStackContract`.
         With<ViewTarget>,
     >,
 ) {
-    for (entity, view, tonemapping, dither) in view_targets.iter() {
+    for (entity, view, contract, tonemapping, dither, has_pipeline) in view_targets.iter() {
+        // A `HandledBy` view doesn't run the pass. The finalizer tonemaps
+        // the shared buffer once.
+        if contract.is_some_and(|contract| matches!(contract.tonemap, StackRole::HandledBy(_))) {
+            if has_pipeline {
+                commands.entity(entity).remove::<ViewTonemappingPipeline>();
+            }
+            continue;
+        }
+
         // As an optimization, we omit parts of the shader that are unneeded.
         let mut flags = TonemappingPipelineKeyFlags::empty();
         flags.set(
