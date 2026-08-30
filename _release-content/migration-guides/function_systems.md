@@ -16,8 +16,12 @@ tracked at runtime, rather than compile time.
 All `ExclusiveSystemParam`s that did not previously implement `SystemParam` now
 implement it, including `&mut QueryState` and `&mut SystemState`.
 
-`WorldId` no longer implements `SystemParam`; if you need to access the world ID,
-use `Local<WorldId>` instead (it will be automatically populated with the correct ID).
+It is no longer possible to use `WorldId` in an exclusive system,
+since the `SystemParam` implementation needs to read it from the `World`.
+If you were using `WorldId` in an exclusive system,
+consider calling `World::id()` as the first line of the system.
+Alternately, use `Local<WorldId>` as a parameter,
+which will be automatically populated with the correct ID.
 
 `System::is_exclusive()` has been removed. Use `SystemAccess::is_exclusive()` instead,
 which is created by `System::initialize()` and stored in `SystemWithAccess`.
