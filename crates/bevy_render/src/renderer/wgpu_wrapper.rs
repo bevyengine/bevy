@@ -89,12 +89,6 @@ macro_rules! wgpu_wrapper {
                     &mut self.0
                 }
             }
-
-            impl From<$name> for $wgputy {
-                fn from(t: $name) -> Self {
-                    t.0.take()
-                }
-            }
         )+
     };
 }
