@@ -654,6 +654,35 @@ impl<'w> DeferredWorld<'w> {
         }
     }
 
+    /// Triggers all `on_mutate` hooks for [`ComponentId`] in target.
+    ///
+    /// Unlike other `trigger_on_*` methods, it does not check [`Archetype::has_mutate_hook`].
+    /// # Safety
+    /// Caller must ensure [`ComponentId`] in target exist in self.
+    #[inline]
+    pub(crate) unsafe fn trigger_on_mutate(
+        &mut self,
+        entity: Entity,
+        targets: impl Iterator<Item = ComponentId>,
+        caller: MaybeLocation,
+    ) {
+        for component_id in targets {
+            // SAFETY: Caller ensures that these components exist
+            let hooks = unsafe { self.components().get_info_unchecked(component_id) }.hooks();
+            if let Some(hook) = hooks.on_mutate {
+                hook(
+                    DeferredWorld { world: self.world },
+                    HookContext {
+                        entity,
+                        component_id,
+                        caller,
+                        relationship_hook_mode: RelationshipHookMode::Run,
+                    },
+                );
+            }
+        }
+    }
+
     /// Triggers all `on_discard` hooks for [`ComponentId`] in target.
     ///
     /// # Safety

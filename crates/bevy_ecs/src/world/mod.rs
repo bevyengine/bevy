@@ -47,8 +47,8 @@ use crate::{
     entity_disabling::DefaultQueryFilters,
     error::{ErrorHandler, FallbackErrorHandler},
     lifecycle::{
-        AddEvent, ComponentHooks, DespawnEvent, DiscardEvent, InsertEvent, RemoveEvent,
-        RemovedComponentMessages, ADD, DESPAWN, DISCARD, INSERT, REMOVE,
+        AddEvent, ComponentHooks, DespawnEvent, DiscardEvent, InsertEvent, MutateEvent,
+        RemoveEvent, RemovedComponentMessages, ADD, DESPAWN, DISCARD, INSERT, MUTATE, REMOVE,
     },
     message::{Message, MessageId, Messages, WriteBatchIds},
     observer::Observers,
@@ -165,6 +165,9 @@ impl World {
 
         let on_insert = self.register_event_key::<InsertEvent>();
         assert_eq!(INSERT, on_insert);
+
+        let on_mutate = self.register_event_key::<MutateEvent>();
+        assert_eq!(MUTATE, on_mutate);
 
         let on_discard = self.register_event_key::<DiscardEvent>();
         assert_eq!(DISCARD, on_discard);
