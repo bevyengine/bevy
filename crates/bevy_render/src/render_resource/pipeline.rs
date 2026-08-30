@@ -9,6 +9,7 @@ define_atomic_id!(RenderPipelineId);
 /// May be converted from and dereferences to a wgpu [`RenderPipeline`](wgpu::RenderPipeline).
 /// Can be created via [`RenderDevice::create_render_pipeline`](crate::renderer::RenderDevice::create_render_pipeline).
 #[derive(Clone, Debug)]
+#[non_structural_derive::non_structural_derive(Send, Sync)]
 pub struct RenderPipeline {
     id: RenderPipelineId,
     value: WgpuWrapper<wgpu::RenderPipeline>,
@@ -46,6 +47,7 @@ define_atomic_id!(ComputePipelineId);
 /// May be converted from and dereferences to a wgpu [`ComputePipeline`](wgpu::ComputePipeline).
 /// Can be created via [`RenderDevice::create_compute_pipeline`](crate::renderer::RenderDevice::create_compute_pipeline).
 #[derive(Clone, Debug)]
+#[non_structural_derive::non_structural_derive(Send, Sync)]
 pub struct ComputePipeline {
     id: ComputePipelineId,
     value: WgpuWrapper<wgpu::ComputePipeline>,

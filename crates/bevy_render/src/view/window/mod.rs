@@ -210,6 +210,7 @@ fn extract_windows(
 }
 
 #[derive(Component)]
+#[non_structural_derive::non_structural_derive(Send, Sync)]
 pub struct SurfaceData {
     // TODO: what lifetime should this be?
     surface: WgpuWrapper<wgpu::Surface<'static>>,

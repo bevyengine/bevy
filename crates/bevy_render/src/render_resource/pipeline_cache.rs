@@ -90,6 +90,7 @@ type LayoutCacheKey = (
     ImmediateSize,
 );
 #[derive(Default)]
+#[non_structural_derive::non_structural_derive(Send, Sync)]
 struct LayoutCache {
     layouts: HashMap<LayoutCacheKey, Arc<WgpuWrapper<PipelineLayout>>>,
 }
@@ -208,6 +209,7 @@ impl BindGroupLayoutCache {
 ///
 /// [`RenderSystems::Render`]: crate::RenderSystems::Render
 #[derive(Resource)]
+#[non_structural_derive::non_structural_derive(Send, Sync)]
 pub struct PipelineCache {
     layout_cache: Arc<Mutex<LayoutCache>>,
     bindgroup_layout_cache: Arc<Mutex<BindGroupLayoutCache>>,

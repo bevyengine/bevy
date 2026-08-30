@@ -12,6 +12,7 @@ use wgpu::{
 
 /// This GPU device is responsible for the creation of most rendering and compute resources.
 #[derive(Resource, Clone)]
+#[non_structural_derive::non_structural_derive(Send, Sync)]
 pub struct RenderDevice {
     device: WgpuWrapper<wgpu::Device>,
 }

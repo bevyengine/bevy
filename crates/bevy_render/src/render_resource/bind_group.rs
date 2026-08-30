@@ -35,6 +35,7 @@ define_atomic_id!(BindGroupId);
 ///
 /// Can be created via [`RenderDevice::create_bind_group`](RenderDevice::create_bind_group).
 #[derive(Clone, Debug)]
+#[non_structural_derive::non_structural_derive(Send, Sync)]
 pub struct BindGroup {
     id: BindGroupId,
     value: WgpuWrapper<wgpu::BindGroup>,

@@ -13,6 +13,7 @@ define_atomic_id!(BindGroupLayoutId);
 ///
 /// Can be created via [`RenderDevice::create_bind_group_layout`](crate::renderer::RenderDevice::create_bind_group_layout).
 #[derive(Clone, Debug)]
+#[non_structural_derive::non_structural_derive(Send, Sync)]
 pub struct BindGroupLayout {
     id: BindGroupLayoutId,
     value: WgpuWrapper<wgpu::BindGroupLayout>,

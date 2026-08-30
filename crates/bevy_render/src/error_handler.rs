@@ -86,6 +86,7 @@ impl Default for RenderErrorHandler {
 /// An error encountered during rendering. These are errors reported by wgpu validation layers,
 /// and typically indicate problems in the way it is being used.
 #[derive(Debug)]
+#[non_structural_derive::non_structural_derive(Send, Sync)]
 pub struct RenderError {
     pub ty: ErrorType,
     pub description: String,
@@ -107,6 +108,7 @@ pub(crate) enum RenderState {
 
 /// Resource to allow polling wgpu error handlers.
 #[derive(Resource)]
+#[non_structural_derive::non_structural_derive(Send, Sync)]
 pub(crate) struct DeviceErrorHandler {
     device_lost: Arc<Mutex<Option<(wgpu::DeviceLostReason, String)>>>,
     uncaptured: Arc<Mutex<Option<WgpuWrapper<wgpu::Error>>>>,
