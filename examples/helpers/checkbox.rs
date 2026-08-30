@@ -47,7 +47,8 @@ where
         {
             checkbox_identifier.map(|checkbox_identifier| {
             bsn! { template_value(checkbox_identifier) }
-        })}
+            })
+        }
         on(checkbox_self_update)
         {status.checked().then(|| bsn! { Checked })}
         ]
