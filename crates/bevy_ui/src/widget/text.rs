@@ -380,21 +380,6 @@ pub fn measure_text_system(
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn unchanged_no_wrap_measure_is_reused() {
-        let mut flags = TextNodeFlags::default();
-        let size = Vec2::new(100.0, 20.0);
-
-        assert!(flags.cache_no_wrap_measure(size));
-        assert!(!flags.cache_no_wrap_measure(size));
-        assert!(flags.cache_no_wrap_measure(Vec2::new(101.0, 20.0)));
-    }
-}
-
 /// Updates the layout and size information for a UI text node on changes to the size value of its [`Node`] component,
 /// or when the `needs_recompute` field of [`TextNodeFlags`] is set to true.
 /// This information is computed by the [`TextPipeline`] and then stored in [`TextLayoutInfo`].
@@ -470,5 +455,20 @@ pub fn text_system(
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn unchanged_no_wrap_measure_is_reused() {
+        let mut flags = TextNodeFlags::default();
+        let size = Vec2::new(100.0, 20.0);
+
+        assert!(flags.cache_no_wrap_measure(size));
+        assert!(!flags.cache_no_wrap_measure(size));
+        assert!(flags.cache_no_wrap_measure(Vec2::new(101.0, 20.0)));
     }
 }
