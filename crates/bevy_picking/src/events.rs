@@ -1318,8 +1318,6 @@ mod tests {
     use bevy_app::App;
     use bevy_camera::{Camera, ManualTextureViewHandle};
 
-    use crate::pointer::update_pointer_map;
-
     use super::*;
 
     const POINTER_ID: PointerId = PointerId::Mouse;
@@ -1334,6 +1332,7 @@ mod tests {
             .init_resource::<PreviousHoverMap>()
             .init_resource::<PickingSettings>()
             .init_resource::<PointerState>()
+            .init_resource::<PointerMap>()
             .add_message::<PointerInput>()
             .add_message::<PointerCancel>()
             .add_message::<PointerClick>()
@@ -1356,11 +1355,6 @@ mod tests {
         // Initialize the pointer map resource manually with a stub location for the mouse
         app.world_mut()
             .spawn((POINTER_ID, PointerLocation::new(STUB_LOCATION)));
-        app.world_mut().insert_resource(PointerMap::default());
-        assert!(app
-            .world_mut()
-            .run_system_cached(update_pointer_map)
-            .is_ok());
     }
 
     fn update_hover_map_with_hovered_entities(app: &mut App, camera: Entity, entities: &[Entity]) {
