@@ -1,5 +1,6 @@
 import bevy_render::view::View;
 import bevy_render::globals::Globals;
+import package::ui::encode_output;
 
 @group(0) @binding(0)
 var<uniform> view: View;
@@ -123,5 +124,7 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     // map the slice coords to texture coords
     let atlas_uv = in.atlas_rect.xy + uv * (in.atlas_rect.zw - in.atlas_rect.xy);
 
-    return in.color * textureSample(sprite_texture, sprite_sampler, atlas_uv);
+    let color = in.color * textureSample(sprite_texture, sprite_sampler, atlas_uv);
+
+    return encode_output(color);
 }

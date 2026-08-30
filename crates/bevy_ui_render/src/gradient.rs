@@ -139,6 +139,7 @@ pub struct UiGradientPipelineKey {
     anti_alias: bool,
     color_space: InterpolationColorSpace,
     pub target_format: TextureFormat,
+    pub writer_encode: UiWriterEncodeKey,
 }
 
 impl SpecializedRenderPipeline for GradientPipeline {
@@ -194,11 +195,12 @@ impl SpecializedRenderPipeline for GradientPipeline {
             InterpolationColorSpace::HsvaLong => "IN_HSV_LONG",
         };
 
-        let shader_defs = if key.anti_alias {
+        let mut shader_defs = if key.anti_alias {
             vec![color_space.into(), "ANTI_ALIAS".into()]
         } else {
             vec![color_space.into()]
         };
+        key.writer_encode.push_shader_defs(&mut shader_defs);
 
         RenderPipelineDescriptor {
             vertex: VertexState {
@@ -708,7 +710,14 @@ pub fn queue_gradient(
     gradients_pipeline: Res<GradientPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<GradientPipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    render_views: Query<(&UiCameraView, Option<&UiAntiAlias>), With<ExtractedView>>,
+    render_views: Query<
+        (
+            &UiCameraView,
+            Option<&UiAntiAlias>,
+            Option<&ResolvedCompositingSpace>,
+        ),
+        With<ExtractedView>,
+    >,
     camera_views: Query<&ExtractedView>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
@@ -721,7 +730,7 @@ pub fn queue_gradient(
     {
         if current_camera_entity != *extracted_camera_entity {
             current_phase = render_views.get(*extracted_camera_entity).ok().and_then(
-                |(default_camera_view, ui_anti_alias)| {
+                |(default_camera_view, ui_anti_alias, resolved_space)| {
                     camera_views
                         .get(default_camera_view.0)
                         .ok()
@@ -729,7 +738,12 @@ pub fn queue_gradient(
                             transparent_render_phases
                                 .get_mut(&view.retained_view_entity)
                                 .map(|transparent_phase| {
-                                    (view.target_format, ui_anti_alias, transparent_phase)
+                                    (
+                                        view.target_format,
+                                        UiWriterEncodeKey::from_resolved_space(resolved_space),
+                                        ui_anti_alias,
+                                        transparent_phase,
+                                    )
                                 })
                         })
                 },
@@ -737,7 +751,9 @@ pub fn queue_gradient(
             current_camera_entity = *extracted_camera_entity;
         }
 
-        let Some((target_format, ui_anti_alias, transparent_phase)) = current_phase.as_mut() else {
+        let Some((target_format, writer_encode, ui_anti_alias, transparent_phase)) =
+            current_phase.as_mut()
+        else {
             continue;
         };
         for (render_entity, gradient) in sub_gradients.iter() {
@@ -748,6 +764,7 @@ pub fn queue_gradient(
                     anti_alias: matches!(ui_anti_alias, None | Some(UiAntiAlias::On)),
                     color_space: gradient.color_space,
                     target_format: *target_format,
+                    writer_encode: *writer_encode,
                 },
             );
 

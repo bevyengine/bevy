@@ -688,6 +688,16 @@ impl Mesh2dPipelineKey {
         }
     }
 
+    /// Appends the shader defs for the key's compositing space bits.
+    pub fn push_compositing_space_defs(self, shader_defs: &mut Vec<ShaderDefVal>) {
+        if self.contains(Self::SRGB_COMPOSITING) {
+            shader_defs.push("COMPOSITING_SPACE_SRGB".into());
+        }
+        if self.contains(Self::OKLAB_COMPOSITING) {
+            shader_defs.push("COMPOSITING_SPACE_OKLAB".into());
+        }
+    }
+
     pub fn msaa_samples(&self) -> u32 {
         1 << ((self.bits() >> Self::MSAA_SHIFT_BITS) & Self::MSAA_MASK_BITS)
     }
@@ -825,12 +835,7 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
         if key.contains(Mesh2dPipelineKey::MAY_DISCARD) {
             shader_defs.push("MAY_DISCARD".into());
         }
-        if key.contains(Mesh2dPipelineKey::SRGB_COMPOSITING) {
-            shader_defs.push("SRGB_OUTPUT".into());
-        }
-        if key.contains(Mesh2dPipelineKey::OKLAB_COMPOSITING) {
-            shader_defs.push("OKLAB_OUTPUT".into());
-        }
+        key.push_compositing_space_defs(&mut shader_defs);
 
         let vertex_buffer_layout = layout.0.get_layout(&vertex_attributes)?;
 

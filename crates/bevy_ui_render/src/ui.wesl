@@ -1,4 +1,5 @@
 import bevy_render::view::View;
+import bevy_render::writer_encode::writer_encode;
 
 const TEXTURED = 1u;
 const RIGHT_VERTEX = 2u;
@@ -182,6 +183,11 @@ fn nearest_border_active(point_vs_mid: vec2<f32>, size: vec2<f32>, width: vec4<f
         (enabled(flags, BORDER_BOTTOM) && min_dist == bottom);
 }
 
+// UI shaders call this on their final color, including custom UiMaterial shaders.
+fn encode_output(color: vec4<f32>) -> vec4<f32> {
+    return writer_encode(color);
+}
+
 // get alpha for antialiasing for sdf
 fn antialias(distance: f32) -> f32 {
     // Using the fwidth(distance) was causing artifacts, so just use the distance.
@@ -259,11 +265,13 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     // This allows us to draw both textured and untextured shapes together in the same batch.
     let color = select(in.color, in.color * texture_color, enabled(in.flags, TEXTURED));
 
+    var out: vec4<f32>;
     if enabled(in.flags, BORDER_ANY) {
-        return draw_uinode_border(color, in.point, in.size, in.radius_x, in.radius_y, in.border, in.flags);
+        out = draw_uinode_border(color, in.point, in.size, in.radius_x, in.radius_y, in.border, in.flags);
     } else {
-        return draw_uinode_background(color, in.point, in.size, in.radius_x, in.radius_y, in.border, in.flags);
+        out = draw_uinode_background(color, in.point, in.size, in.radius_x, in.radius_y, in.border, in.flags);
     }
+    return encode_output(out);
 }
 
 // One iteration of Newton's method on the 2D equation of an ellipse:  
