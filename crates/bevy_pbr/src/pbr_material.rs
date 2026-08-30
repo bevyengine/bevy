@@ -154,6 +154,9 @@ pub struct StandardMaterial {
     /// and the green channel contains the roughness values.
     /// Other channels are unused.
     ///
+    /// A two-channel image has no blue channel, so it is read as red = roughness,
+    /// green = metallic instead.
+    ///
     /// Those values are multiplied by the scalar ones of the material,
     /// see [`metallic`] and [`perceptual_roughness`] for details.
     ///
@@ -989,6 +992,7 @@ bitflags::bitflags! {
         const ANISOTROPY_TEXTURE         = 1 << 17;
         const SPECULAR_TEXTURE           = 1 << 18;
         const SPECULAR_TINT_TEXTURE      = 1 << 19;
+        const METALLIC_ROUGHNESS_RG      = 1 << 20; // Roughness in red, metallic in green
         const ALPHA_MODE_RESERVED_BITS   = Self::ALPHA_MODE_MASK_BITS << Self::ALPHA_MODE_SHIFT_BITS; // ← Bitmask reserving bits for the `AlphaMode`
         const ALPHA_MODE_OPAQUE          = 0 << Self::ALPHA_MODE_SHIFT_BITS;                          // ← Values are just sequential values bitshifted into
         const ALPHA_MODE_MASK            = 1 << Self::ALPHA_MODE_SHIFT_BITS;                          //   the bitmask, and can range from 0 to 7.
@@ -1075,8 +1079,20 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
         if self.emissive_texture.is_some() {
             flags |= StandardMaterialFlags::EMISSIVE_TEXTURE;
         }
-        if self.metallic_roughness_texture.is_some() {
+        if let Some(texture) = &self.metallic_roughness_texture {
             flags |= StandardMaterialFlags::METALLIC_ROUGHNESS_TEXTURE;
+            if let Some(texture) = images.get(texture.id()) {
+                match texture.texture_descriptor.format {
+                    // Dedicated 2-component unorm formats.
+                    TextureFormat::Rg8Unorm
+                    | TextureFormat::Rg16Unorm
+                    | TextureFormat::Bc5RgUnorm
+                    | TextureFormat::EacRg11Unorm => {
+                        flags |= StandardMaterialFlags::METALLIC_ROUGHNESS_RG;
+                    }
+                    _ => {}
+                }
+            }
         }
         if self.occlusion_texture.is_some() {
             flags |= StandardMaterialFlags::OCCLUSION_TEXTURE;
