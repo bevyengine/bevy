@@ -219,22 +219,27 @@ mod tests {
     use crate::ComputedUiRenderTargetInfo;
     use crate::ComputedUiTargetCamera;
     use crate::FixedNode;
+    use crate::FlexDirection;
     use crate::IsDefaultUiCamera;
     use crate::Node;
     use crate::Overflow;
     use crate::OverrideClip;
     use crate::UiScale;
     use crate::UiTargetCamera;
+    use crate::Val;
     use bevy_app::App;
     use bevy_app::HierarchyPropagatePlugin;
     use bevy_app::PostUpdate;
     use bevy_app::PropagateSet;
+    use bevy_app::TaskPoolPlugin;
     use bevy_camera::Camera;
     use bevy_camera::Camera2d;
     use bevy_camera::ComputedCameraValues;
     use bevy_camera::RenderTargetInfo;
     use bevy_ecs::hierarchy::ChildOf;
+    use bevy_ecs::schedule::IntoScheduleConfigs;
     use bevy_math::UVec2;
+    use bevy_text::{FontCx, RemSize};
     use bevy_utils::default;
 
     fn setup_test_app() -> App {
@@ -781,5 +786,85 @@ mod tests {
 
         app.update();
         assert!(app.world().get::<CalculatedClip>(grandchild).is_none());
+    }
+
+    #[test]
+    fn clipping_updates_on_layout_changes() {
+        let mut app = App::new();
+        app.add_plugins(TaskPoolPlugin::default());
+        app.init_resource::<FontCx>();
+        app.init_resource::<RemSize>();
+        app.add_systems(
+            bevy_app::Update,
+            (
+                crate::update_taffy_styles,
+                crate::mark_dirty_ui_trees,
+                crate::ui_layout_system,
+                crate::update_computed_nodes,
+                update_clipping_system,
+            )
+                .chain(),
+        );
+
+        let clipped = app.world_mut().spawn(Node::default()).id();
+        let clipping_node = app
+            .world_mut()
+            .spawn(Node {
+                width: Val::Px(60.),
+                height: Val::Px(20.),
+                overflow: Overflow::clip(),
+                ..default()
+            })
+            .add_child(clipped)
+            .id();
+        let resizable = app
+            .world_mut()
+            .spawn(Node {
+                width: Val::Px(40.),
+                height: Val::Px(20.),
+                ..default()
+            })
+            .id();
+        app.world_mut()
+            .spawn((
+                Node {
+                    width: Val::Px(100.),
+                    height: Val::Px(100.),
+                    flex_direction: FlexDirection::Row,
+                    ..default()
+                },
+                ComputedUiRenderTargetInfo {
+                    physical_size: UVec2::splat(100),
+                    scale_factor: 1.,
+                },
+            ))
+            .add_children(&[resizable, clipping_node]);
+
+        app.update();
+
+        let initial_layout = app
+            .world()
+            .get::<crate::layout_tree::ComputedLayout>(clipping_node)
+            .unwrap()
+            .get_layout(true)
+            .unwrap()
+            .0;
+        let initial_clip = app.world().get::<CalculatedClip>(clipped).unwrap().clone();
+
+        app.world_mut().get_mut::<Node>(resizable).unwrap().width = Val::Px(80.);
+        app.update();
+
+        let updated_layout = app
+            .world()
+            .get::<crate::layout_tree::ComputedLayout>(clipping_node)
+            .unwrap()
+            .get_layout(true)
+            .unwrap()
+            .0;
+        assert_ne!(initial_layout.location, updated_layout.location);
+        assert_ne!(
+            &initial_clip,
+            app.world().get::<CalculatedClip>(clipped).unwrap()
+        );
     }
 }
