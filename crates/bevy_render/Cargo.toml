@@ -117,7 +117,7 @@ tracy-client = { version = "0.18.3", optional = true }
 indexmap = { version = "2" }
 bitflags = "2"
 itertools = "0.14"
-weak-table = "0.3"
+weak-table = "0.4"
 tracing = "0.1"
 static_assertions = "1"
 
