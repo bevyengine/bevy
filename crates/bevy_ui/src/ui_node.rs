@@ -1140,6 +1140,11 @@ impl Default for JustifySelf {
 /// - For Flexbox containers, controls alignment of lines if `flex_wrap` is set to [`FlexWrap::Wrap`] and there are multiple lines of items.
 /// - For CSS Grid containers, controls alignment of grid rows.
 ///
+/// # Safe alignments
+///
+/// Safe alignments will fall back to [`Self::Start`] if aligning the items would overflow the container, so
+/// the start of the content stays visible.
+///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-content>
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
 #[reflect(Default, PartialEq, Clone)]
@@ -1153,16 +1158,26 @@ pub enum AlignContent {
     Default,
     /// The items are packed towards the start of the axis.
     Start,
+    /// Like [`Start`](Self::Start) but safe [`safe`](Self#safe-alignments)
+    StartSafe,
     /// The items are packed towards the end of the axis.
     End,
+    /// Like [`End`](Self::End) but safe [`safe`](Self#safe-alignments)
+    EndSafe,
     /// The items are packed towards the start of the axis, unless the flex direction is reversed;
     /// then the items are packed towards the end of the axis.
     FlexStart,
+    /// Like [`FlexStart`](Self::FlexStart) but safe [`safe`](Self#safe-alignments)
+    FlexStartSafe,
     /// The items are packed towards the end of the axis, unless the flex direction is reversed;
     /// then the items are packed towards the start of the axis.
     FlexEnd,
+    /// Like [`FlexEnd`](Self::FlexEnd) but safe [`safe`](Self#safe-alignments)
+    FlexEndSafe,
     /// The items are packed along the center of the axis.
     Center,
+    /// Like [`Center`](Self::Center) but safe [`safe`](Self#safe-alignments)
+    CenterSafe,
     /// The items are stretched to fill the container along the axis.
     Stretch,
     /// The items are distributed such that the gap between any two items is equal.
@@ -1175,6 +1190,50 @@ pub enum AlignContent {
 
 impl AlignContent {
     pub const DEFAULT: Self = Self::Default;
+
+    /// Returns `true` is this alignment is considered [`safe`](Self#safe-alignments).
+    pub const fn is_safe(&self) -> bool {
+        match self {
+            AlignContent::StartSafe
+            | AlignContent::CenterSafe
+            | AlignContent::EndSafe
+            | AlignContent::FlexStartSafe
+            | AlignContent::FlexEndSafe => true,
+            // Explicitly enumerate variants so we don't forget to extend this when changing them.
+            AlignContent::Default
+            | AlignContent::Start
+            | AlignContent::Center
+            | AlignContent::End
+            | AlignContent::FlexStart
+            | AlignContent::FlexEnd
+            | AlignContent::Stretch
+            | AlignContent::SpaceBetween
+            | AlignContent::SpaceEvenly
+            | AlignContent::SpaceAround => false,
+        }
+    }
+
+    /// Converts `self` to a [`safe`](Self#safe-alignments) alignment if possible.
+    /// Returns `self` if there isn't a `safe` variant.
+    pub const fn to_safe(self) -> Self {
+        match self {
+            AlignContent::Start => AlignContent::StartSafe,
+            AlignContent::Center => AlignContent::CenterSafe,
+            AlignContent::End => AlignContent::EndSafe,
+            AlignContent::FlexStart => AlignContent::FlexStartSafe,
+            AlignContent::FlexEnd => AlignContent::FlexEndSafe,
+            AlignContent::Default
+            | AlignContent::StartSafe
+            | AlignContent::EndSafe
+            | AlignContent::CenterSafe
+            | AlignContent::FlexStartSafe
+            | AlignContent::FlexEndSafe
+            | AlignContent::Stretch
+            | AlignContent::SpaceBetween
+            | AlignContent::SpaceEvenly
+            | AlignContent::SpaceAround => self,
+        }
+    }
 }
 
 impl Default for AlignContent {
