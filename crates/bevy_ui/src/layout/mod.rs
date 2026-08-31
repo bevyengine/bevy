@@ -366,7 +366,10 @@ pub fn ui_layout_system(
                 node.inverse_scale_factor = inverse_target_scale_factor;
             }
 
-            let content_size = Vec2::new(layout.content_size.width, layout.content_size.height);
+            let content_size = Vec2::new(
+                layout.scrollable_overflow_rect.right,
+                layout.scrollable_overflow_rect.bottom,
+            );
             if node.content_size != content_size {
                 node.content_size = content_size;
             }
@@ -1171,8 +1174,14 @@ mod tests {
         assert_eq!(layout.padding.bottom, 11.0);
         assert_eq!(layout.size.width, 66.0);
         assert_eq!(layout.size.height, 55.0);
-        assert_eq!(layout.content_size.width, 58.0);
-        assert_eq!(layout.content_size.height, 43.0);
+        assert_eq!(
+            app.world()
+                .get::<ComputedNode>(ui_node)
+                .unwrap()
+                .padding_box()
+                .size(),
+            Vec2::new(58.0, 43.0)
+        );
         assert_eq!(layout.content_box_width(), 50.0);
         assert_eq!(layout.content_box_height(), 25.0);
     }

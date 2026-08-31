@@ -3,8 +3,7 @@
 //! At the most basic level, this allows sampling random points from the interior and boundary of
 //! geometric primitives. For example:
 //! ```
-//! # use bevy_math::primitives::*;
-//! # use bevy_math::ShapeSample;
+//! # use bevy_shape::*;
 //! # use rand::SeedableRng;
 //! # use rand::rngs::StdRng;
 //! // Get some `RngExt`:
@@ -19,8 +18,8 @@
 //!
 //! For repeated sampling, `ShapeSample` also includes methods for accessing a [`Distribution`]:
 //! ```
-//! # use bevy_math::primitives::*;
-//! # use bevy_math::{Vec2, ShapeSample};
+//! # use bevy_shape::*;
+//! # use bevy_math::Vec2;
 //! # use rand::SeedableRng;
 //! # use rand::rngs::StdRng;
 //! # use rand::distr::Distribution;
@@ -40,7 +39,8 @@
 
 use core::f32::consts::{FRAC_PI_2, PI, TAU};
 
-use crate::{ops, primitives::*, NormedVectorSpace, ScalarField, Vec2, Vec3};
+use crate::{dim2::*, dim3::*, Measured2d, Measured3d, Primitive2d};
+use bevy_math::{ops, NormedVectorSpace, ScalarField, Vec2, Vec3};
 use rand::{
     distr::{
         uniform::SampleUniform,
@@ -62,6 +62,7 @@ pub trait ShapeSample {
     /// # Example
     /// ```
     /// # use bevy_math::prelude::*;
+    /// # use bevy_shape::prelude::*;
     /// let square = Rectangle::new(2.0, 2.0);
     ///
     /// // Returns a Vec2 with both x and y between -1 and 1.
@@ -76,6 +77,7 @@ pub trait ShapeSample {
     /// # Example
     /// ```
     /// # use bevy_math::prelude::*;
+    /// # use bevy_shape::prelude::*;
     /// let square = Rectangle::new(2.0, 2.0);
     ///
     /// // Returns a Vec2 where one of the coordinates is at ±1,
@@ -90,6 +92,7 @@ pub trait ShapeSample {
     ///
     /// ```
     /// # use bevy_math::prelude::*;
+    /// # use bevy_shape::prelude::*;
     /// # use rand::distr::Distribution;
     /// let square = Rectangle::new(2.0, 2.0);
     /// let rng = rand::rng();
@@ -112,6 +115,7 @@ pub trait ShapeSample {
     ///
     /// ```
     /// # use bevy_math::prelude::*;
+    /// # use bevy_shape::prelude::*;
     /// # use rand::distr::Distribution;
     /// let square = Rectangle::new(2.0, 2.0);
     /// let rng = rand::rng();

@@ -6,8 +6,9 @@ use bevy_camera::{
 use bevy_color::Color;
 use bevy_ecs::prelude::*;
 use bevy_image::Image;
-use bevy_math::{primitives::ViewFrustum, proj};
+use bevy_math::proj;
 use bevy_reflect::prelude::*;
+use bevy_shape::ViewFrustum;
 use bevy_transform::components::{GlobalTransform, Transform};
 
 use crate::{cluster::ClusterVisibilityClass, light_consts};

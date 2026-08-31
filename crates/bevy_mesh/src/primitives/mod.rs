@@ -1,4 +1,4 @@
-//! Mesh generation for [primitive shapes](bevy_math::primitives).
+//! Mesh generation for [primitive shapes](bevy_shape).
 //!
 //! Primitives that support meshing implement the [`Meshable`] trait.
 //! Calling [`mesh`](Meshable::mesh) will return either a [`Mesh`] or a builder
@@ -7,7 +7,7 @@
 //! ```
 //! # use bevy_asset::Assets;
 //! # use bevy_ecs::prelude::ResMut;
-//! # use bevy_math::prelude::Circle;
+//! # use bevy_shape::Circle;
 //! # use bevy_mesh::*;
 //! #
 //! # fn setup(mut meshes: ResMut<Assets<Mesh>>) {
