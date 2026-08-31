@@ -166,14 +166,14 @@ impl BsnEntry {
                         function,
                         args,
                     };
-                    if is_template {
-                        BsnEntry::TemplateConstructor(bsn_constructor)
+                    if input.peek(Dot) {
+                        let end_cursor = input.cursor();
+                        let dot_expr = parse_extended_dot_expression(input)?;
+                        let tokens = tokens_between(start_type, end_cursor);
+                        BsnEntry::TemplateValue(quote! {#tokens #dot_expr})
                     } else {
-                        if input.peek(Dot) {
-                            let end_cursor = input.cursor();
-                            let dot_expr = parse_extended_dot_expression(input)?;
-                            let tokens = tokens_between(start_type, end_cursor);
-                            BsnEntry::TemplateValue(quote! {#tokens #dot_expr})
+                        if is_template {
+                            BsnEntry::TemplateConstructor(bsn_constructor)
                         } else {
                             BsnEntry::FromTemplateConstructor(bsn_constructor)
                         }

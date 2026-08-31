@@ -1722,30 +1722,30 @@ mod tests {
     //     world.spawn_scene(bsn! { Span(0..count) }).unwrap();
     // }
 
-    // #[test]
-    // fn template_prefix_with_dot_expression() {
-    //     #[derive(Component, Clone, Default, PartialEq, Debug)]
-    //     struct Size {
-    //         width: u32,
-    //         height: u32,
-    //     }
+    #[test]
+    fn template_prefix_with_dot_expression() {
+        #[derive(Component, Clone, Default, PartialEq, Debug)]
+        struct Size {
+            width: u32,
+            height: u32,
+        }
 
-    //     impl Size {
-    //         fn new(width: u32) -> Self {
-    //             Size { width, height: 0 }
-    //         }
+        impl Size {
+            fn new(width: u32) -> Self {
+                Size { width, height: 0 }
+            }
 
-    //         fn tall(mut self) -> Self {
-    //             self.height = 100;
-    //             self
-    //         }
-    //     }
+            fn tall(mut self) -> Self {
+                self.height = 100;
+                self
+            }
+        }
 
-    //     let mut app = test_app();
-    //     let world = app.world_mut();
-    //     world.spawn_scene(bsn! { Size::new(1).tall() }).unwrap();
-    //     world.spawn_scene(bsn! { ~Size::new(1).tall() }).unwrap();
-    // }
+        let mut app = test_app();
+        let world = app.world_mut();
+        world.spawn_scene(bsn! { Size::new(1).tall() }).unwrap();
+        world.spawn_scene(bsn! { ~Size::new(1).tall() }).unwrap();
+    }
 
     // #[test]
     // fn tuple_index_in_dot_expression() {
