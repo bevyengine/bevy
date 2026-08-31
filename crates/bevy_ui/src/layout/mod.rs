@@ -24,6 +24,7 @@ use bevy_text::{ComputedTextBlock, EmSize, FontCx, RemSize, TextFont, DEFAULT_RE
 
 use bevy_log::warn;
 
+pub(crate) mod clipping;
 mod convert;
 pub mod debug;
 pub mod ui_surface;
@@ -516,8 +517,11 @@ pub fn ui_layout_system(
 #[cfg(test)]
 mod tests {
     use crate::{
-        layout::ui_surface::UiSurface, prelude::*, ui_layout_system,
-        update::propagate_ui_target_cameras, ContentSize, LayoutContext,
+        layout::{clipping::update_clipping_system, ui_surface::UiSurface},
+        prelude::*,
+        ui_layout_system,
+        update::propagate_ui_target_cameras,
+        ContentSize, LayoutContext,
     };
     use bevy_app::{App, HierarchyPropagatePlugin, PostUpdate, PropagateSet, TaskPoolPlugin};
     use bevy_camera::{Camera, Camera2d, ComputedCameraValues, RenderTargetInfo, Viewport};
@@ -559,6 +563,7 @@ mod tests {
                 mark_dirty_trees,
                 sync_simple_transforms,
                 propagate_parent_transforms,
+                update_clipping_system,
             )
                 .chain(),
         );
@@ -1848,6 +1853,35 @@ mod tests {
         let a_bottom = 0.5 * computed_a.size.y + transform_a.affine().translation.y;
         let b_top = -0.5 * computed_b.size.y + transform_b.affine().translation.y;
         assert!((b_top - a_bottom - 40.).abs() <= 1e-5);
+    }
+
+    #[test]
+    fn clipping_updates_on_layout_changes() {
+        let mut app = setup_ui_test_app();
+
+        let child = app.world_mut().spawn(Node::default()).id();
+        let parent = app
+            .world_mut()
+            .spawn((Node {
+                width: Val::Px(60.),
+                height: Val::Px(20.),
+                overflow: Overflow::clip(),
+                ..default()
+            },))
+            .add_child(child)
+            .id();
+
+        app.update();
+
+        let initial_clip = app.world().get::<CalculatedClip>(child).unwrap().clone();
+
+        app.world_mut().get_mut::<Node>(parent).unwrap().width = Val::Px(80.);
+        app.update();
+
+        assert_ne!(
+            &initial_clip,
+            app.world().get::<CalculatedClip>(child).unwrap()
+        );
     }
 
     #[cfg(feature = "ghost_nodes")]
