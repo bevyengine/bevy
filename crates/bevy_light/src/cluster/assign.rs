@@ -381,7 +381,9 @@ pub(crate) fn assign_objects_to_clusters(
 
         // If the dynamic resizing feature is on, use the last frame's cluster
         // index count to determine the new number of clusters.
+        // We don’t need to do this if storage buffers are available, because we have plenty of space in that case.
         if config.dynamic_resizing()
+            && !global_cluster_settings.supports_storage_buffers
             && let Some(last_frame_cluster_index_count) =
                 clusters.last_frame_total_cluster_index_count
             && last_frame_cluster_index_count
