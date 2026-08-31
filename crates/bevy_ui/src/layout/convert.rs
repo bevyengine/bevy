@@ -157,10 +157,15 @@ impl From<AlignItems> for Option<taffy::style::AlignItems> {
         match value {
             AlignItems::Default => None,
             AlignItems::Start => taffy::style::AlignItems::START.into(),
+            AlignItems::StartSafe => taffy::style::AlignItems::SAFE_START.into(),
             AlignItems::End => taffy::style::AlignItems::END.into(),
+            AlignItems::EndSafe => taffy::style::AlignItems::SAFE_END.into(),
             AlignItems::FlexStart => taffy::style::AlignItems::FLEX_START.into(),
+            AlignItems::FlexStartSafe => taffy::style::AlignItems::SAFE_FLEX_START.into(),
             AlignItems::FlexEnd => taffy::style::AlignItems::FLEX_END.into(),
+            AlignItems::FlexEndSafe => taffy::style::AlignItems::SAFE_FLEX_END.into(),
             AlignItems::Center => taffy::style::AlignItems::CENTER.into(),
+            AlignItems::CenterSafe => taffy::style::AlignItems::SAFE_CENTER.into(),
             AlignItems::Baseline => taffy::style::AlignItems::BASELINE.into(),
             AlignItems::Stretch => taffy::style::AlignItems::STRETCH.into(),
         }
