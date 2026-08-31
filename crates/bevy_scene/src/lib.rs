@@ -1510,6 +1510,400 @@ mod tests {
         let exploded = world.resource::<Exploded>();
         assert_eq!(exploded.0, Some(id));
     }
+
+    #[test]
+    fn struct_update_in_init_position() {
+        #[derive(Component, Default, Clone, PartialEq, Debug)]
+        enum Shape {
+            #[default]
+            Empty,
+            Rect(Size),
+        }
+
+        #[derive(Default, Clone, PartialEq, Debug)]
+        struct Size {
+            width: u32,
+            height: u32,
+        }
+
+        fn wide() -> Size {
+            Size {
+                width: 100,
+                height: 1,
+            }
+        }
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        let entity = world
+            .spawn_scene(bsn! { Shape::Rect(Size { height: 5, ..wide() }) })
+            .unwrap();
+
+        assert_eq!(
+            &Shape::Rect(Size {
+                width: 100,
+                height: 5
+            }),
+            entity.get::<Shape>().unwrap()
+        );
+    }
+
+    #[test]
+    fn struct_update_in_patch_position() {
+        #[derive(Component, Default, Clone, PartialEq, Debug)]
+        struct Size {
+            width: u32,
+            height: u32,
+        }
+
+        let wide = Size {
+            width: 100,
+            height: 1,
+        };
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        let entity = world
+            .spawn_scene(bsn! { Size { height: 5, ..wide } })
+            .unwrap();
+
+        assert_eq!(
+            &Size {
+                width: 100,
+                height: 5
+            },
+            entity.get::<Size>().unwrap()
+        );
+    }
+
+    #[test]
+    fn nested_struct_update_in_patch_position() {
+        #[derive(Component, Default, Clone, PartialEq, Debug)]
+        struct Layout {
+            size: Size,
+        }
+
+        #[derive(Default, Clone, PartialEq, Debug)]
+        struct Size {
+            width: u32,
+            height: u32,
+        }
+
+        let wide = Size {
+            width: 100,
+            height: 1,
+        };
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        let entity = world
+            .spawn_scene(bsn! { Layout { size: Size { height: 5, ..wide } } })
+            .unwrap();
+
+        assert_eq!(
+            &Layout {
+                size: Size {
+                    width: 100,
+                    height: 5
+                }
+            },
+            entity.get::<Layout>().unwrap()
+        );
+    }
+
+    #[test]
+    fn struct_update_in_scene_component() {
+        #[derive(SceneComponent, Default, Clone)]
+        #[scene(PanelProps)]
+        struct Panel {
+            size: Size,
+        }
+
+        #[derive(Default, Clone, PartialEq, Debug)]
+        struct Size {
+            width: u32,
+            height: u32,
+        }
+
+        #[derive(Default)]
+        struct PanelProps {
+            size: Size,
+        }
+
+        impl Panel {
+            fn scene(_props: PanelProps) -> impl Scene {
+                bsn! {}
+            }
+        }
+
+        fn wide() -> Size {
+            Size {
+                width: 100,
+                height: 1,
+            }
+        }
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        world
+            .spawn_scene(bsn! { @Panel { size: Size { height: 5, ..wide() } } })
+            .unwrap();
+        world
+            .spawn_scene(bsn! { @Panel { @size: Size { height: 5, ..wide() } } })
+            .unwrap();
+    }
+
+    #[test]
+    fn entity_reference_in_template_function() {
+        use bevy_ecs::template::EntityTemplate;
+        #[derive(Component, Clone, FromTemplate, PartialEq, Debug)]
+        struct Target {
+            entity: Entity,
+        }
+
+        fn target(entity: EntityTemplate) -> TargetTemplate {
+            TargetTemplate { entity }
+        }
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        let entities = world
+            .spawn_scene_list(bsn_list! {
+                #A,
+                target(#A)
+            })
+            .unwrap();
+
+        assert_eq!(
+            &Target {
+                entity: entities[0]
+            },
+            world.entity(entities[1]).get::<Target>().unwrap()
+        );
+    }
+
+    #[test]
+    fn bare_value_for_derived_from_template() {
+        #[derive(Component, Clone, Default, PartialEq, Debug)]
+        struct Blanket {
+            radius: u32,
+        }
+
+        #[derive(Component, Clone, FromTemplate, PartialEq, Debug)]
+        struct Derived {
+            radius: u32,
+            target: Entity,
+        }
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        let target = world.spawn_empty().id();
+
+        let blanket = Blanket { radius: 1 };
+        world.spawn_scene(bsn! { blanket }).unwrap();
+
+        let derived = Derived { radius: 1, target };
+        world.spawn_scene(bsn! { derived }).unwrap();
+    }
+
+    #[test]
+    fn scene_variable_without_parentheses() {
+        fn wrapper(contents: impl Scene) -> impl Scene {
+            bsn! { @contents }
+        }
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        world.spawn_scene(wrapper(bsn! { #A })).unwrap();
+    }
+
+    #[test]
+    fn const_in_entry_position() {
+        #[derive(Component, Clone, Default, PartialEq, Debug)]
+        struct Size {
+            width: u32,
+        }
+
+        const WIDE: Size = Size { width: 100 };
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        let entity = world.spawn_scene(bsn! { WIDE }).unwrap();
+
+        assert_eq!(&WIDE, entity.get::<Size>().unwrap());
+    }
+
+    #[test]
+    fn range_with_non_literal_bounds() {
+        #[derive(Component, Clone, Default, PartialEq, Debug)]
+        struct Span(Range<u32>);
+
+        let count = 5;
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        world.spawn_scene(bsn! { Span(0..2) }).unwrap();
+        world.spawn_scene(bsn! { Span(0..count) }).unwrap();
+    }
+
+    #[test]
+    fn template_prefix_with_dot_expression() {
+        #[derive(Component, Clone, Default, PartialEq, Debug)]
+        struct Size {
+            width: u32,
+            height: u32,
+        }
+
+        impl Size {
+            fn new(width: u32) -> Self {
+                Size { width, height: 0 }
+            }
+
+            fn tall(mut self) -> Self {
+                self.height = 100;
+                self
+            }
+        }
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        world.spawn_scene(bsn! { Size::new(1).tall() }).unwrap();
+        world.spawn_scene(bsn! { ~Size::new(1).tall() }).unwrap();
+    }
+
+    #[test]
+    fn tuple_index_in_dot_expression() {
+        #[derive(Component, Clone, Default, PartialEq, Debug)]
+        struct Size {
+            width: u32,
+        }
+
+        struct Holder(Size);
+
+        let holder = Holder(Size { width: 1 });
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        world.spawn_scene(bsn! { holder.0.clone() }).unwrap();
+    }
+
+    #[test]
+    fn closure_field_with_generic_return_type() {
+        #[derive(Clone)]
+        struct Handler<T>(Arc<dyn Fn(u32) -> T + Send + Sync>);
+
+        impl<T: Default + 'static> Default for Handler<T> {
+            fn default() -> Self {
+                Handler(Arc::new(|_| T::default()))
+            }
+        }
+
+        impl<T, F: Fn(u32) -> T + Send + Sync + 'static> From<F> for Handler<T> {
+            fn from(function: F) -> Self {
+                Handler(Arc::new(function))
+            }
+        }
+
+        #[derive(Component, Clone, Default)]
+        struct Handlers {
+            one: Handler<u32>,
+            many: Handler<Vec<u32>>,
+        }
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        let entity = world
+            .spawn_scene(bsn! {
+                Handlers {
+                    one: |x| -> u32 { x },
+                    many: |x| -> Vec<u32> { vec![x] },
+                }
+            })
+            .unwrap();
+
+        let handlers = entity.get::<Handlers>().unwrap();
+        assert_eq!(2, (handlers.one.0)(2));
+        assert_eq!(vec![2], (handlers.many.0)(2));
+    }
+
+    #[test]
+    fn dot_chained_constructor_resolves_through_from_template() {
+        use bevy_ecs::template::TemplateContext;
+        #[derive(Component, Clone, PartialEq, Debug)]
+        struct Size {
+            width: u32,
+            height: u32,
+        }
+
+        struct SizeTemplate {
+            width: u32,
+            height: u32,
+        }
+
+        impl SizeTemplate {
+            fn new(width: u32) -> Self {
+                SizeTemplate { width, height: 0 }
+            }
+
+            fn tall(mut self) -> Self {
+                self.height = 100;
+                self
+            }
+        }
+
+        impl Default for SizeTemplate {
+            fn default() -> Self {
+                SizeTemplate {
+                    width: 0,
+                    height: 0,
+                }
+            }
+        }
+
+        impl Template for SizeTemplate {
+            type Output = Size;
+
+            fn build_template(&self, _context: &mut TemplateContext) -> Result<Size> {
+                Ok(Size {
+                    width: self.width,
+                    height: self.height,
+                })
+            }
+
+            fn clone_template(&self) -> Self {
+                SizeTemplate {
+                    width: self.width,
+                    height: self.height,
+                }
+            }
+        }
+
+        impl FromTemplate for Size {
+            type Template = SizeTemplate;
+        }
+
+        let mut app = test_app();
+        let world = app.world_mut();
+
+        let plain = world.spawn_scene(bsn! { Size::new(2) }).unwrap();
+        assert_eq!(
+            &Size {
+                width: 2,
+                height: 0
+            },
+            plain.get::<Size>().unwrap()
+        );
+
+        let chained = world.spawn_scene(bsn! { Size::new(2).tall() }).unwrap();
+        assert_eq!(
+            &Size {
+                width: 2,
+                height: 100
+            },
+            chained.get::<Size>().unwrap()
+        );
+    }
+
     #[test]
     fn primitive_literals() {
         #![allow(dead_code, reason = "test")]
