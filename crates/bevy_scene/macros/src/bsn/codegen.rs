@@ -468,7 +468,11 @@ impl BsnType {
             } => {
                 if let Some(struct_update) = struct_update {
                     let tokens = (*struct_update.value).to_tokens(ctx)?;
-                    assignments.push(quote! { #(#path.)* = #tokens });
+                    if path.len() == 1 {
+                        assignments.push(quote! { *#(#path)* = #tokens; });
+                    } else {
+                        assignments.push(quote! { #(#path).* = #tokens; });
+                    }
                 }
 
                 let mut seen = HashSet::with_capacity(fields.len());

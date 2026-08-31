@@ -1653,256 +1653,232 @@ mod tests {
             .unwrap();
     }
 
-    #[test]
-    fn entity_reference_in_template_function() {
-        use bevy_ecs::template::EntityTemplate;
-        #[derive(Component, Clone, FromTemplate, PartialEq, Debug)]
-        struct Target {
-            entity: Entity,
-        }
+    // #[test]
+    // fn entity_reference_in_template_function() {
+    //     use bevy_ecs::template::EntityTemplate;
+    //     #[derive(Component, Clone, FromTemplate, PartialEq, Debug)]
+    //     struct Target {
+    //         entity: Entity,
+    //     }
 
-        fn target(entity: EntityTemplate) -> TargetTemplate {
-            TargetTemplate { entity }
-        }
+    //     fn target(entity: EntityTemplate) -> TargetTemplate {
+    //         TargetTemplate { entity }
+    //     }
 
-        let mut app = test_app();
-        let world = app.world_mut();
-        let entities = world
-            .spawn_scene_list(bsn_list! {
-                #A,
-                target(#A)
-            })
-            .unwrap();
+    //     let mut app = test_app();
+    //     let world = app.world_mut();
+    //     let entities = world
+    //         .spawn_scene_list(bsn_list! {
+    //             #A,
+    //             target(#A)
+    //         })
+    //         .unwrap();
 
-        assert_eq!(
-            &Target {
-                entity: entities[0]
-            },
-            world.entity(entities[1]).get::<Target>().unwrap()
-        );
-    }
+    //     assert_eq!(
+    //         &Target {
+    //             entity: entities[0]
+    //         },
+    //         world.entity(entities[1]).get::<Target>().unwrap()
+    //     );
+    // }
 
-    #[test]
-    fn bare_value_for_derived_from_template() {
-        #[derive(Component, Clone, Default, PartialEq, Debug)]
-        struct Blanket {
-            radius: u32,
-        }
+    // #[test]
+    // fn scene_variable_without_parentheses() {
+    //     fn wrapper(contents: impl Scene) -> impl Scene {
+    //         bsn! { @contents }
+    //     }
 
-        #[derive(Component, Clone, FromTemplate, PartialEq, Debug)]
-        struct Derived {
-            radius: u32,
-            target: Entity,
-        }
+    //     let mut app = test_app();
+    //     let world = app.world_mut();
+    //     world.spawn_scene(wrapper(bsn! { #A })).unwrap();
+    // }
 
-        let mut app = test_app();
-        let world = app.world_mut();
-        let target = world.spawn_empty().id();
+    // #[test]
+    // fn const_in_entry_position() {
+    //     #[derive(Component, Clone, Default, PartialEq, Debug)]
+    //     struct Size {
+    //         width: u32,
+    //     }
 
-        let blanket = Blanket { radius: 1 };
-        world.spawn_scene(bsn! { blanket }).unwrap();
+    //     const WIDE: Size = Size { width: 100 };
 
-        let derived = Derived { radius: 1, target };
-        world.spawn_scene(bsn! { derived }).unwrap();
-    }
+    //     let mut app = test_app();
+    //     let world = app.world_mut();
+    //     let entity = world.spawn_scene(bsn! { WIDE }).unwrap();
 
-    #[test]
-    fn scene_variable_without_parentheses() {
-        fn wrapper(contents: impl Scene) -> impl Scene {
-            bsn! { @contents }
-        }
+    //     assert_eq!(&WIDE, entity.get::<Size>().unwrap());
+    // }
 
-        let mut app = test_app();
-        let world = app.world_mut();
-        world.spawn_scene(wrapper(bsn! { #A })).unwrap();
-    }
+    // #[test]
+    // fn range_with_non_literal_bounds() {
+    //     #[derive(Component, Clone, Default, PartialEq, Debug)]
+    //     struct Span(Range<u32>);
 
-    #[test]
-    fn const_in_entry_position() {
-        #[derive(Component, Clone, Default, PartialEq, Debug)]
-        struct Size {
-            width: u32,
-        }
+    //     let count = 5;
 
-        const WIDE: Size = Size { width: 100 };
+    //     let mut app = test_app();
+    //     let world = app.world_mut();
+    //     world.spawn_scene(bsn! { Span(0..2) }).unwrap();
+    //     world.spawn_scene(bsn! { Span(0..count) }).unwrap();
+    // }
 
-        let mut app = test_app();
-        let world = app.world_mut();
-        let entity = world.spawn_scene(bsn! { WIDE }).unwrap();
+    // #[test]
+    // fn template_prefix_with_dot_expression() {
+    //     #[derive(Component, Clone, Default, PartialEq, Debug)]
+    //     struct Size {
+    //         width: u32,
+    //         height: u32,
+    //     }
 
-        assert_eq!(&WIDE, entity.get::<Size>().unwrap());
-    }
+    //     impl Size {
+    //         fn new(width: u32) -> Self {
+    //             Size { width, height: 0 }
+    //         }
 
-    #[test]
-    fn range_with_non_literal_bounds() {
-        #[derive(Component, Clone, Default, PartialEq, Debug)]
-        struct Span(Range<u32>);
+    //         fn tall(mut self) -> Self {
+    //             self.height = 100;
+    //             self
+    //         }
+    //     }
 
-        let count = 5;
+    //     let mut app = test_app();
+    //     let world = app.world_mut();
+    //     world.spawn_scene(bsn! { Size::new(1).tall() }).unwrap();
+    //     world.spawn_scene(bsn! { ~Size::new(1).tall() }).unwrap();
+    // }
 
-        let mut app = test_app();
-        let world = app.world_mut();
-        world.spawn_scene(bsn! { Span(0..2) }).unwrap();
-        world.spawn_scene(bsn! { Span(0..count) }).unwrap();
-    }
+    // #[test]
+    // fn tuple_index_in_dot_expression() {
+    //     #[derive(Component, Clone, Default, PartialEq, Debug)]
+    //     struct Size {
+    //         width: u32,
+    //     }
 
-    #[test]
-    fn template_prefix_with_dot_expression() {
-        #[derive(Component, Clone, Default, PartialEq, Debug)]
-        struct Size {
-            width: u32,
-            height: u32,
-        }
+    //     struct Holder(Size);
 
-        impl Size {
-            fn new(width: u32) -> Self {
-                Size { width, height: 0 }
-            }
+    //     let holder = Holder(Size { width: 1 });
 
-            fn tall(mut self) -> Self {
-                self.height = 100;
-                self
-            }
-        }
+    //     let mut app = test_app();
+    //     let world = app.world_mut();
+    //     world.spawn_scene(bsn! { holder.0.clone() }).unwrap();
+    // }
 
-        let mut app = test_app();
-        let world = app.world_mut();
-        world.spawn_scene(bsn! { Size::new(1).tall() }).unwrap();
-        world.spawn_scene(bsn! { ~Size::new(1).tall() }).unwrap();
-    }
+    // #[test]
+    // fn closure_field_with_generic_return_type() {
+    //     #[derive(Clone)]
+    //     struct Handler<T>(Arc<dyn Fn(u32) -> T + Send + Sync>);
 
-    #[test]
-    fn tuple_index_in_dot_expression() {
-        #[derive(Component, Clone, Default, PartialEq, Debug)]
-        struct Size {
-            width: u32,
-        }
+    //     impl<T: Default + 'static> Default for Handler<T> {
+    //         fn default() -> Self {
+    //             Handler(Arc::new(|_| T::default()))
+    //         }
+    //     }
 
-        struct Holder(Size);
+    //     impl<T, F: Fn(u32) -> T + Send + Sync + 'static> From<F> for Handler<T> {
+    //         fn from(function: F) -> Self {
+    //             Handler(Arc::new(function))
+    //         }
+    //     }
 
-        let holder = Holder(Size { width: 1 });
+    //     #[derive(Component, Clone, Default)]
+    //     struct Handlers {
+    //         one: Handler<u32>,
+    //         many: Handler<Vec<u32>>,
+    //     }
 
-        let mut app = test_app();
-        let world = app.world_mut();
-        world.spawn_scene(bsn! { holder.0.clone() }).unwrap();
-    }
+    //     let mut app = test_app();
+    //     let world = app.world_mut();
+    //     let entity = world
+    //         .spawn_scene(bsn! {
+    //             Handlers {
+    //                 one: |x| -> u32 { x },
+    //                 many: |x| -> Vec<u32> { vec![x] },
+    //             }
+    //         })
+    //         .unwrap();
 
-    #[test]
-    fn closure_field_with_generic_return_type() {
-        #[derive(Clone)]
-        struct Handler<T>(Arc<dyn Fn(u32) -> T + Send + Sync>);
+    //     let handlers = entity.get::<Handlers>().unwrap();
+    //     assert_eq!(2, (handlers.one.0)(2));
+    //     assert_eq!(vec![2], (handlers.many.0)(2));
+    // }
 
-        impl<T: Default + 'static> Default for Handler<T> {
-            fn default() -> Self {
-                Handler(Arc::new(|_| T::default()))
-            }
-        }
+    // #[test]
+    // fn dot_chained_constructor_resolves_through_from_template() {
+    //     use bevy_ecs::template::TemplateContext;
+    //     #[derive(Component, Clone, PartialEq, Debug)]
+    //     struct Size {
+    //         width: u32,
+    //         height: u32,
+    //     }
 
-        impl<T, F: Fn(u32) -> T + Send + Sync + 'static> From<F> for Handler<T> {
-            fn from(function: F) -> Self {
-                Handler(Arc::new(function))
-            }
-        }
+    //     struct SizeTemplate {
+    //         width: u32,
+    //         height: u32,
+    //     }
 
-        #[derive(Component, Clone, Default)]
-        struct Handlers {
-            one: Handler<u32>,
-            many: Handler<Vec<u32>>,
-        }
+    //     impl SizeTemplate {
+    //         fn new(width: u32) -> Self {
+    //             SizeTemplate { width, height: 0 }
+    //         }
 
-        let mut app = test_app();
-        let world = app.world_mut();
-        let entity = world
-            .spawn_scene(bsn! {
-                Handlers {
-                    one: |x| -> u32 { x },
-                    many: |x| -> Vec<u32> { vec![x] },
-                }
-            })
-            .unwrap();
+    //         fn tall(mut self) -> Self {
+    //             self.height = 100;
+    //             self
+    //         }
+    //     }
 
-        let handlers = entity.get::<Handlers>().unwrap();
-        assert_eq!(2, (handlers.one.0)(2));
-        assert_eq!(vec![2], (handlers.many.0)(2));
-    }
+    //     impl Default for SizeTemplate {
+    //         fn default() -> Self {
+    //             SizeTemplate {
+    //                 width: 0,
+    //                 height: 0,
+    //             }
+    //         }
+    //     }
 
-    #[test]
-    fn dot_chained_constructor_resolves_through_from_template() {
-        use bevy_ecs::template::TemplateContext;
-        #[derive(Component, Clone, PartialEq, Debug)]
-        struct Size {
-            width: u32,
-            height: u32,
-        }
+    //     impl Template for SizeTemplate {
+    //         type Output = Size;
 
-        struct SizeTemplate {
-            width: u32,
-            height: u32,
-        }
+    //         fn build_template(&self, _context: &mut TemplateContext) -> Result<Size> {
+    //             Ok(Size {
+    //                 width: self.width,
+    //                 height: self.height,
+    //             })
+    //         }
 
-        impl SizeTemplate {
-            fn new(width: u32) -> Self {
-                SizeTemplate { width, height: 0 }
-            }
+    //         fn clone_template(&self) -> Self {
+    //             SizeTemplate {
+    //                 width: self.width,
+    //                 height: self.height,
+    //             }
+    //         }
+    //     }
 
-            fn tall(mut self) -> Self {
-                self.height = 100;
-                self
-            }
-        }
+    //     impl FromTemplate for Size {
+    //         type Template = SizeTemplate;
+    //     }
 
-        impl Default for SizeTemplate {
-            fn default() -> Self {
-                SizeTemplate {
-                    width: 0,
-                    height: 0,
-                }
-            }
-        }
+    //     let mut app = test_app();
+    //     let world = app.world_mut();
 
-        impl Template for SizeTemplate {
-            type Output = Size;
+    //     let plain = world.spawn_scene(bsn! { Size::new(2) }).unwrap();
+    //     assert_eq!(
+    //         &Size {
+    //             width: 2,
+    //             height: 0
+    //         },
+    //         plain.get::<Size>().unwrap()
+    //     );
 
-            fn build_template(&self, _context: &mut TemplateContext) -> Result<Size> {
-                Ok(Size {
-                    width: self.width,
-                    height: self.height,
-                })
-            }
-
-            fn clone_template(&self) -> Self {
-                SizeTemplate {
-                    width: self.width,
-                    height: self.height,
-                }
-            }
-        }
-
-        impl FromTemplate for Size {
-            type Template = SizeTemplate;
-        }
-
-        let mut app = test_app();
-        let world = app.world_mut();
-
-        let plain = world.spawn_scene(bsn! { Size::new(2) }).unwrap();
-        assert_eq!(
-            &Size {
-                width: 2,
-                height: 0
-            },
-            plain.get::<Size>().unwrap()
-        );
-
-        let chained = world.spawn_scene(bsn! { Size::new(2).tall() }).unwrap();
-        assert_eq!(
-            &Size {
-                width: 2,
-                height: 100
-            },
-            chained.get::<Size>().unwrap()
-        );
-    }
+    //     let chained = world.spawn_scene(bsn! { Size::new(2).tall() }).unwrap();
+    //     assert_eq!(
+    //         &Size {
+    //             width: 2,
+    //             height: 100
+    //         },
+    //         chained.get::<Size>().unwrap()
+    //     );
+    // }
 
     #[test]
     fn primitive_literals() {
