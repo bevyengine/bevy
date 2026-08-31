@@ -25,7 +25,6 @@ imported_assets
 .web-asset-cache
 examples/large_scenes/bistro/assets/*
 examples/large_scenes/caldera_hotel/assets/*
-examples/large_scenes/zero_day/assets/*
 examples/asset/saved_assets
 
 # Bevy Examples

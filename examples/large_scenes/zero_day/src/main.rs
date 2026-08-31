@@ -101,6 +101,11 @@ fn parse_dlss_quality(value: &str) -> Result<DlssPerfQualityMode, String> {
     }
 }
 
+/// Where the converted glTF binaries are published. The `https` asset source fetches
+/// them from here, and `web_asset_cache` keeps them in `.web-asset-cache` afterwards.
+const BASE_URL: &str =
+    "https://github.com/pavlov-net/bevy-examples/releases/download/zero-day-assets-v1";
+
 /// The scene to load. Only the asset filename differs between measures.
 // Keep the shared `Measure` prefix, which matches the Zero-Day asset names.
 #[allow(clippy::enum_variant_names)]
@@ -112,12 +117,29 @@ enum Scene {
 }
 
 impl Scene {
-    fn glb(self) -> &'static str {
+    /// Every scene, in the order `--help` lists them.
+    const ALL: [Scene; 3] = [
+        Scene::MeasureOne,
+        Scene::MeasureSeven,
+        Scene::MeasureSevenColoredLights,
+    ];
+
+    /// The `--scene` value for this scene. The asset filenames are built from it, so
+    /// this match is the only place the names are written down.
+    fn name(self) -> &'static str {
         match self {
-            Scene::MeasureOne => "zero_day_measure_one.glb",
-            Scene::MeasureSeven => "zero_day_measure_seven.glb",
-            Scene::MeasureSevenColoredLights => "zero_day_measure_seven_colored_lights.glb",
+            Scene::MeasureOne => "measure_one",
+            Scene::MeasureSeven => "measure_seven",
+            Scene::MeasureSevenColoredLights => "measure_seven_colored_lights",
         }
+    }
+
+    fn glb(self) -> String {
+        format!("zero_day_{}.glb", self.name())
+    }
+
+    fn url(self) -> String {
+        format!("{BASE_URL}/{}", self.glb())
     }
 }
 
@@ -127,15 +149,15 @@ const DEFAULT_EMISSIVE: f32 = 150_000.0;
 
 impl argh::FromArgValue for Scene {
     fn from_arg_value(value: &str) -> Result<Self, String> {
-        match value {
-            "measure_one" => Ok(Scene::MeasureOne),
-            "measure_seven" => Ok(Scene::MeasureSeven),
-            "measure_seven_colored_lights" => Ok(Scene::MeasureSevenColoredLights),
-            other => Err(format!(
-                "unknown scene `{other}`; expected measure_one, measure_seven, or \
-                 measure_seven_colored_lights"
-            )),
-        }
+        Scene::ALL
+            .into_iter()
+            .find(|scene| scene.name() == value)
+            .ok_or_else(|| {
+                format!(
+                    "unknown scene `{value}`; expected one of: {}",
+                    Scene::ALL.map(Scene::name).join(", ")
+                )
+            })
     }
 }
 
@@ -285,12 +307,17 @@ fn setup(
         Res<DlssRayReconstructionSupported>,
     >,
 ) {
-    let glb = args.scene.glb();
-    println!("Loading Zero-Day `{glb}` (this is a large scene; give it a moment)");
+    let url = args.scene.url();
+    println!(
+        "Downloading Zero-Day `{}` (~500 MB) from {BASE_URL}\n\
+         The window stays black until it finishes. It is cached in `.web-asset-cache`, \
+         so later runs load from disk.",
+        args.scene.glb()
+    );
 
     // Load the full glTF, not only the scene, so the animation clips stay available to
     // `start_animation`.
-    commands.insert_resource(SceneGltf(asset_server.load(glb)));
+    commands.insert_resource(SceneGltf(asset_server.load(url)));
 
     // The transform below is the view until the flythrough starts.
     // `setup_flythrough_camera` later copies the film camera's field of view and near
@@ -372,9 +399,9 @@ fn spawn_scene_when_ready(
     if let LoadState::Failed(err) = asset_server.load_state(&scene_gltf.0) {
         *done = true;
         error!(
-            "zero_day: failed to load `{}` ({err}). Download it first \
-             (see the example README).",
-            args.scene.glb()
+            "zero_day: failed to load `{}` ({err}). Check the network connection, or \
+             download the file by hand (see the example README).",
+            args.scene.url()
         );
         return;
     }
@@ -383,7 +410,7 @@ fn spawn_scene_when_ready(
     }
     *done = true;
     let mut scene = commands.spawn(WorldAssetRoot(
-        asset_server.load(format!("{}#Scene0", args.scene.glb())),
+        asset_server.load(format!("{}#Scene0", args.scene.url())),
     ));
     scene
         .observe(proc_scene)

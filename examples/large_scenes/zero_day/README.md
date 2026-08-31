@@ -6,23 +6,11 @@ lights. The example plays the film's animation and follows the film camera.
 
 ## Getting the scene
 
-Download the converted glTF binaries from the
-[`zero-day-assets-v1` release](https://github.com/pavlov-net/bevy-examples/releases/tag/zero-day-assets-v1)
-into this example's `assets/` folder. The example loads `measure_one` by default; the
-other two measures are optional.
-
-```console
-mkdir -p examples/large_scenes/zero_day/assets
-
-curl -L -o examples/large_scenes/zero_day/assets/zero_day_measure_one.glb \
-  https://github.com/pavlov-net/bevy-examples/releases/download/zero-day-assets-v1/zero_day_measure_one.glb
-
-curl -L -o examples/large_scenes/zero_day/assets/zero_day_measure_seven.glb \
-  https://github.com/pavlov-net/bevy-examples/releases/download/zero-day-assets-v1/zero_day_measure_seven.glb
-
-curl -L -o examples/large_scenes/zero_day/assets/zero_day_measure_seven_colored_lights.glb \
-  https://github.com/pavlov-net/bevy-examples/releases/download/zero-day-assets-v1/zero_day_measure_seven_colored_lights.glb
-```
+The example downloads the scene itself through Bevy's `https` asset source, from the
+[`zero-day-assets-v1` release](https://github.com/pavlov-net/bevy-examples/releases/tag/zero-day-assets-v1).
+Nothing to do up front, but the first run fetches roughly 500 MB and the window stays
+black until that finishes. The `web_asset_cache` feature keeps the download in
+`.web-asset-cache` at the repository root, so later runs load from disk.
 
 To convert the scene from source instead, download "Zero-Day"
 [from developer.nvidia.com](https://developer.nvidia.com/orca/beeple-zero-day) and run the

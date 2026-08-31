@@ -10,6 +10,9 @@ bevy = { path = "../../..", features = [
   "bevy_camera_controller",
   "free_camera",
   "bevy_solari",
+  # The scene is downloaded on first run and then served from `.web-asset-cache`.
+  "https",
+  "web_asset_cache",
 ] }
 
 argh = "0.1.12"
