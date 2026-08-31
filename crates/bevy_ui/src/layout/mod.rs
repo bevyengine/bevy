@@ -7,6 +7,7 @@ use crate::{
 };
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
+    component::Component,
     entity::Entity,
     hierarchy::ChildOf,
     lifecycle::RemovedComponents,
@@ -16,6 +17,7 @@ use bevy_ecs::{
 };
 
 use bevy_math::{Affine2, Vec2};
+use bevy_reflect::Reflect;
 use bevy_sprite::BorderRect;
 use layout_tree::ComputedLayout;
 use thiserror::Error;
@@ -25,6 +27,12 @@ use bevy_text::{ComputedTextBlock, EmSize, FontCx, RemSize, TextFont, DEFAULT_RE
 mod convert;
 pub mod debug;
 pub mod layout_tree;
+
+/// ZST marker component uses that change detection to mark nodes changes.
+///
+/// Optimisation copied from `bevy_transform`'s `TransformTreeChanged`.
+#[derive(Component, Default, Debug, Clone)]
+pub struct TransformTreeChanged;
 
 #[derive(Copy, Clone)]
 pub struct LayoutContext {
