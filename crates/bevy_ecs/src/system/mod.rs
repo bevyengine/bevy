@@ -1799,7 +1799,8 @@ mod tests {
         assert_is_system(exclusive_with_state);
         assert_is_system(returning::<bool>.pipe(exclusive_in_out::<bool, ()>));
 
-        returning::<()>.run_if(returning::<bool>.pipe(not));
+        // check that this compiles
+        let _ = returning::<()>.run_if(returning::<bool>.pipe(not));
     }
 
     #[test]
