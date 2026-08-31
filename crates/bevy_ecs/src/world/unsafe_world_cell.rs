@@ -128,7 +128,8 @@ impl<'w> UnsafeWorldCell<'w> {
         }
     }
 
-    /// Creates a pointer from [`UnsafeWorldCell`]
+    /// Creates a pointer from [`UnsafeWorldCell`] that allows mutable access.
+    ///
     /// This function is safe because to use a raw pointer once must dereference it in an unsafe
     /// block
     pub fn as_ptr_mut(self) -> *mut World {
@@ -137,7 +138,8 @@ impl<'w> UnsafeWorldCell<'w> {
         self.ptr
     }
 
-    /// Creates a pointer from [`UnsafeWorldCell`]
+    /// Creates a pointer from [`UnsafeWorldCell`] that does not allow mutable access.
+    ///
     /// This function is safe because to use a raw pointer once must dereference it in an unsafe
     /// block
     pub fn as_ptr_ref(self) -> *const World {
