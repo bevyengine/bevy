@@ -68,10 +68,7 @@ impl Plugin for CameraPlugin {
             ))
             .add_systems(
                 PostStartup,
-                (
-                    camera_system,
-                    prepare_view_target_info.after(camera_system),
-                )
+                (camera_system, prepare_view_target_info.after(camera_system))
                     .in_set(CameraUpdateSystems),
             )
             .add_systems(

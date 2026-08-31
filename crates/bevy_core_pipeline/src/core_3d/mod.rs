@@ -32,7 +32,7 @@ pub const DEPTH_PREPASS_TEXTURE_SUPPORTED: bool = true;
 
 use core::ops::Range;
 
-use bevy_camera::{Camera, Camera3d, Camera3dDepthLoadOp};
+use bevy_camera::{Camera, Camera3d, Camera3dDepthLoadOp, CameraUpdateSystems};
 use bevy_diagnostic::FrameCount;
 use bevy_render::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
@@ -104,7 +104,7 @@ impl Plugin for Core3dPlugin {
                 CameraRenderGraph::new(Core3d)
             })
             .register_required_components::<Camera3d, Tonemapping>()
-            .add_systems(PostUpdate, check_msaa)
+            .add_systems(PostUpdate, check_msaa.before(CameraUpdateSystems))
             .add_plugins((SkyboxPlugin, ExtractComponentPlugin::<Camera3d>::default()));
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
