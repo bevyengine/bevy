@@ -2,6 +2,7 @@
 
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_ecs::{
+    change_detection::DetectChangesMut,
     component::Component,
     entity::Entity,
     hierarchy::{ChildOf, Children},
@@ -83,6 +84,7 @@ pub struct PopoverPlacement {
 /// an parent element.
 #[derive(Component, PartialEq, Default, Reflect)]
 #[reflect(Component)]
+#[require(ResolvedPopoverPlacement)]
 pub struct Popover {
     /// List of potential positions for the popover element relative to the parent.
     pub positions: Vec<PopoverPlacement>,
@@ -90,6 +92,15 @@ pub struct Popover {
     /// Indicates how close to the window edge the popup is allowed to go.
     pub window_margin: f32,
 }
+
+/// The placement selected for a [`Popover`] during the most recent UI layout.
+///
+/// This is `None` until the popover and its parent have valid layout information,
+/// or when the popover has no candidate [`Popover::positions`]. Styling layers
+/// can read this component to orient placement-dependent visuals such as arrows.
+#[derive(Component, Debug, Default, Clone, Copy, PartialEq, Reflect)]
+#[reflect(Component)]
+pub struct ResolvedPopoverPlacement(pub Option<PopoverPlacement>);
 
 impl Clone for Popover {
     fn clone(&self) -> Self {
@@ -109,6 +120,7 @@ pub(crate) fn position_popover(
         &ComputedNode,
         &ComputedUiRenderTargetInfo,
         &Popover,
+        &mut ResolvedPopoverPlacement,
         &ChildOf,
     )>,
     mut qs_transform: ParamSet<(
@@ -125,6 +137,7 @@ pub(crate) fn position_popover(
         computed_node,
         computed_target,
         popover,
+        mut resolved_placement,
         parent,
     ) in q_popover.iter_mut()
     {
@@ -138,6 +151,7 @@ pub(crate) fn position_popover(
         // Compute the parent rectangle.
         let q_parent = qs_transform.p0();
         let Ok((parent_node, parent_transform)) = q_parent.get(parent.parent()) else {
+            resolved_placement.set_if_neq(ResolvedPopoverPlacement(None));
             continue;
         };
 
@@ -153,6 +167,7 @@ pub(crate) fn position_popover(
 
         let mut best_occluded = f32::MAX;
         let mut best_rect = Rect::default();
+        let mut best_placement = None;
 
         // Loop through all the potential positions and find a good one.
         for position in &popover.positions {
@@ -235,20 +250,23 @@ pub(crate) fn position_popover(
             if occlusion < best_occluded {
                 best_occluded = occlusion;
                 best_rect = rect;
+                best_placement = Some(*position);
             }
         }
 
         // Update node properties, but only if they are different from before (to avoid setting
         // change detection bit).
-        if best_occluded < f32::MAX {
+        if let Some(best_placement) = best_placement {
             let best_center = 0.5 * (best_rect.min + best_rect.max);
             let current_center =
                 ui_global_transform.translation * computed_node.inverse_scale_factor;
             let physical_translation =
                 (best_center - current_center) * computed_target.scale_factor();
             if parent_matrix.determinant() == 0.0 {
+                resolved_placement.set_if_neq(ResolvedPopoverPlacement(None));
                 continue;
             }
+            resolved_placement.set_if_neq(ResolvedPopoverPlacement(Some(best_placement)));
             let resolved_translation = transform.translation.resolve(
                 computed_target.scale_factor(),
                 computed_node.size(),
@@ -283,6 +301,8 @@ pub(crate) fn position_popover(
                     }
                 }
             }
+        } else {
+            resolved_placement.set_if_neq(ResolvedPopoverPlacement(None));
         }
     }
 }
