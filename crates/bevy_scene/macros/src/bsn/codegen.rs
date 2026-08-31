@@ -1,7 +1,7 @@
 use crate::_bsn::types::{
-    Bsn, BsnConstructor, BsnEntry, BsnFields, BsnFnArg, BsnFnArgs, BsnListRoot, BsnNamedField,
-    BsnRelatedSceneList, BsnRoot, BsnScene, BsnSceneFn, BsnSceneListItem, BsnSceneListItems,
-    BsnStructUpdate, BsnType, BsnUnnamedField, BsnValue,
+    Bsn, BsnConstructor, BsnEntry, BsnFields, BsnFnArg, BsnFnArgs, BsnFnCall, BsnListRoot,
+    BsnNamedField, BsnRelatedSceneList, BsnRoot, BsnScene, BsnSceneFn, BsnSceneListItem,
+    BsnSceneListItems, BsnStructUpdate, BsnType, BsnUnnamedField, BsnValue,
 };
 use bevy_macro_utils::{fq_std::FQDefault, path_to_string};
 use proc_macro2::TokenStream;
@@ -281,6 +281,12 @@ impl BsnEntry {
             BsnEntry::TemplateValue(token_stream) => EntryResult::CombinedSceneFunction(quote! {
                 _scene.insert_template(#token_stream);
             }),
+            BsnEntry::Function(BsnFnCall { args, path }) => {
+                let args = args.to_tokens(ctx);
+                EntryResult::CombinedSceneFunction(quote! {
+                    _scene.insert_template(#path #args);
+                })
+            }
         })
     }
 }

@@ -1,8 +1,8 @@
 use crate::_bsn::types::{
-    Bsn, BsnConstructor, BsnEntry, BsnFields, BsnFnArg, BsnFnArgs, BsnListRoot, BsnNamedField,
-    BsnNamedFieldOrStructUpdate, BsnRelatedSceneList, BsnRoot, BsnScene, BsnSceneFn, BsnSceneList,
-    BsnSceneListItem, BsnSceneListItems, BsnStructUpdate, BsnTuple, BsnType, BsnUnnamedField,
-    BsnValue,
+    Bsn, BsnConstructor, BsnEntry, BsnFields, BsnFnArg, BsnFnArgs, BsnFnCall, BsnListRoot,
+    BsnNamedField, BsnNamedFieldOrStructUpdate, BsnRelatedSceneList, BsnRoot, BsnScene, BsnSceneFn,
+    BsnSceneList, BsnSceneListItem, BsnSceneListItems, BsnStructUpdate, BsnTuple, BsnType,
+    BsnUnnamedField, BsnValue,
 };
 use bevy_macro_utils::{path_to_string, PathType};
 use proc_macro2::{Delimiter, Spacing, TokenStream, TokenTree};
@@ -186,12 +186,14 @@ impl BsnEntry {
                 }
                 PathType::Function => {
                     if input.peek(Paren) {
-                        let contents = group_tokens(input, Delimiter::Parenthesis)?;
+                        let forked = input.fork();
+                        let args = input.parse::<BsnFnArgs>()?;
                         if input.peek(Dot) {
+                            let contents = group_tokens(&forked, Delimiter::Parenthesis)?;
                             let dot_expr = parse_extended_dot_expression(input)?;
                             BsnEntry::TemplateValue(quote! {#path #contents #dot_expr})
                         } else {
-                            BsnEntry::TemplateValue(quote! {#path #contents})
+                            BsnEntry::Function(BsnFnCall { path, args })
                         }
                     } else {
                         if input.peek(Dot) {

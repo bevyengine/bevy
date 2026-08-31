@@ -1653,34 +1653,34 @@ mod tests {
             .unwrap();
     }
 
-    // #[test]
-    // fn entity_reference_in_template_function() {
-    //     use bevy_ecs::template::EntityTemplate;
-    //     #[derive(Component, Clone, FromTemplate, PartialEq, Debug)]
-    //     struct Target {
-    //         entity: Entity,
-    //     }
+    #[test]
+    fn entity_reference_in_template_function() {
+        use bevy_ecs::template::EntityTemplate;
+        #[derive(Component, Clone, FromTemplate, PartialEq, Debug)]
+        struct Target {
+            entity: Entity,
+        }
 
-    //     fn target(entity: EntityTemplate) -> TargetTemplate {
-    //         TargetTemplate { entity }
-    //     }
+        fn target(entity: EntityTemplate) -> TargetTemplate {
+            TargetTemplate { entity }
+        }
 
-    //     let mut app = test_app();
-    //     let world = app.world_mut();
-    //     let entities = world
-    //         .spawn_scene_list(bsn_list! {
-    //             #A,
-    //             target(#A)
-    //         })
-    //         .unwrap();
+        let mut app = test_app();
+        let world = app.world_mut();
+        let entities = world
+            .spawn_scene_list(bsn_list! {
+                #A,
+                target(#A)
+            })
+            .unwrap();
 
-    //     assert_eq!(
-    //         &Target {
-    //             entity: entities[0]
-    //         },
-    //         world.entity(entities[1]).get::<Target>().unwrap()
-    //     );
-    // }
+        assert_eq!(
+            &Target {
+                entity: entities[0]
+            },
+            world.entity(entities[1]).get::<Target>().unwrap()
+        );
+    }
 
     // #[test]
     // fn scene_variable_without_parentheses() {

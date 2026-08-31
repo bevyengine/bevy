@@ -18,6 +18,7 @@ pub enum BsnEntry {
     FromTemplatePatch(BsnType),
     TemplatePatch(BsnType),
     TemplateValue(TokenStream),
+    Function(BsnFnCall),
     FromTemplateConstructor(BsnConstructor),
     TemplateConstructor(BsnConstructor),
     UncachedScene(BsnScene),
@@ -73,6 +74,12 @@ pub enum BsnScene {
 pub struct BsnConstructor {
     pub type_path: Path,
     pub function: Ident,
+    pub args: BsnFnArgs,
+}
+
+#[derive(Debug)]
+pub struct BsnFnCall {
+    pub path: Path,
     pub args: BsnFnArgs,
 }
 
