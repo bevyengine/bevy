@@ -13,6 +13,7 @@ use bevy_app::Propagate;
 use bevy_camera::Camera;
 use bevy_ecs::{
     entity::Entity,
+    hierarchy::ChildOf,
     query::{Has, Or, With},
     system::{Commands, Query, Res},
 };
@@ -22,6 +23,7 @@ use bevy_math::UVec2;
 pub fn update_clipping_system(
     mut commands: Commands,
     root_nodes: UiRootNodes,
+    fixed_nodes_query: Query<Entity, (With<FixedNode>, With<ChildOf>)>,
     mut node_query: Query<(
         &Node,
         &ComputedNode,
@@ -33,7 +35,7 @@ pub fn update_clipping_system(
     )>,
     ui_children: UiChildren,
 ) {
-    for root_node in root_nodes.iter() {
+    for root_node in root_nodes.iter().chain(fixed_nodes_query.iter()) {
         update_clipping(
             &mut commands,
             &ui_children,
@@ -41,6 +43,7 @@ pub fn update_clipping_system(
             root_node,
             None,
             false,
+            true,
         );
     }
 }
@@ -60,6 +63,7 @@ fn update_clipping(
     entity: Entity,
     mut maybe_inherited_clip: Option<CalculatedClip>,
     force_update: bool,
+    is_root: bool,
 ) {
     let Ok((
         node,
@@ -74,12 +78,16 @@ fn update_clipping(
         return;
     };
 
+    if has_fixed_node && !is_root {
+        return;
+    }
+
     if !force_update && !computed_layout.layout_changed() && !computed_layout.subtree_dirty() {
         return;
     }
 
-    // If the UI node entity has an `OverrideClip` or `FixedNode` component, discard any inherited clip rect
-    if has_override_clip || has_fixed_node {
+    // If the UI node entity has an `OverrideClip`, discard any inherited clip rect
+    if has_override_clip {
         maybe_inherited_clip = None;
     }
 
@@ -133,6 +141,7 @@ fn update_clipping(
             child,
             children_clip.clone(),
             propagated_force_update,
+            false,
         );
     }
 }
