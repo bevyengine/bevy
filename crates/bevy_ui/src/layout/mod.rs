@@ -5,6 +5,8 @@ use crate::{
     ComputedNode, ComputedUiRenderTargetInfo, ContentSize, Display, FixedNode, IgnoreScroll,
     LayoutConfig, Node, Outline, OverflowAxis, OverrideClip, ScrollPosition,
 };
+#[cfg(not(feature = "ghost_nodes"))]
+use bevy_ecs::hierarchy::Children;
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
     component::Component,
@@ -17,7 +19,6 @@ use bevy_ecs::{
 };
 
 use bevy_math::{Affine2, Vec2};
-use bevy_reflect::Reflect;
 use bevy_sprite::BorderRect;
 use layout_tree::ComputedLayout;
 use thiserror::Error;
@@ -32,7 +33,11 @@ pub mod layout_tree;
 ///
 /// Optimisation copied from `bevy_transform`'s `TransformTreeChanged`.
 #[derive(Component, Default, Debug, Clone)]
-pub struct TransformTreeChanged;
+#[require(UiNodeReached)]
+pub struct UiTreeChanged;
+
+#[derive(Component, Default, Debug, Clone)]
+pub struct UiNodeReached(bool);
 
 #[derive(Copy, Clone)]
 pub struct LayoutContext {
@@ -145,6 +150,74 @@ pub fn update_taffy_styles(
         });
 }
 
+pub fn mark_dirty_ui_trees(
+    #[cfg(not(feature = "ghost_nodes"))] changed: Query<
+        Entity,
+        (
+            Or<(
+                Changed<TaffyStyle>,
+                Changed<ContentSize>,
+                Changed<UiTransform>,
+                Changed<ScrollPosition>,
+                Changed<Outline>,
+                Changed<LayoutConfig>,
+                Changed<IgnoreScroll>,
+                Changed<Children>,
+                Changed<ChildOf>,
+                Added<FixedNode>,
+            )>,
+            With<Node>,
+        ),
+    >,
+    #[cfg(feature = "ghost_nodes")] changed: Query<
+        Entity,
+        (
+            Or<(
+                Changed<TaffyStyle>,
+                Changed<ContentSize>,
+                Changed<UiTransform>,
+                Changed<ScrollPosition>,
+                Changed<Outline>,
+                Changed<LayoutConfig>,
+                Changed<IgnoreScroll>,
+                Changed<Children>,
+                Changed<ChildOf>,
+                Added<FixedNode>,
+            )>,
+            Or<(With<Node>, With<GhostNode>)>,
+        ),
+    >,
+    mut removed_outlines: RemovedComponents<Outline>,
+    mut removed_layout_configs: RemovedComponents<LayoutConfig>,
+    mut removed_ignore_scrolls: RemovedComponents<IgnoreScroll>,
+    mut removed_fixed_nodes: RemovedComponents<FixedNode>,
+    mut removed_child_ofs: RemovedComponents<ChildOf>,
+    mut removed_nodes: RemovedComponents<Node>,
+    mut trees: Query<&mut UiTreeChanged>,
+    ui_children: UiChildren,
+) {
+    for entity in changed.iter().chain(
+        removed_outlines
+            .read()
+            .chain(removed_layout_configs.read())
+            .chain(removed_ignore_scrolls.read())
+            .chain(removed_fixed_nodes.read())
+            .chain(removed_child_ofs.read())
+            .chain(removed_nodes.read()),
+    ) {
+        let mut next = Some(entity);
+        while let Some(entity) = next {
+            if let Ok(mut tree) = trees.get_mut(entity) {
+                if tree.is_changed() && !tree.is_added() {
+                    break;
+                }
+                tree.set_changed();
+            }
+            next = ui_children.get_parent(entity);
+        }
+    }
+}
+
 /// Updates the UI's layout tree, computes the new layout geometry and then updates the sizes and transforms of all the UI nodes.
 pub fn ui_layout_system(
     ui_root_node_query: UiRootNodes,
@@ -246,6 +319,7 @@ pub fn update_computed_nodes(
         Option<&Outline>,
         Option<&ScrollPosition>,
         Option<&IgnoreScroll>,
+        Ref<UiTreeChanged>,
     )>,
     mut child_stack: Local<Vec<taffy::NodeId>>,
 ) {
@@ -289,6 +363,7 @@ fn update_uinode_geometry_recursive(
         Option<&Outline>,
         Option<&ScrollPosition>,
         Option<&IgnoreScroll>,
+        Ref<UiTreeChanged>,
     )>,
     inverse_target_scale_factor: f32,
     parent_size: Vec2,
@@ -308,8 +383,13 @@ fn update_uinode_geometry_recursive(
         maybe_outline,
         maybe_scroll_position,
         maybe_scroll_sticky,
+        tree_changed,
     )) = node_update_query.get_mut(entity)
     {
+        if !force_update && !tree_changed.is_changed() {
+            return;
+        }
+
         if !force_update && !computed_layout.layout_changed() && !computed_layout.subtree_dirty() {
             return;
         }
@@ -519,6 +599,30 @@ pub fn update_border_radius(
                 node.border_radius = new_border_radius;
             }
         });
+}
+
+fn is_reachable(
+    mut entity: Entity,
+    parents: &Query<&ChildOf>,
+    ui: &Query<(Has<Node>, Has<GhostNode>, Has<FixedNode>)>,
+) -> bool {
+    loop {
+        let Ok((is_node, is_ghost, is_fixed)) = ui.get(entity) else {
+            return false;
+        };
+        if is_fixed {
+            return true;
+        }
+        if !is_node && !is_ghost {
+            return false;
+        }
+        match parents.get(entity) {
+            // A rootless `Node`, or a chain terminating in a rootless `GhostNode`,
+            // is a layout root.
+            Err(_) => return true,
+            Ok(child_of) => entity = child_of.parent(),
+        }
+    }
 }
 
 #[cfg(test)]

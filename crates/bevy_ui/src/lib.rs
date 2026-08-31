@@ -194,6 +194,7 @@ impl Plugin for UiPlugin {
                     .before(bevy_app::TransformGizmoRenderStep),
                 (
                     update_taffy_styles,
+                    mark_dirty_ui_trees,
                     ui_layout_system.ambiguous_with(bevy_sprite::update_text2d_layout),
                     update_computed_nodes,
                     update_border_radius,

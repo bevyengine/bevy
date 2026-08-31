@@ -5,17 +5,19 @@ use crate::{
     layout_tree::ComputedLayout,
     ui_transform::UiGlobalTransform,
     CalculatedClip, ComputedUiRenderTargetInfo, ComputedUiTargetCamera, DefaultUiCamera, Display,
-    FixedNode, Node, OverrideClip, UiScale, UiTargetCamera,
+    FixedNode, Node, OverrideClip, UiScale, UiTargetCamera, UiTreeChanged,
 };
 
 use super::ComputedNode;
 use bevy_app::Propagate;
 use bevy_camera::Camera;
 use bevy_ecs::{
+    change_detection::DetectChanges,
     entity::Entity,
     hierarchy::ChildOf,
     query::{Has, Or, With},
     system::{Commands, Query, Res},
+    world::Ref,
 };
 use bevy_math::UVec2;
 
@@ -32,6 +34,7 @@ pub fn update_clipping_system(
         Option<&mut CalculatedClip>,
         Has<OverrideClip>,
         Has<FixedNode>,
+        Ref<UiTreeChanged>,
     )>,
     ui_children: UiChildren,
 ) {
@@ -59,6 +62,7 @@ fn update_clipping(
         Option<&mut CalculatedClip>,
         Has<OverrideClip>,
         Has<FixedNode>,
+        Ref<UiTreeChanged>,
     )>,
     entity: Entity,
     mut maybe_inherited_clip: Option<CalculatedClip>,
@@ -73,12 +77,17 @@ fn update_clipping(
         maybe_calculated_clip,
         has_override_clip,
         has_fixed_node,
+        tree_changed,
     )) = node_query.get_mut(entity)
     else {
         return;
     };
 
     if has_fixed_node && !is_root {
+        return;
+    }
+
+    if !force_update && tree_changed.is_changed() {
         return;
     }
 
