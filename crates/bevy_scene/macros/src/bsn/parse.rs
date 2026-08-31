@@ -157,12 +157,7 @@ impl BsnEntry {
                         }
                     }
                 }
-                PathType::Const => {
-                    return Err(syn::Error::new(
-                        path.span(),
-                        "Consts are not currently supported in this position",
-                    ));
-                }
+                PathType::Const => BsnEntry::TemplateValue(path.to_token_stream()),
                 PathType::TypeFunction => {
                     let function = take_last_path_ident(&mut path).unwrap();
                     let args = input.parse::<BsnFnArgs>()?;

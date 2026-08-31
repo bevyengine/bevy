@@ -1693,21 +1693,21 @@ mod tests {
         world.spawn_scene(wrapper(bsn! { #A })).unwrap();
     }
 
-    // #[test]
-    // fn const_in_entry_position() {
-    //     #[derive(Component, Clone, Default, PartialEq, Debug)]
-    //     struct Size {
-    //         width: u32,
-    //     }
+    #[test]
+    fn const_in_entry_position() {
+        #[derive(Component, Clone, Default, PartialEq, Debug)]
+        struct Size {
+            width: u32,
+        }
 
-    //     const WIDE: Size = Size { width: 100 };
+        const WIDE: Size = Size { width: 100 };
 
-    //     let mut app = test_app();
-    //     let world = app.world_mut();
-    //     let entity = world.spawn_scene(bsn! { WIDE }).unwrap();
+        let mut app = test_app();
+        let world = app.world_mut();
+        let entity = world.spawn_scene(bsn! { WIDE }).unwrap();
 
-    //     assert_eq!(&WIDE, entity.get::<Size>().unwrap());
-    // }
+        assert_eq!(&WIDE, entity.get::<Size>().unwrap());
+    }
 
     // #[test]
     // fn range_with_non_literal_bounds() {
