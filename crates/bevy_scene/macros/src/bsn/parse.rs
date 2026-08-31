@@ -5,7 +5,7 @@ use crate::_bsn::types::{
     BsnUnnamedField, BsnValue,
 };
 use bevy_macro_utils::{path_to_string, PathType};
-use proc_macro2::{Delimiter, Spacing, TokenStream, TokenTree};
+use proc_macro2::{Delimiter, TokenStream, TokenTree};
 use quote::{quote, ToTokens};
 use syn::{
     braced, bracketed,
@@ -469,56 +469,26 @@ fn parse_tuple_loose(input: &ParseBuffer) -> Result<Vec<TokenStream>> {
 fn parse_closure_loose(input: &ParseBuffer) -> Result<TokenStream> {
     let start = input.cursor();
     input.parse::<Token![|]>()?;
-    let tokens = input.step(|cursor| {
-        let mut rest = *cursor;
-        while let Some((tt, next)) = rest.token_tree() {
-            match &tt {
-                TokenTree::Punct(punct) if punct.as_char() == '|' => match next.token_tree() {
-                    Some((TokenTree::Group(group), next))
-                        if group.delimiter() == Delimiter::Brace =>
-                    {
-                        return Ok((tokens_between(start, next), next));
-                    }
-                    Some((TokenTree::Punct(punct), next))
-                        if punct.as_char() == '-' && punct.spacing() == Spacing::Joint =>
-                    {
-                        if let Some((TokenTree::Punct(punct), after_arrow)) = next.token_tree()
-                            && punct.as_char() == '>'
-                            && punct.spacing() == Spacing::Alone
-                        {
-                            if let Some((TokenTree::Ident(_), after_ident)) =
-                                after_arrow.token_tree()
-                            {
-                                if let Some((TokenTree::Group(group), next)) =
-                                    after_ident.token_tree()
-                                    && group.delimiter() == Delimiter::Brace
-                                {
-                                    return Ok((tokens_between(start, next), next));
-                                } else {
-                                    return Err(cursor
-                                        .error("closures expect '{' or `-> Type` to follow '|'"));
-                                }
-                            } else {
-                                return Err(
-                                    cursor.error("closures expect '{' or `-> Type` to follow '|'")
-                                );
-                            }
-                        } else {
-                            return Err(
-                                cursor.error("closures expect '{' or `-> Type` to follow '|'")
-                            );
-                        }
-                    }
-                    _ => {
-                        return Err(cursor.error("closures expect '{' or `-> Type` to follow '|'"));
-                    }
-                },
-                _ => rest = next,
-            }
+    while let Ok(tt) = input.parse::<TokenTree>() {
+        if let TokenTree::Punct(punct) = tt
+            && punct.as_char() == '|'
+        {
+            break;
         }
-        Err(cursor.error("no matching `|` was found after this point"))
-    })?;
-    Ok(tokens)
+    }
+
+    if input.peek(Brace) {
+        let _ = input.parse::<proc_macro2::Group>()?;
+        return Ok(tokens_between(start, input.cursor()));
+    }
+
+    let _ = input.parse::<Token![->]>()?;
+    let _ = input.parse::<Path>()?;
+    if !input.peek(Brace) {
+        return Err(input.error("expected `{`"));
+    }
+    let _ = input.parse::<proc_macro2::Group>()?;
+    return Ok(tokens_between(start, input.cursor()));
 }
 
 /// Parses "dot expressions" in the style of `.foo().bar.baz::<A>()`

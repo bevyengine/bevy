@@ -1763,44 +1763,44 @@ mod tests {
         world.spawn_scene(bsn! { holder.0.clone() }).unwrap();
     }
 
-    // #[test]
-    // fn closure_field_with_generic_return_type() {
-    //     #[derive(Clone)]
-    //     struct Handler<T>(Arc<dyn Fn(u32) -> T + Send + Sync>);
+    #[test]
+    fn closure_field_with_generic_return_type() {
+        #[derive(Clone)]
+        struct Handler<T>(Arc<dyn Fn(u32) -> T + Send + Sync>);
 
-    //     impl<T: Default + 'static> Default for Handler<T> {
-    //         fn default() -> Self {
-    //             Handler(Arc::new(|_| T::default()))
-    //         }
-    //     }
+        impl<T: Default + 'static> Default for Handler<T> {
+            fn default() -> Self {
+                Handler(Arc::new(|_| T::default()))
+            }
+        }
 
-    //     impl<T, F: Fn(u32) -> T + Send + Sync + 'static> From<F> for Handler<T> {
-    //         fn from(function: F) -> Self {
-    //             Handler(Arc::new(function))
-    //         }
-    //     }
+        impl<T, F: Fn(u32) -> T + Send + Sync + 'static> From<F> for Handler<T> {
+            fn from(function: F) -> Self {
+                Handler(Arc::new(function))
+            }
+        }
 
-    //     #[derive(Component, Clone, Default)]
-    //     struct Handlers {
-    //         one: Handler<u32>,
-    //         many: Handler<Vec<u32>>,
-    //     }
+        #[derive(Component, Clone, Default)]
+        struct Handlers {
+            one: Handler<u32>,
+            many: Handler<Vec<u32>>,
+        }
 
-    //     let mut app = test_app();
-    //     let world = app.world_mut();
-    //     let entity = world
-    //         .spawn_scene(bsn! {
-    //             Handlers {
-    //                 one: |x| -> u32 { x },
-    //                 many: |x| -> Vec<u32> { vec![x] },
-    //             }
-    //         })
-    //         .unwrap();
+        let mut app = test_app();
+        let world = app.world_mut();
+        let entity = world
+            .spawn_scene(bsn! {
+                Handlers {
+                    one: |x| -> u32 { x },
+                    many: |x| -> Vec<u32> { vec![x] },
+                }
+            })
+            .unwrap();
 
-    //     let handlers = entity.get::<Handlers>().unwrap();
-    //     assert_eq!(2, (handlers.one.0)(2));
-    //     assert_eq!(vec![2], (handlers.many.0)(2));
-    // }
+        let handlers = entity.get::<Handlers>().unwrap();
+        assert_eq!(2, (handlers.one.0)(2));
+        assert_eq!(vec![2], (handlers.many.0)(2));
+    }
 
     // #[test]
     // fn dot_chained_constructor_resolves_through_from_template() {
