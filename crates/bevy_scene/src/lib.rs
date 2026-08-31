@@ -1682,16 +1682,16 @@ mod tests {
         );
     }
 
-    // #[test]
-    // fn scene_variable_without_parentheses() {
-    //     fn wrapper(contents: impl Scene) -> impl Scene {
-    //         bsn! { @contents }
-    //     }
+    #[test]
+    fn scene_variable_without_parentheses() {
+        fn wrapper(contents: impl Scene) -> impl Scene {
+            bsn! { @contents }
+        }
 
-    //     let mut app = test_app();
-    //     let world = app.world_mut();
-    //     world.spawn_scene(wrapper(bsn! { #A })).unwrap();
-    // }
+        let mut app = test_app();
+        let world = app.world_mut();
+        world.spawn_scene(wrapper(bsn! { #A })).unwrap();
+    }
 
     // #[test]
     // fn const_in_entry_position() {

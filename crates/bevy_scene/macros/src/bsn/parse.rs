@@ -245,14 +245,22 @@ impl BsnScene {
         } else {
             // PERF: do we really need this fork here?
             let path = input.fork().parse::<Path>()?;
-            match PathType::new(&path) {
+            let path_type = PathType::new(&path);
+            match path_type {
                 PathType::Type | PathType::Enum => {
                     BsnScene::SceneComponent(input.parse::<BsnType>()?)
                 }
                 PathType::Function | PathType::TypeFunction => {
                     let path = input.parse::<Path>()?;
-                    let args = input.parse::<BsnFnArgs>()?;
-                    BsnScene::Fn(BsnSceneFn { path, args })
+                    if path_type == PathType::Function
+                        && path.segments.len() == 1
+                        && !input.peek(Paren)
+                    {
+                        BsnScene::Expression(path.to_token_stream())
+                    } else {
+                        let args = input.parse::<BsnFnArgs>()?;
+                        BsnScene::Fn(BsnSceneFn { path, args })
+                    }
                 }
                 path_type => {
                     return Err(syn::Error::new(
