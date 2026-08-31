@@ -779,7 +779,9 @@ impl Tables {
                     dst_ids.next_if(|&dst_component_id| dst_component_id <= src_component_id)
                     && let Some(dst_column) = dst_columns.next()
                 {
-                    if dst_component_id == src_component_id {
+                    if dst_component_id < src_component_id {
+                        continue;
+                    } else if dst_component_id == src_component_id {
                         // SAFETY:
                         // - `src_column` and `dst_column` correspond to the same `ComponentId`.
                         // - The caller ensures `row` is in-bounds for `src_column`.
