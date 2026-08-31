@@ -2,6 +2,7 @@
 
 use crate::{
     experimental::{UiChildren, UiRootNodes},
+    layout_tree::ComputedLayout,
     ui_transform::UiGlobalTransform,
     CalculatedClip, ComputedUiRenderTargetInfo, ComputedUiTargetCamera, DefaultUiCamera, Display,
     FixedNode, Node, OverrideClip, UiScale, UiTargetCamera,
@@ -24,6 +25,7 @@ pub fn update_clipping_system(
     mut node_query: Query<(
         &Node,
         &ComputedNode,
+        &ComputedLayout,
         &UiGlobalTransform,
         Option<&mut CalculatedClip>,
         Has<OverrideClip>,
@@ -38,6 +40,7 @@ pub fn update_clipping_system(
             &mut node_query,
             root_node,
             None,
+            false,
         );
     }
 }
@@ -48,6 +51,7 @@ fn update_clipping(
     node_query: &mut Query<(
         &Node,
         &ComputedNode,
+        &ComputedLayout,
         &UiGlobalTransform,
         Option<&mut CalculatedClip>,
         Has<OverrideClip>,
@@ -55,10 +59,12 @@ fn update_clipping(
     )>,
     entity: Entity,
     mut maybe_inherited_clip: Option<CalculatedClip>,
+    force_update: bool,
 ) {
     let Ok((
         node,
         computed_node,
+        computed_layout,
         transform,
         maybe_calculated_clip,
         has_override_clip,
@@ -67,6 +73,10 @@ fn update_clipping(
     else {
         return;
     };
+
+    if !force_update && !computed_layout.layout_changed() && !computed_layout.subtree_dirty() {
+        return;
+    }
 
     // If the UI node entity has an `OverrideClip` or `FixedNode` component, discard any inherited clip rect
     if has_override_clip || has_fixed_node {
@@ -113,6 +123,8 @@ fn update_clipping(
         Some(CalculatedClip::FullyClipped)
     };
 
+    let propagated_force_update =
+        force_update || computed_layout.layout_changed() || computed_layout.self_dirty();
     for child in ui_children.iter_ui_children(entity) {
         update_clipping(
             commands,
@@ -120,6 +132,7 @@ fn update_clipping(
             node_query,
             child,
             children_clip.clone(),
+            propagated_force_update,
         );
     }
 }
