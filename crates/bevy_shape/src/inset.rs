@@ -1,25 +1,21 @@
 use crate::{
-    ops,
-    primitives::{
-        Capsule2d, Circle, CircularSegment, Primitive2d, Rectangle, RegularPolygon, Rhombus,
-        Triangle2d,
-    },
-    Vec2,
+    Capsule2d, Circle, CircularSegment, Primitive2d, Rectangle, RegularPolygon, Rhombus, Triangle2d,
 };
+use bevy_math::{ops, Vec2};
 
 /// A primitive that can be resized uniformly.
 ///
 /// See documentation on [`Inset::inset`].
 ///
-/// See also [`ToRing`](crate::primitives::ToRing).
+/// See also [`ToRing`](crate::ToRing).
 pub trait Inset: Primitive2d {
     /// Create a new version of this primitive that is resized uniformly.
     /// That is, it resizes the shape inwards such that for the lines between vertices,
     /// it creates new parallel lines that are `distance` inwards from the original lines.
     ///
-    /// This is useful for creating smaller shapes or making outlines of `distance` thickness with [`Ring`](crate::primitives::Ring).
+    /// This is useful for creating smaller shapes or making outlines of `distance` thickness with [`Ring`](crate::Ring).
     ///
-    /// See also [`ToRing::to_ring`](crate::primitives::ToRing::to_ring)
+    /// See also [`ToRing::to_ring`](crate::ToRing::to_ring)
     fn inset(self, distance: f32) -> Self;
 }
 

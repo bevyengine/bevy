@@ -234,9 +234,9 @@ pub mod ray {
     use crate::backend::prelude::{PointerId, PointerLocation};
     use bevy_camera::{Camera, RenderTarget};
     use bevy_ecs::prelude::*;
-    use bevy_math::Ray3d;
     use bevy_platform::collections::{hash_map::Iter, HashMap};
     use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+    use bevy_shape::Ray3d;
     use bevy_transform::prelude::GlobalTransform;
     use bevy_window::PrimaryWindow;
 
