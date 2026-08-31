@@ -20,7 +20,7 @@ use taffy::{
 
 use crate::{
     experimental::UiChildren, ContentSize, FixedNode, IgnoreScroll, LayoutConfig, LayoutError,
-    Measure, MeasureArgs, Node, NodeMeasure, Outline, ScrollPosition, UiTransform,
+    Measure, MeasureArgs, Node, NodeMeasure, Outline, OverrideClip, ScrollPosition, UiTransform,
 };
 
 #[expect(
@@ -131,6 +131,7 @@ pub struct ComputedLayout {
     has_outline: bool,
     has_layout_config: bool,
     has_ignore_scroll: bool,
+    has_override_clip: bool,
 }
 
 impl ComputedLayout {
@@ -238,6 +239,7 @@ pub(crate) fn compute_layout(
             Option<Ref<Outline>>,
             Option<Ref<LayoutConfig>>,
             Option<Ref<IgnoreScroll>>,
+            Has<OverrideClip>,
         ),
         With<Node>,
     >,
@@ -342,6 +344,7 @@ fn build_runtime_layout_tree<'a>(
             Option<Ref<Outline>>,
             Option<Ref<LayoutConfig>>,
             Option<Ref<IgnoreScroll>>,
+            Has<OverrideClip>,
         ),
         With<Node>,
     >,
@@ -359,6 +362,7 @@ fn build_runtime_layout_tree<'a>(
         outline,
         layout_config,
         ignore_scroll,
+        has_override_clip,
     )) = node_query.get(entity)
     else {
         return None;
@@ -431,16 +435,19 @@ fn build_runtime_layout_tree<'a>(
         || layout_config.is_some_and(|layout_config| layout_config.is_changed());
     let ignore_scroll_changed = (computed_layout.has_ignore_scroll != ignore_scroll.is_some())
         || ignore_scroll.is_some_and(|ignore_scroll| ignore_scroll.is_changed());
+    let override_clip_changed = computed_layout.has_override_clip != has_override_clip;
     computed_layout.self_dirty = own_dirty
         || transform.is_changed()
         || scroll_position.is_changed()
         || outline_changed
         || layout_config_changed
-        || ignore_scroll_changed;
+        || ignore_scroll_changed
+        || override_clip_changed;
 
     computed_layout.has_ignore_scroll = ignore_scroll.is_some();
     computed_layout.has_layout_config = layout_config.is_some();
     computed_layout.has_outline = outline.is_some();
+    computed_layout.has_override_clip = has_override_clip;
 
     computed_layout.subtree_dirty = computed_layout.self_dirty || computed_subtree_dirty;
     if subtree_dirty {

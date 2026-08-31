@@ -3,7 +3,7 @@ use crate::{
     layout_tree::{compute_layout, node_id_entity, TaffyStyle},
     ui_transform::{UiGlobalTransform, UiTransform},
     ComputedNode, ComputedUiRenderTargetInfo, ContentSize, Display, FixedNode, IgnoreScroll,
-    LayoutConfig, Node, Outline, OverflowAxis, ScrollPosition,
+    LayoutConfig, Node, Outline, OverflowAxis, OverrideClip, ScrollPosition,
 };
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
@@ -153,6 +153,7 @@ pub fn ui_layout_system(
             Option<Ref<Outline>>,
             Option<Ref<LayoutConfig>>,
             Option<Ref<IgnoreScroll>>,
+            Has<OverrideClip>,
         ),
         With<Node>,
     >,
@@ -1013,6 +1014,7 @@ mod tests {
                     Option<Ref<Outline>>,
                     Option<Ref<LayoutConfig>>,
                     Option<Ref<IgnoreScroll>>,
+                    Has<OverrideClip>,
                 ),
                 With<Node>,
             >,
