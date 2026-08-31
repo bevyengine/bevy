@@ -8,9 +8,10 @@ use bevy_core_pipeline::{
     schedule::{Core3d, Core3dSystems},
 };
 use bevy_ecs::{prelude::*, schedule::IntoScheduleConfigs};
+use bevy_extract::extract_component::extract_components;
 use bevy_reflect::prelude::*;
 use bevy_render::{
-    extract_component::{extract_components, ExtractComponent},
+    extract_component::ExtractComponent,
     extract_resource::extract_resource,
     render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions, ViewSortedRenderPhases},
     sync_component::SyncComponentPlugin,
@@ -56,10 +57,11 @@ impl Plugin for ScreenSpaceTransmissionPlugin {
             .add_systems(
                 ExtractSchedule,
                 (
-                    // Run transmissive phases extraction otherwise `queue_material_meshes` won't run
+                    // Always run transmissive phases extraction,
+                    // otherwise `queue_material_meshes` won't run if transmissive phase is `None`
                     phase::extract_transmissive_camera_phases,
-                    extract_components::<ScreenSpaceTransmission, ()>
-                        .after(extract_resource::<Core3dMainPassMode, ()>)
+                    extract_components::<ScreenSpaceTransmission, RenderApp, ()>
+                        .after(extract_resource::<Core3dMainPassMode, RenderApp, ()>)
                         .run_if(separate_core3d_main_pass),
                 ),
             )
