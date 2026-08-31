@@ -8,12 +8,12 @@ use crate::{
     change_detection::{CheckChangeTicks, Tick},
     component::Mutable,
     prelude::QueryBuilder,
-    query::{FilteredAccessSet, QueryData, QueryFilter, QueryState},
+    query::{QueryData, QueryFilter, QueryState},
     resource::Resource,
     system::{
         DynSystemParam, DynSystemParamState, FromInput, FunctionSystem, If, IntoResult, IntoSystem,
-        Local, ParamSet, Query, ReadOnlySystem, System, SystemInput, SystemMeta, SystemParam,
-        SystemParamFunction, SystemParamValidationError,
+        Local, ParamSet, Query, ReadOnlySystem, System, SystemAccess, SystemInput, SystemMeta,
+        SystemParam, SystemParamFunction, SystemParamValidationError,
     },
     world::{
         unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FilteredResources,
@@ -424,7 +424,7 @@ where
     }
 
     #[inline]
-    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet {
+    fn initialize(&mut self, world: &mut World) -> SystemAccess {
         let inner = mem::replace(&mut self.inner, BuilderSystemInner::Invalid);
         match inner {
             BuilderSystemInner::Initialized { mut system } => {

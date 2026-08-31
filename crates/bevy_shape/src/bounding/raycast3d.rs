@@ -1,7 +1,8 @@
 use super::{Aabb3d, BoundingSphere, IntersectsVolume};
-use crate::{
+use crate::Ray3d;
+use bevy_math::{
     ops::{self, FloatPow},
-    Dir3A, Ray3d, Vec3A,
+    Dir3A, Vec3A,
 };
 
 #[cfg(feature = "bevy_reflect")]
@@ -24,7 +25,7 @@ pub struct RayCast3d {
 impl RayCast3d {
     /// Construct a [`RayCast3d`] from an origin, [direction], and max distance.
     ///
-    /// [direction]: crate::direction::Dir3
+    /// [direction]: bevy_math::Dir3
     pub fn new(origin: impl Into<Vec3A>, direction: impl Into<Dir3A>, max: f32) -> Self {
         let direction = direction.into();
         Self {
@@ -117,7 +118,7 @@ pub struct AabbCast3d {
 impl AabbCast3d {
     /// Construct an [`AabbCast3d`] from an [`Aabb3d`], origin, [direction], and max distance.
     ///
-    /// [direction]: crate::direction::Dir3
+    /// [direction]: bevy_math::Dir3
     pub fn new(
         aabb: Aabb3d,
         origin: impl Into<Vec3A>,
@@ -162,7 +163,7 @@ pub struct BoundingSphereCast {
 impl BoundingSphereCast {
     /// Construct a [`BoundingSphereCast`] from a [`BoundingSphere`], origin, [direction], and max distance.
     ///
-    /// [direction]: crate::direction::Dir3
+    /// [direction]: bevy_math::Dir3
     pub fn new(
         sphere: BoundingSphere,
         origin: impl Into<Vec3A>,
@@ -197,7 +198,7 @@ impl IntersectsVolume<BoundingSphere> for BoundingSphereCast {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Dir3, Vec3};
+    use bevy_math::{Dir3, Vec3};
 
     const EPSILON: f32 = 0.001;
 

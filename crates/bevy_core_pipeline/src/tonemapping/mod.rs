@@ -8,7 +8,7 @@ use bevy_image::{CompressedImageFormats, Image, ImageSampler, ImageType};
 #[cfg(not(feature = "tonemapping_luts"))]
 use bevy_log::error;
 use bevy_render::{
-    camera::{ExtractedCamera, TonemapInShader},
+    camera::TonemapInShader,
     extract_component::ExtractComponentPlugin,
     extract_resource::{ExtractResource, ExtractResourcePlugin},
     render_asset::RenderAssets,
@@ -18,7 +18,7 @@ use bevy_render::{
     },
     renderer::RenderDevice,
     texture::{FallbackImage, GpuImage},
-    view::{ColorGrading, ExtractedView, ViewTarget, ViewUniform},
+    view::{ColorGrading, ExtractedView, ResolvedCompositingSpace, ViewTarget, ViewUniform},
     GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::{load_shader_library, Shader, ShaderDefVal};
@@ -344,7 +344,7 @@ pub fn prepare_view_tonemapping_pipelines(
         (
             Entity,
             &ExtractedView,
-            &ExtractedCamera,
+            Option<&ResolvedCompositingSpace>,
             Option<&Tonemapping>,
             Option<&DebandDither>,
             Option<&ViewTonemappingPipeline>,
@@ -353,7 +353,7 @@ pub fn prepare_view_tonemapping_pipelines(
         With<ViewTarget>,
     >,
 ) {
-    for (entity, view, camera, tonemapping, dither, existing_pipeline, tonemap_in_shader) in
+    for (entity, view, resolved_space, tonemapping, dither, existing_pipeline, tonemap_in_shader) in
         view_targets.iter()
     {
         let method = *tonemapping.unwrap_or(&Tonemapping::None);
@@ -369,7 +369,10 @@ pub fn prepare_view_tonemapping_pipelines(
             continue;
         }
 
-        let flags = tonemapping_key_flags(&view.color_grading, camera.compositing_space);
+        let flags = tonemapping_key_flags(
+            &view.color_grading,
+            ResolvedCompositingSpace::space(resolved_space),
+        );
 
         let key = TonemappingPipelineKey {
             target_format: view.target_format,

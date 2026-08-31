@@ -2,7 +2,7 @@ use core::ops::Range;
 
 use crate::ComputedTextureSlices;
 use bevy_asset::{load_embedded_asset, AssetEvent, AssetId, AssetServer, Assets, Handle};
-use bevy_camera::visibility::ViewVisibility;
+use bevy_camera::{visibility::ViewVisibility, CompositingSpace};
 use bevy_color::{ColorToComponents, LinearRgba};
 use bevy_core_pipeline::{
     core_2d::{Transparent2d, CORE_2D_DEPTH_FORMAT},
@@ -23,7 +23,7 @@ use bevy_mesh::VertexBufferLayout;
 use bevy_platform::collections::HashMap;
 use bevy_render::{
     camera::{ExtractedCamera, TonemapInShader},
-    view::{RenderVisibleEntities, RetainedViewEntity},
+    view::{RenderVisibleEntities, ResolvedCompositingSpace, RetainedViewEntity},
 };
 use bevy_render::{
     render_asset::RenderAssets,
@@ -155,6 +155,16 @@ impl SpritePipelineKey {
             & Self::COLOR_TARGET_FORMAT_MASK_BITS) as u8;
         texture_format_from_code(code)
             .expect("Unknown bits in `COLOR_TARGET_FORMAT_MASK_BITS` of the pipeline key")
+    }
+
+    /// Key bits for a view's resolved [`CompositingSpace`].
+    #[inline]
+    pub fn from_compositing_space(space: Option<CompositingSpace>) -> Self {
+        match space {
+            Some(CompositingSpace::Srgb) => Self::SRGB_COMPOSITING,
+            Some(CompositingSpace::Oklab) => Self::OKLAB_COMPOSITING,
+            Some(CompositingSpace::Linear) | None => Self::NONE,
+        }
     }
 
     /// The `TONEMAP_METHOD_*` bits for a tonemapping method. Specialization
@@ -523,19 +533,22 @@ pub fn queue_sprites(
     pipeline_cache: Res<PipelineCache>,
     extracted_sprites: Res<ExtractedSprites>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
-    mut cameras: Query<(
-        &RenderVisibleEntities,
-        &ExtractedCamera,
-        &ExtractedView,
-        &Msaa,
-        Option<&Tonemapping>,
-        Option<&DebandDither>,
-        Has<TonemapInShader>,
-    )>,
+    mut cameras: Query<
+        (
+            &RenderVisibleEntities,
+            &ExtractedView,
+            &Msaa,
+            Option<&Tonemapping>,
+            Option<&DebandDither>,
+            Option<&ResolvedCompositingSpace>,
+            Has<TonemapInShader>,
+        ),
+        With<ExtractedCamera>,
+    >,
 ) {
     let draw_sprite_function = draw_functions.read().id::<DrawSprite>();
 
-    for (visible_entities, camera, view, msaa, tonemapping, dither, tonemap_in_shader) in
+    for (visible_entities, view, msaa, tonemapping, dither, resolved_space, tonemap_in_shader) in
         &mut cameras
     {
         let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
@@ -543,21 +556,11 @@ pub fn queue_sprites(
             continue;
         };
 
-        let msaa_key = SpritePipelineKey::from_msaa_samples(msaa.samples());
-        let mut view_key = SpritePipelineKey::from_target_format(view.target_format) | msaa_key;
-
-        if camera
-            .compositing_space
-            .is_some_and(|s| s == bevy_camera::CompositingSpace::Srgb)
-        {
-            view_key |= SpritePipelineKey::SRGB_COMPOSITING;
-        }
-        if camera
-            .compositing_space
-            .is_some_and(|s| s == bevy_camera::CompositingSpace::Oklab)
-        {
-            view_key |= SpritePipelineKey::OKLAB_COMPOSITING;
-        }
+        let mut view_key = SpritePipelineKey::from_target_format(view.target_format)
+            | SpritePipelineKey::from_msaa_samples(msaa.samples())
+            | SpritePipelineKey::from_compositing_space(ResolvedCompositingSpace::space(
+                resolved_space,
+            ));
 
         if tonemap_in_shader && let Some(tonemapping) = tonemapping {
             view_key |= SpritePipelineKey::TONEMAP_IN_SHADER;
