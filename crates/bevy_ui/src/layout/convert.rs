@@ -208,8 +208,11 @@ impl From<JustifySelf> for Option<taffy::style::JustifySelf> {
         match value {
             JustifySelf::Auto => None,
             JustifySelf::Start => taffy::style::JustifySelf::START.into(),
+            JustifySelf::StartSafe => taffy::style::JustifySelf::SAFE_START.into(),
             JustifySelf::End => taffy::style::JustifySelf::END.into(),
+            JustifySelf::EndSafe => taffy::style::JustifySelf::SAFE_END.into(),
             JustifySelf::Center => taffy::style::JustifySelf::CENTER.into(),
+            JustifySelf::CenterSafe => taffy::style::JustifySelf::SAFE_CENTER.into(),
             JustifySelf::Baseline => taffy::style::JustifySelf::BASELINE.into(),
             JustifySelf::Stretch => taffy::style::JustifySelf::STRETCH.into(),
         }
