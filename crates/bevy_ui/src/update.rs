@@ -87,7 +87,7 @@ fn update_clipping(
         return;
     }
 
-    if !force_update && tree_changed.is_changed() {
+    if !force_update && !tree_changed.is_changed() {
         return;
     }
 
