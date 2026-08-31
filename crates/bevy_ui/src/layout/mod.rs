@@ -1,3 +1,5 @@
+#[cfg(feature = "ghost_nodes")]
+use crate::experimental::GhostNode;
 use crate::{
     experimental::{UiChildren, UiRootNodes},
     layout_tree::{compute_layout, node_id_entity, TaffyStyle},
@@ -5,16 +7,14 @@ use crate::{
     ComputedNode, ComputedUiRenderTargetInfo, ContentSize, Display, FixedNode, IgnoreScroll,
     LayoutConfig, Node, Outline, OverflowAxis, OverrideClip, ScrollPosition,
 };
-#[cfg(not(feature = "ghost_nodes"))]
-use bevy_ecs::hierarchy::Children;
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
     component::Component,
     entity::Entity,
-    hierarchy::ChildOf,
+    hierarchy::{ChildOf, Children},
     lifecycle::RemovedComponents,
     query::{Added, Changed, Has, Or, With},
-    system::{Local, ParamSet, Query, Res, ResMut},
+    system::{Local, ParamSet, Query, Res, ResMut, SystemParam},
     world::Ref,
 };
 
@@ -33,11 +33,42 @@ pub mod layout_tree;
 ///
 /// Optimisation copied from `bevy_transform`'s `TransformTreeChanged`.
 #[derive(Component, Default, Debug, Clone)]
-#[require(UiNodeReached)]
 pub struct UiTreeChanged;
 
-#[derive(Component, Default, Debug, Clone)]
-pub struct UiNodeReached(bool);
+/// Detects the changes that can alter which nodes are reachable from a layout root.
+#[derive(SystemParam)]
+pub struct HierarchyChanges<'w, 's> {
+    changed: Query<'w, 's, Entity, Or<(Changed<Children>, Changed<ChildOf>, Added<Node>)>>,
+    removed_child_ofs: RemovedComponents<'w, 's, ChildOf>,
+    removed_nodes: RemovedComponents<'w, 's, Node>,
+    #[cfg(feature = "ghost_nodes")]
+    added_ghost_nodes: Query<'w, 's, Entity, Added<GhostNode>>,
+    #[cfg(feature = "ghost_nodes")]
+    removed_ghost_nodes: RemovedComponents<'w, 's, GhostNode>,
+}
+
+impl HierarchyChanges<'_, '_> {
+    /// Returns `true` if the UI hierarchy changed this frame, consuming the removal events.
+    fn any(&mut self) -> bool {
+        let changed = !self.changed.is_empty()
+            || !self.removed_child_ofs.is_empty()
+            || !self.removed_nodes.is_empty();
+        self.removed_child_ofs.clear();
+        self.removed_nodes.clear();
+
+        #[cfg(not(feature = "ghost_nodes"))]
+        let ghosts_changed = false;
+        #[cfg(feature = "ghost_nodes")]
+        let ghosts_changed = {
+            let ghosts_changed =
+                !self.added_ghost_nodes.is_empty() || !self.removed_ghost_nodes.is_empty();
+            self.removed_ghost_nodes.clear();
+            ghosts_changed
+        };
+
+        changed || ghosts_changed
+    }
+}
 
 #[derive(Copy, Clone)]
 pub struct LayoutContext {
@@ -183,6 +214,7 @@ pub fn mark_dirty_ui_trees(
                 Changed<Children>,
                 Changed<ChildOf>,
                 Added<FixedNode>,
+                Added<GhostNode>,
             )>,
             Or<(With<Node>, With<GhostNode>)>,
         ),
@@ -193,18 +225,21 @@ pub fn mark_dirty_ui_trees(
     mut removed_fixed_nodes: RemovedComponents<FixedNode>,
     mut removed_child_ofs: RemovedComponents<ChildOf>,
     mut removed_nodes: RemovedComponents<Node>,
+    #[cfg(feature = "ghost_nodes")] mut removed_ghost_nodes: RemovedComponents<GhostNode>,
     mut trees: Query<&mut UiTreeChanged>,
     ui_children: UiChildren,
 ) {
-    for entity in changed.iter().chain(
-        removed_outlines
-            .read()
-            .chain(removed_layout_configs.read())
-            .chain(removed_ignore_scrolls.read())
-            .chain(removed_fixed_nodes.read())
-            .chain(removed_child_ofs.read())
-            .chain(removed_nodes.read()),
-    ) {
+    let removed = removed_outlines
+        .read()
+        .chain(removed_layout_configs.read())
+        .chain(removed_ignore_scrolls.read())
+        .chain(removed_fixed_nodes.read())
+        .chain(removed_child_ofs.read())
+        .chain(removed_nodes.read());
+    #[cfg(feature = "ghost_nodes")]
+    let removed = removed.chain(removed_ghost_nodes.read());
+
+    for entity in changed.iter().chain(removed) {
         let mut next = Some(entity);
         while let Some(entity) = next {
             if let Ok(mut tree) = trees.get_mut(entity) {
@@ -235,6 +270,7 @@ pub fn ui_layout_system(
             Option<Ref<LayoutConfig>>,
             Option<Ref<IgnoreScroll>>,
             Has<OverrideClip>,
+            Ref<UiTreeChanged>,
         ),
         With<Node>,
     >,
@@ -251,6 +287,7 @@ pub fn ui_layout_system(
     mut font_system: ResMut<FontCx>,
     added_fixed_node_query: Query<Entity, Added<FixedNode>>,
     mut removed_fixed_nodes: RemovedComponents<FixedNode>,
+    mut hierarchy_changes: HierarchyChanges,
     rem_size: Res<RemSize>,
     mut child_stack: Local<Vec<taffy::NodeId>>,
 ) {
@@ -258,6 +295,11 @@ pub fn ui_layout_system(
         .iter()
         .chain(removed_fixed_nodes.read())
         .collect::<Vec<_>>();
+
+    // Reachability can only change when the hierarchy does. On those frames every reachable
+    // node is walked so that `reached` is accurate, and the unreachable ones are cleared
+    // below. Otherwise clean subtrees are skipped and their `reached` flags left alone.
+    let full = hierarchy_changes.any() || !fixed_node_changes.is_empty();
 
     let mut computed_layout_query = node_queries.p0();
     for ui_root_entity in ui_root_node_query.iter().chain(fixed_nodes_query.iter()) {
@@ -277,16 +319,21 @@ pub fn ui_layout_system(
             &mut font_system,
             *rem_size,
             &mut child_stack,
+            full,
         );
         child_stack.clear();
     }
 
+    if !full {
+        return;
+    }
+
     node_queries.p1().par_iter_mut().for_each(
         |(mut node, mut global_transform, mut computed_layout)| {
-            if !computed_layout.visited() {
+            if !computed_layout.reached() {
                 computed_layout.clear();
             }
-            computed_layout.set_visited(false);
+            computed_layout.set_reached(false);
 
             if computed_layout.has_layout() {
                 return;
@@ -601,32 +648,9 @@ pub fn update_border_radius(
         });
 }
 
-fn is_reachable(
-    mut entity: Entity,
-    parents: &Query<&ChildOf>,
-    ui: &Query<(Has<Node>, Has<GhostNode>, Has<FixedNode>)>,
-) -> bool {
-    loop {
-        let Ok((is_node, is_ghost, is_fixed)) = ui.get(entity) else {
-            return false;
-        };
-        if is_fixed {
-            return true;
-        }
-        if !is_node && !is_ghost {
-            return false;
-        }
-        match parents.get(entity) {
-            // A rootless `Node`, or a chain terminating in a rootless `GhostNode`,
-            // is a layout root.
-            Err(_) => return true,
-            Ok(child_of) => entity = child_of.parent(),
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
+    use crate::layout::{mark_dirty_ui_trees, UiTreeChanged};
     use crate::layout_tree::compute_layout;
     use crate::layout_tree::TaffyStyle;
     use crate::update_border_radius;
@@ -673,6 +697,7 @@ mod tests {
                 propagate_ui_target_cameras,
                 sync_font_size_to_em_size,
                 update_taffy_styles,
+                mark_dirty_ui_trees,
                 ui_layout_system,
                 update_computed_nodes,
                 update_border_radius,
@@ -1127,6 +1152,7 @@ mod tests {
                     Option<Ref<LayoutConfig>>,
                     Option<Ref<IgnoreScroll>>,
                     Has<OverrideClip>,
+                    Ref<UiTreeChanged>,
                 ),
                 With<Node>,
             >,
@@ -1149,6 +1175,7 @@ mod tests {
                 &mut font_system,
                 *rem_size,
                 &mut child_stack,
+                true,
             )
             .unwrap();
         }

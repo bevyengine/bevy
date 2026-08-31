@@ -19,8 +19,9 @@ use taffy::{
 };
 
 use crate::{
-    experimental::UiChildren, ContentSize, FixedNode, IgnoreScroll, LayoutConfig, LayoutError,
-    Measure, MeasureArgs, Node, NodeMeasure, Outline, OverrideClip, ScrollPosition, UiTransform,
+    experimental::UiChildren, layout::UiTreeChanged, ContentSize, FixedNode, IgnoreScroll,
+    LayoutConfig, LayoutError, Measure, MeasureArgs, Node, NodeMeasure, Outline, OverrideClip,
+    ScrollPosition, UiTransform,
 };
 
 #[expect(
@@ -116,6 +117,8 @@ pub struct ComputedLayout {
     rounded: Option<Layout>,
     /// cached sizing results
     cache: Cache,
+    /// was reached from a layout root by the last full walk
+    reached: bool,
     /// is a layout root
     is_root: bool,
     /// children
@@ -139,6 +142,7 @@ impl ComputedLayout {
         self.rounded = None;
         self.cache.clear();
         self.children.clear();
+        self.reached = false;
         self.is_root = false;
         self.layout_changed = false;
         self.subtree_dirty = false;
@@ -188,6 +192,18 @@ impl ComputedLayout {
         true
     }
 
+    /// Set whether the last full walk reached this node from a layout root
+    #[inline]
+    pub const fn set_reached(&mut self, reached: bool) {
+        self.reached = reached;
+    }
+
+    /// Returns true if the last full walk reached this node from a layout root
+    #[inline]
+    pub const fn reached(&self) -> bool {
+        self.reached
+    }
+
     /// Get the layout geometry and size
     pub fn get_layout(&self, use_rounding: bool) -> Option<(Layout, Vec2)> {
         let unrounded = self.unrounded?;
@@ -232,6 +248,7 @@ pub(crate) fn compute_layout(
             Option<Ref<LayoutConfig>>,
             Option<Ref<IgnoreScroll>>,
             Has<OverrideClip>,
+            Ref<UiTreeChanged>,
         ),
         With<Node>,
     >,
@@ -242,6 +259,7 @@ pub(crate) fn compute_layout(
     font_system: &mut FontCx,
     rem_size: RemSize,
     child_stack: &mut Vec<NodeId>,
+    full: bool,
 ) -> Result<(), LayoutError> {
     let Some((dirty, _)) = build_runtime_layout_tree(
         ui_root_entity,
@@ -252,6 +270,7 @@ pub(crate) fn compute_layout(
         fixed_node_changes,
         rem_size,
         child_stack,
+        full,
     ) else {
         return Err(LayoutError::InvalidHierarchy);
     };
@@ -337,6 +356,7 @@ fn build_runtime_layout_tree<'a>(
             Option<Ref<LayoutConfig>>,
             Option<Ref<IgnoreScroll>>,
             Has<OverrideClip>,
+            Ref<UiTreeChanged>,
         ),
         With<Node>,
     >,
@@ -344,6 +364,7 @@ fn build_runtime_layout_tree<'a>(
     fixed_node_changes: &[Entity],
     rem_size: RemSize,
     child_stack: &mut Vec<NodeId>,
+    full: bool,
 ) -> Option<(bool, bool)> {
     let Ok((
         style,
@@ -355,6 +376,7 @@ fn build_runtime_layout_tree<'a>(
         layout_config,
         ignore_scroll,
         has_override_clip,
+        tree_changed,
     )) = node_query.get(entity)
     else {
         return None;
@@ -362,6 +384,12 @@ fn build_runtime_layout_tree<'a>(
 
     if has_fixed_node && entity != root {
         return None;
+    }
+
+    // Nothing in this subtree changed, so its cached children, cache and flags are all
+    // still valid. Reported clean, and left for the next full walk to mark as reached.
+    if !full && !tree_changed.is_changed() {
+        return Some((false, false));
     }
 
     let mut subtree_dirty = false;
@@ -385,6 +413,7 @@ fn build_runtime_layout_tree<'a>(
             fixed_node_changes,
             rem_size,
             child_stack,
+            full,
         ) {
             child_stack[start + child_count] = child_node;
             child_count += 1;
@@ -418,6 +447,7 @@ fn build_runtime_layout_tree<'a>(
         || !computed_layout.has_layout();
     subtree_dirty |= own_dirty;
 
+    computed_layout.reached = true;
     computed_layout.layout_changed = false;
 
     let outline_changed = (computed_layout.has_outline != outline.is_some())
