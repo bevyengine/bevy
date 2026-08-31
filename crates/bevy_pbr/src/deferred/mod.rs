@@ -15,7 +15,8 @@ use bevy_core_pipeline::{
 };
 use bevy_ecs::prelude::*;
 use bevy_render::{
-    camera::{ExtractedCamera, ViewTargetInfo},
+    camera::ExtractedCamera,
+    diagnostic::RecordDiagnostics,
     extract_component::{
         ComponentUniforms, ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin,
     },

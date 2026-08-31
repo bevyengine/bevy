@@ -2,6 +2,7 @@ use bevy_camera::{MainPassResolutionOverride, Viewport};
 use bevy_ecs::system::Res;
 use bevy_math::{UVec2, Vec3Swizzles};
 use bevy_render::{
+    diagnostic::RecordDiagnostics,
     extract_component::DynamicUniformIndex,
     render_resource::{ComputePass, ComputePassDescriptor, PipelineCache, RenderPassDescriptor},
     renderer::{RenderContext, ViewQuery},

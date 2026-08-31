@@ -102,7 +102,7 @@ impl Plugin for CameraPlugin {
                             extract_cameras,
                         )
                             .chain()
-                            .after(extract_resource::<ManualTextureViews, ()>),
+                            .after(extract_resource::<ManualTextureViews, RenderApp, ()>),
                         clear_dirty_specializations.in_set(DirtySpecializationSystems::Clear),
                         clear_dirty_wireframe_specializations
                             .in_set(DirtySpecializationSystems::Clear),
@@ -1219,8 +1219,6 @@ mod tests {
     ) -> ExtractedCamera {
         ExtractedCamera {
             target: Some(target),
-            physical_viewport_size: None,
-            physical_target_size: None,
             viewport: None,
             schedule: Main.intern(),
             order,

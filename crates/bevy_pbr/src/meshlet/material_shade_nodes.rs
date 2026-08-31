@@ -14,6 +14,7 @@ use bevy_core_pipeline::prepass::{
 };
 use bevy_ecs::{prelude::*, query::Has};
 use bevy_render::{
+    diagnostic::RecordDiagnostics,
     render_resource::{
         LoadOp, Operations, PipelineCache, RenderPassDepthStencilAttachment, RenderPassDescriptor,
         StoreOp,

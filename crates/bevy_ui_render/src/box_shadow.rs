@@ -34,7 +34,9 @@ use bevy_ui::{
 use bevy_utils::default;
 use bytemuck::{Pod, Zeroable};
 
-use crate::{BoxShadowSamples, RenderUiSystems, TransparentUi, UiCameraMap, UiViewTargetInfo};
+use crate::{
+    clip_polygon, BoxShadowSamples, RenderUiSystems, TransparentUi, UiCameraMap, UiViewTargetInfo,
+};
 
 use super::{stack_z_offsets, UiCameraView, QUAD_VERTEX_POSITIONS};
 

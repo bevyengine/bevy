@@ -21,6 +21,7 @@ use bevy_ecs::{
 };
 use bevy_render::{
     camera::{ExtractedCamera, ViewTargetInfo},
+    diagnostic::RecordDiagnostics,
     extract_component::{
         ComponentUniforms, DynamicUniformIndex, ExtractComponent, ExtractComponentPlugin,
         UniformComponentPlugin,

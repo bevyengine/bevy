@@ -8,7 +8,7 @@ use bevy_image::{CompressedImageFormats, Image, ImageSampler, ImageType};
 use bevy_log::error;
 use bevy_render::{
     camera::ViewTargetInfo,
-    extract_component::{ExtractComponent, ExtractComponentPlugin},
+    extract_component::ExtractComponentPlugin,
     extract_resource::{ExtractResource, ExtractResourcePlugin},
     render_asset::RenderAssets,
     render_resource::{

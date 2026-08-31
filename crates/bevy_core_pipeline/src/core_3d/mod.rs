@@ -910,7 +910,8 @@ pub fn prepare_prepass_textures(
                             sample_count: target_info.sample_count,
                             dimension: TextureDimension::D2,
                             format: MOTION_VECTOR_PREPASS_FORMAT,
-                            usage: if motion_vector_storage_binding && msaa.samples() == 1 {
+                            usage: if motion_vector_storage_binding && target_info.sample_count == 1
+                            {
                                 TextureUsages::RENDER_ATTACHMENT
                                     | TextureUsages::TEXTURE_BINDING
                                     | TextureUsages::STORAGE_BINDING
