@@ -1,4 +1,3 @@
-#[cfg(feature = "ghost_nodes")]
 use crate::experimental::GhostNode;
 use crate::{
     experimental::{UiChildren, UiRootNodes},
@@ -54,7 +53,11 @@ impl HierarchyChanges<'_, '_> {
         self.removed_child_ofs.clear();
         self.removed_nodes.clear();
 
-        changed
+        let ghosts_changed =
+            !self.added_ghost_nodes.is_empty() || !self.removed_ghost_nodes.is_empty();
+        self.removed_ghost_nodes.clear();
+
+        changed || ghosts_changed
     }
 }
 
@@ -184,6 +187,7 @@ pub fn mark_dirty_ui_trees(
                 Changed<Children>,
                 Changed<ChildOf>,
                 Added<FixedNode>,
+                Added<GhostNode>,
             )>,
             Or<(With<Node>, With<GhostNode>)>,
         ),
@@ -626,8 +630,11 @@ mod tests {
     use crate::update_computed_nodes;
     use crate::UiSystems;
     use crate::{
-        experimental::UiChildren, layout::layout_tree::ComputedLayout, prelude::*,
-        sync_font_size_to_em_size, ui_layout_system, update::propagate_ui_target_cameras,
+        experimental::{GhostNode, UiChildren},
+        layout::layout_tree::ComputedLayout,
+        prelude::*,
+        sync_font_size_to_em_size, ui_layout_system,
+        update::propagate_ui_target_cameras,
         update_taffy_styles, ContentSize,
     };
     use bevy_app::{App, HierarchyPropagatePlugin, PostUpdate, PropagateSet, TaskPoolPlugin};
