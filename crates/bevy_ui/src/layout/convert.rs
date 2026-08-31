@@ -172,8 +172,11 @@ impl From<JustifyItems> for Option<taffy::style::JustifyItems> {
         match value {
             JustifyItems::Default => None,
             JustifyItems::Start => taffy::style::JustifyItems::START.into(),
+            JustifyItems::StartSafe => taffy::style::JustifyItems::SAFE_START.into(),
             JustifyItems::End => taffy::style::JustifyItems::END.into(),
+            JustifyItems::EndSafe => taffy::style::JustifyItems::SAFE_END.into(),
             JustifyItems::Center => taffy::style::JustifyItems::CENTER.into(),
+            JustifyItems::CenterSafe => taffy::style::JustifyItems::SAFE_CENTER.into(),
             JustifyItems::Baseline => taffy::style::JustifyItems::BASELINE.into(),
             JustifyItems::Stretch => taffy::style::JustifyItems::STRETCH.into(),
         }

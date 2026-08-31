@@ -927,6 +927,11 @@ impl Default for AlignItems {
 /// - For Flexbox containers, this property has no effect. See `justify_content` for main axis alignment of flex items.
 /// - For CSS Grid containers, sets default inline (horizontal) axis alignment of child items within their grid areas.
 ///
+/// # Safe alignments
+///
+/// Safe alignments will fall back to [`Self::Start`] if aligning the items would overflow the container, so
+/// the start of the content stays visible.
+///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-items>
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
 #[reflect(Default, PartialEq, Clone)]
@@ -940,10 +945,16 @@ pub enum JustifyItems {
     Default,
     /// The items are packed towards the start of the axis.
     Start,
+    /// Like [`Start`](Self::Start) but safe [`safe`](Self#safe-alignments)
+    StartSafe,
     /// The items are packed towards the end of the axis.
     End,
+    /// Like [`End`](Self::End) but safe [`safe`](Self#safe-alignments)
+    EndSafe,
     /// The items are packed along the center of the axis
     Center,
+    /// Like [`Center`](Self::Center) but safe [`safe`](Self#safe-alignments)
+    CenterSafe,
     /// The items are packed such that their baselines align.
     Baseline,
     /// The items are stretched to fill the space they're given.
@@ -952,6 +963,36 @@ pub enum JustifyItems {
 
 impl JustifyItems {
     pub const DEFAULT: Self = Self::Default;
+
+    /// Returns `true` is this alignment is considered [`safe`](Self#safe-alignments).
+    pub const fn is_safe(&self) -> bool {
+        match self {
+            JustifyItems::StartSafe | JustifyItems::CenterSafe | JustifyItems::EndSafe => true,
+            // Explicitly enumerate variants so we don't forget to extend this when changing them.
+            JustifyItems::Default
+            | JustifyItems::Start
+            | JustifyItems::Center
+            | JustifyItems::End
+            | JustifyItems::Baseline
+            | JustifyItems::Stretch => false,
+        }
+    }
+
+    /// Converts `self` to a [`safe`](Self#safe-alignments) alignment if possible.
+    /// Returns `self` if there isn't a `safe` variant.
+    pub const fn to_safe(self) -> Self {
+        match self {
+            JustifyItems::Start => JustifyItems::StartSafe,
+            JustifyItems::Center => JustifyItems::CenterSafe,
+            JustifyItems::End => JustifyItems::EndSafe,
+            JustifyItems::Default
+            | JustifyItems::StartSafe
+            | JustifyItems::EndSafe
+            | JustifyItems::CenterSafe
+            | JustifyItems::Baseline
+            | JustifyItems::Stretch => self,
+        }
+    }
 }
 
 impl Default for JustifyItems {
