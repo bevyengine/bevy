@@ -104,7 +104,7 @@ const fn entity_node_id(entity: Entity) -> NodeId {
 pub const VIEWPORT_NODE_ID: NodeId = NodeId::new(0u64);
 
 pub(super) fn node_id_entity(node_id: NodeId) -> Entity {
-    Entity::try_from_bits(u64::from(node_id)).expect("Tried to get an entity for a viewport node.")
+    Entity::from_bits(u64::from(node_id))
 }
 
 /// Cached and computed layout state for a UI node.
@@ -221,6 +221,13 @@ impl ComputedLayout {
     #[inline]
     pub fn child_nodes(&self) -> &[NodeId] {
         &self.children
+    }
+
+    /// Get the `Entity` ids of the UI children for this Node.
+    /// The subset of a `Node` entity's children that also have a `Node` component and should be visible to `Taffy`.
+    #[inline]
+    pub fn child_entities(&self) -> impl Iterator<Item = Entity> {
+        self.children.iter().map(|node_id| node_id_entity(*node_id))
     }
 }
 
