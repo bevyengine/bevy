@@ -3274,7 +3274,7 @@ impl ComputedUiRenderTargetInfo {
 /// `FixedNode`s don't inherit their parent's layout, clipping or transform context.
 #[derive(Component, Clone, Default, Reflect)]
 #[reflect(Component, Default, Clone)]
-#[require(Node, OverrideClip)]
+#[require(Node)]
 pub struct FixedNode;
 
 #[cfg(test)]
