@@ -17,10 +17,11 @@ use bevy_ecs::{
     query::With,
     resource::Resource,
     schedule::{IntoScheduleConfigs, ScheduleConfigs, ScheduleLabel},
-    system::{BoxedSystem, Commands, Query, Res, ResMut},
+    system::{BoxedSystem, Commands, Local, Query, Res, ResMut},
 };
 use bevy_render::{
     camera::ExtractedCamera,
+    diagnostic::RecordDiagnostics,
     extract_component::{
         ComponentUniforms, DynamicUniformIndex, ExtractComponent, ExtractComponentPlugin,
         UniformComponentPlugin,
@@ -28,15 +29,17 @@ use bevy_render::{
     render_resource::{
         binding_types::{sampler, texture_2d, uniform_buffer},
         encase::internal::WriteInto,
-        BindGroup, BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries,
+        BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries,
         CachedRenderPipelineId, Canonical, ColorTargetState, ColorWrites, FragmentState,
         Operations, PipelineCache, RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline,
         RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages,
         ShaderType, Specializer, SpecializerKey, TextureFormat, TextureSampleType, TextureView,
-        TextureViewId, Variants,
+        Variants,
     },
     renderer::{RenderContext, RenderDevice, ViewQuery},
-    view::{ExtractedView, ViewTarget},
+    view::{
+        ExtractedView, PostProcessBindGroupCache, PostProcessBindGroupCacheBuilder, ViewTarget,
+    },
     Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::ShaderRef;
@@ -75,7 +78,7 @@ impl<T: FullscreenMaterial> Plugin for FullscreenMaterialPlugin<T> {
 
 /// A trait to define a material that will render to the entire screen using a fullscreen triangle.
 pub trait FullscreenMaterial:
-    Component + ExtractComponent + Clone + Copy + ShaderType + WriteInto + Default
+    Component + ExtractComponent<RenderApp> + Clone + Copy + ShaderType + WriteInto + Default
 {
     /// The shader that will run on the entire screen using a fullscreen triangle.
     fn fragment_shader() -> ShaderRef;
@@ -191,9 +194,16 @@ fn prepare_fullscreen_material_pipelines<T: FullscreenMaterial>(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
     mut pipeline: ResMut<FullscreenMaterialPipeline<T>>,
-    views: Query<(Entity, &ExtractedView), With<ExtractedCamera>>,
+    views: Query<(Entity, &ExtractedView, Option<&T>), With<ExtractedCamera>>,
 ) -> Result<(), BevyError> {
-    for (entity, view) in &views {
+    for (entity, view, material) in &views {
+        if material.is_none() {
+            commands
+                .entity(entity)
+                .remove::<FullscreenMaterialPipelineId>();
+            continue;
+        }
+
         let pipeline_key = FullscreenMaterialPipelineKey {
             target_format: view.target_format,
         };
@@ -215,8 +225,7 @@ fn prepare_fullscreen_material_pipelines<T: FullscreenMaterial>(
 /// for both
 #[derive(Component)]
 pub struct FullscreenMaterialBindGroup<T: FullscreenMaterial> {
-    a: (TextureViewId, BindGroup),
-    b: (TextureViewId, BindGroup),
+    cache: PostProcessBindGroupCache,
     // This is in case someone wants multiple `FullscreenMaterial` per camera
     _marker: PhantomData<T>,
 }
@@ -228,6 +237,7 @@ fn prepare_bind_groups<T: FullscreenMaterial>(
         Entity,
         &ViewTarget,
         Option<&mut FullscreenMaterialBindGroup<T>>,
+        Option<&T>,
     )>,
     fullscreen_pipeline: Option<Res<FullscreenMaterialPipeline<T>>>,
     pipeline_cache: Res<PipelineCache>,
@@ -241,11 +251,15 @@ fn prepare_bind_groups<T: FullscreenMaterial>(
         return;
     };
 
-    for (entity, view_target, mut maybe_bind_groups) in &mut view {
-        let main_texture_view = view_target.main_texture_view();
-        let main_texture_other_view = view_target.main_texture_other_view();
+    for (entity, view_target, mut maybe_bind_groups, material) in &mut view {
+        if material.is_none() {
+            commands
+                .entity(entity)
+                .remove::<FullscreenMaterialBindGroup<T>>();
+            continue;
+        }
 
-        let create_bind_group = |texture: &TextureView| {
+        let builder = PostProcessBindGroupCacheBuilder::new(|texture: &TextureView| {
             (
                 texture.id(),
                 render_device.create_bind_group(
@@ -258,19 +272,15 @@ fn prepare_bind_groups<T: FullscreenMaterial>(
                     )),
                 ),
             )
-        };
+        });
 
         if let Some(bind_groups) = &mut maybe_bind_groups {
-            if bind_groups.a.0 != main_texture_view.id() {
-                bind_groups.a = create_bind_group(main_texture_view);
-            }
-            if bind_groups.b.0 != main_texture_other_view.id() {
-                bind_groups.b = create_bind_group(main_texture_other_view);
+            if bind_groups.cache.should_update(view_target) {
+                bind_groups.cache.update(view_target, builder);
             }
         } else {
             commands.entity(entity).insert(FullscreenMaterialBindGroup {
-                a: create_bind_group(main_texture_view),
-                b: create_bind_group(main_texture_other_view),
+                cache: builder.generate_bind_groups(view_target),
                 _marker: PhantomData::<T>,
             });
         }
@@ -286,6 +296,7 @@ pub fn fullscreen_material_system<T: FullscreenMaterial>(
     )>,
     pipeline_cache: Res<PipelineCache>,
     mut ctx: RenderContext,
+    mut pass_label: Local<String>,
 ) {
     let (view_target, settings_index, bind_groups, pipeline_id) = view.into_inner();
 
@@ -297,14 +308,13 @@ pub fn fullscreen_material_system<T: FullscreenMaterial>(
     let source = post_process.source;
     let destination = post_process.destination;
 
-    let (_, bind_group) = if bind_groups.a.0 == source.id() {
-        &bind_groups.a
-    } else {
-        &bind_groups.b
-    };
+    let bind_group = bind_groups.cache.get_current_bind_group(source);
 
+    if pass_label.is_empty() {
+        *pass_label = format!("fullscreen_material_pass<{}>", type_name::<T>());
+    }
     let pass_descriptor = RenderPassDescriptor {
-        label: Some("fullscreen_material_pass"),
+        label: Some(&pass_label),
         color_attachments: &[Some(RenderPassColorAttachment {
             view: destination,
             depth_slice: None,
@@ -318,9 +328,15 @@ pub fn fullscreen_material_system<T: FullscreenMaterial>(
     };
 
     {
+        let diagnostics = ctx.diagnostic_recorder();
+        let diagnostics = diagnostics.as_deref();
+
         let mut render_pass = ctx.command_encoder().begin_render_pass(&pass_descriptor);
+        let pass_span = diagnostics.pass_span(&mut render_pass, pass_label.clone());
+
         render_pass.set_pipeline(pipeline);
         render_pass.set_bind_group(0, bind_group, &[settings_index.index()]);
         render_pass.draw(0..3, 0..1);
+        pass_span.end(&mut render_pass);
     }
 }

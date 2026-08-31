@@ -79,6 +79,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |bevy_core_pipeline|Provides cameras and other basic render pipeline features|
 |bevy_debug_stepping|Enable stepping-based debugging of Bevy systems|
 |bevy_dev_tools|Provides a collection of developer tools|
+|bevy_extract|Provides the ability to extract entities from an ECS main world to a sub world|
 |bevy_feathers|Feathers widget collection.|
 |bevy_gilrs|Adds gamepad support|
 |bevy_gizmos|Adds support for gizmos|
@@ -114,7 +115,8 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |bluenoise_texture|Include spatio-temporal blue noise KTX2 file used by generated environment maps, Solari and atmosphere|
 |bmp|BMP image format support|
 |clipboard_image|Enables image copy/paste via the system clipboard. Not supported on WASM.|
-|compressed_image_saver|Enables compressed KTX2 UASTC texture output on the asset processor|
+|compressed_image_saver|Texture compression asset processor (BCn for desktop, ASTC for mobile via env var)|
+|compressed_image_saver_universal|Texture compression asset processor (cross-platform, transcodes to any GPU format at load time)|
 |critical-section|`critical-section` provides the building blocks for synchronization primitives on all platforms, including `no_std`.|
 |custom_cursor|Enable winit custom cursor support|
 |dds|DDS compressed texture support|
@@ -158,6 +160,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |mp4|MP4 audio format support (through `symphonia`). It also enables AAC support.|
 |multi_threaded|Enables multithreaded parallelism in the engine. Disabling it forces all engine tasks to run on a single thread.|
 |pan_camera|Enables the pan camera from bevy_camera_controller|
+|pan_orbit_camera|Enables the pan orbit camera from bevy_camera_controller|
 |pbr_anisotropy_texture|Enable support for anisotropy texture in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs|
 |pbr_clustered_decals|Enable support for Clustered Decals|
 |pbr_light_textures|Enable support for Light Textures|
@@ -174,9 +177,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |reflect_functions|Enable function reflection|
 |schedule_data|Enable collecting schedule data from the app.|
 |serialize|Enable serialization support through serde|
-|shader_format_glsl|Enable support for shaders in GLSL|
 |shader_format_spirv|Enable support for shaders in SPIR-V|
-|shader_format_wesl|Enable support for shaders in WESL|
 |smaa_luts|Include SMAA Look Up Tables KTX2 Files|
 |spirv_shader_passthrough|Enable passthrough loading for SPIR-V shaders (Only supported on Vulkan, shader capabilities and extensions must agree with the platform implementation)|
 |sprite_picking|Provides an implementation for picking sprites|

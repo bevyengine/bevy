@@ -17,6 +17,7 @@ seq-macro = "0.3.6"
 # Bevy crates
 bevy_app = { path = "../crates/bevy_app" }
 bevy_ecs = { path = "../crates/bevy_ecs", features = ["multi_threaded"] }
+bevy_extract = { path = "../crates/bevy_extract" }
 bevy_math = { path = "../crates/bevy_math" }
 bevy_picking = { path = "../crates/bevy_picking", features = ["mesh_picking"] }
 bevy_reflect = { path = "../crates/bevy_reflect", features = ["functions"] }
@@ -28,18 +29,25 @@ bevy_scene = { path = "../crates/bevy_scene" }
 bevy_tasks = { path = "../crates/bevy_tasks" }
 bevy_transform = { path = "../crates/bevy_transform" }
 bevy_ui = { path = "../crates/bevy_ui" }
+bevy_ui_widgets = { path = "../crates/bevy_ui_widgets" }
 bevy_platform = { path = "../crates/bevy_platform", default-features = false, features = [
   "std",
+  "bytemuck",
 ] }
 
 # Other crates
-glam = { version = "0.32.0", default-features = false, features = [
+glam = { version = "0.33.2", default-features = false, features = [
   "std",
   "rand",
+  "bytemuck",
 ] }
 rand = "0.10"
 chacha20 = { version = "0.10.0", default-features = false, features = ["rng"] }
 nonmax = { version = "0.5", default-features = false }
+bytemuck = { version = "1", default-features = false, features = [
+  "derive",
+  "must_cast",
+] }
 
 [lints.clippy]
 doc_markdown = "warn"
@@ -120,4 +128,9 @@ harness = false
 [[bench]]
 name = "transform"
 path = "benches/bevy_transform/main.rs"
+harness = false
+
+[[bench]]
+name = "platform"
+path = "benches/bevy_platform/main.rs"
 harness = false

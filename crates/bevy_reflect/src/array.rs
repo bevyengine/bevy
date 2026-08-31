@@ -4,8 +4,8 @@
 use crate::generics::impl_generic_info_methods;
 use crate::{
     ty::impl_type_methods, utility::reflect_hasher, ApplyError, Generics, MaybeTyped,
-    PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo,
-    TypePath,
+    PartialReflect, Reflect, ReflectCloneError, ReflectKind, ReflectMut, ReflectOwned, ReflectRef,
+    Type, TypeInfo, TypePath,
 };
 use alloc::{boxed::Box, vec::Vec};
 use bevy_reflect_derive::impl_type_path;
@@ -72,11 +72,16 @@ pub trait Array: PartialReflect {
     fn drain(self: Box<Self>) -> Vec<Box<dyn PartialReflect>>;
 
     /// Creates a new [`DynamicArray`] from this array.
-    fn to_dynamic_array(&self) -> DynamicArray {
-        DynamicArray {
+    ///
+    /// Returns an error if any element cannot be converted via [`PartialReflect::to_dynamic`].
+    fn to_dynamic_array(&self) -> Result<DynamicArray, ReflectCloneError> {
+        Ok(DynamicArray {
             represented_type: self.get_represented_type_info(),
-            values: self.iter().map(PartialReflect::to_dynamic).collect(),
-        }
+            values: self
+                .iter()
+                .map(PartialReflect::to_dynamic)
+                .collect::<Result<_, _>>()?,
+        })
     }
 
     /// Will return `None` if [`TypeInfo`] is not available.

@@ -6,7 +6,7 @@ use smallvec::SmallVec;
 
 use crate::{
     render_resource::*,
-    renderer::{RenderAdapter, RenderDevice, WgpuWrapper},
+    renderer::{RenderDevice, WgpuWrapper},
     Extract,
 };
 use alloc::{borrow::Cow, sync::Arc};
@@ -135,8 +135,6 @@ fn load_module(
             unimplemented!("Enable feature \"shader_format_spirv\" to use SPIR-V shaders")
         }
         ShaderCacheSource::Wgsl(src) => ShaderSource::Wgsl(Cow::Owned(src)),
-        #[cfg(not(feature = "decoupled_naga"))]
-        ShaderCacheSource::Naga(src) => ShaderSource::Naga(Cow::Owned(src)),
     };
     let module_descriptor = ShaderModuleDescriptor {
         label: None,
@@ -238,11 +236,7 @@ impl PipelineCache {
     }
 
     /// Create a new pipeline cache associated with the given render device.
-    pub fn new(
-        device: RenderDevice,
-        render_adapter: RenderAdapter,
-        synchronous_pipeline_compilation: bool,
-    ) -> Self {
+    pub fn new(device: RenderDevice, synchronous_pipeline_compilation: bool) -> Self {
         let mut global_shader_defs = Vec::new();
         #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
         {
@@ -255,18 +249,24 @@ impl PipelineCache {
             global_shader_defs.push("NO_CUBE_ARRAY_TEXTURES_SUPPORT".into());
         }
 
+        let available_storage_buffer_bindings =
+            device.limits().max_storage_buffers_per_shader_stage;
         global_shader_defs.push(ShaderDefVal::UInt(
             "AVAILABLE_STORAGE_BUFFER_BINDINGS".into(),
-            device.limits().max_storage_buffers_per_shader_stage,
+            available_storage_buffer_bindings,
+        ));
+        // wesl condcomp flags are booleans, so bake the comparisons in.
+        global_shader_defs.push(ShaderDefVal::Bool(
+            "AVAILABLE_STORAGE_BUFFER_BINDINGS__GE_3".into(),
+            available_storage_buffer_bindings >= 3,
+        ));
+        global_shader_defs.push(ShaderDefVal::Bool(
+            "AVAILABLE_STORAGE_BUFFER_BINDINGS__GE_6".into(),
+            available_storage_buffer_bindings >= 6,
         ));
 
         Self {
-            shader_cache: Arc::new(Mutex::new(ShaderCache::new(
-                device.clone(),
-                device.features(),
-                render_adapter.get_downlevel_capabilities().flags,
-                load_module,
-            ))),
+            shader_cache: Arc::new(Mutex::new(ShaderCache::new(device.clone(), load_module))),
             device,
             layout_cache: default(),
             bindgroup_layout_cache: default(),
@@ -528,10 +528,12 @@ impl PipelineCache {
                     .vertex
                     .buffers
                     .iter()
-                    .map(|layout| RawVertexBufferLayout {
-                        array_stride: layout.array_stride,
-                        attributes: &layout.attributes,
-                        step_mode: layout.step_mode,
+                    .map(|layout| {
+                        Some(RawVertexBufferLayout {
+                            array_stride: layout.array_stride,
+                            attributes: &layout.attributes,
+                            step_mode: layout.step_mode,
+                        })
                     })
                     .collect::<Vec<_>>();
 
@@ -712,13 +714,13 @@ impl PipelineCache {
                 // Retry
                 ShaderCacheError::ShaderNotLoaded(_)
                 | ShaderCacheError::ShaderImportNotYetAvailable => {
+                    bevy_log::debug!("retry processing pipeline {id}: {err}");
                     cached_pipeline.state = CachedPipelineState::Queued;
                 }
 
                 // Shader could not be processed ... retrying won't help
-                ShaderCacheError::ProcessShaderError(err) => {
-                    let error_detail =
-                        err.emit_to_string(&self.shader_cache.lock().unwrap().composer);
+                ShaderCacheError::ProcessShaderError(error_detail) => {
+                    let error_detail = error_detail.clone();
                     if std::env::var("VERBOSE_SHADER_ERROR")
                         .is_ok_and(|v| !(v.is_empty() || v == "0" || v == "false"))
                     {
@@ -753,7 +755,9 @@ impl PipelineCache {
             cache.needs_shader_reload = false;
             for (id, shader) in shaders.iter() {
                 let mut shader = shader.clone();
-                shader.shader_defs.extend(cache.global_shader_defs.clone());
+                shader
+                    .shader_defs
+                    .splice(0..0, cache.global_shader_defs.iter().cloned());
                 cache.set_shader(id, shader);
             }
             // Drain events so we don't double-process shaders we just loaded.
@@ -771,7 +775,9 @@ impl PipelineCache {
                 AssetEvent::Added { id } | AssetEvent::Modified { id } => {
                     if let Some(shader) = shaders.get(*id) {
                         let mut shader = shader.clone();
-                        shader.shader_defs.extend(cache.global_shader_defs.clone());
+                        shader
+                            .shader_defs
+                            .splice(0..0, cache.global_shader_defs.iter().cloned());
 
                         cache.set_shader(*id, shader);
                     }

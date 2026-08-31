@@ -5,11 +5,10 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{component::Component, reflect::ReflectComponent, template::FromTemplate};
 use bevy_image::{Image, TextureAtlas, TextureAtlasLayout};
 use bevy_math::{Rect, UVec2, Vec2};
-use bevy_reflect::{std_traits::ReflectDefault, PartialReflect, Reflect};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::components::Transform;
 
 use crate::TextureSlicer;
-use core::hash::Hash;
 
 /// Describes a sprite to be rendered to a 2D camera
 #[derive(Component, Debug, Default, Clone, Reflect, FromTemplate)]
@@ -255,13 +254,6 @@ pub enum SpriteScalingMode {
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
 #[doc(alias = "pivot")]
 pub struct Anchor(pub Vec2);
-
-impl Eq for Anchor {}
-impl Hash for Anchor {
-    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
-        self.0.reflect_hash().hash(state);
-    }
-}
 
 #[expect(missing_docs, reason = "the associated constants are self-documenting")]
 impl Anchor {

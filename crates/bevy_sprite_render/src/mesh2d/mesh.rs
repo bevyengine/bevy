@@ -1,18 +1,24 @@
+use core::mem;
+
 use bevy_app::Plugin;
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetId, AssetServer, Handle};
 use bevy_camera::{visibility::ViewVisibility, Camera2d, CompositingSpace};
 use bevy_platform::collections::HashMap;
 use bevy_render::{
     camera::{DirtySpecializations, ExtractedCamera},
+    material_bind_groups::{
+        MaterialBindGroupIndex, MaterialBindGroupSlot, MaterialBindingId, RenderMaterialBindings,
+    },
     mesh::{allocator::MeshSlabId, MeshMetadata, MeshMetadataFallbackBuffer},
     render_resource::binding_types::{storage_buffer_read_only, uniform_buffer_sized},
+    sync_world::MainEntityHashSet,
     RenderStartup,
 };
 use bevy_shader::{load_shader_library, Shader, ShaderDefVal, ShaderSettings};
 
 use crate::{
-    prepare_pending_mesh_material2d_queues, tonemapping_pipeline_key, Material2dBindGroupId,
-    PendingMeshMaterial2dQueues, RenderMaterial2dBindGroupIds, RenderMaterial2dIds,
+    prepare_pending_mesh_material2d_queues, tonemapping_pipeline_key, PendingMeshMaterial2dQueues,
+    RenderMaterial2dInstances,
 };
 use bevy_core_pipeline::{
     core_2d::{AlphaMask2d, Opaque2d, Transparent2d, CORE_2D_DEPTH_FORMAT},
@@ -28,12 +34,15 @@ use bevy_ecs::{
     system::{lifetimeless::*, SystemParamItem},
 };
 use bevy_math::{Affine3, Affine3Ext, Vec4};
-use bevy_mesh::{Mesh, Mesh2d, MeshAttributeCompressionFlags, MeshTag, MeshVertexBufferLayoutRef};
+use bevy_mesh::{
+    BaseMeshPipelineKey, Mesh, Mesh2d, MeshAttributeCompressionFlags, MeshTag,
+    MeshVertexBufferLayoutRef,
+};
 use bevy_render::prelude::Msaa;
 use bevy_render::RenderSystems::PrepareAssets;
 use bevy_render::{
     batching::{
-        gpu_preprocessing::IndirectParametersCpuMetadata,
+        gpu_preprocessing::IndirectParametersMetadata,
         no_gpu_preprocessing::{
             self, batch_and_prepare_binned_render_phase, batch_and_prepare_sorted_render_phase,
             write_batched_instance_buffer, BatchedInstanceBuffer,
@@ -59,6 +68,7 @@ use bevy_render::{
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::default;
 use nonmax::NonMaxU32;
+use static_assertions::const_assert_eq;
 use tracing::error;
 
 #[derive(Default)]
@@ -66,18 +76,17 @@ pub struct Mesh2dRenderPlugin;
 
 impl Plugin for Mesh2dRenderPlugin {
     fn build(&self, app: &mut bevy_app::App) {
-        load_shader_library!(app, "mesh2d_vertex_output.wgsl");
-        load_shader_library!(app, "mesh2d_vertex_input.wgsl");
-        load_shader_library!(app, "mesh2d_view_types.wgsl");
-        load_shader_library!(app, "mesh2d_view_bindings.wgsl");
-        load_shader_library!(app, "mesh2d_types.wgsl");
-        load_shader_library!(app, "mesh2d_functions.wgsl");
+        load_shader_library!(app, "vertex_output.wesl");
+        load_shader_library!(app, "vertex_input.wesl");
+        load_shader_library!(app, "view_bindings.wesl");
+        load_shader_library!(app, "types.wesl");
+        load_shader_library!(app, "functions.wesl");
 
-        embedded_asset!(app, "mesh2d.wgsl");
+        embedded_asset!(app, "mesh2d.wesl");
 
         // These bindings should be loaded as a shader library, but it depends on runtime
         // information, so we will load it in a system.
-        embedded_asset!(app, "mesh2d_bindings.wgsl");
+        embedded_asset!(app, "bindings.wesl");
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -85,10 +94,6 @@ impl Plugin for Mesh2dRenderPlugin {
                 .init_resource::<ViewKeyCache>()
                 .init_resource::<RenderMesh2dInstances>()
                 .allow_ambiguous_resource::<RenderMesh2dInstances>()
-                .init_resource::<RenderMaterial2dBindGroupIds>()
-                .allow_ambiguous_resource::<RenderMaterial2dBindGroupIds>()
-                .init_resource::<RenderMaterial2dIds>()
-                .allow_ambiguous_resource::<RenderMaterial2dIds>()
                 .init_gpu_resource::<SpecializedMeshPipelines<Mesh2dPipeline>>()
                 .add_systems(
                     RenderStartup,
@@ -99,7 +104,7 @@ impl Plugin for Mesh2dRenderPlugin {
                     ),
                 )
                 .allow_ambiguous_resource::<BatchedInstanceBuffer<Mesh2dUniform>>()
-                .add_systems(ExtractSchedule, extract_mesh2d)
+                .add_systems(ExtractSchedule, extract_2d_meshes)
                 .init_resource::<PendingMeshMaterial2dQueues>()
                 .add_systems(
                     Render,
@@ -157,11 +162,12 @@ pub fn check_views_need_specialization(
             view_key |= Mesh2dPipelineKey::OKLAB_COMPOSITING;
         }
 
-        if !camera.hdr {
-            if let Some(tonemapping) = tonemapping {
-                view_key |= Mesh2dPipelineKey::TONEMAP_IN_SHADER;
-                view_key |= tonemapping_pipeline_key(*tonemapping);
-            }
+        if !camera.hdr
+            && let Some(tonemapping) = tonemapping
+            && tonemapping.is_enabled()
+        {
+            view_key |= Mesh2dPipelineKey::TONEMAP_IN_SHADER;
+            view_key |= tonemapping_pipeline_key(*tonemapping);
             if let Some(DebandDither::Enabled) = dither {
                 view_key |= Mesh2dPipelineKey::DEBAND_DITHER;
             }
@@ -203,18 +209,15 @@ fn load_mesh2d_bindings(render_device: Res<RenderDevice>, asset_server: Res<Asse
 
     // Load the mesh_bindings shader module here as it depends on runtime information about
     // whether storage buffers are supported, or the maximum uniform buffer binding size.
-    let handle: Handle<Shader> = load_embedded_asset!(
-        asset_server.as_ref(),
-        "mesh2d_bindings.wgsl",
-        move |settings| {
+    let handle: Handle<Shader> =
+        load_embedded_asset!(asset_server.as_ref(), "bindings.wesl", move |settings| {
             *settings = ShaderSettings {
                 shader_defs: mesh_bindings_shader_defs.clone(),
-            }
-        }
-    );
+            };
+        });
     // Forget the handle so we don't have to store it anywhere, and we keep the embedded asset
     // loaded. Note: This is what happens in `load_shader_library` internally.
-    core::mem::forget(handle);
+    mem::forget(handle);
 }
 
 #[derive(Component)]
@@ -234,13 +237,17 @@ pub struct Mesh2dUniform {
     pub local_from_world_transpose_a: [Vec4; 2],
     pub local_from_world_transpose_b: f32,
     pub flags: u32,
+    pub material_bind_group_slot: u32,
     pub tag: u32,
     pub metadata_index: u32,
 }
 
 impl Mesh2dUniform {
-    fn from_components(
+    /// Creates a new [`Mesh2dUniform`] from the given transform, bind group
+    /// slot, tag, and optional metadata index.
+    pub fn from_components(
         mesh_transforms: &Mesh2dTransforms,
+        material_bind_group_slot: MaterialBindGroupSlot,
         tag: u32,
         metadata_index: Option<u32>,
     ) -> Self {
@@ -250,6 +257,7 @@ impl Mesh2dUniform {
             world_from_local: mesh_transforms.world_from_local.to_transpose(),
             local_from_world_transpose_a,
             local_from_world_transpose_b,
+            material_bind_group_slot: material_bind_group_slot.0,
             flags: mesh_transforms.flags,
             tag,
             metadata_index: metadata_index.unwrap_or(0),
@@ -257,7 +265,7 @@ impl Mesh2dUniform {
     }
 }
 
-// NOTE: These must match the bit flags in bevy_sprite_render/src/mesh2d/mesh2d.wgsl!
+// NOTE: These must match the bit flags in bevy_sprite_render/src/mesh2d/mesh2d.wesl!
 bitflags::bitflags! {
     #[repr(transparent)]
     pub struct MeshFlags: u32 {
@@ -268,8 +276,8 @@ bitflags::bitflags! {
 
 pub struct RenderMesh2dInstance {
     pub transforms: Mesh2dTransforms,
+    pub material_bindings_index: MaterialBindingId,
     pub mesh_asset_id: AssetId<Mesh>,
-    pub material_bind_group_id: Material2dBindGroupId,
     pub automatic_batching: bool,
     pub tag: u32,
 }
@@ -280,47 +288,162 @@ pub struct RenderMesh2dInstances(MainEntityHashMap<RenderMesh2dInstance>);
 #[derive(Component, Default)]
 pub struct Mesh2dMarker;
 
-pub fn extract_mesh2d(
-    mut render_mesh_instances: ResMut<RenderMesh2dInstances>,
-    render_material_2d_bind_group_ids: Res<RenderMaterial2dBindGroupIds>,
-    render_material_instances: Res<RenderMaterial2dIds>,
-    query: Extract<
-        Query<(
-            Entity,
-            &ViewVisibility,
-            &GlobalTransform,
-            &Mesh2d,
-            Option<&MeshTag>,
-            Has<NoAutomaticBatching>,
-        )>,
-    >,
-) {
-    render_mesh_instances.clear();
+type Mesh2dExtractionQuery = (
+    Entity,
+    Read<ViewVisibility>,
+    Read<GlobalTransform>,
+    Read<Mesh2d>,
+    Option<Read<MeshTag>>,
+    Has<NoAutomaticBatching>,
+);
 
-    for (entity, view_visibility, transform, handle, tag, no_automatic_batching) in &query {
-        if !view_visibility.get() {
+/// A render-world system that finds all 2D meshes in the main world that have
+/// been added, changed, or removed since the last frame and updates
+/// [`RenderMesh2dInstances`] accordingly.
+pub fn extract_2d_meshes(
+    mut render_mesh_instances: ResMut<RenderMesh2dInstances>,
+    render_material_instances: Res<RenderMaterial2dInstances>,
+    render_material_bindings: Res<RenderMaterialBindings>,
+    changed_meshes_query: Extract<
+        Query<
+            Mesh2dExtractionQuery,
+            Or<(
+                Changed<ViewVisibility>,
+                Changed<GlobalTransform>,
+                Changed<Mesh2d>,
+                Changed<MeshTag>,
+                Changed<NoAutomaticBatching>,
+            )>,
+        >,
+    >,
+    all_meshes_query: Extract<Query<Mesh2dExtractionQuery>>,
+    (
+        mut removed_mesh2d_components,
+        mut removed_no_automatic_batching_components,
+        mut removed_mesh_tag_components,
+    ): (
+        Extract<RemovedComponents<Mesh2d>>,
+        Extract<RemovedComponents<NoAutomaticBatching>>,
+        Extract<RemovedComponents<MeshTag>>,
+    ),
+    mut reextract_entities: Local<MainEntityHashSet>,
+    mut reextract_entities_temp: Local<MainEntityHashSet>,
+) {
+    mem::swap(&mut *reextract_entities, &mut *reextract_entities_temp);
+
+    // First, process meshes that we recorded as potentially needing to be
+    // reextracted on the previous frame frame.
+
+    for reextract_entity in reextract_entities_temp.drain().chain(
+        removed_no_automatic_batching_components
+            .read()
+            .chain(removed_mesh_tag_components.read())
+            .map(MainEntity::from),
+    ) {
+        let Ok((_, view_visibility, transform, handle, tag, no_automatic_batching)) =
+            all_meshes_query.get(reextract_entity.entity())
+        else {
             continue;
-        }
-        let main_entity = entity.into();
-        let material_bind_group_id = render_material_instances
-            .get(&main_entity)
-            .and_then(|material_id| render_material_2d_bind_group_ids.get(material_id))
-            .copied()
-            .unwrap_or_default();
-        render_mesh_instances.insert(
-            main_entity,
-            RenderMesh2dInstance {
-                transforms: Mesh2dTransforms {
-                    world_from_local: transform.affine().into(),
-                    flags: MeshFlags::empty().bits(),
-                },
-                mesh_asset_id: handle.0.id(),
-                material_bind_group_id,
-                automatic_batching: !no_automatic_batching,
-                tag: tag.map_or(0, |i| **i),
-            },
+        };
+
+        extract_2d_mesh(
+            reextract_entity,
+            view_visibility,
+            transform,
+            handle,
+            tag,
+            no_automatic_batching,
+            &mut render_mesh_instances,
+            &render_material_instances,
+            &render_material_bindings,
+            &mut reextract_entities,
         );
     }
+
+    // Next, process meshes that changed.
+    for (entity, view_visibility, transform, handle, tag, no_automatic_batching) in
+        &changed_meshes_query
+    {
+        extract_2d_mesh(
+            entity.into(),
+            view_visibility,
+            transform,
+            handle,
+            tag,
+            no_automatic_batching,
+            &mut render_mesh_instances,
+            &render_material_instances,
+            &render_material_bindings,
+            &mut reextract_entities,
+        );
+    }
+
+    // Now remove meshes corresponding to entities that lost their `Mesh2d`
+    // components.
+    // Only queue a mesh for removal if we didn't pick it up above.
+    // It's possible that the `Mesh2d` component was removed and re-added in the
+    // same frame.
+    for entity in removed_mesh2d_components.read() {
+        let main_entity = MainEntity::from(entity);
+        if !changed_meshes_query.contains(*main_entity)
+            && !reextract_entities.contains(&main_entity)
+        {
+            render_mesh_instances.remove(&main_entity);
+        }
+    }
+}
+
+/// Extracts a single 2D mesh instance from the main world to
+/// `RenderMesh2dInstances` in the render world if it's ready.
+///
+/// If the mesh isn't ready, this method instead adds the instance to
+/// `reextract_entities` and returns.
+fn extract_2d_mesh(
+    main_entity: MainEntity,
+    view_visibility: &ViewVisibility,
+    transform: &GlobalTransform,
+    handle: &Mesh2d,
+    tag: Option<&MeshTag>,
+    no_automatic_batching: bool,
+    render_mesh_instances: &mut RenderMesh2dInstances,
+    render_material_instances: &RenderMaterial2dInstances,
+    render_material_bindings: &RenderMaterialBindings,
+    reextract_entities: &mut MainEntityHashSet,
+) {
+    // If the mesh is invisible, we don't extract it. Remove it from the render
+    // world too, if it's there.
+    if !view_visibility.get() {
+        render_mesh_instances.remove(&main_entity);
+        return;
+    }
+
+    // Look up the material index. If we couldn't fetch the material index,
+    // then the material hasn't been prepared yet, perhaps because it hasn't
+    // yet loaded.
+    let Some(mesh_material) = render_material_instances.get(&main_entity) else {
+        reextract_entities.insert(main_entity);
+        return;
+    };
+    let Some(mesh_material_binding_id) = render_material_bindings.get(mesh_material).copied()
+    else {
+        reextract_entities.insert(main_entity);
+        return;
+    };
+
+    // Go ahead and extract the mesh instance.
+    render_mesh_instances.insert(
+        main_entity,
+        RenderMesh2dInstance {
+            transforms: Mesh2dTransforms {
+                world_from_local: transform.affine().into(),
+                flags: MeshFlags::empty().bits(),
+            },
+            material_bindings_index: mesh_material_binding_id,
+            mesh_asset_id: handle.0.id(),
+            automatic_batching: !no_automatic_batching,
+            tag: tag.map_or(0, |i| **i),
+        },
+    );
 }
 
 #[derive(Resource, Clone)]
@@ -372,14 +495,14 @@ pub fn init_mesh_2d_pipeline(
         per_object_buffer_batch_size: GpuArrayBuffer::<Mesh2dUniform>::batch_size(
             &render_device.limits(),
         ),
-        shader: load_embedded_asset!(asset_server.as_ref(), "mesh2d.wgsl"),
+        shader: load_embedded_asset!(asset_server.as_ref(), "mesh2d.wesl"),
     });
 }
 
 impl GetBatchData for Mesh2dPipeline {
     type Param = (SRes<RenderMesh2dInstances>, SRes<MeshAllocator>);
-    type BatchSetCompareData = (Material2dBindGroupId, AssetId<Mesh>);
-    type BatchCompareData = ();
+    type BatchSetCompareData = AssetId<Mesh>;
+    type BatchCompareData = MaterialBindGroupIndex;
     type BufferData = Mesh2dUniform;
 
     fn get_batch_data(
@@ -393,20 +516,18 @@ impl GetBatchData for Mesh2dPipeline {
         let metadata_index = mesh_allocator
             .mesh_metadata_slice(&mesh_instance.mesh_asset_id)
             .map(|mesh_metadata_slice| mesh_metadata_slice.range.start);
+        let material_bind_group_index = mesh_instance.material_bindings_index;
 
         Some((
             Mesh2dUniform::from_components(
                 &mesh_instance.transforms,
+                material_bind_group_index.slot,
                 mesh_instance.tag,
                 metadata_index,
             ),
-            mesh_instance.automatic_batching.then_some((
-                (
-                    mesh_instance.material_bind_group_id,
-                    mesh_instance.mesh_asset_id,
-                ),
-                (),
-            )),
+            mesh_instance
+                .automatic_batching
+                .then_some((mesh_instance.mesh_asset_id, material_bind_group_index.group)),
         ))
     }
 }
@@ -422,9 +543,11 @@ impl GetFullBatchData for Mesh2dPipeline {
         let metadata_index = mesh_allocator
             .mesh_metadata_slice(&mesh_instance.mesh_asset_id)
             .map(|mesh_metadata_slice| mesh_metadata_slice.range.start);
+        let material_bind_group_index = mesh_instance.material_bindings_index;
 
         Some(Mesh2dUniform::from_components(
             &mesh_instance.transforms,
+            material_bind_group_index.slot,
             mesh_instance.tag,
             metadata_index,
         ))
@@ -465,12 +588,16 @@ impl GetFullBatchData for Mesh2dPipeline {
         // Note that `IndirectParameters` covers both of these structures, even
         // though they actually have distinct layouts. See the comment above that
         // type for more information.
-        let indirect_parameters = IndirectParametersCpuMetadata {
+        let indirect_parameters = IndirectParametersMetadata {
             base_output_index,
             batch_set_index: match batch_set_index {
                 None => !0,
                 Some(batch_set_index) => u32::from(batch_set_index),
             },
+            // These fields are unused in the 2D pipeline.
+            mesh_index: 0,
+            early_instance_count: 0,
+            late_instance_count: 0,
         };
 
         if indexed {
@@ -491,7 +618,8 @@ bitflags::bitflags! {
     // NOTE: Apparently quadro drivers support up to 64x MSAA.
     // MSAA uses the highest 3 bits for the MSAA log2(sample count) to support up to 128x MSAA.
     // FIXME: make normals optional?
-    pub struct Mesh2dPipelineKey: u32 {
+    // NB: This must be compatible with [`BaseMeshPipelineKey`].
+    pub struct Mesh2dPipelineKey: u64 {
         const NONE                              = 0;
         const TONEMAP_IN_SHADER                 = 1 << 0;
         const DEBAND_DITHER                     = 1 << 1;
@@ -499,11 +627,8 @@ bitflags::bitflags! {
         const MAY_DISCARD                       = 1 << 3;
         const SRGB_COMPOSITING                  = 1 << 4;
         const OKLAB_COMPOSITING                 = 1 << 5;
-        const COLOR_TARGET_FORMAT_RESERVED_BITS = Self::COLOR_TARGET_FORMAT_MASK_BITS << Self::COLOR_TARGET_FORMAT_SHIFT_BITS;
-        const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
-        const PRIMITIVE_TOPOLOGY_RESERVED_BITS  = Self::PRIMITIVE_TOPOLOGY_MASK_BITS << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
         const TONEMAP_METHOD_RESERVED_BITS      = Self::TONEMAP_METHOD_MASK_BITS << Self::TONEMAP_METHOD_SHIFT_BITS;
-        const TONEMAP_METHOD_NONE               = 0 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_LINEAR             = 0 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_REINHARD           = 1 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_REINHARD_LUMINANCE = 2 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_ACES_FITTED        = 3 << Self::TONEMAP_METHOD_SHIFT_BITS;
@@ -512,30 +637,33 @@ bitflags::bitflags! {
         const TONEMAP_METHOD_TONY_MC_MAPFACE    = 6 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_BLENDER_FILMIC     = 7 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_PBR_NEUTRAL        = 8 << Self::TONEMAP_METHOD_SHIFT_BITS;
-        const STRIP_INDEX_FORMAT_RESERVED_BITS        = Self::INDEX_FORMAT_MASK_BITS << Self::INDEX_FORMAT_SHIFT_BITS;
-        const STRIP_INDEX_FORMAT_NONE                 = 0 << Self::INDEX_FORMAT_SHIFT_BITS;
-        const STRIP_INDEX_FORMAT_U32                  = 1 << Self::INDEX_FORMAT_SHIFT_BITS;
-        const STRIP_INDEX_FORMAT_U16                  = 2 << Self::INDEX_FORMAT_SHIFT_BITS;
     }
 }
 
+// Ensure that the bits of `BaseMeshPipelineKey` don't overlap with the bits of `MeshPipelineKey`
+// except the inherited bits.
+const_assert_eq!(
+    BaseMeshPipelineKey::all().bits() & Mesh2dPipelineKey::all().bits(),
+    0
+);
+
 impl Mesh2dPipelineKey {
-    const COLOR_TARGET_FORMAT_MASK_BITS: u32 = bevy_render::view::COLOR_TARGET_FORMAT_MASK_BITS;
+    const COLOR_TARGET_FORMAT_MASK_BITS: u64 =
+        bevy_render::view::COLOR_TARGET_FORMAT_MASK_BITS as u64;
     const COLOR_TARGET_FORMAT_SHIFT_BITS: u32 = 6;
-    const MSAA_MASK_BITS: u32 = 0b111;
-    const MSAA_SHIFT_BITS: u32 = 32 - Self::MSAA_MASK_BITS.count_ones();
-    const PRIMITIVE_TOPOLOGY_MASK_BITS: u32 = 0b111;
-    const PRIMITIVE_TOPOLOGY_SHIFT_BITS: u32 = Self::MSAA_SHIFT_BITS - 3;
-    const TONEMAP_METHOD_MASK_BITS: u32 = 0b1111;
-    const TONEMAP_METHOD_SHIFT_BITS: u32 =
-        Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS - Self::TONEMAP_METHOD_MASK_BITS.count_ones();
-    pub const INDEX_FORMAT_MASK_BITS: u32 = 0b11;
-    pub const INDEX_FORMAT_SHIFT_BITS: u32 =
-        Self::TONEMAP_METHOD_SHIFT_BITS - Self::TONEMAP_METHOD_MASK_BITS.count_ones();
+    const MSAA_MASK_BITS: u64 = 0b111;
+    const MSAA_SHIFT_BITS: u64 = BaseMeshPipelineKey::STRIP_INDEX_FORMAT_SHIFT_BITS
+        - Self::MSAA_MASK_BITS.count_ones() as u64;
+    const TONEMAP_METHOD_MASK_BITS: u64 = 0b1111;
+    const TONEMAP_METHOD_SHIFT_BITS: u64 =
+        Self::MSAA_SHIFT_BITS - Self::TONEMAP_METHOD_MASK_BITS.count_ones() as u64;
+    pub const INDEX_FORMAT_MASK_BITS: u64 = 0b11;
+    pub const INDEX_FORMAT_SHIFT_BITS: u64 =
+        Self::TONEMAP_METHOD_SHIFT_BITS - Self::TONEMAP_METHOD_MASK_BITS.count_ones() as u64;
 
     pub fn from_msaa_samples(msaa_samples: u32) -> Self {
-        let msaa_bits =
-            (msaa_samples.trailing_zeros() & Self::MSAA_MASK_BITS) << Self::MSAA_SHIFT_BITS;
+        let msaa_bits = ((msaa_samples.trailing_zeros() as u64) & Self::MSAA_MASK_BITS)
+            << Self::MSAA_SHIFT_BITS;
         Self::from_bits_retain(msaa_bits)
     }
 
@@ -543,7 +671,7 @@ impl Mesh2dPipelineKey {
     #[inline]
     pub fn from_target_format(format: TextureFormat) -> Self {
         let code = texture_format_to_code(format)
-            .expect("Texture format is not supported by the pipeline") as u32;
+            .expect("Texture format is not supported by the pipeline") as u64;
         Self::from_bits_retain(
             (code & Self::COLOR_TARGET_FORMAT_MASK_BITS) << Self::COLOR_TARGET_FORMAT_SHIFT_BITS,
         )
@@ -562,52 +690,20 @@ impl Mesh2dPipelineKey {
         1 << ((self.bits() >> Self::MSAA_SHIFT_BITS) & Self::MSAA_MASK_BITS)
     }
 
-    /// Create a [`Mesh2dPipelineKey`] from mesh primitive topology and index format.
-    ///
-    /// For non-strip topologies, [`Self::STRIP_INDEX_FORMAT_NONE`] is set regardless of the `strip_index_format` argument.
-    pub fn from_primitive_topology_and_strip_index(
-        primitive_topology: PrimitiveTopology,
-        strip_index_format: Option<IndexFormat>,
-    ) -> Self {
-        let index_bits = if primitive_topology.is_strip() {
-            match strip_index_format {
-                None => Self::STRIP_INDEX_FORMAT_NONE,
-                Some(indices) => match indices {
-                    IndexFormat::Uint16 => Self::STRIP_INDEX_FORMAT_U16,
-                    IndexFormat::Uint32 => Self::STRIP_INDEX_FORMAT_U32,
-                },
-            }
-        } else {
-            Self::STRIP_INDEX_FORMAT_NONE
-        }
-        .bits();
-        let primitive_topology_bits = ((primitive_topology as u32)
-            & Self::PRIMITIVE_TOPOLOGY_MASK_BITS)
-            << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
-        Self::from_bits_retain(primitive_topology_bits | index_bits)
+    pub fn as_base_mesh_pipeline_key(&self) -> BaseMeshPipelineKey {
+        BaseMeshPipelineKey::from_bits_retain(self.bits())
     }
+}
 
-    pub fn primitive_topology(&self) -> PrimitiveTopology {
-        let primitive_topology_bits = (self.bits() >> Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS)
-            & Self::PRIMITIVE_TOPOLOGY_MASK_BITS;
-        match primitive_topology_bits {
-            x if x == PrimitiveTopology::PointList as u32 => PrimitiveTopology::PointList,
-            x if x == PrimitiveTopology::LineList as u32 => PrimitiveTopology::LineList,
-            x if x == PrimitiveTopology::LineStrip as u32 => PrimitiveTopology::LineStrip,
-            x if x == PrimitiveTopology::TriangleList as u32 => PrimitiveTopology::TriangleList,
-            x if x == PrimitiveTopology::TriangleStrip as u32 => PrimitiveTopology::TriangleStrip,
-            _ => PrimitiveTopology::default(),
-        }
+impl From<u64> for Mesh2dPipelineKey {
+    fn from(value: u64) -> Self {
+        Mesh2dPipelineKey::from_bits_retain(value)
     }
+}
 
-    pub fn strip_index_format(&self) -> Option<IndexFormat> {
-        let index_bits = self.bits() & Self::STRIP_INDEX_FORMAT_RESERVED_BITS.bits();
-        match index_bits {
-            x if x == Self::STRIP_INDEX_FORMAT_U16.bits() => Some(IndexFormat::Uint16),
-            x if x == Self::STRIP_INDEX_FORMAT_U32.bits() => Some(IndexFormat::Uint32),
-            x if x == Self::STRIP_INDEX_FORMAT_NONE.bits() => None,
-            _ => unreachable!(),
-        }
+impl From<Mesh2dPipelineKey> for u64 {
+    fn from(value: Mesh2dPipelineKey) -> Self {
+        value.bits()
     }
 }
 
@@ -689,8 +785,8 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
             let method = key.intersection(Mesh2dPipelineKey::TONEMAP_METHOD_RESERVED_BITS);
 
             match method {
-                Mesh2dPipelineKey::TONEMAP_METHOD_NONE => {
-                    shader_defs.push("TONEMAP_METHOD_NONE".into());
+                Mesh2dPipelineKey::TONEMAP_METHOD_LINEAR => {
+                    shader_defs.push("TONEMAP_METHOD_LINEAR".into());
                 }
                 Mesh2dPipelineKey::TONEMAP_METHOD_REINHARD => {
                     shader_defs.push("TONEMAP_METHOD_REINHARD".into());
@@ -773,8 +869,8 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
                 unclipped_depth: false,
                 polygon_mode: PolygonMode::Fill,
                 conservative: false,
-                topology: key.primitive_topology(),
-                strip_index_format: key.strip_index_format(),
+                topology: key.as_base_mesh_pipeline_key().primitive_topology(),
+                strip_index_format: key.as_base_mesh_pipeline_key().strip_index_format(),
             },
             depth_stencil: Some(DepthStencilState {
                 format: CORE_2D_DEPTH_FORMAT,

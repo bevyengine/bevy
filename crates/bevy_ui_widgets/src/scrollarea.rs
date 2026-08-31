@@ -9,7 +9,7 @@ use bevy_ecs::{
 };
 use bevy_input::mouse::MouseScrollPixelsPerLine;
 use bevy_math::{Affine2, Vec2};
-use bevy_picking::events::{Pointer, Scroll};
+use bevy_picking::events::PointerScroll;
 use bevy_reflect::Reflect;
 use bevy_ui::{ComputedNode, Node, OverflowAxis, ScrollPosition, UiGlobalTransform};
 
@@ -23,7 +23,7 @@ use crate::ScrollIntoView;
 pub struct ScrollArea;
 
 fn scrollarea_on_scroll(
-    mut scroll: On<Pointer<Scroll>>,
+    mut scroll: On<PointerScroll>,
     mut q_scroll_area: Query<(&Node, &ComputedNode, &mut ScrollPosition), With<ScrollArea>>,
     scroll_conversion_ratio: Res<MouseScrollPixelsPerLine>,
 ) {
@@ -35,7 +35,7 @@ fn scrollarea_on_scroll(
         let can_scroll_x = node.overflow.x == OverflowAxis::Scroll;
         let can_scroll_y = node.overflow.y == OverflowAxis::Scroll;
 
-        let scroll_delta = scroll.to_lines(&scroll_conversion_ratio);
+        let scroll_delta = scroll.to_pixels(&scroll_conversion_ratio);
         let scroll_delta = Vec2::new(scroll_delta.x, scroll_delta.y);
 
         let max_range = (content_size - visible_size).max(Vec2::ZERO);

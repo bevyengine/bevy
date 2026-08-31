@@ -737,6 +737,12 @@ impl WinitAppRunnerState {
                             event_loop.set_control_flow(ControlFlow::WaitUntil(next));
                             self.scheduled_tick_start = Some(next);
                         }
+                    } else {
+                        // If the checked_add fails, we have no concrete instant to wait til.
+                        // In such a case, set our control flow to wait indefinitely..
+                        event_loop.set_control_flow(ControlFlow::Wait);
+                        // .. and set no scheduled re-start instant.
+                        self.scheduled_tick_start = None;
                     }
                 }
             }
@@ -907,6 +913,10 @@ impl WinitAppRunnerState {
         }
     }
 
+    #[expect(
+        clippy::drain_collect,
+        reason = "draining preserves the capacity of the event buffers, which are refilled every frame"
+    )]
     fn forward_bevy_events(&mut self) {
         self.reconcile_pending_modifiers();
 

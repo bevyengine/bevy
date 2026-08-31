@@ -1,10 +1,9 @@
-use crate::{CachedSceneError, ResolvedScene, SceneList, ScenePatch};
+use crate::{CachedSceneError, ErasedComponentTemplate, ResolvedScene, SceneList, ScenePatch};
 use bevy_asset::{Asset, AssetPath, AssetServer, Assets};
 use bevy_ecs::{
-    bundle::Bundle,
     component::Component,
     error::Result,
-    event::EntityEvent,
+    event::{EntityEvent, EventPattern},
     name::Name,
     relationship::Relationship,
     system::IntoObserverSystem,
@@ -285,15 +284,13 @@ pub struct TemplatePatch<F: FnOnce(&mut T, &mut ResolveContext), T>(pub F, pub P
 
 /// Returns a [`Scene`] that completely overwrites the current value of a [`Template`] `T` with the given `value`.
 /// The `value` is cloned each time the [`Template`] is built.
-pub fn template_value<T: Template>(
+pub fn template_value<T: Template<Output: Component> + Send + Sync + 'static>(
     value: T,
-) -> TemplatePatch<impl FnOnce(&mut T, &mut ResolveContext), T> {
-    TemplatePatch(
-        move |input: &mut T, _context: &mut ResolveContext| {
-            *input = value;
-        },
-        PhantomData,
-    )
+) -> InsertTemplate {
+    InsertTemplate {
+        type_id: TypeId::of::<T>(),
+        template: Box::new(value),
+    }
 }
 
 /// A helper function that returns a [`TemplatePatch`] [`Scene`] for something that implements [`FromTemplate`].
@@ -344,6 +341,24 @@ impl<
     ) -> Result<(), ResolveSceneError> {
         let template = scene.get_or_insert_template::<T>(context);
         (self.0)(template, context);
+        Ok(())
+    }
+}
+
+/// A [`Scene`] that replaces the given template with the given value
+pub struct InsertTemplate {
+    /// The type id of the [`Template`] in `template`.
+    pub type_id: TypeId,
+    /// The template to insert.
+    pub template: Box<dyn ErasedComponentTemplate>,
+}
+impl Scene for InsertTemplate {
+    fn resolve(
+        self,
+        _context: &mut ResolveContext,
+        scene: &mut ResolvedScene,
+    ) -> Result<(), ResolveSceneError> {
+        scene.insert_erased_template(self.type_id, self.template);
         Ok(())
     }
 }
@@ -514,10 +529,13 @@ impl<L: SceneList> SceneList for SceneListScope<L> {
 /// This is typically initialized using the [`on()`] function, which returns an [`OnTemplate`].
 ///
 /// [`Observer`]: bevy_ecs::observer::Observer
-pub struct OnTemplate<I, E, B, M>(pub I, pub PhantomData<fn() -> (E, B, M)>);
+pub struct OnTemplate<I, E, M>(pub I, pub PhantomData<fn() -> (E, M)>);
 
-impl<I: IntoObserverSystem<E, B, M> + Clone, E: EntityEvent, B: Bundle, M: 'static> Template
-    for OnTemplate<I, E, B, M>
+impl<I, E, M> Template for OnTemplate<I, E, M>
+where
+    I: IntoObserverSystem<E, M> + Clone,
+    E: EventPattern<Event: EntityEvent>,
+    M: 'static,
 {
     type Output = ();
 
@@ -531,12 +549,11 @@ impl<I: IntoObserverSystem<E, B, M> + Clone, E: EntityEvent, B: Bundle, M: 'stat
     }
 }
 
-impl<
-        I: IntoObserverSystem<E, B, M> + Clone + Send + Sync,
-        E: EntityEvent,
-        B: Bundle,
-        M: 'static,
-    > Scene for OnTemplate<I, E, B, M>
+impl<I, E, M> Scene for OnTemplate<I, E, M>
+where
+    I: IntoObserverSystem<E, M> + Clone + Send + Sync,
+    E: EventPattern<Event: EntityEvent>,
+    M: 'static,
 {
     fn resolve(
         self,
@@ -551,9 +568,12 @@ impl<
 /// Returns an [`OnTemplate`] that will create an [`Observer`] of a given [`EntityEvent`] on the current [`Scene`] entity.
 ///
 /// [`Observer`]: bevy_ecs::observer::Observer
-pub fn on<I: IntoObserverSystem<E, B, M>, E: EntityEvent, B: Bundle, M: 'static>(
-    observer: I,
-) -> OnTemplate<I, E, B, M> {
+pub fn on<I, E, M>(observer: I) -> OnTemplate<I, E, M>
+where
+    I: IntoObserverSystem<E, M>,
+    E: EventPattern<Event: EntityEvent>,
+    M: 'static,
+{
     OnTemplate(observer, PhantomData)
 }
 

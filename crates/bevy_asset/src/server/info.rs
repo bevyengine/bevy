@@ -13,7 +13,7 @@ use alloc::{
 use bevy_ecs::world::World;
 use bevy_platform::collections::{hash_map::Entry, HashMap, HashSet};
 use bevy_tasks::Task;
-use bevy_utils::{TypeIdMap, TypeIdMapEntry};
+use bevy_utils::{TypeIdHashMap, TypeIdHashMapEntry};
 use core::{
     any::{type_name, TypeId},
     task::Waker,
@@ -79,7 +79,7 @@ pub(crate) struct AssetServerStats {
 
 #[derive(Default)]
 pub(crate) struct AssetInfos {
-    path_to_index: HashMap<AssetPath<'static>, TypeIdMap<AssetIndex>>,
+    path_to_index: HashMap<AssetPath<'static>, TypeIdHashMap<AssetIndex>>,
     infos: HashMap<ErasedAssetIndex, AssetInfo>,
     /// If set to `true`, this informs [`AssetInfos`] to track data relevant to watching for changes (such as `load_dependents`)
     /// This should only be set at startup.
@@ -90,10 +90,10 @@ pub(crate) struct AssetInfos {
     /// Tracks living labeled assets for a given source asset.
     /// This should only be set when watching for changes to avoid unnecessary work.
     pub(crate) living_labeled_assets: HashMap<AssetPath<'static>, HashSet<Box<str>>>,
-    pub(crate) handle_providers: TypeIdMap<AssetHandleProvider>,
-    pub(crate) dependency_loaded_event_sender: TypeIdMap<fn(&mut World, AssetIndex)>,
+    pub(crate) handle_providers: TypeIdHashMap<AssetHandleProvider>,
+    pub(crate) dependency_loaded_event_sender: TypeIdHashMap<fn(&mut World, AssetIndex)>,
     pub(crate) dependency_failed_event_sender:
-        TypeIdMap<fn(&mut World, AssetIndex, AssetPath<'static>, AssetLoadError)>,
+        TypeIdHashMap<fn(&mut World, AssetIndex, AssetPath<'static>, AssetLoadError)>,
     pub(crate) pending_tasks: HashMap<ErasedAssetIndex, Task<()>>,
     /// The stats that have collected during usage of the asset server.
     pub(crate) stats: AssetServerStats,
@@ -133,7 +133,7 @@ impl AssetInfos {
 
     fn create_handle_internal(
         infos: &mut HashMap<ErasedAssetIndex, AssetInfo>,
-        handle_providers: &TypeIdMap<AssetHandleProvider>,
+        handle_providers: &TypeIdHashMap<AssetHandleProvider>,
         living_labeled_assets: &mut HashMap<AssetPath<'static>, HashSet<Box<str>>>,
         watching_for_changes: bool,
         type_id: TypeId,
@@ -222,7 +222,7 @@ impl AssetInfos {
             .ok_or(GetOrCreateHandleInternalError::HandleMissingButTypeIdNotSpecified)?;
 
         match handles.entry(type_id) {
-            TypeIdMapEntry::Occupied(entry) => {
+            TypeIdHashMapEntry::Occupied(entry) => {
                 let index = *entry.get();
                 // if there is a path_to_id entry, info always exists
                 let info = self
@@ -264,7 +264,7 @@ impl AssetInfos {
                 }
             }
             // The entry does not exist, so this is a "fresh" asset load. We must create a new handle
-            TypeIdMapEntry::Vacant(entry) => {
+            TypeIdHashMapEntry::Vacant(entry) => {
                 let should_load = match loading_mode {
                     HandleLoadingMode::NotLoading => false,
                     HandleLoadingMode::Request | HandleLoadingMode::Force => true,
@@ -709,7 +709,7 @@ impl AssetInfos {
 
     fn process_handle_drop_internal(
         infos: &mut HashMap<ErasedAssetIndex, AssetInfo>,
-        path_to_id: &mut HashMap<AssetPath<'static>, TypeIdMap<AssetIndex>>,
+        path_to_id: &mut HashMap<AssetPath<'static>, TypeIdHashMap<AssetIndex>>,
         loader_dependents: &mut HashMap<AssetPath<'static>, HashSet<AssetPath<'static>>>,
         living_labeled_assets: &mut HashMap<AssetPath<'static>, HashSet<Box<str>>>,
         pending_tasks: &mut HashMap<ErasedAssetIndex, Task<()>>,
@@ -746,7 +746,7 @@ impl AssetInfos {
         }
 
         if let Some(map) = path_to_id.get_mut(path) {
-            map.shift_remove(&type_id);
+            map.remove(&type_id);
 
             if map.is_empty() {
                 path_to_id.remove(path);

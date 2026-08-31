@@ -51,6 +51,34 @@ use store_wasm::SettingsStore;
 /// afford one, use a reverse domain based on the URL of your repo (GitHub, GitLab, Codeberg
 /// and so on).
 ///
+/// # Storage location and format
+///
+/// Settings are stored as **TOML** files. Each [`SettingsGroup`] type becomes a top-level section
+/// in the file. The default filename is `settings`, which produces `settings.toml`.
+///
+/// On desktop platforms, files are written to `{preferences_dir()}/{app_name}/{filename}.toml`,
+/// where [`preferences_dir()`](bevy_platform::dirs::preferences_dir) is provided by
+/// [`bevy_platform::dirs::preferences_dir`]. With `app_name = "com.example.myapp"` and the default
+/// filename, typical paths are:
+///
+/// - Linux: `~/.config/com.example.myapp/settings.toml` (or under `$XDG_CONFIG_HOME` when set)
+/// - macOS: `~/Library/Preferences/com.example.myapp/settings.toml`
+/// - Windows: `%LocalAppData%\com.example.myapp\settings.toml`
+///
+/// On `wasm32`, settings are stored in browser `localStorage` under the key
+/// `{app_name}-{filename}` as a TOML string.
+///
+/// A file with one [`SettingsGroup`] named `counter` might look like:
+///
+/// ```toml
+/// [counter]
+/// count = 5
+/// enabled = true
+/// ```
+///
+/// Use `settings_group(file = "...")` on a [`SettingsGroup`] to write to a different file in the
+/// same app directory (see [`SettingsGroup`] for details).
+///
 /// Adding this plugin causes an immediate load of settings (from either the filesystem or
 /// browser local storage, depending on platform).
 ///

@@ -550,7 +550,7 @@ mod std_ops_for_no_std {
     ///
     /// This function always returns the precise result.
     #[inline]
-    pub fn abs(x: f32) -> f32 {
+    pub const fn abs(x: f32) -> f32 {
         f32::abs(x)
     }
 
@@ -569,7 +569,7 @@ mod std_ops_for_no_std {
     /// `NaN`, then a `NaN` with the sign bit of `y` is returned. Note, however, that conserving the
     /// sign bit on `NaN` across arithmetical operations is not generally guaranteed.
     #[inline]
-    pub fn copysign(x: f32, y: f32) -> f32 {
+    pub const fn copysign(x: f32, y: f32) -> f32 {
         f32::copysign(x, y)
     }
 
@@ -577,7 +577,7 @@ mod std_ops_for_no_std {
     ///
     /// This function always returns the precise result.
     #[inline]
-    pub fn round(x: f32) -> f32 {
+    pub const fn round(x: f32) -> f32 {
         f32::round(x)
     }
 
@@ -585,7 +585,7 @@ mod std_ops_for_no_std {
     ///
     /// This function always returns the precise result.
     #[inline]
-    pub fn floor(x: f32) -> f32 {
+    pub const fn floor(x: f32) -> f32 {
         f32::floor(x)
     }
 
@@ -593,7 +593,7 @@ mod std_ops_for_no_std {
     ///
     /// This function always returns the precise result.
     #[inline]
-    pub fn ceil(x: f32) -> f32 {
+    pub const fn ceil(x: f32) -> f32 {
         f32::ceil(x)
     }
 
@@ -601,7 +601,7 @@ mod std_ops_for_no_std {
     ///
     /// This function always returns the precise result.
     #[inline]
-    pub fn fract(x: f32) -> f32 {
+    pub const fn fract(x: f32) -> f32 {
         f32::fract(x)
     }
 }

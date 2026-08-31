@@ -20,7 +20,7 @@ use tracing::{error, warn};
 
 use super::{ClusterConfig, ClusterFarZMode, ClusteredDecal, Clusters, GlobalClusterSettings};
 use crate::{
-    cluster::ClusterableObjects, EnvironmentMapLight, LightProbe, PointLight, SpotLight,
+    cluster::ClusterableObjects, EnvironmentMapLight, LightProbe, PointLight, RectLight, SpotLight,
     VolumetricLight,
 };
 
@@ -91,6 +91,9 @@ pub enum ClusterableObjectType {
         outer_angle: f32,
     },
 
+    /// Marks that the clusterable object is a rectangle light.
+    RectLight,
+
     /// Marks that the clusterable object is a reflection probe.
     ReflectionProbe,
 
@@ -120,9 +123,10 @@ impl ClusterableObjectType {
                 volumetric,
                 ..
             } => (1, !shadow_maps_enabled, !volumetric),
-            ClusterableObjectType::ReflectionProbe => (2, false, false),
-            ClusterableObjectType::IrradianceVolume => (3, false, false),
-            ClusterableObjectType::Decal => (4, false, false),
+            ClusterableObjectType::RectLight => (2, false, false),
+            ClusterableObjectType::ReflectionProbe => (3, false, false),
+            ClusterableObjectType::IrradianceVolume => (4, false, false),
+            ClusterableObjectType::Decal => (5, false, false),
         }
     }
 }
@@ -154,6 +158,13 @@ pub(crate) fn assign_objects_to_clusters(
         &SpotLight,
         Option<&RenderLayers>,
         Option<&VolumetricLight>,
+    )>,
+    rect_lights_query: Query<(
+        Entity,
+        &GlobalTransform,
+        &ViewVisibility,
+        &RectLight,
+        Option<&RenderLayers>,
     )>,
     light_probes_query: Query<
         (
@@ -216,6 +227,25 @@ pub(crate) fn assign_objects_to_clusters(
                 }
             },
         ));
+
+        // Gather up rect lights if we're clustering them.
+        if global_cluster_settings.supports_storage_buffers {
+            clusterable_objects.extend(rect_lights_query.iter().filter_map(
+                |(entity, transform, view_visibility, rect_light, maybe_layers)| {
+                    if view_visibility.get() {
+                        Some(ClusterableObjectAssignmentData {
+                            entity,
+                            transform: *transform,
+                            range: rect_light.range,
+                            object_type: ClusterableObjectType::RectLight,
+                            render_layers: maybe_layers.unwrap_or_default().clone(),
+                        })
+                    } else {
+                        None
+                    }
+                },
+            ));
+        }
 
         // Gather up light probes, but only if we're clustering them.
         //
@@ -546,6 +576,7 @@ pub(crate) fn assign_objects_to_clusters(
                         None
                     }
                     ClusterableObjectType::PointLight { .. }
+                    | ClusterableObjectType::RectLight
                     | ClusterableObjectType::ReflectionProbe
                     | ClusterableObjectType::IrradianceVolume => None,
                 };
@@ -716,6 +747,16 @@ pub(crate) fn assign_objects_to_clusters(
                                 total_cluster_index_count += (max_x - min_x + 1) as usize;
                             }
 
+                            ClusterableObjectType::RectLight => {
+                                // This might be worth refining to cull clusters behind the light
+                                for _ in min_x..=max_x {
+                                    clusterable_objects[cluster_index]
+                                        .add_rect_light(clusterable_object.entity);
+                                    cluster_index += clusters.dimensions.z as usize;
+                                }
+                                total_cluster_index_count += (max_x - min_x + 1) as usize;
+                            }
+
                             ClusterableObjectType::ReflectionProbe => {
                                 // Reflection probes currently affect all
                                 // clusters in their bounding sphere.
@@ -806,9 +847,7 @@ fn compute_aabb_for_cluster(
     let p_min = ijk.xy() * tile_size;
     let p_max = p_min + tile_size;
 
-    let cluster_min;
-    let cluster_max;
-    if is_orthographic {
+    let (cluster_min, cluster_max) = if is_orthographic {
         // Use linear depth slicing for orthographic
 
         // Convert to view space at the cluster near and far planes
@@ -820,8 +859,7 @@ fn compute_aabb_for_cluster(
         p_min.z = -z_near + (z_near - z_far) * ijk.z / cluster_dimensions.z as f32;
         p_max.z = -z_near + (z_near - z_far) * (ijk.z + 1.0) / cluster_dimensions.z as f32;
 
-        cluster_min = p_min.min(p_max);
-        cluster_max = p_min.max(p_max);
+        (p_min.min(p_max), p_min.max(p_max))
     } else {
         // Convert to view space at the near plane
         // NOTE: 1.0 is the near plane due to using reverse z projections
@@ -852,9 +890,11 @@ fn compute_aabb_for_cluster(
         let p_max_near = line_intersection_to_z_plane(Vec3::ZERO, p_max.xyz(), cluster_near);
         let p_max_far = line_intersection_to_z_plane(Vec3::ZERO, p_max.xyz(), cluster_far);
 
-        cluster_min = p_min_near.min(p_min_far).min(p_max_near.min(p_max_far));
-        cluster_max = p_min_near.max(p_min_far).max(p_max_near.max(p_max_far));
-    }
+        (
+            p_min_near.min(p_min_far).min(p_max_near.min(p_max_far)),
+            p_min_near.max(p_min_far).max(p_max_near.max(p_max_far)),
+        )
+    };
 
     Aabb::from_min_max(cluster_min, cluster_max)
 }
