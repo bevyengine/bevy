@@ -57,12 +57,16 @@ pub fn atmosphere_luts(
         return;
     };
 
+    let diagnostics = ctx.diagnostic_recorder();
+    let diagnostics = diagnostics.as_deref();
+
     let command_encoder = ctx.command_encoder();
 
     let mut luts_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
         label: Some("atmosphere_luts"),
         timestamp_writes: None,
     });
+    let pass_span = diagnostics.pass_span(&mut luts_pass, "atmosphere_luts");
 
     fn dispatch_2d(compute_pass: &mut ComputePass, size: UVec2) {
         const WORKGROUP_SIZE: u32 = 16;
@@ -135,6 +139,7 @@ pub fn atmosphere_luts(
     );
 
     dispatch_2d(&mut luts_pass, settings.aerial_view_lut_size.xy());
+    pass_span.end(&mut luts_pass);
 }
 
 pub fn render_sky(
@@ -169,6 +174,9 @@ pub fn render_sky(
         return;
     }; //TODO: warning
 
+    let diagnostics = ctx.diagnostic_recorder();
+    let diagnostics = diagnostics.as_deref();
+
     let command_encoder = ctx.command_encoder();
 
     let mut render_sky_pass = command_encoder.begin_render_pass(&RenderPassDescriptor {
@@ -179,6 +187,7 @@ pub fn render_sky(
         occlusion_query_set: None,
         multiview_mask: None,
     });
+    let pass_span = diagnostics.pass_span(&mut render_sky_pass, "render_sky");
 
     if let Some(viewport) = Viewport::from_main_pass_resolution_override(resolution_override) {
         render_sky_pass.set_viewport(
@@ -204,4 +213,5 @@ pub fn render_sky(
         ],
     );
     render_sky_pass.draw(0..3, 0..1);
+    pass_span.end(&mut render_sky_pass);
 }

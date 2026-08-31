@@ -6,6 +6,7 @@ use bevy_core_pipeline::{
     schedule::{Core2d, Core2dSystems, Core3d, Core3dSystems},
 };
 use bevy_ecs::prelude::*;
+use bevy_platform::collections::HashMap;
 use bevy_render::{
     camera::{ExtractedCamera, ViewTargetInfo},
     diagnostic::RecordDiagnostics,

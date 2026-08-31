@@ -20,6 +20,8 @@
 //! - [`Oklaba`] (lightness, a-axis, b-axis, alpha)
 //! - [`Oklcha`] (lightness, chroma, hue, alpha)
 //! - [`Xyza`] (x-axis, y-axis, z-axis, alpha)
+//! - [`Okhsla`] (hue, saturation, lightness, alpha)
+//! - [`Okhsva`] (hue, saturation, value, alpha)
 //! - [`Okhwba`] (hue, whiteness, blackness, alpha)
 //!
 //! Each of these color spaces is represented as a distinct Rust type.
@@ -117,6 +119,7 @@ mod okhwba;
 mod oklaba;
 mod oklcha;
 pub mod palettes;
+mod primaries;
 mod srgba;
 #[cfg(test)]
 mod test_colors;
@@ -150,6 +153,7 @@ pub use okhsva::*;
 pub use okhwba::*;
 pub use oklaba::*;
 pub use oklcha::*;
+pub use primaries::*;
 pub use srgba::*;
 pub use xyza::*;
 

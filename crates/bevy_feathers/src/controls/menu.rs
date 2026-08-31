@@ -15,7 +15,7 @@ use bevy_ecs::{
     template::template,
 };
 use bevy_log::{info, warn};
-use bevy_picking::{hover::Hovered, PickingSystems};
+use bevy_picking::{cursor::EntityCursor, hover::Hovered, PickingSystems};
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_scene::prelude::*;
@@ -32,7 +32,6 @@ use bevy_ui_widgets::{
 use crate::{
     constants::{fonts, icons, size},
     controls::{ButtonVariant, FeathersButton, FeathersToolButton},
-    cursor::EntityCursor,
     display::icon,
     font_styles::InheritableFont,
     rounded_corners::RoundedCorners,
@@ -44,7 +43,7 @@ use crate::{
 };
 use bevy_input_focus::{
     tab_navigation::{NavAction, TabIndex},
-    FocusCause, InputFocus, InputFocusVisible,
+    FocusCause, InputFocus, InputFocusSystems, InputFocusVisible,
 };
 
 /// Top-level menu container. This wraps the menu button and provides an anchor for the popover.
@@ -616,7 +615,9 @@ impl Plugin for MenuPlugin {
                 update_menuitem_styles_remove,
                 update_menuitem_styles_focus_changed,
             )
-                .in_set(PickingSystems::Last),
+                .in_set(PickingSystems::Last)
+                // After Dispatch systems so that these systems use the most updated `InputFocus`.
+                .after(InputFocusSystems::Dispatch),
         );
     }
 }

@@ -144,7 +144,7 @@ pub struct DepthOfFieldUniform {
     /// The distance in meters to the location in focus.
     focal_distance: f32,
 
-    /// The focal length. See the comment in `DepthOfFieldParams` in `dof.wgsl`
+    /// The focal length. See the comment in `DepthOfFieldParams` in `dof.wesl`
     /// for more information.
     focal_length: f32,
 
@@ -195,7 +195,7 @@ enum DofPass {
 
 impl Plugin for DepthOfFieldPlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "dof.wgsl");
+        embedded_asset!(app, "dof.wesl");
 
         app.add_plugins(UniformComponentPlugin::<DepthOfFieldUniform>::default());
 
@@ -522,7 +522,7 @@ pub fn prepare_depth_of_field_pipelines(
             view_bind_group_layouts: view_bind_group_layouts.clone(),
             global_bind_group_layout: global_bind_group_layout.layout.clone(),
             fullscreen_shader: fullscreen_shader.clone(),
-            fragment_shader: load_embedded_asset!(asset_server.as_ref(), "dof.wgsl"),
+            fragment_shader: load_embedded_asset!(asset_server.as_ref(), "dof.wesl"),
         };
 
         // We'll need these two flags to create the `DepthOfFieldPipelineKey`s.
@@ -791,6 +791,10 @@ pub(crate) fn depth_of_field(
     else {
         return;
     };
+    let diagnostics = ctx.diagnostic_recorder();
+    let diagnostics = diagnostics.as_deref();
+    let time_span = diagnostics.time_span(ctx.command_encoder(), "depth_of_field");
+
     // We can be in either Gaussian blur or bokeh mode here. Both modes are
     // similar, consisting of two passes each.
     for pipeline_render_info in view_pipelines.pipeline_render_info().iter() {
@@ -799,6 +803,7 @@ pub(crate) fn depth_of_field(
             view_uniforms.uniforms.binding(),
             &**global_bind_group,
         ) else {
+            time_span.end(ctx.command_encoder());
             return;
         };
 
@@ -896,4 +901,5 @@ pub(crate) fn depth_of_field(
         // Render the full-screen pass.
         render_pass.draw(0..3, 0..1);
     }
+    time_span.end(ctx.command_encoder());
 }

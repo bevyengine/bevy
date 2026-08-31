@@ -1,3 +1,5 @@
+use core::mem;
+
 use bevy_app::Plugin;
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetId, AssetServer, Handle};
 use bevy_camera::{visibility::ViewVisibility, Camera2d, CompositingSpace};
@@ -9,6 +11,7 @@ use bevy_render::{
     },
     mesh::{allocator::MeshSlabId, MeshMetadata, MeshMetadataFallbackBuffer},
     render_resource::binding_types::{storage_buffer_read_only, uniform_buffer_sized},
+    sync_world::MainEntityHashSet,
     RenderStartup,
 };
 use bevy_shader::{load_shader_library, Shader, ShaderDefVal, ShaderSettings};
@@ -72,18 +75,17 @@ pub struct Mesh2dRenderPlugin;
 
 impl Plugin for Mesh2dRenderPlugin {
     fn build(&self, app: &mut bevy_app::App) {
-        load_shader_library!(app, "mesh2d_vertex_output.wgsl");
-        load_shader_library!(app, "mesh2d_vertex_input.wgsl");
-        load_shader_library!(app, "mesh2d_view_types.wgsl");
-        load_shader_library!(app, "mesh2d_view_bindings.wgsl");
-        load_shader_library!(app, "mesh2d_types.wgsl");
-        load_shader_library!(app, "mesh2d_functions.wgsl");
+        load_shader_library!(app, "vertex_output.wesl");
+        load_shader_library!(app, "vertex_input.wesl");
+        load_shader_library!(app, "view_bindings.wesl");
+        load_shader_library!(app, "types.wesl");
+        load_shader_library!(app, "functions.wesl");
 
-        embedded_asset!(app, "mesh2d.wgsl");
+        embedded_asset!(app, "mesh2d.wesl");
 
         // These bindings should be loaded as a shader library, but it depends on runtime
         // information, so we will load it in a system.
-        embedded_asset!(app, "mesh2d_bindings.wgsl");
+        embedded_asset!(app, "bindings.wesl");
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -101,7 +103,7 @@ impl Plugin for Mesh2dRenderPlugin {
                     ),
                 )
                 .allow_ambiguous_resource::<BatchedInstanceBuffer<Mesh2dUniform>>()
-                .add_systems(ExtractSchedule, extract_mesh2d)
+                .add_systems(ExtractSchedule, extract_2d_meshes)
                 .init_resource::<PendingMeshMaterial2dQueues>()
                 .add_systems(
                     Render,
@@ -159,11 +161,12 @@ pub fn check_views_need_specialization(
             view_key |= Mesh2dPipelineKey::OKLAB_COMPOSITING;
         }
 
-        if !camera.hdr {
-            if let Some(tonemapping) = tonemapping {
-                view_key |= Mesh2dPipelineKey::TONEMAP_IN_SHADER;
-                view_key |= tonemapping_pipeline_key(*tonemapping);
-            }
+        if !camera.hdr
+            && let Some(tonemapping) = tonemapping
+            && tonemapping.is_enabled()
+        {
+            view_key |= Mesh2dPipelineKey::TONEMAP_IN_SHADER;
+            view_key |= tonemapping_pipeline_key(*tonemapping);
             if let Some(DebandDither::Enabled) = dither {
                 view_key |= Mesh2dPipelineKey::DEBAND_DITHER;
             }
@@ -205,18 +208,15 @@ fn load_mesh2d_bindings(render_device: Res<RenderDevice>, asset_server: Res<Asse
 
     // Load the mesh_bindings shader module here as it depends on runtime information about
     // whether storage buffers are supported, or the maximum uniform buffer binding size.
-    let handle: Handle<Shader> = load_embedded_asset!(
-        asset_server.as_ref(),
-        "mesh2d_bindings.wgsl",
-        move |settings| {
+    let handle: Handle<Shader> =
+        load_embedded_asset!(asset_server.as_ref(), "bindings.wesl", move |settings| {
             *settings = ShaderSettings {
                 shader_defs: mesh_bindings_shader_defs.clone(),
-            }
-        }
-    );
+            };
+        });
     // Forget the handle so we don't have to store it anywhere, and we keep the embedded asset
     // loaded. Note: This is what happens in `load_shader_library` internally.
-    core::mem::forget(handle);
+    mem::forget(handle);
 }
 
 #[derive(Component)]
@@ -264,7 +264,7 @@ impl Mesh2dUniform {
     }
 }
 
-// NOTE: These must match the bit flags in bevy_sprite_render/src/mesh2d/mesh2d.wgsl!
+// NOTE: These must match the bit flags in bevy_sprite_render/src/mesh2d/mesh2d.wesl!
 bitflags::bitflags! {
     #[repr(transparent)]
     pub struct MeshFlags: u32 {
@@ -287,54 +287,162 @@ pub struct RenderMesh2dInstances(MainEntityHashMap<RenderMesh2dInstance>);
 #[derive(Component, Default)]
 pub struct Mesh2dMarker;
 
-pub fn extract_mesh2d(
+type Mesh2dExtractionQuery = (
+    Entity,
+    Read<ViewVisibility>,
+    Read<GlobalTransform>,
+    Read<Mesh2d>,
+    Option<Read<MeshTag>>,
+    Has<NoAutomaticBatching>,
+);
+
+/// A render-world system that finds all 2D meshes in the main world that have
+/// been added, changed, or removed since the last frame and updates
+/// [`RenderMesh2dInstances`] accordingly.
+pub fn extract_2d_meshes(
     mut render_mesh_instances: ResMut<RenderMesh2dInstances>,
     render_material_instances: Res<RenderMaterial2dInstances>,
     render_material_bindings: Res<RenderMaterialBindings>,
-    query: Extract<
-        Query<(
-            Entity,
-            &ViewVisibility,
-            &GlobalTransform,
-            &Mesh2d,
-            Option<&MeshTag>,
-            Has<NoAutomaticBatching>,
-        )>,
+    changed_meshes_query: Extract<
+        Query<
+            Mesh2dExtractionQuery,
+            Or<(
+                Changed<ViewVisibility>,
+                Changed<GlobalTransform>,
+                Changed<Mesh2d>,
+                Changed<MeshTag>,
+                Changed<NoAutomaticBatching>,
+            )>,
+        >,
     >,
+    all_meshes_query: Extract<Query<Mesh2dExtractionQuery>>,
+    (
+        mut removed_mesh2d_components,
+        mut removed_no_automatic_batching_components,
+        mut removed_mesh_tag_components,
+    ): (
+        Extract<RemovedComponents<Mesh2d>>,
+        Extract<RemovedComponents<NoAutomaticBatching>>,
+        Extract<RemovedComponents<MeshTag>>,
+    ),
+    mut reextract_entities: Local<MainEntityHashSet>,
+    mut reextract_entities_temp: Local<MainEntityHashSet>,
 ) {
-    render_mesh_instances.clear();
+    mem::swap(&mut *reextract_entities, &mut *reextract_entities_temp);
 
-    for (entity, view_visibility, transform, handle, tag, no_automatic_batching) in &query {
-        if !view_visibility.get() {
-            continue;
-        }
-        let main_entity = entity.into();
+    // First, process meshes that we recorded as potentially needing to be
+    // reextracted on the previous frame frame.
 
-        // Look up the material index. If we couldn't fetch the material index,
-        // then the material hasn't been prepared yet, perhaps because it hasn't
-        // yet loaded.
-        let Some(mesh_material) = render_material_instances.get(&main_entity) else {
-            continue;
-        };
-        let Some(mesh_material_binding_id) = render_material_bindings.get(mesh_material).copied()
+    for reextract_entity in reextract_entities_temp.drain().chain(
+        removed_no_automatic_batching_components
+            .read()
+            .chain(removed_mesh_tag_components.read())
+            .map(MainEntity::from),
+    ) {
+        let Ok((_, view_visibility, transform, handle, tag, no_automatic_batching)) =
+            all_meshes_query.get(reextract_entity.entity())
         else {
             continue;
         };
 
-        render_mesh_instances.insert(
-            main_entity,
-            RenderMesh2dInstance {
-                transforms: Mesh2dTransforms {
-                    world_from_local: transform.affine().into(),
-                    flags: MeshFlags::empty().bits(),
-                },
-                material_bindings_index: mesh_material_binding_id,
-                mesh_asset_id: handle.0.id(),
-                automatic_batching: !no_automatic_batching,
-                tag: tag.map_or(0, |i| **i),
-            },
+        extract_2d_mesh(
+            reextract_entity,
+            view_visibility,
+            transform,
+            handle,
+            tag,
+            no_automatic_batching,
+            &mut render_mesh_instances,
+            &render_material_instances,
+            &render_material_bindings,
+            &mut reextract_entities,
         );
     }
+
+    // Next, process meshes that changed.
+    for (entity, view_visibility, transform, handle, tag, no_automatic_batching) in
+        &changed_meshes_query
+    {
+        extract_2d_mesh(
+            entity.into(),
+            view_visibility,
+            transform,
+            handle,
+            tag,
+            no_automatic_batching,
+            &mut render_mesh_instances,
+            &render_material_instances,
+            &render_material_bindings,
+            &mut reextract_entities,
+        );
+    }
+
+    // Now remove meshes corresponding to entities that lost their `Mesh2d`
+    // components.
+    // Only queue a mesh for removal if we didn't pick it up above.
+    // It's possible that the `Mesh2d` component was removed and re-added in the
+    // same frame.
+    for entity in removed_mesh2d_components.read() {
+        let main_entity = MainEntity::from(entity);
+        if !changed_meshes_query.contains(*main_entity)
+            && !reextract_entities.contains(&main_entity)
+        {
+            render_mesh_instances.remove(&main_entity);
+        }
+    }
+}
+
+/// Extracts a single 2D mesh instance from the main world to
+/// `RenderMesh2dInstances` in the render world if it's ready.
+///
+/// If the mesh isn't ready, this method instead adds the instance to
+/// `reextract_entities` and returns.
+fn extract_2d_mesh(
+    main_entity: MainEntity,
+    view_visibility: &ViewVisibility,
+    transform: &GlobalTransform,
+    handle: &Mesh2d,
+    tag: Option<&MeshTag>,
+    no_automatic_batching: bool,
+    render_mesh_instances: &mut RenderMesh2dInstances,
+    render_material_instances: &RenderMaterial2dInstances,
+    render_material_bindings: &RenderMaterialBindings,
+    reextract_entities: &mut MainEntityHashSet,
+) {
+    // If the mesh is invisible, we don't extract it. Remove it from the render
+    // world too, if it's there.
+    if !view_visibility.get() {
+        render_mesh_instances.remove(&main_entity);
+        return;
+    }
+
+    // Look up the material index. If we couldn't fetch the material index,
+    // then the material hasn't been prepared yet, perhaps because it hasn't
+    // yet loaded.
+    let Some(mesh_material) = render_material_instances.get(&main_entity) else {
+        reextract_entities.insert(main_entity);
+        return;
+    };
+    let Some(mesh_material_binding_id) = render_material_bindings.get(mesh_material).copied()
+    else {
+        reextract_entities.insert(main_entity);
+        return;
+    };
+
+    // Go ahead and extract the mesh instance.
+    render_mesh_instances.insert(
+        main_entity,
+        RenderMesh2dInstance {
+            transforms: Mesh2dTransforms {
+                world_from_local: transform.affine().into(),
+                flags: MeshFlags::empty().bits(),
+            },
+            material_bindings_index: mesh_material_binding_id,
+            mesh_asset_id: handle.0.id(),
+            automatic_batching: !no_automatic_batching,
+            tag: tag.map_or(0, |i| **i),
+        },
+    );
 }
 
 #[derive(Resource, Clone)]
@@ -386,7 +494,7 @@ pub fn init_mesh_2d_pipeline(
         per_object_buffer_batch_size: GpuArrayBuffer::<Mesh2dUniform>::batch_size(
             &render_device.limits(),
         ),
-        shader: load_embedded_asset!(asset_server.as_ref(), "mesh2d.wgsl"),
+        shader: load_embedded_asset!(asset_server.as_ref(), "mesh2d.wesl"),
     });
 }
 
@@ -519,7 +627,7 @@ bitflags::bitflags! {
         const SRGB_COMPOSITING                  = 1 << 4;
         const OKLAB_COMPOSITING                 = 1 << 5;
         const TONEMAP_METHOD_RESERVED_BITS      = Self::TONEMAP_METHOD_MASK_BITS << Self::TONEMAP_METHOD_SHIFT_BITS;
-        const TONEMAP_METHOD_NONE               = 0 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_LINEAR             = 0 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_REINHARD           = 1 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_REINHARD_LUMINANCE = 2 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_ACES_FITTED        = 3 << Self::TONEMAP_METHOD_SHIFT_BITS;
@@ -676,8 +784,8 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
             let method = key.intersection(Mesh2dPipelineKey::TONEMAP_METHOD_RESERVED_BITS);
 
             match method {
-                Mesh2dPipelineKey::TONEMAP_METHOD_NONE => {
-                    shader_defs.push("TONEMAP_METHOD_NONE".into());
+                Mesh2dPipelineKey::TONEMAP_METHOD_LINEAR => {
+                    shader_defs.push("TONEMAP_METHOD_LINEAR".into());
                 }
                 Mesh2dPipelineKey::TONEMAP_METHOD_REINHARD => {
                     shader_defs.push("TONEMAP_METHOD_REINHARD".into());

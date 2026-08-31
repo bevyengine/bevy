@@ -101,7 +101,7 @@ pub fn init_motion_blur_pipeline(
     asset_server: Res<AssetServer>,
 ) {
     let fullscreen_shader = fullscreen_shader.clone();
-    let fragment_shader = load_embedded_asset!(asset_server.as_ref(), "motion_blur.wgsl");
+    let fragment_shader = load_embedded_asset!(asset_server.as_ref(), "motion_blur.wesl");
     commands.insert_resource(MotionBlurPipeline::new(
         &render_device,
         fullscreen_shader,

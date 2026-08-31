@@ -916,7 +916,7 @@ mod tests {
         let result_entity = world.spawn(ObserverResult::default()).id();
 
         world.add_observer(
-            move |replace: On<Discard, MyComponent>,
+            move |replace: On<Discard<MyComponent>>,
                   has_relationship: Query<Has<ChildOf>>,
                   mut results: Query<&mut ObserverResult>| {
                 if has_relationship.get(replace.entity).unwrap_or(false) {

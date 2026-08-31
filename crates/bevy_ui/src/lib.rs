@@ -28,6 +28,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_picking::PickingSystems;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 mod accessibility;
+pub use accessibility::AccessibilityUiSystems;
 // This module is not re-exported, but is instead made public.
 // This is intended to discourage accidental use of the experimental API.
 pub mod experimental;
@@ -78,7 +79,7 @@ pub mod prelude {
         },
         // `bevy_sprite` re-exports for texture slicing
         bevy_sprite::{BorderRect, SliceScaleMode, SpriteImageMode, TextureSlicer},
-        bevy_text::TextBackgroundColor,
+        bevy_text::{EmSize, RemSize, TextBackgroundColor},
     };
 }
 
@@ -291,6 +292,9 @@ fn build_text_interop(app: &mut App) {
                 .ambiguous_with(widget::text_system)
                 .ambiguous_with(bevy_sprite::update_text2d_layout)
                 .ambiguous_with(bevy_sprite::calculate_bounds_text2d),
+            sync_font_size_to_em_size
+                .in_set(UiSystems::Content)
+                .after(bevy_text::load_font_assets_into_font_collection),
         ),
     );
 

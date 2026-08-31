@@ -550,7 +550,8 @@ where
         .draw_arrow(true);
 
         // draw the plane line
-        let direction = Dir2::new_unchecked(-normal.perp());
+        let direction = -normal.perpendicular();
+
         self.primitive_2d(&Line2d { direction }, isometry, polymorphic_color)
             .draw_arrow(false);
 

@@ -32,7 +32,6 @@ use bevy_render::{
         allocator::{MeshAllocator, MeshSlabId, MeshSlabs},
         RenderMesh,
     },
-    prelude::*,
     render_asset::{
         prepare_assets, PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets,
     },
@@ -49,7 +48,8 @@ use bevy_render::{
         ExtractedView, RenderVisibleEntities, RetainedViewEntity, ViewDepthStencilTexture,
         ViewTarget,
     },
-    Extract, GpuResourceAppExt, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
+    Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderDebugFlags,
+    RenderStartup, RenderSystems,
 };
 use bevy_shader::Shader;
 use core::{hash::Hash, ops::Range};
@@ -79,7 +79,7 @@ impl Wireframe2dPlugin {
 
 impl Plugin for Wireframe2dPlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "wireframe2d.wgsl");
+        embedded_asset!(app, "wireframe2d.wesl");
 
         app.add_plugins((
             BinnedRenderPhasePlugin::<Wireframe2dPhaseItem, Mesh2dPipeline>::new(self.debug_flags),
@@ -328,7 +328,7 @@ pub fn init_wireframe_2d_pipeline(
 ) {
     commands.insert_resource(Wireframe2dPipeline {
         mesh_pipeline: mesh_2d_pipeline.clone(),
-        shader: load_embedded_asset!(asset_server.as_ref(), "wireframe2d.wgsl"),
+        shader: load_embedded_asset!(asset_server.as_ref(), "wireframe2d.wesl"),
     });
 }
 

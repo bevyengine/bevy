@@ -333,7 +333,9 @@ impl<'scope, 'env: 'scope, 'sys> Context<'scope, 'env, 'sys> {
         &self,
         system_index: usize,
         res: Result<(), Box<dyn Any + Send>>,
-        system: &ScheduleSystem,
+        // This must not take `&ScheduleSystem`, because Rust requires references to be valid for the entire function,
+        // and the system may be accessed by another thread running `apply_deferred` after `tick_executor()` runs.
+        system: &SyncUnsafeCell<SystemWithAccess>,
     ) {
         // tell the executor that the system finished
         self.environment
@@ -345,6 +347,8 @@ impl<'scope, 'env: 'scope, 'sys> Context<'scope, 'env, 'sys> {
             #[cfg(feature = "std")]
             #[expect(clippy::print_stderr, reason = "Allowed behind `std` feature gate.")]
             {
+                // SAFETY: this system is not running, no other reference exists
+                let system = unsafe { &(*system.get()).system };
                 eprintln!("Encountered a panic in system `{}`!", system.name());
             }
             // set the payload to propagate the error
@@ -656,8 +660,7 @@ impl ExecutorState {
     /// - `world` must have permission to access the world data
     ///   used by the specified system.
     unsafe fn spawn_system_task(&mut self, context: &Context, system_index: usize) {
-        // SAFETY: this system is not running, no other reference exists
-        let system = &mut unsafe { &mut *context.environment.systems[system_index].get() }.system;
+        let system = &context.environment.systems[system_index];
         // Move the full context object into the new future.
         let context = *context;
 
@@ -677,7 +680,8 @@ impl ExecutorState {
                         )
                     }
                 },
-                system,
+                // SAFETY: this system is not running, no other reference exists
+                unsafe { &mut (*system.get()).system },
                 context.error_handler,
                 "System panicked",
             );
@@ -695,12 +699,12 @@ impl ExecutorState {
     /// # Safety
     /// Caller must ensure no systems are currently borrowed.
     unsafe fn spawn_exclusive_system_task(&mut self, context: &Context, system_index: usize) {
-        // SAFETY: this system is not running, no other reference exists
-        let system = &mut unsafe { &mut *context.environment.systems[system_index].get() }.system;
+        let system = &context.environment.systems[system_index];
         // Move the full context object into the new future.
         let context = *context;
 
-        if is_apply_deferred(&**system) {
+        // SAFETY: this system is not running, no other reference exists
+        if is_apply_deferred(unsafe { &*(*system.get()).system }) {
             // TODO: avoid allocation
             let unapplied_systems = self.unapplied_systems.clone();
             self.unapplied_systems.clear();
@@ -725,7 +729,8 @@ impl ExecutorState {
                 let world = unsafe { context.environment.world_cell.world_mut() };
                 let res = handle_errors(
                     |system| __rust_begin_short_backtrace::run(system, world),
-                    system,
+                    // SAFETY: this system is not running, no other reference exists
+                    unsafe { &mut (*system.get()).system },
                     context.error_handler,
                     "Exclusive system panicked",
                 );
@@ -746,7 +751,9 @@ impl ExecutorState {
             self.exclusive_running = false;
         }
 
-        if !self.system_task_metadata[system_index].is_send {
+        if self.system_task_metadata[system_index].is_exclusive
+            || !self.system_task_metadata[system_index].is_send
+        {
             self.local_thread_running = false;
         }
 
@@ -941,7 +948,7 @@ mod tests {
         },
         prelude::Resource,
         schedule::{IntoScheduleConfigs, MultiThreadedExecutor, Schedule},
-        system::Commands,
+        system::{Commands, ExclusiveMarker, NonSendMut},
         world::World,
     };
 
@@ -965,6 +972,32 @@ mod tests {
         );
         schedule.run(&mut world);
         assert!(world.get_resource::<R>().is_some());
+    }
+
+    /// Regression test for case where exclusive system left local thread state as not
+    /// cleared and prevented subsequent non-send system runs
+    #[test]
+    fn exclusive_system_reporting_send_releases_the_local_thread() {
+        #[derive(Default)]
+        struct NonSendMarker(bool);
+
+        let mut world = World::new();
+        world.insert_non_send(NonSendMarker::default());
+
+        let mut schedule = Schedule::default();
+        schedule.set_executor(MultiThreadedExecutor::new());
+        schedule.add_systems(
+            (
+                |_: ExclusiveMarker| {},
+                |mut marker: NonSendMut<NonSendMarker>| {
+                    marker.0 = true;
+                },
+            )
+                .chain(),
+        );
+
+        schedule.run(&mut world);
+        assert!(world.non_send::<NonSendMarker>().0);
     }
 
     /// Regression test for a weird bug flagged by MIRI in

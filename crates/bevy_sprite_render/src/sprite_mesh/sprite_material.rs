@@ -1,5 +1,3 @@
-use core::f32;
-
 use bevy_app::Plugin;
 use bevy_color::{Color, ColorToComponents};
 use bevy_image::{Image, TextureAtlas, TextureAtlasLayout};
@@ -24,7 +22,7 @@ pub struct SpriteMaterialPlugin;
 
 impl Plugin for SpriteMaterialPlugin {
     fn build(&self, app: &mut bevy_app::App) {
-        embedded_asset!(app, "sprite_material.wgsl");
+        embedded_asset!(app, "sprite_material.wesl");
 
         app.add_plugins(Material2dPlugin::<SpriteMaterial>::default())
             .register_asset_reflect::<SpriteMaterial>();
@@ -314,14 +312,14 @@ impl AsBindGroupShaderType<SpriteMaterialUniform> for SpriteMaterial {
 impl Material2d for SpriteMaterial {
     fn vertex_shader() -> ShaderRef {
         ShaderRef::Path(
-            AssetPath::from_path_buf(embedded_path!("sprite_material.wgsl"))
+            AssetPath::from_path_buf(embedded_path!("sprite_material.wesl"))
                 .with_source("embedded"),
         )
     }
 
     fn fragment_shader() -> ShaderRef {
         ShaderRef::Path(
-            AssetPath::from_path_buf(embedded_path!("sprite_material.wgsl"))
+            AssetPath::from_path_buf(embedded_path!("sprite_material.wesl"))
                 .with_source("embedded"),
         )
     }
