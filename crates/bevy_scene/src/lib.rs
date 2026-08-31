@@ -1747,21 +1747,21 @@ mod tests {
         world.spawn_scene(bsn! { ~Size::new(1).tall() }).unwrap();
     }
 
-    // #[test]
-    // fn tuple_index_in_dot_expression() {
-    //     #[derive(Component, Clone, Default, PartialEq, Debug)]
-    //     struct Size {
-    //         width: u32,
-    //     }
+    #[test]
+    fn tuple_index_in_dot_expression() {
+        #[derive(Component, Clone, Default, PartialEq, Debug)]
+        struct Size {
+            width: u32,
+        }
 
-    //     struct Holder(Size);
+        struct Holder(Size);
 
-    //     let holder = Holder(Size { width: 1 });
+        let holder = Holder(Size { width: 1 });
 
-    //     let mut app = test_app();
-    //     let world = app.world_mut();
-    //     world.spawn_scene(bsn! { holder.0.clone() }).unwrap();
-    // }
+        let mut app = test_app();
+        let world = app.world_mut();
+        world.spawn_scene(bsn! { holder.0.clone() }).unwrap();
+    }
 
     // #[test]
     // fn closure_field_with_generic_return_type() {

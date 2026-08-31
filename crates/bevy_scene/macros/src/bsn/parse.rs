@@ -526,7 +526,7 @@ fn parse_extended_dot_expression(input: &ParseBuffer) -> Result<TokenStream> {
     let start = input.cursor();
     while input.peek(Dot) {
         let _ = input.parse::<Dot>()?;
-        let _ = input.parse::<Path>()?;
+        let _ = input.parse::<Member>()?;
         if input.peek(Paren) {
             let _ = parse_tuple_loose(input)?;
         }
