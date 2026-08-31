@@ -10,11 +10,12 @@ use bevy_ecs::{
 };
 
 use bevy_image::{Image, TextureAtlasLayout};
-use bevy_math::{primitives::Rectangle, vec2, FloatOrd};
+use bevy_math::{vec2, FloatOrd};
 use bevy_mesh::{
     mark_2d_meshes_as_changed_if_their_assets_changed, Mesh, Mesh2d, MeshAttributeCompressionFlags,
     MeshBuilder, Meshable,
 };
+use bevy_shape::Rectangle;
 
 use bevy_platform::collections::{hash_map::Entry, HashMap};
 use bevy_shader::load_shader_library;
