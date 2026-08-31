@@ -2,22 +2,32 @@
 //! extracted and uploaded to the GPU for use in shaders.
 
 use alloc::borrow::Cow;
-use bevy_platform::collections::AlignedVec;
 
 use crate::{
     render_asset::{AssetExtractionError, PrepareAssetError, RenderAsset, RenderAssetPlugin},
     render_resource::{Buffer, BufferUsages},
     renderer::{RenderDevice, RenderQueue},
+    Render, RenderApp, RenderSystems,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{Asset, AssetApp, AssetId, RenderAssetUsages};
-use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
+use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::{
+    resource::Resource,
+    schedule::IntoScheduleConfigs as _,
+    system::{
+        lifetimeless::{SRes, SResMut},
+        ResMut, SystemParamItem,
+    },
+};
+use bevy_platform::collections::{AlignedVec, HashSet};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_utils::default;
 use wgpu::util::BufferInitDescriptor;
 use wgpu_types::BufferDescriptor;
 
-/// Adds a [`ShaderBuffer`] as an asset that is extracted and uploaded to the GPU.
+/// Adds a [`ShaderBuffer`] as an asset that is extracted and uploaded to the
+/// GPU.
 #[derive(Default)]
 pub struct StoragePlugin;
 
@@ -26,6 +36,16 @@ impl Plugin for StoragePlugin {
         app.add_plugins(RenderAssetPlugin::<GpuShaderBuffer>::default())
             .init_asset::<ShaderBuffer>()
             .register_asset_reflect::<ShaderBuffer>();
+
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+        render_app
+            .init_resource::<RenderChangedShaderBuffers>()
+            .add_systems(
+                Render,
+                clear_changed_shader_buffers.in_set(RenderSystems::Cleanup),
+            );
     }
 }
 
@@ -212,6 +232,23 @@ impl<T: bytemuck::NoUninit> From<Vec<T>> for ShaderBuffer {
     }
 }
 
+/// A render-world resource that stores the IDs of [`ShaderBuffer`]s that have
+/// been updated to point at a different buffer.
+///
+/// The raw underlying buffer that a [`ShaderBuffer`] points to may change from
+/// frame to frame. This will happen, for example, if the buffer represents a
+/// CPU-managed vector that might grow. When this happens, the material bind
+/// group allocator must invalidate any cached bind groups that referred to the
+/// old buffer. This resource tracks those modified buffers to enable this
+/// invalidation to happen.
+///
+/// Note that a [`ShaderBuffer`] will only be in this set if the *identity* of
+/// the buffer that it wraps changed. If only the *contents* of the buffer
+/// changed since last frame, then bind groups don't need to be updated, and the
+/// shader buffer won't be present in this set.
+#[derive(Resource, Default, Deref, DerefMut)]
+pub struct RenderChangedShaderBuffers(pub HashSet<AssetId<ShaderBuffer>>);
+
 /// A storage buffer that is prepared as a [`RenderAsset`] and uploaded to the GPU.
 pub struct GpuShaderBuffer {
     /// The raw GPU buffer.
@@ -226,7 +263,11 @@ pub struct GpuShaderBuffer {
 
 impl RenderAsset for GpuShaderBuffer {
     type SourceAsset = ShaderBuffer;
-    type Param = (SRes<RenderDevice>, SRes<RenderQueue>);
+    type Param = (
+        SRes<RenderDevice>,
+        SRes<RenderQueue>,
+        SResMut<RenderChangedShaderBuffers>,
+    );
 
     fn asset_usage(source_asset: &Self::SourceAsset) -> RenderAssetUsages {
         source_asset.asset_usage
@@ -252,8 +293,12 @@ impl RenderAsset for GpuShaderBuffer {
 
     fn prepare_asset(
         source_asset: Self::SourceAsset,
-        _asset_id: AssetId<Self::SourceAsset>,
-        &mut (ref render_device, ref render_queue): &mut SystemParamItem<Self::Param>,
+        asset_id: AssetId<Self::SourceAsset>,
+        &mut (
+            ref render_device,
+            ref render_queue,
+            ref mut changed_shader_buffers,
+        ): &mut SystemParamItem<Self::Param>,
         previous_asset: Option<&Self>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         let had_data = matches!(source_asset.data, ShaderBufferData::Initialized(_));
@@ -269,12 +314,14 @@ impl RenderAsset for GpuShaderBuffer {
             }
             prev.buffer.clone()
         } else if let ShaderBufferData::Initialized(ref data) = source_asset.data {
+            changed_shader_buffers.insert(asset_id);
             render_device.create_buffer_with_data(&BufferInitDescriptor {
                 label: Some(&*source_asset.label),
                 contents: data,
                 usage: source_asset.buffer_usage,
             })
         } else {
+            changed_shader_buffers.insert(asset_id);
             let new_buffer = render_device.create_buffer(&BufferDescriptor {
                 label: Some(&*source_asset.label),
                 size: source_asset.len(),
@@ -304,4 +351,10 @@ impl RenderAsset for GpuShaderBuffer {
             had_data,
         })
     }
+}
+
+/// A render-world system that clears out the [`RenderChangedShaderBuffers`]
+/// resource in preparation for a new frame.
+fn clear_changed_shader_buffers(mut changed_shader_buffers: ResMut<RenderChangedShaderBuffers>) {
+    changed_shader_buffers.clear();
 }

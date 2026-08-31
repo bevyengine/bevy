@@ -57,6 +57,7 @@ pub mod traversal;
 pub mod world;
 
 pub use bevy_ptr as ptr;
+pub use bevy_utils as utils;
 
 #[cfg(feature = "hotpatching")]
 use message::Message;

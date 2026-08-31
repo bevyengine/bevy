@@ -21,6 +21,7 @@ const POINT_LIGHT_FLAGS_VOLUMETRIC_BIT: u32                         = 1u << 2u;
 const POINT_LIGHT_FLAGS_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE_BIT: u32   = 1u << 3u;
 const POINT_LIGHT_FLAGS_CONTACT_SHADOWS_ENABLED_BIT: u32            = 1u << 4u;
 const POINT_LIGHT_FLAGS_SPOT_LIGHT_BIT: u32                         = 1u << 5u;
+const POINT_LIGHT_FLAGS_RECT_LIGHT_BIT: u32                         = 1u << 6u;
 
 struct DirectionalCascade {
     clip_from_world: mat4x4<f32>,
@@ -185,7 +186,7 @@ struct LightProbes {
 // Settings for screen space reflections.
 //
 // For more information on these settings, see the documentation for
-// `bevy_pbr::ssr::ScreenSpaceReflections`.
+// `package::ssr::ScreenSpaceReflections`.
 struct ScreenSpaceReflectionsSettings {
     min_perceptual_roughness: f32,
     min_perceptual_roughness_fully_active: f32,
