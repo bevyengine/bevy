@@ -2691,7 +2691,7 @@ impl Mesh {
     /// #  .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, vec![Vec3::new(0., 0., 0.)])
     /// #  .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, vec![Vec3::new(1., 1., 1.)])
     /// #  .with_inserted_attribute(Mesh::ATTRIBUTE_COLOR, vec![Vec4::new(2., 2., 2., 2.)]);
-    /// let Some([pos1, pos2, pos3, normal, color]) = mesh.get_attributes_mut([
+    /// let Some([pos1, pos2, pos3, normal, color]) = mesh.get_disjoint_attributes_mut([
     ///     &Mesh::ATTRIBUTE_POSITION.id,
     ///     &Mesh::ATTRIBUTE_POSITION.id,
     ///     &Mesh::ATTRIBUTE_POSITION.id,
@@ -2707,7 +2707,7 @@ impl Mesh {
     /// assert_eq!(normal.unwrap().0, &Mesh::ATTRIBUTE_NORMAL);
     /// assert_eq!(color.unwrap().0, &Mesh::ATTRIBUTE_COLOR);
     /// ```
-    pub fn get_attributes_mut<'a, const N: usize>(
+    pub fn get_disjoint_attributes_mut<'a, const N: usize>(
         &'a mut self,
         mesh_vertex_attribute_ids: [&MeshVertexAttributeId; N],
     ) -> Option<[Option<(&'a MeshVertexAttribute, &'a mut VertexAttributeValues)>; N]> {
@@ -3783,7 +3783,7 @@ mod tests {
         mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, vec![Vec3::new(1., 1., 1.)]);
         mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, vec![Vec4::new(2., 2., 2., 2.)]);
         {
-            let Some([pos, normal, color]) = mesh.get_attributes_mut([
+            let Some([pos, normal, color]) = mesh.get_disjoint_attributes_mut([
                 &Mesh::ATTRIBUTE_POSITION.id,
                 &Mesh::ATTRIBUTE_NORMAL.id,
                 &Mesh::ATTRIBUTE_COLOR.id,
@@ -3795,7 +3795,7 @@ mod tests {
             assert_eq!(color.unwrap().0, &Mesh::ATTRIBUTE_COLOR);
         }
         {
-            let Some([pos, color, normal]) = mesh.get_attributes_mut([
+            let Some([pos, color, normal]) = mesh.get_disjoint_attributes_mut([
                 &Mesh::ATTRIBUTE_POSITION.id,
                 &Mesh::ATTRIBUTE_COLOR.id,
                 &Mesh::ATTRIBUTE_NORMAL.id,
@@ -3807,7 +3807,7 @@ mod tests {
             assert_eq!(normal.unwrap().0, &Mesh::ATTRIBUTE_NORMAL);
         }
         {
-            let Some([pos1, pos2, pos3]) = mesh.get_attributes_mut([
+            let Some([pos1, pos2, pos3]) = mesh.get_disjoint_attributes_mut([
                 &Mesh::ATTRIBUTE_POSITION.id,
                 &Mesh::ATTRIBUTE_POSITION.id,
                 &Mesh::ATTRIBUTE_POSITION.id,
@@ -3819,7 +3819,7 @@ mod tests {
             assert!(pos3.is_none());
         }
         {
-            let Some([pos1, pos2, pos3, normal, color]) = mesh.get_attributes_mut([
+            let Some([pos1, pos2, pos3, normal, color]) = mesh.get_disjoint_attributes_mut([
                 &Mesh::ATTRIBUTE_POSITION.id,
                 &Mesh::ATTRIBUTE_POSITION.id,
                 &Mesh::ATTRIBUTE_POSITION.id,
@@ -3835,7 +3835,7 @@ mod tests {
             assert_eq!(color.unwrap().0, &Mesh::ATTRIBUTE_COLOR);
         }
         {
-            let Some([color, uv0, normal, uv1, pos]) = mesh.get_attributes_mut([
+            let Some([color, uv0, normal, uv1, pos]) = mesh.get_disjoint_attributes_mut([
                 &Mesh::ATTRIBUTE_COLOR.id,
                 &Mesh::ATTRIBUTE_UV_0.id,
                 &Mesh::ATTRIBUTE_NORMAL.id,
