@@ -80,11 +80,11 @@ fn spawn_scene(
                 shadow_maps_enabled: true,
             }
             Transform::from_xyz(4.0, 8.0, 4.0).looking_at(Vec3::ZERO, Vec3::Y)
-            @template_value(CascadeShadowConfigBuilder {
+            CascadeShadowConfigBuilder {
                 num_cascades: 1,
                 maximum_distance: 20.0,
                 ..default()
-            }.build())
+            }.build()
         ),
         (
             Camera3d
