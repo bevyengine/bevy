@@ -11,7 +11,10 @@ use bevy_camera::{
     visibility::{InheritedVisibility, ViewVisibility},
 };
 use bevy_math::{bounding::Aabb3d, Ray3d};
-use bevy_mesh::{Mesh, Mesh2d, Mesh3d};
+use bevy_mesh::{
+    skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
+    Mesh, Mesh2d, Mesh3d,
+};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 use intersections::*;
@@ -174,6 +177,8 @@ pub struct MeshRayCast<'w, 's> {
     #[doc(hidden)]
     pub meshes: Res<'w, Assets<Mesh>>,
     #[doc(hidden)]
+    pub inverse_bindposes: Res<'w, Assets<SkinnedMeshInverseBindposes>>,
+    #[doc(hidden)]
     pub hits: Local<'s, Vec<(FloatOrd, (Entity, RayMeshHit))>>,
     #[doc(hidden)]
     pub output: Local<'s, Vec<(Entity, RayMeshHit)>>,
@@ -200,11 +205,14 @@ pub struct MeshRayCast<'w, 's> {
             Option<Read<Mesh2d>>,
             Option<Read<Mesh3d>>,
             Option<Read<SimplifiedMesh>>,
+            Option<Read<SkinnedMesh>>,
             Has<RayCastBackfaces>,
             Read<GlobalTransform>,
         ),
         MeshFilter,
     >,
+    #[doc(hidden)]
+    pub joint_query: Query<'w, 's, Read<GlobalTransform>>,
 }
 
 impl<'w, 's> MeshRayCast<'w, 's> {
@@ -258,7 +266,7 @@ impl<'w, 's> MeshRayCast<'w, 's> {
             .filter(|(_, entity)| (settings.filter)(*entity))
             .for_each(|(aabb_near, entity)| {
                 // Get the mesh components and transform.
-                let Ok((mesh2d, mesh3d, simplified_mesh, has_backfaces, transform)) =
+                let Ok((mesh2d, mesh3d, simplified_mesh, skinned_mesh, has_backfaces, transform)) =
                     self.mesh_query.get(*entity)
                 else {
                     return;
@@ -291,7 +299,26 @@ impl<'w, 's> MeshRayCast<'w, 's> {
                 // Perform the actual ray cast.
                 let _ray_cast_guard = ray_cast_guard.enter();
                 let transform = transform.affine();
-                let intersection = ray_intersection_over_mesh(mesh, &transform, ray, backfaces);
+                let skinning_matrices = skinned_mesh
+                    .filter(|_| simplified_mesh.is_none())
+                    .and_then(|skin| {
+                        let inverse_bindposes =
+                            self.inverse_bindposes.get(&skin.inverse_bindposes)?;
+                        skin.joints
+                            .iter()
+                            .zip(inverse_bindposes.iter())
+                            .map(|(&joint, &inverse_bindpose)| {
+                                Some(self.joint_query.get(joint).ok()?.affine() * inverse_bindpose)
+                            })
+                            .collect::<Option<Vec<_>>>()
+                    });
+                let intersection = ray_intersection_over_mesh(
+                    mesh,
+                    &transform,
+                    skinning_matrices.as_deref(),
+                    ray,
+                    backfaces,
+                );
 
                 if let Some(intersection) = intersection {
                     let distance = FloatOrd(intersection.distance);
