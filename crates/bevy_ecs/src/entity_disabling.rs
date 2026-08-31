@@ -253,42 +253,44 @@ mod tests {
     #[test]
     fn filters_modify_access() {
         let mut filters = DefaultQueryFilters::empty();
-        filters.register_disabling_component(ComponentId::new(1));
+        filters.register_disabling_component(ComponentId::from_u32(1));
 
         // A component access with an unrelated component
         let mut component_access = FilteredAccess::default();
-        component_access.access_mut().add_read(ComponentId::new(2));
+        component_access
+            .access_mut()
+            .add_read(ComponentId::from_u32(2));
 
         let mut applied_access = component_access.clone();
         filters.modify_access(&mut applied_access);
         assert_eq!(0, applied_access.with_filters().count());
         assert_eq!(
-            vec![ComponentId::new(1)],
+            vec![ComponentId::from_u32(1)],
             applied_access.without_filters().collect::<Vec<_>>()
         );
 
         // We add a with filter, now we expect to see both filters
-        component_access.and_with(ComponentId::new(4));
+        component_access.and_with(ComponentId::from_u32(4));
 
         let mut applied_access = component_access.clone();
         filters.modify_access(&mut applied_access);
         assert_eq!(
-            vec![ComponentId::new(4)],
+            vec![ComponentId::from_u32(4)],
             applied_access.with_filters().collect::<Vec<_>>()
         );
         assert_eq!(
-            vec![ComponentId::new(1)],
+            vec![ComponentId::from_u32(1)],
             applied_access.without_filters().collect::<Vec<_>>()
         );
 
         let copy = component_access.clone();
         // We add a rule targeting a default component, that filter should no longer be added
-        component_access.and_with(ComponentId::new(1));
+        component_access.and_with(ComponentId::from_u32(1));
 
         let mut applied_access = component_access.clone();
         filters.modify_access(&mut applied_access);
         assert_eq!(
-            vec![ComponentId::new(1), ComponentId::new(4)],
+            vec![ComponentId::from_u32(1), ComponentId::from_u32(4)],
             applied_access.with_filters().collect::<Vec<_>>()
         );
         assert_eq!(0, applied_access.without_filters().count());
@@ -297,12 +299,12 @@ mod tests {
         component_access = copy.clone();
         component_access
             .access_mut()
-            .add_archetypal(ComponentId::new(1));
+            .add_archetypal(ComponentId::from_u32(1));
 
         let mut applied_access = component_access.clone();
         filters.modify_access(&mut applied_access);
         assert_eq!(
-            vec![ComponentId::new(4)],
+            vec![ComponentId::from_u32(4)],
             applied_access.with_filters().collect::<Vec<_>>()
         );
         assert_eq!(0, applied_access.without_filters().count());

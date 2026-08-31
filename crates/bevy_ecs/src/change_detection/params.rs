@@ -95,7 +95,7 @@ impl<'w> ContiguousComponentTicksRef<'w> {
     }
 
     /// Creates a new `ContiguousComponentTicksRef` using provided values or returns [`None`] if lengths of
-    /// `added`, `changed` and `changed_by` do not match    
+    /// `added`, `changed` and `changed_by` do not match
     ///
     /// This is an advanced feature, `ContiguousComponentTicksRef`s are designed to be _created_ by
     /// engine-internal code and _consumed_ by end-user code.
@@ -338,7 +338,7 @@ impl<'w> ContiguousComponentTicksMut<'w> {
     }
 
     /// Creates a new `ContiguousComponentTicksMut` using provided values or returns [`None`] if lengths of
-    /// `added`, `changed` and `changed_by` do not match    
+    /// `added`, `changed` and `changed_by` do not match
     ///
     /// This is an advanced feature, `ContiguousComponentTicksMut`s are designed to be _created_ by
     /// engine-internal code and _consumed_ by end-user code.
@@ -869,7 +869,7 @@ impl<'w, T> ContiguousRef<'w, T> {
     }
 
     /// Creates a new `ContiguousRef` using provided values or returns [`None`] if lengths of
-    /// `value`, `added`, `changed` and `changed_by` do not match    
+    /// `value`, `added`, `changed` and `changed_by` do not match
     ///
     /// This is an advanced feature, `ContiguousRef`s are designed to be _created_ by
     /// engine-internal code and _consumed_ by end-user code.
@@ -1153,7 +1153,7 @@ impl<'w, T> ContiguousMut<'w, T> {
     }
 
     /// Creates a new `ContiguousMut` using provided values or returns [`None`] if lengths of
-    /// `value`, `added`, `changed` and `changed_by` do not match    
+    /// `value`, `added`, `changed` and `changed_by` do not match
     ///
     /// This is an advanced feature, `ContiguousMut`s are designed to be _created_ by
     /// engine-internal code and _consumed_ by end-user code.

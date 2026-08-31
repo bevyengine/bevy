@@ -39,13 +39,18 @@ impl Observers {
     pub(crate) fn get_observers_mut(&mut self, event_key: EventKey) -> &mut CachedObservers {
         use crate::lifecycle::*;
 
-        match event_key {
-            ADD => &mut self.add,
-            INSERT => &mut self.insert,
-            DISCARD => &mut self.discard,
-            REMOVE => &mut self.remove,
-            DESPAWN => &mut self.despawn,
-            _ => self.cache.entry(event_key).or_default(),
+        if event_key == ADD {
+            &mut self.add
+        } else if event_key == INSERT {
+            &mut self.insert
+        } else if event_key == DISCARD {
+            &mut self.discard
+        } else if event_key == REMOVE {
+            &mut self.remove
+        } else if event_key == DESPAWN {
+            &mut self.despawn
+        } else {
+            self.cache.entry(event_key).or_default()
         }
     }
 
@@ -62,26 +67,36 @@ impl Observers {
     pub fn try_get_observers(&self, event_key: EventKey) -> Option<&CachedObservers> {
         use crate::lifecycle::*;
 
-        match event_key {
-            ADD => Some(&self.add),
-            INSERT => Some(&self.insert),
-            DISCARD => Some(&self.discard),
-            REMOVE => Some(&self.remove),
-            DESPAWN => Some(&self.despawn),
-            _ => self.cache.get(&event_key),
+        if event_key == ADD {
+            Some(&self.add)
+        } else if event_key == INSERT {
+            Some(&self.insert)
+        } else if event_key == DISCARD {
+            Some(&self.discard)
+        } else if event_key == REMOVE {
+            Some(&self.remove)
+        } else if event_key == DESPAWN {
+            Some(&self.despawn)
+        } else {
+            self.cache.get(&event_key)
         }
     }
 
     pub(crate) fn is_archetype_cached(event_key: EventKey) -> Option<ArchetypeFlags> {
         use crate::lifecycle::*;
 
-        match event_key {
-            ADD => Some(ArchetypeFlags::ON_ADD_OBSERVER),
-            INSERT => Some(ArchetypeFlags::ON_INSERT_OBSERVER),
-            DISCARD => Some(ArchetypeFlags::ON_DISCARD_OBSERVER),
-            REMOVE => Some(ArchetypeFlags::ON_REMOVE_OBSERVER),
-            DESPAWN => Some(ArchetypeFlags::ON_DESPAWN_OBSERVER),
-            _ => None,
+        if event_key == ADD {
+            Some(ArchetypeFlags::ON_ADD_OBSERVER)
+        } else if event_key == INSERT {
+            Some(ArchetypeFlags::ON_INSERT_OBSERVER)
+        } else if event_key == DISCARD {
+            Some(ArchetypeFlags::ON_DISCARD_OBSERVER)
+        } else if event_key == REMOVE {
+            Some(ArchetypeFlags::ON_REMOVE_OBSERVER)
+        } else if event_key == DESPAWN {
+            Some(ArchetypeFlags::ON_DESPAWN_OBSERVER)
+        } else {
+            None
         }
     }
 

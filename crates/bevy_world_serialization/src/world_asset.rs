@@ -5,8 +5,8 @@ use crate::{DynamicWorld, WorldInstanceSpawnError};
 use bevy_asset::Asset;
 use bevy_ecs::resource::IS_RESOURCE;
 use bevy_ecs::{
-    component::ComponentCloneBehavior,
-    entity::{Entity, EntityHashMap, SceneEntityMapper},
+    component::{ComponentCloneBehavior, ComponentId},
+    entity::{ContainsEntity, Entity, EntityHashMap, SceneEntityMapper},
     entity_disabling::DefaultQueryFilters,
     reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
     relationship::RelationshipHookMode,
@@ -74,8 +74,14 @@ impl WorldAsset {
             .components()
             .get_id(TypeId::of::<DefaultQueryFilters>());
 
+        let ids: Vec<ComponentId> = self.world.components().iter_registered_ids().collect();
         // Resources archetype
-        for (component_id, source_entity) in self.world.resource_entities().iter() {
+        for component_id in ids {
+            let source_entity = component_id.entity();
+
+            if !self.world.entities().contains_spawned(source_entity) {
+                continue;
+            }
             if Some(component_id) == self_dqf_id {
                 continue;
             }
@@ -112,21 +118,29 @@ impl WorldAsset {
                 .data::<ReflectComponent>()
                 .expect("ReflectComponent is depended on ReflectResource");
 
-            // check if the resource already exists in the other world, if not spawn it
-            let destination_entity =
-                if let Some(entity) = world.resource_entities().get(component_id) {
-                    entity
-                } else {
-                    world.spawn_empty().id()
-                };
+            let Some(resource) = reflect_component
+                .reflect(self.world.entity(source_entity))
+                .map(|component| clone_reflect_value(component.as_partial_reflect(), registration))
+            else {
+                continue;
+            };
 
-            reflect_component.copy(
-                &self.world,
-                world,
-                source_entity,
-                destination_entity,
-                &type_registry,
-            );
+            let destination_component_id = reflect_component.register_component(world);
+            let destination_entity = destination_component_id.entity();
+
+            if !world.entities().contains_spawned(destination_entity) {
+                let _ = world.spawn_empty_at(destination_entity);
+            }
+
+            SceneEntityMapper::world_scope(entity_map, world, |world, mapper| {
+                reflect_component.apply_or_insert_mapped(
+                    &mut world.entity_mut(source_entity),
+                    resource.as_partial_reflect(),
+                    &type_registry,
+                    mapper,
+                    RelationshipHookMode::Skip,
+                );
+            });
         }
 
         // Ensure that all source world entities have been allocated in the destination
