@@ -41,9 +41,7 @@ pub struct HierarchyChanges<'w, 's> {
     changed: Query<'w, 's, Entity, Or<(Changed<Children>, Changed<ChildOf>, Added<Node>)>>,
     removed_child_ofs: RemovedComponents<'w, 's, ChildOf>,
     removed_nodes: RemovedComponents<'w, 's, Node>,
-    #[cfg(feature = "ghost_nodes")]
     added_ghost_nodes: Query<'w, 's, Entity, Added<GhostNode>>,
-    #[cfg(feature = "ghost_nodes")]
     removed_ghost_nodes: RemovedComponents<'w, 's, GhostNode>,
 }
 
@@ -56,17 +54,7 @@ impl HierarchyChanges<'_, '_> {
         self.removed_child_ofs.clear();
         self.removed_nodes.clear();
 
-        #[cfg(not(feature = "ghost_nodes"))]
-        let ghosts_changed = false;
-        #[cfg(feature = "ghost_nodes")]
-        let ghosts_changed = {
-            let ghosts_changed =
-                !self.added_ghost_nodes.is_empty() || !self.removed_ghost_nodes.is_empty();
-            self.removed_ghost_nodes.clear();
-            ghosts_changed
-        };
-
-        changed || ghosts_changed
+        changed
     }
 }
 
@@ -182,7 +170,7 @@ pub fn update_taffy_styles(
 }
 
 pub fn mark_dirty_ui_trees(
-    #[cfg(not(feature = "ghost_nodes"))] changed: Query<
+    changed: Query<
         Entity,
         (
             Or<(
@@ -196,25 +184,6 @@ pub fn mark_dirty_ui_trees(
                 Changed<Children>,
                 Changed<ChildOf>,
                 Added<FixedNode>,
-            )>,
-            With<Node>,
-        ),
-    >,
-    #[cfg(feature = "ghost_nodes")] changed: Query<
-        Entity,
-        (
-            Or<(
-                Changed<TaffyStyle>,
-                Changed<ContentSize>,
-                Changed<UiTransform>,
-                Changed<ScrollPosition>,
-                Changed<Outline>,
-                Changed<LayoutConfig>,
-                Changed<IgnoreScroll>,
-                Changed<Children>,
-                Changed<ChildOf>,
-                Added<FixedNode>,
-                Added<GhostNode>,
             )>,
             Or<(With<Node>, With<GhostNode>)>,
         ),
@@ -225,8 +194,8 @@ pub fn mark_dirty_ui_trees(
     mut removed_fixed_nodes: RemovedComponents<FixedNode>,
     mut removed_child_ofs: RemovedComponents<ChildOf>,
     mut removed_nodes: RemovedComponents<Node>,
-    #[cfg(feature = "ghost_nodes")] mut removed_ghost_nodes: RemovedComponents<GhostNode>,
     mut trees: Query<&mut UiTreeChanged>,
+    mut removed_ghost_nodes: RemovedComponents<GhostNode>,
     ui_children: UiChildren,
 ) {
     let removed = removed_outlines
@@ -236,7 +205,7 @@ pub fn mark_dirty_ui_trees(
         .chain(removed_fixed_nodes.read())
         .chain(removed_child_ofs.read())
         .chain(removed_nodes.read());
-    #[cfg(feature = "ghost_nodes")]
+
     let removed = removed.chain(removed_ghost_nodes.read());
 
     for entity in changed.iter().chain(removed) {
@@ -2714,99 +2683,75 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "ghost_nodes")]
-    mod ghost_node_tests {
-        use super::*;
-        use crate::experimental::GhostNode;
+    #[test]
+    fn ghost_nodes_flatten_layout_children() {
+        let mut app = setup_ui_test_app();
+        let world = app.world_mut();
 
-        #[test]
-        fn ghost_nodes_flatten_layout_children() {
-            let mut app = setup_ui_test_app();
-            let world = app.world_mut();
+        let child = world
+            .spawn(Node {
+                width: px(50.),
+                height: px(10.),
+                ..default()
+            })
+            .id();
+        let mid = world.spawn(GhostNode).add_child(child).id();
+        let root = world
+            .spawn(Node {
+                width: px(100.),
+                height: px(20.),
+                ..default()
+            })
+            .add_child(mid)
+            .id();
 
-            let child = world
-                .spawn(Node {
-                    width: px(50.),
-                    height: px(10.),
-                    ..default()
-                })
-                .id();
-            let mid = world.spawn(GhostNode).add_child(child).id();
-            let root = world
-                .spawn(Node {
-                    width: px(100.),
-                    height: px(20.),
-                    ..default()
-                })
-                .add_child(mid)
-                .id();
+        app.update();
+        assert!(app
+            .world()
+            .get::<ComputedLayout>(child)
+            .is_some_and(ComputedLayout::has_layout));
 
-            app.update();
-            assert!(app
-                .world()
-                .get::<ComputedLayout>(child)
-                .is_some_and(ComputedLayout::has_layout));
+        app.world_mut().entity_mut(mid).remove::<GhostNode>();
+        app.update();
+        assert!(!app
+            .world()
+            .get::<ComputedLayout>(child)
+            .is_some_and(ComputedLayout::has_layout));
+        assert_eq!(
+            app.world().get::<ComputedNode>(child).unwrap().size(),
+            Vec2::ZERO
+        );
 
-            app.world_mut().entity_mut(mid).remove::<GhostNode>();
-            app.update();
-            assert!(!app
-                .world()
-                .get::<ComputedLayout>(child)
-                .is_some_and(ComputedLayout::has_layout));
-            assert_eq!(
-                app.world().get::<ComputedNode>(child).unwrap().size(),
-                Vec2::ZERO
-            );
+        app.world_mut().entity_mut(mid).insert(GhostNode);
+        app.update();
+        let root_layout = app
+            .world()
+            .get::<ComputedLayout>(root)
+            .and_then(|layout| layout.get_layout(true))
+            .unwrap()
+            .0;
+        let child_layout = app
+            .world()
+            .get::<ComputedLayout>(child)
+            .and_then(|layout| layout.get_layout(true))
+            .unwrap()
+            .0;
+        assert_eq!(root_layout.size.width, 100.);
+        assert_eq!(child_layout.size.width, 50.);
+    }
 
-            app.world_mut().entity_mut(mid).insert(GhostNode);
-            app.update();
-            let root_layout = app
-                .world()
-                .get::<ComputedLayout>(root)
-                .and_then(|layout| layout.get_layout(true))
-                .unwrap()
-                .0;
-            let child_layout = app
-                .world()
-                .get::<ComputedLayout>(child)
-                .and_then(|layout| layout.get_layout(true))
-                .unwrap()
-                .0;
-            assert_eq!(root_layout.size.width, 100.);
-            assert_eq!(child_layout.size.width, 50.);
-        }
+    #[test]
+    fn unparenting_ghost_child_makes_child_layout_root() {
+        let mut app = setup_ui_test_app();
+        let world = app.world_mut();
 
-        #[test]
-        fn unparenting_ghost_child_makes_child_layout_root() {
-            let mut app = setup_ui_test_app();
-            let world = app.world_mut();
+        let child = world.spawn(Node::default()).id();
+        let ghost = world.spawn(GhostNode).add_child(child).id();
+        let root = world.spawn(Node::default()).add_child(ghost).id();
 
-            let child = world.spawn(Node::default()).id();
-            let ghost = world.spawn(GhostNode).add_child(child).id();
-            let root = world.spawn(Node::default()).add_child(ghost).id();
-
-            app.update();
-            let world = app.world_mut();
-            {
-                let mut system_state = bevy_ecs::system::SystemState::<(
-                    UiChildren,
-                    crate::experimental::UiRootNodes,
-                )>::new(world);
-                let (ui_children, ui_root_nodes) = system_state.get(world).unwrap();
-                assert_eq!(
-                    ui_children.iter_ui_children(root).collect::<Vec<_>>(),
-                    vec![child]
-                );
-                assert_eq!(ui_children.get_parent(child), Some(root));
-                let root_nodes = ui_root_nodes.iter().collect::<Vec<_>>();
-                assert!(root_nodes.contains(&root));
-                assert!(!root_nodes.contains(&child));
-            }
-
-            world.entity_mut(ghost).detach_all_children();
-
-            app.update();
-            let world = app.world_mut();
+        app.update();
+        let world = app.world_mut();
+        {
             let mut system_state = bevy_ecs::system::SystemState::<(
                 UiChildren,
                 crate::experimental::UiRootNodes,
@@ -2814,38 +2759,78 @@ mod tests {
             let (ui_children, ui_root_nodes) = system_state.get(world).unwrap();
             assert_eq!(
                 ui_children.iter_ui_children(root).collect::<Vec<_>>(),
-                Vec::<Entity>::new()
+                vec![child]
             );
-            assert_eq!(ui_children.get_parent(child), None);
+            assert_eq!(ui_children.get_parent(child), Some(root));
             let root_nodes = ui_root_nodes.iter().collect::<Vec<_>>();
             assert!(root_nodes.contains(&root));
-            assert!(root_nodes.contains(&child));
+            assert!(!root_nodes.contains(&child));
         }
 
-        #[test]
-        fn adding_intermediate_ghost_node_includes_child_in_layout() {
-            let mut app = setup_ui_test_app();
-            let world = app.world_mut();
+        world.entity_mut(ghost).detach_all_children();
 
-            let child = world.spawn(Node::default()).id();
-            let mid = world.spawn_empty().add_child(child).id();
-            let root = world.spawn(Node::default()).add_child(mid).id();
+        app.update();
+        let world = app.world_mut();
+        let mut system_state = bevy_ecs::system::SystemState::<(
+            UiChildren,
+            crate::experimental::UiRootNodes,
+        )>::new(world);
+        let (ui_children, ui_root_nodes) = system_state.get(world).unwrap();
+        assert_eq!(
+            ui_children.iter_ui_children(root).collect::<Vec<_>>(),
+            Vec::<Entity>::new()
+        );
+        assert_eq!(ui_children.get_parent(child), None);
+        let root_nodes = ui_root_nodes.iter().collect::<Vec<_>>();
+        assert!(root_nodes.contains(&root));
+        assert!(root_nodes.contains(&child));
+    }
 
-            app.update();
-            let world = app.world_mut();
-            {
-                let mut system_state = bevy_ecs::system::SystemState::<UiChildren>::new(world);
-                let ui_children = system_state.get(world).unwrap();
-                assert_eq!(
-                    ui_children.iter_ui_children(root).collect::<Vec<_>>(),
-                    Vec::<Entity>::new()
-                );
-            }
+    #[test]
+    fn adding_intermediate_ghost_node_includes_child_in_layout() {
+        let mut app = setup_ui_test_app();
+        let world = app.world_mut();
 
-            world.entity_mut(mid).insert(GhostNode);
+        let child = world.spawn(Node::default()).id();
+        let mid = world.spawn_empty().add_child(child).id();
+        let root = world.spawn(Node::default()).add_child(mid).id();
 
-            app.update();
-            let world = app.world_mut();
+        app.update();
+        let world = app.world_mut();
+        {
+            let mut system_state = bevy_ecs::system::SystemState::<UiChildren>::new(world);
+            let ui_children = system_state.get(world).unwrap();
+            assert_eq!(
+                ui_children.iter_ui_children(root).collect::<Vec<_>>(),
+                Vec::<Entity>::new()
+            );
+        }
+
+        world.entity_mut(mid).insert(GhostNode);
+
+        app.update();
+        let world = app.world_mut();
+        let mut system_state = bevy_ecs::system::SystemState::<UiChildren>::new(world);
+        let ui_children = system_state.get(world).unwrap();
+        assert_eq!(
+            ui_children.iter_ui_children(root).collect::<Vec<_>>(),
+            vec![child]
+        );
+        assert_eq!(ui_children.get_parent(child), Some(root));
+    }
+
+    #[test]
+    fn removing_intermediate_ghost_node_excludes_child_from_layout() {
+        let mut app = setup_ui_test_app();
+        let world = app.world_mut();
+
+        let child = world.spawn(Node::default()).id();
+        let mid = world.spawn(GhostNode).add_child(child).id();
+        let root = world.spawn(Node::default()).add_child(mid).id();
+
+        app.update();
+        let world = app.world_mut();
+        {
             let mut system_state = bevy_ecs::system::SystemState::<UiChildren>::new(world);
             let ui_children = system_state.get(world).unwrap();
             assert_eq!(
@@ -2855,96 +2840,58 @@ mod tests {
             assert_eq!(ui_children.get_parent(child), Some(root));
         }
 
-        #[test]
-        fn removing_intermediate_ghost_node_excludes_child_from_layout() {
-            let mut app = setup_ui_test_app();
-            let world = app.world_mut();
+        world.entity_mut(mid).remove::<GhostNode>();
 
-            let child = world.spawn(Node::default()).id();
-            let mid = world.spawn(GhostNode).add_child(child).id();
-            let root = world.spawn(Node::default()).add_child(mid).id();
+        app.update();
+        let world = app.world_mut();
+        let mut system_state = bevy_ecs::system::SystemState::<UiChildren>::new(world);
+        let ui_children = system_state.get(world).unwrap();
+        assert_eq!(
+            ui_children.iter_ui_children(root).collect::<Vec<_>>(),
+            Vec::<Entity>::new()
+        );
+    }
 
-            app.update();
-            let world = app.world_mut();
-            {
-                let mut system_state = bevy_ecs::system::SystemState::<UiChildren>::new(world);
-                let ui_children = system_state.get(world).unwrap();
-                assert_eq!(
-                    ui_children.iter_ui_children(root).collect::<Vec<_>>(),
-                    vec![child]
-                );
-                assert_eq!(ui_children.get_parent(child), Some(root));
-            }
+    #[test]
+    fn fixed_nodes_remain_layout_roots_through_ghost_changes() {
+        let mut app = setup_ui_test_app();
+        let world = app.world_mut();
 
-            world.entity_mut(mid).remove::<GhostNode>();
+        let fixed = world.spawn((Node::default(), FixedNode)).id();
+        let ghost1 = world.spawn(GhostNode).add_child(fixed).id();
 
-            app.update();
-            let world = app.world_mut();
-            let mut system_state = bevy_ecs::system::SystemState::<UiChildren>::new(world);
-            let ui_children = system_state.get(world).unwrap();
-            assert_eq!(
-                ui_children.iter_ui_children(root).collect::<Vec<_>>(),
-                Vec::<Entity>::new()
-            );
+        app.update();
+        let world = app.world_mut();
+        {
+            let mut system_state = bevy_ecs::system::SystemState::<(
+                crate::experimental::UiRootNodes,
+                Query<Entity, (With<FixedNode>, With<ChildOf>)>,
+            )>::new(world);
+            let (ui_root_nodes, fixed_nodes) = system_state.get(world).unwrap();
+            assert!(ui_root_nodes.iter().collect::<Vec<_>>().contains(&fixed));
+            assert!(fixed_nodes.contains(fixed));
         }
 
-        #[test]
-        fn fixed_nodes_remain_layout_roots_through_ghost_changes() {
-            let mut app = setup_ui_test_app();
-            let world = app.world_mut();
+        world.spawn(GhostNode).add_child(ghost1);
 
-            let fixed = world.spawn((Node::default(), FixedNode)).id();
-            let ghost1 = world.spawn(GhostNode).add_child(fixed).id();
+        app.update();
+        let world = app.world_mut();
+        {
+            let mut system_state = bevy_ecs::system::SystemState::<(
+                crate::experimental::UiRootNodes,
+                Query<Entity, (With<FixedNode>, With<ChildOf>)>,
+            )>::new(world);
+            let (ui_root_nodes, fixed_nodes) = system_state.get(world).unwrap();
+            assert!(ui_root_nodes.iter().collect::<Vec<_>>().contains(&fixed));
+            assert!(fixed_nodes.contains(fixed));
+        }
 
-            app.update();
-            let world = app.world_mut();
-            {
-                let mut system_state = bevy_ecs::system::SystemState::<(
-                    crate::experimental::UiRootNodes,
-                    Query<Entity, (With<FixedNode>, With<ChildOf>)>,
-                )>::new(world);
-                let (ui_root_nodes, fixed_nodes) = system_state.get(world).unwrap();
-                assert!(ui_root_nodes.iter().collect::<Vec<_>>().contains(&fixed));
-                assert!(fixed_nodes.contains(fixed));
-            }
+        let fixed2 = world.spawn((Node::default(), FixedNode)).id();
+        let ghost3 = world.spawn(GhostNode).add_child(fixed2).id();
 
-            world.spawn(GhostNode).add_child(ghost1);
-
-            app.update();
-            let world = app.world_mut();
-            {
-                let mut system_state = bevy_ecs::system::SystemState::<(
-                    crate::experimental::UiRootNodes,
-                    Query<Entity, (With<FixedNode>, With<ChildOf>)>,
-                )>::new(world);
-                let (ui_root_nodes, fixed_nodes) = system_state.get(world).unwrap();
-                assert!(ui_root_nodes.iter().collect::<Vec<_>>().contains(&fixed));
-                assert!(fixed_nodes.contains(fixed));
-            }
-
-            let fixed2 = world.spawn((Node::default(), FixedNode)).id();
-            let ghost3 = world.spawn(GhostNode).add_child(fixed2).id();
-
-            app.update();
-            let world = app.world_mut();
-            {
-                let mut system_state = bevy_ecs::system::SystemState::<(
-                    crate::experimental::UiRootNodes,
-                    Query<Entity, (With<FixedNode>, With<ChildOf>)>,
-                )>::new(world);
-                let (ui_root_nodes, fixed_nodes) = system_state.get(world).unwrap();
-                let root_nodes = ui_root_nodes.iter().collect::<Vec<_>>();
-                assert!(root_nodes.contains(&fixed));
-                assert!(root_nodes.contains(&fixed2));
-                assert!(fixed_nodes.contains(fixed));
-                assert!(fixed_nodes.contains(fixed2));
-            }
-
-            world.entity_mut(ghost1).detach_all_children();
-            world.entity_mut(ghost3).detach_all_children();
-
-            app.update();
-            let world = app.world_mut();
+        app.update();
+        let world = app.world_mut();
+        {
             let mut system_state = bevy_ecs::system::SystemState::<(
                 crate::experimental::UiRootNodes,
                 Query<Entity, (With<FixedNode>, With<ChildOf>)>,
@@ -2953,132 +2900,148 @@ mod tests {
             let root_nodes = ui_root_nodes.iter().collect::<Vec<_>>();
             assert!(root_nodes.contains(&fixed));
             assert!(root_nodes.contains(&fixed2));
-            assert!(!fixed_nodes.contains(fixed));
-            assert!(!fixed_nodes.contains(fixed2));
+            assert!(fixed_nodes.contains(fixed));
+            assert!(fixed_nodes.contains(fixed2));
         }
 
-        #[test]
-        fn fixed_ghost_child_is_separate_layout_root() {
-            let mut app = setup_ui_test_app();
-            let world = app.world_mut();
+        world.entity_mut(ghost1).detach_all_children();
+        world.entity_mut(ghost3).detach_all_children();
 
-            let fixed = world.spawn((Node::default(), FixedNode)).id();
-            let child = world.spawn(Node::default()).id();
-            let ghost = world.spawn(GhostNode).add_children(&[fixed, child]).id();
-            let root = world.spawn(Node::default()).add_child(ghost).id();
+        app.update();
+        let world = app.world_mut();
+        let mut system_state = bevy_ecs::system::SystemState::<(
+            crate::experimental::UiRootNodes,
+            Query<Entity, (With<FixedNode>, With<ChildOf>)>,
+        )>::new(world);
+        let (ui_root_nodes, fixed_nodes) = system_state.get(world).unwrap();
+        let root_nodes = ui_root_nodes.iter().collect::<Vec<_>>();
+        assert!(root_nodes.contains(&fixed));
+        assert!(root_nodes.contains(&fixed2));
+        assert!(!fixed_nodes.contains(fixed));
+        assert!(!fixed_nodes.contains(fixed2));
+    }
 
-            app.update();
-            let world = app.world_mut();
+    #[test]
+    fn fixed_ghost_child_is_separate_layout_root() {
+        let mut app = setup_ui_test_app();
+        let world = app.world_mut();
+
+        let fixed = world.spawn((Node::default(), FixedNode)).id();
+        let child = world.spawn(Node::default()).id();
+        let ghost = world.spawn(GhostNode).add_children(&[fixed, child]).id();
+        let root = world.spawn(Node::default()).add_child(ghost).id();
+
+        app.update();
+        let world = app.world_mut();
+        let mut system_state = bevy_ecs::system::SystemState::<(
+            UiChildren,
+            crate::experimental::UiRootNodes,
+            Query<Entity, (With<FixedNode>, With<ChildOf>)>,
+        )>::new(world);
+        let (ui_children, ui_root_nodes, fixed_nodes) = system_state.get(world).unwrap();
+        assert_eq!(
+            ui_children.iter_ui_children(root).collect::<Vec<_>>(),
+            vec![fixed, child]
+        );
+        assert_eq!(
+            ui_children
+                .iter_ui_children(root)
+                .filter(|entity| !fixed_nodes.contains(*entity))
+                .collect::<Vec<_>>(),
+            vec![child]
+        );
+        let root_nodes = ui_root_nodes.iter().collect::<Vec<_>>();
+        assert!(root_nodes.contains(&root));
+        assert!(!root_nodes.contains(&fixed));
+        assert!(fixed_nodes.contains(fixed));
+    }
+
+    #[test]
+    fn unghost_ghost_node_with_fixed_and_normal_children() {
+        let mut app = setup_ui_test_app();
+        let world = app.world_mut();
+
+        let fixed = world.spawn((Node::default(), FixedNode)).id();
+        let child = world.spawn(Node::default()).id();
+        let ghost = world.spawn(GhostNode).add_children(&[fixed, child]).id();
+
+        app.update();
+        let world = app.world_mut();
+        {
             let mut system_state = bevy_ecs::system::SystemState::<(
-                UiChildren,
                 crate::experimental::UiRootNodes,
                 Query<Entity, (With<FixedNode>, With<ChildOf>)>,
             )>::new(world);
-            let (ui_children, ui_root_nodes, fixed_nodes) = system_state.get(world).unwrap();
-            assert_eq!(
-                ui_children.iter_ui_children(root).collect::<Vec<_>>(),
-                vec![fixed, child]
-            );
-            assert_eq!(
-                ui_children
-                    .iter_ui_children(root)
-                    .filter(|entity| !fixed_nodes.contains(*entity))
-                    .collect::<Vec<_>>(),
-                vec![child]
-            );
+            let (ui_root_nodes, fixed_nodes) = system_state.get(world).unwrap();
             let root_nodes = ui_root_nodes.iter().collect::<Vec<_>>();
-            assert!(root_nodes.contains(&root));
-            assert!(!root_nodes.contains(&fixed));
+            assert!(root_nodes.contains(&fixed));
+            assert!(root_nodes.contains(&child));
             assert!(fixed_nodes.contains(fixed));
         }
 
-        #[test]
-        fn unghost_ghost_node_with_fixed_and_normal_children() {
-            let mut app = setup_ui_test_app();
-            let world = app.world_mut();
+        world
+            .entity_mut(ghost)
+            .remove::<GhostNode>()
+            .insert(Node::default());
 
-            let fixed = world.spawn((Node::default(), FixedNode)).id();
-            let child = world.spawn(Node::default()).id();
-            let ghost = world.spawn(GhostNode).add_children(&[fixed, child]).id();
+        app.update();
+        let world = app.world_mut();
+        let mut system_state = bevy_ecs::system::SystemState::<(
+            UiChildren,
+            crate::experimental::UiRootNodes,
+            Query<Entity, (With<FixedNode>, With<ChildOf>)>,
+        )>::new(world);
+        let (ui_children, ui_root_nodes, fixed_nodes) = system_state.get(world).unwrap();
+        let root_nodes = ui_root_nodes.iter().collect::<Vec<_>>();
+        assert!(root_nodes.contains(&ghost));
+        assert!(!root_nodes.contains(&child));
+        assert!(fixed_nodes.contains(fixed));
+        assert_eq!(
+            ui_children
+                .iter_ui_children(ghost)
+                .filter(|entity| !fixed_nodes.contains(*entity))
+                .collect::<Vec<_>>(),
+            vec![child]
+        );
+    }
 
-            app.update();
-            let world = app.world_mut();
-            {
-                let mut system_state = bevy_ecs::system::SystemState::<(
-                    crate::experimental::UiRootNodes,
-                    Query<Entity, (With<FixedNode>, With<ChildOf>)>,
-                )>::new(world);
-                let (ui_root_nodes, fixed_nodes) = system_state.get(world).unwrap();
-                let root_nodes = ui_root_nodes.iter().collect::<Vec<_>>();
-                assert!(root_nodes.contains(&fixed));
-                assert!(root_nodes.contains(&child));
-                assert!(fixed_nodes.contains(fixed));
-            }
+    #[test]
+    fn removing_and_replacing_intermediate_ghost_should_relayout_parent() {
+        let mut app = setup_ui_test_app();
 
-            world
-                .entity_mut(ghost)
-                .remove::<GhostNode>()
-                .insert(Node::default());
+        let world = app.world_mut();
+        let child = world
+            .spawn(Node {
+                width: px(50.),
+                height: px(30.),
+                ..default()
+            })
+            .id();
+        let ghost = world.spawn(GhostNode).add_child(child).id();
+        let root = world.spawn(Node::default()).add_child(ghost).id();
+        app.update();
 
-            app.update();
-            let world = app.world_mut();
-            let mut system_state = bevy_ecs::system::SystemState::<(
-                UiChildren,
-                crate::experimental::UiRootNodes,
-                Query<Entity, (With<FixedNode>, With<ChildOf>)>,
-            )>::new(world);
-            let (ui_children, ui_root_nodes, fixed_nodes) = system_state.get(world).unwrap();
-            let root_nodes = ui_root_nodes.iter().collect::<Vec<_>>();
-            assert!(root_nodes.contains(&ghost));
-            assert!(!root_nodes.contains(&child));
-            assert!(fixed_nodes.contains(fixed));
-            assert_eq!(
-                ui_children
-                    .iter_ui_children(ghost)
-                    .filter(|entity| !fixed_nodes.contains(*entity))
-                    .collect::<Vec<_>>(),
-                vec![child]
-            );
-        }
+        app.world_mut().entity_mut(ghost).remove::<GhostNode>();
 
-        #[test]
-        fn removing_and_replacing_intermediate_ghost_should_relayout_parent() {
-            let mut app = setup_ui_test_app();
+        app.update();
 
-            let world = app.world_mut();
-            let child = world
-                .spawn(Node {
-                    width: px(50.),
-                    height: px(30.),
-                    ..default()
-                })
-                .id();
-            let ghost = world.spawn(GhostNode).add_child(child).id();
-            let root = world.spawn(Node::default()).add_child(ghost).id();
-            app.update();
+        assert!(app
+            .world()
+            .entity(root)
+            .get::<ComputedNode>()
+            .unwrap()
+            .size()
+            .abs_diff_eq(Vec2::ZERO, 1e-5));
+        app.world_mut().entity_mut(ghost).insert(GhostNode);
 
-            app.world_mut().entity_mut(ghost).remove::<GhostNode>();
+        app.update();
 
-            app.update();
-
-            assert!(app
-                .world()
-                .entity(root)
-                .get::<ComputedNode>()
-                .unwrap()
-                .size()
-                .abs_diff_eq(Vec2::ZERO, 1e-5));
-            app.world_mut().entity_mut(ghost).insert(GhostNode);
-
-            app.update();
-
-            assert!(app
-                .world()
-                .entity(root)
-                .get::<ComputedNode>()
-                .unwrap()
-                .size()
-                .abs_diff_eq(Vec2::new(50., 30.), 1e-5));
-        }
+        assert!(app
+            .world()
+            .entity(root)
+            .get::<ComputedNode>()
+            .unwrap()
+            .size()
+            .abs_diff_eq(Vec2::new(50., 30.), 1e-5));
     }
 }
