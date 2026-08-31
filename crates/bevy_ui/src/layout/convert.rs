@@ -193,10 +193,15 @@ impl From<AlignSelf> for Option<taffy::style::AlignSelf> {
         match value {
             AlignSelf::Auto => None,
             AlignSelf::Start => taffy::style::AlignSelf::START.into(),
+            AlignSelf::StartSafe => taffy::style::AlignSelf::SAFE_START.into(),
             AlignSelf::End => taffy::style::AlignSelf::END.into(),
+            AlignSelf::EndSafe => taffy::style::AlignSelf::SAFE_END.into(),
             AlignSelf::FlexStart => taffy::style::AlignSelf::FLEX_START.into(),
+            AlignSelf::FlexStartSafe => taffy::style::AlignSelf::SAFE_FLEX_START.into(),
             AlignSelf::FlexEnd => taffy::style::AlignSelf::FLEX_END.into(),
+            AlignSelf::FlexEndSafe => taffy::style::AlignSelf::SAFE_FLEX_END.into(),
             AlignSelf::Center => taffy::style::AlignSelf::CENTER.into(),
+            AlignSelf::CenterSafe => taffy::style::AlignSelf::SAFE_CENTER.into(),
             AlignSelf::Baseline => taffy::style::AlignSelf::BASELINE.into(),
             AlignSelf::Stretch => taffy::style::AlignSelf::STRETCH.into(),
         }
