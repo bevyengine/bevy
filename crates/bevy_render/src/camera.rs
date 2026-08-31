@@ -3,7 +3,7 @@ use core::mem;
 use crate::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
     extract_component::{ExtractComponent, ExtractComponentPlugin},
-    extract_resource::{extract_resource, ExtractResource, ExtractResourcePlugin},
+    extract_resource::{ExtractResource, ExtractResourcePlugin},
     render_asset::RenderAssets,
     render_resource::TextureView,
     sync_component::SyncComponent,
@@ -30,7 +30,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChanges,
     component::Component,
-    entity::{ContainsEntity, Entity, EntityHashMap, EntityHashSet},
+    entity::{ContainsEntity, Entity, EntityHashSet},
     error::BevyError,
     lifecycle::HookContext,
     message::MessageReader,
@@ -45,17 +45,13 @@ use bevy_ecs::{
 use bevy_image::Image;
 use bevy_log::warn;
 use bevy_log::warn_once;
-use bevy_math::{uvec2, vec2, Mat4, URect, UVec2, UVec4, Vec2};
+use bevy_math::{uvec2, vec2, Mat4, UVec2, UVec4, Vec2};
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::prelude::*;
 use bevy_transform::components::GlobalTransform;
 use bevy_window::{PrimaryWindow, Window, WindowCreated, WindowResized, WindowScaleFactorChanged};
 use itertools::Either;
 use wgpu::TextureFormat;
-
-/// Main-pass color [`TextureFormat`] keyed by camera render entity.
-#[derive(Resource, Default, Deref, DerefMut)]
-pub struct CameraMainPassTextureFormats(pub EntityHashMap<TextureFormat>);
 
 #[derive(Default)]
 pub struct CameraPlugin;
@@ -70,13 +66,22 @@ impl Plugin for CameraPlugin {
                 ExtractResourcePlugin::<ClearColor>::default(),
                 ExtractComponentPlugin::<CameraMainTextureUsages>::default(),
             ))
-            .add_systems(PostStartup, camera_system.in_set(CameraUpdateSystems))
+            .add_systems(
+                PostStartup,
+                (camera_system, prepare_view_target_info.after(camera_system))
+                    .in_set(CameraUpdateSystems),
+            )
             .add_systems(
                 PostUpdate,
-                camera_system
-                    .in_set(CameraUpdateSystems)
-                    .before(AssetEventSystems)
-                    .before(visibility::update_frusta),
+                (
+                    camera_system
+                        .in_set(CameraUpdateSystems)
+                        .before(AssetEventSystems)
+                        .before(visibility::update_frusta),
+                    prepare_view_target_info
+                        .after(camera_system)
+                        .in_set(CameraUpdateSystems),
+                ),
             );
         app.world_mut()
             .register_component_hooks::<Camera>()
@@ -84,7 +89,6 @@ impl Plugin for CameraPlugin {
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .init_resource::<CameraMainPassTextureFormats>()
                 .init_resource::<SortedCameras>()
                 .init_resource::<DirtySpecializations>()
                 .init_resource::<DirtyWireframeSpecializations>()
@@ -102,8 +106,7 @@ impl Plugin for CameraPlugin {
                 .add_systems(
                     ExtractSchedule,
                     (
-                        extract_cameras
-                            .after(extract_resource::<ManualTextureViews, RenderApp, ()>),
+                        extract_cameras,
                         clear_dirty_specializations.in_set(DirtySpecializationSystems::Clear),
                         clear_dirty_wireframe_specializations
                             .in_set(DirtySpecializationSystems::Clear),
@@ -457,8 +460,7 @@ pub fn camera_system(
 #[require(RenderVisibleEntities)]
 pub struct ExtractedCamera {
     pub target: Option<NormalizedRenderTarget>,
-    pub physical_viewport_size: Option<UVec2>,
-    pub physical_target_size: Option<UVec2>,
+    /// The viewport of the camera, i.e. the target region of [`RenderTarget`]. This is used during upscaling.
     pub viewport: Option<Viewport>,
     pub schedule: InternedScheduleLabel,
     pub order: isize,
@@ -473,9 +475,103 @@ pub struct ExtractedCamera {
     pub compositing_space: Option<CompositingSpace>,
 }
 
+/// Describes info of a camera's view target.
+///
+/// It is prepared in the main world by [`prepare_view_target_info`] and copied to the render world
+/// (attached to the camera's render entity) by [`extract_cameras`].
+#[derive(Debug, Component, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct ViewTargetInfo {
+    pub size: UVec2,
+    pub color_format: TextureFormat,
+    pub sample_count: u32,
+}
+
+/// Resolves the color format of a camera's view target in the main world.
+///
+/// Window surfaces are assumed to be sRGB: `create_surfaces` picks an sRGB format whenever one is
+/// available, and `ExtractedWindow::set_swapchain_texture` otherwise adds an sRGB suffix. The
+/// resulting format is still passed through [`normalize_bgra8`] so that `Bgra8UnormSrgb` swap
+/// chains are normalized to `Rgba8UnormSrgb`, matching the render world.
+fn resolve_color_target_format(
+    render_target: &RenderTarget,
+    primary_window: Option<Entity>,
+    images: &Assets<Image>,
+    manual_texture_views: &ManualTextureViews,
+    hdr: bool,
+) -> TextureFormat {
+    let target = render_target.normalize(primary_window);
+    let output_texture_format = target
+        .as_ref()
+        .map(|target| match target {
+            NormalizedRenderTarget::Window(_) => {
+                normalize_bgra8(target, TextureFormat::Rgba8UnormSrgb)
+            }
+            NormalizedRenderTarget::Image(image_target) => images
+                .get(&image_target.handle)
+                .map(|image| {
+                    image
+                        .texture_view_descriptor
+                        .as_ref()
+                        .and_then(|view_desc| view_desc.format)
+                        .unwrap_or(image.texture_descriptor.format)
+                })
+                .unwrap_or(TextureFormat::Rgba8UnormSrgb),
+            NormalizedRenderTarget::TextureView(id) => manual_texture_views
+                .get(id)
+                .map(|tex| tex.view_format)
+                .unwrap_or(TextureFormat::Rgba8UnormSrgb),
+            NormalizedRenderTarget::None { .. } => TextureFormat::Rgba8UnormSrgb,
+        })
+        .unwrap_or(TextureFormat::Rgba8UnormSrgb);
+    if hdr {
+        TextureFormat::Rgba16Float
+    } else {
+        output_texture_format
+    }
+}
+
+/// Prepares the [`ViewTargetInfo`] component for each [`Camera`] in the main world.
+///
+/// This runs after [`camera_system`] (which computes [`Camera`]'s computed values, such as
+/// [`Camera::physical_viewport_size`]), so the info reflects the camera's current state.
+/// [`extract_cameras`] copies it to the camera's render entity in the render world.
+pub fn prepare_view_target_info(
+    mut commands: Commands,
+    primary_window: Query<Entity, With<PrimaryWindow>>,
+    images: Res<Assets<Image>>,
+    manual_texture_views: Res<ManualTextureViews>,
+    cameras: Query<(Entity, &Camera, &RenderTarget, &Msaa, Has<Hdr>)>,
+) {
+    let primary_window = primary_window.iter().next();
+    for (entity, camera, render_target, msaa, hdr) in &cameras {
+        if !camera.is_active {
+            commands.entity(entity).remove::<ViewTargetInfo>();
+            continue;
+        }
+
+        if let Some(viewport_size) = camera.physical_viewport_size()
+            && viewport_size.x != 0
+            && viewport_size.y != 0
+        {
+            commands.entity(entity).insert(ViewTargetInfo {
+                color_format: resolve_color_target_format(
+                    render_target,
+                    primary_window,
+                    &images,
+                    &manual_texture_views,
+                    hdr,
+                ),
+                size: viewport_size,
+                sample_count: msaa.samples(),
+            });
+        } else {
+            commands.entity(entity).remove::<ViewTargetInfo>();
+        }
+    }
+}
+
 pub fn extract_cameras(
     mut commands: Commands,
-    mut main_pass_formats: ResMut<CameraMainPassTextureFormats>,
     query: Extract<
         Query<(
             Entity,
@@ -486,6 +582,7 @@ pub fn extract_cameras(
             &GlobalTransform,
             &VisibleEntities,
             &Frustum,
+            Option<&ViewTargetInfo>,
             (
                 Has<Hdr>,
                 Option<&CompositingSpace>,
@@ -500,17 +597,13 @@ pub fn extract_cameras(
         )>,
     >,
     primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
-    manual_texture_views: Res<ManualTextureViews>,
-    images: Res<RenderAssets<GpuImage>>,
     mut existing_render_visible_entities_cpu_culling: Query<
         &mut RenderExtractedVisibleEntities,
         With<RenderVisibleEntities>,
     >,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
     visibility_extraction_system_param: VisibilityExtractionSystemParam,
-    extracted_swap_chains: Query<(MainEntity, &ExtractedWindow)>,
 ) {
-    main_pass_formats.clear();
     let primary_window = primary_window.iter().next();
     type ExtractedCameraComponents = (
         ExtractedCamera,
@@ -522,6 +615,7 @@ pub fn extract_cameras(
         Projection,
         NoIndirectDrawing,
         ViewUniformOffset,
+        ViewTargetInfo,
     );
 
     for (
@@ -533,6 +627,7 @@ pub fn extract_cameras(
         transform,
         visible_entities,
         frustum,
+        view_target_info,
         (
             hdr,
             compositing_space,
@@ -555,25 +650,7 @@ pub fn extract_cameras(
 
         let color_grading = color_grading.unwrap_or(&ColorGrading::default()).clone();
 
-        if let (
-            Some(URect {
-                min: viewport_origin,
-                ..
-            }),
-            Some(viewport_size),
-            Some(target_size),
-        ) = (
-            camera.physical_viewport_rect(),
-            camera.physical_viewport_size(),
-            camera.physical_target_size(),
-        ) {
-            if target_size.x == 0 || target_size.y == 0 {
-                commands
-                    .entity(render_entity)
-                    .remove::<ExtractedCameraComponents>();
-                continue;
-            }
-
+        if let Some(target_info) = view_target_info {
             let mut render_visible_entities_cpu_culling =
                 match existing_render_visible_entities_cpu_culling.get_mut(render_entity) {
                     Ok(ref mut existing_render_visible_entities_cpu_culling) => {
@@ -605,35 +682,11 @@ pub fn extract_cameras(
             // *now*, phases need to be able to find the entities that were just
             // removed from it.
 
-            let target = render_target.normalize(primary_window);
-            let output_texture_format = target
-                .as_ref()
-                .and_then(|target| {
-                    target
-                        .get_texture_view_format(
-                            &extracted_swap_chains,
-                            &images,
-                            &manual_texture_views,
-                        )
-                        .map(|format| normalize_bgra8(target, format))
-                })
-                .unwrap_or(TextureFormat::Rgba8UnormSrgb);
-            let target_format = if hdr {
-                TextureFormat::Rgba16Float
-            } else if compositing_space.is_some_and(|s| *s == CompositingSpace::Srgb) {
-                TextureFormat::Rgba8Unorm
-            } else {
-                output_texture_format
-            };
-            main_pass_formats.insert(render_entity, target_format);
-
-            let mut commands = commands.entity(render_entity);
-            commands.insert((
+            let mut entity_commands = commands.entity(render_entity);
+            entity_commands.insert((
                 ExtractedCamera {
-                    target,
+                    target: render_target.normalize(primary_window),
                     viewport: camera.viewport.clone(),
-                    physical_viewport_size: Some(viewport_size),
-                    physical_target_size: Some(target_size),
                     schedule: camera_render_graph.0,
                     order: camera.order,
                     output_mode: camera.output_mode,
@@ -652,42 +705,37 @@ pub fn extract_cameras(
                     clip_from_view: camera.clip_from_view(),
                     world_from_view: *transform,
                     clip_from_world: None,
-                    target_format,
-                    viewport: UVec4::new(
-                        viewport_origin.x,
-                        viewport_origin.y,
-                        viewport_size.x,
-                        viewport_size.y,
-                    ),
+                    viewport: UVec4::new(0, 0, target_info.size.x, target_info.size.y),
                     color_grading,
                     invert_culling: camera.invert_culling,
                 },
                 render_visible_entities_cpu_culling,
                 *frustum,
+                *target_info,
             ));
 
             if let Some(temporal_jitter) = temporal_jitter {
-                commands.insert(temporal_jitter.clone());
+                entity_commands.insert(temporal_jitter.clone());
             } else {
-                commands.remove::<TemporalJitter>();
+                entity_commands.remove::<TemporalJitter>();
             }
 
             if let Some(mip_bias) = mip_bias {
-                commands.insert(mip_bias.clone());
+                entity_commands.insert(mip_bias.clone());
             } else {
-                commands.remove::<MipBias>();
+                entity_commands.remove::<MipBias>();
             }
 
             if let Some(render_layers) = render_layers {
-                commands.insert(render_layers.clone());
+                entity_commands.insert(render_layers.clone());
             } else {
-                commands.remove::<RenderLayers>();
+                entity_commands.remove::<RenderLayers>();
             }
 
             if let Some(projection) = projection {
-                commands.insert(projection.clone());
+                entity_commands.insert(projection.clone());
             } else {
-                commands.remove::<Projection>();
+                entity_commands.remove::<Projection>();
             }
 
             if no_indirect_drawing
@@ -696,11 +744,16 @@ pub fn extract_cameras(
                     GpuPreprocessingMode::Culling
                 )
             {
-                commands.insert(NoIndirectDrawing);
+                entity_commands.insert(NoIndirectDrawing);
             } else {
-                commands.remove::<NoIndirectDrawing>();
+                entity_commands.remove::<NoIndirectDrawing>();
             }
-        };
+        } else {
+            // The camera is active, but its view target info doesn't exist yet (e.g. before
+            // `camera_system` has computed the render target size). Make sure no stale
+            // `ViewTargetInfo` from a previous frame lingers in the render world.
+            commands.entity(render_entity).remove::<ViewTargetInfo>();
+        }
     }
 }
 
@@ -1186,8 +1239,6 @@ mod tests {
     ) -> ExtractedCamera {
         ExtractedCamera {
             target: Some(target),
-            physical_viewport_size: None,
-            physical_target_size: None,
             viewport: None,
             schedule: Main.intern(),
             order,

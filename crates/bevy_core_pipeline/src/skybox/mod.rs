@@ -12,6 +12,7 @@ use bevy_light::Skybox;
 use bevy_log::warn_once;
 use bevy_math::Mat4;
 use bevy_render::{
+    camera::ViewTargetInfo,
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     render_asset::RenderAssets,
     render_resource::{
@@ -22,7 +23,7 @@ use bevy_render::{
     sync_component::{SyncComponent, SyncComponentPlugin},
     sync_world::RenderEntity,
     texture::GpuImage,
-    view::{ExtractedView, Msaa, ViewUniform, ViewUniforms},
+    view::{ViewUniform, ViewUniforms},
     Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::Shader;
@@ -198,15 +199,15 @@ fn prepare_skybox_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<SkyboxPipeline>>,
     pipeline: Res<SkyboxPipeline>,
-    cameras: Query<(Entity, &ExtractedView, &Msaa), With<Skybox>>,
+    cameras: Query<(Entity, &ViewTargetInfo), With<Skybox>>,
 ) {
-    for (entity, view, msaa) in &cameras {
+    for (entity, target_info) in &cameras {
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
             SkyboxPipelineKey {
-                target_format: view.target_format,
-                samples: msaa.samples(),
+                target_format: target_info.color_format,
+                samples: target_info.sample_count,
                 depth_format: CORE_3D_DEPTH_FORMAT,
             },
         );

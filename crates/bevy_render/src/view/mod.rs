@@ -6,11 +6,14 @@ use bevy_camera::{
     CompositingSpace, Exposure, MainPassResolutionOverride, NormalizedRenderTarget,
 };
 use bevy_diagnostic::FrameCount;
+use bevy_math::UVec2;
 pub use visibility::*;
 pub use window::*;
 
 use crate::{
-    camera::{ExtractedCamera, MipBias, NormalizedRenderTargetExt as _, TemporalJitter},
+    camera::{
+        ExtractedCamera, MipBias, NormalizedRenderTargetExt as _, TemporalJitter, ViewTargetInfo,
+    },
     extract_component::ExtractComponentPlugin,
     occlusion_culling::OcclusionCulling,
     render_asset::RenderAssets,
@@ -172,7 +175,6 @@ impl Plugin for ViewPlugin {
         app
             // NOTE: windows.is_changed() handles cases where a window was resized
             .add_plugins((
-                ExtractComponentPlugin::<Msaa>::default(),
                 ExtractComponentPlugin::<OcclusionCulling>::default(),
                 RenderVisibilityRangePlugin,
             ));
@@ -226,7 +228,6 @@ impl Plugin for ViewPlugin {
     Default,
     Clone,
     Copy,
-    ExtractComponent,
     Reflect,
     PartialEq,
     PartialOrd,
@@ -236,7 +237,6 @@ impl Plugin for ViewPlugin {
     Debug,
 )]
 #[reflect(Component, Default, PartialEq, Hash, Debug)]
-#[extract_app(RenderApp)]
 pub enum Msaa {
     Off = 1,
     Sample2 = 2,
@@ -445,11 +445,6 @@ pub struct ExtractedView {
     // `projection` and `transform` fields, which can be helpful in cases where numerical
     // stability matters and there is a more direct way to derive the view-projection matrix.
     pub clip_from_world: Option<Mat4>,
-    /// The [`TextureFormat`] this view will render to. Note that this may diverge from
-    /// the [`RenderTarget`](bevy_camera::RenderTarget)'s texture format. Among other
-    /// reasons, [`Hdr`](bevy_camera::Hdr) sets an the internal render target format
-    /// override to ensure sufficient precision is present for lighting calculations.
-    pub target_format: TextureFormat,
     // uvec4(origin.x, origin.y, width, height)
     pub viewport: UVec4,
     pub color_grading: ColorGrading,
@@ -776,7 +771,6 @@ pub struct ViewUniformOffset {
 #[derive(Component, Clone)]
 pub struct ViewTarget {
     main_textures: MainTargetTextures,
-    main_texture_format: TextureFormat,
     /// 0 represents `main_textures.a`, 1 represents `main_textures.b`
     /// This is shared across view targets with the same render target
     main_texture: Arc<AtomicUsize>,
@@ -982,16 +976,6 @@ impl ViewTarget {
             .resolve_target
             .as_ref()
             .map(|sampled| &sampled.default_view)
-    }
-
-    /// Currently bevy's main texture format can be:
-    /// - If rendering to screen:
-    ///   For HDR, it's `Rgba16Float`.
-    ///   For LDR, it's `Rgba8Unorm` when [`CompositingSpace::Srgb`], otherwise `Rgba8UnormSrgb`.
-    /// - If rendering to texture: the format is the same as texture view's format.
-    #[inline]
-    pub fn main_texture_format(&self) -> TextureFormat {
-        self.main_texture_format
     }
 
     /// The final texture this view will render to.
@@ -1366,12 +1350,7 @@ pub fn cleanup_view_targets_for_resize(
     }
 }
 
-type MainTextureKey = (
-    Option<NormalizedRenderTarget>,
-    TextureUsages,
-    TextureFormat,
-    Msaa,
-);
+type MainTextureKey = (UVec2, TextureUsages, TextureFormat, u32);
 
 pub fn prepare_view_targets(
     mut commands: Commands,
@@ -1381,9 +1360,8 @@ pub fn prepare_view_targets(
     cameras: Query<(
         Entity,
         &ExtractedCamera,
-        &ExtractedView,
         &CameraMainTextureUsages,
-        &Msaa,
+        &ViewTargetInfo,
     )>,
     view_target_attachments: Res<ViewTargetAttachments>,
     mut main_texture_atomics: Local<HashMap<MainTextureKey, Weak<AtomicUsize>>>,
@@ -1391,13 +1369,7 @@ pub fn prepare_view_targets(
     main_texture_atomics.retain(|_, weak| weak.strong_count() > 0);
 
     let mut textures = <HashMap<_, _>>::default();
-    for (entity, camera, view, texture_usage, msaa) in cameras.iter() {
-        let Some(target_size) = camera.physical_target_size else {
-            // If we don't have a target size, we can't create the main texture and have to bail
-            commands.entity(entity).try_remove::<ViewTarget>();
-            continue;
-        };
-
+    for (entity, camera, texture_usage, target_info) in cameras.iter() {
         let out_attachment = camera
             .target
             .as_ref()
@@ -1409,8 +1381,6 @@ pub fn prepare_view_targets(
             commands.entity(entity).try_remove::<ViewTarget>();
             continue;
         }
-
-        let main_texture_format = view.target_format;
 
         let clear_color = match camera.clear_color {
             ClearColorConfig::Custom(color) => Some(color),
@@ -1428,73 +1398,75 @@ pub fn prepare_view_targets(
             });
 
         let key: MainTextureKey = (
-            camera.target.clone(),
+            target_info.size,
             texture_usage.0,
-            main_texture_format,
-            *msaa,
+            target_info.color_format,
+            target_info.sample_count,
         );
-        let (a, b, sampled, main_texture) = textures.entry(key.clone()).or_insert_with(|| {
-            let descriptor = TextureDescriptor {
-                label: None,
-                size: target_size.to_extents(),
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: TextureDimension::D2,
-                format: main_texture_format,
-                usage: texture_usage.0,
-                view_formats: match main_texture_format {
-                    TextureFormat::Bgra8Unorm => &[TextureFormat::Bgra8UnormSrgb],
-                    TextureFormat::Rgba8Unorm => &[TextureFormat::Rgba8UnormSrgb],
-                    _ => &[],
-                },
-            };
-            let a = texture_cache.get(
-                &render_device,
-                TextureDescriptor {
-                    label: Some("main_texture_a"),
-                    ..descriptor
-                },
-            );
-            let b = texture_cache.get(
-                &render_device,
-                TextureDescriptor {
-                    label: Some("main_texture_b"),
-                    ..descriptor
-                },
-            );
-            let sampled = if msaa.samples() > 1 {
-                let sampled = texture_cache.get(
-                    &render_device,
-                    TextureDescriptor {
-                        label: Some("main_texture_sampled"),
-                        size: target_size.to_extents(),
+        let (a, b, sampled, main_texture) =
+            textures
+                .entry(key)
+                .or_insert_with_key(|(size, usage, format, sample_count)| {
+                    let (size, usage, format, sample_count) =
+                        (*size, *usage, *format, *sample_count);
+
+                    let descriptor = TextureDescriptor {
+                        label: None,
+                        size: size.to_extents(),
                         mip_level_count: 1,
-                        sample_count: msaa.samples(),
+                        sample_count: 1,
                         dimension: TextureDimension::D2,
-                        format: main_texture_format,
-                        usage: TextureUsages::RENDER_ATTACHMENT,
-                        view_formats: descriptor.view_formats,
-                    },
-                );
-                Some(sampled)
-            } else {
-                None
-            };
-            // re-use the same atomics frame to frame for views with the same main texture
-            // to ensure post process writes persist through msaa writeback
-            let main_texture = match main_texture_atomics.entry(key) {
-                Entry::Occupied(e) => e
-                    .get()
-                    .upgrade()
-                    .expect("dead weaks were pruned at top of system"),
-                Entry::Vacant(e) => {
-                    let arc = Arc::new(AtomicUsize::new(0));
-                    e.insert(Arc::downgrade(&arc));
-                    arc
-                }
-            };
-            (a, b, sampled, main_texture)
-        });
+                        format,
+                        usage,
+                        view_formats: &[],
+                    };
+                    let a = texture_cache.get(
+                        &render_device,
+                        TextureDescriptor {
+                            label: Some("main_texture_a"),
+                            ..descriptor
+                        },
+                    );
+                    let b = texture_cache.get(
+                        &render_device,
+                        TextureDescriptor {
+                            label: Some("main_texture_b"),
+                            ..descriptor
+                        },
+                    );
+                    let sampled = if sample_count > 1 {
+                        let sampled = texture_cache.get(
+                            &render_device,
+                            TextureDescriptor {
+                                label: Some("main_texture_sampled"),
+                                size: size.to_extents(),
+                                mip_level_count: 1,
+                                sample_count,
+                                dimension: TextureDimension::D2,
+                                format,
+                                usage: TextureUsages::RENDER_ATTACHMENT,
+                                view_formats: descriptor.view_formats,
+                            },
+                        );
+                        Some(sampled)
+                    } else {
+                        None
+                    };
+                    // re-use the same atomics frame to frame for views with the same main texture
+                    // to ensure post process writes persist through msaa writeback
+                    let main_texture = match main_texture_atomics.entry(key) {
+                        Entry::Occupied(e) => e
+                            .get()
+                            .upgrade()
+                            .expect("dead weaks were pruned at top of system"),
+                        Entry::Vacant(e) => {
+                            let arc = Arc::new(AtomicUsize::new(0));
+                            e.insert(Arc::downgrade(&arc));
+                            arc
+                        }
+                    };
+                    (a, b, sampled, main_texture)
+                });
 
         let main_textures = MainTargetTextures {
             a: ColorAttachment::new(a.clone(), sampled.clone(), None, converted_clear_color),
@@ -1505,7 +1477,6 @@ pub fn prepare_view_targets(
         commands.entity(entity).insert(ViewTarget {
             main_texture: main_textures.main_texture.clone(),
             main_textures,
-            main_texture_format,
             out_texture: out_attachment.cloned(),
             compositing_space: camera.compositing_space,
         });

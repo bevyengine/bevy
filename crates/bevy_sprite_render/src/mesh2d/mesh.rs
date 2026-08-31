@@ -5,7 +5,7 @@ use bevy_asset::{embedded_asset, load_embedded_asset, AssetId, AssetServer, Hand
 use bevy_camera::{visibility::ViewVisibility, Camera2d, CompositingSpace};
 use bevy_platform::collections::HashMap;
 use bevy_render::{
-    camera::{DirtySpecializations, ExtractedCamera},
+    camera::{DirtySpecializations, ExtractedCamera, ViewTargetInfo},
     material_bind_groups::{
         MaterialBindGroupIndex, MaterialBindGroupSlot, MaterialBindingId, RenderMaterialBindings,
     },
@@ -38,7 +38,6 @@ use bevy_mesh::{
     BaseMeshPipelineKey, Mesh, Mesh2d, MeshAttributeCompressionFlags, MeshTag,
     MeshVertexBufferLayoutRef,
 };
-use bevy_render::prelude::Msaa;
 use bevy_render::RenderSystems::PrepareAssets;
 use bevy_render::{
     batching::{
@@ -140,14 +139,14 @@ pub fn check_views_need_specialization(
         &MainEntity,
         &ExtractedView,
         &ExtractedCamera,
-        &Msaa,
+        &ViewTargetInfo,
         Option<&Tonemapping>,
         Option<&DebandDither>,
     )>,
 ) {
-    for (view_entity, view, camera, msaa, tonemapping, dither) in &cameras {
-        let mut view_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
-            | Mesh2dPipelineKey::from_target_format(view.target_format);
+    for (view_entity, view, camera, target_info, tonemapping, dither) in &cameras {
+        let mut view_key = Mesh2dPipelineKey::from_msaa_samples(target_info.sample_count)
+            | Mesh2dPipelineKey::from_target_format(target_info.color_format);
 
         if camera
             .compositing_space

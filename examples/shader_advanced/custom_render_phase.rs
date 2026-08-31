@@ -39,7 +39,7 @@ use bevy::{
             },
             GetBatchData, GetFullBatchData,
         },
-        camera::{DirtySpecializations, ExtractedCamera, PendingQueues},
+        camera::{DirtySpecializations, PendingQueues},
         extract_component::{ExtractComponent, ExtractComponentPlugin},
         mesh::{allocator::MeshAllocator, RenderMesh},
         render_asset::RenderAssets,
@@ -663,7 +663,6 @@ fn queue_custom_meshes(
 fn custom_draw_system(
     world: &World,
     view: ViewQuery<(
-        &ExtractedCamera,
         &ExtractedView,
         &ViewTarget,
         Option<&MainPassResolutionOverride>,
@@ -672,7 +671,7 @@ fn custom_draw_system(
     mut ctx: RenderContext,
 ) {
     let view_entity = view.entity();
-    let (camera, extracted_view, target, resolution_override) = view.into_inner();
+    let (extracted_view, target, resolution_override) = view.into_inner();
 
     let Some(stencil_phase) = stencil_phases.get(&extracted_view.retained_view_entity) else {
         return;
@@ -691,9 +690,7 @@ fn custom_draw_system(
         multiview_mask: None,
     });
 
-    if let Some(viewport) =
-        Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
-    {
+    if let Some(viewport) = Viewport::from_main_pass_resolution_override(resolution_override) {
         render_pass.set_camera_viewport(&viewport);
     }
 

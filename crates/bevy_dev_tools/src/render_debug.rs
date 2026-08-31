@@ -22,6 +22,7 @@ use bevy_input::{prelude::KeyCode, ButtonInput};
 use bevy_log::info;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
+    camera::ViewTargetInfo,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     extract_resource::{ExtractResource, ExtractResourcePlugin},
     render_resource::{
@@ -563,9 +564,9 @@ fn prepare_debug_overlay_pipelines(
     view_key_cache: Res<ViewKeyCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<RenderDebugOverlayPipeline>>,
     pipeline: Res<RenderDebugOverlayPipeline>,
-    views: Query<(Entity, &ExtractedView, &RenderDebugOverlay)>,
+    views: Query<(Entity, &ExtractedView, &ViewTargetInfo, &RenderDebugOverlay)>,
 ) {
-    for (entity, view, config) in &views {
+    for (entity, view, target_info, config) in &views {
         if !config.enabled {
             continue;
         }
@@ -579,7 +580,7 @@ fn prepare_debug_overlay_pipelines(
             RenderDebugOverlayPipelineKey {
                 mode: config.mode,
                 view_layout_key: (*view_key).into(),
-                target_format: view.target_format,
+                target_format: target_info.color_format,
             },
         );
 

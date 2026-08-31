@@ -21,6 +21,7 @@ use bevy_ecs::{
 use bevy_log::warn;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
+    camera::ViewTargetInfo,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_resource::{
         binding_types::uniform_buffer, BindGroup, BindGroupEntries, BindGroupLayoutDescriptor,
@@ -30,7 +31,7 @@ use bevy_render::{
     },
     renderer::{RenderAdapter, RenderDevice},
     sync_component::SyncComponent,
-    view::{Msaa, ViewUniform, ViewUniforms},
+    view::{ViewUniform, ViewUniforms},
     GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::Shader;
@@ -240,19 +241,19 @@ fn prepare_background_motion_vectors_pipelines(
     mut pipelines: ResMut<SpecializedRenderPipelines<BackgroundMotionVectorsPipeline>>,
     pipeline: Res<BackgroundMotionVectorsPipeline>,
     views: Query<
-        (Entity, Has<NormalPrepass>, &Msaa),
+        (Entity, Has<NormalPrepass>, &ViewTargetInfo),
         (
             With<MotionVectorPrepass>,
             Without<NoBackgroundMotionVectors>,
         ),
     >,
 ) {
-    for (entity, normal_prepass, msaa) in &views {
+    for (entity, normal_prepass, target_info) in &views {
         let id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
             BackgroundMotionVectorsPipelineKey {
-                samples: msaa.samples(),
+                samples: target_info.sample_count,
                 normal_prepass,
             },
         );

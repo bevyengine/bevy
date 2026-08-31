@@ -34,7 +34,7 @@ use bevy_ecs::{
 };
 use bevy_image::Image;
 use bevy_render::{
-    camera::ExtractedCamera,
+    camera::{ExtractedCamera, ViewTargetInfo},
     diagnostic::RecordDiagnostics,
     extract_component::ExtractComponentPlugin,
     render_asset::RenderAssets,
@@ -49,7 +49,7 @@ use bevy_render::{
     },
     renderer::{RenderContext, RenderDevice, RenderQueue, ViewQuery},
     texture::GpuImage,
-    view::{ExtractedView, ViewTarget},
+    view::ViewTarget,
     GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::{load_shader_library, Shader};
@@ -357,7 +357,7 @@ pub(crate) fn prepare_post_processing_pipelines(
     mut pipelines: ResMut<SpecializedRenderPipelines<PostProcessingPipeline>>,
     post_processing_pipeline: Res<PostProcessingPipeline>,
     cameras: Query<
-        (Entity, &ExtractedView),
+        (Entity, &ViewTargetInfo),
         Or<(
             With<ChromaticAberration>,
             With<Vignette>,
@@ -366,12 +366,12 @@ pub(crate) fn prepare_post_processing_pipelines(
         )>,
     >,
 ) {
-    for (entity, view) in cameras.iter() {
+    for (entity, target_info) in cameras.iter() {
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &post_processing_pipeline,
             PostProcessingPipelineKey {
-                target_format: view.target_format,
+                target_format: target_info.color_format,
             },
         );
 

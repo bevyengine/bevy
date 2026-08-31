@@ -22,7 +22,7 @@ use bevy_math::{Affine3A, FloatOrd, Quat, Rect, Vec2, Vec4};
 use bevy_mesh::VertexBufferLayout;
 use bevy_platform::collections::HashMap;
 use bevy_render::{
-    camera::ExtractedCamera,
+    camera::{ExtractedCamera, ViewTargetInfo},
     view::{RenderVisibleEntities, RetainedViewEntity},
 };
 use bevy_render::{
@@ -39,7 +39,7 @@ use bevy_render::{
     sync_world::RenderEntity,
     texture::{FallbackImage, GpuImage},
     view::{
-        texture_format_from_code, texture_format_to_code, ExtractedView, Msaa, ViewUniform,
+        texture_format_from_code, texture_format_to_code, ExtractedView, ViewUniform,
         ViewUniformOffset, ViewUniforms,
     },
     Extract,
@@ -508,21 +508,22 @@ pub fn queue_sprites(
         &RenderVisibleEntities,
         &ExtractedCamera,
         &ExtractedView,
-        &Msaa,
+        &ViewTargetInfo,
         Option<&Tonemapping>,
         Option<&DebandDither>,
     )>,
 ) {
     let draw_sprite_function = draw_functions.read().id::<DrawSprite>();
 
-    for (visible_entities, camera, view, msaa, tonemapping, dither) in &mut cameras {
+    for (visible_entities, camera, view, target_info, tonemapping, dither) in &mut cameras {
         let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
         else {
             continue;
         };
 
-        let msaa_key = SpritePipelineKey::from_msaa_samples(msaa.samples());
-        let mut view_key = SpritePipelineKey::from_target_format(view.target_format) | msaa_key;
+        let msaa_key = SpritePipelineKey::from_msaa_samples(target_info.sample_count);
+        let mut view_key =
+            SpritePipelineKey::from_target_format(target_info.color_format) | msaa_key;
 
         if camera
             .compositing_space

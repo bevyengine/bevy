@@ -32,16 +32,16 @@ pub const DEPTH_PREPASS_TEXTURE_SUPPORTED: bool = true;
 
 use core::ops::Range;
 
-use bevy_camera::{Camera, Camera3d, Camera3dDepthLoadOp};
+use bevy_camera::{Camera, Camera3d, Camera3dDepthLoadOp, CameraUpdateSystems};
 use bevy_diagnostic::FrameCount;
 use bevy_render::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
-    camera::CameraRenderGraph,
+    camera::{CameraRenderGraph, ViewTargetInfo},
     mesh::allocator::MeshSlabs,
     occlusion_culling::OcclusionCulling,
     render_phase::{PhaseItemBatchSetKey, ViewRangefinder3d},
     texture::{CachedTexture, DepthStencilAttachment},
-    view::{prepare_view_targets, NoIndirectDrawing, RetainedViewEntity},
+    view::{prepare_view_targets, Msaa, NoIndirectDrawing, RetainedViewEntity},
 };
 use indexmap::IndexMap;
 pub use main_opaque_pass_3d_node::*;
@@ -52,13 +52,11 @@ use bevy_asset::UntypedAssetId;
 use bevy_color::LinearRgba;
 use bevy_ecs::{entity::EntityHash, prelude::*};
 use bevy_image::ToExtents;
-use bevy_log::warn;
 use bevy_math::{FloatOrd, Vec3};
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_render::{
     camera::ExtractedCamera,
     extract_component::ExtractComponentPlugin,
-    prelude::Msaa,
     render_phase::{
         sort_phase_system, BinnedPhaseItem, CachedRenderPipelinePhaseItem, DrawFunctionId,
         DrawFunctions, PhaseItem, PhaseItemExtraIndex, SortedPhaseItem, ViewBinnedRenderPhases,
@@ -106,8 +104,8 @@ impl Plugin for Core3dPlugin {
                 CameraRenderGraph::new(Core3d)
             })
             .register_required_components::<Camera3d, Tonemapping>()
-            .add_plugins((SkyboxPlugin, ExtractComponentPlugin::<Camera3d>::default()))
-            .add_systems(PostUpdate, check_msaa);
+            .add_systems(PostUpdate, check_msaa.before(CameraUpdateSystems))
+            .add_plugins((SkyboxPlugin, ExtractComponentPlugin::<Camera3d>::default()));
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -129,6 +127,12 @@ impl Plugin for Core3dPlugin {
             .init_resource::<ViewSortedRenderPhases<Transparent3d>>()
             .add_systems(ExtractSchedule, extract_core_3d_camera_phases)
             .add_systems(ExtractSchedule, extract_camera_prepass_phase)
+            .add_systems(
+                Render,
+                check_view_target_info_msaa
+                    .in_set(RenderSystems::PrepareViews)
+                    .before(prepare_view_targets),
+            )
             .add_systems(
                 Render,
                 (
@@ -668,11 +672,11 @@ pub fn prepare_core_3d_depth_textures(
         &ExtractedCamera,
         Option<&DepthPrepass>,
         &Camera3d,
-        &Msaa,
+        &ViewTargetInfo,
     )>,
 ) {
     let mut render_target_usage = <HashMap<_, _>>::default();
-    for (_, camera, depth_prepass, camera_3d, _msaa) in &views_3d {
+    for (_, camera, depth_prepass, camera_3d, _color_target) in &views_3d {
         // Default usage required to write to the depth texture
         let mut usage: TextureUsages = camera_3d.depth_texture_usages.into();
         if depth_prepass.is_some() {
@@ -686,24 +690,20 @@ pub fn prepare_core_3d_depth_textures(
     }
 
     let mut textures = <HashMap<_, _>>::default();
-    for (entity, camera, _, camera_3d, msaa) in &views_3d {
-        let Some(physical_target_size) = camera.physical_target_size else {
-            continue;
-        };
-
+    for (entity, camera, _, camera_3d, target_info) in &views_3d {
+        let usage = *render_target_usage
+            .get(&camera.target.clone())
+            .expect("The depth texture usage should already exist for this target");
         let cached_texture = textures
-            .entry((camera.target.clone(), msaa))
-            .or_insert_with(|| {
-                let usage = *render_target_usage
-                    .get(&camera.target.clone())
-                    .expect("The depth texture usage should already exist for this target");
-
+            .entry((usage, target_info.size, target_info.sample_count))
+            .or_insert_with_key(|(usage, size, sample_count)| {
+                let (usage, size, sample_count) = (*usage, *size, *sample_count);
                 let descriptor = TextureDescriptor {
                     label: Some("view_depth_texture"),
                     // The size of the depth texture
-                    size: physical_target_size.to_extents(),
+                    size: size.to_extents(),
                     mip_level_count: 1,
-                    sample_count: msaa.samples(),
+                    sample_count,
                     dimension: TextureDimension::D2,
                     format: CORE_3D_DEPTH_FORMAT,
                     usage,
@@ -752,9 +752,23 @@ pub fn check_msaa(mut deferred_views: Query<&mut Msaa, (With<Camera>, With<Defer
         match *msaa {
             Msaa::Off => (),
             _ => {
-                warn!("MSAA is incompatible with deferred rendering and has been disabled.");
+                bevy_log::warn!(
+                    "MSAA is incompatible with deferred rendering and has been disabled."
+                );
                 *msaa = Msaa::Off;
             }
+        }
+    }
+}
+
+// Disable MSAA and warn if using deferred rendering
+pub fn check_view_target_info_msaa(
+    mut deferred_views: Query<&mut ViewTargetInfo, With<DeferredPrepass>>,
+) {
+    for mut entity in deferred_views.iter_mut() {
+        if entity.sample_count > 1 {
+            bevy_log::warn!("MSAA is incompatible with deferred rendering.");
+            entity.sample_count = 1;
         };
     }
 }
@@ -774,7 +788,7 @@ pub fn prepare_prepass_textures(
         Entity,
         &ExtractedCamera,
         &ExtractedView,
-        &Msaa,
+        &ViewTargetInfo,
         Has<DepthPrepass>,
         Has<NormalPrepass>,
         Has<MotionVectorPrepass>,
@@ -799,7 +813,7 @@ pub fn prepare_prepass_textures(
         entity,
         camera,
         view,
-        msaa,
+        target_info,
         depth_prepass,
         normal_prepass,
         motion_vector_prepass,
@@ -817,11 +831,7 @@ pub fn prepare_prepass_textures(
             continue;
         };
 
-        let Some(physical_target_size) = camera.physical_target_size else {
-            continue;
-        };
-
-        let size = physical_target_size.to_extents();
+        let size = target_info.size.to_extents();
 
         let cached_depth_texture1 = depth_prepass.then(|| {
             depth_textures1
@@ -831,7 +841,7 @@ pub fn prepare_prepass_textures(
                         label: Some("prepass_depth_texture_1"),
                         size,
                         mip_level_count: 1,
-                        sample_count: msaa.samples(),
+                        sample_count: target_info.sample_count,
                         dimension: TextureDimension::D2,
                         format: CORE_3D_DEPTH_FORMAT,
                         usage: TextureUsages::COPY_DST
@@ -852,7 +862,7 @@ pub fn prepare_prepass_textures(
                         label: Some("prepass_depth_texture_2"),
                         size,
                         mip_level_count: 1,
-                        sample_count: msaa.samples(),
+                        sample_count: target_info.sample_count,
                         dimension: TextureDimension::D2,
                         format: CORE_3D_DEPTH_FORMAT,
                         usage: TextureUsages::COPY_DST
@@ -875,7 +885,7 @@ pub fn prepare_prepass_textures(
                             label: Some("prepass_normal_texture"),
                             size,
                             mip_level_count: 1,
-                            sample_count: msaa.samples(),
+                            sample_count: target_info.sample_count,
                             dimension: TextureDimension::D2,
                             format: NORMAL_PREPASS_FORMAT,
                             usage: TextureUsages::RENDER_ATTACHMENT
@@ -897,10 +907,11 @@ pub fn prepare_prepass_textures(
                             label: Some("prepass_motion_vectors_textures"),
                             size,
                             mip_level_count: 1,
-                            sample_count: msaa.samples(),
+                            sample_count: target_info.sample_count,
                             dimension: TextureDimension::D2,
                             format: MOTION_VECTOR_PREPASS_FORMAT,
-                            usage: if motion_vector_storage_binding && msaa.samples() == 1 {
+                            usage: if motion_vector_storage_binding && target_info.sample_count == 1
+                            {
                                 TextureUsages::RENDER_ATTACHMENT
                                     | TextureUsages::TEXTURE_BINDING
                                     | TextureUsages::STORAGE_BINDING
