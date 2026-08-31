@@ -140,19 +140,23 @@ pub fn render_system(
 
 /// This queue is used to enqueue tasks for the GPU to execute asynchronously.
 #[derive(Resource, Clone, Deref, DerefMut)]
+#[non_structural_derive::non_structural_derive(Send, Sync)]
 pub struct RenderQueue(pub Arc<WgpuWrapper<Queue>>);
 
 /// The handle to the physical device being used for rendering.
 /// See [`Adapter`] for more info.
 #[derive(Resource, Clone, Debug, Deref, DerefMut)]
+#[non_structural_derive::non_structural_derive(Send, Sync)]
 pub struct RenderAdapter(pub Arc<WgpuWrapper<Adapter>>);
 
 /// The GPU instance is used to initialize the [`RenderQueue`] and [`RenderDevice`],
 #[derive(Resource, Clone, Deref, DerefMut)]
+#[non_structural_derive::non_structural_derive(Send, Sync)]
 pub struct RenderInstance(pub Arc<WgpuWrapper<Instance>>);
 
 /// The [`AdapterInfo`] of the adapter in use by the renderer.
 #[derive(Resource, Clone, Deref, DerefMut)]
+#[non_structural_derive::non_structural_derive(Send, Sync)]
 pub struct RenderAdapterInfo(pub WgpuWrapper<AdapterInfo>);
 
 const GPU_NOT_FOUND_ERROR_MESSAGE: &str = if cfg!(target_os = "linux") {

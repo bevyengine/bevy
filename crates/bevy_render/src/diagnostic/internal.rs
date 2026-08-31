@@ -40,6 +40,7 @@ struct DiagnosticsRecorderInternal {
 /// Records diagnostics into [`QuerySet`]'s keeping track of the mapping between
 /// spans and indices to the corresponding entries in the [`QuerySet`].
 #[derive(Resource)]
+#[non_structural_derive::non_structural_derive(Send, Sync)]
 pub struct DiagnosticsRecorder(WgpuWrapper<DiagnosticsRecorderInternal>);
 
 impl DiagnosticsRecorder {

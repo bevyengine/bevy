@@ -5,6 +5,7 @@ use core::ops::{Deref, RangeBounds};
 define_atomic_id!(BufferId);
 
 #[derive(Clone, Debug)]
+#[non_structural_derive::non_structural_derive(Send, Sync)]
 pub struct Buffer {
     id: BufferId,
     value: WgpuWrapper<wgpu::Buffer>,

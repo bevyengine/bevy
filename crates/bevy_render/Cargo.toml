@@ -119,6 +119,7 @@ itertools = "0.14"
 weak-table = "0.3"
 tracing = "0.1"
 static_assertions = "1"
+non_structural_derive = "0.1"
 
 [dev-dependencies]
 proptest = "1"

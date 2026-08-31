@@ -37,6 +37,7 @@ enum PendingCommandBuffer {
 
 /// A resource that holds command buffers and encoders that are pending submission to the render queue.
 #[derive(Resource)]
+#[non_structural_derive::non_structural_derive(Send, Sync)]
 pub struct PendingCommandBuffers(WgpuWrapper<PendingCommandBuffersInner>);
 
 impl Default for PendingCommandBuffers {
@@ -166,6 +167,7 @@ impl RenderContextStateInner {
 /// This is used internally by the [`RenderContext`] system parameter. Implements [`SystemBuffer`] to
 /// append command buffers and unfinished encoders in topological system order. Pending encoders are
 /// finished in parallel immediately before submission.
+#[non_structural_derive::non_structural_derive(Send, Sync)]
 pub struct RenderContextState(WgpuWrapper<RenderContextStateInner>);
 
 impl Default for RenderContextState {

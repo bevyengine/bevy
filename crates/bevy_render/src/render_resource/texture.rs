@@ -24,6 +24,7 @@ define_atomic_id!(TextureId);
 /// * [`StorageBuffer`](crate::render_resource::StorageBuffer)
 /// * [`UniformBuffer`](crate::render_resource::UniformBuffer)
 #[derive(Clone, Debug)]
+#[non_structural_derive::non_structural_derive(Send, Sync)]
 pub struct Texture {
     id: TextureId,
     value: WgpuWrapper<wgpu::Texture>,
@@ -64,11 +65,13 @@ define_atomic_id!(TextureViewId);
 
 /// Describes a [`Texture`] with its associated metadata required by a pipeline or [`BindGroup`](super::BindGroup).
 #[derive(Clone, Debug)]
+#[non_structural_derive::non_structural_derive(Send, Sync)]
 pub struct TextureView {
     id: TextureViewId,
     value: WgpuWrapper<wgpu::TextureView>,
 }
 
+#[non_structural_derive::non_structural_derive(Send, Sync)]
 pub struct SurfaceTexture {
     value: WgpuWrapper<wgpu::SurfaceTexture>,
 }
@@ -130,6 +133,7 @@ define_atomic_id!(SamplerId);
 /// May be converted from and dereferences to a wgpu [`Sampler`](wgpu::Sampler).
 /// Can be created via [`RenderDevice::create_sampler`](crate::renderer::RenderDevice::create_sampler).
 #[derive(Clone, Debug)]
+#[non_structural_derive::non_structural_derive(Send, Sync)]
 pub struct Sampler {
     id: SamplerId,
     value: WgpuWrapper<wgpu::Sampler>,
