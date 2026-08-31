@@ -16,7 +16,6 @@ use bevy_render::{
     sync_component::SyncComponentPlugin,
     ExtractSchedule, Render, RenderApp, RenderSystems,
 };
-use bevy_shader::load_shader_library;
 pub use node::main_transmissive_pass_3d;
 pub use phase::Transmissive3d;
 pub use texture::ViewTransmissionTexture;
@@ -40,8 +39,6 @@ fn separate_core3d_main_pass(pass: Res<Core3dMainPassMode>) -> bool {
 
 impl Plugin for ScreenSpaceTransmissionPlugin {
     fn build(&self, app: &mut App) {
-        load_shader_library!(app, "transmission.wgsl");
-
         app.add_plugins(SyncComponentPlugin::<ScreenSpaceTransmission>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {

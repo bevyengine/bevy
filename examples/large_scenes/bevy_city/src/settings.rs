@@ -50,10 +50,10 @@ pub fn settings_ui() -> impl Scene {
             padding: px(8),
         }
         ThemeBackgroundColor(feathers::tokens::WINDOW_BG)
-        on(|_: On<Pointer<Over>>, mut free_camera_state: Single<&mut FreeCameraState>| {
+        on(|_: On<PointerOver>, mut free_camera_state: Single<&mut FreeCameraState>| {
             free_camera_state.enabled = false;
         })
-        on(|_: On<Pointer<Out>>, mut free_camera_state: Single<&mut FreeCameraState>| {
+        on(|_: On<PointerOut>, mut free_camera_state: Single<&mut FreeCameraState>| {
             free_camera_state.enabled = true;
         })
         Children [(

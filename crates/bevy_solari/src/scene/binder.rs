@@ -36,6 +36,10 @@ pub struct RaytracingSceneBindings {
     previous_frame_light_entities: Vec<Entity>,
 }
 
+#[expect(
+    clippy::drain_collect,
+    reason = "draining preserves the capacity of `previous_frame_light_entities`, which is refilled below"
+)]
 pub fn prepare_raytracing_scene_bindings(
     instances_query: Query<(
         Entity,

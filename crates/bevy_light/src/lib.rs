@@ -501,7 +501,7 @@ pub fn check_dir_light_mesh_visibility(
     commands.queue(move |world: &mut World| {
         let mut query = world.query::<&mut ViewVisibility>();
         for entities in defer_queue.iter_mut() {
-            let mut iter = query.iter_many_mut(world, entities.iter());
+            let mut iter = query.iter_many_mut(world, entities.iter()).matched();
             while let Some(mut view_visibility) = iter.fetch_next() {
                 view_visibility.set_visible();
             }

@@ -35,7 +35,7 @@ use number_input_f32::number_input_f32;
 
 /// The custom material shader that we use to demonstrate how to use the decal
 /// `tag` field.
-const SHADER_ASSET_PATH: &str = "shaders/custom_clustered_decal.wgsl";
+const SHADER_ASSET_PATH: &str = "shaders/custom_clustered_decal.wesl";
 
 /// The speed at which the cube rotates, in radians per frame.
 const CUBE_ROTATION_SPEED: f32 = 0.02;
@@ -242,11 +242,12 @@ fn spawn_buttons(commands: &mut Commands) {
 
             // The number inputs start off hidden because Camera is selected first.
             Visibility::Hidden
-            number_input_f32("Scale Multiplier", Some(AppNumberInput::Scale), 1.0, NumberInputPrecision(2), 0.05..10.)
+            number_input_f32("Scale Multiplier", Some(AppNumberInput::Scale), 1.0, NumberInputPrecision(2), 0.05..=10.)
             ,
 
             Visibility::Hidden
-            number_input_f32("Roll (-π to π)", Some(AppNumberInput::Roll), 0.0, NumberInputPrecision(2), -PI..PI)
+            // + epsilon and next_down are used since roll recalculation likes to switch between -PI and PI upon recalculating roll.
+            number_input_f32("Roll (-π to π)", Some(AppNumberInput::Roll), 0.0, NumberInputPrecision(2), -PI + f32::EPSILON ..=PI.next_down())
             ,
         ]
     });
@@ -403,7 +404,7 @@ fn rotate_cube(mut meshes: Query<&mut Transform, With<Mesh3d>>) {
 
 /// Process a drag event that moves the selected object.
 fn handle_drag_as_movement(
-    event: On<Pointer<Drag>>,
+    event: On<PointerDrag>,
     parent_q: Query<&ChildOf>,
     number_input_q: Query<(), With<FeathersNumberInput>>,
     mut selections: Query<(&mut Transform, &Selection)>,
@@ -418,7 +419,6 @@ fn handle_drag_as_movement(
     {
         return;
     }
-
     for (mut transform, selection) in &mut selections {
         if app_status.selection != *selection {
             continue;

@@ -500,9 +500,28 @@ use core::{fmt::Debug, marker::PhantomData, ops::Deref};
 /// }
 /// ```
 ///
+/// # Summary ticks
+/// You can request that Bevy track a *summary tick* for a component like so:
+/// ```
+/// # use bevy_ecs::prelude::*;
+///
+/// #[derive(Component)]
+/// #[component(summary_tick)]
+/// struct MyComponent;
+///
+/// ```
+///
+/// A summary tick allows systems that use [contiguous iteration] to skip entire
+/// tables if none of the components that those systems care about have changed.
+/// The downside is that performance of updating those components decreases, as
+/// the summary tick must be updated. Summary ticks are only valid for
+/// components with table storage; components that have sparse set storage may
+/// not use summary ticks.
+///
 /// [`SyncCell`]: bevy_platform::cell::SyncCell
 /// [`Exclusive`]: https://doc.rust-lang.org/nightly/std/sync/struct.Exclusive.html
 /// [`ComponentHooks`]: crate::lifecycle::ComponentHooks
+/// [contiguous iteration]: crate::system::Query::contiguous_iter
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not a `Component`",
     label = "invalid `Component`",
@@ -654,6 +673,22 @@ pub trait Component: Send + Sync + 'static {
     fn relationship_accessor() -> Option<ComponentRelationshipAccessor<Self>> {
         None
     }
+
+    /// Set this constant to true if the component should track a summary
+    /// tick.
+    ///
+    /// Summary ticks allow users of contiguous iteration queries to skip
+    /// entire tables if the components that those users are interested in
+    /// haven't changed since the last time they ran the query. Tracking a
+    /// summary tick enables this functionality but adds a small amount of
+    /// overhead to mutations of the component, because the summary tick must be
+    /// updated on each such mutation.
+    ///
+    /// Summary ticks are only valid for table components. If the component is a
+    /// sparse set component, this method must return false.
+    ///
+    /// By default, this constant is set to false.
+    const HAS_SUMMARY_TICK: bool = false;
 }
 
 mod private {

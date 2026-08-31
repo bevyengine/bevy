@@ -98,17 +98,17 @@ pub struct AtmospherePlugin;
 
 impl Plugin for AtmospherePlugin {
     fn build(&self, app: &mut App) {
-        load_shader_library!(app, "types.wgsl");
-        load_shader_library!(app, "functions.wgsl");
-        load_shader_library!(app, "bruneton_functions.wgsl");
-        load_shader_library!(app, "bindings.wgsl");
+        load_shader_library!(app, "types.wesl");
+        load_shader_library!(app, "functions.wesl");
+        load_shader_library!(app, "bruneton_functions.wesl");
+        load_shader_library!(app, "bindings.wesl");
 
-        embedded_asset!(app, "transmittance_lut.wgsl");
-        embedded_asset!(app, "multiscattering_lut.wgsl");
-        embedded_asset!(app, "sky_view_lut.wgsl");
-        embedded_asset!(app, "aerial_view_lut.wgsl");
-        embedded_asset!(app, "render_sky.wgsl");
-        embedded_asset!(app, "environment.wgsl");
+        embedded_asset!(app, "transmittance_lut.wesl");
+        embedded_asset!(app, "multiscattering_lut.wesl");
+        embedded_asset!(app, "sky_view_lut.wesl");
+        embedded_asset!(app, "aerial_view_lut.wesl");
+        embedded_asset!(app, "render_sky.wesl");
+        embedded_asset!(app, "environment.wesl");
 
         app.add_plugins((
             ExtractComponentPlugin::<AtmosphereEnvironmentMap>::default(),
