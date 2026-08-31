@@ -272,6 +272,8 @@ struct InnerBevyError {
     error: Box<dyn Error + Send + Sync + 'static>,
     context: alloc::vec::Vec<Cow<'static, str>>,
     severity: Severity,
+    // The panic payload from `catch_unwind` is a `Box<dyn Any + Send>`. We need `BevyError` to be `Sync` so we store that
+    // in a `SyncCell`. We store it in an `Option` because we ownership of the payload to do things with it.
     panic_payload: Option<SyncCell<Box<dyn Any + Send>>>,
     #[cfg(feature = "backtrace")]
     backtrace: std::backtrace::Backtrace,
