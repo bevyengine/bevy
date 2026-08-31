@@ -116,8 +116,6 @@ pub struct ComputedLayout {
     rounded: Option<Layout>,
     /// cached sizing results
     cache: Cache,
-    /// was visited during layout
-    visited: bool,
     /// is a layout root
     is_root: bool,
     /// children
@@ -141,7 +139,6 @@ impl ComputedLayout {
         self.rounded = None;
         self.cache.clear();
         self.children.clear();
-        self.visited = false;
         self.is_root = false;
         self.layout_changed = false;
         self.subtree_dirty = false;
@@ -189,18 +186,6 @@ impl ComputedLayout {
         self.layout_changed = true;
         self.unrounded = Some(layout);
         true
-    }
-
-    /// Set visited state
-    #[inline]
-    pub const fn set_visited(&mut self, visited: bool) {
-        self.visited = visited;
-    }
-
-    /// Returns true if visited
-    #[inline]
-    pub const fn visited(&self) -> bool {
-        self.visited
     }
 
     /// Get the layout geometry and size
@@ -433,7 +418,6 @@ fn build_runtime_layout_tree<'a>(
         || !computed_layout.has_layout();
     subtree_dirty |= own_dirty;
 
-    computed_layout.visited = true;
     computed_layout.layout_changed = false;
 
     let outline_changed = (computed_layout.has_outline != outline.is_some())
