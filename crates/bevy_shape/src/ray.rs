@@ -1,8 +1,5 @@
-use crate::{
-    ops,
-    primitives::{InfinitePlane3d, Plane2d},
-    Dir2, Dir3, Vec2, Vec3,
-};
+use crate::{InfinitePlane3d, Plane2d};
+use bevy_math::{ops, Dir2, Dir3, Vec2, Vec3};
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;

@@ -1,18 +1,14 @@
-//! Contains [`Bounded2d`] implementations for [geometric primitives](crate::primitives).
+//! Contains [`Bounded2d`] implementations for [2d geometric primitives](crate::dim2).
 
 use crate::{
-    bounding::BoundingVolume,
-    ops,
-    primitives::{
-        Annulus, Arc2d, Capsule2d, Circle, CircularSector, CircularSegment, Ellipse, Line2d,
-        Plane2d, Primitive2d, Rectangle, RegularPolygon, Rhombus, Ring, Segment2d, Triangle2d,
-    },
-    Dir2, Isometry2d, Mat2, Rot2, Vec2,
+    Annulus, Arc2d, BoundingVolume, Capsule2d, Circle, CircularSector, CircularSegment, Ellipse,
+    Line2d, Plane2d, Primitive2d, Rectangle, RegularPolygon, Rhombus, Ring, Segment2d, Triangle2d,
 };
+use bevy_math::{ops, Dir2, Isometry2d, Mat2, Rot2, Vec2};
 use core::f32::consts::{FRAC_PI_2, PI, TAU};
 
 #[cfg(feature = "alloc")]
-use crate::primitives::{ConvexPolygon, Polygon, Polyline2d};
+use crate::{ConvexPolygon, Polygon, Polyline2d};
 
 use arrayvec::ArrayVec;
 
@@ -445,17 +441,15 @@ mod tests {
     use std::println;
 
     use approx::assert_abs_diff_eq;
-    use glam::Vec2;
+    use bevy_math::{
+        ops::{self, FloatPow},
+        Dir2, Isometry2d, Rot2, Vec2,
+    };
 
     use crate::{
-        bounding::Bounded2d,
-        ops::{self, FloatPow},
-        primitives::{
-            Annulus, Arc2d, Capsule2d, Circle, CircularSector, CircularSegment, Ellipse, Line2d,
-            Plane2d, Polygon, Polyline2d, Rectangle, RegularPolygon, Rhombus, Segment2d,
-            Triangle2d,
-        },
-        Dir2, Isometry2d, Rot2,
+        Annulus, Arc2d, Bounded2d, Capsule2d, Circle, CircularSector, CircularSegment, Ellipse,
+        Line2d, Plane2d, Polygon, Polyline2d, Rectangle, RegularPolygon, Rhombus, Segment2d,
+        Triangle2d,
     };
 
     #[test]
