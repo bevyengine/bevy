@@ -148,7 +148,7 @@ pub fn catch_unwind_if_available<T>(
             impl Drop for AbortOnPanic {
                 fn drop(&mut self) {
                     // Force abort through double panic
-                    panic!();
+                    panic!("Aborting due to previous panic");
                 }
             }
             let drop_guard = AbortOnPanic;
