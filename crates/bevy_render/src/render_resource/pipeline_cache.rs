@@ -6,7 +6,7 @@ use smallvec::SmallVec;
 
 use crate::{
     render_resource::*,
-    renderer::{RenderDevice, WgpuWrapper},
+    renderer::{wgpu_wrapper, RenderDevice},
     Extract,
 };
 use alloc::{borrow::Cow, sync::Arc};
@@ -92,9 +92,16 @@ type LayoutCacheKey = (
     SmallVec<[BindGroupLayoutId; BIND_GROUP_LAYOUTS_INLINE_CAPACITY]>,
     ImmediateSize,
 );
+
+wgpu_wrapper! {
+    struct WgpuPipelineLayout(PipelineLayout);
+
+    struct WgpuShaderModule(ShaderModule);
+}
+
 #[derive(Default)]
 struct LayoutCache {
-    layouts: HashMap<LayoutCacheKey, Arc<WgpuWrapper<PipelineLayout>>>,
+    layouts: HashMap<LayoutCacheKey, Arc<WgpuPipelineLayout>>,
 }
 
 impl LayoutCache {
@@ -103,7 +110,7 @@ impl LayoutCache {
         render_device: &RenderDevice,
         bind_group_layouts: &[BindGroupLayout],
         immediate_size: u32,
-    ) -> Arc<WgpuWrapper<PipelineLayout>> {
+    ) -> Arc<WgpuPipelineLayout> {
         let bind_group_ids = bind_group_layouts.iter().map(BindGroupLayout::id).collect();
         self.layouts
             .entry((bind_group_ids, immediate_size))
@@ -113,13 +120,13 @@ impl LayoutCache {
                     .map(BindGroupLayout::value)
                     .map(Some)
                     .collect::<SmallVec<[_; BIND_GROUP_LAYOUTS_INLINE_CAPACITY]>>();
-                Arc::new(WgpuWrapper::new(render_device.create_pipeline_layout(
-                    &PipelineLayoutDescriptor {
+                Arc::new(WgpuPipelineLayout::new(
+                    render_device.create_pipeline_layout(&PipelineLayoutDescriptor {
                         bind_group_layouts: &bind_group_layouts,
                         immediate_size: *immediate_size,
                         ..default()
-                    },
-                )))
+                    }),
+                ))
             })
             .clone()
     }
@@ -128,7 +135,7 @@ impl LayoutCache {
 async fn load_module<'a>(
     render_device: &'a RenderDevice,
     processed_shader: &ProcessedShader,
-) -> Result<WgpuWrapper<ShaderModule>, ShaderCacheError> {
+) -> Result<WgpuShaderModule, ShaderCacheError> {
     let shader_source = match &processed_shader.source {
         #[cfg(feature = "shader_format_spirv")]
         ShaderCacheSource::SpirV(data) => wgpu::util::make_spirv(data),
@@ -147,7 +154,7 @@ async fn load_module<'a>(
         .wgpu_device()
         .push_error_scope(wgpu::ErrorFilter::Validation);
 
-    let shader_module = WgpuWrapper::new(match &processed_shader.validate_shader {
+    let shader_module = WgpuShaderModule::new(match &processed_shader.validate_shader {
         ValidateShader::Enabled => {
             render_device.create_and_validate_shader_module(module_descriptor)
         }
@@ -281,7 +288,7 @@ pub struct PipelineCache {
     bindgroup_layout_cache: Arc<Mutex<BindGroupLayoutCache>>,
     shader_cache: Arc<Mutex<ShaderCache>>,
     shader_module_cache:
-        Arc<async_lock::Mutex<HashMap<ShaderModuleCacheKey, WgpuWrapper<ShaderModule>>>>,
+        Arc<async_lock::Mutex<HashMap<ShaderModuleCacheKey, WgpuShaderModule>>>,
     device: RenderDevice,
     pipelines: Vec<CachedPipeline>,
     waiting_pipelines: HashSet<CachedPipelineId>,

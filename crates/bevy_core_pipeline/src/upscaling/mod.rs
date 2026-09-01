@@ -3,8 +3,10 @@ use bevy_app::prelude::*;
 use bevy_camera::CameraOutputMode;
 use bevy_ecs::prelude::*;
 use bevy_render::{
-    camera::ExtractedCamera, render_resource::*, view::ViewTarget, Render, RenderApp,
-    RenderStartup, RenderSystems,
+    camera::ExtractedCamera,
+    render_resource::*,
+    view::{ResolvedCompositingSpace, ViewTarget},
+    Render, RenderApp, RenderStartup, RenderSystems,
 };
 
 mod node;
@@ -59,9 +61,10 @@ fn prepare_view_upscaling_pipelines(
         &ViewTarget,
         Option<&ExtractedCamera>,
         Option<&ViewUpscalingPipeline>,
+        Option<&ResolvedCompositingSpace>,
     )>,
 ) {
-    for (entity, view_target, camera, maybe_pipeline) in view_targets.iter() {
+    for (entity, view_target, camera, maybe_pipeline, resolved_space) in view_targets.iter() {
         let blend_state = if let Some(extracted_camera) = camera {
             match extracted_camera.output_mode {
                 CameraOutputMode::Skip => None,
@@ -94,7 +97,7 @@ fn prepare_view_upscaling_pipelines(
             target_format,
             blend_state,
             samples: 1,
-            source_space: view_target.compositing_space,
+            source_space: ResolvedCompositingSpace::space(resolved_space),
         };
 
         if maybe_pipeline.is_none_or(|ViewUpscalingPipeline(_, cached_key)| *cached_key != key) {
