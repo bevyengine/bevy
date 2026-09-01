@@ -13,7 +13,7 @@ use bevy::{
 };
 
 /// This example uses a shader source file from the assets subdirectory.
-const SHADER_ASSET_PATH: &str = "shaders/array_texture.wgsl";
+const SHADER_ASSET_PATH: &str = "shaders/array_texture.wesl";
 
 /// Corresponds to the number of layers in the array texture.
 const TEXTURE_COUNT: u32 = 4;
@@ -66,7 +66,7 @@ fn setup(
             MeshMaterial3d(material_handle.clone()),
             // Pass a different mesh tag to allow selecting different layers of
             // the array texture in the shader.
-            MeshTag(x as u32 % TEXTURE_COUNT),
+            MeshTag::new(x as u32 % TEXTURE_COUNT),
             Transform::from_xyz(x as f32 + 0.5, 0.0, 0.0),
         ));
     }
@@ -83,7 +83,7 @@ fn update_mesh_tags(time: Res<Time>, mut query: Query<&mut MeshTag>, mut timer: 
         for mut tag in query.iter_mut() {
             // Cycle through the texture layers to demonstrate that we can
             // select different layers of the array texture at runtime.
-            tag.0 = (tag.0 + 1) % TEXTURE_COUNT;
+            tag.value = (tag.value + 1) % TEXTURE_COUNT;
         }
     }
 }

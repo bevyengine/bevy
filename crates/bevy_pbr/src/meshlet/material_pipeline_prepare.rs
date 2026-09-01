@@ -21,7 +21,10 @@ use bevy_mesh::{
 };
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_render::{camera::ExtractedCamera, erased_render_asset::ErasedRenderAssets};
-use bevy_render::{camera::TemporalJitter, render_resource::*, view::ExtractedView};
+use bevy_render::{
+    camera::TemporalJitter, material_bind_groups::MaterialBindGroupAllocators, render_resource::*,
+    view::ExtractedView,
+};
 use bevy_utils::default;
 use core::any::TypeId;
 
@@ -131,11 +134,12 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass(
             }
         }
 
-        if !camera.hdr {
-            if let Some(tonemapping) = tonemapping {
-                view_key |= MeshPipelineKey::TONEMAP_IN_SHADER;
-                view_key |= tonemapping_pipeline_key(*tonemapping);
-            }
+        if !camera.hdr
+            && let Some(tonemapping) = tonemapping
+            && tonemapping.is_enabled()
+        {
+            view_key |= MeshPipelineKey::TONEMAP_IN_SHADER;
+            view_key |= tonemapping_pipeline_key(*tonemapping);
             if let Some(DebandDither::Enabled) = dither {
                 view_key |= MeshPipelineKey::DEBAND_DITHER;
             }

@@ -1,7 +1,4 @@
-use crate::{
-    primitives::{Primitive2d, Primitive3d},
-    Quat, Rot2, Vec2, Vec3, Vec3A, Vec4,
-};
+use crate::{Quat, Rot2, Vec2, Vec3, Vec3A, Vec4};
 
 use core::f32::consts::FRAC_1_SQRT_2;
 use core::fmt;
@@ -34,7 +31,7 @@ pub enum InvalidDirectionError {
 
 impl InvalidDirectionError {
     /// Creates an [`InvalidDirectionError`] from the length of an invalid direction vector.
-    pub fn from_length(length: f32) -> Self {
+    pub const fn from_length(length: f32) -> Self {
         if length.is_nan() {
             InvalidDirectionError::NaN
         } else if !length.is_finite() {
@@ -94,7 +91,6 @@ fn assert_is_normalized(message: &str, length_squared: f32) {
 )]
 #[doc(alias = "Direction2d")]
 pub struct Dir2(Vec2);
-impl Primitive2d for Dir2 {}
 
 impl Dir2 {
     /// A unit vector pointing along the positive X axis.
@@ -292,6 +288,12 @@ impl Dir2 {
         // Based on a Taylor approximation of the inverse square root, see [`Dir3::fast_renormalize`] for more details.
         Self(self * (0.5 * (3.0 - length_squared)))
     }
+
+    /// Returns the perpendicular vector rotated to 90 degrees counterclockwise.
+    #[inline]
+    pub fn perpendicular(self) -> Self {
+        Self::new_unchecked(self.as_vec2().perp())
+    }
 }
 
 impl TryFrom<Vec2> for Dir2 {
@@ -405,7 +407,6 @@ impl approx::UlpsEq for Dir2 {
 )]
 #[doc(alias = "Direction3d")]
 pub struct Dir3(Vec3);
-impl Primitive3d for Dir3 {}
 
 impl Dir3 {
     /// A unit vector pointing along the positive X axis.
@@ -809,7 +810,6 @@ impl approx::UlpsEq for Dir3 {
 )]
 #[doc(alias = "Direction3dA")]
 pub struct Dir3A(Vec3A);
-impl Primitive3d for Dir3A {}
 
 impl Dir3A {
     /// A unit vector pointing along the positive X axis.
@@ -1321,6 +1321,21 @@ mod tests {
             "Denormalization doesn't work, test is faulty"
         );
         assert!(dir_b.is_normalized(), "Renormalisation did not work.");
+    }
+
+    #[test]
+    fn dir2_perp() {
+        // (1, 0) rotated 90 deg counterclockwise becomes (0, 1)
+        assert_eq!(Dir2::X.perpendicular(), Dir2::Y);
+
+        // (0, 1) rotated 90 deg counterclockwise becomes (-1, 0)
+        assert_eq!(Dir2::Y.perpendicular(), Dir2::NEG_X);
+
+        // (-1, 0) rotated 90 deg counterclockwise becomes (0, -1)
+        assert_eq!(Dir2::NEG_X.perpendicular(), Dir2::NEG_Y);
+
+        // (0, -1) rotated 90 deg counterclockwise becomes (1, 0)
+        assert_eq!(Dir2::NEG_Y.perpendicular(), Dir2::X);
     }
 
     #[test]

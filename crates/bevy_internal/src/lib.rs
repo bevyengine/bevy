@@ -41,6 +41,8 @@ pub use bevy_core_pipeline as core_pipeline;
 pub use bevy_dev_tools as dev_tools;
 pub use bevy_diagnostic as diagnostic;
 pub use bevy_ecs as ecs;
+#[cfg(feature = "bevy_extract")]
+pub use bevy_extract as extract;
 #[cfg(feature = "bevy_feathers")]
 pub use bevy_feathers as feathers;
 #[cfg(feature = "bevy_gilrs")]
@@ -84,6 +86,7 @@ pub use bevy_scene as scene;
 pub use bevy_settings as settings;
 #[cfg(feature = "bevy_shader")]
 pub use bevy_shader as shader;
+pub use bevy_shape as shape;
 #[cfg(feature = "bevy_solari")]
 pub use bevy_solari as solari;
 #[cfg(feature = "bevy_sprite")]

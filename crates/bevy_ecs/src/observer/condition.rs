@@ -7,8 +7,7 @@ use alloc::{boxed::Box, vec::Vec};
 use core::marker::PhantomData;
 
 use crate::{
-    bundle::Bundle,
-    event::Event,
+    event::EventPattern,
     schedule::{BoxedCondition, SystemCondition},
     system::{IntoObserverSystem, IntoSystem},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
@@ -52,13 +51,13 @@ pub struct ObserverWithConditionMarker;
 /// This type is returned by [`ObserverSystemExt::run_if`](super::ObserverSystemExt::run_if)
 /// and allows `entity.observe(system.run_if(cond))` to work with compile-time
 /// verification that the event implements [`EntityEvent`](crate::event::EntityEvent).
-pub struct ObserverWithCondition<E: Event, B: Bundle, M, S: IntoObserverSystem<E, B, M>> {
+pub struct ObserverWithCondition<E: EventPattern, M, S: IntoObserverSystem<E, M>> {
     pub(crate) system: S,
     pub(crate) conditions: Vec<BoxedCondition>,
-    pub(crate) _marker: PhantomData<fn() -> (E, B, M)>,
+    pub(crate) _marker: PhantomData<fn() -> (E, M)>,
 }
 
-impl<E: Event, B: Bundle, M, S: IntoObserverSystem<E, B, M>> ObserverWithCondition<E, B, M, S> {
+impl<E: EventPattern, M, S: IntoObserverSystem<E, M>> ObserverWithCondition<E, M, S> {
     /// Adds another run condition to this observer.
     ///
     /// All conditions must return `true` for the observer to run (AND semantics).

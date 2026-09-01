@@ -10,6 +10,9 @@ use bevy_reflect::prelude::*;
 
 /// Color in Okhsl color space with alpha
 /// Further information on this color model can be found on <https://bottosson.github.io/posts/colorpicker>.
+///
+/// Okhsl is defined relative to the sRGB (Rec. 709) gamut. Converting a wide-gamut or
+/// HDR color clamps the lightness to `1.0` but can push saturation outside `[0.0, 1.0]`.
 #[doc = include_str!("../docs/conversion.md")]
 /// <div>
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
@@ -406,6 +409,51 @@ mod tests {
     use crate::{
         color_difference::EuclideanDistance, test_colors::TEST_COLORS, testing::assert_approx_eq,
     };
+
+    #[test]
+    fn test_from_to_oklaba() {
+        // Test `oklab_l == 0.0`
+        let oklaba = Oklaba::new(0.0, 0.5, 0.5, 1.0);
+        let okhsla: Okhsla = oklaba.into();
+        let oklaba2: Oklaba = okhsla.into();
+        assert_approx_eq!(okhsla.hue, 0.0, 0.001);
+        assert_approx_eq!(okhsla.saturation, 0.0, 0.001);
+        assert_approx_eq!(okhsla.lightness, 0.0, 0.001);
+        assert_approx_eq!(okhsla.alpha, 1.0, 0.001);
+
+        assert_approx_eq!(oklaba.lightness, oklaba2.lightness, 0.001);
+        assert_approx_eq!(0.0, oklaba2.a, 0.001);
+        assert_approx_eq!(0.0, oklaba2.b, 0.001);
+        assert_approx_eq!(oklaba.alpha, oklaba2.alpha, 0.001);
+
+        // Test `oklab_l == 1.0`
+        let oklaba = Oklaba::new(1.0, 0.5, 0.5, 1.0);
+        let okhsla: Okhsla = oklaba.into();
+        let oklaba2: Oklaba = okhsla.into();
+        assert_approx_eq!(okhsla.hue, 0.0, 0.001);
+        assert_approx_eq!(okhsla.saturation, 0.0, 0.001);
+        assert_approx_eq!(okhsla.lightness, 1.0, 0.001);
+        assert_approx_eq!(okhsla.alpha, 1.0, 0.001);
+
+        assert_approx_eq!(oklaba.lightness, oklaba2.lightness, 0.001);
+        assert_approx_eq!(0.0, oklaba2.a, 0.001);
+        assert_approx_eq!(0.0, oklaba2.b, 0.001);
+        assert_approx_eq!(oklaba.alpha, oklaba2.alpha, 0.001);
+
+        // Test `oklab_a == 0.0 && oklab_b ==0.0` (C == 0.0)
+        let oklaba = Oklaba::new(0.5, 0.0, 0.0, 1.0);
+        let okhsla: Okhsla = oklaba.into();
+        let oklaba2: Oklaba = okhsla.into();
+        assert_approx_eq!(okhsla.hue, 0.0, 0.001);
+        assert_approx_eq!(okhsla.saturation, 0.0, 0.001);
+        assert_approx_eq!(okhsla.lightness, 0.42114055, 0.001);
+        assert_approx_eq!(okhsla.alpha, 1.0, 0.001);
+
+        assert_approx_eq!(oklaba.lightness, oklaba2.lightness, 0.001);
+        assert_approx_eq!(0.0, oklaba2.a, 0.001);
+        assert_approx_eq!(0.0, oklaba2.b, 0.001);
+        assert_approx_eq!(oklaba.alpha, oklaba2.alpha, 0.001);
+    }
 
     #[test]
     fn test_to_from_srgba() {

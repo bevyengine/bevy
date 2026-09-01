@@ -1,5 +1,5 @@
 use crate::{
-    meta::MetaTransform, Asset, AssetId, AssetIndex, AssetIndexAllocator, AssetPath, AssetServer,
+    Asset, AssetId, AssetIndex, AssetIndexAllocator, AssetPath, AssetServer, Assets,
     ErasedAssetIndex, ReflectHandle, UntypedAssetId,
 };
 use alloc::sync::Arc;
@@ -47,7 +47,7 @@ impl AssetHandleProvider {
     /// [`UntypedHandle`] will match the [`Asset`] [`TypeId`] assigned to this [`AssetHandleProvider`].
     pub fn reserve_handle(&self) -> UntypedHandle {
         let index = self.allocator.reserve();
-        UntypedHandle::Strong(self.get_handle(index, false, None, None))
+        UntypedHandle::Strong(self.get_handle(index, false, None))
     }
 
     pub(crate) fn get_handle(
@@ -55,13 +55,11 @@ impl AssetHandleProvider {
         index: AssetIndex,
         asset_server_managed: bool,
         path: Option<AssetPath<'static>>,
-        meta_transform: Option<MetaTransform>,
     ) -> Arc<StrongHandle> {
         Arc::new(StrongHandle {
             index,
             type_id: self.type_id,
             drop_sender: self.drop_sender.clone(),
-            meta_transform,
             path,
             asset_server_managed,
         })
@@ -71,25 +69,20 @@ impl AssetHandleProvider {
         &self,
         asset_server_managed: bool,
         path: Option<AssetPath<'static>>,
-        meta_transform: Option<MetaTransform>,
     ) -> Arc<StrongHandle> {
         let index = self.allocator.reserve();
-        self.get_handle(index, asset_server_managed, path, meta_transform)
+        self.get_handle(index, asset_server_managed, path)
     }
 }
 
 /// The internal "strong" [`Asset`] handle storage for [`Handle::Strong`] and [`UntypedHandle::Strong`]. When this is dropped,
 /// the [`Asset`] will be freed. It also stores some asset metadata for easy access from handles.
-#[derive(TypePath)]
+#[derive(TypePath, Debug)]
 pub struct StrongHandle {
     pub(crate) index: AssetIndex,
     pub(crate) type_id: TypeId,
     pub(crate) asset_server_managed: bool,
     pub(crate) path: Option<AssetPath<'static>>,
-    /// Modifies asset meta. This is stored on the handle because it is:
-    /// 1. configuration tied to the lifetime of a specific asset load
-    /// 2. configuration that must be repeatable when the asset is hot-reloaded
-    pub(crate) meta_transform: Option<MetaTransform>,
     pub(crate) drop_sender: Sender<DropEvent>,
 }
 
@@ -102,20 +95,8 @@ impl Drop for StrongHandle {
     }
 }
 
-impl core::fmt::Debug for StrongHandle {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("StrongHandle")
-            .field("index", &self.index)
-            .field("type_id", &self.type_id)
-            .field("asset_server_managed", &self.asset_server_managed)
-            .field("path", &self.path)
-            .field("drop_sender", &self.drop_sender)
-            .finish()
-    }
-}
-
 /// A handle to a specific [`Asset`] of type `A`. Handles act as abstract "references" to
-/// assets, whose data are stored in the [`Assets<A>`](crate::prelude::Assets) resource,
+/// assets, whose data are stored in the [`Assets<A>`] resource,
 /// avoiding the need to store multiple copies of the same data.
 ///
 /// If a [`Handle`] is [`Handle::Strong`], the [`Asset`] will be kept
@@ -123,7 +104,7 @@ impl core::fmt::Debug for StrongHandle {
 /// nor will it keep assets alive.
 ///
 /// Modifying a *handle* will change which existing asset is referenced, but modifying the *asset*
-/// (by mutating the [`Assets`](crate::prelude::Assets) resource) will change the asset for all handles referencing it.
+/// (by mutating the [`Assets`] resource) will change the asset for all handles referencing it.
 ///
 /// [`Handle`] can be cloned. If a [`Handle::Strong`] is cloned, the referenced [`Asset`] will not be freed until _all_ instances
 /// of the [`Handle`] are dropped.
@@ -350,7 +331,9 @@ impl<T: Asset> Template for HandleTemplate<T> {
                     AssetOrHandle::Value(value) => {
                         // This unwrap is ok because AssetOrHandle::Value will always either contain a Some Value
                         // when it is in this state (AssetOrHandle is private).
-                        let handle = context.resource::<AssetServer>().add(value.take().unwrap());
+                        let handle = context
+                            .resource_mut::<Assets<T>>()
+                            .add(value.take().unwrap());
                         *value_or_handle = AssetOrHandle::Handle(handle.clone());
                         handle
                     }
@@ -564,16 +547,6 @@ impl UntypedHandle {
     #[inline]
     pub fn try_typed<A: Asset>(self) -> Result<Handle<A>, UntypedAssetConversionError> {
         Handle::try_from(self)
-    }
-
-    /// The "meta transform" for the strong handle. This will only be [`Some`] if the handle is strong and there is a meta transform
-    /// associated with it.
-    #[inline]
-    pub fn meta_transform(&self) -> Option<&MetaTransform> {
-        match self {
-            UntypedHandle::Strong(handle) => handle.meta_transform.as_ref(),
-            UntypedHandle::Uuid { .. } => None,
-        }
     }
 }
 
@@ -876,7 +849,7 @@ mod tests {
                     "Cloning the handle with reflect should increase the strong count to 2"
                 );
 
-                let dynamic_handle: Box<dyn PartialReflect> = reflected.to_dynamic();
+                let dynamic_handle: Box<dyn PartialReflect> = reflected.to_dynamic().unwrap();
 
                 assert_eq!(
                     Arc::strong_count(strong),
@@ -910,7 +883,7 @@ mod tests {
         let mut assets = app.world_mut().resource_mut::<Assets<A>>();
         let handle_a = assets.add(A);
 
-        let dynamic_handle_a = handle_a.to_dynamic();
+        let dynamic_handle_a = handle_a.to_dynamic().unwrap();
         let reflected_handle_a = handle_a.as_partial_reflect();
 
         let handle_b_from_reflect_dynamic: Option<Handle<B>> =

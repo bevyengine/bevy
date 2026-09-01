@@ -13,7 +13,7 @@
 
 use bevy::{
     light::Skybox,
-    math::{cubic_splines::LinearSpline, primitives::Plane3d, vec2},
+    math::{cubic_splines::LinearSpline, vec2},
     post_process::auto_exposure::{
         AutoExposure, AutoExposureCompensationCurve, AutoExposurePlugin,
     },

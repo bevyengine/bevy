@@ -19,7 +19,7 @@ use crate::{
     query::{DebugCheckedUnwrap, QueryAccessError, ReleaseStateQueryData, SingleEntityQueryData},
     resource::{Resource, ResourceEntities},
     storage::{ComponentSparseSet, Storages, Table},
-    world::RawCommandQueue,
+    system::Commands,
 };
 use bevy_platform::sync::atomic::Ordering;
 use bevy_ptr::{Ptr, UnsafeCellDeref};
@@ -125,6 +125,54 @@ impl<'w> UnsafeWorldCell<'w> {
             ptr: ptr::from_mut(world),
             #[cfg(debug_assertions)]
             allows_mutable_access: true,
+            _marker: PhantomData,
+        }
+    }
+
+    /// Creates a pointer from [`UnsafeWorldCell`] that allows mutable access.
+    ///
+    /// This function is safe because to use a raw pointer once must dereference it in an unsafe
+    /// block
+    pub fn as_ptr_mut(self) -> *mut World {
+        #[cfg(debug_assertions)]
+        self.assert_allows_mutable_access();
+        self.ptr
+    }
+
+    /// Creates a pointer from [`UnsafeWorldCell`] that does not allow mutable access.
+    ///
+    /// This function is safe because to use a raw pointer once must dereference it in an unsafe
+    /// block
+    pub fn as_ptr_ref(self) -> *const World {
+        self.ptr.cast_const()
+    }
+
+    /// Creates [`UnsafeWorldCell`] directly from a raw pointer that can be used to access
+    /// everything mutably
+    /// # Safety
+    /// - `world` must be a pointer obtained from [`UnsafeWorldCell::as_ptr_mut`]
+    ///   within the lifetime of the original [`UnsafeWorldCell`] it was obtained from
+    #[inline]
+    pub unsafe fn new_mutable_from_ptr(world: *mut World) -> Self {
+        Self {
+            ptr: world,
+            #[cfg(debug_assertions)]
+            allows_mutable_access: true,
+            _marker: PhantomData,
+        }
+    }
+
+    /// Creates a [`UnsafeWorldCell`] directly from a raw pointer that can be used to access
+    /// everything immutably
+    /// # Safety
+    /// - `world` must be a pointer obtained from [`UnsafeWorldCell::as_ptr_ref`]
+    ///   within the lifetime of the original [`UnsafeWorldCell`] it was obtained from
+    #[inline]
+    pub unsafe fn new_readonly_from_ptr(world: *const World) -> Self {
+        Self {
+            ptr: world.cast_mut(),
+            #[cfg(debug_assertions)]
+            allows_mutable_access: false,
             _marker: PhantomData,
         }
     }
@@ -475,18 +523,6 @@ impl<'w> UnsafeWorldCell<'w> {
         unsafe { entity_cell.get_by_id(component_id) }
     }
 
-    /// Gets a reference to a non-send resource of the given type if it exists.
-    ///
-    /// # Safety
-    /// It is the caller's responsibility to ensure that
-    /// - the [`UnsafeWorldCell`] has permission to access the data
-    /// - no mutable reference to the data exists at the same time
-    #[deprecated(since = "0.19.0", note = "use UnsafeWorldCell::get_non_send")]
-    pub unsafe fn get_non_send_resource<R: 'static>(self) -> Option<&'w R> {
-        // SAFETY: same preconditions
-        unsafe { self.get_non_send::<R>() }
-    }
-
     /// Gets a reference to non-send data of the given type if it exists
     ///
     /// # Safety
@@ -503,20 +539,6 @@ impl<'w> UnsafeWorldCell<'w> {
                 // SAFETY: `component_id` was obtained from `TypeId::of::<R>()`
                 .map(|ptr| ptr.deref::<R>())
         }
-    }
-
-    /// Gets a pointer to a `!Send` resource with the id [`ComponentId`] if it exists.
-    /// The returned pointer must not be used to modify the data, and must not be
-    /// dereferenced after the immutable borrow of the [`World`] ends.
-    ///
-    /// # Safety
-    /// It is the caller's responsibility to ensure that
-    /// - the [`UnsafeWorldCell`] has permission to access the data
-    /// - no mutable reference to the data exists at the same time
-    #[deprecated(since = "0.19.0", note = "use UnsafeWorldCell::get_non_send_by_id")]
-    pub unsafe fn get_non_send_resource_by_id(self, component_id: ComponentId) -> Option<Ptr<'w>> {
-        // SAFETY: Access permissions and uniqueness per preconditions
-        unsafe { self.get_non_send_by_id(component_id) }
     }
 
     /// Gets a pointer to `!Send` data with the id [`ComponentId`] if it exists.
@@ -606,18 +628,6 @@ impl<'w> UnsafeWorldCell<'w> {
         }
     }
 
-    /// Gets a mutable reference to the non-send resource of the given type if it exists
-    ///
-    /// # Safety
-    /// It is the caller's responsibility to ensure that
-    /// - the [`UnsafeWorldCell`] has permission to access the data mutably
-    /// - no other references to the data exist at the same time
-    #[deprecated(since = "0.19.0", note = "use UnsafeWorldCell::get_non_send_mut")]
-    pub unsafe fn get_non_send_resource_mut<R: 'static>(self) -> Option<Mut<'w, R>> {
-        // SAFETY: Access permissions and uniqueness per preconditions
-        unsafe { self.get_non_send_mut::<R>() }
-    }
-
     /// Gets a mutable reference to the non-send data of the given type if it exists
     ///
     /// # Safety
@@ -636,23 +646,6 @@ impl<'w> UnsafeWorldCell<'w> {
                 // SAFETY: `component_id` was gotten by `TypeId::of::<R>()`
                 .map(|ptr| ptr.with_type::<R>())
         }
-    }
-
-    /// Gets mutable access to a `!Send` resource with the id [`ComponentId`] if it exists.
-    /// The returned pointer may be used to modify the data, as long as the mutable borrow
-    /// of the [`World`] is still valid.
-    ///
-    /// # Safety
-    /// It is the caller's responsibility to ensure that
-    /// - the [`UnsafeWorldCell`] has permission to access the data mutably
-    /// - no other references to the data exist at the same time
-    #[deprecated(since = "0.19.0", note = "use UnsafeWorldCell::get_non_send_mut_by_id")]
-    pub unsafe fn get_non_send_resource_mut_by_id<R: 'static>(
-        self,
-        component_id: ComponentId,
-    ) -> Option<MutUntyped<'w>> {
-        // SAFETY: Access permissions and uniqueness per preconditions
-        unsafe { self.get_non_send_mut_by_id(component_id) }
     }
 
     /// Gets mutable access to `!Send` data with the id [`ComponentId`] if it exists.
@@ -687,7 +680,9 @@ impl<'w> UnsafeWorldCell<'w> {
             // SAFETY: This function has exclusive access to the world so nothing aliases `ticks`.
             // - index is in-bounds because the column is initialized and non-empty
             // - no other reference to the ticks of the same row can exist at the same time
-            unsafe { ComponentTicksMut::from_tick_cells(ticks, self.last_change_tick(), change_tick) };
+            unsafe {
+                ComponentTicksMut::from_tick_cells(ticks, self.last_change_tick(), change_tick)
+            };
 
         Some(MutUntyped {
             // SAFETY: This function has exclusive access to the world so nothing aliases `ptr`.
@@ -741,17 +736,19 @@ impl<'w> UnsafeWorldCell<'w> {
             .get_with_ticks()
     }
 
-    // Returns a mutable reference to the underlying world's [`CommandQueue`].
+    /// Creates a [`Commands`] instance that pushes to the world's command queue
     /// # Safety
     /// It is the caller's responsibility to ensure that
     /// - the [`UnsafeWorldCell`] has permission to access the queue mutably
-    /// - no mutable references to the queue exist at the same time
-    pub(crate) unsafe fn get_raw_command_queue(self) -> RawCommandQueue {
+    /// - no references to the queue exist at the same time
+    pub(crate) unsafe fn commands(self) -> Commands<'w, 'w> {
         self.assert_allows_mutable_access();
         // SAFETY:
-        // - caller ensures there are no existing mutable references
+        // - caller ensures there are no existing references
         // - caller ensures that we have permission to access the queue
-        unsafe { (*self.ptr).command_queue.clone() }
+        let command_queue = unsafe { &mut *(*self.ptr).command_queue.get() };
+
+        Commands::new_from_entities(command_queue, self.entity_allocator(), self.entities())
     }
 
     /// # Safety
@@ -1066,10 +1063,12 @@ impl<'w> UnsafeEntityCell<'w> {
                 self.entity,
                 self.location,
             )
-            .map(|(value, cells)| Mut {
-                // SAFETY: returned component is of type T
-                value: value.assert_unique().deref_mut::<T>(),
-                ticks: ComponentTicksMut::from_tick_cells(cells, last_change_tick, change_tick),
+            .map(|(value, cells)| {
+                Mut {
+                    // SAFETY: returned component is of type T
+                    value: value.assert_unique().deref_mut::<T>(),
+                    ticks: ComponentTicksMut::from_tick_cells(cells, last_change_tick, change_tick),
+                }
             })
         }
     }
@@ -1188,10 +1187,12 @@ impl<'w> UnsafeEntityCell<'w> {
                 self.entity,
                 self.location,
             )
-            .map(|(value, cells)| MutUntyped {
-                // SAFETY: world access validated by caller and ties world lifetime to `MutUntyped` lifetime
-                value: value.assert_unique(),
-                ticks: ComponentTicksMut::from_tick_cells(cells, self.last_run, self.this_run),
+            .map(|(value, cells)| {
+                MutUntyped {
+                    // SAFETY: world access validated by caller and ties world lifetime to `MutUntyped` lifetime
+                    value: value.assert_unique(),
+                    ticks: ComponentTicksMut::from_tick_cells(cells, self.last_run, self.this_run),
+                }
             })
             .ok_or(GetEntityMutByIdError::ComponentNotFound)
         }
@@ -1231,10 +1232,12 @@ impl<'w> UnsafeEntityCell<'w> {
                 self.entity,
                 self.location,
             )
-            .map(|(value, cells)| MutUntyped {
-                // SAFETY: world access validated by caller and ties world lifetime to `MutUntyped` lifetime
-                value: value.assert_unique(),
-                ticks: ComponentTicksMut::from_tick_cells(cells, self.last_run, self.this_run),
+            .map(|(value, cells)| {
+                MutUntyped {
+                    // SAFETY: world access validated by caller and ties world lifetime to `MutUntyped` lifetime
+                    value: value.assert_unique(),
+                    ticks: ComponentTicksMut::from_tick_cells(cells, self.last_run, self.this_run),
+                }
             })
             .ok_or(GetEntityMutByIdError::ComponentNotFound)
         }
@@ -1362,6 +1365,7 @@ unsafe fn get_component_and_ticks(
                         changed_by: table
                             .get_changed_by(component_id, location.table_row)
                             .map(|changed_by| changed_by.debug_checked_unwrap()),
+                        summary_tick: table.get_summary_tick(component_id),
                     },
                 )
             })

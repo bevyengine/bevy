@@ -6,7 +6,7 @@ use smallvec::SmallVec;
 
 use crate::{
     render_resource::*,
-    renderer::{RenderAdapter, RenderDevice, WgpuWrapper},
+    renderer::{wgpu_wrapper, RenderDevice},
     Extract,
 };
 use alloc::{borrow::Cow, sync::Arc};
@@ -89,9 +89,16 @@ type LayoutCacheKey = (
     SmallVec<[BindGroupLayoutId; BIND_GROUP_LAYOUTS_INLINE_CAPACITY]>,
     ImmediateSize,
 );
+
+wgpu_wrapper! {
+    struct WgpuPipelineLayout(PipelineLayout);
+
+    struct WgpuShaderModule(ShaderModule);
+}
+
 #[derive(Default)]
 struct LayoutCache {
-    layouts: HashMap<LayoutCacheKey, Arc<WgpuWrapper<PipelineLayout>>>,
+    layouts: HashMap<LayoutCacheKey, Arc<WgpuPipelineLayout>>,
 }
 
 impl LayoutCache {
@@ -100,7 +107,7 @@ impl LayoutCache {
         render_device: &RenderDevice,
         bind_group_layouts: &[BindGroupLayout],
         immediate_size: u32,
-    ) -> Arc<WgpuWrapper<PipelineLayout>> {
+    ) -> Arc<WgpuPipelineLayout> {
         let bind_group_ids = bind_group_layouts.iter().map(BindGroupLayout::id).collect();
         self.layouts
             .entry((bind_group_ids, immediate_size))
@@ -110,13 +117,13 @@ impl LayoutCache {
                     .map(BindGroupLayout::value)
                     .map(Some)
                     .collect::<SmallVec<[_; BIND_GROUP_LAYOUTS_INLINE_CAPACITY]>>();
-                Arc::new(WgpuWrapper::new(render_device.create_pipeline_layout(
-                    &PipelineLayoutDescriptor {
+                Arc::new(WgpuPipelineLayout::new(
+                    render_device.create_pipeline_layout(&PipelineLayoutDescriptor {
                         bind_group_layouts: &bind_group_layouts,
                         immediate_size: *immediate_size,
                         ..default()
-                    },
-                )))
+                    }),
+                ))
             })
             .clone()
     }
@@ -126,7 +133,7 @@ fn load_module(
     render_device: &RenderDevice,
     shader_source: ShaderCacheSource,
     validate_shader: &ValidateShader,
-) -> Result<WgpuWrapper<ShaderModule>, ShaderCacheError> {
+) -> Result<WgpuShaderModule, ShaderCacheError> {
     let shader_source = match shader_source {
         #[cfg(feature = "shader_format_spirv")]
         ShaderCacheSource::SpirV(data) => wgpu::util::make_spirv(data),
@@ -135,8 +142,6 @@ fn load_module(
             unimplemented!("Enable feature \"shader_format_spirv\" to use SPIR-V shaders")
         }
         ShaderCacheSource::Wgsl(src) => ShaderSource::Wgsl(Cow::Owned(src)),
-        #[cfg(not(feature = "decoupled_naga"))]
-        ShaderCacheSource::Naga(src) => ShaderSource::Naga(Cow::Owned(src)),
     };
     let module_descriptor = ShaderModuleDescriptor {
         label: None,
@@ -147,7 +152,7 @@ fn load_module(
         .wgpu_device()
         .push_error_scope(wgpu::ErrorFilter::Validation);
 
-    let shader_module = WgpuWrapper::new(match validate_shader {
+    let shader_module = WgpuShaderModule::new(match validate_shader {
         ValidateShader::Enabled => {
             render_device.create_and_validate_shader_module(module_descriptor)
         }
@@ -213,7 +218,7 @@ impl BindGroupLayoutCache {
 pub struct PipelineCache {
     layout_cache: Arc<Mutex<LayoutCache>>,
     bindgroup_layout_cache: Arc<Mutex<BindGroupLayoutCache>>,
-    shader_cache: Arc<Mutex<ShaderCache<WgpuWrapper<ShaderModule>, RenderDevice>>>,
+    shader_cache: Arc<Mutex<ShaderCache<WgpuShaderModule, RenderDevice>>>,
     device: RenderDevice,
     pipelines: Vec<CachedPipeline>,
     waiting_pipelines: HashSet<CachedPipelineId>,
@@ -238,11 +243,7 @@ impl PipelineCache {
     }
 
     /// Create a new pipeline cache associated with the given render device.
-    pub fn new(
-        device: RenderDevice,
-        render_adapter: RenderAdapter,
-        synchronous_pipeline_compilation: bool,
-    ) -> Self {
+    pub fn new(device: RenderDevice, synchronous_pipeline_compilation: bool) -> Self {
         let mut global_shader_defs = Vec::new();
         #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
         {
@@ -255,18 +256,24 @@ impl PipelineCache {
             global_shader_defs.push("NO_CUBE_ARRAY_TEXTURES_SUPPORT".into());
         }
 
+        let available_storage_buffer_bindings =
+            device.limits().max_storage_buffers_per_shader_stage;
         global_shader_defs.push(ShaderDefVal::UInt(
             "AVAILABLE_STORAGE_BUFFER_BINDINGS".into(),
-            device.limits().max_storage_buffers_per_shader_stage,
+            available_storage_buffer_bindings,
+        ));
+        // wesl condcomp flags are booleans, so bake the comparisons in.
+        global_shader_defs.push(ShaderDefVal::Bool(
+            "AVAILABLE_STORAGE_BUFFER_BINDINGS__GE_3".into(),
+            available_storage_buffer_bindings >= 3,
+        ));
+        global_shader_defs.push(ShaderDefVal::Bool(
+            "AVAILABLE_STORAGE_BUFFER_BINDINGS__GE_6".into(),
+            available_storage_buffer_bindings >= 6,
         ));
 
         Self {
-            shader_cache: Arc::new(Mutex::new(ShaderCache::new(
-                device.clone(),
-                device.features(),
-                render_adapter.get_downlevel_capabilities().flags,
-                load_module,
-            ))),
+            shader_cache: Arc::new(Mutex::new(ShaderCache::new(device.clone(), load_module))),
             device,
             layout_cache: default(),
             bindgroup_layout_cache: default(),
@@ -528,10 +535,12 @@ impl PipelineCache {
                     .vertex
                     .buffers
                     .iter()
-                    .map(|layout| RawVertexBufferLayout {
-                        array_stride: layout.array_stride,
-                        attributes: &layout.attributes,
-                        step_mode: layout.step_mode,
+                    .map(|layout| {
+                        Some(RawVertexBufferLayout {
+                            array_stride: layout.array_stride,
+                            attributes: &layout.attributes,
+                            step_mode: layout.step_mode,
+                        })
                     })
                     .collect::<Vec<_>>();
 
@@ -712,13 +721,13 @@ impl PipelineCache {
                 // Retry
                 ShaderCacheError::ShaderNotLoaded(_)
                 | ShaderCacheError::ShaderImportNotYetAvailable => {
+                    bevy_log::debug!("retry processing pipeline {id}: {err}");
                     cached_pipeline.state = CachedPipelineState::Queued;
                 }
 
                 // Shader could not be processed ... retrying won't help
-                ShaderCacheError::ProcessShaderError(err) => {
-                    let error_detail =
-                        err.emit_to_string(&self.shader_cache.lock().unwrap().composer);
+                ShaderCacheError::ProcessShaderError(error_detail) => {
+                    let error_detail = error_detail.clone();
                     if std::env::var("VERBOSE_SHADER_ERROR")
                         .is_ok_and(|v| !(v.is_empty() || v == "0" || v == "false"))
                     {
@@ -753,7 +762,9 @@ impl PipelineCache {
             cache.needs_shader_reload = false;
             for (id, shader) in shaders.iter() {
                 let mut shader = shader.clone();
-                shader.shader_defs.extend(cache.global_shader_defs.clone());
+                shader
+                    .shader_defs
+                    .splice(0..0, cache.global_shader_defs.iter().cloned());
                 cache.set_shader(id, shader);
             }
             // Drain events so we don't double-process shaders we just loaded.
@@ -771,7 +782,9 @@ impl PipelineCache {
                 AssetEvent::Added { id } | AssetEvent::Modified { id } => {
                     if let Some(shader) = shaders.get(*id) {
                         let mut shader = shader.clone();
-                        shader.shader_defs.extend(cache.global_shader_defs.clone());
+                        shader
+                            .shader_defs
+                            .splice(0..0, cache.global_shader_defs.iter().cloned());
 
                         cache.set_shader(*id, shader);
                     }

@@ -116,10 +116,10 @@ pub enum GltfError {
     InvalidImageUri(String, ParseAssetPathError),
     /// Failed to read bytes from an asset path.
     #[error("failed to read bytes from an asset path: {0}")]
-    ReadAssetBytesError(#[from] Box<ReadAssetBytesError>),
+    ReadAssetBytesError(#[from] ReadAssetBytesError),
     /// Failed to load asset from an asset path.
     #[error("failed to load asset from an asset path: {0}")]
-    AssetLoadError(#[from] Box<AssetLoadError>),
+    AssetLoadError(#[from] AssetLoadError),
     /// Missing sampler for an animation.
     #[error("Missing sampler for animation {0}")]
     #[from(ignore)]
@@ -186,6 +186,7 @@ pub struct GltfLoader {
 ///     .load("my.gltf");
 /// ```
 #[derive(Serialize, Deserialize)]
+#[serde(default)]
 pub struct GltfLoaderSettings {
     /// If empty, the gltf mesh nodes will be skipped.
     ///
@@ -1944,10 +1945,7 @@ async fn load_buffers(
                             .path()
                             .resolve_embed_str(uri)
                             .map_err(|err| GltfError::InvalidBufferUri(uri.to_owned(), err))?;
-                        load_context
-                            .read_asset_bytes(buffer_path)
-                            .await
-                            .map_err(Box::new)?
+                        load_context.read_asset_bytes(buffer_path).await?
                     }
                 };
                 buffer_data.push(buffer_bytes);
@@ -2123,7 +2121,7 @@ pub struct MorphTargetNames {
 mod test {
     use std::path::Path;
 
-    use crate::{Gltf, GltfAssetLabel, GltfMaterial, GltfNode, GltfSkin};
+    use crate::{Gltf, GltfAssetLabel, GltfLoaderSettings, GltfMaterial, GltfNode, GltfSkin};
     use bevy_app::{App, TaskPoolPlugin};
     use bevy_asset::{
         io::{
@@ -2775,5 +2773,28 @@ mod test {
             LoadState::Loading => None,
             state => panic!("Unexpected load state: {state:?}"),
         });
+    }
+
+    #[test]
+    fn partial_loader_settings_use_defaults() {
+        let settings: GltfLoaderSettings = serde_json::from_str(
+            r#"
+            {
+                "load_cameras": false
+            }
+            "#,
+        )
+        .unwrap();
+
+        let default = GltfLoaderSettings::default();
+        assert_eq!(settings.load_meshes, default.load_meshes);
+        assert_eq!(settings.load_materials, default.load_materials);
+        assert!(!settings.load_cameras);
+        assert_eq!(settings.load_lights, default.load_lights);
+        assert_eq!(settings.load_animations, default.load_animations);
+        assert_eq!(settings.include_source, default.include_source);
+        assert_eq!(settings.default_sampler, default.default_sampler);
+        assert_eq!(settings.override_sampler, default.override_sampler);
+        assert_eq!(settings.validate, default.validate);
     }
 }

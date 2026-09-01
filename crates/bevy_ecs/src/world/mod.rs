@@ -30,7 +30,7 @@ pub use identifier::WorldId;
 pub use spawn_batch::*;
 
 use crate::{
-    archetype::{ArchetypeId, Archetypes},
+    archetype::{ArchetypeCreated, ArchetypeId, Archetypes, ARCHETYPE_CREATED},
     bundle::{
         Bundle, BundleId, BundleInfo, BundleInserter, BundleSpawner, Bundles, DynamicBundle,
         InsertMode, NoBundleEffect,
@@ -46,10 +46,12 @@ use crate::{
     entity::{Entities, Entity, EntityAllocator, EntityNotSpawnedError, SpawnError},
     entity_disabling::DefaultQueryFilters,
     error::{ErrorHandler, FallbackErrorHandler},
-    lifecycle::{ComponentHooks, RemovedComponentMessages, ADD, DESPAWN, DISCARD, INSERT, REMOVE},
+    lifecycle::{
+        AddEvent, ComponentHooks, DespawnEvent, DiscardEvent, InsertEvent, RemoveEvent,
+        RemovedComponentMessages, ADD, DESPAWN, DISCARD, INSERT, REMOVE,
+    },
     message::{Message, MessageId, Messages, WriteBatchIds},
     observer::Observers,
-    prelude::{Add, Despawn, Discard, Insert, Remove},
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
     relationship::RelationshipHookMode,
     resource::{IsResource, Resource, ResourceEntities, IS_RESOURCE},
@@ -57,14 +59,17 @@ use crate::{
     storage::{NonSendData, Storages},
     system::Commands,
     world::{
-        command_queue::RawCommandQueue,
+        command_queue::CommandQueueRunner,
         error::{
             EntityDespawnError, EntityMutableFetchError, TryInsertBatchError, TryRunScheduleError,
         },
     },
 };
-use alloc::{boxed::Box, vec::Vec};
-use bevy_platform::sync::atomic::{AtomicU32, Ordering};
+use alloc::vec::Vec;
+use bevy_platform::{
+    cell::SyncUnsafeCell,
+    sync::atomic::{AtomicU32, Ordering},
+};
 use bevy_ptr::{move_as_ptr, MovingPtr, OwningPtr, Ptr};
 use bevy_utils::prelude::DebugName;
 use core::{any::TypeId, fmt, mem::ManuallyDrop};
@@ -106,7 +111,19 @@ pub struct World {
     pub(crate) last_change_tick: Tick,
     pub(crate) last_check_tick: Tick,
     pub(crate) last_trigger_id: u32,
-    pub(crate) command_queue: RawCommandQueue,
+    /// The byte index in [`Self::command_queue`] at which unapplied command start.
+    ///
+    /// This is nonzero while running commands to allow the same buffer to be shared by nested commands.
+    command_queue_start: usize,
+    /// The world's command queue.
+    ///
+    /// This is stored inside a [`SyncUnsafeCell`] to allow mutable access to
+    /// commands from an [`UnsafeWorldCell`] without being invalidated by `&World`
+    /// references used for metadata.
+    ///
+    /// This must not be exposed as a `&mut` to untrusted code,
+    /// as calling `apply()` on it could execute commands before [`Self::command_queue_start`].
+    command_queue: SyncUnsafeCell<CommandQueue>,
 }
 
 impl Default for World {
@@ -128,24 +145,12 @@ impl Default for World {
             last_change_tick: Tick::new(0),
             last_check_tick: Tick::new(0),
             last_trigger_id: 0,
-            command_queue: RawCommandQueue::new(),
+            command_queue_start: 0,
+            command_queue: SyncUnsafeCell::new(CommandQueue::silent()),
             component_ids: ComponentIds::default(),
         };
         world.bootstrap();
         world
-    }
-}
-
-impl Drop for World {
-    fn drop(&mut self) {
-        // SAFETY: Not passing a pointer so the argument is always valid
-        unsafe { self.command_queue.apply_or_drop_queued(None) };
-        // SAFETY: Pointers in internal command queue are only invalidated here
-        drop(unsafe { Box::from_raw(self.command_queue.bytes.as_ptr()) });
-        // SAFETY: Pointers in internal command queue are only invalidated here
-        drop(unsafe { Box::from_raw(self.command_queue.cursor.as_ptr()) });
-        // SAFETY: Pointers in internal command queue are only invalidated here
-        drop(unsafe { Box::from_raw(self.command_queue.panic_recovery.as_ptr()) });
     }
 }
 
@@ -155,23 +160,26 @@ impl World {
     #[inline]
     fn bootstrap(&mut self) {
         // The order that we register these events is vital to ensure that the constants are correct!
-        let on_add = self.register_event_key::<Add>();
+        let on_add = self.register_event_key::<AddEvent>();
         assert_eq!(ADD, on_add);
 
-        let on_insert = self.register_event_key::<Insert>();
+        let on_insert = self.register_event_key::<InsertEvent>();
         assert_eq!(INSERT, on_insert);
 
-        let on_discard = self.register_event_key::<Discard>();
+        let on_discard = self.register_event_key::<DiscardEvent>();
         assert_eq!(DISCARD, on_discard);
 
-        let on_remove = self.register_event_key::<Remove>();
+        let on_remove = self.register_event_key::<RemoveEvent>();
         assert_eq!(REMOVE, on_remove);
 
-        let on_despawn = self.register_event_key::<Despawn>();
+        let on_despawn = self.register_event_key::<DespawnEvent>();
         assert_eq!(DESPAWN, on_despawn);
 
         let is_resource = self.register_component::<IsResource>();
         assert_eq!(IS_RESOURCE, is_resource);
+
+        let archetype_created = self.register_event_key::<ArchetypeCreated>();
+        assert_eq!(ARCHETYPE_CREATED, archetype_created);
 
         // This sets up `Disabled` as a disabling component, via the FromWorld impl
         self.init_resource::<DefaultQueryFilters>();
@@ -304,14 +312,11 @@ impl World {
     /// Use [`World::flush`] to apply all queued commands
     #[inline]
     pub fn commands(&mut self) -> Commands<'_, '_> {
-        // SAFETY: command_queue is stored on world and always valid while the world exists
-        unsafe {
-            Commands::new_raw_from_entities(
-                self.command_queue.clone(),
-                &self.entity_allocator,
-                &self.entities,
-            )
-        }
+        Commands::new_from_entities(
+            self.command_queue.get_mut(),
+            &self.entity_allocator,
+            &self.entities,
+        )
     }
 
     /// Registers a new [`Component`] type and returns the [`ComponentId`] created for it.
@@ -321,6 +326,11 @@ impl World {
     /// happens automatically during system initialization.
     #[doc(alias = "register_resource")]
     pub fn register_component<T: Component>(&mut self) -> ComponentId {
+        // This is a hot path, so return early to avoid the `Vec::new` in `ComponentsRegistrator`
+        if let Some(id) = self.component_id::<T>() {
+            return id;
+        }
+
         self.components_registrator().register_component::<T>()
     }
 
@@ -639,28 +649,6 @@ impl World {
     #[inline]
     pub fn component_id<T: Component>(&self) -> Option<ComponentId> {
         self.components.component_id::<T>()
-    }
-
-    /// Registers a new [`Resource`] type and returns the [`ComponentId`] created for it.
-    ///
-    /// The [`Resource`] doesn't have a value in the [`World`], it's only registered. If you want
-    /// to insert the [`Resource`] in the [`World`], use [`World::init_resource`] or
-    /// [`World::insert_resource`] instead.
-    #[deprecated(since = "0.19.0", note = "Use register_component::<R>() instead.")]
-    pub fn register_resource<R: Resource>(&mut self) -> ComponentId {
-        self.components_registrator().register_component::<R>()
-    }
-
-    /// Returns the [`ComponentId`] of the given [`Resource`] type `T`.
-    ///
-    /// The returned [`ComponentId`] is specific to the [`World`] instance it was retrieved from
-    /// and should not be used with another [`World`] instance.
-    ///
-    /// Returns [`None`] if the [`Resource`] type has not yet been initialized within the
-    /// [`World`] using [`World::register_resource`], [`World::init_resource`] or [`World::insert_resource`].
-    #[deprecated(since = "0.19.0", note = "use component_id")]
-    pub fn resource_id<T: Resource>(&self) -> Option<ComponentId> {
-        self.components.get_id(TypeId::of::<T>())
     }
 
     /// Returns [`EntityRef`]s that expose read-only operations for the given
@@ -1060,11 +1048,7 @@ impl World {
         // SAFETY:
         // - `&mut self` gives mutable access to the entire world, and prevents simultaneous access.
         // - Command queue access does not conflict with entity access.
-        let raw_queue = unsafe { cell.get_raw_command_queue() };
-        // SAFETY: `&mut self` ensures the commands does not outlive the world.
-        let commands = unsafe {
-            Commands::new_raw_from_entities(raw_queue, cell.entity_allocator(), cell.entities())
-        };
+        let commands = unsafe { cell.commands() };
 
         (fetcher, commands)
     }
@@ -1136,8 +1120,7 @@ impl World {
 
         let mut entity_location = Some(entity_location);
 
-        // SAFETY: command_queue is not referenced anywhere else
-        if !unsafe { self.command_queue.is_empty() } {
+        if !self.command_queue_is_empty() {
             self.flush();
             entity_location = self.entities().get_spawned(entity).ok();
         }
@@ -2010,12 +1993,6 @@ impl World {
         });
     }
 
-    /// Initializes a new non-send resource and returns the [`ComponentId`] created for it.
-    #[deprecated(since = "0.19.0", note = "use World::init_non_send")]
-    pub fn init_non_send_resource<R: 'static + FromWorld>(&mut self) -> ComponentId {
-        self.init_non_send::<R>()
-    }
-
     /// Initializes new non-send data and returns the [`ComponentId`] created for it.
     ///
     /// If the data already exists, nothing happens.
@@ -2047,12 +2024,6 @@ impl World {
             });
         }
         component_id
-    }
-
-    /// Inserts a new non-send resource with the given `value`.
-    #[deprecated(since = "0.19.0", note = "use World::insert_non_send")]
-    pub fn insert_non_send_resource<R: 'static>(&mut self, value: R) {
-        self.insert_non_send(value);
     }
 
     /// Inserts new non-send data with the given `value`.
@@ -2087,12 +2058,6 @@ impl World {
             .expect("ResourceCache is in sync")
             .take::<R>()?;
         Some(value)
-    }
-
-    /// Removes a `!Send` resource from the world and returns it, if present.
-    #[deprecated(since = "0.19.0", note = "use World::remove_non_send")]
-    pub fn remove_non_send_resource<R: 'static>(&mut self) -> Option<R> {
-        self.remove_non_send::<R>()
     }
 
     /// Removes `!Send` data from the world and returns it, if present.
@@ -2396,10 +2361,12 @@ impl World {
         unsafe { untyped.with_type() }
     }
 
-    /// Gets an immutable reference to a non-send resource of the given type, if it exists.
-    #[deprecated(since = "0.19.0", note = "use World::non_send")]
-    pub fn non_send_resource<R: 'static>(&self) -> &R {
-        self.non_send::<R>()
+    /// Retrieves the [`Entity`] associated with the resource of type `R`, if it exists.
+    #[inline]
+    #[track_caller]
+    pub fn resource_entity<R: Resource>(&self) -> Option<Entity> {
+        let component_id = self.component_id::<R>()?;
+        self.resource_entities().get(component_id)
     }
 
     /// Gets an immutable reference to the non-send data of the given type, if it exists.
@@ -2424,12 +2391,6 @@ impl World {
         }
     }
 
-    /// Gets a mutable reference to a non-send resource of the given type, if it exists.
-    #[deprecated(since = "0.19.0", note = "use World::non_send_mut")]
-    pub fn non_send_resource_mut<R: 'static>(&mut self) -> Mut<'_, R> {
-        self.non_send_mut::<R>()
-    }
-
     /// Gets a mutable reference to the non-send data of the given type, if it exists.
     ///
     /// # Panics
@@ -2452,13 +2413,6 @@ impl World {
         }
     }
 
-    /// Gets a reference to a non-send resource of the given type, if it exists.
-    /// Otherwise returns `None`.
-    #[deprecated(since = "0.19.0", note = "use World::get_non_send")]
-    pub fn get_non_send_resource<R: 'static>(&self) -> Option<&R> {
-        self.get_non_send::<R>()
-    }
-
     /// Gets a reference to the non-send data of the given type, if it exists.
     /// Otherwise returns `None`.
     ///
@@ -2470,13 +2424,6 @@ impl World {
         // - `as_unsafe_world_cell_readonly` gives permission to access the entire world immutably
         // - `&self` ensures that there are no mutable borrows of world data
         unsafe { self.as_unsafe_world_cell_readonly().get_non_send() }
-    }
-
-    /// Gets a mutable reference to a non-send resource of the given type, if it exists.
-    /// Otherwise returns `None`.
-    #[deprecated(since = "0.19.0", note = "use World::get_non_send_mut")]
-    pub fn get_non_send_resource_mut<R: 'static>(&mut self) -> Option<Mut<'_, R>> {
-        self.get_non_send_mut::<R>()
     }
 
     /// Gets a mutable reference to the non-send data of the given type, if it exists.
@@ -2995,6 +2942,7 @@ impl World {
                 changed_by: guard.caller.as_mut(),
                 last_run: last_change_tick,
                 this_run: change_tick,
+                summary_tick: None,
             },
         };
 
@@ -3120,15 +3068,53 @@ impl World {
     /// This will panic if any of the queued commands are [`spawn`](Commands::spawn).
     /// If this is possible, you should instead use [`flush`](Self::flush).
     pub(crate) fn flush_commands(&mut self) {
-        // SAFETY: `self.command_queue` is only de-allocated in `World`'s `Drop`
-        if !unsafe { self.command_queue.is_empty() } {
-            // SAFETY: `self.command_queue` is only de-allocated in `World`'s `Drop`
-            unsafe {
-                self.command_queue
-                    .clone()
-                    .apply_or_drop_queued(Some(self.into()));
-            };
+        if self.command_queue_is_empty() {
+            return;
         }
+
+        // Prevent nested calls to `flush_commands()` from accessing the commands being run now.
+        // Set `command_queue_start` to the end of the buffer,
+        // and use a RAII type to set it back when done.
+        struct Guard<'a> {
+            world: &'a mut World,
+            start: usize,
+        }
+        impl Drop for Guard<'_> {
+            fn drop(&mut self) {
+                // Return `command_queue_start` to its original value.
+                // `CommandQueueRunner` will have set `len()` to `start`,
+                // so this will result in a zero-length queue.
+                debug_assert_eq!(self.world.command_queue.get_mut().len(), self.start);
+                self.world.command_queue_start = self.start;
+            }
+        }
+
+        let start = self.command_queue_start;
+        let end = self.command_queue.get_mut().len();
+        let guard = Guard { world: self, start };
+        guard.world.command_queue_start = end;
+
+        // SAFETY:
+        // * The world's command queue is always returned
+        // * `start` was set by a call to `flush_commands` to equal `end`,
+        //   so any new commands started there
+        // * `command_queue_start = end` prevents nested calls from accessing commands between `start` and `command_queue.len`
+        let mut runner = unsafe {
+            CommandQueueRunner::new(
+                &mut *guard.world,
+                |world| world.command_queue.get_mut(),
+                start,
+            )
+        };
+        runner.run(|world| Some(world));
+    }
+
+    /// Returns false if there are any commands in the queue.
+    ///
+    /// This must be used instead of [`CommandQueue::is_empty`]
+    /// to ignore any commands earlier than [`Self::command_queue_start`].
+    fn command_queue_is_empty(&mut self) -> bool {
+        self.command_queue_start >= self.command_queue.get_mut().len()
     }
 
     /// Applies any queued component registration.
@@ -3411,6 +3397,11 @@ impl World {
     }
 
     pub(crate) fn register_bundle_info<B: Bundle>(&mut self) -> BundleId {
+        // This is a hot path, so return early to avoid the `Vec::new` in `ComponentsRegistrator`
+        if let Some(bundle_id) = self.bundles.get_id(TypeId::of::<B>()) {
+            return bundle_id;
+        }
+
         // SAFETY: These come from the same world. `Self.components_registrator` can't be used since we borrow other fields too.
         let mut registrator =
             unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.component_ids) };
@@ -3423,6 +3414,11 @@ impl World {
     }
 
     pub(crate) fn register_contributed_bundle_info<B: Bundle>(&mut self) -> BundleId {
+        // This is a hot path, so return early to avoid the `Vec::new` in `ComponentsRegistrator`
+        if let Some(bundle_id) = self.bundles.get_contributed_bundle_id(TypeId::of::<B>()) {
+            return bundle_id;
+        }
+
         // SAFETY: These come from the same world. `Self.components_registrator` can't be used since we borrow other fields too.
         let mut registrator =
             unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.component_ids) };
@@ -4279,6 +4275,7 @@ mod tests {
                     DROP_COUNT.fetch_add(1, Ordering::SeqCst);
                 }),
                 true,
+                false,
                 ComponentCloneBehavior::Default,
                 None,
             )
@@ -4734,5 +4731,20 @@ mod tests {
             world.change_tick(),
             world.resource_ref::<R>().last_changed()
         );
+    }
+
+    #[test]
+    fn world_resource_entity() {
+        #[derive(Resource)]
+        struct R1;
+
+        #[derive(Resource)]
+        struct R2;
+
+        let mut world = World::new();
+        world.insert_resource(R1);
+
+        assert!(world.resource_entity::<R1>().is_some());
+        assert!(world.resource_entity::<R2>().is_none());
     }
 }

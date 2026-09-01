@@ -5,6 +5,7 @@ use bevy_math::{Affine2, Affine3, Mat2, Mat3, Vec2, Vec3, Vec4};
 use bevy_mesh::{MeshVertexBufferLayoutRef, UvChannel};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{render_asset::RenderAssets, render_resource::*, texture::GpuImage};
+use bevy_shader::ShaderDefVal;
 use bitflags::bitflags;
 
 use crate::{deferred::DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID, *};
@@ -238,6 +239,8 @@ pub struct StandardMaterial {
     ///
     /// - When set to `0.0` (the default) no light is transmitted.
     /// - When set to `1.0` all light is transmitted through the material.
+    ///
+    /// [`ScreenSpaceTransmission`] must be added to the camera to make specular transmission work.
     ///
     /// The material's [`StandardMaterial::base_color`] also modulates the transmitted light.
     ///
@@ -963,7 +966,7 @@ impl From<Handle<Image>> for StandardMaterial {
     }
 }
 
-// NOTE: These must match the bit flags in bevy_pbr/src/render/pbr_types.wgsl!
+// NOTE: These must match the bit flags in bevy_pbr/src/render/pbr_types.wesl!
 bitflags::bitflags! {
     /// Bitflags info about the material a shader is currently rendering.
     /// This is accessible in the shader in the [`StandardMaterialUniform`]
@@ -1141,11 +1144,18 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
             let normal_map_id = self.normal_map_texture.as_ref().map(Handle::id).unwrap();
             if let Some(texture) = images.get(normal_map_id) {
                 match texture.texture_descriptor.format {
-                    // All 2-component unorm formats
+                    // Dedicated 2-component unorm formats.
                     TextureFormat::Rg8Unorm
                     | TextureFormat::Rg16Unorm
                     | TextureFormat::Bc5RgUnorm
-                    | TextureFormat::EacRg11Unorm => {
+                    | TextureFormat::EacRg11Unorm
+                    // ASTC has no dedicated 2-channel block format; all ASTC blocks are
+                    // RGBA-shaped. Since `compressed_image_saver` writes 2-component normal maps
+                    // when using the ASTC backend, assume ASTC normal maps are 2-component.
+                    | TextureFormat::Astc {
+                        channel: AstcChannel::Unorm,
+                        ..
+                    } => {
                         flags |= StandardMaterialFlags::TWO_COMPONENT_NORMAL_MAP;
                     }
                     _ => {}
@@ -1375,7 +1385,7 @@ impl From<&StandardMaterial> for StandardMaterialKey {
 
 impl Material for StandardMaterial {
     fn fragment_shader() -> ShaderRef {
-        shader_ref(bevy_asset::embedded_path!("render/pbr.wgsl"))
+        shader_ref(bevy_asset::embedded_path!("render/pbr.wesl"))
     }
 
     #[inline]
@@ -1411,11 +1421,11 @@ impl Material for StandardMaterial {
     }
 
     fn prepass_fragment_shader() -> ShaderRef {
-        shader_ref(bevy_asset::embedded_path!("render/pbr_prepass.wgsl"))
+        shader_ref(bevy_asset::embedded_path!("render/pbr_prepass.wesl"))
     }
 
     fn deferred_fragment_shader() -> ShaderRef {
-        shader_ref(bevy_asset::embedded_path!("render/pbr.wgsl"))
+        shader_ref(bevy_asset::embedded_path!("render/pbr.wesl"))
     }
 
     #[cfg(feature = "meshlet")]
@@ -1530,9 +1540,32 @@ impl Material for StandardMaterial {
                     "STANDARD_MATERIAL_SPECULAR_TINT_UV_B",
                 ),
             ] {
+                if [
+                    StandardMaterialKey::SPECULAR_TRANSMISSION,
+                    StandardMaterialKey::SPECULAR_TRANSMISSION_UV,
+                ]
+                .contains(&flags)
+                    && !key
+                        .mesh_key
+                        .contains(MeshPipelineKey::VIEW_TRANSMISSION_TEXTURE)
+                {
+                    continue;
+                }
                 if key.bind_group_data.intersects(flags) {
                     shader_defs.push(shader_def.into());
                 }
+            }
+
+            if key
+                .bind_group_data
+                .intersects(StandardMaterialKey::SPECULAR_TRANSMISSION)
+                && key
+                    .mesh_key
+                    .contains(MeshPipelineKey::VIEW_TRANSMISSION_TEXTURE)
+            {
+                // Do not load prepass normals for transmissive materials
+                // https://github.com/bevyengine/bevy/pull/11140
+                shader_defs.retain(|def| def != &ShaderDefVal::from("LOAD_PREPASS_NORMALS"));
             }
         }
 
