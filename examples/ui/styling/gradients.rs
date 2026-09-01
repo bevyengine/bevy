@@ -235,13 +235,13 @@ fn buttons_scene() -> impl Scene {
                     let current_index = ctx.resource::<AppSettings>().color_space_current_index;
                     Ok(Text(format!("Current Space\n{:?}", COLOR_SPACES[current_index])))
                 })
-            ],
-
+            ]
+            ---
             PreviousButton
-            @button_node_scene("Previous"),
-
+            @button_node_scene("Previous")
+            ---
             NextButton
-            @button_node_scene("Next"),
+            @button_node_scene("Next")
         ]
     }
 }

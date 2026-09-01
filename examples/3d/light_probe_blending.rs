@@ -336,7 +336,8 @@ fn spawn_buttons(commands: &mut Commands) {
                 "Gizmos",
                 &[(GizmosEnabled::On, "On"), (GizmosEnabled::Off, "Off"),],
                 0,
-            ),
+            )
+            ---
             @feathers_option_buttons(
                 "Object to Show",
                 &[
@@ -344,12 +345,13 @@ fn spawn_buttons(commands: &mut Commands) {
                     (ObjectToShow::Prism, "Prism"),
                 ],
                 0,
-            ),
+            )
+            ---
             @feathers_option_buttons(
                 "Camera Mode",
                 &[(CameraMode::Orbit, "Orbit"), (CameraMode::Free, "Free"),],
                 0,
-            ),
+            )
         ]
     });
 }

@@ -181,11 +181,15 @@ fn ui(character: &Character) -> impl Scene {
                 Node
                 Children[
                     Text("Character Creator")
-                ],
-                @name_text_input_row(character),
-                @age_slider_row(character),
-                @hat_type_radio_group_row(character),
-                @tint_yellow_checkbox_row(character),
+                ]
+                ---
+                @name_text_input_row(character)
+                ---
+                @age_slider_row(character)
+                ---
+                @hat_type_radio_group_row(character)
+                ---
+                @tint_yellow_checkbox_row(character)
             ]
         ]
     }
@@ -205,7 +209,8 @@ fn name_text_input_row(character: &Character) -> impl Scene {
             Node
             Children [
                 Text::new("Name: ")
-            ],
+            ]
+            ---
             @name_text_input(character)
         ]
     }
@@ -317,8 +322,8 @@ fn age_slider(character: &Character) -> impl Scene {
                 height: px(5),
                 border_radius: BorderRadius::all(px(3)),
             }
-            BackgroundColor(Color::BLACK),
-
+            BackgroundColor(Color::BLACK)
+            ---
             // Invisible shorter track (does not have background color) that the
             // SliderThumb glides on. This is so that the thumb
             // does not go past the left and right sides of the visible slider track.
@@ -412,8 +417,8 @@ fn hat_type_radio_group_row(character: &Character) -> impl Scene {
             Node
             Children [
                 Text("Hat: ")
-            ],
-
+            ]
+            ---
             {
                 HAT_TYPES.iter()
                     .map(|hat_type| hat_type_radio_button(*hat_type, character))
@@ -524,7 +529,8 @@ fn tint_yellow_checkbox_row(character: &Character) -> impl Scene {
             Node
             Children [
                 Text("Tint Yellow: ")
-            ],
+            ]
+            ---
             @tint_yellow_checkbox(character)
         ]
     }
@@ -730,14 +736,14 @@ fn character_hat(character: &Character) -> Box<dyn Scene> {
                     40., 10.
                 )))
                 MeshMaterial2d<ColorMaterial>(asset_value(ColorMaterial::from_color(Color::BLACK)))
-                Transform::from_xyz(55., 60., 1.),
-
+                Transform::from_xyz(55., 60., 1.)
+                ---
                 // top longer portion of the top hat
                 Mesh2d(asset_value(Rectangle::new(
                     20., 50.
                 )))
                 MeshMaterial2d<ColorMaterial>(asset_value(ColorMaterial::from_color(Color::BLACK)))
-                Transform::from_xyz(55., 85., 1.),
+                Transform::from_xyz(55., 85., 1.)
             ]
         }),
         HatType::DunceCap => Box::new(bsn! {

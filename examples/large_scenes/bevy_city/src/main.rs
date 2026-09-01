@@ -183,20 +183,17 @@ fn loading_screen() -> impl Scene {
                 overflow: Overflow::scroll_y(),
             }
             Children [
-                (
-                    LoadingText
-                    Text("Loading...")
-                    TextFont {
-                        font_size: FontSize::Px(24.0),
-                    }
-                ),
-                (
-                    LoadingPaths
-                    Text
-                    TextFont {
-                        font_size: FontSize::Px(14.0),
-                    }
-                ),
+                LoadingText
+                Text("Loading...")
+                TextFont {
+                    font_size: FontSize::Px(24.0),
+                }
+                ---
+                LoadingPaths
+                Text
+                TextFont {
+                    font_size: FontSize::Px(14.0),
+                }
             ]
         ]
     }

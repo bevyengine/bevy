@@ -306,7 +306,8 @@ fn spawn_buttons(commands: &mut Commands, app_status: &AppStatus) {
                         1
                     }
                 },
-            ),
+            )
+            ---
             @feathers_option_buttons(
                 "Shadow Maps",
                 &[
@@ -321,7 +322,8 @@ fn spawn_buttons(commands: &mut Commands, app_status: &AppStatus) {
                         1
                     }
                 },
-            ),
+            )
+            ---
             @feathers_option_buttons(
                 "Light Rotation",
                 &[
@@ -339,7 +341,8 @@ fn spawn_buttons(commands: &mut Commands, app_status: &AppStatus) {
                         1
                     }
                 },
-            ),
+            )
+            ---
             @feathers_option_buttons(
                 "Light Type",
                 &[
@@ -357,7 +360,8 @@ fn spawn_buttons(commands: &mut Commands, app_status: &AppStatus) {
                         LightType::Spot => 2,
                     }
                 },
-            ),
+            )
+            ---
             @feathers_option_buttons(
                 "Receive Shadows",
                 &[
@@ -378,7 +382,7 @@ fn spawn_buttons(commands: &mut Commands, app_status: &AppStatus) {
                         1
                     }
                 },
-            ),
+            )
         ]
     });
 }

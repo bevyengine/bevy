@@ -471,7 +471,8 @@ fn spawn_buttons(commands: &mut Commands, app_settings: &AppSettings) {
                     (SsrOn(false), "Off"),
                 ],
                 0,
-            ),
+            )
+            ---
             @feathers_option_buttons(
                 "Model",
                 &[
@@ -483,7 +484,8 @@ fn spawn_buttons(commands: &mut Commands, app_settings: &AppSettings) {
                     (DisplayedModel::Capsules, "Capsules"),
                 ],
                 0,
-            ),
+            )
+            ---
             @feathers_option_buttons(
                 "Base",
                 &[
@@ -492,21 +494,24 @@ fn spawn_buttons(commands: &mut Commands, app_settings: &AppSettings) {
                     (DisplayedBase::RedPlane, "Red Plane"),
                 ],
                 0,
-            ),
+            )
+            ---
             @range_row(
                 "Min Roughness",
                 app_settings.min_perceptual_roughness.start,
                 app_settings.min_perceptual_roughness.end,
                 AppNumberInput::MinRoughnessStart,
                 AppNumberInput::MinRoughnessEnd,
-            ),
+            )
+            ---
             @range_row(
                 "Max Roughness",
                 app_settings.max_perceptual_roughness.start,
                 app_settings.max_perceptual_roughness.end,
                 AppNumberInput::MaxRoughnessStart,
                 AppNumberInput::MaxRoughnessEnd,
-            ),
+            )
+            ---
             @range_row(
                 "Edge Fadeout",
                 app_settings.edge_fadeout.start,
@@ -535,21 +540,21 @@ fn range_row(
             }
             Children[
                 @label(title.to_string())
-            ],
-
+            ]
+            ---
             @range_controls(
                 start_value,
                 start_number_input
-            ),
-
+            )
+            ---
             Node {
                 margin: UiRect::horizontal(px(10)),
             }
             Children [
                 @label_small("to".to_string())
-            ],
-
-            @range_controls(end_value, end_number_input),
+            ]
+            ---
+            @range_controls(end_value, end_number_input)
         ]
     }
 }

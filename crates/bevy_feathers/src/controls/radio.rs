@@ -85,7 +85,7 @@ impl FeathersRadio {
                 font_size: size::MEDIUM_FONT,
                 weight: FontWeight::NORMAL,
             }
-            Children [(
+            Children [
                 Node {
                     display: Display::Flex,
                     align_items: AlignItems::Center,
@@ -111,7 +111,8 @@ impl FeathersRadio {
                     }
                     RadioMark
                     ThemeBackgroundColor(tokens::RADIO_MARK)
-                )]),
+                )]
+                ---
                 {props.caption}
             ]
         }

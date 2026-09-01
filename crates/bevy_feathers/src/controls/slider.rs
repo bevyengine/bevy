@@ -105,7 +105,7 @@ impl FeathersSlider {
                 ],
                 color_space: InterpolationColorSpace::Srgba,
             })])
-            Children [(
+            Children [
                 // Text container
                 Node {
                     display: Display::Flex,
@@ -120,7 +120,7 @@ impl FeathersSlider {
                     weight: FontWeight::NORMAL,
                 }
                 Children [(@caption("10.0") SliderValueText)]
-            )]
+            ]
         }
     }
 }

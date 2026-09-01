@@ -62,109 +62,103 @@ pub fn settings_ui() -> impl Scene {
                 row_gap: px(8),
             }
             Children [
-                Text("Settings"),
-                (
-                    @FeathersCheckbox {
-                        @caption: bsn! { @caption("Simulate Cars") }
-                    }
-                    Checked
-                    on(checkbox_self_update)
-                    on(|change: On<ValueChange<bool>>, mut settings: ResMut<Settings>| {
-                        settings.simulate_cars = change.value;
-                    })
-                ),
-                (
-                    @FeathersCheckbox {
-                        @caption: bsn! { @caption("Shadow maps enabled") }
-                    }
-                    Checked
-                    on(checkbox_self_update)
-                    on(
-                        |change: On<ValueChange<bool>>,
-                         mut settings: ResMut<Settings>,
-                         mut directional_lights: Query<&mut DirectionalLight>| {
-                            settings.shadow_maps_enabled = change.value;
-                            for mut light in &mut directional_lights {
-                                light.shadow_maps_enabled = change.value;
+                Text("Settings")
+                ---
+                @FeathersCheckbox {
+                    @caption: bsn! { @caption("Simulate Cars") }
+                }
+                Checked
+                on(checkbox_self_update)
+                on(|change: On<ValueChange<bool>>, mut settings: ResMut<Settings>| {
+                    settings.simulate_cars = change.value;
+                })
+                ---
+                @FeathersCheckbox {
+                    @caption: bsn! { @caption("Shadow maps enabled") }
+                }
+                Checked
+                on(checkbox_self_update)
+                on(
+                    |change: On<ValueChange<bool>>,
+                        mut settings: ResMut<Settings>,
+                        mut directional_lights: Query<&mut DirectionalLight>| {
+                        settings.shadow_maps_enabled = change.value;
+                        for mut light in &mut directional_lights {
+                            light.shadow_maps_enabled = change.value;
 
+                        }
+                    }
+                )
+                ---
+                @FeathersCheckbox {
+                    @caption: bsn! { @caption("Contact shadows enabled") }
+                }
+                Checked
+                on(checkbox_self_update)
+                on(
+                    |change: On<ValueChange<bool>>,
+                        mut settings: ResMut<Settings>,
+                        mut directional_lights: Query<&mut DirectionalLight>| {
+                        settings.contact_shadows_enabled = change.value;
+                        for mut light in &mut directional_lights {
+                            light.contact_shadows_enabled = change.value;
+
+                        }
+                    }
+                )
+                ---
+                @FeathersCheckbox {
+                    @caption: bsn! { @caption("Wireframe Enabled") }
+                }
+                on(checkbox_self_update)
+                on(
+                    |change: On<ValueChange<bool>>,
+                        mut settings: ResMut<Settings>,
+                        mut wireframe_config: ResMut<WireframeConfig>| {
+                        settings.wireframe_enabled = change.value;
+                        wireframe_config.global = change.value;
+                    }
+                )
+                ---
+                @FeathersCheckbox {
+                    @caption: bsn! { @caption("CPU culling") }
+                }
+                Checked
+                on(checkbox_self_update)
+                on(
+                    |change: On<ValueChange<bool>>,
+                        mut settings: ResMut<Settings>,
+                        mut commands: Commands,
+                        meshes: Query<Entity, With<Mesh3d>>| {
+                        settings.cpu_culling = change.value;
+
+                        for entity in meshes.iter() {
+                            if settings.cpu_culling {
+                                commands.entity(entity).remove::<NoCpuCulling>();
+                            } else {
+                                commands.entity(entity).insert(NoCpuCulling);
                             }
                         }
-                    )
-                ),
-                (
-                    @FeathersCheckbox {
-                        @caption: bsn! { @caption("Contact shadows enabled") }
                     }
-                    Checked
-                    on(checkbox_self_update)
-                    on(
-                        |change: On<ValueChange<bool>>,
-                         mut settings: ResMut<Settings>,
-                         mut directional_lights: Query<&mut DirectionalLight>| {
-                            settings.contact_shadows_enabled = change.value;
-                            for mut light in &mut directional_lights {
-                                light.contact_shadows_enabled = change.value;
+                )
+                ---
+                @FeathersButton {
+                    @caption: bsn! { @caption("Regenerate City") }
+                }
+                on(
+                    |_activate: On<Activate>,
+                        mut commands: Commands,
+                        city_root: Single<Entity, With<CityRoot>>,
+                        assets: Res<CityAssets>| {
+                        commands.entity(*city_root).despawn();
 
-                            }
-                        }
-                    )
-                ),
-                (
-                    @FeathersCheckbox {
-                        @caption: bsn! { @caption("Wireframe Enabled") }
+                        let mut rng = rand::rng();
+                        let seed = rng.random::<u64>();
+                        println!("new seed: {seed}");
+                        let mut stats = CityStats::default();
+                        spawn_city(&mut commands, &assets, seed, 32, 0.1, &mut stats);
                     }
-                    on(checkbox_self_update)
-                    on(
-                        |change: On<ValueChange<bool>>,
-                         mut settings: ResMut<Settings>,
-                         mut wireframe_config: ResMut<WireframeConfig>| {
-                            settings.wireframe_enabled = change.value;
-                            wireframe_config.global = change.value;
-                        }
-                    )
-                ),
-                (
-                    @FeathersCheckbox {
-                        @caption: bsn! { @caption("CPU culling") }
-                    }
-                    Checked
-                    on(checkbox_self_update)
-                    on(
-                        |change: On<ValueChange<bool>>,
-                         mut settings: ResMut<Settings>,
-                         mut commands: Commands,
-                         meshes: Query<Entity, With<Mesh3d>>| {
-                            settings.cpu_culling = change.value;
-
-                            for entity in meshes.iter() {
-                                if settings.cpu_culling {
-                                    commands.entity(entity).remove::<NoCpuCulling>();
-                                } else {
-                                    commands.entity(entity).insert(NoCpuCulling);
-                                }
-                            }
-                        }
-                    )
-                ),
-                (
-                    @FeathersButton {
-                        @caption: bsn! { @caption("Regenerate City") }
-                    }
-                    on(
-                        |_activate: On<Activate>,
-                         mut commands: Commands,
-                         city_root: Single<Entity, With<CityRoot>>,
-                         assets: Res<CityAssets>| {
-                            commands.entity(*city_root).despawn();
-
-                            let mut rng = rand::rng();
-                            let seed = rng.random::<u64>();
-                            println!("new seed: {seed}");
-                            let mut stats = CityStats::default();
-                            spawn_city(&mut commands, &assets, seed, 32, 0.1, &mut stats);
-                        }
-                    )
-                ),
+                )
             ]
         )]
     }

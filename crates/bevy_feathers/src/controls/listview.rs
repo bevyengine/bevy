@@ -78,21 +78,19 @@ impl FeathersListView {
             TabIndex(0)
             Children [
                 // Inner part that scrolls
-                (
-                    #inner
-                    Node {
-                        display: Display::Flex,
-                        flex_direction: FlexDirection::Column,
-                        align_items: AlignItems::Stretch,
-                        justify_content: JustifyContent::Start,
-                        overflow: Overflow::scroll_y(),
-                    }
-                    ScrollArea
-                    Children [
-                        {props.rows}
-                    ]
-                ),
-
+                #inner
+                Node {
+                    display: Display::Flex,
+                    flex_direction: FlexDirection::Column,
+                    align_items: AlignItems::Stretch,
+                    justify_content: JustifyContent::Start,
+                    overflow: Overflow::scroll_y(),
+                }
+                ScrollArea
+                Children [
+                    {props.rows}
+                ]
+                ---
                 @FeathersScrollbar {
                     @target: #inner,
                     @orientation: {ControlOrientation::Vertical}

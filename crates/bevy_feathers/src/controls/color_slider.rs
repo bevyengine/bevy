@@ -252,78 +252,74 @@ impl FeathersColorSlider {
             FocusIndicator
             Children [
                 // track
-                (
-                    Node {
-                        grid_row: GridPlacement::start(1),
-                        grid_column: GridPlacement::start(1),
-                        margin: {UiRect::vertical(px(TRACK_PADDING))},
-                        border_radius: {RoundedCorners::All.to_border_radius(TRACK_RADIUS)},
-                    }
-                    ColorSliderTrack
-                    AlphaPattern
-                    MaterialNode::<AlphaPatternMaterial>
-                ),
+                Node {
+                    grid_row: GridPlacement::start(1),
+                    grid_column: GridPlacement::start(1),
+                    margin: {UiRect::vertical(px(TRACK_PADDING))},
+                    border_radius: {RoundedCorners::All.to_border_radius(TRACK_RADIUS)},
+                }
+                ColorSliderTrack
+                AlphaPattern
+                MaterialNode::<AlphaPatternMaterial>
+                ---
                 // gradient
-                (
-                    Node {
-                        grid_row: GridPlacement::start(1),
-                        grid_column: GridPlacement::start(1),
-                        margin: {UiRect::vertical(px(TRACK_PADDING))},
-                        border_radius: {RoundedCorners::All.to_border_radius(TRACK_RADIUS)},
-                    }
-                    BackgroundGradient(vec![
-                        Gradient::Linear(LinearGradient {
-                            angle: LinearGradient::TO_RIGHT,
-                            stops: vec![
-                                ColorStop::px(Color::NONE, 0),
-                                ColorStop::px(Color::NONE, THUMB_SIZE * 0.5),
-                                ColorStop::percent(Color::NONE, 50),
-                                ColorStop::percent(Color::NONE, 50),
-                                ColorStop::percent(Color::NONE, 100),
-                            ],
-                            color_space: InterpolationColorSpace::Srgba,
-                        }),
-                        Gradient::Linear(LinearGradient {
-                            angle: LinearGradient::TO_LEFT,
-                            stops: vec![
-                                ColorStop::px(Color::NONE, 0),
-                                ColorStop::px(Color::NONE, THUMB_SIZE * 0.5),
-                                ColorStop::percent(Color::NONE, 50),
-                                ColorStop::percent(Color::NONE, 50),
-                                ColorStop::percent(Color::NONE, 100),
-                            ],
-                            color_space: InterpolationColorSpace::Srgba,
-                        }),
-                    ])
-                ),
+                Node {
+                    grid_row: GridPlacement::start(1),
+                    grid_column: GridPlacement::start(1),
+                    margin: {UiRect::vertical(px(TRACK_PADDING))},
+                    border_radius: {RoundedCorners::All.to_border_radius(TRACK_RADIUS)},
+                }
+                BackgroundGradient(vec![
+                    Gradient::Linear(LinearGradient {
+                        angle: LinearGradient::TO_RIGHT,
+                        stops: vec![
+                            ColorStop::px(Color::NONE, 0),
+                            ColorStop::px(Color::NONE, THUMB_SIZE * 0.5),
+                            ColorStop::percent(Color::NONE, 50),
+                            ColorStop::percent(Color::NONE, 50),
+                            ColorStop::percent(Color::NONE, 100),
+                        ],
+                        color_space: InterpolationColorSpace::Srgba,
+                    }),
+                    Gradient::Linear(LinearGradient {
+                        angle: LinearGradient::TO_LEFT,
+                        stops: vec![
+                            ColorStop::px(Color::NONE, 0),
+                            ColorStop::px(Color::NONE, THUMB_SIZE * 0.5),
+                            ColorStop::percent(Color::NONE, 50),
+                            ColorStop::percent(Color::NONE, 50),
+                            ColorStop::percent(Color::NONE, 100),
+                        ],
+                        color_space: InterpolationColorSpace::Srgba,
+                    }),
+                ])
+                ---
                 // thumb
-                (
+                Node {
+                    grid_row: GridPlacement::start(1),
+                    grid_column: GridPlacement::start(1),
+                    margin: {UiRect::horizontal(px(THUMB_SIZE * 0.5))},
+                }
+                Children [
                     Node {
-                        grid_row: GridPlacement::start(1),
-                        grid_column: GridPlacement::start(1),
-                        margin: {UiRect::horizontal(px(THUMB_SIZE * 0.5))},
+                        position_type: PositionType::Absolute,
+                        left: percent(0),
+                        top: percent(50),
+                        width: px(THUMB_SIZE),
+                        height: px(THUMB_SIZE),
+                        border: px(2),
+                        border_radius: BorderRadius::MAX,
                     }
-                    Children [(
-                        Node {
-                            position_type: PositionType::Absolute,
-                            left: percent(0),
-                            top: percent(50),
-                            width: px(THUMB_SIZE),
-                            height: px(THUMB_SIZE),
-                            border: px(2),
-                            border_radius: BorderRadius::MAX,
-                        }
-                        SliderThumb
-                        ColorSliderThumb
-                        BorderColor::all(palette::WHITE)
-                        Outline {
-                            width: px(1),
-                            offset: px(0),
-                            color: palette::BLACK
-                        }
-                        UiTransform::from_translation(Val2::percent(-50., -50.))
-                    )]
-                )
+                    SliderThumb
+                    ColorSliderThumb
+                    BorderColor::all(palette::WHITE)
+                    Outline {
+                        width: px(1),
+                        offset: px(0),
+                        color: palette::BLACK
+                    }
+                    UiTransform::from_translation(Val2::percent(-50., -50.))
+                ]
             ]
         }
     }

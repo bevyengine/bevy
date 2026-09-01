@@ -10,7 +10,7 @@ use quote::{quote, ToTokens};
 use syn::{
     braced, bracketed,
     buffer::Cursor,
-    parenthesized,
+    custom_punctuation, parenthesized,
     parse::{discouraged::Speculative, Parse, ParseBuffer, ParseStream},
     spanned::Spanned,
     token::{At, Brace, Bracket, Colon, Comma, Dot, Paren, Tilde},
@@ -83,7 +83,7 @@ impl<const ALLOW_FLAT: bool> Parse for Bsn<ALLOW_FLAT> {
                     ));
                 }
                 entries.push(entry);
-                if input.peek(Comma) {
+                if input.peek(Comma) || input.peek(ThreeMinus) {
                     // Not ideal, but this anticipatory break allows us to parse non-parenthesized
                     // flat Bsn entries in SceneLists
                     break;
@@ -222,10 +222,47 @@ impl Parse for BsnSceneList {
 impl Parse for BsnSceneListItems {
     fn parse(input: ParseStream) -> Result<Self> {
         let mut scenes = Vec::new();
+        loop {
+            if input.is_empty() {
+                break;
+            }
+            let value = input.parse::<BsnSceneListItem>()?;
+            scenes.push(value);
+            if input.is_empty() {
+                break;
+            }
+
+            // Try parsing without a comma or --- separator first. This makes autocomplete
+            // work in more places
+            if !input.is_empty() && !(input.peek(Comma) || input.peek(ThreeMinus)) {
+                let value = input.parse::<BsnSceneListItem>()?;
+                scenes.push(value);
+            }
+            input.parse::<CommaOrThreeMinus>()?;
+        }
+
         parse_punctuated_vec_autocomplete_friendly!(scenes, input, BsnSceneListItem, Comma);
         Ok(BsnSceneListItems(scenes))
     }
 }
+
+struct CommaOrThreeMinus;
+
+impl Parse for CommaOrThreeMinus {
+    fn parse(input: ParseStream) -> Result<Self> {
+        if input.peek(Comma) {
+            let _ = input.parse::<Comma>()?;
+            Ok(CommaOrThreeMinus)
+        } else if input.peek(ThreeMinus) {
+            let _ = input.parse::<ThreeMinus>()?;
+            Ok(CommaOrThreeMinus)
+        } else {
+            Err(input.error("Expected ',' or '---'"))
+        }
+    }
+}
+
+custom_punctuation!(ThreeMinus, ---);
 
 impl Parse for BsnSceneListItem {
     fn parse(input: ParseStream) -> Result<Self> {

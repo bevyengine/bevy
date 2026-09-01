@@ -76,7 +76,7 @@ impl FeathersScrollbar {
                 border_radius: BorderRadius::all(px(3))
             }
             ThemeBackgroundColor(tokens::SCROLLBAR_BG)
-            Children [(
+            Children [
                 Hovered
                 ThemeBackgroundColor(tokens::SCROLLBAR_THUMB)
                 ScrollbarThumb {
@@ -84,7 +84,7 @@ impl FeathersScrollbar {
                 }
                 FeathersScrollbarThumb
                 EntityCursor::System(bevy_window::SystemCursorIcon::Pointer)
-            )]
+            ]
         }
     }
 }

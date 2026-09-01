@@ -100,31 +100,26 @@ impl FeathersSelect {
             @FeathersMenu
             FeathersSelect
             Children [
-                (
-                    @FeathersMenuButton {
-                        @caption: bsn! { @caption("") SelectCaption },
-                        @corners: {props.corners},
+                @FeathersMenuButton {
+                    @caption: bsn! { @caption("") SelectCaption },
+                    @corners: {props.corners},
+                }
+                Node {
+                    flex_grow: 1.0,
+                }
+                ---
+                @FeathersMenuPopup
+                Children [
+                    @FeathersListView {
+                        @rows: {props.options}
                     }
+                    on(listbox_update_selection)
+                    on(re_emit_listbox_value)
+                    on(close_popup_on_reselect)
                     Node {
-                        flex_grow: 1.0,
+                        max_height: {max_height},
                     }
-                ),
-                (
-                    @FeathersMenuPopup
-                    Children [
-                        (
-                            @FeathersListView {
-                                @rows: {props.options}
-                            }
-                            on(listbox_update_selection)
-                            on(re_emit_listbox_value)
-                            on(close_popup_on_reselect)
-                            Node {
-                                max_height: {max_height},
-                            }
-                        )
-                    ]
-                )
+                ]
             ]
         }
     }

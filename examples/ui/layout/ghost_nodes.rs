@@ -34,10 +34,10 @@ fn scene() -> impl SceneList {
 fn ghost_root() -> impl Scene {
     bsn! {
         GhostNode
-        Children [(
+        Children [
             Node
             Children [ @label("This text node is rendered under a ghost root") ]
-        )]
+        ]
     }
 }
 
@@ -50,20 +50,19 @@ fn normal_root() -> impl Scene {
             align_items: AlignItems::Center,
             justify_content: JustifyContent::Center,
         }
-        Children [(
+        Children [
             Node Counter(0)
             Children [
                 // Ghost children using a separate counter state.
                 // These buttons are being treated as children of the layout parent
                 // in the context of UI, but they share the ghost node's counter.
-                (
-                    GhostNode Counter(0)
-                    Children [ @button(), @button() ]
-                ),
+                GhostNode Counter(0)
+                Children [ @button(), @button() ]
+                ---
                 // A normal child using the layout parent counter
-                @button(),
+                @button()
             ]
-        )]
+        ]
     }
 }
 
