@@ -8,7 +8,7 @@
 use alloc::boxed::Box;
 
 use crate::{
-    event::{Event, EventKey},
+    event::{Event, EventKey, EventTriggerState},
     observer::{Observer, On},
     reflect::from_reflect_with_fallback,
     world::{DeferredWorld, World},
@@ -56,11 +56,11 @@ impl ReflectEventFns {
     ///
     /// This is useful if you want to start with the default implementation
     /// before overriding some of the functions to create a custom implementation.
-    pub fn new<'a, T: Event + FromReflect + TypePath>() -> Self
+    pub fn new<E: Event + FromReflect + TypePath>() -> Self
     where
-        T::Trigger<'a>: Default,
+        for<'a> EventTriggerState<'a, E>: Default,
     {
-        <ReflectEvent as CreateTypeData<T>>::create_type_data(()).0
+        <ReflectEvent as CreateTypeData<E>>::create_type_data(()).0
     }
 }
 
@@ -122,9 +122,9 @@ impl ReflectEvent {
     }
 }
 
-impl<'a, E: Event + Reflect + TypePath> CreateTypeData<E> for ReflectEvent
+impl<E: Event + Reflect + TypePath> CreateTypeData<E> for ReflectEvent
 where
-    <E as Event>::Trigger<'a>: Default,
+    for<'a> EventTriggerState<'a, E>: Default,
 {
     fn create_type_data(_input: ()) -> Self {
         ReflectEvent(ReflectEventFns {

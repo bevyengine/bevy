@@ -333,7 +333,7 @@ pub const DESPAWN: EventKey = EventKey(ComponentId::new(crate::component::DESPAW
 /// component. Runs before `Insert`.
 /// See [`ComponentHooks::on_add`](`crate::lifecycle::ComponentHooks::on_add`) for more information.
 #[derive(Debug, Clone, EntityEvent)]
-#[entity_event(trigger = EntityComponentsTrigger<'a>)]
+#[entity_event(trigger = EntityComponentsTrigger<'static>)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Debug))]
 pub struct AddEvent {
@@ -360,7 +360,7 @@ impl<B: Bundle> EventPattern for Add<B> {
 /// had that component. Runs after `Add`, if it ran.
 /// See [`ComponentHooks::on_insert`](`crate::lifecycle::ComponentHooks::on_insert`) for more information.
 #[derive(Debug, Clone, EntityEvent)]
-#[entity_event(trigger = EntityComponentsTrigger<'a>)]
+#[entity_event(trigger = EntityComponentsTrigger<'static>)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Debug))]
 pub struct InsertEvent {
@@ -389,7 +389,7 @@ impl<B: Bundle> EventPattern for Insert<B> {
 /// Runs before the value is replaced, so you can still access the original component data.
 /// See [`ComponentHooks::on_discard`](`crate::lifecycle::ComponentHooks::on_discard`) for more information.
 #[derive(Debug, Clone, EntityEvent)]
-#[entity_event(trigger = EntityComponentsTrigger<'a>)]
+#[entity_event(trigger = EntityComponentsTrigger<'static>)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Debug))]
 
@@ -419,7 +419,7 @@ impl<B: Bundle> EventPattern for Discard<B> {
 /// removed, so you can still access the component data.
 /// See [`ComponentHooks::on_remove`](`crate::lifecycle::ComponentHooks::on_remove`) for more information.
 #[derive(Debug, Clone, EntityEvent)]
-#[entity_event(trigger = EntityComponentsTrigger<'a>)]
+#[entity_event(trigger = EntityComponentsTrigger<'static>)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Debug))]
 pub struct RemoveEvent {
@@ -445,7 +445,7 @@ impl<B: Bundle> EventPattern for Remove<B> {
 /// [`EntityEvent`] emitted for each component on an entity when it is despawned.
 /// See [`ComponentHooks::on_despawn`](`crate::lifecycle::ComponentHooks::on_despawn`) for more information.
 #[derive(Debug, Clone, EntityEvent)]
-#[entity_event(trigger = EntityComponentsTrigger<'a>)]
+#[entity_event(trigger = EntityComponentsTrigger<'static>)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Debug))]
 pub struct DespawnEvent {

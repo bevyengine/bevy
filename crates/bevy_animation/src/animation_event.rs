@@ -13,7 +13,7 @@ use bevy_ecs::{
 /// - If you used [`AnimationClip::add_event_to_target`](crate::AnimationClip::add_event_to_target), this will be triggered by the [`AnimationTargetId`](crate::AnimationTargetId).
 ///
 /// This trait can be derived.
-pub trait AnimationEvent: Clone + for<'a> Event<Trigger<'a> = AnimationEventTrigger> {}
+pub trait AnimationEvent: Clone + Event<Trigger = AnimationEventTrigger> {}
 
 /// The [`Trigger`] implementation for [`AnimationEvent`]. This passes in either the [`AnimationPlayer`](crate::AnimationPlayer) or the [`AnimationTargetId`](crate::AnimationTargetId)
 /// context, and uses that to run any observers that target that entity. See [`AnimationEvent`] for when which entity is used.
@@ -28,20 +28,27 @@ pub struct AnimationEventTrigger {
     unsafe_code,
     reason = "We must implement this trait to define a custom Trigger, which is required to be unsafe due to safety considerations within bevy_ecs."
 )]
-// SAFETY:
-// - `E`'s [`Event::Trigger`] is constrained to [`AnimationEventTrigger`]
-// - The implementation abides by the other safety constraints defined in [`Trigger`]
-unsafe impl<E: AnimationEvent + for<'a> Event<Trigger<'a> = AnimationEventTrigger>> Trigger<E>
+// SAFETY: `AnimationEventTrigger` has no lifetimes.
+unsafe impl<E: AnimationEvent + Event<Trigger = AnimationEventTrigger>> Trigger<E>
     for AnimationEventTrigger
 {
+    type State<'input> = AnimationEventTrigger;
+    type View<'input> = AnimationEventTrigger;
+
+    fn reborrow<'input>(state: &'input mut Self::State<'_>) -> Self::View<'input> {
+        AnimationEventTrigger {
+            target: state.target,
+        }
+    }
+
     unsafe fn trigger(
-        &mut self,
+        state: &mut Self::State<'_>,
         world: DeferredWorld,
         observers: &CachedObservers,
         trigger_context: &TriggerContext,
         event: &mut E,
     ) {
-        let target = self.target;
+        let target = state.target;
         // SAFETY:
         // - `observers` come from `world` and match the event type `E`, enforced by the call to `trigger`
         // - the passed in event pointer comes from `event`, which is an `Event`
@@ -53,7 +60,7 @@ unsafe impl<E: AnimationEvent + for<'a> Event<Trigger<'a> = AnimationEventTrigge
                 world,
                 observers,
                 event.into(),
-                self.into(),
+                state.into(),
                 target,
                 trigger_context,
             );

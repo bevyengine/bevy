@@ -18,7 +18,7 @@ pub use system_param::*;
 
 use crate::{
     change_detection::MaybeLocation,
-    event::Event,
+    event::{Event, EventTriggerState},
     prelude::*,
     world::{DeferredWorld, *},
 };
@@ -60,10 +60,13 @@ impl World {
     ///
     /// For a variant that borrows the `event` rather than consuming it, use [`World::trigger_ref`] instead.
     #[track_caller]
-    pub fn trigger<'a, E: Event<Trigger<'a>: Default>>(&mut self, mut event: E) {
+    pub fn trigger<E: Event>(&mut self, mut event: E)
+    where
+        for<'a> EventTriggerState<'a, E>: Default,
+    {
         self.trigger_ref_with_caller(
             &mut event,
-            &mut <E::Trigger<'a> as Default>::default(),
+            &mut EventTriggerState::<E>::default(),
             MaybeLocation::caller(),
         );
     }
@@ -72,7 +75,7 @@ impl World {
     ///
     /// For a variant that borrows the `event` rather than consuming it, use [`World::trigger_ref`] instead.
     #[track_caller]
-    pub fn trigger_with<'a, E: Event>(&mut self, mut event: E, mut trigger: E::Trigger<'a>) {
+    pub fn trigger_with<E: Event>(&mut self, mut event: E, mut trigger: EventTriggerState<'_, E>) {
         self.trigger_ref_with_caller(&mut event, &mut trigger, MaybeLocation::caller());
     }
 
@@ -81,10 +84,13 @@ impl World {
     /// Compared to [`World::trigger`], this method is most useful when it's necessary to check
     /// or use the event after it has been modified by observers.
     #[track_caller]
-    pub fn trigger_ref<'a, E: Event<Trigger<'a>: Default>>(&mut self, event: &mut E) {
+    pub fn trigger_ref<E: Event>(&mut self, event: &mut E)
+    where
+        for<'a> EventTriggerState<'a, E>: Default,
+    {
         self.trigger_ref_with_caller(
             event,
-            &mut <E::Trigger<'a> as Default>::default(),
+            &mut EventTriggerState::<E>::default(),
             MaybeLocation::caller(),
         );
     }
@@ -94,14 +100,18 @@ impl World {
     ///
     /// Compared to [`World::trigger`], this method is most useful when it's necessary to check
     /// or use the event after it has been modified by observers.
-    pub fn trigger_ref_with<'a, E: Event>(&mut self, event: &mut E, trigger: &mut E::Trigger<'a>) {
+    pub fn trigger_ref_with<E: Event>(
+        &mut self,
+        event: &mut E,
+        trigger: &mut EventTriggerState<'_, E>,
+    ) {
         self.trigger_ref_with_caller(event, trigger, MaybeLocation::caller());
     }
 
-    pub(crate) fn trigger_ref_with_caller<'a, E: Event>(
+    pub(crate) fn trigger_ref_with_caller<E: Event>(
         &mut self,
         event: &mut E,
-        trigger: &mut E::Trigger<'a>,
+        trigger: &mut EventTriggerState<'_, E>,
         caller: MaybeLocation,
     ) {
         let event_key = self.register_event_key::<E>();
@@ -502,7 +512,7 @@ mod tests {
     struct EntityEventA(Entity);
 
     #[derive(EntityEvent)]
-    #[entity_event(trigger = EntityComponentsTrigger<'a>)]
+    #[entity_event(trigger = EntityComponentsTrigger<'static>)]
     struct EntityComponentsEvent(Entity);
 
     struct EntityComponents<B: Bundle>(PhantomData<B>);
@@ -1831,8 +1841,7 @@ mod tests {
 
         fn observer<E>(e: On<E>, mut c: ResMut<Changes>)
         where
-            E: EventPattern,
-            E::Event: for<'a> Event<Trigger<'a> = EntityComponentsTrigger<'a>>,
+            E: EventPattern<Event: EntityEvent<Trigger = EntityComponentsTrigger<'static>>>,
         {
             c.0.push((
                 type_name::<E::Event>(),

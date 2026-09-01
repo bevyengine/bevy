@@ -7,7 +7,7 @@ use crate::{
     change_detection::{MaybeLocation, MutUntyped, Tick},
     component::{ComponentId, Mutable},
     entity::Entity,
-    event::{EntityComponentsTrigger, Event, EventKey, Trigger},
+    event::{EntityComponentsTrigger, Event, EventKey, EventTriggerState, Trigger},
     lifecycle::{DiscardEvent, HookContext, InsertEvent, DISCARD, INSERT},
     message::{Message, MessageId, Messages, WriteBatchIds},
     observer::TriggerContext,
@@ -753,11 +753,11 @@ impl<'w> DeferredWorld<'w> {
     /// # Safety
     /// - Caller must ensure `E` is accessible as the type represented by `event_key`
     #[inline]
-    pub unsafe fn trigger_raw<'a, E: Event>(
+    pub unsafe fn trigger_raw<E: Event>(
         &mut self,
         event_key: EventKey,
         event: &mut E,
-        trigger: &mut E::Trigger<'a>,
+        trigger: &mut EventTriggerState<'_, E>,
         caller: MaybeLocation,
     ) {
         // SAFETY: You cannot get a mutable reference to `observers` from `DeferredWorld`
@@ -777,7 +777,7 @@ impl<'w> DeferredWorld<'w> {
         // - trigger_context contains the correct event_key for `event`, as enforced by the call to `trigger_raw`
         // - This method is being called for an `event` whose `Event::Trigger` matches, as the input trigger is E::Trigger.
         unsafe {
-            trigger.trigger(world.reborrow(), observers, &context, event);
+            E::Trigger::trigger(trigger, world.reborrow(), observers, &context, event);
         }
     }
 
@@ -787,7 +787,10 @@ impl<'w> DeferredWorld<'w> {
     ///
     /// [`Observer`]: crate::observer::Observer
     #[track_caller]
-    pub fn trigger<'a>(&mut self, event: impl Event<Trigger<'a>: Default>) {
+    pub fn trigger<E: Event>(&mut self, event: E)
+    where
+        for<'a> EventTriggerState<'a, E>: Default,
+    {
         self.commands().trigger(event);
     }
 
