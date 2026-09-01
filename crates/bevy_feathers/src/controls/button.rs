@@ -91,7 +91,7 @@ impl FeathersButton {
                 border_radius: {props.corners.to_border_radius(4.0)},
             }
             Button
-            template_value(props.variant)
+            props.variant
             Hovered
             EntityCursor::System(bevy_window::SystemCursorIcon::Pointer)
             TabIndex(0)

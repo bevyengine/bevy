@@ -20,6 +20,7 @@ bevy_ecs = { path = "../crates/bevy_ecs", optional = true, features = [
 ] }
 bevy_extract = { path = "../crates/bevy_extract", optional = true }
 bevy_math = { path = "../crates/bevy_math", optional = true }
+bevy_shape = { path = "../crates/bevy_shape", optional = true }
 bevy_picking = { path = "../crates/bevy_picking", optional = true, features = [
   "mesh_picking",
 ] }
@@ -69,7 +70,11 @@ default = [
   "bench_transform",
 ]
 
-bench_camera = ["dep:bevy_camera", "dep:bevy_math"]
+bench_camera = [
+  "dep:bevy_camera",
+  "dep:bevy_math",
+  "dep:bevy_shape",
+]
 
 bench_ecs = [
   "dep:bevy_ecs",
@@ -80,9 +85,13 @@ bench_ecs = [
   "bevy_math/bevy_reflect",
 ]
 
-bench_math = ["dep:bevy_math"]
+bench_math = ["dep:bevy_math", "dep:bevy_shape"]
 
-bench_picking = ["dep:bevy_picking", "dep:bevy_math"]
+bench_picking = [
+  "dep:bevy_picking",
+  "dep:bevy_math",
+  "dep:bevy_shape",
+]
 
 bench_platform = [
   "dep:bevy_platform",
