@@ -4,7 +4,7 @@ use crate::{
     experimental::{UiChildren, UiRootNodes},
     ui_transform::UiGlobalTransform,
     CalculatedClip, ComputedUiRenderTargetInfo, ComputedUiTargetCamera, DefaultUiCamera, Display,
-    Node, OverrideClip, UiScale, UiTargetCamera,
+    FixedNode, Node, OverrideClip, UiScale, UiTargetCamera,
 };
 
 use super::ComputedNode;
@@ -27,6 +27,7 @@ pub fn update_clipping_system(
         &UiGlobalTransform,
         Option<&mut CalculatedClip>,
         Has<OverrideClip>,
+        Has<FixedNode>,
     )>,
     ui_children: UiChildren,
 ) {
@@ -50,18 +51,25 @@ fn update_clipping(
         &UiGlobalTransform,
         Option<&mut CalculatedClip>,
         Has<OverrideClip>,
+        Has<FixedNode>,
     )>,
     entity: Entity,
     mut maybe_inherited_clip: Option<CalculatedClip>,
 ) {
-    let Ok((node, computed_node, transform, maybe_calculated_clip, has_override_clip)) =
-        node_query.get_mut(entity)
+    let Ok((
+        node,
+        computed_node,
+        transform,
+        maybe_calculated_clip,
+        has_override_clip,
+        has_fixed_node,
+    )) = node_query.get_mut(entity)
     else {
         return;
     };
 
-    // If the UI node entity has an `OverrideClip` component, discard any inherited clip rect
-    if has_override_clip {
+    // If the UI node entity has an `OverrideClip` or `FixedNode` component, discard any inherited clip rect
+    if has_override_clip || has_fixed_node {
         maybe_inherited_clip = None;
     }
 
@@ -175,11 +183,15 @@ pub fn propagate_ui_target_cameras(
 
 #[cfg(test)]
 mod tests {
-    use crate::update::propagate_ui_target_cameras;
+    use crate::update::{propagate_ui_target_cameras, update_clipping_system};
+    use crate::CalculatedClip;
     use crate::ComputedUiRenderTargetInfo;
     use crate::ComputedUiTargetCamera;
+    use crate::FixedNode;
     use crate::IsDefaultUiCamera;
     use crate::Node;
+    use crate::Overflow;
+    use crate::OverrideClip;
     use crate::UiScale;
     use crate::UiTargetCamera;
     use bevy_app::App;
@@ -670,5 +682,73 @@ mod tests {
                 .scale_factor(),
             2.
         );
+    }
+
+    #[test]
+    fn fixed_node_opens_new_clipping_context() {
+        let mut app = App::new();
+        app.add_systems(bevy_app::Update, update_clipping_system);
+
+        let grandchild = app.world_mut().spawn(Node::default()).id();
+        let child = app
+            .world_mut()
+            .spawn(Node::default())
+            .add_child(grandchild)
+            .id();
+        app.world_mut()
+            .spawn(Node {
+                overflow: Overflow::clip(),
+                ..default()
+            })
+            .add_child(child);
+
+        app.update();
+        assert_eq!(
+            app.world()
+                .get::<CalculatedClip>(grandchild)
+                .unwrap()
+                .rects()
+                .unwrap()
+                .len(),
+            1
+        );
+
+        app.world_mut().entity_mut(child).insert(FixedNode);
+        app.update();
+        assert!(app.world().get::<CalculatedClip>(grandchild).is_none());
+
+        app.world_mut().entity_mut(child).remove::<FixedNode>();
+        app.update();
+        assert_eq!(
+            app.world()
+                .get::<CalculatedClip>(grandchild)
+                .unwrap()
+                .rects()
+                .unwrap()
+                .len(),
+            1
+        );
+    }
+
+    #[test]
+    fn override_clip_opens_new_clipping_context() {
+        let mut app = App::new();
+        app.add_systems(bevy_app::Update, update_clipping_system);
+
+        let grandchild = app.world_mut().spawn(Node::default()).id();
+        let child = app
+            .world_mut()
+            .spawn((Node::default(), OverrideClip))
+            .add_child(grandchild)
+            .id();
+        app.world_mut()
+            .spawn(Node {
+                overflow: Overflow::clip(),
+                ..default()
+            })
+            .add_child(child);
+
+        app.update();
+        assert!(app.world().get::<CalculatedClip>(grandchild).is_none());
     }
 }

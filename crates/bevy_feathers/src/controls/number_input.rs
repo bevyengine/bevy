@@ -10,7 +10,7 @@ use bevy_ecs::{
     hierarchy::{ChildOf, Children},
     lifecycle::{Add, Insert, Remove},
     observer::On,
-    query::{Changed, Has, With, Without},
+    query::{Changed, Has, Or, With, Without},
     reflect::ReflectComponent,
     resource::Resource,
     schedule::IntoScheduleConfigs,
@@ -22,7 +22,7 @@ use bevy_input::{
 };
 use bevy_input_focus::{FocusGained, FocusLost, FocusedInput, InputFocus, InputFocusSystems};
 use bevy_log::{warn, warn_once};
-use bevy_math::ops;
+use bevy_math::{ops, Rot2};
 use bevy_picking::{
     cursor::EntityCursor,
     events::{
@@ -44,13 +44,15 @@ use bevy_ui::{
     percent, px, widget::Text, AlignItems, AlignSelf, BackgroundGradient, ColorStop, ComputedNode,
     ComputedUiRenderTargetInfo, Display, Gradient, InteractionDisabled, InterpolationColorSpace,
     JustifyContent, LinearGradient, Node, PositionType, UiGlobalTransform, UiRect, UiScale,
+    UiTransform,
 };
 use bevy_ui_widgets::ValueChange;
 use smol_str::SmolStr;
 
 use crate::{
-    constants::{fonts, size},
+    constants::{fonts, icons, size},
     controls::{FeathersSlider, FeathersTextInput, FeathersTextInputContainer},
+    display::icon,
     rounded_corners::RoundedCorners,
     theme::{
         SurfaceLevel, ThemeBackgroundColor, ThemeBorderColor, ThemeContext, ThemeTextColor,
@@ -115,6 +117,16 @@ impl Default for FeathersNumberInputProps {
         }
     }
 }
+
+/// Marks the decrement (left-end) chevron of a number input.
+#[derive(Component, Clone, Default, Reflect)]
+#[reflect(Component)]
+struct NumberInputDecrement;
+
+/// Marks the increment (right-end) chevron of a number input.
+#[derive(Component, Clone, Default, Reflect)]
+#[reflect(Component)]
+struct NumberInputIncrement;
 
 impl FeathersNumberInput {
     fn scene(props: FeathersNumberInputProps) -> impl Scene {
@@ -202,6 +214,7 @@ impl FeathersNumberInput {
                     on(number_input_on_focus_gained)
                     on(number_input_on_focus_lost)
                     on(number_input_hovered)
+                    on(update_chevron_visibility)
                     Children [
                         (
                             // Invisible child on top of input field which intercepts drag
@@ -219,6 +232,33 @@ impl FeathersNumberInput {
                             on(scrubber_on_drag)
                             on(scrubber_on_drag_end)
                             on(scrubber_on_drag_cancel)
+                        ),
+                        (
+                            // The decrement chevron of a number input
+                            Node {
+                                position_type: PositionType::Absolute,
+                                display: Display::None,
+                                left: px(4),
+                            }
+                            NumberInputDecrement
+                            Children [
+                                icon(icons::CHEVRON_DOWN)
+                                UiTransform {
+                                    rotation: Rot2::radians(std::f32::consts::FRAC_PI_2)
+                                }
+                            ]
+                        ),
+                        (
+                            // The increment chevron of a number input
+                            Node {
+                                position_type: PositionType::Absolute,
+                                display: Display::None,
+                                right: px(4),
+                            }
+                            NumberInputIncrement
+                            Children [
+                                icon(icons::CHEVRON_RIGHT),
+                            ]
                         ),
                     ]
                 ),
@@ -997,7 +1037,7 @@ fn scrubber_on_release(
         &UiGlobalTransform,
     )>,
     q_parent: Query<&ChildOf>,
-    q_units: Query<(&NumberInputValue, Option<&NumberInputUnits>)>,
+    q_units: Query<(&NumberInputValue, Option<&NumberInputUnits>), Without<InteractionDisabled>>,
     ui_scale: Res<UiScale>,
     units_registry: Res<UnitsRegistry>,
     mut commands: Commands,
@@ -1509,6 +1549,77 @@ fn update_slidebar_styles_context(
                 &mut commands,
             );
         }
+    }
+}
+
+// Updates the visibility of the chevron buttons based on the hover state and value limits.
+fn update_chevron_visibility(
+    hover: On<Insert<Hovered>>,
+    q_hovered: Query<&Hovered>,
+    q_parent: Query<&ChildOf>,
+    q_number_input: Query<
+        (&NumberInputValue, Option<&HardLimit>, Has<SoftLimit>),
+        With<FeathersNumberInput>,
+    >,
+    q_children: Query<&Children>,
+    mut q_chevron: Query<
+        (
+            &mut Node,
+            Has<NumberInputDecrement>,
+            Has<NumberInputIncrement>,
+        ),
+        Or<(With<NumberInputDecrement>, With<NumberInputIncrement>)>,
+    >,
+) {
+    let text_input = hover.entity;
+    let Ok(hovered) = q_hovered.get(text_input) else {
+        return;
+    };
+    let Ok(&ChildOf(root)) = q_parent.get(text_input) else {
+        return;
+    };
+    let Ok((value, hard_limit, has_soft_limit)) = q_number_input.get(root) else {
+        return;
+    };
+    let base_visible = hovered.0 && !has_soft_limit;
+
+    let (is_at_min, is_at_max) = if let Some(HardLimit(range)) = hard_limit {
+        (is_at_limit_min(value, range), is_at_limit_max(value, range))
+    } else {
+        (false, false)
+    };
+
+    for child in q_children.iter_descendants(text_input) {
+        if let Ok((mut node, is_dec, is_inc)) = q_chevron.get_mut(child) {
+            let disabled_by_limit = (is_at_min && is_dec) || (is_at_max && is_inc);
+            node.display = if base_visible && !disabled_by_limit {
+                Display::Block
+            } else {
+                Display::None
+            };
+        }
+    }
+}
+
+// Checks if the value is at the minimum limit of the range.
+fn is_at_limit_min(value: &NumberInputValue, range: &NumberInputRange) -> bool {
+    match (range, value) {
+        (NumberInputRange::F32(r), NumberInputValue::F32(v)) => v <= r.start(),
+        (NumberInputRange::F64(r), NumberInputValue::F64(v)) => v <= r.start(),
+        (NumberInputRange::I32(r), NumberInputValue::I32(v)) => v <= r.start(),
+        (NumberInputRange::I64(r), NumberInputValue::I64(v)) => v <= r.start(),
+        _ => false,
+    }
+}
+
+// Checks if the value is at the maximum limit of the range.
+fn is_at_limit_max(value: &NumberInputValue, range: &NumberInputRange) -> bool {
+    match (range, value) {
+        (NumberInputRange::F32(r), NumberInputValue::F32(v)) => v >= r.end(),
+        (NumberInputRange::F64(r), NumberInputValue::F64(v)) => v >= r.end(),
+        (NumberInputRange::I32(r), NumberInputValue::I32(v)) => v >= r.end(),
+        (NumberInputRange::I64(r), NumberInputValue::I64(v)) => v >= r.end(),
+        _ => false,
     }
 }
 

@@ -29,8 +29,9 @@ use bevy_ecs::{
     system::{Local, Query, Res, ResMut, Single},
 };
 use bevy_input::{mouse::MouseButton, ButtonInput};
-use bevy_math::{Quat, Ray3d, Vec2, Vec3};
+use bevy_math::{Quat, Vec2, Vec3};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_shape::Ray3d;
 use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_transform::TransformSystems;
 use bevy_window::{CursorGrabMode, CursorOptions, PrimaryWindow, Window};
