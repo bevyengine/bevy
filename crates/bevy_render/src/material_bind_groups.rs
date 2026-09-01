@@ -29,7 +29,7 @@ use crate::{
         OwnedBindingResource, PipelineCache, UnpreparedBindingResource, UnpreparedBindingResources,
     },
     storage::ShaderBuffer,
-    GpuResourceAppExt as _, Render, RenderApp, RenderSystems,
+    GpuResourceAppExt as _, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use crate::{
     render_resource::{
@@ -536,6 +536,7 @@ impl Plugin for MaterialBindGroupPlugin {
             .allow_ambiguous_resource::<MaterialBindGroupAllocators>()
             .init_gpu_resource::<RenderMaterialBindings>()
             .allow_ambiguous_resource::<RenderMaterialBindings>()
+            .add_systems(RenderStartup, init_fallback_resources)
             .add_systems(
                 Render,
                 (
@@ -2328,7 +2329,7 @@ impl MaterialBindlessSlab {
 }
 
 /// Creates and inserts the [`FallbackBindlessResources`] and [`FallbackBuffer`].
-pub fn init_fallback_resources(mut commands: Commands, render_device: Res<RenderDevice>) {
+fn init_fallback_resources(mut commands: Commands, render_device: Res<RenderDevice>) {
     // Create the `FallbackBindlessResources`.
     commands.insert_resource(FallbackBindlessResources {
         filtering_sampler: render_device.create_sampler(&SamplerDescriptor {

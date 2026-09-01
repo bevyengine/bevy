@@ -380,7 +380,6 @@ impl Plugin for PickingPlugin {
             .add_systems(
                 PreUpdate,
                 (
-                    pointer::update_pointer_map,
                     pointer::PointerInput::receive,
                     backend::ray::RayMap::repopulate.after(pointer::PointerInput::receive),
                 )
