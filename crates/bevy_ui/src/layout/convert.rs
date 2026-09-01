@@ -60,7 +60,10 @@ impl Val {
     //
     // * A non-zero border smaller than one physical pixel is rounded up to one pixel.
     // * A border larger than one physical pixel is rounded down to a whole pixel.
-    fn into_length_percentage_for_border(self, context: &LayoutContext) -> taffy::style::LengthPercentage {
+    fn into_length_percentage_for_border(
+        self,
+        context: &LayoutContext,
+    ) -> taffy::style::LengthPercentage {
         let length = self.into_length_percentage(context);
         let raw = length.into_raw();
         // we're only snapping if sized in non-zero px
