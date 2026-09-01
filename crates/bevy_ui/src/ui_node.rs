@@ -3290,6 +3290,7 @@ pub struct FixedNode;
 /// - Its `UiTransform` will be applied normally.
 /// - Events pass through normally.
 /// - `FixedNode` is ignored on a `GhostNode`.
+/// - `OverrideClip` is not ignored on a `GhostNode`.
 /// - Clipping propagates through `GhostNode`'s but their `Node::override` setting is ignored.
 #[derive(Component, Debug, Copy, Clone, Reflect, Default)]
 #[reflect(Component, Debug, Clone)]
