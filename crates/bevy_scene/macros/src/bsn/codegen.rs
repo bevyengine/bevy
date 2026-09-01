@@ -757,7 +757,7 @@ impl BsnTokenStream for BsnSceneListItems {
                 let tokens = bsn.to_tokens(ctx);
                 quote! {#bevy_scene::EntityScene(#tokens)}
             }
-            BsnSceneListItem::Expression(stmts) => quote! {#(#stmts)*},
+            BsnSceneListItem::Expression(tokens) => tokens.clone(),
         });
 
         quote! { #bevy_scene::auto_nest_tuple!(#(#scenes),*) }

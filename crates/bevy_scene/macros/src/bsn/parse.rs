@@ -14,7 +14,7 @@ use syn::{
     parse::{discouraged::Speculative, Parse, ParseBuffer, ParseStream},
     spanned::Spanned,
     token::{At, Brace, Bracket, Colon, Comma, Dot, Paren, Tilde},
-    Block, Ident, Lit, LitStr, Member, Path, Result, Token,
+    Ident, Lit, LitStr, Member, Path, Result, Token,
 };
 
 /// Functionally identical to [`Punctuated`](syn::punctuated::Punctuated), but fills the given `$list` Vec instead
@@ -230,8 +230,8 @@ impl Parse for BsnSceneListItems {
 impl Parse for BsnSceneListItem {
     fn parse(input: ParseStream) -> Result<Self> {
         Ok(if input.peek(Brace) {
-            let block = input.parse::<Block>()?;
-            BsnSceneListItem::Expression(block.stmts)
+            let tokens = braced_tokens(input)?;
+            BsnSceneListItem::Expression(tokens)
         } else {
             BsnSceneListItem::Scene(input.parse::<Bsn<true>>()?)
         })
