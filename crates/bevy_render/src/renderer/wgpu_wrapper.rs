@@ -4,7 +4,6 @@
 /// or dropped on the `wgpu` thread or else a panic will occur.
 /// On other platforms the wrapper simply contains the wrapped value.
 #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
-#[macro_export]
 macro_rules! wgpu_wrapper {
     ($( $(#[$($attrs:tt)*])* $vis:vis struct $name:ident ($wgputy:ty) );+ $(;)?) => {
         $(
@@ -57,7 +56,6 @@ macro_rules! wgpu_wrapper {
 }
 
 #[cfg(all(target_arch = "wasm32", target_feature = "atomics"))]
-#[macro_export]
 macro_rules! wgpu_wrapper {
     ($( $(#[$($attrs:tt)*])* $vis:vis struct $name:ident ($wgputy:ty) );+ $(;)?) => {
         $(
@@ -95,4 +93,4 @@ macro_rules! wgpu_wrapper {
     };
 }
 
-pub use wgpu_wrapper;
+pub(crate) use wgpu_wrapper;

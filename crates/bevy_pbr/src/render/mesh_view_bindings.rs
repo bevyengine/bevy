@@ -18,12 +18,11 @@ use bevy_ecs::{
     entity::Entity,
     query::Has,
     resource::Resource,
-    system::{Commands, Query, Local, Res},
+    system::{Commands, Local, Query, Res},
 };
 use bevy_light::{EnvironmentMapLight, IrradianceVolume};
 use bevy_math::Vec4;
 use bevy_platform::sync::Arc;
-use bevy_render::wgpu_wrapper;
 use bevy_render::{
     camera::ExtractedCamera,
     globals::{GlobalsBuffer, GlobalsUniform},
@@ -632,10 +631,13 @@ pub struct MeshViewBindGroup {
 
 // Wrapped Vec to be used in `Local` system param in `prepare_mesh_view_bind_groups`,
 // because `BindGroupEntry` is non-send on wasm with atomics.
-wgpu_wrapper! {
-    #[derive(Default)]
-    pub struct WrappedBindGroupEntryVec(Vec<BindGroupEntry<'static>>);
-}
+#[cfg(all(target_arch = "wasm32", target_feature = "atomics"))]
+#[derive(Default)]
+pub struct WrappedBindGroupEntryVec(send_wrapper::SendWrapper<Vec<BindGroupEntry<'static>>>);
+
+#[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
+#[derive(Default)]
+pub struct WrappedBindGroupEntryVec(Vec<BindGroupEntry<'static>>);
 
 pub fn prepare_mesh_view_bind_groups(
     mut commands: Commands,
@@ -753,15 +755,14 @@ pub fn prepare_mesh_view_bind_groups(
             {
                 // Take cache that has static lifetime for `DynamicBindGroupEntries`.
                 // See <https://users.rust-lang.org/t/how-to-cache-a-vectors-capacity/94478/10>.
-                entries.entries = core::mem::take(&mut **entries_cache)
+                entries.entries = core::mem::take(&mut entries_cache.0)
                     .into_iter()
                     .map(|_| -> BindGroupEntry { unreachable!() })
                     .collect();
-                entries_binding_array.entries =
-                    core::mem::take(&mut **entries_binding_array_cache)
-                        .into_iter()
-                        .map(|_| -> BindGroupEntry { unreachable!() })
-                        .collect();
+                entries_binding_array.entries = core::mem::take(&mut entries_binding_array_cache.0)
+                    .into_iter()
+                    .map(|_| -> BindGroupEntry { unreachable!() })
+                    .collect();
             }
 
             let tonemap_in_shader =
@@ -1044,12 +1045,12 @@ pub fn prepare_mesh_view_bind_groups(
             {
                 entries.entries.clear();
                 entries_binding_array.entries.clear();
-                **entries_cache = entries
+                entries_cache.0 = entries
                     .entries
                     .into_iter()
                     .map(|_| -> BindGroupEntry<'static> { unreachable!() })
                     .collect::<Vec<_>>();
-                **entries_binding_array_cache = entries_binding_array
+                entries_binding_array_cache.0 = entries_binding_array
                     .entries
                     .into_iter()
                     .map(|_| -> BindGroupEntry<'static> { unreachable!() })
