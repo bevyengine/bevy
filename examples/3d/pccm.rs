@@ -156,9 +156,9 @@ fn spawn_reflection_probe(commands: &mut Commands, asset_server: &AssetServer) {
 /// Spawns the buttons at the bottom of the screen.
 fn spawn_buttons(commands: &mut Commands) {
     commands.spawn_scene(bsn! {
-        main_ui_node_scene()
+        @main_ui_node_scene()
         Children [
-            feathers_option_buttons(
+            @feathers_option_buttons(
                 "Parallax Correction",
                 &[
                     (PccmEnableStatus::Enabled, "On"),
