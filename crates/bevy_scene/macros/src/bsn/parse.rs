@@ -558,7 +558,7 @@ fn tokens_between(begin: Cursor, end: Cursor) -> TokenStream {
 
 impl Parse for BsnValue {
     fn parse(input: ParseStream) -> Result<Self> {
-        Ok(if input.peek(Brace) {
+        let value = if input.peek(Brace) {
             BsnValue::Expr(braced_tokens(input)?)
         } else if input.peek(Token![const]) && input.peek2(Brace) {
             let const_token = input.parse::<Token![const]>()?;
@@ -605,24 +605,7 @@ impl Parse for BsnValue {
                 }
             }
         } else if input.peek(Lit) {
-            let lit = input.parse::<Lit>()?;
-            if matches!(lit, Lit::Int(_) | Lit::Float(_)) && input.peek(Dot) && input.peek2(Dot) {
-                input.parse::<Dot>()?;
-                input.parse::<Dot>()?;
-                let maybe_eq = if input.peek(Token![=]) {
-                    Some(input.parse::<Token![=]>()?)
-                } else {
-                    None
-                };
-                let end = input.parse::<Lit>()?;
-                if maybe_eq.is_some() {
-                    BsnValue::Expr(quote! {#lit..=#end})
-                } else {
-                    BsnValue::Expr(quote! {#lit..#end})
-                }
-            } else {
-                BsnValue::Lit(lit)
-            }
+            BsnValue::Lit(input.parse::<Lit>()?)
         } else if input.peek(Paren) {
             BsnValue::Tuple(input.parse::<BsnTuple>()?)
         } else if input.peek(Token![#]) {
@@ -630,7 +613,25 @@ impl Parse for BsnValue {
             BsnValue::Name(input.parse::<Ident>()?)
         } else {
             return Err(input.error("Unexpected input: Invalid BsnValue. This does not match any expected BSN value type."));
-        })
+        };
+        if input.peek(Dot) && input.peek2(Dot) {
+            input.parse::<Dot>()?;
+            input.parse::<Dot>()?;
+            let inclusive = if input.peek(Token![=]) {
+                input.parse::<Token![=]>()?;
+                true
+            } else {
+                false
+            };
+            let end = input.parse::<BsnValue>()?;
+            Ok(BsnValue::Range {
+                start: Box::new(value),
+                end: Box::new(end),
+                inclusive,
+            })
+        } else {
+            Ok(value)
+        }
     }
 }
 

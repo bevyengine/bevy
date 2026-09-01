@@ -133,6 +133,11 @@ pub enum BsnValue {
     Type(BsnType),
     Tuple(BsnTuple),
     Name(Ident),
+    Range {
+        start: Box<BsnValue>,
+        end: Box<BsnValue>,
+        inclusive: bool,
+    },
 }
 
 #[derive(Debug)]

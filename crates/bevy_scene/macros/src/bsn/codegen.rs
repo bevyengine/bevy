@@ -724,6 +724,19 @@ impl BsnValue {
                     #bevy_ecs::template::EntityTemplate::from_reference(#invocation, #index,  _call_id)
                 }
             }
+            BsnValue::Range {
+                start,
+                end,
+                inclusive,
+            } => {
+                let start = (**start).to_tokens(ctx)?;
+                let end = (**end).to_tokens(ctx)?;
+                if *inclusive {
+                    quote! {#start..=#end}
+                } else {
+                    quote! {#start..#end}
+                }
+            }
             value => value.to_token_stream(),
         })
     }
@@ -801,6 +814,19 @@ impl ToTokens for BsnValue {
             BsnValue::Tuple(t) => {
                 let inner = t.0.iter();
                 quote! {(#(#inner),*)}.to_tokens(tokens);
+            }
+            BsnValue::Range {
+                start,
+                end,
+                inclusive,
+            } => {
+                let start = start.into_token_stream();
+                let end = end.into_token_stream();
+                if *inclusive {
+                    quote! {#start..=#end}.to_tokens(tokens);
+                } else {
+                    quote! {#start..#end}.to_tokens(tokens);
+                }
             }
             BsnValue::Type(_) | BsnValue::Name(_) => {
                 // Name and Type require additional context to convert to tokens

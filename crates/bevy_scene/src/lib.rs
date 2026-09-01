@@ -1709,18 +1709,18 @@ mod tests {
         assert_eq!(&WIDE, entity.get::<Size>().unwrap());
     }
 
-    // #[test]
-    // fn range_with_non_literal_bounds() {
-    //     #[derive(Component, Clone, Default, PartialEq, Debug)]
-    //     struct Span(Range<u32>);
+    #[test]
+    fn range_with_non_literal_bounds() {
+        #[derive(Component, Clone, Default, PartialEq, Debug)]
+        struct Span(Range<u32>);
 
-    //     let count = 5;
+        let count = 5u32;
 
-    //     let mut app = test_app();
-    //     let world = app.world_mut();
-    //     world.spawn_scene(bsn! { Span(0..2) }).unwrap();
-    //     world.spawn_scene(bsn! { Span(0..count) }).unwrap();
-    // }
+        let mut app = test_app();
+        let world = app.world_mut();
+        world.spawn_scene(bsn! { Span(0..2) }).unwrap();
+        world.spawn_scene(bsn! { Span(0..count) }).unwrap();
+    }
 
     #[test]
     fn template_prefix_with_dot_expression() {
