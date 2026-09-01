@@ -121,7 +121,7 @@ impl SpriteMaterialBucketKey {
 }
 
 struct SpriteMaterialCache<M: Asset> {
-    map: HashMap<SpriteMaterialBucketKey, Vec<(SpriteMesh, AssetId<M>)>>,
+    map: HashMap<SpriteMaterialBucketKey, Vec<(Sprite, AssetId<M>)>>,
     reversed: HashMap<AssetId<M>, SpriteMaterialBucketKey>,
 }
 
@@ -151,7 +151,7 @@ impl<M: Asset> SpriteMaterialCache<M> {
 
     fn get_or_insert_with(
         &mut self,
-        sprite: &SpriteMesh,
+        sprite: &Sprite,
         anchor: Anchor,
         materials: &mut Assets<M>,
         get: impl FnOnce() -> M,
@@ -215,10 +215,10 @@ fn add_material(
 
 fn make_sprite_mesh_material(
     texture_atlas_layouts: &Assets<TextureAtlasLayout>,
-    sprite: &SpriteMesh,
+    sprite: &Sprite,
     anchor: Anchor,
 ) -> SpriteMaterial {
-    let mut material = SpriteMaterial::from_sprite_mesh(sprite.clone());
+    let mut material = SpriteMaterial::from_sprite(sprite.clone());
     material.anchor = *anchor;
 
     if let Some(texture_atlas) = &sprite.texture_atlas
@@ -240,7 +240,7 @@ mod tests {
         let mut cache = SpriteMaterialCache::<SpriteMaterial>::default();
         let mut assets = Assets::default();
         let handle = cache.get_or_insert_with(
-            &SpriteMesh::default(),
+            &Sprite::default(),
             Anchor::default(),
             &mut assets,
             SpriteMaterial::default,
@@ -253,7 +253,7 @@ mod tests {
         );
 
         let handle2 = cache.get_or_insert_with(
-            &SpriteMesh::default(),
+            &Sprite::default(),
             Anchor::default(),
             &mut assets,
             SpriteMaterial::default,
@@ -266,23 +266,19 @@ mod tests {
             flip_x: true,
             ..Default::default()
         };
-        let handle3 = cache.get_or_insert_with(
-            &SpriteMesh::default(),
-            Anchor::BOTTOM_LEFT,
-            &mut assets,
-            || mat.clone(),
-        );
+        let handle3 =
+            cache.get_or_insert_with(&Sprite::default(), Anchor::BOTTOM_LEFT, &mut assets, || {
+                mat.clone()
+            });
         assert_eq!(cache.map.len(), 2);
         assert_eq!(cache.map.len(), 2);
         assert_ne!(handle, handle3);
         assert_eq!(assets.get(&handle3).cloned(), Some(mat.clone()));
 
-        let handle4 = cache.get_or_insert_with(
-            &SpriteMesh::default(),
-            Anchor::BOTTOM_LEFT,
-            &mut assets,
-            || mat.clone(),
-        );
+        let handle4 =
+            cache.get_or_insert_with(&Sprite::default(), Anchor::BOTTOM_LEFT, &mut assets, || {
+                mat.clone()
+            });
         assert_eq!(cache.map.len(), 2);
         assert_eq!(cache.map.len(), 2);
         assert_eq!(handle3, handle4);
