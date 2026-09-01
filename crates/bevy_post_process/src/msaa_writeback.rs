@@ -6,7 +6,6 @@ use bevy_core_pipeline::{
     schedule::{Core2d, Core2dSystems, Core3d, Core3dSystems},
 };
 use bevy_ecs::prelude::*;
-use bevy_platform::collections::HashMap;
 use bevy_render::{
     camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
@@ -105,17 +104,6 @@ fn prepare_msaa_writeback_pipelines(
     blit_pipeline: Res<BlitPipeline>,
     view_targets: Query<(Entity, &ViewTarget, &ExtractedCamera, &Msaa)>,
 ) {
-    // the lowest sorted camera index rendering into each main texture. cameras on one render
-    // target can still end up with different main textures, since Hdr and SDR cameras use
-    // different texture formats, so this is keyed by texture rather than target
-    let mut first_writer_indices = <HashMap<TextureId, usize>>::default();
-    for (_, view_target, camera, _) in view_targets.iter() {
-        first_writer_indices
-            .entry(view_target.main_texture().id())
-            .and_modify(|first| *first = (*first).min(camera.sorted_camera_index_for_target))
-            .or_insert(camera.sorted_camera_index_for_target);
-    }
-
     for (entity, view_target, camera, msaa) in view_targets.iter() {
         // Determine if we should do MSAA writeback based on the camera's setting
         let should_writeback = match camera.msaa_writeback {
