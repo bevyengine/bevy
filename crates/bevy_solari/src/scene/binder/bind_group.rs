@@ -40,7 +40,7 @@ impl BindGroupCacheState {
         Self {
             cached: [None, None],
             invalid: true,
-            last_buffer_ids: [None; 9],
+            last_buffer_ids: [const { None }; 9],
             last_light_count: 0,
             last_dfg_ids: None,
             dummy_buffer,

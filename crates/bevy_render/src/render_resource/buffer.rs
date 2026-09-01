@@ -1,29 +1,30 @@
-use crate::renderer::wgpu_wrapper;
-use bevy_utils::define_atomic_id;
+use crate::renderer::{impl_eq_ord_hash_wrapper, wgpu_wrapper};
 use core::ops::{Deref, RangeBounds};
-
-define_atomic_id!(BufferId);
 
 wgpu_wrapper! {
     #[derive(Clone, Debug)]
     struct WgpuBuffer(wgpu::Buffer);
 }
 
+impl_eq_ord_hash_wrapper!(WgpuBuffer);
+
+/// An opaque identifier for a [`Buffer`], backed by the wrapped wgpu [`Buffer`](wgpu::Buffer).
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct BufferId(WgpuBuffer);
+
 #[derive(Clone, Debug)]
 pub struct Buffer {
-    id: BufferId,
     value: WgpuBuffer,
 }
 
 impl Buffer {
     #[inline]
     pub fn id(&self) -> BufferId {
-        self.id
+        BufferId(self.value.clone())
     }
 
     pub fn slice(&self, bounds: impl RangeBounds<wgpu::BufferAddress>) -> BufferSlice<'_> {
         BufferSlice {
-            id: self.id,
             value: self.value.slice(bounds),
         }
     }
@@ -37,7 +38,6 @@ impl Buffer {
 impl From<wgpu::Buffer> for Buffer {
     fn from(value: wgpu::Buffer) -> Self {
         Buffer {
-            id: BufferId::new(),
             value: WgpuBuffer::new(value),
         }
     }
@@ -54,14 +54,13 @@ impl Deref for Buffer {
 
 #[derive(Clone, Debug)]
 pub struct BufferSlice<'a> {
-    id: BufferId,
     value: wgpu::BufferSlice<'a>,
 }
 
 impl<'a> BufferSlice<'a> {
     #[inline]
     pub fn id(&self) -> BufferId {
-        self.id
+        BufferId(WgpuBuffer::new(self.value.buffer().clone()))
     }
 }
 

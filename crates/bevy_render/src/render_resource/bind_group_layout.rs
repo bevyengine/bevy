@@ -1,13 +1,16 @@
-use crate::renderer::wgpu_wrapper;
-use bevy_utils::define_atomic_id;
+use crate::renderer::{impl_eq_ord_hash_wrapper, wgpu_wrapper};
 use core::ops::Deref;
-
-define_atomic_id!(BindGroupLayoutId);
 
 wgpu_wrapper! {
     #[derive(Clone, Debug)]
     struct WgpuBindGroupLayout(wgpu::BindGroupLayout);
 }
+
+impl_eq_ord_hash_wrapper!(WgpuBindGroupLayout);
+
+/// An opaque identifier for a [`BindGroupLayout`], backed by the wrapped wgpu [`BindGroupLayout`](wgpu::BindGroupLayout).
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct BindGroupLayoutId(WgpuBindGroupLayout);
 
 /// Bind group layouts define the interface of resources (e.g. buffers, textures, samplers)
 /// for a shader. The actual resource binding is done via a [`BindGroup`](super::BindGroup).
@@ -19,13 +22,12 @@ wgpu_wrapper! {
 /// Can be created via [`RenderDevice::create_bind_group_layout`](crate::renderer::RenderDevice::create_bind_group_layout).
 #[derive(Clone, Debug)]
 pub struct BindGroupLayout {
-    id: BindGroupLayoutId,
     value: WgpuBindGroupLayout,
 }
 
 impl PartialEq for BindGroupLayout {
     fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
+        self.value == other.value
     }
 }
 
@@ -33,7 +35,7 @@ impl Eq for BindGroupLayout {}
 
 impl core::hash::Hash for BindGroupLayout {
     fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
-        self.id.0.hash(state);
+        self.value.hash(state);
     }
 }
 
@@ -41,7 +43,7 @@ impl BindGroupLayout {
     /// Returns the [`BindGroupLayoutId`] representing the unique ID of the bind group layout.
     #[inline]
     pub fn id(&self) -> BindGroupLayoutId {
-        self.id
+        BindGroupLayoutId(self.value.clone())
     }
 
     #[inline]
@@ -53,7 +55,6 @@ impl BindGroupLayout {
 impl From<wgpu::BindGroupLayout> for BindGroupLayout {
     fn from(value: wgpu::BindGroupLayout) -> Self {
         BindGroupLayout {
-            id: BindGroupLayoutId::new(),
             value: WgpuBindGroupLayout::new(value),
         }
     }
