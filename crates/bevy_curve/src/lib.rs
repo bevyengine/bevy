@@ -356,7 +356,7 @@ mod base {
     /// Typical examples of this are actual geometric curves where `T: VectorSpace`, but other kinds
     /// of output data can be represented as well. See the [module-level documentation] for details.
     ///
-    /// [module-level documentation]: self
+    /// [module-level documentation]: super
     pub trait Curve<T> {
         /// The interval over which this curve is parametrized.
         ///
@@ -413,7 +413,7 @@ mod base {
     /// For more information, see the [module-level documentation].
     ///
     /// [curves]: Curve
-    /// [module-level documentation]: self
+    /// [module-level documentation]: super
     pub trait CurveExt<T>: Curve<T> + Sized {
         /// Sample a collection of `n >= 0` points on this curve at the parameter values `t_n`,
         /// returning `None` if the point is outside of the curve's domain.
@@ -814,8 +814,8 @@ mod base {
     /// For more information, see the [module-level documentation].
     ///
     /// [curves]: Curve
-    /// [stable interpolation]: crate::StableInterpolate
-    /// [module-level documentation]: self
+    /// [stable interpolation]: bevy_math::StableInterpolate
+    /// [module-level documentation]: super
     #[cfg(feature = "alloc")]
     pub trait CurveResampleExt<T>: Curve<T> {
         /// Resample this [`Curve`] to produce a new one that is defined by interpolation over equally
