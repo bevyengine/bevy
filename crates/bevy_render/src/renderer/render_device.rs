@@ -207,7 +207,7 @@ impl RenderDevice {
         ComputePipeline::from(wgpu_compute_pipeline)
     }
 
-    /// Creates a [`MeshPipeline`].
+    /// Creates a [`RenderPipeline`] from a [`RawMeshPipelineDescriptor`].
     #[inline]
     pub fn create_mesh_pipeline(&self, desc: &RawMeshPipelineDescriptor) -> RenderPipeline {
         let wgpu_mesh_pipeline = self.device.create_mesh_pipeline(desc);
