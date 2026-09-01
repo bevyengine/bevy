@@ -482,11 +482,11 @@ impl PipelineCache {
     /// # Returns
     ///
     /// This method returns the unique mesh shader ID of the cached pipeline, which can be used to query
-    /// the caching state with [`get_mesh_pipeline_state()`] and to retrieve the created GPU pipeline once
-    /// it's ready with [`get_mesh_pipeline()`].
+    /// the caching state with [`get_render_pipeline_state()`] and to retrieve the created GPU pipeline once
+    /// it's ready with [`get_render_pipeline()`].
     ///
-    /// [`get_mesh_pipeline_state()`]: PipelineCache::get_mesh_pipeline_state
-    /// [`get_mesh_pipeline()`]: PipelineCache::get_mesh_pipeline
+    /// [`get_render_pipeline_state()`]: PipelineCache::get_render_pipeline_state
+    /// [`get_render_pipeline()`]: PipelineCache::get_render_pipeline
     pub fn queue_mesh_pipeline(
         &self,
         descriptor: MeshPipelineDescriptor,
