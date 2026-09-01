@@ -172,7 +172,6 @@ impl<'w, 's, R: TextSection> TextReader<'w, 's, R> {
 ///
 /// Iterates all spans in a text block according to hierarchy traversal order.
 /// Does *not* flatten interspersed ghost nodes. Only contiguous spans are traversed.
-// TODO: Use this iterator design in UiChildrenIter to reduce allocations.
 pub struct TextSpanIter<'a, R: TextSection> {
     scratch: &'a mut TextIterScratch,
     root_entity: Option<Entity>,
