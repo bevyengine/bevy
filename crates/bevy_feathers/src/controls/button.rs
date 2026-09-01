@@ -140,15 +140,6 @@ impl FeathersToolButton {
     }
 }
 
-/// Parameters for the [`button_bundle`] template.
-#[derive(Default)]
-pub struct ButtonBundleProps {
-    /// Color variant for the button.
-    pub variant: ButtonVariant,
-    /// Rounded corners options
-    pub corners: RoundedCorners,
-}
-
 fn update_button_styles(
     q_buttons: Query<
         (
