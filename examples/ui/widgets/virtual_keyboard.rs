@@ -51,7 +51,7 @@ fn on_virtual_key_pressed(
 }
 
 fn scene() -> impl SceneList {
-    bsn_list![Camera2d, text_input(), keyboard()]
+    bsn_list![Camera2d, @text_input(), @keyboard()]
 }
 
 fn keyboard() -> impl Scene {

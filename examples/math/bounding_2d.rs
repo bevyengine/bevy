@@ -6,7 +6,7 @@ use bevy::{
         containers::*, controls::*, dark_theme::create_dark_theme, display::caption,
         theme::UiTheme, FeathersPlugins,
     },
-    math::{bounding::*, ops, Isometry2d},
+    math::{ops, Isometry2d},
     prelude::*,
     ui::Checked,
     ui_widgets::{radio_self_update, RadioGroup, ValueChange},
