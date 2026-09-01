@@ -28,8 +28,6 @@ serde = { version = "1", default-features = false, features = [
 libm = { version = "0.2", optional = true }
 approx = { version = "0.5", default-features = false, optional = true }
 rand = { version = "0.10", default-features = false, optional = true }
-rand_distr = { version = "0.6", optional = true }
-arrayvec = { version = "0.7", default-features = false }
 bevy_reflect = { path = "../bevy_reflect", version = "0.20.0-dev", default-features = false, features = [
   "glam",
 ], optional = true }
@@ -39,7 +37,6 @@ variadics_please = "2.0"
 approx = "0.5"
 # Supply rngs for examples and tests
 rand = "0.10"
-chacha20 = { version = "0.10.0", default-features = false, features = ["rng"] }
 # Enable the approx feature when testing.
 bevy_math = { path = ".", default-features = false, features = ["approx"] }
 glam = { version = "0.33.2", default-features = false, features = ["approx"] }
@@ -59,15 +56,9 @@ std = [
   "serde?/std",
   "approx?/std",
   "rand?/std",
-  "rand_distr?/std",
   "bevy_reflect?/std",
 ]
-alloc = [
-  "itertools/use_alloc",
-  "serde?/alloc",
-  "rand?/alloc",
-  "rand_distr?/alloc",
-]
+alloc = ["itertools/use_alloc", "serde?/alloc", "rand?/alloc"]
 
 serialize = ["dep:serde", "glam/serde"]
 # Enable approx for glam types to approximate floating point equality comparisons and assertions
@@ -82,7 +73,7 @@ glam_assert = ["glam/glam-assert"]
 # Enable assertions in debug builds to check the validity of parameters passed to glam
 debug_glam_assert = ["glam/debug-glam-assert"]
 # Enable the rand dependency for shape_sampling
-rand = ["dep:rand", "dep:rand_distr", "glam/rand"]
+rand = ["dep:rand", "glam/rand"]
 # Include code related to the Curve trait
 curve = []
 # Enable bevy_reflect (requires alloc)
