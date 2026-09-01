@@ -121,16 +121,11 @@ fn prepare_msaa_writeback_pipelines(
         let should_writeback = match camera.msaa_writeback {
             MsaaWriteback::Off => false,
             // writeback is needed when the main pass must load existing content
-            // from the main texture, either because a fullscreen camera composites
-            // over what another camera already rendered into this main texture or
-            // because this camera preserves content across frames via load op load.
+            // from the main texture because of `LoadOp::Load`.
             // otherwise we'd read from an ephemeral sampled texture that doesn't have
             // the real content
             MsaaWriteback::Auto => {
                 matches!(camera.clear_color, ClearColorConfig::None)
-                    || (camera.viewport.is_none()
-                        && first_writer_indices[&view_target.main_texture().id()]
-                            < camera.sorted_camera_index_for_target)
             }
             MsaaWriteback::Always => true,
         };
