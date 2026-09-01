@@ -56,7 +56,7 @@ impl Val {
     // Only used for border values in `from_node` below. Floors length based borders
     // to a whole number of physical pixels, following the CSS "snap a length as a
     // border width" algorithm used by browsers:
-    // <https://drafts.csswg.org/css-values-4/#snap-a-length-as-a-border-width>
+    // https://www.w3.org/TR/css-values-4/#snap-a-length-as-a-border-width
     //
     // * A non-zero border smaller than one physical pixel is rounded up to one pixel.
     // * A border larger than one physical pixel is rounded down to a whole pixel.
