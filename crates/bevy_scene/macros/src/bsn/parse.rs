@@ -493,7 +493,7 @@ fn parse_closure_loose(input: &ParseBuffer) -> Result<TokenStream> {
         return Err(input.error("expected `{`"));
     }
     let _ = input.parse::<proc_macro2::Group>()?;
-    return Ok(tokens_between(start, input.cursor()));
+    Ok(tokens_between(start, input.cursor()))
 }
 
 /// Parses "dot expressions" in the style of `.foo().bar.baz::<A>()`

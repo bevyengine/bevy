@@ -1811,6 +1811,7 @@ mod tests {
             height: u32,
         }
 
+        #[derive(Default)]
         struct SizeTemplate {
             width: u32,
             height: u32,
@@ -1824,15 +1825,6 @@ mod tests {
             fn tall(mut self) -> Self {
                 self.height = 100;
                 self
-            }
-        }
-
-        impl Default for SizeTemplate {
-            fn default() -> Self {
-                SizeTemplate {
-                    width: 0,
-                    height: 0,
-                }
             }
         }
 
