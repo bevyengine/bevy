@@ -217,7 +217,9 @@ fn reset_maps(
     let active_pointers: Vec<PointerId> = pointers.iter().copied().collect();
     hover_map.retain(|pointer, _| active_pointers.contains(pointer));
     over_map.retain(|pointer, _| active_pointers.contains(pointer));
-    capture_map.0.retain(|pointer, _| active_pointers.contains(pointer));
+    capture_map
+        .0
+        .retain(|pointer, _| active_pointers.contains(pointer));
 }
 
 /// Build an ordered map of entities that are under each pointer
@@ -848,14 +850,13 @@ mod tests {
 
         let camera = Entity::from_bits(1);
         let captured_entity = app.world_mut().spawn_empty().id();
-        app.world_mut()
-            .resource_mut::<PointerCaptureMap>()
-            .capture(PointerId::Mouse, captured_entity, make_hit(camera));
+        app.world_mut().resource_mut::<PointerCaptureMap>().capture(
+            PointerId::Mouse,
+            captured_entity,
+            make_hit(camera),
+        );
 
-        assert!(app
-            .world_mut()
-            .run_system_cached(generate_hovermap)
-            .is_ok());
+        assert!(app.world_mut().run_system_cached(generate_hovermap).is_ok());
 
         assert!(!app
             .world()
