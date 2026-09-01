@@ -818,7 +818,7 @@ impl PipelineCache {
                             entry_point: entry_point.as_deref(),
                             module,
                             compilation_options: PipelineCompilationOptions {
-                                constants: &constants,
+                                constants,
                                 zero_initialize_workgroup_memory: descriptor
                                     .zero_initialize_workgroup_memory,
                             },
