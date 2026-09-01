@@ -1,8 +1,8 @@
 // The vignette postprocessing effect.
 
-import bevy_post_process::effect_stack::chromatic_aberration::source_texture;
+import package::effect_stack::chromatic_aberration::source_texture;
 
-// See `bevy_post_process::effect_stack::Vignette` for more
+// See `package::effect_stack::Vignette` for more
 // information on these fields.
 struct VignetteSettings {
     intensity: f32,

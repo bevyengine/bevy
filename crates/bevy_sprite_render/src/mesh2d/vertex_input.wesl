@@ -1,4 +1,4 @@
-import bevy_sprite_render::mesh2d::functions as mesh_functions;
+import package::mesh2d::functions as mesh_functions;
 
 struct UncompressedVertex {
     @builtin(instance_index) instance_index: u32,

@@ -1,12 +1,12 @@
 import bevy_render::bindless::{bindless_samplers_filtering, bindless_textures_2d};
 
-import bevy_pbr::render::{
+import package::render::{
     pbr_bindings::{depth_map_texture, depth_map_sampler},
     mesh_bindings::mesh
 };
 
 @if(BINDLESS)
-import bevy_pbr::render::pbr_bindings::material_indices;
+import package::render::pbr_bindings::material_indices;
 
 fn sample_depth_map(uv: vec2<f32>, material_bind_group_slot: u32) -> f32 {
     // We use `textureSampleLevel` over `textureSample` because the wgpu DX12

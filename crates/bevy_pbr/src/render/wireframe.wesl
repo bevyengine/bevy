@@ -1,10 +1,10 @@
-@if(WIREFRAME_WIDE) import bevy_pbr::render::{
+@if(WIREFRAME_WIDE) import package::render::{
     mesh_bindings::mesh,
     mesh_view_bindings::view,
     view_transformations::position_world_to_clip,
 };
 @if(WIREFRAME_WIDE) import bevy_render::maths::affine3_to_square;
-@if(!WIREFRAME_WIDE) import bevy_pbr::render::forward_io::VertexOutput;
+@if(!WIREFRAME_WIDE) import package::render::forward_io::VertexOutput;
 
 @if(WIREFRAME_WIDE) {
 struct Immediates {
