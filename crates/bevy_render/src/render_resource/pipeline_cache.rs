@@ -322,8 +322,8 @@ impl PipelineCache {
     ) -> &RenderPipelineDescriptor {
         match &self.pipelines[id.id()].descriptor {
             PipelineDescriptor::RenderPipelineDescriptor(descriptor) => descriptor,
-            PipelineDescriptor::ComputePipelineDescriptor(_) => unreachable!(),
-            PipelineDescriptor::MeshPipelineDescriptor(_) => unreachable!(),
+            PipelineDescriptor::ComputePipelineDescriptor(_)
+            | PipelineDescriptor::MeshPipelineDescriptor(_) => unreachable!(),
         }
     }
 
@@ -339,9 +339,9 @@ impl PipelineCache {
         id: CachedComputePipelineId,
     ) -> &ComputePipelineDescriptor {
         match &self.pipelines[id.id()].descriptor {
-            PipelineDescriptor::RenderPipelineDescriptor(_) => unreachable!(),
+            PipelineDescriptor::RenderPipelineDescriptor(_)
+            | PipelineDescriptor::MeshPipelineDescriptor(_) => unreachable!(),
             PipelineDescriptor::ComputePipelineDescriptor(descriptor) => descriptor,
-            PipelineDescriptor::MeshPipelineDescriptor(_) => unreachable!(),
         }
     }
 
@@ -357,8 +357,8 @@ impl PipelineCache {
         id: CachedRenderPipelineId,
     ) -> &MeshPipelineDescriptor {
         match &self.pipelines[id.id()].descriptor {
-            PipelineDescriptor::RenderPipelineDescriptor(_) => unreachable!(),
-            PipelineDescriptor::ComputePipelineDescriptor(_) => unreachable!(),
+            PipelineDescriptor::RenderPipelineDescriptor(_)
+            | PipelineDescriptor::ComputePipelineDescriptor(_) => unreachable!(),
             PipelineDescriptor::MeshPipelineDescriptor(descriptor) => descriptor,
         }
     }
