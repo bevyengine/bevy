@@ -297,9 +297,9 @@ impl<'a> TrackedRenderPass<'a> {
             .draw_mesh_tasks(group_count_x, group_count_y, group_count_z);
     }
 
-    /// Draws using a mesh pipeline, based on the contents of the indirect_buffer
+    /// Draws using a mesh pipeline, based on the contents of the `indirect_buffer`
     ///
-    /// This is like calling `draw_mesh_tasks` but the contents of the call are specified in the indirect_buffer
+    /// This is like calling `draw_mesh_tasks` but the contents of the call are specified in the `indirect_buffer`
     ///
     /// The structure expected in `indirect_buffer` is the following:
     ///
@@ -322,7 +322,7 @@ impl<'a> TrackedRenderPass<'a> {
             .draw_mesh_tasks_indirect(indirect_buffer, indirect_offset);
     }
 
-    /// Dispatches multiple draw calls based on the contents of the indirect_buffer. `count` draw calls are issued.
+    /// Dispatches multiple draw calls based on the contents of the `indirect_buffer`. `count` draw calls are issued.
     ///
     /// The structure expected in `indirect_buffer` is the following:
     ///
@@ -351,7 +351,7 @@ impl<'a> TrackedRenderPass<'a> {
             .multi_draw_mesh_tasks_indirect(indirect_buffer, indirect_offset, count);
     }
 
-    /// Dispatches multiple draw calls based on the contents of the indirect_buffer. The count buffer is read to determine how many draws to issue.
+    /// Dispatches multiple draw calls based on the contents of the `indirect_buffer`. The count buffer is read to determine how many draws to issue.
     ///
     /// The indirect buffer must be long enough to account for max_count draws, however only count draws will be read. If count is greater than max_count, max_count will be used.
     ///
