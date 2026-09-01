@@ -44,24 +44,19 @@ use bevy::{
         camera::ExtractedCamera,
         globals::{GlobalsBuffer, GlobalsUniform},
         render_resource::{
-            BindGroupEntries, ColorTargetState, ColorWrites, RenderPassDescriptor, ShaderStages,
-            TextureFormat,
+            binding_types::uniform_buffer, BindGroupEntries, BindGroupLayoutDescriptor,
+            BindGroupLayoutEntries, CachedRenderPipelineId, ColorTargetState, ColorWrites,
+            CompareFunction, DepthBiasState, DepthStencilState, FragmentState, PipelineCache,
+            RenderPassDescriptor, ShaderStages, StencilState, StoreOp, TextureFormat,
         },
         renderer::RenderContext,
         settings::{RenderCreation, WgpuFeatures, WgpuLimits, WgpuSettings},
-        view::{ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
-        RenderApp, RenderPlugin,
+        view::{
+            ExtractedView, ViewDepthStencilTexture, ViewTarget, ViewUniform, ViewUniformOffset,
+            ViewUniforms,
+        },
+        RenderApp, RenderPlugin, RenderStartup,
     },
-};
-
-use bevy_render::{
-    render_resource::{
-        binding_types::uniform_buffer, BindGroupLayoutDescriptor, BindGroupLayoutEntries,
-        CachedRenderPipelineId, CompareFunction, DepthBiasState, DepthStencilState, FragmentState,
-        PipelineCache, StencilState, StoreOp,
-    },
-    view::ViewDepthStencilTexture,
-    RenderStartup,
 };
 
 fn main() {
