@@ -1,6 +1,6 @@
 use bevy_material::descriptor::{
-    BindGroupLayoutDescriptor, CachedComputePipelineId, CachedRenderPipelineId,
-    ComputePipelineDescriptor, PipelineDescriptor, RenderPipelineDescriptor,
+    BindGroupLayoutDescriptor, CachedComputePipelineId, ComputePipelineDescriptor,
+    MeshPipelineDescriptor, PipelineDescriptor, RenderPipelineDescriptor,
 };
 use smallvec::SmallVec;
 
@@ -35,6 +35,7 @@ use wgpu::{PipelineCompilationOptions, VertexBufferLayout as RawVertexBufferLayo
 pub enum Pipeline {
     RenderPipeline(RenderPipeline),
     ComputePipeline(ComputePipeline),
+    MeshPipeline(RenderPipeline),
 }
 
 pub struct CachedPipeline {
@@ -322,6 +323,7 @@ impl PipelineCache {
         match &self.pipelines[id.id()].descriptor {
             PipelineDescriptor::RenderPipelineDescriptor(descriptor) => descriptor,
             PipelineDescriptor::ComputePipelineDescriptor(_) => unreachable!(),
+            PipelineDescriptor::MeshPipelineDescriptor(_) => unreachable!(),
         }
     }
 
@@ -339,6 +341,25 @@ impl PipelineCache {
         match &self.pipelines[id.id()].descriptor {
             PipelineDescriptor::RenderPipelineDescriptor(_) => unreachable!(),
             PipelineDescriptor::ComputePipelineDescriptor(descriptor) => descriptor,
+            PipelineDescriptor::MeshPipelineDescriptor(_) => unreachable!(),
+        }
+    }
+
+    /// Get the mesh pipeline descriptor a cached mesh pipeline was inserted from.
+    ///
+    /// See [`PipelineCache::queue_mesh_pipeline()`].
+    ///
+    /// **Note**: Be careful calling this method. It will panic if called with a pipeline that
+    /// has been queued but has not yet been processed by [`PipelineCache::process_queue()`].
+    #[inline]
+    pub fn get_mesh_pipeline_descriptor(
+        &self,
+        id: CachedRenderPipelineId,
+    ) -> &MeshPipelineDescriptor {
+        match &self.pipelines[id.id()].descriptor {
+            PipelineDescriptor::RenderPipelineDescriptor(_) => unreachable!(),
+            PipelineDescriptor::ComputePipelineDescriptor(_) => unreachable!(),
+            PipelineDescriptor::MeshPipelineDescriptor(descriptor) => descriptor,
         }
     }
 
@@ -351,8 +372,9 @@ impl PipelineCache {
     /// state with [`PipelineCache::get_render_pipeline_state()`].
     #[inline]
     pub fn get_render_pipeline(&self, id: CachedRenderPipelineId) -> Option<&RenderPipeline> {
-        if let CachedPipelineState::Ok(Pipeline::RenderPipeline(pipeline)) =
-            &self.pipelines.get(id.id())?.state
+        if let CachedPipelineState::Ok(
+            Pipeline::RenderPipeline(pipeline) | Pipeline::MeshPipeline(pipeline),
+        ) = &self.pipelines.get(id.id())?.state
         {
             Some(pipeline)
         } else {
@@ -447,6 +469,35 @@ impl PipelineCache {
         let id = CachedComputePipelineId::new(self.pipelines.len() + new_pipelines.len());
         new_pipelines.push(CachedPipeline {
             descriptor: PipelineDescriptor::ComputePipelineDescriptor(Box::new(descriptor)),
+            state: CachedPipelineState::Queued,
+        });
+        id
+    }
+
+    /// Insert a mesh pipeline into the cache, and queue its creation.
+    ///
+    /// The pipeline is always inserted and queued for creation. There is no attempt to deduplicate it with
+    /// an already cached pipeline.
+    ///
+    /// # Returns
+    ///
+    /// This method returns the unique mesh shader ID of the cached pipeline, which can be used to query
+    /// the caching state with [`get_mesh_pipeline_state()`] and to retrieve the created GPU pipeline once
+    /// it's ready with [`get_mesh_pipeline()`].
+    ///
+    /// [`get_mesh_pipeline_state()`]: PipelineCache::get_mesh_pipeline_state
+    /// [`get_mesh_pipeline()`]: PipelineCache::get_mesh_pipeline
+    pub fn queue_mesh_pipeline(
+        &self,
+        descriptor: MeshPipelineDescriptor,
+    ) -> CachedRenderPipelineId {
+        let mut new_pipelines = self
+            .new_pipelines
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        let id = CachedRenderPipelineId::new(self.pipelines.len() + new_pipelines.len());
+        new_pipelines.push(CachedPipeline {
+            descriptor: PipelineDescriptor::MeshPipelineDescriptor(Box::new(descriptor)),
             state: CachedPipelineState::Queued,
         });
         id
@@ -666,6 +717,143 @@ impl PipelineCache {
         )
     }
 
+    fn start_create_mesh_pipeline(
+        &mut self,
+        id: CachedPipelineId,
+        descriptor: MeshPipelineDescriptor,
+    ) -> CachedPipelineState {
+        let device = self.device.clone();
+        let shader_cache = self.shader_cache.clone();
+        let layout_cache = self.layout_cache.clone();
+        let mut bindgroup_layout_cache = self.bindgroup_layout_cache.lock().unwrap();
+        let bind_group_layout = descriptor
+            .layout
+            .iter()
+            .map(|bind_group_layout_descriptor| {
+                bindgroup_layout_cache.get(&self.device, bind_group_layout_descriptor)
+            })
+            .collect::<SmallVec<[_; BIND_GROUP_LAYOUTS_INLINE_CAPACITY]>>();
+
+        create_pipeline_task(
+            async move {
+                let mut shader_cache = shader_cache.lock().unwrap();
+                let mut layout_cache = layout_cache.lock().unwrap();
+
+                let mesh_module = match shader_cache.get(
+                    id,
+                    descriptor.mesh.shader.id(),
+                    &descriptor.mesh.shader_defs,
+                ) {
+                    Ok(module) => module,
+                    Err(err) => return Err(err),
+                };
+
+                let fragment_module = match &descriptor.fragment {
+                    Some(fragment) => {
+                        match shader_cache.get(id, fragment.shader.id(), &fragment.shader_defs) {
+                            Ok(module) => Some(module),
+                            Err(err) => return Err(err),
+                        }
+                    }
+                    None => None,
+                };
+
+                let task_module = match &descriptor.task {
+                    Some(task) => match shader_cache.get(id, task.shader.id(), &task.shader_defs) {
+                        Ok(module) => Some(module),
+                        Err(err) => return Err(err),
+                    },
+                    None => None,
+                };
+
+                let layout = if descriptor.layout.is_empty() && descriptor.immediate_size == 0 {
+                    None
+                } else {
+                    Some(layout_cache.get(&device, &bind_group_layout, descriptor.immediate_size))
+                };
+
+                drop((shader_cache, layout_cache));
+
+                let fragment_data = descriptor.fragment.as_ref().map(|fragment| {
+                    (
+                        fragment_module.unwrap(),
+                        fragment.entry_point.as_deref(),
+                        fragment.targets.as_slice(),
+                        fragment
+                            .constants
+                            .iter()
+                            .map(|(k, v)| (k.as_ref(), *v))
+                            .collect::<Vec<_>>(),
+                    )
+                });
+
+                let mesh_constants: Vec<(&str, f64)> = descriptor
+                    .mesh
+                    .constants
+                    .iter()
+                    .map(|(k, v)| (k.as_ref(), *v))
+                    .collect();
+
+                let task_data = descriptor.task.as_ref().map(|task| {
+                    (
+                        task_module.unwrap(),
+                        task.entry_point.as_deref(),
+                        task.constants
+                            .iter()
+                            .map(|(k, v)| (k.as_ref(), *v))
+                            .collect::<Vec<_>>(),
+                    )
+                });
+
+                let descriptor = RawMeshPipelineDescriptor {
+                    multiview: None,
+                    depth_stencil: descriptor.depth_stencil.clone(),
+                    label: descriptor.label.as_deref(),
+                    layout: layout.as_ref().map(|layout| -> &PipelineLayout { layout }),
+                    multisample: descriptor.multisample,
+                    primitive: descriptor.primitive,
+                    task: task_data
+                        .as_ref()
+                        .map(|(module, entry_point, constants)| RawTaskState {
+                            entry_point: entry_point.as_deref(),
+                            module,
+                            compilation_options: PipelineCompilationOptions {
+                                constants: &constants,
+                                zero_initialize_workgroup_memory: descriptor
+                                    .zero_initialize_workgroup_memory,
+                            },
+                        }),
+                    mesh: RawMeshState {
+                        module: &mesh_module,
+                        entry_point: descriptor.mesh.entry_point.as_deref(),
+                        compilation_options: PipelineCompilationOptions {
+                            constants: &mesh_constants,
+                            zero_initialize_workgroup_memory: descriptor
+                                .zero_initialize_workgroup_memory,
+                        },
+                    },
+                    fragment: fragment_data.as_ref().map(
+                        |(module, entry_point, targets, constants)| RawFragmentState {
+                            entry_point: entry_point.as_deref(),
+                            module,
+                            targets,
+                            compilation_options: PipelineCompilationOptions {
+                                constants,
+                                zero_initialize_workgroup_memory: descriptor
+                                    .zero_initialize_workgroup_memory,
+                            },
+                        },
+                    ),
+                    cache: None,
+                };
+
+                Ok(Pipeline::MeshPipeline(
+                    device.create_mesh_pipeline(&descriptor),
+                ))
+            },
+            self.synchronous_pipeline_compilation,
+        )
+    }
     /// Process the pipeline queue and create all pending pipelines if possible.
     ///
     /// This is generally called automatically during the [`RenderSystems::Render`] step, but can
@@ -704,6 +892,9 @@ impl PipelineCache {
                     }
                     PipelineDescriptor::ComputePipelineDescriptor(descriptor) => {
                         self.start_create_compute_pipeline(id, *descriptor.clone())
+                    }
+                    PipelineDescriptor::MeshPipelineDescriptor(descriptor) => {
+                        self.start_create_mesh_pipeline(id, *descriptor.clone())
                     }
                 };
             }
@@ -837,6 +1028,29 @@ fn pipeline_error_context(cached_pipeline: &CachedPipeline) -> String {
         }
         PipelineDescriptor::ComputePipelineDescriptor(desc) => {
             format(&desc.shader, &desc.entry_point, &desc.shader_defs)
+        }
+        PipelineDescriptor::MeshPipelineDescriptor(desc) => {
+            let mesh = &desc.mesh;
+            let mesh_str = format(&mesh.shader, &mesh.entry_point, &mesh.shader_defs);
+
+            let task = &desc.task;
+            let task_str = task
+                .as_ref()
+                .map(|task| format(&task.shader, &task.entry_point, &task.shader_defs));
+
+            let frag = &desc.fragment;
+            let frag_str = frag
+                .as_ref()
+                .map(|frag| format(&frag.shader, &frag.entry_point, &frag.shader_defs));
+
+            match (task_str, frag_str) {
+                (None, None) => format!("mesh {mesh_str}"),
+                (None, Some(frag_str)) => format!("mesh {mesh_str}\nfragment {frag_str}"),
+                (Some(task_str), None) => format!("task {task_str}\nmesh {mesh_str}"),
+                (Some(task_str), Some(frag_str)) => {
+                    format!("task {task_str}\nmesh {mesh_str}\nfragment {frag_str}")
+                }
+            }
         }
     }
 }
