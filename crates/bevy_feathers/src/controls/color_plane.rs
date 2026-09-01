@@ -12,7 +12,6 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
-    template::FromTemplate,
 };
 use bevy_math::{Vec2, Vec3};
 use bevy_picking::{
@@ -51,9 +50,7 @@ const COLOR_PLANE_THUMB_SIZE: f32 = 10.0;
 ///
 /// **Note:** For information on how widget state is managed
 /// and how to respond to state changes, see the [`bevy_ui_widgets` documentation](bevy_ui_widgets).
-#[derive(
-    SceneComponent, FromTemplate, Debug, Reflect, Copy, PartialEq, Eq, Hash, Default, Clone,
-)]
+#[derive(SceneComponent, Debug, Reflect, Copy, PartialEq, Eq, Hash, Default, Clone)]
 #[reflect(Component)]
 #[require(ColorPlaneDragState)]
 pub enum FeathersColorPlane {

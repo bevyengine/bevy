@@ -223,14 +223,6 @@ impl Observer {
     /// Panics if the given system is an exclusive system.
     pub fn new<E: EventPattern, M, I: IntoObserverSystem<E, M>>(system: I) -> Self {
         let system = Box::new(IntoObserverSystem::into_system(system));
-        assert!(
-            !system.is_exclusive(),
-            concat!(
-                "Exclusive system `{}` may not be used as observer.\n",
-                "Instead of `&mut World`, use either `DeferredWorld` if you do not need structural changes, or `Commands` if you do."
-            ),
-            system.name()
-        );
         Self {
             system,
             descriptor: Default::default(),
@@ -473,9 +465,16 @@ fn hook_on_add<E: EventPattern, S: ObserverSystem<E>>(
         };
 
         // SAFETY: World reference is exclusive and initialize does not touch system, so references do not alias
-        unsafe {
-            (*system_ptr).initialize(world);
-        }
+        let access = unsafe { (*system_ptr).initialize(world) };
+        assert!(
+            !access.is_exclusive(),
+            concat!(
+                "Exclusive system `{}` may not be used as observer.\n",
+                "Instead of `&mut World`, use either `DeferredWorld` if you do not need structural changes, or `Commands` if you do."
+            ),
+            // SAFETY: World reference is exclusive and initialize does not touch system, so references do not alias
+            unsafe { (*system_ptr).name() }
+        );
 
         let mut conditions = {
             let Some(mut observer) = world.get_mut::<Observer>(entity) else {
