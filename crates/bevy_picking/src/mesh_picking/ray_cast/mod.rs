@@ -10,7 +10,6 @@ use bevy_camera::{
     primitives::Aabb,
     visibility::{InheritedVisibility, ViewVisibility},
 };
-use bevy_math::{bounding::Aabb3d, Ray3d};
 use bevy_mesh::{
     skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
     Mesh, Mesh2d, Mesh3d,
