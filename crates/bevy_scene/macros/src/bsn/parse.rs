@@ -161,21 +161,25 @@ impl BsnEntry {
                 PathType::TypeFunction => {
                     let function = take_last_path_ident(&mut path).unwrap();
                     let args = input.parse::<BsnFnArgs>()?;
-                    let bsn_constructor = BsnConstructor {
+                    let constructor = BsnConstructor {
                         type_path: path,
                         function,
                         args,
                     };
-                    if input.peek(Dot) {
-                        let end_cursor = input.cursor();
-                        let dot_expr = parse_extended_dot_expression(input)?;
-                        let tokens = tokens_between(start_type, end_cursor);
-                        BsnEntry::TemplateValue(quote! {#tokens #dot_expr})
+                    let dot_expression = if input.peek(Dot) {
+                        Some(parse_extended_dot_expression(input)?)
                     } else {
-                        if is_template {
-                            BsnEntry::TemplateConstructor(bsn_constructor)
-                        } else {
-                            BsnEntry::FromTemplateConstructor(bsn_constructor)
+                        None
+                    };
+                    if is_template {
+                        BsnEntry::TemplateConstructor {
+                            constructor,
+                            dot_expression,
+                        }
+                    } else {
+                        BsnEntry::FromTemplateConstructor {
+                            constructor,
+                            dot_expression,
                         }
                     }
                 }
@@ -483,6 +487,7 @@ fn parse_closure_loose(input: &ParseBuffer) -> Result<TokenStream> {
     }
 
     let _ = input.parse::<Token![->]>()?;
+
     let _ = input.parse::<Path>()?;
     if !input.peek(Brace) {
         return Err(input.error("expected `{`"));

@@ -239,24 +239,44 @@ impl BsnEntry {
                     })
                 }
             }
-            BsnEntry::TemplateConstructor(BsnConstructor {
-                type_path,
-                function,
-                args,
-            }) => EntryResult::CombinedSceneFunction({
+            BsnEntry::TemplateConstructor {
+                constructor:
+                    BsnConstructor {
+                        type_path,
+                        function,
+                        args,
+                    },
+                dot_expression,
+            } => EntryResult::CombinedSceneFunction({
                 let args = args.to_tokens(ctx);
-                quote! {
-                    _scene.insert_template::<#type_path>(#type_path::#function #args);
+                if let Some(dot_expr) = dot_expression {
+                    quote! {
+                        _scene.insert_template::<#type_path>(#type_path::#function #args #dot_expr);
+                    }
+                } else {
+                    quote! {
+                        _scene.insert_template::<#type_path>(#type_path::#function #args);
+                    }
                 }
             }),
-            BsnEntry::FromTemplateConstructor(BsnConstructor {
-                type_path,
-                function,
-                args,
-            }) => EntryResult::CombinedSceneFunction({
+            BsnEntry::FromTemplateConstructor {
+                constructor:
+                    BsnConstructor {
+                        type_path,
+                        function,
+                        args,
+                    },
+                dot_expression,
+            } => EntryResult::CombinedSceneFunction({
                 let args = args.to_tokens(ctx);
-                quote! {
-                    _scene.insert_template(<#type_path as #bevy_ecs::template::FromTemplate>::Template::#function #args);
+                if let Some(dot_expr) = dot_expression {
+                    quote! {
+                        _scene.insert_template(<#type_path as #bevy_ecs::template::FromTemplate>::Template::#function #args #dot_expr);
+                    }
+                } else {
+                    quote! {
+                        _scene.insert_template(<#type_path as #bevy_ecs::template::FromTemplate>::Template::#function #args);
+                    }
                 }
             }),
             BsnEntry::RelatedSceneList(BsnRelatedSceneList {

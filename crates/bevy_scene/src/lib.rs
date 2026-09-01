@@ -1802,83 +1802,83 @@ mod tests {
         assert_eq!(vec![2], (handlers.many.0)(2));
     }
 
-    // #[test]
-    // fn dot_chained_constructor_resolves_through_from_template() {
-    //     use bevy_ecs::template::TemplateContext;
-    //     #[derive(Component, Clone, PartialEq, Debug)]
-    //     struct Size {
-    //         width: u32,
-    //         height: u32,
-    //     }
+    #[test]
+    fn dot_chained_constructor_resolves_through_from_template() {
+        use bevy_ecs::template::TemplateContext;
+        #[derive(Component, Clone, PartialEq, Debug)]
+        struct Size {
+            width: u32,
+            height: u32,
+        }
 
-    //     struct SizeTemplate {
-    //         width: u32,
-    //         height: u32,
-    //     }
+        struct SizeTemplate {
+            width: u32,
+            height: u32,
+        }
 
-    //     impl SizeTemplate {
-    //         fn new(width: u32) -> Self {
-    //             SizeTemplate { width, height: 0 }
-    //         }
+        impl SizeTemplate {
+            fn new(width: u32) -> Self {
+                SizeTemplate { width, height: 0 }
+            }
 
-    //         fn tall(mut self) -> Self {
-    //             self.height = 100;
-    //             self
-    //         }
-    //     }
+            fn tall(mut self) -> Self {
+                self.height = 100;
+                self
+            }
+        }
 
-    //     impl Default for SizeTemplate {
-    //         fn default() -> Self {
-    //             SizeTemplate {
-    //                 width: 0,
-    //                 height: 0,
-    //             }
-    //         }
-    //     }
+        impl Default for SizeTemplate {
+            fn default() -> Self {
+                SizeTemplate {
+                    width: 0,
+                    height: 0,
+                }
+            }
+        }
 
-    //     impl Template for SizeTemplate {
-    //         type Output = Size;
+        impl Template for SizeTemplate {
+            type Output = Size;
 
-    //         fn build_template(&self, _context: &mut TemplateContext) -> Result<Size> {
-    //             Ok(Size {
-    //                 width: self.width,
-    //                 height: self.height,
-    //             })
-    //         }
+            fn build_template(&self, _context: &mut TemplateContext) -> Result<Size> {
+                Ok(Size {
+                    width: self.width,
+                    height: self.height,
+                })
+            }
 
-    //         fn clone_template(&self) -> Self {
-    //             SizeTemplate {
-    //                 width: self.width,
-    //                 height: self.height,
-    //             }
-    //         }
-    //     }
+            fn clone_template(&self) -> Self {
+                SizeTemplate {
+                    width: self.width,
+                    height: self.height,
+                }
+            }
+        }
 
-    //     impl FromTemplate for Size {
-    //         type Template = SizeTemplate;
-    //     }
+        impl FromTemplate for Size {
+            type Template = SizeTemplate;
+        }
 
-    //     let mut app = test_app();
-    //     let world = app.world_mut();
+        let mut app = test_app();
+        let world = app.world_mut();
 
-    //     let plain = world.spawn_scene(bsn! { Size::new(2) }).unwrap();
-    //     assert_eq!(
-    //         &Size {
-    //             width: 2,
-    //             height: 0
-    //         },
-    //         plain.get::<Size>().unwrap()
-    //     );
+        let plain = world.spawn_scene(bsn! { Size::new(2) }).unwrap();
+        assert_eq!(
+            &Size {
+                width: 2,
+                height: 0
+            },
+            plain.get::<Size>().unwrap()
+        );
 
-    //     let chained = world.spawn_scene(bsn! { Size::new(2).tall() }).unwrap();
-    //     assert_eq!(
-    //         &Size {
-    //             width: 2,
-    //             height: 100
-    //         },
-    //         chained.get::<Size>().unwrap()
-    //     );
-    // }
+        let chained = world.spawn_scene(bsn! { Size::new(2).tall() }).unwrap();
+        assert_eq!(
+            &Size {
+                width: 2,
+                height: 100
+            },
+            chained.get::<Size>().unwrap()
+        );
+    }
 
     #[test]
     fn primitive_literals() {

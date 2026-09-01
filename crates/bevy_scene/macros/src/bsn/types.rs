@@ -16,11 +16,17 @@ pub struct Bsn<const ALLOW_FLAT: bool> {
 pub enum BsnEntry {
     Name(Ident),
     FromTemplatePatch(BsnType),
+    FromTemplateConstructor {
+        constructor: BsnConstructor,
+        dot_expression: Option<TokenStream>,
+    },
     TemplatePatch(BsnType),
+    TemplateConstructor {
+        constructor: BsnConstructor,
+        dot_expression: Option<TokenStream>,
+    },
     TemplateValue(TokenStream),
     Function(BsnFnCall),
-    FromTemplateConstructor(BsnConstructor),
-    TemplateConstructor(BsnConstructor),
     UncachedScene(BsnScene),
     CachedScene(BsnScene),
     RelatedSceneList(BsnRelatedSceneList),
