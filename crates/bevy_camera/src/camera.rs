@@ -10,8 +10,9 @@ use bevy_ecs::{
     component::Component, entity::Entity, reflect::ReflectComponent, template::FromTemplate,
 };
 use bevy_image::Image;
-use bevy_math::{ops, Dir3, FloatOrd, Mat4, Ray3d, Rect, URect, UVec2, Vec2, Vec3, Vec3A};
+use bevy_math::{ops, Dir3, FloatOrd, Mat4, Rect, URect, UVec2, Vec2, Vec3, Vec3A};
 use bevy_reflect::prelude::*;
+use bevy_shape::Ray3d;
 use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_window::{NormalizedWindowRef, WindowRef};
 use core::ops::Range;

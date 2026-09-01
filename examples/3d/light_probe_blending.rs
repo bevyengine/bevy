@@ -330,14 +330,14 @@ fn spawn_light_probes(commands: &mut Commands, asset_server: &AssetServer) {
 /// Spawns the radio buttons at the bottom of the screen.
 fn spawn_buttons(commands: &mut Commands) {
     commands.spawn_scene(bsn! {
-        main_ui_node_scene()
+        @main_ui_node_scene()
         Children [
-            feathers_option_buttons(
+            @feathers_option_buttons(
                 "Gizmos",
                 &[(GizmosEnabled::On, "On"), (GizmosEnabled::Off, "Off"),],
                 0,
             ),
-            feathers_option_buttons(
+            @feathers_option_buttons(
                 "Object to Show",
                 &[
                     (ObjectToShow::Sphere, "Sphere"),
@@ -345,7 +345,7 @@ fn spawn_buttons(commands: &mut Commands) {
                 ],
                 0,
             ),
-            feathers_option_buttons(
+            @feathers_option_buttons(
                 "Camera Mode",
                 &[(CameraMode::Orbit, "Orbit"), (CameraMode::Free, "Free"),],
                 0,

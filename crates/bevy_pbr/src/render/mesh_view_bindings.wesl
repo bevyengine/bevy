@@ -80,10 +80,10 @@ const VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE: u32 = 64u;
 @if(DEFERRED_PREPASS)
 @group(0) @binding(23) var deferred_prepass_texture: texture_2d<u32>;
 
-#ifdef VIEW_TRANSMISSION_TEXTURE
+@if (VIEW_TRANSMISSION_TEXTURE) {
 @group(0) @binding(24) var view_transmission_texture: texture_2d<f32>;
 @group(0) @binding(25) var view_transmission_sampler: sampler;
-#endif
+}
 
 @if(OIT_ENABLED) {
 @group(0) @binding(26) var<uniform> oit_settings: types::OrderIndependentTransparencySettings;
