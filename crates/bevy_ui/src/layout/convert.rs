@@ -113,12 +113,12 @@ pub fn from_node(node: &Node, context: &LayoutContext) -> taffy::style::Style {
             height: node.height.into_dimension(context),
         },
         min_size: taffy::Size {
-            width: node.min_width.into_dimension(context),
-            height: node.min_height.into_dimension(context),
+            width: node.min_width.into_length_percentage_auto(context),
+            height: node.min_height.into_length_percentage_auto(context),
         },
         max_size: taffy::Size {
-            width: node.max_width.into_dimension(context),
-            height: node.max_height.into_dimension(context),
+            width: node.max_width.into_length_percentage_auto(context),
+            height: node.max_height.into_length_percentage_auto(context),
         },
         aspect_ratio: node.aspect_ratio,
         gap: taffy::Size {
@@ -650,10 +650,22 @@ mod tests {
         assert_eq!(taffy_style.flex_basis, taffy::style::Dimension::ZERO);
         assert_eq!(taffy_style.size.width, taffy::style::Dimension::ZERO);
         assert_eq!(taffy_style.size.height, taffy::style::Dimension::auto());
-        assert_eq!(taffy_style.min_size.width, taffy::style::Dimension::ZERO);
-        assert_eq!(taffy_style.min_size.height, taffy::style::Dimension::ZERO);
-        assert_eq!(taffy_style.max_size.width, taffy::style::Dimension::auto());
-        assert_eq!(taffy_style.max_size.height, taffy::style::Dimension::ZERO);
+        assert_eq!(
+            taffy_style.min_size.width,
+            taffy::style::LengthPercentageAuto::ZERO
+        );
+        assert_eq!(
+            taffy_style.min_size.height,
+            taffy::style::LengthPercentageAuto::ZERO
+        );
+        assert_eq!(
+            taffy_style.max_size.width,
+            taffy::style::LengthPercentageAuto::auto()
+        );
+        assert_eq!(
+            taffy_style.max_size.height,
+            taffy::style::LengthPercentageAuto::ZERO
+        );
         assert_eq!(taffy_style.aspect_ratio, None);
         assert_eq!(taffy_style.scrollbar_width, 7.);
         assert_eq!(taffy_style.gap.width, taffy::style::LengthPercentage::ZERO);

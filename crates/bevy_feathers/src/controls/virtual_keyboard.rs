@@ -47,20 +47,18 @@ impl<T: AsRef<str> + Clone + Send + Sync + 'static> VirtualKeyboard<T> {
                     Node {
                         flex_grow: 1.0,
                     }
-                    on(
-                        move |activate: On<Activate>,
-                              mut commands: Commands,
-                              query: Query<&ChildOf>|
-                              -> Result {
-                            let virtual_keyboard =
-                                query.get(query.get(activate.entity)?.parent())?.parent();
-                            commands.trigger(VirtualKeyPressed {
-                                entity: virtual_keyboard,
-                                key: key.clone(),
-                            });
-                            Ok(())
-                        },
-                    )
+                    on(move |activate: On<Activate>,
+                            mut commands: Commands,
+                            query: Query<&ChildOf>|
+                            -> Result {
+                        let virtual_keyboard =
+                            query.get(query.get(activate.entity)?.parent())?.parent();
+                        commands.trigger(VirtualKeyPressed {
+                            entity: virtual_keyboard,
+                            key: key.clone(),
+                        });
+                        Ok(())
+                    })
                     Children [
                         Text::new(key_clone.as_ref())
                     ]
