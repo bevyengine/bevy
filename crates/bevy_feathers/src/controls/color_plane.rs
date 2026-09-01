@@ -9,12 +9,13 @@ use bevy_ecs::{
     observer::On,
     query::{Changed, Has, Or, With},
     reflect::ReflectComponent,
+    schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
-    template::FromTemplate,
 };
 use bevy_math::{Vec2, Vec3};
 use bevy_picking::{
-    events::{Cancel, Drag, DragEnd, DragStart, Pointer, Press},
+    cursor::EntityCursor,
+    events::{PointerCancel, PointerDrag, PointerDragEnd, PointerDragStart, PointerPress},
     Pickable,
 };
 use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
@@ -24,12 +25,12 @@ use bevy_shader::{ShaderDefVal, ShaderRef};
 use bevy_ui::{
     percent, px, AlignSelf, BorderColor, BorderRadius, ComputedNode, ComputedUiRenderTargetInfo,
     Display, InteractionDisabled, Node, Outline, PositionType, UiGlobalTransform, UiRect, UiScale,
-    UiTransform, Val2,
+    UiSystems, UiTransform, Val2,
 };
 use bevy_ui_render::{prelude::UiMaterial, ui_material::MaterialNode, UiMaterialPlugin};
 use bevy_ui_widgets::ValueChange;
 
-use crate::{cursor::EntityCursor, palette, theme::ThemeBackgroundColor, tokens};
+use crate::{palette, theme::ThemeBackgroundColor, tokens};
 
 /// A "color plane" widget, which is a 2d picker that allows selecting two
 /// components of a color space.
@@ -46,9 +47,7 @@ use crate::{cursor::EntityCursor, palette, theme::ThemeBackgroundColor, tokens};
 ///
 /// **Note:** For information on how widget state is managed
 /// and how to respond to state changes, see the [`bevy_ui_widgets` documentation](bevy_ui_widgets).
-#[derive(
-    SceneComponent, FromTemplate, Debug, Reflect, Copy, PartialEq, Eq, Hash, Default, Clone,
-)]
+#[derive(SceneComponent, Debug, Reflect, Copy, PartialEq, Eq, Hash, Default, Clone)]
 #[reflect(Component)]
 #[require(ColorPlaneDragState)]
 pub enum FeathersColorPlane {
@@ -63,6 +62,10 @@ pub enum FeathersColorPlane {
     /// Show hue on the horizontal axis and lightness on the vertical.
     #[default]
     HueLightness,
+    /// Show OKHSL hue on horizontal axis and saturation on vertical.
+    OkhslHueSaturation,
+    /// Show OKHSL hue on horizontal axis and lightness on vertical.
+    OkhslHueLightness,
 }
 
 /// Component that contains the two components of the selected color, as well as the "z" value.
@@ -116,7 +119,7 @@ impl From<&ColorPlaneMaterial> for ColorPlaneMaterialKey {
 
 impl UiMaterial for ColorPlaneMaterial {
     fn fragment_shader() -> ShaderRef {
-        "embedded://bevy_feathers/assets/shaders/color_plane.wgsl".into()
+        "embedded://bevy_feathers/assets/shaders/color_plane.wesl".into()
     }
 
     fn specialize(
@@ -129,6 +132,8 @@ impl UiMaterial for ColorPlaneMaterial {
             FeathersColorPlane::GreenBlue => "PLANE_GB",
             FeathersColorPlane::HueSaturation => "PLANE_HS",
             FeathersColorPlane::HueLightness => "PLANE_HL",
+            FeathersColorPlane::OkhslHueSaturation => "PLANE_OKHS",
+            FeathersColorPlane::OkhslHueLightness => "PLANE_OKHL",
         };
         descriptor.fragment.as_mut().unwrap().shader_defs =
             vec![ShaderDefVal::Bool(plane_def.into(), true)];
@@ -320,7 +325,7 @@ fn emit_color_plane_value_change(
 }
 
 fn on_pointer_press(
-    mut press: On<Pointer<Press>>,
+    mut press: On<PointerPress>,
     q_color_planes: Query<Has<InteractionDisabled>, With<FeathersColorPlane>>,
     q_color_plane_inner: Query<
         (
@@ -345,7 +350,7 @@ fn on_pointer_press(
                 node,
                 node_target,
                 transform,
-                press.pointer_location.position,
+                press.pointer.position,
                 ui_scale.0,
                 false,
             );
@@ -354,7 +359,7 @@ fn on_pointer_press(
 }
 
 fn on_drag_start(
-    mut drag_start: On<Pointer<DragStart>>,
+    mut drag_start: On<PointerDragStart>,
     mut q_color_planes: Query<
         (&mut ColorPlaneDragState, Has<InteractionDisabled>),
         With<FeathersColorPlane>,
@@ -372,7 +377,7 @@ fn on_drag_start(
 }
 
 fn on_drag(
-    mut drag: On<Pointer<Drag>>,
+    mut drag: On<PointerDrag>,
     q_color_planes: Query<
         (&ColorPlaneDragState, Has<InteractionDisabled>),
         With<FeathersColorPlane>,
@@ -400,7 +405,7 @@ fn on_drag(
                 node,
                 node_target,
                 transform,
-                drag.pointer_location.position,
+                drag.pointer.position,
                 ui_scale.0,
                 false,
             );
@@ -409,7 +414,7 @@ fn on_drag(
 }
 
 fn on_drag_end(
-    mut drag_end: On<Pointer<DragEnd>>,
+    mut drag_end: On<PointerDragEnd>,
     mut q_color_planes: Query<
         (&mut ColorPlaneDragState, Has<InteractionDisabled>),
         With<FeathersColorPlane>,
@@ -437,7 +442,7 @@ fn on_drag_end(
                 node,
                 node_target,
                 transform,
-                drag_end.pointer_location.position,
+                drag_end.pointer.position,
                 ui_scale.0,
                 true,
             );
@@ -447,7 +452,7 @@ fn on_drag_end(
 }
 
 fn on_drag_cancel(
-    drag_cancel: On<Pointer<Cancel>>,
+    drag_cancel: On<PointerCancel>,
     mut q_color_planes: Query<&mut ColorPlaneDragState, With<FeathersColorPlane>>,
     q_color_plane_inner: Query<&ChildOf, With<ColorPlaneInner>>,
 ) {
@@ -464,7 +469,8 @@ pub struct ColorPlanePlugin;
 impl Plugin for ColorPlanePlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.add_plugins(UiMaterialPlugin::<ColorPlaneMaterial>::default());
-        app.add_systems(PostUpdate, update_plane_color);
+        // `update_plane_color` modifies a node's `left` and `top`
+        app.add_systems(PostUpdate, update_plane_color.before(UiSystems::Layout));
         app.add_observer(on_pointer_press)
             .add_observer(on_drag_start)
             .add_observer(on_drag)

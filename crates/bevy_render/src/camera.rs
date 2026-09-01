@@ -10,9 +10,10 @@ use crate::{
     sync_world::{MainEntity, MainEntityHashSet, RenderEntity, SyncToRenderWorld},
     texture::{GpuImage, ManualTextureViews},
     view::{
-        ColorGrading, ExtractedView, ExtractedWindows, Msaa, NoIndirectDrawing,
+        ColorGrading, ExtractedView, ExtractedWindow, Msaa, NoIndirectDrawing,
         RenderExtractedVisibleEntities, RenderVisibleEntities, RenderVisibleEntitiesClass,
-        RetainedViewEntity, ViewUniformOffset, VisibilityExtractionSystemParam,
+        ResolvedCompositingSpace, RetainedViewEntity, ViewUniformOffset,
+        VisibilityExtractionSystemParam,
     },
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
@@ -94,15 +95,16 @@ impl Plugin for CameraPlugin {
                     ExtractSchedule,
                     (
                         DirtySpecializationSystems::Clear
-                            .before(DirtySpecializationSystems::CheckForChanges),
+                            .before_weak(DirtySpecializationSystems::CheckForChanges),
                         DirtySpecializationSystems::CheckForChanges
-                            .before(DirtySpecializationSystems::CheckForRemovals),
+                            .before_weak(DirtySpecializationSystems::CheckForRemovals),
                     ),
                 )
                 .add_systems(
                     ExtractSchedule,
                     (
-                        extract_cameras.after(extract_resource::<ManualTextureViews, ()>),
+                        extract_cameras
+                            .after(extract_resource::<ManualTextureViews, RenderApp, ()>),
                         clear_dirty_specializations.in_set(DirtySpecializationSystems::Clear),
                         clear_dirty_wireframe_specializations
                             .in_set(DirtySpecializationSystems::Clear),
@@ -195,7 +197,7 @@ impl CameraRenderGraph {
 pub trait NormalizedRenderTargetExt {
     fn get_texture_view<'a>(
         &self,
-        windows: &'a ExtractedWindows,
+        windows: &'a Query<(MainEntity, &ExtractedWindow)>,
         images: &'a RenderAssets<GpuImage>,
         manual_texture_views: &'a ManualTextureViews,
     ) -> Option<&'a TextureView>;
@@ -203,7 +205,7 @@ pub trait NormalizedRenderTargetExt {
     /// Retrieves the [`TextureFormat`] of this render target, if it exists.
     fn get_texture_view_format<'a>(
         &self,
-        windows: &'a ExtractedWindows,
+        windows: &'a Query<(MainEntity, &ExtractedWindow)>,
         images: &'a RenderAssets<GpuImage>,
         manual_texture_views: &'a ManualTextureViews,
     ) -> Option<TextureFormat>;
@@ -226,14 +228,15 @@ pub trait NormalizedRenderTargetExt {
 impl NormalizedRenderTargetExt for NormalizedRenderTarget {
     fn get_texture_view<'a>(
         &self,
-        windows: &'a ExtractedWindows,
+        windows: &'a Query<(MainEntity, &ExtractedWindow)>,
         images: &'a RenderAssets<GpuImage>,
         manual_texture_views: &'a ManualTextureViews,
     ) -> Option<&'a TextureView> {
         match self {
             NormalizedRenderTarget::Window(window_ref) => windows
-                .get(&window_ref.entity())
-                .and_then(|window| window.swap_chain_texture_view.as_ref()),
+                .iter()
+                .find(|(e, _)| *e == window_ref.entity())
+                .and_then(|(_, window)| window.swap_chain_texture_view.as_ref()),
             NormalizedRenderTarget::Image(image_target) => images
                 .get(&image_target.handle)
                 .map(|image| &image.texture_view),
@@ -247,14 +250,15 @@ impl NormalizedRenderTargetExt for NormalizedRenderTarget {
     /// Retrieves the texture view's [`TextureFormat`] of this render target, if it exists.
     fn get_texture_view_format<'a>(
         &self,
-        windows: &'a ExtractedWindows,
+        windows: &'a Query<(MainEntity, &ExtractedWindow)>,
         images: &'a RenderAssets<GpuImage>,
         manual_texture_views: &'a ManualTextureViews,
     ) -> Option<TextureFormat> {
         match self {
             NormalizedRenderTarget::Window(window_ref) => windows
-                .get(&window_ref.entity())
-                .and_then(|window| window.swap_chain_texture_view_format),
+                .iter()
+                .find(|(e, _)| *e == window_ref.entity())
+                .and_then(|(_, window)| window.swap_chain_texture_view_format),
             NormalizedRenderTarget::Image(image_target) => {
                 images.get(&image_target.handle).map(GpuImage::view_format)
             }
@@ -318,8 +322,7 @@ impl NormalizedRenderTargetExt for NormalizedRenderTarget {
             NormalizedRenderTarget::Image(image_target) => {
                 changed_image_handles.contains(&image_target.handle.id())
             }
-            NormalizedRenderTarget::TextureView(_) => true,
-            NormalizedRenderTarget::None { .. } => false,
+            NormalizedRenderTarget::TextureView(_) | NormalizedRenderTarget::None { .. } => true,
         }
     }
 }
@@ -465,9 +468,6 @@ pub struct ExtractedCamera {
     pub sorted_camera_index_for_target: usize,
     pub exposure: f32,
     pub hdr: bool,
-    /// When [`CompositingSpace::Srgb`], the main texture uses linear storage (`Rgba8Unorm`)
-    /// and shaders output sRGB-encoded values for gamma-encoded blending.
-    pub compositing_space: Option<CompositingSpace>,
 }
 
 pub fn extract_cameras(
@@ -497,7 +497,6 @@ pub fn extract_cameras(
         )>,
     >,
     primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
-    extracted_windows: Res<ExtractedWindows>,
     manual_texture_views: Res<ManualTextureViews>,
     images: Res<RenderAssets<GpuImage>>,
     mut existing_render_visible_entities_cpu_culling: Query<
@@ -506,6 +505,7 @@ pub fn extract_cameras(
     >,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
     visibility_extraction_system_param: VisibilityExtractionSystemParam,
+    extracted_swap_chains: Query<(MainEntity, &ExtractedWindow)>,
 ) {
     main_pass_formats.clear();
     let primary_window = primary_window.iter().next();
@@ -513,6 +513,7 @@ pub fn extract_cameras(
         ExtractedCamera,
         ExtractedView,
         RenderVisibleEntities,
+        ResolvedCompositingSpace,
         TemporalJitter,
         MipBias,
         RenderLayers,
@@ -607,7 +608,11 @@ pub fn extract_cameras(
                 .as_ref()
                 .and_then(|target| {
                     target
-                        .get_texture_view_format(&extracted_windows, &images, &manual_texture_views)
+                        .get_texture_view_format(
+                            &extracted_swap_chains,
+                            &images,
+                            &manual_texture_views,
+                        )
                         .map(|format| normalize_bgra8(target, format))
                 })
                 .unwrap_or(TextureFormat::Rgba8UnormSrgb);
@@ -638,8 +643,8 @@ pub fn extract_cameras(
                         .map(Exposure::exposure)
                         .unwrap_or_else(|| Exposure::default().exposure()),
                     hdr,
-                    compositing_space: compositing_space.copied(),
                 },
+                ResolvedCompositingSpace(compositing_space.copied()),
                 ExtractedView {
                     retained_view_entity: RetainedViewEntity::new(main_entity.into(), None, 0),
                     clip_from_view: camera.clip_from_view(),
@@ -719,7 +724,6 @@ pub struct SortedCamera {
     pub entity: Entity,
     pub order: isize,
     pub target: Option<NormalizedRenderTarget>,
-    pub hdr: bool,
     pub output_mode: CameraOutputMode,
 }
 
@@ -733,7 +737,6 @@ pub fn sort_cameras(
             entity,
             order: camera.order,
             target: camera.target.clone(),
-            hdr: camera.hdr,
             output_mode: camera.output_mode,
         });
     }
@@ -752,9 +755,17 @@ pub fn sort_cameras(
             ambiguities.insert(new_order_target.clone());
         }
         if let Some(target) = &sorted_camera.target {
-            let count = target_counts
-                .entry((target.clone(), sorted_camera.hdr))
-                .or_insert(0usize);
+            // Cameras that share a render target are indexed bottom to top. The index
+            // does not affect render graph ordering. It is read at the end of
+            // rendering, when each camera's image is written out to the target. By
+            // default the bottom camera replaces what is there and every camera above
+            // it alpha-blends on top.
+            //
+            // The map has to be keyed by only the target, and not by anything else.
+            // Splitting the count by a camera setting such as `Hdr` would leave a
+            // mixed stack with two bottom cameras, and the top one would overwrite
+            // the base instead of blending over it. So we don't do that.
+            let count = target_counts.entry(target.clone()).or_insert(0usize);
             let (_, mut camera) = cameras.get_mut(sorted_camera.entity).unwrap();
             camera.sorted_camera_index_for_target = *count;
             *count += 1;
@@ -1157,5 +1168,59 @@ impl PendingQueues {
     /// order to clean up resources relating to views that no longer exist.
     pub fn expire_stale_views(&mut self, all_views: &HashSet<RetainedViewEntity>) {
         self.retain(|retained_view_entity, _| all_views.contains(retained_view_entity));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy_app::Main;
+    use bevy_ecs::{system::RunSystemOnce, world::World};
+
+    fn extracted_camera(
+        order: isize,
+        hdr: bool,
+        target: NormalizedRenderTarget,
+    ) -> ExtractedCamera {
+        ExtractedCamera {
+            target: Some(target),
+            physical_viewport_size: None,
+            physical_target_size: None,
+            viewport: None,
+            schedule: Main.intern(),
+            order,
+            output_mode: CameraOutputMode::default(),
+            msaa_writeback: MsaaWriteback::default(),
+            clear_color: ClearColorConfig::Default,
+            sorted_camera_index_for_target: 0,
+            exposure: 1.0,
+            hdr,
+        }
+    }
+
+    #[test]
+    fn sort_cameras_assigns_sequential_indices_for_mixed_hdr_shared_target() {
+        let mut world = World::new();
+        world.init_resource::<SortedCameras>();
+
+        let shared = NormalizedRenderTarget::TextureView(ManualTextureViewHandle(0));
+        let other = NormalizedRenderTarget::TextureView(ManualTextureViewHandle(1));
+        // Spawn the upper camera first, so the indices prove camera order beats spawn order.
+        let upper = world.spawn(extracted_camera(1, true, shared.clone())).id();
+        let lower = world.spawn(extracted_camera(0, false, shared)).id();
+        let solo = world.spawn(extracted_camera(0, true, other)).id();
+
+        world.run_system_once(sort_cameras).unwrap();
+
+        let index = |entity: Entity| {
+            world
+                .entity(entity)
+                .get::<ExtractedCamera>()
+                .unwrap()
+                .sorted_camera_index_for_target
+        };
+        assert_eq!(index(lower), 0);
+        assert_eq!(index(upper), 1);
+        assert_eq!(index(solo), 0);
     }
 }

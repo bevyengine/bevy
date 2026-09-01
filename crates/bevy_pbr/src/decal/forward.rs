@@ -7,7 +7,7 @@ use bevy_asset::{Asset, Assets, Handle};
 use bevy_ecs::{
     component::Component, lifecycle::HookContext, resource::Resource, world::DeferredWorld,
 };
-use bevy_math::{prelude::Rectangle, Quat, Vec2, Vec3};
+use bevy_math::{Quat, Vec2, Vec3};
 use bevy_mesh::{Mesh, Mesh3d, MeshBuilder, MeshVertexBufferLayoutRef, Meshable};
 use bevy_reflect::{Reflect, TypePath};
 use bevy_render::{
@@ -20,13 +20,14 @@ use bevy_render::{
     RenderDebugFlags,
 };
 use bevy_shader::load_shader_library;
+use bevy_shape::Rectangle;
 
 /// Plugin to render [`ForwardDecal`]s.
 pub struct ForwardDecalPlugin;
 
 impl Plugin for ForwardDecalPlugin {
     fn build(&self, app: &mut App) {
-        load_shader_library!(app, "forward_decal.wgsl");
+        load_shader_library!(app, "forward.wesl");
 
         let mesh = app.world_mut().resource_mut::<Assets<Mesh>>().add(
             Rectangle::from_size(Vec2::ONE)

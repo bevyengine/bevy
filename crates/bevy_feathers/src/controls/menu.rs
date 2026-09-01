@@ -1,5 +1,5 @@
 use alloc::sync::Arc;
-use bevy_app::{Plugin, PreUpdate};
+use bevy_app::{Plugin, PreUpdate, Propagate};
 use bevy_camera::visibility::Visibility;
 use bevy_color::{Alpha, Srgba};
 use bevy_ecs::{
@@ -14,7 +14,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut},
 };
 use bevy_log::{info, warn};
-use bevy_picking::{hover::Hovered, PickingSystems};
+use bevy_picking::{cursor::EntityCursor, hover::Hovered, PickingSystems};
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_scene::prelude::*;
@@ -31,16 +31,18 @@ use bevy_ui_widgets::{
 use crate::{
     constants::{fonts, icons, size},
     controls::{ButtonVariant, FeathersButton, FeathersToolButton},
-    cursor::EntityCursor,
     display::icon,
     font_styles::InheritableFont,
     rounded_corners::RoundedCorners,
-    theme::{InheritableThemeTextColor, ThemeBackgroundColor, ThemeBorderColor},
+    theme::{
+        InheritableThemeTextColor, SurfaceLevel, ThemeBackgroundColor, ThemeBorderColor,
+        ThemeContext,
+    },
     tokens,
 };
 use bevy_input_focus::{
     tab_navigation::{NavAction, TabIndex},
-    FocusCause, InputFocus, InputFocusVisible,
+    FocusCause, InputFocus, InputFocusSystems, InputFocusVisible,
 };
 
 /// Top-level menu container. This wraps the menu button and provides an anchor for the popover.
@@ -190,8 +192,8 @@ fn on_lazy_menu_event(
             commands
                 .entity(ev.source)
                 .queue_spawn_related_scenes::<Children>(bsn!(
-                    popup()
-                    template_value(MenuFocusState::Opening(nav))
+                    @popup()
+                    MenuFocusState::Opening(nav)
                     Visibility::Visible
                 ));
         }
@@ -215,8 +217,8 @@ fn on_lazy_menu_event(
                 commands
                     .entity(ev.source)
                     .queue_spawn_related_scenes::<Children>(bsn!(
-                        popup()
-                        template_value(MenuFocusState::Opening(NavAction::First))
+                        @popup()
+                        MenuFocusState::Opening(NavAction::First)
                         Visibility::Visible
                     ));
             }
@@ -294,7 +296,7 @@ impl FeathersMenuButton {
                         Node {
                             flex_grow: 1.0,
                         },
-                        icon(icons::CHEVRON_DOWN),
+                        @icon(icons::CHEVRON_DOWN),
                     ))
                 }
             ]
@@ -328,7 +330,7 @@ impl FeathersMenuToolButton {
                 {
                     props.arrow.then(|| bsn_list!(
                         Node { min_width: px(2) },
-                        icon(icons::CHEVRON_DOWN),
+                        @icon(icons::CHEVRON_DOWN),
                     ))
                 }
             ]
@@ -359,6 +361,7 @@ impl FeathersMenuPopup {
             Visibility::Hidden
             ThemeBackgroundColor(tokens::MENU_BG)
             ThemeBorderColor(tokens::MENU_BORDER)
+            Propagate::<ThemeContext>(ThemeContext(SurfaceLevel::Floating))
             BoxShadow::new(
                 Srgba::BLACK.with_alpha(0.9).into(),
                 px(0),
@@ -557,7 +560,7 @@ fn set_menuitem_colors(
         (true, _, _) => tokens::MENUITEM_BG_FOCUSED,
         (false, true, _) => tokens::MENUITEM_BG_PRESSED,
         (false, false, true) => tokens::MENUITEM_BG_HOVER,
-        (false, false, false) => tokens::MENU_BG,
+        (false, false, false) => tokens::MENUITEM_BG,
     };
 
     let font_color_token = match disabled {
@@ -611,7 +614,9 @@ impl Plugin for MenuPlugin {
                 update_menuitem_styles_remove,
                 update_menuitem_styles_focus_changed,
             )
-                .in_set(PickingSystems::Last),
+                .in_set(PickingSystems::Last)
+                // After Dispatch systems so that these systems use the most updated `InputFocus`.
+                .after(InputFocusSystems::Dispatch),
         );
     }
 }

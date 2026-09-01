@@ -15,7 +15,7 @@ use bevy::{
 use rand::RngExt;
 
 use crate::assets::CityAssets;
-use crate::generate_city::{spawn_city, CityRoot};
+use crate::generate_city::{spawn_city, CityRoot, CityStats};
 
 #[derive(Resource)]
 pub struct Settings {
@@ -47,10 +47,10 @@ pub fn settings_ui() -> impl Scene {
             padding: px(8),
         }
         ThemeBackgroundColor(feathers::tokens::WINDOW_BG)
-        on(|_: On<Pointer<Over>>, mut free_camera_state: Single<&mut FreeCameraState>| {
+        on(|_: On<PointerOver>, mut free_camera_state: Single<&mut FreeCameraState>| {
             free_camera_state.enabled = false;
         })
-        on(|_: On<Pointer<Out>>, mut free_camera_state: Single<&mut FreeCameraState>| {
+        on(|_: On<PointerOut>, mut free_camera_state: Single<&mut FreeCameraState>| {
             free_camera_state.enabled = true;
         })
         Children [(
@@ -65,7 +65,7 @@ pub fn settings_ui() -> impl Scene {
                 Text("Settings"),
                 (
                     @FeathersCheckbox {
-                        @caption: bsn! { caption("Simulate Cars") }
+                        @caption: bsn! { @caption("Simulate Cars") }
                     }
                     Checked
                     on(checkbox_self_update)
@@ -75,7 +75,7 @@ pub fn settings_ui() -> impl Scene {
                 ),
                 (
                     @FeathersCheckbox {
-                        @caption: bsn! { caption("Shadow maps enabled") }
+                        @caption: bsn! { @caption("Shadow maps enabled") }
                     }
                     Checked
                     on(checkbox_self_update)
@@ -93,7 +93,7 @@ pub fn settings_ui() -> impl Scene {
                 ),
                 (
                     @FeathersCheckbox {
-                        @caption: bsn! { caption("Contact shadows enabled") }
+                        @caption: bsn! { @caption("Contact shadows enabled") }
                     }
                     Checked
                     on(checkbox_self_update)
@@ -111,7 +111,7 @@ pub fn settings_ui() -> impl Scene {
                 ),
                 (
                     @FeathersCheckbox {
-                        @caption: bsn! { caption("Wireframe Enabled") }
+                        @caption: bsn! { @caption("Wireframe Enabled") }
                     }
                     on(checkbox_self_update)
                     on(
@@ -125,7 +125,7 @@ pub fn settings_ui() -> impl Scene {
                 ),
                 (
                     @FeathersCheckbox {
-                        @caption: bsn! { caption("CPU culling") }
+                        @caption: bsn! { @caption("CPU culling") }
                     }
                     Checked
                     on(checkbox_self_update)
@@ -148,7 +148,7 @@ pub fn settings_ui() -> impl Scene {
                 ),
                 (
                     @FeathersButton {
-                        @caption: bsn! { caption("Regenerate City") }
+                        @caption: bsn! { @caption("Regenerate City") }
                     }
                     on(
                         |_activate: On<Activate>,
@@ -160,7 +160,8 @@ pub fn settings_ui() -> impl Scene {
                             let mut rng = rand::rng();
                             let seed = rng.random::<u64>();
                             println!("new seed: {seed}");
-                            spawn_city(&mut commands, &assets, seed, 32);
+                            let mut stats = CityStats::default();
+                            spawn_city(&mut commands, &assets, seed, 32, 0.1, &mut stats);
                         }
                     )
                 ),

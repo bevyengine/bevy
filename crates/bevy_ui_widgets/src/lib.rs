@@ -59,6 +59,7 @@ mod radio;
 mod scrollarea;
 mod scrollbar;
 mod slider;
+mod tabs;
 mod text_input;
 
 use bevy_input_focus::pointer_focus::PointerFocusPlugin;
@@ -73,6 +74,7 @@ pub use radio::*;
 pub use scrollarea::*;
 pub use scrollbar::*;
 pub use slider::*;
+pub use tabs::*;
 pub use text_input::*;
 
 use bevy_app::{PluginGroup, PluginGroupBuilder};
@@ -91,7 +93,7 @@ impl PluginGroup for UiWidgetsPlugins {
         PluginGroupBuilder::start::<Self>()
             .add(ButtonPlugin)
             .add(CheckboxPlugin)
-            .add(EditableTextInputPlugin)
+            .add(TextInputPlugin)
             .add(ListBoxPlugin)
             .add(MenuPlugin)
             .add(DialogPlugin)
@@ -101,6 +103,7 @@ impl PluginGroup for UiWidgetsPlugins {
             .add(ScrollAreaPlugin)
             .add(ScrollbarPlugin)
             .add(SliderPlugin)
+            .add(TabPlugin)
             .add(PointerFocusPlugin)
     }
 }

@@ -1,9 +1,11 @@
 /// Helpers to create a basic option menu using Feathers Radio Buttons.
 /// Using these helpers requires the `bevy_feathers` feature to be enabled.
 use bevy::{
-    color::palettes,
-    feathers::{controls::FeathersRadio, display::caption, theme::ThemeProps},
-    platform::collections::HashMap,
+    feathers::{
+        controls::FeathersRadio,
+        display::{caption, label},
+    },
+    picking::hover::Hovered,
     prelude::*,
     ui::Checked,
     ui_widgets::RadioGroup,
@@ -30,55 +32,9 @@ pub fn main_ui_node_scene() -> impl Scene {
     }
 }
 
-/// Creates a basic feathers theme props for the radio buttons.
-pub fn basic_radio_button_theme() -> ThemeProps {
-    let mut color = HashMap::new();
-    color.insert(bevy::feathers::tokens::RADIO_TEXT, Color::BLACK);
-    color.insert(bevy::feathers::tokens::RADIO_MARK, Color::BLACK);
-    color.insert(bevy::feathers::tokens::RADIO_MARK_HOVER, Color::BLACK);
-    color.insert(bevy::feathers::tokens::RADIO_MARK_PRESSED, Color::BLACK);
-
-    color.insert(bevy::feathers::tokens::RADIO_BG, Color::WHITE);
-    color.insert(
-        bevy::feathers::tokens::RADIO_BG_HOVER,
-        palettes::basic::GRAY.into(),
-    );
-    color.insert(
-        bevy::feathers::tokens::RADIO_BG_PRESSED,
-        palettes::basic::GRAY.into(),
-    );
-    color.insert(bevy::feathers::tokens::RADIO_BG_CHECKED, Color::WHITE);
-    color.insert(bevy::feathers::tokens::RADIO_BG_CHECKED_HOVER, Color::BLACK);
-    color.insert(
-        bevy::feathers::tokens::RADIO_BG_CHECKED_PRESSED,
-        Color::BLACK,
-    );
-
-    color.insert(bevy::feathers::tokens::RADIO_BORDER, Color::BLACK);
-    color.insert(
-        bevy::feathers::tokens::RADIO_BORDER_HOVER,
-        palettes::basic::GRAY.into(),
-    );
-    color.insert(
-        bevy::feathers::tokens::RADIO_BORDER_PRESSED,
-        palettes::basic::BLACK.into(),
-    );
-    color.insert(bevy::feathers::tokens::RADIO_BORDER_CHECKED, Color::BLACK);
-    color.insert(
-        bevy::feathers::tokens::RADIO_BORDER_CHECKED_HOVER,
-        Color::BLACK,
-    );
-    color.insert(
-        bevy::feathers::tokens::RADIO_BORDER_CHECKED_PRESSED,
-        Color::BLACK,
-    );
-    ThemeProps { color }
-}
-
 /// Spawns the radio buttons that allow configuration of a setting.
 ///
-/// The first option in the `options` list is always marked as selected.
-/// Ensure options is in the correct ordering with how your app is initialized.
+/// The option at index `selected_option` in the `options` list is marked as selected.
 ///
 /// To react to changes in value, create an observer that listens to
 /// `ValueChange<Entity>>`. Query for the value entity's `RadioButtonOptionValue`
@@ -86,7 +42,11 @@ pub fn basic_radio_button_theme() -> ThemeProps {
 ///
 /// Ensure the radio button self updates its own state by adding the
 /// `ui_widgets::radio_self_update` observer to the app.
-pub fn feathers_option_buttons<T>(title: &'static str, options: &[(T, &str)]) -> impl Scene
+pub fn feathers_option_buttons<T>(
+    title: &'static str,
+    options: &[(T, &str)],
+    selected_option: usize,
+) -> impl Scene
 where
     T: Clone + Default + Send + Sync + Unpin + 'static,
 {
@@ -95,7 +55,7 @@ where
         .cloned()
         .enumerate()
         .map(|(option_index, (option_value, option_name))| {
-            feathers_option_button(option_value, option_name, option_index == 0)
+            feathers_option_button(option_value, option_name, option_index == selected_option)
         })
         .collect::<Vec<_>>();
     // Add the parent node for the row.
@@ -106,11 +66,7 @@ where
         }
         RadioGroup
         Children [
-            Text::new(title)
-            TextFont {
-                font_size: FontSize::Px(18.0),
-            }
-            TextColor(Color::BLACK),
+            @label(title),
             {buttons}
         ]
     }
@@ -128,16 +84,18 @@ where
     if is_selected {
         Box::new(bsn! {
             @FeathersRadio {
-                @caption: bsn! { caption(option_name) }
+                @caption: bsn! { @caption(option_name) }
             }
+            Hovered::default()
             Checked
             RadioButtonOptionValue<T>(option_value)
         })
     } else {
         Box::new(bsn! {
             @FeathersRadio {
-                @caption: bsn! { caption(option_name) }
+                @caption: bsn! { @caption(option_name) }
             }
+            Hovered::default()
             RadioButtonOptionValue<T>(option_value)
         })
     }

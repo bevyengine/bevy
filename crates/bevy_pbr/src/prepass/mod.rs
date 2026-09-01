@@ -76,11 +76,11 @@ pub struct PrepassPipelinePlugin;
 
 impl Plugin for PrepassPipelinePlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "prepass.wgsl");
+        embedded_asset!(app, "prepass.wesl");
 
-        load_shader_library!(app, "prepass_bindings.wgsl");
-        load_shader_library!(app, "prepass_utils.wgsl");
-        load_shader_library!(app, "prepass_io.wgsl");
+        load_shader_library!(app, "bindings.wesl");
+        load_shader_library!(app, "utils.wesl");
+        load_shader_library!(app, "io.wesl");
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -338,7 +338,7 @@ pub fn init_prepass_pipeline(
         view_layout_motion_vectors,
         view_layout_no_motion_vectors,
         mesh_layouts: mesh_pipeline.mesh_layouts.clone(),
-        default_prepass_shader: load_embedded_asset!(asset_server.as_ref(), "prepass.wgsl"),
+        default_prepass_shader: load_embedded_asset!(asset_server.as_ref(), "prepass.wesl"),
         skins_use_uniform_buffers: skin::skins_use_uniform_buffers(&render_device.limits()),
         metadata_use_uniform_buffers: bevy_render::storage_buffers_are_unsupported(
             &render_device.limits(),
