@@ -1057,15 +1057,6 @@ impl ViewTarget {
             }
         }
     }
-
-    /// Mark the current texture as uncleared so that it will get cleared on the next acquired.
-    pub fn mark_as_uncleared(&self) {
-        if self.main_texture.load(Ordering::SeqCst) == 0 {
-            self.main_textures.a.mark_as_uncleared();
-        } else {
-            self.main_textures.b.mark_as_uncleared();
-        }
-    }
 }
 
 pub trait CreatePostProcessBindGroup:

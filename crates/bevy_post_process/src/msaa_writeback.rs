@@ -54,8 +54,6 @@ pub(crate) fn msaa_writeback(
     // unused target to be the "resolve target" for the MSAA write. Therefore this is the same
     // as a post process write!
     let post_process = target.post_process_write();
-    // Mark it as uncleared to respect camera clear clear config.
-    target.mark_as_uncleared();
 
     let pass_descriptor = RenderPassDescriptor {
         label: Some("msaa_writeback"),
@@ -108,17 +106,16 @@ fn prepare_msaa_writeback_pipelines(
 ) {
     for (entity, view_target, camera, msaa) in view_targets.iter() {
         // Determine if we should do MSAA writeback based on the camera's setting
+        // writeback is needed when the main pass must load existing content
+        // from the main texture because of `LoadOp::Load`.
+        // otherwise we'd read from an ephemeral sampled texture that doesn't have
+        // the real content
         let should_writeback = match camera.msaa_writeback {
             MsaaWriteback::Off => false,
-            // writeback is needed when the main pass must load existing content
-            // from the main texture because of `LoadOp::Load`.
-            // otherwise we'd read from an ephemeral sampled texture that doesn't have
-            // the real content
-            MsaaWriteback::Auto => {
-                matches!(camera.clear_color, ClearColorConfig::None)
-            }
+            // The first camera has no previous rendering results to writeback.
+            MsaaWriteback::Auto => camera.sorted_camera_index_for_target > 0,
             MsaaWriteback::Always => true,
-        };
+        } && matches!(camera.clear_color, ClearColorConfig::None);
 
         if msaa.samples() > 1 && should_writeback {
             let key = BlitPipelineKey {

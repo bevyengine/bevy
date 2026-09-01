@@ -83,10 +83,6 @@ impl ColorAttachment {
     pub(crate) fn mark_as_cleared(&self) {
         self.is_first_call.store(false, Ordering::SeqCst);
     }
-
-    pub(crate) fn mark_as_uncleared(&self) {
-        self.is_first_call.store(true, Ordering::SeqCst);
-    }
 }
 
 #[derive(Clone)]
