@@ -1,8 +1,7 @@
 //! Provides types for building cubic splines for rendering curves and use with animation easing.
 
-#[cfg(feature = "curve")]
 mod curve_impls;
-use crate::{
+use bevy_math::{
     ops::{self, FloatPow},
     Vec2, VectorSpace,
 };
@@ -40,6 +39,7 @@ use {alloc::vec, alloc::vec::Vec, core::iter::once, itertools::Itertools};
 ///
 /// ```
 /// # use bevy_math::{*, prelude::*};
+/// # use bevy_curve::prelude::*;
 /// let points = [[
 ///     vec2(-1.0, -20.0),
 ///     vec2(3.0, 2.0),
@@ -122,6 +122,7 @@ pub struct CubicBezierError;
 ///
 /// ```
 /// # use bevy_math::{*, prelude::*};
+/// # use bevy_curve::prelude::*;
 /// let points = [
 ///     vec2(-1.0, -20.0),
 ///     vec2(3.0, 2.0),
@@ -256,6 +257,7 @@ impl<P: VectorSpace<Scalar = f32>> CyclicCubicGenerator<P> for CubicHermite<P> {
 ///
 /// ```
 /// # use bevy_math::{*, prelude::*};
+/// # use bevy_curve::prelude::*;
 /// let points = [
 ///     vec2(-1.0, -20.0),
 ///     vec2(3.0, 2.0),
@@ -418,6 +420,7 @@ impl<P: VectorSpace<Scalar = f32>> CyclicCubicGenerator<P> for CubicCardinalSpli
 ///
 /// ```
 /// # use bevy_math::{*, prelude::*};
+/// # use bevy_curve::prelude::*;
 /// let points = [
 ///     vec2(-1.0, -20.0),
 ///     vec2(3.0, 2.0),
@@ -592,6 +595,7 @@ pub enum CubicNurbsError {
 ///
 /// ```
 /// # use bevy_math::{*, prelude::*};
+/// # use bevy_curve::prelude::*;
 /// let points = [
 ///     vec2(-1.0, -20.0),
 ///     vec2(3.0, 2.0),
@@ -938,7 +942,7 @@ pub trait CyclicCubicGenerator<P: VectorSpace> {
 /// Segments can be chained together to form a longer [compound curve].
 ///
 /// [compound curve]: CubicCurve
-/// [`Curve`]: crate::curve::Curve
+/// [`Curve`]: crate::Curve
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -1076,6 +1080,7 @@ impl CubicSegment<Vec2> {
     ///
     /// ```
     /// # use bevy_math::prelude::*;
+    /// # use bevy_curve::prelude::*;
     /// # #[cfg(feature = "alloc")]
     /// # {
     /// let cubic_bezier = CubicSegment::new_bezier_easing((0.25, 0.1), (0.25, 1.0));
@@ -1162,7 +1167,7 @@ impl CubicSegment<Vec2> {
 /// Use any struct that implements the [`CubicGenerator`] trait to create a new curve, such as
 /// [`CubicBezier`].
 ///
-/// [`Curve`]: crate::curve::Curve
+/// [`Curve`]: crate::Curve
 #[derive(Clone, Debug, PartialEq)]
 #[cfg(feature = "alloc")]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -1320,7 +1325,7 @@ pub trait RationalGenerator<P: VectorSpace> {
 /// together.
 ///
 /// [compound curves]: RationalCurve
-/// [`Curve`]: crate::curve::Curve
+/// [`Curve`]: crate::Curve
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -1463,7 +1468,7 @@ impl<P: VectorSpace<Scalar = f32>> RationalSegment<P> {
 /// Use any struct that implements the [`RationalGenerator`] trait to create a new curve, such as
 /// [`CubicNurbs`], or convert [`CubicCurve`] using `into/from`.
 ///
-/// [`Curve`]: crate::curve::Curve
+/// [`Curve`]: crate::Curve
 #[derive(Clone, Debug, PartialEq)]
 #[cfg(feature = "alloc")]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -1645,15 +1650,15 @@ impl<P: VectorSpace> From<CubicCurve<P>> for RationalCurve<P> {
 #[cfg(feature = "alloc")]
 #[cfg(test)]
 mod tests {
-    use crate::{
-        cubic_splines::{
-            CubicBSpline, CubicBezier, CubicGenerator, CubicNurbs, CubicSegment, RationalCurve,
-            RationalGenerator,
-        },
-        ops::{self, FloatPow},
+    use crate::cubic_splines::{
+        CubicBSpline, CubicBezier, CubicGenerator, CubicNurbs, CubicSegment, RationalCurve,
+        RationalGenerator,
     };
     use alloc::vec::Vec;
-    use glam::{vec2, Vec2};
+    use bevy_math::{
+        ops::{self, FloatPow},
+        vec2, Vec2,
+    };
 
     /// How close two floats can be and still be considered equal
     const FLOAT_EQ: f32 = 1e-5;
