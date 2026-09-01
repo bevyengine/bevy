@@ -1,11 +1,9 @@
 //! This module contains systems that update the UI when something changes
 
 use crate::{
-    experimental::{UiChildren, UiRootNodes},
-    layout_tree::ComputedLayout,
-    ui_transform::UiGlobalTransform,
-    CalculatedClip, ComputedUiRenderTargetInfo, ComputedUiTargetCamera, DefaultUiCamera, Display,
-    FixedNode, Node, OverrideClip, UiScale, UiTargetCamera, UiTreeChanged,
+    layout_tree::ComputedLayout, ui_transform::UiGlobalTransform, CalculatedClip,
+    ComputedUiRenderTargetInfo, ComputedUiTargetCamera, DefaultUiCamera, Display, FixedNode,
+    GhostNode, Node, OverrideClip, UiScale, UiTargetCamera, UiTreeChanged,
 };
 
 use super::ComputedNode;
@@ -14,8 +12,8 @@ use bevy_camera::Camera;
 use bevy_ecs::{
     change_detection::DetectChanges,
     entity::Entity,
-    hierarchy::ChildOf,
-    query::{Has, Or, With},
+    hierarchy::{ChildOf, Children},
+    query::{Has, Or, With, Without},
     system::{Commands, Query, Res},
     world::Ref,
 };
@@ -24,8 +22,8 @@ use bevy_math::UVec2;
 /// Updates clipping for all nodes
 pub fn update_clipping_system(
     mut commands: Commands,
-    root_nodes: UiRootNodes,
-    fixed_nodes_query: Query<Entity, (With<FixedNode>, With<ChildOf>)>,
+    root_nodes: Query<Entity, (With<Node>, Without<ChildOf>)>,
+    fixed_nodes_query: Query<(Entity, Has<GhostNode>), (With<FixedNode>, With<ChildOf>)>,
     mut node_query: Query<(
         &Node,
         &ComputedNode,
@@ -34,11 +32,16 @@ pub fn update_clipping_system(
         Option<&mut CalculatedClip>,
         Has<OverrideClip>,
         Has<FixedNode>,
+        Has<GhostNode>,
         Ref<UiTreeChanged>,
     )>,
-    ui_children: UiChildren,
+    ui_children: Query<&Children, With<Node>>,
 ) {
-    for root_node in root_nodes.iter().chain(fixed_nodes_query.iter()) {
+    for root_node in root_nodes.iter().chain(
+        fixed_nodes_query
+            .iter()
+            .filter_map(|(entity, is_ghost)| (!is_ghost).then_some(entity)),
+    ) {
         update_clipping(
             &mut commands,
             &ui_children,
@@ -51,9 +54,10 @@ pub fn update_clipping_system(
     }
 }
 
+// Needs more tests
 fn update_clipping(
     commands: &mut Commands,
-    ui_children: &UiChildren,
+    ui_children: &Query<&Children, With<Node>>,
     node_query: &mut Query<(
         &Node,
         &ComputedNode,
@@ -62,6 +66,7 @@ fn update_clipping(
         Option<&mut CalculatedClip>,
         Has<OverrideClip>,
         Has<FixedNode>,
+        Has<GhostNode>,
         Ref<UiTreeChanged>,
     )>,
     entity: Entity,
@@ -77,21 +82,28 @@ fn update_clipping(
         maybe_calculated_clip,
         has_override_clip,
         has_fixed_node,
+        has_ghost_node,
         tree_changed,
     )) = node_query.get_mut(entity)
     else {
         return;
     };
 
-    if has_fixed_node && !is_root {
+    // `FixedNode` is ignored if a root or `GhostNode`
+    if has_fixed_node && !has_ghost_node && !is_root {
         return;
     }
 
+    // If `OverrideClip` or `Node::override` was changed, `tree_changed.is_changed` should be `true``
     if !force_update && !tree_changed.is_changed() {
         return;
     }
 
-    if !force_update && !computed_layout.layout_changed() && !computed_layout.subtree_dirty() {
+    if !has_ghost_node
+        && !force_update
+        && !computed_layout.layout_changed()
+        && !computed_layout.subtree_dirty()
+    {
         return;
     }
 
@@ -101,7 +113,7 @@ fn update_clipping(
     }
 
     // If `display` is None, clip the entire node and all its descendants.
-    if node.display == Display::None {
+    if !has_ghost_node && node.display == Display::None {
         maybe_inherited_clip = Some(CalculatedClip::FullyClipped);
     }
 
@@ -122,7 +134,9 @@ fn update_clipping(
     }
 
     // Calculate new clip rectangle for children nodes
-    let children_clip = if maybe_inherited_clip
+    let children_clip = if has_ghost_node {
+        maybe_inherited_clip
+    } else if maybe_inherited_clip
         .as_ref()
         .is_some_and(CalculatedClip::is_fully_clipped)
         || node.overflow.is_visible()
@@ -140,9 +154,11 @@ fn update_clipping(
         Some(CalculatedClip::FullyClipped)
     };
 
-    let propagated_force_update =
-        force_update || computed_layout.layout_changed() || computed_layout.self_dirty();
-    for child in ui_children.iter_ui_children(entity) {
+    let propagated_force_update = force_update
+        || tree_changed.is_changed()
+        || computed_layout.layout_changed()
+        || computed_layout.self_dirty();
+    for &child in ui_children.get(entity).into_iter().flatten() {
         update_clipping(
             commands,
             ui_children,
@@ -161,8 +177,8 @@ pub fn propagate_ui_target_cameras(
     ui_scale: Res<UiScale>,
     camera_query: Query<&Camera>,
     target_camera_query: Query<&UiTargetCamera>,
-    ui_root_nodes: UiRootNodes,
-    ui_children: UiChildren,
+    ui_root_nodes: Query<Entity, (With<Node>, Without<ChildOf>)>,
+    parents_query: Query<(), With<ChildOf>>,
     propagate_query: Query<
         Entity,
         Or<(
@@ -174,7 +190,7 @@ pub fn propagate_ui_target_cameras(
     let default_camera_entity = default_ui_camera.get();
 
     for entity in propagate_query.iter() {
-        if ui_children.get_parent(entity).is_some() {
+        if parents_query.contains(entity) {
             commands.entity(entity).remove::<(
                 Propagate<ComputedUiTargetCamera>,
                 Propagate<ComputedUiRenderTargetInfo>,
