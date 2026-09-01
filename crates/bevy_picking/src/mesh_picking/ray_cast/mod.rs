@@ -16,6 +16,7 @@ use bevy_mesh::{
     Mesh, Mesh2d, Mesh3d,
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_shape::{Aabb3d, Ray3d};
 
 use intersections::*;
 pub use intersections::{ray_aabb_intersection_3d, ray_mesh_intersection, RayMeshHit};
@@ -132,6 +133,7 @@ type MeshFilter = Or<(With<Mesh3d>, With<Mesh2d>, With<SimplifiedMesh>)>;
 ///
 /// ```
 /// # use bevy_math::prelude::*;
+/// # use bevy_shape::prelude::*;
 /// # use bevy_picking::prelude::*;
 /// fn ray_cast_system(mut ray_cast: MeshRayCast) {
 ///     let ray = Ray3d::new(Vec3::ZERO, Dir3::X);
@@ -148,6 +150,7 @@ type MeshFilter = Or<(With<Mesh3d>, With<Mesh2d>, With<SimplifiedMesh>)>;
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_math::prelude::*;
+/// # use bevy_shape::prelude::*;
 /// # use bevy_picking::prelude::*;
 /// # #[derive(Component)]
 /// # struct Foo;

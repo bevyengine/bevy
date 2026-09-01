@@ -3,28 +3,35 @@ use crate::render_resource::{
     BindGroup, BindGroupLayout, Buffer, ComputePipeline, RawRenderPipelineDescriptor,
     RenderPipeline, Sampler, Texture,
 };
-use crate::renderer::WgpuWrapper;
+use crate::renderer::wgpu_wrapper;
 use bevy_ecs::resource::Resource;
 use wgpu::{
     util::DeviceExt, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor,
     BindGroupLayoutEntry, BufferAsyncError, BufferBindingType, PollError, PollStatus,
 };
 
+wgpu_wrapper! {
+    #[derive(Clone)]
+    struct WgpuDevice(wgpu::Device);
+}
+
 /// This GPU device is responsible for the creation of most rendering and compute resources.
 #[derive(Resource, Clone)]
 pub struct RenderDevice {
-    device: WgpuWrapper<wgpu::Device>,
+    device: WgpuDevice,
 }
 
 impl From<wgpu::Device> for RenderDevice {
     fn from(device: wgpu::Device) -> Self {
-        Self::new(WgpuWrapper::new(device))
+        Self::new(device)
     }
 }
 
 impl RenderDevice {
-    pub fn new(device: WgpuWrapper<wgpu::Device>) -> Self {
-        Self { device }
+    pub fn new(device: wgpu::Device) -> Self {
+        Self {
+            device: WgpuDevice::new(device),
+        }
     }
 
     /// List all [`Features`](wgpu::Features) that may be used with this device.
@@ -223,9 +230,9 @@ impl RenderDevice {
         order: wgpu::util::TextureDataOrder,
         data: &[u8],
     ) -> Texture {
-        let wgpu_texture =
-            self.device
-                .create_texture_with_data(render_queue.as_ref(), desc, order, data);
+        let wgpu_texture = self
+            .device
+            .create_texture_with_data(render_queue, desc, order, data);
         Texture::from(wgpu_texture)
     }
 
