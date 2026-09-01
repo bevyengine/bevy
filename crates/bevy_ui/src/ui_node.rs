@@ -3276,10 +3276,22 @@ impl ComputedUiRenderTargetInfo {
 /// A `FixedNode` UI entity is positioned relative to the target camera's viewport rather that its parent element.
 ///
 /// `FixedNode`s don't inherit their parent's layout, clipping or transform context.
-#[derive(Component, Clone, Default, Reflect)]
+#[derive(Component, Debug, Copy, Clone, Default, Reflect)]
 #[reflect(Component, Default, Clone)]
 #[require(Node)]
 pub struct FixedNode;
+
+/// Marker component for `Node` entities that should be replaced by its children during UI layout.
+///
+/// - A `GhostNode` is `Node`.
+/// - A `GhostNode` is given zero size during layout.
+/// - Its position is the same as its parent.
+/// - Its `UiTransform` will be applied normally.
+/// - Events pass through normally.
+#[derive(Component, Debug, Copy, Clone, Reflect, Default)]
+#[reflect(Component, Debug, Clone)]
+#[require(Node)]
+pub struct GhostNode;
 
 #[cfg(test)]
 mod tests {
