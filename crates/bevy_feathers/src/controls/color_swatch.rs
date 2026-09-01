@@ -90,7 +90,7 @@ impl FeathersColorSwatch {
                 }
                 ColorSwatchFg
                 BackgroundColor({palette::ACCENT.with_alpha(0.5)})
-                ---
+                --
                 @{non_alpha_fg}
             ]
         }

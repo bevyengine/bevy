@@ -134,7 +134,7 @@ fn demo_field_f32(label_text: &str, value: f32, options: impl Scene) -> impl Sce
                     commands.entity(value_change.event_target())
                         .insert(NumberInputValue::F32(value_change.value));
                 })
-                ---
+                --
                 #Output
                 @label("-")
             ]
@@ -175,7 +175,7 @@ fn demo_field_f32_with_sigil(label_text: &str, value: f32, options: impl Scene) 
                     commands.entity(value_change.event_target())
                         .insert(NumberInputValue::F32(value_change.value));
                 })
-                ---
+                --
                 #Output
                 @label("-")
             ]
@@ -213,7 +213,7 @@ fn demo_field_f64(label_text: &str, value: f64, options: impl Scene) -> impl Sce
                     commands.entity(value_change.event_target())
                         .insert(NumberInputValue::F64(value_change.value));
                 })
-                ---
+                --
                 #Output
                 @label("-")
             ]
@@ -251,7 +251,7 @@ fn demo_field_i32(label_text: &str, value: i32, options: impl Scene) -> impl Sce
                     commands.entity(value_change.event_target())
                         .insert(NumberInputValue::I32(value_change.value));
                 })
-                ---
+                --
                 #Output
                 @label("-")
             ]

@@ -116,13 +116,13 @@ fn setup(
                     (GlobalWireframeSetting::On, "ON"),
                     (GlobalWireframeSetting::Off, "OFF"),
                 ], 0)
-            ---
+            --
             @feathers_option_buttons("Change global color",
                 &[
                     (GlobalColorSetting::Red, "RED"),
                     (GlobalColorSetting::White, "WHITE"),
                 ], 1)
-            ---
+            --
             @feathers_option_buttons("Change color of the circle wireframe",
                 &[
                     (ColorCircleWireframeSetting::Red, "RED"),

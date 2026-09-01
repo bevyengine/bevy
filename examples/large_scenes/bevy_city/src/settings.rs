@@ -63,7 +63,7 @@ pub fn settings_ui() -> impl Scene {
             }
             Children [
                 Text("Settings")
-                ---
+                --
                 @FeathersCheckbox {
                     @caption: bsn! { @caption("Simulate Cars") }
                 }
@@ -72,7 +72,7 @@ pub fn settings_ui() -> impl Scene {
                 on(|change: On<ValueChange<bool>>, mut settings: ResMut<Settings>| {
                     settings.simulate_cars = change.value;
                 })
-                ---
+                --
                 @FeathersCheckbox {
                     @caption: bsn! { @caption("Shadow maps enabled") }
                 }
@@ -89,7 +89,7 @@ pub fn settings_ui() -> impl Scene {
                         }
                     }
                 )
-                ---
+                --
                 @FeathersCheckbox {
                     @caption: bsn! { @caption("Contact shadows enabled") }
                 }
@@ -106,7 +106,7 @@ pub fn settings_ui() -> impl Scene {
                         }
                     }
                 )
-                ---
+                --
                 @FeathersCheckbox {
                     @caption: bsn! { @caption("Wireframe Enabled") }
                 }
@@ -119,7 +119,7 @@ pub fn settings_ui() -> impl Scene {
                         wireframe_config.global = change.value;
                     }
                 )
-                ---
+                --
                 @FeathersCheckbox {
                     @caption: bsn! { @caption("CPU culling") }
                 }
@@ -141,7 +141,7 @@ pub fn settings_ui() -> impl Scene {
                         }
                     }
                 )
-                ---
+                --
                 @FeathersButton {
                     @caption: bsn! { @caption("Regenerate City") }
                 }

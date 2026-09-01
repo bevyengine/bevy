@@ -236,10 +236,10 @@ fn buttons_scene() -> impl Scene {
                     Ok(Text(format!("Current Space\n{:?}", COLOR_SPACES[current_index])))
                 })
             ]
-            ---
+            --
             PreviousButton
             @button_node_scene("Previous")
-            ---
+            --
             NextButton
             @button_node_scene("Next")
         ]

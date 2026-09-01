@@ -115,7 +115,7 @@ impl FeathersCheckbox {
                     CheckboxMark
                     ThemeBorderColor(tokens::CHECKBOX_MARK)
                 ]
-                ---
+                --
                 {props.caption}
             ]
         }

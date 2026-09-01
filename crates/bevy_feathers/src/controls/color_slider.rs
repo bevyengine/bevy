@@ -261,7 +261,7 @@ impl FeathersColorSlider {
                 ColorSliderTrack
                 AlphaPattern
                 MaterialNode::<AlphaPatternMaterial>
-                ---
+                --
                 // gradient
                 Node {
                     grid_row: GridPlacement::start(1),
@@ -293,7 +293,7 @@ impl FeathersColorSlider {
                         color_space: InterpolationColorSpace::Srgba,
                     }),
                 ])
-                ---
+                --
                 // thumb
                 Node {
                     grid_row: GridPlacement::start(1),

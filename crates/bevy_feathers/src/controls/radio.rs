@@ -112,7 +112,7 @@ impl FeathersRadio {
                     RadioMark
                     ThemeBackgroundColor(tokens::RADIO_MARK)
                 )]
-                ---
+                --
                 {props.caption}
             ]
         }

@@ -87,7 +87,7 @@ fn keyboard() -> impl Scene {
             BorderColor::all(Color::WHITE)
             Children [
                 Text("virtual keyboard")
-                ---
+                --
                 @VirtualKeyboard::<&str> { @keys: keys }
                 on(on_virtual_key_pressed)
             ]

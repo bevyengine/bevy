@@ -235,7 +235,7 @@ fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
             Children [
                 Text("Move with arrow keys.")
             ]
-            ---
+            --
             Node {
                 position_type: PositionType::Absolute,
                 left: px(10),

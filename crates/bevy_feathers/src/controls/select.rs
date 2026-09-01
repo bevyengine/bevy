@@ -107,7 +107,7 @@ impl FeathersSelect {
                 Node {
                     flex_grow: 1.0,
                 }
-                ---
+                --
                 @FeathersMenuPopup
                 Children [
                     @FeathersListView {

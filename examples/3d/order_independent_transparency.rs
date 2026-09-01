@@ -279,7 +279,7 @@ fn spawn_ui(commands: &mut Commands, app_state: &AppState) {
                     .collect::<Vec<_>>()),
                 app_state.current_scene_id,
             )
-            ---
+            --
             RadioGroupSetting::EnableOIT
             @feathers_option_buttons(
                 "Order Independent [T]ransparency",
@@ -293,7 +293,7 @@ fn spawn_ui(commands: &mut Commands, app_state: &AppState) {
                     1
                 }
             )
-            ---
+            --
             RadioGroupSetting::UseDepthPrepass
             @feathers_option_buttons(
                 "[D]epth Prepass",

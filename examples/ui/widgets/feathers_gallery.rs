@@ -186,14 +186,14 @@ fn demo_column_1() -> impl Scene {
                 on(|_: On<Activate>| {
                     info!("Menu item 4 clicked!");
                 })
-                ---
+                --
                 @FeathersMenuItem {
                     @caption: bsn! { @caption("MenuItem 5") }
                 }
                 on(|_: On<Activate>| {
                     info!("Menu item 5 clicked!");
                 })
-                ---
+                --
                 @FeathersMenuItem {
                     @caption: bsn! { @caption("MenuItem 6") }
                 }
@@ -235,7 +235,7 @@ fn demo_column_1() -> impl Scene {
                     info!("Normal button clicked!");
                 })
                 AutoFocus
-                ---
+                --
                 @FeathersButton {
                     @caption: bsn! { @caption("Disabled") },
                 }
@@ -248,7 +248,7 @@ fn demo_column_1() -> impl Scene {
                 on(|_activate: On<Activate>| {
                     info!("Disabled button clicked!");
                 })
-                ---
+                --
                 @FeathersButton {
                     @caption: bsn! { @caption("Primary") },
                     @variant: ButtonVariant::Primary,
@@ -260,7 +260,7 @@ fn demo_column_1() -> impl Scene {
                 on(|_activate: On<Activate>| {
                     info!("Primary button clicked!");
                 })
-                ---
+                --
                 @FeathersMenu
                 Children [
                     @FeathersMenuButton {
@@ -270,7 +270,7 @@ fn demo_column_1() -> impl Scene {
                     Node {
                         flex_grow: 1.0,
                     }
-                    ---
+                    --
                     @FeathersMenuPopup
                     Children [
                         @FeathersMenuItem {
@@ -279,16 +279,16 @@ fn demo_column_1() -> impl Scene {
                         on(|_: On<Activate>| {
                             info!("Menu item 1 clicked!");
                         })
-                        ---
+                        --
                         @FeathersMenuItem {
                             @caption: bsn! { @caption("MenuItem 2") }
                         }
                         on(|_: On<Activate>| {
                             info!("Menu item 2 clicked!");
                         })
-                        ---
+                        --
                         @FeathersMenuDivider
-                        ---
+                        --
                         @FeathersMenuItem {
                             @caption: bsn! { @caption("MenuItem 3") }
                         }
@@ -297,7 +297,7 @@ fn demo_column_1() -> impl Scene {
                         })
                     ]
                 ]
-                ---
+                --
                 @FeathersLazyMenu { popup }
                 Children [
                     @FeathersMenuToolButton {
@@ -309,7 +309,7 @@ fn demo_column_1() -> impl Scene {
                     }
                 ]
             ]
-            ---
+            --
             @FeathersSelect {
                 @options: {list_rows_from_strings([
                     "One",
@@ -327,7 +327,7 @@ fn demo_column_1() -> impl Scene {
                 };
                 info!("Select changed to index {}", option.0);
             })
-            ---
+            --
             @FeathersSelect {
                 @options: {
                     Box::new(
@@ -355,7 +355,7 @@ fn demo_column_1() -> impl Scene {
                 };
                 info!("Select changed to {:?}", month);
             })
-            ---
+            --
             Node {
                 display: Display::Flex,
                 flex_direction: FlexDirection::Row,
@@ -375,7 +375,7 @@ fn demo_column_1() -> impl Scene {
                 on(|_activate: On<Activate>| {
                     info!("Left button clicked!");
                 })
-                ---
+                --
                 @FeathersButton {
                     @caption: bsn! { @caption("Center") },
                     @corners: RoundedCorners::None,
@@ -387,7 +387,7 @@ fn demo_column_1() -> impl Scene {
                 on(|_activate: On<Activate>| {
                     info!("Center button clicked!");
                 })
-                ---
+                --
                 @FeathersButton {
                     @caption: bsn! { @caption("Right") },
                     @variant: ButtonVariant::Primary,
@@ -401,7 +401,7 @@ fn demo_column_1() -> impl Scene {
                     info!("Right button clicked!");
                 })
             ]
-            ---
+            --
             Node {
                 display: Display::Flex,
                 flex_direction: FlexDirection::Row,
@@ -424,7 +424,7 @@ fn demo_column_1() -> impl Scene {
                     };
                     info!("Override cursor button clicked!");
                 })
-                ---
+                --
                 @FeathersButton {
                     @caption: bsn! { @caption("Quit\u{2026}") },
                 }
@@ -433,7 +433,7 @@ fn demo_column_1() -> impl Scene {
                 }
                 on(spawn_quit_dialog)
             ]
-            ---
+            --
             Node {
                 display: Display::Flex,
                 flex_direction: FlexDirection::Row,
@@ -443,12 +443,12 @@ fn demo_column_1() -> impl Scene {
             }
             Children [
                 @label("Dialog:")
-                ---
+                --
                 @FeathersToggleSwitch
                 DemoDialogToggle
                 on(toggle_demo_dialog)
             ]
-            ---
+            --
             @FeathersCheckbox {
                 @caption: bsn! { @caption("Checkbox") }
             }
@@ -469,7 +469,7 @@ fn demo_column_1() -> impl Scene {
                     checkbox.remove::<Checked>();
                 }
             })
-            ---
+            --
             @FeathersCheckbox {
                 @caption: bsn! { @caption("Fast Click Checkbox") }
             }
@@ -484,7 +484,7 @@ fn demo_column_1() -> impl Scene {
                     checkbox.remove::<Checked>();
                 }
             })
-            ---
+            --
             @FeathersCheckbox {
                 @caption: bsn! { @caption("Disabled") },
             }
@@ -493,7 +493,7 @@ fn demo_column_1() -> impl Scene {
             on(|_change: On<ValueChange<bool>>| {
                 warn!("Disabled checkbox clicked!");
             })
-            ---
+            --
             @FeathersCheckbox {
                 @caption: bsn! { @caption("Checked+Disabled") }
             }
@@ -503,7 +503,7 @@ fn demo_column_1() -> impl Scene {
             on(|_change: On<ValueChange<bool>>| {
                 warn!("Disabled checkbox clicked!");
             })
-            ---
+            --
             Node {
                 display: Display::Flex,
                 flex_direction: FlexDirection::Row,
@@ -524,23 +524,23 @@ fn demo_column_1() -> impl Scene {
                         @caption: bsn! { @caption("One") }
                     }
                     Checked
-                    ---
+                    --
                     @FeathersRadio {
                         @caption: bsn! { @caption("Two") }
                     }
-                    ---
+                    --
                     @FeathersRadio {
                         @caption: bsn! { @caption("Fast Click") }
                     }
                     ActivateOnPress
-                    ---
+                    --
                     @FeathersRadio {
                         @caption: bsn! { @caption("Disabled") }
                     }
                     InteractionDisabled
                 ]
             ]
-            ---
+            --
             Node {
                 display: Display::Flex,
                 flex_direction: FlexDirection::Row,
@@ -555,7 +555,7 @@ fn demo_column_1() -> impl Scene {
                 (@FeathersToggleSwitch InteractionDisabled Checked on(checkbox_self_update)),
                 (@FeathersDisclosureToggle on(checkbox_self_update)),
             ]
-            ---
+            --
             @FeathersSlider {
                 @max: 100.0,
             }
@@ -563,7 +563,7 @@ fn demo_column_1() -> impl Scene {
             SliderStep(10.)
             SliderPrecision(2)
             on(slider_self_update)
-            ---
+            --
             Node {
                 display: Display::Flex,
                 flex_direction: FlexDirection::Row,
@@ -573,10 +573,10 @@ fn demo_column_1() -> impl Scene {
             }
             Children [
                 @label("Srgba")
-                ---
+                --
                 // Spacer
                 @flex_spacer()
-                ---
+                --
                 // Text input
                 @FeathersTextInputContainer
                 Node {
@@ -594,19 +594,19 @@ fn demo_column_1() -> impl Scene {
                     HexColorInput
                     on(handle_hex_color_change)
                 ]
-                ---
+                --
                 @FeathersColorSwatch {
                     @opaque_color_percentage: 30.0,
                 }
                 SwatchType::Rgb
             ]
-            ---
+            --
             @FeathersColorPlane::RedBlue
             on(|change: On<ValueChange<Vec2>>, mut color: ResMut<DemoWidgetStates>| {
                 color.rgb_color.red = change.value.x;
                 color.rgb_color.blue = change.value.y;
             })
-            ---
+            --
             @FeathersColorSlider {
                 @value: 0.5,
                 @channel: ColorChannel::Red
@@ -615,7 +615,7 @@ fn demo_column_1() -> impl Scene {
             on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
                 color.rgb_color.red = change.value;
             })
-            ---
+            --
             @FeathersColorSlider {
                 @value: 0.5,
                 @channel: ColorChannel::Green
@@ -624,7 +624,7 @@ fn demo_column_1() -> impl Scene {
             on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
                 color.rgb_color.green = change.value;
             })
-            ---
+            --
             @FeathersColorSlider {
                 @value: 0.5,
                 @channel: ColorChannel::Blue
@@ -633,7 +633,7 @@ fn demo_column_1() -> impl Scene {
             on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
                 color.rgb_color.blue = change.value;
             })
-            ---
+            --
             @FeathersColorSlider {
                 @value: 0.5,
                 @channel: ColorChannel::Alpha
@@ -642,7 +642,7 @@ fn demo_column_1() -> impl Scene {
             on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
                 color.rgb_color.alpha = change.value;
             })
-            ---
+            --
             Node {
                 display: Display::Flex,
                 align_items: AlignItems::Center,
@@ -653,7 +653,7 @@ fn demo_column_1() -> impl Scene {
                 @label("Hsl"),
                 (@FeathersColorSwatch SwatchType::Hsl)
             ]
-            ---
+            --
             @FeathersColorSlider {
                 @value: 0.5,
                 @channel: ColorChannel::HslHue
@@ -662,7 +662,7 @@ fn demo_column_1() -> impl Scene {
             on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
                 color.hsl_color.hue = change.value;
             })
-            ---
+            --
             @FeathersColorSlider {
                 @value: 0.5,
                 @channel: ColorChannel::HslSaturation
@@ -671,7 +671,7 @@ fn demo_column_1() -> impl Scene {
             on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
                 color.hsl_color.saturation = change.value;
             })
-            ---
+            --
             @FeathersColorSlider {
                 @value: 0.5,
                 @channel: ColorChannel::HslLightness
@@ -680,7 +680,7 @@ fn demo_column_1() -> impl Scene {
             on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
                 color.hsl_color.lightness = change.value;
             })
-            ---
+            --
             Node {
                 display: Display::Flex,
                 align_items: AlignItems::Center,
@@ -691,13 +691,13 @@ fn demo_column_1() -> impl Scene {
                 @label("Okhsl"),
                 (@FeathersColorSwatch SwatchType::Okhsl)
             ]
-            ---
+            --
             @FeathersColorPlane::OkhslHueLightness
             on(|change: On<ValueChange<Vec2>>, mut color: ResMut<DemoWidgetStates>| {
                 color.okhsl_color.hue = change.value.x * 360.0;
                 color.okhsl_color.lightness = 1.0 - change.value.y;
             })
-            ---
+            --
             @FeathersColorSlider {
                 @value: 0.5,
                 @channel: ColorChannel::OkhslHue
@@ -706,7 +706,7 @@ fn demo_column_1() -> impl Scene {
             on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
                 color.okhsl_color.hue = change.value;
             })
-            ---
+            --
             @FeathersColorSlider {
                 @value: 0.5,
                 @channel: ColorChannel::OkhslSaturation
@@ -715,7 +715,7 @@ fn demo_column_1() -> impl Scene {
             on(|change: On<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
                 color.okhsl_color.saturation = change.value;
             })
-            ---
+            --
             @FeathersColorSlider {
                 @value: 0.5,
                 @channel: ColorChannel::OkhslLightness
@@ -771,20 +771,20 @@ fn demo_column_2() -> impl Scene {
                         @caption: bsn! { @icon(icons::X) }
                     },
                 ]
-                ---
+                --
                 @pane_body() Children [
                     @label_dim("A standard editor pane")
-                    ---
+                    --
                     @subpane() Children [
                         @subpane_header() Children [
                             @caption("Left"),
                             @caption("Center"),
                             @caption("Right")
                         ]
-                        ---
+                        --
                         @subpane_body() Children [
                             @label_dim("A standard sub-pane")
-                            ---
+                            --
                             @group() Children [
                                 @group_header() Children [
                                     @caption("Group"),
@@ -792,9 +792,9 @@ fn demo_column_2() -> impl Scene {
                                 @group_body()
                                 Children [
                                     @label("A standard group")
-                                    ---
+                                    --
                                     @label_small("Scalar property")
-                                    ---
+                                    --
                                     @FeathersNumberInput
                                     DemoScalarField
                                     NumberInputPrecision(2)
@@ -806,9 +806,9 @@ fn demo_column_2() -> impl Scene {
                                     on(|value_change: On<ValueChange<f32>>, mut states: ResMut<DemoWidgetStates>| {
                                         states.scalar_prop = value_change.value;
                                     })
-                                    ---
+                                    --
                                     @label_small("Scalar property (copy)")
-                                    ---
+                                    --
                                     @FeathersNumberInput
                                     DemoScalarField
                                     NumberInputPrecision(4)
@@ -819,9 +819,9 @@ fn demo_column_2() -> impl Scene {
                                     on(|value_change: On<ValueChange<f32>>, mut states: ResMut<DemoWidgetStates>| {
                                         states.scalar_prop = value_change.value;
                                     })
-                                    ---
+                                    --
                                     @label_small("Vec3 property")
-                                    ---
+                                    --
                                     Node {
                                         display: Display::Flex,
                                         flex_direction: FlexDirection::Row,
@@ -843,7 +843,7 @@ fn demo_column_2() -> impl Scene {
                                         on(|value_change: On<ValueChange<f32>>, mut states: ResMut<DemoWidgetStates>| {
                                             states.vec3_prop.x = value_change.value;
                                         })
-                                        ---
+                                        --
                                         @FeathersNumberInput {
                                             @sigil_color: tokens::TEXT_INPUT_Y_AXIS,
                                             @label_text: "Y",
@@ -856,7 +856,7 @@ fn demo_column_2() -> impl Scene {
                                         on(|value_change: On<ValueChange<f32>>, mut states: ResMut<DemoWidgetStates>| {
                                             states.vec3_prop.y = value_change.value;
                                         })
-                                        ---
+                                        --
                                         @FeathersNumberInput {
                                             @sigil_color: tokens::TEXT_INPUT_Z_AXIS,
                                             @label_text: "Z",
@@ -870,9 +870,9 @@ fn demo_column_2() -> impl Scene {
                                             states.vec3_prop.z = value_change.value;
                                         })
                                     ]
-                                    ---
+                                    --
                                     @label_small("Color property")
-                                    ---
+                                    --
                                     Node {
                                         display: Display::Flex,
                                         flex_direction: FlexDirection::Row,
@@ -892,7 +892,7 @@ fn demo_column_2() -> impl Scene {
                                             flex_grow: 1.0,
                                         }
                                         BorderColor::all(palette::X_AXIS)
-                                        ---
+                                        --
                                         @FeathersNumberInput {
                                             @sigil_color: tokens::TEXT_INPUT_Y_AXIS,
                                             @label_text: "G",
@@ -903,7 +903,7 @@ fn demo_column_2() -> impl Scene {
                                         Node {
                                             flex_grow: 1.0,
                                         }
-                                        ---
+                                        --
                                         @FeathersNumberInput {
                                             @sigil_color: tokens::TEXT_INPUT_Z_AXIS,
                                             @label_text: "B",
@@ -914,7 +914,7 @@ fn demo_column_2() -> impl Scene {
                                         Node {
                                             flex_grow: 1.0,
                                         }
-                                        ---
+                                        --
                                         @FeathersNumberInput {
                                             @sigil_color: tokens::TEXT_INPUT_W_AXIS,
                                             @label_text: "A",
@@ -932,12 +932,12 @@ fn demo_column_2() -> impl Scene {
                     ]
                 ]
             ]
-            ---
+            --
             @subpane() Children [
                 @subpane_header() Children [
                     @caption("List"),
                 ]
-                ---
+                --
                 @subpane_body() Children [
                     @FeathersListView {
                         @rows: {bsn_list![
@@ -1142,11 +1142,11 @@ fn spawn_quit_dialog(activate: On<Activate>, mut commands: Commands) {
                         @caption("Quit Feathers Gallery"),
                         @FeathersDialogClose,
                     ]
-                    ---
+                    --
                     @FeathersDialogBody Children [
                         @caption("Are you really sure you want to quit? I mean, really, really sure?")
                     ]
-                    ---
+                    --
                     @FeathersDialogFooter Children [
                         @FeathersButton {
                             @caption: bsn! { @caption("Cancel") },
@@ -1155,7 +1155,7 @@ fn spawn_quit_dialog(activate: On<Activate>, mut commands: Commands) {
                         on(|activate: On<Activate>, mut commands: Commands| {
                             commands.trigger(RequestClose { source: activate.event_target() });
                         })
-                        ---
+                        --
                         @FeathersButton {
                             @caption: bsn! { @caption("Exit Application") },
                             @variant: ButtonVariant::Primary,

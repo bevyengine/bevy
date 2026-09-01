@@ -188,7 +188,7 @@ fn loading_screen() -> impl Scene {
                 TextFont {
                     font_size: FontSize::Px(24.0),
                 }
-                ---
+                --
                 LoadingPaths
                 Text
                 TextFont {

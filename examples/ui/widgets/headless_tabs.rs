@@ -33,7 +33,7 @@ fn main() {
 fn showcase() -> impl SceneList {
     bsn_list![
         Camera2d
-        ---
+        --
         Node {
             width: percent(100),
             height: percent(100),
@@ -48,7 +48,7 @@ fn showcase() -> impl SceneList {
         TabGroup
         Children [
             @section_label("Horizontal automatic - self-updating")
-            ---
+            --
             #automatic
             @tab_strip(ControlOrientation::Horizontal)
             TabList {
@@ -60,15 +60,15 @@ fn showcase() -> impl SceneList {
             Children [
                 #automatic_general
                 @tab_header("General")
-                ---
+                --
                 @tab_header("Rendering")
-                ---
+                --
                 @tab_header("Disabled")
                 InteractionDisabled
             ]
-            ---
+            --
             @section_label("Horizontal manual - focus and selection are separate")
-            ---
+            --
             @tab_strip(ControlOrientation::Horizontal)
             TabList::default()
             @selected_tab(#manual_scene)
@@ -76,14 +76,14 @@ fn showcase() -> impl SceneList {
             Children [
                 #manual_scene
                 @tab_header("Scene")
-                ---
+                --
                 @tab_header("Assets")
-                ---
+                --
                 @tab_header("Inspector")
             ]
-            ---
+            --
             @section_label("Vertical manual")
-            ---
+            --
             @tab_strip(ControlOrientation::Vertical)
             TabList {
                 orientation: ControlOrientation::Vertical,
@@ -94,14 +94,14 @@ fn showcase() -> impl SceneList {
             Children [
                 #vertical_transform
                 @tab_header("Transform")
-                ---
+                --
                 @tab_header("Visibility")
-                ---
+                --
                 @tab_header("Metadata")
             ]
-            ---
+            --
             @section_label("Controlled - observer updates external state")
-            ---
+            --
             @tab_strip(ControlOrientation::Horizontal)
             TabList::default()
             @selected_tab(#controlled_a)
@@ -109,7 +109,7 @@ fn showcase() -> impl SceneList {
             Children [
                 #controlled_a
                 @tab_header("External A")
-                ---
+                --
                 @tab_header("External B")
             ]
         ]

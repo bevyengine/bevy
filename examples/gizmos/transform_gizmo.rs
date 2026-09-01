@@ -50,20 +50,20 @@ fn setup(
         @main_ui_node_scene()
         Children [
             @label("Click an object to select it")
-            ---
+            --
             @feathers_option_buttons("",
             &[
                 (TransformGizmoMode::Translate, "Translate"),
                 (TransformGizmoMode::Rotate, "Rotate"),
                 (TransformGizmoMode::Scale, "Scale"),
             ], 0)
-            ---
+            --
             @feathers_option_buttons("",
             &[
                 (TransformGizmoSpace::World, "World"),
                 (TransformGizmoSpace::Local, "Local"),
             ], 0)
-            ---
+            --
             Node {
                 align_items: AlignItems::Center,
                 column_gap: px(4)
@@ -71,7 +71,7 @@ fn setup(
             ScaleSensitivitySlider
             Children [
                 @label("Sensitivity")
-                ---
+                --
                 @FeathersSlider {
                     @max: 2.0,
                     @min: 0.1,

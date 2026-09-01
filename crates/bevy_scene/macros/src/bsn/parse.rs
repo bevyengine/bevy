@@ -83,7 +83,7 @@ impl<const ALLOW_FLAT: bool> Parse for Bsn<ALLOW_FLAT> {
                     ));
                 }
                 entries.push(entry);
-                if input.peek(Comma) || input.peek(ThreeMinus) {
+                if input.peek(Comma) || input.peek(TwoMinus) {
                     // Not ideal, but this anticipatory break allows us to parse non-parenthesized
                     // flat Bsn entries in SceneLists
                     break;
@@ -234,11 +234,11 @@ impl Parse for BsnSceneListItems {
 
             // Try parsing without a comma or --- separator first. This makes autocomplete
             // work in more places
-            if !input.is_empty() && !(input.peek(Comma) || input.peek(ThreeMinus)) {
+            if !input.is_empty() && !(input.peek(Comma) || input.peek(TwoMinus)) {
                 let value = input.parse::<BsnSceneListItem>()?;
                 scenes.push(value);
             }
-            input.parse::<CommaOrThreeMinus>()?;
+            input.parse::<CommaOrTwoMinus>()?;
         }
 
         parse_punctuated_vec_autocomplete_friendly!(scenes, input, BsnSceneListItem, Comma);
@@ -246,23 +246,23 @@ impl Parse for BsnSceneListItems {
     }
 }
 
-struct CommaOrThreeMinus;
+struct CommaOrTwoMinus;
 
-impl Parse for CommaOrThreeMinus {
+impl Parse for CommaOrTwoMinus {
     fn parse(input: ParseStream) -> Result<Self> {
         if input.peek(Comma) {
             let _ = input.parse::<Comma>()?;
-            Ok(CommaOrThreeMinus)
-        } else if input.peek(ThreeMinus) {
-            let _ = input.parse::<ThreeMinus>()?;
-            Ok(CommaOrThreeMinus)
+            Ok(CommaOrTwoMinus)
+        } else if input.peek(TwoMinus) {
+            let _ = input.parse::<TwoMinus>()?;
+            Ok(CommaOrTwoMinus)
         } else {
-            Err(input.error("Expected ',' or '---'"))
+            Err(input.error("Expected ',' or '--'"))
         }
     }
 }
 
-custom_punctuation!(ThreeMinus, ---);
+custom_punctuation!(TwoMinus, --);
 
 impl Parse for BsnSceneListItem {
     fn parse(input: ParseStream) -> Result<Self> {

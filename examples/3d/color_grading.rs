@@ -179,7 +179,7 @@ fn pane_for_section(section: SectionColorGradingName, color_grading: &ColorGradi
                     @label(section.to_string())
                 ]
             ]
-            ---
+            --
             // Spawn the buttons.
             @pane_body() Children[
                 @make_button(SectionColorGradingSetting::Saturation),
@@ -214,7 +214,7 @@ fn number_input_for_value(
             Children[
                 @label(setting_label)
             ]
-            ---
+            --
             Node {
                 align_items: AlignItems::Center,
                 width: px(50),

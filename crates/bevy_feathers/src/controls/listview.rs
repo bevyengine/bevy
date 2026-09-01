@@ -90,7 +90,7 @@ impl FeathersListView {
                 Children [
                     {props.rows}
                 ]
-                ---
+                --
                 @FeathersScrollbar {
                     @target: #inner,
                     @orientation: {ControlOrientation::Vertical}

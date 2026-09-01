@@ -172,7 +172,7 @@ impl FeathersNumberInput {
                         )
                     })
                 }
-                ---
+                --
                 // The editable text entity
                 @FeathersTextInput {
                     @max_characters: 30usize, // 20 digits + units
@@ -230,7 +230,7 @@ impl FeathersNumberInput {
                     on(scrubber_on_drag)
                     on(scrubber_on_drag_end)
                     on(scrubber_on_drag_cancel)
-                    ---
+                    --
                     // The decrement chevron of a number input
                     Node {
                         position_type: PositionType::Absolute,
@@ -244,7 +244,7 @@ impl FeathersNumberInput {
                             rotation: Rot2::radians(std::f32::consts::FRAC_PI_2)
                         }
                     ]
-                    ---
+                    --
                     // The increment chevron of a number input
                     Node {
                         position_type: PositionType::Absolute,

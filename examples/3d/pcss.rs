@@ -211,7 +211,7 @@ fn spawn_buttons(commands: &mut Commands) {
                 ],
                 0,
             )
-            ---
+            --
             @radio::feathers_option_buttons(
                 "Shadow Filter",
                 &[
@@ -223,7 +223,7 @@ fn spawn_buttons(commands: &mut Commands) {
                 ],
                 0,
             )
-            ---
+            --
             @radio::feathers_option_buttons(
                 "Soft Shadows",
                 &[

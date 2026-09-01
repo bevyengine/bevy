@@ -63,12 +63,12 @@ fn demo_root() -> impl Scene {
                     counter.0 -= 1;
                 })
                 Children [ @caption("-1") ]
-                ---
+                --
                 Node {
                     margin: UiRect::horizontal(px(10.0)),
                 }
                 @caption("0") CounterText
-                ---
+                --
                 @FeathersButton
                 on(|_activate: On<Activate>, mut counter: ResMut<Counter>| {
                     counter.0 += 1;
