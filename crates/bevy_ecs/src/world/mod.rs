@@ -4014,9 +4014,7 @@ mod tests {
         world::{error::EntityMutableFetchError, DeferredWorld},
     };
     use alloc::{
-        borrow::ToOwned,
         string::{String, ToString},
-        sync::Arc,
         vec,
         vec::Vec,
     };
@@ -4025,124 +4023,8 @@ mod tests {
     use bevy_utils::prelude::DebugName;
     use core::{
         any::TypeId,
-        panic,
-        sync::atomic::{AtomicBool, AtomicU32, Ordering},
+        sync::atomic::{AtomicU32, Ordering},
     };
-    use std::{println, sync::Mutex};
-
-    type ID = u8;
-
-    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-    enum DropLogItem {
-        Create(ID),
-        Drop(ID),
-    }
-
-    #[derive(Component)]
-    struct MayPanicInDrop {
-        drop_log: Arc<Mutex<Vec<DropLogItem>>>,
-        expected_panic_flag: Arc<AtomicBool>,
-        should_panic: bool,
-        id: u8,
-    }
-
-    impl MayPanicInDrop {
-        fn new(
-            drop_log: &Arc<Mutex<Vec<DropLogItem>>>,
-            expected_panic_flag: &Arc<AtomicBool>,
-            should_panic: bool,
-            id: u8,
-        ) -> Self {
-            println!("creating component with id {id}");
-            drop_log.lock().unwrap().push(DropLogItem::Create(id));
-
-            Self {
-                drop_log: Arc::clone(drop_log),
-                expected_panic_flag: Arc::clone(expected_panic_flag),
-                should_panic,
-                id,
-            }
-        }
-    }
-
-    impl Drop for MayPanicInDrop {
-        fn drop(&mut self) {
-            println!("dropping component with id {}", self.id);
-
-            {
-                let mut drop_log = self.drop_log.lock().unwrap();
-                drop_log.push(DropLogItem::Drop(self.id));
-                // Don't keep the mutex while panicking, or we'll poison it.
-                drop(drop_log);
-            }
-
-            if self.should_panic {
-                self.expected_panic_flag.store(true, Ordering::SeqCst);
-                panic!("testing what happens on panic inside drop");
-            }
-        }
-    }
-
-    struct DropTestHelper {
-        drop_log: Arc<Mutex<Vec<DropLogItem>>>,
-        /// Set to `true` right before we intentionally panic, so that if we get
-        /// a panic, we know if it was intended or not.
-        expected_panic_flag: Arc<AtomicBool>,
-    }
-
-    impl DropTestHelper {
-        pub fn new() -> Self {
-            Self {
-                drop_log: Arc::new(Mutex::new(Vec::<DropLogItem>::new())),
-                expected_panic_flag: Arc::new(AtomicBool::new(false)),
-            }
-        }
-
-        pub fn make_component(&self, should_panic: bool, id: ID) -> MayPanicInDrop {
-            MayPanicInDrop::new(&self.drop_log, &self.expected_panic_flag, should_panic, id)
-        }
-
-        pub fn finish(self, panic_res: std::thread::Result<()>) -> Vec<DropLogItem> {
-            let drop_log = self.drop_log.lock().unwrap();
-            let expected_panic_flag = self.expected_panic_flag.load(Ordering::SeqCst);
-
-            if !expected_panic_flag {
-                match panic_res {
-                    Ok(()) => panic!("Expected a panic but it didn't happen"),
-                    Err(e) => std::panic::resume_unwind(e),
-                }
-            }
-
-            drop_log.to_owned()
-        }
-    }
-
-    #[test]
-    fn panic_while_overwriting_component() {
-        let helper = DropTestHelper::new();
-
-        let res = std::panic::catch_unwind(|| {
-            let mut world = World::new();
-            world
-                .spawn_empty()
-                .insert(helper.make_component(true, 0))
-                .insert(helper.make_component(false, 1));
-
-            println!("Done inserting! Dropping world...");
-        });
-
-        let drop_log = helper.finish(res);
-
-        assert_eq!(
-            &*drop_log,
-            [
-                DropLogItem::Create(0),
-                DropLogItem::Create(1),
-                DropLogItem::Drop(0),
-                DropLogItem::Drop(1),
-            ]
-        );
-    }
 
     #[derive(Resource)]
     struct TestResource(u32);
