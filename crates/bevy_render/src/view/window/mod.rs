@@ -1,4 +1,4 @@
-use crate::renderer::WgpuWrapper;
+use crate::renderer::wgpu_wrapper;
 use crate::sync_world::{MainEntity, RenderEntity, SyncToRenderWorld};
 use crate::{camera::extract_cameras, renderer::RenderQueue};
 use crate::{
@@ -33,7 +33,7 @@ impl Plugin for WindowRenderPlugin {
         // We can't use [`SyncComponentPlugin`] because it would introduce `bevy_render` as
         // a dependency to `bevy_window`
         {
-            app.add_observer(|trigger: On<Add, Window>, mut commands: Commands| {
+            app.add_observer(|trigger: On<Add<Window>>, mut commands: Commands| {
                 commands
                     .entity(trigger.entity)
                     .insert(SyncToRenderWorld::default());
@@ -209,10 +209,12 @@ fn extract_windows(
     }
 }
 
+// TODO: what lifetime should this be?
+wgpu_wrapper!(struct WgpuSurface(wgpu::Surface<'static>));
+
 #[derive(Component)]
 pub struct SurfaceData {
-    // TODO: what lifetime should this be?
-    surface: WgpuWrapper<wgpu::Surface<'static>>,
+    surface: WgpuSurface,
     configuration: SurfaceConfiguration,
     texture_view_format: Option<TextureFormat>,
 }
@@ -426,7 +428,7 @@ pub fn create_surfaces(
             render_device.configure_surface(&surface, &configuration);
 
             commands.entity(entity).insert(SurfaceData {
-                surface: WgpuWrapper::new(surface),
+                surface: WgpuSurface::new(surface),
                 configuration,
                 texture_view_format,
             });

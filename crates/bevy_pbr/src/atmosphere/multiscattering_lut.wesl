@@ -1,4 +1,4 @@
-import bevy_pbr::{
+import package::{
     atmosphere::{
         bindings::{atmosphere, settings},
         functions::{

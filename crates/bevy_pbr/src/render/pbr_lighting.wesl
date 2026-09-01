@@ -1,10 +1,10 @@
-import bevy_pbr::{
-    render::mesh_view_types::POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE,
+import package::{
+    render::mesh_view_types::{POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE, RectLight},
     render::mesh_view_bindings as view_bindings,
     atmosphere::functions::{calculate_visible_sun_ratio, clamp_to_surface},
     atmosphere::bruneton_functions::transmittance_lut_r_mu_to_uv,
 };
-import bevy_render::maths::{PI, orthonormalize};
+import bevy_render::maths::{PI, orthonormalize, quat_rotate};
 
 const LAYER_BASE: u32 = 0;
 const LAYER_CLEARCOAT: u32 = 1;
@@ -296,7 +296,8 @@ fn G_Smith(NdotV: f32, NdotL: f32, roughness: f32) -> f32 {
 //
 // https://google.github.io/filament/Filament.md.html#materialsystem/clearcoatmodel
 fn V_Kelemen(LdotH: f32) -> f32 {
-    return 0.25 / (LdotH * LdotH);
+    let l_dot_h = max(LdotH, 0.0001);
+    return 0.25 / (l_dot_h * l_dot_h);
 }
 
 // Fresnel function
@@ -1015,8 +1016,28 @@ fn ltc_integrate_quad(
 }
 
 @if(AREA_LIGHT_LUTS)
+// Decodes a rect light packed into a `ClusteredLight` (see `GpuClusteredLight`
+// in bevy_pbr/src/cluster/mod.rs).
+fn unpack_clustered_rect_light(light_id: u32) -> RectLight {
+    let light = &view_bindings::clustered_lights.data[light_id];
+    let rotation = (*light).light_custom_data;
+    return RectLight(
+        vec4<f32>((*light).color_inverse_square_range.xyz, 1.0),
+        (*light).position_radius.xyz,
+        // width
+        (*light).position_radius.w,
+        quat_rotate(rotation, vec3<f32>(1.0, 0.0, 0.0)),
+        // height
+        (*light).color_inverse_square_range.w,
+        quat_rotate(rotation, vec3<f32>(0.0, 1.0, 0.0)),
+        (*light).range,
+    );
+}
+
+
+@if(AREA_LIGHT_LUTS)
 fn rect_light(
-    light_id: u32,
+    light: ptr<function, RectLight>,
     input: ptr<function, LightingInput>,
     enable_diffuse: bool,
 ) -> vec3<f32> {
@@ -1028,7 +1049,6 @@ fn rect_light(
     let NdotV = (*input).layers[LAYER_BASE].NdotV;
     let perceptual_roughness = (*input).layers[LAYER_BASE].perceptual_roughness;
 
-    let light = &view_bindings::lights.rect_lights[light_id];
     let light_to_frag = (*light).position - P;
     let distance_square = dot(light_to_frag, light_to_frag);
     let inverse_range_squared = 1.0 / max((*light).range * (*light).range, 0.0001);
@@ -1036,7 +1056,7 @@ fn rect_light(
 
     let light_normal = cross((*light).up, (*light).right);
     let hw = (*light).right * (*light).width  * 0.5;
-    let hh = (*light).up   * (*light).height * 0.5;
+    let hh = (*light).up * (*light).height * 0.5;
     var corners: array<vec3<f32>, 4>;
     corners[0] = (*light).position + hw - hh;
     corners[1] = (*light).position - hw - hh;

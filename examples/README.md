@@ -303,7 +303,10 @@ Example | Description
 [Custom Projection](../examples/camera/custom_projection.rs) | Shows how to create custom camera projections.
 [First person view model](../examples/camera/first_person_view_model.rs) | A first-person camera that uses a world model and a view model with different field of views (FOV)
 [Free Camera controller](../examples/camera/free_camera_controller.rs) | Demonstrates the FreeCamera controller for 3D scenes.
+[Minimal Pan Orbit Camera](../examples/camera/pan_orbit_camera_minimal.rs) | Minimum setup for working PanOrbitCamera
+[Orthographic Pan Orbit Camera](../examples/camera/pan_orbit_camera_ortho.rs) | Using Pan Orbit Camera in orthographic-only projection
 [Pan Camera](../examples/camera/pan_camera_controller.rs) | Example Pan-Camera Styled Camera Controller for 2D scenes
+[Pan Orbit Camera](../examples/camera/pan_orbit_camera_cad.rs) | CAD-like controls and setup for PanOrbitCamera
 [Projection Zoom](../examples/camera/projection_zoom.rs) | Shows how to zoom orthographic and perspective projection cameras.
 [Screen Shake](../examples/camera/2d_screen_shake.rs) | A simple 2D screen shake effect
 
@@ -490,6 +493,7 @@ Example | Description
 [Custom phase item](../examples/shader_advanced/custom_phase_item.rs) | Demonstrates how to enqueue custom draw commands in a render phase
 [Extended Bindless Material](../examples/shader/extended_material_bindless.rs) | Demonstrates bindless `ExtendedMaterial`
 [Extended Material](../examples/shader/extended_material.rs) | A custom shader that builds on the standard material
+[GPU Component Array Buffer](../examples/shader/gpu_component_array_buffer.rs) | Shows how to expose per-mesh-instance data to the GPU
 [GPU readback](../examples/shader/gpu_readback.rs) | A very simple compute shader that writes to a buffer that is read by the cpu
 [Instancing](../examples/shader/automatic_instancing.rs) | Shows that multiple instances of a cube are automatically instanced in one draw call
 [Instancing](../examples/shader_advanced/custom_shader_instancing.rs) | A shader that renders a mesh multiple times in one draw call using low level rendering api
@@ -610,6 +614,7 @@ Example | Description
 [Generic Font Families](../examples/ui/text/generic_font_families.rs) | Demonstrates how to use generic font families
 [Ghost Nodes](../examples/ui/layout/ghost_nodes.rs) | Demonstrates the use of Ghost Nodes to skip entities in the UI layout hierarchy
 [Gradients](../examples/ui/styling/gradients.rs) | An example demonstrating gradients
+[Headless Tabs](../examples/ui/widgets/headless_tabs.rs) | Demonstrates controlled and self-updating headless tab lists
 [IME Support](../examples/ui/text/ime_support.rs) | Demonstrates IME (Input Method Editor) support for text input
 [Image Node](../examples/ui/images/image_node.rs) | Demonstrates how to create an image node
 [Image Node Resizing](../examples/ui/images/image_node_resizing.rs) | Demonstrates how to resize an image node

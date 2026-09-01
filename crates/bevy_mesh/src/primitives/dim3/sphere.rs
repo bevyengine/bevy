@@ -1,7 +1,8 @@
 use crate::{Indices, Mesh, MeshBuilder, Meshable, PrimitiveTopology};
 use bevy_asset::RenderAssetUsages;
-use bevy_math::{ops, primitives::Sphere};
+use bevy_math::ops;
 use bevy_reflect::prelude::*;
+use bevy_shape::Sphere;
 use core::f32::consts::PI;
 use hexasphere::shapes::IcoSphere;
 use thiserror::Error;

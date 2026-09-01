@@ -163,6 +163,9 @@ pub fn solari_lighting(
         return;
     };
 
+    // Past every bail-out, so this view's reservoirs will be brought up to this frame's light ids
+    scene_bindings.note_light_translations_consumed();
+
     let view_target_attachment = view_target.get_unsampled_color_attachment();
 
     let s = solari_lighting_resources;
@@ -203,6 +206,7 @@ pub fn solari_lighting(
                 &d.diffuse_albedo.default_view,
                 &d.specular_albedo.default_view,
                 &d.normal_roughness.default_view,
+                &d.depth.default_view,
                 &d.specular_motion_vectors.default_view,
             )),
         )
@@ -339,7 +343,7 @@ pub fn init_solari_lighting_pipelines(
                 storage_buffer_sized(false, None),
                 texture_2d(TextureSampleType::Uint),
                 texture_depth_2d(),
-                texture_2d(TextureSampleType::Float { filterable: true }),
+                texture_storage_2d(TextureFormat::Rg16Float, StorageTextureAccess::ReadWrite),
                 texture_2d(TextureSampleType::Uint),
                 texture_depth_2d(),
                 uniform_buffer::<ViewUniform>(true),
@@ -364,6 +368,7 @@ pub fn init_solari_lighting_pipelines(
                 texture_storage_2d(TextureFormat::Rgba8Unorm, StorageTextureAccess::WriteOnly),
                 texture_storage_2d(TextureFormat::Rgba8Unorm, StorageTextureAccess::WriteOnly),
                 texture_storage_2d(TextureFormat::Rgba16Float, StorageTextureAccess::WriteOnly),
+                texture_storage_2d(TextureFormat::R32Float, StorageTextureAccess::WriteOnly),
                 texture_storage_2d(TextureFormat::Rg16Float, StorageTextureAccess::WriteOnly),
             ),
         ),

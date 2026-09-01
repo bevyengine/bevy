@@ -1,4 +1,4 @@
-import bevy_pbr::{
+import package::{
     render::{
         pbr_types,
         pbr_bindings,
@@ -19,19 +19,19 @@ import bevy_pbr::{
     },
     ssr::raymarch,
 };
-import bevy_pbr::render::mesh_view_bindings::globals;
-import bevy_pbr::render::view_transformations::{position_world_to_ndc};
+import package::render::mesh_view_bindings::globals;
+import package::render::view_transformations::{position_world_to_ndc};
 import bevy_render::maths::{E, powsafe};
 
-@if(STANDARD_MATERIAL_SPECULAR_TRANSMISSION) import bevy_pbr::transmission;
+@if(STANDARD_MATERIAL_SPECULAR_TRANSMISSION) import package::transmission;
 
-@if(IRRADIANCE_VOLUME) import bevy_pbr::light_probe::irradiance_volume;
+@if(IRRADIANCE_VOLUME) import package::light_probe::irradiance_volume;
 
-@if(MESHLET_MESH_MATERIAL_PASS) import bevy_pbr::meshlet::visibility_buffer_resolve::VertexOutput;
-@elif(PREPASS_PIPELINE) import bevy_pbr::prepass::io::VertexOutput;
-@else import bevy_pbr::render::forward_io::VertexOutput;
+@if(MESHLET_MESH_MATERIAL_PASS) import package::meshlet::visibility_buffer_resolve::VertexOutput;
+@elif(PREPASS_PIPELINE) import package::prepass::io::VertexOutput;
+@else import package::render::forward_io::VertexOutput;
 
-@if(ENVIRONMENT_MAP) import bevy_pbr::light_probe::environment_map;
+@if(ENVIRONMENT_MAP) import package::light_probe::environment_map;
 
 @if(TONEMAP_IN_SHADER) import bevy_core_pipeline::tonemapping::{tone_mapping, screen_space_dither};
 
@@ -515,7 +515,7 @@ fn apply_pbr_lighting(
 
     // Spot lights (direct)
     for (var i: u32 = clusterable_object_index_ranges.first_spot_light_index_offset;
-            i < clusterable_object_index_ranges.first_reflection_probe_index_offset;
+            i < clusterable_object_index_ranges.first_rect_light_index_offset;
             i = i + 1u) {
         let light_id = clustering::get_clusterable_object_id(i);
 
@@ -642,15 +642,28 @@ fn apply_pbr_lighting(
 
 @if(AREA_LIGHT_LUTS) {
     // Rect lights
-    let n_rect_lights = view_bindings::lights.n_rect_lights;
-    for (var i: u32 = 0u; i < n_rect_lights; i = i + 1u) {
+    // This combines a clustered path if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
+    // and a non-clustered fallback for WebGL2.
+@if(AVAILABLE_STORAGE_BUFFER_BINDINGS__GE_3)
+    let rect_light_start = clusterable_object_index_ranges.first_rect_light_index_offset;
+@if(AVAILABLE_STORAGE_BUFFER_BINDINGS__GE_3)
+    let rect_light_end = clusterable_object_index_ranges.first_reflection_probe_index_offset;
+@if(!AVAILABLE_STORAGE_BUFFER_BINDINGS__GE_3)
+    let rect_light_start = 0u;
+@if(!AVAILABLE_STORAGE_BUFFER_BINDINGS__GE_3)
+    let rect_light_end = view_bindings::lights.n_rect_lights;
+    for (var i: u32 = rect_light_start; i < rect_light_end; i = i + 1u) {
+@if(AVAILABLE_STORAGE_BUFFER_BINDINGS__GE_3)
+        var light = lighting::unpack_clustered_rect_light(clustering::get_clusterable_object_id(i));
+@if(!AVAILABLE_STORAGE_BUFFER_BINDINGS__GE_3)
+        var light = view_bindings::lights.rect_lights[i];
         let enable_diffuse = true;
-        let light_contrib = lighting::rect_light(i, &lighting_input, enable_diffuse);
+        let light_contrib = lighting::rect_light(&light, &lighting_input, enable_diffuse);
         direct_light += light_contrib;
 
     @if(STANDARD_MATERIAL_DIFFUSE_TRANSMISSION) {
         let transmitted_light_contrib =
-            lighting::rect_light(i, &transmissive_lighting_input, enable_diffuse);
+            lighting::rect_light(&light, &transmissive_lighting_input, enable_diffuse);
         transmitted_light += transmitted_light_contrib;
     }
     }
@@ -897,13 +910,13 @@ fn apply_fog(
     }
 
     if fog_params.mode == mesh_view_types::FOG_MODE_LINEAR {
-        return bevy_pbr::render::fog::linear_fog(fog_params, input_color, distance, scattering);
+        return package::render::fog::linear_fog(fog_params, input_color, distance, scattering);
     } else if fog_params.mode == mesh_view_types::FOG_MODE_EXPONENTIAL {
-        return bevy_pbr::render::fog::exponential_fog(fog_params, input_color, distance, scattering);
+        return package::render::fog::exponential_fog(fog_params, input_color, distance, scattering);
     } else if fog_params.mode == mesh_view_types::FOG_MODE_EXPONENTIAL_SQUARED {
-        return bevy_pbr::render::fog::exponential_squared_fog(fog_params, input_color, distance, scattering);
+        return package::render::fog::exponential_squared_fog(fog_params, input_color, distance, scattering);
     } else if fog_params.mode == mesh_view_types::FOG_MODE_ATMOSPHERIC {
-        return bevy_pbr::render::fog::atmospheric_fog(fog_params, input_color, distance, scattering);
+        return package::render::fog::atmospheric_fog(fog_params, input_color, distance, scattering);
     } else {
         return input_color;
     }

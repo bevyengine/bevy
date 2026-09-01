@@ -129,6 +129,54 @@ impl<'w> UnsafeWorldCell<'w> {
         }
     }
 
+    /// Creates a pointer from [`UnsafeWorldCell`] that allows mutable access.
+    ///
+    /// This function is safe because to use a raw pointer once must dereference it in an unsafe
+    /// block
+    pub fn as_ptr_mut(self) -> *mut World {
+        #[cfg(debug_assertions)]
+        self.assert_allows_mutable_access();
+        self.ptr
+    }
+
+    /// Creates a pointer from [`UnsafeWorldCell`] that does not allow mutable access.
+    ///
+    /// This function is safe because to use a raw pointer once must dereference it in an unsafe
+    /// block
+    pub fn as_ptr_ref(self) -> *const World {
+        self.ptr.cast_const()
+    }
+
+    /// Creates [`UnsafeWorldCell`] directly from a raw pointer that can be used to access
+    /// everything mutably
+    /// # Safety
+    /// - `world` must be a pointer obtained from [`UnsafeWorldCell::as_ptr_mut`]
+    ///   within the lifetime of the original [`UnsafeWorldCell`] it was obtained from
+    #[inline]
+    pub unsafe fn new_mutable_from_ptr(world: *mut World) -> Self {
+        Self {
+            ptr: world,
+            #[cfg(debug_assertions)]
+            allows_mutable_access: true,
+            _marker: PhantomData,
+        }
+    }
+
+    /// Creates a [`UnsafeWorldCell`] directly from a raw pointer that can be used to access
+    /// everything immutably
+    /// # Safety
+    /// - `world` must be a pointer obtained from [`UnsafeWorldCell::as_ptr_ref`]
+    ///   within the lifetime of the original [`UnsafeWorldCell`] it was obtained from
+    #[inline]
+    pub unsafe fn new_readonly_from_ptr(world: *const World) -> Self {
+        Self {
+            ptr: world.cast_mut(),
+            #[cfg(debug_assertions)]
+            allows_mutable_access: false,
+            _marker: PhantomData,
+        }
+    }
+
     #[cfg_attr(debug_assertions, inline(never), track_caller)]
     #[cfg_attr(not(debug_assertions), inline(always))]
     pub(crate) fn assert_allows_mutable_access(self) {
@@ -632,7 +680,9 @@ impl<'w> UnsafeWorldCell<'w> {
             // SAFETY: This function has exclusive access to the world so nothing aliases `ticks`.
             // - index is in-bounds because the column is initialized and non-empty
             // - no other reference to the ticks of the same row can exist at the same time
-            unsafe { ComponentTicksMut::from_tick_cells(ticks, self.last_change_tick(), change_tick) };
+            unsafe {
+                ComponentTicksMut::from_tick_cells(ticks, self.last_change_tick(), change_tick)
+            };
 
         Some(MutUntyped {
             // SAFETY: This function has exclusive access to the world so nothing aliases `ptr`.
@@ -1013,10 +1063,12 @@ impl<'w> UnsafeEntityCell<'w> {
                 self.entity,
                 self.location,
             )
-            .map(|(value, cells)| Mut {
-                // SAFETY: returned component is of type T
-                value: value.assert_unique().deref_mut::<T>(),
-                ticks: ComponentTicksMut::from_tick_cells(cells, last_change_tick, change_tick),
+            .map(|(value, cells)| {
+                Mut {
+                    // SAFETY: returned component is of type T
+                    value: value.assert_unique().deref_mut::<T>(),
+                    ticks: ComponentTicksMut::from_tick_cells(cells, last_change_tick, change_tick),
+                }
             })
         }
     }
@@ -1135,10 +1187,12 @@ impl<'w> UnsafeEntityCell<'w> {
                 self.entity,
                 self.location,
             )
-            .map(|(value, cells)| MutUntyped {
-                // SAFETY: world access validated by caller and ties world lifetime to `MutUntyped` lifetime
-                value: value.assert_unique(),
-                ticks: ComponentTicksMut::from_tick_cells(cells, self.last_run, self.this_run),
+            .map(|(value, cells)| {
+                MutUntyped {
+                    // SAFETY: world access validated by caller and ties world lifetime to `MutUntyped` lifetime
+                    value: value.assert_unique(),
+                    ticks: ComponentTicksMut::from_tick_cells(cells, self.last_run, self.this_run),
+                }
             })
             .ok_or(GetEntityMutByIdError::ComponentNotFound)
         }
@@ -1178,10 +1232,12 @@ impl<'w> UnsafeEntityCell<'w> {
                 self.entity,
                 self.location,
             )
-            .map(|(value, cells)| MutUntyped {
-                // SAFETY: world access validated by caller and ties world lifetime to `MutUntyped` lifetime
-                value: value.assert_unique(),
-                ticks: ComponentTicksMut::from_tick_cells(cells, self.last_run, self.this_run),
+            .map(|(value, cells)| {
+                MutUntyped {
+                    // SAFETY: world access validated by caller and ties world lifetime to `MutUntyped` lifetime
+                    value: value.assert_unique(),
+                    ticks: ComponentTicksMut::from_tick_cells(cells, self.last_run, self.this_run),
+                }
             })
             .ok_or(GetEntityMutByIdError::ComponentNotFound)
         }
@@ -1309,6 +1365,7 @@ unsafe fn get_component_and_ticks(
                         changed_by: table
                             .get_changed_by(component_id, location.table_row)
                             .map(|changed_by| changed_by.debug_checked_unwrap()),
+                        summary_tick: table.get_summary_tick(component_id),
                     },
                 )
             })

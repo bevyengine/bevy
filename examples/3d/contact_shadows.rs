@@ -198,7 +198,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_status: Res
             Transform::from_rotation(Quat::from_rotation_y(std::f32::consts::PI)),
         ))
         .observe(
-            |event: On<Pointer<Drag>>,
+            |event: On<PointerDrag>,
              mut query: Query<&mut Transform, With<WorldAssetRoot>>,
              mut commands: Commands,
              mut window: Query<Entity, With<PrimaryWindow>>| {
@@ -211,7 +211,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_status: Res
             },
         )
         .observe(
-            |_: On<Pointer<Over>>,
+            |_: On<PointerOver>,
              mut commands: Commands,
              mut window: Query<Entity, With<PrimaryWindow>>| {
                 commands
@@ -220,7 +220,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_status: Res
             },
         )
         .observe(
-            |_: On<Pointer<Out>>,
+            |_: On<PointerOut>,
              mut commands: Commands,
              mut window: Query<Entity, With<PrimaryWindow>>| {
                 commands
@@ -229,7 +229,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_status: Res
             },
         )
         .observe(
-            |_: On<Pointer<DragEnd>>,
+            |_: On<PointerDragEnd>,
              mut commands: Commands,
              mut window: Query<Entity, With<PrimaryWindow>>| {
                 commands
@@ -284,9 +284,9 @@ fn rotate_light(
 
 fn spawn_buttons(commands: &mut Commands, app_status: &AppStatus) {
     commands.spawn_scene(bsn! {
-        main_ui_node_scene()
+        @main_ui_node_scene()
         Children [
-            feathers_option_buttons(
+            @feathers_option_buttons(
                 "Contact Shadows",
                 &[
                     (
@@ -307,7 +307,7 @@ fn spawn_buttons(commands: &mut Commands, app_status: &AppStatus) {
                     }
                 },
             ),
-            feathers_option_buttons(
+            @feathers_option_buttons(
                 "Shadow Maps",
                 &[
                     (ExampleSetting::ShadowMaps(ShadowMaps::Enabled), "On"),
@@ -322,7 +322,7 @@ fn spawn_buttons(commands: &mut Commands, app_status: &AppStatus) {
                     }
                 },
             ),
-            feathers_option_buttons(
+            @feathers_option_buttons(
                 "Light Rotation",
                 &[
                     (ExampleSetting::LightRotation(LightRotation::Rotating), "On"),
@@ -340,7 +340,7 @@ fn spawn_buttons(commands: &mut Commands, app_status: &AppStatus) {
                     }
                 },
             ),
-            feathers_option_buttons(
+            @feathers_option_buttons(
                 "Light Type",
                 &[
                     (
@@ -358,7 +358,7 @@ fn spawn_buttons(commands: &mut Commands, app_status: &AppStatus) {
                     }
                 },
             ),
-            feathers_option_buttons(
+            @feathers_option_buttons(
                 "Receive Shadows",
                 &[
                     (

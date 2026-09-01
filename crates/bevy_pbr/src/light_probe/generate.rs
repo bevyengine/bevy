@@ -131,11 +131,7 @@ impl Plugin for EnvironmentMapGenerationPlugin {
         embedded_asset!(app, "environment_filter.wesl");
         embedded_asset!(app, "copy.wesl");
 
-        app.add_plugins(SyncComponentPlugin::<
-            GeneratedEnvironmentMapLight,
-            RenderApp,
-            Self,
-        >::default())
+        app.add_plugins(SyncComponentPlugin::<GeneratedEnvironmentMapLight, Self>::default())
             .add_systems(
                 Update,
                 (

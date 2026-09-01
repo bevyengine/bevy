@@ -47,10 +47,10 @@ pub fn settings_ui() -> impl Scene {
             padding: px(8),
         }
         ThemeBackgroundColor(feathers::tokens::WINDOW_BG)
-        on(|_: On<Pointer<Over>>, mut free_camera_state: Single<&mut FreeCameraState>| {
+        on(|_: On<PointerOver>, mut free_camera_state: Single<&mut FreeCameraState>| {
             free_camera_state.enabled = false;
         })
-        on(|_: On<Pointer<Out>>, mut free_camera_state: Single<&mut FreeCameraState>| {
+        on(|_: On<PointerOut>, mut free_camera_state: Single<&mut FreeCameraState>| {
             free_camera_state.enabled = true;
         })
         Children [(
@@ -65,7 +65,7 @@ pub fn settings_ui() -> impl Scene {
                 Text("Settings"),
                 (
                     @FeathersCheckbox {
-                        @caption: bsn! { caption("Simulate Cars") }
+                        @caption: bsn! { @caption("Simulate Cars") }
                     }
                     Checked
                     on(checkbox_self_update)
@@ -75,7 +75,7 @@ pub fn settings_ui() -> impl Scene {
                 ),
                 (
                     @FeathersCheckbox {
-                        @caption: bsn! { caption("Shadow maps enabled") }
+                        @caption: bsn! { @caption("Shadow maps enabled") }
                     }
                     Checked
                     on(checkbox_self_update)
@@ -93,7 +93,7 @@ pub fn settings_ui() -> impl Scene {
                 ),
                 (
                     @FeathersCheckbox {
-                        @caption: bsn! { caption("Contact shadows enabled") }
+                        @caption: bsn! { @caption("Contact shadows enabled") }
                     }
                     Checked
                     on(checkbox_self_update)
@@ -111,7 +111,7 @@ pub fn settings_ui() -> impl Scene {
                 ),
                 (
                     @FeathersCheckbox {
-                        @caption: bsn! { caption("Wireframe Enabled") }
+                        @caption: bsn! { @caption("Wireframe Enabled") }
                     }
                     on(checkbox_self_update)
                     on(
@@ -125,7 +125,7 @@ pub fn settings_ui() -> impl Scene {
                 ),
                 (
                     @FeathersCheckbox {
-                        @caption: bsn! { caption("CPU culling") }
+                        @caption: bsn! { @caption("CPU culling") }
                     }
                     Checked
                     on(checkbox_self_update)
@@ -148,7 +148,7 @@ pub fn settings_ui() -> impl Scene {
                 ),
                 (
                     @FeathersButton {
-                        @caption: bsn! { caption("Regenerate City") }
+                        @caption: bsn! { @caption("Regenerate City") }
                     }
                     on(
                         |_activate: On<Activate>,
