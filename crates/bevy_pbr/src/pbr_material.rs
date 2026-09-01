@@ -1079,19 +1079,12 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
         if self.emissive_texture.is_some() {
             flags |= StandardMaterialFlags::EMISSIVE_TEXTURE;
         }
-        if let Some(texture) = &self.metallic_roughness_texture {
+        if let Some(handle) = &self.metallic_roughness_texture {
             flags |= StandardMaterialFlags::METALLIC_ROUGHNESS_TEXTURE;
-            if let Some(texture) = images.get(texture.id()) {
-                match texture.texture_descriptor.format {
-                    // Dedicated 2-component unorm formats.
-                    TextureFormat::Rg8Unorm
-                    | TextureFormat::Rg16Unorm
-                    | TextureFormat::Bc5RgUnorm
-                    | TextureFormat::EacRg11Unorm => {
-                        flags |= StandardMaterialFlags::METALLIC_ROUGHNESS_RG;
-                    }
-                    _ => {}
-                }
+            if images.get(handle.id()).is_some_and(|texture| {
+                texture.texture_descriptor.format.channels() == TextureChannel::RG
+            }) {
+                flags |= StandardMaterialFlags::METALLIC_ROUGHNESS_RG;
             }
         }
         if self.occlusion_texture.is_some() {
