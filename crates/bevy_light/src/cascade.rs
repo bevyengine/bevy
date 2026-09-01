@@ -56,6 +56,7 @@ fn calculate_cascade_bounds(
 }
 
 /// Builder for [`CascadeShadowConfig`].
+#[derive(Clone)]
 pub struct CascadeShadowConfigBuilder {
     /// The number of shadow cascades.
     /// More cascades increases shadow quality by mitigating perspective aliasing - a phenomenon where areas

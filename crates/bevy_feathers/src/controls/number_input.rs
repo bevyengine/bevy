@@ -192,7 +192,7 @@ impl FeathersNumberInput {
                         },
                     }
                     Hovered
-                    template_value(LineHeight::Px(24.0)) // TODO: Make const for this
+                    LineHeight::Px(24.0) // TODO: Make const for this
                     TextLayout {
                         justify: Justify::Center,
                     }
@@ -242,7 +242,7 @@ impl FeathersNumberInput {
                             }
                             NumberInputDecrement
                             Children [
-                                icon(icons::CHEVRON_DOWN)
+                                @icon(icons::CHEVRON_DOWN)
                                 UiTransform {
                                     rotation: Rot2::radians(std::f32::consts::FRAC_PI_2)
                                 }
@@ -257,7 +257,7 @@ impl FeathersNumberInput {
                             }
                             NumberInputIncrement
                             Children [
-                                icon(icons::CHEVRON_RIGHT),
+                                @icon(icons::CHEVRON_RIGHT),
                             ]
                         ),
                     ]
