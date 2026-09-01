@@ -76,13 +76,6 @@ pub mod prelude {
     #[doc(hidden)]
     #[cfg(feature = "rand")]
     pub use crate::sampling::FromRng;
-
-    #[cfg(feature = "alloc")]
-    #[doc(hidden)]
-    pub use crate::cubic_splines::{
-        CubicBSpline, CubicBezier, CubicCardinalSpline, CubicCurve, CubicGenerator, CubicHermite,
-        CubicNurbs, CyclicCubicGenerator, RationalCurve, RationalGenerator,
-    };
 }
 
 pub use glam::prelude::*;
