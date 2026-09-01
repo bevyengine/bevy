@@ -244,43 +244,25 @@ impl BsnEntry {
                     BsnConstructor {
                         type_path,
                         function,
+                        function_generics,
                         args,
                     },
                 dot_expression,
             } => EntryResult::CombinedSceneFunction({
-                let args = args.to_tokens(ctx);
-                if let Some(dot_expr) = dot_expression {
-                    quote! {
-                        _scene.insert_template::<#type_path>(#type_path::#function #args #dot_expr);
-                    }
-                } else {
-                    quote! {
-                        _scene.insert_template::<#type_path>(#type_path::#function #args);
-                    }
-                })
-            }
-            BsnEntry::TemplateConst {
-                type_path,
-                const_ident,
-            } => EntryResult::CombinedSceneFunction(quote! {
-                let __value = _scene.get_or_insert_template::<#type_path>(_context);
-                *__value = #type_path::#const_ident;
-            }),
-            BsnEntry::TemplateConstructor(BsnConstructor {
-                type_path,
-                function,
-                function_generics,
-                args,
-            }) => EntryResult::CombinedSceneFunction({
                 let args = args.to_tokens(ctx);
                 let generics_tokens = if let Some(function_generics) = function_generics {
                     quote! { #function_generics }
                 } else {
                     quote! {}
                 };
-                quote! {
-                    let __value = _scene.get_or_insert_template::<#type_path>(_context);
-                    *__value = #type_path::#function #generics_tokens #args;
+                if let Some(dot_expr) = dot_expression {
+                    quote! {
+                        _scene.insert_template::<#type_path>(#type_path::#function #generics_tokens #args #dot_expr);
+                    }
+                } else {
+                    quote! {
+                        _scene.insert_template::<#type_path>(#type_path::#function #generics_tokens #args);
+                    }
                 }
             }),
             BsnEntry::FromTemplateConstructor {
@@ -1155,8 +1137,7 @@ mod tests {
         // Arrange
         let expected = "bevy_scene :: SceneScope ({ let _res = bevy_scene :: auto_nest_tuple ! "
             .to_string()
-            + "(bevy_scene :: SceneFunction (move | _context , _scene | { let __value = _scene . get_or_insert_template :: < A > (_context) ; "
-            + "* __value = A :: from :: < B > () ; })) ; _res })";
+            + "(bevy_scene :: SceneFunction (move | _context , _scene | { _scene . insert_template :: < A > (A :: from :: < B > ()) ; })) ; _res })";
 
         let mut refs = EntityRefs::default();
         let paths = TestPaths::new();
@@ -1177,8 +1158,7 @@ mod tests {
         // Arrange
         let expected = "bevy_scene :: SceneScope ({ let _res = bevy_scene :: auto_nest_tuple ! "
             .to_string()
-            + "(bevy_scene :: SceneFunction (move | _context , _scene | { let __value = _scene . get_or_insert_template :: << A as bevy_ecs :: template :: FromTemplate > :: Template > (_context) ; "
-            + "* __value = < A as bevy_ecs :: template :: FromTemplate > :: Template :: from :: < B > () ; })) ; _res })";
+        + "(bevy_scene :: SceneFunction (move | _context , _scene | { _scene . insert_template (< A as bevy_ecs :: template :: FromTemplate > :: Template :: from :: < B > ()) ; })) ; _res })";
 
         let mut refs = EntityRefs::default();
         let paths = TestPaths::new();
