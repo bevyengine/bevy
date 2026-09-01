@@ -47,73 +47,73 @@ fn showcase() -> impl SceneList {
             BackgroundColor(Color::srgb(0.06, 0.07, 0.09))
             TabGroup
             Children [
-                section_label("Horizontal automatic - self-updating"),
+                @section_label("Horizontal automatic - self-updating"),
                 (
                     #automatic
-                    tab_strip(ControlOrientation::Horizontal)
+                    @tab_strip(ControlOrientation::Horizontal)
                     TabList {
                         orientation: ControlOrientation::Horizontal,
                         activation: TabActivation::Automatic,
                     }
-                    selected_tab(#automatic_general)
+                    @selected_tab(#automatic_general)
                     on(tablist_self_update)
                     Children [
                         (
                             #automatic_general
-                            tab_header("General")
+                            @tab_header("General")
                         ),
-                        tab_header("Rendering"),
+                        @tab_header("Rendering"),
                         (
-                            tab_header("Disabled")
+                            @tab_header("Disabled")
                             InteractionDisabled
                         ),
                     ]
                 ),
-                section_label("Horizontal manual - focus and selection are separate"),
+                @section_label("Horizontal manual - focus and selection are separate"),
                 (
-                    tab_strip(ControlOrientation::Horizontal)
+                    @tab_strip(ControlOrientation::Horizontal)
                     TabList::default()
-                    selected_tab(#manual_scene)
+                    @selected_tab(#manual_scene)
                     on(tablist_self_update)
                     Children [
                         (
                             #manual_scene
-                            tab_header("Scene")
+                            @tab_header("Scene")
                         ),
-                        tab_header("Assets"),
-                        tab_header("Inspector"),
+                        @tab_header("Assets"),
+                        @tab_header("Inspector"),
                     ]
                 ),
-                section_label("Vertical manual"),
+                @section_label("Vertical manual"),
                 (
-                    tab_strip(ControlOrientation::Vertical)
+                    @tab_strip(ControlOrientation::Vertical)
                     TabList {
                         orientation: ControlOrientation::Vertical,
                         activation: TabActivation::Manual,
                     }
-                    selected_tab(#vertical_transform)
+                    @selected_tab(#vertical_transform)
                     on(tablist_self_update)
                     Children [
                         (
                             #vertical_transform
-                            tab_header("Transform")
+                            @tab_header("Transform")
                         ),
-                        tab_header("Visibility"),
-                        tab_header("Metadata"),
+                        @tab_header("Visibility"),
+                        @tab_header("Metadata"),
                     ]
                 ),
-                section_label("Controlled - observer updates external state"),
+                @section_label("Controlled - observer updates external state"),
                 (
-                    tab_strip(ControlOrientation::Horizontal)
+                    @tab_strip(ControlOrientation::Horizontal)
                     TabList::default()
-                    selected_tab(#controlled_a)
+                    @selected_tab(#controlled_a)
                     on(controlled_selection)
                     Children [
                         (
                             #controlled_a
-                            tab_header("External A")
+                            @tab_header("External A")
                         ),
-                        tab_header("External B"),
+                        @tab_header("External B"),
                     ]
                 ),
             ]
@@ -150,7 +150,7 @@ fn tab_header(label: &'static str) -> impl Scene {
             justify_content: JustifyContent::Center,
         }
         BackgroundColor(Color::srgb(0.13, 0.14, 0.18))
-        template_value(BorderColor::all(Color::srgb(0.24, 0.25, 0.30)))
+        BorderColor::all(Color::srgb(0.24, 0.25, 0.30))
         Children [(
             Text(label)
             TextFont {
