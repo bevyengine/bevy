@@ -214,36 +214,23 @@ pub fn propagate_ui_target_cameras(
 
 #[cfg(test)]
 mod tests {
-    use crate::update::{propagate_ui_target_cameras, update_clipping_system};
-    use crate::update::{propagate_ui_target_cameras, update_clipping_system};
-    use crate::CalculatedClip;
-    use crate::CalculatedClip;
+    use crate::update::propagate_ui_target_cameras;
     use crate::ComputedUiRenderTargetInfo;
     use crate::ComputedUiTargetCamera;
-    use crate::FixedNode;
-    use crate::FlexDirection;
     use crate::IsDefaultUiCamera;
     use crate::Node;
-    use crate::Overflow;
-    use crate::Overflow;
-    use crate::OverrideClip;
-    use crate::OverrideClip;
     use crate::UiScale;
     use crate::UiTargetCamera;
-    use crate::Val;
     use bevy_app::App;
     use bevy_app::HierarchyPropagatePlugin;
     use bevy_app::PostUpdate;
     use bevy_app::PropagateSet;
-    use bevy_app::TaskPoolPlugin;
     use bevy_camera::Camera;
     use bevy_camera::Camera2d;
     use bevy_camera::ComputedCameraValues;
     use bevy_camera::RenderTargetInfo;
     use bevy_ecs::hierarchy::ChildOf;
-    use bevy_ecs::schedule::IntoScheduleConfigs;
     use bevy_math::UVec2;
-    use bevy_text::{FontCx, RemSize};
     use bevy_utils::default;
 
     fn setup_test_app() -> App {
@@ -722,141 +709,5 @@ mod tests {
                 .scale_factor(),
             2.
         );
-    }
-
-    #[test]
-    fn fixed_node_opens_new_clipping_context() {
-        let mut app = App::new();
-        app.add_systems(bevy_app::Update, update_clipping_system);
-
-        let grandchild = app.world_mut().spawn(Node::default()).id();
-        let child = app
-            .world_mut()
-            .spawn(Node::default())
-            .add_child(grandchild)
-            .id();
-        app.world_mut()
-            .spawn(Node {
-                overflow: Overflow::clip(),
-                ..default()
-            })
-            .add_child(child);
-
-        app.update();
-        assert_eq!(
-            app.world()
-                .get::<CalculatedClip>(grandchild)
-                .unwrap()
-                .rects()
-                .unwrap()
-                .len(),
-            1
-        );
-
-        app.world_mut().entity_mut(child).insert(FixedNode);
-        app.update();
-        assert!(app.world().get::<CalculatedClip>(grandchild).is_none());
-
-        app.world_mut().entity_mut(child).remove::<FixedNode>();
-        app.update();
-        assert_eq!(
-            app.world()
-                .get::<CalculatedClip>(grandchild)
-                .unwrap()
-                .rects()
-                .unwrap()
-                .len(),
-            1
-        );
-    }
-
-    #[test]
-    fn override_clip_opens_new_clipping_context() {
-        let mut app = App::new();
-        app.add_systems(bevy_app::Update, update_clipping_system);
-
-        let grandchild = app.world_mut().spawn(Node::default()).id();
-        let child = app
-            .world_mut()
-            .spawn((Node::default(), OverrideClip))
-            .add_child(grandchild)
-            .id();
-        app.world_mut()
-            .spawn(Node {
-                overflow: Overflow::clip(),
-                ..default()
-            })
-            .add_child(child);
-
-        app.update();
-        assert!(app.world().get::<CalculatedClip>(grandchild).is_none());
-    }
-
-    #[test]
-    fn fixed_node_opens_new_clipping_context() {
-        let mut app = App::new();
-        app.add_systems(bevy_app::Update, update_clipping_system);
-
-        let grandchild = app.world_mut().spawn(Node::default()).id();
-        let child = app
-            .world_mut()
-            .spawn(Node::default())
-            .add_child(grandchild)
-            .id();
-        app.world_mut()
-            .spawn(Node {
-                overflow: Overflow::clip(),
-                ..default()
-            })
-            .add_child(child);
-
-        app.update();
-        assert_eq!(
-            app.world()
-                .get::<CalculatedClip>(grandchild)
-                .unwrap()
-                .rects()
-                .unwrap()
-                .len(),
-            1
-        );
-
-        app.world_mut().entity_mut(child).insert(FixedNode);
-        app.update();
-        assert!(app.world().get::<CalculatedClip>(grandchild).is_none());
-
-        app.world_mut().entity_mut(child).remove::<FixedNode>();
-        app.update();
-        assert_eq!(
-            app.world()
-                .get::<CalculatedClip>(grandchild)
-                .unwrap()
-                .rects()
-                .unwrap()
-                .len(),
-            1
-        );
-    }
-
-    #[test]
-    fn override_clip_opens_new_clipping_context() {
-        let mut app = App::new();
-        app.add_systems(bevy_app::Update, update_clipping_system);
-
-        let grandchild = app.world_mut().spawn(Node::default()).id();
-        let child = app
-            .world_mut()
-            .spawn((Node::default(), OverrideClip))
-            .add_child(grandchild)
-            .id();
-        app.world_mut()
-            .spawn(Node {
-                overflow: Overflow::clip(),
-                ..default()
-            })
-            .add_child(child);
-
-        app.update();
-        assert!(app.world().get::<CalculatedClip>(grandchild).is_none());
     }
 }

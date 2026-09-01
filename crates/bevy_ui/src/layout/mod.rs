@@ -2692,6 +2692,72 @@ mod tests {
     }
 
     #[test]
+    fn fixed_node_opens_new_clipping_context() {
+        let mut app = setup_ui_test_app();
+
+        let grandchild = app.world_mut().spawn(Node::default()).id();
+        let child = app
+            .world_mut()
+            .spawn(Node::default())
+            .add_child(grandchild)
+            .id();
+        app.world_mut()
+            .spawn(Node {
+                overflow: Overflow::clip(),
+                ..default()
+            })
+            .add_child(child);
+
+        app.update();
+        assert_eq!(
+            app.world()
+                .get::<CalculatedClip>(grandchild)
+                .unwrap()
+                .rects()
+                .unwrap()
+                .len(),
+            1
+        );
+
+        app.world_mut().entity_mut(child).insert(FixedNode);
+        app.update();
+        assert!(app.world().get::<CalculatedClip>(grandchild).is_none());
+
+        app.world_mut().entity_mut(child).remove::<FixedNode>();
+        app.update();
+        assert_eq!(
+            app.world()
+                .get::<CalculatedClip>(grandchild)
+                .unwrap()
+                .rects()
+                .unwrap()
+                .len(),
+            1
+        );
+    }
+
+    #[test]
+    fn override_clip_opens_new_clipping_context() {
+        let mut app = setup_ui_test_app();
+
+        let grandchild = app.world_mut().spawn(Node::default()).id();
+        let child = app
+            .world_mut()
+            .spawn((Node::default(), OverrideClip))
+            .add_child(grandchild)
+            .id();
+        app.world_mut()
+            .spawn(Node {
+                overflow: Overflow::clip(),
+                ..default()
+            })
+            .add_child(child);
+
+        app.update();
+        assert!(app.world().get::<CalculatedClip>(grandchild).is_none());
+    }
+
+    #[test]
     fn ghost_nodes_flatten_layout_children() {
         let mut app = setup_ui_test_app();
         let world = app.world_mut();
