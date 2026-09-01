@@ -37,7 +37,7 @@ bevy_platform = { path = "../bevy_platform", version = "0.20.0-dev", default-fea
 ] }
 
 # other
-taffy = { version = "0.13", default-features = false, features = [
+taffy = { version = "0.14", default-features = false, features = [
   "std",
   "block_layout",
   "flexbox",
