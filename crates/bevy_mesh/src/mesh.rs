@@ -2714,19 +2714,15 @@ impl Mesh {
         let MeshExtractableData::Data(ref mut attrs) = self.attributes else {
             return None;
         };
-        let mut attrs = attrs
-            .iter_mut()
-            .map(|(key, value)| {
-                Some((&value.attribute, &mut value.values))
-                    .filter(|(_, _)| mesh_vertex_attribute_ids.contains(&key))
-            })
-            .collect::<Vec<_>>();
-
-        // Extending the size of the attributes list to match N
-        // to guarantee that there is enough `None`s for the swaps
-        if attrs.len() < N {
-            attrs.resize_with(N, || None);
-        }
+        let mut mut_attrs = attrs.iter_mut();
+        let mut attrs: [_; N] = std::array::from_fn(|_| {
+            for (attr_id, mut_attr) in mut_attrs.by_ref() {
+                if mesh_vertex_attribute_ids.contains(&attr_id) {
+                    return Some((&mut_attr.attribute, &mut mut_attr.values));
+                }
+            }
+            None
+        });
 
         let mut attrs_slice = attrs.as_mut_slice();
         for mesh_vertex_attribute_id in mesh_vertex_attribute_ids {
@@ -2758,19 +2754,7 @@ impl Mesh {
             attrs_slice = &mut attrs_slice[1..];
         }
 
-        // Truncate the attributes list after sorting to prevent accidentally
-        // removing a valid output
-        if attrs.len() > N {
-            attrs.truncate(N);
-        }
-
-        let Ok(result): Result<[Option<(&MeshVertexAttribute, &mut VertexAttributeValues)>; N], _> =
-            attrs.try_into()
-        else {
-            unreachable!("Must always return {N} attributes.");
-        };
-
-        Some(result)
+        Some(attrs)
     }
 }
 
