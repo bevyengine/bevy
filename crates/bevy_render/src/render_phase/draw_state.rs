@@ -353,7 +353,7 @@ impl<'a> TrackedRenderPass<'a> {
 
     /// Dispatches multiple draw calls based on the contents of the `indirect_buffer`. The count buffer is read to determine how many draws to issue.
     ///
-    /// The indirect buffer must be long enough to account for max_count draws, however only count draws will be read. If count is greater than max_count, max_count will be used.
+    /// The indirect buffer must be long enough to account for `max_count` draws, however only count draws will be read. If count is greater than max_count, `max_count` will be used.
     ///
     /// The structure expected in `indirect_buffer` is the following:
     ///
