@@ -5,6 +5,7 @@ use bevy_math::{Affine2, Affine3, Mat2, Mat3, Vec2, Vec3, Vec4};
 use bevy_mesh::{MeshVertexBufferLayoutRef, UvChannel};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{render_asset::RenderAssets, render_resource::*, texture::GpuImage};
+use bevy_shader::ShaderDefVal;
 use bitflags::bitflags;
 
 use crate::{deferred::DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID, *};
@@ -238,6 +239,8 @@ pub struct StandardMaterial {
     ///
     /// - When set to `0.0` (the default) no light is transmitted.
     /// - When set to `1.0` all light is transmitted through the material.
+    ///
+    /// [`ScreenSpaceTransmission`] must be added to the camera to make specular transmission work.
     ///
     /// The material's [`StandardMaterial::base_color`] also modulates the transmitted light.
     ///
@@ -1556,9 +1559,32 @@ impl Material for StandardMaterial {
                     "STANDARD_MATERIAL_SPECULAR_TINT_UV_B",
                 ),
             ] {
+                if [
+                    StandardMaterialKey::SPECULAR_TRANSMISSION,
+                    StandardMaterialKey::SPECULAR_TRANSMISSION_UV,
+                ]
+                .contains(&flags)
+                    && !key
+                        .mesh_key
+                        .contains(MeshPipelineKey::VIEW_TRANSMISSION_TEXTURE)
+                {
+                    continue;
+                }
                 if key.bind_group_data.intersects(flags) {
                     shader_defs.push(shader_def.into());
                 }
+            }
+
+            if key
+                .bind_group_data
+                .intersects(StandardMaterialKey::SPECULAR_TRANSMISSION)
+                && key
+                    .mesh_key
+                    .contains(MeshPipelineKey::VIEW_TRANSMISSION_TEXTURE)
+            {
+                // Do not load prepass normals for transmissive materials
+                // https://github.com/bevyengine/bevy/pull/11140
+                shader_defs.retain(|def| def != &ShaderDefVal::from("LOAD_PREPASS_NORMALS"));
             }
         }
 
