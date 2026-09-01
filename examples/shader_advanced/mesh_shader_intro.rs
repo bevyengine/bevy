@@ -242,7 +242,7 @@ fn draw_mesh_shader_cubes(
                 multiview_mask: None,
             });
 
-            pass.set_render_pipeline(&mesh_pipeline);
+            pass.set_render_pipeline(mesh_pipeline);
             pass.set_bind_group(0, &bind_group, &[view_uniform_offset.offset]);
             if let Some(viewport) =
                 Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
