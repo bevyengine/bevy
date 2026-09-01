@@ -54,6 +54,8 @@ pub(crate) fn msaa_writeback(
     // unused target to be the "resolve target" for the MSAA write. Therefore this is the same
     // as a post process write!
     let post_process = target.post_process_write();
+    // Mark it as uncleared to respect camera clear clear config.
+    target.mark_as_uncleared();
 
     let pass_descriptor = RenderPassDescriptor {
         label: Some("msaa_writeback"),
