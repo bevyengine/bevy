@@ -242,7 +242,7 @@ impl FeathersNumberInput {
                             }
                             NumberInputDecrement
                             Children [
-                                icon(icons::CHEVRON_DOWN)
+                                @icon(icons::CHEVRON_DOWN)
                                 UiTransform {
                                     rotation: Rot2::radians(std::f32::consts::FRAC_PI_2)
                                 }
@@ -257,7 +257,7 @@ impl FeathersNumberInput {
                             }
                             NumberInputIncrement
                             Children [
-                                icon(icons::CHEVRON_RIGHT),
+                                @icon(icons::CHEVRON_RIGHT),
                             ]
                         ),
                     ]
