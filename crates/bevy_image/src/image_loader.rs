@@ -156,9 +156,9 @@ pub struct ImageLoaderSettings {
     /// uniform type.
     #[serde(default)]
     pub array_layout: Option<ImageArrayLayout>,
-    /// Overrides [`Image::source_color_primaries`]. With the default `None`, the loader
-    /// reads the file's color metadata, KTX2 and PNG only. See [`SourceColorPrimaries`]
-    /// for the resolution order.
+    /// Overrides [`Image::source_color_primaries`]. By default, the loader reads the
+    /// file's color metadata, KTX2 and PNG only. See [`SourceColorPrimaries`] for the
+    /// resolution order.
     #[serde(default)]
     pub source_color_primaries: Option<SourceColorPrimaries>,
 }

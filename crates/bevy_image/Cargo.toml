@@ -19,8 +19,7 @@ bevy_reflect = ["bevy_math/bevy_reflect"]
 basis-universal = ["dep:basis-universal"]
 bmp = ["image/bmp"]
 dds = ["ddsfile"]
-# The direct `exr` dependency reads header metadata, such as the `chromaticities`
-# attribute, that the `image` crate does not expose.
+# Enables the direct `exr` dependency to read the `chromaticities` header attribute.
 exr = ["image/exr", "dep:exr"]
 ff = ["image/ff"]
 gif = ["image/gif"]
@@ -28,8 +27,7 @@ hdr = ["image/hdr"]
 ktx2 = ["dep:ktx2"]
 ico = ["image/ico"]
 jpeg = ["image/jpeg"]
-# The direct `png` dependency reads the cICP chunk, which the `image` crate does not
-# expose.
+# Enables the direct `png` dependency to read the `cICP` chunk.
 png = ["image/png", "dep:png"]
 pnm = ["image/pnm"]
 qoi = ["image/qoi"]

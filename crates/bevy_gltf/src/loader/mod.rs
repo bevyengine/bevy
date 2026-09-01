@@ -1228,6 +1228,7 @@ async fn load_image<'a, 'b>(
     } else {
         texture_sampler(&gltf_texture, default_sampler)
     };
+
     match gltf_texture.source().source() {
         Source::View { view, mime_type } => {
             let start = view.offset();

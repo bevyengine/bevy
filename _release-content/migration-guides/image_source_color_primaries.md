@@ -8,7 +8,7 @@ primaries the image data is expressed in. It is metadata only and defaults to `B
 Exhaustive `Image { .. }` literals must add it, for example as
 `source_color_primaries: Default::default()`.
 
-`ImageLoaderSettings`, `ExrTextureLoaderSettings`, and `HdrTextureLoaderSettings` gain a
+`ImageLoaderSettings`, `ExrTextureLoaderSettings`, and `HdrTextureLoaderSettings` gained a
 `source_color_primaries: Option<SourceColorPrimaries>` field, so exhaustive literals of
 these structs must add it too. Existing `.meta` files need no changes.
 
