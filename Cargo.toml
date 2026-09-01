@@ -5477,6 +5477,17 @@ category = "Usage"
 wasm = true
 
 [[example]]
+name = "headless_tabs"
+path = "examples/ui/widgets/headless_tabs.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.headless_tabs]
+name = "Headless Tabs"
+description = "Demonstrates controlled and self-updating headless tab lists"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "standard_widgets_observers"
 path = "examples/ui/widgets/standard_widgets_observers.rs"
 doc-scrape-examples = true

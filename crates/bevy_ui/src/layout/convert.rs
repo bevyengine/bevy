@@ -682,6 +682,22 @@ mod tests {
             taffy_style.max_size.height,
             taffy::style::LengthPercentageAuto::ZERO
         );
+        assert_eq!(
+            taffy_style.min_size.width,
+            taffy::style::LengthPercentageAuto::ZERO
+        );
+        assert_eq!(
+            taffy_style.min_size.height,
+            taffy::style::LengthPercentageAuto::ZERO
+        );
+        assert_eq!(
+            taffy_style.max_size.width,
+            taffy::style::LengthPercentageAuto::auto()
+        );
+        assert_eq!(
+            taffy_style.max_size.height,
+            taffy::style::LengthPercentageAuto::ZERO
+        );
         assert_eq!(taffy_style.aspect_ratio, None);
         assert_eq!(taffy_style.scrollbar_width, 7.);
         assert_eq!(taffy_style.gap.width, taffy::style::LengthPercentage::ZERO);

@@ -26,7 +26,7 @@ fn main() {
 struct Counter(i32);
 
 fn scene() -> impl SceneList {
-    bsn_list![Camera2d, ghost_root(), normal_root()]
+    bsn_list![Camera2d, @ghost_root(), @normal_root()]
 }
 
 /// Ghost UI root
@@ -35,7 +35,7 @@ fn ghost_root() -> impl Scene {
         GhostNode
         Children [(
             Node
-            Children [ label("This text node is rendered under a ghost root") ]
+            Children [ @label("This text node is rendered under a ghost root") ]
         )]
     }
 }
@@ -57,10 +57,10 @@ fn normal_root() -> impl Scene {
                 // in the context of UI, but they share the ghost node's counter.
                 (
                     GhostNode Counter(0)
-                    Children [ button(), button() ]
+                    Children [ @button(), @button() ]
                 ),
                 // A normal child using the layout parent counter
-                button(),
+                @button(),
             ]
         )]
     }
@@ -112,7 +112,7 @@ fn button() -> impl Scene {
         }
         BorderColor::from(Color::BLACK)
         BackgroundColor(Color::srgb(0.15, 0.15, 0.15))
-        Children [ label("0") ]
+        Children [ @label("0") ]
     }
 }
 

@@ -2713,39 +2713,52 @@ mod tests {
             .id();
 
         app.update();
-        assert!(app
-            .world()
-            .get::<ComputedLayout>(child)
-            .is_some_and(ComputedLayout::has_layout));
 
-        app.world_mut().entity_mut(mid).remove::<GhostNode>();
-        app.update();
-        assert!(!app
-            .world()
-            .get::<ComputedLayout>(child)
-            .is_some_and(ComputedLayout::has_layout));
-        assert_eq!(
-            app.world().get::<ComputedNode>(child).unwrap().size(),
-            Vec2::ZERO
-        );
-
-        app.world_mut().entity_mut(mid).insert(GhostNode);
-        app.update();
-        let root_layout = app
-            .world()
-            .get::<ComputedLayout>(root)
-            .and_then(|layout| layout.get_layout(true))
-            .unwrap()
-            .0;
-        let child_layout = app
-            .world()
-            .get::<ComputedLayout>(child)
-            .and_then(|layout| layout.get_layout(true))
-            .unwrap()
-            .0;
-        assert_eq!(root_layout.size.width, 100.);
-        assert_eq!(child_layout.size.width, 50.);
+        let world = app.world();
+        let computed_a = world.get::<ComputedNode>(a).unwrap();
+        let transform_a = world.get::<UiGlobalTransform>(a).unwrap();
+        let computed_b = world.get::<ComputedNode>(b).unwrap();
+        let transform_b = world.get::<UiGlobalTransform>(b).unwrap();
+        let a_bottom = 0.5 * computed_a.size.y + transform_a.affine().translation.y;
+        let b_top = -0.5 * computed_b.size.y + transform_b.affine().translation.y;
+        assert!((b_top - a_bottom - 40.).abs() <= 1e-5);
     }
+
+    #[cfg(feature = "ghost_nodes")]
+    mod ghost_node_tests {
+        use super::*;
+        use crate::experimental::GhostNode;
+
+        fn compare_taffy_children(
+            ui_surface: &UiSurface,
+            parent: Entity,
+            children: &[Entity],
+        ) -> bool {
+            let parent_to_taffy_children = ui_surface
+                .taffy
+                .children(ui_surface.entity_to_taffy[&parent].id)
+                .unwrap();
+            let children_to_taffy_children = children
+                .iter()
+                .map(|entity| ui_surface.entity_to_taffy[entity].id)
+                .collect::<Vec<_>>();
+
+            parent_to_taffy_children == children_to_taffy_children
+        }
+
+        fn compare_taffy_parent(
+            ui_surface: &UiSurface,
+            child: Entity,
+            parent: Option<Entity>,
+        ) -> bool {
+            let child_to_taffy_parent = ui_surface
+                .taffy
+                .parent(ui_surface.entity_to_taffy[&child].id);
+            let parent_to_taffy_parent =
+                parent.map(|entity| ui_surface.entity_to_taffy[&entity].id);
+
+            child_to_taffy_parent == parent_to_taffy_parent
+        }
 
     #[test]
     fn unparenting_ghost_child_makes_child_layout_root() {

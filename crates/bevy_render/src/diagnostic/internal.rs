@@ -16,7 +16,7 @@ use wgpu::{
     RenderPass,
 };
 
-use crate::renderer::{RenderAdapterInfo, RenderDevice, RenderQueue, WgpuWrapper};
+use crate::renderer::{wgpu_wrapper, RenderAdapterInfo, RenderDevice, RenderQueue};
 
 use super::RecordDiagnostics;
 
@@ -37,10 +37,12 @@ struct DiagnosticsRecorderInternal {
     tracy_gpu_context: Option<tracy_client::GpuContext>,
 }
 
+wgpu_wrapper!(struct WgpuDiagnosticsRecorderInternal(DiagnosticsRecorderInternal));
+
 /// Records diagnostics into [`QuerySet`]'s keeping track of the mapping between
 /// spans and indices to the corresponding entries in the [`QuerySet`].
 #[derive(Resource)]
-pub struct DiagnosticsRecorder(WgpuWrapper<DiagnosticsRecorderInternal>);
+pub struct DiagnosticsRecorder(WgpuDiagnosticsRecorderInternal);
 
 impl DiagnosticsRecorder {
     /// Creates the new `DiagnosticsRecorder`.
@@ -56,20 +58,22 @@ impl DiagnosticsRecorder {
             super::tracy_gpu::new_tracy_gpu_context(adapter_info, device, queue);
         let _ = adapter_info; // Prevent unused variable warnings when tracing-tracy is not enabled
 
-        DiagnosticsRecorder(WgpuWrapper::new(DiagnosticsRecorderInternal {
-            timestamp_period_ns: queue.get_timestamp_period(),
-            features,
-            current_frame: Mutex::new(FrameData::new(
-                device,
+        DiagnosticsRecorder(WgpuDiagnosticsRecorderInternal::new(
+            DiagnosticsRecorderInternal {
+                timestamp_period_ns: queue.get_timestamp_period(),
                 features,
+                current_frame: Mutex::new(FrameData::new(
+                    device,
+                    features,
+                    #[cfg(feature = "tracing-tracy")]
+                    tracy_gpu_context.clone(),
+                )),
+                submitted_frames: Vec::new(),
+                finished_frames: Vec::new(),
                 #[cfg(feature = "tracing-tracy")]
-                tracy_gpu_context.clone(),
-            )),
-            submitted_frames: Vec::new(),
-            finished_frames: Vec::new(),
-            #[cfg(feature = "tracing-tracy")]
-            tracy_gpu_context,
-        }))
+                tracy_gpu_context,
+            },
+        ))
     }
 
     fn current_frame_mut(&mut self) -> &mut FrameData {
