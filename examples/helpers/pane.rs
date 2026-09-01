@@ -24,13 +24,13 @@ pub struct PaneBody;
 /// Creates a generic Feathers pane header with a toggle button.
 pub fn feathers_pane_header(title: &str) -> impl Scene {
     bsn! {
-        pane_header() Children [
-            label(title),
-            flex_spacer(),
+        @pane_header() Children [
+            @label(title),
+            @flex_spacer(),
             @FeathersToolButton {
                 @variant: ButtonVariant::Plain,
             } Children [
-                icon(icons::CHEVRON_DOWN) PaneToggleIcon
+                @icon(icons::CHEVRON_DOWN) PaneToggleIcon
             ]
             on(toggle_pane_body)
         ]

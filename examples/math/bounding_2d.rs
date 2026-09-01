@@ -261,9 +261,9 @@ fn setup(mut commands: Commands) {
 
 fn settings_pane(parent: Entity) -> impl Scene {
     bsn! {
-        pane() ChildOf(parent) Children [
-            feathers_pane_header("Intersection test"),
-            pane_body() PaneBody Children [
+        @pane() ChildOf(parent) Children [
+            @feathers_pane_header("Intersection test"),
+            @pane_body() PaneBody Children [
                 Node {
                     display: Display::Flex,
                     flex_direction: FlexDirection::Row,
@@ -278,14 +278,14 @@ fn settings_pane(parent: Entity) -> impl Scene {
                     }
                     RadioGroup
                     Children [
-                        feathers_radio("AabbSweep", Test::AabbSweep),
-                        feathers_radio("CircleSweep", Test::CircleSweep),
+                        @feathers_radio("AabbSweep", Test::AabbSweep),
+                        @feathers_radio("CircleSweep", Test::CircleSweep),
                         (
-                            feathers_radio("RayCast", Test::RayCast)
+                            @feathers_radio("RayCast", Test::RayCast)
                             Checked
                         ),
-                        feathers_radio("AabbCast", Test::AabbCast),
-                        feathers_radio("CircleCast", Test::CircleCast),
+                        @feathers_radio("AabbCast", Test::AabbCast),
+                        @feathers_radio("CircleCast", Test::CircleCast),
                     ]
                 ]
             ]
@@ -296,7 +296,7 @@ fn settings_pane(parent: Entity) -> impl Scene {
 fn feathers_radio(title: &str, test: Test) -> impl Scene {
     bsn! {
         @FeathersRadio {
-            @caption: bsn! { caption(title) },
+            @caption: bsn! { @caption(title) },
         }
         Options(test)
     }
