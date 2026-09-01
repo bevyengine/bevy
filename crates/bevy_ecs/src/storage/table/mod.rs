@@ -7,11 +7,12 @@ use crate::{
     component::{ComponentId, ComponentInfo, Components},
     entity::Entity,
     query::DebugCheckedUnwrap,
-    storage::{AbortOnPanic, ImmutableSparseSet, SparseSet},
+    storage::{ImmutableSparseSet, SparseSet},
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 use bevy_platform::collections::HashMap;
 use bevy_ptr::{OwningPtr, Ptr};
+use bevy_utils::AbortOnPanic;
 use core::{
     cell::UnsafeCell,
     num::NonZeroUsize,
@@ -228,6 +229,9 @@ impl Table {
     pub(crate) unsafe fn swap_remove_unchecked(&mut self, row: TableRow) -> Option<Entity> {
         debug_assert!(row.index_u32() < self.entity_count());
         let last_element_index = self.entity_count() - 1;
+        // If dropping the old entity panics, our World will end up in an inconsistent state
+        // and being able to use it again would be unsound.
+        let guard = AbortOnPanic;
         if row.index_u32() != last_element_index {
             // Instead of checking this condition on every `swap_remove` call, we
             // check it here and use `swap_remove_nonoverlapping`.
@@ -251,6 +255,7 @@ impl Table {
                 col.drop_last_component(last_element_index as usize);
             }
         }
+        core::mem::forget(guard);
         let is_last = row.index_u32() == last_element_index;
         self.entities.swap_remove(row.index());
         if is_last {
@@ -795,6 +800,7 @@ impl Tables {
                     );
                 }
             } else {
+                let guard = AbortOnPanic;
                 // SAFETY:
                 // - `last_index` is the index of the last element.
                 // - The caller ensures `row` <= `last_index`.
@@ -803,6 +809,7 @@ impl Tables {
                 unsafe {
                     src_column.swap_remove_unchecked::<DROP>(last_index, row);
                 }
+                core::mem::forget(guard);
             }
         }
 
