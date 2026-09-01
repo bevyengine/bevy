@@ -1,14 +1,13 @@
 mod extrusion;
 mod primitive_impls;
 
-use glam::Mat3;
+use bevy_math::{
+    ops::{self, FloatPow},
+    Isometry3d, Mat3, Quat, Vec3A,
+};
 
 use super::{BoundingVolume, IntersectsVolume};
-use crate::{
-    ops::{self, FloatPow},
-    primitives::Cuboid,
-    Isometry3d, Quat, Vec3A,
-};
+use crate::{Cuboid, Sphere};
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
@@ -294,11 +293,8 @@ impl IntersectsVolume<BoundingSphere> for Aabb3d {
 mod aabb3d_tests {
     use approx::assert_relative_eq;
 
-    use super::Aabb3d;
-    use crate::{
-        bounding::{BoundingSphere, BoundingVolume, IntersectsVolume},
-        ops, Quat, Vec3, Vec3A,
-    };
+    use crate::{Aabb3d, BoundingSphere, BoundingVolume, IntersectsVolume};
+    use bevy_math::{ops, EulerRot, Quat, Vec3, Vec3A};
 
     #[test]
     fn center() {
@@ -420,7 +416,7 @@ mod aabb3d_tests {
             min: Vec3A::new(-2.0, -2.0, -2.0),
             max: Vec3A::new(2.0, 2.0, 2.0),
         };
-        let rotation = Quat::from_euler(glam::EulerRot::XYZ, PI, PI, 0.0);
+        let rotation = Quat::from_euler(EulerRot::XYZ, PI, PI, 0.0);
         let rotated = a.rotated_by(rotation);
         assert_relative_eq!(rotated.min, a.min);
         assert_relative_eq!(rotated.max, a.max);
@@ -494,8 +490,6 @@ mod aabb3d_tests {
         assert!(!aabb.intersects(&BoundingSphere::new(Vec3::ONE * 1.75, 1.0)));
     }
 }
-
-use crate::primitives::Sphere;
 
 /// A bounding sphere
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -695,11 +689,8 @@ impl IntersectsVolume<Aabb3d> for BoundingSphere {
 mod bounding_sphere_tests {
     use approx::assert_relative_eq;
 
-    use super::BoundingSphere;
-    use crate::{
-        bounding::{BoundingVolume, IntersectsVolume},
-        ops, Quat, Vec3, Vec3A,
-    };
+    use crate::{BoundingSphere, BoundingVolume, IntersectsVolume};
+    use bevy_math::{ops, Quat, Vec3, Vec3A};
 
     #[test]
     fn area() {

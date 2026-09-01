@@ -1,7 +1,8 @@
 use super::{Aabb2d, BoundingCircle, IntersectsVolume};
-use crate::{
+use crate::Ray2d;
+use bevy_math::{
     ops::{self, FloatPow},
-    Dir2, Ray2d, Vec2,
+    Dir2, Vec2,
 };
 
 #[cfg(feature = "bevy_reflect")]
