@@ -21,10 +21,6 @@ use syn::{parse_macro_input, DeriveInput};
 /// ```rust,ignore
 /// bsn! {
 ///     <scene entry>
-///     :<cached scene include>
-///     #<name>
-///     @<SceneComponent>
-///     ~<custom Template>
 /// }
 /// ```
 ///
@@ -43,7 +39,8 @@ use syn::{parse_macro_input, DeriveInput};
 /// | `~MyType`<br>`~MyType {name: var}`         | Type implementing [`Template`], the prefix is used to distinguish it from Components which use [`FromTemplate`]|
 /// | **Including Scenes**                       |                                                                                                                |
 /// | `@scene()`<br>`@scene(val)`                | Include the result of a `impl `[`Scene`] function                                                              |
-/// | `@{ expr }`                                 | Include the result of `expr`, which should be a [`Scene`]                                                      |
+/// | `@scene`                                   | Include a variable containing a scene                                                                          |
+/// | `@{ expr }`                                | Include the result of `expr`, which should be a [`Scene`]                                                      |
 /// | `@MySceneComp`                             | Include a [`SceneComponent`]. Fields, if any exist, will be default                                            |
 /// | `@MySceneComp { @prop: val }`              | Include a [`SceneComponent`] with a `prop` field, passed to this components scene function                     |
 /// | `@MySceneComp { name: val }`               | Include a [`SceneComponent`] with a normal field, works the same as it does for normal components              |
