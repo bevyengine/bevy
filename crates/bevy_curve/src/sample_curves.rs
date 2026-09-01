@@ -373,8 +373,9 @@ mod tests {
     //! - 'static closures
     //! - function pointers
     use super::{SampleCurve, UnevenSampleCurve};
-    use crate::{Interval, VectorSpace};
+    use crate::Interval;
     use alloc::boxed::Box;
+    use bevy_math::VectorSpace as _;
     use bevy_reflect::Reflect;
 
     #[test]

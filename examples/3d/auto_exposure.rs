@@ -19,6 +19,7 @@ use bevy::{
         AutoExposure, AutoExposureCompensationCurve, AutoExposurePlugin,
     },
     prelude::*,
+    shape::Plane3d,
 };
 
 fn main() {
