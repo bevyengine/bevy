@@ -678,8 +678,6 @@ mod tests {
                 update_computed_nodes,
                 update_border_radius,
                 mark_dirty_trees,
-                sync_simple_transforms,
-                propagate_parent_transforms,
                 update_clipping_system,
             )
                 .chain(),
