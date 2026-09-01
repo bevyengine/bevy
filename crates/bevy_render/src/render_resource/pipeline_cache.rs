@@ -95,7 +95,7 @@ type LayoutCacheKey = (
 
 wgpu_wrapper! {
     struct WgpuPipelineLayout(PipelineLayout);
-
+    #[derive(Clone)]
     struct WgpuShaderModule(ShaderModule);
 }
 
@@ -203,11 +203,11 @@ async fn load_module<'a>(
 /// [`load_module`] and caching the result on a cache miss.
 async fn get_or_create_shader_module(
     device: &RenderDevice,
-    shader_module_cache: &mut HashMap<ShaderModuleCacheKey, WgpuWrapper<ShaderModule>>,
+    shader_module_cache: &mut HashMap<ShaderModuleCacheKey, WgpuShaderModule>,
     shader_id: &AssetId<Shader>,
     shader_defs: &[ShaderDefVal],
     processed_shader: &ProcessedShader,
-) -> Result<WgpuWrapper<ShaderModule>, ShaderCacheError> {
+) -> Result<WgpuShaderModule, ShaderCacheError> {
     match shader_module_cache.entry_ref(&ShaderModuleCacheKeyRef(shader_id, shader_defs)) {
         EntryRef::Occupied(occupied_entry) => Ok(occupied_entry.get().clone()),
         EntryRef::Vacant(vacant_entry_ref) => {
@@ -227,7 +227,7 @@ fn get_or_create_pipeline_layout(
     bind_group_layouts: &[BindGroupLayout],
     descriptor_layout: &[BindGroupLayoutDescriptor],
     immediate_size: u32,
-) -> Option<Arc<WgpuWrapper<PipelineLayout>>> {
+) -> Option<Arc<WgpuPipelineLayout>> {
     if descriptor_layout.is_empty() && immediate_size == 0 {
         None
     } else {
@@ -287,8 +287,7 @@ pub struct PipelineCache {
     layout_cache: Arc<Mutex<LayoutCache>>,
     bindgroup_layout_cache: Arc<Mutex<BindGroupLayoutCache>>,
     shader_cache: Arc<Mutex<ShaderCache>>,
-    shader_module_cache:
-        Arc<async_lock::Mutex<HashMap<ShaderModuleCacheKey, WgpuShaderModule>>>,
+    shader_module_cache: Arc<async_lock::Mutex<HashMap<ShaderModuleCacheKey, WgpuShaderModule>>>,
     device: RenderDevice,
     pipelines: Vec<CachedPipeline>,
     waiting_pipelines: HashSet<CachedPipelineId>,
