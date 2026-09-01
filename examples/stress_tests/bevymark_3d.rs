@@ -9,7 +9,6 @@ use argh::FromArgs;
 use bevy::{
     asset::RenderAssetUsages,
     color::palettes::basic::*,
-    core_pipeline::core_3d::Core3dMainPassMode,
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
     render::render_resource::{Extent3d, TextureDimension, TextureFormat},
@@ -67,30 +66,6 @@ struct Args {
     /// the alpha mode used to spawn the cubes
     #[argh(option, default = "AlphaMode::Mixed")]
     alpha_mode: AlphaMode,
-
-    /// the main pass mode used for core3d
-    #[argh(
-        option,
-        default = "Core3dMainPassModeArg(Core3dMainPassMode::Separate)"
-    )]
-    main_pass_mode: Core3dMainPassModeArg,
-}
-
-#[derive(Clone, Copy)]
-struct Core3dMainPassModeArg(Core3dMainPassMode);
-
-impl FromStr for Core3dMainPassModeArg {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "merged" => Ok(Self(Core3dMainPassMode::Merged)),
-            "separate" => Ok(Self(Core3dMainPassMode::Separate)),
-            _ => Err(format!(
-                "Unknown main pass mode: '{s}', valid modes: 'merged', 'separate'"
-            )),
-        }
-    }
 }
 
 #[derive(Default, Clone)]
@@ -142,7 +117,6 @@ fn main() {
             LogDiagnosticsPlugin::default(),
         ))
         .insert_resource(WinitSettings::continuous())
-        .insert_resource(args.main_pass_mode.0)
         .insert_resource(args)
         .insert_resource(BevyCounter {
             count: 0,

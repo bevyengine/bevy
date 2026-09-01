@@ -109,6 +109,28 @@ pub enum Core3dMainPassMode {
     Separate,
 }
 
+impl Core3dMainPassMode {
+    /// Get the main pass mode from the `BEVY_CORE_3D_MAIN_PASS_MODE` environment variable.
+    ///
+    /// Valid values (case-insensitive) are `"merged"` and `"separate"`.
+    /// Returns [`None`] if the variable is unset or holds an invalid value.
+    pub fn from_env() -> Option<Self> {
+        let Ok(value) = std::env::var("BEVY_CORE_3D_MAIN_PASS_MODE") else {
+            return None;
+        };
+        match value.to_ascii_lowercase().as_str() {
+            "merged" => Some(Self::Merged),
+            "separate" => Some(Self::Separate),
+            _ => {
+                warn!(
+                    "Ignoring invalid value for `BEVY_CORE_3D_MAIN_PASS_MODE`: '{value}', expected 'merged' or 'separate'"
+                );
+                None
+            }
+        }
+    }
+}
+
 impl Plugin for Core3dPlugin {
     fn build(&self, app: &mut App) {
         app.register_required_components_with::<Camera3d, DebandDither>(|| DebandDither::Enabled)
@@ -124,7 +146,9 @@ impl Plugin for Core3dPlugin {
             .add_systems(PostUpdate, check_msaa);
 
         if app.world().get_resource::<Core3dMainPassMode>().is_none() {
-            app.insert_resource(Core3dMainPassMode::Separate);
+            let mode =
+                Core3dMainPassMode::from_env().unwrap_or(Core3dMainPassMode::Separate);
+            app.insert_resource(mode);
         }
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
@@ -136,7 +160,9 @@ impl Plugin for Core3dPlugin {
             .get_resource::<Core3dMainPassMode>()
             .is_none()
         {
-            render_app.insert_resource(Core3dMainPassMode::Separate);
+            let mode =
+                Core3dMainPassMode::from_env().unwrap_or(Core3dMainPassMode::Separate);
+            render_app.insert_resource(mode);
         }
 
         render_app

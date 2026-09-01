@@ -9,7 +9,6 @@ use argh::FromArgs;
 use bevy::{
     asset::RenderAssetUsages,
     color::palettes::basic::*,
-    core_pipeline::core_2d::Core2dMainPassMode,
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
     render::render_resource::{Extent3d, TextureDimension, TextureFormat},
@@ -75,10 +74,6 @@ struct Args {
     /// the alpha mode used to spawn the sprites
     #[argh(option, default = "AlphaMode::Mixed")]
     alpha_mode: AlphaMode,
-
-    /// the main pass mode used for core2d
-    #[argh(option, default = "Core2dMainPassModeArg(Core2dMainPassMode::Merged)")]
-    main_pass_mode: Core2dMainPassModeArg,
 }
 
 #[derive(Default, Clone)]
@@ -99,23 +94,6 @@ impl FromStr for Mode {
             "sprite_mesh" => Ok(Self::SpriteMesh),
             _ => Err(format!(
                 "Unknown mode: '{s}', valid modes: 'sprite', 'mesh2d', 'sprite_mesh'"
-            )),
-        }
-    }
-}
-
-#[derive(Clone, Copy)]
-struct Core2dMainPassModeArg(Core2dMainPassMode);
-
-impl FromStr for Core2dMainPassModeArg {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "merged" => Ok(Self(Core2dMainPassMode::Merged)),
-            "separate" => Ok(Self(Core2dMainPassMode::Separate)),
-            _ => Err(format!(
-                "Unknown main pass mode: '{s}', valid modes: 'merged', 'separate'"
             )),
         }
     }
@@ -171,7 +149,6 @@ fn main() {
         ))
         .insert_resource(StaticTransformOptimizations::Disabled)
         .insert_resource(WinitSettings::continuous())
-        .insert_resource(args.main_pass_mode.0)
         .insert_resource(args)
         .insert_resource(BevyCounter {
             count: 0,

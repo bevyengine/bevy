@@ -27,6 +27,7 @@ use crate::upscaling::upscaling;
 use crate::Core2dSystems;
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
+use bevy_log::warn;
 use bevy_math::FloatOrd;
 use bevy_render::{
     camera::ExtractedCamera,
@@ -57,6 +58,28 @@ pub enum Core2dMainPassMode {
     Separate,
 }
 
+impl Core2dMainPassMode {
+    /// Get the main pass mode from the `BEVY_CORE_2D_MAIN_PASS_MODE` environment variable.
+    ///
+    /// Valid values (case-insensitive) are `"merged"` and `"separate"`.
+    /// Returns [`None`] if the variable is unset or holds an invalid value.
+    pub fn from_env() -> Option<Self> {
+        let Ok(value) = std::env::var("BEVY_CORE_2D_MAIN_PASS_MODE") else {
+            return None;
+        };
+        match value.to_ascii_lowercase().as_str() {
+            "merged" => Some(Self::Merged),
+            "separate" => Some(Self::Separate),
+            _ => {
+                warn!(
+                    "Ignoring invalid value for `BEVY_CORE_2D_MAIN_PASS_MODE`: '{value}', expected 'merged' or 'separate'"
+                );
+                None
+            }
+        }
+    }
+}
+
 impl Plugin for Core2dPlugin {
     fn build(&self, app: &mut App) {
         app.register_required_components::<Camera2d, DebandDither>()
@@ -70,7 +93,8 @@ impl Plugin for Core2dPlugin {
             ));
 
         if app.world().get_resource::<Core2dMainPassMode>().is_none() {
-            app.insert_resource(Core2dMainPassMode::Merged);
+            let mode = Core2dMainPassMode::from_env().unwrap_or(Core2dMainPassMode::Merged);
+            app.insert_resource(mode);
         }
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
@@ -82,7 +106,9 @@ impl Plugin for Core2dPlugin {
             .get_resource::<Core2dMainPassMode>()
             .is_none()
         {
-            render_app.insert_resource(Core2dMainPassMode::Merged);
+            let mode =
+                Core2dMainPassMode::from_env().unwrap_or(Core2dMainPassMode::Merged);
+            render_app.insert_resource(mode);
         }
 
         render_app

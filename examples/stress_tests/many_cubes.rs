@@ -14,7 +14,6 @@ use argh::FromArgs;
 use bevy::{
     asset::RenderAssetUsages,
     camera::visibility::{NoCpuCulling, NoFrustumCulling},
-    core_pipeline::core_3d::Core3dMainPassMode,
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     light::NotShadowCaster,
     math::{
@@ -101,13 +100,6 @@ struct Args {
     /// the alpha mode used to spawn the cubes
     #[argh(option, default = "AlphaMode::Mixed")]
     alpha_mode: AlphaMode,
-
-    /// the main pass mode used for core3d
-    #[argh(
-        option,
-        default = "Core3dMainPassModeArg(Core3dMainPassMode::Separate)"
-    )]
-    main_pass_mode: Core3dMainPassModeArg,
 }
 
 #[derive(Default, Clone)]
@@ -130,23 +122,6 @@ impl FromStr for AlphaMode {
             "mixed" => Ok(Self::Mixed),
             _ => Err(format!(
                 "Unknown alpha mode: '{s}', valid modes: 'opaque', 'blend', 'alpha_mask', 'mixed'"
-            )),
-        }
-    }
-}
-
-#[derive(Clone, Copy)]
-struct Core3dMainPassModeArg(Core3dMainPassMode);
-
-impl FromStr for Core3dMainPassModeArg {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "merged" => Ok(Self(Core3dMainPassMode::Merged)),
-            "separate" => Ok(Self(Core3dMainPassMode::Separate)),
-            _ => Err(format!(
-                "Unknown main pass mode: '{s}', valid modes: 'merged', 'separate'"
             )),
         }
     }
@@ -196,7 +171,6 @@ fn main() {
         LogDiagnosticsPlugin::default(),
     ))
     .insert_resource(WinitSettings::continuous())
-    .insert_resource(args.main_pass_mode.0)
     .add_systems(Startup, setup)
     .add_systems(Update, print_mesh_count);
 
