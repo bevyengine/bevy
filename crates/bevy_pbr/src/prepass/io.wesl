@@ -66,7 +66,7 @@ struct Vertex {
 // The instance_index parameter must match vertex_in.instance_index. This is a work around for a wgpu dx12 bug.
 // See https://github.com/gfx-rs/naga/issues/2416
 fn decompress_vertex(vertex_in: Vertex, instance_index: u32) -> UncompressedVertex {
-    let mesh_metadata = bevy_pbr::render::mesh_functions::get_metadata(instance_index);
+    let mesh_metadata = package::render::mesh_functions::get_metadata(instance_index);
     var uncompressed_vertex: UncompressedVertex;
     uncompressed_vertex.instance_index = instance_index;
 @if(VERTEX_POSITIONS_COMPRESSED)

@@ -178,7 +178,7 @@ impl SystemExecutor for MultiThreadedExecutor {
                 condition_conflicting_systems: FixedBitSet::with_capacity(sys_count),
                 dependents: schedule.system_dependents[index].clone(),
                 is_send: schedule.systems[index].system.is_send(),
-                is_exclusive: schedule.systems[index].system.is_exclusive(),
+                is_exclusive: schedule.systems[index].access.is_exclusive(),
             });
             // A system with no dependencies is a starting system.
             if schedule.system_dependencies[index] == 0 {
@@ -751,7 +751,9 @@ impl ExecutorState {
             self.exclusive_running = false;
         }
 
-        if !self.system_task_metadata[system_index].is_send {
+        if self.system_task_metadata[system_index].is_exclusive
+            || !self.system_task_metadata[system_index].is_send
+        {
             self.local_thread_running = false;
         }
 
@@ -941,17 +943,48 @@ mod tests {
     use std::panic::catch_unwind;
 
     use crate::{
+        change_detection::Tick,
         error::{
             BevyError, ErrorContext, FallbackErrorHandler, PANIC_ORIGINATES_FROM_ERROR_HANDLER,
         },
         prelude::Resource,
         schedule::{IntoScheduleConfigs, MultiThreadedExecutor, Schedule},
-        system::Commands,
-        world::World,
+        system::{
+            Commands, NonSendMut, SystemAccess, SystemMeta, SystemParam, SystemParamValidationError,
+        },
+        world::{unsafe_world_cell::UnsafeWorldCell, World},
     };
 
     #[derive(Resource)]
     struct R;
+
+    struct ExclusiveMarker;
+
+    // SAFETY: No world data is accessed.
+    unsafe impl SystemParam for ExclusiveMarker {
+        type State = ();
+        type Item<'world, 'state> = ExclusiveMarker;
+
+        fn init_state(_world: &mut World) -> Self::State {}
+
+        fn init_access(
+            _state: &Self::State,
+            system_meta: &mut SystemMeta,
+            system_access: &mut SystemAccess,
+            _world: &mut World,
+        ) {
+            system_access.require_exclusive_access::<Self>(system_meta);
+        }
+
+        unsafe fn get_param<'world, 'state>(
+            _state: &'state mut Self::State,
+            _system_meta: &SystemMeta,
+            _world: UnsafeWorldCell<'world>,
+            _change_tick: Tick,
+        ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
+            Ok(ExclusiveMarker)
+        }
+    }
 
     #[test]
     fn skipped_systems_notify_dependents() {
@@ -970,6 +1003,32 @@ mod tests {
         );
         schedule.run(&mut world);
         assert!(world.get_resource::<R>().is_some());
+    }
+
+    /// Regression test for case where exclusive system left local thread state as not
+    /// cleared and prevented subsequent non-send system runs
+    #[test]
+    fn exclusive_system_reporting_send_releases_the_local_thread() {
+        #[derive(Default)]
+        struct NonSendMarker(bool);
+
+        let mut world = World::new();
+        world.insert_non_send(NonSendMarker::default());
+
+        let mut schedule = Schedule::default();
+        schedule.set_executor(MultiThreadedExecutor::new());
+        schedule.add_systems(
+            (
+                |_: ExclusiveMarker| {},
+                |mut marker: NonSendMut<NonSendMarker>| {
+                    marker.0 = true;
+                },
+            )
+                .chain(),
+        );
+
+        schedule.run(&mut world);
+        assert!(world.non_send::<NonSendMarker>().0);
     }
 
     /// Regression test for a weird bug flagged by MIRI in

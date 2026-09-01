@@ -16,7 +16,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res},
 };
 use bevy_input_focus::tab_navigation::TabIndex;
-use bevy_picking::{hover::Hovered, PickingSystems};
+use bevy_picking::{cursor::EntityCursor, hover::Hovered, PickingSystems};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::prelude::*;
 use bevy_text::FontWeight;
@@ -31,7 +31,6 @@ use bevy_ui_widgets::{
 
 use crate::{
     constants::{fonts, size},
-    cursor::EntityCursor,
     display::caption,
     focus::FocusIndicator,
     font_styles::InheritableFont,
@@ -120,7 +119,7 @@ impl FeathersSlider {
                     font_size: size::SMALL_FONT,
                     weight: FontWeight::NORMAL,
                 }
-                Children [(caption("10.0") SliderValueText)]
+                Children [(@caption("10.0") SliderValueText)]
             )]
         }
     }

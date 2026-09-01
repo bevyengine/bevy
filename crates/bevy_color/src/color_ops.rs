@@ -4,12 +4,12 @@ use bevy_math::{ops, Vec3, Vec4};
 /// guaranteed to produce consistent results across color spaces,
 /// but will be within a given space.
 pub trait Luminance: Sized {
-    /// Return the luminance of this color (0.0 - 1.0).
+    /// Return the luminance of this color. SDR colors are in `[0.0, 1.0]`. An HDR
+    /// color's luminance can be above or below 1.0.
     fn luminance(&self) -> f32;
 
-    /// Return a new version of this color with the given luminance. The resulting color will
-    /// be clamped to the valid range for the color space; for some color spaces, clamping
-    /// may cause the hue or chroma to change.
+    /// Return a new version of this color with the given luminance. The result is not
+    /// clamped, so an out-of-range target is stored as-is.
     fn with_luminance(&self, value: f32) -> Self;
 
     /// Return a darker version of this color. The `amount` should be between 0.0 and 1.0.
@@ -23,7 +23,8 @@ pub trait Luminance: Sized {
     /// Return a lighter version of this color. The `amount` should be between 0.0 and 1.0.
     /// The amount represents an absolute increase in luminance, and is distributive:
     /// `color.lighter(a).lighter(b) == color.lighter(a + b)`. Colors are clamped to white
-    /// if the amount would cause them to go above white.
+    /// if the amount would cause them to go above white, so this operation is not suitable
+    /// for HDR colors. To scale an HDR color, use [`with_luminance`](Luminance::with_luminance).
     ///
     /// For a relative increase in luminance, you can simply `mix()` with white.
     fn lighter(&self, amount: f32) -> Self;

@@ -1,4 +1,4 @@
-import bevy_pbr::{
+import package::{
     meshlet::bindings::{
         Meshlet,
         meshlet_visibility_buffer,
@@ -20,7 +20,7 @@ import bevy_pbr::{
 import bevy_render::maths::{affine3_to_square, mat2x4_f32_to_mat3x3_unpack};
 
 @if(PREPASS_FRAGMENT && MOTION_VECTOR_PREPASS)
-import bevy_pbr::{
+import package::{
     prepass::bindings::previous_view_uniforms,
     render::pbr_prepass_functions::calculate_motion_vector,
 };

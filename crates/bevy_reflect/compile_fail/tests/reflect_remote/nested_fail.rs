@@ -44,6 +44,7 @@ mod mismatched_remote_type {
     #[reflect_remote(super::external_crate::TheirOuter<T>)]
     //~^ ERROR: mismatched types
     //~| ERROR: mismatched types
+    //~| ERROR: mismatched types
     struct MyOuter<T: FromReflect + GetTypeRegistration> {
         // Reason: Should be `MyInner<T>`
         #[reflect(remote = MyOuter<T>)]
