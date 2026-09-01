@@ -14,7 +14,7 @@ The `define_atomic_id!` macro and the unused `ShaderId` type have been removed. 
 - `RenderPipelineId`
 - `ComputePipelineId`
 
-They are `Clone`, `Eq`, `Ord` and `Hash`, but not `Copy`.
+They are `Clone`, `Eq`, `Ord` and `Hash`, but no longer `Copy`.
 
 To migrate:
 
