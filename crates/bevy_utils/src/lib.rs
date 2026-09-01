@@ -143,18 +143,12 @@ pub fn catch_unwind_if_available<T>(
             std::panic::catch_unwind(f)
         }
         _ => {
+            // Force abort through double panic,
             // to be replaced by core::panic::abort_on_unwind
-            struct AbortOnPanic;
-            impl Drop for AbortOnPanic {
-                fn drop(&mut self) {
-                    // Force abort through double panic
-                    panic!("Aborting due to previous panic");
-                }
-            }
-            let drop_guard = AbortOnPanic;
+            let drop_guard = OnDrop::new(||panic!("Aborting due to previous panic"));
             let result = f();
-            let AbortOnPanic = drop_guard;
-            Ok(f)
+            core::mem::forget(drop_guard);
+            Ok(result)
         }
     }
 }
