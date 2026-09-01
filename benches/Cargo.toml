@@ -70,11 +70,7 @@ default = [
   "bench_transform",
 ]
 
-bench_camera = [
-  "dep:bevy_camera",
-  "dep:bevy_math",
-  "dep:bevy_shape",
-]
+bench_camera = ["dep:bevy_camera", "dep:bevy_math", "dep:bevy_shape"]
 
 bench_ecs = [
   "dep:bevy_ecs",
@@ -87,11 +83,7 @@ bench_ecs = [
 
 bench_math = ["dep:bevy_math", "dep:bevy_shape"]
 
-bench_picking = [
-  "dep:bevy_picking",
-  "dep:bevy_math",
-  "dep:bevy_shape",
-]
+bench_picking = ["dep:bevy_picking", "dep:bevy_math", "dep:bevy_shape"]
 
 bench_platform = [
   "dep:bevy_platform",
