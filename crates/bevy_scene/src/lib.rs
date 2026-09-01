@@ -904,6 +904,7 @@
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
+    #[expect(deprecated, reason = "easier migrations")]
     pub use crate::{
         bsn, bsn_list, on, template_value, CommandsSceneExt, EntityCommandsSceneExt,
         EntityWorldMutSceneExt, PatchFromTemplate, PatchTemplate, Scene, SceneComponent, SceneList,
@@ -1800,6 +1801,18 @@ mod tests {
         let handlers = entity.get::<Handlers>().unwrap();
         assert_eq!(2, (handlers.one.0)(2));
         assert_eq!(vec![2], (handlers.many.0)(2));
+    }
+
+    #[test]
+    fn template_expression_syntax() {
+        #[derive(Component, Clone, Default, PartialEq, Debug)]
+        struct Size {
+            width: u32,
+        }
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        world.spawn_scene(bsn! { ~{Size { width: 10 }} }).unwrap();
     }
 
     #[test]

@@ -119,6 +119,10 @@ impl BsnEntry {
             let is_template = input.peek(Tilde);
             if is_template {
                 input.parse::<Tilde>()?;
+                if input.peek(Brace) {
+                    let braced = braced_tokens(input)?;
+                    return Ok(BsnEntry::TemplateValue(braced));
+                }
             }
             let start_type = input.cursor();
             let mut path = input.parse::<Path>()?;
