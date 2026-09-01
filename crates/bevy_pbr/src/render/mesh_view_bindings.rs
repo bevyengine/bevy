@@ -18,12 +18,12 @@ use bevy_ecs::{
     entity::Entity,
     query::Has,
     resource::Resource,
-    system::{Commands, Query, Res},
+    system::{Commands, Query, Local, Res},
 };
 use bevy_light::{EnvironmentMapLight, IrradianceVolume};
 use bevy_math::Vec4;
 use bevy_platform::sync::Arc;
-use bevy_render::renderer::wgpu_wrapper;
+use bevy_render::wgpu_wrapper;
 use bevy_render::{
     camera::ExtractedCamera,
     globals::{GlobalsBuffer, GlobalsUniform},
@@ -633,13 +633,8 @@ pub struct MeshViewBindGroup {
 // Wrapped Vec to be used in `Local` system param in `prepare_mesh_view_bind_groups`,
 // because `BindGroupEntry` is non-send on wasm with atomics.
 wgpu_wrapper! {
-  pub struct WrappedBindGroupEntryVec(Vec<BindGroupEntry<'static>>);
-}
-
-impl Default for WrappedBindGroupEntryVec {
-    fn default() -> Self {
-        Self(Vec::default())
-    }
+    #[derive(Default)]
+    pub struct WrappedBindGroupEntryVec(Vec<BindGroupEntry<'static>>);
 }
 
 pub fn prepare_mesh_view_bind_groups(
@@ -758,12 +753,12 @@ pub fn prepare_mesh_view_bind_groups(
             {
                 // Take cache that has static lifetime for `DynamicBindGroupEntries`.
                 // See <https://users.rust-lang.org/t/how-to-cache-a-vectors-capacity/94478/10>.
-                entries.entries = core::mem::take(&mut *entries_cache.0)
+                entries.entries = core::mem::take(&mut **entries_cache)
                     .into_iter()
                     .map(|_| -> BindGroupEntry { unreachable!() })
                     .collect();
                 entries_binding_array.entries =
-                    core::mem::take(&mut *entries_binding_array_cache.0)
+                    core::mem::take(&mut **entries_binding_array_cache)
                         .into_iter()
                         .map(|_| -> BindGroupEntry { unreachable!() })
                         .collect();
@@ -1049,12 +1044,12 @@ pub fn prepare_mesh_view_bind_groups(
             {
                 entries.entries.clear();
                 entries_binding_array.entries.clear();
-                *entries_cache.0 = entries
+                **entries_cache = entries
                     .entries
                     .into_iter()
                     .map(|_| -> BindGroupEntry<'static> { unreachable!() })
                     .collect::<Vec<_>>();
-                *entries_binding_array_cache.0 = entries_binding_array
+                **entries_binding_array_cache = entries_binding_array
                     .entries
                     .into_iter()
                     .map(|_| -> BindGroupEntry<'static> { unreachable!() })
