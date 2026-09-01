@@ -17,7 +17,7 @@ impl Prepare for TestCommand {
         let test_threads_ref = &test_threads;
 
         // The bevy_ecs error tests need this set to test backtraces
-        sh.set_var("RUST_BACKTRACE", "1");
+        // sh.set_var("RUST_BACKTRACE", "1");
 
         vec![
             PreparedCommand::new::<Self>(
