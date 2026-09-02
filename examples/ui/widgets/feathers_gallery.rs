@@ -752,7 +752,7 @@ fn demo_column_1() -> impl Scene {
                 @FeathersColorPlane::OkhslHueLightness
                 on(|change: On<ValueChange<Vec2>>, mut color: ResMut<DemoWidgetStates>| {
                     color.okhsl_color.hue = change.value.x * 360.0;
-                    color.okhsl_color.lightness = 1.0 - change.value.y;
+                    color.okhsl_color.lightness = change.value.y;
                 })
             ),
             (
@@ -1166,22 +1166,22 @@ fn update_colors(
             match plane_type {
                 FeathersColorPlane::OkhslHueLightness => {
                     plane_value.0.x = states.okhsl_color.hue / 360.0;
-                    plane_value.0.y = 1.0 - states.okhsl_color.lightness;
+                    plane_value.0.y = states.okhsl_color.lightness;
                     plane_value.0.z = states.okhsl_color.saturation;
                 }
                 FeathersColorPlane::OkhslHueSaturation => {
                     plane_value.0.x = states.okhsl_color.hue / 360.0;
-                    plane_value.0.y = 1.0 - states.okhsl_color.saturation;
+                    plane_value.0.y = states.okhsl_color.saturation;
                     plane_value.0.z = states.okhsl_color.lightness;
                 }
                 FeathersColorPlane::HueLightness => {
                     plane_value.0.x = states.hsl_color.hue / 360.0;
-                    plane_value.0.y = 1.0 - states.hsl_color.lightness;
+                    plane_value.0.y = states.hsl_color.lightness;
                     plane_value.0.z = states.hsl_color.saturation;
                 }
                 FeathersColorPlane::HueSaturation => {
                     plane_value.0.x = states.hsl_color.hue / 360.0;
-                    plane_value.0.y = 1.0 - states.hsl_color.saturation;
+                    plane_value.0.y = states.hsl_color.saturation;
                     plane_value.0.z = states.hsl_color.lightness;
                 }
                 FeathersColorPlane::RedBlue => {
