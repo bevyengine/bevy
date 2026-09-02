@@ -14,12 +14,14 @@
 //!
 //! ```
 //! # use bevy_math::prelude::*;
+//! # use bevy_curve::prelude::*;
 //! # let time = 0.0;
 //! let smoothed_value = SmoothStepCurve.sample(time);
 //! ```
 //!
 //! ```
 //! # use bevy_math::prelude::*;
+//! # use bevy_curve::prelude::*;
 //! # let time = 0.0;
 //! let stepped_value = StepsCurve(5, JumpAt::Start).sample(time);
 //! ```
@@ -30,6 +32,7 @@
 //!
 //! ```
 //! # use bevy_math::prelude::*;
+//! # use bevy_curve::prelude::*;
 //! # let time = 0.0;
 //! # let make_it_smooth = false;
 //! let mut curve = EaseFunction::Linear;
@@ -47,6 +50,7 @@
 //!
 //! ```
 //! # use bevy_math::prelude::*;
+//! # use bevy_curve::prelude::*;
 //! # let time = 0.0;
 //! // Make a curve that smoothly transitions between two positions.
 //! let start_position = vec2(1.0, 2.0);
@@ -66,9 +70,10 @@
 //! [`sample_unchecked`]: `Curve::sample_unchecked`
 //!
 
-use crate::{
-    curve::{Curve, CurveExt, FunctionCurve, Interval},
-    Dir2, Dir3, Dir3A, Isometry2d, Isometry3d, Quat, Rot2, VectorSpace,
+use crate::{Curve, CurveExt, FunctionCurve, Interval};
+use bevy_math::{
+    Dir2, Dir3, Dir3A, Isometry2d, Isometry3d, Quat, Rot2, Sum, Vec2, Vec3, Vec3A, Vec4,
+    VectorSpace,
 };
 
 #[cfg(feature = "bevy_reflect")]
@@ -95,7 +100,32 @@ pub trait Ease: Sized {
     fn interpolating_curve_unbounded(start: Self, end: Self) -> impl Curve<Self>;
 }
 
-impl<V: VectorSpace<Scalar = f32>> Ease for V {
+/// Marker trait that indicates:
+///
+/// - a) A type that supports the mathematical operations of a f32 vector space, irrespective of
+///   dimension. See [`VectorSpace`]
+/// - b) The type can be used for easing curve
+///
+/// This trait was introduced since implementing the [`Ease`] trait for all [`VectorSpace`]
+/// implementors isn't possible over crate boundaries. This is because the crate defining the
+/// [`VectorSpace`] trait could always add new implementations that can create conflicts in the
+/// crate using the trait. Hence we have to explicitly mark each type that should support the easing
+/// functionality.
+pub trait EaseVectorSpace: VectorSpace<Scalar = f32> {}
+
+impl EaseVectorSpace for Vec2 {}
+impl EaseVectorSpace for Vec3 {}
+impl EaseVectorSpace for Vec4 {}
+impl EaseVectorSpace for Vec3A {}
+impl EaseVectorSpace for f32 {}
+impl<V, W> EaseVectorSpace for Sum<V, W>
+where
+    V: EaseVectorSpace,
+    W: EaseVectorSpace,
+{
+}
+
+impl<V: EaseVectorSpace> Ease for V {
     fn interpolating_curve_unbounded(start: Self, end: Self) -> impl Curve<Self> {
         FunctionCurve::new(Interval::EVERYWHERE, move |t| V::lerp(start, end, t))
     }
@@ -148,7 +178,7 @@ impl Ease for Isometry3d {
             Isometry3d {
                 rotation: Quat::interpolating_curve_unbounded(start.rotation, end.rotation)
                     .sample_unchecked(t),
-                translation: crate::Vec3A::interpolating_curve_unbounded(
+                translation: Vec3A::interpolating_curve_unbounded(
                     start.translation,
                     end.translation,
                 )
@@ -166,7 +196,7 @@ impl Ease for Isometry2d {
             Isometry2d {
                 rotation: Rot2::interpolating_curve_unbounded(start.rotation, end.rotation)
                     .sample_unchecked(t),
-                translation: crate::Vec2::interpolating_curve_unbounded(
+                translation: Vec2::interpolating_curve_unbounded(
                     start.translation,
                     end.translation,
                 )
@@ -222,6 +252,7 @@ all_tuples_enumerated!(
 ///
 /// ```
 /// # use bevy_math::prelude::*;
+/// # use bevy_curve::prelude::*;
 /// let c = EasingCurve::new(2.0, 4.0, EaseFunction::Linear);
 /// ```
 ///
@@ -230,6 +261,7 @@ all_tuples_enumerated!(
 ///
 /// ```
 /// # use bevy_math::prelude::*;
+/// # use bevy_curve::prelude::*;
 /// # let c = EasingCurve::new(2.0, 4.0, EaseFunction::Linear);
 /// assert_eq!(c.sample(-1.0), None);
 /// assert_eq!(c.sample(0.0), Some(2.0));
@@ -243,6 +275,7 @@ all_tuples_enumerated!(
 ///
 /// ```
 /// # use bevy_math::prelude::*;
+/// # use bevy_curve::prelude::*;
 /// # let c = EasingCurve::new(2.0, 4.0, EaseFunction::Linear);
 /// assert_eq!(c.sample_clamped(-1.0), 2.0);
 /// assert_eq!(c.sample_clamped(0.0), 2.0);
@@ -256,6 +289,7 @@ all_tuples_enumerated!(
 ///
 /// ```
 /// # use bevy_math::prelude::*;
+/// # use bevy_curve::prelude::*;
 /// let c = EasingCurve::new(
 ///     Vec2::new(0.0, 4.0),
 ///     Vec2::new(2.0, 8.0),
@@ -267,6 +301,7 @@ all_tuples_enumerated!(
 ///
 /// ```
 /// # use bevy_math::prelude::*;
+/// # use bevy_curve::prelude::*;
 /// # use approx::assert_abs_diff_eq;
 /// let c = EasingCurve::new(
 ///     Rot2::degrees(10.0),
@@ -282,6 +317,7 @@ all_tuples_enumerated!(
 ///
 /// ```
 /// # use bevy_math::prelude::*;
+/// # use bevy_curve::prelude::*;
 /// # let t = 0.5;
 /// let f = EaseFunction::SineIn;
 /// let c = EasingCurve::new(0.0, 1.0, EaseFunction::SineIn);
@@ -349,27 +385,27 @@ where
 pub enum JumpAt {
     /// Indicates that the first step happens when the animation begins.
     ///
-    #[doc = include_str!("../../images/easefunction/StartSteps.svg")]
+    #[doc = include_str!("../images/easefunction/StartSteps.svg")]
     Start,
     /// Indicates that the last step happens when the animation ends.
     ///
-    #[doc = include_str!("../../images/easefunction/EndSteps.svg")]
+    #[doc = include_str!("../images/easefunction/EndSteps.svg")]
     #[default]
     End,
     /// Indicates neither early nor late jumps happen.
     ///
-    #[doc = include_str!("../../images/easefunction/NoneSteps.svg")]
+    #[doc = include_str!("../images/easefunction/NoneSteps.svg")]
     None,
     /// Indicates both early and late jumps happen.
     ///
-    #[doc = include_str!("../../images/easefunction/BothSteps.svg")]
+    #[doc = include_str!("../images/easefunction/BothSteps.svg")]
     Both,
 }
 
 impl JumpAt {
     #[inline]
     pub(crate) fn eval(self, num_steps: usize, t: f32) -> f32 {
-        use crate::ops;
+        use bevy_math::ops;
 
         let (a, b) = match self {
             JumpAt::Start => (1.0, 0),
@@ -398,6 +434,7 @@ impl JumpAt {
 ///
 /// ```
 /// # use bevy_math::prelude::*;
+/// # use bevy_curve::prelude::*;
 /// let f = EaseFunction::SmoothStep;
 ///
 /// assert_eq!(f.sample(-1.0), None);
@@ -412,6 +449,7 @@ impl JumpAt {
 ///
 /// ```
 /// # use bevy_math::prelude::*;
+/// # use bevy_curve::prelude::*;
 /// # let f = EaseFunction::SmoothStep;
 /// assert_eq!(f.sample_clamped(-1.0), 0.0);
 /// assert_eq!(f.sample_clamped(0.0), 0.0);
@@ -435,7 +473,7 @@ impl JumpAt {
 pub enum EaseFunction {
     /// `f(t) = t`
     ///
-    #[doc = include_str!("../../images/easefunction/Linear.svg")]
+    #[doc = include_str!("../images/easefunction/Linear.svg")]
     Linear,
 
     /// `f(t) = t²`
@@ -445,7 +483,7 @@ pub enum EaseFunction {
     /// - f(1) = 1
     /// - f′(0) = 0
     ///
-    #[doc = include_str!("../../images/easefunction/QuadraticIn.svg")]
+    #[doc = include_str!("../images/easefunction/QuadraticIn.svg")]
     QuadraticIn,
     /// `f(t) = -(t * (t - 2.0))`
     ///
@@ -454,7 +492,7 @@ pub enum EaseFunction {
     /// - f(1) = 1
     /// - f′(1) = 0
     ///
-    #[doc = include_str!("../../images/easefunction/QuadraticOut.svg")]
+    #[doc = include_str!("../images/easefunction/QuadraticOut.svg")]
     QuadraticOut,
     /// Behaves as `EaseFunction::QuadraticIn` for t < 0.5 and as `EaseFunction::QuadraticOut` for t >= 0.5
     ///
@@ -462,7 +500,7 @@ pub enum EaseFunction {
     /// so consider using at least a cubic (such as [`EaseFunction::SmoothStep`])
     /// if you want the acceleration to be continuous.
     ///
-    #[doc = include_str!("../../images/easefunction/QuadraticInOut.svg")]
+    #[doc = include_str!("../images/easefunction/QuadraticInOut.svg")]
     QuadraticInOut,
 
     /// `f(t) = t³`
@@ -473,11 +511,11 @@ pub enum EaseFunction {
     /// - f′(0) = 0
     /// - f″(0) = 0
     ///
-    #[doc = include_str!("../../images/easefunction/CubicIn.svg")]
+    #[doc = include_str!("../images/easefunction/CubicIn.svg")]
     CubicIn,
     /// `f(t) = (t - 1.0)³ + 1.0`
     ///
-    #[doc = include_str!("../../images/easefunction/CubicOut.svg")]
+    #[doc = include_str!("../images/easefunction/CubicOut.svg")]
     CubicOut,
     /// Behaves as `EaseFunction::CubicIn` for t < 0.5 and as `EaseFunction::CubicOut` for t >= 0.5
     ///
@@ -488,29 +526,29 @@ pub enum EaseFunction {
     /// or [`EaseFunction::SmootherStep`] if you picked this because you wanted
     /// the acceleration at the endpoints to also be zero.
     ///
-    #[doc = include_str!("../../images/easefunction/CubicInOut.svg")]
+    #[doc = include_str!("../images/easefunction/CubicInOut.svg")]
     CubicInOut,
 
     /// `f(t) = t⁴`
     ///
-    #[doc = include_str!("../../images/easefunction/QuarticIn.svg")]
+    #[doc = include_str!("../images/easefunction/QuarticIn.svg")]
     QuarticIn,
     /// `f(t) = 1.0 - (1.0 - t)⁴`
     ///
-    #[doc = include_str!("../../images/easefunction/QuarticOut.svg")]
+    #[doc = include_str!("../images/easefunction/QuarticOut.svg")]
     QuarticOut,
     /// Behaves as `EaseFunction::QuarticIn` for t < 0.5 and as `EaseFunction::QuarticOut` for t >= 0.5
     ///
-    #[doc = include_str!("../../images/easefunction/QuarticInOut.svg")]
+    #[doc = include_str!("../images/easefunction/QuarticInOut.svg")]
     QuarticInOut,
 
     /// `f(t) = t⁵`
     ///
-    #[doc = include_str!("../../images/easefunction/QuinticIn.svg")]
+    #[doc = include_str!("../images/easefunction/QuinticIn.svg")]
     QuinticIn,
     /// `f(t) = (t - 1.0)⁵ + 1.0`
     ///
-    #[doc = include_str!("../../images/easefunction/QuinticOut.svg")]
+    #[doc = include_str!("../images/easefunction/QuinticOut.svg")]
     QuinticOut,
     /// Behaves as `EaseFunction::QuinticIn` for t < 0.5 and as `EaseFunction::QuinticOut` for t >= 0.5
     ///
@@ -519,20 +557,20 @@ pub enum EaseFunction {
     ///
     /// Consider using [`EaseFunction::SmootherStep`] instead, which is also quintic.
     ///
-    #[doc = include_str!("../../images/easefunction/QuinticInOut.svg")]
+    #[doc = include_str!("../images/easefunction/QuinticInOut.svg")]
     QuinticInOut,
 
     /// Behaves as the first half of [`EaseFunction::SmoothStep`].
     ///
     /// This has f″(1) = 0, unlike [`EaseFunction::QuadraticIn`] which starts similarly.
     ///
-    #[doc = include_str!("../../images/easefunction/SmoothStepIn.svg")]
+    #[doc = include_str!("../images/easefunction/SmoothStepIn.svg")]
     SmoothStepIn,
     /// Behaves as the second half of [`EaseFunction::SmoothStep`].
     ///
     /// This has f″(0) = 0, unlike [`EaseFunction::QuadraticOut`] which ends similarly.
     ///
-    #[doc = include_str!("../../images/easefunction/SmoothStepOut.svg")]
+    #[doc = include_str!("../images/easefunction/SmoothStepOut.svg")]
     SmoothStepOut,
     /// `f(t) = 3t² - 2t³`
     ///
@@ -546,20 +584,20 @@ pub enum EaseFunction {
     ///
     /// [glss]: https://registry.khronos.org/OpenGL-Refpages/gl4/html/smoothstep.xhtml
     ///
-    #[doc = include_str!("../../images/easefunction/SmoothStep.svg")]
+    #[doc = include_str!("../images/easefunction/SmoothStep.svg")]
     SmoothStep,
 
     /// Behaves as the first half of [`EaseFunction::SmootherStep`].
     ///
     /// This has f″(1) = 0, unlike [`EaseFunction::CubicIn`] which starts similarly.
     ///
-    #[doc = include_str!("../../images/easefunction/SmootherStepIn.svg")]
+    #[doc = include_str!("../images/easefunction/SmootherStepIn.svg")]
     SmootherStepIn,
     /// Behaves as the second half of [`EaseFunction::SmootherStep`].
     ///
     /// This has f″(0) = 0, unlike [`EaseFunction::CubicOut`] which ends similarly.
     ///
-    #[doc = include_str!("../../images/easefunction/SmootherStepOut.svg")]
+    #[doc = include_str!("../images/easefunction/SmootherStepOut.svg")]
     SmootherStepOut,
     /// `f(t) = 6t⁵ - 15t⁴ + 10t³`
     ///
@@ -571,33 +609,33 @@ pub enum EaseFunction {
     /// - f″(0) = 0
     /// - f″(1) = 0
     ///
-    #[doc = include_str!("../../images/easefunction/SmootherStep.svg")]
+    #[doc = include_str!("../images/easefunction/SmootherStep.svg")]
     SmootherStep,
 
     /// `f(t) = 1.0 - cos(t * π / 2.0)`
     ///
-    #[doc = include_str!("../../images/easefunction/SineIn.svg")]
+    #[doc = include_str!("../images/easefunction/SineIn.svg")]
     SineIn,
     /// `f(t) = sin(t * π / 2.0)`
     ///
-    #[doc = include_str!("../../images/easefunction/SineOut.svg")]
+    #[doc = include_str!("../images/easefunction/SineOut.svg")]
     SineOut,
     /// Behaves as `EaseFunction::SineIn` for t < 0.5 and as `EaseFunction::SineOut` for t >= 0.5
     ///
-    #[doc = include_str!("../../images/easefunction/SineInOut.svg")]
+    #[doc = include_str!("../images/easefunction/SineInOut.svg")]
     SineInOut,
 
     /// `f(t) = 1.0 - sqrt(1.0 - t²)`
     ///
-    #[doc = include_str!("../../images/easefunction/CircularIn.svg")]
+    #[doc = include_str!("../images/easefunction/CircularIn.svg")]
     CircularIn,
     /// `f(t) = sqrt((2.0 - t) * t)`
     ///
-    #[doc = include_str!("../../images/easefunction/CircularOut.svg")]
+    #[doc = include_str!("../images/easefunction/CircularOut.svg")]
     CircularOut,
     /// Behaves as `EaseFunction::CircularIn` for t < 0.5 and as `EaseFunction::CircularOut` for t >= 0.5
     ///
-    #[doc = include_str!("../../images/easefunction/CircularInOut.svg")]
+    #[doc = include_str!("../images/easefunction/CircularInOut.svg")]
     CircularInOut,
 
     /// `f(t) ≈ 2.0^(10.0 * (t - 1.0))`
@@ -605,57 +643,57 @@ pub enum EaseFunction {
     /// The precise definition adjusts it slightly so it hits both `(0, 0)` and `(1, 1)`:
     /// `f(t) = 2.0^(10.0 * t - A) - B`, where A = log₂(2¹⁰-1) and B = 1/(2¹⁰-1).
     ///
-    #[doc = include_str!("../../images/easefunction/ExponentialIn.svg")]
+    #[doc = include_str!("../images/easefunction/ExponentialIn.svg")]
     ExponentialIn,
     /// `f(t) ≈ 1.0 - 2.0^(-10.0 * t)`
     ///
     /// As with `EaseFunction::ExponentialIn`, the precise definition adjusts it slightly
     /// so it hits both `(0, 0)` and `(1, 1)`.
     ///
-    #[doc = include_str!("../../images/easefunction/ExponentialOut.svg")]
+    #[doc = include_str!("../images/easefunction/ExponentialOut.svg")]
     ExponentialOut,
     /// Behaves as `EaseFunction::ExponentialIn` for t < 0.5 and as `EaseFunction::ExponentialOut` for t >= 0.5
     ///
-    #[doc = include_str!("../../images/easefunction/ExponentialInOut.svg")]
+    #[doc = include_str!("../images/easefunction/ExponentialInOut.svg")]
     ExponentialInOut,
 
     /// `f(t) = -2.0^(10.0 * t - 10.0) * sin((t * 10.0 - 10.75) * 2.0 * π / 3.0)`
     ///
-    #[doc = include_str!("../../images/easefunction/ElasticIn.svg")]
+    #[doc = include_str!("../images/easefunction/ElasticIn.svg")]
     ElasticIn,
     /// `f(t) = 2.0^(-10.0 * t) * sin((t * 10.0 - 0.75) * 2.0 * π / 3.0) + 1.0`
     ///
-    #[doc = include_str!("../../images/easefunction/ElasticOut.svg")]
+    #[doc = include_str!("../images/easefunction/ElasticOut.svg")]
     ElasticOut,
     /// Behaves as `EaseFunction::ElasticIn` for t < 0.5 and as `EaseFunction::ElasticOut` for t >= 0.5
     ///
-    #[doc = include_str!("../../images/easefunction/ElasticInOut.svg")]
+    #[doc = include_str!("../images/easefunction/ElasticInOut.svg")]
     ElasticInOut,
 
     /// `f(t) = 2.70158 * t³ - 1.70158 * t²`
     ///
-    #[doc = include_str!("../../images/easefunction/BackIn.svg")]
+    #[doc = include_str!("../images/easefunction/BackIn.svg")]
     BackIn,
     /// `f(t) = 1.0 + 2.70158 * (t - 1.0)³ + 1.70158 * (t - 1.0)²`
     ///
-    #[doc = include_str!("../../images/easefunction/BackOut.svg")]
+    #[doc = include_str!("../images/easefunction/BackOut.svg")]
     BackOut,
     /// Behaves as `EaseFunction::BackIn` for t < 0.5 and as `EaseFunction::BackOut` for t >= 0.5
     ///
-    #[doc = include_str!("../../images/easefunction/BackInOut.svg")]
+    #[doc = include_str!("../images/easefunction/BackInOut.svg")]
     BackInOut,
 
     /// bouncy at the start!
     ///
-    #[doc = include_str!("../../images/easefunction/BounceIn.svg")]
+    #[doc = include_str!("../images/easefunction/BounceIn.svg")]
     BounceIn,
     /// bouncy at the end!
     ///
-    #[doc = include_str!("../../images/easefunction/BounceOut.svg")]
+    #[doc = include_str!("../images/easefunction/BounceOut.svg")]
     BounceOut,
     /// Behaves as `EaseFunction::BounceIn` for t < 0.5 and as `EaseFunction::BounceOut` for t >= 0.5
     ///
-    #[doc = include_str!("../../images/easefunction/BounceInOut.svg")]
+    #[doc = include_str!("../images/easefunction/BounceInOut.svg")]
     BounceInOut,
 
     /// `n` steps connecting the start and the end. Jumping behavior is customizable via
@@ -664,13 +702,13 @@ pub enum EaseFunction {
 
     /// `f(omega,t) = 1 - (1 - t)²(2sin(omega * t) / omega + cos(omega * t))`, parametrized by `omega`
     ///
-    #[doc = include_str!("../../images/easefunction/Elastic.svg")]
+    #[doc = include_str!("../images/easefunction/Elastic.svg")]
     Elastic(f32),
 }
 
 /// `f(t) = t`
 ///
-#[doc = include_str!("../../images/easefunction/Linear.svg")]
+#[doc = include_str!("../images/easefunction/Linear.svg")]
 #[derive(Copy, Clone)]
 pub struct LinearCurve;
 
@@ -681,7 +719,7 @@ pub struct LinearCurve;
 /// - f(1) = 1
 /// - f′(0) = 0
 ///
-#[doc = include_str!("../../images/easefunction/QuadraticIn.svg")]
+#[doc = include_str!("../images/easefunction/QuadraticIn.svg")]
 #[derive(Copy, Clone)]
 pub struct QuadraticInCurve;
 
@@ -692,7 +730,7 @@ pub struct QuadraticInCurve;
 /// - f(1) = 1
 /// - f′(1) = 0
 ///
-#[doc = include_str!("../../images/easefunction/QuadraticOut.svg")]
+#[doc = include_str!("../images/easefunction/QuadraticOut.svg")]
 #[derive(Copy, Clone)]
 pub struct QuadraticOutCurve;
 
@@ -702,7 +740,7 @@ pub struct QuadraticOutCurve;
 /// so consider using at least a cubic (such as [`SmoothStepCurve`])
 /// if you want the acceleration to be continuous.
 ///
-#[doc = include_str!("../../images/easefunction/QuadraticInOut.svg")]
+#[doc = include_str!("../images/easefunction/QuadraticInOut.svg")]
 #[derive(Copy, Clone)]
 pub struct QuadraticInOutCurve;
 
@@ -714,13 +752,13 @@ pub struct QuadraticInOutCurve;
 /// - f′(0) = 0
 /// - f″(0) = 0
 ///
-#[doc = include_str!("../../images/easefunction/CubicIn.svg")]
+#[doc = include_str!("../images/easefunction/CubicIn.svg")]
 #[derive(Copy, Clone)]
 pub struct CubicInCurve;
 
 /// `f(t) = (t - 1.0)³ + 1.0`
 ///
-#[doc = include_str!("../../images/easefunction/CubicOut.svg")]
+#[doc = include_str!("../images/easefunction/CubicOut.svg")]
 #[derive(Copy, Clone)]
 pub struct CubicOutCurve;
 
@@ -733,37 +771,37 @@ pub struct CubicOutCurve;
 /// or [`SmootherStepCurve`] if you picked this because you wanted
 /// the acceleration at the endpoints to also be zero.
 ///
-#[doc = include_str!("../../images/easefunction/CubicInOut.svg")]
+#[doc = include_str!("../images/easefunction/CubicInOut.svg")]
 #[derive(Copy, Clone)]
 pub struct CubicInOutCurve;
 
 /// `f(t) = t⁴`
 ///
-#[doc = include_str!("../../images/easefunction/QuarticIn.svg")]
+#[doc = include_str!("../images/easefunction/QuarticIn.svg")]
 #[derive(Copy, Clone)]
 pub struct QuarticInCurve;
 
 /// `f(t) = 1.0 - (1.0 - t)⁴`
 ///
-#[doc = include_str!("../../images/easefunction/QuarticOut.svg")]
+#[doc = include_str!("../images/easefunction/QuarticOut.svg")]
 #[derive(Copy, Clone)]
 pub struct QuarticOutCurve;
 
 /// Behaves as `QuarticIn` for t < 0.5 and as `QuarticOut` for t >= 0.5
 ///
-#[doc = include_str!("../../images/easefunction/QuarticInOut.svg")]
+#[doc = include_str!("../images/easefunction/QuarticInOut.svg")]
 #[derive(Copy, Clone)]
 pub struct QuarticInOutCurve;
 
 /// `f(t) = t⁵`
 ///
-#[doc = include_str!("../../images/easefunction/QuinticIn.svg")]
+#[doc = include_str!("../images/easefunction/QuinticIn.svg")]
 #[derive(Copy, Clone)]
 pub struct QuinticInCurve;
 
 /// `f(t) = (t - 1.0)⁵ + 1.0`
 ///
-#[doc = include_str!("../../images/easefunction/QuinticOut.svg")]
+#[doc = include_str!("../images/easefunction/QuinticOut.svg")]
 #[derive(Copy, Clone)]
 pub struct QuinticOutCurve;
 
@@ -774,7 +812,7 @@ pub struct QuinticOutCurve;
 ///
 /// Consider using [`SmootherStepCurve`] instead, which is also quintic.
 ///
-#[doc = include_str!("../../images/easefunction/QuinticInOut.svg")]
+#[doc = include_str!("../images/easefunction/QuinticInOut.svg")]
 #[derive(Copy, Clone)]
 pub struct QuinticInOutCurve;
 
@@ -782,7 +820,7 @@ pub struct QuinticInOutCurve;
 ///
 /// This has f″(1) = 0, unlike [`QuadraticInCurve`] which starts similarly.
 ///
-#[doc = include_str!("../../images/easefunction/SmoothStepIn.svg")]
+#[doc = include_str!("../images/easefunction/SmoothStepIn.svg")]
 #[derive(Copy, Clone)]
 pub struct SmoothStepInCurve;
 
@@ -790,7 +828,7 @@ pub struct SmoothStepInCurve;
 ///
 /// This has f″(0) = 0, unlike [`QuadraticOutCurve`] which ends similarly.
 ///
-#[doc = include_str!("../../images/easefunction/SmoothStepOut.svg")]
+#[doc = include_str!("../images/easefunction/SmoothStepOut.svg")]
 #[derive(Copy, Clone)]
 pub struct SmoothStepOutCurve;
 
@@ -806,7 +844,7 @@ pub struct SmoothStepOutCurve;
 ///
 /// [glss]: https://registry.khronos.org/OpenGL-Refpages/gl4/html/smoothstep.xhtml
 ///
-#[doc = include_str!("../../images/easefunction/SmoothStep.svg")]
+#[doc = include_str!("../images/easefunction/SmoothStep.svg")]
 #[derive(Copy, Clone)]
 pub struct SmoothStepCurve;
 
@@ -814,7 +852,7 @@ pub struct SmoothStepCurve;
 ///
 /// This has f″(1) = 0, unlike [`CubicInCurve`] which starts similarly.
 ///
-#[doc = include_str!("../../images/easefunction/SmootherStepIn.svg")]
+#[doc = include_str!("../images/easefunction/SmootherStepIn.svg")]
 #[derive(Copy, Clone)]
 pub struct SmootherStepInCurve;
 
@@ -822,7 +860,7 @@ pub struct SmootherStepInCurve;
 ///
 /// This has f″(0) = 0, unlike [`CubicOutCurve`] which ends similarly.
 ///
-#[doc = include_str!("../../images/easefunction/SmootherStepOut.svg")]
+#[doc = include_str!("../images/easefunction/SmootherStepOut.svg")]
 #[derive(Copy, Clone)]
 pub struct SmootherStepOutCurve;
 
@@ -836,43 +874,43 @@ pub struct SmootherStepOutCurve;
 /// - f″(0) = 0
 /// - f″(1) = 0
 ///
-#[doc = include_str!("../../images/easefunction/SmootherStep.svg")]
+#[doc = include_str!("../images/easefunction/SmootherStep.svg")]
 #[derive(Copy, Clone)]
 pub struct SmootherStepCurve;
 
 /// `f(t) = 1.0 - cos(t * π / 2.0)`
 ///
-#[doc = include_str!("../../images/easefunction/SineIn.svg")]
+#[doc = include_str!("../images/easefunction/SineIn.svg")]
 #[derive(Copy, Clone)]
 pub struct SineInCurve;
 
 /// `f(t) = sin(t * π / 2.0)`
 ///
-#[doc = include_str!("../../images/easefunction/SineOut.svg")]
+#[doc = include_str!("../images/easefunction/SineOut.svg")]
 #[derive(Copy, Clone)]
 pub struct SineOutCurve;
 
 /// Behaves as `SineIn` for t < 0.5 and as `SineOut` for t >= 0.5
 ///
-#[doc = include_str!("../../images/easefunction/SineInOut.svg")]
+#[doc = include_str!("../images/easefunction/SineInOut.svg")]
 #[derive(Copy, Clone)]
 pub struct SineInOutCurve;
 
 /// `f(t) = 1.0 - sqrt(1.0 - t²)`
 ///
-#[doc = include_str!("../../images/easefunction/CircularIn.svg")]
+#[doc = include_str!("../images/easefunction/CircularIn.svg")]
 #[derive(Copy, Clone)]
 pub struct CircularInCurve;
 
 /// `f(t) = sqrt((2.0 - t) * t)`
 ///
-#[doc = include_str!("../../images/easefunction/CircularOut.svg")]
+#[doc = include_str!("../images/easefunction/CircularOut.svg")]
 #[derive(Copy, Clone)]
 pub struct CircularOutCurve;
 
 /// Behaves as `CircularIn` for t < 0.5 and as `CircularOut` for t >= 0.5
 ///
-#[doc = include_str!("../../images/easefunction/CircularInOut.svg")]
+#[doc = include_str!("../images/easefunction/CircularInOut.svg")]
 #[derive(Copy, Clone)]
 pub struct CircularInOutCurve;
 
@@ -881,7 +919,7 @@ pub struct CircularInOutCurve;
 /// The precise definition adjusts it slightly so it hits both `(0, 0)` and `(1, 1)`:
 /// `f(t) = 2.0^(10.0 * t - A) - B`, where A = log₂(2¹⁰-1) and B = 1/(2¹⁰-1).
 ///
-#[doc = include_str!("../../images/easefunction/ExponentialIn.svg")]
+#[doc = include_str!("../images/easefunction/ExponentialIn.svg")]
 #[derive(Copy, Clone)]
 pub struct ExponentialInCurve;
 
@@ -890,67 +928,67 @@ pub struct ExponentialInCurve;
 /// As with `ExponentialIn`, the precise definition adjusts it slightly
 // so it hits both `(0, 0)` and `(1, 1)`.
 ///
-#[doc = include_str!("../../images/easefunction/ExponentialOut.svg")]
+#[doc = include_str!("../images/easefunction/ExponentialOut.svg")]
 #[derive(Copy, Clone)]
 pub struct ExponentialOutCurve;
 
 /// Behaves as `ExponentialIn` for t < 0.5 and as `ExponentialOut` for t >= 0.5
 ///
-#[doc = include_str!("../../images/easefunction/ExponentialInOut.svg")]
+#[doc = include_str!("../images/easefunction/ExponentialInOut.svg")]
 #[derive(Copy, Clone)]
 pub struct ExponentialInOutCurve;
 
 /// `f(t) = -2.0^(10.0 * t - 10.0) * sin((t * 10.0 - 10.75) * 2.0 * π / 3.0)`
 ///
-#[doc = include_str!("../../images/easefunction/ElasticIn.svg")]
+#[doc = include_str!("../images/easefunction/ElasticIn.svg")]
 #[derive(Copy, Clone)]
 pub struct ElasticInCurve;
 
 /// `f(t) = 2.0^(-10.0 * t) * sin((t * 10.0 - 0.75) * 2.0 * π / 3.0) + 1.0`
 ///
-#[doc = include_str!("../../images/easefunction/ElasticOut.svg")]
+#[doc = include_str!("../images/easefunction/ElasticOut.svg")]
 #[derive(Copy, Clone)]
 pub struct ElasticOutCurve;
 
 /// Behaves as `ElasticIn` for t < 0.5 and as `ElasticOut` for t >= 0.5
 ///
-#[doc = include_str!("../../images/easefunction/ElasticInOut.svg")]
+#[doc = include_str!("../images/easefunction/ElasticInOut.svg")]
 #[derive(Copy, Clone)]
 pub struct ElasticInOutCurve;
 
 /// `f(t) = 2.70158 * t³ - 1.70158 * t²`
 ///
-#[doc = include_str!("../../images/easefunction/BackIn.svg")]
+#[doc = include_str!("../images/easefunction/BackIn.svg")]
 #[derive(Copy, Clone)]
 pub struct BackInCurve;
 
 /// `f(t) = 1.0 +  2.70158 * (t - 1.0)³ + 1.70158 * (t - 1.0)²`
 ///
-#[doc = include_str!("../../images/easefunction/BackOut.svg")]
+#[doc = include_str!("../images/easefunction/BackOut.svg")]
 #[derive(Copy, Clone)]
 pub struct BackOutCurve;
 
 /// Behaves as `BackIn` for t < 0.5 and as `BackOut` for t >= 0.5
 ///
-#[doc = include_str!("../../images/easefunction/BackInOut.svg")]
+#[doc = include_str!("../images/easefunction/BackInOut.svg")]
 #[derive(Copy, Clone)]
 pub struct BackInOutCurve;
 
 /// bouncy at the start!
 ///
-#[doc = include_str!("../../images/easefunction/BounceIn.svg")]
+#[doc = include_str!("../images/easefunction/BounceIn.svg")]
 #[derive(Copy, Clone)]
 pub struct BounceInCurve;
 
 /// bouncy at the end!
 ///
-#[doc = include_str!("../../images/easefunction/BounceOut.svg")]
+#[doc = include_str!("../images/easefunction/BounceOut.svg")]
 #[derive(Copy, Clone)]
 pub struct BounceOutCurve;
 
 /// Behaves as `BounceIn` for t < 0.5 and as `BounceOut` for t >= 0.5
 ///
-#[doc = include_str!("../../images/easefunction/BounceInOut.svg")]
+#[doc = include_str!("../images/easefunction/BounceInOut.svg")]
 #[derive(Copy, Clone)]
 pub struct BounceInOutCurve;
 
@@ -961,7 +999,7 @@ pub struct StepsCurve(pub usize, pub JumpAt);
 
 /// `f(omega,t) = 1 - (1 - t)²(2sin(omega * t) / omega + cos(omega * t))`, parametrized by `omega`
 ///
-#[doc = include_str!("../../images/easefunction/Elastic.svg")]
+#[doc = include_str!("../images/easefunction/Elastic.svg")]
 #[derive(Copy, Clone)]
 pub struct ElasticCurve(pub f32);
 
@@ -1047,7 +1085,7 @@ impl Curve<f32> for ElasticCurve {
 mod easing_functions {
     use core::f32::consts::{FRAC_PI_2, FRAC_PI_3, PI};
 
-    use crate::{ops, FloatPow};
+    use bevy_math::{ops, FloatPow};
 
     #[inline]
     pub(crate) const fn linear(t: f32) -> f32 {
@@ -1363,8 +1401,8 @@ impl Curve<f32> for EaseFunction {
 #[cfg(feature = "approx")]
 mod tests {
 
-    use crate::{Vec2, Vec3, Vec3A};
     use approx::assert_abs_diff_eq;
+    use bevy_math::{Vec2, Vec3, Vec3A};
 
     use super::*;
     const MONOTONIC_IN_OUT_INOUT: &[[EaseFunction; 3]] = {

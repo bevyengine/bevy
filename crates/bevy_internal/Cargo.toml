@@ -127,6 +127,7 @@ serialize = [
   "bevy_input/serialize",
   "bevy_math/serialize",
   "bevy_shape/serialize",
+  "bevy_curve?/serialize",
   "bevy_world_serialization?/serialize",
   "bevy_time/serialize",
   "bevy_transform/serialize",
@@ -229,6 +230,7 @@ morph = ["bevy_mesh?/morph", "bevy_render?/morph"]
 morph_animation = ["morph", "bevy_animation?/bevy_mesh"]
 
 bevy_extract = ["dep:bevy_extract"]
+bevy_curve = ["dep:bevy_curve"]
 bevy_shader = ["dep:bevy_shader"]
 bevy_image = ["dep:bevy_image", "bevy_color", "bevy_asset"]
 bevy_sprite = ["dep:bevy_sprite", "bevy_camera"]
@@ -418,6 +420,7 @@ std = [
   "bevy_input_focus?/std",
   "bevy_math/std",
   "bevy_shape/std",
+  "bevy_curve?/std",
   "bevy_platform/std",
   "bevy_reflect/std",
   "bevy_state?/std",
@@ -535,6 +538,10 @@ bevy_a11y = { path = "../bevy_a11y", optional = true, version = "0.20.0-dev", fe
   "bevy_reflect",
 ] }
 bevy_camera_controller = { path = "../bevy_camera_controller", optional = true, version = "0.20.0-dev", default-features = false }
+bevy_curve = { path = "../bevy_curve", optional = true, version = "0.20.0-dev", default-features = false, features = [
+  "alloc",
+  "bevy_reflect",
+] }
 bevy_animation = { path = "../bevy_animation", optional = true, version = "0.20.0-dev" }
 bevy_asset = { path = "../bevy_asset", optional = true, version = "0.20.0-dev" }
 bevy_audio = { path = "../bevy_audio", optional = true, version = "0.20.0-dev" }

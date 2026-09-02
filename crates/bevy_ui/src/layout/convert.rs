@@ -56,7 +56,28 @@ impl Val {
         }
     }
 
-    pub(super) fn into_dimension(self, context: &LayoutContext) -> taffy::style::Dimension {
+    // Only used for border values in `from_node` below. Floors length based borders
+    // to a whole number of physical pixels, following the CSS "snap a length as a
+    // border width" algorithm used by browsers:
+    // https://www.w3.org/TR/css-values-4/#snap-a-length-as-a-border-width
+    //
+    // * A non-zero border smaller than one physical pixel is rounded up to one pixel.
+    // * A border larger than one physical pixel is rounded down to a whole pixel.
+    fn into_length_percentage_for_border(
+        self,
+        context: &LayoutContext,
+    ) -> taffy::style::LengthPercentage {
+        let length = self.into_length_percentage(context);
+        let raw = length.into_raw();
+        // we're only snapping if sized in non-zero px
+        if raw.tag() == taffy::style::CompactLength::LENGTH_TAG && raw.value() > 0.0 {
+            taffy::style::LengthPercentage::length(raw.value().floor().max(1.0))
+        } else {
+            length
+        }
+    }
+
+    fn into_dimension(self, context: &LayoutContext) -> taffy::style::Dimension {
         self.into_length_percentage_auto(context).into()
     }
 }
@@ -112,9 +133,10 @@ pub fn update_taffy_style_from_node(
     style.padding = node
         .padding
         .map_to_taffy_rect(|m| m.into_length_percentage(context));
+    // border floors >=1px sized to nearest (>=1) real pixel size, see `into_length_percentage_for_border`.
     style.border = node
         .border
-        .map_to_taffy_rect(|m| m.into_length_percentage(context));
+        .map_to_taffy_rect(|m| m.into_length_percentage_for_border(context));
     style.flex_grow = node.flex_grow;
     style.flex_shrink = node.flex_shrink;
     style.flex_basis = node.flex_basis.into_dimension(context);
@@ -169,10 +191,15 @@ impl From<AlignItems> for Option<taffy::style::AlignItems> {
         match value {
             AlignItems::Default => None,
             AlignItems::Start => taffy::style::AlignItems::START.into(),
+            AlignItems::StartSafe => taffy::style::AlignItems::SAFE_START.into(),
             AlignItems::End => taffy::style::AlignItems::END.into(),
+            AlignItems::EndSafe => taffy::style::AlignItems::SAFE_END.into(),
             AlignItems::FlexStart => taffy::style::AlignItems::FLEX_START.into(),
+            AlignItems::FlexStartSafe => taffy::style::AlignItems::SAFE_FLEX_START.into(),
             AlignItems::FlexEnd => taffy::style::AlignItems::FLEX_END.into(),
+            AlignItems::FlexEndSafe => taffy::style::AlignItems::SAFE_FLEX_END.into(),
             AlignItems::Center => taffy::style::AlignItems::CENTER.into(),
+            AlignItems::CenterSafe => taffy::style::AlignItems::SAFE_CENTER.into(),
             AlignItems::Baseline => taffy::style::AlignItems::BASELINE.into(),
             AlignItems::Stretch => taffy::style::AlignItems::STRETCH.into(),
         }
@@ -184,8 +211,11 @@ impl From<JustifyItems> for Option<taffy::style::JustifyItems> {
         match value {
             JustifyItems::Default => None,
             JustifyItems::Start => taffy::style::JustifyItems::START.into(),
+            JustifyItems::StartSafe => taffy::style::JustifyItems::SAFE_START.into(),
             JustifyItems::End => taffy::style::JustifyItems::END.into(),
+            JustifyItems::EndSafe => taffy::style::JustifyItems::SAFE_END.into(),
             JustifyItems::Center => taffy::style::JustifyItems::CENTER.into(),
+            JustifyItems::CenterSafe => taffy::style::JustifyItems::SAFE_CENTER.into(),
             JustifyItems::Baseline => taffy::style::JustifyItems::BASELINE.into(),
             JustifyItems::Stretch => taffy::style::JustifyItems::STRETCH.into(),
         }
@@ -197,10 +227,15 @@ impl From<AlignSelf> for Option<taffy::style::AlignSelf> {
         match value {
             AlignSelf::Auto => None,
             AlignSelf::Start => taffy::style::AlignSelf::START.into(),
+            AlignSelf::StartSafe => taffy::style::AlignSelf::SAFE_START.into(),
             AlignSelf::End => taffy::style::AlignSelf::END.into(),
+            AlignSelf::EndSafe => taffy::style::AlignSelf::SAFE_END.into(),
             AlignSelf::FlexStart => taffy::style::AlignSelf::FLEX_START.into(),
+            AlignSelf::FlexStartSafe => taffy::style::AlignSelf::SAFE_FLEX_START.into(),
             AlignSelf::FlexEnd => taffy::style::AlignSelf::FLEX_END.into(),
+            AlignSelf::FlexEndSafe => taffy::style::AlignSelf::SAFE_FLEX_END.into(),
             AlignSelf::Center => taffy::style::AlignSelf::CENTER.into(),
+            AlignSelf::CenterSafe => taffy::style::AlignSelf::SAFE_CENTER.into(),
             AlignSelf::Baseline => taffy::style::AlignSelf::BASELINE.into(),
             AlignSelf::Stretch => taffy::style::AlignSelf::STRETCH.into(),
         }
@@ -212,8 +247,11 @@ impl From<JustifySelf> for Option<taffy::style::JustifySelf> {
         match value {
             JustifySelf::Auto => None,
             JustifySelf::Start => taffy::style::JustifySelf::START.into(),
+            JustifySelf::StartSafe => taffy::style::JustifySelf::SAFE_START.into(),
             JustifySelf::End => taffy::style::JustifySelf::END.into(),
+            JustifySelf::EndSafe => taffy::style::JustifySelf::SAFE_END.into(),
             JustifySelf::Center => taffy::style::JustifySelf::CENTER.into(),
+            JustifySelf::CenterSafe => taffy::style::JustifySelf::SAFE_CENTER.into(),
             JustifySelf::Baseline => taffy::style::JustifySelf::BASELINE.into(),
             JustifySelf::Stretch => taffy::style::JustifySelf::STRETCH.into(),
         }
@@ -225,10 +263,15 @@ impl From<AlignContent> for Option<taffy::style::AlignContent> {
         match value {
             AlignContent::Default => None,
             AlignContent::Start => taffy::style::AlignContent::START.into(),
+            AlignContent::StartSafe => taffy::style::AlignContent::SAFE_START.into(),
             AlignContent::End => taffy::style::AlignContent::END.into(),
+            AlignContent::EndSafe => taffy::style::AlignContent::SAFE_END.into(),
             AlignContent::FlexStart => taffy::style::AlignContent::FLEX_START.into(),
+            AlignContent::FlexStartSafe => taffy::style::AlignContent::SAFE_FLEX_START.into(),
             AlignContent::FlexEnd => taffy::style::AlignContent::FLEX_END.into(),
+            AlignContent::FlexEndSafe => taffy::style::AlignContent::SAFE_FLEX_END.into(),
             AlignContent::Center => taffy::style::AlignContent::CENTER.into(),
+            AlignContent::CenterSafe => taffy::style::AlignContent::SAFE_CENTER.into(),
             AlignContent::Stretch => taffy::style::AlignContent::STRETCH.into(),
             AlignContent::SpaceBetween => taffy::style::AlignContent::SPACE_BETWEEN.into(),
             AlignContent::SpaceAround => taffy::style::AlignContent::SPACE_AROUND.into(),
@@ -242,10 +285,15 @@ impl From<JustifyContent> for Option<taffy::style::JustifyContent> {
         match value {
             JustifyContent::Default => None,
             JustifyContent::Start => taffy::style::JustifyContent::START.into(),
+            JustifyContent::StartSafe => taffy::style::JustifyContent::SAFE_START.into(),
             JustifyContent::End => taffy::style::JustifyContent::END.into(),
+            JustifyContent::EndSafe => taffy::style::JustifyContent::SAFE_END.into(),
             JustifyContent::FlexStart => taffy::style::JustifyContent::FLEX_START.into(),
+            JustifyContent::FlexStartSafe => taffy::style::JustifyContent::SAFE_FLEX_START.into(),
             JustifyContent::FlexEnd => taffy::style::JustifyContent::FLEX_END.into(),
+            JustifyContent::FlexEndSafe => taffy::style::JustifyContent::SAFE_FLEX_END.into(),
             JustifyContent::Center => taffy::style::JustifyContent::CENTER.into(),
+            JustifyContent::CenterSafe => taffy::style::JustifyContent::SAFE_CENTER.into(),
             JustifyContent::Stretch => taffy::style::JustifyContent::STRETCH.into(),
             JustifyContent::SpaceBetween => taffy::style::JustifyContent::SPACE_BETWEEN.into(),
             JustifyContent::SpaceAround => taffy::style::JustifyContent::SPACE_AROUND.into(),
