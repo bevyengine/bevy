@@ -541,6 +541,8 @@ pub struct OnTemplate<I, E, M>(pub I, pub PhantomData<fn() -> (E, M)>);
 
 /// A [`Template`] / [`Scene`] that will create an [`Observer`] of a given [`EntityEvent`] on the current [`Scene`] entity, with a run condition.
 /// This is typically initialized using the [`OnTemplate::run_if()`] function, which returns a [`ConditionalOnTemplate`].
+///
+/// [`Observer`]: bevy_ecs::observer::Observer
 pub struct ConditionalOnTemplate<I, E, M, C, CM>(pub I, pub PhantomData<fn() -> (E, M, CM)>, pub C);
 
 impl<I, E, M> OnTemplate<I, E, M>
