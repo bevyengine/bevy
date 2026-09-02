@@ -3,6 +3,7 @@
 use bevy::{
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     color::palettes::css::*,
+    input::mouse::MouseWheel,
     prelude::*,
 };
 use std::f32::consts::PI;
@@ -85,7 +86,8 @@ fn setup(
             Press 'B' to show all AABB boxes\n\
             Press 'U' or 'I' to cycle through line styles for straight or round gizmos\n\
             Press 'J' or 'K' to cycle through line joins for straight or round gizmos\n\
-            Press 'Spacebar' to toggle pause",
+            Press 'Spacebar' to toggle pause\n\
+            Roll 'MouseWheel' to increase/decrease animation speed for dotted/dashed round gizmos",
         ),
         Node {
             position_type: PositionType::Absolute,
@@ -212,11 +214,18 @@ fn draw_example_collection(
         .arrow(Vec3::new(2., 0., 2.), Vec3::new(2., 2., 2.), ORANGE_RED)
         .with_double_end()
         .with_tip_length(0.5);
+
+    let from = Vec3::new(1.0, 2.0, 3.0);
+    let to = Vec3::new(3.0, 2.5, 4.0);
+    gizmos.rect(from, Vec2::ONE, RED);
+    my_gizmos.short_arc_3d_between((from + to) / 2.0, from, to, YELLOW_GREEN);
+    gizmos.rect(to, Vec2::ONE, RED);
 }
 
 fn update_config(
     mut config_store: ResMut<GizmoConfigStore>,
     keyboard: Res<ButtonInput<KeyCode>>,
+    mut mouse: MessageReader<MouseWheel>,
     real_time: Res<Time<Real>>,
     mut virtual_time: ResMut<Time<Virtual>>,
 ) {
@@ -294,6 +303,9 @@ fn update_config(
             GizmoLineJoint::Round(_) => GizmoLineJoint::None,
             GizmoLineJoint::None => GizmoLineJoint::Bevel,
         };
+    }
+    for ev in mouse.read() {
+        my_config.line.animation_speed = (my_config.line.animation_speed + ev.y).clamp(-10.0, 10.0);
     }
 
     if keyboard.just_pressed(KeyCode::KeyB) {

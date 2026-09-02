@@ -63,6 +63,7 @@ pub(crate) fn extract_linegizmos(
                 joints_resolution,
                 gap_scale,
                 line_scale,
+                animation_speed: gizmo.line_config.animation_speed,
                 #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
                 _webgl2_padding: Default::default(),
             },

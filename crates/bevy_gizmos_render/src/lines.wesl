@@ -1,8 +1,9 @@
 // TODO use common view binding
-import bevy_render::{view::View, maths::affine3_to_square};
+import bevy_render::view::View;
+import bevy_render::globals::Globals;
+import bevy_render::maths::affine3_to_square;
 
 @group(0) @binding(0) var<uniform> view: View;
-
 
 struct LineGizmoUniform {
     world_from_local: mat3x4<f32>,
@@ -11,12 +12,14 @@ struct LineGizmoUniform {
     _joints_resolution: u32,
     gap_scale: f32,
     line_scale: f32,
+    animation_speed: f32,
     @if(SIXTEEN_BYTE_ALIGNMENT)
     // WebGL2 structs must be 16 byte aligned.
-    _padding: vec3<f32>,
+    _padding: vec2<f32>,
 }
 
 @group(1) @binding(0) var<uniform> line_gizmo: LineGizmoUniform;
+@group(1) @binding(1) var<uniform> globals: Globals;
 
 struct VertexInput {
     @location(0) position_a: vec3<f32>,
@@ -160,28 +163,39 @@ struct FragmentOutput {
     @location(0) color: vec4<f32>,
 };
 
+fn non_solid_uv(in: FragmentInput) -> f32 {
+    @if(PERSPECTIVE)
+    let uv = in.uv;
+    @else
+    let uv = in.uv * in.position.w;
+
+    // subtract the animation offset here since otherwise the animation is
+    // running "backwards", e.g.
+    // - from the line end to the line start
+    // - from the arrow tip to the arrow start
+    let animated = uv - globals.time * line_gizmo.animation_speed;
+
+    const PERIOD: f32 = 2.0;
+    return animated - floor(animated / PERIOD) * PERIOD;
+}
+
 @fragment
 fn fragment_solid(in: FragmentInput) -> FragmentOutput {
     return FragmentOutput(in.color);
 }
+
 @fragment
 fn fragment_dotted(in: FragmentInput) -> FragmentOutput {
-    var alpha: f32;
-    @if(PERSPECTIVE)
-    alpha = 1 - floor(in.uv % 2.0);
-    @else
-    alpha = 1 - floor((in.uv * in.position.w) % 2.0);
-    
+    let uv = non_solid_uv(in);
+    let alpha = 1.0 - floor(uv);
+
     return FragmentOutput(vec4(in.color.xyz, in.color.w * alpha));
 }
 
 @fragment
 fn fragment_dashed(in: FragmentInput) -> FragmentOutput {
-    @if(PERSPECTIVE)
-    let uv = in.uv;
-    @else
-    let uv = in.uv * in.position.w;
-    let alpha = 1.0 - floor(min((uv % 2.0) / in.line_fraction, 1.0));
-    
+    let uv = non_solid_uv(in);
+    let alpha = 1.0 - floor(min(uv / in.line_fraction, 1.0));
+
     return FragmentOutput(vec4(in.color.xyz, in.color.w * alpha));
 }

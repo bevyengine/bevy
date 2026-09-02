@@ -2,7 +2,7 @@
 
 use std::f32::consts::{FRAC_PI_2, PI, TAU};
 
-use bevy::{color::palettes::css::*, math::Isometry2d, prelude::*};
+use bevy::{color::palettes::css::*, input::mouse::MouseWheel, math::Isometry2d, prelude::*};
 
 fn main() {
     App::new()
@@ -27,7 +27,8 @@ fn setup(mut commands: Commands) {
         Press '1' / '2' to toggle the visibility of straight / round gizmos\n\
         Press 'U' / 'I' to cycle through line styles\n\
         Press 'J' / 'K' to cycle through line joins\n\
-        Press 'Spacebar' to toggle pause",
+        Press 'Spacebar' to toggle pause\n\
+        Roll 'MouseWheel' to increase/decrease animation speed for dotted/dashed round gizmos",
         ),
         Node {
             position_type: PositionType::Absolute,
@@ -121,11 +122,14 @@ fn draw_example_collection(
         )
         .with_double_end()
         .with_tip_length(10.);
+
+    my_gizmos.arc_2d(Isometry2d::default(), FRAC_PI_2, 210., OLD_LACE);
 }
 
 fn update_config(
     mut config_store: ResMut<GizmoConfigStore>,
     keyboard: Res<ButtonInput<KeyCode>>,
+    mut mouse: MessageReader<MouseWheel>,
     real_time: Res<Time<Real>>,
     mut virtual_time: ResMut<Time<Virtual>>,
 ) {
@@ -209,6 +213,10 @@ fn update_config(
             GizmoLineJoint::None => GizmoLineJoint::Bevel,
         };
     }
+    for ev in mouse.read() {
+        my_config.line.animation_speed = (my_config.line.animation_speed + ev.y).clamp(-10.0, 10.0);
+    }
+
     if keyboard.just_pressed(KeyCode::Space) {
         virtual_time.toggle();
     }
