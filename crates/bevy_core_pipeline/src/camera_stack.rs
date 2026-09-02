@@ -150,10 +150,10 @@ enum StackResolutionError {
 /// and blit disposition. Returns the contracts and the errors that fired.
 ///
 /// The resolver requires unique `sorted_index` values within a texture
-/// group and doesn't handle ties. The indices are unique because
-/// `sort_cameras` counts them separately per target and `hdr` setting,
-/// and one main texture serves one target and one `hdr` setting through
-/// its texture format.
+/// group and doesn't handle ties. `sort_cameras` counts the index per
+/// render target and `prepare_view_targets` keys main textures by target,
+/// so one group holds one target's cameras. Cameras whose target normalized
+/// to `None` are never counted and would tie at zero.
 fn resolve_contracts<K: Copy + Eq + Hash>(
     views: Vec<ContractInput<K>>,
 ) -> (EntityHashMap<ViewStackContract>, Vec<StackResolutionError>) {
