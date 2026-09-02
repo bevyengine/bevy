@@ -80,7 +80,6 @@ struct Args {
 enum Mode {
     #[default]
     Sprite,
-    SpriteMesh,
     Mesh2d,
 }
 
@@ -91,9 +90,8 @@ impl FromStr for Mode {
         match s {
             "sprite" => Ok(Self::Sprite),
             "mesh2d" => Ok(Self::Mesh2d),
-            "sprite_mesh" => Ok(Self::SpriteMesh),
             _ => Err(format!(
-                "Unknown mode: '{s}', valid modes: 'sprite', 'mesh2d', 'sprite_mesh'"
+                "Unknown mode: '{s}', valid modes: 'sprite', 'mesh2d'"
             )),
         }
     }
@@ -407,49 +405,6 @@ fn spawn_birds(
 
     match args.mode {
         Mode::Sprite => {
-            let batch = (0..spawn_count)
-                .map(|count| {
-                    let bird_z = if args.ordered_z {
-                        (current_count + count) as f32 * 0.00001
-                    } else {
-                        bird_resources.transform_rng.random::<f32>()
-                    };
-
-                    let (transform, velocity) = bird_velocity_transform(
-                        half_extents,
-                        Vec3::new(bird_x, bird_y, bird_z),
-                        &mut bird_resources.velocity_rng,
-                        waves_to_simulate,
-                        FIXED_DELTA_TIME,
-                    );
-
-                    let color = if args.vary_per_instance {
-                        Color::linear_rgb(
-                            bird_resources.color_rng.random(),
-                            bird_resources.color_rng.random(),
-                            bird_resources.color_rng.random(),
-                        )
-                    } else {
-                        color
-                    };
-                    (
-                        Sprite {
-                            image: bird_resources
-                                .textures
-                                .choose(&mut bird_resources.material_rng)
-                                .unwrap()
-                                .clone(),
-                            color,
-                            ..default()
-                        },
-                        transform,
-                        Bird { velocity },
-                    )
-                })
-                .collect::<Vec<_>>();
-            commands.spawn_batch(batch);
-        }
-        Mode::SpriteMesh => {
             let alpha_mode = match args.alpha_mode {
                 AlphaMode::Opaque => SpriteAlphaMode::Opaque,
                 AlphaMode::Blend => SpriteAlphaMode::Blend,
@@ -482,7 +437,7 @@ fn spawn_birds(
                         color
                     };
                     (
-                        SpriteMesh {
+                        Sprite {
                             image: bird_resources
                                 .textures
                                 .choose(&mut bird_resources.material_rng)
