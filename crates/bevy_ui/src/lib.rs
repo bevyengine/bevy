@@ -150,6 +150,10 @@ impl Plugin for UiPlugin {
         app.init_resource::<UiSurface>()
             .init_resource::<UiScale>()
             .init_resource::<UiStack>()
+            .register_required_components::<
+                bevy_text::EditableText,
+                widget::EditableTextContentSizeState,
+            >()
             .configure_sets(
                 PostUpdate,
                 (

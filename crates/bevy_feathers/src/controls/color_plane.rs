@@ -1,6 +1,7 @@
 use bevy_app::{Plugin, PostUpdate};
 use bevy_asset::{Asset, Assets};
 use bevy_ecs::{
+    change_detection::DetectChangesMut,
     component::Component,
     entity::Entity,
     hierarchy::{ChildOf, Children},
@@ -29,6 +30,8 @@ use bevy_ui_render::{prelude::UiMaterial, ui_material::MaterialNode, UiMaterialP
 use bevy_ui_widgets::ValueChange;
 
 use crate::{palette, theme::ThemeBackgroundColor, tokens};
+
+const COLOR_PLANE_THUMB_SIZE: f32 = 10.0;
 
 /// A "color plane" widget, which is a 2d picker that allows selecting two
 /// components of a color space.
@@ -189,7 +192,6 @@ fn update_plane_color(
     >,
     q_children: Query<&Children>,
     q_material_node: Query<&MaterialNode<ColorPlaneMaterial>>,
-    mut q_node: Query<&mut Node>,
     mut r_materials: ResMut<Assets<ColorPlaneMaterial>>,
     mut commands: Commands,
 ) {
@@ -219,21 +221,43 @@ fn update_plane_color(
             });
             commands.entity(*inner_ent).insert(MaterialNode(material));
         }
+    }
+}
 
-        // Find the thumb.
+fn update_plane_thumb_position(
+    q_color_plane: Query<(Entity, &ColorPlaneValue), With<FeathersColorPlane>>,
+    q_children: Query<&Children>,
+    q_computed_node: Query<&ComputedNode>,
+    mut q_transform: Query<&mut UiTransform>,
+) {
+    for (plane_ent, plane_value) in &q_color_plane {
+        let Ok(children) = q_children.get(plane_ent) else {
+            continue;
+        };
+        let Some(inner_ent) = children.first() else {
+            continue;
+        };
         let Ok(children_inner) = q_children.get(*inner_ent) else {
             continue;
         };
         let Some(thumb_ent) = children_inner.first() else {
             continue;
         };
-
-        let Ok(mut thumb_node) = q_node.get_mut(*thumb_ent) else {
+        let Ok(inner_node) = q_computed_node.get(*inner_ent) else {
             continue;
         };
-
-        thumb_node.left = percent(plane_value.0.x * 100.0);
-        thumb_node.top = percent(plane_value.0.y * 100.0);
+        let Ok(mut thumb_transform) = q_transform.get_mut(*thumb_ent) else {
+            continue;
+        };
+        let inner_size = inner_node.size() * inner_node.inverse_scale_factor;
+        if inner_size.x > 0.0 && inner_size.y > 0.0 {
+            let mut updated_transform = *thumb_transform;
+            updated_transform.translation = Val2::new(
+                px(plane_value.0.x * inner_size.x - COLOR_PLANE_THUMB_SIZE * 0.5),
+                px(plane_value.0.y * inner_size.y - COLOR_PLANE_THUMB_SIZE * 0.5),
+            );
+            thumb_transform.set_if_neq(updated_transform);
+        }
     }
 }
 
@@ -406,8 +430,10 @@ pub struct ColorPlanePlugin;
 impl Plugin for ColorPlanePlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.add_plugins(UiMaterialPlugin::<ColorPlaneMaterial>::default());
-        // `update_plane_color` modifies a node's `left` and `top`
-        app.add_systems(PostUpdate, update_plane_color.before(UiSystems::Layout));
+        app.add_systems(
+            PostUpdate,
+            (update_plane_color, update_plane_thumb_position).before(UiSystems::Layout),
+        );
         app.add_observer(on_pointer_press)
             .add_observer(on_drag_start)
             .add_observer(on_drag)
