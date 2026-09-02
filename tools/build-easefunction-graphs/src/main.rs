@@ -4,7 +4,7 @@
 
 use std::path::PathBuf;
 
-use bevy_math::curve::{CurveExt, EaseFunction, EasingCurve, JumpAt};
+use bevy_curve::{CurveExt, EaseFunction, EasingCurve, JumpAt};
 use svg::{
     node::element::{self, path::Data},
     Document,

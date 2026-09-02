@@ -205,7 +205,7 @@ pub const fn interval(start: f32, end: f32) -> Result<Interval, InvalidIntervalE
 
 #[cfg(test)]
 mod tests {
-    use crate::ops;
+    use bevy_math::ops;
 
     use super::*;
     use alloc::vec::Vec;

@@ -1,8 +1,6 @@
 use bevy_app::{Plugin, PostUpdate};
 use bevy_asset::{Asset, Assets};
 use bevy_ecs::{
-    bundle::Bundle,
-    children,
     component::Component,
     entity::Entity,
     hierarchy::{ChildOf, Children},
@@ -182,67 +180,6 @@ impl FeathersColorPlane {
             )]
         }
     }
-}
-
-/// Template function to spawn a "color plane", which is a 2d picker that allows selecting two
-/// components of a color space.
-///
-/// The control emits a [`ValueChange<Vec2>`] representing the current x and y values, ranging
-/// from 0 to 1. The control accepts a [`Vec3`] input value, where the third component ('z')
-/// is used to provide the fixed constant channel for the background gradient.
-///
-/// The control does not do any color space conversions internally, other than the shader code
-/// for displaying gradients. Avoiding excess conversions helps avoid gimble-lock problems when
-/// implementing a color picker for cylindrical color spaces such as HSL.
-///
-/// # Arguments
-/// * `overrides` - a bundle of components that are merged in with the normal swatch components.
-#[deprecated(since = "0.19.0", note = "Use the color_plane() BSN function")]
-pub fn color_plane_bundle<B: Bundle>(plane: FeathersColorPlane, overrides: B) -> impl Bundle {
-    (
-        Node {
-            display: Display::Flex,
-            min_height: px(100.0),
-            align_self: AlignSelf::Stretch,
-            padding: UiRect::all(px(4)),
-            border_radius: BorderRadius::all(px(5)),
-            ..Default::default()
-        },
-        plane,
-        ColorPlaneValue::default(),
-        ThemeBackgroundColor(tokens::COLOR_PLANE_BG),
-        EntityCursor::System(bevy_window::SystemCursorIcon::Crosshair),
-        overrides,
-        children![(
-            Node {
-                align_self: AlignSelf::Stretch,
-                flex_grow: 1.0,
-                ..Default::default()
-            },
-            ColorPlaneInner,
-            children![(
-                Node {
-                    position_type: PositionType::Absolute,
-                    left: percent(0),
-                    top: percent(0),
-                    width: px(10),
-                    height: px(10),
-                    border: UiRect::all(px(1)),
-                    border_radius: BorderRadius::MAX,
-                    ..Default::default()
-                },
-                ColorPlaneThumb,
-                BorderColor::all(palette::WHITE),
-                Outline {
-                    width: px(1),
-                    offset: px(0),
-                    color: palette::BLACK
-                },
-                Pickable::IGNORE,
-                UiTransform::from_translation(Val2::new(percent(-50), percent(-50),))
-            )],
-        ),],
-    )
 }
 
 fn update_plane_color(
