@@ -1,10 +1,11 @@
 //! Resolution of per-camera [`CompositingSpace`] requests.
 //!
 //! Cameras that render to the same target share main textures when their
-//! settings match, and composite over each other in that texture. Later
-//! passes need to know how the texture is encoded, so the whole stack has to
-//! agree on one compositing space. This module picks that space each frame
-//! and stores it in each view's [`ResolvedCompositingSpace`].
+//! settings match, and composite over each other in that texture. A camera
+//! that clears starts a new stack on it, since the clear covers the whole
+//! texture. Later passes need to know how the texture is encoded, so each
+//! stack has to agree on one compositing space. This module picks that space
+//! each frame and stores it in each view's [`ResolvedCompositingSpace`].
 
 use bevy_camera::{Camera2d, CameraMainTextureUsages, ClearColorConfig, CompositingSpace};
 use bevy_ecs::{
@@ -47,12 +48,6 @@ impl ResolvedCompositingSpace {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemSet)]
 pub struct ResolveCompositingSpaces;
 
-/// Whether a camera composites over the previous camera's output and covers
-/// the whole render target. Decides membership in a compositing stack.
-pub fn composites_fullscreen(camera: &ExtractedCamera) -> bool {
-    matches!(camera.clear_color, ClearColorConfig::None) && camera.viewport.is_none()
-}
-
 /// Writes each camera view's [`ResolvedCompositingSpace`]. Runs in
 /// [`ResolveCompositingSpaces`].
 pub fn resolve_composition_spaces(
@@ -90,7 +85,7 @@ pub fn resolve_composition_spaces(
                         // Extraction seeded each component with the camera's
                         // own request.
                         request: resolved.0,
-                        composites_fullscreen: composites_fullscreen(camera),
+                        loads_previous: matches!(camera.clear_color, ClearColorConfig::None),
                         is_camera_2d,
                         signed_float_storage: matches!(
                             view.target_format,
@@ -116,11 +111,16 @@ pub fn resolve_composition_spaces(
                 spaces: {requests:?}. The stack composites in linear instead. Give every \
                 camera in the stack the same CompositingSpace."
             ),
-            CompositingSpaceResolutionError::MixedSharedTextureRequests { requests } => warn_once!(
-                "Cameras sharing a render target request different compositing spaces: \
-                {requests:?}. \
-                Blending between their pixels will be wrong where their regions meet. Use one \
-                CompositingSpace for every camera on a shared target."
+            CompositingSpaceResolutionError::FrameStartLoadsOtherStack {
+                first,
+                first_space,
+                last_space,
+            } => warn_once!(
+                "Camera {first} is the first camera on its render target and uses \
+                ClearColorConfig::None, so it loads what the last camera stack left in the \
+                main texture the previous frame. That stack composites in {last_space:?} and \
+                this camera's stack in {first_space:?}. Give both stacks the same \
+                CompositingSpace."
             ),
             CompositingSpaceResolutionError::NonCamera2dRequest { non_camera_2d } => warn_once!(
                 "A CompositingSpace request resolves to linear because the views \
@@ -144,7 +144,10 @@ struct SpaceInput {
     /// The camera's position in its render target's sorted camera order.
     sorted_index: usize,
     request: Option<CompositingSpace>,
-    composites_fullscreen: bool,
+    /// Whether the view's main pass loads the previous camera's output,
+    /// true for [`ClearColorConfig::None`]. A clear covers the whole texture,
+    /// viewport or not, so a view that clears starts a new stack.
+    loads_previous: bool,
     is_camera_2d: bool,
     /// Whether the main texture format stores signed floats. The format is
     /// part of the texture key, so this is the same for every view in a
@@ -161,10 +164,12 @@ enum CompositingSpaceResolutionError {
     ConflictingStackRequests {
         requests: Vec<(Entity, CompositingSpace)>,
     },
-    /// Views that share a main texture without forming a stack disagree on a
-    /// compositing space.
-    MixedSharedTextureRequests {
-        requests: Vec<(Entity, Option<CompositingSpace>)>,
+    /// The texture's first view loads what the previous frame's last stack
+    /// left, and the two stacks resolve to different spaces.
+    FrameStartLoadsOtherStack {
+        first: Entity,
+        first_space: Option<CompositingSpace>,
+        last_space: Option<CompositingSpace>,
     },
     /// A view that isn't a `Camera2d`, or a stack that holds one, requests
     /// `Srgb` or `Oklab`.
@@ -173,9 +178,13 @@ enum CompositingSpaceResolutionError {
     OklabWithoutSignedFloatStorage { entities: Vec<Entity> },
 }
 
-/// Resolves one compositing space per view. A stack must agree on its shared
-/// texture's encoding, so it resolves as one unit. Views that share a texture
-/// without forming a stack resolve on their own.
+/// Resolves one compositing space per view. Views that share a main texture
+/// split into stacks at every clear, and each stack resolves on its own.
+///
+/// The resolver requires unique `sorted_index` values within a texture
+/// group and doesn't handle ties. `sort_cameras` counts the index per
+/// render target and `prepare_view_targets` keys main textures by target,
+/// so one group holds one target's cameras.
 fn resolve_spaces(
     views: impl IntoIterator<Item = (MainTextureKey, SpaceInput)>,
 ) -> (
@@ -192,44 +201,41 @@ fn resolve_spaces(
     let mut diagnostics = Vec::new();
     for group in groups.values_mut() {
         group.sort_unstable_by_key(|view| view.sorted_index);
-        let is_stack = group.len() >= 2 && group[1..].iter().all(|view| view.composites_fullscreen);
-        if is_stack {
-            resolve_members(group, &mut resolved, &mut diagnostics);
-        } else {
-            warn_on_mixed_requests(group, &mut diagnostics);
-            // Non-stack members resolve like solo views, each with its own
-            // request and its own overrides.
-            for member in 0..group.len() {
-                resolve_members(&group[member..=member], &mut resolved, &mut diagnostics);
+        debug_assert!(
+            group
+                .windows(2)
+                .all(|pair| pair[0].sorted_index != pair[1].sorted_index),
+            "sorted camera indices must be unique within a texture group"
+        );
+
+        // Each clearing member after the first starts a new stack.
+        let mut start = 0;
+        for index in 1..group.len() {
+            if !group[index].loads_previous {
+                resolve_members(&group[start..index], &mut resolved, &mut diagnostics);
+                start = index;
+            }
+        }
+        resolve_members(&group[start..], &mut resolved, &mut diagnostics);
+
+        // The main texture persists across frames. A first member that loads
+        // blends over what the last stack left the previous frame, so the
+        // two stacks must agree.
+        let first = &group[0];
+        if first.loads_previous && start > 0 {
+            let space_of = |entity| resolved.get(&entity).copied().flatten();
+            let first_space = space_of(first.entity);
+            let last_space = space_of(group[group.len() - 1].entity);
+            if first_space != last_space {
+                diagnostics.push(CompositingSpaceResolutionError::FrameStartLoadsOtherStack {
+                    first: first.entity,
+                    first_space,
+                    last_space,
+                });
             }
         }
     }
     (resolved, diagnostics)
-}
-
-/// Warns when views that share a texture without forming a stack disagree on
-/// a compositing space. Blending between their pixels is wrong where their
-/// regions meet.
-fn warn_on_mixed_requests(
-    members: &[SpaceInput],
-    diagnostics: &mut Vec<CompositingSpaceResolutionError>,
-) {
-    if members.len() < 2 {
-        return;
-    }
-    let first = members[0].request;
-    let mixed = members[1..].iter().any(|member| member.request != first);
-    let any_space = members.iter().any(|member| member.request.is_some());
-    if mixed && any_space {
-        diagnostics.push(
-            CompositingSpaceResolutionError::MixedSharedTextureRequests {
-                requests: members
-                    .iter()
-                    .map(|member| (member.entity, member.request))
-                    .collect(),
-            },
-        );
-    }
 }
 
 /// Resolves the compositing space for a list of views.
@@ -314,7 +320,8 @@ mod tests {
         Entity::from_raw_u32(raw).unwrap()
     }
 
-    /// A fullscreen `Camera2d` view whose main texture stores signed floats.
+    /// A `Camera2d` view that loads the previous output, on a main texture
+    /// that stores signed floats.
     /// Tests override the fields they care about. `texture` picks which of
     /// two texture keys the view groups under.
     fn view(
@@ -335,7 +342,7 @@ mod tests {
                 entity: entity(raw),
                 sorted_index: index,
                 request,
-                composites_fullscreen: true,
+                loads_previous: true,
                 is_camera_2d: true,
                 signed_float_storage: true,
             },
@@ -358,11 +365,11 @@ mod tests {
         })
     }
 
-    fn has_mixed(diagnostics: &[CompositingSpaceResolutionError]) -> bool {
+    fn has_frame_start(diagnostics: &[CompositingSpaceResolutionError]) -> bool {
         diagnostics.iter().any(|d| {
             matches!(
                 d,
-                CompositingSpaceResolutionError::MixedSharedTextureRequests { .. }
+                CompositingSpaceResolutionError::FrameStartLoadsOtherStack { .. }
             )
         })
     }
@@ -427,49 +434,125 @@ mod tests {
         assert_eq!(resolved_for(&resolved, 1), None);
         assert_eq!(resolved_for(&resolved, 2), None);
         assert!(has_conflict(&diagnostics));
-        assert!(!has_mixed(&diagnostics));
     }
 
-    #[test]
-    fn viewport_splitscreen_keeps_per_view_requests() {
-        let mut base = view(1, 0, 0, SRGB);
-        base.1.composites_fullscreen = false;
-        let mut pip = view(2, 0, 1, OKLAB);
-        pip.1.composites_fullscreen = false;
-        let (resolved, diagnostics) = resolve_spaces([base, pip]);
-        assert_eq!(resolved_for(&resolved, 1), SRGB);
-        assert_eq!(resolved_for(&resolved, 2), OKLAB);
-        assert!(has_mixed(&diagnostics));
-        assert!(!has_conflict(&diagnostics));
+    /// Turns a view into one that clears instead of loading the previous
+    /// output.
+    fn clearing(mut view: (MainTextureKey, SpaceInput)) -> (MainTextureKey, SpaceInput) {
+        view.1.loads_previous = false;
+        view
     }
 
+    // A clear in the middle starts a second stack, and each stack resolves
+    // on its own.
     #[test]
-    fn mixed_request_and_no_request_non_stack_warns() {
-        let mut upper = view(2, 0, 1, None);
-        upper.1.composites_fullscreen = false;
-        let (resolved, diagnostics) = resolve_spaces([view(1, 0, 0, SRGB), upper]);
-        assert_eq!(resolved_for(&resolved, 1), SRGB);
-        assert_eq!(resolved_for(&resolved, 2), None);
-        assert!(has_mixed(&diagnostics));
-    }
-
-    #[test]
-    fn same_request_non_stack_does_not_warn() {
-        let mut upper = view(2, 0, 1, SRGB);
-        upper.1.composites_fullscreen = false;
-        let (resolved, diagnostics) = resolve_spaces([view(1, 0, 0, SRGB), upper]);
+    fn clear_starts_a_second_stack() {
+        let (resolved, diagnostics) = resolve_spaces([
+            clearing(view(1, 0, 0, SRGB)),
+            view(2, 0, 1, None),
+            clearing(view(3, 0, 2, OKLAB)),
+            view(4, 0, 3, None),
+        ]);
         assert_eq!(resolved_for(&resolved, 1), SRGB);
         assert_eq!(resolved_for(&resolved, 2), SRGB);
+        assert_eq!(resolved_for(&resolved, 3), OKLAB);
+        assert_eq!(resolved_for(&resolved, 4), OKLAB);
         assert!(diagnostics.is_empty());
     }
 
     #[test]
-    fn linear_vs_no_request_non_stack_does_not_warn() {
-        let mut upper = view(2, 0, 1, None);
-        upper.1.composites_fullscreen = false;
-        let (resolved, diagnostics) = resolve_spaces([view(1, 0, 0, LINEAR), upper]);
+    fn three_stacks_resolve_independently() {
+        let (resolved, diagnostics) = resolve_spaces([
+            clearing(view(1, 0, 0, SRGB)),
+            clearing(view(2, 0, 1, None)),
+            clearing(view(3, 0, 2, OKLAB)),
+            view(4, 0, 3, None),
+        ]);
+        assert_eq!(resolved_for(&resolved, 1), SRGB);
+        assert_eq!(resolved_for(&resolved, 2), None);
+        assert_eq!(resolved_for(&resolved, 3), OKLAB);
+        assert_eq!(resolved_for(&resolved, 4), OKLAB);
+        assert!(diagnostics.is_empty());
+    }
+
+    // A conflict in one stack does not change the other stack on the same
+    // texture.
+    #[test]
+    fn stack_conflict_stays_within_its_stack() {
+        let (resolved, diagnostics) = resolve_spaces([
+            clearing(view(1, 0, 0, SRGB)),
+            view(2, 0, 1, OKLAB),
+            clearing(view(3, 0, 2, OKLAB)),
+            view(4, 0, 3, None),
+        ]);
         assert_eq!(resolved_for(&resolved, 1), None);
         assert_eq!(resolved_for(&resolved, 2), None);
+        assert_eq!(resolved_for(&resolved, 3), OKLAB);
+        assert_eq!(resolved_for(&resolved, 4), OKLAB);
+        assert!(has_conflict(&diagnostics));
+    }
+
+    // Two stacks never blend in the main texture, so different requests in
+    // different stacks produce no diagnostic.
+    #[test]
+    fn clearing_camera_keeps_its_own_request() {
+        let (resolved, diagnostics) = resolve_spaces([
+            clearing(view(1, 0, 0, SRGB)),
+            clearing(view(2, 0, 1, OKLAB)),
+        ]);
+        assert_eq!(resolved_for(&resolved, 1), SRGB);
+        assert_eq!(resolved_for(&resolved, 2), OKLAB);
+        assert!(diagnostics.is_empty());
+    }
+
+    // A non-`Camera2d` view forces only its own stack to linear.
+    #[test]
+    fn non_camera_2d_in_a_later_stack_forces_only_that_stack() {
+        let mut camera_3d = clearing(view(2, 0, 1, SRGB));
+        camera_3d.1.is_camera_2d = false;
+        let (resolved, diagnostics) = resolve_spaces([
+            clearing(view(1, 0, 0, SRGB)),
+            camera_3d,
+            view(3, 0, 2, None),
+        ]);
+        assert_eq!(resolved_for(&resolved, 1), SRGB);
+        assert_eq!(resolved_for(&resolved, 2), None);
+        assert_eq!(resolved_for(&resolved, 3), None);
+        assert!(has_non_camera_2d(&diagnostics));
+    }
+
+    // The texture persists across frames. A first member that loads blends
+    // over what the last stack left, so the two stacks must agree.
+    #[test]
+    fn frame_start_load_warns_when_the_last_stack_differs() {
+        let (resolved, diagnostics) = resolve_spaces([
+            view(1, 0, 0, SRGB),
+            clearing(view(2, 0, 1, OKLAB)),
+            view(3, 0, 2, None),
+        ]);
+        assert_eq!(resolved_for(&resolved, 1), SRGB);
+        assert_eq!(resolved_for(&resolved, 2), OKLAB);
+        assert_eq!(resolved_for(&resolved, 3), OKLAB);
+        assert!(has_frame_start(&diagnostics));
+    }
+
+    #[test]
+    fn frame_start_load_with_a_matching_last_stack_is_silent() {
+        let (_, diagnostics) = resolve_spaces([
+            view(1, 0, 0, SRGB),
+            clearing(view(2, 0, 1, SRGB)),
+            view(3, 0, 2, None),
+        ]);
+        assert!(diagnostics.is_empty());
+    }
+
+    // A first member that clears loads nothing from the previous frame.
+    #[test]
+    fn clearing_first_member_never_warns_about_the_last_stack() {
+        let (_, diagnostics) = resolve_spaces([
+            clearing(view(1, 0, 0, SRGB)),
+            clearing(view(2, 0, 1, OKLAB)),
+        ]);
         assert!(diagnostics.is_empty());
     }
 
@@ -495,7 +578,7 @@ mod tests {
     fn stack_with_non_camera_2d_member_resolves_to_none() {
         let mut base = view(1, 0, 0, None);
         base.1.is_camera_2d = false;
-        base.1.composites_fullscreen = false;
+        base.1.loads_previous = false;
         let (resolved, diagnostics) = resolve_spaces([base, view(2, 0, 1, SRGB)]);
         assert_eq!(resolved_for(&resolved, 1), None);
         assert_eq!(resolved_for(&resolved, 2), None);
@@ -506,26 +589,23 @@ mod tests {
     fn non_camera_2d_stack_without_requests_does_not_warn() {
         let mut base = view(1, 0, 0, None);
         base.1.is_camera_2d = false;
-        base.1.composites_fullscreen = false;
+        base.1.loads_previous = false;
         let (resolved, diagnostics) = resolve_spaces([base, view(2, 0, 1, None)]);
         assert_eq!(resolved_for(&resolved, 1), None);
         assert_eq!(resolved_for(&resolved, 2), None);
         assert!(diagnostics.is_empty());
     }
 
-    // The non-`Camera2d` member has no request, so there is no non-2d warning.
+    // The non-`Camera2d` view starts its own stack, so the `Camera2d` keeps
+    // its request and there is no non-2d warning.
     #[test]
-    fn camera_2d_member_of_mixed_non_stack_group_keeps_request() {
-        let mut camera_2d = view(1, 0, 0, SRGB);
-        camera_2d.1.composites_fullscreen = false;
-        let mut camera_3d = view(2, 0, 1, None);
-        camera_3d.1.composites_fullscreen = false;
+    fn camera_2d_below_a_clearing_camera_3d_keeps_its_request() {
+        let mut camera_3d = clearing(view(2, 0, 1, None));
         camera_3d.1.is_camera_2d = false;
-        let (resolved, diagnostics) = resolve_spaces([camera_2d, camera_3d]);
+        let (resolved, diagnostics) = resolve_spaces([clearing(view(1, 0, 0, SRGB)), camera_3d]);
         assert_eq!(resolved_for(&resolved, 1), SRGB);
         assert_eq!(resolved_for(&resolved, 2), None);
-        assert!(has_mixed(&diagnostics));
-        assert!(!has_non_camera_2d(&diagnostics));
+        assert!(diagnostics.is_empty());
     }
 
     #[test]
@@ -573,10 +653,10 @@ mod tests {
     #[test]
     fn sorted_index_orders_the_group_not_insertion_order() {
         let mut base = view(1, 0, 0, None);
-        base.1.composites_fullscreen = false;
+        base.1.loads_previous = false;
         // The overlay comes first in the input. Sorting by sorted_index puts
-        // the clearing camera back at the front, so the group still counts as
-        // a stack.
+        // the clearing camera back at the front, so the two views form one
+        // stack.
         let (resolved, diagnostics) = resolve_spaces([view(2, 0, 1, SRGB), base]);
         assert_eq!(resolved_for(&resolved, 1), SRGB);
         assert_eq!(resolved_for(&resolved, 2), SRGB);
