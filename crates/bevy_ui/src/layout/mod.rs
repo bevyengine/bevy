@@ -33,7 +33,7 @@ pub mod layout_tree;
 /// change that requires a layout update.
 /// ZST marker component uses change detection to signal changes.
 ///
-/// Optimisation copied from `bevy_transform`'s `TransformTreeChanged`.
+/// Optimization copied from `bevy_transform`'s `TransformTreeChanged`.
 #[derive(Component, Default, Debug, Clone)]
 pub struct UiTreeChanged;
 
@@ -268,7 +268,7 @@ pub fn ui_layout_system(
     );
 
     // Reachability only changes when the tree does. On those updates we do a full walk from each UI root node,
-    // setting `ComputedLayout::reached` to true for every node encounted on the walk.
+    // setting `ComputedLayout::reached` to true for every node encountered on the walk.
     // Unreached nodes, `Node` entities with a non-`Node` ancestor, are cleared at the end of this system.
     // Otherwise clean subtrees are skipped and their `reached` flags left unchanged.
     // This could be done incrementally, but it would add a lot of extra complexity and the walk is relatively cheap.
@@ -2522,7 +2522,7 @@ mod tests {
     }
 
     #[test]
-    fn move_child_by_parent_scroll_postion() {
+    fn move_child_by_parent_scroll_position() {
         let mut app = setup_ui_test_app();
 
         let parent = app
