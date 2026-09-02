@@ -41,6 +41,18 @@ pub enum ButtonVariant {
     Plain,
 }
 
+impl ButtonVariant {
+    /// Returns [`ButtonVariant::Primary`] if `selected` is true, and [`ButtonVariant::Normal`]
+    /// otherwise. Useful for buttons which act as toggles or radio groups.
+    pub fn selected(selected: bool) -> Self {
+        if selected {
+            ButtonVariant::Primary
+        } else {
+            ButtonVariant::Normal
+        }
+    }
+}
+
 /// A button widget.
 ///
 /// This is spawnable by inheriting it as a "scene component" with optional [`FeathersButtonProps`].
