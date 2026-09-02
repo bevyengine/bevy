@@ -202,6 +202,7 @@ common_api = [
   "bevy_animation",
   "bevy_camera",
   "bevy_color",
+  "bevy_curve",
   "bevy_gizmos",
   "bevy_image",
   "bevy_mesh",
@@ -286,6 +287,9 @@ sysinfo_plugin = ["bevy_internal/sysinfo_plugin"]
 
 # Provides animation functionality
 bevy_animation = ["bevy_internal/bevy_animation"]
+
+# Provides mathematical curve functionality
+bevy_curve = ["bevy_internal/bevy_curve"]
 
 # Provides asset functionality
 bevy_asset = ["bevy_internal/bevy_asset"]
@@ -3229,6 +3233,17 @@ category = "Shaders"
 wasm = true
 
 [[example]]
+name = "sprite_material"
+path = "examples/shader/sprite_material.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.sprite_material]
+name = "Sprite Material"
+description = "A custom shader for sprites"
+category = "Shaders"
+wasm = true
+
+[[example]]
 name = "shader_prepass"
 path = "examples/shader/shader_prepass.rs"
 doc-scrape-examples = true
@@ -5478,6 +5493,17 @@ doc-scrape-examples = true
 name = "Character Creation with UI Widgets"
 description = "Demonstrates how to use headless widgets to power a Character Creation Menu"
 category = "Usage"
+wasm = true
+
+[[example]]
+name = "headless_tabs"
+path = "examples/ui/widgets/headless_tabs.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.headless_tabs]
+name = "Headless Tabs"
+description = "Demonstrates controlled and self-updating headless tab lists"
+category = "UI (User Interface)"
 wasm = true
 
 [[example]]
