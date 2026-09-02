@@ -54,13 +54,6 @@ pub use crate::text2d::extract_text2d_sprite;
 #[derive(Default)]
 pub struct SpriteRenderPlugin;
 
-/// System set for sprite rendering.
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
-pub enum SpriteSystems {
-    ExtractSprites,
-    ComputeSlices,
-}
-
 impl Plugin for SpriteRenderPlugin {
     fn build(&self, app: &mut App) {
         load_shader_library!(app, "render/sprite_view_bindings.wesl");
@@ -97,7 +90,7 @@ impl Plugin for SpriteRenderPlugin {
                     (
                         extract_sprite_events,
                         #[cfg(feature = "bevy_text")]
-                        extract_text2d_sprite.after(SpriteSystems::ExtractSprites),
+                        extract_text2d_sprite,
                     ),
                 )
                 .add_systems(
