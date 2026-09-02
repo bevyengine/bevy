@@ -1,8 +1,7 @@
 use bevy_app::{Plugin, PostUpdate};
 use bevy_asset::{Asset, Assets};
 use bevy_ecs::{
-    bundle::Bundle,
-    children,
+    change_detection::DetectChangesMut,
     component::Component,
     entity::Entity,
     hierarchy::{ChildOf, Children},
@@ -31,6 +30,8 @@ use bevy_ui_render::{prelude::UiMaterial, ui_material::MaterialNode, UiMaterialP
 use bevy_ui_widgets::ValueChange;
 
 use crate::{palette, theme::ThemeBackgroundColor, tokens};
+
+const COLOR_PLANE_THUMB_SIZE: f32 = 10.0;
 
 /// A "color plane" widget, which is a 2d picker that allows selecting two
 /// components of a color space.
@@ -184,67 +185,6 @@ impl FeathersColorPlane {
     }
 }
 
-/// Template function to spawn a "color plane", which is a 2d picker that allows selecting two
-/// components of a color space.
-///
-/// The control emits a [`ValueChange<Vec2>`] representing the current x and y values, ranging
-/// from 0 to 1. The control accepts a [`Vec3`] input value, where the third component ('z')
-/// is used to provide the fixed constant channel for the background gradient.
-///
-/// The control does not do any color space conversions internally, other than the shader code
-/// for displaying gradients. Avoiding excess conversions helps avoid gimble-lock problems when
-/// implementing a color picker for cylindrical color spaces such as HSL.
-///
-/// # Arguments
-/// * `overrides` - a bundle of components that are merged in with the normal swatch components.
-#[deprecated(since = "0.19.0", note = "Use the color_plane() BSN function")]
-pub fn color_plane_bundle<B: Bundle>(plane: FeathersColorPlane, overrides: B) -> impl Bundle {
-    (
-        Node {
-            display: Display::Flex,
-            min_height: px(100.0),
-            align_self: AlignSelf::Stretch,
-            padding: UiRect::all(px(4)),
-            border_radius: BorderRadius::all(px(5)),
-            ..Default::default()
-        },
-        plane,
-        ColorPlaneValue::default(),
-        ThemeBackgroundColor(tokens::COLOR_PLANE_BG),
-        EntityCursor::System(bevy_window::SystemCursorIcon::Crosshair),
-        overrides,
-        children![(
-            Node {
-                align_self: AlignSelf::Stretch,
-                flex_grow: 1.0,
-                ..Default::default()
-            },
-            ColorPlaneInner,
-            children![(
-                Node {
-                    position_type: PositionType::Absolute,
-                    left: percent(0),
-                    top: percent(0),
-                    width: px(10),
-                    height: px(10),
-                    border: UiRect::all(px(1)),
-                    border_radius: BorderRadius::MAX,
-                    ..Default::default()
-                },
-                ColorPlaneThumb,
-                BorderColor::all(palette::WHITE),
-                Outline {
-                    width: px(1),
-                    offset: px(0),
-                    color: palette::BLACK
-                },
-                Pickable::IGNORE,
-                UiTransform::from_translation(Val2::new(percent(-50), percent(-50),))
-            )],
-        ),],
-    )
-}
-
 fn update_plane_color(
     q_color_plane: Query<
         (Entity, &FeathersColorPlane, &ColorPlaneValue),
@@ -252,7 +192,6 @@ fn update_plane_color(
     >,
     q_children: Query<&Children>,
     q_material_node: Query<&MaterialNode<ColorPlaneMaterial>>,
-    mut q_node: Query<&mut Node>,
     mut r_materials: ResMut<Assets<ColorPlaneMaterial>>,
     mut commands: Commands,
 ) {
@@ -282,21 +221,43 @@ fn update_plane_color(
             });
             commands.entity(*inner_ent).insert(MaterialNode(material));
         }
+    }
+}
 
-        // Find the thumb.
+fn update_plane_thumb_position(
+    q_color_plane: Query<(Entity, &ColorPlaneValue), With<FeathersColorPlane>>,
+    q_children: Query<&Children>,
+    q_computed_node: Query<&ComputedNode>,
+    mut q_transform: Query<&mut UiTransform>,
+) {
+    for (plane_ent, plane_value) in &q_color_plane {
+        let Ok(children) = q_children.get(plane_ent) else {
+            continue;
+        };
+        let Some(inner_ent) = children.first() else {
+            continue;
+        };
         let Ok(children_inner) = q_children.get(*inner_ent) else {
             continue;
         };
         let Some(thumb_ent) = children_inner.first() else {
             continue;
         };
-
-        let Ok(mut thumb_node) = q_node.get_mut(*thumb_ent) else {
+        let Ok(inner_node) = q_computed_node.get(*inner_ent) else {
             continue;
         };
-
-        thumb_node.left = percent(plane_value.0.x * 100.0);
-        thumb_node.top = percent(plane_value.0.y * 100.0);
+        let Ok(mut thumb_transform) = q_transform.get_mut(*thumb_ent) else {
+            continue;
+        };
+        let inner_size = inner_node.size() * inner_node.inverse_scale_factor;
+        if inner_size.x > 0.0 && inner_size.y > 0.0 {
+            let mut updated_transform = *thumb_transform;
+            updated_transform.translation = Val2::new(
+                px(plane_value.0.x * inner_size.x - COLOR_PLANE_THUMB_SIZE * 0.5),
+                px(plane_value.0.y * inner_size.y - COLOR_PLANE_THUMB_SIZE * 0.5),
+            );
+            thumb_transform.set_if_neq(updated_transform);
+        }
     }
 }
 
@@ -469,8 +430,10 @@ pub struct ColorPlanePlugin;
 impl Plugin for ColorPlanePlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.add_plugins(UiMaterialPlugin::<ColorPlaneMaterial>::default());
-        // `update_plane_color` modifies a node's `left` and `top`
-        app.add_systems(PostUpdate, update_plane_color.before(UiSystems::Layout));
+        app.add_systems(
+            PostUpdate,
+            (update_plane_color, update_plane_thumb_position).before(UiSystems::Layout),
+        );
         app.add_observer(on_pointer_press)
             .add_observer(on_drag_start)
             .add_observer(on_drag)

@@ -1,9 +1,6 @@
 use bevy_app::{Plugin, PostUpdate};
-use bevy_asset::Handle;
 use bevy_color::{Alpha, Color};
 use bevy_ecs::{
-    bundle::Bundle,
-    children,
     component::Component,
     hierarchy::Children,
     query::Changed,
@@ -96,40 +93,6 @@ impl FeathersColorSwatch {
             ]
         }
     }
-}
-
-/// Template function to spawn a color swatch.
-///
-/// # Arguments
-/// * `overrides` - a bundle of components that are merged in with the normal swatch components.
-#[deprecated(since = "0.19.0", note = "Use the color_swatch() BSN function")]
-pub fn color_swatch_bundle<B: Bundle>(overrides: B) -> impl Bundle {
-    (
-        Node {
-            height: size::ROW_HEIGHT,
-            min_width: size::ROW_HEIGHT,
-            border_radius: BorderRadius::all(px(5)),
-            ..Default::default()
-        },
-        FeathersColorSwatch,
-        ColorSwatchValue::default(),
-        AlphaPattern,
-        MaterialNode::<AlphaPatternMaterial>(Handle::default()),
-        overrides,
-        children![(
-            Node {
-                position_type: PositionType::Absolute,
-                left: px(0),
-                top: px(0),
-                bottom: px(0),
-                right: px(0),
-                border_radius: BorderRadius::all(px(5)),
-                ..Default::default()
-            },
-            ColorSwatchFg,
-            BackgroundColor(palette::ACCENT.with_alpha(0.5)),
-        )],
-    )
 }
 
 fn update_swatch_color(

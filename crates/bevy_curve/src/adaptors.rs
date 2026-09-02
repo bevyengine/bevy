@@ -3,8 +3,8 @@
 use super::interval::*;
 use super::Curve;
 
-use crate::ops;
-use crate::VectorSpace;
+use bevy_math::ops;
+use bevy_math::VectorSpace;
 use core::any::type_name;
 use core::fmt::{self, Debug};
 use core::marker::PhantomData;
@@ -17,7 +17,7 @@ use {
 
 #[cfg(feature = "bevy_reflect")]
 mod paths {
-    pub(super) const THIS_MODULE: &str = "bevy_math::curve::adaptors";
+    pub(super) const THIS_MODULE: &str = "bevy_curve::adaptors";
     pub(super) const THIS_CRATE: &str = "bevy_math";
 }
 

@@ -53,6 +53,27 @@ impl Val {
         }
     }
 
+    // Only used for border values in `from_node` below. Floors length based borders
+    // to a whole number of physical pixels, following the CSS "snap a length as a
+    // border width" algorithm used by browsers:
+    // https://www.w3.org/TR/css-values-4/#snap-a-length-as-a-border-width
+    //
+    // * A non-zero border smaller than one physical pixel is rounded up to one pixel.
+    // * A border larger than one physical pixel is rounded down to a whole pixel.
+    fn into_length_percentage_for_border(
+        self,
+        context: &LayoutContext,
+    ) -> taffy::style::LengthPercentage {
+        let length = self.into_length_percentage(context);
+        let raw = length.into_raw();
+        // we're only snapping if sized in non-zero px
+        if raw.tag() == taffy::style::CompactLength::LENGTH_TAG && raw.value() > 0.0 {
+            taffy::style::LengthPercentage::length(raw.value().floor().max(1.0))
+        } else {
+            length
+        }
+    }
+
     fn into_dimension(self, context: &LayoutContext) -> taffy::style::Dimension {
         self.into_length_percentage_auto(context).into()
     }
@@ -102,9 +123,10 @@ pub fn from_node(node: &Node, context: &LayoutContext) -> taffy::style::Style {
         padding: node
             .padding
             .map_to_taffy_rect(|m| m.into_length_percentage(context)),
+        // border floors >=1px sized to nearest (>=1) real pixel size, see `into_length_percentage_for_border`.
         border: node
             .border
-            .map_to_taffy_rect(|m| m.into_length_percentage(context)),
+            .map_to_taffy_rect(|m| m.into_length_percentage_for_border(context)),
         flex_grow: node.flex_grow,
         flex_shrink: node.flex_shrink,
         flex_basis: node.flex_basis.into_dimension(context),
