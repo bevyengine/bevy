@@ -21,8 +21,11 @@ use bevy_platform::collections::{hash_map::Entry, HashMap};
 use bevy_shader::load_shader_library;
 use bevy_sprite::{prelude::SpriteMesh, Anchor, SpriteAlphaMode};
 
-mod sprite_material;
-pub use sprite_material::*;
+mod sprite_extended_material;
+pub use sprite_extended_material::*;
+
+mod sprite_mesh_material;
+pub use sprite_mesh_material::*;
 
 use crate::{check_entities_needing_specialization, MeshMaterial2d};
 
@@ -34,13 +37,13 @@ impl Plugin for SpriteMeshPlugin {
         load_shader_library!(app, "functions.wesl");
         load_shader_library!(app, "types.wesl");
 
-        app.add_plugins(SpriteMaterialPlugin);
+        app.add_plugins(SpriteMeshMaterialPlugin);
 
         app.add_systems(
             PostUpdate,
             (add_mesh, add_material)
                 .chain()
-                .before(check_entities_needing_specialization::<SpriteMaterial>)
+                .before(check_entities_needing_specialization::<SpriteMeshMaterial>)
                 .before(mark_2d_meshes_as_changed_if_their_assets_changed)
                 .after(AssetEventSystems),
         );
@@ -75,7 +78,7 @@ fn add_mesh(
 
 /// Key used to determine in which bucket to cache the material for a [`SpriteMesh`]
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
-struct SpriteMaterialBucketKey {
+struct SpriteMeshMaterialBucketKey {
     image: AssetId<Image>,
     texture_atlas_layout: Option<AssetId<TextureAtlasLayout>>,
     color: [FloatOrd; 4],
@@ -94,7 +97,7 @@ enum SpriteAlphaModeKey {
     Blend,
 }
 
-impl SpriteMaterialBucketKey {
+impl SpriteMeshMaterialBucketKey {
     fn new(sprite: &SpriteMesh, anchor: &Anchor) -> Self {
         Self {
             image: sprite.image.id(),
@@ -120,8 +123,8 @@ impl SpriteMaterialBucketKey {
 }
 
 struct SpriteMaterialCache<M: Asset> {
-    map: HashMap<SpriteMaterialBucketKey, Vec<(SpriteMesh, AssetId<M>)>>,
-    reversed: HashMap<AssetId<M>, SpriteMaterialBucketKey>,
+    map: HashMap<SpriteMeshMaterialBucketKey, Vec<(SpriteMesh, AssetId<M>)>>,
+    reversed: HashMap<AssetId<M>, SpriteMeshMaterialBucketKey>,
 }
 
 impl<M: Asset> Default for SpriteMaterialCache<M> {
@@ -155,7 +158,7 @@ impl<M: Asset> SpriteMaterialCache<M> {
         materials: &mut Assets<M>,
         get: impl FnOnce() -> M,
     ) -> Handle<M> {
-        let key = SpriteMaterialBucketKey::new(sprite, &anchor);
+        let key = SpriteMeshMaterialBucketKey::new(sprite, &anchor);
         let bucket = self.map.entry(key).or_default();
         let maybe_handle = bucket
             .iter()
@@ -181,19 +184,24 @@ impl<M: Asset> SpriteMaterialCache<M> {
 /// Since not all fields of the [`SpriteMesh`] are easy to hash, we keep multiple "buckets" keyed on
 /// parts of the struct that are easy to hash.
 ///
-/// NOTE: This also adds the [`TextureAtlasLayout`] into the [`SpriteMaterial`],
+/// NOTE: This also adds the [`TextureAtlasLayout`] into the [`SpriteMeshMaterial`],
 /// but this should instead be read later, similar to the images, allowing
 /// for hot reload.
 fn add_material(
     mut commands: Commands,
     sprites: Query<
-        (Entity, &SpriteMesh, &Anchor),
-        Or<(Changed<SpriteMesh>, Changed<Anchor>, Added<Mesh2d>)>,
+        (Entity, &SpriteMesh, &Anchor, Option<&SpriteMaterialCount>),
+        Or<(
+            Changed<SpriteMesh>,
+            Changed<Anchor>,
+            Added<Mesh2d>,
+            Changed<SpriteMaterialCount>,
+        )>,
     >,
     texture_atlas_layouts: Res<Assets<TextureAtlasLayout>>,
-    mut cached_materials: Local<SpriteMaterialCache<SpriteMaterial>>,
-    mut materials: ResMut<Assets<SpriteMaterial>>,
-    mut material_events: MessageReader<AssetEvent<SpriteMaterial>>,
+    mut cached_materials: Local<SpriteMaterialCache<SpriteMeshMaterial>>,
+    mut materials: ResMut<Assets<SpriteMeshMaterial>>,
+    mut material_events: MessageReader<AssetEvent<SpriteMeshMaterial>>,
 ) {
     for event in material_events.read() {
         if let AssetEvent::Removed { id } = event {
@@ -201,7 +209,11 @@ fn add_material(
         }
     }
 
-    for (entity, sprite, anchor) in sprites {
+    for (entity, sprite, anchor, count) in sprites {
+        if count.is_some_and(|c| c.0 != 0) {
+            continue;
+        }
+
         let handle = cached_materials.get_or_insert_with(sprite, *anchor, &mut materials, || {
             make_sprite_mesh_material(&texture_atlas_layouts, sprite, *anchor)
         });
@@ -216,8 +228,8 @@ fn make_sprite_mesh_material(
     texture_atlas_layouts: &Assets<TextureAtlasLayout>,
     sprite: &SpriteMesh,
     anchor: Anchor,
-) -> SpriteMaterial {
-    let mut material = SpriteMaterial::from_sprite_mesh(sprite.clone());
+) -> SpriteMeshMaterial {
+    let mut material = SpriteMeshMaterial::from_sprite_mesh(sprite.clone());
     material.anchor = *anchor;
 
     if let Some(texture_atlas) = &sprite.texture_atlas
@@ -236,32 +248,32 @@ mod tests {
 
     #[test]
     fn sprite_material_cache() {
-        let mut cache = SpriteMaterialCache::<SpriteMaterial>::default();
+        let mut cache = SpriteMaterialCache::<SpriteMeshMaterial>::default();
         let mut assets = Assets::default();
         let handle = cache.get_or_insert_with(
             &SpriteMesh::default(),
             Anchor::default(),
             &mut assets,
-            SpriteMaterial::default,
+            SpriteMeshMaterial::default,
         );
         assert_eq!(cache.map.len(), 1);
         assert_eq!(cache.reversed.len(), 1);
         assert_eq!(
             assets.get(&handle).cloned(),
-            Some(SpriteMaterial::default())
+            Some(SpriteMeshMaterial::default())
         );
 
         let handle2 = cache.get_or_insert_with(
             &SpriteMesh::default(),
             Anchor::default(),
             &mut assets,
-            SpriteMaterial::default,
+            SpriteMeshMaterial::default,
         );
         assert_eq!(handle, handle2);
         assert_eq!(cache.reversed.len(), 1);
         assert_eq!(cache.map.len(), 1);
 
-        let mat = SpriteMaterial {
+        let mat = SpriteMeshMaterial {
             flip_x: true,
             ..Default::default()
         };

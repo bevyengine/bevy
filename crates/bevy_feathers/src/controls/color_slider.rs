@@ -1,10 +1,11 @@
 use bevy_app::{Plugin, PreUpdate};
 use bevy_color::{Alpha, Color, Hsla, Okhsla};
 use bevy_ecs::{
+    change_detection::DetectChangesMut,
     component::Component,
     entity::Entity,
-    hierarchy::Children,
-    query::{Changed, Or, With, Without},
+    hierarchy::{ChildOf, Children},
+    query::{Changed, With, Without},
     reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
     system::Query,
@@ -16,9 +17,9 @@ use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_scene::prelude::*;
 use bevy_ui::{
-    percent, px, BackgroundGradient, BorderColor, BorderRadius, ColorStop, Display, Gradient,
-    GridPlacement, InterpolationColorSpace, LinearGradient, Node, Outline, PositionType, UiRect,
-    UiSystems, UiTransform, Val2,
+    percent, px, BackgroundGradient, BorderColor, BorderRadius, ColorStop, ComputedNode, Display,
+    Gradient, GridPlacement, InterpolationColorSpace, LinearGradient, Node, Outline, PositionType,
+    UiRect, UiSystems, UiTransform, Val2,
 };
 use bevy_ui_render::ui_material::MaterialNode;
 use bevy_ui_widgets::{
@@ -327,20 +328,25 @@ impl FeathersColorSlider {
 }
 
 fn update_slider_pos(
-    mut q_sliders: Query<
-        (Entity, &SliderValue, &SliderRange),
-        (
-            With<ColorSlider>,
-            Or<(Changed<SliderValue>, Changed<SliderRange>)>,
-        ),
-    >,
+    mut q_sliders: Query<(Entity, &SliderValue, &SliderRange), With<ColorSlider>>,
     q_children: Query<&Children>,
-    mut q_slider_thumb: Query<&mut Node, (With<ColorSliderThumb>, Without<ToggleSwitchSlide>)>,
+    mut q_slider_thumb: Query<
+        (&ChildOf, &mut UiTransform),
+        (With<ColorSliderThumb>, Without<ToggleSwitchSlide>),
+    >,
+    q_computed_node: Query<&ComputedNode>,
 ) {
     for (slider_ent, value, range) in q_sliders.iter_mut() {
         for child in q_children.iter_descendants(slider_ent) {
-            if let Ok(mut thumb_node) = q_slider_thumb.get_mut(child) {
-                thumb_node.left = percent(range.thumb_position(value.0) * 100.0);
+            if let Ok((parent, mut thumb_transform)) = q_slider_thumb.get_mut(child)
+                && let Ok(track_node) = q_computed_node.get(parent.parent())
+                && track_node.size().x > 0.0
+            {
+                let track_width = track_node.size().x * track_node.inverse_scale_factor;
+                let thumb_offset = range.thumb_position(value.0) * track_width - THUMB_SIZE * 0.5;
+                let mut updated_transform = *thumb_transform;
+                updated_transform.translation.x = px(thumb_offset);
+                thumb_transform.set_if_neq(updated_transform);
             }
         }
     }
