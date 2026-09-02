@@ -1925,4 +1925,66 @@ mod tests {
 
         assert!(!world.entity(target).contains::<ObservedBy>());
     }
+
+    #[test]
+    fn observer_system_despawns_observer() {
+        let mut world = World::new();
+        world.add_observer(DespawnObserversOnInit(0));
+
+        use crate::change_detection::{CheckChangeTicks, Tick};
+        use crate::system::{RunSystemError, SystemAccess, SystemStateFlags};
+        use crate::world::unsafe_world_cell::UnsafeWorldCell;
+        use bevy_utils::prelude::DebugName;
+
+        #[expect(unused, reason = "This will only trigger UB if it has nonzero size")]
+        struct DespawnObserversOnInit(usize);
+        impl System for DespawnObserversOnInit {
+            type In = On<'static, 'static, Add<()>>;
+
+            type Out = ();
+
+            fn name(&self) -> DebugName {
+                DebugName::type_name::<DespawnObserversOnInit>()
+            }
+
+            fn flags(&self) -> SystemStateFlags {
+                SystemStateFlags::empty()
+            }
+
+            unsafe fn run_unsafe(
+                &mut self,
+                _input: SystemIn<'_, Self>,
+                _world: UnsafeWorldCell,
+            ) -> Result<Self::Out, RunSystemError> {
+                Ok(())
+            }
+
+            fn apply_deferred(&mut self, _world: &mut World) {}
+
+            fn queue_deferred(&mut self, _world: DeferredWorld) {
+                todo!()
+            }
+
+            fn initialize(&mut self, world: &mut World) -> SystemAccess {
+                let observers: Vec<_> = world
+                    .query_filtered::<Entity, With<Observer>>()
+                    .query(world)
+                    .iter()
+                    .collect();
+                for observer in observers {
+                    world.despawn(observer);
+                }
+
+                SystemAccess::None
+            }
+
+            fn check_change_tick(&mut self, _check: CheckChangeTicks) {}
+
+            fn get_last_run(&self) -> Tick {
+                unimplemented!()
+            }
+
+            fn set_last_run(&mut self, _last_run: Tick) {}
+        }
+    }
 }
