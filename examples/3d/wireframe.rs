@@ -12,7 +12,7 @@ use bevy::{
     color::palettes::css::*,
     pbr::wireframe::{
         NoWireframe, Wireframe, WireframeColor, WireframeConfig, WireframeLineWidth,
-        WireframePlugin, WireframeTopology,
+        WireframePlugin, WireframeTopology, WireframeXray,
     },
     prelude::*,
     render::{render_resource::WgpuFeatures, settings::WgpuSettings, RenderPlugin},
@@ -81,6 +81,7 @@ fn setup(
         // This lets you configure the wireframe color of this entity.
         // If not set, this will use the color in `WireframeConfig`
         WireframeColor { color: LIME.into() },
+        WireframeXray(false),
         ColorToggleCube,
     ));
 
@@ -134,6 +135,7 @@ fn update_colors(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut config: ResMut<WireframeConfig>,
     mut wireframe_colors: Query<&mut WireframeColor, With<ColorToggleCube>>,
+    mut xray_cubes: Query<&mut WireframeXray, With<ColorToggleCube>>,
     mut wireframe_widths: Query<&mut WireframeLineWidth>,
     mut text: Single<&mut Text>,
 ) {
@@ -142,6 +144,7 @@ fn update_colors(
         .next()
         .map(|w| w.width)
         .unwrap_or(1.0);
+    let green_cube_xray = xray_cubes.iter().any(|xray| xray.0);
 
     text.0 = format!(
         "Controls
@@ -152,6 +155,7 @@ C - Change color of the green cube wireframe
 V - Line width (current: {current_width:.1}px)
 B - Toggle topology (current: {:?})
 N - Toggle x-ray mode (current: {:?})
+M - Toggle x-ray override for the green cube (current: {green_cube_xray})
 
 WireframeConfig
 -------------
@@ -205,5 +209,11 @@ Color: {:?}",
 
     if keyboard_input.just_pressed(KeyCode::KeyN) {
         config.xray_mode = !config.xray_mode;
+    }
+
+    if keyboard_input.just_pressed(KeyCode::KeyM) {
+        for mut xray in &mut xray_cubes {
+            xray.0 = !xray.0;
+        }
     }
 }
