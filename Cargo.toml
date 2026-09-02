@@ -3233,6 +3233,17 @@ category = "Shaders"
 wasm = true
 
 [[example]]
+name = "sprite_material"
+path = "examples/shader/sprite_material.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.sprite_material]
+name = "Sprite Material"
+description = "A custom shader for sprites"
+category = "Shaders"
+wasm = true
+
+[[example]]
 name = "shader_prepass"
 path = "examples/shader/shader_prepass.rs"
 doc-scrape-examples = true
