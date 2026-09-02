@@ -99,6 +99,7 @@ impl Plugin for WireframePlugin {
         .init_resource::<WireframeEntitiesNeedingSpecialization>()
         .register_type::<WireframeLineWidth>()
         .register_type::<WireframeTopology>()
+        .register_type::<WireframeXray>()
         .add_systems(Startup, setup_global_wireframe_material)
         .add_systems(
             PostUpdate,
@@ -107,6 +108,7 @@ impl Plugin for WireframePlugin {
                 wireframe_color_changed,
                 wireframe_line_width_changed,
                 wireframe_topology_changed,
+                wireframe_xray_changed,
                 // Run `apply_global_wireframe_material` after `apply_wireframe_material` so that the global
                 // wireframe setting is applied to a mesh on the same frame its wireframe marker component is removed.
                 (apply_wireframe_material, apply_global_wireframe_material).chain(),
@@ -889,6 +891,13 @@ pub enum WireframeTopology {
     Quads,
 }
 
+/// Controls whether wireframe edges render as an x-ray overlay.
+///
+/// Overrides [`WireframeConfig::xray_mode`].
+#[derive(Component, Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Reflect)]
+#[reflect(Component, Default, Debug)]
+pub struct WireframeXray(pub bool);
+
 #[derive(Resource, Debug, Clone, ExtractResource, Reflect)]
 #[reflect(Resource, Debug, Default)]
 #[extract_app(RenderApp)]
@@ -1074,6 +1083,7 @@ fn wireframe_config_changed(
             Option<&WireframeColor>,
             Option<&WireframeLineWidth>,
             Option<&WireframeTopology>,
+            Option<&WireframeXray>,
         ),
         With<Wireframe>,
     >,
@@ -1085,7 +1095,9 @@ fn wireframe_config_changed(
         mat.xray_mode = config.xray_mode;
     }
 
-    for (mut handle, maybe_color, maybe_width, maybe_topology) in &mut per_entity_wireframes {
+    for (mut handle, maybe_color, maybe_width, maybe_topology, maybe_xray) in
+        &mut per_entity_wireframes
+    {
         if handle.0 == global_material.handle {
             continue;
         }
@@ -1095,7 +1107,7 @@ fn wireframe_config_changed(
                 .map(|w| w.width)
                 .unwrap_or(config.default_line_width),
             topology: maybe_topology.copied().unwrap_or(config.default_topology),
-            xray_mode: config.xray_mode,
+            xray_mode: maybe_xray.map(|xray| xray.0).unwrap_or(config.xray_mode),
         });
     }
 }
@@ -1108,19 +1120,22 @@ fn wireframe_color_changed(
             &WireframeColor,
             Option<&WireframeLineWidth>,
             Option<&WireframeTopology>,
+            Option<&WireframeXray>,
         ),
         (With<Wireframe>, Changed<WireframeColor>),
     >,
     config: Res<WireframeConfig>,
 ) {
-    for (mut handle, wireframe_color, maybe_width, maybe_topology) in &mut colors_changed {
+    for (mut handle, wireframe_color, maybe_width, maybe_topology, maybe_xray) in
+        &mut colors_changed
+    {
         handle.0 = materials.add(WireframeMaterial {
             color: wireframe_color.color,
             line_width: maybe_width
                 .map(|w| w.width)
                 .unwrap_or(config.default_line_width),
             topology: maybe_topology.copied().unwrap_or(config.default_topology),
-            xray_mode: config.xray_mode,
+            xray_mode: maybe_xray.map(|xray| xray.0).unwrap_or(config.xray_mode),
         });
     }
 }
@@ -1133,17 +1148,20 @@ fn wireframe_line_width_changed(
             &WireframeLineWidth,
             Option<&WireframeColor>,
             Option<&WireframeTopology>,
+            Option<&WireframeXray>,
         ),
         (With<Wireframe>, Changed<WireframeLineWidth>),
     >,
     config: Res<WireframeConfig>,
 ) {
-    for (mut handle, wireframe_width, maybe_color, maybe_topology) in &mut widths_changed {
+    for (mut handle, wireframe_width, maybe_color, maybe_topology, maybe_xray) in
+        &mut widths_changed
+    {
         handle.0 = materials.add(WireframeMaterial {
             color: maybe_color.map(|c| c.color).unwrap_or(config.default_color),
             line_width: wireframe_width.width,
             topology: maybe_topology.copied().unwrap_or(config.default_topology),
-            xray_mode: config.xray_mode,
+            xray_mode: maybe_xray.map(|xray| xray.0).unwrap_or(config.xray_mode),
         });
     }
 }
@@ -1156,19 +1174,46 @@ fn wireframe_topology_changed(
             &WireframeTopology,
             Option<&WireframeColor>,
             Option<&WireframeLineWidth>,
+            Option<&WireframeXray>,
         ),
         (With<Wireframe>, Changed<WireframeTopology>),
     >,
     config: Res<WireframeConfig>,
 ) {
-    for (mut handle, topology, maybe_color, maybe_width) in &mut topology_changed {
+    for (mut handle, topology, maybe_color, maybe_width, maybe_xray) in &mut topology_changed {
         handle.0 = materials.add(WireframeMaterial {
             color: maybe_color.map(|c| c.color).unwrap_or(config.default_color),
             line_width: maybe_width
                 .map(|w| w.width)
                 .unwrap_or(config.default_line_width),
             topology: *topology,
-            xray_mode: config.xray_mode,
+            xray_mode: maybe_xray.map(|xray| xray.0).unwrap_or(config.xray_mode),
+        });
+    }
+}
+
+fn wireframe_xray_changed(
+    mut materials: ResMut<Assets<WireframeMaterial>>,
+    mut xray_changed: Query<
+        (
+            &mut Mesh3dWireframe,
+            &WireframeXray,
+            Option<&WireframeColor>,
+            Option<&WireframeLineWidth>,
+            Option<&WireframeTopology>,
+        ),
+        (With<Wireframe>, Changed<WireframeXray>),
+    >,
+    config: Res<WireframeConfig>,
+) {
+    for (mut handle, xray, maybe_color, maybe_width, maybe_topology) in &mut xray_changed {
+        handle.0 = materials.add(WireframeMaterial {
+            color: maybe_color.map(|c| c.color).unwrap_or(config.default_color),
+            line_width: maybe_width
+                .map(|w| w.width)
+                .unwrap_or(config.default_line_width),
+            topology: maybe_topology.copied().unwrap_or(config.default_topology),
+            xray_mode: xray.0,
         });
     }
 }
@@ -1184,6 +1229,7 @@ fn apply_wireframe_material(
             Option<&WireframeColor>,
             Option<&WireframeLineWidth>,
             Option<&WireframeTopology>,
+            Option<&WireframeXray>,
         ),
         (With<Wireframe>, Without<Mesh3dWireframe>),
     >,
@@ -1199,11 +1245,12 @@ fn apply_wireframe_material(
     }
 
     let mut material_to_spawn = vec![];
-    for (e, maybe_color, maybe_width, maybe_topology) in &wireframes {
+    for (e, maybe_color, maybe_width, maybe_topology, maybe_xray) in &wireframes {
         let material = get_wireframe_material(
             maybe_color,
             maybe_width,
             maybe_topology,
+            maybe_xray,
             &mut materials,
             &global_material,
             &config,
@@ -1225,6 +1272,7 @@ fn apply_global_wireframe_material(
             Option<&WireframeColor>,
             Option<&WireframeLineWidth>,
             Option<&WireframeTopology>,
+            Option<&WireframeXray>,
         ),
         (WireframeFilter, Without<Mesh3dWireframe>),
     >,
@@ -1234,11 +1282,12 @@ fn apply_global_wireframe_material(
 ) {
     if config.global {
         let mut material_to_spawn = vec![];
-        for (e, maybe_color, maybe_width, maybe_topology) in &meshes_without_material {
+        for (e, maybe_color, maybe_width, maybe_topology, maybe_xray) in &meshes_without_material {
             let material = get_wireframe_material(
                 maybe_color,
                 maybe_width,
                 maybe_topology,
+                maybe_xray,
                 &mut materials,
                 &global_material,
                 &config,
@@ -1260,18 +1309,23 @@ fn get_wireframe_material(
     maybe_color: Option<&WireframeColor>,
     maybe_width: Option<&WireframeLineWidth>,
     maybe_topology: Option<&WireframeTopology>,
+    maybe_xray: Option<&WireframeXray>,
     wireframe_materials: &mut Assets<WireframeMaterial>,
     global_material: &GlobalWireframeMaterial,
     config: &WireframeConfig,
 ) -> Handle<WireframeMaterial> {
-    if maybe_color.is_some() || maybe_width.is_some() || maybe_topology.is_some() {
+    if maybe_color.is_some()
+        || maybe_width.is_some()
+        || maybe_topology.is_some()
+        || maybe_xray.is_some()
+    {
         wireframe_materials.add(WireframeMaterial {
             color: maybe_color.map(|c| c.color).unwrap_or(config.default_color),
             line_width: maybe_width
                 .map(|w| w.width)
                 .unwrap_or(config.default_line_width),
             topology: maybe_topology.copied().unwrap_or(config.default_topology),
-            xray_mode: config.xray_mode,
+            xray_mode: maybe_xray.map(|xray| xray.0).unwrap_or(config.xray_mode),
         })
     } else {
         // If there's no color specified we can use the global material since it's already set to use the default_color
@@ -1345,6 +1399,7 @@ pub fn check_wireframe_entities_needing_specialization(
             AssetChanged<Mesh3dWireframe>,
             Changed<WireframeLineWidth>,
             Changed<WireframeTopology>,
+            Changed<WireframeXray>,
         )>,
     >,
     wireframe_entities: Query<Entity, With<Mesh3dWireframe>>,
