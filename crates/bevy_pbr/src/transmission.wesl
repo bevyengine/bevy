@@ -13,6 +13,8 @@ import bevy_render::maths::PI;
 @if(TONEMAP_IN_SHADER)
 import bevy_core_pipeline::tonemapping::approximate_inverse_tone_mapping;
 
+@if (VIEW_TRANSMISSION_TEXTURE) {
+
 // The IOR impacts how much a single microfacet refracts incoming light. In turn this changes how
 // "wide" the distribution of output ray directions is and how rough the BRDF should be.
 // This function scales the roughness toward 0.0 as IOR tends towards 1.0, while leaving the default
@@ -194,4 +196,6 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
     result = approximate_inverse_tone_mapping(result, view_bindings::view.color_grading);
 
     return result;
+}
+
 }

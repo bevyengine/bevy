@@ -170,7 +170,9 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
         }
 
         match key.tonemapping {
-            Tonemapping::None => shader_defs.push("TONEMAP_METHOD_NONE".into()),
+            Tonemapping::None | Tonemapping::Linear => {
+                shader_defs.push("TONEMAP_METHOD_LINEAR".into());
+            }
             Tonemapping::Reinhard => shader_defs.push("TONEMAP_METHOD_REINHARD".into()),
             Tonemapping::ReinhardLuminance => {
                 shader_defs.push("TONEMAP_METHOD_REINHARD_LUMINANCE".into());
@@ -319,6 +321,7 @@ pub fn get_lut_bindings<'a>(
     let image = match tonemapping {
         // AgX lut texture used when tonemapping doesn't need a texture since it's very small (32x32x32)
         Tonemapping::None
+        | Tonemapping::Linear
         | Tonemapping::Reinhard
         | Tonemapping::ReinhardLuminance
         | Tonemapping::AcesFitted
