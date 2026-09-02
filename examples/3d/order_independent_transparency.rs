@@ -11,6 +11,7 @@ use bevy::{
     core_pipeline::{oit::OrderIndependentTransparencySettings, prepass::DepthPrepass},
     ecs::system::SystemParam,
     feathers::{dark_theme::create_dark_theme, theme::UiTheme, FeathersPlugins},
+    input_focus::AutoFocus,
     pbr::{ExtendedMaterial, MaterialExtension},
     picking::window::update_window_hits,
     prelude::*,
@@ -214,16 +215,7 @@ fn handle_keyboard_shortcuts(
     setting_q: Query<(Entity, &RadioButtonOptionValue<AppSetting>), With<RadioButton>>,
     mut commands: Commands,
 ) {
-    let new_setting = if keyboard_input.just_pressed(KeyCode::ArrowRight)
-        || keyboard_input.just_pressed(KeyCode::ArrowLeft)
-    {
-        let n = app_state.current_scene_id + SCENES.len();
-        if keyboard_input.pressed(KeyCode::ArrowLeft) {
-            AppSetting::ChangeScene((n - 1) % SCENES.len())
-        } else {
-            AppSetting::ChangeScene((n + 1) % SCENES.len())
-        }
-    } else if keyboard_input.just_pressed(KeyCode::KeyT) {
+    let new_setting = if keyboard_input.just_pressed(KeyCode::KeyT) {
         AppSetting::EnableOIT(!app_state.use_oit)
     } else if keyboard_input.just_pressed(KeyCode::KeyD) {
         AppSetting::UseDepthPrepass(!app_state.use_depth_prepass)
@@ -270,6 +262,7 @@ fn spawn_ui(commands: &mut Commands, app_state: &AppState) {
         })
         Children [
             RadioGroupSetting::ChangeScene
+            AutoFocus
             @feathers_option_buttons(
                 "Scene ([←] or [→])",
                 &(SCENES
