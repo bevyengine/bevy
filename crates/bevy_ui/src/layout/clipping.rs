@@ -1,7 +1,7 @@
 use crate::{
     experimental::{UiChildren, UiRootNodes},
     ui_transform::UiGlobalTransform,
-    CalculatedClip, ComputedNode, Display, Node, OverrideClip,
+    CalculatedClip, ComputedNode, Display, FixedNode, Node, OverrideClip,
 };
 use bevy_ecs::{
     entity::Entity,
@@ -19,6 +19,7 @@ pub fn update_clipping_system(
         &UiGlobalTransform,
         Option<&mut CalculatedClip>,
         Has<OverrideClip>,
+        Has<FixedNode>,
     )>,
     ui_children: UiChildren,
 ) {
@@ -42,18 +43,25 @@ fn update_clipping(
         &UiGlobalTransform,
         Option<&mut CalculatedClip>,
         Has<OverrideClip>,
+        Has<FixedNode>,
     )>,
     entity: Entity,
     mut maybe_inherited_clip: Option<CalculatedClip>,
 ) {
-    let Ok((node, computed_node, transform, maybe_calculated_clip, has_override_clip)) =
-        node_query.get_mut(entity)
+    let Ok((
+        node,
+        computed_node,
+        transform,
+        maybe_calculated_clip,
+        has_override_clip,
+        has_fixed_node,
+    )) = node_query.get_mut(entity)
     else {
         return;
     };
 
-    // If the UI node entity has an `OverrideClip` component, discard any inherited clip rect
-    if has_override_clip {
+    // If the UI node entity has an `OverrideClip` or `FixedNode` component, discard any inherited clip rect
+    if has_override_clip || has_fixed_node {
         maybe_inherited_clip = None;
     }
 
