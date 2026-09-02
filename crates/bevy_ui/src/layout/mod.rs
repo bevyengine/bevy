@@ -178,7 +178,7 @@ pub fn mark_dirty_ui_trees(
     mut removed_child_ofs: RemovedComponents<ChildOf>,
     mut removed_nodes: RemovedComponents<Node>,
     mut removed_ghost_nodes: RemovedComponents<GhostNode>,
-    mut trees: Query<(&mut UiTreeChanged, &ChildOf)>,
+    mut trees: Query<(&mut UiTreeChanged, Option<&ChildOf>)>,
 ) {
     let removed = removed_outlines
         .read()
@@ -191,13 +191,16 @@ pub fn mark_dirty_ui_trees(
     let removed = removed.chain(removed_ghost_nodes.read());
 
     for mut next in changed.iter().chain(removed) {
-        while let Ok((mut tree, child_of)) = trees.get_mut(next) {
+        while let Ok((mut tree, maybe_child_of)) = trees.get_mut(next) {
             // If tree was added since the last update, `is_changed` will be set before this system began
             // so we can't know if it was already visited.
             if tree.is_changed() && !tree.is_added() {
                 break;
             }
             tree.set_changed();
+            let Some(child_of) = maybe_child_of else {
+                break;
+            };
             next = child_of.0;
         }
     }
@@ -3072,7 +3075,7 @@ mod tests {
         assert!(computed_former_ghost
             .child_entities()
             .eq([child].into_iter()));
-        assert!(computed_former_ghost.reached());
+        assert!(computed_former_ghost.has_layout());
 
         let computed_fixed = app.world().get::<ComputedLayout>(fixed).unwrap();
         assert!(computed_fixed.has_layout());
