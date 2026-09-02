@@ -84,9 +84,10 @@ use bevy_app::{prelude::*, AnimationSystems, HierarchyPropagatePlugin, Propagate
 use bevy_camera::CameraUpdateSystems;
 use bevy_ecs::prelude::*;
 use bevy_input::InputSystems;
+use layout::clipping::update_clipping_system;
 use stack::ui_stack_system;
 pub use stack::{ComputedStackIndex, UiStack};
-use update::{propagate_ui_target_cameras, update_clipping_system};
+use update::propagate_ui_target_cameras;
 
 /// The basic plugin for Bevy UI
 #[derive(Default)]

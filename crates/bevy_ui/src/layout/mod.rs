@@ -24,6 +24,7 @@ use thiserror::Error;
 
 use bevy_text::{ComputedTextBlock, EmSize, FontCx, RemSize, TextFont, DEFAULT_REM_SIZE_PX};
 
+pub mod clipping;
 mod convert;
 pub mod debug;
 pub mod layout_tree;
@@ -729,11 +730,9 @@ mod tests {
     use crate::update_computed_nodes;
     use crate::UiSystems;
     use crate::{
-        layout::layout_tree::ComputedLayout,
-        prelude::*,
+        layout::clipping::update_clipping_system, layout::layout_tree::ComputedLayout, prelude::*,
         sync_font_size_to_em_size, sync_taffy_styles_with_nodes, ui_layout_system,
-        update::{propagate_ui_target_cameras, update_clipping_system},
-        ContentSize,
+        update::propagate_ui_target_cameras, ContentSize,
     };
     use bevy_app::{App, HierarchyPropagatePlugin, PostUpdate, PropagateSet, TaskPoolPlugin};
     use bevy_camera::{Camera, Camera2d, ComputedCameraValues, RenderTargetInfo, Viewport};
