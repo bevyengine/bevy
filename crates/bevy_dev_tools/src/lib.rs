@@ -16,6 +16,8 @@ pub mod ci_testing;
 #[cfg(feature = "render")]
 pub mod diagnostics_overlay;
 
+mod easy_camera;
+
 #[cfg(feature = "render")]
 mod easy_screenshot;
 
@@ -33,6 +35,8 @@ pub mod picking_debug;
 pub mod schedule_data;
 
 pub mod states;
+
+pub use easy_camera::*;
 
 #[cfg(feature = "render")]
 pub use easy_screenshot::*;
