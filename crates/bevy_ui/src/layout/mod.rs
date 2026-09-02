@@ -3055,7 +3055,7 @@ mod tests {
 
         let computed_ghost = app.world().get::<ComputedLayout>(ghost).unwrap();
         assert!(computed_ghost.child_nodes().is_empty());
-        assert!(!computed_ghost.has_layout());
+        assert!(!computed_ghost.reached());
 
         let computed_fixed = app.world().get::<ComputedLayout>(fixed).unwrap();
         assert!(computed_fixed.has_layout());
@@ -3072,7 +3072,7 @@ mod tests {
         assert!(computed_former_ghost
             .child_entities()
             .eq([child].into_iter()));
-        assert!(!computed_former_ghost.has_layout());
+        assert!(computed_former_ghost.reached());
 
         let computed_fixed = app.world().get::<ComputedLayout>(fixed).unwrap();
         assert!(computed_fixed.has_layout());
