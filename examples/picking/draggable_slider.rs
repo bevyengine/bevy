@@ -180,13 +180,13 @@ fn setup(mut commands: Commands) {
                         .observe(on_drag)
                         .observe(on_drag_end)
                         .observe(
-                            |_: On<Pointer<Over>>,
+                            |_: On<PointerOver>,
                              mut q: Single<&mut BackgroundColor, With<SliderThumb>>| {
                                 q.0 = COLOR_THUMB_HOVER;
                             },
                         )
                         .observe(
-                            |_: On<Pointer<Out>>,
+                            |_: On<PointerOut>,
                              mut q: Single<&mut BackgroundColor, With<SliderThumb>>| {
                                 q.0 = COLOR_THUMB_IDLE;
                             },
@@ -268,14 +268,12 @@ fn setup(mut commands: Commands) {
                     ));
                 })
                 .observe(
-                    |_: On<Pointer<Over>>,
-                     mut q: Single<&mut BackgroundColor, With<ResetButton>>| {
+                    |_: On<PointerOver>, mut q: Single<&mut BackgroundColor, With<ResetButton>>| {
                         q.0 = COLOR_RESET_HOVER;
                     },
                 )
                 .observe(
-                    |_: On<Pointer<Out>>,
-                     mut q: Single<&mut BackgroundColor, With<ResetButton>>| {
+                    |_: On<PointerOut>, mut q: Single<&mut BackgroundColor, With<ResetButton>>| {
                         q.0 = COLOR_RESET_IDLE;
                     },
                 )
@@ -304,16 +302,14 @@ fn spawn_decoy_button(parent: &mut ChildSpawnerCommands, label: &str) {
             Pickable::IGNORE,
         ))
         .observe(
-            |event: On<Pointer<Over>>,
-             mut colors: Query<&mut BackgroundColor, With<DecoyButton>>| {
+            |event: On<PointerOver>, mut colors: Query<&mut BackgroundColor, With<DecoyButton>>| {
                 if let Ok(mut color) = colors.get_mut(event.entity) {
                     color.0 = COLOR_DECOY_HOVER;
                 }
             },
         )
         .observe(
-            |event: On<Pointer<Out>>,
-             mut colors: Query<&mut BackgroundColor, With<DecoyButton>>| {
+            |event: On<PointerOut>, mut colors: Query<&mut BackgroundColor, With<DecoyButton>>| {
                 if let Ok(mut color) = colors.get_mut(event.entity) {
                     color.0 = COLOR_DECOY_IDLE;
                 }
@@ -322,33 +318,33 @@ fn spawn_decoy_button(parent: &mut ChildSpawnerCommands, label: &str) {
 }
 
 fn on_drag_start(
-    event: On<Pointer<DragStart>>,
+    event: On<PointerDragStart>,
     capture_enabled: Res<CaptureEnabled>,
     mut capture_map: ResMut<PointerCaptureMap>,
     mut fill_color: Single<&mut BackgroundColor, With<SliderFill>>,
 ) {
     if capture_enabled.0 {
-        capture_map.capture(event.pointer_id, event.entity, event.hit.clone());
+        capture_map.capture(event.pointer.id, event.entity, event.hit.clone());
     }
     // Signal active drag with a brighter fill color.
     fill_color.0 = COLOR_FILL_DRAGGING;
 }
 
-fn on_drag(event: On<Pointer<Drag>>, mut value: ResMut<SliderValue>) {
+fn on_drag(event: On<PointerDrag>, mut value: ResMut<SliderValue>) {
     value.0 = (value.0 + event.delta.x / (TRACK_WIDTH - THUMB_SIZE)).clamp(0.0, 1.0);
 }
 
 fn on_drag_end(
-    event: On<Pointer<DragEnd>>,
+    event: On<PointerDragEnd>,
     mut capture_map: ResMut<PointerCaptureMap>,
     mut fill_color: Single<&mut BackgroundColor, With<SliderFill>>,
 ) {
-    capture_map.release(event.pointer_id);
+    capture_map.release(event.pointer.id);
     fill_color.0 = COLOR_FILL;
 }
 
 fn on_toggle_click(
-    _: On<Pointer<Click>>,
+    _: On<PointerClick>,
     mut capture_enabled: ResMut<CaptureEnabled>,
     mut label: Single<&mut Text, With<ToggleLabel>>,
     mut toggle_bg: Single<&mut BackgroundColor, With<ToggleButton>>,
@@ -363,7 +359,7 @@ fn on_toggle_click(
     }
 }
 
-fn on_reset_click(_: On<Pointer<Click>>, mut value: ResMut<SliderValue>) {
+fn on_reset_click(_: On<PointerClick>, mut value: ResMut<SliderValue>) {
     value.0 = SLIDER_DEFAULT_VALUE;
 }
 
