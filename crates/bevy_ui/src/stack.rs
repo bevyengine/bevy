@@ -1,6 +1,6 @@
 //! This module contains the systems that update the stored UI nodes stack
 
-use crate::{GlobalZIndex, Node, ZIndex};
+use crate::{GlobalZIndex, ZIndex};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     entity::{EntityHashMap, EntityHashSet},
