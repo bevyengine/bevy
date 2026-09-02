@@ -146,6 +146,10 @@ impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<UiScale>()
             .init_resource::<UiStack>()
+            .register_required_components::<
+                bevy_text::EditableText,
+                widget::EditableTextContentSizeState,
+            >()
             .configure_sets(
                 PostUpdate,
                 (
