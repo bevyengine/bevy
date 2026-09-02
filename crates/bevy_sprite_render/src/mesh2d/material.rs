@@ -93,7 +93,7 @@ pub const MATERIAL_2D_BIND_GROUP_INDEX: usize = 2;
 /// # use bevy_color::LinearRgba;
 /// # use bevy_color::palettes::basic::RED;
 /// # use bevy_asset::{Handle, AssetServer, Assets, Asset};
-/// # use bevy_math::primitives::Circle;
+/// # use bevy_shape::Circle;
 /// #
 /// #[derive(AsBindGroup, Debug, Clone, Asset, TypePath)]
 /// pub struct CustomMaterial {
@@ -195,7 +195,7 @@ pub trait Material2d: AsBindGroup + Asset + Clone + Sized {
 /// # use bevy_mesh::{Mesh, Mesh2d};
 /// # use bevy_color::palettes::basic::RED;
 /// # use bevy_asset::Assets;
-/// # use bevy_math::primitives::Circle;
+/// # use bevy_shape::Circle;
 /// #
 /// // Spawn an entity with a mesh using `ColorMaterial`.
 /// fn setup(
@@ -623,7 +623,7 @@ pub const fn alpha_mode_pipeline_key_2d(alpha_mode: AlphaMode) -> Mesh2dPipeline
 
 pub const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> Mesh2dPipelineKey {
     match tonemapping {
-        Tonemapping::None => Mesh2dPipelineKey::TONEMAP_METHOD_NONE,
+        Tonemapping::None | Tonemapping::Linear => Mesh2dPipelineKey::TONEMAP_METHOD_LINEAR,
         Tonemapping::Reinhard => Mesh2dPipelineKey::TONEMAP_METHOD_REINHARD,
         Tonemapping::ReinhardLuminance => Mesh2dPipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE,
         Tonemapping::AcesFitted => Mesh2dPipelineKey::TONEMAP_METHOD_ACES_FITTED,

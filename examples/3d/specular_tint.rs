@@ -180,9 +180,9 @@ fn shift_hue(
 /// Spawns the radio buttons in the bottom left corner of the screen.
 fn spawn_buttons(commands: &mut Commands) {
     commands.spawn_scene(bsn! {
-        main_ui_node_scene()
+        @main_ui_node_scene()
         Children [
-            feathers_option_buttons(
+            @feathers_option_buttons(
                 "Toggle specular tint",
                 &[
                     (TintType::Solid, "SOLID"),
