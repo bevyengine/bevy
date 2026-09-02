@@ -52,13 +52,13 @@ pub fn ui_stack_system(
     mut stack_root_order: Local<EntityHashMap<usize>>,
     mut visited_stack_roots: Local<EntityHashSet>,
     mut ui_stack: ResMut<UiStack>,
-    ui_root_nodes: Query<Entity, (With<Node>, Without<ChildOf>)>,
+    ui_root_nodes: Query<Entity, (With<ComputedStackIndex>, Without<ChildOf>)>,
     root_node_query: Query<(Entity, Option<Ref<GlobalZIndex>>, Option<Ref<ZIndex>>)>,
     zindex_global_node_query: Query<
         (Entity, Ref<GlobalZIndex>, Option<Ref<ZIndex>>),
         With<ComputedStackIndex>,
     >,
-    ui_children: Query<&Children, With<Node>>,
+    ui_children: Query<&Children, With<ComputedStackIndex>>,
     zindex_query: Query<Option<&ZIndex>, (With<ComputedStackIndex>, Without<GlobalZIndex>)>,
     mut update_query: Query<&mut ComputedStackIndex>,
 ) {
@@ -134,7 +134,7 @@ pub fn ui_stack_system(
 fn update_uistack_recursive(
     child_buffer: &mut Vec<(Entity, i32)>,
     node_entity: Entity,
-    ui_children: &Query<&Children, With<Node>>,
+    ui_children: &Query<&Children, With<ComputedStackIndex>>,
     zindex_query: &Query<Option<&ZIndex>, (With<ComputedStackIndex>, Without<GlobalZIndex>)>,
     ui_stack: &mut Vec<Entity>,
 ) {
