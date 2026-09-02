@@ -15,7 +15,6 @@ mod render;
 mod sprite_mesh;
 #[cfg(feature = "bevy_text")]
 mod text2d;
-mod texture_slice;
 mod tilemap_chunk;
 
 /// The sprite prelude.
@@ -33,14 +32,13 @@ use bevy_shader::load_shader_library;
 pub use mesh2d::*;
 pub use render::*;
 pub use sprite_mesh::*;
-pub(crate) use texture_slice::*;
 pub use tilemap_chunk::*;
 
 use bevy_app::prelude::*;
-use bevy_asset::{embedded_asset, AssetEventSystems};
+use bevy_asset::embedded_asset;
 use bevy_core_pipeline::core_2d::{AlphaMask2d, Opaque2d, Transparent2d};
 use bevy_ecs::prelude::*;
-use bevy_image::{prelude::*, TextureAtlasPlugin};
+use bevy_image::TextureAtlasPlugin;
 use bevy_mesh::Mesh2d;
 use bevy_render::{
     batching::sort_binned_render_phase, render_phase::AddRenderCommand,
@@ -55,13 +53,6 @@ pub use crate::text2d::extract_text2d_sprite;
 /// Adds support for 2D sprite rendering.
 #[derive(Default)]
 pub struct SpriteRenderPlugin;
-
-/// System set for sprite rendering.
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
-pub enum SpriteSystems {
-    ExtractSprites,
-    ComputeSlices,
-}
 
 impl Plugin for SpriteRenderPlugin {
     fn build(&self, app: &mut App) {
@@ -80,16 +71,7 @@ impl Plugin for SpriteRenderPlugin {
             SpriteMeshPlugin,
             TilemapChunkPlugin,
             TilemapChunkMaterialPlugin,
-        ))
-        .add_systems(
-            PostUpdate,
-            (
-                compute_slices_on_asset_event.before(AssetEventSystems),
-                compute_slices_on_sprite_change,
-            )
-                .in_set(SpriteSystems::ComputeSlices),
-        );
-
+        ));
         app.register_required_components::<Sprite, SyncToRenderWorld>();
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
@@ -106,10 +88,9 @@ impl Plugin for SpriteRenderPlugin {
                 .add_systems(
                     ExtractSchedule,
                     (
-                        extract_sprites.in_set(SpriteSystems::ExtractSprites),
                         extract_sprite_events,
                         #[cfg(feature = "bevy_text")]
-                        extract_text2d_sprite.after(SpriteSystems::ExtractSprites),
+                        extract_text2d_sprite,
                     ),
                 )
                 .add_systems(

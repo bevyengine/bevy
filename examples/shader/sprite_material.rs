@@ -85,7 +85,7 @@ fn setup(mut commands: Commands) {
     commands.spawn(Text::new("Space to dissolve"));
 
     commands.queue_spawn_scene(bsn! {
-       SpriteMesh {
+        Sprite {
             image: "branding/bevy_bird_dark.png",
         }
         DissolveState::Visible

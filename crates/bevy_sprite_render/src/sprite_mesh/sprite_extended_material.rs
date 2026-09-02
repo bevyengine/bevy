@@ -28,7 +28,7 @@ use bevy_render::{
     renderer::RenderDevice,
 };
 use bevy_shader::ShaderRef;
-use bevy_sprite::{Anchor, SpriteMesh};
+use bevy_sprite::{Anchor, Sprite};
 use core::hash::Hash;
 
 use crate::{
@@ -83,11 +83,11 @@ where
 /// Adds `MeshMaterial2d<SpriteExt<M>>`s to entities with a `SpriteMaterial<M>`
 fn add_material<M>(
     sprites: Query<
-        (Entity, &SpriteMesh, &Anchor, &SpriteMaterial<M>),
+        (Entity, &Sprite, &Anchor, &SpriteMaterial<M>),
         Or<(
             AssetChanged<SpriteMaterial<M>>,
             Changed<SpriteMaterial<M>>,
-            Changed<SpriteMesh>,
+            Changed<Sprite>,
             Changed<Anchor>,
             Added<Mesh2d>,
         )>,
@@ -149,7 +149,7 @@ fn update_changed_material_extensions<M>(
     }
 }
 
-/// Allows extending the material of a [`SpriteMesh`] using a [`MaterialExtension2d`].
+/// Allows extending the material of a [`Sprite`] using a [`MaterialExtension2d`].
 ///
 /// Requires adding a [`SpriteMaterialPlugin`] to function.
 ///
@@ -424,7 +424,7 @@ where
     }
 }
 
-/// Keeps an index of cached `SpriteExt` handles based on the [`SpriteMesh`], [`Anchor`], and the asset id of the material
+/// Keeps an index of cached `SpriteExt` handles based on the [`Sprite`], [`Anchor`], and the asset id of the material
 #[derive(Resource, Deref, DerefMut)]
 struct SpriteMaterialCache<M>(HashMap<AssetId<M>, super::SpriteMaterialCache<SpriteExt<M>>>)
 where
@@ -488,7 +488,7 @@ mod tests {
     fn reused_handles() {
         let mut app = test_app();
 
-        let sprite_mesh = SpriteMesh::default();
+        let sprite_mesh = Sprite::default();
         let handle = app.world_mut().add_asset::<TestMaterial>(TestMaterial {});
 
         let one = app
@@ -528,7 +528,7 @@ mod tests {
         let handle = app.world_mut().add_asset::<TestMaterial>(TestMaterial {});
         let handle2 = app.world_mut().add_asset::<TestMaterial2>(TestMaterial2 {});
 
-        let entity = app.world_mut().spawn(SpriteMesh::default()).id();
+        let entity = app.world_mut().spawn(Sprite::default()).id();
         app.update();
 
         let test = |app: &mut App, sprite: bool, test: bool, test2: bool| {
@@ -613,7 +613,7 @@ mod tests {
         let handle = app.world_mut().add_asset::<TestMaterial>(TestMaterial {});
         let entity = app
             .world_mut()
-            .spawn((SpriteMesh::default(), SpriteMaterial(handle)))
+            .spawn((Sprite::default(), SpriteMaterial(handle)))
             .id();
 
         app.update();
