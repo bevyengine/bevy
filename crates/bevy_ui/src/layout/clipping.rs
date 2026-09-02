@@ -1,21 +1,17 @@
 use crate::{
-    layout_tree::ComputedLayout, ui_transform::UiGlobalTransform, CalculatedClip,
-    ComputedUiRenderTargetInfo, ComputedUiTargetCamera, DefaultUiCamera, Display, FixedNode,
-    GhostNode, Node, OverrideClip, UiScale, UiTargetCamera, UiTreeChanged,
+    layout_tree::ComputedLayout, ui_transform::UiGlobalTransform, CalculatedClip, Display,
+    FixedNode, GhostNode, Node, OverrideClip, UiTreeChanged,
 };
 
 use super::ComputedNode;
-use bevy_app::Propagate;
-use bevy_camera::Camera;
 use bevy_ecs::{
     change_detection::DetectChanges,
     entity::Entity,
     hierarchy::{ChildOf, Children},
-    query::{Has, Or, With, Without},
-    system::{Commands, Query, Res},
+    query::{Has, With, Without},
+    system::{Commands, Query},
     world::Ref,
 };
-use bevy_math::UVec2;
 
 /// Updates clipping for all nodes
 pub fn update_clipping_system(
