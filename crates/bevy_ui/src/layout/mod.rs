@@ -24,6 +24,7 @@ use bevy_text::{ComputedTextBlock, EmSize, FontCx, RemSize, TextFont, DEFAULT_RE
 
 use bevy_log::warn;
 
+pub(crate) mod clipping;
 mod convert;
 pub mod debug;
 pub mod ui_surface;
@@ -519,8 +520,11 @@ pub fn ui_layout_system(
 #[cfg(test)]
 mod tests {
     use crate::{
-        layout::ui_surface::UiSurface, prelude::*, ui_layout_system,
-        update::propagate_ui_target_cameras, ContentSize, LayoutContext,
+        layout::{clipping::update_clipping_system, ui_surface::UiSurface},
+        prelude::*,
+        ui_layout_system,
+        update::propagate_ui_target_cameras,
+        ContentSize, LayoutContext,
     };
     use bevy_app::{App, HierarchyPropagatePlugin, PostUpdate, PropagateSet, TaskPoolPlugin};
     use bevy_camera::{Camera, Camera2d, ComputedCameraValues, RenderTargetInfo, Viewport};
@@ -562,6 +566,7 @@ mod tests {
                 mark_dirty_trees,
                 sync_simple_transforms,
                 propagate_parent_transforms,
+                update_clipping_system,
             )
                 .chain(),
         );
@@ -2006,6 +2011,103 @@ mod tests {
                 .top_left,
             Vec2::splat(15.)
         );
+    }
+
+    #[test]
+    fn clipping_updates_on_layout_changes() {
+        let mut app = setup_ui_test_app();
+
+        let child = app.world_mut().spawn(Node::default()).id();
+        let parent = app
+            .world_mut()
+            .spawn((Node {
+                width: Val::Px(60.),
+                height: Val::Px(20.),
+                overflow: Overflow::clip(),
+                ..default()
+            },))
+            .add_child(child)
+            .id();
+
+        app.update();
+
+        let initial_clip = app.world().get::<CalculatedClip>(child).unwrap().clone();
+
+        app.world_mut().get_mut::<Node>(parent).unwrap().width = Val::Px(80.);
+        app.update();
+
+        assert_ne!(
+            &initial_clip,
+            app.world().get::<CalculatedClip>(child).unwrap()
+        );
+    }
+
+    #[test]
+    fn fixed_node_opens_new_clipping_context() {
+        let mut app = App::new();
+        app.add_systems(bevy_app::Update, update_clipping_system);
+
+        let grandchild = app.world_mut().spawn(Node::default()).id();
+        let child = app
+            .world_mut()
+            .spawn(Node::default())
+            .add_child(grandchild)
+            .id();
+        app.world_mut()
+            .spawn(Node {
+                overflow: Overflow::clip(),
+                ..default()
+            })
+            .add_child(child);
+
+        app.update();
+        assert_eq!(
+            app.world()
+                .get::<CalculatedClip>(grandchild)
+                .unwrap()
+                .rects()
+                .unwrap()
+                .len(),
+            1
+        );
+
+        app.world_mut().entity_mut(child).insert(FixedNode);
+        app.update();
+        assert!(app.world().get::<CalculatedClip>(grandchild).is_none());
+
+        app.world_mut().entity_mut(child).remove::<FixedNode>();
+        app.update();
+        assert_eq!(
+            app.world()
+                .get::<CalculatedClip>(grandchild)
+                .unwrap()
+                .rects()
+                .unwrap()
+                .len(),
+            1
+        );
+    }
+
+    #[test]
+    fn override_clip_opens_new_clipping_context() {
+        let mut app = App::new();
+        app.add_systems(bevy_app::Update, update_clipping_system);
+
+        let grandchild = app.world_mut().spawn(Node::default()).id();
+        let child = app
+            .world_mut()
+            .spawn((Node::default(), OverrideClip))
+            .add_child(grandchild)
+            .id();
+        app.world_mut()
+            .spawn(Node {
+                overflow: Overflow::clip(),
+                ..default()
+            })
+            .add_child(child);
+
+        app.update();
+        assert!(app.world().get::<CalculatedClip>(grandchild).is_none());
     }
 
     #[cfg(feature = "ghost_nodes")]
