@@ -369,7 +369,7 @@ pub fn update_computed_nodes(
         Has<FixedNode>,
         Has<GhostNode>,
         Ref<UiTreeChanged>,
-        &Children,
+        Option<&Children>,
     )>,
     mut child_stack: Local<Vec<Entity>>,
 ) {
@@ -419,7 +419,7 @@ fn update_uinode_geometry_recursive(
         Has<FixedNode>,
         Has<GhostNode>,
         Ref<UiTreeChanged>,
-        &Children,
+        Option<&Children>,
     )>,
     inverse_target_scale_factor: f32,
     parent_size: Vec2,
@@ -442,7 +442,7 @@ fn update_uinode_geometry_recursive(
         is_fixed_node,
         is_ghost_node,
         tree_changed,
-        children,
+        maybe_children,
     )) = computed_nodes_query.get_mut(entity)
     {
         if is_fixed_node && !is_ghost_node && root != entity {
@@ -481,28 +481,30 @@ fn update_uinode_geometry_recursive(
                 *global_transform = inherited_transform.into();
             }
 
-            let start = child_stack.len();
-            child_stack.extend(children);
-            let end = child_stack.len();
-            let inherited_force_update = force_update || tree_changed.is_changed();
-            for child_index in start..end {
-                update_uinode_geometry_recursive(
-                    root,
-                    child_stack[child_index],
-                    inherited_use_rounding,
-                    target_size,
-                    inherited_transform,
-                    computed_nodes_query,
-                    inverse_target_scale_factor,
-                    parent_size,
-                    parent_scroll_position,
-                    rem_size,
-                    child_stack,
-                    inherited_force_update,
-                );
+            if let Some(children) = maybe_children {
+                let start = child_stack.len();
+                child_stack.extend(children);
+                let end = child_stack.len();
+                let inherited_force_update = force_update || tree_changed.is_changed();
+                for child_index in start..end {
+                    update_uinode_geometry_recursive(
+                        root,
+                        child_stack[child_index],
+                        inherited_use_rounding,
+                        target_size,
+                        inherited_transform,
+                        computed_nodes_query,
+                        inverse_target_scale_factor,
+                        parent_size,
+                        parent_scroll_position,
+                        rem_size,
+                        child_stack,
+                        inherited_force_update,
+                    );
+                }
+                child_stack.truncate(start);
+                return;
             }
-            child_stack.truncate(start);
-            return;
         }
 
         if !force_update && !computed_layout.layout_changed() && !computed_layout.subtree_dirty() {
@@ -661,30 +663,32 @@ fn update_uinode_geometry_recursive(
             computed_node.scroll_position = physical_scroll_position;
         }
 
-        let start = child_stack.len();
-        child_stack.extend(children);
-        let end = child_stack.len();
+        if let Some(children) = maybe_children {
+            let start = child_stack.len();
+            child_stack.extend(children);
+            let end = child_stack.len();
 
-        let inherited_force_update =
-            force_update || computed_layout.layout_changed() || computed_layout.self_dirty();
-        for child_index in start..end {
-            update_uinode_geometry_recursive(
-                root,
-                child_stack[child_index],
-                use_rounding,
-                target_size,
-                inherited_transform,
-                computed_nodes_query,
-                inverse_target_scale_factor,
-                layout_size,
-                physical_scroll_position,
-                rem_size,
-                child_stack,
-                inherited_force_update,
-            );
+            let inherited_force_update =
+                force_update || computed_layout.layout_changed() || computed_layout.self_dirty();
+            for child_index in start..end {
+                update_uinode_geometry_recursive(
+                    root,
+                    child_stack[child_index],
+                    use_rounding,
+                    target_size,
+                    inherited_transform,
+                    computed_nodes_query,
+                    inverse_target_scale_factor,
+                    layout_size,
+                    physical_scroll_position,
+                    rem_size,
+                    child_stack,
+                    inherited_force_update,
+                );
+            }
+
+            child_stack.truncate(start);
         }
-
-        child_stack.truncate(start);
     }
 }
 
