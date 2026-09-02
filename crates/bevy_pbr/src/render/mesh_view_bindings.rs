@@ -18,7 +18,7 @@ use bevy_ecs::{
     entity::Entity,
     query::Has,
     resource::Resource,
-    system::{Commands, Query, Res},
+    system::{Commands, Local, Query, Res},
 };
 use bevy_light::{EnvironmentMapLight, IrradianceVolume};
 use bevy_math::Vec4;
@@ -629,6 +629,58 @@ pub struct MeshViewBindGroup {
     pub empty: BindGroup,
 }
 
+// Wrapped Vec to be used in `Local` system param in `prepare_mesh_view_bind_groups`,
+// because `BindGroupEntry` is non-send on wasm with atomics.
+#[cfg(all(target_arch = "wasm32", target_feature = "atomics"))]
+pub struct WrappedBindGroupEntryVec(send_wrapper::SendWrapper<Vec<BindGroupEntry<'static>>>);
+
+#[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
+pub struct WrappedBindGroupEntryVec(Vec<BindGroupEntry<'static>>);
+
+#[cfg_attr(
+    not(all(target_arch = "wasm32", target_feature = "atomics")),
+    expect(clippy::derivable_impls, reason = "Manual impl is needed for wasm32")
+)]
+impl Default for WrappedBindGroupEntryVec {
+    fn default() -> Self {
+        #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
+        {
+            Self(Vec::default())
+        }
+        #[cfg(all(target_arch = "wasm32", target_feature = "atomics"))]
+        {
+            Self(send_wrapper::SendWrapper::new(Vec::default()))
+        }
+    }
+}
+
+impl core::ops::Deref for WrappedBindGroupEntryVec {
+    type Target = Vec<BindGroupEntry<'static>>;
+    fn deref(&self) -> &Self::Target {
+        #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
+        {
+            &self.0
+        }
+        #[cfg(all(target_arch = "wasm32", target_feature = "atomics"))]
+        {
+            &*self.0
+        }
+    }
+}
+
+impl core::ops::DerefMut for WrappedBindGroupEntryVec {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
+        {
+            &mut self.0
+        }
+        #[cfg(all(target_arch = "wasm32", target_feature = "atomics"))]
+        {
+            &mut *self.0
+        }
+    }
+}
+
 pub fn prepare_mesh_view_bind_groups(
     mut commands: Commands,
     (render_device, pipeline_cache, render_adapter): (
@@ -694,11 +746,8 @@ pub fn prepare_mesh_view_bind_groups(
         Res<AreaLightLuts>,
         Res<DfgLut>,
     ),
-    // TODO: Figure out how to reuse the memory. `BindGroupEntry` is non-send on wasm with atomics.
-    #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
-    mut entries_cache: bevy_ecs::system::Local<Vec<BindGroupEntry>>,
-    #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
-    mut entries_binding_array_cache: bevy_ecs::system::Local<Vec<BindGroupEntry>>,
+    mut entries_cache: Local<WrappedBindGroupEntryVec>,
+    mut entries_binding_array_cache: Local<WrappedBindGroupEntryVec>,
 ) {
     if let (
         Some(view_binding),
@@ -745,15 +794,14 @@ pub fn prepare_mesh_view_bind_groups(
         {
             let mut entries = DynamicBindGroupEntries::new();
             let mut entries_binding_array = DynamicBindGroupEntries::new();
-            #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
             {
                 // Take cache that has static lifetime for `DynamicBindGroupEntries`.
                 // See <https://users.rust-lang.org/t/how-to-cache-a-vectors-capacity/94478/10>.
-                entries.entries = core::mem::take(&mut *entries_cache)
+                entries.entries = core::mem::take(&mut **entries_cache)
                     .into_iter()
                     .map(|_| -> BindGroupEntry { unreachable!() })
                     .collect();
-                entries_binding_array.entries = core::mem::take(&mut *entries_binding_array_cache)
+                entries_binding_array.entries = core::mem::take(&mut **entries_binding_array_cache)
                     .into_iter()
                     .map(|_| -> BindGroupEntry { unreachable!() })
                     .collect();
@@ -1036,20 +1084,19 @@ pub fn prepare_mesh_view_bind_groups(
                 ),
             },));
 
-            #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
             {
                 entries.entries.clear();
                 entries_binding_array.entries.clear();
-                *entries_cache = entries
+                **entries_cache = entries
                     .entries
                     .into_iter()
                     .map(|_| -> BindGroupEntry<'static> { unreachable!() })
-                    .collect();
-                *entries_binding_array_cache = entries_binding_array
+                    .collect::<Vec<_>>();
+                **entries_binding_array_cache = entries_binding_array
                     .entries
                     .into_iter()
                     .map(|_| -> BindGroupEntry<'static> { unreachable!() })
-                    .collect();
+                    .collect::<Vec<_>>();
             }
         }
     }
