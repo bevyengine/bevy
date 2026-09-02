@@ -893,10 +893,10 @@ pub enum WireframeTopology {
 
 /// Controls whether wireframe edges render as an x-ray overlay.
 ///
-/// Overrides [`WireframeConfig::xray_mode`].
+/// Enables x-ray rendering for this entity, regardless of [`WireframeConfig::xray_mode`].
 #[derive(Component, Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Reflect)]
 #[reflect(Component, Default, Debug)]
-pub struct WireframeXray(pub bool);
+pub struct WireframeXray;
 
 #[derive(Resource, Debug, Clone, ExtractResource, Reflect)]
 #[reflect(Resource, Debug, Default)]
@@ -1107,7 +1107,7 @@ fn wireframe_config_changed(
                 .map(|w| w.width)
                 .unwrap_or(config.default_line_width),
             topology: maybe_topology.copied().unwrap_or(config.default_topology),
-            xray_mode: maybe_xray.map(|xray| xray.0).unwrap_or(config.xray_mode),
+            xray_mode: maybe_xray.is_some() || config.xray_mode,
         });
     }
 }
@@ -1135,7 +1135,7 @@ fn wireframe_color_changed(
                 .map(|w| w.width)
                 .unwrap_or(config.default_line_width),
             topology: maybe_topology.copied().unwrap_or(config.default_topology),
-            xray_mode: maybe_xray.map(|xray| xray.0).unwrap_or(config.xray_mode),
+            xray_mode: maybe_xray.is_some() || config.xray_mode,
         });
     }
 }
@@ -1161,7 +1161,7 @@ fn wireframe_line_width_changed(
             color: maybe_color.map(|c| c.color).unwrap_or(config.default_color),
             line_width: wireframe_width.width,
             topology: maybe_topology.copied().unwrap_or(config.default_topology),
-            xray_mode: maybe_xray.map(|xray| xray.0).unwrap_or(config.xray_mode),
+            xray_mode: maybe_xray.is_some() || config.xray_mode,
         });
     }
 }
@@ -1187,7 +1187,7 @@ fn wireframe_topology_changed(
                 .map(|w| w.width)
                 .unwrap_or(config.default_line_width),
             topology: *topology,
-            xray_mode: maybe_xray.map(|xray| xray.0).unwrap_or(config.xray_mode),
+            xray_mode: maybe_xray.is_some() || config.xray_mode,
         });
     }
 }
@@ -1206,14 +1206,14 @@ fn wireframe_xray_changed(
     >,
     config: Res<WireframeConfig>,
 ) {
-    for (mut handle, xray, maybe_color, maybe_width, maybe_topology) in &mut xray_changed {
+    for (mut handle, _, maybe_color, maybe_width, maybe_topology) in &mut xray_changed {
         handle.0 = materials.add(WireframeMaterial {
             color: maybe_color.map(|c| c.color).unwrap_or(config.default_color),
             line_width: maybe_width
                 .map(|w| w.width)
                 .unwrap_or(config.default_line_width),
             topology: maybe_topology.copied().unwrap_or(config.default_topology),
-            xray_mode: xray.0,
+            xray_mode: true,
         });
     }
 }
@@ -1325,7 +1325,7 @@ fn get_wireframe_material(
                 .map(|w| w.width)
                 .unwrap_or(config.default_line_width),
             topology: maybe_topology.copied().unwrap_or(config.default_topology),
-            xray_mode: maybe_xray.map(|xray| xray.0).unwrap_or(config.xray_mode),
+            xray_mode: maybe_xray.is_some() || config.xray_mode,
         })
     } else {
         // If there's no color specified we can use the global material since it's already set to use the default_color
