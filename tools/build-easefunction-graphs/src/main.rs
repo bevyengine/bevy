@@ -16,7 +16,7 @@ fn main() {
             .expect("Please run via cargo or set CARGO_MANIFEST_DIR"),
     );
     let directory = root_dir
-        .join("../../crates/bevy_math/images/easefunction")
+        .join("../../crates/bevy_curve/images/easefunction")
         .canonicalize()
         .unwrap();
 
