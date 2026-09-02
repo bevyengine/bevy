@@ -70,6 +70,7 @@ use {
 
 use bevy_render::{
     extract_resource::{ExtractResource, ExtractResourcePlugin},
+    globals::{GlobalsBuffer, GlobalsUniform},
     render_resource::{BindGroupLayoutDescriptor, PipelineCache, VertexAttribute, VertexStepMode},
 };
 
@@ -129,9 +130,12 @@ impl Plugin for GizmoRenderPlugin {
 fn init_line_gizmo_uniform_bind_group_layout(mut commands: Commands) {
     let line_layout = BindGroupLayoutDescriptor::new(
         "LineGizmoUniform layout",
-        &BindGroupLayoutEntries::single(
-            ShaderStages::VERTEX,
-            uniform_buffer::<LineGizmoUniform>(true),
+        &BindGroupLayoutEntries::sequential(
+            ShaderStages::VERTEX_FRAGMENT,
+            (
+                uniform_buffer::<LineGizmoUniform>(true),
+                uniform_buffer::<GlobalsUniform>(false),
+            ),
         ),
     );
 
@@ -200,6 +204,7 @@ fn extract_gizmo_data(
                 joints_resolution,
                 gap_scale,
                 line_scale,
+                animation_speed: config.line.animation_speed,
                 #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
                 _webgl2_padding: Default::default(),
             },
@@ -229,9 +234,10 @@ struct LineGizmoUniform {
     // Only used if the current configs `line_style` is set to `GizmoLineStyle::Dashed{_}`
     gap_scale: f32,
     line_scale: f32,
+    animation_speed: f32,
     /// WebGL2 structs must be 16 byte aligned.
     #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-    _webgl2_padding: bevy_math::Vec3,
+    _webgl2_padding: bevy_math::Vec2,
 }
 
 #[cfg_attr(
@@ -319,16 +325,23 @@ fn prepare_line_gizmo_bind_group(
     render_device: Res<RenderDevice>,
     pipeline_cache: Res<PipelineCache>,
     line_gizmo_uniforms: Res<ComponentUniforms<LineGizmoUniform>>,
+    globals_buffer: Res<GlobalsBuffer>,
 ) {
-    if let Some(binding) = line_gizmo_uniforms.uniforms().binding() {
-        commands.insert_resource(LineGizmoUniformBindgroup {
-            bindgroup: render_device.create_bind_group(
-                "LineGizmoUniform bindgroup",
-                &pipeline_cache.get_bind_group_layout(&line_gizmo_uniform_layout.layout),
-                &BindGroupEntries::single(binding),
-            ),
-        });
-    }
+    let Some(line_gizmo_binding) = line_gizmo_uniforms.uniforms().binding() else {
+        return;
+    };
+
+    let Some(globals_binding) = globals_buffer.buffer.binding() else {
+        return;
+    };
+
+    commands.insert_resource(LineGizmoUniformBindgroup {
+        bindgroup: render_device.create_bind_group(
+            "LineGizmoUniform bindgroup",
+            &pipeline_cache.get_bind_group_layout(&line_gizmo_uniform_layout.layout),
+            &BindGroupEntries::with_indices(((0, line_gizmo_binding), (1, globals_binding))),
+        ),
+    });
 }
 
 #[cfg_attr(

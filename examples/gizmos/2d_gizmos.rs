@@ -8,6 +8,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .init_gizmo_group::<MyRoundGizmos>()
+        .init_gizmo_group::<AnimatedGizmos>()
         .add_systems(Startup, setup)
         .add_systems(Update, (draw_example_collection, update_config))
         .run();
@@ -17,7 +18,11 @@ fn main() {
 #[derive(Default, Reflect, GizmoConfigGroup)]
 struct MyRoundGizmos {}
 
-fn setup(mut commands: Commands) {
+// Gizmo config group for animated gizmos only
+#[derive(Default, Reflect, GizmoConfigGroup)]
+struct AnimatedGizmos {}
+
+fn setup(mut commands: Commands, mut config_store: ResMut<GizmoConfigStore>) {
     commands.spawn(Camera2d);
     // text
     commands.spawn((
@@ -36,11 +41,15 @@ fn setup(mut commands: Commands) {
             ..default()
         },
     ));
+    let (config, _) = config_store.config_mut::<AnimatedGizmos>();
+    config.line.style = GizmoLineStyle::Dotted;
+    config.line.animation_speed = 10.0;
 }
 
 fn draw_example_collection(
     mut gizmos: Gizmos,
     mut my_gizmos: Gizmos<MyRoundGizmos>,
+    mut animated: Gizmos<AnimatedGizmos>,
     time: Res<Time>,
 ) {
     let sin_t_scaled = ops::sin(time.elapsed_secs()) * 50.;
@@ -121,6 +130,8 @@ fn draw_example_collection(
         )
         .with_double_end()
         .with_tip_length(10.);
+
+    animated.arc_2d(Isometry2d::default(), FRAC_PI_2, 210., OLD_LACE);
 }
 
 fn update_config(
@@ -211,5 +222,16 @@ fn update_config(
     }
     if keyboard.just_pressed(KeyCode::Space) {
         virtual_time.toggle();
+    }
+
+    let (my_config, _) = config_store.config_mut::<AnimatedGizmos>();
+    if keyboard.just_pressed(KeyCode::KeyI) {
+        my_config.line.style = match my_config.line.style {
+            GizmoLineStyle::Dotted => GizmoLineStyle::Dashed {
+                gap_scale: 3.0,
+                line_scale: 3.0,
+            },
+            _ => GizmoLineStyle::Dotted,
+        };
     }
 }

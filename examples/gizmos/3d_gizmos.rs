@@ -11,6 +11,7 @@ fn main() {
     App::new()
         .add_plugins((DefaultPlugins, FreeCameraPlugin))
         .init_gizmo_group::<MyRoundGizmos>()
+        .init_gizmo_group::<AnimatedGizmos>()
         .add_systems(Startup, setup)
         .add_systems(Update, (draw_example_collection, update_config))
         .run();
@@ -20,11 +21,16 @@ fn main() {
 #[derive(Default, Reflect, GizmoConfigGroup)]
 struct MyRoundGizmos;
 
+// Gizmo config group for animated gizmos only
+#[derive(Default, Reflect, GizmoConfigGroup)]
+struct AnimatedGizmos {}
+
 fn setup(
     mut commands: Commands,
     mut gizmo_assets: ResMut<Assets<GizmoAsset>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut config_store: ResMut<GizmoConfigStore>,
 ) {
     let mut gizmo = GizmoAsset::new();
 
@@ -94,11 +100,16 @@ fn setup(
             ..default()
         },
     ));
+
+    let (config, _) = config_store.config_mut::<AnimatedGizmos>();
+    config.line.style = GizmoLineStyle::Dotted;
+    config.line.animation_speed = 10.0;
 }
 
 fn draw_example_collection(
     mut gizmos: Gizmos,
     mut my_gizmos: Gizmos<MyRoundGizmos>,
+    mut animated: Gizmos<AnimatedGizmos>,
     time: Res<Time>,
 ) {
     gizmos.grid(
@@ -212,6 +223,12 @@ fn draw_example_collection(
         .arrow(Vec3::new(2., 0., 2.), Vec3::new(2., 2., 2.), ORANGE_RED)
         .with_double_end()
         .with_tip_length(0.5);
+
+    let from = Vec3::new(1.0, 2.0, 3.0);
+    let to = Vec3::new(3.0, 2.5, 4.0);
+    gizmos.rect(from, Vec2::ONE, RED);
+    animated.short_arc_3d_between((from + to) / 2.0, from, to, YELLOW_GREEN);
+    gizmos.rect(to, Vec2::ONE, RED);
 }
 
 fn update_config(
@@ -303,5 +320,16 @@ fn update_config(
     }
     if keyboard.just_pressed(KeyCode::Space) {
         virtual_time.toggle();
+    }
+
+    let (my_config, _) = config_store.config_mut::<AnimatedGizmos>();
+    if keyboard.just_pressed(KeyCode::KeyU) {
+        my_config.line.style = match my_config.line.style {
+            GizmoLineStyle::Dotted => GizmoLineStyle::Dashed {
+                gap_scale: 3.0,
+                line_scale: 3.0,
+            },
+            _ => GizmoLineStyle::Dotted,
+        };
     }
 }
