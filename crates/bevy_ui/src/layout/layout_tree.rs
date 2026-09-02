@@ -155,9 +155,13 @@ pub struct ComputedLayout {
     self_dirty: bool,
     ///  true if subtree needs update
     subtree_dirty: bool,
+    /// true if node has an `Outline` component
     has_outline: bool,
+    /// true if node has a `LayoutConfig` component
     has_layout_config: bool,
+    /// true if node has an `IgnoreScroll` component
     has_ignore_scroll: bool,
+    /// true if node has an `OverrideClip` component
     has_override_clip: bool,
 }
 
