@@ -178,7 +178,7 @@ impl<M: Asset> SpriteMaterialCache<M> {
     }
 }
 
-/// Change the material when [`SpriteMesh`] is added / changed.
+/// Change the material when [`Sprite`] is added / changed.
 ///
 /// The materials are cached based on their [`Sprite`] and [`Anchor`].
 ///
