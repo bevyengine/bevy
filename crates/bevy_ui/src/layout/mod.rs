@@ -3144,4 +3144,55 @@ mod tests {
             .size()
             .abs_diff_eq(Vec2::new(50., 30.), 1e-5));
     }
+
+    #[test]
+    fn computed_nodes_of_leaf_nodes_are_updated() {
+        let mut app = setup_ui_test_app();
+        let world = app.world_mut();
+
+        let child = world
+            .spawn(Node {
+                width: px(50.),
+                height: px(30.),
+                ..default()
+            })
+            .id();
+        world.spawn(Node::default()).add_child(child);
+
+        app.update();
+
+        assert!(app
+            .world()
+            .entity(child)
+            .get::<ComputedNode>()
+            .unwrap()
+            .size()
+            .abs_diff_eq(Vec2::new(50., 30.), 1e-5));
+    }
+
+    #[test]
+    fn computed_nodes_of_ghost_parented_leaf_nodes_are_updated() {
+        let mut app = setup_ui_test_app();
+        let world = app.world_mut();
+
+        let child = world
+            .spawn(Node {
+                width: px(50.),
+                height: px(30.),
+                ..default()
+            })
+            .id();
+        let ghost = world.spawn(GhostNode).add_child(child).id();
+        world.spawn(Node::default()).add_child(ghost);
+
+        app.update();
+
+        assert!(app
+            .world()
+            .entity(child)
+            .get::<ComputedNode>()
+            .unwrap()
+            .size()
+            .abs_diff_eq(Vec2::new(50., 30.), 1e-5));
+    }
 }
