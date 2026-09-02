@@ -40,7 +40,8 @@ const COLOR_PLANE_THUMB_SIZE: f32 = 10.0;
 ///
 /// The control emits a [`ValueChange<Vec2>`] representing the current x and y values, ranging
 /// from 0 to 1. The control accepts a [`Vec3`] input value, where the third component ('z')
-/// is used to provide the fixed constant channel for the background gradient.
+/// is used to provide the fixed constant channel for the background gradient. Note that
+/// the Y component is inverted, so that upward movement increases the value.
 ///
 /// The control does not do any color space conversions internally, other than the shader code
 /// for displaying gradients. Avoiding excess conversions helps avoid gimble-lock problems when
@@ -72,7 +73,7 @@ pub enum FeathersColorPlane {
 /// Component that contains the two components of the selected color, as well as the "z" value.
 /// The x and y values determine the placement of the thumb element, while the z value controls
 /// the background gradient.
-#[derive(Component, Default, Clone, Reflect)]
+#[derive(Component, Default, Clone, PartialEq, Reflect)]
 #[reflect(Component, Clone, Default)]
 pub struct ColorPlaneValue(pub Vec3);
 
@@ -252,9 +253,11 @@ fn update_plane_thumb_position(
         let inner_size = inner_node.size() * inner_node.inverse_scale_factor;
         if inner_size.x > 0.0 && inner_size.y > 0.0 {
             let mut updated_transform = *thumb_transform;
+            // `ColorPlaneValue` is in channel space, where y increases upward, while
+            // the transform is in screen space (+y down), so the y component is inverted.
             updated_transform.translation = Val2::new(
                 px(plane_value.0.x * inner_size.x - COLOR_PLANE_THUMB_SIZE * 0.5),
-                px(plane_value.0.y * inner_size.y - COLOR_PLANE_THUMB_SIZE * 0.5),
+                px((1.0 - plane_value.0.y) * inner_size.y - COLOR_PLANE_THUMB_SIZE * 0.5),
             );
             thumb_transform.set_if_neq(updated_transform);
         }
@@ -278,9 +281,13 @@ fn emit_color_plane_value_change(
         return;
     };
 
+    let value = (pos + Vec2::splat(0.5)).clamp(Vec2::ZERO, Vec2::ONE);
+
     commands.trigger(ValueChange {
         source,
-        value: (pos + Vec2::splat(0.5)).clamp(Vec2::ZERO, Vec2::ONE),
+        // `normalize_point` is in screen space (+y down), while the plane's value is in
+        // channel space, where y increases upward.
+        value: Vec2::new(value.x, 1.0 - value.y),
         is_final,
     });
 }

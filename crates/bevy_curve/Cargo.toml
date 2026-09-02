@@ -10,25 +10,25 @@ rust-version = "1.94.0"
 version = "0.20.0-dev"
 
 [dependencies]
-approx = { default-features = false, optional = true, version = "0.5" }
-bevy_math = { default-features = false, features = [
+bevy_math = { path = "../bevy_math", version = "0.20.0-dev", default-features = false, features = [
   "approx",
-], path = "../bevy_math", version = "0.20.0-dev" }
-bevy_reflect = { default-features = false, optional = true, path = "../bevy_reflect", version = "0.20.0-dev" }
-itertools = { default-features = false, version = "0.14.0" }
-serde = { default-features = false, features = [
+] }
+bevy_reflect = { path = "../bevy_reflect", version = "0.20.0-dev", default-features = false, optional = true }
+
+itertools = { version = "0.14.0", default-features = false }
+thiserror = { version = "2", default-features = false }
+serde = { version = "1", default-features = false, features = [
   "derive",
-], optional = true, version = "1" }
-thiserror = { default-features = false, version = "2" }
+], optional = true }
+approx = { version = "0.5", default-features = false, optional = true }
 variadics_please = "2.0"
 
 [dev-dependencies]
 approx = "0.5"
 # Enable the approx feature when testing.
-bevy_math = { default-features = false, features = [
+bevy_math = { path = "../bevy_math", version = "0.20.0-dev", default-features = false, features = [
   "approx",
-], path = "../bevy_math", version = "0.20.0-dev" }
-
+] }
 
 [features]
 alloc = ["itertools/use_alloc", "serde?/alloc"]
