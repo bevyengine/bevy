@@ -1,10 +1,10 @@
-use crate::experimental::GhostNode;
 use crate::{
-    experimental::{UiChildren, UiRootNodes},
-    layout_tree::{compute_layout, node_id_entity, TaffyStyle},
+    layout_tree::{
+        collect_ui_children, compute_layout, entity_node_id, node_id_entity, TaffyStyle,
+    },
     ui_transform::{UiGlobalTransform, UiTransform},
-    ComputedNode, ComputedUiRenderTargetInfo, ContentSize, Display, FixedNode, IgnoreScroll,
-    LayoutConfig, Node, Outline, OverflowAxis, OverrideClip, ScrollPosition,
+    ComputedNode, ComputedUiRenderTargetInfo, ContentSize, Display, FixedNode, GhostNode,
+    IgnoreScroll, LayoutConfig, Node, Outline, OverflowAxis, OverrideClip, ScrollPosition,
 };
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
@@ -12,8 +12,8 @@ use bevy_ecs::{
     entity::Entity,
     hierarchy::{ChildOf, Children},
     lifecycle::RemovedComponents,
-    query::{Added, Changed, Has, Or, With},
-    system::{Local, ParamSet, Query, Res, ResMut, SystemParam},
+    query::{Added, Changed, Has, Or, With, Without},
+    system::{Local, ParamSet, Query, Res, ResMut},
     world::Ref,
 };
 
@@ -28,38 +28,13 @@ mod convert;
 pub mod debug;
 pub mod layout_tree;
 
-/// ZST marker component uses that change detection to mark nodes changes.
+/// `UiTreeChanged` is used to signal that a `Node` 's subtree contains a
+/// change that requires a layout update.
+/// ZST marker component uses change detection to signal changes.
 ///
 /// Optimisation copied from `bevy_transform`'s `TransformTreeChanged`.
 #[derive(Component, Default, Debug, Clone)]
 pub struct UiTreeChanged;
-
-/// Detects the changes that can alter which nodes are reachable from a layout root.
-#[derive(SystemParam)]
-pub struct HierarchyChanges<'w, 's> {
-    changed: Query<'w, 's, Entity, Or<(Changed<Children>, Changed<ChildOf>, Added<Node>)>>,
-    removed_child_ofs: RemovedComponents<'w, 's, ChildOf>,
-    removed_nodes: RemovedComponents<'w, 's, Node>,
-    added_ghost_nodes: Query<'w, 's, Entity, Added<GhostNode>>,
-    removed_ghost_nodes: RemovedComponents<'w, 's, GhostNode>,
-}
-
-impl HierarchyChanges<'_, '_> {
-    /// Returns `true` if the UI hierarchy changed this frame, consuming the removal events.
-    fn any(&mut self) -> bool {
-        let changed = !self.changed.is_empty()
-            || !self.removed_child_ofs.is_empty()
-            || !self.removed_nodes.is_empty();
-        self.removed_child_ofs.clear();
-        self.removed_nodes.clear();
-
-        let ghosts_changed =
-            !self.added_ghost_nodes.is_empty() || !self.removed_ghost_nodes.is_empty();
-        self.removed_ghost_nodes.clear();
-
-        changed || ghosts_changed
-    }
-}
 
 #[derive(Copy, Clone)]
 pub struct LayoutContext {
@@ -141,7 +116,8 @@ pub fn sync_font_size_to_em_size(
     }
 }
 
-pub fn update_taffy_styles(
+/// Sync each `Node` with its corresponding `TaffyStyle`.
+pub fn sync_taffy_styles_with_nodes(
     rem_size: Res<RemSize>,
     mut update_query: Query<(
         Ref<Node>,
@@ -172,6 +148,9 @@ pub fn update_taffy_styles(
         });
 }
 
+/// Identify UI subtrees that need an update.
+/// On finding one, sets `UiTreeChanged` changed, then walks up the tree setting
+/// all its ancestors `UiTreeChanged`.
 pub fn mark_dirty_ui_trees(
     changed: Query<
         Entity,
@@ -189,7 +168,7 @@ pub fn mark_dirty_ui_trees(
                 Added<FixedNode>,
                 Added<GhostNode>,
             )>,
-            Or<(With<Node>, With<GhostNode>)>,
+            With<Node>,
         ),
     >,
     mut removed_outlines: RemovedComponents<Outline>,
@@ -198,9 +177,8 @@ pub fn mark_dirty_ui_trees(
     mut removed_fixed_nodes: RemovedComponents<FixedNode>,
     mut removed_child_ofs: RemovedComponents<ChildOf>,
     mut removed_nodes: RemovedComponents<Node>,
-    mut trees: Query<&mut UiTreeChanged>,
     mut removed_ghost_nodes: RemovedComponents<GhostNode>,
-    ui_children: UiChildren,
+    mut trees: Query<(&mut UiTreeChanged, &ChildOf)>,
 ) {
     let removed = removed_outlines
         .read()
@@ -212,25 +190,24 @@ pub fn mark_dirty_ui_trees(
 
     let removed = removed.chain(removed_ghost_nodes.read());
 
-    for entity in changed.iter().chain(removed) {
-        let mut next = Some(entity);
-        while let Some(entity) = next {
-            if let Ok(mut tree) = trees.get_mut(entity) {
-                if tree.is_changed() && !tree.is_added() {
-                    break;
-                }
-                tree.set_changed();
+    for mut next in changed.iter().chain(removed) {
+        while let Ok((mut tree, child_of)) = trees.get_mut(next) {
+            // If tree was added since the last update, `is_changed` will be set before this system began
+            // so we can't know if it was already visited.
+            if tree.is_changed() && !tree.is_added() {
+                break;
             }
-            next = ui_children.get_parent(entity);
+            tree.set_changed();
+            next = child_of.0;
         }
     }
 }
 
 /// Updates the UI's layout tree, computes the new layout geometry and then updates the sizes and transforms of all the UI nodes.
 pub fn ui_layout_system(
-    ui_root_node_query: UiRootNodes,
-    fixed_nodes_query: Query<Entity, (With<FixedNode>, With<ChildOf>)>,
-    ui_children: UiChildren,
+    ui_root_node_query: Query<Entity, (With<Node>, Without<ChildOf>)>,
+    fixed_nodes_query: Query<(Entity, Has<GhostNode>), (With<FixedNode>, With<ChildOf>)>,
+    ui_children: Query<(Option<&Children>, Has<GhostNode>, Ref<UiTreeChanged>), With<Node>>,
     target_query: Query<Ref<ComputedUiRenderTargetInfo>>,
     node_query: Query<
         (
@@ -260,22 +237,69 @@ pub fn ui_layout_system(
     mut font_system: ResMut<FontCx>,
     added_fixed_node_query: Query<Entity, Added<FixedNode>>,
     mut removed_fixed_nodes: RemovedComponents<FixedNode>,
-    mut hierarchy_changes: HierarchyChanges,
+    (
+        tree_changed_query,
+        mut removed_child_ofs,
+        mut removed_nodes,
+        added_ghost_nodes,
+        mut removed_ghost_nodes,
+    ): (
+        Query<Entity, Or<(Changed<Children>, Changed<ChildOf>, Added<Node>)>>,
+        RemovedComponents<ChildOf>,
+        RemovedComponents<Node>,
+        Query<Entity, Added<GhostNode>>,
+        RemovedComponents<GhostNode>,
+    ),
     rem_size: Res<RemSize>,
     mut child_stack: Local<Vec<taffy::NodeId>>,
+    mut root_stack: Local<Vec<taffy::NodeId>>,
+    mut fixed_node_changes: Local<Vec<Entity>>,
 ) {
-    let fixed_node_changes = added_fixed_node_query
-        .iter()
-        .chain(removed_fixed_nodes.read())
-        .collect::<Vec<_>>();
+    // Using a vec to track their changes since `FixedNode`s should be rare, and rarely updated.
+    fixed_node_changes.clear();
+    fixed_node_changes.extend(
+        added_fixed_node_query
+            .iter()
+            .chain(removed_fixed_nodes.read()),
+    );
 
-    // Reachability can only change when the hierarchy does. On those frames every reachable
-    // node is walked so that `reached` is accurate, and the unreachable ones are cleared
-    // below. Otherwise clean subtrees are skipped and their `reached` flags left alone.
-    let full = hierarchy_changes.any() || !fixed_node_changes.is_empty();
+    // Reachability only changes when the tree does. On those updates we do a full walk from each UI root node,
+    // setting `ComputedLayout::reached` to true for every node encounted on the walk.
+    // Unreached nodes, `Node` entities with a non-`Node` ancestor, are cleared at the end of this system.
+    // Otherwise clean subtrees are skipped and their `reached` flags left unchanged.
+    // This could be done incrementally, but it would add a lot of extra complexity and the walk is relatively cheap.
+    let tree_changed = !tree_changed_query.is_empty()
+        || !removed_child_ofs.is_empty()
+        || !removed_nodes.is_empty();
+    let ghosts_changed = !added_ghost_nodes.is_empty() || !removed_ghost_nodes.is_empty();
+    let needs_full_walk = tree_changed || ghosts_changed || !fixed_node_changes.is_empty();
+
+    removed_child_ofs.clear();
+    removed_nodes.clear();
+    removed_ghost_nodes.clear();
+    removed_fixed_nodes.clear();
+
+    root_stack.clear();
+    for ui_root_entity in ui_root_node_query.iter() {
+        if ui_children
+            .get(ui_root_entity)
+            .is_ok_and(|(_, is_ghost, _)| is_ghost)
+        {
+            collect_ui_children(ui_root_entity, &ui_children, &mut root_stack);
+        } else {
+            root_stack.push(entity_node_id(ui_root_entity));
+        }
+    }
+    root_stack.retain(|node_id| !fixed_nodes_query.contains(node_id_entity(*node_id)));
+    root_stack.extend(
+        fixed_nodes_query
+            .iter()
+            .filter_map(|(entity, is_ghost)| (!is_ghost).then_some(entity_node_id(entity))),
+    );
 
     let mut computed_layout_query = node_queries.p0();
-    for ui_root_entity in ui_root_node_query.iter().chain(fixed_nodes_query.iter()) {
+    for root_node in root_stack.iter().copied() {
+        let ui_root_entity = node_id_entity(root_node);
         let Ok(target) = target_query.get(ui_root_entity) else {
             continue;
         };
@@ -292,12 +316,12 @@ pub fn ui_layout_system(
             &mut font_system,
             *rem_size,
             &mut child_stack,
-            full,
+            needs_full_walk,
         );
         child_stack.clear();
     }
 
-    if !full {
+    if !needs_full_walk {
         return;
     }
 
@@ -325,8 +349,8 @@ pub fn ui_layout_system(
 
 pub fn update_computed_nodes(
     rem_size: Res<RemSize>,
-    ui_root_node_query: UiRootNodes,
-    fixed_nodes_query: Query<Entity, (With<FixedNode>, With<ChildOf>)>,
+    ui_root_node_query: Query<Entity, (With<Node>, Without<ChildOf>)>,
+    fixed_nodes_query: Query<(Entity, Has<GhostNode>), (With<FixedNode>, With<ChildOf>)>,
     targets_query: Query<Ref<ComputedUiRenderTargetInfo>>,
     mut computed_nodes_query: Query<(
         &mut ComputedNode,
@@ -339,11 +363,18 @@ pub fn update_computed_nodes(
         Option<&Outline>,
         Option<&ScrollPosition>,
         Option<&IgnoreScroll>,
+        Has<FixedNode>,
+        Has<GhostNode>,
         Ref<UiTreeChanged>,
+        &Children,
     )>,
-    mut child_stack: Local<Vec<taffy::NodeId>>,
+    mut child_stack: Local<Vec<Entity>>,
 ) {
-    for ui_root_entity in ui_root_node_query.iter().chain(fixed_nodes_query.iter()) {
+    for ui_root_entity in ui_root_node_query.iter().chain(
+        fixed_nodes_query
+            .iter()
+            .filter_map(|(entity, is_ghost)| (!is_ghost).then_some(entity)),
+    ) {
         let Ok(target_info) = targets_query.get(ui_root_entity) else {
             continue;
         };
@@ -365,14 +396,13 @@ pub fn update_computed_nodes(
     }
 }
 
-// Returns the combined bounding box of the node and any of its overflowing children.
 fn update_uinode_geometry_recursive(
     root: Entity,
     entity: Entity,
     inherited_use_rounding: bool,
     target_size: Vec2,
     mut inherited_transform: Affine2,
-    node_update_query: &mut Query<(
+    computed_nodes_query: &mut Query<(
         &mut ComputedNode,
         &UiTransform,
         &mut UiGlobalTransform,
@@ -383,17 +413,20 @@ fn update_uinode_geometry_recursive(
         Option<&Outline>,
         Option<&ScrollPosition>,
         Option<&IgnoreScroll>,
+        Has<FixedNode>,
+        Has<GhostNode>,
         Ref<UiTreeChanged>,
+        &Children,
     )>,
     inverse_target_scale_factor: f32,
     parent_size: Vec2,
     parent_scroll_position: Vec2,
     rem_size: RemSize,
-    child_stack: &mut Vec<taffy::NodeId>,
+    child_stack: &mut Vec<Entity>,
     force_update: bool,
 ) {
     if let Ok((
-        mut node,
+        mut computed_node,
         transform,
         mut global_transform,
         style,
@@ -403,10 +436,69 @@ fn update_uinode_geometry_recursive(
         maybe_outline,
         maybe_scroll_position,
         maybe_scroll_sticky,
+        is_fixed_node,
+        is_ghost_node,
         tree_changed,
-    )) = node_update_query.get_mut(entity)
+        children,
+    )) = computed_nodes_query.get_mut(entity)
     {
+        if is_fixed_node && !is_ghost_node && root != entity {
+            return;
+        }
+
         if !force_update && !tree_changed.is_changed() {
+            return;
+        }
+
+        // A `GhostNode`'s `ComputedNode` is cleared except border radius (doesn't matter as resolved border radius is always zero for zero-sized nodes),
+        // scale factor and em and rem sizes.
+        // The inherited base values are just passed through to the child.
+        if is_ghost_node {
+            computed_node.set_if_neq(ComputedNode {
+                border_radius: computed_node.border_radius,
+                inverse_scale_factor: inverse_target_scale_factor,
+                em_size: *em_size,
+                rem_size,
+                ..ComputedNode::DEFAULT
+            });
+
+            inherited_transform *= transform.compute_affine(
+                inverse_target_scale_factor.recip(),
+                // Normally percentage translations are resolved based on a node's own size
+                // but the size of a `GhostNode` is always zero.
+                // Instead for a `GhostNode` percentage translations are resolved using the size
+                // of its parent.
+                parent_size,
+                target_size,
+                *em_size,
+                rem_size,
+            );
+
+            if inherited_transform != **global_transform {
+                *global_transform = inherited_transform.into();
+            }
+
+            let start = child_stack.len();
+            child_stack.extend(children);
+            let end = child_stack.len();
+            let inherited_force_update = force_update || tree_changed.is_changed();
+            for child_index in start..end {
+                update_uinode_geometry_recursive(
+                    root,
+                    child_stack[child_index],
+                    inherited_use_rounding,
+                    target_size,
+                    inherited_transform,
+                    computed_nodes_query,
+                    inverse_target_scale_factor,
+                    parent_size,
+                    parent_scroll_position,
+                    rem_size,
+                    child_stack,
+                    inherited_force_update,
+                );
+            }
+            child_stack.truncate(start);
             return;
         }
 
@@ -437,21 +529,21 @@ fn update_uinode_geometry_recursive(
             layout_location - effective_parent_scroll + 0.5 * (layout_size - parent_size);
 
         // only trigger change detection when the new values are different
-        if node.size != layout_size
-            || node.unrounded_size != unrounded_size
-            || node.inverse_scale_factor != inverse_target_scale_factor
+        if computed_node.size != layout_size
+            || computed_node.unrounded_size != unrounded_size
+            || computed_node.inverse_scale_factor != inverse_target_scale_factor
         {
-            node.size = layout_size;
-            node.unrounded_size = unrounded_size;
-            node.inverse_scale_factor = inverse_target_scale_factor;
+            computed_node.size = layout_size;
+            computed_node.unrounded_size = unrounded_size;
+            computed_node.inverse_scale_factor = inverse_target_scale_factor;
         }
 
         let content_size = Vec2::new(
             layout.scrollable_overflow_rect.right,
             layout.scrollable_overflow_rect.bottom,
         );
-        if node.content_size != content_size {
-            node.content_size = content_size;
+        if computed_node.content_size != content_size {
+            computed_node.content_size = content_size;
         }
 
         let taffy_rect_to_border_rect = |rect: taffy::Rect<f32>| BorderRect {
@@ -460,19 +552,19 @@ fn update_uinode_geometry_recursive(
         };
 
         let new_border = taffy_rect_to_border_rect(layout.border);
-        if node.border != new_border {
-            node.border = new_border;
+        if computed_node.border != new_border {
+            computed_node.border = new_border;
         }
         let new_padding = taffy_rect_to_border_rect(layout.padding);
-        if node.padding != new_padding {
-            node.padding = new_padding;
+        if computed_node.padding != new_padding {
+            computed_node.padding = new_padding;
         }
 
-        if node.em_size != *em_size {
-            node.em_size = *em_size;
+        if computed_node.em_size != *em_size {
+            computed_node.em_size = *em_size;
         }
-        if node.rem_size != rem_size {
-            node.rem_size = rem_size;
+        if computed_node.rem_size != rem_size {
+            computed_node.rem_size = rem_size;
         }
 
         // Compute the node's new global transform
@@ -497,7 +589,7 @@ fn update_uinode_geometry_recursive(
                     .width
                     .resolve(
                         inverse_target_scale_factor.recip(),
-                        node.size().x,
+                        computed_node.size().x,
                         target_size,
                         *em_size,
                         rem_size,
@@ -508,15 +600,15 @@ fn update_uinode_geometry_recursive(
                 0.
             };
 
-            if node.outline_width != new_outline_width {
-                node.outline_width = new_outline_width;
+            if computed_node.outline_width != new_outline_width {
+                computed_node.outline_width = new_outline_width;
             }
 
             let new_outline_offset = outline
                 .offset
                 .resolve(
                     inverse_target_scale_factor.recip(),
-                    node.size().x,
+                    computed_node.size().x,
                     target_size,
                     *em_size,
                     rem_size,
@@ -524,19 +616,19 @@ fn update_uinode_geometry_recursive(
                 .unwrap_or(0.)
                 // Clamp outline offsets to at least the length of the node's shorter side
                 // Negative offset outlines can be useful to create thing like in-set focus indicators
-                .max(-0.5 * node.size.min_element());
-            if node.outline_offset != new_outline_offset {
-                node.outline_offset = new_outline_offset;
+                .max(-0.5 * computed_node.size.min_element());
+            if computed_node.outline_offset != new_outline_offset {
+                computed_node.outline_offset = new_outline_offset;
             }
-        } else if node.outline_width != 0. || node.outline_offset != 0. {
-            node.outline_width = 0.;
-            node.outline_offset = 0.;
+        } else if computed_node.outline_width != 0. || computed_node.outline_offset != 0. {
+            computed_node.outline_width = 0.;
+            computed_node.outline_offset = 0.;
         }
 
         let new_scrollbar_size =
             Vec2::new(layout.scrollbar_size.width, layout.scrollbar_size.height);
-        if node.scrollbar_size != new_scrollbar_size {
-            node.scrollbar_size = new_scrollbar_size;
+        if computed_node.scrollbar_size != new_scrollbar_size {
+            computed_node.scrollbar_size = new_scrollbar_size;
         }
 
         let scroll_position: Vec2 = maybe_scroll_position
@@ -557,17 +649,17 @@ fn update_uinode_geometry_recursive(
             .unwrap_or_default();
 
         let max_possible_offset =
-            (content_size - layout_size + node.scrollbar_size).max(Vec2::ZERO);
+            (content_size - layout_size + computed_node.scrollbar_size).max(Vec2::ZERO);
         let clamped_scroll_position = scroll_position.clamp(Vec2::ZERO, max_possible_offset);
 
         let physical_scroll_position = clamped_scroll_position.floor();
 
-        if node.scroll_position != physical_scroll_position {
-            node.scroll_position = physical_scroll_position;
+        if computed_node.scroll_position != physical_scroll_position {
+            computed_node.scroll_position = physical_scroll_position;
         }
 
         let start = child_stack.len();
-        child_stack.extend_from_slice(computed_layout.child_nodes());
+        child_stack.extend(children);
         let end = child_stack.len();
 
         let inherited_force_update =
@@ -575,11 +667,11 @@ fn update_uinode_geometry_recursive(
         for child_index in start..end {
             update_uinode_geometry_recursive(
                 root,
-                node_id_entity(child_stack[child_index]),
+                child_stack[child_index],
                 use_rounding,
                 target_size,
                 inherited_transform,
-                node_update_query,
+                computed_nodes_query,
                 inverse_target_scale_factor,
                 layout_size,
                 physical_scroll_position,
@@ -630,12 +722,11 @@ mod tests {
     use crate::update_computed_nodes;
     use crate::UiSystems;
     use crate::{
-        experimental::{GhostNode, UiChildren},
         layout::layout_tree::ComputedLayout,
         prelude::*,
-        sync_font_size_to_em_size, ui_layout_system,
+        sync_font_size_to_em_size, sync_taffy_styles_with_nodes, ui_layout_system,
         update::{propagate_ui_target_cameras, update_clipping_system},
-        update_taffy_styles, ContentSize,
+        ContentSize,
     };
     use bevy_app::{App, HierarchyPropagatePlugin, PostUpdate, PropagateSet, TaskPoolPlugin};
     use bevy_camera::{Camera, Camera2d, ComputedCameraValues, RenderTargetInfo, Viewport};
@@ -643,7 +734,6 @@ mod tests {
     use bevy_math::{BVec2, Rect, UVec2, Vec2};
     use bevy_text::TextFont;
     use bevy_transform::systems::mark_dirty_trees;
-    use bevy_transform::systems::{propagate_parent_transforms, sync_simple_transforms};
     use bevy_utils::prelude::default;
 
     const TARGET_WIDTH: u32 = 1000;
@@ -672,7 +762,7 @@ mod tests {
                 ApplyDeferred,
                 propagate_ui_target_cameras,
                 sync_font_size_to_em_size,
-                update_taffy_styles,
+                sync_taffy_styles_with_nodes,
                 mark_dirty_ui_trees,
                 ui_layout_system,
                 update_computed_nodes,
@@ -687,14 +777,14 @@ mod tests {
             PostUpdate,
             PropagateSet::<ComputedUiTargetCamera>::default()
                 .after(propagate_ui_target_cameras)
-                .before(update_taffy_styles),
+                .before(sync_taffy_styles_with_nodes),
         );
 
         app.configure_sets(
             PostUpdate,
             PropagateSet::<ComputedUiRenderTargetInfo>::default()
                 .after(propagate_ui_target_cameras)
-                .before(update_taffy_styles),
+                .before(sync_taffy_styles_with_nodes),
         );
 
         app.world_mut().spawn((
@@ -1115,7 +1205,7 @@ mod tests {
 
         fn test_system(
             In(root_node_entity): In<Entity>,
-            ui_children: UiChildren,
+            ui_children: Query<(Option<&Children>, Has<GhostNode>, Ref<UiTreeChanged>), With<Node>>,
             node_query: Query<
                 (
                     Ref<TaffyStyle>,
@@ -2785,14 +2875,10 @@ mod tests {
 
         app.world_mut().entity_mut(mid).remove::<GhostNode>();
         app.update();
-        assert!(!app
+        assert!(app
             .world()
-            .get::<ComputedLayout>(child)
+            .get::<ComputedLayout>(mid)
             .is_some_and(ComputedLayout::has_layout));
-        assert_eq!(
-            app.world().get::<ComputedNode>(child).unwrap().size(),
-            Vec2::ZERO
-        );
 
         app.world_mut().entity_mut(mid).insert(GhostNode);
         app.update();
@@ -2822,40 +2908,55 @@ mod tests {
         let root = world.spawn(Node::default()).add_child(ghost).id();
 
         app.update();
-        let world = app.world_mut();
-        {
-            let mut system_state = bevy_ecs::system::SystemState::<(
-                UiChildren,
-                crate::experimental::UiRootNodes,
-            )>::new(world);
-            let (ui_children, ui_root_nodes) = system_state.get(world).unwrap();
-            assert_eq!(
-                ui_children.iter_ui_children(root).collect::<Vec<_>>(),
-                vec![child]
-            );
-            assert_eq!(ui_children.get_parent(child), Some(root));
-            let root_nodes = ui_root_nodes.iter().collect::<Vec<_>>();
-            assert!(root_nodes.contains(&root));
-            assert!(!root_nodes.contains(&child));
-        }
 
-        world.entity_mut(ghost).detach_all_children();
+        let computed_root = app.world().get::<ComputedLayout>(root).unwrap();
+        assert!(computed_root.child_entities().eq(core::iter::once(child)));
+        assert!(computed_root.has_layout());
+        assert!(computed_root.is_root());
+
+        let computed_child = app.world().get::<ComputedLayout>(child).unwrap();
+        assert!(computed_root.child_nodes().is_empty());
+        assert!(computed_child.has_layout());
+        assert!(!computed_child.is_root());
+
+        app.world_mut().entity_mut(ghost).detach_all_children();
+        app.update();
+
+        let computed_root = app.world().get::<ComputedLayout>(root).unwrap();
+        assert!(computed_root.child_nodes().is_empty());
+        assert!(computed_root.has_layout());
+        assert!(computed_root.is_root());
+
+        let computed_child = app.world().get::<ComputedLayout>(child).unwrap();
+        assert!(computed_root.child_nodes().is_empty());
+        assert!(computed_child.has_layout());
+        assert!(computed_child.is_root());
+    }
+
+    #[test]
+    fn despawning_intermediate_ghost_child_makes_child_layout_root() {
+        let mut app = setup_ui_test_app();
+        let world = app.world_mut();
+
+        let child = world.spawn(Node::default()).id();
+        let ghost = world.spawn(GhostNode).add_child(child).id();
+        let root = world.spawn(Node::default()).add_child(ghost).id();
 
         app.update();
-        let world = app.world_mut();
-        let mut system_state = bevy_ecs::system::SystemState::<(
-            UiChildren,
-            crate::experimental::UiRootNodes,
-        )>::new(world);
-        let (ui_children, ui_root_nodes) = system_state.get(world).unwrap();
-        assert_eq!(
-            ui_children.iter_ui_children(root).collect::<Vec<_>>(),
-            Vec::<Entity>::new()
-        );
-        assert_eq!(ui_children.get_parent(child), None);
-        let root_nodes = ui_root_nodes.iter().collect::<Vec<_>>();
-        assert!(root_nodes.contains(&root));
-        assert!(root_nodes.contains(&child));
+
+        app.world_mut().despawn(ghost);
+
+        app.update();
+
+        let computed_root = app.world().get::<ComputedLayout>(root).unwrap();
+        assert!(computed_root.child_nodes().is_empty());
+        assert!(computed_root.has_layout());
+        assert!(computed_root.is_root());
+
+        let computed_child = app.world().get::<ComputedLayout>(child).unwrap();
+        assert!(computed_root.child_nodes().is_empty());
+        assert!(computed_child.has_layout());
+        assert!(computed_child.is_root());
     }
 
     #[test]
@@ -2868,27 +2969,23 @@ mod tests {
         let root = world.spawn(Node::default()).add_child(mid).id();
 
         app.update();
-        let world = app.world_mut();
-        {
-            let mut system_state = bevy_ecs::system::SystemState::<UiChildren>::new(world);
-            let ui_children = system_state.get(world).unwrap();
-            assert_eq!(
-                ui_children.iter_ui_children(root).collect::<Vec<_>>(),
-                Vec::<Entity>::new()
-            );
-        }
 
-        world.entity_mut(mid).insert(GhostNode);
+        let computed_root = app.world().get::<ComputedLayout>(root).unwrap();
+        assert!(computed_root.is_root());
+        assert!(computed_root.child_nodes().is_empty());
+
+        let computed_child = app.world().get::<ComputedLayout>(child).unwrap();
+        assert!(!computed_child.reached());
+
+        app.world_mut().entity_mut(mid).insert(GhostNode);
 
         app.update();
-        let world = app.world_mut();
-        let mut system_state = bevy_ecs::system::SystemState::<UiChildren>::new(world);
-        let ui_children = system_state.get(world).unwrap();
-        assert_eq!(
-            ui_children.iter_ui_children(root).collect::<Vec<_>>(),
-            vec![child]
-        );
-        assert_eq!(ui_children.get_parent(child), Some(root));
+
+        let computed_root = app.world().get::<ComputedLayout>(root).unwrap();
+        assert!(computed_root.child_entities().eq(core::iter::once(child)));
+
+        let computed_child = app.world().get::<ComputedLayout>(child).unwrap();
+        assert!(computed_child.reached());
     }
 
     #[test]
@@ -2901,100 +2998,25 @@ mod tests {
         let root = world.spawn(Node::default()).add_child(mid).id();
 
         app.update();
-        let world = app.world_mut();
-        {
-            let mut system_state = bevy_ecs::system::SystemState::<UiChildren>::new(world);
-            let ui_children = system_state.get(world).unwrap();
-            assert_eq!(
-                ui_children.iter_ui_children(root).collect::<Vec<_>>(),
-                vec![child]
-            );
-            assert_eq!(ui_children.get_parent(child), Some(root));
-        }
 
-        world.entity_mut(mid).remove::<GhostNode>();
+        let computed_root = app.world().get::<ComputedLayout>(root).unwrap();
+        assert!(computed_root.child_entities().eq(core::iter::once(child)));
+
+        app.world_mut()
+            .entity_mut(mid)
+            .remove::<(GhostNode, Node)>();
 
         app.update();
-        let world = app.world_mut();
-        let mut system_state = bevy_ecs::system::SystemState::<UiChildren>::new(world);
-        let ui_children = system_state.get(world).unwrap();
-        assert_eq!(
-            ui_children.iter_ui_children(root).collect::<Vec<_>>(),
-            Vec::<Entity>::new()
-        );
+
+        let computed_root = app.world().get::<ComputedLayout>(root).unwrap();
+        assert!(computed_root.child_nodes().is_empty());
+
+        let computed_child = app.world().get::<ComputedLayout>(child).unwrap();
+        assert!(!computed_child.reached());
     }
 
     #[test]
-    fn fixed_nodes_remain_layout_roots_through_ghost_changes() {
-        let mut app = setup_ui_test_app();
-        let world = app.world_mut();
-
-        let fixed = world.spawn((Node::default(), FixedNode)).id();
-        let ghost1 = world.spawn(GhostNode).add_child(fixed).id();
-
-        app.update();
-        let world = app.world_mut();
-        {
-            let mut system_state = bevy_ecs::system::SystemState::<(
-                crate::experimental::UiRootNodes,
-                Query<Entity, (With<FixedNode>, With<ChildOf>)>,
-            )>::new(world);
-            let (ui_root_nodes, fixed_nodes) = system_state.get(world).unwrap();
-            assert!(ui_root_nodes.iter().collect::<Vec<_>>().contains(&fixed));
-            assert!(fixed_nodes.contains(fixed));
-        }
-
-        world.spawn(GhostNode).add_child(ghost1);
-
-        app.update();
-        let world = app.world_mut();
-        {
-            let mut system_state = bevy_ecs::system::SystemState::<(
-                crate::experimental::UiRootNodes,
-                Query<Entity, (With<FixedNode>, With<ChildOf>)>,
-            )>::new(world);
-            let (ui_root_nodes, fixed_nodes) = system_state.get(world).unwrap();
-            assert!(ui_root_nodes.iter().collect::<Vec<_>>().contains(&fixed));
-            assert!(fixed_nodes.contains(fixed));
-        }
-
-        let fixed2 = world.spawn((Node::default(), FixedNode)).id();
-        let ghost3 = world.spawn(GhostNode).add_child(fixed2).id();
-
-        app.update();
-        let world = app.world_mut();
-        {
-            let mut system_state = bevy_ecs::system::SystemState::<(
-                crate::experimental::UiRootNodes,
-                Query<Entity, (With<FixedNode>, With<ChildOf>)>,
-            )>::new(world);
-            let (ui_root_nodes, fixed_nodes) = system_state.get(world).unwrap();
-            let root_nodes = ui_root_nodes.iter().collect::<Vec<_>>();
-            assert!(root_nodes.contains(&fixed));
-            assert!(root_nodes.contains(&fixed2));
-            assert!(fixed_nodes.contains(fixed));
-            assert!(fixed_nodes.contains(fixed2));
-        }
-
-        world.entity_mut(ghost1).detach_all_children();
-        world.entity_mut(ghost3).detach_all_children();
-
-        app.update();
-        let world = app.world_mut();
-        let mut system_state = bevy_ecs::system::SystemState::<(
-            crate::experimental::UiRootNodes,
-            Query<Entity, (With<FixedNode>, With<ChildOf>)>,
-        )>::new(world);
-        let (ui_root_nodes, fixed_nodes) = system_state.get(world).unwrap();
-        let root_nodes = ui_root_nodes.iter().collect::<Vec<_>>();
-        assert!(root_nodes.contains(&fixed));
-        assert!(root_nodes.contains(&fixed2));
-        assert!(!fixed_nodes.contains(fixed));
-        assert!(!fixed_nodes.contains(fixed2));
-    }
-
-    #[test]
-    fn fixed_ghost_child_is_separate_layout_root() {
+    fn fixed_child_of_ghost_is_separate_layout_root() {
         let mut app = setup_ui_test_app();
         let world = app.world_mut();
 
@@ -3004,28 +3026,20 @@ mod tests {
         let root = world.spawn(Node::default()).add_child(ghost).id();
 
         app.update();
-        let world = app.world_mut();
-        let mut system_state = bevy_ecs::system::SystemState::<(
-            UiChildren,
-            crate::experimental::UiRootNodes,
-            Query<Entity, (With<FixedNode>, With<ChildOf>)>,
-        )>::new(world);
-        let (ui_children, ui_root_nodes, fixed_nodes) = system_state.get(world).unwrap();
-        assert_eq!(
-            ui_children.iter_ui_children(root).collect::<Vec<_>>(),
-            vec![fixed, child]
-        );
-        assert_eq!(
-            ui_children
-                .iter_ui_children(root)
-                .filter(|entity| !fixed_nodes.contains(*entity))
-                .collect::<Vec<_>>(),
-            vec![child]
-        );
-        let root_nodes = ui_root_nodes.iter().collect::<Vec<_>>();
-        assert!(root_nodes.contains(&root));
-        assert!(!root_nodes.contains(&fixed));
-        assert!(fixed_nodes.contains(fixed));
+        let computed_root = app.world().get::<ComputedLayout>(root).unwrap();
+        assert!(computed_root.child_entities().eq(core::iter::once(child)));
+
+        let computed_ghost = app.world().get::<ComputedLayout>(ghost).unwrap();
+        assert!(computed_ghost.child_nodes().is_empty());
+        assert!(!computed_ghost.has_layout());
+
+        let computed_fixed = app.world().get::<ComputedLayout>(fixed).unwrap();
+        assert!(computed_fixed.has_layout());
+        assert!(computed_fixed.is_root());
+
+        let computed_child = app.world().get::<ComputedLayout>(child).unwrap();
+        assert!(computed_child.has_layout());
+        assert!(!computed_child.is_root());
     }
 
     #[test]
@@ -3038,50 +3052,42 @@ mod tests {
         let ghost = world.spawn(GhostNode).add_children(&[fixed, child]).id();
 
         app.update();
-        let world = app.world_mut();
-        {
-            let mut system_state = bevy_ecs::system::SystemState::<(
-                crate::experimental::UiRootNodes,
-                Query<Entity, (With<FixedNode>, With<ChildOf>)>,
-            )>::new(world);
-            let (ui_root_nodes, fixed_nodes) = system_state.get(world).unwrap();
-            let root_nodes = ui_root_nodes.iter().collect::<Vec<_>>();
-            assert!(root_nodes.contains(&fixed));
-            assert!(root_nodes.contains(&child));
-            assert!(fixed_nodes.contains(fixed));
-        }
 
-        world
-            .entity_mut(ghost)
-            .remove::<GhostNode>()
-            .insert(Node::default());
+        let computed_ghost = app.world().get::<ComputedLayout>(ghost).unwrap();
+        assert!(computed_ghost.child_nodes().is_empty());
+        assert!(!computed_ghost.has_layout());
 
+        let computed_fixed = app.world().get::<ComputedLayout>(fixed).unwrap();
+        assert!(computed_fixed.has_layout());
+        assert!(computed_fixed.is_root());
+
+        let computed_child = app.world().get::<ComputedLayout>(child).unwrap();
+        assert!(computed_child.has_layout());
+        assert!(computed_child.is_root());
+
+        app.world_mut().entity_mut(ghost).remove::<GhostNode>();
         app.update();
-        let world = app.world_mut();
-        let mut system_state = bevy_ecs::system::SystemState::<(
-            UiChildren,
-            crate::experimental::UiRootNodes,
-            Query<Entity, (With<FixedNode>, With<ChildOf>)>,
-        )>::new(world);
-        let (ui_children, ui_root_nodes, fixed_nodes) = system_state.get(world).unwrap();
-        let root_nodes = ui_root_nodes.iter().collect::<Vec<_>>();
-        assert!(root_nodes.contains(&ghost));
-        assert!(!root_nodes.contains(&child));
-        assert!(fixed_nodes.contains(fixed));
-        assert_eq!(
-            ui_children
-                .iter_ui_children(ghost)
-                .filter(|entity| !fixed_nodes.contains(*entity))
-                .collect::<Vec<_>>(),
-            vec![child]
-        );
+
+        let computed_former_ghost = app.world().get::<ComputedLayout>(ghost).unwrap();
+        assert!(computed_former_ghost
+            .child_entities()
+            .eq([child].into_iter()));
+        assert!(!computed_former_ghost.has_layout());
+
+        let computed_fixed = app.world().get::<ComputedLayout>(fixed).unwrap();
+        assert!(computed_fixed.has_layout());
+        assert!(computed_fixed.is_root());
+
+        let computed_child = app.world().get::<ComputedLayout>(child).unwrap();
+        assert!(computed_child.has_layout());
+        assert!(!computed_child.is_root());
     }
 
     #[test]
     fn removing_and_replacing_intermediate_ghost_should_relayout_parent() {
         let mut app = setup_ui_test_app();
-
         let world = app.world_mut();
+
         let child = world
             .spawn(Node {
                 width: px(50.),
@@ -3089,29 +3095,44 @@ mod tests {
                 ..default()
             })
             .id();
-        let ghost = world.spawn(GhostNode).add_child(child).id();
+        let ghost = world
+            .spawn((
+                Node {
+                    max_width: px(10.),
+                    max_height: px(10.),
+                    flex_grow: 0.,
+                    ..default()
+                },
+                GhostNode,
+            ))
+            .add_child(child)
+            .id();
         let root = world.spawn(Node::default()).add_child(ghost).id();
-        app.update();
-
-        app.world_mut().entity_mut(ghost).remove::<GhostNode>();
 
         app.update();
 
         assert!(app
             .world()
-            .entity(root)
-            .get::<ComputedNode>()
+            .get::<ComputedNode>(root)
             .unwrap()
             .size()
-            .abs_diff_eq(Vec2::ZERO, 1e-5));
-        app.world_mut().entity_mut(ghost).insert(GhostNode);
+            .abs_diff_eq(Vec2::new(50., 30.), 1e-5));
 
+        app.world_mut().entity_mut(ghost).remove::<GhostNode>();
         app.update();
 
         assert!(app
             .world()
-            .entity(root)
-            .get::<ComputedNode>()
+            .get::<ComputedNode>(root)
+            .unwrap()
+            .size()
+            .abs_diff_eq(Vec2::new(10., 10.), 1e-5));
+
+        app.world_mut().entity_mut(ghost).insert(GhostNode);
+        app.update();
+        assert!(app
+            .world()
+            .get::<ComputedNode>(root)
             .unwrap()
             .size()
             .abs_diff_eq(Vec2::new(50., 30.), 1e-5));

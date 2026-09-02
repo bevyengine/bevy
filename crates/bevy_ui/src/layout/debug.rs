@@ -10,7 +10,7 @@ use bevy_ecs::{
 
 use crate::{
     layout::{
-        layout_tree::{collect_layout_children, entity_node_id, node_id_entity, ComputedLayout},
+        layout_tree::{collect_ui_children, entity_node_id, node_id_entity, ComputedLayout},
         UiTreeChanged,
     },
     ContentSize, Display, FixedNode, GhostNode, Node,
@@ -30,7 +30,7 @@ pub fn print_ui_layout_tree(
             .get(entity)
             .is_ok_and(|(_, is_ghost, _)| is_ghost)
         {
-            collect_layout_children(entity, &ui_hierarchy, &mut root_stack);
+            collect_ui_children(entity, &ui_hierarchy, &mut root_stack);
         } else {
             root_stack.push(entity_node_id(entity));
         }

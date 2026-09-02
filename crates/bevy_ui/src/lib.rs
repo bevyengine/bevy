@@ -190,7 +190,7 @@ impl Plugin for UiPlugin {
                     .in_set(UiSystems::Prepare)
                     .before(bevy_app::TransformGizmoRenderStep),
                 (
-                    update_taffy_styles,
+                    sync_taffy_styles_with_nodes,
                     mark_dirty_ui_trees,
                     ui_layout_system.ambiguous_with(bevy_sprite::update_text2d_layout),
                     update_computed_nodes,

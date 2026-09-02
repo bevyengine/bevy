@@ -3,6 +3,7 @@ use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
     component::Component,
     entity::Entity,
+    hierarchy::Children,
     query::{Has, With},
     system::Query,
     world::Ref,
@@ -19,9 +20,9 @@ use taffy::{
 };
 
 use crate::{
-    experimental::UiChildren, layout::UiTreeChanged, ContentSize, FixedNode, IgnoreScroll,
-    LayoutConfig, LayoutError, Measure, MeasureArgs, Node, NodeMeasure, Outline, OverrideClip,
-    ScrollPosition, UiTransform,
+    layout::UiTreeChanged, ContentSize, FixedNode, GhostNode, IgnoreScroll, LayoutConfig,
+    LayoutError, Measure, MeasureArgs, Node, NodeMeasure, Outline, OverrideClip, ScrollPosition,
+    UiTransform,
 };
 
 #[expect(
@@ -97,7 +98,7 @@ pub static VIEWPORT_NODE_TAFFY_STYLE: TaffyStyle = TaffyStyle(Style {
     },
 });
 
-const fn entity_node_id(entity: Entity) -> NodeId {
+pub(super) const fn entity_node_id(entity: Entity) -> NodeId {
     NodeId::new(entity.to_bits())
 }
 
@@ -106,6 +107,31 @@ pub const VIEWPORT_NODE_ID: NodeId = NodeId::new(0u64);
 
 pub(super) fn node_id_entity(node_id: NodeId) -> Entity {
     Entity::from_bits(u64::from(node_id))
+}
+
+pub(super) fn collect_ui_children(
+    entity: Entity,
+    ui_children: &Query<(Option<&Children>, Has<GhostNode>, Ref<UiTreeChanged>), With<Node>>,
+    child_stack: &mut Vec<NodeId>,
+) -> bool {
+    let Ok((children, _, _)) = ui_children.get(entity) else {
+        return false;
+    };
+
+    let mut dirty_ghost = false;
+    for &child in children.into_iter().flatten() {
+        let Ok((_, is_ghost, tree_changed)) = ui_children.get(child) else {
+            continue;
+        };
+        if is_ghost {
+            dirty_ghost |=
+                tree_changed.is_changed() | collect_ui_children(child, ui_children, child_stack);
+        } else {
+            child_stack.push(entity_node_id(child));
+        }
+    }
+
+    dirty_ghost
 }
 
 /// Cached and computed layout state for a UI node.
@@ -217,18 +243,25 @@ impl ComputedLayout {
         Some((selected_layout, unrounded_size))
     }
 
-    /// Get the UI children for this Node.
-    /// The subset of a `Node` entity's children that also have a `Node` component and should be visible to `Taffy`.
+    /// Get the UI children for this Node, by `NodeId`.
+    /// This is the subset of a `Node` entity's children that also have a `Node` component and should be visible to `Taffy`,
+    /// merged with any `Node`'s hoisted up to replace a [`GhostNode`] ancestor.
     #[inline]
     pub fn child_nodes(&self) -> &[NodeId] {
         &self.children
     }
 
-    /// Get the `Entity` ids of the UI children for this Node.
-    /// The subset of a `Node` entity's children that also have a `Node` component and should be visible to `Taffy`.
+    /// Get the UI children for this Node, by `Entity`.
+    /// This is the subset of a `Node` entity's children that also have a `Node` component and should be visible to `Taffy`,
+    /// merged with any `Node`'s hoisted up to replace a [`GhostNode`] ancestor.
     #[inline]
     pub fn child_entities(&self) -> impl Iterator<Item = Entity> {
         self.children.iter().map(|node_id| node_id_entity(*node_id))
+    }
+
+    #[inline]
+    pub fn is_root(&self) -> bool {
+        self.is_root
     }
 }
 
@@ -236,7 +269,7 @@ impl ComputedLayout {
 pub(crate) fn compute_layout(
     ui_root_entity: Entity,
     render_target_resolution: UVec2,
-    ui_children: &UiChildren,
+    ui_children: &Query<(Option<&Children>, Has<GhostNode>, Ref<UiTreeChanged>), With<Node>>,
     node_query: &Query<
         (
             Ref<TaffyStyle>,
@@ -259,7 +292,7 @@ pub(crate) fn compute_layout(
     font_system: &mut FontCx,
     rem_size: RemSize,
     child_stack: &mut Vec<NodeId>,
-    full: bool,
+    needs_full_walk: bool,
 ) -> Result<(), LayoutError> {
     let Some((dirty, _)) = build_runtime_layout_tree(
         ui_root_entity,
@@ -270,7 +303,7 @@ pub(crate) fn compute_layout(
         fixed_node_changes,
         rem_size,
         child_stack,
-        full,
+        needs_full_walk,
     ) else {
         return Err(LayoutError::InvalidHierarchy);
     };
@@ -344,7 +377,7 @@ pub(crate) fn compute_layout(
 fn build_runtime_layout_tree<'a>(
     root: Entity,
     entity: Entity,
-    ui_children: &UiChildren,
+    ui_children: &Query<(Option<&Children>, Has<GhostNode>, Ref<UiTreeChanged>), With<Node>>,
     node_query: &Query<
         (
             Ref<TaffyStyle>,
@@ -364,7 +397,7 @@ fn build_runtime_layout_tree<'a>(
     fixed_node_changes: &[Entity],
     rem_size: RemSize,
     child_stack: &mut Vec<NodeId>,
-    full: bool,
+    needs_full_walk: bool,
 ) -> Option<(bool, bool)> {
     let Ok((
         style,
@@ -388,18 +421,14 @@ fn build_runtime_layout_tree<'a>(
 
     // Nothing in this subtree changed, so its cached children, cache and flags are all
     // still valid. Reported clean, and left for the next full walk to mark as reached.
-    if !full && !tree_changed.is_changed() {
+    if !needs_full_walk && !tree_changed.is_changed() {
         return Some((false, false));
     }
 
     let mut subtree_dirty = false;
     let mut computed_subtree_dirty = false;
     let start = child_stack.len();
-    child_stack.extend(
-        ui_children
-            .iter_ui_children(entity)
-            .map(|entity| entity_node_id(entity)),
-    );
+    let dirty_ghost = collect_ui_children(entity, ui_children, child_stack);
     let end = child_stack.len();
     let mut child_count = 0;
     for child_index in start..end {
@@ -413,7 +442,7 @@ fn build_runtime_layout_tree<'a>(
             fixed_node_changes,
             rem_size,
             child_stack,
-            full,
+            needs_full_walk,
         ) {
             child_stack[start + child_count] = child_node;
             child_count += 1;
@@ -470,7 +499,8 @@ fn build_runtime_layout_tree<'a>(
     computed_layout.has_outline = outline.is_some();
     computed_layout.has_override_clip = has_override_clip;
 
-    computed_layout.subtree_dirty = computed_layout.self_dirty || computed_subtree_dirty;
+    computed_layout.subtree_dirty =
+        computed_layout.self_dirty || computed_subtree_dirty || dirty_ghost;
     if subtree_dirty {
         computed_layout.cache.clear();
     }
