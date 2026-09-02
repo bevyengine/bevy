@@ -42,6 +42,7 @@ fn main() {
             // Controls the default color of all wireframes. Used as the default color for global wireframes.
             // Can be changed per mesh using the `WireframeColor` component.
             default_color: WHITE.into(),
+            xray_mode: false,
             ..default()
         })
         .add_systems(Startup, setup)
@@ -150,12 +151,13 @@ X - Change global color
 C - Change color of the green cube wireframe
 V - Line width (current: {current_width:.1}px)
 B - Toggle topology (current: {:?})
+N - Toggle x-ray mode (current: {:?})
 
 WireframeConfig
 -------------
 Global: {}
 Color: {:?}",
-        config.default_topology, config.global, config.default_color,
+        config.default_topology, config.xray_mode, config.global, config.default_color,
     );
 
     // Toggle showing a wireframe on all meshes
@@ -199,5 +201,9 @@ Color: {:?}",
             WireframeTopology::Triangles => WireframeTopology::Quads,
             WireframeTopology::Quads => WireframeTopology::Triangles,
         };
+    }
+
+    if keyboard_input.just_pressed(KeyCode::KeyN) {
+        config.xray_mode = !config.xray_mode;
     }
 }
