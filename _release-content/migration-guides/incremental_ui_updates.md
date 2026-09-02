@@ -10,5 +10,5 @@ pull_requests: [25653]
 - The `bevy_ui::layout::experimental` module has been removed.
 - The "ghost_nodes" feature gate has been removed. `GhostNode`s are always enabled.
 - `GhostNode`s now require `Node`.
-- `GhostNode`s are full UI no nodes but given zero size in layout.
+- `GhostNode`s are full UI nodes but given zero size in layout.
 - If a node has both `GhostNode` and `FixedNode`, `FixedNode` is ignored.
