@@ -329,7 +329,7 @@ impl Material2d for SpriteMeshMaterial {
     }
 }
 
-impl SpriteMaterial {
+impl SpriteMeshMaterial {
     /// Use the [`Sprite`] to build a new material.
     pub fn from_sprite(sprite: Sprite) -> Self {
         // convert SpriteAlphaMode to AlphaMode2d.

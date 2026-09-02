@@ -28,7 +28,7 @@ use bevy_render::{
     renderer::RenderDevice,
 };
 use bevy_shader::ShaderRef;
-use bevy_sprite::{Anchor, SpriteMesh};
+use bevy_sprite::{Anchor, Sprite};
 use core::hash::Hash;
 
 use crate::{
@@ -83,11 +83,11 @@ where
 /// Adds `MeshMaterial2d<SpriteExt<M>>`s to entities with a `SpriteMaterial<M>`
 fn add_material<M>(
     sprites: Query<
-        (Entity, &SpriteMesh, &Anchor, &SpriteMaterial<M>),
+        (Entity, &Sprite, &Anchor, &SpriteMaterial<M>),
         Or<(
             AssetChanged<SpriteMaterial<M>>,
             Changed<SpriteMaterial<M>>,
-            Changed<SpriteMesh>,
+            Changed<Sprite>,
             Changed<Anchor>,
             Added<Mesh2d>,
         )>,

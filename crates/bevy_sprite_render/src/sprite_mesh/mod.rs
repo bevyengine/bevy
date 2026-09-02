@@ -98,7 +98,7 @@ enum SpriteAlphaModeKey {
     Blend,
 }
 
-impl SpriteMaterialBucketKey {
+impl SpriteMeshMaterialBucketKey {
     fn new(sprite: &Sprite, anchor: &Anchor) -> Self {
         Self {
             image: sprite.image.id(),
@@ -124,8 +124,8 @@ impl SpriteMaterialBucketKey {
 }
 
 struct SpriteMaterialCache<M: Asset> {
-    map: HashMap<SpriteMaterialBucketKey, Vec<(Sprite, AssetId<M>)>>,
-    reversed: HashMap<AssetId<M>, SpriteMaterialBucketKey>,
+    map: HashMap<SpriteMeshMaterialBucketKey, Vec<(Sprite, AssetId<M>)>>,
+    reversed: HashMap<AssetId<M>, SpriteMeshMaterialBucketKey>,
 }
 
 impl<M: Asset> Default for SpriteMaterialCache<M> {
@@ -191,9 +191,9 @@ impl<M: Asset> SpriteMaterialCache<M> {
 fn add_material(
     mut commands: Commands,
     sprites: Query<
-        (Entity, &SpriteMesh, &Anchor, Option<&SpriteMaterialCount>),
+        (Entity, &Sprite, &Anchor, Option<&SpriteMaterialCount>),
         Or<(
-            Changed<SpriteMesh>,
+            Changed<Sprite>,
             Changed<Anchor>,
             Added<Mesh2d>,
             Changed<SpriteMaterialCount>,
@@ -229,8 +229,8 @@ fn make_sprite_mesh_material(
     texture_atlas_layouts: &Assets<TextureAtlasLayout>,
     sprite: &Sprite,
     anchor: Anchor,
-) -> SpriteMaterial {
-    let mut material = SpriteMaterial::from_sprite(sprite.clone());
+) -> SpriteMeshMaterial {
+    let mut material = SpriteMeshMaterial::from_sprite(sprite.clone());
     material.anchor = *anchor;
 
     if let Some(texture_atlas) = &sprite.texture_atlas
