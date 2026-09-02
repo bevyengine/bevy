@@ -1,5 +1,4 @@
 //! Meta-module containing all feathers controls (widgets that are interactive).
-#![expect(deprecated, reason = "deprecated control bundles are exported here")]
 
 mod button;
 mod checkbox;

@@ -426,7 +426,7 @@ fn color_input_popup() -> Box<dyn Scene> {
                     (
                         #mode_rgb
                         @FeathersButton {
-                            @caption: bsn! { caption("RGB") },
+                            @caption: bsn! { @caption("RGB") },
                             @corners: RoundedCorners::Left,
                         }
                         Node {
@@ -442,7 +442,7 @@ fn color_input_popup() -> Box<dyn Scene> {
                     (
                         #mode_hsl
                         @FeathersButton {
-                            @caption: bsn! { caption("HSL") },
+                            @caption: bsn! { @caption("HSL") },
                             @corners: RoundedCorners::Right,
                         }
                         Node {
@@ -491,7 +491,7 @@ fn color_input_popup() -> Box<dyn Scene> {
                 align_items: AlignItems::Center,
             }
             Children [
-                label("R"),
+                @label("R"),
                 (
                     #r_slider
                     @FeathersColorSlider {
@@ -504,14 +504,14 @@ fn color_input_popup() -> Box<dyn Scene> {
                 (
                     #r_input
                     @FeathersNumberInput
-                    template_value(NumberInputValue::F32(0.0))
-                    template_value(HardLimit(NumberInputRange::F32(0.0..=255.0)))
+                    NumberInputValue::F32(0.0)
+                    HardLimit(NumberInputRange::F32(0.0..=255.0))
                     NumberInputPrecision(1)
                     NumberInputStep(20.0)
                     NumberInputChannel(ColorChannel::Red)
                     on(number_input_value_change)
                 ),
-                label("G"),
+                @label("G"),
                 (
                     #g_slider
                     @FeathersColorSlider {
@@ -524,14 +524,14 @@ fn color_input_popup() -> Box<dyn Scene> {
                 (
                     #g_input
                     @FeathersNumberInput
-                    template_value(NumberInputValue::F32(0.0))
-                    template_value(HardLimit(NumberInputRange::F32(0.0..=255.0)))
+                    NumberInputValue::F32(0.0)
+                    HardLimit(NumberInputRange::F32(0.0..=255.0))
                     NumberInputPrecision(1)
                     NumberInputStep(20.0)
                     NumberInputChannel(ColorChannel::Green)
                     on(number_input_value_change)
                 ),
-                label("B"),
+                @label("B"),
                 (
                     #b_slider
                     @FeathersColorSlider {
@@ -544,8 +544,8 @@ fn color_input_popup() -> Box<dyn Scene> {
                 (
                     #b_input
                     @FeathersNumberInput
-                    template_value(NumberInputValue::F32(0.0))
-                    template_value(HardLimit(NumberInputRange::F32(0.0..=255.0)))
+                    NumberInputValue::F32(0.0)
+                    HardLimit(NumberInputRange::F32(0.0..=255.0))
                     NumberInputPrecision(1)
                     NumberInputStep(20.0)
                     NumberInputChannel(ColorChannel::Blue)
@@ -567,7 +567,7 @@ fn color_input_popup() -> Box<dyn Scene> {
                 align_items: AlignItems::Center,
             }
             Children [
-                label("H"),
+                @label("H"),
                 (
                     #h_slider
                     @FeathersColorSlider {
@@ -580,8 +580,8 @@ fn color_input_popup() -> Box<dyn Scene> {
                 (
                     #h_input
                     @FeathersNumberInput
-                    template_value(NumberInputValue::F32(0.0))
-                    template_value(HardLimit(NumberInputRange::F32(0.0..=360.0)))
+                    NumberInputValue::F32(0.0)
+                    HardLimit(NumberInputRange::F32(0.0..=360.0))
                     NumberInputPrecision(1)
                     NumberInputStep(30.0)
                     NumberInputChannel(ColorChannel::HslHue)
@@ -590,7 +590,7 @@ fn color_input_popup() -> Box<dyn Scene> {
                     }
                     on(number_input_value_change)
                 ),
-                label("S"),
+                @label("S"),
                 (
                     #s_slider
                     @FeathersColorSlider {
@@ -603,8 +603,8 @@ fn color_input_popup() -> Box<dyn Scene> {
                 (
                     #s_input
                     @FeathersNumberInput
-                    template_value(NumberInputValue::F32(0.0))
-                    template_value(HardLimit(NumberInputRange::F32(0.0..=100.0)))
+                    NumberInputValue::F32(0.0)
+                    HardLimit(NumberInputRange::F32(0.0..=100.0))
                     NumberInputPrecision(1)
                     NumberInputStep(10.0)
                     NumberInputChannel(ColorChannel::HslSaturation)
@@ -613,7 +613,7 @@ fn color_input_popup() -> Box<dyn Scene> {
                     }
                     on(number_input_value_change)
                 ),
-                label("L"),
+                @label("L"),
                 (
                     #l_slider
                     @FeathersColorSlider {
@@ -626,8 +626,8 @@ fn color_input_popup() -> Box<dyn Scene> {
                 (
                     #l_input
                     @FeathersNumberInput
-                    template_value(NumberInputValue::F32(0.0))
-                    template_value(HardLimit(NumberInputRange::F32(0.0..=100.0)))
+                    NumberInputValue::F32(0.0)
+                    HardLimit(NumberInputRange::F32(0.0..=100.0))
                     NumberInputPrecision(1)
                     NumberInputStep(10.0)
                     NumberInputChannel(ColorChannel::HslLightness)
@@ -651,7 +651,7 @@ fn color_input_popup() -> Box<dyn Scene> {
                 align_items: AlignItems::Center,
             }
             Children [
-                label("A"),
+                @label("A"),
                 (
                     #a_slider
                     @FeathersColorSlider {
@@ -664,8 +664,8 @@ fn color_input_popup() -> Box<dyn Scene> {
                 (
                     #a_input
                     @FeathersNumberInput
-                    template_value(NumberInputValue::F32(0.0))
-                    template_value(HardLimit(NumberInputRange::F32(0.0..=255.0)))
+                    NumberInputValue::F32(0.0)
+                    HardLimit(NumberInputRange::F32(0.0..=255.0))
                     NumberInputPrecision(1)
                     NumberInputStep(10.0)
                     NumberInputChannel(ColorChannel::Alpha)
@@ -691,7 +691,7 @@ fn color_input_popup() -> Box<dyn Scene> {
                             InheritableFont {
                                 font: fonts::MONO
                             }
-                            template_value(LineHeight::Px(24.0)) // TODO: Make const for this
+                            LineHeight::Px(24.0) // TODO: Make const for this
                             on(hex_input_on_enter_key)
                             on(hex_input_on_focus_loss)
                         )

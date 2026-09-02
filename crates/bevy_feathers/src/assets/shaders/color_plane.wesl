@@ -3,6 +3,7 @@ import bevy_ui_render::ui_vertex_output::UiVertexOutput;
 import bevy_render::color_operations::{
     srgb_to_linear_rgb,
     hsl_to_linear_rgb,
+    okhsl_to_linear_rgb,
 };
 
 struct ColorPlaneUniform {
