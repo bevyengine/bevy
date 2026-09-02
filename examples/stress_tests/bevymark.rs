@@ -72,7 +72,7 @@ struct Args {
     ordered_z: bool,
 
     /// the alpha mode used to spawn the sprites
-    #[argh(option, default = "AlphaMode::Blend")]
+    #[argh(option, default = "AlphaMode::Mixed")]
     alpha_mode: AlphaMode,
 }
 
@@ -102,9 +102,10 @@ impl FromStr for Mode {
 #[derive(Default, Clone)]
 enum AlphaMode {
     Opaque,
-    #[default]
     Blend,
     AlphaMask,
+    #[default]
+    Mixed,
 }
 
 impl FromStr for AlphaMode {
@@ -115,8 +116,9 @@ impl FromStr for AlphaMode {
             "opaque" => Ok(Self::Opaque),
             "blend" => Ok(Self::Blend),
             "alpha_mask" => Ok(Self::AlphaMask),
+            "mixed" => Ok(Self::Mixed),
             _ => Err(format!(
-                "Unknown alpha mode: '{s}', valid modes: 'opaque', 'blend', 'alpha_mask'"
+                "Unknown alpha mode: '{s}', valid modes: 'opaque', 'blend', 'alpha_mask', 'mixed'"
             )),
         }
     }
@@ -209,6 +211,7 @@ struct BirdResources {
     material_rng: ChaCha8Rng,
     velocity_rng: ChaCha8Rng,
     transform_rng: ChaCha8Rng,
+    alpha_mode_rng: ChaCha8Rng,
 }
 
 #[derive(Component)]
@@ -248,6 +251,7 @@ fn setup(
         material_rng: ChaCha8Rng::seed_from_u64(200),
         velocity_rng: ChaCha8Rng::seed_from_u64(300),
         transform_rng: ChaCha8Rng::seed_from_u64(400),
+        alpha_mode_rng: ChaCha8Rng::seed_from_u64(500),
     };
 
     let font = TextFont {
@@ -450,10 +454,18 @@ fn spawn_birds(
             commands.spawn_batch(batch);
         }
         Mode::SpriteMesh => {
-            let alpha_mode = match args.alpha_mode {
+            let mut get_alpha_mode = || match args.alpha_mode {
                 AlphaMode::Opaque => SpriteAlphaMode::Opaque,
                 AlphaMode::Blend => SpriteAlphaMode::Blend,
                 AlphaMode::AlphaMask => SpriteAlphaMode::Mask(0.5),
+                AlphaMode::Mixed => [
+                    SpriteAlphaMode::Opaque,
+                    SpriteAlphaMode::Blend,
+                    SpriteAlphaMode::Mask(0.5),
+                ]
+                .choose(&mut bird_resources.alpha_mode_rng)
+                .copied()
+                .unwrap(),
             };
 
             let batch = (0..spawn_count)
@@ -489,7 +501,7 @@ fn spawn_birds(
                                 .unwrap()
                                 .clone(),
                             color,
-                            alpha_mode,
+                            alpha_mode: get_alpha_mode(),
                             ..default()
                         },
                         transform,
@@ -655,17 +667,26 @@ fn init_materials(
     }
     .max(1);
 
-    let alpha_mode = match args.alpha_mode {
+    let mut alpha_mode_rng = ChaCha8Rng::seed_from_u64(900);
+    let mut get_alpha_mode = || match args.alpha_mode {
         AlphaMode::Opaque => AlphaMode2d::Opaque,
         AlphaMode::Blend => AlphaMode2d::Blend,
         AlphaMode::AlphaMask => AlphaMode2d::Mask(0.5),
+        AlphaMode::Mixed => [
+            AlphaMode2d::Opaque,
+            AlphaMode2d::Blend,
+            AlphaMode2d::Mask(0.5),
+        ]
+        .choose(&mut alpha_mode_rng)
+        .copied()
+        .unwrap(),
     };
 
     let mut materials = Vec::with_capacity(capacity);
     materials.push(assets.add(ColorMaterial {
         color: Color::WHITE,
         texture: textures.first().cloned(),
-        alpha_mode,
+        alpha_mode: get_alpha_mode(),
         ..default()
     }));
 
@@ -678,7 +699,7 @@ fn init_materials(
             assets.add(ColorMaterial {
                 color: Color::srgb_u8(color_rng.random(), color_rng.random(), color_rng.random()),
                 texture: textures.choose(&mut texture_rng).cloned(),
-                alpha_mode,
+                alpha_mode: get_alpha_mode(),
                 ..default()
             })
         })

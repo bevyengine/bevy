@@ -4,14 +4,17 @@ mod texture;
 
 use bevy_app::{App, Plugin};
 use bevy_core_pipeline::{
-    core_3d::{main_opaque_pass_3d, main_transparent_pass_3d},
+    core_3d::{main_opaque_pass_3d, main_transparent_pass_3d, Core3dMainPassMode},
     schedule::{Core3d, Core3dSystems},
 };
 use bevy_ecs::{prelude::*, schedule::IntoScheduleConfigs};
+use bevy_extract::extract_component::extract_components;
 use bevy_reflect::prelude::*;
 use bevy_render::{
-    extract_component::{ExtractComponent, ExtractComponentPlugin},
+    extract_component::ExtractComponent,
+    extract_resource::extract_resource,
     render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions, ViewSortedRenderPhases},
+    sync_component::SyncComponentPlugin,
     ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 pub use node::main_transmissive_pass_3d;
@@ -25,9 +28,19 @@ use crate::{DrawMaterial, MeshPipelineKey};
 /// Enables screen-space transmission for cameras.
 pub struct ScreenSpaceTransmissionPlugin;
 
+fn separate_core3d_main_pass(pass: Res<Core3dMainPassMode>) -> bool {
+    let separate_main_pass = matches!(*pass, Core3dMainPassMode::Separate);
+    if !separate_main_pass {
+        bevy_log::warn_once!(
+            "Disabling `ScreenSpaceTransmission` because `Core3dMainPassMode` is not `Separate`"
+        );
+    }
+    separate_main_pass
+}
+
 impl Plugin for ScreenSpaceTransmissionPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(ExtractComponentPlugin::<ScreenSpaceTransmission>::default());
+        app.add_plugins(SyncComponentPlugin::<ScreenSpaceTransmission>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -41,17 +54,30 @@ impl Plugin for ScreenSpaceTransmissionPlugin {
                 Render,
                 sort_phase_system::<Transmissive3d>.in_set(RenderSystems::PhaseSort),
             )
-            .add_systems(ExtractSchedule, phase::extract_transmissive_camera_phases)
+            .add_systems(
+                ExtractSchedule,
+                (
+                    // Always run transmissive phases extraction,
+                    // otherwise `queue_material_meshes` won't run if transmissive phase is `None`
+                    phase::extract_transmissive_camera_phases,
+                    extract_components::<ScreenSpaceTransmission, RenderApp, ()>
+                        .after(extract_resource::<Core3dMainPassMode, RenderApp, ()>)
+                        .run_if(separate_core3d_main_pass),
+                ),
+            )
             .add_systems(
                 Render,
-                prepare_core_3d_transmission_textures.in_set(RenderSystems::PrepareResources),
+                prepare_core_3d_transmission_textures
+                    .in_set(RenderSystems::PrepareResources)
+                    .run_if(separate_core3d_main_pass),
             )
             .add_systems(
                 Core3d,
                 main_transmissive_pass_3d
                     .after(main_opaque_pass_3d)
                     .before(main_transparent_pass_3d)
-                    .in_set(Core3dSystems::MainPass),
+                    .in_set(Core3dSystems::MainPass)
+                    .run_if(separate_core3d_main_pass),
             );
     }
 }

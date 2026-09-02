@@ -1,6 +1,7 @@
 use bevy::{
     camera::visibility::NoCpuCulling,
     camera_controller::free_camera::FreeCameraState,
+    core_pipeline::core_3d::Core3dMainPassMode,
     feathers::{
         self,
         controls::{FeathersButton, FeathersCheckbox},
@@ -24,6 +25,7 @@ pub struct Settings {
     pub contact_shadows_enabled: bool,
     pub wireframe_enabled: bool,
     pub cpu_culling: bool,
+    pub main_pass_mode: Core3dMainPassMode,
 }
 
 impl Default for Settings {
@@ -34,6 +36,7 @@ impl Default for Settings {
             contact_shadows_enabled: true,
             wireframe_enabled: false,
             cpu_culling: true,
+            main_pass_mode: Core3dMainPassMode::Separate,
         }
     }
 }
@@ -143,6 +146,25 @@ pub fn settings_ui() -> impl Scene {
                                     commands.entity(entity).insert(NoCpuCulling);
                                 }
                             }
+                        }
+                    )
+                ),
+                (
+                    @FeathersCheckbox {
+                        @caption: bsn! { caption("Merged main pass") }
+                    }
+                    on(checkbox_self_update)
+                    on(
+                        |change: On<ValueChange<bool>>,
+                         mut settings: ResMut<Settings>,
+                         mut main_pass_mode: ResMut<Core3dMainPassMode>| {
+                             let mode = if change.value {
+                                 Core3dMainPassMode::Merged
+                             } else {
+                                 Core3dMainPassMode::Separate
+                             };
+                            settings.main_pass_mode = mode;
+                            *main_pass_mode = mode;
                         }
                     )
                 ),

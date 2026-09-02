@@ -1,3 +1,4 @@
+mod main_merged_pass_3d;
 mod main_opaque_pass_3d_node;
 mod main_transparent_pass_3d_node;
 
@@ -37,6 +38,7 @@ use bevy_diagnostic::FrameCount;
 use bevy_render::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
     camera::CameraRenderGraph,
+    extract_resource::{ExtractResource, ExtractResourcePlugin},
     mesh::allocator::MeshSlabs,
     occlusion_culling::OcclusionCulling,
     render_phase::{PhaseItemBatchSetKey, ViewRangefinder3d},
@@ -44,6 +46,7 @@ use bevy_render::{
     view::{prepare_view_targets, NoIndirectDrawing, RetainedViewEntity},
 };
 use indexmap::IndexMap;
+pub use main_merged_pass_3d::*;
 pub use main_opaque_pass_3d_node::*;
 pub use main_transparent_pass_3d_node::*;
 
@@ -99,6 +102,35 @@ use crate::{
 
 pub struct Core3dPlugin;
 
+#[derive(Debug, Resource, ExtractResource, Clone, Copy)]
+#[extract_app(RenderApp)]
+pub enum Core3dMainPassMode {
+    Merged,
+    Separate,
+}
+
+impl Core3dMainPassMode {
+    /// Get the main pass mode from the `BEVY_CORE_3D_MAIN_PASS_MODE` environment variable.
+    ///
+    /// Valid values (case-insensitive) are `"merged"` and `"separate"`.
+    /// Returns [`None`] if the variable is unset or holds an invalid value.
+    pub fn from_env() -> Option<Self> {
+        let Ok(value) = std::env::var("BEVY_CORE_3D_MAIN_PASS_MODE") else {
+            return None;
+        };
+        match value.to_ascii_lowercase().as_str() {
+            "merged" => Some(Self::Merged),
+            "separate" => Some(Self::Separate),
+            _ => {
+                warn!(
+                    "Ignoring invalid value for `BEVY_CORE_3D_MAIN_PASS_MODE`: '{value}', expected 'merged' or 'separate'"
+                );
+                None
+            }
+        }
+    }
+}
+
 impl Plugin for Core3dPlugin {
     fn build(&self, app: &mut App) {
         app.register_required_components_with::<Camera3d, DebandDither>(|| DebandDither::Enabled)
@@ -106,12 +138,33 @@ impl Plugin for Core3dPlugin {
                 CameraRenderGraph::new(Core3d)
             })
             .register_required_components::<Camera3d, Tonemapping>()
-            .add_plugins((SkyboxPlugin, ExtractComponentPlugin::<Camera3d>::default()))
+            .add_plugins((
+                SkyboxPlugin,
+                ExtractComponentPlugin::<Camera3d>::default(),
+                ExtractResourcePlugin::<Core3dMainPassMode>::default(),
+            ))
             .add_systems(PostUpdate, check_msaa);
+
+        if app.world().get_resource::<Core3dMainPassMode>().is_none() {
+            let mode =
+                Core3dMainPassMode::from_env().unwrap_or(Core3dMainPassMode::Separate);
+            app.insert_resource(mode);
+        }
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
+
+        if render_app
+            .world()
+            .get_resource::<Core3dMainPassMode>()
+            .is_none()
+        {
+            let mode =
+                Core3dMainPassMode::from_env().unwrap_or(Core3dMainPassMode::Separate);
+            render_app.insert_resource(mode);
+        }
+
         render_app
             .init_resource::<DrawFunctions<Opaque3d>>()
             .init_resource::<DrawFunctions<AlphaMask3d>>()
@@ -154,12 +207,24 @@ impl Plugin for Core3dPlugin {
                     )
                         .chain()
                         .in_set(Core3dSystems::Prepass),
-                    (main_opaque_pass_3d, main_transparent_pass_3d)
-                        .chain()
-                        .in_set(Core3dSystems::MainPass),
                     tonemapping.in_set(Core3dSystems::PostProcess),
                     upscaling.after(Core3dSystems::PostProcess),
                 ),
+            )
+            .add_systems(
+                Core3d,
+                main_merged_pass_3d.in_set(Core3dSystems::MainPass).run_if(
+                    |pass: Res<Core3dMainPassMode>| matches!(*pass, Core3dMainPassMode::Merged),
+                ),
+            )
+            .add_systems(
+                Core3d,
+                (main_opaque_pass_3d, main_transparent_pass_3d)
+                    .chain()
+                    .in_set(Core3dSystems::MainPass)
+                    .run_if(|pass: Res<Core3dMainPassMode>| {
+                        matches!(*pass, Core3dMainPassMode::Separate)
+                    }),
             );
     }
 }

@@ -64,16 +64,17 @@ struct Args {
     material_texture_count: usize,
 
     /// the alpha mode used to spawn the cubes
-    #[argh(option, default = "AlphaMode::Opaque")]
+    #[argh(option, default = "AlphaMode::Mixed")]
     alpha_mode: AlphaMode,
 }
 
 #[derive(Default, Clone)]
 enum AlphaMode {
-    #[default]
     Opaque,
     Blend,
     AlphaMask,
+    #[default]
+    Mixed,
 }
 
 impl FromStr for AlphaMode {
@@ -84,8 +85,9 @@ impl FromStr for AlphaMode {
             "opaque" => Ok(Self::Opaque),
             "blend" => Ok(Self::Blend),
             "alpha_mask" => Ok(Self::AlphaMask),
+            "mixed" => Ok(Self::Mixed),
             _ => Err(format!(
-                "Unknown alpha mode: '{s}', valid modes: 'opaque', 'blend', 'alpha_mask'"
+                "Unknown alpha mode: '{s}', valid modes: 'opaque', 'blend', 'alpha_mask', 'mixed'"
             )),
         }
     }
@@ -516,17 +518,26 @@ fn init_materials(
     }
     capacity = capacity.max(1);
 
-    let alpha_mode = match args.alpha_mode {
+    let mut alpha_mode_rng = ChaCha8Rng::seed_from_u64(43);
+    let mut get_alpha_mode = || match args.alpha_mode {
         AlphaMode::Opaque => bevy::prelude::AlphaMode::Opaque,
         AlphaMode::Blend => bevy::prelude::AlphaMode::Blend,
         AlphaMode::AlphaMask => bevy::prelude::AlphaMode::Mask(0.5),
+        AlphaMode::Mixed => [
+            bevy::prelude::AlphaMode::Opaque,
+            bevy::prelude::AlphaMode::Blend,
+            bevy::prelude::AlphaMode::Mask(0.5),
+        ]
+        .choose(&mut alpha_mode_rng)
+        .copied()
+        .unwrap(),
     };
 
     let mut materials = Vec::with_capacity(capacity);
     materials.push(assets.add(StandardMaterial {
         base_color: Color::WHITE,
         base_color_texture: textures.first().cloned(),
-        alpha_mode,
+        alpha_mode: get_alpha_mode(),
         ..default()
     }));
 
@@ -541,7 +552,7 @@ fn init_materials(
                     color_rng.random(),
                 ),
                 base_color_texture: textures.choose(&mut texture_rng).cloned(),
-                alpha_mode,
+                alpha_mode: get_alpha_mode(),
                 ..default()
             })
         })
