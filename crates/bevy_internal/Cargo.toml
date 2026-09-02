@@ -220,6 +220,8 @@ webgpu = [
 # Enable systems that allow for automated testing on CI
 bevy_ci_testing = ["bevy_dev_tools/bevy_ci_testing", "bevy_render?/ci_limits"]
 
+render_dev_tools = ["bevy_dev_tools/render"]
+
 # Enable glTF animation loading
 gltf_animation = ["bevy_animation", "bevy_gltf?/bevy_animation"]
 

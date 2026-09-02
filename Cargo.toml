@@ -570,6 +570,9 @@ android-game-activity = ["bevy_internal/android-game-activity"]
 # Enable systems that allow for automated testing on CI
 bevy_ci_testing = ["bevy_internal/bevy_ci_testing"]
 
+# Enable systems that allow for renderable dev tools
+render_dev_tools = ["bevy_internal/render_dev_tools"]
+
 # Enable glTF animation loading
 gltf_animation = ["bevy_internal/gltf_animation"]
 
