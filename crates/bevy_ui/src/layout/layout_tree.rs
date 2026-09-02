@@ -519,7 +519,6 @@ struct ViewportLayoutState {
 }
 
 struct UiLayoutTree<'a, 'w, 's, 'u, 't, 'style, 'layout> {
-    //nodes: HashMap<NodeId, NodeStyle<'node>>,
     style_query: &'a Query<'w, 's, &'style TaffyStyle>,
     computed_layout_query: &'a mut Query<'u, 't, &'layout mut ComputedLayout>,
     viewport_layout: ViewportLayoutState,
