@@ -3,11 +3,14 @@
 //! [`ViewTarget`], for prepare systems that depend on the stack.
 //!
 //! Cameras that render to the same target share main textures when their
-//! settings match. `prepare_view_targets` allocates them. When an earlier
-//! camera runs a fullscreen pass, every later camera in the stack composites
-//! on top of pixels that pass already processed. Running the pass per camera
-//! would tonemap a lower camera's output a second time. Instead the stack's
-//! last tonemapping camera runs the pass once, over the composited buffer.
+//! settings match. `prepare_view_targets` allocates them. A camera that
+//! clears starts a new stack on the texture, since the clear covers the whole
+//! texture, so one texture can have more than one stack in a frame. When an
+//! earlier camera runs a fullscreen pass, every later camera in its stack
+//! composites on top of pixels that pass already processed. Running the pass
+//! per camera would tonemap a lower camera's output a second time. Instead
+//! the stack's last tonemapping camera runs the pass once, over the
+//! composited buffer.
 
 use bevy_app::{App, Plugin};
 use bevy_camera::{CameraOutputMode, ClearColorConfig};
@@ -22,7 +25,7 @@ use bevy_log::warn_once;
 use bevy_platform::collections::HashMap;
 use bevy_render::{
     camera::ExtractedCamera,
-    view::{composites_fullscreen, prepare_view_targets, ViewTarget},
+    view::{prepare_view_targets, ViewTarget},
     Render, RenderApp, RenderSystems,
 };
 use core::hash::Hash;
@@ -67,10 +70,12 @@ pub enum BlitDisposition {
     /// The view's blit runs.
     Run {
         /// Whether the auto-detected alpha blend becomes a replacing blend.
-        /// This is true on the finalizer when the lower blits are skipped.
-        /// Its blit writes the whole stack's output, and no earlier blit
-        /// from the stack has written the out texture, so it must replace
-        /// rather than blend.
+        /// This is true on a finalizer when every camera below it on the
+        /// render target is a member of its stack whose blit is skipped. Its
+        /// blit writes the whole stack's output, and no earlier blit has
+        /// written the out texture, so it must replace rather than blend.
+        /// Any other finalizer keeps the alpha blend and composites over what
+        /// the cameras below it wrote.
         force_replace: bool,
     },
     /// The view sits below its stack's finalizer, so its blit would write
@@ -103,8 +108,8 @@ struct ContractInput<K> {
     texture: K,
     /// The camera's position in its render target's sorted camera order.
     sorted_index: usize,
-    /// See [`composites_fullscreen`].
-    composites_fullscreen: bool,
+    /// Whether the view covers the whole texture, true without a viewport.
+    fullscreen: bool,
     /// Whether the camera renders to an HDR main texture, from
     /// [`ExtractedCamera::hdr`].
     hdr: bool,
@@ -112,11 +117,20 @@ struct ContractInput<K> {
     /// [`CameraOutputMode::Skip`].
     output_writes: bool,
     /// Whether the view's main pass loads the previous buffer contents,
-    /// true for [`ClearColorConfig::None`].
+    /// true for [`ClearColorConfig::None`]. A clear covers the whole texture,
+    /// viewport or not, so a view that clears starts a new stack.
     loads_previous: bool,
     /// The view's tonemapping method. [`Tonemapping::None`] when the view
     /// has no `Tonemapping` component.
     method: Tonemapping,
+}
+
+impl<K> ContractInput<K> {
+    /// Whether the view composites over the previous camera's output across
+    /// the whole texture. Only such a view can have a finalizer run its pass.
+    fn composites_fullscreen(&self) -> bool {
+        self.loads_previous && self.fullscreen
+    }
 }
 
 /// A view's tonemapping pass runs when the camera renders to an HDR main
@@ -135,8 +149,8 @@ enum StackResolutionError {
     /// A fullscreen compositing member blits over regions that members
     /// below it tonemap per camera.
     FullscreenBlitOverPerCameraPasses { fullscreen_camera: Entity },
-    /// The stack's first member loads the previous buffer contents while the
-    /// stack runs a tonemapping pass.
+    /// The texture's first member loads the previous buffer contents while
+    /// the texture's last stack runs a tonemapping pass.
     FrameStartLoadsProcessedOutput { first: Entity },
     /// A `HandledBy` member's tonemapping method differs from its finalizer's.
     TonemappingMismatch {
@@ -146,8 +160,9 @@ enum StackResolutionError {
     },
 }
 
-/// Groups views by shared main texture, then resolves each view's stack role
-/// and blit disposition. Returns the contracts and the errors that fired.
+/// Groups views by shared main texture, splits each group into stacks at
+/// every clearing member, then resolves each view's stack role and blit
+/// disposition. Returns the contracts and the errors that fired.
 ///
 /// The resolver requires unique `sorted_index` values within a texture
 /// group and doesn't handle ties. `sort_cameras` counts the index per
@@ -172,15 +187,35 @@ fn resolve_contracts<K: Copy + Eq + Hash>(
                 .all(|pair| pair[0].sorted_index != pair[1].sorted_index),
             "sorted camera indices must be unique within a texture group"
         );
-        resolve_group(group, &mut contracts, &mut errors);
+
+        // Each clearing member after the first starts a new stack.
+        let mut start = 0;
+        for index in 1..group.len() {
+            if !group[index].loads_previous {
+                resolve_stack(&group[start..index], &mut contracts, &mut errors);
+                start = index;
+            }
+        }
+        resolve_stack(&group[start..], &mut contracts, &mut errors);
+
+        // The main texture persists across frames. The group's first member
+        // loads what the previous frame's last stack wrote, tonemapped when
+        // that stack runs the pass. A stack that doesn't tonemap keeps the
+        // buffer scene-referred and accumulates stably, so the warning fires
+        // only when the pass runs.
+        if group[0].loads_previous && group[start..].iter().any(tonemap_pass_runs) {
+            errors.push(StackResolutionError::FrameStartLoadsProcessedOutput {
+                first: group[0].entity,
+            });
+        }
     }
     (contracts, errors)
 }
 
 /// Returns the index of the member that runs one fullscreen pass for the
-/// whole sorted texture group, or `None` when the pass runs per camera.
+/// whole sorted stack, or `None` when the pass runs per camera.
 ///
-/// The group gets a finalizer only when at least two members tonemap and
+/// The stack gets a finalizer only when at least two members tonemap and
 /// every tonemapping member after the first composites fullscreen. The
 /// finalizer is the last tonemapping member. Any other arrangement keeps
 /// each camera running its own pass over what it rendered.
@@ -192,7 +227,7 @@ fn pass_finalizer<K>(members: &[ContractInput<K>]) -> Option<usize> {
     tail.next()?;
     let mut finalizer = None;
     for (index, member) in tail {
-        if !member.composites_fullscreen {
+        if !member.composites_fullscreen() {
             return None;
         }
         finalizer = Some(index);
@@ -200,8 +235,8 @@ fn pass_finalizer<K>(members: &[ContractInput<K>]) -> Option<usize> {
     finalizer
 }
 
-/// Resolves one texture group of sorted members into contracts and errors.
-fn resolve_group<K>(
+/// Resolves one stack of sorted members into contracts and errors.
+fn resolve_stack<K>(
     members: &[ContractInput<K>],
     contracts: &mut EntityHashMap<ViewStackContract>,
     errors: &mut Vec<StackResolutionError>,
@@ -211,39 +246,29 @@ fn resolve_group<K>(
     // The finalizer whose blit writes the whole stack's output.
     // A `CameraOutputMode::Skip` finalizer never blits. Lower members skip
     // their blits only because the finalizer's blit writes their output,
-    // so without it the group keeps every blit.
+    // so without it the stack keeps every blit.
     let blitting_finalizer =
         tonemap_finalizer.filter(|&finalizer| members[finalizer].output_writes);
-
-    // A stack that doesn't tonemap keeps the buffer scene-referred and
-    // accumulates stably, so the warning fires only when a pass runs.
-    if members.iter().any(tonemap_pass_runs)
-        && members.first().is_some_and(|first| first.loads_previous)
-    {
-        errors.push(StackResolutionError::FrameStartLoadsProcessedOutput {
-            first: members[0].entity,
-        });
-    }
 
     // A member covers partially when its output doesn't composite over the
     // whole target. The first member is expected to clear, so a clearing
     // viewport as the first member counts as covering.
     let covers_partially = |index: usize, member: &ContractInput<K>| {
         if index == 0 {
-            !member.composites_fullscreen && member.loads_previous
+            !member.composites_fullscreen() && member.loads_previous
         } else {
-            !member.composites_fullscreen
+            !member.composites_fullscreen()
         }
     };
     // A fullscreen compositing member above a partially covering member
     // blits the whole target, so regions tonemapped per camera below it
-    // get written twice. Per-camera passes exist only when the group has
+    // get written twice. Per-camera passes exist only when the stack has
     // no finalizer, so the check is gated on that. The reverse shape, a
     // viewport member above members that run their own passes, gets no
     // warning. Any trigger for it would also fire on ordinary split screen.
     if tonemap_finalizer.is_none() {
         let flagged = members.iter().enumerate().find(|(index, candidate)| {
-            candidate.composites_fullscreen
+            candidate.composites_fullscreen()
                 && members[..*index]
                     .iter()
                     .enumerate()
@@ -268,8 +293,13 @@ fn resolve_group<K>(
 
         let blit = match blitting_finalizer {
             Some(finalizer) if index < finalizer => BlitDisposition::SkipForFinalizer,
+            // The finalizer replaces only when every camera below it on the
+            // render target is a skipped member of this stack. Its position
+            // in the stack then equals its sorted index. A camera on another
+            // main texture of the target, or in an earlier stack, has a lower
+            // index and has already written the out texture.
             Some(finalizer) if index == finalizer => BlitDisposition::Run {
-                force_replace: true,
+                force_replace: member.sorted_index == index,
             },
             // Members above the blitting finalizer composite over what
             // the finalizer blitted. Without one, every blit composites
@@ -309,7 +339,7 @@ pub fn resolve_camera_stack_contracts(
             entity,
             texture: view_target.main_texture().id(),
             sorted_index: camera.sorted_camera_index_for_target,
-            composites_fullscreen: composites_fullscreen(camera),
+            fullscreen: camera.viewport.is_none(),
             hdr: camera.hdr,
             output_writes: !matches!(camera.output_mode, CameraOutputMode::Skip),
             loads_previous: matches!(camera.clear_color, ClearColorConfig::None),
@@ -336,19 +366,19 @@ fn emit_stack_resolution_error(error: StackResolutionError) {
         StackResolutionError::FullscreenBlitOverPerCameraPasses { fullscreen_camera } => {
             warn_once!(
                 "Fullscreen ClearColorConfig::None camera {fullscreen_camera} composites \
-                above viewport or clearing cameras whose tonemapping passes run per \
-                camera. Its blit covers the whole target and writes their tonemapped \
-                pixels a second time. Give that camera its own render target."
+                above viewport cameras whose tonemapping passes run per camera. Its blit \
+                covers the whole target and writes their tonemapped pixels a second time. \
+                Give that camera its own render target."
             );
         }
         StackResolutionError::FrameStartLoadsProcessedOutput { first } => {
             warn_once!(
                 "The first camera rendering to a target, view {first}, uses \
-                ClearColorConfig::None while its stack runs a tonemapping pass. The main \
-                texture persists across frames, so each frame reprocesses last frame's \
-                tonemapped output. Feedback and trail effects built this way drift over \
-                time. Stable accumulation needs Tonemapping::None, which never tonemaps \
-                the buffer."
+                ClearColorConfig::None while the last camera stack on its main texture runs a \
+                tonemapping pass. The main texture persists across frames, so each frame \
+                reprocesses last frame's tonemapped output. Feedback and trail effects built \
+                this way drift over time. Stable accumulation needs Tonemapping::None, which \
+                never tonemaps the buffer."
             );
         }
         StackResolutionError::TonemappingMismatch {
@@ -388,7 +418,7 @@ mod contract_tests {
             entity: entity(raw),
             texture: 0,
             sorted_index: index,
-            composites_fullscreen: false,
+            fullscreen: true,
             hdr: true,
             output_writes: true,
             loads_previous: false,
@@ -399,7 +429,6 @@ mod contract_tests {
     /// A fullscreen `ClearColorConfig::None` member.
     fn compositing(raw: u32, index: usize) -> ContractInput<u32> {
         let mut input = clearing(raw, index);
-        input.composites_fullscreen = true;
         input.loads_previous = true;
         input
     }
@@ -407,7 +436,7 @@ mod contract_tests {
     /// A viewport member that loads previous content.
     fn viewport(raw: u32, index: usize) -> ContractInput<u32> {
         let mut input = clearing(raw, index);
-        input.composites_fullscreen = false;
+        input.fullscreen = false;
         input.loads_previous = true;
         input
     }
@@ -542,14 +571,32 @@ mod contract_tests {
         assert_eq!(contract(&contracts, 2).blit, RUN_REPLACE);
     }
 
-    // A disabled member below the finalizer is Solo, but its blit is still
-    // skipped. The finalizer rule ignores disabled members, so a disabled
-    // clearing member doesn't break it.
+    // A clearing member starts a new stack regardless of its tonemapping.
+    // The base keeps its own pass and blit, or its output would never be
+    // written to the target. The new stack has one tonemapping member, so it
+    // runs per camera too.
     #[test]
-    fn disabled_member_below_finalizer_skips_blit() {
+    fn disabled_clearing_member_starts_a_new_stack() {
         let (contracts, errors) = resolve(vec![
             clearing(1, 0),
             disabled(clearing(2, 1)),
+            compositing(3, 2),
+        ]);
+        for raw in 1..=3 {
+            assert_eq!(contract(&contracts, raw).tonemap, StackRole::Solo);
+            assert_eq!(contract(&contracts, raw).blit, RUN);
+        }
+        assert!(errors.is_empty());
+    }
+
+    // A disabled member that composites sits inside the stack. It is Solo,
+    // but its blit is still skipped, since the finalizer's blit writes its
+    // output too.
+    #[test]
+    fn disabled_compositing_member_below_finalizer_skips_blit() {
+        let (contracts, errors) = resolve(vec![
+            clearing(1, 0),
+            disabled(compositing(2, 1)),
             compositing(3, 2),
         ]);
         let base = contract(&contracts, 1);
@@ -621,7 +668,7 @@ mod contract_tests {
     }
 
     // No warning fires here. See the fullscreen-blit check in
-    // `resolve_group`.
+    // `resolve_stack`.
     #[test]
     fn viewport_above_enabled_members_is_silent() {
         let (contracts, errors) = resolve(vec![clearing(1, 0), viewport(2, 1)]);
@@ -659,6 +706,161 @@ mod contract_tests {
     fn frame_start_load_without_passes_is_silent() {
         let (_, errors) = resolve(vec![disabled(compositing(1, 0))]);
         assert!(errors.is_empty());
+    }
+
+    // A clear in the middle starts a second stack. Each stack tonemaps
+    // once. The second finalizer keeps the alpha blend, since it composites
+    // over the first stack's output.
+    #[test]
+    fn clear_starts_a_second_stack() {
+        let (contracts, errors) = resolve(vec![
+            clearing(1, 0),
+            compositing(2, 1),
+            clearing(3, 2),
+            compositing(4, 3),
+        ]);
+        assert_eq!(
+            contract(&contracts, 1).tonemap,
+            StackRole::HandledBy(entity(2))
+        );
+        assert_eq!(contract(&contracts, 2).tonemap, StackRole::Finalizer);
+        assert_eq!(
+            contract(&contracts, 3).tonemap,
+            StackRole::HandledBy(entity(4))
+        );
+        assert_eq!(contract(&contracts, 4).tonemap, StackRole::Finalizer);
+        assert_eq!(
+            contract(&contracts, 1).blit,
+            BlitDisposition::SkipForFinalizer
+        );
+        assert_eq!(contract(&contracts, 2).blit, RUN_REPLACE);
+        assert_eq!(
+            contract(&contracts, 3).blit,
+            BlitDisposition::SkipForFinalizer
+        );
+        assert_eq!(contract(&contracts, 4).blit, RUN);
+        assert!(errors.is_empty());
+    }
+
+    // A viewport clear starts a stack like any clear. As the stack's first
+    // member it can be handled by a fullscreen finalizer above it.
+    #[test]
+    fn viewport_clear_starts_a_second_stack() {
+        let mut inset = viewport(3, 2);
+        inset.loads_previous = false;
+        let (contracts, errors) = resolve(vec![
+            clearing(1, 0),
+            compositing(2, 1),
+            inset,
+            compositing(4, 3),
+        ]);
+        assert_eq!(
+            contract(&contracts, 1).tonemap,
+            StackRole::HandledBy(entity(2))
+        );
+        assert_eq!(contract(&contracts, 2).tonemap, StackRole::Finalizer);
+        assert_eq!(
+            contract(&contracts, 3).tonemap,
+            StackRole::HandledBy(entity(4))
+        );
+        assert_eq!(contract(&contracts, 4).tonemap, StackRole::Finalizer);
+        assert_eq!(contract(&contracts, 2).blit, RUN_REPLACE);
+        assert_eq!(
+            contract(&contracts, 3).blit,
+            BlitDisposition::SkipForFinalizer
+        );
+        assert_eq!(contract(&contracts, 4).blit, RUN);
+        assert!(errors.is_empty());
+    }
+
+    // A camera on another main texture of the same target sits between the
+    // stack's members in the sorted order and has already written the out
+    // texture, so the finalizer must blend over it.
+    #[test]
+    fn finalizer_above_a_camera_on_another_texture_keeps_alpha_blit() {
+        let (contracts, errors) = resolve(vec![clearing(1, 0), compositing(2, 2)]);
+        assert_eq!(
+            contract(&contracts, 1).blit,
+            BlitDisposition::SkipForFinalizer
+        );
+        assert_eq!(contract(&contracts, 2).blit, RUN);
+        assert!(errors.is_empty());
+    }
+
+    // The same applies when the stack's first member isn't the target's
+    // first camera.
+    #[test]
+    fn stack_starting_above_index_zero_keeps_alpha_blit() {
+        let (contracts, _) = resolve(vec![clearing(1, 1), compositing(2, 2)]);
+        assert_eq!(contract(&contracts, 2).tonemap, StackRole::Finalizer);
+        assert_eq!(contract(&contracts, 2).blit, RUN);
+    }
+
+    // The frame-start check reads the texture's first member and its last
+    // stack. The first member loads the last stack's output next frame.
+    #[test]
+    fn frame_start_load_is_flagged_when_the_last_stack_tonemaps() {
+        let (_, errors) = resolve(vec![
+            disabled(compositing(1, 0)),
+            clearing(2, 1),
+            compositing(3, 2),
+        ]);
+        assert!(errors
+            .contains(&StackResolutionError::FrameStartLoadsProcessedOutput { first: entity(1) }));
+    }
+
+    // A tonemapping stack that isn't the last one leaves nothing in the
+    // texture for the first member to load.
+    #[test]
+    fn frame_start_load_is_silent_when_only_an_earlier_stack_tonemaps() {
+        let (_, errors) = resolve(vec![
+            disabled(compositing(1, 0)),
+            clearing(2, 1),
+            compositing(3, 2),
+            disabled(clearing(4, 3)),
+        ]);
+        assert!(errors.is_empty());
+    }
+
+    // Each stack tonemaps with its own finalizer, so the mismatch check
+    // never compares across stacks.
+    #[test]
+    fn tonemapping_mismatch_stays_within_its_stack() {
+        let mut base = clearing(1, 0);
+        base.method = Tonemapping::AcesFitted;
+        let mut second_base = clearing(3, 2);
+        second_base.method = Tonemapping::AcesFitted;
+        let mut second_top = compositing(4, 3);
+        second_top.method = Tonemapping::AcesFitted;
+        let (_, errors) = resolve(vec![base, compositing(2, 1), second_base, second_top]);
+        assert_eq!(
+            errors,
+            vec![StackResolutionError::TonemappingMismatch {
+                member: entity(1),
+                own: Tonemapping::AcesFitted,
+                finalizing: Tonemapping::TonyMcMapface,
+            }]
+        );
+    }
+
+    // A `CameraOutputMode::Skip` finalizer in a later stack keeps that
+    // stack's blits, as in the first stack.
+    #[test]
+    fn skip_finalizer_in_a_later_stack_cancels_blit_skipping() {
+        let mut finalizer = compositing(4, 3);
+        finalizer.output_writes = false;
+        let (contracts, _) = resolve(vec![
+            clearing(1, 0),
+            compositing(2, 1),
+            clearing(3, 2),
+            finalizer,
+        ]);
+        assert_eq!(
+            contract(&contracts, 3).tonemap,
+            StackRole::HandledBy(entity(4))
+        );
+        assert_eq!(contract(&contracts, 3).blit, RUN);
+        assert_eq!(contract(&contracts, 4).blit, RUN);
     }
 
     #[test]
