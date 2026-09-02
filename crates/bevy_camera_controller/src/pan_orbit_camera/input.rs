@@ -14,7 +14,9 @@ use bevy_transform::prelude::*;
 use bevy_window::{NormalizedWindowRef, PrimaryWindow, Window, WindowCreated};
 
 use bevy_picking::{
-    events::{PointerDrag, PointerDragEnd, PointerDragStart, PointerScroll},
+    events::{
+        HitDataEvent, PointerDrag, PointerDragEnd, PointerDragStart, PointerEvent, PointerScroll,
+    },
     pointer::{
         PointerAction, PointerButton, PointerId, PointerInput, PointerInteraction, PointerLocation,
         PointerMap,
@@ -101,40 +103,100 @@ impl Plugin for DefaultInputPlugin {
                             .insert(PanOrbitCameraInputs::default());
                     }
                 },
-            );
+            )
+            .add_systems(Update, zoom_stop);
     }
 }
-fn observe_window_scroll(
-    evt: On<PointerScroll>,
-    mut controllers: Query<(
-        &mut PanOrbitCamera,
-        &PanOrbitCameraInputs,
-        &Camera,
-        &Projection,
-    )>,
-) {
-    if let Ok((mut controller, inputs, cam, proj)) = controllers.get_mut(evt.hit.camera) {
-        controller.send_zoom_input(evt.y * inputs.get_zoom_factor(evt.unit));
+#[derive(SystemParam)]
+struct PanOrbitControllers<'w, 's>(
+    Query<
+        'w,
+        's,
+        (
+            &'static mut PanOrbitCamera,
+            &'static PanOrbitCameraInputs,
+            &'static Camera,
+            &'static GlobalTransform,
+            &'static Projection,
+        ),
+    >,
+);
+impl<'w, 's> PanOrbitControllers<'w, 's> {
+    fn get_with_anchor<T>(
+        &mut self,
+        evt: &On<T>,
+        original_target: Entity,
+    ) -> Option<(Mut<PanOrbitCamera>, &PanOrbitCameraInputs, Option<DVec3>)>
+    where
+        T: HitDataEvent + PointerEvent,
+    {
+        if let Ok((controller, inputs, cam, cam_transform, proj)) = self.0.get_mut(evt.hit().camera)
+        {
+            let anchor = evt
+                .hit()
+                .position
+                .filter(|_| original_target != evt.event_target()) // skip hit.position for window drag
+                .map(|world_space_hit| {
+                    // Convert the world space hit to view (camera) space
+                    cam_transform
+                        .to_matrix()
+                        .as_dmat4()
+                        .inverse()
+                        .transform_point3(world_space_hit.into())
+                })
+                .or_else(|| screen_to_view_space(cam, proj, &controller, evt.pointer().position));
+            Some((controller, inputs, anchor))
+        } else {
+            None
+        }
+    }
+}
+
+fn observe_window_scroll(evt: On<PointerScroll>, mut controllers: PanOrbitControllers) {
+    if let Ok((mut controller, inputs, anchor)) =
+        controllers.get_with_anchor(evt, evt.original_event_target())
+    {
+        if !controller.is_actively_controlled() {
+            controller.start_zoom(resolve_event_anchor(
+                evt,
+                evt.original_event_target(),
+                cam_transform,
+            ));
+        }
+        controller.send_zoom_input(dbg!(evt.y * inputs.get_zoom_factor(evt.unit)));
+    }
+}
+
+fn zoom_stop(mut controllers: Query<(&mut PanOrbitCamera, &PanOrbitCameraInputs)>) {
+    for (mut controller, inputs) in &mut controllers {
+        if controller.current_motion.is_zooming_only()
+            && controller
+                .current_motion
+                .inputs()
+                .map(|inputs| inputs.zoom_velocity_abs(controller.smoothing.zoom.mul_f32(2.0)))
+                .unwrap_or(0.0)
+                <= inputs.zoom_stop_min as f64
+        {
+            controller.end_move();
+        }
     }
 }
 
 fn observe_window_drag_start(
     evt: On<PointerDragStart>,
-    mut controllers: Query<(
-        &mut PanOrbitCamera,
-        &PanOrbitCameraInputs,
-        &Camera,
-        &Projection,
-    )>,
+    mut controllers: PanOrbitControllers,
     mut pointer_cameras: ResMut<CameraPointerMap>,
 ) {
     dbg!(&evt);
-    if let Ok((mut controller, inputs, cam, proj)) = controllers.get_mut(evt.hit.camera) {
+    if let Ok((inputs, mut controller, cam, cam_transform, proj)) =
+        controllers.get_mut(evt.hit.camera)
+    {
         if controller.is_actively_controlled() {
             dbg!("actively controlled");
             return;
         }
-        let anchor = screen_to_view_space(cam, proj, &controller, evt.pointer.position);
+
+        let anchor = resolve_event_anchor(evt, evt.original_event_target(), cam_transform);
         // dbg!(&anchor);
         if evt.button == inputs.orbit_start {
             controller.start_orbit(anchor);
@@ -146,6 +208,7 @@ fn observe_window_drag_start(
         pointer_cameras.insert(evt.pointer.id, evt.hit.camera);
     }
 }
+
 fn observe_window_drag(
     evt: On<PointerDrag>,
     mut controllers: Query<&mut PanOrbitCamera>,

@@ -64,7 +64,9 @@ fn main() {
         )
         .run();
 }
-
+fn on_drag_start(mut drag: On<PointerDragStart>) {
+    drag.propagate(false);
+}
 fn on_drag_rotate(mut drag: On<PointerDrag>, mut transforms: Query<&mut Transform>) {
     if let Ok(mut transform) = transforms.get_mut(drag.entity) {
         transform.rotate_y(drag.delta.x * 0.02);
@@ -79,6 +81,7 @@ fn test_cube() -> impl SceneList {
         MeshMaterial3d::<StandardMaterial>(asset_value(Color::WHITE))
         Transform::from_xyz(0.2, 0.5, 0.0)
         on(on_drag_rotate)
+        on(on_drag_start)
     }
 }
 
