@@ -3287,11 +3287,14 @@ pub struct FixedNode;
 /// - A `GhostNode` is `Node`.
 /// - A `GhostNode` is given zero size during layout.
 /// - Its position is the same as its parent.
-/// - Its `UiTransform` will be applied normally.
+/// - Its `UiTransform` will be resolved and applied normally, except that instead of its own size, percentage
+/// values are based on the size of the `GhostNode`'s parent.
 /// - Events pass through normally.
-/// - `FixedNode` is ignored on a `GhostNode`.
+/// - `FixedNode` is ignored on a `GhostNode`. This could be allowed eventually maybe, but it's a little tricky how to handle the implicit roots.
 /// - `OverrideClip` is not ignored on a `GhostNode`.
 /// - Clipping propagates through `GhostNode`'s but their `Node::override` setting is ignored.
+/// - `GhostNode`'s children's `Val::Percent` coords are resolved based on the the size of their grandparent, skipping the `GhostNode`.
+/// - A root `GhostNode`'s children are UI root nodes each with their own implicit viewport node.
 #[derive(Component, Debug, Copy, Clone, Reflect, Default)]
 #[reflect(Component, Debug, Clone)]
 #[require(Node)]
