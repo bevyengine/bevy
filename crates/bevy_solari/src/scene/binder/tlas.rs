@@ -18,7 +18,7 @@ use bevy_render::{
         ComputePipelineDescriptor, CreateTlasDescriptor, PipelineCache, ShaderStages, Tlas,
         TlasInstance,
     },
-    renderer::{RenderContext, RenderDevice},
+    renderer::{RenderContext, RenderDevice, WgpuCommandBuffer},
 };
 use bevy_utils::{default, once};
 use tracing::{info_span, warn};
@@ -418,7 +418,9 @@ fn build_tlas_raw(
         bindings.instances.slots.high_water_mark(),
         scratch,
     );
-    render_context.add_command_buffer(command_encoder.finish());
+    render_context.add_command_buffer(WgpuCommandBuffer::new(
+        command_encoder.into_inner().finish(),
+    ));
 
     time_span.end(render_context.command_encoder());
     if !built {

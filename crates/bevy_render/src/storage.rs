@@ -339,7 +339,7 @@ impl RenderAsset for GpuShaderBuffer {
                         label: Some("copy_buffer_on_resize"),
                     });
                 encoder.copy_buffer_to_buffer(&previous.buffer, 0, &new_buffer, 0, copy_size);
-                render_queue.submit([encoder.finish()]);
+                render_queue.submit([encoder.into_inner().finish()]);
             }
             new_buffer
         };
