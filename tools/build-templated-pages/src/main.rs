@@ -1,5 +1,7 @@
 //! Tool used to build the templated pages of the Bevy website.
 
+extern crate alloc;
+
 use bitflags::bitflags;
 
 mod examples;

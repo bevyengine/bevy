@@ -124,13 +124,18 @@ pub(crate) fn check(what_to_run: Command) {
         let mut context = Context::new();
         context.insert("features", &features);
         context.insert("sorted_features", &sorted_features);
-        Tera::new("docs-template/*.md.tpl")
-            .expect("error parsing template")
-            .render_to(
-                "features.md.tpl",
-                &context,
-                File::create("docs/cargo_features.md").expect("error creating file"),
-            )
-            .expect("error rendering template");
+
+        let mut tera = Tera::new();
+        tera.register_filter("slugify", tera_contrib::slug::slug);
+
+        tera.load_from_glob("docs-template/*.md.tpl")
+            .expect("error parsing template");
+
+        tera.render_to(
+            "features.md.tpl",
+            &context,
+            File::create("docs/cargo_features.md").expect("error creating file"),
+        )
+        .expect("error rendering template");
     }
 }
