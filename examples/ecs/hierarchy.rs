@@ -19,6 +19,7 @@ fn main() {
         .add_systems(OnEnter(Showcase::ChildrenMacro), spawn_children_macro)
         .add_systems(OnEnter(Showcase::ChildrenIter), setup_children_iter)
         .add_systems(OnEnter(Showcase::Related), setup_children_related)
+        .add_systems(OnEnter(Showcase::Bsn), setup_bsn)
         .add_systems(Update, (rotate, switch_scene))
         .run();
 }
@@ -31,6 +32,7 @@ enum Showcase {
     ChildrenMacro,
     ChildrenIter,
     Related,
+    Bsn,
 }
 
 impl Showcase {
@@ -40,7 +42,8 @@ impl Showcase {
             Showcase::ChildrenSpawn => Showcase::ChildrenMacro,
             Showcase::ChildrenMacro => Showcase::ChildrenIter,
             Showcase::ChildrenIter => Showcase::Related,
-            Showcase::Related => Showcase::WithChildren,
+            Showcase::Related => Showcase::Bsn,
+            Showcase::Bsn => Showcase::WithChildren,
         }
     }
 }
@@ -309,6 +312,39 @@ fn setup_children_related(
             )
         ]),
     ));
+}
+
+fn setup_bsn(mut commands: Commands, time: Res<Time>, mut delta: ResMut<Delta>) {
+    setup_common(
+        &mut commands,
+        &time,
+        &mut delta,
+        "BSN\nPress Space to continue",
+        Showcase::Bsn,
+    );
+
+    // BSN can also define related entities inline. Asset paths are loaded when the scene is spawned.
+    commands.spawn_scene(bsn! {
+        Sprite { image: "branding/icon.png" }
+        Transform::from_scale(Vec3::splat(0.75))
+        DespawnOnExit::<Showcase>(Showcase::Bsn)
+        Children [
+            (
+                Transform::from_xyz(250.0, 0.0, 0.0).with_scale(Vec3::splat(0.75))
+                Sprite {
+                    image: "branding/icon.png",
+                    color: BLUE,
+                }
+            ),
+            (
+                Transform::from_xyz(0.0, 250.0, 0.0).with_scale(Vec3::splat(0.75))
+                Sprite {
+                    image: "branding/icon.png",
+                    color: LIME,
+                }
+            ),
+        ]
+    });
 }
 
 // A simple system to rotate the root entity, and rotate all its children separately
