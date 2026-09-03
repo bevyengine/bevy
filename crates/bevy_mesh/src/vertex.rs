@@ -1201,7 +1201,7 @@ pub fn octahedral_encode_signed(v: Vec3) -> Vec2 {
 pub fn octahedral_encode_tangent(v: Vec3, sign: f32) -> Vec2 {
     // Bias to ensure that encoding as snorm16 preserves the sign.
     let bits = 16.;
-    let bias = 1. / (ops::powf(2.0, bits - 1.) - 1.);
+    let bias = 1. / (bevy_math::ops::powf(2.0, bits - 1.) - 1.);
 
     let mut n_xy = octahedral_encode_signed(v);
     // Map y to always be positive.

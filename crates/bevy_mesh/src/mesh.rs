@@ -3165,8 +3165,8 @@ mod tests {
         PrimitiveTopology,
     };
     use bevy_asset::RenderAssetUsages;
-    use bevy_math::{Vec3, Vec3A, Vec4};
-    use bevy_shape::{Aabb3d, Triangle3d};
+    use bevy_math::{Vec2, Vec3, Vec3A, Vec4};
+    use bevy_shape::{Aabb2d, Aabb3d, Triangle3d};
     use bevy_transform::components::Transform;
 
     #[test]

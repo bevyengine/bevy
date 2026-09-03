@@ -12,8 +12,8 @@ use bevy_ecs::{
 use bevy_image::{Image, TextureAtlasLayout};
 use bevy_math::{vec2, FloatOrd};
 use bevy_mesh::{
-    mark_2d_meshes_as_changed_if_their_assets_changed, Mesh, Mesh2d, MeshAttributeCompressionFlags,
-    MeshBuilder, Meshable,
+    mark_2d_meshes_as_changed_if_their_assets_changed, Mesh, Mesh2d, MeshBuilder,
+    MeshCompressionArgs, Meshable,
 };
 use bevy_shape::Rectangle;
 
@@ -61,16 +61,11 @@ fn add_mesh(
 ) {
     let quad = quad.get_or_insert_with(|| {
         meshes.add({
-            let mut mesh = Rectangle::from_size(vec2(1.0, 1.0))
+            let mesh = Rectangle::from_size(vec2(1.0, 1.0))
                 .mesh()
                 .build()
                 .with_removed_attribute(Mesh::ATTRIBUTE_NORMAL);
-            mesh.compress_indices()
-                .compress_positions()
-                .unwrap()
-                .compress_uv0()
-                .unwrap();
-            mesh
+            mesh.compressed_mesh(MeshCompressionArgs::regular())
         })
     });
     for entity in sprites {
