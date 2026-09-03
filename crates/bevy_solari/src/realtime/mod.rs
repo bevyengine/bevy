@@ -2,7 +2,10 @@ mod extract;
 mod node;
 mod prepare;
 
-use crate::{scene::RaytracingSceneBindings, SolariPlugins};
+use crate::{
+    scene::{prepare_raytracing_scene_resources, RaytracingSceneBindings},
+    SolariPlugins,
+};
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::embedded_asset;
 use bevy_camera::Hdr;
@@ -85,7 +88,8 @@ impl Plugin for SolariLightingPlugin {
                 Render,
                 (
                     prepare_solari_lighting_resources,
-                    setup_raytracing_scene_needs_previous_frame_data,
+                    setup_raytracing_scene_needs_previous_frame_data
+                        .before(prepare_raytracing_scene_resources),
                 )
                     .in_set(RenderSystems::PrepareResources),
             )
