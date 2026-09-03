@@ -121,7 +121,6 @@ pub fn prepare_raytracing_scene_resources(
     mut bindings: ResMut<RaytracingSceneBindings>,
 ) {
     let bindings = &mut *bindings;
-
     let needs_previous_frame_data = needs_previous_frame_data.is_some();
 
     // Roll light ids over before any removal or compaction writes this frame's translations

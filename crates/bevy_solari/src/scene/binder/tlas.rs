@@ -98,9 +98,6 @@ pub struct TlasState {
     /// The backend to build through, or `None` to go through `wgpu-core`.
     raw: Option<&'static dyn tlas_build::RawTlasBackend>,
     /// Whether last frame's structure is being retained alongside this frame's.
-    ///
-    /// Only ReSTIR traces the previous-frame TLAS, so with it off the second structure is dropped
-    /// and the bind group aliases the single one into the previous-frame slot.
     double_buffered: bool,
     /// Alternating current/previous acceleration structures. The second is `None` while single
     /// buffered.
@@ -162,8 +159,7 @@ impl TlasState {
     ) {
         let _span = info_span!("advance_tlas").entered();
 
-        // Free the retained structure as soon as nothing traces it, rather than waiting for a
-        // frame this scene can actually build
+        // Free the retained structure as soon as nothing wants it
         self.set_double_buffered(double_buffered, bind_groups);
 
         // An empty scene must not allocate an unbuilt TLAS that could resurface as a later
@@ -223,9 +219,6 @@ impl TlasState {
 
     /// Whether the previous-frame slot's binding will still be correct next frame, and so whether
     /// a bind group using it can be cached.
-    ///
-    /// While double buffered, aliasing the current structure into that slot is a stopgap for the
-    /// frames before the other one has been built, which the next build replaces.
     pub fn previous_binding_is_stable(&self) -> bool {
         !self.double_buffered || self.built[self.current_index ^ 1]
     }
