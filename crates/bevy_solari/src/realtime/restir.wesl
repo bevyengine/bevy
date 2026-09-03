@@ -342,7 +342,7 @@ fn reservoir_contribution(reservoir: Reservoir, resolved: ResolvedLightSample, w
         // Bounce-0 BRDF-emissive sample (directly-visible light). The seed field carries the light
         // triangle's bitcast area pdf, and the stored radiance is the raw emission. Rebuild the MIS
         // weight against this surface's NEE strategy, the dual of nee_mis_weight above and a mirror
-        // of the emissive candidate in generate_initial_reservoir.
+        // of the emissive candidate in generate_initial_path.
         if reservoir.light_sample.seed != 0u {
             let area_pdf = bitcast<f32>(reservoir.light_sample.seed);
             let light_normal = octahedral_decode(reservoir.sample_point_world_normal);
