@@ -56,10 +56,6 @@ fn spatial_and_shade(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let surface = gpixel_resolve(textureLoad(gbuffer, global_id.xy, 0), depth, global_id.xy, view.main_pass_viewport.zw, view.world_from_clip);
 
     let input_reservoir = reservoirs_b[pixel_index];
-    let wo = normalize(view.world_position - surface.world_position);
-    let NdotV = max(dot(surface.world_normal, wo), 0.0001);
-    let F_ab = F_AB(surface.material.perceptual_roughness, NdotV);
-
     let spatial = load_spatial_reservoir(global_id.xy, depth, surface.world_position, surface.world_normal, &rng);
     let merge_result = merge_reservoirs(input_reservoir, surface.world_position, surface.world_normal, surface.material,
         spatial.reservoir, spatial.world_position, spatial.world_normal, spatial.material, view.world_position, &rng);
