@@ -4,10 +4,12 @@
 use std::{f64::consts::PI, time::Duration};
 
 use bevy_app::prelude::*;
+use bevy_curve::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_ecs::resource::IsResource;
 use bevy_math::{prelude::*, DAffine3, DQuat, DVec3};
-use bevy_platform::{collections::HashMap, time::Instant};
+use bevy_platform::collections::HashMap;
+use bevy_time::{Real, Time, Timer, TimerMode};
 use bevy_transform::components::Transform;
 use bevy_window::RequestRedraw;
 
@@ -115,24 +117,23 @@ impl LookToTrigger {
             redraw.write(RequestRedraw);
             let camera_forward = camera_rotation * DVec3::NEG_Z;
             let camera_up = camera_rotation * DVec3::Y;
+            let animation_duration = state.animation_duration;
             state
                 .map
                 .entry(event.camera)
                 .and_modify(|e| {
-                    e.start = Instant::now();
+                    e.animation_timer = Timer::new(animation_duration, TimerMode::Once);
                     e.initial_facing_direction = camera_forward;
                     e.initial_up_direction = camera_up;
                     e.target_facing_direction = event.target_facing_direction;
                     e.target_up_direction = event.target_up_direction;
-                    e.complete = false;
                 })
                 .or_insert(LookToEntry {
-                    start: Instant::now(),
+                    animation_timer: Timer::new(animation_duration, TimerMode::Once),
                     initial_facing_direction: camera_forward,
                     initial_up_direction: camera_up,
                     target_facing_direction: event.target_facing_direction,
                     target_up_direction: event.target_up_direction,
-                    complete: false,
                 });
 
             controller.end_move();
@@ -142,12 +143,11 @@ impl LookToTrigger {
 }
 
 struct LookToEntry {
-    start: Instant,
+    animation_timer: Timer,
     initial_facing_direction: DVec3,
     initial_up_direction: DVec3,
     target_facing_direction: DVec3,
     target_up_direction: DVec3,
-    complete: bool,
 }
 
 /// Stores settings and state for the dolly zoom plugin.
@@ -182,21 +182,21 @@ impl LookTo {
             Query<&mut Transform, With<PanOrbitCamera>>,
         )>,
         mut redraw: MessageWriter<RequestRedraw>,
+        time: Res<Time<Real>>,
     ) {
-        let animation_duration = state.animation_duration;
         let animation_curve = state.animation_curve;
         for (
             camera,
             LookToEntry {
-                start,
+                animation_timer,
                 initial_facing_direction,
                 initial_up_direction,
                 target_facing_direction,
                 target_up_direction,
-                complete,
             },
         ) in state.map.iter_mut()
         {
+            animation_timer.tick(time.delta());
             let camera_refs = camera_set.p1();
             let Ok(cam_transform) = camera_refs.get(*camera) else {
                 continue;
@@ -207,12 +207,10 @@ impl LookTo {
             };
             let mut cameras = camera_set.p0();
             let Ok(controller) = cameras.get_mut(*camera) else {
-                *complete = true;
+                animation_timer.finish();
                 continue;
             };
-            let progress_t =
-                (start.elapsed().as_secs_f32() / animation_duration.as_secs_f32()).clamp(0.0, 1.0);
-            let progress = animation_curve.ease(progress_t);
+            let progress = animation_curve.ease(animation_timer.fraction());
 
             let anchor_view_space = controller.anchor_view_space().unwrap_or(DVec3::new(
                 0.0,
@@ -249,11 +247,8 @@ impl LookTo {
             let mut camera_muts = camera_set.p2();
             let mut camera_mut = camera_muts.get_mut(*camera).unwrap();
             apply_delta(&mut camera_mut, delta_translation, delta_rotation);
-            if progress_t >= 1.0 {
-                *complete = true;
-            }
             redraw.write(RequestRedraw);
         }
-        state.map.retain(|_, v| !v.complete);
+        state.map.retain(|_, v| !v.animation_timer.is_finished());
     }
 }

@@ -10,9 +10,8 @@ keywords = ["bevy", "color"]
 rust-version = "1.85.0"
 
 [dependencies]
-bevy_math = { path = "../bevy_math", version = "0.20.0-dev", default-features = false, features = [
-  "curve",
-] }
+bevy_curve = { path = "../bevy_curve", default-features = false, version = "0.20.0-dev" }
+bevy_math = { path = "../bevy_math", version = "0.20.0-dev", default-features = false }
 bevy_reflect = { path = "../bevy_reflect", version = "0.20.0-dev", default-features = false, optional = true }
 bytemuck = { version = "1", features = ["derive"] }
 serde = { version = "1.0", features = [
@@ -28,12 +27,13 @@ default = ["std", "bevy_reflect", "encase"]
 std = [
   "alloc",
   "bevy_math/std",
+  "bevy_curve/std",
   "serde?/std",
   "wgpu-types?/std",
   "bevy_reflect?/std",
 ]
-alloc = ["bevy_math/alloc", "serde?/alloc"]
-serialize = ["serde", "bevy_math/serialize"]
+alloc = ["bevy_math/alloc", "bevy_curve/alloc", "serde?/alloc"]
+serialize = ["serde", "bevy_math/serialize", "bevy_curve/serialize"]
 bevy_reflect = ["dep:bevy_reflect"]
 wgpu-types = ["dep:wgpu-types"]
 encase = ["dep:encase", "std"]

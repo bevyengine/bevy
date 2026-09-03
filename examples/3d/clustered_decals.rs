@@ -231,9 +231,9 @@ fn spawn_buttons(commands: &mut Commands) {
     // control, and the number inputs that allow the user to alter additional
     // aspects of clustered decals.
     commands.spawn_scene(bsn! {
-        radio::main_ui_node_scene()
+        @radio::main_ui_node_scene()
         Children [
-            radio::feathers_option_buttons("Drag to Move",
+            @radio::feathers_option_buttons("Drag to Move",
             &[
                 (Selection::Camera, "Camera"),
                 (Selection::DecalA, "Decal A"),
@@ -242,12 +242,12 @@ fn spawn_buttons(commands: &mut Commands) {
 
             // The number inputs start off hidden because Camera is selected first.
             Visibility::Hidden
-            number_input_f32("Scale Multiplier", Some(AppNumberInput::Scale), 1.0, NumberInputPrecision(2), 0.05..=10.)
+            @number_input_f32("Scale Multiplier", Some(AppNumberInput::Scale), 1.0, NumberInputPrecision(2), 0.05..=10.)
             ,
 
             Visibility::Hidden
             // + epsilon and next_down are used since roll recalculation likes to switch between -PI and PI upon recalculating roll.
-            number_input_f32("Roll (-π to π)", Some(AppNumberInput::Roll), 0.0, NumberInputPrecision(2), -PI + f32::EPSILON ..=PI.next_down())
+            @number_input_f32("Roll (-π to π)", Some(AppNumberInput::Roll), 0.0, NumberInputPrecision(2), -PI + f32::EPSILON ..=PI.next_down())
             ,
         ]
     });
