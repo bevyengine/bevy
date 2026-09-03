@@ -454,6 +454,7 @@ pub fn camera_system(
 /// view comes from a camera. For example, views can come from lights,
 /// for drawing shadow maps.
 #[derive(Component, Debug)]
+// Note: RenderVisibleEntities must persist on a camera entity once it has been created
 #[require(RenderVisibleEntities)]
 pub struct ExtractedCamera {
     pub target: Option<NormalizedRenderTarget>,
@@ -512,7 +513,6 @@ pub fn extract_cameras(
     type ExtractedCameraComponents = (
         ExtractedCamera,
         ExtractedView,
-        RenderVisibleEntities,
         ResolvedCompositingSpace,
         TemporalJitter,
         MipBias,
