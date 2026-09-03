@@ -298,7 +298,7 @@ pub(crate) fn compute_layout(
     child_stack: &mut Vec<NodeId>,
     needs_full_walk: bool,
 ) -> Result<(), LayoutError> {
-    let Some((dirty, _)) = build_runtime_layout_tree(
+    let Some((dirty, _)) = sync_runtime_layout_tree(
         ui_root_entity,
         ui_root_entity,
         ui_children,
@@ -378,7 +378,7 @@ pub(crate) fn compute_layout(
     Ok(())
 }
 
-fn build_runtime_layout_tree<'a>(
+fn sync_runtime_layout_tree<'a>(
     root: Entity,
     entity: Entity,
     ui_children: &Query<(Option<&Children>, Has<GhostNode>, Ref<UiTreeChanged>), With<Node>>,
@@ -437,7 +437,7 @@ fn build_runtime_layout_tree<'a>(
     let mut child_count = 0;
     for child_index in start..end {
         let child_node = child_stack[child_index];
-        if let Some((built_child_dirty, built_computed_subtree_dirty)) = build_runtime_layout_tree(
+        if let Some((built_child_dirty, built_computed_subtree_dirty)) = sync_runtime_layout_tree(
             root,
             node_id_entity(child_node),
             ui_children,
