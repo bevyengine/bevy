@@ -136,9 +136,12 @@ struct RenderScreenshotsSender(Sender<(Entity, Image)>);
 
 /// Saves the captured screenshot to disk at the provided path.
 ///
-/// 8-bit screenshots save to any format `image` supports. Float screenshots
-/// keep their range in `.exr` and `.hdr`. In any other format they are
-/// clipped to `0..=1` and sRGB encoded. `.exr` needs the `exr` cargo feature.
+/// A screenshot of an 8-bit render target saves to any format `image`
+/// supports. A screenshot of an `Rgba16Float` or `Rgba32Float` render target,
+/// for example an `Hdr` camera rendering to an `Image`, holds values outside
+/// `0..=1`. Those are kept in `.exr` and `.hdr`. Any other format clips to
+/// `0..=1` and converts to 8-bit sRGB, with a warning. `.exr` needs the `exr`
+/// cargo feature.
 pub fn save_to_disk(path: impl AsRef<Path>) -> impl FnMut(On<ScreenshotCaptured>) {
     let path = path.as_ref().to_owned();
     move |screenshot_captured| {
@@ -157,8 +160,13 @@ pub fn save_to_disk(path: impl AsRef<Path>) -> impl FnMut(On<ScreenshotCaptured>
                             ImageFormat::OpenExr => dyn_img,
                             ImageFormat::Hdr => {
                                 let mut rgb = dyn_img.into_rgb32f();
-                                // Radiance has an 8-bit exponent and `image`'s encoder does
-                                // not range-check.
+                                // `image`'s Radiance encoder stores one shared exponent byte per
+                                // pixel, computed as `floor(log2(max)) + 1` in `i32` and stored as
+                                // `(exp + 128) as u8`, with no range checks. An infinite channel
+                                // overflows the `i32` add, and a channel at or above 2^127 or below
+                                // 2^-128 wraps the exponent byte. Clamp to `0.0..=2^126`, and
+                                // replace NaN and values below `f32::MIN_POSITIVE` with zero, so
+                                // the encoder accepts every value.
                                 let max = bevy_math::ops::exp2(126.0);
                                 for value in rgb.iter_mut() {
                                     *value = value.clamp(0.0, max);
