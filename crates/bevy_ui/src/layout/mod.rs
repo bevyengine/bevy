@@ -2948,7 +2948,9 @@ mod tests {
 
         app.update();
 
-        app.world_mut().despawn(ghost);
+        let mut ghost_mut = app.world_mut().entity_mut(ghost);
+        ghost_mut.detach_all_children();
+        ghost_mut.despawn();
 
         app.update();
 
