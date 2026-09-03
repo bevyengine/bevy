@@ -531,7 +531,7 @@ impl ResolvedScene {
     }
 
     /// Returns an iterator over the [`ResolvedScene`]'s component templates.
-    pub fn component_templates(&self) -> impl Iterator<Item = &dyn ErasedComponentTemplate> {
+    pub fn component_templates(&self) -> impl Iterator<Item = &dyn ErasedTemplate> {
         self.component_templates.iter().map(|template| &**template)
     }
 
