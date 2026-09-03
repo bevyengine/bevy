@@ -1,9 +1,9 @@
 use super::{CubicSegment, RationalSegment};
-use crate::common_traits::{VectorSpace, WithDerivative, WithTwoDerivatives};
-use crate::curve::{
+use crate::{
     derivatives::{SampleDerivative, SampleTwoDerivatives},
     Curve, Interval,
 };
+use bevy_math::common_traits::{VectorSpace, WithDerivative, WithTwoDerivatives};
 
 #[cfg(feature = "alloc")]
 use super::{CubicCurve, RationalCurve};

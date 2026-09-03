@@ -12,28 +12,28 @@ use bevy_render::{
 };
 use bevy_shader::ShaderRef;
 use bevy_sprite::{
-    prelude::SpriteMesh, SliceScaleMode, SpriteAlphaMode, SpriteImageMode, SpriteScalingMode,
+    prelude::Sprite, SliceScaleMode, SpriteAlphaMode, SpriteImageMode, SpriteScalingMode,
 };
 
 use crate::{AlphaMode2d, Material2d, Material2dPlugin};
 use core::hash::Hash;
 
-pub struct SpriteMaterialPlugin;
+pub struct SpriteMeshMaterialPlugin;
 
-impl Plugin for SpriteMaterialPlugin {
+impl Plugin for SpriteMeshMaterialPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         embedded_asset!(app, "sprite_material.wesl");
 
-        app.add_plugins(Material2dPlugin::<SpriteMaterial>::default())
-            .register_asset_reflect::<SpriteMaterial>();
+        app.add_plugins(Material2dPlugin::<SpriteMeshMaterial>::default())
+            .register_asset_reflect::<SpriteMeshMaterial>();
     }
 }
 
 #[derive(Asset, AsBindGroup, Reflect, Debug, Clone, Default, PartialEq)]
 #[reflect(Debug, Clone)]
-#[data(0, SpriteMaterialUniform, binding_array(10))]
+#[data(0, SpriteMeshMaterialUniform, binding_array(10))]
 #[bindless(index_table(range(0..3)))]
-pub struct SpriteMaterial {
+pub struct SpriteMeshMaterial {
     #[texture(1)]
     #[sampler(2)]
     pub image: Handle<Image>,
@@ -53,7 +53,7 @@ pub struct SpriteMaterial {
 // NOTE: These must match the bit flags in bevy_sprite_render/src/sprite_mesh/sprite_materials.wgsl!
 bitflags::bitflags! {
     #[repr(transparent)]
-    pub struct SpriteMaterialFlags: u32 {
+    pub struct SpriteMeshMaterialFlags: u32 {
         const FLIP_X = 1;
         const FLIP_Y = 2;
         const TILE_X = 4;
@@ -70,13 +70,13 @@ bitflags::bitflags! {
     }
 }
 
-impl SpriteMaterialFlags {
+impl SpriteMeshMaterialFlags {
     const ALPHA_MODE_MASK_BITS: u32 = 0b11;
     const ALPHA_MODE_SHIFT_BITS: u32 = 32 - Self::ALPHA_MODE_MASK_BITS.count_ones();
 }
 
 #[derive(ShaderType, Default)]
-pub struct SpriteMaterialUniform {
+pub struct SpriteMeshMaterialUniform {
     pub color: Vec4,
     pub flags: u32,
     pub alpha_cutoff: f32,
@@ -95,31 +95,31 @@ pub struct SpriteMaterialUniform {
     pub center_stretch_value: Vec2,
 }
 
-impl AsBindGroupShaderType<SpriteMaterialUniform> for SpriteMaterial {
+impl AsBindGroupShaderType<SpriteMeshMaterialUniform> for SpriteMeshMaterial {
     fn as_bind_group_shader_type(
         &self,
         images: &RenderAssets<bevy_render::texture::GpuImage>,
-    ) -> SpriteMaterialUniform {
+    ) -> SpriteMeshMaterialUniform {
         let Some(image) = images.get(self.image.id()) else {
-            return SpriteMaterialUniform::default();
+            return SpriteMeshMaterialUniform::default();
         };
 
-        let mut flags = SpriteMaterialFlags::NONE;
+        let mut flags = SpriteMeshMaterialFlags::NONE;
         let mut alpha_cutoff = 0.5;
         match self.alpha_mode {
-            AlphaMode2d::Opaque => flags |= SpriteMaterialFlags::ALPHA_MODE_OPAQUE,
+            AlphaMode2d::Opaque => flags |= SpriteMeshMaterialFlags::ALPHA_MODE_OPAQUE,
             AlphaMode2d::Mask(c) => {
                 alpha_cutoff = c;
-                flags |= SpriteMaterialFlags::ALPHA_MODE_MASK;
+                flags |= SpriteMeshMaterialFlags::ALPHA_MODE_MASK;
             }
-            AlphaMode2d::Blend => flags |= SpriteMaterialFlags::ALPHA_MODE_BLEND,
+            AlphaMode2d::Blend => flags |= SpriteMeshMaterialFlags::ALPHA_MODE_BLEND,
         };
 
         if self.flip_x {
-            flags |= SpriteMaterialFlags::FLIP_X;
+            flags |= SpriteMeshMaterialFlags::FLIP_X;
         }
         if self.flip_y {
-            flags |= SpriteMaterialFlags::FLIP_Y;
+            flags |= SpriteMeshMaterialFlags::FLIP_Y;
         }
 
         let mut image_size = image.size_2d().as_vec2();
@@ -242,10 +242,10 @@ impl AsBindGroupShaderType<SpriteMaterialUniform> for SpriteMaterial {
                     stretch_value,
                 } => {
                     if *tile_x {
-                        flags |= SpriteMaterialFlags::TILE_X;
+                        flags |= SpriteMeshMaterialFlags::TILE_X;
                     }
                     if *tile_y {
-                        flags |= SpriteMaterialFlags::TILE_Y;
+                        flags |= SpriteMeshMaterialFlags::TILE_Y;
                     }
 
                     // This is the [0-1] x and y of where the UV should start repeating.
@@ -290,7 +290,7 @@ impl AsBindGroupShaderType<SpriteMaterialUniform> for SpriteMaterial {
 
         quad_offset -= quad_size * self.anchor;
 
-        SpriteMaterialUniform {
+        SpriteMeshMaterialUniform {
             color: self.color.to_linear().to_vec4(),
             flags: flags.bits(),
             alpha_cutoff,
@@ -309,7 +309,7 @@ impl AsBindGroupShaderType<SpriteMaterialUniform> for SpriteMaterial {
     }
 }
 
-impl Material2d for SpriteMaterial {
+impl Material2d for SpriteMeshMaterial {
     fn vertex_shader() -> ShaderRef {
         ShaderRef::Path(
             AssetPath::from_path_buf(embedded_path!("sprite_material.wesl"))
@@ -329,9 +329,9 @@ impl Material2d for SpriteMaterial {
     }
 }
 
-impl SpriteMaterial {
-    /// Use the [`SpriteMesh`] to build a new material.
-    pub fn from_sprite_mesh(sprite: SpriteMesh) -> Self {
+impl SpriteMeshMaterial {
+    /// Use the [`Sprite`] to build a new material.
+    pub fn from_sprite(sprite: Sprite) -> Self {
         // convert SpriteAlphaMode to AlphaMode2d.
         // (see the comment above SpriteAlphaMode for why these are different)
         let alpha_mode = match sprite.alpha_mode {
@@ -340,7 +340,7 @@ impl SpriteMaterial {
             SpriteAlphaMode::Mask(x) => AlphaMode2d::Mask(x),
         };
 
-        SpriteMaterial {
+        SpriteMeshMaterial {
             image: sprite.image,
             texture_atlas: sprite.texture_atlas,
             color: sprite.color,
