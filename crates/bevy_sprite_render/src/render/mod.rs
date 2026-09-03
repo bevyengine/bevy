@@ -1,8 +1,6 @@
 use core::ops::Range;
 
-use crate::ComputedTextureSlices;
-use bevy_asset::{load_embedded_asset, AssetEvent, AssetId, AssetServer, Assets, Handle};
-use bevy_camera::visibility::ViewVisibility;
+use bevy_asset::{load_embedded_asset, AssetEvent, AssetId, AssetServer, Handle};
 use bevy_color::{ColorToComponents, LinearRgba};
 use bevy_core_pipeline::{
     core_2d::{Transparent2d, CORE_2D_DEPTH_FORMAT},
