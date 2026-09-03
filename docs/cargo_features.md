@@ -31,7 +31,7 @@ By default, the `bevy` crate enables the  features.
 ### Collections
 
 "Collections" are mid-level groups of cargo features. These are used to compose the high-level "profiles". If the default profiles don't
-suit your use case (ex: you want to use a custom renderer, you want to build a "headless" app, you want to target no_std, etc), then you can use these
+suit your use case (ex: you want to use a custom renderer, you want to build a "headless" app, you want to target `no_std`, etc), then you can use these
 collections to build your own "profile" equivalent, without needing to manually manage _every single_ feature.
 
 |Collection|Description|
@@ -43,14 +43,14 @@ collections to build your own "profile" equivalent, without needing to manually 
 |picking|Enables picking with all backends. **Feature set:** `bevy_picking`, `mesh_picking`, `sprite_picking`, `ui_picking`.|
 |default_app|The core pieces that most apps need. This serves as a baseline feature set for other higher level feature collections (such as "2d" and "3d"). It is also useful as a baseline feature set for scenarios like headless apps that require no rendering (ex: command line tools, servers, etc). **Feature set:** `async_executor`, `bevy_asset`, `bevy_log`, `bevy_state`, `reflect_auto_register`.|
 |default_platform|These are platform support features, such as OS support/features, windowing and input backends, etc. **Feature set:** `std`, `bevy_gilrs`, `bevy_winit`, `bevy_clipboard`, `default_font`, `multi_threaded`, `webgl2`, `x11`, `wayland`, `custom_cursor`, `sysinfo_plugin`.|
-|common_api|Default scene definition features. Note that this does not include an actual renderer, such as bevy_render (Bevy's default render backend). **Feature set:** `bevy_animation`, `bevy_camera`, `bevy_color`, `bevy_gizmos`, `bevy_image`, `bevy_mesh`, `bevy_shader`, `bevy_material`, `bevy_text`, `bevy_window`, `hdr`, `png`.|
+|common_api|Default scene definition features. Note that this does not include an actual renderer, such as bevy_render (Bevy's default render backend). **Feature set:** `bevy_animation`, `bevy_camera`, `bevy_color`, `bevy_curve`, `bevy_gizmos`, `bevy_image`, `bevy_mesh`, `bevy_shader`, `bevy_material`, `bevy_text`, `bevy_window`, `hdr`, `png`.|
 |2d_api|Features used to build 2D Bevy apps (does not include a render backend). You generally don't need to worry about this unless you are using a custom renderer. **Feature set:** `common_api`, `bevy_sprite`.|
 |2d_bevy_render|Bevy's built-in 2D renderer, built on top of `bevy_render`. **Feature set:** `2d_api`, `bevy_render`, `bevy_core_pipeline`, `bevy_post_process`, `bevy_sprite_render`, `bevy_gizmos_render`.|
 |3d_api|Features used to build 3D Bevy apps (does not include a render backend). You generally don't need to worry about this unless you are using a custom renderer. **Feature set:** `common_api`, `bevy_light`, `bevy_mikktspace`, `ktx2`, `morph_animation`, `morph`, `smaa_luts`, `tonemapping_luts`, `zstd_rust`.|
 |3d_bevy_render|Bevy's built-in 3D renderer, built on top of `bevy_render`. **Feature set:** `3d_api`, `bevy_render`, `bevy_core_pipeline`, `bevy_gizmos_render`, `bevy_anti_alias`, `bevy_gltf`, `bevy_pbr`, `bevy_post_process`, `gltf_animation`.|
 |ui_api|Features used to build UI Bevy apps (does not include a render backend). You generally don't need to worry about this unless you are using a custom renderer. **Feature set:** `default_app`, `common_api`, `bevy_input_focus`, `bevy_ui`.|
 |ui_bevy_render|Bevy's built-in UI renderer, built on top of `bevy_render`. **Feature set:** `ui_api`, `bevy_render`, `bevy_core_pipeline`, `bevy_ui_render`.|
-|default_no_std|Recommended defaults for no_std applications. **Feature set:** `libm`, `critical-section`, `bevy_color`, `bevy_state`.|
+|default_no_std|Recommended defaults for `no_std` applications. **Feature set:** `libm`, `critical-section`, `bevy_color`, `bevy_state`.|
 
 ### Feature List
 
@@ -68,7 +68,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |async_executor|Uses `async-executor` as a task execution backend.|
 |basis-universal|Basis Universal compressed texture support|
 |bevy_animation|Provides animation functionality|
-|bevy_anti_alias|Provides various anti aliasing solutions|
+|bevy_anti_alias|Provides various anti-aliasing solutions|
 |bevy_asset|Provides asset functionality|
 |bevy_audio|Provides audio functionality|
 |bevy_camera|Provides camera and visibility types, as well as culling primitives.|
@@ -77,8 +77,10 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |bevy_clipboard|Clipboard resource and management. See `system_clipboard` for OS-integrated clipboard support.|
 |bevy_color|Provides shared color types and operations|
 |bevy_core_pipeline|Provides cameras and other basic render pipeline features|
+|bevy_curve|Provides mathematical curve functionality|
 |bevy_debug_stepping|Enable stepping-based debugging of Bevy systems|
 |bevy_dev_tools|Provides a collection of developer tools|
+|bevy_extract|Provides the ability to extract entities from an ECS main world to a sub world|
 |bevy_feathers|Feathers widget collection.|
 |bevy_gilrs|Adds gamepad support|
 |bevy_gizmos|Adds support for gizmos|
@@ -97,7 +99,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |bevy_remote|Enable the Bevy Remote Protocol|
 |bevy_render|Provides rendering functionality|
 |bevy_scene|Provides scene functionality|
-|bevy_settings|Load and save user preferences|
+|bevy_settings|Load and save settings|
 |bevy_shader|Provides shaders usable through asset handles.|
 |bevy_solari|Provides raytraced lighting (experimental)|
 |bevy_sprite|Provides sprite functionality|
@@ -105,7 +107,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |bevy_state|Enable built in global state machines|
 |bevy_text|Provides text functionality|
 |bevy_ui|A custom ECS-driven UI framework|
-|bevy_ui_debug|Provides a debug overlay for bevy UI|
+|bevy_ui_debug|Provides a debug overlay for Bevy UI|
 |bevy_ui_render|Provides rendering functionality for bevy_ui|
 |bevy_ui_widgets|Headless widget collection for Bevy UI.|
 |bevy_window|Windowing layer|
@@ -114,7 +116,8 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |bluenoise_texture|Include spatio-temporal blue noise KTX2 file used by generated environment maps, Solari and atmosphere|
 |bmp|BMP image format support|
 |clipboard_image|Enables image copy/paste via the system clipboard. Not supported on WASM.|
-|compressed_image_saver|Enables compressed KTX2 UASTC texture output on the asset processor|
+|compressed_image_saver|Texture compression asset processor (BCn for desktop, ASTC for mobile via env var)|
+|compressed_image_saver_universal|Texture compression asset processor (cross-platform, transcodes to any GPU format at load time)|
 |critical-section|`critical-section` provides the building blocks for synchronization primitives on all platforms, including `no_std`.|
 |custom_cursor|Enable winit custom cursor support|
 |dds|DDS compressed texture support|
@@ -131,7 +134,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |ff|Farbfeld image format support|
 |file_watcher|Enables watching the filesystem for Bevy Asset hot-reloading|
 |flac|FLAC audio format support (through `claxon`)|
-|force_disable_dlss|Forcibly disable DLSS so that cargo build --all-features works without the DLSS SDK being installed. Not meant for users.|
+|force_disable_dlss|Forcibly disable DLSS so that `cargo build --all-features` works without the DLSS SDK being installed. Not meant for users.|
 |free_camera|Enables the free cam from bevy_camera_controller|
 |gamepad|Gamepad support. Automatically enabled by `bevy_gilrs`.|
 |gestures|Gestures support. Automatically enabled by `bevy_window`.|
@@ -150,7 +153,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |libm|Uses the `libm` maths library instead of the one provided in `std` and `core`.|
 |mesh_picking|Provides an implementation for picking meshes|
 |meshlet|Enables the meshlet renderer for dense high-poly scenes (experimental)|
-|meshlet_processor|Enables processing meshes into meshlet meshes for bevy_pbr|
+|meshlet_processor|Enables processing meshes into meshlet meshes for `bevy_pbr`|
 |morph|Enables support for morph target weights in bevy_mesh|
 |morph_animation|Enables bevy_mesh and bevy_animation morph weight support|
 |mouse|Mouse support. Automatically enabled by `bevy_window`.|
@@ -158,6 +161,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |mp4|MP4 audio format support (through `symphonia`). It also enables AAC support.|
 |multi_threaded|Enables multithreaded parallelism in the engine. Disabling it forces all engine tasks to run on a single thread.|
 |pan_camera|Enables the pan camera from bevy_camera_controller|
+|pan_orbit_camera|Enables the pan orbit camera from bevy_camera_controller|
 |pbr_anisotropy_texture|Enable support for anisotropy texture in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs|
 |pbr_clustered_decals|Enable support for Clustered Decals|
 |pbr_light_textures|Enable support for Light Textures|
@@ -170,13 +174,11 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |raw_vulkan_init|Forces the wgpu instance to be initialized using the raw Vulkan HAL, enabling additional configuration|
 |reflect_auto_register|Enable automatic reflect registration|
 |reflect_auto_register_static|Enable automatic reflect registration without inventory. See `reflect::load_type_registrations` for more info.|
-|reflect_documentation|Enables bevy_reflect to access documentation comments of rust code at runtime|
+|reflect_documentation|Enables `bevy_reflect` to access documentation comments of Rust code at runtime|
 |reflect_functions|Enable function reflection|
 |schedule_data|Enable collecting schedule data from the app.|
 |serialize|Enable serialization support through serde|
-|shader_format_glsl|Enable support for shaders in GLSL|
 |shader_format_spirv|Enable support for shaders in SPIR-V|
-|shader_format_wesl|Enable support for shaders in WESL|
 |smaa_luts|Include SMAA Look Up Tables KTX2 Files|
 |spirv_shader_passthrough|Enable passthrough loading for SPIR-V shaders (Only supported on Vulkan, shader capabilities and extensions must agree with the platform implementation)|
 |sprite_picking|Provides an implementation for picking sprites|
@@ -210,4 +212,4 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |x11|X11 display server support|
 |zlib|For KTX2 supercompression|
 |zstd_c|For KTX2 Zstandard decompression using [zstd](https://crates.io/crates/zstd). This is a faster backend, but uses unsafe C bindings. For the safe option, stick to the default backend with "zstd_rust".|
-|zstd_rust|For KTX2 Zstandard decompression using pure rust [ruzstd](https://crates.io/crates/ruzstd). This is the safe default. For maximum performance, use "zstd_c".|
+|zstd_rust|For KTX2 Zstandard decompression using pure Rust [ruzstd](https://crates.io/crates/ruzstd). This is the safe default. For maximum performance, use "zstd_c".|

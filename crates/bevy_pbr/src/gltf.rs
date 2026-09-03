@@ -70,6 +70,10 @@ pub fn standard_material_from_gltf_material(material: &GltfMaterial) -> Standard
         #[cfg(feature = "pbr_specular_textures")]
         specular_tint_texture: material.specular_tint_texture.clone(),
         clearcoat: material.clearcoat,
+        #[cfg(feature = "pbr_multi_layer_material_textures")]
+        clearcoat_channel: material.clearcoat_channel.clone(),
+        #[cfg(feature = "pbr_multi_layer_material_textures")]
+        clearcoat_texture: material.clearcoat_texture.clone(),
         clearcoat_perceptual_roughness: material.clearcoat_perceptual_roughness,
         #[cfg(feature = "pbr_multi_layer_material_textures")]
         clearcoat_roughness_channel: material.clearcoat_roughness_channel.clone(),

@@ -15,6 +15,7 @@ use bevy_asset::{
 use bevy_ecs::prelude::*;
 use bevy_scene::{prelude::*, ScenePatch};
 use bevy_ui::prelude::*;
+use bevy_ui_widgets::Button;
 
 criterion_group!(benches, spawn);
 
@@ -193,16 +194,16 @@ fn ui() -> impl Scene {
     bsn! {
         Node
         Children [
-            (:button Node { width: Val::Px(200.) }),
-            (:button Node { width: Val::Px(200.) }),
-            (:button Node { width: Val::Px(200.) }),
-            (:button Node { width: Val::Px(200.) }),
-            (:button Node { width: Val::Px(200.) }),
-            (:button Node { width: Val::Px(200.) }),
-            (:button Node { width: Val::Px(200.) }),
-            (:button Node { width: Val::Px(200.) }),
-            (:button Node { width: Val::Px(200.) }),
-            (:button Node { width: Val::Px(200.) }),
+            (@button() Node { width: Val::Px(200.) }),
+            (@button() Node { width: Val::Px(200.) }),
+            (@button() Node { width: Val::Px(200.) }),
+            (@button() Node { width: Val::Px(200.) }),
+            (@button() Node { width: Val::Px(200.) }),
+            (@button() Node { width: Val::Px(200.) }),
+            (@button() Node { width: Val::Px(200.) }),
+            (@button() Node { width: Val::Px(200.) }),
+            (@button() Node { width: Val::Px(200.) }),
+            (@button() Node { width: Val::Px(200.) }),
         ]
     }
 }

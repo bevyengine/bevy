@@ -1,5 +1,5 @@
 use crate::{
-    change_detection::{traits::*, ComponentTickCells, MaybeLocation, Tick},
+    change_detection::{traits::*, AtomicTick, ComponentTickCells, MaybeLocation, Tick},
     component::Mutable,
     ptr::PtrMut,
     resource::Resource,
@@ -7,7 +7,7 @@ use crate::{
 use bevy_ptr::{Ptr, ThinSlicePtr, UnsafeCellDeref};
 use core::{
     cell::UnsafeCell,
-    ops::{Deref, DerefMut},
+    ops::{Deref, DerefMut, Range},
     panic::Location,
 };
 
@@ -57,17 +57,21 @@ pub struct ContiguousComponentTicksRef<'w> {
     pub(crate) changed_by: MaybeLocation<&'w [&'static Location<'static>]>,
     pub(crate) last_run: Tick,
     pub(crate) this_run: Tick,
+    pub(crate) summary_tick: Option<&'w AtomicTick>,
 }
 
 impl<'w> ContiguousComponentTicksRef<'w> {
     /// # Safety
     /// - The caller must have permission for all given ticks to be read.
     /// - `len` must be the length of `added`, `changed` and `changed_by` (unless none) slices.
+    /// - `range` must specify an in-bounds slice of the table rows.
+    /// - `range.start` must be less than or equal to `range.end`.
     pub(crate) unsafe fn from_slice_ptrs(
         added: ThinSlicePtr<'w, UnsafeCell<Tick>>,
         changed: ThinSlicePtr<'w, UnsafeCell<Tick>>,
+        summary_tick: Option<&'w AtomicTick>,
         changed_by: MaybeLocation<ThinSlicePtr<'w, UnsafeCell<&'static Location<'static>>>>,
-        len: usize,
+        range: Range<usize>,
         this_run: Tick,
         last_run: Tick,
     ) -> Self {
@@ -75,11 +79,16 @@ impl<'w> ContiguousComponentTicksRef<'w> {
             // SAFETY:
             // - The caller ensures that `len` is the length of the slice.
             // - The caller ensures we have permission to read the data.
-            added: unsafe { added.cast().as_slice_unchecked(len) },
+            // - The caller ensures that `range` specifies an in-bounds slice of
+            //   the table rows.
+            // - The caller ensures that `range.start` is less than or equal to
+            //   `range.end`.
+            added: unsafe { added.cast().slice_unchecked(range.clone()) },
             // SAFETY: see above.
-            changed: unsafe { changed.cast().as_slice_unchecked(len) },
+            changed: unsafe { changed.cast().slice_unchecked(range.clone()) },
+            summary_tick,
             // SAFETY: see above.
-            changed_by: changed_by.map(|v| unsafe { v.cast().as_slice_unchecked(len) }),
+            changed_by: changed_by.map(|v| unsafe { v.cast().slice_unchecked(range) }),
             last_run,
             this_run,
         }
@@ -100,6 +109,7 @@ impl<'w> ContiguousComponentTicksRef<'w> {
     pub fn new(
         added: &'w [Tick],
         changed: &'w [Tick],
+        summary_tick: Option<&'w AtomicTick>,
         last_run: Tick,
         this_run: Tick,
         caller: MaybeLocation<&'w [&'static Location<'static>]>,
@@ -112,6 +122,7 @@ impl<'w> ContiguousComponentTicksRef<'w> {
         eq.then_some(Self {
             added,
             changed,
+            summary_tick,
             changed_by: caller,
             last_run,
             this_run,
@@ -196,6 +207,37 @@ impl<'w> ContiguousComponentTicksRef<'w> {
             .iter()
             .map(|v| v.is_newer_than(self.last_run, self.this_run))
     }
+
+    /// Narrows the range of rows that this set of ticks represents.
+    ///
+    /// If the range is out of range, this method will panic.
+    pub fn slice(self, range: Range<u32>) -> Self {
+        Self {
+            added: &self.added[(range.start as usize)..(range.end as usize)],
+            changed: &self.changed[(range.start as usize)..(range.end as usize)],
+            changed_by: self
+                .changed_by
+                .map(|changed_by| &changed_by[(range.start as usize)..(range.end as usize)]),
+            last_run: self.last_run,
+            this_run: self.this_run,
+            summary_tick: self.summary_tick,
+        }
+    }
+
+    /// Returns `Some(true)` if this component has a summary tick and any
+    /// component in this column may have been changed since the last time the
+    /// associated query ran.
+    ///
+    /// If the component has no summary tick, this method returns `None`. If
+    /// there is a summary tick, but there has been no change since the last
+    /// time the query ran, this method returns `Some(false)`.
+    pub fn summary_tick_is_changed(&self) -> Option<bool> {
+        self.summary_tick.map(|summary_tick| {
+            summary_tick
+                .get()
+                .is_newer_than(self.last_run, self.this_run)
+        })
+    }
 }
 
 /// Used by mutable query parameters (such as [`Mut`] and [`ResMut`])
@@ -206,6 +248,9 @@ pub(crate) struct ComponentTicksMut<'w> {
     pub(crate) changed_by: MaybeLocation<&'w mut &'static Location<'static>>,
     pub(crate) last_run: Tick,
     pub(crate) this_run: Tick,
+    /// A reference to the summary tick for the component, if the component is
+    /// dense and has a summary tick.
+    pub(crate) summary_tick: Option<&'w AtomicTick>,
 }
 
 impl<'w> ComponentTicksMut<'w> {
@@ -226,6 +271,7 @@ impl<'w> ComponentTicksMut<'w> {
             changed_by: unsafe { cells.changed_by.map(|changed_by| changed_by.deref_mut()) },
             last_run,
             this_run,
+            summary_tick: cells.summary_tick,
         }
     }
 }
@@ -254,17 +300,21 @@ pub struct ContiguousComponentTicksMut<'w> {
     pub(crate) changed_by: MaybeLocation<&'w mut [&'static Location<'static>]>,
     pub(crate) last_run: Tick,
     pub(crate) this_run: Tick,
+    pub(crate) summary_tick: Option<&'w AtomicTick>,
 }
 
 impl<'w> ContiguousComponentTicksMut<'w> {
     /// # Safety
     /// - The caller must have permission to use all given ticks to be mutated.
     /// - `len` must be the length of `added`, `changed` and `changed_by` (unless none) slices.
+    /// - `range` must specify an in-bounds slice of the table rows.
+    /// - `range.start` must be less than or equal to `range.end`.
     pub(crate) unsafe fn from_slice_ptrs(
         added: ThinSlicePtr<'w, UnsafeCell<Tick>>,
         changed: ThinSlicePtr<'w, UnsafeCell<Tick>>,
+        summary_tick: Option<&'w AtomicTick>,
         changed_by: MaybeLocation<ThinSlicePtr<'w, UnsafeCell<&'static Location<'static>>>>,
-        len: usize,
+        range: Range<usize>,
         this_run: Tick,
         last_run: Tick,
     ) -> Self {
@@ -272,11 +322,16 @@ impl<'w> ContiguousComponentTicksMut<'w> {
             // SAFETY:
             // - The caller ensures that `len` is the length of the slice.
             // - The caller ensures we have permission to mutate the data.
-            added: unsafe { added.as_mut_slice_unchecked(len) },
+            // - The caller ensures that `range` specifies an in-bounds slice of
+            //   the table rows.
+            // - The caller ensures that `range.start` is less than or equal to
+            //   `range.end`.
+            added: unsafe { added.slice_mut_unchecked(range.clone()) },
             // SAFETY: see above.
-            changed: unsafe { changed.as_mut_slice_unchecked(len) },
+            changed: unsafe { changed.slice_mut_unchecked(range.clone()) },
+            summary_tick,
             // SAFETY: see above.
-            changed_by: changed_by.map(|v| unsafe { v.as_mut_slice_unchecked(len) }),
+            changed_by: changed_by.map(|v| unsafe { v.slice_mut_unchecked(range) }),
             last_run,
             this_run,
         }
@@ -297,6 +352,7 @@ impl<'w> ContiguousComponentTicksMut<'w> {
     pub fn new(
         added: &'w mut [Tick],
         changed: &'w mut [Tick],
+        summary_tick: Option<&'w AtomicTick>,
         last_run: Tick,
         this_run: Tick,
         caller: MaybeLocation<&'w mut [&'static Location<'static>]>,
@@ -310,6 +366,7 @@ impl<'w> ContiguousComponentTicksMut<'w> {
         eq.then_some(Self {
             added,
             changed,
+            summary_tick,
             changed_by: caller,
             last_run,
             this_run,
@@ -423,6 +480,10 @@ impl<'w> ContiguousComponentTicksMut<'w> {
         for t in self.changed.iter_mut() {
             *t = this_run;
         }
+
+        if let Some(summary_tick) = self.summary_tick {
+            summary_tick.set(this_run);
+        }
     }
 
     /// Returns a `ContiguousComponentTicksMut` with a smaller lifetime.
@@ -430,7 +491,24 @@ impl<'w> ContiguousComponentTicksMut<'w> {
         ContiguousComponentTicksMut {
             added: self.added,
             changed: self.changed,
+            summary_tick: self.summary_tick,
             changed_by: self.changed_by.as_deref_mut(),
+            last_run: self.last_run,
+            this_run: self.this_run,
+        }
+    }
+
+    /// Narrows the range of rows that this set of ticks represents.
+    ///
+    /// If the range is out of range, this method will panic.
+    pub fn slice(self, range: Range<u32>) -> Self {
+        ContiguousComponentTicksMut {
+            added: &mut self.added[(range.start as usize)..(range.end as usize)],
+            changed: &mut self.changed[(range.start as usize)..(range.end as usize)],
+            summary_tick: self.summary_tick,
+            changed_by: self
+                .changed_by
+                .map(|changed_by| &mut changed_by[(range.start as usize)..(range.end as usize)]),
             last_run: self.last_run,
             this_run: self.this_run,
         }
@@ -442,6 +520,7 @@ impl<'w> From<ContiguousComponentTicksMut<'w>> for ContiguousComponentTicksRef<'
         Self {
             added: value.added,
             changed: value.changed,
+            summary_tick: value.summary_tick,
             changed_by: value.changed_by.map(|v| &*v),
             last_run: value.last_run,
             this_run: value.this_run,
@@ -798,6 +877,9 @@ impl<'w, T> ContiguousRef<'w, T> {
     /// - `value` - The values wrapped by `ContiguousRef`.
     /// - `added` - [`Tick`]s that store the tick when the wrapped value was created.
     /// - `changed` - [`Tick`]s that store the last time the wrapped value was changed.
+    /// - `summary_tick` - A [`Tick`] that stores the most recent changed
+    ///   timestamp that was written to any component instance in the column.
+    ///   "Most recent" refers to the wall clock.
     /// - `last_run` - A [`Tick`], occurring before `this_run`, which is used
     ///   as a reference to determine whether the wrapped value is newly added or changed.
     /// - `this_run` - A [`Tick`] corresponding to the current point in time -- "now".
@@ -806,12 +888,22 @@ impl<'w, T> ContiguousRef<'w, T> {
         value: &'w [T],
         added: &'w [Tick],
         changed: &'w [Tick],
+        summary_tick: Option<&'w AtomicTick>,
         last_run: Tick,
         this_run: Tick,
         caller: MaybeLocation<&'w [&'static Location<'static>]>,
     ) -> Option<Self> {
         (value.len() == added.len())
-            .then(|| ContiguousComponentTicksRef::new(added, changed, last_run, this_run, caller))
+            .then(|| {
+                ContiguousComponentTicksRef::new(
+                    added,
+                    changed,
+                    summary_tick,
+                    last_run,
+                    this_run,
+                    caller,
+                )
+            })
             .flatten()
             .map(|ticks| Self { value, ticks })
     }
@@ -828,6 +920,16 @@ impl<'w, T> ContiguousRef<'w, T> {
     /// `ticks` and `value` come from the same [`Self::split`] call.
     pub fn from_parts(value: &'w [T], ticks: ContiguousComponentTicksRef<'w>) -> Option<Self> {
         (value.len() == ticks.changed.len()).then_some(Self { value, ticks })
+    }
+
+    /// Narrows the set of rows that this [`ContiguousRef`] represents.
+    ///
+    /// If the given `range` is out of bounds, this method will panic.
+    pub fn slice(self, range: Range<u32>) -> Self {
+        Self {
+            value: &self.value[(range.start as usize)..(range.end as usize)],
+            ticks: self.ticks.slice(range),
+        }
     }
 }
 
@@ -931,6 +1033,9 @@ impl<'w, T: ?Sized> Mut<'w, T> {
     /// - `last_changed` - A [`Tick`] that stores the last time the wrapped value was changed.
     ///   This will be updated to the value of `change_tick` if the returned smart pointer
     ///   is modified.
+    /// - `summary_tick` - A [`Tick`] that stores the most recent changed
+    ///   timestamp that was written to any component instance in the column.
+    ///   "Most recent" refers to the wall clock.
     /// - `last_run` - A [`Tick`], occurring before `this_run`, which is used
     ///   as a reference to determine whether the wrapped value is newly added or changed.
     /// - `this_run` - A [`Tick`] corresponding to the current point in time -- "now".
@@ -938,6 +1043,7 @@ impl<'w, T: ?Sized> Mut<'w, T> {
         value: &'w mut T,
         added: &'w mut Tick,
         last_changed: &'w mut Tick,
+        summary_tick: Option<&'w AtomicTick>,
         last_run: Tick,
         this_run: Tick,
         caller: MaybeLocation<&'w mut &'static Location<'static>>,
@@ -950,6 +1056,7 @@ impl<'w, T: ?Sized> Mut<'w, T> {
                 changed_by: caller,
                 last_run,
                 this_run,
+                summary_tick,
             },
         }
     }
@@ -1054,6 +1161,9 @@ impl<'w, T> ContiguousMut<'w, T> {
     /// - `value` - The values wrapped by `ContiguousMut`.
     /// - `added` - [`Tick`]s that store the tick when the wrapped value was created.
     /// - `changed` - [`Tick`]s that store the last time the wrapped value was changed.
+    /// - `summary_tick` - A [`Tick`] that stores the most recent changed
+    ///   timestamp that was written to any component instance in the column.
+    ///   "Most recent" refers to the wall clock.
     /// - `last_run` - A [`Tick`], occurring before `this_run`, which is used
     ///   as a reference to determine whether the wrapped value is newly added or changed.
     /// - `this_run` - A [`Tick`] corresponding to the current point in time -- "now".
@@ -1062,12 +1172,22 @@ impl<'w, T> ContiguousMut<'w, T> {
         value: &'w mut [T],
         added: &'w mut [Tick],
         changed: &'w mut [Tick],
+        summary_tick: Option<&'w AtomicTick>,
         last_run: Tick,
         this_run: Tick,
         caller: MaybeLocation<&'w mut [&'static Location<'static>]>,
     ) -> Option<Self> {
         (value.len() == added.len())
-            .then(|| ContiguousComponentTicksMut::new(added, changed, last_run, this_run, caller))
+            .then(|| {
+                ContiguousComponentTicksMut::new(
+                    added,
+                    changed,
+                    summary_tick,
+                    last_run,
+                    this_run,
+                    caller,
+                )
+            })
             .flatten()
             .map(|ticks| Self { value, ticks })
     }
@@ -1127,6 +1247,16 @@ impl<'w, T> ContiguousMut<'w, T> {
     /// `ticks` and `value` come from the same [`Self::split`] or [`Self::bypass_change_detection_split`] call.
     pub fn from_parts(value: &'w mut [T], ticks: ContiguousComponentTicksMut<'w>) -> Option<Self> {
         (value.len() == ticks.changed.len()).then_some(Self { value, ticks })
+    }
+
+    /// Narrows the range of rows that this [`ContiguousMut`] represents.
+    ///
+    /// If the given `range` is out of bounds, this method will panic.
+    pub fn slice(self, range: Range<u32>) -> Self {
+        Self {
+            value: &mut self.value[(range.start as usize)..(range.end as usize)],
+            ticks: self.ticks.slice(range),
+        }
     }
 }
 
@@ -1261,6 +1391,7 @@ impl<'w> MutUntyped<'w> {
                 changed_by: self.ticks.changed_by.as_deref_mut(),
                 last_run: self.ticks.last_run,
                 this_run: self.ticks.this_run,
+                summary_tick: self.ticks.summary_tick,
             },
         }
     }
@@ -1362,6 +1493,16 @@ impl<'w> DetectChanges for MutUntyped<'w> {
     #[inline]
     fn added(&self) -> Tick {
         *self.ticks.added
+    }
+
+    #[inline]
+    fn this_run(&self) -> Tick {
+        self.ticks.this_run
+    }
+
+    #[inline]
+    fn last_run(&self) -> Tick {
+        self.ticks.last_run
     }
 }
 

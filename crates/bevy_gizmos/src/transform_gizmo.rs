@@ -29,8 +29,9 @@ use bevy_ecs::{
     system::{Local, Query, Res, ResMut, Single},
 };
 use bevy_input::{mouse::MouseButton, ButtonInput};
-use bevy_math::{Quat, Ray3d, Vec2, Vec3};
+use bevy_math::{Quat, Vec2, Vec3};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_shape::Ray3d;
 use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_transform::TransformSystems;
 use bevy_window::{CursorGrabMode, CursorOptions, PrimaryWindow, Window};
@@ -156,6 +157,8 @@ pub struct TransformGizmoSettings {
     pub confine_cursor: bool,
     /// Screen-space scale factor. Set to 0.0 to disable constant-size behavior.
     pub screen_scale_factor: f32,
+    /// Controls how fast objects change scale when the scale handle is used.
+    pub scale_sensitivity: f32,
 }
 
 impl Default for TransformGizmoSettings {
@@ -171,6 +174,7 @@ impl Default for TransformGizmoSettings {
             snap_scale: None,
             confine_cursor: true,
             screen_scale_factor: 0.1,
+            scale_sensitivity: 1.0,
         }
     }
 }
@@ -385,7 +389,13 @@ fn transform_gizmo_hover(
                 VIEW_RING_MAJOR * scale,
             )
         }
-        TransformGizmoMode::Scale => f32::MAX, // no view handle for scale
+        TransformGizmoMode::Scale => {
+            if let Ok(center_screen) = camera.world_to_viewport(cam_tf, gizmo_pos) {
+                (cursor_pos - center_screen).length()
+            } else {
+                f32::MAX
+            }
+        }
     };
 
     if view_dist < threshold && view_dist < best_dist {
@@ -429,7 +439,7 @@ fn transform_gizmo_drag(
             };
 
             let drag_start_world = match settings.mode {
-                TransformGizmoMode::Translate => {
+                TransformGizmoMode::Translate | TransformGizmoMode::Scale => {
                     if axis == TransformGizmoAxis::View {
                         // View-plane translate: use camera forward as normal
                         let plane_normal = cam_tf.forward().as_vec3();
@@ -447,14 +457,6 @@ fn transform_gizmo_drag(
                         let cursor_vec = intersection - gizmo_pos;
                         cursor_vec.dot(axis_dir.normalize()) * axis_dir.normalize() + gizmo_pos
                     }
-                }
-                TransformGizmoMode::Scale => {
-                    let plane_normal = translation_plane_normal(ray, axis_dir);
-                    let Some(intersection) = intersect_plane(ray, plane_normal, gizmo_pos) else {
-                        return;
-                    };
-                    let cursor_vec = intersection - gizmo_pos;
-                    cursor_vec.dot(axis_dir.normalize()) * axis_dir.normalize() + gizmo_pos
                 }
                 TransformGizmoMode::Rotate => {
                     let rot_axis = if axis == TransformGizmoAxis::View {
@@ -535,12 +537,12 @@ fn transform_gizmo_drag(
                     let new_projected = cursor_vec.dot(axis_norm) * axis_norm + gizmo_origin;
                     let delta = new_projected - state.drag_start_world;
 
-                    let new_pos = state.start_transform.translation + delta;
                     transform.translation = match settings.snap_translate {
                         Some(inc) => {
-                            snap_axis(new_pos, state.start_transform.translation, axis, inc)
+                            state.start_transform.translation
+                                + axis_norm * snap_value(delta.dot(axis_norm), inc)
                         }
-                        None => new_pos,
+                        None => state.start_transform.translation + delta,
                     };
                 }
             }
@@ -567,18 +569,38 @@ fn transform_gizmo_drag(
                 transform.rotation = rotation_delta * state.start_transform.rotation;
             }
             TransformGizmoMode::Scale => {
-                let plane_normal = translation_plane_normal(ray, axis_dir);
+                let (plane_normal, projection_dir) = if axis == TransformGizmoAxis::View {
+                    let start_vec = state.drag_start_world - gizmo_origin;
+                    let len = start_vec.length();
+                    if len <= f32::EPSILON {
+                        return;
+                    }
+                    (cam_tf.forward().as_vec3(), start_vec / len)
+                } else {
+                    (
+                        translation_plane_normal(ray, axis_dir),
+                        axis_dir.normalize(),
+                    )
+                };
                 let Some(intersection) = intersect_plane(ray, plane_normal, gizmo_origin) else {
                     return;
                 };
-                let axis_norm = axis_dir.normalize();
-                let cursor_projected = (intersection - gizmo_origin).dot(axis_norm);
-                let start_projected = (state.drag_start_world - gizmo_origin).dot(axis_norm);
+                let cursor_projected = (intersection - gizmo_origin).dot(projection_dir);
+                let start_projected = (state.drag_start_world - gizmo_origin).dot(projection_dir);
 
-                let scale_factor = if start_projected.abs() > f32::EPSILON {
-                    cursor_projected / start_projected
-                } else {
-                    1.0
+                let scale_factor = match axis {
+                    TransformGizmoAxis::X | TransformGizmoAxis::Y | TransformGizmoAxis::Z => {
+                        if start_projected.abs() > f32::EPSILON {
+                            let ratio = cursor_projected / start_projected;
+                            1.0 + (ratio - 1.0) * settings.scale_sensitivity
+                        } else {
+                            1.0
+                        }
+                    }
+                    TransformGizmoAxis::View => {
+                        let delta = cursor_projected - start_projected;
+                        bevy_math::ops::exp(delta * settings.scale_sensitivity)
+                    }
                 };
 
                 let mut new_scale = state.start_transform.scale;
@@ -602,11 +624,18 @@ fn transform_gizmo_drag(
                     Some(inc) => {
                         let mut snapped = state.start_transform.scale;
                         match axis {
-                            TransformGizmoAxis::X => snapped.x = snap_value(new_scale.x, inc),
-                            TransformGizmoAxis::Y => snapped.y = snap_value(new_scale.y, inc),
-                            TransformGizmoAxis::Z => snapped.z = snap_value(new_scale.z, inc),
+                            TransformGizmoAxis::X => {
+                                snapped.x = snap_value(new_scale.x, inc).max(inc);
+                            }
+                            TransformGizmoAxis::Y => {
+                                snapped.y = snap_value(new_scale.y, inc).max(inc);
+                            }
+                            TransformGizmoAxis::Z => {
+                                snapped.z = snap_value(new_scale.z, inc).max(inc);
+                            }
                             TransformGizmoAxis::View => {
                                 snapped = Vec3::splat(snap_value(new_scale.x, inc));
+                                snapped = snapped.max(Vec3::splat(inc));
                             }
                         }
                         snapped
@@ -744,27 +773,4 @@ pub fn gizmo_rotation(global_tf: &GlobalTransform, space: &TransformGizmoSpace) 
 
 fn snap_value(value: f32, increment: f32) -> f32 {
     (value / increment).round() * increment
-}
-
-/// Snap only the component along the dragged axis, leaving others unchanged.
-fn snap_axis(position: Vec3, original: Vec3, axis: TransformGizmoAxis, increment: f32) -> Vec3 {
-    match axis {
-        TransformGizmoAxis::X => {
-            Vec3::new(snap_value(position.x, increment), original.y, original.z)
-        }
-        TransformGizmoAxis::Y => {
-            Vec3::new(original.x, snap_value(position.y, increment), original.z)
-        }
-        TransformGizmoAxis::Z => {
-            Vec3::new(original.x, original.y, snap_value(position.z, increment))
-        }
-        TransformGizmoAxis::View => {
-            // Snap all axes uniformly
-            Vec3::new(
-                snap_value(position.x, increment),
-                snap_value(position.y, increment),
-                snap_value(position.z, increment),
-            )
-        }
-    }
 }

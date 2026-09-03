@@ -17,7 +17,7 @@ use bevy::{
 use std::f32::consts::PI;
 
 /// This example uses a shader source file from the assets subdirectory
-const SHADER_ASSET_PATH: &str = "shaders/tonemapping_test_patterns.wgsl";
+const SHADER_ASSET_PATH: &str = "shaders/tonemapping_test_patterns.wesl";
 
 fn main() {
     App::new()
@@ -311,7 +311,7 @@ fn toggle_tonemapping_method(
     } else if keys.just_pressed(KeyCode::Digit8) {
         **tonemapping = Tonemapping::BlenderFilmic;
     } else if keys.just_pressed(KeyCode::Digit9) {
-        **tonemapping = Tonemapping::PbrNeutral;
+        **tonemapping = Tonemapping::KhronosPbrNeutral;
     }
 
     **color_grading = (*per_method_settings
@@ -500,8 +500,8 @@ fn update_ui(
         }
     ));
     text.push_str(&format!(
-        "(9) {} PBR Neutral\n",
-        if tonemapping == Tonemapping::PbrNeutral {
+        "(9) {} Khronos PBR Neutral\n",
+        if tonemapping == Tonemapping::KhronosPbrNeutral {
             ">"
         } else {
             ""
@@ -598,7 +598,7 @@ impl Default for PerMethodSettings {
             Tonemapping::SomewhatBoringDisplayTransform,
             Tonemapping::TonyMcMapface,
             Tonemapping::BlenderFilmic,
-            Tonemapping::PbrNeutral,
+            Tonemapping::KhronosPbrNeutral,
         ] {
             settings.insert(
                 method,

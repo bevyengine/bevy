@@ -1,3 +1,9 @@
+//! Tools to save processed [`Asset`]s to a byte format that can then be written with [`AssetWriter`].
+//!
+//! See [`AssetSaver`] for details.
+//!
+//! [`AssetWriter`]: crate::io::AssetWriter
+
 use crate::{
     io::{AssetWriterError, MissingAssetSourceError, MissingAssetWriterError, Writer},
     meta::{AssetAction, AssetMeta, AssetMetaDyn, Settings},
@@ -394,7 +400,6 @@ impl<'a> SavedAssetBuilder<'a> {
                 .reserve_handle_internal(
                     false,
                     Some(self.asset_path.clone().with_label(label.to_string())),
-                    None,
                 ),
         );
         self.add_labeled_asset_with_existing_handle(label, asset, handle.clone());
@@ -441,7 +446,6 @@ impl<'a> SavedAssetBuilder<'a> {
                 .reserve_handle_internal(
                     false,
                     Some(self.asset_path.clone().with_label(label.to_string())),
-                    None,
                 ),
         );
         self.add_labeled_asset_with_existing_handle_erased(label, asset, handle.clone());
@@ -563,8 +567,10 @@ pub enum SaveAssetError {
     MissingSource(#[from] MissingAssetSourceError),
     #[error(transparent)]
     MissingWriter(#[from] MissingAssetWriterError),
+    /// Encountered an [`AssetWriterError`] while saving the asset.
     #[error(transparent)]
     WriterError(#[from] AssetWriterError),
+    /// Failed to save the asset due to an error from the saver.
     #[error("Failed to save asset due to error from saver: {0}")]
     SaverError(Arc<BevyError>),
 }

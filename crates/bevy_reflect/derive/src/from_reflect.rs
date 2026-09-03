@@ -146,11 +146,6 @@ fn impl_struct_internal(
     // The constructed "Self" ident
     let __this = Ident::new("__this", Span::call_site());
 
-    // Workaround for rustfmt issue: https://github.com/rust-lang/rustfmt/issues/6779
-    // `quote!(Self(#__this))` causes rustfmt to panic in Rust 1.93.0+
-    // TODO: not needed after Rust 1.94
-    let self_ty = quote!(Self);
-
     // The reflected type: either `Self` or a remote type
     let (reflect_ty, constructor, retval) = if let Some(remote_ty) = remote_ty {
         let constructor = match remote_ty.as_expr_path() {
@@ -162,10 +157,10 @@ fn impl_struct_internal(
         (
             quote!(#remote_ty),
             quote!(#constructor),
-            quote!(#self_ty(#__this)),
+            quote!(Self(#__this)),
         )
     } else {
-        (quote!(#self_ty), quote!(#self_ty), quote!(#__this))
+        (quote!(Self), quote!(Self), quote!(#__this))
     };
 
     let constructor = if is_defaultable {
@@ -270,23 +265,14 @@ fn get_active_fields(
                 };
 
                 let into_remote = |value: proc_macro2::TokenStream| {
-                    if field.attrs.is_remote_generic().unwrap_or_default() {
+                    if field.attrs().remote.is_some() {
                         quote! {
                             #FQOption::Some(
-                                // SAFETY: The remote type should always be a `#[repr(transparent)]` for the actual field type
-                                unsafe {
-                                    ::core::mem::transmute_copy::<#ty, #real_ty>(
-                                        &::core::mem::ManuallyDrop::new(#value?)
-                                    )
-                                }
-                            )
-                        }
-                    } else if field.attrs().remote.is_some() {
-                        quote! {
-                            #FQOption::Some(
-                                // SAFETY: The remote type should always be a `#[repr(transparent)]` for the actual field type
-                                unsafe {
-                                    ::core::mem::transmute::<#ty, #real_ty>(#value?)
+                                {
+                                    let wrapper: #ty = #value?;
+                                    let remote: #real_ty =
+                                        <#ty as #bevy_reflect_path::ReflectRemote>::into_remote(wrapper);
+                                    remote
                                 }
                             )
                         }

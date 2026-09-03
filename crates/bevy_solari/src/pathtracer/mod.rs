@@ -2,7 +2,7 @@ mod extract;
 mod node;
 mod prepare;
 
-use crate::SolariPlugins;
+use crate::{scene::RaytracingSceneBindings, SolariPlugins};
 use bevy_app::{App, Plugin};
 use bevy_asset::embedded_asset;
 use bevy_camera::Hdr;
@@ -13,7 +13,8 @@ use bevy_core_pipeline::{
 use bevy_ecs::{component::Component, reflect::ReflectComponent, schedule::IntoScheduleConfigs};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    renderer::RenderDevice, ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
+    init_gpu_resource, renderer::RenderDevice, ExtractSchedule, Render, RenderApp, RenderStartup,
+    RenderSystems,
 };
 use extract::extract_pathtracer;
 use node::{init_pathtracer_pipelines, pathtracer};
@@ -28,7 +29,7 @@ pub struct PathtracingPlugin;
 
 impl Plugin for PathtracingPlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "pathtracer.wgsl");
+        embedded_asset!(app, "pathtracer.wesl");
     }
 
     fn finish(&self, app: &mut App) {
@@ -45,7 +46,10 @@ impl Plugin for PathtracingPlugin {
         }
 
         render_app
-            .add_systems(RenderStartup, init_pathtracer_pipelines)
+            .add_systems(
+                RenderStartup,
+                init_pathtracer_pipelines.after(init_gpu_resource::<RaytracingSceneBindings>),
+            )
             .add_systems(ExtractSchedule, extract_pathtracer)
             .add_systems(
                 Render,

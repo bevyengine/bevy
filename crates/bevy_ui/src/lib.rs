@@ -28,6 +28,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_picking::PickingSystems;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 mod accessibility;
+pub use accessibility::AccessibilityUiSystems;
 // This module is not re-exported, but is instead made public.
 // This is intended to discourage accidental use of the experimental API.
 pub mod experimental;
@@ -41,7 +42,9 @@ use bevy_text::{detect_text_needs_rerender, EditableTextSystems};
 pub use focus::*;
 pub use geometry::*;
 pub use gradients::*;
-pub use interaction_states::{Checkable, Checked, InteractionDisabled, Pressed};
+pub use interaction_states::{
+    Checkable, Checked, InteractionDisabled, Pressed, Selectable, Selected,
+};
 pub use layout::*;
 pub use measurement::*;
 pub use ui_node::*;
@@ -58,6 +61,12 @@ pub mod prelude {
     pub use crate::picking_backend::{UiPickingCamera, UiPickingPlugin, UiPickingSettings};
     #[doc(hidden)]
     pub use crate::widget::{Text, TextShadow, TextUiReader, TextUiWriter};
+    #[expect(
+        deprecated,
+        reason = "Should be removed after 0.20 is released when Button & Interaction are removed."
+    )]
+    #[doc(hidden)]
+    pub use crate::{widget::Button, Interaction};
     #[doc(hidden)]
     pub use {
         crate::{
@@ -65,12 +74,12 @@ pub mod prelude {
             gradients::*,
             ui_node::*,
             ui_transform::*,
-            widget::{Button, ImageNode, Label, NodeImageMode, ViewportNode},
-            Interaction, UiScale,
+            widget::{ImageNode, Label, NodeImageMode, ViewportNode},
+            UiScale,
         },
         // `bevy_sprite` re-exports for texture slicing
         bevy_sprite::{BorderRect, SliceScaleMode, SpriteImageMode, TextureSlicer},
-        bevy_text::TextBackgroundColor,
+        bevy_text::{EmSize, RemSize, TextBackgroundColor},
     };
 }
 
@@ -78,7 +87,6 @@ use bevy_app::{prelude::*, AnimationSystems, HierarchyPropagatePlugin, Propagate
 use bevy_camera::CameraUpdateSystems;
 use bevy_ecs::prelude::*;
 use bevy_input::InputSystems;
-use bevy_transform::TransformSystems;
 use layout::ui_surface::UiSurface;
 use stack::ui_stack_system;
 pub use stack::{ComputedStackIndex, UiStack};
@@ -101,7 +109,7 @@ pub enum UiSystems {
     Propagate,
     /// Update content requirements before layout.
     Content,
-    /// After this label, the ui layout state has been updated.
+    /// After this label, the UI layout state has been updated.
     ///
     /// Runs in [`PostUpdate`].
     Layout,
@@ -117,8 +125,8 @@ pub enum UiSystems {
 
 /// The current scale of the UI.
 ///
-/// A multiplier to fixed-sized ui values.
-/// **Note:** This will only affect fixed ui values like [`Val::Px`]
+/// A multiplier to fixed-sized UI values.
+/// **Note:** This will only affect fixed UI values like [`Val::Px`]
 #[derive(Debug, Reflect, Resource, Deref, DerefMut)]
 #[reflect(Resource, Debug, Default)]
 pub struct UiScale(pub f32);
@@ -142,6 +150,10 @@ impl Plugin for UiPlugin {
         app.init_resource::<UiSurface>()
             .init_resource::<UiScale>()
             .init_resource::<UiStack>()
+            .register_required_components::<
+                bevy_text::EditableText,
+                widget::EditableTextContentSizeState,
+            >()
             .configure_sets(
                 PostUpdate,
                 (
@@ -152,7 +164,7 @@ impl Plugin for UiPlugin {
                     UiSystems::Layout,
                     UiSystems::PostLayout,
                 )
-                    .chain(),
+                    .chain_weak(),
             )
             .configure_sets(
                 PostUpdate,
@@ -180,16 +192,12 @@ impl Plugin for UiPlugin {
                 widget::viewport_picking.in_set(PickingSystems::PostInput),
             );
 
-        ui_layout_system
-            .in_set(UiSystems::Layout)
-            .before(TransformSystems::Propagate)
-            // Text and Text2D operate on disjoint sets of entities
-            .ambiguous_with(bevy_sprite::update_text2d_layout);
-
         app.add_systems(
             PostUpdate,
             (
-                propagate_ui_target_cameras.in_set(UiSystems::Prepare),
+                propagate_ui_target_cameras
+                    .in_set(UiSystems::Prepare)
+                    .before(bevy_app::TransformGizmoRenderStep),
                 ui_layout_system
                     .in_set(UiSystems::Layout)
                     .ambiguous_with(bevy_sprite::update_text2d_layout),
@@ -213,6 +221,19 @@ impl Plugin for UiPlugin {
             ),
         );
 
+        app.add_plugins(accessibility::AccessibilityPlugin);
+
+        app.add_observer(interaction_states::on_add_disabled)
+            .add_observer(interaction_states::on_remove_disabled)
+            .add_observer(interaction_states::on_add_checkable)
+            .add_observer(interaction_states::on_remove_checkable)
+            .add_observer(interaction_states::on_add_checked)
+            .add_observer(interaction_states::on_remove_checked)
+            .add_observer(interaction_states::on_add_selectable)
+            .add_observer(interaction_states::on_remove_selectable)
+            .add_observer(interaction_states::on_add_selected)
+            .add_observer(interaction_states::on_remove_selected);
+
         build_text_interop(app);
     }
 }
@@ -222,7 +243,6 @@ fn build_text_interop(app: &mut App) {
         PostUpdate,
         (
             widget::measure_text_system
-                .chain()
                 .after(detect_text_needs_rerender)
                 .after(bevy_text::load_font_assets_into_font_collection)
                 .in_set(UiSystems::Content)
@@ -253,11 +273,10 @@ fn build_text_interop(app: &mut App) {
                 .ambiguous_with(widget::update_image_content_size_system)
                 .ambiguous_with(widget::measure_text_system)
                 .ambiguous_with(bevy_sprite::update_text2d_layout),
-            (
-                widget::update_editable_text_layout,
-                widget::scroll_editable_text,
-            )
-                .chain()
+            widget::sync_editable_text_viewports
+                .after(UiSystems::Layout)
+                .before(EditableTextSystems),
+            widget::update_editable_text_layout
                 .in_set(UiSystems::PostLayout)
                 // This is unlikely to result in real conflicts,
                 // as FocusChangeEvents only mutates internal state of InputFocus,
@@ -266,20 +285,15 @@ fn build_text_interop(app: &mut App) {
                 // as editable_text_system or related systems could generate focus changes
                 // which should be processed ASAP.
                 .before(bevy_input_focus::InputFocusSystems::FocusChangeEvents)
+                .before(bevy_asset::AssetEventSystems)
                 .ambiguous_with(widget::text_system)
                 .ambiguous_with(bevy_sprite::update_text2d_layout)
                 .ambiguous_with(bevy_sprite::calculate_bounds_text2d),
+            sync_font_size_to_em_size
+                .in_set(UiSystems::Content)
+                .after(bevy_text::load_font_assets_into_font_collection),
         ),
     );
-
-    app.add_plugins(accessibility::AccessibilityPlugin);
-
-    app.add_observer(interaction_states::on_add_disabled)
-        .add_observer(interaction_states::on_remove_disabled)
-        .add_observer(interaction_states::on_add_checkable)
-        .add_observer(interaction_states::on_remove_checkable)
-        .add_observer(interaction_states::on_add_checked)
-        .add_observer(interaction_states::on_remove_checked);
 
     app.configure_sets(
         PostUpdate,
@@ -292,5 +306,10 @@ fn build_text_interop(app: &mut App) {
     );
 
     // We cannot set this up in bevy_text as this would create a circular dependency between bevy_ui and bevy_text
-    app.configure_sets(PostUpdate, EditableTextSystems.in_set(UiSystems::Content));
+    app.configure_sets(
+        PostUpdate,
+        EditableTextSystems
+            .after(UiSystems::Layout)
+            .before(UiSystems::PostLayout),
+    );
 }

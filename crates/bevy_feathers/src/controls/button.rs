@@ -1,18 +1,16 @@
 use bevy_app::{Plugin, PreUpdate};
 use bevy_ecs::{
-    bundle::Bundle,
     component::Component,
     entity::Entity,
-    hierarchy::{ChildOf, Children},
+    hierarchy::Children,
     lifecycle::RemovedComponents,
     query::{Added, Changed, Has, Or},
     reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
-    spawn::{SpawnRelated, SpawnableList},
     system::{Commands, Query},
 };
 use bevy_input_focus::tab_navigation::TabIndex;
-use bevy_picking::{hover::Hovered, PickingSystems};
+use bevy_picking::{cursor::EntityCursor, hover::Hovered, PickingSystems};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::prelude::*;
 use bevy_text::FontWeight;
@@ -21,7 +19,6 @@ use bevy_ui_widgets::Button;
 
 use crate::{
     constants::{fonts, size},
-    cursor::EntityCursor,
     focus::FocusIndicator,
     font_styles::InheritableFont,
     rounded_corners::RoundedCorners,
@@ -44,6 +41,18 @@ pub enum ButtonVariant {
     Plain,
 }
 
+impl ButtonVariant {
+    /// Returns [`ButtonVariant::Primary`] if `selected` is true, and [`ButtonVariant::Normal`]
+    /// otherwise. Useful for buttons which act as toggles or radio groups.
+    pub fn selected(selected: bool) -> Self {
+        if selected {
+            ButtonVariant::Primary
+        } else {
+            ButtonVariant::Normal
+        }
+    }
+}
+
 /// A button widget.
 ///
 /// This is spawnable by inheriting it as a "scene component" with optional [`FeathersButtonProps`].
@@ -56,6 +65,8 @@ pub enum ButtonVariant {
 ///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
 #[derive(SceneComponent, Default, Clone)]
 #[scene(FeathersButtonProps)]
+#[derive(Reflect)]
+#[reflect(Component, Clone, Default)]
 pub struct FeathersButton;
 
 /// Props used to construct a [`FeathersButton`] scene.
@@ -90,7 +101,7 @@ impl FeathersButton {
                 border_radius: {props.corners.to_border_radius(4.0)},
             }
             Button
-            template_value(props.variant)
+            props.variant
             Hovered
             EntityCursor::System(bevy_window::SystemCursorIcon::Pointer)
             TabIndex(0)
@@ -121,6 +132,8 @@ impl FeathersButton {
 ///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
 #[derive(SceneComponent, Default, Clone)]
 #[scene(FeathersButtonProps)]
+#[derive(Reflect)]
+#[reflect(Component, Clone, Default)]
 pub struct FeathersToolButton;
 
 impl FeathersToolButton {
@@ -139,59 +152,6 @@ impl FeathersToolButton {
     }
 }
 
-/// Parameters for the [`button_bundle`] template.
-#[derive(Default)]
-pub struct ButtonBundleProps {
-    /// Color variant for the button.
-    pub variant: ButtonVariant,
-    /// Rounded corners options
-    pub corners: RoundedCorners,
-}
-
-/// Template function to spawn a button.
-///
-/// # Arguments
-/// * `props` - construction properties for the button.
-///
-/// # Emitted events
-/// * [`bevy_ui_widgets::Activate`] when any of the following happens:
-///     * the pointer is released while hovering over the button.
-///     * the ENTER or SPACE key is pressed while the button has keyboard focus.
-///
-///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
-#[deprecated(since = "0.19.0", note = "Use the button() BSN function")]
-pub fn button_bundle<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
-    props: ButtonBundleProps,
-    overrides: B,
-    children: C,
-) -> impl Bundle {
-    (
-        Node {
-            height: size::ROW_HEIGHT,
-            justify_content: JustifyContent::Center,
-            align_items: AlignItems::Center,
-            padding: UiRect::horizontal(px(8)),
-            flex_grow: 1.0,
-            border_radius: props.corners.to_border_radius(4.0),
-            ..Default::default()
-        },
-        Button,
-        props.variant,
-        Hovered::default(),
-        EntityCursor::System(bevy_window::SystemCursorIcon::Pointer),
-        TabIndex(0),
-        FocusIndicator,
-        ThemeBackgroundColor(tokens::BUTTON_BG),
-        InheritableThemeTextColor(tokens::BUTTON_TEXT),
-        InheritableFont {
-            font_size: size::MEDIUM_FONT,
-            weight: FontWeight::NORMAL,
-            ..Default::default()
-        },
-        overrides,
-        Children::spawn(children),
-    )
-}
 fn update_button_styles(
     q_buttons: Query<
         (

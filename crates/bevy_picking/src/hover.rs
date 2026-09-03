@@ -9,7 +9,7 @@ use std::collections::HashSet;
 
 use crate::{
     backend::{self, HitData},
-    pointer::{PointerAction, PointerId, PointerInput, PointerInteraction, PointerPress},
+    pointer::{PointerAction, PointerId, PointerInput, PointerInteraction, PointerPressState},
     Pickable,
 };
 
@@ -56,6 +56,9 @@ type OverMap = HashMap<PointerId, LayerMap>;
 /// this authoritative hover state, and you can do the same. You can also use the
 /// [`PreviousHoverMap`] as a robust way of determining changes in hover state from the previous
 /// update.
+///
+/// See [`PointerCaptureMap`] to force a pointer to keep hovering a single entity regardless of
+/// where it physically is.
 #[derive(Debug, Deref, DerefMut, Default, Resource, Reflect)]
 #[reflect(Debug, Default, Resource)]
 pub struct HoverMap(pub HashMap<PointerId, EntityHashMap<HitData>>);
@@ -64,6 +67,46 @@ pub struct HoverMap(pub HashMap<PointerId, EntityHashMap<HitData>>);
 #[derive(Debug, Deref, DerefMut, Default, Resource, Reflect)]
 #[reflect(Debug, Default, Resource)]
 pub struct PreviousHoverMap(pub HashMap<PointerId, EntityHashMap<HitData>>);
+
+/// Overrides the [`HoverMap`] for captured pointers, forcing a single entity to be reported as
+/// hovered regardless of where the pointer physically is.
+///
+/// When a pointer is captured by an entity, that entity is reported as the sole hover target for
+/// that pointer. This keeps interactions (like dragging a slider) working correctly even when the
+/// pointer drifts outside the entity's bounding box while a button is held.
+///
+/// Use [`PointerCaptureMap::capture`] to lock a pointer to an entity, and
+/// [`PointerCaptureMap::release`] to remove the lock. Captures are automatically cleaned up when
+/// the associated pointer entity is removed.
+///
+/// A pointer's capture is also released automatically when that pointer reports a button release
+/// or cancel action.
+#[derive(Debug, Default, Resource)]
+pub struct PointerCaptureMap(pub HashMap<PointerId, (Entity, HitData)>);
+
+impl PointerCaptureMap {
+    /// Lock `pointer` to `entity`. The provided `hit` is injected into the [`HoverMap`] for the
+    /// duration of the capture so downstream systems see consistent hit data.
+    pub fn capture(&mut self, pointer: PointerId, entity: Entity, hit: HitData) {
+        self.0.insert(pointer, (entity, hit));
+    }
+
+    /// Remove the capture for `pointer`, returning the previously captured entity and hit data if
+    /// one existed.
+    pub fn release(&mut self, pointer: PointerId) -> Option<(Entity, HitData)> {
+        self.0.remove(&pointer)
+    }
+
+    /// Return the captured `(Entity, &HitData)` for `pointer`, or `None` if not captured.
+    pub fn get(&self, pointer: &PointerId) -> Option<(Entity, &HitData)> {
+        self.0.get(pointer).map(|(e, h)| (*e, h))
+    }
+
+    /// Returns `true` if `pointer` is currently captured.
+    pub fn is_captured(&self, pointer: &PointerId) -> bool {
+        self.0.contains_key(pointer)
+    }
+}
 
 /// Gets the hovered entities for a `pointer_id` from a provided `HoverMap` inner map
 pub(crate) fn get_hovered_entities(
@@ -101,6 +144,7 @@ pub fn generate_hovermap(
     pointers: Query<&PointerId>,
     mut pointer_hits_reader: MessageReader<backend::PointerHits>,
     mut pointer_input_reader: MessageReader<PointerInput>,
+    mut capture_map: ResMut<PointerCaptureMap>,
     // Local
     mut over_map: Local<OverMap>,
     // Output
@@ -111,14 +155,42 @@ pub fn generate_hovermap(
         &mut hover_map,
         &mut previous_hover_map,
         &mut over_map,
+        &mut capture_map,
         &pointers,
     );
-    build_over_map(
-        &mut pointer_hits_reader,
-        &mut over_map,
-        &mut pointer_input_reader,
-    );
+    // Read all pointer input events once so both the capture release and hit-testing logic below
+    // can inspect them.
+    let pointer_inputs: Vec<PointerInput> = pointer_input_reader.read().cloned().collect();
+    release_captures_on_release_or_cancel(&pointer_inputs, &mut capture_map);
+    build_over_map(&mut pointer_hits_reader, &mut over_map, &pointer_inputs);
     build_hover_map(&pointers, pickable, &over_map, &mut hover_map);
+    apply_pointer_captures(&capture_map, &mut hover_map);
+}
+
+/// Releases a pointer's capture when that pointer reports a button release or cancel
+/// action.
+fn release_captures_on_release_or_cancel(
+    pointer_inputs: &[PointerInput],
+    capture_map: &mut PointerCaptureMap,
+) {
+    for input in pointer_inputs {
+        if matches!(
+            input.action,
+            PointerAction::Release(_) | PointerAction::Cancel
+        ) {
+            capture_map.release(input.pointer_id);
+        }
+    }
+}
+
+/// For each captured pointer, replaces its hover set with a single entry pointing to the captured
+/// entity. Pointers not present in `capture_map` are left unchanged.
+fn apply_pointer_captures(capture_map: &PointerCaptureMap, hover_map: &mut HoverMap) {
+    for (pointer_id, (entity, hit_data)) in &capture_map.0 {
+        let entry = hover_map.entry(*pointer_id).or_default();
+        entry.clear();
+        entry.insert(*entity, hit_data.clone());
+    }
 }
 
 /// Clear non-empty local maps, reusing allocated memory.
@@ -126,6 +198,7 @@ fn reset_maps(
     hover_map: &mut HoverMap,
     previous_hover_map: &mut PreviousHoverMap,
     over_map: &mut OverMap,
+    capture_map: &mut PointerCaptureMap,
     pointers: &Query<&PointerId>,
 ) {
     // Swap the previous and current hover maps. This results in the previous values being stored in
@@ -144,16 +217,19 @@ fn reset_maps(
     let active_pointers: Vec<PointerId> = pointers.iter().copied().collect();
     hover_map.retain(|pointer, _| active_pointers.contains(pointer));
     over_map.retain(|pointer, _| active_pointers.contains(pointer));
+    capture_map
+        .0
+        .retain(|pointer, _| active_pointers.contains(pointer));
 }
 
 /// Build an ordered map of entities that are under each pointer
 fn build_over_map(
     pointer_hit_reader: &mut MessageReader<backend::PointerHits>,
     pointer_over_map: &mut Local<OverMap>,
-    pointer_input_reader: &mut MessageReader<PointerInput>,
+    pointer_inputs: &[PointerInput],
 ) {
-    let cancelled_pointers: HashSet<PointerId> = pointer_input_reader
-        .read()
+    let cancelled_pointers: HashSet<PointerId> = pointer_inputs
+        .iter()
         .filter_map(|p| {
             if let PointerAction::Cancel = p.action {
                 Some(p.pointer_id)
@@ -242,7 +318,7 @@ pub fn update_interactions(
     previous_hover_map: Res<PreviousHoverMap>,
     // Outputs
     mut commands: Commands,
-    mut pointers: Query<(&PointerId, &PointerPress, &mut PointerInteraction)>,
+    mut pointers: Query<(&PointerId, &PointerPressState, &mut PointerInteraction)>,
     mut interact: Query<&mut PickingInteraction>,
 ) {
     // Create a map to hold the aggregated interaction for each entity. This is needed because we
@@ -291,7 +367,7 @@ pub fn update_interactions(
 
 /// Merge the interaction state of this entity into the aggregated map.
 fn merge_interaction_states(
-    pointer_press: &PointerPress,
+    pointer_press: &PointerPressState,
     hovered_entity: &Entity,
     new_interaction_state: &mut EntityHashMap<PickingInteraction>,
 ) {
@@ -599,5 +675,192 @@ mod tests {
             .unwrap();
         assert!(!hover.get());
         assert!(hover.is_changed());
+    }
+
+    fn make_hit(camera: Entity) -> HitData {
+        HitData {
+            depth: 0.0,
+            camera,
+            position: None,
+            normal: None,
+            extra: None,
+        }
+    }
+
+    #[test]
+    fn capture_overrides_hover_map() {
+        let camera = Entity::from_bits(1);
+        let entity_a = Entity::from_bits(2);
+        let entity_b = Entity::from_bits(3);
+        let hit = make_hit(camera);
+
+        let mut hover_map = HoverMap::default();
+        let mut entity_map = EntityHashMap::new();
+        entity_map.insert(entity_a, hit.clone());
+        hover_map.insert(PointerId::Mouse, entity_map);
+
+        let mut capture_map = PointerCaptureMap::default();
+        capture_map.capture(PointerId::Mouse, entity_b, hit.clone());
+
+        apply_pointer_captures(&capture_map, &mut hover_map);
+
+        let mouse_hovered = hover_map.get(&PointerId::Mouse).unwrap();
+        assert!(
+            !mouse_hovered.contains_key(&entity_a),
+            "original hover should be evicted"
+        );
+        assert!(
+            mouse_hovered.contains_key(&entity_b),
+            "captured entity should be sole entry"
+        );
+        assert_eq!(mouse_hovered.len(), 1);
+    }
+
+    #[test]
+    fn capture_does_not_affect_uncaptured_pointers() {
+        let camera = Entity::from_bits(1);
+        let entity_a = Entity::from_bits(2);
+        let entity_b = Entity::from_bits(3);
+        let hit = make_hit(camera);
+
+        let touch_id = PointerId::Touch(0);
+
+        let mut hover_map = HoverMap::default();
+        let mut mouse_map = EntityHashMap::new();
+        mouse_map.insert(entity_a, hit.clone());
+        hover_map.insert(PointerId::Mouse, mouse_map);
+
+        let mut touch_map = EntityHashMap::new();
+        touch_map.insert(entity_b, hit.clone());
+        hover_map.insert(touch_id, touch_map);
+
+        let mut capture_map = PointerCaptureMap::default();
+        capture_map.capture(touch_id, entity_a, hit.clone());
+
+        apply_pointer_captures(&capture_map, &mut hover_map);
+
+        let mouse_hovered = hover_map.get(&PointerId::Mouse).unwrap();
+        assert!(mouse_hovered.contains_key(&entity_a));
+        assert_eq!(mouse_hovered.len(), 1);
+
+        let touch_hovered = hover_map.get(&touch_id).unwrap();
+        assert!(touch_hovered.contains_key(&entity_a));
+        assert!(!touch_hovered.contains_key(&entity_b));
+        assert_eq!(touch_hovered.len(), 1);
+    }
+
+    #[test]
+    fn capture_creates_entry_for_pointer_absent_from_hover_map() {
+        let camera = Entity::from_bits(1);
+        let entity = Entity::from_bits(2);
+        let hit = make_hit(camera);
+
+        let mut hover_map = HoverMap::default();
+
+        let mut capture_map = PointerCaptureMap::default();
+        capture_map.capture(PointerId::Mouse, entity, hit.clone());
+
+        apply_pointer_captures(&capture_map, &mut hover_map);
+
+        let mouse_hovered = hover_map.get(&PointerId::Mouse).unwrap();
+        assert!(mouse_hovered.contains_key(&entity));
+        assert_eq!(mouse_hovered.len(), 1);
+    }
+
+    #[test]
+    fn pointer_capture_map_api() {
+        let camera = Entity::from_bits(1);
+        let entity = Entity::from_bits(2);
+        let hit = make_hit(camera);
+
+        let mut map = PointerCaptureMap::default();
+
+        assert!(!map.is_captured(&PointerId::Mouse));
+        assert!(map.get(&PointerId::Mouse).is_none());
+
+        map.capture(PointerId::Mouse, entity, hit);
+        assert!(map.is_captured(&PointerId::Mouse));
+        let (captured_entity, _) = map.get(&PointerId::Mouse).unwrap();
+        assert_eq!(captured_entity, entity);
+
+        let released = map.release(PointerId::Mouse);
+        assert_eq!(released.unwrap().0, entity);
+        assert!(!map.is_captured(&PointerId::Mouse));
+        assert!(map.get(&PointerId::Mouse).is_none());
+
+        // Double release is a no-op.
+        assert!(map.release(PointerId::Mouse).is_none());
+    }
+
+    fn make_pointer_input(pointer_id: PointerId, action: PointerAction) -> PointerInput {
+        use bevy_camera::{ManualTextureViewHandle, NormalizedRenderTarget};
+        use bevy_math::Vec2;
+        PointerInput::new(
+            pointer_id,
+            crate::pointer::Location {
+                target: NormalizedRenderTarget::TextureView(ManualTextureViewHandle(5)),
+                position: Vec2::ZERO,
+            },
+            action,
+        )
+    }
+
+    #[test]
+    fn release_action_releases_capture() {
+        let camera = Entity::from_bits(1);
+        let entity = Entity::from_bits(2);
+        let hit = make_hit(camera);
+
+        let mut capture_map = PointerCaptureMap::default();
+        capture_map.capture(PointerId::Mouse, entity, hit);
+
+        let inputs = [make_pointer_input(
+            PointerId::Mouse,
+            PointerAction::Release(crate::pointer::PointerButton::Primary),
+        )];
+        release_captures_on_release_or_cancel(&inputs, &mut capture_map);
+
+        assert!(!capture_map.is_captured(&PointerId::Mouse));
+    }
+
+    #[test]
+    fn cancel_action_releases_capture() {
+        let camera = Entity::from_bits(1);
+        let entity = Entity::from_bits(2);
+        let hit = make_hit(camera);
+
+        let mut capture_map = PointerCaptureMap::default();
+        capture_map.capture(PointerId::Mouse, entity, hit);
+
+        let inputs = [make_pointer_input(PointerId::Mouse, PointerAction::Cancel)];
+        release_captures_on_release_or_cancel(&inputs, &mut capture_map);
+
+        assert!(!capture_map.is_captured(&PointerId::Mouse));
+    }
+
+    #[test]
+    fn generate_hovermap_cleans_up_capture_for_removed_pointer() {
+        let mut app = bevy_app::App::new();
+        app.init_resource::<HoverMap>()
+            .init_resource::<PreviousHoverMap>()
+            .init_resource::<PointerCaptureMap>()
+            .add_message::<PointerInput>()
+            .add_message::<backend::PointerHits>();
+        // No pointer entity is spawned, so `PointerId::Mouse` is not active.
+
+        let camera = Entity::from_bits(1);
+        let captured_entity = app.world_mut().spawn_empty().id();
+        app.world_mut().resource_mut::<PointerCaptureMap>().capture(
+            PointerId::Mouse,
+            captured_entity,
+            make_hit(camera),
+        );
+
+        assert!(app.world_mut().run_system_cached(generate_hovermap).is_ok());
+
+        assert!(!app
+            .world()
+            .resource::<PointerCaptureMap>()
+            .is_captured(&PointerId::Mouse));
     }
 }

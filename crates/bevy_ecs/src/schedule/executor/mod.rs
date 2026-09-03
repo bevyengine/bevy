@@ -17,12 +17,11 @@ use crate::{
     change_detection::{CheckChangeTicks, Tick},
     error::{BevyError, ErrorContext, Result},
     prelude::{IntoSystemSet, SystemSet},
-    query::FilteredAccessSet,
     schedule::{
         ConditionWithAccess, InternedSystemSet, SystemKey, SystemSetKey, SystemTypeSet,
         SystemWithAccess,
     },
-    system::{RunSystemError, System, SystemIn, SystemStateFlags},
+    system::{RunSystemError, System, SystemAccess, SystemIn, SystemStateFlags},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
 
@@ -173,8 +172,8 @@ impl System for ApplyDeferred {
     }
 
     fn flags(&self) -> SystemStateFlags {
-        // non-send , exclusive , no deferred
-        SystemStateFlags::NON_SEND | SystemStateFlags::EXCLUSIVE
+        // non-send , no deferred
+        SystemStateFlags::NON_SEND
     }
 
     unsafe fn run_unsafe(
@@ -205,8 +204,10 @@ impl System for ApplyDeferred {
 
     fn queue_deferred(&mut self, _world: DeferredWorld) {}
 
-    fn initialize(&mut self, _world: &mut World) -> FilteredAccessSet {
-        FilteredAccessSet::new()
+    fn initialize(&mut self, _world: &mut World) -> SystemAccess {
+        // The executor will apply deferred commands from other systems instead
+        // of running this system, which cannot happen in parallel with other systems.
+        SystemAccess::Exclusive
     }
 
     fn check_change_tick(&mut self, _check: CheckChangeTicks) {}
@@ -310,6 +311,17 @@ mod __rust_begin_short_backtrace {
     ) -> Result<O, RunSystemError> {
         // Call `black_box` to prevent this frame from being tail-call optimized away
         black_box(system.run((), world))
+    }
+
+    #[inline(never)]
+    #[cfg(feature = "std")]
+    pub(super) fn error_handler(
+        error_handler: crate::error::ErrorHandler,
+        err: crate::error::BevyError,
+        err_context: crate::error::ErrorContext,
+    ) {
+        error_handler(err, err_context);
+        black_box(());
     }
 }
 
@@ -573,8 +585,8 @@ mod validation_tests {
         prelude::{Component, In, IntoSystem, Resource, Schedule},
         schedule::{MultiThreadedExecutor, SingleThreadedExecutor},
         system::{
-            DynParamBuilder, DynSystemParam, ExclusiveSystemParam, Local, ParamBuilder, ParamSet,
-            Query, Res, ResMut, RunSystemError, RunSystemOnce, Single, SystemMeta,
+            DynParamBuilder, DynSystemParam, Local, ParamBuilder, ParamSet, Query, Res, ResMut,
+            RunSystemError, RunSystemOnce, Single, SystemAccess, SystemMeta, SystemParam,
             SystemParamBuilder, SystemParamValidationError,
         },
         world::World,
@@ -590,19 +602,30 @@ mod validation_tests {
     #[derive(Resource)]
     struct MissingResource;
 
-    /// An [`ExclusiveSystemParam`] that always fails validation.
+    /// A [`SystemParam`] that always fails validation.
     struct AlwaysInvalid;
 
-    impl ExclusiveSystemParam for AlwaysInvalid {
+    // SAFETY: No world access.
+    unsafe impl SystemParam for AlwaysInvalid {
         type State = ();
-        type Item<'s> = AlwaysInvalid;
+        type Item<'world, 'state> = AlwaysInvalid;
 
-        fn init(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
+        fn init_state(_world: &mut World) -> Self::State {}
 
-        fn get_param<'s>(
-            _state: &'s mut Self::State,
+        fn init_access(
+            _state: &Self::State,
+            _system_meta: &mut SystemMeta,
+            _system_access: &mut SystemAccess,
+            _world: &mut World,
+        ) {
+        }
+
+        unsafe fn get_param<'world, 'state>(
+            _state: &'state mut Self::State,
             _system_meta: &SystemMeta,
-        ) -> Result<Self::Item<'s>, SystemParamValidationError> {
+            _world: crate::world::unsafe_world_cell::UnsafeWorldCell<'world>,
+            _change_tick: crate::change_detection::Tick,
+        ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
             Err(SystemParamValidationError::invalid::<Self>(
                 "always invalid",
             ))

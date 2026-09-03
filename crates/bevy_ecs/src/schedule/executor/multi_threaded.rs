@@ -5,20 +5,18 @@ use bevy_tasks::{ComputeTaskPool, Scope, TaskPool, ThreadExecutor};
 use concurrent_queue::ConcurrentQueue;
 use core::{any::Any, panic::AssertUnwindSafe};
 use fixedbitset::FixedBitSet;
-#[cfg(feature = "std")]
-use std::eprintln;
 use std::sync::{Mutex, MutexGuard};
 
 #[cfg(feature = "trace")]
 use tracing::{info_span, Span};
 
 use crate::{
-    error::{ErrorContext, ErrorHandler, Result},
+    error::{BevyError, ErrorContext, ErrorHandler, Result},
     prelude::Resource,
     schedule::{
         is_apply_deferred, ConditionWithAccess, SystemExecutor, SystemSchedule, SystemWithAccess,
     },
-    system::{RunSystemError, ScheduleSystem},
+    system::{BoxedSystem, RunSystemError, ScheduleSystem},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 #[cfg(feature = "hotpatching")]
@@ -112,7 +110,8 @@ pub struct ExecutorState {
     exclusive_running: bool,
     /// The number of systems that are running.
     num_running_systems: usize,
-    /// The number of dependencies each system has that have not completed.
+    /// The number of dependencies each system has that have not been satisfied. A dependency
+    /// is satisfied when the predecessor completes.
     num_dependencies_remaining: Vec<usize>,
     /// System sets whose conditions have been evaluated.
     evaluated_sets: FixedBitSet,
@@ -171,8 +170,9 @@ impl SystemExecutor for MultiThreadedExecutor {
                 condition_conflicting_systems: FixedBitSet::with_capacity(sys_count),
                 dependents: schedule.system_dependents[index].clone(),
                 is_send: schedule.systems[index].system.is_send(),
-                is_exclusive: schedule.systems[index].system.is_exclusive(),
+                is_exclusive: schedule.systems[index].access.is_exclusive(),
             });
+            // A system with no dependencies is a starting system.
             if schedule.system_dependencies[index] == 0 {
                 self.starting_systems.insert(index);
             }
@@ -294,7 +294,7 @@ impl SystemExecutor for MultiThreadedExecutor {
         if self.apply_final_deferred {
             // Do one final apply buffers after all systems have completed
             // Commands should be applied while on the scope's thread, not the executor's thread
-            let res = apply_deferred(&state.unapplied_systems, systems, world);
+            let res = apply_deferred(&state.unapplied_systems, systems, world, error_handler);
             if let Err(payload) = res {
                 let panic_payload = self.panic_payload.get_mut().unwrap();
                 *panic_payload = Some(payload);
@@ -321,12 +321,7 @@ impl SystemExecutor for MultiThreadedExecutor {
 }
 
 impl<'scope, 'env: 'scope, 'sys> Context<'scope, 'env, 'sys> {
-    fn system_completed(
-        &self,
-        system_index: usize,
-        res: Result<(), Box<dyn Any + Send>>,
-        system: &ScheduleSystem,
-    ) {
+    fn system_completed(&self, system_index: usize, res: Result<(), Box<dyn Any + Send>>) {
         // tell the executor that the system finished
         self.environment
             .executor
@@ -334,16 +329,9 @@ impl<'scope, 'env: 'scope, 'sys> Context<'scope, 'env, 'sys> {
             .push(SystemResult { system_index })
             .unwrap_or_else(|error| unreachable!("{}", error));
         if let Err(payload) = res {
-            #[cfg(feature = "std")]
-            #[expect(clippy::print_stderr, reason = "Allowed behind `std` feature gate.")]
-            {
-                eprintln!("Encountered a panic in system `{}`!", system.name());
-            }
             // set the payload to propagate the error
-            {
-                let mut panic_payload = self.environment.executor.panic_payload.lock().unwrap();
-                *panic_payload = Some(payload);
-            }
+            let mut panic_payload = self.environment.executor.panic_payload.lock().unwrap();
+            *panic_payload = Some(payload);
         }
         self.tick_executor();
     }
@@ -648,37 +636,32 @@ impl ExecutorState {
     /// - `world` must have permission to access the world data
     ///   used by the specified system.
     unsafe fn spawn_system_task(&mut self, context: &Context, system_index: usize) {
-        // SAFETY: this system is not running, no other reference exists
-        let system = &mut unsafe { &mut *context.environment.systems[system_index].get() }.system;
+        let system = &context.environment.systems[system_index];
         // Move the full context object into the new future.
         let context = *context;
 
         let system_meta = &self.system_task_metadata[system_index];
 
         let task = async move {
-            let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
-                // SAFETY:
-                // - The caller ensures that we have permission to
-                // access the world data used by the system.
-                // - `is_exclusive` returned false
-                unsafe {
-                    if let Err(RunSystemError::Failed(err)) =
+            let res = handle_errors(
+                |system| {
+                    // SAFETY:
+                    // - The caller ensures that we have permission to
+                    // access the world data used by the system.
+                    // - `is_exclusive` returned false
+                    unsafe {
                         __rust_begin_short_backtrace::run_unsafe(
                             system,
                             context.environment.world_cell,
                         )
-                    {
-                        (context.error_handler)(
-                            err,
-                            ErrorContext::System {
-                                name: system.name(),
-                                last_run: system.get_last_run(),
-                            },
-                        );
                     }
-                };
-            }));
-            context.system_completed(system_index, res, system);
+                },
+                // SAFETY: this system is not running, no other reference exists
+                unsafe { &mut (*system.get()).system },
+                context.error_handler,
+                "System panicked",
+            );
+            context.system_completed(system_index, res);
         };
 
         if system_meta.is_send {
@@ -692,12 +675,12 @@ impl ExecutorState {
     /// # Safety
     /// Caller must ensure no systems are currently borrowed.
     unsafe fn spawn_exclusive_system_task(&mut self, context: &Context, system_index: usize) {
-        // SAFETY: this system is not running, no other reference exists
-        let system = &mut unsafe { &mut *context.environment.systems[system_index].get() }.system;
+        let system = &context.environment.systems[system_index];
         // Move the full context object into the new future.
         let context = *context;
 
-        if is_apply_deferred(&**system) {
+        // SAFETY: this system is not running, no other reference exists
+        if is_apply_deferred(unsafe { &*(*system.get()).system }) {
             // TODO: avoid allocation
             let unapplied_systems = self.unapplied_systems.clone();
             self.unapplied_systems.clear();
@@ -705,8 +688,13 @@ impl ExecutorState {
                 // SAFETY: `can_run` returned true for this system, which means
                 // that no other systems currently have access to the world.
                 let world = unsafe { context.environment.world_cell.world_mut() };
-                let res = apply_deferred(&unapplied_systems, context.environment.systems, world);
-                context.system_completed(system_index, res, system);
+                let res = apply_deferred(
+                    &unapplied_systems,
+                    context.environment.systems,
+                    world,
+                    context.error_handler,
+                );
+                context.system_completed(system_index, res);
             };
 
             context.scope.spawn_on_scope(task);
@@ -715,20 +703,14 @@ impl ExecutorState {
                 // SAFETY: `can_run` returned true for this system, which means
                 // that no other systems currently have access to the world.
                 let world = unsafe { context.environment.world_cell.world_mut() };
-                let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
-                    if let Err(RunSystemError::Failed(err)) =
-                        __rust_begin_short_backtrace::run(system, world)
-                    {
-                        (context.error_handler)(
-                            err,
-                            ErrorContext::System {
-                                name: system.name(),
-                                last_run: system.get_last_run(),
-                            },
-                        );
-                    }
-                }));
-                context.system_completed(system_index, res, system);
+                let res = handle_errors(
+                    |system| __rust_begin_short_backtrace::run(system, world),
+                    // SAFETY: this system is not running, no other reference exists
+                    unsafe { &mut (*system.get()).system },
+                    context.error_handler,
+                    "Exclusive system panicked",
+                );
+                context.system_completed(system_index, res);
             };
 
             context.scope.spawn_on_scope(task);
@@ -745,7 +727,9 @@ impl ExecutorState {
             self.exclusive_running = false;
         }
 
-        if !self.system_task_metadata[system_index].is_send {
+        if self.system_task_metadata[system_index].is_exclusive
+            || !self.system_task_metadata[system_index].is_send
+        {
             self.local_thread_running = false;
         }
 
@@ -763,6 +747,8 @@ impl ExecutorState {
         self.signal_dependents(system_index);
     }
 
+    /// Called when `system_index` completes, satisfying one dependency for each of its
+    /// dependents and marking any that become ready to run.
     fn signal_dependents(&mut self, system_index: usize) {
         for &dep_idx in &self.system_task_metadata[system_index].dependents {
             let remaining = &mut self.num_dependencies_remaining[dep_idx];
@@ -779,24 +765,20 @@ fn apply_deferred(
     unapplied_systems: &FixedBitSet,
     systems: &[SyncUnsafeCell<SystemWithAccess>],
     world: &mut World,
+    error_handler: ErrorHandler,
 ) -> Result<(), Box<dyn Any + Send>> {
     for system_index in unapplied_systems.ones() {
         // SAFETY: none of these systems are running, no other references exist
         let system = &mut unsafe { &mut *systems[system_index].get() }.system;
-        let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
-            system.apply_deferred(world);
-        }));
-        if let Err(payload) = res {
-            #[cfg(feature = "std")]
-            #[expect(clippy::print_stderr, reason = "Allowed behind `std` feature gate.")]
-            {
-                eprintln!(
-                    "Encountered a panic when applying buffers for system `{}`!",
-                    system.name()
-                );
-            }
-            return Err(payload);
-        }
+        handle_errors(
+            |system| {
+                system.apply_deferred(world);
+                Ok(())
+            },
+            system,
+            error_handler,
+            "Encountered a panic while applying system buffers",
+        )?;
     }
     Ok(())
 }
@@ -818,26 +800,83 @@ unsafe fn evaluate_and_fold_conditions(
     conditions
         .iter_mut()
         .map(|ConditionWithAccess { condition, .. }| {
-            // SAFETY:
-            // - The caller ensures that `world` has permission to read any data
-            //   required by the condition.
-            unsafe { __rust_begin_short_backtrace::readonly_run_unsafe(&mut **condition, world) }
-                .unwrap_or_else(|err| {
-                    if let RunSystemError::Failed(err) = err {
-                        error_handler(
-                            err,
-                            ErrorContext::RunCondition {
-                                name: condition.name(),
-                                last_run: condition.get_last_run(),
-                                system: for_system.name(),
-                                on_set,
-                            },
-                        );
-                    };
-                    false
-                })
+            let potential_unwind = std::panic::catch_unwind(AssertUnwindSafe(||
+                // SAFETY:
+                // - The caller ensures that `world` has permission to read any data
+                //   required by the condition.
+                unsafe {__rust_begin_short_backtrace::readonly_run_unsafe(&mut **condition, world)}
+            ));
+            match potential_unwind {
+                // Let the error handler handle the panic
+                Err(payload) => {
+                    __rust_begin_short_backtrace::error_handler(
+                        error_handler,
+                        BevyError::panic(
+                            "Encountered panic",
+                            payload,
+                        ),
+                        ErrorContext::RunCondition {
+                            name: condition.name(),
+                            last_run: condition.get_last_run(),
+                            system: for_system.name(),
+                            on_set,
+                        },
+                    ); false},
+                // Condition returned an error, let the error handler handle it
+                Ok(Err(RunSystemError::Failed(err))) => {
+                    __rust_begin_short_backtrace::error_handler(
+                        error_handler,
+                        err,
+                        ErrorContext::RunCondition {
+                            name: condition.name(),
+                            last_run: condition.get_last_run(),
+                            system: for_system.name(),
+                            on_set,
+                        },
+                    ); false
+                },
+                Ok(Err(RunSystemError::Skipped(_))) => false,
+                Ok(Ok(result)) => result,
+            }
         })
         .fold(true, |acc, res| acc && res)
+}
+
+/// Handle a potential panic or failed system by invoking the error handler
+/// and/or returning a panic payload with which to resume unwinding.
+fn handle_errors(
+    f: impl FnOnce(&mut BoxedSystem) -> Result<(), RunSystemError>,
+    system: &mut BoxedSystem,
+    error_handler: ErrorHandler,
+    error_message: &str,
+) -> Result<(), Box<dyn Any + Send>> {
+    let potential_unwind = std::panic::catch_unwind(AssertUnwindSafe(|| f(system)));
+    match potential_unwind {
+        // Let the error handler handle the panic, passing on any panic it throws
+        Err(payload) => std::panic::catch_unwind(AssertUnwindSafe(|| {
+            __rust_begin_short_backtrace::error_handler(
+                error_handler,
+                BevyError::panic(error_message, payload),
+                ErrorContext::System {
+                    name: system.name(),
+                    last_run: system.get_last_run(),
+                },
+            );
+        })),
+        // System returned an error, let the error handler handle it, passing on any panic it throws
+        Ok(Err(RunSystemError::Failed(err))) => std::panic::catch_unwind(AssertUnwindSafe(|| {
+            __rust_begin_short_backtrace::error_handler(
+                error_handler,
+                err,
+                ErrorContext::System {
+                    name: system.name(),
+                    last_run: system.get_last_run(),
+                },
+            );
+        })),
+        // Success (or skipped system)
+        _ => Ok(()),
+    }
 }
 
 /// New-typed [`ThreadExecutor`] [`Resource`] that is used to run systems on the main thread
@@ -859,15 +898,54 @@ impl MainThreadExecutor {
 
 #[cfg(test)]
 mod tests {
+    use alloc::string::String;
+    use core::{
+        panic::AssertUnwindSafe,
+        sync::atomic::{AtomicBool, Ordering::Relaxed},
+    };
+    use std::panic::catch_unwind;
+
     use crate::{
+        change_detection::Tick,
+        error::{BevyError, ErrorContext, FallbackErrorHandler},
         prelude::Resource,
         schedule::{IntoScheduleConfigs, MultiThreadedExecutor, Schedule},
-        system::Commands,
-        world::World,
+        system::{
+            Commands, NonSendMut, SystemAccess, SystemMeta, SystemParam, SystemParamValidationError,
+        },
+        world::{unsafe_world_cell::UnsafeWorldCell, World},
     };
 
     #[derive(Resource)]
     struct R;
+
+    struct ExclusiveMarker;
+
+    // SAFETY: No world data is accessed.
+    unsafe impl SystemParam for ExclusiveMarker {
+        type State = ();
+        type Item<'world, 'state> = ExclusiveMarker;
+
+        fn init_state(_world: &mut World) -> Self::State {}
+
+        fn init_access(
+            _state: &Self::State,
+            system_meta: &mut SystemMeta,
+            system_access: &mut SystemAccess,
+            _world: &mut World,
+        ) {
+            system_access.require_exclusive_access::<Self>(system_meta);
+        }
+
+        unsafe fn get_param<'world, 'state>(
+            _state: &'state mut Self::State,
+            _system_meta: &SystemMeta,
+            _world: UnsafeWorldCell<'world>,
+            _change_tick: Tick,
+        ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
+            Ok(ExclusiveMarker)
+        }
+    }
 
     #[test]
     fn skipped_systems_notify_dependents() {
@@ -888,6 +966,32 @@ mod tests {
         assert!(world.get_resource::<R>().is_some());
     }
 
+    /// Regression test for case where exclusive system left local thread state as not
+    /// cleared and prevented subsequent non-send system runs
+    #[test]
+    fn exclusive_system_reporting_send_releases_the_local_thread() {
+        #[derive(Default)]
+        struct NonSendMarker(bool);
+
+        let mut world = World::new();
+        world.insert_non_send(NonSendMarker::default());
+
+        let mut schedule = Schedule::default();
+        schedule.set_executor(MultiThreadedExecutor::new());
+        schedule.add_systems(
+            (
+                |_: ExclusiveMarker| {},
+                |mut marker: NonSendMut<NonSendMarker>| {
+                    marker.0 = true;
+                },
+            )
+                .chain(),
+        );
+
+        schedule.run(&mut world);
+        assert!(world.non_send::<NonSendMarker>().0);
+    }
+
     /// Regression test for a weird bug flagged by MIRI in
     /// `spawn_exclusive_system_task`, related to a `&mut World` being captured
     /// inside an `async` block and somehow remaining alive even after its last use.
@@ -898,5 +1002,118 @@ mod tests {
         schedule.set_executor(MultiThreadedExecutor::new());
         schedule.add_systems(((|_: Commands| {}), |_: Commands| {}).chain());
         schedule.run(&mut world);
+    }
+
+    #[test]
+    fn panic_to_error() {
+        let mut world = World::new();
+
+        let mut schedule_error = Schedule::default();
+        schedule_error.set_executor(MultiThreadedExecutor::new());
+        schedule_error.add_systems(|| Err(BevyError::ignore("")));
+
+        let mut schedule_panic = Schedule::default();
+        schedule_panic.set_executor(MultiThreadedExecutor::new());
+        schedule_panic.add_systems(|| {
+            panic!("System's panic payload");
+        });
+
+        static HANDLER_CALLED: AtomicBool = AtomicBool::new(false);
+        fn handle(_: BevyError, ctx: ErrorContext) {
+            assert!(matches!(ctx, ErrorContext::System { .. }));
+            HANDLER_CALLED.store(true, Relaxed);
+        }
+        world.insert_resource(FallbackErrorHandler(handle));
+
+        // System error
+        schedule_error.run(&mut world);
+        assert!(HANDLER_CALLED.load(Relaxed));
+
+        // System panic
+        HANDLER_CALLED.store(false, Relaxed);
+        schedule_panic.run(&mut world);
+        assert!(HANDLER_CALLED.load(Relaxed));
+
+        const PANIC_PAYLOAD: &str = "UwU";
+        fn panic(_: BevyError, ctx: ErrorContext) {
+            assert!(matches!(ctx, ErrorContext::System { .. }));
+            panic!("{}", PANIC_PAYLOAD);
+        }
+        world.insert_resource(FallbackErrorHandler(panic));
+
+        // System error, handler panic
+        let result = catch_unwind(AssertUnwindSafe(|| schedule_error.run(&mut world)));
+        let payload = result.unwrap_err();
+        assert_eq!(
+            payload
+                .downcast_ref::<String>()
+                .map(String::as_str)
+                .unwrap_or_else(|| payload.downcast_ref::<&str>().unwrap()),
+            PANIC_PAYLOAD
+        );
+
+        // System panic, handler panic
+        let result = catch_unwind(AssertUnwindSafe(|| schedule_panic.run(&mut world)));
+        let payload = result.unwrap_err();
+        assert_eq!(
+            payload
+                .downcast_ref::<String>()
+                .map(String::as_str)
+                .unwrap_or_else(|| payload.downcast_ref::<&str>().unwrap()),
+            PANIC_PAYLOAD
+        );
+
+        static SYSTEM_RAN: AtomicBool = AtomicBool::new(false);
+        let system = || {
+            SYSTEM_RAN.store(true, Relaxed);
+        };
+        let mut schedule_condition_error = Schedule::default();
+        schedule_condition_error.set_executor(MultiThreadedExecutor::new());
+        schedule_condition_error.add_systems(system.run_if(|| Err(BevyError::ignore(""))));
+
+        let mut schedule_condition_panic = Schedule::default();
+        schedule_condition_panic.set_executor(MultiThreadedExecutor::new());
+        schedule_condition_panic.add_systems(system.run_if(|| {
+            panic!("Condition's panic payload");
+        }));
+
+        world.insert_resource(FallbackErrorHandler(handle));
+
+        // Condition error
+        schedule_error.run(&mut world);
+        assert!(HANDLER_CALLED.load(Relaxed));
+        assert!(!SYSTEM_RAN.load(Relaxed));
+
+        // Condition panic
+        HANDLER_CALLED.store(false, Relaxed);
+        schedule_panic.run(&mut world);
+        assert!(HANDLER_CALLED.load(Relaxed));
+        assert!(!SYSTEM_RAN.load(Relaxed));
+
+        world.insert_resource(FallbackErrorHandler(panic));
+
+        // Condition error, handler panic
+        let result = catch_unwind(AssertUnwindSafe(|| schedule_error.run(&mut world)));
+        let payload = result.unwrap_err();
+        assert_eq!(
+            payload
+                .downcast_ref::<String>()
+                .map(String::as_str)
+                .unwrap_or_else(|| payload.downcast_ref::<&str>().unwrap()),
+            PANIC_PAYLOAD
+        );
+        assert!(!SYSTEM_RAN.load(Relaxed));
+
+        // Condition panic, handler panic
+        let result = catch_unwind(AssertUnwindSafe(|| schedule_panic.run(&mut world)));
+        let payload = result.unwrap_err();
+        assert_eq!(
+            payload
+                .downcast_ref::<String>()
+                .map(String::as_str)
+                .unwrap_or_else(|| payload.downcast_ref::<&str>().unwrap()),
+            PANIC_PAYLOAD
+        );
+        assert!(!SYSTEM_RAN.load(Relaxed));
     }
 }

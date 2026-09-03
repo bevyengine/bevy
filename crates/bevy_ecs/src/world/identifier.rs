@@ -1,16 +1,10 @@
 use crate::{
     change_detection::Tick,
-    query::FilteredAccessSet,
     storage::SparseSetIndex,
-    system::{
-        ExclusiveSystemParam, ReadOnlySystemParam, SystemMeta, SystemParam,
-        SystemParamValidationError,
-    },
-    world::{FromWorld, World},
+    system::{SystemAccess, SystemMeta, SystemParam, SystemParamValidationError},
+    world::{unsafe_world_cell::UnsafeWorldCell, FromWorld, World},
 };
 use bevy_platform::sync::atomic::{AtomicUsize, Ordering};
-
-use super::unsafe_world_cell::UnsafeWorldCell;
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
 // We use usize here because that is the largest `Atomic` we want to require
@@ -31,13 +25,29 @@ impl WorldId {
     /// Please note that the [`WorldId`]s created from this method are unique across
     /// time - if a given [`WorldId`] is [`Drop`]ped its value still cannot be reused
     pub fn new() -> Option<Self> {
-        MAX_WORLD_ID
-            // We use `Relaxed` here since this atomic only needs to be consistent with itself
-            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |val| {
-                val.checked_add(1)
-            })
-            .map(WorldId)
-            .ok()
+        // NOTE: this is not really a std vs. no_std change.
+        // The split is done to silence a warning and also satisfy builds for an older no_std target on CI.
+        // Once you see the deprecation warning for no_std, collapse the function into this first branch.
+        #[cfg(feature = "std")]
+        {
+            MAX_WORLD_ID
+                // We use `Relaxed` here since this atomic only needs to be consistent with itself
+                .try_update(Ordering::Relaxed, Ordering::Relaxed, |val| {
+                    val.checked_add(1)
+                })
+                .map(WorldId)
+                .ok()
+        }
+        #[cfg(not(feature = "std"))]
+        {
+            MAX_WORLD_ID
+                // We use `Relaxed` here since this atomic only needs to be consistent with itself
+                .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |val| {
+                    val.checked_add(1)
+                })
+                .map(WorldId)
+                .ok()
+        }
     }
 }
 
@@ -48,10 +58,7 @@ impl FromWorld for WorldId {
     }
 }
 
-// SAFETY: No world data is accessed.
-unsafe impl ReadOnlySystemParam for WorldId {}
-
-// SAFETY: No world data is accessed.
+// SAFETY: World metadata is registered and accessed.
 unsafe impl SystemParam for WorldId {
     type State = ();
 
@@ -61,10 +68,11 @@ unsafe impl SystemParam for WorldId {
 
     fn init_access(
         _state: &Self::State,
-        _system_meta: &mut SystemMeta,
-        _component_access_set: &mut FilteredAccessSet,
+        system_meta: &mut SystemMeta,
+        system_access: &mut SystemAccess,
         _world: &mut World,
     ) {
+        system_access.require_shared_access::<Self>(system_meta);
     }
 
     #[inline]
@@ -75,22 +83,6 @@ unsafe impl SystemParam for WorldId {
         _: Tick,
     ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
         Ok(world.id())
-    }
-}
-
-impl ExclusiveSystemParam for WorldId {
-    type State = WorldId;
-    type Item<'s> = WorldId;
-
-    fn init(world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
-        world.id()
-    }
-
-    fn get_param<'s>(
-        state: &'s mut Self::State,
-        _system_meta: &SystemMeta,
-    ) -> Result<Self::Item<'s>, SystemParamValidationError> {
-        Ok(*state)
     }
 }
 
@@ -108,6 +100,8 @@ impl SparseSetIndex for WorldId {
 
 #[cfg(test)]
 mod tests {
+    use crate::system::assert_is_system;
+
     use super::*;
     use alloc::vec::Vec;
 
@@ -138,15 +132,12 @@ mod tests {
     }
 
     #[test]
-    fn world_id_exclusive_system_param() {
+    #[should_panic]
+    fn world_id_cannot_be_exclusive_system_param() {
         fn test_system(_world: &mut World, world_id: WorldId) -> WorldId {
             world_id
         }
-
-        let mut world = World::default();
-        let system_id = world.register_system(test_system);
-        let world_id = world.run_system(system_id).unwrap();
-        assert_eq!(world.id(), world_id);
+        assert_is_system(test_system);
     }
 
     // We cannot use this test as-is, as it causes other tests to panic due to using the same atomic variable.
