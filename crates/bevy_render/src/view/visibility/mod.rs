@@ -288,8 +288,7 @@ impl RenderVisibleEntitiesClass {
 
     /// Sorts the [`Self::added_entities`] list.
     ///
-    /// You must call this after adding entities to the list via
-    /// [`Self::add_entity`].
+    /// You must call this after adding entities to the list
     pub fn sort_added_entities(&mut self) {
         self.added_entities
             .sort_unstable_by_key(|(_, main_entity)| *main_entity);
