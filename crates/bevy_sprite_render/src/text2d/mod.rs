@@ -101,13 +101,9 @@ pub fn extract_text2d_sprite(
                 transform,
                 color: text_background_color.0.into(),
                 image_handle_id: AssetId::default(),
-                flip_x: false,
                 flip_y: true,
                 kind: ExtractedSpriteKind::Single {
-                    anchor: Vec2::ZERO,
-                    rect: None,
-                    scaling_mode: None,
-                    custom_size: Some(run.bounds.size()),
+                    custom_size: run.bounds.size(),
                 },
             });
         }
@@ -145,7 +141,6 @@ pub fn extract_text2d_sprite(
                         transform: shadow_transform,
                         color,
                         image_handle_id: atlas_info.texture,
-                        flip_x: false,
                         flip_y: true,
                         kind: ExtractedSpriteKind::Slices {
                             indices: start..end,
@@ -176,13 +171,9 @@ pub fn extract_text2d_sprite(
                         transform,
                         color,
                         image_handle_id: AssetId::default(),
-                        flip_x: false,
                         flip_y: false,
                         kind: ExtractedSpriteKind::Single {
-                            anchor: Vec2::ZERO,
-                            rect: None,
-                            scaling_mode: None,
-                            custom_size: Some(run.strikethrough_size()),
+                            custom_size: run.strikethrough_size(),
                         },
                     });
                 }
@@ -198,13 +189,9 @@ pub fn extract_text2d_sprite(
                         transform,
                         color,
                         image_handle_id: AssetId::default(),
-                        flip_x: false,
                         flip_y: false,
                         kind: ExtractedSpriteKind::Single {
-                            anchor: Vec2::ZERO,
-                            rect: None,
-                            scaling_mode: None,
-                            custom_size: Some(run.underline_size()),
+                            custom_size: run.underline_size(),
                         },
                     });
                 }
@@ -252,7 +239,6 @@ pub fn extract_text2d_sprite(
                     transform,
                     color,
                     image_handle_id: atlas_info.texture,
-                    flip_x: false,
                     flip_y: true,
                     kind: ExtractedSpriteKind::Slices {
                         indices: start..end,
@@ -293,13 +279,9 @@ pub fn extract_text2d_sprite(
                     transform,
                     color,
                     image_handle_id: AssetId::default(),
-                    flip_x: false,
                     flip_y: false,
                     kind: ExtractedSpriteKind::Single {
-                        anchor: Vec2::ZERO,
-                        rect: None,
-                        scaling_mode: None,
-                        custom_size: Some(run.strikethrough_size()),
+                        custom_size: run.strikethrough_size(),
                     },
                 });
             }
@@ -321,13 +303,9 @@ pub fn extract_text2d_sprite(
                     transform,
                     color,
                     image_handle_id: AssetId::default(),
-                    flip_x: false,
                     flip_y: false,
                     kind: ExtractedSpriteKind::Single {
-                        anchor: Vec2::ZERO,
-                        rect: None,
-                        scaling_mode: None,
-                        custom_size: Some(run.underline_size()),
+                        custom_size: run.underline_size(),
                     },
                 });
             }
