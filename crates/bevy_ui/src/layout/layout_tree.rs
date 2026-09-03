@@ -224,13 +224,13 @@ impl ComputedLayout {
 
     /// Set whether the last full walk reached this node from a layout root
     #[inline]
-    pub const fn set_reached(&mut self, reached: bool) {
+    pub(super) const fn set_reached(&mut self, reached: bool) {
         self.reached = reached;
     }
 
     /// Returns true if the last full walk reached this node from a layout root
     #[inline]
-    pub const fn reached(&self) -> bool {
+    pub(super) const fn reached(&self) -> bool {
         self.reached
     }
 

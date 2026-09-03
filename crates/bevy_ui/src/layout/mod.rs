@@ -2979,7 +2979,7 @@ mod tests {
         assert!(computed_root.child_nodes().is_empty());
 
         let computed_child = app.world().get::<ComputedLayout>(child).unwrap();
-        assert!(!computed_child.reached());
+        assert!(!computed_child.has_layout());
 
         app.world_mut().entity_mut(mid).insert(GhostNode);
 
@@ -2989,7 +2989,7 @@ mod tests {
         assert!(computed_root.child_entities().eq(core::iter::once(child)));
 
         let computed_child = app.world().get::<ComputedLayout>(child).unwrap();
-        assert!(computed_child.reached());
+        assert!(computed_child.has_layout());
     }
 
     #[test]
@@ -3016,7 +3016,7 @@ mod tests {
         assert!(computed_root.child_nodes().is_empty());
 
         let computed_child = app.world().get::<ComputedLayout>(child).unwrap();
-        assert!(!computed_child.reached());
+        assert!(!computed_child.has_layout());
     }
 
     #[test]
@@ -3059,7 +3059,7 @@ mod tests {
 
         let computed_ghost = app.world().get::<ComputedLayout>(ghost).unwrap();
         assert!(computed_ghost.child_nodes().is_empty());
-        assert!(!computed_ghost.reached());
+        assert!(!computed_ghost.has_layout());
 
         let computed_fixed = app.world().get::<ComputedLayout>(fixed).unwrap();
         assert!(computed_fixed.has_layout());
