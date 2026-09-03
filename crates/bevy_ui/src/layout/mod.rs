@@ -2919,7 +2919,7 @@ mod tests {
         assert!(computed_root.is_root());
 
         let computed_child = app.world().get::<ComputedLayout>(child).unwrap();
-        assert!(computed_root.child_nodes().is_empty());
+        assert!(computed_child.child_nodes().is_empty());
         assert!(computed_child.has_layout());
         assert!(!computed_child.is_root());
 
