@@ -181,7 +181,6 @@ fn setup_scene_after_load(
     meshes: Query<(&GlobalTransform, Option<&Aabb>), With<Mesh3d>>,
 ) {
     if scene_handle.is_loaded && !*setup {
-        *setup = true;
         // Find an approximate bounding box of the scene from its meshes
         if meshes.iter().any(|(_, maybe_aabb)| maybe_aabb.is_none()) {
             return;
@@ -290,5 +289,7 @@ fn setup_scene_after_load(
 
             scene_handle.has_light = true;
         }
+
+        *setup = true;
     }
 }
