@@ -195,6 +195,12 @@ impl UiSurface {
             .entry(ui_root_entity)
             .or_insert_with(|| {
                 let root_node = self.entity_to_taffy.get_mut(&ui_root_entity).unwrap();
+
+                // remove parent node to avoid a potential panic (invalid SlotMap key used) when this `NodeId` is `remove`d
+                if let Some(parent_node) = self.taffy.parent(root_node.id) {
+                    let _ = self.taffy.remove_child(parent_node, root_node.id);
+                };
+
                 let implicit_root = self
                     .taffy
                     .new_leaf(Style {
@@ -205,8 +211,8 @@ impl UiSurface {
                             width: taffy::style_helpers::percent(1.0_f32),
                             height: taffy::style_helpers::percent(1.0_f32),
                         },
-                        align_items: Some(taffy::style::AlignItems::Start),
-                        justify_items: Some(taffy::style::JustifyItems::Start),
+                        align_items: Some(taffy::style::AlignItems::START),
+                        justify_items: Some(taffy::style::JustifyItems::START),
                         ..default()
                     })
                     .unwrap();
@@ -235,40 +241,46 @@ impl UiSurface {
             .compute_layout_with_measure(
                 implicit_viewport_node,
                 available_space,
-                |known_dimensions: taffy::Size<Option<f32>>,
-                 available_space: taffy::Size<taffy::AvailableSpace>,
+                |layout_input: taffy::LayoutInput,
                  _node_id: NodeId,
                  context: Option<&mut NodeMeasure>,
                  style: &Style|
-                 -> taffy::Size<f32> {
-                    context
-                        .map(|ctx| {
-                            let mut measure_args = MeasureArgs {
-                                known_width: known_dimensions.width,
-                                known_height: known_dimensions.height,
-                                available_width: available_space.width,
-                                available_height: available_space.height,
-                                font_system,
-                                buffer: None,
-                                style,
-                            };
-                            let buffer = get_text_buffer(
-                                crate::widget::TextMeasure::needs_buffer(
-                                    measure_args.resolve_width().effective,
-                                    measure_args.resolve_height().effective,
-                                    available_space.width,
-                                ),
-                                ctx,
-                                buffer_query,
-                            );
-                            measure_args.buffer = buffer;
-                            let size = ctx.measure(measure_args);
-                            taffy::Size {
-                                width: size.x,
-                                height: size.y,
-                            }
-                        })
-                        .unwrap_or(taffy::Size::ZERO)
+                 -> taffy::LayoutOutput {
+                    taffy::compute_leaf_layout(
+                        layout_input,
+                        style,
+                        |_, _| 0.0,
+                        |known_dimensions, available_space| {
+                            context
+                                .map(|ctx| {
+                                    let mut measure_args = MeasureArgs {
+                                        known_width: known_dimensions.width,
+                                        known_height: known_dimensions.height,
+                                        available_width: available_space.width,
+                                        available_height: available_space.height,
+                                        font_system,
+                                        buffer: None,
+                                        style,
+                                    };
+                                    let buffer = get_text_buffer(
+                                        crate::widget::TextMeasure::needs_buffer(
+                                            measure_args.resolve_width().effective,
+                                            measure_args.resolve_height().effective,
+                                            available_space.width,
+                                        ),
+                                        ctx,
+                                        buffer_query,
+                                    );
+                                    measure_args.buffer = buffer;
+                                    let size = ctx.measure(measure_args);
+                                    taffy::Size {
+                                        width: size.x,
+                                        height: size.y,
+                                    }
+                                })
+                                .unwrap_or(taffy::Size::ZERO)
+                        },
+                    )
                 },
             )
             .unwrap();

@@ -57,6 +57,7 @@ pub mod traversal;
 pub mod world;
 
 pub use bevy_ptr as ptr;
+pub use bevy_utils as utils;
 
 #[cfg(feature = "hotpatching")]
 use message::Message;
@@ -75,7 +76,7 @@ pub mod prelude {
         component::Component,
         entity::{ContainsEntity, Entity, EntityMapper},
         error::{BevyError, ContextExt, Result, ResultSeverityExt, Severity},
-        event::{EntityEvent, Event},
+        event::{EntityEvent, Event, EventPattern},
         hierarchy::{ChildOf, ChildSpawner, ChildSpawnerCommands, Children},
         lifecycle::{Add, Despawn, Discard, Insert, Remove, RemovedComponents},
         message::{
@@ -99,11 +100,11 @@ pub mod prelude {
             SystemParamFunction,
         },
         template::{template, FromTemplate, Template},
-        world::{
-            EntityMut, EntityRef, EntityWorldMut, FilteredResources, FilteredResourcesMut,
-            FromWorld, World,
-        },
+        world::{EntityMut, EntityRef, EntityWorldMut, FromWorld, World},
     };
+
+    #[expect(deprecated, reason = "`FilteredResources` will be removed.")]
+    pub use crate::world::{FilteredResources, FilteredResourcesMut};
 
     #[doc(hidden)]
     #[cfg(feature = "std")]
@@ -120,8 +121,6 @@ pub mod prelude {
     #[cfg(feature = "reflect_functions")]
     pub use crate::reflect::AppFunctionRegistry;
 }
-
-pub use bevy_ecs_macros::VariantDefaults;
 
 /// Exports used by macros.
 ///

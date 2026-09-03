@@ -1,21 +1,19 @@
 use bevy_asset::{AsAssetId, AssetId, Assets, Handle};
-use bevy_camera::visibility::{self, Visibility, VisibilityClass};
+use bevy_camera::visibility::{Visibility, VisibilityClass};
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{component::Component, reflect::ReflectComponent, template::FromTemplate};
 use bevy_image::{Image, TextureAtlas, TextureAtlasLayout};
 use bevy_math::{Rect, UVec2, Vec2};
-use bevy_reflect::{std_traits::ReflectDefault, PartialReflect, Reflect};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::components::Transform;
 
 use crate::TextureSlicer;
-use core::hash::Hash;
 
 /// Describes a sprite to be rendered to a 2D camera
-#[derive(Component, Debug, Default, Clone, Reflect, FromTemplate)]
+#[derive(Component, Debug, Default, Clone, Reflect, PartialEq, FromTemplate)]
 #[require(Transform, Visibility, VisibilityClass, Anchor)]
 #[reflect(Component, Default, Debug, Clone)]
-#[component(on_add = visibility::add_visibility_class::<Sprite>)]
 pub struct Sprite {
     /// The image used to render the sprite
     pub image: Handle<Image>,
@@ -39,7 +37,11 @@ pub struct Sprite {
     pub rect: Option<Rect>,
     /// How the sprite's image will be scaled.
     pub image_mode: SpriteImageMode,
+    /// The sprite's alpha mode, defaulting to `Blend`.
+    pub alpha_mode: SpriteAlphaMode,
 }
+
+// NOTE: The SpriteImageMode, SpriteScalingMode and Anchor are imported from the sprite module.
 
 impl Sprite {
     /// Create a Sprite with a custom size
@@ -162,6 +164,38 @@ impl AsAssetId for Sprite {
     }
 }
 
+// This is different from AlphaMode2d in bevy_sprite_render because that crate depends on this one,
+// so using it would've been caused a circular dependency. An option would be to move the Enum here
+// but it uses a bevy_render dependency in its documentation, and I wanted to avoid bringing that
+// dependency to this crate.
+
+// NOTE: If this is ever replaced by AlphaMode2d, make a custom Default impl for Sprite,
+// because AlphaMode2d defaults to Opaque, but the sprite's alpha mode is most commonly Mask(0.5)
+
+/// An enum describing how a sprite's alpha channel will be handled.
+/// The base color being modified is that of the texture after tinting.
+/// The default is `Blend`.
+#[derive(Debug, Reflect, Copy, Clone, PartialEq, Default)]
+#[reflect(Default, Debug, Clone)]
+pub enum SpriteAlphaMode {
+    /// Base color alpha values are overridden to be fully opaque (1.0).
+    Opaque,
+    /// Reduce transparency to fully opaque or fully transparent
+    /// based on a threshold.
+    ///
+    /// Compares the base color alpha value to the specified threshold.
+    /// If the value is below the threshold,
+    /// considers the color to be fully transparent (alpha is set to 0.0).
+    /// If it is equal to or above the threshold,
+    /// considers the color to be fully opaque (alpha is set to 1.0).
+    Mask(f32),
+    /// The base color alpha value defines the opacity of the color.
+    /// Standard alpha-blending is used to blend the fragment's color
+    /// with the color behind it.
+    #[default]
+    Blend,
+}
+
 /// Controls how the image is altered when scaled.
 #[derive(Default, Debug, Clone, Reflect, PartialEq)]
 #[reflect(Debug, Default, Clone)]
@@ -255,13 +289,6 @@ pub enum SpriteScalingMode {
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
 #[doc(alias = "pivot")]
 pub struct Anchor(pub Vec2);
-
-impl Eq for Anchor {}
-impl Hash for Anchor {
-    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
-        self.0.reflect_hash().hash(state);
-    }
-}
 
 #[expect(missing_docs, reason = "the associated constants are self-documenting")]
 impl Anchor {
