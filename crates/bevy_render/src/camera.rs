@@ -12,7 +12,8 @@ use crate::{
     view::{
         ColorGrading, ExtractedView, ExtractedWindow, Msaa, NoIndirectDrawing,
         RenderExtractedVisibleEntities, RenderVisibleEntities, RenderVisibleEntitiesClass,
-        RetainedViewEntity, ViewUniformOffset, VisibilityExtractionSystemParam,
+        ResolvedCompositingSpace, RetainedViewEntity, ViewUniformOffset,
+        VisibilityExtractionSystemParam,
     },
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
@@ -321,8 +322,7 @@ impl NormalizedRenderTargetExt for NormalizedRenderTarget {
             NormalizedRenderTarget::Image(image_target) => {
                 changed_image_handles.contains(&image_target.handle.id())
             }
-            NormalizedRenderTarget::TextureView(_) => true,
-            NormalizedRenderTarget::None { .. } => false,
+            NormalizedRenderTarget::TextureView(_) | NormalizedRenderTarget::None { .. } => true,
         }
     }
 }
@@ -468,9 +468,6 @@ pub struct ExtractedCamera {
     pub sorted_camera_index_for_target: usize,
     pub exposure: f32,
     pub hdr: bool,
-    /// When [`CompositingSpace::Srgb`], the main texture uses linear storage (`Rgba8Unorm`)
-    /// and shaders output sRGB-encoded values for gamma-encoded blending.
-    pub compositing_space: Option<CompositingSpace>,
 }
 
 pub fn extract_cameras(
@@ -516,6 +513,7 @@ pub fn extract_cameras(
         ExtractedCamera,
         ExtractedView,
         RenderVisibleEntities,
+        ResolvedCompositingSpace,
         TemporalJitter,
         MipBias,
         RenderLayers,
@@ -645,8 +643,8 @@ pub fn extract_cameras(
                         .map(Exposure::exposure)
                         .unwrap_or_else(|| Exposure::default().exposure()),
                     hdr,
-                    compositing_space: compositing_space.copied(),
                 },
+                ResolvedCompositingSpace(compositing_space.copied()),
                 ExtractedView {
                     retained_view_entity: RetainedViewEntity::new(main_entity.into(), None, 0),
                     clip_from_view: camera.clip_from_view(),
@@ -1197,7 +1195,6 @@ mod tests {
             sorted_camera_index_for_target: 0,
             exposure: 1.0,
             hdr,
-            compositing_space: None,
         }
     }
 

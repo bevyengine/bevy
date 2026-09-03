@@ -493,6 +493,7 @@ pub fn check_views_need_specialization(
             view_key |= MeshPipelineKey::DISTANCE_FOG;
         }
         if let Some(transmission) = transmission {
+            view_key |= MeshPipelineKey::VIEW_TRANSMISSION_TEXTURE;
             view_key |= transmission.quality.pipeline_key();
         }
         if !view_key_cache
@@ -3059,7 +3060,7 @@ bitflags::bitflags! {
                                                             // Emulated via fragment shader depth on hardware that doesn't support it natively
                                                             // See: https://www.w3.org/TR/webgpu/#depth-clipping and https://therealmjp.github.io/posts/shadow-maps/#disabling-z-clipping
         const TEMPORAL_JITTER                   = 1 << 10;
-        const READS_VIEW_TRANSMISSION_TEXTURE   = 1 << 11;
+        const VIEW_TRANSMISSION_TEXTURE         = 1 << 11;
         const LIGHTMAPPED                       = 1 << 12;
         const LIGHTMAP_BICUBIC_SAMPLING         = 1 << 13;
         const IRRADIANCE_VOLUME                 = 1 << 14;
@@ -3474,7 +3475,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
         let (label, blend, depth_write_enabled);
         let pass = key.intersection(MeshPipelineKey::BLEND_RESERVED_BITS);
-        let (mut is_opaque, mut alpha_to_coverage_enabled) = (false, false);
+        let mut alpha_to_coverage_enabled = false;
         if pass == MeshPipelineKey::BLEND_ALPHA {
             label = "alpha_blend_mesh_pipeline".into();
             blend = Some(BlendState::ALPHA_BLENDING);
@@ -3512,7 +3513,6 @@ impl SpecializedMeshPipeline for MeshPipeline {
             // the current fragment value in the output and the depth is written to the
             // depth buffer
             depth_write_enabled = true;
-            is_opaque = !key.contains(MeshPipelineKey::READS_VIEW_TRANSMISSION_TEXTURE);
             alpha_to_coverage_enabled = true;
             shader_defs.push("ALPHA_TO_COVERAGE".into());
         } else {
@@ -3523,7 +3523,6 @@ impl SpecializedMeshPipeline for MeshPipeline {
             // the current fragment value in the output and the depth is written to the
             // depth buffer
             depth_write_enabled = true;
-            is_opaque = !key.contains(MeshPipelineKey::READS_VIEW_TRANSMISSION_TEXTURE);
         }
 
         if key.contains(MeshPipelineKey::NORMAL_PREPASS) {
@@ -3550,7 +3549,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("DEFERRED_PREPASS".into());
         }
 
-        if key.contains(MeshPipelineKey::NORMAL_PREPASS) && key.msaa_samples() == 1 && is_opaque {
+        if key.contains(MeshPipelineKey::NORMAL_PREPASS) && key.msaa_samples() == 1 {
             shader_defs.push("LOAD_PREPASS_NORMALS".into());
         }
 
@@ -3639,6 +3638,10 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("SHADOW_FILTER_METHOD_GAUSSIAN".into());
         } else if shadow_filter_method == MeshPipelineKey::SHADOW_FILTER_METHOD_TEMPORAL {
             shader_defs.push("SHADOW_FILTER_METHOD_TEMPORAL".into());
+        }
+
+        if key.contains(MeshPipelineKey::VIEW_TRANSMISSION_TEXTURE) {
+            shader_defs.push("VIEW_TRANSMISSION_TEXTURE".into());
         }
 
         let blur_quality =
