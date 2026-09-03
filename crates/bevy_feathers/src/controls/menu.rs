@@ -41,8 +41,7 @@ use crate::{
     tokens,
 };
 use bevy_input_focus::{
-    tab_navigation::{NavAction, TabIndex},
-    FocusCause, InputFocus, InputFocusSystems, InputFocusVisible,
+    tab_navigation::NavAction, FocusCause, InputFocus, InputFocusSystems, InputFocusVisible,
 };
 
 /// Top-level menu container. This wraps the menu button and provides an anchor for the popover.
@@ -427,7 +426,6 @@ impl FeathersMenuItem {
             MenuItem
             Hovered
             EntityCursor::System(bevy_window::SystemCursorIcon::Pointer)
-            TabIndex(0)
             ThemeBackgroundColor(tokens::MENU_BG) // Same as menu
             InheritableThemeTextColor(tokens::MENUITEM_TEXT)
             InheritableFont {

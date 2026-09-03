@@ -18,7 +18,7 @@ use bevy_ecs::{
 };
 use bevy_input::keyboard::{KeyCode, KeyboardInput};
 use bevy_input::ButtonState;
-use bevy_input_focus::FocusedInput;
+use bevy_input_focus::{Focusable, FocusedInput};
 use bevy_log::warn_once;
 use bevy_math::ops;
 use bevy_picking::events::{
@@ -107,7 +107,8 @@ pub enum TrackClick {
     SliderDragState,
     SliderValue,
     SliderRange,
-    SliderStep
+    SliderStep,
+    Focusable
 )]
 #[derive(Reflect)]
 #[reflect(Component)]

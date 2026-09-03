@@ -10,7 +10,6 @@ use bevy_ecs::{
     schedule::IntoScheduleConfigs,
     system::Query,
 };
-use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_log::warn_once;
 use bevy_picking::{cursor::EntityCursor, PickingSystems};
 use bevy_reflect::std_traits::ReflectDefault;
@@ -246,7 +245,6 @@ impl FeathersColorSlider {
             SliderValue({props.value})
             props.channel.range()
             EntityCursor::System(bevy_window::SystemCursorIcon::Pointer)
-            TabIndex(0)
             FocusIndicator
             Children [
                 // track
