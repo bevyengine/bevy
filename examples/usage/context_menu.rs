@@ -114,13 +114,6 @@ fn on_trigger_menu(event: On<OpenContextMenu>, mut commands: Commands) {
         BorderColor::all(Color::BLACK)
         BackgroundColor(Color::linear_rgb(0.1, 0.1, 0.1))
         ListBox
-        Children [
-            @context_item("fuchsia", basic::FUCHSIA),
-            @context_item("gray", basic::GRAY),
-            @context_item("maroon", basic::MAROON),
-            @context_item("purple", basic::PURPLE),
-            @context_item("teal", basic::TEAL),
-        ]
         on(|event: On<ValueChange<Entity>>,
             menu_items: Query<&ContextMenuItem, With<ListItem>>,
             mut clear_col: ResMut<ClearColor>,
@@ -134,6 +127,11 @@ fn on_trigger_menu(event: On<OpenContextMenu>, mut commands: Commands) {
                 // We do not set the `Selected` state of any of the items because the menu
                 // will be despawned.
         })
+        # @context_item("fuchsia", basic::FUCHSIA)
+        # @context_item("gray", basic::GRAY)
+        # @context_item("maroon", basic::MAROON)
+        # @context_item("purple", basic::PURPLE)
+        # @context_item("teal", basic::TEAL)
     });
 }
 
@@ -145,7 +143,7 @@ fn context_item(text: &'static str, col: Srgba) -> impl Scene {
         Node {
             padding: UiRect::all(px(5)),
         }
-        Children [
+        #{
             ContextMenuItemText
             Pickable::IGNORE
             Text(text)
@@ -153,7 +151,7 @@ fn context_item(text: &'static str, col: Srgba) -> impl Scene {
                 font_size: FontSize::Px(24.0),
             }
             TextColor(Color::WHITE)
-        ]
+        }
     }
 }
 
@@ -167,12 +165,12 @@ fn background() -> impl Scene {
             justify_content: JustifyContent::Center,
         }
         ZIndex({-10})
-        Children [
-            Text::new("Click anywhere to spawn a Context Menu.\nYour selection will change the background color.")
+        #{
+            Text("Click anywhere to spawn a Context Menu.\nYour selection will change the background color.")
             TextFont {
                 font_size: FontSize::Px(28.0),
             }
             TextColor(Color::WHITE)
-        ]
+        }
     }
 }

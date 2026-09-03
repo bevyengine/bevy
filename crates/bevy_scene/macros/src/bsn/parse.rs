@@ -2,7 +2,7 @@ use crate::_bsn::types::{
     Bsn, BsnConstructor, BsnEntry, BsnFields, BsnFnArg, BsnFnArgs, BsnFnCall, BsnListRoot,
     BsnNamedField, BsnNamedFieldOrStructUpdate, BsnRelatedSceneList, BsnRoot, BsnScene, BsnSceneFn,
     BsnSceneList, BsnSceneListItem, BsnSceneListItems, BsnStructUpdate, BsnTuple, BsnType,
-    BsnUnnamedField, BsnValue,
+    BsnUnnamedField, BsnValue, SceneListExpression,
 };
 use bevy_macro_utils::{path_to_string, PathType};
 use proc_macro2::{Delimiter, TokenStream, TokenTree};
@@ -57,23 +57,26 @@ impl Parse for BsnListRoot {
     }
 }
 
-impl<const ALLOW_FLAT: bool> Parse for Bsn<ALLOW_FLAT> {
+impl<const IS_ROOT: bool> Parse for Bsn<IS_ROOT> {
     fn parse(input: ParseStream) -> Result<Self> {
         let mut entries = Vec::new();
-        if input.peek(Paren) {
-            let content;
-            parenthesized![content in input];
-            while !content.is_empty() {
-                let entry = BsnEntry::parse(&content)?;
-                if matches!(entry, BsnEntry::CachedScene(_)) && !entries.is_empty() {
-                    return Err(syn::Error::new(
-                        content.span(),
-                        "Caching entries after the first is not supported, remove the ':' prefix or make this the first entry.",
-                    ));
+        Ok(if IS_ROOT {
+            let name = if input.peek(Token![#]) {
+                if input.peek2(Ident) && !input.peek3(Brace) {
+                    let _ = input.parse::<Token![#]>()?;
+                    Some(input.parse::<Ident>()?)
+                } else {
+                    entries.push(match input.parse::<ChildOrSceneList>()? {
+                        ChildOrSceneList::Child(bsn) => BsnEntry::ChildScene(bsn),
+                        ChildOrSceneList::SceneList(scene_list_expression) => {
+                            BsnEntry::ChildSceneListExpression(scene_list_expression)
+                        }
+                    });
+                    None
                 }
-                entries.push(entry);
-            }
-        } else if ALLOW_FLAT {
+            } else {
+                None
+            };
             while !input.is_empty() {
                 let entry = BsnEntry::parse(input)?;
                 if matches!(entry, BsnEntry::CachedScene(_)) && !entries.is_empty() {
@@ -83,21 +86,69 @@ impl<const ALLOW_FLAT: bool> Parse for Bsn<ALLOW_FLAT> {
                     ));
                 }
                 entries.push(entry);
-                if input.peek(Comma) {
-                    // Not ideal, but this anticipatory break allows us to parse non-parenthesized
-                    // flat Bsn entries in SceneLists
-                    break;
+            }
+            Bsn { name, entries }
+        } else {
+            let _ = input.parse::<Token![#]>()?;
+            if input.peek(At) {
+                let entry = input.parse::<BsnEntry>()?;
+                return Ok(Bsn {
+                    name: None,
+                    entries: vec![entry],
+                });
+            }
+            let name = if input.peek(Ident) {
+                Some(input.parse::<Ident>()?)
+            } else {
+                None
+            };
+
+            if input.peek(Brace) {
+                let content;
+                braced![content in input];
+                while !content.is_empty() {
+                    let entry = content.parse::<BsnEntry>()?;
+                    if matches!(entry, BsnEntry::CachedScene(_)) && !entries.is_empty() {
+                        return Err(syn::Error::new(
+                            content.span(),
+                            "Caching entries after the first is not supported, remove the ':' prefix or make this the first entry.",
+                        ));
+                    }
+                    entries.push(entry);
                 }
             }
-        } else {
-            entries.push(BsnEntry::parse(input)?);
-        }
 
-        Ok(Self { entries })
+            Bsn { name, entries }
+        })
     }
 }
 
-impl BsnEntry {
+enum ChildOrSceneList {
+    Child(Bsn<false>),
+    SceneList(SceneListExpression),
+}
+
+impl Parse for ChildOrSceneList {
+    fn parse(input: ParseStream) -> Result<Self> {
+        Ok(if input.peek2(Ident) && input.peek3(Brace) {
+            ChildOrSceneList::Child(input.parse::<Bsn<false>>()?)
+        } else {
+            let forked = input.fork();
+            forked.parse::<Token![#]>()?;
+            if let Ok(TokenTree::Group(group)) = forked.parse::<TokenTree>()
+                && group.delimiter() == Delimiter::Brace
+                && let Ok(TokenTree::Group(nested_group)) = syn::parse2::<TokenTree>(group.stream())
+                && nested_group.delimiter() == Delimiter::Brace
+            {
+                ChildOrSceneList::SceneList(input.parse::<SceneListExpression>()?)
+            } else {
+                ChildOrSceneList::Child(input.parse::<Bsn<false>>()?)
+            }
+        })
+    }
+}
+
+impl Parse for BsnEntry {
     fn parse(input: ParseStream) -> Result<Self> {
         Ok(if input.peek(Token![:]) && !input.peek(Token![::]) {
             let cached = input.parse::<Token![:]>()?;
@@ -110,8 +161,12 @@ impl BsnEntry {
             }
             BsnEntry::CachedScene(scene)
         } else if input.peek(Token![#]) {
-            input.parse::<Token![#]>()?;
-            BsnEntry::Name(input.parse::<Ident>()?)
+            match input.parse::<ChildOrSceneList>()? {
+                ChildOrSceneList::Child(bsn) => BsnEntry::ChildScene(bsn),
+                ChildOrSceneList::SceneList(scene_list_expression) => {
+                    BsnEntry::ChildSceneListExpression(scene_list_expression)
+                }
+            }
         } else if input.peek(At) {
             let _ = input.parse::<At>()?;
             BsnEntry::UncachedScene(BsnScene::parse(input)?)
@@ -222,19 +277,32 @@ impl Parse for BsnSceneList {
 impl Parse for BsnSceneListItems {
     fn parse(input: ParseStream) -> Result<Self> {
         let mut scenes = Vec::new();
-        parse_punctuated_vec_autocomplete_friendly!(scenes, input, BsnSceneListItem, Comma);
+        while !input.is_empty() {
+            scenes.push(input.parse::<BsnSceneListItem>()?);
+        }
+
         Ok(BsnSceneListItems(scenes))
     }
 }
 
 impl Parse for BsnSceneListItem {
     fn parse(input: ParseStream) -> Result<Self> {
-        Ok(if input.peek(Brace) {
-            let tokens = braced_tokens(input)?;
-            BsnSceneListItem::Expression(tokens)
-        } else {
-            BsnSceneListItem::Scene(input.parse::<Bsn<true>>()?)
+        Ok(match input.parse::<ChildOrSceneList>()? {
+            ChildOrSceneList::Child(bsn) => BsnSceneListItem::Scene(bsn),
+            ChildOrSceneList::SceneList(scene_list_expression) => {
+                BsnSceneListItem::SceneListExpression(scene_list_expression)
+            }
         })
+    }
+}
+
+impl Parse for SceneListExpression {
+    fn parse(input: ParseStream) -> Result<Self> {
+        let _ = input.parse::<Token![#]>()?;
+        let content;
+        braced![content in input];
+        let tokens = braced_tokens(&content)?;
+        Ok(SceneListExpression(tokens))
     }
 }
 

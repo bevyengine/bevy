@@ -1,9 +1,6 @@
 use bevy_app::Propagate;
 use bevy_color::{Alpha, Srgba};
-use bevy_ecs::{
-    event::EntityEvent, hierarchy::Children, observer::On, reflect::ReflectComponent,
-    system::Commands,
-};
+use bevy_ecs::{event::EntityEvent, observer::On, reflect::ReflectComponent, system::Commands};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::{bsn, bsn_list, on, Scene, SceneComponent, SceneList};
 use bevy_text::FontWeight;
@@ -69,7 +66,7 @@ impl FeathersDialog {
             FixedNode
             OverrideClip
             GlobalZIndex(99) // One less than menu layer
-            Children [
+            #{
                 Node {
                     display: Display::Flex,
                     flex_direction: FlexDirection::Column,
@@ -91,10 +88,8 @@ impl FeathersDialog {
                     px(1),
                     px(4),
                 )
-                Children [
-                    {props.contents}
-                ]
-            ]
+                #{{props.contents}}
+            }
         }
     }
 }
@@ -161,37 +156,31 @@ impl FeathersFloatingDialog {
             on(|close: On<RequestClose>, mut commands: Commands| {
                 commands.entity(close.event_target()).despawn();
             })
-            Children [
-                // Title bar; dragging it moves the window.
-                (
-                    Node {
-                        display: Display::Flex,
-                        flex_direction: FlexDirection::Row,
-                        align_items: AlignItems::Center,
-                        justify_content: JustifyContent::SpaceBetween,
-                        padding: UiRect::all(px(6.0)),
-                    }
-                    DialogDragHandle
-                    InheritableThemeTextColor(tokens::DIALOG_HEADER_TEXT)
-                    ThemeBackgroundColor(tokens::DIALOG_HEADER_BG)
-                    Propagate::<ThemeContext>(ThemeContext(SurfaceLevel::Higher))
-                    InheritableFont {
-                        font: fonts::REGULAR,
-                        font_size: size::HEADER_FONT,
-                        weight: FontWeight::BOLD,
-                    }
-                    Children [
-                        (Text({props.title}) ThemedText),
-                        @FeathersDialogClose
-                    ]
-                ),
-                (
-                    @FeathersDialogBody
-                    Children [
-                        {props.contents}
-                    ]
-                )
-            ]
+            // Title bar; dragging it moves the window.
+            #{
+                Node {
+                    display: Display::Flex,
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::SpaceBetween,
+                    padding: UiRect::all(px(6.0)),
+                }
+                DialogDragHandle
+                InheritableThemeTextColor(tokens::DIALOG_HEADER_TEXT)
+                ThemeBackgroundColor(tokens::DIALOG_HEADER_BG)
+                Propagate::<ThemeContext>(ThemeContext(SurfaceLevel::Higher))
+                InheritableFont {
+                    font: fonts::REGULAR,
+                    font_size: size::HEADER_FONT,
+                    weight: FontWeight::BOLD,
+                }
+                #{ Text({props.title}) ThemedText }
+                # @FeathersDialogClose
+            }
+            #{
+                @FeathersDialogBody
+                #{{props.contents}}
+            }
         }
     }
 }

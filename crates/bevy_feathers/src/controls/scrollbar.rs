@@ -3,7 +3,7 @@ use bevy_camera::visibility::Visibility;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    hierarchy::{ChildOf, Children},
+    hierarchy::ChildOf,
     query::{Changed, Or, With},
     reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
@@ -76,7 +76,7 @@ impl FeathersScrollbar {
                 border_radius: BorderRadius::all(px(3))
             }
             ThemeBackgroundColor(tokens::SCROLLBAR_BG)
-            Children [(
+            #{
                 Hovered
                 ThemeBackgroundColor(tokens::SCROLLBAR_THUMB)
                 ScrollbarThumb {
@@ -84,7 +84,7 @@ impl FeathersScrollbar {
                 }
                 FeathersScrollbarThumb
                 EntityCursor::System(bevy_window::SystemCursorIcon::Pointer)
-            )]
+            }
         }
     }
 }

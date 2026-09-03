@@ -127,12 +127,10 @@ fn setup_scattered_ui(mut commands: Commands) {
             width: percent(100),
             height: percent(100),
         }
-        Children [
-            @instructions_scene(),
-            @focus_display_scene(),
-            @key_display_scene(),
-            { buttons_scene() },
-        ]
+        # @instructions_scene()
+        # @focus_display_scene()
+        # @key_display_scene()
+        #{{ buttons_scene() }}
     });
 }
 
@@ -157,7 +155,7 @@ fn instructions_scene() -> impl Scene {
             border_radius: BorderRadius::all(px(8)),
         }
         BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 0.8))
-        Children [
+        #{
             Text(
                 "Directional Navigation Demo\n\n\
                  Use arrow keys or D-pad to navigate.\n\
@@ -165,7 +163,7 @@ fn instructions_scene() -> impl Scene {
                  Buttons are scattered irregularly,\n\
                  but navigation is automatic!",
             )
-        ]
+        }
     }
 }
 
@@ -180,13 +178,13 @@ fn focus_display_scene() -> impl Scene {
             border_radius: BorderRadius::all(px(8)),
         }
         BackgroundColor(Color::srgba(0.1, 0.5, 0.1, 0.8))
-        Children [
+        #{
             FocusDisplay
             Text("Focused: None")
             TextFont {
                 font_size: FontSize::Px(20.0),
             }
-        ]
+        }
     }
 }
 
@@ -201,13 +199,13 @@ fn key_display_scene() -> impl Scene {
             border_radius: BorderRadius::all(px(8)),
         }
         BackgroundColor(Color::srgba(0.5, 0.1, 0.5, 0.8))
-        Children [
+        #{
             KeyDisplay
             Text("Last Key: None")
             TextFont {
                 font_size: FontSize::Px(20.0),
             }
-        ]
+        }
     }
 }
 
@@ -266,12 +264,12 @@ fn buttons_scene() -> impl SceneList {
                 AutoDirectionalNavigation::default()
                 ResetTimer::default()
                 BackgroundColor::from(NORMAL_BUTTON)
-                Children [
+                #{
                     Text(format!("Button {}", i + 1))
                     TextLayout {
                         justify: Justify::Center,
                     }
-                ]
+                }
             })
         })
         .collect::<Vec<_>>()

@@ -55,10 +55,9 @@ pub fn list_rows_from_strings(
             .map(|(i, label)| -> Box<dyn SceneList> {
                 let label: String = label.as_ref().into();
                 if Some(i) == selected {
-                    bsn! { @FeathersListRow Selected OptionIndex(i) Children [ @caption(label) ] }
-                        .into()
+                    bsn! { @FeathersListRow Selected OptionIndex(i) #{ @caption(label) } }.into()
                 } else {
-                    bsn! { @FeathersListRow OptionIndex(i) Children [ @caption(label) ] }.into()
+                    bsn! { @FeathersListRow OptionIndex(i) #{ @caption(label) } }.into()
                 }
             })
             .collect::<Vec<_>>(),
@@ -99,33 +98,29 @@ impl FeathersSelect {
         bsn! {
             @FeathersMenu
             FeathersSelect
-            Children [
-                (
-                    @FeathersMenuButton {
-                        @caption: bsn! { @caption("") SelectCaption },
-                        @corners: {props.corners},
+            #{
+                @FeathersMenuButton {
+                    @caption: bsn! { @caption("") SelectCaption },
+                    @corners: {props.corners},
+                }
+                Node {
+                    flex_grow: 1.0,
+                }
+            }
+            #{
+                @FeathersMenuPopup
+                #{
+                    @FeathersListView {
+                        @rows: {props.options}
                     }
                     Node {
-                        flex_grow: 1.0,
+                        max_height: {max_height},
                     }
-                ),
-                (
-                    @FeathersMenuPopup
-                    Children [
-                        (
-                            @FeathersListView {
-                                @rows: {props.options}
-                            }
-                            on(listbox_update_selection)
-                            on(re_emit_listbox_value)
-                            on(close_popup_on_reselect)
-                            Node {
-                                max_height: {max_height},
-                            }
-                        )
-                    ]
-                )
-            ]
+                    on(listbox_update_selection)
+                    on(re_emit_listbox_value)
+                    on(close_popup_on_reselect)
+                }
+            }
         }
     }
 }

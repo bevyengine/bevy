@@ -37,9 +37,7 @@ fn setup(mut commands: Commands, mut texture_atlas_layouts: ResMut<Assets<Textur
             justify_content: JustifyContent::Center,
             column_gap: px(15),
         }
-        Children [
-            { food_items_scene_list(texture_atlas_layout) }
-        ]
+        #{{ food_items_scene_list(texture_atlas_layout) }}
     });
 
     // Status text
@@ -49,9 +47,7 @@ fn setup(mut commands: Commands, mut texture_atlas_layouts: ResMut<Assets<Textur
             top: px(12),
             left: px(12),
         }
-        Children [
-            Text("*Click some food to eat it*")
-        ]
+        #{ Text("*Click some food to eat it*") }
     });
 }
 
@@ -114,6 +110,7 @@ fn build_ability(
     // The child node's height will be animated to be at 100% at the beginning
     // of a cooldown, effectively graying out the whole button, and then getting smaller over time.
     bsn! {
+        Name(name)
         Node {
             width: px(80),
             height: px(80),
@@ -126,14 +123,13 @@ fn build_ability(
             texture_atlas: texture_atlas_template(layout, index),
         }
         Cooldown(Timer::from_seconds(cooldown, TimerMode::Once))
-        Name(name)
-        Children [
+        #{
             Node {
                 width: percent(100),
                 height: percent(0),
             }
             BackgroundColor({SLATE_50.with_alpha(0.5)})
-        ]
+        }
     }
 }
 

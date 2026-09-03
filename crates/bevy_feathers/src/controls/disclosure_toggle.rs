@@ -1,7 +1,6 @@
 use bevy_app::{App, Plugin, PreUpdate};
 use bevy_ecs::{
     entity::Entity,
-    hierarchy::Children,
     lifecycle::RemovedComponents,
     query::{Added, Has, Or, With},
     reflect::ReflectComponent,
@@ -52,9 +51,7 @@ impl FeathersDisclosureToggle {
             FocusIndicator
             InheritableThemeTextColor(tokens::BUTTON_TEXT)
             TabIndex(0)
-            Children [
-                @icon(icons::CHEVRON_RIGHT)
-            ]
+            # @icon(icons::CHEVRON_RIGHT)
         )
     }
 }

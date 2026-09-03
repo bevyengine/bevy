@@ -2,7 +2,6 @@ use bevy_app::{Plugin, PreUpdate};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    hierarchy::Children,
     lifecycle::RemovedComponents,
     query::{Added, Changed, Has, Or},
     reflect::ReflectComponent,
@@ -113,9 +112,7 @@ impl FeathersButton {
                 font_size: size::MEDIUM_FONT,
                 weight: FontWeight::NORMAL,
             }
-            Children [
-                {props.caption}
-            ]
+            #{{props.caption}}
         }
     }
 }
@@ -142,7 +139,7 @@ impl FeathersToolButton {
             @FeathersButton {
                 @caption: {props.caption},
                 @variant: {props.variant},
-                @corners: {props.corners}
+                @corners: {props.corners},
             }
             Node {
                 padding: UiRect::horizontal(px(4)),

@@ -224,25 +224,27 @@ fn buttons_scene() -> impl Scene {
             justify_content: JustifyContent::Center,
             column_gap: px(20),
         }
-        Children [
+        #{
             Node {
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
             }
-            Children [
+            #{
                 CurrentColorSpaceLabel
                 template(|ctx| {
                     let current_index = ctx.resource::<AppSettings>().color_space_current_index;
                     Ok(Text(format!("Current Space\n{:?}", COLOR_SPACES[current_index])))
                 })
-            ],
-
+            }
+        }
+        #{
             PreviousButton
-            @button_node_scene("Previous"),
-
+            @button_node_scene("Previous")
+        }
+        #{
             NextButton
-            @button_node_scene("Next"),
-        ]
+            @button_node_scene("Next")
+        }
     }
 }
 
@@ -267,9 +269,7 @@ fn button_node_scene(caption: &'static str) -> impl Scene {
         on(|event: On<PointerOut>, mut border_query: Query<&mut BorderColor, With<Button>>| {
             *border_query.get_mut(event.entity).unwrap() = BorderColor::all(Color::WHITE);
         })
-        Children [
-            Text(caption)
-        ]
+        #{ Text(caption) }
     }
 }
 

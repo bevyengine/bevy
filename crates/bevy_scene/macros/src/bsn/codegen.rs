@@ -1,7 +1,7 @@
 use crate::_bsn::types::{
     Bsn, BsnConstructor, BsnEntry, BsnFields, BsnFnArg, BsnFnArgs, BsnFnCall, BsnListRoot,
     BsnNamedField, BsnRelatedSceneList, BsnRoot, BsnScene, BsnSceneFn, BsnSceneListItem,
-    BsnSceneListItems, BsnStructUpdate, BsnType, BsnUnnamedField, BsnValue,
+    BsnSceneListItems, BsnStructUpdate, BsnType, BsnUnnamedField, BsnValue, SceneListExpression,
 };
 use bevy_macro_utils::{fq_std::FQDefault, path_to_string};
 use proc_macro2::TokenStream;
@@ -73,11 +73,11 @@ impl<'a> BsnCodegenCtx<'a> {
 }
 
 pub trait BsnTokenStream: Parse {
-    fn to_tokens(&self, ctx: &mut BsnCodegenCtx) -> TokenStream;
+    fn to_tokens(self, ctx: &mut BsnCodegenCtx) -> TokenStream;
 }
 
 impl BsnTokenStream for BsnRoot {
-    fn to_tokens(&self, ctx: &mut BsnCodegenCtx) -> TokenStream {
+    fn to_tokens(self, ctx: &mut BsnCodegenCtx) -> TokenStream {
         let tokens = self.0.to_tokens(ctx);
         let errors = ctx.errors.iter().map(|e| e.to_compile_error());
         let bevy_scene = ctx.bevy_scene;
@@ -108,7 +108,7 @@ impl BsnTokenStream for BsnRoot {
 }
 
 impl BsnTokenStream for BsnListRoot {
-    fn to_tokens(&self, ctx: &mut BsnCodegenCtx) -> TokenStream {
+    fn to_tokens(self, ctx: &mut BsnCodegenCtx) -> TokenStream {
         let tokens = self.0.to_tokens(ctx);
         let errors = ctx.errors.iter().map(|e| e.to_compile_error());
         let bevy_scene = ctx.bevy_scene;
@@ -141,13 +141,30 @@ impl BsnTokenStream for BsnListRoot {
 impl<const ALLOW_FLAT: bool> Bsn<ALLOW_FLAT> {
     /// Converts to tokens and performs validation checks.
     /// Accumulates errors in [`BsnCodegenCtx`].
-    pub fn try_to_tokens(&self, ctx: &mut BsnCodegenCtx) -> syn::Result<TokenStream> {
+    pub fn try_to_tokens(self, ctx: &mut BsnCodegenCtx) -> syn::Result<TokenStream> {
         let bevy_scene = ctx.bevy_scene;
         let mut combined_patches = Vec::new();
         let mut scene_impls = Vec::new();
-        for entry in &self.entries {
+        let mut child_scenes = Vec::new();
+
+        if let Some(name) = self.name {
+            let bevy_ecs = ctx.bevy_ecs;
+            let (name, index) = ctx.fixed_entity_ref(&name);
+            let invocation = ctx.invocation_index.clone();
+            combined_patches.push(quote! {
+                #bevy_scene::NameEntityReference { name: #bevy_ecs::name::Name(#name.into()), reference: #bevy_ecs::template::SceneEntityReference::new(#invocation, #index, _call_id,) }.resolve_inline(_context, _scene);
+            })
+        }
+
+        for entry in self.entries {
             match entry.try_to_tokens(ctx) {
                 Ok(EntryResult::CombinedSceneFunction(patch)) => combined_patches.push(patch),
+                Ok(EntryResult::ChildScene(scene)) => {
+                    child_scenes.push(BsnSceneListItem::Scene(scene))
+                }
+                Ok(EntryResult::ChildSceneListExpression(expression)) => {
+                    child_scenes.push(BsnSceneListItem::SceneListExpression(expression))
+                }
                 Ok(EntryResult::NewSceneImpl(scene_impl)) => {
                     if !combined_patches.is_empty() {
                         let patches = combined_patches.drain(..);
@@ -170,10 +187,18 @@ impl<const ALLOW_FLAT: bool> Bsn<ALLOW_FLAT> {
                 })
             });
         }
+        if !child_scenes.is_empty() {
+            let scenes = BsnSceneListItems(child_scenes).to_tokens(ctx);
+            let bevy_ecs = ctx.bevy_ecs;
+            scene_impls.push(quote! {
+                #bevy_scene::RelatedScenes::<<#bevy_ecs::hierarchy::Children as #bevy_ecs::relationship::RelationshipTarget>
+                ::Relationship, _>::new(#scenes)
+            });
+        }
         Ok(quote! { #bevy_scene::auto_nest_tuple!(#(#scene_impls),*) })
     }
 
-    pub fn to_tokens(&self, ctx: &mut BsnCodegenCtx) -> TokenStream {
+    pub fn to_tokens(self, ctx: &mut BsnCodegenCtx) -> TokenStream {
         self.try_to_tokens(ctx)
             .unwrap_or_else(|e| e.to_compile_error())
     }
@@ -182,10 +207,12 @@ impl<const ALLOW_FLAT: bool> Bsn<ALLOW_FLAT> {
 enum EntryResult {
     CombinedSceneFunction(TokenStream),
     NewSceneImpl(TokenStream),
+    ChildScene(Bsn<false>),
+    ChildSceneListExpression(SceneListExpression),
 }
 
 impl BsnEntry {
-    fn try_to_tokens(&self, ctx: &mut BsnCodegenCtx) -> syn::Result<EntryResult> {
+    fn try_to_tokens(self, ctx: &mut BsnCodegenCtx) -> syn::Result<EntryResult> {
         let (bevy_scene, bevy_ecs) = (ctx.bevy_scene, ctx.bevy_ecs);
 
         Ok(match self {
@@ -279,6 +306,10 @@ impl BsnEntry {
                     }
                 }
             }),
+            BsnEntry::ChildScene(bsn_scene) => EntryResult::ChildScene(bsn_scene),
+            BsnEntry::ChildSceneListExpression(expression) => {
+                EntryResult::ChildSceneListExpression(expression)
+            }
             BsnEntry::RelatedSceneList(BsnRelatedSceneList {
                 scene_list,
                 relationship_path,
@@ -291,13 +322,6 @@ impl BsnEntry {
             }
             BsnEntry::UncachedScene(s) => EntryResult::NewSceneImpl(s.to_tokens(ctx)?),
             BsnEntry::CachedScene(s) => EntryResult::NewSceneImpl(s.to_tokens(ctx)?),
-            BsnEntry::Name(ident) => {
-                let (name, index) = ctx.fixed_entity_ref(ident);
-                let invocation = ctx.invocation_index.clone();
-                EntryResult::CombinedSceneFunction(quote! {
-                    #bevy_scene::NameEntityReference { name: #bevy_ecs::name::Name(#name.into()), reference: #bevy_ecs::template::SceneEntityReference::new(#invocation, #index, _call_id,) }.resolve_inline(_context, _scene);
-                })
-            }
             BsnEntry::TemplateValue(token_stream) => EntryResult::CombinedSceneFunction(quote! {
                 _scene.insert_template(#token_stream);
             }),
@@ -312,7 +336,7 @@ impl BsnEntry {
 }
 
 impl BsnScene {
-    fn to_tokens(&self, ctx: &mut BsnCodegenCtx) -> syn::Result<TokenStream> {
+    fn to_tokens(self, ctx: &mut BsnCodegenCtx) -> syn::Result<TokenStream> {
         let bevy_scene = ctx.bevy_scene;
         match self {
             BsnScene::Asset(lit) => Ok(quote! {
@@ -750,14 +774,14 @@ impl ToTokens for BsnStructUpdate {
 }
 
 impl BsnTokenStream for BsnSceneListItems {
-    fn to_tokens(&self, ctx: &mut BsnCodegenCtx) -> TokenStream {
+    fn to_tokens(self, ctx: &mut BsnCodegenCtx) -> TokenStream {
         let bevy_scene = ctx.bevy_scene;
-        let scenes = self.0.iter().map(|s| match s {
+        let scenes = self.0.into_iter().map(|s| match s {
             BsnSceneListItem::Scene(bsn) => {
                 let tokens = bsn.to_tokens(ctx);
                 quote! {#bevy_scene::EntityScene(#tokens)}
             }
-            BsnSceneListItem::Expression(tokens) => tokens.clone(),
+            BsnSceneListItem::SceneListExpression(expression) => expression.0,
         });
 
         quote! { #bevy_scene::auto_nest_tuple!(#(#scenes),*) }
@@ -765,7 +789,7 @@ impl BsnTokenStream for BsnSceneListItems {
 }
 
 impl BsnSceneFn {
-    fn to_tokens(&self, ctx: &mut BsnCodegenCtx) -> TokenStream {
+    fn to_tokens(self, ctx: &mut BsnCodegenCtx) -> TokenStream {
         let bevy_scene = ctx.bevy_scene;
         let args = self.args.to_tokens(ctx);
         let path = &self.path;
@@ -774,14 +798,14 @@ impl BsnSceneFn {
 }
 
 impl BsnTokenStream for BsnFnArgs {
-    fn to_tokens(&self, ctx: &mut BsnCodegenCtx) -> TokenStream {
-        let args = self.0.iter().map(|a| a.to_tokens(ctx));
+    fn to_tokens(self, ctx: &mut BsnCodegenCtx) -> TokenStream {
+        let args = self.0.into_iter().map(|a| a.to_tokens(ctx));
         quote! { (#(#args),*) }
     }
 }
 
 impl BsnTokenStream for BsnFnArg {
-    fn to_tokens(&self, ctx: &mut BsnCodegenCtx) -> TokenStream {
+    fn to_tokens(self, ctx: &mut BsnCodegenCtx) -> TokenStream {
         let bevy_ecs = ctx.bevy_ecs;
         match self {
             BsnFnArg::EntityName(ident) => {
@@ -1085,7 +1109,10 @@ mod tests {
             proc_macro2::Span::call_site(),
             "Test Error",
         ));
-        let root = BsnRoot(Bsn::<true> { entries: vec![] });
+        let root = BsnRoot(Bsn::<true> {
+            name: None,
+            entries: vec![],
+        });
 
         // Act
         let res = root.to_tokens(&mut ctx).to_string();

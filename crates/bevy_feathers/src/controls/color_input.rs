@@ -311,27 +311,23 @@ impl FeathersColorInput {
             @FeathersLazyMenu { popup }
             ButtonEntityRefs(#swatch)
             ColorInputState
-            Children [
-                (
-                    @FeathersMenuToolButton {
-                        @caption: bsn! {
-                            #swatch
-                            @FeathersColorSwatch {
-                                @opaque_color_percentage: {props.opaque_color_percentage},
-                                @corners: RoundedCorners::None,
-                            }
-                            Node {
-                                width: px(18),
-                                min_width: px(18),
-                                height: px(18),
-                                flex_grow: 0.0,
-                                align_self: AlignSelf::Center,
-                                justify_self: JustifySelf::Start,
-                            }
-                         }
+            # @FeathersMenuToolButton {
+                @caption: bsn! {
+                    #swatch
+                    @FeathersColorSwatch {
+                        @opaque_color_percentage: {props.opaque_color_percentage},
+                        @corners: RoundedCorners::None,
                     }
-                )
-            ]
+                    Node {
+                        width: px(18),
+                        min_width: px(18),
+                        height: px(18),
+                        flex_grow: 0.0,
+                        align_self: AlignSelf::Center,
+                        justify_self: JustifySelf::Start,
+                    }
+                }
+            }
         }
     }
 }
@@ -415,69 +411,59 @@ fn color_input_popup() -> Box<dyn Scene> {
             ],
             window_margin: 10.0,
         }
-        Children [
-            (
-                Node {
-                    display: Display::Flex,
-                    flex_direction: FlexDirection::Row,
-                    column_gap: px(1),
+        #{
+            Node {
+                display: Display::Flex,
+                flex_direction: FlexDirection::Row,
+                column_gap: px(1),
+            }
+            #mode_rgb {
+                @FeathersButton {
+                    @caption: bsn! { @caption("RGB") },
+                    @corners: RoundedCorners::Left,
                 }
-                Children [
-                    (
-                        #mode_rgb
-                        @FeathersButton {
-                            @caption: bsn! { @caption("RGB") },
-                            @corners: RoundedCorners::Left,
-                        }
-                        Node {
-                            flex_grow: 1.0,
-                        }
-                        ActivateOnPress
-                        AccessibleLabel("RGB")
-                        on(|_activate: On<Activate>, mut settings: ResMut<ColorInputSettings>| {
-                            settings.mode = ColorInputMode::RGPlane;
-                        })
-                        AutoFocus
-                    ),
-                    (
-                        #mode_hsl
-                        @FeathersButton {
-                            @caption: bsn! { @caption("HSL") },
-                            @corners: RoundedCorners::Right,
-                        }
-                        Node {
-                            flex_grow: 1.0,
-                        }
-                        ActivateOnPress
-                        AccessibleLabel("HSL")
-                        on(|_activate: On<Activate>, mut settings: ResMut<ColorInputSettings>| {
-                            settings.mode = ColorInputMode::HSPlane;
-                        })
-                    ),
-                ]
-            ),
-
-            (
-                #rg_plane
-                @FeathersColorPlane::RedGreen
                 Node {
-                    width: px(256 + 8),
-                    height: px(256 + 8),
+                    flex_grow: 1.0,
                 }
-                on(rg_color_plane_value_change)
-            ),
-
-            (
-                #hs_plane
-                @FeathersColorPlane::HueSaturation
+                ActivateOnPress
+                AccessibleLabel("RGB")
+                on(|_activate: On<Activate>, mut settings: ResMut<ColorInputSettings>| {
+                    settings.mode = ColorInputMode::RGPlane;
+                })
+                AutoFocus
+            }
+            #mode_hsl {
+                @FeathersButton {
+                    @caption: bsn! { @caption("HSL") },
+                    @corners: RoundedCorners::Right,
+                }
                 Node {
-                    width: px(256 + 8),
-                    height: px(256 + 8),
+                    flex_grow: 1.0,
                 }
-                on(hs_color_plane_value_change)
-            ),
-
-            #rgb_group
+                ActivateOnPress
+                AccessibleLabel("HSL")
+                on(|_activate: On<Activate>, mut settings: ResMut<ColorInputSettings>| {
+                    settings.mode = ColorInputMode::HSPlane;
+                })
+            }
+        }
+        #rg_plane {
+            @FeathersColorPlane::RedGreen
+            Node {
+                width: px(256 + 8),
+                height: px(256 + 8),
+            }
+            on(rg_color_plane_value_change)
+        }
+        #hs_plane {
+            @FeathersColorPlane::HueSaturation
+            Node {
+                width: px(256 + 8),
+                height: px(256 + 8),
+            }
+            on(hs_color_plane_value_change)
+        }
+        #rgb_group {
             Node {
                 display: Display::Grid,
                 column_gap: px(4),
@@ -490,70 +476,63 @@ fn color_input_popup() -> Box<dyn Scene> {
                 grid_auto_rows: vec![GridTrack::auto()],
                 align_items: AlignItems::Center,
             }
-            Children [
-                @label("R"),
-                (
-                    #r_slider
-                    @FeathersColorSlider {
-                        @value: 0.5,
-                        @channel: ColorChannel::Red
-                    }
-                    AccessibleLabel("Red Channel")
-                    on(color_slider_value_change)
-                ),
-                (
-                    #r_input
-                    @FeathersNumberInput
-                    NumberInputValue::F32(0.0)
-                    HardLimit(NumberInputRange::F32(0.0..=255.0))
-                    NumberInputPrecision(1)
-                    NumberInputStep(20.0)
-                    NumberInputChannel(ColorChannel::Red)
-                    on(number_input_value_change)
-                ),
-                @label("G"),
-                (
-                    #g_slider
-                    @FeathersColorSlider {
-                        @value: 0.5,
-                        @channel: ColorChannel::Green
-                    }
-                    AccessibleLabel("Green Channel")
-                    on(color_slider_value_change)
-                ),
-                (
-                    #g_input
-                    @FeathersNumberInput
-                    NumberInputValue::F32(0.0)
-                    HardLimit(NumberInputRange::F32(0.0..=255.0))
-                    NumberInputPrecision(1)
-                    NumberInputStep(20.0)
-                    NumberInputChannel(ColorChannel::Green)
-                    on(number_input_value_change)
-                ),
-                @label("B"),
-                (
-                    #b_slider
-                    @FeathersColorSlider {
-                        @value: 0.5,
-                        @channel: ColorChannel::Blue
-                    }
-                    AccessibleLabel("Blue Channel")
-                    on(color_slider_value_change)
-                ),
-                (
-                    #b_input
-                    @FeathersNumberInput
-                    NumberInputValue::F32(0.0)
-                    HardLimit(NumberInputRange::F32(0.0..=255.0))
-                    NumberInputPrecision(1)
-                    NumberInputStep(20.0)
-                    NumberInputChannel(ColorChannel::Blue)
-                    on(number_input_value_change)
-                ),
-            ],
-
-            #hsl_group
+            # @label("R")
+            #r_slider {
+                #r_slider
+                @FeathersColorSlider {
+                    @value: 0.5,
+                    @channel: ColorChannel::Red
+                }
+                AccessibleLabel("Red Channel")
+                on(color_slider_value_change)
+            }
+            #r_input {
+                @FeathersNumberInput
+                NumberInputValue::F32(0.0)
+                HardLimit(NumberInputRange::F32(0.0..=255.0))
+                NumberInputPrecision(1)
+                NumberInputStep(20.0)
+                NumberInputChannel(ColorChannel::Red)
+                on(number_input_value_change)
+            }
+            # @label("G")
+            #g_slider {
+                @FeathersColorSlider {
+                    @value: 0.5,
+                    @channel: ColorChannel::Green
+                }
+                AccessibleLabel("Green Channel")
+                on(color_slider_value_change)
+            }
+            #g_input {
+                @FeathersNumberInput
+                NumberInputValue::F32(0.0)
+                HardLimit(NumberInputRange::F32(0.0..=255.0))
+                NumberInputPrecision(1)
+                NumberInputStep(20.0)
+                NumberInputChannel(ColorChannel::Green)
+                on(number_input_value_change)
+            }
+            # @label("B")
+            #b_slider {
+                @FeathersColorSlider {
+                    @value: 0.5,
+                    @channel: ColorChannel::Blue
+                }
+                AccessibleLabel("Blue Channel")
+                on(color_slider_value_change)
+            }
+            #b_input {
+                @FeathersNumberInput
+                NumberInputValue::F32(0.0)
+                HardLimit(NumberInputRange::F32(0.0..=255.0))
+                NumberInputPrecision(1)
+                NumberInputStep(20.0)
+                NumberInputChannel(ColorChannel::Blue)
+                on(number_input_value_change)
+            }
+        }
+        #hsl_group {
             Node {
                 display: Display::Grid,
                 column_gap: px(4),
@@ -566,78 +545,71 @@ fn color_input_popup() -> Box<dyn Scene> {
                 grid_auto_rows: vec![GridTrack::auto()],
                 align_items: AlignItems::Center,
             }
-            Children [
-                @label("H"),
-                (
-                    #h_slider
-                    @FeathersColorSlider {
-                        @value: 0.5,
-                        @channel: ColorChannel::HslHue
-                    }
-                    AccessibleLabel("Hue Channel")
-                    on(color_slider_value_change)
-                ),
-                (
-                    #h_input
-                    @FeathersNumberInput
-                    NumberInputValue::F32(0.0)
-                    HardLimit(NumberInputRange::F32(0.0..=360.0))
-                    NumberInputPrecision(1)
-                    NumberInputStep(30.0)
-                    NumberInputChannel(ColorChannel::HslHue)
-                    Node {
-                        flex_grow: 1.0,
-                    }
-                    on(number_input_value_change)
-                ),
-                @label("S"),
-                (
-                    #s_slider
-                    @FeathersColorSlider {
-                        @value: 0.5,
-                        @channel: ColorChannel::HslSaturation
-                    }
-                    AccessibleLabel("Saturation Channel")
-                    on(color_slider_value_change)
-                ),
-                (
-                    #s_input
-                    @FeathersNumberInput
-                    NumberInputValue::F32(0.0)
-                    HardLimit(NumberInputRange::F32(0.0..=100.0))
-                    NumberInputPrecision(1)
-                    NumberInputStep(10.0)
-                    NumberInputChannel(ColorChannel::HslSaturation)
-                    Node {
-                        flex_grow: 1.0,
-                    }
-                    on(number_input_value_change)
-                ),
-                @label("L"),
-                (
-                    #l_slider
-                    @FeathersColorSlider {
-                        @value: 0.5,
-                        @channel: ColorChannel::HslLightness
-                    }
-                    AccessibleLabel("Lightness Channel")
-                    on(color_slider_value_change)
-                ),
-                (
-                    #l_input
-                    @FeathersNumberInput
-                    NumberInputValue::F32(0.0)
-                    HardLimit(NumberInputRange::F32(0.0..=100.0))
-                    NumberInputPrecision(1)
-                    NumberInputStep(10.0)
-                    NumberInputChannel(ColorChannel::HslLightness)
-                    Node {
-                        flex_grow: 1.0,
-                    }
-                    on(number_input_value_change)
-                ),
-            ],
-
+            # @label("H")
+            #h_slider {
+                @FeathersColorSlider {
+                    @value: 0.5,
+                    @channel: ColorChannel::HslHue
+                }
+                AccessibleLabel("Hue Channel")
+                on(color_slider_value_change)
+            }
+            #h_input {
+                @FeathersNumberInput
+                NumberInputValue::F32(0.0)
+                HardLimit(NumberInputRange::F32(0.0..=360.0))
+                NumberInputPrecision(1)
+                NumberInputStep(30.0)
+                NumberInputChannel(ColorChannel::HslHue)
+                Node {
+                    flex_grow: 1.0,
+                }
+                on(number_input_value_change)
+            }
+            # @label("S")
+            #s_slider {
+                @FeathersColorSlider {
+                    @value: 0.5,
+                    @channel: ColorChannel::HslSaturation
+                }
+                AccessibleLabel("Saturation Channel")
+                on(color_slider_value_change)
+            }
+            #s_input {
+                @FeathersNumberInput
+                NumberInputValue::F32(0.0)
+                HardLimit(NumberInputRange::F32(0.0..=100.0))
+                NumberInputPrecision(1)
+                NumberInputStep(10.0)
+                NumberInputChannel(ColorChannel::HslSaturation)
+                Node {
+                    flex_grow: 1.0,
+                }
+                on(number_input_value_change)
+            }
+            # @label("L")
+            #l_slider {
+                @FeathersColorSlider {
+                    @value: 0.5,
+                    @channel: ColorChannel::HslLightness
+                }
+                AccessibleLabel("Lightness Channel")
+                on(color_slider_value_change)
+            }
+            #l_input {
+                @FeathersNumberInput
+                NumberInputValue::F32(0.0)
+                HardLimit(NumberInputRange::F32(0.0..=100.0))
+                NumberInputPrecision(1)
+                NumberInputStep(10.0)
+                NumberInputChannel(ColorChannel::HslLightness)
+                Node {
+                    flex_grow: 1.0,
+                }
+                on(number_input_value_change)
+            }
+        }
+        #{
             Node {
                 display: Display::Grid,
                 column_gap: px(4),
@@ -650,73 +622,64 @@ fn color_input_popup() -> Box<dyn Scene> {
                 grid_auto_rows: vec![GridTrack::auto()],
                 align_items: AlignItems::Center,
             }
-            Children [
-                @label("A"),
-                (
-                    #a_slider
-                    @FeathersColorSlider {
-                        @value: 0.5,
-                        @channel: ColorChannel::Alpha
+            # @label("A")
+            #a_slider {
+                @FeathersColorSlider {
+                    @value: 0.5,
+                    @channel: ColorChannel::Alpha
+                }
+                AccessibleLabel("Alpha Channel")
+                on(color_slider_value_change)
+            }
+            #a_input {
+                @FeathersNumberInput
+                NumberInputValue::F32(0.0)
+                HardLimit(NumberInputRange::F32(0.0..=255.0))
+                NumberInputPrecision(1)
+                NumberInputStep(10.0)
+                NumberInputChannel(ColorChannel::Alpha)
+                on(number_input_value_change)
+            }
+            #hex_input_container {
+                @FeathersTextInputContainer
+                Node {
+                    flex_grow: 0.
+                    padding: { px(4).left() },
+                    grid_column: GridPlacement::span(2),
+                }
+                #hex_input {
+                    @FeathersTextInput {
+                        @max_characters: 9usize,
                     }
-                    AccessibleLabel("Alpha Channel")
-                    on(color_slider_value_change)
-                ),
-                (
-                    #a_input
-                    @FeathersNumberInput
-                    NumberInputValue::F32(0.0)
-                    HardLimit(NumberInputRange::F32(0.0..=255.0))
-                    NumberInputPrecision(1)
-                    NumberInputStep(10.0)
-                    NumberInputChannel(ColorChannel::Alpha)
-                    on(number_input_value_change)
-                ),
-                (
-                    #hex_input_container
-                    @FeathersTextInputContainer
-                    Node {
-                        flex_grow: 0.
-                        padding: { px(4).left() },
-                        grid_column: GridPlacement::span(2),
+                    TextLayout {
+                        justify: Justify::Center,
                     }
-                    Children [
-                        (
-                            #hex_input
-                            @FeathersTextInput {
-                                @max_characters: 9usize,
-                            }
-                            TextLayout {
-                                justify: Justify::Center,
-                            }
-                            InheritableFont {
-                                font: fonts::MONO
-                            }
-                            LineHeight::Px(24.0) // TODO: Make const for this
-                            on(hex_input_on_enter_key)
-                            on(hex_input_on_focus_loss)
-                        )
-                    ]
-                ),
-                (
-                    #swatch
-                    @FeathersColorSwatch {
-                        @opaque_color_percentage: 50.0,
+                    InheritableFont {
+                        font: fonts::MONO
                     }
-                    Node {
-                        flex_grow: 0.0,
-                        align_self: AlignSelf::Stretch,
-                    }
-                )
-            ],
-
-            // Recent colors
-            #recent
+                    LineHeight::Px(24.0) // TODO: Make const for this
+                    on(hex_input_on_enter_key)
+                    on(hex_input_on_focus_loss)
+                }
+            }
+            #swatch {
+                @FeathersColorSwatch {
+                    @opaque_color_percentage: 50.0,
+                }
+                Node {
+                    flex_grow: 0.0,
+                    align_self: AlignSelf::Stretch,
+                }
+            }
+        }
+        // Recent colors
+        #recent {
             @FeathersColorSwatchGrid {
                 size: UVec2::new(RECENT_COLORS_COLUMNS, RECENT_COLORS_ROWS),
                 opaque_color_percentage: 50.0,
             }
             on(recent_color_selected)
-        ]
+        }
     ))
 }
 

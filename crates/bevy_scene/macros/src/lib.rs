@@ -54,6 +54,10 @@ use syn::{parse_macro_input, DeriveInput};
 /// | **Observers**                              |                                                                                                                |
 /// | `on(\|ev: On<Ev>\| { … })`                 | Attaches an entity [`observer`] for the [`EntityEvent`] `Ev` to this entity. In this example, using a closure  |
 /// | `on(my_observer)`                          | Attaches an entity [`observer`] for the [`EntityEvent`] `Ev` to this entity. In this example, using a function |
+/// | **Entity Syntax**                          |                                                                                                                |
+/// | #{ CompA }                                 | Defines a new entity. If defined directly inside an entity, this is a "child" entity                           |
+/// | #Name { CompA }                            | Defines a new entity with a #Name. If defined directly inside an entity, this is a "child" entity              |
+/// | # @scene()                                 | Defines a new related scene. If defined directly inside an entity, this is a "child" entity                    |
 /// | **Relationships**                          |                                                                                                                |
 /// | `Children []`                              | Spawns each entry as a child of this entity, see **Scene Lists** below for details                             |
 /// | `ChildOf(entity)`                          | Makes **this** entity a child of `entity`, accepts an [`Entity`] or a `#Name` reference ([`EntityTemplate`])   |

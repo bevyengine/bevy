@@ -268,16 +268,14 @@ fn animate_spheres(mut spheres: Query<&mut Transform, With<ExampleSphere>>, time
 fn spawn_buttons(commands: &mut Commands, light_mode: Res<LightMode>) {
     commands.spawn_scene(bsn! {
         @main_ui_node_scene()
-            Children [
-            @feathers_option_buttons(
-                "Toggle light type",
-                &[
-                    (LightMode::Directional, "Directional"),
-                    (LightMode::Point, "Point"),
-                ],
-                if *light_mode == LightMode::Directional { 0 } else { 1 },
-            )
-        ]
+        # @feathers_option_buttons(
+            "Toggle light type",
+            &[
+                (LightMode::Directional, "Directional"),
+                (LightMode::Point, "Point"),
+            ],
+            if *light_mode == LightMode::Directional { 0 } else { 1 },
+        )
     });
 }
 

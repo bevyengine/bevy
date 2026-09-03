@@ -290,16 +290,12 @@ impl FeathersMenuButton {
             MenuButton
             FeathersMenuButton
             // Additional children for menu chevron
-            Children [
-                {
-                    props.arrow.then(|| bsn_list!(
-                        Node {
-                            flex_grow: 1.0,
-                        },
-                        @icon(icons::CHEVRON_DOWN),
-                    ))
-                }
-            ]
+            #{{
+                props.arrow.then(|| bsn_list!(
+                    #{ Node { flex_grow: 1.0 } }
+                    #{ @icon(icons::CHEVRON_DOWN) }
+                ))
+            }}
         }
     }
 }
@@ -326,14 +322,12 @@ impl FeathersMenuToolButton {
             MenuButton
             FeathersMenuButton
             // Additional children for menu chevron
-            Children [
-                {
-                    props.arrow.then(|| bsn_list!(
-                        Node { min_width: px(2) },
-                        @icon(icons::CHEVRON_DOWN),
-                    ))
-                }
-            ]
+            #{{
+                props.arrow.then(|| bsn_list!(
+                    #{ Node { min_width: px(2) } }
+                    #{ @icon(icons::CHEVRON_DOWN) }
+                ))
+            }}
         }
     }
 }
@@ -435,9 +429,7 @@ impl FeathersMenuItem {
                 font_size: size::MEDIUM_FONT,
                 weight: FontWeight::NORMAL,
             }
-            Children [
-                {props.caption}
-            ]
+            #{{ props.caption }}
         }
     }
 }

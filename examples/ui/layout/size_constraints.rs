@@ -55,23 +55,23 @@ fn setup(mut commands: Commands) {
             align_items: AlignItems::Center,
         }
         BackgroundColor(Color::BLACK)
-        Children [
+        #{
             // Centered column that contains all the content of the example.
             Node {
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
             }
-            Children [
+            #{
                 Text("Size Constraints Example")
                 @font_style_scene()
                 Node {
                     margin: UiRect::bottom(px(25)),
-                },
-
-                @bar_scene(),
-
-                // Controls (radio buttons)
+                }
+            }
+            # @bar_scene()
+            // Controls (radio buttons)
+            #{
                 Node {
                     flex_direction: FlexDirection::Column,
                     align_items: AlignItems::Stretch,
@@ -79,21 +79,19 @@ fn setup(mut commands: Commands) {
                     margin: UiRect::top(px(50)),
                 }
                 BackgroundColor(YELLOW)
-                Children [
-                    {
-                        [
-                            Constraint::MinWidth,
-                            Constraint::FlexBasis,
-                            Constraint::Width,
-                            Constraint::MaxWidth,
-                        ].into_iter().map(|constraint| {
-                            radio_group_scene(constraint)
-                        })
-                        .collect::<Vec<_>>()
-                    }
-                ]
-            ]
-        ]
+                #{{
+                    [
+                        Constraint::MinWidth,
+                        Constraint::FlexBasis,
+                        Constraint::Width,
+                        Constraint::MaxWidth,
+                    ].into_iter().map(|constraint| {
+                        radio_group_scene(constraint)
+                    })
+                    .collect::<Vec<_>>()
+                }}
+            }
+        }
     });
 }
 
@@ -115,7 +113,7 @@ fn bar_scene() -> impl Scene {
             padding: UiRect::all(px(10)),
         }
         BackgroundColor(YELLOW)
-        Children [
+        #{
             Node {
                 align_items: AlignItems::Stretch,
                 width: percent(100),
@@ -123,13 +121,13 @@ fn bar_scene() -> impl Scene {
                 padding: UiRect::all(px(4)),
             }
             BackgroundColor(Color::BLACK)
-            Children [
-                // This bar will grow and shrink as the constraints are tinkered with.
+            // This bar will grow and shrink as the constraints are tinkered with.
+            #{
                 Bar
                 Node
                 BackgroundColor(Color::WHITE)
-            ]
-        ]
+            }
+        }
     }
 }
 
@@ -148,50 +146,50 @@ fn radio_group_scene(constraint: Constraint) -> impl Scene {
             align_items: AlignItems::Stretch,
         }
         BackgroundColor(Color::BLACK)
-        Children [
+        #{
             Node {
                 flex_direction: FlexDirection::Row,
                 justify_content: JustifyContent::End,
                 padding: UiRect::all(px(2)),
             }
-            Children [
-                // Row Label
+            // Row Label
+            #{
                 Node {
                     min_width: px(200),
                     max_width: px(200),
                     justify_content: JustifyContent::Center,
                     align_items: AlignItems::Center,
                 }
-                Children [
+                #{
                     Text(label)
                     @font_style_scene()
-                ],
-
-                // Row Buttons
+                }
+            }
+            // Row Buttons
+            #{
                 Node
                 RadioGroup
-                Children [
-                    Checked
+                #{
                     @radio_button_scene(
                         constraint,
                         RadioButtonValue(auto()),
                         "Auto".to_string(),
                         true,
-                    ),
-
-                    {
-                        [0, 25, 50, 75, 100, 125].into_iter().map(|percent_value| {
-                            radio_button_scene(
-                                constraint,
-                                RadioButtonValue(percent(percent_value)),
-                                format!("{percent_value}%"),
-                                false,
-                            )
-                        }).collect::<Vec<_>>()
-                    },
-                ],
-            ]
-        ]
+                    )
+                    Checked
+                }
+                #{{
+                    [0, 25, 50, 75, 100, 125].into_iter().map(|percent_value| {
+                        radio_button_scene(
+                            constraint,
+                            RadioButtonValue(percent(percent_value)),
+                            format!("{percent_value}%"),
+                            false,
+                        )
+                    }).collect::<Vec<_>>()
+                }}
+            }
+        }
     }
 }
 
@@ -216,27 +214,6 @@ fn radio_button_scene(
         })
         constraint
         action
-        Children [
-            Node {
-                width: px(100),
-                justify_content: JustifyContent::Center,
-            }
-            BackgroundColor({if active {
-                ACTIVE_INNER_COLOR
-            } else {
-                INACTIVE_INNER_COLOR
-            }})
-            Children [
-                Text(label)
-                @font_style_scene()
-                TextColor({if active {
-                    ACTIVE_TEXT_COLOR
-                } else {
-                    UNHOVERED_TEXT_COLOR
-                }})
-                TextLayout::justify(Justify::Center)
-            ]
-        ]
         // Observers for updating text on hover/leave
         on(|event: On<PointerOver>,
             has_checked_query: Query<&Checked>,
@@ -262,6 +239,27 @@ fn radio_button_scene(
                 commands.entity(text_entity).insert(TextColor(UNHOVERED_TEXT_COLOR));
             }
         })
+        #{
+            Node {
+                width: px(100),
+                justify_content: JustifyContent::Center,
+            }
+            BackgroundColor({if active {
+                ACTIVE_INNER_COLOR
+            } else {
+                INACTIVE_INNER_COLOR
+            }})
+            #{
+                Text(label)
+                @font_style_scene()
+                TextColor({if active {
+                    ACTIVE_TEXT_COLOR
+                } else {
+                    UNHOVERED_TEXT_COLOR
+                }})
+                TextLayout::justify(Justify::Center)
+            }
+        }
     }
 }
 

@@ -155,13 +155,13 @@ impl FeathersColorPlane {
             ColorPlaneValue
             ThemeBackgroundColor(tokens::COLOR_PLANE_BG)
             EntityCursor::System(bevy_window::SystemCursorIcon::Crosshair)
-            Children [(
+            #{
                 Node {
                     align_self: AlignSelf::Stretch,
                     flex_grow: 1.0,
                 }
                 ColorPlaneInner
-                Children [(
+                #{
                     Node {
                         position_type: PositionType::Absolute,
                         left: percent(0),
@@ -180,8 +180,8 @@ impl FeathersColorPlane {
                     }
                     Pickable::IGNORE
                     UiTransform::from_translation(Val2::percent(-50., -50.),)
-                )]
-            )]
+                }
+            }
         }
     }
 }

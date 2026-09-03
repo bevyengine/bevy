@@ -53,7 +53,7 @@ fn main() {
 
 fn setup(mut commands: Commands, character: Res<Character>) {
     commands.spawn_scene_list(bsn_list! {
-        Camera2d,
+        #{ Camera2d }
 
         // This scene will serve as one half of our "View"
         // and most of the "Controller" in our MVC design.
@@ -61,11 +61,11 @@ fn setup(mut commands: Commands, character: Res<Character>) {
         // via observers and systems. The observers and systems update the
         // state and also update the look of the UI widgets
         // (i.e. changing text color of a selected option, inserting an X).
-        @ui(&character),
+        # @ui(&character)
 
         // This scene will serve as the other half of our "View" in our MVC design.
         // The user will see the character they are creating.
-        @character_view(&character),
+        # @character_view(&character)
     });
 }
 
@@ -163,7 +163,7 @@ fn ui(character: &Character) -> impl Scene {
             height: percent(100)
             width: percent(50),
         }
-        Children [
+        #{
             // The character creation pane
             Node {
                 flex_direction: FlexDirection::Column,
@@ -176,18 +176,16 @@ fn ui(character: &Character) -> impl Scene {
                 row_gap: px(10),
             }
             BackgroundColor(palettes::basic::GRAY)
-            Children [
-                // Pane header
+            // Pane header
+            #{
                 Node
-                Children[
-                    Text("Character Creator")
-                ],
-                @name_text_input_row(character),
-                @age_slider_row(character),
-                @hat_type_radio_group_row(character),
-                @tint_yellow_checkbox_row(character),
-            ]
-        ]
+                #{ Text("Character Creator") }
+            }
+            # @name_text_input_row(character)
+            # @age_slider_row(character)
+            # @hat_type_radio_group_row(character)
+            # @tint_yellow_checkbox_row(character)
+        }
     }
 }
 
@@ -201,13 +199,10 @@ fn name_text_input_row(character: &Character) -> impl Scene {
             align_items: AlignItems::Center,
             justify_content: JustifyContent::SpaceBetween,
         }
-        Children [
-            Node
-            Children [
-                Text::new("Name: ")
-            ],
+        #{
             @name_text_input(character)
-        ]
+            #{ Text("Name: ") }
+        }
     }
 }
 
@@ -270,20 +265,20 @@ fn age_slider_row(character: &Character) -> impl Scene {
             justify_content: JustifyContent::SpaceBetween,
             column_gap: px(10),
         }
-        Children [
+        #{
             Node
-            Children [
-                Text::new("Age:")
-            ],
-            @age_slider(character),
+            #{ Text::new("Age:") }
+        }
+        # @age_slider(character)
+        #{
             Node {
                 width: px(30),
             }
-            Children [
+            #{
                 AgeSliderText
                 Text(format!("{}", age))
-            ],
-        ]
+            }
+        }
     }
 }
 
@@ -310,18 +305,20 @@ fn age_slider(character: &Character) -> impl Scene {
         on(on_pointer_drag_start_grabbing_cursor)
         on(on_pointer_drag_end_grab_cursor)
         on(on_pointer_out_default_cursor)
-        Children [
-            // Visible Slider Track
+        // Visible Slider Track
+        #{
+
             // It is 220px in width via its parent.
             Node {
                 height: px(5),
                 border_radius: BorderRadius::all(px(3)),
             }
-            BackgroundColor(Color::BLACK),
-
-            // Invisible shorter track (does not have background color) that the
-            // SliderThumb glides on. This is so that the thumb
-            // does not go past the left and right sides of the visible slider track.
+            BackgroundColor(Color::BLACK)
+        }
+        // Invisible shorter track (does not have background color) that the
+        // SliderThumb glides on. This is so that the thumb
+        // does not go past the left and right sides of the visible slider track.
+        #{
             Node {
                 display: Display::Flex,
                 position_type: PositionType::Absolute,
@@ -332,7 +329,7 @@ fn age_slider(character: &Character) -> impl Scene {
                 top: px(0),
                 bottom: px(0),
             }
-            Children [
+            #{
                 AgeSliderThumb
                 SliderThumb
                 Node {
@@ -348,8 +345,8 @@ fn age_slider(character: &Character) -> impl Scene {
                 on(on_pointer_out_default_cursor)
                 on(on_pointer_drag_start_grabbing_cursor)
                 on(on_pointer_drag_end_grab_cursor)
-            ]
-        ]
+            }
+        }
     }
 }
 
@@ -408,18 +405,15 @@ fn hat_type_radio_group_row(character: &Character) -> impl Scene {
         HatTypeRadioGroup
         // This observer is part of the Controller -- it reacts to the user's input!
         on(on_value_change_hat_type)
-        Children [
+        #{
             Node
-            Children [
-                Text("Hat: ")
-            ],
-
-            {
-                HAT_TYPES.iter()
-                    .map(|hat_type| hat_type_radio_button(*hat_type, character))
-                    .collect::<Vec<_>>()
-            }
-        ]
+            #{ Text("Hat: ") }
+        }
+        #{{
+            HAT_TYPES.iter()
+                .map(|hat_type| hat_type_radio_button(*hat_type, character))
+                .collect::<Vec<_>>()
+        }}
     }
 }
 
@@ -443,19 +437,19 @@ fn hat_type_radio_button(hat_type: HatType, character: &Character) -> Box<dyn Sc
             @base_radio_button()
             // The selected hat_type must have the `Checked` component.
             Checked
-            Children [
-                Text::new(format!("{hat_type:?}"))
+            #{
+                Text(format!("{hat_type:?}"))
                 // The selected hat_type's text is green as opposed to white.
                 TextColor(palettes::basic::GREEN)
-            ]
+            }
         })
     } else {
         Box::new(bsn! {
             @base_radio_button()
-            Children [
+            #{
                 Text(format!("{hat_type:?}"))
                 TextColor(palettes::basic::WHITE)
-            ]
+            }
         })
     }
 }
@@ -520,13 +514,11 @@ fn tint_yellow_checkbox_row(character: &Character) -> impl Scene {
             align_items: AlignItems::Center,
             justify_content: JustifyContent::SpaceBetween,
         }
-        Children [
+        #{
             Node
-            Children [
-                Text("Tint Yellow: ")
-            ],
-            @tint_yellow_checkbox(character)
-        ]
+            #{ Text("Tint Yellow: ") }
+        }
+        # @tint_yellow_checkbox(character)
     }
 }
 
@@ -550,18 +542,18 @@ fn tint_yellow_checkbox(character: &Character) -> Box<dyn Scene> {
         Box::new(bsn! {
             @base_checkbox()
             Checked
-            Children [
+            #{
                 Text("X")
                 TextColor(palettes::basic::GREEN)
-            ]
+            }
         })
     } else {
         Box::new(bsn! {
             @base_checkbox()
-            Children [
+            #{
                 Text(" ")
                 TextColor(palettes::basic::GREEN)
-            ]
+            }
         })
     }
 }
@@ -616,11 +608,9 @@ fn character_view(character: &Character) -> impl Scene {
         CharacterView
         Transform::from_xyz(320., 0., 0.)
         Visibility::Inherited
-        Children [
-            @character_sprite(&character),
-            @character_hat(&character),
-            @character_name_and_age(&character),
-        ]
+        # @character_sprite(&character)
+        # @character_hat(&character)
+        # @character_name_and_age(&character)
     }
 }
 
@@ -724,21 +714,23 @@ fn character_hat(character: &Character) -> Box<dyn Scene> {
             // 0.78 radians ~ PI / 4
             Transform::from_rotation(Quat::from_rotation_z(0.78))
             Visibility::Inherited
-            Children [
-                // bottom wider portion of the top hat.
+            // bottom wider portion of the top hat.
+            #{
                 Mesh2d(asset_value(Rectangle::new(
                     40., 10.
                 )))
                 MeshMaterial2d<ColorMaterial>(asset_value(ColorMaterial::from_color(Color::BLACK)))
-                Transform::from_xyz(55., 60., 1.),
+                Transform::from_xyz(55., 60., 1.)
+            }
+            // top longer portion of the top hat
+            #{
 
-                // top longer portion of the top hat
                 Mesh2d(asset_value(Rectangle::new(
                     20., 50.
                 )))
                 MeshMaterial2d<ColorMaterial>(asset_value(ColorMaterial::from_color(Color::BLACK)))
-                Transform::from_xyz(55., 85., 1.),
-            ]
+                Transform::from_xyz(55., 85., 1.)
+            }
         }),
         HatType::DunceCap => Box::new(bsn! {
             CharacterHat

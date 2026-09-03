@@ -320,7 +320,7 @@ fn setup(
 fn spawn_ui(commands: &mut Commands) {
     commands.spawn_scene(bsn! {
         @main_ui_node_scene()
-        Children [
+        #{
             // Spawn the "Regenerate Top Mip Level" button.
             @FeathersButton {
                 @caption: bsn! { @caption("Regenerate Top Mip Level") }
@@ -331,50 +331,48 @@ fn spawn_ui(commands: &mut Commands) {
                 align_items: AlignItems::Center,
             }
             BackgroundColor(Color::BLACK)
-            ,
-
-            // Spawn the "Mip Generation" switch that allows the user to toggle
-            // mip generation on and off.
-            @feathers_option_buttons(
-                "Mip Generation",
-                &[
-                    (
-                        EnableMipGeneration::On,
-                        "On"
-                    ),
-                    (
-                        EnableMipGeneration::Off,
-                        "Off"
-                    ),
-                ], 0
-            ),
-            // Spawn the "Image Width" control that allows the user to set the
-            // width of the image.
-            @feathers_option_buttons(
-                "Image Width",
-                &[
-                    (ImageSizeSetting::ImageWidth(ImageSize::Size240), "240"),
-                    (ImageSizeSetting::ImageWidth(ImageSize::Size480), "480"),
-                    (ImageSizeSetting::ImageWidth(ImageSize::Size640), "640"),
-                    (ImageSizeSetting::ImageWidth(ImageSize::Size1080), "1080"),
-                    (ImageSizeSetting::ImageWidth(ImageSize::Size1920), "1920"),
-                ],
-                2
-            ),
-            // Spawn the "Image Height" control that allows the user to set the
-            // height of the image.
-            @feathers_option_buttons(
-                "Image Height",
-                &[
-                    (ImageSizeSetting::ImageHeight(ImageSize::Size240), "240"),
-                    (ImageSizeSetting::ImageHeight(ImageSize::Size480), "480"),
-                    (ImageSizeSetting::ImageHeight(ImageSize::Size640), "640"),
-                    (ImageSizeSetting::ImageHeight(ImageSize::Size1080), "1080"),
-                    (ImageSizeSetting::ImageHeight(ImageSize::Size1920), "1920"),
-                ],
-                1
-            ),
-        ]
+        }
+        // Spawn the "Mip Generation" switch that allows the user to toggle
+        // mip generation on and off.
+        # @feathers_option_buttons(
+            "Mip Generation",
+            &[
+                (
+                    EnableMipGeneration::On,
+                    "On"
+                ),
+                (
+                    EnableMipGeneration::Off,
+                    "Off"
+                ),
+            ], 0
+        )
+        // Spawn the "Image Width" control that allows the user to set the
+        // width of the image.
+        # @feathers_option_buttons(
+            "Image Width",
+            &[
+                (ImageSizeSetting::ImageWidth(ImageSize::Size240), "240"),
+                (ImageSizeSetting::ImageWidth(ImageSize::Size480), "480"),
+                (ImageSizeSetting::ImageWidth(ImageSize::Size640), "640"),
+                (ImageSizeSetting::ImageWidth(ImageSize::Size1080), "1080"),
+                (ImageSizeSetting::ImageWidth(ImageSize::Size1920), "1920"),
+            ],
+            2
+        )
+        // Spawn the "Image Height" control that allows the user to set the
+        // height of the image.
+        # @feathers_option_buttons(
+            "Image Height",
+            &[
+                (ImageSizeSetting::ImageHeight(ImageSize::Size240), "240"),
+                (ImageSizeSetting::ImageHeight(ImageSize::Size480), "480"),
+                (ImageSizeSetting::ImageHeight(ImageSize::Size640), "640"),
+                (ImageSizeSetting::ImageHeight(ImageSize::Size1080), "1080"),
+                (ImageSizeSetting::ImageHeight(ImageSize::Size1920), "1920"),
+            ],
+            1
+        )
     });
 }
 

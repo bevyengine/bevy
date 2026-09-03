@@ -9,12 +9,12 @@ pub struct BsnListRoot(pub BsnSceneListItems);
 
 #[derive(Debug)]
 pub struct Bsn<const ALLOW_FLAT: bool> {
+    pub name: Option<Ident>,
     pub entries: Vec<BsnEntry>,
 }
 
 #[derive(Debug)]
 pub enum BsnEntry {
-    Name(Ident),
     FromTemplatePatch(BsnType),
     FromTemplateConstructor {
         constructor: BsnConstructor,
@@ -30,6 +30,8 @@ pub enum BsnEntry {
     UncachedScene(BsnScene),
     CachedScene(BsnScene),
     RelatedSceneList(BsnRelatedSceneList),
+    ChildScene(Bsn<false>),
+    ChildSceneListExpression(SceneListExpression),
 }
 
 #[derive(Debug)]
@@ -58,9 +60,12 @@ pub struct BsnSceneListItems(pub Vec<BsnSceneListItem>);
 
 #[derive(Debug)]
 pub enum BsnSceneListItem {
-    Scene(Bsn<true>),
-    Expression(TokenStream),
+    Scene(Bsn<false>),
+    SceneListExpression(SceneListExpression),
 }
+
+#[derive(Debug)]
+pub struct SceneListExpression(pub TokenStream);
 
 #[derive(Debug)]
 pub struct BsnSceneFn {

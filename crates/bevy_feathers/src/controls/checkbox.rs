@@ -84,7 +84,7 @@ impl FeathersCheckbox {
                 font_size: size::MEDIUM_FONT,
                 weight: FontWeight::NORMAL,
             }
-            Children [(
+            #{
                 Node {
                     width: size::CHECKBOX_SIZE,
                     height: size::CHECKBOX_SIZE,
@@ -95,7 +95,7 @@ impl FeathersCheckbox {
                 ThemeBackgroundColor(tokens::CHECKBOX_BG)
                 ThemeBorderColor(tokens::CHECKBOX_BORDER)
                 FocusIndicator
-                Children [(
+                #{
                     // Cheesy checkmark: rotated node with L-shaped border.
                     Node {
                         position_type: PositionType::Absolute,
@@ -111,9 +111,9 @@ impl FeathersCheckbox {
                     UiTransform::from_rotation(Rot2::FRAC_PI_4)
                     CheckboxMark
                     ThemeBorderColor(tokens::CHECKBOX_MARK)
-                )]),
-                {props.caption}
-            ]
+                }
+            }
+            #{{props.caption}}
         }
     }
 }

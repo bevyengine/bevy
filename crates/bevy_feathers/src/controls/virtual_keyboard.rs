@@ -59,9 +59,7 @@ impl<T: AsRef<str> + Clone + Send + Sync + 'static> VirtualKeyboard<T> {
                         });
                         Ok(())
                     })
-                    Children [
-                        Text::new(key_clone.as_ref())
-                    ]
+                    #{ Text::new(key_clone.as_ref()) }
                 }
             }));
             bsn! {
@@ -69,9 +67,7 @@ impl<T: AsRef<str> + Clone + Send + Sync + 'static> VirtualKeyboard<T> {
                     flex_direction: FlexDirection::Row,
                     column_gap: px(4),
                 }
-                Children [
-                    {key_row}
-                ]
+                #{{ key_row }}
             }
         }));
         bsn! {
@@ -80,9 +76,7 @@ impl<T: AsRef<str> + Clone + Send + Sync + 'static> VirtualKeyboard<T> {
                 row_gap: px(4),
             }
             TabGroup::new(0)
-            Children [
-                {keys}
-            ]
+            #{{ keys }}
         }
     }
 }

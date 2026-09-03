@@ -48,48 +48,40 @@ fn setup(
 ) {
     commands.spawn_scene(bsn! {
         @main_ui_node_scene()
-        Children [
-            (
-                @label("Click an object to select it")
-            ),
-            (
-                @feathers_option_buttons("",
-                &[
-                    (TransformGizmoMode::Translate, "Translate"),
-                    (TransformGizmoMode::Rotate, "Rotate"),
-                    (TransformGizmoMode::Scale, "Scale"),
-                ], 0)
-            ),
-            (
-                @feathers_option_buttons("",
-                &[
-                    (TransformGizmoSpace::World, "World"),
-                    (TransformGizmoSpace::Local, "Local"),
-                ], 0)
-            ),
-            (
-                Node {
-                    align_items: AlignItems::Center,
-                    column_gap: px(4)
+        # @label("Click an object to select it")
+        # @feathers_option_buttons("",
+            &[
+                (TransformGizmoMode::Translate, "Translate"),
+                (TransformGizmoMode::Rotate, "Rotate"),
+                (TransformGizmoMode::Scale, "Scale"),
+            ],
+            0
+        )
+        # @feathers_option_buttons("",
+            &[
+                (TransformGizmoSpace::World, "World"),
+                (TransformGizmoSpace::Local, "Local"),
+            ],
+            0
+        )
+        #{
+            Node {
+                align_items: AlignItems::Center,
+                column_gap: px(4)
+            }
+            ScaleSensitivitySlider
+            # @label("Sensitivity")
+            #{
+                @FeathersSlider{
+                    @max: 2.0,
+                    @min: 0.1,
                 }
-                ScaleSensitivitySlider
-                Children [
-                    (
-                        @label("Sensitivity")
-                    ),
-                    (
-                        @FeathersSlider{
-                            @max: 2.0,
-                            @min: 0.1,
-                        }
-                        SliderValue(1.0)
-                        SliderPrecision(2)
-                        SliderStep(0.1)
-                        on(slider_update)
-                    )
-                ]
-            )
-        ]
+                SliderValue(1.0)
+                SliderPrecision(2)
+                SliderStep(0.1)
+                on(slider_update)
+            }
+        }
     });
 
     // Ground plane (not pickable)

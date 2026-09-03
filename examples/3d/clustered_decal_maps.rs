@@ -249,16 +249,14 @@ fn spawn_camera(commands: &mut Commands) {
 fn spawn_buttons(commands: &mut Commands) {
     commands.spawn_scene(bsn! {
         @main_ui_node_scene()
-        Children [
-            @feathers_option_buttons(
-                "Emissive Decals",
-                &[
-                    (AppSetting::EmissiveDecals(false), "Off"),
-                    (AppSetting::EmissiveDecals(true), "On"),
-                ],
-                0,
-            ),
-        ]
+        # @feathers_option_buttons(
+            "Emissive Decals",
+            &[
+                (AppSetting::EmissiveDecals(false), "Off"),
+                (AppSetting::EmissiveDecals(true), "On"),
+            ],
+            0,
+        )
     });
 }
 

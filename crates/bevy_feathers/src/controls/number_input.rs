@@ -147,122 +147,115 @@ impl FeathersNumberInput {
             on(number_input_on_insert_value)
             on(number_input_on_insert_disabled)
             on(number_input_on_remove_disabled)
-            Children [
-                {
-                    // Label section
-                    props.label_text.map(|text| {
-                        bsn_list!(
-                            Node {
-                                display: Display::Flex,
-                                align_items: AlignItems::Center,
-                                align_self: AlignSelf::Stretch,
-                                justify_content: JustifyContent::Center,
-                                padding: UiRect::axes(px(6), px(0)),
+            #{{
+                // Label section
+                props.label_text.map(|text| {
+                    bsn_list![#{
+                        Node {
+                            display: Display::Flex,
+                            align_items: AlignItems::Center,
+                            align_self: AlignSelf::Stretch,
+                            justify_content: JustifyContent::Center,
+                            padding: UiRect::axes(px(6), px(0)),
+                        }
+                        ThemeBackgroundColor(tokens::TEXT_INPUT_LABEL_BG)
+                        #{
+                            Text(text)
+                            TextFont {
+                                font: FontSourceTemplate::Handle(fonts::REGULAR),
+                                font_size: size::COMPACT_FONT,
                             }
-                            ThemeBackgroundColor(tokens::TEXT_INPUT_LABEL_BG)
-                            Children [
-                                Text(text)
-                                TextFont {
-                                    font: FontSourceTemplate::Handle(fonts::REGULAR),
-                                    font_size: size::COMPACT_FONT,
-                                }
-                                PropagateOver<TextFont>
-                                ThemeTextColor(tokens::TEXT_INPUT_TEXT)
-                            ]
-                        )
-                    })
-                },
-
-                (
-                    // The editable text entity
-                    @FeathersTextInput {
-                        @max_characters: 30usize, // 20 digits + units
-                    }
-                    DragState
+                            PropagateOver<TextFont>
+                            ThemeTextColor(tokens::TEXT_INPUT_TEXT)
+                        }
+                    }]
+                })
+            }}
+            #{
+                // The editable text entity
+                @FeathersTextInput {
+                    @max_characters: 30usize, // 20 digits + units
+                }
+                DragState
+                Node {
+                    flex_grow: 1.0,
+                    align_items: AlignItems::Center,
+                    align_self: AlignSelf::Stretch,
+                    border_radius: {
+                        if props.label_text.is_some() {
+                            RoundedCorners::Right.to_border_radius(4.0)
+                        } else {
+                            RoundedCorners::All.to_border_radius(4.0)
+                        }
+                    },
+                }
+                Hovered
+                LineHeight::Px(24.0) // TODO: Make const for this
+                TextLayout {
+                    justify: Justify::Center,
+                }
+                ThemeTextColor(tokens::TEXT_INPUT_TEXT)
+                // Use a gradient to draw the moving bar, this lets us round corners
+                BackgroundGradient(vec![Gradient::Linear(LinearGradient {
+                    angle: PI * 0.5,
+                    stops: vec![
+                        ColorStop::new(Color::NONE, percent(0)),
+                        ColorStop::new(Color::NONE, percent(50)),
+                        ColorStop::new(Color::NONE, percent(50)),
+                        ColorStop::new(Color::NONE, percent(100)),
+                    ],
+                    color_space: InterpolationColorSpace::Srgba,
+                })])
+                EntityCursor::System(bevy_window::SystemCursorIcon::ColResize)
+                on(number_input_init)
+                on(number_input_on_enter_key)
+                on(number_input_on_focus_gained)
+                on(number_input_on_focus_lost)
+                on(number_input_hovered)
+                on(update_chevron_visibility)
+                #{
+                    // Invisible child on top of input field which intercepts drag
+                    // events (conditionally) and handles scrubbing gestures.
                     Node {
-                        flex_grow: 1.0,
-                        align_items: AlignItems::Center,
-                        align_self: AlignSelf::Stretch,
-                        border_radius: {
-                            if props.label_text.is_some() {
-                                RoundedCorners::Right.to_border_radius(4.0)
-                            } else {
-                                RoundedCorners::All.to_border_radius(4.0)
-                            }
-                        },
+                        position_type: PositionType::Absolute,
+                        left: px(0),
+                        top: px(0),
+                        bottom: px(0),
+                        right: px(0),
                     }
-                    Hovered
-                    LineHeight::Px(24.0) // TODO: Make const for this
-                    TextLayout {
-                        justify: Justify::Center,
+                    on(scrubber_on_press)
+                    on(scrubber_on_release)
+                    on(scrubber_on_drag_start)
+                    on(scrubber_on_drag)
+                    on(scrubber_on_drag_end)
+                    on(scrubber_on_drag_cancel)
+                }
+                #{
+                    // The decrement chevron of a number input
+                    Node {
+                        position_type: PositionType::Absolute,
+                        display: Display::None,
+                        left: px(4),
                     }
-                    ThemeTextColor(tokens::TEXT_INPUT_TEXT)
-                    // Use a gradient to draw the moving bar, this lets us round corners
-                    BackgroundGradient(vec![Gradient::Linear(LinearGradient {
-                        angle: PI * 0.5,
-                        stops: vec![
-                            ColorStop::new(Color::NONE, percent(0)),
-                            ColorStop::new(Color::NONE, percent(50)),
-                            ColorStop::new(Color::NONE, percent(50)),
-                            ColorStop::new(Color::NONE, percent(100)),
-                        ],
-                        color_space: InterpolationColorSpace::Srgba,
-                    })])
-                    EntityCursor::System(bevy_window::SystemCursorIcon::ColResize)
-                    on(number_input_init)
-                    on(number_input_on_enter_key)
-                    on(number_input_on_focus_gained)
-                    on(number_input_on_focus_lost)
-                    on(number_input_hovered)
-                    on(update_chevron_visibility)
-                    Children [
-                        (
-                            // Invisible child on top of input field which intercepts drag
-                            // events (conditionally) and handles scrubbing gestures.
-                            Node {
-                                position_type: PositionType::Absolute,
-                                left: px(0),
-                                top: px(0),
-                                bottom: px(0),
-                                right: px(0),
-                            }
-                            on(scrubber_on_press)
-                            on(scrubber_on_release)
-                            on(scrubber_on_drag_start)
-                            on(scrubber_on_drag)
-                            on(scrubber_on_drag_end)
-                            on(scrubber_on_drag_cancel)
-                        ),
-                        (
-                            // The decrement chevron of a number input
-                            Node {
-                                position_type: PositionType::Absolute,
-                                display: Display::None,
-                                left: px(4),
-                            }
-                            NumberInputDecrement
-                            Children [
-                                @icon(icons::CHEVRON_DOWN)
-                                UiTransform {
-                                    rotation: Rot2::radians(std::f32::consts::FRAC_PI_2)
-                                }
-                            ]
-                        ),
-                        (
-                            // The increment chevron of a number input
-                            Node {
-                                position_type: PositionType::Absolute,
-                                display: Display::None,
-                                right: px(4),
-                            }
-                            NumberInputIncrement
-                            Children [
-                                @icon(icons::CHEVRON_RIGHT),
-                            ]
-                        ),
-                    ]
-                ),
-            ]
+                    NumberInputDecrement
+                    #{
+                        @icon(icons::CHEVRON_DOWN)
+                        UiTransform {
+                            rotation: Rot2::radians(std::f32::consts::FRAC_PI_2)
+                        }
+                    }
+                }
+                #{
+                    // The increment chevron of a number input
+                    Node {
+                        position_type: PositionType::Absolute,
+                        display: Display::None,
+                        right: px(4),
+                    }
+                    NumberInputIncrement
+                    # @icon(icons::CHEVRON_RIGHT)
+                }
+            }
         }
     }
 }

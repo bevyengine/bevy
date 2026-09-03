@@ -82,7 +82,7 @@ impl FeathersRadio {
                 font_size: size::MEDIUM_FONT,
                 weight: FontWeight::NORMAL,
             }
-            Children [(
+            #{
                 Node {
                     display: Display::Flex,
                     align_items: AlignItems::Center,
@@ -96,7 +96,7 @@ impl FeathersRadio {
                 FocusIndicator
                 ThemeBorderColor(tokens::RADIO_BORDER)
                 ThemeBackgroundColor(tokens::RADIO_BG)
-                Children [(
+                #{
                     Node {
                         width: px(12),
                         height: px(12),
@@ -108,9 +108,9 @@ impl FeathersRadio {
                     }
                     RadioMark
                     ThemeBackgroundColor(tokens::RADIO_MARK)
-                )]),
-                {props.caption}
-            ]
+                }
+            }
+            #{{ props.caption }}
         }
     }
 }
