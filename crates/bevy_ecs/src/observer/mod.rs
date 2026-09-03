@@ -1959,6 +1959,9 @@ mod tests {
                 Ok(())
             }
 
+            #[cfg(feature = "hotpatching")]
+            fn refresh_hotpatch(&mut self) {}
+
             fn apply_deferred(&mut self, _world: &mut World) {}
 
             fn queue_deferred(&mut self, _world: DeferredWorld) {
