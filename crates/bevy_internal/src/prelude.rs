@@ -18,6 +18,10 @@ pub use crate::window::prelude::*;
 pub use crate::image::prelude::*;
 
 #[doc(hidden)]
+#[cfg(feature = "bevy_curve")]
+pub use crate::curve::prelude::*;
+
+#[doc(hidden)]
 #[cfg(feature = "bevy_mesh")]
 pub use crate::mesh::prelude::*;
 

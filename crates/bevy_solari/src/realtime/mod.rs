@@ -2,7 +2,7 @@ mod extract;
 mod node;
 mod prepare;
 
-use crate::SolariPlugins;
+use crate::{scene::RaytracingSceneBindings, SolariPlugins};
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::embedded_asset;
 use bevy_camera::Hdr;
@@ -25,7 +25,8 @@ use bevy_ecs::{
 use bevy_pbr::DefaultOpaqueRendererMethod;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    renderer::RenderDevice, ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
+    init_gpu_resource, renderer::RenderDevice, ExtractSchedule, Render, RenderApp, RenderStartup,
+    RenderSystems,
 };
 use bevy_shader::load_shader_library;
 use extract::extract_solari_lighting;
@@ -75,7 +76,10 @@ impl Plugin for SolariLightingPlugin {
         app.add_systems(PostUpdate, manage_prepass_double_buffers);
 
         app.sub_app_mut(RenderApp)
-            .add_systems(RenderStartup, init_solari_lighting_pipelines)
+            .add_systems(
+                RenderStartup,
+                init_solari_lighting_pipelines.after(init_gpu_resource::<RaytracingSceneBindings>),
+            )
             .add_systems(ExtractSchedule, extract_solari_lighting)
             .add_systems(
                 Render,

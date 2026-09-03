@@ -21,7 +21,6 @@ derive_more = { version = "2", default-features = false, features = [
   "from",
   "into",
 ] }
-itertools = { version = "0.14.0", default-features = false }
 serde = { version = "1", default-features = false, features = [
   "derive",
 ], optional = true }
@@ -47,18 +46,17 @@ getrandom = { version = "0.4", default-features = false, features = [
 ] }
 
 [features]
-default = ["std", "rand", "curve"]
+default = ["std", "rand"]
 std = [
   "alloc",
   "glam/std",
   "derive_more/std",
-  "itertools/use_std",
   "serde?/std",
   "approx?/std",
   "rand?/std",
   "bevy_reflect?/std",
 ]
-alloc = ["itertools/use_alloc", "serde?/alloc", "rand?/alloc"]
+alloc = ["serde?/alloc", "rand?/alloc"]
 
 serialize = ["dep:serde", "glam/serde"]
 # Enable approx for glam types to approximate floating point equality comparisons and assertions
@@ -74,8 +72,6 @@ glam_assert = ["glam/glam-assert"]
 debug_glam_assert = ["glam/debug-glam-assert"]
 # Enable the rand dependency for shape_sampling
 rand = ["dep:rand", "glam/rand"]
-# Include code related to the Curve trait
-curve = []
 # Enable bevy_reflect (requires alloc)
 bevy_reflect = ["dep:bevy_reflect", "alloc"]
 # Enable libm mathematical functions as a fallback for no_std environments.

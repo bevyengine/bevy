@@ -24,6 +24,7 @@ use bevy_text::{ComputedTextBlock, EmSize, FontCx, RemSize, TextFont, DEFAULT_RE
 
 use bevy_log::warn;
 
+pub(crate) mod clipping;
 mod convert;
 pub mod debug;
 pub mod ui_surface;
@@ -519,8 +520,11 @@ pub fn ui_layout_system(
 #[cfg(test)]
 mod tests {
     use crate::{
-        layout::ui_surface::UiSurface, prelude::*, ui_layout_system,
-        update::propagate_ui_target_cameras, ContentSize, LayoutContext,
+        layout::{clipping::update_clipping_system, ui_surface::UiSurface},
+        prelude::*,
+        ui_layout_system,
+        update::propagate_ui_target_cameras,
+        ContentSize, LayoutContext,
     };
     use bevy_app::{App, HierarchyPropagatePlugin, PostUpdate, PropagateSet, TaskPoolPlugin};
     use bevy_camera::{Camera, Camera2d, ComputedCameraValues, RenderTargetInfo, Viewport};
@@ -562,6 +566,7 @@ mod tests {
                 mark_dirty_trees,
                 sync_simple_transforms,
                 propagate_parent_transforms,
+                update_clipping_system,
             )
                 .chain(),
         );
@@ -1857,6 +1862,252 @@ mod tests {
         let a_bottom = 0.5 * computed_a.size.y + transform_a.affine().translation.y;
         let b_top = -0.5 * computed_b.size.y + transform_b.affine().translation.y;
         assert!((b_top - a_bottom - 40.).abs() <= 1e-5);
+    }
+
+    #[test]
+    fn block_layouts_respect_align_content() {
+        let mut app = setup_ui_test_app();
+        let world = app.world_mut();
+        let child = world
+            .spawn(Node {
+                height: px(20),
+                ..default()
+            })
+            .id();
+        world
+            .spawn(Node {
+                display: Display::Block,
+                align_content: AlignContent::End,
+                height: px(100),
+                ..default()
+            })
+            .add_child(child);
+
+        app.update();
+
+        assert_eq!(
+            app.world()
+                .get::<UiGlobalTransform>(child)
+                .map(|transform| transform.translation.y),
+            Some(90.)
+        );
+    }
+
+    #[test]
+    fn test_border_radius_updates() {
+        let mut app = setup_ui_test_app();
+
+        let entity = app
+            .world_mut()
+            .spawn((Node {
+                height: px(100),
+                width: px(50),
+                ..default()
+            },))
+            .id();
+
+        app.update();
+
+        let computed = app.world().get::<ComputedNode>(entity).unwrap();
+        assert_eq!(computed.border_radius, ResolvedBorderRadius::ZERO);
+
+        app.world_mut()
+            .get_mut::<Node>(entity)
+            .unwrap()
+            .border_radius = BorderRadius::all(px(10));
+
+        app.update();
+
+        let computed = app.world().get::<ComputedNode>(entity).unwrap();
+        assert_eq!(
+            computed.border_radius,
+            ResolvedBorderRadius {
+                top_left: Vec2::splat(10.),
+                top_right: Vec2::splat(10.),
+                bottom_left: Vec2::splat(10.),
+                bottom_right: Vec2::splat(10.)
+            }
+        );
+
+        app.world_mut()
+            .get_mut::<Node>(entity)
+            .unwrap()
+            .border_radius
+            .top_left = CornerRadius::circular(vh(30));
+
+        app.update();
+
+        assert_eq!(
+            app.world()
+                .get::<ComputedNode>(entity)
+                .unwrap()
+                .border_radius,
+            ResolvedBorderRadius {
+                top_left: Vec2::splat(TARGET_HEIGHT as f32 * 30. / 100.).min(Vec2::splat(25.)),
+                top_right: Vec2::splat(10.),
+                bottom_left: Vec2::splat(10.),
+                bottom_right: Vec2::splat(10.)
+            }
+        );
+
+        let border_radius = &mut app
+            .world_mut()
+            .get_mut::<Node>(entity)
+            .unwrap()
+            .border_radius;
+        border_radius.top_right = CornerRadius::circular(percent(100));
+        border_radius.bottom_left = CornerRadius::new(percent(100), percent(100));
+
+        app.update();
+
+        assert_eq!(
+            app.world()
+                .get::<ComputedNode>(entity)
+                .unwrap()
+                .border_radius,
+            ResolvedBorderRadius {
+                top_left: Vec2::splat(TARGET_HEIGHT as f32 * 30. / 100.).min(Vec2::splat(25.)),
+                top_right: Vec2::splat(25.),
+                bottom_left: Vec2::new(25., 50.),
+                bottom_right: Vec2::splat(10.)
+            }
+        );
+
+        app.world_mut().get_mut::<Node>(entity).unwrap().width = px(200.);
+
+        app.update();
+
+        assert_eq!(
+            app.world()
+                .get::<ComputedNode>(entity)
+                .unwrap()
+                .border_radius,
+            ResolvedBorderRadius {
+                top_left: Vec2::splat(TARGET_HEIGHT as f32 * 30. / 100.).min(Vec2::splat(50.)),
+                top_right: Vec2::splat(50.),
+                bottom_left: Vec2::new(100., 50.),
+                bottom_right: Vec2::splat(10.)
+            }
+        );
+
+        let world = app.world_mut();
+        let mut camera_query = world.query::<&mut Camera>();
+        camera_query
+            .single_mut(world)
+            .unwrap()
+            .viewport
+            .as_mut()
+            .unwrap()
+            .physical_size
+            .y = TARGET_HEIGHT / 2;
+
+        app.update();
+
+        assert_eq!(
+            app.world()
+                .get::<ComputedNode>(entity)
+                .unwrap()
+                .border_radius
+                .top_left,
+            Vec2::splat(15.)
+        );
+    }
+
+    #[test]
+    fn clipping_updates_on_layout_changes() {
+        let mut app = setup_ui_test_app();
+
+        let child = app.world_mut().spawn(Node::default()).id();
+        let parent = app
+            .world_mut()
+            .spawn((Node {
+                width: Val::Px(60.),
+                height: Val::Px(20.),
+                overflow: Overflow::clip(),
+                ..default()
+            },))
+            .add_child(child)
+            .id();
+
+        app.update();
+
+        let initial_clip = app.world().get::<CalculatedClip>(child).unwrap().clone();
+
+        app.world_mut().get_mut::<Node>(parent).unwrap().width = Val::Px(80.);
+        app.update();
+
+        assert_ne!(
+            &initial_clip,
+            app.world().get::<CalculatedClip>(child).unwrap()
+        );
+    }
+
+    #[test]
+    fn fixed_node_opens_new_clipping_context() {
+        let mut app = App::new();
+        app.add_systems(bevy_app::Update, update_clipping_system);
+
+        let grandchild = app.world_mut().spawn(Node::default()).id();
+        let child = app
+            .world_mut()
+            .spawn(Node::default())
+            .add_child(grandchild)
+            .id();
+        app.world_mut()
+            .spawn(Node {
+                overflow: Overflow::clip(),
+                ..default()
+            })
+            .add_child(child);
+
+        app.update();
+        assert_eq!(
+            app.world()
+                .get::<CalculatedClip>(grandchild)
+                .unwrap()
+                .rects()
+                .unwrap()
+                .len(),
+            1
+        );
+
+        app.world_mut().entity_mut(child).insert(FixedNode);
+        app.update();
+        assert!(app.world().get::<CalculatedClip>(grandchild).is_none());
+
+        app.world_mut().entity_mut(child).remove::<FixedNode>();
+        app.update();
+        assert_eq!(
+            app.world()
+                .get::<CalculatedClip>(grandchild)
+                .unwrap()
+                .rects()
+                .unwrap()
+                .len(),
+            1
+        );
+    }
+
+    #[test]
+    fn override_clip_opens_new_clipping_context() {
+        let mut app = App::new();
+        app.add_systems(bevy_app::Update, update_clipping_system);
+
+        let grandchild = app.world_mut().spawn(Node::default()).id();
+        let child = app
+            .world_mut()
+            .spawn((Node::default(), OverrideClip))
+            .add_child(grandchild)
+            .id();
+        app.world_mut()
+            .spawn(Node {
+                overflow: Overflow::clip(),
+                ..default()
+            })
+            .add_child(child);
+
+        app.update();
+        assert!(app.world().get::<CalculatedClip>(grandchild).is_none());
     }
 
     #[cfg(feature = "ghost_nodes")]

@@ -96,6 +96,9 @@ impl SolariLightingUniforms {
     }
 }
 
+/// Declares to the raytracing scene whether any view still needs last frame's TLAS and light ids.
+///
+/// Only ReSTIR reads them, through the reservoirs it carries across frames.
 pub fn setup_raytracing_scene_needs_previous_frame_data(
     views: Query<&SolariLighting>,
     needs_previous_frame_data: Option<Res<RaytracingSceneNeedsPreviousFrameData>>,
