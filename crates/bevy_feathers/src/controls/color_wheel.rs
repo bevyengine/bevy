@@ -625,7 +625,7 @@ impl Plugin for ColorWheelPlugin {
             PostUpdate,
             update_wheel_color
                 .after(UiSystems::Propagate)
-                .before(UiSystems::Layout)
+                .before(UiSystems::Layout),
         );
         app.add_observer(on_pointer_press)
             .add_observer(on_drag_start)
