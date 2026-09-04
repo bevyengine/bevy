@@ -11,7 +11,7 @@ use crate::{
     change_detection::MaybeLocation,
     entity::Entity,
     error::{BevyError, CommandOutput, ErrorContext, Result},
-    event::Event,
+    event::{Event, EventTriggerState},
     message::{Message, Messages},
     resource::Resource,
     schedule::ScheduleLabel,
@@ -281,14 +281,13 @@ pub fn run_schedule(label: impl ScheduleLabel) -> impl Command {
 ///
 /// [`Observer`]: crate::observer::Observer
 #[track_caller]
-pub fn trigger<'a, E: Event<Trigger<'a>: Default>>(mut event: E) -> impl Command {
+pub fn trigger<E: Event>(mut event: E) -> impl Command
+where
+    EventTriggerState<'static, E>: Default,
+{
     let caller = MaybeLocation::caller();
     move |world: &mut World| {
-        world.trigger_ref_with_caller(
-            &mut event,
-            &mut <E::Trigger<'_> as Default>::default(),
-            caller,
-        );
+        world.trigger_ref_with_caller(&mut event, &mut EventTriggerState::<E>::default(), caller);
     }
 }
 
@@ -297,10 +296,13 @@ pub fn trigger<'a, E: Event<Trigger<'a>: Default>>(mut event: E) -> impl Command
 /// [`Trigger`]: crate::event::Trigger
 /// [`Observer`]: crate::observer::Observer
 #[track_caller]
-pub fn trigger_with<E: Event<Trigger<'static>: Send + Sync>>(
+pub fn trigger_with<E: Event>(
     mut event: E,
-    mut trigger: E::Trigger<'static>,
-) -> impl Command {
+    mut trigger: EventTriggerState<'static, E>,
+) -> impl Command
+where
+    EventTriggerState<'static, E>: Send + Sync,
+{
     let caller = MaybeLocation::caller();
     move |world: &mut World| {
         world.trigger_ref_with_caller(&mut event, &mut trigger, caller);

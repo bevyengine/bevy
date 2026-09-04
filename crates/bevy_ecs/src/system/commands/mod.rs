@@ -24,7 +24,7 @@ use crate::{
         InvalidEntityError, OptIn, OptOut,
     },
     error::{warn, BevyError, ErrorContext},
-    event::{EntityEvent, Event},
+    event::{EntityEvent, Event, EventTriggerState},
     message::Message,
     observer::{IntoEntityObserver, IntoObserver},
     relationship::RelationshipHookMode,
@@ -1094,7 +1094,10 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// [`Observer`]: crate::observer::Observer
     #[track_caller]
-    pub fn trigger<'a>(&mut self, event: impl Event<Trigger<'a>: Default>) {
+    pub fn trigger<E: Event>(&mut self, event: E)
+    where
+        EventTriggerState<'static, E>: Default,
+    {
         self.queue(command::trigger(event));
     }
 
@@ -1103,11 +1106,10 @@ impl<'w, 's> Commands<'w, 's> {
     /// [`Trigger`]: crate::event::Trigger
     /// [`Observer`]: crate::observer::Observer
     #[track_caller]
-    pub fn trigger_with<E: Event<Trigger<'static>: Send + Sync>>(
-        &mut self,
-        event: E,
-        trigger: E::Trigger<'static>,
-    ) {
+    pub fn trigger_with<E: Event>(&mut self, event: E, trigger: EventTriggerState<'static, E>)
+    where
+        EventTriggerState<'static, E>: Send + Sync,
+    {
         self.queue(command::trigger_with(event, trigger));
     }
 
@@ -2283,10 +2285,10 @@ impl<'a> EntityCommands<'a> {
     /// }
     /// ```
     #[track_caller]
-    pub fn trigger<'t, E: EntityEvent<Trigger<'t>: Default>>(
-        &mut self,
-        event_fn: impl FnOnce(Entity) -> E,
-    ) -> &mut Self {
+    pub fn trigger<E: EntityEvent>(&mut self, event_fn: impl FnOnce(Entity) -> E) -> &mut Self
+    where
+        EventTriggerState<'static, E>: Default,
+    {
         let event = (event_fn)(self.entity);
         self.commands.trigger(event);
         self
