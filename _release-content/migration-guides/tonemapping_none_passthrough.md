@@ -1,6 +1,6 @@
 ---
 title: "`Tonemapping::None` is now a full passthrough"
-pull_requests: [25499]
+pull_requests: [25499, 25685]
 ---
 
 `Tonemapping::None` is now a full passthrough. `ColorGrading` and `DebandDither` no longer
