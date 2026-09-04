@@ -1320,7 +1320,11 @@ impl Mesh {
         if args.compress_indices {
             self.compress_indices();
         }
-        errors.is_empty().ok_or(errors)
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(errors)
+        }
     }
 
     /// Same as [`Self::compress`], except this is passed by value instead of by mutable reference.
