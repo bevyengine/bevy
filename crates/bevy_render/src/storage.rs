@@ -636,21 +636,21 @@ mod tests {
         let asset_id = handle.id();
 
         // Creating the buffer records it as changed.
-        let extracted = extract(&mut *assets.get_mut(asset_id).unwrap(), None);
+        let extracted = extract(&mut assets.get_mut(asset_id).unwrap(), None);
         let (first, changed) = prepare(asset_id, extracted, None, &device, &queue);
         assert!(changed.contains(&asset_id));
 
         // Same size/usage/label: the existing buffer is reused and its contents
         // are updated in place, so nothing is recorded as changed.
         assets.get_mut(asset_id).unwrap().extend([4u32, 5, 6]);
-        let extracted = extract(&mut *assets.get_mut(asset_id).unwrap(), Some(&first));
+        let extracted = extract(&mut assets.get_mut(asset_id).unwrap(), Some(&first));
         let (second, changed) = prepare(asset_id, extracted, Some(&first), &device, &queue);
         assert_eq!(second.buffer.id(), first.buffer.id());
         assert!(changed.is_empty());
 
         // A different buffer size forces a new allocation, which is recorded.
         assets.get_mut(asset_id).unwrap().extend([7u32]);
-        let extracted = extract(&mut *assets.get_mut(asset_id).unwrap(), Some(&first));
+        let extracted = extract(&mut assets.get_mut(asset_id).unwrap(), Some(&first));
         let (resized, changed) = prepare(asset_id, extracted, Some(&first), &device, &queue);
         assert_ne!(resized.buffer.id(), first.buffer.id());
         assert_eq!(resized.buffer.size(), 4);
