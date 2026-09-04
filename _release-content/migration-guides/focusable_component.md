@@ -23,3 +23,5 @@ A `Focusable` entity inside a `TabGroup` participates in sequential navigation w
 `TabIndex(0)` unless it has a negative `TabIndex`. Manual directional-navigation destinations must
 also have `Focusable`; adding an edge to the `DirectionalNavigationMap` no longer makes its
 destination focusable by itself.
+
+`DirectionalNavigation` SystemParam struct gained a second lifetime parameter.
