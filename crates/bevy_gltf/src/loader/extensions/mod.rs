@@ -7,12 +7,13 @@ mod khr_materials_specular;
 use alloc::sync::Arc;
 use async_lock::RwLock;
 
-use bevy_asset::{Handle, LoadContext};
+use bevy_asset::{AssetPath, Handle, LoadContext, RenderAssetUsages};
 use bevy_ecs::{
     entity::Entity,
     resource::Resource,
     world::{EntityWorldMut, World},
 };
+use bevy_image::{CompressedImageFormats, Image, ImageSamplerDescriptor};
 use bevy_mesh::{Mesh, MeshVertexAttribute};
 use bevy_tasks::{BoxedFuture, ConditionalSendFuture};
 use gltf::Node;
@@ -109,12 +110,59 @@ pub trait GltfExtensionHandler: Send + Sync + 'static {
     ) {
     }
 
+    /// Called when an individual glTF texture is about to be loaded, before
+    /// any default loading happens.
+    ///
+    /// This hook allows extensions to take over the loading of a texture.
+    /// This is useful for extensions such as `KHR_texture_basisu`, which
+    /// move the image reference into the extension data, so the texture can
+    /// not be resolved through the standard `texture.source`. The full
+    /// [`gltf::Texture`] and [`gltf::Gltf`] are provided so handlers can
+    /// access such extension data via `gltf_texture.extension_value(...)`.
+    ///
+    /// `user_image` is an optional [`Image`] which, if set, is used as the
+    /// texture's asset instead of loading the texture with the default
+    /// loader. All handlers are called in registration order; if more than
+    /// one handler sets `user_image`, the last one wins. Handlers that fail
+    /// to load should log the error and leave `user_image` as `None`.
+    ///
+    /// Handlers receive a mutable [`LoadContext`] and run sequentially while
+    /// textures that were not claimed are still loaded in parallel, so
+    /// handlers should only set `user_image` for the textures they actually
+    /// handle.
+    ///
+    /// `is_srgb`, `sampler` and `render_asset_usages` are already resolved
+    /// by the loader and should be applied to the returned image.
+    ///
+    /// Note that glTF validation rejects textures that omit the standard
+    /// `source`, so handling such textures requires
+    /// [`GltfLoaderSettings::validate`] to be set to `false`.
+    #[expect(
+        unused,
+        reason = "default trait implementations do not use the arguments because they are no-ops"
+    )]
+    fn on_texture_load(
+        &mut self,
+        load_context: &mut LoadContext<'_>,
+        gltf_document: &gltf::Gltf,
+        gltf_texture: &gltf::Texture,
+        buffer_data: &[Vec<u8>],
+        gltf_path: &AssetPath<'_>,
+        is_srgb: bool,
+        sampler: ImageSamplerDescriptor,
+        supported_compressed_formats: CompressedImageFormats,
+        render_asset_usages: RenderAssetUsages,
+        user_image: &mut Option<Image>,
+    ) -> impl ConditionalSendFuture<Output = ()> {
+        async {}
+    }
+
     /// Called when an individual texture is processed
     #[expect(
         unused,
         reason = "default trait implementations do not use the arguments because they are no-ops"
     )]
-    fn on_texture(&mut self, gltf_texture: &gltf::Texture, texture: Handle<bevy_image::Image>) {}
+    fn on_texture(&mut self, gltf_texture: &gltf::Texture, texture: Handle<Image>) {}
 
     /// Called when an individual material is processed
     #[expect(
@@ -310,8 +358,23 @@ pub trait ErasedGltfExtensionHandler: Send + Sync + 'static {
         animation_roots: &HashSet<usize>,
     );
 
+    /// Called when an individual texture is about to be loaded
+    fn on_texture_load<'a>(
+        &'a mut self,
+        load_context: &'a mut LoadContext<'_>,
+        gltf_document: &'a gltf::Gltf,
+        gltf_texture: &'a gltf::Texture<'a>,
+        buffer_data: &'a [Vec<u8>],
+        gltf_path: &'a AssetPath<'a>,
+        is_srgb: bool,
+        sampler: ImageSamplerDescriptor,
+        supported_compressed_formats: CompressedImageFormats,
+        render_asset_usages: RenderAssetUsages,
+        user_image: &'a mut Option<Image>,
+    ) -> BoxedFuture<'a, ()>;
+
     /// Called when an individual texture is processed
-    fn on_texture(&mut self, gltf_texture: &gltf::Texture, texture: Handle<bevy_image::Image>);
+    fn on_texture(&mut self, gltf_texture: &gltf::Texture, texture: Handle<Image>);
 
     /// Called when an individual material is processed
     fn on_material(
@@ -439,7 +502,38 @@ impl<H: GltfExtensionHandler> ErasedGltfExtensionHandler for H {
         );
     }
 
-    fn on_texture(&mut self, gltf_texture: &gltf::Texture, texture: Handle<bevy_image::Image>) {
+    fn on_texture_load<'a>(
+        &'a mut self,
+        load_context: &'a mut LoadContext<'_>,
+        gltf_document: &'a gltf::Gltf,
+        gltf_texture: &'a gltf::Texture<'a>,
+        buffer_data: &'a [Vec<u8>],
+        gltf_path: &'a AssetPath<'a>,
+        is_srgb: bool,
+        sampler: ImageSamplerDescriptor,
+        supported_compressed_formats: CompressedImageFormats,
+        render_asset_usages: RenderAssetUsages,
+        user_image: &'a mut Option<Image>,
+    ) -> BoxedFuture<'a, ()> {
+        Box::pin(async move {
+            Self::on_texture_load(
+                self,
+                load_context,
+                gltf_document,
+                gltf_texture,
+                buffer_data,
+                gltf_path,
+                is_srgb,
+                sampler,
+                supported_compressed_formats,
+                render_asset_usages,
+                user_image,
+            )
+            .await;
+        })
+    }
+
+    fn on_texture(&mut self, gltf_texture: &gltf::Texture, texture: Handle<Image>) {
         Self::on_texture(self, gltf_texture, texture);
     }
 
